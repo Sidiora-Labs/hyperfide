@@ -12,7 +12,7 @@ import {
   makeHumanTasks,
   type PermissionAsk,
   type WaveSnapshot,
-} from "../hyperfide-spec/closure-projection";
+} from "../hyperfide-spec/wave-authority";
 import { wavePullRequests } from "../github/wave-publication";
 import register from "./server";
 import { waveClosureView } from "./app";

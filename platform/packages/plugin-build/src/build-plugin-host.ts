@@ -28,7 +28,7 @@ import {
   type PluginBuildToolchain,
 } from "./toolchain.js";
 
-const PLUGIN_SDK_HOST_RUNTIME_NAMESPACE = "bb-host-sdk-runtime";
+const PLUGIN_SDK_HOST_RUNTIME_NAMESPACE = "hyperfide-host-sdk-runtime";
 const HOST_STAGE_DIRECTORY_PREFIX = ".host-stage-";
 const HOST_STAGE_STALE_AFTER_MS = 60 * 60 * 1_000;
 
@@ -53,7 +53,7 @@ const PLUGIN_SDK_HOST_FALLBACK_SPECIFIER = "@hyperfide/plugin-sdk/host";
 const PLUGIN_SDK_HOST_FALLBACK_EXPORTS: ReadonlySet<string> = new Set([
   "experimental_defineHostEntry",
 ]);
-const PLUGIN_SDK_HOST_FALLBACK_NAMESPACE = "bb-host-sdk-fallback";
+const PLUGIN_SDK_HOST_FALLBACK_NAMESPACE = "hyperfide-host-sdk-fallback";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -246,8 +246,8 @@ function isPrivateWorkspacePackage(
   );
 }
 
-function privateBbImportError(specifier: string): string {
-  return `host entries cannot import private BB workspace package "${specifier}"; use @hyperfide/plugin-sdk, Node APIs, or a regular plugin dependency`;
+function privateHyperfideImportError(specifier: string): string {
+  return `host entries cannot import private HYPERFIDE workspace package "${specifier}"; use @hyperfide/plugin-sdk, Node APIs, or a regular plugin dependency`;
 }
 
 async function owningPackageName(
@@ -296,9 +296,9 @@ async function readPluginHostConfig(rootDir: string): Promise<{
   } catch {
     throw new Error(`no readable valid package.json at ${packageJsonPath}`);
   }
-  if (!isRecord(json) || !isRecord(json.bb) || json.bb.host === undefined) {
+  if (!isRecord(json) || !isRecord(json.hyperfide) || json.hyperfide.host === undefined) {
     throw new Error(
-      `no host entry: ${packageJsonPath} has no "bb": { "host": "./host.ts" } field`,
+      `no host entry: ${packageJsonPath} has no "hyperfide": { "host": "./host.ts" } field`,
     );
   }
   const manifest = await validatePluginBuildManifest(
@@ -306,11 +306,11 @@ async function readPluginHostConfig(rootDir: string): Promise<{
     rootDir,
     packageJsonPath,
   );
-  const host = manifest.bb.host;
+  const host = manifest.hyperfide.host;
   if (host === undefined) {
     throw new Error(`no host entry in ${packageJsonPath}`);
   }
-  const hostEntry = await resolveManifestEntryFile(rootDir, host, "bb.host");
+  const hostEntry = await resolveManifestEntryFile(rootDir, host, "hyperfide.host");
   return {
     hostEntry,
     packageName: manifest.name,
@@ -348,7 +348,7 @@ async function removeStaleHostStageDirectories(distDir: string): Promise<void> {
 
 export async function buildPluginHost(
   rootDir: string,
-  bbVersion: string,
+  hyperfideVersion: string,
   toolchain: PluginBuildToolchain,
 ): Promise<PluginHostBuildResult> {
   const { hostEntry, packageName, pluginVersion } =
@@ -450,11 +450,11 @@ export async function buildPluginHost(
           },
         },
         {
-          name: "reject-private-bb-host-imports",
+          name: "reject-private-hyperfide-host-imports",
           setup(build) {
             build.onResolve({ filter: /^@hyperfide(?:\/|$)/ }, (args) =>
               isPrivateWorkspacePackage(args.path)
-                ? { errors: [{ text: privateBbImportError(args.path) }] }
+                ? { errors: [{ text: privateHyperfideImportError(args.path) }] }
                 : undefined,
             );
             build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
@@ -464,7 +464,7 @@ export async function buildPluginHost(
               );
               if (isPrivateWorkspacePackage(owner)) {
                 return {
-                  errors: [{ text: privateBbImportError(owner) }],
+                  errors: [{ text: privateHyperfideImportError(owner) }],
                 };
               }
               const source = await readFile(args.path, "utf8");
@@ -472,7 +472,7 @@ export async function buildPluginHost(
               for (const specifier of specifiers) {
                 if (isPrivateWorkspacePackage(specifier)) {
                   return {
-                    errors: [{ text: privateBbImportError(specifier) }],
+                    errors: [{ text: privateHyperfideImportError(specifier) }],
                   };
                 }
               }
@@ -498,7 +498,7 @@ export async function buildPluginHost(
       const importer = resolve(workingDir, input);
       const owner = await owningPackageName(importer, packageNameByDirectory);
       if (isPrivateWorkspacePackage(owner))
-        throw new Error(privateBbImportError(owner));
+        throw new Error(privateHyperfideImportError(owner));
       const bundledImports = new Set(
         metadata.imports
           .filter((entry) => !entry.external)
@@ -510,7 +510,7 @@ export async function buildPluginHost(
           (specifier.startsWith(".") || isAbsolute(specifier)),
       );
       if (specifiers.length > 0)
-        skippedImports.set(`bb-host-imports:${skippedImports.size}`, {
+        skippedImports.set(`hyperfide-host-imports:${skippedImports.size}`, {
           importer,
           specifiers,
         });
@@ -529,7 +529,7 @@ export async function buildPluginHost(
             name: "validate-erased-host-imports",
             setup(build) {
               build.onResolve(
-                { filter: /.*/, namespace: "bb-host-imports" },
+                { filter: /.*/, namespace: "hyperfide-host-imports" },
                 async (args) => {
                   const resolved = await build.resolve(args.path, {
                     resolveDir: args.resolveDir,
@@ -541,12 +541,12 @@ export async function buildPluginHost(
                     : resolved;
                 },
               );
-              build.onResolve({ filter: /^bb-host-imports:/ }, (args) => ({
+              build.onResolve({ filter: /^hyperfide-host-imports:/ }, (args) => ({
                 path: args.path,
-                namespace: "bb-host-imports",
+                namespace: "hyperfide-host-imports",
               }));
               build.onLoad(
-                { filter: /.*/, namespace: "bb-host-imports" },
+                { filter: /.*/, namespace: "hyperfide-host-imports" },
                 (args) => {
                   const entry = skippedImports.get(args.path);
                   if (entry === undefined)
@@ -572,7 +572,7 @@ export async function buildPluginHost(
                     packageNameByDirectory,
                   );
                   if (isPrivateWorkspacePackage(owner))
-                    return { errors: [{ text: privateBbImportError(owner) }] };
+                    return { errors: [{ text: privateHyperfideImportError(owner) }] };
                   return { contents: "", loader: "js" };
                 },
               );
@@ -591,7 +591,7 @@ export async function buildPluginHost(
           ...createPluginArtifactMeta({
             packageName,
             pluginVersion,
-            bbVersion,
+            hyperfideVersion,
           }),
           artifactDigest,
         },

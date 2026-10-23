@@ -1,4 +1,4 @@
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { ImageBuilder, type BuildRecord } from "./builder.js";
 export const imageBuilderContract = defineRpcContract({
@@ -10,7 +10,7 @@ export const imageBuilderContract = defineRpcContract({
   imageBuildCancel: { input: z.object({ id: z.string() }), output: z.null() },
 });
 export function registerImageBuilder(
-  api: Pick<BbPluginApi, "rpc">,
+  api: Pick<HyperfidePluginApi, "rpc">,
   builder: ImageBuilder,
 ) {
   api.rpc.register(imageBuilderContract, {

@@ -8,7 +8,7 @@ import { resolvePiNativeRoots } from "./native-roots.js";
 let homeDir: string;
 
 beforeEach(() => {
-  homeDir = mkdtempSync(join(tmpdir(), "bb-pi-native-roots-"));
+  homeDir = mkdtempSync(join(tmpdir(), "hyperfide-pi-native-roots-"));
 });
 
 afterEach(() => {

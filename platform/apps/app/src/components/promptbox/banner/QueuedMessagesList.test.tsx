@@ -460,7 +460,7 @@ describe("QueuedMessagesList", () => {
 
     const count = () =>
       container.querySelector<HTMLElement>("[data-queued-messages-count]");
-    expect(count()?.classList.contains("bb-count-flash")).toBe(false);
+    expect(count()?.classList.contains("hyperfide-count-flash")).toBe(false);
 
     const secondMessage = makeQueuedMessage("q_two", "Second queued message");
     rerender(
@@ -480,7 +480,7 @@ describe("QueuedMessagesList", () => {
         'section[aria-label="Queued messages"]',
       )?.style.height,
     ).toBe("44px");
-    expect(count()?.classList.contains("bb-count-flash")).toBe(true);
+    expect(count()?.classList.contains("hyperfide-count-flash")).toBe(true);
     const previousCount = container.querySelector<HTMLElement>(
       "[data-queued-messages-previous-count]",
     );
@@ -530,7 +530,7 @@ describe("QueuedMessagesList", () => {
       />,
     );
     expect(count()).toBe(restingPill);
-    expect(count()?.classList.contains("bb-count-flash")).toBe(false);
+    expect(count()?.classList.contains("hyperfide-count-flash")).toBe(false);
 
     rerender(
       <QueuedMessagesList
@@ -543,7 +543,7 @@ describe("QueuedMessagesList", () => {
       />,
     );
     const bumpedPill = count();
-    expect(bumpedPill?.classList.contains("bb-count-flash")).toBe(true);
+    expect(bumpedPill?.classList.contains("hyperfide-count-flash")).toBe(true);
 
     rerender(
       <QueuedMessagesList

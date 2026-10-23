@@ -47,13 +47,13 @@ const PLUGIN: PluginListItem = makePluginListItem({
   id: "github",
   source: "builtin:github",
   rootDir: "/managed/plugins/github",
-  description: "Browse GitHub issues and pull requests in BB.",
+  description: "Browse GitHub issues and pull requests in HYPERFIDE.",
   name: "GitHub",
   icon: "Github",
   provenance: "catalog",
   catalogEntryId: "github",
-  publisherLabel: "BB Community",
-  sourceDisplay: "BB Official · GitHub",
+  publisherLabel: "HYPERFIDE Community",
+  sourceDisplay: "HYPERFIDE Official · GitHub",
 });
 
 function renderPlugin(
@@ -212,7 +212,7 @@ describe("Plugin detail recipe", () => {
     ).toBeNull();
 
     for (const item of [
-      "bb gh",
+      "hyperfide-platform gh",
       "review",
       "gh_search",
       "Pull requests",

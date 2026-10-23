@@ -9,7 +9,7 @@ import {
 } from "../model/project-thread-groups.js";
 import { sectionKeyForThreadSection } from "../model/section-keys.js";
 import type { CollapsibleSidebarSectionId } from "../model/sidebar-section-id.js";
-import { useBbContext } from "@hyperfide/plugin-sdk/app";
+import { useHyperfideContext } from "@hyperfide/plugin-sdk/app";
 import type { OrganizationMode as SidebarOrganizationMode } from "../../shared/preferences.js";
 import { useSidebarData } from "../model/use-sidebar-data.js";
 import {
@@ -89,7 +89,7 @@ export function getThreadSidebarExpansion({
 }
 
 export function useSidebarThreadReveal(): void {
-  const { threadId: routedThreadId } = useBbContext();
+  const { threadId: routedThreadId } = useHyperfideContext();
   const { status, projects, personalProject } = useSidebarData();
   const preferencesReady = usePreferencesReady();
   const threads = useMemo<SidebarThread[]>(

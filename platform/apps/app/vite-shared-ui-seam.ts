@@ -11,7 +11,7 @@ export function sharedUiEnvSeam(): Plugin {
     "./src/hooks/useBrowserDimmingModal.ts",
   );
   return {
-    name: "bb:shared-ui-env-seam",
+    name: "hyperfide:shared-ui-env-seam",
     enforce: "pre",
     resolveId(source, importer) {
       if (

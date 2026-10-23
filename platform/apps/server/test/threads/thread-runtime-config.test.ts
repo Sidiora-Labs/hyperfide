@@ -87,9 +87,9 @@ async function writeDataDirAgentInstructions(
 async function writeWorkspaceAgentInstructions(
   args: WriteWorkspaceAgentInstructionsArgs,
 ): Promise<void> {
-  const bbDir = path.join(args.workspacePath, ".hyperfide");
-  await mkdir(bbDir, { recursive: true });
-  await writeFile(path.join(bbDir, "AGENTS.md"), args.content, "utf8");
+  const hyperfideDir = path.join(args.workspacePath, ".hyperfide");
+  await mkdir(hyperfideDir, { recursive: true });
+  await writeFile(path.join(hyperfideDir, "AGENTS.md"), args.content, "utf8");
 }
 
 function registerRemoteRuntimeFileResponder(
@@ -780,7 +780,7 @@ describe("thread runtime config", () => {
         rootPath: path.join(harness.config.dataDir, "skills"),
       });
       await writeRuntimeSkill({
-        name: "bb-cli",
+        name: "hyperfide-cli",
         rootPath: harness.config.builtinSkillsRootPath,
       });
       const workspacePath = path.join(
@@ -1200,7 +1200,7 @@ describe("thread runtime config", () => {
 
       expect(runtimeConfig.workspacePath).toBe("/tmp/runtime-project-root");
       expect(runtimeConfig.threadStoragePath).toBe(
-        `/tmp/bb-host-data/${hostId}/thread-storage/${thread.id}`,
+        `/tmp/hyperfide-host-data/${hostId}/thread-storage/${thread.id}`,
       );
       expect(runtimeConfig.dynamicTools).toEqual([
         expect.objectContaining({
@@ -1211,10 +1211,10 @@ describe("thread runtime config", () => {
         }),
       ]);
       expect(runtimeConfig.instructions).not.toContain(
-        "You are working inside bb, an agentic IDE",
+        "You are working inside hyperfide, an agentic IDE",
       );
-      expect(runtimeConfig.instructions).not.toContain("bb status");
-      expect(runtimeConfig.instructions).not.toContain("bb guide");
+      expect(runtimeConfig.instructions).not.toContain("hyperfide-platform status");
+      expect(runtimeConfig.instructions).not.toContain("hyperfide guide");
       expect(runtimeConfig.instructions).not.toContain("Markdown links");
       expect(runtimeConfig.instructions).toContain(
         "update_environment_directory",
@@ -1647,9 +1647,9 @@ describe("thread runtime config", () => {
         );
 
         const toolHeader =
-          'The following instructions come from the BB plugin "tooldemo" for its tool "demo_lookup":';
+          'The following instructions come from the HYPERFIDE plugin "tooldemo" for its tool "demo_lookup":';
         const pluginHeader =
-          'The following instructions come from the BB plugin "connect":';
+          'The following instructions come from the HYPERFIDE plugin "connect":';
         const dataDirHeader =
           "The following user instructions come from <dataDir>/AGENTS.md:";
         const instructions = runtimeConfig.instructions;
@@ -1731,19 +1731,19 @@ describe("thread runtime config", () => {
 
         const instructions = runtimeConfig.instructions;
         expect(instructions).not.toContain(
-          'The following instructions come from the BB plugin "nuller":',
+          'The following instructions come from the HYPERFIDE plugin "nuller":',
         );
         expect(instructions).not.toContain(
-          'The following instructions come from the BB plugin "blank":',
+          'The following instructions come from the HYPERFIDE plugin "blank":',
         );
         expect(instructions).not.toContain(
-          'The following instructions come from the BB plugin "boom":',
+          'The following instructions come from the HYPERFIDE plugin "boom":',
         );
         expect(instructions).toContain(
-          'The following instructions come from the BB plugin "verbose":',
+          'The following instructions come from the HYPERFIDE plugin "verbose":',
         );
         expect(instructions).toContain(
-          'The following instructions come from the BB plugin "ok":',
+          'The following instructions come from the HYPERFIDE plugin "ok":',
         );
         expect(instructions).toContain("still contributes");
         expect(instructions).not.toContain(longBody);

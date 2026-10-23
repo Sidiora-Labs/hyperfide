@@ -3,7 +3,7 @@ import { CLAIMED_EXTENSIONS, languageForPath } from "./languages.js";
 
 describe("CLAIMED_EXTENSIONS", () => {
   it.each(["md", "markdown", "html", "htm"])(
-    "leaves .%s files to bb's rendered preview",
+    "leaves .%s files to hyperfide's rendered preview",
     (extension) => {
       expect(CLAIMED_EXTENSIONS).not.toContain(extension);
     },

@@ -1,6 +1,6 @@
 export const SPIKE_HARNESS = String.raw`
 (function () {
-  if (window.__bbSpike) return;
+  if (window.__hyperfideSpike) return;
   var post = function (payload) {
     try {
       window.ReactNativeWebView.postMessage(JSON.stringify(payload));
@@ -9,7 +9,7 @@ export const SPIKE_HARNESS = String.raw`
     }
   };
   var marks = {};
-  window.__bbSpike = {
+  window.__hyperfideSpike = {
     post: post,
     mark: function (name) {
       marks[name] = Math.round(performance.now());
@@ -24,21 +24,21 @@ export const SPIKE_HARNESS = String.raw`
     post({ kind: "page-error", message: "unhandled rejection: " + String(event.reason) });
   });
   document.addEventListener("DOMContentLoaded", function () {
-    window.__bbSpike.mark("domContentLoaded");
+    window.__hyperfideSpike.mark("domContentLoaded");
   });
   window.addEventListener("load", function () {
-    window.__bbSpike.mark("load");
+    window.__hyperfideSpike.mark("load");
   });
-  window.__bbSpike.mark("harnessInstalled");
+  window.__hyperfideSpike.mark("harnessInstalled");
 })();
 true;
 `;
 
 export const BOOT_TIMING_PROBE = String.raw`
 (function () {
-  if (window.__bbBootWatch) return;
-  window.__bbBootWatch = true;
-  var post = window.__bbSpike.post;
+  if (window.__hyperfideBootWatch) return;
+  window.__hyperfideBootWatch = true;
+  var post = window.__hyperfideSpike.post;
   var startedAt = performance.now();
   var reportedFirstContent = false;
   var reportedInteractive = false;
@@ -161,7 +161,7 @@ export const ENVIRONMENT_PROBE = String.raw`
   var webgl1 = null;
   try { webgl2 = canvas.getContext("webgl2"); } catch (error) { webgl2 = null; }
   try { webgl1 = canvas.getContext("webgl"); } catch (error) { webgl1 = null; }
-  window.__bbSpike.post({
+  window.__hyperfideSpike.post({
     kind: "environment",
     url: location.href,
     origin: location.origin,
@@ -188,7 +188,7 @@ true;
 
 export const VOICE_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
+  var post = window.__hyperfideSpike.post;
   var step = "getUserMedia";
   var startedAt = performance.now();
   post({ kind: "voice", step: "start" });
@@ -260,7 +260,7 @@ true;
 
 export const VOICE_EXPORT_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
+  var post = window.__hyperfideSpike.post;
   navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
     var preferred = null;
     var candidates = ["audio/webm", "audio/mp4", "audio/ogg"];
@@ -292,9 +292,9 @@ true;
 
 export const VOICE_APP_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
-  if (!window.__bbFetchPatched) {
-    window.__bbFetchPatched = true;
+  var post = window.__hyperfideSpike.post;
+  if (!window.__hyperfideFetchPatched) {
+    window.__hyperfideFetchPatched = true;
     var originalFetch = window.fetch;
     window.fetch = function (input, init) {
       var url = typeof input === "string" ? input : (input && input.url) || "";
@@ -370,7 +370,7 @@ true;
 
 export const VOICE_UI_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
+  var post = window.__hyperfideSpike.post;
   var buttons = Array.prototype.slice.call(document.querySelectorAll("button"));
   var mic = buttons.filter(function (button) {
     var label = (button.getAttribute("aria-label") || button.title || "").toLowerCase();
@@ -395,8 +395,8 @@ true;
 
 export const CLIPBOARD_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
-  var sample = "bb-clipboard-probe-" + Math.round(performance.now());
+  var post = window.__hyperfideSpike.post;
+  var sample = "hyperfide-clipboard-probe-" + Math.round(performance.now());
   var execCommandResult = null;
   try {
     var textarea = document.createElement("textarea");
@@ -433,7 +433,7 @@ true;
 
 export const WEBSOCKET_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
+  var post = window.__hyperfideSpike.post;
   var url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
   var startedAt = performance.now();
   var socket;
@@ -463,7 +463,7 @@ true;
 
 export const TERMINAL_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
+  var post = window.__hyperfideSpike.post;
   var screens = document.querySelectorAll(".xterm-screen");
   var canvases = document.querySelectorAll(".xterm canvas");
   var rows = document.querySelectorAll(".xterm-rows > div");
@@ -494,10 +494,10 @@ true;
 
 export const VIEWPORT_WATCH_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
-  if (window.__bbViewportWatch) {
-    window.__bbViewportWatch();
-    delete window.__bbViewportWatch;
+  var post = window.__hyperfideSpike.post;
+  if (window.__hyperfideViewportWatch) {
+    window.__hyperfideViewportWatch();
+    delete window.__hyperfideViewportWatch;
     post({ kind: "viewport", stopped: true });
     return;
   }
@@ -535,7 +535,7 @@ export const VIEWPORT_WATCH_PROBE = String.raw`
   viewport.addEventListener("scroll", onScroll);
   document.addEventListener("focusin", onFocusIn);
   document.addEventListener("focusout", onFocusOut);
-  window.__bbViewportWatch = function () {
+  window.__hyperfideViewportWatch = function () {
     viewport.removeEventListener("resize", onResize);
     viewport.removeEventListener("scroll", onScroll);
     document.removeEventListener("focusin", onFocusIn);
@@ -551,10 +551,10 @@ export const FOCUS_COMPOSER_PROBE = String.raw`
 (function () {
   var composer = document.querySelector("textarea, [contenteditable='true']");
   if (!composer) {
-    window.__bbSpike.post({ kind: "focus", ok: false, error: "no composer" });
+    window.__hyperfideSpike.post({ kind: "focus", ok: false, error: "no composer" });
   } else {
     composer.focus();
-    window.__bbSpike.post({ kind: "focus", ok: true, tag: composer.tagName });
+    window.__hyperfideSpike.post({ kind: "focus", ok: true, tag: composer.tagName });
   }
 })();
 true;
@@ -563,7 +563,7 @@ true;
 export const FILE_INPUT_PROBE = String.raw`
 (function () {
   var inputs = Array.prototype.slice.call(document.querySelectorAll("input[type='file']"));
-  window.__bbSpike.post({
+  window.__hyperfideSpike.post({
     kind: "file-input",
     count: inputs.length,
     inputs: inputs.map(function (input) {
@@ -583,11 +583,11 @@ export const OPEN_FILE_CHOOSER_PROBE = String.raw`
 (function () {
   var input = document.querySelector("input[type='file']");
   if (!input) {
-    window.__bbSpike.post({ kind: "file-chooser", ok: false, error: "no input" });
+    window.__hyperfideSpike.post({ kind: "file-chooser", ok: false, error: "no input" });
     return;
   }
   input.addEventListener("change", function () {
-    window.__bbSpike.post({
+    window.__hyperfideSpike.post({
       kind: "file-chooser",
       changed: true,
       files: Array.prototype.slice.call(input.files || []).map(function (file) {
@@ -596,7 +596,7 @@ export const OPEN_FILE_CHOOSER_PROBE = String.raw`
     });
   });
   input.click();
-  window.__bbSpike.post({ kind: "file-chooser", ok: true, clicked: true });
+  window.__hyperfideSpike.post({ kind: "file-chooser", ok: true, clicked: true });
 })();
 true;
 `;
@@ -614,14 +614,14 @@ export const BUTTONS_PROBE = String.raw`
       y: Math.round(rect.top + rect.height / 2),
     };
   }).filter(function (entry) { return entry.visible; });
-  window.__bbSpike.post({ kind: "buttons", count: described.length, buttons: described.slice(0, 60) });
+  window.__hyperfideSpike.post({ kind: "buttons", count: described.length, buttons: described.slice(0, 60) });
 })();
 true;
 `;
 
 export const TERMINAL_OPEN_PROBE = String.raw`
 (function () {
-  var post = window.__bbSpike.post;
+  var post = window.__hyperfideSpike.post;
   var press = function (element) {
     ["pointerdown", "mousedown", "pointerup", "mouseup", "click"].forEach(function (type) {
       element.dispatchEvent(new (type.indexOf("pointer") === 0 ? PointerEvent : MouseEvent)(type, { bubbles: true, cancelable: true }));

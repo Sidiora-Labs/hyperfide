@@ -15,8 +15,8 @@ describe("GitHub RPC contract", () => {
   });
 
   it("separates usable extraRepos entries from ones it cannot honor", () => {
-    expect(parseExtraRepos("get-bb/bb, nonsense")).toEqual({
-      repos: ["get-bb/bb"],
+    expect(parseExtraRepos("hyperfide/hyperfide, nonsense")).toEqual({
+      repos: ["hyperfide/hyperfide"],
       ignored: ["nonsense"],
     });
     expect(parseExtraRepos("SOME-ORG/*")).toEqual({

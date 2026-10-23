@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   definePluginApp,
-  useBbNavigate,
+  useHyperfideNavigate,
   useRealtime,
   useRpc,
   useSettings,
@@ -18,7 +18,7 @@ import {
 import { notificationsThreadAction } from "./notificationsAction.js";
 
 function NotificationDelivery() {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const { values } = useSettings();
   const delivery = useRef<ReturnType<typeof createClientDelivery> | null>(null);
   useEffect(() => {
@@ -131,7 +131,7 @@ function NotificationSettings() {
         </p>
       ) : null}
       <p className="text-xs text-muted-foreground">
-        Channel settings apply to this bb server. Each browser needs permission.
+        Channel settings apply to this hyperfide-platform server. Each browser needs permission.
         Click a notification to open its thread.
       </p>
     </div>

@@ -96,8 +96,8 @@ const SCOPES = {
     ]),
     inheritedVariables: GLOBAL_VARIABLES,
   },
-  bb: {
-    label: "bb",
+  hyperfide: {
+    label: "hyperfide",
     environment: environment(LOGGED_IN),
     inheritedVariables: GLOBAL_VARIABLES,
   },
@@ -306,7 +306,7 @@ export function Rows() {
       </StoryRow>
       <StoryRow
         label="saved variable · with a note"
-        hint="notes come from bb machine env set --note; they wrap instead of truncating"
+        hint="notes come from hyperfide machine env set --note; they wrap instead of truncating"
       >
         <RowStage>
           <MachineEnvironmentVariableRow

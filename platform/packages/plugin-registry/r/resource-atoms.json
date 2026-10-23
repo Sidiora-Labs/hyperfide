@@ -3,7 +3,7 @@
   "name": "resource-atoms",
   "type": "registry:ui",
   "title": "resource-atoms",
-  "description": "BB ui \"resource-atoms\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"resource-atoms\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/icon",
     "@hyperfide/utils"

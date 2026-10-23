@@ -3,7 +3,7 @@
   "name": "use-compact-viewport",
   "type": "registry:hook",
   "title": "use-compact-viewport",
-  "description": "BB hook \"use-compact-viewport\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE hook \"use-compact-viewport\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/use-media-query"
   ],

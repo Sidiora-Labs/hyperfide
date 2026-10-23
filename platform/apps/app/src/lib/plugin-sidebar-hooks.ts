@@ -5,7 +5,7 @@ import {
   type Host,
   type ThreadListEntry,
 } from "@hyperfide/domain";
-import type { PullRequest } from "hyperfide-plugin-bb--github-pr-status/contract";
+import type { PullRequest } from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import type {
   PluginSdkApp,

@@ -78,7 +78,7 @@ describe("resolveRestoreTarget", () => {
 });
 
 describe("scroll store", () => {
-  const PREFIX = "bb-tasks:list-scroll:";
+  const PREFIX = "hyperfide-tasks:list-scroll:";
   beforeEach(() => window.sessionStorage.clear());
   afterEach(() => window.sessionStorage.clear());
 

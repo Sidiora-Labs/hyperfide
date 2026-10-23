@@ -115,7 +115,7 @@ function unsupportedMessage(support: SystemAppUpdateSupport): string {
     case "desktop":
       return "The desktop app updates itself; use its update controls.";
     case "unmanaged":
-      return "In-app updates are off. Start bb with `npx bb-app start` or `pnpm start`, without `--no-in-app-updates`, to turn them on.";
+      return "In-app updates are off. Start hyperfide with `npx hyperfide-app start` or `pnpm start`, without `--no-in-app-updates`, to turn them on.";
   }
 }
 
@@ -145,7 +145,7 @@ export function createAppUpdateService(
         ? {
             message: `${String(runningThreadCount)} thread${
               runningThreadCount === 1 ? "" : "s"
-            } started while bb was downloading the update. Update again to restart.`,
+            } started while hyperfide was downloading the update. Update again to restart.`,
             type: "cancel",
           }
         : { type: "restart" };
@@ -254,7 +254,7 @@ export function createAppUpdateService(
           available: null,
           blocked: {
             reason: "fetch-failed",
-            message: "Couldn't check for a newer bb release.",
+            message: "Couldn't check for a newer hyperfide release.",
           },
         };
       }
@@ -378,7 +378,7 @@ export function createAppUpdateService(
         throw new ApiError(
           409,
           "app_update_unavailable",
-          "bb is already up to date.",
+          "hyperfide is already up to date.",
         );
       }
       if (status.runningThreadCount > 0 && !confirmInterruptingThreads) {
@@ -387,7 +387,7 @@ export function createAppUpdateService(
           "threads_running",
           `${String(status.runningThreadCount)} thread${
             status.runningThreadCount === 1 ? " is" : "s are"
-          } running. Updating restarts bb and interrupts ${
+          } running. Updating restarts hyperfide and interrupts ${
             status.runningThreadCount === 1 ? "it" : "them"
           }.`,
           { details: { runningThreadCount: status.runningThreadCount } },
@@ -403,7 +403,7 @@ export function createAppUpdateService(
         throw new ApiError(
           409,
           "app_update_unavailable",
-          "bb is already up to date.",
+          "hyperfide is already up to date.",
         );
       }
       confirmedInterruptingThreads = confirmInterruptingThreads;
@@ -418,7 +418,7 @@ export function createAppUpdateService(
       }
       args.logger.info(
         { targetVersion: available.version, targetCommit: available.commit },
-        "In-app bb update requested",
+        "In-app hyperfide-platform update requested",
       );
       return getStatus({ forceRefresh: false });
     },

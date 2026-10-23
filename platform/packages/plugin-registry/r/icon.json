@@ -3,7 +3,7 @@
   "name": "icon",
   "type": "registry:ui",
   "title": "icon",
-  "description": "BB ui \"icon\" — the plugin version of the BB app's icon, drawing on the host app at runtime (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"icon\" — the plugin version of the HYPERFIDE app's icon, drawing on the host app at runtime (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/icon.tsx",

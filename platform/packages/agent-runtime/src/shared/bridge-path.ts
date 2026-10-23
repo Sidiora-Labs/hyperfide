@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 type BridgeProcessArgs = string[];
 
-const BRIDGE_WORKER_BUNDLE_FILE_NAME = "bb-provider-bridge-worker.mjs";
+const BRIDGE_WORKER_BUNDLE_FILE_NAME = "hyperfide-provider-bridge-worker.mjs";
 
 function sourceTypeScriptProcessArgs(sourcePath: string): BridgeProcessArgs {
   return [

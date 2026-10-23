@@ -11,7 +11,7 @@ import {
   destroyPersistedBrowserViewsForThread,
 } from "@/components/secondary-panel/browserViewVisibilityCoordinator";
 import { getRootComposeRoutePath } from "@/lib/route-paths";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import { useRouteState } from "../useRouteState";
 
 type DeletedResourceRouteChangeHandler = (message: ChangedMessage) => void;

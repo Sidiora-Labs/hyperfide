@@ -31,9 +31,9 @@ import {
 } from "./ItemMenus.js";
 import { clickTarget, isNewViewClick } from "./target.js";
 
-export const NEW_THREAD_ITEM_ID = "__bb__/new-thread";
+export const NEW_THREAD_ITEM_ID = "__hyperfide__/new-thread";
 
-const RAIL_ICON_CLASS = "size-(--bb-sidebar-control-icon-size)";
+const RAIL_ICON_CLASS = "size-(--hyperfide-sidebar-control-icon-size)";
 const RAIL_MENU_SIDE_OFFSET = 12;
 
 interface RailButtonProps extends Omit<

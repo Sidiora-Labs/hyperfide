@@ -29,7 +29,7 @@ if (values.help) {
   );
   process.exit(0);
 }
-const artifacts = await mkdtemp(join(tmpdir(), "bb-cdp-smoke-"));
+const artifacts = await mkdtemp(join(tmpdir(), "hyperfide-cdp-smoke-"));
 const releases = [
   {
     name: "dev-browser",
@@ -134,10 +134,10 @@ try {
     if (capturedBytes <= 2 * 1024 * 1024) output.push(chunk);
     process.stdout.write(chunk);
     outputTail = (outputTail + chunk.toString()).slice(-1024);
-    if (outputTail.includes("BB_CDP_SMOKE_FAILED\n")) checksFailed = true;
+    if (outputTail.includes("HYPERFIDE_CDP_SMOKE_FAILED\n")) checksFailed = true;
     if (
-      (outputTail.includes("BB_CDP_SMOKE_COMPLETE\n") ||
-        outputTail.includes("BB_CDP_SMOKE_FAILED\n")) &&
+      (outputTail.includes("HYPERFIDE_CDP_SMOKE_COMPLETE\n") ||
+        outputTail.includes("HYPERFIDE_CDP_SMOKE_FAILED\n")) &&
       gracefulExitTimer === undefined
     ) {
       gracefulExitTimer = setTimeout(() => {

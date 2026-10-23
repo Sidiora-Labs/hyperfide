@@ -23,27 +23,27 @@ describe("mcpAccessProblem", () => {
     "refuses a gate request authenticated as %j",
     (kind) => {
       expect(
-        problem({ "x-bb-gate-auth": kind, "x-bb-gate-oauth-scope": "bb" }),
+        problem({ "x-hyperfide-gate-auth": kind, "x-hyperfide-gate-oauth-scope": "hyperfide" }),
       ).toMatchObject({ status: 403 });
     },
   );
 
-  it("lets a gate request with an OAuth token for bb through", () => {
+  it("lets a gate request with an OAuth token for hyperfide through", () => {
     expect(
-      problem({ "x-bb-gate-auth": "oauth", "x-bb-gate-oauth-scope": "bb" }),
+      problem({ "x-hyperfide-gate-auth": "oauth", "x-hyperfide-gate-oauth-scope": "hyperfide" }),
     ).toBeNull();
     expect(
       problem({
-        "x-bb-gate-auth": "oauth",
-        "x-bb-gate-oauth-scope": "openid bb",
+        "x-hyperfide-gate-auth": "oauth",
+        "x-hyperfide-gate-oauth-scope": "openid hyperfide",
       }),
     ).toBeNull();
   });
 
-  it("refuses an OAuth request without the bb scope", () => {
-    for (const scope of ["", "openid", "bbx", "bb:all"]) {
+  it("refuses an OAuth request without the hyperfide scope", () => {
+    for (const scope of ["", "openid", "hyperfide-invalid", "hyperfide:all"]) {
       expect(
-        problem({ "x-bb-gate-auth": "oauth", "x-bb-gate-oauth-scope": scope }),
+        problem({ "x-hyperfide-gate-auth": "oauth", "x-hyperfide-gate-oauth-scope": scope }),
       ).toMatchObject({ status: 403 });
     }
   });

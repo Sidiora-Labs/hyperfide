@@ -1,4 +1,4 @@
-import type { AskRecommendation } from "../../../packages/plugin-sdk/src/thread-ask-lifecycle.js";
+import type { AskRecommendation } from "@hyperfide/plugin-sdk/host";
 
 /** Board models consume the same annotations as the thread timeline. */
 export class AskTaskFlags {

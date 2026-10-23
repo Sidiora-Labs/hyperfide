@@ -29,7 +29,7 @@ const providers = ["codex", "claude-code", "pi"];
 function createCaptureCommand(fileName: string): string {
   return (
     `printf '%s\\n%s\\n%s\\n' ` +
-    `"$BB_THREAD_ID" "$BB_PROJECT_ID" "$BB_ENVIRONMENT_ID" > ${fileName}`
+    `"$HYPERFIDE_THREAD_ID" "$HYPERFIDE_PROJECT_ID" "$HYPERFIDE_ENVIRONMENT_ID" > ${fileName}`
   );
 }
 
@@ -193,7 +193,7 @@ it("codex provider applies rotated and removed contributions on the next turn", 
   const threadId = newThreadId();
   const contribution = (value: string) => [
     {
-      name: "BB_MACHINE_ROTATION_TEST",
+      name: "HYPERFIDE_MACHINE_ROTATION_TEST",
       value,
       reason: "Verify next-turn rotation",
       source: { core: "machine-git" as const },
@@ -223,7 +223,7 @@ it("codex provider applies rotated and removed contributions on the next turn", 
         input: [
           promptTextInput({
             text: createCapturePrompt(
-              `if [ "\${BB_MACHINE_ROTATION_TEST-}" = '${value}' ]; then printf PASS; else printf FAIL; fi > ${fileName}`,
+              `if [ "\${HYPERFIDE_MACHINE_ROTATION_TEST-}" = '${value}' ]; then printf PASS; else printf FAIL; fi > ${fileName}`,
             ),
           }),
         ],

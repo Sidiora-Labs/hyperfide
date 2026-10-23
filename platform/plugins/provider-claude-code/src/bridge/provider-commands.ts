@@ -2,7 +2,7 @@ import { z } from "zod";
 import { probeClaudeInitialization } from "./initialization-probe.js";
 import { isClaudeSkillPluginName } from "./skill-plugins.js";
 
-export const PROVIDER_COMMANDS_STATE_KIND = "bb/provider-commands";
+export const PROVIDER_COMMANDS_STATE_KIND = "hyperfide/provider-commands";
 
 const MAX_COMMANDS = 500;
 const MAX_DESCRIPTION_LENGTH = 300;

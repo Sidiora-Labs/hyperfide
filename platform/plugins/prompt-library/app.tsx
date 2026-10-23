@@ -13,7 +13,7 @@ import {
   definePluginApp,
   experimental_usePluginId,
   Markdown,
-  useBbContext,
+  useHyperfideContext,
   useComposer,
   useRpc,
   type ComposerDraft,
@@ -257,7 +257,7 @@ function PromptLibraryPopup() {
   const composer = useComposer();
   const rpc = useRpc<typeof promptLibraryRpcContract>();
   const pluginId = experimental_usePluginId();
-  const context = useBbContext();
+  const context = useHyperfideContext();
   const kind = composerKind(composer.scope);
   const targets = scopeTargets(composer.scope, context.projectId);
   const availableScopes = scopesFor(kind).filter(

@@ -34,7 +34,7 @@ async function fixture(
   layout: "global" | "local" = "global",
 ) {
   const root = await realpath(
-    await mkdtemp(path.join(os.tmpdir(), "bb pi launch-")),
+    await mkdtemp(path.join(os.tmpdir(), "hyperfide pi launch-")),
   );
   directories.push(root);
   const nodeModules = path.join(root, "node_modules");

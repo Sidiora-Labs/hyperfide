@@ -52,8 +52,8 @@ function gitPersistence(url: string, requestedRef: string) {
 
 const THROWING_SERVER_TS = `throw new Error("source must not load");\n`;
 
-const PREBUILT_SERVER_JS = `export default async function plugin(bb) {
-  bb.log.info("dist");
+const PREBUILT_SERVER_JS = `export default async function plugin(hyperfide) {
+  hyperfide.log.info("dist");
   globalThis.__prebuiltDistLoads = (globalThis.__prebuiltDistLoads ?? 0) + 1;
 }
 `;
@@ -101,7 +101,7 @@ describe("prebuilt server bundle loading", () => {
         name,
         version: "0.1.0",
         type: "commonjs",
-        bb: {
+        hyperfide: {
           name: "Prebuilt server fixture",
           description: "Prebuilt plugin server fixture.",
           branding: { icon: "Zap" },

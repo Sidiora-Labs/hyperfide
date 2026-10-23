@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { splitPrefetch } from "../vite-split-prefetch";
 
 it("emits hashed URLs for only the requested module and its static dependencies", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "bb-prefetch-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "hyperfide-prefetch-")));
   try {
     await Promise.all(
       Object.entries({
@@ -29,7 +29,7 @@ it("emits hashed URLs for only the requested module and its static dependencies"
     });
     const html = await readFile(join(root, "dist/index.html"), "utf8");
     const manifest = html.match(
-      /id="bb-prefetch-heavy">([^<]+)<\/script>/,
+      /id="hyperfide-prefetch-heavy">([^<]+)<\/script>/,
     )?.[1];
     expect(manifest).toBeDefined();
     const urls: string[] = JSON.parse(manifest!);

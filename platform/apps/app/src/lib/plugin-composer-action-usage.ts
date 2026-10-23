@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { z } from "zod";
 
 export const PLUGIN_COMPOSER_ACTION_USAGE_STORAGE_KEY =
-  "bb.pluginComposerActionUsage.v1";
+  "hyperfide.pluginComposerActionUsage.v1";
 
 const MAX_TRACKED_PLUGINS = 128;
 const MAX_USAGE_COUNT = 1_000_000_000;

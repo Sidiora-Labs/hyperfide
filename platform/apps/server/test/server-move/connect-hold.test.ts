@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 async function makeDataDir(): Promise<string> {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-connect-hold-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-connect-hold-"));
   tempDirs.push(dataDir);
   return dataDir;
 }

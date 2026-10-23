@@ -3,7 +3,7 @@
   "name": "context-selection",
   "type": "registry:ui",
   "title": "context-selection",
-  "description": "BB ui \"context-selection\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"context-selection\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/context-selection.ts",

@@ -3,7 +3,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginCliContext,
   type PluginCliResult,
 } from "@hyperfide/plugin-sdk";
@@ -72,7 +72,7 @@ const PROJECT_OPTION = {
   type: "string",
   placeholder: "prefix-or-id",
   description:
-    "Tracker project prefix or id such as ABC, never a bb project id (proj_...); run bb tasks project list",
+    "Tracker project prefix or id such as ABC, never a hyperfide-platform project id (proj_...); run hyperfide-platform tasks project list",
 } as const;
 
 const REQUIRED_PROJECT_OPTION = {
@@ -146,16 +146,16 @@ function unwrapTask(result: TaskMutationResult): Task {
 }
 
 async function resolveClientHostId(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   domain: TasksDomain,
   machine: string | undefined,
   ctx: PluginCliContext,
 ): Promise<string | undefined> {
   if (machine !== undefined) return resolveMachineId(domain, machine);
   if (!ctx.threadId) return undefined;
-  const thread = await bb.sdk.threads.get({ threadId: ctx.threadId });
+  const thread = await hyperfide.sdk.threads.get({ threadId: ctx.threadId });
   if (!thread.environmentId) return undefined;
-  const environment = await bb.sdk.environments.get({
+  const environment = await hyperfide.sdk.environments.get({
     environmentId: thread.environmentId,
   });
   return environment.hostId;
@@ -167,11 +167,11 @@ function isMissingClientFileError(error: unknown): boolean {
 }
 
 async function readClientFile(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   hostId: string | undefined,
   path: string,
 ): Promise<{ bytes: Buffer; text: string | null }> {
-  const file = await bb.sdk.files.read({
+  const file = await hyperfide.sdk.files.read({
     ...(hostId ? { hostId } : {}),
     path,
   });
@@ -185,12 +185,12 @@ async function readClientFile(
 }
 
 async function readAttachmentSource(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   hostId: string | undefined,
   path: string,
 ): Promise<Buffer> {
   try {
-    return (await readClientFile(bb, hostId, path)).bytes;
+    return (await readClientFile(hyperfide, hostId, path)).bytes;
   } catch (error) {
     if (isMissingClientFileError(error)) {
       throw new CliError(`attachment source is not a file: ${path}`, {
@@ -202,12 +202,12 @@ async function readAttachmentSource(
 }
 
 async function writeClientFile(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   hostId: string | undefined,
   path: string,
   content: Buffer,
 ): Promise<void> {
-  await bb.sdk.files.write({
+  await hyperfide.sdk.files.write({
     ...(hostId ? { hostId } : {}),
     path,
     content: content.toString("base64"),
@@ -221,7 +221,7 @@ function attachmentFileName(path: string): string {
 }
 
 async function readTextOption(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   ctx: PluginCliContext,
   hostId: string | undefined,
   inline: string | undefined,
@@ -230,7 +230,7 @@ async function readTextOption(
   if (file === undefined) return inline;
   const path = resolve(ctx.cwd ?? process.cwd(), file);
   try {
-    const { text } = await readClientFile(bb, hostId, path);
+    const { text } = await readClientFile(hyperfide, hostId, path);
     if (text === null) {
       throw new CliError(`could not read ${file}: file is not UTF-8 text`);
     }
@@ -261,18 +261,18 @@ async function listProjects(domain: TasksDomain): Promise<Project[]> {
   ).projects;
 }
 
-function bbProjectIdHint(
+function hyperfideProjectIdHint(
   address: string,
   projects: readonly Project[],
 ): string {
   const linked = projects.filter(
-    (project) => project.linkedBbProjectId === address,
+    (project) => project.linkedHyperfideProjectId === address,
   );
   const first = linked[0];
   if (linked.length === 1 && first) {
-    return `${address} is a bb project id; its tracker project is ${first.prefix} — re-run with --project ${first.prefix}`;
+    return `${address} is a hyperfide-platform project id; its tracker project is ${first.prefix} — re-run with --project ${first.prefix}`;
   }
-  return `${address} is a bb project id, but --project takes a tracker project prefix or id; run bb tasks project list`;
+  return `${address} is a hyperfide-platform project id, but --project takes a tracker project prefix or id; run hyperfide-platform tasks project list`;
 }
 
 async function resolveProject(
@@ -290,7 +290,7 @@ async function resolveProject(
     throw new CliError(`project not found: ${address}`, {
       code: "project_not_found",
       ...(HYPERFIDE_PROJECT_ID_PATTERN.test(trimmed)
-        ? { hint: bbProjectIdHint(trimmed, projects) }
+        ? { hint: hyperfideProjectIdHint(trimmed, projects) }
         : {}),
     });
   }
@@ -305,24 +305,24 @@ async function defaultProject(
   if (!ctx.projectId) {
     if (required) {
       throw new CliError(
-        "missing --project and no BB project context is available",
+        "missing --project and no HYPERFIDE project context is available",
         { code: "missing_required" },
       );
     }
     return undefined;
   }
   const matches = (await listProjects(domain)).filter(
-    (project) => project.linkedBbProjectId === ctx.projectId,
+    (project) => project.linkedHyperfideProjectId === ctx.projectId,
   );
   if (matches.length === 0) {
     throw new CliError(
-      `no tracker project is linked to BB project ${ctx.projectId}; pass --project or link one with bb tasks project update`,
+      `no tracker project is linked to HYPERFIDE project ${ctx.projectId}; pass --project or link one with hyperfide-platform tasks project update`,
       { code: "project_not_linked" },
     );
   }
   if (matches.length > 1) {
     throw new CliError(
-      `multiple tracker projects are linked to BB project ${ctx.projectId}; pass --project explicitly`,
+      `multiple tracker projects are linked to HYPERFIDE project ${ctx.projectId}; pass --project explicitly`,
       { code: "project_ambiguous" },
     );
   }
@@ -348,15 +348,15 @@ async function requiredProject(
   if (address) return resolveProject(domain, address);
   const linked = ctx.projectId
     ? (await listProjects(domain)).filter(
-        (project) => project.linkedBbProjectId === ctx.projectId,
+        (project) => project.linkedHyperfideProjectId === ctx.projectId,
       )
     : [];
   const suggestion = linked.length === 1 ? linked[0] : undefined;
   throw new CliError("missing required option --project", {
     code: "missing_required",
     hint: suggestion
-      ? `this thread's bb project ${ctx.projectId} is linked to tracker project ${suggestion.prefix}; re-run with --project ${suggestion.prefix}`
-      : "pass a tracker project prefix or id; run bb tasks project list to see them",
+      ? `this thread's hyperfide-platform project ${ctx.projectId} is linked to tracker project ${suggestion.prefix}; re-run with --project ${suggestion.prefix}`
+      : "pass a tracker project prefix or id; run hyperfide-platform tasks project list to see them",
   });
 }
 
@@ -588,14 +588,14 @@ function projectTable(
     folders.map((folder) => [folder.id, folder.name]),
   );
   return table(
-    ["PREFIX", "NAME", "FOLDER", "BB PROJECT", "ID"],
+    ["PREFIX", "NAME", "FOLDER", "HYPERFIDE PROJECT", "ID"],
     projects.map((project) => [
       project.prefix,
       project.name,
       project.folderId
         ? (folderNames.get(project.folderId) ?? project.folderId)
         : "-",
-      project.linkedBbProjectId ?? "-",
+      project.linkedHyperfideProjectId ?? "-",
       project.id,
     ]),
     "No projects.",
@@ -644,7 +644,7 @@ function groupCommand(
     description: [
       "Subcommands:",
       ...subcommands.map(
-        ([name, text]) => `  bb tasks ${group} ${name.padEnd(width)}  ${text}`,
+        ([name, text]) => `  hyperfide-platform tasks ${group} ${name.padEnd(width)}  ${text}`,
       ),
     ].join("\n"),
     positionals: [
@@ -660,30 +660,30 @@ function groupCommand(
       if (subcommand === undefined) return { exitCode: 1, stdout: input.help };
       throw new CliError(`unknown command: ${group} ${subcommand}`, {
         code: "unknown_command",
-        hint: `run bb tasks ${group} --help for its subcommands`,
+        hint: `run hyperfide-platform tasks ${group} --help for its subcommands`,
       });
     },
   });
 }
 
 export function registerTasksCli(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
   status: PluginStatus,
 ): void {
-  const domain = registerHandlers(bb, store);
-  bb.cli.register(
+  const domain = registerHandlers(hyperfide, store);
+  hyperfide.cli.register(
     defineCli({
       name: "tasks",
       summary:
         "Create and manage task-tracker projects, tasks, labels, and comments",
       description:
-        "Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a bb project id (proj_...).",
+        "Tasks are addressed by key (ABC-12) or ULID. --project takes a tracker project prefix or id, never a hyperfide-platform project id (proj_...).",
       commands: {
         status: cliCommand({
           summary: "Show the Tasks plugin name and version",
           description:
-            "Plugin health only. To filter tasks by workflow status run bb tasks list --status <status>; to change one run bb tasks update <key-or-id> --status <status>.",
+            "Plugin health only. To filter tasks by workflow status run hyperfide-platform tasks list --status <status>; to change one run hyperfide-platform tasks update <key-or-id> --status <status>.",
           options: { json: JSON_OPTION },
           run(input) {
             return {
@@ -724,12 +724,12 @@ export function registerTasksCli(
               placeholder: "id-or-name",
               description: "Folder that holds the project",
             },
-            "link-bb-project": {
+            "link-hyperfide-project": {
               type: "string",
               placeholder: "proj_id",
-              aliases: ["bb-project", "link-project"],
+              aliases: ["hyperfide-project", "link-project"],
               description:
-                "bb project id (proj_...) whose threads track this tracker project",
+                "hyperfide-platform project id (proj_...) whose threads track this tracker project",
             },
             color: {
               type: "string",
@@ -757,7 +757,7 @@ export function registerTasksCli(
                       : derivePrefix(name, projects),
                     color: input.options.color,
                     folderId: folder?.id ?? null,
-                    linkedBbProjectId: input.options["link-bb-project"] ?? null,
+                    linkedHyperfideProjectId: input.options["link-hyperfide-project"] ?? null,
                   }),
                 ),
               );
@@ -811,7 +811,7 @@ export function registerTasksCli(
                 ["ID", project.id],
                 ["Color", project.color],
                 ["Folder", folder?.name ?? "-"],
-                ["BB project", project.linkedBbProjectId ?? "-"],
+                ["HYPERFIDE project", project.linkedHyperfideProjectId ?? "-"],
                 ["Next task", `${project.prefix}-${project.nextTaskNumber}`],
                 ["Created", project.createdAt],
               ]);
@@ -839,15 +839,15 @@ export function registerTasksCli(
               type: "boolean",
               description: "Move the project to the top level",
             },
-            "link-bb-project": {
+            "link-hyperfide-project": {
               type: "string",
               placeholder: "proj_id",
-              aliases: ["bb-project", "link-project"],
-              description: "bb project id (proj_...) to link",
+              aliases: ["hyperfide-project", "link-project"],
+              description: "hyperfide-platform project id (proj_...) to link",
             },
-            "unlink-bb-project": {
+            "unlink-hyperfide-project": {
               type: "boolean",
-              description: "Remove the bb project link",
+              description: "Remove the hyperfide-platform project link",
             },
             "rename-prefix": {
               type: "string",
@@ -861,7 +861,7 @@ export function registerTasksCli(
             { kind: "at-most-one", options: ["folder", "no-folder"] },
             {
               kind: "at-most-one",
-              options: ["link-bb-project", "unlink-bb-project"],
+              options: ["link-hyperfide-project", "unlink-hyperfide-project"],
             },
           ],
           run(input) {
@@ -878,9 +878,9 @@ export function registerTasksCli(
                 name: input.options.name,
                 color: input.options.color,
                 folderId: input.options["no-folder"] ? null : folder?.id,
-                linkedBbProjectId: input.options["unlink-bb-project"]
+                linkedHyperfideProjectId: input.options["unlink-hyperfide-project"]
                   ? null
-                  : input.options["link-bb-project"],
+                  : input.options["link-hyperfide-project"],
               };
               const renamePrefix = input.options["rename-prefix"];
               if (
@@ -888,7 +888,7 @@ export function registerTasksCli(
                 changes.name === undefined &&
                 changes.color === undefined &&
                 changes.folderId === undefined &&
-                changes.linkedBbProjectId === undefined
+                changes.linkedHyperfideProjectId === undefined
               ) {
                 throw new CliError("no project changes were provided", {
                   code: "no_changes",
@@ -905,7 +905,7 @@ export function registerTasksCli(
                 changes.name !== undefined ||
                 changes.color !== undefined ||
                 changes.folderId !== undefined ||
-                changes.linkedBbProjectId !== undefined;
+                changes.linkedHyperfideProjectId !== undefined;
               const updateInput = hasFieldChanges
                 ? tasksRpcContract.updateProject.input.parse({
                     projectId: project.id,
@@ -926,10 +926,10 @@ export function registerTasksCli(
                   name: updateInput?.name,
                   color: updateInput?.color,
                   folderId: updateInput?.folderId,
-                  linkedBbProjectId: updateInput?.linkedBbProjectId,
+                  linkedHyperfideProjectId: updateInput?.linkedHyperfideProjectId,
                 }),
               );
-              publishProjectsChanged(bb, updated.id);
+              publishProjectsChanged(hyperfide, updated.id);
               return input.options.json
                 ? JSON.stringify({ project: updated })
                 : `Updated project ${updated.prefix}  ${updated.name}`;
@@ -1079,7 +1079,7 @@ export function registerTasksCli(
                   parentFolderId: moveInput?.parentFolderId,
                 }),
               );
-              publishProjectsChanged(bb, null);
+              publishProjectsChanged(hyperfide, null);
               return input.options.json
                 ? JSON.stringify({ folder: updated })
                 : `Updated folder ${updated.name}  ${updated.id}`;
@@ -1219,7 +1219,7 @@ export function registerTasksCli(
               }
               const clientHostId = usesClientFiles
                 ? await resolveClientHostId(
-                    bb,
+                    hyperfide,
                     domain,
                     input.options.machine,
                     ctx,
@@ -1229,7 +1229,7 @@ export function registerTasksCli(
               for (const path of attachPaths) {
                 attachSources.push({
                   path,
-                  bytes: await readAttachmentSource(bb, clientHostId, path),
+                  bytes: await readAttachmentSource(hyperfide, clientHostId, path),
                 });
               }
               const project = await selectedProject(
@@ -1252,7 +1252,7 @@ export function registerTasksCli(
                 title: input.options.title,
                 description:
                   (await readTextOption(
-                    bb,
+                    hyperfide,
                     ctx,
                     clientHostId,
                     input.options.description,
@@ -1281,7 +1281,7 @@ export function registerTasksCli(
                       fileName: attachmentFileName(source.path),
                     },
                   );
-                  publishAttachmentChanged(bb, store.tasks, attachment);
+                  publishAttachmentChanged(hyperfide, store.tasks, attachment);
                   attachments.push(attachment);
                 } catch (error) {
                   failedAttachments.push({
@@ -1304,7 +1304,7 @@ export function registerTasksCli(
                     ),
                     ...failedAttachments.map(
                       (entry) =>
-                        `Retry with: bb tasks attachment add ${task.key} --file ${entry.path}`,
+                        `Retry with: hyperfide-platform tasks attachment add ${task.key} --file ${entry.path}`,
                     ),
                   ].join("\n");
               if (failedAttachments.length === 0) return stdout;
@@ -1726,14 +1726,14 @@ export function registerTasksCli(
               const clientHostId =
                 descriptionFile !== undefined
                   ? await resolveClientHostId(
-                      bb,
+                      hyperfide,
                       domain,
                       input.options.machine,
                       ctx,
                     )
                   : undefined;
               const description = await readTextOption(
-                bb,
+                hyperfide,
                 ctx,
                 clientHostId,
                 input.options.description,
@@ -1876,14 +1876,14 @@ export function registerTasksCli(
               const clientHostId =
                 bodyFile !== undefined
                   ? await resolveClientHostId(
-                      bb,
+                      hyperfide,
                       domain,
                       input.options.machine,
                       ctx,
                     )
                   : undefined;
               const body = await readTextOption(
-                bb,
+                hyperfide,
                 ctx,
                 clientHostId,
                 input.options.body,
@@ -1897,7 +1897,7 @@ export function registerTasksCli(
               if (!body.trim()) {
                 throw new CliError("comment body must not be blank");
               }
-              const comment = await createComment(bb, store, {
+              const comment = await createComment(hyperfide, store, {
                 taskId: task.id,
                 kind: ctx.threadId ? "agent" : "user",
                 authorName: input.options.author ?? taskAuthor(ctx),
@@ -2067,13 +2067,13 @@ export function registerTasksCli(
                 ? { commentId: comment.id }
                 : { taskId: (await resolveTask(domain, ownerAddress)).id };
               const clientHostId = await resolveClientHostId(
-                bb,
+                hyperfide,
                 domain,
                 input.options.machine,
                 ctx,
               );
               const content = await readAttachmentSource(
-                bb,
+                hyperfide,
                 clientHostId,
                 sourcePath,
               );
@@ -2086,7 +2086,7 @@ export function registerTasksCli(
                     input.options.name ?? attachmentFileName(sourcePath),
                 },
               );
-              publishAttachmentChanged(bb, store.tasks, attachment);
+              publishAttachmentChanged(hyperfide, store.tasks, attachment);
               return input.options.json
                 ? JSON.stringify({
                     attachment,
@@ -2103,7 +2103,7 @@ export function registerTasksCli(
           positionals: [
             {
               name: "attachment-id",
-              description: "Attachment ULID from bb tasks attachment list",
+              description: "Attachment ULID from hyperfide-platform tasks attachment list",
               required: true,
             },
           ],
@@ -2127,7 +2127,7 @@ export function registerTasksCli(
                 input.options.out,
               );
               const clientHostId = await resolveClientHostId(
-                bb,
+                hyperfide,
                 domain,
                 input.options.machine,
                 ctx,
@@ -2136,7 +2136,7 @@ export function registerTasksCli(
                 store.tasks,
                 input.positionals["attachment-id"],
               );
-              await writeClientFile(bb, clientHostId, outPath, content);
+              await writeClientFile(hyperfide, clientHostId, outPath, content);
               return input.options.json
                 ? JSON.stringify({ attachment, out: outPath })
                 : `Saved ${attachment.fileName}  ${outPath}`;
@@ -2185,7 +2185,7 @@ export function registerTasksCli(
           positionals: [
             {
               name: "attachment-id",
-              description: "Attachment ULID from bb tasks attachment list",
+              description: "Attachment ULID from hyperfide-platform tasks attachment list",
               required: true,
             },
           ],
@@ -2581,7 +2581,7 @@ export function registerTasksCli(
               required: true,
               placeholder: "name-or-id",
               description:
-                "Dispatch preset name or id; run bb tasks preset list to see them",
+                "Dispatch preset name or id; run hyperfide-platform tasks preset list to see them",
             },
             instructions: {
               type: "string",
@@ -2602,7 +2602,7 @@ export function registerTasksCli(
                 input.options.preset,
               );
               const result = delegationRpcContract.delegate.output.parse(
-                await delegationHandlers(bb, store).delegate(
+                await delegationHandlers(hyperfide, store).delegate(
                   delegationRpcContract.delegate.input.parse({
                     taskId: task.id,
                     presetId: preset.id,
@@ -2642,7 +2642,7 @@ export function registerTasksCli(
               );
               const result =
                 delegationRpcContract.taskThreadsAttach.output.parse(
-                  await delegationHandlers(bb, store).taskThreadsAttach(
+                  await delegationHandlers(hyperfide, store).taskThreadsAttach(
                     delegationRpcContract.taskThreadsAttach.input.parse({
                       taskId: task.id,
                       threadId,
@@ -2681,7 +2681,7 @@ export function registerTasksCli(
               );
               const result =
                 delegationRpcContract.taskThreadsDetach.output.parse(
-                  await delegationHandlers(bb, store).taskThreadsDetach(
+                  await delegationHandlers(hyperfide, store).taskThreadsDetach(
                     delegationRpcContract.taskThreadsDetach.input.parse({
                       taskId: task.id,
                       threadId,
@@ -2755,7 +2755,7 @@ export function registerTasksCli(
                     ["Labels", result.labelsCreated],
                     ["Tasks", result.tasksCreated],
                     ["Comments", result.commentsCreated],
-                    ["BB project", result.linkedBbProjectId ?? "-"],
+                    ["HYPERFIDE project", result.linkedHyperfideProjectId ?? "-"],
                   ]);
             });
           },

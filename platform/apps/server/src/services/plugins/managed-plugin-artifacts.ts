@@ -276,7 +276,7 @@ export function createManagedPluginArtifacts(
           .catch(() => false);
         if (!jsPresent) {
           throw new Error(
-            `install refused: npm plugins with a frontend (bb.app) must publish a prebuilt bundle — "${manifest.id}" is missing dist/app.js + dist/app.meta.json`,
+            `install refused: npm plugins with a frontend (hyperfide.app) must publish a prebuilt bundle — "${manifest.id}" is missing dist/app.js + dist/app.meta.json`,
           );
         }
       } else if (
@@ -633,8 +633,8 @@ export function createManagedPluginArtifacts(
       const manifest = await readPluginManifest(realRoot);
       assertExpectedPluginId(args.context, manifest.id, args.source);
       const compatibility = evaluateCompatibility({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        hyperfideRange: manifest.hyperfideEngineRange,
+        sdkRange: manifest.hyperfidePluginSdkRange,
         appVersion: deps.appVersion,
       });
       return compatibility.effective.length > 0
@@ -1159,8 +1159,8 @@ export function createManagedPluginArtifacts(
       );
       const manifest = await readPluginManifest(targetRealRoot);
       const compatibility = evaluateCompatibility({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        hyperfideRange: manifest.hyperfideEngineRange,
+        sdkRange: manifest.hyperfidePluginSdkRange,
         appVersion: deps.appVersion,
       });
       if (args.activationSelector === undefined) {
@@ -1243,8 +1243,8 @@ export function createManagedPluginArtifacts(
         };
       }
       const compatibility = evaluateCompatibility({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        hyperfideRange: manifest.hyperfideEngineRange,
+        sdkRange: manifest.hyperfidePluginSdkRange,
         appVersion: deps.appVersion,
       });
       if (compatibility.effective.length > 0) {

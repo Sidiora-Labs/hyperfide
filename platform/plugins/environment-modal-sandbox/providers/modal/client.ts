@@ -198,7 +198,7 @@ export const createModalSandboxClient: ModalSandboxClientFactory = (
         beforeTimestamp: 0,
         environmentName: client.environmentName(),
         includeFinished: false,
-        tags: [{ tagName: "bbMachineKey", tagValue: request.key }],
+        tags: [{ tagName: "hyperfideMachineKey", tagValue: request.key }],
       });
       const sandbox = result.sandboxes.find(
         (candidate) => candidate.id === request.sandboxId,
@@ -252,7 +252,7 @@ export const createModalSandboxClient: ModalSandboxClientFactory = (
     },
     async *listByKey(key) {
       for await (const sandbox of client.sandboxes.list({
-        tags: { bbMachineKey: key },
+        tags: { hyperfideMachineKey: key },
       })) {
         yield wrapSandbox(sandbox);
       }

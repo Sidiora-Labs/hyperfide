@@ -1,65 +1,65 @@
 export const HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL =
-  "bb-desktop:browser:attach";
+  "hyperfide-desktop:browser:attach";
 export const HYPERFIDE_DESKTOP_BROWSER_TARGET_CHANNEL =
-  "bb-desktop:browser:target";
+  "hyperfide-desktop:browser:target";
 export const HYPERFIDE_DESKTOP_BROWSER_CONTROL_CHANNEL =
-  "bb-desktop:browser:control";
+  "hyperfide-desktop:browser:control";
 export const HYPERFIDE_DESKTOP_BROWSER_GET_CONTROL_CHANNEL =
-  "bb-desktop:browser:get-control";
+  "hyperfide-desktop:browser:get-control";
 export const HYPERFIDE_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL =
-  "bb-desktop:browser:release-control";
+  "hyperfide-desktop:browser:release-control";
 export const HYPERFIDE_DESKTOP_BROWSER_REVEAL_CHANNEL =
-  "bb-desktop:browser:reveal";
+  "hyperfide-desktop:browser:reveal";
 export const HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL =
-  "bb-desktop:browser:detach";
+  "hyperfide-desktop:browser:detach";
 export const HYPERFIDE_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL =
-  "bb-desktop:browser:set-thread-discarded";
+  "hyperfide-desktop:browser:set-thread-discarded";
 export const HYPERFIDE_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL =
-  "bb-desktop:browser:list-threads-with-tabs";
+  "hyperfide-desktop:browser:list-threads-with-tabs";
 export const HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL =
-  "bb-desktop:browser:navigate";
+  "hyperfide-desktop:browser:navigate";
 export const HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL =
-  "bb-desktop:browser:go-back";
+  "hyperfide-desktop:browser:go-back";
 export const HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL =
-  "bb-desktop:browser:go-forward";
+  "hyperfide-desktop:browser:go-forward";
 export const HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL =
-  "bb-desktop:browser:reload";
-export const HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL = "bb-desktop:browser:stop";
+  "hyperfide-desktop:browser:reload";
+export const HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL = "hyperfide-desktop:browser:stop";
 export const HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL =
-  "bb-desktop:browser:focus";
+  "hyperfide-desktop:browser:focus";
 export const HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL =
-  "bb-desktop:browser:set-bounds";
+  "hyperfide-desktop:browser:set-bounds";
 export const HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL =
-  "bb-desktop:browser:set-visible";
+  "hyperfide-desktop:browser:set-visible";
 export const HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL =
-  "bb-desktop:browser:set-visible-without-focus";
+  "hyperfide-desktop:browser:set-visible-without-focus";
 export const HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL =
-  "bb-desktop:browser:state";
+  "hyperfide-desktop:browser:state";
 export const HYPERFIDE_DESKTOP_BROWSER_FOCUSED_CHANNEL =
-  "bb-desktop:browser:focused";
+  "hyperfide-desktop:browser:focused";
 export const HYPERFIDE_DESKTOP_BROWSER_OPEN_TAB_CHANNEL =
-  "bb-desktop:browser:open-tab";
+  "hyperfide-desktop:browser:open-tab";
 export const HYPERFIDE_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL =
-  "bb-desktop:browser:scoped-open-tab";
+  "hyperfide-desktop:browser:scoped-open-tab";
 export const HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL =
-  "bb-desktop:browser:snapshot";
+  "hyperfide-desktop:browser:snapshot";
 export const HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL =
-  "bb-desktop:browser:find-in-page";
+  "hyperfide-desktop:browser:find-in-page";
 export const HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL =
-  "bb-desktop:browser:stop-find-in-page";
+  "hyperfide-desktop:browser:stop-find-in-page";
 export const HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL =
-  "bb-desktop:browser:find-result";
+  "hyperfide-desktop:browser:find-result";
 export const HYPERFIDE_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL =
-  "bb-desktop:browser:list-import-sources";
+  "hyperfide-desktop:browser:list-import-sources";
 export const HYPERFIDE_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL =
-  "bb-desktop:browser:import-cookies";
+  "hyperfide-desktop:browser:import-cookies";
 export const HYPERFIDE_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL =
-  "bb-desktop:browser:open-full-disk-access-settings";
+  "hyperfide-desktop:browser:open-full-disk-access-settings";
 export const HYPERFIDE_DESKTOP_BROWSER_EVALUATE_CHANNEL =
-  "bb-desktop:browser:evaluate";
+  "hyperfide-desktop:browser:evaluate";
 export const HYPERFIDE_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL =
-  "bb-desktop:browser:page-message";
+  "hyperfide-desktop:browser:page-message";
 export const HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL =
-  "bb-desktop:browser:guest-message";
+  "hyperfide-desktop:browser:guest-message";
 export const HYPERFIDE_DESKTOP_BROWSER_PAGE_WORLD_ID = 1717;
-export const HYPERFIDE_DESKTOP_BROWSER_PAGE_BRIDGE_KEY = "__bbBrowserPage";
+export const HYPERFIDE_DESKTOP_BROWSER_PAGE_BRIDGE_KEY = "__hyperfideBrowserPage";

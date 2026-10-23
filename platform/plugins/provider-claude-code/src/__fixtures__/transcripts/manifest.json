@@ -29,7 +29,7 @@
       "system/task_updated": 3
     }
   },
-  "bb-workflow-run": {
+  "hyperfide-workflow-run": {
     "sessionId": "2999e5c8-91ce-4f2e-b072-a1c50e090837",
     "turns": {
       "from": 1,
@@ -46,7 +46,7 @@
       "Skill",
       "ToolSearch",
       "Write",
-      "mcp__bb-bridge__bb_workflow_run"
+      "mcp__hyperfide-bridge__hyperfide_workflow_run"
     ],
     "messages": {
       "assistant": 25,

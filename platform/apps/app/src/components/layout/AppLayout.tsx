@@ -78,7 +78,7 @@ import { createTabScopedStorage } from "@/lib/browser-storage";
 import {
   BROWSER_SIDEBAR_TRIGGER_INSET_CLASS,
   CHROME_ROW_CLASS,
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_CHROME_CONTROL_NO_DRAG_CLASS,
   MACOS_TITLE_BAR_CONTROL_AXIS_CLASS,
   MACOS_TITLE_BAR_CONTROL_SIZE_CLASS,
@@ -87,7 +87,7 @@ import {
   MACOS_WINDOW_DRAG_CLASS,
   shouldReserveMacosTrafficLights,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useDesktopWindowState } from "@/hooks/useDesktopWindowState";
 import { useDataDirectoryCommand } from "@/hooks/useDataDirectoryCommand";
 import { useWindowReloadCommand } from "@/hooks/useWindowReloadCommand";
@@ -129,8 +129,8 @@ import { useSetRootComposeProjectId } from "@/lib/root-compose-selection";
 import { BackToAppCommandHandler } from "./BackToAppCommandHandler";
 import { HistoryCommandHandlers } from "./HistoryCommandHandlers";
 
-const SIDEBAR_WIDTH_KEY = "bb.sidebar.width";
-const SIDEBAR_OPEN_KEY = "bb.sidebar.open";
+const SIDEBAR_WIDTH_KEY = "hyperfide.sidebar.width";
+const SIDEBAR_OPEN_KEY = "hyperfide.sidebar.open";
 const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 460;
 const SIDEBAR_DEFAULT_WIDTH = 320;
@@ -263,7 +263,7 @@ function SidebarTriggerOverlay({
         style={{ zIndex: APP_OVERLAY_LAYER.sidebarTrigger }}
         className={cn(
           "pointer-events-none fixed top-0 left-0",
-          "flex h-(--bb-window-title-bar-height) items-center",
+          "flex h-(--hyperfide-window-title-bar-height) items-center",
           MACOS_TITLE_BAR_CONTROL_AXIS_CLASS,
           MACOS_TITLE_BAR_CONTROL_SIZE_CLASS,
           reserveMacosTrafficLights
@@ -273,7 +273,7 @@ function SidebarTriggerOverlay({
       >
         <div
           className={cn(
-            "pointer-events-auto flex items-center gap-(--bb-title-bar-sidebar-toggle-gap)",
+            "pointer-events-auto flex items-center gap-(--hyperfide-title-bar-sidebar-toggle-gap)",
             MACOS_CHROME_CONTROL_NO_DRAG_CLASS,
           )}
         >
@@ -330,7 +330,7 @@ function SidebarTriggerOverlay({
 }
 
 const routeTitles: Record<string, { title: string }> = {
-  "/": { title: "bb" },
+  "/": { title: "hyperfide" },
   "/settings": { title: "Settings" },
   "/automations": { title: "Automations" },
   "/skills": { title: "Skills" },
@@ -599,7 +599,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
   const liveWidthRef = useRef(0);
   const animationFrameRef = useRef<number | null>(null);
   const showHeader = !isThreadView && !isRootView && pluginPanelMatch === null;
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const desktopWindowState = useDesktopWindowState();
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const reserveMacosTrafficLights = shouldReserveMacosTrafficLights({
@@ -700,7 +700,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       return projectLabel ?? projectId;
     }
     const routeTitle = resolveRouteTitle(location.pathname)?.title;
-    return routeTitle && routeTitle.length > 0 ? routeTitle : "BB";
+    return routeTitle && routeTitle.length > 0 ? routeTitle : "HYPERFIDE";
   })();
   const currentThreadPendingInteractionsQuery = useThreadPendingInteractions(
     threadId ?? "",
@@ -831,7 +831,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
                     ref={setContentShell}
                     data-testid="app-layout-content-shell"
                     data-app-content-shell=""
-                    className="relative flex h-full min-h-0 min-w-0 w-full flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[var(--bb-safe-area-bottom,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)]"
+                    className="relative flex h-full min-h-0 min-w-0 w-full flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[var(--hyperfide-safe-area-bottom,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)]"
                   >
                     {showHeader ? (
                       <AppHeader

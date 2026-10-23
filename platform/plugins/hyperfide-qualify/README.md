@@ -52,10 +52,10 @@ Cancellation terminates the detached process group and escalates to SIGKILL befo
 cleaning up the environment. Lane records retain commit, environment id/path,
 command, exit, signal, elapsed milliseconds and toolchain versions in memory.
 
-`projection-adapter.ts` is the local integration seam for managed environments:
-it reads the task's KVX command and creates a temporary detached Git worktree.
-The current spec plugin has no exported managed environment provider. Replace
-this seam when that provider lands. Node 24 and Corepack pnpm 9.15.0 are pinned
+`adapter.ts` composes the real spec model (`featureFromKvx`) with the platform's
+Git worktree provider (`createWorktree` and `removeWorktree`). Each lane gets a
+unique branch based on HEAD; cleanup removes both the worktree and its branch.
+Node 24 and Corepack pnpm 9.15.0 are pinned
 and checked before execution. PostgreSQL wrapping uses the checked-out repository's
 `tests/hyperfide/support/withpg.py`. Tests use temporary committed repositories
 and a fake Hyperfide binary. Existing checker, receipt and wave closure exports

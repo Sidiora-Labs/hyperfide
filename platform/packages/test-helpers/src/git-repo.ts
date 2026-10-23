@@ -14,8 +14,8 @@ export async function initRepo(
   { commit = true }: { commit?: boolean } = {},
 ): Promise<string> {
   await git(directory, ["init", "-q", "-b", "main"]);
-  await git(directory, ["config", "user.name", "BB Tests"]);
-  await git(directory, ["config", "user.email", "bb@example.com"]);
+  await git(directory, ["config", "user.name", "HYPERFIDE Tests"]);
+  await git(directory, ["config", "user.email", "hyperfide@example.com"]);
   await git(directory, ["config", "core.autocrlf", "false"]);
   if (commit) {
     await writeFile(join(directory, "README.md"), "hello\n", "utf8");

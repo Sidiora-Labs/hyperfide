@@ -36,7 +36,7 @@ export function changePluginSafeMode({
           result.enabled ? "Plugin safe mode is on" : "Plugin safe mode is off",
           {
             description: result.enabled
-              ? "Only plugins included with bb are running."
+              ? "Only plugins included with hyperfide are running."
               : "Your enabled plugins are running again.",
           },
         );

@@ -2,19 +2,19 @@
  * `@hyperfide/plugin-sdk/provider-bridge/acp` — the published ACP bridge kit.
  *
  * The Agent Client Protocol (https://agentclientprotocol.com) is one wire
- * protocol spoken by many agents, so bb runs all of them through one generic
+ * protocol spoken by many agents, so hyperfide runs all of them through one generic
  * bridge: the agent to launch arrives per command in the provider options,
- * and nothing in the bridge is bb-first-party. A plugin that wants to add an
- * ACP agent re-exports the bridge from its `bb.host` artifact and registers
+ * and nothing in the bridge is hyperfide-first-party. A plugin that wants to add an
+ * ACP agent re-exports the bridge from its `hyperfide.host` artifact and registers
  * its providers as any other plugin does:
  *
  * ```ts
- * // host.ts (the plugin's `bb.host` entry)
+ * // host.ts (the plugin's `hyperfide.host` entry)
  * export { experimental_acpProviderBridge as experimental_providerBridge }
  *   from "@hyperfide/plugin-sdk/provider-bridge/acp";
  *
  * // server.ts
- * bb.providers.register({
+ * hyperfide.providers.register({
  *   id: "amp",
  *   displayName: "Amp",
  *   experimental_bridgeOptions: {
@@ -34,7 +34,7 @@
  * `grok`, `omp` and `opencode`, named by id in the registration's bridge
  * options (`acpDialect`). A plugin supplies its own with
  * `experimental_registerAcpDialect`, called at module load in the same
- * `bb.host` artifact that re-exports the bridge:
+ * `hyperfide.host` artifact that re-exports the bridge:
  *
  * ```ts
  * // host.ts

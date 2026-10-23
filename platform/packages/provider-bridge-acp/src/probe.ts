@@ -44,7 +44,7 @@ export async function probeAcpAgent(
       recordThreadId: null,
       onNotification: () => {},
       onRequest: (_method, _params, responder) => {
-        responder.error(-32601, "bb is probing this agent's capabilities");
+        responder.error(-32601, "hyperfide is probing this agent's capabilities");
       },
       onExit: () => {},
     });

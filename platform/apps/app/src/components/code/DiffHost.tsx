@@ -3,7 +3,7 @@ import type { ExperimentalDiffFullFileContents } from "@hyperfide/plugin-sdk";
 import { PluginReplacementSlot } from "@/components/plugin/PluginReplacementSlot";
 import type { ParsedGitDiffFile } from "@/components/git-diff/git-diff-parsing";
 import { buildFileDiffPatchText } from "@/components/git-diff/git-diff-patch-text";
-import { BbDiffSplit } from "./BbDiffSplit";
+import { HyperfideDiffSplit } from "./HyperfideDiffSplit";
 import { useDiffRendererReplacement } from "./codeRendererProvider";
 import {
   DEFAULT_CODE_OVERFLOW,
@@ -39,7 +39,7 @@ export function DiffHost({
   );
 
   const original = (
-    <BbDiffSplit
+    <HyperfideDiffSplit
       file={file}
       patchText={patchText}
       fullFileContents={fullFileContents}

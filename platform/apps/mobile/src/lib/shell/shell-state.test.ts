@@ -44,7 +44,7 @@ describe("resolveShellScreenState", () => {
       }).kind,
     ).toBe("loading");
   });
-  it("keeps a bb connect profile off the page until its session starts", () => {
+  it("keeps a hyperfide-platform connect profile off the page until its session starts", () => {
     expect(
       resolveShellScreenState({
         ...BASE,
@@ -78,7 +78,7 @@ describe("resolveShellScreenState", () => {
       kind: "error",
       title: "Could not sign in",
       detail:
-        "bb connect could not renew this phone’s sign-in. Pair again to reconnect.",
+        "hyperfide-platform connect could not renew this phone’s sign-in. Pair again to reconnect.",
       action: "re-pair",
     });
   });
@@ -168,7 +168,7 @@ describe("revealsShellFailure", () => {
     expect(revealsShellFailure(page(null), true)).toBe(false);
   });
 
-  it("keeps a bb connect page the gate rejected covered while the session is repaired", () => {
+  it("keeps a hyperfide-platform connect page the gate rejected covered while the session is repaired", () => {
     expect(revealsShellFailure(page(401), true)).toBe(false);
     expect(revealsShellFailure(page(403), true)).toBe(false);
   });

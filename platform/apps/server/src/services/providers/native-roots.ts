@@ -153,7 +153,7 @@ async function callResolveNativeRoots(
   if (artifact === undefined) {
     deps.logger.warn(
       fields,
-      `Plugin "${pluginId}" resolves native roots for provider "${providerId}" but has no live bb.host artifact; listing its declared roots only`,
+      `Plugin "${pluginId}" resolves native roots for provider "${providerId}" but has no live hyperfide.host artifact; listing its declared roots only`,
     );
     return EMPTY_PROVIDER_RESOLVED_NATIVE_ROOTS;
   }

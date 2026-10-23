@@ -50,7 +50,7 @@ describe("server startup diagnostics", () => {
   ])("$name", async ({ bindHost, expectedAddress }) => {
     const serverConfig = loadServerConfig({
       env: {
-        HYPERFIDE_DATA_DIR: "/tmp/bb-server-listener-test",
+        HYPERFIDE_DATA_DIR: "/tmp/hyperfide-server-listener-test",
         HYPERFIDE_HOST_DAEMON_PORT: "49162",
         ...(bindHost === undefined
           ? {}

@@ -41,7 +41,7 @@ export function InstalledPluginsTab({
 
   if (plugins.length === 0) {
     return (
-      <EmptyState message="No plugins installed. Browse the catalog, create a plugin, or run bb plugin install <source>." />
+      <EmptyState message="No plugins installed. Browse the catalog, create a plugin, or run hyperfide-platform plugin install <source>." />
     );
   }
 
@@ -122,14 +122,14 @@ export function InstalledPluginRow({
             <PluginAuthorByline
               name={
                 plugin.provenance === "builtin"
-                  ? "BB Official"
+                  ? "HYPERFIDE Official"
                   : plugin.publisherLabel
               }
               github={null}
               official={plugin.provenance === "builtin"}
             >
               {plugin.provenance === "builtin"
-                ? "BB Official"
+                ? "HYPERFIDE Official"
                 : plugin.publisherLabel}
             </PluginAuthorByline>
           ) : null

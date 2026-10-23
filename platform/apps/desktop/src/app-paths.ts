@@ -30,14 +30,14 @@ export function resolveDesktopBridgePath(
       return join(
         `${args.paths.appPath}.unpacked`,
         "dist",
-        "bb-app-bridge.mjs",
+        "hyperfide-app-bridge.mjs",
       );
     }
 
-    return join(args.paths.resourcesPath, "app", "dist", "bb-app-bridge.mjs");
+    return join(args.paths.resourcesPath, "app", "dist", "hyperfide-app-bridge.mjs");
   }
 
-  return join(args.paths.appPath, "dist", "bb-app-bridge.mjs");
+  return join(args.paths.appPath, "dist", "hyperfide-app-bridge.mjs");
 }
 
 export function resolveDesktopMachineInstallerPath(bridgePath: string): string {

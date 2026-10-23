@@ -16,7 +16,7 @@ describe("path plugin version reload", () => {
       JSON.stringify({
         name: "hyperfide-plugin-versioned",
         version,
-        bb: {
+        hyperfide: {
           name: "Versioned",
           description: "Version reload fixture.",
           branding: { icon: "Zap" },

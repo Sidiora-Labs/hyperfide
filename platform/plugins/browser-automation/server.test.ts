@@ -112,7 +112,7 @@ async function setup() {
     makeHostResponse({ id: "local-host", name: "Lab workstation" }),
     makeHostResponse({ id: "desktop-host", name: "Lab desktop" }),
   ]);
-  await plugin(host.bb);
+  await plugin(host.hyperfide);
   async function open(tabId?: string) {
     const result = await host.harness.behavior.callRpc("open", {
       threadId: "thread-test",

@@ -8,7 +8,7 @@ import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@hyperfide/shared-ui
 import { useHoverPopover } from "@/components/ui/hooks/use-hover-popover";
 import { useBrowserDimmingOverlay } from "@/hooks/useBrowserDimmingModal";
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo } from "@/lib/hyperfide-desktop";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useRef } from "react";
 import type { SplitSide } from "@/lib/split-layout";
@@ -102,7 +102,7 @@ export function PaneArrangementButton({
   } = useHoverPopover({ openDelayMs: 400, closeDelayMs: 100 });
 
   const label = resolvePaneArrangementLabel({
-    isDesktopApp: getBbDesktopInfo() !== null,
+    isDesktopApp: getHyperfideDesktopInfo() !== null,
     isFullScreen,
   });
   const accessibleLabel = shortcut ? `${label} (${shortcut.label})` : label;

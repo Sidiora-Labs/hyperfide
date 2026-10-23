@@ -15,11 +15,11 @@ it.skipIf(process.platform === "win32")(
   "finds processes in a deleted directory addressed through a symlinked ancestor",
   async () => {
     const base = await realpath(
-      await mkdtemp(join(tmpdir(), "bb-cwd-processes-")),
+      await mkdtemp(join(tmpdir(), "hyperfide-cwd-processes-")),
     );
     cleanups.push(() => rm(base, { recursive: true, force: true }));
     const real = join(base, "real");
-    const working = join(real, "checkout", "bb");
+    const working = join(real, "checkout", "hyperfide");
     await mkdir(working, { recursive: true });
     await symlink(real, join(base, "link"));
     const child = spawn(
@@ -43,7 +43,7 @@ it.skipIf(process.platform === "win32")(
       .poll(async () =>
         (
           await listProcessesWithCwdUnder({
-            directories: [join(base, "link", "checkout", "bb")],
+            directories: [join(base, "link", "checkout", "hyperfide")],
           })
         ).map((entry) => entry.pid),
       )
@@ -55,7 +55,7 @@ it.skipIf(process.platform === "win32")(
   "finds processes under any of several directories in one sweep and ignores others",
   async () => {
     const base = await realpath(
-      await mkdtemp(join(tmpdir(), "bb-cwd-processes-")),
+      await mkdtemp(join(tmpdir(), "hyperfide-cwd-processes-")),
     );
     cleanups.push(() => rm(base, { recursive: true, force: true }));
     const run = async (name: string) => {

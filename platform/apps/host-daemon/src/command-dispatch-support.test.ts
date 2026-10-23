@@ -32,7 +32,7 @@ describe("command dispatch support", () => {
       getErrorCode(
         new JsonRpcResponseError(
           BRIDGE_JSON_RPC_ERRORS.MISSING_EXECUTABLE,
-          "bb could not find the Codex CLI on this machine.",
+          "hyperfide could not find the Codex CLI on this machine.",
         ),
       ),
     ).toBe("missing_executable");
@@ -40,7 +40,7 @@ describe("command dispatch support", () => {
       getErrorCode(
         new JsonRpcResponseError(
           BRIDGE_JSON_RPC_ERRORS.BRIDGE_ERROR,
-          "bb could not find the Codex CLI on this machine.",
+          "hyperfide could not find the Codex CLI on this machine.",
         ),
       ),
     ).toBe("command_failed");

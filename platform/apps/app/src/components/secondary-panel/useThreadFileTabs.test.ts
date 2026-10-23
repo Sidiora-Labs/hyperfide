@@ -32,9 +32,9 @@ import {
 import { makeTerminalSession as terminalSession } from "@/test/fixtures/terminal-sessions";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 import {
-  createBbDesktopApi,
+  createHyperfideDesktopApi,
   createNoopDesktopBrowserApi,
-} from "@/test/bb-desktop-test-utils";
+} from "@/test/hyperfide-desktop-test-utils";
 
 const syncMocks = vi.hoisted(() => ({
   scheduleLocalThreadTabsMigration: vi.fn(),
@@ -102,7 +102,7 @@ afterEach(() => {
   syncMocks.scheduleLocalThreadTabsMigration.mockClear();
   syncMocks.scheduleThreadTabsPersistence.mockClear();
   syncMocks.useThreadTabs.mockClear();
-  delete window.bbDesktop;
+  delete window.hyperfideDesktop;
 });
 
 describe("useThreadFileTabs recently closed tabs", () => {
@@ -114,7 +114,7 @@ describe("useThreadFileTabs recently closed tabs", () => {
     };
     const browser = createNoopDesktopBrowserApi();
     browser.getTarget = async () => desktopTarget;
-    window.bbDesktop = createBbDesktopApi(
+    window.hyperfideDesktop = createHyperfideDesktopApi(
       {
         lastCheckedAt: null,
         latestVersion: null,
@@ -1503,7 +1503,7 @@ describe("useThreadFileTabs file opener diversion", () => {
 
   it("keeps the built-in preview when Settings pins it", () => {
     window.localStorage.setItem(
-      "bb.fileOpenerByExtension",
+      "hyperfide.fileOpenerByExtension",
       JSON.stringify({ md: "__builtin__" }),
     );
     registerNotesOpener();

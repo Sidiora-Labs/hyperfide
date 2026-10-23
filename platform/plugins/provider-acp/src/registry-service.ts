@@ -3,7 +3,7 @@ import {
   cliCommand,
   defineCli,
   defineRpcContract,
-  type BbPluginApi,
+  type HyperfidePluginApi,
 } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
@@ -88,7 +88,7 @@ interface LoadedRegistry {
 }
 
 interface AcpRegistryServiceDeps {
-  bb: Pick<BbPluginApi, "storage" | "rpc" | "cli" | "log">;
+  hyperfide: Pick<HyperfidePluginApi, "storage" | "rpc" | "cli" | "log">;
   readCustomAgents(): Promise<string>;
   writeCustomAgents(value: string): Promise<void>;
   reservedProviderIds: ReadonlySet<string>;
@@ -137,14 +137,14 @@ export function formatRegistryView(view: AcpRegistryView): string {
 }
 
 export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
-  const { bb } = deps;
+  const { hyperfide } = deps;
 
   async function readCache(): Promise<{
     fetchedAt: number;
     agents: AcpRegistryAgent[];
   } | null> {
     const cached = cachedRegistrySchema.safeParse(
-      await bb.storage.kv.get<unknown>(REGISTRY_CACHE_KEY),
+      await hyperfide.storage.kv.get<unknown>(REGISTRY_CACHE_KEY),
     );
     return cached.success ? cached.data : null;
   }
@@ -161,13 +161,13 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
     try {
       const parsed = parseAcpRegistry(await fetchRegistryDocument());
       const fetchedAt = Date.now();
-      await bb.storage.kv.set(REGISTRY_CACHE_KEY, {
+      await hyperfide.storage.kv.set(REGISTRY_CACHE_KEY, {
         fetchedAt,
         agents: parsed.agents,
       });
       if (parsed.skipped > 0) {
-        bb.log.debug(
-          `Skipped ${parsed.skipped} ACP registry entries bb could not read.`,
+        hyperfide.log.debug(
+          `Skipped ${parsed.skipped} ACP registry entries hyperfide could not read.`,
         );
       }
       return { agents: parsed.agents, fetchedAt, error: null };
@@ -204,7 +204,7 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
       );
     }
     if (deps.reservedProviderIds.has(`acp-${id}`)) {
-      throw new Error(`${agent.name} is already built into bb.`);
+      throw new Error(`${agent.name} is already built into hyperfide.`);
     }
     await deps.writeCustomAgents(
       settingWithRegistryAgent(await deps.readCustomAgents(), agent),
@@ -219,7 +219,7 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
     return view(false);
   }
 
-  bb.rpc.register(acpRegistryRpcContract, {
+  hyperfide.rpc.register(acpRegistryRpcContract, {
     listRegistry: ({ refresh }) => view(refresh),
     addRegistryAgent: ({ id }) => addAgent(id),
     removeAgent: ({ id }) => removeAgent(id),
@@ -236,7 +236,7 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
     } catch (error) {
       throw new PluginCliError(errorMessage(error), {
         code: "acp_agent_change_failed",
-        hint: "Run `bb acp registry` to see the agents and their ids.",
+        hint: "Run `hyperfide acp registry` to see the agents and their ids.",
       });
     }
     return {
@@ -245,15 +245,15 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
     };
   }
 
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "acp",
       summary: "Add ACP agents from the official registry",
       description:
-        "Lists the agents in the Agent Client Protocol registry and adds them to bb as providers. Added agents run through npx or uvx on the machine that hosts the thread.",
+        "Lists the agents in the Agent Client Protocol registry and adds them to hyperfide as providers. Added agents run through npx or uvx on the machine that hosts the thread.",
       commands: {
         registry: cliCommand({
-          summary: "List the registry's agents and whether each is added to bb",
+          summary: "List the registry's agents and whether each is added to hyperfide",
           options: {
             refresh: {
               type: "boolean",
@@ -274,7 +274,7 @@ export function registerAcpRegistry(deps: AcpRegistryServiceDeps): void {
         }),
         add: cliCommand({
           summary:
-            "Add a registry agent as a bb provider, or move an added one to the registry's current version",
+            "Add a registry agent as a hyperfide provider, or move an added one to the registry's current version",
           positionals: [
             {
               name: "agent-id",

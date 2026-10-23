@@ -19,6 +19,6 @@ export function applyAcpAgentProbe(
   }
   return {
     agent: { ...agent, fork: "none" },
-    reason: `the agent does not advertise session/fork, but bb declared fork "${declaredFork}"`,
+    reason: `the agent does not advertise session/fork, but hyperfide declared fork "${declaredFork}"`,
   };
 }

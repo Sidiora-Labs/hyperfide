@@ -28,7 +28,7 @@ const corpusScopeKindCoversDomain: ThreadEventScopeKind extends z.infer<
   : false = true;
 void corpusScopeKindCoversDomain;
 
-export const PROVIDER_CORPUS_DIR_ENV = "BB_PROVIDER_CORPUS_DIR";
+export const PROVIDER_CORPUS_DIR_ENV = "HYPERFIDE_PROVIDER_CORPUS_DIR";
 
 const corpusPathSegmentSchema = z
   .string()

@@ -22,11 +22,13 @@ static long unique_symbol(Cg *cg, long branch, long preferred_file,
                           const char *name) {
     if (!name || !*name || strchr(name,'(') || strchr(name,'[')) return 0;
     sqlite3_stmt *q=cg_prep(cg,
-        "SELECT s.id FROM symbols s JOIN files f ON f.id=s.file_id "
+        /* Start from indexed candidate IDs, not every file in the branch. */
+        "SELECT s.id FROM symbols s CROSS JOIN files f ON f.id=s.file_id "
         "LEFT JOIN semantic_symbols ss ON ss.symbol_id=s.id "
         "WHERE f.branch_id=?1 AND s.kind IN "
         "('function','method','action','class','component') "
-        "AND (ss.qualified_name=?2 OR s.name=?2) "
+        "AND s.id IN (SELECT id FROM symbols WHERE name=?2 UNION "
+        "SELECT symbol_id FROM semantic_symbols WHERE qualified_name=?2) "
         "ORDER BY (s.file_id=?3) DESC LIMIT 2");
     sqlite3_bind_int64(q,1,branch); sqlite3_bind_text(q,2,name,-1,SQLITE_TRANSIENT);
     sqlite3_bind_int64(q,3,preferred_file);

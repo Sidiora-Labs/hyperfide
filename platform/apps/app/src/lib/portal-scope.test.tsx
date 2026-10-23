@@ -51,16 +51,16 @@ describe("usePortalScopeProps", () => {
 
     const content = baseElement.querySelector('[role="dialog"]');
     expect(content).not.toBeNull();
-    expect(content!.getAttribute("data-bb-portaled-overlay")).toBe("");
+    expect(content!.getAttribute("data-hyperfide-portaled-overlay")).toBe("");
     expect(content!.getAttribute("data-hyperfide-plugin-root")).toBe("");
 
     const scoped = baseElement.querySelectorAll("[data-hyperfide-plugin-root]");
     expect(scoped.length).toBe(2);
     for (const root of scoped) {
-      expect(root.getAttribute("data-bb-plugin")).toBe("test-plugin");
+      expect(root.getAttribute("data-hyperfide-plugin")).toBe("test-plugin");
     }
     expect(
-      baseElement.querySelectorAll("[data-bb-portaled-overlay]").length,
+      baseElement.querySelectorAll("[data-hyperfide-portaled-overlay]").length,
     ).toBe(2);
   });
 
@@ -70,7 +70,7 @@ describe("usePortalScopeProps", () => {
     const content = baseElement.querySelector('[role="dialog"]');
     expect(content).not.toBeNull();
     expect(content!.hasAttribute("data-hyperfide-plugin-root")).toBe(false);
-    expect(content!.getAttribute("data-bb-portaled-overlay")).toBe("");
+    expect(content!.getAttribute("data-hyperfide-portaled-overlay")).toBe("");
     expect(baseElement.querySelectorAll("[data-hyperfide-plugin-root]").length).toBe(
       0,
     );
@@ -94,8 +94,8 @@ describe("usePortalScopeProps", () => {
     expect(tip).not.toBeNull();
     const scopedTip = baseElement.querySelector("[data-hyperfide-plugin-root]");
     expect(scopedTip).not.toBeNull();
-    expect(scopedTip!.getAttribute("data-bb-plugin")).toBe("test-plugin");
-    expect(scopedTip!.getAttribute("data-bb-portaled-overlay")).toBe("");
+    expect(scopedTip!.getAttribute("data-hyperfide-plugin")).toBe("test-plugin");
+    expect(scopedTip!.getAttribute("data-hyperfide-portaled-overlay")).toBe("");
   });
 
   it("stamps select content so native drag regions cannot swallow options", () => {
@@ -113,7 +113,7 @@ describe("usePortalScopeProps", () => {
     expect(
       baseElement
         .querySelector('[role="listbox"]')
-        ?.getAttribute("data-bb-portaled-overlay"),
+        ?.getAttribute("data-hyperfide-portaled-overlay"),
     ).toBe("");
   });
 
@@ -130,7 +130,7 @@ describe("usePortalScopeProps", () => {
     fireEvent.contextMenu(screen.getByText("Context target"));
 
     const menu = baseElement.querySelector('[role="menu"]');
-    expect(menu?.getAttribute("data-bb-portaled-overlay")).toBe("");
+    expect(menu?.getAttribute("data-hyperfide-portaled-overlay")).toBe("");
     expect(menu?.classList.contains("z-[70]")).toBe(true);
   });
 });

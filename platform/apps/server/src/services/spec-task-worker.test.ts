@@ -3,9 +3,8 @@ import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { loadSpecTaskWorker } from "./spec-task-worker.js";
-
-const { createTaskWorker: createSpecTaskWorker } = await loadSpecTaskWorker();
+const workerEntry = new URL("../../../../plugins/hyperfide-spec/src/worker.ts", import.meta.url).href;
+const { createTaskWorker: createSpecTaskWorker } = await import(workerEntry);
 const providerEntry = new URL("../../../../plugins/hyperfide-spec/src/test/scripted-echo-provider.ts", import.meta.url).href;
 const { ScriptedEchoProvider } = await import(providerEntry);
 
@@ -59,6 +58,17 @@ describe("spec task worker", () => {
     await expect(worker.runTask({ ...input(repo), task: "missing" })).rejects.toThrow("Unknown task");
     await expect(worker.runTask({ ...input(repo), feature: "../escape" })).rejects.toThrow("identity");
     expect(provider.requests).toHaveLength(0);
+  });
+  it("uses the board KVX parser for multiline task fields and comments", async () => {
+    const repo = await repository();
+    const file = join(repo, "spec/demo/spec.kvx");
+    await writeFile(file, (await readFile(file, "utf8"))
+      .replace('requires = ["2.1", "1.4"]', 'requires = [\n"2.1",\n"1.4"\n] # direct dependencies')
+      .replace('title = "Worker packet"', 'title = "Worker # packet" # title comment'));
+    const provider = new ScriptedEchoProvider();
+    await createSpecTaskWorker(provider).runTask(input(repo));
+    expect(provider.requests[0]!.prompt).toContain("Worker # packet");
+    expect(provider.requests[0]!.prompt).toContain("requires: 2.1, 1.4");
   });
   it("marks an unreadable stopped-worker spec for review", async () => {
     const repo = await repository();

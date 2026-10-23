@@ -38,7 +38,7 @@ const PLANNED_ENTRIES = [
   "skills/review/SKILL.md",
   "config.json",
   "env.json",
-  "bb.db",
+  "hyperfide.db",
 ];
 const PREEXISTING_ENTRIES = [
   "skills/review/SKILL.md",
@@ -58,11 +58,11 @@ async function stageImport(): Promise<{
   manifest: ServerArchiveManifest;
 }> {
   const sourceDataDir = await makeTempDir();
-  await writeDataFile(sourceDataDir, "bb.db", "server database");
+  await writeDataFile(sourceDataDir, "hyperfide.db", "server database");
   await writeDataFile(
     sourceDataDir,
     "config.json",
-    JSON.stringify({ config: { BB_LOG_LEVEL: "info" } }),
+    JSON.stringify({ config: { HYPERFIDE_LOG_LEVEL: "info" } }),
   );
   await writeDataFile(
     sourceDataDir,
@@ -89,7 +89,7 @@ async function stageImport(): Promise<{
       })),
     manifest: {
       createdAt: 1,
-      bbVersion: "0.43.1",
+      hyperfideVersion: "0.43.1",
       protocolVersion: 209,
       migrationCount: 142,
       sourceDataDir,
@@ -111,7 +111,7 @@ function manualImportMarker(importedEntries: string[]): ServerImportFile {
     kind: "manual",
     moveId: null,
     activationToken: null,
-    sourceDataDir: "/home/old/.bb",
+    sourceDataDir: "/home/old/.hyperfide",
     sourceServerHostId: "host-old",
     targetHostId: null,
     serverUrl: null,
@@ -170,7 +170,7 @@ describe("server import journal", () => {
       manifest,
       localServerUrl: "http://127.0.0.1:39886",
     });
-    await writeDataFile(dataDir, "bb.db-wal", "pending server wal");
+    await writeDataFile(dataDir, "hyperfide.db-wal", "pending server wal");
 
     const rolledBack = await rollBackServerImport(dataDir);
 
@@ -204,7 +204,7 @@ describe("server import journal", () => {
     expect(await rollBackServerImport(dataDir)).toBeNull();
 
     expect(await readServerImportJournalFile(dataDir)).toBeNull();
-    expect(await readDataFile(dataDir, "bb.db")).toBe("server database");
+    expect(await readDataFile(dataDir, "hyperfide.db")).toBe("server database");
     expect(await readDataFile(dataDir, "auth-secret")).toBe("secret");
     expect(await readDataFile(dataDir, "skills/review/SKILL.md")).toBe(
       "imported skill",
@@ -226,7 +226,7 @@ describe("server import journal", () => {
     await writeServerImportFile(
       dataDir,
       manualImportMarker(
-        installed.importedEntries.filter((entry) => entry !== "bb.db"),
+        installed.importedEntries.filter((entry) => entry !== "hyperfide.db"),
       ),
     );
 
@@ -234,7 +234,7 @@ describe("server import journal", () => {
       PLANNED_ENTRIES,
     );
 
-    expect(await readdir(dataDir)).not.toContain("bb.db");
+    expect(await readdir(dataDir)).not.toContain("hyperfide.db");
     expect(await readDataFile(dataDir, "skills/review/SKILL.md")).toBe(
       "target skill",
     );
@@ -256,7 +256,7 @@ describe("server import journal", () => {
     expect((await rollBackServerImport(dataDir))?.entries).toEqual(
       PLANNED_ENTRIES,
     );
-    expect(await readdir(dataDir)).not.toContain("bb.db");
+    expect(await readdir(dataDir)).not.toContain("hyperfide.db");
   });
 
   it("rolls back an install interrupted partway without touching entries it never reached", async () => {
@@ -315,7 +315,7 @@ describe("server import journal", () => {
       SERVER_IMPORT_JOURNAL_FILE_NAME,
       JSON.stringify({
         version: 1,
-        entries: ["bb.db"],
+        entries: ["hyperfide.db"],
         preexistingEntries: [],
       }),
     );
@@ -334,7 +334,7 @@ describe("server import journal", () => {
     expect(error instanceof ServerArchiveError ? error.code : null).toBe(
       "server_data_exists",
     );
-    expect(await readdir(dataDir)).not.toContain("bb.db");
+    expect(await readdir(dataDir)).not.toContain("hyperfide.db");
     expect(await readdir(dataDir)).not.toContain(SERVER_IMPORT_BACKUP_DIR_NAME);
   });
 });

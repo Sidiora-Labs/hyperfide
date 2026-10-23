@@ -3,7 +3,7 @@
   "name": "overlay-anchor",
   "type": "registry:ui",
   "title": "overlay-anchor",
-  "description": "BB ui \"overlay-anchor\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"overlay-anchor\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/overlay-anchor.ts",

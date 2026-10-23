@@ -19,16 +19,16 @@ async function readReleases(): Promise<SystemMobileAppReleasesResponse> {
   const signal = AbortSignal.timeout(5000);
   const [manifestResponse, releaseResponse] = await Promise.all([
     fetch(
-      "https://github.com/get-bb/bb/releases/download/android-testing/latest.json",
+      "https://github.com/hyperfide/hyperfide/releases/download/android-testing/latest.json",
       { signal },
     ),
     fetch(
-      "https://api.github.com/repos/get-bb/bb/releases/tags/android-testing",
+      "https://api.github.com/repos/hyperfide/hyperfide/releases/tags/android-testing",
       {
         signal,
         headers: {
           accept: "application/vnd.github+json",
-          "user-agent": "bb-mobile-downloads",
+          "user-agent": "hyperfide-mobile-downloads",
         },
       },
     ),

@@ -1,4 +1,4 @@
-const KEY = "bb.watched-plugin-updates";
+const KEY = "hyperfide.watched-plugin-updates";
 
 function watched(): string[] {
   try {

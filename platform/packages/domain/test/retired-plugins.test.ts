@@ -7,12 +7,12 @@ import {
 describe("pathWithRetiredPluginIdsReplaced", () => {
   it.each([
     [
-      "/settings/plugins/bb--provider-acp-next",
+      "/settings/plugins/hyperfide--provider-acp-next",
       "/settings/plugins/provider-acp",
     ],
-    ["/plugins/bb--provider-acp-next", "/plugins/provider-acp"],
+    ["/plugins/hyperfide--provider-acp-next", "/plugins/provider-acp"],
     [
-      "/extensions/plugins/bb--provider-acp-next/settings",
+      "/extensions/plugins/hyperfide--provider-acp-next/settings",
       "/extensions/plugins/provider-acp/settings",
     ],
   ])("rewrites %s", (pathname, expected) => {
@@ -21,8 +21,8 @@ describe("pathWithRetiredPluginIdsReplaced", () => {
 
   it.each([
     "/settings/plugins/provider-acp",
-    "/settings/plugins/bb--provider-acp-next-extra",
-    "/threads/bb",
+    "/settings/plugins/hyperfide--provider-acp-next-extra",
+    "/threads/hyperfide",
     "/settings/plugins/constructor",
   ])("leaves %s alone", (pathname) => {
     expect(pathWithRetiredPluginIdsReplaced(pathname)).toBeNull();

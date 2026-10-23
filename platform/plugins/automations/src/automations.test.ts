@@ -38,7 +38,7 @@ import {
   validateOnceDefinition,
 } from "./schedule-helpers.js";
 import {
-  bbBinaryCandidates,
+  hyperfideBinaryCandidates,
   executeStoredScript,
   isWakeAgentSuppressed,
   mapScriptResultToRun,
@@ -169,7 +169,7 @@ function legacyAutomationRow(
   };
 }
 
-function createAutomationServiceBb() {
+function createAutomationServiceHyperfide() {
   return {
     sdk: {
       system: {
@@ -347,12 +347,12 @@ describe("data migrations", () => {
 });
 
 describe("startup reconciliation", () => {
-  function reconcileBb(threads: {
+  function reconcileHyperfide(threads: {
     get: (args: { threadId: string }) => Promise<unknown>;
   }) {
     const published: unknown[] = [];
     return {
-      bb: {
+      hyperfide: {
         sdk: {
           threads: {
             get: threads.get,
@@ -405,12 +405,12 @@ describe("startup reconciliation", () => {
       runMode: "agent",
       now: 1000,
     }).run;
-    const { bb, published } = reconcileBb({
+    const { hyperfide, published } = reconcileHyperfide({
       get: async () => {
         throw new Error("no thread should be asked about");
       },
     });
-    await reconcileRunningAutomationRuns(bb, db);
+    await reconcileRunningAutomationRuns(hyperfide, db);
     for (const run of [scriptRun, agentRun]) {
       const settled = listAutomationRuns(db, {
         automationId: run.automationId,
@@ -472,7 +472,7 @@ describe("startup reconciliation", () => {
       setAutomationRunThread(db, { runId: run.id, threadId });
       threads.set(threadId, testCase.thread);
     }
-    const { bb } = reconcileBb({
+    const { hyperfide } = reconcileHyperfide({
       get: async ({ threadId }) => {
         const value = threads.get(threadId);
         if (value === null) {
@@ -482,7 +482,7 @@ describe("startup reconciliation", () => {
         return value;
       },
     });
-    await reconcileRunningAutomationRuns(bb, db);
+    await reconcileRunningAutomationRuns(hyperfide, db);
     for (const testCase of cases) {
       const run = listAutomationRuns(db, {
         automationId: testCase.id,
@@ -818,7 +818,7 @@ describe("automation data access", () => {
     async (nextRunAt) => {
       const db = createTestDb();
       const automation = createScheduledAutomation(db, nextRunAt);
-      const bb = {
+      const hyperfide = {
         sdk: {
           hosts: {
             list: vi.fn(async () => {
@@ -865,14 +865,16 @@ describe("automation data access", () => {
         },
       };
 
-      await sweepDueAutomations(bb, db, {
+      await sweepDueAutomations(hyperfide, db, {
         pluginDataDir: "/tmp",
         serverUrl: "http://127.0.0.1:38886",
         serverHostId: "host_server",
         now: 1000,
       });
 
-      expect(bb.sdk.hosts.list).toHaveBeenCalledTimes(nextRunAt > 1000 ? 0 : 1);
+      expect(hyperfide.sdk.hosts.list).toHaveBeenCalledTimes(
+        nextRunAt > 1000 ? 0 : 1,
+      );
       expect(getAutomation(db, automation.id)?.runCount).toBe(0);
       expect(
         listAutomationRuns(db, { automationId: automation.id, limit: 10 }),
@@ -1013,9 +1015,11 @@ describe("automation data access", () => {
 describe("automation service", () => {
   it("chooses runnable defaults for new scripts and preserves the automation-storage directory on replacement", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-service-"),
+    );
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      hyperfide: createAutomationServiceHyperfide(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1128,12 +1132,14 @@ describe("automation service", () => {
 
   it("reads the server host identity after a co-located daemon initializes", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
-    const bb = createAutomationServiceBb();
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-service-"),
+    );
+    const hyperfide = createAutomationServiceHyperfide();
     let serverHostId: string | null = null;
-    bb.sdk.system.config = async () => ({ primaryHostId: serverHostId });
+    hyperfide.sdk.system.config = async () => ({ primaryHostId: serverHostId });
     const service = createAutomationService({
-      bb,
+      hyperfide,
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1162,9 +1168,11 @@ describe("automation service", () => {
 
   it("updates only a script working-directory policy", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-service-"),
+    );
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      hyperfide: createAutomationServiceHyperfide(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1225,7 +1233,7 @@ describe("automation service", () => {
             workingDirectory: { type: "path", path: "relative/path" },
           },
         }),
-      ).rejects.toThrow("absolute path on the bb server host");
+      ).rejects.toThrow("absolute path on the hyperfide-platform server host");
       await expect(
         service.update({
           projectId: "proj_test",
@@ -1263,7 +1271,7 @@ describe("automation service", () => {
 
   it("validates project availability before creating an automation", async () => {
     const db = createTestDb();
-    const bb = {
+    const hyperfide = {
       sdk: {
         system: { config: async () => ({ primaryHostId: null }) },
         projects: {
@@ -1299,7 +1307,7 @@ describe("automation service", () => {
       },
     };
     const service = createAutomationService({
-      bb,
+      hyperfide,
       db,
       pluginDataDir: "/tmp",
       serverUrl: "http://127.0.0.1:38886",
@@ -1328,7 +1336,9 @@ describe("automation service", () => {
 
   it("removes a stored script directory after switching to agent execution", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-service-"),
+    );
     const automation = createAutomation(db, {
       id: "auto_script_to_agent",
       projectId: "proj_test",
@@ -1350,7 +1360,7 @@ describe("automation service", () => {
     await mkdir(scriptDir, { recursive: true });
     await writeFile(join(scriptDir, "old.sh"), "echo old\n");
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      hyperfide: createAutomationServiceHyperfide(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1379,7 +1389,9 @@ describe("automation service", () => {
 
   it("removes only a superseded stored script file after a filename change", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-service-"),
+    );
     const automation = createAutomation(db, {
       id: "auto_script_rename",
       projectId: "proj_test",
@@ -1402,7 +1414,7 @@ describe("automation service", () => {
     await writeFile(join(scriptDir, "old.sh"), "echo old\n");
     await writeFile(join(scriptDir, "keep.txt"), "keep\n");
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      hyperfide: createAutomationServiceHyperfide(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1434,7 +1446,9 @@ describe("automation service", () => {
 
   it("removes a newly staged filename when the database update fails", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-service-"),
+    );
     const automation = createAutomation(db, {
       id: "auto_script_rollback",
       projectId: "proj_test",
@@ -1461,7 +1475,7 @@ describe("automation service", () => {
         SELECT RAISE(ABORT, 'update rejected');
       END`);
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      hyperfide: createAutomationServiceHyperfide(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1491,7 +1505,9 @@ describe("automation service", () => {
 
   it("does not overwrite the active filename when the database update fails", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-service-"),
+    );
     const automation = createAutomation(db, {
       id: "auto_script_same_name_rollback",
       projectId: "proj_test",
@@ -1518,7 +1534,7 @@ describe("automation service", () => {
         SELECT RAISE(ABORT, 'update rejected');
       END`);
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      hyperfide: createAutomationServiceHyperfide(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1552,18 +1568,18 @@ describe("automation CLI --script-file", () => {
 
   async function setup() {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-1649-data-"));
-    const srcDir = await mkdtemp(join(tmpdir(), "bb-1649-src-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "hyperfide-1649-data-"));
+    const srcDir = await mkdtemp(join(tmpdir(), "hyperfide-1649-src-"));
     const reads: FileReadCall[] = [];
-    const serviceBb = createAutomationServiceBb();
+    const serviceHyperfide = createAutomationServiceHyperfide();
     const service = createAutomationService({
-      bb: serviceBb,
+      hyperfide: serviceHyperfide,
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:1",
     });
     const sdk = {
-      ...serviceBb.sdk,
+      ...serviceHyperfide.sdk,
       hosts: {
         list: async () => [
           { id: "host_server", name: "server" },
@@ -1571,7 +1587,7 @@ describe("automation CLI --script-file", () => {
         ],
       },
       threads: {
-        ...serviceBb.sdk.threads,
+        ...serviceHyperfide.sdk.threads,
         get: async ({ threadId }: { threadId: string }) =>
           threadId === "thr_env"
             ? { id: threadId, environment: { hostId: "host_laptop" } }
@@ -1593,7 +1609,7 @@ describe("automation CLI --script-file", () => {
     };
     let cli: PluginCliRegistration | undefined;
     registerAutomationCli({
-      bb: {
+      hyperfide: {
         sdk: sdk as never,
         cli: {
           register: (registration) => {
@@ -1736,7 +1752,7 @@ describe("automation CLI --script-file", () => {
       expect(created.stdout).toContain(`Copied ${sourcePath}`);
       expect(created.stdout).toContain(`to ${storedPath}`);
       expect(created.stdout).toContain(
-        `bb automation update ${automationId} --project proj_test --script-file ${pastedShellArg(sourcePath)} --interpreter bash --working-directory project --timeout 120000`,
+        `hyperfide-platform automation update ${automationId} --project proj_test --script-file ${pastedShellArg(sourcePath)} --interpreter bash --working-directory project --timeout 120000`,
       );
       expect(created.stdout).toContain("Working dir: /server/project");
 
@@ -1953,7 +1969,7 @@ describe("automation CLI --script-file", () => {
       expect(created.exitCode).toBe(0);
       const automationId = idFrom(created.stdout);
       expect(created.stdout).toContain(
-        `bb automation update ${automationId} --project proj_test --script-file '${sourcePath}' --interpreter python3 --working-directory project --timeout 5000 --env-json '{"CHANNEL":"qa","MSG":"it'\\''s"}'`,
+        `hyperfide-platform automation update ${automationId} --project proj_test --script-file '${sourcePath}' --interpreter python3 --working-directory project --timeout 5000 --env-json '{"CHANNEL":"qa","MSG":"it'\\''s"}'`,
       );
     } finally {
       await t.cleanup();
@@ -2021,57 +2037,79 @@ describe("automation CLI --script-file", () => {
   });
 });
 
-describe("bb CLI injection for script runs", () => {
+describe("hyperfide CLI injection for script runs", () => {
   it("prefers the env pointers over PATH and macOS install locations", () => {
     expect(
-      bbBinaryCandidates({
-        HYPERFIDE_CLI: "/daemon/bundle/bb",
+      hyperfideBinaryCandidates({
+        HYPERFIDE_CLI: "/daemon/bundle/hyperfide",
         HYPERFIDE_CLI_DIR: "/other/dir",
       })[0],
-    ).toBe("/daemon/bundle/bb");
-    expect(bbBinaryCandidates({ HYPERFIDE_CLI_DIR: "/daemon/bundle" })[0]).toBe(
-      join("/daemon/bundle", "bb"),
-    );
+    ).toBe("/daemon/bundle/hyperfide");
+    expect(
+      hyperfideBinaryCandidates({ HYPERFIDE_CLI_DIR: "/daemon/bundle" })[0],
+    ).toBe(join("/daemon/bundle", "hyperfide-platform"));
   });
 
   it("expands PATH itself so every candidate is absolute", () => {
     expect(
-      bbBinaryCandidates({ PATH: ["/usr/bin", "/opt/tools"].join(delimiter) }),
+      hyperfideBinaryCandidates({
+        PATH: ["/usr/bin", "/opt/tools"].join(delimiter),
+      }),
     ).toEqual([
-      join("/usr/bin", "bb"),
-      join("/opt/tools", "bb"),
-      "/opt/homebrew/bin/bb",
-      "/usr/local/bin/bb",
+      join("/usr/bin", "hyperfide-platform"),
+      join("/opt/tools", "hyperfide-platform"),
+      "/opt/homebrew/bin/hyperfide-platform",
+      "/usr/local/bin/hyperfide-platform",
     ]);
     expect(
-      bbBinaryCandidates({ PATH: "/usr/bin" }).every((c) => isAbsolute(c)),
+      hyperfideBinaryCandidates({ PATH: "/usr/bin" }).every((c) =>
+        isAbsolute(c),
+      ),
     ).toBe(true);
   });
 
   it("drops entries that would resolve against the wrong directory", () => {
     expect(
-      bbBinaryCandidates({ PATH: ["/usr/bin", "", "/bin"].join(delimiter) }),
+      hyperfideBinaryCandidates({
+        PATH: ["/usr/bin", "", "/bin"].join(delimiter),
+      }),
     ).toEqual([
-      join("/usr/bin", "bb"),
-      join("/bin", "bb"),
-      "/opt/homebrew/bin/bb",
-      "/usr/local/bin/bb",
+      join("/usr/bin", "hyperfide-platform"),
+      join("/bin", "hyperfide-platform"),
+      "/opt/homebrew/bin/hyperfide-platform",
+      "/usr/local/bin/hyperfide-platform",
     ]);
     expect(
-      bbBinaryCandidates({ HYPERFIDE_CLI: "  ", HYPERFIDE_CLI_DIR: "", PATH: "" }),
-    ).toEqual(["/opt/homebrew/bin/bb", "/usr/local/bin/bb"]);
+      hyperfideBinaryCandidates({
+        HYPERFIDE_CLI: "  ",
+        HYPERFIDE_CLI_DIR: "",
+        PATH: "",
+      }),
+    ).toEqual([
+      "/opt/homebrew/bin/hyperfide-platform",
+      "/usr/local/bin/hyperfide-platform",
+    ]);
     expect(
-      bbBinaryCandidates({ HYPERFIDE_CLI: "./bb", HYPERFIDE_CLI_DIR: "rel/dir", PATH: "" }),
-    ).toEqual(["/opt/homebrew/bin/bb", "/usr/local/bin/bb"]);
+      hyperfideBinaryCandidates({
+        HYPERFIDE_CLI: "./hyperfide",
+        HYPERFIDE_CLI_DIR: "rel/dir",
+        PATH: "",
+      }),
+    ).toEqual([
+      "/opt/homebrew/bin/hyperfide-platform",
+      "/usr/local/bin/hyperfide-platform",
+    ]);
   });
 
-  it("prepends bb's directory to PATH only when it is absolute", () => {
-    expect(scriptPathEnv("/daemon/bundle/bb", "/usr/bin:/bin")).toBe(
-      `${dirname("/daemon/bundle/bb")}${delimiter}/usr/bin:/bin`,
+  it("prepends hyperfide's directory to PATH only when it is absolute", () => {
+    expect(scriptPathEnv("/daemon/bundle/hyperfide", "/usr/bin:/bin")).toBe(
+      `${dirname("/daemon/bundle/hyperfide")}${delimiter}/usr/bin:/bin`,
     );
-    expect(scriptPathEnv("bb", "/usr/bin:/bin")).toBe("/usr/bin:/bin");
+    expect(scriptPathEnv("hyperfide-platform", "/usr/bin:/bin")).toBe(
+      "/usr/bin:/bin",
+    );
     expect(scriptPathEnv(null, "/usr/bin:/bin")).toBe("/usr/bin:/bin");
-    expect(scriptPathEnv("/daemon/bundle/bb", undefined)).toBe(
+    expect(scriptPathEnv("/daemon/bundle/hyperfide", undefined)).toBe(
       "/daemon/bundle",
     );
   });
@@ -2104,7 +2142,7 @@ describe("script process containment", () => {
   }) => {
     skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
     const pluginDataDir = await mkdtemp(
-      join(tmpdir(), "bb-auto-process-group-"),
+      join(tmpdir(), "hyperfide-auto-process-group-"),
     );
     const scriptDir = automationScriptDir(pluginDataDir, "auto_timeout");
     await mkdir(scriptDir, { recursive: true });
@@ -2144,11 +2182,11 @@ describe("script process containment", () => {
 });
 
 describe("script project context", () => {
-  function withoutMissingBbCliWarning(
+  function withoutMissingHyperfideCliWarning(
     output: string | null | undefined,
   ): string | null | undefined {
     return output?.replace(
-      /^\[bb\] warning: could not locate the bb CLI, so `bb` is not on PATH for this script\.\n/u,
+      /^\[hyperfide\] warning: could not locate the hyperfide CLI, so `hyperfide` is not on PATH for this script\.\n/u,
       "",
     );
   }
@@ -2189,7 +2227,9 @@ describe("script project context", () => {
       | { type: "path"; path: string };
   }) {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-context-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-context-"),
+    );
     const scriptDir = automationScriptDir(pluginDataDir, "auto_context");
     await mkdir(scriptDir, { recursive: true });
     await writeFile(join(scriptDir, "script.sh"), args.script);
@@ -2218,7 +2258,7 @@ describe("script project context", () => {
       now: 2_000,
     });
     const warnings: string[] = [];
-    const bb = {
+    const hyperfide = {
       sdk: {
         projects: {
           get: async () => ({
@@ -2241,7 +2281,7 @@ describe("script project context", () => {
       },
     };
     try {
-      await executeScriptRun(bb, db, {
+      await executeScriptRun(hyperfide, db, {
         pluginDataDir,
         automation,
         run,
@@ -2256,7 +2296,7 @@ describe("script project context", () => {
         },
         serverUrl: "http://127.0.0.1:38886",
         resolveWorkingDirectory: createScriptWorkingDirectoryResolver({
-          sdk: bb.sdk,
+          sdk: hyperfide.sdk,
           pluginDataDir,
           serverHostId:
             args.serverHostId === undefined ? "host_server" : args.serverHostId,
@@ -2267,10 +2307,10 @@ describe("script project context", () => {
         limit: 1,
       });
       const service = createAutomationService({
-        bb: {
-          ...bb,
+        hyperfide: {
+          ...hyperfide,
           sdk: {
-            ...bb.sdk,
+            ...hyperfide.sdk,
             system: {
               config: async () => ({
                 primaryHostId:
@@ -2279,7 +2319,7 @@ describe("script project context", () => {
                     : args.serverHostId,
               }),
             },
-            projects: { ...bb.sdk.projects, list: async () => [] },
+            projects: { ...hyperfide.sdk.projects, list: async () => [] },
             providers: { list: async () => [] as never },
           },
         } as never,
@@ -2310,8 +2350,12 @@ describe("script project context", () => {
     skip,
   }) => {
     skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
-    const serverProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-server-"));
-    const remoteProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-remote-"));
+    const serverProjectDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-server-"),
+    );
+    const remoteProjectDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-remote-"),
+    );
     await mkdir(join(serverProjectDir, "bin"));
     await writeFile(
       join(serverProjectDir, "bin", "build-views.txt"),
@@ -2338,7 +2382,7 @@ describe("script project context", () => {
         status: "succeeded",
         exitCode: 0,
       });
-      expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+      expect(withoutMissingHyperfideCliWarning(result.closed?.output)).toBe(
         `${await realpath(serverProjectDir)}\nproject-relative file found\n`,
       );
     } finally {
@@ -2351,8 +2395,12 @@ describe("script project context", () => {
     skip,
   }) => {
     skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
-    const serverProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-server-"));
-    const explicitDir = await mkdtemp(join(tmpdir(), "bb-auto-explicit-"));
+    const serverProjectDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-server-"),
+    );
+    const explicitDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-explicit-"),
+    );
     const sources = [
       projectSource({
         hostId: "host_server",
@@ -2372,7 +2420,7 @@ describe("script project context", () => {
           sources,
         });
         expect(result.displayedWorkingDirectory).not.toBeNull();
-        expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+        expect(withoutMissingHyperfideCliWarning(result.closed?.output)).toBe(
           `${result.displayedWorkingDirectory}\n`,
         );
       }
@@ -2383,7 +2431,9 @@ describe("script project context", () => {
   });
 
   it("fails project policy instead of using another host's source", async () => {
-    const remoteProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-remote-"));
+    const remoteProjectDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-remote-"),
+    );
     try {
       const result = await runScriptAutomation({
         script: "pwd -P\n",
@@ -2398,7 +2448,8 @@ describe("script project context", () => {
       });
       expect(result.closed).toMatchObject({
         status: "failed",
-        error: "Project proj_test has no source on the bb server host",
+        error:
+          "Project proj_test has no source on the hyperfide-platform server host",
       });
     } finally {
       await rm(remoteProjectDir, { recursive: true, force: true });
@@ -2414,7 +2465,8 @@ describe("script project context", () => {
     });
     expect(result.closed).toMatchObject({
       status: "failed",
-      error: "Project proj_test has no source on the bb server host",
+      error:
+        "Project proj_test has no source on the hyperfide-platform server host",
     });
   });
 
@@ -2451,7 +2503,7 @@ describe("script project context", () => {
       sources: [
         projectSource({
           hostId: "host_server",
-          path: join(tmpdir(), "bb-auto-missing-project-source"),
+          path: join(tmpdir(), "hyperfide-auto-missing-project-source"),
           isDefault: true,
         }),
       ],
@@ -2477,7 +2529,7 @@ describe("script project context", () => {
       exitCode: 2,
       error: "Script exited with code 2: missing project file",
     });
-    expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+    expect(withoutMissingHyperfideCliWarning(result.closed?.output)).toBe(
       "stdout kept\n\n  missing project file  \nlater detail\n",
     );
   });
@@ -2562,7 +2614,9 @@ describe("script wake gate", () => {
 describe("legacy import", () => {
   it("ingests legacy rows, moves environment into agent execution, and imports scripts once", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-plugin-"));
+    const pluginDataDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-auto-plugin-"),
+    );
     await mkdir(join(pluginDataDir, "import"), { recursive: true });
     await writeFile(
       join(pluginDataDir, "import", "legacy-automations.json"),
@@ -2592,7 +2646,7 @@ describe("legacy import", () => {
       }),
     );
     const kv = new Map<string, unknown>();
-    const bb = {
+    const hyperfide = {
       storage: {
         kv: {
           get: async <T>(key: string) => kv.get(key) as T | undefined,
@@ -2604,8 +2658,8 @@ describe("legacy import", () => {
       log: { info: () => undefined },
     };
 
-    await ingestLegacyImport({ bb, db, pluginDataDir });
-    await ingestLegacyImport({ bb, db, pluginDataDir });
+    await ingestLegacyImport({ hyperfide, db, pluginDataDir });
+    await ingestLegacyImport({ hyperfide, db, pluginDataDir });
 
     const imported = getAutomation(db, "auto_legacy");
     expect(imported).not.toBeNull();
@@ -2644,7 +2698,9 @@ describe("legacy import", () => {
 
     for (const testCase of cases) {
       const db = createTestDb();
-      const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-plugin-"));
+      const pluginDataDir = await mkdtemp(
+        join(tmpdir(), "hyperfide-auto-plugin-"),
+      );
       try {
         await mkdir(join(pluginDataDir, "import"), { recursive: true });
         await writeFile(
@@ -2656,7 +2712,7 @@ describe("legacy import", () => {
           }),
         );
         const kv = new Map<string, unknown>();
-        const bb = {
+        const hyperfide = {
           storage: {
             kv: {
               get: async <T>(key: string) => kv.get(key) as T | undefined,
@@ -2669,7 +2725,7 @@ describe("legacy import", () => {
         };
 
         await expect(
-          ingestLegacyImport({ bb, db, pluginDataDir }),
+          ingestLegacyImport({ hyperfide, db, pluginDataDir }),
           testCase.name,
         ).rejects.toThrow(/does not match/u);
       } finally {

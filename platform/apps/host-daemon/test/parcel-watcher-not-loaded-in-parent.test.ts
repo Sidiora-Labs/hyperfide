@@ -19,7 +19,7 @@ const hostWatcherEntry = resolve(
 
 const packageTmpDir = resolve(here, "..", ".tmp");
 await mkdir(packageTmpDir, { recursive: true });
-const outDir = await mkdtemp(join(packageTmpDir, "bb-1873-bundle-"));
+const outDir = await mkdtemp(join(packageTmpDir, "hyperfide-1873-bundle-"));
 const outfile = join(outDir, "host-watcher-bundle.mjs");
 
 afterAll(async () => {

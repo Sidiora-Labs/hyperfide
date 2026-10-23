@@ -4,7 +4,7 @@ export {
   type FleetBackend,
 } from "./src/fleet-view/rpc.js";
 
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { registerFleetRpc, type FleetBackend } from "./src/fleet-view/rpc.js";
 
 import { ImageBuilder } from "./src/image-builder/builder.js";
@@ -14,7 +14,7 @@ export function createFleetPlugin(
   backend: FleetBackend,
   builder?: ImageBuilder,
 ) {
-  return (api: BbPluginApi) => {
+  return (api: HyperfidePluginApi) => {
     registerFleetRpc(api, backend);
     if (builder) registerImageBuilder(api, builder);
   };

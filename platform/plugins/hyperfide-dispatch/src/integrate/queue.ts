@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertUniqueTaskHeaders } from "../../../hyperfide-spec/src/duplicate-headers";
+import type { SandboxMachineOps } from "../machine-ops";
 
 const exec = promisify(execFile);
 export interface FinishedJob {
@@ -21,17 +22,8 @@ export interface MergeState {
   commit?: string;
   threadId?: string;
 }
-export interface IntegrationMachine {
-  exec(
-    command: string,
-    options: { cwd: string },
-  ): Promise<{ exitCode: number; stderr: string; timedOut?: boolean }>;
-  writeFile(path: string, data: Uint8Array): Promise<void>;
-  readFile(path: string): Promise<Uint8Array>;
-  destroy(): Promise<void>;
-}
 export interface IntegrationDependencies {
-  machines: { create(): Promise<IntegrationMachine> };
+  machines: SandboxMachineOps;
   asks(job: FinishedJob): Promise<{ blocking: boolean; answered: boolean }[]>;
   command(
     command: string,
@@ -185,7 +177,7 @@ export class IntegrationQueue {
           "--",
           "platform/pnpm-lock.yaml",
         );
-        const machine = await this.deps.machines.create();
+        const machine = await this.deps.machines.create({});
         try {
           const inputs = (
             await this.git(worktree, "ls-files", "-z", "platform")

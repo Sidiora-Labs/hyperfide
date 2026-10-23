@@ -196,8 +196,8 @@ vi.mock("@hyperfide/shared-ui/button", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => (testState.isDesktop ? {} : null),
+vi.mock("@/lib/hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => (testState.isDesktop ? {} : null),
 }));
 
 afterEach(() => {
@@ -221,7 +221,7 @@ describe("KeyboardSettingsSection", () => {
       setPluginSlotRegistrations(
         "test-shortcuts",
         collectPluginAppRegistrations({
-          __bbPluginApp: true,
+          __hyperfidePluginApp: true,
           setup(app) {
             for (const id of ["first", "second"]) {
               app.commands.register({
@@ -440,7 +440,7 @@ describe("KeyboardSettingsSection", () => {
     setPluginSlotRegistrations(
       "test-shortcuts",
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __hyperfidePluginApp: true,
         setup(app) {
           for (const [id, title] of [
             ["sidebar-open", "Open navigation"],
@@ -578,7 +578,7 @@ describe("KeyboardSettingsSection", () => {
     setPluginSlotRegistrations(
       "test-shortcuts",
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __hyperfidePluginApp: true,
         setup(app) {
           app.commands.register({
             id: "open",
@@ -607,7 +607,7 @@ describe("KeyboardSettingsSection", () => {
     setPluginSlotRegistrations(
       "test-shortcuts",
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __hyperfidePluginApp: true,
         setup(app) {
           app.commands.register({
             id: "open",

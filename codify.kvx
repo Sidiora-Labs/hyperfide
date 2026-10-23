@@ -9,4 +9,4 @@ skills  = ".agents/skills"  # generated SKILL.md files
 codemap = "CODEMAP.md"      # written by cg codemap
 
 [index]
-# workers = auto            # parse workers per index pass: 1-64; auto sizes from the machine
+workers = 8                # parse workers for the 8 CPU execution sandbox

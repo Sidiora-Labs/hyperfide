@@ -15,4 +15,4 @@ The plugin claims common code, configuration, and text extensions. Binary files 
 
 To change the opener for one file type, go to Settings and open File openers. Right-click a file link for a one-off Open with choice.
 
-There is no language server. Go-to-definition, find references, and type checking are not available.
+Workspace files use `hyperfide lsp` through the host daemon for go-to-definition, find references, and hover. When the binary is unavailable, editing continues silently. The Index panel shows the repository language server status.

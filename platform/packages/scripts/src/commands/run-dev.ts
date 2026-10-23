@@ -55,7 +55,7 @@ export function createStartWorktreeCommand(
       "--conditions=source",
       "--import",
       "tsx",
-      resolve(repoRoot, "scripts", "start-bb.mjs"),
+      resolve(repoRoot, "scripts", "start-hyperfide.mjs"),
       "--worktree-runtime-policy",
       ...(dryRun ? ["--dryrun"] : []),
       ...(performanceDiagnostics ? ["--perf-diagnostics"] : []),
@@ -208,7 +208,7 @@ async function main(): Promise<void> {
     await assertPortsAvailable(config, mode);
     await mkdir(config.dataDir, { recursive: true });
     await writeFile(
-      resolve(config.dataDir, "bb-dev-instance.json"),
+      resolve(config.dataDir, "hyperfide-dev-instance.json"),
       JSON.stringify({ repoRoot: config.repoRoot }),
       "utf8",
     );

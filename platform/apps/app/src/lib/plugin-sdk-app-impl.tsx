@@ -57,8 +57,8 @@ import { usePluginId } from "@/components/plugin/plugin-context";
 import { useQuestionFormHost } from "@hyperfide/shared-ui/question-form-host";
 import { definePluginApp } from "./plugin-app-definition";
 import {
-  useBbContext,
-  useBbNavigate,
+  useHyperfideContext,
+  useHyperfideNavigate,
   useComposer,
   useComposers,
   useComposerView,
@@ -143,10 +143,10 @@ export const pluginSdkAppImplementation = {
   definePluginApp,
   experimental_Icon: Icon,
   experimental_ProviderIcon: ProviderIcon,
-  useBbContext,
+  useHyperfideContext,
   experimental_usePluginId: usePluginId,
   experimental_useQuestionFormHost: useQuestionFormHost,
-  useBbNavigate,
+  useHyperfideNavigate,
   experimental_useAppPanel,
   experimental_useFixedTabTarget,
   useComposer,

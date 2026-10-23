@@ -8,7 +8,7 @@
   "afterPack": "scripts/prepare-native-modules.cjs",
   "asar": true,
   "asarUnpack": [
-    "dist/bb-app-bridge.mjs",
+    "dist/hyperfide-app-bridge.mjs",
     "node_modules/**"
   ],
   "directories": {
@@ -20,14 +20,14 @@
     "dist/**",
     "node_modules/**",
     {
-      "from": "node_modules/bb-app/server/dist/app-scaffold-template",
-      "to": "node_modules/bb-app/server/dist/app-scaffold-template",
+      "from": "node_modules/hyperfide-app/server/dist/app-scaffold-template",
+      "to": "node_modules/hyperfide-app/server/dist/app-scaffold-template",
       "filter": [
         "**/*"
       ]
     },
     {
-      "from": "node_modules/bb-app/node_modules/npm/node_modules",
+      "from": "node_modules/hyperfide-app/node_modules/npm/node_modules",
       "to": "node_modules/npm/node_modules",
       "filter": [
         "**/*"

@@ -465,7 +465,7 @@ export function createServerClient(
         instanceId: args.instanceId,
         hostName: args.hostName,
         hasMachineCredential: Boolean(
-          options.serverHeaders?.["x-bb-connect-machine"]?.trim(),
+          options.serverHeaders?.["x-hyperfide-connect-machine"]?.trim(),
         ),
         platform: resolveHostPlatform(),
         dataDir: args.dataDir,

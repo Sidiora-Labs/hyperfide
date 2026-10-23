@@ -19,7 +19,7 @@ import { startPerformanceDiagnostics } from "../src/performance-diagnostics.js";
 
 describe("performance diagnostics", () => {
   it("saves an actual CPU profile on shutdown and stops idempotently", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-perf-test-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-perf-test-"));
     const warnings: unknown[] = [];
     const monitor = await startPerformanceDiagnostics({
       dataDir,
@@ -64,7 +64,7 @@ describe("performance diagnostics", () => {
   });
 
   it("logs the sampled blocker without attributing an adjacent short callback", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-stall-attribution-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-stall-attribution-"));
     const records: object[] = [];
     const warnings: object[] = [];
     const monitor = await startPerformanceDiagnostics({
@@ -122,7 +122,7 @@ describe("performance diagnostics", () => {
   });
 
   it("rotates bounded main-thread windows and ignores unrelated console captures", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-perf-rotation-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-perf-rotation-"));
     const savedPaths: string[] = [];
     const warnings: unknown[] = [];
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
@@ -180,7 +180,7 @@ describe("performance diagnostics", () => {
   });
 
   it("expires old captures and reserves the byte budget without overwriting recent sessions", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-perf-retention-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-perf-retention-"));
     const directory = join(dataDir, "logs", "performance");
     await mkdir(directory, { recursive: true });
     const now = Date.now();
@@ -241,7 +241,7 @@ describe("performance diagnostics", () => {
   });
 
   it("stops cleanly when saving a capture fails", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-perf-save-failure-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-perf-save-failure-"));
     const warnings: unknown[] = [];
     const monitor = await startPerformanceDiagnostics({
       dataDir,
@@ -266,7 +266,7 @@ describe("performance diagnostics", () => {
   });
 
   it("keeps startup and shutdown usable when the profile directory cannot be created", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-perf-unwritable-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-perf-unwritable-"));
     const warnings: unknown[] = [];
     try {
       await writeFile(join(dataDir, "logs"), "not a directory");

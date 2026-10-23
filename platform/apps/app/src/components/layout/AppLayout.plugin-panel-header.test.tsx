@@ -147,7 +147,7 @@ vi.mock("@/lib/iframe-drag-guard", () => ({
   IframeDragGuardOverlay: () => null,
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
+vi.mock("@/lib/hyperfide-desktop", () => ({
   BROWSER_SIDEBAR_TRIGGER_INSET_CLASS: "",
   CHROME_ROW_CLASS: "",
   DEFAULT_DESKTOP_WINDOW_STATE: { isFullScreen: false },
@@ -160,7 +160,7 @@ vi.mock("@/lib/bb-desktop", () => ({
   MACOS_TRAFFIC_LIGHT_RESERVE_PADDING_CLASS: "",
   MACOS_WINDOW_DRAG_CLASS: "",
   MACOS_WINDOW_NO_DRAG_CLASS: "",
-  getBbDesktopInfo: () => null,
+  getHyperfideDesktopInfo: () => null,
   shouldReserveMacosTrafficLights: () => false,
   shouldUseMacosDesktopChrome: () => viewportState.macosChrome,
 }));

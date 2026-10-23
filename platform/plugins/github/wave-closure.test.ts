@@ -5,8 +5,15 @@ import { mountWaveClosure } from "../hyperfide-qualify/app";
 import {
   makeHumanTasks,
   type WaveSnapshot,
-} from "../hyperfide-spec/closure-projection";
+} from "../hyperfide-spec/wave-authority";
 import { closureView } from "../hyperfide-spec/wave-detail";
+import { wavePullRequests } from "./wave-publication";
+
+it("rejects a configured client that returns no pull request URL", async () => {
+  const publish = wavePullRequests({ createPullRequest: async () => ({ url: " " }) }, "fixture/repo");
+  await expect(publish({ feature: "fixture", wave: 4, branch: "publication/fixture/wave-4",
+    base: "main", summary: "Wave complete" })).rejects.toThrow("no URL");
+});
 
 it("renders closure blockers and requires an operator action for each human job", async () => {
   const commit = "a".repeat(40);

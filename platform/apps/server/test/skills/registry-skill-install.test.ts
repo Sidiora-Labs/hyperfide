@@ -71,7 +71,7 @@ async function writeUntaggedSkill(args: {
 
 describe("installServerRegistrySkill", () => {
   it("atomically persists the exact registry entry provenance", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-registry-install-test-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-registry-install-test-"));
     try {
       stubDownloadedSkill("find-skills");
 
@@ -100,7 +100,7 @@ describe("installServerRegistrySkill", () => {
   });
 
   it("runs the skills CLI through the bundled npx instead of PATH", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-registry-npx-test-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-registry-npx-test-"));
     const originalElectronRunAsNode = process.env.ELECTRON_RUN_AS_NODE;
     process.env.ELECTRON_RUN_AS_NODE = "1";
     try {
@@ -133,7 +133,7 @@ describe("installServerRegistrySkill", () => {
   });
 
   it("adopts an exact untagged pre-provenance install", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-registry-adopt-test-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-registry-adopt-test-"));
     try {
       const skillDirectory = await writeUntaggedSkill({
         dataDir,
@@ -161,7 +161,7 @@ describe("installServerRegistrySkill", () => {
   });
 
   it("protects a differing manually-authored skill at the canonical path", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-registry-conflict-test-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-registry-conflict-test-"));
     try {
       const skillDirectory = await writeUntaggedSkill({
         dataDir,
@@ -191,7 +191,7 @@ describe("installServerRegistrySkill", () => {
   });
 
   it("does not adopt an untagged tree containing a symlink", async () => {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-registry-symlink-test-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-registry-symlink-test-"));
     try {
       const skillDirectory = await writeUntaggedSkill({
         dataDir,
@@ -221,7 +221,7 @@ describe("installServerRegistrySkill", () => {
 
   it("rejects a traversing skill id before spawning the installer", async () => {
     const dataDir = await mkdtemp(
-      join(tmpdir(), "bb-registry-traversal-test-"),
+      join(tmpdir(), "hyperfide-registry-traversal-test-"),
     );
     try {
       await expect(
@@ -243,7 +243,7 @@ describe("installServerRegistrySkill", () => {
 
   it("rejects malformed downloaded skill metadata without adopting it", async () => {
     const dataDir = await mkdtemp(
-      join(tmpdir(), "bb-registry-malformed-test-"),
+      join(tmpdir(), "hyperfide-registry-malformed-test-"),
     );
     try {
       stubDownloadedSkill(

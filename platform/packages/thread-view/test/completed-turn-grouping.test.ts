@@ -135,11 +135,11 @@ function summarySourceMessageIds(
 }
 
 describe("groupCompletedTurnMessages", () => {
-  it("keeps a bb thread tell command out of the summary", () => {
+  it("keeps a hyperfide-platform thread tell command out of the summary", () => {
     const before = commandMessage({ id: "command-1", seq: 1 });
     const sent = {
       ...commandMessage({ id: "sent", seq: 2 }),
-      command: 'bb thread tell thr_wrkr234567 "Is it ready?"',
+      command: 'hyperfide-platform thread tell thr_wrkr234567 "Is it ready?"',
     };
     const after = commandMessage({ id: "command-2", seq: 3 });
     const groups = groupCompletedTurnMessages(

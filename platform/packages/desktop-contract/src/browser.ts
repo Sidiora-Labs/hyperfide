@@ -9,49 +9,49 @@ import {
 export const HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH = 4096;
 export const HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH = 1024;
 
-export const bbDesktopBrowserTargetSchema = z
+export const hyperfideDesktopBrowserTargetSchema = z
   .object({
     hostId: z.string().min(1),
     instanceId: z.string().min(1),
     generation: z.string().min(1),
   })
   .strict();
-export type BbDesktopBrowserTarget = z.infer<
-  typeof bbDesktopBrowserTargetSchema
+export type HyperfideDesktopBrowserTarget = z.infer<
+  typeof hyperfideDesktopBrowserTargetSchema
 >;
 
-export const bbDesktopBrowserControlSchema = z
+export const hyperfideDesktopBrowserControlSchema = z
   .object({
     leaseId: z.string().min(1),
     controllerLabel: z.string().min(1),
     expiresAt: z.number().int().positive(),
   })
   .strict();
-export type BbDesktopBrowserControl = z.infer<
-  typeof bbDesktopBrowserControlSchema
+export type HyperfideDesktopBrowserControl = z.infer<
+  typeof hyperfideDesktopBrowserControlSchema
 >;
-export const bbDesktopBrowserControlStateSchema = z
+export const hyperfideDesktopBrowserControlStateSchema = z
   .object({
     tabId: z.string().min(1),
     threadId: z.string().min(1),
-    control: bbDesktopBrowserControlSchema.nullable(),
+    control: hyperfideDesktopBrowserControlSchema.nullable(),
   })
   .strict();
-export type BbDesktopBrowserControlState = z.infer<
-  typeof bbDesktopBrowserControlStateSchema
+export type HyperfideDesktopBrowserControlState = z.infer<
+  typeof hyperfideDesktopBrowserControlStateSchema
 >;
-export const bbDesktopBrowserRevealRequestSchema = z
+export const hyperfideDesktopBrowserRevealRequestSchema = z
   .object({
     tabId: z.string().min(1),
     threadId: z.string().min(1),
-    desktopTarget: bbDesktopBrowserTargetSchema,
+    desktopTarget: hyperfideDesktopBrowserTargetSchema,
   })
   .strict();
-export type BbDesktopBrowserRevealRequest = z.infer<
-  typeof bbDesktopBrowserRevealRequestSchema
+export type HyperfideDesktopBrowserRevealRequest = z.infer<
+  typeof hyperfideDesktopBrowserRevealRequestSchema
 >;
 
-const bbDesktopBrowserViewBoundsSchema = z
+const hyperfideDesktopBrowserViewBoundsSchema = z
   .object({
     x: z.number().int(),
     y: z.number().int(),
@@ -59,11 +59,11 @@ const bbDesktopBrowserViewBoundsSchema = z
     height: z.number().int().nonnegative(),
   })
   .strict();
-export type BbDesktopBrowserViewBounds = z.infer<
-  typeof bbDesktopBrowserViewBoundsSchema
+export type HyperfideDesktopBrowserViewBounds = z.infer<
+  typeof hyperfideDesktopBrowserViewBoundsSchema
 >;
 
-export interface BbDesktopBrowserViewportBounds {
+export interface HyperfideDesktopBrowserViewportBounds {
   width: number;
   height: number;
 }
@@ -74,18 +74,18 @@ interface ClampIntegerToRangeArgs {
   value: number;
 }
 
-interface ClampBbDesktopBrowserViewBoundsArgs {
-  bounds: BbDesktopBrowserViewBounds;
-  viewport: BbDesktopBrowserViewportBounds;
+interface ClampHyperfideDesktopBrowserViewBoundsArgs {
+  bounds: HyperfideDesktopBrowserViewBounds;
+  viewport: HyperfideDesktopBrowserViewportBounds;
 }
 
 function clampIntegerToRange(args: ClampIntegerToRangeArgs): number {
   return Math.min(Math.max(args.value, args.min), args.max);
 }
 
-export function clampBbDesktopBrowserViewBounds(
-  args: ClampBbDesktopBrowserViewBoundsArgs,
-): BbDesktopBrowserViewBounds {
+export function clampHyperfideDesktopBrowserViewBounds(
+  args: ClampHyperfideDesktopBrowserViewBoundsArgs,
+): HyperfideDesktopBrowserViewBounds {
   const viewportRight = Math.max(0, Math.round(args.viewport.width));
   const viewportBottom = Math.max(0, Math.round(args.viewport.height));
   const x = clampIntegerToRange({
@@ -117,70 +117,70 @@ export function clampBbDesktopBrowserViewBounds(
   };
 }
 
-export const bbDesktopBrowserAttachRequestSchema = z
+export const hyperfideDesktopBrowserAttachRequestSchema = z
   .object({
     tabId: z.string().min(1),
     threadId: z.string().min(1),
     url: z.string().max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
     existingOnly: z.literal(true).optional(),
-    bounds: bbDesktopBrowserViewBoundsSchema,
+    bounds: hyperfideDesktopBrowserViewBoundsSchema,
     visible: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserAttachRequest = z.infer<
-  typeof bbDesktopBrowserAttachRequestSchema
+export type HyperfideDesktopBrowserAttachRequest = z.infer<
+  typeof hyperfideDesktopBrowserAttachRequestSchema
 >;
 
-export const bbDesktopBrowserNavigateRequestSchema = z
+export const hyperfideDesktopBrowserNavigateRequestSchema = z
   .object({
     tabId: z.string().min(1),
     url: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserNavigateRequest = z.infer<
-  typeof bbDesktopBrowserNavigateRequestSchema
+export type HyperfideDesktopBrowserNavigateRequest = z.infer<
+  typeof hyperfideDesktopBrowserNavigateRequestSchema
 >;
 
-export const bbDesktopBrowserSetBoundsRequestSchema = z
+export const hyperfideDesktopBrowserSetBoundsRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    bounds: bbDesktopBrowserViewBoundsSchema,
+    bounds: hyperfideDesktopBrowserViewBoundsSchema,
   })
   .strict();
-export type BbDesktopBrowserSetBoundsRequest = z.infer<
-  typeof bbDesktopBrowserSetBoundsRequestSchema
+export type HyperfideDesktopBrowserSetBoundsRequest = z.infer<
+  typeof hyperfideDesktopBrowserSetBoundsRequestSchema
 >;
 
-export const bbDesktopBrowserSetVisibleRequestSchema = z
+export const hyperfideDesktopBrowserSetVisibleRequestSchema = z
   .object({
     tabId: z.string().min(1),
     visible: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserSetVisibleRequest = z.infer<
-  typeof bbDesktopBrowserSetVisibleRequestSchema
+export type HyperfideDesktopBrowserSetVisibleRequest = z.infer<
+  typeof hyperfideDesktopBrowserSetVisibleRequestSchema
 >;
 
-export const bbDesktopBrowserTabRefSchema = z
+export const hyperfideDesktopBrowserTabRefSchema = z
   .object({
     tabId: z.string().min(1),
   })
   .strict();
-export type BbDesktopBrowserTabRef = z.infer<
-  typeof bbDesktopBrowserTabRefSchema
+export type HyperfideDesktopBrowserTabRef = z.infer<
+  typeof hyperfideDesktopBrowserTabRefSchema
 >;
 
-export const bbDesktopBrowserSetThreadDiscardedRequestSchema = z
+export const hyperfideDesktopBrowserSetThreadDiscardedRequestSchema = z
   .object({
     threadId: z.string().min(1),
     discarded: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserSetThreadDiscardedRequest = z.infer<
-  typeof bbDesktopBrowserSetThreadDiscardedRequestSchema
+export type HyperfideDesktopBrowserSetThreadDiscardedRequest = z.infer<
+  typeof hyperfideDesktopBrowserSetThreadDiscardedRequestSchema
 >;
 
-export const bbDesktopBrowserStateSchema = z
+export const hyperfideDesktopBrowserStateSchema = z
   .object({
     tabId: z.string().min(1),
     url: z.string().max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
@@ -206,30 +206,30 @@ export const bbDesktopBrowserStateSchema = z
       .nullable(),
   })
   .strict();
-export type BbDesktopBrowserState = z.infer<typeof bbDesktopBrowserStateSchema>;
+export type HyperfideDesktopBrowserState = z.infer<typeof hyperfideDesktopBrowserStateSchema>;
 
-export const bbDesktopBrowserOpenTabRequestSchema = z
+export const hyperfideDesktopBrowserOpenTabRequestSchema = z
   .object({
     url: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserOpenTabRequest = z.infer<
-  typeof bbDesktopBrowserOpenTabRequestSchema
+export type HyperfideDesktopBrowserOpenTabRequest = z.infer<
+  typeof hyperfideDesktopBrowserOpenTabRequestSchema
 >;
 
-export const bbDesktopBrowserScopedOpenTabRequestSchema = z
+export const hyperfideDesktopBrowserScopedOpenTabRequestSchema = z
   .object({
     tabId: z.string().min(1),
     url: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserScopedOpenTabRequest = z.infer<
-  typeof bbDesktopBrowserScopedOpenTabRequestSchema
+export type HyperfideDesktopBrowserScopedOpenTabRequest = z.infer<
+  typeof hyperfideDesktopBrowserScopedOpenTabRequestSchema
 >;
 
 const HYPERFIDE_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH = 8_388_608;
 
-export const bbDesktopBrowserSnapshotSchema = z
+export const hyperfideDesktopBrowserSnapshotSchema = z
   .object({
     tabId: z.string().min(1),
     dataUrl: z
@@ -238,13 +238,13 @@ export const bbDesktopBrowserSnapshotSchema = z
       .nullable(),
   })
   .strict();
-export type BbDesktopBrowserSnapshot = z.infer<
-  typeof bbDesktopBrowserSnapshotSchema
+export type HyperfideDesktopBrowserSnapshot = z.infer<
+  typeof hyperfideDesktopBrowserSnapshotSchema
 >;
 
 export const HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH = 1024;
 
-export const bbDesktopBrowserFindInPageRequestSchema = z
+export const hyperfideDesktopBrowserFindInPageRequestSchema = z
   .object({
     tabId: z.string().min(1),
     text: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH),
@@ -252,21 +252,21 @@ export const bbDesktopBrowserFindInPageRequestSchema = z
     newSession: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserFindInPageRequest = z.infer<
-  typeof bbDesktopBrowserFindInPageRequestSchema
+export type HyperfideDesktopBrowserFindInPageRequest = z.infer<
+  typeof hyperfideDesktopBrowserFindInPageRequestSchema
 >;
 
-export const bbDesktopBrowserStopFindInPageRequestSchema = z
+export const hyperfideDesktopBrowserStopFindInPageRequestSchema = z
   .object({
     tabId: z.string().min(1),
     action: z.enum(["clearSelection", "keepSelection", "activateSelection"]),
   })
   .strict();
-export type BbDesktopBrowserStopFindInPageRequest = z.infer<
-  typeof bbDesktopBrowserStopFindInPageRequestSchema
+export type HyperfideDesktopBrowserStopFindInPageRequest = z.infer<
+  typeof hyperfideDesktopBrowserStopFindInPageRequestSchema
 >;
 
-export const bbDesktopBrowserFindResultSchema = z
+export const hyperfideDesktopBrowserFindResultSchema = z
   .object({
     tabId: z.string().min(1),
     requestId: z.number().int(),
@@ -275,42 +275,42 @@ export const bbDesktopBrowserFindResultSchema = z
     finalUpdate: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserFindResult = z.infer<
-  typeof bbDesktopBrowserFindResultSchema
+export type HyperfideDesktopBrowserFindResult = z.infer<
+  typeof hyperfideDesktopBrowserFindResultSchema
 >;
 
 export const HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH = 4_000_000;
 export const HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH = 256;
 
-export const bbDesktopBrowserPageWorldSchema = z.enum(["main", "isolated"]);
+export const hyperfideDesktopBrowserPageWorldSchema = z.enum(["main", "isolated"]);
 
-export const bbDesktopBrowserEvaluateRequestSchema = z
+export const hyperfideDesktopBrowserEvaluateRequestSchema = z
   .object({
     tabId: z.string().min(1),
     expression: z
       .string()
       .min(1)
       .max(HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH),
-    world: bbDesktopBrowserPageWorldSchema,
+    world: hyperfideDesktopBrowserPageWorldSchema,
     channel: z
       .string()
       .min(1)
       .max(HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserEvaluateRequest = z.infer<
-  typeof bbDesktopBrowserEvaluateRequestSchema
+export type HyperfideDesktopBrowserEvaluateRequest = z.infer<
+  typeof hyperfideDesktopBrowserEvaluateRequestSchema
 >;
 
-export const bbDesktopBrowserEvaluateResultSchema = z.discriminatedUnion("ok", [
+export const hyperfideDesktopBrowserEvaluateResultSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), value: jsonValueSchema }).strict(),
   z.object({ ok: z.literal(false), error: z.string() }).strict(),
 ]);
-export type BbDesktopBrowserEvaluateResult = z.infer<
-  typeof bbDesktopBrowserEvaluateResultSchema
+export type HyperfideDesktopBrowserEvaluateResult = z.infer<
+  typeof hyperfideDesktopBrowserEvaluateResultSchema
 >;
 
-export const bbDesktopBrowserPageMessageSchema = z
+export const hyperfideDesktopBrowserPageMessageSchema = z
   .object({
     tabId: z.string().min(1),
     channel: z
@@ -320,89 +320,89 @@ export const bbDesktopBrowserPageMessageSchema = z
     data: jsonValueSchema,
   })
   .strict();
-export type BbDesktopBrowserPageMessage = z.infer<
-  typeof bbDesktopBrowserPageMessageSchema
+export type HyperfideDesktopBrowserPageMessage = z.infer<
+  typeof hyperfideDesktopBrowserPageMessageSchema
 >;
-export type BbDesktopBrowserPageMessageHandler = (
-  message: BbDesktopBrowserPageMessage,
+export type HyperfideDesktopBrowserPageMessageHandler = (
+  message: HyperfideDesktopBrowserPageMessage,
 ) => void;
 
-export type BbDesktopBrowserStateHandler = (
-  state: BbDesktopBrowserState,
+export type HyperfideDesktopBrowserStateHandler = (
+  state: HyperfideDesktopBrowserState,
 ) => void;
-export type BbDesktopBrowserOpenTabHandler = (
-  request: BbDesktopBrowserOpenTabRequest,
+export type HyperfideDesktopBrowserOpenTabHandler = (
+  request: HyperfideDesktopBrowserOpenTabRequest,
 ) => void;
-export type BbDesktopBrowserScopedOpenTabHandler = (
-  request: BbDesktopBrowserScopedOpenTabRequest,
+export type HyperfideDesktopBrowserScopedOpenTabHandler = (
+  request: HyperfideDesktopBrowserScopedOpenTabRequest,
 ) => void;
-export type BbDesktopBrowserSnapshotHandler = (
-  snapshot: BbDesktopBrowserSnapshot,
+export type HyperfideDesktopBrowserSnapshotHandler = (
+  snapshot: HyperfideDesktopBrowserSnapshot,
 ) => void;
-export type BbDesktopBrowserFocusHandler = (tabId: string) => void;
-export type BbDesktopBrowserFindResultHandler = (
-  result: BbDesktopBrowserFindResult,
+export type HyperfideDesktopBrowserFocusHandler = (tabId: string) => void;
+export type HyperfideDesktopBrowserFindResultHandler = (
+  result: HyperfideDesktopBrowserFindResult,
 ) => void;
-export type BbDesktopBrowserUnsubscribe = () => void;
+export type HyperfideDesktopBrowserUnsubscribe = () => void;
 
-export const bbDesktopBrowserImportCookiesRequestSchema =
+export const hyperfideDesktopBrowserImportCookiesRequestSchema =
   desktopBrowserImportSelectionSchema;
-export type BbDesktopBrowserImportCookiesRequest = z.infer<
-  typeof bbDesktopBrowserImportCookiesRequestSchema
+export type HyperfideDesktopBrowserImportCookiesRequest = z.infer<
+  typeof hyperfideDesktopBrowserImportCookiesRequestSchema
 >;
-export type BbDesktopBrowserImportSourcesResult = {
+export type HyperfideDesktopBrowserImportSourcesResult = {
   sources: DesktopBrowserImportSource[];
 };
-export type BbDesktopBrowserImportCookiesResult = DesktopBrowserImportOutcome;
+export type HyperfideDesktopBrowserImportCookiesResult = DesktopBrowserImportOutcome;
 
-export interface BbDesktopBrowserApi {
-  listImportSources?(): Promise<BbDesktopBrowserImportSourcesResult>;
+export interface HyperfideDesktopBrowserApi {
+  listImportSources?(): Promise<HyperfideDesktopBrowserImportSourcesResult>;
   importCookies?(
-    request: BbDesktopBrowserImportCookiesRequest,
-  ): Promise<BbDesktopBrowserImportCookiesResult>;
+    request: HyperfideDesktopBrowserImportCookiesRequest,
+  ): Promise<HyperfideDesktopBrowserImportCookiesResult>;
   openFullDiskAccessSettings?(): void;
-  getTarget?(): Promise<BbDesktopBrowserTarget | null>;
-  getControl?(tabId: string): Promise<BbDesktopBrowserControlState | null>;
+  getTarget?(): Promise<HyperfideDesktopBrowserTarget | null>;
+  getControl?(tabId: string): Promise<HyperfideDesktopBrowserControlState | null>;
   releaseControl?(tabId: string): void;
   onControl?(
-    listener: (state: BbDesktopBrowserControlState) => void,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: (state: HyperfideDesktopBrowserControlState) => void,
+  ): HyperfideDesktopBrowserUnsubscribe;
   onReveal?(
-    listener: (request: BbDesktopBrowserRevealRequest) => void,
-  ): BbDesktopBrowserUnsubscribe;
-  attach(request: BbDesktopBrowserAttachRequest): void;
+    listener: (request: HyperfideDesktopBrowserRevealRequest) => void,
+  ): HyperfideDesktopBrowserUnsubscribe;
+  attach(request: HyperfideDesktopBrowserAttachRequest): void;
   detach(tabId: string): void;
-  setThreadDiscarded?(request: BbDesktopBrowserSetThreadDiscardedRequest): void;
+  setThreadDiscarded?(request: HyperfideDesktopBrowserSetThreadDiscardedRequest): void;
   listThreadIdsWithTabs?(): Promise<string[]>;
-  navigate(request: BbDesktopBrowserNavigateRequest): void;
+  navigate(request: HyperfideDesktopBrowserNavigateRequest): void;
   goBack(tabId: string): void;
   goForward(tabId: string): void;
   reload(tabId: string): void;
   stop(tabId: string): void;
   focus?(tabId: string): void;
-  setBounds(request: BbDesktopBrowserSetBoundsRequest): void;
-  setVisible(request: BbDesktopBrowserSetVisibleRequest): void;
-  setVisibleWithoutFocus?(request: BbDesktopBrowserSetVisibleRequest): void;
-  onState(listener: BbDesktopBrowserStateHandler): BbDesktopBrowserUnsubscribe;
+  setBounds(request: HyperfideDesktopBrowserSetBoundsRequest): void;
+  setVisible(request: HyperfideDesktopBrowserSetVisibleRequest): void;
+  setVisibleWithoutFocus?(request: HyperfideDesktopBrowserSetVisibleRequest): void;
+  onState(listener: HyperfideDesktopBrowserStateHandler): HyperfideDesktopBrowserUnsubscribe;
   onOpenTab(
-    listener: BbDesktopBrowserOpenTabHandler,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: HyperfideDesktopBrowserOpenTabHandler,
+  ): HyperfideDesktopBrowserUnsubscribe;
   onScopedOpenTab?(
-    listener: BbDesktopBrowserScopedOpenTabHandler,
-  ): BbDesktopBrowserUnsubscribe;
-  onFocus?(listener: BbDesktopBrowserFocusHandler): BbDesktopBrowserUnsubscribe;
+    listener: HyperfideDesktopBrowserScopedOpenTabHandler,
+  ): HyperfideDesktopBrowserUnsubscribe;
+  onFocus?(listener: HyperfideDesktopBrowserFocusHandler): HyperfideDesktopBrowserUnsubscribe;
   onSnapshot?(
-    listener: BbDesktopBrowserSnapshotHandler,
-  ): BbDesktopBrowserUnsubscribe;
-  findInPage?(request: BbDesktopBrowserFindInPageRequest): void;
-  stopFindInPage?(request: BbDesktopBrowserStopFindInPageRequest): void;
+    listener: HyperfideDesktopBrowserSnapshotHandler,
+  ): HyperfideDesktopBrowserUnsubscribe;
+  findInPage?(request: HyperfideDesktopBrowserFindInPageRequest): void;
+  stopFindInPage?(request: HyperfideDesktopBrowserStopFindInPageRequest): void;
   onFindResult?(
-    listener: BbDesktopBrowserFindResultHandler,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: HyperfideDesktopBrowserFindResultHandler,
+  ): HyperfideDesktopBrowserUnsubscribe;
   evaluate?(
-    request: BbDesktopBrowserEvaluateRequest,
-  ): Promise<BbDesktopBrowserEvaluateResult>;
+    request: HyperfideDesktopBrowserEvaluateRequest,
+  ): Promise<HyperfideDesktopBrowserEvaluateResult>;
   onPageMessage?(
-    listener: BbDesktopBrowserPageMessageHandler,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: HyperfideDesktopBrowserPageMessageHandler,
+  ): HyperfideDesktopBrowserUnsubscribe;
 }

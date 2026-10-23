@@ -107,7 +107,7 @@ function resolveScheduleOption(
     : { ok: true, at: preset.at };
 }
 
-const SCHEDULE_SELECTION_STORAGE_KEY = "bb:scheduled-send:selection:v1";
+const SCHEDULE_SELECTION_STORAGE_KEY = "hyperfide:scheduled-send:selection:v1";
 
 function readScheduleSelection(now: number): {
   optionId: ScheduleOptionId;

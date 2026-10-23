@@ -515,7 +515,7 @@ export function commandRow({
   callId,
   command,
   createdAt,
-  cwd = "/workspace/bb",
+  cwd = "/workspace/hyperfide",
   durationMs = 2_300,
   exitCode,
   id = DEFAULT_COMMAND_ID,

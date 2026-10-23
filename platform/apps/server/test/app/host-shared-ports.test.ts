@@ -569,7 +569,7 @@ describe("daemon session connect shares", () => {
           ports: [4173],
         }),
       ).toThrow(
-        'cannot share ports from host "Host" (host-1) because it has no bb connect machine credential; enroll it via Connect in Settings > Machines',
+        'cannot share ports from host "Host" (host-1) because it has no hyperfide-platform connect machine credential; enroll it via Connect in Settings > Machines',
       );
       expect(daemonSocket.messages).toEqual(messagesBeforeDeclaration);
       expect(
@@ -622,19 +622,19 @@ describe("connect next machine tunnels", () => {
         )
         .filter((message) => message.type === "connect-next.replace");
 
-    sharedPorts.setNextTunnelConfig("bb--connect-next", NEXT_CONFIG);
+    sharedPorts.setNextTunnelConfig("hyperfide--connect-next", NEXT_CONFIG);
     expect(sent()).toEqual([
       { type: "connect-next.replace", generation: 1, config: NEXT_CONFIG },
     ]);
-    sharedPorts.setNextTunnelConfig("bb--connect-next", NEXT_CONFIG);
+    sharedPorts.setNextTunnelConfig("hyperfide--connect-next", NEXT_CONFIG);
     expect(sent()).toHaveLength(1);
     expect(() =>
       sharedPorts.setNextTunnelConfig("other-plugin", NEXT_CONFIG),
-    ).toThrow('already configured by plugin "bb--connect-next"');
+    ).toThrow('already configured by plugin "hyperfide--connect-next"');
     sharedPorts.setNextTunnelConfig("other-plugin", null);
     expect(sent()).toHaveLength(1);
 
-    sharedPorts.clearDeclarationsForOwner("bb--connect-next");
+    sharedPorts.clearDeclarationsForOwner("hyperfide--connect-next");
     expect(sent().at(-1)).toEqual({
       type: "connect-next.replace",
       generation: 2,
@@ -646,7 +646,7 @@ describe("connect next machine tunnels", () => {
 
   it("gives an unenrolled host no config", () => {
     const { host, sharedPorts } = setup({ enrolled: false });
-    sharedPorts.setNextTunnelConfig("bb--connect-next", NEXT_CONFIG);
+    sharedPorts.setNextTunnelConfig("hyperfide--connect-next", NEXT_CONFIG);
     expect(sharedPorts.reconcileNextTunnelForHost(host.id)).toEqual({
       generation: 1,
       config: null,
@@ -702,7 +702,7 @@ describe("connect next machine tunnels", () => {
         connectMachineId: "machine-1",
       });
       harness.deps.sharedPorts.setNextTunnelConfig(
-        "bb--connect-next",
+        "hyperfide--connect-next",
         NEXT_CONFIG,
       );
       const response = await openDaemonSession(

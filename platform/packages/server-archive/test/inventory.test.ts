@@ -30,9 +30,9 @@ describe("listServerOwnedEntries", () => {
       "AGENTS.md",
       "attachments",
       "auth-secret",
-      "bb.db",
       "config.json",
       "env.json",
+      "hyperfide.db",
       "machine-environment-key",
       "plugins/automations/marketplace.json",
       "plugins/automations/scripts",
@@ -50,10 +50,10 @@ describe("listServerOwnedEntries", () => {
         .filter((file) => file.sqliteDatabase)
         .map((file) => file.path)
         .sort(),
-    ).toEqual(["bb.db", "plugins/docs/data.db"]);
-    const database = files.find((file) => file.path === "bb.db");
-    expect(database?.absolutePath).toBe(path.join(dataDir, "bb.db"));
-    expect(database?.sizeBytes).toBe(fixtureBody("bb.db").length);
+    ).toEqual(["hyperfide.db", "plugins/docs/data.db"]);
+    const database = files.find((file) => file.path === "hyperfide.db");
+    expect(database?.absolutePath).toBe(path.join(dataDir, "hyperfide.db"));
+    expect(database?.sizeBytes).toBe(fixtureBody("hyperfide.db").length);
     expect(inventory.skippedPaths).toEqual([]);
   });
 
@@ -63,7 +63,7 @@ describe("listServerOwnedEntries", () => {
     await writeFixtureFile(outside, "secret.txt", "x");
     await writeFixtureFile(outside, "vault/notes.md", "x");
     await writeFixtureFile(dataDir, "attachments/real.png", "x");
-    await writeFixtureFile(dataDir, "bb.db/nested", "x");
+    await writeFixtureFile(dataDir, "hyperfide.db/nested", "x");
     await symlink(
       path.join(outside, "secret.txt"),
       path.join(dataDir, "attachments", "linked.png"),
@@ -98,7 +98,7 @@ describe("listServerOwnedEntries", () => {
     expect(inventory.skippedPaths).toEqual([
       "attachments/linked.png",
       "auth-secret",
-      "bb.db",
+      "hyperfide.db",
       "plugins/dev-plugin",
       "skills",
     ]);

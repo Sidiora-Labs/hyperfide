@@ -84,7 +84,7 @@ describe("resolveAppUpdateAvailable", () => {
     installKind: "npm",
     source: "npm",
     updateAvailable: true,
-    upgradeCommand: "npx bb-app@latest",
+    upgradeCommand: "npx hyperfide-app@latest",
   };
 
   function status(

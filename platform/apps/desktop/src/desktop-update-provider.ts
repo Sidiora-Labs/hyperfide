@@ -1,12 +1,12 @@
 import {
-  createBbDesktopVersionFeedFileName,
-  type BbDesktopVersionFeedPlatform,
+  createHyperfideDesktopVersionFeedFileName,
+  type HyperfideDesktopVersionFeedPlatform,
 } from "@hyperfide/desktop-contract";
 
 type DesktopReleaseChannel = "latest" | "nightly";
 
 interface DesktopReleaseInfo {
-  applicationName: "bb" | "bb Nightly";
+  applicationName: "hyperfide" | "hyperfide Nightly";
   channel: DesktopReleaseChannel;
   iconFileName: "icon.png" | "icon-nightly.png";
   releaseTag: "desktop-latest" | "desktop-nightly";
@@ -20,11 +20,11 @@ export function createDesktopReleaseInfo(
   const releaseTag = nightly ? "desktop-nightly" : "desktop-latest";
 
   return {
-    applicationName: nightly ? "bb Nightly" : "bb",
+    applicationName: nightly ? "hyperfide Nightly" : "hyperfide",
     channel,
     iconFileName: nightly ? "icon-nightly.png" : "icon.png",
     releaseTag,
-    updateReleaseBaseUrl: `https://github.com/get-bb/bb/releases/download/${releaseTag}/`,
+    updateReleaseBaseUrl: `https://github.com/hyperfide/hyperfide/releases/download/${releaseTag}/`,
   };
 }
 
@@ -53,9 +53,9 @@ const DESKTOP_UPDATE_RELEASE_BASE_URL =
   DESKTOP_RELEASE_INFO.updateReleaseBaseUrl;
 
 export function createDesktopUpdateFeedUrl(
-  platform: BbDesktopVersionFeedPlatform,
+  platform: HyperfideDesktopVersionFeedPlatform,
 ): string {
-  return `${DESKTOP_UPDATE_RELEASE_BASE_URL}${createBbDesktopVersionFeedFileName(platform)}`;
+  return `${DESKTOP_UPDATE_RELEASE_BASE_URL}${createHyperfideDesktopVersionFeedFileName(platform)}`;
 }
 
 export interface DesktopAutoUpdateFeedConfig {
@@ -78,7 +78,7 @@ interface DesktopUpdateSupport {
 interface ResolveDesktopUpdateSupportArgs {
   canReplaceAppImage: (appImagePath: string) => boolean;
   env: NodeJS.ProcessEnv;
-  platform: BbDesktopVersionFeedPlatform;
+  platform: HyperfideDesktopVersionFeedPlatform;
 }
 
 export function resolveDesktopUpdateSupport(

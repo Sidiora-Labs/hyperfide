@@ -1,4 +1,8 @@
 import type { TaskRunner } from "./contracts";
+import {
+  CODEX_RUNNER_KIND,
+  codexDispatchCommand,
+} from "../../../provider-codex/src/dispatch-command.js";
 const quote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
 function toml(value: unknown): string {
   if (Array.isArray(value)) return "[" + value.map(toml).join(", ") + "]";
@@ -19,7 +23,7 @@ function toml(value: unknown): string {
   throw new Error("Unsupported MCP configuration value");
 }
 export function commandRunner(
-  kind: "codex" | "claude",
+  kind: typeof CODEX_RUNNER_KIND | "claude",
   mcp: Record<string, unknown>,
 ): TaskRunner {
   return {
@@ -40,8 +44,8 @@ export function commandRunner(
         { mode: 0o600 },
       );
       const command =
-        kind === "codex"
-          ? `codex --ask-for-approval never -c ${quote("mcp_servers.codify=" + toml(mcp))} exec --sandbox danger-full-access - < /tmp/hyperfide-task.txt`
+        kind === CODEX_RUNNER_KIND
+          ? codexDispatchCommand(quote("mcp_servers.codify=" + toml(mcp)))
           : "claude --print --permission-mode bypassPermissions --mcp-config /tmp/hyperfide-mcp.json < /tmp/hyperfide-task.txt";
       const result = await machine.exec(command, {
         cwd: "/workspace",

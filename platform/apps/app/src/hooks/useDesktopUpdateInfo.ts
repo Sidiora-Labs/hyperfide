@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
-import type { BbDesktopApi, BbDesktopInfo } from "@hyperfide/desktop-contract";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import type { HyperfideDesktopApi, HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
+import { getHyperfideDesktopInfo } from "@/lib/hyperfide-desktop";
 
 interface DesktopUpdateInfo {
-  desktopApi: BbDesktopApi | null;
-  desktopInfo: BbDesktopInfo | null;
+  desktopApi: HyperfideDesktopApi | null;
+  desktopInfo: HyperfideDesktopInfo | null;
   isDesktop: boolean;
 }
 
 export function useDesktopUpdateInfo(): DesktopUpdateInfo {
-  const [desktopApi] = useState<BbDesktopApi | null>(() => getBbDesktopInfo());
-  const [desktopInfo, setDesktopInfo] = useState<BbDesktopInfo | null>(null);
+  const [desktopApi] = useState<HyperfideDesktopApi | null>(() => getHyperfideDesktopInfo());
+  const [desktopInfo, setDesktopInfo] = useState<HyperfideDesktopInfo | null>(null);
 
   useEffect(() => {
-    const api = getBbDesktopInfo();
+    const api = getHyperfideDesktopInfo();
     if (api === null) {
       return;
     }

@@ -200,7 +200,7 @@ function FirstRunPrompt({
       controller={sheet}
       title="Get notified when a thread needs you?"
       cancelLabel={process.env.EXPO_OS === "ios" ? "Cancel" : null}
-      message="bb can send a push notification when a thread finishes, hits an error, or is waiting for your input. You can change this per server in Settings."
+      message="hyperfide can send a push notification when a thread finishes, hits an error, or is waiting for your input. You can change this per server in Settings."
       actions={[
         {
           key: "enable",

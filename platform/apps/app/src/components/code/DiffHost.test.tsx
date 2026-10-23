@@ -25,21 +25,21 @@ import { diffRendererProviderAtom } from "./codeRendererProvider";
 import { DiffHost } from "./DiffHost";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 
-const bbDiff = vi.hoisted(() => ({
+const hyperfideDiff = vi.hoisted(() => ({
   renderFails: false,
   lastProps: null as Record<string, unknown> | null,
 }));
 
-vi.mock("./BbDiff", async () => {
+vi.mock("./HyperfideDiff", async () => {
   const React = await import("react");
   return {
     default: (props: Record<string, unknown>) => {
-      if (bbDiff.renderFails) throw new Error("renderer exploded");
-      bbDiff.lastProps = props;
+      if (hyperfideDiff.renderFails) throw new Error("renderer exploded");
+      hyperfideDiff.lastProps = props;
       return React.createElement(
         "div",
-        { "data-testid": "bb-diff" },
-        `bb diff ${String(props.view)}/${String(props.overflow)}`,
+        { "data-testid": "hyperfide-diff" },
+        `hyperfide diff ${String(props.view)}/${String(props.overflow)}`,
       );
     },
   };
@@ -105,8 +105,8 @@ beforeEach(() => {
     diffRendererProviderAtom,
     AUTOMATIC_REPLACEMENT_PROVIDER,
   );
-  bbDiff.renderFails = false;
-  bbDiff.lastProps = null;
+  hyperfideDiff.renderFails = false;
+  hyperfideDiff.lastProps = null;
   receivedProps.length = 0;
   resetPluginSlotStoreForTest();
   applyResolvedCodeTheme(defaultResolvedCodeTheme);
@@ -120,7 +120,7 @@ afterEach(() => {
 });
 
 describe("DiffHost", () => {
-  it("skips BB's renderer and passes full-file contents when a replacement never delegates", async () => {
+  it("skips HYPERFIDE's renderer and passes full-file contents when a replacement never delegates", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -139,13 +139,13 @@ describe("DiffHost", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(bbDiff.lastProps).toBeNull();
+    expect(hyperfideDiff.lastProps).toBeNull();
     expect(receivedProps.at(-1)?.experimental_fullFileContents).toBe(
       FULL_FILE_CONTENTS,
     );
   });
 
-  it("hands the replacement resolved semantic props, not BB's host-only inputs", async () => {
+  it("hands the replacement resolved semantic props, not HYPERFIDE's host-only inputs", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -195,7 +195,7 @@ describe("DiffHost", () => {
     expect(reparsed?.hunks).toHaveLength(1);
   });
 
-  it("loads BB's renderer only when the replacement delegates", async () => {
+  it("loads HYPERFIDE's renderer only when the replacement delegates", async () => {
     registerDiffRenderer(({ path, Original }) =>
       path.endsWith(".ts") ? <Original /> : <div>plugin diff</div>,
     );
@@ -208,11 +208,11 @@ describe("DiffHost", () => {
       />,
     );
 
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
-    expect(bbDiff.lastProps?.file).toBeDefined();
+    expect(await screen.findByTestId("hyperfide-diff")).toBeDefined();
+    expect(hyperfideDiff.lastProps?.file).toBeDefined();
   });
 
-  it("honours a pin to BB's renderer without disabling the plugin", async () => {
+  it("honours a pin to HYPERFIDE's renderer without disabling the plugin", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -230,7 +230,7 @@ describe("DiffHost", () => {
       </JotaiProvider>,
     );
 
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
+    expect(await screen.findByTestId("hyperfide-diff")).toBeDefined();
     expect(receivedProps).toHaveLength(0);
   });
 
@@ -271,10 +271,10 @@ describe("DiffHost", () => {
     expect(screen.queryByTestId("aardvark-diff")).toBeNull();
   });
 
-  it("contains a failing BB renderer inside a delegating replacement without disabling the plugin", async () => {
+  it("contains a failing HYPERFIDE renderer inside a delegating replacement without disabling the plugin", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
-    bbDiff.renderFails = true;
+    hyperfideDiff.renderFails = true;
     registerDiffRenderer(({ Original }) => (
       <section aria-label="Plugin chrome">
         <Original />
@@ -294,23 +294,23 @@ describe("DiffHost", () => {
       screen.getByRole("region", { name: "Plugin chrome" }).contains(alert),
     ).toBe(true);
     expect(warn).not.toHaveBeenCalled();
-    bbDiff.renderFails = false;
+    hyperfideDiff.renderFails = false;
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
+    expect(await screen.findByTestId("hyperfide-diff")).toBeDefined();
   });
 
-  it("uses BB's renderer with resolved presentation defaults when nothing is registered", async () => {
+  it("uses HYPERFIDE's renderer with resolved presentation defaults when nothing is registered", async () => {
     render(<DiffHost file={parseFixture()} fullFileContents={null} />);
 
-    await screen.findByTestId("bb-diff");
-    expect(bbDiff.lastProps?.view).toBe("unified");
-    expect(bbDiff.lastProps?.overflow).toBe("scroll");
-    expect(bbDiff.lastProps?.showLineNumbers).toBe(true);
+    await screen.findByTestId("hyperfide-diff");
+    expect(hyperfideDiff.lastProps?.view).toBe("unified");
+    expect(hyperfideDiff.lastProps?.overflow).toBe("scroll");
+    expect(hyperfideDiff.lastProps?.showLineNumbers).toBe(true);
   });
 });
 
 describe("experimental_Diff", () => {
-  it("shares the replacement with BB's own surfaces", async () => {
+  it("shares the replacement with HYPERFIDE's own surfaces", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -321,7 +321,7 @@ describe("experimental_Diff", () => {
     await screen.findByTestId("plugin-diff");
     expect(receivedProps.at(-1)?.path).toBe("src/app.ts");
     expect(receivedProps.at(-1)?.experimental_fullFileContents).toBeNull();
-    expect(bbDiff.lastProps).toBeNull();
+    expect(hyperfideDiff.lastProps).toBeNull();
   });
 
   it("completes a header-less patch before handing it to a replacement", async () => {
@@ -345,7 +345,7 @@ describe("experimental_Diff", () => {
     expect(patch).not.toContain("\r");
   });
 
-  it("defers complete-file enrichment to BB's lazy renderer", async () => {
+  it("defers complete-file enrichment to HYPERFIDE's lazy renderer", async () => {
     render(
       <PluginDiff
         patch={PATCH}
@@ -354,21 +354,21 @@ describe("experimental_Diff", () => {
       />,
     );
 
-    await screen.findByTestId("bb-diff");
-    const file = bbDiff.lastProps?.file as ReturnType<
+    await screen.findByTestId("hyperfide-diff");
+    const file = hyperfideDiff.lastProps?.file as ReturnType<
       typeof parseFixture
     > | null;
     expect(file?.isPartial).toBe(true);
-    expect(bbDiff.lastProps?.patchText).toBe(PATCH);
-    expect(bbDiff.lastProps?.fullFileContents).toBe(FULL_FILE_CONTENTS);
-    expect(bbDiff.lastProps).not.toHaveProperty("expansionLineCount");
+    expect(hyperfideDiff.lastProps?.patchText).toBe(PATCH);
+    expect(hyperfideDiff.lastProps?.fullFileContents).toBe(FULL_FILE_CONTENTS);
+    expect(hyperfideDiff.lastProps).not.toHaveProperty("expansionLineCount");
   });
 
   it("degrades to plain text instead of an empty diff when the patch will not parse", () => {
     render(<PluginDiff patch="not a patch at all" path="notes.txt" />);
 
     expect(screen.getByText("not a patch at all")).toBeDefined();
-    expect(screen.queryByTestId("bb-diff")).toBeNull();
-    expect(bbDiff.lastProps).toBeNull();
+    expect(screen.queryByTestId("hyperfide-diff")).toBeNull();
+    expect(hyperfideDiff.lastProps).toBeNull();
   });
 });

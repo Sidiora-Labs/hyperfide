@@ -41,7 +41,7 @@ import {
   isMutableArtifactStale,
   isMutablePluginHostReusable,
 } from "./mutable-plugin-artifacts.js";
-import { createNodeBbSdk, type BbSdk } from "@hyperfide/sdk";
+import { createNodeHyperfideSdk, type HyperfideSdk } from "@hyperfide/sdk";
 import {
   getInstalledPlugin,
   getPluginSafeMode,
@@ -86,7 +86,7 @@ import {
 import {
   createPluginApi,
   isNeedsConfigurationError,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginApiHandle,
   type PluginThreadEventName,
   type PluginThreadEventPayloads,
@@ -161,7 +161,7 @@ interface MutableRoot {
 
 const mutableRoots = new Map<string, MutableRoot>();
 const builtinZodParentUrls = new Set<string>();
-const MUTABLE_ROOT_MARKER = /[?&]bbPluginLoad=(\d+)\.(\d+)/;
+const MUTABLE_ROOT_MARKER = /[?&]hyperfidePluginLoad=(\d+)\.(\d+)/;
 let nextMutableRootId = 1;
 let nextMutableRootEpoch = 1;
 let mutableRootHooks: { deregister: () => void } | null = null;
@@ -206,7 +206,7 @@ function registerMutableRootHooks(): void {
       const separator = resolved.url.includes("?") ? "&" : "?";
       return {
         ...resolved,
-        url: `${resolved.url}${separator}bbPluginLoad=${match.id}.${epoch}`,
+        url: `${resolved.url}${separator}hyperfidePluginLoad=${match.id}.${epoch}`,
         shortCircuit: true,
       };
     },
@@ -432,7 +432,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
   const needsConfiguration = new Map<string, string>();
   const agentToolProblems = new Map<string, string>();
   const handlerStats = new Map<string, PluginHandlerStats>();
-  let boundSdk: BbSdk | undefined;
+  let boundSdk: HyperfideSdk | undefined;
   let boundLoopbackBaseUrl: string | undefined;
   const rpcCallers = createPluginRpcCallerRegistry();
   let loadHold: PluginLoadHold | null = null;
@@ -940,7 +940,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
   }
 
   function checkEngineRange(manifest: PluginManifest): string | undefined {
-    if (!manifest.bbEngineRange) return undefined;
+    if (!manifest.hyperfideEngineRange) return undefined;
     const version = semver.coerce(deps.appVersion);
     if (!version) {
       logger.warn(
@@ -951,23 +951,23 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     if (version.major === 0 && version.minor === 0 && version.patch === 0) {
       return undefined;
     }
-    if (!semver.satisfies(version, manifest.bbEngineRange)) {
-      return `requires bb ${manifest.bbEngineRange}, this is ${version.version}`;
+    if (!semver.satisfies(version, manifest.hyperfideEngineRange)) {
+      return `requires hyperfide ${manifest.hyperfideEngineRange}, this is ${version.version}`;
     }
     return undefined;
   }
 
   function checkPluginSdkRange(manifest: PluginManifest): string | undefined {
-    if (!manifest.bbPluginSdkRange) return undefined;
-    if (!isPluginSdkRangeSatisfied(manifest.bbPluginSdkRange)) {
-      return pluginSdkRangeProblem(manifest.bbPluginSdkRange);
+    if (!manifest.hyperfidePluginSdkRange) return undefined;
+    if (!isPluginSdkRangeSatisfied(manifest.hyperfidePluginSdkRange)) {
+      return pluginSdkRangeProblem(manifest.hyperfidePluginSdkRange);
     }
     return undefined;
   }
 
   async function runFactoryTimeBoxed(
-    factory: (api: BbPluginApi) => unknown,
-    api: BbPluginApi,
+    factory: (api: HyperfidePluginApi) => unknown,
+    api: HyperfidePluginApi,
   ): Promise<void> {
     await raceTimeout(
       Promise.resolve(factory(api)),
@@ -1111,7 +1111,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
           dataDir: deps.dataDir,
           pluginId: row.id,
           sdkVersion: PLUGIN_SDK_VERSION,
-          bbVersion: deps.appVersion,
+          hyperfideVersion: deps.appVersion,
           validatedConfig: {
             serverEntry,
             packageName: manifest.packageName,
@@ -1269,14 +1269,14 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
           pluginId: row.id,
           pluginVersion: manifest.version,
           rootDir: row.rootDir,
-          bbVersion: deps.appVersion,
+          hyperfideVersion: deps.appVersion,
         }))
       ) {
         await buildMutablePluginHost({
           dataDir: deps.dataDir,
           pluginId: row.id,
           rootDir: row.rootDir,
-          bbVersion: deps.appVersion,
+          hyperfideVersion: deps.appVersion,
           toolchain: await getPluginBuildToolchain(deps),
         });
         setDevBuildProblem(row.id, "host", null);
@@ -1514,7 +1514,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     args: SafeModeActivationRefusalArgs,
   ): string | null {
     if (isSafeModeExempt(args) || !getPluginSafeMode(deps.db)) return null;
-    return `plugin safe mode is on; turn it off with \`bb plugin safe-mode off\` before you ${args.action} "${args.pluginId}"`;
+    return `plugin safe mode is on; turn it off with \`hyperfide-platform plugin safe-mode off\` before you ${args.action} "${args.pluginId}"`;
   }
 
   async function loadOne(row: InstalledPluginRow): Promise<string | null> {
@@ -1744,7 +1744,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       callPluginHost: (args) => {
         if (hostArtifactCandidate === null) {
           throw new Error(
-            `plugin "${row.id}" does not declare a bb.host entry`,
+            `plugin "${row.id}" does not declare a hyperfide.host entry`,
           );
         }
         if (!deps.callPluginHost) {
@@ -1833,11 +1833,11 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       const factory = mod.default;
       if (typeof factory !== "function") {
         throw new Error(
-          `server entry must default-export a factory (bb) => void, got ${typeof factory}`,
+          `server entry must default-export a factory (hyperfide) => void, got ${typeof factory}`,
         );
       }
       await runFactoryTimeBoxed(
-        factory as (api: BbPluginApi) => unknown,
+        factory as (api: HyperfidePluginApi) => unknown,
         handle.api,
       );
     } catch (error) {
@@ -1845,7 +1845,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       discardCandidateHandle(handle);
       let message = error instanceof Error ? error.message : String(error);
       if (/ERR_DLOPEN_FAILED|\.node/.test(message)) {
-        message += " (native dependencies are not supported in BB plugins)";
+        message += " (native dependencies are not supported in HYPERFIDE plugins)";
       }
       if (previous !== undefined) {
         setStatus(row.id, "running", `reload failed: ${message}`);
@@ -2056,7 +2056,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
   }
 
   function bindSdk(args: { baseUrl: string }): void {
-    boundSdk = createNodeBbSdk({ baseUrl: args.baseUrl });
+    boundSdk = createNodeHyperfideSdk({ baseUrl: args.baseUrl });
     boundLoopbackBaseUrl = args.baseUrl;
   }
 

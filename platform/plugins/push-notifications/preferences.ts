@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const notificationLevelSchema = z.enum(["all", "input-only", "muted"]);
@@ -166,18 +166,18 @@ export interface NotificationPreferences {
 }
 
 export function createNotificationPreferences(args: {
-  bb: BbPluginApi;
+  hyperfide: HyperfidePluginApi;
   getDefaults(): Promise<NotificationDefaults>;
   publish(threadIds: readonly string[]): void;
 }): NotificationPreferences {
-  const { bb, getDefaults, publish } = args;
+  const { hyperfide, getDefaults, publish } = args;
 
   async function readOwnLevels(
     threadIds: readonly string[],
   ): Promise<Map<string, NotificationLevel>> {
     const levels = new Map<string, NotificationLevel>();
     for (const batch of chunk(threadIds)) {
-      const { threads } = await bb.sdk.threads.experimental_listPluginMetadata({
+      const { threads } = await hyperfide.sdk.threads.experimental_listPluginMetadata({
         threadIds: batch,
       });
       for (const { threadId, metadata } of threads) {
@@ -193,7 +193,7 @@ export function createNotificationPreferences(args: {
   ): Promise<Map<string, ResolvedThreadInputs>> {
     const ancestry: { threadId: string; ancestorIds: string[] }[] = [];
     for (const batch of chunk(threadIds)) {
-      const { threads } = await bb.sdk.threads.experimental_listAncestors({
+      const { threads } = await hyperfide.sdk.threads.experimental_listAncestors({
         threadIds: batch,
       });
       ancestry.push(...threads);
@@ -235,7 +235,7 @@ export function createNotificationPreferences(args: {
   }
 
   async function publishSubtree(threadId: string): Promise<void> {
-    const { threads } = await bb.sdk.threads.experimental_listDescendants({
+    const { threads } = await hyperfide.sdk.threads.experimental_listDescendants({
       threadIds: [threadId],
     });
     publish([threadId, ...(threads[0]?.descendantIds ?? [])]);
@@ -258,7 +258,7 @@ export function createNotificationPreferences(args: {
     },
     async set(threadId, level) {
       await requireInputs(threadId);
-      await bb.sdk.threads.updatePluginMetadata(
+      await hyperfide.sdk.threads.updatePluginMetadata(
         level === "inherit"
           ? { threadId, remove: [NOTIFICATIONS_METADATA_KEY] }
           : { threadId, set: { [NOTIFICATIONS_METADATA_KEY]: { own: level } } },

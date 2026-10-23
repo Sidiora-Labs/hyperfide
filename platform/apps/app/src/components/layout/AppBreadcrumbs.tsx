@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Icon } from "@hyperfide/shared-ui/icon";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
-import { MACOS_WINDOW_NO_DRAG_CLASS } from "@/lib/bb-desktop";
+import { MACOS_WINDOW_NO_DRAG_CLASS } from "@/lib/hyperfide-desktop";
 
 interface AppBreadcrumbSegment {
   label: string;

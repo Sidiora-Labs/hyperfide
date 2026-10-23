@@ -7,7 +7,7 @@ import { ensurePackagedUserShellPath } from "../src/desktop-shell-path.js";
 it.skipIf(process.platform !== "darwin")(
   "bounds the PATH probe when interactive shell startup outlasts its timeout",
   () => {
-    const directory = mkdtempSync(join(tmpdir(), "bb-shell-timeout-"));
+    const directory = mkdtempSync(join(tmpdir(), "hyperfide-shell-timeout-"));
     const previous = process.env.ZDOTDIR;
     try {
       writeFileSync(

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import {
   definePluginApp,
   UrlLink,
-  useBbNavigate,
+  useHyperfideNavigate,
   type PluginPendingInteractionProps,
 } from "@hyperfide/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,7 @@ function CodexMcpElicitation({
   submit,
   cancel,
 }: PluginPendingInteractionProps) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const parsed = useMemo(
     () => codexMcpElicitationSchema.safeParse(interaction.payload),
     [interaction.payload],

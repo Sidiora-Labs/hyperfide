@@ -22,7 +22,7 @@ let workspaceDir: string;
 let requestLogPath: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-resume-hydration-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-resume-hydration-"));
   requestLogPath = join(workspaceDir, "requests.jsonl");
   const scriptPath = join(workspaceDir, "script.json");
   writeFileSync(scriptPath, JSON.stringify({ requestLogPath }), "utf8");

@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { routeModulePreload } from "../vite-route-modulepreload";
 
 it("preloads the route chunk and its static dependencies that boot does not already load", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "bb-route-preload-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "hyperfide-route-preload-")));
   try {
     await Promise.all(
       Object.entries({

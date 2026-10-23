@@ -8,15 +8,15 @@ import { Icon } from "@hyperfide/shared-ui/icon";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { APP_OVERLAY_LAYER } from "@/components/ui/app-overlay-layers";
 import {
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_APP_REGION_NO_DRAG_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 
 const HIDE_DELAY_MS = 2000;
 const FADE_OUT_MS = 150;
 
 export function DesktopZoomIndicator() {
-  const desktop = getBbDesktopInfo();
+  const desktop = getHyperfideDesktopInfo();
   const onZoomChange = desktop?.onZoomChange;
   const zoom = desktop?.zoom;
   const [zoomFactor, setZoomFactor] = useState<number | null>(null);
@@ -53,7 +53,7 @@ export function DesktopZoomIndicator() {
 
   return (
     <div
-      className={`fixed right-0 top-(--bb-app-chrome-row-height) ${MACOS_APP_REGION_NO_DRAG_CLASS}`}
+      className={`fixed right-0 top-(--hyperfide-app-chrome-row-height) ${MACOS_APP_REGION_NO_DRAG_CLASS}`}
       style={{ zIndex: APP_OVERLAY_LAYER.sharedPortaledOverlay }}
     >
       <div

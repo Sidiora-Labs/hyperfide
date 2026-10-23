@@ -727,7 +727,7 @@ describe("public terminal routes", () => {
       kind: "host_path",
       cwd: null,
     });
-    acknowledgeTerminalOpen(fixture, openMessage, "/home/bb");
+    acknowledgeTerminalOpen(fixture, openMessage, "/home/hyperfide");
 
     const response = await responsePromise;
     expect(response.status).toBe(201);
@@ -735,7 +735,7 @@ describe("public terminal routes", () => {
       {
         environmentId: null,
         hostId: fixture.host.id,
-        initialCwd: "/home/bb",
+        initialCwd: "/home/hyperfide",
         threadId: null,
         status: "running",
       },

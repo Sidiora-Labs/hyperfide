@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { BrowserFixedPanelTab } from "@/lib/fixed-panel-tabs-state";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import { destroyPersistedBrowserView } from "./browserViewVisibilityCoordinator";
 
 interface BrowserTabLifecycleObserverProps {

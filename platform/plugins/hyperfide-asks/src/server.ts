@@ -1,20 +1,18 @@
 import { AskBridge as StoreBridge } from "./bridge.js";
-import { localGraphHost } from "./graph-host-projection.js";
+import { settingsSchema } from "../../hyperfide-graph/contract.js";
+import { localGraphHost } from "./graph-host.js";
 import { bridgeContract } from "./bridge-contract.js";
 import { z } from "zod";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
-import { BinaryAskBridge, type AskBridge } from "./bridge-projection.js";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
+import { BinaryAskBridge, type AskBridge } from "./inbox-adapter.js";
 import { InboxService } from "./inbox.js";
 import { inboxContract } from "./contract.js";
-import { createThreadAskLifecycle } from "../../../packages/plugin-sdk/src/thread-ask-lifecycle.js";
+import { createThreadAskLifecycle } from "@hyperfide/plugin-sdk/host";
 import { AskTaskFlags } from "../../hyperfide-spec/src/ask-task-flags.js";
 import { AskThreadLifecycle } from "./thread-lifecycle.js";
-import type {
-  AskBridge as ThreadAskBridge,
-  TaskThreads,
-} from "./task-3-2-projection.js";
+import type { TaskThreads } from "./thread-lifecycle.js";
 
-export function registerInbox(api: BbPluginApi, bridge: AskBridge) {
+export function registerInbox(api: HyperfidePluginApi, bridge: AskBridge) {
   const inbox = new InboxService(bridge, async (value) => {
     const result = await api.sdk.plugins.callRpc({
       pluginId: "hyperfide-secrets",
@@ -31,16 +29,26 @@ export function registerInbox(api: BbPluginApi, bridge: AskBridge) {
     inboxAnswer: (input) => inbox.answer(input),
   });
 }
-export default async function plugin(api: BbPluginApi) {
+export default async function plugin(api: HyperfidePluginApi) {
   const repositories =
     (await api.storage.kv.get<string[]>("inbox.repositories")) ??
     (await api.sdk.projects.list()).flatMap((project) =>
       project.sources.map((source) => source.path),
     );
   const paths = [...new Set(repositories)];
-  const binary = await api.storage.kv.get<string>("graph.binaryPath");
-  const bridge = new StoreBridge(localGraphHost(binary), (channel, payload) =>
-    api.realtime.publish(channel, payload),
+  const bridge = new StoreBridge(
+    localGraphHost(async (repository, hostId) => {
+      const settings = await api.sdk.plugins.callRpc({
+        pluginId: "hyperfide-graph",
+        method: "getSettings",
+        input: { repository, hostId },
+        outputSchema: settingsSchema,
+      });
+      if (!settings.enabled)
+        throw new Error("Graph is disabled for this repository");
+      return settings.binaryPath;
+    }),
+    (channel, payload) => api.realtime.publish(channel, payload),
   );
   const repositoryFor = (repository?: string) => {
     if (repository) return repository;
@@ -48,6 +56,18 @@ export default async function plugin(api: BbPluginApi) {
     return paths[0]!;
   };
   api.rpc.register(bridgeContract, {
+    context: async ({ threadId, projectId }) => {
+      const thread = await api.sdk.threads.get({ threadId });
+      if (thread.projectId !== projectId || thread.originPluginId !== "hyperfide-spec")
+        throw new Error("Question requires a spec worker thread");
+      // Spec workers are titled <feature>/<task>: <title> by runTask.
+      const task = thread.title?.match(/^[A-Za-z0-9_.-]+\/([A-Za-z0-9_.-]+): /)?.[1];
+      const project = (await api.sdk.projects.list()).find((entry) => entry.id === projectId);
+      const sources = [...new Set(project?.sources.map((source) => source.path) ?? [])];
+      if (!task || sources.length !== 1 || !paths.includes(sources[0]!))
+        throw new Error("Question requires an unambiguous repository and task");
+      return { repository: sources[0]!, task };
+    },
     list: async ({ repository }) => ({
       asks: (
         await Promise.all(
@@ -66,7 +86,7 @@ export default async function plugin(api: BbPluginApi) {
     journal: ({ repository }) => bridge.journal(repository),
     policy: ({ repository }) => bridge.policy(repositoryFor(repository)),
   });
-  registerInbox(api, new BinaryAskBridge(paths, binary, bridge));
+  registerInbox(api, new BinaryAskBridge(paths, bridge));
   for (const repository of paths) {
     try {
       api.onDispose(await bridge.watch(repository));
@@ -82,7 +102,7 @@ export default async function plugin(api: BbPluginApi) {
 /** Composition point for the 3.1 bridge and 2.3 worker-thread registry. */
 export function createAskThreadService(args: {
   repository: string;
-  bridge: ThreadAskBridge;
+  bridge: Pick<StoreBridge, "policy" | "list" | "watch">;
   threads: TaskThreads;
   operations: Parameters<typeof createThreadAskLifecycle>[0];
   board?: AskTaskFlags;

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import type { BbDesktopBrowserState } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserState } from "@hyperfide/desktop-contract";
 import { afterEach, expect, it, vi } from "vitest";
-import { createNoopDesktopBrowserApi } from "@/test/bb-desktop-test-utils";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { createNoopDesktopBrowserApi } from "@/test/hyperfide-desktop-test-utils";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import { BrowserTabIcon } from "./BrowserTabIcon";
 
-vi.mock("@/lib/bb-desktop", () => ({ getDesktopBrowserApi: vi.fn() }));
+vi.mock("@/lib/hyperfide-desktop", () => ({ getDesktopBrowserApi: vi.fn() }));
 
 afterEach(() => {
   cleanup();
@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 it("keeps icons scoped to their tab and falls back when an image fails or navigation clears it", () => {
-  const listeners = new Set<(state: BbDesktopBrowserState) => void>();
+  const listeners = new Set<(state: HyperfideDesktopBrowserState) => void>();
   vi.mocked(getDesktopBrowserApi).mockReturnValue({
     ...createNoopDesktopBrowserApi(),
     onState(listener) {
@@ -71,7 +71,7 @@ it("selects a Retina-sized candidate regardless of load order and ignores obsole
       }
     },
   );
-  const listeners = new Set<(state: BbDesktopBrowserState) => void>();
+  const listeners = new Set<(state: HyperfideDesktopBrowserState) => void>();
   vi.mocked(getDesktopBrowserApi).mockReturnValue({
     ...createNoopDesktopBrowserApi(),
     onState(listener) {

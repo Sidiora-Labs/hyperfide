@@ -1,11 +1,11 @@
 ---
 name: tasks
-description: "Work on or manage records in BB Tasks, including task keys such as ABC-12."
+description: "Work on or manage records in HYPERFIDE Tasks, including task keys such as ABC-12."
 ---
 
 # Tasks
 
-Use the `bb tasks` CLI to understand the assigned task, keep its record useful,
+Use the `Hyperfide tasks` CLI to understand the assigned task, keep its record useful,
 and report the outcome where the work is tracked.
 
 For task dispatch and execution presets, read
@@ -16,16 +16,16 @@ For task dispatch and execution presets, read
 1. Find and read the task before acting:
 
    ```sh
-   bb tasks show ABC-12
+   Hyperfide tasks show ABC-12
    ```
 
    The detail includes the description, status, priority, labels, subtasks,
    comments, attachments, attached worker threads, and the GitHub pull
    requests those threads produced (from environment metadata, with state
    open/draft/merged/closed). Use
-   `bb tasks show ABC-12 --json` when the result will drive commands or code.
+   `Hyperfide tasks show ABC-12 --json` when the result will drive commands or code.
 
-   For project-wide discovery, `bb tasks list` returns at most 100 rows by
+   For project-wide discovery, `Hyperfide tasks list` returns at most 100 rows by
    default. Pass `--limit 1-500`; in JSON, continue with `nextCursor` via the
    same filters/sort and `--cursor <value>` (human output prints the exact
    continuation option). A task-list mutation makes an old cursor stale, so
@@ -34,7 +34,7 @@ For task dispatch and execution presets, read
 2. Fetch every relevant attachment before making assumptions about it:
 
    ```sh
-   bb tasks attachment get <attachment-id> --out <path>
+   Hyperfide tasks attachment get <attachment-id> --out <path>
    ```
 
 3. Do the work. Post one substantive comment at each meaningful milestone,
@@ -42,7 +42,7 @@ For task dispatch and execution presets, read
    or a concrete blocker:
 
    ```sh
-   bb tasks comment ABC-12 --body "Implemented the change; focused validation now passes."
+   Hyperfide tasks comment ABC-12 --body "Implemented the change; focused validation now passes."
    ```
 
    Add `--notify` only when the new comment should be delivered to the thread
@@ -56,8 +56,8 @@ For task dispatch and execution presets, read
    screenshots, patches, or generated files:
 
    ```sh
-   bb tasks attachment add ABC-12 --file ./report.md
-   bb tasks attachment add ABC-12 --file ./screenshot.png
+   Hyperfide tasks attachment add ABC-12 --file ./report.md
+   Hyperfide tasks attachment add ABC-12 --file ./screenshot.png
    ```
 
    Read `references/attachments.md` for comment attachments, initial files,
@@ -67,16 +67,16 @@ For task dispatch and execution presets, read
    met, or `in_review` when required review remains:
 
    ```sh
-   bb tasks update ABC-12 --status in_review
+   Hyperfide tasks update ABC-12 --status in_review
    ```
 
-   Change task hierarchy with `bb tasks update ABC-12 --parent ABC-10`, using
+   Change task hierarchy with `Hyperfide tasks update ABC-12 --parent ABC-10`, using
    either a task key or ID for the parent. Promote a subtask to the top level
-   with `bb tasks update ABC-12 --no-parent`; the two parent flags cannot be
+   with `Hyperfide tasks update ABC-12 --no-parent`; the two parent flags cannot be
    combined.
 
    Move a task and its sub-tasks to another tracker project with
-   `bb tasks move ABC-12 --project XYZ`. The task gets a new key in that
+   `Hyperfide tasks move ABC-12 --project XYZ`. The task gets a new key in that
    project; the old key keeps resolving, so use the new key from then on.
 
    If the work cannot proceed, leave the status accurate and comment with the
@@ -87,16 +87,16 @@ For task dispatch and execution presets, read
    delegated from Tasks, attach it yourself so the task shows the active work:
 
    ```sh
-   bb tasks attach ABC-12
+   Hyperfide tasks attach ABC-12
    ```
 
    When a thread is done with a task (hand-off, respawned replacement, or a
-   predecessor that died), detach it so `bb tasks threads ABC-12` (live threads
+   predecessor that died), detach it so `Hyperfide tasks threads ABC-12` (live threads
    first, newest first) stays accurate. Omit `--thread` to detach the current
    thread:
 
    ```sh
-   bb tasks detach ABC-12 --thread thr_dead_predecessor
+   Hyperfide tasks detach ABC-12 --thread thr_dead_predecessor
    ```
 
 ## Link tasks in responses
@@ -117,13 +117,13 @@ each renders its own card.
 
 ## CLI conventions
 
-- `bb tasks --help` lists every command, and `bb tasks <command> --help` prints
+- `Hyperfide tasks --help` lists every command, and `Hyperfide tasks <command> --help` prints
   that command's arguments, accepted values, and limits. Both exit 0.
-- `--project` takes a tracker project prefix or id such as `ABC`, never a bb
-  project id (`proj_...`). `bb tasks project list` shows both columns.
-- `bb tasks status` reports the plugin's name and version. A task's workflow
-  status is `bb tasks list --status <status>` and
-  `bb tasks update ABC-12 --status <status>`.
+- `--project` takes a tracker project prefix or id such as `ABC`, never a hyperfide-platform
+  project id (`proj_...`). `Hyperfide tasks project list` shows both columns.
+- `Hyperfide tasks status` reports the plugin's name and version. A task's workflow
+  status is `Hyperfide tasks list --status <status>` and
+  `Hyperfide tasks update ABC-12 --status <status>`.
 - Repeatable options (`--label`, `--status`, `--priority`, `--add-label`,
   `--remove-label`) accept a repeated flag or one comma-separated list.
 - Unknown options and stray arguments are errors, never ignored, and every

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { outputJson, requireThreadIdOrSelf } from "../helpers.js";
 
 export function registerContextCommand(
@@ -21,7 +21,7 @@ export function registerContextCommand(
           opts: { self?: boolean; json?: boolean },
         ) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const result = await createCliBbSdk(getUrl()).threads.context({
+          const result = await createCliHyperfideSdk(getUrl()).threads.context({
             threadId,
           });
           if (outputJson(opts, result)) return;

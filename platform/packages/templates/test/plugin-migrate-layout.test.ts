@@ -33,8 +33,8 @@ async function writeVendoredPlugin(
       overrides.manifest ?? {
         name: "hyperfide-plugin-legacy",
         version: "0.1.0",
-        engines: { bb: ">=0.9", bbPluginSdk: ">=0.2.0" },
-        bb: { server: "./server.ts" },
+        engines: { hyperfide: ">=0.9", hyperfidePluginSdk: ">=0.2.0" },
+        hyperfide: { server: "./server.ts" },
         dependencies: { zod: "^4.3.6" },
         devDependencies: { "@types/node": "^22.0.0", typescript: "^5.7.0" },
       },
@@ -138,7 +138,7 @@ describe("migratePluginToPackageLayout", () => {
         (await readJson(join(rootDir, "package.json"))).engines as
           | Record<string, string>
           | undefined
-      )?.bbPluginSdk,
+      )?.hyperfidePluginSdk,
     ).toBe(">=0.4.3");
 
     const newer = await mkdtemp(join(tmpdir(), "hyperfide-plugin-migrate-newer-"));
@@ -146,8 +146,8 @@ describe("migratePluginToPackageLayout", () => {
       await writeVendoredPlugin(newer, {
         manifest: {
           name: "hyperfide-plugin-newer",
-          engines: { bbPluginSdk: ">=9.1.0" },
-          bb: { server: "./server.ts" },
+          engines: { hyperfidePluginSdk: ">=9.1.0" },
+          hyperfide: { server: "./server.ts" },
         },
       });
       const result = await migratePluginToPackageLayout({
@@ -161,7 +161,7 @@ describe("migratePluginToPackageLayout", () => {
             string,
             string
           >
-        ).bbPluginSdk,
+        ).hyperfidePluginSdk,
       ).toBe(">=9.1.0");
     } finally {
       await rm(newer, { recursive: true, force: true });
@@ -185,8 +185,8 @@ describe("migratePluginToPackageLayout", () => {
       await writeVendoredPlugin(rootDir, {
         manifest: {
           name: "hyperfide-plugin-range",
-          engines: { bbPluginSdk: range },
-          bb: { server: "./server.ts" },
+          engines: { hyperfidePluginSdk: range },
+          hyperfide: { server: "./server.ts" },
         },
       });
       const result = await migratePluginToPackageLayout({
@@ -198,7 +198,7 @@ describe("migratePluginToPackageLayout", () => {
       );
       const manifest = await readJson(join(rootDir, "package.json"));
       expect(manifest.engines).toEqual({
-        bbPluginSdk: raises ? `>=${sdkVersion}` : range,
+        hyperfidePluginSdk: raises ? `>=${sdkVersion}` : range,
       });
     },
   );
@@ -243,8 +243,8 @@ describe("migratePluginToPackageLayout", () => {
     await writeVendoredPlugin(rootDir, {
       manifest: {
         name: "hyperfide-plugin-half",
-        engines: { bbPluginSdk: `>=${SDK_VERSION}` },
-        bb: { server: "./server.ts" },
+        engines: { hyperfidePluginSdk: `>=${SDK_VERSION}` },
+        hyperfide: { server: "./server.ts" },
         devDependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
       },
     });
@@ -319,8 +319,8 @@ describe("migratePluginToPackageLayout", () => {
       declarations: [],
       manifest: {
         name: "hyperfide-plugin-runtime-pin",
-        engines: { bbPluginSdk: `>=${SDK_VERSION}` },
-        bb: { server: "./server.ts" },
+        engines: { hyperfidePluginSdk: `>=${SDK_VERSION}` },
+        hyperfide: { server: "./server.ts" },
         dependencies: { "@hyperfide/plugin-sdk": SDK_VERSION, zod: "^4.3.6" },
         devDependencies: { "@hyperfide/plugin-sdk": "0.2.0" },
       },
@@ -346,7 +346,7 @@ describe("migratePluginToPackageLayout", () => {
       declarations: [],
       manifest: {
         name: "hyperfide-plugin-pinless",
-        bb: { server: "./server.ts" },
+        hyperfide: { server: "./server.ts" },
         devDependencies: { typescript: "^5.7.0" },
       },
       tsconfig: { compilerOptions: { strict: true }, include: ["server.ts"] },
@@ -368,12 +368,12 @@ describe("migratePluginToPackageLayout", () => {
     ).toBe(SDK_VERSION);
   });
 
-  it("rewrites pre-rename SDK imports across the plugin's sources", async () => {
+  it("preserves current SDK imports across the plugin's sources", async () => {
     await writeVendoredPlugin(rootDir);
     await writeFile(
       join(rootDir, "server.ts"),
       [
-        'import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";',
+        'import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";',
         "import type { Something } from '@hyperfide/plugin-sdk/testing';",
         'import { helper } from "@hyperfide/plugin-sdk-extras";',
         "// The @hyperfide/plugin-sdk types are unquoted prose and stay as written.",
@@ -405,18 +405,16 @@ describe("migratePluginToPackageLayout", () => {
       sdkVersion: SDK_VERSION,
     });
 
-    expect(result.rewrittenImports).toEqual([
-      { path: "app.tsx", imports: 1 },
-      { path: "lib/rpc.ts", imports: 1 },
-      { path: "server.ts", imports: 2 },
-    ]);
+    expect(result.rewrittenImports).toEqual([]);
     const server = await readFile(join(rootDir, "server.ts"), "utf8");
     expect(server).toContain(
-      'import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";',
+      'import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";',
     );
     expect(server).toContain("from '@hyperfide/plugin-sdk/testing';");
     expect(server).toContain('from "@hyperfide/plugin-sdk-extras";');
-    expect(server).toContain("// The @hyperfide/plugin-sdk types are unquoted prose");
+    expect(server).toContain(
+      "// The @hyperfide/plugin-sdk types are unquoted prose",
+    );
     expect(await readFile(join(rootDir, "app.tsx"), "utf8")).toBe(
       'import { definePluginApp } from "@hyperfide/plugin-sdk/app";\n',
     );
@@ -438,9 +436,10 @@ describe("migratePluginToPackageLayout", () => {
     expect(second.changed).toBe(false);
   });
 
-  it("reports the import rewrites in a dry run without writing them", async () => {
+  it("preserves current imports in a dry run", async () => {
     await writeVendoredPlugin(rootDir);
-    const source = 'import type { BbPluginApi } from "@hyperfide/plugin-sdk";\n';
+    const source =
+      'import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";\n';
     await writeFile(join(rootDir, "server.ts"), source);
 
     const plan = await migratePluginToPackageLayout({
@@ -449,32 +448,33 @@ describe("migratePluginToPackageLayout", () => {
       dryRun: true,
     });
 
-    expect(plan.rewrittenImports).toEqual([{ path: "server.ts", imports: 1 }]);
+    expect(plan.rewrittenImports).toEqual([]);
     expect(await readFile(join(rootDir, "server.ts"), "utf8")).toBe(source);
   });
 
-  it("migrates a plugin whose only legacy artifact is its imports", async () => {
+  it("leaves a package-layout plugin with current imports unchanged", async () => {
     await writeVendoredPlugin(rootDir, {
       declarations: [],
       manifest: {
         name: "hyperfide-plugin-imports-only",
-        engines: { bbPluginSdk: `>=${SDK_VERSION}` },
-        bb: { server: "./server.ts" },
+        engines: { hyperfidePluginSdk: `>=${SDK_VERSION}` },
+        hyperfide: { server: "./server.ts" },
         devDependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
       },
       tsconfig: { compilerOptions: { strict: true }, include: ["server.ts"] },
     });
-    await writeFile(join(rootDir, "server.ts"), 'import "@hyperfide/plugin-sdk";\n');
+    await writeFile(
+      join(rootDir, "server.ts"),
+      'import "@hyperfide/plugin-sdk";\n',
+    );
 
     const result = await migratePluginToPackageLayout({
       rootDir,
       sdkVersion: SDK_VERSION,
     });
 
-    expect(result.changed).toBe(true);
-    expect(result.rewrittenImports).toEqual([
-      { path: "server.ts", imports: 1 },
-    ]);
+    expect(result.changed).toBe(false);
+    expect(result.rewrittenImports).toEqual([]);
     expect(await readFile(join(rootDir, "server.ts"), "utf8")).toBe(
       'import "@hyperfide/plugin-sdk";\n',
     );
@@ -565,8 +565,8 @@ describe("setPluginSdkPin", () => {
       `${JSON.stringify(
         {
           name: "hyperfide-plugin-pinned",
-          engines: { bbPluginSdk: ">=0.2.0" },
-          bb: { server: "./server.ts" },
+          engines: { hyperfidePluginSdk: ">=0.2.0" },
+          hyperfide: { server: "./server.ts" },
           devDependencies: {
             "@hyperfide/plugin-sdk": "0.2.0",
             typescript: "^5.7.0",
@@ -593,9 +593,9 @@ describe("setPluginSdkPin", () => {
         "@hyperfide/plugin-sdk"
       ],
     ).toBe(SDK_VERSION);
-    expect((manifest.engines as Record<string, string>).bbPluginSdk).toBe(
-      ">=0.2.0",
-    );
+    expect(
+      (manifest.engines as Record<string, string>).hyperfidePluginSdk,
+    ).toBe(">=0.2.0");
     expect(
       await setPluginSdkPin({ rootDir, sdkVersion: SDK_VERSION }),
     ).toBeNull();
@@ -607,7 +607,7 @@ describe("setPluginSdkPin", () => {
       `${JSON.stringify(
         {
           name: "hyperfide-plugin-exact-runtime-dep",
-          bb: { server: "./server.ts" },
+          hyperfide: { server: "./server.ts" },
           dependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
         },
         null,
@@ -643,7 +643,7 @@ describe("setPluginSdkPin", () => {
       `${JSON.stringify(
         {
           name: "hyperfide-plugin-toasty",
-          bb: { server: "./server.ts", app: "./app.tsx" },
+          hyperfide: { server: "./server.ts", app: "./app.tsx" },
           dependencies: { vaul: "^0.9.0", zod: "^4.3.6" },
           devDependencies: {
             "@hyperfide/plugin-sdk": SDK_VERSION,
@@ -704,7 +704,7 @@ describe("setPluginSdkPin", () => {
     async (dryRun) => {
       const original = JSON.stringify({
         name: "hyperfide-plugin-pruned",
-        bb: { server: "./server.ts", app: "./app.tsx" },
+        hyperfide: { server: "./server.ts", app: "./app.tsx" },
         devDependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
       });
       await writeFile(join(rootDir, "package.json"), original);
@@ -728,7 +728,7 @@ describe("setPluginSdkPin", () => {
       `${JSON.stringify(
         {
           name: "hyperfide-plugin-headless",
-          bb: { server: "./server.ts" },
+          hyperfide: { server: "./server.ts" },
           devDependencies: {
             "@hyperfide/plugin-sdk": SDK_VERSION,
             clsx: "^1.0.0",

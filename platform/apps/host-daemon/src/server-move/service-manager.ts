@@ -94,7 +94,7 @@ export async function restartService(args: RestartServiceArgs): Promise<void> {
       args: [
         "-c",
         LAUNCHD_RESTART_SCRIPT,
-        "bb-server-move-restart",
+        "hyperfide-server-move-restart",
         `gui/${args.uid}`,
         args.definition.path,
       ],

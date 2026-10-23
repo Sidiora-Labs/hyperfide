@@ -78,7 +78,7 @@ describe("claude usage and fixture translation (delta path)", () => {
 
   it("emits context-window usage on a top-level assistant message", () => {
     const harness = createClaudeDeltaHarness();
-    const threadId = "bb-thread-1";
+    const threadId = "hyperfide-thread-1";
 
     harness.translator.setClaudeModelContextWindowHint(
       threadId,
@@ -119,7 +119,7 @@ describe("claude usage and fixture translation (delta path)", () => {
 
   it("does not use nested assistant usage as the parent context window", () => {
     const harness = createClaudeDeltaHarness();
-    const threadId = "bb-thread-1";
+    const threadId = "hyperfide-thread-1";
 
     harness.translator.setClaudeModelContextWindowHint(
       threadId,
@@ -341,10 +341,10 @@ describe("claude usage and fixture translation (delta path)", () => {
     const harness = createClaudeDeltaHarness();
 
     harness.translate(loadFixture("assistant-text.json"), {
-      threadId: "bb-thread-1",
+      threadId: "hyperfide-thread-1",
     });
     harness.translate(loadFixture("result-success.json"), {
-      threadId: "bb-thread-1",
+      threadId: "hyperfide-thread-1",
     });
     harness.translate(
       {
@@ -354,7 +354,7 @@ describe("claude usage and fixture translation (delta path)", () => {
         session_id: "session-1",
       },
       {
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
       },
     );
 
@@ -378,7 +378,7 @@ describe("claude usage and fixture translation (delta path)", () => {
         session_id: "session-1",
       },
       {
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
       },
     );
 
@@ -449,11 +449,11 @@ describe("claude usage and fixture translation (delta path)", () => {
     const harness = createClaudeDeltaHarness();
 
     harness.translator.setClaudeModelContextWindowHint(
-      "bb-thread-1",
+      "hyperfide-thread-1",
       "claude-opus-4-7[1m]",
     );
     harness.translate(loadFixture("assistant-text.json"), {
-      threadId: "bb-thread-1",
+      threadId: "hyperfide-thread-1",
     });
 
     const events = harness.translate(
@@ -476,7 +476,7 @@ describe("claude usage and fixture translation (delta path)", () => {
         session_id: "session-1",
       },
       {
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
       },
     );
 
@@ -496,7 +496,7 @@ describe("claude usage and fixture translation (delta path)", () => {
     const harness = createClaudeDeltaHarness();
 
     harness.translate(loadFixture("assistant-text.json"), {
-      threadId: "bb-thread-unknown",
+      threadId: "hyperfide-thread-unknown",
     });
 
     const events = harness.translate(
@@ -519,7 +519,7 @@ describe("claude usage and fixture translation (delta path)", () => {
         session_id: "session-1",
       },
       {
-        threadId: "bb-thread-unknown",
+        threadId: "hyperfide-thread-unknown",
       },
     );
 
@@ -539,14 +539,14 @@ describe("claude usage and fixture translation (delta path)", () => {
     const harness = createClaudeDeltaHarness();
 
     harness.translate(loadFixture("assistant-text.json"), {
-      threadId: "bb-thread-1",
+      threadId: "hyperfide-thread-1",
     });
     harness.translate(loadFixture("result-success.json"), {
-      threadId: "bb-thread-1",
+      threadId: "hyperfide-thread-1",
     });
 
     harness.translate(loadFixture("assistant-text.json"), {
-      threadId: "bb-thread-1",
+      threadId: "hyperfide-thread-1",
     });
 
     const events = harness.translate(
@@ -569,7 +569,7 @@ describe("claude usage and fixture translation (delta path)", () => {
         session_id: "session-1",
       },
       {
-        threadId: "bb-thread-1",
+        threadId: "hyperfide-thread-1",
       },
     );
 

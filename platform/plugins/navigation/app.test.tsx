@@ -63,18 +63,18 @@ function panelItem(
 }
 
 const NEW_THREAD = hostItem(
-  "__bb__/new-thread",
+  "__hyperfide__/new-thread",
   "New thread",
   { kind: "new-thread" },
   { shortcut: { label: "⌘N", ariaKeyShortcuts: "Meta+N" } },
 );
 const SEARCH = hostItem(
-  "__bb__/search-threads",
+  "__hyperfide__/search-threads",
   "Search threads",
   { kind: "search-threads" },
   { isVisible: false },
 );
-const PLUGINS = hostItem("__bb__/extensions", "Plugins", {
+const PLUGINS = hostItem("__hyperfide__/extensions", "Plugins", {
   kind: "open-extensions",
 });
 const DOCS = panelItem("garden", "docs", "Docs");

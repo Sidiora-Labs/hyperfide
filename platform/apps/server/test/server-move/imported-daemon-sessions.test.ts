@@ -33,7 +33,7 @@ const MANUAL_IMPORT: ServerImportFile = {
   sourceServerHostId: null,
   targetHostId: null,
   serverUrl: null,
-  importedEntries: ["bb.db"],
+  importedEntries: ["hyperfide.db"],
   createdAt: 1,
   fixupsAppliedAt: null,
 };

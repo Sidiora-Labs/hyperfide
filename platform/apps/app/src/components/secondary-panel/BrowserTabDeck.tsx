@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { BbDesktopBrowserTarget } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopBrowserTarget } from "@hyperfide/desktop-contract";
 import { COARSE_POINTER_TEXT_SM_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import { Button } from "@hyperfide/shared-ui/button";
 import { Icon } from "@hyperfide/shared-ui/icon";
 import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { BrowserFixedPanelTab } from "@/lib/fixed-panel-tabs-state";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import { sdk } from "@/lib/sdk";
 import { openUrlInExternalBrowser } from "@/lib/url-open-routing";
@@ -50,7 +50,7 @@ function windowRetryDelay(attempt: number): number {
 
 type WindowTargetCheck =
   | { status: "pending" }
-  | { status: "ready"; target: BbDesktopBrowserTarget | null };
+  | { status: "ready"; target: HyperfideDesktopBrowserTarget | null };
 
 type SavedWindowCheck = {
   key: string;
@@ -65,7 +65,7 @@ type BrowserTabPlacement =
   | "unavailable";
 
 function resolveBrowserTabPlacement(
-  saved: BbDesktopBrowserTarget | undefined,
+  saved: HyperfideDesktopBrowserTarget | undefined,
   windowTarget: WindowTargetCheck,
 ): BrowserTabPlacement {
   if (saved === undefined) return "open";
@@ -274,23 +274,23 @@ export function BrowserTabDeck({
 const BROWSER_TAB_ELSEWHERE_COPY = {
   "desktop-required": {
     title: "Browser tabs need the desktop app",
-    body: "This tab is open in the bb desktop app.",
+    body: "This tab is open in the hyperfide desktop app.",
   },
   "other-window": {
-    title: "This tab is open in another bb window",
+    title: "This tab is open in another hyperfide window",
     body: "Switch to that window to keep browsing.",
   },
   "other-computer": {
     title: "This tab is open on another computer",
-    body: "It was opened in bb on a different computer.",
+    body: "It was opened in hyperfide on a different computer.",
   },
   reconnecting: {
     title: "Reconnecting to this tab",
-    body: "The tab opens again as soon as bb reconnects.",
+    body: "The tab opens again as soon as hyperfide reconnects.",
   },
   unreachable: {
     title: "Can't reach this tab",
-    body: "bb couldn't reconnect. Try again in a moment.",
+    body: "hyperfide couldn't reconnect. Try again in a moment.",
   },
 } as const;
 

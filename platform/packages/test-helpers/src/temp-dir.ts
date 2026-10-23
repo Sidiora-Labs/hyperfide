@@ -16,10 +16,10 @@ function removeAfterTest(directory: string): string {
   return directory;
 }
 
-export async function makeTempDir(prefix = "bb-test-"): Promise<string> {
+export async function makeTempDir(prefix = "hyperfide-test-"): Promise<string> {
   return removeAfterTest(await mkdtemp(join(tmpdir(), prefix)));
 }
 
-export function makeTempDirSync(prefix = "bb-test-"): string {
+export function makeTempDirSync(prefix = "hyperfide-test-"): string {
   return removeAfterTest(mkdtempSync(join(tmpdir(), prefix)));
 }

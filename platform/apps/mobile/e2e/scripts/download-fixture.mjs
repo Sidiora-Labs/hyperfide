@@ -21,20 +21,20 @@ const html = readFileSync(
 const bytes = Buffer.alloc(1_536_000);
 for (let i = 0; i < bytes.length; i++) bytes[i] = i % 251;
 const stripPrefix = (url) =>
-  url === "/bb" ? "/" : url.startsWith("/bb/") ? url.slice(3) : url;
+  url === "/hyperfide" ? "/" : url.startsWith("/hyperfide/") ? url.slice(3) : url;
 
 const server = http.createServer((request, response) => {
   const path = stripPrefix(request.url ?? "/");
   if (path === "/api/v1/download-fixture") {
     response.writeHead(200, {
       "Content-Type": "text/html",
-      "Set-Cookie": "bb_download_fixture=ok; Path=/; HttpOnly; SameSite=Lax",
+      "Set-Cookie": "hyperfide_download_fixture=ok; Path=/; HttpOnly; SameSite=Lax",
     });
     response.end(html);
     return;
   }
   if (path.startsWith("/api/v1/download-fixture/")) {
-    const authorized = /(?:^|;\s*)bb_download_fixture=ok(?:;|$)/u.test(
+    const authorized = /(?:^|;\s*)hyperfide_download_fixture=ok(?:;|$)/u.test(
       request.headers.cookie ?? "",
     );
     console.log(JSON.stringify({ path, authorized, method: request.method }));
@@ -126,7 +126,7 @@ server.on("upgrade", (request, socket, head) => {
   socket.on("error", () => target.destroy());
 });
 server.listen(port, "127.0.0.1", () => {
-  console.log(`Download fixture proxy: http://127.0.0.1:${port} (also /bb)`);
+  console.log(`Download fixture proxy: http://127.0.0.1:${port} (also /hyperfide)`);
   console.log(
     `Fixture SHA-256: ${createHash("sha256").update(bytes).digest("hex")}`,
   );

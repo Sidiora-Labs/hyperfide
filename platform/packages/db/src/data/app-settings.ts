@@ -190,7 +190,7 @@ export function setDisabledProviderIds(
 }
 
 const pluginProviderCatalogSchema =
-  pluginPackageJsonSchema.shape.bb.shape.experimental_providers
+  pluginPackageJsonSchema.shape.hyperfide.shape.experimental_providers
     .unwrap()
     .element.omit({ kind: true })
     .array();

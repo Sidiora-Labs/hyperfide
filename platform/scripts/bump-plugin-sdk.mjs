@@ -8,7 +8,7 @@ import {
 //   packages/domain/src/plugin-sdk-version.ts  (PLUGIN_SDK_VERSION)
 //   packages/plugin-sdk/package.json           (version)
 //
-// The publish job is publish-if-missing (.github/workflows/publish-bb-app.yml,
+// The publish job is publish-if-missing (.github/workflows/publish-hyperfide-app.yml,
 // job publish-plugin-sdk): it never republishes a version that already exists on
 // npm. So any change to the package's published content — dist/, bundled-types/,
 // README.md, or a consumer-facing manifest field — needs a new version, or npm

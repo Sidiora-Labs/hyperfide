@@ -7,7 +7,7 @@ import { PI_BRIDGE_ARGS_ENV, PI_BRIDGE_COMMAND_ENV } from "./rpc-child.js";
 import { PiRpcSession } from "./rpc-session.js";
 
 it("auto-cancels extension dialogs in a helper session without a UI handler", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "bb-pi-helper-ui-"));
+  const dir = mkdtempSync(join(tmpdir(), "hyperfide-pi-helper-ui-"));
   const log = join(dir, "responses.jsonl");
   const script = `
     const fs = require("node:fs");

@@ -30,8 +30,8 @@ describe("builtin skills copy", () => {
       targetPath,
     );
     await expect(
-      readFile(path.join(targetPath, "bb-cli", "SKILL.md"), "utf8"),
-    ).resolves.toBe(await readBuiltinSkill("bb-cli"));
+      readFile(path.join(targetPath, "hyperfide-cli", "SKILL.md"), "utf8"),
+    ).resolves.toBe(await readBuiltinSkill("hyperfide-cli"));
   });
 
   it("throws when the sentinel skill is missing beside the module", async () => {

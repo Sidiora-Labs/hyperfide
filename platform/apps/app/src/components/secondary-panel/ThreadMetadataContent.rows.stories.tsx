@@ -229,7 +229,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/Users/michael/.hyperfide-dev/worktrees/env_demo/bb",
+              path: "/Users/michael/.hyperfide-dev/worktrees/env_demo/hyperfide",
             })}
           />
         </RowStage>
@@ -238,7 +238,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/Users/michael/.hyperfide-dev/worktrees/env_7m3cieyz6q/bb/apps/app/src/components/right-panel",
+              path: "/Users/michael/.hyperfide-dev/worktrees/env_7m3cieyz6q/hyperfide/apps/app/src/components/right-panel",
             })}
           />
         </RowStage>
@@ -247,7 +247,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/srv/repos/bb-linked-worktree",
+              path: "/srv/repos/hyperfide-linked-worktree",
             })}
           />
         </RowStage>
@@ -256,7 +256,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/Users/michael/Projects/bb",
+              path: "/Users/michael/Projects/hyperfide",
             })}
           />
         </RowStage>

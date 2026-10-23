@@ -15,7 +15,7 @@ import { CORE_TAG_SCOPE, invalidateTags } from "@hyperfide/query-tags";
 import { appToast } from "@/components/ui/app-toast";
 import { uiPreferencesQueryOptions } from "@/hooks/queries/system-queries";
 import { runRouteMutation } from "@/hooks/queries/route-tags";
-import { BbHttpError, sdk } from "../sdk";
+import { HyperfideHttpError, sdk } from "../sdk";
 
 type JotaiStore = ReturnType<typeof getDefaultStore>;
 
@@ -191,7 +191,7 @@ function refetchUiPreferences(
 }
 
 function isUiPreferenceConflict(error: unknown): boolean {
-  return error instanceof BbHttpError && error.status === 409;
+  return error instanceof HyperfideHttpError && error.status === 409;
 }
 
 async function writeUiPreference<Key extends UiPreferenceKey>(

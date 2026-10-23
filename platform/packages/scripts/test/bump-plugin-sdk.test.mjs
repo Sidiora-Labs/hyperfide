@@ -38,7 +38,7 @@ export const PLUGIN_SDK_MAJOR = Number(PLUGIN_SDK_VERSION.split(".", 1)[0]);
 }
 
 function createTestRepo({ manifestVersion, moduleVersion }) {
-  const repoRoot = mkdtempSync(join(tmpdir(), "bb-bump-plugin-sdk-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "hyperfide-bump-plugin-sdk-"));
   testRoots.push(repoRoot);
 
   mkdirSync(join(repoRoot, "packages", "plugin-sdk"), { recursive: true });

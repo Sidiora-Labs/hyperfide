@@ -89,7 +89,7 @@ function expectBridgeSpawn(
     expect(workerArgs.at(-1)).toMatch(/bridge-worker-entry\.ts$/u);
   } else {
     expect(workerArgs).toEqual([
-      path.resolve(expected.bundleDir, "bb-provider-bridge-worker.mjs"),
+      path.resolve(expected.bundleDir, "hyperfide-provider-bridge-worker.mjs"),
     ]);
   }
 }
@@ -114,11 +114,11 @@ describe("provider registry", () => {
       additionalWorkspaceWriteRoots: [],
       bridgeLaunch: PI_BRIDGE_LAUNCH,
       bridgeNodeEnv,
-      bridgeNodeExecutablePath: "/Applications/bb.app/Contents/MacOS/bb",
+      bridgeNodeExecutablePath: "/Applications/Hyperfide.app/Contents/MacOS/hyperfide",
     });
 
     expect(provider.process.command).toBe(
-      "/Applications/bb.app/Contents/MacOS/bb",
+      "/Applications/Hyperfide.app/Contents/MacOS/hyperfide",
     );
     expect(provider.process.env).toEqual(bridgeNodeEnv);
   });
@@ -186,7 +186,7 @@ describe("provider registry", () => {
         permissionScope: "full",
         approvalReviewer: null,
         permissionEscalation: null,
-        envVars: { BB_THREAD_ID: "thread-1" },
+        envVars: { HYPERFIDE_THREAD_ID: "thread-1" },
       },
       instructionMode: "append",
     });

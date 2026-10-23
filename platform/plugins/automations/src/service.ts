@@ -1,5 +1,5 @@
 import { isAbsolute, join } from "node:path";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   createAutomation,
@@ -69,12 +69,12 @@ import {
   projectPathForHost,
 } from "./working-directory.js";
 
-type ServiceApi = Pick<BbPluginApi, "realtime" | "log"> & {
+type ServiceApi = Pick<HyperfidePluginApi, "realtime" | "log"> & {
   sdk: {
     system: { config(): Promise<{ primaryHostId: string | null }> };
-    projects: Pick<BbPluginApi["sdk"]["projects"], "get" | "list">;
-    providers: Pick<BbPluginApi["sdk"]["providers"], "list">;
-    threads: Pick<BbPluginApi["sdk"]["threads"], "get" | "send" | "spawn">;
+    projects: Pick<HyperfidePluginApi["sdk"]["projects"], "get" | "list">;
+    providers: Pick<HyperfidePluginApi["sdk"]["providers"], "list">;
+    threads: Pick<HyperfidePluginApi["sdk"]["threads"], "get" | "send" | "spawn">;
   };
 };
 
@@ -165,7 +165,7 @@ function validateScriptWorkingDirectory(
   if (workingDirectory.type !== "path") return;
   if (!isAbsolute(workingDirectory.path)) {
     throw new Error(
-      "A script working directory must be automation-storage, project, or an absolute path on the bb server host",
+      "A script working directory must be automation-storage, project, or an absolute path on the hyperfide-platform server host",
     );
   }
   if (!isPrintableWorkingDirectoryPath(workingDirectory.path)) {
@@ -205,7 +205,7 @@ async function resolveStoredExecution(args: {
 }
 
 async function discardUncommittedScript(args: {
-  bb: Pick<ServiceApi, "log">;
+  hyperfide: Pick<ServiceApi, "log">;
   pluginDataDir: string;
   automationId: string;
   scriptFile: string | undefined;
@@ -218,7 +218,7 @@ async function discardUncommittedScript(args: {
       scriptFile: args.scriptFile,
     });
   } catch (error) {
-    args.bb.log.warn(
+    args.hyperfide.log.warn(
       `Failed to discard uncommitted script for automation ${args.automationId}: ${errorMessage(error)}`,
     );
   }
@@ -296,7 +296,7 @@ function requireCanonicalAutomationForWrite(
 }
 
 function toStoredAutomationReadResult(
-  bb: Pick<ServiceApi, "log">,
+  hyperfide: Pick<ServiceApi, "log">,
   pluginDataDir: string,
   row: AutomationRow,
 ): AutomationReadResult {
@@ -305,7 +305,7 @@ function toStoredAutomationReadResult(
     return withStoredScriptPath(pluginDataDir, decoded.automation);
   }
   if (decoded.automation.problem === "invalid-stored-data") {
-    bb.log.warn(
+    hyperfide.log.warn(
       `Malformed stored automation ${row.id}: ${decoded.error.message}`,
     );
   }
@@ -313,20 +313,20 @@ function toStoredAutomationReadResult(
 }
 
 async function resolveWorkingDirectoryForDisplay(args: {
-  bb: Pick<ServiceApi, "log" | "sdk">;
+  hyperfide: Pick<ServiceApi, "log" | "sdk">;
   pluginDataDir: string;
   automation: AutomationResponse;
   workingDirectory: AutomationScriptWorkingDirectory;
 }): Promise<string | null> {
   try {
     const resolve = createScriptWorkingDirectoryResolver({
-      sdk: args.bb.sdk,
+      sdk: args.hyperfide.sdk,
       pluginDataDir: args.pluginDataDir,
-      serverHostId: (await args.bb.sdk.system.config()).primaryHostId,
+      serverHostId: (await args.hyperfide.sdk.system.config()).primaryHostId,
     });
     return await resolve(args.automation.projectId, args.workingDirectory);
   } catch (error) {
-    args.bb.log.warn(
+    args.hyperfide.log.warn(
       `Failed to resolve working directory for automation ${args.automation.id}: ${errorMessage(error)}`,
     );
     return null;
@@ -334,7 +334,7 @@ async function resolveWorkingDirectoryForDisplay(args: {
 }
 
 async function withResolvedWorkingDirectory(args: {
-  bb: Pick<ServiceApi, "log" | "sdk">;
+  hyperfide: Pick<ServiceApi, "log" | "sdk">;
   pluginDataDir: string;
   automation: AutomationResponse;
 }): Promise<AutomationDetailResponse> {
@@ -346,7 +346,7 @@ async function withResolvedWorkingDirectory(args: {
     execution: {
       ...execution,
       resolvedWorkingDirectory: await resolveWorkingDirectoryForDisplay({
-        bb: args.bb,
+        hyperfide: args.hyperfide,
         pluginDataDir: args.pluginDataDir,
         automation,
         workingDirectory: execution.workingDirectory,
@@ -356,7 +356,7 @@ async function withResolvedWorkingDirectory(args: {
 }
 
 async function toEditableAutomationResponse(args: {
-  bb: Pick<ServiceApi, "log" | "sdk">;
+  hyperfide: Pick<ServiceApi, "log" | "sdk">;
   pluginDataDir: string;
   automation: AutomationResponse;
 }): Promise<AutomationDetailResponse> {
@@ -380,25 +380,25 @@ async function toEditableAutomationResponse(args: {
 }
 
 async function toEditableAutomationReadResult(args: {
-  bb: Pick<ServiceApi, "log" | "sdk">;
+  hyperfide: Pick<ServiceApi, "log" | "sdk">;
   pluginDataDir: string;
   row: AutomationRow;
 }): Promise<AutomationDetailReadResult> {
   const automation = toStoredAutomationReadResult(
-    args.bb,
+    args.hyperfide,
     args.pluginDataDir,
     args.row,
   );
   if ("problem" in automation) return automation;
   return toEditableAutomationResponse({
-    bb: args.bb,
+    hyperfide: args.hyperfide,
     pluginDataDir: args.pluginDataDir,
     automation,
   });
 }
 
 async function cleanupSupersededScript(args: {
-  bb: Pick<ServiceApi, "log">;
+  hyperfide: Pick<ServiceApi, "log">;
   pluginDataDir: string;
   automationId: string;
   previous: AutomationExecution;
@@ -425,7 +425,7 @@ async function cleanupSupersededScript(args: {
       });
     }
   } catch (error) {
-    args.bb.log.warn(
+    args.hyperfide.log.warn(
       `Failed to remove superseded script for automation ${args.automationId}: ${errorMessage(error)}`,
     );
   }
@@ -491,11 +491,11 @@ function parseRunCursor(
 }
 
 async function projectNameById(
-  bb: Pick<ServiceApi, "sdk" | "log">,
+  hyperfide: Pick<ServiceApi, "sdk" | "log">,
 ): Promise<Map<string, string>> {
   try {
     const projects = projectSummaryListSchema.parse(
-      await bb.sdk.projects.list({ includePersonal: true }),
+      await hyperfide.sdk.projects.list({ includePersonal: true }),
     );
     return new Map(
       projects
@@ -506,7 +506,7 @@ async function projectNameById(
         .map((project) => [project.id, project.name ?? project.id]),
     );
   } catch (error) {
-    bb.log.warn(
+    hyperfide.log.warn(
       `Failed to list projects for automations overview: ${errorMessage(error)}`,
     );
     return new Map();
@@ -530,12 +530,12 @@ const projectSummarySchema = z
 const projectSummaryListSchema = z.array(projectSummarySchema);
 
 async function requireProjectAvailable(
-  bb: Pick<ServiceApi, "sdk">,
+  hyperfide: Pick<ServiceApi, "sdk">,
   projectId: string,
 ): Promise<z.infer<typeof projectAvailableSchema>> {
   try {
     return projectAvailableSchema.parse(
-      await bb.sdk.projects.get({ projectId }),
+      await hyperfide.sdk.projects.get({ projectId }),
     );
   } catch (error) {
     throw new Error(
@@ -559,22 +559,22 @@ function defaultScriptWorkingDirectory(
 }
 
 export function createAutomationService(args: {
-  bb: ServiceApi;
+  hyperfide: ServiceApi;
   db: Db;
   pluginDataDir: string;
   serverUrl: string;
 }): AutomationService {
-  const { bb, db, pluginDataDir, serverUrl } = args;
+  const { hyperfide, db, pluginDataDir, serverUrl } = args;
 
   return {
     async overview() {
-      const projects = await projectNameById(bb);
+      const projects = await projectNameById(hyperfide);
       const automations: AutomationsOverviewResponse["automations"] = [];
       for (const row of listAllAutomations(db)) {
         const projectName = projects.get(row.projectId);
         if (projects.size > 0 && projectName === undefined) continue;
         automations.push({
-          automation: toStoredAutomationReadResult(bb, pluginDataDir, row),
+          automation: toStoredAutomationReadResult(hyperfide, pluginDataDir, row),
           project: {
             id: row.projectId,
             name: projectName ?? row.projectId,
@@ -590,26 +590,26 @@ export function createAutomationService(args: {
           ? listAutomationsForProject(db, input.projectId)
           : listAutomationsTargetingThread(db, input.targetThreadId);
       return rows.map((row) =>
-        toStoredAutomationReadResult(bb, pluginDataDir, row),
+        toStoredAutomationReadResult(hyperfide, pluginDataDir, row),
       );
     },
 
     get(input) {
       return toEditableAutomationReadResult({
-        bb,
+        hyperfide,
         pluginDataDir,
         row: requireProjectAutomation(db, input),
       });
     },
 
     async create(payload) {
-      const project = await requireProjectAvailable(bb, payload.projectId);
+      const project = await requireProjectAvailable(hyperfide, payload.projectId);
       const now = Date.now();
       validateTrigger(payload.trigger, now);
       assertNotRecursiveCreation(db, payload.createdByThreadId);
       if (payload.execution.mode === "agent") {
         await resolvePermissionMode(
-          bb,
+          hyperfide,
           payload.execution.providerId,
           payload.execution.permissionMode,
           providerRoutingForEnvironment(payload.execution.environment),
@@ -625,7 +625,7 @@ export function createAutomationService(args: {
           payload.execution.workingDirectory === undefined
             ? defaultScriptWorkingDirectory(
                 project,
-                (await bb.sdk.system.config()).primaryHostId,
+                (await hyperfide.sdk.system.config()).primaryHostId,
               )
             : AUTOMATION_STORAGE_WORKING_DIRECTORY,
       });
@@ -649,23 +649,23 @@ export function createAutomationService(args: {
         });
       } catch (error) {
         await discardUncommittedScript({
-          bb,
+          hyperfide,
           pluginDataDir,
           automationId,
           scriptFile: stored.writtenScriptFile,
         });
         throw error;
       }
-      publishAutomationChange(bb, payload.projectId, "automations-changed");
+      publishAutomationChange(hyperfide, payload.projectId, "automations-changed");
       return withResolvedWorkingDirectory({
-        bb,
+        hyperfide,
         pluginDataDir,
         automation: toStoredAutomationResponse(pluginDataDir, created),
       });
     },
 
     async update(input) {
-      const project = await requireProjectAvailable(bb, input.projectId);
+      const project = await requireProjectAvailable(hyperfide, input.projectId);
       const current = requireProjectAutomation(db, input);
       const currentAutomation = decodeAutomationRow(current).automation;
       if (
@@ -702,7 +702,7 @@ export function createAutomationService(args: {
       if (input.execution !== undefined) {
         if (input.execution.mode === "agent") {
           await resolvePermissionMode(
-            bb,
+            hyperfide,
             input.execution.providerId,
             input.execution.permissionMode,
             providerRoutingForEnvironment(input.execution.environment),
@@ -719,7 +719,7 @@ export function createAutomationService(args: {
                   input.execution.workingDirectory === undefined
                 ? defaultScriptWorkingDirectory(
                     project,
-                    (await bb.sdk.system.config()).primaryHostId,
+                    (await hyperfide.sdk.system.config()).primaryHostId,
                   )
                 : AUTOMATION_STORAGE_WORKING_DIRECTORY,
         });
@@ -737,7 +737,7 @@ export function createAutomationService(args: {
           input.agent.target?.type === "environment"
         ) {
           await resolvePermissionMode(
-            bb,
+            hyperfide,
             updatedExecution.providerId,
             updatedExecution.permissionMode,
             providerRoutingForEnvironment(updatedExecution.environment),
@@ -778,7 +778,7 @@ export function createAutomationService(args: {
         });
       } catch (error) {
         await discardUncommittedScript({
-          bb,
+          hyperfide,
           pluginDataDir,
           automationId: current.id,
           scriptFile: stagedScriptFile,
@@ -787,7 +787,7 @@ export function createAutomationService(args: {
       }
       if (!updated) {
         await discardUncommittedScript({
-          bb,
+          hyperfide,
           pluginDataDir,
           automationId: current.id,
           scriptFile: stagedScriptFile,
@@ -796,16 +796,16 @@ export function createAutomationService(args: {
       }
       if (patch.execution !== undefined) {
         await cleanupSupersededScript({
-          bb,
+          hyperfide,
           pluginDataDir,
           automationId: current.id,
           previous: currentExecution,
           next: patch.execution,
         });
       }
-      publishAutomationChange(bb, input.projectId, "automations-changed");
+      publishAutomationChange(hyperfide, input.projectId, "automations-changed");
       return withResolvedWorkingDirectory({
-        bb,
+        hyperfide,
         pluginDataDir,
         automation: toStoredAutomationResponse(pluginDataDir, updated),
       });
@@ -818,7 +818,7 @@ export function createAutomationService(args: {
         dataDir: pluginDataDir,
         automationId: automation.id,
       });
-      publishAutomationChange(bb, input.projectId, [
+      publishAutomationChange(hyperfide, input.projectId, [
         "automations-changed",
         "automation-runs-changed",
       ]);
@@ -835,7 +835,7 @@ export function createAutomationService(args: {
         nextRunAt: null,
       });
       if (!updated) throw new Error("Automation not found");
-      publishAutomationChange(bb, input.projectId, "automations-changed");
+      publishAutomationChange(hyperfide, input.projectId, "automations-changed");
       return toStoredAutomationResponse(pluginDataDir, updated);
     },
 
@@ -858,7 +858,7 @@ export function createAutomationService(args: {
         resetConsecutiveFailures: true,
       });
       if (!updated) throw new Error("Automation not found");
-      publishAutomationChange(bb, input.projectId, "automations-changed");
+      publishAutomationChange(hyperfide, input.projectId, "automations-changed");
       return toStoredAutomationResponse(pluginDataDir, updated);
     },
 
@@ -877,7 +877,7 @@ export function createAutomationService(args: {
         now,
       });
       if (!deduped) {
-        publishAutomationChange(bb, input.projectId, "automation-runs-changed");
+        publishAutomationChange(hyperfide, input.projectId, "automation-runs-changed");
         const closeFailedRun = (error: unknown): void => {
           closeAutomationRun(db, {
             runId: run.id,
@@ -889,14 +889,14 @@ export function createAutomationService(args: {
         void (async () => {
           try {
             if (execution.mode === "agent") {
-              await executeAgentRun(bb, db, {
+              await executeAgentRun(hyperfide, db, {
                 automation,
                 run,
                 execution,
                 onFailure: closeFailedRun,
               });
             } else {
-              await executeScriptRun(bb, db, {
+              await executeScriptRun(hyperfide, db, {
                 pluginDataDir,
                 automation,
                 run,
@@ -904,18 +904,18 @@ export function createAutomationService(args: {
                 onFailure: closeFailedRun,
                 serverUrl,
                 resolveWorkingDirectory: createScriptWorkingDirectoryResolver({
-                  sdk: bb.sdk,
+                  sdk: hyperfide.sdk,
                   pluginDataDir,
-                  serverHostId: (await bb.sdk.system.config()).primaryHostId,
+                  serverHostId: (await hyperfide.sdk.system.config()).primaryHostId,
                 }),
               });
             }
           } catch (error) {
             closeFailedRun(error);
-            bb.log.error(
+            hyperfide.log.error(
               `Manual automation run ${run.id} failed unexpectedly: ${errorMessage(error)}`,
             );
-            publishAutomationChange(bb, input.projectId, [
+            publishAutomationChange(hyperfide, input.projectId, [
               "automations-changed",
               "automation-runs-changed",
             ]);

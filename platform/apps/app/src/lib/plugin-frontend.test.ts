@@ -104,15 +104,15 @@ describe("loadPluginFrontend", () => {
 });
 
 describe("installPluginRuntime", () => {
-  type RuntimeHost = typeof globalThis & { __bbPluginRuntime?: unknown };
+  type RuntimeHost = typeof globalThis & { __hyperfidePluginRuntime?: unknown };
 
   afterEach(() => {
-    delete (globalThis as RuntimeHost).__bbPluginRuntime;
+    delete (globalThis as RuntimeHost).__hyperfidePluginRuntime;
   });
 
   it("exposes the app's own runtime modules on every shim slot, exactly once", () => {
     installPluginRuntime();
-    const runtime = (globalThis as RuntimeHost).__bbPluginRuntime as Record<
+    const runtime = (globalThis as RuntimeHost).__hyperfidePluginRuntime as Record<
       string,
       unknown
     >;
@@ -157,12 +157,12 @@ describe("installPluginRuntime", () => {
     });
 
     installPluginRuntime();
-    expect((globalThis as RuntimeHost).__bbPluginRuntime).toBe(runtime);
+    expect((globalThis as RuntimeHost).__hyperfidePluginRuntime).toBe(runtime);
   });
 
   it("hands plugins every @pierre/diffs/react export, with the diff components gated", async () => {
     installPluginRuntime();
-    const runtime = (globalThis as RuntimeHost).__bbPluginRuntime as Record<
+    const runtime = (globalThis as RuntimeHost).__hyperfidePluginRuntime as Record<
       string,
       unknown
     >;

@@ -22,8 +22,8 @@ import {
   createUserShellPathResolver,
   prepareRuntimeShellEnv,
   resolvePowerShellExecutionPolicyDefault,
-  resolveBbExecutablePathInDirectory,
-  resolveLocalBbExecutablePath,
+  resolveHyperfideExecutablePathInDirectory,
+  resolveLocalHyperfideExecutablePath,
 } from "./runtime-shell-env.js";
 import type { HostDaemonLogger } from "./logger.js";
 import {
@@ -34,7 +34,7 @@ import {
 interface StartHostDaemonOptions {
   enrollKey?: string;
   hostId?: string;
-  bbExecutableDirectory?: string;
+  hyperfideExecutableDirectory?: string;
   bridgeBundleDir?: string;
   serverHeaders?: Record<string, string>;
   autoUpdate?: boolean;
@@ -120,11 +120,11 @@ export async function startHostDaemon(
     const localApiConfig = resolveHostDaemonLocalApiConfig({
       hostDaemonPort: hostDaemonConfig.HYPERFIDE_HOST_DAEMON_PORT,
     });
-    const bbExecutablePath =
-      options.bbExecutableDirectory !== undefined
-        ? resolveBbExecutablePathInDirectory(options.bbExecutableDirectory)
-        : await resolveLocalBbExecutablePath();
-    const bbExecutableDirectory = dirname(bbExecutablePath);
+    const hyperfideExecutablePath =
+      options.hyperfideExecutableDirectory !== undefined
+        ? resolveHyperfideExecutablePathInDirectory(options.hyperfideExecutableDirectory)
+        : await resolveLocalHyperfideExecutablePath();
+    const hyperfideExecutableDirectory = dirname(hyperfideExecutablePath);
     const logger = createLogger({
       component: "host-daemon",
       base: { serverUrl },
@@ -154,8 +154,8 @@ export async function startHostDaemon(
     const resolveUserShellPath = createUserShellPathResolver();
     const resolveRuntimeShellEnv = async () =>
       prepareRuntimeShellEnv({
-        bbExecutableDirectory,
-        bbExecutablePath,
+        hyperfideExecutableDirectory,
+        hyperfideExecutablePath,
         hostDaemonPort: localApiConfig.port,
         inheritedPath: (await resolveUserShellPath()) ?? process.env.PATH,
         powershellExecutionPolicy:

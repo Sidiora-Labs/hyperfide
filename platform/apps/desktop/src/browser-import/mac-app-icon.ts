@@ -51,7 +51,7 @@ export async function readMacAppIcon(
   if (iconFile === undefined) return undefined;
   const icnsPath = join(appPath, "Contents", "Resources", iconFile);
   if (!(await isRegularFile(icnsPath))) return undefined;
-  const directory = await mkdtemp(join(tmpdir(), "bb-app-icon-"));
+  const directory = await mkdtemp(join(tmpdir(), "hyperfide-app-icon-"));
   const pngPath = join(directory, "icon.png");
   try {
     const converted = await run("sips", [

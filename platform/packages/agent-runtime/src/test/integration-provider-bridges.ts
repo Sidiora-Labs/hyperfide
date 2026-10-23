@@ -10,7 +10,7 @@ import {
 import type { AgentRuntimeBridgeLaunch } from "../types.js";
 
 export function integrationProviderBridgeManifestPath(): string {
-  return join(tmpdir(), "bb-agent-runtime-integration-provider-bridges.json");
+  return join(tmpdir(), "hyperfide-agent-runtime-integration-provider-bridges.json");
 }
 
 const bridgeLaunchSchema = z.object({

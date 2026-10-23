@@ -394,7 +394,7 @@ export function MachinesSettingsSection() {
         ) : null}
         <div
           role="note"
-          aria-label="About the bb server"
+          aria-label="About the hyperfide-platform server"
           className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3"
         >
           <Icon
@@ -405,7 +405,7 @@ export function MachinesSettingsSection() {
           <div className="min-w-0 space-y-1 text-xs leading-relaxed text-subtle-foreground">
             <p className="font-medium text-foreground">How machines connect</p>
             <p>
-              All your machines connect to one central bb server, where your
+              All your machines connect to one central hyperfide-platform server, where your
               threads and settings are stored. Choose a machine that can stay
               awake and online to run the server.
             </p>

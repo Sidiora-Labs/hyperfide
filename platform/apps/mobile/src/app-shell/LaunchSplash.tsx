@@ -19,7 +19,7 @@ const SPLASH_HOLDING_PATHS = new Set(["/", "/webview"]);
 
 const LOGO_WIDTH = 88;
 const LOGO_HEIGHT = (LOGO_WIDTH * 487) / 581;
-const isDevApp = Constants.expoConfig?.extra?.bbMobileVariant === "dev";
+const isDevApp = Constants.expoConfig?.extra?.hyperfideMobileVariant === "dev";
 
 const launchArt =
   Appearance.getColorScheme() === "dark"

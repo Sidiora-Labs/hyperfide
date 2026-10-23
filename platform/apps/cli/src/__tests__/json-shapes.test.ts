@@ -11,7 +11,7 @@ import { JSON_SHAPE_BY_COMMAND_PATH } from "../json-shapes.js";
 
 const JSON_GUIDE_PATH = fileURLToPath(
   new URL(
-    "../../../../packages/templates/src/templates/bb-guide-json.md",
+    "../../../../packages/templates/src/templates/hyperfide-guide-json.md",
     import.meta.url,
   ),
 );
@@ -41,7 +41,7 @@ describe("JSON shape help", () => {
     for (const commandPath of Object.keys(JSON_SHAPE_BY_COMMAND_PATH)) {
       const invocation = resolveInvocation(program, [
         "node",
-        "bb",
+        "hyperfide",
         ...commandPath.split(" "),
       ]);
       expect(invocation.path.join(" "), commandPath).toBe(commandPath);

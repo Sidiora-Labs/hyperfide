@@ -20,7 +20,7 @@ type MainFailureHandler = (error: unknown) => void;
 const entrypointDir = dirname(fileURLToPath(import.meta.url));
 
 function resolveEntrypointBridgeBundleDir(): string | undefined {
-  return existsSync(join(entrypointDir, "bb-provider-bridge-worker.mjs"))
+  return existsSync(join(entrypointDir, "hyperfide-provider-bridge-worker.mjs"))
     ? entrypointDir
     : undefined;
 }
@@ -56,7 +56,7 @@ async function runHostDaemonEntrypoint(): Promise<void> {
   }
   const hostDaemonModule = await import("./start-host-daemon.js");
   const daemon = await hostDaemonModule.startHostDaemon({
-    bbExecutableDirectory: hostDaemonEntrypointConfig.HYPERFIDE_CLI_DIR,
+    hyperfideExecutableDirectory: hostDaemonEntrypointConfig.HYPERFIDE_CLI_DIR,
     bridgeBundleDir:
       hostDaemonEntrypointConfig.HYPERFIDE_BRIDGE_DIR ??
       resolveEntrypointBridgeBundleDir(),

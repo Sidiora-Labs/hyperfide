@@ -11,7 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import { readBbAppVersion } from "./bb-app-version.js";
+import { readHyperfideAppVersion } from "./hyperfide-app-version.js";
 
 const execFileAsync = promisify(execFile);
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -58,7 +58,7 @@ describe("packaged CLI plugin build", () => {
         name: "hyperfide-plugin-packaged-shim-fixture",
         version: "0.1.0",
         type: "module",
-        bb: {
+        hyperfide: {
           name: "Packaged shim fixture",
           description: "Exercises the packaged CLI SDK shim fallback.",
           branding: { icon: "Zap" },
@@ -106,7 +106,7 @@ describe("packaged CLI plugin build", () => {
       [cliEntry, "--version"],
       { cwd: workspaceRoot, env: childEnv },
     );
-    expect(versionOutput.trim()).toBe(await readBbAppVersion());
+    expect(versionOutput.trim()).toBe(await readHyperfideAppVersion());
 
     await execFileAsync(
       process.execPath,

@@ -630,10 +630,10 @@ describe("public project command typeahead route", () => {
     });
   });
 
-  it("keeps inherited bb skill roots out of provider-native discovery", async () => {
+  it("keeps inherited hyperfide skill roots out of provider-native discovery", async () => {
     await withTestHarness(
       {
-        inheritedSkillsRootPaths: ["/tmp/bb-parent-skills"],
+        inheritedSkillsRootPaths: ["/tmp/hyperfide-parent-skills"],
       },
       async (harness) => {
         const { host, session } = seedHostSession(harness.deps, {

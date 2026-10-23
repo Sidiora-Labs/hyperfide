@@ -21,7 +21,7 @@ Two or three sentences: what you did, what happened, what you expected. Write it
 - hyperfide platform version (`hyperfide platform --version` or Settings → About) and how it was installed (desktop app, `hyperfide platform`, `install.sh`, from source at commit).
 - OS and version. Node version if you run from source or npm.
 - Provider and provider CLI version when the bug involves an agent (`claude --version`, `codex --version`, `pi --version`, ACP agent build).
-- Anything unusual about the setup: remote machine, hyperfide platform Connect, worktree environment, custom ports or data dir, cgroup/memory limits.
+- Anything unusual about the setup: remote machine, worktree environment, custom ports or data dir, cgroup/memory limits.
 
 ### 3. Steps to reproduce
 

@@ -63,7 +63,7 @@ import { useSecondaryPanelResize } from "./useSecondaryPanelResize";
 import { threadSecondaryPanelResizingAtom } from "./threadSecondaryPanelAtoms";
 import {
   CHROME_ROW_CLASS,
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_CHROME_CONTROL_AXIS_CLASS,
   MACOS_COLLAPSED_TOP_LEFT_RESERVE_CLASS,
   MACOS_TITLE_BAR_COLLAPSED_SIDEBAR_RESERVE_CLASS,
@@ -75,7 +75,7 @@ import {
   MACOS_WINDOW_NO_DRAG_CLASS,
   shouldReserveMacosTrafficLights,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { useDesktopWindowState } from "@/hooks/useDesktopWindowState";
 import { TitleBarScrollFade } from "@/components/ui/title-bar-scroll-fade";
 import {
@@ -139,7 +139,7 @@ export function getSecondaryPanelChromeStackClassName(
 }
 
 const FRAMED_PANEL_SURFACE_CLASS =
-  "isolate bg-transparent before:pointer-events-none before:absolute before:inset-x-0 before:bottom-0 before:top-[calc(var(--bb-window-title-bar-height)+1px)] before:-z-10 before:rounded-tr-(--bb-frame-card-radius) before:bg-sidebar";
+  "isolate bg-transparent before:pointer-events-none before:absolute before:inset-x-0 before:bottom-0 before:top-[calc(var(--hyperfide-window-title-bar-height)+1px)] before:-z-10 before:rounded-tr-(--hyperfide-frame-card-radius) before:bg-sidebar";
 
 interface CollapsedPanelTrafficLightReserveArgs {
   isConversationCollapsed: boolean;
@@ -384,7 +384,7 @@ function ThreadSecondaryPanelContent({
   const isSecondaryPanelResizing = useAtomValue(
     threadSecondaryPanelResizingAtom,
   );
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const desktopWindowState = useDesktopWindowState();
   const isSidebarShowing = useOptionalIsSidebarShowing();
@@ -755,7 +755,7 @@ function ThreadSecondaryPanelContent({
             className={cn(
               CHROME_ROW_CLASS,
               "min-w-0 justify-between gap-2",
-              renderAsDrawer ? "px-2" : "px-(--bb-panel-chrome-padding)",
+              renderAsDrawer ? "px-2" : "px-(--hyperfide-panel-chrome-padding)",
               usesDesktopChrome && usesWindowChrome && MACOS_WINDOW_DRAG_CLASS,
               usesDesktopChrome &&
                 usesWindowChrome && [

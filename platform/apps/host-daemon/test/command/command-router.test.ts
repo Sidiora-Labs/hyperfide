@@ -80,7 +80,7 @@ function createRouter(
   args: CreateRouterArgs = {},
 ): CommandRouter {
   return new CommandRouter({
-    dataDir: "/tmp/bb-router-test-data",
+    dataDir: "/tmp/hyperfide-router-test-data",
     eventSink: noopEventSink,
     fetchProjectAttachment: unexpectedProjectAttachmentFetch,
     fetchPluginHostArtifact: fetchDispatchTestArtifact,
@@ -92,7 +92,7 @@ function createRouter(
     },
     resolveInteractiveRequest: args.resolveInteractiveRequest,
     runtimeManager: args.runtimeManager ?? harness.manager,
-    threadStorageRootPath: "/tmp/bb-router-test-thread-storage",
+    threadStorageRootPath: "/tmp/hyperfide-router-test-thread-storage",
   });
 }
 
@@ -252,7 +252,7 @@ describe("CommandRouter", () => {
       warn: vi.fn(),
     };
     const router = createRouter(harness, { logger });
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "bb-router-paths-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-router-paths-"));
     try {
       await fs.writeFile(path.join(root, "alpha.md"), "");
 
@@ -290,7 +290,7 @@ describe("CommandRouter", () => {
   it("ignores cancellation for a different path search request", async () => {
     const harness = createHarness({ workspacePath: "/tmp/env-router" });
     const router = createRouter(harness);
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "bb-router-paths-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-router-paths-"));
     try {
       await fs.writeFile(path.join(root, "alpha.md"), "");
 

@@ -22,11 +22,11 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/gu, "'\\''")}'`;
 }
 
-describe("bb bin wrapper", () => {
+describe("hyperfide bin wrapper", () => {
   let tempRoot: string;
 
   beforeEach(async () => {
-    tempRoot = await mkdtemp(join(tmpdir(), "bb-cli-bin-"));
+    tempRoot = await mkdtemp(join(tmpdir(), "hyperfide-cli-bin-"));
   });
 
   afterEach(async () => {
@@ -39,7 +39,7 @@ describe("bb bin wrapper", () => {
     await mkdir(fakeBinDir, { recursive: true });
     await writeFile(
       join(fakeRepoRoot, "package.json"),
-      JSON.stringify({ name: "bb", private: true }),
+      JSON.stringify({ name: "hyperfide", private: true }),
     );
     await copyFile(
       join(repoRoot, "apps", "cli", "bin", "hyperfide-platform"),

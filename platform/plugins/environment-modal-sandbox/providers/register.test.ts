@@ -52,12 +52,12 @@ it("registers a non-Modal backend through the shared extension point", async () 
     displayName: ({ hostId }) => `Example ${hostId}`,
     close() {},
   };
-  const { bb, harness } = createFakePluginHost({ pluginId: "test-plugin" });
+  const { hyperfide, harness } = createFakePluginHost({ pluginId: "test-plugin" });
   const bootstrap = vi.fn(async () => ({ hostId: "host_example" }));
-  Object.assign(bb.experimental_machines, { bootstrap });
+  Object.assign(hyperfide.experimental_machines, { bootstrap });
   const onConnected = vi.fn(async () => {});
 
-  registerSandboxBackend(bb, backend, {
+  registerSandboxBackend(hyperfide, backend, {
     now: () => 1,
     onConnected,
   });

@@ -56,7 +56,7 @@ vi.mock("partysocket/ws", () => ({
 }));
 
 vi.mock("./dev-websocket-url", () => ({
-  buildBrowserWebSocketUrl: () => "ws://bb.test/ws",
+  buildBrowserWebSocketUrl: () => "ws://hyperfide.test/ws",
 }));
 
 import {

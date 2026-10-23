@@ -2,13 +2,13 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
-import type { BbDesktopServerChoice } from "@hyperfide/desktop-contract";
-import { createBbDesktopApi } from "../test/bb-desktop-test-utils";
+import type { HyperfideDesktopServerChoice } from "@hyperfide/desktop-contract";
+import { createHyperfideDesktopApi } from "../test/hyperfide-desktop-test-utils";
 import { getServerChoices } from "./server-choices";
 import { useServerChoices } from "../hooks/useServerChoices";
 
 function createDesktopApi() {
-  return createBbDesktopApi({
+  return createHyperfideDesktopApi({
     lastCheckedAt: null,
     latestVersion: null,
     pendingVersion: null,
@@ -21,21 +21,21 @@ function createDesktopApi() {
 
 afterEach(() => {
   cleanup();
-  Reflect.deleteProperty(window, "bbDesktop");
+  Reflect.deleteProperty(window, "hyperfideDesktop");
 });
 
 describe("desktop server choices", () => {
   it.each(["browser", "older-desktop"])("omits switching on %s", (client) => {
-    if (client === "older-desktop") window.bbDesktop = createDesktopApi();
+    if (client === "older-desktop") window.hyperfideDesktop = createDesktopApi();
     expect(getServerChoices()).toBeNull();
   });
 
   it("keeps a newer subscription update when an older list response arrives", async () => {
-    let resolveList: (choices: BbDesktopServerChoice[]) => void = () => {
+    let resolveList: (choices: HyperfideDesktopServerChoice[]) => void = () => {
       throw new Error("List was not requested");
     };
-    const listeners = new Set<(choices: BbDesktopServerChoice[]) => void>();
-    window.bbDesktop = {
+    const listeners = new Set<(choices: HyperfideDesktopServerChoice[]) => void>();
+    window.hyperfideDesktop = {
       ...createDesktopApi(),
       getServerChoices: () =>
         new Promise((resolve) => {

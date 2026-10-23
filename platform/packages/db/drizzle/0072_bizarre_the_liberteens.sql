@@ -35,9 +35,9 @@ SELECT
 	`updated_at`
 FROM `marketplaces`
 WHERE
-	`id` = 'bb-official'
+	`id` = 'hyperfide-official'
 	AND `source_kind` = 'git'
-	AND `location` = 'https://github.com/ymichael/bb.git'
+	AND `location` = 'https://github.com/ymichael/hyperfide.git'
 	AND `requested_git_ref` = 'main'
 	AND `catalog_json` IS NOT NULL
 LIMIT 1;
@@ -47,14 +47,14 @@ SET
 	`catalog_entry_id` = CASE
 		WHEN
 			`provenance` = 'marketplace'
-			AND `marketplace_id` = 'bb-official'
+			AND `marketplace_id` = 'hyperfide-official'
 			AND EXISTS (
 				SELECT 1
 				FROM `marketplaces`
 				WHERE
-					`id` = 'bb-official'
+					`id` = 'hyperfide-official'
 					AND `source_kind` = 'git'
-					AND `location` = 'https://github.com/ymichael/bb.git'
+					AND `location` = 'https://github.com/ymichael/hyperfide.git'
 					AND `requested_git_ref` = 'main'
 			)
 			THEN `catalog_entry_id`
@@ -63,14 +63,14 @@ SET
 	`provenance` = CASE
 		WHEN
 			`provenance` = 'marketplace'
-			AND `marketplace_id` = 'bb-official'
+			AND `marketplace_id` = 'hyperfide-official'
 			AND EXISTS (
 				SELECT 1
 				FROM `marketplaces`
 				WHERE
-					`id` = 'bb-official'
+					`id` = 'hyperfide-official'
 					AND `source_kind` = 'git'
-					AND `location` = 'https://github.com/ymichael/bb.git'
+					AND `location` = 'https://github.com/ymichael/hyperfide.git'
 					AND `requested_git_ref` = 'main'
 			)
 			THEN 'catalog'

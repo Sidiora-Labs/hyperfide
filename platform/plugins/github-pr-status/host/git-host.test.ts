@@ -16,10 +16,10 @@ function ghJson(overrides: Record<string, unknown> = {}): string {
     number: 42,
     title: "Add pull request section",
     state: "OPEN",
-    url: "https://github.com/acme/bb/pull/42",
+    url: "https://github.com/acme/hyperfide/pull/42",
     isDraft: false,
     baseRefName: "main",
-    headRefName: "bb/add-pr-section",
+    headRefName: "hyperfide/add-pr-section",
     updatedAt: "2026-06-16T12:30:00Z",
     statusCheckRollup: [],
     reviewDecision: null,
@@ -36,10 +36,10 @@ describe("parseGitHubPullRequestView", () => {
       number: 42,
       title: "Add pull request section",
       state: "OPEN",
-      url: "https://github.com/acme/bb/pull/42",
+      url: "https://github.com/acme/hyperfide/pull/42",
       isDraft: false,
       baseRefName: "main",
-      headRefName: "bb/add-pr-section",
+      headRefName: "hyperfide/add-pr-section",
       updatedAt: "2026-06-16T12:30:00Z",
       autoMerge: false,
       inMergeQueue: null,
@@ -77,7 +77,7 @@ describe("parseGitHubPullRequestView", () => {
               name: "typecheck",
               status: "COMPLETED",
               conclusion: "SUCCESS",
-              detailsUrl: "https://github.com/acme/bb/actions/runs/1",
+              detailsUrl: "https://github.com/acme/hyperfide/actions/runs/1",
               startedAt: "2026-06-16T12:20:00Z",
             },
             {
@@ -110,7 +110,7 @@ describe("parseGitHubPullRequestView", () => {
           name: "typecheck",
           status: "completed",
           conclusion: "success",
-          url: "https://github.com/acme/bb/actions/runs/1",
+          url: "https://github.com/acme/hyperfide/actions/runs/1",
           startedAt: "2026-06-16T12:20:00Z",
         },
         {
@@ -181,12 +181,12 @@ describe("runPullRequestActionForCurrentBranch", () => {
     "runs gh pr %s without a target so gh can honor a fork upstream",
     async (_label, action, expectedArgs) => {
       const gh = await installFakeGh({});
-      const cwd = await makeTempDir("bb-pr-action-");
+      const cwd = await makeTempDir("hyperfide-pr-action-");
 
       await expect(
         runPullRequestActionForCurrentBranch({
           cwd,
-          localBranch: "bb/pr-action",
+          localBranch: "hyperfide/pr-action",
           action,
         }),
       ).resolves.toEqual({ ok: true });
@@ -202,8 +202,8 @@ describe("runPullRequestActionForCurrentBranch", () => {
 
     await expect(
       runPullRequestActionForCurrentBranch({
-        cwd: await makeTempDir("bb-pr-action-"),
-        localBranch: "bb/pr-action",
+        cwd: await makeTempDir("hyperfide-pr-action-"),
+        localBranch: "hyperfide/pr-action",
         action: { operation: "merge", method: "squash" },
       }),
     ).resolves.toEqual({
@@ -216,8 +216,8 @@ describe("runPullRequestActionForCurrentBranch", () => {
 describe("getPullRequestForCurrentBranch", () => {
   async function lookup() {
     return getPullRequestForCurrentBranch({
-      cwd: await makeTempDir("bb-pr-lookup-"),
-      localBranch: "bb/pr-lookup",
+      cwd: await makeTempDir("hyperfide-pr-lookup-"),
+      localBranch: "hyperfide/pr-lookup",
     });
   }
 
@@ -301,7 +301,7 @@ describe("getPullRequestForCurrentBranch", () => {
   it("returns none when gh finds no pull request", async () => {
     await installFakeGh({
       "pr view": {
-        stderr: 'no pull requests found for branch "bb/pr-lookup"\n',
+        stderr: 'no pull requests found for branch "hyperfide/pr-lookup"\n',
         exit: 1,
       },
     });

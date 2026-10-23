@@ -20,18 +20,18 @@ describe("pruneUnreferencedChunks", () => {
   });
 
   it("keeps the chunks the entry reaches and removes a previous build's", async () => {
-    const dist = mkdtempSync(join(tmpdir(), "bb-prune-chunks-"));
+    const dist = mkdtempSync(join(tmpdir(), "hyperfide-prune-chunks-"));
     tempDirs.push(dist);
-    const chunkDir = join(dist, "bb-chunks");
+    const chunkDir = join(dist, "hyperfide-chunks");
     mkdirSync(chunkDir);
-    const entry = join(dist, "bb");
+    const entry = join(dist, "hyperfide");
 
     // The minified shapes esbuild emits: a static import with no whitespace,
     // a lazy import(), a re-export and a bare side-effect import, plus a
     // cycle between shared chunks (chunk-A <-> chunk-C).
     writeFileSync(
       entry,
-      '#!/usr/bin/env node\nimport{a as U}from"./bb-chunks/chunk-A.js";U(()=>import("./bb-chunks/thread-B.js"));\n',
+      '#!/usr/bin/env node\nimport{a as U}from"./hyperfide-chunks/chunk-A.js";U(()=>import("./hyperfide-chunks/thread-B.js"));\n',
     );
     writeFileSync(
       join(chunkDir, "chunk-A.js"),
@@ -73,12 +73,12 @@ describe("pruneUnreferencedChunks", () => {
   });
 
   it("removes nothing from a clean build", async () => {
-    const dist = mkdtempSync(join(tmpdir(), "bb-prune-chunks-"));
+    const dist = mkdtempSync(join(tmpdir(), "hyperfide-prune-chunks-"));
     tempDirs.push(dist);
-    const chunkDir = join(dist, "bb-chunks");
+    const chunkDir = join(dist, "hyperfide-chunks");
     mkdirSync(chunkDir);
-    const entry = join(dist, "bb");
-    writeFileSync(entry, 'import"./bb-chunks/chunk-A.js";\n');
+    const entry = join(dist, "hyperfide");
+    writeFileSync(entry, 'import"./hyperfide-chunks/chunk-A.js";\n');
     writeFileSync(join(chunkDir, "chunk-A.js"), "export var a=1;\n");
 
     await expect(pruneUnreferencedChunks({ chunkDir, entry })).resolves.toEqual(
@@ -88,15 +88,15 @@ describe("pruneUnreferencedChunks", () => {
   });
 
   it("refuses to prune when the entry reaches no chunk", async () => {
-    const dist = mkdtempSync(join(tmpdir(), "bb-prune-chunks-"));
+    const dist = mkdtempSync(join(tmpdir(), "hyperfide-prune-chunks-"));
     tempDirs.push(dist);
-    const chunkDir = join(dist, "bb-chunks");
+    const chunkDir = join(dist, "hyperfide-chunks");
     mkdirSync(chunkDir);
-    const entry = join(dist, "bb");
+    const entry = join(dist, "hyperfide");
     // A chunk extension the specifier regex does not recognise: every chunk
     // then looks unreferenced, and a wipe here would only surface later as
-    // ERR_MODULE_NOT_FOUND from the packed `bb`.
-    writeFileSync(entry, 'import{a}from"./bb-chunks/chunk-A.mjs";\n');
+    // ERR_MODULE_NOT_FOUND from the packed `hyperfide`.
+    writeFileSync(entry, 'import{a}from"./hyperfide-chunks/chunk-A.mjs";\n');
     writeFileSync(join(chunkDir, "chunk-A.mjs"), "export var a=1;\n");
 
     await expect(pruneUnreferencedChunks({ chunkDir, entry })).rejects.toThrow(

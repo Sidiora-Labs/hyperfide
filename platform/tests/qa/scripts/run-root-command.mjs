@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 
 const [, , command, ...args] = process.argv;
 
-const STANDALONE_PARENT_PID_ENV = "BB_STANDALONE_PARENT_PID";
+const STANDALONE_PARENT_PID_ENV = "HYPERFIDE_STANDALONE_PARENT_PID";
 
 const commandConfig = {
   "standalone:start": {

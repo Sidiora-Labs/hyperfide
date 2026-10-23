@@ -10,7 +10,7 @@ let harness: FakePiBridgeHarness;
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-model-resolution-",
+    prefix: "hyperfide-pi-model-resolution-",
     initialize: true,
   });
 }, 30_000);

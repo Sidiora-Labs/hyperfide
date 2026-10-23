@@ -38,7 +38,7 @@ function ShareIntentHandlerWithModule({
     }
     const seed = composeSeedFromShareIntent(shareIntent);
     if (seed === null) {
-      toast.info("Only text and links can be sent to bb for now.");
+      toast.info("Only text and links can be sent to hyperfide for now.");
       return;
     }
     router.navigate(

@@ -40,7 +40,7 @@ describe("buildSuggestedBranchName", () => {
         title: null,
         threadId: "thr_abc123def456",
       }),
-    ).toBe("bb/thr_abc123def456");
+    ).toBe("hyperfide/thr_abc123def456");
   });
 
   it("includes a sanitized slug before the full thread ID", () => {
@@ -50,7 +50,7 @@ describe("buildSuggestedBranchName", () => {
         title: "Fix login flow!",
         threadId: "thr_abc123def456",
       }),
-    ).toBe("bb/fix-login-flow-thr_abc123def456");
+    ).toBe("hyperfide/fix-login-flow-thr_abc123def456");
   });
 
   it("falls back to the full thread ID when the slug is empty after sanitizing", () => {
@@ -60,7 +60,7 @@ describe("buildSuggestedBranchName", () => {
         title: "!!!",
         threadId: "thr_abc123def456",
       }),
-    ).toBe("bb/thr_abc123def456");
+    ).toBe("hyperfide/thr_abc123def456");
   });
 
   it("applies a configured prefix to both branch name shapes", () => {

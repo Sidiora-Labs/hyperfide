@@ -317,7 +317,7 @@ export function normalizeCodexMcpElicitation(input: unknown): {
               ? "The tool approval details are incomplete or unsupported."
               : params.mode === "url"
                 ? "This link is not a valid HTTP or HTTPS URL, or its request identifier is missing."
-                : "This form uses fields or constraints BB cannot display."
+                : "This form uses fields or constraints HYPERFIDE cannot display."
           : error instanceof Error
             ? error.message
             : "The requested elicitation cannot be represented.",

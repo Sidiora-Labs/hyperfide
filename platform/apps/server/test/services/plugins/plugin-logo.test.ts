@@ -9,7 +9,7 @@ import { loadPluginBrandingAssets } from "../../../src/services/plugins/app-bund
 
 const BASE = "http://127.0.0.1:3334";
 
-const SERVER_SOURCE = `export default function plugin(bb: any) { bb.log.info("loaded"); }`;
+const SERVER_SOURCE = `export default function plugin(hyperfide: any) { hyperfide.log.info("loaded"); }`;
 const SVG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>`;
 const DARK_SVG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg"><rect fill="#fff" width="4" height="4"/></svg>`;
 const PNG_STUB = Buffer.from("89504e470d0a1a0a", "hex");
@@ -70,7 +70,7 @@ async function writeLogoPluginFixture(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: options.pluginName ?? "Logo fixture",
         description: "Plugin branding fixture.",
         branding: {
@@ -154,7 +154,7 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
       loadPluginBrandingAssets("mutable", {
         branding: { compactIconPath: iconPath, icons: new Map() },
       }),
-    ).rejects.toThrow(/bb\.branding\.icon must have an <svg> root element/);
+    ).rejects.toThrow(/hyperfide\.branding\.icon must have an <svg> root element/);
   });
 
   it("installs a plugin whose logos are Illustrator and Inkscape exports, runs it, and serves both with the untrusted-image headers", async () => {
@@ -265,7 +265,7 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     expectUntrustedImageHeaders(logo);
   });
 
-  it("honors a relocated bb.branding.logo.light webp", async () => {
+  it("honors a relocated hyperfide.branding.logo.light webp", async () => {
     const rootDir = join(harness.config.dataDir, "fixtures", "hyperfide-plugin-logoc");
     await writeLogoPluginFixture(rootDir, {
       name: "hyperfide-plugin-logoc",
@@ -291,7 +291,7 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /bb\.branding\.logo\.light escapes the plugin directory/,
+      /hyperfide\.branding\.logo\.light escapes the plugin directory/,
     );
   });
 
@@ -460,7 +460,7 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /bb\.branding\.logo\.dark must point at a \.svg, \.png, or \.webp file/,
+      /hyperfide\.branding\.logo\.dark must point at a \.svg, \.png, or \.webp file/,
     );
   });
 

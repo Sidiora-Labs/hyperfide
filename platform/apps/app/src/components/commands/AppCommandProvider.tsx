@@ -23,7 +23,7 @@ import {
 } from "@hyperfide/domain";
 import { usePluginCommandBindings } from "@/hooks/usePluginCommandBindings";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo } from "@/lib/hyperfide-desktop";
 import {
   browserPlatform,
   isEditableKeyboardTarget,
@@ -107,7 +107,7 @@ export function AppCommandProvider({ children }: { children: ReactNode }) {
   const showKeyboardHints =
     systemConfig.data?.generalSettings?.showKeyboardHints ??
     defaultAppSettings.showKeyboardHints;
-  const isDesktop = getBbDesktopInfo() !== null;
+  const isDesktop = getHyperfideDesktopInfo() !== null;
   const [isShortcutHintModifierHeld, setIsShortcutHintModifierHeld] =
     useState(false);
   const modifierHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -217,7 +217,7 @@ export function AppCommandProvider({ children }: { children: ReactNode }) {
       }
     }
     if (key === "splitActive") {
-      getBbDesktopInfo()?.setSplitNavigationEnabled?.(sources.size > 0);
+      getHyperfideDesktopInfo()?.setSplitNavigationEnabled?.(sources.size > 0);
     }
   }, []);
 
@@ -401,7 +401,7 @@ export function AppCommandProvider({ children }: { children: ReactNode }) {
   }, [getShortcutCommand, handleKeyboardEvent]);
 
   useEffect(() => {
-    const desktop = getBbDesktopInfo();
+    const desktop = getHyperfideDesktopInfo();
     if (!desktop?.onAppCommand) return;
     return desktop.onAppCommand((command) => {
       dispatch(command, null);

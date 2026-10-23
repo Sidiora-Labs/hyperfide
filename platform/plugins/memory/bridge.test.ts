@@ -47,7 +47,7 @@ afterAll(async () => {
 describe("Hyperfide durable memory bridge", () => {
   it("records from a worker CLI, exposes task detail and injects prerequisite packets", async () => {
     const pluginHost = createFakePluginHost({ pluginId: "hyperfide-memory" });
-    await plugin(pluginHost.bb, bridge);
+    await plugin(pluginHost.hyperfide, bridge);
     const recorded = await pluginHost.harness.runCli([
       "remember", "Use the shared authority schema", "--repository", fixture, "--task", task,
     ], { projectId: "fixture", threadId: "worker-7.2" });

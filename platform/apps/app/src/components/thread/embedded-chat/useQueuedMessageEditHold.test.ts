@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { startQueuedMessageEditHold } from "./useQueuedMessageEditHold";
 
@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/sdk", async () => ({
-  BbHttpError: (await import("@hyperfide/sdk/browser")).BbHttpError,
+  HyperfideHttpError: (await import("@hyperfide/sdk/browser")).HyperfideHttpError,
   sdk: {
     threads: {
       queuedMessages: {
@@ -61,7 +61,7 @@ describe("startQueuedMessageEditHold", () => {
 
   it("closes the editor when a dispatch already claimed the message", async () => {
     mocks.holdForEdit.mockRejectedValue(
-      new BbHttpError({
+      new HyperfideHttpError({
         status: 409,
         code: "invalid_request",
         message: "Queued message is already being sent",

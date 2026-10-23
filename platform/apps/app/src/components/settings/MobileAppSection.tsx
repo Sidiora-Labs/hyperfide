@@ -23,10 +23,10 @@ export function MobileAppSection() {
       <div>
         <h2 className="text-base font-semibold">Mobile apps</h2>
         <p className="mt-1 text-sm text-subtle-foreground">
-          Use bb from your phone
+          Use hyperfide from your phone
         </p>
       </div>
-      <MachineAccessSettings title="Accessing bb from your phone">
+      <MachineAccessSettings title="Accessing hyperfide from your phone">
         {(pluginId) => <PluginMobileSettingsSections pluginId={pluginId} />}
       </MachineAccessSettings>
       <div className="space-y-5">
@@ -50,7 +50,7 @@ export function MobileAppSection() {
             >
               TestFlight
             </a>
-            , then join the bb beta to install the app on your iPhone.
+            , then join the hyperfide beta to install the app on your iPhone.
           </p>
           <a
             href={mobileAppDownloads.ios}

@@ -5,7 +5,7 @@ import type {
   SystemExecutionOptionsResponse,
   SystemProvidersQuery,
 } from "@hyperfide/server-contract";
-import { type CustomProviderModel } from "@hyperfide/config/bb-app-managed-config";
+import { type CustomProviderModel } from "@hyperfide/config/hyperfide-app-managed-config";
 import {
   reasoningEffortsForLevels,
   type AvailableModel,

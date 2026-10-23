@@ -59,8 +59,8 @@ export const builtInPaletteCodeThemes = {
     dark: DEFAULT_CODE_THEME_DARK,
     light: DEFAULT_CODE_THEME_LIGHT,
   },
-  nord: { dark: "nord", light: "bb:nord:light" },
-  dracula: { dark: "dracula", light: "bb:dracula:light" },
+  nord: { dark: "nord", light: "hyperfide:nord:light" },
+  dracula: { dark: "dracula", light: "hyperfide:dracula:light" },
   solarized: { dark: "solarized-dark", light: "solarized-light" },
   gruvbox: { dark: "gruvbox-dark-medium", light: "gruvbox-light-medium" },
   catppuccin: { dark: "catppuccin-mocha", light: "catppuccin-latte" },
@@ -86,7 +86,7 @@ export function formatRegisteredCodeThemeName(
   sourceId: string,
   side: "dark" | "light",
 ): string {
-  return `bb:${sourceId}:${side}`;
+  return `hyperfide:${sourceId}:${side}`;
 }
 
 const VSCODE_THEME_JSON_MAX_DEPTH = 32;
@@ -126,8 +126,8 @@ function paletteCodeThemeFallback(paletteId: string): CodeThemePair {
 const builtInPaletteCodeThemeFiles: Partial<
   Record<keyof typeof builtInPaletteCodeThemes, Record<string, JsonObject>>
 > = {
-  nord: { "bb:nord:light": nordLightCodeTheme },
-  dracula: { "bb:dracula:light": draculaLightCodeTheme },
+  nord: { "hyperfide:nord:light": nordLightCodeTheme },
+  dracula: { "hyperfide:dracula:light": draculaLightCodeTheme },
 };
 
 export function stampRegisteredThemeName(

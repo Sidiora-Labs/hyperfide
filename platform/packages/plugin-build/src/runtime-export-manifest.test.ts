@@ -24,7 +24,7 @@ describe("runtime export manifest generator", () => {
       await import(${JSON.stringify(scriptUrl)});
     `;
 
-      const outDir = await mkdtemp(path.join(tmpdir(), "bb-runtime-manifest-"));
+      const outDir = await mkdtemp(path.join(tmpdir(), "hyperfide-runtime-manifest-"));
       try {
         const outPath = path.join(outDir, "manifest.ts");
         const result = await execFileAsync(

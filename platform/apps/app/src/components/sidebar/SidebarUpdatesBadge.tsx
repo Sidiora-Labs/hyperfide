@@ -43,7 +43,7 @@ export function SidebarUpdatesBadge({ onNavigate }: SidebarUpdatesBadgeProps) {
     inventory.machines.map((machine) => machine.host),
     inventory.isLoading,
   );
-  const bbUpdateCount =
+  const hyperfideUpdateCount =
     (inventory.appUpdateAvailable ? 1 : 0) +
     (inventory.desktopUpdateReady ? 1 : 0);
 
@@ -71,7 +71,7 @@ export function SidebarUpdatesBadge({ onNavigate }: SidebarUpdatesBadgeProps) {
   );
 
   if (
-    bbUpdateCount === 0 &&
+    hyperfideUpdateCount === 0 &&
     staleProviders.length === 0 &&
     machineAttention.label === null
   ) {
@@ -79,8 +79,8 @@ export function SidebarUpdatesBadge({ onNavigate }: SidebarUpdatesBadgeProps) {
   }
 
   const updatesRoutePath = getSettingsRoutePath("updates");
-  const bbLabel =
-    bbUpdateCount === 1 ? "bb update available" : "bb updates available";
+  const hyperfideLabel =
+    hyperfideUpdateCount === 1 ? "hyperfide-platform update available" : "hyperfide updates available";
   const providerLabel = `${joinNames(
     staleProviders.map((stale) => stale.displayName),
   )} ${staleProviders.length === 1 ? "update" : "updates"} available`;
@@ -106,21 +106,21 @@ export function SidebarUpdatesBadge({ onNavigate }: SidebarUpdatesBadgeProps) {
           <TooltipContent side="top">{machineAttention.label}</TooltipContent>
         </Tooltip>
       ) : null}
-      {bbUpdateCount > 0 ? (
+      {hyperfideUpdateCount > 0 ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
               to={updatesRoutePath}
               onClick={onNavigate}
-              aria-label={bbLabel}
-              data-testid="sidebar-updates-badge-bb"
+              aria-label={hyperfideLabel}
+              data-testid="sidebar-updates-badge-hyperfide"
               className={CHIP_CLASS}
             >
               <Icon name="Download" className="size-3 text-muted-foreground" />
-              bb
+              hyperfide
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="top">{bbLabel}</TooltipContent>
+          <TooltipContent side="top">{hyperfideLabel}</TooltipContent>
         </Tooltip>
       ) : null}
       {staleProviders.length > 0 ? (

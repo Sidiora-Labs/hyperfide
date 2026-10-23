@@ -22,7 +22,7 @@ interface RecordProviderThreadIdentityArgs {
   threadId: string;
 }
 
-interface ResolveBbThreadIdForProviderThreadArgs {
+interface ResolveHyperfideThreadIdForProviderThreadArgs {
   providerState: RuntimeProviderIdentityState;
   providerThreadId: string | undefined;
 }
@@ -90,20 +90,20 @@ export class RuntimeThreadIdentityRegistry {
     this.threadToProviderThread.set(args.threadId, args.providerThreadId);
   }
 
-  resolveBbThreadIdForProviderThread(
-    args: ResolveBbThreadIdForProviderThreadArgs,
+  resolveHyperfideThreadIdForProviderThread(
+    args: ResolveHyperfideThreadIdForProviderThreadArgs,
   ): string | undefined {
     if (!args.providerThreadId) {
       return undefined;
     }
 
-    for (const [bbThreadId, mappedProviderThreadId] of this
+    for (const [hyperfideThreadId, mappedProviderThreadId] of this
       .threadToProviderThread) {
       if (
         mappedProviderThreadId === args.providerThreadId &&
-        args.providerState.threadIds.has(bbThreadId)
+        args.providerState.threadIds.has(hyperfideThreadId)
       ) {
-        return bbThreadId;
+        return hyperfideThreadId;
       }
     }
 
@@ -129,13 +129,13 @@ export class RuntimeThreadIdentityRegistry {
 
     const lookupId = args.sourceThreadId || args.eventThreadId;
     if (lookupId) {
-      for (const [bbThreadId, providerThreadId] of this
+      for (const [hyperfideThreadId, providerThreadId] of this
         .threadToProviderThread) {
         if (
           providerThreadId === lookupId &&
-          args.providerState.threadIds.has(bbThreadId)
+          args.providerState.threadIds.has(hyperfideThreadId)
         ) {
-          return bbThreadId;
+          return hyperfideThreadId;
         }
       }
     }

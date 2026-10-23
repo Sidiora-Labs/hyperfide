@@ -153,7 +153,7 @@ export async function importCodexCredentials(): Promise<ImportedCodexCredentials
     if (error instanceof Error && error.message.includes("ChatGPT account id"))
       throw error;
     throw new Error(
-      "Codex OAuth credentials were not found or usable. Run `codex login` on the bb server host, then retry.",
+      "Codex OAuth credentials were not found or usable. Run `codex login` on the hyperfide-platform server host, then retry.",
     );
   }
 }
@@ -233,7 +233,7 @@ export async function importClaudeCredentials(): Promise<ImportedClaudeCredentia
   }
   if (credentials === null) {
     throw new Error(
-      "Claude Code OAuth credentials were not found. Run `claude /login` on the bb server host, then retry.",
+      "Claude Code OAuth credentials were not found. Run `claude /login` on the hyperfide-platform server host, then retry.",
     );
   }
   return { ...credentials, ...(await readAccountIdentity()) };

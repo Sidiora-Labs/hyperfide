@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { WebSocket } from "ws";
 import { z } from "zod";
-import { createNodeBbSdk } from "@hyperfide/sdk";
+import { createNodeHyperfideSdk } from "@hyperfide/sdk";
 import { getStoredThreadTabs } from "@hyperfide/db";
 import { desktopBrowserCommandSchema } from "@hyperfide/host-daemon-contract";
 import { threadTabsSchema } from "@hyperfide/server-contract";
@@ -92,7 +92,7 @@ const pageAddress = browserServer.address();
 assert(pageAddress && typeof pageAddress !== "string");
 const pageUrl = `http://127.0.0.1:${pageAddress.port}/fixture`;
 const broker = await startDesktopBrowserBroker({
-  dataDir: process.env.BB_DATA_DIR ?? join(config.artifacts, "bb-data"),
+  dataDir: process.env.HYPERFIDE_DATA_DIR ?? join(config.artifacts, "hyperfide-data"),
   hostId: seeded.host.id,
   serverUrl: server.baseUrl,
   onChanged(event) {
@@ -128,7 +128,7 @@ await writeFile(
   electronConfig,
   JSON.stringify({
     artifacts: config.artifacts,
-    dataDir: process.env.BB_DATA_DIR,
+    dataDir: process.env.HYPERFIDE_DATA_DIR,
     serverUrl: server.baseUrl,
   }),
   { mode: 0o600 },
@@ -137,8 +137,8 @@ const childEnv = {
   PATH: process.env.PATH,
   HOME: process.env.HOME,
   LANG: process.env.LANG,
-  BB_DATA_DIR: process.env.BB_DATA_DIR,
-  BB_SERVER_URL: server.baseUrl,
+  HYPERFIDE_DATA_DIR: process.env.HYPERFIDE_DATA_DIR,
+  HYPERFIDE_SERVER_URL: server.baseUrl,
   DEV_BROWSER_HOME: join(config.artifacts, "dev-browser-state"),
   NODE_ENV: "test",
 };
@@ -180,7 +180,7 @@ const electronExited = new Promise((resolve) =>
   electron.once("exit", () => resolve()),
 );
 electron.once("error", (error) => capture(Buffer.from(error.message)));
-const sdk = createNodeBbSdk({ baseUrl: server.baseUrl, timeoutMs: 15e3 });
+const sdk = createNodeHyperfideSdk({ baseUrl: server.baseUrl, timeoutMs: 15e3 });
 const api = sdk.experimental_desktopBrowsers;
 let devStarted = false;
 let devBrowserVersion = "";
@@ -263,7 +263,7 @@ try {
     .object({ wsEndpoint: z.string() })
     .parse(JSON.parse(await readFile(credentialFile, "utf8")));
   assert.equal(cliConnection.wsEndpoint, connection.wsEndpoint);
-  steps.push("actual bb CLI tabs and private connection file");
+  steps.push("actual hyperfide CLI tabs and private connection file");
   const diagnosticScript = `
     const pages = await browser.listPages();
     const page = await browser.getPage(pages[0].id);

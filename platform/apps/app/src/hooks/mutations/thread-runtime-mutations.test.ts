@@ -9,7 +9,7 @@ import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { makeThreadQueuedMessage as makeThreadQueuedMessageFixture } from "@hyperfide/test-helpers/domain-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAppQueryClient } from "@/lib/query-client";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { HyperfideHttpError, sdk } from "@/lib/sdk";
 import { subscribeComposerSubmitted } from "@/lib/composer-submissions";
 import { wsManager } from "@/lib/ws";
 import {
@@ -470,7 +470,7 @@ describe("thread runtime mutations", () => {
       makeQueuedMessage({ id: "qmsg-2" }),
     ]);
     vi.mocked(sdk.threads.queuedMessages.delete).mockRejectedValue(
-      new BbHttpError({
+      new HyperfideHttpError({
         status: 404,
         code: "invalid_request",
         message: "Queued message not found",

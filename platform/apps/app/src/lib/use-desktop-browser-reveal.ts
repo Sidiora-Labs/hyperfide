@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { BbDesktopBrowserRevealRequest } from "@hyperfide/desktop-contract";
-import { getDesktopBrowserApi } from "./bb-desktop";
+import type { HyperfideDesktopBrowserRevealRequest } from "@hyperfide/desktop-contract";
+import { getDesktopBrowserApi } from "./hyperfide-desktop";
 
 export function useDesktopBrowserReveal({
   threadId,
@@ -13,7 +13,7 @@ export function useDesktopBrowserReveal({
   browserTabs: readonly { id: string }[];
   activateTab: (tabId: string) => void;
 }) {
-  const [pending, setPending] = useState<BbDesktopBrowserRevealRequest | null>(
+  const [pending, setPending] = useState<HyperfideDesktopBrowserRevealRequest | null>(
     null,
   );
 

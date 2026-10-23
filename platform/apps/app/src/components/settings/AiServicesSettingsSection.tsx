@@ -43,7 +43,7 @@ const AI_TASK_ROWS: readonly AiTaskRow[] = [
     task: "commit-message",
     label: "Commit messages",
     hint: "Written when you use the Commit action.",
-    offDescription: "Commits say “bb: automated commit”.",
+    offDescription: "Commits say “hyperfide: automated commit”.",
     testTask: "commit-message",
   },
   {
@@ -99,7 +99,7 @@ export function aiTaskOptions(
       title: "Automatic",
       description:
         automatic === null
-          ? "Nothing bb ships is ready right now."
+          ? "Nothing hyperfide ships is ready right now."
           : `Currently using ${automatic.displayName}.`,
     },
     ...view.services
@@ -138,7 +138,7 @@ function rowDescription(
     const automatic = automaticServiceFor(view, row.task);
     current =
       automatic === null
-        ? " Nothing is ready, so bb falls back."
+        ? " Nothing is ready, so hyperfide falls back."
         : ` Using ${automatic.displayName}.`;
   } else if (selection.mode === "service") {
     const service = view.services.find(
@@ -203,7 +203,7 @@ export function AiServicesSettingsSection() {
   return (
     <SettingsSection
       title="AI services"
-      description="Choose services for thread titles, commit messages, and voice input. Automatic prefers bb cloud, then other available services. A service you choose stays selected."
+      description="Choose services for thread titles, commit messages, and voice input. Automatic prefers hyperfide cloud, then other available services. A service you choose stays selected."
     >
       <div className="space-y-5">
         {AI_TASK_ROWS.map((row) => {

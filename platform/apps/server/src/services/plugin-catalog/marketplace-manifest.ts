@@ -32,7 +32,7 @@ export { BUNDLED_MARKETPLACE_NAME } from "./bundled-marketplace-paths.js";
 export const MARKETPLACE_V1_SCHEMA_URL = "/schemas/marketplace.schema.json";
 export const MARKETPLACE_V2_SCHEMA_URL = "/schemas/marketplace-v2.schema.json";
 
-export const BUILTIN_PUBLISHER_LABEL = "BB Official";
+export const BUILTIN_PUBLISHER_LABEL = "HYPERFIDE Official";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
 const TAG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;

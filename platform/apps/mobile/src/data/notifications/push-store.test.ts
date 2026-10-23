@@ -50,8 +50,8 @@ describe("createPushStore", () => {
     expect(store.getRegistration("p1")).toBeNull();
     expect(storage.dump()).toEqual({});
 
-    storage.set("bb.push.registrations", JSON.stringify(["bad"]));
-    storage.set("bb.push.registration.bad", "{not json");
+    storage.set("hyperfide.push.registrations", JSON.stringify(["bad"]));
+    storage.set("hyperfide.push.registration.bad", "{not json");
     expect(createPushStore(storage).registeredProfileIds()).toEqual([]);
   });
 

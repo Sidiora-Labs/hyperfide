@@ -1965,8 +1965,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "bb_connect": {
-          "name": "bb_connect",
+        "hyperfide_connect": {
+          "name": "hyperfide_connect",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

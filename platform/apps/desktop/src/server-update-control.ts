@@ -18,7 +18,7 @@ export function attachServerUpdateControl(args: {
     }
   };
   const unsubscribe = args.subscribe(() => {
-    send({ channel: "bb-desktop-update/status", info: args.getInfo() });
+    send({ channel: "hyperfide-desktop-update/status", info: args.getInfo() });
   });
   const onMessage = (raw: unknown): void => {
     const parsed = desktopAppUpdateRequestSchema.safeParse(raw);
@@ -35,7 +35,7 @@ export function attachServerUpdateControl(args: {
       }
       if (request.action === "install") await args.install();
       send({
-        channel: "bb-desktop-update/response",
+        channel: "hyperfide-desktop-update/response",
         requestId: request.requestId,
         error: null,
         info,
@@ -43,7 +43,7 @@ export function attachServerUpdateControl(args: {
     };
     void respond().catch((error: unknown) => {
       send({
-        channel: "bb-desktop-update/response",
+        channel: "hyperfide-desktop-update/response",
         requestId: request.requestId,
         error: error instanceof Error ? error.message : String(error),
         info: null,

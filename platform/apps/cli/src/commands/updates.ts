@@ -12,7 +12,7 @@ import type {
   SystemVersionResponse,
 } from "@hyperfide/server-contract";
 import { action, CliExitError } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { confirmDestructiveAction, outputJson } from "./helpers.js";
 import { resolveMachineId, selectMachines } from "./machine.js";
@@ -40,7 +40,7 @@ interface AppUpdateApplyOptions {
   yes?: boolean;
 }
 
-type CliSdk = ReturnType<typeof createCliBbSdk>;
+type CliSdk = ReturnType<typeof createCliHyperfideSdk>;
 
 interface ProviderUpdateTarget {
   host: Host;
@@ -95,7 +95,7 @@ function selectUpdateHosts(
 }
 
 async function collectMachineUpdates(
-  sdk: ReturnType<typeof createCliBbSdk>,
+  sdk: ReturnType<typeof createCliHyperfideSdk>,
   hosts: readonly Host[],
 ): Promise<MachineUpdatesEntry[]> {
   return Promise.all(
@@ -191,7 +191,7 @@ function unsupportedAppUpdateMessage(status: SystemAppUpdateStatus): string {
     case "desktop":
       return "The desktop app updates itself; use its update controls.";
     case "unmanaged":
-      return "In-app updates are off. Start bb with `npx bb-app start` or `pnpm start`, without `--no-in-app-updates`, to turn them on.";
+      return "In-app updates are off. Start hyperfide with `npx hyperfide-app start` or `pnpm start`, without `--no-in-app-updates`, to turn them on.";
   }
 }
 
@@ -199,7 +199,7 @@ function describeAppUpdateResult(result: SystemAppUpdateResult): string {
   const target = formatRevision(result.to);
   switch (result.outcome) {
     case "updated":
-      return `Updated bb to ${target}.`;
+      return `Updated hyperfide to ${target}.`;
     case "failed":
       return `Update to ${target} failed: ${result.message ?? "unknown error"}`;
   }
@@ -278,7 +278,7 @@ function printAppUpdateStatus(status: SystemAppUpdateStatus): void {
     status.support.kind !== "supported" &&
     status.desktopUpdateSupported !== true
   ) {
-    console.log(`bb-app ${current}`);
+    console.log(`hyperfide-app ${current}`);
     console.log(unsupportedAppUpdateMessage(status));
     return;
   }
@@ -290,9 +290,9 @@ function printAppUpdateStatus(status: SystemAppUpdateStatus): void {
         (status.lastResult !== null &&
           !status.lastResult.acknowledged &&
           status.lastResult.outcome === "failed")
-        ? `bb-app ${current}`
-        : `bb-app ${current} is up to date.`
-      : `bb-app ${current} -> ${target}`,
+        ? `hyperfide-app ${current}`
+        : `hyperfide-app ${current} is up to date.`
+      : `hyperfide-app ${current} -> ${target}`,
   );
   if (status.activity.phase === "preparing") {
     console.log(
@@ -315,7 +315,7 @@ function printAppUpdateStatus(status: SystemAppUpdateStatus): void {
     console.log(`Blocked: ${status.blocked.message}`);
   } else if (target !== null && status.activity.phase === "idle") {
     console.log(
-      "Run hyperfide-platform updates app apply to update and restart bb.",
+      "Run hyperfide-platform updates app apply to update and restart hyperfide.",
     );
   }
   if (status.lastResult !== null && !status.lastResult.acknowledged) {
@@ -343,7 +343,7 @@ async function waitForAppUpdate(args: {
     await delay(APP_UPDATE_POLL_INTERVAL_MS);
     const status = await readAppUpdateStatus(args.sdk, false);
     if (status === null) {
-      report("Restarting bb…");
+      report("Restarting hyperfide…");
       continue;
     }
     const result = status.lastResult;
@@ -353,11 +353,11 @@ async function waitForAppUpdate(args: {
     if (status.activity.phase === "preparing") {
       report(`${status.activity.step}…`);
     } else if (status.activity.phase === "restarting") {
-      report("Restarting bb…");
+      report("Restarting hyperfide…");
     }
   }
   throw new CliExitError(
-    "Timed out waiting for the update to finish. Run hyperfide-platform updates app to check on it; if bb did not come back, check the terminal running it.",
+    "Timed out waiting for the update to finish. Run hyperfide-platform updates app to check on it; if hyperfide did not come back, check the terminal running it.",
     1,
   );
 }
@@ -368,15 +368,15 @@ function registerAppUpdateCommands(
 ): void {
   const app = updates
     .command("app")
-    .description("Inspect and apply in-app updates to bb itself");
+    .description("Inspect and apply in-app updates to hyperfide itself");
 
   app
     .command("status", { isDefault: true })
-    .description("Show whether bb can update itself and what is available")
+    .description("Show whether hyperfide can update itself and what is available")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: AppUpdateStatusOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const status = await sdk.system.appUpdate({ force: true });
         if (outputJson(opts, status)) return;
         printAppUpdateStatus(status);
@@ -385,7 +385,7 @@ function registerAppUpdateCommands(
 
   app
     .command("apply")
-    .description("Download the available bb update and restart bb into it")
+    .description("Download the available hyperfide-platform update and restart hyperfide into it")
     .option("--yes", "Interrupt running threads without asking")
     .option(
       "--no-wait",
@@ -394,7 +394,7 @@ function registerAppUpdateCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: AppUpdateApplyOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const status = await sdk.system.appUpdate({ force: true });
         if (
           status.support.kind !== "supported" &&
@@ -408,7 +408,7 @@ function registerAppUpdateCommands(
         if (status.available === null) {
           if (outputJson(opts, status)) return;
           console.log(
-            `bb-app ${formatRevision(status.current)} is up to date.`,
+            `hyperfide-app ${formatRevision(status.current)} is up to date.`,
           );
           return;
         }
@@ -416,7 +416,7 @@ function registerAppUpdateCommands(
         if (status.runningThreadCount > 0 && !confirmInterruptingThreads) {
           const count = status.runningThreadCount;
           confirmInterruptingThreads = await confirmDestructiveAction(
-            `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts bb and interrupts ${count === 1 ? "it" : "them"}. Continue?`,
+            `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts hyperfide and interrupts ${count === 1 ? "it" : "them"}. Continue?`,
           );
           if (!confirmInterruptingThreads) {
             console.log("Update cancelled.");
@@ -430,12 +430,12 @@ function registerAppUpdateCommands(
         if (!opts.wait) {
           if (outputJson(opts, started)) return;
           console.log(
-            `Updating bb to ${status.available.version}. Run hyperfide-platform updates app to follow it.`,
+            `Updating Hyperfide to ${status.available.version}. Run hyperfide-platform updates app to follow it.`,
           );
           return;
         }
         if (!opts.json) {
-          console.log(`Updating bb to ${status.available.version}`);
+          console.log(`Updating Hyperfide to ${status.available.version}`);
         }
         const finished = await waitForAppUpdate({
           json: opts.json === true,
@@ -461,7 +461,7 @@ function registerAppUpdateCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: AppUpdateStatusOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const status = await sdk.system.appUpdate();
         const result = status.lastResult;
         if (result === null || result.acknowledged) {
@@ -482,17 +482,17 @@ export function registerUpdatesCommands(
 ): void {
   const updates = program
     .command("updates")
-    .description("Inspect and apply bb and provider CLI updates");
+    .description("Inspect and apply hyperfide and provider CLI updates");
   registerAppUpdateCommands(updates, getUrl);
 
   updates
     .command("status", { isDefault: true })
-    .description("Show bb and provider CLI update status across machines")
+    .description("Show hyperfide and provider CLI update status across machines")
     .option("--machine <id-or-name>", "Limit to one machine")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: UpdatesCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const [version, appUpdate, hosts] = await Promise.all([
           sdk.system.version(),
           readAppUpdateStatus(sdk, false),
@@ -530,7 +530,7 @@ export function registerUpdatesCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: UpdatesCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const hosts = await sdk.hosts.list();
         const entries = await collectMachineUpdates(
           sdk,
@@ -551,7 +551,7 @@ export function registerUpdatesCommands(
           );
           console.log(
             hasManualUpdates
-              ? "No updates bb can apply. Run hyperfide-platform updates status for manual updates."
+              ? "No updates hyperfide can apply. Run hyperfide-platform updates status for manual updates."
               : "Everything is up to date.",
           );
           return;

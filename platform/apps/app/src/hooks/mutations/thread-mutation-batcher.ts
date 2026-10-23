@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type {
-  BbSdkAreas,
+  HyperfideSdkAreas,
   ThreadMutationResult,
   ThreadUpdateArgs,
 } from "@hyperfide/sdk";
@@ -14,7 +14,7 @@ import {
   rollbackThreadMetadataBatchTransaction,
 } from "../cache-owners/thread-state-cache-owner";
 
-type ThreadMutations = Pick<BbSdkAreas["threads"], "update" | "pin" | "unpin">;
+type ThreadMutations = Pick<HyperfideSdkAreas["threads"], "update" | "pin" | "unpin">;
 
 type PendingThreadMutation = {
   threadId: string;

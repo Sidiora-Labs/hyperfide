@@ -13,7 +13,7 @@ import {
 afterEach(cleanup);
 
 it("masks a tinted icon instead of embedding it as an image", () => {
-  const iconUrl = "/api/v1/plugin-catalog/icons/bb-community/agent-proxy?h=ab";
+  const iconUrl = "/api/v1/plugin-catalog/icons/hyperfide-community/agent-proxy?h=ab";
   const view = render(
     <CatalogEntryIcon
       entry={{

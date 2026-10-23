@@ -1,4 +1,4 @@
-import type { Ask, AskBridge, Kind } from "./bridge-projection.js";
+import type { Ask, AskBridge, Kind } from "./inbox-adapter.js";
 export interface AnswerInput {
   repository: string;
   id: number;

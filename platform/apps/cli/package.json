@@ -1,6 +1,6 @@
 {
   "name": "@hyperfide/cli",
-  "version": "0.0.1",
+  "version": "2.2.0",
   "type": "module",
   "bin": {
     "hyperfide-platform": "./bin/hyperfide-platform",
@@ -26,7 +26,7 @@
     "@hyperfide/templates": "workspace:*",
     "@hyperfide/text-utils": "workspace:*",
     "@hyperfide/thread-view": "workspace:*",
-    "hyperfide-plugin-bb--github-pr-status": "workspace:*",
+    "hyperfide-plugin-hyperfide--github-pr-status": "workspace:*",
     "cli-table3": "^0.6.5",
     "commander": "^13.0.0",
     "mime-types": "^3.0.2",

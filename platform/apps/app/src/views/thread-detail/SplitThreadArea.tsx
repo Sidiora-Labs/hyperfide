@@ -26,7 +26,7 @@ import {
   type ThreadRoutePathArgs,
 } from "@/lib/route-paths";
 import { useIsMutating } from "@tanstack/react-query";
-import { BbHttpError } from "@/lib/sdk";
+import { HyperfideHttpError } from "@/lib/sdk";
 import { useThread } from "@/hooks/queries/thread-queries";
 import { useIsSidebarFramed } from "@/components/ui/sidebar.js";
 import { useSplitWorkspaceActive } from "@/hooks/useSplitWorkspaceActive";
@@ -107,10 +107,10 @@ import {
 } from "./splitThreadNavigation";
 import { ThreadDetailWorkerPoolProvider } from "./ThreadDetailWorkerPoolProvider";
 import {
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   MACOS_WINDOW_NO_DRAG_CLASS,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { SplitWorkspaceSecondaryPanelHost } from "./SplitWorkspaceSecondaryPanelHost";
 import { SecondaryPanelHostLayoutContext } from "@/components/secondary-panel/SecondaryPanelHostLayoutContext";
 import {
@@ -808,7 +808,7 @@ function SplitPaneCommandHandlers({
     [isSplitActive, layout.root, layout.focusedPaneId],
   );
   useEffect(() => {
-    getBbDesktopInfo()?.setSplitNavigationEnabled?.(
+    getHyperfideDesktopInfo()?.setSplitNavigationEnabled?.(
       isSplitActive,
       PANE_DIRECTION_APP_COMMAND_IDS.filter(
         (_, index) => directionalTargets[index] !== null,
@@ -936,7 +936,7 @@ function SplitTree(props: SplitTreeProps) {
             "pointer-events-none absolute inset-0 z-20 transition-colors",
             isSidebarFramed &&
               (isMaximized || isTopRow) &&
-              "top-[calc(var(--bb-window-frame-top)_+_1px)]",
+              "top-[calc(var(--hyperfide-window-frame-top)_+_1px)]",
             isFocused || !props.dimsInactiveSplits
               ? "bg-transparent"
               : "bg-background/30",
@@ -1251,7 +1251,7 @@ function NonThreadPaneContent({
   };
   const hostLayout = useContext(SecondaryPanelHostLayoutContext);
   const showsWindowPanelToggle = hostLayout?.pinsCornerToggle === true;
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const panelEntry =
     content.kind === "plugin-panel"
@@ -1326,7 +1326,7 @@ function NonThreadPaneContent({
         !isBoundedPane &&
           !panel &&
           content.kind !== "new-thread" &&
-          "pt-(--bb-window-frame-top)",
+          "pt-(--hyperfide-window-frame-top)",
       )}
     >
       {isBoundedPane || panel ? (
@@ -1653,7 +1653,7 @@ function PaneStaleWatcher({ threadId, onStale }: PaneStaleWatcherProps) {
       mutation.options.meta?.lifecycleOperation === "archive_thread",
   });
   const isGone =
-    isError && error instanceof BbHttpError && error.status === 404;
+    isError && error instanceof HyperfideHttpError && error.status === 404;
   const isDeleted =
     isSuccess && thread !== undefined && thread.deletedAt !== null;
   const isConfirmedArchived =

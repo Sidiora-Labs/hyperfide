@@ -18,7 +18,7 @@ import { z } from "zod";
 
 const binary = z.string().min(1).parse(process.env.DEV_BROWSER_SMOKE_BINARY);
 const chrome = z.string().min(1).parse(process.env.DEV_BROWSER_SMOKE_CHROME);
-const root = await mkdtemp(join(tmpdir(), "bb-dev-browser-smoke-"));
+const root = await mkdtemp(join(tmpdir(), "hyperfide-dev-browser-smoke-"));
 const dataDir = join(root, "data");
 await mkdir(join(dataDir, "runtime"), { recursive: true });
 const runtimeBinary = join(dataDir, "runtime", "dev-browser");

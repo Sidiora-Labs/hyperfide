@@ -81,7 +81,7 @@ function publishedDaybreakValues(): unknown[] {
       .filter(
         (delta) =>
           delta.kind === "extension.state" &&
-          delta.extensionKind === "bb/session-options",
+          delta.extensionKind === "hyperfide/session-options",
       )
       .map((delta) => delta.payload);
   });
@@ -134,7 +134,7 @@ async function startTurn(
 }
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-daybreak-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-daybreak-ws-"));
   requestLogPath = join(workspaceDir, "requests.jsonl");
   harness = createBridgeJsonRpcTestHarness(handleLine);
 });

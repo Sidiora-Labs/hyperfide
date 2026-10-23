@@ -1,6 +1,6 @@
 -- The five provider knobs (Codex/Claude memory, native subagents, Claude's
 -- Workflow tool) moved from the shared app settings into the owning provider
--- plugin's own settings (`bb.settings.define` in provider-codex and
+-- plugin's own settings (`hyperfide.settings.define` in provider-codex and
 -- provider-claude-code). Carry each stored value across so a user who turned
 -- one off keeps it off, then retire the shared rows. Both tables store JSON
 -- text, so the values copy verbatim; an existing plugin row wins.

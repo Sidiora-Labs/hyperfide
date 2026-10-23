@@ -15,13 +15,13 @@ export function buildMessageClipboardHtml(
   imageUrl: string,
 ): string {
   const payload = JSON.stringify({ version: 1, text, imageUrl });
-  return `<meta name="bb-message" content="${escapeHtmlText(payload)}"><pre>${escapeHtmlText(text)}</pre><img src="${escapeHtmlText(imageUrl)}">`;
+  return `<meta name="hyperfide-message" content="${escapeHtmlText(payload)}"><pre>${escapeHtmlText(text)}</pre><img src="${escapeHtmlText(imageUrl)}">`;
 }
 
 export function readMessageClipboardHtml(html: string) {
   if (html.length > 1000000) return null;
   const document = new DOMParser().parseFromString(html, "text/html");
-  const metadata = document.querySelector('meta[name="bb-message"]');
+  const metadata = document.querySelector('meta[name="hyperfide-message"]');
   const raw = metadata?.getAttribute("content");
   if (!raw) return null;
   try {

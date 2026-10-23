@@ -63,6 +63,23 @@ export default function graphPlugin(api: GraphApi) {
   }
   api.rpc.register(graphRpcContract, {
     run,
+    async languageServerStatus({ hostId, repository }) {
+      const port = Number(process.env.HYPERFIDE_HOST_DAEMON_PORT);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) return "stopped";
+      const base = `http://127.0.0.1:${port}`;
+      try {
+        const signal = AbortSignal.timeout(3000);
+        const identity = await fetch(`${base}/status`, { signal });
+        if (!identity.ok || (await identity.json()).hostId !== hostId) return "stopped";
+        const url = new URL("/language-server/status", base);
+        url.searchParams.set("repository", repository);
+        const response = await fetch(url, { signal });
+        return response.ok && (await response.json()).status === "running"
+          ? "running" : "stopped";
+      } catch {
+        return "stopped";
+      }
+    },
     getSettings: settings,
     async setSettings(input) {
       const config = settingsSchema.parse(input.settings);

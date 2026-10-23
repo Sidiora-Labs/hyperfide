@@ -8,7 +8,7 @@ import {
   updateHost,
   upsertHost,
 } from "@hyperfide/db";
-import { createBbSdk } from "@hyperfide/sdk/core";
+import { createHyperfideSdk } from "@hyperfide/sdk/core";
 import { createHttpTransport } from "@hyperfide/sdk/node";
 import { describe, expect, it, vi } from "vitest";
 import { withTestHarness } from "../helpers/test-app.js";
@@ -34,7 +34,7 @@ describe("machine environment settings", () => {
           ...getAppSettings(harness.db),
           machineGitCredentialsEnabled: true,
         });
-        const sdk = createBbSdk({
+        const sdk = createHyperfideSdk({
           transport: createHttpTransport({
             baseUrl: "http://localhost",
             runtime: "node",
@@ -162,7 +162,7 @@ describe("machine environment settings", () => {
 
 it("isolates projects on a shared machine and restores global values after removal", async () => {
   await withTestHarness(async (harness) => {
-    const sdk = createBbSdk({
+    const sdk = createHyperfideSdk({
       transport: createHttpTransport({
         baseUrl: "http://localhost",
         runtime: "node",

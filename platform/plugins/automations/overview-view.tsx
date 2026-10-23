@@ -663,7 +663,7 @@ export function AutomationOverviewView({
   return (
     <ResourceCollectionPage
       id="automations-collection"
-      description="Manage scheduled bb work across projects and folders. Automations run recurring or one-time tasks without manual prompting."
+      description="Manage scheduled hyperfide work across projects and folders. Automations run recurring or one-time tasks without manual prompting."
       modes={[
         {
           id: "installed",

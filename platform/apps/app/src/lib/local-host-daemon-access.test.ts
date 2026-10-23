@@ -18,7 +18,7 @@ describe("local host daemon access", () => {
     await expect(
       resolveLocalHostDaemonAccess({
         configuredPorts: [],
-        hostname: "bb.example.com",
+        hostname: "hyperfide.example.com",
         isDesktop: false,
         permissions: createPermissionQuery(query),
         sessionAccessGranted: false,
@@ -29,7 +29,7 @@ describe("local host daemon access", () => {
 
   it.each([
     { hostname: "localhost", isDesktop: false },
-    { hostname: "bb.example.com", isDesktop: true },
+    { hostname: "hyperfide.example.com", isDesktop: true },
   ])("allows trusted client context %# without a query", async (context) => {
     const query = vi.fn<LocalNetworkPermissionQuery["query"]>();
 
@@ -61,7 +61,7 @@ describe("local host daemon access", () => {
       await expect(
         resolveLocalHostDaemonAccess({
           configuredPorts: [38_887],
-          hostname: "bb.example.com",
+          hostname: "hyperfide.example.com",
           isDesktop: false,
           permissions: createPermissionQuery(query),
           sessionAccessGranted: false,
@@ -86,7 +86,7 @@ describe("local host daemon access", () => {
     await expect(
       resolveLocalHostDaemonAccess({
         configuredPorts: [38_887],
-        hostname: "bb.example.com",
+        hostname: "hyperfide.example.com",
         isDesktop: false,
         permissions: createPermissionQuery(query),
         sessionAccessGranted: false,
@@ -106,7 +106,7 @@ describe("local host daemon access", () => {
     await expect(
       resolveLocalHostDaemonAccess({
         configuredPorts: [38_887],
-        hostname: "bb.example.com",
+        hostname: "hyperfide.example.com",
         isDesktop: false,
         permissions: createPermissionQuery(query),
         sessionAccessGranted: false,
@@ -120,7 +120,7 @@ describe("local host daemon access", () => {
     await expect(
       resolveLocalHostDaemonAccess({
         configuredPorts: [38_887],
-        hostname: "bb.example.com",
+        hostname: "hyperfide.example.com",
         isDesktop: false,
         permissions: createPermissionQuery(query),
         sessionAccessGranted: true,

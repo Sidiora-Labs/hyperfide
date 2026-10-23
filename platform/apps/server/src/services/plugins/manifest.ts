@@ -33,8 +33,8 @@ export interface PluginManifest {
     };
     icons: ReadonlyMap<string, string>;
   };
-  bbEngineRange: string | undefined;
-  bbPluginSdkRange: string | undefined;
+  hyperfideEngineRange: string | undefined;
+  hyperfidePluginSdkRange: string | undefined;
   providerCatalog: Array<{ id: string; displayName: string }>;
   serverEntry: string;
   appEntry: string | undefined;
@@ -88,25 +88,25 @@ export async function readPluginManifest(
       `invalid plugin package.json${path ? ` (${path})` : ""}: ${issue?.message ?? "unknown error"}`,
     );
   }
-  const { name: packageName, version, engines, bb } = parsed.data;
+  const { name: packageName, version, engines, hyperfide } = parsed.data;
   if (
-    engines?.bbPluginSdk !== undefined &&
-    semver.validRange(engines.bbPluginSdk) === null
+    engines?.hyperfidePluginSdk !== undefined &&
+    semver.validRange(engines.hyperfidePluginSdk) === null
   ) {
     throw new Error(
-      "invalid plugin package.json (engines.bbPluginSdk): must be a valid semver range",
+      "invalid plugin package.json (engines.hyperfidePluginSdk): must be a valid semver range",
     );
   }
   const serverEntry = await resolveManifestEntryFile(
     rootDir,
-    bb.server,
-    "bb.server",
+    hyperfide.server,
+    "hyperfide.server",
   );
-  const hostEntry = bb.host
-    ? await resolveManifestEntryFile(rootDir, bb.host, "bb.host")
+  const hostEntry = hyperfide.host
+    ? await resolveManifestEntryFile(rootDir, hyperfide.host, "hyperfide.host")
     : undefined;
-  const skillsRootPaths = (bb.skills ?? ["skills"]).map((entry) =>
-    resolveManifestPath(rootDir, entry.replace(/\/\*$/, ""), "bb.skills"),
+  const skillsRootPaths = (hyperfide.skills ?? ["skills"]).map((entry) =>
+    resolveManifestPath(rootDir, entry.replace(/\/\*$/, ""), "hyperfide.skills"),
   );
   const resolveBrandingAsset = (entry: string, label: string): string => {
     if (!/\.(svg|png|webp)$/i.test(entry)) {
@@ -117,42 +117,42 @@ export async function readPluginManifest(
     return resolveManifestPath(rootDir, entry, label);
   };
   const brandingLogo =
-    bb.branding.logo === undefined
+    hyperfide.branding.logo === undefined
       ? undefined
       : {
           lightPath: resolveBrandingAsset(
-            bb.branding.logo.light,
-            "bb.branding.logo.light",
+            hyperfide.branding.logo.light,
+            "hyperfide.branding.logo.light",
           ),
-          ...(bb.branding.logo.dark === undefined
+          ...(hyperfide.branding.logo.dark === undefined
             ? {}
             : {
                 darkPath: resolveBrandingAsset(
-                  bb.branding.logo.dark,
-                  "bb.branding.logo.dark",
+                  hyperfide.branding.logo.dark,
+                  "hyperfide.branding.logo.dark",
                 ),
               }),
         };
   const brandingCompactIconPath =
-    bb.branding.icon !== undefined && isPluginOwnedIconPath(bb.branding.icon)
-      ? resolveBrandingAsset(bb.branding.icon, "bb.branding.icon")
+    hyperfide.branding.icon !== undefined && isPluginOwnedIconPath(hyperfide.branding.icon)
+      ? resolveBrandingAsset(hyperfide.branding.icon, "hyperfide.branding.icon")
       : undefined;
   for (const [label, assetPath] of [
-    ["bb.branding.icon", brandingCompactIconPath],
-    ["bb.branding.logo.light", brandingLogo?.lightPath],
-    ["bb.branding.logo.dark", brandingLogo?.darkPath],
+    ["hyperfide.branding.icon", brandingCompactIconPath],
+    ["hyperfide.branding.logo.light", brandingLogo?.lightPath],
+    ["hyperfide.branding.logo.dark", brandingLogo?.darkPath],
   ] as const) {
     if (assetPath === undefined) continue;
     const realAsset = await resolveManifestAssetFile(rootDir, assetPath, label);
-    if (label === "bb.branding.icon") {
+    if (label === "hyperfide.branding.icon") {
       assertValidPluginCompactIconSvg(await readFile(realAsset), label);
     }
   }
   const brandingIcons = new Map<string, string>();
   for (const [name, entry] of Object.entries(
-    bb.branding.experimental_icons ?? {},
+    hyperfide.branding.experimental_icons ?? {},
   )) {
-    const label = `bb.branding.experimental_icons["${name}"]`;
+    const label = `hyperfide.branding.experimental_icons["${name}"]`;
     const realAsset = await resolveManifestAssetFile(
       rootDir,
       resolveManifestPath(rootDir, entry, label),
@@ -162,14 +162,14 @@ export async function readPluginManifest(
     brandingIcons.set(name, realAsset);
   }
   const themeIds = new Set<string>();
-  const themes = (bb.themes ?? []).map((theme) => {
+  const themes = (hyperfide.themes ?? []).map((theme) => {
     if (themeIds.has(theme.id)) {
-      throw new Error(`manifest bb.themes contains duplicate id "${theme.id}"`);
+      throw new Error(`manifest hyperfide.themes contains duplicate id "${theme.id}"`);
     }
     themeIds.add(theme.id);
     if (!theme.css.toLowerCase().endsWith(".css")) {
       throw new Error(
-        `manifest bb.themes theme "${theme.id}" must point at a .css file`,
+        `manifest hyperfide.themes theme "${theme.id}" must point at a .css file`,
       );
     }
     const codeTheme = theme.codeTheme ?? null;
@@ -197,7 +197,7 @@ export async function readPluginManifest(
       id: theme.id,
       name: theme.name,
       description: theme.description ?? null,
-      cssPath: resolveManifestPath(rootDir, theme.css, `bb.themes.${theme.id}.css`),
+      cssPath: resolveManifestPath(rootDir, theme.css, `hyperfide.themes.${theme.id}.css`),
       codeTheme,
       codeThemePaths,
     };
@@ -207,7 +207,7 @@ export async function readPluginManifest(
       await stat(theme.cssPath);
     } catch {
       throw new Error(
-        `manifest bb.themes theme "${theme.id}" points at a missing file`,
+        `manifest hyperfide.themes theme "${theme.id}" points at a missing file`,
       );
     }
     for (const [side, path] of Object.entries(theme.codeThemePaths)) {
@@ -215,7 +215,7 @@ export async function readPluginManifest(
         await stat(path);
       } catch {
         throw new Error(
-          `manifest bb.themes theme "${theme.id}" codeTheme.${side} points at a missing file`,
+          `manifest hyperfide.themes theme "${theme.id}" codeTheme.${side} points at a missing file`,
         );
       }
     }
@@ -224,23 +224,23 @@ export async function readPluginManifest(
     id: derivePluginId(packageName),
     packageName,
     version,
-    name: bb.name,
-    description: bb.description,
+    name: hyperfide.name,
+    description: hyperfide.description,
     branding: {
-      ...(bb.branding.icon === undefined ? {} : { icon: bb.branding.icon }),
+      ...(hyperfide.branding.icon === undefined ? {} : { icon: hyperfide.branding.icon }),
       ...(brandingCompactIconPath === undefined
         ? {}
         : { compactIconPath: brandingCompactIconPath }),
       ...(brandingLogo === undefined ? {} : { logo: brandingLogo }),
       icons: brandingIcons,
     },
-    bbEngineRange: engines?.bb,
-    bbPluginSdkRange: engines?.bbPluginSdk,
-    providerCatalog: (bb.experimental_providers ?? []).map(
+    hyperfideEngineRange: engines?.hyperfide,
+    hyperfidePluginSdkRange: engines?.hyperfidePluginSdk,
+    providerCatalog: (hyperfide.experimental_providers ?? []).map(
       ({ id, displayName }) => ({ id, displayName }),
     ),
     serverEntry,
-    appEntry: bb.app ? resolveManifestPath(rootDir, bb.app, "bb.app") : undefined,
+    appEntry: hyperfide.app ? resolveManifestPath(rootDir, hyperfide.app, "hyperfide.app") : undefined,
     hostEntry,
     themes,
     skillsRootPaths,

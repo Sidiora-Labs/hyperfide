@@ -2,11 +2,11 @@ import { randomBytes } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { isLoopbackHostname } from "@hyperfide/config/loopback";
 import {
-  bbAppManagedEnvFileSchema,
-  formatBbAppConfigPath,
-  formatBbAppEnvPath,
-  parseBbAppManagedConfig,
-} from "@hyperfide/config/bb-app-managed-config";
+  hyperfideAppManagedEnvFileSchema,
+  formatHyperfideAppConfigPath,
+  formatHyperfideAppEnvPath,
+  parseHyperfideAppManagedConfig,
+} from "@hyperfide/config/hyperfide-app-managed-config";
 import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
 import { getAppSettings, type DbConnection } from "@hyperfide/db";
 import { z } from "zod";
@@ -74,14 +74,14 @@ export function parseManagedConfigObject(
   } catch (error) {
     throw new Error(`Invalid JSON in ${path}`, { cause: error });
   }
-  parseBbAppManagedConfig(raw);
+  parseHyperfideAppManagedConfig(raw);
   return managedObjectSchema.parse(raw);
 }
 
 async function readManagedConfigObject(
   dataDir: string,
 ): Promise<Record<string, unknown> | null> {
-  const path = formatBbAppConfigPath(dataDir);
+  const path = formatHyperfideAppConfigPath(dataDir);
   try {
     return parseManagedConfigObject(path, await readOptionalText(path));
   } catch {
@@ -92,13 +92,13 @@ async function readManagedConfigObject(
 async function readManagedEnv(
   dataDir: string,
 ): Promise<Record<string, string> | null> {
-  const path = formatBbAppEnvPath(dataDir);
+  const path = formatHyperfideAppEnvPath(dataDir);
   try {
     const text = await readOptionalText(path);
     if (text === null) {
       return {};
     }
-    return bbAppManagedEnvFileSchema.parse(JSON.parse(text)).env ?? {};
+    return hyperfideAppManagedEnvFileSchema.parse(JSON.parse(text)).env ?? {};
   } catch {
     return null;
   }
@@ -185,7 +185,7 @@ export async function rewriteManagedAddresses(args: {
   toUrl: string;
 }): Promise<ManagedAddressKey[]> {
   const rewritten: ManagedAddressKey[] = [];
-  const configPath = formatBbAppConfigPath(args.dataDir);
+  const configPath = formatHyperfideAppConfigPath(args.dataDir);
   const readConfig = async () =>
     parseManagedConfigObject(configPath, await readOptionalText(configPath));
   if (originMatches(configAppUrl(await readConfig()), args.fromOrigin)) {
@@ -203,16 +203,16 @@ export async function rewriteManagedAddresses(args: {
             HYPERFIDE_APP_URL: args.toUrl,
           },
         };
-        parseBbAppManagedConfig(next);
+        parseHyperfideAppManagedConfig(next);
         rewritten.push("HYPERFIDE_APP_URL");
         return next;
       },
     });
   }
-  const envPath = formatBbAppEnvPath(args.dataDir);
+  const envPath = formatHyperfideAppEnvPath(args.dataDir);
   const readEnvFile = async () => {
     const text = await readOptionalText(envPath);
-    return bbAppManagedEnvFileSchema.parse(
+    return hyperfideAppManagedEnvFileSchema.parse(
       text === null ? {} : JSON.parse(text),
     );
   };

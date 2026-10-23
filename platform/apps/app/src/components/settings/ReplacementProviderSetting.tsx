@@ -51,7 +51,7 @@ export function ReplacementProviderSetting({
       ? null
       : {
           key: BUILT_IN_REPLACEMENT_PROVIDER,
-          title: "bb (built-in)",
+          title: "hyperfide (built-in)",
           description: builtInDescription,
         };
   const optionFor = (slot: ReplacementProviderSlot) =>

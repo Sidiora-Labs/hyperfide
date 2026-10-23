@@ -27,7 +27,7 @@ async function loadNotebook(
   notes: Record<string, string>,
   watchVault?: NonNullable<Parameters<typeof simpleNotes>[1]>,
 ) {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "bb-simple-notes-"));
+  const directory = await mkdtemp(path.join(os.tmpdir(), "hyperfide-simple-notes-"));
   temporaryDirectories.push(directory);
   await Promise.all(
     Object.entries(notes).map(([name, content]) =>
@@ -76,8 +76,8 @@ async function loadNotebook(
       hosts: { list: async () => [] },
     },
   });
-  await simpleNotes(host.bb, watchVault);
-  host.bb.storage
+  await simpleNotes(host.hyperfide, watchVault);
+  host.hyperfide.storage
     .database()
     .prepare("UPDATE vaults SET root_path = ? WHERE id = 'personal'")
     .run(directory);
@@ -251,8 +251,8 @@ async function loadVirtualSyncVault(initial: Record<string, VirtualFile>) {
       hosts: { list: async () => [] },
     },
   });
-  await simpleNotes(host.bb);
-  host.bb.storage
+  await simpleNotes(host.hyperfide);
+  host.hyperfide.storage
     .database()
     .prepare("UPDATE vaults SET root_path = ? WHERE id = 'personal'")
     .run("/vault");
@@ -605,7 +605,7 @@ describe("Docs mention provider", () => {
 
     await expect(provider.resolve("personal:ideas.md")).resolves.toEqual({
       context:
-        "Docs document (personal/ideas.md):\nSHA-256: test-sha\n\n# Fresh Ideas\n\nBuild the mention flow.\n\nProposal version: none. Use bb docs propose to suggest changes for approval.",
+        "Docs document (personal/ideas.md):\nSHA-256: test-sha\n\n# Fresh Ideas\n\nBuild the mention flow.\n\nProposal version: none. Use hyperfide-platform docs propose to suggest changes for approval.",
     });
     expect(harness.sdk.callsTo("files.read")).toEqual([
       [
@@ -658,7 +658,7 @@ describe("Docs vault operations", () => {
       },
     });
 
-    await simpleNotes(host.bb);
+    await simpleNotes(host.hyperfide);
 
     const result = await host.harness.runCli(["vaults", "--json"]);
     expect(result.exitCode).toBe(0);
@@ -734,7 +734,7 @@ describe("Docs vault operations", () => {
       content: "AP+AQA==",
       contentEncoding: "base64",
     });
-    expect(files.has("/work/sync/.bb-docs-state.json")).toBe(true);
+    expect(files.has("/work/sync/.hyperfide-docs-state.json")).toBe(true);
 
     setUtf8("/work/sync/plans/plan.md", "# Plan\n\nEdited locally\n");
     const status = await harness.runCli(
@@ -975,7 +975,7 @@ describe("Docs vault operations", () => {
         modifiedAtMs: 1,
       },
     });
-    setUtf8("/work/sync/.bb-docs-state.json", "{not-json");
+    setUtf8("/work/sync/.hyperfide-docs-state.json", "{not-json");
 
     const result = await harness.runCli(["push", "sync", "--json"], {
       cwd: "/work",
@@ -985,10 +985,10 @@ describe("Docs vault operations", () => {
       ok: false,
       error: {
         code: "operation_failed",
-        message: expect.stringContaining(".bb-docs-state.json is malformed"),
+        message: expect.stringContaining(".hyperfide-docs-state.json is malformed"),
       },
     });
-    expect(result.stderr).toContain(".bb-docs-state.json is malformed");
+    expect(result.stderr).toContain(".hyperfide-docs-state.json is malformed");
   });
 
   it("supports whole-vault and single-file scopes and deprecates direct writes", async () => {
@@ -1043,14 +1043,14 @@ describe("Docs vault operations", () => {
 
     const help = await harness.runCli(["--help"]);
     expect(help).toMatchObject({ exitCode: 0 });
-    expect(help.stdout).toContain("bb docs pull");
-    expect(help.stdout).toContain("bb docs status");
-    expect(help.stdout).toContain("bb docs push");
+    expect(help.stdout).toContain("hyperfide-platform docs pull");
+    expect(help.stdout).toContain("hyperfide-platform docs status");
+    expect(help.stdout).toContain("hyperfide-platform docs push");
 
     const statusHelp = await harness.runCli(["status", "--help"]);
     expect(statusHelp).toMatchObject({ exitCode: 0 });
     expect(statusHelp.stdout).toContain("Exit 4: changes present");
-    expect(statusHelp.stdout).toContain("run bb docs push separately");
+    expect(statusHelp.stdout).toContain("run hyperfide-platform docs push separately");
     expect(statusHelp.stdout).toContain("[<workspace-dir>]");
 
     const unsafePull = await harness.runCli(
@@ -1079,7 +1079,7 @@ describe("Docs vault operations", () => {
 
     const noCommand = await harness.runCli([]);
     expect(noCommand.exitCode).toBe(2);
-    expect(noCommand.stdout).toContain("bb docs <command> [options]");
+    expect(noCommand.stdout).toContain("hyperfide-platform docs <command> [options]");
 
     const strayArgument = await harness.runCli(["vaults", "personal"]);
     expect(strayArgument.exitCode).toBe(2);
@@ -1262,7 +1262,7 @@ describe("Docs vault operations", () => {
         },
       },
     });
-    await simpleNotes(host.bb);
+    await simpleNotes(host.hyperfide);
     host.harness.sdk.calls.length = 0;
     const source = {
       kind: "host",
@@ -1367,7 +1367,7 @@ describe("Docs vault operations", () => {
         },
       },
     });
-    await simpleNotes(host.bb);
+    await simpleNotes(host.hyperfide);
     host.harness.sdk.calls.length = 0;
     const selectedSource = {
       kind: "workspace",
@@ -1452,8 +1452,8 @@ describe("Docs vault operations", () => {
   });
 
   it("opens and saves thread-storage Markdown files on the thread's host", async () => {
-    const storageRootPath = String.raw`C:\bb\thread-storage\thread_1`;
-    const openedPath = String.raw`C:\bb\thread-storage\thread_1\reports\plan.md`;
+    const storageRootPath = String.raw`C:\hyperfide\thread-storage\thread_1`;
+    const openedPath = String.raw`C:\hyperfide\thread-storage\thread_1\reports\plan.md`;
     const host = createFakePluginHost({
       pluginId: "simple-notes",
       sdk: {
@@ -1486,7 +1486,7 @@ describe("Docs vault operations", () => {
         },
       },
     });
-    await simpleNotes(host.bb);
+    await simpleNotes(host.hyperfide);
     host.harness.sdk.calls.length = 0;
     const source = {
       kind: "thread-storage",

@@ -108,7 +108,7 @@ export function sidebarNavigationPlacement(
 }
 
 const lastKnownPreferenceCache = createLastKnownCache({
-  prefix: "bb.sidebar-navigation-provider",
+  prefix: "hyperfide.sidebar-navigation-provider",
   version: "1",
   schema: z.string().min(1),
 });
@@ -124,7 +124,7 @@ export const sidebarNavigationProviderAtom = createSyncedPreferenceAtom(
 );
 
 const lastResolvedCache = createLastKnownCache({
-  prefix: "bb.sidebar-navigation-resolved",
+  prefix: "hyperfide.sidebar-navigation-resolved",
   version: "1",
   schema: lastResolvedSchema,
 });

@@ -183,8 +183,8 @@ describe("machine creation hosts", () => {
       const record = installMachineProvider({
         create: async ({ report }) => {
           report.step("Bootstrapping machine");
-          report.log("bb-machine-install: 9: node: not found\n");
-          report.log("bb-machine-install: 9: curl: not found\n");
+          report.log("hyperfide-machine-install: 9: node: not found\n");
+          report.log("hyperfide-machine-install: 9: curl: not found\n");
           return { status: "failed", message };
         },
         reconcileCleanup: async () => {

@@ -48,7 +48,7 @@ describe("codex process topology", () => {
   const runtimes: AgentRuntime[] = [];
 
   beforeEach(() => {
-    workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-topology-"));
+    workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-topology-"));
   });
 
   afterEach(async () => {

@@ -143,7 +143,7 @@ async function scriptedEchoDispatchLaunch(
 }
 
 async function createRaceHarness(): Promise<RaceHarness> {
-  const workspacePath = await makeTempDir("bb-stop-race-workspace-");
+  const workspacePath = await makeTempDir("hyperfide-stop-race-workspace-");
   const events: ThreadEvent[] = [];
   const record = createScriptedEchoRequestRecord();
   let resolveUnexpectedProcessExit: (
@@ -177,7 +177,7 @@ async function createRaceHarness(): Promise<RaceHarness> {
   managers.push(manager);
 
   const artifact = await buildScriptedEchoArtifact();
-  const dataDir = await makeTempDir("bb-stop-race-daemon-data-");
+  const dataDir = await makeTempDir("hyperfide-stop-race-daemon-data-");
   return {
     dispatchOptions: makeDispatchOptions({
       runtimeManager: manager,
@@ -446,14 +446,14 @@ describe("thread.stop race semantics", () => {
   it("treats the second of two racing stops as an idempotent no-op", async () => {
     const harness = await createRaceHarness();
     const router = new CommandRouter({
-      dataDir: "/tmp/bb-stop-race-data",
+      dataDir: "/tmp/hyperfide-stop-race-data",
       eventSink: noopEventSink,
       fetchProjectAttachment: unexpectedProjectAttachmentFetch,
       fetchPluginHostArtifact: fetchDispatchTestArtifact,
       ...unexpectedProviderMaintenance,
       logger: { debug: () => undefined, warn: () => undefined },
       runtimeManager: harness.manager,
-      threadStorageRootPath: "/tmp/bb-stop-race-thread-storage",
+      threadStorageRootPath: "/tmp/hyperfide-stop-race-thread-storage",
     });
     await dispatchCommand(
       threadStartCommand(harness, {

@@ -32,7 +32,7 @@ import {
 } from "./system-queries";
 
 vi.mock("@/lib/sdk", () => ({
-  BbHttpError: class BbHttpError extends Error {},
+  HyperfideHttpError: class HyperfideHttpError extends Error {},
   sdk: {
     hosts: { providerCliStatus: vi.fn() },
     providers: { list: vi.fn() },

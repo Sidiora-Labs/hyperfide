@@ -31,7 +31,7 @@ import {
 } from "./services/system/cli-command.js";
 import { createAppVersionService } from "./services/system/app-version.js";
 import { createLauncherChannel } from "./services/system/launcher-channel.js";
-import { createBbAppManagedConfigReloader } from "./services/system/bb-app-managed-config.js";
+import { createHyperfideAppManagedConfigReloader } from "./services/system/hyperfide-app-managed-config.js";
 import { startGatedPerformanceDiagnostics } from "./services/system/performance-diagnostics.js";
 import { startEventLoopStallMonitor } from "./services/system/event-loop-stall-monitor.js";
 import {
@@ -209,7 +209,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     hub,
     logger,
   });
-  const bbAppManagedConfig = await createBbAppManagedConfigReloader({
+  const hyperfideAppManagedConfig = await createHyperfideAppManagedConfigReloader({
     config: runtimeConfig,
     hub,
     logger,
@@ -300,7 +300,7 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
     {
       appUpdate,
       appVersion,
-      bbAppManagedConfig,
+      hyperfideAppManagedConfig,
       cliCommand,
       config: runtimeConfig,
       db,

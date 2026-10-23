@@ -7,7 +7,7 @@ import type {
   TerminalSession,
   UpdateTerminalRequest,
 } from "@hyperfide/server-contract";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { HyperfideHttpError, sdk } from "@/lib/sdk";
 import {
   applyTerminalSessionClose,
   applyTerminalSessionMissing,
@@ -111,7 +111,7 @@ export function useCloseTerminal() {
     },
     mutationFn: ({ mode, terminalId }: CloseTerminalMutationRequest) =>
       sdk.terminals.close({ mode, terminalId }).catch((error: unknown) => {
-        if (error instanceof BbHttpError && error.status === 404) return null;
+        if (error instanceof HyperfideHttpError && error.status === 404) return null;
         throw error;
       }),
     onSuccess: (session: TerminalSession | null, variables) => {

@@ -150,7 +150,7 @@ export function MachineAccessSettingsContent({
       <div>
         <h2 className="text-sm font-semibold">{title}</h2>
         <p className="mt-1 text-xs text-subtle-foreground">
-          Choose how your devices reach this bb server.
+          Choose how your devices reach this hyperfide-platform server.
         </p>
       </div>
       <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -299,7 +299,7 @@ function MachineAccessDetails({
               aria-label="Server address"
               aria-invalid={error !== null}
               value={draft ?? value}
-              placeholder={access?.effectiveUrl ?? "https://bb.example.com"}
+              placeholder={access?.effectiveUrl ?? "https://hyperfide.example.com"}
               disabled={disabled}
               onChange={(event) => machineAccess.editDraft(event.target.value)}
               onKeyDown={(event) => {

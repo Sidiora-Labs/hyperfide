@@ -25,8 +25,8 @@ import {
 } from "../list/lib.js";
 import { DispatchControl } from "./threads.js";
 import { DEFAULT_COLOR } from "../manage/shared.js";
-import { BbProjectLinkPicker } from "../manage/bb-project-link.js";
-import type { BbProjectOption } from "../../shared/contract.js";
+import { HyperfideProjectLinkPicker } from "../manage/hyperfide-project-link.js";
+import type { HyperfideProjectOption } from "../../shared/contract.js";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -392,12 +392,12 @@ function ProjectMenu({
 
 function DispatchTargetMenu({
   project,
-  bbProjects,
+  hyperfideProjects,
   onError,
   triggerClassName,
 }: {
   project: Project;
-  bbProjects: readonly BbProjectOption[];
+  hyperfideProjects: readonly HyperfideProjectOption[];
   onError: (message: string) => void;
   triggerClassName: string;
 }) {
@@ -405,9 +405,9 @@ function DispatchTargetMenu({
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const linkedBbProjectId = project.linkedBbProjectId;
-  const linkedName = bbProjects.find(
-    (candidate) => candidate.id === linkedBbProjectId,
+  const linkedHyperfideProjectId = project.linkedHyperfideProjectId;
+  const linkedName = hyperfideProjects.find(
+    (candidate) => candidate.id === linkedHyperfideProjectId,
   )?.name;
 
   const save = async (linkedId: string | null) => {
@@ -416,7 +416,7 @@ function DispatchTargetMenu({
     try {
       await rpc.call("updateProject", {
         projectId: project.id,
-        linkedBbProjectId: linkedId,
+        linkedHyperfideProjectId: linkedId,
       });
       setOpen(false);
     } catch (saveError) {
@@ -430,7 +430,7 @@ function DispatchTargetMenu({
     <Popover
       open={open}
       onOpenChange={(next) => {
-        if (next) setSelection(linkedBbProjectId);
+        if (next) setSelection(linkedHyperfideProjectId);
         setOpen(next);
       }}
     >
@@ -441,26 +441,26 @@ function DispatchTargetMenu({
           className={triggerClassName}
         >
           <Icon name="ArrowUpRight" className="size-3.5 shrink-0" />
-          {linkedBbProjectId !== null ? (
-            <span className="truncate" title={linkedBbProjectId}>
-              {linkedName ?? linkedBbProjectId}
+          {linkedHyperfideProjectId !== null ? (
+            <span className="truncate" title={linkedHyperfideProjectId}>
+              {linkedName ?? linkedHyperfideProjectId}
             </span>
           ) : (
             <span className="truncate text-muted-foreground">
-              Link a bb project…
+              Link a hyperfide-platform project…
             </span>
           )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-3">
-        <BbProjectLinkPicker
+        <HyperfideProjectLinkPicker
           value={selection}
           onChange={setSelection}
-          bbProjects={bbProjects}
-          noneLabel={linkedBbProjectId !== null ? "Unlink" : "Not linked"}
+          hyperfideProjects={hyperfideProjects}
+          noneLabel={linkedHyperfideProjectId !== null ? "Unlink" : "Not linked"}
         />
         <div className="mt-2.5 flex items-center justify-between gap-2">
-          {linkedBbProjectId !== null ? (
+          {linkedHyperfideProjectId !== null ? (
             <Button
               variant="ghost"
               size="sm"
@@ -511,8 +511,8 @@ export function PropertiesRail({
     task.labelIds.includes(label.id),
   );
   const active = threads.filter(isActiveThread);
-  const bbProjects = useTasksQuery(
-    async (query) => (await query.call("listBbProjects")).bbProjects,
+  const hyperfideProjects = useTasksQuery(
+    async (query) => (await query.call("listHyperfideProjects")).hyperfideProjects,
     ["projects:changed"],
   );
   return (
@@ -571,7 +571,7 @@ export function PropertiesRail({
       {project !== undefined ? (
         <DispatchTargetMenu
           project={project}
-          bbProjects={bbProjects.data ?? []}
+          hyperfideProjects={hyperfideProjects.data ?? []}
           onError={onError}
           triggerClassName={RAIL_ROW_CLASS}
         />

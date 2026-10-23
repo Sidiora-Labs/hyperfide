@@ -4,7 +4,7 @@ import { writeServerMovedFile, type ServerMovedFile } from "./markers.js";
 
 const OLD_COPY_PROTECTED_ENTRIES: ReadonlySet<string> = new Set([
   "auth.json",
-  "bb-app-runtime.json",
+  "hyperfide-app-runtime.json",
   "checkouts",
   "config.json",
   "daemon.lock",

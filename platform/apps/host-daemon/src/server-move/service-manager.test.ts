@@ -49,7 +49,7 @@ describe("restartService", () => {
       const spawnDetached = vi.fn(async () => 1);
 
       await restartService({
-        definition: definition(manager, "bb-host-daemon-old-me.service"),
+        definition: definition(manager, "hyperfide-host-daemon-old-me.service"),
         runCommand,
         spawnDetached,
         uid: 1000,
@@ -64,7 +64,7 @@ describe("restartService", () => {
           scope,
           "restart",
           "--no-block",
-          "bb-host-daemon-old-me.service",
+          "hyperfide-host-daemon-old-me.service",
         ],
       ]);
       expect(spawnDetached).not.toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe("restartService", () => {
 
     await expect(
       restartService({
-        definition: definition("systemd-user", "bb-host-daemon-x.service"),
+        definition: definition("systemd-user", "hyperfide-host-daemon-x.service"),
         runCommand,
         spawnDetached: vi.fn(async () => 1),
         uid: 1000,
@@ -97,8 +97,8 @@ describe("restartService", () => {
 
     await restartService({
       definition: {
-        ...definition("launchd", "app.getbb.host-daemon.old-me"),
-        path: "/Users/me/Library/LaunchAgents/app.getbb.host-daemon.old-me.plist",
+        ...definition("launchd", "app.hyperfide.host-daemon.old-me"),
+        path: "/Users/me/Library/LaunchAgents/app.hyperfide.host-daemon.old-me.plist",
       },
       runCommand,
       spawnDetached: async (request) => {
@@ -117,9 +117,9 @@ describe("restartService", () => {
         args: [
           "-c",
           LAUNCHD_RESTART_SCRIPT,
-          "bb-server-move-restart",
+          "hyperfide-server-move-restart",
           "gui/501",
-          "/Users/me/Library/LaunchAgents/app.getbb.host-daemon.old-me.plist",
+          "/Users/me/Library/LaunchAgents/app.hyperfide.host-daemon.old-me.plist",
         ],
         env: { HOME: "/Users/me" },
         logPath: "/data/logs/server-move.log",
@@ -130,7 +130,7 @@ describe("restartService", () => {
   it.skipIf(process.platform === "win32")(
     "runs launchctl bootout before bootstrap in the helper script",
     async () => {
-      const root = await mkdtemp(join(tmpdir(), "bb-launchd-helper-test-"));
+      const root = await mkdtemp(join(tmpdir(), "hyperfide-launchd-helper-test-"));
       roots.push(root);
       const callsPath = join(root, "calls.log");
       const launchctlPath = join(root, "launchctl");
@@ -145,7 +145,7 @@ describe("restartService", () => {
         [
           "-c",
           LAUNCHD_RESTART_SCRIPT,
-          "bb-server-move-restart",
+          "hyperfide-server-move-restart",
           "gui/501",
           "/Users/me/Library/LaunchAgents/app.plist",
         ],

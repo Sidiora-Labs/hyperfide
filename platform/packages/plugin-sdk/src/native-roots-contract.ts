@@ -40,7 +40,7 @@ export const experimental_nativeRootsResolveInputSchema = z
      * (the ACP plugin registers one per agent) from one host entry.
      */
     providerId: z.string().min(1),
-    /** The workspace, or null when bb lists without one (user roots only). */
+    /** The workspace, or null when hyperfide lists without one (user roots only). */
     cwd: z.string().min(1).nullable(),
   })
   .strict();

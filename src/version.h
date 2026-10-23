@@ -1,0 +1,6 @@
+#ifndef HYPERFIDE_VERSION_H
+#define HYPERFIDE_VERSION_H
+#ifndef HYPERFIDE_VERSION
+#define HYPERFIDE_VERSION "2.2.0"
+#endif
+#endif

@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import {
   defaultCommandRunner,
-  resolveBbAppPackage,
-  type BbAppArtifactCommandRunner,
-} from "../install/bb-app-artifact.js";
+  resolveHyperfideAppPackage,
+  type HyperfideAppArtifactCommandRunner,
+} from "../install/hyperfide-app-artifact.js";
 
 const REQUIRED_PACKAGE_PATHS = [
-  "dist/bb-server.js",
-  "dist/bb-app.js",
+  "dist/hyperfide-server.js",
+  "dist/hyperfide-app.js",
   "server/dist",
   "app/dist",
 ] as const;
@@ -19,24 +19,24 @@ const PACKAGE_SIZE_SKIPPED_DIRECTORIES: ReadonlySet<string> = new Set([
   "node_modules",
 ]);
 
-export interface FullBbAppArtifact {
+export interface FullHyperfideAppArtifact {
   path: string;
   sha256: string;
   sizeBytes: number;
   version: string;
 }
 
-export type FullBbAppArtifactAvailability =
+export type FullHyperfideAppArtifactAvailability =
   | { available: true; unpackedSizeBytes: number; version: string }
   | { available: false; reason: string };
 
-export interface FullBbAppArtifactService {
-  availability(): Promise<FullBbAppArtifactAvailability>;
-  build(): Promise<FullBbAppArtifact>;
+export interface FullHyperfideAppArtifactService {
+  availability(): Promise<FullHyperfideAppArtifactAvailability>;
+  build(): Promise<FullHyperfideAppArtifact>;
 }
 
-export interface CreateFullBbAppArtifactServiceArgs {
-  commandRunner?: BbAppArtifactCommandRunner;
+export interface CreateFullHyperfideAppArtifactServiceArgs {
+  commandRunner?: HyperfideAppArtifactCommandRunner;
   dataDir: string;
   serverEntryUrl: string;
 }
@@ -73,11 +73,11 @@ async function packageSizeBytes(root: string): Promise<number> {
   return total;
 }
 
-export function createFullBbAppArtifactService(
-  args: CreateFullBbAppArtifactServiceArgs,
-): FullBbAppArtifactService {
+export function createFullHyperfideAppArtifactService(
+  args: CreateFullHyperfideAppArtifactServiceArgs,
+): FullHyperfideAppArtifactService {
   const cacheDir = join(args.dataDir, "install-cache");
-  let artifactPromise: Promise<FullBbAppArtifact> | undefined;
+  let artifactPromise: Promise<FullHyperfideAppArtifact> | undefined;
   let packageSize:
     | { root: string; version: string; sizeBytes: number }
     | undefined;
@@ -96,9 +96,9 @@ export function createFullBbAppArtifactService(
     | { available: true; root: string; version: string }
     | { available: false; reason: string }
   > {
-    let resolved: Awaited<ReturnType<typeof resolveBbAppPackage>>;
+    let resolved: Awaited<ReturnType<typeof resolveHyperfideAppPackage>>;
     try {
-      resolved = await resolveBbAppPackage(args.serverEntryUrl);
+      resolved = await resolveHyperfideAppPackage(args.serverEntryUrl);
     } catch (error) {
       return {
         available: false,
@@ -109,14 +109,14 @@ export function createFullBbAppArtifactService(
       return {
         available: false,
         reason:
-          "This server runs from a source checkout, so it can't send its full bb-app package.",
+          "This server runs from a source checkout, so it can't send its full hyperfide-app package.",
       };
     }
     for (const relativePath of REQUIRED_PACKAGE_PATHS) {
       if (!(await pathExists(join(resolved.root, relativePath)))) {
         return {
           available: false,
-          reason: `The installed bb-app package is missing ${relativePath}.`,
+          reason: `The installed hyperfide-app package is missing ${relativePath}.`,
         };
       }
     }
@@ -127,7 +127,7 @@ export function createFullBbAppArtifactService(
     };
   }
 
-  async function buildArtifact(): Promise<FullBbAppArtifact> {
+  async function buildArtifact(): Promise<FullHyperfideAppArtifact> {
     const resolved = await resolvePackagedRoot();
     if (!resolved.available) {
       throw new Error(resolved.reason);
@@ -146,7 +146,7 @@ export function createFullBbAppArtifactService(
     const sha256 = await sha256File(packedPath);
     const artifactPath = join(
       cacheDir,
-      `bb-app-full-${resolved.version}-${sha256}.tgz`,
+      `hyperfide-app-full-${resolved.version}-${sha256}.tgz`,
     );
     await rename(packedPath, artifactPath);
     const artifactStats = await stat(artifactPath);

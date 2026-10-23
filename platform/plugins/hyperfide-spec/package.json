@@ -5,14 +5,34 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsrs --noEmit"
+    "typecheck": "tsrs --noEmit",
+    "prepare:bundled": "node ../../packages/plugin-build/dist/cli.js prepare-bundled"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "esbuild": "^0.28.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "jsdom": "^29.0.1",
+    "@types/jsdom": "^27.0.0"
   },
   "dependencies": {
-    "@hyperfide/authority": "workspace:*"
+    "@hyperfide/authority": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "zod": "^4.3.6",
+    "react": "^19.0.0"
+  },
+  "hyperfide": {
+    "name": "Spec",
+    "description": "Repository spec tasks and waves",
+    "branding": {
+      "icon": "ListChecks"
+    },
+    "server": "./src/read-model-server.ts",
+    "app": "./src/board/plugin-app.ts",
+    "host": "./src/board/host.ts"
   }
 }

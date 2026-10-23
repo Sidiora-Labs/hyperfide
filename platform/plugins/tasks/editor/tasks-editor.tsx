@@ -26,78 +26,78 @@ function isImeComposing(event: KeyboardEvent): boolean {
   return event.isComposing || event.keyCode === 229;
 }
 
-const STYLE_MARKER = "data-bb-tasks-editor-styles";
+const STYLE_MARKER = "data-hyperfide-tasks-editor-styles";
 const EDITOR_CSS = `
-.bb-tasks-editor .tiptap {
+.hyperfide-tasks-editor .tiptap {
   outline: none; width: 100%; font-size: 14px; line-height: 1.65;
   color: var(--foreground); caret-color: var(--foreground);
   overflow-wrap: break-word; -webkit-font-smoothing: antialiased;
 }
-.bb-tasks-editor[data-variant="comment"] .tiptap { font-size: 13px; line-height: 1.55; }
+.hyperfide-tasks-editor[data-variant="comment"] .tiptap { font-size: 13px; line-height: 1.55; }
 /* Doc variant: let the ProseMirror surface fill the wrapper's min-height so
    the whole area is editable. Otherwise a short document (e.g. a single block
    image) leaves a non-editable dead zone below it that swallows clicks, and a
    lone image atom offers no text caret — the description looks unfocusable. */
-.bb-tasks-editor[data-variant="doc"] { display: flex; flex-direction: column; }
-.bb-tasks-editor[data-variant="doc"] .bb-tasks-editor-surface { display: flex; flex: 1 1 auto; flex-direction: column; }
-.bb-tasks-editor[data-variant="doc"] .bb-tasks-editor-surface .tiptap { flex: 1 1 auto; }
-.bb-tasks-editor .tiptap > :first-child,
-.bb-tasks-editor .tiptap li > :first-child,
-.bb-tasks-editor .tiptap blockquote > :first-child { margin-top: 0; }
-.bb-tasks-editor .tiptap p { margin: 0.75em 0 0; }
-.bb-tasks-editor[data-variant="comment"] .tiptap p { margin: 0.5em 0 0; }
-.bb-tasks-editor .tiptap h1,
-.bb-tasks-editor .tiptap h2,
-.bb-tasks-editor .tiptap h3,
-.bb-tasks-editor .tiptap h4,
-.bb-tasks-editor .tiptap h5,
-.bb-tasks-editor .tiptap h6 { margin: 1.25em 0 0; color: var(--foreground); font-weight: 600; }
-.bb-tasks-editor .tiptap h1 { font-size: 1.45em; line-height: 1.3; }
-.bb-tasks-editor .tiptap h2 { font-size: 1.2em; line-height: 1.4; }
-.bb-tasks-editor .tiptap h3 { font-size: 1.08em; line-height: 1.45; }
-.bb-tasks-editor .tiptap :is(h1, h2, h3, h4, h5, h6) + * { margin-top: 0.5em; }
-.bb-tasks-editor .tiptap ul, .bb-tasks-editor .tiptap ol { margin: 0.75em 0 0; padding-left: 1.5em; }
-.bb-tasks-editor .tiptap ul { list-style: disc; }
-.bb-tasks-editor .tiptap ol { list-style: decimal; }
-.bb-tasks-editor .tiptap li { margin-top: 0.3em; padding-left: 0.3em; }
-.bb-tasks-editor .tiptap li > p, .bb-tasks-editor .tiptap li > ul, .bb-tasks-editor .tiptap li > ol { margin-top: 0.3em; }
-.bb-tasks-editor .tiptap li::marker { color: var(--muted-foreground); }
-.bb-tasks-editor .tiptap a { color: inherit; font-weight: 500; text-decoration: underline; text-decoration-color: color-mix(in oklab, currentColor 30%, transparent); cursor: pointer; }
-.bb-tasks-editor .tiptap a:hover { text-decoration-color: currentColor; }
-.bb-tasks-editor .tiptap strong { font-weight: 600; }
-.bb-tasks-editor .tiptap code { background: var(--muted); border-radius: min(calc(var(--radius) * 0.6), 0.35em); padding: 0.125em 0.3em; font-size: 0.85em; font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); }
-.bb-tasks-editor .tiptap pre { background: var(--muted); border-radius: var(--radius); padding: 0.65em 0.85em; overflow-x: auto; font-size: 0.875em; line-height: 1.5; margin: 0.9em 0 0; tab-size: 2; }
-.bb-tasks-editor .tiptap pre code { background: none; padding: 0; font-size: inherit; }
-.bb-tasks-editor .tiptap blockquote { border-left: 2px solid var(--border); padding-left: 0.85em; margin: 0.75em 0 0; color: var(--muted-foreground); }
-.bb-tasks-editor .tiptap hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0 0; }
-.bb-tasks-editor .tiptap img { display: block; max-width: 100%; max-height: 24rem; margin: 0.9em 0 0; border-radius: var(--radius); border: 1px solid var(--border); }
-.bb-tasks-editor .tiptap .tableWrapper { margin: 0.9em 0 0; overflow-x: auto; }
-.bb-tasks-editor .tiptap table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.bb-tasks-editor .tiptap th,
-.bb-tasks-editor .tiptap td { position: relative; min-width: 6rem; border: 1px solid var(--border); padding: 0.45em 0.6em; text-align: left; vertical-align: top; }
-.bb-tasks-editor .tiptap th { background: var(--muted); font-weight: 600; }
-.bb-tasks-editor .tiptap :is(th, td) > p { margin-top: 0; }
-.bb-tasks-editor .tiptap :is(th, td) > p + p { margin-top: 0.5em; }
-.bb-tasks-editor .tiptap .selectedCell::after { position: absolute; inset: 0; z-index: 2; pointer-events: none; content: ""; background: color-mix(in oklab, var(--primary) 14%, transparent); }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] { list-style: none; padding-left: 0.25em; }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] ul[data-type="taskList"] { margin-top: 0; }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5em; margin-top: 0.3em; padding-left: 0; }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] li > label { flex: 0 0 auto; display: inline-flex; align-items: center; height: 1.6em; user-select: none; }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] li > div { flex: 1 1 auto; min-width: 0; }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] li > div > p:first-child { margin-top: 0; }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] input[type="checkbox"] { display: block; width: 14px; height: 14px; accent-color: var(--primary); cursor: pointer; margin: 0; }
-.bb-tasks-editor .tiptap ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--muted-foreground); text-decoration: line-through; }
-.bb-tasks-editor .tiptap p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--muted-foreground); }
-.bb-tasks-editor .tiptap ::selection { background: color-mix(in oklab, var(--primary) 22%, transparent); }
-.bb-tasks-editor .bb-tasks-mention {
+.hyperfide-tasks-editor[data-variant="doc"] { display: flex; flex-direction: column; }
+.hyperfide-tasks-editor[data-variant="doc"] .hyperfide-tasks-editor-surface { display: flex; flex: 1 1 auto; flex-direction: column; }
+.hyperfide-tasks-editor[data-variant="doc"] .hyperfide-tasks-editor-surface .tiptap { flex: 1 1 auto; }
+.hyperfide-tasks-editor .tiptap > :first-child,
+.hyperfide-tasks-editor .tiptap li > :first-child,
+.hyperfide-tasks-editor .tiptap blockquote > :first-child { margin-top: 0; }
+.hyperfide-tasks-editor .tiptap p { margin: 0.75em 0 0; }
+.hyperfide-tasks-editor[data-variant="comment"] .tiptap p { margin: 0.5em 0 0; }
+.hyperfide-tasks-editor .tiptap h1,
+.hyperfide-tasks-editor .tiptap h2,
+.hyperfide-tasks-editor .tiptap h3,
+.hyperfide-tasks-editor .tiptap h4,
+.hyperfide-tasks-editor .tiptap h5,
+.hyperfide-tasks-editor .tiptap h6 { margin: 1.25em 0 0; color: var(--foreground); font-weight: 600; }
+.hyperfide-tasks-editor .tiptap h1 { font-size: 1.45em; line-height: 1.3; }
+.hyperfide-tasks-editor .tiptap h2 { font-size: 1.2em; line-height: 1.4; }
+.hyperfide-tasks-editor .tiptap h3 { font-size: 1.08em; line-height: 1.45; }
+.hyperfide-tasks-editor .tiptap :is(h1, h2, h3, h4, h5, h6) + * { margin-top: 0.5em; }
+.hyperfide-tasks-editor .tiptap ul, .hyperfide-tasks-editor .tiptap ol { margin: 0.75em 0 0; padding-left: 1.5em; }
+.hyperfide-tasks-editor .tiptap ul { list-style: disc; }
+.hyperfide-tasks-editor .tiptap ol { list-style: decimal; }
+.hyperfide-tasks-editor .tiptap li { margin-top: 0.3em; padding-left: 0.3em; }
+.hyperfide-tasks-editor .tiptap li > p, .hyperfide-tasks-editor .tiptap li > ul, .hyperfide-tasks-editor .tiptap li > ol { margin-top: 0.3em; }
+.hyperfide-tasks-editor .tiptap li::marker { color: var(--muted-foreground); }
+.hyperfide-tasks-editor .tiptap a { color: inherit; font-weight: 500; text-decoration: underline; text-decoration-color: color-mix(in oklab, currentColor 30%, transparent); cursor: pointer; }
+.hyperfide-tasks-editor .tiptap a:hover { text-decoration-color: currentColor; }
+.hyperfide-tasks-editor .tiptap strong { font-weight: 600; }
+.hyperfide-tasks-editor .tiptap code { background: var(--muted); border-radius: min(calc(var(--radius) * 0.6), 0.35em); padding: 0.125em 0.3em; font-size: 0.85em; font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); }
+.hyperfide-tasks-editor .tiptap pre { background: var(--muted); border-radius: var(--radius); padding: 0.65em 0.85em; overflow-x: auto; font-size: 0.875em; line-height: 1.5; margin: 0.9em 0 0; tab-size: 2; }
+.hyperfide-tasks-editor .tiptap pre code { background: none; padding: 0; font-size: inherit; }
+.hyperfide-tasks-editor .tiptap blockquote { border-left: 2px solid var(--border); padding-left: 0.85em; margin: 0.75em 0 0; color: var(--muted-foreground); }
+.hyperfide-tasks-editor .tiptap hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0 0; }
+.hyperfide-tasks-editor .tiptap img { display: block; max-width: 100%; max-height: 24rem; margin: 0.9em 0 0; border-radius: var(--radius); border: 1px solid var(--border); }
+.hyperfide-tasks-editor .tiptap .tableWrapper { margin: 0.9em 0 0; overflow-x: auto; }
+.hyperfide-tasks-editor .tiptap table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.hyperfide-tasks-editor .tiptap th,
+.hyperfide-tasks-editor .tiptap td { position: relative; min-width: 6rem; border: 1px solid var(--border); padding: 0.45em 0.6em; text-align: left; vertical-align: top; }
+.hyperfide-tasks-editor .tiptap th { background: var(--muted); font-weight: 600; }
+.hyperfide-tasks-editor .tiptap :is(th, td) > p { margin-top: 0; }
+.hyperfide-tasks-editor .tiptap :is(th, td) > p + p { margin-top: 0.5em; }
+.hyperfide-tasks-editor .tiptap .selectedCell::after { position: absolute; inset: 0; z-index: 2; pointer-events: none; content: ""; background: color-mix(in oklab, var(--primary) 14%, transparent); }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] { list-style: none; padding-left: 0.25em; }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] ul[data-type="taskList"] { margin-top: 0; }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5em; margin-top: 0.3em; padding-left: 0; }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] li > label { flex: 0 0 auto; display: inline-flex; align-items: center; height: 1.6em; user-select: none; }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] li > div { flex: 1 1 auto; min-width: 0; }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] li > div > p:first-child { margin-top: 0; }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] input[type="checkbox"] { display: block; width: 14px; height: 14px; accent-color: var(--primary); cursor: pointer; margin: 0; }
+.hyperfide-tasks-editor .tiptap ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--muted-foreground); text-decoration: line-through; }
+.hyperfide-tasks-editor .tiptap p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--muted-foreground); }
+.hyperfide-tasks-editor .tiptap ::selection { background: color-mix(in oklab, var(--primary) 22%, transparent); }
+.hyperfide-tasks-editor .hyperfide-tasks-mention {
   display: inline; border-radius: calc(var(--radius) * 0.75);
   background: color-mix(in oklab, var(--primary) 12%, transparent);
   color: var(--primary); padding: 0.05em 0.35em;
   font-size: 0.9em; font-weight: 500; white-space: nowrap;
 }
-.bb-tasks-editor .bb-tasks-thread-mention { cursor: pointer; }
-.bb-tasks-editor .bb-tasks-thread-mention:hover { background: color-mix(in oklab, var(--primary) 20%, transparent); }
-.bb-tasks-editor .bb-tasks-mention-icon {
+.hyperfide-tasks-editor .hyperfide-tasks-thread-mention { cursor: pointer; }
+.hyperfide-tasks-editor .hyperfide-tasks-thread-mention:hover { background: color-mix(in oklab, var(--primary) 20%, transparent); }
+.hyperfide-tasks-editor .hyperfide-tasks-mention-icon {
   display: inline-block; width: 0.95em; height: 0.95em;
   vertical-align: -0.12em; margin-right: 0.3em;
 }
@@ -533,7 +533,7 @@ export function TasksEditor({
   return (
     <div
       ref={wrapperRef}
-      className={cn("bb-tasks-editor relative min-w-0", className)}
+      className={cn("hyperfide-tasks-editor relative min-w-0", className)}
       data-variant={variant}
       onMouseDown={variant === "doc" ? focusOnEmptyMouseDown : undefined}
     >
@@ -571,7 +571,7 @@ export function TasksEditor({
           ))}
         </div>
       ) : null}
-      <div ref={rootRef} className="bb-tasks-editor-surface min-w-0" />
+      <div ref={rootRef} className="hyperfide-tasks-editor-surface min-w-0" />
       {mention && mention.items.length > 0 ? (
         <div
           role="listbox"

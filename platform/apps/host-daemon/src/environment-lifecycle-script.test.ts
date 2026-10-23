@@ -15,7 +15,7 @@ async function workspace(
   kind: "setup" | "teardown",
   script: string,
 ): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "bb-core-hooks-"));
+  const directory = await mkdtemp(join(tmpdir(), "hyperfide-core-hooks-"));
   directories.push(directory);
   await writeFile(join(directory, `.hyperfide-env-${kind}.sh`), script);
   return directory;
@@ -219,7 +219,7 @@ describe("core environment scripts", () => {
         ".hyperfide-env-teardown.sh",
       ),
     ).rejects.toThrow(
-      ".hyperfide-env-teardown.sh was stopped, but bb could not confirm that all of its processes exited",
+      ".hyperfide-env-teardown.sh was stopped, but hyperfide could not confirm that all of its processes exited",
     );
   });
 

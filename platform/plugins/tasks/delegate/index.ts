@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginRpcHandlers } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi, PluginRpcHandlers } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import type {
   Attachment,
@@ -79,7 +79,7 @@ function formatAttachments(
     .map(
       (attachment) =>
         `- ${attachment.fileName} · ${attachment.id}\n` +
-        `  Fetch with: bb tasks attachment get ${attachment.id} --out <path>`,
+        `  Fetch with: hyperfide-platform tasks attachment get ${attachment.id} --out <path>`,
     )
     .join("\n");
 }
@@ -103,14 +103,14 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
     ),
     markdownSection(
       "Project context",
-      `- Name: ${input.project.name}\n- Linked bb project: ${input.project.linkedBbProjectId ?? "Not linked"}`,
+      `- Name: ${input.project.name}\n- Linked hyperfide-platform project: ${input.project.linkedHyperfideProjectId ?? "Not linked"}`,
     ),
     markdownSection("Sub-tasks", formatSubtasks(input.subtasks)),
     markdownSection("Attachments", formatAttachments(input.attachments)),
     markdownSection("Recent comments", formatComments(input.recentComments)),
     markdownSection(
       "Report-back contract",
-      `You are working on task ${input.task.key}. Use the bb tasks CLI: comment substantive updates (bb tasks comment ${input.task.key} --body ...), attach result artifacts, set status when done (bb tasks update ${input.task.key} --status in_review) or explain blockage in a comment. Your thread is already attached to the task.`,
+      `You are working on task ${input.task.key}. Use the hyperfide-platform tasks CLI: comment substantive updates (hyperfide-platform tasks comment ${input.task.key} --body ...), attach result artifacts, set status when done (hyperfide-platform tasks update ${input.task.key} --status in_review) or explain blockage in a comment. Your thread is already attached to the task.`,
     ),
   ];
 
@@ -156,11 +156,11 @@ function requirePreset(store: TasksStore, presetId: string): Preset {
   return preset;
 }
 
-function requireLinkedBbProject(project: Project): string {
-  if (project.linkedBbProjectId) return project.linkedBbProjectId;
+function requireLinkedHyperfideProject(project: Project): string {
+  if (project.linkedHyperfideProjectId) return project.linkedHyperfideProjectId;
   throw new DelegationError(
     "project_not_linked",
-    `Task project "${project.name}" is not linked to a bb project`,
+    `Task project "${project.name}" is not linked to a hyperfide-platform project`,
   );
 }
 
@@ -182,11 +182,11 @@ function collectAttachments(
 }
 
 type SpawnEnvironment = Parameters<
-  BbPluginApi["sdk"]["threads"]["spawn"]
+  HyperfidePluginApi["sdk"]["threads"]["spawn"]
 >[0]["environment"];
 
 async function presetSpawnEnvironment(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   preset: Preset,
 ): Promise<SpawnEnvironment> {
   if (preset.environmentKind === "project-default") {
@@ -194,11 +194,11 @@ async function presetSpawnEnvironment(
   }
 
   const hostId =
-    preset.machineId ?? (await bb.sdk.system.config()).primaryHostId;
+    preset.machineId ?? (await hyperfide.sdk.system.config()).primaryHostId;
   if (hostId === null) {
     throw new DelegationError(
       "spawn_target_invalid",
-      "Could not create a worktree because BB has no default machine",
+      "Could not create a worktree because HYPERFIDE has no default machine",
     );
   }
   return {
@@ -214,7 +214,7 @@ async function presetSpawnEnvironment(
   };
 }
 
-function isBbHttpError(
+function isHyperfideHttpError(
   error: unknown,
 ): error is Error & { code: string | null; status: number } {
   return (
@@ -238,7 +238,7 @@ const SPAWN_TARGET_ERROR_CODES = new Set([
 function mapSpawnTargetError(error: unknown, preset: Preset): never {
   if (
     preset.environmentKind === "new-worktree" &&
-    isBbHttpError(error) &&
+    isHyperfideHttpError(error) &&
     error.code !== null &&
     SPAWN_TARGET_ERROR_CODES.has(error.code)
   ) {
@@ -272,12 +272,12 @@ export function createSystemComment(
   });
 }
 
-export function publishThreadsChanged(bb: BbPluginApi, taskId: string): void {
+export function publishThreadsChanged(hyperfide: HyperfidePluginApi, taskId: string): void {
   const payload: ThreadsChangedEvent = { taskId };
-  bb.realtime.publish("threads:changed", payload);
+  hyperfide.realtime.publish("threads:changed", payload);
 }
 
-type SdkThread = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["get"]>>;
+type SdkThread = Awaited<ReturnType<HyperfidePluginApi["sdk"]["threads"]["get"]>>;
 
 function taskThreadLiveStatus(thread: SdkThread): TaskThreadLiveStatus {
   if (thread.deletedAt != null) return "completed";
@@ -296,14 +296,14 @@ function taskThreadLiveStatus(thread: SdkThread): TaskThreadLiveStatus {
 }
 
 export function handlers(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
 ): PluginRpcHandlers<typeof delegationRpcContract> {
   return {
     async delegate(input) {
       const task = requireTask(store.tasks, input.taskId);
       const project = requireProject(store.tasks, task.projectId);
-      const linkedBbProjectId = requireLinkedBbProject(project);
+      const linkedHyperfideProjectId = requireLinkedHyperfideProject(project);
       const preset = requirePreset(store.tasks, input.presetId);
       const comments = store.tasks.listComments(task.id);
       const recentComments = comments.slice(-5);
@@ -325,10 +325,10 @@ export function handlers(
         extraInstructions: input.extraInstructions,
       });
 
-      const environment = await presetSpawnEnvironment(bb, preset);
-      const thread = await bb.sdk.threads
+      const environment = await presetSpawnEnvironment(hyperfide, preset);
+      const thread = await hyperfide.sdk.threads
         .spawn({
-          projectId: linkedBbProjectId,
+          projectId: linkedHyperfideProjectId,
           environment,
           providerId: execution.providerId,
           model: execution.model,
@@ -371,28 +371,28 @@ export function handlers(
       });
 
       try {
-        const currentThread = await bb.sdk.threads.get({ threadId: thread.id });
+        const currentThread = await hyperfide.sdk.threads.get({ threadId: thread.id });
         const currentLiveStatus = taskThreadLiveStatus(currentThread);
         if (currentLiveStatus !== taskThread.liveStatus) {
           store.tasks.updateTaskThreadStatus(taskThread.id, currentLiveStatus);
         }
       } catch (error) {
-        bb.log.warn(
+        hyperfide.log.warn(
           `Could not read delegated thread ${thread.id} after attach: ${errorMessage(
             error,
           )}`,
         );
       }
 
-      publishThreadsChanged(bb, task.id);
-      publishTasksChanged(bb, task.id, task.projectId);
-      publishCommentsChanged(bb, task.id);
+      publishThreadsChanged(hyperfide, task.id);
+      publishTasksChanged(hyperfide, task.id, task.projectId);
+      publishCommentsChanged(hyperfide, task.id);
       return { threadId: thread.id };
     },
 
     async taskThreadsAttach(input) {
       const task = requireTask(store.tasks, input.taskId);
-      const thread = await bb.sdk.threads.get({ threadId: input.threadId });
+      const thread = await hyperfide.sdk.threads.get({ threadId: input.threadId });
       const title = truncateToWidth(
         thread.title ?? thread.titleFallback ?? delegatedThreadTitle(task),
         MAX_DELEGATED_THREAD_TITLE_WIDTH,
@@ -406,8 +406,8 @@ export function handlers(
         liveStatus: taskThreadLiveStatus(thread),
       });
 
-      publishThreadsChanged(bb, task.id);
-      publishTasksChanged(bb, task.id, task.projectId);
+      publishThreadsChanged(hyperfide, task.id);
+      publishTasksChanged(hyperfide, task.id, task.projectId);
       return { threadId: thread.id };
     },
 
@@ -424,16 +424,16 @@ export function handlers(
       }
       store.tasks.deleteTaskThread(taskThread.id);
 
-      publishThreadsChanged(bb, task.id);
-      publishTasksChanged(bb, task.id, task.projectId);
+      publishThreadsChanged(hyperfide, task.id);
+      publishTasksChanged(hyperfide, task.id, task.projectId);
       return { threadId: taskThread.threadId };
     },
   };
 }
 
 export function registerDelegation(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   store: TasksApiStore,
 ): void {
-  bb.rpc.register(delegationRpcContract, handlers(bb, store));
+  hyperfide.rpc.register(delegationRpcContract, handlers(hyperfide, store));
 }

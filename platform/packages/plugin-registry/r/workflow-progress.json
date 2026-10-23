@@ -3,7 +3,7 @@
   "name": "workflow-progress",
   "type": "registry:ui",
   "title": "workflow-progress",
-  "description": "BB ui \"workflow-progress\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"workflow-progress\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/activity-row-styles",
     "@hyperfide/icon",

@@ -257,7 +257,7 @@ function CompactQueuedMarkdownPreview({
   const components = useMemo<Components>(
     () => ({
       ...QUEUED_MARKDOWN_COMPONENTS,
-      "bb-prompt-mention": buildPromptMentionComponent({
+      "hyperfide-prompt-mention": buildPromptMentionComponent({
         mentions: promptMentionSubstitution.mentions,
         resolveMentionLink,
       }),

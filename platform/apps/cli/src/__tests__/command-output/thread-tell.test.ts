@@ -38,7 +38,7 @@ describe("hyperfide-platform thread tell command output", () => {
   });
 
   it("hyperfide-platform thread tell --message-file sends shell-active text untouched", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-tell-file-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-tell-file-"));
     const path = join(dir, "message.md");
     const message =
       "Rebase with `git rebase --onto main` then run $(pnpm test)";
@@ -319,7 +319,7 @@ describe("hyperfide-platform thread tell command output", () => {
   ] as const)(
     "hyperfide-platform thread tell uploads client %s paths to the target project",
     async (flag, type, filename, mimeType, fileUrl) => {
-      const clientDir = await mkdtemp(join(tmpdir(), "bb-cli-thread-image-"));
+      const clientDir = await mkdtemp(join(tmpdir(), "hyperfide-cli-thread-image-"));
       try {
         const attachmentPath = join(clientDir, filename);
         const uploadedPath = "uploaded-" + filename;

@@ -36,14 +36,14 @@ export function QueuedMessagesCountPill({
         className={cn(
           PROMPT_STACK_COUNT_PILL_CLASS,
           "relative overflow-hidden",
-          bumped && "bb-count-flash",
+          bumped && "hyperfide-count-flash",
         )}
       >
         {display.previousCount === null ? null : (
           <span
             aria-hidden
             data-queued-messages-previous-count=""
-            className="bb-count-roll-out absolute inset-0 flex items-center justify-center"
+            className="hyperfide-count-roll-out absolute inset-0 flex items-center justify-center"
             onAnimationEnd={() =>
               setDisplay((current) => ({ ...current, previousCount: null }))
             }
@@ -51,7 +51,7 @@ export function QueuedMessagesCountPill({
             {display.previousCount}
           </span>
         )}
-        <span className={cn(bumped && "bb-count-roll-in")}>{count}</span>
+        <span className={cn(bumped && "hyperfide-count-roll-in")}>{count}</span>
       </span>
     </span>
   );

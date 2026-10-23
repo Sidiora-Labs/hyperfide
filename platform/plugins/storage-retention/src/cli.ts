@@ -2,7 +2,7 @@ import type { Storage } from "./storage.js";
 import {
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginCliResult,
 } from "@hyperfide/plugin-sdk";
 import { policySchema } from "./contract.js";
@@ -48,11 +48,11 @@ async function output(work: () => Promise<unknown>): Promise<PluginCliResult> {
   }
 }
 export function registerCli(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   service: Service,
   storage: Storage,
 ) {
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "storage",
       summary: "Inspect storage and manage thread retention (JSON output)",
@@ -258,13 +258,13 @@ export function registerCli(
         }),
         "remove-dev-instances": cliCommand({
           summary:
-            "Remove ~/.bb-dev instances whose source checkout no longer exists, stopping servers still running from them",
+            "Remove ~/.hyperfide-dev instances whose source checkout no longer exists, stopping servers still running from them",
           options: {
             machine: MACHINE,
             instance: {
               type: "string",
               description:
-                "Remove only this ~/.bb-dev entry, stopping its dev server first if it is running (default: every instance with a missing checkout)",
+                "Remove only this ~/.hyperfide-dev entry, stopping its dev server first if it is running (default: every instance with a missing checkout)",
             },
             yes: YES,
           },

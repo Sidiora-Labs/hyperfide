@@ -185,7 +185,7 @@ describe("thread plugin metadata persistence", () => {
   });
 
   it("rejects a competing file-backed write after the first read while immediate holds the lock", () => {
-    const directory = mkdtempSync(join(tmpdir(), "bb-thread-plugin-metadata-"));
+    const directory = mkdtempSync(join(tmpdir(), "hyperfide-thread-plugin-metadata-"));
     const path = join(directory, "db.sqlite");
     const first = createConnection(path);
     const second = createConnection(path);

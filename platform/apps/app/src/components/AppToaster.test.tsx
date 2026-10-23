@@ -96,10 +96,10 @@ describe("AppToaster", () => {
     expect(toaster?.getAttribute("data-x-position")).toBe("center");
     expect(toaster?.getAttribute("data-y-position")).toBe("top");
     expect(toaster?.style.getPropertyValue("--offset-top")).toBe(
-      "calc(env(safe-area-inset-top) + var(--bb-app-chrome-row-height) + 16px)",
+      "calc(env(safe-area-inset-top) + var(--hyperfide-app-chrome-row-height) + 16px)",
     );
     expect(toaster?.style.getPropertyValue("--mobile-offset-top")).toBe(
-      "calc(env(safe-area-inset-top) + var(--bb-app-chrome-row-height) + 16px)",
+      "calc(env(safe-area-inset-top) + var(--hyperfide-app-chrome-row-height) + 16px)",
     );
   });
 
@@ -267,7 +267,7 @@ describe("AppToaster", () => {
           />
         ),
         {
-          className: "bb-app-toast",
+          className: "hyperfide-app-toast",
           duration: Number.POSITIVE_INFINITY,
           id: "archive-swipe-test",
           onDismiss,

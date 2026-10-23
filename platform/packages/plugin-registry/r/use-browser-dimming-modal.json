@@ -3,7 +3,7 @@
   "name": "use-browser-dimming-modal",
   "type": "registry:hook",
   "title": "use-browser-dimming-modal",
-  "description": "BB hook \"use-browser-dimming-modal\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE hook \"use-browser-dimming-modal\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/hooks/useBrowserDimmingModal.ts",

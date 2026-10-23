@@ -24,7 +24,7 @@ async function setup() {
     truncated: false,
   }));
   const write = vi.fn(() => ({ outcome: "written", sha256: "updated" }));
-  const { bb, harness } = createFakePluginHost({
+  const { hyperfide, harness } = createFakePluginHost({
     pluginId: "monaco-editor",
     sdk: {
       system: { config: () => ({ dataDir: "/server-data" }) },
@@ -32,7 +32,7 @@ async function setup() {
       files: { read, listPaths, write },
     },
   });
-  await plugin(bb);
+  await plugin(hyperfide);
   return { harness, storageLocation, read, listPaths, write };
 }
 

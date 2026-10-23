@@ -1,5 +1,5 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
-export default function contentScriptExample(bb: BbPluginApi) {
-  bb.log.info("Content script example loaded");
+export default function contentScriptExample(hyperfide: HyperfidePluginApi) {
+  hyperfide.log.info("Content script example loaded");
 }

@@ -436,7 +436,7 @@ describe("ModelReasoningPicker", () => {
         providerId: "codex",
         code: "missing_executable",
         detail:
-          "bb could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
+          "hyperfide could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
       },
     });
 
@@ -482,7 +482,7 @@ describe("ModelReasoningPicker", () => {
       modelLoadError: {
         providerId: "codex",
         code: "failed",
-        detail: "bb could not find the Codex CLI on this machine.",
+        detail: "hyperfide could not find the Codex CLI on this machine.",
       },
     });
 
@@ -492,11 +492,11 @@ describe("ModelReasoningPicker", () => {
 
     expect(screen.getByText("Could not load models for Codex.")).not.toBeNull();
     expect(
-      screen.getByText("bb could not find the Codex CLI on this machine."),
+      screen.getByText("hyperfide could not find the Codex CLI on this machine."),
     ).not.toBeNull();
     expect(
       screen.getByTitle(
-        "Could not load models for Codex. bb could not find the Codex CLI on this machine.",
+        "Could not load models for Codex. hyperfide could not find the Codex CLI on this machine.",
       ),
     ).not.toBeNull();
   });
@@ -727,7 +727,7 @@ describe("ModelReasoningPicker", () => {
     );
 
     expect(
-      screen.getByRole("dialog").getAttribute("data-bb-portaled-overlay"),
+      screen.getByRole("dialog").getAttribute("data-hyperfide-portaled-overlay"),
     ).toBe("");
   });
 

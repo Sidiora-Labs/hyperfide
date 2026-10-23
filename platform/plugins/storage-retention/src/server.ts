@@ -1,35 +1,35 @@
 import { createStorage } from "./storage.js";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { storageRpc } from "./contract.js";
 import { createService } from "./service.js";
 import { registerCli } from "./cli.js";
 
-export default function plugin(bb: BbPluginApi) {
-  const service = createService(bb);
+export default function plugin(hyperfide: HyperfidePluginApi) {
+  const service = createService(hyperfide);
   const devCleanupEnabled = async () =>
     (await service.state()).policy.deleteDevDataOnCheckoutRemoval;
-  const storage = createStorage(bb, devCleanupEnabled);
-  bb.events.on("experimental_environment.removed", ({ removal }) =>
+  const storage = createStorage(hyperfide, devCleanupEnabled);
+  hyperfide.events.on("experimental_environment.removed", ({ removal }) =>
     removal.hostId === null
       ? undefined
       : storage.cleanDevelopmentStorage(removal.hostId),
   );
-  bb.background.schedule(
+  hyperfide.background.schedule(
     "development-storage-cleanup",
     "0 * * * *",
     storage.reconcileDevelopmentStorage,
   );
-  bb.background.service("development-storage-recovery", {
+  hyperfide.background.service("development-storage-recovery", {
     async start(signal) {
       if (signal.aborted) return;
-      const unsubscribe = bb.sdk.subscribe({
+      const unsubscribe = hyperfide.sdk.subscribe({
         event: "host:changed",
         callback: (event) => {
           if (event.changes.includes("host-connected"))
             void storage.reconcileDevelopmentStorage();
         },
       });
-      const unsubscribeConnection = bb.sdk.subscribe({
+      const unsubscribeConnection = hyperfide.sdk.subscribe({
         event: "realtime:connection",
         callback: (event) => {
           if (event.state === "connected" && event.reconnected)
@@ -51,7 +51,7 @@ export default function plugin(bb: BbPluginApi) {
   });
   const cleanupEnabled = async () =>
     (await service.state()).policy.deleteStorageOnArchive;
-  bb.events.on("thread.archived", async ({ thread }) => {
+  hyperfide.events.on("thread.archived", async ({ thread }) => {
     if (
       thread.archivedAt === null ||
       thread.pinnedAt !== null ||
@@ -62,15 +62,15 @@ export default function plugin(bb: BbPluginApi) {
     await storage.clearPendingArchives(cleanupEnabled);
   });
   for (const event of ["thread.idle", "thread.failed"] as const)
-    bb.events.on(event, () => storage.clearPendingArchives(cleanupEnabled));
+    hyperfide.events.on(event, () => storage.clearPendingArchives(cleanupEnabled));
   for (const event of ["thread.unarchived", "thread.deleted"] as const)
-    bb.events.on(event, ({ thread }) =>
+    hyperfide.events.on(event, ({ thread }) =>
       storage.cancelArchivedStorage(thread.id),
     );
-  bb.background.schedule("archive-storage-cleanup", "* * * * *", () =>
+  hyperfide.background.schedule("archive-storage-cleanup", "* * * * *", () =>
     storage.clearPendingArchives(cleanupEnabled),
   );
-  bb.rpc.register(storageRpc, {
+  hyperfide.rpc.register(storageRpc, {
     startCleanup: storage.startCleanup,
     hosts: () => storage.hosts(),
     host: storage.host,
@@ -88,6 +88,6 @@ export default function plugin(bb: BbPluginApi) {
     preview: (policy) => service.preview(policy),
     configure: (policy) => service.configure(policy),
   });
-  registerCli(bb, service, storage);
-  bb.background.schedule("retention", "0 * * * *", () => service.sweep());
+  registerCli(hyperfide, service, storage);
+  hyperfide.background.schedule("retention", "0 * * * *", () => service.sweep());
 }

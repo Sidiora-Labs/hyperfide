@@ -7,7 +7,7 @@
 // content painted").
 //
 // Run after `pnpm build` in apps/app. Reads bundle-stats.json (written by the
-// bb:bundle-stats Vite plugin) and the brotli files written by
+// hyperfide:bundle-stats Vite plugin) and the brotli files written by
 // scripts/precompress-app-dist.mjs.
 //
 // Usage: check-bundle-budget.mjs [distDir] [budgetDir]

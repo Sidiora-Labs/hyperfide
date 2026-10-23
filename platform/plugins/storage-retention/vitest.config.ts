@@ -7,7 +7,7 @@ export default defineWorkspaceTestConfig({
   test: {
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "hyperfide-plugin-bb--storage-retention",
+      name: "hyperfide-plugin-hyperfide--storage-retention",
       include: ["src/**/*.test.ts", "app.test.tsx"],
     }),
   },

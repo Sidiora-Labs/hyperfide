@@ -1,4 +1,4 @@
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { describe, expect, it } from "vitest";
 import { mapAuthError } from "./auth-error";
 
@@ -19,7 +19,7 @@ describe("mapAuthError", () => {
     expect(mapAuthError(response(403, "text/plain"))).toBe("auth-required");
     expect(
       mapAuthError(
-        new BbHttpError({
+        new HyperfideHttpError({
           status: 401,
           message: "Unauthorized",
           body: null,
@@ -39,7 +39,7 @@ describe("mapAuthError", () => {
     expect(mapAuthError(response(503, "text/html"))).toBe("http");
     expect(
       mapAuthError(
-        new BbHttpError({
+        new HyperfideHttpError({
           status: 500,
           message: "oops",
           body: null,

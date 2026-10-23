@@ -67,7 +67,7 @@ function PushProfileSection({ profile }: { profile: ServerProfile }) {
         presentation="prompt"
         controller={permissionSheet}
         title="Allow push notifications?"
-        message={`bb will ask this phone for permission, then register it with ${profile.label}.`}
+        message={`hyperfide will ask this phone for permission, then register it with ${profile.label}.`}
         actions={[
           {
             key: "enable",

@@ -47,13 +47,13 @@ describe("workflows plugin", () => {
   });
 
   it("loads with defaults and needs-configuration when persisted settings are invalid", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "workflows",
       agentSkillIds: ["workflows"],
       settings: { maxActiveRuns: 0 },
     });
     hosts.push(harness);
-    await expect(plugin(bb)).resolves.toBeUndefined();
+    await expect(plugin(hyperfide)).resolves.toBeUndefined();
     expect(harness.needsConfigurationMessages).toHaveLength(1);
     expect(harness.needsConfigurationMessages[0]).toContain(
       "defaults are active",
@@ -65,16 +65,16 @@ describe("workflows plugin", () => {
   });
 
   it("registers tool schemas without recursive $refs", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "workflows",
       agentSkillIds: ["workflows"],
     });
     hosts.push(harness);
-    await plugin(bb);
+    await plugin(hyperfide);
 
     const tools = harness.registrations.agentTools;
     expect(tools.map((tool) => tool.name)).toEqual(
-      expect.arrayContaining(["bb_workflow_run", "bb_workflow_result"]),
+      expect.arrayContaining(["hyperfide_workflow_run", "hyperfide_workflow_result"]),
     );
     for (const tool of tools) {
       const schema = JSON.stringify(tool.inputSchema);
@@ -82,7 +82,7 @@ describe("workflows plugin", () => {
       expect(schema, `tool ${tool.name}`).not.toContain("$defs");
     }
 
-    const run = tools.find((tool) => tool.name === "bb_workflow_run");
+    const run = tools.find((tool) => tool.name === "hyperfide_workflow_run");
     expect(
       run?.parse({ name: "demo", args: { nested: [1, { deep: null }] } }),
     ).toMatchObject({ ok: true });
@@ -92,7 +92,7 @@ describe("workflows plugin", () => {
     "runs a structured workflow asynchronously and notifies its origin",
     async () => {
       let childCount = 0;
-      const { bb, harness } = createFakePluginHost({
+      const { hyperfide, harness } = createFakePluginHost({
         pluginId: "workflows",
         agentSkillIds: ["workflows"],
         sdk: {
@@ -157,7 +157,7 @@ describe("workflows plugin", () => {
         },
       });
       hosts.push(harness);
-      await plugin(bb);
+      await plugin(hyperfide);
 
       const source = `export const meta = {
       name: "structured-test",
@@ -170,7 +170,7 @@ describe("workflows plugin", () => {
       title: "Solve the question",
       outputSchema: { type: "object", required: ["answer"], properties: { answer: { type: "number" } } },
     });`;
-      const startedText = await harness.callAgentTool("bb_workflow_run", {
+      const startedText = await harness.callAgentTool("hyperfide_workflow_run", {
         source,
       });
       expect(typeof startedText).toBe("string");
@@ -220,7 +220,7 @@ describe("workflows plugin", () => {
       expect(harness.sdk.callsTo("threads.spawn")[0]?.[0]).toMatchObject({
         visibility: "hidden",
         prompt: expect.stringContaining(
-          "Use bb_workflow_result to return your final response in the requested structured format. You MUST call this tool exactly once at the end of your response",
+          "Use hyperfide_workflow_result to return your final response in the requested structured format. You MUST call this tool exactly once at the end of your response",
         ),
       });
       await expect(
@@ -255,7 +255,7 @@ describe("workflows plugin", () => {
         }),
       );
       expect(workerConfig.tools.map((tool) => tool.name)).toEqual([
-        "bb_workflow_result",
+        "hyperfide_workflow_result",
       ]);
       expect(workerConfig.tools[0]?.inputSchema).toEqual({
         type: "object",
@@ -274,7 +274,7 @@ describe("workflows plugin", () => {
         makePluginAgentConfigurationContext(),
       );
       expect(authorConfig.tools.map((tool) => tool.name)).toEqual([
-        "bb_workflow_run",
+        "hyperfide_workflow_run",
       ]);
       expect(authorConfig.skills).toEqual(["workflows"]);
       expect(authorConfig.instructions).toContain(
@@ -283,14 +283,14 @@ describe("workflows plugin", () => {
 
       await expect(
         harness.callAgentTool(
-          "bb_workflow_result",
+          "hyperfide_workflow_result",
           { value: { wrong: true } },
           { threadId: "child-1", projectId: "project-test" },
         ),
       ).resolves.toMatchObject({ isError: true });
       await expect(
         harness.callAgentTool(
-          "bb_workflow_result",
+          "hyperfide_workflow_result",
           { value: { answer: 42 } },
           { threadId: "child-1", projectId: "project-test" },
         ),
@@ -304,14 +304,14 @@ describe("workflows plugin", () => {
       ).toBe(true);
       await expect(
         harness.callAgentTool(
-          "bb_workflow_result",
+          "hyperfide_workflow_result",
           { value: { answer: 42 } },
           { threadId: "child-1", projectId: "project-test" },
         ),
       ).resolves.toBe(JSON.stringify({ accepted: true }, null, 2));
       await expect(
         harness.callAgentTool(
-          "bb_workflow_result",
+          "hyperfide_workflow_result",
           { value: { answer: 43 } },
           { threadId: "child-1", projectId: "project-test" },
         ),
@@ -338,7 +338,7 @@ describe("workflows plugin", () => {
           {
             type: "text",
             text: expect.stringContaining(
-              `[BB workflow finished · ${started.runId}]`,
+              `[HYPERFIDE workflow finished · ${started.runId}]`,
             ),
             visibility: "agent-only",
           },
@@ -423,7 +423,7 @@ describe("workflows plugin", () => {
       expect(Buffer.byteLength(deeplyNestedResultJson, "utf8")).toBeLessThan(
         8 * 1_024,
       );
-      bb.storage
+      hyperfide.storage
         .database()
         .prepare(
           `UPDATE workflow_runs SET phase = ?, origin_provider = ?,
@@ -490,7 +490,7 @@ describe("workflows plugin", () => {
       expect(
         Buffer.byteLength(boundedListValue[0]!.phase, "utf8"),
       ).toBeLessThanOrEqual(128);
-      bb.storage
+      hyperfide.storage
         .database()
         .prepare(
           `UPDATE workflow_runs SET phase = NULL, origin_provider = 'codex',
@@ -498,7 +498,7 @@ describe("workflows plugin", () => {
         )
         .run(started.runId);
 
-      const failedText = await harness.callAgentTool("bb_workflow_run", {
+      const failedText = await harness.callAgentTool("hyperfide_workflow_run", {
         source,
       });
       const failed = JSON.parse(failedText as string) as { runId: string };
@@ -508,7 +508,7 @@ describe("workflows plugin", () => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         await expect(
           harness.callAgentTool(
-            "bb_workflow_result",
+            "hyperfide_workflow_result",
             { value: { wrong: attempt } },
             { threadId: "child-2", projectId: "project-test" },
           ),
@@ -531,7 +531,7 @@ describe("workflows plugin", () => {
         status: "failed",
       });
 
-      const sharedBudgetText = await harness.callAgentTool("bb_workflow_run", {
+      const sharedBudgetText = await harness.callAgentTool("hyperfide_workflow_run", {
         source,
       });
       const sharedBudget = JSON.parse(sharedBudgetText as string) as {
@@ -542,7 +542,7 @@ describe("workflows plugin", () => {
       });
       await expect(
         harness.callAgentTool(
-          "bb_workflow_result",
+          "hyperfide_workflow_result",
           { value: { wrong: "initial tool failure" } },
           { threadId: "child-3", projectId: "project-test" },
         ),
@@ -582,7 +582,7 @@ describe("workflows plugin", () => {
         expect(row).toMatchObject({ status: "failed" });
       });
 
-      const idleOnlyText = await harness.callAgentTool("bb_workflow_run", {
+      const idleOnlyText = await harness.callAgentTool("hyperfide_workflow_run", {
         source,
       });
       const idleOnly = JSON.parse(idleOnlyText as string) as { runId: string };
@@ -633,7 +633,7 @@ describe("workflows plugin", () => {
       outputSchema: { type: "null" },
     };
     return await agent("Return null", { outputSchema: { type: "null" } });`;
-      const nullRunText = await harness.callAgentTool("bb_workflow_run", {
+      const nullRunText = await harness.callAgentTool("hyperfide_workflow_run", {
         source: nullSource,
       });
       const nullRun = JSON.parse(nullRunText as string) as { runId: string };
@@ -642,7 +642,7 @@ describe("workflows plugin", () => {
       });
       await expect(
         harness.callAgentTool(
-          "bb_workflow_result",
+          "hyperfide_workflow_result",
           { value: null },
           { threadId: "child-5", projectId: "project-test" },
         ),
@@ -678,7 +678,7 @@ describe("workflows plugin", () => {
         outputSchema: { type: "object", properties: oversizedProperties },
       })}; return null;`;
       await expect(
-        harness.callAgentTool("bb_workflow_run", { source: oversizedSource }),
+        harness.callAgentTool("hyperfide_workflow_run", { source: oversizedSource }),
       ).resolves.toMatchObject({
         isError: true,
         content: [{ text: expect.stringContaining("node limit") }],
@@ -690,7 +690,7 @@ describe("workflows plugin", () => {
         outputSchema: { type: "string", $comment: "x".repeat(65_536) },
       })}; return null;`;
       await expect(
-        harness.callAgentTool("bb_workflow_run", {
+        harness.callAgentTool("hyperfide_workflow_run", {
           source: oversizedBytesSource,
         }),
       ).resolves.toMatchObject({
@@ -708,7 +708,7 @@ describe("workflows plugin", () => {
         outputSchema: deepSchema,
       })}; return null;`;
       await expect(
-        harness.callAgentTool("bb_workflow_run", { source: deepSource }),
+        harness.callAgentTool("hyperfide_workflow_run", { source: deepSource }),
       ).resolves.toMatchObject({
         isError: true,
         content: [{ text: expect.stringContaining("maximum depth") }],
@@ -721,11 +721,11 @@ describe("workflows plugin", () => {
   );
 
   it("rejects cyclic and unsafe host values before persistence", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "workflows" });
+    const { hyperfide, harness } = createFakePluginHost({ pluginId: "workflows" });
     hosts.push(harness);
-    const db = bb.storage.database();
-    bb.storage.migrate(db, migrations);
-    const service = createWorkflowService(bb, db);
+    const db = hyperfide.storage.database();
+    hyperfide.storage.migrate(db, migrations);
+    const service = createWorkflowService(hyperfide, db);
     const source = `export const meta = {
       name: "host-value-test",
       description: "Host value test",
@@ -788,7 +788,7 @@ describe("workflow resume cache integration", () => {
     };
     let activeModels = [availableModel("model-a"), availableModel("model-b")];
     let selectedOnlyModels = [availableModel("retired-model")];
-    const { bb, harness } = createFakePluginHost({
+    const { hyperfide, harness } = createFakePluginHost({
       pluginId: "workflows",
       sdk: {
         threads: {
@@ -839,9 +839,9 @@ describe("workflow resume cache integration", () => {
       },
     });
     hosts.push(harness);
-    const db = bb.storage.database();
-    bb.storage.migrate(db, migrations);
-    const service = createWorkflowService(bb, db);
+    const db = hyperfide.storage.database();
+    hyperfide.storage.migrate(db, migrations);
+    const service = createWorkflowService(hyperfide, db);
 
     async function start(source: string, resumedFromRunId: string | null) {
       return service.start({
@@ -859,7 +859,7 @@ describe("workflow resume cache integration", () => {
     }
 
     return {
-      bb,
+      hyperfide,
       db,
       service,
       harness,
@@ -1414,7 +1414,7 @@ describe("workflow resume cache integration", () => {
     firstController.abort();
     await firstWorker;
 
-    const restarted = createWorkflowService(test.bb, test.db);
+    const restarted = createWorkflowService(test.hyperfide, test.db);
     const secondController = new AbortController();
     const secondWorker = restarted.runWorker(secondController.signal);
     await eventually(() => expect(test.childCount()).toBe(3));
@@ -1454,7 +1454,7 @@ describe("workflow resume cache integration", () => {
     firstController.abort();
     await firstWorker;
 
-    const restarted = createWorkflowService(test.bb, test.db);
+    const restarted = createWorkflowService(test.hyperfide, test.db);
     const secondController = new AbortController();
     const secondWorker = restarted.runWorker(secondController.signal);
     await eventually(() => expect(test.childCount()).toBe(5));

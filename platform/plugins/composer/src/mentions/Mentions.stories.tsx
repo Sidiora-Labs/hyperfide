@@ -66,7 +66,7 @@ function pathSuggestion(
 function threadSuggestion({
   threadId,
   title,
-  projectId = "proj_bb",
+  projectId = "proj_hyperfide",
   projectName = null,
   relation = null,
 }: {

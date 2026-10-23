@@ -18,7 +18,7 @@ const ILLUSTRATOR_SVG = `<?xml version="1.0" encoding="utf-8"?>
 </svg>
 `;
 
-describe("validatePluginBuildManifest: bb.branding assets", () => {
+describe("validatePluginBuildManifest: hyperfide.branding assets", () => {
   const tempDirs: string[] = [];
 
   afterEach(async () => {
@@ -49,7 +49,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
       manifest: {
         name: "hyperfide-plugin-icons-fixture",
         version: "0.0.0",
-        bb: {
+        hyperfide: {
           name: "Icons fixture",
           description: "Declares icons.",
           branding,
@@ -69,7 +69,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
       dir,
       join(dir, "package.json"),
     );
-    expect(parsed.bb.branding.experimental_icons).toEqual({
+    expect(parsed.hyperfide.branding.experimental_icons).toEqual({
       receipt: "./icons/receipt.svg",
     });
   });
@@ -151,7 +151,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
         join(scriptedLogo.dir, "package.json"),
       ),
     ).rejects.toThrow(
-      /bb\.branding\.logo\.light \("\.\/logo\.svg"\) must not contain a <script> element/,
+      /hyperfide\.branding\.logo\.light \("\.\/logo\.svg"\) must not contain a <script> element/,
     );
 
     const handlerDark = await fixture(
@@ -170,7 +170,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
         join(handlerDark.dir, "package.json"),
       ),
     ).rejects.toThrow(
-      /bb\.branding\.logo\.dark \("\.\/logo-dark\.svg"\) must not contain a <path onload> event handler attribute/,
+      /hyperfide\.branding\.logo\.dark \("\.\/logo-dark\.svg"\) must not contain a <path onload> event handler attribute/,
     );
 
     const doctypeIcon = await fixture(
@@ -185,7 +185,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
         join(doctypeIcon.dir, "package.json"),
       ),
     ).rejects.toThrow(
-      /bb\.branding\.icon must not contain a doctype declaration/,
+      /hyperfide\.branding\.icon must not contain a doctype declaration/,
     );
     const externalIcon = await fixture(
       {},
@@ -201,7 +201,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
         externalIcon.dir,
         join(externalIcon.dir, "package.json"),
       ),
-    ).resolves.toMatchObject({ bb: { branding: { icon: "./icon.svg" } } });
+    ).resolves.toMatchObject({ hyperfide: { branding: { icon: "./icon.svg" } } });
 
     const artwork = await fixture(
       {},
@@ -218,7 +218,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
         join(artwork.dir, "package.json"),
       ),
     ).resolves.toMatchObject({
-      bb: {
+      hyperfide: {
         branding: { logo: { light: "./logo.svg", dark: "./logo-dark.png" } },
       },
     });
@@ -228,6 +228,6 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
     const { dir, manifest } = await fixture({ Receipt: "./icons/r.svg" });
     await expect(
       validatePluginBuildManifest(manifest, dir, join(dir, "package.json")),
-    ).rejects.toThrow(/bb\.branding\.experimental_icons\.Receipt/);
+    ).rejects.toThrow(/hyperfide\.branding\.experimental_icons\.Receipt/);
   });
 });

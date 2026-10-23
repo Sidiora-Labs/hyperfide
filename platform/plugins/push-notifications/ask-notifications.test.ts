@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
-import type { Ask } from "../hyperfide-asks/bridge-projection.js";
+import type { Ask } from "../hyperfide-asks/client.js";
 import {
   createAskNotifications,
   type AskNotificationState,
@@ -19,6 +19,56 @@ const ask = (id: string, kind = "custom-blocking"): Ask => ({
 });
 
 describe("Ask notifications through the fake plugin host", () => {
+  it("uses each repository's policy for the same kind", async () => {
+    const send = vi.fn(async () => {});
+    const policy = vi.fn(async (repository?: string) => ({
+      custom: repository === "/blocking" ? "block" as const : "proceed-and-flag" as const,
+    }));
+    let saved: AskNotificationState | null = null;
+    await createAskNotifications({
+      bridge: {
+        list: async () => ({ asks: [
+          { ...ask("1", "custom"), repository: "/blocking" },
+          { ...ask("1", "custom"), repository: "/flagged" },
+        ] }),
+        policy,
+      },
+      read: async () => saved,
+      write: async (state) => { saved = state; },
+      digestMinutes: async () => 5,
+      send,
+    }).refresh();
+    expect(policy).toHaveBeenCalledWith("/blocking");
+    expect(policy).toHaveBeenCalledWith("/flagged");
+    expect(send).toHaveBeenCalledOnce();
+    expect(saved).toMatchObject({ pending: [{ repository: "/flagged" }] });
+  });
+
+  it("handles concurrent RPC failures when a later RPC throws synchronously and retries", async () => {
+    let ready = false;
+    const write = vi.fn(async (_state: AskNotificationState) => {});
+    const notifications = createAskNotifications({
+      bridge: {
+        list: async () => {
+          if (!ready) throw new Error("SDK unavailable");
+          return { asks: [] };
+        },
+        policy: () => {
+          if (!ready) throw new Error("SDK unavailable");
+          return Promise.resolve({});
+        },
+      },
+      read: async () => null,
+      write,
+      digestMinutes: async () => 0,
+      send: async () => {},
+    });
+    await expect(notifications.refresh()).rejects.toThrow("SDK unavailable");
+    ready = true;
+    await notifications.refresh();
+    expect(write).toHaveBeenCalledOnce();
+  });
+
   it("uses policy RPC, sends one push per Ask and dedupes across plugin reloads", async () => {
     const asks = [
       ask("1"),
@@ -57,7 +107,7 @@ describe("Ask notifications through the fake plugin host", () => {
       settings: { askDigest: "5 minutes" },
       sdk: { plugins: { callRpc: rpc } },
     });
-    await factory(host.bb);
+    await factory(host.hyperfide);
     await host.harness.callRpc("pushSubscriptions.add", {
       expoPushToken: "ExponentPushToken[fixture]",
       platform: "ios",

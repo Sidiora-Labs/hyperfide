@@ -1,14 +1,17 @@
 {
-  "name": "@hyperfide/plugin-asks",
+  "name": "@hyperfide/hyperfide-asks",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "hyperfide": {
     "name": "Inbox",
+    "description": "Review and answer repository asks",
+    "branding": { "icon": "Mail" },
     "server": "./src/server.ts",
     "app": "./app.tsx"
   },
   "scripts": {
+    "prepare:bundled": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
     "typecheck": "tsrs --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },

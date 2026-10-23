@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "hyperfide-plugin-bb--prompt-library",
+    name: "hyperfide-plugin-hyperfide--prompt-library",
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
   },

@@ -5,10 +5,10 @@
   "type": "module",
   "description": "Retry turns after transient provider errors and when subscription limits reset.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Provider retry",
     "description": "Retry turns after transient provider errors and when subscription limits reset.",
     "branding": {
@@ -17,7 +17,7 @@
     "server": "./server.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

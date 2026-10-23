@@ -19,7 +19,7 @@ describe("scaffoldPlugin SDK dependency", () => {
   let workDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-scaffold-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-scaffold-"));
   });
 
   afterEach(async () => {
@@ -31,7 +31,7 @@ describe("scaffoldPlugin SDK dependency", () => {
     await scaffoldPlugin({
       targetDir,
       packageName: "hyperfide-plugin-todo",
-      bbVersion: "0.9.0",
+      hyperfideVersion: "0.9.0",
     });
 
     await expect(access(join(targetDir, "types"))).rejects.toThrow();
@@ -52,13 +52,15 @@ describe("scaffoldPlugin SDK dependency", () => {
     const pkg = JSON.parse(
       await readFile(join(targetDir, "package.json"), "utf8"),
     );
-    expect(pkg.devDependencies["@hyperfide/plugin-sdk"]).toBe(PLUGIN_SDK_VERSION);
+    expect(pkg.devDependencies["@hyperfide/plugin-sdk"]).toBe(
+      PLUGIN_SDK_VERSION,
+    );
     expect(pkg.dependencies["@hyperfide/plugin-sdk"]).toBeUndefined();
     expect(pkg.engines).toEqual({
-      bb: ">=0.9",
-      bbPluginSdk: `>=${PLUGIN_SDK_VERSION}`,
+      hyperfide: ">=0.9",
+      hyperfidePluginSdk: `>=${PLUGIN_SDK_VERSION}`,
     });
-    expect(pkg.bb).toMatchObject({
+    expect(pkg.hyperfide).toMatchObject({
       name: "Todo",
       branding: { icon: "ListTodo" },
       server: "./server.ts",
@@ -73,16 +75,16 @@ describe("scaffoldPlugin SDK dependency", () => {
       "node_modules/@hyperfide/plugin-sdk/bundled-types/hyperfide-plugin-sdk.d.ts",
     );
     expect(readme).toContain(
-      "sync this plugin's SDK surface to the running BB",
+      "sync this plugin's SDK surface to the running HYPERFIDE",
     );
     expect(readme).not.toContain("rewrite types/");
-    expect(readme).toContain("https://github.com/get-bb/bb");
+    expect(readme).toContain("https://github.com/hyperfide/hyperfide");
 
     const components = JSON.parse(
       await readFile(join(targetDir, "components.json"), "utf8"),
     );
     expect(components.registries["@hyperfide"]).toBe(
-      "https://raw.githubusercontent.com/get-bb/bb/desktop-v0.9.0/packages/plugin-registry/r/{name}.json",
+      "https://raw.githubusercontent.com/hyperfide/hyperfide/desktop-v0.9.0/packages/plugin-registry/r/{name}.json",
     );
     expect(pkg.dependencies["@radix-ui/react-checkbox"]).toBeDefined();
     await access(join(targetDir, "components", "ui", "checkbox.tsx"));
@@ -93,14 +95,14 @@ describe("scaffoldPlugin SDK dependency", () => {
     await scaffoldPlugin({
       targetDir,
       packageName: "hyperfide-plugin-todo",
-      bbVersion: "0.9.0",
+      hyperfideVersion: "0.9.0",
     });
 
     const overview = await readFile(
       join(targetDir, "PLUGIN_OVERVIEW.md"),
       "utf8",
     );
-    expect(overview).toContain("bb todo list");
+    expect(overview).toContain("hyperfide-platform todo list");
     expect(overview).toMatch(/^[^#]/u);
     expect([...overview].length).toBeGreaterThan(700);
     expect([...overview].length).toBeLessThanOrEqual(4000);
@@ -119,31 +121,31 @@ describe("scaffoldPlugin SDK dependency", () => {
     await scaffoldPlugin({
       targetDir,
       packageName: "@acme/hyperfide-plugin-scoped",
-      bbVersion: "0.9.0",
+      hyperfideVersion: "0.9.0",
     });
 
     const pkg = JSON.parse(
       await readFile(join(targetDir, "package.json"), "utf8"),
     );
     expect(pkg.name).toBe("@acme/hyperfide-plugin-scoped");
-    expect(pkg.bb.name).toBe("Scoped");
+    expect(pkg.hyperfide.name).toBe("Scoped");
 
     const readme = await readFile(join(targetDir, "README.md"), "utf8");
-    expect(readme).toContain("bb plugin reload scoped");
-    expect(readme).toContain("bb plugin config scoped");
+    expect(readme).toContain("hyperfide-platform plugin reload scoped");
+    expect(readme).toContain("hyperfide-platform plugin config scoped");
 
     const server = await readFile(join(targetDir, "server.ts"), "utf8");
-    expect(server).toContain("bb plugin config scoped");
-    expect(server).not.toContain("bb plugin config @acme/");
+    expect(server).toContain("hyperfide-platform plugin config scoped");
+    expect(server).not.toContain("hyperfide-platform plugin config @acme/");
     expect(server).toContain('name: "scoped"');
-    expect(server).toContain("bb scoped list");
+    expect(server).toContain("hyperfide-platform scoped list");
     const app = await readFile(join(targetDir, "app.tsx"), "utf8");
-    expect(app).toContain("bb scoped add");
+    expect(app).toContain("hyperfide-platform scoped add");
     const skill = await readFile(
       join(targetDir, "skills", "example-todos", "SKILL.md"),
       "utf8",
     );
-    expect(skill).toContain("bb scoped list");
+    expect(skill).toContain("hyperfide-platform scoped list");
     expect(skill).not.toContain("@acme/");
   });
 });
@@ -152,7 +154,7 @@ describe("resolvePluginSdkLayout", () => {
   let workDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-layout-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-layout-"));
   });
 
   afterEach(async () => {
@@ -164,7 +166,7 @@ describe("resolvePluginSdkLayout", () => {
     await scaffoldPlugin({
       targetDir,
       packageName: "hyperfide-plugin-new-style",
-      bbVersion: "0.9.0",
+      hyperfideVersion: "0.9.0",
     });
 
     await expect(resolvePluginSdkLayout(targetDir)).resolves.toEqual({
@@ -178,7 +180,7 @@ describe("resolvePluginSdkLayout", () => {
     await scaffoldPlugin({
       targetDir,
       packageName: "hyperfide-plugin-legacy",
-      bbVersion: "0.9.0",
+      hyperfideVersion: "0.9.0",
     });
     const pkgPath = join(targetDir, "package.json");
     const pkg = JSON.parse(await readFile(pkgPath, "utf8"));
@@ -202,7 +204,7 @@ describe("resolvePluginSdkLayout", () => {
     await scaffoldPlugin({
       targetDir,
       packageName: "hyperfide-plugin-half-migrated",
-      bbVersion: "0.9.0",
+      hyperfideVersion: "0.9.0",
     });
     await mkdir(join(targetDir, "types"));
     await writeFile(join(targetDir, "types", "hyperfide-plugin-sdk.d.ts"), "legacy\n");

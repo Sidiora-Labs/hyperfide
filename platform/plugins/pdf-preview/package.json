@@ -5,10 +5,10 @@
   "type": "module",
   "description": "Preview PDF files with the browser's built-in viewer.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.84"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.84"
   },
-  "bb": {
+  "hyperfide": {
     "name": "PDF preview",
     "description": "Preview PDF files with the browser's built-in viewer.",
     "branding": {
@@ -18,7 +18,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

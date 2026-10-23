@@ -242,7 +242,7 @@ describe("environments", () => {
         path: "/tmp/project",
         isGitRepo: true,
         isWorktree: true,
-        branchName: "bb/test",
+        branchName: "hyperfide/test",
         defaultBranch: "main",
       },
     );
@@ -252,7 +252,7 @@ describe("environments", () => {
       status: "provisioning",
       isGitRepo: true,
       isWorktree: true,
-      branchName: "bb/test",
+      branchName: "hyperfide/test",
       defaultBranch: "main",
     });
     expect(notifier.notifyEnvironment).toHaveBeenCalledWith(environment.id, [
@@ -266,7 +266,7 @@ describe("environments", () => {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
-      branchName: "bb/old",
+      branchName: "hyperfide/old",
       defaultBranch: "main",
       status: "ready",
     });
@@ -299,7 +299,7 @@ describe("environments", () => {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
-      branchName: "bb/old",
+      branchName: "hyperfide/old",
       defaultBranch: "main",
       status: "ready",
     });

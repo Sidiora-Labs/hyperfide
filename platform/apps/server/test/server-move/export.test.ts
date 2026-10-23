@@ -100,7 +100,7 @@ describe("server archive export", () => {
           destinationDir: destination,
         });
         expect(manifest).toMatchObject({
-          bbVersion: harness.config.appVersion,
+          hyperfideVersion: harness.config.appVersion,
           createdAt: 1_700_000_000_000,
           protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
           sourceDataDir: dataDir,
@@ -111,7 +111,7 @@ describe("server archive export", () => {
         const paths = manifest.entries.map((entry) => entry.path);
         expect(paths).toEqual(
           expect.arrayContaining([
-            "bb.db",
+            "hyperfide.db",
             "config.json",
             "attachments/project-1/notes.txt",
             "plugins/tasks/data.db",
@@ -136,7 +136,7 @@ describe("server archive export", () => {
         );
 
         const importedDb = createConnection(
-          join(destination, "files", "bb.db"),
+          join(destination, "files", "hyperfide.db"),
         );
         try {
           expect(getHost(importedDb, "host-old")).toMatchObject({

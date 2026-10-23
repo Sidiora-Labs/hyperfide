@@ -29,7 +29,7 @@ async function buildUmbrellaRoot(args: {
   root: string;
   nestedDirCount: number;
 }> {
-  const root = await makeTempDir("bb-1779-umbrella-");
+  const root = await makeTempDir("hyperfide-1779-umbrella-");
   if (args.gitRoot) {
     await initRepo(root);
   }
@@ -190,7 +190,7 @@ describe("workspace root watch events inside nested heavy directories (#1779)", 
         "apps",
         "child-0",
         ".git",
-        "bb-marker",
+        "hyperfide-marker",
       );
       const readyFile = path.join(realRoot, "apps", "child-0", "ready.txt");
       const visibleFile = path.join(realRoot, "apps", "child-0", "visible.txt");

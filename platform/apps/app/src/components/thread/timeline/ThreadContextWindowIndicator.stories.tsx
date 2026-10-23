@@ -107,12 +107,12 @@ const claudeSnapshot: ContextSnapshot = {
       kind: "used",
       entries: [
         {
-          id: "bb · thread_inspect",
-          label: "bb · thread_inspect",
+          id: "hyperfide · thread_inspect",
+          label: "hyperfide · thread_inspect",
           tokens: 1_460,
         },
-        { id: "bb · thread_list", label: "bb · thread_list", tokens: 980 },
-        { id: "bb · read_skill", label: "bb · read_skill", tokens: 1_240 },
+        { id: "hyperfide · thread_list", label: "hyperfide · thread_list", tokens: 980 },
+        { id: "hyperfide · read_skill", label: "hyperfide · read_skill", tokens: 1_240 },
       ],
     },
     {
@@ -140,7 +140,7 @@ const claudeSnapshot: ContextSnapshot = {
       tokens: 1_250,
       kind: "used",
       entries: [
-        { id: "verify-bb", label: "verify-bb", tokens: 540 },
+        { id: "verify-hyperfide", label: "verify-hyperfide", tokens: 540 },
         { id: "repo-research", label: "repo-research", tokens: 420 },
         { id: "deslop", label: "deslop", tokens: 290 },
       ],

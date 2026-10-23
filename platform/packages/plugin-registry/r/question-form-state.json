@@ -3,7 +3,7 @@
   "name": "question-form-state",
   "type": "registry:ui",
   "title": "question-form-state",
-  "description": "BB ui \"question-form-state\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"question-form-state\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "files": [
     {
       "path": "registry/components/ui/question-form-state.ts",

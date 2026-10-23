@@ -243,7 +243,7 @@ describe("handshake v3 capabilities", () => {
   it("negotiates the highest common grammar version in both directions", () => {
     const params = initializeParamsSchema.parse({
       protocolVersion: 2,
-      client: { name: "bb", version: "1.0.0" },
+      client: { name: "hyperfide", version: "1.0.0" },
     });
     expect(params.grammarVersions).toEqual([2, 2]);
     expect(negotiateGrammarVersion(params.grammarVersions, [2, 3])).toBe(2);

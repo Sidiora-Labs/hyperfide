@@ -4,8 +4,8 @@ import { createInterface } from "node:readline";
 
 const listMode = process.argv.includes("--list-models");
 if (listMode) {
-  console.log("bb-dynamic-smoke-medium - Dynamic Smoke Medium");
-  console.log("bb-dynamic-smoke-high - Dynamic Smoke High");
+  console.log("hyperfide-dynamic-smoke-medium - Dynamic Smoke Medium");
+  console.log("hyperfide-dynamic-smoke-high - Dynamic Smoke High");
   process.exit(0);
 }
 
@@ -20,10 +20,10 @@ const loadedSessions = new Map();
 
 const acpModels = [
   {
-    value: "bb-dynamic-acp-native-default",
+    value: "hyperfide-dynamic-acp-native-default",
     name: "Dynamic ACP Native Default",
   },
-  { value: "bb-dynamic-acp-native-strong", name: "Dynamic ACP Native Strong" },
+  { value: "hyperfide-dynamic-acp-native-strong", name: "Dynamic ACP Native Strong" },
 ];
 const defaultAcpModel = acpModels[0].value;
 

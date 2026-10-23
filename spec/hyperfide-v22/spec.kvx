@@ -110,7 +110,7 @@ heading = "Implementation Plan: hyperfide-v22"
 
 [task.0.1]
 title = "Rename map and codemod"
-status = "done"
+status = "implemented"
 wave = 0
 requires = []
 touches = ["platform/tools/rename/map.json", "platform/tools/rename/apply.mjs", "platform/tools/rename/README.md", "tests/hyperfide/cases/v22/0_1.sh", "tests/hyperfide/cases/v22/fixtures/rename/**"]
@@ -175,7 +175,7 @@ owner = "port"
 
 [task.0.6]
 title = "Documentation, skills and brand assets sweep"
-status = "done"
+status = "implemented"
 wave = 0
 requires = []
 touches = ["platform/README.md", "platform/AGENTS.md", "platform/CONTRIBUTING.md", "platform/SECURITY.md", "platform/docs/**", "platform/.*/skills/**", "platform/assets/**", "platform/apps/app/public/**", "platform/apps/app/index.html", "platform/apps/desktop/electron-builder*", "platform/apps/desktop/package.json", "platform/apps/mobile/app.json", "platform/apps/mobile/app.config.*", "platform/plugins/*/README.md", "platform/plugins/*/PLUGIN_OVERVIEW.md", "tests/hyperfide/cases/v22/0_6.sh"]
@@ -188,7 +188,7 @@ owner = "docs"
 
 [task.0.7]
 title = "Final identity sweep, directory renames and a green platform"
-status = "pending"
+status = "implemented"
 wave = 0
 requires = ["0.2", "0.3", "0.4", "0.5", "0.6"]
 touches = ["platform/**", "tests/hyperfide/cases/v22/identity_gate.py", "tests/hyperfide/cases/v22/0_7.sh", "tests/hyperfide/cases/v22/identity_allowlist.txt"]
@@ -242,7 +242,7 @@ owner = "core"
 
 [task.1.2]
 title = "Host daemon locates and verifies the binary"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["0.2", "0.3"]
 touches = ["platform/apps/host-daemon/src/**", "platform/packages/host-daemon-contract/src/**", "platform/apps/server/src/**", "platform/packages/server-contract/src/**", "platform/apps/app/src/**", "tests/hyperfide/cases/v22/1_2.sh"]
@@ -294,7 +294,7 @@ owner = "editor"
 
 [task.1.6]
 title = "Widen the graph index to platform/"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["0.7"]
 touches = [".cgignore", "codify.kvx", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/1_6.sh", "src/**"]
@@ -709,7 +709,7 @@ owner = "memory"
 
 [task.7.3]
 title = "Documentation of the merged system"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["6.5", "5.7", "4.5", "7.1", "7.2"]
 touches = ["docs/hyperfide/platform.md", "docs/hyperfide/operations.md", "docs/ARCHITECTURE.md", "README.md", "platform/docs/**", "platform/README.md", "deploy/hyperfide/sandbox/README.md", "tests/hyperfide/cases/v22/7_3.sh"]
@@ -722,7 +722,7 @@ owner = "docs"
 
 [task.7.4]
 title = "Release 2.2.0"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.3", "0.9"]
 touches = ["Makefile", "scripts/release.sh", "src/version.h", "services/hyperfide/package.json", "platform/package.json", "platform/apps/*/package.json", "editors/vscode/package.json", "tests/integration/78_v16_release.sh", "tests/hyperfide/cases/v22/7_4.sh"]

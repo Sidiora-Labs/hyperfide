@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { NamedSecretStore } from "../../secrets/src/named-store.js";
-import { BinaryAskBridge, type Ask } from "./bridge-projection.js";
+import { BinaryAskBridge, type Ask } from "./inbox-adapter.js";
+import { AskBridge as StoreBridge } from "./bridge.js";
+import { localGraphHost } from "./graph-host.js";
 import { InboxService, filterAsks } from "./inbox.js";
 import { registerInbox } from "./server.js";
 import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
@@ -33,7 +35,7 @@ describe("Inbox RPC", () => {
       { ...row("question", 3), status: "answered" },
     ];
     const host = createFakePluginHost({ pluginId: "hyperfide-asks" });
-    registerInbox(host.bb as unknown as Parameters<typeof registerInbox>[0], {
+    registerInbox(host.hyperfide as unknown as Parameters<typeof registerInbox>[0], {
       list: async () => rows,
       answer: async () => {},
     });
@@ -67,7 +69,7 @@ describe("Inbox RPC", () => {
         },
       },
     });
-    registerInbox(host.bb as unknown as Parameters<typeof registerInbox>[0], {
+    registerInbox(host.hyperfide as unknown as Parameters<typeof registerInbox>[0], {
       list: async () => [row("secret")],
       answer: async (_ask, value, note) => {
         writes.push(value, note);
@@ -101,7 +103,7 @@ describe("Inbox RPC", () => {
       });
     run("init");
     const store = new NamedSecretStore(join(directory, "private"));
-    const bridge = new BinaryAskBridge([directory], binary);
+    const bridge = new BinaryAskBridge([directory], new StoreBridge(localGraphHost(binary), () => {}));
     const service = new InboxService(bridge, (value) => store.store(value));
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

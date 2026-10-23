@@ -91,7 +91,7 @@ async function scaffoldWithDependencies(workDir: string): Promise<{
   await scaffoldPlugin({
     targetDir,
     packageName,
-    bbVersion: "0.9.0",
+    hyperfideVersion: "0.9.0",
   });
   const manifest: {
     dependencies?: Record<string, string>;
@@ -108,7 +108,7 @@ describe("scaffold dependency classification", () => {
   let workDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-scaffold-deps-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-scaffold-deps-"));
   });
 
   afterEach(async () => {

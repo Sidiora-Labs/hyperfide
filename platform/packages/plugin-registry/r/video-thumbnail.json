@@ -3,7 +3,7 @@
   "name": "video-thumbnail",
   "type": "registry:ui",
   "title": "video-thumbnail",
-  "description": "BB ui \"video-thumbnail\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"video-thumbnail\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/icon",
     "@hyperfide/utils",

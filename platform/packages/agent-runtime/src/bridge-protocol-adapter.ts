@@ -445,7 +445,7 @@ export function createBridgeProtocolAdapter(
             method: BRIDGE_REQUEST_METHODS.initialize,
             params: {
               protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
-              client: { name: "bb", version: "1.0.0" },
+              client: { name: "hyperfide", version: "1.0.0" },
               grammarVersions: ASSEMBLER_GRAMMAR_VERSIONS,
             },
           },
@@ -476,7 +476,7 @@ export function createBridgeProtocolAdapter(
                 parsed.data.capabilities.grammarVersions;
               const [runtimeMin, runtimeMax] = ASSEMBLER_GRAMMAR_VERSIONS;
               throw new Error(
-                `Provider bridge "${options.id}" speaks thread/delta grammar versions ${bridgeMin}-${bridgeMax}, but this runtime assembles versions ${runtimeMin}-${runtimeMax}. Update the "${options.id}" provider plugin or bb so the two ranges overlap.`,
+                `Provider bridge "${options.id}" speaks thread/delta grammar versions ${bridgeMin}-${bridgeMax}, but this runtime assembles versions ${runtimeMin}-${runtimeMax}. Update the "${options.id}" provider plugin or hyperfide so the two ranges overlap.`,
               );
             }
             handshake = parsed.data.capabilities;
@@ -625,10 +625,10 @@ export function createBridgeProtocolAdapter(
         turnId:
           decoded.turnId === null
             ? null
-            : (deltaAssembler.getBbTurnId(decoded.threadId, decoded.turnId) ??
+            : (deltaAssembler.getHyperfideTurnId(decoded.threadId, decoded.turnId) ??
               decoded.turnId),
         callId:
-          deltaAssembler.getBbItemId(decoded.threadId, decoded.callId) ??
+          deltaAssembler.getHyperfideItemId(decoded.threadId, decoded.callId) ??
           decoded.callId,
       };
     },
@@ -653,14 +653,14 @@ export function createBridgeProtocolAdapter(
         turnId =
           turnId === null
             ? null
-            : (deltaAssembler.getBbTurnId(threadId, turnId) ?? turnId);
+            : (deltaAssembler.getHyperfideTurnId(threadId, turnId) ?? turnId);
         if (payload.kind === "approval") {
           payload = {
             ...payload,
             subject: {
               ...payload.subject,
               itemId:
-                deltaAssembler.getBbItemId(threadId, payload.subject.itemId) ??
+                deltaAssembler.getHyperfideItemId(threadId, payload.subject.itemId) ??
                 payload.subject.itemId,
             },
           };

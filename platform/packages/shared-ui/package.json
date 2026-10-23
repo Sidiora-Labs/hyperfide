@@ -394,7 +394,7 @@
     "clean": "rimraf tsconfig.tsbuildinfo",
     "typecheck": "tsrs --noEmit"
   },
-  "bb": {
+  "hyperfide": {
     "pluginTailwindContent": [
       "src/**/*"
     ]

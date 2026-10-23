@@ -94,7 +94,7 @@ describe("workflow source resolution", () => {
     ).toThrow("inside the origin workspace");
   });
 
-  it("resolves names on the origin host under .bb/workflows", async () => {
+  it("resolves names on the origin host under .hyperfide/workflows", async () => {
     const readFile = vi.fn(dependencies().readFile);
     const resolved = await resolveWorkflowSource(
       { name: "review-change" },
@@ -104,12 +104,12 @@ describe("workflow source resolution", () => {
     expect(readFile).toHaveBeenCalledWith({
       hostId: "host-1",
       rootPath: "/workspace/project",
-      path: "/workspace/project/.bb/workflows/review-change.js",
+      path: "/workspace/project/.hyperfide/workflows/review-change.js",
     });
     expect(resolved.origin).toEqual({
       kind: "name",
       name: "review-change",
-      path: "/workspace/project/.bb/workflows/review-change.js",
+      path: "/workspace/project/.hyperfide/workflows/review-change.js",
     });
   });
 

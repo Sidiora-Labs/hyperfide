@@ -44,7 +44,7 @@ export class AcpUnsupportedProtocolVersionError extends Error {
     super(
       agentProtocolVersion === null
         ? "The ACP agent did not report a protocol version."
-        : `The ACP agent speaks protocol version ${agentProtocolVersion}; bb speaks version ${ACP_CLIENT_PROTOCOL_VERSION}.`,
+        : `The ACP agent speaks protocol version ${agentProtocolVersion}; hyperfide speaks version ${ACP_CLIENT_PROTOCOL_VERSION}.`,
     );
     this.name = "AcpUnsupportedProtocolVersionError";
     this.agentProtocolVersion = agentProtocolVersion;

@@ -36,11 +36,11 @@ describe("hyperfide-platform environment command output", () => {
     },
     checkout: {
       kind: "branch",
-      branchName: "bb/environment-cli",
+      branchName: "hyperfide/environment-cli",
       headSha: "abc123",
     },
     branch: {
-      currentBranch: "bb/environment-cli",
+      currentBranch: "hyperfide/environment-cli",
       defaultBranch: "main",
     },
     mergeBase: {
@@ -322,7 +322,7 @@ describe("hyperfide-platform environment command output", () => {
     expect(collectLogLines(vi.mocked(console.log))).toEqual(
       expect.arrayContaining([
         "State: dirty_uncommitted",
-        "Branch: bb/environment-cli",
+        "Branch: hyperfide/environment-cli",
         "Changed files: 1",
         "Merge base: main",
         "Ahead: 2",
@@ -990,7 +990,7 @@ describe("hyperfide-platform environment command output", () => {
       action: "commit",
       message: "Created commit abc123",
       commitSha: "abc123",
-      commitSubject: "bb: automated commit",
+      commitSubject: "hyperfide: automated commit",
     }));
     stubServerApi({ "v1.environments.:id.actions.$post": post });
 

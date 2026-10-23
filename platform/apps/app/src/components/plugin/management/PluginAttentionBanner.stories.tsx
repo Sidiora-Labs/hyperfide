@@ -12,7 +12,7 @@ export function MultipleFailures() {
             id: "notifications",
             name: "Notifications",
             status: "incompatible",
-            statusDetail: "Requires a newer version of bb.",
+            statusDetail: "Requires a newer version of hyperfide.",
             provenance: "builtin",
           }),
           makePluginListItem({
@@ -39,7 +39,7 @@ export function SingleFailure() {
             id: "notifications",
             name: "Notifications",
             status: "incompatible",
-            statusDetail: "Requires a newer version of bb.",
+            statusDetail: "Requires a newer version of hyperfide.",
             provenance: "builtin",
           }),
         ]}

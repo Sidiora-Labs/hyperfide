@@ -5,9 +5,9 @@
   "type": "module",
   "description": "Show HTML visualizations inline in assistant messages, written in the reply as a fenced block or read from a workspace or thread-storage file, and Markdown documents from a file.",
   "engines": {
-    "bb": ">=0.0"
+    "hyperfide": ">=0.0"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Inline visualizations",
     "description": "Show HTML visualizations inline in assistant messages, written in the reply as a fenced block or read from a workspace or thread-storage file, and Markdown documents from a file.",
     "branding": {
@@ -20,7 +20,7 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

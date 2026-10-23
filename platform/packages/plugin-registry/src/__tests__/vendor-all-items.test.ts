@@ -14,7 +14,7 @@ import { buildPluginApp, resolvePluginBuildToolchain } from "@hyperfide/plugin-b
 
 function testToolchain() {
   return resolvePluginBuildToolchain(
-    path.join(os.tmpdir(), "bb-toolchain-unused"),
+    path.join(os.tmpdir(), "hyperfide-toolchain-unused"),
   );
 }
 
@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 
 describe("plugin component registry", () => {
-  it("every item vendors into a plugin that bb plugin build compiles", async () => {
+  it("every item vendors into a plugin that hyperfide-platform plugin build compiles", async () => {
     const itemNames: string[] = [];
     for (const fileName of (await readdir(registryDir)).sort()) {
       if (fileName === "index.json") continue;
@@ -85,7 +85,7 @@ describe("plugin component registry", () => {
           name: "hyperfide-plugin-registry-fixture",
           version: "0.0.0",
           type: "module",
-          bb: {
+          hyperfide: {
             name: "Registry vendor fixture",
             description:
               "Verify every registry item can be vendored and bundled.",
@@ -124,7 +124,7 @@ describe("plugin component registry", () => {
     );
 
     const js = await readFile(result.jsPath, "utf8");
-    expect(js).toContain("globalThis.__bbPluginRuntime");
+    expect(js).toContain("globalThis.__hyperfidePluginRuntime");
     for (const slot of ["radixDialog", "radixAlertDialog", "vaul"]) {
       expect(js).toContain(`.${slot}`);
     }
@@ -132,7 +132,7 @@ describe("plugin component registry", () => {
 
     const css = await readFile(result.cssPath, "utf8");
     expect(css).toContain(
-      ":where([data-bb-plugin=registry-fixture],[data-hyperfide-plugin-root]:not([data-bb-plugin]))",
+      ":where([data-hyperfide-plugin=registry-fixture],[data-hyperfide-plugin-root]:not([data-hyperfide-plugin]))",
     );
     expect(css).toMatch(/var\(--background\)/);
   });

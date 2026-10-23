@@ -4,9 +4,9 @@ import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@hyperfide/server-contract";
 export const BUNDLED_CURATED_MARKETPLACE: MarketplaceManifest = {
   schemaVersion: 1,
   name: CURATED_PLUGIN_MARKETPLACE_NAME,
-  displayName: "BB Community",
+  displayName: "HYPERFIDE Community",
   description:
-    "Plugins published to the BB registry and reviewed by the BB team.",
+    "Plugins published to the HYPERFIDE registry and reviewed by the HYPERFIDE team.",
   plugins: [
     {
       id: "thread-hover-cards",
@@ -18,7 +18,7 @@ export const BUNDLED_CURATED_MARKETPLACE: MarketplaceManifest = {
       author: { name: "Bersabel Tadesse", github: "brsbl" },
       source: {
         git: {
-          url: "https://github.com/brsbl/bb-plugins.git",
+          url: "https://github.com/brsbl/hyperfide-plugins.git",
           ref: "30f91fd977ba1ce60532af27a68534464fb62516",
         },
       },
@@ -33,7 +33,7 @@ export const BUNDLED_CURATED_MARKETPLACE: MarketplaceManifest = {
       author: { name: "Bersabel Tadesse", github: "brsbl" },
       source: {
         git: {
-          url: "https://github.com/brsbl/bb-plugins.git",
+          url: "https://github.com/brsbl/hyperfide-plugins.git",
           ref: "1c6bb2e8ad3551466981e7eb027cc4b1f3428cac",
         },
       },

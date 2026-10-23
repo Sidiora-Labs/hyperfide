@@ -1,7 +1,7 @@
 import { atomWithStorage } from "jotai/utils";
 import { createJsonLocalStorage } from "@/lib/browser-storage";
 
-const NEW_TAB_ACTION_ORDER_STORAGE_KEY = "bb.newTab.actionOrder";
+const NEW_TAB_ACTION_ORDER_STORAGE_KEY = "hyperfide.newTab.actionOrder";
 
 function isStringArray(value: unknown): value is string[] {
   return (

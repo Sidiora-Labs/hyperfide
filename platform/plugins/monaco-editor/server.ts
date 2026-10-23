@@ -1,7 +1,7 @@
 import path from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
+import { defineRpcContract, type HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const MAX_EDITABLE_BYTES = 8 * 1024 * 1024;
@@ -133,7 +133,7 @@ async function ensureMonacoBundleDir(
   return staged;
 }
 
-export default async function plugin(api: BbPluginApi) {
+export default async function plugin(api: HyperfidePluginApi) {
   let assetLease: { baseUrl: string; expiresAtMs: number } | null = null;
 
   async function assets() {

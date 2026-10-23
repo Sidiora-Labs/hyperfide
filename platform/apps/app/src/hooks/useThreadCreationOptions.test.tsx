@@ -328,7 +328,7 @@ afterEach(() => {
 
 describe("useThreadCreationOptions", () => {
   it("keeps the selected remembered provider branded while models load", () => {
-    window.localStorage.setItem("bb.promptbox.provider", "codex");
+    window.localStorage.setItem("hyperfide.promptbox.provider", "codex");
     writeCachedProviderList(
       providerListCacheKey({ environmentId: null, hostId: null }),
       rememberedProviders(),
@@ -351,7 +351,7 @@ describe("useThreadCreationOptions", () => {
   });
 
   it("does not switch away from a provider when its failed plugin response arrives", async () => {
-    window.localStorage.setItem("bb.promptbox.provider", "codex");
+    window.localStorage.setItem("hyperfide.promptbox.provider", "codex");
     writeCachedProviderList(
       providerListCacheKey({ environmentId: null, hostId: null }),
       rememberedProviders(),
@@ -510,7 +510,7 @@ describe("useThreadCreationOptions", () => {
   });
 
   it("applies a fork provider, model, and reasoning seed atomically", async () => {
-    window.localStorage.setItem("bb.promptbox.provider", GLOBAL_PROVIDER_ID);
+    window.localStorage.setItem("hyperfide.promptbox.provider", GLOBAL_PROVIDER_ID);
     vi.mocked(sdk.system.executionOptions).mockImplementation(async (args) =>
       providerExecutionOptionsResponse(args?.providerId),
     );
@@ -558,7 +558,7 @@ describe("useThreadCreationOptions", () => {
   });
 
   it("restores each provider's model and reasoning selection", async () => {
-    window.localStorage.setItem("bb.promptbox.provider", GLOBAL_PROVIDER_ID);
+    window.localStorage.setItem("hyperfide.promptbox.provider", GLOBAL_PROVIDER_ID);
     vi.mocked(sdk.system.executionOptions).mockImplementation(async (args) =>
       providerExecutionOptionsResponse(args?.providerId),
     );
@@ -630,7 +630,7 @@ describe("useThreadCreationOptions", () => {
   });
 
   it("remembers agent options per provider and moves off a model they rule out", async () => {
-    window.localStorage.setItem("bb.promptbox.provider", GLOBAL_PROVIDER_ID);
+    window.localStorage.setItem("hyperfide.promptbox.provider", GLOBAL_PROVIDER_ID);
     vi.mocked(sdk.system.executionOptions).mockImplementation(async (args) =>
       daybreakExecutionOptionsResponse(args?.providerId),
     );
@@ -690,7 +690,7 @@ describe("useThreadCreationOptions", () => {
 
   it("uses the thread's own option values in a component-local composer instead of remembered ones", async () => {
     window.localStorage.setItem(
-      `bb.promptbox.session-options-${GLOBAL_PROVIDER_ID}-1`,
+      `hyperfide.promptbox.session-options-${GLOBAL_PROVIDER_ID}-1`,
       JSON.stringify({ daybreak: true }),
     );
     vi.mocked(sdk.system.executionOptions).mockImplementation(async (args) =>
@@ -744,7 +744,7 @@ describe("useThreadCreationOptions", () => {
   });
 
   it("remembers the new-thread service tier per provider", async () => {
-    window.localStorage.setItem("bb.promptbox.provider", GLOBAL_PROVIDER_ID);
+    window.localStorage.setItem("hyperfide.promptbox.provider", GLOBAL_PROVIDER_ID);
     vi.mocked(sdk.system.executionOptions).mockImplementation(async (args) =>
       providerExecutionOptionsResponse(args?.providerId),
     );
@@ -1018,35 +1018,35 @@ describe("useThreadCreationOptions", () => {
   });
 
   it("routes root-composer provider discovery through the selected project host", async () => {
-    window.localStorage.setItem("bb.promptbox.provider", GLOBAL_PROVIDER_ID);
+    window.localStorage.setItem("hyperfide.promptbox.provider", GLOBAL_PROVIDER_ID);
     window.localStorage.setItem(
-      `bb.promptbox.model-${GLOBAL_PROVIDER_ID}-1`,
+      `hyperfide.promptbox.model-${GLOBAL_PROVIDER_ID}-1`,
       "global-model",
     );
     window.localStorage.setItem(
-      `bb.promptbox.service-tier-${GLOBAL_PROVIDER_ID}-1`,
+      `hyperfide.promptbox.service-tier-${GLOBAL_PROVIDER_ID}-1`,
       "default",
     );
     window.localStorage.setItem(
-      `bb.promptbox.reasoning-${GLOBAL_PROVIDER_ID}-1`,
+      `hyperfide.promptbox.reasoning-${GLOBAL_PROVIDER_ID}-1`,
       "high",
     );
     window.localStorage.setItem(
-      "bb.promptbox.permission-mode",
+      "hyperfide.promptbox.permission-mode",
       "workspace-write",
     );
     window.localStorage.setItem(
-      "bb.promptbox.environment",
+      "hyperfide.promptbox.environment",
       "host:global-host:worktree",
     );
 
-    setProjectScopedValue("bb.promptbox.provider", PROJECT_PROVIDER_ID);
-    setProjectScopedValue("bb.promptbox.model", "project-model");
-    setProjectScopedValue("bb.promptbox.service-tier", "fast");
-    setProjectScopedValue("bb.promptbox.reasoning", "low");
-    setProjectScopedValue("bb.promptbox.permission-mode", "readonly");
+    setProjectScopedValue("hyperfide.promptbox.provider", PROJECT_PROVIDER_ID);
+    setProjectScopedValue("hyperfide.promptbox.model", "project-model");
+    setProjectScopedValue("hyperfide.promptbox.service-tier", "fast");
+    setProjectScopedValue("hyperfide.promptbox.reasoning", "low");
+    setProjectScopedValue("hyperfide.promptbox.permission-mode", "readonly");
     setProjectScopedValue(
-      "bb.promptbox.environment",
+      "hyperfide.promptbox.environment",
       "host:project-host:local",
     );
 
@@ -1209,10 +1209,10 @@ describe("useThreadCreationOptions", () => {
       result.current.setEnvironmentSelectionValue("host:project-host:worktree");
     });
 
-    expect(window.localStorage.getItem("bb.promptbox.environment")).toBeNull();
+    expect(window.localStorage.getItem("hyperfide.promptbox.environment")).toBeNull();
     expect(
       window.localStorage.getItem(
-        getProjectScopedStorageKey("bb.promptbox.environment", PROJECT_ID),
+        getProjectScopedStorageKey("hyperfide.promptbox.environment", PROJECT_ID),
       ),
     ).toBe("host:project-host:worktree");
   });
@@ -1220,7 +1220,7 @@ describe("useThreadCreationOptions", () => {
   it("migrates a stored legacy worktree selection to the worktree provider", () => {
     const { wrapper } = createQueryClientTestHarness();
     window.localStorage.setItem(
-      getProjectScopedStorageKey("bb.promptbox.environment", PROJECT_ID),
+      getProjectScopedStorageKey("hyperfide.promptbox.environment", PROJECT_ID),
       "host:project-host:worktree",
     );
 
@@ -1619,7 +1619,7 @@ describe("useThreadCreationOptions", () => {
 
   it("latches the initial ready provider instead of resolving it again after a machine switch", async () => {
     window.localStorage.setItem(
-      "bb.promptbox.environment",
+      "hyperfide.promptbox.environment",
       "provider:project-checkout",
     );
     vi.mocked(sdk.system.providerStates).mockImplementation(async (args) =>
@@ -1680,7 +1680,7 @@ describe("useThreadCreationOptions", () => {
   });
 
   it("loads the fallback provider's catalog when the stored provider is no longer offered", async () => {
-    window.localStorage.setItem("bb.promptbox.provider", "removed-provider");
+    window.localStorage.setItem("hyperfide.promptbox.provider", "removed-provider");
     vi.mocked(sdk.system.executionOptions).mockImplementation(async (args) =>
       args?.providerId === "removed-provider"
         ? {
@@ -1706,7 +1706,7 @@ describe("useThreadCreationOptions", () => {
         ["global-default", "global-remembered"],
       );
     });
-    expect(window.localStorage.getItem("bb.promptbox.provider")).toContain(
+    expect(window.localStorage.getItem("hyperfide.promptbox.provider")).toContain(
       "removed-provider",
     );
     expect(

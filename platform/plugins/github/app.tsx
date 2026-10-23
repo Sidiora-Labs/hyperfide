@@ -5,7 +5,7 @@ import {
   experimental_FileLink as FileLink,
   experimental_copyToClipboard,
   UrlLink,
-  useBbNavigate,
+  useHyperfideNavigate,
   useRealtime,
   useRpc,
   type PluginNavPanelProps,
@@ -83,13 +83,13 @@ function relativeTime(iso: string): string {
 const PANEL_PATH = "github";
 
 function useSubPathRoute(subPath: string): [Route, (route: Route) => void] {
-  const bbNavigate = useBbNavigate();
+  const hyperfideNavigate = useHyperfideNavigate();
   const route = useMemo(() => parseSubPath(subPath), [subPath]);
   const navigate = useCallback(
     (next: Route) => {
-      bbNavigate.toPluginPanel(PANEL_PATH, { subPath: routeToSubPath(next) });
+      hyperfideNavigate.toPluginPanel(PANEL_PATH, { subPath: routeToSubPath(next) });
     },
-    [bbNavigate],
+    [hyperfideNavigate],
   );
   return [route, navigate];
 }
@@ -144,7 +144,7 @@ function useSpawn(): {
   spawningKey: string | null;
 } {
   const rpc = useRpc<typeof githubRpcContract>();
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const [spawningKey, setSpawningKey] = useState<string | null>(null);
   const spawn = useCallback(
     (method: "startWork" | "startReview", repo: string, number: number) => {
@@ -265,14 +265,14 @@ function StateBadge({ kind, state }: { kind: "issue" | "pr"; state: string }) {
 }
 
 function ThreadPills({ links }: { links: ThreadLink[] | undefined }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   if (links === undefined || links.length === 0) return null;
   return (
     <span className="flex shrink-0 items-center gap-1">
       {links.map((link, index) => (
         <Badge
           key={link.threadId}
-          title={`Open BB thread ${link.threadId}`}
+          title={`Open HYPERFIDE thread ${link.threadId}`}
           onClick={(event) => {
             event.stopPropagation();
             navigate.toThread(link.threadId);
@@ -566,7 +566,7 @@ function StatusCell({ item }: { item: Item }) {
 }
 
 function RowMenu({ item }: { item: Item }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const viewer = useViewer();
   const { setIssueState, setAssignees } = useIssueMutations();
   const assignedToMe = viewer !== null && item.assignees.includes(viewer);
@@ -2153,7 +2153,7 @@ function GithubPanelBody({
   }
   if (status !== null && status.repos.length === 0) {
     return (
-      <EmptyState message="No GitHub repos tracked yet. Create a BB project whose checkout has a GitHub origin remote, or add repos via the extraRepos plugin setting." />
+      <EmptyState message="No GitHub repos tracked yet. Create a HYPERFIDE project whose checkout has a GitHub origin remote, or add repos via the extraRepos plugin setting." />
     );
   }
 

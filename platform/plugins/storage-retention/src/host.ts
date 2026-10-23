@@ -14,7 +14,7 @@ import { hostStorageContract } from "./host-contract.js";
 import { measureDiskUsage } from "./disk-usage.js";
 import { isFsErrorWithCode } from "./fs-errors.js";
 
-const STORAGE_ENTRY = /^(thr_[a-zA-Z0-9]+|\.bb-trash-[a-zA-Z0-9_-]+)$/;
+const STORAGE_ENTRY = /^(thr_[a-zA-Z0-9]+|\.hyperfide-trash-[a-zA-Z0-9_-]+)$/;
 
 function assertStorageEntry(rootPath: string, name: string) {
   if (
@@ -129,7 +129,7 @@ export default experimental_defineHostEntry({
     async discard({ rootPath, names, recreate }, context) {
       for (const name of names) {
         assertStorageEntry(rootPath, name);
-        if (recreate && name.startsWith(".bb-trash-"))
+        if (recreate && name.startsWith(".hyperfide-trash-"))
           throw new Error("Cannot recreate a trash directory");
       }
       context.signal.throwIfAborted();
@@ -143,7 +143,7 @@ export default experimental_defineHostEntry({
       }
       await experimental_killProcessesWithCwdUnder({
         directories: names
-          .filter((name) => !name.startsWith(".bb-trash-"))
+          .filter((name) => !name.startsWith(".hyperfide-trash-"))
           .map((name) => path.join(root, name)),
       });
       const removed: string[] = [];
@@ -158,9 +158,9 @@ export default experimental_defineHostEntry({
               throw new Error(
                 "Storage entry must be a directory, not a symbolic link",
               );
-            const trash = name.startsWith(".bb-trash-")
+            const trash = name.startsWith(".hyperfide-trash-")
               ? source
-              : path.join(root, `.bb-trash-${name}-${randomUUID()}`);
+              : path.join(root, `.hyperfide-trash-${name}-${randomUUID()}`);
             if (source !== trash) await fs.rename(source, trash);
             trashes.push(trash);
             removed.push(name);

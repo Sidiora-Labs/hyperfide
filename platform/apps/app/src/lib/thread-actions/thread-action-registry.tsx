@@ -10,9 +10,9 @@ import {
   type ReactNode,
 } from "react";
 import type {
-  BbNavigate,
+  HyperfideNavigate,
   PluginBoundThreadAction,
-  PluginBrowserBbSdk,
+  PluginBrowserHyperfideSdk,
   PluginThreadAction,
   PluginThreadActionEntry,
   PluginThreadActionRegistration,
@@ -22,11 +22,11 @@ import type {
 } from "@hyperfide/plugin-sdk";
 import { PluginContext } from "@/components/plugin/plugin-context";
 import { getActiveThreadPanelOpener } from "@/components/plugin/plugin-thread-panel-navigation";
-import { useBbNavigate, useSdk } from "@/lib/plugin-navigation-hooks";
+import { useHyperfideNavigate, useSdk } from "@/lib/plugin-navigation-hooks";
 import { compareGroupedPlacement } from "@/lib/grouped-placement";
 import { usePluginSlots } from "@/lib/plugin-slots";
 
-export const CORE_THREAD_ACTION_OWNER = "bb--core";
+export const CORE_THREAD_ACTION_OWNER = "hyperfide--core";
 
 export interface ThreadActionRegistrationRecord {
   key: string;
@@ -37,8 +37,8 @@ export interface ThreadActionRegistrationRecord {
 
 interface CollectedThreadAction {
   data: unknown;
-  sdk: PluginBrowserBbSdk;
-  navigate: BbNavigate;
+  sdk: PluginBrowserHyperfideSdk;
+  navigate: HyperfideNavigate;
 }
 
 interface ThreadActionRegistrySnapshot {
@@ -212,12 +212,12 @@ function reportFailure(key: string, phase: string, error: unknown): void {
   console.error(`thread action "${key}" failed in ${phase}`, error);
 }
 
-function useLatestNavigate(navigate: BbNavigate, pluginId: string): BbNavigate {
+function useLatestNavigate(navigate: HyperfideNavigate, pluginId: string): HyperfideNavigate {
   const latest = useRef(navigate);
   useLayoutEffect(() => {
     latest.current = navigate;
   });
-  const [stable] = useState<BbNavigate>(() => ({
+  const [stable] = useState<HyperfideNavigate>(() => ({
     toThread: (...args) => latest.current.toThread(...args),
     toProject: (...args) => latest.current.toProject(...args),
     toPluginPanel: (...args) => latest.current.toPluginPanel(...args),
@@ -246,7 +246,7 @@ function ThreadActionCollector({
   );
   const data = record.registration.useData?.({ threadIds });
   const sdk = useSdk();
-  const navigate = useLatestNavigate(useBbNavigate(), record.pluginId);
+  const navigate = useLatestNavigate(useHyperfideNavigate(), record.pluginId);
   useLayoutEffect(() => {
     publishCollected(record.key, { data, sdk, navigate });
   }, [data, navigate, record.key, sdk]);

@@ -35,7 +35,7 @@ if (
 
 const tempDir = await createPluginProcessTempDir({
   pluginId,
-  prefix: "bb-provider-bridge",
+  prefix: "hyperfide-provider-bridge",
 });
 
 let removedTempDir = false;

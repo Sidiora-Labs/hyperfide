@@ -14,7 +14,7 @@ import { normalizeBundledDts } from "./normalize-bundled-dts.mjs";
 it.each(["", path.sep])(
   "shares compiler reads across entry points with workspace suffix %j",
   async (suffix) => {
-    const root = await mkdtemp(path.join(tmpdir(), "bb-declaration-reuse-"));
+    const root = await mkdtemp(path.join(tmpdir(), "hyperfide-declaration-reuse-"));
     const readFile = vi.spyOn(ts.sys, "readFile");
     try {
       await writeFile(
@@ -49,7 +49,7 @@ it.each(["", path.sep])(
 );
 
 it("preserves inferred types, ambient declarations, and distinct workspace compiler options", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "bb-shared-declarations-"));
+  const root = await mkdtemp(path.join(tmpdir(), "hyperfide-shared-declarations-"));
   try {
     const sdk = path.join(root, "sdk");
     const contract = path.join(root, "contract");

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 
 const environmentProviderListCache = createLastKnownCache({
-  prefix: "bb.environment-provider-list",
+  prefix: "hyperfide.environment-provider-list",
   version: "1",
   schema: z.array(systemEnvironmentProviderSchema),
   maxEntries: 64,

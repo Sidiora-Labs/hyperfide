@@ -1,5 +1,42 @@
+import type { RunResult } from "./execution.js";
 import { taskPacket } from "./shared/packet.js";
-import type { WorkerProjectionAdapter } from "./worker-projection-adapter.js";
+import { featureFromKvx } from "./kvx.js";
+import type { Task } from "./shared/model.js";
+
+export interface TaskWorkerHost {
+  readFile(environment: string, path: string): Promise<string>;
+  baseCommit(repository: string): Promise<string>;
+  spawn(request: WorkerThreadRequest): Promise<{ id: string; environment: string }>;
+  // Subscribe with replay if the thread stopped before subscription completed.
+  // Deliver callbacks asynchronously, and await them so reconciliation can retry.
+  onStopped(threadId: string, callback: () => Promise<void>): () => void;
+  publish(update: WorkerTaskUpdate): Promise<void>;
+}
+
+export interface WorkerThreadRequest {
+  repository: string;
+  projectId: string;
+  providerId: string;
+  environment: { type: "provider"; environmentProviderId: string };
+  env: { CG_TASK: string };
+  title: string;
+  prompt: string;
+  tools?: { verify(): Promise<RunResult> };
+  origin: "plugin";
+  originPluginId: "hyperfide-spec";
+}
+
+export interface WorkerTaskUpdate {
+  feature: string;
+  task: string;
+  threadId: string;
+  status: string;
+  repository?: string;
+  environment?: string;
+  projectId?: string;
+  providerId?: string;
+  base?: string;
+}
 
 export interface RunTaskInput {
   repository: string;
@@ -10,7 +47,11 @@ export interface RunTaskInput {
   environmentProviderId?: string;
 }
 
-export function createTaskWorker(adapter: WorkerProjectionAdapter) {
+export function spawnTaskThread(host: TaskWorkerHost, request: WorkerThreadRequest) {
+  return host.spawn(request);
+}
+
+export function createTaskWorker(adapter: TaskWorkerHost) {
   const running = new Set<string>();
   return {
     async runTask(input: RunTaskInput) {
@@ -22,7 +63,7 @@ export function createTaskWorker(adapter: WorkerProjectionAdapter) {
       if (running.has(key)) throw new Error("Task already has a running worker");
       running.add(key);
       try {
-        const task = await adapter.readTask(input.repository, input.feature, input.task);
+        const task = await readWorkerTask(adapter, input.repository, input.feature, input.task);
         if (task.status === "implemented" || task.status === "done") {
           throw new Error("Task is already implemented");
         }
@@ -32,7 +73,8 @@ export function createTaskWorker(adapter: WorkerProjectionAdapter) {
         } catch (error) {
           if ((error as { code?: string }).code !== "ENOENT") throw error;
         }
-        const thread = await adapter.spawn({
+        const base = await adapter.baseCommit(input.repository);
+        const thread = await spawnTaskThread(adapter, {
           repository: input.repository,
           projectId: input.projectId,
           providerId: input.providerId,
@@ -40,7 +82,7 @@ export function createTaskWorker(adapter: WorkerProjectionAdapter) {
           env: { CG_TASK: input.task },
           title: `${input.feature}/${input.task}: ${task.title}`,
           prompt: taskPacket(input.feature, input.task, task,
-            await adapter.baseCommit(input.repository), preamble),
+            base, preamble),
           origin: "plugin",
           originPluginId: "hyperfide-spec",
         });
@@ -51,12 +93,13 @@ export function createTaskWorker(adapter: WorkerProjectionAdapter) {
           try {
             let status = "needs-review";
             try {
-              const result = await adapter.readTask(thread.environment, input.feature, input.task);
+              const result = await readWorkerTask(adapter, thread.environment, input.feature, input.task);
               if (result.status === "implemented" || result.status === "done") status = result.status;
             } catch {
               // A missing/unreadable worker spec cannot attest implementation.
             }
-            await adapter.publish({ feature: input.feature, task: input.task, threadId: thread.id, status });
+            await adapter.publish({ feature: input.feature, task: input.task, threadId: thread.id, status, repository: input.repository,
+              environment: thread.environment, projectId: input.projectId, providerId: input.providerId, base });
             running.delete(key);
             unsubscribe();
           } finally {
@@ -70,4 +113,13 @@ export function createTaskWorker(adapter: WorkerProjectionAdapter) {
       }
     },
   };
+}
+
+/** Read the same task model used by the board, scoped to the worker checkout. */
+export async function readWorkerTask(host: Pick<TaskWorkerHost, "readFile">,
+  environment: string, feature: string, id: string): Promise<Task> {
+  const model = featureFromKvx(feature, await host.readFile(environment, `spec/${feature}/spec.kvx`));
+  const task = model.tasks.find(task => task.id === id);
+  if (!task) throw new Error(`Unknown task ${feature}/${id}`);
+  return task;
 }

@@ -8,7 +8,7 @@ import {
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { usePluginSlots } from "@/lib/plugin-slots";
 import { browserPlatform } from "@/lib/app-keybindings";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo } from "@/lib/hyperfide-desktop";
 import { resolvePluginCommandDefaults } from "@/lib/plugin-command-keybindings";
 
 const EMPTY_DEFAULTS: AppDefaultKeybindings = [];
@@ -19,7 +19,7 @@ export function usePluginCommandBindings() {
   const { commandPaletteActions } = usePluginSlots();
   const builtInDefaults = data?.defaultKeybindings ?? EMPTY_DEFAULTS;
   const overrides = data?.keybindingOverrides ?? EMPTY_OVERRIDES;
-  const isDesktop = getBbDesktopInfo() !== null;
+  const isDesktop = getHyperfideDesktopInfo() !== null;
   const platform = browserPlatform();
   return useMemo(() => {
     const pluginDefaults: AppDefaultKeybindings = commandPaletteActions.map(

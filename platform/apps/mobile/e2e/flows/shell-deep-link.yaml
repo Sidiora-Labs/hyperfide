@@ -1,9 +1,9 @@
-# Deep links reach the page. A `bb://` scheme link and a web link for a saved
+# Deep links reach the page. A `hyperfide://` scheme link and a web link for a saved
 # server both resolve to one shell route carrying a page path; the page's own
 # router takes it from there. The screens the shell keeps stay native.
 #
 # Runs after shell-launch, which leaves the E2E backend paired.
-appId: app.getbb.mobile
+appId: app.hyperfide.mobile
 env:
   METRO_URL: "http://127.0.0.1:8082"
   SERVER_URL: "http://127.0.0.1:41999"
@@ -13,9 +13,9 @@ env:
 
 # A scheme link into a page surface.
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://threads"
+      LINK: "hyperfide://threads"
 - extendedWaitUntil:
     visible:
       id: "shell-webview"
@@ -23,9 +23,9 @@ env:
 
 # A scheme link carrying a page path lands on that page.
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://"
+      LINK: "hyperfide://"
 - extendedWaitUntil:
     visible:
       id: "shell-webview"
@@ -36,9 +36,9 @@ env:
 - takeScreenshot: shell-deep-link-page
 
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://settings/notifications"
+      LINK: "hyperfide://settings/notifications"
 - extendedWaitUntil:
     visible:
       id: "notifications-settings-screen"
@@ -55,9 +55,9 @@ env:
 # Connect enrolment holds the Keychain credential, so it can never move into
 # the page. It stays native even while the shell is on.
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-hyperfide-link.yaml
     env:
-      LINK: "bb://connect"
+      LINK: "hyperfide://connect"
 - extendedWaitUntil:
     visible:
       id: "connect-screen"

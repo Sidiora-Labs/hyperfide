@@ -7,7 +7,7 @@ import {
 } from "../src/verified-process-stop.js";
 
 it("verifies a real process's command and start time before stopping it", async () => {
-  const token = `bb-process-identity-${crypto.randomUUID()}`;
+  const token = `hyperfide-process-identity-${crypto.randomUUID()}`;
   const startedAt = new Date().toISOString();
   const child = spawn(
     process.execPath,

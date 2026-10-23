@@ -528,7 +528,7 @@ describe("extension kind ownership at ingest", () => {
     }
   });
 
-  it("accepts bb's own thread state kinds from any provider and serves them on the timeline", async () => {
+  it("accepts hyperfide's own thread state kinds from any provider and serves them on the timeline", async () => {
     const { harness, session, thread } = await setup();
     try {
       const response = await post(harness, session.id, [
@@ -540,7 +540,7 @@ describe("extension kind ownership at ingest", () => {
               { name: "web", description: "", inputHint: "query" },
             ],
           },
-          "bb/provider-commands",
+          "hyperfide/provider-commands",
         ),
         extensionStateEvent(
           thread.id,
@@ -559,7 +559,7 @@ describe("extension kind ownership at ingest", () => {
               },
             ],
           },
-          "bb/session-options",
+          "hyperfide/session-options",
         ),
       ]);
       expect(response.status).toBe(200);
@@ -630,7 +630,7 @@ describe("extension kind ownership at ingest", () => {
               { type: "boolean", id: "web", label: "Web", value: false },
             ],
           },
-          "bb/session-options",
+          "hyperfide/session-options",
         );
       const patch = (sessionOptions: Record<string, unknown>) =>
         harness.app.request(`/api/v1/threads/${thread.id}`, {
@@ -687,7 +687,7 @@ describe("extension kind ownership at ingest", () => {
         extensionStateEvent(
           thread.id,
           { selections: { mode: "build" } },
-          "bb/session-option-selections",
+          "hyperfide/session-option-selections",
         ),
       ]);
       expect(forged.status).toBe(200);
@@ -700,14 +700,14 @@ describe("extension kind ownership at ingest", () => {
     }
   });
 
-  it("replaces a bb thread state whose payload does not match bb's schema with provider/unhandled", async () => {
+  it("replaces a hyperfide-platform thread state whose payload does not match hyperfide's schema with provider/unhandled", async () => {
     const { harness, session, thread } = await setup();
     try {
       const response = await post(harness, session.id, [
         extensionStateEvent(
           thread.id,
           { commands: [{ description: "nameless" }] },
-          "bb/provider-commands",
+          "hyperfide/provider-commands",
         ),
       ]);
       expect(response.status).toBe(200);

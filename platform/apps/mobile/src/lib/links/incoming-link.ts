@@ -1,6 +1,6 @@
 import { parseServerUrl } from "../shell/shell-url";
 
-const HYPERFIDE_URL_SCHEME = "bb";
+const HYPERFIDE_URL_SCHEME = "hyperfide";
 
 export interface LinkProfileLike {
   id: string;

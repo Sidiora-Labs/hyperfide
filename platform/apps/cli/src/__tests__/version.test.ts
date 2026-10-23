@@ -2,9 +2,9 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { resolveBbAppVersion } from "../version.js";
+import { resolveHyperfideAppVersion } from "../version.js";
 
-describe("resolveBbAppVersion", () => {
+describe("resolveHyperfideAppVersion", () => {
   let tempRoot: string;
 
   beforeEach(async () => {
@@ -17,7 +17,7 @@ describe("resolveBbAppVersion", () => {
 
   it("trims whitespace around HYPERFIDE_APP_VERSION", () => {
     expect(
-      resolveBbAppVersion({
+      resolveHyperfideAppVersion({
         env: { HYPERFIDE_APP_VERSION: "  4.5.6  " },
         fromDir: tempRoot,
       }),
@@ -33,7 +33,7 @@ describe("resolveBbAppVersion", () => {
       JSON.stringify({ name: "hyperfide-app", version: "0.0.7" }),
     );
     expect(
-      resolveBbAppVersion({
+      resolveHyperfideAppVersion({
         env: {},
         fromDir: binDir,
       }),
@@ -52,14 +52,14 @@ describe("resolveBbAppVersion", () => {
       join(repoRoot, "apps", "cli", "package.json"),
       JSON.stringify({ name: "@hyperfide/cli", version: "0.0.1" }),
     );
-    const bbAppDir = join(repoRoot, "packages", "hyperfide-app");
-    await mkdir(bbAppDir, { recursive: true });
+    const hyperfideAppDir = join(repoRoot, "packages", "hyperfide-app");
+    await mkdir(hyperfideAppDir, { recursive: true });
     await writeFile(
-      join(bbAppDir, "package.json"),
+      join(hyperfideAppDir, "package.json"),
       JSON.stringify({ name: "hyperfide-app", version: "0.1.2" }),
     );
     expect(
-      resolveBbAppVersion({
+      resolveHyperfideAppVersion({
         env: {},
         fromDir: cliDistDir,
       }),
@@ -68,7 +68,7 @@ describe("resolveBbAppVersion", () => {
 
   it("falls back to the dev sentinel when no hyperfide-app package.json is found", () => {
     expect(
-      resolveBbAppVersion({
+      resolveHyperfideAppVersion({
         env: {},
         fromDir: tempRoot,
       }),

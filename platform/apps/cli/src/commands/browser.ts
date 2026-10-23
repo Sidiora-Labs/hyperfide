@@ -10,7 +10,7 @@ import {
   desktopBrowserImportSourceIdSchema,
 } from "@hyperfide/host-daemon-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliHyperfideSdk } from "../client.js";
 
 interface ScopeOptions {
   json?: boolean;
@@ -91,7 +91,7 @@ export function registerBrowserCommands(
   const browser = program
     .command("browser")
     .description("Experimental built-in desktop browser control");
-  const api = () => createCliBbSdk(getUrl()).experimental_desktopBrowsers;
+  const api = () => createCliHyperfideSdk(getUrl()).experimental_desktopBrowsers;
   browser
     .command("instances")
     .description("List connected desktop windows on a host")
@@ -293,7 +293,7 @@ export function registerBrowserCommands(
     browser
       .command("import-cookies")
       .description(
-        "Copy signed-in cookies from an installed browser into the BB browser",
+        "Copy signed-in cookies from an installed browser into the HYPERFIDE browser",
       ),
   )
     .requiredOption(

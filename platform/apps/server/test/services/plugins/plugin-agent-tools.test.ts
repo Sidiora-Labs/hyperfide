@@ -49,7 +49,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: "Agent tools fixture",
         description: "Agent tools plugin fixture.",
         branding: { icon: "Zap" },
@@ -61,7 +61,7 @@ async function writePlugin(
   return rootDir;
 }
 
-describe("bb.agents.registerTool", () => {
+describe("hyperfide.agents.registerTool", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
@@ -96,14 +96,14 @@ describe("bb.agents.registerTool", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-replacer",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "echo_tool",
             description: "first version",
             parameters: { type: "object", properties: { text: { type: "string" } } },
             execute: () => "first",
           });
-          bb.agents.registerTool({
+          hyperfide.agents.registerTool({
             name: "echo_tool",
             description: "second version",
             instructions: "Prefer echo_tool for echoing.",
@@ -125,9 +125,9 @@ describe("bb.agents.registerTool", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-double-configure",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.configure(() => ({ tools: [], skills: [] }));
-          bb.agents.configure(() => ({ tools: [], skills: [] }));
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.configure(() => ({ tools: [], skills: [] }));
+          hyperfide.agents.configure(() => ({ tools: [], skills: [] }));
         }
       `,
     });
@@ -142,8 +142,8 @@ describe("bb.agents.registerTool", () => {
     const a = await writePlugin(workDir, {
       name: "hyperfide-plugin-tool-a",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "alpha_tool",
             description: "Alpha",
             parameters: { type: "object" },
@@ -155,8 +155,8 @@ describe("bb.agents.registerTool", () => {
     const b = await writePlugin(workDir, {
       name: "hyperfide-plugin-tool-b",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "beta_tool",
             description: "Beta",
             parameters: { type: "object" },
@@ -421,8 +421,8 @@ describe("bb.agents.registerTool", () => {
     const first = await writePlugin(workDir, {
       name: "hyperfide-plugin-collide-a",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "shared_tool",
             description: "First owner",
             parameters: { type: "object" },
@@ -434,14 +434,14 @@ describe("bb.agents.registerTool", () => {
     const second = await writePlugin(workDir, {
       name: "hyperfide-plugin-collide-b",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "shared_tool",
             description: "Second owner",
             parameters: { type: "object" },
             execute: () => "from collide-b",
           });
-          bb.agents.registerTool({
+          hyperfide.agents.registerTool({
             name: "unique_tool",
             description: "Unrelated",
             parameters: { type: "object" },
@@ -470,8 +470,8 @@ describe("bb.agents.registerTool", () => {
     const first = await writePlugin(workDir, {
       name: "hyperfide-plugin-env-a",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.experimental_environments.register({
+        export default function plugin(hyperfide: any) {
+          hyperfide.experimental_environments.register({
             id: "shared-env",
             displayName: "Shared",
             description: "Create a shared workspace.",
@@ -484,8 +484,8 @@ describe("bb.agents.registerTool", () => {
     const second = await writePlugin(workDir, {
       name: "hyperfide-plugin-env-b",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.experimental_environments.register({
+        export default function plugin(hyperfide: any) {
+          hyperfide.experimental_environments.register({
             id: "shared-env",
             displayName: "Shared again",
             description: "Create another shared workspace.",
@@ -511,8 +511,8 @@ describe("bb.agents.registerTool", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-shadower",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "update_environment_directory",
             description: "Shadow attempt",
             parameters: { type: "object" },
@@ -523,7 +523,7 @@ describe("bb.agents.registerTool", () => {
     });
     const entry = await service.installPath(rootDir);
     expect(entry.status).toBe("error");
-    expect(entry.statusDetail).toContain("built-in bb tool");
+    expect(entry.statusDetail).toContain("built-in hyperfide tool");
     expect(service.listAgentTools()).toEqual([]);
   });
 
@@ -546,8 +546,8 @@ describe("bb.agents.registerTool", () => {
       const rootDir = await writePlugin(workDir, {
         name: "hyperfide-plugin-stale-field",
         serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "stale_tool",
             description: "Built against an SDK before 0.4.16",
             ${field}: { pending: "Working", completed: "Worked" },
@@ -565,7 +565,7 @@ describe("bb.agents.registerTool", () => {
   );
 });
 
-describe("bb.agents.contributeInstructions", () => {
+describe("hyperfide.agents.contributeInstructions", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
@@ -600,9 +600,9 @@ describe("bb.agents.contributeInstructions", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-advisor",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "first");
-          bb.agents.contributeInstructions(() => "second");
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.contributeInstructions(() => "first");
+          hyperfide.agents.contributeInstructions(() => "second");
         }
       `,
     });
@@ -618,16 +618,16 @@ describe("bb.agents.contributeInstructions", () => {
     const zebra = await writePlugin(workDir, {
       name: "hyperfide-plugin-zebra",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "from zebra");
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.contributeInstructions(() => "from zebra");
         }
       `,
     });
     const alpha = await writePlugin(workDir, {
       name: "hyperfide-plugin-alpha",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "from alpha");
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.contributeInstructions(() => "from alpha");
         }
       `,
     });
@@ -645,8 +645,8 @@ describe("bb.agents.contributeInstructions", () => {
     const rootDir = await writePlugin(workDir, {
       name: "hyperfide-plugin-transient",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "present");
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.contributeInstructions(() => "present");
         }
       `,
     });
@@ -681,15 +681,15 @@ describe("plugin tools reach thread runtime config", () => {
     const rootDir = await writePlugin(pluginsDir, {
       name: "hyperfide-plugin-tooldemo",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "demo_lookup",
             description: "Look up demo data",
             instructions: "Call demo_lookup before guessing demo data.",
             parameters: { type: "object", properties: { key: { type: "string" } } },
             execute: () => "demo",
           });
-          bb.agents.registerTool({
+          hyperfide.agents.registerTool({
             name: "quiet_tool",
             description: "No instructions on purpose",
             parameters: { type: "object" },
@@ -748,7 +748,7 @@ describe("plugin tools reach thread runtime config", () => {
     ).toMatchObject({ type: "object" });
     expect(command.instructions).toContain("update_environment_directory");
     expect(command.instructions).toContain(
-      'The following instructions come from the BB plugin "tooldemo" for its tool "demo_lookup":',
+      'The following instructions come from the HYPERFIDE plugin "tooldemo" for its tool "demo_lookup":',
     );
     expect(command.instructions).toContain(
       "Call demo_lookup before guessing demo data.",
@@ -760,13 +760,13 @@ describe("plugin tools reach thread runtime config", () => {
     const rootDir = await writePlugin(pluginsDir, {
       name: "hyperfide-plugin-conditional",
       serverSource: `
-        globalThis.__bbConditionalFactoryCount =
-          (globalThis.__bbConditionalFactoryCount ?? 0) + 1;
-        const factoryCount = globalThis.__bbConditionalFactoryCount;
+        globalThis.__hyperfideConditionalFactoryCount =
+          (globalThis.__hyperfideConditionalFactoryCount ?? 0) + 1;
+        const factoryCount = globalThis.__hyperfideConditionalFactoryCount;
         let configureCount = 0;
-        export default function plugin(bb: any) {
+        export default function plugin(hyperfide: any) {
           for (const name of ["alpha_tool", "beta_tool"]) {
-            bb.agents.registerTool({
+            hyperfide.agents.registerTool({
               name,
               description: name,
               instructions: "Static instructions for " + name,
@@ -774,7 +774,7 @@ describe("plugin tools reach thread runtime config", () => {
               execute: () => name,
             });
           }
-          bb.agents.configure((context: any) => {
+          hyperfide.agents.configure((context: any) => {
             configureCount += 1;
             if (
               context.origin.pluginId === "side-chat" &&
@@ -818,14 +818,14 @@ describe("plugin tools reach thread runtime config", () => {
     const brokenRoot = await writePlugin(pluginsDir, {
       name: "hyperfide-plugin-broken-conditional",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(hyperfide: any) {
+          hyperfide.agents.registerTool({
             name: "broken_tool",
             description: "Must never leak from an invalid selection",
             parameters: { type: "object" },
             execute: () => "broken",
           });
-          bb.agents.configure((context: any) => {
+          hyperfide.agents.configure((context: any) => {
             if (context.provider.id === "claude-code") {
               throw new Error("conditional failure");
             }
@@ -1004,7 +1004,7 @@ describe("plugin tools reach thread runtime config", () => {
       sideCommand.injectedSkillSources.map((skill) => skill.name),
     ).not.toContain("beta-skill");
     expect(sideCommand.instructions).toContain(
-      'The following dynamic instructions come from the BB plugin "conditional":',
+      'The following dynamic instructions come from the HYPERFIDE plugin "conditional":',
     );
     expect(
       harness.pluginService.list().find((plugin) => plugin.id === "conditional")
@@ -1047,8 +1047,8 @@ describe("internal tool-call dispatch to plugin tools", () => {
         const rootDir = await writePlugin(pluginsDir, {
           name: "hyperfide-plugin-wired",
           serverSource: `
-            export default function plugin(bb: any) {
-              bb.agents.registerTool({
+            export default function plugin(hyperfide: any) {
+              hyperfide.agents.registerTool({
                 name: "echo_context",
                 description: "Echo params and call context",
                 parameters: { type: "object" },

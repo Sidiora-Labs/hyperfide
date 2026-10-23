@@ -119,7 +119,7 @@ afterEach(async () => {
 
 describe.sequential("watchPathChanges", () => {
   it("watches the target path and reports changed paths within that subtree", async () => {
-    const dataDir = await makeTempDir("bb-watch-path-");
+    const dataDir = await makeTempDir("hyperfide-watch-path-");
     const threadStorageRoot = path.join(dataDir, "thread-storage");
     await fs.mkdir(threadStorageRoot, { recursive: true });
     const onChange = vi.fn();
@@ -165,7 +165,7 @@ describe.sequential("watchPathChanges", () => {
   });
 
   it("reports a missing watched path once and retries until it appears", async () => {
-    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-missing");
+    const threadStorageRoot = path.join(os.tmpdir(), "hyperfide-watch-path-missing");
     let pathExistsCallCount = 0;
     const onWatchError = vi.fn();
     const { rootPaths, watchPathChanges } =
@@ -205,7 +205,7 @@ describe.sequential("watchPathChanges", () => {
   });
 
   it("retries path subscriptions after a startup failure", async () => {
-    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-retry");
+    const threadStorageRoot = path.join(os.tmpdir(), "hyperfide-watch-path-retry");
     const onWatchError = vi.fn();
     let shouldFail = true;
     const { rootPaths, subscribeCallCount, watchPathChanges } =
@@ -243,7 +243,7 @@ describe.sequential("watchPathChanges", () => {
   });
 
   it("does not retry or unsubscribe after Parcel inotify poll interruptions", async () => {
-    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-poll");
+    const threadStorageRoot = path.join(os.tmpdir(), "hyperfide-watch-path-poll");
     const onWatchError = vi.fn();
     const { callbacks, subscribeCallCount, unsubscribe, watchPathChanges } =
       await importWatchPathWithMockedWatcher({
@@ -283,7 +283,7 @@ describe.sequential("watchPathChanges", () => {
   });
 
   it("settles disposal and cleans up a late startup subscription", async () => {
-    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-late");
+    const threadStorageRoot = path.join(os.tmpdir(), "hyperfide-watch-path-late");
     const subscriptionDeferred =
       createDeferredPromise<ParcelWatcherSubscribeResult>();
     const unsubscribeDeferred = createDeferredPromise<void>();
@@ -325,7 +325,7 @@ describe.sequential("watchPathChanges", () => {
   });
 
   it("coalesces repeated batches before flushing", async () => {
-    const dataDir = await makeTempDir("bb-watch-path-");
+    const dataDir = await makeTempDir("hyperfide-watch-path-");
     const threadStorageRoot = path.join(dataDir, "thread-storage");
     await fs.mkdir(threadStorageRoot, { recursive: true });
     const onChange = vi.fn();
@@ -370,7 +370,7 @@ describe.sequential("watchPathChanges", () => {
   });
 
   it("rescans children without warning when FSEvents drops events", async () => {
-    const dataDir = await makeTempDir("bb-watch-path-dropped-");
+    const dataDir = await makeTempDir("hyperfide-watch-path-dropped-");
     const threadStorageRoot = path.join(dataDir, "thread-storage");
     await fs.mkdir(path.join(threadStorageRoot, "thread-1"), {
       recursive: true,

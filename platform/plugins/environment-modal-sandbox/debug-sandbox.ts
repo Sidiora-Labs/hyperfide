@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { ResolvedSettings } from "./configuration.js";
@@ -27,7 +27,7 @@ export const execOutput = z.object({
 });
 
 export function debugSandbox(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   image: ImageDefinition,
   resolve: () => Promise<{
     client: ModalSandboxClient;
@@ -56,10 +56,10 @@ export function debugSandbox(
     }
   }
   async function owned(sandboxId: string) {
-    const stored = await bb.storage.kv.get<unknown>(`debug/${sandboxId}`);
+    const stored = await hyperfide.storage.kv.get<unknown>(`debug/${sandboxId}`);
     if (stored === undefined)
       throw new Error(
-        "Unknown debug sandbox; use an ID returned by bb modal sandbox run",
+        "Unknown debug sandbox; use an ID returned by hyperfide-platform modal sandbox run",
       );
     const record = recordSchema.parse(stored);
     const { client } = await resolve();
@@ -84,7 +84,7 @@ export function debugSandbox(
       const built = await buildWith(resolved, signal);
       const accountIdentity = await client.accountIdentity();
       signal.throwIfAborted();
-      const key = `bb-debug-${randomUUID()}`;
+      const key = `hyperfide-debug-${randomUUID()}`;
       const expiresAt = Date.now() + 30 * 60_000;
       const sandbox = await client.create({
         appName: settings.appName,
@@ -93,11 +93,11 @@ export function debugSandbox(
         timeoutMs: 30 * 60_000,
         cpu: null,
         memoryMiB: null,
-        tags: { bbDebug: "true", bbMachineKey: key },
+        tags: { hyperfideDebug: "true", hyperfideMachineKey: key },
       });
       try {
         signal.throwIfAborted();
-        await bb.storage.kv.set(`debug/${sandbox.sandboxId}`, {
+        await hyperfide.storage.kv.set(`debug/${sandbox.sandboxId}`, {
           accountIdentity,
           appName: settings.appName,
           key,

@@ -568,7 +568,7 @@ describe("reconcilePluginFrontends", () => {
     );
     expect(deps.importModule).toHaveBeenNthCalledWith(
       2,
-      "/api/v1/plugins/hello/assets/app.js?h=v1&bb_retry=1",
+      "/api/v1/plugins/hello/assets/app.js?h=v1&hyperfide_retry=1",
     );
     expect(state.records.get("hello")?.status).toBe("loaded");
   });
@@ -589,8 +589,8 @@ describe("reconcilePluginFrontends", () => {
 
     expect(deps.importModule.mock.calls.map(([url]) => url)).toEqual([
       "/api/v1/plugins/hello/assets/app.js?h=v1",
-      "/api/v1/plugins/hello/assets/app.js?h=v1&bb_retry=1",
-      "/api/v1/plugins/hello/assets/app.js?h=v1&bb_retry=2",
+      "/api/v1/plugins/hello/assets/app.js?h=v1&hyperfide_retry=1",
+      "/api/v1/plugins/hello/assets/app.js?h=v1&hyperfide_retry=2",
     ]);
     expect(state.records.get("hello")?.status).toBe("loaded");
     expect(deps.setRegistrations).toHaveBeenCalledWith(
@@ -1429,24 +1429,24 @@ describe("applyPluginCss", () => {
     ]);
   });
 
-  it("never ties app-wide bb.themes palette CSS to plugin UI mounts", async () => {
+  it("never ties app-wide hyperfide.themes palette CSS to plugin UI mounts", async () => {
     vi.useFakeTimers();
     const paletteCss = ":root { --canvas: rebeccapurple; }";
     applyAppThemeCss(paletteCss);
-    const palette = document.getElementById("bb-app-theme");
+    const palette = document.getElementById("hyperfide-app-theme");
     expect(palette?.textContent).toBe(paletteCss);
 
     applyPluginCss("palette-owner", "/assets/app.css?h=palette-owner");
     preloads("palette-owner")[0]?.dispatchEvent(new Event("load"));
     expect(links("palette-owner")).toHaveLength(0);
-    expect(document.getElementById("bb-app-theme")).toBe(palette);
+    expect(document.getElementById("hyperfide-app-theme")).toBe(palette);
     expect(palette?.textContent).toBe(paletteCss);
 
     const release = retainPluginCss("palette-owner");
     release();
     await vi.advanceTimersByTimeAsync(1_500);
     expect(links("palette-owner")).toHaveLength(0);
-    expect(document.getElementById("bb-app-theme")).toBe(palette);
+    expect(document.getElementById("hyperfide-app-theme")).toBe(palette);
     expect(palette?.textContent).toBe(paletteCss);
 
     applyAppThemeCss("");

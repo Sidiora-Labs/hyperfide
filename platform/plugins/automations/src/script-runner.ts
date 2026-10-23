@@ -17,10 +17,10 @@ const execFileAsync = promisify(execFile);
 const SCRIPT_OUTPUT_MAX_BYTES = 1024 * 1024;
 const SCRIPT_FAILURE_DETAIL_MAX_CHARS = 200;
 
-let resolvedBbPath: string | null = null;
+let resolvedHyperfidePath: string | null = null;
 
 const HYPERFIDE_NOT_INJECTED_WARNING =
-  "[bb] warning: could not locate the bb CLI, so `bb` is not on PATH for this script.";
+  "[hyperfide] warning: could not locate the hyperfide CLI, so `hyperfide` is not on PATH for this script.";
 
 async function commandWorks(command: string, args: string[]): Promise<boolean> {
   try {
@@ -31,7 +31,7 @@ async function commandWorks(command: string, args: string[]): Promise<boolean> {
   }
 }
 
-export function bbBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
+export function hyperfideBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
   const candidates: string[] = [];
   const pushIfAbsolute = (candidate: string): void => {
     if (isAbsolute(candidate)) {
@@ -44,15 +44,18 @@ export function bbBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
   }
   const fromCliDir = env.HYPERFIDE_CLI_DIR?.trim();
   if (fromCliDir !== undefined && fromCliDir.length > 0) {
-    pushIfAbsolute(join(fromCliDir, "bb"));
+    pushIfAbsolute(join(fromCliDir, "hyperfide-platform"));
   }
   for (const entry of (env.PATH ?? "").split(delimiter)) {
     const trimmed = entry.trim();
     if (trimmed.length > 0) {
-      pushIfAbsolute(join(trimmed, "bb"));
+      pushIfAbsolute(join(trimmed, "hyperfide-platform"));
     }
   }
-  candidates.push("/opt/homebrew/bin/bb", "/usr/local/bin/bb");
+  candidates.push(
+    "/opt/homebrew/bin/hyperfide-platform",
+    "/usr/local/bin/hyperfide-platform",
+  );
   return candidates;
 }
 
@@ -75,14 +78,14 @@ async function isDirectory(candidate: string): Promise<boolean> {
   }
 }
 
-async function resolveBbBinary(
+async function resolveHyperfideBinary(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string | null> {
-  if (resolvedBbPath !== null) return resolvedBbPath;
-  for (const candidate of bbBinaryCandidates(env)) {
+  if (resolvedHyperfidePath !== null) return resolvedHyperfidePath;
+  for (const candidate of hyperfideBinaryCandidates(env)) {
     if (!(await isExecutableFile(candidate))) continue;
     if (await commandWorks(candidate, ["--version"])) {
-      resolvedBbPath = candidate;
+      resolvedHyperfidePath = candidate;
       return candidate;
     }
   }
@@ -90,15 +93,17 @@ async function resolveBbBinary(
 }
 
 export function scriptPathEnv(
-  bbPath: string | null,
+  hyperfidePath: string | null,
   inheritedPath: string | undefined,
 ): string {
   const basePath = inheritedPath ?? "";
-  if (bbPath === null || !isAbsolute(bbPath)) {
+  if (hyperfidePath === null || !isAbsolute(hyperfidePath)) {
     return basePath;
   }
-  const bbDir = dirname(bbPath);
-  return basePath.length > 0 ? `${bbDir}${delimiter}${basePath}` : bbDir;
+  const hyperfideDir = dirname(hyperfidePath);
+  return basePath.length > 0
+    ? `${hyperfideDir}${delimiter}${basePath}`
+    : hyperfideDir;
 }
 
 export function isWakeAgentSuppressed(output: string): boolean {
@@ -316,19 +321,20 @@ export async function executeStoredScript(args: {
   });
   const interpreter =
     args.interpreter ?? resolveDefaultInterpreter(args.scriptFile);
-  const bbPath = await resolveBbBinary();
-  const warning = bbPath === null ? `${HYPERFIDE_NOT_INJECTED_WARNING}\n` : "";
+  const hyperfidePath = await resolveHyperfideBinary();
+  const warning =
+    hyperfidePath === null ? `${HYPERFIDE_NOT_INJECTED_WARNING}\n` : "";
   const scriptEnv: NodeJS.ProcessEnv = {
     ...process.env,
     ...(args.env ?? {}),
-    PATH: scriptPathEnv(bbPath, process.env.PATH),
+    PATH: scriptPathEnv(hyperfidePath, process.env.PATH),
     HYPERFIDE_SERVER_URL: args.serverUrl,
     HYPERFIDE_PROJECT_ID: args.projectId,
     HYPERFIDE_AUTOMATION_ID: args.automationId,
     HYPERFIDE_AUTOMATION_RUN_ID: args.runId,
   };
-  if (bbPath !== null) {
-    scriptEnv.HYPERFIDE_CLI = bbPath;
+  if (hyperfidePath !== null) {
+    scriptEnv.HYPERFIDE_CLI = hyperfidePath;
   }
   await mkdir(scriptsRoot(args.pluginDataDir), { recursive: true });
   if (!(await isDirectory(args.workingDir))) {

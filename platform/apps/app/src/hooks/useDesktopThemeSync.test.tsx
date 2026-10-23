@@ -2,10 +2,10 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopInfo, BbDesktopTheme } from "@hyperfide/desktop-contract";
-import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
+import type { HyperfideDesktopInfo, HyperfideDesktopTheme } from "@hyperfide/desktop-contract";
+import { createHyperfideDesktopApi } from "@/test/hyperfide-desktop-test-utils";
 
-const desktopInfo: BbDesktopInfo = {
+const desktopInfo: HyperfideDesktopInfo = {
   lastCheckedAt: null,
   latestVersion: null,
   pendingVersion: null,
@@ -63,7 +63,7 @@ function installColorSchemeMediaQuery(initialDark: boolean): {
 
 afterEach(() => {
   cleanup();
-  delete window.bbDesktop;
+  delete window.hyperfideDesktop;
   window.localStorage.clear();
   vi.restoreAllMocks();
   vi.resetModules();
@@ -72,10 +72,10 @@ afterEach(() => {
 describe("desktop theme synchronization", () => {
   it("keeps Electron on system while the resolved theme follows OS changes", async () => {
     const colorScheme = installColorSchemeMediaQuery(true);
-    const setThemeCalls: BbDesktopTheme[] = [];
-    const desktopApi = createBbDesktopApi(desktopInfo);
+    const setThemeCalls: HyperfideDesktopTheme[] = [];
+    const desktopApi = createHyperfideDesktopApi(desktopInfo);
     desktopApi.setTheme = (theme) => setThemeCalls.push(theme);
-    window.bbDesktop = desktopApi;
+    window.hyperfideDesktop = desktopApi;
 
     const { useDesktopThemeSync } = await import("./useDesktopThemeSync");
     const { usePreferredTheme } = await import("./useTheme");

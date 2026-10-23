@@ -42,7 +42,7 @@ describe("suppliedWorkspacePathRefusal", () => {
           projectId: project.id,
         }),
       ).toBe(
-        "Workspace path is a bb-managed workspace owned by another project",
+        "Workspace path is a hyperfide-managed workspace owned by another project",
       );
     });
   });
@@ -110,7 +110,7 @@ describe("suppliedWorkspacePathRefusal", () => {
           projectId: project.id,
         }),
       ).toBe(
-        "Workspace path is inside bb-managed storage but is not a workspace of this project",
+        "Workspace path is inside hyperfide-managed storage but is not a workspace of this project",
       );
     });
   });
@@ -159,7 +159,7 @@ describe("foreignProjectOwnedPathRefusal for provider-produced environments", ()
             projectId: other.id,
           }),
         ).toBe(
-          "Workspace path is a bb-managed workspace owned by another project",
+          "Workspace path is a hyperfide-managed workspace owned by another project",
         );
       }
       expect(

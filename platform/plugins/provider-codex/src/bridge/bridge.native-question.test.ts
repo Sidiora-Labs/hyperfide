@@ -18,7 +18,7 @@ it.each([
 ])(
   "routes a Codex question with $isBlocking blocking and $cancelled cancellation",
   async ({ isBlocking, cancelled }) => {
-    const workspace = mkdtempSync(join(tmpdir(), "bb-codex-question-"));
+    const workspace = mkdtempSync(join(tmpdir(), "hyperfide-codex-question-"));
     const scriptPath = join(workspace, "script.json");
     const responseLogPath = join(workspace, "responses.jsonl");
     const threadId = "thr_native_question";

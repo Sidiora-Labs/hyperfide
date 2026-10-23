@@ -44,7 +44,7 @@ describe("process utils", () => {
       "uncaughtExceptionMonitor",
     );
     const logsDir = join(
-      mkdtempSync(join(tmpdir(), "bb-process-utils-report-")),
+      mkdtempSync(join(tmpdir(), "hyperfide-process-utils-report-")),
       "logs",
     );
 
@@ -76,7 +76,7 @@ describe("process utils", () => {
 
   it("writes env-safe diagnostic reports", () => {
     const logsDir = join(
-      mkdtempSync(join(tmpdir(), "bb-process-utils-report-")),
+      mkdtempSync(join(tmpdir(), "hyperfide-process-utils-report-")),
       "logs",
     );
     const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
@@ -110,7 +110,7 @@ describe("process utils", () => {
 
   it("writes nested error causes", () => {
     const logsDir = join(
-      mkdtempSync(join(tmpdir(), "bb-process-utils-report-")),
+      mkdtempSync(join(tmpdir(), "hyperfide-process-utils-report-")),
       "logs",
     );
     const connectionError = new Error("connect ECONNREFUSED 127.0.0.1:38886");
@@ -141,7 +141,7 @@ describe("process utils", () => {
 
   it("truncates cyclic error causes", () => {
     const logsDir = join(
-      mkdtempSync(join(tmpdir(), "bb-process-utils-report-")),
+      mkdtempSync(join(tmpdir(), "hyperfide-process-utils-report-")),
       "logs",
     );
     const firstError = new Error("first");
@@ -174,7 +174,7 @@ describe("process utils", () => {
 
   it("truncates error causes that exceed the depth limit", () => {
     const logsDir = join(
-      mkdtempSync(join(tmpdir(), "bb-process-utils-report-")),
+      mkdtempSync(join(tmpdir(), "hyperfide-process-utils-report-")),
       "logs",
     );
     const rootError = new Error("cause-0");
@@ -202,7 +202,7 @@ describe("process utils", () => {
 
   it("writes bounded AggregateError details", () => {
     const logsDir = join(
-      mkdtempSync(join(tmpdir(), "bb-process-utils-report-")),
+      mkdtempSync(join(tmpdir(), "hyperfide-process-utils-report-")),
       "logs",
     );
     const connectionErrors = Array.from({ length: 10 }, (_, index) => {
@@ -281,7 +281,7 @@ describe("process utils", () => {
     ).toBeNull();
   });
 
-  it("scrubs inherited bb runtime env vars and node mode", () => {
+  it("scrubs inherited hyperfide runtime env vars and node mode", () => {
     const env: NodeJS.ProcessEnv = {
       HYPERFIDE_DATA_DIR: "/tmp/hyperfide-data",
       HYPERFIDE_HOST_DAEMON_PORT: "38887",
@@ -301,7 +301,7 @@ describe("process utils", () => {
     expect("SKIP_ME" in sanitizedEnv).toBe(false);
   });
 
-  it("keeps provider credentials a nested bb server needs and drops the pool marker", () => {
+  it("keeps provider credentials a nested hyperfide-platform server needs and drops the pool marker", () => {
     const env: NodeJS.ProcessEnv = {
       ANTHROPIC_BASE_URL: "http://127.0.0.1:38886/pool/http",
       ANTHROPIC_AUTH_TOKEN: "parent-hub-token",

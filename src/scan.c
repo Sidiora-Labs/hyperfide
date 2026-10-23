@@ -351,10 +351,12 @@ static void stmts_init(Cg *cg, Stmts *s) {
         "INSERT INTO body_fts(rowid,path,body) SELECT ?1,?3,body "
         "FROM body_fts WHERE rowid=?2");
     /* codify-v15 1.2: a files row keeps its path for life, so its path
-     * words are written once, when the row first appears */
+     * words are written once, when the row first appears. Probe docsize
+     * directly: reading the virtual table flushes its pending FTS writes
+     * into a new segment for every file. */
     s->put_filefts = cg_prep(cg,
         "INSERT INTO file_fts(rowid,words) SELECT ?1,?2 WHERE NOT EXISTS "
-        "(SELECT 1 FROM file_fts WHERE rowid=?1)");
+        "(SELECT 1 FROM file_fts_docsize WHERE id=?1)");
     s->del_filefts = cg_prep(cg, "DELETE FROM file_fts WHERE rowid=?");
 }
 

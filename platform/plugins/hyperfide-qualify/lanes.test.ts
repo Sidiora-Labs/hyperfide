@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createFakePluginHost } from '@hyperfide/plugin-sdk/testing';
 import { LaneService, type LaneEvent } from './lanes';
-import { createProjectionAdapter, runBinary } from './projection-adapter';
-import { registerQualification, type QualificationHost } from './qualification';
+import { createQualificationAdapter, runBinary } from './adapter';
+import { registerQualification } from './qualification';
 import { streamLane } from './app';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const f of cleanup.splice(0).reverse()) await f(); });
@@ -14,13 +14,13 @@ async function fixture(command = 'printf passing; printf warning >&2; sleep .3')
   cleanup.push(() => rm(root, {recursive: true, force: true}));
   const repository = join(root, 'repo');
   await mkdir(join(repository, 'spec/fixture'), {recursive: true});
-  await writeFile(join(repository, 'spec/fixture/spec.kvx'), `[task.1.1]\nverify_cmd = ${JSON.stringify(command)}\n`);
+  await writeFile(join(repository, 'spec/fixture/spec.kvx'), `[task.1.1]\nverify_cmd = ${JSON.stringify(command)} # spec parser comment\n`);
   await runBinary('git', ['init', repository]);
   await runBinary('git', ['add', '.'], {cwd: repository});
   await runBinary('git', ['-c','user.name=Hyperfide','-c','user.email=test@hyperfide.local','commit','-m','fixture'], {cwd: repository});
   const binary = join(root, 'hyperfide'), gate = join(root, 'hold');
   await writeFile(binary, `#!${process.execPath}\nif(process.argv[2]==='--version'){console.log('hyperfide fixture');process.exit(0)}\nconsole.log('done:'+process.env.CG_BUSY_TIMEOUT_MS);const fs=require('node:fs');const t=setInterval(()=>{if(!fs.existsSync(${JSON.stringify(gate)})){clearInterval(t)}},20);`, {mode:0o755});
-  const adapter = createProjectionAdapter(binary);
+  const adapter = createQualificationAdapter(binary);
   const events: LaneEvent[] = [];
   const lanes = new LaneService(adapter, e => events.push(e));
   cleanup.push(() => lanes.close());
@@ -38,6 +38,8 @@ it('runs committed fixture verification and streams stdout/stderr with provenanc
   expect(lane.commit).toBe((await runBinary('git',['rev-parse','HEAD'],{cwd:f.repository})).stdout.trim());
   expect(lane.environmentId).toMatch(/^hyperfide-worktree-/);
   expect(lane.environmentPath).not.toBe(f.repository);
+  expect((await runBinary('git', ['worktree', 'list', '--porcelain'], {cwd:f.repository})).stdout).not.toContain(lane.environmentPath);
+  expect((await runBinary('git', ['branch', '--list', `hyperfide-qualify-${lane.id}`], {cwd:f.repository})).stdout.trim()).toBe('');
   expect(lane.durationMs).toBeGreaterThan(0);
   expect(lane.toolchain).toMatchObject({node:expect.stringMatching(/^v24\./),pnpm:'9.15.0',hyperfide:'hyperfide fixture'});
   expect(f.events.some(e => e.log?.stream === 'stderr')).toBe(true);
@@ -85,7 +87,7 @@ it('wraps verification with the repository PostgreSQL helper', async () => {
 });
 it('registers real SDK RPC and realtime APIs and supports ordered replay', async () => {
   const f=await fixture(); const host=createFakePluginHost({pluginId:'hyperfide-qualify'});
-  const lanes=registerQualification(Object.values(host).find(v => v && typeof v === 'object' && 'rpc' in v && 'realtime' in v) as QualificationHost,f.adapter); cleanup.push(()=>host.harness.dispose());
+  const lanes=registerQualification(host.hyperfide,f.adapter); cleanup.push(()=>host.harness.dispose());
   const started=await host.harness.callRpc('start',f.input) as {id:string}; await lanes.wait(started.id);
   expect(await host.harness.callRpc('get',{id:started.id})).toMatchObject({state:'passed'});
   expect(await host.harness.callRpc('list',{})).toHaveLength(1);

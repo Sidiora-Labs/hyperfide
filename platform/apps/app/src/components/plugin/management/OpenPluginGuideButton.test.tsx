@@ -17,9 +17,9 @@ const GUIDE: InstalledPlugin = {
   rootDir: "/plugins/plugin-api-docs",
   version: "1.0.0",
   provenance: "builtin",
-  publisherLabel: "BB Official",
+  publisherLabel: "HYPERFIDE Official",
   isOrphanedBuiltin: false,
-  sourceDisplay: "Included with BB",
+  sourceDisplay: "Included with HYPERFIDE",
   updateState: {},
   enabled: false,
   description: "Explore the plugin API",
@@ -49,12 +49,12 @@ const GUIDE_ENTRY: PluginCatalogSearchEntry = {
   displayName: "Plugin Guide",
   description: "Explore the plugin API",
   source: GUIDE.source,
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "hyperfide-official",
+  marketplaceDisplayName: "HYPERFIDE Official",
+  publisherKey: "hyperfide-official",
+  publisherLabel: "HYPERFIDE Official",
   official: true,
-  author: { name: "BB", github: "get-bb", url: "https://github.com/get-bb" },
+  author: { name: "HYPERFIDE", github: "hyperfide", url: "https://github.com/hyperfide" },
   icon: null,
   iconUrl: null,
   iconTinted: false,
@@ -200,7 +200,7 @@ describe("OpenPluginGuideButton", () => {
       target: {
         kind: "catalog",
         entryId: "plugin-api-docs",
-        marketplace: "bb-official",
+        marketplace: "hyperfide-official",
       },
       displayName: "Plugin Guide",
     };
@@ -238,7 +238,7 @@ describe("OpenPluginGuideButton", () => {
     expect(installCall?.[1]?.method).toBe("POST");
     expect(JSON.parse(String(installCall?.[1]?.body))).toEqual({
       entryId: "plugin-api-docs",
-      marketplace: "bb-official",
+      marketplace: "hyperfide-official",
     });
     expect(screen.getByTestId("location").textContent).toBe("/plugins");
 

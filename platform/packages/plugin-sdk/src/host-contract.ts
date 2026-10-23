@@ -157,7 +157,7 @@ export interface ExperimentalHostEntry<
   readonly dispose?: () => void | Promise<void>;
 }
 
-/** Define the single host executable exported by `bb.host`. */
+/** Define the single host executable exported by `hyperfide.host`. */
 export function experimental_defineHostEntry<
   const Contract extends PluginRpcContract,
   const Signals extends ExperimentalHostSignals = {},

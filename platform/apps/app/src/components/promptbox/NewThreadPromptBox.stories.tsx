@@ -43,7 +43,7 @@ const codexModelLoadError = {
   providerId: "codex",
   code: "failed",
   detail:
-    "bb could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
+    "hyperfide could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
 } satisfies SystemExecutionOptionsModelLoadError;
 const codexMissingCliModelLoadError = {
   providerId: "codex",
@@ -66,7 +66,7 @@ const baseWorktree: NewThreadWorktreeConfig = {
 
 const baseProject: NewThreadProjectConfig = {
   projects: STORY_PROJECTS,
-  value: PROJECT_IDS.bb,
+  value: PROJECT_IDS.hyperfide,
   onChange: noop,
 };
 

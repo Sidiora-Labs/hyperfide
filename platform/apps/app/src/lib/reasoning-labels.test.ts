@@ -57,7 +57,7 @@ describe("reasoningLadderLabels", () => {
       label,
     }));
 
-  it("drops a prefix every level shares, using bb's own name where the rest is a standard level", () => {
+  it("drops a prefix every level shares, using hyperfide's own name where the rest is a standard level", () => {
     expect(
       reasoningLadderLabels(
         ladder({

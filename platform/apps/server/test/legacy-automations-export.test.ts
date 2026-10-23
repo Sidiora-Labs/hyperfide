@@ -56,7 +56,7 @@ describe("exportLegacyAutomationsForPluginImport", () => {
   let db: DbConnection;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "bb-legacy-automations-"));
+    dataDir = await mkdtemp(join(tmpdir(), "hyperfide-legacy-automations-"));
     db = createConnection(":memory:");
   });
 

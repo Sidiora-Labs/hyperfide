@@ -17,7 +17,7 @@ import {
   showMutationErrorToast,
 } from "@/lib/mutation-errors";
 import type { QueuedMessageReorderRequest } from "@/lib/queued-message-reorder";
-import { BbHttpError } from "@/lib/sdk";
+import { HyperfideHttpError } from "@/lib/sdk";
 import type { InlineQueuedMessageEditState } from "./useInlineQueuedMessageEditing";
 
 type QueuedMessageSendGuard = "current-head" | "exists" | "none";
@@ -166,7 +166,7 @@ export function useQueuedMessageActions({
       onSaveSuccess?.();
       dismissInlineQueuedMessageEditor();
     } catch (error) {
-      if (error instanceof BbHttpError && error.status === 404) {
+      if (error instanceof HyperfideHttpError && error.status === 404) {
         dismissInlineQueuedMessageEditor();
       }
       showMutationErrorToast({

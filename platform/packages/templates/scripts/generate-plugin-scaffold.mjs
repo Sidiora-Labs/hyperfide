@@ -1,5 +1,5 @@
 // Generates src/generated/plugin-starter-files.generated.ts: the
-// `bb plugin new` starter component set from the plugin component registry,
+// `hyperfide-platform plugin new` starter component set from the plugin component registry,
 // plus the npm deps a scaffold needs to build and typecheck them.
 //
 // The output is not committed. turbo runs this as
@@ -21,7 +21,7 @@ const packageRoot = path.resolve(
   "..",
 );
 
-// Embed the `bb plugin new` starter component set from the plugin
+// Embed the `hyperfide-platform plugin new` starter component set from the plugin
 // component registry (plugin design §5.5): the transitive closure of the
 // starter items, as {target, content} pairs, plus the npm deps a scaffold
 // needs to build (dependencies) and typecheck (devDependencies) them, and
@@ -49,7 +49,7 @@ const appPackageJson = JSON.parse(
 const starterFiles = [];
 const starterBundledDeps = new Set();
 // Every shimmed package, not only those the starter components import: the
-// plugin guide tells authors to import any of them freely, and `bb plugin
+// plugin guide tells authors to import any of them freely, and `hyperfide-platform plugin
 // build` shims them all — but tsc resolves through node_modules, so each one
 // needs its declarations installed for the import to typecheck (#2072).
 const shimmedTypeDeps = new Set(SHIMMED_TYPE_PACKAGES);
@@ -121,11 +121,11 @@ export interface PluginStarterFile {
 
 export const PLUGIN_STARTER_FILES: readonly PluginStarterFile[] = ${JSON.stringify(starterFiles, null, 2)};
 
-/** npm deps \`bb plugin build\` bundles — must be installed to build. */
+/** npm deps \`hyperfide-platform plugin build\` bundles — must be installed to build. */
 export const PLUGIN_STARTER_DEPENDENCIES: Readonly<Record<string, string>> = ${JSON.stringify(versionedDeps(starterBundledDeps), null, 2)};
 
 /**
- * Every package \`bb plugin build\` shims to the host runtime, at the host's
+ * Every package \`hyperfide-platform plugin build\` shims to the host runtime, at the host's
  * version — installed for editor/tsc types only, never bundled.
  */
 export const PLUGIN_SHIMMED_TYPE_DEPENDENCIES: Readonly<Record<string, string>> = ${JSON.stringify(versionedDeps(shimmedTypeDeps), null, 2)};

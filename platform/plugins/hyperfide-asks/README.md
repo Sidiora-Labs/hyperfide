@@ -7,13 +7,13 @@ record that identity. Secret values and sensitive variables use the
 `hyperfide-secrets` plugin's `storeReference` RPC. Only `secret-ref:<name>` reaches
 the binary; secret notes are omitted to avoid accidental disclosure.
 
-`src/bridge-projection.ts` is the local interface for the unmerged 3.1 bridge.
-Replace it with that bridge at integration. It normalizes the binary's Ask rows
-and answers through `hyperfide ask answer <id> <answer> -m <note>` on the server.
-The default server adapter discovers project source paths on each refresh;
-`inbox.repositories` in plugin storage can supply an explicit list. This local
-adapter assumes those paths are accessible on the server. The merged host-aware
-3.1 bridge owns repository routing.
+The store bridge mirrors CLI rows and publishes debounced database/WAL updates.
+`src/inbox-adapter.ts`, `src/thread-bridge.ts` and `client.ts` adapt its
+RPC and row shapes for the inbox, thread lifecycle and UI consumers.
+The local host adapter reads the graph plugin's repository binary-path setting
+and verifies the executable with the daemon's `inspectHyperfide` implementation.
+`inbox.repositories` can supply explicit repository paths; otherwise project
+source paths are used. These paths must be accessible on the server host.
 
 Named secret files live under `~/.hyperfide/secrets` with mode 0600, in a directory
 created with mode 0700. Their randomly generated reference names contain no value.

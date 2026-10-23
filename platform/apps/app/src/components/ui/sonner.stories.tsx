@@ -122,7 +122,7 @@ const TOAST_EXAMPLES: readonly ToastExample[] = [
       description: pluginNotificationDescription(
         { id: "usage", name: "Usage" },
         "installed",
-        "bb connect: timed out waiting for the tunnel client.",
+        "hyperfide-platform connect: timed out waiting for the tunnel client.",
       ),
     },
   },
@@ -375,7 +375,7 @@ function showToastExample(example: ToastExample): void {
       />
     ),
     {
-      className: "bb-app-toast",
+      className: "hyperfide-app-toast",
       dismissible: current.dismissible ?? true,
       duration: LIVE_TOAST_DURATION,
       id,

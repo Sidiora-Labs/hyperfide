@@ -81,8 +81,8 @@ export function AddMachineContent({
 
 function serverMachineNotice(serverMachineName: string | null): string {
   return serverMachineName === null
-    ? "The new machine will connect to your bb server. Keep the server machine on so the new machine can keep working."
-    : `The new machine will connect to the bb server on ${serverMachineName}. Keep that computer on so the new machine can keep working.`;
+    ? "The new machine will connect to your hyperfide-platform server. Keep the server machine on so the new machine can keep working."
+    : `The new machine will connect to the hyperfide-platform server on ${serverMachineName}. Keep that computer on so the new machine can keep working.`;
 }
 
 export type MachineAccessGateState =
@@ -306,7 +306,7 @@ export function ManualMachineSetupView({
           }
         >
           {errorMessage ??
-            "Run this command on the machine you want to add. It installs bb and keeps the machine connected to this server."}
+            "Run this command on the machine you want to add. It installs hyperfide and keeps the machine connected to this server."}
         </DialogDescription>
       </DialogHeader>
       {errorMessage === null ? null : (

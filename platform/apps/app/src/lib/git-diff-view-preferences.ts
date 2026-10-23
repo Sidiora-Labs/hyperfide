@@ -12,11 +12,11 @@ import {
 } from "./code-overflow-mode";
 
 export const GIT_DIFF_DISPLAY_MODE_STORAGE_KEY =
-  "bb.thread.gitDiff.displayMode";
+  "hyperfide.thread.gitDiff.displayMode";
 export const GIT_DIFF_LINE_OVERFLOW_MODE_STORAGE_KEY =
-  "bb.thread.gitDiff.lineOverflowMode";
+  "hyperfide.thread.gitDiff.lineOverflowMode";
 export const GIT_DIFF_IGNORE_WHITESPACE_STORAGE_KEY =
-  "bb.thread.gitDiff.ignoreWhitespace";
+  "hyperfide.thread.gitDiff.ignoreWhitespace";
 
 function isGitDiffDisplayMode(value: string): value is GitDiffDisplayMode {
   return value === "unified" || value === "split";

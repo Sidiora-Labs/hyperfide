@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { createSpecCli } from "../../../../plugins/hyperfide-spec/cli.mjs";
+import { createSpecCli } from "../../../../plugins/hyperfide-spec/src/cli/index.mjs";
 
 export function registerSpecCommands(program: Command): void {
   const cli = createSpecCli();

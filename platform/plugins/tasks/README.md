@@ -138,7 +138,7 @@ labels, subtasks, attachments, recent comments, attached threads, and CLI
 action contract as context. Tasks linked to the current hyperfide platform project rank first.
 
 Inside a task description or comment, `@` also inserts a task pill. These
-references are stored in Markdown as `[PROD-1](bbtask://PROD-1)`, so they remain
+references are stored in Markdown as `[PROD-1](hyperfide-task://PROD-1)`, so they remain
 portable in task content.
 
 Mentioning a task key such as `PROD-1` in an agent request also activates the

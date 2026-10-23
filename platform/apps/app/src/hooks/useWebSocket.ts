@@ -4,7 +4,7 @@ import { createRealtimeCacheEffects } from "./realtime-cache-effects";
 import { useDeletedResourceRouteOwner } from "./cache-owners/resource-route-owner";
 import { createArchivedThreadBrowserOwner } from "./cache-owners/archived-thread-browser-owner";
 import { wsManager } from "../lib/ws";
-import { getDesktopBrowserApi } from "../lib/bb-desktop";
+import { getDesktopBrowserApi } from "../lib/hyperfide-desktop";
 import { sdk } from "../lib/sdk";
 import { applyThreadTimelineSignal } from "./cache-owners/thread-timeline-push-owner";
 

@@ -1,4 +1,4 @@
-import type { PullRequest } from "hyperfide-plugin-bb--github-pr-status/contract";
+import type { PullRequest } from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { EnvironmentProviderIcon } from "@/components/plugin/EnvironmentProviderIcon";
 import {
   createContext,

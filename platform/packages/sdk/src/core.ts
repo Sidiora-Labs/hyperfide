@@ -2,7 +2,7 @@ import {
   createDesktopBrowsersArea,
   type ExperimentalDesktopBrowsersArea,
 } from "./areas/desktop-browsers.js";
-import type { BbSdkContext, BbSdkTransport } from "./transport.js";
+import type { HyperfideSdkContext, HyperfideSdkTransport } from "./transport.js";
 import {
   createEnvironmentsArea,
   type EnvironmentsArea,
@@ -21,8 +21,8 @@ import {
   createPromptHistoryArea,
   type ExperimentalPromptHistoryArea,
 } from "./areas/prompt-history.js";
-import { createBbRealtimeClient } from "./realtime-client.js";
-import type { BbRealtime } from "./realtime-types.js";
+import { createHyperfideRealtimeClient } from "./realtime-client.js";
+import type { HyperfideRealtime } from "./realtime-types.js";
 import { createStatusArea, type StatusArea } from "./areas/status.js";
 import { createSkillsArea, type SkillsArea } from "./areas/skills.js";
 import { createThemeArea, type ThemeArea } from "./areas/theme.js";
@@ -37,16 +37,16 @@ import {
 export type * from "./public-types.js";
 export { createBuiltinPlanCommandTextInput } from "@hyperfide/domain";
 
-export interface CreateBbSdkArgs {
-  context?: BbSdkContext;
-  transport: BbSdkTransport;
+export interface CreateHyperfideSdkArgs {
+  context?: HyperfideSdkContext;
+  transport: HyperfideSdkTransport;
 }
 
-export interface CreateBbSdkWithGuideArgs extends CreateBbSdkArgs {
+export interface CreateHyperfideSdkWithGuideArgs extends CreateHyperfideSdkArgs {
   guide: GuideArea;
 }
 
-export interface BbSdkAreas extends BbRealtime {
+export interface HyperfideSdkAreas extends HyperfideRealtime {
   experimental_desktopBrowsers: ExperimentalDesktopBrowsersArea;
   experimental_promptHistory: ExperimentalPromptHistoryArea;
   experimental_server: ExperimentalServerArea;
@@ -65,20 +65,20 @@ export interface BbSdkAreas extends BbRealtime {
   threads: ThreadsArea;
 }
 
-export interface BbSdk extends BbSdkAreas {
+export interface HyperfideSdk extends HyperfideSdkAreas {
   guide: GuideArea;
 }
 
-export function createBbSdk(args: CreateBbSdkWithGuideArgs): BbSdk;
-export function createBbSdk(args: CreateBbSdkArgs): BbSdkAreas;
-export function createBbSdk(
-  args: CreateBbSdkArgs | CreateBbSdkWithGuideArgs,
-): BbSdkAreas | BbSdk {
+export function createHyperfideSdk(args: CreateHyperfideSdkWithGuideArgs): HyperfideSdk;
+export function createHyperfideSdk(args: CreateHyperfideSdkArgs): HyperfideSdkAreas;
+export function createHyperfideSdk(
+  args: CreateHyperfideSdkArgs | CreateHyperfideSdkWithGuideArgs,
+): HyperfideSdkAreas | HyperfideSdk {
   const sdkContext = { transport: args.transport };
-  const realtime = createBbRealtimeClient({
+  const realtime = createHyperfideRealtimeClient({
     transport: args.transport,
   });
-  const areas: BbSdkAreas = {
+  const areas: HyperfideSdkAreas = {
     experimental_desktopBrowsers: createDesktopBrowsersArea(sdkContext),
     experimental_promptHistory: createPromptHistoryArea(sdkContext),
     experimental_server: createServerArea(sdkContext),

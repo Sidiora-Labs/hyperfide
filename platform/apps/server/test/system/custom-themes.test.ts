@@ -20,7 +20,7 @@ describe("custom themes service", () => {
   let themeRoot: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "bb-theme-test-"));
+    dataDir = await mkdtemp(join(tmpdir(), "hyperfide-theme-test-"));
     themeRoot = resolveThemeRootPath(dataDir);
   });
 

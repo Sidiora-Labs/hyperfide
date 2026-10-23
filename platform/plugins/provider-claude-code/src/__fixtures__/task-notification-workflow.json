@@ -4,8 +4,8 @@
   "task_id": "wu7ol9ras",
   "tool_use_id": "toolu_012BkJCmbBgNqL6SXPKNfPvE",
   "status": "completed",
-  "output_file": "/tmp/bb-fixture/tasks/wu7ol9ras.output",
-  "summary": "Dynamic workflow \"Tiny fixture workflow for BB capture\" completed",
+  "output_file": "/tmp/hyperfide-fixture/tasks/wu7ol9ras.output",
+  "summary": "Dynamic workflow \"Tiny fixture workflow for HYPERFIDE capture\" completed",
   "usage": {
     "total_tokens": 26674,
     "tool_uses": 0,

@@ -5,8 +5,8 @@ about threads, projects, plugins and settings runs in the web page inside
 the WebView, which has its own query client; the native `QueryClient` only
 caches the system config the palette sync reads.
 
-- `connect/` backs bb connect enrollment: `parseConnectPairingPayload` (QR
-  JSON, `bb://connect?code=…` link, or a bare code),
+- `connect/` backs hyperfide-platform connect enrollment: `parseConnectPairingPayload` (QR
+  JSON, `Hyperfide://connect?code=…` link, or a bare code),
   `resolveEnrollmentTarget` (server handle or URL, optional self-hosted
   apex), `redeemEnrollment` + `describeEnrollmentError` (redeem the pairing
   code, map wire errors to copy), `accountServerProfile`, and
@@ -23,7 +23,7 @@ caches the system config the palette sync reads.
   `enablePushForProfile` (asks the OS once), `describePushStatus`.
   `push-registration-controller.ts` coalesces concurrent syncs per profile
   and reconciles removed profiles / token rolls. `push-store.ts` is the
-  injected-storage store (MMKV `bb.preferences` in the app, a Map in tests).
+  injected-storage store (MMKV `hyperfide.preferences` in the app, a Map in tests).
   `push-subscriptions-api.ts` calls the `push-notifications` plugin RPC
   through `sdk.plugins.callRpc`. It keys clients by server URL, not by a
   profile client that the app can dispose. Its list reads local validated

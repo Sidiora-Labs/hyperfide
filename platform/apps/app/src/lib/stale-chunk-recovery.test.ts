@@ -81,7 +81,7 @@ it("reloads once after a deployment, persists the latest composer edit before na
   let guardAtReload: string | null = null;
   reload.mockImplementation(() => {
     persistedAtReload = window.localStorage.getItem(draft.storageKey);
-    guardAtReload = window.sessionStorage.getItem("bb.stale-chunk-reload");
+    guardAtReload = window.sessionStorage.getItem("hyperfide.stale-chunk-reload");
   });
   failImport();
   failImport();

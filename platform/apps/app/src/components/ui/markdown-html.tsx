@@ -15,9 +15,9 @@ const MARKDOWN_HTML_REHYPE_PLUGINS: MarkdownRehypePlugins = [
       tagNames: [
         ...(defaultSchema.tagNames ?? []),
         "video",
-        "bb-thread-mention",
-        "bb-prompt-mention",
-        "bb-message-directive",
+        "hyperfide-thread-mention",
+        "hyperfide-prompt-mention",
+        "hyperfide-message-directive",
       ],
       protocols: {
         ...defaultSchema.protocols,
@@ -51,13 +51,13 @@ const MARKDOWN_HTML_REHYPE_PLUGINS: MarkdownRehypePlugins = [
           "dataCodeFenceOffset",
           "dataCodeFenceClosed",
         ],
-        "bb-thread-mention": [
+        "hyperfide-thread-mention": [
           "dataThreadId",
           "dataRawThreadId",
           "dataRawThreadInlineCode",
         ],
-        "bb-prompt-mention": ["dataMentionIndex"],
-        "bb-message-directive": ["dataDirectiveIndex"],
+        "hyperfide-prompt-mention": ["dataMentionIndex"],
+        "hyperfide-message-directive": ["dataDirectiveIndex"],
       },
     },
   ],

@@ -24,21 +24,21 @@ describe("plugins guide chapter", () => {
     const names = plugin.commands.map((command) => command.name());
     expect(names.length).toBeGreaterThan(0);
 
-    const guide = renderTemplate("bbGuidePlugins", {});
+    const guide = renderTemplate("hyperfideGuidePlugins", {});
     for (const name of names) {
       const pattern = new RegExp(
         `hyperfide-platform plugin (?:[a-z-]+\\|)*${name}\\b`,
       );
       expect(
         guide,
-        `"hyperfide-platform plugin ${name}" is not documented in bb-guide-plugins.md`,
+        `"hyperfide-platform plugin ${name}" is not documented in hyperfide-guide-plugins.md`,
       ).toMatch(pattern);
     }
   });
 
   it("mentions every declared hyperfide-platform plugin option flag", () => {
     const plugin = buildPluginCommand();
-    const guide = renderTemplate("bbGuidePlugins", {});
+    const guide = renderTemplate("hyperfideGuidePlugins", {});
     let optionCount = 0;
     for (const command of plugin.commands) {
       for (const option of command.options) {
@@ -49,7 +49,7 @@ describe("plugins guide chapter", () => {
         expect(forms.length).toBeGreaterThan(0);
         expect(
           forms.some((form) => guide.includes(form)),
-          `"hyperfide-platform plugin ${command.name()}" flag "${option.flags}" is not documented in bb-guide-plugins.md`,
+          `"hyperfide-platform plugin ${command.name()}" flag "${option.flags}" is not documented in hyperfide-guide-plugins.md`,
         ).toBe(true);
       }
     }
@@ -61,11 +61,11 @@ describe("plugins guide chapter", () => {
     const names = marketplace.commands.map((command) => command.name());
     expect(names.length).toBeGreaterThan(0);
 
-    const guide = renderTemplate("bbGuidePlugins", {});
+    const guide = renderTemplate("hyperfideGuidePlugins", {});
     for (const name of names) {
       expect(
         guide,
-        `"hyperfide-platform marketplace ${name}" is not documented in bb-guide-plugins.md`,
+        `"hyperfide-platform marketplace ${name}" is not documented in hyperfide-guide-plugins.md`,
       ).toMatch(new RegExp(`hyperfide-platform marketplace ${name}\\b`));
     }
   });

@@ -369,11 +369,11 @@ async function replayCanonical(workspaceDir: string): Promise<ReplayResult> {
     });
     await settle(2);
 
-    const bbTurnId = firstTurnId(events);
+    const hyperfideTurnId = firstTurnId(events);
     const expectedTurnId =
-      bbTurnId === undefined
+      hyperfideTurnId === undefined
         ? undefined
-        : collector.assembler.getProviderTurnId(THREAD_ID, bbTurnId);
+        : collector.assembler.getProviderTurnId(THREAD_ID, hyperfideTurnId);
     if (expectedTurnId === undefined) {
       throw new Error("Expected a codex-native turn id to steer against");
     }
@@ -445,7 +445,7 @@ const GOLDEN_EVENT_STREAM: string[] = [
 let workspaceDir: string;
 
 beforeEach(() => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-calibration-ws-"));
+  workspaceDir = mkdtempSync(join(tmpdir(), "hyperfide-codex-calibration-ws-"));
   const scriptPath = join(workspaceDir, "calibration-script.json");
   writeFileSync(scriptPath, JSON.stringify({ turns: SCRIPT }), "utf8");
   stubFakeCodexAppServer(scriptPath);
@@ -491,7 +491,7 @@ it("replays one scripted codex session onto the golden event stream", async () =
       event.item.command === "git status --short",
   );
   expect(
-    canonical.collector.assembler.getBbItemId(THREAD_ID, COMMAND_ITEM_ID),
+    canonical.collector.assembler.getHyperfideItemId(THREAD_ID, COMMAND_ITEM_ID),
   ).toBe(
     commandEventItemId?.type === "item/completed"
       ? commandEventItemId.item.id

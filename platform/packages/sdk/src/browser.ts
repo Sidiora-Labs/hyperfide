@@ -1,32 +1,32 @@
 import {
-  createBbSdk,
+  createHyperfideSdk,
   createBuiltinPlanCommandTextInput,
-  type BbSdk,
-  type BbSdkAreas,
+  type HyperfideSdk,
+  type HyperfideSdkAreas,
 } from "./core.js";
 import { createHttpTransport } from "./transport-http.js";
 import type {
-  BbRealtimeSocketFactory,
-  BbSdkContext,
-  BbSdkTransport,
+  HyperfideRealtimeSocketFactory,
+  HyperfideSdkContext,
+  HyperfideSdkTransport,
 } from "./transport.js";
 
 export interface CreateBrowserTransportArgs {
   baseUrl?: string;
   fetch?: typeof fetch;
   realtimeUrl?: string;
-  websocket?: BbRealtimeSocketFactory;
+  websocket?: HyperfideRealtimeSocketFactory;
 }
 
-export interface CreateBrowserBbSdkArgs extends CreateBrowserTransportArgs {
-  context?: BbSdkContext;
+export interface CreateBrowserHyperfideSdkArgs extends CreateBrowserTransportArgs {
+  context?: HyperfideSdkContext;
 }
 
-export type BrowserBbSdk = BbSdkAreas;
+export type BrowserHyperfideSdk = HyperfideSdkAreas;
 
 export function createBrowserTransport(
   args: CreateBrowserTransportArgs = {},
-): BbSdkTransport {
+): HyperfideSdkTransport {
   return createHttpTransport({
     baseUrl: args.baseUrl,
     fetch: args.fetch,
@@ -36,18 +36,18 @@ export function createBrowserTransport(
   });
 }
 
-export function createBrowserBbSdk(
-  args: CreateBrowserBbSdkArgs = {},
-): BrowserBbSdk {
-  return createBbSdk({
+export function createBrowserHyperfideSdk(
+  args: CreateBrowserHyperfideSdkArgs = {},
+): BrowserHyperfideSdk {
+  return createHyperfideSdk({
     context: args.context,
     transport: createBrowserTransport(args),
   });
 }
 
-export { BbHttpError, BbRequestTimeoutError } from "./response.js";
-export type { BbHttpErrorArgs } from "./response.js";
-export { createBbSdk, createBuiltinPlanCommandTextInput, createHttpTransport };
-export type { BbSdk, BbSdkAreas, BbSdkContext, BbSdkTransport };
+export { HyperfideHttpError, HyperfideRequestTimeoutError } from "./response.js";
+export type { HyperfideHttpErrorArgs } from "./response.js";
+export { createHyperfideSdk, createBuiltinPlanCommandTextInput, createHttpTransport };
+export type { HyperfideSdk, HyperfideSdkAreas, HyperfideSdkContext, HyperfideSdkTransport };
 export type * from "./areas/skills.js";
 export type * from "./public-types.js";

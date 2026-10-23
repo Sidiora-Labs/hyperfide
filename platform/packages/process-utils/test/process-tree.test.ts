@@ -81,7 +81,7 @@ posixOnly("process tree helpers", () => {
   });
 
   it("finds and kills processes whose cwd is inside a directory", async () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), "bb-cwd-sweep-")));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "hyperfide-cwd-sweep-")));
     cleanupDirs.push(dir);
     const child = spawn("sh", ["-c", "sleep 300 & echo $!; wait"], {
       cwd: dir,
@@ -128,7 +128,7 @@ posixOnly("process tree helpers", () => {
   });
 
   it("rescans and kills processes that appear while the first targets shut down", async () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), "bb-cwd-respawn-")));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "hyperfide-cwd-respawn-")));
     cleanupDirs.push(dir);
     const respawnerPath = join(dir, "respawner.cjs");
     writeFileSync(
@@ -169,8 +169,8 @@ posixOnly("process tree helpers", () => {
   });
 
   it("does not follow a symlinked workspace root", async () => {
-    const target = realpathSync(mkdtempSync(join(tmpdir(), "bb-cwd-target-")));
-    const linkParent = mkdtempSync(join(tmpdir(), "bb-cwd-link-"));
+    const target = realpathSync(mkdtempSync(join(tmpdir(), "hyperfide-cwd-target-")));
+    const linkParent = mkdtempSync(join(tmpdir(), "hyperfide-cwd-link-"));
     cleanupDirs.push(target, linkParent);
     const link = join(linkParent, "workspace");
     symlinkSync(target, link);
@@ -187,7 +187,7 @@ posixOnly("process tree helpers", () => {
   });
 
   it("stops the leader first so it can shut its own child down", async () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), "bb-leader-first-")));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "hyperfide-leader-first-")));
     cleanupDirs.push(dir);
     const log = join(dir, "log");
     writeFileSync(

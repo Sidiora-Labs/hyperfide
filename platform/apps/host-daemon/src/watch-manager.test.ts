@@ -1011,7 +1011,7 @@ describe("WatchManager", () => {
     const manager = new WatchManager({
       hostWatcher,
       onThreadStorageChanged,
-      threadStorageRootPath: "/tmp/bb-data/thread-storage",
+      threadStorageRootPath: "/tmp/hyperfide-data/thread-storage",
     });
 
     await manager.replaceWatchSet({
@@ -1052,7 +1052,7 @@ describe("WatchManager", () => {
     });
     const manager = new WatchManager({
       hostWatcher,
-      threadStorageRootPath: "/tmp/bb-data/thread-storage",
+      threadStorageRootPath: "/tmp/hyperfide-data/thread-storage",
     });
 
     await manager.replaceWatchSet({

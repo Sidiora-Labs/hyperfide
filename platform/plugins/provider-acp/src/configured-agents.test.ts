@@ -110,7 +110,7 @@ describe("a configured entry that replaces a shipped agent", () => {
   let tempRoot: string;
 
   beforeEach(async () => {
-    tempRoot = await mkdtemp(path.join(tmpdir(), "bb-acp-configured-agents-"));
+    tempRoot = await mkdtemp(path.join(tmpdir(), "hyperfide-acp-configured-agents-"));
   });
 
   afterEach(async () => {

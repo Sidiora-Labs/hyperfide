@@ -19,7 +19,7 @@ import { validatePluginArtifactMeta } from "./app-bundle.js";
 
 const hostBuildRecordSchema = z.object({
   rootDir: z.string(),
-  bbVersion: z.string(),
+  hyperfideVersion: z.string(),
   artifactDigest: z.string(),
   inputs: z.array(z.string()),
 });
@@ -74,12 +74,12 @@ export async function buildMutablePluginHost(args: {
   dataDir: string;
   pluginId: string;
   rootDir: string;
-  bbVersion: string;
+  hyperfideVersion: string;
   toolchain: PluginBuildToolchain;
 }): Promise<void> {
   const result = await buildPluginHost(
     args.rootDir,
-    args.bbVersion,
+    args.hyperfideVersion,
     args.toolchain,
   );
   const recordPath = hostBuildRecordPath(args.dataDir, args.pluginId);
@@ -89,7 +89,7 @@ export async function buildMutablePluginHost(args: {
     stagedPath,
     JSON.stringify({
       rootDir: args.rootDir,
-      bbVersion: args.bbVersion,
+      hyperfideVersion: args.hyperfideVersion,
       artifactDigest: result.artifactDigest,
       inputs: result.inputs,
     } satisfies z.infer<typeof hostBuildRecordSchema>),
@@ -102,7 +102,7 @@ export async function isMutablePluginHostReusable(args: {
   pluginId: string;
   pluginVersion: string;
   rootDir: string;
-  bbVersion: string;
+  hyperfideVersion: string;
 }): Promise<boolean> {
   const distDir = join(args.rootDir, "dist");
   let record: z.infer<typeof hostBuildRecordSchema>;
@@ -126,7 +126,7 @@ export async function isMutablePluginHostReusable(args: {
   }
   if (
     record.rootDir !== args.rootDir ||
-    record.bbVersion !== args.bbVersion ||
+    record.hyperfideVersion !== args.hyperfideVersion ||
     validatePluginArtifactMeta({
       artifact: "host",
       raw: rawMeta,

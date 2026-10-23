@@ -62,12 +62,12 @@ function setup() {
 }
 
 function createTempDatabasePath(): TempDatabasePath {
-  const dir = mkdtempSync(join(tmpdir(), "bb-db-maintenance-"));
+  const dir = mkdtempSync(join(tmpdir(), "hyperfide-db-maintenance-"));
   return {
     cleanup(): void {
       rmSync(dir, { force: true, recursive: true });
     },
-    dbPath: join(dir, "bb.db"),
+    dbPath: join(dir, "hyperfide.db"),
   };
 }
 

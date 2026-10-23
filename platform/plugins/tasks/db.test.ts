@@ -8,8 +8,8 @@ import {
 } from "./db";
 
 function setup() {
-  const { bb, harness } = createFakePluginHost({ pluginId: "tasks-db-test" });
-  const db = bb.storage.database();
+  const { hyperfide, harness } = createFakePluginHost({ pluginId: "tasks-db-test" });
+  const db = hyperfide.storage.database();
   return { db, harness, store: createTasksStore(db) };
 }
 

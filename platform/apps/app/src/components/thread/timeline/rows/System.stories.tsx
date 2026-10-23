@@ -31,11 +31,11 @@ const provisioningPending: TimelineRow = systemRow({
   detail:
     "Creating worktree (305ms)\n" +
     "HEAD is now at 37eeec85 Refactor timeline row titles\n" +
-    "Preparing worktree (new branch 'bb/investigate-thread-timeline-load-thr_sjgc9pafri')\n" +
+    "Preparing worktree (new branch 'hyperfide/investigate-thread-timeline-load-thr_sjgc9pafri')\n" +
     "Created worktree (305ms)\n" +
-    "Using workspace: /Users/michael/.hyperfide-dev/worktrees/env_etyr7f84cg/bb\n" +
+    "Using workspace: /Users/michael/.hyperfide-dev/worktrees/env_etyr7f84cg/hyperfide\n" +
     "Running .hyperfide-env-setup.sh\n" +
-    "[bb-env-setup] Running: pnpm install\n" +
+    "[hyperfide-env-setup] Running: pnpm install\n" +
     "Scope: all 35 workspace projects\n" +
     "Lockfile is up to date, resolution step is skipped\n" +
     "Progress: resolved 1094, reused 1093, downloaded 0, added 877",
@@ -56,9 +56,9 @@ const provisioningCompleted: TimelineRow = systemRow({
   title: "Provisioned thread",
   detail:
     "Created worktree (305ms)\n" +
-    "Using workspace: /Users/michael/.hyperfide-dev/worktrees/env_etyr7f84cg/bb\n" +
+    "Using workspace: /Users/michael/.hyperfide-dev/worktrees/env_etyr7f84cg/hyperfide\n" +
     ".hyperfide-env-setup.sh finished (8.2s)\n" +
-    "Using branch: bb/investigate-thread-timeline-load-thr_sjgc9pafri (37eeec8)\n" +
+    "Using branch: hyperfide/investigate-thread-timeline-load-thr_sjgc9pafri (37eeec8)\n" +
     "Provisioned thread (8.7s)",
   status: "completed",
   completedAt: 1778027670469,

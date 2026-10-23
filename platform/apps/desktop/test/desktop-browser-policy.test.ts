@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bbDesktopBrowserAttachRequestSchema } from "@hyperfide/desktop-contract";
+import { hyperfideDesktopBrowserAttachRequestSchema } from "@hyperfide/desktop-contract";
 import {
   evaluatePopupRate,
   isAllowedBrowserUrl,
@@ -28,7 +28,7 @@ describe("isAllowedBrowserUrl", () => {
 describe("browser IPC payload schemas", () => {
   it("rejects legacy layout fields in attach requests", () => {
     expect(
-      bbDesktopBrowserAttachRequestSchema.safeParse({
+      hyperfideDesktopBrowserAttachRequestSchema.safeParse({
         threadId: "thread-1",
         tabId: "browser:abc",
         url: "",

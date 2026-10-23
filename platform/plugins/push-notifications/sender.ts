@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
-  BbPluginApi,
+  HyperfidePluginApi,
   PluginThreadEventPayloads,
 } from "@hyperfide/plugin-sdk";
 import { EnvHttpProxyAgent, fetch as undiciFetch } from "undici";
@@ -143,7 +143,7 @@ export interface PushSender {
 }
 
 export interface CreatePushSenderArgs {
-  bb: BbPluginApi;
+  hyperfide: HyperfidePluginApi;
   subscriptions: PushSubscriptionStore;
   getExpoPushUrl(): Promise<string>;
   getNotificationLevel(thread: {
@@ -218,7 +218,7 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
 
 export function createPushSender(args: CreatePushSenderArgs): PushSender {
   const {
-    bb,
+    hyperfide,
     subscriptions,
     coalesceMs = DEFAULT_COALESCE_MS,
     now = Date.now,
@@ -233,7 +233,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
 
   async function setLastOutcome(outcome: LastSendOutcome): Promise<void> {
     lastOutcome = outcome;
-    await bb.storage.kv.set(LAST_OUTCOME_KEY, outcome);
+    await hyperfide.storage.kv.set(LAST_OUTCOME_KEY, outcome);
   }
 
   function cancel(threadId: string): void {
@@ -262,7 +262,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       pending.delete(threadId);
       if (!entry || !running) return;
       const flush = flushThread(threadId, entry).catch((error: unknown) => {
-        bb.log.error(
+        hyperfide.log.error(
           `Push notification flush failed for thread ${threadId}: ${error instanceof Error ? error.message : String(error)}`,
         );
       });
@@ -289,7 +289,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
     if (kinds.size === 0) return null;
     let interaction: PendingInteraction | null = null;
     if (kinds.has("pending-interaction")) {
-      const interactions = await bb.sdk.threads.interactions.list({
+      const interactions = await hyperfide.sdk.threads.interactions.list({
         threadId: thread.id,
       });
       interaction =
@@ -318,7 +318,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
     threadId: string,
   ): Promise<string | null> {
     try {
-      return threadDisplayTitle(await bb.sdk.threads.get({ threadId }));
+      return threadDisplayTitle(await hyperfide.sdk.threads.get({ threadId }));
     } catch {
       return null;
     }
@@ -330,7 +330,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
   ): Promise<void> {
     let thread: ThreadResponse;
     try {
-      thread = await bb.sdk.threads.get({ threadId });
+      thread = await hyperfide.sdk.threads.get({ threadId });
     } catch {
       return;
     }
@@ -366,7 +366,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
     if (config.webEnabled) channels.push("web");
     if (config.desktopEnabled) channels.push("desktop");
     if (channels.length > 0) {
-      bb.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
+      hyperfide.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
         id: randomUUID(),
         title,
         body,
@@ -377,7 +377,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
     if (!config.mobileEnabled) return;
     const rows = await subscriptions.list();
     if (rows.length === 0) return;
-    const serverUrl = bb.server.experimental_appUrl;
+    const serverUrl = hyperfide.server.experimental_appUrl;
     const deliveries: Delivery[] = rows.map((subscription) => ({
       subscription,
       message: {
@@ -432,7 +432,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       const warningAt = now();
       if (warningAt - lastNetworkWarningAt >= NETWORK_WARNING_INTERVAL_MS) {
         lastNetworkWarningAt = warningAt;
-        bb.log.warn(
+        hyperfide.log.warn(
           `Expo push request failed for subscription rows ${batch.map((delivery) => delivery.subscription.id).join(", ")}`,
         );
       }
@@ -448,20 +448,20 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       })(),
     );
     if (!parsed.success) {
-      bb.log.warn(
+      hyperfide.log.warn(
         `Expo push response was not understood for ${batch.length} subscription rows with status ${status}`,
       );
       return { sentCount: 0, failure: "relay returned an invalid response" };
     }
     if (parsed.data.errors && parsed.data.errors.length > 0) {
       const codes = parsed.data.errors.map((error) => error.code ?? "unknown");
-      bb.log.warn(
+      hyperfide.log.warn(
         `Expo push request was rejected with codes ${codes.join(", ")}`,
       );
       return { sentCount: 0, failure: "relay rejected the request" };
     }
     if (parsed.data.data === undefined) {
-      bb.log.warn(
+      hyperfide.log.warn(
         `Expo push response returned no tickets with status ${status}`,
       );
       return { sentCount: 0, failure: "relay returned no tickets" };
@@ -478,13 +478,13 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       const errorCode = ticket.details?.error ?? "unknown";
       if (errorCode === "DeviceNotRegistered") {
         await subscriptions.remove(delivery.subscription.id);
-        bb.log.info(
+        hyperfide.log.info(
           `Removed push subscription row ${delivery.subscription.id}: device is not registered`,
         );
         continue;
       }
       ticketFailure = true;
-      bb.log.warn(
+      hyperfide.log.warn(
         `Expo push ticket reported ${errorCode} for subscription row ${delivery.subscription.id}`,
       );
     }
@@ -507,7 +507,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
       if (config.webEnabled) channels.push("web");
       if (config.desktopEnabled) channels.push("desktop");
       if (channels.length > 0) {
-        bb.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
+        hyperfide.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
           ...notification,
           threadId: null,
           channels,
@@ -552,7 +552,7 @@ export function createPushSender(args: CreatePushSenderArgs): PushSender {
     async start() {
       if (running) return;
       const stored = lastSendOutcomeSchema.safeParse(
-        await bb.storage.kv.get<unknown>(LAST_OUTCOME_KEY),
+        await hyperfide.storage.kv.get<unknown>(LAST_OUTCOME_KEY),
       );
       if (stored.success) lastOutcome = stored.data;
       dispatcher = new EnvHttpProxyAgent();

@@ -77,11 +77,11 @@ export const SETTINGS_SEARCH_INDEX: Record<
         keywords: ["git", "worktree", "branch name"],
       },
       {
-        title: "bb CLI",
+        title: "hyperfide CLI",
         keywords: ["command line", "terminal", "path", "install"],
         when: "cliCommand",
       },
-      { title: "bb CLI skills", keywords: ["agents", "install"] },
+      { title: "hyperfide CLI skills", keywords: ["agents", "install"] },
       {
         title: "Microphone",
         keywords: ["voice input", "audio", "dictation", "speech"],
@@ -110,7 +110,7 @@ export const SETTINGS_SEARCH_INDEX: Record<
     ],
   },
   "ai-services": {
-    keywords: ["bb cloud", "llm"],
+    keywords: ["hyperfide cloud", "llm"],
     settings: [
       {
         title: "Thread titles",

@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
 import type { ExperimentalPageTitle } from "@hyperfide/plugin-sdk/app";
 import {
-  getBbDesktopInfo,
+  getHyperfideDesktopInfo,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/hyperfide-desktop";
 import { AppBreadcrumbs } from "./AppBreadcrumbs";
 
 export function PageTitleHeader({
@@ -15,7 +15,7 @@ export function PageTitleHeader({
   title: string;
   value: ExperimentalPageTitle | null;
 }) {
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getHyperfideDesktopInfo);
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const hasDetail = value?.title || value?.breadcrumbs?.length;
   return (

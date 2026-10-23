@@ -10,9 +10,9 @@ import {
 } from "../src/index.js";
 
 it("backfills only non-local hosts, preserves all other columns and is idempotent", () => {
-  const directory = mkdtempSync(join(tmpdir(), "bb-manual-migration-"));
+  const directory = mkdtempSync(join(tmpdir(), "hyperfide-manual-migration-"));
   writeFileSync(join(directory, "host-id"), "local-host\n");
-  const db = createConnection(join(directory, "bb.db"));
+  const db = createConnection(join(directory, "hyperfide.db"));
   try {
     migrate(db);
     for (const id of ["local-host", "enrolled-a", "enrolled-b", "managed-host"])

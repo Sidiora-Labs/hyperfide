@@ -1,5 +1,5 @@
 import { readThreads } from "./sdk-data.js";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { policySchema, runSchema, type Policy, type Run } from "./contract.js";
 import { selectCandidates } from "./policy.js";
 
@@ -11,17 +11,17 @@ const DEFAULT_POLICY: Policy = {
 };
 const BATCH_LIMIT = 50;
 
-export function createService(bb: BbPluginApi) {
+export function createService(hyperfide: HyperfidePluginApi) {
   let disposed = false;
   let running = false;
-  bb.onDispose(() => {
+  hyperfide.onDispose(() => {
     disposed = true;
   });
   function requireActive() {
     if (disposed) throw new Error("Storage & retention plugin is disabled.");
   }
   async function readPolicy() {
-    const stored = await bb.storage.kv.get("policy");
+    const stored = await hyperfide.storage.kv.get("policy");
     return stored === null || stored === undefined
       ? DEFAULT_POLICY
       : policySchema.parse(stored);
@@ -29,7 +29,7 @@ export function createService(bb: BbPluginApi) {
   async function state() {
     const [policy, lastRun] = await Promise.all([
       readPolicy(),
-      bb.storage.kv.get("lastRun"),
+      hyperfide.storage.kv.get("lastRun"),
     ]);
     return {
       policy,
@@ -37,7 +37,7 @@ export function createService(bb: BbPluginApi) {
     };
   }
   async function candidates(policy: Policy) {
-    const threads = await readThreads(bb);
+    const threads = await readThreads(hyperfide);
     return selectCandidates(threads, policy, Date.now());
   }
   async function preview(policy: Policy) {
@@ -52,8 +52,8 @@ export function createService(bb: BbPluginApi) {
   }
   async function configure(policy: Policy) {
     requireActive();
-    await bb.storage.kv.set("policy", policySchema.parse(policy));
-    bb.realtime.publish("policy-changed", null);
+    await hyperfide.storage.kv.set("policy", policySchema.parse(policy));
+    hyperfide.realtime.publish("policy-changed", null);
     return state();
   }
   async function sweep() {
@@ -87,12 +87,12 @@ export function createService(bb: BbPluginApi) {
             if (disposed) return;
             if (fresh === undefined) continue;
             if (action === "archive") {
-              const result = await bb.sdk.threads.archive({
+              const result = await hyperfide.sdk.threads.archive({
                 threadId: candidate.rootId,
               });
               run.archivedCount += result.archivedThreadIds.length;
             } else {
-              await bb.sdk.threads.delete({
+              await hyperfide.sdk.threads.delete({
                 threadId: candidate.rootId,
                 childThreadsConfirmed: true,
               });
@@ -100,15 +100,15 @@ export function createService(bb: BbPluginApi) {
             }
           } catch (error) {
             run.failedCount++;
-            bb.log.warn(
+            hyperfide.log.warn(
               `Could not ${action} ${candidate.rootId}: ${error instanceof Error ? error.message : String(error)}`,
             );
           }
         }
       }
       if (!disposed) {
-        await bb.storage.kv.set("lastRun", run);
-        bb.realtime.publish("changed", null);
+        await hyperfide.storage.kv.set("lastRun", run);
+        hyperfide.realtime.publish("changed", null);
       }
     } finally {
       running = false;

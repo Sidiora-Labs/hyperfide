@@ -136,7 +136,7 @@ async function fetchGithubMarkdown(
       .join("/");
     const response = await registryFetch(
       `https://raw.githubusercontent.com/${repo}/HEAD/${encodedPath}`,
-      { headers: { "user-agent": "bb-skills-registry" } },
+      { headers: { "user-agent": "hyperfide-skills-registry" } },
     );
     if (!response.ok) return null;
     const contents = await response.text();
@@ -212,7 +212,7 @@ function fetchGithubSkillPaths(repo: string): Promise<string[]> {
       {
         headers: {
           accept: "application/vnd.github+json",
-          "user-agent": "bb-skills-registry",
+          "user-agent": "hyperfide-skills-registry",
         },
       },
     );
@@ -264,7 +264,7 @@ export async function fetchRegistryRepositoryStars(
         {
           headers: {
             accept: "application/vnd.github+json",
-            "user-agent": "bb-skills-registry",
+            "user-agent": "hyperfide-skills-registry",
           },
         },
       );

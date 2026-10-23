@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 import { appToast } from "@/components/ui/app-toast";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getHyperfideDesktopInfo } from "@/lib/hyperfide-desktop";
 import { getNativeShell } from "@/lib/native-shell/native-shell";
 import { buildMessageClipboardHtml } from "./message-clipboard";
 
@@ -63,7 +63,7 @@ export interface ClipboardContent {
 async function writeWithDesktopClipboard(
   content: ClipboardContent,
 ): Promise<boolean> {
-  const desktop = getBbDesktopInfo();
+  const desktop = getHyperfideDesktopInfo();
   if (desktop?.writeClipboard === undefined) return false;
   try {
     await desktop.writeClipboard(content);

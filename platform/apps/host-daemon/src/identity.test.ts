@@ -19,7 +19,7 @@ async function readFileOrNull(filePath: string): Promise<string | null> {
 
 describe("identity", () => {
   it("resolves a host ID once persisted and reuses it on subsequent runs", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-identity-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-identity-");
 
     const first = await loadHostIdentity({
       dataDir,
@@ -52,7 +52,7 @@ describe("identity", () => {
   });
 
   it("does not persist HYPERFIDE_HOST_ID until persistHostId is called", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-identity-env-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-identity-env-");
 
     const identity = await loadHostIdentity({
       dataDir,
@@ -74,7 +74,7 @@ describe("identity", () => {
   });
 
   it("rejects a HYPERFIDE_HOST_ID that conflicts with a persisted host ID", async () => {
-    const dataDir = await makeTempDir("bb-host-daemon-identity-conflict-");
+    const dataDir = await makeTempDir("hyperfide-host-daemon-identity-conflict-");
 
     await persistHostId({ dataDir, hostId: "host-persisted" });
 

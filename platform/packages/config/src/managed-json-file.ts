@@ -46,7 +46,7 @@ export async function mutateManagedJsonFile<T extends object>(args: {
   } catch (error) {
     if (error instanceof FileLockTimeoutError) {
       throw new Error(
-        `Timed out waiting to update ${args.path}; another bb command is updating it. Retry the command.`,
+        `Timed out waiting to update ${args.path}; another hyperfide command is updating it. Retry the command.`,
       );
     }
     throw error;

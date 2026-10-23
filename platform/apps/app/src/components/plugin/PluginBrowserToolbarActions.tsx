@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { ExperimentalPluginBrowserPage } from "@hyperfide/plugin-sdk";
-import type { BbDesktopBrowserApi } from "@hyperfide/desktop-contract";
-import { getDesktopBrowserApi } from "@/lib/bb-desktop";
+import type { HyperfideDesktopBrowserApi } from "@hyperfide/desktop-contract";
+import { getDesktopBrowserApi } from "@/lib/hyperfide-desktop";
 import {
   usePluginSlots,
   type PluginBrowserToolbarActionSlot,
@@ -9,7 +9,7 @@ import {
 import { PluginSlotMount } from "./PluginSlotMount";
 
 interface CreatePluginBrowserPageArgs {
-  desktopBrowser: BbDesktopBrowserApi | null;
+  desktopBrowser: HyperfideDesktopBrowserApi | null;
   pluginId: string;
   tabId: string;
 }

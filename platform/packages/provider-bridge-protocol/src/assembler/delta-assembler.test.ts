@@ -501,7 +501,7 @@ describe("delta assembler", () => {
     expect(settle("tc-blank", "failed", "  \n")).not.toHaveProperty("error");
   });
 
-  it("maps parentRef through the provider→bb id map for nested items", () => {
+  it("maps parentRef through the provider→hyperfide id map for nested items", () => {
     const assembler = createAssembler();
     assemble(assembler, { kind: "turn.open" });
     const parentStarted = assemble(assembler, {
@@ -509,7 +509,7 @@ describe("delta assembler", () => {
       key: { providerItemId: "agent-parent-1" },
       item: { type: "tool", tool: "task", args: {} },
     });
-    const parentBbId =
+    const parentHyperfideId =
       parentStarted[0]?.type === "item/started" ? parentStarted[0].item.id : "";
     const childStarted = assemble(assembler, {
       kind: "item.open",
@@ -518,7 +518,7 @@ describe("delta assembler", () => {
     });
     expect(childStarted[0]).toMatchObject({
       type: "item/started",
-      item: { parentToolCallId: parentBbId },
+      item: { parentToolCallId: parentHyperfideId },
     });
   });
 
@@ -592,11 +592,11 @@ describe("delta assembler", () => {
     ]);
   });
 
-  it("addresses output deltas by the minted bb item id", () => {
+  it("addresses output deltas by the minted hyperfide item id", () => {
     const assembler = createAssembler();
     assemble(assembler, { kind: "turn.open" });
     const started = assemble(assembler, bashOpen("tc-1"));
-    const bbItemId =
+    const hyperfideItemId =
       started[0]?.type === "item/started" ? started[0].item.id : "";
     const events = assemble(assembler, {
       kind: "command.outputSnapshot",
@@ -604,10 +604,10 @@ describe("delta assembler", () => {
       text: "OUT\n",
     });
     expect(events).toEqual([
-      expect.objectContaining({ itemId: bbItemId, delta: "OUT\n" }),
+      expect.objectContaining({ itemId: hyperfideItemId, delta: "OUT\n" }),
     ]);
-    expect(assembler.getBbItemId(THREAD_ID, "tc-1")).toBe(bbItemId);
-    expect(assembler.getProviderItemId(THREAD_ID, bbItemId)).toBe("tc-1");
+    expect(assembler.getHyperfideItemId(THREAD_ID, "tc-1")).toBe(hyperfideItemId);
+    expect(assembler.getProviderItemId(THREAD_ID, hyperfideItemId)).toBe("tc-1");
   });
 
   it("drops snapshots for items it never saw open", () => {
@@ -1002,8 +1002,8 @@ describe("delta assembler (keyed provider turns)", () => {
         providerTurnId: "parent-turn",
       },
     );
-    const parentTurnId = assembler.getBbTurnId(THREAD_ID, "parent-turn") ?? "";
-    const childTurnId = assembler.getBbTurnId(THREAD_ID, "child-turn") ?? "";
+    const parentTurnId = assembler.getHyperfideTurnId(THREAD_ID, "parent-turn") ?? "";
+    const childTurnId = assembler.getHyperfideTurnId(THREAD_ID, "child-turn") ?? "";
     expect(parentTurnId).not.toBe(childTurnId);
     expect(events.map((event) => event.type)).toEqual([
       "turn/started",
@@ -1024,7 +1024,7 @@ describe("delta assembler (keyed provider turns)", () => {
       providerTurnId: "turn-x",
     });
     expect(events.map((event) => event.type)).toEqual(["thread/compacted"]);
-    const turnId = assembler.getBbTurnId(THREAD_ID, "turn-x") ?? "";
+    const turnId = assembler.getHyperfideTurnId(THREAD_ID, "turn-x") ?? "";
     expect(events[0]).toMatchObject({ scope: turnScope(turnId) });
   });
 
@@ -1108,7 +1108,7 @@ describe("delta assembler (keyed provider turns)", () => {
       "turn/started",
       "item/commandExecution/outputDelta",
     ]);
-    const itemId = assembler.getBbItemId(THREAD_ID, "cmd-1") ?? "";
+    const itemId = assembler.getHyperfideItemId(THREAD_ID, "cmd-1") ?? "";
     expect(events[1]).toMatchObject({ itemId, delta: "line\n" });
   });
 
@@ -1140,7 +1140,7 @@ describe("delta assembler (keyed provider turns)", () => {
       (event) => event.type === "item/completed",
     );
     expect(completions).toHaveLength(2);
-    const itemId = assembler.getBbItemId(THREAD_ID, "cmd-1") ?? "";
+    const itemId = assembler.getHyperfideItemId(THREAD_ID, "cmd-1") ?? "";
     expect(
       events
         .filter((event) => event.type === "item/started")
@@ -1173,9 +1173,9 @@ describe("delta assembler (keyed provider turns)", () => {
       { kind: "turn.open", providerTurnId: "turn-1" },
       bashOpen("cmd-1"),
     );
-    const firstItemId = assembler.getBbItemId(THREAD_ID, "cmd-1") ?? "";
+    const firstItemId = assembler.getHyperfideItemId(THREAD_ID, "cmd-1") ?? "";
     assemble(assembler, { kind: "session.reset" });
-    expect(assembler.getBbTurnId(THREAD_ID, "turn-1")).toBeUndefined();
+    expect(assembler.getHyperfideTurnId(THREAD_ID, "turn-1")).toBeUndefined();
     const events = assemble(
       assembler,
       { kind: "turn.open", providerTurnId: "turn-1" },
@@ -1195,7 +1195,7 @@ describe("delta assembler (keyed provider turns)", () => {
   it("threadScoped errors never adopt the open turn; vouched errors scope to it", () => {
     const assembler = createAssembler();
     assemble(assembler, { kind: "turn.open", providerTurnId: "turn-1" });
-    const turnId = assembler.getBbTurnId(THREAD_ID, "turn-1") ?? "";
+    const turnId = assembler.getHyperfideTurnId(THREAD_ID, "turn-1") ?? "";
     const [threadScoped] = assemble(assembler, {
       kind: "provider.error",
       message: "Provider error",
@@ -1513,7 +1513,7 @@ describe("delta assembler unified usage dialect", () => {
         providerTurnId: "turn-1",
       },
     );
-    const turnId = assembler.getBbTurnId(THREAD_ID, "turn-1") ?? "";
+    const turnId = assembler.getHyperfideTurnId(THREAD_ID, "turn-1") ?? "";
     expect(events.map((event) => event.type)).toEqual([
       "turn/started",
       "thread/tokenUsage/updated",
@@ -2044,7 +2044,7 @@ describe("delta assembler background tasks and progress policy", () => {
         }),
       }),
     ]);
-    const itemId = assembler.getBbItemId(THREAD_ID, "task:wf-1") ?? "";
+    const itemId = assembler.getHyperfideItemId(THREAD_ID, "task:wf-1") ?? "";
     expect(itemId).not.toBe("");
 
     advance(100);
@@ -2268,7 +2268,7 @@ describe("delta assembler background tasks and progress policy", () => {
       { kind: "item.open", key: TASK_KEY, item: taskShape() },
       { kind: "turn.boundary", status: "completed" },
     );
-    const itemId = assembler.getBbItemId(THREAD_ID, "task:wf-1") ?? "";
+    const itemId = assembler.getHyperfideItemId(THREAD_ID, "task:wf-1") ?? "";
     for (let index = 0; index < 300; index += 1) {
       assembler.assemble({
         threadId: `filler-${index}`,
@@ -2278,7 +2278,7 @@ describe("delta assembler background tasks and progress policy", () => {
         ],
       });
     }
-    expect(assembler.getBbItemId(THREAD_ID, "task:wf-1")).toBe(itemId);
+    expect(assembler.getHyperfideItemId(THREAD_ID, "task:wf-1")).toBe(itemId);
   });
 
   it("keeps queued accepted input across LRU pressure (pending input pins the thread)", () => {

@@ -22,7 +22,7 @@ import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
-import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopInfo } from "@hyperfide/desktop-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {
@@ -41,7 +41,7 @@ import {
 import type { LayoutNode, PaneContent, SplitLayout } from "@/lib/split-layout";
 import { usePromptDraftStorage } from "@/hooks/usePromptDraftStorage";
 import { registerPaneComposerFocus } from "@/lib/pane-composer-focus";
-import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
+import { createHyperfideDesktopApi } from "@/test/hyperfide-desktop-test-utils";
 import {
   resetPluginSlotStoreForTest,
   setPluginSlotRegistrations,
@@ -779,7 +779,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   threadStore.clear();
   resetPluginSlotStoreForTest();
-  delete window.bbDesktop;
+  delete window.hyperfideDesktop;
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
@@ -2431,7 +2431,7 @@ describe("SplitThreadArea", () => {
   });
 
   it("carves a plugin pane drag handle out of the macOS window-drag region", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,
@@ -2440,7 +2440,7 @@ describe("SplitThreadArea", () => {
       updateDownloaded: false,
       version: "0.0.0-test",
     };
-    window.bbDesktop = createBbDesktopApi(desktopInfo);
+    window.hyperfideDesktop = createHyperfideDesktopApi(desktopInfo);
     setPluginSlotRegistrations(
       "docs",
       makePluginRegistrationSet({
@@ -2473,7 +2473,7 @@ describe("SplitThreadArea", () => {
   });
 
   it("makes only top-row split headers desktop window-drag regions", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,
@@ -2482,7 +2482,7 @@ describe("SplitThreadArea", () => {
       updateDownloaded: false,
       version: "0.0.0-test",
     };
-    window.bbDesktop = createBbDesktopApi(desktopInfo);
+    window.hyperfideDesktop = createHyperfideDesktopApi(desktopInfo);
     setPluginSlotRegistrations(
       "test-plugin",
       makePluginRegistrationSet({
@@ -2521,7 +2521,7 @@ describe("SplitThreadArea", () => {
   });
 
   it("reserves collapsed window-left chrome only for the structural top-left plugin pane", async () => {
-    const desktopInfo: BbDesktopInfo = {
+    const desktopInfo: HyperfideDesktopInfo = {
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,
@@ -2530,7 +2530,7 @@ describe("SplitThreadArea", () => {
       updateDownloaded: false,
       version: "0.0.0-test",
     };
-    window.bbDesktop = createBbDesktopApi(desktopInfo);
+    window.hyperfideDesktop = createHyperfideDesktopApi(desktopInfo);
     sidebarState.showing = false;
     setPluginSlotRegistrations(
       "test-plugin",
@@ -2562,11 +2562,11 @@ describe("SplitThreadArea", () => {
         .closest("header")
         ?.querySelector('[data-testid="app-page-header-content-row"]');
     expect((await contentRow("top-left"))?.className).toContain(
-      "pl-(--bb-macos-collapsed-top-left-reserve)",
+      "pl-(--hyperfide-macos-collapsed-top-left-reserve)",
     );
     for (const path of ["top-right", "bottom-left", "bottom-right"]) {
       expect((await contentRow(path))?.className).not.toContain(
-        "pl-(--bb-macos-collapsed-top-left-reserve)",
+        "pl-(--hyperfide-macos-collapsed-top-left-reserve)",
       );
     }
 

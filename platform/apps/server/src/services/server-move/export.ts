@@ -15,7 +15,7 @@ import {
 import type { ServerLogger } from "../../types.js";
 import { listOldCopyEntries } from "./switch.js";
 
-const SERVER_DATABASE_ARCHIVE_PATH = "bb.db";
+const SERVER_DATABASE_ARCHIVE_PATH = "hyperfide.db";
 const SNAPSHOT_DIR_NAME = "snapshot";
 
 export interface ExportServerArchiveArgs {
@@ -99,7 +99,7 @@ export async function exportServerArchive(
       files,
       manifest: {
         createdAt: args.now,
-        bbVersion: args.appVersion,
+        hyperfideVersion: args.appVersion,
         protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
         migrationCount,
         sourceDataDir: args.dataDir,

@@ -71,10 +71,10 @@ const THREAD_PATH = getThreadRoutePath({
 });
 const DOCS_PATH = getPluginPanelRoutePath({ pluginId: "garden", path: "docs" });
 const ALL_KEYS = [
-  "__bb__/new-thread",
-  "__bb__/search-threads",
-  "__bb__/extensions",
-  "__bb__/skills",
+  "__hyperfide__/new-thread",
+  "__hyperfide__/search-threads",
+  "__hyperfide__/extensions",
+  "__hyperfide__/skills",
   "garden/docs",
 ];
 
@@ -201,7 +201,7 @@ afterEach(() => {
 describe("SidebarNavigationList", () => {
   it("labels each visible destination in a row and puts hidden ones, New thread included, behind More", async () => {
     renderList(THREAD_PATH, {
-      visibleKeys: ["__bb__/extensions", "garden/docs"],
+      visibleKeys: ["__hyperfide__/extensions", "garden/docs"],
     });
 
     expect(rowLabels()).toEqual(["Plugins", "Docs", "More"]);
@@ -251,7 +251,7 @@ describe("SidebarNavigationList", () => {
 
     expect(rowLabels()).toEqual(["Plugins", "Skills", "Docs", "More"]);
     expect(store.get(pluginNavVisiblePanelKeysAtom)).not.toContain(
-      "__bb__/new-thread",
+      "__hyperfide__/new-thread",
     );
   });
 
@@ -291,7 +291,7 @@ describe("SidebarNavigationList", () => {
 
   it("marks More when a badged destination is hidden under it", () => {
     registerDocsBadge({ label: "Needs review" });
-    renderList(THREAD_PATH, { visibleKeys: ["__bb__/extensions"] });
+    renderList(THREAD_PATH, { visibleKeys: ["__hyperfide__/extensions"] });
 
     const more = within(list()).getByRole("button", {
       name: "More, Docs: Needs review",

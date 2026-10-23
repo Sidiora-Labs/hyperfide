@@ -32,7 +32,7 @@ async function load(sdk: {
     pluginId: "inline-vis",
     sdk,
   });
-  await plugin(host.bb);
+  await plugin(host.hyperfide);
   return host;
 }
 
@@ -79,9 +79,9 @@ describe("resolveContainedPreviewPath", () => {
       String.raw`C:\Users\fixture\project\charts\demo.html`,
     ],
     [
-      String.raw`\\fixture-host\bb-data\thread-storage\thr_test`,
+      String.raw`\\fixture-host\hyperfide-data\thread-storage\thr_test`,
       "reports/summary.html",
-      String.raw`\\fixture-host\bb-data\thread-storage\thr_test\reports\summary.html`,
+      String.raw`\\fixture-host\hyperfide-data\thread-storage\thr_test\reports\summary.html`,
     ],
   ])("resolves Windows host paths under %s", (root, file, expected) => {
     expect(resolveContainedPreviewPath(root, file)).toBe(expected);
@@ -99,7 +99,7 @@ describe("resolveContainedPreviewPath", () => {
     ).toThrow(/escape/);
     expect(() =>
       resolveContainedPreviewPath(
-        String.raw`\\fixture-host\bb-data\thread-storage\thr_test`,
+        String.raw`\\fixture-host\hyperfide-data\thread-storage\thr_test`,
         String.raw`..\outside.html`,
       ),
     ).toThrow(/escape/);
@@ -227,7 +227,7 @@ describe("preparePreview rpc", () => {
   });
 
   it("reads thread storage from a Windows UNC host path", async () => {
-    const storageRootPath = String.raw`\\fixture-host\bb-data\thread-storage\thr_test`;
+    const storageRootPath = String.raw`\\fixture-host\hyperfide-data\thread-storage\thr_test`;
     const { harness } = await load({
       threads: {
         storageLocation: () => ({ hostId: HOST_ID, storageRootPath }),
@@ -235,7 +235,7 @@ describe("preparePreview rpc", () => {
       files: {
         read: (args) => {
           expect(args).toEqual({
-            path: String.raw`\\fixture-host\bb-data\thread-storage\thr_test\reports\result.html`,
+            path: String.raw`\\fixture-host\hyperfide-data\thread-storage\thr_test\reports\result.html`,
             rootPath: storageRootPath,
             hostId: HOST_ID,
           });
@@ -340,7 +340,7 @@ describe("preparePreview rpc", () => {
     ).rejects.toThrow(/no workspace path/);
   });
 
-  it("reads through bb.sdk.files with hostId + rootPath confinement and returns the page with its content hash", async () => {
+  it("reads through hyperfide.sdk.files with hostId + rootPath confinement and returns the page with its content hash", async () => {
     const { harness } = await load({
       threads: {
         get: (args) => {

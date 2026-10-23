@@ -20,7 +20,7 @@ describe("/plugins/safe-mode", () => {
       JSON.stringify({
         name: "hyperfide-plugin-extra",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Extra",
           description: "Safe mode route fixture.",
           branding: { icon: "Zap" },

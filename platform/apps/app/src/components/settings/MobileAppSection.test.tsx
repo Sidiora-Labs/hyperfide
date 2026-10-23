@@ -29,7 +29,7 @@ afterEach(() => {
   cleanup();
   resetPluginSlotStoreForTest();
   vi.restoreAllMocks();
-  Reflect.deleteProperty(window, "bb");
+  Reflect.deleteProperty(window, "hyperfide");
   resetNativeShellForTests();
 });
 
@@ -145,7 +145,7 @@ it("keeps both install links available when release metadata cannot be loaded", 
       .getByRole("link", { name: "Download Android APK" })
       .getAttribute("href"),
   ).toBe(
-    "https://github.com/get-bb/bb/releases/download/android-testing/bb-android.apk",
+    "https://github.com/hyperfide/hyperfide/releases/download/android-testing/hyperfide-android.apk",
   );
   expect(screen.queryByText("Download ready APK")).toBeNull();
 });

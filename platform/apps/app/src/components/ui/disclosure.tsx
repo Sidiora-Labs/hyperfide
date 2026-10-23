@@ -46,7 +46,7 @@ function Chevron({ className }: ChevronProps) {
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("bb-icon-stroke", className)}
+      className={cn("hyperfide-icon-stroke", className)}
       aria-hidden="true"
       data-icon-root=""
     >

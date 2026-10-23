@@ -43,7 +43,7 @@ function catalogInstallDescription(
   publisherLabel: string,
 ): string {
   if (source.startsWith("builtin:")) {
-    return "Install this plugin, bundled with BB.";
+    return "Install this plugin, bundled with HYPERFIDE.";
   }
   if (source.startsWith("npm:")) {
     return `Install this ${publisherLabel} plugin from its listed npm package.`;
@@ -221,7 +221,7 @@ function ThirdPartySourceDisclosure({
       <p className="text-2xs text-subtle-foreground">
         Listed by{" "}
         <span className="text-foreground">{plan.marketplaceDisplayName}</span>,
-        a third-party marketplace that BB does not review.
+        a third-party marketplace that HYPERFIDE does not review.
       </p>
       <dl className="space-y-0.5">
         <div className="flex gap-2">

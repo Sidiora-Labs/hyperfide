@@ -58,7 +58,7 @@ describe("hyperfide-platform thread spawn command output", () => {
   });
 
   it("hyperfide-platform thread spawn --prompt-file sends shell-active text untouched", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-spawn-prompt-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-spawn-prompt-"));
     const path = join(dir, "prompt.md");
     const prompt = 'Fix `apps/cli` and run $(pnpm test) before "done"';
     await writeFile(path, `${prompt}\n`);
@@ -162,7 +162,7 @@ describe("hyperfide-platform thread spawn command output", () => {
   ] as const)(
     "hyperfide-platform thread spawn uploads client %s paths before creating the thread",
     async (flag, type, filename, mimeType, fileUrl) => {
-      const clientDir = await mkdtemp(join(tmpdir(), "bb-cli-thread-image-"));
+      const clientDir = await mkdtemp(join(tmpdir(), "hyperfide-cli-thread-image-"));
       try {
         const attachmentPath = join(clientDir, filename);
         const uploadedPath = "uploaded-" + filename;
@@ -240,7 +240,7 @@ describe("hyperfide-platform thread spawn command output", () => {
   it.each(["missing", "directory", "upload"] as const)(
     "does not create a thread when its local file fails: %s",
     async (failure) => {
-      const clientDir = await mkdtemp(join(tmpdir(), "bb-cli-thread-file-"));
+      const clientDir = await mkdtemp(join(tmpdir(), "hyperfide-cli-thread-file-"));
       try {
         const filePath =
           failure === "directory" ? clientDir : join(clientDir, "report.pdf");
@@ -503,9 +503,9 @@ describe("hyperfide-platform thread spawn command output", () => {
     });
   });
 
-  it("hyperfide-platform thread spawn help does not point at bb curl", async () => {
+  it("hyperfide-platform thread spawn help does not point at hyperfide curl", async () => {
     const helpOutput = await getHelpOutput(["thread", "spawn"], register);
-    expect(helpOutput).not.toContain("bb curl");
+    expect(helpOutput).not.toContain("hyperfide curl");
   });
 
   it("hyperfide-platform thread spawn reports invalid permission mode choices", async () => {
@@ -908,7 +908,7 @@ describe("hyperfide-platform thread spawn command output", () => {
 
   it("hyperfide-platform thread spawn forwards an absolute --environment path as an unmanaged workspace", async () => {
     vi.stubEnv("HYPERFIDE_PROJECT_ID", "proj-1");
-    const workspacePath = "/Users/michael/Projects/bb";
+    const workspacePath = "/Users/michael/Projects/hyperfide";
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-env-path-1",
       projectId: "proj-1",

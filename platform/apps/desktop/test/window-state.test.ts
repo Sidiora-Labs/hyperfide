@@ -30,7 +30,7 @@ const displayWorkAreas: DisplayWorkArea[] = [
 const tempDirs: TempDir[] = [];
 
 async function createTempDir(): Promise<TempDir> {
-  const path = await mkdtemp(join(tmpdir(), "bb-desktop-window-state-"));
+  const path = await mkdtemp(join(tmpdir(), "hyperfide-desktop-window-state-"));
   const tempDir = { path };
   tempDirs.push(tempDir);
   return tempDir;

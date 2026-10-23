@@ -357,7 +357,7 @@ interface ActivateThreadGitWritableRootsArgs {
   threadId: string;
 }
 
-interface ClearGitWritableRootsByBbThreadIdArgs {
+interface ClearGitWritableRootsByHyperfideThreadIdArgs {
   threadId: string;
 }
 
@@ -396,7 +396,7 @@ export function createCodexEventTranslator(
     string[]
   >();
   const workspaceWriteGitWritableRootsByThreadId = new Map<string, string[]>();
-  const bbThreadIdByProviderThreadId = new Map<string, string>();
+  const hyperfideThreadIdByProviderThreadId = new Map<string, string>();
   const rawCommandOutputStateByProviderThreadId = new Map<
     string,
     CodexRawCommandOutputState
@@ -445,17 +445,17 @@ export function createCodexEventTranslator(
     workspaceWriteGitWritableRootsByThreadId.set(args.threadId, [
       ...writableRoots,
     ]);
-    bbThreadIdByProviderThreadId.set(args.providerThreadId, args.threadId);
+    hyperfideThreadIdByProviderThreadId.set(args.providerThreadId, args.threadId);
   }
 
-  function clearGitWritableRootsByBbThreadId(
-    args: ClearGitWritableRootsByBbThreadIdArgs,
+  function clearGitWritableRootsByHyperfideThreadId(
+    args: ClearGitWritableRootsByHyperfideThreadIdArgs,
   ): void {
     pendingWorkspaceWriteGitWritableRootsByThreadId.delete(args.threadId);
     workspaceWriteGitWritableRootsByThreadId.delete(args.threadId);
-    for (const [providerThreadId, threadId] of bbThreadIdByProviderThreadId) {
+    for (const [providerThreadId, threadId] of hyperfideThreadIdByProviderThreadId) {
       if (threadId === args.threadId) {
-        bbThreadIdByProviderThreadId.delete(providerThreadId);
+        hyperfideThreadIdByProviderThreadId.delete(providerThreadId);
       }
     }
   }
@@ -463,12 +463,12 @@ export function createCodexEventTranslator(
   function clearGitWritableRootsByProviderThreadId(
     args: ClearGitWritableRootsByProviderThreadIdArgs,
   ): void {
-    const threadId = bbThreadIdByProviderThreadId.get(args.providerThreadId);
-    bbThreadIdByProviderThreadId.delete(args.providerThreadId);
+    const threadId = hyperfideThreadIdByProviderThreadId.get(args.providerThreadId);
+    hyperfideThreadIdByProviderThreadId.delete(args.providerThreadId);
     if (!threadId) {
       return;
     }
-    clearGitWritableRootsByBbThreadId({ threadId });
+    clearGitWritableRootsByHyperfideThreadId({ threadId });
   }
 
   function prepareWorkspaceWriteGitRoots(
@@ -487,7 +487,7 @@ export function createCodexEventTranslator(
         writableRoots,
       });
     } else {
-      clearGitWritableRootsByBbThreadId({ threadId: command.threadId });
+      clearGitWritableRootsByHyperfideThreadId({ threadId: command.threadId });
     }
     return {
       config: buildCodexConfig({

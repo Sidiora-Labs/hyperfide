@@ -57,7 +57,7 @@ import {
   type NormalizedPluginProviderDeclaration,
 } from "../internal/host-policy.js";
 import type {
-  BbPluginApi,
+  HyperfidePluginApi,
   PluginAgentConfiguration,
   PluginAgentConfigurationContext,
   PluginAgentToolContext,
@@ -128,9 +128,9 @@ import {
 } from "./fake-sdk.js";
 
 /**
- * `createFakePluginHost` — an in-process stand-in for the BB server's plugin
+ * `createFakePluginHost` — an in-process stand-in for the HYPERFIDE server's plugin
  * runtime (apps/server/src/services/plugins/plugin-api.ts), for unit-testing
- * a plugin's `server.ts` without a server. `bb` satisfies {@link BbPluginApi};
+ * a plugin's `server.ts` without a server. `hyperfide` satisfies {@link HyperfidePluginApi};
  * `harness` drives and inspects it.
  *
  * Faithful where a plugin can observe it: registration name validation and
@@ -146,7 +146,7 @@ import {
  * - storage is process-local: kv in a Map, `storage.database()` one shared
  *   better-sqlite3 handle in a temp directory (same data across calls, like
  *   the host's shared file), secret settings alongside plain values (no files).
- * - `bb.sdk` is always bound (no listen gate) and every unstubbed method
+ * - `hyperfide.sdk` is always bound (no listen gate) and every unstubbed method
  *   throws instead of hitting a server.
  * - http auth modes are recorded but not enforced — signature checks and
  *   token handling inside handlers still run.
@@ -225,7 +225,7 @@ export interface FakeAgentToolRecord {
   /**
    * The plugin's declared row presentation, null when it declared none.
    * Parsed by the shared `parsePluginRowPresentation`, so the record
-   * holds exactly what the production host stores and a presentation bb
+   * holds exactly what the production host stores and a presentation hyperfide
    * rejects is rejected here with the same message.
    */
   presentation: PluginRowPresentation | null;
@@ -276,7 +276,7 @@ export interface FakePluginRegistrations {
   schedules: FakeScheduleRecord[];
   cli: FakeCliRecord | null;
   agentTools: FakeAgentToolRecord[];
-  /** Provider from bb.agents.configure, or null when none registered. */
+  /** Provider from hyperfide.agents.configure, or null when none registered. */
   agentConfigurationProvider:
     | ((context: PluginAgentConfigurationContext) => PluginAgentConfiguration)
     | null;
@@ -285,7 +285,7 @@ export interface FakePluginRegistrations {
     | ((ctx: { threadId: string; projectId: string }) => string | null)
     | null;
   threadEventHandlers: Record<PluginThreadEventName, number>;
-  /** The handler registered per hook by `bb.experimental_hooks.on`. */
+  /** The handler registered per hook by `hyperfide.experimental_hooks.on`. */
   hooks: {
     [K in PluginHookName]: PluginHookHandler<K> | null;
   };
@@ -303,7 +303,7 @@ export interface FakePluginRegistrations {
     import("../backend-contract.js").ServerAccessProviderDeclaration
   >;
   mentionProviders: FakeMentionProviderRecord[];
-  /** Live provider registrations from `bb.providers.register`
+  /** Live provider registrations from `hyperfide.providers.register`
    * (normalized declarations, registration order; dispose removes). */
   providerRegistrations: NormalizedPluginProviderDeclaration[];
   providerEnvResolvers: ReadonlyMap<
@@ -331,44 +331,44 @@ export interface FakePluginRegistrations {
 /** Read-only state for assertions after a plugin registers or handles work. */
 export interface FakePluginInspectionState {
   readonly pluginId: string;
-  /** Every `bb.log` line, in order. */
+  /** Every `hyperfide.log` line, in order. */
   readonly logEntries: FakeLogEntry[];
-  /** Every `bb.realtime.publish`, payload normalized like the wire. */
+  /** Every `hyperfide.realtime.publish`, payload normalized like the wire. */
   experimental_onRpcInvalidation(listener: () => void): () => void;
   readonly experimental_rpcInvalidations: (readonly string[] | null)[];
   readonly realtimeSignals: FakeRealtimeSignal[];
-  /** Every `bb.status.needsConfiguration` message, in order. */
+  /** Every `hyperfide.status.needsConfiguration` message, in order. */
   readonly needsConfigurationMessages: string[];
   /**
    * How many times the plugin called
-   * `bb.experimental_hooks.recheck()` — the wake it asks core for when a
+   * `hyperfide.experimental_hooks.recheck()` — the wake it asks core for when a
    * condition its own waits depend on has changed.
    */
   readonly recheckCount: number;
-  /** Recorded `bb.sdk` calls + stub control. */
+  /** Recorded `hyperfide.sdk` calls + stub control. */
   readonly sdk: FakeSdkHarness;
   readonly registrations: FakePluginRegistrations;
   readonly sharedPortDeclarations: Array<{
     hostId: string;
     ports: number[];
   }>;
-  /** The last `bb.hosts.internal_DO_NOT_USE_setNextTunnels` config, or null. */
+  /** The last `hyperfide.hosts.internal_DO_NOT_USE_setNextTunnels` config, or null. */
   readonly internal_DO_NOT_USE_nextTunnelConfig: InternalDoNotUsePluginNextTunnelConfig | null;
   /**
-   * Replace what `bb.hosts.internal_DO_NOT_USE_nextTunnelStatuses` returns and call
+   * Replace what `hyperfide.hosts.internal_DO_NOT_USE_nextTunnelStatuses` returns and call
    * every `internal_DO_NOT_USE_onNextTunnelStatusChange` listener.
    */
   internal_DO_NOT_USE_setNextTunnelStatuses(
     statuses: readonly InternalDoNotUsePluginHostNextTunnelStatus[],
   ): void;
-  /** Calls made through bb.hosts.experimental_client, after input validation. */
+  /** Calls made through hyperfide.hosts.experimental_client, after input validation. */
   readonly experimental_hostRpcCalls: readonly ExperimentalFakeHostRpcCall[];
   readonly pendingInteractions: readonly (PluginInteractionRequest & {
     id: string;
   })[];
 }
 
-/** Deterministic inputs that stand in for behavior normally driven by BB. */
+/** Deterministic inputs that stand in for behavior normally driven by HYPERFIDE. */
 export interface FakePluginBehaviorDrivers {
   /** Deliver an unexpected host-worker exit to every registered client. */
   experimental_emitHostWorkerExit(hostId: string): Promise<void>;
@@ -393,7 +393,7 @@ export interface FakePluginBehaviorDrivers {
    * with the same message/code/issues the frontend client surfaces. The
    * handler sees `options.experimental_caller` as its caller, `{ kind:
    * "client" }` by default; pass `{ kind: "plugin", pluginId }` to act as
-   * another plugin calling through `bb.sdk.plugins.callRpc`.
+   * another plugin calling through `hyperfide.sdk.plugins.callRpc`.
    */
   callRpc(
     method: string,
@@ -403,14 +403,14 @@ export interface FakePluginBehaviorDrivers {
   /**
    * Invoke the plugin's CLI command with host semantics: the result's
    * exitCode must be a number, stdout/stderr default to "", and a throwing
-   * run() becomes `{ exitCode: 1, stderr: "bb <name> failed: …" }`.
+   * run() becomes `{ exitCode: 1, stderr: "hyperfide <name> failed: …" }`.
    */
   runCli(
     argv: string[],
     ctx?: PluginCliContext,
   ): Promise<PluginCliExecutionResult>;
   /**
-   * Dispatch a request to a registered `bb.http` route (exact method+path
+   * Dispatch a request to a registered `hyperfide.http` route (exact method+path
    * match, like the host's V1 router) through a real Hono context. Auth
    * modes are not enforced. A throwing handler yields the host's 500
    * `{ ok: false, error: "plugin route failed: …" }` response.
@@ -420,7 +420,7 @@ export interface FakePluginBehaviorDrivers {
     path: string,
     init?: RequestInit,
   ): Promise<Response>;
-  /** Open and drive an exact-match `bb.http.experimental_websocket` route. */
+  /** Open and drive an exact-match `hyperfide.http.experimental_websocket` route. */
   experimental_openWebSocket(
     path: string,
     init?: RequestInit,
@@ -439,7 +439,7 @@ export interface FakePluginBehaviorDrivers {
   /** Run a registered schedule's function once (no timers, no cron sweep). */
   runSchedule(name: string): Promise<void>;
   /**
-   * Deliver a thread lifecycle event to every `bb.events.on` handler. Handlers run
+   * Deliver a thread lifecycle event to every `hyperfide.events.on` handler. Handlers run
    * sequentially; errors are caught and logged like the host's
    * fire-and-forget dispatch, and returned for assertions.
    */
@@ -458,7 +458,7 @@ export interface FakePluginBehaviorDrivers {
     input: unknown,
     ctx?: Partial<PluginAgentToolContext>,
   ): Promise<PluginAgentToolResult>;
-  /** Evaluate `bb.agents.configure` with production validation/fail-closed
+  /** Evaluate `hyperfide.agents.configure` with production validation/fail-closed
    * semantics. With no callback, every registered tool/declared test skill is
    * selected. The callback receives a copy of `context` whose `pluginMetadata`
    * is a validated, deep-frozen clone; invalid metadata rejects instead of
@@ -487,18 +487,18 @@ export interface FakePluginLifecycleControls {
    * services/hooks are disposed and the returned host becomes current.
    */
   reload(
-    factory: (bb: BbPluginApi) => void | Promise<void>,
+    factory: (hyperfide: HyperfidePluginApi) => void | Promise<void>,
   ): Promise<FakePluginHost>;
   /**
    * Dispose like a host reload/disable: abort services started via
    * runService, run onDispose hooks LIFO (isolated), close database handles,
-   * then poison the `bb` handle (further use throws
+   * then poison the `hyperfide` handle (further use throws
    * PluginContextStaleError). Idempotent.
    */
   dispose(): Promise<void>;
   /**
-   * Run every handler registered with `bb.onInstall`, in
-   * registration order, as bb does right after a fresh install. A handler
+   * Run every handler registered with `hyperfide.onInstall`, in
+   * registration order, as hyperfide does right after a fresh install. A handler
    * that throws is logged at warn level and the rest still run.
    */
   install(): Promise<void>;
@@ -524,17 +524,17 @@ export interface CreateFakePluginHostOptions {
   /** Defaults to "test-plugin". */
   pluginId?: string;
   /**
-   * Value served by `bb.server.experimental_appUrl`. Defaults to `null`.
+   * Value served by `hyperfide.server.experimental_appUrl`. Defaults to `null`.
    */
   appUrl?: string | null;
   /**
-   * Value served by `bb.server.loopbackBaseUrl` (always bound here, like
-   * `bb.sdk`). Defaults to "http://127.0.0.1:38886".
+   * Value served by `hyperfide.server.loopbackBaseUrl` (always bound here, like
+   * `hyperfide.sdk`). Defaults to "http://127.0.0.1:38886".
    */
   loopbackBaseUrl?: string;
   /**
-   * Value served by `bb.server.experimental_dataDir`. Defaults to
-   * "/tmp/bb-fake-data-dir".
+   * Value served by `hyperfide.server.experimental_dataDir`. Defaults to
+   * "/tmp/hyperfide-fake-data-dir".
    */
   dataDir?: string;
   /**
@@ -544,21 +544,21 @@ export interface CreateFakePluginHostOptions {
    * the descriptor default on read, like the host.
    */
   settings?: Record<string, PluginSettingValue>;
-  /** Initial `bb.sdk` stubs; extend later via `harness.sdk.stub`. */
+  /** Initial `hyperfide.sdk` stubs; extend later via `harness.sdk.stub`. */
   sdk?: FakeSdkOverrides;
   /** Static manifest skill ids available to configure() in this fake host. */
   agentSkillIds?: readonly string[];
-  /** Read-only identities returned by bb.hosts.ensureSharedPortTunnel. */
+  /** Read-only identities returned by hyperfide.hosts.ensureSharedPortTunnel. */
   sharedPortTunnelIdentities?: Record<string, PluginSharedPortTunnelIdentity>;
   /**
-   * Whether the plugin's manifest declares a `bb.host` entry. Production
-   * refuses `bb.providers.register` without one (the provider would have no
+   * Whether the plugin's manifest declares a `hyperfide.host` entry. Production
+   * refuses `hyperfide.providers.register` without one (the provider would have no
    * bridge to run on); the fake applies the same rule. Defaults to true.
    */
   experimental_hostEntry?: boolean;
   /**
    * The icon names the plugin's manifest declares under
-   * `bb.branding.experimental_icons`. Production refuses a provider `icon`
+   * `hyperfide.branding.experimental_icons`. Production refuses a provider `icon`
    * or a tool `presentation.icon.glyph` that is a namespaced glyph
    * (`"<pluginId>/<name>"`) naming another plugin or a name not declared
    * there; the fake applies the same rule against this list. Defaults to
@@ -573,7 +573,7 @@ export interface CreateFakePluginHostOptions {
 }
 
 export interface FakePluginHost {
-  bb: BbPluginApi;
+  hyperfide: HyperfidePluginApi;
   harness: FakePluginHarness;
 }
 
@@ -666,7 +666,7 @@ function createFakePluginHostInternal(
     sharedState ??
     ({
       kvRows: new Map<string, string>(),
-      storageRoot: mkdtempSync(join(tmpdir(), "bb-fake-plugin-host-")),
+      storageRoot: mkdtempSync(join(tmpdir(), "hyperfide-fake-plugin-host-")),
       storedSettings: new Map<string, PluginSettingValue>(
         Object.entries(options.settings ?? {}),
       ),
@@ -1113,7 +1113,7 @@ function createFakePluginHostInternal(
   };
 
   // --- hooks ---
-  /** How many times `bb.experimental_hooks.recheck()` was called. */
+  /** How many times `hyperfide.experimental_hooks.recheck()` was called. */
   let requestedDrains = 0;
 
   // --- status ---
@@ -1132,7 +1132,7 @@ function createFakePluginHostInternal(
   // --- server ---
   const appUrl = options.appUrl ?? null;
   const loopbackBaseUrl = options.loopbackBaseUrl ?? "http://127.0.0.1:38886";
-  const dataDir = options.dataDir ?? "/tmp/bb-fake-data-dir";
+  const dataDir = options.dataDir ?? "/tmp/hyperfide-fake-data-dir";
   const server: PluginServerApi = {
     get experimental_appUrl(): string | null {
       assertLive();
@@ -1553,7 +1553,7 @@ function createFakePluginHostInternal(
     },
   };
 
-  const bb: BbPluginApi = {
+  const hyperfide: HyperfidePluginApi = {
     pluginId,
     log,
     settings,
@@ -1921,7 +1921,7 @@ function createFakePluginHostInternal(
           {
             exitCode: 1,
             stdout: "",
-            stderr: `bb ${registration.name} failed: ${errorMessage(error)}`,
+            stderr: `hyperfide ${registration.name} failed: ${errorMessage(error)}`,
           },
           argv.includes("--json"),
         );
@@ -2215,7 +2215,7 @@ function createFakePluginHostInternal(
         persistentState,
       );
       try {
-        await factory(replacement.bb);
+        await factory(replacement.hyperfide);
       } catch (error) {
         await fakeHostDisposers.get(replacement.harness)?.(false);
         throw error;
@@ -2241,5 +2241,5 @@ function createFakePluginHostInternal(
   };
 
   fakeHostDisposers.set(harness, disposeHost);
-  return { bb, harness };
+  return { hyperfide, harness };
 }

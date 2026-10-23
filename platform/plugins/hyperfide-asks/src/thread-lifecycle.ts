@@ -1,6 +1,10 @@
-import type { ThreadAskLifecycle } from "../../../packages/plugin-sdk/src/thread-ask-lifecycle.js";
+import type { ThreadAskLifecycle } from "@hyperfide/plugin-sdk/host";
 import type { AskTaskFlags } from "../../hyperfide-spec/src/ask-task-flags.js";
-import type { AskBridge, AskRow, TaskThreads } from "./task-3-2-projection.js";
+import type { AskBridge, Ask as AskRow } from "./bridge.js";
+
+export interface TaskThreads {
+  list(repository: string): Promise<readonly { id: string; repository: string; task: string }[]>;
+}
 
 interface ThreadState {
   pending: Map<string, AskRow>;
@@ -16,14 +20,14 @@ export class AskThreadLifecycle {
 
   constructor(
     private readonly repository: string,
-    private readonly bridge: AskBridge,
+    private readonly bridge: Pick<AskBridge, "policy" | "list" | "watch">,
     private readonly threads: TaskThreads,
     private readonly lifecycle: ThreadAskLifecycle,
     private readonly board: AskTaskFlags,
   ) {}
 
   async start(onError: (error: unknown) => void): Promise<void> {
-    this.unwatch = this.bridge.watch(this.repository, () => {
+    this.unwatch = await this.bridge.watch(this.repository, () => {
       void this.sync().catch(onError);
     });
     await this.sync();
@@ -49,7 +53,7 @@ export class AskThreadLifecycle {
 
     for (const row of rows) {
       const policy = policies[row.kind];
-      if (!policy || !["block", "proceed-and-flag"].includes(policy.default_policy)) {
+      if (!policy || !["block", "proceed-and-flag"].includes(policy)) {
         throw new Error(`Missing Ask policy for ${row.kind}`);
       }
       const candidates = threads.filter(thread => thread.task === row.task);
@@ -62,18 +66,18 @@ export class AskThreadLifecycle {
         this.states.set(thread.id, state);
         const id = String(row.id);
         if (state.seen.has(id)) continue;
-        if (row.status === "open" || (row.status === "expired" && policy.default_policy === "block")) {
-          if (policy.default_policy === "block") {
+        if (row.status === "open" || (row.status === "expired" && policy === "block")) {
+          if (policy === "block") {
             if (!state.pending.has(id)) {
               await this.lifecycle.pause(thread.id, {
-                askId: id, task: row.task, reason: `Awaiting Ask ${id}: ${row.question}`,
+                askId: id, task: thread.task, reason: `Awaiting Ask ${id}: ${row.question}`,
               });
               state.pending.set(id, row);
             }
           } else {
             if (!row.recommendation) throw new Error(`Ask ${id} has no recommendation`);
             const annotation = {
-              askId: id, task: row.task, flagged: true as const, recommendation: row.recommendation,
+              askId: id, task: thread.task, flagged: true as const, recommendation: row.recommendation,
             };
             await this.lifecycle.annotate(thread.id, annotation);
             this.board.annotate(this.repository, annotation);
@@ -83,7 +87,7 @@ export class AskThreadLifecycle {
           // Never serialize the row: secret answers may contain a raw value from the store.
           const answer = row.kind === "secret"
             ? this.secretReference(row)
-            : row.answer;
+            : typeof row.answer === "string" ? row.answer : null;
           if (answer == null) throw new Error(`Ask ${id} has no answer`);
           state.answers.set(id, `Ask ${id} answered: ${answer}`);
           state.pending.delete(id);
@@ -102,7 +106,7 @@ export class AskThreadLifecycle {
   }
 
   private secretReference(row: AskRow): string {
-    const reference = row.secret_ref ?? (row.answer?.startsWith("secret-ref:") ? row.answer.slice(11) : null);
+    const reference = typeof row.secret_ref === "string" ? row.secret_ref : (typeof row.answer === "string" && row.answer.startsWith("secret-ref:") ? row.answer.slice(11) : null);
     if (!reference || !/^[A-Za-z0-9_.\/-]+$/.test(reference)) {
       throw new Error(`Ask ${row.id} has no secret reference`);
     }

@@ -40,7 +40,7 @@ import { createAppUpdateService } from "../../../apps/server/src/services/system
 import { createCliCommandService } from "../../../apps/server/src/services/system/cli-command.js";
 import { createAppVersionService } from "../../../apps/server/src/services/system/app-version.js";
 import { createProviderNativeRootsCache } from "../../../apps/server/src/services/providers/native-roots.js";
-import { createBbAppManagedConfigReloader } from "../../../apps/server/src/services/system/bb-app-managed-config.js";
+import { createHyperfideAppManagedConfigReloader } from "../../../apps/server/src/services/system/hyperfide-app-managed-config.js";
 import { createNoopTelemetryService } from "../../../apps/server/src/services/system/telemetry.js";
 import { TerminalSessionLifecycle } from "../../../apps/server/src/services/terminals/terminal-session-lifecycle.js";
 import type {
@@ -194,7 +194,7 @@ async function startIntegrationServer(
     hostDaemonPort: 3001,
     inheritedSkillsRootPaths: [],
     marketplaceUrl: "https://marketplace.invalid/marketplace.json",
-    appUrl: "https://bb.example.test",
+    appUrl: "https://hyperfide.example.test",
     serverPort: 0,
     sharedSkillRoots: { user: [], project: [] },
     isDevelopment: false,
@@ -215,7 +215,7 @@ async function startIntegrationServer(
   });
   await machineAuth.ensureReady();
   const lifecycleDedupers = createLifecycleDedupers();
-  const bbAppManagedConfig = await createBbAppManagedConfigReloader({
+  const hyperfideAppManagedConfig = await createHyperfideAppManagedConfigReloader({
     config,
     hub,
     logger: testLogger,
@@ -273,7 +273,7 @@ async function startIntegrationServer(
       },
     }),
     appVersion,
-    bbAppManagedConfig,
+    hyperfideAppManagedConfig,
     providerRegistry,
     providerNativeRoots: createProviderNativeRootsCache(),
     pluginHostArtifacts,
@@ -420,7 +420,7 @@ export async function createIntegrationHarness(
   options: CreateHarnessOptions = {},
 ): Promise<IntegrationHarness> {
   await loadProjectEnvFile();
-  const tmpRoot = await fs.mkdtemp(path.join(tmpdir(), "bb-integration-"));
+  const tmpRoot = await fs.mkdtemp(path.join(tmpdir(), "hyperfide-integration-"));
   await fs.writeFile(
     path.join(tmpRoot, "parent.pid"),
     `${process.pid}\n`,

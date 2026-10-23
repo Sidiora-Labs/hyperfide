@@ -10,7 +10,7 @@ import { cloneProject, resolveProjectCloneDefaultPath } from "./project.js";
 const tempDirs: string[] = [];
 
 async function tempDir(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "bb-project-clone-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-project-clone-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -26,9 +26,9 @@ async function createRemoteRepo(root: string): Promise<string> {
   await runGit(
     [
       "-c",
-      "user.name=BB Test",
+      "user.name=HYPERFIDE Test",
       "-c",
-      "user.email=bb@example.test",
+      "user.email=hyperfide@example.test",
       "commit",
       "-m",
       "initial",

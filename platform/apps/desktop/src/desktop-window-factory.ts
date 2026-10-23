@@ -1,5 +1,5 @@
 import { nextZoomFactor } from "./desktop-zoom.js";
-import type { BbDesktopZoomCommand } from "@hyperfide/desktop-contract";
+import type { HyperfideDesktopZoomCommand } from "@hyperfide/desktop-contract";
 import type { BrowserWindowConstructorOptions, Event } from "electron";
 import {
   MIN_WINDOW_HEIGHT,
@@ -144,7 +144,7 @@ export interface DesktopWindowFactory {
   loadUrl(args: LoadDesktopWindowsUrlArgs): Promise<void>;
   openDevTools(): void;
   persistOpenWindows(): Promise<void>;
-  zoom(webContentsId: number, command: BbDesktopZoomCommand): boolean;
+  zoom(webContentsId: number, command: HyperfideDesktopZoomCommand): boolean;
   restoreSavedWindows(
     args: RestoreDesktopWindowsArgs,
   ): Promise<DesktopBrowserWindow[]>;
@@ -216,7 +216,7 @@ function createWindowOptions(
     minHeight: MIN_WINDOW_HEIGHT,
     minWidth: MIN_WINDOW_WIDTH,
     show: false,
-    title: "bb",
+    title: "hyperfide",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

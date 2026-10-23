@@ -2,7 +2,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginCliResult,
 } from "@hyperfide/plugin-sdk";
 import { setTimeout as wait } from "node:timers/promises";
@@ -35,7 +35,7 @@ import type { CodexDeviceLogin } from "./codex-device-login.js";
 
 const DESCRIPTION = [
   "Accounts run sequentially by priority, then order added. The current fallback stays active until unavailable.",
-  "When this bb server runs inside another bb server's thread, parent proxy routes its pooled traffic through that parent; isolate neutralises the inherited routing.",
+  "When this hyperfide-platform server runs inside another hyperfide-platform server's thread, parent proxy routes its pooled traffic through that parent; isolate neutralises the inherited routing.",
   "Reorder includes every account for the provider and changes the next failover sequence; existing conversations stay pinned.",
 ].join("\n");
 
@@ -57,12 +57,12 @@ const SESSION_OPTION = {
   required: true,
   placeholder: "id",
   aliases: ["session-id", "sessionId"],
-  description: "Session ID printed by `bb pool account add --login`",
+  description: "Session ID printed by `hyperfide-platform pool account add --login`",
 } as const;
 
 const ACCOUNT_ID_POSITIONAL = {
   name: "id",
-  description: "Account UUID from `bb pool account list`",
+  description: "Account UUID from `hyperfide-platform pool account list`",
   required: true,
 } as const;
 
@@ -191,7 +191,7 @@ function formatConfig(config: AccountPoolConfig): string {
 
 function formatParent(parent: PoolStatus["parent"]): string {
   if (parent === null) {
-    return "No parent bb server Account Pooler was detected for this instance.";
+    return "No parent hyperfide-platform server Account Pooler was detected for this instance.";
   }
   return [
     `parent: ${parent.baseUrl}`,
@@ -248,13 +248,13 @@ async function attempt(
 }
 
 export function registerPoolCli(
-  bb: Pick<BbPluginApi, "cli">,
+  hyperfide: Pick<HyperfidePluginApi, "cli">,
   operations: PoolOperations,
   login: ClaudeOAuthLogin,
   codexLogin: CodexDeviceLogin,
   config: AccountPoolConfigController,
 ): void {
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "pool",
       summary:
@@ -265,7 +265,7 @@ export function registerPoolCli(
           summary:
             "Sign in to Claude or Codex, import credentials, or add an Anthropic API key",
           description:
-            "--login prints the browser or device step and exits; finish it with `bb pool account login-complete` (Claude) or `bb pool account login-poll` (Codex).\n--import reads the provider's existing login on this bb server host (~/.claude or ~/.codex).",
+            "--login prints the browser or device step and exits; finish it with `hyperfide-platform pool account login-complete` (Claude) or `hyperfide-platform pool account login-poll` (Codex).\n--import reads the provider's existing login on this hyperfide-platform server host (~/.claude or ~/.codex).",
           unexpectedPositionalHint:
             "the provider belongs in --provider <claude|codex>, not a bare argument",
           options: {
@@ -280,7 +280,7 @@ export function registerPoolCli(
               type: "boolean",
               aliases: ["import-local", "local"],
               description:
-                "Import the provider's existing login from this bb server host",
+                "Import the provider's existing login from this hyperfide-platform server host",
             },
             "api-key": {
               type: "string",
@@ -332,7 +332,7 @@ export function registerPoolCli(
                           `Session ID: ${started.sessionId}`,
                           "",
                           "After authorizing, wait for the account to be added with:",
-                          `bb pool account login-poll --session ${started.sessionId}`,
+                          `hyperfide-platform pool account login-poll --session ${started.sessionId}`,
                         ].join("\n")}\n`,
                   };
                 }
@@ -348,7 +348,7 @@ export function registerPoolCli(
                         `Session ID: ${started.sessionId}`,
                         "",
                         "After signing in, pipe the code shown on the final page into:",
-                        `printf '%s\\n' \"$CLAUDE_AUTH_CODE\" | bb pool account login-complete --session ${started.sessionId} --code-stdin`,
+                        `printf '%s\\n' \"$CLAUDE_AUTH_CODE\" | hyperfide-platform pool account login-complete --session ${started.sessionId} --code-stdin`,
                       ].join("\n")}\n`,
                 };
               }
@@ -433,7 +433,7 @@ export function registerPoolCli(
         "account login-complete": cliCommand({
           summary: "Complete a Claude browser login with its manual code",
           description:
-            "Pipe the code the final login page shows:\n  printf '%s\\n' \"$CLAUDE_AUTH_CODE\" | bb pool account login-complete --session <id> --code-stdin",
+            "Pipe the code the final login page shows:\n  printf '%s\\n' \"$CLAUDE_AUTH_CODE\" | hyperfide-platform pool account login-complete --session <id> --code-stdin",
           options: {
             session: SESSION_OPTION,
             code: {
@@ -759,7 +759,7 @@ export function registerPoolCli(
         }),
         parent: cliCommand({
           summary:
-            "Show or set how this instance uses a parent bb server's Account Pooler",
+            "Show or set how this instance uses a parent hyperfide-platform server's Account Pooler",
           positionals: [
             {
               name: "mode",
@@ -802,7 +802,7 @@ export function registerPoolCli(
               placeholder: "id-or-name",
               aliases: ["host", "host-id", "machine-id"],
               description:
-                "Enrolled machine name or host ID from `bb pool status`",
+                "Enrolled machine name or host ID from `hyperfide-platform pool status`",
             },
             json: JSON_OPTION,
           },
@@ -848,7 +848,7 @@ export function registerPoolCli(
                     ...(ctx.threadId === undefined
                       ? {}
                       : {
-                          hint: `This thread is ${ctx.threadId}; re-run with bb pool bypass ${ctx.threadId}`,
+                          hint: `This thread is ${ctx.threadId}; re-run with hyperfide-platform pool bypass ${ctx.threadId}`,
                         }),
                   },
                 );

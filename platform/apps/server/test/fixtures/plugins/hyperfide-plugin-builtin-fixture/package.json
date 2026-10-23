@@ -2,7 +2,7 @@
   "name": "hyperfide-plugin-builtin-fixture",
   "version": "0.1.0",
   "type": "module",
-  "bb": {
+  "hyperfide": {
     "name": "Builtin fixture",
     "description": "Test fixture for builtin plugin packaging.",
     "branding": {

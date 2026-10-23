@@ -22,7 +22,7 @@ const contextCases: Array<{
     createContext: () => ({
       kind: "remote-ssh",
       hostId: "host-1",
-      serverOrigin: "https://bb.example.test",
+      serverOrigin: "https://hyperfide.example.test",
     }),
   },
 ];

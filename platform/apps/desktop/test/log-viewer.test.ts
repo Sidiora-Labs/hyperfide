@@ -28,7 +28,7 @@ const tempDirs: TempDir[] = [];
 const tailers: LogTailer[] = [];
 
 async function createTempDir(): Promise<TempDir> {
-  const path = await mkdtemp(join(tmpdir(), "bb-desktop-log-viewer-"));
+  const path = await mkdtemp(join(tmpdir(), "hyperfide-desktop-log-viewer-"));
   const tempDir = { path };
   tempDirs.push(tempDir);
   return tempDir;

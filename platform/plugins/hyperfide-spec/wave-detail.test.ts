@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeHumanTasks, type WaveSnapshot } from "./closure-projection";
+import { makeHumanTasks, type WaveSnapshot } from "./wave-authority";
 import { closureView, waveDetail } from "./wave-detail";
 
 export function readyWave(): WaveSnapshot {

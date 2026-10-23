@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
-import type { Ask, AskBridge } from "../../hyperfide-asks/bridge-projection.js";
+import type { Ask, AskBridge } from "../../hyperfide-asks/client.js";
 import {
   interactionResponseSchema,
   type InteractionPayload,

@@ -4,7 +4,7 @@ import {
   type ServerMoveMode,
   type ServerMoveStepId,
 } from "@hyperfide/domain";
-import { BbHttpError, type BbSdk } from "@hyperfide/sdk";
+import { HyperfideHttpError, type HyperfideSdk } from "@hyperfide/sdk";
 import {
   serverMoveCheckItemSchema,
   type ServerMoveCheckItem,
@@ -37,7 +37,7 @@ export async function callServerMoveRoute<T>(
     return await run();
   } catch (error) {
     if (
-      error instanceof BbHttpError &&
+      error instanceof HyperfideHttpError &&
       error.code === SERVER_MOVE_EXPERIMENT_DISABLED_ERROR_CODE
     ) {
       const body = httpErrorMessageBodySchema.safeParse(error.body);
@@ -66,7 +66,7 @@ export type ServerMoveFollowOutcome =
   | { kind: "ended"; status: ServerMoveStatus };
 
 export interface FollowServerMoveArgs {
-  sdk: BbSdk;
+  sdk: HyperfideSdk;
   initial: ServerMoveStatus;
   signal: AbortSignal;
   report: (line: string) => void;
@@ -80,7 +80,7 @@ export function serverMoveStepLabel(
     case "stop-work":
       return "Stop running work";
     case "update-target":
-      return `Update bb on ${targetHostName}`;
+      return `Update hyperfide on ${targetHostName}`;
     case "export":
       return "Export server data";
     case "transfer":
@@ -95,7 +95,7 @@ export function serverMoveStepLabel(
 }
 
 function describeMode(mode: ServerMoveMode): string {
-  return mode === "connect" ? "bb connect" : "direct address";
+  return mode === "connect" ? "hyperfide-platform connect" : "direct address";
 }
 
 export function printServerMoveCheckItems(
@@ -131,7 +131,7 @@ export function printServerMoveCheck(check: ServerMoveCheckResponse): void {
 }
 
 export function missingAddressGuidance(check: ServerMoveCheckResponse): string {
-  return `This hyperfide-platform server uses a direct address, so the new server needs one too. Re-run with --address <url>: the URL every machine and app will use to reach bb on ${check.targetHostName}, such as a Tailscale Serve URL.`;
+  return `This hyperfide-platform server uses a direct address, so the new server needs one too. Re-run with --address <url>: the URL every machine and app will use to reach hyperfide on ${check.targetHostName}, such as a Tailscale Serve URL.`;
 }
 
 export function existingDataGuidance(check: ServerMoveCheckResponse): string {
@@ -147,7 +147,7 @@ export function blockedStartItems(
   error: unknown,
 ): ServerMoveCheckItem[] | null {
   if (
-    !(error instanceof BbHttpError) ||
+    !(error instanceof HyperfideHttpError) ||
     error.code !== SERVER_MOVE_BLOCKED_ERROR_CODE
   ) {
     return null;
@@ -158,7 +158,7 @@ export function blockedStartItems(
 
 function isServerMovedError(error: unknown): boolean {
   return (
-    error instanceof BbHttpError &&
+    error instanceof HyperfideHttpError &&
     error.status === 410 &&
     error.code === SERVER_MOVED_ERROR_CODE
   );
@@ -189,8 +189,8 @@ export function serverMoveRecoveryGuidance(status: ServerMoveStatus): string[] {
   const name = status.targetHostName;
   const problem = status.error === null ? "" : ` (${status.error.message})`;
   return [
-    `bb couldn't confirm that ${name} took over${problem}.`,
-    `This server stays up but read-only, and bb finishes the move on its own as soon as ${name} answers.`,
+    `hyperfide couldn't confirm that ${name} took over${problem}.`,
+    `This server stays up but read-only, and hyperfide finishes the move on its own as soon as ${name} answers.`,
     `If ${name} isn't running the server, run hyperfide-platform server move cancel --yes to abandon the move and keep the server here.`,
     "If this server stops, run hyperfide-platform server unlock on this computer.",
   ];
@@ -210,7 +210,7 @@ export function serverMoveAbandonWarning(status: ServerMoveStatus): string[] {
   const name = status.targetHostName;
   return [
     `The move to ${name} wasn't confirmed. Abandoning rolls back the switch and keeps the server on this computer.`,
-    `If ${name} already took over, two servers will run with the same data and bb connect credential. Stop the server on ${name} first.`,
+    `If ${name} already took over, two servers will run with the same data and hyperfide-platform connect credential. Stop the server on ${name} first.`,
   ];
 }
 

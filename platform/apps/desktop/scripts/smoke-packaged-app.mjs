@@ -54,17 +54,17 @@ function createDesktopVersionFeed(platform, version) {
     platform,
     version,
     releaseDate: new Date(0).toISOString(),
-    releaseName: `bb desktop ${version}`,
+    releaseName: `hyperfide desktop ${version}`,
     releaseNotes: null,
     minimumSystemVersion: null,
     files: [
       {
-        url: "https://example.invalid/bb.zip",
+        url: "https://example.invalid/hyperfide.zip",
         sha512: "smoke",
         size: 0,
       },
     ],
-    path: "bb.zip",
+    path: "hyperfide.zip",
     sha512: "smoke",
     stagingPercentage: null,
   };
@@ -73,24 +73,24 @@ function createDesktopVersionFeed(platform, version) {
 function renderSmokePage(expectedDesktopPlatform, expectedDesktopVersion) {
   return `<!doctype html>
 <meta charset="utf-8">
-<title>bb packaged desktop smoke</title>
+<title>hyperfide packaged desktop smoke</title>
 <main>packaged desktop smoke</main>
 <script>
 (async () => {
   let ok = false;
   let reason = "";
   try {
-    if (typeof window.bbDesktop !== "object" || window.bbDesktop === null) {
-      reason = "missing window.bbDesktop";
-    } else if (typeof window.bbDesktop.getInfo !== "function") {
-      reason = "missing window.bbDesktop.getInfo";
+    if (typeof window.hyperfideDesktop !== "object" || window.hyperfideDesktop === null) {
+      reason = "missing window.hyperfideDesktop";
+    } else if (typeof window.hyperfideDesktop.getInfo !== "function") {
+      reason = "missing window.hyperfideDesktop.getInfo";
     } else {
-      const info = await window.bbDesktop.getInfo();
+      const info = await window.hyperfideDesktop.getInfo();
       const expectedPlatform = ${JSON.stringify(expectedDesktopPlatform)};
       const expectedVersion = ${JSON.stringify(expectedDesktopVersion)};
       ok =
-        window.bbDesktop.platform === expectedPlatform &&
-        window.bbDesktop.version === expectedVersion &&
+        window.hyperfideDesktop.platform === expectedPlatform &&
+        window.hyperfideDesktop.version === expectedVersion &&
         info.version === expectedVersion;
       reason = ok ? "" : "unexpected desktop bridge info";
     }
@@ -314,7 +314,7 @@ async function smokePackagedApp() {
     releaseDir,
   });
   await smokePackagedNpm(appBinary);
-  const smokeRoot = await mkdtemp(join(tmpdir(), "bb-desktop-packaged-smoke-"));
+  const smokeRoot = await mkdtemp(join(tmpdir(), "hyperfide-desktop-packaged-smoke-"));
   const dataDir = join(smokeRoot, "data");
   const userDataDir = join(smokeRoot, "user-data");
   const smokeServer = await startSmokeServer({
@@ -327,17 +327,17 @@ async function smokePackagedApp() {
   const stderr = [];
   const childEnv = {
     ...process.env,
-    BB_DATA_DIR: dataDir,
-    // The smoke server answers the bb probe, so a packaged build treats it as a
-    // foreign bb and asks before attaching. No one is here to click, so opt out
+    HYPERFIDE_DATA_DIR: dataDir,
+    // The smoke server answers the hyperfide probe, so a packaged build treats it as a
+    // foreign hyperfide and asks before attaching. No one is here to click, so opt out
     // and keep exercising the real attach path.
-    BB_DESKTOP_ATTACH_WITHOUT_PROMPT: "1",
-    BB_DESKTOP_OPEN_DEVTOOLS: "0",
-    BB_DESKTOP_VERSION_FEED_URL: `${serverUrl}/desktop-version.json`,
-    BB_SERVER_PORT: String(smokeServer.port),
+    HYPERFIDE_DESKTOP_ATTACH_WITHOUT_PROMPT: "1",
+    HYPERFIDE_DESKTOP_OPEN_DEVTOOLS: "0",
+    HYPERFIDE_DESKTOP_VERSION_FEED_URL: `${serverUrl}/desktop-version.json`,
+    HYPERFIDE_SERVER_PORT: String(smokeServer.port),
   };
-  delete childEnv.BB_DESKTOP_APP_URL;
-  delete childEnv.BB_DESKTOP_NODE_EXEC_PATH;
+  delete childEnv.HYPERFIDE_DESKTOP_APP_URL;
+  delete childEnv.HYPERFIDE_DESKTOP_NODE_EXEC_PATH;
   delete childEnv.ELECTRON_RUN_AS_NODE;
 
   const child = spawn(

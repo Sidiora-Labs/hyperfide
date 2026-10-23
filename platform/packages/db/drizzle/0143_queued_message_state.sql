@@ -51,7 +51,7 @@ CREATE TABLE `__new_queued_thread_messages` (
 INSERT INTO `__new_queued_thread_messages`("id", "system_notice", "thread_id", "content", "sender_thread_id", "origin", "origin_plugin_id", "requested_by_initiator", "requested_by_thread_id", "model", "reasoning_level", "permission_mode", "service_tier", "group_with_next", "state", "send_at", "waiting_on", "wait_holder", "failure_reason", "failure_count", "next_attempt_at", "payload_kind", "retry_of_turn_request_id", "retry_attempt", "retry_reason", "claimed_at", "claim_token", "edit_held_until", "sort_key", "created_at", "updated_at")
 SELECT
 	"id", "system_notice", "thread_id", "content", "sender_thread_id", "origin", "origin_plugin_id", "requested_by_initiator", "requested_by_thread_id", "model", "reasoning_level", "permission_mode", "service_tier",
-	COALESCE((SELECT "group_with_next" FROM bb_migration_queued_message_groups WHERE bb_migration_queued_message_groups."id" = normalized."id"), 0),
+	COALESCE((SELECT "group_with_next" FROM hyperfide_migration_queued_message_groups WHERE hyperfide_migration_queued_message_groups."id" = normalized."id"), 0),
 	CASE
 		WHEN "claimed_at" IS NOT NULL THEN 'claimed'
 		WHEN "failure_reason" IS NOT NULL AND "next_attempt_at" IS NOT NULL THEN 'failed_retrying'

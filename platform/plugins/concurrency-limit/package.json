@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Control the number of concurrent threads that are running in bb",
+  "description": "Control the number of concurrent threads that are running in hyperfide",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "hyperfide": {
     "name": "Concurrency limit",
-    "description": "Control the number of concurrent threads that are running in bb",
+    "description": "Control the number of concurrent threads that are running in hyperfide",
     "branding": {
       "icon": "Limitation"
     },
@@ -19,7 +19,7 @@
     "host": "./host.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

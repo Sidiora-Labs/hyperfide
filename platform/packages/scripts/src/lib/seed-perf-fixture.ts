@@ -906,7 +906,7 @@ export function seedPerfFixture(
           hostId: options.hostId,
           path: `${options.workspacesRootPath}/plugins/environment-git-worktree/host-data/worktrees/${threadId}/${project.name}`,
           isGitRepo: true,
-          branchName: `bb/${title
+          branchName: `hyperfide/${title
             .toLowerCase()
             .slice(0, 24)
             .replace(/[^a-z0-9]+/gu, "-")}-${threadId}`,

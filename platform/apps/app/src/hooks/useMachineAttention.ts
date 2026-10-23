@@ -5,7 +5,7 @@ import type { Host } from "@hyperfide/domain";
 import { createJsonLocalStorage } from "@/lib/browser-storage";
 
 const acknowledgedIssuesAtom = atomWithStorage<string[]>(
-  "bb.sidebar.machineAttentionAcknowledged",
+  "hyperfide.sidebar.machineAttentionAcknowledged",
   [],
   createJsonLocalStorage<string[]>(
     (value): value is string[] =>

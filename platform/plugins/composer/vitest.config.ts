@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "hyperfide-plugin-bb--composer",
+    name: "hyperfide-plugin-hyperfide--composer",
     include: ["**/*.test.{ts,tsx}"],
     setupFiles: ["./test-setup.ts"],
     exclude: ["node_modules/**"],

@@ -8,7 +8,7 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type HyperfidePluginApi,
   type PluginCliContext,
   type PluginCliResult,
   type PluginRpcHandlers,
@@ -19,7 +19,7 @@ const DEFAULT_DIR = "~/Notes";
 const PREVIEW_LENGTH = 100;
 const MAX_TREE_ENTRIES = 5_000;
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
-const SYNC_STATE_FILE = ".bb-docs-state.json";
+const SYNC_STATE_FILE = ".hyperfide-docs-state.json";
 const SYNC_STATE_VERSION = 1;
 const MENTION_SUMMARY_TTL_MS = 10_000;
 const SUMMARY_READ_CONCURRENCY = 8;
@@ -42,21 +42,21 @@ const DOCS_STATUS_DESCRIPTION = [
   "Exit 3: local and remote changes conflict.",
   "Exit 4: changes present.",
   "",
-  "Exit 4 is a successful status result. Review the output, then run bb docs push separately.",
+  "Exit 4 is a successful status result. Review the output, then run hyperfide-platform docs push separately.",
 ].join("\n");
 
 const DEPRECATED_MUTATION_WARNING =
-  "Deprecated: direct Docs mutations will be removed; use bb docs pull, edit local files, then bb docs push.";
+  "Deprecated: direct Docs mutations will be removed; use hyperfide-platform docs pull, edit local files, then hyperfide-platform docs push.";
 
 const DEPRECATED_DELETION_WARNING =
-  "Deprecated: direct Docs mutations will be removed; use bb docs pull, edit local files, then bb docs push --delete.";
+  "Deprecated: direct Docs mutations will be removed; use hyperfide-platform docs pull, edit local files, then hyperfide-platform docs push --delete.";
 
 const VAULT_OPTION = {
   type: "string",
   placeholder: "id",
   aliases: ["vault-id", "vaultId"],
   description:
-    "Vault ID from `bb docs vaults`; defaults to the first configured vault",
+    "Vault ID from `hyperfide-platform docs vaults`; defaults to the first configured vault",
 } as const;
 
 const WORKSPACE_HOST_OPTION = {
@@ -601,7 +601,7 @@ function hostArgs(vault: Vault): { hostId?: string } {
 
 function syncEntryFromFile(
   relativePath: string,
-  file: Awaited<ReturnType<BbPluginApi["sdk"]["files"]["read"]>>,
+  file: Awaited<ReturnType<HyperfidePluginApi["sdk"]["files"]["read"]>>,
 ): SyncStateEntry {
   return {
     remotePath: relativePath,
@@ -719,11 +719,11 @@ function waitForDelay(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export default async function plugin(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   watchVault: WatchVault = watchNativeVault,
 ) {
-  const db = bb.storage.database();
-  bb.storage.migrate(db, [
+  const db = hyperfide.storage.database();
+  hyperfide.storage.migrate(db, [
     `CREATE TABLE IF NOT EXISTS vaults (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -791,14 +791,14 @@ export default async function plugin(
   if (seededDefaultVault) {
     const vault = getVault("personal");
     try {
-      await bb.sdk.files.mkdir({ path: vault.rootPath, recursive: true });
+      await hyperfide.sdk.files.mkdir({ path: vault.rootPath, recursive: true });
     } catch (error) {
-      bb.log.warn(`could not create default vault: ${errorMessage(error)}`);
+      hyperfide.log.warn(`could not create default vault: ${errorMessage(error)}`);
     }
   }
 
   function listVaultPaths(vault: Vault, signal?: AbortSignal) {
-    return bb.sdk.files.listPaths({
+    return hyperfide.sdk.files.listPaths({
       ...hostArgs(vault),
       path: vault.rootPath,
       includeFiles: true,
@@ -848,7 +848,7 @@ export default async function plugin(
             const index = nextIndex++;
             const notePath = markdownPaths[index]!;
             try {
-              const file = await bb.sdk.files.read({
+              const file = await hyperfide.sdk.files.read({
                 ...hostArgs(vault),
                 path: absolutePath(vault, notePath),
                 rootPath: vault.rootPath,
@@ -885,7 +885,7 @@ export default async function plugin(
     }
   >();
   const mentionLifetime = new AbortController();
-  bb.onDispose(() => {
+  hyperfide.onDispose(() => {
     mentionLifetime.abort();
     mentionSummaries.clear();
   });
@@ -934,7 +934,7 @@ export default async function plugin(
     try {
       const [{ entries, truncated }, hosts] = await Promise.all([
         listEntries(vault),
-        bb.sdk.hosts.list(),
+        hyperfide.sdk.hosts.list(),
       ]);
       const notes = await listNoteSummaries(vault, entries);
       return {
@@ -951,7 +951,7 @@ export default async function plugin(
       return {
         vaults: listVaults(),
         vault,
-        hosts: await bb.sdk.hosts.list().catch(() => []),
+        hosts: await hyperfide.sdk.hosts.list().catch(() => []),
         entries: [],
         entryOrder: listEntryOrder(vault.id),
         notes: [],
@@ -964,7 +964,7 @@ export default async function plugin(
   async function readFile(vaultId: string | undefined, rawPath: unknown) {
     const vault = getVault(vaultId);
     const relativePath = requireVaultPath(rawPath);
-    const file = await bb.sdk.files.read({
+    const file = await hyperfide.sdk.files.read({
       ...hostArgs(vault),
       path: absolutePath(vault, relativePath),
       rootPath: vault.rootPath,
@@ -985,7 +985,7 @@ export default async function plugin(
     const relativePath = requireVaultPath(args.rawPath);
     if (typeof args.content !== "string")
       throw new Error('"content" must be a string');
-    const result = await bb.sdk.files.write({
+    const result = await hyperfide.sdk.files.write({
       ...hostArgs(vault),
       path: absolutePath(vault, relativePath),
       rootPath: vault.rootPath,
@@ -1001,7 +1001,7 @@ export default async function plugin(
     });
     if (result.outcome === "written") {
       mentionSummaries.delete(vault.id);
-      bb.realtime.publish("vault-changed", {
+      hyperfide.realtime.publish("vault-changed", {
         vaultId: vault.id,
         path: relativePath,
         ...(args.proposalOnly ? { proposalOnly: true } : {}),
@@ -1048,12 +1048,12 @@ export default async function plugin(
     db.prepare(
       "INSERT INTO proposals (vault_id, path, data) VALUES (?, ?, ?) ON CONFLICT(vault_id, path) DO UPDATE SET data = excluded.data",
     ).run(proposal.vaultId, proposal.path, JSON.stringify(proposal));
-    bb.realtime.publish("vault-changed", {
+    hyperfide.realtime.publish("vault-changed", {
       vaultId: proposal.vaultId,
       path: proposal.path,
       proposalOnly: true,
     });
-    bb.realtime.publish("proposal-changed", {
+    hyperfide.realtime.publish("proposal-changed", {
       vaultId: proposal.vaultId,
       path: proposal.path,
       version: proposal.version,
@@ -1093,7 +1093,7 @@ export default async function plugin(
       };
     }
     if (source.kind === "workspace" && source.environmentId) {
-      const environment = await bb.sdk.environments.get({
+      const environment = await hyperfide.sdk.environments.get({
         environmentId: source.environmentId,
       });
       if (!environment.path) {
@@ -1108,11 +1108,11 @@ export default async function plugin(
     if (source.kind === "workspace" && source.projectId) {
       const hostId =
         source.experimental_hostId ??
-        (await bb.sdk.system.config()).primaryHostId;
+        (await hyperfide.sdk.system.config()).primaryHostId;
       if (!hostId) {
-        throw new Error("This bb has no server machine yet");
+        throw new Error("This hyperfide has no server machine yet");
       }
-      const project = await bb.sdk.projects.get({
+      const project = await hyperfide.sdk.projects.get({
         projectId: source.projectId,
       });
       const matchingSources = project.sources.filter(
@@ -1144,7 +1144,7 @@ export default async function plugin(
         throw new Error("Thread-storage files require a thread ID");
       }
       const relativePath = requireThreadStoragePath(filePath);
-      const storage = await bb.sdk.threads.storageLocation({
+      const storage = await hyperfide.sdk.threads.storageLocation({
         threadId: source.threadId,
       });
       if (!isAbsoluteHostPath(storage.storageRootPath)) {
@@ -1199,7 +1199,7 @@ export default async function plugin(
     const from = requireVaultPath(fromValue);
     const to = requireVaultPath(toValue);
     return serializeVault(vault.id, async () => {
-      await bb.sdk.files.move({
+      await hyperfide.sdk.files.move({
         ...hostArgs(vault),
         sourcePath: absolutePath(vault, from),
         destinationPath: absolutePath(vault, to),
@@ -1224,7 +1224,7 @@ export default async function plugin(
         }
       })();
       mentionSummaries.delete(vault.id);
-      bb.realtime.publish("vault-changed", { vaultId: vault.id });
+      hyperfide.realtime.publish("vault-changed", { vaultId: vault.id });
       return { path: to };
     });
   }
@@ -1243,7 +1243,7 @@ export default async function plugin(
     const vault = getVault(vaultId);
     const relativePath = requireVaultPath(rawPath);
     return serializeVault(vault.id, async () => {
-      await bb.sdk.files.remove({
+      await hyperfide.sdk.files.remove({
         ...hostArgs(vault),
         path: absolutePath(vault, relativePath),
         rootPath: vault.rootPath,
@@ -1251,7 +1251,7 @@ export default async function plugin(
       });
       deleteProposals(vault.id, relativePath);
       mentionSummaries.delete(vault.id);
-      bb.realtime.publish("vault-changed", { vaultId: vault.id });
+      hyperfide.realtime.publish("vault-changed", { vaultId: vault.id });
       return { ok: true };
     });
   }
@@ -1272,9 +1272,9 @@ export default async function plugin(
   async function readExistingFile(
     vault: Vault,
     relativePath: string,
-  ): Promise<Awaited<ReturnType<typeof bb.sdk.files.read>> | null> {
+  ): Promise<Awaited<ReturnType<typeof hyperfide.sdk.files.read>> | null> {
     try {
-      return await bb.sdk.files.read({
+      return await hyperfide.sdk.files.read({
         ...hostArgs(vault),
         path: absolutePath(vault, relativePath),
         rootPath: vault.rootPath,
@@ -1554,7 +1554,7 @@ export default async function plugin(
     for (const directory of [...directories].sort()) {
       if (currentByPath.get(directory)?.kind === "directory") continue;
       try {
-        await bb.sdk.files.mkdir({
+        await hyperfide.sdk.files.mkdir({
           ...hostArgs(vault),
           path: absolutePath(vault, directory),
           rootPath: vault.rootPath,
@@ -1790,13 +1790,13 @@ export default async function plugin(
     async createFolder(input) {
       const vault = getVault(input.vaultId);
       const relativePath = requireVaultPath(input.path);
-      await bb.sdk.files.mkdir({
+      await hyperfide.sdk.files.mkdir({
         ...hostArgs(vault),
         path: absolutePath(vault, relativePath),
         rootPath: vault.rootPath,
         recursive: false,
       });
-      bb.realtime.publish("vault-changed", { vaultId: vault.id });
+      hyperfide.realtime.publish("vault-changed", { vaultId: vault.id });
       return { path: relativePath };
     },
     async reorderFiles(input) {
@@ -1842,7 +1842,7 @@ export default async function plugin(
         );
       });
       replaceOrder();
-      bb.realtime.publish("vault-changed", { vaultId: vault.id });
+      hyperfide.realtime.publish("vault-changed", { vaultId: vault.id });
       return { paths };
     },
     async movePath(input) {
@@ -1874,7 +1874,7 @@ export default async function plugin(
         throw new Error('"rootPath" must be absolute');
       const hostId = optionalString(input.hostId) ?? null;
       const resolvedRoot = normalizeHostRoot(rootPath);
-      await bb.sdk.files.mkdir({
+      await hyperfide.sdk.files.mkdir({
         ...hostIdArgs(hostId),
         path: resolvedRoot,
         recursive: true,
@@ -1887,7 +1887,7 @@ export default async function plugin(
       db.prepare(
         "INSERT INTO vaults (id, name, host_id, root_path, created_at) VALUES (?, ?, ?, ?, ?)",
       ).run(id, name, hostId, resolvedRoot, Date.now());
-      bb.realtime.publish("vault-changed", { vaultId: id });
+      hyperfide.realtime.publish("vault-changed", { vaultId: id });
       return getVault(id);
     },
     async removeVault(input) {
@@ -1901,7 +1901,7 @@ export default async function plugin(
           db.prepare("DELETE FROM vaults WHERE id = ?").run(id);
         })();
         mentionSummaries.delete(id);
-        bb.realtime.publish("vault-changed", { vaultId: id });
+        hyperfide.realtime.publish("vault-changed", { vaultId: id });
         return { ok: true as const };
       });
     },
@@ -1945,12 +1945,12 @@ export default async function plugin(
     async preparePreview(input) {
       const vault = getVault(input.vaultId);
       const relativePath = requireVaultPath(input.path);
-      await bb.sdk.files.read({
+      await hyperfide.sdk.files.read({
         ...hostArgs(vault),
         path: absolutePath(vault, relativePath),
         rootPath: vault.rootPath,
       });
-      return bb.sdk.files.createPreview({
+      return hyperfide.sdk.files.createPreview({
         ...hostArgs(vault),
         rootPath: vault.rootPath,
       });
@@ -1963,8 +1963,8 @@ export default async function plugin(
         rootPath: target.rootPath,
       };
       const [file, preview] = await Promise.all([
-        bb.sdk.files.read(args),
-        bb.sdk.files.createPreview({
+        hyperfide.sdk.files.read(args),
+        hyperfide.sdk.files.createPreview({
           ...hostIdArgs(target.hostId),
           rootPath: target.rootPath,
         }),
@@ -1982,7 +1982,7 @@ export default async function plugin(
     },
     async saveOpenedFile(input) {
       const target = await resolveOpenerFile(input.source, input.path);
-      const result = await bb.sdk.files.write({
+      const result = await hyperfide.sdk.files.write({
         ...hostIdArgs(target.hostId),
         path: target.path,
         rootPath: target.rootPath,
@@ -1997,10 +1997,10 @@ export default async function plugin(
     },
   };
 
-  bb.rpc.register(docsRpcContract, handlers);
+  hyperfide.rpc.register(docsRpcContract, handlers);
 
   async function readHttpInput<Schema extends z.ZodType>(
-    context: Parameters<Parameters<BbPluginApi["http"]["route"]>[2]>[0],
+    context: Parameters<Parameters<HyperfidePluginApi["http"]["route"]>[2]>[0],
     schema: Schema,
   ): Promise<
     { ok: true; value: z.output<Schema> } | { ok: false; response: Response }
@@ -2049,7 +2049,7 @@ export default async function plugin(
     schema: Schema,
     handle: (input: z.output<Schema>) => object | Promise<object>,
   ): void {
-    bb.http.route(
+    hyperfide.http.route(
       "POST",
       routePath,
       async (context) => {
@@ -2086,9 +2086,9 @@ export default async function plugin(
   ): Promise<string | undefined> {
     if (args.workspaceHostId) return args.workspaceHostId;
     if (!context.threadId) return undefined;
-    const thread = await bb.sdk.threads.get({ threadId: context.threadId });
+    const thread = await hyperfide.sdk.threads.get({ threadId: context.threadId });
     if (!thread.environmentId) return undefined;
-    const environment = await bb.sdk.environments.get({
+    const environment = await hyperfide.sdk.environments.get({
       environmentId: thread.environmentId,
     });
     return environment.hostId;
@@ -2098,9 +2098,9 @@ export default async function plugin(
     rootPath: string,
     hostId: string | undefined,
     relativePath: string,
-  ): Promise<Awaited<ReturnType<typeof bb.sdk.files.read>> | null> {
+  ): Promise<Awaited<ReturnType<typeof hyperfide.sdk.files.read>> | null> {
     try {
-      return await bb.sdk.files.read({
+      return await hyperfide.sdk.files.read({
         ...hostIdArgs(hostId),
         path: localFilePath(rootPath, relativePath),
         rootPath,
@@ -2168,7 +2168,7 @@ export default async function plugin(
     state: SyncState,
     expectedSha256: string | null,
   ): Promise<void> {
-    const result = await bb.sdk.files.write({
+    const result = await hyperfide.sdk.files.write({
       ...hostIdArgs(hostId),
       path: localFilePath(rootPath, SYNC_STATE_FILE),
       rootPath,
@@ -2350,13 +2350,13 @@ export default async function plugin(
     const deleted: string[] = [];
     const deletedDirectories: string[] = [];
     try {
-      await bb.sdk.files.mkdir({
+      await hyperfide.sdk.files.mkdir({
         ...hostIdArgs(hostId),
         path: rootPath,
         recursive: true,
       });
       for (const directory of snapshot.directories) {
-        await bb.sdk.files.mkdir({
+        await hyperfide.sdk.files.mkdir({
           ...hostIdArgs(hostId),
           path: localFilePath(rootPath, directory),
           rootPath,
@@ -2364,7 +2364,7 @@ export default async function plugin(
         });
       }
       for (const write of writes) {
-        const result = await bb.sdk.files.write({
+        const result = await hyperfide.sdk.files.write({
           ...hostIdArgs(hostId),
           path: localFilePath(rootPath, write.file.localPath),
           rootPath,
@@ -2391,7 +2391,7 @@ export default async function plugin(
             `Local file changed during pull: ${deletion.path}; rerun pull to recover`,
           );
         }
-        await bb.sdk.files.remove({
+        await hyperfide.sdk.files.remove({
           ...hostIdArgs(hostId),
           path: localFilePath(rootPath, deletion.path),
           rootPath,
@@ -2405,7 +2405,7 @@ export default async function plugin(
           right.localeCompare(left),
       )) {
         try {
-          await bb.sdk.files.remove({
+          await hyperfide.sdk.files.remove({
             ...hostIdArgs(hostId),
             path: localFilePath(rootPath, directory),
             rootPath,
@@ -2469,7 +2469,7 @@ export default async function plugin(
     const existing = await readSyncState(rootPath, hostId);
     if (!existing) {
       throw new Error(
-        `${SYNC_STATE_FILE} was not found; run bb docs pull first`,
+        `${SYNC_STATE_FILE} was not found; run hyperfide-platform docs pull first`,
       );
     }
     if (args.vaultId && args.vaultId !== existing.state.vault.id) {
@@ -2481,7 +2481,7 @@ export default async function plugin(
       existing.state.vault.id,
       existing.state.scope,
     );
-    const listing = await bb.sdk.files.listPaths({
+    const listing = await hyperfide.sdk.files.listPaths({
       ...hostIdArgs(hostId),
       path: rootPath,
       includeFiles: true,
@@ -2510,7 +2510,7 @@ export default async function plugin(
       });
     const localFiles = new Map<
       string,
-      Awaited<ReturnType<typeof bb.sdk.files.read>>
+      Awaited<ReturnType<typeof hyperfide.sdk.files.read>>
     >();
     for (const entry of localPaths) {
       if (entry.kind !== "file") continue;
@@ -2941,7 +2941,7 @@ export default async function plugin(
     ]),
   );
 
-  bb.cli.register(
+  hyperfide.cli.register(
     defineCli({
       name: "docs",
       summary: "Discover and safely sync Docs vaults",
@@ -3001,7 +3001,7 @@ export default async function plugin(
                 }),
                 context,
               );
-              const file = await bb.sdk.files.read({
+              const file = await hyperfide.sdk.files.read({
                 ...hostIdArgs(hostId),
                 path: candidatePath,
                 rootPath: (path.win32.isAbsolute(candidatePath) &&
@@ -3113,7 +3113,7 @@ export default async function plugin(
           positionals: [
             {
               name: "id",
-              description: "Vault ID from `bb docs vaults`",
+              description: "Vault ID from `hyperfide-platform docs vaults`",
               required: true,
             },
           ],
@@ -3173,7 +3173,7 @@ export default async function plugin(
         pull: cliCommand({
           summary: "Pull one file, a folder subtree, or a whole vault",
           description:
-            "Writes the scope into a workspace directory with a .bb-docs-state.json manifest. Edit the files with ordinary tools, then run bb docs status and bb docs push.",
+            "Writes the scope into a workspace directory with a .hyperfide-docs-state.json manifest. Edit the files with ordinary tools, then run hyperfide-platform docs status and hyperfide-platform docs push.",
           suggestFor: ["fetch", "clone", "checkout"],
           positionals: [
             {
@@ -3322,7 +3322,7 @@ export default async function plugin(
         write: cliCommand({
           summary: "Deprecated: write a UTF-8 file directly",
           description:
-            "Use bb docs pull, edit the files, then bb docs push instead.",
+            "Use hyperfide-platform docs pull, edit the files, then hyperfide-platform docs push instead.",
           positionals: [
             {
               name: "path",
@@ -3359,7 +3359,7 @@ export default async function plugin(
         mkdir: cliCommand({
           summary: "Deprecated: create a folder directly",
           description:
-            "Use bb docs pull, create the directory locally, then bb docs push instead.",
+            "Use hyperfide-platform docs pull, create the directory locally, then hyperfide-platform docs push instead.",
           positionals: [
             {
               name: "path",
@@ -3385,7 +3385,7 @@ export default async function plugin(
         move: cliCommand({
           summary: "Deprecated: move a path directly",
           description:
-            "Use bb docs pull, move the file locally, then bb docs push --delete instead.",
+            "Use hyperfide-platform docs pull, move the file locally, then hyperfide-platform docs push --delete instead.",
           positionals: [
             {
               name: "from",
@@ -3417,7 +3417,7 @@ export default async function plugin(
         remove: cliCommand({
           summary: "Deprecated: remove a file or directory directly",
           description:
-            "Use bb docs pull, delete the file locally, then bb docs push --delete instead.",
+            "Use hyperfide-platform docs pull, delete the file locally, then hyperfide-platform docs push --delete instead.",
           aliases: ["rm"],
           positionals: [
             {
@@ -3453,7 +3453,7 @@ export default async function plugin(
     }),
   );
 
-  bb.ui.registerMentionProvider({
+  hyperfide.ui.registerMentionProvider({
     id: "note",
     label: "Docs",
     async search({ query }) {
@@ -3490,13 +3490,13 @@ export default async function plugin(
         context:
           `Docs document (${vaultId}/${relativePath}):\nSHA-256: ${file.sha256}\n\n${file.content}` +
           (proposal
-            ? `\n\nDocs proposal metadata:\n${JSON.stringify(proposal)}\nUse bb docs propose with this version and current document hash to propose a revision; do not push over the user's document.`
-            : "\n\nProposal version: none. Use bb docs propose to suggest changes for approval."),
+            ? `\n\nDocs proposal metadata:\n${JSON.stringify(proposal)}\nUse hyperfide-platform docs propose with this version and current document hash to propose a revision; do not push over the user's document.`
+            : "\n\nProposal version: none. Use hyperfide-platform docs propose to suggest changes for approval."),
       };
     },
   });
 
-  bb.background.service("watch-vaults", {
+  hyperfide.background.service("watch-vaults", {
     async start(signal) {
       const watchers = new Map<string, VaultWatcher>();
       const retryNative = new Set<string>();
@@ -3521,7 +3521,7 @@ export default async function plugin(
                 mentionSummaries.delete(vault.id);
                 if (debounce) clearTimeout(debounce);
                 debounce = setTimeout(() => {
-                  bb.realtime.publish("vault-changed", {
+                  hyperfide.realtime.publish("vault-changed", {
                     vaultId: vault.id,
                   });
                 }, 250);
@@ -3535,7 +3535,7 @@ export default async function plugin(
               retryNative.delete(vault.id);
             } catch (error) {
               if (!retryNative.has(vault.id)) {
-                bb.log.warn(
+                hyperfide.log.warn(
                   `cannot watch ${vault.rootPath}; using polling: ${errorMessage(error)}`,
                 );
               }
@@ -3566,7 +3566,7 @@ export default async function plugin(
           }
           const next = snapshots.join("\n");
           if (previous && previous !== next) {
-            bb.realtime.publish("vault-changed", {});
+            hyperfide.realtime.publish("vault-changed", {});
           }
           previous = next;
           await waitForDelay(10_000, signal);

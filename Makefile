@@ -92,8 +92,10 @@ clean:
 # build/release (ignored, so the clean-checkout check still holds):
 #   make release RELEASE_DIR=/path/to/out
 RELEASE_DIR ?= $(BUILD)/release
+# --dry-run constructs and checks real artifacts without signing or publication.
+RELEASE_ARGS ?=
 release:
-	scripts/release.sh --output "$(RELEASE_DIR)"
+	scripts/release.sh --output "$(RELEASE_DIR)" $(RELEASE_ARGS)
 
 # Hyperfide approved split runtime: explicit dependency setup and service builds.
 # Build-time Python validates native fragments; native execution remains a C binary.

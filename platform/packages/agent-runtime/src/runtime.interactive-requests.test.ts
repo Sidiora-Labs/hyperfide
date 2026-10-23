@@ -106,7 +106,7 @@ async function answerDirectRequest(args: {
   try {
     handleRuntimeProviderRequest({
       toolCalls: new RuntimeToolCalls(),
-      getActiveTurnId: args.getActiveTurnId ?? (() => "bb-turn-1"),
+      getActiveTurnId: args.getActiveTurnId ?? (() => "hyperfide-turn-1"),
       getThreadExecutionOptions:
         args.getThreadExecutionOptions ?? (() => undefined),
       onInteractiveRequest: args.onInteractiveRequest,
@@ -134,7 +134,7 @@ describe("createAgentRuntime interactive requests", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "bb-runtime-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "hyperfide-runtime-test-"));
   });
 
   afterEach(() => {
@@ -540,7 +540,7 @@ describe("createAgentRuntime interactive requests", () => {
 
   it.each([
     ["explicit turn", "turn-1", "turn-1"],
-    ["active turn", null, "bb-active-turn"],
+    ["active turn", null, "hyperfide-active-turn"],
   ])(
     "forwards a plugin-defined request for an %s even under a deny escalation",
     async (_name, providerTurnId, expectedTurnId) => {
@@ -567,7 +567,7 @@ describe("createAgentRuntime interactive requests", () => {
           },
         },
         handshake: { approvalEnforcedBy: "runtime" },
-        getActiveTurnId: () => "bb-active-turn",
+        getActiveTurnId: () => "hyperfide-active-turn",
         getThreadExecutionOptions: () => deniedEscalationOptions,
         onInteractiveRequest,
       });

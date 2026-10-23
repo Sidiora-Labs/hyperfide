@@ -21,7 +21,7 @@ let harness: FakePiBridgeHarness;
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-lifecycle-",
+    prefix: "hyperfide-pi-lifecycle-",
     initialize: true,
     processLog: true,
   });
@@ -78,8 +78,8 @@ async function startThread(threadId: string): Promise<string> {
   const response = await harness.startThread(threadId, {
     dynamicTools: [
       {
-        name: "bb_probe",
-        description: "A bb tool.",
+        name: "hyperfide_probe",
+        description: "A hyperfide tool.",
         inputSchema: {
           type: "object",
           properties: { value: { type: "string" } },
@@ -225,7 +225,7 @@ it("the fork helper child exits once the fork is done", async () => {
 
 function scratchFiles(): string[] {
   return readdirSync(experimental_scratchDirForTests())
-    .filter((name) => name !== "bb-pi-extension.mjs")
+    .filter((name) => name !== "hyperfide-pi-extension.mjs")
     .sort();
 }
 
@@ -570,8 +570,8 @@ it("a child's tool and prompt files go with the child after release and failed c
     options: { ...FULL_PERMISSION_OPTIONS, instructions: "be brief" },
     dynamicTools: [
       {
-        name: "bb_probe",
-        description: "A bb tool.",
+        name: "hyperfide_probe",
+        description: "A hyperfide tool.",
         inputSchema: { type: "object" },
       },
     ],

@@ -7,7 +7,7 @@ import {
   ThreadWaitUnreachableError,
 } from "@hyperfide/sdk";
 import { action, CliExitError } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliHyperfideSdk } from "../../client.js";
 import { durationHelp } from "../../duration.js";
 import { outputJson, requireThreadId } from "../helpers.js";
 import {
@@ -52,7 +52,7 @@ export function registerWaitCommand(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string | undefined, opts: ThreadWaitCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliHyperfideSdk(getUrl());
         const threadId = requireThreadId(id);
         const target = parseThreadWaitTarget(opts);
         const timeoutMs = parseThreadWaitTimeoutMs(opts.timeout);

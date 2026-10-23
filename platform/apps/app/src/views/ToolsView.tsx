@@ -238,7 +238,7 @@ function PluginDetailToolView({ detailKey }: { detailKey: string }) {
     onSuccess: (_data, deletedPlugin) => {
       const isLocal = pluginIsLocalSource(deletedPlugin);
       pluginToast.success(
-        isLocal ? "Plugin removed from bb" : "Plugin uninstalled",
+        isLocal ? "Plugin removed from hyperfide" : "Plugin uninstalled",
         deletedPlugin,
         "catalog",
       );
@@ -424,7 +424,7 @@ function PluginDetailToolView({ detailKey }: { detailKey: string }) {
               <ConfirmDeleteDialogContent
                 title={
                   pluginIsLocalSource(deleteTarget)
-                    ? "Remove plugin from bb?"
+                    ? "Remove plugin from hyperfide?"
                     : "Uninstall plugin?"
                 }
                 description={pluginRemovalDescription(deleteTarget)}

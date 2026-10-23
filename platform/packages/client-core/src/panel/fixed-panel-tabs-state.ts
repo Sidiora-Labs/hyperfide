@@ -2,8 +2,8 @@ import { z } from "zod";
 import {
   HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH,
   HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
-  bbDesktopBrowserTargetSchema,
-  type BbDesktopBrowserTarget,
+  hyperfideDesktopBrowserTargetSchema,
+  type HyperfideDesktopBrowserTarget,
 } from "@hyperfide/desktop-contract";
 import {
   terminalCreateTargetSchema,
@@ -22,7 +22,7 @@ import {
   type WorkspaceFileTabState,
 } from "../file-preview.js";
 
-const FIXED_PANEL_TABS_STATE_STORAGE_PREFIX = "bb.thread.fixedPanelTabsState";
+const FIXED_PANEL_TABS_STATE_STORAGE_PREFIX = "hyperfide.thread.fixedPanelTabsState";
 export const FIXED_PANEL_TABS_STATE_STORAGE_VERSION = 1;
 export const FIXED_PANEL_TABS_IDLE_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -136,7 +136,7 @@ const browserFixedPanelTabSchema = z
     environmentId: z.string().min(1).nullable().default(null),
     id: z.string().min(1),
     kind: z.literal("browser"),
-    desktopTarget: bbDesktopBrowserTargetSchema.optional(),
+    desktopTarget: hyperfideDesktopBrowserTargetSchema.optional(),
     title: z
       .string()
       .min(1)
@@ -294,7 +294,7 @@ export interface AttachmentFilePreviewFixedPanelTab {
 }
 
 export interface BrowserFixedPanelTab {
-  desktopTarget?: BbDesktopBrowserTarget;
+  desktopTarget?: HyperfideDesktopBrowserTarget;
   environmentId: string | null;
   id: string;
   kind: "browser";

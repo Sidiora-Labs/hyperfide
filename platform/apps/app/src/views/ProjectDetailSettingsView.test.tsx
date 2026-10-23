@@ -73,7 +73,7 @@ function stubSidebarBootstrapFetch(
   sources: SourceFixture[],
   options: { status?: number; projectId?: string } = {},
 ): void {
-  const projectId = options.projectId ?? "proj_bb";
+  const projectId = options.projectId ?? "proj_hyperfide";
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue(
@@ -84,8 +84,8 @@ function stubSidebarBootstrapFetch(
             {
               id: projectId,
               kind: "standard",
-              name: "bb",
-              gitRemoteUrl: "git@github.com:get-bb/bb.git",
+              name: "hyperfide",
+              gitRemoteUrl: "git@github.com:hyperfide/hyperfide.git",
               createdAt: NOW - 86_400_000,
               updatedAt: NOW,
               sources: sources.map((source, index) => ({
@@ -123,7 +123,7 @@ function stubSidebarBootstrapFetch(
   );
 }
 
-function renderView(projectId = "proj_bb") {
+function renderView(projectId = "proj_hyperfide") {
   const { wrapper } = createQueryClientTestHarness();
   return render(
     <MemoryRouter initialEntries={[`/settings/projects/${projectId}`]}>
@@ -153,7 +153,7 @@ beforeEach(() => {
   ]);
   vi.mocked(sdk.hosts.pathsExist).mockResolvedValue({ existence: {} });
   vi.mocked(sdk.hosts.cloneDefaultPath).mockResolvedValue({
-    path: "/home/me/bb",
+    path: "/home/me/hyperfide",
   });
   vi.mocked(sdk.projects.defaultExecutionOptions).mockResolvedValue(null);
 });
@@ -183,7 +183,7 @@ describe("ProjectDetailSettingsView", () => {
       })),
     );
     renderView();
-    await screen.findByRole("heading", { name: "bb" });
+    await screen.findByRole("heading", { name: "hyperfide" });
     expect(screen.getByText(/2 of 2 machines/)).toBeDefined();
     expect(screen.queryByRole("link", { name: sandbox.name })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show all machines" }));
@@ -198,15 +198,15 @@ describe("ProjectDetailSettingsView", () => {
 
   it("lists every paired machine with its checkout or a set-up action", async () => {
     stubSidebarBootstrapFetch([
-      { hostId: "host_primary", path: "/Users/me/bb" },
+      { hostId: "host_primary", path: "/Users/me/hyperfide" },
     ]);
 
     renderView();
 
-    expect(await screen.findByRole("heading", { name: "bb" })).toBeDefined();
-    expect(screen.getByText("/Users/me/bb")).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "hyperfide" })).toBeDefined();
+    expect(screen.getByText("/Users/me/hyperfide")).toBeDefined();
     expect(
-      screen.getByText("github.com/get-bb/bb · 1 of 3 machines · 1 thread"),
+      screen.getByText("github.com/hyperfide/hyperfide · 1 of 3 machines · 1 thread"),
     ).toBeDefined();
     expect(screen.getAllByText("Not set up on this machine")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Set up" })).toBeDefined();
@@ -220,17 +220,17 @@ describe("ProjectDetailSettingsView", () => {
 
   it("opens the machine setup dialog for a remote machine", async () => {
     stubSidebarBootstrapFetch([
-      { hostId: "host_primary", path: "/Users/me/bb" },
+      { hostId: "host_primary", path: "/Users/me/hyperfide" },
     ]);
 
     renderView();
     fireEvent.click(await screen.findByRole("button", { name: "Set up" }));
 
-    expect(await screen.findByText("Set up bb on dev-vm")).toBeDefined();
+    expect(await screen.findByText("Set up hyperfide on dev-vm")).toBeDefined();
   });
 
   it("opens the path dialog when the local machine has no checkout", async () => {
-    stubSidebarBootstrapFetch([{ hostId: "host_remote", path: "/home/me/bb" }]);
+    stubSidebarBootstrapFetch([{ hostId: "host_remote", path: "/home/me/hyperfide" }]);
 
     renderView();
     fireEvent.click(await screen.findByRole("button", { name: "Set up" }));
@@ -240,8 +240,8 @@ describe("ProjectDetailSettingsView", () => {
 
   it("refuses to remove the last checkout but removes an extra one", async () => {
     stubSidebarBootstrapFetch([
-      { hostId: "host_primary", path: "/Users/me/bb" },
-      { hostId: "host_remote", path: "/home/me/bb" },
+      { hostId: "host_primary", path: "/Users/me/hyperfide" },
+      { hostId: "host_remote", path: "/home/me/hyperfide" },
     ]);
     vi.mocked(sdk.projects.sources.delete).mockResolvedValue({ ok: true });
 
@@ -257,7 +257,7 @@ describe("ProjectDetailSettingsView", () => {
 
     await waitFor(() =>
       expect(sdk.projects.sources.delete).toHaveBeenCalledWith({
-        projectId: "proj_bb",
+        projectId: "proj_hyperfide",
         sourceId: "src_1",
       }),
     );
@@ -265,7 +265,7 @@ describe("ProjectDetailSettingsView", () => {
 
   it("disables removal when the project has a single checkout", async () => {
     stubSidebarBootstrapFetch([
-      { hostId: "host_primary", path: "/Users/me/bb" },
+      { hostId: "host_primary", path: "/Users/me/hyperfide" },
     ]);
 
     renderView();
@@ -284,7 +284,7 @@ describe("ProjectDetailSettingsView", () => {
 
   it("shows derived thread defaults when the project has run threads", async () => {
     stubSidebarBootstrapFetch([
-      { hostId: "host_primary", path: "/Users/me/bb" },
+      { hostId: "host_primary", path: "/Users/me/hyperfide" },
     ]);
     const defaults: ProjectExecutionDefaults = {
       providerId: "codex",
@@ -304,7 +304,7 @@ describe("ProjectDetailSettingsView", () => {
 
   it("distinguishes a failed defaults load from an empty one", async () => {
     stubSidebarBootstrapFetch([
-      { hostId: "host_primary", path: "/Users/me/bb" },
+      { hostId: "host_primary", path: "/Users/me/hyperfide" },
     ]);
     vi.mocked(sdk.projects.defaultExecutionOptions).mockRejectedValue(
       new Error("boom"),
@@ -320,7 +320,7 @@ describe("ProjectDetailSettingsView", () => {
 
   it("deletes the project and returns to the list", async () => {
     stubSidebarBootstrapFetch([
-      { hostId: "host_primary", path: "/Users/me/bb" },
+      { hostId: "host_primary", path: "/Users/me/hyperfide" },
     ]);
     vi.mocked(sdk.projects.delete).mockResolvedValue({ ok: true });
 
@@ -334,7 +334,7 @@ describe("ProjectDetailSettingsView", () => {
 
     await waitFor(() =>
       expect(sdk.projects.delete).toHaveBeenCalledWith({
-        projectId: "proj_bb",
+        projectId: "proj_hyperfide",
       }),
     );
     expect(await screen.findByText("Projects list")).toBeDefined();

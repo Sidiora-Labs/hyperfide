@@ -283,7 +283,7 @@ describe("MCP tool-call approval decoding", () => {
     ).toMatchObject({ kind: "tool_approval", scopes: [] });
   });
 
-  it("drops scopes BB cannot encode", () => {
+  it("drops scopes HYPERFIDE cannot encode", () => {
     expect(
       normalizeCodexMcpElicitation({
         ...mcpToolApprovalElicitation.params,

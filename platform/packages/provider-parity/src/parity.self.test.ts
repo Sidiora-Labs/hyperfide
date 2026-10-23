@@ -183,7 +183,7 @@ describe("allowlist", () => {
       {
         kind: "turn",
         id: "#1",
-        children: [{ kind: "work", id: "#3", toolName: "bb:AskUserQuestion" }],
+        children: [{ kind: "work", id: "#3", toolName: "hyperfide:AskUserQuestion" }],
       },
       { kind: "conversation", id: "#5", text: "answer" },
     ];

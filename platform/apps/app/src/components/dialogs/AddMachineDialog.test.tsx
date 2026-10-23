@@ -47,7 +47,7 @@ const READY_SERVER_ACCESS: ServerAccessStatus = {
     },
   ],
   defaultProviderId: "direct",
-  effectiveUrl: "https://bb.example.com",
+  effectiveUrl: "https://hyperfide.example.com",
   urlSource: "setting",
 };
 
@@ -88,7 +88,7 @@ const reservedHost: Awaited<ReturnType<typeof sdk.hosts.experimental_create>> =
 function stubManualLaunch(configure?: () => void) {
   vi.mocked(sdk.hosts.experimental_create).mockResolvedValue(reservedHost);
   vi.mocked(sdk.hosts.experimental_getEnrollmentCommand).mockResolvedValue({
-    command: "bb machine enroll test",
+    command: "hyperfide machine enroll test",
     windowsCommand: "irm windows-command | iex",
     expiresAt: Date.now() + 60_000,
   });
@@ -133,7 +133,7 @@ it("names the server machine a new machine depends on", async () => {
   const rendered = renderAddMachineContent("host_server");
   expect(
     await screen.findByText(
-      "The new machine will connect to the bb server on Mac mini. Keep that computer on so the new machine can keep working.",
+      "The new machine will connect to the hyperfide-platform server on Mac mini. Keep that computer on so the new machine can keep working.",
     ),
   ).toBeDefined();
   rendered.unmount();
@@ -142,10 +142,10 @@ it("names the server machine a new machine depends on", async () => {
 it("does not name a fallback machine when the server has no primary host", async () => {
   const rendered = renderAddMachineContent(null);
   await waitFor(() => expect(sdk.hosts.list).toHaveBeenCalled());
-  await screen.findByText("bb machine enroll test");
+  await screen.findByText("hyperfide machine enroll test");
   expect(
     screen.getByText(
-      "The new machine will connect to your bb server. Keep the server machine on so the new machine can keep working.",
+      "The new machine will connect to your hyperfide-platform server. Keep the server machine on so the new machine can keep working.",
     ),
   ).toBeDefined();
   expect(screen.queryByText(/Mac mini|MacBook Pro/u)).toBeNull();
@@ -154,7 +154,7 @@ it("does not name a fallback machine when the server has no primary host", async
 
 it("cancels a creating manual launch when the dialog content closes", async () => {
   const rendered = setup();
-  await screen.findByText("bb machine enroll test");
+  await screen.findByText("hyperfide machine enroll test");
   rendered.unmount();
 
   await waitFor(() => {

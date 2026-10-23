@@ -39,7 +39,7 @@ async function writePathPlugin(dir: string, name: string): Promise<string> {
     JSON.stringify({
       name: `hyperfide-plugin-${name}`,
       version: "0.1.0",
-      bb: {
+      hyperfide: {
         name: `Retirement fixture ${name}`,
         description: "Retirement fixture.",
         branding: { icon: "Zap" },
@@ -230,7 +230,7 @@ describe("retired bundled plugins", () => {
     });
   });
 
-  it("retires only plugins bb no longer bundles, into successors it does", () => {
+  it("retires only plugins hyperfide no longer bundles, into successors it does", () => {
     const bundledIds = BUNDLED_PLUGINS.map((plugin) => plugin.pluginId);
     expect(RETIRED_BUNDLED_PLUGINS.length).toBeGreaterThan(0);
     for (const retired of RETIRED_BUNDLED_PLUGINS) {

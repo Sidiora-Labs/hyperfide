@@ -313,7 +313,7 @@ function hostThreadActions({
       },
     ): PluginThreadActionEntry => ({
       key,
-      pluginId: key.split("/")[0] ?? "bb--core",
+      pluginId: key.split("/")[0] ?? "hyperfide--core",
       group: "2_organize",
       action: {
         label,
@@ -323,20 +323,20 @@ function hostThreadActions({
     });
     const isArchived = thread.archivedAt !== null;
     return [
-      entry("bb--core/copyLink", "Copy link", "Copy"),
+      entry("hyperfide--core/copyLink", "Copy link", "Copy"),
       entry(
-        "bb--core/pin",
+        "hyperfide--core/pin",
         thread.pinnedAt === null ? "Pin" : "Unpin",
         thread.pinnedAt === null ? "Pin" : "PinOff",
       ),
       ...(thread.parentThreadId === null && !isArchived
         ? [entry("thread-list/move", "Move to section", "SectionMove")]
         : []),
-      entry("bb--core/rename", "Rename", "Edit", async () => {
+      entry("hyperfide--core/rename", "Rename", "Edit", async () => {
         requestRename(thread.id);
       }),
       entry(
-        "bb--core/archive",
+        "hyperfide--core/archive",
         isArchived ? "Unarchive" : "Archive",
         isArchived ? "ArchiveRestore" : "Archive",
         archiveRun,
@@ -451,7 +451,7 @@ describe("ThreadRow", () => {
     fireEvent.keyDown(restore, { key: "Enter" });
     fireEvent.click(restore);
     await waitFor(() =>
-      expect(ran).toEqual([{ key: "bb--core/archive", threadId: "thr_test" }]),
+      expect(ran).toEqual([{ key: "hyperfide--core/archive", threadId: "thr_test" }]),
     );
     expect(rowEvent).not.toHaveBeenCalled();
   });
@@ -507,9 +507,9 @@ describe("ThreadRow", () => {
 
   it("shows the configured row actions in order and reserves their width", async () => {
     getDefaultStore().set(preferenceValueAtom("rowActions"), [
-      "bb--core/pin",
-      "bb--core/copyLink",
-      "bb--core/archive",
+      "hyperfide--core/pin",
+      "hyperfide--core/copyLink",
+      "hyperfide--core/archive",
     ]);
     const ran: RanThreadAction[] = [];
     renderThreadRow({ threadActions: hostThreadActions({ ran }) });
@@ -521,12 +521,12 @@ describe("ThreadRow", () => {
     ).toEqual(["Pin", "Copy link", "Archive", "Thread actions"]);
     expect(
       document
-        .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-        ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+        .querySelector<HTMLElement>(".hyperfide-sidebar-hover-actions-inset")
+        ?.style.getPropertyValue("--hyperfide-sidebar-hover-actions-inset"),
     ).toBe("calc(var(--spacing) * 22.5)");
     fireEvent.click(screen.getByRole("button", { name: "Pin" }));
     await waitFor(() =>
-      expect(ran).toEqual([{ key: "bb--core/pin", threadId: "thr_test" }]),
+      expect(ran).toEqual([{ key: "hyperfide--core/pin", threadId: "thr_test" }]),
     );
   });
 
@@ -534,7 +534,7 @@ describe("ThreadRow", () => {
     getDefaultStore().set(preferenceValueAtom("rowActions"), [
       "thread-list/move",
       "plugin-gone/action",
-      "bb--core/archive",
+      "hyperfide--core/archive",
     ]);
     renderThreadRow({
       thread: createThread({ parentThreadId: "thr_parent" }),
@@ -545,8 +545,8 @@ describe("ThreadRow", () => {
     expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
     expect(
       document
-        .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-        ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+        .querySelector<HTMLElement>(".hyperfide-sidebar-hover-actions-inset")
+        ?.style.getPropertyValue("--hyperfide-sidebar-hover-actions-inset"),
     ).toBe("calc(var(--spacing) * 7.5)");
   });
 
@@ -557,14 +557,14 @@ describe("ThreadRow", () => {
     expect(screen.getByRole("button", { name: "Thread actions" })).toBeTruthy();
     expect(
       document
-        .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-        ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+        .querySelector<HTMLElement>(".hyperfide-sidebar-hover-actions-inset")
+        ?.style.getPropertyValue("--hyperfide-sidebar-hover-actions-inset"),
     ).toBe("calc(var(--spacing) * 0)");
   });
 
   it.each([
     [[]],
-    [["bb--core/pin", "bb--core/copyLink", "bb--core/archive"]],
+    [["hyperfide--core/pin", "hyperfide--core/copyLink", "hyperfide--core/archive"]],
   ] as const)(
     "reserves one action for an archived row whatever the row actions (%j)",
     (rowActions) => {
@@ -574,15 +574,15 @@ describe("ThreadRow", () => {
       });
       expect(
         document
-          .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-          ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+          .querySelector<HTMLElement>(".hyperfide-sidebar-hover-actions-inset")
+          ?.style.getPropertyValue("--hyperfide-sidebar-hover-actions-inset"),
       ).toBe("calc(var(--spacing) * 7.5)");
     },
   );
 
   it("starts the inline rename directly from a Rename row action", async () => {
     getDefaultStore().set(preferenceValueAtom("rowActions"), [
-      "bb--core/rename",
+      "hyperfide--core/rename",
     ]);
     renderThreadRow();
     fireEvent.click(screen.getByRole("button", { name: "Rename" }));
@@ -656,7 +656,7 @@ describe("ThreadRow", () => {
     await screen.findByRole("textbox", { name: "Thread name" });
     expect(
       screen
-        .getByTestId("bb-thread-actions-context-menu")
+        .getByTestId("hyperfide-thread-actions-context-menu")
         .getAttribute("data-disabled"),
     ).toBe("true");
   });
@@ -747,14 +747,14 @@ describe("ThreadRow", () => {
   it("marks the row as open in a split and omits the map when the thread is in no pane", () => {
     const { container, unmount } = renderSplitThreadRow();
     expect(
-      container.querySelector(".bb-sidebar-open-in-split-row"),
+      container.querySelector(".hyperfide-sidebar-open-in-split-row"),
     ).not.toBeNull();
     unmount();
 
     const other = renderThreadRow({ splitLayout: twoPaneLayout("thr_other") });
     expect(screen.queryByRole("img", { name: /open in split/ })).toBeNull();
     expect(
-      other.container.querySelector(".bb-sidebar-open-in-split-row"),
+      other.container.querySelector(".hyperfide-sidebar-open-in-split-row"),
     ).toBeNull();
   });
 
@@ -966,7 +966,7 @@ describe("ThreadRow", () => {
     expect(marker?.querySelector('[data-icon="FolderExport"]')).not.toBeNull();
     expect(
       marker?.parentElement?.previousElementSibling?.querySelector(
-        ".bb-thread-title",
+        ".hyperfide-thread-title",
       ),
     ).not.toBeNull();
     expect(
@@ -1111,7 +1111,7 @@ describe("ThreadRow", () => {
       });
       expect(
         link.parentElement?.classList.contains(
-          "pr-(--bb-sidebar-hover-actions-inset)",
+          "pr-(--hyperfide-sidebar-hover-actions-inset)",
         ),
       ).toBe(true);
       const row = link.closest("[data-sidebar-rename-row]");
@@ -1213,7 +1213,7 @@ describe("ThreadRow", () => {
       const toggle = screen.getByRole("button", {
         name: `${isCollapsed ? "Expand" : "Collapse"} Parent thread threads`,
       });
-      expect(toggle.classList.contains("bb-sidebar-hover-actions")).toBe(
+      expect(toggle.classList.contains("hyperfide-sidebar-hover-actions")).toBe(
         expectedHoverReveal,
       );
     },
@@ -1237,7 +1237,7 @@ describe("ThreadRow", () => {
     );
     expect(tier).not.toBeNull();
     expect(
-      tier?.style.getPropertyValue("--bb-sidebar-sticky-parent-level"),
+      tier?.style.getPropertyValue("--hyperfide-sidebar-sticky-parent-level"),
     ).toBe("1");
     expect(tier?.style.paddingLeft).toBe("56px");
     expect(tier?.querySelector('[aria-hidden="true"].w-px')).not.toBeNull();
@@ -1574,7 +1574,7 @@ describe("ThreadRow", () => {
     await waitFor(() => expect(onDragStart).toHaveBeenCalledTimes(1));
     expect(
       screen
-        .getByTestId("bb-thread-actions-context-menu")
+        .getByTestId("hyperfide-thread-actions-context-menu")
         .getAttribute("data-dragging"),
     ).toBe("true");
     fireEvent.touchEnd(link, { touches: [] });

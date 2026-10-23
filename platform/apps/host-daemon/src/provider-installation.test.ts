@@ -131,7 +131,7 @@ describe("streamProviderInstallation with node-pty", () => {
   });
 
   async function scratchBin(): Promise<{ root: string; binDir: string }> {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "bb-provider-cli-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "hyperfide-provider-cli-"));
     tempDirs.push(root);
     const binDir = path.join(root, "Program Files", "Example CLI");
     await fs.mkdir(binDir, { recursive: true });

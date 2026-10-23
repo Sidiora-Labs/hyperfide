@@ -3,7 +3,7 @@
   "name": "plugin-icon",
   "type": "registry:ui",
   "title": "plugin-icon",
-  "description": "BB ui \"plugin-icon\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"plugin-icon\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/icon",
     "@hyperfide/utils"

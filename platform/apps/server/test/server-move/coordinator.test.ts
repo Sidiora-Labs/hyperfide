@@ -47,7 +47,7 @@ const WORKER = "host-worker";
 const SANDBOX = "host-sandbox";
 const OFFLINE = "host-offline";
 const DIRECT_URL = "https://desktop.example.test";
-const CONNECT_URL = "https://laptop.getbb.test";
+const CONNECT_URL = "https://laptop.hyperfide.test";
 
 const START_DIRECT = {
   targetHostId: NEW,
@@ -176,7 +176,7 @@ describe("server move coordinator", () => {
         machineCredential: "stale-credential",
         serverHeaders: { "x-stale": "1" },
       });
-      await writeFile(join(harness.config.dataDir, "bb.db"), "");
+      await writeFile(join(harness.config.dataDir, "hyperfide.db"), "");
       const { environment, events, plugins, retired } =
         createTestServerMoveEnvironment(harness);
       const coordinator = createServerMoveCoordinator(environment);
@@ -221,7 +221,7 @@ describe("server move coordinator", () => {
               type: "server_move.progress",
               moveId: request.command.moveId,
               step: "update-target",
-              message: "Installing bb",
+              message: "Installing hyperfide",
             });
             progressSnapshots.push(coordinator.getStatus());
             coordinator.handleProgress(NEW, {
@@ -285,7 +285,7 @@ describe("server move coordinator", () => {
         ["verify-address", "pending"],
         ["switch", "pending"],
       ]);
-      expect(progressSnapshots[1]?.steps[1]?.message).toBe("Installing bb");
+      expect(progressSnapshots[1]?.steps[1]?.message).toBe("Installing hyperfide");
       expect(progressSnapshots[2]?.steps.slice(3, 5)).toEqual([
         { id: "transfer", status: "done", message: "Downloading the export" },
         {
@@ -336,7 +336,7 @@ describe("server move coordinator", () => {
           downloadPath: `/internal/server-move/${started.moveId}/archive`,
           sha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
         },
-        bbApp: null,
+        hyperfideApp: null,
         serverPort: 39_101,
         bindHost: null,
         sourceDataDir: harness.config.dataDir,
@@ -380,7 +380,7 @@ describe("server move coordinator", () => {
         mode: "direct",
         connectHandle: null,
       });
-      expect(moved?.oldCopyEntries).toEqual(["auth-secret", "bb.db"]);
+      expect(moved?.oldCopyEntries).toEqual(["auth-secret", "hyperfide.db"]);
       expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual({
         config: { HYPERFIDE_LOG_LEVEL: "debug" },
         serverUrl: DIRECT_URL,
@@ -559,15 +559,15 @@ describe("server move coordinator", () => {
       await retired;
     }));
 
-  it("moves a bb connect server whose source grant requires a writable account RPC", () =>
+  it("moves a hyperfide-platform connect server whose source grant requires a writable account RPC", () =>
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const base = createTestServerMoveEnvironment(harness);
       const { events, retired } = base;
-      const grantHeaders = { "x-bb-connect-machine": "bbcm_laptop" };
+      const grantHeaders = { "x-hyperfide-connect-machine": "hyperfide_cm_laptop" };
       const accountRpcStatuses: number[] = [];
       const accountRpcPath =
-        "/api/v1/plugins/bb-account/rpc/bb-account.v1.fetch";
+        "/api/v1/plugins/hyperfide-account/rpc/hyperfide-account.v1.fetch";
       const accountRpc = new Hono();
       accountRpc.onError(createServerErrorHandler(testLogger));
       accountRpc.use(
@@ -1218,14 +1218,14 @@ describe("server move coordinator", () => {
       }
     }));
 
-  it("keeps a bb connect move in recovery_required with the tunnel up and retries activation when the target reconnects", () =>
+  it("keeps a hyperfide-platform connect move in recovery_required with the tunnel up and retries activation when the target reconnects", () =>
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const base = createTestServerMoveEnvironment(harness, {
         timings: RECOVERY_TIMINGS,
       });
       const { events, plugins, retired } = base;
-      const grantHeaders = { "x-bb-connect-machine": "bbcm_laptop" };
+      const grantHeaders = { "x-hyperfide-connect-machine": "hyperfide_cm_laptop" };
       const coordinator = createServerMoveCoordinator({
         ...base.environment,
         resolveMode: async () => ({

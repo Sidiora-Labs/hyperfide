@@ -38,7 +38,7 @@ function matchesQuery(agent: RegistryAgent, query: string): boolean {
 
 function agentNote(agent: RegistryAgent): string | null {
   if (agent.status === "built-in") {
-    return "bb already ships this agent as a provider.";
+    return "hyperfide already ships this agent as a provider.";
   }
   if (agent.status === "manual-install") {
     return "Ships only as a downloadable binary. Install it yourself, then add it under Custom agents with its command.";

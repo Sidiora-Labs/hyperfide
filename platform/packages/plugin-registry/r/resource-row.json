@@ -3,7 +3,7 @@
   "name": "resource-row",
   "type": "registry:ui",
   "title": "resource-row",
-  "description": "BB ui \"resource-row\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"resource-row\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/button",
     "@hyperfide/dropdown-menu",

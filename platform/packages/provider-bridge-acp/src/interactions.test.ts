@@ -125,7 +125,7 @@ describe("buildAcpPermissionInteractionPayload", () => {
     });
   });
 
-  it("asks as the bound bb tool with its definition's presentation", () => {
+  it("asks as the bound hyperfide tool with its definition's presentation", () => {
     const payload = buildAcpPermissionInteractionPayload({
       toolCall: {
         toolCallId: "call-mcp",

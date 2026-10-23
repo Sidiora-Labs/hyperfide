@@ -408,7 +408,7 @@ Also kept only until the next major:
 `experimental_useSidebarThreadActions` and `PluginSidebarThreadActions`
 (`@hyperfide/plugin-sdk/app`), with the testing harness's `SidebarActionCall` /
 `inspection.sidebarActionCalls`, are superseded by the thread action
-registry, `useSdk().threads`, and `useBbNavigate().toThread` / `toCompose`;
+registry, `useSdk().threads`, and `useHyperfideNavigate().toThread` / `toCompose`;
 `experimental_archiveEnvironmentThreads` moved to
 `experimental_useArchiveEnvironmentThreads`. Like `useComposerView` they are
 `@internal`: published declarations drop them, while the runtime keeps
@@ -1012,15 +1012,8 @@ The operator-configured public app URL from `HYPERFIDE_APP_URL`, or `null`.
 
 Docs: `backend-foundation.md`.
 
-**Audit before stabilizing.** Decide whether `HYPERFIDE_EXTERNAL_URL` or the hyperfide platform
-connect URL should supply this value when `HYPERFIDE_APP_URL` is empty. Confirm that
-one public URL has clear behavior when a server has several access paths.
-
-## `hyperfide platform.hosts.internal_DO_NOT_USE_setNextTunnels`, `internal_DO_NOT_USE_nextTunnelStatuses`, `internal_DO_NOT_USE_onNextTunnelStatusChange`
-
-Hosted tunnels are disabled. Setting a non-null tunnel configuration fails;
-status reads return an empty list, and status subscriptions do not contact a
-control plane or a remote service.
+**Audit before stabilizing.** Confirm that the operator-configured public URL
+has clear behavior when a server has several access paths.
 
 ## Bridge record mode (`experimental_recordProviderChildIo` and `experimental_isProviderBridgeRecording`)
 
@@ -2942,7 +2935,7 @@ Docs: `backend-machines.md`.
 Before stabilization, prove retry-safe acquire/release across process death,
 credential privacy and revocation, explicit and automatic defaults, expired
 codes, removal while a provider is unavailable, and both enrolment and runtime
-traffic with independent direct and Connect consumers. Availability does not
+traffic with independent direct-access consumers. Availability does not
 prove reachability from a remote machine.
 
 ## Machine enrollment and bootstrap
@@ -3123,7 +3116,7 @@ switch starts, and in `recovery_required` it rolls the switch back.
 copy. All of them refuse machine credentials. Everything except status and
 cancel requires the default-off `serverMove` experiment (403
 `server_move_experiment_disabled`). CLI:
-`hyperfide platform server move|export|import|unlock|allow-connect|delete-old-copy|install-machine-service`.
+`hyperfide platform server move|export|import|unlock|delete-old-copy|install-machine-service`.
 
 
 
@@ -3281,7 +3274,7 @@ Stabilize once message links have shipped and the seq has stayed stable across
 edit-and-rerun, forks and context clears, and decide whether `sourceSeqEnd`
 should remain alongside it.
 
-## `PluginBbSdk.plugins.experimental_startUpdate` and `experimental_updateJobs`
+## `PluginHyperfideSdk.plugins.experimental_startUpdate` and `experimental_updateJobs`
 
 Starts a server-owned plugin update and returns its job at once;
 `experimental_updateJobs.list/get` report queued/running phases and the
@@ -3294,7 +3287,7 @@ be cancelled during activation or rollback.
 Stabilization requires exercising reconnect/reload, concurrent deduplication,
 rollback delivery, missing jobs after restart, and CLI/SDK parity.
 
-## `PluginBbSdk.system.experimental_cliCommand`, `experimental_installCliCommand`, and `experimental_removeCliCommand`
+## `PluginHyperfideSdk.system.experimental_cliCommand`, `experimental_installCliCommand`, and `experimental_removeCliCommand`
 
 `experimental_cliCommand()` reports whether `hyperfide platform` is on PATH on the server's
 computer: `supported` (false without an installed hyperfide-app launcher),
@@ -3311,7 +3304,7 @@ machine through the host daemon (enrolled machines get `~/.local/bin/hyperfide p
 `install-machine.sh` today), and after exercising real Windows and macOS
 installs.
 
-## `PluginBbSdk.hosts.experimental_discoverRepos`
+## `PluginHyperfideSdk.hosts.experimental_discoverRepos`
 
 `hosts.experimental_discoverRepos({ hostId })` lists up to 10 git
 repositories under the machine's home directory with local activity in the
@@ -3442,7 +3435,7 @@ Stabilize after exercising producer cancellation, reload, reconnect and byte lim
 
 ## Retired `experimental_useSidebarThreadPullRequest` runtime member
 
-`experimental_useSidebarThreadPullRequest(threadId)` and its `PluginSidebarPullRequest` and `PluginSidebarThreadPullRequestState` types are gone from `@hyperfide/plugin-sdk/app`, the Plugin Guide and the authoring docs. Published bundles resolve `@hyperfide/plugin-sdk/app` exports by name on `globalThis.__bbPluginRuntime.pluginSdkApp`, so the app installs `retiredPluginSdkAppMembers` (`apps/app/src/lib/plugin-sdk-app-impl.tsx`) next to the implementation. The member keeps its old shape, reads the GitHub PR Status plugin's `pullRequests` row for the thread's environment through the same `useEnvironmentPullRequest` hook core's banner and Info row use, and returns `{ isLoading: false, pullRequest: null }` when the plugin is disabled or the read fails. The name leaves only the typings. `hyperfide-plugin-build` keeps it in the `@hyperfide/plugin-sdk/app` runtime shim's export list (`RETIRED_PLUGIN_SDK_APP_EXPORTS` in `packages/plugin-build/src/build-plugin-app.ts`), so plugins that still import it build and run, because git-sourced marketplace plugins are built by hyperfide platform at install and update and path and builtin plugins rebuild when the SDK version changes. An import of it is a build warning carrying the replacement call: `hyperfide platform plugin build` and `hyperfide platform plugin dev` print it, and the server writes it to the plugin's log and the server log when it builds the plugin. Callers are marketplace plugins written against the old SDK (t3sidebar, dockside, gtd-sidebar, thread-inbox, radar-sidebar, hyperfide-sidebar, sidebar-plus, cursor-sidebar, switchboard, vantage, jb-flow, tinted-threads among them). Remove the runtime member and the shim entry only after those plugins have migrated.
+`experimental_useSidebarThreadPullRequest(threadId)` and its `PluginSidebarPullRequest` and `PluginSidebarThreadPullRequestState` types are gone from `@hyperfide/plugin-sdk/app`, the Plugin Guide and the authoring docs. Published bundles resolve `@hyperfide/plugin-sdk/app` exports by name on `globalThis.__hyperfidePluginRuntime.pluginSdkApp`, so the app installs `retiredPluginSdkAppMembers` (`apps/app/src/lib/plugin-sdk-app-impl.tsx`) next to the implementation. The member keeps its old shape, reads the GitHub PR Status plugin's `pullRequests` row for the thread's environment through the same `useEnvironmentPullRequest` hook core's banner and Info row use, and returns `{ isLoading: false, pullRequest: null }` when the plugin is disabled or the read fails. The name leaves only the typings. `hyperfide-plugin-build` keeps it in the `@hyperfide/plugin-sdk/app` runtime shim's export list (`RETIRED_PLUGIN_SDK_APP_EXPORTS` in `packages/plugin-build/src/build-plugin-app.ts`), so plugins that still import it build and run, because git-sourced marketplace plugins are built by hyperfide platform at install and update and path and builtin plugins rebuild when the SDK version changes. An import of it is a build warning carrying the replacement call: `hyperfide platform plugin build` and `hyperfide platform plugin dev` print it, and the server writes it to the plugin's log and the server log when it builds the plugin. Callers are marketplace plugins written against the old SDK (t3sidebar, dockside, gtd-sidebar, thread-inbox, radar-sidebar, hyperfide-sidebar, sidebar-plus, cursor-sidebar, switchboard, vantage, jb-flow, tinted-threads among them). Remove the runtime member and the shim entry only after those plugins have migrated.
 
 ## Unified tabs (`experimental_tab`)
 

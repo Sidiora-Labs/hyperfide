@@ -9,7 +9,7 @@ for (const { rootDir } of listBundledPluginRegistrations()) {
     const manifest = pluginPackageJsonSchema.parse(
       JSON.parse(readFileSync(join(rootDir, "package.json"), "utf8")),
     );
-    for (const provider of manifest.bb.experimental_providers ?? []) {
+    for (const provider of manifest.hyperfide.experimental_providers ?? []) {
       shippedProviderIds.add(provider.id);
     }
   } catch {}

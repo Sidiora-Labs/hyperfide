@@ -1,4 +1,4 @@
-import type { CustomProviderModel } from "@hyperfide/config/bb-app-managed-config";
+import type { CustomProviderModel } from "@hyperfide/config/hyperfide-app-managed-config";
 import type { DbConnection } from "@hyperfide/db";
 import type { FeatureFlags, ProviderNativeSkillRoots } from "@hyperfide/domain";
 import type { Logger } from "@hyperfide/logger";
@@ -7,7 +7,7 @@ import type { MachineAuthService } from "./services/machine-auth.js";
 import type { AppUpdateService } from "./services/system/app-update.js";
 import type { CliCommandService } from "./services/system/cli-command.js";
 import type { AppVersionService } from "./services/system/app-version.js";
-import type { BbAppManagedConfigReloader } from "./services/system/bb-app-managed-config.js";
+import type { HyperfideAppManagedConfigReloader } from "./services/system/hyperfide-app-managed-config.js";
 import type { TelemetryService } from "./services/system/telemetry.js";
 import type { TerminalSessionLifecycle } from "./services/terminals/terminal-session-lifecycle.js";
 import type { LifecycleDedupers } from "./lifecycle-dedupers.js";
@@ -64,7 +64,7 @@ export interface AppDeps {
 export interface ServerAppDeps extends AppDeps {
   appUpdate: AppUpdateService;
   appVersion: AppVersionService;
-  bbAppManagedConfig: BbAppManagedConfigReloader;
+  hyperfideAppManagedConfig: HyperfideAppManagedConfigReloader;
   cliCommand: CliCommandService;
 }
 

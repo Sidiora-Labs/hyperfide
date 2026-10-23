@@ -1,10 +1,10 @@
 # Interrupted setup recovery
 
 Run from a clean, committed checkout with dependencies installed, Python 3,
-Git, an available Codex provider, and the host-care plugin on the owning bb:
+Git, an available Codex provider, and the host-care plugin on the owning Hyperfide:
 
 ```sh
-BB_SERVER_URL="$OWNER_SERVER_URL" BB_THREAD_ID="$OWNER_THREAD_ID" \
+HYPERFIDE_SERVER_URL="$OWNER_SERVER_URL" HYPERFIDE_THREAD_ID="$OWNER_THREAD_ID" \
   python3 tests/qa/scripts/environment-recovery.py
 ```
 

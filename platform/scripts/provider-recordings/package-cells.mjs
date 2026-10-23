@@ -97,7 +97,7 @@ function main() {
       return { provider, cell, threadId, note };
     });
 
-  const staging = mkdtempSync(join(tmpdir(), "bb-recording-cells-"));
+  const staging = mkdtempSync(join(tmpdir(), "hyperfide-recording-cells-"));
   const summary = [];
   for (const { provider, cell, threadId, note } of cells) {
     const sourceDir = join(args.raw, provider, threadId);

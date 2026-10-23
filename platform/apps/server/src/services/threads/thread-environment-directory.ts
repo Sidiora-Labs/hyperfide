@@ -41,7 +41,7 @@ const updateEnvironmentDirectoryInputSchema = z
 export const UPDATE_ENVIRONMENT_DIRECTORY_TOOL: DynamicTool = {
   name: UPDATE_ENVIRONMENT_DIRECTORY_TOOL_NAME,
   description:
-    "Move this bb thread to a different working directory for subsequent turns. Use this when the user asks to switch to a new checkout, worktree, or local directory. The path must be an absolute existing directory on the current host. The tool reuses this project's existing bb environment for that host/path, otherwise it creates an unmanaged environment after validating the path. Another project may hold its own environment for the same directory; that is allowed, except for a bb-managed worktree owned by another project, which this tool refuses. After a successful switch, end the current turn because the running provider cwd will not change until the next turn; bb then starts the next turn in the new directory automatically so you can continue the task there.",
+    "Move this hyperfide-platform thread to a different working directory for subsequent turns. Use this when the user asks to switch to a new checkout, worktree, or local directory. The path must be an absolute existing directory on the current host. The tool reuses this project's existing hyperfide environment for that host/path, otherwise it creates an unmanaged environment after validating the path. Another project may hold its own environment for the same directory; that is allowed, except for a hyperfide-managed worktree owned by another project, which this tool refuses. After a successful switch, end the current turn because the running provider cwd will not change until the next turn; hyperfide then starts the next turn in the new directory automatically so you can continue the task there.",
   inputSchema: {
     type: "object",
     properties: {
@@ -143,7 +143,7 @@ function resolveReadyEnvironment(
 }
 
 function successMessage(path: string): string {
-  return `Environment directory updated to ${path}. This applies to future turns; end this turn now and bb will start the next turn in the updated directory so you can continue the task there.`;
+  return `Environment directory updated to ${path}. This applies to future turns; end this turn now and hyperfide will start the next turn in the updated directory so you can continue the task there.`;
 }
 
 function attachReadyEnvironment(

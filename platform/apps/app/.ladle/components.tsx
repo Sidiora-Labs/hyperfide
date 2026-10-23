@@ -15,7 +15,7 @@ import {
   getDiffWorkerPoolSize,
 } from "../src/lib/diff-worker-pool";
 import { createAppQueryClient } from "../src/lib/query-client";
-import { applyAppFrameGeometry } from "../src/lib/bb-desktop";
+import { applyAppFrameGeometry } from "../src/lib/hyperfide-desktop";
 import { ModelPickerStoryQueryProvider } from "./model-picker-query-provider";
 import "./ladle.css";
 
@@ -51,7 +51,7 @@ function StoryModelPickerCatalog({
 if (typeof window !== "undefined") {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("theme")) {
-    const stored = window.localStorage.getItem("bb.theme");
+    const stored = window.localStorage.getItem("hyperfide.theme");
     if (stored === "light" || stored === "dark") {
       params.set("theme", stored);
       const next = `${window.location.pathname}?${params.toString()}${window.location.hash}`;

@@ -51,7 +51,7 @@ describe("mutable plugin host build policy", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-host-build-policy-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-host-build-policy-"));
     service = createService("0.9.0");
     rootDir = join(workDir, "hyperfide-plugin-host-policy");
     artifactPath = join(rootDir, "dist", "host.js");
@@ -62,7 +62,7 @@ describe("mutable plugin host build policy", () => {
       JSON.stringify({
         name: "hyperfide-plugin-host-policy",
         version: "0.1.0",
-        bb: {
+        hyperfide: {
           name: "Host policy fixture",
           description: "Host build lifecycle fixture.",
           branding: { icon: "Zap" },
@@ -183,13 +183,13 @@ describe("mutable plugin host build policy", () => {
     );
   });
 
-  it("rebuilds after bb is upgraded", async () => {
+  it("rebuilds after hyperfide is upgraded", async () => {
     await service.stop();
     service = createService("0.9.1");
     await service.start();
 
     expect(JSON.parse(await readFile(metaPath, "utf8"))).toMatchObject({
-      builtWith: { bbVersion: "0.9.1" },
+      builtWith: { hyperfideVersion: "0.9.1" },
     });
   });
 });

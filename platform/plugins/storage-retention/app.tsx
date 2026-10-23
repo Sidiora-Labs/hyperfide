@@ -11,7 +11,7 @@ import {
   definePluginApp,
   experimental_Icon as PluginIcon,
   experimental_copyToClipboard,
-  useBbNavigate,
+  useHyperfideNavigate,
   useRealtime,
   useRpc,
   useSdk,
@@ -289,7 +289,7 @@ function StoragePage({
   updateState: (state: State) => void;
 }) {
   const rpc = useRpc<typeof storageRpc>();
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const state = data?.state ?? null;
   const hosts = data?.hosts ?? [];
   const machines = data?.machines ?? {};
@@ -849,7 +849,7 @@ function StoragePage({
                     <CleanupRow
                       title="Orphaned storage"
                       size={report.orphanBytes}
-                      description="Files left behind by deleted threads. BB cleans these up automatically while idle."
+                      description="Files left behind by deleted threads. HYPERFIDE cleans these up automatically while idle."
                       action="Remove orphans"
                       disabled={locked || report.orphanCount === 0}
                       onAction={() =>
@@ -879,7 +879,7 @@ function StoragePage({
                     <CleanupRow
                       title="Leftover worktrees"
                       size={report.leftoverWorktreeBytes}
-                      description="Checkouts BB could not remove after their threads were archived. BB retries automatically."
+                      description="Checkouts HYPERFIDE could not remove after their threads were archived. HYPERFIDE retries automatically."
                       action="Retry cleanup"
                       disabled={locked || report.leftoverWorktrees.length === 0}
                       onAction={() =>
@@ -929,7 +929,7 @@ function StoragePage({
                       <CleanupRow
                         title="Development instances without a checkout"
                         size={missingDevBytes}
-                        description={`${plural(missingDev.length, "development instance")} in ~/.bb-dev whose source checkout no longer exists. Servers still running from them are stopped before removal.`}
+                        description={`${plural(missingDev.length, "development instance")} in ~/.hyperfide-dev whose source checkout no longer exists. Servers still running from them are stopped before removal.`}
                         action="Remove instances"
                         disabled={locked || missingDev.length === 0}
                         onAction={() =>
@@ -1068,7 +1068,7 @@ function StoragePage({
                               action: "Stop and remove",
                               title: `Stop and remove “${label}” (${bytes(entry.sizeBytes)})?`,
                               detail:
-                                "Its dev server is running. BB will stop it, then delete its database, logs, and thread files. The source checkout is kept. This can’t be undone.",
+                                "Its dev server is running. HYPERFIDE will stop it, then delete its database, logs, and thread files. The source checkout is kept. This can’t be undone.",
                               run: async () => {
                                 const stopped = await rpc.call(
                                   "removeDevInstances",
@@ -1254,7 +1254,7 @@ function StoragePage({
                         Delete development data when its checkout is removed
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        After scans, remove ~/.bb-dev folders with missing
+                        After scans, remove ~/.hyperfide-dev folders with missing
                         checkouts and stop their servers. Checks run hourly,
                         including for existing development data.
                       </span>
@@ -1657,7 +1657,7 @@ function ProjectWorktrees({
     <section className="space-y-3">
       <SectionHeading
         title="Worktrees by project"
-        description="Managed worktrees BB tracks on this machine. Projects with a source here are included even when they have no worktrees. These counts are separate from thread files."
+        description="Managed worktrees HYPERFIDE tracks on this machine. Projects with a source here are included even when they have no worktrees. These counts are separate from thread files."
       />
       <div className="rounded-lg border border-border bg-card px-4 py-2">
         {report.projectWorktrees.length === 0 ? (
@@ -1766,7 +1766,7 @@ type DeveloperEntry = NonNullable<
 function developerEntryLabel(entry: DeveloperEntry) {
   const parts = entry.sourcePath?.split(/[\\/]/).filter(Boolean);
   if (parts?.length)
-    return parts.at(-1) === "bb" ? (parts.at(-2) ?? "bb") : parts.at(-1)!;
+    return parts.at(-1) === "hyperfide" ? (parts.at(-2) ?? "hyperfide") : parts.at(-1)!;
   return (
     entry.name.match(/thr_[a-zA-Z0-9]+(?:-\d+)?/)?.[0] ??
     entry.name.replace(/-[a-f0-9]{12}$/, "")
@@ -1817,7 +1817,7 @@ function DeveloperStorage({
   confirmation: ReactNode;
   onRemove: (entry: DeveloperEntry, label: string) => void;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useHyperfideNavigate();
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -1851,7 +1851,7 @@ function DeveloperStorage({
     },
     {
       title: "Other instances",
-      description: "No matching thread in this BB",
+      description: "No matching thread in this HYPERFIDE",
       entries: filtered.filter(
         (entry) => entry.sourcePath !== null && entry.threads.length === 0,
       ),
@@ -1881,8 +1881,8 @@ function DeveloperStorage({
   return (
     <section className="space-y-3">
       <SectionHeading
-        title="BB development storage"
-        description="Databases, logs, and thread files from local development instances in ~/.bb-dev."
+        title="HYPERFIDE development storage"
+        description="Databases, logs, and thread files from local development instances in ~/.hyperfide-dev."
       />
       <div className="space-y-3 rounded-lg border border-border bg-card px-4 py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2126,7 +2126,7 @@ function categories(report: NonNullable<HostReport["report"]>) {
     ...(report.developerStorage
       ? [
           {
-            label: "BB development",
+            label: "HYPERFIDE development",
             value: report.developerStorage.sizeBytes,
             count: report.developerStorage.entries.length,
           },

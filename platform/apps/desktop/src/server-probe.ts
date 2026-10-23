@@ -42,7 +42,7 @@ interface UnavailableServerProbeResult {
   serverUrl: string;
 }
 
-interface ProbeBbServerArgs {
+interface ProbeHyperfideServerArgs {
   fetchImpl?: ServerProbeFetch;
   serverUrl: string;
   timeoutMs: number;
@@ -156,8 +156,8 @@ function formatFetchFailure(result: FetchJsonFailureResult): string {
   return result.message;
 }
 
-export async function probeBbServer(
-  args: ProbeBbServerArgs,
+export async function probeHyperfideServer(
+  args: ProbeHyperfideServerArgs,
 ): Promise<ServerProbeResult> {
   const fetchImpl = args.fetchImpl ?? globalThis.fetch;
   const healthResult = await fetchJson({
@@ -232,7 +232,7 @@ export async function waitForCompatibleServer(
   };
 
   while (Date.now() <= deadline) {
-    lastResult = await probeBbServer({
+    lastResult = await probeHyperfideServer({
       ...(args.fetchImpl === undefined ? {} : { fetchImpl: args.fetchImpl }),
       serverUrl: args.serverUrl,
       timeoutMs: Math.min(args.intervalMs, 1_000),
@@ -251,7 +251,7 @@ export async function waitForCompatibleServer(
 
   return {
     kind: "unavailable",
-    reason: `Timed out after ${args.timeoutMs}ms waiting for bb server. Last probe: ${lastResult.reason}`,
+    reason: `Timed out after ${args.timeoutMs}ms waiting for hyperfide-platform server. Last probe: ${lastResult.reason}`,
     serverUrl: args.serverUrl,
   };
 }

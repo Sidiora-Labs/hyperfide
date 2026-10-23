@@ -30,8 +30,8 @@ export type MentionItem =
   | { type: "task"; id: string; key: string; title: string }
   | { type: "thread"; id: string; title: string };
 
-const MENTION_SCHEME = "bbtask://";
-const THREAD_MENTION_SCHEME = "bbthread://";
+const MENTION_SCHEME = "hyperfide-task://";
+const THREAD_MENTION_SCHEME = "hyperfide-thread://";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -53,7 +53,7 @@ function mentionIconSpec(icon: IconSvgElement): DOMOutputSpec {
     {
       viewBox: "0 0 24 24",
       fill: "none",
-      class: "bb-tasks-mention-icon",
+      class: "hyperfide-tasks-mention-icon",
       "aria-hidden": "true",
     },
     ...icon.map(([tag, attrs]): DOMOutputSpec => [
@@ -276,7 +276,7 @@ const TaskMention = createMentionNode({
   idAttribute: "key",
   dataAttribute: "data-task-mention",
   scheme: MENTION_SCHEME,
-  className: "bb-tasks-mention",
+  className: "hyperfide-tasks-mention",
 });
 
 const ThreadMention = createMentionNode({
@@ -284,7 +284,7 @@ const ThreadMention = createMentionNode({
   idAttribute: "threadId",
   dataAttribute: "data-thread-mention",
   scheme: THREAD_MENTION_SCHEME,
-  className: "bb-tasks-mention bb-tasks-thread-mention",
+  className: "hyperfide-tasks-mention hyperfide-tasks-thread-mention",
   role: "link",
   icon: BubbleChatIcon,
 });

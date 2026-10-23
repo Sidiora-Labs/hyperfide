@@ -23,7 +23,7 @@ describe("SideChatPanel", () => {
       { rpc: {}, sdk: { threads: { queuedMessages: { create } } } },
     );
 
-    fireEvent.click(slot.getByTestId("bb-thread-chat-action-send-to-main"));
+    fireEvent.click(slot.getByTestId("hyperfide-thread-chat-action-send-to-main"));
 
     await waitFor(() => {
       expect(create).toHaveBeenCalledWith({

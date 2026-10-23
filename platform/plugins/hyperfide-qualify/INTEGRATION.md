@@ -1,22 +1,24 @@
 # Checker integration
 
-`registerChecker(host, config)` subscribes to the spec plugin's implemented-task
-event. The host supplies the managed Run task thread factory, task-id listing,
-and persistent `recordChecker(task, record)` storage on the reviewed task. Pass
-records include an explicit `independent` flag; wave closure must require this
-flag when independent review is required. Errors never produce a pass.
+`registerChecker(host, config)` observes the real `TaskWorkerHost.publish`
+lifecycle emitted by `createTaskWorker` in `hyperfide-spec/src/worker.ts`.
+Reconciled updates carry the repository, worker environment, provider, project,
+and original base commit. The checker reads criteria and task IDs through the
+real KVX model, and launches through the same `spawnTaskThread` entry point as
+the worker. There is no projection thread factory or synthetic task model.
 
-Tasks 2.3 and 4.1 are absent on this base. The temporary shared adapter is
-`../hyperfide-spec/projection-run-task.ts`: replace its runner and thread-factory
-interfaces with the merged spec plugin's exports. `CheckerHost` and
-`ImplementedTask` describe the corresponding lifecycle and lane-log boundary.
-The checker itself uses that single Run task factory for provider execution;
-there is no separate checker thread implementation.
+The shared thread request exposes an optional verification tool. A provider
+must expose this tool to the checker and call it before writing the structured
+verdict to `.hyperfide/checker-verdict.json` in its managed environment. The
+checker waits for the real stopped event and reads that file through the worker
+host's file API. A verdict without a completed, matching tool run is an error.
+Verification runs inside the checker environment.
 
-The provider receives a verify tool scoped to the task's managed environment.
-The checker accepts only a verdict matching that tool's last completed execution.
-Repository checks are serialized to avoid allocating duplicate fix task ids.
-Command arguments are passed as an argv array to the shared binary runner.
+Configuration supplies the lane log and persistent `recordChecker(task, record)`
+storage. Pass records include the provider and an explicit `independent` flag;
+wave closure must require independence when configured. Repository checks are
+serialized to avoid allocating duplicate fix task IDs. Findings invoke the CLI
+with argv arguments and append tasks requiring the reviewed task.
 
 # Lane receipts and task detail
 

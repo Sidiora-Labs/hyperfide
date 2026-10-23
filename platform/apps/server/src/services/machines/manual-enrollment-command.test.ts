@@ -40,17 +40,17 @@ it("passes the exact bootstrap and arguments to the installer without shell expa
 
 it("builds the transient curl command from the enrollment bootstrap", () => {
   expect(manualEnrollmentCommand(bootstrap)).toBe(
-    "curl -sSL --fail-with-body -H 'X-BB-Enrollment: short-lived-code' 'https://test.hyperfide.example/install.sh' | sh",
+    "curl -sSL --fail-with-body -H 'X-HYPERFIDE-Enrollment: short-lived-code' 'https://test.hyperfide.example/install.sh' | sh",
   );
 });
 
 it("builds the transient PowerShell command from the enrollment bootstrap", () => {
   expect(manualEnrollmentPowerShellCommand(bootstrap)).toBe(
-    "irm -Headers @{ 'X-BB-Enrollment' = 'short-lived-code' } 'https://test.hyperfide.example/install.ps1' | iex",
+    "irm -Headers @{ 'X-HYPERFIDE-Enrollment' = 'short-lived-code' } 'https://test.hyperfide.example/install.ps1' | iex",
   );
   expect(
     manualEnrollmentPowerShellCommand({ ...bootstrap, credential: "it's" }),
-  ).toContain("'X-BB-Enrollment' = 'it''s'");
+  ).toContain("'X-HYPERFIDE-Enrollment' = 'it''s'");
 });
 
 it("wraps the Windows installer and its bootstrap in literal PowerShell strings", () => {
@@ -59,14 +59,14 @@ it("wraps the Windows installer and its bootstrap in literal PowerShell strings"
     bootstrap,
   );
   const lines = script.split("\n");
-  const start = lines.indexOf("[IO.File]::WriteAllText($bbInstaller, @'");
+  const start = lines.indexOf("[IO.File]::WriteAllText($hyperfideInstaller, @'");
   expect(lines[start + 1]).toBe("console.log('$env:USERNAME `n');");
   expect(lines[start + 2]).toBe("'@, (New-Object Text.UTF8Encoding $false))");
   expect(lines[start + 3]).toBe(
     `$env:HYPERFIDE_ENROLLMENT = '${JSON.stringify(bootstrap).replaceAll("'", "''")}'`,
   );
   expect(script).toContain(
-    "& $bbNode.Source $bbInstaller --bootstrap-env HYPERFIDE_ENROLLMENT",
+    "& $hyperfideNode.Source $hyperfideInstaller --bootstrap-env HYPERFIDE_ENROLLMENT",
   );
   expect(script).toContain("Remove-Item Env:HYPERFIDE_ENROLLMENT");
 });
@@ -90,7 +90,7 @@ it("prints the server's enrollment error and stops before running the installer"
     process.platform === "win32",
     "the enrollment command is a POSIX sh pipeline",
   );
-  const directory = mkdtempSync(join(tmpdir(), "bb-enrollment-command-"));
+  const directory = mkdtempSync(join(tmpdir(), "hyperfide-enrollment-command-"));
   try {
     const curl = join(directory, "curl");
     writeFileSync(

@@ -9,7 +9,7 @@ describe("client config", () => {
   it("normalizes server URLs to origins", () => {
     const config = parseClientConfig({
       servers: {
-        "https://bb.example.test/projects/proj_1": {
+        "https://hyperfide.example.test/projects/proj_1": {
           hosts: {
             host_1: {
               sshAuthority: "devbox",
@@ -19,10 +19,10 @@ describe("client config", () => {
       },
     });
 
-    expect(Object.keys(config.servers)).toEqual(["https://bb.example.test"]);
+    expect(Object.keys(config.servers)).toEqual(["https://hyperfide.example.test"]);
     expect(
       resolveClientSshAuthority(config, {
-        serverOrigin: "https://bb.example.test/thread/thr_1",
+        serverOrigin: "https://hyperfide.example.test/thread/thr_1",
         hostId: "host_1",
       }),
     ).toBe("devbox");
@@ -31,7 +31,7 @@ describe("client config", () => {
   it("returns null when no SSH target is configured for a host", () => {
     const config = parseClientConfig({
       servers: {
-        "https://bb.example.test": {
+        "https://hyperfide.example.test": {
           hosts: {
             host_1: {
               sshAuthority: "devbox",
@@ -43,7 +43,7 @@ describe("client config", () => {
 
     expect(
       resolveClientSshAuthority(config, {
-        serverOrigin: "https://bb.example.test",
+        serverOrigin: "https://hyperfide.example.test",
         hostId: "host_2",
       }),
     ).toBeNull();
@@ -53,10 +53,10 @@ describe("client config", () => {
     expect(() =>
       parseClientConfig({
         servers: {
-          "https://bb.example.test/a": {
+          "https://hyperfide.example.test/a": {
             hosts: {},
           },
-          "https://bb.example.test/b": {
+          "https://hyperfide.example.test/b": {
             hosts: {},
           },
         },
@@ -71,7 +71,7 @@ describe("client config", () => {
     expect(() =>
       parseClientConfig({
         servers: {
-          "https://bb.example.test": {
+          "https://hyperfide.example.test": {
             hosts: {
               host_1: {
                 sshAuthority: "bad authority",

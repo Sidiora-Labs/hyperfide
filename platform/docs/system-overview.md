@@ -61,3 +61,12 @@ Two contract packages define the boundaries between components:
 **`@hyperfide/host-daemon-contract`**: the protocol between the server and host daemons. Command types, event types, session lifecycle, the local API for app/CLI.
 
 Implementation packages never import across these boundaries. The server doesn't know how workspaces are provisioned. The daemon doesn't know about threads or projects beyond what commands tell it.
+
+## Authority and qualification
+
+The runtime server database owns runtime state. Distributed task authority lives
+in `services/hyperfide`, backed by PostgreSQL. Spec, Ask, qualification and dispatch
+integrations call the binary and the control plane; a thread ending cannot grant
+a task done status. See the [platform guide](../../docs/hyperfide/platform.md) for
+the four layers, current plugin inventory, adapter boundaries, slices,
+memory bridge and qualification commands.

@@ -5,7 +5,7 @@ import {
 import { createLastKnownCache } from "@/lib/last-known-cache";
 
 const sidebarBootstrapCache = createLastKnownCache({
-  prefix: "bb.sidebar-bootstrap",
+  prefix: "hyperfide.sidebar-bootstrap",
   version: "1",
   schema: sidebarBootstrapResponseSchema,
 });

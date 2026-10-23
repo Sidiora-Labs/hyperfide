@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PromptDraftAttachment } from "@hyperfide/client-core";
-import { BbHttpError } from "@hyperfide/sdk/browser";
+import { HyperfideHttpError } from "@hyperfide/sdk/browser";
 import { uploadDraftAttachments } from "./useComposerAttachmentUploads";
 
 const uploaded: PromptDraftAttachment = {
@@ -60,7 +60,7 @@ describe("uploadDraftAttachments", () => {
     const upload = vi
       .fn<(file: File) => Promise<PromptDraftAttachment>>()
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new HyperfideHttpError({
           body: { code: "invalid_request", message },
           code: "invalid_request",
           message,

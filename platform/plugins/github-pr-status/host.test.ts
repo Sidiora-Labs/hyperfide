@@ -10,10 +10,10 @@ import { installFakeGh, makeTempDir } from "./test/fake-gh.js";
 
 const execFileAsync = promisify(execFile);
 
-const localBranch = "bb/review-github-issue-1235-thr_test";
+const localBranch = "hyperfide/review-github-issue-1235-thr_test";
 const forkRemote = "review-fork";
 const upstreamBranch = "per-turn-permission-escalation";
-const forkRemoteUrl = "git@github.com:fork-owner/bb.git";
+const forkRemoteUrl = "git@github.com:fork-owner/hyperfide.git";
 const qualifiedUpstream = `fork-owner:${upstreamBranch}`;
 
 function pullRequestJson(): string {
@@ -21,7 +21,7 @@ function pullRequestJson(): string {
     number: 1236,
     title: "Apply execution settings without replacing sessions",
     state: "OPEN",
-    url: "https://github.com/acme/bb/pull/1236",
+    url: "https://github.com/acme/hyperfide/pull/1236",
     isDraft: false,
     baseRefName: "main",
     headRefName: upstreamBranch,
@@ -37,14 +37,14 @@ function pullRequestJson(): string {
 async function createRepository(prefix: string): Promise<string> {
   const workspacePath = await makeTempDir(prefix);
   await runGit(["init", "-b", localBranch], { cwd: workspacePath });
-  await runGit(["config", "user.name", "BB Tests"], { cwd: workspacePath });
-  await runGit(["config", "user.email", "bb@example.com"], {
+  await runGit(["config", "user.name", "HYPERFIDE Tests"], { cwd: workspacePath });
+  await runGit(["config", "user.email", "hyperfide@example.com"], {
     cwd: workspacePath,
   });
   await fs.writeFile(path.join(workspacePath, "README.md"), "test\n", "utf8");
   await runGit(["add", "README.md"], { cwd: workspacePath });
   await runGit(["commit", "-m", "Initial commit"], { cwd: workspacePath });
-  await runGit(["remote", "add", "origin", "git@github.com:acme/bb.git"], {
+  await runGit(["remote", "add", "origin", "git@github.com:acme/hyperfide.git"], {
     cwd: workspacePath,
   });
   return workspacePath;
@@ -53,7 +53,7 @@ async function createRepository(prefix: string): Promise<string> {
 async function createTrackedForkWorkspace(
   remoteUrl = forkRemoteUrl,
 ): Promise<string> {
-  const workspacePath = await createRepository("bb-pr-upstream-workspace-");
+  const workspacePath = await createRepository("hyperfide-pr-upstream-workspace-");
   await runGit(["remote", "add", forkRemote, remoteUrl], {
     cwd: workspacePath,
   });
@@ -75,7 +75,7 @@ async function createTrackedForkWorkspace(
 
 async function createManagedBaseTrackedWorkspace(): Promise<string> {
   const workspacePath = await createRepository(
-    "bb-pr-base-upstream-workspace-",
+    "hyperfide-pr-base-upstream-workspace-",
   );
   await runGit(["update-ref", "refs/remotes/origin/main", "HEAD"], {
     cwd: workspacePath,
@@ -124,7 +124,7 @@ describe("pull request lookup for differently named upstream branches", () => {
 
   it("uses the local branch when a differently named remote aliases origin", async () => {
     const workspacePath = await createTrackedForkWorkspace(
-      "git@github.com:acme/bb.git",
+      "git@github.com:acme/hyperfide.git",
     );
     const gh = await installFakeGh(found);
 
@@ -160,7 +160,7 @@ describe("pull request lookup for differently named upstream branches", () => {
 
   it("never passes an untrusted upstream URL to gh", async () => {
     const workspacePath = await createTrackedForkWorkspace(
-      "https://httpbin.org/fork-owner/bb.git",
+      "https://httpbin.org/fork-owner/hyperfide.git",
     );
     const gh = await installFakeGh(found);
     vi.stubEnv("GH_ENTERPRISE_TOKEN", "dummy-enterprise-token");
@@ -181,7 +181,7 @@ describe("pull request lookup for differently named upstream branches", () => {
 
     await harness.experimental_call("view", { path: workspacePath });
     await runGit(
-      ["remote", "set-url", forkRemote, "git@github.com:other-owner/bb.git"],
+      ["remote", "set-url", forkRemote, "git@github.com:other-owner/hyperfide.git"],
       { cwd: workspacePath },
     );
     await harness.experimental_call("view", { path: workspacePath });
@@ -230,7 +230,7 @@ describe("pull request lookup for differently named upstream branches", () => {
 
   it("returns unavailable when gh is not installed", async () => {
     const workspacePath = await createTrackedForkWorkspace();
-    const binPath = await makeTempDir("bb-pr-upstream-no-gh-");
+    const binPath = await makeTempDir("hyperfide-pr-upstream-no-gh-");
     const { stdout } = await execFileAsync(
       process.platform === "win32" ? "where.exe" : "which",
       ["git"],
@@ -254,7 +254,7 @@ describe("pull request lookup for differently named upstream branches", () => {
 
 describe("workspace state", () => {
   it("reports a missing workspace path as unavailable", async () => {
-    const missing = path.join(await makeTempDir("bb-pr-missing-"), "gone");
+    const missing = path.join(await makeTempDir("hyperfide-pr-missing-"), "gone");
     await expect(
       harness.experimental_call("view", { path: missing }),
     ).resolves.toEqual({
@@ -264,7 +264,7 @@ describe("workspace state", () => {
   });
 
   it("refuses actions from a detached workspace", async () => {
-    const workspacePath = await createRepository("bb-pr-detached-");
+    const workspacePath = await createRepository("hyperfide-pr-detached-");
     await runGit(["checkout", "--detach"], { cwd: workspacePath });
     const gh = await installFakeGh({});
 

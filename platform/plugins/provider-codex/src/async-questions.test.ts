@@ -36,7 +36,7 @@ function createHost(rows: ReturnType<typeof questionRow>[]): FakePluginHost {
   );
   host.harness.sdk.stub("threads.send", async () => ({}));
   registerAsyncQuestions(
-    host.bb as unknown as Parameters<typeof registerAsyncQuestions>[0],
+    host.hyperfide as unknown as Parameters<typeof registerAsyncQuestions>[0],
   );
   return host;
 }

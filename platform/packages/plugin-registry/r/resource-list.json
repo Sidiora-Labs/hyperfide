@@ -3,7 +3,7 @@
   "name": "resource-list",
   "type": "registry:ui",
   "title": "resource-list",
-  "description": "BB ui \"resource-list\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"resource-list\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "registryDependencies": [
     "@hyperfide/resource-atoms",
     "@hyperfide/resource-collection",

@@ -9,14 +9,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type {
-  BbDesktopBrowserApi,
-  BbDesktopBrowserState,
+  HyperfideDesktopBrowserApi,
+  HyperfideDesktopBrowserState,
 } from "@hyperfide/desktop-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createBbDesktopApi,
+  createHyperfideDesktopApi,
   createNoopDesktopBrowserApi,
-} from "@/test/bb-desktop-test-utils";
+} from "@/test/hyperfide-desktop-test-utils";
 import { BrowserTabContent } from "./BrowserTabContent";
 
 const desktopInfo = {
@@ -30,8 +30,8 @@ const desktopInfo = {
 };
 
 interface BrowserChromeHarness {
-  api: BbDesktopBrowserApi;
-  emitState: (state: BbDesktopBrowserState) => void;
+  api: HyperfideDesktopBrowserApi;
+  emitState: (state: HyperfideDesktopBrowserState) => void;
   emitNativeFocus: (tabId: string) => void;
   focus: ReturnType<typeof vi.fn>;
   goBack: ReturnType<typeof vi.fn>;
@@ -39,12 +39,12 @@ interface BrowserChromeHarness {
 }
 
 function createBrowserChromeHarness(): BrowserChromeHarness {
-  const stateListeners = new Set<(state: BbDesktopBrowserState) => void>();
+  const stateListeners = new Set<(state: HyperfideDesktopBrowserState) => void>();
   const focusListeners = new Set<(tabId: string) => void>();
   const focus = vi.fn();
   const goBack = vi.fn();
   const stop = vi.fn();
-  const api: BbDesktopBrowserApi = {
+  const api: HyperfideDesktopBrowserApi = {
     ...createNoopDesktopBrowserApi(),
     goBack,
     focus,
@@ -73,8 +73,8 @@ function createBrowserChromeHarness(): BrowserChromeHarness {
 }
 
 function browserState(
-  overrides: Partial<BbDesktopBrowserState> = {},
-): BbDesktopBrowserState {
+  overrides: Partial<HyperfideDesktopBrowserState> = {},
+): HyperfideDesktopBrowserState {
   return {
     tabId: "browser:test",
     url: "https://example.com/docs",
@@ -97,7 +97,7 @@ function renderBrowserChrome(
     onOpenInNewTab?: (url: string) => void;
   } = {},
 ) {
-  window.bbDesktop = createBbDesktopApi(desktopInfo, harness.api);
+  window.hyperfideDesktop = createHyperfideDesktopApi(desktopInfo, harness.api);
   return render(
     <BrowserTabContent
       tabId="browser:test"
@@ -120,7 +120,7 @@ describe("BrowserTabContent persistent navigation", () => {
     cleanup();
     vi.restoreAllMocks();
     window.localStorage.clear();
-    delete window.bbDesktop;
+    delete window.hyperfideDesktop;
   });
 
   it("keeps navigation visible while loading and preserves the stop action", () => {

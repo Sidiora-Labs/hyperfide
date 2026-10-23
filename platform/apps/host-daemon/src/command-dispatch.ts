@@ -612,7 +612,7 @@ const onlineRpcHandlers: OnlineRpcHandlerMap = {
   "desktop.browser.import_cookies": forwardDesktopBrowserCommand,
   "connect-tunnel.ensure-identity": async (_command, options) => {
     if (!options.ensureConnectTunnelIdentity) {
-      throw new Error("bb connect tunnel identity is unavailable");
+      throw new Error("hyperfide-platform connect tunnel identity is unavailable");
     }
     return options.ensureConnectTunnelIdentity();
   },

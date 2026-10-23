@@ -458,6 +458,78 @@ Component 28.4 separates a bounded structural mapping response from release.trac
 Release evidence admission uses a deployment-owned protected schema_version 2 index. Each entry binds reference, evidence_root, campaign, receipt_id, receipt_digest and gate_kinds; the index organisation_id/run_id must match the actual invocation. evidence_root is an exclusively service-owned mode 0700 portable stage containing trusted-relocation.json. The service must keep untrusted agents in separate UIDs or VMs and freeze its own stage writers. The canonical checker verifies every original source/input/tool/artifact pin through the exact relocation map. The release consumer uses absolute isolated Python, a closed environment, the qualified proof assets, and the actual private-stage guard/inspection lock. HYPERFIDE_RELEASE_PYTHON and HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT are protected deployment settings, never request fields. Nonportable version 1 indexes fail closed. Component proof remains insufficient for full release gates.
 
 
+## Full-tree graph indexing
+
+The graph includes platform source. `codify.kvx` sets `[index] workers = 8`
+for the 8 CPU sandbox. `.cgignore` excludes `dist`, `.turbo`,
+`storybook-static`, `coverage`, Android build and Gradle directories, iOS
+build and Pods directories, staged vendored runtimes, and JavaScript bundles
+(`*.bundle.js` and `*.min.js`), pnpm lockfiles and pnpm stores. Built-in
+rules also exclude `node_modules` and `vendor`. Platform build scripts,
+source tests and fixtures remain indexed.
+
+Run `bash tests/hyperfide/cases/v22/1_6.sh` to copy the current tracked source
+tree (without environment files or installed dependencies) into a temporary
+directory and execute `hyperfide init --nested`. The test enforces a wall-time
+limit below 2,700 seconds and checks `hyperfide index-status --json` for nonzero
+symbol counts under `platform/apps/server/`. That command reports total file
+and symbol counts plus per-file symbol counts for the current graph branch.
+
+Measurements on 2026-10-23 used 8 effective CPUs, approximately 15 GB RAM
+and SQLite 3.46.1. Completed counts come from `index-status --json`, after
+semantic resolution has synthesized route symbols; the init progress summary
+reports extracted symbols and therefore has a lower symbol count.
+
+| Run | Wall time | Files | Symbols |
+| --- | ---: | ---: | ---: |
+| Plain `hyperfide init`, fixed snapshot | 379.636 s | 9,071 | 85,689 |
+| Paired `hyperfide init --nested`, same snapshot, SQL profiling enabled | 510.213 s | 9,071 | 85,689 |
+| Qualification `hyperfide init --nested`, current tree | 434 s | 9,070 | 85,689 |
+| Post-0.7 rerun `hyperfide init --nested` | 415 s | 9,090 | 85,783 |
+
+The post-0.7 rerun used the real merged modules and passed
+`tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
+9,993 symbols under `platform/apps/server/`. An audit of task 1.6's changes
+found no stand-ins, projection modules, copied identity gates or SDK accessor
+call sites requiring replacement.
+
+The fixed snapshot preserves the initial r2 source inventory and ignore rules
+for comparison; the qualification copy additionally excludes its pnpm lockfile.
+The three earlier completed runs include 765 files and 9,988 symbols under
+`platform/apps/server/` and finish below the 2,700-second limit. The paired
+nested measurement includes SQL profiling overhead. Init with `--nested` uses
+the same indexing pipeline as plain init; it changes project-root selection.
+
+The earlier r2 nested run timed out at 2,700 seconds with partial counts of
+8,861 files and 82,511 symbols. Profiling the original plain init identified
+branch-wide candidate scans caused by an OR across `symbols.name` and
+`semantic_symbols.qualified_name`. Type and dispatch resolution now combine
+the two indexed ID lookups before loading candidates. The instrumented
+original plain run was stopped at 2,700 seconds (2,702.542 s including process
+shutdown), with partial committed counts of 9,071 files and 82,874 symbols.
+Its last cumulative SQLite step profile attributed 2,200.808 s to the type
+candidate scan, 73.806 s to semantic call candidates, 59.642 s to incoming
+binding invalidation and 19.479 s to path-index insertion/probes. These are
+instrumented statement timings, not completed-run counts or production
+latencies. The fixed paired nested profile's largest remaining statements
+were dispatch fact lookup (89.769 s) and semantic call candidates (79.492 s).
+Dispatch explicitly starts from those IDs so SQLite cannot repeat the lookup
+for every file.
+A 1,000-lookup type benchmark fell from 36.363 s to 1.755 s with identical
+candidate sets and ambiguity bounds; 500 dispatch lookups fell from 14.049 s
+to 0.191 s. Incoming binding invalidation also needed an index on
+`semantic_bindings.target_symbol_id` (59.642 s across 9,071 original writes).
+Path-index existence checks now read FTS row metadata directly rather than
+flushing pending virtual-table writes on every probe (19.479 s originally).
+
+The original and fixed binaries produce identical normalized graph rows on
+the 97-file semantic fixture, including symbols, references, imports, routes,
+type facts, dependencies and edges. The completed plain and nested snapshot
+graphs also match across all those tables after normalizing row IDs, including
+85,689 symbols, 812,757 references and 130,253 semantic edges. The existing
+index and semantic integration tests exercise full rebuilds, incremental edits
+and branch reuse.
+
 ## Sandbox toolkit image steps and measured base build
 
 Platform CI runs `bash scripts/platform-ci.sh` on Node 24. It uses Corepack's
@@ -506,3 +578,27 @@ under platform/. `gen-jobs.py --codex hyperfide-v22 0.8` generates a packet;
 each packet. `node dispatch.mjs --watch` rescans jobs every tick and writes
 queued, running, settled and backoff state to `state/dispatch-loop.json`.
 Create `state/STOP` to stop admitting jobs, drain active runners, and exit.
+
+## Feature 2.2 measurement boundaries
+
+The table above is the measured image-build and index record retained in this
+repository from task 0.8. Its named ledger is runtime state, not tracked evidence
+in this checkout; the numbers are transcribed historical measurements. The
+record does not establish timings for the final merged branch. In particular,
+`platform-build` was best effort in that image recipe, so its elapsed time is
+not evidence of a successful platform build.
+
+| Measurement | Recorded result | Evidence boundary |
+| --- | --- | --- |
+| Image build | Approximately 457 s (7 min 37 s) | Base checkpoint ce200df474, 2026-10-23, table above |
+| Graph index | 109.3 s, 1,574 files, eight workers | Same 4 vCPU / 8 GB base build; not a full merged-tree benchmark |
+| Fleet boot, dispatch, collect and integrate | Not measured in tracked feature evidence on this branch | The 5.7 fixture checks sequencing with fake machines; no live timing ledger is tracked |
+| Authority and two-host qualification | Not measured in tracked feature evidence on this branch | The 6.5 two-host fixture checks receipts; no live timing ledger is tracked |
+
+Fleet cap 20, pool maximum 100, 1.5 s start staggering and 60-to-600 s backoff
+in fleet.json are configured limits, not measurements of achieved throughput.
+Capture builder step durations and dispatcher job ledgers with the source commit
+when measuring those integrations. Do not substitute fake-provider test durations
+for live service latency or sustained fleet capacity.
+
+See [the platform guide](platform.md) for the four layers and proof commands.

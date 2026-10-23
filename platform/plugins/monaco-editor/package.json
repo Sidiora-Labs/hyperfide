@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Edit files in BB with the Monaco editor instead of the read-only preview.",
+  "description": "Edit files in HYPERFIDE with the Monaco editor instead of the read-only preview.",
   "license": "MIT",
-  "homepage": "https://github.com/get-bb/bb#readme",
+  "homepage": "https://github.com/hyperfide/hyperfide#readme",
   "bugs": {
-    "url": "https://github.com/get-bb/bb/issues"
+    "url": "https://github.com/hyperfide/hyperfide/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-bb/bb.git",
+    "url": "git+https://github.com/hyperfide/hyperfide.git",
     "directory": "plugins/monaco"
   },
   "files": [
@@ -23,12 +23,12 @@
     "README.md"
   ],
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.91"
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.91"
   },
-  "bb": {
+  "hyperfide": {
     "name": "File Editor",
-    "description": "Edit files in BB with the Monaco editor instead of the read-only preview.",
+    "description": "Edit files in HYPERFIDE with the Monaco editor instead of the read-only preview.",
     "branding": {
       "icon": "Code"
     },
@@ -36,7 +36,7 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "hyperfide-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

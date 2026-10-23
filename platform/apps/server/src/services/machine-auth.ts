@@ -16,8 +16,8 @@ export const DAEMON_HOST_CONFIG_ID = "daemon-host";
 const ENROLL_KEY_TTL_SECONDS = 60 * 15;
 const DAEMON_KEY_CACHE_TTL_MS = 30_000;
 const DAEMON_KEY_CACHE_MAX_ENTRIES = 1024;
-const MACHINE_AUTH_SYSTEM_USER_ID = "bb-machine-auth-system-user";
-const MACHINE_AUTH_SYSTEM_USER_EMAIL = "machine-auth@bb.internal";
+const MACHINE_AUTH_SYSTEM_USER_ID = "hyperfide-machine-auth-system-user";
+const MACHINE_AUTH_SYSTEM_USER_EMAIL = "machine-auth@hyperfide.internal";
 const MACHINE_AUTH_SYSTEM_USER_NAME = "Machine Auth System";
 
 const machineAuthSchema = {
@@ -155,7 +155,7 @@ export async function createMachineAuthService(
       apiKey([
         {
           configId: DAEMON_ENROLL_CONFIG_ID,
-          defaultPrefix: "bbde_",
+          defaultPrefix: "hyperfide_de_",
           enableMetadata: true,
           keyExpiration: {
             defaultExpiresIn: ENROLL_KEY_TTL_SECONDS,
@@ -165,7 +165,7 @@ export async function createMachineAuthService(
         },
         {
           configId: DAEMON_HOST_CONFIG_ID,
-          defaultPrefix: "bbdh_",
+          defaultPrefix: "hyperfide_dh_",
           enableMetadata: true,
           references: "user",
           requireName: false,

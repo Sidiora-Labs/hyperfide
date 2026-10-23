@@ -23,7 +23,7 @@ function streamedEntries(emitted: EventSinkInput[]) {
 describe("environment command dispatch", () => {
   it("covers environment.attach in unmanaged mode", async () => {
     const harness = createHarness({ workspacePath: "/tmp/unmanaged" });
-    const sourcePath = await makeTempDir("bb-dispatch-unmanaged-");
+    const sourcePath = await makeTempDir("hyperfide-dispatch-unmanaged-");
 
     const result = await dispatchCommand(
       {
@@ -54,7 +54,7 @@ describe("environment command dispatch", () => {
 
   it("runs setup before attaching a provider-owned workspace", async () => {
     const harness = createHarness({ workspacePath: "/tmp/provider-owned" });
-    const sourcePath = await makeTempDir("bb-dispatch-provider-owned-");
+    const sourcePath = await makeTempDir("hyperfide-dispatch-provider-owned-");
     const markerPath = `${sourcePath}/setup-marker`;
     await fs.writeFile(
       `${sourcePath}/.hyperfide-env-setup.sh`,
@@ -105,7 +105,7 @@ describe("environment command dispatch", () => {
 
   it("fails attachment when the setup script fails", async () => {
     const harness = createHarness({ workspacePath: "/tmp/setup-failure" });
-    const sourcePath = await makeTempDir("bb-dispatch-setup-failure-");
+    const sourcePath = await makeTempDir("hyperfide-dispatch-setup-failure-");
     await fs.writeFile(
       `${sourcePath}/.hyperfide-env-setup.sh`,
       "printf 'script diagnostic\\n'\nexit 7\n",
@@ -253,7 +253,7 @@ describe("environment command dispatch", () => {
 
   it("streams live events and flushes when initiator is provided", async () => {
     const harness = createHarness({ workspacePath: "/tmp/live-stream" });
-    const sourcePath = await makeTempDir("bb-dispatch-stream-");
+    const sourcePath = await makeTempDir("hyperfide-dispatch-stream-");
     const emittedEvents: EventSinkInput[] = [];
     let flushCount = 0;
 
@@ -387,7 +387,7 @@ describe("environment command dispatch", () => {
         options.onProgress?.({
           type: "step",
           key: "git-checkout-started",
-          text: "Switching to branch bb/failure",
+          text: "Switching to branch hyperfide/failure",
           status: "started",
           startedAt: Date.now(),
         });
@@ -434,7 +434,7 @@ describe("environment command dispatch", () => {
 
   it("streams the workspace steps when a re-provision of an existing environment does no work", async () => {
     const harness = createHarness({ workspacePath: "/tmp/idempotent" });
-    const sourcePath = await makeTempDir("bb-dispatch-idempotent-");
+    const sourcePath = await makeTempDir("hyperfide-dispatch-idempotent-");
     const emittedEvents: EventSinkInput[] = [];
 
     await dispatchCommand(
@@ -487,7 +487,7 @@ describe("environment command dispatch", () => {
 });
 
 it("cancels setup with contributions even when another attach is waiting", async () => {
-  const sourcePath = await makeTempDir("bb-setup-env-cancel-");
+  const sourcePath = await makeTempDir("hyperfide-setup-env-cancel-");
   const harness = createHarness({ workspacePath: sourcePath });
   await fs.writeFile(
     `${sourcePath}/.hyperfide-env-setup.sh`,

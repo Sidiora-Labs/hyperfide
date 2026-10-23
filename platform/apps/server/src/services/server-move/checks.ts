@@ -27,8 +27,8 @@ import { callHostOnlineRpc } from "../hosts/online-rpc.js";
 import { readPrimaryHostIdFromDataDir } from "../hosts/primary-host.js";
 import { machineServerUrl } from "../machines/server-access.js";
 import type {
-  FullBbAppArtifactAvailability,
-  FullBbAppArtifactService,
+  FullHyperfideAppArtifactAvailability,
+  FullHyperfideAppArtifactService,
 } from "./full-artifact.js";
 import {
   isLoopbackUrl,
@@ -58,12 +58,12 @@ type HostRow = NonNullable<ReturnType<typeof getHost>>;
 type TargetVersionCheck =
   | { kind: "current" }
   | { kind: "newer" }
-  | { kind: "update"; availability: FullBbAppArtifactAvailability };
+  | { kind: "update"; availability: FullHyperfideAppArtifactAvailability };
 
 export interface ServerMoveCheckEnvironment {
   allowLoopbackServerUrl: boolean;
   deps: AppDeps;
-  fullArtifact: FullBbAppArtifactService;
+  fullArtifact: FullHyperfideAppArtifactService;
   inspectTimeoutMs: number;
   readServerDiskFreeBytes(): Promise<number | null>;
   resolveMode(): Promise<ServerMoveModeResolution>;
@@ -98,7 +98,7 @@ export function validateDirectServerUrl(
       ok: false,
       title: "Enter the new server address",
       detail:
-        "This server doesn't use bb connect, so other machines need an address like https://desktop.example.com to reach the new server.",
+        "This server doesn't use hyperfide-platform connect, so other machines need an address like https://desktop.example.com to reach the new server.",
     };
   }
   let url: URL;
@@ -205,7 +205,7 @@ async function checkTargetVersion(
   inspect: ServerMoveInspectResult,
 ): Promise<TargetVersionCheck> {
   const appVersion = environment.deps.config.appVersion;
-  const targetVersion = semver.valid(inspect.bbAppVersion);
+  const targetVersion = semver.valid(inspect.hyperfideAppVersion);
   const serverVersion = semver.valid(appVersion);
   if (
     targetVersion !== null &&
@@ -214,7 +214,7 @@ async function checkTargetVersion(
   ) {
     return { kind: "newer" };
   }
-  if (inspect.serverEntryAvailable && inspect.bbAppVersion === appVersion) {
+  if (inspect.serverEntryAvailable && inspect.hyperfideAppVersion === appVersion) {
     return { kind: "current" };
   }
   return {
@@ -349,7 +349,7 @@ function appendTargetInspectItems(args: {
     items.push({
       id: "unsupported-platform",
       severity: "blocker",
-      title: `${targetName} can't run the bb server`,
+      title: `${targetName} can't run the hyperfide-platform server`,
       detail: "The server runs on macOS and Linux.",
     });
   }
@@ -360,13 +360,13 @@ function appendTargetInspectItems(args: {
             id: "target-has-server-data",
             severity: "blocker",
             title: `The old server copy is still on ${targetName}`,
-            detail: `Delete it on ${targetName}'s page in Settings → Machines, or run bb server delete-old-copy on that machine, then check again.`,
+            detail: `Delete it on ${targetName}'s page in Settings → Machines, or run hyperfide-platform server delete-old-copy on that machine, then check again.`,
           }
         : {
             id: "target-has-server-data",
             severity: "blocker",
-            title: `${targetName} already has bb server data`,
-            detail: `${inspect.dataDir} already contains a bb database.`,
+            title: `${targetName} already has hyperfide-platform server data`,
+            detail: `${inspect.dataDir} already contains a hyperfide database.`,
           },
     );
   }
@@ -389,7 +389,7 @@ function appendTargetInspectItems(args: {
     items.push({
       id: "existing-target-server-data",
       severity: "warning",
-      title: `${targetName} has its own bb data`,
+      title: `${targetName} has its own hyperfide data`,
       detail: `${inspect.existingServerData.path} will be archived next to it with a .before-move date suffix. It is never merged.`,
     });
   }
@@ -459,7 +459,7 @@ function appendTargetInspectItems(args: {
   items.push({
     id: "managed-config-replaced",
     severity: "info",
-    title: `This server's bb skill settings and other configuration will replace matching settings on ${targetName}`,
+    title: `This server's hyperfide skill settings and other configuration will replace matching settings on ${targetName}`,
     detail: null,
   });
 }
@@ -479,8 +479,8 @@ function appendVersionItems(args: {
     args.items.push({
       id: "target-newer-version",
       severity: "blocker",
-      title: `${args.targetName} runs a newer bb than this server`,
-      detail: `${args.targetName} runs bb ${args.inspect.bbAppVersion} and this server runs bb ${appVersion}. Update the server to bb ${args.inspect.bbAppVersion} first, then check again.`,
+      title: `${args.targetName} runs a newer hyperfide than this server`,
+      detail: `${args.targetName} runs hyperfide ${args.inspect.hyperfideAppVersion} and this server runs hyperfide ${appVersion}. Update the server to hyperfide ${args.inspect.hyperfideAppVersion} first, then check again.`,
     });
     return;
   }
@@ -489,7 +489,7 @@ function appendVersionItems(args: {
     args.items.push({
       id: "target-update",
       severity: "info",
-      title: `bb ${availability.version} will be installed on ${args.targetName}`,
+      title: `hyperfide ${availability.version} will be installed on ${args.targetName}`,
       detail: `The update stays on ${args.targetName} even if the move is cancelled.`,
     });
     return;
@@ -499,13 +499,13 @@ function appendVersionItems(args: {
       ? {
           id: "target-version",
           severity: "blocker",
-          title: `${args.targetName} runs bb ${args.inspect.bbAppVersion}, but this server runs bb ${appVersion}`,
-          detail: `Update ${args.targetName} to bb ${appVersion}. ${availability.reason}`,
+          title: `${args.targetName} runs hyperfide ${args.inspect.hyperfideAppVersion}, but this server runs hyperfide ${appVersion}`,
+          detail: `Update ${args.targetName} to hyperfide ${appVersion}. ${availability.reason}`,
         }
       : {
           id: "server-entry-unavailable",
           severity: "blocker",
-          title: `${args.targetName} doesn't have the bb server installed`,
+          title: `${args.targetName} doesn't have the hyperfide-platform server installed`,
           detail: availability.reason,
         },
   );
@@ -552,7 +552,7 @@ function appendServerStateItems(args: {
       title: `${plural(offlineMachines.length, "machine is", "machines are")} offline`,
       detail: `${offlineMachines.map((host) => host.name).join(", ")}. ${
         args.mode.mode === "connect"
-          ? "They reconnect through bb connect when they come back."
+          ? "They reconnect through hyperfide-platform connect when they come back."
           : "They learn the new address from this computer when they come back."
       }`,
     });
@@ -656,7 +656,7 @@ function appendManagedAddressItems(args: {
         severity: "warning",
         title: `${address.key} in ${address.file} points at ${address.value}`,
         detail:
-          "The move keeps this address as it is, so it may still point at this computer. Update it after the move if devices open bb through it.",
+          "The move keeps this address as it is, so it may still point at this computer. Update it after the move if devices open hyperfide through it.",
       });
     }
   }
@@ -690,7 +690,7 @@ export async function runServerMoveCheck(
       severity: "blocker",
       title: "This server doesn't run its own machine",
       detail:
-        "Moving the server needs the machine that runs it. Start bb with its local machine, then try again.",
+        "Moving the server needs the machine that runs it. Start hyperfide with its local machine, then try again.",
     });
   }
   const targetRow = getHost(deps.db, request.targetHostId);
@@ -720,7 +720,7 @@ export async function runServerMoveCheck(
     items.push({
       id: "connect-unavailable",
       severity: "blocker",
-      title: "bb connect status is unavailable",
+      title: "hyperfide-platform connect status is unavailable",
       detail: mode.message,
     });
   }
@@ -856,7 +856,7 @@ export async function runServerMoveCheck(
       severity: "info",
       title: `${liveSourceServerHost.name} will keep running as a machine in the background`,
       detail:
-        "This server runs in the bb desktop app. After the move, the app installs a background service that keeps this computer connected to the new server and updates it with the server, even while the app is closed. The service needs Node.js 22.19 or newer on this computer; without it, the computer stays connected only while the app is open.",
+        "This server runs in the hyperfide desktop app. After the move, the app installs a background service that keeps this computer connected to the new server and updates it with the server, even while the app is closed. The service needs Node.js 22.19 or newer on this computer; without it, the computer stays connected only while the app is open.",
     });
   }
   if (liveSourceServerHost !== null) {

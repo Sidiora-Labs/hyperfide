@@ -1,3 +1,3 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
-export default function scriptedEchoProvider(_bb: BbPluginApi): void {}
+export default function scriptedEchoProvider(_hyperfide: HyperfidePluginApi): void {}

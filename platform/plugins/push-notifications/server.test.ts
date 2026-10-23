@@ -182,7 +182,7 @@ async function setup(options: SetupOptions = {}) {
     createId: () => `subscription-${nextId++}`,
     fetch: options.fetch ?? expo.fetch,
     ...(options.now === undefined ? {} : { now: options.now }),
-  })(fake.bb);
+  })(fake.hyperfide);
 
   async function addSubscription(
     expoPushToken = "ExponentPushToken[phone]",
@@ -385,7 +385,7 @@ describe("push subscription RPC and CLI", () => {
     try {
       const help = (await host.harness.behavior.runCli(["add", "--help"]))
         .stdout;
-      expect(help).toContain("bb push-notifications add");
+      expect(help).toContain("hyperfide-platform push-notifications add");
       expect(help).toContain("at most 512 characters");
 
       const badPlatform = await host.harness.behavior.runCli([
@@ -494,7 +494,7 @@ describe("push sender", () => {
       host.setThread({
         id: "thr_23456789ab",
         title:
-          "Compare bb in-app terminal against Moshi, Termius, and Blink Shell",
+          "Compare hyperfide in-app terminal against Moshi, Termius, and Blink Shell",
       });
       const thread = host.setThread({ title: "Discord Dude" });
 
@@ -503,7 +503,7 @@ describe("push sender", () => {
         lastAssistantText: [
           "## Summary",
           "",
-          "@thread:thr_aedn9u3q8i fixed **[#4793](https://github.com/get-bb/bb/issues/4793)**",
+          "@thread:thr_aedn9u3q8i fixed **[#4793](https://github.com/hyperfide/hyperfide/issues/4793)**",
           "as `9579549809`; thr_8quy6y32b5 and snake_case_name remain.",
           "Then see @thread:thr_23456789ab.",
           "",
@@ -514,7 +514,7 @@ describe("push sender", () => {
       await vi.waitFor(() => expect(host.expo.requests).toHaveLength(1));
       expect(host.expo.requests[0]?.[0]).toMatchObject({
         title: "Discord Dude",
-        body: "“Fix scroll jumps” fixed #4793 as 9579549809; thr_8quy6y32b5 and snake_case_name remain. Then see “Compare bb in-app terminal against Mosh…”.",
+        body: "“Fix scroll jumps” fixed #4793 as 9579549809; thr_8quy6y32b5 and snake_case_name remain. Then see “Compare hyperfide in-app terminal again…”.",
       });
     } finally {
       await host.cleanup();
@@ -575,7 +575,7 @@ describe("push sender", () => {
   });
 
   it("includes the configured public server URL", async () => {
-    const host = await setup({ appUrl: "https://bb.example.test" });
+    const host = await setup({ appUrl: "https://hyperfide.example.test" });
     try {
       await host.addSubscription();
       const thread = host.setThread();
@@ -589,7 +589,7 @@ describe("push sender", () => {
       expect(host.expo.requests[0]?.[0]?.data).toEqual({
         kind: "turn-finished",
         projectId: "project-1",
-        serverUrl: "https://bb.example.test",
+        serverUrl: "https://hyperfide.example.test",
         threadId: thread.id,
       });
     } finally {

@@ -204,7 +204,7 @@ function runInProcessQueue<T>(
   });
 }
 
-const GIT_REF_FS_LOCK_DIR_NAME = "bb-ref-mutation.lock";
+const GIT_REF_FS_LOCK_DIR_NAME = "hyperfide-ref-mutation.lock";
 const GIT_REF_FS_LOCK_STALE_MS = 10 * 60_000;
 const GIT_REF_FS_LOCK_POLL_MS = 100;
 const GIT_REF_FS_LOCK_DEFAULT_TIMEOUT_MS = 5 * 60_000;

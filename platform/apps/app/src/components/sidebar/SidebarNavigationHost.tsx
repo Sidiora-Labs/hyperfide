@@ -178,7 +178,7 @@ export function SidebarNavigationProviderMount({
           description:
             fallback === null
               ? `${slot.title} (${pluginId}) stopped working.`
-              : `${slot.title} (${pluginId}) stopped working, so bb drew ${fallback.title} instead.`,
+              : `${slot.title} (${pluginId}) stopped working, so hyperfide drew ${fallback.title} instead.`,
         });
       }}
     />

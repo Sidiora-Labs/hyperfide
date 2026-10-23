@@ -3,7 +3,7 @@
   "name": "label",
   "type": "registry:ui",
   "title": "label",
-  "description": "BB ui \"label\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "HYPERFIDE ui \"label\" — vendored from the HYPERFIDE app's own source (version-matched to this HYPERFIDE release).",
   "dependencies": [
     "@radix-ui/react-label"
   ],

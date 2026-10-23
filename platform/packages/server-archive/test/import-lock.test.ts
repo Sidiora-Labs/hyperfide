@@ -62,11 +62,11 @@ async function stageImport(): Promise<{
   manifest: ServerArchiveManifest;
 }> {
   const sourceDataDir = await makeTempDir();
-  await writeDataFile(sourceDataDir, "bb.db", "server database");
+  await writeDataFile(sourceDataDir, "hyperfide.db", "server database");
   await writeDataFile(
     sourceDataDir,
     "config.json",
-    JSON.stringify({ config: { BB_LOG_LEVEL: "info" } }),
+    JSON.stringify({ config: { HYPERFIDE_LOG_LEVEL: "info" } }),
   );
   await writeDataFile(
     sourceDataDir,
@@ -87,7 +87,7 @@ async function stageImport(): Promise<{
       })),
     manifest: {
       createdAt: 1,
-      bbVersion: "0.43.1",
+      hyperfideVersion: "0.43.1",
       protocolVersion: 209,
       migrationCount: 142,
       sourceDataDir,
@@ -127,13 +127,13 @@ async function holdLock(
 }
 
 describe("installImportedServerFiles managed file locks", () => {
-  it("waits for another bb command's config.json lock and merges what that command wrote", async () => {
+  it("waits for another hyperfide command's config.json lock and merges what that command wrote", async () => {
     const { stagingDir, manifest } = await stageImport();
     const dataDir = await makeTempDir();
     await writeDataFile(
       dataDir,
       "config.json",
-      JSON.stringify({ config: { BB_APP_URL: "https://target.example" } }),
+      JSON.stringify({ config: { HYPERFIDE_APP_URL: "https://target.example" } }),
     );
     const lockPath = path.join(dataDir, ".config.json.lock");
     const lock = await holdLock(lockPath);
@@ -154,7 +154,7 @@ describe("installImportedServerFiles managed file locks", () => {
     await writeDataFile(
       dataDir,
       "config.json",
-      JSON.stringify({ config: { BB_APP_URL: "https://changed.example" } }),
+      JSON.stringify({ config: { HYPERFIDE_APP_URL: "https://changed.example" } }),
     );
     lock.release();
     await lock.released;
@@ -162,16 +162,16 @@ describe("installImportedServerFiles managed file locks", () => {
 
     expect(firstOutcome).toBe("waiting on the lock");
     expect(configWhileLocked).toEqual({
-      config: { BB_APP_URL: "https://target.example" },
+      config: { HYPERFIDE_APP_URL: "https://target.example" },
     });
-    expect(entriesWhileLocked).not.toContain("bb.db");
+    expect(entriesWhileLocked).not.toContain("hyperfide.db");
     expect(await readDataJson(dataDir, "config.json")).toEqual({
-      config: { BB_APP_URL: "https://changed.example", BB_LOG_LEVEL: "info" },
+      config: { HYPERFIDE_APP_URL: "https://changed.example", HYPERFIDE_LOG_LEVEL: "info" },
     });
-    expect(await readdir(dataDir)).toContain("bb.db");
+    expect(await readdir(dataDir)).toContain("hyperfide.db");
   });
 
-  it("waits for another bb command's env.json lock and merges what that command wrote", async () => {
+  it("waits for another hyperfide command's env.json lock and merges what that command wrote", async () => {
     const { stagingDir, manifest } = await stageImport();
     const dataDir = await makeTempDir();
     await writeDataFile(
@@ -207,11 +207,11 @@ describe("installImportedServerFiles managed file locks", () => {
 
     expect(firstOutcome).toBe("waiting on the lock");
     expect(envWhileLocked).toEqual({ env: { TARGET_ONLY: "1" } });
-    expect(configWhileLocked).toEqual({ config: { BB_LOG_LEVEL: "info" } });
-    expect(entriesWhileLocked).not.toContain("bb.db");
+    expect(configWhileLocked).toEqual({ config: { HYPERFIDE_LOG_LEVEL: "info" } });
+    expect(entriesWhileLocked).not.toContain("hyperfide.db");
     expect(await readDataJson(dataDir, "env.json")).toEqual({
       env: { SOURCE_ONLY: "1", TARGET_ONLY: "2" },
     });
-    expect(await readdir(dataDir)).toContain("bb.db");
+    expect(await readdir(dataDir)).toContain("hyperfide.db");
   });
 });

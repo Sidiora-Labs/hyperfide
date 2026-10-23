@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import type { ModalAllocations } from "./allocations.js";
 import type { ModalSandboxClient } from "./providers/modal/client.js";
 import { readModalMachineResource } from "./providers/modal/resource.js";
@@ -6,7 +6,7 @@ import { PROVIDER_ID } from "./provider-id.js";
 import { errorMessage } from "./error-message.js";
 
 export async function sweepModalAllocations(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   allocations: ModalAllocations,
   client: ModalSandboxClient,
   now: number,
@@ -14,18 +14,18 @@ export async function sweepModalAllocations(
   const keys = await allocations.keys();
   if (keys.length === 0) return;
   const accountIdentity = await client.accountIdentity();
-  const hosts = await bb.sdk.hosts.list();
+  const hosts = await hyperfide.sdk.hosts.list();
   const owners = new Map<string, (typeof hosts)[number]>();
   for (const host of hosts) {
     if (host.machineProviderId !== PROVIDER_ID) continue;
     try {
-      const stored = await bb.experimental_machines.getResource(host.id);
+      const stored = await hyperfide.experimental_machines.getResource(host.id);
       if (stored === null) continue;
       const resource = readModalMachineResource(stored);
       if (resource.accountIdentity === accountIdentity)
         owners.set(JSON.stringify([resource.appName, resource.key]), host);
     } catch (error) {
-      bb.log.warn(
+      hyperfide.log.warn(
         `Modal allocation owner lookup failed for ${host.id}: ${errorMessage(error)}`,
       );
     }
@@ -60,17 +60,17 @@ export async function sweepModalAllocations(
       );
       if (owner === undefined) {
         await allocations.succeeded(key);
-        bb.log.warn(
+        hyperfide.log.warn(
           `Tracked Modal sandbox ${sandbox.sandboxId} has no matching machine; retaining it for inspection`,
         );
         continue;
       }
       if (owner.lifecycle.phase === "suspended")
-        await bb.sdk.hosts.experimental_reconcile({ hostId: owner.id });
+        await hyperfide.sdk.hosts.experimental_reconcile({ hostId: owner.id });
       await allocations.succeeded(key);
     } catch (error) {
       await allocations.failed(key, now);
-      bb.log.warn(
+      hyperfide.log.warn(
         `Modal allocation sweep failed for ${key}: ${errorMessage(error)}`,
       );
     }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { PullRequest } from "hyperfide-plugin-bb--github-pr-status/contract";
+import type { PullRequest } from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { cleanup, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
@@ -25,9 +25,9 @@ const pullRequestFixture: PullRequest = {
   number: 128,
   title: "Show pull request status in the prompt context banner",
   state: "open",
-  url: "https://github.com/acme/bb/pull/128",
+  url: "https://github.com/acme/hyperfide/pull/128",
   baseRefName: "main",
-  headRefName: "bb/pr-context-banner",
+  headRefName: "hyperfide/pr-context-banner",
   updatedAt: "2026-06-16T12:30:00Z",
   autoMerge: false,
   inMergeQueue: false,

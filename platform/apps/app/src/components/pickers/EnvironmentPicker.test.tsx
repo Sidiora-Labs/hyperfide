@@ -642,8 +642,8 @@ describe("EnvironmentPickerUI multi-machine menu", () => {
   ] as const;
 
   const machineSources: readonly ProjectSource[] = [
-    { ...sources[0]!, id: "src_local", hostId: thisMachine.id, path: "~/bb" },
-    { ...sources[0]!, id: "src_studio", hostId: studio.id, path: "~/code/bb" },
+    { ...sources[0]!, id: "src_local", hostId: thisMachine.id, path: "~/hyperfide" },
+    { ...sources[0]!, id: "src_studio", hostId: studio.id, path: "~/code/hyperfide" },
   ];
 
   function renderMachineMenu(overrides?: {
@@ -914,8 +914,8 @@ describe("EnvironmentPickerUI multi-machine menu", () => {
   it("does not show project checkout paths in machine headers", () => {
     renderMachineMenu();
 
-    expect(screen.queryByText("~/bb")).toBeNull();
-    expect(screen.queryByText("~/code/bb")).toBeNull();
+    expect(screen.queryByText("~/hyperfide")).toBeNull();
+    expect(screen.queryByText("~/code/hyperfide")).toBeNull();
   });
 
   it("selects a host-scoped provider for the previewed machine", () => {

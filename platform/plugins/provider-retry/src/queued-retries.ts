@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 
 export interface QueuedRetry {
   id: string;
@@ -7,10 +7,10 @@ export interface QueuedRetry {
 }
 
 export async function listQueuedRetries(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   threadId?: string,
 ): Promise<QueuedRetry[]> {
-  const rows = await bb.sdk.threads.queue.list(
+  const rows = await hyperfide.sdk.threads.queue.list(
     threadId === undefined ? {} : { threadId },
   );
   return rows
@@ -23,9 +23,9 @@ export async function listQueuedRetries(
 }
 
 export async function findQueuedRetry(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   threadId: string,
 ): Promise<QueuedRetry | null> {
-  const rows = await listQueuedRetries(bb, threadId);
+  const rows = await listQueuedRetries(hyperfide, threadId);
   return rows[0] ?? null;
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { BbPluginApi } from "@hyperfide/plugin-sdk";
+import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import {
   pushSubscriptionSchema,
   type AddPushSubscriptionInput,
@@ -17,7 +17,7 @@ export interface PushSubscriptionStore {
 }
 
 export function createPushSubscriptionStore(
-  bb: BbPluginApi,
+  hyperfide: HyperfidePluginApi,
   options: { now?: () => number; createId?: () => string } = {},
 ): PushSubscriptionStore {
   const now = options.now ?? Date.now;
@@ -25,14 +25,14 @@ export function createPushSubscriptionStore(
   let mutationQueue: Promise<void> = Promise.resolve();
 
   async function readAll(): Promise<PushSubscription[]> {
-    const keys = await bb.storage.kv.list(SUBSCRIPTION_KEY_PREFIX);
+    const keys = await hyperfide.storage.kv.list(SUBSCRIPTION_KEY_PREFIX);
     const subscriptions: PushSubscription[] = [];
     for (const key of keys) {
       const parsed = pushSubscriptionSchema.safeParse(
-        await bb.storage.kv.get<unknown>(key),
+        await hyperfide.storage.kv.get<unknown>(key),
       );
       if (!parsed.success) {
-        bb.log.warn(
+        hyperfide.log.warn(
           `Ignored invalid push subscription row ${key.slice(SUBSCRIPTION_KEY_PREFIX.length)}`,
         );
         continue;
@@ -70,7 +70,7 @@ export function createPushSubscriptionStore(
             platform: input.platform,
             lastSeenAt: Math.max(timestamp, existing.lastSeenAt),
           };
-          await bb.storage.kv.set(
+          await hyperfide.storage.kv.set(
             `${SUBSCRIPTION_KEY_PREFIX}${existing.id}`,
             updated,
           );
@@ -85,7 +85,7 @@ export function createPushSubscriptionStore(
           createdAt: timestamp,
           lastSeenAt: timestamp,
         };
-        await bb.storage.kv.set(`${SUBSCRIPTION_KEY_PREFIX}${id}`, created);
+        await hyperfide.storage.kv.set(`${SUBSCRIPTION_KEY_PREFIX}${id}`, created);
         return { id, created: true };
       });
     },
@@ -107,7 +107,7 @@ export function createPushSubscriptionStore(
           (subscription) => subscription.id === id,
         );
         if (!existing) return false;
-        await bb.storage.kv.delete(`${SUBSCRIPTION_KEY_PREFIX}${id}`);
+        await hyperfide.storage.kv.delete(`${SUBSCRIPTION_KEY_PREFIX}${id}`);
         return true;
       });
     },

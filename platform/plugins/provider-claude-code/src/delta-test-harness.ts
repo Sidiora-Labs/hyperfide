@@ -167,7 +167,7 @@ export function createClaudeDeltaHarness(
       });
     },
     itemId(providerItemId, threadId = "") {
-      return assembler.getBbItemId(threadId, providerItemId) ?? "";
+      return assembler.getHyperfideItemId(threadId, providerItemId) ?? "";
     },
   };
 }

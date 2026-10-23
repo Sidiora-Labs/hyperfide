@@ -11,7 +11,7 @@ export type PresentationIconValidationDeps = Pick<
   "db" | "logger" | "providerRegistry"
 >;
 
-const HYPERFIDE_TOOL_SERVER = "bb";
+const HYPERFIDE_TOOL_SERVER = "hyperfide";
 
 interface PresentationIconSite {
   glyph: string;
@@ -36,7 +36,7 @@ function presentationIconSiteOf(
   return { glyph, glyphPluginId: parsed.pluginId, event };
 }
 
-function isRegisteredBbToolIcon(site: PresentationIconSite): boolean {
+function isRegisteredHyperfideToolIcon(site: PresentationIconSite): boolean {
   const { item } = site.event;
   if (item.type !== "toolCall" || item.server !== HYPERFIDE_TOOL_SERVER) {
     return false;
@@ -54,7 +54,7 @@ function presentationIconProblem(
   site: PresentationIconSite,
   providerId: string | null,
 ): string | null {
-  if (isRegisteredBbToolIcon(site)) {
+  if (isRegisteredHyperfideToolIcon(site)) {
     return null;
   }
   const registration =

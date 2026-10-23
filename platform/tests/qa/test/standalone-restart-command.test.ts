@@ -17,8 +17,8 @@ import {
 } from "../src/shared.js";
 
 const RESTART_PROVIDER_ENV_BLOCK =
-  'case "${BB_QA_OPENAI_API_KEY-}" in *[![:space:]]*) OPENAI_API_KEY="$BB_QA_OPENAI_API_KEY"; export OPENAI_API_KEY ;; *) unset OPENAI_API_KEY ;; esac';
-const DAEMON_ENV_BLOCK_PREFIX = "; BB_DATA_DIR=";
+  'case "${HYPERFIDE_QA_OPENAI_API_KEY-}" in *[![:space:]]*) OPENAI_API_KEY="$HYPERFIDE_QA_OPENAI_API_KEY"; export OPENAI_API_KEY ;; *) unset OPENAI_API_KEY ;; esac';
+const DAEMON_ENV_BLOCK_PREFIX = "; HYPERFIDE_DATA_DIR=";
 
 interface ShellCommandResult {
   processGroupId: number;
@@ -31,14 +31,14 @@ function buildTestRestartCommand(): string {
     cwd: "/repo",
     daemonPid: 123,
     daemonPort: 456,
-    dataDir: "/tmp/bb root",
+    dataDir: "/tmp/hyperfide root",
     entrypoint: "/repo/apps/host-daemon/dist/index.js",
     envFilePath: "/repo/.env",
     hostId: "host_123",
     instanceId: "instance_123",
-    logPath: "/tmp/bb logs/host-daemon.log",
+    logPath: "/tmp/hyperfide logs/host-daemon.log",
     parentPid: 789,
-    pidPath: "/tmp/bb-restart.pid",
+    pidPath: "/tmp/hyperfide-restart.pid",
     serverUrl: "http://127.0.0.1:3334",
   });
 }
@@ -218,17 +218,17 @@ describe("standalone restart command", () => {
   it("clears inherited thread context from env-format setup output", () => {
     expect(
       buildStandaloneShellExports({
-        BB_HOST_DAEMON_PORT: "3334",
-        BB_PROJECT_ID: "proj_standalone",
-        BB_SERVER_URL: "http://127.0.0.1:3333",
+        HYPERFIDE_HOST_DAEMON_PORT: "3334",
+        HYPERFIDE_PROJECT_ID: "proj_standalone",
+        HYPERFIDE_SERVER_URL: "http://127.0.0.1:3333",
       }).split("\n"),
     ).toEqual([
-      "unset BB_THREAD_ID",
-      "unset BB_ENVIRONMENT_ID",
-      "unset BB_THREAD_STORAGE",
-      "export BB_HOST_DAEMON_PORT='3334'",
-      "export BB_PROJECT_ID='proj_standalone'",
-      "export BB_SERVER_URL='http://127.0.0.1:3333'",
+      "unset HYPERFIDE_THREAD_ID",
+      "unset HYPERFIDE_ENVIRONMENT_ID",
+      "unset HYPERFIDE_THREAD_STORAGE",
+      "export HYPERFIDE_HOST_DAEMON_PORT='3334'",
+      "export HYPERFIDE_PROJECT_ID='proj_standalone'",
+      "export HYPERFIDE_SERVER_URL='http://127.0.0.1:3333'",
     ]);
   });
 
@@ -236,17 +236,17 @@ describe("standalone restart command", () => {
     expect(
       buildStandaloneRuntimeEnv({
         baseEnv: {
-          BB_ENVIRONMENT_ID: "env_parent",
-          BB_THREAD_ID: "thr_parent",
-          BB_THREAD_STORAGE: "/home/user/.bb/thread-storage/thr_parent",
+          HYPERFIDE_ENVIRONMENT_ID: "env_parent",
+          HYPERFIDE_THREAD_ID: "thr_parent",
+          HYPERFIDE_THREAD_STORAGE: "/home/user/.hyperfide/thread-storage/thr_parent",
           PATH: "/usr/bin",
         },
         overrides: {
-          BB_DATA_DIR: "/tmp/standalone/bb-root",
+          HYPERFIDE_DATA_DIR: "/tmp/standalone/hyperfide-root",
         },
       }),
     ).toEqual({
-      BB_DATA_DIR: "/tmp/standalone/bb-root",
+      HYPERFIDE_DATA_DIR: "/tmp/standalone/hyperfide-root",
       PATH: "/usr/bin",
     });
   });
@@ -286,18 +286,18 @@ describe("standalone restart command", () => {
     const command = buildTestRestartCommand();
 
     expect(command).toContain("daemon_pid='123'");
-    expect(command).toContain("daemon_pid=$(cat '/tmp/bb-restart.pid')");
+    expect(command).toContain("daemon_pid=$(cat '/tmp/hyperfide-restart.pid')");
     expect(command).toContain('(kill "$daemon_pid"');
     expect(command).toContain("/repo/.env");
     expect(command).toContain(RESTART_PROVIDER_ENV_BLOCK);
-    expect(command).toContain("BB_DATA_DIR=");
-    expect(command).toContain("BB_STANDALONE_INSTANCE=");
-    expect(command).toContain("BB_RESTART_DAEMON_ENTRYPOINT=");
-    expect(command).toContain("BB_RESTART_DAEMON_CWD=");
-    expect(command).toContain("BB_RESTART_DAEMON_PID_PATH=");
+    expect(command).toContain("HYPERFIDE_DATA_DIR=");
+    expect(command).toContain("HYPERFIDE_STANDALONE_INSTANCE=");
+    expect(command).toContain("HYPERFIDE_RESTART_DAEMON_ENTRYPOINT=");
+    expect(command).toContain("HYPERFIDE_RESTART_DAEMON_CWD=");
+    expect(command).toContain("HYPERFIDE_RESTART_DAEMON_PID_PATH=");
     expect(command).toContain("/repo/apps/host-daemon/dist/index.js");
     expect(command).toContain(
-      "</dev/null >> '/tmp/bb logs/host-daemon.log' 2>&1",
+      "</dev/null >> '/tmp/hyperfide logs/host-daemon.log' 2>&1",
     );
     expect(command).toContain("'http://127.0.0.1:3334/api/v1/hosts'");
     expect(command).toContain(
@@ -355,7 +355,7 @@ describe("standalone restart command", () => {
       cwd: "/repo",
       daemonPid: null,
       daemonPort: 456,
-      dataDir: "/tmp/bb-root",
+      dataDir: "/tmp/hyperfide-root",
       entrypoint: "/repo/apps/host-daemon/dist/index.js",
       envFilePath: null,
       hostId: "host_123",
@@ -378,7 +378,7 @@ describe("standalone restart command", () => {
       "the standalone QA restart command is a POSIX shell script",
     );
     const tempDir = await fs.mkdtemp(
-      path.join(tmpdir(), "bb-restart-command-"),
+      path.join(tmpdir(), "hyperfide-restart-command-"),
     );
     const pidPath = path.join(tempDir, "daemon.pid");
     const logPath = path.join(tempDir, "host-daemon.log");
@@ -417,7 +417,7 @@ describe("standalone restart command", () => {
         cwd: tempDir,
         daemonPid: null,
         daemonPort: 456,
-        dataDir: path.join(tempDir, "bb-root"),
+        dataDir: path.join(tempDir, "hyperfide-root"),
         entrypoint,
         envFilePath: null,
         hostId: "host_123",

@@ -26,7 +26,7 @@ if (
   throw new Error(
     "Usage: watch-interest-benchmark.mjs <threads:1..1000> <hosts:1..10> <rounds>",
   );
-const directory = await mkdtemp(join(tmpdir(), "bb-watch-benchmark-"));
+const directory = await mkdtemp(join(tmpdir(), "hyperfide-watch-benchmark-"));
 const db = createConnection(join(directory, "core.db"));
 migrate(db);
 const hub = new NotificationHub();

@@ -4,7 +4,7 @@ import { cleanup, renderHook } from "@testing-library/react";
 import type {
   EnvironmentPullRequest,
   PullRequest,
-} from "hyperfide-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-hyperfide--github-pr-status/contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isEnvironmentPullRequestStale,
@@ -34,9 +34,9 @@ function row(state: PullRequest["state"]): EnvironmentPullRequest {
       number: 7,
       title: "Ship it",
       state,
-      url: "https://github.com/acme/bb/pull/7",
+      url: "https://github.com/acme/hyperfide/pull/7",
       baseRefName: "main",
-      headRefName: "bb/ship",
+      headRefName: "hyperfide/ship",
       updatedAt: "2026-10-22T00:00:00Z",
       autoMerge: false,
       inMergeQueue: false,

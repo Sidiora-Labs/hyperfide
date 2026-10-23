@@ -13,8 +13,8 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[3]
 OWNER_ENV = dict(os.environ)
-assert OWNER_ENV.get("BB_SERVER_URL"), "Set BB_SERVER_URL to the host-care owner"
-assert OWNER_ENV.get("BB_THREAD_ID"), "Run from an owning bb thread"
+assert OWNER_ENV.get("HYPERFIDE_SERVER_URL"), "Set HYPERFIDE_SERVER_URL to the host-care owner"
+assert OWNER_ENV.get("HYPERFIDE_THREAD_ID"), "Run from an owning hyperfide-platform thread"
 HEAD = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 assert not subprocess.check_output(["git", "diff", "HEAD", "--name-only"], cwd=ROOT), "Commit tracked changes first"
 (ROOT / ".tmp").mkdir(exist_ok=True)
@@ -45,7 +45,7 @@ def command(args, env=OWNER_ENV, check=True, timeout=120, cwd=ROOT):
 
 
 def owner(*args):
-    return json.loads(command(["bb", *args, "--json"], timeout=660).stdout)
+    return json.loads(command(["hyperfide", *args, "--json"], timeout=660).stdout)
 
 
 OWNER_STATUS = owner("status")
@@ -62,21 +62,21 @@ PORT = reserve_port()
 DAEMON_PORT = reserve_port()
 assert PORT != DAEMON_PORT
 QA_ENV = {key: value for key, value in os.environ.items()
-          if not key.startswith("BB_") and key != "NODE_OPTIONS"}
-QA_ENV.update(BB_SERVER_URL=f"http://127.0.0.1:{PORT}", BB_SERVER_PORT=str(PORT),
-              BB_HOST_DAEMON_PORT=str(DAEMON_PORT), BB_DATA_DIR=str(DATA),
-              BB_SERVER_BIND_HOST="127.0.0.1", BB_SKIP_ONBOARDING="1",
+          if not key.startswith("HYPERFIDE_") and key != "NODE_OPTIONS"}
+QA_ENV.update(HYPERFIDE_SERVER_URL=f"http://127.0.0.1:{PORT}", HYPERFIDE_SERVER_PORT=str(PORT),
+              HYPERFIDE_HOST_DAEMON_PORT=str(DAEMON_PORT), HYPERFIDE_DATA_DIR=str(DATA),
+              HYPERFIDE_SERVER_BIND_HOST="127.0.0.1", HYPERFIDE_SKIP_ONBOARDING="1",
               HYPERFIDE_INHERITED_SKILLS_ROOTS=str(RUN / "skills"),
-              BB_CLI_REEXEC="1", BB_THREAD_ID="", BB_PROJECT_ID="", BB_CLI_ERROR_LOG="0")
+              HYPERFIDE_CLI_REEXEC="1", HYPERFIDE_THREAD_ID="", HYPERFIDE_PROJECT_ID="", HYPERFIDE_CLI_ERROR_LOG="0")
 CLI = ["node", "--conditions=source", "--import", "tsx", "apps/cli/src/index.ts"]
 
 
-def qa_bb(*args, check=True):
+def qa_hyperfide(*args, check=True):
     return command([*CLI, *args], env=QA_ENV, check=check)
 
 
 def qa_preflight():
-    status = json.loads(qa_bb("status", "--json").stdout)
+    status = json.loads(qa_hyperfide("status", "--json").stdout)
     if not status.get("dataDir"):
         raise RuntimeError("QA server is not ready")
     assert Path(status["dataDir"]).resolve() == DATA.resolve(), "Unexpected QA target"
@@ -86,7 +86,7 @@ def qa_preflight():
 
 def qa_write(*args, check=True):
     qa_preflight()
-    return qa_bb(*args, check=check)
+    return qa_hyperfide(*args, check=check)
 
 
 def wait_for(predicate, timeout=120):
@@ -100,7 +100,7 @@ def wait_for(predicate, timeout=120):
 
 
 def database():
-    db = sqlite3.connect(f"file:{DATA / 'bb.db'}?mode=rw", uri=True)
+    db = sqlite3.connect(f"file:{DATA / 'hyperfide.db'}?mode=rw", uri=True)
     db.row_factory = sqlite3.Row
     return db
 
@@ -146,7 +146,7 @@ def daemon():
             args = Path(f"/proc/{item['pid']}/cmdline").read_bytes().split(b"\0")
             if any(arg.endswith(b"/apps/host-daemon/dist/daemon-bundle.mjs") for arg in args):
                 environ = Path(f"/proc/{item['pid']}/environ").read_bytes().split(b"\0")
-                assert f"BB_DATA_DIR={DATA}".encode() in environ
+                assert f"HYPERFIDE_DATA_DIR={DATA}".encode() in environ
                 found.append(item)
         except FileNotFoundError:
             pass
@@ -165,8 +165,8 @@ def run():
     log(f"HEAD {HEAD}")
     launcher = RUN / "launch.sh"
     exports = "\n".join(f"export {key}={shlex.quote(value)}" for key, value in QA_ENV.items()
-                        if key.startswith("BB_"))
-    launcher.write_text("set -euo pipefail\nfor key in ${!BB_@}; do unset \"$key\"; done\nunset NODE_OPTIONS\n"
+                        if key.startswith("HYPERFIDE_"))
+    launcher.write_text("set -euo pipefail\nfor key in ${!HYPERFIDE_@}; do unset \"$key\"; done\nunset NODE_OPTIONS\n"
                         + exports + "\nexec pnpm start --worktree-runtime-policy\n")
     assert owner("status")["dataDir"] == OWNER_STATUS["dataDir"]
     JOB = owner("host-care", "start", "--title", "Environment recovery e2e", "--cwd", str(ROOT),
@@ -182,7 +182,7 @@ def run():
             return False
 
     wait_for(ready, 600)
-    host_list = wait_for(lambda: json.loads(qa_bb("host", "list", "--json").stdout))
+    host_list = wait_for(lambda: json.loads(qa_hyperfide("host", "list", "--json").stdout))
     assert len(host_list) == 1
     host_id = host_list[0]["id"]
     fixture = RUN / "fixture"
@@ -190,9 +190,9 @@ def run():
     pid_file = RUN / "setup.pid"
     cwd_file = RUN / "setup.cwd"
     teardown_file = RUN / "teardown.finished"
-    (fixture / ".bb-env-setup.sh").write_text(
+    (fixture / ".hyperfide-env-setup.sh").write_text(
         f"echo $$ > {shlex.quote(str(pid_file))}\npwd > {shlex.quote(str(cwd_file))}\nexec sleep 3600\n")
-    (fixture / ".bb-env-teardown.sh").write_text(f"echo finished > {shlex.quote(str(teardown_file))}\n")
+    (fixture / ".hyperfide-env-teardown.sh").write_text(f"echo finished > {shlex.quote(str(teardown_file))}\n")
     command(["git", "init", "-b", "main", str(fixture)])
     command(["git", "add", "."], cwd=fixture)
     command(["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
@@ -235,7 +235,7 @@ def run():
             delay = state["retire_at"] - state["updated_at"]
             assert abs(delay - 60000 * 2 ** (attempt - 1)) < 2000
     assert terminal(environment_id, 5)
-    assert "Needs recovery" in qa_bb("environment", "list").stdout
+    assert "Needs recovery" in qa_hyperfide("environment", "list").stdout
     log("PASS backoff deadlines 1/2/4/8 minutes; explicit cleanup advances five failures to Needs recovery")
     saved = row(environment_id)
     legacy_id = "env_" + uuid.uuid4().hex[:10]
