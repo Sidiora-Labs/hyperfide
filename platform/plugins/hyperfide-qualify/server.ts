@@ -97,3 +97,5 @@ export function registerChecker(host: CheckerHost, config: CheckerConfig) {
   host.onImplemented(handle);
   return handle;
 }
+
+export { registerLaneReceipts } from "./projection-lane-receipts";
