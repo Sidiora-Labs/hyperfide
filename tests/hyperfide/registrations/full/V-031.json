@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "variant": "full:V-031",
+  "task": "28.3",
+  "scope": "full-case",
+  "cases": [
+    "V-031"
+  ],
+  "assertion_ids": [
+    "V-031.17.1.review.policy.ten-distinct-watchers",
+    "V-031.17.1.review.policy.reject-nine",
+    "V-031.17.1.review.policy.reject-sixteen",
+    "V-031.17.1.review.policy.reject-duplicate-session",
+    "V-031.17.1.review.policy.reject-unapproved-sharding",
+    "V-031.17.1.review.policy.reject-request-approval",
+    "V-031.17.1.review.discovery.actual-first-batch",
+    "V-031.17.1.review.discovery.actual-second-batch",
+    "V-031.17.1.review.discovery.replay",
+    "V-031.17.1.review.coverage.every-watcher-per-commit",
+    "V-031.17.1.review.coverage.no-completion-from-counts",
+    "V-031.17.1.review.coverage.detect-missing-obligation",
+    "V-031.17.1.review.coverage.repair-obligation",
+    "V-031.17.1.review.discovery.history-rewrite",
+    "V-031.17.1.review.discovery.preserve-history",
+    "V-031.17.1.review.policy.replacement-generation",
+    "V-031.17.1.review.coverage.old-policy-stale",
+    "V-031.17.1.review.discovery.untagged-visible",
+    "V-031.17.1.review.discovery.empty-commit-covered",
+    "V-031.17.1.review.api.reject-checkout-path",
+    "V-031.17.1.review.api.cross-run-refused",
+    "V-031.17.1.review.audit.closed-run-coverage-read-only",
+    "V-031.17.1.review.audit.closed-run-review-write-denied",
+    "V-031.17.1.exit-clean",
+    "V-031.17.1.inventory-exact",
+    "V-031.17.1.cleanup-complete",
+    "V-031.17.1.artifacts-present",
+    "V-031.17.3.review.semantic-fence.current-authenticated-read",
+    "V-031.17.3.review.graph-custody.quarantine-and-scope-fenced",
+    "V-031.17.3.review.inputs.exact-obligation-generation",
+    "V-031.17.3.review.inputs.replay-stable",
+    "V-031.17.3.review.inputs.empty-graph-not-proof",
+    "V-031.17.3.review.inputs.history-immutable",
+    "V-031.17.3.review.receipt.operator-cannot-review",
+    "V-031.17.3.review.receipt.caller-reviewer-refused",
+    "V-031.17.3.review.lease.real-delegated-watcher",
+    "V-031.17.3.review.execution.old-sandbox-stop-preserves-current-review",
+    "V-031.17.3.review.lease.owner-renewal",
+    "V-031.17.3.review.lease.wrong-owner-renewal-refused",
+    "V-031.17.3.review.lease.wrong-job-refused",
+    "V-031.17.3.review.lease.same-watcher-concurrency-refused",
+    "V-031.17.3.review.receipt.expired-lease-refused",
+    "V-031.17.3.review.lease.reclaim-fences-old-generation",
+    "V-031.17.3.review.receipt.old-lease-refused",
+    "V-031.17.3.review.receipt.actual-admitted-support",
+    "V-031.17.3.review.receipt.immutable-history",
+    "V-031.17.3.review.receipt.exact-replay",
+    "V-031.17.3.review.coverage.limitations-prevent-completion",
+    "V-031.17.3.review.coverage.duplicate-cannot-fill",
+    "V-031.17.3.review.decision-model.rank-cannot-certify",
+    "V-031.17.3.review.decision-model.non-watcher-cannot-satisfy",
+    "V-031.17.3.review.receipt.inspect-advisory-only",
+    "V-031.17.3.review.execution.package-stop-denies-claim",
+    "V-031.17.3.review.observation.origin-attempt-refused",
+    "V-031.17.3.review.execution.sandbox-stop-denies-output",
+    "V-031.17.3.review.observation.exact-source-attribution",
+    "V-031.17.3.review.observation.history-immutable",
+    "V-031.17.3.review.inputs.partial-task-revision-stales",
+    "V-031.17.3.review.inputs.rebind-fences-old-generation",
+    "V-031.17.3.review.inputs.changed-policy-stales",
+    "V-031.17.3.review.inputs.reconcile-preserves-history",
+    "V-031.17.3.exit-clean",
+    "V-031.17.3.inventory-exact",
+    "V-031.17.3.cleanup-complete",
+    "V-031.17.3.artifacts-present"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-031"
+  ],
+  "timeout_seconds": 900,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "services/hyperfide/dist/control.js",
+    "services/hyperfide/dist/review/coverage.js",
+    "services/hyperfide/dist/review/receipts.js"
+  ],
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "resources": [
+    {
+      "id": "17.1:hf-review-17.1-database",
+      "kind": "postgresql-database",
+      "scope": "task17.1-disposable"
+    },
+    {
+      "id": "17.3:hf-review-17.3-database",
+      "kind": "postgresql-database",
+      "scope": "task17.3-disposable"
+    }
+  ],
+  "required_artifacts": [
+    "components/17.1/review/database-absence.json",
+    "components/17.1/review/observations.json",
+    "components/17.1/review/closed-run-audit-read.json",
+    "components/17.1/review/closed-run-audit-write.json",
+    "components/17.3/review/database-absence.json",
+    "components/17.3/review/observations.json",
+    "components/17.3/review/semantic-fence-signed-boundary.json"
+  ],
+  "source_files": [
+    "services/hyperfide/components/17.1.json",
+    "services/hyperfide/components/17.3.json",
+    "services/hyperfide/migrations/0017-review.sql",
+    "services/hyperfide/package-lock.json",
+    "services/hyperfide/package.json",
+    "services/hyperfide/src/review/coverage.ts",
+    "services/hyperfide/src/review/receipts.ts",
+    "tests/hyperfide/cases/full/compose.py",
+    "tests/hyperfide/cases/full/register.py",
+    "tests/hyperfide/cases/tasks/17_1.py",
+    "tests/hyperfide/cases/tasks/17_3.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/registrations/17.1.json",
+    "tests/hyperfide/registrations/17.3.json",
+    "tests/hyperfide/registry.json",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "services/hyperfide/components",
+    "services/hyperfide/dist",
+    "services/hyperfide/migrations",
+    "services/hyperfide/src"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-031",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 180
+}

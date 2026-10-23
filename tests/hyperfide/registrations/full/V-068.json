@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "variant": "full:V-068",
+  "task": "28.3",
+  "scope": "full-case",
+  "cases": [
+    "V-068"
+  ],
+  "assertion_ids": [
+    "V-068.29.11.bootstrap.topology-consistent",
+    "V-068.29.11.bootstrap.payload-canonical",
+    "V-068.29.11.bootstrap.seal-verified",
+    "V-068.29.11.bootstrap.unsigned-refused",
+    "V-068.29.11.bootstrap.forged-seal-refused",
+    "V-068.29.11.bootstrap.other-deployment-refused",
+    "V-068.29.11.bootstrap.other-topology-refused",
+    "V-068.29.11.bootstrap.other-operation-refused",
+    "V-068.29.11.bootstrap.expired-refused",
+    "V-068.29.11.bootstrap.tampered-digest-refused",
+    "V-068.29.11.bootstrap.no-epoch-before-activation",
+    "V-068.29.11.bootstrap.no-provider-effect-before-activation",
+    "V-068.29.11.bootstrap.activated",
+    "V-068.29.11.bootstrap.single-bootstrap-epoch",
+    "V-068.29.11.bootstrap.provider-destroyed",
+    "V-068.29.11.bootstrap.legacy-admission-disabled",
+    "V-068.29.11.bootstrap.control-adopts",
+    "V-068.29.11.bootstrap.provisioner-adopts",
+    "V-068.29.11.bootstrap.dispatch-adopts",
+    "V-068.29.11.bootstrap.followers-no-mint",
+    "V-068.29.11.bootstrap.no-signing-key-read",
+    "V-068.29.11.exit-clean",
+    "V-068.29.11.inventory-exact",
+    "V-068.29.11.cleanup-complete",
+    "V-068.29.11.artifacts-present"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-068"
+  ],
+  "timeout_seconds": 900,
+  "required_env": [
+    "DATABASE_URL"
+  ],
+  "fixtures": [],
+  "actions": [],
+  "resources": [],
+  "required_artifacts": [
+    "components/29.11/bootstrap-observations.json",
+    "components/29.11/bootstrap-processes.json"
+  ],
+  "source_files": [
+    "deploy/hyperfide/bootstrap-fence.mjs",
+    "deploy/hyperfide/migrate.mjs",
+    "docs/hyperfide/operations.md",
+    "services/hyperfide/dist/migration/legacy.js",
+    "services/hyperfide/dist/providers/placement.js",
+    "services/hyperfide/dist/recovery/bootstrap_fence.js",
+    "services/hyperfide/dist/recovery/fencing.js",
+    "services/hyperfide/src/artifacts/destruction.ts",
+    "services/hyperfide/src/identity/credentials.ts",
+    "services/hyperfide/src/migration/legacy.ts",
+    "services/hyperfide/src/providers/placement.ts",
+    "services/hyperfide/src/providers/pools.ts",
+    "services/hyperfide/src/providers/railway/preparation.ts",
+    "services/hyperfide/src/providers/railway/reconciliation.ts",
+    "services/hyperfide/src/recovery/bootstrap_fence.ts",
+    "services/hyperfide/src/recovery/fencing.ts",
+    "services/hyperfide/src/storage/authority_journal.ts",
+    "services/hyperfide/src/storage/durability.ts",
+    "tests/hyperfide/cases/full/compose.py",
+    "tests/hyperfide/cases/full/register.py",
+    "tests/hyperfide/cases/tasks/29_11.py",
+    "tests/hyperfide/cases/tasks/29_3.py",
+    "tests/hyperfide/cases/tasks/8_2.py",
+    "tests/hyperfide/registrations/29.11.json",
+    "tests/hyperfide/registry.json",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "deploy/hyperfide",
+    "services/hyperfide/components",
+    "services/hyperfide/dist",
+    "services/hyperfide/migrations",
+    "services/hyperfide/src"
+  ]
+}
