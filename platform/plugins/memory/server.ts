@@ -8,6 +8,11 @@ import {
 } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { isMemoryKind, MEMORY_KINDS, type MemoryKind } from "./memory-kinds.js";
+import {
+  GraphMemoryBridge,
+  durableMemorySchema,
+  taskScopeSchema,
+} from "./graph-memory-projection.js";
 
 const CATALOG_MAX_CHARS = 3_900;
 const DEFAULT_RESULT_LIMIT = 20;
@@ -72,6 +77,22 @@ const memoryUpdateInputSchema = z
   .strict();
 
 export const memoryRpcContract = defineRpcContract({
+  rememberDecision: {
+    input: taskScopeSchema.extend({
+      body: z.string().trim().min(1),
+      type: z.enum(["decision", "constraint"]).default("decision"),
+    }),
+    output: z.object({
+      id: z.number().int().nullable(),
+      type: z.string(),
+      task: z.string(),
+      queued: z.boolean().optional(),
+    }),
+  },
+  recallDecisions: {
+    input: taskScopeSchema,
+    output: z.object({ memories: z.array(durableMemorySchema) }),
+  },
   listMemories: {
     input: z.null(),
     output: z.object({ memories: z.array(memoryRecordSchema) }).strict(),
@@ -709,7 +730,7 @@ function jsonOutput(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-export default async function plugin(bb: BbPluginApi) {
+export default async function plugin(bb: BbPluginApi, bridge?: GraphMemoryBridge) {
   const db = bb.storage.database();
   bb.storage.migrate(db, [
     `CREATE TABLE IF NOT EXISTS memories (
@@ -771,6 +792,14 @@ export default async function plugin(bb: BbPluginApi) {
   const store = new MemoryStore(db);
 
   bb.rpc.register(memoryRpcContract, {
+    async rememberDecision(input) {
+      if (!bridge) throw new Error("Hyperfide graph memory host is not configured");
+      return bridge.remember(input, input.body, input.type);
+    },
+    async recallDecisions(input) {
+      if (!bridge) throw new Error("Hyperfide graph memory host is not configured");
+      return { memories: await bridge.recall(input) };
+    },
     listMemories() {
       return { memories: store.listAll() };
     },
@@ -821,6 +850,31 @@ export default async function plugin(bb: BbPluginApi) {
       description:
         "Memories are summaries first: search or list, then read one in full.\nProject scope holds repository facts; global scope holds durable user preferences.",
       commands: {
+        remember: cliCommand({
+          summary: "Record a durable task decision in Hyperfide (never store secrets)",
+          positionals: [{ name: "text", description: "Decision text", required: true }],
+          options: {
+            repository: { type: "string", required: true, description: "Repository root on the host" },
+            task: { type: "string", required: true, description: "Feature/task identifier" },
+            type: { type: "enum", values: ["decision", "constraint"], default: "decision", description: "Memory type" },
+          },
+          async run(input) {
+            if (!bridge) throw new CliError("Hyperfide graph memory host is not configured");
+            const result = await bridge.remember(input.options, input.positionals.text, input.options.type);
+            return { exitCode: 0, stdout: jsonOutput(result) };
+          },
+        }),
+        recall: cliCommand({
+          summary: "Read durable decisions for a repository task",
+          options: {
+            repository: { type: "string", required: true, description: "Repository root on the host" },
+            task: { type: "string", required: true, description: "Feature/task identifier" },
+          },
+          async run(input) {
+            if (!bridge) throw new CliError("Hyperfide graph memory host is not configured");
+            return { exitCode: 0, stdout: jsonOutput({ memories: await bridge.recall(input.options) }) };
+          },
+        }),
         catalog: cliCommand({
           summary: "List compact memory summaries",
           aliases: ["list"],
