@@ -2249,7 +2249,7 @@ do_3 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.27.3]
 title = "Qualify both live providers and native agents from the Paxeer X v6.12.0 production release run"
-status = "pending"
+status = "done"
 wave = 30
 requires = ["27.2", "9.4", "10.4", "13.4", "11.4", "19.4", "23.3", "24.4", "22.4", "26.4", "1.2", "1.3", "14.4", "17.3", "18.2", "25.2"]
 touches = ["tests/hyperfide/campaigns/live.py", "tests/hyperfide/manifests/tasks/27.3.json", "tests/hyperfide/cases/tasks/27_3.py", "tests/hyperfide/registrations/27.3.json"]
