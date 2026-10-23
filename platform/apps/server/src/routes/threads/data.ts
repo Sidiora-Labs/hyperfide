@@ -1,4 +1,4 @@
-import { extractThreadContextWindowUsage } from "@bb/thread-view";
+import { extractThreadContextWindowUsage } from "@hyperfide/thread-view";
 import {
   getAppSettings,
   getDatabaseDataVersion,
@@ -9,14 +9,14 @@ import {
   getLatestThreadSequence,
   getLatestStoredConversationOutlineSequence,
   listQueuedThreadMessages,
-} from "@bb/db";
+} from "@hyperfide/db";
 import type { Hono } from "hono";
 import {
   PROMPT_HISTORY_ENTRY_LIMIT,
   threadEventTypeSchema,
   type Thread,
   type ThreadEventType,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   publicApiRoutes,
   THREAD_EVENT_LIST_PAGE_SIZE,
@@ -24,7 +24,7 @@ import {
   type PublicApiSchema,
   type ThreadConversationOutlineResponse,
   type ThreadTimelineQuery,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { AppDeps } from "../../types.js";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { ApiError } from "../../errors.js";

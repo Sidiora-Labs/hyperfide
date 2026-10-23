@@ -1,8 +1,8 @@
-import type { AppInstallKind } from "@bb/config/app-install";
+import type { AppInstallKind } from "@hyperfide/config/app-install";
 import semver from "semver";
 import { z } from "zod";
-import { isNightlyAppVersion } from "@bb/config/app-update";
-import type { SystemVersionResponse } from "@bb/server-contract";
+import { isNightlyAppVersion } from "@hyperfide/config/app-update";
+import type { SystemVersionResponse } from "@hyperfide/server-contract";
 import type { ServerLogger, ServerRuntimeConfig } from "../../types.js";
 
 const NPM_REGISTRY_PACKAGE_URL = "https://registry.npmjs.org/bb-app";

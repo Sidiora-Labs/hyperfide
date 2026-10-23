@@ -1,5 +1,5 @@
 import { nativeImage, type NativeImage, type WebContents } from "electron";
-import { jsonObjectSchema } from "@bb/domain";
+import { jsonObjectSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import type { DesktopBrowserCdpPage } from "./desktop-browser-cdp.js";
 import {

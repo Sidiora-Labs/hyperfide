@@ -1,5 +1,5 @@
-import { closeSecondaryPanelTabInState } from "@bb/client-core";
-import type { TerminalSession } from "@bb/server-contract";
+import { closeSecondaryPanelTabInState } from "@hyperfide/client-core";
+import type { TerminalSession } from "@hyperfide/server-contract";
 import {
   createTerminalFixedPanelTab,
   type FixedPanelTabsState,

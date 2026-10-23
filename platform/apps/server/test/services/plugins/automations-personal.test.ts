@@ -1,4 +1,4 @@
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { startTestServer } from "../../helpers/test-app.js";

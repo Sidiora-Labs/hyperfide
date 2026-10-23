@@ -6,16 +6,16 @@ import type {
   AgentRuntime,
   AgentRuntimeBridgeLaunch,
   AgentRuntimeProviderSession,
-} from "@bb/agent-runtime";
+} from "@hyperfide/agent-runtime";
 import type {
   ClientTurnRequestId,
   AvailableModel,
   DynamicTool,
   PromptInput,
-} from "@bb/domain";
-import type { HostDaemonBridgeLaunch } from "@bb/host-daemon-contract";
-import { makeWorkspaceMergeBase, makeWorkspaceStatus } from "@bb/test-helpers";
-import type { HostWorkspace, ProvisionWorkspaceArgs } from "@bb/host-workspace";
+} from "@hyperfide/domain";
+import type { HostDaemonBridgeLaunch } from "@hyperfide/host-daemon-contract";
+import { makeWorkspaceMergeBase, makeWorkspaceStatus } from "@hyperfide/test-helpers";
+import type { HostWorkspace, ProvisionWorkspaceArgs } from "@hyperfide/host-workspace";
 import { RuntimeManager } from "../../src/runtime-manager.js";
 import type { CommandDispatchOptions } from "../../src/command-dispatch-support.js";
 import type { FetchProjectAttachment } from "../../src/project-attachments.js";

@@ -1,5 +1,5 @@
 /**
- * `@get-bb/plugin-sdk/provider-bridge/testing` — the published testing kit
+ * `@hyperfide/plugin-sdk/provider-bridge/testing` — the published testing kit
  * for provider bridges.
  *
  * A bridge author needs three things to prove a bridge before shipping it,
@@ -15,7 +15,7 @@
  *   and the **calibration normalizer** that makes whole-session goldens
  *   comparable across runs by interning minted ids;
  * - the **recorded-replay harness**: replay a recording bb made of the
- *   bridge (record mode, `BB_PROVIDER_BRIDGE_RECORD_DIR`) through the bridge
+ *   bridge (record mode, `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR`) through the bridge
  *   again — the recorded runtime lane driven in, the recorded provider lanes
  *   played by the replay child the bridge spawns in place of its provider —
  *   and diff what it emits against the recording (`experimental_compareParity`),
@@ -33,26 +33,26 @@ export {
   CONFORMANCE_ASSEMBLED_EVENT_METHOD,
   formatConformanceReport as experimental_formatConformanceReport,
   runBridgeConformance as experimental_runBridgeConformance,
-} from "@bb/provider-bridge-protocol/conformance";
+} from "@hyperfide/provider-bridge-protocol/conformance";
 export type {
   BridgeConformanceTransport,
   ConformanceCheckResult,
   ConformanceReport,
   ConformanceSessionFixture,
   RunBridgeConformanceOptions,
-} from "@bb/provider-bridge-protocol/conformance";
+} from "@hyperfide/provider-bridge-protocol/conformance";
 
 export {
   ASSEMBLER_GRAMMAR_VERSIONS,
   createDeltaAssembler as experimental_createDeltaAssembler,
-} from "@bb/provider-bridge-protocol/assembler";
+} from "@hyperfide/provider-bridge-protocol/assembler";
 export type {
   AssembleDeltasArgs,
   CreateDeltaAssemblerOptions,
   DeltaAssembler,
   DiffCumulativeTextArgs,
   DiffCumulativeTextResult,
-} from "@bb/provider-bridge-protocol/assembler";
+} from "@hyperfide/provider-bridge-protocol/assembler";
 
 export {
   assembleCapturedThreadEvents as experimental_assembleCapturedThreadEvents,
@@ -61,7 +61,7 @@ export {
   createBridgeJsonRpcTestHarness as experimental_createBridgeJsonRpcTestHarness,
   describeCalibrationEvents as experimental_describeCalibrationEvents,
   normalizeCalibrationEvents as experimental_normalizeCalibrationEvents,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 export type {
   BridgeDeltaEventCollector,
   BridgeJsonRpcId,
@@ -72,16 +72,16 @@ export type {
   CapturedBridgeJsonRpcOutput,
   CapturedBridgeNotification,
   NormalizeCalibrationEventsOptions,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 
 export {
   checkRecordedCellReplay as experimental_checkRecordedCellReplay,
   RECORDED_CONFORMANCE_CELLS,
-} from "@bb/provider-bridge-protocol/conformance";
+} from "@hyperfide/provider-bridge-protocol/conformance";
 export type {
   RecordedCellReplay,
   RecordedConformanceCell,
-} from "@bb/provider-bridge-protocol/conformance";
+} from "@hyperfide/provider-bridge-protocol/conformance";
 
 export {
   assembleRecordedEvents as experimental_assembleRecordedEvents,
@@ -95,7 +95,7 @@ export {
   rerecordCurrentBridgeLane as experimental_rerecordCurrentBridgeLane,
   resolveProviderBridgeLaunch as experimental_resolveProviderBridgeLaunch,
   withCurrentBridgeLane as experimental_withCurrentBridgeLane,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 export type {
   BridgeRecording,
   BridgeRecordingManifest,
@@ -117,11 +117,11 @@ export type {
   RerecordCurrentBridgeLaneOptions,
   RerecordCurrentBridgeLaneResult,
   ResolveProviderBridgeLaunchOptions,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@hyperfide/provider-bridge-protocol/testing";
 export type {
   BridgeRecordingDirection,
   BridgeRecordingEntry,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@hyperfide/provider-bridge-protocol/bridge-kit";
 
 // The canonical event vocabulary, by name. A bridge never constructs these
 // (the assembler does), but a bridge's tests assert on what the assembler
@@ -144,4 +144,4 @@ export type {
   ThreadEventSearchItem,
   ThreadEventWebFetchItem,
   ThreadEventWebSearchItem,
-} from "@bb/domain";
+} from "@hyperfide/domain";

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { ExperimentalThreadInfoProps } from "@get-bb/plugin-sdk";
+import type { ExperimentalThreadInfoProps } from "@hyperfide/plugin-sdk";
 import { PluginSlotMount } from "@/components/plugin/PluginSlotMount";
 import { compareGroupedPlacement } from "@/lib/grouped-placement";
 import { usePluginSlots } from "@/lib/plugin-slots";

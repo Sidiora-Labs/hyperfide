@@ -1,4 +1,4 @@
-import { appendQuoteAndAttachmentsToDraft } from "@bb/client-core";
+import { appendQuoteAndAttachmentsToDraft } from "@hyperfide/client-core";
 import { useQueuedMessagesExpanded } from "@/components/promptbox/banner/queued-messages-expanded";
 import { createCoreComposerActions } from "@/lib/plugin-composer-handle";
 import {
@@ -14,17 +14,17 @@ import {
   defaultAppSettings,
   type PromptInput,
   type ThreadQueuedMessage,
-} from "@bb/domain";
-import type { SendMessageDelivery } from "@bb/server-contract";
-import type { ComposerSelection } from "@get-bb/plugin-sdk";
-import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
+} from "@hyperfide/domain";
+import type { SendMessageDelivery } from "@hyperfide/server-contract";
+import type { ComposerSelection } from "@hyperfide/plugin-sdk";
+import type { ComposerSubmitExtras } from "@hyperfide/plugin-sdk/internal/composer-handle";
 import { readExecutionSelection } from "@/components/promptbox/composer-selection-settle";
 import type {
   AttachmentsConfig,
   HistoryConfig,
 } from "@/components/promptbox/ComposerBox";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { BottomAnchoredScrollBody } from "@/components/ui/bottom-anchored-scroll-body";
 import { PageShell } from "@/components/ui/page-shell.js";
 import {
@@ -45,7 +45,7 @@ import type {
   ExecutionControlsProps,
   ExecutionPermissionConfig,
 } from "@/components/promptbox/ExecutionControls";
-import { OverflowFade } from "@bb/shared-ui/overflow-fade";
+import { OverflowFade } from "@hyperfide/shared-ui/overflow-fade";
 import {
   ThreadTimelinePanelContent,
   ThreadTimelineSurface,
@@ -76,14 +76,14 @@ import {
   getMutationErrorMessage,
   reportMutationError,
 } from "@/lib/mutation-errors";
-import { type PromptDraftState, promptDraftToInput } from "@bb/client-core";
+import { type PromptDraftState, promptDraftToInput } from "@hyperfide/client-core";
 import type { PromptDraftScope } from "@/hooks/usePromptDraftStorage";
 import { appToast } from "@/components/ui/app-toast";
 import {
   buildSideChatSubmitMode,
   canSubmitFollowUpShortcut,
   shouldQueueFollowUpMessage,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   SHORT_LIVED_STATUS_DELAY_MS,
   useSustainedFlag,

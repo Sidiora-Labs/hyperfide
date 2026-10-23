@@ -8,7 +8,7 @@
     "@dnd-kit/core"
   ],
   "registryDependencies": [
-    "@bb/use-reorder-dnd"
+    "@hyperfide/use-reorder-dnd"
   ],
   "files": [
     {

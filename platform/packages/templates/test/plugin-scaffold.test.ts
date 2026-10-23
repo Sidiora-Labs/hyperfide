@@ -8,7 +8,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   resolvePluginSdkLayout,
@@ -26,7 +26,7 @@ describe("scaffoldPlugin SDK dependency", () => {
     await rm(workDir, { recursive: true, force: true });
   });
 
-  it("pins @get-bb/plugin-sdk exactly and vendors no declarations", async () => {
+  it("pins @hyperfide/plugin-sdk exactly and vendors no declarations", async () => {
     const targetDir = join(workDir, "bb-plugin-todo");
     await scaffoldPlugin({
       targetDir,
@@ -52,8 +52,8 @@ describe("scaffoldPlugin SDK dependency", () => {
     const pkg = JSON.parse(
       await readFile(join(targetDir, "package.json"), "utf8"),
     );
-    expect(pkg.devDependencies["@get-bb/plugin-sdk"]).toBe(PLUGIN_SDK_VERSION);
-    expect(pkg.dependencies["@get-bb/plugin-sdk"]).toBeUndefined();
+    expect(pkg.devDependencies["@hyperfide/plugin-sdk"]).toBe(PLUGIN_SDK_VERSION);
+    expect(pkg.dependencies["@hyperfide/plugin-sdk"]).toBeUndefined();
     expect(pkg.engines).toEqual({
       bb: ">=0.9",
       bbPluginSdk: `>=${PLUGIN_SDK_VERSION}`,
@@ -70,7 +70,7 @@ describe("scaffoldPlugin SDK dependency", () => {
 
     const readme = await readFile(join(targetDir, "README.md"), "utf8");
     expect(readme).toContain(
-      "node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts",
+      "node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts",
     );
     expect(readme).toContain(
       "sync this plugin's SDK surface to the running BB",
@@ -81,7 +81,7 @@ describe("scaffoldPlugin SDK dependency", () => {
     const components = JSON.parse(
       await readFile(join(targetDir, "components.json"), "utf8"),
     );
-    expect(components.registries["@bb"]).toBe(
+    expect(components.registries["@hyperfide"]).toBe(
       "https://raw.githubusercontent.com/get-bb/bb/desktop-v0.9.0/packages/plugin-registry/r/{name}.json",
     );
     expect(pkg.dependencies["@radix-ui/react-checkbox"]).toBeDefined();
@@ -182,12 +182,12 @@ describe("resolvePluginSdkLayout", () => {
     });
     const pkgPath = join(targetDir, "package.json");
     const pkg = JSON.parse(await readFile(pkgPath, "utf8"));
-    delete pkg.devDependencies["@get-bb/plugin-sdk"];
+    delete pkg.devDependencies["@hyperfide/plugin-sdk"];
     await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
     const tsconfigPath = join(targetDir, "tsconfig.json");
     const tsconfig = JSON.parse(await readFile(tsconfigPath, "utf8"));
     tsconfig.compilerOptions.paths = {
-      "@get-bb/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"],
+      "@hyperfide/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"],
     };
     await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`);
 

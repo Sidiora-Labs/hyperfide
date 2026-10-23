@@ -5,9 +5,9 @@
   "title": "workflow-progress",
   "description": "BB ui \"workflow-progress\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/activity-row-styles",
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/activity-row-styles",
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

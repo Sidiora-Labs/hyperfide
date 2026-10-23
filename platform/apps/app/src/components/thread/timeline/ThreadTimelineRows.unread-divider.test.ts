@@ -1,6 +1,6 @@
-import { buildTimelineViewRows } from "@bb/thread-view";
+import { buildTimelineViewRows } from "@hyperfide/thread-view";
 import { describe, expect, it } from "vitest";
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import {
   commandRow,
   conversationRow,

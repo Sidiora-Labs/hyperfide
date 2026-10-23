@@ -1,7 +1,7 @@
 # Typed routes
 
 `defineRoute` accepts `tags(input, output)` and `invalidates(input, output)`
-declarations from `@bb/domain`. Route tag input
+declarations from `@hyperfide/domain`. Route tag input
 contains parsed `input` and path `params`; successful response bodies determine
 the output type. Routes without parsed input use `undefined`.
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createFakePluginHost,
   makePluginAgentConfigurationContext,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import plugin from "./server.js";
 
 const bundledSkills = readdirSync(new URL("./skills", import.meta.url), {

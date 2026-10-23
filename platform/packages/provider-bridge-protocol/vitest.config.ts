@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     silent: "passed-only",
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/provider-bridge-protocol",
+      name: "@hyperfide/provider-bridge-protocol",
       include: ["src/**/*.test.ts", "test/**/*.test.ts"],
     }),
   },

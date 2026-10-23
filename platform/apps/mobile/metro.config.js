@@ -15,7 +15,7 @@ config.resolver.nodeModulesPaths = [
 ];
 config.resolver.unstable_enablePackageExports = true;
 
-const WORKSPACE_SCOPES = ["@bb/", "@get-bb/"];
+const WORKSPACE_SCOPES = ["@hyperfide/", "@hyperfide/"];
 const TS_EXTENSIONS = [".ts", ".tsx"];
 const workspaceSourceRoots = ["packages", "apps", "plugins"].map((dir) =>
   path.join(workspaceRoot, dir),

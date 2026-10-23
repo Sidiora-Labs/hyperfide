@@ -1,5 +1,5 @@
-import { environments, getThread } from "@bb/db";
-import type { ThreadStatus } from "@bb/domain";
+import { environments, getThread } from "@hyperfide/db";
+import type { ThreadStatus } from "@hyperfide/domain";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { requestThreadProvision } from "../../src/services/threads/thread-provisioning.js";

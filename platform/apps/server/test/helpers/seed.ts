@@ -13,18 +13,18 @@ import {
   openSession,
   threads,
   upsertHost,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   HOST_ID_FILE_NAME,
   type HostPlatform,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   encodeClientTurnRequestIdNumber,
   parseStoredThreadEvent,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   EnvironmentProviderSelection,
   EnvironmentStatus,
@@ -40,7 +40,7 @@ import type {
   ThreadStatus,
   ThreadParentNotifications,
   ThreadVisibility,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { AppDeps } from "../../src/types.js";
 import { ARCHIVE_UNDO_GRACE_MS } from "../../src/constants.js";
 import { registerTestHostRpcCapture } from "./commands.js";

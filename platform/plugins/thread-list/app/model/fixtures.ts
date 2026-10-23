@@ -1,7 +1,7 @@
 import type {
   PluginSidebarProject,
   PluginSidebarThread,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { SidebarProject } from "./use-sidebar-data.js";
 
 export type SidebarThreadEnvironment = NonNullable<

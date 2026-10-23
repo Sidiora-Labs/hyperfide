@@ -1,4 +1,4 @@
-import type { HostDaemonServerWsMessage } from "@bb/host-daemon-contract";
+import type { HostDaemonServerWsMessage } from "@hyperfide/host-daemon-contract";
 
 const DEFAULT_OUTPUT_ACK_STALL_MS = 3_000;
 

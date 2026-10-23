@@ -1,4 +1,4 @@
-import { systemEnvironmentProviderSchema } from "@bb/server-contract";
+import { systemEnvironmentProviderSchema } from "@hyperfide/server-contract";
 import { z } from "zod";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 

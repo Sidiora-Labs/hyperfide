@@ -1,7 +1,7 @@
 import type { BridgeProtocolAdapter } from "./bridge-protocol-adapter.js";
 import type { AgentRuntimeExecutionOptions } from "./types.js";
 import type { ProviderExecutionContext } from "./provider-adapter.js";
-import type { RuntimePermissionPolicy } from "@bb/domain";
+import type { RuntimePermissionPolicy } from "@hyperfide/domain";
 
 interface AssertProviderSupportsExecutionOptionsArgs {
   adapter: BridgeProtocolAdapter;

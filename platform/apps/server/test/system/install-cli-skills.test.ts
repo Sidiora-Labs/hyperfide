@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   systemCliSkillsStatusResponseSchema,
   systemInstallCliSkillsResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { registerHostRpcResponder } from "../helpers/host-rpc.js";
 import { seedHost, seedHostSession } from "../helpers/seed.js";

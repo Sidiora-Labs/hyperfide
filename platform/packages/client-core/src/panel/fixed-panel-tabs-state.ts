@@ -4,13 +4,13 @@ import {
   HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
   bbDesktopBrowserTargetSchema,
   type BbDesktopBrowserTarget,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import {
   terminalCreateTargetSchema,
   threadTabFileOpenerOwnerSchema,
   type TerminalCreateTarget,
   type ThreadTabFileOpenerOwner,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   areFilePreviewLineRangesEqual,
   areEnvironmentFilePreviewSourcesEqual,

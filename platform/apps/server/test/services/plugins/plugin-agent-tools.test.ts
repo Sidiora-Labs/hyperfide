@@ -3,11 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { type DbConnection } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import { encodeClientTurnRequestIdNumber } from "@bb/domain";
-import type { Logger } from "@bb/logger";
-import { RESERVED_AGENT_TOOL_NAMES } from "@get-bb/plugin-sdk/internal/host-policy";
+import { type DbConnection } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import { encodeClientTurnRequestIdNumber } from "@hyperfide/domain";
+import type { Logger } from "@hyperfide/logger";
+import { RESERVED_AGENT_TOOL_NAMES } from "@hyperfide/plugin-sdk/internal/host-policy";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,

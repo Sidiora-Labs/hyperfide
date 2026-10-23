@@ -1,4 +1,4 @@
-import { getNonDestroyedHost, getSessionById, type DbConnection } from "@bb/db";
+import { getNonDestroyedHost, getSessionById, type DbConnection } from "@hyperfide/db";
 import {
   hostDaemonConnectNextConfigSchema,
   hostDaemonConnectNextStatusSchema,
@@ -8,7 +8,7 @@ import {
   type HostDaemonConnectNextStatus,
   type HostDaemonConnectShares,
   type HostDaemonConnectTunnelIdentity,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { ApiError } from "../errors.js";
 import type { NotificationHub } from "./hub.js";
 

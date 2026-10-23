@@ -1,8 +1,8 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@hyperfide/domain";
 import { sdk } from "@/lib/sdk";
-import { isThreadForkable, type AppCreateThreadRequest } from "@bb/client-core";
+import { isThreadForkable, type AppCreateThreadRequest } from "@hyperfide/client-core";
 import type { ThreadRoutePathArgs } from "@/lib/route-paths";
 import { threadDefaultExecutionOptionsQueryKey } from "@/hooks/queries/query-keys";
 import { findCachedProviderInfo } from "@/hooks/queries/system-queries";

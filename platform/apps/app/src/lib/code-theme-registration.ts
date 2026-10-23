@@ -1,5 +1,5 @@
 import type { registerCustomTheme } from "@pierre/diffs";
-import { stampRegisteredThemeName } from "@bb/domain";
+import { stampRegisteredThemeName } from "@hyperfide/domain";
 import { getResolvedCodeTheme } from "@/lib/code-theme";
 
 const registeredFileNames = new Set<string>();

@@ -1,4 +1,4 @@
-import type { AvailableModel } from "@bb/domain";
+import type { AvailableModel } from "@hyperfide/domain";
 
 export const LIVE_TEST_PROVIDER_ID = "codex";
 

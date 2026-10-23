@@ -1,5 +1,5 @@
-import type { RawDiffFileStat } from "@bb/domain";
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { RawDiffFileStat } from "@hyperfide/domain";
+import type { DiffFileEntry } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   DIFF_FILE_AUTO_LOAD_MAX_CHANGED_LINES,

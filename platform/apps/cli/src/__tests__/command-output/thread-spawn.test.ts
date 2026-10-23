@@ -1,10 +1,10 @@
-import { createThreadRequestSchema } from "@bb/server-contract";
+import { createThreadRequestSchema } from "@hyperfide/server-contract";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import * as domain from "@bb/domain";
+import * as domain from "@hyperfide/domain";
 import {
   setupCommandOutputTestEnvironment,
   collectLogLines,

@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import {
   definePluginApp,
   type ComposerSendMenuItem,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 const saveDraft: ComposerSendMenuItem = {
   id: "drafts",

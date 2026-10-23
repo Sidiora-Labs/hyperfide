@@ -8,13 +8,13 @@ import {
   projectSourceOwnsPath,
   recordEnvironmentCurrentBranch,
   type DbConnection,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   type Environment,
   type ProjectSource,
   type ProvisioningTranscriptEntry,
   type Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { type ThreadProvisionContext } from "./thread-startup-store.js";
 import { type ThreadProvisioningDeps } from "./thread-provisioning-environment.js";
 import { buildSuggestedBranchName } from "./thread-create-helpers.js";
@@ -29,7 +29,7 @@ import {
   getPreparingEnvironment,
   reserveEnvironment,
   updatePreparingEnvironment,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { appendThreadProvisioningEvent } from "./thread-events.js";
 import { scheduleEnvironmentProvisioning } from "./thread-environment-providers.js";
 import {
@@ -39,7 +39,7 @@ import {
 import { runtimeErrorLogFields } from "../lib/error-log-fields.js";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { callHostRetryableOnlineRpc } from "../hosts/online-rpc.js";
-import { getProjectSourceByHost, type EnvironmentRow } from "@bb/db";
+import { getProjectSourceByHost, type EnvironmentRow } from "@hyperfide/db";
 import { z } from "zod";
 import { DEFAULT_ENVIRONMENT_PROVIDER_ID } from "../environments/environment-provider-ids.js";
 import {
@@ -51,13 +51,13 @@ import {
   type EnvironmentMachineSelection,
   type GitBranchSelection,
   type JsonValue,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   EnvironmentArgs,
   ProviderEnvironmentArgs,
   UnmanagedBranchSpec,
-} from "@bb/server-contract";
-import { summarizeStandardIssues } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/server-contract";
+import { summarizeStandardIssues } from "@hyperfide/plugin-sdk/internal/host-policy";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import {

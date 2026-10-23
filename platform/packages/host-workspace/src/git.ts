@@ -7,14 +7,14 @@ import type {
   DefaultBranchRelation,
   GitCheckoutRef,
   WorkspaceGitOperation,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   execPortableFile,
   runVcsProcess,
   spawnManagedProcess,
   pathExists,
   sanitizeInheritedChildProcessEnv,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_BUFFER_BYTES = 16 * 1024 * 1024;

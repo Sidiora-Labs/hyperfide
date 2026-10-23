@@ -1,12 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
-import { fuzzyMatchPaths } from "@bb/fuzzy-match";
-import { detectGitRepo, runGit } from "@bb/host-workspace";
+import { fuzzyMatchPaths } from "@hyperfide/fuzzy-match";
+import { detectGitRepo, runGit } from "@hyperfide/host-workspace";
 import type {
   HostPathEntry,
   HostPathEntryKind,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { ExpectedCommandDispatchError } from "../command-dispatch-support.js";
 import { runInSerialLane } from "../serial-lane.js";
 

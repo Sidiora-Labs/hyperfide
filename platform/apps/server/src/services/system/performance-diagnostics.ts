@@ -1,5 +1,5 @@
-import { getExperiments, type DbConnection } from "@bb/db";
-import { startPerformanceDiagnostics } from "@bb/process-utils";
+import { getExperiments, type DbConnection } from "@hyperfide/db";
+import { startPerformanceDiagnostics } from "@hyperfide/process-utils";
 import type { ServerLogger } from "../../types.js";
 import type { NotificationHub } from "../../ws/hub.js";
 

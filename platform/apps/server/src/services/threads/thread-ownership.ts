@@ -5,9 +5,9 @@ import {
   type DbNotifier,
   type DbTransaction,
   updateThread,
-} from "@bb/db";
-import type { PromptInput, SystemMessageSubject, Thread } from "@bb/domain";
-import { renderTemplate } from "@bb/templates";
+} from "@hyperfide/db";
+import type { PromptInput, SystemMessageSubject, Thread } from "@hyperfide/domain";
+import { renderTemplate } from "@hyperfide/templates";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { NotificationBuffer } from "../lib/notification-buffer.js";
 import { emitPluginThreadParentChanged } from "../plugins/plugin-thread-events.js";

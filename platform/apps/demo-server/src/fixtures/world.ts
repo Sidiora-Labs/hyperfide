@@ -3,14 +3,14 @@ import type {
   ResolvedThreadExecutionOptions,
   ThreadListEntry,
   ThreadQueuedMessage,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ProjectWithThreadsResponse,
   SidebarBootstrapResponse,
   SystemVersionResponse,
   ThreadResponse,
   ThreadTabsResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   DEMO_HOST_ID,
   DEMO_PERSONAL_PROJECT_ID,

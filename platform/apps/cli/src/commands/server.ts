@@ -4,14 +4,14 @@ import { open, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Command } from "commander";
-import { formatServerDataSize } from "@bb/domain";
+import { formatServerDataSize } from "@hyperfide/domain";
 import {
   deleteOldServerCopy,
   readServerMovedFile,
   removeServerConnectHoldFile,
   SERVER_CONNECT_HOLD_FILE_NAME,
-} from "@bb/server-archive";
-import type { ServerMoveStatus } from "@bb/server-contract";
+} from "@hyperfide/server-archive";
+import type { ServerMoveStatus } from "@hyperfide/server-contract";
 import { action, CliExitError } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { resolveBbCliVersion } from "../version.js";

@@ -2,7 +2,7 @@ import {
   HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT,
   HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT,
   type BbDesktopZoomCommand,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 
 const ZOOM_STEP_PERCENT = 10;
 

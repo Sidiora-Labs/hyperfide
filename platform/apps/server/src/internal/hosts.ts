@@ -1,11 +1,11 @@
-import { upsertHost } from "@bb/db";
-import { isLoopbackAddress } from "@bb/config/loopback";
+import { upsertHost } from "@hyperfide/db";
+import { isLoopbackAddress } from "@hyperfide/config/loopback";
 import {
   hostDaemonEnrollKeyRequestSchema,
   hostDaemonEnrollRequestSchema,
   typedRoutes,
   type HostDaemonInternalSchema,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type { Hono } from "hono";
 import type { AppDeps } from "../types.js";
 import { ApiError } from "../errors.js";

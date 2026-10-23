@@ -4,7 +4,7 @@ import {
   instructionModeSchema,
   promptInputSchema,
   threadProviderCommandsStateSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 import { bridgeExecutionOptionsSchema } from "./execution-options.js";
 

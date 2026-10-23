@@ -3,12 +3,12 @@ import {
   getHost,
   type DbConnection,
   type EnvironmentRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   resolveEnvironmentHostLifecycle,
   type EnvironmentProviderSelection,
   type Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 import {
   threadEnvironmentUnavailableDetails,

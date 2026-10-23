@@ -15,8 +15,8 @@ import {
   upsertHost,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import {
   readLastServerMoveFile,
   readServerImportFile,
@@ -25,7 +25,7 @@ import {
   writeLastServerMoveFile,
   writeServerImportFile,
   type ServerImportFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initDb } from "../../src/db.js";
 import { createApp } from "../../src/server.js";

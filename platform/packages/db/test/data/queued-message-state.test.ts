@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERSONAL_PROJECT_ID, type QueuedMessageWaitingOn } from "@bb/domain";
+import { PERSONAL_PROJECT_ID, type QueuedMessageWaitingOn } from "@hyperfide/domain";
 import { noopNotifier } from "../../src/notifier.js";
 import {
   claimQueuedThreadMessageGroup,

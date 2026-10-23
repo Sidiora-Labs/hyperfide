@@ -1,4 +1,4 @@
-import { pendingInteractionPayloadSchema } from "@bb/domain";
+import { pendingInteractionPayloadSchema } from "@hyperfide/domain";
 import { z } from "zod";
 
 export const BRIDGE_INBOUND_REQUEST_METHODS = {

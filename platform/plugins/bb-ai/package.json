@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-bb-ai",
+  "name": "hyperfide-plugin-bb-ai",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -32,8 +32,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

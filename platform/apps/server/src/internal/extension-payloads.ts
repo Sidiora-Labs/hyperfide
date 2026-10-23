@@ -1,12 +1,12 @@
-import { getThread } from "@bb/db";
-import type { ExtensionKind, JsonValue, ThreadEvent } from "@bb/domain";
-import { coreThreadStateSchema, parseExtensionKind } from "@bb/domain";
-import type { HostDaemonEventEnvelope } from "@bb/host-daemon-contract";
+import { getThread } from "@hyperfide/db";
+import type { ExtensionKind, JsonValue, ThreadEvent } from "@hyperfide/domain";
+import { coreThreadStateSchema, parseExtensionKind } from "@hyperfide/domain";
+import type { HostDaemonEventEnvelope } from "@hyperfide/host-daemon-contract";
 import type {
   StandardSchemaV1,
   StandardSchemaV1Issue,
   StandardSchemaV1Result,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { AppDeps } from "../types.js";
 
 export const EXTENSION_PAYLOAD_MAX_BYTES = 64 * 1024;

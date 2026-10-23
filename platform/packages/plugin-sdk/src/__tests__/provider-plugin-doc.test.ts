@@ -3,17 +3,17 @@ import {
   bridgeCapabilitiesSchema,
   bridgeExecutionOptionsSchema,
   providerRecoveryNotificationSchema,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import {
   providerRecoveryKindValues,
   threadEventDelegationItemSchema,
   threadEventItemPresentationSchema,
   type ThreadEventItemPresentation,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   timelineCommandWorkRowSchema,
   type TimelineCommandWorkRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { z } from "zod";
 import type { PluginAppSlots } from "../app-contract.js";
@@ -254,7 +254,7 @@ describe("guardrail G10: docs/provider-plugin-api.md matches the contract", () =
     const blocks = extractTsBlocks(await readFile(DOC_URL, "utf8"));
     const headings = blocks.map((block) => block.split("\n")[0]?.trim());
     expect(headings).toEqual([
-      "bb.providers.register({",
+      "hyperfide.providers.register({",
       "export const experimental_providerBridge = experimental_defineProviderBridge({",
       "{",
       "{ model, serviceTier?, reasoningLevel, promptMode?, sessionOptions?,",
@@ -274,7 +274,7 @@ describe("guardrail G10: docs/provider-plugin-api.md matches the contract", () =
     expectTypeOf<DeclarationGapsNotLanded>().toBeNever();
   });
 
-  it("§2 the bridge entry point is exported from @get-bb/plugin-sdk/provider-bridge", () => {
+  it("§2 the bridge entry point is exported from @hyperfide/plugin-sdk/provider-bridge", () => {
     expect(typeof providerBridgeSdk.experimental_defineProviderBridge).toBe(
       "function",
     );

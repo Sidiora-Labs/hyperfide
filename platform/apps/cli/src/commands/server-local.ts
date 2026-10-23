@@ -11,14 +11,14 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import {
   type BbAppManagedConfig,
   formatBbAppConfigPath,
   parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { parseDataDirEnvValue, resolveProdDataDir } from "@bb/config/runtime";
-import { isProcessRunning } from "@bb/config/verified-process-stop";
+} from "@hyperfide/config/bb-app-managed-config";
+import { parseDataDirEnvValue, resolveProdDataDir } from "@hyperfide/config/runtime";
+import { isProcessRunning } from "@hyperfide/config/verified-process-stop";
 import {
   assertServerArchiveFormat,
   extractServerArchive,
@@ -35,7 +35,7 @@ import {
   type ServerMovedFile,
   writeServerConnectHoldFile,
   writeServerImportFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { z } from "zod";
 
 const SERVER_DATABASE_FILE_NAME = "bb.db";

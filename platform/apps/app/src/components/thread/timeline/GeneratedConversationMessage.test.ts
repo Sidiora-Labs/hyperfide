@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { SystemMessageKind, SystemMessageSubject } from "@bb/domain";
-import type { TimelineTitleLink } from "@bb/thread-view";
+import type { SystemMessageKind, SystemMessageSubject } from "@hyperfide/domain";
+import type { TimelineTitleLink } from "@hyperfide/thread-view";
 import { generatedConversationTitle } from "./GeneratedConversationMessage.js";
 
 const threadSubject: SystemMessageSubject = {

@@ -3,7 +3,7 @@ import type {
   MessageDispatchHookContext,
   PluginAgentConfigurationContext,
   PluginThreadEventPayloads,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 type HostResponse = Awaited<
   ReturnType<BbPluginApi["sdk"]["hosts"]["list"]>

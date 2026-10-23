@@ -3,7 +3,7 @@ import {
   desktopAppUpdateRequestSchema,
   type DesktopAppUpdateInfo,
   type DesktopAppUpdateMessage,
-} from "@bb/config/desktop-app-update";
+} from "@hyperfide/config/desktop-app-update";
 
 export function attachServerUpdateControl(args: {
   child: ChildProcess;

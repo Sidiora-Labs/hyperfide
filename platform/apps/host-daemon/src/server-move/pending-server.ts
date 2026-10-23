@@ -3,8 +3,8 @@ import { delimiter } from "node:path";
 import {
   serverHealthResponseSchema,
   type ServerMoveHealth,
-} from "@bb/host-daemon-contract";
-import { sanitizeInheritedChildProcessEnv } from "@bb/process-utils";
+} from "@hyperfide/host-daemon-contract";
+import { sanitizeInheritedChildProcessEnv } from "@hyperfide/process-utils";
 import { z } from "zod";
 import type { FetchFn } from "../server-client.js";
 import { CommandDispatchError } from "../command-dispatch-support.js";

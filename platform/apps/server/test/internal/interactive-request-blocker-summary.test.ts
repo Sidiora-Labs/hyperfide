@@ -1,4 +1,4 @@
-import type { PendingInteraction } from "@bb/domain";
+import type { PendingInteraction } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import { buildChildThreadBlockerSummary } from "../../src/internal/interactive-requests.js";
 

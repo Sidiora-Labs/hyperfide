@@ -1,7 +1,7 @@
 import {
   experimental_Icon as Icon,
   experimental_ProviderIcon as ProviderIcon,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { CommentProvider } from "../../shared/contract.js";
 
 const AVATAR_LAYOUT_CLASS =

@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     silent: "passed-only",
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@get-bb/plugin-sdk",
+      name: "@hyperfide/plugin-sdk",
       include: [
         "src/**/*.test.ts",
         "src/**/*.test.tsx",

@@ -10,7 +10,7 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultAppSettings, type AppCommandId } from "@bb/domain";
+import { defaultAppSettings, type AppCommandId } from "@hyperfide/domain";
 import {
   AppCommandProvider,
   useAppCommandContext,

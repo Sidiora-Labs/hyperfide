@@ -2,19 +2,19 @@ import { Command } from "commander";
 import type {
   CommitActionResponse,
   EnvironmentDiffViewedResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   EnvironmentDiffArgs,
   EnvironmentDiffFileArgs,
   EnvironmentDiffPatchArgs,
   EnvironmentUpdateArgs,
-} from "@bb/sdk";
+} from "@hyperfide/sdk";
 import {
   environmentStatusSchema,
   environmentStatusValues,
   type EnvironmentStatus,
   type WorkspaceDiffTarget,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { resolveMachineHostId, resolveMachineTargetOption } from "./machine.js";

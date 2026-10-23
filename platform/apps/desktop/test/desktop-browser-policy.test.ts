@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bbDesktopBrowserAttachRequestSchema } from "@bb/desktop-contract";
+import { bbDesktopBrowserAttachRequestSchema } from "@hyperfide/desktop-contract";
 import {
   evaluatePopupRate,
   isAllowedBrowserUrl,

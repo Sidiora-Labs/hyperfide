@@ -3,8 +3,8 @@ import {
   formatServerDataSize,
   type ServerMoveMode,
   type ServerMoveStepId,
-} from "@bb/domain";
-import { BbHttpError, type BbSdk } from "@bb/sdk";
+} from "@hyperfide/domain";
+import { BbHttpError, type BbSdk } from "@hyperfide/sdk";
 import {
   serverMoveCheckItemSchema,
   type ServerMoveCheckItem,
@@ -15,7 +15,7 @@ import {
   type ServerMoveStatusResponse,
   type ServerMoveStep,
   type ServerMoveStepStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { z } from "zod";
 import { CliExitError } from "../action.js";
 import { getErrorMessage } from "./helpers.js";

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const ACTIVE = Symbol.for("@bb/vitest-tmpdir-sandbox");
+const ACTIVE = Symbol.for("@hyperfide/vitest-tmpdir-sandbox");
 
 interface Sandbox {
   root: string;

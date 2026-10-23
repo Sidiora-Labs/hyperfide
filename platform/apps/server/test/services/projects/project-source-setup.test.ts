@@ -1,5 +1,5 @@
 import { reportEnvironmentHookProgress } from "../../../src/services/environments/environment-hooks.js";
-import { getProjectSourceByHost, projectSourceOwnsPath } from "@bb/db";
+import { getProjectSourceByHost, projectSourceOwnsPath } from "@hyperfide/db";
 import { describe, expect, it, vi } from "vitest";
 import { ensureProjectSourceOnHost } from "../../../src/services/projects/project-source-setup.js";
 import {

@@ -9,8 +9,8 @@ import {
   type DeclaredCodeTheme,
   type DeclaredCodeThemeSlot,
   type UiCodeThemeDeclaration,
-} from "@bb/domain";
-import { isPathWithinDirectory } from "@bb/process-utils";
+} from "@hyperfide/domain";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 
 const THEME_MANIFEST_FILE_NAME = "theme.json";
 const CONVENTION_CODE_THEME_FILES = {

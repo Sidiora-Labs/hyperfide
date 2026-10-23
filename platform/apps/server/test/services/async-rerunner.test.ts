@@ -1,4 +1,4 @@
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { describe, expect, it } from "vitest";
 import { createLifecycleDedupers } from "../../src/lifecycle-dedupers.js";
 import { createAsyncRerunner } from "../../src/services/lib/async-deduper.js";

@@ -21,7 +21,7 @@ import { LocationProbe } from "@/test/location-probe";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { makeInstalledPlugin } from "@/test/fixtures/plugins";
 import { BrowsePluginsTab } from "./BrowsePluginsTab";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { PLUGINS_BROWSE_DESCRIPTION } from "../plugins-collection-copy";
 
 vi.mock("@/components/plugin/PluginNewThreadComposer", () => ({

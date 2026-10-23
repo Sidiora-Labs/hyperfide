@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
-import { isLoopbackAddress } from "@bb/config/loopback";
+import { isLoopbackAddress } from "@hyperfide/config/loopback";
 import type { Context, Hono } from "hono";
 import type { AppDeps } from "../types.js";
 import { ApiError } from "../errors.js";

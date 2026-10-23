@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { setAiServiceSelection } from "@bb/db";
+import { setAiServiceSelection } from "@hyperfide/db";
 import { describe, expect, it, vi } from "vitest";
 import {
   resolveVoiceTranscriptionEnabled,

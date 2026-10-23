@@ -10,19 +10,19 @@ import { hashSourceContents } from "@/components/code/source-code-budget";
 import { useRequestPierreWorkerPool } from "@/lib/pierre-worker-pool-gate";
 import type { MarkdownLinkRouting } from "@/components/ui/markdown-link-routing.js";
 import { asHttpError, getHttpErrorMessage } from "@/lib/http-error";
-import { extractErrorMessage } from "@bb/core-ui";
+import { extractErrorMessage } from "@hyperfide/core-ui";
 import type {
   FilePreview,
   FilePreviewLineRange,
   TextFilePreview,
   WorkspaceFilePreviewStatusLabel,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import {
   FILE_PREVIEW_HTML_MAX_BYTES,
   isCsvFilePreview,
   isHtmlFilePreviewPath,
   isMarkdownFilePreview,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 
 const GENERIC_HTML_IFRAME_SANDBOX = "allow-scripts";
 

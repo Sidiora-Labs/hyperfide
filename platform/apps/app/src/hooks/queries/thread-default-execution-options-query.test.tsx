@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { ResolvedThreadExecutionOptions } from "@bb/domain";
+import type { ResolvedThreadExecutionOptions } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { threadDefaultExecutionOptionsQueryKey } from "./query-keys";
 import {

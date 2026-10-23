@@ -2,7 +2,7 @@ import {
   createEnvironment,
   getEnvironment,
   updateHost,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { replaceMachineEnvironment } from "../../src/services/machines/environment-settings.js";

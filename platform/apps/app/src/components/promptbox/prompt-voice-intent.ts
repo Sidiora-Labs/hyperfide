@@ -1,4 +1,4 @@
-import type { PromptDraftState } from "@bb/client-core";
+import type { PromptDraftState } from "@hyperfide/client-core";
 import type { VoiceDelivery } from "@/lib/voice-recording-store";
 import type { PromptBoxHandle } from "./ComposerBox";
 

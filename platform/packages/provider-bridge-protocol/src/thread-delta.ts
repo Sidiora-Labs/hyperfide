@@ -19,7 +19,7 @@ import {
   threadEventWarningCategorySchema,
   threadUsageCostSchema,
   workflowProgressSnapshotSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 
 export const THREAD_DELTA_NOTIFICATION_METHOD = "thread/delta";

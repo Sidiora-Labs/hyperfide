@@ -1,6 +1,6 @@
 import { join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveDevInstanceConfig } from "@bb/config/runtime";
+import { resolveDevInstanceConfig } from "@hyperfide/config/runtime";
 import {
   createDesktopPackageCommand,
   createDesktopRunCommand,
@@ -37,7 +37,7 @@ describe("desktop packaging task", () => {
       /supported on macOS, Linux, and Windows/u,
     );
     expect(createDesktopPackageCommand("darwin").args).toEqual(
-      expect.arrayContaining(["run", "package", "--filter=@bb/desktop"]),
+      expect.arrayContaining(["run", "package", "--filter=@hyperfide/desktop"]),
     );
   });
 

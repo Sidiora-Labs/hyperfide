@@ -1,5 +1,5 @@
 import { setPluginEnvironmentProviderBridge } from "../../../src/services/plugins/plugin-environment-provider-registry.js";
-import { systemEnvironmentProvidersResponseSchema } from "@bb/server-contract";
+import { systemEnvironmentProvidersResponseSchema } from "@hyperfide/server-contract";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

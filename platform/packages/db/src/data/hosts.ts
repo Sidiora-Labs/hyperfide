@@ -6,7 +6,7 @@ import {
   type HostType,
   type JsonValue,
   type PermissionMode,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   DbConnection,
   DbTransaction,

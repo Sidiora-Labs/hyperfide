@@ -1,5 +1,5 @@
 import { reportPluginUpdatePhase } from "./plugin-update-progress.js";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import {
   getInstalledPlugin,
   getPluginArtifact,
@@ -14,7 +14,7 @@ import {
   type PluginProvenance,
   type PluginSourceIntent,
   type PluginStateSnapshotRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   createPluginStateSnapshotOnDisk,
   readPluginSnapshotRegistration,
@@ -25,7 +25,7 @@ import {
   garbageCollectPluginArtifacts,
   pluginArtifactStorageRoot,
 } from "./plugin-artifact-gc.js";
-import type { PluginRuntimeStatus } from "@bb/server-contract";
+import type { PluginRuntimeStatus } from "@hyperfide/server-contract";
 import type { PluginServiceDeps } from "./plugin-service-internal.js";
 import type { PluginManifest } from "./manifest.js";
 

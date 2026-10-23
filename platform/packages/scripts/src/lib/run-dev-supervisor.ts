@@ -1,5 +1,5 @@
-import { calculateExponentialBackoffDelay } from "@bb/domain";
-import { spawnPortableProcess } from "@bb/process-utils";
+import { calculateExponentialBackoffDelay } from "@hyperfide/domain";
+import { spawnPortableProcess } from "@hyperfide/process-utils";
 import { resolveSupervisorPidPath } from "./dev-restart-utils.js";
 import {
   removePidFileSync,

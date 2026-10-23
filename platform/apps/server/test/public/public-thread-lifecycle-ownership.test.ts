@@ -8,7 +8,7 @@ import {
   markThreadDeleted,
   getThread,
   getProject,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { describe, expect, it, vi } from "vitest";
 import { reconcileDaemonReportedThreads } from "../../src/services/threads/thread-lifecycle.js";
 import { runThreadLifecycleSweep } from "../../src/services/system/periodic-sweeps.js";

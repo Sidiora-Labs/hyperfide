@@ -1,6 +1,6 @@
-import { Button } from "@bb/shared-ui/button";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { CHROME_SECTION_LABEL_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { Button } from "@hyperfide/shared-ui/button";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { CHROME_SECTION_LABEL_CLASS } from "@hyperfide/shared-ui/chrome-style-tokens";
 
 export function SidebarFooterCustomizeHeader({
   onDone,

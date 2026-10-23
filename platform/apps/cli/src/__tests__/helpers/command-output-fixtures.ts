@@ -7,13 +7,13 @@ import {
   type PendingInteractionApprovalDecision,
   type ProviderPendingInteraction,
   type Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ThreadTimelineResponse,
   TimelineRow,
   TimelineRowBase,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 interface TimelineBaseArgs {
   id: string;

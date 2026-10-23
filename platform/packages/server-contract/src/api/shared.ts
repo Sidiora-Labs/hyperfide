@@ -9,13 +9,13 @@ import {
   threadUsageCostSchema,
   gitBranchSelectionSchema,
   jsonValueSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 export {
   BRANCH_LIST_LIMIT_MAX,
   FILE_LIST_LIMIT_MAX,
   FILE_LIST_QUERY_MAX_LENGTH,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 
 interface IncludeQueryValidationArgs {
   allowedValues: readonly string[];

@@ -1,5 +1,5 @@
-import type { TimelineRow } from "@bb/server-contract";
-import type { WorkflowProgressSnapshot } from "@bb/domain";
+import type { TimelineRow } from "@hyperfide/server-contract";
+import type { WorkflowProgressSnapshot } from "@hyperfide/domain";
 import { ThreadTimelineRows } from "@/components/thread/timeline";
 import { workflowRow } from "@/test/fixtures/thread-timeline-rows";
 import { StoryCard, StoryRow } from "../../../../../.ladle/story-card";

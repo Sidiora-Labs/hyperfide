@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { TasksEditor } from "../../editor/tasks-editor.js";
-import { experimental_saveFile, useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { experimental_saveFile, useBbNavigate } from "@hyperfide/plugin-sdk/app";
 import {
   useMentionItems,
   useTasksQuery,

@@ -1,5 +1,5 @@
 {
-  "name": "@bb/plugin-build",
+  "name": "@hyperfide/plugin-build",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -18,15 +18,15 @@
     "build": "node ../../scripts/build-node-entry.mjs src/cli.ts dist/cli.js --clean-dist"
   },
   "dependencies": {
-    "@bb/domain": "workspace:*",
-    "@bb/process-utils": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/process-utils": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "es-module-lexer": "^2.0.0",
     "npm": "11.16.0",
     "saxes": "^6.0.0"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@tailwindcss/node": "^4.3.0",
     "@tailwindcss/oxide": "^4.3.0",
     "@types/node": "^22.0.0",

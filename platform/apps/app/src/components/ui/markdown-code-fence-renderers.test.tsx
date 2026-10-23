@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ExperimentalCodeFenceRendererProps } from "@get-bb/plugin-sdk";
+import type { ExperimentalCodeFenceRendererProps } from "@hyperfide/plugin-sdk";
 import { MemoryRouter } from "react-router-dom";
 import { RouteNavigationProvider } from "@/components/ui/app-route-anchor";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";

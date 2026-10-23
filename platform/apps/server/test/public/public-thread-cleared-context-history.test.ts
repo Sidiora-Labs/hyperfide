@@ -1,14 +1,14 @@
 import { expect, it } from "vitest";
-import { getAppSettings } from "@bb/db";
+import { getAppSettings } from "@hyperfide/db";
 import {
   defaultAppSettings,
   THREAD_CONTEXT_CLEAR_OPERATION,
   threadScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   threadConversationOutlineResponseSchema,
   threadTimelineResponseSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { seedEvent, seedThreadFixture } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";

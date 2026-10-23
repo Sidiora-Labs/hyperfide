@@ -11,7 +11,7 @@ import {
   type UiPreferenceKey,
   type ThreadChangedMessage,
   type ThreadQueuedMessage,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   createQueuedMessageRequestSchema,
   pingMessageSchema,
@@ -31,7 +31,7 @@ import {
   type ServerMoveStatusResponse,
   type UiPreferencesResponse,
   type ThreadTimelineResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { z } from "zod";
 import configFixture from "./fixtures/system-config.json" with { type: "json" };
 import { PROVIDERS, SYSTEM_EXECUTION_OPTIONS } from "./fixtures/providers.js";

@@ -4,13 +4,13 @@ import {
   getPluginAssetIcon,
   subscribeAppIcons,
   subscribePluginAssetIcons,
-} from "@bb/shared-ui/icon-registry";
-import { PluginCompactIconMask } from "@bb/shared-ui/plugin-icon";
-import { Icon, isBuiltinIconName, type IconName } from "@bb/shared-ui/icon";
+} from "@hyperfide/shared-ui/icon-registry";
+import { PluginCompactIconMask } from "@hyperfide/shared-ui/plugin-icon";
+import { Icon, isBuiltinIconName, type IconName } from "@hyperfide/shared-ui/icon";
 import { usePluginCompactBranding } from "@/lib/plugin-logos";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
-export { PluginCompactIconMask } from "@bb/shared-ui/plugin-icon";
+export { PluginCompactIconMask } from "@hyperfide/shared-ui/plugin-icon";
 
 export function pluginIconName(icon: string | null): IconName {
   return icon ?? "Zap";

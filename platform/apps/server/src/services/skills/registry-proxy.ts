@@ -7,7 +7,7 @@ import type {
   RegistrySkillDetail,
   RegistrySkillFile,
   RegistrySkillsPage,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   githubRepoForSource,
   hasLoadableSkillContent,

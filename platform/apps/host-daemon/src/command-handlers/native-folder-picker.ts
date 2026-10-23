@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
-import { sanitizeInheritedChildProcessEnv } from "@bb/process-utils";
+import type { HostDaemonOnlineRpcResult } from "@hyperfide/host-daemon-contract";
+import { sanitizeInheritedChildProcessEnv } from "@hyperfide/process-utils";
 import { ExpectedCommandDispatchError } from "../command-dispatch-support.js";
 
 const execFileAsync = promisify(execFile);

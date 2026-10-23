@@ -2,14 +2,14 @@ import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createConnection, getHost, setExperiments } from "@bb/db";
-import { defaultExperiments } from "@bb/domain";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { createConnection, getHost, setExperiments } from "@hyperfide/db";
+import { defaultExperiments } from "@hyperfide/domain";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import {
   extractServerArchive,
   serverMovedFileSchema,
-} from "@bb/server-archive";
-import { makeTempDir } from "@bb/test-helpers";
+} from "@hyperfide/server-archive";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { exportServerArchive } from "../../src/services/server-move/export.js";
 import { seedHost } from "../helpers/seed.js";

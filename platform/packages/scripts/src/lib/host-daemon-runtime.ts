@@ -1,4 +1,4 @@
-import type { HostDaemonEntrypointConfig } from "@bb/config/host-daemon-entrypoint";
+import type { HostDaemonEntrypointConfig } from "@hyperfide/config/host-daemon-entrypoint";
 
 export interface HostDaemonRuntimeEnvironment extends HostDaemonEntrypointConfig {
   HYPERFIDE_DATA_DIR: string;

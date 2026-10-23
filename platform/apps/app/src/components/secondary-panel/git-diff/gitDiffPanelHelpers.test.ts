@@ -1,6 +1,6 @@
 import { filterDiffFilesByPath } from "./filter-diff-files";
-import type { WorkspaceCommitSummary } from "@bb/domain";
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { WorkspaceCommitSummary } from "@hyperfide/domain";
+import type { DiffFileEntry } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   buildGitDiffSelectionOptions,

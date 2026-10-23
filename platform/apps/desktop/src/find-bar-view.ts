@@ -1,4 +1,4 @@
-import { HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
+import { HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH } from "@hyperfide/desktop-contract";
 
 export const FIND_BAR_VIEW_WIDTH = 344;
 export const FIND_BAR_VIEW_HEIGHT = 48;

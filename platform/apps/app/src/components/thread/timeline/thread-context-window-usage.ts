@@ -1,4 +1,4 @@
-import type { ThreadContextWindowUsage } from "@bb/server-contract";
+import type { ThreadContextWindowUsage } from "@hyperfide/server-contract";
 
 const TOKEN_COMPACT_FORMATTER = new Intl.NumberFormat("en-US", {
   notation: "compact",

@@ -1,8 +1,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   claimQueuedThreadMessageGroup,
@@ -11,9 +11,9 @@ import {
   listEvents,
   listQueuedThreadMessages,
   setThreadExecutionOverride,
-} from "@bb/db";
-import type { ThreadQueuedMessage } from "@bb/domain";
-import type { PluginHookName } from "@get-bb/plugin-sdk";
+} from "@hyperfide/db";
+import type { ThreadQueuedMessage } from "@hyperfide/domain";
+import type { PluginHookName } from "@hyperfide/plugin-sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   invokePluginInline,

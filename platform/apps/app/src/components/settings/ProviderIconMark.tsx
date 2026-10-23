@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { ProviderInfo } from "@bb/domain";
+import type { ProviderInfo } from "@hyperfide/domain";
 import { getProviderIconTintStyle } from "@/lib/provider-icon";
 
 interface ProviderIconMarkProps {

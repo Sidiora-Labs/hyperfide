@@ -4,7 +4,7 @@ import type {
   SystemAppUpdateResult,
   SystemAppUpdateRevision,
   SystemAppUpdateStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { asHttpError } from "@/lib/http-error";
 
 export interface AppUpdateResultPresentation {

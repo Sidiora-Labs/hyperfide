@@ -1,4 +1,4 @@
-import { experimental_killProcessesWithCwdUnder } from "@get-bb/plugin-sdk/host";
+import { experimental_killProcessesWithCwdUnder } from "@hyperfide/plugin-sdk/host";
 import {
   findWorktreeEntry,
   parseWorktreeListPorcelain,

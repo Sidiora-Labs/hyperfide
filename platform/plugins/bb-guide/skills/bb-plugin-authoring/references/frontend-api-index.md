@@ -1,6 +1,6 @@
 # Frontend API symbol index
 
-Use this index to check public imports from `@get-bb/plugin-sdk/app`.
+Use this index to check public imports from `@hyperfide/plugin-sdk/app`.
 Read the other frontend references for behavior, fields, and examples.
 Read the installed SDK declarations for the exact current signatures.
 

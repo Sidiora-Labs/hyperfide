@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { ExperimentalDiffFullFileContents } from "@get-bb/plugin-sdk";
+import type { ExperimentalDiffFullFileContents } from "@hyperfide/plugin-sdk";
 import { PluginReplacementSlot } from "@/components/plugin/PluginReplacementSlot";
 import type { ParsedGitDiffFile } from "@/components/git-diff/git-diff-parsing";
 import { buildFileDiffPatchText } from "@/components/git-diff/git-diff-patch-text";

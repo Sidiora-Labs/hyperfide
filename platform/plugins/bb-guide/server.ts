@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { introduction } from "./introduction.js";
 
 export default async function plugin(bb: BbPluginApi) {

@@ -20,7 +20,7 @@ import {
   defaultAppSettings,
   type AppDefaultKeybinding,
   type KeyboardCommandId,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   AppCommandProvider,
   useAppCommandRunner,

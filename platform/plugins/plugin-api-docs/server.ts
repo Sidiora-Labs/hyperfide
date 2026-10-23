@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import {
   PLUGIN_GUIDE_SURFACE_PROVIDER_ID,
   pluginSurfaceAgentContext,

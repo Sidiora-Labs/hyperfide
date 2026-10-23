@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT,
   HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT,
-} from "@bb/desktop-contract";
+} from "@hyperfide/desktop-contract";
 import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { screen } from "electron";

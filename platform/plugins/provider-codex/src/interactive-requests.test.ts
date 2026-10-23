@@ -9,7 +9,7 @@ import {
 import {
   ProviderRequestDecodeError,
   interactionRequestPayloadSchema,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import computerUseElicitation from "./fixtures/computer-use-elicitation.json";
 
 it("surfaces a standard elicitation from another MCP server", () => {

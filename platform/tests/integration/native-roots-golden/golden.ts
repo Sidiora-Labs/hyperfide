@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type {
   DiscoveredSkill,
   HostProviderCommand,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   createFixturePaths,
   type ExpectedNames,

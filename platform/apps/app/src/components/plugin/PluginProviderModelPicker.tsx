@@ -1,12 +1,12 @@
 import {
   reconcileServiceTier,
   type ProviderOptionDescriptor,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { useCallback, useEffect, useMemo } from "react";
 import type {
   ExperimentalProviderModelPickerProps,
   ExperimentalProviderModelPickerValue,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { ModelReasoningPicker } from "@/components/pickers/ModelReasoningPicker";
 import {
   formatModelLabel,

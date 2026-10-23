@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { PERSONAL_PROJECT_ID, type PromptInput } from "@bb/domain";
+import { PERSONAL_PROJECT_ID, type PromptInput } from "@hyperfide/domain";
 import {
   createConnection,
   createQueuedThreadMessage,

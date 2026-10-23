@@ -8,7 +8,7 @@ import type {
   TerminalResizeRequest,
   TerminalSession,
   UpdateTerminalRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export interface TerminalThreadScope {

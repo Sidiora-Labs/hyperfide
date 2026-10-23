@@ -1,7 +1,7 @@
 import type {
   ProviderCommand,
   ThreadTimelineSessionOption,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { Command } from "commander";
 import { action } from "../../action.js";
 import { createCliBbSdk } from "../../client.js";

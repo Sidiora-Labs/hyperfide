@@ -1,10 +1,10 @@
-import type { ThreadEvent } from "@bb/domain";
-import { TEXT_DELTA_FLUSH_MS } from "@bb/provider-bridge-protocol/assembler";
+import type { ThreadEvent } from "@hyperfide/domain";
+import { TEXT_DELTA_FLUSH_MS } from "@hyperfide/provider-bridge-protocol/assembler";
 import type {
   HostDaemonEventBatchResponse,
   HostDaemonEventEnvelope,
   HostDaemonRejectedEvent,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { normalizeCaughtError, runtimeErrorLogFields } from "./error-utils.js";
 import type { HostDaemonLogger } from "./logger.js";
 import { ServerResponseError } from "./server-client.js";

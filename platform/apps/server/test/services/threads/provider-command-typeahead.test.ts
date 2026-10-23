@@ -1,4 +1,4 @@
-import type { HostProviderCommand } from "@bb/host-daemon-contract";
+import type { HostProviderCommand } from "@hyperfide/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { buildCommandListResponse } from "../../../src/services/threads/provider-command-typeahead.js";
 

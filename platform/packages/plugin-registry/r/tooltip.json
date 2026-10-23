@@ -8,9 +8,9 @@
     "@radix-ui/react-tooltip"
   ],
   "registryDependencies": [
-    "@bb/overlay-trigger",
-    "@bb/portal-scope",
-    "@bb/utils"
+    "@hyperfide/overlay-trigger",
+    "@hyperfide/portal-scope",
+    "@hyperfide/utils"
   ],
   "files": [
     {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PendingInteraction, PendingInteractionPayload } from "@bb/domain";
+import type { PendingInteraction, PendingInteractionPayload } from "@hyperfide/domain";
 import {
   buildPendingInteractionApprovalResolution,
   formatPendingInteractionApprovalResolutionOutcome,

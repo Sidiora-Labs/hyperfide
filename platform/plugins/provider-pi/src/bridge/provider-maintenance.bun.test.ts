@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   experimental_npmLatestVersion as npmLatestVersion,
   experimental_probeNpmGlobalPackage as probeNpmGlobalPackage,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const probeState = vi.hoisted(() => ({
@@ -12,9 +12,9 @@ const probeState = vi.hoisted(() => ({
   executablePath: "",
 }));
 
-vi.mock("@get-bb/plugin-sdk/provider-bridge", async (importOriginal) => {
+vi.mock("@hyperfide/plugin-sdk/provider-bridge", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("@get-bb/plugin-sdk/provider-bridge")>();
+    await importOriginal<typeof import("@hyperfide/plugin-sdk/provider-bridge")>();
   return {
     ...original,
     experimental_commandOutput: vi.fn(async () => probeState.bunBin),

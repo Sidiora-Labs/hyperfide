@@ -1,4 +1,4 @@
-import { setDisabledProviderIds, upsertProjectExecutionDefaults } from "@bb/db";
+import { setDisabledProviderIds, upsertProjectExecutionDefaults } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import type { ThreadCreateServiceRequestInput } from "../../src/services/threads/thread-create-request.js";
 import { createThreadFromRequest } from "../../src/services/threads/thread-create.js";

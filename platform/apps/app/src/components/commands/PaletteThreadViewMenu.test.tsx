@@ -17,7 +17,7 @@ import type { ThreadArchiveFilter } from "@/lib/thread-lifecycle-filter";
 import { PaletteThreadViewMenu } from "./PaletteThreadViewMenu";
 
 const viewport = vi.hoisted(() => ({ compact: false }));
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@hyperfide/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => viewport.compact,
 }));
 

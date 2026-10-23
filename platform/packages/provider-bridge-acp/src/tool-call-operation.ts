@@ -1,6 +1,6 @@
-import { isPathWithinDirectory } from "@bb/process-utils";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 import path from "node:path";
-import { toOptionalString } from "@bb/provider-bridge-protocol/bridge-kit";
+import { toOptionalString } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { z } from "zod";
 import type { AcpToolCallContent } from "./wire.js";
 

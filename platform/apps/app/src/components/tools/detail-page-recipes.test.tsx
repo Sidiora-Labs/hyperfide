@@ -9,9 +9,9 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import { ResourceDetailPage } from "@bb/shared-ui/resource-list";
-import type { SkillSummary } from "@bb/server-contract";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import { ResourceDetailPage } from "@hyperfide/shared-ui/resource-list";
+import type { SkillSummary } from "@hyperfide/server-contract";
 import { type PluginListItem } from "@/hooks/queries/plugin-settings-queries";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {

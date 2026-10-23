@@ -1,4 +1,4 @@
-import type { PromptHistoryEntry } from "@bb/domain";
+import type { PromptHistoryEntry } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   prependPromptHistoryEntry,

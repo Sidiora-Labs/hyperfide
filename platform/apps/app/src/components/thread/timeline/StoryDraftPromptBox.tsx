@@ -1,10 +1,10 @@
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@hyperfide/domain";
 import { useCallback, useMemo, useState } from "react";
 import {
   ComposerBox,
   type HistoryConfig,
 } from "@/components/promptbox/ComposerBox";
-import { appendQuoteToDraftText } from "@bb/client-core";
+import { appendQuoteToDraftText } from "@hyperfide/client-core";
 import {
   makeAttachmentsConfig,
   makeTypeaheadConfig,

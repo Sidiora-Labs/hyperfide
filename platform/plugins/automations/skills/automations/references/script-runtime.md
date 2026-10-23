@@ -63,16 +63,16 @@ available unchanged in run output.
 The plugin injects these variables:
 
 ```text
-BB_SERVER_URL          The BB server API base URL
-BB_PROJECT_ID          The automation project
-BB_AUTOMATION_ID       The automation ID
-BB_AUTOMATION_RUN_ID   The run ID
-BB_CLI                 The absolute BB CLI path, when available
+HYPERFIDE_SERVER_URL          The BB server API base URL
+HYPERFIDE_PROJECT_ID          The automation project
+HYPERFIDE_AUTOMATION_ID       The automation ID
+HYPERFIDE_AUTOMATION_RUN_ID   The run ID
+HYPERFIDE_CLI                 The absolute BB CLI path, when available
 ```
 
-The plugin does not inject `BB_ENVIRONMENT_ID` or `BB_HOST_DAEMON_PORT`.
+The plugin does not inject `HYPERFIDE_ENVIRONMENT_ID` or `HYPERFIDE_HOST_DAEMON_PORT`.
 
-The plugin resolves `bb` from `BB_CLI`, `BB_CLI_DIR`, `PATH`, and common macOS
+The plugin resolves `bb` from `HYPERFIDE_CLI`, `HYPERFIDE_CLI_DIR`, `PATH`, and common macOS
 install paths. It adds the selected directory to `PATH`.
 
 If the plugin cannot find `bb`, the script still starts. Its output starts with

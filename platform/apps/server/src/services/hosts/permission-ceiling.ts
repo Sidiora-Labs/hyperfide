@@ -1,5 +1,5 @@
-import { getEnvironment, getHost } from "@bb/db";
-import { clampPermissionModeToCeiling, type PermissionMode } from "@bb/domain";
+import { getEnvironment, getHost } from "@hyperfide/db";
+import { clampPermissionModeToCeiling, type PermissionMode } from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { sanitizeInheritedChildProcessEnv } from "@bb/process-utils";
+import { sanitizeInheritedChildProcessEnv } from "@hyperfide/process-utils";
 import {
   createWorkspaceOpenTargetRuntime,
   listWorkspaceOpenTargetsWithRuntime,

@@ -2,7 +2,7 @@ import type {
   ProjectResponse,
   ProjectWithThreadsResponse,
   SidebarBootstrapResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 
 export function makeProjectResponse(
   overrides: Partial<ProjectResponse> = {},

@@ -1,6 +1,6 @@
 import { createMigratedConnection } from "../../src/testing.js";
 import { describe, expect, it } from "vitest";
-import type { PromptHistoryScope, PromptInput } from "@bb/domain";
+import type { PromptHistoryScope, PromptInput } from "@hyperfide/domain";
 import {
   createProject,
   createPromptHistoryEntry,

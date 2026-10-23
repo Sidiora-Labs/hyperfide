@@ -1,5 +1,5 @@
-import type { SystemCliCommandStatus } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
+import type { SystemCliCommandStatus } from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   SettingsSection,
   SettingsWithControl,

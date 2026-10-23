@@ -2,7 +2,7 @@ import {
   createFakePluginHost,
   makeMessageDispatchHookContext,
   makeQueueEntry,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import plugin from "./server.js";
 

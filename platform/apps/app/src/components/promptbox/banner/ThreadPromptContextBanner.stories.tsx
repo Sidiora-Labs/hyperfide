@@ -3,7 +3,7 @@ import type {
   PullRequestMergeMethod,
 } from "bb-plugin-bb--github-pr-status/contract";
 import { useState, type ReactNode } from "react";
-import type { WorkspaceFileStatus, WorkspaceStatus } from "@bb/domain";
+import type { WorkspaceFileStatus, WorkspaceStatus } from "@hyperfide/domain";
 import {
   ThreadPromptContextBanner,
   type ContextBannerMergeBaseConfig,

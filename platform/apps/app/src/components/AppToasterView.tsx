@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { toast, Toaster, type ToasterProps } from "sonner";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { usePreferredTheme } from "@/hooks/useTheme";
 import { attachSonnerToast } from "./ui/app-toast-runtime";
 import { APP_OVERLAY_LAYER } from "./ui/app-overlay-layers";

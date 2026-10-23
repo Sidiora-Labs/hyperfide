@@ -2,7 +2,7 @@ import { z } from "zod";
 import type {
   ThreadEventItem,
   ThreadEventTokenUsageBreakdown,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { textBlockSchema } from "./tool-arg-schemas.js";
 import { getStringProperty, isRecord } from "./provider-visibility-helpers.js";
 

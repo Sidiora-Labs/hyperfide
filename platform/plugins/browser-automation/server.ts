@@ -4,7 +4,7 @@ import type {
   BbPluginApi,
   PluginCliContext,
   PluginRpcHandlers,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   hostContract,

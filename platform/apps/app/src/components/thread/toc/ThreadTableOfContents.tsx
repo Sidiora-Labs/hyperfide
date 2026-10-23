@@ -5,16 +5,16 @@ import type {
   TimelineConversationAttachments,
   TimelineConversationRow,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { useScrollOverflowState } from "@/components/thread/timeline/useScrollOverflowState";
 import { useBottomAnchoredScroll } from "@/components/ui/bottom-anchored-scroll-body.js";
 import { revealTimelineRow } from "@/components/thread/timeline/reveal-timeline-row.js";
 import { useThreadConversationOutline } from "@/hooks/queries/thread-panel-queries";
 import { useSenderThreadMetadataById } from "@/hooks/useSenderThreadMetadataById";
 import { PromptMentionIcon } from "@/components/promptbox/mentions/PromptMentionIcon";
-import { PROMPT_MENTION_PILL_CLASS } from "@bb/client-core";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { parseAgentMessageEnvelope } from "@bb/thread-view";
+import { PROMPT_MENTION_PILL_CLASS } from "@hyperfide/client-core";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { parseAgentMessageEnvelope } from "@hyperfide/thread-view";
 import { useThreadTitleDisplayText } from "@/components/thread/ThreadTitleMentions";
 
 export interface TocItem {

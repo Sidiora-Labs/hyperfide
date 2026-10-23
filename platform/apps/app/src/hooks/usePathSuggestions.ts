@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { WorkspacePathEntry } from "@bb/server-contract";
+import type { WorkspacePathEntry } from "@hyperfide/server-contract";
 import { useEnvironmentPathSuggestions } from "./queries/environment-queries";
 import { useProjectPathSuggestions } from "./queries/project-queries";
 import { useThreadStoragePaths } from "./queries/thread-panel-queries";

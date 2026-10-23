@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Icon } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { assertNever } from "@bb/core-ui";
-import type { WorkspaceStatus } from "@bb/domain";
-import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
-import { BbHttpError } from "@bb/sdk/browser";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
+import { assertNever } from "@hyperfide/core-ui";
+import type { WorkspaceStatus } from "@hyperfide/domain";
+import type { WorkspaceResolutionFailure } from "@hyperfide/host-daemon-contract";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import { describeLifecycleError } from "@/lib/lifecycle-errors";
 
 export const INCOMPLETE_SQUASH_MERGE_MESSAGE =

@@ -1,4 +1,4 @@
-import type { SystemAppUpdateStatus } from "@bb/server-contract";
+import type { SystemAppUpdateStatus } from "@hyperfide/server-contract";
 import type { QueryClientArg } from "../cache-effect-types";
 import { systemAppUpdateQueryKey } from "../queries/query-keys";
 

@@ -4,7 +4,7 @@ import {
   type AppCommandContext,
   type AppKeybinding,
   type AppShortcut,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   appShortcutMatchesQuery,
   formatAppShortcut,

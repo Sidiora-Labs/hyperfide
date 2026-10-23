@@ -48,7 +48,7 @@ routing?, allowProviderChange?, align?, disabled?, className? }`, where `routing
   Failed or empty catalogs leave `value` unchanged. Alias it on import for JSX:
 
   ```tsx
-  import { experimental_ProviderModelPicker as ProviderModelPicker } from "@get-bb/plugin-sdk/app";
+  import { experimental_ProviderModelPicker as ProviderModelPicker } from "@hyperfide/plugin-sdk/app";
 
   const [selection, setSelection] = useState({
     providerId: "codex",
@@ -85,7 +85,7 @@ routing?, allowProviderChange?, align?, disabled?, className? }`, where `routing
   `"center"`, or `"end"` and defaults to `"end"`:
 
   ```tsx
-  import { experimental_PermissionModePicker as PermissionModePicker } from "@get-bb/plugin-sdk/app";
+  import { experimental_PermissionModePicker as PermissionModePicker } from "@hyperfide/plugin-sdk/app";
 
   <PermissionModePicker
     providerId={selection.providerId}
@@ -138,7 +138,7 @@ className? }` —
   element:
 
   ```tsx
-  import { experimental_Diff as Diff } from "@get-bb/plugin-sdk/app";
+  import { experimental_Diff as Diff } from "@hyperfide/plugin-sdk/app";
 
   <Diff patch={file.patch} path={file.path} />;
   ```
@@ -295,7 +295,7 @@ serviceTier?, sessionOptions?, executionInputSources, environment, input }`
   import {
     experimental_NewThreadComposer as NewThreadComposer,
     useSdk,
-  } from "@get-bb/plugin-sdk/app";
+  } from "@hyperfide/plugin-sdk/app";
 
   const sdk = useSdk();
   <NewThreadComposer

@@ -1,12 +1,12 @@
 import {
   setQueuedThreadMessageFailureReason,
   setQueuedThreadMessageWaitingOn,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   QUEUED_MESSAGE_FAILURE_REASON_MAX_LENGTH,
   type Thread,
-} from "@bb/domain";
-import { sliceUtf16Head } from "@bb/text-utils";
+} from "@hyperfide/domain";
+import { sliceUtf16Head } from "@hyperfide/text-utils";
 import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { dispatchEnvironmentAndHost } from "./dispatch-hooks.js";

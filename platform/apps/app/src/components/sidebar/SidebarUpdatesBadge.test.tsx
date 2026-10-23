@@ -8,10 +8,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
-import type { Host } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import type { ProviderCliKey } from "@bb/host-daemon-contract";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
+import type { Host } from "@hyperfide/domain";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
+import type { ProviderCliKey } from "@hyperfide/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProviderCliIssue } from "@/components/provider-cli/provider-cli-install";
 import type {
@@ -38,7 +38,7 @@ vi.mock("@/components/provider-cli/provider-cli-install", () => ({
 
 vi.mock("@/lib/sdk", async () => {
   const { makeProviderInfo: provider } =
-    await import("@bb/test-helpers/domain-fixtures");
+    await import("@hyperfide/test-helpers/domain-fixtures");
   return {
     sdk: {
       providers: {

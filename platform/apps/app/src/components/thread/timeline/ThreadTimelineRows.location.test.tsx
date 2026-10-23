@@ -17,10 +17,10 @@ import { ThreadTimelineRows } from "./ThreadTimelineRows";
 
 const compactViewport = vi.hoisted(() => ({ calls: 0 }));
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", async (importOriginal) => {
+vi.mock("@hyperfide/shared-ui/hooks/use-compact-viewport", async (importOriginal) => {
   const actual =
     await importOriginal<
-      typeof import("@bb/shared-ui/hooks/use-compact-viewport")
+      typeof import("@hyperfide/shared-ui/hooks/use-compact-viewport")
     >();
   return {
     ...actual,

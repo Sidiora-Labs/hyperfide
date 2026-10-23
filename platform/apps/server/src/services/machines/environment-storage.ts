@@ -8,13 +8,13 @@ import {
   environmentVariables,
   type DbConnection,
   type DbQueryConnection,
-} from "@bb/db";
-import { readOrCreateSecretFile } from "@bb/secret-storage";
+} from "@hyperfide/db";
+import { readOrCreateSecretFile } from "@hyperfide/secret-storage";
 import {
   machineEnvironmentNameSchema,
   type MachineEnvironmentReplace,
   type MachineEnvironmentSet,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { runSerialized } from "../lib/async-deduper.js";
 
 const keyFile = "machine-environment-key";

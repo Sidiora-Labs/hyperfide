@@ -1,4 +1,4 @@
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
 
 export function getDesktopVersion(version: string | undefined): string {
   if (version === undefined || version.length === 0) {

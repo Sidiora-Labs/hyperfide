@@ -1,5 +1,5 @@
-import { hostProviderCliInstallEventSchema } from "@bb/server-contract";
-import type { Host, HostType } from "@bb/domain";
+import { hostProviderCliInstallEventSchema } from "@hyperfide/server-contract";
+import type { Host, HostType } from "@hyperfide/domain";
 import type {
   CreateHostJoinCodeResponse,
   CreateMachineRequest,
@@ -22,7 +22,7 @@ import type {
   DeleteOldServerCopyResponse,
   UpdateHostRequest,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export interface HostGetArgs {

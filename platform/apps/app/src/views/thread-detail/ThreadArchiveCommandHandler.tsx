@@ -1,4 +1,4 @@
-import type { PluginThreadActionTarget } from "@get-bb/plugin-sdk";
+import type { PluginThreadActionTarget } from "@hyperfide/plugin-sdk";
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
 import { useThreadActionEntries } from "@/lib/thread-actions/thread-action-registry";
 import { usePaneContext } from "./PaneContext";

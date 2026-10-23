@@ -1,12 +1,12 @@
 import { VoiceInputTextarea } from "@/components/promptbox/VoiceInputTextarea";
 import { isEditableKeyboardTarget } from "@/lib/app-keybindings";
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import { QUESTION_SELECT_APP_COMMAND_IDS } from "@bb/domain";
+import { QUESTION_SELECT_APP_COMMAND_IDS } from "@hyperfide/domain";
 import {
   QuestionFormHostProvider,
   type QuestionFormHost,
-} from "@bb/shared-ui/question-form-host";
-import { VoiceInputTextareaProvider } from "@bb/shared-ui/voice-input-textarea";
+} from "@hyperfide/shared-ui/question-form-host";
+import { VoiceInputTextareaProvider } from "@hyperfide/shared-ui/voice-input-textarea";
 import {
   useAppCommandContext,
   useAppCommandShortcuts,

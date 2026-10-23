@@ -35,7 +35,7 @@ describe("plugin app runtime shim", () => {
     );
   });
 
-  it("re-derives @get-bb/plugin-sdk/app exports for every rebuild", async () => {
+  it("re-derives @hyperfide/plugin-sdk/app exports for every rebuild", async () => {
     const dir = await mkdtemp(join(tmpdir(), "bb-plugin-shim-"));
     tempDirs.push(dir);
     const facadePath = join(dir, "app-facade.mjs");
@@ -44,7 +44,7 @@ describe("plugin app runtime shim", () => {
     async function bundle(importName: string): Promise<string> {
       const result = await build({
         stdin: {
-          contents: `import { ${importName} } from "@get-bb/plugin-sdk/app"; export { ${importName} };`,
+          contents: `import { ${importName} } from "@hyperfide/plugin-sdk/app"; export { ${importName} };`,
           loader: "js",
           resolveDir: dir,
         },
@@ -76,7 +76,7 @@ describe("plugin app runtime shim", () => {
     const entry = join(dir, "app.tsx");
     await writeFile(
       entry,
-      `import {\n  first,\n  experimental_useSidebarThreadPullRequest as useRowPullRequest,\n} from "@get-bb/plugin-sdk/app";\nexport { first, useRowPullRequest };\n`,
+      `import {\n  first,\n  experimental_useSidebarThreadPullRequest as useRowPullRequest,\n} from "@hyperfide/plugin-sdk/app";\nexport { first, useRowPullRequest };\n`,
     );
 
     const result = await build({
@@ -98,7 +98,7 @@ describe("plugin app runtime shim", () => {
         pluginName: "bb-plugin-runtime-shims",
         location: expect.objectContaining({ line: 4 }),
         text: expect.stringMatching(
-          /^experimental_useSidebarThreadPullRequest is retired from @get-bb\/plugin-sdk\/app\. Existing plugins remain supported\. Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery\(\{ pluginId: "bb--github-pr-status"/,
+          /^experimental_useSidebarThreadPullRequest is retired from @hyperfide\/plugin-sdk\/app\. Existing plugins remain supported\. Read pull requests from the GitHub PR Status plugin instead: experimental_useRpcKeyedQuery\(\{ pluginId: "bb--github-pr-status"/,
         ),
       },
     ]);
@@ -120,8 +120,8 @@ describe("plugin app runtime shim", () => {
           `import clsx from "clsx";`,
           `import { twMerge } from "tailwind-merge";`,
           `import { cva } from "class-variance-authority";`,
-          `import { Icon } from "@bb/shared-ui/icon";`,
-          `import { useQuestionFormHost } from "@bb/shared-ui/question-form-host";`,
+          `import { Icon } from "@hyperfide/shared-ui/icon";`,
+          `import { useQuestionFormHost } from "@hyperfide/shared-ui/question-form-host";`,
           `export { clsx, twMerge, cva, Icon, useQuestionFormHost };`,
         ].join("\n"),
         loader: "js",
@@ -177,10 +177,10 @@ describe("plugin app runtime shim", () => {
   it("shims shared-ui's relative ./icon import but bundles a plugin's own icon module", async () => {
     const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icon-rel-"));
     tempDirs.push(dir);
-    const sharedUiDir = join(dir, "node_modules", "@bb", "shared-ui");
+    const sharedUiDir = join(dir, "node_modules", "@hyperfide", "shared-ui");
     const files: Record<string, string> = {
       [join(sharedUiDir, "package.json")]: JSON.stringify({
-        name: "@bb/shared-ui",
+        name: "@hyperfide/shared-ui",
         type: "module",
         exports: {
           "./empty-state": "./src/components/ui/empty-state.tsx",
@@ -196,7 +196,7 @@ describe("plugin app runtime shim", () => {
       [join(dir, "components", "ui", "button.tsx")]:
         `import { Icon } from "./icon";\nexport function Button() { return Icon; }\n`,
       [join(dir, "app.tsx")]:
-        `import { EmptyState } from "@bb/shared-ui/empty-state";\nimport { Button } from "./components/ui/button";\nexport { EmptyState, Button };\n`,
+        `import { EmptyState } from "@hyperfide/shared-ui/empty-state";\nimport { Button } from "./components/ui/button";\nexport { EmptyState, Button };\n`,
     };
     for (const [filePath, contents] of Object.entries(files)) {
       await mkdir(dirname(filePath), { recursive: true });
@@ -221,10 +221,10 @@ describe("plugin app runtime shim", () => {
   it("shims shared-ui's relative ./question-form-host import to the host's context", async () => {
     const dir = await mkdtemp(join(tmpdir(), "bb-plugin-question-host-rel-"));
     tempDirs.push(dir);
-    const sharedUiDir = join(dir, "node_modules", "@bb", "shared-ui");
+    const sharedUiDir = join(dir, "node_modules", "@hyperfide", "shared-ui");
     const files: Record<string, string> = {
       [join(sharedUiDir, "package.json")]: JSON.stringify({
-        name: "@bb/shared-ui",
+        name: "@hyperfide/shared-ui",
         type: "module",
         exports: {
           "./question-form": "./src/components/ui/question-form.tsx",
@@ -235,7 +235,7 @@ describe("plugin app runtime shim", () => {
       [join(sharedUiDir, "src", "components", "ui", "question-form.tsx")]:
         `import { useQuestionFormHost } from "./question-form-host";\nexport function QuestionForm() { return useQuestionFormHost(); }\n`,
       [join(dir, "app.tsx")]:
-        `import { QuestionForm } from "@bb/shared-ui/question-form";\nexport { QuestionForm };\n`,
+        `import { QuestionForm } from "@hyperfide/shared-ui/question-form";\nexport { QuestionForm };\n`,
     };
     for (const [filePath, contents] of Object.entries(files)) {
       await mkdir(dirname(filePath), { recursive: true });
@@ -260,29 +260,29 @@ describe("plugin app runtime shim", () => {
     const sharedUiComponent =
       "/repo/packages/shared-ui/src/components/ui/empty-state.tsx";
     expect(sharedUiRuntimeModuleFor("./icon", sharedUiComponent)).toBe(
-      "@bb/shared-ui/icon",
+      "@hyperfide/shared-ui/icon",
     );
     expect(sharedUiRuntimeModuleFor("./icon.js", sharedUiComponent)).toBe(
-      "@bb/shared-ui/icon",
+      "@hyperfide/shared-ui/icon",
     );
     expect(
       sharedUiRuntimeModuleFor(
         "../components/ui/icon",
         "/repo/packages/shared-ui/src/hooks/use-thing.ts",
       ),
-    ).toBe("@bb/shared-ui/icon");
+    ).toBe("@hyperfide/shared-ui/icon");
     expect(
       sharedUiRuntimeModuleFor(
         "./question-form-host",
         "/repo/packages/shared-ui/src/components/ui/question-form.tsx",
       ),
-    ).toBe("@bb/shared-ui/question-form-host");
+    ).toBe("@hyperfide/shared-ui/question-form-host");
     expect(
       sharedUiRuntimeModuleFor(
         "./voice-input-textarea",
         "/repo/packages/shared-ui/src/components/ui/question-form.tsx",
       ),
-    ).toBe("@bb/shared-ui/voice-input-textarea");
+    ).toBe("@hyperfide/shared-ui/voice-input-textarea");
     expect(sharedUiRuntimeModuleFor("./button", sharedUiComponent)).toBe(null);
     expect(
       sharedUiRuntimeModuleFor(
@@ -395,7 +395,7 @@ describe("plugin app runtime shim", () => {
     );
     await writeFile(
       join(dir, "app.ts"),
-      `import { definePluginApp, experimental_useSidebarThreadPullRequest } from "@get-bb/plugin-sdk/app";
+      `import { definePluginApp, experimental_useSidebarThreadPullRequest } from "@hyperfide/plugin-sdk/app";
       const component = () => experimental_useSidebarThreadPullRequest("thread").pullRequest;
       export default definePluginApp((app) => {
         app.slots.threadPanelAction({ id: "legacy", title: "Legacy", component });

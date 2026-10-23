@@ -3,9 +3,9 @@ import {
   isThreadQueueAutoSendPaused,
   listEvents,
   listQueuedThreadMessages,
-} from "@bb/db";
-import { threadScope, turnScope } from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import { threadScope, turnScope } from "@hyperfide/domain";
+import { groupHostDaemonEvents } from "@hyperfide/host-daemon-contract";
 import { describe, expect, it, vi } from "vitest";
 import {
   listQueuedCommands,

@@ -5,8 +5,8 @@
   "title": "resource-atoms",
   "description": "BB ui \"resource-atoms\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

@@ -1,4 +1,4 @@
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 import { MachineLabel } from "./MachineLabel";
 

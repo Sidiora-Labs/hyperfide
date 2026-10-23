@@ -13,9 +13,9 @@ import {
   getEnvironment,
   listNonDeletedChildThreads,
   listNonDeletedHiddenSourceThreads,
-} from "@bb/db";
-import type { EnvironmentRow } from "@bb/db";
-import type { Thread } from "@bb/domain";
+} from "@hyperfide/db";
+import type { EnvironmentRow } from "@hyperfide/db";
+import type { Thread } from "@hyperfide/domain";
 import type { AppDeps } from "../../types.js";
 import {
   pruneThreadEventHistoryBestEffort,

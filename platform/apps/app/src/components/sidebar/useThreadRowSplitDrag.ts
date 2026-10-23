@@ -1,6 +1,6 @@
 import { useCallback, type PointerEvent as ReactPointerEvent } from "react";
 import { useStore } from "jotai";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { useRouteNavigate } from "@/components/ui/app-route-anchor";
 import { openThreadInSplit } from "@/lib/split-layout/openThreadInSplit";
 import { beginSidebarPaneContentSplitDrag } from "./usePaneContentSplitDrag";

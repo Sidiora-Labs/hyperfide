@@ -1,5 +1,5 @@
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 const PICKER_LOADING_ROW_WIDTHS = ["w-20", "w-28", "w-24", "w-32"] as const;
 

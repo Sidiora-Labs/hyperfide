@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-content-script-example",
+  "name": "hyperfide-plugin-content-script-example",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,8 @@
     "app": "./app.ts"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   }
 }

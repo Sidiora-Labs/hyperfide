@@ -17,7 +17,7 @@ import {
   VERSION,
   type ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
-import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { HYPERFIDE_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
 import { createPiDeltaTranslator } from "../delta-translation.js";
 import { PiRpcSession, type PiRpcEvent } from "./rpc-session.js";
 
@@ -361,7 +361,7 @@ it.each(["bb-first", "bb-last"])(
     });
     const sessionManager = SessionManager.inMemory(dir);
     const wireOrder: string[] = [];
-    const source = BB_PI_EXTENSION_SOURCE.replace(/^import .*;$/gm, "").replace(
+    const source = HYPERFIDE_PI_EXTENSION_SOURCE.replace(/^import .*;$/gm, "").replace(
       "export default function bbExtension",
       "function bbExtension",
     );

@@ -6,8 +6,8 @@ import {
   mutateAppUpdateState,
   readAppUpdateState,
   type AppUpdatePending,
-} from "@bb/config/app-update";
-import type { ChildProcessExitResult } from "@bb/config/child-process-exit";
+} from "@hyperfide/config/app-update";
+import type { ChildProcessExitResult } from "@hyperfide/config/child-process-exit";
 import { runCommand } from "../src/app-update/run-command.js";
 import { runSourceShim } from "../src/app-update/source-shim.js";
 import type {

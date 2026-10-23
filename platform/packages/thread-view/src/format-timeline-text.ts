@@ -2,8 +2,8 @@ import type {
   TimelineCommandWorkRow,
   TimelineRow,
   TimelineRowStatus,
-} from "@bb/server-contract";
-import { displayWidth } from "@bb/text-utils";
+} from "@hyperfide/server-contract";
+import { displayWidth } from "@hyperfide/text-utils";
 import { assertNever } from "./assert-never.js";
 import {
   buildTimelineWorkSummaryLabel,

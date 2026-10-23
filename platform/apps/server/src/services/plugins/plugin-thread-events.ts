@@ -1,7 +1,7 @@
-import type { EnvironmentRemoval } from "@bb/domain";
-import type { ApplyThreadLifecycleEventOutcome, HostRow } from "@bb/db";
-import type { PendingInteraction, Thread } from "@bb/domain";
-import type { ThreadQueuedMessage } from "@bb/domain";
+import type { EnvironmentRemoval } from "@hyperfide/domain";
+import type { ApplyThreadLifecycleEventOutcome, HostRow } from "@hyperfide/db";
+import type { PendingInteraction, Thread } from "@hyperfide/domain";
+import type { ThreadQueuedMessage } from "@hyperfide/domain";
 import type { PluginThreadEventEmitter } from "./plugin-service.js";
 
 const pendingThreadEvents = new Map<string, ReturnType<typeof setTimeout>>();
@@ -116,7 +116,7 @@ export function emitPluginThreadEvents(threadId: string): void {
 }
 
 export function emitPluginTerminalInput(
-  terminal: import("@bb/server-contract").TerminalSession,
+  terminal: import("@hyperfide/server-contract").TerminalSession,
 ): void {
   emitter?.emitTerminalInput(terminal);
 }

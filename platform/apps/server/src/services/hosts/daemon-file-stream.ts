@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import {
   HOST_FILE_CHUNK_MAX_BYTES,
   type HostDaemonOnlineRpcResultByType,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { ApiError } from "../../errors.js";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { LoggedWorkSessionDeps } from "../../types.js";

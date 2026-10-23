@@ -5,12 +5,12 @@ import {
   upsertInstalledPlugin,
   type DbConnection,
   type PluginSourceIntent,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import {
   CURATED_PLUGIN_MARKETPLACE_NAME,
   ROOT_PLUGIN_SOURCE_SELECTION,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

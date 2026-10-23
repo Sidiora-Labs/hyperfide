@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createConnection } from "@bb/db";
+import { createConnection } from "@hyperfide/db";
 import { exportLegacyAutomationsForPluginImport } from "../../../apps/server/src/legacy-automations-export.js";
 import {
   getAutomation,

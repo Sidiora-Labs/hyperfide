@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   PaneContext,
   type PaneContextValue,
@@ -51,10 +51,10 @@ vi.mock(
   () => import("@/test/react-resizable-panels-stub"),
 );
 
-vi.mock("@bb/shared-ui/responsive-overlay", async (importOriginal) => {
+vi.mock("@hyperfide/shared-ui/responsive-overlay", async (importOriginal) => {
   const React = await import("react");
   const actual =
-    await importOriginal<typeof import("@bb/shared-ui/responsive-overlay")>();
+    await importOriginal<typeof import("@hyperfide/shared-ui/responsive-overlay")>();
 
   const PersistentResponsiveDrawerShell = ({
     children,

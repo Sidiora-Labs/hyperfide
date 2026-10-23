@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -8,8 +8,8 @@ import {
   createFakePluginHost,
   makeHostResponse,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
-import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
+} from "@hyperfide/plugin-sdk/testing";
+import { experimental_createHostEntryHarness } from "@hyperfide/plugin-sdk/testing/host";
 import { resolveDevInstanceConfig } from "../../../packages/config/src/runtime.js";
 import hostEntry from "./host.js";
 import plugin from "./server.js";
@@ -1087,7 +1087,7 @@ it("fails a scan visibly so it can be retried", async () => {
 it("counts distinct live managed worktrees for machine projects, including empty projects and pending cleanup", async () => {
   type Environment = Awaited<
     ReturnType<
-      import("@get-bb/plugin-sdk").BbPluginApi["sdk"]["environments"]["list"]
+      import("@hyperfide/plugin-sdk").BbPluginApi["sdk"]["environments"]["list"]
     >
   >[number];
   const base: Environment = {
@@ -1917,7 +1917,7 @@ it("stops retrying archive storage cleanup once its thread no longer exists", as
 it("never clears thread storage that holds a workspace an environment still uses", async () => {
   type Environment = Awaited<
     ReturnType<
-      import("@get-bb/plugin-sdk").BbPluginApi["sdk"]["environments"]["list"]
+      import("@hyperfide/plugin-sdk").BbPluginApi["sdk"]["environments"]["list"]
     >
   >[number];
   const root = await directory();

@@ -1,5 +1,5 @@
 import { useEffect, type CSSProperties, type RefObject } from "react";
-import type { ThreadTimelineViewRow } from "@bb/thread-view";
+import type { ThreadTimelineViewRow } from "@hyperfide/thread-view";
 import { supportsScrollAnchoring } from "@/lib/scroll-anchoring-support";
 
 export const TOP_LEVEL_TIMELINE_ROW_INTRINSIC_SIZE_CLASS_NAME =

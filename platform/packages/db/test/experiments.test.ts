@@ -4,7 +4,7 @@ import {
   defaultAppSettings,
   defaultExperiments,
   earlyAdopterExperiments,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   getExperiments,
   setAppSettings,

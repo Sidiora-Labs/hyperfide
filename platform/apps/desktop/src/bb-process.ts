@@ -5,7 +5,7 @@ import {
   waitForProcessExit,
   waitForProcessExitWithTimeout,
   type ChildProcessExitResult,
-} from "@bb/config/child-process-exit";
+} from "@hyperfide/config/child-process-exit";
 
 interface RuntimeLogBuffer {
   append(chunk: Buffer | string): void;

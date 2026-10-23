@@ -1,4 +1,4 @@
-import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { definePluginApp } from "@hyperfide/plugin-sdk/app";
 import { Rail, RailNewThreadButton } from "./app/Rail.js";
 import { TopList } from "./app/TopList.js";
 

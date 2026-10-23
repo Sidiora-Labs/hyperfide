@@ -7,9 +7,9 @@ import type {
   WorkspaceFileStatus,
   WorkspaceFileStatusKind,
   WorkspaceStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import path from "node:path";
-import { pathExists } from "@bb/process-utils";
+import { pathExists } from "@hyperfide/process-utils";
 import {
   createTempDir,
   ensureGitRepo,

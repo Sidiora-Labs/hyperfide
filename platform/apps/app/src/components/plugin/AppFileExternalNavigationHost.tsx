@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { ExperimentalFileOpenOptions } from "@get-bb/plugin-sdk";
+import type { ExperimentalFileOpenOptions } from "@hyperfide/plugin-sdk";
 import { AppNavigationHostProvider } from "@/lib/app-navigation-host";
 import { defineSplit } from "@/lib/define-split";
 

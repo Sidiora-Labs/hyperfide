@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { loadavg } from "node:os";
 import { threadCpuUsage } from "node:process";
-import { events } from "@bb/db";
+import { events } from "@hyperfide/db";
 import { eq, sql } from "drizzle-orm";
 import { buildThreadTimelineWithProfile } from "../../src/services/threads/timeline.js";
 import { clearStoredEventDecodeCache } from "../../src/services/threads/stored-event-decode-cache.js";

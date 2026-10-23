@@ -1,5 +1,5 @@
-import { threads, listQueuedThreadMessages } from "@bb/db";
-import { sendMessageResponseSchema } from "@bb/server-contract";
+import { threads, listQueuedThreadMessages } from "@hyperfide/db";
+import { sendMessageResponseSchema } from "@hyperfide/server-contract";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as environmentEngine from "../../src/services/environments/environment-engine.js";

@@ -1,13 +1,13 @@
-import { useTaggedQuery } from "@bb/query-tags";
+import { useTaggedQuery } from "@hyperfide/query-tags";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import type {
   PermissionMode,
   ProviderInfo,
   ProviderModelCatalogScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { SYSTEM_EXECUTION_OPTIONS_QUERY_KEY } from "@/hooks/queries/query-keys";
-import { permissionModeValues } from "@bb/domain";
+import { permissionModeValues } from "@hyperfide/domain";
 import type {
   SystemCliCommandStatus,
   SystemCliSkillsStatusResponse,
@@ -15,8 +15,8 @@ import type {
   SystemProvidersQuery,
   SystemProviderStatesResponse,
   SystemVersionResponse,
-} from "@bb/server-contract";
-import type { ProviderCliStatusResponse } from "@bb/host-daemon-contract";
+} from "@hyperfide/server-contract";
+import type { ProviderCliStatusResponse } from "@hyperfide/host-daemon-contract";
 import { BbHttpError, sdk } from "@/lib/sdk";
 import { isAbortLikeError } from "@/lib/mutation-errors";
 import {
@@ -49,7 +49,7 @@ import {
   systemVersionQueryKey,
   uiPreferencesQueryKey,
 } from "./query-keys";
-import { uiPreferencesRoute } from "@bb/server-contract";
+import { uiPreferencesRoute } from "@hyperfide/server-contract";
 import { routeTaggedRead } from "./route-tags";
 import { requireEnabledQueryArg, type QueryOptions } from "./query-helpers";
 import {

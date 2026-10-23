@@ -1,4 +1,4 @@
-import { createEnvironment } from "@bb/db";
+import { createEnvironment } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import {
   foreignProjectOwnedPathRefusal,

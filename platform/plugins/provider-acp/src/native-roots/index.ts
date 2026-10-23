@@ -1,7 +1,7 @@
 import {
   experimental_filterResolvedNativeRoots,
   type ExperimentalNativeRootsResolveAnswer,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { KNOWN_ACP_AGENTS } from "../known-agents.js";
 import type { AcpNativeRootsResolverArgs } from "./resolver.js";
 

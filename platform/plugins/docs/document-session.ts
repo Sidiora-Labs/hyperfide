@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
-import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { useRealtime, useRpc } from "@hyperfide/plugin-sdk/app";
 import type { docsRpcContract } from "./server.js";
 import { isRecord } from "./markdown-document.js";
 import type { Proposal } from "./proposals.js";

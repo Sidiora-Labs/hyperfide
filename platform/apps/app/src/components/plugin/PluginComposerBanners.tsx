@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import type { ComposerView } from "@get-bb/plugin-sdk";
+import type { ComposerView } from "@hyperfide/plugin-sdk";
 import { PromptStackCard } from "@/components/promptbox/banner/PromptStackCard";
 import { useResolvedComposerBanners } from "./composer-slot-hooks";
 import { PluginSlotMount } from "./PluginSlotMount";

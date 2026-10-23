@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { CLI_LAUNCHER_MARKER } from "@bb/config/cli-command";
+import { CLI_LAUNCHER_MARKER } from "@hyperfide/config/cli-command";
 import {
   createCliCommandService,
   MACHINE_CLI_SHIM_MARKER,

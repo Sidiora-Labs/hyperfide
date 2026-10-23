@@ -3,8 +3,8 @@ import {
   getProjectPathValidationMessage,
   normalizeProjectPathInput,
   type ProjectSource,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
+} from "@hyperfide/domain";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/dialog";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Input } from "@hyperfide/shared-ui/input";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { LazyRemotePathBrowser } from "@/components/dialogs/LazyRemotePathBrowser";
 import { useAddProjectSource } from "@/hooks/mutations/project-mutations";
 import {
@@ -23,7 +23,7 @@ import {
   useHostPathExistence,
 } from "@/hooks/queries/host-path-queries";
 import { useHostCloneDefaultPath } from "@/hooks/queries/host-queries";
-import { BbHttpError } from "@bb/sdk/browser";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 
 export interface ProjectMachineSetupDialogTarget {

@@ -1,9 +1,9 @@
 // Generates the self-contained `.d.ts` bundles that `bb plugin new` ships into
 // a scaffolded plugin's `types/` directory, so authors get real BbPluginApi /
-// @get-bb/plugin-sdk/app types WITHOUT the (unpublished) @bb/* workspace packages
+// @hyperfide/plugin-sdk/app types WITHOUT the (unpublished) @hyperfide/* workspace packages
 // on disk.
 //
-// rollup-plugin-dts flattens @get-bb/plugin-sdk's own contracts plus every @bb/*
+// rollup-plugin-dts flattens @hyperfide/plugin-sdk's own contracts plus every @hyperfide/*
 // type it references (BbSdk, PromptInput, ThreadResponse, …) into the root
 // file. Testing subpaths reuse that already-portable root declaration through
 // the package's own public name instead of flattening the same contracts a
@@ -12,7 +12,7 @@
 //
 // The output, bundled-types/*.d.ts, is NOT committed. It is the package's
 // published `types` surface and a build output of the turbo task
-// `@get-bb/plugin-sdk#build:types`; @bb/templates reads it at scaffold-embed
+// `@hyperfide/plugin-sdk#build:types`; @hyperfide/templates reads it at scaffold-embed
 // time by file path (no package edge, to avoid a dependency cycle), and the
 // in-repo plugins typecheck against it. Unchanged files are not rewritten so
 // mtimes stay stable for watchers.
@@ -65,7 +65,6 @@ const outputs = Object.fromEntries(
 // from the scaffold's devDependencies rather than being inlined.
 const EXTERNAL = [
   /^@tanstack\/react-query($|\/)/,
-  /^@get-bb\/plugin-sdk$/,
   /^node:/,
   /^@testing-library\/react($|\/)/,
   /^better-sqlite3/,
@@ -75,9 +74,9 @@ const EXTERNAL = [
   /^zod($|\/)/,
 ];
 
-/** Resolve any `@bb/<pkg>[/<sub>]` to its `source` export target on disk. */
+/** Resolve any `@hyperfide/<pkg>[/<sub>]` to its `source` export target on disk. */
 function resolveBbSource(id) {
-  const match = /^@bb\/([^/]+)(\/.*)?$/.exec(id);
+  const match = /^@hyperfide\/([^/]+)(\/.*)?$/.exec(id);
   if (!match) return null;
   const pkgDir = path.join(pkgsDir, match[1]);
   const manifestPath = path.join(pkgDir, "package.json");
@@ -120,7 +119,15 @@ const emitDeclarations = sharedDeclarationEmit(
 async function bundle(input) {
   const build = await rollup({
     input: declarationId(input),
-    external: EXTERNAL,
+    // Core entry points must not import their own public package's types.
+    external: [
+      ...EXTERNAL,
+      ...(["index.ts", "app.ts", "host.ts"].some(
+        (name) => input === path.join(pkgRoot, "src", name),
+      )
+        ? []
+        : [/^@hyperfide\/plugin-sdk$/]),
+    ],
     plugins: [emitDeclarations, dts({ respectExternal: false })],
     onwarn(warning) {
       // Circular type references are fine in .d.ts output; surface everything
@@ -138,9 +145,9 @@ async function bundle(input) {
 }
 
 const HEADER = [
-  "// Portable type declarations for `@get-bb/plugin-sdk`. Unpublished BB",
+  "// Portable type declarations for `@hyperfide/plugin-sdk`. Unpublished BB",
   "// workspace contracts are flattened; public subpaths may reuse the",
-  "// package root without requiring any other @bb/* package.",
+  "// package root without requiring any other @hyperfide/* package.",
   "//",
   "// Confused by the API, or need a symbol that isn't here? Clone the BB repo",
   "// and read the real source: https://github.com/get-bb/bb",

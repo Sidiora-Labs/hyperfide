@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
+import { EmptyStatePanel } from "@hyperfide/shared-ui/empty-state";
 import { ThreadTimelinePanelLoadingSkeleton } from "./ThreadChatLoading";
 import { resolveThreadOngoingIndicator } from "./thread-ongoing-indicator";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import { ConversationTimeline } from "@/components/ui/conversation.js";
 import { useThread } from "@/hooks/queries/thread-queries";
 import { BbHttpError } from "@/lib/sdk";

@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { loadViteDevConfig } from "@bb/config/vite-dev";
+import { loadViteDevConfig } from "@hyperfide/config/vite-dev";
 import { sharedViteConfig } from "./vite.config.js";
 
 const viteDevConfig = loadViteDevConfig();

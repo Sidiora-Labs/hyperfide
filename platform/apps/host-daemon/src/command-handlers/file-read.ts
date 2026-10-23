@@ -6,13 +6,13 @@ import mimeTypes from "mime-types";
 import type {
   HostReadFileIfNoneMatch,
   HostReadFileRelativeDotfilePolicy,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   readGitBlob,
   WorkspaceError,
   type GitProcessOptions,
-} from "@bb/host-workspace";
-import { isPathWithinDirectory } from "@bb/process-utils";
+} from "@hyperfide/host-workspace";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 import {
   CommandDispatchError,
   ExpectedCommandDispatchError,

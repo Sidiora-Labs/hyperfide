@@ -5,14 +5,14 @@ import type {
   RecordedPermissionMode,
   ReasoningLevel,
   Thread,
-} from "@bb/domain";
-import { getEnvironment, getProjectSourceOnPersistentHost } from "@bb/db";
+} from "@hyperfide/domain";
+import { getEnvironment, getProjectSourceOnPersistentHost } from "@hyperfide/db";
 import { DEFAULT_ENVIRONMENT_PROVIDER_ID } from "../environments/environment-provider-ids.js";
-import { DEFAULT_SERVICE_TIER, PERSONAL_PROJECT_ID } from "@bb/domain";
+import { DEFAULT_SERVICE_TIER, PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import type {
   EnvironmentArgs,
   ProviderEnvironmentArgs,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { WorkSessionDeps } from "../../types.js";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";

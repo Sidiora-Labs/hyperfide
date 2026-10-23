@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { bbAppManagedEnvFileSchema } from "@bb/config/bb-app-managed-config";
+import { bbAppManagedEnvFileSchema } from "@hyperfide/config/bb-app-managed-config";
 import { readFile } from "node:fs/promises";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
+import { mutateManagedJsonFile } from "@hyperfide/config/managed-json-file";
 import {
   chmodSync,
   existsSync,

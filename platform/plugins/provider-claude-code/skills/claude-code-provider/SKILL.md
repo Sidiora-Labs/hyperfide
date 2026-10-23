@@ -37,7 +37,7 @@ with `bb plugin config provider-claude-code set <key> <value>`.
   bb runs Claude Code's Bash commands in its sandbox. Set it to `false` to use
   Claude Code's own command approvals and sandbox settings instead. A change
   restarts the thread's Claude process before its next turn, preserving context.
-- bb passes only `BB_CLAUDE_CODE_EXECUTABLE` and `CLAUDE_CODE_OAUTH_TOKEN` to
+- bb passes only `HYPERFIDE_CLAUDE_CODE_EXECUTABLE` and `CLAUDE_CODE_OAUTH_TOKEN` to
   the CLI. Mint the token with `claude setup-token` for machines with no
   interactive login.
 - Claude Code's own slash commands, including bundled skills such as

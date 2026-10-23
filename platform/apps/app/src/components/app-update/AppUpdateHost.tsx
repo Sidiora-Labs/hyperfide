@@ -6,8 +6,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { SystemAppUpdateResult } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
+import type { SystemAppUpdateResult } from "@hyperfide/server-contract";
+import { Button } from "@hyperfide/shared-ui/button";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +15,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@hyperfide/shared-ui/dialog";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { appToast } from "@/components/ui/app-toast";
 import { CopyButton } from "@/components/ui/copy-button";
 import { useAcknowledgeAppUpdate } from "@/hooks/mutations/app-update-mutations";

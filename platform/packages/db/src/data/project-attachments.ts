@@ -3,7 +3,7 @@ import { and, asc, eq, isNull, lt, notExists, sql } from "drizzle-orm";
 import {
   ProjectAttachmentError,
   type ProjectAttachmentOwnershipMode,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { DbConnection, DbQueryConnection } from "../connection.js";
 import {
   projectAttachments,

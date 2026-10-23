@@ -7,7 +7,7 @@ import type {
   PluginInteractionLifecycle,
   ThreadEventItemPresentation,
   UserQuestionInteractionLifecycle,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   THREAD_CONTEXT_CLEAR_OPERATION,
   THREAD_CONTEXT_CLEARED_DETAIL,
@@ -15,7 +15,7 @@ import {
   isPluginInteractionLifecycle,
   isUserQuestionInteractionLifecycle,
   ownershipChangeOperationMetadataSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { assertNever } from "./assert-never.js";
 import { getCompactionKey } from "./compaction-lifecycle.js";
 import { OWNERSHIP_CHANGE_VERBS } from "./family-a-verbs.js";

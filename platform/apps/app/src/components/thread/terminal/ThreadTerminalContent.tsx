@@ -1,4 +1,4 @@
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@hyperfide/shared-ui/button";
 import type { MarkdownPreviewLinkHandler } from "@/components/ui/markdown-link";
 import {
   SHORT_LIVED_STATUS_DELAY_MS,

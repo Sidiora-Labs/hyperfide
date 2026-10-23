@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
-import { jsonObjectSchema } from "@bb/domain";
+import { jsonObjectSchema } from "@hyperfide/domain";
 import { z } from "zod";
 
 type CdpObject = z.infer<typeof jsonObjectSchema>;

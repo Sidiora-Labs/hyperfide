@@ -5,7 +5,7 @@
   "title": "question-form-draft",
   "description": "BB ui \"question-form-draft\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/question-form-state"
+    "@hyperfide/question-form-state"
   ],
   "files": [
     {

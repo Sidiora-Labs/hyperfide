@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { defaultResolvedCodeTheme } from "@bb/domain";
+import { defaultResolvedCodeTheme } from "@hyperfide/domain";
 import { resolveTheme } from "@pierre/diffs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyResolvedCodeTheme } from "./code-theme";

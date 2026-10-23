@@ -3,7 +3,7 @@ import type {
   ExperimentalComposerCommandSuggestion,
   ExperimentalComposerMentionSuggestion,
   ExperimentalComposerThreadRelation,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { MentionMenu } from "./MentionMenu";
 import type {
   CommandMenuState,

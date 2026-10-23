@@ -3,7 +3,7 @@ import {
   isBackgroundAgentTaskType,
   isBackgroundCommandTaskType,
   isSettledWorkflowAgentState,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   TimelineActivityIntent,
   TimelineApprovalStatus,
@@ -22,7 +22,7 @@ import type {
   TimelineToolWorkRow,
   TimelineWebFetchWorkRow,
   TimelineWebSearchWorkRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { assertNever } from "./assert-never.js";
 import { OWNERSHIP_CHANGE_VERBS } from "./family-a-verbs.js";
 import {

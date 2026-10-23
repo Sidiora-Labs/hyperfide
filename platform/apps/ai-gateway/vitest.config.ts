@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     silent: "passed-only",
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "@bb/ai-gateway",
+      name: "@hyperfide/ai-gateway",
       include: ["src/**/*.test.ts", "test/**/*.test.ts"],
     }),
   },

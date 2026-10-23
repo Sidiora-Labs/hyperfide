@@ -1,6 +1,6 @@
-import type { Environment, WorkspaceStatus } from "@bb/domain";
-import { makeWorkspaceStatus as makeSharedWorkspaceStatus } from "@bb/test-helpers";
-import { makeEnvironment } from "@bb/test-helpers/domain-fixtures";
+import type { Environment, WorkspaceStatus } from "@hyperfide/domain";
+import { makeWorkspaceStatus as makeSharedWorkspaceStatus } from "@hyperfide/test-helpers";
+import { makeEnvironment } from "@hyperfide/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import {
   resolveEffectiveMergeBaseBranch,

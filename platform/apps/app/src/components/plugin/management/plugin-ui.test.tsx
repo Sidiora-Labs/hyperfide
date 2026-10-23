@@ -2,7 +2,7 @@
 
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import { PLUGIN_CATALOG_CATEGORIES } from "@bb/domain";
+import { PLUGIN_CATALOG_CATEGORIES } from "@hyperfide/domain";
 import {
   CatalogEntryIcon,
   CatalogEntryIconChip,

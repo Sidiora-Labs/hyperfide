@@ -8,7 +8,7 @@ import { MemoryRouter } from "react-router-dom";
 import { z } from "zod";
 import { AppToaster } from "../src/components/AppToaster";
 import { RouteNavigationProvider } from "../src/components/ui/app-route-anchor";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { setPreferredTheme } from "../src/hooks/useTheme";
 import {
   createDiffWorker,

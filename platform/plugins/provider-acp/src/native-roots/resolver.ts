@@ -1,4 +1,4 @@
-import type { ExperimentalNativeRootsResolveAnswer } from "@get-bb/plugin-sdk/host";
+import type { ExperimentalNativeRootsResolveAnswer } from "@hyperfide/plugin-sdk/host";
 
 export type AcpNativeRootsEnvironment = Readonly<
   Record<string, string | undefined>

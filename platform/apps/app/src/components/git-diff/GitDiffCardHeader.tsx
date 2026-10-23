@@ -1,14 +1,14 @@
 import { useMemo, type ReactNode } from "react";
-import type { GitDiffFileChangeKind } from "@bb/server-contract";
+import type { GitDiffFileChangeKind } from "@hyperfide/server-contract";
 import { CopyButton } from "@/components/ui/copy-button.js";
 import { DiffStatsTally } from "@/components/ui/diff-stats-tally.js";
 import { FilePathLink } from "@/components/ui/file-path-link.js";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { OpenInEditorButton } from "@/components/ui/open-in-editor-button.js";
-import { TruncateStart } from "@bb/shared-ui/truncate-start";
+import { TruncateStart } from "@hyperfide/shared-ui/truncate-start";
 import { resolveAbsoluteFilePath } from "@/lib/absolute-file-path";
 import { formatByteSize } from "@/lib/format-byte-size";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { DiffImageSizeStat } from "./GitDiffCardBody";
 
 export interface GitDiffCardHeaderModel {

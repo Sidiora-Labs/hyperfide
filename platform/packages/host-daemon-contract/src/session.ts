@@ -17,9 +17,9 @@ import {
   threadEventSchema,
   toolCallRequestSchema,
   toolCallResponseSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
-import type { Endpoint } from "@bb/hono-typed-routes";
+import type { Endpoint } from "@hyperfide/hono-typed-routes";
 import type {
   HostDaemonOnlineRpcCommandType,
   HostDaemonSettledCommandType,

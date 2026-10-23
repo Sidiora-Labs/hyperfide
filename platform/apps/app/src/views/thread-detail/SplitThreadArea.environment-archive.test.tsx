@@ -12,11 +12,11 @@ import { useContext } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { LocationProbe } from "@/test/location-probe";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import {
   makeThread,
   makeThreadListEntry,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@hyperfide/test-helpers/domain-fixtures";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   sidebarNavigationQueryKey,

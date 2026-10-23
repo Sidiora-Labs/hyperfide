@@ -10,11 +10,11 @@ const KILL_GRACE_MS = 2_000;
 const CLOSE_GRACE_MS = 1_000;
 export const MAX_CONCURRENT_CLI_PROCESSES = 8;
 const STRIPPED_ENVIRONMENT_KEYS = [
-  "BB_THREAD_ID",
-  "BB_PROJECT_ID",
-  "BB_ENVIRONMENT_ID",
-  "BB_THREAD_STORAGE",
-  "BB_SERVER_HEADERS",
+  "HYPERFIDE_THREAD_ID",
+  "HYPERFIDE_PROJECT_ID",
+  "HYPERFIDE_ENVIRONMENT_ID",
+  "HYPERFIDE_THREAD_STORAGE",
+  "HYPERFIDE_SERVER_HEADERS",
 ];
 
 export interface CliRunResult {
@@ -50,9 +50,9 @@ export function bbBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
   const pushIfAbsolute = (candidate: string): void => {
     if (isAbsolute(candidate)) candidates.push(candidate);
   };
-  const fromCli = env.BB_CLI?.trim();
+  const fromCli = env.HYPERFIDE_CLI?.trim();
   if (fromCli !== undefined && fromCli.length > 0) pushIfAbsolute(fromCli);
-  const fromCliDir = env.BB_CLI_DIR?.trim();
+  const fromCliDir = env.HYPERFIDE_CLI_DIR?.trim();
   if (fromCliDir !== undefined && fromCliDir.length > 0) {
     pushIfAbsolute(join(fromCliDir, "bb"));
   }
@@ -89,7 +89,7 @@ export function cliEnvironment(
 ): NodeJS.ProcessEnv {
   const next: NodeJS.ProcessEnv = { ...env };
   for (const key of STRIPPED_ENVIRONMENT_KEYS) delete next[key];
-  next.BB_SERVER_URL = serverUrl;
+  next.HYPERFIDE_SERVER_URL = serverUrl;
   next.NO_COLOR = "1";
   next.FORCE_COLOR = "0";
   return next;

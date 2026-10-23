@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { BbDesktopServerChoice } from "@bb/desktop-contract";
+import type { BbDesktopServerChoice } from "@hyperfide/desktop-contract";
 import {
   BUILTIN_SERVER_NAME,
   type ConnectServerRef,

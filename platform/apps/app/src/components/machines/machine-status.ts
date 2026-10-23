@@ -1,4 +1,4 @@
-import type { Host, MachineLifecycle } from "@bb/domain";
+import type { Host, MachineLifecycle } from "@hyperfide/domain";
 import { formatRelativeTime } from "@/lib/relative-time";
 
 export type MachineStatusTone = "online" | "attention" | "failed" | "offline";

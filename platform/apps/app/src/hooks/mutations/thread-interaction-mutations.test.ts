@@ -1,10 +1,10 @@
 import { MutationObserver } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { HttpError } from "@/lib/api";
 import { createAppQueryClient } from "@/lib/query-client";
 import { sdk } from "@/lib/sdk";
-import type { PendingInteraction } from "@bb/domain";
+import type { PendingInteraction } from "@hyperfide/domain";
 import { threadPendingInteractionsQueryKey } from "../queries/query-keys";
 import {
   resolveThreadPendingInteractionMutationOptions,

@@ -4,7 +4,7 @@ import {
   defineCli,
   defineRpcContract,
   type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import {
   ACP_REGISTRY_URL,

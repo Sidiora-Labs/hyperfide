@@ -2,12 +2,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { writeBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import {
   SERVER_MOVED_FILE_NAME,
   writeServerMovedFile,
   type ServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyServerMove,
@@ -27,7 +27,7 @@ import {
   createServerTargetStore,
   type ServerTargetFs,
 } from "../src/server-target.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 const tempDirs: string[] = [];
 

@@ -5,8 +5,8 @@ import type {
   LauncherAppUpdateStatus,
   ServerToLauncherMessage,
   SourceUpdateCheck,
-} from "@bb/config/app-update";
-import type { SystemVersionResponse } from "@bb/server-contract";
+} from "@hyperfide/config/app-update";
+import type { SystemVersionResponse } from "@hyperfide/server-contract";
 import { ApiError } from "../../src/errors.js";
 import { createAppUpdateService } from "../../src/services/system/app-update.js";
 import type { AppVersionService } from "../../src/services/system/app-version.js";

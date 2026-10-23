@@ -9,15 +9,15 @@ import {
   ResourceInfiniteScrollSentinel,
   useResourceInfiniteItems,
   RESOURCE_GRID_PAGE_SIZE,
-} from "@bb/shared-ui/resource-pagination";
+} from "@hyperfide/shared-ui/resource-pagination";
 import {
   ResourceCollectionPage,
   ResourceCollectionViewport,
   ResourceListState,
-} from "@bb/shared-ui/resource-list";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@hyperfide/shared-ui/resource-list";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import { PluginCreateButton } from "./PluginCreateButton";
-import { CREATE_PLUGIN_PROMPT } from "@bb/client-core";
+import { CREATE_PLUGIN_PROMPT } from "@hyperfide/client-core";
 import { TOOLS_PAGE_BAND_CLASSES } from "@/components/tools/tools-navigation";
 import {
   AddPluginDialog,

@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { isPluginOwnedIconPath, pluginPackageJsonSchema } from "@bb/domain";
+import { isPluginOwnedIconPath, pluginPackageJsonSchema } from "@hyperfide/domain";
 import { buildPluginApp } from "./build-plugin-app.js";
 import { buildPluginServer } from "./build-plugin-server.js";
 import { buildPluginHost } from "./build-plugin-host.js";

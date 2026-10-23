@@ -1,5 +1,5 @@
 import { assertMachineLifecycleAdmission } from "../machines/lifecycle.js";
-import { getHost } from "@bb/db";
+import { getHost } from "@hyperfide/db";
 import type { WorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import { requireConnectedHostSession } from "../lib/entity-lookup.js";

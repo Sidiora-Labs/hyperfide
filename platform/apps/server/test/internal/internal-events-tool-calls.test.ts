@@ -12,13 +12,13 @@ import {
   listEnvironments,
   listQueuedThreadMessages,
   threads,
-} from "@bb/db";
-import { threadScope, turnScope, type ToolCallResponse } from "@bb/domain";
+} from "@hyperfide/db";
+import { threadScope, turnScope, type ToolCallResponse } from "@hyperfide/domain";
 import {
   groupHostDaemonEvents,
   hostDaemonEventBatchResponseSchema,
   type HostDaemonEventEnvelope,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { describe, expect, it, vi } from "vitest";
 import { serve } from "@hono/node-server";
 import {

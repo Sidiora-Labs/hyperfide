@@ -2,9 +2,9 @@ import { StringDecoder } from "node:string_decoder";
 import {
   DEFAULT_ENV_SETUP_SCRIPT_NAME,
   DEFAULT_ENV_TEARDOWN_SCRIPT_NAME,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { operationEnvironment } from "./operation-environment.js";
-import type { HostDaemonContributedEnvEntry } from "@bb/host-daemon-contract";
+import type { HostDaemonContributedEnvEntry } from "@hyperfide/host-daemon-contract";
 import {
   execPortableFile,
   isProcessGroupAlive,
@@ -12,7 +12,7 @@ import {
   spawnPortableOutputProcess,
   supportsProcessGroups,
   type ProcessStopResult,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 import {
   findGitBashProcessGroup,
   stopGitBashProcessGroup,

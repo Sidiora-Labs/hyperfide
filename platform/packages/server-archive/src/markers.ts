@@ -1,6 +1,6 @@
 import { rm, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { lastServerMoveSchema, serverMoveModeSchema } from "@bb/domain";
+import { lastServerMoveSchema, serverMoveModeSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import { hasErrorCode } from "./errors.js";
 import { readJsonFile, writeJsonFileAtomically } from "./json-file.js";

@@ -8,7 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { focusWithKeyboard } from "@/test/keyboard-focus";
@@ -16,7 +16,7 @@ import {
   hostsQueryKey,
   systemMachineProvidersQueryKey,
 } from "@/hooks/queries/query-keys";
-import { makeEnvironment, makeThread } from "@bb/test-helpers/domain-fixtures";
+import { makeEnvironment, makeThread } from "@hyperfide/test-helpers/domain-fixtures";
 import { EnvironmentRow, ThreadMetadataCard } from "./ThreadMetadataContent";
 
 afterEach(() => {

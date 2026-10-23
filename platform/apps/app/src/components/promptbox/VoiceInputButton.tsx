@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState, type ComponentProps } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Button } from "@bb/shared-ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { Icon } from "@bb/shared-ui/icon";
-import { Popover, PopoverAnchor } from "@bb/shared-ui/popover";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@hyperfide/shared-ui/tooltip";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { Popover, PopoverAnchor } from "@hyperfide/shared-ui/popover";
 import { MicrophonePreferencesSplit } from "./MicrophonePreferencesSplit";
 import { MicrophonePreferencesPopoverContent } from "./MicrophonePreferencesPopoverContent";
 

@@ -4,7 +4,7 @@ import {
   defineCli,
   type BbPluginApi,
   type JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { mcpAccessProblem } from "./access.js";
 import { createCliRunner } from "./cli-runner.js";

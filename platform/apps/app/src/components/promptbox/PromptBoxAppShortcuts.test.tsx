@@ -4,7 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerComposerPlugin } from "@/test/fixtures/composer-plugin";
 import { ComposerTestProviders } from "@/test/fixtures/composer-test-providers";
-import { defaultAppSettings, type AppShortcut } from "@bb/domain";
+import { defaultAppSettings, type AppShortcut } from "@hyperfide/domain";
 import {
   AppCommandProvider,
   useAppCommandHandler,

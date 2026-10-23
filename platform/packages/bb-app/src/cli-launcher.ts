@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative } from "node:path";
-import { CLI_LAUNCHER_MARKER } from "@bb/config/cli-command";
+import { CLI_LAUNCHER_MARKER } from "@hyperfide/config/cli-command";
 
 const CLI_LAUNCHER_MOVED_MESSAGE =
   "bb has moved or been removed. Start bb once to update this command.";

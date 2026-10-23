@@ -47,11 +47,11 @@ vi.mock("@/components/ui/bottom-anchored-scroll-body.js", () => ({
   }),
 }));
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@hyperfide/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => mocks.isCompactViewport,
 }));
 
-vi.mock("@bb/shared-ui/hooks/use-pointer-coarse", () => ({
+vi.mock("@hyperfide/shared-ui/hooks/use-pointer-coarse", () => ({
   usePointerCoarse: () => mocks.isPointerCoarse,
 }));
 
@@ -84,9 +84,9 @@ vi.mock("@/components/promptbox/ComposerBox", async () => {
   const { ComposerCommand, ComposerCommandOwnerProvider } =
     await import("@/components/promptbox/composer-commands");
   const { useIsCompactViewport } =
-    await import("@bb/shared-ui/hooks/use-compact-viewport");
+    await import("@hyperfide/shared-ui/hooks/use-compact-viewport");
   const { usePointerCoarse } =
-    await import("@bb/shared-ui/hooks/use-pointer-coarse");
+    await import("@hyperfide/shared-ui/hooks/use-pointer-coarse");
   function useBlursOnPointerSubmit(surface: "thread" | "new-thread") {
     const isCompactViewport = useIsCompactViewport();
     const isPointerCoarse = usePointerCoarse();

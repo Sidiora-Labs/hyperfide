@@ -1,4 +1,4 @@
-import type { RealtimeSubscriptionTarget } from "@bb/server-contract";
+import type { RealtimeSubscriptionTarget } from "@hyperfide/server-contract";
 import { useEffect } from "react";
 import { useProfileClient } from "@/app-shell/ProfilesProvider";
 

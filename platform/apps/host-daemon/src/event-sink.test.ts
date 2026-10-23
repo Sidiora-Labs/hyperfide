@@ -1,5 +1,5 @@
-import { threadScope, turnScope } from "@bb/domain";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { threadScope, turnScope } from "@hyperfide/domain";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createEventSink,

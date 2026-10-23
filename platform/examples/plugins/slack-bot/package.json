@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-slack-bot",
+  "name": "hyperfide-plugin-slack-bot",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,7 +22,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
     "@types/node": "^22.0.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^4.1.1"

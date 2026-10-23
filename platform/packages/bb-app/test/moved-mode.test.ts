@@ -9,7 +9,7 @@ import {
   type ServerMovedFile,
   writeServerImportFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   parseLauncherArgs,
   readServerMoveMarkers,

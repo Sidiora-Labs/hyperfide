@@ -2,8 +2,8 @@ import { registerUsageSource } from "./src/usage-source.js";
 import type {
   BbPluginApi,
   PluginProviderDeclaration,
-} from "@get-bb/plugin-sdk";
-import type { AcpAgentProbe } from "@get-bb/plugin-sdk/provider-bridge/acp";
+} from "@hyperfide/plugin-sdk";
+import type { AcpAgentProbe } from "@hyperfide/plugin-sdk/provider-bridge/acp";
 import { z } from "zod";
 import { type AcpAgentDefinition } from "./src/agents.js";
 import { resolveConfiguredAcpAgents } from "./src/configured-agents.js";

@@ -1,7 +1,7 @@
-import { updateHost } from "@bb/db";
+import { updateHost } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
-import type { WorkspaceWorkingTree } from "@bb/domain";
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
+import type { WorkspaceWorkingTree } from "@hyperfide/domain";
+import type { HostDaemonOnlineRpcResult } from "@hyperfide/host-daemon-contract";
 import {
   listQueuedCommands,
   reportQueuedCommandSuccess,

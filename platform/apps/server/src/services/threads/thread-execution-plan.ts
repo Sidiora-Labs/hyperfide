@@ -3,7 +3,7 @@ import {
   getProjectExecutionDefaults,
   getQueuedThreadStartMessage,
   getThread,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   DEFAULT_SERVICE_TIER,
   isStandardReasoningLevel,
@@ -18,7 +18,7 @@ import {
   type ServiceTier,
   type ThreadExecutionSource,
   type Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";

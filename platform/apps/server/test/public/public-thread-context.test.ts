@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { insertEvents, setExperiments } from "@bb/db";
+import { insertEvents, setExperiments } from "@hyperfide/db";
 import {
   THREAD_CONTEXT_CLEAR_OPERATION,
   threadScope,
   turnScope,
   type ContextSnapshot,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { seedThreadFixture } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
 

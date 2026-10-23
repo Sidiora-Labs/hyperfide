@@ -5,9 +5,9 @@
   "title": "pagination",
   "description": "BB ui \"pagination\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/icon",
+    "@hyperfide/utils"
   ],
   "files": [
     {

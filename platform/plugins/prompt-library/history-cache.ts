@@ -1,4 +1,4 @@
-import type { BbPluginApi, ComposerDraftReplacement } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, ComposerDraftReplacement } from "@hyperfide/plugin-sdk";
 import { promptFromHistory, type HistoryEntry } from "./history-prompt.js";
 
 type ListHistory = BbPluginApi["sdk"]["experimental_promptHistory"]["list"];

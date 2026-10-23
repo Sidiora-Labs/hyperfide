@@ -92,7 +92,7 @@ importers:
 
   apps/ai-gateway:
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@cloudflare/workers-types':
@@ -116,49 +116,49 @@ importers:
 
   apps/app:
     dependencies:
-      '@bb/client-core':
+      '@hyperfide/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@bb/core-ui':
+      '@hyperfide/core-ui':
         specifier: workspace:*
         version: link:../../packages/core-ui
-      '@bb/desktop-contract':
+      '@hyperfide/desktop-contract':
         specifier: workspace:*
         version: link:../../packages/desktop-contract
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/fuzzy-match':
+      '@hyperfide/fuzzy-match':
         specifier: workspace:*
         version: link:../../packages/fuzzy-match
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../../packages/host-daemon-contract
-      '@bb/mobile-bridge':
+      '@hyperfide/mobile-bridge':
         specifier: workspace:*
         version: link:../../packages/mobile-bridge
-      '@bb/query-tags':
+      '@hyperfide/query-tags':
         specifier: workspace:*
         version: link:../../packages/query-tags
-      '@bb/sdk':
+      '@hyperfide/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
-      '@bb/templates':
+      '@hyperfide/templates':
         specifier: workspace:*
         version: link:../../packages/templates
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../../packages/text-utils
-      '@bb/thread-view':
+      '@hyperfide/thread-view':
         specifier: workspace:*
         version: link:../../packages/thread-view
       '@dnd-kit/core':
@@ -173,7 +173,7 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@pierre/diffs':
@@ -375,13 +375,13 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-registry':
+      '@hyperfide/plugin-registry':
         specifier: workspace:*
         version: link:../../packages/plugin-registry
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@ladle/react':
@@ -492,40 +492,40 @@ importers:
 
   apps/cli:
     dependencies:
-      '@bb/client-core':
+      '@hyperfide/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@bb/core-ui':
+      '@hyperfide/core-ui':
         specifier: workspace:*
         version: link:../../packages/core-ui
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../../packages/host-daemon-contract
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@bb/sdk':
+      '@hyperfide/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@bb/server-archive':
+      '@hyperfide/server-archive':
         specifier: workspace:*
         version: link:../../packages/server-archive
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
-      '@bb/templates':
+      '@hyperfide/templates':
         specifier: workspace:*
         version: link:../../packages/templates
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../../packages/text-utils
-      '@bb/thread-view':
+      '@hyperfide/thread-view':
         specifier: workspace:*
         version: link:../../packages/thread-view
       bb-plugin-bb--github-pr-status:
@@ -547,10 +547,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@tailwindcss/node':
@@ -580,20 +580,20 @@ importers:
 
   apps/demo-server:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/app':
+      '@hyperfide/app':
         specifier: workspace:*
         version: link:../app
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@cloudflare/workers-types':
@@ -626,7 +626,7 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../../packages/host-daemon-contract
       bb-app:
@@ -645,28 +645,28 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@bb/desktop-contract':
+      '@hyperfide/desktop-contract':
         specifier: workspace:*
         version: link:../../packages/desktop-contract
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/server-archive':
+      '@hyperfide/server-archive':
         specifier: workspace:*
         version: link:../../packages/server-archive
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../../packages/text-utils
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@types/node':
@@ -711,46 +711,46 @@ importers:
 
   apps/host-daemon:
     dependencies:
-      '@bb/agent-runtime':
+      '@hyperfide/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
-      '@bb/cli':
+      '@hyperfide/cli':
         specifier: workspace:*
         version: link:../cli
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/fuzzy-match':
+      '@hyperfide/fuzzy-match':
         specifier: workspace:*
         version: link:../../packages/fuzzy-match
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../../packages/host-daemon-contract
-      '@bb/host-watcher':
+      '@hyperfide/host-watcher':
         specifier: workspace:*
         version: link:../../packages/host-watcher
-      '@bb/host-workspace':
+      '@hyperfide/host-workspace':
         specifier: workspace:*
         version: link:../../packages/host-workspace
-      '@bb/local-open-targets':
+      '@hyperfide/local-open-targets':
         specifier: workspace:*
         version: link:../../packages/local-open-targets
-      '@bb/logger':
+      '@hyperfide/logger':
         specifier: workspace:*
         version: link:../../packages/logger
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../../packages/process-utils
-      '@bb/provider-bridge-protocol':
+      '@hyperfide/provider-bridge-protocol':
         specifier: workspace:*
         version: link:../../packages/provider-bridge-protocol
-      '@bb/server-archive':
+      '@hyperfide/server-archive':
         specifier: workspace:*
         version: link:../../packages/server-archive
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../../packages/text-utils
       '@hono/node-server':
@@ -799,16 +799,16 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@bb/scripts':
+      '@hyperfide/scripts':
         specifier: workspace:*
         version: link:../../packages/scripts
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@types/mime-types':
@@ -838,22 +838,22 @@ importers:
 
   apps/mobile:
     dependencies:
-      '@bb/client-core':
+      '@hyperfide/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
-      '@bb/core-ui':
+      '@hyperfide/core-ui':
         specifier: workspace:*
         version: link:../../packages/core-ui
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/mobile-bridge':
+      '@hyperfide/mobile-bridge':
         specifier: workspace:*
         version: link:../../packages/mobile-bridge
-      '@bb/sdk':
+      '@hyperfide/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
       '@expo/ui':
@@ -980,10 +980,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@tailwindcss/postcss':
@@ -1028,49 +1028,49 @@ importers:
 
   apps/server:
     dependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@bb/core-ui':
+      '@hyperfide/core-ui':
         specifier: workspace:*
         version: link:../../packages/core-ui
-      '@bb/db':
+      '@hyperfide/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../../packages/host-daemon-contract
-      '@bb/logger':
+      '@hyperfide/logger':
         specifier: workspace:*
         version: link:../../packages/logger
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../../packages/process-utils
-      '@bb/sdk':
+      '@hyperfide/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
-      '@bb/secret-storage':
+      '@hyperfide/secret-storage':
         specifier: workspace:*
         version: link:../../packages/secret-storage
-      '@bb/server-archive':
+      '@hyperfide/server-archive':
         specifier: workspace:*
         version: link:../../packages/server-archive
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
-      '@bb/templates':
+      '@hyperfide/templates':
         specifier: workspace:*
         version: link:../../packages/templates
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../../packages/text-utils
-      '@bb/thread-view':
+      '@hyperfide/thread-view':
         specifier: workspace:*
         version: link:../../packages/thread-view
       '@better-auth/api-key':
@@ -1079,7 +1079,7 @@ importers:
       '@better-auth/drizzle-adapter':
         specifier: ^1.6.23
         version: 1.6.23(@better-auth/core@1.6.23(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@4.20260702.1)(@opentelemetry/api@1.9.1)(better-call@1.3.7(zod@4.6.5))(jose@6.2.3)(kysely@0.29.3)(nanostores@1.2.0))(@better-auth/utils@0.4.2)(drizzle-orm@0.38.4(@cloudflare/workers-types@4.20260702.1)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/react@19.2.13)(better-sqlite3@12.10.0)(kysely@0.29.3)(react@19.2.4))
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@hono/node-server':
@@ -1134,19 +1134,19 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/agent-runtime':
+      '@hyperfide/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
-      '@bb/client-core':
+      '@hyperfide/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
-      '@bb/scripts':
+      '@hyperfide/scripts':
         specifier: workspace:*
         version: link:../../packages/scripts
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@types/better-sqlite3':
@@ -1188,7 +1188,7 @@ importers:
 
   examples/plugins/composer-customization:
     devDependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       '@types/react':
@@ -1206,10 +1206,10 @@ importers:
 
   examples/plugins/content-script:
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../../packages/tsconfig
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       typescript:
@@ -1218,7 +1218,7 @@ importers:
 
   examples/plugins/echo-provider:
     dependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       zod:
@@ -1240,7 +1240,7 @@ importers:
 
   examples/plugins/replacement-lab-alpha:
     devDependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       '@types/react':
@@ -1258,7 +1258,7 @@ importers:
 
   examples/plugins/replacement-lab-beta:
     devDependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       '@types/react':
@@ -1276,7 +1276,7 @@ importers:
 
   examples/plugins/slack-bot:
     devDependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       '@types/node':
@@ -1291,7 +1291,7 @@ importers:
 
   examples/plugins/thread-chat-demo:
     devDependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../../packages/plugin-sdk
       '@types/react':
@@ -1309,29 +1309,29 @@ importers:
 
   packages/agent-runtime:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
-      '@bb/provider-bridge-protocol':
+      '@hyperfide/provider-bridge-protocol':
         specifier: workspace:*
         version: link:../provider-bridge-protocol
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../plugin-build
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
       '@types/node':
@@ -1389,19 +1389,19 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../config
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../host-daemon-contract
-      '@bb/sdk':
+      '@hyperfide/sdk':
         specifier: workspace:*
         version: link:../sdk
-      '@bb/server-archive':
+      '@hyperfide/server-archive':
         specifier: workspace:*
         version: link:../server-archive
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1566,35 +1566,35 @@ importers:
 
   packages/client-core:
     dependencies:
-      '@bb/core-ui':
+      '@hyperfide/core-ui':
         specifier: workspace:*
         version: link:../core-ui
-      '@bb/desktop-contract':
+      '@hyperfide/desktop-contract':
         specifier: workspace:*
         version: link:../desktop-contract
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/fuzzy-match':
+      '@hyperfide/fuzzy-match':
         specifier: workspace:*
         version: link:../fuzzy-match
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../server-contract
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../text-utils
-      '@bb/thread-view':
+      '@hyperfide/thread-view':
         specifier: workspace:*
         version: link:../thread-view
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1609,10 +1609,10 @@ importers:
 
   packages/config:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
       fs-native-extensions:
@@ -1622,7 +1622,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1637,11 +1637,11 @@ importers:
 
   packages/core-ui:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1656,13 +1656,13 @@ importers:
 
   packages/db:
     dependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../config
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../text-utils
       better-sqlite3:
@@ -1675,7 +1675,7 @@ importers:
         specifier: ^5.0.9
         version: 5.1.6
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/better-sqlite3':
@@ -1699,17 +1699,17 @@ importers:
 
   packages/desktop-contract:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../host-daemon-contract
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsrs:
@@ -1725,7 +1725,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1740,14 +1740,14 @@ importers:
 
   packages/environment-provider-host:
     dependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1766,7 +1766,7 @@ importers:
         specifier: ^0.5.2
         version: 0.5.2
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsrs:
@@ -1781,7 +1781,7 @@ importers:
 
   packages/hono-typed-routes:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
       hono:
@@ -1791,7 +1791,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsrs:
@@ -1803,13 +1803,13 @@ importers:
 
   packages/host-daemon-contract:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/hono-typed-routes':
+      '@hyperfide/hono-typed-routes':
         specifier: workspace:*
         version: link:../hono-typed-routes
-      '@bb/provider-bridge-protocol':
+      '@hyperfide/provider-bridge-protocol':
         specifier: workspace:*
         version: link:../provider-bridge-protocol
       hono:
@@ -1819,10 +1819,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1837,20 +1837,20 @@ importers:
 
   packages/host-watcher:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
       '@parcel/watcher':
         specifier: 2.5.6
         version: 2.5.6
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1865,20 +1865,20 @@ importers:
 
   packages/host-workspace:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
       bb-environment-provider-host:
         specifier: workspace:*
         version: link:../environment-provider-host
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1893,17 +1893,17 @@ importers:
 
   packages/local-open-targets:
     dependencies:
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../host-daemon-contract
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1921,7 +1921,7 @@ importers:
 
   packages/logger:
     dependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../config
       pino:
@@ -1934,7 +1934,7 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -1953,7 +1953,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsrs:
@@ -1968,13 +1968,13 @@ importers:
 
   packages/plugin-build:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
       es-module-lexer:
@@ -1987,7 +1987,7 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@tailwindcss/node':
@@ -2017,10 +2017,10 @@ importers:
 
   packages/plugin-registry:
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../plugin-build
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@dnd-kit/core':
@@ -2032,7 +2032,7 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.4)
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../plugin-sdk
       '@radix-ui/react-accordion':
@@ -2171,28 +2171,28 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
-      '@bb/provider-bridge-acp':
+      '@hyperfide/provider-bridge-acp':
         specifier: workspace:*
         version: link:../provider-bridge-acp
-      '@bb/provider-bridge-protocol':
+      '@hyperfide/provider-bridge-protocol':
         specifier: workspace:*
         version: link:../provider-bridge-protocol
-      '@bb/query-tags':
+      '@hyperfide/query-tags':
         specifier: workspace:*
         version: link:../query-tags
-      '@bb/sdk':
+      '@hyperfide/sdk':
         specifier: workspace:*
         version: link:../sdk
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../server-contract
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@testing-library/react':
@@ -2256,7 +2256,7 @@ importers:
         specifier: 0.1.0
         version: 0.1.0
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/cross-spawn':
@@ -2280,20 +2280,20 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: 1.7.0
         version: 1.7.0(zod@4.6.5)
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
-      '@bb/provider-bridge-protocol':
+      '@hyperfide/provider-bridge-protocol':
         specifier: workspace:*
         version: link:../provider-bridge-protocol
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@modelcontextprotocol/sdk':
@@ -2314,13 +2314,13 @@ importers:
 
   packages/provider-bridge-protocol:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../text-utils
       semver:
@@ -2330,7 +2330,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2348,17 +2348,17 @@ importers:
 
   packages/provider-parity:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/provider-bridge-protocol':
+      '@hyperfide/provider-bridge-protocol':
         specifier: workspace:*
         version: link:../provider-bridge-protocol
-      '@bb/thread-view':
+      '@hyperfide/thread-view':
         specifier: workspace:*
         version: link:../thread-view
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2376,7 +2376,7 @@ importers:
 
   packages/query-tags:
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@tanstack/react-query':
@@ -2406,29 +2406,29 @@ importers:
 
   packages/scripts:
     dependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../config
-      '@bb/db':
+      '@hyperfide/db':
         specifier: workspace:*
         version: link:../db
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../host-daemon-contract
-      '@bb/process-utils':
+      '@hyperfide/process-utils':
         specifier: workspace:*
         version: link:../process-utils
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2449,22 +2449,22 @@ importers:
 
   packages/sdk:
     dependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../config
-      '@bb/core-ui':
+      '@hyperfide/core-ui':
         specifier: workspace:*
         version: link:../core-ui
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../host-daemon-contract
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../server-contract
-      '@bb/templates':
+      '@hyperfide/templates':
         specifier: workspace:*
         version: link:../templates
       ws:
@@ -2474,7 +2474,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2495,10 +2495,10 @@ importers:
 
   packages/secret-storage:
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2516,10 +2516,10 @@ importers:
 
   packages/server-archive:
     dependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../config
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
       tar:
@@ -2529,10 +2529,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2550,16 +2550,16 @@ importers:
 
   packages/server-contract:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/hono-typed-routes':
+      '@hyperfide/hono-typed-routes':
         specifier: workspace:*
         version: link:../hono-typed-routes
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../host-daemon-contract
-      '@bb/provider-bridge-protocol':
+      '@hyperfide/provider-bridge-protocol':
         specifier: workspace:*
         version: link:../provider-bridge-protocol
       hono:
@@ -2569,10 +2569,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../test-helpers
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2603,7 +2603,7 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@dnd-kit/core':
@@ -2738,7 +2738,7 @@ importers:
 
   packages/templates:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
       gray-matter:
@@ -2751,7 +2751,7 @@ importers:
         specifier: ^7.7.4
         version: 7.8.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2772,14 +2772,14 @@ importers:
 
   packages/test-helpers:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2797,7 +2797,7 @@ importers:
 
   packages/text-utils:
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       tsrs:
@@ -2812,20 +2812,20 @@ importers:
 
   packages/thread-view:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../domain
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../server-contract
-      '@bb/text-utils':
+      '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../text-utils
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
       '@types/node':
@@ -2842,7 +2842,7 @@ importers:
 
   plugins/account-pool:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@dnd-kit/core':
@@ -2861,10 +2861,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -2918,17 +2918,17 @@ importers:
 
   plugins/agent-annotations:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -2979,17 +2979,17 @@ importers:
 
   plugins/ask-user-question:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3040,7 +3040,7 @@ importers:
 
   plugins/automations:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@tanstack/react-query':
@@ -3056,10 +3056,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3114,10 +3114,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/node':
@@ -3135,10 +3135,10 @@ importers:
 
   plugins/bb-guide:
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/better-sqlite3':
@@ -3168,17 +3168,17 @@ importers:
 
   plugins/browser-automation:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3232,7 +3232,7 @@ importers:
 
   plugins/composer:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@tiptap/core':
@@ -3281,10 +3281,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3329,17 +3329,17 @@ importers:
 
   plugins/concurrency-limit:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3394,10 +3394,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/better-sqlite3':
@@ -3427,7 +3427,7 @@ importers:
 
   plugins/docs:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@hugeicons/core-free-icons':
@@ -3488,10 +3488,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3545,10 +3545,10 @@ importers:
 
   plugins/drafts:
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3602,7 +3602,7 @@ importers:
 
   plugins/environment-git-worktree:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       bb-environment-provider-host:
@@ -3612,10 +3612,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/react':
@@ -3648,7 +3648,7 @@ importers:
 
   plugins/environment-modal-sandbox:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       modal:
@@ -3661,10 +3661,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/better-sqlite3':
@@ -3710,10 +3710,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/better-sqlite3':
@@ -3743,7 +3743,7 @@ importers:
 
   plugins/environment-project-checkout:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       bb-environment-provider-host:
@@ -3753,10 +3753,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/react':
@@ -3789,17 +3789,17 @@ importers:
 
   plugins/github:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3860,10 +3860,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/node':
@@ -3881,17 +3881,17 @@ importers:
 
   plugins/inline-vis:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -3942,17 +3942,17 @@ importers:
 
   plugins/keep-awake:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4016,10 +4016,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@modelcontextprotocol/client':
@@ -4052,17 +4052,17 @@ importers:
 
   plugins/memory:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4113,7 +4113,7 @@ importers:
 
   plugins/monaco-editor:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       monaco-editor:
@@ -4123,10 +4123,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4183,14 +4183,14 @@ importers:
 
   plugins/navigation:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4232,10 +4232,10 @@ importers:
 
   plugins/pdf-preview:
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4274,7 +4274,7 @@ importers:
 
   plugins/plugin-api-docs:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@hugeicons/core-free-icons':
@@ -4284,10 +4284,10 @@ importers:
         specifier: ^1.1.6
         version: 1.1.6(react@19.2.4)
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4326,10 +4326,10 @@ importers:
 
   plugins/plugin-api-tester:
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4368,17 +4368,17 @@ importers:
 
   plugins/prompt-library:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4429,10 +4429,10 @@ importers:
 
   plugins/provider-acp:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       smol-toml:
@@ -4445,7 +4445,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
       '@testing-library/dom':
@@ -4499,7 +4499,7 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.3.245
         version: 0.3.245(@anthropic-ai/sdk@0.93.0(zod@4.6.5))(@modelcontextprotocol/sdk@1.29.0(zod@4.6.5))(zod@4.6.5)
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@modelcontextprotocol/sdk':
@@ -4512,7 +4512,7 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.93.0
         version: 0.93.0(zod@4.6.5)
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
       '@types/better-sqlite3':
@@ -4542,17 +4542,17 @@ importers:
 
   plugins/provider-codex:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
       '@testing-library/dom':
@@ -4603,10 +4603,10 @@ importers:
 
   plugins/provider-pi:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       which-command:
@@ -4616,7 +4616,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
       '@earendil-works/pi-ai':
@@ -4680,10 +4680,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/better-sqlite3':
@@ -4713,17 +4713,17 @@ importers:
 
   plugins/provider-usage:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4781,10 +4781,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4835,14 +4835,14 @@ importers:
 
   plugins/scheduled-send:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -4884,7 +4884,7 @@ importers:
 
   plugins/secrets:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@hugeicons/core-free-icons':
@@ -4897,10 +4897,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@types/better-sqlite3':
@@ -4939,17 +4939,17 @@ importers:
 
   plugins/side-chat:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -5003,20 +5003,20 @@ importers:
 
   plugins/storage-retention:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:^
         version: link:../../packages/domain
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/react':
@@ -5055,7 +5055,7 @@ importers:
 
   plugins/tasks:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@hugeicons/core-free-icons':
@@ -5113,10 +5113,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -5167,7 +5167,7 @@ importers:
 
   plugins/theme-preview:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@hugeicons/core-free-icons':
@@ -5180,10 +5180,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -5237,7 +5237,7 @@ importers:
 
   plugins/thread-list:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@dnd-kit/core':
@@ -5262,10 +5262,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -5322,7 +5322,7 @@ importers:
 
   plugins/workflows:
     dependencies:
-      '@bb/shared-ui':
+      '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../packages/shared-ui
       '@jitl/quickjs-singlefile-cjs-release-sync':
@@ -5344,10 +5344,10 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/plugin-build':
+      '@hyperfide/plugin-build':
         specifier: workspace:*
         version: link:../../packages/plugin-build
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@testing-library/dom':
@@ -5398,28 +5398,28 @@ importers:
 
   tests/integration:
     dependencies:
-      '@bb/config':
+      '@hyperfide/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@bb/db':
+      '@hyperfide/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/host-daemon':
+      '@hyperfide/host-daemon':
         specifier: workspace:*
         version: link:../../apps/host-daemon
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../../packages/host-daemon-contract
-      '@bb/server':
+      '@hyperfide/server':
         specifier: workspace:*
         version: link:../../apps/server
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
       '@hono/node-server':
@@ -5432,7 +5432,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@types/node':
@@ -5453,23 +5453,23 @@ importers:
 
   tests/qa:
     dependencies:
-      '@bb/domain':
+      '@hyperfide/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@bb/host-daemon-contract':
+      '@hyperfide/host-daemon-contract':
         specifier: workspace:*
         version: link:../../packages/host-daemon-contract
-      '@bb/server-contract':
+      '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../packages/server-contract
-      '@bb/test-helpers':
+      '@hyperfide/test-helpers':
         specifier: workspace:*
         version: link:../../packages/test-helpers
       zod:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
-      '@bb/tsconfig':
+      '@hyperfide/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
       '@types/node':
@@ -5493,7 +5493,7 @@ importers:
 
   tests/scripted-echo-provider:
     dependencies:
-      '@get-bb/plugin-sdk':
+      '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       zod:

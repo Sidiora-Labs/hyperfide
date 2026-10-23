@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { WorkspaceFile } from "@bb/server-contract";
+import type { WorkspaceFile } from "@hyperfide/server-contract";
 import { threadStorageAncestorPaths } from "./info/thread-storage-tree";
 
 const EMPTY_STORAGE_FILES: readonly WorkspaceFile[] = [];

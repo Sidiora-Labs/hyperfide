@@ -1,14 +1,14 @@
 import {
   realtimeSubscriptionTargetKey,
   type PluginReadSubscriptionTarget,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { logPluginBuildWarnings } from "./plugin-log.js";
 import type { MachineEnrollmentService } from "../machines/machine-services.js";
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   providerWithoutBridgeMessage,
   type NormalizedPluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk/internal/host-policy";
 import { createHash, randomUUID } from "node:crypto";
 import {
   createReadStream,
@@ -23,7 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire, registerHooks } from "node:module";
 import { performance } from "node:perf_hooks";
 import semver from "semver";
-import { HOST_ARTIFACT_MAX_BYTES } from "@bb/host-daemon-contract/protocol";
+import { HOST_ARTIFACT_MAX_BYTES } from "@hyperfide/host-daemon-contract/protocol";
 import {
   calculateExponentialBackoffDelay,
   isPluginOwnedIconPath,
@@ -32,8 +32,8 @@ import {
   PLUGIN_SDK_VERSION,
   type Thread,
   type ThreadQueuedMessage,
-} from "@bb/domain";
-import { buildPluginApp } from "@bb/plugin-build";
+} from "@hyperfide/domain";
+import { buildPluginApp } from "@hyperfide/plugin-build";
 import { PluginHostArtifactRegistry } from "./plugin-host-artifact-registry.js";
 import { getPluginBuildToolchain } from "./build-toolchain.js";
 import {
@@ -41,7 +41,7 @@ import {
   isMutableArtifactStale,
   isMutablePluginHostReusable,
 } from "./mutable-plugin-artifacts.js";
-import { createNodeBbSdk, type BbSdk } from "@bb/sdk";
+import { createNodeBbSdk, type BbSdk } from "@hyperfide/sdk";
 import {
   getInstalledPlugin,
   getPluginSafeMode,
@@ -49,7 +49,7 @@ import {
   prunePluginSchedules,
   upsertPluginSchedule,
   type InstalledPluginRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import { toThreadResponseFromThread } from "../threads/thread-runtime-display.js";
 import {
   brandingAssetHash,
@@ -75,7 +75,7 @@ import {
 import type {
   PluginHookName,
   PluginSettingDescriptors,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import type { PluginHookRegistration } from "./plugin-hook-registry.js";
 import type { PluginEnvironmentProviderRecord } from "./plugin-environment-provider-registry.js";
 import type { PluginMachineProviderRecord } from "./plugin-machine-provider-registry.js";
@@ -94,7 +94,7 @@ import {
 import type {
   PluginHandlerStats,
   PluginRuntimeStatus,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   LoadedPlugin,
   PluginServiceDeps,
@@ -111,9 +111,8 @@ import { createPluginRpcCallerRegistry } from "./plugin-rpc-caller.js";
 const serverRuntimeDir = dirname(fileURLToPath(import.meta.url));
 const pluginSdkRuntimePath = join(serverRuntimeDir, "plugin-sdk-runtime.js");
 const zodRuntimePath = join(serverRuntimeDir, "zod-runtime.js");
-const PLUGIN_SDK_SPECIFIER = "@get-bb/plugin-sdk";
+const PLUGIN_SDK_SPECIFIER = "@hyperfide/plugin-sdk";
 
-const LEGACY_PLUGIN_SDK_SPECIFIER = "@bb/plugin-sdk";
 const ZOD_SPECIFIER = "zod";
 
 async function hashFile(
@@ -135,7 +134,6 @@ const pluginSdkRuntimeEntry = existsSync(pluginSdkRuntimePath)
 const pluginRuntimeExternalUrls = new Map(
   Object.entries({
     [PLUGIN_SDK_SPECIFIER]: pluginSdkRuntimeEntry,
-    [LEGACY_PLUGIN_SDK_SPECIFIER]: pluginSdkRuntimeEntry,
     "better-sqlite3": runtimeRequire.resolve("better-sqlite3"),
   }).map(([specifier, path]) => [specifier, pathToFileURL(path).href]),
 );
@@ -1122,9 +1120,6 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
           toolchain: () => getPluginBuildToolchain(deps),
           runtimeImports: {
             [PLUGIN_SDK_SPECIFIER]: {
-              path: pluginSdkRuntimeEntry,
-            },
-            [LEGACY_PLUGIN_SDK_SPECIFIER]: {
               path: pluginSdkRuntimeEntry,
             },
             "better-sqlite3": {

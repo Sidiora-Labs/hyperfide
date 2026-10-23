@@ -1,6 +1,6 @@
 import { renderHookStatically } from "@/test/render-hook-statically";
 import { describe, expect, it, vi } from "vitest";
-import type { ExperimentalLiveFileTarget } from "@get-bb/plugin-sdk";
+import type { ExperimentalLiveFileTarget } from "@hyperfide/plugin-sdk";
 import {
   usePanelFiles,
   type PanelFileScope,

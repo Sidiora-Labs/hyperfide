@@ -1,14 +1,14 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { performance } from "node:perf_hooks";
-import { getExperiments } from "@bb/db";
-import type { ThreadEvent } from "@bb/domain";
+import { getExperiments } from "@hyperfide/db";
+import type { ThreadEvent } from "@hyperfide/domain";
 import {
   parseHostDaemonCommandResultForCommand,
   type HostDaemonCommand,
   type HostDaemonRpcCommand,
   type TurnSubmitTrace,
-} from "@bb/host-daemon-contract";
-import { roundDurationMs } from "@bb/process-utils";
+} from "@hyperfide/host-daemon-contract";
+import { roundDurationMs } from "@hyperfide/process-utils";
 import type { AppDeps, ServerLogger } from "../../types.js";
 
 const TURN_TRACE_OUTPUT_WAIT_MS = 120_000;

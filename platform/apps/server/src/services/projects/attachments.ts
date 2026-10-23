@@ -11,12 +11,12 @@ import {
   attachmentUnavailable,
   type DbConnection,
   type ProjectAttachmentRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   canonicalProjectAttachmentPath,
   pathLooksRuntimeReadable,
   PROMPT_ATTACHMENT_MAX_BYTES,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 // oxlint-disable-next-line no-restricted-imports
 import {
   mkdir,
@@ -27,9 +27,9 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { resolveContainedPath } from "@bb/process-utils";
-import type { PromptInput } from "@bb/domain";
-import type { UploadedPromptAttachment } from "@bb/server-contract";
+import { resolveContainedPath } from "@hyperfide/process-utils";
+import type { PromptInput } from "@hyperfide/domain";
+import type { UploadedPromptAttachment } from "@hyperfide/server-contract";
 import mimeTypes from "mime-types";
 import { ApiError } from "../../errors.js";
 import { requirePublicProject } from "../lib/entity-lookup.js";

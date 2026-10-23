@@ -28,8 +28,8 @@ turns it on. `bb workflows` commands must run from a BB project thread.
 Check an explicit model selection with:
 
 ```sh
-bb provider list --environment "$BB_ENVIRONMENT_ID" --json
-bb provider models <provider-id> --environment "$BB_ENVIRONMENT_ID" --json
+bb provider list --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
+bb provider models <provider-id> --environment "$HYPERFIDE_ENVIRONMENT_ID" --json
 ```
 
 Do not guess model identifiers or partial selection tuples.
@@ -90,7 +90,7 @@ After a successful agent-tool call, copy its previewDirective into the
 assistant response as one standalone line. Do not edit or repeat it.
 
 Use bb workflows status for compact progress. Redirect bounded history pages
-into BB_THREAD_STORAGE before inspection because history can contain full
+into HYPERFIDE_THREAD_STORAGE before inspection because history can contain full
 prompts and results.
 
 ## Quality check

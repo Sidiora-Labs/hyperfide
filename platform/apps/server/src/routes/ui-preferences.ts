@@ -3,12 +3,12 @@ import {
   parseUiPreferenceValue,
   UI_PREFERENCE_KEYS,
   type UiPreferenceKey,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { Hono } from "hono";
 import { ApiError } from "../errors.js";
 import {

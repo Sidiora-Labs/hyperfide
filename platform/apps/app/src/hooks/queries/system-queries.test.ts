@@ -4,15 +4,15 @@ import {
   type QueryKey,
   type QueryObserverOptions,
 } from "@tanstack/react-query";
-import type { AvailableModel } from "@bb/domain";
+import type { AvailableModel } from "@hyperfide/domain";
 import type {
   SystemExecutionOptionsResponse,
   SystemProviderStatesResponse,
-} from "@bb/server-contract";
-import type { ProviderInfo } from "@bb/domain";
-import { createMemoryStorage } from "@bb/test-helpers";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
-import type { ProviderCliStatusResponse } from "@bb/host-daemon-contract";
+} from "@hyperfide/server-contract";
+import type { ProviderInfo } from "@hyperfide/domain";
+import { createMemoryStorage } from "@hyperfide/test-helpers";
+import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
+import type { ProviderCliStatusResponse } from "@hyperfide/host-daemon-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";

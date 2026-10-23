@@ -6,9 +6,9 @@ import {
   getPersonalProject,
   getProjectExecutionDefaults,
   type DbConnection,
-} from "@bb/db";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+} from "@hyperfide/db";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@hyperfide/host-daemon-contract";
 import { initDb } from "../../src/db.js";
 import { createApp } from "../../src/server.js";
 import { readJson } from "../helpers/json.js";

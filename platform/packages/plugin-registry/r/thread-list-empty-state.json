@@ -5,7 +5,7 @@
   "title": "thread-list-empty-state",
   "description": "BB ui \"thread-list-empty-state\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/empty-state"
+    "@hyperfide/empty-state"
   ],
   "files": [
     {

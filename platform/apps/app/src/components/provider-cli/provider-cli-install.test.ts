@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
-import type { ProviderCliInstallEvent } from "@bb/host-daemon-contract";
+import type { ProviderCliInstallEvent } from "@hyperfide/host-daemon-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError } from "@bb/sdk/browser";
+import { BbHttpError } from "@hyperfide/sdk/browser";
 import { sdk } from "@/lib/sdk";
 import { appToast } from "@/components/ui/app-toast";
 import {

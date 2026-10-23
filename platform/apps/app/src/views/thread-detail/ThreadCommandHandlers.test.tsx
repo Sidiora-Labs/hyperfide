@@ -3,9 +3,9 @@
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import type { Thread } from "@bb/domain";
-import { makeThread as makeThreadFixture } from "@bb/test-helpers/domain-fixtures";
-import { defaultAppSettings } from "@bb/domain";
+import type { Thread } from "@hyperfide/domain";
+import { makeThread as makeThreadFixture } from "@hyperfide/test-helpers/domain-fixtures";
+import { defaultAppSettings } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";
 import { PaneContext, type PaneContextValue } from "./PaneContext";

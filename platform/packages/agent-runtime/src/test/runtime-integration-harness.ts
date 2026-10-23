@@ -19,13 +19,13 @@ import type {
   ThreadEvent,
   ToolCallRequest,
   ToolCallResponse,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   getThreadEventScopeTurnId,
   isApprovalPendingInteractionPayload,
   isUserQuestionPendingInteractionPayload,
-} from "@bb/domain";
-import { resolvePreferredTestModel } from "@bb/test-helpers";
+} from "@hyperfide/domain";
+import { resolvePreferredTestModel } from "@hyperfide/test-helpers";
 import { createAgentRuntime } from "../runtime.js";
 import type {
   AgentRuntimeExecutionOptions,

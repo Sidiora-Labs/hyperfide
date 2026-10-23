@@ -1,4 +1,4 @@
-import type { BbPluginApi, ComposerMention } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, ComposerMention } from "@hyperfide/plugin-sdk";
 
 import { z } from "zod";
 import { attachmentSchema, promptSchema } from "./contract.js";

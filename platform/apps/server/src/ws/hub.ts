@@ -11,15 +11,15 @@ import {
   type ThreadChangeKind,
   type ThreadChangeMetadata,
   type ThreadEventType,
-} from "@bb/domain";
-import type { DbNotifier } from "@bb/db";
+} from "@hyperfide/domain";
+import type { DbNotifier } from "@hyperfide/db";
 import type {
   HostPlatform,
   HostDaemonOnlineRpcRequestMessage,
   HostDaemonOnlineRpcResponseMessage,
   HostDaemonServerWsMessage,
   HostDaemonSessionCloseReason,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   pluginSignalSchema,
   serverMessageSchema,
@@ -31,7 +31,7 @@ import {
   type ThreadOpenFile,
   type ThreadOpenSplit,
   type TerminalServerMessage,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   WatchedTargetRegistry,
   type WatchedTarget,

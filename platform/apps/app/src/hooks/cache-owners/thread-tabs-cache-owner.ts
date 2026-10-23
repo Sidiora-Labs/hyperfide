@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { ThreadTabsResponse } from "@bb/server-contract";
+import type { ThreadTabsResponse } from "@hyperfide/server-contract";
 import { threadTabsQueryKey } from "../queries/query-keys";
 
 export function getCachedThreadTabs(

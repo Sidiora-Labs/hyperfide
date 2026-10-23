@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { formatBbAppConfigPath } from "@bb/config/bb-app-managed-config";
+import { formatBbAppConfigPath } from "@hyperfide/config/bb-app-managed-config";
 import { describe, expect, it } from "vitest";
 import { getAvailableModels } from "../../helpers/api.js";
 import { waitForHostConnected } from "../../helpers/assertions.js";

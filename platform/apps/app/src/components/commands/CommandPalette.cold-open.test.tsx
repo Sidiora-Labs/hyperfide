@@ -14,7 +14,7 @@ import {
   defaultAppSettings,
   type AppCommandId,
   type AppKeybinding,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { AppCommandProvider, useAppCommandHandler } from "./AppCommandProvider";
 import { CommandPalette } from "./CommandPalette";
 

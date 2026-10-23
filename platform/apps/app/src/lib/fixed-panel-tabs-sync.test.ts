@@ -3,7 +3,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
-import { replaceNewTabWithSecondaryPanelTabInState } from "@bb/client-core";
+import { replaceNewTabWithSecondaryPanelTabInState } from "@hyperfide/client-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createBrowserFixedPanelTab,

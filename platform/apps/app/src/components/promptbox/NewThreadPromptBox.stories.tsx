@@ -1,7 +1,7 @@
 import "../../../.ladle/composer-plugin";
 import { useState } from "react";
-import type { PermissionMode, PromptTextMention } from "@bb/domain";
-import type { SystemExecutionOptionsModelLoadError } from "@bb/server-contract";
+import type { PermissionMode, PromptTextMention } from "@hyperfide/domain";
+import type { SystemExecutionOptionsModelLoadError } from "@hyperfide/server-contract";
 import {
   NewThreadPromptBoxUI,
   type NewThreadEnvironmentConfig,

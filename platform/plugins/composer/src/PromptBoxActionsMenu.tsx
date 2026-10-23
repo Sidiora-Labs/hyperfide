@@ -13,7 +13,7 @@ import {
   type ExperimentalComposerContributions,
   type ExperimentalComposerMenuSelection,
   type ExperimentalComposerPromptAction as PromptBoxAction,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { COARSE_POINTER_PROMPT_ICON_ACTION_BUTTON_CLASS } from "@/components/ui/coarse-pointer-sizing";
 import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@/components/ui/chrome-style-tokens";

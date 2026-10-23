@@ -5,7 +5,7 @@ import type {
   EnvironmentChangedMessage,
   ProjectChangedMessage,
   ThreadChangedMessage,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   destroyPersistedBrowserViewsForEnvironment,
   destroyPersistedBrowserViewsForThread,

@@ -1,5 +1,5 @@
-import { LEGACY_CODEX_GOAL_EXTENSION_KIND } from "@bb/domain";
-import type { ThreadEvent } from "@bb/domain";
+import { LEGACY_CODEX_GOAL_EXTENSION_KIND } from "@hyperfide/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 
 interface PendingGoalClearWaiter {
   afterRevision: number;

@@ -1,8 +1,8 @@
 import {
   LEGACY_CODEX_GOAL_EXTENSION_KIND,
   threadTimelineGoalStatusSchema,
-} from "@bb/domain";
-import type { ThreadEvent, ThreadTimelineGoal } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { ThreadEvent, ThreadTimelineGoal } from "@hyperfide/domain";
 import { z } from "zod";
 import type { ThreadEventWithMeta } from "./build-event-projection.js";
 import { getOrderedThreadEvents } from "./group-event-projection-turns.js";

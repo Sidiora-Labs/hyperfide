@@ -3,8 +3,8 @@ import type {
   ExperimentalAppPanelSurface,
   ExperimentalFileOpenOptions,
   JsonValue,
-} from "@get-bb/plugin-sdk";
-import type { TerminalSession } from "@bb/server-contract";
+} from "@hyperfide/plugin-sdk";
+import type { TerminalSession } from "@hyperfide/server-contract";
 import type { FileOpenerOverride } from "@/lib/plugin-slot-resolvers";
 
 interface AppUrlOpenIntent {

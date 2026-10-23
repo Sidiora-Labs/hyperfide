@@ -10,12 +10,12 @@ import {
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { readBbAppRuntimeFile } from "@hyperfide/config/app-runtime-file";
 import {
   readServerMovedFile,
   type ServerMovedFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   collectLogPayloads,
   readlineMocks,

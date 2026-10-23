@@ -1,13 +1,13 @@
-import { listHosts, listNonDestroyedHostsByIds } from "@bb/db";
+import { listHosts, listNonDestroyedHostsByIds } from "@hyperfide/db";
 import type {
   CliSkillMachineStatus,
   SystemCliSkillsStatusResponse,
   SystemInstallCliSkillsResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   HostGlobalSkillsStatusResult,
   HostInstallGlobalSkill,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";

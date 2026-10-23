@@ -1,10 +1,10 @@
-import type { PromptInput, ThreadEvent } from "@bb/domain";
+import type { PromptInput, ThreadEvent } from "@hyperfide/domain";
 import {
   getThreadEventScopeTurnId,
   isThreadEventWithItem,
   parseNamespacedGlyph,
   threadEventSchema,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { z } from "zod";
 import {
   BRIDGE_JSON_RPC_ERRORS,

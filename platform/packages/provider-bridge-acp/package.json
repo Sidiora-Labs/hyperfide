@@ -1,5 +1,5 @@
 {
-  "name": "@bb/provider-bridge-acp",
+  "name": "@hyperfide/provider-bridge-acp",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -23,13 +23,13 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.7.0",
-    "@bb/domain": "workspace:*",
-    "@bb/provider-bridge-protocol": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/provider-bridge-protocol": "workspace:*",
     "zod": "^4.3.6",
-    "@bb/process-utils": "workspace:*"
+    "@hyperfide/process-utils": "workspace:*"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^22.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",

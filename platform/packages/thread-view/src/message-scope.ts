@@ -1,5 +1,5 @@
-import { threadScope, turnScope } from "@bb/domain";
-import type { ThreadEventScope } from "@bb/domain";
+import { threadScope, turnScope } from "@hyperfide/domain";
+import type { ThreadEventScope } from "@hyperfide/domain";
 import type { EventProjectionMessageBase } from "./event-projection-types.js";
 
 export function areThreadEventScopesEqual(

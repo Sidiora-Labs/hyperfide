@@ -8,10 +8,10 @@ import type {
   PendingInteractionCreate,
   PendingInteractionResolution,
   ThreadEvent,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { promptTextInput } from "./test/prompt-input.js";
-import { parseJsonRpcLine } from "@bb/provider-bridge-protocol/bridge-kit";
-import type { JsonRpcMessage } from "@bb/provider-bridge-protocol/bridge-kit";
+import { parseJsonRpcLine } from "@hyperfide/provider-bridge-protocol/bridge-kit";
+import type { JsonRpcMessage } from "@hyperfide/provider-bridge-protocol/bridge-kit";
 import { createProviderForId } from "./provider-registry.js";
 import { handleRuntimeProviderRequest } from "./runtime-provider-requests.js";
 import {

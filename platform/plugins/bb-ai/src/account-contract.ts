@@ -1,4 +1,4 @@
-import type { JsonValue } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 

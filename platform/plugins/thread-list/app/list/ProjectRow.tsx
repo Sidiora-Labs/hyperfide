@@ -47,7 +47,7 @@ import {
   useBbNavigate,
   useEnvironmentProviders,
   useSdk,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import {
   findEnvironmentDisplayProvider,
   getEnvironmentLabelIconName,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   TimelineCommandWorkRow,
   TimelineOutputPreview,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { commandRow } from "@/test/fixtures/thread-timeline-rows";
 import {
   resolveTimelineWorkRowFullOutput,

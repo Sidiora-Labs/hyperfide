@@ -5,12 +5,12 @@ import {
   type HostDaemonOnlineRpcResponseMessage,
   type ServerMovedMessage,
   type ServerMoveInspectResult,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import type {
   ServerMoveEnvironment,
   ServerMoveTimings,
 } from "../../src/services/server-move/coordinator.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { exportServerArchive } from "../../src/services/server-move/export.js";
 import type { TestAppHarness } from "./test-app.js";
 

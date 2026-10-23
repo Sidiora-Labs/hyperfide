@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { getAppSettings, setAppSettings, updateHost } from "@bb/db";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { getAppSettings, setAppSettings, updateHost } from "@hyperfide/db";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import {
   hostDaemonServerWsMessageSchema,
   type HostDaemonOnlineRpcRequestMessage,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   appendCustomModels,
   listSystemProviderInfos,

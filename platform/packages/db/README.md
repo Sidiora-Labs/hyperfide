@@ -1,11 +1,11 @@
-# @bb/db
+# @hyperfide/db
 
 ## Migration Workflow
 
 Schema changes must be checked in as generated SQL migrations:
 
 ```sh
-pnpm --filter @bb/db db:generate
+pnpm --filter @hyperfide/db db:generate
 ```
 
 Review the generated SQL before committing it. `db:push` is intentionally not

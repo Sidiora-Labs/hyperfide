@@ -8,8 +8,8 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
+import type { BbDesktopInfo } from "@hyperfide/desktop-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
 import { focusWithKeyboard } from "@/test/keyboard-focus";

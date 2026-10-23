@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { BbPluginApi, ComposerDraft } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, ComposerDraft } from "@hyperfide/plugin-sdk";
 import { promptSchema } from "./contract.js";
 
 type PluginDatabase = ReturnType<BbPluginApi["storage"]["database"]>;

@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type {
   ExperimentalPageTitle,
   PluginNavPanelProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import { PluginPanelHeaderCenter } from "@/components/plugin/PluginPanelHeader";
 import { PluginPageTitleHost } from "@/components/plugin/PluginPageTitleHost";
 import {

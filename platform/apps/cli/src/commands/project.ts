@@ -6,7 +6,7 @@ import type {
   HostDiscoveredRepo,
   ProjectResponse,
   UpdateProjectSourceRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { action } from "../action.js";
 import { createCliBbSdk } from "../client.js";
 import { resolveLocalHostId } from "../daemon.js";

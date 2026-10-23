@@ -13,7 +13,7 @@ import { dirname, join, resolve } from "node:path";
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import { createStore } from "../api";
@@ -1168,7 +1168,7 @@ describe("bb tasks CLI", () => {
     await harness.dispose();
   });
 
-  it("self-attaches through BB_THREAD_ID and lists the live thread status", async () => {
+  it("self-attaches through HYPERFIDE_THREAD_ID and lists the live thread status", async () => {
     const { bb, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
@@ -1204,15 +1204,15 @@ describe("bb tasks CLI", () => {
       ]),
     );
 
-    const previousThreadId = process.env.BB_THREAD_ID;
-    process.env.BB_THREAD_ID = "thr_cli_self";
+    const previousThreadId = process.env.HYPERFIDE_THREAD_ID;
+    process.env.HYPERFIDE_THREAD_ID = "thr_cli_self";
     try {
       expect(
         JSON.parse(stdout(await harness.runCli(["attach", "ATT-1", "--json"]))),
       ).toMatchObject({ task: { key: "ATT-1" }, threadId: "thr_cli_self" });
     } finally {
-      if (previousThreadId === undefined) delete process.env.BB_THREAD_ID;
-      else process.env.BB_THREAD_ID = previousThreadId;
+      if (previousThreadId === undefined) delete process.env.HYPERFIDE_THREAD_ID;
+      else process.env.HYPERFIDE_THREAD_ID = previousThreadId;
     }
 
     const threads = JSON.parse(
@@ -1341,20 +1341,20 @@ describe("bb tasks CLI", () => {
       stderr: "Thread thr_dead_worker is not attached to DET-1\n",
     });
 
-    const previousThreadId = process.env.BB_THREAD_ID;
-    process.env.BB_THREAD_ID = "thr_live_worker";
+    const previousThreadId = process.env.HYPERFIDE_THREAD_ID;
+    process.env.HYPERFIDE_THREAD_ID = "thr_live_worker";
     try {
       expect(
         JSON.parse(stdout(await harness.runCli(["detach", "DET-1", "--json"]))),
       ).toMatchObject({ task: { key: "DET-1" }, threadId: "thr_live_worker" });
-      delete process.env.BB_THREAD_ID;
+      delete process.env.HYPERFIDE_THREAD_ID;
       await expect(harness.runCli(["detach", "DET-1"])).resolves.toMatchObject({
         exitCode: 1,
-        stderr: "missing --thread and BB_THREAD_ID is not set\n",
+        stderr: "missing --thread and HYPERFIDE_THREAD_ID is not set\n",
       });
     } finally {
-      if (previousThreadId === undefined) delete process.env.BB_THREAD_ID;
-      else process.env.BB_THREAD_ID = previousThreadId;
+      if (previousThreadId === undefined) delete process.env.HYPERFIDE_THREAD_ID;
+      else process.env.HYPERFIDE_THREAD_ID = previousThreadId;
     }
     expect(
       JSON.parse(stdout(await harness.runCli(["threads", "DET-1", "--json"])))

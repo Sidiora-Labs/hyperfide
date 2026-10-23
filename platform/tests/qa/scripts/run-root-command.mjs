@@ -11,20 +11,20 @@ const commandConfig = {
     turboChecks: [
       [
         "build",
-        "--filter=@bb/server",
-        "--filter=@bb/host-daemon",
-        "--filter=@bb/cli",
+        "--filter=@hyperfide/server",
+        "--filter=@hyperfide/host-daemon",
+        "--filter=@hyperfide/cli",
       ],
-      ["typecheck", "--filter=@bb/qa"],
+      ["typecheck", "--filter=@hyperfide/qa"],
     ],
   },
   "standalone:stop": {
     packageScript: "standalone:stop",
-    turboChecks: [["typecheck", "--filter=@bb/qa"]],
+    turboChecks: [["typecheck", "--filter=@hyperfide/qa"]],
   },
   "standalone:cleanup": {
     packageScript: "standalone:cleanup",
-    turboChecks: [["typecheck", "--filter=@bb/qa"]],
+    turboChecks: [["typecheck", "--filter=@hyperfide/qa"]],
   },
 };
 
@@ -99,7 +99,7 @@ function main() {
 
   return run(
     "pnpm",
-    ["--silent", "--filter", "@bb/qa", config.packageScript, ...args],
+    ["--silent", "--filter", "@hyperfide/qa", config.packageScript, ...args],
     "inherit",
     packageEnv,
   );

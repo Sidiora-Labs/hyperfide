@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { getAppSettings } from "@bb/db";
-import { appSettingsSchema, defaultAppSettings } from "@bb/domain";
-import { systemConfigResponseSchema } from "@bb/server-contract";
+import { getAppSettings } from "@hyperfide/db";
+import { appSettingsSchema, defaultAppSettings } from "@hyperfide/domain";
+import { systemConfigResponseSchema } from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 import { seedHostSession, seedPrimaryHost } from "../helpers/seed.js";

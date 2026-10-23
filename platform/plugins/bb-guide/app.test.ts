@@ -1,4 +1,4 @@
-import type { ComposerDraftSnapshot } from "@get-bb/plugin-sdk/app";
+import type { ComposerDraftSnapshot } from "@hyperfide/plugin-sdk/app";
 import { describe, expect, it } from "vitest";
 import { withCreatePluginPrompt } from "./app.js";
 

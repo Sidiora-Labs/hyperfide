@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AppKeybindings } from "@bb/domain";
+import type { AppKeybindings } from "@hyperfide/domain";
 import {
   AppCommandProvider,
   useAppCommandHandler,

@@ -24,7 +24,7 @@ import {
   expect,
   it,
 } from "vitest";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import { scaffoldPlugin } from "../src/plugin-scaffold.js";
 
 const execFileAsync = promisify(execFile);
@@ -73,7 +73,7 @@ const EXTERNAL_DEPENDENCIES = [
 
 const BACKEND_TEST = `
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@hyperfide/plugin-sdk/testing";
 import plugin from "./server";
 
 describe("scaffold backend", () => {
@@ -108,7 +108,7 @@ const FRONTEND_TEST = `
 // @vitest-environment jsdom
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 
 describe("scaffold frontend", () => {
   it("loads and renders the Example todos page through the packed harness", async () => {
@@ -163,7 +163,7 @@ export default defineConfig({
 `;
 
 const REPRESENTATIVE_SERVER = `
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type BbPluginApi } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 export const rpcContract = defineRpcContract({
@@ -217,7 +217,7 @@ export default function plugin(bb: BbPluginApi) {
 `;
 
 const REPRESENTATIVE_APP = `
-import { definePluginApp, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useRpc } from "@hyperfide/plugin-sdk/app";
 import type { rpcContract } from "./server";
 
 function Panel() {
@@ -327,7 +327,7 @@ async function scaffoldSdkPin(targetDir: string): Promise<string | undefined> {
   const manifest = JSON.parse(
     await readFile(join(targetDir, "package.json"), "utf8"),
   ) as { devDependencies?: Record<string, string> };
-  return manifest.devDependencies?.["@get-bb/plugin-sdk"];
+  return manifest.devDependencies?.["@hyperfide/plugin-sdk"];
 }
 
 async function includeTestsInTypecheck(targetDir: string): Promise<void> {
@@ -437,7 +437,7 @@ describe("external plugin scaffold types", () => {
         join(
           targetDir,
           "node_modules",
-          "@get-bb",
+          "@hyperfide",
           "plugin-sdk",
           "bundled-types",
           "bb-plugin-sdk.d.ts",
@@ -477,13 +477,13 @@ describe("external plugin scaffold types", () => {
     await writeFile(join(backendDir, "server.test.ts"), BACKEND_TEST);
     await includeTestsInTypecheck(backendDir);
 
-    expect(await readdir(join(backendDir, "node_modules", "@get-bb"))).toEqual([
+    expect(await readdir(join(backendDir, "node_modules", "@hyperfide"))).toEqual([
       "plugin-sdk",
     ]);
     const installedSdk = join(
       backendDir,
       "node_modules",
-      "@get-bb",
+      "@hyperfide",
       "plugin-sdk",
     );
     const installedManifest = JSON.parse(
@@ -517,18 +517,18 @@ describe("external plugin scaffold types", () => {
         "utf8",
       );
       const bbImports = [
-        ...declarations.matchAll(/from ['"](@(?:get-)?bb\/[^'"]+)['"]/gu),
+        ...declarations.matchAll(/from ['"](@hyperfide\/[^'"]+)['"]/gu),
       ].map((match) => match[1]);
-      expect(new Set(bbImports)).toEqual(new Set(["@get-bb/plugin-sdk"]));
-      expect(declarations).not.toContain("@bb/sdk");
-      expect(declarations).not.toContain("@bb/server-contract");
+      expect(new Set(bbImports)).toEqual(new Set(["@hyperfide/plugin-sdk"]));
+      expect(declarations).not.toContain("@hyperfide/sdk");
+      expect(declarations).not.toContain("@hyperfide/server-contract");
     }
     for (const runtimePath of [
       "dist/testing/index.js",
       "dist/testing/app.js",
     ]) {
       const runtime = await readFile(join(installedSdk, runtimePath), "utf8");
-      expect(runtime).not.toMatch(/from ['"]@bb\//u);
+      expect(runtime).not.toMatch(/from ['"]@hyperfide\//u);
     }
     await expect(access(join(installedSdk, "src"))).rejects.toThrow();
     const backendTsconfig = JSON.parse(

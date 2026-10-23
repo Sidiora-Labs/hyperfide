@@ -9,8 +9,8 @@ import {
   BRIDGE_JSON_RPC_ERRORS,
   interactionRequestPayloadSchema,
   type JsonValue,
-} from "@get-bb/plugin-sdk/provider-bridge";
-import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge";
+import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import computerUseElicitation from "../fixtures/computer-use-elicitation.json";
 import mcpToolApprovalElicitation from "../fixtures/mcp-tool-approval-elicitation.json";
 import { CODEX_MCP_ELICITATION_KIND } from "../mcp-elicitation.js";

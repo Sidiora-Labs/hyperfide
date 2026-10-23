@@ -9,7 +9,7 @@ import {
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComment, createStore } from "../../api/index.js";
 import type { Attachment, DisplayComment } from "../../shared/contract.js";
@@ -29,8 +29,8 @@ vi.mock("../../shell/data.js", () => ({
   useTasksRpc: () => ({ call: rpcCall }),
 }));
 
-vi.mock("@get-bb/plugin-sdk/app", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@get-bb/plugin-sdk/app")>()),
+vi.mock("@hyperfide/plugin-sdk/app", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@hyperfide/plugin-sdk/app")>()),
   useBbNavigate: () => ({ toThread: vi.fn() }),
 }));
 

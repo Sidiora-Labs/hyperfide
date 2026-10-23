@@ -5,8 +5,8 @@ import {
   getHost,
   isDatabaseMaintenanceIdle,
   listExistingThreadIds,
-} from "@bb/db";
-import { isRawThreadId } from "@bb/domain";
+} from "@hyperfide/db";
+import { isRawThreadId } from "@hyperfide/domain";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { ApiError } from "../../errors.js";
 import type { LoggedWorkSessionDeps } from "../../types.js";

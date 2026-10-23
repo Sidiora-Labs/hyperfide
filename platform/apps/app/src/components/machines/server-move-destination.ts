@@ -1,7 +1,7 @@
 import {
   serverHealthResponseSchema,
   type ServerMoveHealth,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 
 export async function fetchServerMoveDestinationHealth(
   url: string,

@@ -12,7 +12,7 @@ import {
   noopNotifier,
   updateThread,
   type StoredTurnRequestEventRow,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   CLIENT_TURN_REQUEST_ID_ALPHABET,
   CLIENT_TURN_REQUEST_ID_SUFFIX_LENGTH,
@@ -24,7 +24,7 @@ import {
   threadScope,
   turnRequestEventDataSchema,
   WORKSPACE_PROVISIONING_STEP_KEYS,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { randomBytes } from "node:crypto";
 import type {
   ClientTurnRequestId,
@@ -46,12 +46,12 @@ import type {
   ThreadChangeKind,
   ThreadChangeMetadata,
   Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ApiError, TurnStartGuardError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import { parseStoredEventPayload } from "./thread-data.js";
-import type { DbNotifier, DbQueryConnection, DbTransaction } from "@bb/db";
-import type { AppendStoredThreadEventArgs as AppendThreadEventArgs } from "@bb/db";
+import type { DbNotifier, DbQueryConnection, DbTransaction } from "@hyperfide/db";
+import type { AppendStoredThreadEventArgs as AppendThreadEventArgs } from "@hyperfide/db";
 
 interface ThreadEventReadDeps {
   db: DbQueryConnection;

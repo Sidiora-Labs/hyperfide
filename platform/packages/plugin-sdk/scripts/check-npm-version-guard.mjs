@@ -1,7 +1,7 @@
 // Keeps npm from lagging the plugin SDK.
 //
 // The publish job (.github/workflows/publish-bb-app.yml, job publish-plugin-sdk)
-// only publishes @get-bb/plugin-sdk when PLUGIN_SDK_VERSION is absent from npm.
+// only publishes @hyperfide/plugin-sdk when PLUGIN_SDK_VERSION is absent from npm.
 // That is safe exactly as long as a released version's *published content* never
 // changes underneath it. Declarations alone are not enough: a runtime-only change
 // (dist/ output, an exports map entry, a peer range) leaves bundled-types
@@ -41,8 +41,8 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.resolve(here, "..");
 const repoRoot = path.resolve(pkgRoot, "..", "..");
-const PACKAGE_NAME = "@get-bb/plugin-sdk";
-const REGISTRY_URL = "https://registry.npmjs.org/@get-bb%2Fplugin-sdk";
+const PACKAGE_NAME = "@hyperfide/plugin-sdk";
+const REGISTRY_URL = "https://registry.npmjs.org/@hyperfide%2Fplugin-sdk";
 
 /**
  * Manifest fields whose value is part of what consumers resolve against. A

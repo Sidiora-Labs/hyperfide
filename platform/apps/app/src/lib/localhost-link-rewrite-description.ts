@@ -1,4 +1,4 @@
-import { rewriteLocalhostLinkHref } from "@bb/client-core";
+import { rewriteLocalhostLinkHref } from "@hyperfide/client-core";
 
 const EXAMPLE_HREF = "http://localhost:3000/";
 

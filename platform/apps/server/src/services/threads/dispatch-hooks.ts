@@ -1,4 +1,4 @@
-import { getEnvironment } from "@bb/db";
+import { getEnvironment } from "@hyperfide/db";
 import {
   QUEUED_MESSAGE_WAIT_REASON_MAX_LENGTH,
   type Environment,
@@ -10,19 +10,19 @@ import {
   type ThreadCreateOrigin,
   type ThreadQueuedMessage,
   type ThreadTurnInitiator,
-} from "@bb/domain";
-import { sliceUtf16Head } from "@bb/text-utils";
+} from "@hyperfide/domain";
+import { sliceUtf16Head } from "@hyperfide/text-utils";
 import type {
   ExecutionInputFieldSource,
   ThreadResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   MessageDispatchHookContext,
   PluginDispatchAttemptKind,
   PluginDispatchEnvironmentIntent,
   PluginDispatchExecution,
   PluginDispatchExecutionSources,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";

@@ -31,6 +31,6 @@ it("builds in-memory test databases from the migrated template", () => {
 
   expect(
     offenders,
-    'Use createMigratedConnection() from "@bb/db/testing" instead of migrating a fresh in-memory database per test.',
+    'Use createMigratedConnection() from "@hyperfide/db/testing" instead of migrating a fresh in-memory database per test.',
   ).toEqual([]);
 });

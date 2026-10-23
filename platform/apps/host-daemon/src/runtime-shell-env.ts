@@ -3,8 +3,8 @@ import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import { basename, delimiter, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AgentRuntimeOptions } from "@bb/agent-runtime";
-import { assignIfDefined } from "@bb/config/objects";
+import type { AgentRuntimeOptions } from "@hyperfide/agent-runtime";
+import { assignIfDefined } from "@hyperfide/config/objects";
 
 interface ResolveLocalBbExecutablePathOptions {
   cliExecutablePath?: string;
@@ -109,7 +109,7 @@ async function resolveCliEntryPath(cliExecutablePath: string): Promise<string> {
       } catch (error) {
         if (getErrorCode(error) === "EACCES") {
           throw new Error(
-            `Resolved bb CLI entry is not executable: ${cliEntryPath}. Build @bb/cli before starting the host daemon.`,
+            `Resolved bb CLI entry is not executable: ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
           );
         }
         throw error;
@@ -118,7 +118,7 @@ async function resolveCliEntryPath(cliExecutablePath: string): Promise<string> {
   } catch (error) {
     if (getErrorCode(error) === "ENOENT") {
       throw new Error(
-        `Missing built bb CLI entry at ${cliEntryPath}. Build @bb/cli before starting the host daemon.`,
+        `Missing built bb CLI entry at ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
       );
     }
     throw error;
@@ -140,7 +140,7 @@ async function requireCliRuntimePath(cliRuntimePath: string): Promise<void> {
   } catch (error) {
     if (getErrorCode(error) === "ENOENT") {
       throw new Error(
-        `Missing built bb CLI runtime at ${resolvedCliRuntimePath}. Build @bb/cli before starting the host daemon.`,
+        `Missing built bb CLI runtime at ${resolvedCliRuntimePath}. Build @hyperfide/cli before starting the host daemon.`,
       );
     }
     throw error;

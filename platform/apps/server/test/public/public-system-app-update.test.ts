@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SystemAppUpdateStatus } from "@bb/server-contract";
+import type { SystemAppUpdateStatus } from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 

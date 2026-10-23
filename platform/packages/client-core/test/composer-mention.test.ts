@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PromptMentionResource } from "@bb/domain";
+import type { PromptMentionResource } from "@hyperfide/domain";
 import { orderMentionCandidates } from "../src/prompt/mentions/mention-candidates.js";
 import { composerMentionGroupsFromOrdered } from "../src/prompt/mentions/composer-suggestions.js";
 import type { PromptMentionSuggestion } from "../src/prompt/mentions/types.js";

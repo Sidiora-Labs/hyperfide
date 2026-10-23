@@ -2,7 +2,7 @@ import type {
   DesktopBrowserImportFailureReason,
   DesktopBrowserImportOutcome,
   DesktopBrowserImportSource,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 
 export interface BrowserImportRecord {
   at: number;

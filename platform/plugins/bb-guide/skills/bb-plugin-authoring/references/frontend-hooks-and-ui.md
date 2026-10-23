@@ -236,7 +236,7 @@ only focused BB capability components (frontend-components.md): `ThreadChat`,
 `Markdown`, file links, pickers, source and diff viewers, and the new-thread
 composer.
 
-- Most builtin plugins in this repo import shared UI from `@bb/shared-ui`
+- Most builtin plugins in this repo import shared UI from `@hyperfide/shared-ui`
   (the single source of truth the app also consumes and the registry
   generates from). Forkable builtins (`scripts/forkable-plugins.json`) import
   the same components through the `@/` alias, which their tsconfig maps onto
@@ -245,11 +245,11 @@ composer.
 - `bb plugin new` pre-vendors button, card, input, checkbox, dialog (plus
   their support files: `lib/utils`, `lib/portal-scope`, icon,
   responsive-overlay, drawer, hooks) into `components/ui/` etc., and writes a `components.json`
-  whose `@bb` registry is pinned to the release tag matching the running
+  whose `@hyperfide` registry is pinned to the release tag matching the running
   BB. Import via the `@/*` alias: `import { Button } from
 "@/components/ui/button"` (tsconfig maps it; `bb plugin build` reads it).
-- Add more with stock shadcn tooling: `npx shadcn add @bb/select
-@bb/table` — the BB registry carries the full stock set (~46 items:
+- Add more with stock shadcn tooling: `npx shadcn add @hyperfide/select
+@hyperfide/table` — the BB registry carries the full stock set (~46 items:
   accordion, alert-dialog, calendar, chart, command, form, sheet, table,
   …), generated from the BB app's own component source, so vendored code is
   version-matched to your BB by construction. Edit the copies freely; they
@@ -260,7 +260,7 @@ composer.
   the host at runtime instead of bundling an icon set. Draw your own icons
   through it too. Plugins scaffolded before SDK 0.5.16 vendored an older
   `icon.tsx` (plus `icon-extended.tsx` and `icon-registry.ts`) that imports
-  `@hugeicons/*`: rerun `npx shadcn add @bb/icon`, delete the other two
+  `@hugeicons/*`: rerun `npx shadcn add @hyperfide/icon`, delete the other two
   files, and drop `@hugeicons/core-free-icons` and `@hugeicons/react` from
   `dependencies`. A git install keeps every version's `node_modules` on the
   user's disk, and the full hugeicons set is over 100 MB per copy.
@@ -294,7 +294,7 @@ composer.
   after adding components (`bb plugin new` runs the first one; `shadcn add`
   installs each item's declared deps). Users of your prebuilt artifact need no
   npm. Managed source installs run bb's bundled npm.
-- `EmptyState` ships as `npx shadcn add @bb/empty-state`. There is no
+- `EmptyState` ships as `npx shadcn add @hyperfide/empty-state`. There is no
   `PageBody` or `Spinner`; write your own (each is a few lines; see
   `plugins/github/components/` for reference implementations).
 

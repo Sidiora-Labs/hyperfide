@@ -1,15 +1,15 @@
 import { useCallback } from "react";
-import type { AppCommandId } from "@bb/domain";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Button } from "@bb/shared-ui/button";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import type { AppCommandId } from "@hyperfide/domain";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
-import { COARSE_POINTER_HEADER_ICON_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+} from "@hyperfide/shared-ui/tooltip";
+import { COARSE_POINTER_HEADER_ICON_BUTTON_CLASS } from "@hyperfide/shared-ui/coarse-pointer-sizing";
 import { useAppCommandShortcut } from "@/components/commands/AppCommandProvider";
 import { useRouteStateHistoryNavigation } from "@/lib/app-route-history";
 

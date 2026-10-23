@@ -7,7 +7,7 @@ import {
   RAW_THREAD_ID_PATTERN_SOURCE,
   type PromptMentionResource,
   type PromptTextMention,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   MessageMentionPill,
   PromptMentionPill,

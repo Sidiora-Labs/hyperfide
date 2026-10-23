@@ -25,7 +25,7 @@ vi.hoisted(() => {
   });
 });
 
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@hyperfide/domain";
 import { useState } from "react";
 import {
   act,

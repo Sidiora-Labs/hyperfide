@@ -9,8 +9,8 @@ import {
   type AppSettings,
   type AppThemeSelection,
   type ExperimentUpdates,
-} from "@bb/domain";
-import type { SystemInstallCliSkillsRequest } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { SystemInstallCliSkillsRequest } from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
 import {
   invalidateGeneralSettingsDependencies,

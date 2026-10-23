@@ -4,9 +4,9 @@ import {
   listEvents,
   environments,
   updateHost,
-} from "@bb/db";
-import { apiErrorSchema, threadResponseSchema } from "@bb/server-contract";
-import { validatePluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/db";
+import { apiErrorSchema, threadResponseSchema } from "@hyperfide/server-contract";
+import { validatePluginEnvironmentProviderDeclaration } from "@hyperfide/plugin-sdk/internal/host-policy";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { sweepProviderEnvironment } from "../../src/services/environments/environment-engine.js";

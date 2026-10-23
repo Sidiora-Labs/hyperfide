@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { MachineEnvironmentList } from "@bb/server-contract";
+import type { MachineEnvironmentList } from "@hyperfide/server-contract";
 import { OptionPicker } from "@/components/pickers/OptionPicker";
 import {
   MachineEnvironmentAutomaticRow,

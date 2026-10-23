@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { isSettledWorkflowAgentState } from "@bb/domain";
-import type { TimelineWorkflowWorkRow } from "@bb/server-contract";
+import { isSettledWorkflowAgentState } from "@hyperfide/domain";
+import type { TimelineWorkflowWorkRow } from "@hyperfide/server-contract";
 import { AnimatedDisclosureBody } from "@/components/promptbox/banner/AnimatedBody";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
@@ -9,15 +9,15 @@ import {
 } from "@/components/promptbox/banner/PromptStackCard";
 import { LiveDurationText } from "@/components/thread/timeline/LiveDurationText";
 import { WorkflowWorkRowBody } from "@/components/thread/timeline/WorkflowWorkRowBody";
-import { activityIconClass } from "@bb/shared-ui/activity-row-styles";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { activityIconClass } from "@hyperfide/shared-ui/activity-row-styles";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
   PromptStackChevron,
   useDisclosureFocusHandoff,
-} from "@bb/shared-ui/prompt-stack-disclosure";
-import { WorkflowPhaseStrip } from "@bb/shared-ui/workflow-progress";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
+import { WorkflowPhaseStrip } from "@hyperfide/shared-ui/workflow-progress";
 
 function agentProgressLabel(workflow: TimelineWorkflowWorkRow): string | null {
   const agents = workflow.workflow?.agents ?? [];

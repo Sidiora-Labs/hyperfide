@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultAppSettings } from "@bb/domain";
+import { defaultAppSettings } from "@hyperfide/domain";
 import {
   getAppKeybindingOverrides,
   getAppSettings,

@@ -1,4 +1,4 @@
-import type { PluginCatalogAuthor } from "@bb/server-contract";
+import type { PluginCatalogAuthor } from "@hyperfide/server-contract";
 import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
 
 const GITHUB_AUTHOR_PREFIX = "github:";

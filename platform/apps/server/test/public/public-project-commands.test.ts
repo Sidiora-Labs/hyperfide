@@ -1,13 +1,13 @@
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   DiscoveredSkill,
   HostProviderCommand,
   HostDaemonOnlineRpcRequestMessage,
-} from "@bb/host-daemon-contract";
-import { commandListResponseSchema } from "@bb/server-contract";
-import type { ExperimentalNativeRootsResolveAnswer } from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/host-daemon-contract";
+import { commandListResponseSchema } from "@hyperfide/server-contract";
+import type { ExperimentalNativeRootsResolveAnswer } from "@hyperfide/plugin-sdk/host";
 import { describe, expect, it, vi } from "vitest";
 import { COMMAND_TIMEOUT_MS } from "../../src/constants.js";
 import { registerHostRpcResponder } from "../helpers/host-rpc.js";
@@ -25,7 +25,7 @@ import {
   seedProjectWithSource,
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
+import type { PluginProviderDeclaration } from "@hyperfide/plugin-sdk";
 
 const NO_RESOLVED_ROOTS = { skills: [], commands: [] };
 

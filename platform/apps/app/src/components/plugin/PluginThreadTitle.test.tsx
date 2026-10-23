@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from "@testing-library/react";
-import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@bb/domain";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@hyperfide/domain";
+import { makeThreadListEntry } from "@hyperfide/test-helpers/domain-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";

@@ -1,4 +1,4 @@
-import { BRANCH_LIST_LIMIT_MAX } from "@bb/server-contract";
+import { BRANCH_LIST_LIMIT_MAX } from "@hyperfide/server-contract";
 import { parseBoundedPositiveOptionalInteger } from "../services/lib/validation.js";
 
 const BRANCH_LIST_LIMIT_DEFAULT = 50;

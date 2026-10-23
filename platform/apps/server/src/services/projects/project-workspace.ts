@@ -1,5 +1,5 @@
-import { getProjectSourceByHost } from "@bb/db";
-import type { ProjectWorkspaceRoutingQuery } from "@bb/server-contract";
+import { getProjectSourceByHost } from "@hyperfide/db";
+import type { ProjectWorkspaceRoutingQuery } from "@hyperfide/server-contract";
 import type { AppDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import {

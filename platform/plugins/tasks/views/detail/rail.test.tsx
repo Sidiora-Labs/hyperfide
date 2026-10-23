@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   installTestPluginRuntime,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
 
 if (!globalThis.ResizeObserver) {
@@ -48,7 +48,7 @@ function RailHarness(props: ComponentProps<typeof PropertiesRail>) {
 afterEach(cleanup);
 
 const PROJECT_ID = "01HZZZZZZZZZZZZZZZZZZZZZP1";
-const BB_PROJECT_ID = "proj_bb0000000000000000000001";
+const HYPERFIDE_PROJECT_ID = "proj_bb0000000000000000000001";
 
 function projectRow(linkedBbProjectId: string | null) {
   return {
@@ -122,7 +122,7 @@ describe("dispatch target rail control", () => {
     const slot = renderSlot({ component: RailHarness }, railProps(null), {
       rpc: {
         listBbProjects: () => ({
-          bbProjects: [{ id: BB_PROJECT_ID, name: "bb monorepo" }],
+          bbProjects: [{ id: HYPERFIDE_PROJECT_ID, name: "bb monorepo" }],
         }),
         updateProject: (raw: unknown) => {
           const input = rpcInput(raw);
@@ -142,7 +142,7 @@ describe("dispatch target rail control", () => {
     await waitFor(() => expect(updateCalls).toHaveLength(1));
     expect(updateCalls[0]).toEqual({
       projectId: PROJECT_ID,
-      linkedBbProjectId: BB_PROJECT_ID,
+      linkedBbProjectId: HYPERFIDE_PROJECT_ID,
     });
   });
 
@@ -150,11 +150,11 @@ describe("dispatch target rail control", () => {
     const updateCalls: Array<Record<string, unknown>> = [];
     const slot = renderSlot(
       { component: RailHarness },
-      railProps(BB_PROJECT_ID),
+      railProps(HYPERFIDE_PROJECT_ID),
       {
         rpc: {
           listBbProjects: () => ({
-            bbProjects: [{ id: BB_PROJECT_ID, name: "bb monorepo" }],
+            bbProjects: [{ id: HYPERFIDE_PROJECT_ID, name: "bb monorepo" }],
           }),
           updateProject: (raw: unknown) => {
             const input = rpcInput(raw);

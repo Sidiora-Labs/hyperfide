@@ -7,9 +7,9 @@ import {
   setAppSettings,
   updateHost,
   upsertHost,
-} from "@bb/db";
-import { createBbSdk } from "@bb/sdk/core";
-import { createHttpTransport } from "@bb/sdk/node";
+} from "@hyperfide/db";
+import { createBbSdk } from "@hyperfide/sdk/core";
+import { createHttpTransport } from "@hyperfide/sdk/node";
 import { describe, expect, it, vi } from "vitest";
 import { withTestHarness } from "../helpers/test-app.js";
 import { seedPrimaryHost } from "../helpers/seed.js";

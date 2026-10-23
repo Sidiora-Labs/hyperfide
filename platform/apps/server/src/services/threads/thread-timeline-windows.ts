@@ -1,17 +1,17 @@
 import { performance } from "node:perf_hooks";
-import { getAppSettings, getLatestThreadSequence, getThread } from "@bb/db";
+import { getAppSettings, getLatestThreadSequence, getThread } from "@hyperfide/db";
 import {
   DEFAULT_COMPLETED_TURN_DISPLAY,
   type AppSettings,
   type CompletedTurnDisplay,
   type Thread,
   type ThreadTimelineSubscriptionTarget,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   computeTimelineRowDelta,
   type ThreadTimelineResponse,
   type ThreadTimelineSignal,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { AppDeps } from "../../types.js";
 import { resolveProviderPlanCommand } from "../providers/provider-plan-command.js";
 import { observeTimelinePushTrace } from "../system/turn-trace.js";

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ServerMoveHealth } from "@bb/host-daemon-contract";
-import type { ServerMoveStatus } from "@bb/server-contract";
+import type { ServerMoveHealth } from "@hyperfide/host-daemon-contract";
+import type { ServerMoveStatus } from "@hyperfide/server-contract";
 import { appToast } from "@/components/ui/app-toast";
 import { invalidateQueriesAfterServerMove } from "@/hooks/cache-owners/server-move-cache-owner";
 import { useCancelServerMove } from "@/hooks/mutations/server-move-mutations";

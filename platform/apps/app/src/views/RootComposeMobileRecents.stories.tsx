@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@hyperfide/domain";
 import { StoryCard, StoryRow } from "../../.ladle/story-card";
 import {
   PROJECT_IDS,

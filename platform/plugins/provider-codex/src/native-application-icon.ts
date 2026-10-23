@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { sanitizeInheritedChildProcessEnv } from "@get-bb/plugin-sdk/provider-bridge";
+import { sanitizeInheritedChildProcessEnv } from "@hyperfide/plugin-sdk/provider-bridge";
 
 const execFileAsync = promisify(execFile);
 

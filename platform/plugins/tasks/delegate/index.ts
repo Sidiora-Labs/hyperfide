@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginRpcHandlers } from "@get-bb/plugin-sdk";
+import type { BbPluginApi, PluginRpcHandlers } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 import type {
   Attachment,

@@ -1,7 +1,7 @@
-import { HOST_DAEMON_RESTART_EXIT_CODE } from "@bb/config/machine-service";
+import { HOST_DAEMON_RESTART_EXIT_CODE } from "@hyperfide/config/machine-service";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { createDaemon } from "./daemon.js";
 import { acquireDaemonLock, DAEMON_LOCK_FILE_NAME } from "./lock.js";

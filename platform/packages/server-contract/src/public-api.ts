@@ -70,14 +70,14 @@ import type {
   ResolvedThreadExecutionOptions,
   ThreadEventRow,
   ThreadQueuedMessage,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   appSettingsUpdateSchema,
   appKeybindingOverridesSchema,
   appThemeSelectionSchema,
   experimentUpdatesSchema,
-} from "@bb/domain";
-import type { ProviderUsageResponse } from "@bb/host-daemon-contract";
+} from "@hyperfide/domain";
+import type { ProviderUsageResponse } from "@hyperfide/host-daemon-contract";
 import {
   binaryResponse,
   defineRoute,
@@ -90,7 +90,7 @@ import {
   textResponse,
   type ApiSchemaFromRouteDescriptors,
   type EmptyInput,
-} from "@bb/hono-typed-routes";
+} from "@hyperfide/hono-typed-routes";
 import type {
   PathId,
   PathProjectId,

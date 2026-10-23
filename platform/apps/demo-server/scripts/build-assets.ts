@@ -1,9 +1,9 @@
 import { PROVIDERS } from "../src/fixtures/providers.js";
-import { pluginPackageJsonSchema } from "@bb/domain";
+import { pluginPackageJsonSchema } from "@hyperfide/domain";
 import {
   pluginListResponseSchema,
   type InstalledPlugin,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";

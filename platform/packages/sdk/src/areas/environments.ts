@@ -3,11 +3,11 @@ import {
   environmentSchema,
   type Environment,
   type EnvironmentStatus,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   commitActionResponseSchema,
   updateEnvironmentRequestSchema,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type {
   CommitActionResponse,
   EnvironmentArchiveThreadsResponse,
@@ -29,7 +29,7 @@ import type {
   UpdateEnvironmentRequest,
   WorkspacePathListResponse,
   SystemEnvironmentProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export interface EnvironmentActionArgs {

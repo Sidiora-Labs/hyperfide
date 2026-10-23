@@ -14,7 +14,7 @@ import type {
   TimelineSystemRow,
   TimelineUserConversationRow,
   TimelineWorkflowWorkRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   isBackgroundAgentTaskType,
   readTerminalOutputLines,
@@ -26,7 +26,7 @@ import {
   type ThreadTimelineGoal,
   type ThreadTimelineModelFallback,
   type ThreadTimelinePendingTodos,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   BuildEventProjectionMessagesOptions,
   EventProjectionFileEditChange,

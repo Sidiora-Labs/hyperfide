@@ -5,8 +5,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { TabPill } from "@/components/ui/tab-pill";
 import { MACOS_APP_REGION_NO_DRAG_CLASS } from "@/lib/bb-desktop";
 import { PANEL_TAB_CONTROL_CLASS } from "./panelChromeClasses";

@@ -1,4 +1,4 @@
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@hyperfide/domain";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";
 
 export interface ThreadMessageEditPolicyDeps {

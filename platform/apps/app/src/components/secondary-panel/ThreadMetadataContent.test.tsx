@@ -1,17 +1,17 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
-import type { Environment, Host, Thread } from "@bb/domain";
-import type { EnvironmentDisplayHostContext } from "@bb/core-ui";
+import type { Environment, Host, Thread } from "@hyperfide/domain";
+import type { EnvironmentDisplayHostContext } from "@hyperfide/core-ui";
 import type {
   SystemEnvironmentProvider,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { systemEnvironmentProvidersQueryKey } from "@/hooks/queries/environment-provider-queries";
 import {
   hostsQueryKey,
   systemMachineProvidersQueryKey,
 } from "@/hooks/queries/query-keys";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
@@ -19,8 +19,8 @@ import {
   makeEnvironment,
   makeHost,
   makeThread as makeThreadFixture,
-} from "@bb/test-helpers/domain-fixtures";
-import { makeWorkspaceMergeBase, makeWorkspaceStatus } from "@bb/test-helpers";
+} from "@hyperfide/test-helpers/domain-fixtures";
+import { makeWorkspaceMergeBase, makeWorkspaceStatus } from "@hyperfide/test-helpers";
 import {
   EnvironmentProvisioningFailureRow,
   EnvironmentRow,

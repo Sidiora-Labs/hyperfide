@@ -1,9 +1,9 @@
-import { bridgeLaunchProcessKey } from "@bb/agent-runtime";
-import type { HostDaemonBridgeLaunch } from "@bb/host-daemon-contract";
+import { bridgeLaunchProcessKey } from "@hyperfide/agent-runtime";
+import type { HostDaemonBridgeLaunch } from "@hyperfide/host-daemon-contract";
 import type {
   ProviderInstallationRequirement,
   ProviderInstallationStatus,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 
 export const PROVIDER_INSTALLATION_GATE_TTL_MS = 5 * 60_000;
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { threadTimelineSubscriptionTargetSchema } from "@bb/domain";
+import { threadTimelineSubscriptionTargetSchema } from "@hyperfide/domain";
 import type { ThreadTimelineResponse } from "./threads.js";
 export const panelFileSourceSchema = z.enum(["workspace", "thread-storage"]);
 

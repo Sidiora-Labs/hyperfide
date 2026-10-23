@@ -5,9 +5,9 @@ import {
   findLocalPathProjectSourceForHost,
   isActiveTerminalSessionStatus,
   mobileAppDownloads,
-} from "@bb/domain";
-import type { TerminalOutputChunk, TerminalSession } from "@bb/server-contract";
-import { useMediaQuery } from "@bb/shared-ui/hooks/use-media-query";
+} from "@hyperfide/domain";
+import type { TerminalOutputChunk, TerminalSession } from "@hyperfide/server-contract";
+import { useMediaQuery } from "@hyperfide/shared-ui/hooks/use-media-query";
 import { AddMachineDialog } from "@/components/dialogs/AddMachineDialog";
 import { ProjectPathDialog } from "@/components/dialogs/ProjectPathDialog";
 import { useSetPluginEnabled } from "@/components/plugin/useSetPluginEnabled";

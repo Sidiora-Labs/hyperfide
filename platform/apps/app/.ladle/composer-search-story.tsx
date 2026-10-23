@@ -5,7 +5,7 @@ import type {
   ExperimentalComposerMentionSearch,
   ExperimentalComposerSearchQuery,
   PluginMentionTrigger,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { pluginSdkAppImplementation } from "../src/lib/plugin-sdk-app-impl";
 
 interface StoryComposerSearch {

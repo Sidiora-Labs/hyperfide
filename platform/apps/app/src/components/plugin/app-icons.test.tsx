@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { Icon, preloadExtendedIcons } from "@bb/shared-ui/icon";
-import { setPluginAssetIcons } from "@bb/shared-ui/icon-registry";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import type { ExperimentalIconRegistration } from "@get-bb/plugin-sdk/app";
+import { Icon, preloadExtendedIcons } from "@hyperfide/shared-ui/icon";
+import { setPluginAssetIcons } from "@hyperfide/shared-ui/icon-registry";
+import { collectPluginAppRegistrations } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
+import type { ExperimentalIconRegistration } from "@hyperfide/plugin-sdk/app";
 import {
   beginPluginSlotBatch,
   getPluginSlotSnapshot,

@@ -3,7 +3,7 @@ import type {
   PluginMachineValidateDecision,
   StandardSchemaV1,
   StandardSchemaV1InferOutput,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 
 export type PluginMachineProviderResource = Exclude<JsonValue, null>;
 

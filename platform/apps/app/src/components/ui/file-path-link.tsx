@@ -1,5 +1,5 @@
-import { cn } from "@bb/shared-ui/lib/utils";
-import { TruncateStart } from "@bb/shared-ui/truncate-start";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { TruncateStart } from "@hyperfide/shared-ui/truncate-start";
 
 interface FilePathLinkProps {
   path: string;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AppTheme } from "@bb/domain";
+import type { AppTheme } from "@hyperfide/domain";
 import { systemThemeQueryOptions } from "@/hooks/queries/system-queries";
 import { refreshThemeColorMeta } from "@/hooks/useTheme";
 import {

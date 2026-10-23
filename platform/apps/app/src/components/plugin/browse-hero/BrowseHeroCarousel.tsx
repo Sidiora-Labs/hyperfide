@@ -1,6 +1,6 @@
-import type { IconName } from "@bb/shared-ui/icon";
+import type { IconName } from "@hyperfide/shared-ui/icon";
 import { PLUGINS_BROWSE_DESCRIPTION } from "@/components/plugin/plugins-collection-copy";
-import { CREATE_PLUGIN_PROMPT } from "@bb/client-core";
+import { CREATE_PLUGIN_PROMPT } from "@hyperfide/client-core";
 import {
   ShowcaseHeroCarousel,
   type ShowcaseHeroComposerConfig,

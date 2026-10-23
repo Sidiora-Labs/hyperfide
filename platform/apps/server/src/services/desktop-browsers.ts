@@ -3,11 +3,11 @@ import {
   getSessionById,
   getStoredThreadTabs,
   replaceStoredThreadTabs,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   hostDaemonSupportsDesktopBrokerProof,
   type DesktopBrowserTab,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   type DesktopBrowserBrokerProofRequest,
   threadTabsSchema,
@@ -20,7 +20,7 @@ import {
   type ExperimentalDesktopBrowserLease,
   type ExperimentalDesktopBrowserInstanceRequest,
   type ExperimentalDesktopBrowserImportCookiesRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { WorkSessionDeps } from "../types.js";
 import { ApiError } from "../errors.js";
 import {

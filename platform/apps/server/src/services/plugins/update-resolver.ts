@@ -1,6 +1,6 @@
 import semver from "semver";
 import { z } from "zod";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import {
   DEFAULT_GIT_REF,
   gitSemverTagName,

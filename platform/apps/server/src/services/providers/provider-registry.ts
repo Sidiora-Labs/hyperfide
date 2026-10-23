@@ -7,13 +7,13 @@ import type {
   ProviderFork,
   ProviderInfo,
   ReasoningLevel,
-} from "@bb/domain";
-import { parseExtensionKind } from "@bb/domain";
+} from "@hyperfide/domain";
+import { parseExtensionKind } from "@hyperfide/domain";
 import type {
   PluginProviderExtensionKindDeclaration,
   PluginProviderOptionsContext,
-} from "@get-bb/plugin-sdk";
-import { providerAlreadyRegisteredMessage } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@hyperfide/plugin-sdk";
+import { providerAlreadyRegisteredMessage } from "@hyperfide/plugin-sdk/internal/host-policy";
 
 export interface ProviderHealthCacheKey {
   hostId: string;

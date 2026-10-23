@@ -6,7 +6,7 @@ import {
   type PendingInteractionUserQuestionQuestion,
   type UserQuestionPendingInteractionPayload,
   type UserQuestionPendingInteractionResolution,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { isJsonObject, readString } from "./session/decode.js";
 import type { AcpJsonObject } from "./session/session-types.js";
 

@@ -1,7 +1,7 @@
 import type {
   ServerAccessStatus,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { machineServerAccessBlockedReason } from "../src/components/machines/machine-server-access";
 import type { MachineAccessState } from "../src/components/settings/MachineAccessSettings";
 import modalLogoUrl from "../../../plugins/environment-modal-sandbox/modal-logo.svg";

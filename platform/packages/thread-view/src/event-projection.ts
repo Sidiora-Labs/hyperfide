@@ -1,4 +1,4 @@
-import type { ActiveThinking } from "@bb/domain";
+import type { ActiveThinking } from "@hyperfide/domain";
 import type { AcceptedClientRequestContext } from "./accepted-client-request-context.js";
 import type {
   BuildEventProjectionMessagesOptions,

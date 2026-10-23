@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type {
   TimelineNonOperationSystemRow,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   ThreadTimelineRows,
   type ThreadTimelineRowsProps,

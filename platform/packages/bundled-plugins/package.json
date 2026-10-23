@@ -1,5 +1,5 @@
 {
-  "name": "@bb/bundled-plugins",
+  "name": "@hyperfide/bundled-plugins",
   "private": true,
   "version": "0.0.1",
   "type": "module",

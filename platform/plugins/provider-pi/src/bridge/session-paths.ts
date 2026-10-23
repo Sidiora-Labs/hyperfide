@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-export const PI_BRIDGE_SESSION_DIR_ENV = "BB_PI_BRIDGE_SESSION_DIR";
+export const PI_BRIDGE_SESSION_DIR_ENV = "HYPERFIDE_PI_BRIDGE_SESSION_DIR";
 
 interface ResolvePiBridgeSessionDirArgs {
   env: NodeJS.ProcessEnv;

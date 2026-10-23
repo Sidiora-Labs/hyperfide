@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { WorkspaceDiffTarget } from "@bb/domain";
+import type { WorkspaceDiffTarget } from "@hyperfide/domain";
 import {
   DIFF_PATCH_MAX_PATHS_PER_REQUEST,
   type DiffPatchEntry,
   type EnvironmentDiffPatchResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
-import { extractErrorMessage } from "@bb/core-ui";
+import { extractErrorMessage } from "@hyperfide/core-ui";
 import {
   type PatchQueryIdentity,
   getDiffPatchEvictionGeneration,

@@ -1,11 +1,11 @@
 import path from "node:path";
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
+import type { PluginProviderDeclaration } from "@hyperfide/plugin-sdk";
 import {
   experimental_filterResolvedNativeRoots,
   experimental_resolveClaudePluginRoots,
   type ExperimentalClaudePluginRootsArgs,
   type ExperimentalVendorPluginRoots,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 
 export const CLAUDE_NATIVE_ROOTS_DECLARATION: Pick<
   PluginProviderDeclaration,

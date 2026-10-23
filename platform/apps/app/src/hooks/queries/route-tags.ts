@@ -4,7 +4,7 @@ import type {
   QueryFunctionContext,
   QueryKey,
 } from "@tanstack/react-query";
-import type { ContractTagDeclarations } from "@bb/domain";
+import type { ContractTagDeclarations } from "@hyperfide/domain";
 import {
   CORE_TAG_SCOPE,
   invalidateTags,
@@ -12,7 +12,7 @@ import {
   runTaggedMutation,
   taggedQueryOptions,
   type TaggedOptimisticUpdate,
-} from "@bb/query-tags";
+} from "@hyperfide/query-tags";
 
 export function routeTaggedRead<Input, Output>(
   client: QueryClient,

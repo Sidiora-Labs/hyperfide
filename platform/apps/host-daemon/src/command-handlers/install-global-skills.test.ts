@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
-import type { HostDaemonSkillTree } from "@bb/host-daemon-contract";
+import type { HostDaemonSkillTree } from "@hyperfide/host-daemon-contract";
 import {
   installGlobalSkills,
   readGlobalSkillsStatus,

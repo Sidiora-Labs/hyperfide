@@ -1,8 +1,8 @@
-import type { WorkspaceStatus } from "@bb/domain";
+import type { WorkspaceStatus } from "@hyperfide/domain";
 import { DiffStatsTally } from "@/components/ui/diff-stats-tally.js";
-import { EmptyState } from "@bb/shared-ui/empty-state";
+import { EmptyState } from "@hyperfide/shared-ui/empty-state";
 import { FilePathLink } from "@/components/ui/file-path-link.js";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   formatOmittedChangedFilesLabel,
   formatWorkspaceFileStatus,

@@ -2,11 +2,11 @@ import {
   isBackgroundAgentTaskType,
   isBackgroundCommandTaskType,
   isNamespacedGlyph,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   TimelineActivityIntent,
   TimelineRowPresentation,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { assertNever } from "./assert-never.js";
 import { primaryTimelineActivityIntent } from "./timeline-activity-intents.js";
 import type { TimelineActivityIntentTitle } from "./timeline-row-title.js";

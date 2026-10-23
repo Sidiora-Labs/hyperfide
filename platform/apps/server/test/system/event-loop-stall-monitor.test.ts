@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setExperiments } from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
+import { setExperiments } from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
 import { startGatedPerformanceDiagnostics } from "../../src/services/system/performance-diagnostics.js";
 import { NotificationHub } from "../../src/ws/hub.js";
 

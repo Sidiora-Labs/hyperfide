@@ -8,9 +8,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { app, BrowserWindow, nativeImage } from "electron";
 import { WebSocket, WebSocketServer } from "ws";
-import { jsonObjectSchema } from "@bb/domain";
+import { jsonObjectSchema } from "@hyperfide/domain";
 import { z } from "zod";
-import { desktopBrowserResultSchemas } from "@bb/host-daemon-contract";
+import { desktopBrowserResultSchemas } from "@hyperfide/host-daemon-contract";
 import {
   createDesktopBrowserCdpBridge,
   desktopBrowserCdpTargetId,

@@ -5,9 +5,9 @@
   "title": "sidebar-customize-panel",
   "description": "BB ui \"sidebar-customize-panel\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/chrome-style-tokens",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/chrome-style-tokens",
+    "@hyperfide/utils"
   ],
   "files": [
     {

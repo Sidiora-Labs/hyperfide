@@ -4,21 +4,21 @@ import {
   LOCAL_WORKFLOW_TASK_TYPE,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { Thread } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { Thread } from "@hyperfide/domain";
 import {
   createProject,
   createThread,
   insertEvents,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { createMigratedConnection } from "@bb/db/testing";
-import type { DbConnection } from "@bb/db";
+} from "@hyperfide/db";
+import { createMigratedConnection } from "@hyperfide/db/testing";
+import type { DbConnection } from "@hyperfide/db";
 import type {
   TimelinePaginationCursor,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   buildThreadConversationOutline,
   buildThreadTimelineWithProfile,

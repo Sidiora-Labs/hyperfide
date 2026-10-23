@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FILE_PREVIEW_TEXT_MAX_BYTES } from "@bb/client-core";
+import { FILE_PREVIEW_TEXT_MAX_BYTES } from "@hyperfide/client-core";
 import { loadFilePreview } from "./api";
 
 const target = {

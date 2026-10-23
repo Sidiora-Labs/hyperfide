@@ -1,11 +1,11 @@
 import type {
   PendingInteraction,
   PendingInteractionUserQuestionQuestion,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   isApprovalPendingInteractionPayload,
   isUserQuestionPendingInteractionPayload,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { assertNever } from "./assert-never.js";
 import { describePendingInteractionToolUse } from "./pending-interaction-tool-use.js";
 

@@ -3,8 +3,8 @@ import {
   defineCli,
   PluginCliError,
   type BbPluginApi,
-} from "@get-bb/plugin-sdk";
-import type { ComposerDraft } from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
+import type { ComposerDraft } from "@hyperfide/plugin-sdk";
 import {
   promptLibraryRpcContract,
   promptTitleSchema,

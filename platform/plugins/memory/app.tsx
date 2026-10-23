@@ -3,7 +3,7 @@ import {
   definePluginApp,
   useRpc,
   type PluginRpcResult,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 import type { memoryRpcContract } from "./server.js";
 import { isMemoryKind, MEMORY_KINDS } from "./memory-kinds.js";
 import { Button } from "@/components/ui/button";

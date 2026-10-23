@@ -7,7 +7,7 @@ import type {
   DirectoryEntry,
   HostDaemonOnlineRpcResult,
   HostPathEntryKind,
-} from "@bb/host-daemon-contract";
+} from "@hyperfide/host-daemon-contract";
 import {
   CommandDispatchError,
   type CommandDispatchOptions,

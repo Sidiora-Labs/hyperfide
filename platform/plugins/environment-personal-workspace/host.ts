@@ -2,7 +2,7 @@ import { mkdir, rm, stat } from "node:fs/promises";
 import {
   experimental_defineHostEntry,
   experimental_killProcessesWithCwdUnder,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { personalWorkspaceHostContract } from "./contract.js";
 import {
   assertRemovableWorkspacePath,

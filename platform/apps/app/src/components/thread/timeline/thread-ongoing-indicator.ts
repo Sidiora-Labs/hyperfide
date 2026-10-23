@@ -1,5 +1,5 @@
-import { isRunningThreadRuntimeDisplayStatus } from "@bb/client-core";
-import type { ThreadRuntimeDisplayStatus } from "@bb/domain";
+import { isRunningThreadRuntimeDisplayStatus } from "@hyperfide/client-core";
+import type { ThreadRuntimeDisplayStatus } from "@hyperfide/domain";
 
 export function resolveThreadOngoingIndicator({
   activeBackgroundAgentCount,

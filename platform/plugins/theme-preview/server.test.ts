@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createFakePluginHost,
   type FakeSdkOverrides,
-} from "@get-bb/plugin-sdk/testing";
+} from "@hyperfide/plugin-sdk/testing";
 import plugin, {
   buildCatalog,
   classifySelector,

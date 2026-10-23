@@ -2,8 +2,8 @@ import {
   type PromptInput,
   type PromptTextMention,
   type ThreadEvent,
-} from "@bb/domain";
-import type { TimelineConversationAttachments } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { TimelineConversationAttachments } from "@hyperfide/server-contract";
 import type { EventMeta } from "./event-decode.js";
 import type { AcceptedClientRequest } from "./accepted-client-request-context.js";
 import type {

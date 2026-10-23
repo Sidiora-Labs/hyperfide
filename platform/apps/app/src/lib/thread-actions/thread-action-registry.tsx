@@ -19,7 +19,7 @@ import type {
   PluginThreadActionRegistrationInfo,
   PluginThreadActionTarget,
   PluginThreadActionsOptions,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { PluginContext } from "@/components/plugin/plugin-context";
 import { getActiveThreadPanelOpener } from "@/components/plugin/plugin-thread-panel-navigation";
 import { useBbNavigate, useSdk } from "@/lib/plugin-navigation-hooks";

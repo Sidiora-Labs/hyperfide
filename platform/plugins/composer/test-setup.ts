@@ -1,5 +1,5 @@
 /// <reference types="vitest/jsdom" />
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 
 installTestPluginRuntime();
 

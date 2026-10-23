@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 
 export default function replacementLabBeta(bb: BbPluginApi) {
   bb.log.info("Replacement Lab Beta loaded");

@@ -1,5 +1,5 @@
-import type { ReasoningLevel } from "@bb/domain";
-import type { SystemExecutionOptionsModelLoadError } from "@bb/server-contract";
+import type { ReasoningLevel } from "@hyperfide/domain";
+import type { SystemExecutionOptionsModelLoadError } from "@hyperfide/server-contract";
 import { ModelPickerStoryQueryProvider } from "../../../.ladle/model-picker-query-provider";
 import { STORY_PROVIDER_OPTIONS } from "../../../.ladle/story-fixtures";
 import { ModelReasoningPicker } from "./ModelReasoningPicker";

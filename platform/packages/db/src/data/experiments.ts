@@ -6,7 +6,7 @@ import {
   experimentKeySchema,
   type ExperimentUpdates,
   type Experiments,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { DbConnection } from "../connection.js";
 import { systemExperiments } from "../schema.js";
 import { getEarlyAdopter } from "./app-settings.js";

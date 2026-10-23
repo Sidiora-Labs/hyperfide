@@ -9,12 +9,12 @@ import {
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import {
   buildPluginHost,
   isIgnoredPluginDevPath,
   type PluginBuildToolchain,
-} from "@bb/plugin-build";
+} from "@hyperfide/plugin-build";
 import { validatePluginArtifactMeta } from "./app-bundle.js";
 
 const hostBuildRecordSchema = z.object({

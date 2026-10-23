@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { BranchPickerProps } from "@get-bb/plugin-sdk";
+import type { BranchPickerProps } from "@hyperfide/plugin-sdk";
 import { BranchPicker } from "@/components/pickers/BranchPicker";
 import { usePluginBranches } from "./usePluginBranchPickerState";
 

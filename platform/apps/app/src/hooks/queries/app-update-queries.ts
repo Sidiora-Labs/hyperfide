@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { SystemAppUpdateStatus } from "@bb/server-contract";
+import type { SystemAppUpdateStatus } from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
 import { useSystemRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { systemAppUpdateQueryKey } from "./query-keys";

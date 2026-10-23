@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { expect, it, vi } from "vitest";
 import { CommandRouter } from "../../src/command-router.js";
 import { createHarness } from "./dispatch-helpers.js";

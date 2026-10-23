@@ -3,7 +3,7 @@ import {
   defaultAppTheme,
   defaultFaviconColor,
   type FaviconColorPreference,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { DbConnection } from "../connection.js";
 import { appTheme } from "../schema.js";
 

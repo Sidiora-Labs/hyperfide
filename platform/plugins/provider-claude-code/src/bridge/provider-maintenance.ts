@@ -22,7 +22,7 @@ import {
   experimental_readCliVersion as readCliVersion,
   experimental_resolveExecutablePath as resolveExecutablePath,
   experimental_versionFrom as versionFrom,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 import { z } from "zod";
 
 const execFileAsync = promisify(execFile);
@@ -55,7 +55,7 @@ const claudeAccountSchema = z.object({
 });
 
 async function claudeExecutable(): Promise<string> {
-  const explicit = process.env.BB_CLAUDE_CODE_EXECUTABLE?.trim();
+  const explicit = process.env.HYPERFIDE_CLAUDE_CODE_EXECUTABLE?.trim();
   if (explicit) return explicit;
   if (
     process.platform !== "win32" ||

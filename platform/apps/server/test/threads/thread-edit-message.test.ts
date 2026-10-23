@@ -10,7 +10,7 @@ import {
   listQueuedThreadMessages,
   listStoredProjectPromptHistoryRows,
   listStoredThreadPromptHistoryRows,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
@@ -18,8 +18,8 @@ import {
   type PromptInput,
   type ThreadEventTurnStatus,
   type ThreadStatus,
-} from "@bb/domain";
-import { threadResponseSchema } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import { threadResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it, vi } from "vitest";
 import { editThreadMessage } from "../../src/services/threads/thread-edit-message.js";
 import { requestThreadStopForCurrentState } from "../../src/services/threads/thread-lifecycle.js";

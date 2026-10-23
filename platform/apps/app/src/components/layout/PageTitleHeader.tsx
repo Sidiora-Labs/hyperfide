@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { ExperimentalPageTitle } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalPageTitle } from "@hyperfide/plugin-sdk/app";
 import {
   getBbDesktopInfo,
   shouldUseMacosDesktopChrome,

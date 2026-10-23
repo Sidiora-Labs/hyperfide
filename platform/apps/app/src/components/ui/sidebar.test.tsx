@@ -11,7 +11,7 @@ import { memo, startTransition, useState } from "react";
 import { flushSync } from "react-dom";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import {
   Sidebar,
   SidebarCollapsibleBody,
@@ -26,7 +26,7 @@ import {
   useSidebarKeepsCollapsedRail,
 } from "./sidebar";
 import { setCompactSecondaryPanelSwipeOpening } from "./secondary-panel-shelf-visibility";
-import { buildBridgeInjectionScript } from "@bb/mobile-bridge";
+import { buildBridgeInjectionScript } from "@hyperfide/mobile-bridge";
 import { resetNativeShellForTests } from "@/lib/native-shell/native-shell";
 
 function installNativeShell() {

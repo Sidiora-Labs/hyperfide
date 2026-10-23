@@ -1,13 +1,13 @@
 import {
   getProjectExecutionDefaults,
   upsertProjectExecutionDefaults,
-} from "@bb/db";
+} from "@hyperfide/db";
 import type {
   ProjectExecutionDefaults,
   RecordedThreadExecutionOptions,
   ResolvedThreadExecutionOptions,
   Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { AppDeps } from "../../types.js";
 import type {
   ThreadCreateServiceRequest,

@@ -3,7 +3,7 @@ import { LazyThreadDetailView } from "./views/thread-detail/LazyThreadDetailView
 import { LazyRootComposeView } from "./views/LazyRootComposeView";
 import { useRouteState } from "./hooks/useRouteState";
 import { lazy, Suspense, useEffect } from "react";
-import { parseMessageLink } from "@bb/client-core";
+import { parseMessageLink } from "@hyperfide/client-core";
 import {
   matchPath,
   Navigate,

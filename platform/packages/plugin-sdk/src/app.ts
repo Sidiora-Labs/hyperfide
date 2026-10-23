@@ -23,7 +23,7 @@ export type {
 } from "./rpc-contract.js";
 
 /**
- * `@get-bb/plugin-sdk/app` — typed facade over the BB app's plugin runtime.
+ * `@hyperfide/plugin-sdk/app` — typed facade over the BB app's plugin runtime.
  *
  * This module's runtime is never bundled into plugins: `bb plugin build`
  * swaps the specifier for a shim reading
@@ -38,7 +38,7 @@ export type {
  * Shared hooks and host components, including experimental_Icon. The generic
  * host-provided UI kit was removed 2026-07-03,
  * plugin design §5.5: other components are vendored shadcn-style source from the
- * BB registry (`npx shadcn add @bb/<name>`); `toast` comes from
+ * BB registry (`npx shadcn add @hyperfide/<name>`); `toast` comes from
  * `import { toast } from "sonner"` (runtime-shimmed to the host toaster).
  */
 
@@ -74,7 +74,7 @@ function runtimeMember<Name extends keyof PluginSdkApp>(
   const member = installedApp()?.[name] as PluginSdkApp[Name] | undefined;
   if (member === undefined) {
     throw new Error(
-      `@get-bb/plugin-sdk/app: ${name} needs the bb app's plugin runtime. In tests, call installTestPluginRuntime() from @get-bb/plugin-sdk/testing/app first.`,
+      `@hyperfide/plugin-sdk/app: ${name} needs the bb app's plugin runtime. In tests, call installTestPluginRuntime() from @hyperfide/plugin-sdk/testing/app first.`,
     );
   }
   return member;
@@ -95,7 +95,7 @@ function runtimeComponent<Name extends keyof PluginSdkApp>(
     const react = runtimeHost()?.react;
     if (react === undefined) {
       throw new Error(
-        `@get-bb/plugin-sdk/app: ${name} needs React on the bb plugin runtime. In tests, call installTestPluginRuntime() from @get-bb/plugin-sdk/testing/app first.`,
+        `@hyperfide/plugin-sdk/app: ${name} needs React on the bb plugin runtime. In tests, call installTestPluginRuntime() from @hyperfide/plugin-sdk/testing/app first.`,
       );
     }
     return react.createElement(runtimeMember(name), props);

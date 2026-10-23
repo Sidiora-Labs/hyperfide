@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
-import { jsonObjectSchema } from "@bb/domain";
+import { jsonObjectSchema } from "@hyperfide/domain";
 import { z } from "zod";
 import {
   createDesktopBrowserCdpBridge,
@@ -10,7 +10,7 @@ import {
   type DesktopBrowserCdpPage,
   type DesktopBrowserCdpScope,
 } from "../src/desktop-browser-cdp.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 
 type Message = z.infer<typeof jsonObjectSchema>;
 const disposers: Array<() => Promise<void>> = [];

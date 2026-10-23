@@ -1,5 +1,5 @@
 import { stripVTControlCharacters } from "node:util";
-import { escapeHtmlText } from "@bb/text-utils";
+import { escapeHtmlText } from "@hyperfide/text-utils";
 import { z } from "zod";
 
 export const STARTUP_ACTION_CHANNEL = "bb-desktop:startup-action";

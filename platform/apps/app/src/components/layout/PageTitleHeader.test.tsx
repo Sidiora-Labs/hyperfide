@@ -3,7 +3,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { PageTitleHeader } from "./PageTitleHeader";
 import { PageTitleHookHost, usePageTitleValue } from "./page-title";

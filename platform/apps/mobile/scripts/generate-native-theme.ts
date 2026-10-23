@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BUILTIN_THEME_IDS, type BuiltInThemeId } from "@bb/domain";
+import { BUILTIN_THEME_IDS, type BuiltInThemeId } from "@hyperfide/domain";
 import { converter, parse, type Color, type Oklab, type Oklch } from "culori";
 
 const MOBILE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -703,7 +703,7 @@ export function renderNativeThemeSource(model: NativeThemeModel): string {
   );
   const header = [
     "/**",
-    " * GENERATED FILE — run pnpm --filter @bb/mobile theme:generate",
+    " * GENERATED FILE — run pnpm --filter @hyperfide/mobile theme:generate",
     " *",
     " * Source: apps/app/src/components/ui/theme.css, then the mobile-only override",
     " * layer apps/mobile/src/theme/mobile-overrides.css, then the built-in palettes",
@@ -725,7 +725,7 @@ export function renderNativeThemeSource(model: NativeThemeModel): string {
     " * Tokens deliberately left out (edit the generator to add them):",
     ...skippedLines,
     " */",
-    'import type { BuiltInThemeId } from "@bb/domain";',
+    'import type { BuiltInThemeId } from "@hyperfide/domain";',
     "",
   ];
 

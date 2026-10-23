@@ -1,17 +1,17 @@
-import { renderTemplate } from "@bb/templates";
-import { getThread, updateThread } from "@bb/db";
+import { renderTemplate } from "@hyperfide/templates";
+import { getThread, updateThread } from "@hyperfide/db";
 import {
   removeCommandMentionsFromPromptInput,
   type PromptInput,
   type PromptMentionCommandTrigger,
   type Thread,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   countWords,
   displayWidth,
   truncateToWidth,
   truncateToWidthAtWordBoundary,
-} from "@bb/text-utils";
+} from "@hyperfide/text-utils";
 import type { AppDeps, LoggedWorkSessionDeps } from "../../types.js";
 import { runTextAiTask } from "../ai/ai-tasks.js";
 

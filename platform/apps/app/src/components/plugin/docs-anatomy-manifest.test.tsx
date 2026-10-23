@@ -6,8 +6,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Provider as JotaiProvider } from "jotai";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { PERSONAL_PROJECT_ID } from "@hyperfide/domain";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 
 import { makeProject } from "../../../.ladle/story-fixtures";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";

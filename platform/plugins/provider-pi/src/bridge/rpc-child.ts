@@ -8,12 +8,12 @@ import {
   experimental_spawnPortableProcess,
   sanitizeInheritedChildProcessEnv,
   withoutBridgeRuntimeEnv,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 
 import { resolveWindowsPiProcessLaunch } from "./windows-pi-launch.js";
 
-export const PI_BRIDGE_COMMAND_ENV = "BB_PI_BRIDGE_COMMAND";
-export const PI_BRIDGE_ARGS_ENV = "BB_PI_BRIDGE_ARGS";
+export const PI_BRIDGE_COMMAND_ENV = "HYPERFIDE_PI_BRIDGE_COMMAND";
+export const PI_BRIDGE_ARGS_ENV = "HYPERFIDE_PI_BRIDGE_ARGS";
 
 export const PI_CHANNEL_RECORDING_KEY = "bbChannel";
 

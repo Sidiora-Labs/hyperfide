@@ -5,10 +5,10 @@
   "title": "resource-detail-controls",
   "description": "BB ui \"resource-detail-controls\" — vendored from the BB app's own source (version-matched to this BB release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon",
-    "@bb/tooltip",
-    "@bb/utils"
+    "@hyperfide/button",
+    "@hyperfide/icon",
+    "@hyperfide/tooltip",
+    "@hyperfide/utils"
   ],
   "files": [
     {

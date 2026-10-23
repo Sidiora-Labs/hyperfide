@@ -8,7 +8,7 @@ import {
   type ReasoningLevel,
   type SessionOptionSelections,
   type ThreadSessionOption,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type { ModelPickerOption } from "@/components/pickers/model-picker-option";
 import type { PickerOption } from "@/components/pickers/OptionPicker";
 import {

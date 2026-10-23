@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Paragraph, PhrasingContent, Root } from "mdast";
-import type { PromptMentionResource } from "@bb/domain";
+import type { PromptMentionResource } from "@hyperfide/domain";
 import {
   remarkPromptMentions,
   substitutePromptMentions,

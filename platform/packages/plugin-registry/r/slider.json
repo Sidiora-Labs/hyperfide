@@ -8,7 +8,7 @@
     "@radix-ui/react-slider"
   ],
   "registryDependencies": [
-    "@bb/utils"
+    "@hyperfide/utils"
   ],
   "files": [
     {

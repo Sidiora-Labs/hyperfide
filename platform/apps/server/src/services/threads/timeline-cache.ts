@@ -1,5 +1,5 @@
-import type { ThreadTimelineResponse } from "@bb/server-contract";
-import type { ThreadStatus } from "@bb/domain";
+import type { ThreadTimelineResponse } from "@hyperfide/server-contract";
+import type { ThreadStatus } from "@hyperfide/domain";
 import type { ThreadTimelinePageRequest } from "./timeline-pagination.js";
 
 const DEFAULT_MAX_ENTRIES = 128;

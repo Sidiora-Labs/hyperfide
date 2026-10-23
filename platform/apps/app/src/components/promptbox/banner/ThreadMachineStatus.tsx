@@ -2,18 +2,18 @@ import { useState } from "react";
 import { AnimatedDisclosureBody } from "./AnimatedBody";
 import { useHosts } from "@/hooks/queries/host-queries";
 import { useResumeHost } from "@/hooks/mutations/host-mutations";
-import type { SystemMachineProvider } from "@bb/server-contract";
+import type { SystemMachineProvider } from "@hyperfide/server-contract";
 import {
   MachineIcon,
   type MachineLabelHost,
 } from "@/components/machines/MachineLabel";
 import { useSystemMachineProviders } from "@/hooks/queries/machine-provider-queries";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import {
   PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
   PromptStackHoverChevron,
   useDisclosureFocusHandoff,
-} from "@bb/shared-ui/prompt-stack-disclosure";
+} from "@hyperfide/shared-ui/prompt-stack-disclosure";
 import {
   BannerActionSlot,
   PromptBannerActionButton,

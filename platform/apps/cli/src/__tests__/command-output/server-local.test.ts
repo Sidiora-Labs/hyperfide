@@ -33,7 +33,7 @@ import {
   writeServerConnectHoldFile,
   writeServerImportFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import {
   collectLogPayloads,
   readlineMocks,

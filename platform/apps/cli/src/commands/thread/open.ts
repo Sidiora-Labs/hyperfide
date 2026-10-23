@@ -1,11 +1,11 @@
 import path from "node:path";
 import { Command } from "commander";
-import { isRawThreadId } from "@bb/domain";
+import { isRawThreadId } from "@hyperfide/domain";
 import {
   threadOpenSplitSchema,
   type PanelFileSource,
   type ThreadOpenFile,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { action } from "../../action.js";
 import { createCliBbSdk } from "../../client.js";
 import { requireThreadId, resolveContextThreadId } from "../../context-env.js";

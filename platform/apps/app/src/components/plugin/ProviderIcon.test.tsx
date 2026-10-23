@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { Icon } from "@bb/shared-ui/icon";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import type { PluginAppBuilder } from "@get-bb/plugin-sdk/app";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { collectPluginAppRegistrations } from "@hyperfide/plugin-sdk/internal/plugin-app-collector";
+import type { PluginAppBuilder } from "@hyperfide/plugin-sdk/app";
 import {
   removePluginSlotRegistrations,
   resetPluginSlotStoreForTest,

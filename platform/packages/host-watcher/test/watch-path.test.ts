@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import parcelWatcher from "@parcel/watcher";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as pathExistsModule from "../src/path-exists.js";
 import { watchPathChanges as watchPathChangesImpl } from "../src/watch-path.js";

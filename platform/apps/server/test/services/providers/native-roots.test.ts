@@ -1,7 +1,7 @@
-import type { JsonValue } from "@bb/domain";
-import type { HostDaemonOnlineRpcRequestMessage } from "@bb/host-daemon-contract";
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
-import type { ExperimentalNativeRootsResolveAnswer } from "@get-bb/plugin-sdk/host";
+import type { JsonValue } from "@hyperfide/domain";
+import type { HostDaemonOnlineRpcRequestMessage } from "@hyperfide/host-daemon-contract";
+import type { PluginProviderDeclaration } from "@hyperfide/plugin-sdk";
+import type { ExperimentalNativeRootsResolveAnswer } from "@hyperfide/plugin-sdk/host";
 import { describe, expect, it, vi } from "vitest";
 import { COMMAND_TIMEOUT_MS } from "../../../src/constants.js";
 import { ApiError } from "../../../src/errors.js";

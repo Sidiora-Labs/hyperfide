@@ -18,12 +18,12 @@ import {
   createTaggedKeyedQueryOwner,
   useTaggedMutation,
   useQuerySelection,
-} from "@bb/query-tags";
+} from "@hyperfide/query-tags";
 import {
   canonicalPluginReadInput,
   jsonValueSchema,
   type JsonValue,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { rpcResponseTags } from "./rpc-tags.js";
 import { z } from "zod";
 import type {

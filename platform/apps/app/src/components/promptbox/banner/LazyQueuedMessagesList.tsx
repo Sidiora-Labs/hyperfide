@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import type { ThreadQueuedMessage } from "@bb/domain";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { formatQueuedMessagePreview } from "@bb/client-core";
+import type { ThreadQueuedMessage } from "@hyperfide/domain";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { formatQueuedMessagePreview } from "@hyperfide/client-core";
 import { queuedMessageFallbackTitle } from "@/lib/queued-message-wait";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
@@ -12,7 +12,7 @@ import {
   getQueuedMessagesDrawerHeight,
   QUEUED_MESSAGES_COLLAPSED_HEIGHT,
 } from "@/components/promptbox/banner/queued-messages-layout";
-import type { PromptMentionLinkResolver } from "@bb/client-core";
+import type { PromptMentionLinkResolver } from "@hyperfide/client-core";
 import { defineSplit, SplitLoadFailure } from "@/lib/define-split";
 import type { QueuedMessageReorderRequest } from "@/lib/queued-message-reorder";
 

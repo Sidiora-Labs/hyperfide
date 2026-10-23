@@ -1,4 +1,4 @@
-import { createMemoryStorage } from "@bb/test-helpers";
+import { createMemoryStorage } from "@hyperfide/test-helpers";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createLastKnownCache } from "./last-known-cache";

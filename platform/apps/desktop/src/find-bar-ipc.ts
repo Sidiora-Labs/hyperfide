@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
+import { HYPERFIDE_DESKTOP_MAX_FIND_TEXT_LENGTH } from "@hyperfide/desktop-contract";
 
 export const HYPERFIDE_DESKTOP_FIND_BAR_QUERY_CHANNEL =
   "bb-desktop:find-bar:query";

@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { BbPluginApi } from "@hyperfide/plugin-sdk";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { ResolvedSettings } from "./configuration.js";

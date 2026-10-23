@@ -14,7 +14,7 @@ import {
   updateAutomationInputSchema,
 } from "./rpc-types.js";
 import { z } from "zod";
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import type { AutomationService } from "./service.js";
 
 export const automationRpcContract = defineRpcContract({

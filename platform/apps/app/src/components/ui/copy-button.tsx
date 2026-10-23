@@ -4,10 +4,10 @@ import {
   type ReactNode,
 } from "react";
 import { useClipboardCopy, type ClipboardCopyOptions } from "@/lib/clipboard";
-import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@bb/shared-ui/hover-reveal";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Icon } from "@bb/shared-ui/icon";
-import { CONTROL_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@hyperfide/shared-ui/hover-reveal";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { Icon } from "@hyperfide/shared-ui/icon";
+import { CONTROL_HOVER_TRANSITION } from "@hyperfide/shared-ui/motion";
 
 interface CopyButtonProps
   extends

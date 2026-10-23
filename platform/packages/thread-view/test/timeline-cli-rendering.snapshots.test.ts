@@ -7,7 +7,7 @@ import {
   workRowsOfKind,
 } from "./timeline-test-harness.js";
 import { formatThreadTimelineText } from "../src/format-timeline-text.js";
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import type { TimelineEventFactory } from "./timeline-test-harness.js";
 
 type TimelineFixtureEvent = ReturnType<
@@ -2817,13 +2817,13 @@ describe("timeline CLI rendering snapshots", () => {
       event.commandStarted({
         itemId: "call-empty-success",
         command:
-          "pnpm exec turbo run typecheck --filter=@bb/app > /tmp/typecheck.txt 2>&1",
+          "pnpm exec turbo run typecheck --filter=@hyperfide/app > /tmp/typecheck.txt 2>&1",
         createdAt: 1,
       }),
       event.commandCompleted({
         itemId: "call-empty-success",
         command:
-          "pnpm exec turbo run typecheck --filter=@bb/app > /tmp/typecheck.txt 2>&1",
+          "pnpm exec turbo run typecheck --filter=@hyperfide/app > /tmp/typecheck.txt 2>&1",
         aggregatedOutput: "",
         exitCode: 0,
         createdAt: 4001,
@@ -2831,8 +2831,8 @@ describe("timeline CLI rendering snapshots", () => {
     ]);
 
     expect(timeline.text).toMatchInlineSnapshot(`
-      "── Ran pnpm exec turbo run typecheck --filter=@bb/app > /tmp/typecheck.txt 2>&1 (4s)
-        $ pnpm exec turbo run typecheck --filter=@bb/app > /tmp/typecheck.txt 2>&1
+      "── Ran pnpm exec turbo run typecheck --filter=@hyperfide/app > /tmp/typecheck.txt 2>&1 (4s)
+        $ pnpm exec turbo run typecheck --filter=@hyperfide/app > /tmp/typecheck.txt 2>&1
         exit code 0"
     `);
   });

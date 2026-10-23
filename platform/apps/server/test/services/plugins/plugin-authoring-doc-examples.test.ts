@@ -93,7 +93,7 @@ function probeSource(
   fences: readonly SdkFence[],
 ): string {
   return [
-    `import type { BbPluginApi } from "@get-bb/plugin-sdk";`,
+    `import type { BbPluginApi } from "@hyperfide/plugin-sdk";`,
     `type Sdk = BbPluginApi["sdk"];`,
     `type Callable = (...args: never[]) => unknown;`,
     `type AssertCallable<F extends Callable> = F;`,
@@ -131,7 +131,7 @@ const PROBE_TSCONFIG = {
     noEmit: true,
     skipLibCheck: true,
     types: [],
-    paths: { "@get-bb/plugin-sdk": [pluginSdkEntry] },
+    paths: { "@hyperfide/plugin-sdk": [pluginSdkEntry] },
   },
   files: ["probe.ts"],
 };

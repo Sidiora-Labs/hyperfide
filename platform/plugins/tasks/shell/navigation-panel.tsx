@@ -1,4 +1,4 @@
-import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
+import type { PluginNavPanelProps } from "@hyperfide/plugin-sdk/app";
 import {
   useActiveTasks,
   useFolders,

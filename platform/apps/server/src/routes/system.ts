@@ -20,7 +20,7 @@ import {
   setAppKeybindingOverrides,
   setExperiments,
   setStoredAppearance,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   applyAppKeybindingOverrides,
   appSettingsSchema,
@@ -30,13 +30,13 @@ import {
   resolveCodeTheme,
   type AppKeybindingOverrides,
   type AppTheme,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
   type SystemEnvironmentProvider,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import type { Hono } from "hono";
 import {
   hashedAssetCacheControl,

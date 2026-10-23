@@ -1,8 +1,8 @@
 import { useId, type ReactNode } from "react";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@hyperfide/shared-ui/hooks/use-compact-viewport";
 import { ListLoadingPlaceholder } from "@/components/ui/ListLoadingPlaceholder";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
+import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
 import { PaletteModeChip } from "./PaletteModeChip";
 import { PALETTE_INPUT_CLASS, PaletteInputBand } from "./PaletteInputBand";
 

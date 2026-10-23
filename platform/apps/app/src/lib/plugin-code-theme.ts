@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type {
   PluginCodeThemeData,
   PluginCodeThemeState,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { usePreferredTheme } from "@/hooks/useTheme";
 import { useResolvedCodeTheme } from "@/lib/code-theme";
 import { registerResolvedCodeThemeFiles } from "@/lib/code-theme-registration";

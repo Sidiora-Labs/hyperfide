@@ -1,7 +1,7 @@
 import path from "node:path";
 import { chmodSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { systemExecutionOptionsResponseSchema } from "@bb/server-contract";
+import { systemExecutionOptionsResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { sendTextMessage } from "../../helpers/api.js";
 import {

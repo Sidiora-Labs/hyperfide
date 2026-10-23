@@ -5,7 +5,7 @@ import type {
   ComposerMention,
   ComposerSelection,
   PluginComposerApi,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import {
   appendComposerDraft,
   createComposerHandleBinding,
@@ -14,22 +14,22 @@ import {
   type ComposerHandleBinding,
   type ComposerHandleController,
   type ComposerHandleTarget,
-} from "@get-bb/plugin-sdk/internal/composer-handle";
+} from "@hyperfide/plugin-sdk/internal/composer-handle";
 import {
   permissionModeSchema,
   reasoningLevelSchema,
   serviceTierSchema,
-} from "@bb/domain";
-import { createThreadEnvironmentArgsSchema } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import { createThreadEnvironmentArgsSchema } from "@hyperfide/server-contract";
 import {
   appendQuoteAndAttachmentsToDraft,
   composerMentionFromPromptTextMention,
   promptMentionResourceFromComposerMention,
   promptTextMentionFromComposerMention,
   type PromptDraftState,
-} from "@bb/client-core";
+} from "@hyperfide/client-core";
 import type { PluginComposerHost } from "@/components/plugin/plugin-composer-host";
-import { serializedTextForPromptMentionResource } from "@bb/client-core";
+import { serializedTextForPromptMentionResource } from "@hyperfide/client-core";
 import { subscribeComposerSubmitted } from "./composer-submissions";
 import {
   getComposerEditorBridge,

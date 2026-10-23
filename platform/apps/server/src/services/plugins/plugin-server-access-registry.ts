@@ -1,4 +1,4 @@
-import type { ServerAccessProviderDeclaration } from "@get-bb/plugin-sdk";
+import type { ServerAccessProviderDeclaration } from "@hyperfide/plugin-sdk";
 
 export interface ServerAccessProviderRecord {
   pluginId: string;

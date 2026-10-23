@@ -7,8 +7,8 @@ import {
   type GitSourceInspection,
   type ProjectExecutionDefaults,
   type Thread,
-} from "@bb/domain";
-import { createEnvironment } from "@bb/db";
+} from "@hyperfide/domain";
+import { createEnvironment } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import {
   resolveCreateThreadEnvironment,

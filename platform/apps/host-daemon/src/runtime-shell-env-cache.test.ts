@@ -1,4 +1,4 @@
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@hyperfide/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import {
   createRuntimeShellEnvCache,

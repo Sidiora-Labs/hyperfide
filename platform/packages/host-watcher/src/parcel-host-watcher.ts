@@ -1,5 +1,5 @@
 import path from "node:path";
-import { isPathWithinDirectory } from "@bb/process-utils";
+import { isPathWithinDirectory } from "@hyperfide/process-utils";
 import { RootSubscription } from "./root-subscription.js";
 import { watchPathChanges } from "./watch-path.js";
 import { watchWorkspaceStatus } from "./watch-status.js";

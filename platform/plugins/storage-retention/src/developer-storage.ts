@@ -1,7 +1,7 @@
 import {
   experimental_killProcessesWithCwdUnder,
   experimental_readProcessIdentity,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";

@@ -1,4 +1,4 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@hyperfide/domain";
 import { describe, expect, it } from "vitest";
 import {
   checkItemOpensBeforeDelta,

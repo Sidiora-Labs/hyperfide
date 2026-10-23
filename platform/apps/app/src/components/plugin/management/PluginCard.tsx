@@ -3,7 +3,7 @@ import { PluginDisplayName } from "./PluginNameTag";
 import {
   ResourceBrowseCard,
   ResourceBrowseGrid,
-} from "@bb/shared-ui/resource-list";
+} from "@hyperfide/shared-ui/resource-list";
 import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
 import { PluginAuthorAvatar } from "./PluginAuthorAvatar";
 import { PluginAuthorLink } from "./PluginAuthorLink";

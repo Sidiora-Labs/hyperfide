@@ -122,7 +122,7 @@ it("resolves every named branding.icon the shipped plugins declare", async () =>
   const { readdir, readFile } = await import("node:fs/promises");
   const { dirname, join, resolve } = await import("node:path");
   const { fileURLToPath } = await import("node:url");
-  const { isBuiltinIconName } = await import("@bb/shared-ui/icon");
+  const { isBuiltinIconName } = await import("@hyperfide/shared-ui/icon");
 
   const pluginsDir = resolve(
     dirname(fileURLToPath(import.meta.url)),

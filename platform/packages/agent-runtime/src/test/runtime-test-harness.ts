@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { JsonObject, ProviderRecoveryKind } from "@bb/domain";
+import type { JsonObject, ProviderRecoveryKind } from "@hyperfide/domain";
 import { createAgentRuntime } from "../runtime.js";
 import type {
   AgentRuntime,

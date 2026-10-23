@@ -37,8 +37,8 @@ import {
   threadParentNotificationsSchema,
   threadVisibilitySchema,
   threadWithRuntimeSchema,
-} from "@bb/domain";
-import type { CallerExecutionInputSource } from "@bb/domain";
+} from "@hyperfide/domain";
+import type { CallerExecutionInputSource } from "@hyperfide/domain";
 import { THREAD_EVENT_LIST_PAGE_SIZE } from "../common.js";
 import { providerCommandSchema } from "./projects.js";
 import {

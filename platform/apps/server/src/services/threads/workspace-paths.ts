@@ -2,8 +2,8 @@ import {
   getHostPathSegments,
   isHostPathWithin,
   joinHostPath,
-} from "@bb/domain";
-import { PLUGIN_PROCESS_DATA_KINDS } from "@bb/process-utils";
+} from "@hyperfide/domain";
+import { PLUGIN_PROCESS_DATA_KINDS } from "@hyperfide/process-utils";
 
 const LEGACY_WORKSPACE_ROOT_NAMES = ["worktrees", "personal-workspaces"];
 

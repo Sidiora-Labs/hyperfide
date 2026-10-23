@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import type { ComposerMention } from "@get-bb/plugin-sdk/app";
+import type { ComposerMention } from "@hyperfide/plugin-sdk/app";
 import {
   arePromptEditorValuesEqual,
   suppressPromptEditorAnchorActivation,

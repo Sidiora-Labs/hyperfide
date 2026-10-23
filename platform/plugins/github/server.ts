@@ -1,7 +1,7 @@
 import {
   experimental_runVcsProcess as runVcsProcess,
   type ExperimentalVcsProcessPriority as VcsProcessPriority,
-} from "@get-bb/plugin-sdk/host";
+} from "@hyperfide/plugin-sdk/host";
 import { execFile } from "node:child_process";
 import {
   defineRpcContract,
@@ -10,7 +10,7 @@ import {
   defineCli,
   type BbPluginApi,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
 const SYNC_INTERVAL_MS = 15 * 60_000;

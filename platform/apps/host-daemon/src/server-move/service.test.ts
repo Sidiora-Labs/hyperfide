@@ -7,7 +7,7 @@ import {
   writeServerConnectHoldFile,
   writeServerImportFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@hyperfide/server-archive";
 import { describe, expect, it } from "vitest";
 import { writeIncomingMoveState } from "./move-state.js";
 import {

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { PromptStackCard } from "./PromptStackCard";
 
 export function ProviderRequirementBanner({

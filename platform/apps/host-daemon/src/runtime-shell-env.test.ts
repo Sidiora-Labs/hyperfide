@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path, { delimiter } from "node:path";
-import { makeTempDir } from "@bb/test-helpers";
+import { makeTempDir } from "@hyperfide/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createUserShellPathResolver,
@@ -165,7 +165,7 @@ describe("resolveLocalBbExecutablePath", () => {
         cliRuntimePath,
       }),
     ).rejects.toThrow(
-      `Missing built bb CLI runtime at ${cliRuntimePath}. Build @bb/cli before starting the host daemon.`,
+      `Missing built bb CLI runtime at ${cliRuntimePath}. Build @hyperfide/cli before starting the host daemon.`,
     );
   });
 
@@ -179,7 +179,7 @@ describe("resolveLocalBbExecutablePath", () => {
         cliExecutablePath: cliEntryPath,
       }),
     ).rejects.toThrow(
-      `Missing built bb CLI entry at ${cliEntryPath}. Build @bb/cli before starting the host daemon.`,
+      `Missing built bb CLI entry at ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
     );
   });
 
@@ -195,7 +195,7 @@ describe("resolveLocalBbExecutablePath", () => {
           cliExecutablePath: cliEntryPath,
         }),
       ).rejects.toThrow(
-        `Resolved bb CLI entry is not executable: ${cliEntryPath}. Build @bb/cli before starting the host daemon.`,
+        `Resolved bb CLI entry is not executable: ${cliEntryPath}. Build @hyperfide/cli before starting the host daemon.`,
       );
     },
   );

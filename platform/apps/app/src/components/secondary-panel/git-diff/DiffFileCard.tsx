@@ -1,7 +1,7 @@
 import { DiffLoadingSkeleton } from "@/components/code/code-loading-skeletons";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useIntersectionObserver } from "usehooks-ts";
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { DiffFileEntry } from "@hyperfide/server-contract";
 import type { DiffPresentation } from "@/components/code/code-rendering";
 import {
   getGitDiffCardImageSizeStat,
@@ -27,11 +27,11 @@ import {
   parseGitDiffFiles,
   type ParsedGitDiffFile,
 } from "@/components/git-diff/git-diff-parsing";
-import { Button } from "@bb/shared-ui/button";
-import { Checkbox } from "@bb/shared-ui/checkbox";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Checkbox } from "@hyperfide/shared-ui/checkbox";
 import { FilePathLink } from "@/components/ui/file-path-link.js";
 import type { DiffPatchState } from "@/hooks/queries/use-environment-diff-patches";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 function formatDiffEntryLabel(entry: DiffFileEntry): string {
   if (

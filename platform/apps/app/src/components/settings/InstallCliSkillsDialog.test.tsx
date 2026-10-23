@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { Host } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import type { CliSkillMachineStatus } from "@bb/server-contract";
+import type { Host } from "@hyperfide/domain";
+import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
+import type { CliSkillMachineStatus } from "@hyperfide/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InstallCliSkillsDialog } from "./InstallCliSkillsDialog";
 

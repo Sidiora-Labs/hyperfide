@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RuntimePermissionPolicy } from "@get-bb/plugin-sdk/provider-bridge";
+import type { RuntimePermissionPolicy } from "@hyperfide/plugin-sdk/provider-bridge";
 import {
   buildClaudeSessionParams,
   buildClaudeTurnParams,
@@ -18,7 +18,7 @@ const EXECUTION_CONTEXT = {
   memoryEnabled: false,
   providerSubagentsEnabled: false,
   instructions: "Session instructions",
-  envVars: { BB_TEST: "1" },
+  envVars: { HYPERFIDE_TEST: "1" },
   permissionMode: "accept-edits",
   permissionScope: "workspace",
   approvalReviewer: "user",
@@ -98,7 +98,7 @@ describe("buildClaudeSessionParams", () => {
       model: "claude-sonnet-5",
       reasoningLevel: "high",
       serviceTier: "default",
-      config: { envVars: { BB_TEST: "1" } },
+      config: { envVars: { HYPERFIDE_TEST: "1" } },
     });
     expect(params.baseInstructions).toContain("Session instructions");
   });

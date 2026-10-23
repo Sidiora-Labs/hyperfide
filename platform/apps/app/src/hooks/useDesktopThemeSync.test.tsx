@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BbDesktopInfo, BbDesktopTheme } from "@bb/desktop-contract";
+import type { BbDesktopInfo, BbDesktopTheme } from "@hyperfide/desktop-contract";
 import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
 
 const desktopInfo: BbDesktopInfo = {

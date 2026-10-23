@@ -7,7 +7,7 @@ import {
   type JsonRpcMessage,
   type ProviderRawEventDescription,
   type ProviderVisibilityMetadata,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@hyperfide/plugin-sdk/provider-bridge";
 
 function getMessageContentTypes(message: Record<string, unknown>): string[] {
   const messagePayload = getRecordProperty(message, "message");

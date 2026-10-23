@@ -1,7 +1,7 @@
 import type {
   PendingInteraction,
   ProviderPendingInteraction,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import { ThreadPendingInteractionBanners } from "@/components/thread/pending-interactions/ThreadPendingInteractionBanner";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 
@@ -59,7 +59,7 @@ const longCommandApproval: PendingInteraction = {
       kind: "command",
       itemId: "item_cmd_long",
       command:
-        "pnpm exec turbo run typecheck --filter=@bb/app --filter=@bb/server --filter=@bb/domain --filter=@bb/server-contract --force",
+        "pnpm exec turbo run typecheck --filter=@hyperfide/app --filter=@hyperfide/server --filter=@hyperfide/domain --filter=@hyperfide/server-contract --force",
       cwd: "/workspace/bb",
       actions: [],
       sessionGrant: null,

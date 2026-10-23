@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { encodeClientTurnRequestIdNumber } from "@bb/domain";
-import type { PromptInput } from "@bb/domain";
+import { encodeClientTurnRequestIdNumber } from "@hyperfide/domain";
+import type { PromptInput } from "@hyperfide/domain";
 import {
   buildExecutionOptions,
   buildThreadStartCommand,

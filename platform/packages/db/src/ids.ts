@@ -1,5 +1,5 @@
 import { customAlphabet } from "nanoid";
-import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@bb/domain";
+import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@hyperfide/domain";
 
 const generatePrettyIdSuffix = customAlphabet(
   GENERATED_ID_ALPHABET,

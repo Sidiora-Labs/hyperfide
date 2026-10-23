@@ -5,7 +5,7 @@ import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   ApprovalPendingInteractionResolution,
   ClientTurnRequestId,
@@ -26,8 +26,8 @@ import type {
   TurnRequestTarget,
   SystemMessageKind,
   SystemMessageSubject,
-} from "@bb/domain";
-import type { TimelineRow } from "@bb/server-contract";
+} from "@hyperfide/domain";
+import type { TimelineRow } from "@hyperfide/server-contract";
 import type {
   BuildEventProjectionOptions,
   EventProjection,

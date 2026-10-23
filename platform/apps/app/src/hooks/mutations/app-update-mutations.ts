@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   SystemAppUpdateAcknowledgeRequest,
   SystemAppUpdateApplyRequest,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import { runningThreadCountFromError } from "@/components/app-update/app-update-presentation";
 import { showMutationErrorToast } from "@/lib/mutation-errors";
 import { sdk } from "@/lib/sdk";

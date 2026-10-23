@@ -1,4 +1,4 @@
-import type { TerminalSession } from "@bb/server-contract";
+import type { TerminalSession } from "@hyperfide/server-contract";
 
 export function makeTerminalSession(
   overrides: Partial<TerminalSession> = {},

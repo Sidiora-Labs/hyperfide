@@ -11,7 +11,7 @@ import {
   experimental_createDeltaAssembler as createDeltaAssembler,
   type DeltaAssembler,
   type ThreadEvent,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@hyperfide/plugin-sdk/provider-bridge/testing";
 import {
   createPiDeltaTranslator,
   createPiModelContextWindowResolverFrom,

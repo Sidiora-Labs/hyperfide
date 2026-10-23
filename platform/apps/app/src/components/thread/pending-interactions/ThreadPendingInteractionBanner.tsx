@@ -6,11 +6,11 @@ import {
   describePendingInteractionToolUse,
   formatPendingInteractionSubjectDetailLines,
   type PendingInteractionToolUseAsk,
-} from "@bb/core-ui";
+} from "@hyperfide/core-ui";
 import {
   extractShellCommandFromString,
   formatShellCommandForDisplay,
-} from "@bb/thread-view";
+} from "@hyperfide/thread-view";
 import {
   isPluginPendingInteraction,
   type ApprovalPendingInteractionPayload,
@@ -19,9 +19,9 @@ import {
   type PendingInteractionApprovalSubject,
   type PendingInteractionResolution,
   type PendingInteractionUserQuestionQuestion,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@hyperfide/domain";
+import { Button } from "@hyperfide/shared-ui/button";
+import { Icon } from "@hyperfide/shared-ui/icon";
 import { MarkdownPreview } from "@/components/ui/markdown-preview.js";
 import { getDetailScrollMaxHeightClass } from "@/components/ui/detail-scroll-size.js";
 import { UserQuestionAnswerForm } from "@/components/thread/user-questions/UserQuestionInteractionContent.js";
@@ -38,7 +38,7 @@ import {
 } from "@/components/thread/timeline/presentation-display";
 import { PluginCompactIconMask } from "@/components/plugin/PluginIcon";
 import { usePluginIconUrl } from "@/lib/plugin-logos";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 
 interface ThreadPendingInteractionBannersProps {
   interactions: readonly PendingInteraction[];

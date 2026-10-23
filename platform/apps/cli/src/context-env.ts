@@ -1,5 +1,5 @@
-import { loadCliConfig, type CliConfig } from "@bb/config/cli";
-import { toOptionalString } from "@bb/config/strings";
+import { loadCliConfig, type CliConfig } from "@hyperfide/config/cli";
+import { toOptionalString } from "@hyperfide/config/strings";
 import { CliUsageError } from "./cli-usage-error.js";
 import { missingThreadIdHint } from "./context-hints.js";
 

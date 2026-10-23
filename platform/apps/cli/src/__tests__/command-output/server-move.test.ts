@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Host } from "@bb/domain";
+import type { Host } from "@hyperfide/domain";
 import type {
   ServerMoveCheckResponse,
   ServerMoveStatus,
   ServerMoveStatusResponse,
   ServerMoveStep,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   collectLogPayloads,
   readlineMocks,

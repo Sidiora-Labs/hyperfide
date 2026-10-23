@@ -2,7 +2,7 @@ import {
   experimental_useQuestionFormHost,
   type ExperimentalQuestionFormHost,
   type ExperimentalQuestionShortcut,
-} from "@get-bb/plugin-sdk/app";
+} from "@hyperfide/plugin-sdk/app";
 
 export type QuestionFormHost = ExperimentalQuestionFormHost & {
   density: "default" | "compact";

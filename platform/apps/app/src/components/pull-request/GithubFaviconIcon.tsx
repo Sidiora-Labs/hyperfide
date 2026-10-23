@@ -1,4 +1,4 @@
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@hyperfide/shared-ui/lib/utils";
 import type { GithubCheckStatus } from "@/lib/pull-request-display";
 
 const GITHUB_MARK_PATH =

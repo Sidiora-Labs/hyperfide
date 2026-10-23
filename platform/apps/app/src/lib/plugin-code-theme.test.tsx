@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, waitFor } from "@testing-library/react";
-import { defaultResolvedCodeTheme } from "@bb/domain";
-import type { PluginCodeThemeState } from "@get-bb/plugin-sdk";
+import { defaultResolvedCodeTheme } from "@hyperfide/domain";
+import type { PluginCodeThemeState } from "@hyperfide/plugin-sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import { applyResolvedCodeTheme } from "./code-theme";
 import { useCodeTheme } from "./plugin-code-theme";

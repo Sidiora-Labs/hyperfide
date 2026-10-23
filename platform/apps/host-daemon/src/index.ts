@@ -1,13 +1,13 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadHostDaemonStartConfig } from "@bb/config/host-daemon";
-import { loadHostDaemonEntrypointConfig } from "@bb/config/host-daemon-entrypoint";
+import { loadHostDaemonStartConfig } from "@hyperfide/config/host-daemon";
+import { loadHostDaemonEntrypointConfig } from "@hyperfide/config/host-daemon-entrypoint";
 import {
   installSafeProcessDiagnostics,
   installSocketTypeOfServiceGuard,
   writeSafeProcessDiagnosticReport,
-} from "@bb/process-utils";
+} from "@hyperfide/process-utils";
 import { hasMachineSuspensionMarker } from "./suspension-marker.js";
 
 interface ReportStartupFailureArgs {

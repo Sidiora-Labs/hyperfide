@@ -3,11 +3,11 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import type { PluginThreadActionRegistrationInfo } from "@get-bb/plugin-sdk/app";
+import type { PluginThreadActionRegistrationInfo } from "@hyperfide/plugin-sdk/app";
 import {
   installTestPluginRuntime,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import { threadRowActionsAtom } from "../preferences/atoms.js";
 
 installTestPluginRuntime();

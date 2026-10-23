@@ -1,4 +1,4 @@
-import { getThread } from "@bb/db";
+import { getThread } from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import { runThreadLifecycleSweep } from "../../src/services/system/periodic-sweeps.js";
 import { listQueuedThreadCommands } from "../helpers/commands.js";

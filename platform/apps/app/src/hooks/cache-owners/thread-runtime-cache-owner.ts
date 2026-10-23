@@ -14,7 +14,7 @@ import type {
   ThreadListEntry,
   ThreadQueuedMessage,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@hyperfide/domain";
 import type {
   CreateQueuedMessageRequest,
   PromptHistoryResponse,
@@ -27,9 +27,9 @@ import type {
   TimelineConversationAttachments,
   TimelineRow,
   UpdateQueuedMessageRequest,
-} from "@bb/server-contract";
-import type { AppCreateThreadRequest } from "@bb/client-core";
-import { OPTIMISTIC_TIMELINE_ROW_ID_PREFIX } from "@bb/client-core";
+} from "@hyperfide/server-contract";
+import type { AppCreateThreadRequest } from "@hyperfide/client-core";
+import { OPTIMISTIC_TIMELINE_ROW_ID_PREFIX } from "@hyperfide/client-core";
 import { collectPromptAttachments } from "@/lib/prompt-attachments";
 import { prependPromptHistoryEntry } from "@/lib/prompt-history";
 import {

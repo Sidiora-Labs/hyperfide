@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getAppSettings, setAppSettings } from "@bb/db";
-import type { PendingInteraction } from "@bb/domain";
+import { getAppSettings, setAppSettings } from "@hyperfide/db";
+import type { PendingInteraction } from "@hyperfide/domain";
 import { createIntegrationHarness } from "../helpers/harness.js";
 import type { IntegrationHarness } from "../helpers/harness.js";
 import {
@@ -26,7 +26,7 @@ function readStaticDir(): string | undefined {
   const dist = resolve(repoRoot, "apps/app/dist");
   if (!existsSync(resolve(dist, "index.html"))) {
     throw new Error(
-      `BB_MOBILE_E2E_SERVE_APP=1 but ${dist}/index.html is missing. Run: pnpm exec turbo run build --filter=@bb/app`,
+      `BB_MOBILE_E2E_SERVE_APP=1 but ${dist}/index.html is missing. Run: pnpm exec turbo run build --filter=@hyperfide/app`,
     );
   }
   return dist;
@@ -132,7 +132,7 @@ const LONG_MARKDOWN_MESSAGE = [
   "## Commands",
   "",
   "```bash",
-  "pnpm exec turbo run typecheck lint test --filter=@bb/mobile",
+  "pnpm exec turbo run typecheck lint test --filter=@hyperfide/mobile",
   "cd apps/mobile && pnpm e2e:ios",
   "xcrun simctl io booted screenshot /tmp/timeline.png",
   "```",

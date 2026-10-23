@@ -25,7 +25,7 @@ import { buildPinnedSidebarState } from "../model/pinned-sidebar-threads.js";
 import {
   installTestPluginRuntime,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@hyperfide/plugin-sdk/testing/app";
 import { getSidebarThreadRowDroppableId } from "../rows/sidebarThreadRowDroppable.js";
 import type { SectionThreadDndState } from "./useSectionThreadDnd.js";
 

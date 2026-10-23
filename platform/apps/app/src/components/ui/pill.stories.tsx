@@ -1,4 +1,4 @@
-import { Pill, type PillVariant } from "@bb/shared-ui/pill";
+import { Pill, type PillVariant } from "@hyperfide/shared-ui/pill";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
 
 export default {

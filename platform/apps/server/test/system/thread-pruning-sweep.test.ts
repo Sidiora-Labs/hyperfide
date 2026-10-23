@@ -10,11 +10,11 @@ import {
   getThreadEventRewriteGeneration,
   threadPruningCursors,
   threads,
-} from "@bb/db";
+} from "@hyperfide/db";
 import {
   threadTimelineResponseSchema,
   type ThreadTimelineResponse,
-} from "@bb/server-contract";
+} from "@hyperfide/server-contract";
 import {
   runThreadPruningSweep,
   THREAD_PRUNING_SWEEP_LIMITS,

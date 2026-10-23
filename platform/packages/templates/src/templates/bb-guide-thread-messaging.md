@@ -44,7 +44,7 @@ Messaging:
   the provider as literal text. Approve or deny the proposed plan with
   `hyperfide-platform thread interactions`; `hyperfide-platform thread cancel-plan` leaves Plan mode early.
   SDK callers build the same input with
-  `createBuiltinPlanCommandTextInput(text)` from `@bb/sdk` and pass it as
+  `createBuiltinPlanCommandTextInput(text)` from `@hyperfide/sdk` and pass it as
   `input` to `threads.spawn` or `threads.send`.
 
 Ownership:

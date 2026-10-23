@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Environment, Thread } from "@bb/domain";
+import type { Environment, Thread } from "@hyperfide/domain";
 import {
   setupCommandOutputTestEnvironment,
   collectLogLines,

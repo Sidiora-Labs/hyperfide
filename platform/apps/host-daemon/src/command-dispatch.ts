@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { withVcsProcessPriority } from "@bb/process-utils";
+import { withVcsProcessPriority } from "@hyperfide/process-utils";
 import { operationEnvironment } from "./operation-environment.js";
 import {
   runEnvironmentHook,
@@ -19,8 +19,8 @@ import {
   type HostDaemonSettledCommandType,
   type ProviderCliInstallEvent,
   type WorkspaceResolutionFailure,
-} from "@bb/host-daemon-contract";
-import type { AgentRuntimeBridgeLaunch } from "@bb/agent-runtime";
+} from "@hyperfide/host-daemon-contract";
+import type { AgentRuntimeBridgeLaunch } from "@hyperfide/agent-runtime";
 import semver from "semver";
 import {
   ExpectedCommandDispatchError,
@@ -71,7 +71,7 @@ import {
 import type {
   ProviderInstallationStatus,
   ProviderInstallationVerification,
-} from "@bb/provider-bridge-protocol";
+} from "@hyperfide/provider-bridge-protocol";
 import {
   discardThreadRewind,
   deleteThreadStorage,
@@ -80,7 +80,7 @@ import {
   startThread,
   submitTurn,
 } from "./command-handlers/thread.js";
-import { WorkspaceError, type HostWorkspace } from "@bb/host-workspace";
+import { WorkspaceError, type HostWorkspace } from "@hyperfide/host-workspace";
 import {
   cloneProject,
   inspectProjectPath,

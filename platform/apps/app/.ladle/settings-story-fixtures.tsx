@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { PERSONAL_PROJECT_ID, type Host, type ProviderInfo } from "@bb/domain";
+import { PERSONAL_PROJECT_ID, type Host, type ProviderInfo } from "@hyperfide/domain";
 import type {
   SidebarBootstrapResponse,
   SystemAiServicesResponse,
   SystemVersionResponse,
-} from "@bb/server-contract";
-import type { ProviderCliStatusResponse } from "@bb/host-daemon-contract";
+} from "@hyperfide/server-contract";
+import type { ProviderCliStatusResponse } from "@hyperfide/host-daemon-contract";
 import {
   hostProviderCliStatusQueryKey,
   hostsQueryKey,
@@ -31,7 +31,7 @@ import {
   MANUAL_MACHINE_PROVIDER,
   MODAL_MACHINE_PROVIDER,
 } from "./machine-story-fixtures";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+import { makeProviderInfo } from "@hyperfide/test-helpers/domain-fixtures";
 import {
   BbAppUpdateRows,
   BbUpdatesCard,
