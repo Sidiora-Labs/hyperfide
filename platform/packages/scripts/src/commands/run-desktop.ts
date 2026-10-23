@@ -110,7 +110,6 @@ export function toDesktopLaunchProcessEnv(args: {
     args.config,
   );
   env.HYPERFIDE_SKIP_ONBOARDING ??= "1";
-  env.HYPERFIDE_TELEMETRY = "false";
   env.NODE_ENV = "production";
   return env;
 }

@@ -679,7 +679,14 @@ async function forwardAskUserQuestion({
 }
 
 describe("bridge", () => {
+  let restoreTestUid: (() => void) | undefined;
+
   beforeEach(() => {
+    // These fixtures model a normal user; root behavior has its own test.
+    if (process.getuid) {
+      const uidSpy = vi.spyOn(process, "getuid").mockReturnValue(1000);
+      restoreTestUid = () => uidSpy.mockRestore();
+    }
     vi.clearAllMocks();
     contextQueryMock.mockImplementation(() => createControlledClaudeQuery());
     forkSessionMock.mockResolvedValue({ sessionId: "forked-session-1" });
@@ -721,6 +728,8 @@ describe("bridge", () => {
   });
 
   afterEach(() => {
+    restoreTestUid?.();
+    restoreTestUid = undefined;
     vi.useRealTimers();
     for (const tempDir of tempDirs.splice(0)) {
       rmSync(tempDir, { recursive: true, force: true });

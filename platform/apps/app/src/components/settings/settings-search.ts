@@ -91,10 +91,6 @@ export const SETTINGS_SEARCH_INDEX: Record<
         keywords: ["privacy", "screen share", "hide models"],
       },
       {
-        title: "Share anonymous usage data",
-        keywords: ["privacy", "telemetry", "analytics"],
-      },
-      {
         title: "Show diagnostic events",
         keywords: ["debug", "troubleshooting", "logs"],
       },

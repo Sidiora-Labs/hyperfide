@@ -313,7 +313,6 @@ export function registerSystemRoutes(
           : settings.idleProviderSessionTimeoutMinutes,
       allowFastServiceTier:
         settings.allowFastServiceTier ?? current.allowFastServiceTier,
-      telemetryEnabled: settings.telemetryEnabled ?? current.telemetryEnabled,
       terminalCopyOnSelect:
         settings.terminalCopyOnSelect ?? current.terminalCopyOnSelect,
       showGitChanges: settings.showGitChanges ?? current.showGitChanges,
@@ -337,17 +336,8 @@ export function registerSystemRoutes(
           : diagnosticValue,
     });
     setAppSettings(deps.db, updatedSettings);
-    if (current.telemetryEnabled && !updatedSettings.telemetryEnabled) {
-      deps.telemetry.capture({ name: "telemetry_disabled" });
-    }
-    deps.telemetry.setEnabled(updatedSettings.telemetryEnabled);
     deps.hub.notifySystem(["config-changed"]);
     return context.json(compatibleGeneralSettings());
-  });
-
-  post(routes.recordTelemetryEvent, (context, payload) => {
-    deps.telemetry.capture(payload);
-    return context.json({ ok: true });
   });
 
   put(routes.keyboardSettings, (context, payload) => {

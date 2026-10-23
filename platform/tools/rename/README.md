@@ -30,7 +30,6 @@ Inventory taken from platform/ on 2026-10-23, before application, using recursiv
 | 1 | text | `"productName": "Hyperfide"` | 1 | 1 |
 | 2 | text | `@hyperfide/` | 1740 | 1063 |
 | 3 | text | `@hyperfide/` | 7744 | 3016 |
-| 4 | identifier | `HYPERFIDE_TELEMETRY` | 37 | 20 |
 | 5 | identifier | `HYPERFIDE_` | 5506 | 627 |
 | 6 | text | `.hyperfide` | 2890 | 465 |
 | 7 | text | `hyperfide.dev` | 38 | 2 |

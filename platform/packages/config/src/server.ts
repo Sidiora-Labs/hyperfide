@@ -24,12 +24,10 @@ import {
   HYPERFIDE_EXTERNAL_URL_ENV,
   HYPERFIDE_INHERITED_SKILLS_ROOTS_ENV,
   HYPERFIDE_MARKETPLACE_URL_ENV,
-  HYPERFIDE_POSTHOG_API_KEY_ENV,
   HYPERFIDE_SERVER_BIND_HOST_ENV,
   HYPERFIDE_SERVER_LAUNCH_ID_ENV,
   HYPERFIDE_APP_UPDATE_MODE_ENV,
   HYPERFIDE_CLI_LAUNCHER_ENV,
-  HYPERFIDE_TELEMETRY_ENV,
   HYPERFIDE_PERF_DIAGNOSTICS_ENV,
   HYPERFIDE_SKIP_ONBOARDING_ENV,
   DEFAULT_HYPERFIDE_APP_URL,
@@ -37,9 +35,7 @@ import {
   DEFAULT_HYPERFIDE_APP_VERSION,
   DEFAULT_HYPERFIDE_EXTERNAL_URL,
   DEFAULT_HYPERFIDE_MARKETPLACE_URL,
-  DEFAULT_HYPERFIDE_POSTHOG_API_KEY,
   DEFAULT_HYPERFIDE_SERVER_BIND_HOST,
-  DEFAULT_HYPERFIDE_TELEMETRY,
   parseServerBindHost,
   type ServerBindHost,
 } from "./env-vars.js";
@@ -60,13 +56,11 @@ export interface ServerConfig
   HYPERFIDE_EXTERNAL_URL: string;
   HYPERFIDE_HOST_DAEMON_PORT: number;
   HYPERFIDE_INHERITED_SKILLS_ROOTS: string[];
-  HYPERFIDE_POSTHOG_API_KEY: string;
   HYPERFIDE_MARKETPLACE_URL: string;
   HYPERFIDE_SERVER_BIND_HOST: ServerBindHost;
   HYPERFIDE_SERVER_LAUNCH_ID?: string;
   HYPERFIDE_APP_UPDATE_MODE?: AppUpdateMode;
   HYPERFIDE_CLI_LAUNCHER?: string;
-  HYPERFIDE_TELEMETRY: boolean;
   HYPERFIDE_PERF_DIAGNOSTICS: boolean;
   HYPERFIDE_SKIP_ONBOARDING: boolean;
   featureFlags: FeatureFlags;
@@ -151,12 +145,6 @@ export function loadServerConfig(
       definition: HYPERFIDE_MARKETPLACE_URL_ENV,
       env: loader.env,
     }),
-    HYPERFIDE_POSTHOG_API_KEY: readEnvVarWithDefault({
-      context: loader.context,
-      defaultValue: DEFAULT_HYPERFIDE_POSTHOG_API_KEY,
-      definition: HYPERFIDE_POSTHOG_API_KEY_ENV,
-      env: loader.env,
-    }),
     HYPERFIDE_SERVER_BIND_HOST: readEnvVarWithDefault({
       context: loader.context,
       defaultValue: DEFAULT_HYPERFIDE_SERVER_BIND_HOST,
@@ -174,12 +162,6 @@ export function loadServerConfig(
       definition: HYPERFIDE_SKIP_ONBOARDING_ENV,
       env: loader.env,
       defaultValue: false,
-    }),
-    HYPERFIDE_TELEMETRY: readEnvVarWithDefault({
-      context: loader.context,
-      defaultValue: DEFAULT_HYPERFIDE_TELEMETRY,
-      definition: HYPERFIDE_TELEMETRY_ENV,
-      env: loader.env,
     }),
     featureFlags: loadFeatureFlags({
       env: loader.env,
