@@ -11,7 +11,7 @@ export type PresentationIconValidationDeps = Pick<
   "db" | "logger" | "providerRegistry"
 >;
 
-const BB_TOOL_SERVER = "bb";
+const HYPERFIDE_TOOL_SERVER = "bb";
 
 interface PresentationIconSite {
   glyph: string;
@@ -38,7 +38,7 @@ function presentationIconSiteOf(
 
 function isRegisteredBbToolIcon(site: PresentationIconSite): boolean {
   const { item } = site.event;
-  if (item.type !== "toolCall" || item.server !== BB_TOOL_SERVER) {
+  if (item.type !== "toolCall" || item.server !== HYPERFIDE_TOOL_SERVER) {
     return false;
   }
   const tool = findPluginAgentTool(item.tool);

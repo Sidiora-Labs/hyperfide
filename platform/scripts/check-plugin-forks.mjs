@@ -142,8 +142,8 @@ async function step(log, label, command, commandArgs, options = {}) {
 }
 
 function cliEnv(dataDir) {
-  const env = { ...process.env, BB_DATA_DIR: dataDir };
-  delete env.BB_CLI;
+  const env = { ...process.env, HYPERFIDE_DATA_DIR: dataDir };
+  delete env.HYPERFIDE_CLI;
   return env;
 }
 

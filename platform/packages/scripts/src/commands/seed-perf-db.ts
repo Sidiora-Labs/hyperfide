@@ -40,7 +40,7 @@ function renderHelpText(): string {
     --reset            Delete the existing database file before seeding
 
   ${dim("Notes")}
-    The command refuses to touch the production data dir (~/.bb).
+    The command refuses to touch the production data dir (~/.hyperfide).
     Without --reset the fixture is added to the existing database.
     Start the dev app once before seeding so the fixture attaches to
     the real local host; otherwise a synthetic offline host is used.

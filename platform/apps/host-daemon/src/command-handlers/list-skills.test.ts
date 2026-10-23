@@ -116,7 +116,13 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
   it("classifies the host-owned bb project root and the declared provider roots only", async () => {
     const fixture = await makeWorkspaceFixture();
     const files = {
-      "proj-bb": path.join(fixture.cwd, ".bb", "skills", "proj-bb", "SKILL.md"),
+      "proj-bb": path.join(
+        fixture.cwd,
+        ".hyperfide",
+        "skills",
+        "proj-bb",
+        "SKILL.md",
+      ),
       "data-bb": path.join(fixture.dataDir, "skills", "data-bb", "SKILL.md"),
       "proj-agent": path.join(
         fixture.cwd,
@@ -176,7 +182,7 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
   it("drops project roots when cwd is null", async () => {
     const fixture = await makeWorkspaceFixture();
     await writeSkill(
-      path.join(fixture.cwd, ".bb", "skills", "proj-bb", "SKILL.md"),
+      path.join(fixture.cwd, ".hyperfide", "skills", "proj-bb", "SKILL.md"),
       "proj-bb",
     );
     await writeSkill(
@@ -306,7 +312,13 @@ describe("resolveSkillScanRoots + discoverSkills", () => {
   it("classifies configured shared user and project roots without the bb project root", async () => {
     const fixture = await makeWorkspaceFixture();
     await writeSkill(
-      path.join(fixture.cwd, ".bb", "skills", "bb-project-skill", "SKILL.md"),
+      path.join(
+        fixture.cwd,
+        ".hyperfide",
+        "skills",
+        "bb-project-skill",
+        "SKILL.md",
+      ),
       "bb-project-skill",
     );
     await writeSkill(
@@ -583,9 +595,14 @@ describe("deleteHostSkill", () => {
     expect(result.deletedPath).toContain("doomed");
   });
 
-  it("deletes a bb-project skill directory under cwd/.bb/skills", async () => {
+  it("deletes a bb-project skill directory under cwd/.hyperfide/skills", async () => {
     const fixture = await makeWorkspaceFixture();
-    const skillDir = path.join(fixture.cwd, ".bb", "skills", "proj-doomed");
+    const skillDir = path.join(
+      fixture.cwd,
+      ".hyperfide",
+      "skills",
+      "proj-doomed",
+    );
     await writeSkill(path.join(skillDir, "SKILL.md"), "proj-doomed");
 
     await deleteHostSkill(

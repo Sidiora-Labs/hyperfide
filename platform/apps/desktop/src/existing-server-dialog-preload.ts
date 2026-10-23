@@ -1,13 +1,13 @@
 import { ipcRenderer } from "electron";
 import {
-  BB_DESKTOP_EXISTING_SERVER_DIALOG_CHOOSE_CHANNEL,
+  HYPERFIDE_DESKTOP_EXISTING_SERVER_DIALOG_CHOOSE_CHANNEL,
   EXISTING_SERVER_DIALOG_CHOICES,
   type ExistingServerDialogChooseRequest,
 } from "./existing-server-dialog-ipc.js";
 
 window.addEventListener("DOMContentLoaded", () => {
   function choose(choice: ExistingServerDialogChooseRequest["choice"]): void {
-    ipcRenderer.send(BB_DESKTOP_EXISTING_SERVER_DIALOG_CHOOSE_CHANNEL, {
+    ipcRenderer.send(HYPERFIDE_DESKTOP_EXISTING_SERVER_DIALOG_CHOOSE_CHANNEL, {
       choice,
     });
   }

@@ -324,7 +324,7 @@ function createHarnessWithOptions(
     createRuntime: () => runtime,
     provisionWorkspace: async () => workspace,
     shellEnv: {
-      BB_BASE_ENV: "1",
+      HYPERFIDE_BASE_ENV: "1",
     },
   });
   const manager = new TerminalManager({
@@ -486,8 +486,8 @@ describe("TerminalManager", () => {
       rows: 30,
     });
     expect(harness.adapter.spawned[0]?.args.env).toMatchObject({
-      BB_BASE_ENV: "1",
-      BB_TERMINAL_SESSION_ID: "term-1",
+      HYPERFIDE_BASE_ENV: "1",
+      HYPERFIDE_TERMINAL_SESSION_ID: "term-1",
       COLORTERM: "truecolor",
       DISABLE_AUTO_TITLE: "true",
       FORCE_HYPERLINK: "1",
@@ -505,7 +505,9 @@ describe("TerminalManager", () => {
     expect(harness.runtimeManager.get("env-1")?.terminals.has("term-1")).toBe(
       true,
     );
-    await harness.runtimeManager.replaceBaseShellEnv({ BB_BASE_ENV: "2" });
+    await harness.runtimeManager.replaceBaseShellEnv({
+      HYPERFIDE_BASE_ENV: "2",
+    });
     expect(harness.runtimeManager.get("env-1")).toBeDefined();
     expect(harness.runtime.shutdown).not.toHaveBeenCalled();
   });
@@ -595,7 +597,9 @@ describe("TerminalManager", () => {
       }),
     );
 
-    await harness.runtimeManager.replaceBaseShellEnv({ BB_BASE_ENV: "2" });
+    await harness.runtimeManager.replaceBaseShellEnv({
+      HYPERFIDE_BASE_ENV: "2",
+    });
     expect(harness.runtimeManager.get("env-1")).toBeDefined();
     expect(harness.runtime.shutdown).not.toHaveBeenCalled();
   });
@@ -915,8 +919,8 @@ describe("TerminalManager", () => {
   });
 
   it("scrubs inherited bb runtime env vars before spawning a terminal", async () => {
-    vi.stubEnv("BB_DATA_DIR", "/tmp/leaked-bb-data");
-    vi.stubEnv("BB_HOST_DAEMON_PORT", "38887");
+    vi.stubEnv("HYPERFIDE_DATA_DIR", "/tmp/leaked-bb-data");
+    vi.stubEnv("HYPERFIDE_HOST_DAEMON_PORT", "38887");
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("OPENAI_API_KEY", "external-secret");
 
@@ -925,12 +929,12 @@ describe("TerminalManager", () => {
 
     const env = harness.adapter.spawned[0]?.args.env;
     expect(env).toMatchObject({
-      BB_BASE_ENV: "1",
-      BB_TERMINAL_SESSION_ID: "term-1",
+      HYPERFIDE_BASE_ENV: "1",
+      HYPERFIDE_TERMINAL_SESSION_ID: "term-1",
       OPENAI_API_KEY: "external-secret",
     });
-    expect(env?.BB_DATA_DIR).toBeUndefined();
-    expect(env?.BB_HOST_DAEMON_PORT).toBeUndefined();
+    expect(env?.HYPERFIDE_DATA_DIR).toBeUndefined();
+    expect(env?.HYPERFIDE_HOST_DAEMON_PORT).toBeUndefined();
     expect(env?.NODE_ENV).toBeUndefined();
   });
 
@@ -1533,7 +1537,9 @@ describe("TerminalManager", () => {
         closeReason: "user",
       },
     ]);
-    await harness.runtimeManager.replaceBaseShellEnv({ BB_BASE_ENV: "2" });
+    await harness.runtimeManager.replaceBaseShellEnv({
+      HYPERFIDE_BASE_ENV: "2",
+    });
     expect(harness.runtimeManager.get("env-1")).toBeUndefined();
     expect(harness.runtime.shutdown).toHaveBeenCalledTimes(1);
   });
@@ -1585,7 +1591,9 @@ describe("TerminalManager", () => {
         closeReason: "user",
       },
     ]);
-    await harness.runtimeManager.replaceBaseShellEnv({ BB_BASE_ENV: "2" });
+    await harness.runtimeManager.replaceBaseShellEnv({
+      HYPERFIDE_BASE_ENV: "2",
+    });
     expect(harness.runtimeManager.get("env-1")).toBeUndefined();
   });
 

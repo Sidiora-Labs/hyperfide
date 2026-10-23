@@ -79,7 +79,7 @@ export async function startHostDaemon(
     });
     const instanceId = randomUUID();
     const serverUrl = resolveServerUrl({
-      providedServerUrl: hostDaemonConfig.BB_SERVER_URL,
+      providedServerUrl: hostDaemonConfig.HYPERFIDE_SERVER_URL,
     });
     if (!serverUrl) {
       throw new Error("Host daemon server URL is required");
@@ -103,7 +103,7 @@ export async function startHostDaemon(
             options.enrollKey ??
             (() => {
               throw new Error(
-                `Missing host bootstrap material. Provide BB_HOST_ENROLL_KEY or populate ${dataDir}/auth.json first.`,
+                `Missing host bootstrap material. Provide HYPERFIDE_HOST_ENROLL_KEY or populate ${dataDir}/auth.json first.`,
               );
             })(),
         })
@@ -118,7 +118,7 @@ export async function startHostDaemon(
     }
 
     const localApiConfig = resolveHostDaemonLocalApiConfig({
-      hostDaemonPort: hostDaemonConfig.BB_HOST_DAEMON_PORT,
+      hostDaemonPort: hostDaemonConfig.HYPERFIDE_HOST_DAEMON_PORT,
     });
     const bbExecutablePath =
       options.bbExecutableDirectory !== undefined
@@ -176,10 +176,10 @@ export async function startHostDaemon(
       hostName: identity.hostName,
       instanceId,
       appUrl:
-        hostDaemonConfig.BB_APP_URL === ""
+        hostDaemonConfig.HYPERFIDE_APP_URL === ""
           ? undefined
-          : hostDaemonConfig.BB_APP_URL,
-      devAppPort: hostDaemonConfig.BB_DEV_APP_PORT,
+          : hostDaemonConfig.HYPERFIDE_APP_URL,
+      devAppPort: hostDaemonConfig.HYPERFIDE_DEV_APP_PORT,
       logger,
       releaseLock,
       localApiConfig,

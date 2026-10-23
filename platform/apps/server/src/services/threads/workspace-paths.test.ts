@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isBbManagedWorkspacePath } from "./workspace-paths.js";
 
-const dataDir = "/home/user/.bb";
+const dataDir = "/home/user/.hyperfide";
 
 describe("isBbManagedWorkspacePath", () => {
   it("recognises a worktree under a plugin's host data directory", () => {
@@ -56,29 +56,29 @@ describe("isBbManagedWorkspacePath", () => {
     expect(
       isBbManagedWorkspacePath({
         dataDir,
-        path: "/home/user/.bb-other/worktrees/env_abc",
+        path: "/home/user/.hyperfide-other/worktrees/env_abc",
       }),
     ).toBe(false);
   });
 
   it("recognises managed roots on a Windows host in any spelling", () => {
-    const windowsDataDir = "C:\\Users\\me\\.bb";
+    const windowsDataDir = "C:\\Users\\me\\.hyperfide";
     expect(
       isBbManagedWorkspacePath({
         dataDir: windowsDataDir,
-        path: "c:/users/me/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_abc-1/repo",
+        path: "c:/users/me/.hyperfide/plugins/environment-git-worktree/host-data/worktrees/thr_abc-1/repo",
       }),
     ).toBe(true);
     expect(
       isBbManagedWorkspacePath({
         dataDir: windowsDataDir,
-        path: "C:\\Users\\me\\.bb\\worktrees\\env_abc\\repo",
+        path: "C:\\Users\\me\\.hyperfide\\worktrees\\env_abc\\repo",
       }),
     ).toBe(true);
     expect(
       isBbManagedWorkspacePath({
         dataDir: windowsDataDir,
-        path: "C:\\Users\\me\\.bb\\plugins\\some-plugin\\source\\index.ts",
+        path: "C:\\Users\\me\\.hyperfide\\plugins\\some-plugin\\source\\index.ts",
       }),
     ).toBe(false);
     expect(

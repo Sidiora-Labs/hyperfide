@@ -53,7 +53,7 @@ export function inspectResult(
   overrides: Partial<ServerMoveInspectResult> = {},
 ): ServerMoveInspectResult {
   return {
-    dataDir: "/home/me/.bb-machines/laptop",
+    dataDir: "/home/me/.hyperfide-machines/laptop",
     platform: "linux",
     timeZone: "UTC",
     bbAppVersion: "0.0.0-test",

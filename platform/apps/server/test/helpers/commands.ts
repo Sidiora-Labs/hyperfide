@@ -116,7 +116,7 @@ export interface TestHostRpcSocket {
 function readWorkspaceAgentContextFromDisk(
   rootPath: string,
 ): HostDaemonOnlineRpcResult<"host.read_workspace_agent_context"> {
-  const skillsRootPath = path.join(rootPath, ".bb", "skills");
+  const skillsRootPath = path.join(rootPath, ".hyperfide", "skills");
   let directoryNames: string[] = [];
   try {
     directoryNames = readdirSync(skillsRootPath, { withFileTypes: true })
@@ -144,7 +144,7 @@ function readWorkspaceAgentContextFromDisk(
   let agentInstructions: string | null = null;
   try {
     const trimmed = readFileSync(
-      path.join(rootPath, ".bb", "AGENTS.md"),
+      path.join(rootPath, ".hyperfide", "AGENTS.md"),
       "utf8",
     ).trim();
     agentInstructions = trimmed.length > 0 ? trimmed : null;

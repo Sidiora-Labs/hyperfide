@@ -9,24 +9,24 @@ const BUNDLED_PROVIDER_IDS = [
   "acp-cursor",
 ] as const;
 
-const BB_APP_CONFIG_FILE_NAME = "config.json";
-const BB_APP_ENV_FILE_NAME = "env.json";
+const HYPERFIDE_APP_CONFIG_FILE_NAME = "config.json";
+const HYPERFIDE_APP_ENV_FILE_NAME = "env.json";
 
-export type BbAppManagedConfigKey = "BB_APP_URL" | "BB_LOG_LEVEL";
+export type BbAppManagedConfigKey = "HYPERFIDE_APP_URL" | "HYPERFIDE_LOG_LEVEL";
 
-export const BB_APP_MANAGED_CONFIG_KEYS: BbAppManagedConfigKey[] = [
-  "BB_APP_URL",
-  "BB_LOG_LEVEL",
+export const HYPERFIDE_APP_MANAGED_CONFIG_KEYS: BbAppManagedConfigKey[] = [
+  "HYPERFIDE_APP_URL",
+  "HYPERFIDE_LOG_LEVEL",
 ];
 
 export const REMOVED_AI_SERVICE_CONFIG_KEYS: readonly string[] = [
-  "BB_INFERENCE",
-  "BB_INFERENCE_FALLBACK",
-  "BB_TRANSCRIPTION",
+  "HYPERFIDE_INFERENCE",
+  "HYPERFIDE_INFERENCE_FALLBACK",
+  "HYPERFIDE_TRANSCRIPTION",
 ];
 
 export const REMOVED_AI_SERVICE_CONFIG_MESSAGE =
-  "BB_INFERENCE, BB_INFERENCE_FALLBACK, and BB_TRANSCRIPTION were removed. Choose AI services in Settings → AI services or with `bb settings ai-services set <task> <automatic|off|service>`.";
+  "HYPERFIDE_INFERENCE, HYPERFIDE_INFERENCE_FALLBACK, and HYPERFIDE_TRANSCRIPTION were removed. Choose AI services in Settings → AI services or with `bb settings ai-services set <task> <automatic|off|service>`.";
 
 export const PORTABLE_ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const REMOVED_CUSTOM_ACP_AGENTS_CONFIG_KEY = "customAcpAgents";
@@ -43,8 +43,8 @@ interface ParseBbAppManagedConfigOptions {
 
 const bbAppManagedConfigValuesSchema = z
   .object({
-    BB_APP_URL: z.string().optional(),
-    BB_LOG_LEVEL: z.string().optional(),
+    HYPERFIDE_APP_URL: z.string().optional(),
+    HYPERFIDE_LOG_LEVEL: z.string().optional(),
   })
   .strict();
 
@@ -204,9 +204,9 @@ export function parseBbAppManagedConfig(
 }
 
 export function formatBbAppConfigPath(dataDir: string): string {
-  return join(dataDir, BB_APP_CONFIG_FILE_NAME);
+  return join(dataDir, HYPERFIDE_APP_CONFIG_FILE_NAME);
 }
 
 export function formatBbAppEnvPath(dataDir: string): string {
-  return join(dataDir, BB_APP_ENV_FILE_NAME);
+  return join(dataDir, HYPERFIDE_APP_ENV_FILE_NAME);
 }

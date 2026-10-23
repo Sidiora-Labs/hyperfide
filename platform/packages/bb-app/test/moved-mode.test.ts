@@ -271,7 +271,7 @@ function createImportFile(kind: ServerImportFile["kind"]): ServerImportFile {
     kind,
     moveId: kind === "move" ? "move-back" : null,
     activationToken: kind === "move" ? "activation-token-0123456789" : null,
-    sourceDataDir: "/home/desk/.bb-machines/laptop",
+    sourceDataDir: "/home/desk/.hyperfide-machines/laptop",
     sourceServerHostId: "host-desk",
     targetHostId: "host-laptop",
     serverUrl: "https://laptop.example.com",
@@ -661,9 +661,9 @@ describe("bb-app start after the server moved", () => {
         entrypointUrl: pathToFileURL("/repo/packages/bb-app/dist/bb-app.js")
           .href,
         env: {
-          BB_SERVER_HEADERS: '{"x-stale":"1"}',
-          BB_SERVER_URL: "http://127.0.0.1:39886",
-          BB_THREAD_ID: "thr-parent",
+          HYPERFIDE_SERVER_HEADERS: '{"x-stale":"1"}',
+          HYPERFIDE_SERVER_URL: "http://127.0.0.1:39886",
+          HYPERFIDE_THREAD_ID: "thr-parent",
         },
         homeDir: "/home/tester",
         movedFile,
@@ -685,14 +685,16 @@ describe("bb-app start after the server moved", () => {
     expect(connectLaunch.context.dataDir).toBe(dataDir);
     expect(connectLaunch.context.daemonPort).toBe(39911);
     expect(connectLaunch.env).toMatchObject({
-      BB_DATA_DIR: dataDir,
-      BB_HOST_DAEMON_PORT: "39911",
-      BB_SERVER_URL: "https://bb.example.com/desk",
+      HYPERFIDE_DATA_DIR: dataDir,
+      HYPERFIDE_HOST_DAEMON_PORT: "39911",
+      HYPERFIDE_SERVER_URL: "https://bb.example.com/desk",
     });
-    expect(JSON.parse(connectLaunch.env.BB_SERVER_HEADERS ?? "null")).toEqual({
+    expect(
+      JSON.parse(connectLaunch.env.HYPERFIDE_SERVER_HEADERS ?? "null"),
+    ).toEqual({
       "x-bb-connect-machine": "bbcm_laptop",
     });
-    expect(connectLaunch.env.BB_THREAD_ID).toBeUndefined();
+    expect(connectLaunch.env.HYPERFIDE_THREAD_ID).toBeUndefined();
 
     writeFileSync(
       join(dataDir, "config.json"),
@@ -704,18 +706,18 @@ describe("bb-app start after the server moved", () => {
     const rewrittenLaunch = await resolveLaunch();
 
     expect(rewrittenLaunch.serverUrl).toBe("https://desk.tailnet.example");
-    expect(rewrittenLaunch.env.BB_SERVER_URL).toBe(
+    expect(rewrittenLaunch.env.HYPERFIDE_SERVER_URL).toBe(
       "https://desk.tailnet.example",
     );
-    expect(JSON.parse(rewrittenLaunch.env.BB_SERVER_HEADERS ?? "null")).toEqual(
-      { "x-bb-connect-machine": "bbcm_rotated" },
-    );
+    expect(
+      JSON.parse(rewrittenLaunch.env.HYPERFIDE_SERVER_HEADERS ?? "null"),
+    ).toEqual({ "x-bb-connect-machine": "bbcm_rotated" });
 
     writeFileSync(join(dataDir, "config.json"), JSON.stringify({}));
     const fallbackLaunch = await resolveLaunch();
 
     expect(fallbackLaunch.serverUrl).toBe("https://bb.example.com/desk");
-    expect(fallbackLaunch.env.BB_SERVER_URL).toBe(
+    expect(fallbackLaunch.env.HYPERFIDE_SERVER_URL).toBe(
       "https://bb.example.com/desk",
     );
   });
@@ -1004,7 +1006,7 @@ describe("bb-server after the server moved", () => {
 
     try {
       await expect(runBbServer(args)).rejects.toThrow(
-        'BB_SERVER_BIND_HOST must be "127.0.0.1" or "0.0.0.0"',
+        'HYPERFIDE_SERVER_BIND_HOST must be "127.0.0.1" or "0.0.0.0"',
       );
       expect(process.exitCode).toBe(previousExitCode);
     } finally {

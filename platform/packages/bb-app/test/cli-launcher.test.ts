@@ -37,7 +37,7 @@ function scratchDir(): string {
 }
 
 const ARGUMENT_ECHO_SCRIPT =
-  "process.stdout.write(JSON.stringify({ args: process.argv.slice(2), dataDir: process.env.BB_DATA_DIR }));\n";
+  "process.stdout.write(JSON.stringify({ args: process.argv.slice(2), dataDir: process.env.HYPERFIDE_DATA_DIR }));\n";
 
 function writeExecutable(path: string, content: string): void {
   mkdirSync(dirname(path), { recursive: true });
@@ -83,7 +83,7 @@ describe("bb command launcher", () => {
       });
 
       const overridden = await execFileAsync(launcherPath, [], {
-        env: { BB_DATA_DIR: "/elsewhere", PATH: "/nonexistent" },
+        env: { HYPERFIDE_DATA_DIR: "/elsewhere", PATH: "/nonexistent" },
       });
       expect(JSON.parse(overridden.stdout)).toEqual({
         args: [],
@@ -96,7 +96,7 @@ describe("bb command launcher", () => {
     "says how to repair the command when the install it points at is gone",
     async () => {
       const root = scratchDir();
-      const launcherPath = join(root, "bin", "bb");
+      const launcherPath = join(root, "bin", "hyperfide-platform");
       await writeCliLauncher({
         content: renderCliLauncher({
           dataDir: root,
@@ -146,7 +146,7 @@ describe("bb command launcher", () => {
       const target = resolveCliLauncherTarget({
         electron: true,
         env: { APPDIR: join(root, "stale-mount"), APPIMAGE: appImagePath },
-        execPath: join(root, "stale-mount", "bb"),
+        execPath: join(root, "stale-mount", "hyperfide-platform"),
         packageRoot: join(root, "stale-mount", "resources", "bb-app"),
         platform: "linux",
       });
@@ -155,7 +155,7 @@ describe("bb command launcher", () => {
         entryRelativePath: join("resources", "bb-app", "dist", "bb.js"),
         kind: "appimage",
       });
-      const launcherPath = join(root, "bin", "bb");
+      const launcherPath = join(root, "bin", "hyperfide-platform");
       await writeCliLauncher({
         content: renderCliLauncher({
           dataDir: join(root, "data"),
@@ -187,12 +187,12 @@ describe("bb command launcher", () => {
       platform: "darwin" as const,
     };
     const electron = renderCliLauncher({
-      dataDir: "/Users/me/.bb",
+      dataDir: "/Users/me/.hyperfide",
       platform: "darwin",
       target: resolveCliLauncherTarget({ ...base, electron: true }),
     });
     const node = renderCliLauncher({
-      dataDir: "/Users/me/.bb",
+      dataDir: "/Users/me/.hyperfide",
       platform: "darwin",
       target: resolveCliLauncherTarget({ ...base, electron: false }),
     });
@@ -217,7 +217,7 @@ describe("bb command launcher", () => {
       "@echo off",
       `rem ${CLI_LAUNCHER_MARKER}`,
       "setlocal EnableExtensions DisableDelayedExpansion",
-      'if not defined BB_DATA_DIR set "BB_DATA_DIR=C:\\Users\\me\\.bb"',
+      'if not defined HYPERFIDE_DATA_DIR set "HYPERFIDE_DATA_DIR=C:\\Users\\me\\.bb"',
       'set "ELECTRON_RUN_AS_NODE=1"',
       'if not exist "C:\\Program Files (x86)\\bb\\bb.exe" goto moved',
       'if exist "C:\\Program Files (x86)\\bb\\100%%\\dist\\bb.js" goto run',
@@ -234,7 +234,7 @@ describe("bb command launcher", () => {
 
   it("leaves a launcher file that bb did not write", async () => {
     const root = scratchDir();
-    const launcherPath = join(root, "bin", "bb");
+    const launcherPath = join(root, "bin", "hyperfide-platform");
     mkdirSync(dirname(launcherPath));
     writeFileSync(launcherPath, "#!/bin/sh\necho mine\n");
 
@@ -246,7 +246,7 @@ describe("bb command launcher", () => {
 
   it("rewrites its own launcher when the install moves", async () => {
     const root = scratchDir();
-    const launcherPath = join(root, "bin", "bb");
+    const launcherPath = join(root, "bin", "hyperfide-platform");
     const first = `# ${CLI_LAUNCHER_MARKER}\nfirst\n`;
     const second = `# ${CLI_LAUNCHER_MARKER}\nsecond\n`;
 

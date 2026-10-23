@@ -3,7 +3,7 @@ import { operationEnvironment } from "./operation-environment.js";
 
 describe("operation environment", () => {
   it("resolves server-relative values without mutating the daemon environment", () => {
-    const base = { BB_SERVER_URL: "https://server.example" };
+    const base = { HYPERFIDE_SERVER_URL: "https://server.example" };
     expect(
       operationEnvironment(
         [

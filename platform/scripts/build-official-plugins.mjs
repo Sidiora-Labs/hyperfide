@@ -20,7 +20,7 @@ const selected =
 
 // Resolves from this repo's own devDependencies; no download here.
 const toolchain = await resolvePluginBuildToolchain(
-  resolve(repositoryRoot, "node_modules/.bb-toolchain"),
+  resolve(repositoryRoot, "node_modules/.hyperfide-toolchain"),
 );
 
 for (const plugin of selected) {

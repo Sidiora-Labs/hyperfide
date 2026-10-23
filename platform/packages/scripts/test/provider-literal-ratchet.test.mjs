@@ -236,13 +236,15 @@ describe("ratchet CLI refusal paths (fixture root)", () => {
   it("refuses --write when the live total rises above the committed baseline", () => {
     write("packages/core/a.ts", 'const id = "codex";\n');
     write("scripts/provider-literal-baseline.json", baseline({}));
-    const r = run(["--write"], { BB_RATCHET_ROOT: dir });
+    const r = run(["--write"], { HYPERFIDE_RATCHET_ROOT: dir });
     expect(r.code, r.out).toBe(1);
     expect(r.out).toMatch(/Refusing to raise the baseline \(0 → 1\)/);
     // The override is the documented escape hatch.
     expect(
-      run(["--write"], { BB_RATCHET_ROOT: dir, BB_RATCHET_ALLOW_INCREASE: "1" })
-        .code,
+      run(["--write"], {
+        HYPERFIDE_RATCHET_ROOT: dir,
+        HYPERFIDE_RATCHET_ALLOW_INCREASE: "1",
+      }).code,
     ).toBe(0);
   });
 
@@ -253,7 +255,7 @@ describe("ratchet CLI refusal paths (fixture root)", () => {
       "scripts/provider-literal-baseline.json",
       baseline({ "packages/core/a.ts": 1 }, { "packages/core/a.ts": entry(1) }),
     );
-    const r = run([], { BB_RATCHET_ROOT: dir });
+    const r = run([], { HYPERFIDE_RATCHET_ROOT: dir });
     expect(r.code, r.out).toBe(1);
     expect(r.out).toMatch(/core gained provider-id references/);
     expect(r.out).toMatch(/\+ packages\/core\/b\.ts: 1/);
@@ -282,8 +284,8 @@ describe("ratchet CLI refusal paths (fixture root)", () => {
       "scripts/provider-literal-baseline.json",
       baseline({ "packages/core/a.ts": 2 }, { "packages/core/a.ts": entry(2) }),
     );
-    expect(run([], { BB_RATCHET_ROOT: dir }).code).toBe(0); // exact match alone passes
-    const r = run(["--base", "HEAD"], { BB_RATCHET_ROOT: dir });
+    expect(run([], { HYPERFIDE_RATCHET_ROOT: dir }).code).toBe(0); // exact match alone passes
+    const r = run(["--base", "HEAD"], { HYPERFIDE_RATCHET_ROOT: dir });
     expect(r.code, r.out).toBe(1);
     expect(r.out).toMatch(/FAILED vs HEAD/);
     expect(r.out).toMatch(/↑ packages\/core\/a\.ts: 1 → 2/);
@@ -295,7 +297,7 @@ describe("ratchet CLI refusal paths (fixture root)", () => {
       "scripts/provider-literal-baseline.json",
       baseline({ "packages/core/a.ts": 1 }),
     );
-    const r = run([], { BB_RATCHET_ROOT: dir });
+    const r = run([], { HYPERFIDE_RATCHET_ROOT: dir });
     expect(r.code, r.out).toBe(1);
     expect(r.out).toMatch(/outside the allowlist/);
   });

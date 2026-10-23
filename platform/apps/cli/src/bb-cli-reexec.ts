@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { resolve, win32 } from "node:path";
 
-export const BB_CLI_REEXEC_ENV = "BB_CLI_REEXEC";
+export const HYPERFIDE_CLI_REEXEC_ENV = "HYPERFIDE_CLI_REEXEC";
 
 interface MaybeReexecViaBbCliArgs {
   env?: NodeJS.ProcessEnv;
@@ -43,11 +43,11 @@ export function maybeReexecViaBbCli(
   options: MaybeReexecViaBbCliArgs = {},
 ): void {
   const env = options.env ?? process.env;
-  if (env[BB_CLI_REEXEC_ENV] === "1") {
+  if (env[HYPERFIDE_CLI_REEXEC_ENV] === "1") {
     return;
   }
 
-  const targetRaw = env.BB_CLI?.trim();
+  const targetRaw = env.HYPERFIDE_CLI?.trim();
   if (!targetRaw) {
     return;
   }
@@ -66,7 +66,7 @@ export function maybeReexecViaBbCli(
   const argv = options.argv ?? process.argv.slice(2);
   const childEnv: NodeJS.ProcessEnv = {
     ...env,
-    [BB_CLI_REEXEC_ENV]: "1",
+    [HYPERFIDE_CLI_REEXEC_ENV]: "1",
   };
 
   if (options.reexec) {
@@ -86,7 +86,7 @@ export function maybeReexecViaBbCli(
   });
   if (result.error) {
     process.stderr.write(
-      `bb: failed to re-exec BB_CLI=${target}: ${result.error.message}\n`,
+      `bb: failed to re-exec HYPERFIDE_CLI=${target}: ${result.error.message}\n`,
     );
     process.exitCode = 1;
     return;

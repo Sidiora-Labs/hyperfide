@@ -50,8 +50,8 @@ export type SpawnUserShellEnv = (
   args: SpawnUserShellEnvArgs,
 ) => Promise<UserShellEnvSpawnResult>;
 
-const SHELL_ENV_START_MARKER = "__BB_SHELL_ENV_START__";
-const SHELL_ENV_END_MARKER = "__BB_SHELL_ENV_END__";
+const SHELL_ENV_START_MARKER = "__HYPERFIDE_SHELL_ENV_START__";
+const SHELL_ENV_END_MARKER = "__HYPERFIDE_SHELL_ENV_END__";
 const SHELL_ENV_COMMAND = [
   `printf '%s\\n' ${SHELL_ENV_START_MARKER}`,
   "env",
@@ -74,7 +74,9 @@ const WINDOWS_ENVIRONMENT_REFERENCE_PATTERN = /%([^%;\\/]+)%/gu;
 const USER_SHELL_ENV_FORCE_KILL_AFTER_MS = 1_000;
 
 function getDefaultCliExecutablePath(): string {
-  return fileURLToPath(new URL("../../cli/bin/bb", import.meta.url));
+  return fileURLToPath(
+    new URL("../../cli/bin/hyperfide-platform", import.meta.url),
+  );
 }
 
 function getDefaultCliRuntimePath(): string {
@@ -610,7 +612,7 @@ export async function resolveLocalBbExecutablePath(
 export function resolveBbExecutablePathInDirectory(
   bbExecutableDirectory: string,
 ): string {
-  return resolve(bbExecutableDirectory, "bb");
+  return resolve(bbExecutableDirectory, "hyperfide-platform");
 }
 
 export function prepareRuntimeShellEnv(
@@ -624,11 +626,11 @@ export function prepareRuntimeShellEnv(
       options.bbExecutableDirectory,
       options.inheritedPath ?? process.env.PATH,
     ),
-    BB_CLI: bbExecutablePath,
-    BB_SERVER_URL: options.serverUrl,
+    HYPERFIDE_CLI: bbExecutablePath,
+    HYPERFIDE_SERVER_URL: options.serverUrl,
   };
   assignIfDefined({
-    key: "BB_HOST_DAEMON_PORT",
+    key: "HYPERFIDE_HOST_DAEMON_PORT",
     target: shellEnv,
     value:
       options.hostDaemonPort === undefined

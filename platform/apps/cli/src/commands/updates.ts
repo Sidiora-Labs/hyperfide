@@ -243,7 +243,7 @@ function appRowFromStatus(args: {
                 : UPDATE_STATE_PRESENTATION["up-to-date"].label
           : appUpdate.blocked !== null
             ? `${UPDATE_STATE_PRESENTATION["update-available"].label} (blocked: ${appUpdate.blocked.message})`
-            : `${UPDATE_STATE_PRESENTATION["update-available"].label} (run: bb updates app apply)`;
+            : `${UPDATE_STATE_PRESENTATION["update-available"].label} (run: hyperfide-platform updates app apply)`;
     return [
       "bb-app",
       target === null ? current : `${current} -> ${target}`,
@@ -314,7 +314,9 @@ function printAppUpdateStatus(status: SystemAppUpdateStatus): void {
   if (status.blocked !== null) {
     console.log(`Blocked: ${status.blocked.message}`);
   } else if (target !== null && status.activity.phase === "idle") {
-    console.log("Run bb updates app apply to update and restart bb.");
+    console.log(
+      "Run hyperfide-platform updates app apply to update and restart bb.",
+    );
   }
   if (status.lastResult !== null && !status.lastResult.acknowledged) {
     console.log(describeAppUpdateResult(status.lastResult));
@@ -355,7 +357,7 @@ async function waitForAppUpdate(args: {
     }
   }
   throw new CliExitError(
-    "Timed out waiting for the update to finish. Run bb updates app to check on it; if bb did not come back, check the terminal running it.",
+    "Timed out waiting for the update to finish. Run hyperfide-platform updates app to check on it; if bb did not come back, check the terminal running it.",
     1,
   );
 }
@@ -428,7 +430,7 @@ function registerAppUpdateCommands(
         if (!opts.wait) {
           if (outputJson(opts, started)) return;
           console.log(
-            `Updating bb to ${status.available.version}. Run bb updates app to follow it.`,
+            `Updating bb to ${status.available.version}. Run hyperfide-platform updates app to follow it.`,
           );
           return;
         }
@@ -549,7 +551,7 @@ export function registerUpdatesCommands(
           );
           console.log(
             hasManualUpdates
-              ? "No updates bb can apply. Run bb updates status for manual updates."
+              ? "No updates bb can apply. Run hyperfide-platform updates status for manual updates."
               : "Everything is up to date.",
           );
           return;

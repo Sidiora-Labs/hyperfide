@@ -1,4 +1,4 @@
-export const RESERVED_BB_CLI_COMMANDS: readonly string[] = [
+export const RESERVED_HYPERFIDE_CLI_COMMANDS: readonly string[] = [
   "browser",
   "diagnostics",
   "environment",
@@ -23,7 +23,7 @@ export const RESERVED_BB_CLI_COMMANDS: readonly string[] = [
 ];
 
 export function pluginCliCall(pluginId: string, name: string): string {
-  if (RESERVED_BB_CLI_COMMANDS.includes(name))
-    return `bb plugin run ${pluginId}`;
-  return `bb ${name}`;
+  if (RESERVED_HYPERFIDE_CLI_COMMANDS.includes(name))
+    return `hyperfide-platform plugin run ${pluginId}`;
+  return `hyperfide-platform ${name}`;
 }

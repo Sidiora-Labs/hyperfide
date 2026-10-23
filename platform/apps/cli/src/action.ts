@@ -113,7 +113,7 @@ async function logActionError(args: {
       code: args.code,
       command: args.command,
       exitCode: args.exitCode,
-      threadId: process.env.BB_THREAD_ID ?? null,
+      threadId: process.env.HYPERFIDE_THREAD_ID ?? null,
       token: null,
     });
   } catch {}

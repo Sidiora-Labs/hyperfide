@@ -5,7 +5,7 @@ cd "$(dirname "$0")/../../../.."
 artifacts="$PWD/e2e-artifacts/android"
 mkdir -p "$artifacts"
 
-BB_MOBILE_E2E_SERVE_APP=1 pnpm exec turbo run e2e:mobile-backend \
+HYPERFIDE_MOBILE_E2E_SERVE_APP=1 pnpm exec turbo run e2e:mobile-backend \
   --filter=@bb/integration-tests --output-logs=full --log-order=stream \
   > "$artifacts/backend.log" 2>&1 &
 backend_pid=$!

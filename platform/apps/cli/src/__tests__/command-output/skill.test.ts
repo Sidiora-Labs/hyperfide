@@ -8,7 +8,7 @@ import {
 } from "../helpers/command-output-harness.js";
 import { registerSkillCommands } from "../../commands/skill.js";
 
-describe("bb skill commands", () => {
+describe("hyperfide-platform skill commands", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -51,7 +51,7 @@ describe("bb skill commands", () => {
       new Response(
         JSON.stringify({
           ok: true,
-          filePath: "/home/user/.bb/skills/review/SKILL.md",
+          filePath: "/home/user/.hyperfide/skills/review/SKILL.md",
         }),
         { status: 200, headers: { "content-type": "application/json" } },
       ),

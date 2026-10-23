@@ -47,7 +47,7 @@ const rowClassSchema = z
   .strict();
 export type RowDiffClass = z.infer<typeof rowClassSchema>;
 
-export const ROW_CLASSES_FILE_ENV = "BB_PROVIDER_CORPUS_ROW_CLASSES";
+export const ROW_CLASSES_FILE_ENV = "HYPERFIDE_PROVIDER_CORPUS_ROW_CLASSES";
 
 export function readRowDiffClasses(filePath: string): RowDiffClass[] {
   return z

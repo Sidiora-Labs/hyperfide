@@ -7,6 +7,6 @@ editingNotes: Keep the thread mention first in the visible body so collapsed pre
 variables:
   threadMention: Serialized thread mention token, e.g. '@thread:thr_abc123'.
 ---
-[bb system]
+[hyperfide-platform system]
 
 {{threadMention}} is now a child of this thread.

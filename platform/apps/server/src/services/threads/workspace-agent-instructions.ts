@@ -5,7 +5,8 @@ import { isFsErrorWithCode } from "../lib/fs-errors.js";
 
 export const DATA_DIR_AGENT_INSTRUCTIONS_RELATIVE_PATH = "AGENTS.md";
 
-export const WORKSPACE_AGENT_INSTRUCTIONS_RELATIVE_PATH = ".bb/AGENTS.md";
+export const WORKSPACE_AGENT_INSTRUCTIONS_RELATIVE_PATH =
+  ".hyperfide/AGENTS.md";
 
 function readAgentInstructionsFile(
   logger: ServerLogger,

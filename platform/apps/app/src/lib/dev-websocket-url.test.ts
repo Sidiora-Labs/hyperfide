@@ -19,8 +19,8 @@ describe("buildDevWebSocketUrl", () => {
   });
 
   it("connects directly to the backend for HTTP source dev", () => {
-    vi.stubGlobal("__BB_DEV_WS_BROWSER_HOST_PORT__", 23_802);
-    vi.stubGlobal("__BB_DEV_APP_BROWSER_HOST_PORT__", 15_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__", 23_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__", 15_802);
     installWindowLocation("http://devbox.local:15802/threads/thr_1");
 
     expect(buildDevWebSocketUrl({ path: "/ws" })).toBe(
@@ -29,8 +29,8 @@ describe("buildDevWebSocketUrl", () => {
   });
 
   it("uses the proxied app origin for HTTPS bb connect shares", () => {
-    vi.stubGlobal("__BB_DEV_WS_BROWSER_HOST_PORT__", 23_802);
-    vi.stubGlobal("__BB_DEV_APP_BROWSER_HOST_PORT__", 15_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__", 23_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__", 15_802);
     installWindowLocation(
       "https://sawyer--15802.getbb.app/threads/thr_jew2ruik89",
     );
@@ -41,8 +41,8 @@ describe("buildDevWebSocketUrl", () => {
   });
 
   it("uses the proxied app origin for HTTP local Cloud", () => {
-    vi.stubGlobal("__BB_DEV_WS_BROWSER_HOST_PORT__", 23_802);
-    vi.stubGlobal("__BB_DEV_APP_BROWSER_HOST_PORT__", 15_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__", 23_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__", 15_802);
     installWindowLocation("http://sawyer.localhost:35802/threads/thr_1");
 
     expect(buildDevWebSocketUrl({ path: "/ws" })).toBe(
@@ -51,8 +51,8 @@ describe("buildDevWebSocketUrl", () => {
   });
 
   it("preserves terminal websocket paths on the proxied app origin", () => {
-    vi.stubGlobal("__BB_DEV_WS_BROWSER_HOST_PORT__", 23_802);
-    vi.stubGlobal("__BB_DEV_APP_BROWSER_HOST_PORT__", 15_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__", 23_802);
+    vi.stubGlobal("__HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__", 15_802);
     installWindowLocation("https://dev.example.test:15802/threads/thr_1");
 
     expect(buildDevWebSocketUrl({ path: "/ws/terminals/term_1" })).toBe(

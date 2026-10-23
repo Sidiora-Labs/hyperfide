@@ -7,6 +7,6 @@ editingNotes: Keep it short and task-neutral; the agent already has the prior tu
 variables:
   path: Absolute path of the thread's new working directory.
 ---
-[bb system]
+[hyperfide-platform system]
 
 This thread now runs in `{{path}}`. Continue the task from your previous turn in this directory.

@@ -163,7 +163,7 @@ export function registerActionsCommands(
   parent
     .command("update [id]")
     .description("Update a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option("--title <title>", "Set the thread title")
     .option("--parent-thread <id>", "Set the parent thread id")
@@ -288,7 +288,7 @@ export function registerActionsCommands(
   parent
     .command("archive [id]")
     .description("Archive a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -331,7 +331,7 @@ export function registerActionsCommands(
   parent
     .command("unarchive [id]")
     .description("Unarchive a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -350,7 +350,7 @@ export function registerActionsCommands(
     .description(
       "Restore the workspace of a thread whose environment was destroyed, when its environment provider supports restoring",
     )
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -384,7 +384,7 @@ export function registerActionsCommands(
     parent
       .command(`${name} [id]`)
       .description(description)
-      .option("--self", "Target the current thread (from BB_THREAD_ID)")
+      .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
       .option("--json", "Print machine-readable JSON output")
       .action(
         action(
@@ -444,7 +444,7 @@ export function registerActionsCommands(
       "--message-file <path>",
       `Read the replacement message from a file; ${TEXT_FILE_HELP_SUFFIX}`,
     )
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option(
       "--expected-request-sequence <sequence>",
       "Edit the message at this event sequence (default: the latest editable message)",
@@ -579,7 +579,7 @@ export function registerActionsCommands(
   parent
     .command("retry [id]")
     .description("Retry the failed turn on a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option(
       "--turn <requestId>",
       "Retry this turn request id specifically; fails when it is not the thread's failed turn",
@@ -644,7 +644,7 @@ export function registerActionsCommands(
     parent
       .command(`${name} [id]`)
       .description(description)
-      .option("--self", "Target the current thread (from BB_THREAD_ID)")
+      .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
       .option("--json", "Print machine-readable JSON output")
       .action(
         action(async (id: string | undefined, opts: ThreadActionOptions) => {
@@ -714,7 +714,7 @@ async function withRestoreEnvironmentHint(
   return new CliExitError(error.message, 1, {
     code: parsed.data.code,
     hint: canRestoreEnvironment
-      ? `Its workspace was removed. Restore it with \`bb thread restore-environment ${threadId}\`, then send again.`
+      ? `Its workspace was removed. Restore it with \`hyperfide-platform thread restore-environment ${threadId}\`, then send again.`
       : "Its workspace was removed and its environment provider cannot restore it. Start a new thread to continue.",
   });
 }
@@ -725,7 +725,7 @@ function describeThreadTellOutcome(
 ): string {
   if (response.delivery === "queued") {
     // The server says WHY it is waiting, so the CLI does not have to guess
-    // from the flags it happened to send. `bb thread queue list` shows the
+    // from the flags it happened to send. `hyperfide-platform thread queue list` shows the
     // same reason for the row afterwards.
     return `Thread ${threadId} message queued (${describeQueueWait(response.queuedMessage)}); it dispatches when that clears`;
   }

@@ -56,7 +56,7 @@ const commandSedAssistantStream: TimelineRow = commandRow({
   callId: "call_YrdwFQNVKDsaBvwc98oQ9qP4",
   command:
     "/bin/zsh -lc \"sed -n '1,260p' packages/core-ui/src/assistant-stream-projection.ts\"",
-  cwd: "/Users/michael/.bb-dev/worktrees/env_33i22gvcqe/bb",
+  cwd: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb",
   source: null,
   output: "",
   exitCode: 0,
@@ -84,7 +84,7 @@ const commandSedTimelineHelpers: TimelineRow = commandRow({
   callId: "call_XF7ZEgp9XUvdErfdDi9zKDX6",
   command:
     "/bin/zsh -lc \"sed -n '1,200p' packages/core-ui/src/timeline-message-helpers.ts\"",
-  cwd: "/Users/michael/.bb-dev/worktrees/env_33i22gvcqe/bb",
+  cwd: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb",
   source: null,
   output: "",
   exitCode: 0,
@@ -112,7 +112,7 @@ const commandSedVisibleText: TimelineRow = commandRow({
   callId: "call_AcUMKIrd6rllJWdPYubsSTjL",
   command:
     "/bin/zsh -lc \"sed -n '1,220p' packages/core-ui/src/visible-text-buffer.ts\"",
-  cwd: "/Users/michael/.bb-dev/worktrees/env_33i22gvcqe/bb",
+  cwd: "/Users/michael/.hyperfide-dev/worktrees/env_33i22gvcqe/bb",
   source: null,
   output: "",
   exitCode: 0,

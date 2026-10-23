@@ -7,8 +7,8 @@ import {
 describe("splitPathForMiddleTruncation", () => {
   it.each([
     [
-      "~/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_abc-1/bb",
-      "~/.bb/plugins/environment-git-worktree/host-data/worktrees",
+      "~/.hyperfide/plugins/environment-git-worktree/host-data/worktrees/thr_abc-1/bb",
+      "~/.hyperfide/plugins/environment-git-worktree/host-data/worktrees",
       "/thr_abc-1/bb",
     ],
     ["~/Code/bb", "~", "/Code/bb"],
@@ -31,7 +31,7 @@ describe("splitPathForMiddleTruncation", () => {
 
 describe("fitPathMiddle", () => {
   const measure = (text: string) => text.length;
-  const path = "~/.bb/plugins/worktrees/thr_abc-1/bb";
+  const path = "~/.hyperfide/plugins/worktrees/thr_abc-1/bb";
 
   it("keeps a path that fits", () => {
     expect(fitPathMiddle(path, path.length, measure)).toBe(path);
@@ -39,9 +39,11 @@ describe("fitPathMiddle", () => {
 
   it("replaces whole middle segments with an ellipsis segment", () => {
     expect(fitPathMiddle(path, 28, measure)).toBe(
-      "~/.bb/plugins/…/thr_abc-1/bb",
+      "~/.hyperfide/plugins/…/thr_abc-1/bb",
     );
-    expect(fitPathMiddle(path, 22, measure)).toBe("~/.bb/…/thr_abc-1/bb");
+    expect(fitPathMiddle(path, 22, measure)).toBe(
+      "~/.hyperfide/…/thr_abc-1/bb",
+    );
   });
 
   it("keeps only the last segment once only the root is left", () => {

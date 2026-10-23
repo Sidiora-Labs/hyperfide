@@ -33,9 +33,9 @@ app/                     Expo Router routes (thin: each file re-exports a screen
   settings/              device (This device), appearance, notifications,
                          servers/index (saved servers), servers/add (bb connect
                          entry + Direct URL form)
-  dev/webview-spike.tsx  Phase 0 WebView diagnostics (dev / EXPO_PUBLIC_BB_E2E=1
+  dev/webview-spike.tsx  Phase 0 WebView diagnostics (dev / EXPO_PUBLIC_HYPERFIDE_E2E=1
                          only: release bundles redirect home)
-  e2e/reset.tsx          bb://e2e/reset — wipes local state (dev / EXPO_PUBLIC_BB_E2E=1)
+  e2e/reset.tsx          bb://e2e/reset — wipes local state (dev / EXPO_PUBLIC_HYPERFIDE_E2E=1)
   +native-intent.tsx     redirectSystemPath: every incoming URL (bb:// scheme,
                          universal links, dev-client URLs) → src/lib/shell link
                          resolution → profile switch + shell route / add-server prompt
@@ -97,7 +97,7 @@ e2e/flows/               Maestro shell flows: shell-launch, shell-deep-link,
                          shell-send, shell-unreachable-server, shell-connect
 e2e/subflows/            shared steps (launch-app.yaml: cold start through the
                          dev client + Metro, or `launchApp` of the embedded
-                         Release bundle with `-e BB_E2E_EMBEDDED_BUNDLE=1`;
+                         Release bundle with `-e HYPERFIDE_E2E_EMBEDDED_BUNDLE=1`;
                          pair-direct-server.yaml: add the harness server and
                          wait for the shell; open-bb-link.yaml /
                          clear-open-confirmation.yaml: accept or cancel the
@@ -161,7 +161,7 @@ is running, then retry.
 When a thread is asked to build a dev APK, use this command, wait for successful
 completion, and provide a clickable link to the resulting APK. Record the
 source commit and any uncommitted changes. For a durable per-thread copy, copy
-the APK into `$BB_THREAD_STORAGE` and link that absolute path. Do not publish it
+the APK into `$HYPERFIDE_THREAD_STORAGE` and link that absolute path. Do not publish it
 to the public `android-testing` release. Builds use the generated debug signing
 key; Android updates require the same key as the installed dev app.
 
@@ -186,7 +186,7 @@ Run `pnpm exec turbo run e2e:android --filter=@bb/mobile` with only the intended
 Android emulator/device connected. The smoke flow clears this app's local data,
 pairs the fixture, sends a message, checks Android back navigation, relaunches,
 and opens native device settings. Use a normal embedded build, not
-`EXPO_PUBLIC_BB_E2E=1`, so the relaunch step can verify saved profiles.
+`EXPO_PUBLIC_HYPERFIDE_E2E=1`, so the relaunch step can verify saved profiles.
 
 `e2e/android/keyboard.yaml` uses the same backend and checks repeated keyboard
 opening, Back dismissal, draft retention, and sending after dismissal. Run it
@@ -209,7 +209,7 @@ unchanged. Recheck this patch when upgrading WebView or changing keyboard
 ownership; see [Android's inset handling guidance](https://developer.android.com/develop/ui/views/layout/webapps/understand-window-insets).
 
 `e2e/android/connect.yaml` additionally needs the local TLS connect stub started
-with `BB_MOBILE_E2E_COOKIE_DOMAIN=stub.localhost`, a
+with `HYPERFIDE_MOBILE_E2E_COOKIE_DOMAIN=stub.localhost`, a
 trusted fixture CA and DNS for `stub.localhost`/`other.localhost` on the test
 emulator, and `adb reverse tcp:42998 tcp:42998`. It resets the stub and checks
 invalid codes, pairing, WebView cookie authentication, relaunch and session
@@ -270,22 +270,22 @@ coverage. Test those separately once Firebase/signing are configured.
 pnpm install                                   # applies patches/expo-modules-jsi@57.0.4.patch
 cd apps/mobile
 pnpm ios                                       # prebuild + build the dev-client, opens the simulator
-EXPO_PUBLIC_BB_SERVER_URL=http://127.0.0.1:<port> pnpm dev   # Metro (dev-client)
+EXPO_PUBLIC_HYPERFIDE_SERVER_URL=http://127.0.0.1:<port> pnpm dev   # Metro (dev-client)
 ```
 
 The iOS Simulator shares the Mac loopback, so `pnpm dev` (repo root) or
 `pnpm dev` gives a server URL that works as-is. Physical
 phones need a Tailscale Serve URL, bb connect, or a temporary
-`BB_SERVER_BIND_HOST=0.0.0.0`.
+`HYPERFIDE_SERVER_BIND_HOST=0.0.0.0`.
 
 ## E2E (Maestro)
 
 ```bash
 # terminal 1: deterministic backend (fake provider, fixed port 41999) serving the built web app
 pnpm exec turbo run build --filter=@bb/app
-BB_MOBILE_E2E_SERVE_APP=1 pnpm --filter @bb/integration-tests e2e:mobile-backend
-# terminal 2: Metro (EXPO_PUBLIC_BB_E2E=1 wipes profiles/preferences on every launch)
-cd apps/mobile && EXPO_PUBLIC_BB_SERVER_URL=http://127.0.0.1:41999 EXPO_PUBLIC_BB_E2E=1 pnpm dev --port 8082
+HYPERFIDE_MOBILE_E2E_SERVE_APP=1 pnpm --filter @bb/integration-tests e2e:mobile-backend
+# terminal 2: Metro (EXPO_PUBLIC_HYPERFIDE_E2E=1 wipes profiles/preferences on every launch)
+cd apps/mobile && EXPO_PUBLIC_HYPERFIDE_SERVER_URL=http://127.0.0.1:41999 EXPO_PUBLIC_HYPERFIDE_E2E=1 pnpm dev --port 8082
 # terminal 3: flows
 cd apps/mobile && pnpm e2e:ios
 ```
@@ -313,7 +313,7 @@ the shell through the gate (cookie on fetch and on `/ws`) → the stub expires
 the session (the app re-mints and reconnects by itself) → the stub revokes
 the machine ("needs to be paired again" banner) → "Sign in again" re-pairs
 the same profile with a new code. The flow needs the stub started with
-`BB_MOBILE_E2E_SIMULATOR=<udid>` once (it installs its root certificate in
+`HYPERFIDE_MOBILE_E2E_SIMULATOR=<udid>` once (it installs its root certificate in
 that simulator) and drives the stub through `e2e/scripts/connect-stub-control.js`
 (plain-HTTP control port 42997).
 Flows open `bb://` links through `subflows/open-bb-link.yaml` and pair through
@@ -323,17 +323,17 @@ Flows dismiss the keyboard by tapping a static label ("Server URL",
 "Pairing code"): Maestro's `hideKeyboard` looks for a Return/Done key and the
 Add server and connect fields use "next".
 Flows cold-start the dev client (`stopApp`) because a warm reload keeps the
-last deep link as the initial URL. Without `EXPO_PUBLIC_BB_E2E=1`, open `bb://e2e/reset`
+last deep link as the initial URL. Without `EXPO_PUBLIC_HYPERFIDE_E2E=1`, open `bb://e2e/reset`
 (dev builds) to return the simulator to first run.
 
 ### Flows against a Release build (no Metro)
 
 A Release build (`npx expo run:ios --configuration Release --no-bundler
 --device <udid>`) embeds the JS bundle and never starts the dev launcher, so
-the same flows run without Metro: build it with `EXPO_PUBLIC_BB_E2E=1` (and
-`EXPO_PUBLIC_BB_SERVER_URL=http://127.0.0.1:41999`) in the environment — the
+the same flows run without Metro: build it with `EXPO_PUBLIC_HYPERFIDE_E2E=1` (and
+`EXPO_PUBLIC_HYPERFIDE_SERVER_URL=http://127.0.0.1:41999`) in the environment — the
 Xcode "Bundle React Native code and images" phase inlines `EXPO_PUBLIC_*` at
-bundle time — and pass `-e BB_E2E_EMBEDDED_BUNDLE=1` to Maestro.
+bundle time — and pass `-e HYPERFIDE_E2E_EMBEDDED_BUNDLE=1` to Maestro.
 `e2e/subflows/launch-app.yaml` switches on that variable between the
 dev-client deep link and a plain `launchApp`; it is a `-e` variable on
 purpose because values in a flow's `env:` block beat `-e`, and `METRO_URL`
@@ -457,13 +457,13 @@ as the first argument drives a dev client through Metro instead.
   tunnel client does so the bb server's origin guard accepts RN's
   WebSocket. Control: `POST /__stub/{expire-session,revoke-machine,reset}`,
   `GET /__stub/state`, also on plain `http://127.0.0.1:42997`. It generates a
-  local CA under `~/.bb-mobile-e2e/connect-stub-certs` and installs it in
-  the simulator named by `BB_MOBILE_E2E_SIMULATOR` (`xcrun simctl keychain …
-add-root-cert`). Env: `BB_MOBILE_E2E_GATE_PORT` (42998),
-  `BB_MOBILE_E2E_STUB_CONTROL_PORT` (42997), `BB_MOBILE_E2E_UPSTREAM_URL`
-  (`http://127.0.0.1:${BB_MOBILE_E2E_PORT ?? 41999}`),
-  `BB_MOBILE_E2E_CONNECT_CODE`, `BB_MOBILE_E2E_STUB_HANDLE`,
-  `BB_MOBILE_E2E_SESSION_TTL_MS`, `BB_MOBILE_E2E_STUB_LOG=1` (one line per
+  local CA under `~/.hyperfide-mobile-e2e/connect-stub-certs` and installs it in
+  the simulator named by `HYPERFIDE_MOBILE_E2E_SIMULATOR` (`xcrun simctl keychain …
+add-root-cert`). Env: `HYPERFIDE_MOBILE_E2E_GATE_PORT` (42998),
+  `HYPERFIDE_MOBILE_E2E_STUB_CONTROL_PORT` (42997), `HYPERFIDE_MOBILE_E2E_UPSTREAM_URL`
+  (`http://127.0.0.1:${HYPERFIDE_MOBILE_E2E_PORT ?? 41999}`),
+  `HYPERFIDE_MOBILE_E2E_CONNECT_CODE`, `HYPERFIDE_MOBILE_E2E_STUB_HANDLE`,
+  `HYPERFIDE_MOBILE_E2E_SESSION_TTL_MS`, `HYPERFIDE_MOBILE_E2E_STUB_LOG=1` (one line per
   gate request).
 
 ## Server moves

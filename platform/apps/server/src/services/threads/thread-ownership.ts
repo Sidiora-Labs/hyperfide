@@ -72,7 +72,7 @@ const pendingOwnershipChanges = new WeakMap<
 >();
 const THREAD_OWNERSHIP_NOTICE_DELAY_MS = 2_000;
 
-const THREAD_OWNERSHIP_MENTION_SLOT = "__BB_THREAD_OWNERSHIP_MENTION__";
+const THREAD_OWNERSHIP_MENTION_SLOT = "__HYPERFIDE_THREAD_OWNERSHIP_MENTION__";
 
 async function queueParentSystemMessageBestEffort(
   deps: LoggedPendingInteractionWorkSessionDeps,

@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 import { z } from "zod";
 import { isProcessRunning } from "./verified-process-stop.js";
 
-const BB_APP_RUNTIME_FILE_NAME = "bb-app-runtime.json";
+const HYPERFIDE_APP_RUNTIME_FILE_NAME = "bb-app-runtime.json";
 
 const bbAppRuntimeFileSchema = z.object({
   entryPath: z.string().min(1),
@@ -27,7 +27,7 @@ interface WriteBbAppRuntimeFileArgs {
 }
 
 export function formatBbAppRuntimeFilePath(dataDir: string): string {
-  return join(dataDir, BB_APP_RUNTIME_FILE_NAME);
+  return join(dataDir, HYPERFIDE_APP_RUNTIME_FILE_NAME);
 }
 
 export async function writeBbAppRuntimeFile(

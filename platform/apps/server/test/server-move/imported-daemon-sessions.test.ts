@@ -29,7 +29,7 @@ const MANUAL_IMPORT: ServerImportFile = {
   kind: "manual",
   moveId: null,
   activationToken: null,
-  sourceDataDir: "/home/old/.bb",
+  sourceDataDir: "/home/old/.hyperfide",
   sourceServerHostId: null,
   targetHostId: null,
   serverUrl: null,

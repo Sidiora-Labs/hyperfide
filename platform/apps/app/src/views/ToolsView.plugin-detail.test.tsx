@@ -65,7 +65,7 @@ vi.mock(
 const GITHUB_PLUGIN = makePluginListItem({
   id: "github",
   source: "builtin:github",
-  rootDir: "/Users/you/.bb/plugins/github",
+  rootDir: "/Users/you/.hyperfide/plugins/github",
   description: "Browse GitHub issues and pull requests in BB.",
   name: "GitHub",
   icon: "Github",
@@ -325,7 +325,7 @@ describe("PluginDetail official catalog lifecycle", () => {
         .closest("[data-resource-detail-section]")
         ?.getAttribute("data-resource-detail-section"),
     ).toBe("release");
-    expect(screen.queryByText("~/.bb/plugins/github")).toBeNull();
+    expect(screen.queryByText("~/.hyperfide/plugins/github")).toBeNull();
     expect(
       screen.queryByRole("button", { name: /Copy plugin path/u }),
     ).toBeNull();
@@ -378,7 +378,7 @@ describe("PluginDetail official catalog lifecycle", () => {
       name: "Update GitHub to 1.5.0",
     });
     const activation = screen.getByRole("switch", { name: "Disable GitHub" });
-    const path = screen.queryByText("~/.bb/plugins/github");
+    const path = screen.queryByText("~/.hyperfide/plugins/github");
     const releaseSection = document.querySelector(
       '[data-resource-detail-section="release"]',
     );

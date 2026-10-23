@@ -12,9 +12,9 @@ const { app, BrowserWindow, ipcMain, Menu, shell } = require("electron");
 
 app.setName("bb-dev");
 
-const desktopRoot = process.env.BB_STARTUP_SMOKE_APP_PATH;
+const desktopRoot = process.env.HYPERFIDE_STARTUP_SMOKE_APP_PATH;
 app.setVersion(require(join(desktopRoot, "package.json")).version);
-const scenario = process.env.BB_STARTUP_SMOKE_SCENARIO ?? "custom";
+const scenario = process.env.HYPERFIDE_STARTUP_SMOKE_SCENARIO ?? "custom";
 const channel = "bb-desktop:startup-action";
 const loads = [];
 let contents;
@@ -87,9 +87,9 @@ async function run() {
       '#!/bin/sh\necho "bb-app native module failed to load" >&2\nexit 3\n',
     );
     await chmod(crashingRuntime, 0o755);
-    process.env.BB_DESKTOP_NODE_EXEC_PATH = crashingRuntime;
+    process.env.HYPERFIDE_DESKTOP_NODE_EXEC_PATH = crashingRuntime;
   }
-  process.env.BB_SERVER_PORT = String(port);
+  process.env.HYPERFIDE_SERVER_PORT = String(port);
   await writeFile(
     join(app.getPath("userData"), "server-target.json"),
     JSON.stringify(
@@ -108,7 +108,8 @@ async function run() {
           : { target: "custom", customServerUrl: serverUrl },
     ),
   );
-  if (scenario === "attached") process.env.BB_DESKTOP_APP_URL = serverUrl;
+  if (scenario === "attached")
+    process.env.HYPERFIDE_DESKTOP_APP_URL = serverUrl;
   app.setAppPath(desktopRoot);
   app.on("browser-window-created", (_event, window) => {
     contents ??= window.webContents;
@@ -140,7 +141,11 @@ async function run() {
     return;
   }
   if (scenario === "crashed") {
-    const desktopLog = join(process.env.BB_DATA_DIR, "logs", "desktop.log");
+    const desktopLog = join(
+      process.env.HYPERFIDE_DATA_DIR,
+      "logs",
+      "desktop.log",
+    );
     await until(async () =>
       (await readFile(desktopLog, "utf8")).includes("Could not start bb"),
     );
@@ -166,7 +171,7 @@ async function run() {
     );
   await until(hasError);
   const savedLogs = await readFile(
-    join(process.env.BB_DATA_DIR, "logs", "desktop.log"),
+    join(process.env.HYPERFIDE_DATA_DIR, "logs", "desktop.log"),
     "utf8",
   );
   assert.ok(
@@ -324,7 +329,7 @@ async function verifyLocalLogs() {
     );
     return logsWindow && !logsWindow.webContents.isLoading();
   });
-  const logDir = join(process.env.BB_DATA_DIR, "logs");
+  const logDir = join(process.env.HYPERFIDE_DATA_DIR, "logs");
   const openPath = shell.openPath;
   let openedPath;
   shell.openPath = async (path) => {

@@ -10,7 +10,7 @@ import { BUILTIN_SERVER_NAME } from "../src/server-target.js";
 const NOW = new Date("2026-08-03T12:00:00.000Z");
 
 const DETAILS = {
-  dataDir: "/Users/example/.bb",
+  dataDir: "/Users/example/.hyperfide",
   entryPath: "/opt/bb/bb-app.js",
   pid: 4_242,
   startedAt: "2026-08-03T11:30:00.000Z",
@@ -62,7 +62,7 @@ describe("renderExistingServerDialogHtml", () => {
     });
 
     expect(html).toContain("http://127.0.0.1:38886");
-    expect(html).toContain("/Users/example/.bb");
+    expect(html).toContain("/Users/example/.hyperfide");
     expect(html).toContain("0.34.0");
     expect(html).toContain("30 min ago by a terminal (pid 4242)");
     expect(html).toContain(`bb is already running on ${BUILTIN_SERVER_NAME}`);

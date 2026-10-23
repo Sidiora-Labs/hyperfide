@@ -327,7 +327,7 @@ export const serverAccessStatusSchema = z.object({
   ),
   defaultProviderId: z.string(),
   effectiveUrl: z.string().nullable(),
-  urlSource: z.enum(["setting", "BB_EXTERNAL_URL"]).nullable(),
+  urlSource: z.enum(["setting", "HYPERFIDE_EXTERNAL_URL"]).nullable(),
 });
 export type ServerAccessStatus = z.infer<typeof serverAccessStatusSchema>;
 

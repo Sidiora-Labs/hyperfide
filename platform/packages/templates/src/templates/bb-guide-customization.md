@@ -1,7 +1,7 @@
 ---
 kind: instruction
-title: bb Guide — Customization
-summary: Command reference for the bb app theme, server-backed settings, keyboard shortcuts, sidebar preferences, host files, and voice transcription.
+title: hyperfide-platform Guide — Customization
+summary: Command reference for the hyperfide-platform app theme, server-backed settings, keyboard shortcuts, sidebar preferences, host files, and voice transcription.
 intent: Explain the CLI theme surface, server-backed app settings, and the remaining app-wide customization commands.
 editingNotes: Keep flags accurate against the CLI implementation. Theme details live in the bb-cli skill's references/theming.md. Bundled plugins document their settings in the plugins chapter and their skills, not here.
 ---
@@ -9,32 +9,32 @@ editingNotes: Keep flags accurate against the CLI implementation. Theme details 
 Customization commands
 
 Bundled plugins such as Keep Awake, Concurrency limit, Thread list, and Push
-notifications own their settings and commands; run `bb guide plugins`.
+notifications own their settings and commands; run `hyperfide-platform guide plugins`.
 
 Theming — the app-wide palette and typography
 
-`bb theme` controls a set of CSS-variable overrides for the app palette and
+`hyperfide-platform theme` controls a set of CSS-variable overrides for the app palette and
 typography, persisted server-side and applied live to every open window.
 Light/dark mode is a separate per-client setting the theme layers on top of.
 Custom themes live on
 disk, one folder per theme, at <bb-data-dir>/theme/<name>/theme.css (the packaged
-app uses ~/.bb/theme/…). The folder name is the theme id.
+app uses ~/.hyperfide/theme/…). The folder name is the theme id.
 
-bb theme list Built-in and custom themes; shows the active one
-bb theme dir Print the custom-theme directory (where to author)
-bb theme set <id> [--favicon-color <color>]
+hyperfide-platform theme list Built-in and custom themes; shows the active one
+hyperfide-platform theme dir Print the custom-theme directory (where to author)
+hyperfide-platform theme set <id> [--favicon-color <color>]
 Activate a theme (built-ins: default, nord,
 dracula, solarized, gruvbox, catppuccin),
 preserving the favicon color unless the flag
 supplies the complete selection
-bb theme show [id] [--css] Print the active palette, or resolve <id> without
+hyperfide-platform theme show [id] [--css] Print the active palette, or resolve <id> without
 activating it; --css dumps the CSS
-bb theme reset Back to the default theme; preserve favicon color
-bb theme favicon set <color> Set favicon color; preserve the active theme
-bb theme favicon reset Reset favicon color; preserve the active theme
+hyperfide-platform theme reset Back to the default theme; preserve favicon color
+hyperfide-platform theme favicon set <color> Set favicon color; preserve the active theme
+hyperfide-platform theme favicon reset Reset favicon color; preserve the active theme
 
-To author a custom theme, run `bb theme dir`, write <that-dir>/<name>/theme.css,
-then `bb theme set <name>`. A name has at most 64 characters, starts with a
+To author a custom theme, run `hyperfide-platform theme dir`, write <that-dir>/<name>/theme.css,
+then `hyperfide-platform theme set <name>`. A name has at most 64 characters, starts with a
 letter or digit, then uses letters, digits, `.`, `_`, or `-`; avoid built-in
 ids. Optional `pierre-dark.json` / `pierre-light.json`
 (or a `theme.json` `codeTheme` field) ship the matching code colors. Built-in
@@ -50,7 +50,7 @@ Favicon colors are `default`, `red`, `orange`, `yellow`, `green`, `teal`,
 appearance value forward explicitly.
 
 Hovering a palette in Settings → Appearance previews it live in that window
-without saving; `bb theme show <id>` is the CLI counterpart.
+without saving; `hyperfide-platform theme show <id>` is the CLI counterpart.
 
 Add --json to any theme command for machine-readable output.
 
@@ -58,38 +58,38 @@ Server-backed settings
 
 Settings stored server-side apply to every window and survive restarts.
 
-bb settings show
-bb settings ai-services
-bb settings ai-services set <thread-title|commit-message|voice> <automatic|off|service-id> [--plugin <plugin-id>]
-bb settings ai-services test <thread-title|commit-message>
-bb settings general <key> <value>
-bb settings replay-onboarding
-bb settings completed-turns [provider-id] [collapse|flat|default]
-bb settings experiment <key> <value>
-bb settings usage [--machine <id-or-name>] [--refresh]
-bb settings cli-command [install|remove]
-bb settings version [--force]
-bb settings reload Reload bb-managed configuration
+hyperfide-platform settings show
+hyperfide-platform settings ai-services
+hyperfide-platform settings ai-services set <thread-title|commit-message|voice> <automatic|off|service-id> [--plugin <plugin-id>]
+hyperfide-platform settings ai-services test <thread-title|commit-message>
+hyperfide-platform settings general <key> <value>
+hyperfide-platform settings replay-onboarding
+hyperfide-platform settings completed-turns [provider-id] [collapse|flat|default]
+hyperfide-platform settings experiment <key> <value>
+hyperfide-platform settings usage [--machine <id-or-name>] [--refresh]
+hyperfide-platform settings cli-command [install|remove]
+hyperfide-platform settings version [--force]
+hyperfide-platform settings reload Reload bb-managed configuration
 
-AI services: `bb settings ai-services` shows which AI service writes thread
+AI services: `hyperfide-platform settings ai-services` shows which AI service writes thread
 titles (and so branch names), commit messages, and voice transcripts, plus
 every service a plugin registers and whether it is ready. `set` picks
-`automatic` (bb cloud first, then all other compatible services by plugin id
+`automatic` (hyperfide-platform cloud first, then all other compatible services by plugin id
 and service id in lexicographic order, including third-party plugins), `off`,
 or one service id; a picked service is never swapped for another. A service is
 identified by its plugin and its id, so two plugins may use the same id; pass
 `--plugin <plugin-id>` when they do. `test` runs a sample title or commit
 message through the current choice. Settings → AI services has the same
-controls. Each plugin chooses its own model. The removed `BB_INFERENCE`,
-`BB_INFERENCE_FALLBACK`, and `BB_TRANSCRIPTION` variables are ignored with a
-warning in `~/.bb/config.json`, and `bb-app config set` refuses them.
+controls. Each plugin chooses its own model. The removed `HYPERFIDE_INFERENCE`,
+`HYPERFIDE_INFERENCE_FALLBACK`, and `HYPERFIDE_TRANSCRIPTION` variables are ignored with a
+warning in `~/.hyperfide/config.json`, and `bb-app config set` refuses them.
 
-General keys: `bb settings general` accepts any key from `generalSettings` in
-`bb settings show`; an unknown key or wrongly shaped value is rejected with the
+General keys: `hyperfide-platform settings general` accepts any key from `generalSettings` in
+`hyperfide-platform settings show`; an unknown key or wrongly shaped value is rejected with the
 list of known keys. Boolean preferences take `true`, `false`, `on`, or `off`,
 and `null` clears a preference that can be unset. Most appear in Settings →
 General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
-`machineGitCredentialsEnabled`) are covered in `bb guide machines`.
+`machineGitCredentialsEnabled`) are covered in `hyperfide-platform guide machines`.
 
 - `showDiagnosticEvents` (default false) shows provider environment resolution
   and unhandled provider events in the timeline. Warnings, errors, and model
@@ -118,12 +118,12 @@ General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
 - `terminalCopyOnSelect` (default true; Settings → General → Terminals → Copy
   on select) copies completed terminal selections exactly and shows "Selection
   copied". Text elsewhere in the app is unchanged. Set it with
-  `bb settings general terminalCopyOnSelect <true|false|on|off>` or SDK
+  `hyperfide-platform settings general terminalCopyOnSelect <true|false|on|off>` or SDK
   `system.updateGeneralSettings`. Explicit Copy/Paste work when off. Supported
   Linux browsers use native primary selection for middle-click paste,
   independently of this preference, never the regular clipboard as a fallback.
 - `streamerMode` (default false) hides every `customModels` entry from
-  `~/.bb/config.json` in all model lists (pickers, `bb provider models`, and
+  `~/.hyperfide/config.json` in all model lists (pickers, `hyperfide-platform provider models`, and
   the SDK) during a screen share. The entries stay in the config file; a
   request that names a hidden model still runs with it, and default model
   resolution still sees the full list.
@@ -133,57 +133,57 @@ General. Machine-related keys (`machineServerUrl`, `defaultMachineAccess`,
   project defaults, automations, and messages queued before the change. Project
   defaults saved while it was off retain the default tier.
 - `managedBranchPrefix` (default `bb/`, at most 64 characters) prefixes every
-  branch bb creates for a worktree or a new checkout branch: the default gives
+  branch hyperfide-platform creates for a worktree or a new checkout branch: the default gives
   `bb/fix-login-flow-thr_ab12cd34ef`, `sawyer/wt-` gives
   `sawyer/wt-fix-login-flow-thr_ab12cd34ef`, and an empty value gives no
-  prefix. bb rejects a prefix that cannot start a valid git branch name.
+  prefix. hyperfide-platform rejects a prefix that cannot start a valid git branch name.
   Existing branches keep their names.
 - `providerOrder` (default `[]`) is a JSON array of provider ids, and
   `defaultProviderId` (default `null`) names the default provider; `null`
   clears it.
-- `idleProviderSessionTimeoutMinutes` (default `30`; Settings → Providers → Configuration → Release idle agent sessions) sets how long an agent can sit idle after its last turn before every machine stops its provider process. Allowed values are `0` (ASAP), `5`, `10`, `30`, and `60`, for example `bb settings general idleProviderSessionTimeoutMinutes 5`. Machines check every five minutes, so release can take up to five minutes beyond the timeout. Changes apply live and on reconnect. Only restorable sessions without active or pending work are eligible; threads keep their history and resume on the next message. `bb thread stop` still releases a runtime manually. This is not a limit on loaded processes or memory. Read the value with `bb settings show`; SDK callers use `system.config()` and `system.updateGeneralSettings({ ...config.generalSettings, idleProviderSessionTimeoutMinutes: 5 })`.
+- `idleProviderSessionTimeoutMinutes` (default `30`; Settings → Providers → Configuration → Release idle agent sessions) sets how long an agent can sit idle after its last turn before every machine stops its provider process. Allowed values are `0` (ASAP), `5`, `10`, `30`, and `60`, for example `hyperfide-platform settings general idleProviderSessionTimeoutMinutes 5`. Machines check every five minutes, so release can take up to five minutes beyond the timeout. Changes apply live and on reconnect. Only restorable sessions without active or pending work are eligible; threads keep their history and resume on the next message. `hyperfide-platform thread stop` still releases a runtime manually. This is not a limit on loaded processes or memory. Read the value with `hyperfide-platform settings show`; SDK callers use `system.config()` and `system.updateGeneralSettings({ ...config.generalSettings, idleProviderSessionTimeoutMinutes: 5 })`.
 - `telemetryEnabled`: see Telemetry below.
 
-`bb settings replay-onboarding` clears `onboardingCompletedAt`, so the
+`hyperfide-platform settings replay-onboarding` clears `onboardingCompletedAt`, so the
 first-run setup guide (connect an agent, add projects, pick plugins, set up
 devices) shows again in every open client. Settings → General → Setup guide has
 the same button.
 
-`bb settings usage --refresh` fetches fresh provider usage; ordinary reads may
+`hyperfide-platform settings usage --refresh` fetches fresh provider usage; ordinary reads may
 reuse results for 10 seconds. The SDK equivalent is
 `bb.sdk.system.usageLimits({ refresh: true })`.
 
-Command line: Settings → General → Command line puts the `bb` command on PATH
-on the computer that runs the bb server, so the user, a script, or an agent
-running outside bb (such as Claude Code or Codex) can control bb; threads in bb
-already have `bb`. `bb settings cli-command` shows the state, and `install` or
-`remove` changes it. Install links the launcher at `~/.bb/bin/bb` into a PATH
-folder such as `~/.local/bin` (on Windows it adds `~/.bb/bin` to the user
-PATH). bb never replaces another `bb`: install is refused while one runs first
-in a new terminal. Only an installed bb (`npx bb-app` or the desktop app)
+Command line: Settings → General → Command line puts the `hyperfide-platform` command on PATH
+on the computer that runs the hyperfide-platform server, so the user, a script, or an agent
+running outside hyperfide-platform (such as Claude Code or Codex) can control bb; threads in hyperfide-platform
+already have `hyperfide-platform`. `hyperfide-platform settings cli-command` shows the state, and `install` or
+`remove` changes it. Install links the launcher at `~/.hyperfide/bin/bb` into a PATH
+folder such as `~/.local/bin` (on Windows it adds `~/.hyperfide/bin` to the user
+PATH). hyperfide-platform never replaces another `hyperfide-platform`: install is refused while one runs first
+in a new terminal. Only an installed hyperfide-platform (`npx bb-app` or the desktop app)
 offers this; a source checkout does not.
 
-Completed turns: `bb settings completed-turns` lists how each provider shows a
+Completed turns: `hyperfide-platform settings completed-turns` lists how each provider shows a
 finished turn: `collapse` folds the turn's work into one "Worked for" row and
 keeps the final answer visible, and `flat` keeps every step visible. Each
 provider has a default (Claude Code is `flat`, the other first-party providers
 `collapse`); `--json` shows whether each value comes from your setting or that
-default. `bb settings completed-turns <provider-id> <collapse|flat>` overrides
+default. `hyperfide-platform settings completed-turns <provider-id> <collapse|flat>` overrides
 it for that provider, and `default` removes the override. It applies to
-existing threads too, including `bb thread log`. Settings → Providers has the
+existing threads too, including `hyperfide-platform thread log`. Settings → Providers has the
 same per-provider switch.
 
-Experiments: `bb settings experiment <key> <true|false>` toggles a default-off
+Experiments: `hyperfide-platform settings experiment <key> <true|false>` toggles a default-off
 experiment (Settings → Experiments). `changelogPreview` shows the latest
 release notes as a dismissible card on Settings → Updates. Experiments that
-gate a feature are documented with it: `serverMove` in `bb guide machines`,
+gate a feature are documented with it: `serverMove` in `hyperfide-platform guide machines`,
 `performanceDiagnostics` under Server performance diagnostics below.
 `timelinePush` sends an open thread's timeline updates over the live
 connection as row deltas instead of reloading the latest window after each
 update. `compactExpiredCache` offers a Compact chip in the composer when an idle
 thread's prompt cache has expired and its context holds at least 100k tokens;
-see `bb guide thread-messaging` for `--compact-first`.
-`bb settings general earlyAdopter on` (Settings → Experiments → Become an early
+see `hyperfide-platform guide thread-messaging` for `--compact-first`.
+`hyperfide-platform settings general earlyAdopter on` (Settings → Experiments → Become an early
 adopter) turns on the experiments marked Early adopter, currently
 `timelinePush` and `compactExpiredCache`; an experiment you set yourself keeps
 your value.
@@ -193,16 +193,16 @@ Launcher settings
 `bb-app config` and `bb-app env` reload runtime settings in a running server,
 but the CLI identifies settings that are startup-only, including binding/ports,
 data and the dev-app port, telemetry, inherited skill roots, and
-`BB_LOG_LEVEL`. Use `bb-app config`, not `bb-app env`, to change `BB_APP_URL`
+`HYPERFIDE_LOG_LEVEL`. Use `bb-app config`, not `bb-app env`, to change `HYPERFIDE_APP_URL`
 live. After a startup-only change, run `bb-app stop && bb-app start` or restart
-the desktop app; until then, changing or unsetting `BB_SERVER_BIND_HOST` does
+the desktop app; until then, changing or unsetting `HYPERFIDE_SERVER_BIND_HOST` does
 not close a previous `0.0.0.0` listener.
 
-`--server-bind-host 0.0.0.0` (or `BB_SERVER_BIND_HOST=0.0.0.0`) listens on
+`--server-bind-host 0.0.0.0` (or `HYPERFIDE_SERVER_BIND_HOST=0.0.0.0`) listens on
 every interface for direct remote access; containers must also publish the
 port. BB accepts request hosts that are `localhost`, IP addresses (including
-LAN and Tailscale IPs), or the hostname in `BB_APP_URL`. For a custom DNS name
-or reverse proxy, run `npx bb-app config set BB_APP_URL https://bb.example.com`
+LAN and Tailscale IPs), or the hostname in `HYPERFIDE_APP_URL`. For a custom DNS name
+or reverse proxy, run `npx bb-app config set HYPERFIDE_APP_URL https://bb.example.com`
 before connecting, including from the CLI or SDK; forwarded host headers cannot
 authorize an unconfigured name. BB Connect needs no additional configuration.
 
@@ -214,10 +214,10 @@ accelerators. Reset removes an override and returns to bb's current default;
 `disabled` explicitly unbinds a command. `Mod` means Command on macOS and
 Control on Windows/Linux. The complete default table is in docs/configuration.md.
 
-bb settings keyboard list
-bb settings keyboard hints <true|false>
-bb settings keyboard set <command> <shortcut|disabled> [--platform mac|windows|linux]
-bb settings keyboard reset [command] [--platform mac|windows|linux]
+hyperfide-platform settings keyboard list
+hyperfide-platform settings keyboard hints <true|false>
+hyperfide-platform settings keyboard set <command> <shortcut|disabled> [--platform mac|windows|linux]
+hyperfide-platform settings keyboard reset [command] [--platform mac|windows|linux]
 
 `keyboard list` prints core command ids with their effective bindings, plus
 every saved override; examples include `panel.previousTab` / `panel.nextTab`,
@@ -239,7 +239,7 @@ clears every scope for the command (or every command if omitted). The SDK uses
 `system.updateKeyboardSettings` to write and `system.config` to read bindings.
 
 Plugin commands use `plugin:<plugin-id>/<command-id>` as their binding ID, for
-example `bb settings keyboard set plugin:example/open-issue Mod+Shift+I`;
+example `hyperfide-platform settings keyboard set plugin:example/open-issue Mod+Shift+I`;
 `reset` restores the plugin's default. Overrides survive plugin disable,
 re-enable, and reload. Commands without defaults start unbound, and
 conflicting plugin defaults stay unbound. Plugin defaults resolve in each app
@@ -248,14 +248,14 @@ explicit bindings in the same update.
 
 Sidebar preferences
 
-`bb settings ui` reads and writes server-side sidebar preferences shared by
+`hyperfide-platform settings ui` reads and writes server-side sidebar preferences shared by
 every window, device, and the CLI. The same registry stores which thread Info
 panel sections are collapsed (`infoPanel.collapsedSections`).
 
-bb settings ui list [--json]
-bb settings ui get <key> [--json]
-bb settings ui set <key> <value> [--json]
-bb settings ui reset <key> [--json]
+hyperfide-platform settings ui list [--json]
+hyperfide-platform settings ui get <key> [--json]
+hyperfide-platform settings ui set <key> <value> [--json]
+hyperfide-platform settings ui reset <key> [--json]
 
 `list` prints every key with its value, revision, and a short description.
 `set` takes plain strings for enum and provider keys and JSON for lists and
@@ -267,16 +267,16 @@ The thread list is drawn by `sidebar.threadListProvider`, which defaults to
 `__automatic__`: the first installed thread list plugin other than the bundled
 Thread list plugin (`thread-list/thread-list`), or the bundled plugin when
 there is none, so installing a thread list plugin switches to it. Select one
-with `bb settings ui set sidebar.threadListProvider <plugin-id>/<slot-id>`, or
+with `hyperfide-platform settings ui set sidebar.threadListProvider <plugin-id>/<slot-id>`, or
 reset to restore Automatic. The bundled Thread list plugin keeps its own
 layout (organization mode, sort, grouping, hidden and collapsed groups) and
 copies the legacy `sidebar.*` layout keys from here only once; change its
-layout with `bb thread-list prefs` (see `bb guide plugins`).
+layout with `hyperfide-platform thread-list prefs` (see `hyperfide-platform guide plugins`).
 
 The composer's input box is drawn by `composer.provider`, which defaults to
 `__automatic__`: the first composer plugin you installed, or the bundled
 Composer plugin (`bb--composer/composer`) when there is none. Pick one with
-`bb settings ui set composer.provider <plugin-id>/<slot-id>`, or reset to
+`hyperfide-platform settings ui set composer.provider <plugin-id>/<slot-id>`, or reset to
 restore Automatic. With no composer plugin enabled, no composer is shown.
 
 A vertical rail of destinations sits on the left edge of the sidebar on every
@@ -301,8 +301,8 @@ the thread list), another navigation plugin as `<plugin-id>/<slot-id>`, or
 `__automatic__` (the default: the first navigation from another plugin, else
 `navigation/rail`). Pick one in Settings → Appearance → Navigation, or:
 
-bb settings ui set sidebar.navigationProvider navigation/top-list
-bb settings ui reset sidebar.navigationProvider
+hyperfide-platform settings ui set sidebar.navigationProvider navigation/top-list
+hyperfide-platform settings ui reset sidebar.navigationProvider
 
 The top list puts the visible destinations, New thread among them, and More
 above the thread list, moves Settings into the footer, and adds a Back to app
@@ -319,8 +319,8 @@ string lists of `builtin:settings` (top list only), `builtin:mobile`,
 `plugin:<encoded pluginId>/<encoded registrationId>`. They survive plugin
 reloads and temporarily unavailable plugins; new items are visible by default.
 
-bb settings ui set sidebar.hiddenFooterItems '["plugin:bb--provider-usage/usage"]'
-bb settings ui reset sidebar.hiddenFooterItems
+hyperfide-platform settings ui set sidebar.hiddenFooterItems '["plugin:bb--provider-usage/usage"]'
+hyperfide-platform settings ui reset sidebar.hiddenFooterItems
 
 In the app, the sidebar footer's More menu holds hidden actions and actions
 that don't fit; Settings → Appearance → Sidebar footer, or right-clicking an
@@ -335,31 +335,31 @@ Sidebar width and open state are per window and stay local to the browser.
 
 Host files and voice transcription
 
-bb file read|write|list|paths|mkdir|move|remove ...
-bb voice transcribe <audio-file> [--type <mime>] [--prompt <context>]
+hyperfide-platform file read|write|list|paths|mkdir|move|remove ...
+hyperfide-platform voice transcribe <audio-file> [--type <mime>] [--prompt <context>]
 --type defaults to audio/webm
 
-`bb file` supports `--host` for remote machines and `--root` on mutating
-commands to confine access beneath an absolute directory. `bb file write`
-takes exactly one of `--content` or `--stdin`; `bb file paths` lists files and
-directories unless `--files` or `--directories` narrows it. `bb file list` and
-`bb file paths` include dot-prefixed entries; pass `--no-hidden` to skip them.
+`hyperfide-platform file` supports `--host` for remote machines and `--root` on mutating
+commands to confine access beneath an absolute directory. `hyperfide-platform file write`
+takes exactly one of `--content` or `--stdin`; `hyperfide-platform file paths` lists files and
+directories unless `--files` or `--directories` narrows it. `hyperfide-platform file list` and
+`hyperfide-platform file paths` include dot-prefixed entries; pass `--no-hidden` to skip them.
 Both skip a default set of dependency and cache directories such as
 `node_modules`, `.venv`, `.pnpm-store`, and root-relative `.claude/worktrees`;
 `--exclude <names...>` replaces that set. Entries match basenames at any depth
 or exact root-relative paths using `/` separators. Use
 `--json` for metadata and machine-readable results.
 
-`bb file remove` needs `--yes` without a terminal. `bb file remove --recursive`
+`hyperfide-platform file remove` needs `--yes` without a terminal. `hyperfide-platform file remove --recursive`
 and `sdk.files.remove({ recursive: true, ... })` first stop processes whose
 working directory is inside the directory, including dev servers in nested
 checkouts (macOS and Linux only).
 
 Voice transcription uses the Voice input service chosen with
-`bb settings ai-services set voice <automatic|off|service-id>`. bb accepts
+`hyperfide-platform settings ai-services set voice <automatic|off|service-id>`. hyperfide-platform accepts
 recordings up to 25 MB, and each service may set a lower limit; Codex takes up
 to 20 MB. These limits apply to the app, SDK, and CLI. The app's microphone
-choice is per browser and has no `bb` command. Right-click the composer
+choice is per browser and has no `hyperfide-platform` command. Right-click the composer
 microphone, press Shift+F10, or click the Microphone control in Settings →
 Voice Input to open preferences in a desktop popover or mobile drawer.
 Opening starts a local waveform preview; closing releases it. Recording
@@ -376,9 +376,9 @@ inputs or stopping capture. Preview audio is never saved or transcribed.
 Telemetry
 
 Anonymous usage telemetry is controlled by Settings → General → Privacy &
-diagnostics, `bb settings general telemetryEnabled false`, or SDK
+diagnostics, `hyperfide-platform settings general telemetryEnabled false`, or SDK
 `system.updateGeneralSettings` with `telemetryEnabled`. The saved preference
-takes effect immediately. `BB_TELEMETRY=false` always disables telemetry, even
+takes effect immediately. `HYPERFIDE_TELEMETRY=false` always disables telemetry, even
 when the saved preference is enabled.
 
 Mobile app downloads
@@ -386,7 +386,7 @@ Mobile app downloads
 Settings → Mobile links the iOS TestFlight
 (https://testflight.apple.com/join/T9MayTMb) and the Android APK from the
 public `get-bb/bb` GitHub `android-testing` release (`bb-android.apk`), and
-pairs either app through Add mobile device. `bb settings mobile-app --json` or
+pairs either app through Add mobile device. `hyperfide-platform settings mobile-app --json` or
 SDK `system.mobileAppDownloads()` returns both links. Add `--details --json`
 or call `system.mobileAppReleases()` for the Android version, build, size, and
 upload date; `android` is `null` when that metadata is unavailable, and the
@@ -397,10 +397,10 @@ CLI and SDK metadata report the published APK.
 
 Server performance diagnostics
 
-Start with `bb-app --perf-diagnostics` or `BB_PERF_DIAGNOSTICS=1` (restart to
-change), then run `bb settings experiment performanceDiagnostics true|false`.
+Start with `bb-app --perf-diagnostics` or `HYPERFIDE_PERF_DIAGNOSTICS=1` (restart to
+change), then run `hyperfide-platform settings experiment performanceDiagnostics true|false`.
 Collection needs both; it adds overhead and writes CPU profiles every 30 seconds
-to `$BB_DATA_DIR/logs/performance/` (kept 12 hours), which contain local paths.
+to `$HYPERFIDE_DATA_DIR/logs/performance/` (kept 12 hours), which contain local paths.
 Open a `.cpuprofile` in Chrome DevTools.
 
 Desktop Settings → Server → **Show This Mac** (or **Show This Computer** off macOS)

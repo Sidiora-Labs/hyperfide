@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerDesktopClipboardIpc } from "../src/desktop-clipboard.js";
-import { BB_DESKTOP_WRITE_CLIPBOARD_CHANNEL } from "../src/desktop-window-command-ipc.js";
+import { HYPERFIDE_DESKTOP_WRITE_CLIPBOARD_CHANNEL } from "../src/desktop-window-command-ipc.js";
 
 const mock = vi.hoisted(() => {
   type Handler = (
@@ -32,7 +32,7 @@ beforeEach(() => {
 });
 
 function request(id: number, payload: unknown): Promise<void> {
-  const handler = mock.handlers.get(BB_DESKTOP_WRITE_CLIPBOARD_CHANNEL);
+  const handler = mock.handlers.get(HYPERFIDE_DESKTOP_WRITE_CLIPBOARD_CHANNEL);
   if (handler === undefined) throw new Error("clipboard handler missing");
   return handler({ sender: { id } }, payload);
 }
@@ -60,9 +60,7 @@ describe("desktop clipboard writes", () => {
 
   it("rejects malformed content", async () => {
     await expect(request(42, { text: 1 })).rejects.toThrow();
-    await expect(
-      request(42, { text: "plain", image: "x" }),
-    ).rejects.toThrow();
+    await expect(request(42, { text: "plain", image: "x" })).rejects.toThrow();
     expect(mock.writeText).not.toHaveBeenCalled();
     expect(mock.write).not.toHaveBeenCalled();
   });

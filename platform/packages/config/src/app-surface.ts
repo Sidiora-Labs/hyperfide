@@ -1,5 +1,5 @@
 export const APP_SURFACE_HEADER_NAME = "x-bb-app-surface";
-export const APP_SURFACE_ENV_NAME = "BB_APP_SURFACE";
+export const APP_SURFACE_ENV_NAME = "HYPERFIDE_APP_SURFACE";
 
 export const APP_SURFACE_VALUES = ["desktop", "web"] as const;
 export type AppSurface = (typeof APP_SURFACE_VALUES)[number];

@@ -16,8 +16,11 @@ import { readFileForTransport } from "./file-read.js";
 import { listSharedSkills } from "./list-skills.js";
 import { resolveNonSymlinkDirectoryPath } from "./root-path.js";
 
-const PROJECT_SKILLS_RELATIVE_SEGMENTS = [".bb", "skills"] as const;
-const AGENT_INSTRUCTIONS_RELATIVE_SEGMENTS = [".bb", "AGENTS.md"] as const;
+const PROJECT_SKILLS_RELATIVE_SEGMENTS = [".hyperfide", "skills"] as const;
+const AGENT_INSTRUCTIONS_RELATIVE_SEGMENTS = [
+  ".hyperfide",
+  "AGENTS.md",
+] as const;
 type SkillReadPolicy =
   CommandOf<"host.read_workspace_agent_context">["projectSkillRead"];
 

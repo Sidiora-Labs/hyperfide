@@ -1,6 +1,6 @@
 ---
 kind: instruction
-title: bb Guide — Projects
+title: hyperfide-platform Guide — Projects
 summary: Command reference for project CRUD, attachments, and sources.
 intent: Provide complete project command documentation for agents.
 editingNotes: Keep flags accurate against the CLI implementation.
@@ -9,16 +9,16 @@ Project commands
 
 A project maps to a code repository. All threads belong to a project.
 
-  bb project list                         List ordinary projects
+  hyperfide-platform project list                         List ordinary projects
     --include-personal                    Also include the personal project
-  bb project discover                     Find recently used git repos
+  hyperfide-platform project discover                     Find recently used git repos
     --machine <id-or-name>                Machine to scan (default: local)
     --host <id-or-name>                   Alias for --machine
-  bb project history <id>                 List prompt history
-  bb project reorder <id>                 Reorder in the sidebar
+  hyperfide-platform project history <id>                 List prompt history
+  hyperfide-platform project reorder <id>                 Reorder in the sidebar
     --after <id>                          Previous project, or omit for start
     --before <id>                         Next project, or omit for end
-  bb project create --name "..." [options]
+  hyperfide-platform project create --name "..." [options]
     --root <path>                         Project source path
     --machine <id-or-name>                Bind the path to a connected machine
     --host <id-or-name>                   Alias for --machine
@@ -27,29 +27,29 @@ A project maps to a code repository. All threads belong to a project.
   binds --root to that machine. Omitting the selector preserves the existing
   local CLI machine fallback (normally the server machine).
 
-  bb project show <id>                    Show project details
+  hyperfide-platform project show <id>                    Show project details
     Accepts proj_personal to inspect Personal.
-  bb project update <id>                  Update a project
+  hyperfide-platform project update <id>                  Update a project
     --name <name>                         New name
 
-  bb project delete <id>                  Delete project and all threads
+  hyperfide-platform project delete <id>                  Delete project and all threads
     --yes                                 Skip confirmation
 
 Global prompt history:
 
-  bb prompt-history list [--cursor <cursor>] [--limit <number>]
+  hyperfide-platform prompt-history list [--cursor <cursor>] [--limit <number>]
 
   Lists accepted prompts across projects and threads newest first. Pass the
   returned cursor to continue from the next page.
 
 Discovery:
 
-  bb project branches <id> --host <id>   List branches for a machine source
-  bb project paths <id>                   Search workspace paths
-  bb project files <id>                   List workspace files
-  bb project content <id> <path>          Read file content (binary is base64;
+  hyperfide-platform project branches <id> --host <id>   List branches for a machine source
+  hyperfide-platform project paths <id>                   Search workspace paths
+  hyperfide-platform project files <id>                   List workspace files
+  hyperfide-platform project content <id> <path>          Read file content (binary is base64;
                                           --json reports contentEncoding)
-  bb project commands <id> --provider <id>
+  hyperfide-platform project commands <id> --provider <id>
                                           List commands and skills
     --machine <id-or-name>                Target project source machine
     --host <id-or-name>                   Alias for --machine
@@ -67,15 +67,15 @@ Discovery:
   Path and file searches honor Git ignore rules, including local and global
   exclusions; tracked and non-ignored untracked files, including hidden files,
   remain searchable. Non-Git workspaces use filesystem listings. Use
-  `bb file list|paths` for listings that include ignored files.
+  `hyperfide-platform file list|paths` for listings that include ignored files.
 
 Attachments:
 
-  bb project attachment upload <id>       Upload bytes from the CLI machine
+  hyperfide-platform project attachment upload <id>       Upload bytes from the CLI machine
     --client-file <path>                  Path read on this CLI machine
     --filename <name>                     Attachment filename override
     --mime-type <type>                    MIME override (otherwise inferred)
-  bb project attachment download <id> <attachment-path>
+  hyperfide-platform project attachment download <id> <attachment-path>
     --client-file <path>                  Destination on this CLI machine
 
   Uploads use multipart bytes and return a server-managed attachment DTO. Pass
@@ -91,7 +91,7 @@ Sources:
 
   Projects can have multiple machine-local path sources.
 
-  bb project source add <projectId>       Add a source
+  hyperfide-platform project source add <projectId>       Add a source
     --path <path>                         Local path
     --clone                               Clone the project's Git remote
     --remote-url <url>                    Git remote override for --clone
@@ -102,11 +102,11 @@ Sources:
   Explicit project source selectors must name a connected machine. Omitting
   the selector preserves the same local CLI machine fallback as project create.
 
-  bb project source update <projectId> <sourceId>
+  hyperfide-platform project source update <projectId> <sourceId>
     --path <path>
     --default
 
-  bb project source delete <projectId> <sourceId>
+  hyperfide-platform project source delete <projectId> <sourceId>
 
   A live project must retain at least one source; a project pending deletion
   may remove its last source.

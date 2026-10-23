@@ -52,7 +52,7 @@ function checkResult(
     mode: "connect",
     serverUrl: null,
     requiresServerUrl: false,
-    targetDataDir: "/home/michael/.bb-machines/macbook-pro",
+    targetDataDir: "/home/michael/.hyperfide-machines/macbook-pro",
     existingTargetServerData: null,
     items: [RUNNING_TURNS, SCHEDULES, TIMEZONE],
     canMove: true,
@@ -214,7 +214,7 @@ export function ExistingData() {
           startAllowed={false}
           result={checkResult({
             existingTargetServerData: {
-              path: "/Users/michael/.bb",
+              path: "/Users/michael/.hyperfide",
               sizeBytes: 412 * 1024 * 1024,
             },
             items: [
@@ -234,7 +234,7 @@ export function ExistingData() {
           archiveConfirmed
           result={checkResult({
             existingTargetServerData: {
-              path: "/Users/michael/.bb",
+              path: "/Users/michael/.hyperfide",
               sizeBytes: 412 * 1024 * 1024,
             },
             items: [

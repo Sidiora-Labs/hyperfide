@@ -116,13 +116,13 @@ function providerStatus(args: {
   };
 }
 
-describe("bb updates command output", () => {
+describe("hyperfide-platform updates command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerUpdatesCommands(program, () => "http://server");
 
-  it("bb updates renders bb-app and per-machine provider rows", async () => {
+  it("hyperfide-platform updates renders bb-app and per-machine provider rows", async () => {
     stubServerApi({
       "v1.system.version.$get": vi.fn(async () => version),
       "v1.hosts.$get": vi.fn(async () => hosts),
@@ -170,7 +170,7 @@ describe("bb updates command output", () => {
     },
   );
 
-  it("bb updates --json prints the aggregate", async () => {
+  it("hyperfide-platform updates --json prints the aggregate", async () => {
     const status = providerStatus({ codexNeedsUpdate: false });
     stubServerApi({
       "v1.system.version.$get": vi.fn(async () => version),
@@ -189,7 +189,7 @@ describe("bb updates command output", () => {
     expect(payload.machines[1].providerStatus).toBeNull();
   });
 
-  it("bb updates apply runs each available provider update", async () => {
+  it("hyperfide-platform updates apply runs each available provider update", async () => {
     const install = vi.fn(
       async () =>
         new Response(
@@ -228,7 +228,7 @@ describe("bb updates command output", () => {
     ]);
   });
 
-  it("bb updates apply reports when everything is current", async () => {
+  it("hyperfide-platform updates apply reports when everything is current", async () => {
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => hosts),
       "v1.hosts.:id.provider-clis.status.$get": vi.fn(async () =>
@@ -243,7 +243,7 @@ describe("bb updates command output", () => {
     ]);
   });
 
-  it("bb updates reports but does not apply manual provider updates", async () => {
+  it("hyperfide-platform updates reports but does not apply manual provider updates", async () => {
     const status = providerStatus({ codexNeedsUpdate: true });
     status.codex.installAction = null;
     stubServerApi({
@@ -260,11 +260,11 @@ describe("bb updates command output", () => {
     vi.mocked(console.log).mockClear();
     await runCommand(["updates", "apply"], register);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "No updates bb can apply. Run bb updates status for manual updates.",
+      "No updates bb can apply. Run hyperfide-platform updates status for manual updates.",
     ]);
   });
 
-  it("bb updates points at the in-app update when the launcher supports it", async () => {
+  it("hyperfide-platform updates points at the in-app update when the launcher supports it", async () => {
     stubServerApi({
       "v1.system.version.$get": vi.fn(async () => version),
       "v1.system.app-update.$get": vi.fn(async () => appUpdateStatus()),
@@ -275,7 +275,9 @@ describe("bb updates command output", () => {
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toContain("0.0.32 -> 0.0.33");
-    expect(output).toContain("Update available (run: bb updates app apply)");
+    expect(output).toContain(
+      "Update available (run: hyperfide-platform updates app apply)",
+    );
   });
 });
 
@@ -300,14 +302,14 @@ function appUpdateStatus(
   };
 }
 
-describe("bb updates app command output", () => {
+describe("hyperfide-platform updates app command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerUpdatesCommands(program, () => "http://server");
 
   it.each([false, true])(
-    "bb updates app shows the available version and how to apply it (desktop: %s)",
+    "hyperfide-platform updates app shows the available version and how to apply it (desktop: %s)",
     async (desktop) => {
       const getStatus = vi.fn(async () =>
         appUpdateStatus(
@@ -325,13 +327,13 @@ describe("bb updates app command output", () => {
 
       expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
         "bb-app 0.0.32 -> 0.0.33",
-        "Run bb updates app apply to update and restart bb.",
+        "Run hyperfide-platform updates app apply to update and restart bb.",
       ]);
       expect(getStatus).toHaveBeenCalledWith({ query: { force: "true" } });
     },
   );
 
-  it("bb updates app does not call a failed check up to date", async () => {
+  it("hyperfide-platform updates app does not call a failed check up to date", async () => {
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () => ({
         activity: { phase: "idle" },
@@ -352,7 +354,7 @@ describe("bb updates app command output", () => {
     expect(output).not.toContain("up to date");
   });
 
-  it("bb updates app lists incoming commits and blockers for a source checkout", async () => {
+  it("hyperfide-platform updates app lists incoming commits and blockers for a source checkout", async () => {
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>
         appUpdateStatus({
@@ -384,7 +386,7 @@ describe("bb updates app command output", () => {
     ]);
   });
 
-  it("bb updates app apply confirms before interrupting threads, then follows the restart", async () => {
+  it("hyperfide-platform updates app apply confirms before interrupting threads, then follows the restart", async () => {
     vi.useFakeTimers();
     onTestFinished(() => {
       vi.useRealTimers();
@@ -440,7 +442,7 @@ describe("bb updates app command output", () => {
     ]);
   });
 
-  it("bb updates app apply exits non-zero when the update fails", async () => {
+  it("hyperfide-platform updates app apply exits non-zero when the update fails", async () => {
     vi.useFakeTimers();
     onTestFinished(() => {
       vi.useRealTimers();
@@ -476,7 +478,7 @@ describe("bb updates app command output", () => {
     );
   });
 
-  it("bb updates app apply refuses to interrupt threads without a terminal or --yes", async () => {
+  it("hyperfide-platform updates app apply refuses to interrupt threads without a terminal or --yes", async () => {
     Object.defineProperty(process.stdin, "isTTY", {
       value: false,
       configurable: true,
@@ -495,7 +497,7 @@ describe("bb updates app command output", () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it("bb updates app apply --yes --no-wait starts the update and returns", async () => {
+  it("hyperfide-platform updates app apply --yes --no-wait starts the update and returns", async () => {
     const apply = vi.fn(async () => appUpdateStatus());
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>
@@ -513,11 +515,11 @@ describe("bb updates app command output", () => {
       json: { confirmInterruptingThreads: true },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "Updating bb to 0.0.33. Run bb updates app to follow it.",
+      "Updating bb to 0.0.33. Run hyperfide-platform updates app to follow it.",
     ]);
   });
 
-  it("bb updates app apply explains when bb cannot update itself", async () => {
+  it("hyperfide-platform updates app apply explains when bb cannot update itself", async () => {
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>
         appUpdateStatus({
@@ -534,7 +536,7 @@ describe("bb updates app command output", () => {
     );
   });
 
-  it("bb updates app dismiss acknowledges an unseen result", async () => {
+  it("hyperfide-platform updates app dismiss acknowledges an unseen result", async () => {
     const acknowledge = vi.fn(async () => appUpdateStatus());
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>

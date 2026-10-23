@@ -1229,7 +1229,7 @@ describe("CommandPalette", () => {
     const match = rows[0].querySelector("mark");
     expectText(match, "Matching");
     expectClasses(match, "bg-[var(--sidebar-search-match)]", "text-foreground");
-    expectClasses(match?.closest(".bb-thread-title"), "text-foreground");
+    expectClasses(match?.closest(".hyperfide-thread-title"), "text-foreground");
     expect(
       within(rows[1]).getByRole("img", { name: "Unread thread succeeded" }),
     ).toBeTruthy();
@@ -1571,19 +1571,22 @@ describe("CommandPalette", () => {
       screen
         .getAllByRole("option")
         .slice(0, 2)
-        .map((option) => option.querySelector(".bb-thread-title")?.textContent)
+        .map(
+          (option) =>
+            option.querySelector(".hyperfide-thread-title")?.textContent,
+        )
         .sort(),
     ).toEqual(["Moss editor in bb", "Moss plugins"]);
 
     fireEvent.change(input, { target: { value: "moss plugins" } });
     const [first] = screen.getAllByRole("option");
     expect(first.getAttribute("aria-selected")).toBe("true");
-    expect(first.querySelector(".bb-thread-title")?.textContent).toBe(
+    expect(first.querySelector(".hyperfide-thread-title")?.textContent).toBe(
       "Moss plugins",
     );
-    expect(first.querySelector(".bb-thread-title mark")?.textContent).toBe(
-      "Moss plugins",
-    );
+    expect(
+      first.querySelector(".hyperfide-thread-title mark")?.textContent,
+    ).toBe("Moss plugins");
     expectText(
       first.querySelector("[data-palette-thread-excerpt]"),
       "git reset",
@@ -1915,7 +1918,7 @@ describe("CommandPalette", () => {
       "matching",
     );
     const option = screen.getByRole("option");
-    expect(option.querySelector(".bb-thread-title")?.textContent).toBe(
+    expect(option.querySelector(".hyperfide-thread-title")?.textContent).toBe(
       "Title archived-message",
     );
     const excerpt = option.querySelector("[data-palette-thread-excerpt]");

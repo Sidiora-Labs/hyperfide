@@ -17,7 +17,7 @@ case "$variant" in
   dev) apk_name=bb-dev.apk ;;
   *) echo "Usage: build-android-local.sh [arm64-v8a|x86_64] [production|dev]" >&2; exit 1 ;;
 esac
-export BB_MOBILE_VARIANT="$variant"
+export HYPERFIDE_MOBILE_VARIANT="$variant"
 mkdir -p build-output
 if ! mkdir build-output/.android-build-lock 2>/dev/null; then
   echo "An Android build is already running in this checkout. If it was interrupted, remove apps/mobile/build-output/.android-build-lock before retrying." >&2

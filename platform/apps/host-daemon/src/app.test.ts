@@ -530,7 +530,7 @@ describe("createHostDaemonApp", () => {
     }));
     const resolveRuntimeShellEnv = vi.fn(async () => ({
       PATH: "/shell/bin:/usr/bin",
-      BB_SERVER_URL: "http://127.0.0.1:3334",
+      HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
     }));
     const app = await createHostDaemonApp({
       dataDir,
@@ -582,7 +582,7 @@ describe("createHostDaemonApp", () => {
           },
           shellEnv: {
             PATH: "/shell/bin:/usr/bin",
-            BB_SERVER_URL: "http://127.0.0.1:3334",
+            HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
           },
         }),
       );
@@ -636,7 +636,7 @@ describe("createHostDaemonApp", () => {
     }));
     const resolveRuntimeShellEnv = vi.fn(async () => ({
       PATH: "/slow-shell/bin:/usr/bin",
-      BB_SERVER_URL: "http://127.0.0.1:3334",
+      HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
     }));
     const app = await createHostDaemonApp({
       dataDir,
@@ -650,7 +650,7 @@ describe("createHostDaemonApp", () => {
       localApiConfig: null,
       runtimeShellEnv: {
         PATH: "/startup/bin:/usr/bin",
-        BB_SERVER_URL: "http://127.0.0.1:3334",
+        HYPERFIDE_SERVER_URL: "http://127.0.0.1:3334",
       },
       runtimeShellEnvResolvedAtMs: 1_000,
       resolveRuntimeShellEnv,

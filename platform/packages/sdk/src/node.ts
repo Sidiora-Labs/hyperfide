@@ -8,7 +8,7 @@ import { createBbSdk, type BbSdk, type BbSdkAreas } from "./core.js";
 import { createNodeWebsocketFactory } from "./node-websocket.js";
 import {
   createRequestTimeoutFetch,
-  DEFAULT_BB_REQUEST_TIMEOUT_MS,
+  DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
   type FetchImplementation,
 } from "./response.js";
 import { createHttpTransport } from "./transport-http.js";
@@ -42,18 +42,19 @@ function resolveCliConfig(cliConfig?: CliConfig): CliConfig {
 
 function resolveHostDaemonUrl(cliConfig?: CliConfig): string {
   const config = resolveCliConfig(cliConfig);
-  return `http://${DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST}:${config.BB_HOST_DAEMON_PORT}`;
+  return `http://${DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST}:${config.HYPERFIDE_HOST_DAEMON_PORT}`;
 }
 
 export function createNodeTransport(
   args: CreateNodeTransportArgs = {},
 ): BbSdkTransport {
   return createHttpTransport({
-    baseUrl: args.baseUrl ?? resolveCliConfig(args.cliConfig).BB_SERVER_URL,
+    baseUrl:
+      args.baseUrl ?? resolveCliConfig(args.cliConfig).HYPERFIDE_SERVER_URL,
     fetch:
       args.fetch ??
       createRequestTimeoutFetch({
-        timeoutMs: args.timeoutMs ?? DEFAULT_BB_REQUEST_TIMEOUT_MS,
+        timeoutMs: args.timeoutMs ?? DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
       }),
     realtimeUrl: args.realtimeUrl,
     runtime: "node",
@@ -91,7 +92,7 @@ export {
   createBbSdk,
   createHttpTransport,
   createRequestTimeoutFetch,
-  DEFAULT_BB_REQUEST_TIMEOUT_MS,
+  DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
 };
 export { BbHttpError, BbRequestTimeoutError } from "./response.js";
 export {

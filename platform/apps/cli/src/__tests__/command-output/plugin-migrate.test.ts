@@ -91,7 +91,7 @@ function setTty(value: boolean): void {
   });
 }
 
-describe("bb plugin migrate", () => {
+describe("hyperfide-platform plugin migrate", () => {
   it("prints the plan and changes nothing without --yes on a non-TTY", async () => {
     await writeVendoredPlugin();
     setTty(false);
@@ -222,7 +222,7 @@ describe("bb plugin migrate", () => {
   });
 });
 
-describe("bb plugin dev stale-pin warning", () => {
+describe("hyperfide-platform plugin dev stale-pin warning", () => {
   function stubEmptyPluginList(): void {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ plugins: [] }), {
@@ -278,10 +278,10 @@ describe("bb plugin dev stale-pin warning", () => {
 describe("legacy vendored SDK layout", () => {
   const message =
     "This plugin uses the legacy vendored SDK layout. Its SDK types will not be updated.\n" +
-    "Please run `bb plugin migrate` to update to the latest SDK types.";
+    "Please run `hyperfide-platform plugin migrate` to update to the latest SDK types.";
 
   it.each([false, true])(
-    "requires migration for bb plugin types with check=%s",
+    "requires migration for hyperfide-platform plugin types with check=%s",
     async (check) => {
       await writeVendoredPlugin();
       const declarationsPath = join(rootDir, "types", "bb-plugin-sdk.d.ts");
@@ -299,7 +299,7 @@ describe("legacy vendored SDK layout", () => {
     },
   );
 
-  it("warns and continues bb plugin dev", async () => {
+  it("warns and continues hyperfide-platform plugin dev", async () => {
     await writeVendoredPlugin();
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ plugins: [] }), {
@@ -317,7 +317,7 @@ describe("legacy vendored SDK layout", () => {
     );
   });
 
-  it("warns and continues bb plugin build", async () => {
+  it("warns and continues hyperfide-platform plugin build", async () => {
     await writeVendoredPlugin();
     await writeFile(join(rootDir, "server.ts"), "export default () => {};\n");
 
@@ -330,7 +330,7 @@ describe("legacy vendored SDK layout", () => {
   });
 });
 
-describe("bb plugin types on a package-layout plugin", () => {
+describe("hyperfide-platform plugin types on a package-layout plugin", () => {
   it("repoints an outdated pin to the running host's SDK version", async () => {
     await writeManifest({
       name: "bb-plugin-modern",

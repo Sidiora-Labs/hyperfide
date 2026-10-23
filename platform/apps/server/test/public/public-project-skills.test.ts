@@ -269,7 +269,7 @@ describe("public project skills route", () => {
               discovered(
                 "repo-bb-skill",
                 "bb-project",
-                "/tmp/shared-skill-list/.bb/skills/repo-bb-skill/SKILL.md",
+                "/tmp/shared-skill-list/.hyperfide/skills/repo-bb-skill/SKILL.md",
               ),
             ],
           },
@@ -1727,7 +1727,7 @@ describe("public project skills route", () => {
             discovered(
               "bb-helper",
               "bb-project",
-              "/missing/.bb/skills/bb-helper/SKILL.md",
+              "/missing/.hyperfide/skills/bb-helper/SKILL.md",
             ),
           ],
         },
@@ -1739,7 +1739,7 @@ describe("public project skills route", () => {
           method: "DELETE",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            skillId: skillId("/missing/.bb/skills/bb-helper/SKILL.md"),
+            skillId: skillId("/missing/.hyperfide/skills/bb-helper/SKILL.md"),
             environmentId: null,
           }),
         },

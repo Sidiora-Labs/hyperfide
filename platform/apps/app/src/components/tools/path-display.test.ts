@@ -4,10 +4,10 @@ import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
 describe("formatHomePathForDisplay", () => {
   it.each([
     ["/Users/you", "~"],
-    ["/Users/you/.bb/plugins/github", "~/.bb/plugins/github"],
-    ["/home/u/.bb/skills/review", "~/.bb/skills/review"],
-    ["/root/.bb/automations/run.sh", "~/.bb/automations/run.sh"],
-    ["C:\\Users\\you\\.bb\\plugins", "~\\.bb\\plugins"],
+    ["/Users/you/.hyperfide/plugins/github", "~/.hyperfide/plugins/github"],
+    ["/home/u/.hyperfide/skills/review", "~/.hyperfide/skills/review"],
+    ["/root/.hyperfide/automations/run.sh", "~/.hyperfide/automations/run.sh"],
+    ["C:\\Users\\you\\.hyperfide\\plugins", "~\\.hyperfide\\plugins"],
   ])("compacts a conventional home path %s", (path, expected) => {
     expect(formatHomePathForDisplay(path)).toBe(expected);
   });

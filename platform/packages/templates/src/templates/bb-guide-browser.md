@@ -1,8 +1,8 @@
 # Built-in browser automation
 
-`bb browser` is the experimental core API for automation integrations controlling BB desktop tabs. The bundled Browser Automation plugin adds its own `bb browser-automation` session commands (see its browser-automation skill); another plugin can use the same core connection independently.
+`hyperfide-platform browser` is the experimental core API for automation integrations controlling BB desktop tabs. The bundled Browser Automation plugin adds its own `hyperfide-platform browser-automation` session commands (see its browser-automation skill); another plugin can use the same core connection independently.
 
-Start with `bb browser instances --host <host-id> --json`. For every tab/control operation provide `--host <host-id> --instance <instance-id> --generation <generation> --thread <thread-id>`. The browser host can differ from the agent host. Never infer an active desktop window.
+Start with `hyperfide-platform browser instances --host <host-id> --json`. For every tab/control operation provide `--host <host-id> --instance <instance-id> --generation <generation> --thread <thread-id>`. The browser host can differ from the agent host. Never infer an active desktop window.
 
 - `tabs`: list native tabs and their control state.
 - `create [--url <http(s)-url>] [--reveal]`: create a tab in the BB browser profile, with the user's signed-in cookies. Defaults: hidden, about:blank.

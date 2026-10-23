@@ -126,7 +126,7 @@ function resolveSpawnParentThreadId(args: {
   if (args.parentSelf) {
     const selfThreadId = resolveContextThreadId();
     if (!selfThreadId) {
-      throw new Error("--parent-self requires BB_THREAD_ID to be set.");
+      throw new Error("--parent-self requires HYPERFIDE_THREAD_ID to be set.");
     }
     return selfThreadId;
   }
@@ -252,7 +252,7 @@ async function buildProviderSpawnEnvironment(args: {
       inputs = {};
     } else {
       throw new Error(
-        `The '${match.id}' environment provider needs --environment-inputs <json>; \`bb environment providers --json\` shows its schema.`,
+        `The '${match.id}' environment provider needs --environment-inputs <json>; \`hyperfide-platform environment providers --json\` shows its schema.`,
       );
     }
   }
@@ -272,7 +272,7 @@ async function buildProviderSpawnEnvironment(args: {
         if (match.machineAcceptsEmptyInputs) machineInputs = {};
         else {
           throw new Error(
-            `The '${match.machineProviderId}' machine provider needs --machine-inputs <json>; \`bb environment providers --json\` shows its schema.`,
+            `The '${match.machineProviderId}' machine provider needs --machine-inputs <json>; \`hyperfide-platform environment providers --json\` shows its schema.`,
           );
         }
       }
@@ -366,7 +366,7 @@ export function registerSpawnCommand(
       "Persisted non-secret inputs for --new-machine or a composed --environment-provider; store credentials in plugin settings",
     )
     .option("--parent-thread <id>", "Parent thread ID for worker thread links")
-    .option("--parent-self", "Parent the new thread to BB_THREAD_ID")
+    .option("--parent-self", "Parent the new thread to HYPERFIDE_THREAD_ID")
     .option("--provider <id>", PROVIDER_HELP)
     .option(
       "--model <model>",
@@ -380,7 +380,7 @@ export function registerSpawnCommand(
     .option("--service-tier <tier>", SERVICE_TIER_HELP)
     .option(
       "--option <option=value>",
-      "Choose a value for an option the provider's model lists (see bb provider models); use true or false for an on/off option (repeatable)",
+      "Choose a value for an option the provider's model lists (see hyperfide-platform provider models); use true or false for an on/off option (repeatable)",
       (value: string, previous: string[] = []) => [...previous, value],
     )
     .option("--permission-mode <mode>", PERMISSION_MODE_HELP)
@@ -406,11 +406,11 @@ export function registerSpawnCommand(
     .option("--parent-notifications <value>", PARENT_NOTIFICATIONS_HELP)
     .option(
       "--environment-provider <id>",
-      "Run on an environment provider by id (list them with `bb environment providers`)",
+      "Run on an environment provider by id (list them with `hyperfide-platform environment providers`)",
     )
     .option(
       "--environment-inputs <json>",
-      "JSON value for an --environment-provider that declares inputs (`bb environment providers --json` shows the schema)",
+      "JSON value for an --environment-provider that declares inputs (`hyperfide-platform environment providers --json` shows the schema)",
     )
     .option("--send-at <when>", SEND_AT_HELP)
     .option("--origin-kind <kind>", "Thread origin: fork")
@@ -491,7 +491,7 @@ export function registerSpawnCommand(
           if (machineProvider.acceptsEmptyInputs) machineInputs = {};
           else {
             throw new Error(
-              `The '${machineProvider?.id}' machine provider needs --machine-inputs <json>; \`bb machine providers --json\` shows its schema.`,
+              `The '${machineProvider?.id}' machine provider needs --machine-inputs <json>; \`hyperfide-platform machine providers --json\` shows its schema.`,
             );
           }
         }
@@ -617,8 +617,8 @@ export function registerSpawnCommand(
             startedOnBehalfOf: null,
             originKind: opts.originKind ?? null,
             ...(parentThreadId ? { parentThreadId } : {}),
-            ...(process.env.BB_THREAD_ID
-              ? { senderThreadId: process.env.BB_THREAD_ID }
+            ...(process.env.HYPERFIDE_THREAD_ID
+              ? { senderThreadId: process.env.HYPERFIDE_THREAD_ID }
               : {}),
             ...(parentNotifications ? { parentNotifications } : {}),
             ...(opts.lifecycleOwnerThread !== undefined

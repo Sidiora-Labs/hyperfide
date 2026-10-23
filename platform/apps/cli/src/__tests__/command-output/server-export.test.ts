@@ -55,7 +55,7 @@ function exportResponse(
 const UNENCRYPTED_EXPORT_WARNING =
   "This export is not encrypted and holds the server's credentials and plugin secrets. Keep it private; bb wrote it with mode 0600.";
 
-describe("bb server export", () => {
+describe("hyperfide-platform server export", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -106,7 +106,7 @@ describe("bb server export", () => {
     await runCommand(["server", "export", "--out", outPath], register);
 
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `Exported the bb server to ${outPath} (1.0 MB)`,
+      `Exported the hyperfide-platform server to ${outPath} (1.0 MB)`,
     ]);
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
       UNENCRYPTED_EXPORT_WARNING,
@@ -178,7 +178,7 @@ describe("bb server export", () => {
             JSON.stringify({
               code: "server_move_experiment_disabled",
               message:
-                'Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, then try again.',
+                'Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run hyperfide-platform settings experiment serverMove true, then try again.',
             }),
             { status: 403, headers: { "Content-Type": "application/json" } },
           ),
@@ -193,7 +193,7 @@ describe("bb server export", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      'Error: Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, then try again.',
+      'Error: Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run hyperfide-platform settings experiment serverMove true, then try again.',
     ]);
     expect(await readdir(dir)).toEqual([]);
   });

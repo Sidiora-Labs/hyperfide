@@ -7,7 +7,7 @@ import {
   isPluginOwnedIconPath,
   parseNamespacedGlyph,
 } from "@bb/domain/plugin-icon";
-import { RESERVED_BB_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@bb/domain/plugin-cli";
 import {
   PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES,
   PLUGIN_INTERACTION_MAX_TIMEOUT_MS,
@@ -79,13 +79,13 @@ import type {
  * unit tests are not lying about load-time behavior.
  */
 
-export { RESERVED_BB_CLI_COMMANDS };
+export { RESERVED_HYPERFIDE_CLI_COMMANDS };
 
 export function pluginCliCollisionWarning(
   pluginId: string,
   commandName: string,
 ): string | null {
-  if (!RESERVED_BB_CLI_COMMANDS.includes(commandName)) return null;
+  if (!RESERVED_HYPERFIDE_CLI_COMMANDS.includes(commandName)) return null;
   return `CLI command "${commandName}" collides with core command "bb ${commandName}"; core keeps the short form. Use "bb plugin run ${pluginId}" to invoke this plugin.`;
 }
 

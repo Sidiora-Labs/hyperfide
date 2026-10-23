@@ -76,7 +76,7 @@ export function registerPromptHistoryCommands(
           const limit =
             opts.limit === undefined ? "" : ` --limit ${opts.limit}`;
           console.log(
-            `Next page: bb prompt-history list --cursor ${result.nextCursor}${limit}`,
+            `Next page: hyperfide-platform prompt-history list --cursor ${result.nextCursor}${limit}`,
           );
         }
       }),

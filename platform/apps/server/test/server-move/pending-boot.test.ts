@@ -44,7 +44,7 @@ import {
   withTestHarness,
 } from "../helpers/test-app.js";
 
-const SOURCE_DATA_DIR = "/home/old/.bb";
+const SOURCE_DATA_DIR = "/home/old/.hyperfide";
 const DIRECT_URL = "https://desktop.example.test";
 const tempDirs: string[] = [];
 
@@ -452,8 +452,8 @@ describe("imported server boot", () => {
         join(dataDir, "config.json"),
         JSON.stringify({
           config: {
-            BB_APP_URL: "http://laptop.example.test:38887/app",
-            BB_LOG_LEVEL: "debug",
+            HYPERFIDE_APP_URL: "http://laptop.example.test:38887/app",
+            HYPERFIDE_LOG_LEVEL: "debug",
           },
           serverUrl: "http://127.0.0.1:38887",
         }),
@@ -462,7 +462,7 @@ describe("imported server boot", () => {
         join(dataDir, "env.json"),
         JSON.stringify({
           env: {
-            BB_EXTERNAL_URL: "http://laptop.example.test:5173",
+            HYPERFIDE_EXTERNAL_URL: "http://laptop.example.test:5173",
             OTHER: "kept",
           },
         }),
@@ -479,14 +479,14 @@ describe("imported server boot", () => {
       expect(
         JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
       ).toEqual({
-        config: { BB_APP_URL: DIRECT_URL, BB_LOG_LEVEL: "debug" },
+        config: { HYPERFIDE_APP_URL: DIRECT_URL, HYPERFIDE_LOG_LEVEL: "debug" },
         serverUrl: "http://127.0.0.1:38887",
       });
       expect(
         JSON.parse(await readFile(join(dataDir, "env.json"), "utf8")),
       ).toEqual({
         env: {
-          BB_EXTERNAL_URL: "http://laptop.example.test:5173",
+          HYPERFIDE_EXTERNAL_URL: "http://laptop.example.test:5173",
           OTHER: "kept",
         },
       });
@@ -496,13 +496,13 @@ describe("imported server boot", () => {
     }
   });
 
-  it("rewrites env.json BB_EXTERNAL_URL when it was the old server's address", async () => {
+  it("rewrites env.json HYPERFIDE_EXTERNAL_URL when it was the old server's address", async () => {
     const { dataDir, db } = await openImportedDataDir();
     try {
       await writeFile(
         join(dataDir, "env.json"),
         JSON.stringify({
-          env: { BB_EXTERNAL_URL: "https://laptop.example.test" },
+          env: { HYPERFIDE_EXTERNAL_URL: "https://laptop.example.test" },
         }),
       );
       await writeServerImportFile(dataDir, moveMarker());
@@ -517,7 +517,7 @@ describe("imported server boot", () => {
       expect(boot.pendingMove?.moveId).toBe("move-1");
       expect(
         JSON.parse(await readFile(join(dataDir, "env.json"), "utf8")),
-      ).toEqual({ env: { BB_EXTERNAL_URL: DIRECT_URL } });
+      ).toEqual({ env: { HYPERFIDE_EXTERNAL_URL: DIRECT_URL } });
     } finally {
       db.$client.close();
     }
@@ -571,7 +571,7 @@ function sessionOpenRequest(hostId: string, hostName: string) {
       hostName,
       hasMachineCredential: false,
       platform: "linux",
-      dataDir: "/home/me/.bb",
+      dataDir: "/home/me/.hyperfide",
       localApiPort: 38_888,
       protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
       activeThreads: [],
@@ -769,7 +769,7 @@ describe("pending server mode", () => {
           hostName: "Desktop",
           hasMachineCredential: false,
           platform: "linux",
-          dataDir: "/home/me/.bb-machines/laptop",
+          dataDir: "/home/me/.hyperfide-machines/laptop",
           localApiPort: 38_888,
           protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
           activeThreads: [],

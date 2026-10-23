@@ -636,7 +636,8 @@ function appendManagedAddressItems(args: {
     if (url === null) {
       continue;
     }
-    const idPrefix = address.key === "BB_APP_URL" ? "app-url" : "external-url";
+    const idPrefix =
+      address.key === "HYPERFIDE_APP_URL" ? "app-url" : "external-url";
     if (oldAddress !== null && url.origin === oldAddress.origin) {
       args.items.push({
         id: `${idPrefix}-rewrite`,

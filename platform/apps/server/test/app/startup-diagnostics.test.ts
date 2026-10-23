@@ -50,16 +50,18 @@ describe("server startup diagnostics", () => {
   ])("$name", async ({ bindHost, expectedAddress }) => {
     const serverConfig = loadServerConfig({
       env: {
-        BB_DATA_DIR: "/tmp/bb-server-listener-test",
-        BB_HOST_DAEMON_PORT: "49162",
-        ...(bindHost === undefined ? {} : { BB_SERVER_BIND_HOST: bindHost }),
-        BB_SERVER_PORT: "49161",
+        HYPERFIDE_DATA_DIR: "/tmp/bb-server-listener-test",
+        HYPERFIDE_HOST_DAEMON_PORT: "49162",
+        ...(bindHost === undefined
+          ? {}
+          : { HYPERFIDE_SERVER_BIND_HOST: bindHost }),
+        HYPERFIDE_SERVER_PORT: "49161",
         NODE_ENV: "development",
       },
     });
     const server = startHttpListener({
       fetch: () => new Response("ok"),
-      serverConfig: { ...serverConfig, BB_SERVER_PORT: 0 },
+      serverConfig: { ...serverConfig, HYPERFIDE_SERVER_PORT: 0 },
     });
 
     try {

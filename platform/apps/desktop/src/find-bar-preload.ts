@@ -1,10 +1,10 @@
 import { ipcRenderer } from "electron";
 import {
-  BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL,
-  BB_DESKTOP_FIND_BAR_CLOSE_CHANNEL,
-  BB_DESKTOP_FIND_BAR_QUERY_CHANNEL,
-  BB_DESKTOP_FIND_BAR_RESULT_CHANNEL,
-  BB_DESKTOP_FIND_BAR_STEP_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_CLOSE_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_QUERY_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_RESULT_CHANNEL,
+  HYPERFIDE_DESKTOP_FIND_BAR_STEP_CHANNEL,
   findBarResultSchema,
   type FindBarQueryRequest,
   type FindBarStepRequest,
@@ -33,19 +33,19 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function sendQuery(text: string): void {
-    ipcRenderer.send(BB_DESKTOP_FIND_BAR_QUERY_CHANNEL, {
+    ipcRenderer.send(HYPERFIDE_DESKTOP_FIND_BAR_QUERY_CHANNEL, {
       text,
     } satisfies FindBarQueryRequest);
   }
 
   function sendStep(forward: boolean): void {
-    ipcRenderer.send(BB_DESKTOP_FIND_BAR_STEP_CHANNEL, {
+    ipcRenderer.send(HYPERFIDE_DESKTOP_FIND_BAR_STEP_CHANNEL, {
       forward,
     } satisfies FindBarStepRequest);
   }
 
   function close(): void {
-    ipcRenderer.send(BB_DESKTOP_FIND_BAR_CLOSE_CHANNEL);
+    ipcRenderer.send(HYPERFIDE_DESKTOP_FIND_BAR_CLOSE_CHANNEL);
   }
 
   function setMatches(
@@ -102,15 +102,18 @@ window.addEventListener("DOMContentLoaded", () => {
     close();
   });
 
-  ipcRenderer.on(BB_DESKTOP_FIND_BAR_RESULT_CHANNEL, (_event, payload) => {
-    const parsed = findBarResultSchema.safeParse(payload);
-    if (!parsed.success) {
-      return;
-    }
-    setMatches(parsed.data);
-  });
+  ipcRenderer.on(
+    HYPERFIDE_DESKTOP_FIND_BAR_RESULT_CHANNEL,
+    (_event, payload) => {
+      const parsed = findBarResultSchema.safeParse(payload);
+      if (!parsed.success) {
+        return;
+      }
+      setMatches(parsed.data);
+    },
+  );
 
-  ipcRenderer.on(BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL, () => {
+  ipcRenderer.on(HYPERFIDE_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL, () => {
     input.focus();
     input.select();
     if (input.value.length > 0) {

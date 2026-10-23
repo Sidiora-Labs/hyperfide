@@ -7,6 +7,6 @@ editingNotes: Keep this concise. The updates variable is a server-formatted sing
 variables:
   updates: "Rendered child thread outcome message body."
 ---
-[bb system]
+[hyperfide-platform system]
 
 {{updates}}

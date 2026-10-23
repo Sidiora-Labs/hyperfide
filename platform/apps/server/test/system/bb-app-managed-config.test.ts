@@ -83,7 +83,7 @@ describe("bb-app managed config", () => {
       baseConfig,
       managedConfig: {
         config: {
-          BB_APP_URL: "https://stored-app.example.test",
+          HYPERFIDE_APP_URL: "https://stored-app.example.test",
         },
       },
       targetConfig,
@@ -102,7 +102,7 @@ describe("bb-app managed config", () => {
       baseConfig,
       managedConfig: {
         config: {
-          BB_APP_URL: "https://stored-app.example.test",
+          HYPERFIDE_APP_URL: "https://stored-app.example.test",
         },
       },
       targetConfig,
@@ -204,8 +204,8 @@ describe("bb-app managed config", () => {
         formatBbAppConfigPath(dataDir),
         `${JSON.stringify({
           config: {
-            BB_APP_URL: "https://live-app.example.test",
-            BB_INFERENCE: "codex/gpt-5.6-luna",
+            HYPERFIDE_APP_URL: "https://live-app.example.test",
+            HYPERFIDE_INFERENCE: "codex/gpt-5.6-luna",
           },
         })}\n`,
         "utf8",
@@ -215,7 +215,7 @@ describe("bb-app managed config", () => {
       expect(config.appUrl).toBe("https://live-app.example.test");
       expect(logger.warnings()).toEqual([
         expect.objectContaining({
-          fields: { keys: ["BB_INFERENCE"] },
+          fields: { keys: ["HYPERFIDE_INFERENCE"] },
           message: expect.stringContaining("Settings → AI services"),
         }),
       ]);
@@ -323,12 +323,12 @@ describe("bb-app managed config", () => {
     try {
       writeFileSync(
         formatBbAppConfigPath(dataDir),
-        `${JSON.stringify({ config: { BB_APP_URL: "not-a-url" } })}\n`,
+        `${JSON.stringify({ config: { HYPERFIDE_APP_URL: "not-a-url" } })}\n`,
         "utf8",
       );
 
       await expect(reloader.reload({ notify: true })).rejects.toThrow(
-        /BB_APP_URL/u,
+        /HYPERFIDE_APP_URL/u,
       );
       expect(config.appUrl).toBe("https://ambient-app.example.test");
     } finally {

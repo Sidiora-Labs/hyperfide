@@ -23,7 +23,7 @@ export const BUILTIN_PLUGINS_DIRECTORY_NAME = "builtin-plugins";
 
 export const BUILTIN_PLUGIN_ID_PREFIX = "bb--";
 
-const ACCOUNT_POOL_PARENT_URL_ENV = "BB_ACCOUNT_POOL_PARENT_URL";
+const ACCOUNT_POOL_PARENT_URL_ENV = "HYPERFIDE_ACCOUNT_POOL_PARENT_URL";
 
 export function accountPoolDefaultEnabled(
   env: NodeJS.ProcessEnv = process.env,

@@ -44,12 +44,12 @@ export function enrolledWindowsInstallerScript(
     "[IO.File]::WriteAllText($bbInstaller, @'",
     installer.replace(/\r?\n$/u, ""),
     "'@, (New-Object Text.UTF8Encoding $false))",
-    `$env:BB_ENROLLMENT = ${quotePowerShell(JSON.stringify(bootstrap))}`,
+    `$env:HYPERFIDE_ENROLLMENT = ${quotePowerShell(JSON.stringify(bootstrap))}`,
     "try {",
-    "  & $bbNode.Source $bbInstaller --bootstrap-env BB_ENROLLMENT",
+    "  & $bbNode.Source $bbInstaller --bootstrap-env HYPERFIDE_ENROLLMENT",
     '  if ($LASTEXITCODE -ne 0) { throw "bb machine setup failed with exit code $LASTEXITCODE." }',
     "} finally {",
-    "  Remove-Item Env:BB_ENROLLMENT -ErrorAction SilentlyContinue",
+    "  Remove-Item Env:HYPERFIDE_ENROLLMENT -ErrorAction SilentlyContinue",
     "  Remove-Item -LiteralPath $bbInstaller -Force -ErrorAction SilentlyContinue",
     "}",
     "",
@@ -60,5 +60,5 @@ export function enrolledInstallerScript(
   script: string,
   bootstrap: EnrollmentBootstrap,
 ): string {
-  return `export BB_ENROLLMENT=${quote(JSON.stringify(bootstrap))}\nset -- --bootstrap-env BB_ENROLLMENT\n${script}`;
+  return `export HYPERFIDE_ENROLLMENT=${quote(JSON.stringify(bootstrap))}\nset -- --bootstrap-env HYPERFIDE_ENROLLMENT\n${script}`;
 }

@@ -62,7 +62,7 @@ function addWorkspaceOptions(command: Command): Command {
   return command
     .option(
       "--project <id>",
-      "Project ID (defaults to BB_PROJECT_ID or personal)",
+      "Project ID (defaults to HYPERFIDE_PROJECT_ID or personal)",
     )
     .option("--environment <id>", "Project environment workspace")
     .option("--json", "Print machine-readable JSON output");
@@ -239,7 +239,7 @@ export function registerSkillCommands(
     .requiredOption("--file <path>", "Local SKILL.md to upload")
     .requiredOption(
       "--revision <sha256>",
-      "Revision returned by bb skill show --json",
+      "Revision returned by hyperfide-platform skill show --json",
     )
     .action(
       action(async (skillId: string, options: SkillUpdateOptions) => {

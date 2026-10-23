@@ -41,7 +41,7 @@ function checkResponse(
     mode: "connect",
     serverUrl: null,
     requiresServerUrl: false,
-    targetDataDir: "/home/sawyer/.bb-machines/laptop",
+    targetDataDir: "/home/sawyer/.hyperfide-machines/laptop",
     existingTargetServerData: null,
     items: [],
     canMove: true,
@@ -280,7 +280,7 @@ describe("MoveServerDialog", () => {
     vi.mocked(sdk.experimental_server.checkMove).mockResolvedValue(
       checkResponse({
         existingTargetServerData: {
-          path: "/Users/sawyer/.bb",
+          path: "/Users/sawyer/.hyperfide",
           sizeBytes: 5 * 1024 * 1024,
         },
         items: [
@@ -299,7 +299,7 @@ describe("MoveServerDialog", () => {
     renderDialog();
 
     const confirmation = await screen.findByRole("checkbox", {
-      name: /Archive the existing bb data at \/Users\/sawyer\/\.bb/u,
+      name: /Archive the existing bb data at \/Users\/sawyer\/\.hyperfide/u,
     });
     expect(screen.getByText(/^5\.0 MB\./u)).toBeDefined();
     expect(startButton().hasAttribute("disabled")).toBe(true);

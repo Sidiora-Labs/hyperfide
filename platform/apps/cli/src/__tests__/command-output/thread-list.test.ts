@@ -10,13 +10,13 @@ import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import * as fixtures from "../helpers/command-output-fixtures.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread list command output", () => {
+describe("hyperfide-platform thread list command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("bb thread list supports parent-thread filtering", async () => {
+  it("hyperfide-platform thread list supports parent-thread filtering", async () => {
     const list = vi.fn(async () => []);
     stubServerApi({ "v1.threads.$get": list });
 
@@ -40,7 +40,7 @@ describe("bb thread list command output", () => {
     });
   });
 
-  it("bb thread list narrows to repeated --thread IDs", async () => {
+  it("hyperfide-platform thread list narrows to repeated --thread IDs", async () => {
     const list = vi.fn(async () => []);
     stubServerApi({ "v1.threads.$get": list });
 
@@ -54,7 +54,7 @@ describe("bb thread list command output", () => {
     });
   });
 
-  it("bb thread list accepts a removed machine ID without looking it up among active machines", async () => {
+  it("hyperfide-platform thread list accepts a removed machine ID without looking it up among active machines", async () => {
     const list = vi.fn(async () => []);
     const hosts = vi.fn(async () => []);
     stubServerApi({
@@ -71,7 +71,7 @@ describe("bb thread list command output", () => {
     expect(hosts).not.toHaveBeenCalled();
   });
 
-  it("bb thread list opts into hidden threads explicitly", async () => {
+  it("hyperfide-platform thread list opts into hidden threads explicitly", async () => {
     const list = vi.fn(async () => []);
     stubServerApi({ "v1.threads.$get": list });
 
@@ -82,7 +82,7 @@ describe("bb thread list command output", () => {
     });
   });
 
-  it("bb thread list rejects invalid parent-thread values", async () => {
+  it("hyperfide-platform thread list rejects invalid parent-thread values", async () => {
     const list = vi.fn(async () => []);
     stubServerApi({ "v1.threads.$get": list });
 
@@ -120,7 +120,7 @@ describe("bb thread list command output", () => {
         "ID               Title  Project  Status       \n---------------  -----  -------  -------------\nthread-pinned-1  -      Alpha    idle (pinned)",
     },
   ])(
-    "bb thread list renders $flag status in the shared borderless table",
+    "hyperfide-platform thread list renders $flag status in the shared borderless table",
     async ({ flag, stamp, table }) => {
       const list = vi.fn(async () => [
         fixtures.makeThread({
@@ -151,7 +151,7 @@ describe("bb thread list command output", () => {
     },
   );
 
-  it("bb thread list hides the personal project label", async () => {
+  it("hyperfide-platform thread list hides the personal project label", async () => {
     const list = vi.fn(async () => [
       fixtures.makeThread({
         id: "thread-personal-1",
@@ -167,7 +167,7 @@ describe("bb thread list command output", () => {
       "v1.projects.$get": async () => [],
     });
 
-    vi.stubEnv("BB_PROJECT_ID", undefined);
+    vi.stubEnv("HYPERFIDE_PROJECT_ID", undefined);
     await runCommand(["thread", "list"], register);
 
     expect(list).toHaveBeenCalledWith({
@@ -180,7 +180,7 @@ describe("bb thread list command output", () => {
     ]);
   });
 
-  it("bb thread list prints the thread title, fallback, and project name (#1648)", async () => {
+  it("hyperfide-platform thread list prints the thread title, fallback, and project name (#1648)", async () => {
     const list = vi.fn(async () => [
       fixtures.makeThread({
         id: "thr_a9niqhjj9c",
@@ -236,7 +236,7 @@ describe("bb thread list command output", () => {
     expect(output).toMatch(/thr_unknownproj\s+x+…\s+proj_missing\s+idle/);
   });
 
-  it("bb thread list --json does not fetch projects", async () => {
+  it("hyperfide-platform thread list --json does not fetch projects", async () => {
     const list = vi.fn(async () => []);
     const projects = vi.fn(async () => []);
     stubServerApi({ "v1.threads.$get": list, "v1.projects.$get": projects });
@@ -246,13 +246,13 @@ describe("bb thread list command output", () => {
     expect(projects).not.toHaveBeenCalled();
   });
 
-  it("bb thread list does not infer parent-thread from BB_THREAD_ID", async () => {
+  it("hyperfide-platform thread list does not infer parent-thread from HYPERFIDE_THREAD_ID", async () => {
     const list = vi.fn(async () => []);
 
     stubServerApi({ "v1.threads.$get": list });
 
-    vi.stubEnv("BB_PROJECT_ID", "proj-env");
-    vi.stubEnv("BB_THREAD_ID", "thread-current");
+    vi.stubEnv("HYPERFIDE_PROJECT_ID", "proj-env");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-current");
     await runCommand(["thread", "list"], register);
 
     expect(list).toHaveBeenCalledWith({

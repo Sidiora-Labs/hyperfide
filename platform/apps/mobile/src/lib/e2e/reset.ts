@@ -1,15 +1,15 @@
 import type { ProfileStore } from "../profiles/profile-store";
 
 export interface E2eEnv {
-  EXPO_PUBLIC_BB_E2E?: string;
+  EXPO_PUBLIC_HYPERFIDE_E2E?: string;
 }
 
 export function isE2eModeEnabled(env: E2eEnv, isDevBuild: boolean): boolean {
-  return env.EXPO_PUBLIC_BB_E2E === "1" || isDevBuild;
+  return env.EXPO_PUBLIC_HYPERFIDE_E2E === "1" || isDevBuild;
 }
 
 export function shouldResetOnLaunch(env: E2eEnv): boolean {
-  return env.EXPO_PUBLIC_BB_E2E === "1";
+  return env.EXPO_PUBLIC_HYPERFIDE_E2E === "1";
 }
 
 export interface ClearableStorage {

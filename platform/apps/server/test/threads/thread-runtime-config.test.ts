@@ -87,7 +87,7 @@ async function writeDataDirAgentInstructions(
 async function writeWorkspaceAgentInstructions(
   args: WriteWorkspaceAgentInstructionsArgs,
 ): Promise<void> {
-  const bbDir = path.join(args.workspacePath, ".bb");
+  const bbDir = path.join(args.workspacePath, ".hyperfide");
   await mkdir(bbDir, { recursive: true });
   await writeFile(path.join(bbDir, "AGENTS.md"), args.content, "utf8");
 }
@@ -108,7 +108,7 @@ function registerRemoteRuntimeFileResponder(
       if (command.type === "host.read_workspace_agent_context") {
         const skillsRootPath = path.posix.join(
           command.rootPath,
-          ".bb",
+          ".hyperfide",
           "skills",
         );
         const projectSkills = [...args.files.entries()]
@@ -134,7 +134,7 @@ function registerRemoteRuntimeFileResponder(
           );
         const agentInstructions =
           args.files
-            .get(path.posix.join(command.rootPath, ".bb", "AGENTS.md"))
+            .get(path.posix.join(command.rootPath, ".hyperfide", "AGENTS.md"))
             ?.trim() || null;
         return {
           ok: true,
@@ -789,7 +789,7 @@ describe("thread runtime config", () => {
       );
       const projectSourceRootPath = await writeRuntimeSkill({
         name: "project-helper",
-        rootPath: path.join(workspacePath, ".bb", "skills"),
+        rootPath: path.join(workspacePath, ".hyperfide", "skills"),
       });
       const { host } = seedHostSession(harness.deps, {
         id: "host-runtime-injected-skills",
@@ -1240,7 +1240,7 @@ describe("thread runtime config", () => {
       const workspacePath = "/remote/runtime-agents-workspace";
       const agentInstructionsPath = path.posix.join(
         workspacePath,
-        ".bb",
+        ".hyperfide",
         "AGENTS.md",
       );
       const responder = registerRemoteRuntimeFileResponder(harness, {
@@ -1346,7 +1346,7 @@ describe("thread runtime config", () => {
       const workspacePath = "/remote/runtime-skills-workspace";
       const skillRootPath = path.posix.join(
         workspacePath,
-        ".bb",
+        ".hyperfide",
         "skills",
         "remote-review",
       );

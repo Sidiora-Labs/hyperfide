@@ -31,7 +31,7 @@ describe("old server daemon config", () => {
     const path = join(dataDir, "config.json");
     const original = `${JSON.stringify(
       {
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { HYPERFIDE_LOG_LEVEL: "debug" },
         customModels: [{ providerId: "codex", model: "gpt-test" }],
         machineCredential: "stale",
         serverHeaders: { "x-stale": "1" },
@@ -49,7 +49,7 @@ describe("old server daemon config", () => {
     });
 
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
-      config: { BB_LOG_LEVEL: "debug" },
+      config: { HYPERFIDE_LOG_LEVEL: "debug" },
       customModels: [{ providerId: "codex", model: "gpt-test" }],
       connectMachineId: "machine-1",
       serverUrl: "https://laptop.getbb.test",

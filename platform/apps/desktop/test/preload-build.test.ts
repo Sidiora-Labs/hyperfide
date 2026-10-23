@@ -346,7 +346,7 @@ describe("desktop build", () => {
     expect(mainSource).not.toMatch(/^import\s/mu);
 
     expect(preloadSource).toContain(desktopVersion);
-    expect(preloadSource).not.toContain("BB_DESKTOP_VERSION");
+    expect(preloadSource).not.toContain("HYPERFIDE_DESKTOP_VERSION");
     expect(preloadSource).not.toContain("getDesktopVersion(process.env");
 
     expect(bridgeSource).toContain('import "bb-app/dist/bb-app.js"');
@@ -375,14 +375,14 @@ describe("desktop build", () => {
       const stderr: string[] = [];
       const childEnv: NodeJS.ProcessEnv = {
         ...process.env,
-        BB_DATA_DIR: join(smokeRoot, "data"),
-        BB_DESKTOP_AUTO_UPDATE: "0",
-        BB_DESKTOP_OPEN_DEVTOOLS: "0",
-        BB_DESKTOP_VERSION_CHECK: "0",
-        BB_SERVER_PORT: String(smokeServer.port),
+        HYPERFIDE_DATA_DIR: join(smokeRoot, "data"),
+        HYPERFIDE_DESKTOP_AUTO_UPDATE: "0",
+        HYPERFIDE_DESKTOP_OPEN_DEVTOOLS: "0",
+        HYPERFIDE_DESKTOP_VERSION_CHECK: "0",
+        HYPERFIDE_SERVER_PORT: String(smokeServer.port),
       };
-      delete childEnv.BB_DESKTOP_APP_URL;
-      delete childEnv.BB_DESKTOP_NODE_EXEC_PATH;
+      delete childEnv.HYPERFIDE_DESKTOP_APP_URL;
+      delete childEnv.HYPERFIDE_DESKTOP_NODE_EXEC_PATH;
       delete childEnv.ELECTRON_RUN_AS_NODE;
 
       const child = spawn(
@@ -463,8 +463,8 @@ describe("desktop build", () => {
               cwd: desktopPackageRoot,
               env: {
                 ...childEnv,
-                BB_STARTUP_SMOKE_APP_PATH: desktopPackageRoot,
-                BB_STARTUP_SMOKE_SCENARIO: scenario,
+                HYPERFIDE_STARTUP_SMOKE_APP_PATH: desktopPackageRoot,
+                HYPERFIDE_STARTUP_SMOKE_SCENARIO: scenario,
               },
             },
           );

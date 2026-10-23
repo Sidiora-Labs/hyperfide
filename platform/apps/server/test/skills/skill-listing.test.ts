@@ -138,7 +138,11 @@ describe("assembleSkillList", () => {
             "provider-user",
             "/home/.claude/skills/zed/SKILL.md",
           ),
-          discovered("alpha", "bb-project", "/cwd/.bb/skills/alpha/SKILL.md"),
+          discovered(
+            "alpha",
+            "bb-project",
+            "/cwd/.hyperfide/skills/alpha/SKILL.md",
+          ),
         ],
       },
       {

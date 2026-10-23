@@ -8,7 +8,7 @@ import {
 } from "./install-sources.js";
 import { readPluginManifest } from "./manifest.js";
 
-const COLLECTION_MANIFEST_PATH = ".bb/plugins.json";
+const COLLECTION_MANIFEST_PATH = ".hyperfide/plugins.json";
 export const COLLECTION_SCHEMA_URL =
   "https://getbb.app/schemas/plugins.schema.json";
 
@@ -101,7 +101,7 @@ export async function readPluginCollectionManifest(
   try {
     realPath = await realPathInside(
       checkoutDir,
-      join(checkoutDir, ".bb", "plugins.json"),
+      join(checkoutDir, ".hyperfide", "plugins.json"),
       COLLECTION_MANIFEST_PATH,
     );
   } catch (error) {

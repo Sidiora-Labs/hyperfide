@@ -55,7 +55,7 @@ export function tallyCliErrors(
 export function registerDiagnosticsCommands(program: Command): void {
   const diagnostics = program
     .command("diagnostics")
-    .description("Inspect local bb CLI diagnostics");
+    .description("Inspect local hyperfide-platform CLI diagnostics");
 
   diagnostics
     .command("cli-errors")
@@ -106,7 +106,7 @@ export function registerDiagnosticsCommands(program: Command): void {
           return;
         }
         if (!isCliErrorLogEnabled()) {
-          console.log("Recording is off (BB_CLI_ERROR_LOG=0).");
+          console.log("Recording is off (HYPERFIDE_CLI_ERROR_LOG=0).");
         }
         if (rows.length === 0) {
           console.log(`No failed bb invocations recorded in ${logPath}`);

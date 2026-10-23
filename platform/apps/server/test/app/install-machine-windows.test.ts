@@ -47,9 +47,11 @@ describe("Windows machine installer", () => {
 
   it("accepts an install or one lifecycle action and refuses mixed arguments", async () => {
     const { parseArguments } = await loadInstaller();
-    expect(parseArguments(["--bootstrap-env", "BB_ENROLLMENT"])).toMatchObject({
+    expect(
+      parseArguments(["--bootstrap-env", "HYPERFIDE_ENROLLMENT"]),
+    ).toMatchObject({
       action: null,
-      bootstrapEnv: "BB_ENROLLMENT",
+      bootstrapEnv: "HYPERFIDE_ENROLLMENT",
     });
     expect(
       parseArguments(["--uninstall", "--host-id", "host_1"]),
@@ -60,7 +62,12 @@ describe("Windows machine installer", () => {
       parseArguments(["--start", "--stop", "--host-id", "host_1"]),
     ).toThrow("Usage:");
     expect(() =>
-      parseArguments(["--bootstrap-env", "BB_ENROLLMENT", "--host-id", "x"]),
+      parseArguments([
+        "--bootstrap-env",
+        "HYPERFIDE_ENROLLMENT",
+        "--host-id",
+        "x",
+      ]),
     ).toThrow("Usage:");
   });
 

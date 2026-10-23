@@ -119,16 +119,16 @@ describe("telemetry service", () => {
     const commit = "a".repeat(40);
     const installs = [
       appInstallFromServerConfig({}),
-      appInstallFromServerConfig({ BB_APP_INSTALL_KIND: "npm" }),
+      appInstallFromServerConfig({ HYPERFIDE_APP_INSTALL_KIND: "npm" }),
       appInstallFromServerConfig({
-        BB_APP_INSTALL_KIND: "source",
-        BB_APP_SOURCE_COMMIT: commit,
-        BB_APP_SOURCE_ORIGIN: "official",
+        HYPERFIDE_APP_INSTALL_KIND: "source",
+        HYPERFIDE_APP_SOURCE_COMMIT: commit,
+        HYPERFIDE_APP_SOURCE_ORIGIN: "official",
       }),
       appInstallFromServerConfig({
-        BB_APP_INSTALL_KIND: "source",
-        BB_APP_SOURCE_COMMIT: commit,
-        BB_APP_SOURCE_ORIGIN: "fork",
+        HYPERFIDE_APP_INSTALL_KIND: "source",
+        HYPERFIDE_APP_SOURCE_COMMIT: commit,
+        HYPERFIDE_APP_SOURCE_ORIGIN: "fork",
       }),
     ];
     for (const appInstall of installs) {

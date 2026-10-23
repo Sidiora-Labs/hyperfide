@@ -51,7 +51,7 @@ describe("identity", () => {
     );
   });
 
-  it("does not persist BB_HOST_ID until persistHostId is called", async () => {
+  it("does not persist HYPERFIDE_HOST_ID until persistHostId is called", async () => {
     const dataDir = await makeTempDir("bb-host-daemon-identity-env-");
 
     const identity = await loadHostIdentity({
@@ -73,7 +73,7 @@ describe("identity", () => {
     ).resolves.toContain("host-provided");
   });
 
-  it("rejects a BB_HOST_ID that conflicts with a persisted host ID", async () => {
+  it("rejects a HYPERFIDE_HOST_ID that conflicts with a persisted host ID", async () => {
     const dataDir = await makeTempDir("bb-host-daemon-identity-conflict-");
 
     await persistHostId({ dataDir, hostId: "host-persisted" });

@@ -41,9 +41,9 @@ import {
   type DesktopBrowserHostWindow,
 } from "../src/desktop-browser-view.js";
 import {
-  BB_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,
-  BB_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL,
-  BB_DESKTOP_BROWSER_PAGE_WORLD_ID,
+  HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_PAGE_WORLD_ID,
 } from "../src/desktop-browser-ipc.js";
 
 function createDesktopBrowserViewManager(
@@ -1190,7 +1190,7 @@ describe("browser page scripts", () => {
     });
     expect(
       view.webContents.isolatedWorldCalls.map((call) => call.worldId),
-    ).toEqual([BB_DESKTOP_BROWSER_PAGE_WORLD_ID]);
+    ).toEqual([HYPERFIDE_DESKTOP_BROWSER_PAGE_WORLD_ID]);
 
     await expect(
       manager.evaluate({
@@ -1221,22 +1221,22 @@ describe("browser page scripts", () => {
     });
     const view = requireFakeView(0);
 
-    view.webContents.emitIpc(BB_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL, {
+    view.webContents.emitIpc(HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL, {
       channel: "agent-annotations",
       data: { type: "state", active: true },
     });
-    view.webContents.emitIpc(BB_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL, {
+    view.webContents.emitIpc(HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL, {
       channel: "",
       data: 1,
     });
-    view.webContents.emitIpc(BB_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL, {
+    view.webContents.emitIpc(HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL, {
       channel: "agent-annotations",
       data: { text: "a".repeat(1_000_001) },
     });
 
     const pushes = hostWindow.webContents.sentChannels.flatMap(
       (channel, index) =>
-        channel === BB_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL
+        channel === HYPERFIDE_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL
           ? [hostWindow.webContents.sentPayloads[index]]
           : [],
     );
@@ -2187,7 +2187,7 @@ describe("DesktopBrowserViewManager", () => {
         const directory =
           daemon === "local"
             ? dataDir
-            : join(dataDir, ".bb-machines", new URL(serverUrl).host);
+            : join(dataDir, ".hyperfide-machines", new URL(serverUrl).host);
         await mkdir(directory, { recursive: true });
         await writeFile(
           join(directory, DESKTOP_BROWSER_BROKER_DESCRIPTOR_FILE),
@@ -2372,10 +2372,13 @@ describe("DesktopBrowserViewManager", () => {
       manager.subscribeAutomationTabs(notify);
       const pushes = hostWindow.webContents.sentPayloads.length;
       first.webContents.emitDidNavigate("https://example.com/redirected");
-      first.webContents.emitIpc(BB_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL, {
-        channel: "background",
-        data: { secret: "first server" },
-      });
+      first.webContents.emitIpc(
+        HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,
+        {
+          channel: "background",
+          data: { secret: "first server" },
+        },
+      );
       expect(
         first.webContents.emitWindowOpen("https://example.com/new"),
       ).toEqual({

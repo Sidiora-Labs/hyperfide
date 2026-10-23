@@ -38,7 +38,7 @@ beforeAll(async () => {
 import { appendFileSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join } from "node:path";
-const starts = join(process.env.BB_DATA_DIR, "starts");
+const starts = join(process.env.HYPERFIDE_DATA_DIR, "starts");
 appendFileSync(starts, "started\\n");
 if (readFileSync(starts, "utf8") === "started\\n") {
   if (process.env.TEST_FIRST_EXIT === "signal") {
@@ -51,11 +51,11 @@ if (readFileSync(starts, "utf8") === "started\\n") {
 createServer((_request, response) => {
   response.end(JSON.stringify({
     connected: true,
-    hostId: process.env.BB_HOST_ID,
-    serverUrl: process.env.BB_SERVER_URL,
+    hostId: process.env.HYPERFIDE_HOST_ID,
+    serverUrl: process.env.HYPERFIDE_SERVER_URL,
   }));
   setTimeout(() => process.exit(0), 200);
-}).listen(Number(process.env.BB_HOST_DAEMON_PORT), "127.0.0.1");
+}).listen(Number(process.env.HYPERFIDE_HOST_DAEMON_PORT), "127.0.0.1");
 `,
   );
 }, 30_000);
@@ -98,7 +98,7 @@ it.for([75, 1, 0, "signal"])(
         env: {
           ...Object.fromEntries(
             Object.entries(process.env).filter(
-              ([key]) => !key.startsWith("BB_"),
+              ([key]) => !key.startsWith("HYPERFIDE_"),
             ),
           ),
           TEST_FIRST_EXIT: String(firstExit),

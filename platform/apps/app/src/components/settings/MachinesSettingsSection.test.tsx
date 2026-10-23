@@ -881,7 +881,7 @@ describe("MachinesSettingsSection", () => {
       mode: "connect",
       serverUrl: null,
       requiresServerUrl: false,
-      targetDataDir: "/home/sawyer/.bb-machines/macbook-pro",
+      targetDataDir: "/home/sawyer/.hyperfide-machines/macbook-pro",
       existingTargetServerData: null,
       items: [],
       canMove: true,

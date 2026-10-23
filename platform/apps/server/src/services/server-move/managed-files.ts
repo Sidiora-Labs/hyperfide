@@ -14,7 +14,7 @@ import { z } from "zod";
 const managedObjectSchema = z.record(z.string(), z.unknown());
 const ENV_PATH_VALUE_PATTERN = /^(?:\/|~\/)/u;
 
-export type ManagedAddressKey = "BB_APP_URL" | "BB_EXTERNAL_URL";
+export type ManagedAddressKey = "HYPERFIDE_APP_URL" | "HYPERFIDE_EXTERNAL_URL";
 
 export interface ManagedAddress {
   file: "config.json" | "env.json";
@@ -110,10 +110,10 @@ function configAppUrl(config: Record<string, unknown> | null): string | null {
     return null;
   }
   const parsed = z
-    .object({ BB_APP_URL: z.string().min(1).optional() })
+    .object({ HYPERFIDE_APP_URL: z.string().min(1).optional() })
     .passthrough()
     .safeParse(values);
-  return parsed.success ? (parsed.data.BB_APP_URL ?? null) : null;
+  return parsed.success ? (parsed.data.HYPERFIDE_APP_URL ?? null) : null;
 }
 
 export async function readServerManagedFiles(
@@ -124,13 +124,17 @@ export async function readServerManagedFiles(
   const addresses: ManagedAddress[] = [];
   const appUrl = configAppUrl(config);
   if (appUrl !== null) {
-    addresses.push({ file: "config.json", key: "BB_APP_URL", value: appUrl });
+    addresses.push({
+      file: "config.json",
+      key: "HYPERFIDE_APP_URL",
+      value: appUrl,
+    });
   }
-  const externalUrl = env.BB_EXTERNAL_URL;
+  const externalUrl = env.HYPERFIDE_EXTERNAL_URL;
   if (externalUrl !== undefined && externalUrl.length > 0) {
     addresses.push({
       file: "env.json",
-      key: "BB_EXTERNAL_URL",
+      key: "HYPERFIDE_EXTERNAL_URL",
       value: externalUrl,
     });
   }
@@ -165,7 +169,9 @@ export function oldServerAddress(
   managed: ServerManagedFiles,
 ): URL | null {
   return parseHttpUrl(
-    getAppSettings(db).machineServerUrl ?? managed.env.BB_EXTERNAL_URL ?? null,
+    getAppSettings(db).machineServerUrl ??
+      managed.env.HYPERFIDE_EXTERNAL_URL ??
+      null,
   );
 }
 
@@ -194,11 +200,11 @@ export async function rewriteManagedAddresses(args: {
           ...config,
           config: {
             ...managedObjectSchema.parse(config.config),
-            BB_APP_URL: args.toUrl,
+            HYPERFIDE_APP_URL: args.toUrl,
           },
         };
         parseBbAppManagedConfig(next);
-        rewritten.push("BB_APP_URL");
+        rewritten.push("HYPERFIDE_APP_URL");
         return next;
       },
     });
@@ -211,20 +217,25 @@ export async function rewriteManagedAddresses(args: {
     );
   };
   const envFile = await readEnvFile();
-  if (originMatches(envFile.env?.BB_EXTERNAL_URL ?? null, args.fromOrigin)) {
+  if (
+    originMatches(envFile.env?.HYPERFIDE_EXTERNAL_URL ?? null, args.fromOrigin)
+  ) {
     await mutateManagedJsonFile({
       path: envPath,
       read: readEnvFile,
       mutate: (current) => {
         if (
-          !originMatches(current.env?.BB_EXTERNAL_URL ?? null, args.fromOrigin)
+          !originMatches(
+            current.env?.HYPERFIDE_EXTERNAL_URL ?? null,
+            args.fromOrigin,
+          )
         ) {
           return current;
         }
-        rewritten.push("BB_EXTERNAL_URL");
+        rewritten.push("HYPERFIDE_EXTERNAL_URL");
         return {
           ...current,
-          env: { ...current.env, BB_EXTERNAL_URL: args.toUrl },
+          env: { ...current.env, HYPERFIDE_EXTERNAL_URL: args.toUrl },
         };
       },
     });

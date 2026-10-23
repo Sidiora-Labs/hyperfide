@@ -2129,7 +2129,7 @@ describe("PluginNewThreadComposer seeding", () => {
     mocks.uploadAttachment.mockResolvedValue({
       type: "localFile",
       name: "notes.txt",
-      path: ".bb/attachments/notes.txt",
+      path: ".hyperfide/attachments/notes.txt",
       mimeType: "text/plain",
       sizeBytes: 5,
     });
@@ -2154,7 +2154,7 @@ describe("PluginNewThreadComposer seeding", () => {
     expect(mocks.copyAttachments).toHaveBeenCalledWith({
       projectId: "proj_2",
       sourceProjectId: "proj_1",
-      paths: [".bb/attachments/notes.txt"],
+      paths: [".hyperfide/attachments/notes.txt"],
     });
     expect(latestPromptBoxProps().project.value).toBe("proj_1");
     expect(latestPromptBoxProps().attachments.items).toHaveLength(1);

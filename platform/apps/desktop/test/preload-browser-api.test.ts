@@ -11,43 +11,43 @@ import type {
   BbDesktopWindowState,
 } from "@bb/desktop-contract";
 import {
-  BB_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
-  BB_DESKTOP_GET_INFO_CHANNEL,
-  BB_DESKTOP_INFO_CHANGED_CHANNEL,
-  BB_DESKTOP_INSTALL_UPDATE_CHANNEL,
-  BB_DESKTOP_SET_THEME_CHANNEL,
+  HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
+  HYPERFIDE_DESKTOP_GET_INFO_CHANNEL,
+  HYPERFIDE_DESKTOP_INFO_CHANGED_CHANNEL,
+  HYPERFIDE_DESKTOP_INSTALL_UPDATE_CHANNEL,
+  HYPERFIDE_DESKTOP_SET_THEME_CHANNEL,
 } from "../src/desktop-update-ipc.js";
 import {
-  BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
-  BB_DESKTOP_BROWSER_DETACH_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
-  BB_DESKTOP_BROWSER_FOCUS_CHANNEL,
-  BB_DESKTOP_BROWSER_FOCUSED_CHANNEL,
-  BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
-  BB_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
-  BB_DESKTOP_BROWSER_GO_BACK_CHANNEL,
-  BB_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
-  BB_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
-  BB_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
-  BB_DESKTOP_BROWSER_RELOAD_CHANNEL,
-  BB_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
-  BB_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
-  BB_DESKTOP_BROWSER_STATE_CHANNEL,
-  BB_DESKTOP_BROWSER_STOP_CHANNEL,
-  BB_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FOCUSED_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
 } from "../src/desktop-browser-ipc.js";
 import {
-  BB_DESKTOP_APP_COMMAND_CHANNEL,
-  BB_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
-  BB_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
-  BB_DESKTOP_FOCUS_WINDOW_CHANNEL,
-  BB_DESKTOP_GET_WINDOW_STATE_CHANNEL,
-  BB_DESKTOP_OPEN_NEW_TAB_CHANNEL,
-  BB_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
-  BB_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+  HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
+  HYPERFIDE_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
+  HYPERFIDE_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
+  HYPERFIDE_DESKTOP_FOCUS_WINDOW_CHANNEL,
+  HYPERFIDE_DESKTOP_GET_WINDOW_STATE_CHANNEL,
+  HYPERFIDE_DESKTOP_OPEN_NEW_TAB_CHANNEL,
+  HYPERFIDE_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
+  HYPERFIDE_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
 } from "../src/desktop-window-command-ipc.js";
 const electronMock = vi.hoisted(() => {
   interface IpcRendererEvent {}
@@ -154,7 +154,7 @@ interface EmitIpcPayloadArgs {
 async function loadPreload(): Promise<BbDesktopApi> {
   electronMock.reset();
   vi.resetModules();
-  process.env.BB_DESKTOP_VERSION = "0.0.0-test";
+  process.env.HYPERFIDE_DESKTOP_VERSION = "0.0.0-test";
   await import("../src/preload.js");
   const api = electronMock.exposedApi;
   expect(electronMock.exposedName).toBe("bbDesktop");
@@ -310,71 +310,76 @@ describe("desktop preload browser API", () => {
     await api.installUpdate();
 
     expect(electronMock.sendCalls).toEqual([
-      { channel: BB_DESKTOP_BROWSER_ATTACH_CHANNEL, payload: attachRequest },
       {
-        channel: BB_DESKTOP_BROWSER_DETACH_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
+        payload: attachRequest,
+      },
+      {
+        channel: HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,
         payload: { tabId: "browser:a" },
       },
       {
-        channel: BB_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
         payload: { threadId: "thread-1", discarded: true },
       },
       {
-        channel: BB_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
         payload: navigateRequest,
       },
       {
-        channel: BB_DESKTOP_BROWSER_GO_BACK_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL,
         payload: { tabId: "browser:a" },
       },
       {
-        channel: BB_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
         payload: { tabId: "browser:a" },
       },
       {
-        channel: BB_DESKTOP_BROWSER_RELOAD_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL,
         payload: { tabId: "browser:a" },
       },
       {
-        channel: BB_DESKTOP_BROWSER_STOP_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL,
         payload: { tabId: "browser:a" },
       },
       {
-        channel: BB_DESKTOP_BROWSER_FOCUS_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL,
         payload: { tabId: "browser:a" },
       },
       {
-        channel: BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
         payload: boundsRequest,
       },
       {
-        channel: BB_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
         payload: visibleRequest,
       },
       {
-        channel: BB_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
         payload: visibleRequest,
       },
       {
-        channel: BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
         payload: findRequest,
       },
       {
-        channel: BB_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
         payload: stopFindRequest,
       },
-      { channel: BB_DESKTOP_FOCUS_WINDOW_CHANNEL, payload: undefined },
-      { channel: BB_DESKTOP_SET_THEME_CHANNEL, payload: "dark" },
+      { channel: HYPERFIDE_DESKTOP_FOCUS_WINDOW_CHANNEL, payload: undefined },
+      { channel: HYPERFIDE_DESKTOP_SET_THEME_CHANNEL, payload: "dark" },
     ]);
-    expect(electronMock.invokeCalls).toContain(BB_DESKTOP_GET_INFO_CHANNEL);
     expect(electronMock.invokeCalls).toContain(
-      BB_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
+      HYPERFIDE_DESKTOP_GET_INFO_CHANNEL,
     );
     expect(electronMock.invokeCalls).toContain(
-      BB_DESKTOP_GET_WINDOW_STATE_CHANNEL,
+      HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
     );
     expect(electronMock.invokeCalls).toContain(
-      BB_DESKTOP_INSTALL_UPDATE_CHANNEL,
+      HYPERFIDE_DESKTOP_GET_WINDOW_STATE_CHANNEL,
+    );
+    expect(electronMock.invokeCalls).toContain(
+      HYPERFIDE_DESKTOP_INSTALL_UPDATE_CHANNEL,
     );
   }, 10_000);
 
@@ -395,7 +400,7 @@ describe("desktop preload browser API", () => {
 
     expect(electronMock.sendCalls).toEqual([
       {
-        channel: BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
         payload: {
           threadId: "thread-1",
           tabId: "browser:zoomed",
@@ -405,7 +410,7 @@ describe("desktop preload browser API", () => {
         },
       },
       {
-        channel: BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
         payload: {
           tabId: "browser:zoomed",
           bounds: { x: 1001, y: 51, width: 499, height: 749 },
@@ -428,16 +433,16 @@ describe("desktop preload browser API", () => {
     const first = vi.fn();
     const unsubscribe = api.browser.onState(first);
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_STATE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
       payload: state,
     });
     unsubscribe();
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_STATE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
       payload: { ...state, faviconUrl: null },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_STATE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
       payload: { ...state, extra: true },
     });
     const restored = vi.fn();
@@ -450,7 +455,7 @@ describe("desktop preload browser API", () => {
     stop();
     for (let index = 1; index <= 100; index++) {
       emitIpcPayload({
-        channel: BB_DESKTOP_BROWSER_STATE_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
         payload: { ...state, tabId: `browser:${index}` },
       });
     }
@@ -533,79 +538,79 @@ describe("desktop preload browser API", () => {
     });
 
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_STATE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
       payload: { ...state, extra: true },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
       payload: { url: "" },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
       payload: { tabId: "", url: "https://example.com/scoped-popup" },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_FOCUSED_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FOCUSED_CHANNEL,
       payload: { tabId: "", extra: true },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
       payload: { tabId: "browser:a", dataUrl: 42 },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
       payload: { ...findResult, matches: -1 },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
       payload: { ...findResult, selectionArea: {} },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
       payload: { isFullScreen: false, extra: true },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_STATE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
       payload: state,
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
       payload: openTab,
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
       payload: scopedOpenTab,
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_FOCUSED_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FOCUSED_CHANNEL,
       payload: { tabId: "browser:a" },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
       payload: snapshot,
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
       payload: findResult,
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
       payload: { isFullScreen: true },
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_OPEN_NEW_TAB_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_OPEN_NEW_TAB_CHANNEL,
       payload: null,
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_APP_COMMAND_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
       payload: "not-a-command",
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_APP_COMMAND_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
       payload: "thread.new",
     });
     emitIpcPayload({
-      channel: BB_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
       payload: null,
     });
 
@@ -620,7 +625,7 @@ describe("desktop preload browser API", () => {
     expect(openNewTabCount).toBe(1);
     expect(appCommands).toEqual(["thread.new"]);
     expect(electronMock.sendCalls).toContainEqual({
-      channel: BB_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
       payload: true,
     });
   });
@@ -628,12 +633,12 @@ describe("desktop preload browser API", () => {
   it("routes the log viewer request to main and mirrors its availability", async () => {
     await api.openServerDaemonLogs?.();
     expect(electronMock.invokeCalls).toContain(
-      BB_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
+      HYPERFIDE_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
     );
 
     expect(api.serverDaemonLogsAvailable).toBeUndefined();
     emitIpcPayload({
-      channel: BB_DESKTOP_INFO_CHANGED_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_INFO_CHANGED_CHANNEL,
       payload: {
         lastCheckedAt: null,
         latestVersion: null,
@@ -650,12 +655,12 @@ describe("desktop preload browser API", () => {
 
   it("answers unhandled close-window requests so main closes the window", () => {
     emitIpcPayload({
-      channel: BB_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
       payload: null,
     });
 
     expect(electronMock.sendCalls).toContainEqual({
-      channel: BB_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
       payload: false,
     });
   });

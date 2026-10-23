@@ -111,7 +111,7 @@ describe("parseLocalFileHref", () => {
   it("parses editor file URLs with the editor that should open them", () => {
     expect(
       [
-        "devin://file/Users/me/.bb/artifacts/thr_1/review.diff",
+        "devin://file/Users/me/.hyperfide/artifacts/thr_1/review.diff",
         "windsurf://file/Users/me/app.ts:12",
         "vscode://file/Users/me/My%20Notes.md:12:3",
         "VSCODE-INSIDERS://file/Users/me/app.ts",
@@ -126,7 +126,7 @@ describe("parseLocalFileHref", () => {
       {
         lineRange: null,
         openTargetId: "devin-desktop",
-        path: "/Users/me/.bb/artifacts/thr_1/review.diff",
+        path: "/Users/me/.hyperfide/artifacts/thr_1/review.diff",
       },
       {
         lineRange: { startLineNumber: 12, endLineNumber: 12 },

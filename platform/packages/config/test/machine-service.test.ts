@@ -46,8 +46,8 @@ async function writeLaunchAgent(args: {
 <dict>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>BB_APP_NPM_PREFIX</key><string>${xmlEscape(args.dataDir)}/npm</string>
-    <key>BB_DATA_DIR</key><string>${xmlEscape(args.dataDir)}</string>
+    <key>HYPERFIDE_APP_NPM_PREFIX</key><string>${xmlEscape(args.dataDir)}/npm</string>
+    <key>HYPERFIDE_DATA_DIR</key><string>${xmlEscape(args.dataDir)}</string>
   </dict>
 </dict>
 </plist>
@@ -67,8 +67,8 @@ async function writeSystemdUnit(args: {
     path,
     `[Service]
 ExecStart="/usr/bin/node" "/opt/bb-app" host-daemon --auto-update
-Environment="BB_APP_NPM_PREFIX=${systemdEscape(args.dataDir)}/npm"
-Environment="BB_DATA_DIR=${systemdEscape(args.dataDir)}"
+Environment="HYPERFIDE_APP_NPM_PREFIX=${systemdEscape(args.dataDir)}/npm"
+Environment="HYPERFIDE_DATA_DIR=${systemdEscape(args.dataDir)}"
 `,
   );
   return path;

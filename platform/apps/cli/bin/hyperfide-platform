@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const entry = fileURLToPath(new URL("../dist/index.js", import.meta.url));
+if (!existsSync(entry)) {
+  const root = fileURLToPath(new URL("../../..", import.meta.url));
+  const build = spawnSync("pnpm", ["-C", root, "run", "--silent", "cli:prepare"], {
+    stdio: ["inherit", 2, 2],
+  });
+  if (build.error) console.error(`Missing built Hyperfide CLI entry at ${entry}: ${build.error.message}`);
+  if (build.error || build.status !== 0) process.exit(build.status ?? 1);
+}
+await import(pathToFileURL(entry).href);

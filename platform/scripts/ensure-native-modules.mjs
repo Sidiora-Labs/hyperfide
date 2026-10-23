@@ -111,7 +111,9 @@ function detachHardlinkedBinary(binaryPath) {
   // pnpm can hardlink this file across worktrees. An installer writes the new
   // ABI into the existing inode, so every linked checkout changes with it.
   // Replace this checkout's link with a private copy before the repair starts.
-  const tempDir = mkdtempSync(join(dirname(binaryPath), ".bb-native-detach-"));
+  const tempDir = mkdtempSync(
+    join(dirname(binaryPath), ".hyperfide-native-detach-"),
+  );
   const detachedPath = join(tempDir, basename(binaryPath));
   let originalWasUnlinked = false;
   try {

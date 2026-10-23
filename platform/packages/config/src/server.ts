@@ -15,33 +15,33 @@ import {
   resolveEnvLoader,
 } from "./env.js";
 import {
-  BB_APP_INSTALL_KIND_ENV,
-  BB_APP_SOURCE_COMMIT_ENV,
-  BB_APP_SOURCE_ORIGIN_ENV,
-  BB_APP_URL_ENV,
-  BB_APP_SURFACE_ENV,
-  BB_APP_VERSION_ENV,
-  BB_CONNECT_GATE_KEYS_URL_ENV,
-  BB_EXTERNAL_URL_ENV,
-  BB_INHERITED_SKILLS_ROOTS_ENV,
-  BB_MARKETPLACE_URL_ENV,
-  BB_POSTHOG_API_KEY_ENV,
-  BB_SERVER_BIND_HOST_ENV,
-  BB_SERVER_LAUNCH_ID_ENV,
-  BB_APP_UPDATE_MODE_ENV,
-  BB_CLI_LAUNCHER_ENV,
-  BB_TELEMETRY_ENV,
-  BB_PERF_DIAGNOSTICS_ENV,
-  BB_SKIP_ONBOARDING_ENV,
-  DEFAULT_BB_APP_URL,
-  DEFAULT_BB_APP_SURFACE,
-  DEFAULT_BB_APP_VERSION,
-  DEFAULT_BB_CONNECT_GATE_KEYS_URL,
-  DEFAULT_BB_EXTERNAL_URL,
-  DEFAULT_BB_MARKETPLACE_URL,
-  DEFAULT_BB_POSTHOG_API_KEY,
-  DEFAULT_BB_SERVER_BIND_HOST,
-  DEFAULT_BB_TELEMETRY,
+  HYPERFIDE_APP_INSTALL_KIND_ENV,
+  HYPERFIDE_APP_SOURCE_COMMIT_ENV,
+  HYPERFIDE_APP_SOURCE_ORIGIN_ENV,
+  HYPERFIDE_APP_URL_ENV,
+  HYPERFIDE_APP_SURFACE_ENV,
+  HYPERFIDE_APP_VERSION_ENV,
+  HYPERFIDE_CONNECT_GATE_KEYS_URL_ENV,
+  HYPERFIDE_EXTERNAL_URL_ENV,
+  HYPERFIDE_INHERITED_SKILLS_ROOTS_ENV,
+  HYPERFIDE_MARKETPLACE_URL_ENV,
+  HYPERFIDE_POSTHOG_API_KEY_ENV,
+  HYPERFIDE_SERVER_BIND_HOST_ENV,
+  HYPERFIDE_SERVER_LAUNCH_ID_ENV,
+  HYPERFIDE_APP_UPDATE_MODE_ENV,
+  HYPERFIDE_CLI_LAUNCHER_ENV,
+  HYPERFIDE_TELEMETRY_ENV,
+  HYPERFIDE_PERF_DIAGNOSTICS_ENV,
+  HYPERFIDE_SKIP_ONBOARDING_ENV,
+  DEFAULT_HYPERFIDE_APP_URL,
+  DEFAULT_HYPERFIDE_APP_SURFACE,
+  DEFAULT_HYPERFIDE_APP_VERSION,
+  DEFAULT_HYPERFIDE_CONNECT_GATE_KEYS_URL,
+  DEFAULT_HYPERFIDE_EXTERNAL_URL,
+  DEFAULT_HYPERFIDE_MARKETPLACE_URL,
+  DEFAULT_HYPERFIDE_POSTHOG_API_KEY,
+  DEFAULT_HYPERFIDE_SERVER_BIND_HOST,
+  DEFAULT_HYPERFIDE_TELEMETRY,
   parseServerBindHost,
   type ServerBindHost,
 } from "./env-vars.js";
@@ -52,26 +52,26 @@ import { loadServerPortConfig, type ServerPortConfig } from "./server-port.js";
 
 export interface ServerConfig
   extends CommonConfig, DatabaseConfig, ServerPortConfig {
-  BB_APP_INSTALL_KIND?: AppInstallKind;
-  BB_APP_SOURCE_COMMIT?: string;
-  BB_APP_SOURCE_ORIGIN?: AppSourceOrigin;
-  BB_APP_URL: string;
-  BB_APP_SURFACE: AppSurface;
-  BB_APP_VERSION: string;
-  BB_CONNECT_GATE_KEYS_URL: string;
-  BB_DEV_APP_PORT?: number;
-  BB_EXTERNAL_URL: string;
-  BB_HOST_DAEMON_PORT: number;
-  BB_INHERITED_SKILLS_ROOTS: string[];
-  BB_POSTHOG_API_KEY: string;
-  BB_MARKETPLACE_URL: string;
-  BB_SERVER_BIND_HOST: ServerBindHost;
-  BB_SERVER_LAUNCH_ID?: string;
-  BB_APP_UPDATE_MODE?: AppUpdateMode;
-  BB_CLI_LAUNCHER?: string;
-  BB_TELEMETRY: boolean;
-  BB_PERF_DIAGNOSTICS: boolean;
-  BB_SKIP_ONBOARDING: boolean;
+  HYPERFIDE_APP_INSTALL_KIND?: AppInstallKind;
+  HYPERFIDE_APP_SOURCE_COMMIT?: string;
+  HYPERFIDE_APP_SOURCE_ORIGIN?: AppSourceOrigin;
+  HYPERFIDE_APP_URL: string;
+  HYPERFIDE_APP_SURFACE: AppSurface;
+  HYPERFIDE_APP_VERSION: string;
+  HYPERFIDE_CONNECT_GATE_KEYS_URL: string;
+  HYPERFIDE_DEV_APP_PORT?: number;
+  HYPERFIDE_EXTERNAL_URL: string;
+  HYPERFIDE_HOST_DAEMON_PORT: number;
+  HYPERFIDE_INHERITED_SKILLS_ROOTS: string[];
+  HYPERFIDE_POSTHOG_API_KEY: string;
+  HYPERFIDE_MARKETPLACE_URL: string;
+  HYPERFIDE_SERVER_BIND_HOST: ServerBindHost;
+  HYPERFIDE_SERVER_LAUNCH_ID?: string;
+  HYPERFIDE_APP_UPDATE_MODE?: AppUpdateMode;
+  HYPERFIDE_CLI_LAUNCHER?: string;
+  HYPERFIDE_TELEMETRY: boolean;
+  HYPERFIDE_PERF_DIAGNOSTICS: boolean;
+  HYPERFIDE_SKIP_ONBOARDING: boolean;
   featureFlags: FeatureFlags;
 }
 
@@ -112,82 +112,82 @@ export function loadServerConfig(
     ...commonConfig,
     ...databaseConfig,
     ...serverPortConfig,
-    BB_APP_URL: readEnvVarWithDefault({
+    HYPERFIDE_APP_URL: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_APP_URL,
-      definition: BB_APP_URL_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_APP_URL,
+      definition: HYPERFIDE_APP_URL_ENV,
       env: loader.env,
     }),
-    BB_APP_SURFACE: readEnvVarWithDefault({
+    HYPERFIDE_APP_SURFACE: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_APP_SURFACE,
-      definition: BB_APP_SURFACE_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_APP_SURFACE,
+      definition: HYPERFIDE_APP_SURFACE_ENV,
       env: loader.env,
     }),
-    BB_APP_VERSION: readEnvVarWithDefault({
+    HYPERFIDE_APP_VERSION: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_APP_VERSION,
-      definition: BB_APP_VERSION_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_APP_VERSION,
+      definition: HYPERFIDE_APP_VERSION_ENV,
       env: loader.env,
     }),
-    BB_CONNECT_GATE_KEYS_URL: readEnvVarWithDefault({
+    HYPERFIDE_CONNECT_GATE_KEYS_URL: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_CONNECT_GATE_KEYS_URL,
-      definition: BB_CONNECT_GATE_KEYS_URL_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_CONNECT_GATE_KEYS_URL,
+      definition: HYPERFIDE_CONNECT_GATE_KEYS_URL_ENV,
       env: loader.env,
     }),
-    BB_EXTERNAL_URL: readEnvVarWithDefault({
+    HYPERFIDE_EXTERNAL_URL: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_EXTERNAL_URL,
-      definition: BB_EXTERNAL_URL_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_EXTERNAL_URL,
+      definition: HYPERFIDE_EXTERNAL_URL_ENV,
       env: loader.env,
     }),
-    BB_HOST_DAEMON_PORT: loadHostDaemonPortValue({
+    HYPERFIDE_HOST_DAEMON_PORT: loadHostDaemonPortValue({
       env: loader.env,
       homeDir: loader.context.homeDir,
       mode: loader.mode,
       repoRoot: args.repoRoot,
     }),
-    BB_INHERITED_SKILLS_ROOTS: readEnvVarWithDefault({
+    HYPERFIDE_INHERITED_SKILLS_ROOTS: readEnvVarWithDefault({
       context: loader.context,
       defaultValue: [],
-      definition: BB_INHERITED_SKILLS_ROOTS_ENV,
+      definition: HYPERFIDE_INHERITED_SKILLS_ROOTS_ENV,
       env: loader.env,
     }),
-    BB_MARKETPLACE_URL: readEnvVarWithDefault({
+    HYPERFIDE_MARKETPLACE_URL: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_MARKETPLACE_URL,
-      definition: BB_MARKETPLACE_URL_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_MARKETPLACE_URL,
+      definition: HYPERFIDE_MARKETPLACE_URL_ENV,
       env: loader.env,
     }),
-    BB_POSTHOG_API_KEY: readEnvVarWithDefault({
+    HYPERFIDE_POSTHOG_API_KEY: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_POSTHOG_API_KEY,
-      definition: BB_POSTHOG_API_KEY_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_POSTHOG_API_KEY,
+      definition: HYPERFIDE_POSTHOG_API_KEY_ENV,
       env: loader.env,
     }),
-    BB_SERVER_BIND_HOST: readEnvVarWithDefault({
+    HYPERFIDE_SERVER_BIND_HOST: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_SERVER_BIND_HOST,
-      definition: BB_SERVER_BIND_HOST_ENV,
+      defaultValue: DEFAULT_HYPERFIDE_SERVER_BIND_HOST,
+      definition: HYPERFIDE_SERVER_BIND_HOST_ENV,
       env: loader.env,
     }),
-    BB_PERF_DIAGNOSTICS: readEnvVarWithDefault({
+    HYPERFIDE_PERF_DIAGNOSTICS: readEnvVarWithDefault({
       context: loader.context,
-      definition: BB_PERF_DIAGNOSTICS_ENV,
-      env: loader.env,
-      defaultValue: false,
-    }),
-    BB_SKIP_ONBOARDING: readEnvVarWithDefault({
-      context: loader.context,
-      definition: BB_SKIP_ONBOARDING_ENV,
+      definition: HYPERFIDE_PERF_DIAGNOSTICS_ENV,
       env: loader.env,
       defaultValue: false,
     }),
-    BB_TELEMETRY: readEnvVarWithDefault({
+    HYPERFIDE_SKIP_ONBOARDING: readEnvVarWithDefault({
       context: loader.context,
-      defaultValue: DEFAULT_BB_TELEMETRY,
-      definition: BB_TELEMETRY_ENV,
+      definition: HYPERFIDE_SKIP_ONBOARDING_ENV,
+      env: loader.env,
+      defaultValue: false,
+    }),
+    HYPERFIDE_TELEMETRY: readEnvVarWithDefault({
+      context: loader.context,
+      defaultValue: DEFAULT_HYPERFIDE_TELEMETRY,
+      definition: HYPERFIDE_TELEMETRY_ENV,
       env: loader.env,
     }),
     featureFlags: loadFeatureFlags({
@@ -198,61 +198,61 @@ export function loadServerConfig(
   };
 
   assignIfDefined({
-    key: "BB_DEV_APP_PORT",
+    key: "HYPERFIDE_DEV_APP_PORT",
     target: config,
-    value: devAppConfig.BB_DEV_APP_PORT,
+    value: devAppConfig.HYPERFIDE_DEV_APP_PORT,
   });
   assignIfDefined({
-    key: "BB_APP_UPDATE_MODE",
+    key: "HYPERFIDE_APP_UPDATE_MODE",
     target: config,
     value: readOptionalEnvVar({
       context: loader.context,
-      definition: BB_APP_UPDATE_MODE_ENV,
+      definition: HYPERFIDE_APP_UPDATE_MODE_ENV,
       env: loader.env,
     }),
   });
   assignIfDefined({
-    key: "BB_CLI_LAUNCHER",
+    key: "HYPERFIDE_CLI_LAUNCHER",
     target: config,
     value: readOptionalEnvVar({
       context: loader.context,
-      definition: BB_CLI_LAUNCHER_ENV,
+      definition: HYPERFIDE_CLI_LAUNCHER_ENV,
       env: loader.env,
     }),
   });
   assignIfDefined({
-    key: "BB_APP_INSTALL_KIND",
+    key: "HYPERFIDE_APP_INSTALL_KIND",
     target: config,
     value: readOptionalEnvVar({
       context: loader.context,
-      definition: BB_APP_INSTALL_KIND_ENV,
+      definition: HYPERFIDE_APP_INSTALL_KIND_ENV,
       env: loader.env,
     }),
   });
   assignIfDefined({
-    key: "BB_APP_SOURCE_ORIGIN",
+    key: "HYPERFIDE_APP_SOURCE_ORIGIN",
     target: config,
     value: readOptionalEnvVar({
       context: loader.context,
-      definition: BB_APP_SOURCE_ORIGIN_ENV,
+      definition: HYPERFIDE_APP_SOURCE_ORIGIN_ENV,
       env: loader.env,
     }),
   });
   assignIfDefined({
-    key: "BB_APP_SOURCE_COMMIT",
+    key: "HYPERFIDE_APP_SOURCE_COMMIT",
     target: config,
     value: readOptionalEnvVar({
       context: loader.context,
-      definition: BB_APP_SOURCE_COMMIT_ENV,
+      definition: HYPERFIDE_APP_SOURCE_COMMIT_ENV,
       env: loader.env,
     }),
   });
   assignIfDefined({
-    key: "BB_SERVER_LAUNCH_ID",
+    key: "HYPERFIDE_SERVER_LAUNCH_ID",
     target: config,
     value: readOptionalEnvVar({
       context: loader.context,
-      definition: BB_SERVER_LAUNCH_ID_ENV,
+      definition: HYPERFIDE_SERVER_LAUNCH_ID_ENV,
       env: loader.env,
     }),
   });

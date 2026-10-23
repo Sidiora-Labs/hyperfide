@@ -188,8 +188,8 @@ describe("ServerMoveService.handleServerMoved", () => {
     });
     const service = fixture.createService({
       env: {
-        BB_SERVER_MOVE_SERVICE_MANAGER: "none",
-        BB_APP_NPM_PREFIX: fixture.npmPrefix,
+        HYPERFIDE_SERVER_MOVE_SERVICE_MANAGER: "none",
+        HYPERFIDE_APP_NPM_PREFIX: fixture.npmPrefix,
         INVOCATION_ID: "inherited-from-a-terminal",
       },
     });
@@ -220,8 +220,8 @@ describe("ServerMoveService.handleServerMoved", () => {
           "http://studio.example.test:38886",
         ],
         env: expect.objectContaining({
-          BB_DATA_DIR: fixture.dataDir,
-          BB_APP_NPM_PREFIX: fixture.npmPrefix,
+          HYPERFIDE_DATA_DIR: fixture.dataDir,
+          HYPERFIDE_APP_NPM_PREFIX: fixture.npmPrefix,
         }),
         logPath: join(fixture.dataDir, "logs", "server-move.log"),
       },
@@ -242,7 +242,7 @@ describe("ServerMoveService.handleServerMoved", () => {
     "only rewrites config.json and exits under an unrecognized $name supervisor",
     async ({ env }) => {
       const fixture = await createFixture({
-        env: { BB_SERVER_MOVE_SERVICE_MANAGER: "none", ...env },
+        env: { HYPERFIDE_SERVER_MOVE_SERVICE_MANAGER: "none", ...env },
         serverUrl: "http://old-server.example.test:38886",
       });
 

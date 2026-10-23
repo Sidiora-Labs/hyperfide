@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "bin": {
-    "bb": "./bin/bb",
+    "hyperfide-platform": "./bin/hyperfide-platform",
     "title": "./bin/title"
   },
   "scripts": {

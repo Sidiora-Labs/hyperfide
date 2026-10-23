@@ -311,12 +311,12 @@ process.stdout.write(\`grandchild=\${grandchild.pid}\\n\`);
         platform: "linux",
         processExecPath: "/path/to/electron",
       }),
-    ).toThrow("BB_DESKTOP_NODE_EXEC_PATH is required");
+    ).toThrow("HYPERFIDE_DESKTOP_NODE_EXEC_PATH is required");
 
     expect(
       resolveBbAppProcessRuntime({
         env: {
-          BB_DESKTOP_NODE_EXEC_PATH: "/usr/local/bin/node",
+          HYPERFIDE_DESKTOP_NODE_EXEC_PATH: "/usr/local/bin/node",
         },
         isPackaged: false,
         platform: "linux",

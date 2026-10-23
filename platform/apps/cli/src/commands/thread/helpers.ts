@@ -25,7 +25,7 @@ export const DEFAULT_THREAD_WAIT_TIMEOUT_SECONDS =
   DEFAULT_THREAD_WAIT_TIMEOUT_MS / 1000;
 
 export const SERVICE_TIER_HELP =
-  "Service tier id the provider lists for the model, such as default or fast (see `bb provider models`)";
+  "Service tier id the provider lists for the model, such as default or fast (see `hyperfide-platform provider models`)";
 export const PERMISSION_MODE_HELP =
   "Permission mode: accept-edits, auto, or full";
 export const PARENT_NOTIFICATIONS_HELP =

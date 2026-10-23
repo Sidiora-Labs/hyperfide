@@ -3,7 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 
-export const REGISTRY_SKILL_PROVENANCE_FILE_NAME = ".bb-registry-skill.json";
+export const REGISTRY_SKILL_PROVENANCE_FILE_NAME =
+  ".hyperfide-registry-skill.json";
 
 const registrySkillProvenanceSchema = z
   .object({

@@ -154,7 +154,7 @@ function State({
   );
 }
 
-const SKILL_PATH = "/Users/you/.bb/skills/writing-voice/SKILL.md";
+const SKILL_PATH = "/Users/you/.hyperfide/skills/writing-voice/SKILL.md";
 
 function SkillLeading({ provider }: { provider: SkillProvider | null }) {
   if (provider === null) {
@@ -213,7 +213,10 @@ export function SkillDetailStates() {
         note="Files appears above Definition and never below it."
       >
         <Skill
-          files={[SKILL_PATH, "/Users/you/.bb/skills/writing-voice/tone.md"]}
+          files={[
+            SKILL_PATH,
+            "/Users/you/.hyperfide/skills/writing-voice/tone.md",
+          ]}
         />
       </State>
 
@@ -346,7 +349,7 @@ export function SkillDetailStates() {
 const PLUGIN: PluginListItem = makePluginListItem({
   id: "github",
   source: "npm:@bb-plugins/github",
-  rootDir: "/Users/you/.bb/plugins/github",
+  rootDir: "/Users/you/.hyperfide/plugins/github",
   version: "1.4.0",
   description: "Browse GitHub issues and pull requests without leaving bb.",
   name: "GitHub",
@@ -425,7 +428,7 @@ const AWKWARD_PLUGIN: PluginListItem = {
   id: "enterprise-issue-tracker-synchronization",
   name: "Enterprise Issue Tracker Synchronization",
   rootDir:
-    "/Users/you/.bb/plugins/enterprise-issue-tracker-synchronization/packages/runtime",
+    "/Users/you/.hyperfide/plugins/enterprise-issue-tracker-synchronization/packages/runtime",
   description:
     "Keeps issues, pull requests, review comments, and release checklists synchronized between bb threads and your issue tracker, including bidirectional status mapping, attachment mirroring, and per-project field translation.",
   cliCommand: {

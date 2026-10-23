@@ -42,7 +42,7 @@ it.each([
     const address = server.address();
     if (typeof address === "string" || address === null)
       throw new Error("No port");
-    const directory = join(homeDir, ".bb-machines", "trusted.example");
+    const directory = join(homeDir, ".hyperfide-machines", "trusted.example");
     await mkdir(directory, { recursive: true });
     await writeFile(
       join(directory, "desktop-browser-broker.json"),
@@ -55,7 +55,11 @@ it.each([
       }),
       { mode: 0o600 },
     );
-    const stalledDirectory = join(homeDir, ".bb-machines", "stalled.example");
+    const stalledDirectory = join(
+      homeDir,
+      ".hyperfide-machines",
+      "stalled.example",
+    );
     await mkdir(stalledDirectory, { recursive: true });
     await writeFile(
       join(stalledDirectory, "desktop-browser-broker.json"),
@@ -119,7 +123,7 @@ it.each([
     const client = createDesktopBrowserBrokerClient({
       broker,
       homeDir,
-      dataDir: join(homeDir, ".bb"),
+      dataDir: join(homeDir, ".hyperfide"),
       getServerUrl: () => "https://unrelated-address.example",
       fetchImpl,
     });
@@ -189,7 +193,7 @@ async function writeDescriptor(
   serverHost: string,
   port: number,
 ) {
-  const directory = join(homeDir, ".bb-machines", serverHost);
+  const directory = join(homeDir, ".hyperfide-machines", serverHost);
   await mkdir(directory, { recursive: true });
   await writeFile(
     join(directory, "desktop-browser-broker.json"),
@@ -230,7 +234,7 @@ it("registers a broker enrolled at the selected address without a server proof",
   const client = createDesktopBrowserBrokerClient({
     broker: stubBroker(),
     homeDir,
-    dataDir: join(homeDir, ".bb"),
+    dataDir: join(homeDir, ".hyperfide"),
     getServerUrl: () => "https://trusted.example",
     fetchImpl,
   });
@@ -257,7 +261,7 @@ it("backs off proof requests while no broker can be verified", async () => {
   const client = createDesktopBrowserBrokerClient({
     broker: stubBroker(),
     homeDir,
-    dataDir: join(homeDir, ".bb"),
+    dataDir: join(homeDir, ".hyperfide"),
     getServerUrl: () => "https://unrelated-address.example",
     fetchImpl,
   });

@@ -15,11 +15,8 @@ const COMMAND_INDEX_PATH = fileURLToPath(
   ),
 );
 
-const BB_CLI_SKILL_ROOT = fileURLToPath(
-  new URL(
-    "../../../../plugins/bb-guide/skills/bb-cli/",
-    import.meta.url,
-  ),
+const HYPERFIDE_CLI_SKILL_ROOT = fileURLToPath(
+  new URL("../../../../plugins/bb-guide/skills/bb-cli/", import.meta.url),
 );
 
 function commandPaths(command: Command, prefix: string[] = []): string[] {
@@ -65,7 +62,7 @@ describe("bb-cli skill command index", () => {
   }, 30_000);
 
   it("leaves shipped plugin commands to their plugin skills", () => {
-    const skill = readMarkdownTree(BB_CLI_SKILL_ROOT);
+    const skill = readMarkdownTree(HYPERFIDE_CLI_SKILL_ROOT);
     expect(skill).not.toMatch(
       /\bbb (?:automation|connect|instructions|github|keep-awake|provider-retry|memory|secret|docs|tasks|workflows)\b/,
     );

@@ -10,13 +10,13 @@ import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import * as fixtures from "../helpers/command-output-fixtures.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread interactions command output", () => {
+describe("hyperfide-platform thread interactions command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("bb thread interactions list renders the shared borderless table", async () => {
+  it("hyperfide-platform thread interactions list renders the shared borderless table", async () => {
     const listInteractions = vi.fn(async () => [
       fixtures.makePendingInteraction({
         id: "int-1",
@@ -45,8 +45,8 @@ describe("bb thread interactions command output", () => {
     expect(lines[2]).toBe("");
   });
 
-  it("bb thread interactions show prints interaction details", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-interaction");
+  it("hyperfide-platform thread interactions show prints interaction details", async () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-show-interaction");
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-show",
@@ -86,7 +86,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions show prints a tool-use approval from its presentation", async () => {
+  it("hyperfide-platform thread interactions show prints a tool-use approval from its presentation", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-tool-use",
@@ -129,8 +129,8 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions show prints user question details", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-question");
+  it("hyperfide-platform thread interactions show prints user question details", async () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-show-question");
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question",
@@ -171,7 +171,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions answer resolves single-question interactions with shorthand flags", async () => {
+  it("hyperfide-platform thread interactions answer resolves single-question interactions with shorthand flags", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-answer",
@@ -240,7 +240,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions answer resolves multi-question interactions with explicit question ids", async () => {
+  it("hyperfide-platform thread interactions answer resolves multi-question interactions with explicit question ids", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-multi",
@@ -312,7 +312,7 @@ describe("bb thread interactions command output", () => {
     });
   });
 
-  it("bb thread interactions answer rejects shorthand for multi-question interactions", async () => {
+  it("hyperfide-platform thread interactions answer rejects shorthand for multi-question interactions", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-shorthand",
@@ -348,7 +348,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions answer rejects unknown explicit text question ids", async () => {
+  it("hyperfide-platform thread interactions answer rejects unknown explicit text question ids", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-unknown-text",
@@ -384,7 +384,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions answer rejects approvals and invalid question choices before posting", async () => {
+  it("hyperfide-platform thread interactions answer rejects approvals and invalid question choices before posting", async () => {
     const getInteraction = vi
       .fn()
       .mockResolvedValueOnce(
@@ -444,7 +444,7 @@ describe("bb thread interactions command output", () => {
     expect(errorOutput).toContain("does not offer choice 'qa'");
   });
 
-  it("bb thread interactions show prints a provider's plugin-defined request with its form and data", async () => {
+  it("hyperfide-platform thread interactions show prints a provider's plugin-defined request with its form and data", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-plugin-request",
@@ -479,7 +479,7 @@ describe("bb thread interactions command output", () => {
     expect(lines).toContain('  Data: {"fields":["TOKEN"]}');
   });
 
-  it("bb thread interactions respond posts the form's JSON value", async () => {
+  it("hyperfide-platform thread interactions respond posts the form's JSON value", async () => {
     const respond = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-plugin-request",
@@ -519,7 +519,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions respond rejects a value that is not JSON", async () => {
+  it("hyperfide-platform thread interactions respond rejects a value that is not JSON", async () => {
     await expect(
       runCommand(
         [
@@ -539,8 +539,8 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions show indicates when resolution delivery is in progress", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-resolving");
+  it("hyperfide-platform thread interactions show indicates when resolution delivery is in progress", async () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-show-resolving");
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-show-resolving",
@@ -609,7 +609,7 @@ describe("bb thread interactions command output", () => {
       outcome: "approved",
     },
   ] as const)(
-    "bb thread interactions approve resolves $name",
+    "hyperfide-platform thread interactions approve resolves $name",
     async ({ id, threadId, payload, decision, outcome }) => {
       const getInteraction = vi.fn(async () =>
         fixtures.makePendingInteraction({
@@ -651,7 +651,7 @@ describe("bb thread interactions command output", () => {
     },
   );
 
-  it("bb thread interactions approve errors when no allow decision is available", async () => {
+  it("hyperfide-platform thread interactions approve errors when no allow decision is available", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-approve-amendment",
@@ -687,7 +687,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions deny uses decline when it is available", async () => {
+  it("hyperfide-platform thread interactions deny uses decline when it is available", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-deny",
@@ -732,7 +732,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions deny errors when deny is unavailable", async () => {
+  it("hyperfide-platform thread interactions deny errors when deny is unavailable", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-cancel",
@@ -762,7 +762,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions grant resolves permission requests", async () => {
+  it("hyperfide-platform thread interactions grant resolves permission requests", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-permission-grant",
@@ -833,7 +833,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions grant builds a semantic turn-scoped resolution from server interaction data", async () => {
+  it("hyperfide-platform thread interactions grant builds a semantic turn-scoped resolution from server interaction data", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-claude-permission-grant",
@@ -906,7 +906,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions deny resolves permission requests as denied", async () => {
+  it("hyperfide-platform thread interactions deny resolves permission requests as denied", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-permission-deny",
