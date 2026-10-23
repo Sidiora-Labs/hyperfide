@@ -8,7 +8,7 @@ record that identity. Secret values and sensitive variables use the
 the binary; secret notes are omitted to avoid accidental disclosure.
 
 The store bridge mirrors CLI rows and publishes debounced database/WAL updates.
-`src/inbox-adapter.ts`, `src/thread-bridge.ts` and `rpc-client.ts` adapt its
+`src/inbox-adapter.ts`, `src/thread-bridge.ts` and `client.ts` adapt its
 RPC and row shapes for the inbox, thread lifecycle and UI consumers.
 The local host adapter reads the graph plugin's repository binary-path setting
 and verifies the executable with the daemon's `inspectHyperfide` implementation.

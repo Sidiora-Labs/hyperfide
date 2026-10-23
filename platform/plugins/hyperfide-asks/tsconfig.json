@@ -21,7 +21,7 @@
     "src/**/*.ts",
     "app.tsx",
     "app.test.tsx",
-    "rpc-client.ts",
+    "client.ts",
     "vitest.config.ts"
   ]
 }

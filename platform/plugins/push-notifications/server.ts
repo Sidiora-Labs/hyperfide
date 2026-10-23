@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { createAskBridge } from "../hyperfide-asks/bridge-projection.js";
+import { createAskBridge } from "../hyperfide-asks/client.js";
 import {
   createAskNotifications,
   type AskNotificationState,
