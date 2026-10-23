@@ -30,7 +30,10 @@ for (const p of files) {
   const name=relative(root,p);
   for (const [i,r] of rules.entries()) {
     if (r.kind==='path' || !eligible(r,name)) continue;
-    const regex=new RegExp(r.kind==='identifier' ? `\\b${escape(r.from)}${/\w$/.test(r.from) && !r.from.endsWith('_') ? '\\b' : ''}` : escape(r.from),'g');
+    const boundary = r.boundary ?? (r.kind === 'identifier' ? 'both' : 'none');
+    const left = ['left', 'both'].includes(boundary) || /^[A-Za-z]/.test(r.from) ? '(?<![A-Za-z0-9])' : '';
+    const right = ['right', 'both'].includes(boundary) ? '(?![A-Za-z0-9_])' : '';
+    const regex=new RegExp(`${r.before ?? ''}${left}${escape(r.from)}${right}${r.after ?? ''}`,'g');
     let count=0;
     text=text.replace(regex,()=>{count++; return r.to;});
     if (count) { report.rules[i].count+=count; report.rules[i].files[name]=count; (report.files[name]??={})[i]=count; }
