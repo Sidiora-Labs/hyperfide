@@ -302,7 +302,6 @@ const web = spawnService(
     CLOUDFLARE_INCLUDE_PROCESS_ENV: "true",
     GITHUB_CLIENT_ID: "local-cloud-dev-unused",
     GITHUB_CLIENT_SECRET: "local-cloud-dev-unused",
-    LANDING_POSTHOG_KEY: "local-cloud-dev-unused",
     RESEND_API_KEY: "local-cloud-dev-unused",
   },
 );

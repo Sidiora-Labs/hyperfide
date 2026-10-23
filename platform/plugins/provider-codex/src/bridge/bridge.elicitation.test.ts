@@ -216,9 +216,9 @@ async function runElicitation(args: {
       turns: [[{ kind: "request", ...args.request }]],
     }),
   );
-  vi.stubEnv("BB_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
+  vi.stubEnv("HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
   vi.stubEnv(
-    "BB_CODEX_BRIDGE_APP_SERVER_ARGS",
+    "HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS",
     JSON.stringify([fakeAppServerPath, scriptPath]),
   );
   const harness = createBridgeJsonRpcTestHarness(handleLine);

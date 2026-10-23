@@ -98,7 +98,7 @@ describe("marketing download", () => {
       new Request("https://getbb.app/download/macos", {
         headers: { range: "bytes=100-" },
       }),
-      { LANDING_POSTHOG_KEY: "phc_test" },
+      {},
       waitUntil,
     );
 
@@ -226,71 +226,17 @@ describe("marketing download", () => {
     expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
   });
 
-  it.each([undefined, "1"])(
-    "tracks downloads while respecting Sec-GPC %s",
-    async (gpc) => {
-      const fetchMock = vi.fn(
-        async (..._args: Parameters<typeof fetch>) => new Response("{}"),
-      );
-      vi.stubGlobal("fetch", fetchMock);
-      const waitUntil = vi.fn<(promise: Promise<void>) => void>();
-
-      await handleDownload(
-        "linux",
-        new Request(
-          "https://getbb.app/download/linux?placement=nav&utm_campaign=x&gclid=abc&gbraid=gb&wbraid=wb",
-          {
-            headers: {
-              referer:
-                "https://getbb.app/?utm_source=google&gclid=ref&gbraid=ref-gb&wbraid=ref-wb",
-              ...(gpc ? { "Sec-GPC": gpc } : {}),
-            },
-          },
-        ),
-        { LANDING_POSTHOG_KEY: "phc_test" },
-        waitUntil,
-      );
-
-      expect(waitUntil).toHaveBeenCalledTimes(1);
-      await waitUntil.mock.calls[0]?.[0];
-      const captureCall = fetchMock.mock.calls.find(
-        ([url]) => typeof url === "string" && url.includes("posthog"),
-      );
-      expect(captureCall).toBeTruthy();
-      const body = JSON.parse(String(captureCall?.[1]?.body)) as {
-        event: string;
-        properties: {
-          download_target: string;
-          placement: string;
-          utm_campaign?: string;
-          gclid?: string;
-          gbraid?: string;
-          wbraid?: string;
-          utm_source?: string;
-          $current_url: string;
-          $referrer?: string;
-        };
-      };
-      expect(body.event).toBe("landing_download_linux_clicked");
-      expect(body.properties.download_target).toBe("linux");
-      expect(body.properties.placement).toBe("nav");
-      expect(body.properties.utm_campaign).toBe("x");
-      expect(body.properties.utm_source).toBe("google");
-      for (const [name, value, referrerValue] of [
-        ["gclid", "abc", "ref"],
-        ["gbraid", "gb", "ref-gb"],
-        ["wbraid", "wb", "ref-wb"],
-      ] as const) {
-        expect(body.properties[name]).toBe(gpc === "1" ? undefined : value);
-        expect(
-          new URL(body.properties.$current_url).searchParams.get(name),
-        ).toBe(gpc === "1" ? null : value);
-        expect(
-          new URL(body.properties.$referrer ?? "").searchParams.get(name),
-        ).toBe(gpc === "1" ? null : referrerValue);
-      }
-    },
-  );
+  it("downloads without scheduling event reporting", async () => {
+    stubReleaseFetch(["hyperfide.AppImage"], () => new Response("installer"));
+    const waitUntil = vi.fn();
+    await handleDownload(
+      "linux",
+      new Request("https://hyperfide.local/download/linux"),
+      {},
+      waitUntil,
+    );
+    expect(waitUntil).not.toHaveBeenCalled();
+  });
 });
 
 describe("marketing subscribe endpoint", () => {

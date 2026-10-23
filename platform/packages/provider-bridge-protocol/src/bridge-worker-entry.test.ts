@@ -173,7 +173,7 @@ it("tees both sides of the runtime wire when record mode is on", async () => {
   const result = await runWorker(
     [fixture.bridgeModulePath, "provider-fixture", fixture.dataDir],
     '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"thread/start","params":{"threadId":"thr_rec"}}\n',
-    { BB_PROVIDER_BRIDGE_RECORD_DIR: recordDir },
+    { HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR: recordDir },
   );
 
   expect(result.code).toBe(0);

@@ -46,7 +46,7 @@
         "$TURBO_ROOT$/pnpm-workspace.yaml",
         "$TURBO_ROOT$/turbo.json"
       ],
-      "env": ["CLOUDFLARE_ENV", "VITE_POSTHOG_KEY", "VITE_POSTHOG_HOST"],
+      "env": ["CLOUDFLARE_ENV"],
       "outputs": ["dist/**"]
     },
     // Mirrors "build" but also caches bundle-stats.json, which the

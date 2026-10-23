@@ -235,7 +235,7 @@ update also updates the bundled copy.
 from https://getbb.app/marketplace/v2/marketplace.json at startup and every two
 hours. Set HYPERFIDE_MARKETPLACE_URL (read at startup) to override the URL. An invalid
 manifest keeps the last valid catalog. `hyperfide-platform plugin search` shows install counts
-that hyperfide-platform measures through anonymous telemetry, so they undercount; third-party
+recorded in the catalog; third-party
 marketplaces have none. Builtins show "Built in", and a plugin under 25
 installs that was published in the last 30 days shows "New".
 `hyperfide-platform plugin search --json` returns the raw `installs`, `installedByDefault`,

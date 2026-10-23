@@ -1,5 +1,3 @@
-import type { PostHog } from "posthog-js";
-import { useEffect } from "react";
 import type { CtaPlacement } from "./site";
 
 type LandingEvent =
@@ -51,43 +49,8 @@ type LandingEvent =
       properties: { plugin_id: string };
     };
 
-let client: PostHog | null = null;
-let loading = false;
-const pendingEvents: LandingEvent[] = [];
-
-export function initAnalytics(): void {
-  if (loading || typeof window === "undefined") {
-    return;
-  }
-  const key = import.meta.env.VITE_POSTHOG_KEY;
-  if (!key) {
-    return;
-  }
-  loading = true;
-  void import("posthog-js").then(({ default: posthog }) => {
-    posthog.init(key, {
-      api_host: import.meta.env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com",
-      autocapture: false,
-      capture_pageview: true,
-      capture_pageleave: true,
-    });
-    client = posthog;
-    for (const event of pendingEvents.splice(0)) {
-      client.capture(event.name, event.properties);
-    }
-  });
-}
-
-export function useInitAnalytics(): void {
-  useEffect(() => {
-    initAnalytics();
-  }, []);
-}
-
+export function initAnalytics(): void {}
+export function useInitAnalytics(): void {}
 export function trackLandingEvent(event: LandingEvent): void {
-  if (client) {
-    client.capture(event.name, event.properties);
-  } else if (loading) {
-    pendingEvents.push(event);
-  }
+  console.debug("Local event", event);
 }

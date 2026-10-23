@@ -60,7 +60,7 @@ function registrySkillsCliInvocation(args: {
           "ELECTRON_RUN_AS_NODE",
         ]
       : ["PATH", "HOME", "TMPDIR", "ELECTRON_RUN_AS_NODE"];
-  const env: NodeJS.ProcessEnv = { DISABLE_TELEMETRY: "1" };
+  const env: NodeJS.ProcessEnv = {};
   for (const key of allowedKeys) {
     const value = process.env[key];
     if (value !== undefined) env[key] = value;

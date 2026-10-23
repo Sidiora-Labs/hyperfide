@@ -110,7 +110,6 @@ export function toDevLaunchProcessEnv(args: {
   }
 
   delete env.HYPERFIDE_DEV_APP_PORT;
-  env.HYPERFIDE_TELEMETRY = "false";
   env.NODE_ENV = "production";
   return env;
 }

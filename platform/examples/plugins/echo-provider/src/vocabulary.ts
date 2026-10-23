@@ -54,7 +54,7 @@ export const echoProviderOptionsSchema = z.object({
 });
 export type EchoProviderOptions = z.infer<typeof echoProviderOptionsSchema>;
 
-export const ECHO_GREETING_ENV = "BB_ECHO_PROVIDER_GREETING";
+export const ECHO_GREETING_ENV = "HYPERFIDE_ECHO_PROVIDER_GREETING";
 
 export const ECHO_PROJECT_SKILL_ROOT = ".echo/skills";
 

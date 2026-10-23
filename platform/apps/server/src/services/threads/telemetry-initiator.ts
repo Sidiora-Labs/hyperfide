@@ -26,5 +26,5 @@ export function initiatorTelemetryProperty(
   featureFlags: FeatureFlags,
   initiator: TelemetryInitiator,
 ): { initiator?: TelemetryInitiator } {
-  return featureFlags.initiatorTelemetry ? { initiator: initiator } : {};
+  return { initiator };
 }

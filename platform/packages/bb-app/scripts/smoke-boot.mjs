@@ -158,7 +158,6 @@ const cliEnv = {
   BB_DATA_DIR: dataDir,
   BB_HOST_DAEMON_PORT: String(daemonPort),
   BB_SERVER_URL: serverUrl,
-  BB_TELEMETRY: "false",
 };
 let output = "";
 const launcher = spawn(
@@ -175,7 +174,6 @@ const launcher = spawn(
   ],
   {
     detached: process.platform !== "win32",
-    env: { ...process.env, BB_TELEMETRY: "false", NODE_ENV: "production" },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   },
