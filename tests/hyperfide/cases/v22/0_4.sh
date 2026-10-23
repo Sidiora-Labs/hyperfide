@@ -45,5 +45,66 @@ for filename in tracked_files:
 assert not failures, "\n".join(failures)
 print("Hosted component removal checks passed")
 PY_CHECK
-pnpm -C platform install --frozen-lockfile
+# Sandbox preparation may already have installed the frozen workspace.
+if [[ ! -f platform/node_modules/.modules.yaml ]]; then
+  pnpm -C platform install --frozen-lockfile
+fi
+pnpm -C platform --filter @hyperfide/server build
+python3 - <<'PY_SMOKE'
+import os
+from pathlib import Path
+import socket
+import subprocess
+import tempfile
+import time
+import urllib.error
+import urllib.request
+
+with tempfile.TemporaryDirectory(prefix="hyperfide-empty-marketplace-") as data_dir:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    env = dict(os.environ, NODE_ENV="production",
+               HYPERFIDE_MARKETPLACE_URL="", HYPERFIDE_DATA_DIR=data_dir,
+               HYPERFIDE_SERVER_PORT=str(port),
+               HYPERFIDE_HOST_DAEMON_PORT="49162",
+               HYPERFIDE_SERVER_BIND_HOST="127.0.0.1")
+    log_path = Path(data_dir) / "startup.log"
+    with log_path.open("w+") as log:
+        process = subprocess.Popen(
+            ["node", "platform/apps/server/dist/index.js"], env=env,
+            stdout=log, stderr=subprocess.STDOUT,
+        )
+        try:
+            deadline = time.monotonic() + 60
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            while True:
+                if process.poll() is not None:
+                    raise AssertionError(f"Server exited before ready: {process.returncode}")
+                try:
+                    with opener.open(f"http://127.0.0.1:{port}/health", timeout=1) as response:
+                        ready = response.status == 200
+                except (urllib.error.URLError, TimeoutError):
+                    ready = False
+                if ready:
+                    # The original failure could follow the listening log.
+                    time.sleep(1)
+                    assert process.poll() is None, "Server exited after health became ready"
+                    break
+                assert time.monotonic() < deadline, "Server health timed out"
+                time.sleep(0.1)
+            print("Empty marketplace server smoke passed")
+        except BaseException:
+            log.flush()
+            print(log_path.read_text())
+            raise
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+PY_SMOKE
 pnpm -C platform typecheck
