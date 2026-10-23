@@ -348,7 +348,7 @@ owner = "spec"
 
 [task.2.4]
 title = "Spec commands in the platform CLI"
-status = "implemented"
+status = "done"
 wave = 2
 requires = ["2.1"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/apps/cli/src/**", "tests/hyperfide/cases/v22/2_4.sh"]
