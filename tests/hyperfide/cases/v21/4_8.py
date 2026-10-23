@@ -216,7 +216,8 @@ def scenario(f):
         return response['result']
 
     def fold(custodies):
-        return dict(scope, repository_id=i['repository'], custody_ids=custodies, ask_deadline_seconds=86400)
+        # A merge conflict raises a decision Ask; its deadline must sit within the decision kind policy (3.6, 14400 s).
+        return dict(scope, repository_id=i['repository'], custody_ids=custodies, ask_deadline_seconds=14400)
 
     queue = [e['custody'] for e in f.entries]
 

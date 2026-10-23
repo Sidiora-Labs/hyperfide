@@ -14,6 +14,7 @@
  * Headless-safe — no vscode import — so the integration test drives both
  * halves against the real binary. */
 const cp = require('child_process');
+const path = require('path');
 
 const INIT_TIMEOUT_MS = 8000;
 const CALL_TIMEOUT_MS = 10 * 60 * 1000;   /* a verify_cmd may take minutes */
@@ -323,6 +324,8 @@ function applyEvent(model, ev) {
         model.drift += 1;
         return { view: 'drift', kind: k };
     }
+    /* ask.raised, ask.answered, ask.expired (src/ask.c): the Needs view */
+    if (k.startsWith('ask.')) return { view: 'needs', kind: k, ask: ev.subject || p.id || null };
     if (k === 'memory.add') {
         model.memories += 1;
         return { view: 'memories', id: p.id };
@@ -395,5 +398,255 @@ function applySnapshot(model, snap) {
     return Object.keys(native).length;
 }
 
+/* ================================================================
+ * The serve pool (hyperfide-v21 6.8): one client per workspace root.
+ *
+ * A multi-root window has one project per folder, each with its own
+ * .codegraph, its own Asks and its own event log, so each gets its own
+ * `cg serve`. The first folder stays the primary: the task board, the
+ * fleet and every command answer from it exactly as before. Needs and
+ * Issues are the two views that read across the pool: their reads fan out
+ * to every root and merge here, and every merged row names its project.
+ *
+ * The merge works on cg's own output shapes, so needs.js and issues.js read
+ * a merged result exactly as they read one root's:
+ *   - console.needs / console.issues panels: section rows concatenated, the
+ *     row id qualified `<id>@<project>` (unique in one tree, and routable),
+ *     the title suffixed ` (<project>)`, the run id carried onto the row from
+ *     its panel's scope, file locations made absolute under their root;
+ *   - `cg ask list`: the same for each Ask;
+ *   - the drift.* / task.status log: each event tagged with its project on
+ *     the task and feature it names (so a collision in one project is never
+ *     resolved by a task of another), its seq made unique across the pool,
+ *     its paths absolute.
+ * An answer to a qualified row is routed back to its own root with the bare
+ * id. With one root nothing is qualified: a single-folder window reads
+ * exactly what it read before.
+ *
+ * Pure apart from ServePool's clients, so 14_vscode.sh proves the merge
+ * against output the real cg printed in two roots. */
+const POOL_SEQ = 1024;        /* seq' = seq * POOL_SEQ + root index */
+
+/* [{root, name?}] or [root] -> [{root, name, index}], names unique: the
+ * folder's own name (VS Code's), else the directory's basename; a repeat
+ * gets -2, -3. */
+function projectNames(roots) {
+    const used = new Set();
+    return (roots || []).map((r, index) => {
+        const root = typeof r === 'string' ? r : r.root;
+        const base = (r && typeof r === 'object' && r.name) || path.basename(root || '') || String(root);
+        let name = base, n = 2;
+        while (used.has(name)) name = `${base}-${n++}`;
+        used.add(name);
+        return { root, name, index };
+    });
+}
+
+function qualifyId(id, name) { return `${id}@${name}`; }
+function poolTitle(title, name) { return `${title || ''} (${name})`; }
+
+/* A qualified id back to {member, id}; an id no member claims is the
+ * primary's, unchanged. */
+function unqualify(id, members) {
+    const s = String(id == null ? '' : id);
+    const at = s.indexOf('@');
+    if (at > 0) {
+        const m = (members || []).find((x) => x.name === s.slice(at + 1));
+        if (m) return { member: m, id: s.slice(0, at) };
+    }
+    return { member: (members || [])[0] || null, id: s };
+}
+
+function findPanel(j, view) {
+    const seen = new Set();
+    const visit = (o, depth) => {
+        if (!o || typeof o !== 'object' || Array.isArray(o) || depth > 3 || seen.has(o)) return null;
+        seen.add(o);
+        if (o.view === view && o.sections && typeof o.sections === 'object') return o;
+        for (const k of ['result', 'data', 'output', 'panel']) {
+            const hit = visit(o[k], depth + 1);
+            if (hit) return hit;
+        }
+        return null;
+    };
+    return visit(j, 0);
+}
+
+function absUnder(root, p) {
+    return typeof p === 'string' && p && root && !path.isAbsolute(p) ? path.join(root, p) : p;
+}
+
+function absDetail(detail, root) {
+    if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return detail;
+    const d = Object.assign({}, detail);
+    if (typeof d.path === 'string') d.path = absUnder(root, d.path);
+    if (Array.isArray(d.locations)) {
+        d.locations = d.locations.map((l) => (l && typeof l === 'object'
+            ? Object.assign({}, l, { path: absUnder(root, l.path) }) : l));
+    }
+    return d;
+}
+
+function poolRow(r, member, scope) {
+    const refs = Object.assign({}, r.references || {});
+    if (!refs.run_id && scope && scope.run_id) refs.run_id = scope.run_id;
+    return Object.assign({}, r, {
+        id: qualifyId(r.id, member.name), title: poolTitle(r.title, member.name),
+        project: member.name, root: member.root, references: refs,
+        detail: absDetail(r.detail, member.root),
+    });
+}
+
+/* parts: [{member, json}] -> one panel of `view`, or null. `all` asks for
+ * every root to have answered (console.needs: the view shows local Asks
+ * only when there is no panel, so either every root is read from the
+ * console or every root from its local Asks; none is left out). */
+function mergePanels(view, parts, opts) {
+    const found = (parts || []).map((p) => ({ member: p.member, panel: findPanel(p.json, view) }));
+    const answered = found.filter((p) => p.panel);
+    if (!answered.length || (opts && opts.all && answered.length < found.length)) return null;
+    const sections = {};
+    for (const { member, panel } of answered) {
+        for (const [key, sec] of Object.entries(panel.sections)) {
+            if (!sec || typeof sec !== 'object') continue;
+            const into = sections[key] || (sections[key] = Object.assign({}, sec, { rows: [], truncated: false }));
+            into.truncated = into.truncated || !!sec.truncated;
+            for (const r of Array.isArray(sec.rows) ? sec.rows : []) into.rows.push(poolRow(r, member, panel.scope));
+        }
+    }
+    const asOf = answered.map((p) => p.panel.as_of).filter(Boolean).sort()[0] || null;
+    return { view, scope: null, as_of: asOf, projects: answered.map((p) => p.member.name), sections };
+}
+
+/* parts: [{member, json}] of `cg ask list --json` -> {asks}, or null when
+ * no root answered. */
+function mergeAskLists(parts) {
+    let any = false;
+    const asks = [];
+    for (const { member, json } of parts || []) {
+        const list = json && Array.isArray(json.asks) ? json.asks : Array.isArray(json) ? json : null;
+        if (!list) continue;
+        any = true;
+        for (const a of list) {
+            if (!a || a.id == null) continue;
+            asks.push(Object.assign({}, a, { id: qualifyId(a.id, member.name),
+                title: poolTitle(a.title || `Ask #${a.id}`, member.name), project: member.name }));
+        }
+    }
+    return any ? { asks } : null;
+}
+
+/* One drift.* or task.status event of `member`'s log, tagged so the Issues
+ * fold keeps projects apart and names them. Task ids (the subject's id
+ * part, payload task and with) carry the tag, so a collision's own task and
+ * the one it waits for resolve within their project; coverage carries it on
+ * the feature it is about; an interface change on its symbol. */
+function qualifyEvent(ev, member) {
+    if (!ev || !member) return ev;
+    const tag = (s) => (s == null || s === '' ? s : `${s} (${member.name})`);
+    const p = Object.assign({}, ev.payload && typeof ev.payload === 'object' ? ev.payload : {});
+    const out = Object.assign({}, ev, { payload: p, project: member.name });
+    if (typeof ev.seq === 'number') out.seq = ev.seq * POOL_SEQ + (member.index || 0);
+    const k = String(ev.kind || '');
+    if (k === 'drift.coverage') {
+        out.subject = tag(ev.subject);
+        if (p.feature) p.feature = tag(p.feature);
+    } else if (k === 'task.status' || k.startsWith('drift.')) {
+        out.subject = tag(ev.subject);
+        if (p.task) p.task = tag(p.task);
+        if (p.with) p.with = tag(p.with);
+        if (k === 'drift.interface' && p.symbol) p.symbol = tag(p.symbol);
+    }
+    const root = member.root;
+    if (typeof p.path === 'string') p.path = absUnder(root, p.path);
+    if (Array.isArray(p.files_outside)) p.files_outside = p.files_outside.map((f) => absUnder(root, String(f)));
+    for (const f of ['symbols_undeclared', 'sites']) {
+        if (Array.isArray(p[f])) {
+            p[f] = p[f].map((s) => (s && typeof s === 'object'
+                ? Object.assign({}, s, { path: absUnder(root, s.path) }) : s));
+        }
+    }
+    return out;
+}
+
+/* Which pooled read or routed answer a cg call is, or null for a call the
+ * primary answers alone. */
+function poolPlan(args) {
+    const all = args || [];
+    const a = all.filter((x) => x !== '--json');
+    if (a[0] === 'console' && (a[1] === 'needs' || a[1] === 'issues') && a.length === 2)
+        return { kind: 'panel', view: `console.${a[1]}`, all: a[1] === 'needs' };
+    if (a[0] === 'ask' && a[1] === 'list' && a.length === 2) return { kind: 'asks' };
+    if (a[0] === 'events') {
+        const i = a.indexOf('--kind');
+        if (i > 0 && /^drift\./.test(a[i + 1] || '')) return { kind: 'events' };
+    }
+    if (a[0] === 'ask' && a[1] === 'answer') {
+        const f = all.indexOf('--input-file');
+        if (f > 0) return { kind: 'answer-file', file: all[f + 1] };
+        if (a[2] != null) return { kind: 'answer', id: a[2] };
+    }
+    return null;
+}
+
+function parseJson(s) { try { return JSON.parse(s); } catch { return null; } }
+
+/* parts: [{member, r: {code, stdout, stderr}}], one per root, for a read
+ * `plan` -> the one {code, stdout, stderr} the view reads. */
+function mergeOutputs(plan, parts) {
+    const first = (parts[0] && parts[0].r) || { code: 1, stdout: '', stderr: '' };
+    if (plan.kind === 'panel') {
+        const jsons = parts.map((p) => ({ member: p.member, json: parseJson(p.r.stdout) }));
+        const panel = mergePanels(plan.view, jsons, { all: plan.all });
+        if (panel) return { code: 0, stdout: JSON.stringify(panel), stderr: '' };
+        const n = jsons.filter((p) => findPanel(p.json, plan.view)).length;
+        if (!n) return first;
+        return { code: 1, stderr: '', stdout: JSON.stringify({ error: { message:
+            `${plan.view} answered for ${n} of ${parts.length} projects; showing every project's local Asks` } }) };
+    }
+    if (plan.kind === 'asks') {
+        const merged = mergeAskLists(parts.map((p) => ({ member: p.member, json: parseJson(p.r.stdout) })));
+        return merged ? { code: 0, stdout: JSON.stringify(merged), stderr: '' } : first;
+    }
+    if (plan.kind === 'events') {
+        const lines = [];
+        for (const { member, r } of parts) {
+            for (const l of String(r.stdout || '').split('\n')) {
+                const ev = l.trim() ? parseJson(l) : null;
+                if (ev) lines.push(JSON.stringify(qualifyEvent(ev, member)));
+            }
+        }
+        const ok = parts.some((p) => p.r.code === 0);
+        return { code: ok ? 0 : first.code, stdout: lines.length ? lines.join('\n') + '\n' : '',
+                 stderr: ok ? '' : first.stderr };
+    }
+    return first;
+}
+
+class ServePool {
+    /* roots: [{root, name?}]; Client is ServeClient unless a test says so */
+    constructor(bin, roots, log, Client) {
+        const C = Client || ServeClient;
+        this.members = projectNames(roots).map((m) =>
+            Object.assign(m, { client: new C(bin, m.root, log) }));
+    }
+    get size() { return this.members.length; }
+    get multi() { return this.members.length > 1; }
+    get primary() { return this.members[0] || null; }
+    get others() { return this.members.slice(1); }
+    member(name) { return this.members.find((m) => m.name === name) || null; }
+    unqualify(id) { return unqualify(id, this.members); }
+    /* one event of `member`'s log as the pooled Issues view reads it */
+    qualify(ev, member) { return this.multi ? qualifyEvent(ev, member || this.primary) : ev; }
+    /* every client but the primary, which the extension starts first and
+     * itself; resolves [{member, ok}] */
+    async startOthers() {
+        return Promise.all(this.others.map(async (m) => ({ member: m, ok: await m.client.start() })));
+    }
+    dispose() { for (const m of this.members) { try { m.client.dispose(); } catch (_) { /* gone */ } } }
+}
+
 module.exports = { ServeClient, liveModel, applyEvent, splitSubject,
-                   applyNative, applySnapshot };
+                   applyNative, applySnapshot,
+                   ServePool, projectNames, qualifyId, unqualify, poolTitle, findPanel,
+                   mergePanels, mergeAskLists, qualifyEvent, poolPlan, mergeOutputs, POOL_SEQ };

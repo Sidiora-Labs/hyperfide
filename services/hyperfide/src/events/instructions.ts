@@ -1,7 +1,7 @@
 import {runnerApi,RUNNER_EVENT_BOUNDS} from './api.js';
 import { assertNoExecutionHold } from '../scheduler/claim.js';
 import { ready as hierarchyReady,leadership,requireAuthority } from '../hierarchy/packages.js';
-import { randomUUID } from 'node:crypto';
+import { createHash,randomUUID } from 'node:crypto';
 import { assertInvocation } from '../transport/protocol.js';
 import type { InvocationContext, Principal } from '../transport/protocol.js';
 import type { Component, ComponentContext } from '../components/registry.js';
@@ -415,14 +415,84 @@ export const readDispatchReceipt:NativeReceiptReader=async(tx,input)=>{
   return {central_receipt_id:row.receipt_id,command_id:input.operation_id,token:t,
     payload_digest:input.payload_digest,state};
 };
+/* hyperfide-v21 4.4 (req 4 ac_2): an answered Ask reaches the agent that asked. A worker's answer travels as
+ * a STEER on its attempt's instruction stream, framed for its native connector exactly as connector.encode
+ * frames an input (src/hyperfide/connectors.c): a Claude stream-json user message, or a Codex app-server
+ * turn/start, which also re-wakes a worker whose turn ended while it waited. A leader's answer goes through
+ * supervisor.session.input (agents/supervision.ts). Instruction and request ids derive from the Ask, so a
+ * repeated delivery is the same command, never a second answer. */
+export interface AnsweredAsk {id:string;kind:string;title:string;answer:string;decided_by_default:boolean}
+const ANSWER_FRAME_BYTES=4096;
+export function answerOperationId(s:Scope,askId:string,purpose:'instruction'|'request'|'leader'):string {
+  const h=createHash('sha256').update('hyperfide.ask-answer.v1\0'+s.organisation_id+'\0'+s.run_id+'\0'+askId+'\0'+purpose).digest('hex');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-5'+h.slice(13,16)+'-'+((parseInt(h[16]!,16)&3)|8).toString(16)+h.slice(17,20)+'-'+h.slice(20,32);
+}
+/** The Ask row as an answer the agent can act on, or a refusal when it has none yet (an open Ask, or a blocking
+ * Ask past its deadline, which keeps waiting for a person). */
+export async function answeredAsk(tx:PrimaryTransaction,s:Scope,askId:string):Promise<AnsweredAsk&{attempt:string|null;session:string|null}> {
+  const r=(await tx.query('SELECT id::text,kind,title,answer,state,decided_by_default,attempt::text,session::text FROM hyperfide.asks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',
+    [s.organisation_id,s.run_id,uuid(askId)])).rows[0];
+  if(!r)fail('ASK_NOT_FOUND','Ask is not in this run');
+  if(typeof r.answer!=='string'||!(r.state==='ANSWERED'||r.state==='EXPIRED'&&r.decided_by_default===true))
+    fail('ASK_ANSWER_PENDING','The Ask has no answer to deliver yet');
+  return {id:r.id,kind:r.kind,title:r.title,answer:r.answer,decided_by_default:r.decided_by_default===true,attempt:r.attempt??null,session:r.session??null};
+}
+export function answerText(a:AnsweredAsk,clipTo?:number):string {
+  const answer=clipTo===undefined||clipTo>=a.answer.length?a.answer:a.answer.slice(0,clipTo)+'\n[The answer is cut to fit one input frame; read it in full with ask_status '+a.id+'.]';
+  return 'Answer to your Ask '+a.id+' ('+a.kind+'): '+a.title+'\n'+
+    (a.decided_by_default?'Nobody answered by the deadline, so its recommended option stands: ':'Answer: ')+answer+
+    '\nContinue the claimed task with this answer.';
+}
+/** One native input frame (newline-terminated, at most 4096 bytes) carrying the answer. */
+export function answerFrame(connector:string,nativeSession:string,requestId:string,a:AnsweredAsk):{frame:Buffer;truncated:boolean} {
+  if(connector!=='claude'&&connector!=='codex')fail('INSTRUCTION_INPUT_INVALID','No answer framing for connector '+connector);
+  const encode=(text:string)=>Buffer.from(JSON.stringify(connector==='claude'
+    ?{type:'user',session_id:nativeSession,message:{role:'user',content:text}}
+    :{id:requestId,method:'turn/start',params:{threadId:nativeSession,input:[{type:'text',text}]}})+'\n');
+  let frame=encode(answerText(a));
+  if(frame.length<=ANSWER_FRAME_BYTES)return {frame,truncated:false};
+  let low=0,high=a.answer.length;
+  while(low<high){const mid=Math.ceil((low+high)/2);if(encode(answerText(a,mid)).length<=ANSWER_FRAME_BYTES)low=mid;else high=mid-1;}
+  frame=encode(answerText(a,low));
+  if(frame.length>ANSWER_FRAME_BYTES)fail('INSTRUCTION_INPUT_INVALID','The Ask title leaves no room for its answer in one input frame');
+  return {frame,truncated:true};
+}
+/** Queues the answer to a worker's Ask as a STEER for the attempt that raised it, bound to that attempt's START. */
+export async function deliverAnswer(tx:PrimaryTransaction,input:unknown):Promise<unknown> {
+  assertPrimaryTransaction(tx);
+  const v=fields(input,['organisation_id','run_id','ask_id']),s=scope(v);
+  await lockRun(tx,s);
+  const a=await answeredAsk(tx,s,uuid(v.ask_id));
+  if(!a.attempt)fail('ASK_NOT_WORKER','The Ask was not raised by a worker attempt; a leader answer goes through supervisor.session.answer');
+  const start=(await tx.query("SELECT payload FROM hyperfide.outbox_events WHERE organisation_id=$1 AND run_id=$2 AND aggregate_type='attempt.instructions' AND aggregate_id=$3 AND event_type='instruction.start' ORDER BY aggregate_version LIMIT 1",
+    [s.organisation_id,s.run_id,a.attempt])).rows[0];
+  if(!start)fail('INSTRUCTION_START_REQUIRED','The asking attempt has no START to deliver into');
+  const body=(start.payload as {body:Record<string,unknown>}).body,sessionId=uuid(body.agent_session_id);
+  if(a.session!==null&&a.session!==sessionId)fail('AUTH_SCOPE_DENIED','The Ask names a session other than its attempt\'s launch');
+  const session=(await tx.query('SELECT connector,native_session_id,attempt_id::text FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3',
+    [s.organisation_id,s.run_id,sessionId])).rows[0];
+  if(!session||session.attempt_id!==a.attempt||typeof session.native_session_id!=='string'||!session.native_session_id)
+    fail('INSTRUCTION_STALE_AUTHORITY','The asking session is not bound to its native session on this attempt');
+  const attempt=(await tx.query('SELECT generation::text,authority_epoch::text,sandbox_boot_generation::text FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3',
+    [s.organisation_id,s.run_id,a.attempt])).rows[0];
+  if(!attempt)fail('INSTRUCTION_STALE_AUTHORITY','Attempt does not exist in this run');
+  const requestId=answerOperationId(s,a.id,'request'),{frame,truncated}=answerFrame(String(session.connector),String(session.native_session_id),requestId,a);
+  const id=answerOperationId(s,a.id,'instruction');
+  const queued=await issue(tx,{...s,id,attempt_id:a.attempt,attempt_generation:attempt.generation,authority_epoch:attempt.authority_epoch,
+    sandbox_boot_generation:attempt.sandbox_boot_generation,kind:'STEER',body:{launch_id:uuid(body.launch_id),request_id:requestId,frame_b64:frame.toString('base64url')}}) as {replayed?:boolean};
+  return {ask_id:a.id,attempt_id:a.attempt,instruction_id:id,request_id:requestId,launch_id:body.launch_id,connector:session.connector,
+    frame_bytes:frame.length,answer_truncated:truncated,decided_by_default:a.decided_by_default,replayed:queued.replayed===true,delivery:'QUEUED_FOR_NATIVE_INPUT',grants_authority:false};
+}
 export function createComponent(context:ComponentContext):Component {
   const g=gateway(context);
-  const component={apiVersion:1 as const,capabilities:{'events.instructions.v1':Object.freeze({issue,acceptInstruction,handoff,replayInstructions,recordRunnerAcknowledgement,lookupNativeLaunch,registerRunnerConsumer,resolveRunnerConsumer,readDispatchReceipt})},actions:{
+  const component={apiVersion:1 as const,capabilities:{'events.instructions.v1':Object.freeze({issue,deliverAnswer,acceptInstruction,handoff,replayInstructions,recordRunnerAcknowledgement,lookupNativeLaunch,registerRunnerConsumer,resolveRunnerConsumer,readDispatchReceipt})},actions:{
     'instructions.describe':()=>({schema_version:1,kinds:['START','STEER','CANCEL'],identity:'stable-command-UUID',
       bounds:{body_bytes:65536,outstanding:256,runner_event_bytes:RUNNER_EVENT_BOUNDS.payload_bytes,runner_events_per_stream:RUNNER_EVENT_BOUNDS.events_per_stream},execution:'native-connector-required',full_case_status:'INCOMPLETE'}),
     'instructions.issue':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','LEADER','FEATURE_MANAGER','COORDINATOR'],async(tx,invocation)=>{await issueAuthority(tx,input,invocation);return issue(tx,input);}),
     'instructions.accept':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','COORDINATOR','DISPATCH'],tx=>acceptInstruction(tx,input)),
     'instructions.replay':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','COORDINATOR','DISPATCH'],tx=>replayInstructions(tx,input)),
+    // Answers come from the people and the control loop that hold the Ask, not from the agent that raised it.
+    'instructions.answer.deliver':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['OPERATOR','COORDINATOR'],tx=>deliverAnswer(tx,input)),
     'instructions.lookup-native':(input:unknown,context:ComponentContext)=>authorizedRun(g,context,input,['RUNNER','OPERATOR','COORDINATOR','DISPATCH'],(tx,invocation)=>lookupNativeLaunch(tx,input,invocation)),
     // Runner-facing poll/delivery, acknowledgement and event ingress are bound in api.ts.
     ...runnerApi(g)

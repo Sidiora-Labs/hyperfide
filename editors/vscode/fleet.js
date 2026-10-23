@@ -28,6 +28,9 @@
  * Plain JS, zero dependencies, no build step. */
 const fs = require('fs');
 const path = require('path');
+/* The Issues view (hyperfide-v21 6.3) rides the fleet's registration and its
+ * slot in the refresh chain, so extension.js wires one module, not two. */
+const issues = require('./issues');
 /* The join below is plain data work, and the tests drive it from a shell.
  * Importing vscode the way acp.js does keeps that possible. */
 let vscode = null;
@@ -2000,9 +2003,15 @@ function register(ctx, d) {
     for (const [name, fn] of Object.entries(cmds)) {
         ctx.subscriptions.push(vscode.commands.registerCommand(name, fn));
     }
+    const issuesApi = issues.register(ctx, d);
 
     return {
-        refresh: (specStatus) => view.refresh(specStatus),
+        refresh: async (specStatus) => {
+            await view.refresh(specStatus);
+            await issuesApi.refresh();
+        },
+        /* a drift.* (or task.status) serve event: the Issues view folds it on */
+        drift: (ev) => issuesApi.route(ev),
         /* a fleet event arrived: the next refresh redraws this view even
          * while it is hidden, so it is right the moment it is opened */
         touch: () => { view.force = true; view.patchLive(); },

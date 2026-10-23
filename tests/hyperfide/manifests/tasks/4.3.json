@@ -54,8 +54,8 @@
   "inputs": [
     {
       "path": "cg",
-      "sha256": "bcc8a52ffa7bf8c4eac06c8b728834531d1b9e97726e0bd56c1b2edcbc3a0bbe",
-      "size": 69285024
+      "sha256": "ed10731a279ed2b68a9fa3fcb1600e35470bf5850758528ff1e78123ba361da6",
+      "size": 69357064
     },
     {
       "path": "services/hyperfide/components/4.3.json",
@@ -99,8 +99,8 @@
     },
     {
       "path": "services/hyperfide/package.json",
-      "sha256": "51c686f08fdfa47386af869cd6cdb63f1d2553f99366741239ded92dfe0d4398",
-      "size": 766
+      "sha256": "d6aaa8003808b48fe83699bf01c9d0f1d02474e777fcc1220c9c7cb388049c1e",
+      "size": 820
     },
     {
       "path": "services/hyperfide/src/storage/replicas.ts",
@@ -139,8 +139,8 @@
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
-      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
-      "size": 30633
+      "sha256": "bde4b484ad883112e856fc952e682bc780ae15c9a525f27d68a0646ebe4bf2c0",
+      "size": 31174
     },
     {
       "path": "tests/hyperfide/manifest.schema.json",
@@ -149,8 +149,8 @@
     },
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
-      "size": 37538
+      "sha256": "2048625d3cc598648955d23877d97d1694f5454b9b1a31a707bf81b267b03ceb",
+      "size": 39363
     },
     {
       "path": "tests/hyperfide/registrations/4.3.json",

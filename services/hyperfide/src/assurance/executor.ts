@@ -268,7 +268,9 @@ export async function runRegisteredChecks(ctx:ComponentContext,job:Data,snapshot
     const plan={session_id:observed.runner_session_id,operation_id:operationId,argv:check.argv,cwd:'.',
      environment:{LANG:'C.UTF-8',LC_ALL:'C.UTF-8'},timeout_ms:check.timeout_ms,
      artifact_paths:check.required_artifacts,repository_id:snapshot.manifest.repository_id,reservation_id:owner.reservation_id,executable_digest:check.executable_digest,environment_digest:hash({LANG:'C.UTF-8',LC_ALL:'C.UTF-8'}),
-     source_digest:snapshot.manifest.source_manifest_digest,source_provenance_digest:snapshot.inputs.source,policy_digest:hash(snapshot.policy)};
+     source_digest:snapshot.manifest.source_manifest_digest,source_provenance_digest:snapshot.inputs.source,policy_digest:hash(snapshot.policy),
+     // v21 3.20: an assurance check is the independent full-tree verification, a recorded full-tree reason.
+     workspace:{mode:'FULL_TREE',fallback_reason:'INDEPENDENT_VERIFICATION'}};
     if(existing.rows[0]&&(existing.rows[0].plan_digest!==hash(plan)||existing.rows[0].session_id!==plan.session_id))
      fail('QUALIFICATION_IDEMPOTENCY_CONFLICT','Recorded remote check intent differs');
     const permit=await remote.prepare(client,invocation(ctx),plan);

@@ -514,3 +514,102 @@ char *driver_steer_take(Cg *cg, const char *agent, const char *via) {
     sb_free(&p);
     return body.p;
 }
+
+/* ---------------- answers (task 4.4) ---------------- */
+
+/* A file-edit tool in either dialect: Claude's Edit family, Codex's
+ * file_change item and its apply_patch tool. */
+static bool tool_edits(const char *tool) {
+    static const char *E[] = { "Edit", "Write", "MultiEdit", "NotebookEdit",
+                               "file_change", "apply_patch", NULL };
+    if (!tool) return false;
+    for (int i = 0; E[i]; i++) if (!strcmp(tool, E[i])) return true;
+    return false;
+}
+
+/* The agent raised an Ask itself: the hyperfide CLI through a shell tool,
+ * or the ask_raise MCP tool. */
+static bool tool_raises(const char *tool, const char *detail) {
+    if (tool && strstr(tool, "ask_raise")) return true;
+    return detail && strstr(detail, "ask raise") != NULL;
+}
+
+long driver_block_edits(Cg *cg, const char *subject, const char *agent,
+                        long since, bool *raised_out) {
+    sqlite3_stmt *st = NULL;
+    if (raised_out) *raised_out = false;
+    if (!subject || !agent ||
+        sqlite3_prepare_v2(cg->db,
+            "SELECT seq,payload FROM events WHERE kind='agent.tool' AND "
+            "subject=? AND node=? AND seq>? ORDER BY seq", -1, &st,
+            NULL) != SQLITE_OK)
+        return -1;
+    sqlite3_bind_text(st, 1, subject, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(st, 2, agent, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(st, 3, since);
+    long edits = 0;
+    bool raised = false;
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        const char *p = (const char *)sqlite3_column_text(st, 1);
+        char *tool = p ? json_get_string(p, "tool") : NULL;
+        char *det = p ? json_get_string(p, "detail") : NULL;
+        /* the tap reads the log in order, so tool events keep the agent's
+         * own order: only the edits after its last raise were made while
+         * it was blocked */
+        if (tool_raises(tool, det)) { raised = true; edits = 0; }
+        else if (tool_edits(tool)) edits++;
+        free(tool); free(det);
+    }
+    sqlite3_finalize(st);
+    if (raised_out) *raised_out = raised;
+    return edits;
+}
+
+char *driver_answers_take(Cg *cg, const char *attempt, const char *agent,
+                          const char *via) {
+    if (!attempt || !attempt[0]) return NULL;
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT id,kind,title,ifnull(answer,''),decided_by_default FROM asks "
+        "WHERE attempt=? AND state='answered' ORDER BY id");
+    if (!st) return NULL;
+    sqlite3_bind_text(st, 1, attempt, -1, SQLITE_TRANSIENT);
+    StrBuf body; sb_init(&body);
+    StrBuf ids; sb_init(&ids);
+    long got[64];
+    int n = 0;
+    while (n < 64 && sqlite3_step(st) == SQLITE_ROW) {
+        long id = sqlite3_column_int64(st, 0);
+        char key[64];
+        snprintf(key, sizeof key, "ask_delivered:%ld", id);
+        char *cur = cg_meta_get(cg, key);
+        bool seen = cur && cur[0];
+        free(cur);
+        if (seen) continue;
+        const char *kind = (const char *)sqlite3_column_text(st, 1);
+        const char *title = (const char *)sqlite3_column_text(st, 2);
+        const char *ans = (const char *)sqlite3_column_text(st, 3);
+        bool dflt = sqlite3_column_int(st, 4) != 0;
+        sb_printf(&body, "- Ask %ld (%s): %s\n  %s %s\n", id, kind, title,
+                  dflt ? "Nobody answered by the deadline, so its "
+                         "recommended option stands:" : "Answer:", ans);
+        sb_printf(&ids, "%s%ld", n ? "," : "", id);
+        got[n++] = id;
+    }
+    sqlite3_finalize(st);
+    if (!n) { sb_free(&body); sb_free(&ids); return NULL; }
+    for (int i = 0; i < n; i++) {
+        char key[64];
+        snprintf(key, sizeof key, "ask_delivered:%ld", got[i]);
+        cg_meta_set(cg, key, via && via[0] ? via : "prompt");
+    }
+    StrBuf p; sb_init(&p);
+    sb_puts(&p, "{\"agent\":"); sb_json_str(&p, agent ? agent : "");
+    sb_puts(&p, ",\"attempt\":"); sb_json_str(&p, attempt);
+    sb_printf(&p, ",\"asks\":[%s],\"via\":", ids.p);
+    sb_json_str(&p, via ? via : "");
+    sb_putc(&p, '}');
+    events_emit_as(cg, "agent.answer.delivered", agent, agent, p.p);
+    sb_free(&p);
+    sb_free(&ids);
+    return body.p;
+}
