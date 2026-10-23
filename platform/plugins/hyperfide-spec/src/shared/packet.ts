@@ -5,7 +5,7 @@ export interface PacketTask {
   requires?: string[];
   touches?: string[];
   verify_cmd?: string;
-  [field: string]: unknown;
+  [field: `do_${number}`]: string;
 }
 
 export function taskPacket(feature: string, id: string, task: PacketTask,
@@ -17,7 +17,7 @@ export function taskPacket(feature: string, id: string, task: PacketTask,
     `- verify_cmd: \`${task.verify_cmd ?? ""}\``];
   for (const key of Object.keys(task).filter(k => /^do_\d+$/.test(k))
     .sort((a, b) => Number(a.slice(3)) - Number(b.slice(3)))) {
-    lines.push(`- ${key}: ${task[key]}`);
+    lines.push(`- ${key}: ${task[key as `do_${number}`]}`);
   }
   const rules = STANDING_RULES.replaceAll("{feature}", feature)
     .replaceAll("{task}", id).replace("{{{{BASE_COMMIT}}}}", baseCommit);
