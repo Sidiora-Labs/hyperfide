@@ -214,7 +214,7 @@ owner = "runner"
 
 [task.0.9]
 title = "Platform CI workflow"
-status = "pending"
+status = "done"
 wave = 0
 requires = ["0.7"]
 touches = [".github/workflows/platform.yml", "scripts/platform-ci.sh", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/0_9.sh"]
