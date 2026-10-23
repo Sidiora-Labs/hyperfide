@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { InboxView } from "./app.js";
-import type { Ask } from "./src/bridge-projection.js";
+import type { Ask } from "./src/inbox-adapter.js";
 const ask = (kind: Ask["kind"], id = 1): Ask => ({
   id,
   kind,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { definePluginApp, useRpc } from "@hyperfide/plugin-sdk/app";
 import type { inboxContract } from "./src/contract.js";
-import type { Ask } from "./src/bridge-projection.js";
+import type { Ask } from "./src/inbox-adapter.js";
 import { countdown, filterAsks, kinds } from "./src/inbox.js";
 
 export function InboxView({

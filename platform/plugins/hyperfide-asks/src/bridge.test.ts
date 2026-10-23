@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AskBridge, fallbackPolicy, parsePolicy } from "./bridge.js";
-import { localGraphHost } from "./graph-host-projection.js";
+import { localGraphHost } from "./graph-host.js";
 let root: string;
 let bridge: AskBridge;
 let stop: (() => void) | undefined;
@@ -38,7 +38,8 @@ beforeEach(async () => {
 const fs = require('node:fs');
 const args = process.argv.slice(2);
 const rows = JSON.parse(fs.readFileSync('store.json', 'utf8'));
-if (args.join(' ') === 'ask list --all --json') console.log(JSON.stringify({asks:rows}));
+if (args.join(' ') === '--version') console.log('hyperfide fixture');
+else if (args.join(' ') === 'ask list --all --json') console.log(JSON.stringify({asks:rows}));
 else if (args[0] === 'ask' && args[1] === 'answer' && args.at(-1) === '--json') {
   const row = rows.find(row => String(row.id) === args[2]);
   row.answer = args[3]; row.state = 'answered';
@@ -130,7 +131,7 @@ it("rejects raw secrets and invalid options before execution", async () => {
   });
 });
 it("redacts command failures and isolates repositories", async () => {
-  const graph = localGraphHost();
+  const graph = localGraphHost(join(root, "hyperfide"));
   graph.exec = async () => {
     throw new Error("private argv");
   };
@@ -149,9 +150,12 @@ it("registers store RPCs beside the inbox and cleans up its watches", async () =
   const { createFakePluginHost } =
     await import("@hyperfide/plugin-sdk/testing");
   const { default: plugin } = await import("./server.js");
-  const host = createFakePluginHost({ pluginId: "hyperfide-asks" });
+  const host = createFakePluginHost({ pluginId: "hyperfide-asks", sdk: { plugins: { async callRpc(input) {
+    expect(input.pluginId).toBe("hyperfide-graph");
+    expect(input.method).toBe("getSettings");
+    return { enabled: true, binaryPath: join(root, "hyperfide") };
+  } } } });
   await host.hyperfide.storage.kv.set("inbox.repositories", [root]);
-  await host.hyperfide.storage.kv.set("graph.binaryPath", join(root, "hyperfide"));
   await plugin(host.hyperfide as unknown as Parameters<typeof plugin>[0]);
   try {
     const call = host.harness.behavior.callRpc;
@@ -175,7 +179,7 @@ it("registers store RPCs beside the inbox and cleans up its watches", async () =
   }
 });
 it("adapts policy data and watch ownership for the thread lifecycle", async () => {
-  const { createStoreThreadBridge } = await import("./task-3-2-projection.js");
+  const { createStoreThreadBridge } = await import("./thread-bridge.js");
   const onError = vi.fn();
   const adapter = createStoreThreadBridge(bridge, onError);
   expect(await adapter.policy(root)).toMatchObject({
