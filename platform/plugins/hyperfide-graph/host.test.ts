@@ -76,3 +76,10 @@ it("kills a command that exceeds its deadline", async () => {
   ).rejects.toThrow(/timed out/);
   await host.experimental_dispose();
 });
+it("rejects a binary whose version cannot be verified", async () => {
+  const input = await fixture("console.log('{}');");
+  await writeFile(input.binaryPath, "#!/usr/bin/env node\nprocess.exit(1);\n", { mode: 0o755 });
+  const host = experimental_createHostEntryHarness(entry);
+  await expect(host.experimental_call("run", input)).rejects.toThrow(/failed verification/);
+  await host.experimental_dispose();
+});
