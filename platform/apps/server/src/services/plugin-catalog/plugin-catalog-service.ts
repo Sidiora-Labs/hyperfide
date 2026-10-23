@@ -696,6 +696,7 @@ export function createPluginCatalogService(deps: {
     name?: string;
     attemptedAt?: number;
   }): Promise<PluginMarketplaceRefreshResult[]> {
+    if (deps.marketplaceUrl === "") return [];
     const attemptedAt = args?.attemptedAt ?? Date.now();
     if (args?.name !== undefined) {
       requireRow(args.name);
@@ -709,7 +710,7 @@ export function createPluginCatalogService(deps: {
   }
 
   function scheduleNextPeriodicRefresh(): void {
-    if (periodicStopped) return;
+    if (periodicStopped || deps.marketplaceUrl === "") return;
     cancelPeriodic?.();
     const lastAttempt = requireRow(
       CURATED_PLUGIN_MARKETPLACE_NAME,
@@ -732,7 +733,7 @@ export function createPluginCatalogService(deps: {
   }
 
   function runPeriodicRefresh(): void {
-    if (periodicStopped) return;
+    if (periodicStopped || deps.marketplaceUrl === "") return;
     cancelPeriodic = null;
     if (isServerMoveFrozen(deps.db)) {
       schedulePeriodicRefresh(SERVER_MOVE_FROZEN_RETRY_MS);
@@ -1261,7 +1262,7 @@ export function createPluginCatalogService(deps: {
     },
 
     startPeriodicRefresh() {
-      if (!periodicStopped) return;
+      if (!periodicStopped || deps.marketplaceUrl === "") return;
       periodicStopped = false;
       runPeriodicRefresh();
     },

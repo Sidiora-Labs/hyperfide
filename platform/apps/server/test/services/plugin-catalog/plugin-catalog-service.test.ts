@@ -1041,6 +1041,38 @@ describe("plugin catalog service", () => {
     });
   });
 
+  it("disables refresh and scheduling when the marketplace URL is empty", async () => {
+    const fetch = vi.fn<MarketplaceFetch>();
+    const warn = vi.fn();
+    service(); // An existing curated row must also be removed.
+    const catalog = service({ marketplaceUrl: "", fetch, warn });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      for (const frozen of [false, true]) {
+        setServerMoveFrozen(db, frozen);
+        expect(() => catalog.startPeriodicRefresh()).not.toThrow();
+        await vi.advanceTimersByTimeAsync(SERVER_MOVE_FROZEN_RETRY_MS);
+        expect(await catalog.refreshMarketplaces()).toEqual([]);
+        expect(
+          await catalog.refreshMarketplaces({
+            name: CURATED_PLUGIN_MARKETPLACE_NAME,
+          }),
+        ).toEqual([]);
+        expect(
+          getPluginMarketplace(db, CURATED_PLUGIN_MARKETPLACE_NAME),
+        ).toBeUndefined();
+        expect(vi.getTimerCount()).toBe(0);
+        catalog.stopPeriodicRefresh();
+      }
+      expect(fetch).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      catalog.stopPeriodicRefresh();
+      setServerMoveFrozen(db, false);
+      vi.useRealTimers();
+    }
+  });
+
   it("defers the periodic marketplace refresh while the server is moving", async () => {
     const fetched: string[] = [];
     const catalog = service({
@@ -1055,6 +1087,7 @@ describe("plugin catalog service", () => {
       catalog.startPeriodicRefresh();
       await vi.advanceTimersByTimeAsync(0);
       expect(fetched).toEqual([]);
+      expect(vi.getTimerCount()).toBe(1);
       expect(
         getPluginMarketplace(db, CURATED_PLUGIN_MARKETPLACE_NAME)
           ?.lastAttemptedRefreshAt,
@@ -1064,6 +1097,7 @@ describe("plugin catalog service", () => {
       await vi.advanceTimersByTimeAsync(SERVER_MOVE_FROZEN_RETRY_MS);
       await vi.waitFor(() => {
         expect(fetched).not.toEqual([]);
+        expect(vi.getTimerCount()).toBe(1);
       });
     } finally {
       catalog.stopPeriodicRefresh();
