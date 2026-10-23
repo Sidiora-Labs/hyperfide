@@ -104,7 +104,7 @@ describe("thread creation telemetry", () => {
 });
 
 describe("thread creation initiator telemetry", () => {
-  it("adds initiator to thread and message events only when the flag is on", async () => {
+  it("includes initiator in local thread and message events", async () => {
     await withTestHarness(async (harness) => {
       const capture = installTelemetryCaptureSpy(harness);
       const { host } = seedHostSession(harness.deps, {
@@ -135,21 +135,6 @@ describe("thread creation initiator telemetry", () => {
         startedOnBehalfOf: null,
       };
 
-      harness.deps.config.featureFlags = {
-        ...harness.deps.config.featureFlags,
-        initiatorTelemetry: false,
-      };
-      await createThreadFromRequest(harness.deps, request);
-      expect(capture).toHaveBeenCalledWith({
-        name: "thread_created",
-        properties: { is_child_thread: false, provider: "codex" },
-      });
-
-      capture.mockClear();
-      harness.deps.config.featureFlags = {
-        ...harness.deps.config.featureFlags,
-        initiatorTelemetry: true,
-      };
       await createThreadFromRequest(harness.deps, request);
       expect(capture).toHaveBeenCalledWith({
         name: "thread_created",
@@ -181,10 +166,6 @@ describe("thread creation initiator for CLI spawns from a thread", () => {
     async (senderMidTurn, expected) => {
       await withTestHarness(async (harness) => {
         const capture = installTelemetryCaptureSpy(harness);
-        harness.deps.config.featureFlags = {
-          ...harness.deps.config.featureFlags,
-          initiatorTelemetry: true,
-        };
         const { host } = seedHostSession(harness.deps, {
           id: `host-sender-${String(senderMidTurn)}`,
         });

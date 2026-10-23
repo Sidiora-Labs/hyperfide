@@ -67,8 +67,8 @@ export function resolveReplayProfile(
       dialect: "json-rpc",
       bridgeFamily: "codex",
       env: ({ replayCommand }) => ({
-        BB_CODEX_BRIDGE_APP_SERVER_COMMAND: replayCommand[0],
-        BB_CODEX_BRIDGE_APP_SERVER_ARGS: JSON.stringify(replayCommand.slice(1)),
+        HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND: replayCommand[0],
+        HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS: JSON.stringify(replayCommand.slice(1)),
       }),
     };
   }

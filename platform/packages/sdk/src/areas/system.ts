@@ -37,7 +37,6 @@ import type {
   SystemVersionQuery,
   SystemVersionResponse,
   SystemVoiceTranscriptionResponse,
-  RecordTelemetryEventRequest,
   TestAiServiceRequest,
   TestAiServiceResponse,
   UiPreferenceResponse,
@@ -102,10 +101,6 @@ export type SystemAiServicesResult = SystemAiServicesResponse;
 export type SystemSetAiServiceSelectionArgs = SetAiServiceSelectionRequest;
 export type SystemTestAiServiceArgs = TestAiServiceRequest;
 export type SystemTestAiServiceResult = TestAiServiceResponse;
-export type SystemRecordTelemetryEventArgs = RecordTelemetryEventRequest;
-export interface SystemRecordTelemetryEventResult {
-  ok: true;
-}
 
 export interface SystemAiServicesArgs {
   signal?: AbortSignal;
@@ -180,9 +175,6 @@ export interface SystemArea {
   installCliSkills(
     args: SystemInstallCliSkillsArgs,
   ): Promise<SystemInstallCliSkillsResult>;
-  experimental_recordTelemetryEvent(
-    args: SystemRecordTelemetryEventArgs,
-  ): Promise<SystemRecordTelemetryEventResult>;
   reloadConfig(): Promise<SystemReloadConfigResult>;
   setAiServiceSelection(
     args: SystemSetAiServiceSelectionArgs,
@@ -347,11 +339,6 @@ export function createSystemArea(args: CreateSdkAreaArgs): SystemArea {
     async installCliSkills(input) {
       return transport.readJson(
         transport.api.v1.system["cli-skills"].install.$post({ json: input }),
-      );
-    },
-    async experimental_recordTelemetryEvent(input) {
-      return transport.readJson(
-        transport.api.v1.system.telemetry.events.$post({ json: input }),
       );
     },
     async reloadConfig() {

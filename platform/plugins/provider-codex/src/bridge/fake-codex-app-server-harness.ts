@@ -13,9 +13,9 @@ export const FULL_ACCESS_SESSION_OPTIONS = {
 } as const;
 
 export function stubFakeCodexAppServer(scriptPath?: string): void {
-  vi.stubEnv("BB_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
+  vi.stubEnv("HYPERFIDE_CODEX_BRIDGE_APP_SERVER_COMMAND", process.execPath);
   vi.stubEnv(
-    "BB_CODEX_BRIDGE_APP_SERVER_ARGS",
+    "HYPERFIDE_CODEX_BRIDGE_APP_SERVER_ARGS",
     JSON.stringify(
       scriptPath === undefined
         ? [FAKE_CODEX_APP_SERVER_PATH]

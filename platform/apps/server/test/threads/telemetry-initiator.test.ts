@@ -34,13 +34,4 @@ describe("initiatorTelemetryProperty", () => {
       initiatorTelemetryProperty(defaultFeatureFlags, "automation"),
     ).toEqual({ initiator: "automation" });
   });
-
-  it("is empty when the flag is turned off", () => {
-    expect(
-      initiatorTelemetryProperty(
-        { ...defaultFeatureFlags, initiatorTelemetry: false },
-        "user",
-      ),
-    ).toEqual({});
-  });
 });

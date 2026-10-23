@@ -288,7 +288,6 @@ describe("run-dev", () => {
       baseEnv: {
         HYPERFIDE_DATA_DIR: "/Users/tester/.hyperfide",
         HYPERFIDE_DEV_APP_PORT: "5173",
-        HYPERFIDE_TELEMETRY: "true",
         NODE_ENV: "development",
         OPENAI_API_KEY: "test-key",
       },
@@ -303,7 +302,6 @@ describe("run-dev", () => {
       HYPERFIDE_SERVER_PORT: String(config.ports.serverPort),
       HYPERFIDE_SERVER_URL: config.serverUrl,
       HYPERFIDE_SKIP_ONBOARDING: "1",
-      HYPERFIDE_TELEMETRY: "false",
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });

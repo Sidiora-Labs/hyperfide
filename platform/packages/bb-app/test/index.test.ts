@@ -166,10 +166,8 @@ const startupOnlyManagedEnvCases: StartupOnlyManagedEnvCase[] = [
   { key: "HYPERFIDE_INHERITED_SKILLS_ROOTS", value: "/tmp/bb-skills" },
   { key: "HYPERFIDE_LOG_LEVEL", value: "debug" },
   { key: "HYPERFIDE_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD", value: "1" },
-  { key: "HYPERFIDE_POSTHOG_API_KEY", value: "test-posthog-key" },
   { key: "HYPERFIDE_SERVER_BIND_HOST", value: "127.0.0.1" },
   { key: "HYPERFIDE_SERVER_PORT", value: "48886" },
-  { key: "HYPERFIDE_TELEMETRY", value: "false" },
 ];
 
 const packageMetadataSchema = z.object({
@@ -1070,7 +1068,6 @@ describe("bb-app launcher", () => {
           HYPERFIDE_INHERITED_SKILLS_ROOTS: "/stored/skills",
           HYPERFIDE_SERVER_BIND_HOST: "0.0.0.0",
           HYPERFIDE_SERVER_PORT: "48886",
-          HYPERFIDE_TELEMETRY: "true",
           OPENAI_API_KEY: "stored-openai-key",
         },
       }),
@@ -1108,7 +1105,6 @@ describe("bb-app launcher", () => {
         HYPERFIDE_INHERITED_SKILLS_ROOTS: "/worktree/skills",
         HYPERFIDE_SERVER_BIND_HOST: "127.0.0.1",
         HYPERFIDE_SERVER_PORT: "47886",
-        HYPERFIDE_TELEMETRY: "false",
         OPENAI_API_KEY: "stored-openai-key",
       });
       expect(env.HYPERFIDE_DEV_APP_PORT).toBeUndefined();
@@ -1647,7 +1643,6 @@ describe("bb-app launcher", () => {
           HYPERFIDE_FF_PLACEHOLDER: "true",
           HYPERFIDE_SERVER_BIND_HOST: "0.0.0.0",
           HYPERFIDE_SERVER_PORT: "48886",
-          HYPERFIDE_TELEMETRY: "false",
         },
       }),
       "utf8",
@@ -1668,7 +1663,7 @@ describe("bb-app launcher", () => {
 
       expect(output).toContain("Reloaded running bb server config.");
       expect(output).toContain(
-        "Startup-only settings currently configured (HYPERFIDE_FF_PLACEHOLDER, HYPERFIDE_LOG_LEVEL, HYPERFIDE_SERVER_BIND_HOST, HYPERFIDE_SERVER_PORT, HYPERFIDE_TELEMETRY) apply on the next full bb-app restart.",
+        "HYPERFIDE_FF_PLACEHOLDER, HYPERFIDE_LOG_LEVEL, HYPERFIDE_SERVER_BIND_HOST, HYPERFIDE_SERVER_PORT",
       );
     } finally {
       await server.close();

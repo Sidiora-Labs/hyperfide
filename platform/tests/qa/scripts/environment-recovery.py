@@ -66,7 +66,7 @@ QA_ENV = {key: value for key, value in os.environ.items()
 QA_ENV.update(BB_SERVER_URL=f"http://127.0.0.1:{PORT}", BB_SERVER_PORT=str(PORT),
               BB_HOST_DAEMON_PORT=str(DAEMON_PORT), BB_DATA_DIR=str(DATA),
               BB_SERVER_BIND_HOST="127.0.0.1", BB_SKIP_ONBOARDING="1",
-              BB_TELEMETRY="false", BB_INHERITED_SKILLS_ROOTS=str(RUN / "skills"),
+              HYPERFIDE_INHERITED_SKILLS_ROOTS=str(RUN / "skills"),
               BB_CLI_REEXEC="1", BB_THREAD_ID="", BB_PROJECT_ID="", BB_CLI_ERROR_LOG="0")
 CLI = ["node", "--conditions=source", "--import", "tsx", "apps/cli/src/index.ts"]
 

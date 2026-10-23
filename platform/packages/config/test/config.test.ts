@@ -318,7 +318,7 @@ describe("consumer-specific config", () => {
     expect(serverConfig.HYPERFIDE_EXTERNAL_URL).toBe("");
     expect(serverConfig.featureFlags).toEqual({
       placeholder: false,
-      initiatorTelemetry: true,
+
       timelineWindowEventBudget: 1_500,
     });
   });
@@ -405,16 +405,6 @@ describe("consumer-specific config", () => {
     });
 
     expect(serverConfig.featureFlags.placeholder).toBe(true);
-  });
-
-  it("parses the initiator telemetry flag from env", () => {
-    const serverConfig = loadServerConfig({
-      env: createServerRuntimeEnv({
-        HYPERFIDE_FF_INITIATOR_TELEMETRY: "false",
-      }),
-    });
-
-    expect(serverConfig.featureFlags.initiatorTelemetry).toBe(false);
   });
 
   it("parses the timeline window event budget from env", () => {

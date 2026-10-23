@@ -40,16 +40,6 @@
     "boundary": "none"
   },
   {
-    "to": "HYPERFIDE_TELEMETRY",
-    "kind": "identifier",
-    "paths": [
-      "**"
-    ],
-    "exclude": [],
-    "from": "\u0042\u0042\u005f\u0054\u0045\u004c\u0045\u004d\u0045\u0054\u0052\u0059",
-    "boundary": "both"
-  },
-  {
     "to": "HYPERFIDE_",
     "kind": "identifier",
     "paths": [

@@ -323,10 +323,6 @@ describe("user message telemetry", () => {
   it("labels a send from the automations plugin as automation when initiator telemetry is on", async () => {
     await withTestHarness(async (harness) => {
       const capture = installTelemetryCaptureSpy(harness);
-      harness.deps.config.featureFlags = {
-        ...harness.deps.config.featureFlags,
-        initiatorTelemetry: true,
-      };
       const { environment, thread } = seedColdIdleThreadFixture({
         harness,
         value: 7,
