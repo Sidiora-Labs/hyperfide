@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "variant": "full:V-035",
+  "task": "28.3",
+  "scope": "full-case",
+  "cases": [
+    "V-035"
+  ],
+  "assertion_ids": [
+    "V-035.28.1.operations.support-state-explicit",
+    "V-035.28.1.operations.roles-and-schematics",
+    "V-035.28.1.operations.no-supervisor-builds",
+    "V-035.28.1.operations.required-areas",
+    "V-035.28.1.operations.docs-exit-not-authority",
+    "V-035.28.1.operations.actual-node-profile",
+    "V-035.28.1.operations.actual-checker-interface",
+    "V-035.28.1.operations.actual-qualifier-interface",
+    "V-035.28.1.operations.actual-authenticated-startup",
+    "V-035.28.1.operations.actual-request-approval-refused",
+    "V-035.28.1.operations.actual-cross-run-refused",
+    "V-035.28.1.operations.actual-service-restart",
+    "V-035.28.1.exit-clean",
+    "V-035.28.1.inventory-exact",
+    "V-035.28.1.cleanup-complete",
+    "V-035.28.1.artifacts-present",
+    "V-035.28.2.docs.authority.missing-inputs-held",
+    "V-035.28.2.docs.authority.stale-spec-refused",
+    "V-035.28.2.docs.authority.no-request-policy-bypass",
+    "V-035.28.2.docs.authority.connector-exit-not-closure",
+    "V-035.28.2.docs.authority.absent-checker-refused",
+    "V-035.28.2.docs.authority.requires-branded-primary",
+    "V-035.28.2.docs.authority.all-isolation-guards",
+    "V-035.28.2.docs.authority.packet-immutable",
+    "V-035.28.2.docs.authority.repeatable-write-refused",
+    "V-035.28.2.docs.authority.restart-does-not-promote-packet",
+    "V-035.28.2.docs.authority.no-handler-ddl",
+    "V-035.28.2.docs.component.real-fragment-closure",
+    "V-035.28.2.docs.persistence.actual-manual-packet",
+    "V-035.28.2.docs.check.verifier-required",
+    "V-035.28.2.docs.check.unbound-runner-refused",
+    "V-035.28.2.docs.persistence.connector-exit-job-not-closure",
+    "V-035.28.2.docs.persistence.unknown-cleanup-not-closure",
+    "V-035.28.2.docs.persistence.failed-check-refused",
+    "V-035.28.2.docs.persistence.baseline-failure-not-closure",
+    "V-035.28.2.docs.persistence.atomic-baseline-roundtrip",
+    "V-035.28.2.docs.persistence.closed-baseline-survives-restart",
+    "V-035.28.2.docs.persistence.stale-input-close-refused",
+    "V-035.28.2.docs.persistence.incremental-reload",
+    "V-035.28.2.docs.persistence.no-recursive-dispatch",
+    "V-035.28.2.docs.persistence.lost-fence-refused",
+    "V-035.28.2.docs.persistence.changed-publication-held",
+    "V-035.28.2.exit-clean",
+    "V-035.28.2.inventory-exact",
+    "V-035.28.2.cleanup-complete",
+    "V-035.28.2.artifacts-present"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-035"
+  ],
+  "timeout_seconds": 900,
+  "required_env": [
+    "DATABASE_URL"
+  ],
+  "fixtures": [
+    "services/hyperfide/dist/control.js",
+    "services/hyperfide/dist/docs/closure.js"
+  ],
+  "actions": [
+    "git.fixture.create",
+    "https.fixture.listen",
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "resources": [
+    {
+      "id": "28.1:task28.1-fixture-resources",
+      "kind": "fixture-resource-set",
+      "scope": "task28.1-disposable"
+    },
+    {
+      "id": "28.2:task28.2-fixture-resources",
+      "kind": "fixture-resource-set",
+      "scope": "task28.2-disposable"
+    }
+  ],
+  "required_artifacts": [
+    "components/28.1/docs/task-28.1-cleanup.json",
+    "components/28.1/docs/task-28.1-databases.json",
+    "components/28.2/docs/task-28.2-cleanup.json",
+    "components/28.2/docs/task-28.2-databases.json"
+  ],
+  "source_files": [
+    "docs/hyperfide/operations.md",
+    "services/hyperfide/package-lock.json",
+    "services/hyperfide/package.json",
+    "services/hyperfide/tsconfig.json",
+    "spec/hyperfide/assurance.md",
+    "spec/hyperfide/decision-models.md",
+    "spec/hyperfide/decisions.md",
+    "spec/hyperfide/design.body.md",
+    "spec/hyperfide/evidence/task-catalog.json",
+    "spec/hyperfide/evidence/traceability.json",
+    "spec/hyperfide/execution-contract.md",
+    "spec/hyperfide/identity-security.md",
+    "spec/hyperfide/implementation-plan.md",
+    "spec/hyperfide/migration.md",
+    "spec/hyperfide/providers/blaxel.md",
+    "spec/hyperfide/providers/railway.md",
+    "spec/hyperfide/repository-baseline.md",
+    "spec/hyperfide/requirements.md",
+    "spec/hyperfide/reviews/README.md",
+    "spec/hyperfide/schematics.md",
+    "spec/hyperfide/spec.kvx",
+    "spec/hyperfide/storage.md",
+    "spec/hyperfide/traceability.md",
+    "spec/hyperfide/verification.md",
+    "tests/hyperfide/cases/full/compose.py",
+    "tests/hyperfide/cases/full/register.py",
+    "tests/hyperfide/cases/tasks/28_1.py",
+    "tests/hyperfide/cases/tasks/28_2.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/registrations/28.1.json",
+    "tests/hyperfide/registrations/28.2.json",
+    "tests/hyperfide/registry.json",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "services/hyperfide/components",
+    "services/hyperfide/dist",
+    "services/hyperfide/migrations",
+    "services/hyperfide/src"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-035",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 240
+}
