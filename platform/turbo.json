@@ -11,6 +11,10 @@
       "dependsOn": ["@hyperfide/plugin-build#build", "^build", "topo"],
       "outputs": [".bundled-runtime/**"]
     },
+    "@hyperfide/hyperfide-spec#prepare:bundled": {
+      "dependsOn": ["@hyperfide/plugin-build#build", "^build", "topo"],
+      "outputs": [".bundled-runtime/**"]
+    },
     "@hyperfide/hyperfide-graph#typecheck": { "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"] },
     "@hyperfide/db#db:generate": { "cache": false },
     "@hyperfide/desktop#smoke:browser-broker": {

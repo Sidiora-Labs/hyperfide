@@ -13,18 +13,24 @@ describe("bundled plugin task graph", () => {
       const manifest = JSON.parse(
         readFileSync(resolve(root, "plugins", name, "package.json"), "utf8"),
       );
+      // Plugins that bundle themselves with esbuild, and plugins that run the plugin-build CLI from its
+      // workspace build output instead of the linked bin (their turbo task waits for that build).
+      const esbuildBuilders = ["hyperfide-qualify", "environment-slices"];
+      const cliBuilders = ["hyperfide-asks", "hyperfide-spec", "machine-railway"];
       const customBuilders = {
         "hyperfide-qualify": "node prepare.mjs",
-        "hyperfide-graph": "node --conditions=source --import tsx bundle.ts",
+        "environment-slices": "node prepare.mjs",
+        "hyperfide-graph": "node --conditions=source --import tsx build-runtime.ts",
         "hyperfide-asks": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
+        "hyperfide-spec": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
         "machine-railway": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
       };
       expect(manifest.scripts["prepare:bundled"]).toBe(
         customBuilders[name] ?? "hyperfide-plugin-build prepare-bundled",
       );
-      if (name === "hyperfide-qualify") {
+      if (esbuildBuilders.includes(name)) {
         expect(manifest.devDependencies.esbuild).toBeTruthy();
-      } else if (name === "hyperfide-asks" || name === "machine-railway") {
+      } else if (cliBuilders.includes(name)) {
         expect(turbo.tasks[`${manifest.name}#prepare:bundled`].dependsOn).toContain(
           "@hyperfide/plugin-build#build",
         );
