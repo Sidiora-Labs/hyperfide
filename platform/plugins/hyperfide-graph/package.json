@@ -16,7 +16,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsrs --noEmit",
-    "prepare:bundled": "node --conditions=source --import tsx bundle.ts"
+    "prepare:bundled": "node --conditions=source --import tsx build-runtime.ts"
   },
   "dependencies": {
     "zod": "^4.3.6",

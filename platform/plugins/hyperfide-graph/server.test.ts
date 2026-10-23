@@ -16,10 +16,7 @@ function setup(call: (input: unknown) => unknown = () => result) {
     pluginId: "hyperfide-graph",
     experimental_callHostRpc: ({ input }) => call(input),
   });
-  const api = Object.values(fake).find(
-    (value) => "hosts" in value,
-  ) as Parameters<typeof plugin>[0];
-  plugin(api);
+  plugin(fake.hyperfide);
   return fake.harness;
 }
 describe("Graph RPC and CLI", () => {

@@ -8,7 +8,6 @@ import {
   realpath,
 } from "node:fs/promises";
 import { resolve, dirname, basename } from "node:path";
-import { pluginPackageJsonSchema } from "@hyperfide/domain";
 import {
   buildPluginServer,
   buildPluginHost,
@@ -16,13 +15,6 @@ import {
   copyPluginRuntime,
   resolvePluginBuildToolchain,
 } from "@hyperfide/plugin-build";
-// Derive the transitional key from the builder's schema, never from a legacy identifier.
-export const manifestKey = Object.entries(pluginPackageJsonSchema.shape).find(
-  ([key, schema]) =>
-    !["name", "version", "engines"].includes(key) && schema.type === "object",
-)?.[0];
-if (!manifestKey)
-  throw new Error("Plugin builder manifest schema is unavailable");
 export async function bundle() {
   const root = import.meta.dirname;
   const stage = await mkdtemp(
@@ -44,14 +36,25 @@ export async function bundle() {
     const pkg = JSON.parse(
       await readFile(resolve(stage, "package.json"), "utf8"),
     );
-    const manifest = { ...pkg, [manifestKey!]: pkg.hyperfide };
+    const manifest = pkg;
     const manifestFile = resolve(stage, "package.json");
     await writeFile(manifestFile, JSON.stringify(manifest, null, 2));
     const toolchain = await resolvePluginBuildToolchain(
       resolve(root, "node_modules/.cache"),
     );
+    // Package the daemon implementation; erase its private, type-only contract import.
+    const esbuild = await import(toolchain.esbuild);
+    const statusSource = await readFile(
+      resolve(root, "../../apps/host-daemon/src/hyperfide-status.ts"), "utf8",
+    );
+    const statusModule = await esbuild.transform(statusSource, { loader: "ts", format: "esm" });
+    await writeFile(resolve(stage, "hyperfide-status.js"), statusModule.code);
+    const hostFile = resolve(stage, "host.ts");
+    await writeFile(hostFile, (await readFile(hostFile, "utf8")).replace(
+      "../../apps/host-daemon/src/hyperfide-status.js", "./hyperfide-status.js",
+    ));
     await buildPluginServer(stage, "0.0.0", toolchain);
-    // The transitional host builder treats all scoped owners as workspace internals.
+    // The host builder treats all scoped owners as workspace internals.
     // Preserve the derived plugin id while building; restore the scoped runtime manifest.
     await writeFile(
       manifestFile,
