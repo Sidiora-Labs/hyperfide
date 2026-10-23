@@ -39,8 +39,8 @@ pass after the owner-boundary repair. A regression test that never demonstrably
 failed proves the mock, not the fix. One regression at the owner boundary
 covers the bug; do not replay the same scenario at every layer it crosses.
 
-bb test rules: never mock the database; use `createMigratedConnection()` from
-`@bb/db/testing`, which copies a template built by the real migrations. Vitest projects come from
+hyperfide platform test rules: never mock the database; use `createMigratedConnection()` from
+`@hyperfide/db/testing`, which copies a template built by the real migrations. Vitest projects come from
 `sharedWorkerProjects` in `vitest.shared.ts`: Node test files share workers
 (`isolate: false`), and files that use `vi.mock`, `vi.stubGlobal`, fake timers,
 `process.env` writes, or global assignments are isolated automatically.
@@ -64,7 +64,7 @@ matches one, and audits hunt for existing tests that do.
 - expected values produced by the helper or renderer under test;
 - mocks that implement the asserted behavior, or one identical mock standing in
   for different APIs;
-- fakes that skip the real code they front, such as a hand-rolled `bb` stub or
+- fakes that skip the real code they front, such as a hand-rolled `hyperfide platform` stub or
   fake provider that never loads the real plugin entry, bridge, or extension;
 - fixtures that supply the receipt, admission, or callback ordering the owner
   should produce, or persistence asserted against a store the path never writes;
@@ -93,17 +93,6 @@ dependency-backed behavior, inspect the dependency source or types directly.
 Keep discovery read-only and report evidence before editing. For broad scope,
 run parallel discovery lanes when available:
 
-- app UI: `apps/app` (the largest suite), `apps/web`, `apps/mobile`,
-  `apps/desktop`, `packages/thread-view`, `packages/client-core`;
-- server and data: `apps/server`, `packages/db`, `packages/domain`;
-- host and runtime: `apps/host-daemon`, `packages/agent-runtime`,
-  `packages/provider-bridge-*`, `packages/host-*`;
-- plugins and SDK: `plugins/` (built-in and `provider-*` plugins),
-  `packages/plugin-sdk`, `packages/plugin-build`;
-- CLI, tooling, and end to end: `apps/cli`, `packages/sdk`, `packages/scripts`,
-  `packages/bb-app`, `tests/integration`;
-- a cross-cutting pattern sweep.
-
 Outside campaign mode, prefer a few high-confidence candidates over a large
 speculative inventory. Hunt for the [junk patterns](#junk-patterns).
 
@@ -111,7 +100,7 @@ speculative inventory. Hunt for the [junk patterns](#junk-patterns).
 
 Keep a test when it independently enforces a public API, Plugin SDK, protocol,
 config, migration, storage, security, platform, default, prompt-byte, generated
-cross-language, package, release, or architecture contract. In bb that
+cross-language, package, release, or architecture contract. In hyperfide platform that
 includes server/daemon wire shapes behind `HOST_DAEMON_PROTOCOL_VERSION`
 (`packages/host-daemon-contract/src/protocol.ts`) and Plugin Guide surfaces and
 anchors (`plugins/plugin-api-docs/src/surfaces.ts`, `anatomy-manifest.json`).
@@ -128,7 +117,7 @@ Also keep:
 Static or slow is not a deletion reason. A test that resembles implementation
 may still be the independent contract; prove otherwise before removing it.
 
-An unprefixed export of a published `@get-bb/plugin-sdk` subpath is public API,
+An unprefixed export of a published `@hyperfide/plugin-sdk` subpath is public API,
 not a test-only seam, even with zero in-repo consumers. Removing one needs an
 entry under "Scheduled removals (next major)" in `docs/api_to_audit.md`.
 
@@ -173,22 +162,22 @@ it overwrites them. Commit a WIP first, then compare through
 
 1. Run the smallest owner and sibling tests through Turbo. Arguments after `--`
    go to `vitest run`; paths are relative to the package directory. Plugin
-   packages are named `bb-plugin-<id>`. Pipe slow output to a file:
-   `pnpm exec turbo run test --filter=@bb/server -- test/<file>.test.ts -t "<name>" > /tmp/test.log 2>&1`.
+   packages are named `hyperfide-plugin-<id>`. Pipe slow output to a file:
+   `pnpm exec turbo run test --filter=@hyperfide/server -- test/<file>.test.ts -t "<name>" > /tmp/test.log 2>&1`.
 2. `turbo run test` skips some suites; when a touched test or its owner
    belongs to one, run it too (list them with
-   `rg -n '^\s*"(@bb/[a-z-]+#)?(test|smoke)[a-z:_-]*"\s*:' turbo.json`).
+   `rg -n '^\s*"(@hyperfide/[a-z-]+#)?(test|smoke)[a-z:_-]*"\s*:' turbo.json`).
    Suites that need credentials must still pass setup and discovery; see
    `docs/debugging-and-qa.md` for corpus and parity inputs.
    - `packages/agent-runtime/src/integration*.test.ts`:
-     `pnpm exec turbo run test:integration --filter=@bb/agent-runtime`;
+     `pnpm exec turbo run test:integration --filter=@hyperfide/agent-runtime`;
    - `tests/integration/real/`:
-     `pnpm exec turbo run test:integration --filter=@bb/integration-tests`;
-   - `apps/server/test/provider-corpus/` (skips without `BB_PROVIDER_CORPUS_DIR`):
-     `pnpm exec turbo run test:provider-corpus --filter=@bb/server`;
+     `pnpm exec turbo run test:integration --filter=@hyperfide/integration-tests`;
+   - `apps/server/test/provider-corpus/` (skips without `HYPERFIDE_PROVIDER_CORPUS_DIR`):
+     `pnpm exec turbo run test:provider-corpus --filter=@hyperfide/server`;
    - provider bridges: `pnpm parity --old <before-worktree> --new .`;
-   - packaging: `pnpm exec turbo run smoke:tarball --filter=bb-app`, and the
-     `@bb/desktop` `smoke:*` tasks.
+   - packaging: `pnpm exec turbo run smoke:tarball --filter=hyperfide-app`, and the
+     `@hyperfide/desktop` `smoke:*` tasks.
 3. For removed source greps or plan assertions, run the executable script or
    dry-run that owns the real contract.
 4. Run `pnpm exec oxfmt <changed-paths>`, then

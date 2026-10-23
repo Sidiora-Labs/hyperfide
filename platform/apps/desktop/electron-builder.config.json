@@ -1,13 +1,16 @@
 {
-  "appId": "dev.bb.desktop",
-  "productName": "bb",
+  "appId": "dev.hyperfide.desktop",
+  "productName": "Hyperfide",
   "artifactName": "${productName}-${version}-${arch}.${ext}",
   "toolsets": {
     "appimage": "1.0.3"
   },
   "afterPack": "scripts/prepare-native-modules.cjs",
   "asar": true,
-  "asarUnpack": ["dist/bb-app-bridge.mjs", "node_modules/**"],
+  "asarUnpack": [
+    "dist/bb-app-bridge.mjs",
+    "node_modules/**"
+  ],
   "directories": {
     "buildResources": "assets",
     "output": "release"
@@ -19,12 +22,16 @@
     {
       "from": "node_modules/bb-app/server/dist/app-scaffold-template",
       "to": "node_modules/bb-app/server/dist/app-scaffold-template",
-      "filter": ["**/*"]
+      "filter": [
+        "**/*"
+      ]
     },
     {
       "from": "node_modules/bb-app/node_modules/npm/node_modules",
       "to": "node_modules/npm/node_modules",
-      "filter": ["**/*"]
+      "filter": [
+        "**/*"
+      ]
     },
     "package.json",
     "!**/*.map"
@@ -33,13 +40,13 @@
     {
       "channel": "latest",
       "provider": "generic",
-      "url": "https://github.com/get-bb/bb/releases/download/desktop-latest/"
+      "url": "https://github.com/Sidiora-Labs/hyperfide/releases/download/desktop-latest/"
     }
   ],
   "mac": {
     "category": "public.app-category.developer-tools",
     "extendInfo": {
-      "NSMicrophoneUsageDescription": "bb uses your microphone for voice input and sites you allow in the in-app browser."
+      "NSMicrophoneUsageDescription": "Hyperfide uses your microphone for voice input and sites you allow in the in-app browser."
     },
     "minimumSystemVersion": "13.0.0",
     "entitlements": "build/entitlements.mac.plist",
@@ -52,23 +59,41 @@
     "target": [
       {
         "target": "dmg",
-        "arch": ["arm64"]
+        "arch": [
+          "arm64"
+        ]
       },
       {
         "target": "zip",
-        "arch": ["arm64"]
+        "arch": [
+          "arm64"
+        ]
       }
     ]
   },
   "linux": {
     "category": "Development",
-    "executableName": "bb",
+    "executableName": "hyperfide",
     "icon": "assets/icon.png",
-    "target": [{ "target": "AppImage", "arch": ["x64"] }]
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
   },
   "win": {
     "icon": "assets/icon.png",
-    "target": [{ "target": "nsis", "arch": ["x64"] }]
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
   },
   "nsis": {
     "oneClick": true,

@@ -136,18 +136,18 @@ cache. Runner provisioning and fleet capacity remain external limits.
 Jobs install only the dependency closures their selected work needs, with the
 same frozen lockfile, test commands, and sharding:
 
-- Linux and Windows app shards install the root tools, `@bb/app` and its
-  transitive dependencies, and `@bb/db` with its dependencies so
+- Linux and Windows app shards install the root tools, `@hyperfide/app` and its
+  transitive dependencies, and `@hyperfide/db` with its dependencies so
   `ensure-native-modules` can prepare `better-sqlite3`.
 - Windows server shards install the server, host daemon, app, and plugin
   closures; see [windows-ci.md](windows-ci.md#full-test-suite).
 - Demo-server-only Linux test jobs use a scoped install and omit Electron
   runtime setup.
-- Test matrices carry whether their selected packages include `@bb/mobile`.
+- Test matrices carry whether their selected packages include `@hyperfide/mobile`.
   Other broad test installs omit mobile unless it is tested, so full runs and
   mobile changes keep mobile coverage.
 - Package smokes, Node compatibility smokes, and the Windows app and desktop
-  packaging smokes omit `@bb/mobile`, which is outside the desktop and launcher
+  packaging smokes omit `@hyperfide/mobile`, which is outside the desktop and launcher
   dependency chain. Desktop and native dependencies and every Turbo build and
   smoke dependency still run.
 
@@ -160,7 +160,7 @@ outside their declared closures.
 
 Server tests split by file into two Vitest shards and app tests into eight. App
 shards keep app-only PR latency low and preserve cache reuse between PRs and
-main. Shard selection uses the `BB_CI_TEST_SHARD` variable, which Turbo hashes
+main. Shard selection uses the `HYPERFIDE_CI_TEST_SHARD` variable, which Turbo hashes
 only for those test tasks, so one shard's result cannot satisfy another; see
 [windows-ci.md](windows-ci.md#full-test-suite) for why it is not passed after
 Turbo's `--`.
@@ -169,14 +169,14 @@ Package tests split by package, because some packages use Bun or Node test
 runners that do not accept Vitest's shard arguments:
 
 - `packages-host`: host daemon, CLI, agent runtime, provider parity, and database.
-- `packages-build`: templates, bb-app, demo server, desktop, and plugin build.
+- `packages-build`: templates, hyperfide-app, demo server, desktop, and plugin build.
 - `packages-other`: every remaining non-plugin package outside app, server, and
   integration. Negative filters automatically include new packages.
 
-The `plugins` group runs `bb-plugin-*`. All Linux groups run four concurrent
+The `plugins` group runs `hyperfide-plugin-*`. All Linux groups run four concurrent
 Turbo tasks and cap Vitest at two workers with `VITEST_MAX_WORKERS`, which
 Turbo hashes for test tasks. Electron's runtime libraries and Xvfb are set up
-only when the selected tests include `@bb/desktop`. Electron setup queries
+only when the selected tests include `@hyperfide/desktop`. Electron setup queries
 dpkg first and runs apt only for missing packages, then starts Electron to
 verify the runtime.
 
@@ -199,7 +199,7 @@ finishes with the slowest Linux job rather than after it. Windows setup takes
 roughly twice as long as Linux, and test files run about half as fast.
 
 Windows server and other-package shards build SDK declarations
-(`@get-bb/plugin-sdk#build:types`) as a prerequisite. The shared declaration
+(`@hyperfide/plugin-sdk#build:types`) as a prerequisite. The shared declaration
 emitter in `packages/plugin-sdk/scripts/shared-declaration-emit.mjs` resolves
 TypeScript's forward-slash filenames and the workspace prefix to the same form
 before selecting roots; a separator mismatch selects no roots and rebuilds the
@@ -324,7 +324,7 @@ alive after cleanup.
 ## Per-file test setup
 
 Server tests that need a database copy a migrated template instead of running
-every migration. `@bb/db/testing` builds the template once per run in the
+every migration. `@hyperfide/db/testing` builds the template once per run in the
 server's Vitest `globalSetup`, and `createMigratedConnection()` copies it. A
 server test rejects new `createConnection(":memory:")` setups. Only the template
 build, on-disk databases, and migration tests run migrations directly.
@@ -344,13 +344,13 @@ DOM tests run isolated.
 
 ## React Compiler cache measurements
 
-App-building jobs preserve `.git/bb-cache/react-compiler` independently of
+App-building jobs preserve `.git/hyperfide-cache/react-compiler` independently of
 Turbo task outputs. A changed app build can reuse content-addressed transforms
 for unchanged modules. The compiler validates source, configuration, toolchain,
 and environment identity and rebuilds corrupt entries. Cache restoration is
 optional and bounded to one minute.
 
-[Benchmark run 39842305719](https://github.com/get-bb/bb/actions/runs/39842305719)
+[Benchmark run 39842305719](https://github.com/Sidiora-Labs/hyperfide/actions/runs/39842305719)
 used the same source, Node 22, pnpm 9.15, and four-vCPU runners for three
 cold/warm pairs per platform, alternating order. Prerequisites were prepared
 once; every timed app build ran through Turbo with `--only --force` to prevent
@@ -378,7 +378,7 @@ unavailable. Planning still determines affected checks, checks source integrity,
 and runs the provider-literal ratchet. The install command, frozen-lockfile
 requirement, and dependency-change detector are unchanged.
 
-[Benchmark run 39844281314](https://github.com/get-bb/bb/actions/runs/39844281314)
+[Benchmark run 39844281314](https://github.com/Sidiora-Labs/hyperfide/actions/runs/39844281314)
 ran three copies of each arrangement against identical source on four-vCPU
 Linux runners:
 
@@ -397,7 +397,7 @@ already skip dependency validation do not gain this time.
 
 ## Rejected resolver filter experiment
 
-[Benchmark run 39843306967](https://github.com/get-bb/bb/actions/runs/39843306967)
+[Benchmark run 39843306967](https://github.com/Sidiora-Labs/hyperfide/actions/runs/39843306967)
 compared six alternating before/after pairs per platform with both compiler
 cache namespaces warmed and every app build forced through Turbo. All output
 files matched. Median paired improvement was only 0.17 seconds on Linux and
@@ -407,7 +407,7 @@ small and variable.
 
 ## Rejected declaration-bundler cache experiment
 
-[Benchmark run 39845431047](https://github.com/get-bb/bb/actions/runs/39845431047)
+[Benchmark run 39845431047](https://github.com/Sidiora-Labs/hyperfide/actions/runs/39845431047)
 tried passing Rollup's module cache between the SDK's declaration bundles. Four
 Linux before/after pairs saved a median 4.4 seconds, with one regression. The
 first two Windows pairs both regressed by about eight seconds (48 to 56 seconds
@@ -418,7 +418,7 @@ passed locally. Correctness alone did not justify retaining this optimization.
 
 ## Verification of retained changes
 
-[Full CI run 39844633490](https://github.com/get-bb/bb/actions/runs/39844633490)
+[Full CI run 39844633490](https://github.com/Sidiora-Labs/hyperfide/actions/runs/39844633490)
 passed all 45 jobs with compiler caching and parallel validation retained, and
 no shard or coverage changes. Workflow creation to last completion was six
 minutes. This is an integration result, not a controlled end-to-end speedup

@@ -1,11 +1,11 @@
 # Docs
 
-Docs is a filesystem-first document library for bb. Documents remain ordinary
+Docs is a filesystem-first document library for hyperfide platform. Documents remain ordinary
 Markdown, HTML, and asset files while the plugin adds nested navigation,
 multi-host vaults, rich editing, images, sandboxed HTML, automation, chat
 mentions, and links that open inside a thread.
 
-The package and installed plugin ID remain `bb-plugin-simple-notes` and
+The package and installed plugin ID remain `hyperfide-plugin-simple-notes` and
 `simple-notes` for compatibility with existing settings and stored vaults. The
 user-facing product name, catalog listing, panel route, CLI, mention
 provider, and directive are all Docs.
@@ -19,7 +19,7 @@ provider, and directive are all Docs.
   Markdown documents, and HTML pages. It can be collapsed, and search stays
   hidden until requested.
 - **Safe host-routed operations:** all list/read/write/mkdir/move/remove calls
-  go through `bb.sdk.files` with an explicit vault root. Saves retain SHA-256
+  go through `hyperfide platform.sdk.files` with an explicit vault root. Saves retain SHA-256
   compare-and-swap conflict handling. Local vaults use native filesystem
   watching for immediate UI refreshes; remote or unwatchable vaults fall back
   to polling.
@@ -81,32 +81,32 @@ provider, and directive are all Docs.
 The plugin ships `skills/docs/SKILL.md`. Installed agents are taught to use the
 Docs CLI, understand that a Docs `@`-mention is user-provided document context,
 store plans and HTML artifacts in a vault when asked, and return `::docs` links
-that the user can open in bb.
+that the user can open in hyperfide platform.
 
 ## CLI
 
-The plugin registers the agent-discoverable `bb docs` command:
+The plugin registers the agent-discoverable `hyperfide platform docs` command:
 
 ```sh
-bb docs vaults --json
-bb docs vault-add Work /home/me/work-docs host_workstation
-bb docs list --vault personal --json
-bb docs read projects/plan.md --vault personal
-bb docs pull projects/plan.md --vault personal --into ./docs-work
+hyperfide platform docs vaults --json
+hyperfide platform docs vault-add Work /home/me/work-docs host_workstation
+hyperfide platform docs list --vault personal --json
+hyperfide platform docs read projects/plan.md --vault personal
+hyperfide platform docs pull projects/plan.md --vault personal --into ./docs-work
 # Edit ./docs-work/projects/plan.md with an ordinary editor or agent file tool.
-bb docs status ./docs-work --diff
-bb docs push ./docs-work
+hyperfide platform docs status ./docs-work --diff
+hyperfide platform docs push ./docs-work
 
-bb docs pull projects --folder --vault personal --into ./docs-work
-bb docs pull --all --vault personal --into ./docs-work
-bb docs push ./docs-work --dry-run --diff
-bb docs push ./docs-work --delete
+hyperfide platform docs pull projects --folder --vault personal --into ./docs-work
+hyperfide platform docs pull --all --vault personal --into ./docs-work
+hyperfide platform docs push ./docs-work --dry-run --diff
+hyperfide platform docs push ./docs-work --delete
 ```
 
 ### Sync workspace contract
 
 - **Layout and identity:** the destination keeps exact vault-relative paths
-  beneath one workspace root and stores a versioned `.bb-docs-state.json`
+  beneath one workspace root and stores a versioned `.hyperfide-docs-state.json`
   manifest at that root. Manifest entries map `vault id + remote path` to a
   local path and retain the pulled SHA-256, byte size, content encoding, MIME
   type, and modification time. A single-file pull still keeps its vault path,
@@ -163,8 +163,8 @@ success/no-op, 1 validation or operational/partial failure, 2 usage error, 3
 stale/conflict, and 4 `status` found changes or ignored deletions. Options are
 command-specific; an unknown command, an option not shown in a command's usage,
 and a stray argument are all rejected before any mutation, with the nearest
-declared name suggested. `bb docs --help` lists the commands and
-`bb docs <command> --help` prints that command's arguments, options, and rules.
+declared name suggested. `hyperfide platform docs --help` lists the commands and
+`hyperfide platform docs <command> --help` prints that command's arguments, options, and rules.
 
 The legacy `write`, `mkdir`, `move`, and `remove` CLI commands remain for one
 backward-compatibility window and emit a deprecation warning. New agent
@@ -174,8 +174,8 @@ its existing compare-and-swap behavior.
 ## Token-authenticated HTTP API
 
 The stable internal plugin ID remains `simple-notes`. Generate or inspect its
-token with `bb plugin token simple-notes`, then send it in
-`x-bb-plugin-token` to these JSON endpoints:
+token with `hyperfide platform plugin token simple-notes`, then send it in
+`x-hyperfide-plugin-token` to these JSON endpoints:
 
 ```text
 POST /api/v1/plugins/simple-notes/http/list
@@ -205,9 +205,9 @@ state client-side.
 ## Install
 
 ```sh
-bb plugin install simple-notes
-bb plugin config simple-notes set directory "~/Notes"
-bb plugin reload simple-notes
+hyperfide platform plugin install simple-notes
+hyperfide platform plugin config simple-notes set directory "~/Notes"
+hyperfide platform plugin reload simple-notes
 ```
 
 ## Inline editing and proposed revisions
@@ -216,9 +216,9 @@ Markdown document cards support inline editing and opening the same file in a
 Docs tab. An agent can propose a complete revision without modifying the file:
 
 ```sh
-bb docs read letter.md --vault personal --json
-bb docs proposal letter.md --vault personal --json
-bb docs propose letter.md --vault personal --file ./candidate.md --expected-sha256 HASH --version none --json
+hyperfide platform docs read letter.md --vault personal --json
+hyperfide platform docs proposal letter.md --vault personal --json
+hyperfide platform docs propose letter.md --vault personal --file ./candidate.md --expected-sha256 HASH --version none --json
 ```
 
 Use the returned proposal version instead of `none` when replacing a previous
@@ -227,8 +227,8 @@ overrides that host. The expected hash must come from the document used to
 write the candidate. Every proposal mutation checks its version, including
 replacement after rejection, so a delayed response cannot restore stale work.
 
-`bb docs proposal-update letter.md --version N --content MARKDOWN` updates only
-the pending candidate. `bb docs accept|reject|undo|redo letter.md --version N`
+`hyperfide platform docs proposal-update letter.md --version N --content MARKDOWN` updates only
+the pending candidate. `hyperfide platform docs accept|reject|undo|redo letter.md --version N`
 performs the same actions as the card. All accept `--vault` and `--json`.
 Accept saves only when the original file hash still matches. Reject leaves the
 file alone. Undo after rejection restores the pending proposal; undo after

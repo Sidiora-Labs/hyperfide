@@ -5,7 +5,7 @@ description: Create a repo-local verification skill and exhaustive feature map f
 
 # Create a verification skill
 
-Generate `.bb/skills/verify-<app>/SKILL.md` for an agent arriving cold in the
+Generate `.hyperfide/skills/verify-<app>/SKILL.md` for an agent arriving cold in the
 repository. Adapt the recipe to the actual app and prove it by running it.
 
 ## Discover
@@ -37,7 +37,7 @@ do not change product behavior merely to make verification pass.
 
 ## Generate
 
-Write the skill with valid BB frontmatter and these sections:
+Write the skill with valid HYPERFIDE frontmatter and these sections:
 
 - **Launch:** exact commands, runtime, readiness check, target discovery, and
   isolation. Derive ports and IDs from real output instead of guessed values.

@@ -1,17 +1,17 @@
 # Debugging And QA
 
-- `pnpm dev` and `pnpm start:worktree` save the absolute source checkout path in `<data dir>/bb-dev-instance.json`. Storage reports use this record to identify development data even after the checkout is removed. Older instances can be identified from `bb-app-runtime.json` or hash-verified path matches; unknown source paths are reported explicitly.
+- `pnpm dev` and `pnpm start:worktree` save the absolute source checkout path in `<data dir>/hyperfide-dev-instance.json`. Storage reports use this record to identify development data even after the checkout is removed. Older instances can be identified from `hyperfide-app-runtime.json` or hash-verified path matches; unknown source paths are reported explicitly.
 - `pnpm dev` prints the active frontend URL, server API URL, host daemon port, data dir, and logs dir. Do not assume fixed dev ports.
-- `pnpm mobile:apk:dev` builds a standalone ARM64 Android APK at `apps/mobile/build-output/bb-dev.apk`, named **bb dev** with an orange icon and separate package/data from the installed app. Append `-- x86_64` for an Intel emulator. See [the mobile build instructions](../apps/mobile/README.md#android-local-apk-and-verification) for prerequisites, installation, and per-thread delivery.
+- `pnpm mobile:apk:dev` builds a standalone ARM64 Android APK at `apps/mobile/build-output/hyperfide-dev.apk`, named **hyperfide platform dev** with an orange icon and separate package/data from the installed app. Append `-- x86_64` for an Intel emulator. See [the mobile build instructions](../apps/mobile/README.md#android-local-apk-and-verification) for prerequisites, installation, and per-thread delivery.
 - `pnpm start:worktree` builds production artifacts and serves the optimized app bundle from the checkout-specific dev server URL, while keeping the same dev data directory and deterministic server/host-daemon ports. It has no Vite dev server or hot reload.
 - `pnpm start:worktree-remote` is the trusted-network variant of `pnpm start:worktree`; it binds that server to all IPv4 interfaces.
-- `pnpm desktop` packages the Electron app and launches it against the installed data directory, ports and Electron user-data directory, the same targets a released build uses. It shares the single-instance lock with an installed bb: quit that first, or the launch focuses it instead of starting your build.
-- `pnpm desktop:worktree` packages and launches it against this checkout's data directory and deterministic ports, the same instance `pnpm start:worktree` uses, with Electron's user-data directory at `$BB_DATA_DIR/desktop` (override with `BB_DESKTOP_USER_DATA_DIR`). Like `pnpm start:worktree`, it skips first-run setup unless `BB_SKIP_ONBOARDING=0`. It refuses to start when the server or host-daemon port is busy, so a stale server cannot answer for your build. It shows the dev Dock icon while running (`BB_DESKTOP_DEV_ICON=1`). Set `BB_DESKTOP_OPEN_DEVTOOLS=1` to open DevTools. Both desktop commands always repackage first; machines without a Developer ID identity produce unsigned artifacts.
-- The packaged app defaults to server/frontend `:38886`, host daemon `:38887`, data dir `~/.bb/`, and logs under `~/.bb/logs/`.
-- `bb-app` (including `pnpm start`), `bb-server`, and `bb-host-daemon` capture service stdout and stderr in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts; a file over 10 MB is renamed to `<name>-stdio.1.log` (replacing the previous one) when its service starts. They hold early startup errors, crashes, and other output that bypasses the logger. Application log lines go only to the rotating `<component>.N.log` files, which keep the five newest per component; the logger skips its pretty console copy when stdout is a plain file, so `pnpm dev` terminals still show it. Service output is not forwarded to the launcher's terminal.
-- Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/bb.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
+- `pnpm desktop` packages the Electron app and launches it against the installed data directory, ports and Electron user-data directory, the same targets a released build uses. It shares the single-instance lock with an installed hyperfide platform: quit that first, or the launch focuses it instead of starting your build.
+- `pnpm desktop:worktree` packages and launches it against this checkout's data directory and deterministic ports, the same instance `pnpm start:worktree` uses, with Electron's user-data directory at `$HYPERFIDE_DATA_DIR/desktop` (override with `HYPERFIDE_DESKTOP_USER_DATA_DIR`). Like `pnpm start:worktree`, it skips first-run setup unless `HYPERFIDE_SKIP_ONBOARDING=0`. It refuses to start when the server or host-daemon port is busy, so a stale server cannot answer for your build. It shows the dev Dock icon while running (`HYPERFIDE_DESKTOP_DEV_ICON=1`). Set `HYPERFIDE_DESKTOP_OPEN_DEVTOOLS=1` to open DevTools. Both desktop commands always repackage first; machines without a Developer ID identity produce unsigned artifacts.
+- The packaged app defaults to server/frontend `:38886`, host daemon `:38887`, data dir `~/.hyperfide/`, and logs under `~/.hyperfide/logs/`.
+- `hyperfide-app` (including `pnpm start`), `hyperfide-server`, and `hyperfide-host-daemon` capture service stdout and stderr in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts; a file over 10 MB is renamed to `<name>-stdio.1.log` (replacing the previous one) when its service starts. They hold early startup errors, crashes, and other output that bypasses the logger. Application log lines go only to the rotating `<component>.N.log` files, which keep the five newest per component; the logger skips its pretty console copy when stdout is a plain file, so `pnpm dev` terminals still show it. Service output is not forwarded to the launcher's terminal.
+- Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/hyperfide platform.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
 - API routes are under `/api/v1/`, for example `GET /api/v1/threads/:id`. Use `curl` against the server API to isolate frontend issues from server behavior.
-- Use the CLI to inspect state: `pnpm bb thread show <id>`, `pnpm bb project list`, `pnpm bb status`. From source, use `pnpm bb:dev`.
+- Use the CLI to inspect state: `pnpm hyperfide platform thread show <id>`, `pnpm hyperfide platform project list`, `pnpm hyperfide platform status`. From source, use `pnpm hyperfide platform:dev`.
 
 The desktop main process also writes rotating `logs/desktop.log` immediately,
 including updater, Connect, and startup errors. View → Local Logs is available
@@ -20,7 +20,7 @@ local desktop, server, and daemon files in the selected data directory.
 
 ## Desktop Browser Tab Recovery
 
-When the desktop app connects to a BB Connect server, it installs and renews
+When the desktop app connects to a HYPERFIDE Connect server, it installs and renews
 the Connect desktop session in both the app and embedded browser cookie stores.
 This also authenticates shared-port links under the same Connect domain. The
 browser keeps its separate profile; unrelated site cookies are not copied.
@@ -91,8 +91,8 @@ Open in browser accepts only HTTP(S) URLs. The panel's tab close control also
 works in this state. Selecting another saved tab rechecks its owning window;
 Try again also rechecks a window previously reported as live after it closes.
 Inspect the persisted owner with
-`bb thread tabs show <threadId> --json` or `sdk.threads.tabs.get`, and compare it
-with `bb browser instances --host <hostId> --json` or
+`hyperfide platform thread tabs show <threadId> --json` or `sdk.threads.tabs.get`, and compare it
+with `hyperfide platform browser instances --host <hostId> --json` or
 `sdk.experimental_desktopBrowsers.listInstances`. Recovery uses the existing
 native snapshot and browser APIs; no daemon wire fields change.
 
@@ -113,58 +113,9 @@ embedded browser session is not implemented by this cache.
 
 ## Log Fields
 
-- `Slow DB query` is logged when a prepared statement, `exec` batch, or
-  complete transaction takes at least 100 ms. `durationMs` is elapsed time and
-  `cpuDurationMs` is CPU time on the calling thread; a large gap means waiting
-  or descheduling (filesystem I/O, lock waits, or scheduler contention), not
-  necessarily slow SQL. `operation: "transaction"` covers the callback, commit,
-  and rollback, and its SQL label is the transaction mode; statements inside it
-  may log separately, so do not add their durations. Commits can include
-  SQLite's automatic WAL checkpoint. SQL string literals are redacted and
-  parameter values are never logged.
-- Connect's `tunnel closed` warnings include the last transport error's message
-  and code, `connectedDurationMs`, and `lastHeartbeatAckAgeMs`. A null duration
-  means the opening handshake never completed; a null acknowledgement age means
-  no heartbeat acknowledgement arrived on that connection. They also carry the
-  Cloudflare `colo` and `ray`, and `traffic`: open HTTP and WebSocket streams,
-  bytes each way, how long each direction had been quiet, and bytes still
-  buffered. `tunnel connected` and `handshake timed out` lines carry dial
-  timings in milliseconds since dialing: `lookupMs`, `connectMs`, `tlsMs`, and
-  `upgradeMs` (the gate's 101). A timed-out dial with `tlsMs` but no
-  `upgradeMs` reached Cloudflare and was waiting on the gate. They appear in the
-  server logs and `<dataDir>/plugins/connect/logs/plugin.log`.
-
-## bb Connect Gate Events
-
-The gate answers every proxied request within the response-head timeout (30 s,
-90 s for voice transcription) from when the Worker receives it; a miss gets a
-504 naming the stuck stage: `routing`, `tunnel-object`, `request-body`,
-`response-head`, or `finishing`. Workers Logs keeps only about 1% of gate
-requests, so the gate also writes these to the Analytics Engine dataset
-`bb_connect_gate_events` (`bb_connect_gate_events_staging` on staging):
-
-- `blob1` `stall` (a 504) or `slow` (a tunnel dial unanswered after 3 s);
-  `blob2` stage, `blob3` method, `blob4` host, `blob5` path; `double1` elapsed
-  ms; `double2` tunnel-object attempts (above 1 means the object restarted and
-  the dial was replayed).
-- For a stall that reached the tunnel object, `blob6` is the tunnel state
-  (`connected`, `disconnected`, or `unknown` when the object did not answer
-  within 2 s) and `double3` the age in ms of the last answered heartbeat, or
-  -1. A bb heartbeats every 20 s, so an age of minutes means a dead tunnel the
-  object still holds; a recent age means the bb's server did not answer.
-  Routing stalls and `slow` events leave `blob6` empty and `double3` at -1.
-- `blob1` `tunnel-gap` is written when a server's tunnel opens after a period
-  with none: `blob2` is how the previous tunnel ended (`closed`, `lost`, or
-  `unreported`), `blob3` is `replaced-live` when that tunnel had replaced a
-  working one, `blob4` host, `double1` ms without a tunnel, and `double2` the
-  previous tunnel's lifetime (-1 when unreported). `replaced-live` with a short
-  or unreported previous tunnel is a bb whose abandoned dial replaced its
-  working tunnel; `double1 + double2` near 300,000 means it then waited out the
-  five-minute takeover backoff.
-
 Query with the Analytics Engine SQL API and an Account Analytics Read token,
 for example `SELECT timestamp, blob1, blob2, blob5, double2 FROM
-bb_connect_gate_events WHERE blob4 = '<handle>.getbb.app' ORDER BY timestamp
+hyperfide_connect_gate_events WHERE blob4 = '<handle>.hyperfide.app' ORDER BY timestamp
 DESC`.
 
 ## Reproducing Test Order Failures
@@ -174,7 +125,7 @@ runs that execute; unchanged Turbo tasks can still reuse cached results.
 Reproduce a failing package with its logged seed:
 
 ```bash
-pnpm exec turbo run test --filter=@bb/app -- --sequence.shuffle --sequence.seed=4721 --maxWorkers=2
+pnpm exec turbo run test --filter=@hyperfide/app -- --sequence.shuffle --sequence.seed=4721 --maxWorkers=2
 ```
 
 For a repository-wide order audit, omit the filter and use `--concurrency=4`
@@ -190,7 +141,7 @@ process objects or cancel resources that a test leaves running.
 ## ACP Steer Cancellation Failures
 
 ACP steering cancels the active prompt before submitting the follow-up. If that
-prompt returns an error during cancellation, BB marks the session for rebuilding
+prompt returns an error during cancellation, HYPERFIDE marks the session for rebuilding
 before the next turn. The replacement process attempts `session/load`; providers
 without working session restoration start fresh and report the loss of in-agent
 history. The failed turn stays failed, and an unsent steer is not acknowledged as
@@ -200,8 +151,8 @@ Older Hermes adapters can throw `NoneType.startswith` during cancellation and
 leave their internal session marked running. Update Hermes to include
 [the null-response fix](https://github.com/NousResearch/hermes-agent/commit/8f0322da5b82029f3bc4d16fbaa2c986299abfc6)
 and [the running-state cleanup](https://github.com/NousResearch/hermes-agent/commit/bccd45618c16b605822dd179cd0399abdecaf698),
-then restart its retained process with `bb thread stop <thread-id>` before sending
-a new message. BB's recovery prevents reuse after a cancellation error; it does
+then restart its retained process with `hyperfide platform thread stop <thread-id>` before sending
+a new message. HYPERFIDE's recovery prevents reuse after a cancellation error; it does
 not repair the older adapter's failing turn.
 
 ## Machine Authentication Cache
@@ -264,7 +215,7 @@ checkpoint progress. Resource sampling is also disabled with the live gate.
 
 Native provider questions and Ask User Question plugin forms save partial
 selections, free text, and the current question in browser-local storage under
-`bb.question-draft.v1:<threadId>:<interactionId>`. These drafts survive thread
+`hyperfide platform.question-draft.v1:<threadId>:<interactionId>`. These drafts survive thread
 navigation and page reloads on the same browser/device. They are cleared after
 successful submission or cancellation and retained if either request fails.
 When local storage is unavailable, an in-memory fallback preserves drafts
@@ -383,7 +334,7 @@ Streamed reads bypass the whole-file size caps (including the 25 MiB
 non-image cap); each chunk stays bounded regardless of file size. `host.read_file`
 consumers such as `POST /files/read` and revision routes keep their
 whole-file limits and SHA-256 validators. `sdk.projects.fileContent` (and
-`bb project content`) reads through the project file routes and decides utf8 versus
+`hyperfide platform project content`) reads through the project file routes and decides utf8 versus
 base64 from the returned bytes. Host-daemon protocol 219 introduced the chunk
 RPC; older enrolled daemons cannot serve streamed reads until updated.
 
@@ -405,17 +356,17 @@ awaited by this admission repair, and startup does not scan for abandoned claims
 Run `pnpm dev` from this checkout and keep it running in a terminal. It prints
 the checkout-specific URLs, data directory, and logs directory. Stop it with
 Ctrl-C. For desktop-only changes, start
-`pnpm exec turbo run dev --filter=@bb/desktop` in a second terminal.
+`pnpm exec turbo run dev --filter=@hyperfide/desktop` in a second terminal.
 
 Use the Node version in `.nvmrc` (22.19.0). Desktop development requires
 Node 22.19 or newer in the Node 22 release line.
 
-A bb connect shared-port URL is a different browser origin from localhost. If
+A hyperfide platform connect shared-port URL is a different browser origin from localhost. If
 QA through that URL needs the browser-local host daemon, restart the dev app
 with the share origin configured after exposing its app port:
 
 ```bash
-BB_APP_URL=https://<handle>--<app-port>.getbb.app pnpm dev
+HYPERFIDE_APP_URL=https://<handle>--<app-port>.hyperfide.app pnpm dev
 ```
 
 The port remains stable for the checkout, so the existing share continues to
@@ -423,92 +374,32 @@ work after the restart. The host daemon intentionally rejects remote origins
 that are not configured; otherwise any webpage could drive its local editor
 API.
 
-For CLI QA, `pnpm bb:dev` derives this checkout's server and daemon endpoints.
+For CLI QA, `pnpm hyperfide platform:dev` derives this checkout's server and daemon endpoints.
 In the test shell, clear inherited endpoint and thread context overrides first
 so commands target the dev instance. Keep these changes inside that shell.
 
 Test agents with:
 
 ```bash
-unset BB_SERVER_URL BB_HOST_DAEMON_PORT BB_THREAD_ID BB_ENVIRONMENT_ID BB_THREAD_STORAGE BB_PROJECT_ID BB_CLI BB_CLI_REEXEC
-pnpm bb:dev thread spawn --project proj_personal --provider codex --permission-mode accept-edits --title "Smoke test" --prompt "Reply only with ok." --json
+unset HYPERFIDE_SERVER_URL HYPERFIDE_HOST_DAEMON_PORT HYPERFIDE_THREAD_ID HYPERFIDE_ENVIRONMENT_ID HYPERFIDE_THREAD_STORAGE HYPERFIDE_PROJECT_ID HYPERFIDE_CLI HYPERFIDE_CLI_REEXEC
+pnpm hyperfide platform:dev thread spawn --project proj_personal --provider codex --permission-mode accept-edits --title "Smoke test" --prompt "Reply only with ok." --json
 ```
-
-## Local Cloud
-
-Run the Cloud dashboard, the Connect worker, and the AI gateway against one
-local D1 database:
-
-```bash
-pnpm cloud:dev
-```
-
-The command applies migrations and prints the dashboard URL. Create a local
-email/password account, claim a handle, create a pairing code, and run the
-displayed `bb account login --code` command against a bb started with
-`pnpm dev` (`bb connect --code` does the same and also turns remote access
-back on). A browser sign-in started with
-`bb account login` opens `<local origin>/link?code=…` on the same origin. The
-same worktree-specific local origin serves the dashboard at `bb.localhost`,
-sends `bb.localhost/api/ai/*` to the AI gateway worker, and routes
-`<handle>.bb.localhost` through the Connect worker. Email/password auth
-is enabled only for this loopback workflow; production remains GitHub-only.
-`pnpm dev` automatically sets `BB_DEV_CONNECT_BASE_URL` to that worktree's
-local Cloud origin. While the bb is signed out, Settings → bb account and
-Settings → Installed plugins → Connect therefore sign in against the local
-Cloud, and a pasted code redeems locally. An explicit `--base-url ...` (or
-`bb connect --server ...`) still wins, so the dev bb can still sign in to
-getbb.app.
-Local machine enrollment follows the same origin: local `http:` server URLs
-produce `ws:` machine tunnels and `http:` share URLs, while non-local machine
-enrollment remains HTTPS-only.
-
-For bb connect next, `pnpm cloud:dev` sets the Connect worker's and bb-web's
-`NEXT_BASE_DOMAIN` to `next.bb.localhost`. `BB_CLOUD_DEV_GATE_SECRET` sets the
-worker's `GATE_SECRET` (the account API answers 404 without it),
-`BB_CLOUD_DEV_GATE_PUBLIC_KEYS` sets bb-web's `GATE_PUBLIC_KEYS`, and
-`BB_CLOUD_DEV_STATE_DIR` moves the local D1 and Durable Object state away from
-`.wrangler/cloud-dev`. `apps/connect-next/scripts/e2e-local.sh` uses all three;
-see [connect-next.md](connect-next.md#local-end-to-end-run).
-
-The AI gateway answers `503 unavailable` until an OpenRouter key is present.
-Export `OPENROUTER_API_KEY` in the shell before `pnpm cloud:dev` to pass it
-through to the local worker; the startup banner says which mode is active.
-To exercise the whole chain without OpenRouter, export
-`BB_CLOUD_DEV_AI_UPSTREAM_BASE_URL` (for example `http://127.0.0.1:4599/api/v1`)
-pointing at a local OpenAI-compatible fake, plus any non-empty
-`OPENROUTER_API_KEY`.
-The production gateway gets the key from the repository's `OPENROUTER_API_KEY`
-Actions secret, which `deploy-ai-gateway.yml` uploads with each deploy. Set the
-staging key with `wrangler secret put OPENROUTER_API_KEY --env staging` from
-`apps/ai-gateway`. Use a dedicated OpenRouter key with account-wide zero data
-retention and a daily credit limit.
-
-Ctrl-C stops the local services. Local D1 state is kept under
-`.wrangler/cloud-dev`.
-
-To test a source bb against the deployed staging Cloud instead, start it with
-`pnpm dev --staging`. bb account and Connect then sign in, redeem codes, open
-tunnels, and call the AI gateway at `https://vibecodethis.site`; no
-`pnpm cloud:dev` is needed. The flag only changes the default origin, so a
-dev data dir already signed in elsewhere keeps its account until
-`bb account logout`.
 
 ## Record Provider Bridge Traffic
 
-Export `BB_PROVIDER_BRIDGE_RECORD_DIR` before you start the dev app and every
+Export `HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR` before you start the dev app and every
 provider bridge records its runtime and provider wires as NDJSON:
 
 ```bash
-BB_PROVIDER_BRIDGE_RECORD_DIR=$HOME/.bb/provider-recordings/raw pnpm dev
+HYPERFIDE_PROVIDER_BRIDGE_RECORD_DIR=$HOME/.hyperfide/provider-recordings/raw pnpm dev
 ```
 
 In a second terminal, run:
 
 ```bash
-unset BB_SERVER_URL BB_HOST_DAEMON_PORT BB_THREAD_ID BB_ENVIRONMENT_ID BB_THREAD_STORAGE BB_PROJECT_ID BB_CLI BB_CLI_REEXEC
-pnpm bb:dev thread spawn --project proj_personal --provider codex --prompt "Run git status." --json
-ls ~/.bb/provider-recordings/raw/codex/
+unset HYPERFIDE_SERVER_URL HYPERFIDE_HOST_DAEMON_PORT HYPERFIDE_THREAD_ID HYPERFIDE_ENVIRONMENT_ID HYPERFIDE_THREAD_STORAGE HYPERFIDE_PROJECT_ID HYPERFIDE_CLI HYPERFIDE_CLI_REEXEC
+pnpm hyperfide platform:dev thread spawn --project proj_personal --provider codex --prompt "Run git status." --json
+ls ~/.hyperfide/provider-recordings/raw/codex/
 ```
 
 The layout is `<dir>/<providerId>/<threadId>/<direction>.ndjson`, plus a
@@ -534,7 +425,7 @@ payloads. Use it to reproduce performance problems that only appear at scale.
 - Start the dev app once first (`pnpm dev`), then stop it and
   seed. The fixture then attaches to the real local host, so agents still run.
 - By default the command seeds this checkout's dev data dir. Pass
-  `--data-dir <path>` for another target. The command refuses to touch `~/.bb`.
+  `--data-dir <path>` for another target. The command refuses to touch `~/.hyperfide`.
 - Scale flags: `--projects`, `--threads`, `--events`, `--seed`. `--reset`
   deletes the database file first. Without `--reset` the fixture appends.
 - Example: `pnpm seed:perf -- --reset --events 400000`.
@@ -544,36 +435,36 @@ payloads. Use it to reproduce performance problems that only appear at scale.
 `pnpm exec turbo run bench` runs the benchmarks that `turbo run test` skips. The
 task is uncached, and each package's `bench` script turns its benchmark on:
 
-- `@bb/app`: the sidebar thread list mount and update benchmark
-  (`sidebar.bench.test.tsx`). `BB_SIDEBAR_BENCH_THREADS` sets the thread
-  count (default 3000) and `BB_SIDEBAR_BENCH_OUT` writes the results as JSON.
-- `bb-plugin-bb--composer`: the composer large-paste benchmark
+- `@hyperfide/app`: the sidebar thread list mount and update benchmark
+  (`sidebar.bench.test.tsx`). `HYPERFIDE_SIDEBAR_BENCH_THREADS` sets the thread
+  count (default 3000) and `HYPERFIDE_SIDEBAR_BENCH_OUT` writes the results as JSON.
+- `hyperfide-plugin-hyperfide--composer`: the composer large-paste benchmark
   (`prompt-paste-performance.test.ts`). `PROMPTBOX_PERF_FIXTURE_OUT` saves the
   paste fixture.
-- `@bb/host-watcher`: the root watcher recovery benchmark
-  (`root-recovery-benchmark.test.ts`). `BB_WATCHER_BENCHMARK_OUTPUT` writes its
+- `@hyperfide/host-watcher`: the root watcher recovery benchmark
+  (`root-recovery-benchmark.test.ts`). `HYPERFIDE_WATCHER_BENCHMARK_OUTPUT` writes its
   report.
 
 Filter to one package, e.g.
-`BB_SIDEBAR_BENCH_OUT=/tmp/sidebar.json pnpm exec turbo run bench --filter=@bb/app`.
+`HYPERFIDE_SIDEBAR_BENCH_OUT=/tmp/sidebar.json pnpm exec turbo run bench --filter=@hyperfide/app`.
 Compare runs on an idle machine; the numbers are wall-clock timings.
 
 ## Provider Corpus
 
 The provider corpus is a private set of real production threads extracted from
-a personal `~/.bb/bb.db`. It is the regression oracle for timeline projection:
+a personal `~/.hyperfide/hyperfide platform.db`. It is the regression oracle for timeline projection:
 every change must project the same rows and build timelines at the same speed.
 The corpus contains real prompts, code, and paths, so it is **never
 committed**; `.gitignore` blocks every `provider-corpus/` directory except the
 in-repo harness and scripts.
 
-- Location: `~/.bb/provider-corpus/` by default. Tests read it through
-  `BB_PROVIDER_CORPUS_DIR` and skip when the variable is unset or the directory
+- Location: `~/.hyperfide/provider-corpus/` by default. Tests read it through
+  `HYPERFIDE_PROVIDER_CORPUS_DIR` and skip when the variable is unset or the directory
   has no `manifest.json`, so CI and fresh checkouts stay green.
 - Layout: `manifest.json` (thread selection and reasons), `profile.json`,
   `threads/<provider>/<threadId>/{meta.json,events.ndjson}`, and the generated
   `snapshots/` directory described below.
-- Reader: `@bb/test-helpers` exports `corpusAvailable()`,
+- Reader: `@hyperfide/test-helpers` exports `corpusAvailable()`,
   `listCorpusThreads({ provider?, reasons? })`, and `loadCorpusThread(id)`.
   Event rows decode through the same `parseStoredThreadEvent` the server uses.
 
@@ -598,8 +489,8 @@ scripts/provider-corpus/snapshot-rows.sh compare   # default mode, fails on diff
 scripts/provider-corpus/snapshot-rows.sh write     # refresh the baseline
 ```
 
-The script wraps `pnpm exec turbo run test:provider-corpus --filter=@bb/server`
-with `BB_PROVIDER_CORPUS_SNAPSHOT=write|compare`. Turbo strips undeclared
+The script wraps `pnpm exec turbo run test:provider-corpus --filter=@hyperfide/server`
+with `HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT=write|compare`. Turbo strips undeclared
 variables, so use that task (not the package `test` task) when you set the
 corpus variables. Each run writes `snapshots/rows-last-run.json` and
 `snapshots/perf-last-run.md` with totals and the perf table.
@@ -634,8 +525,8 @@ workstream, so never run `write` against it from a feature branch. A PR that
 intentionally changes rows carries its own allowlist in the repository
 (`apps/server/test/provider-corpus/allowlists/<ws>.json`, same schema, merged
 after the shared file) and compares with
-`BB_PROVIDER_CORPUS_ALLOWLIST=<that file>`. A snapshot of the branch's own
-rows goes to a shadow directory: `BB_PROVIDER_CORPUS_SNAPSHOT_DIR=<dir>`
+`HYPERFIDE_PROVIDER_CORPUS_ALLOWLIST=<that file>`. A snapshot of the branch's own
+rows goes to a shadow directory: `HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT_DIR=<dir>`
 redirects both `write` and `compare`. Re-mint `snapshots/rows` from `main`
 after such a PR merges and delete the allowlist file it carried.
 
@@ -643,7 +534,7 @@ A pointer allowlist cannot describe a change that adds or removes rows: every
 later sibling shifts and the diff reports the whole turn. For such a change,
 carry a row-class file instead
 (`apps/server/test/provider-corpus/allowlists/<ws>-row-classes.json`) and set
-`BB_PROVIDER_CORPUS_ROW_CLASSES=<that file>` on the compare run. The gate then
+`HYPERFIDE_PROVIDER_CORPUS_ROW_CLASSES=<that file>` on the compare run. The gate then
 matches rows by identity (`callId`, `itemId`, `interactionId`, turn id, or row
 id), buckets every change into the first class whose matcher fits, and fails
 on a change no class claims or an entry that claims nothing (judged per
@@ -660,7 +551,7 @@ two directories offline:
 
 ```bash
 pnpm exec tsx scripts/provider-corpus/classify-row-diff.ts \
-  ~/.bb/provider-corpus/snapshots/rows ~/.bb/provider-corpus/snapshots/rows.<ws> \
+  ~/.hyperfide/provider-corpus/snapshots/rows ~/.hyperfide/provider-corpus/snapshots/rows.<ws> \
   --classes apps/server/test/provider-corpus/allowlists/<ws>-row-classes.json --verbose
 ```
 
@@ -674,15 +565,15 @@ the table header warns when the machine is oversubscribed.
 ## Desktop Browser Smoke Tests
 
 ```bash
-pnpm exec turbo run smoke:browser-cdp --filter=@bb/desktop > /tmp/browser-cdp-smoke.log 2>&1
-pnpm exec turbo run smoke:browser-cdp --filter=@bb/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-cdp-local-smoke.log 2>&1
-pnpm exec turbo run smoke:browser-broker --filter=@bb/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-broker-smoke.log 2>&1
+pnpm exec turbo run smoke:browser-cdp --filter=@hyperfide/desktop > /tmp/browser-cdp-smoke.log 2>&1
+pnpm exec turbo run smoke:browser-cdp --filter=@hyperfide/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-cdp-local-smoke.log 2>&1
+pnpm exec turbo run smoke:browser-broker --filter=@hyperfide/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-broker-smoke.log 2>&1
 ```
 
 `smoke:browser-cdp` drives real Electron `WebContentsView` tabs through the
 production CDP bridge with checksum-pinned DevBrowser and agent-browser
 releases, a local fixture site, and a separate Electron profile; it starts no
-BB core and reads no existing store. It requires Linux x64, `xvfb-run`, and
+HYPERFIDE core and reads no existing store. It requires Linux x64, `xvfb-run`, and
 network access to GitHub releases. The command prints its artifact directory
 (screenshots, protocol traces, result summary); credentials are redacted.
 `--dev-browser` tests a local DevBrowser build instead, records its SHA256, and
@@ -695,7 +586,7 @@ graceful shutdown was not proven.
 `smoke:browser-broker` runs the actual SDK and CLI against an in-memory
 migrated test server, an authenticated host broker, the desktop broker client,
 and real Electron tabs. The harness supplies the server-to-host RPC responder,
-so it does not prove remote-machine transport. It uses no existing BB store or
+so it does not prove remote-machine transport. It uses no existing HYPERFIDE store or
 browser profile.
 
 ## Provider-literal ratchet (G1)
@@ -764,7 +655,7 @@ Skill detail reads and file listings resolve symlinked skill directories on
 their owning host. The server opts into `followRootSymlink` for
 `host.read_file_relative` and `host.list_files`; other callers pass `false`.
 Relative skill reads remain confined to the resolved directory and deny dotfiles,
-and listings skip nested symlinks. Linked skills remain read-only in bb.
+and listings skip nested symlinks. Linked skills remain read-only in hyperfide platform.
 
 ## Prepared Worktree Restarts
 
@@ -788,14 +679,14 @@ Cache hits restore cached files but can leave extra files from an earlier
 build. Built source servers load bundled plugins from
 `packages/bundled-plugins/dist`; see
 [official-plugin-release-process.md](official-plugin-release-process.md) for
-adding a bundled plugin. The launcher sets `BB_BUILD_TOOLCHAIN` (Node, OS, and
+adding a bundled plugin. The launcher sets `HYPERFIDE_BUILD_TOOLCHAIN` (Node, OS, and
 architecture) to partition Turbo cache entries; do not set it yourself.
 
 App production builds cache React Compiler transforms under
-`<git-common-dir>/bb-cache/react-compiler`, shared across worktrees; delete it
+`<git-common-dir>/hyperfide-cache/react-compiler`, shared across worktrees; delete it
 while no build runs to clear it. `BABEL_SHOW_CONFIG_FOR` and
 `ENABLE_REACT_COMPILER_TIMINGS=1` bypass that cache. Use
-`pnpm exec turbo run build --filter=@bb/app --force` to rebuild without Turbo's
+`pnpm exec turbo run build --filter=@hyperfide/app --force` to rebuild without Turbo's
 whole-task cache.
 
 ## Reviewing UI Code Splits
@@ -808,12 +699,12 @@ behavior. Keep temporary review stories and fixtures out of the final diff.
 
 ## Server Move Markers
 
-A server move or `bb server import` leaves JSON markers in the data
+A server move or `hyperfide platform server import` leaves JSON markers in the data
 directory; check them when a server refuses to start or keeps redirecting:
 
 - `server-import-journal.json`: an import is installing files. Without a
   matching `server-import.json` the import was interrupted, and the server
-  refuses to start; rerunning `bb server import` into that directory rolls it
+  refuses to start; rerunning `hyperfide platform server import` into that directory rolls it
   back from `server-import-backup/`.
 - `server-import.json`: the imported server on the target is waiting for
   activation (no plugins, sweeps, or daemon sessions run).
@@ -823,19 +714,19 @@ directory; check them when a server refuses to start or keeps redirecting:
 - `server-move-run.json`: the old server's durable move state, reconciled at
   boot.
 - `last-server-move.json`: the new server's record of the move.
-- `server-connect-hold.json`: an imported server starts without bb connect
-  until `bb server allow-connect`.
+- `server-connect-hold.json`: an imported server starts without hyperfide platform connect
+  until `hyperfide platform server allow-connect`.
 
 During a move, `/health` on the new server reports
 `serverMove: { moveId, state }` with `pending`, `activating`, or `ready`.
-Usage is in `bb guide machines`.
+Usage is in `hyperfide platform guide machines`.
 
 ## Daemon Protocol Mismatch
 
 The server checks the daemon's protocol version before parsing session
 payloads. A daemon on another `HOST_DAEMON_PROTOCOL_VERSION` is rejected with
 `protocol_version_mismatch` and cannot serve workspace RPCs until it updates and
-reconnects. Auto-update-enabled daemons install the server's matching `bb-app`
+reconnects. Auto-update-enabled daemons install the server's matching `hyperfide-app`
 artifact; disabled or failed updates leave the machine disconnected until a
 manual update succeeds. The commit that bumps the version records what changed.
 
@@ -852,7 +743,7 @@ of at least 100 ms, and event-loop stalls of at least 100 ms. Every five
 seconds `Server performance sample` records process and main-thread CPU, loop
 utilization and delay, GC, and memory; CPU values are interval totals, not
 per-request attribution. A 1 ms V8 CPU profile is saved every 30 seconds to
-`$BB_DATA_DIR/logs/performance/` (`Server CPU profile saved` logs its path,
+`$HYPERFIDE_DATA_DIR/logs/performance/` (`Server CPU profile saved` logs its path,
 PID, and UTC window). Profiles are kept for up to 12 hours and 1 GB total,
 oldest first, so copy the ones you need. They use private permissions and
 contain local paths and function names; inspect before sharing.
@@ -898,15 +789,15 @@ milliseconds; `events`, `textEvents`, and `textChars` size the batch;
 two kinds gives the A/B between delivery paths. The
 intervals between consecutive lines for a thread are the chunk cadence the
 server sees. The host daemon logs `Posted daemon event batch` at debug level
-(`BB_LOG_LEVEL=debug`) for every POST: `eventBatch.events`, `textChars`,
+(`HYPERFIDE_LOG_LEVEL=debug`) for every POST: `eventBatch.events`, `textChars`,
 `oldestQueuedMs` (how long the oldest event waited), `sincePreviousPostMs`,
 `postMs`, and `postedAt`. Each timeline push to a subscribed thread view writes
 a `Timeline push trace` line: `timelinePushTrace.maxSeq`, `withDelta` (false
 when the subscriber had no base and received the full window), `bytes`,
 `buildMs`, and `sentAt`. In the browser, the same gates add
-`performance.mark` entries: `bb:timeline-applied` (`threadId`, `maxSeq`,
+`performance.mark` entries: `hyperfide platform:timeline-applied` (`threadId`, `maxSeq`,
 `source`: `fetch`, `fetch-delta`, `push`, or `push-delta`) when timeline data
-is applied, and `bb:stream-row-commit` (`rowId`,
+is applied, and `hyperfide platform:stream-row-commit` (`rowId`,
 `threadId`, `textLength`) when a streaming assistant row commits. Read them with
 `performance.getEntriesByType("mark")`. Streaming assistant text is revealed a
 complete line at a time, so row commits follow line completion, not every
@@ -967,7 +858,7 @@ limit are skipped with server warnings; smaller later files can still fit, and
 count truncation is reported separately. Only exact-case `SKILL.md` files are
 read; symlinked skill directories or files and roots escaping the workspace are
 skipped before reading. Command lookup sets `includeAgentInstructions: false`,
-so an invalid `.bb/AGENTS.md` cannot break the command catalog; turn
+so an invalid `.hyperfide/AGENTS.md` cannot break the command catalog; turn
 preparation sets it to `true` and reports instruction-read errors.
 
 ## Interrupted Optimistic Query Refreshes

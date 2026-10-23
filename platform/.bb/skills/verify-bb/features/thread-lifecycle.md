@@ -26,15 +26,15 @@ from a created thread row.
    compose `[role="textbox"]` with:
 
    ```text
-   Reply exactly: BB verification complete. Do not use tools or change files.
+   Reply exactly: HYPERFIDE verification complete. Do not use tools or change files.
    ```
 
 2. Capture the filled prompt and click **Submit (Enter)**. Wait for the URL
    to contain `/projects/` and `/threads/`. Record both returned IDs.
-3. Wait for a separate assistant response, **BB verification complete.**
-   Confirm with `node apps/cli/dist/index.js thread output "$BB_VERIFY_THREAD_ID" --json`
-   and `node apps/cli/dist/index.js thread show "$BB_VERIFY_THREAD_ID" --json`.
-   Set `BB_VERIFY_THREAD_ID` from the URL; do not reuse a previous run's ID.
+3. Wait for a separate assistant response, **HYPERFIDE verification complete.**
+   Confirm with `node apps/cli/dist/index.js thread output "$HYPERFIDE_VERIFY_THREAD_ID" --json`
+   and `node apps/cli/dist/index.js thread show "$HYPERFIDE_VERIFY_THREAD_ID" --json`.
+   Set `HYPERFIDE_VERIFY_THREAD_ID` from the URL; do not reuse a previous run's ID.
    Require `status === "idle"` and `runtime.displayStatus === "idle"`. Poll for up to two minutes;
    inspect the actual error or provider prerequisite if it does not finish.
 4. Reload the thread. Require the assistant response to remain visible.

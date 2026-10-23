@@ -4,7 +4,7 @@ Status: **2026-09-05: 4 passed, 1 partial/blocked**. See [the audit](../MAINTENA
 
 ## Setup and entry points
 
-bb secret request in a synthetic thread with a disposable dotenv file. Enter only dummy values; do not read real credentials into agent context.
+hyperfide platform secret request in a synthetic thread with a disposable dotenv file. Enter only dummy values; do not read real credentials into agent context.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test

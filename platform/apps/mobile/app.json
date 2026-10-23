@@ -1,68 +1,46 @@
 {
   "expo": {
-    "name": "bb",
-    "slug": "bb-app",
-    "owner": "bb-team",
+    "name": "Hyperfide",
+    "slug": "hyperfide",
     "version": "0.39.0",
-    "scheme": "bb",
+    "scheme": "hyperfide",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "app.getbb.mobile",
+      "bundleIdentifier": "app.hyperfide.mobile",
       "supportsTablet": true,
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/ios-icon-dark.png"
       },
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "bb connects to a bb server on your local network or tailnet.",
-        "NSCameraUsageDescription": "bb attaches photos you take to your prompts.",
-        "NSMicrophoneUsageDescription": "bb records voice input and transcribes it into your prompt.",
-        "NSPhotoLibraryUsageDescription": "bb attaches photos you pick to your prompts.",
+        "NSLocalNetworkUsageDescription": "Hyperfide connects to a Hyperfide server on your local network or tailnet.",
+        "NSCameraUsageDescription": "Hyperfide attaches photos you take to your prompts.",
+        "NSMicrophoneUsageDescription": "Hyperfide records voice input and transcribes it into your prompt.",
+        "NSPhotoLibraryUsageDescription": "Hyperfide attaches photos you pick to your prompts.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "UIBackgroundModes": ["remote-notification"]
-      },
-      "associatedDomains": ["applinks:getbb.app", "applinks:*.getbb.app"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "android": {
-      "package": "app.getbb.mobile",
-      "permissions": ["android.permission.MODIFY_AUDIO_SETTINGS"],
+      "package": "app.hyperfide.mobile",
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "*.getbb.app",
-              "pathPrefix": "/threads/"
-            },
-            {
-              "scheme": "https",
-              "host": "*.getbb.app",
-              "pathPrefix": "/projects/"
-            },
-            {
-              "scheme": "https",
-              "host": "*.getbb.app",
-              "pathPrefix": "/settings/"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -111,11 +89,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "3dca8cca-f48a-4c3a-ba3d-3af40e58a588"
-      }
     }
   }
 }

@@ -4,7 +4,7 @@ Status: **2026-09-05: 4 passed**. See [the audit](../MAINTENANCE.md) and [per-re
 
 ## Setup and entry points
 
-Settings → Plugins → Keep awake; bb keep-awake --help. A disposable macOS host is required for an actual power assertion; Linux can verify unsupported-host reporting.
+Settings → Plugins → Keep awake; hyperfide platform keep-awake --help. A disposable macOS host is required for an actual power assertion; Linux can verify unsupported-host reporting.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test

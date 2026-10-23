@@ -18,10 +18,10 @@ The plugin reacts to each failed turn. It retries overload errors, server and co
 
 ## CLI
 
-- `bb provider-retry status [thread-id] [--json]`: show pending retries.
-- `bb provider-retry retry <thread-id>`: send a pending retry now.
-- `bb provider-retry cancel <thread-id>`: cancel a pending retry.
+- `hyperfide platform provider-retry status [thread-id] [--json]`: show pending retries.
+- `hyperfide platform provider-retry retry <thread-id>`: send a pending retry now.
+- `hyperfide platform provider-retry cancel <thread-id>`: cancel a pending retry.
 
 For pooled threads, the pool’s availability overrides provider-local quota snapshots, which can be missing or refer to an account the pool has already replaced. Recovery uses the earliest usable account after all its blocking windows and temporary holds clear, including limits for the failed request’s model. Parent pools use the same authenticated availability lookup. Unknown resets, authentication failures, and unavailable sources are explained without scheduling a speculative retry.
 
-Run `bb provider-retry explain [thread-id] [--json]` to inspect the last automatic decision, including skipped retries. This is a historical decision, not the current queue state; use `status` for pending retries. Decisions are recorded after this version is loaded and survive restart. The same diagnostic is available through `bb.sdk.plugins.callRpc` using plugin `provider-retry`, method `decision.get`, and input `{ threadId }`.
+Run `hyperfide platform provider-retry explain [thread-id] [--json]` to inspect the last automatic decision, including skipped retries. This is a historical decision, not the current queue state; use `status` for pending retries. Decisions are recorded after this version is loaded and survive restart. The same diagnostic is available through `hyperfide platform.sdk.plugins.callRpc` using plugin `provider-retry`, method `decision.get`, and input `{ threadId }`.

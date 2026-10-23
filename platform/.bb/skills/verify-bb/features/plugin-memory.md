@@ -4,7 +4,7 @@ Status: **2026-09-05: 6 passed**. See [the audit](../MAINTENANCE.md) and [per-re
 
 ## Setup and entry points
 
-Settings → Memory; bb memory --help. Use uniquely prefixed synthetic records at global and disposable-project scope.
+Settings → Memory; hyperfide platform memory --help. Use uniquely prefixed synthetic records at global and disposable-project scope.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test

@@ -39,4 +39,4 @@ External account changes use authorized disposable targets.
 
 ## Maintenance notes
 
-- Custom agents use an unprefixed slug in id; BB prefixes it with acp-. Discover the resulting provider ID from the live catalog before spawning. Configure through plugin config provider-acp customAgents and restore the original string afterward. Source: `plugins/provider-acp/src/agents.ts:9`.
+- Custom agents use an unprefixed slug in id; HYPERFIDE prefixes it with acp-. Discover the resulting provider ID from the live catalog before spawning. Configure through plugin config provider-acp customAgents and restore the original string afterward. Source: `plugins/provider-acp/src/agents.ts:9`.

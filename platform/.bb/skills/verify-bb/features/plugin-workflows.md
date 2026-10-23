@@ -4,7 +4,7 @@ Status: **2026-09-05: 6 passed, 2 partial/blocked**. See [the audit](../MAINTENA
 
 ## Setup and entry points
 
-Enable Workflows for a disposable project thread; bb workflows --help. Use short synthetic agents and thread-scoped artifacts.
+Enable Workflows for a disposable project thread; hyperfide platform workflows --help. Use short synthetic agents and thread-scoped artifacts.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test
@@ -42,4 +42,4 @@ External account changes use authorized disposable targets.
 
 ## Maintenance notes
 
-- Workflow CLI run/validate/status/history require explicit BB project+thread context. After launcher env clears inherited context, restore only IDs resolved from the synthetic source store. File paths/cwd must be inside the origin workspace. Source: `plugins/workflows/src/cli.ts:39`.
+- Workflow CLI run/validate/status/history require explicit HYPERFIDE project+thread context. After launcher env clears inherited context, restore only IDs resolved from the synthetic source store. File paths/cwd must be inside the origin workspace. Source: `plugins/workflows/src/cli.ts:39`.

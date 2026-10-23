@@ -10,12 +10,12 @@ Turn a plan into tracked tasks, hand each task to an agent, and see the worker's
 
 ## How it works
 
-Link a tracker project to a bb project. Delegation then creates a worker thread there, attaches it to the task, and moves the task to `in_progress`. The worker receives the description, subtasks, attachments, recent comments, and a report-back contract.
+Link a tracker project to a hyperfide platform project. Delegation then creates a worker thread there, attaches it to the task, and moves the task to `in_progress`. The worker receives the description, subtasks, attachments, recent comments, and a report-back contract.
 
 Type `@` in the composer and choose **Tasks** to send a task as context. Agents see a `::task{key="PROD-1"}` card when they reference a task.
 
 ## For agents
 
-The `bb tasks` CLI covers the full tracker: `create`, `list`, `show`, `update`, `move`, `comment`, `attachment`, `preset`, `delegate`, `attach`, `detach`, `threads`, `label`, `project`, and `folder`. Add `--json` for machine-readable output. The bundled `tasks` skill tells workers to read the task, comment at milestones, attach artifacts, and move finished work to `in_review`.
+The `hyperfide platform tasks` CLI covers the full tracker: `create`, `list`, `show`, `update`, `move`, `comment`, `attachment`, `preset`, `delegate`, `attach`, `detach`, `threads`, `label`, `project`, and `folder`. Add `--json` for machine-readable output. The bundled `tasks` skill tells workers to read the task, comment at milestones, attach artifacts, and move finished work to `in_review`.
 
 Presets are user-defined. Create at least one before you delegate.

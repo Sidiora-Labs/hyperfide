@@ -20,8 +20,8 @@ Select a folder on a connected machine and use it as a project.
 Run the main skill's doctor. Create a synthetic Git folder:
 
 ```bash
-mkdir "$BB_VERIFY_RUN/fixture"
-git -C "$BB_VERIFY_RUN/fixture" init -b main
+mkdir "$HYPERFIDE_VERIFY_RUN/fixture"
+git -C "$HYPERFIDE_VERIFY_RUN/fixture" init -b main
 ```
 
 An empty repository is enough for the local-mode journey. No commits, remote,
