@@ -10,7 +10,8 @@
   },
   "scripts": {
     "typecheck": "tsrs --noEmit",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/plugin-sdk": "workspace:*",
@@ -26,6 +27,7 @@
     "jsdom": "^29.0.1",
     "react-dom": "^19.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "@hyperfide/plugin-build": "workspace:*"
   }
 }

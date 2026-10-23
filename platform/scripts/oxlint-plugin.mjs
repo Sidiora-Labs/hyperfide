@@ -20,6 +20,7 @@ const registryAliases = new Set(
     )
     .map((file) => `@/${file.target.replace(/\.(?:tsx?|jsx?)$/u, "")}`),
 );
+// The published plugin SDK is available to copied plugins; internal exports are checked separately.
 const workspacePackageNames = new Set(
   ["apps", "packages", "plugins", "tests", "examples/plugins"]
     .flatMap((dir) =>
