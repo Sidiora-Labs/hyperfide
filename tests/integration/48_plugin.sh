@@ -5,6 +5,11 @@
 # one, when present, only validates the rendered tree.
 . "$(dirname "$0")/../lib.sh"
 
+# cg rejects an alias pair with differing values (exit 78), and a supervising
+# host such as `cg spec done` exports both names of whatever it was given; the
+# variables this suite sets per command start unset so its values win.
+unset CG_CLAUDE HYPERFIDE_CLAUDE
+
 REAL_CLAUDE="$(command -v claude || true)"
 export HOME="$TMP/home"
 mkdir -p "$HOME" "$TMP/proj/src" "$TMP/bin"
