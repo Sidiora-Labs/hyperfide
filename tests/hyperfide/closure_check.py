@@ -7,6 +7,11 @@ closure_check.py <id>...  passes only when, for every id:
      artifacts/hyperfide/tasks/<id>/campaigns/*/receipts/ whose independent check is PASS,
      whose source commit is reachable from HEAD, and whose pinned inputs (the manifest
      pins, and the manifest itself) match the tree as it is now;
+     A pinned spec/hyperfide/spec.kvx is compared with its status lines masked: cg spec start
+     rewrites the task's own status for the verify and every later fold writes done for the
+     tasks that close after it, so a spec that records qualification state never matches its
+     pin byte for byte; touches, requires, verify_cmd and reason lines still have to match, and
+     the pinned bytes come from the campaign's own copy of the input (no copy, strict compare).
   3. artifacts/hyperfide/tasks/<id>/evidence-index.json is re-pointed: commit and
      requalified_on are commits on HEAD's history (not the pre-rewrite twins kept alive
      under refs/evidence/*, decision D10), requalified_on is the commit of one of those
@@ -94,6 +99,24 @@ def receipts_of(task_dir):
             yield None, path, path.parent.parent
 
 
+STATUS_LINE = re.compile(rb'^status = "[^"\n]*"\n?', re.M)
+
+
+def qualification_state_only(campaign, item, current):
+    """True when a pinned spec.kvx differs from the tree only in task status lines (see the module docstring)."""
+    if Path(item.get("original_path", "")).name != "spec.kvx":
+        return False
+    for folder in ("inputs", "sources"):
+        candidate = campaign / folder / str(item.get("sha256")) / "spec.kvx"
+        try:
+            pinned = candidate.read_bytes()
+        except OSError:
+            continue
+        if sha(pinned) == item.get("sha256"):
+            return STATUS_LINE.sub(b"", pinned) == STATUS_LINE.sub(b"", current.read_bytes())
+    return False
+
+
 def receipt_problems(root, receipt, path, campaign, manifest_path):
     """Reasons a receipt cannot count as current passing evidence; empty when it can."""
     if not isinstance(receipt, dict):
@@ -119,7 +142,9 @@ def receipt_problems(root, receipt, path, campaign, manifest_path):
     for item in receipt.get("inputs") or []:
         label = item.get("original_path", "")
         current = Path(label) if os.path.isabs(label) else root / label
-        if not current.is_file() or sha(current.read_bytes()) != item.get("sha256"):
+        if not current.is_file():
+            problems.append("pinned source missing: " + label)
+        elif sha(current.read_bytes()) != item.get("sha256") and not qualification_state_only(campaign, item, current):
             problems.append("pinned source drifted: " + label)
     if not receipt.get("inputs"):
         problems.append("receipt pins no inputs")
@@ -194,9 +219,11 @@ def _fixture(base, defect):
     manifest = {"inputs": [{"path": "src/a.c", "sha256": sha(b"int a;\n"), "size": 7}]}
     (root / "m/1.1.json").write_text(json.dumps(manifest))
     status = "pending" if defect == "status" else "done"
-    (root / "spec/hyperfide/spec.kvx").write_text(
-        '[task.1.1]\nstatus = "' + status + '"\n'
-        'verify_cmd = "python3 q.py --case V-001 --manifest m/1.1.json"\n\n[req.1]\n')
+    spec_tail = 'verify_cmd = "python3 q.py --case V-001 --manifest m/1.1.json"\n\n[req.1]\n'
+    # the receipt pinned the spec while the verify ran (status in_progress); the tree records the closed status
+    pinned_spec = ('[task.1.1]\nstatus = "in_progress"\n' + spec_tail).encode()
+    tree_spec = '[task.1.1]\nstatus = "' + status + '"\n' + ('touches = ["src/a.c"]\n' if defect == "spec-drift" else "") + spec_tail
+    (root / "spec/hyperfide/spec.kvx").write_text(tree_spec)
     run("add", "-A")
     run("commit", "-qm", "base")
     head = git(root, "rev-parse", "HEAD").stdout.strip()
@@ -208,7 +235,8 @@ def _fixture(base, defect):
                "diagnostics": [], "sealed_at": "2026-10-22T00:00:00Z",
                "source": {"commit": orphan if defect == "receipt-commit" else head},
                "manifest_sha256": sha((root / "m/1.1.json").read_bytes()),
-               "inputs": [{"original_path": "src/a.c", "sha256": sha(b"int a;\n"), "size": 7}]}
+               "inputs": [{"original_path": "src/a.c", "sha256": sha(b"int a;\n"), "size": 7},
+                          {"original_path": "spec/hyperfide/spec.kvx", "sha256": sha(pinned_spec), "size": len(pinned_spec)}]}
     receipt["seal"] = sha(canonical(receipt))
     if defect == "seal":
         # content edited after sealing: the receipt still says PASS
@@ -216,6 +244,9 @@ def _fixture(base, defect):
     campaign = root / "artifacts/hyperfide/tasks/1.1/campaigns/c"
     (campaign / "receipts").mkdir(parents=True)
     (campaign / "checks").mkdir()
+    if defect != "spec-copy":
+        (campaign / "inputs" / sha(pinned_spec)).mkdir(parents=True)
+        (campaign / "inputs" / sha(pinned_spec) / "spec.kvx").write_bytes(pinned_spec)
     data = canonical(receipt) + b"\n"
     (campaign / "receipts/r1.json").write_bytes(data)
     check = {"status": "FAIL" if defect == "checker" else "PASS", "receipt_sha256": sha(data)}
@@ -229,7 +260,7 @@ def _fixture(base, defect):
 
 
 def self_test():
-    defects = ["status", "seal", "checker", "drift", "receipt-commit", "index"]
+    defects = ["status", "seal", "checker", "drift", "spec-drift", "spec-copy", "receipt-commit", "index"]
     base = Path(tempfile.mkdtemp(prefix="closure-check-"))
     errors = []
     try:
@@ -257,7 +288,7 @@ def main():
         for line in errors:
             print("FAIL self-test: " + line)
         return 1
-    print("self-test: good closure accepted; 6 single-defect closures rejected")
+    print("self-test: good closure accepted; 8 single-defect closures rejected")
     root = Path(args.root).resolve()
     artifacts = Path(args.artifacts) if args.artifacts else default_artifacts(root)
     spec_text = (root / "spec/hyperfide/spec.kvx").read_text()
