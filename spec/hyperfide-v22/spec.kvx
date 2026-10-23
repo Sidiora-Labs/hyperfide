@@ -655,7 +655,7 @@ owner = "authority"
 
 [task.6.4]
 title = "Multiple hosts and machine enrollment"
-status = "implemented"
+status = "done"
 wave = 6
 requires = ["6.2", "5.4"]
 touches = ["platform/apps/server/src/**", "platform/apps/host-daemon/src/**", "platform/packages/plugin-sdk/src/**", "platform/plugins/machine-railway/**", "platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/6_4.sh"]
