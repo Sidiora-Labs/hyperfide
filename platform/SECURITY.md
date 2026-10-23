@@ -1,30 +1,13 @@
-# Security Policy
+# Hyperfide security
 
-## Reporting a vulnerability
+Report security concerns through https://github.com/Sidiora-Labs/hyperfide/issues.
+Describe affected versions, the impact, and a minimal reproduction. Never include
+credentials, tokens, private repositories, or personal runtime data in an issue.
 
-Please report security vulnerabilities privately by email to
-**support@terragonlabs.com**. Do not open a public GitHub issue for a
-suspected vulnerability.
+Run only providers and plugins you trust: they can execute commands and access
+files within the permissions granted to their host. Review workspace setup scripts
+before running them. Keep the server reachable only by intended operators and
+protect any remote access with your own authenticated network controls.
 
-Include as much of the following as you can:
-
-- the affected component (server, host daemon, app, desktop app, CLI, bb
-  connect, or a plugin) and version or commit
-- steps to reproduce, or a proof of concept
-- the impact you expect an attacker could achieve
-
-## Supported versions
-
-Fixes land on `main` and ship in the next release of `bb-app` and the desktop
-app. Only the latest release is supported.
-
-## Scope
-
-bb's server binds to loopback by default, and its local HTTP API is
-unauthenticated by design: anyone who can reach it can run commands on the
-host. Exposing it with `--server-bind-host 0.0.0.0` on an untrusted network is
-documented as unsafe (see [docs/multiple-devices.md](docs/multiple-devices.md)).
-Reports that a process on the same machine, or a peer the user chose to expose
-the API to, can drive bb are out of scope. Ways for a web page, a remote party,
-or an untrusted repository to reach or drive a bb server, host daemon, or bb
-connect route are in scope.
+Store runtime data in `~/.hyperfide`. Use the secrets plugin for credentials and
+secret references in workflow records. Rotate a credential immediately if exposed.

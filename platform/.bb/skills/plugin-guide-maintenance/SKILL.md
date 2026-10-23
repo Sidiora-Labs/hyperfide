@@ -5,7 +5,7 @@ description: "Update Plugin Guide cards, fixtures, and annotations when public S
 
 # Maintain the Plugin Guide
 
-The Plugin Guide is bb's public Plugin SDK reference. For a public API change,
+The Plugin Guide is hyperfide platform's public Plugin SDK reference. For a public API change,
 follow the full workflow. For annotation-only maintenance, start at Maintain
 annotation layout, skip the public-API section, and then follow the
 annotation-only verification path.
@@ -15,7 +15,7 @@ annotation-only verification path.
 Build the declarations and inspect the SDK change:
 
 ```sh
-pnpm exec turbo run build:types --filter=@get-bb/plugin-sdk
+pnpm exec turbo run build:types --filter=@hyperfide/plugin-sdk
 git diff -- packages/plugin-sdk/package.json packages/plugin-sdk/src
 ```
 
@@ -38,7 +38,7 @@ For a visible method, inspect these sources:
 
 Record stable source paths and anchors in
 `plugins/plugin-api-docs/src/anatomy-manifest.json`. Use labels, roles, data
-attributes, class constants, and state names as anchors. The `@bb/app` tests
+attributes, class constants, and state names as anchors. The `@hyperfide/app` tests
 check the anchors against the source.
 
 For a method without a visible surface, use the Plugin backend group. Do not
@@ -49,7 +49,7 @@ invent interface elements.
 For a new Guide entry, run the scaffold command with its sources and symbols:
 
 ```sh
-pnpm exec turbo run scaffold:surface-entry --filter=bb-plugin-plugin-api-docs -- \
+pnpm exec turbo run scaffold:surface-entry --filter=hyperfide-plugin-plugin-api-docs -- \
   --id <stable-id> \
   --title "<visible-product-object>" \
   --group <group> \
@@ -64,7 +64,7 @@ Complete the applicable changes:
 - Keep existing surface IDs stable and list each exact exported symbol.
 - Name example plugins in `firstParty` by display name. A plugin missing from
   `plugins/plugin-api-docs/src/first-party-plugins.json` needs a row there;
-  the `@bb/scripts` tests check each row against the plugin's manifest.
+  the `@hyperfide/scripts` tests check each row against the plugin's manifest.
 - For a visible method, update `wireframes.tsx` and its marker.
 - Match the real ownership, labels, roles, order, states, actions, and outcome.
 - Keep Guide annotations separate from the product interface.
@@ -108,14 +108,14 @@ For a public API change, run:
 
 ```sh
 pnpm exec turbo run test typecheck lint \
-  --filter=@get-bb/plugin-sdk \
-  --filter=@bb/app \
-  --filter=bb-plugin-plugin-api-docs
-bb plugin build plugins/plugin-api-docs
+  --filter=@hyperfide/plugin-sdk \
+  --filter=@hyperfide/app \
+  --filter=hyperfide-plugin-plugin-api-docs
+hyperfide platform plugin build plugins/plugin-api-docs
 ```
 
 When `first-party-plugins.json` changes, also run
-`pnpm exec turbo run test --filter=@bb/scripts`.
+`pnpm exec turbo run test --filter=@hyperfide/scripts`.
 
 For annotation-only maintenance, use the affected package and Plugin Guide
 checks required by repository validation policy. Start

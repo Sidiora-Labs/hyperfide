@@ -9,7 +9,7 @@ that stays experimental after an audit says so with the date and the open
 question.
 
 "Docs:" names a file in
-`plugins/bb-guide/skills/bb-plugin-authoring/references/`, or
+`plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/`, or
 [provider-plugin-api.md](provider-plugin-api.md) /
 [provider-bridge-protocol.md](provider-bridge-protocol.md). An entry without
 a "Docs:" line has no owning doc, so it keeps the essential contract itself.
@@ -28,13 +28,13 @@ reload and crash recovery, scope suppression, and compact Safari
 keyboard/drawer behavior. Verify multiple popups in one customization and
 popup-id uniqueness across customizations.
 
-## `app.slots.experimental_composer`, `experimental_useComposerRenderer`, `experimental_ComposerRoot`, `experimental_useComposerContributions`, the composer search hooks, the prompt mention pill functions and the composer host components (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_composer`, `experimental_useComposerRenderer`, `experimental_ComposerRoot`, `experimental_useComposerContributions`, the composer search hooks, the prompt mention pill functions and the composer host components (`@hyperfide/plugin-sdk/app`)
 
-`experimental_composer({ id, title, description?, component })` draws bb's
-composer input box everywhere bb shows a composer. It is exclusive, chosen by
+`experimental_composer({ id, title, description?, component })` draws hyperfide platform's
+composer input box everywhere hyperfide platform shows a composer. It is exclusive, chosen by
 the synced `composer.provider` UI preference (Settings → Appearance →
-Composer), and with no composer plugin enabled no composer is shown. bb's own
-composer is the bundled `plugins/composer` plugin (`bb--composer`), built on
+Composer), and with no composer plugin enabled no composer is shown. hyperfide platform's own
+composer is the bundled `plugins/composer` plugin (`hyperfide--composer`), built on
 this slot: core renders every composer through `ComposerBox`
 (`apps/app/src/components/promptbox/ComposerBox.tsx`), which resolves the
 slot and provides the hooks below.
@@ -47,7 +47,7 @@ submit steers a running thread exactly as Enter does. The host runs other plugin
 highlight rule into `decorationSources`.
 
 `experimental_useComposerRenderer()` carries `input` (the surface, submission,
-typeahead, attachments, history, voice, sizing and collapse state, and bb's
+typeahead, attachments, history, voice, sizing and collapse state, and hyperfide platform's
 execution controls, handoff banner and compact-before-send chip, named so the
 composer chooses where they go), the composer `view`, and host services
 (`threadLinks`, `clipboard`, `attachmentSrc`, app key dispatch, toasts).
@@ -57,12 +57,12 @@ says what it does now (`send`, `queue` or `steer`), whether it needs a
 draft, and its shortcut, and `run()` runs it. The box only gates and draws
 them; which key queues and which steers, and that an empty steer sends the
 next queued message, stay with the host. `input.resolveMentionLink` says what clicking a
-pill does, opening attachment mentions and tiles in bb's viewer; core's
+pill does, opening attachment mentions and tiles in hyperfide platform's viewer; core's
 timeline, the thread view's attachment opener and the composer share that
 opener. `input.maxHeight` caps the box where the host has limited room (the
 compact New thread home), so the host no longer measures the composer's DOM. `experimental_ComposerRoot` takes the composer's
 root element and its editor and does the wiring core used to ask each
-composer for: it publishes the editor to `useComposer()`, routes bb's and
+composer for: it publishes the editor to `useComposer()`, routes hyperfide platform's and
 other plugins' composer commands, and registers pane focus and thread drops.
 `experimental_useComposerContributions()` returns other plugins' popups, `+`
 and send menu items and inline actions with their host renderers, applying
@@ -73,9 +73,9 @@ plugin icons and thread-title text.
 Docs: `frontend-renderer-slots.md`.
 
 `experimental_useComposerMentionSearch()` and
-`experimental_useComposerCommandSearch()` search bb's @-mention sources and
+`experimental_useComposerCommandSearch()` search hyperfide platform's @-mention sources and
 the provider's commands for the composer's open menu, and both return ranked
-groups under their headings, so relevance and grouping stay with bb. The
+groups under their headings, so relevance and grouping stay with hyperfide platform. The
 composer reports the menu's query with `search(query)` from the event that
 changed it. Each composer box runs its searches in its own memoized provider,
 which the surface configures with what to search (project, environment,
@@ -83,28 +83,28 @@ provider, triggers): a keystroke in an open menu renders the provider and the
 composer once, and plain typing never runs the search. A query passed during
 render would have to reach the provider from an effect, a second render.
 Both report `refreshing` while earlier results show. The command search has
-no paging, since bb returns every match, and no prefetch call:
+no paging, since hyperfide platform returns every match, and no prefetch call:
 `experimental_ComposerRoot` starts loading commands when focus enters the
 composer. A character is a mention trigger or a command trigger, never both;
 when a plugin mention provider claims `$`, `$` opens the mention menu.
 Every type in the contract is public: mentions, attachments and history use
 the `useComposer()` shapes, and suggestions carry the mention to insert plus
-per-kind display fields. bb's composer works in these types throughout. bb
+per-kind display fields. hyperfide platform's composer works in these types throughout. hyperfide platform
 reaches a composer only through the editor it hands to
 `experimental_ComposerRoot`.
 
 `experimental_describePromptMention(mention)`,
 `experimental_promptMentionClipboardAttributes(mention, text)` and
 `experimental_readPromptMentionClipboard(element)` give a composer's pills
-bb's classes, tooltip and text and its copy format, so pills copied between
-any composer and bb's messages paste back as pills. The timeline's pills use
+hyperfide platform's classes, tooltip and text and its copy format, so pills copied between
+any composer and hyperfide platform's messages paste back as pills. The timeline's pills use
 the same implementation. `threadLinks.parse`, `.cached` and `.resolve` turn
-pasted bb thread links into thread pills; bb owns
+pasted hyperfide platform thread links into thread pills; hyperfide platform owns
 its route shapes, id format and lookup batching, and core's initial-draft
 mention resolution shares the batching.
 
 The bundled composer is on the forkable list (`scripts/forkable-plugins.json`):
-it imports only `@get-bb/plugin-sdk`, npm packages and registry UI, and
+it imports only `@hyperfide/plugin-sdk`, npm packages and registry UI, and
 `pnpm check:plugin-forks plugins/composer` builds a copy outside this
 repository.
 
@@ -114,11 +114,11 @@ collapse with it; the attachment, clipboard, toast and thread-link services
 stay composer-scoped until another caller needs them; voice keeps its config
 and host components; `+` menu items show on surfaces that hide other plugin
 customizations, as before the move; @-mentions of the draft's own
-attachments are the composer's, since it holds the draft, so bb's mention
+attachments are the composer's, since it holds the draft, so hyperfide platform's mention
 search returns none.
 
 `apps/app/src/components/promptbox/composer-contract.test.tsx` is the
-contract table: bb's composer and a minimal textarea composer
+contract table: hyperfide platform's composer and a minimal textarea composer
 (`apps/app/src/test/fixtures/minimal-composer.tsx`, public SDK only) each run
 on the thread composer, a running thread that steers on Enter, embedded
 thread chat, the queued and sent message editors and the New thread
@@ -130,16 +130,16 @@ editor and republishes only when the editor's state changes, so a composer
 can build its editor inline on every render.
 
 Styling the composer needs lives in the plugin (`plugins/composer/src/composer.css`).
-bb keeps the pill surface its timeline shares and the highlight classes of
-its own decorations. bb's controls inside the box size their labels against
-bb's own `[data-composer-box]` wrapper, so a composer declares no CSS
+hyperfide platform keeps the pill surface its timeline shares and the highlight classes of
+its own decorations. hyperfide platform's controls inside the box size their labels against
+hyperfide platform's own `[data-composer-box]` wrapper, so a composer declares no CSS
 container. `input.compact` says when to show the one-line form: `"always"`
-when the host collapsed the box, `"narrow"` when bb's CSS container signal
+when the host collapsed the box, `"narrow"` when hyperfide platform's CSS container signal
 says the pane is short or the column narrow. The box reports the form it
 shows in `editor.state.layout`, which becomes `view.layout`; the host asks
 for the caret at the end with `editor.focusEnd()`, and measures the menu
 `experimental_ComposerRoot` is given on surfaces that make room for it, so
-the input carries no change counters or layout callbacks. bb releases
+the input carries no change counters or layout callbacks. hyperfide platform releases
 local attachment previews when attachments leave the draft.
 
 Before stabilization:
@@ -187,33 +187,33 @@ extending the context model or default binding policy.
 
 ## Discoverable RPC
 
-`bb.rpc.register` accepts `experimental_discoverable` and
+`hyperfide platform.rpc.register` accepts `experimental_discoverable` and
 `experimental_description` options, and method definitions accept
 `experimental_description`. A discoverable method publishes its wire schemas
 (Standard JSON Schema) and description. Discovery does not change RPC
 authorization or dispatch.
-`bb.sdk.plugins.experimental_discoverRpc({ pluginId?, method?, signal? })`
+`hyperfide platform.sdk.plugins.experimental_discoverRpc({ pluginId?, method?, signal? })`
 lists the published methods of loaded plugins. Methods disappear on unload, so
 callers handle the race between discovery and invocation. The fake host
 exposes `experimental_publishedRpcMethods`.
 
 Before stabilization, audit schema export fidelity (especially refinements and
 transforms), descriptor size and reference limits, lifecycle races, and
-cross-plugin copied-schema compatibility. Verify `bb plugin rpc list|inspect`
+cross-plugin copied-schema compatibility. Verify `hyperfide platform plugin rpc list|inspect`
 is sufficient to implement a consumer without a shared contract package.
 Method names carry optional versions; there is no negotiation.
 
 ## Plugin safe mode
 
-`bb.sdk.plugins.experimental_getSafeMode()` returns `{ enabled }`.
+`hyperfide platform.sdk.plugins.experimental_getSafeMode()` returns `{ enabled }`.
 `experimental_setSafeMode({ enabled })` returns `{ enabled, problems }`, where
 `problems` names each plugin that did not start when safe mode ended. While
-safe mode is on, only plugins included with bb run: `builtin` provenance, or
+safe mode is on, only plugins included with hyperfide platform run: `builtin` provenance, or
 an auto-installed bundled source. Every other plugin stays unloaded with
 status `disabled`. Each plugin's own `enabled` flag is untouched. Enable keeps
 an affected plugin unloaded, reload reports a failure, and install and update
 are refused. The flag persists on the server and backs
-`bb plugin safe-mode [on|off]`.
+`hyperfide platform plugin safe-mode [on|off]`.
 
 Before stabilization, audit whether official store plugins should count as
 included, whether a plugin calling `experimental_setSafeMode` should be
@@ -224,7 +224,7 @@ before the toggle is reachable.
 
 ## Queued message edit holds
 
-`bb.sdk.threads.queuedMessages.experimental_holdForEdit({ threadId, queuedMessageId })`
+`hyperfide platform.sdk.threads.queuedMessages.experimental_holdForEdit({ threadId, queuedMessageId })`
 (`POST /threads/:id/queued-messages/:queuedMessageId/edit-hold`) holds a
 queued row while someone edits it and returns `{ leaseMs }`. While the hold
 is live, no automatic dispatch (idle drain, schedule, plugin recheck, host
@@ -243,12 +243,12 @@ release a hold.
 
 Before stabilization, audit whether holds need an owner token so two clients
 editing the same row cannot release each other's hold, whether queue DTOs and
-`bb thread queue list` should show that a row is being edited, and whether
+`hyperfide platform thread queue list` should show that a row is being edited, and whether
 the lease length suits throttled background tabs.
 
 ## Plugin cache pruning
 
-`bb.sdk.plugins.experimental_pruneCache({ dryRun? })`
+`hyperfide platform.sdk.plugins.experimental_pruneCache({ dryRun? })`
 (`POST /plugins/cache/prune`) deletes cached git and npm plugin versions
 under `<data>/plugins/cache` that no installed plugin uses and returns
 `{ dryRun, removed, bytes }`; each removed entry has `pluginId` (null for an
@@ -259,7 +259,7 @@ needs, directories containing or inside an installed plugin's root, and
 in-flight staging directories. It runs under the plugin registration lock.
 Removing a plugin deletes its cached versions at once, and a successful update
 deletes replaced versions once activation stabilizes (its state snapshot
-stays for the 7-day retention window). It backs `bb plugin prune [--dry-run]`
+stays for the 7-day retention window). It backs `hyperfide platform plugin prune [--dry-run]`
 and the palette's Clean up plugin cache.
 
 Before stabilization, audit whether the response should report
@@ -269,9 +269,9 @@ left by crashes should be collected too.
 
 ## RPC caller identity (`ExperimentalPluginRpcHandlerContext.experimental_caller`)
 
-Every `bb.rpc.register` handler receives a context whose `experimental_caller`
+Every `hyperfide platform.rpc.register` handler receives a context whose `experimental_caller`
 is `{ kind: "plugin", pluginId }` for a loaded plugin's
-`bb.sdk.plugins.callRpc` and `{ kind: "client" }` for everyone else. A
+`hyperfide platform.sdk.plugins.callRpc` and `{ kind: "client" }` for everyone else. A
 per-load token makes the identity unforgeable by clients.
 
 Docs: `backend-events.md`, `backend-sdk.md`.
@@ -280,10 +280,10 @@ Before stabilizing, audit whether other surfaces (HTTP routes, agent tools,
 CLI commands) need the same identity, whether a plugin needs to know the
 calling app window or thread, and whether in-process plugins that read other
 plugins' memory make the token a meaningful boundary for third-party plugins.
-bb account relies on it to keep `/api/connect/` requests, credential reads,
+hyperfide platform account relies on it to keep `/api/connect/` requests, credential reads,
 refused-credential reports, and credential adoption to the connect plugin.
 
-## `bb.http.experimental_websocket`
+## `hyperfide platform.http.experimental_websocket`
 
 Registers an exact-path WebSocket upgrade in the plugin's
 `/api/v1/plugins/<id>/http/` namespace. It shares HTTP route auth modes.
@@ -304,7 +304,7 @@ Docs: `backend-events.md`, `testing.md`.
 5. Confirm the callback error policy should keep the socket open after an
    isolated message-handler failure.
 
-## `bb.providers.experimental_contributeEnvHealth`
+## `hyperfide platform.providers.experimental_contributeEnvHealth`
 
 Registers one host-scoped readiness resolver beside a provider environment
 contribution. When the bridge reports `unauthenticated` or `expired`, a
@@ -324,7 +324,7 @@ Docs: `providers.md`.
 4. Confirm a five-second timeout is appropriate for host-scoped credential
    availability checks.
 
-## `bb.providers.experimental_contributeEnv`
+## `hyperfide platform.providers.experimental_contributeEnv`
 
 Registers one resolver per provider per plugin that returns up to 32
 environment entries for each session and turn, and for model catalog listing
@@ -350,14 +350,14 @@ Docs: `providers.md`.
 
 ## Compatibility windows
 
-Open windows left by the SDK 0.4.16 stabilization renames. The bb-app
+Open windows left by the SDK 0.4.16 stabilization renames. The hyperfide-app
 CHANGELOG records the renames themselves.
 
 - Renamed declaration, tool and navPanel fields (`experimental_strings`,
   `experimental_presentation`, `experimental_fixedTabs`, …) are rejected at
   registration with a message naming the new field.
 - Presentation-less `toolCall` rows pass through the legacy-data adapter
-  (`upgradeLegacyToolItem` in `@bb/domain`). It renders Read/Grep/Glob and
+  (`upgradeLegacyToolItem` in `@hyperfide/domain`). It renders Read/Grep/Glob and
   read/grep/find/ls as `fileRead`/`search` rows and suppresses
   Task*/Todo*/ToolSearch bookkeeping calls. The pi bridge's live generic
   `tool` rows still take this path. To close the window, pi stamps
@@ -367,13 +367,13 @@ CHANGELOG records the renames themselves.
 
 ## Scheduled removals (next major)
 
-Unprefixed exports of `@get-bb/plugin-sdk/provider-bridge` with no consumer in
+Unprefixed exports of `@hyperfide/plugin-sdk/provider-bridge` with no consumer in
 this repository. They stay because a third-party bridge compiled against an
 SDK before 0.4.16 may import them, and dropping a published name is a
 breaking change. Remove them at the next major version. The
 `provider-bridge-scheduled-removals` SDK test holds the facade to this list.
 
-Re-exported from `@bb/domain`, where each still has core consumers:
+Re-exported from `@hyperfide/domain`, where each still has core consumers:
 
 - `acpNativeReasoningSchema`
 - `acpPermissionCliSchema`
@@ -389,7 +389,7 @@ Re-exported from `@bb/domain`, where each still has core consumers:
 
 Aliases of moved definitions. The ACP pair aliases the ACP kit's
 `experimental_acpLaunchSpecSchema` / `AcpLaunchSpec` and normalizer
-(`@get-bb/plugin-sdk/provider-bridge/acp`). The task-tool pair has no
+(`@hyperfide/plugin-sdk/provider-bridge/acp`). The task-tool pair has no
 replacement.
 
 - `hostDaemonAcpLaunchSpecSchema`
@@ -401,9 +401,9 @@ replacement.
 
 Also kept only until the next major:
 
-- On `@get-bb/plugin-sdk/provider-bridge/acp`, `AcpAgentProfile`, a deprecated
+- On `@hyperfide/plugin-sdk/provider-bridge/acp`, `AcpAgentProfile`, a deprecated
   alias of `AcpLaunchSpec`.
-- On `@get-bb/plugin-sdk/provider-bridge/testing`,
+- On `@hyperfide/plugin-sdk/provider-bridge/testing`,
   `CONFORMANCE_ASSEMBLED_EVENT_METHOD`. The conformance kit assembles
   `thread/delta` itself and reads nothing under that method.
 - The `disallowedTools` field of `threadStartParamsSchema`,
@@ -411,7 +411,7 @@ Also kept only until the next major:
   populates it.
 
 `experimental_useSidebarThreadActions` and `PluginSidebarThreadActions`
-(`@get-bb/plugin-sdk/app`), with the testing harness's `SidebarActionCall` /
+(`@hyperfide/plugin-sdk/app`), with the testing harness's `SidebarActionCall` /
 `inspection.sidebarActionCalls`, are superseded by the thread action
 registry, `useSdk().threads`, and `useBbNavigate().toThread` / `toCompose`;
 `experimental_archiveEnvironmentThreads` moved to
@@ -425,7 +425,7 @@ them.
 `PluginSettingDescriptor.experimental_schema` is a synchronous,
 non-transforming Standard Schema validator. The server runs it on every
 proposed value. `PluginSettingsHandle.experimental_set` validates and persists
-the plugin's own fields, like a settings route or `bb plugin config` write.
+the plugin's own fields, like a settings route or `hyperfide platform plugin config` write.
 
 Docs: `backend-foundation.md`.
 
@@ -454,7 +454,7 @@ Docs: `backend-foundation.md`.
 - Decide how long legacy stored numeric strings should be coerced on read.
 - Exercise decimal and exponent input across browser engines and the CLI.
 
-## `bb.experimental_hooks` (`on`, `recheck`)
+## `hyperfide platform.experimental_hooks` (`on`, `recheck`)
 
 `on("message.dispatch", handler)` answers core's admission checkpoint before
 every message reaches a provider. A handler returns `proceed`, `wait` (queue
@@ -511,7 +511,7 @@ Docs: `backend-events.md`.
 - **The single server-wide lock.** One slow handler delays every dispatch in
   the server, up to its 10 s box.
 
-## `interaction.pending` (`bb.events.on`)
+## `interaction.pending` (`hyperfide platform.events.on`)
 
 Fires after core commits a pending interaction. It carries the public thread
 and pending interaction DTOs and is observe-only.
@@ -523,7 +523,7 @@ and plugin interaction details. Confirm that the full interaction DTO remains
 the correct payload instead of an id that requires a fresh SDK read. Decide
 whether this event needs matching resolved, cancelled, or interrupted events.
 
-## `message.queued` / `message.dispatched` / `message.cancelled` / `turn.failed` (`bb.events.on`)
+## `message.queued` / `message.dispatched` / `message.cancelled` / `turn.failed` (`hyperfide platform.events.on`)
 
 These are observe-only announcements. `message.queued` (on first queue and on
 every rewritten wait) and `message.dispatched` carry the `ThreadQueuedMessage`
@@ -533,7 +533,7 @@ DTO. `message.cancelled` fires when a queued row is deleted before dispatch.
 Docs: `backend-events.md`.
 
 **Audit before stabilizing.** These are the only non-thread events on
-`bb.events.on`, so renaming `PluginThreadEventPayloads` and
+`hyperfide platform.events.on`, so renaming `PluginThreadEventPayloads` and
 `PluginThreadEventHandler` project-wide is part of stabilizing. Decide whether
 every plugin should see every queued row (today it does, and filtering on
 `entry.waitingOn` is the documented pattern) or only rows whose wait it owns.
@@ -547,7 +547,7 @@ policy asks without replaying the event log. Attempt caps are entirely the
 plugin's; core enforces no ceiling beyond one live retry row per original
 request.
 
-## `bb.experimental_environments` (`register`, `recheck`)
+## `hyperfide platform.experimental_environments` (`register`, `recheck`)
 
 Registers an environment provider: a named place threads run. Ids are flat
 and first-wins, and the persisted owner plugin is the only one that can
@@ -588,10 +588,10 @@ Docs: `backend-events.md`.
 5. **Compatibility fields.** Retain the deprecated `managed`, `isWorktree`,
    `workspaceProvisionType` and display-kind fields for the agreed cycle.
 
-## `@get-bb/plugin-sdk/environment-provider`
+## `@hyperfide/plugin-sdk/environment-provider`
 
 Exports the resource-operation contract for
-`bb.experimental_environments.register`. It also exports optional
+`hyperfide platform.experimental_environments.register`. It also exports optional
 `availability(context)` and `restore(context)`. `availability` is cached per
 project and machine, re-checked at thread creation, and reported to pickers
 as `machineAvailability`. `restore` is the only way core rebuilds a destroyed
@@ -618,7 +618,7 @@ the current decision timeout is appropriate. Stabilize `experimental_claimPath`
 after auditing restart, cancellation, competing checkout, and
 path-reservation behavior.
 
-## `app.slots.experimental_environmentProviderInputs`, `experimental_BranchPicker`, `experimental_useBranches` and `experimental_useCheckoutState` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_environmentProviderInputs`, `experimental_BranchPicker`, `experimental_useBranches` and `experimental_useCheckoutState` (`@hyperfide/plugin-sdk/app`)
 
 The slot registers `{ environmentProviderId, component }`, the control the
 New Thread environment picker renders beside that provider. Its props are
@@ -651,7 +651,7 @@ primitives). Only the API index names the slot registration itself.
    reports ready from an effect on mount. Decide whether the registration
    should instead declare a default value.
 
-## `app.slots.experimental_machineProviderInputs` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_machineProviderInputs` (`@hyperfide/plugin-sdk/app`)
 
 Registers `{ machineProviderId, component }`, a compact control for one
 machine provider's inputs. It renders in the New Thread toolbar when a
@@ -665,7 +665,7 @@ Docs: `frontend-components.md`.
 shape works across machine providers, that ready/blocked is sufficient, and
 that provider changes and crashed controls cannot retain stale launch inputs.
 
-## `bb.experimental_machines` (`register`)
+## `hyperfide platform.experimental_machines` (`register`)
 
 Registers a project-independent machine provider: required id, displayName,
 description, icon, `create`, `reconcileCleanup` and `remove`; optional
@@ -686,7 +686,7 @@ bootstrap, competing lifecycle operations, wrong-owner rejection and no
 duplicate enrollment. Standalone SDK submit/launch/follow/cancel must match
 CLI create/status/cancel.
 
-## `@get-bb/plugin-sdk/machine-provider`
+## `@hyperfide/plugin-sdk/machine-provider`
 
 Exports the machine provider's definition, input, availability/validation,
 create and lifecycle context, progress, and resource/removal types. These
@@ -695,14 +695,14 @@ their unprefixed names do not mean they are stable.
 
 Docs: `backend-machines.md`.
 
-Stabilization follows `bb.experimental_machines` above.
+Stabilization follows `hyperfide platform.experimental_machines` above.
 
-## `bb.branding.experimental_icons` (manifest) and namespaced presentation glyphs
+## `hyperfide platform.branding.experimental_icons` (manifest) and namespaced presentation glyphs
 
 A manifest map from names to plugin SVG files. Timeline presentation glyphs
 and provider `icon` may reference an entry as `"<pluginId>/<name>"`. The map
 is validated at build and load. Ingest rejects a glyph that is not the
-emitting plugin's own declared icon. `bb.branding.icon` refuses the namespaced
+emitting plugin's own declared icon. `hyperfide platform.branding.icon` refuses the namespaced
 form.
 
 Docs: `quickstart.md` (manifest and SVG rules), `providers.md` (provider
@@ -710,7 +710,7 @@ icons), `backend-cli-agents.md` (tool presentation).
 
 **Audit before stabilizing.** Decide whether the key becomes `icons`. The
 strict manifest schema makes that rename breaking, so the stabilization
-release must accept both for one release. Decide whether `bb.branding.icon`
+release must accept both for one release. Decide whether `hyperfide platform.branding.icon`
 should resolve a self-referencing namespaced glyph through the map instead of
 refusing it. **Open question for a major release:** whether to tighten logos
 and provider icons at install and load, to the build rules or to the full
@@ -730,7 +730,7 @@ the icon; today it simply falls back.
 **Kept experimental (2026-08-22).** Drop the legacy input and settle the image
 policy, then stabilize.
 
-Converts a decoded bb tool-call response into the ordered text and
+Converts a decoded hyperfide platform tool-call response into the ordered text and
 inline-image content blocks that MCP and Pi tool results accept. It takes
 ordered `contentBlocks` or the legacy aggregate `{ content, images }`.
 
@@ -739,7 +739,7 @@ content-block vocabulary; decide whether legacy aggregate fields still need to
 be accepted; and define any image MIME validation, decoding, or payload-size
 policy at the server boundary.
 
-## The ACP bridge kit (`@get-bb/plugin-sdk/provider-bridge/acp`)
+## The ACP bridge kit (`@hyperfide/plugin-sdk/provider-bridge/acp`)
 
 **Kept experimental (2026-08-22).** Five members remain, each with an open
 question below. The kit grows with a consumer, not ahead of one.
@@ -747,7 +747,7 @@ question below. The kit grows with a consumer, not ahead of one.
 `experimental_acpProviderBridge` is the generic Agent Client Protocol bridge a
 plugin re-exports, backed by `packages/provider-bridge-acp` (the official
 `@agentclientprotocol/sdk` transport, turns for agent-started work, slash
-commands and session options as bb thread state, elicitation forms as
+commands and session options as hyperfide platform thread state, elicitation forms as
 question cards, sign-in guidance from advertised auth methods). It launches
 the agent named by `providerOptions.acpLaunchSpec` with the dialect named by
 `acpDialect` in bridge options. `experimental_probeAcpAgent` asks an installed
@@ -757,13 +757,13 @@ validates the answer across a host RPC boundary.
 bridge parses.
 
 `experimental_registerAcpDialect` adds a dialect. A plugin calls it at module
-load in its `bb.host` artifact with an `AcpDialect` and names the id as
+load in its `hyperfide platform.host` artifact with an `AcpDialect` and names the id as
 `acpDialect` in its registration. Empty and built-in ids (`acp`, `cursor`,
 `grok`, `omp`, `opencode`) throw, re-registering an id replaces it, and an
-unregistered id resolves to the generic dialect. bb's own dialects resolve
+unregistered id resolves to the generic dialect. hyperfide platform's own dialects resolve
 through the same registry (`resolveAcpDialect`).
 
-`@get-bb/plugin-sdk/provider-bridge/acp-next`, the subpath the kit was
+`@hyperfide/plugin-sdk/provider-bridge/acp-next`, the subpath the kit was
 previewed under (2026-10-09), re-exports this kit unchanged and is
 deprecated. Each subpath is bundled with its own dialect registry, so a
 plugin must import every member from one of them. Remove it at the next
@@ -793,7 +793,7 @@ relative-path / 32-root rule or the per-root options, and the split from the
 per-workspace resolver is new.
 
 Names the directories a provider's agent reads skills from: `user` relative
-to the host home, and `project` relative to the workspace. bb lists those
+to the host home, and `project` relative to the workspace. hyperfide platform lists those
 skills beside its own.
 
 Docs: `providers.md`, [provider-plugin-api.md](provider-plugin-api.md) §1.
@@ -824,8 +824,8 @@ two declarations or become one list of typed roots; confirm that a flat
 
 ## `PluginProviderDeclaration.experimental_resolvesNativeRoots`
 
-Declares that the plugin's `bb.host` entry serves
-`resolveNativeRoots({ providerId, cwd })`. bb scans the answer beside the
+Declares that the plugin's `hyperfide platform.host` entry serves
+`resolveNativeRoots({ providerId, cwd })`. hyperfide platform scans the answer beside the
 declared roots (cached ten seconds). A failed answer yields no resolved roots
 and never fails the listing.
 
@@ -835,7 +835,7 @@ Docs: `providers.md`, [provider-plugin-api.md](provider-plugin-api.md) §1.
 whether the server should detect the method on the host entry; and settle
 the cache TTL and the invalidation set against a real multi-host setup.
 
-## `experimental_nativeRootsHostContract` (`@get-bb/plugin-sdk/host`)
+## `experimental_nativeRootsHostContract` (`@hyperfide/plugin-sdk/host`)
 
 The one-method host RPC contract (`resolveNativeRoots`). Input is
 `{ providerId, cwd: string | null }`. Output is `{ skills, commands }`, each a
@@ -849,7 +849,7 @@ third-party agent's layouts; decide whether the contract should accept a
 relative path the daemon resolves (so a plugin need not know the host home)
 and whether the 256-root cap per side is right.
 
-## `experimental_filterResolvedNativeRoots` (`@get-bb/plugin-sdk/host`)
+## `experimental_filterResolvedNativeRoots` (`@hyperfide/plugin-sdk/host`)
 
 Checks a `resolveNativeRoots` answer root by root against the contract. It
 drops each failing root with a warning, and truncates a side past 256 roots,
@@ -863,7 +863,7 @@ in the answer) so a plugin cannot forget to call the helper, and whether
 `dropped[].reason` is a contract a resolver's test may pin or free text for
 the log.
 
-## Vendor plugin roots (`experimental_resolveClaudePluginRoots` and `experimental_resolveVendorPluginRoots`, `@get-bb/plugin-sdk/host`)
+## Vendor plugin roots (`experimental_resolveClaudePluginRoots` and `experimental_resolveVendorPluginRoots`, `@hyperfide/plugin-sdk/host`)
 
 `experimental_resolveVendorPluginRoots({ plugins, layout })` walks vendor
 plugin directories into native roots with `namePrefix: "<plugin>:"`.
@@ -911,7 +911,7 @@ Docs: `backend-foundation.md`.
    should tolerate unknown fields so a hint degrades to the one-line input on
    an older client instead of failing the whole settings view.
 
-## `bb.sdk.threads.experimental_listPluginMetadata`
+## `hyperfide platform.sdk.threads.experimental_listPluginMetadata`
 
 `POST /threads/plugin-metadata` with `{ pluginId, threadIds }` (1–200 ids)
 returns `{ threads: { threadId, metadata }[] }` for each thread holding that
@@ -930,7 +930,7 @@ Docs: `backend-sdk.md`.
 2. **Batch size.** 200 ids per request; callers chunk. Revisit if the
    attributes layer replaces per-registration reads.
 
-## `bb.sdk.threads.experimental_listAncestors`
+## `hyperfide platform.sdk.threads.experimental_listAncestors`
 
 `POST /threads/ancestors` with `{ threadIds }` (1–200 ids) returns
 `{ threads: { threadId, ancestorIds }[] }`, parent first up to the root,
@@ -948,7 +948,7 @@ Docs: `backend-sdk.md`.
 2. **Batch size.** 200 ids per request; callers chunk, like
    `experimental_listPluginMetadata`.
 
-## `bb.sdk.threads.experimental_listDescendants`
+## `hyperfide platform.sdk.threads.experimental_listDescendants`
 
 `POST /threads/descendants` with `{ threadIds, includeArchived?,
 includeHidden? }` (1–200 ids) returns `{ threads: { threadId, descendantIds
@@ -979,7 +979,7 @@ Docs: `backend-sdk.md`.
 
 A `type: "select"` descriptor record from option value to display label,
 shown in the settings form. Stored values, defaults, `settings.get()` and
-`bb plugin config` keep the option values, and labels for values outside
+`hyperfide platform plugin config` keep the option values, and labels for values outside
 `options` are refused at define time. First consumer: push-notifications'
 level settings.
 
@@ -992,10 +992,10 @@ Docs: `backend-foundation.md`.
    beside their values and makes per-option descriptions possible, but every
    reader of `options` (host policy, server contract, CLI, settings form) has
    to handle both forms.
-2. **CLI.** `bb plugin config <id>` still lists raw option values, which is
+2. **CLI.** `hyperfide platform plugin config <id>` still lists raw option values, which is
    what `set` accepts; decide whether it should also print labels.
 
-## `bb.server.experimental_dataDir`
+## `hyperfide platform.server.experimental_dataDir`
 
 **Kept experimental (2026-08-22).** A bare data-directory path does not
 stabilize.
@@ -1008,43 +1008,20 @@ Docs: `backend-foundation.md`.
 **Audit before stabilizing.** Decide whether the Account Pool plugin's secret
 files can move to a plugin-scoped primitive so the member can go. If it stays,
 decide whether a bare path is the right shape or whether a plugin should get
-named accessors for the bb-managed locations it may use. A path invites
-writes into bb's directory, which `bb.storage` exists to prevent.
+named accessors for the hyperfide-managed locations it may use. A path invites
+writes into hyperfide platform's directory, which `hyperfide platform.storage` exists to prevent.
 
-## `bb.server.experimental_appUrl`
+## `hyperfide platform.server.experimental_appUrl`
 
-The operator-configured public app URL from `BB_APP_URL`, or `null`.
+The operator-configured public app URL from `HYPERFIDE_APP_URL`, or `null`.
 
 Docs: `backend-foundation.md`.
 
-**Audit before stabilizing.** Decide whether `BB_EXTERNAL_URL` or the bb
-connect URL should supply this value when `BB_APP_URL` is empty. Confirm that
+**Audit before stabilizing.** Decide whether `HYPERFIDE_EXTERNAL_URL` or the hyperfide platform
+connect URL should supply this value when `HYPERFIDE_APP_URL` is empty. Confirm that
 one public URL has clear behavior when a server has several access paths.
 
-## `bb.server.internal_DO_NOT_USE_openTunnelIngress`
-
-Internal to bb's own connect plugins (`connect`, `bb--connect-next`): the `internal_DO_NOT_USE_` prefix marks members that are not part of the plugin API, are not offered to third-party plugins, and may change or disappear in any release.
-
-`internal_DO_NOT_USE_openTunnelIngress({ audience })` resolves to
-`{ baseUrl, close() }` for a listener on `127.0.0.1` with an ephemeral port.
-Every HTTP request and WebSocket upgrade on it must carry an
-`x-bb-gate-assertion` (`@bb/tunnel-contract/next`) signed by the bb connect
-next gate for `audience`, the request method and the exact path and query;
-anything else gets a 401 JSON body `{ code: "gate_assertion_invalid", reason }`
-and never reaches the app. A verified request loses every inbound
-`x-bb-gate-*` header, gets `x-bb-gate-auth` (and the machine id or OAuth
-grant headers) from the claims only, has Host and the public Origin rewritten
-to the server's loopback origin, and is dispatched in-process into the same
-app as `loopbackBaseUrl` (HTTP, `/ws`, plugin WebSockets). The ingress never
-counts as a loopback caller. Gate keys come from `BB_CONNECT_GATE_KEYS_URL`.
-Opening an audience again shares its listener; it stops, and drops its
-WebSockets, when every handle closes. Handles close when the plugin is
-disabled or unloaded.
-
-Core callers: none. The Cloudflare bb connect path still replays requests to
-the main loopback port; the `connect-next` plugin is the only caller.
-
-Docs: `backend-foundation.md`; the request rules are in [connect-next.md](connect-next.md) (Server ingress).
+## `hyperfide platform.server.internal_DO_NOT_USE_openTunnelIngress`
 
 **Audit before stabilizing.** Decide whether the Cloudflare tunnel client
 moves onto the same ingress so core and both connect plugins share one path.
@@ -1052,40 +1029,10 @@ Decide whether `target` (share ports) belongs here or stays refused. Confirm
 the audience should stay free-form or become a typed server id, and whether a
 plugin may open audiences for servers other than its own.
 
-## `bb.hosts.internal_DO_NOT_USE_setNextTunnels`, `internal_DO_NOT_USE_nextTunnelStatuses`, `internal_DO_NOT_USE_onNextTunnelStatusChange`
-
-Internal to bb's own connect plugins (`connect`, `bb--connect-next`): the `internal_DO_NOT_USE_` prefix marks members that are not part of the plugin API, are not offered to third-party plugins, and may change or disappear in any release.
-
-`internal_DO_NOT_USE_setNextTunnels(config | null)` turns bb connect next machine
-tunnels on (an `InternalDoNotUsePluginNextTunnelConfig`,
-`{ domain, server: { protocol, host, port } }`) or off. The server keeps one
-config owned by the calling plugin (another plugin's non-null call throws
-while it is set; a null call from a non-owner is a no-op), clears it when the
-owner is disabled or uninstalled, and sends it as `connect-next.replace` (and
-`connectNext` in the session-open response) to every connected daemon that
-holds a bb connect machine credential and opened its session with protocol
-247 or newer. A protocol-246 daemon is still accepted and only gets its
-Cloudflare shares. Each daemon runs frpc with one proxy per port declared
-through `declareSharedPorts` at `<label>--<port>.<domain>` while it shares at
-least one port, and refuses a config whose domain is not its trusted
-enrollment's base domain or `next.<base domain>`, or whose tunnel host is not
-`tunnel.<domain>`, or that is not `wss` for an https enrollment, so a plugin
-cannot send the machine credential elsewhere.
-`internal_DO_NOT_USE_nextTunnelStatuses()` returns each connected daemon's last
-`connect-next.status` report as `InternalDoNotUsePluginHostNextTunnelStatus`
-(dropped when its session ends), and
-`internal_DO_NOT_USE_onNextTunnelStatusChange(listener)` calls `listener` on any
-change and returns an unsubscribe function that disposal also runs.
-
-Core callers: none. Product policy (on or off, which domain) belongs to the
-`connect-next` plugin, which calls all three; core's Cloudflare machine tunnel
-needs no config because the daemon derives its gate from its enrollment.
-
-Docs: `backend-foundation.md`; the wire and daemon behavior are in
-[connect-next.md](connect-next.md) (Machine tunnels).
+## `hyperfide platform.hosts.internal_DO_NOT_USE_setNextTunnels`, `internal_DO_NOT_USE_nextTunnelStatuses`, `internal_DO_NOT_USE_onNextTunnelStatusChange`
 
 **Audit before stabilizing.** Decide whether the config should be per host
-instead of global, whether the status should be pushed through `bb.realtime`
+instead of global, whether the status should be pushed through `hyperfide platform.realtime`
 instead of a listener, and whether the compatibility window for protocol 246
 can close (then `HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS` goes back to the
 current version only). Decide whether the Cloudflare machine tunnel should
@@ -1111,7 +1058,7 @@ hook; confirm the `{ threadId | null }` scope is the right key once bridges
 multiplex several threads over one child; and settle the recording entry
 shape (`{ ts, run, seq, dir, line }`) as a documented fixture format.
 
-## Portable provider spawn (`experimental_spawnPortableProcess`, `experimental_killPortableProcess`) (`@get-bb/plugin-sdk/provider-bridge`)
+## Portable provider spawn (`experimental_spawnPortableProcess`, `experimental_killPortableProcess`) (`@hyperfide/plugin-sdk/provider-bridge`)
 
 `experimental_spawnPortableProcess({ command, args, cwd?, env?, stdio?, detached? })`
 returns a `ChildProcess` launched the way the daemon launches one. On Windows
@@ -1145,7 +1092,7 @@ bridges need to say about a rejection (installation was deliberately left to
 runtime should bound the `rateLimited` ladder from the hint rather than from
 a constant.
 
-## Provider maintenance toolkit (`experimental_resolveExecutablePath`, `experimental_readCliVersion`, `experimental_commandOutput`, `experimental_versionFrom`, `experimental_compareVersions`, `experimental_formatCommand`, `experimental_npmCommand`, `experimental_npmGlobalInstallCommand`, `experimental_npmLatestVersion`, `experimental_probeNpmGlobalPackage`, `experimental_npmGlobalInstallSource`, `experimental_installationVerification`, `experimental_downloadedInstallerCommand`, `experimental_clampPercent`) (`@get-bb/plugin-sdk/provider-bridge`)
+## Provider maintenance toolkit (`experimental_resolveExecutablePath`, `experimental_readCliVersion`, `experimental_commandOutput`, `experimental_versionFrom`, `experimental_compareVersions`, `experimental_formatCommand`, `experimental_npmCommand`, `experimental_npmGlobalInstallCommand`, `experimental_npmLatestVersion`, `experimental_probeNpmGlobalPackage`, `experimental_npmGlobalInstallSource`, `experimental_installationVerification`, `experimental_downloadedInstallerCommand`, `experimental_clampPercent`) (`@hyperfide/plugin-sdk/provider-bridge`)
 
 These are the host-local probes and install commands behind a bridge's
 `provider/health`, `provider/usage` and `provider/installation/*` answers for
@@ -1183,7 +1130,7 @@ a user-installed CLI.
    it still returns `sh -c` with `mktemp`, `curl` and `bash`. Decide whether it
    should refuse there rather than hand the daemon a command that cannot run.
 
-## Presentation builders (`experimental_presentationTitle`, `experimental_presentationDetail`, `experimental_withTitle`, `experimental_presentationFileName`, `experimental_COMPACTION_PRESENTATION`, `experimental_REASONING_PRESENTATION`, `experimental_fileReadPresentation`, `experimental_searchPresentation`, `experimental_webSearchPresentation`, `experimental_webFetchPresentation`, `experimental_planStepsPresentation`, `experimental_toolPresentation`) (`@get-bb/plugin-sdk/provider-bridge`)
+## Presentation builders (`experimental_presentationTitle`, `experimental_presentationDetail`, `experimental_withTitle`, `experimental_presentationFileName`, `experimental_COMPACTION_PRESENTATION`, `experimental_REASONING_PRESENTATION`, `experimental_fileReadPresentation`, `experimental_searchPresentation`, `experimental_webSearchPresentation`, `experimental_webFetchPresentation`, `experimental_planStepsPresentation`, `experimental_toolPresentation`) (`@hyperfide/plugin-sdk/provider-bridge`)
 
 These build the grammar-v3 `presentation` a bridge stamps on every item
 ([provider-plugin-api.md](provider-plugin-api.md) §3 owns the vocabulary).
@@ -1191,14 +1138,14 @@ These build the grammar-v3 `presentation` a bridge stamps on every item
 or undefined. `presentationDetail` caps a detail at the persisted schema's 280
 characters. `withTitle` stamps a title only when there is one, and
 `presentationFileName` returns the last path segment. The two constants carry
-bb's fixed wording for compaction and reasoning rows. The five builders shape
+hyperfide platform's fixed wording for compaction and reasoning rows. The five builders shape
 file read, search, web search, web fetch and plan-steps rows, and
 `toolPresentation` is the generic "Running/Ran <tool>" row.
 
 **Audit before stabilizing.**
 
 1. **The wording is a product decision.** A bridge that adopts the constants
-   inherits bb's English labels and glyph names. Decide whether the labels
+   inherits hyperfide platform's English labels and glyph names. Decide whether the labels
    should come from the host (localized, themed) rather than be persisted from
    the bridge before the constants are a promise.
 2. **The caps are the schema's.** Stabilizing the helpers freezes the
@@ -1209,7 +1156,7 @@ file read, search, web search, web fetch and plan-steps rows, and
    own uncollapsed variant. Decide which default a third-party bridge should
    get.
 
-## `experimental_readBoundedLines` (`@get-bb/plugin-sdk/provider-bridge`)
+## `experimental_readBoundedLines` (`@hyperfide/plugin-sdk/provider-bridge`)
 
 A newline-delimited line reader. It frames on LF only (never `readline`, which
 also splits on U+2028/U+2029) and strips a trailing CR. A line over
@@ -1227,7 +1174,7 @@ fires after a final unterminated line is emitted.
    session instead of logging the drop. Decide whether the reader should offer
    a fail-closed mode before the signature is a promise.
 
-## Live-file navigation (`experimental_FileLink`, `BbNavigate.experimental_openFilePreview`, and `BbNavigate.experimental_openFileExternally`)
+## Live-file navigation (`experimental_FileLink`, `HyperfideNavigate.experimental_openFilePreview`, and `HyperfideNavigate.experimental_openFileExternally`)
 
 **Kept experimental (2026-08-22).** Windows/UNC paths were never verified.
 
@@ -1262,7 +1209,7 @@ Docs: `frontend-components.md`, `frontend-hooks-and-ui.md`.
 6. Decide whether Git snapshots or deleted working-tree files merit separate
    target variants; do not weaken live-file guarantees to accommodate them.
 
-## Terminal navigation (`BbNavigate.experimental_openTerminal`)
+## Terminal navigation (`HyperfideNavigate.experimental_openTerminal`)
 
 Shows a terminal the plugin created with `useSdk().terminals.create` in the
 current surface's terminal panel. A thread surface accepts only that thread's
@@ -1292,7 +1239,7 @@ Docs: `frontend-hooks-and-ui.md`.
 4. Decide whether a nav panel should also declare a default terminal scope so
    the native "+ Terminal" button follows the page's worktree.
 
-## Host plugin foundation (`bb.hosts.experimental_client`, `ExperimentalHostClient.experimental_onWorkerExit`, `ExperimentalHostClient.experimental_onSignal`, `ExperimentalHostRpcContext.experimental_retainWorker`, `experimental_defineHostEntry`, `experimental_killProcessesWithCwdUnder`, `experimental_readProcessIdentity`, and `experimental_createHostEntryHarness`)
+## Host plugin foundation (`hyperfide platform.hosts.experimental_client`, `ExperimentalHostClient.experimental_onWorkerExit`, `ExperimentalHostClient.experimental_onSignal`, `ExperimentalHostRpcContext.experimental_retainWorker`, `experimental_defineHostEntry`, `experimental_killProcessesWithCwdUnder`, `experimental_readProcessIdentity`, and `experimental_createHostEntryHarness`)
 
 **Kept experimental (2026-08-22).** Signals and watches have no consumer
 (decide whether to delete them or keep them experimental separately from
@@ -1302,10 +1249,10 @@ other than keep-awake. The artifact-contract names (`experimental_apiVersion`,
 from installed artifacts, so renaming them needs a dual-name window plus a
 protocol bump.
 
-A plugin declares one `bb.host` Node entry with
+A plugin declares one `hyperfide platform.host` Node entry with
 `experimental_defineHostEntry`, shares a Standard Schema contract with its
 server, and calls methods on an explicit enrolled host through
-`bb.hosts.experimental_client`. The client can observe unexpected worker exits
+`hyperfide platform.hosts.experimental_client`. The client can observe unexpected worker exits
 and ephemeral host signals. Handlers can hold retention leases, and idle
 workers are evicted after five minutes. `experimental_killProcessesWithCwdUnder`
 reaps processes working under any of the given directories before they are
@@ -1352,16 +1299,16 @@ Docs: `backend-foundation.md`, `testing.md`.
    retaining only the most recently materialized artifact digest per plugin is
    sufficient.
 9. **Environment.** Confirm executable discovery through normalized `PATH`
-   and stripping all daemon-owned `BB_*` variables.
+   and stripping all daemon-owned `HYPERFIDE_*` variables.
 10. **Trust and dependencies.** V1 host plugins are trusted Node programs that
     may use `child_process`, filesystem, and network APIs. Decide whether later
     permissions, native artifacts, or an explicit dependency installer can be
     layered on without changing the RPC contract. Confirm rejecting all private
-    `@bb/*` imports from host bundles is the correct permanent boundary, and
+    `@hyperfide/*` imports from host bundles is the correct permanent boundary, and
     audit the builder-supplied public SDK runtime against future host exports.
 11. **Composition boundary.** Confirm host RPC methods and signals should remain
     private to the owning plugin while allowing another daemon subsystem to
-    consume the same `bb.host` artifact through its own bootstrap and lifecycle.
+    consume the same `hyperfide platform.host` artifact through its own bootstrap and lifecycle.
 12. **Test harness.** Audit both layers. The server harness has the
     `experimental_callHostRpc`, `experimental_hostEntry` and
     `experimental_declaredIconNames` options, the `experimental_hostRpcCalls`
@@ -1412,7 +1359,7 @@ One consumer: the Tasks plugin's open-task count.
 A nav panel hook returning `ExperimentalBadge`
 (`{ count?, text?, tone?, label }`) or `null`. `count` and `text` are
 exclusive; `text` is at most 8 characters; `tone` is `neutral` (the default),
-`warning`, or `critical`, and bb owns the colors. The sidebar navigation model
+`warning`, or `critical`, and hyperfide platform owns the colors. The sidebar navigation model
 runs the hook once per registered panel in the plugin's slot scope and crash
 boundary and hands the value to every navigation provider as `item.badge`.
 The bundled Navigation plugin's Rail draws a count (capped at `9+`) or a dot
@@ -1421,7 +1368,7 @@ on the icon, and does not draw `text`; its Top list and More menu draw the count
 and put a dot on More, in the strongest hidden tone, while a badged panel is
 hidden there.
 
-The fields follow the 30 bb-community plugins that drew
+The fields follow the 30 hyperfide-community plugins that drew
 `experimental_sidebarAccessory` (October 2026): 12 drew one count, 8 several
 numbers or a fraction, 5 a short status word, 3 a percentage, and 18 used
 red, amber, or an accent color for state. A plugin that still passes
@@ -1444,7 +1391,7 @@ Docs: `frontend-core-slots.md`.
 4. **More summary.** The More button's accessible name lists every hidden
    badge. Check that this stays usable with many badged hidden panels.
 
-## `app.slots.experimental_sidebarNavigation` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_sidebarNavigation` (`@hyperfide/plugin-sdk/app`)
 
 **Restored 2026-10-15 (SDK 0.6.53) with `placement`.** It was removed in
 #5229 (0.46.0); the names are unchanged so plugins built before 0.46, such as
@@ -1459,7 +1406,7 @@ plugin's key, or `__automatic__` (the default: the first registered provider
 from another plugin, else `navigation/rail`). Legacy `__builtin__` and
 `navigation/navigation` read as `__automatic__`.
 
-The registration declares `placement`, `rail` or `list` (the default). bb lays
+The registration declares `placement`, `rail` or `list` (the default). hyperfide platform lays
 the sidebar out from the placement before the provider renders, and keeps the
 layout around it: for `rail`, a fixed-width column that stays when the sidebar
 collapses and Settings at the bottom of the column; for `list`, the area
@@ -1475,7 +1422,7 @@ plugin is disabled.
 
 The optional `headerComponent` renders in the sidebar header row while the
 navigation is active. On wide macOS desktop windows, this row sits below the
-window title bar; elsewhere it sits between the sidebar toggle and bb's back
+window title bar; elsewhere it sits between the sidebar toggle and hyperfide platform's back
 and forward buttons. It receives `width`, `controlSize`,
 and `isCompactViewport`. The host clips it to the row, keeps the macOS drag
 region for non-interactive space, aligns it with the macOS window controls,
@@ -1494,7 +1441,7 @@ with no provider at all the sidebar uses the list placement and says no
 navigation plugin is enabled. A crashing provider is replaced by the
 Navigation plugin's provider for its placement, with one toast.
 
-**Core callers on the same path.** bb's Rail and Top list are the bundled,
+**Core callers on the same path.** hyperfide platform's Rail and Top list are the bundled,
 default-enabled Navigation plugin (`plugins/navigation`), which is on the
 forkable list. It registers both through this slot with no host-only API:
 the host owns only the placement layout, Settings, the customize editor, and
@@ -1517,7 +1464,7 @@ the navigation model. Rail's header is its New thread button, registered as
 6. **Header alias.** Remove the `experimental_sidebarHeader` alias once
    released plugins pass `headerComponent`.
 
-## `experimental_useSidebarNavigation`, `experimental_useSidebarNavigationSplit`, `experimental_SidebarNavigationIcon` (`@get-bb/plugin-sdk/app`)
+## `experimental_useSidebarNavigation`, `experimental_useSidebarNavigationSplit`, `experimental_SidebarNavigationIcon` (`@hyperfide/plugin-sdk/app`)
 
 **Restored 2026-10-15 (SDK 0.6.53).**
 
@@ -1533,7 +1480,7 @@ their identity while unchanged. `actions` covers
 `activate(id, { target })`, `goHome({ target })`, `setVisible`,
 `setOrder` (unknown
 ids are dropped and omitted ids keep their relative order at the end),
-`openCustomize()` (bb's editor in a popover beside the navigation, after open
+`openCustomize()` (hyperfide platform's editor in a popover beside the navigation, after open
 menus close, returning focus to the opener), `openDetails`, and
 `disablePlugin`. `target` is `current`, `split`, or `tab` and the host handles
 the navigation: `split` opens or focuses a pane, replacing the focused pane
@@ -1555,7 +1502,7 @@ sidebar the hook returns no items and inert actions.
 `experimental_useSidebarNavigationSplit(id, options?)` mirrors
 `experimental_useSidebarThreadSplit` and accepts `activation: "distance"` and
 `onDragStart` for rows in menus. `experimental_SidebarNavigationIcon` renders
-bb's glyphs and panel icons with plugin branding as fallback.
+hyperfide platform's glyphs and panel icons with plugin branding as fallback.
 
 **Core callers on the same path.** The bundled Navigation plugin's Rail, Top
 list, and header New thread button use these hooks; the app's Settings →
@@ -1601,9 +1548,9 @@ Before stabilization, audit:
   under `plugins/*` sets a status today, so the rename is free until the
   prefix drops.
 
-## `bb.providers.register` (`experimental_bridgeOptions`, `experimental_visibility`, and the `experimental_providerBridge` artifact export)
+## `hyperfide platform.providers.register` (`experimental_bridgeOptions`, `experimental_visibility`, and the `experimental_providerBridge` artifact export)
 
-**Kept experimental (2026-08-22).** `bb.providers.register` and the
+**Kept experimental (2026-08-22).** `hyperfide platform.providers.register` and the
 declaration's target-state fields are stable. `experimental_bridgeOptions` and
 `experimental_visibility` have one consumer (the ACP plugin); decide whether
 static options survive beside `deriveProviderOptions` before naming them. The
@@ -1616,7 +1563,7 @@ policy exists.
 every bridge launch as provider-scoped static options.
 `experimental_visibility: "installed"` withholds a provider from unscoped
 listings until its `provider/health` is not `not_installed`. The bridge is the
-`experimental_providerBridge` export of the plugin's `bb.host` artifact.
+`experimental_providerBridge` export of the plugin's `hyperfide platform.host` artifact.
 
 Docs: `providers.md`, [provider-plugin-api.md](provider-plugin-api.md) §1–2.
 
@@ -1643,7 +1590,7 @@ Docs: `providers.md`, [provider-plugin-api.md](provider-plugin-api.md) §1–2.
    namespace rule (plugin-scoped id prefixes) is wanted before third-party ids
    proliferate.
 4. **Bridge delivery.** Every provider bridge arrives as the plugin's one
-   `bb.host` artifact. Confirm one artifact per plugin survives (a plugin
+   `hyperfide platform.host` artifact. Confirm one artifact per plugin survives (a plugin
    declaring several providers ships one bridge for all of them, and there is
    no way to name a second), confirm the single-bundle shape survives
    per-platform needs, and decide whether a router-kind declaration (a picker
@@ -1652,7 +1599,7 @@ Docs: `providers.md`, [provider-plugin-api.md](provider-plugin-api.md) §1–2.
 5. **What a capability may be.** Apply this test to every remaining
    capability before stabilizing: a declaration may assert what the provider
    itself implements and an external consumer needs pre-session, never what
-   bb or its daemon can do with it.
+   hyperfide platform or its daemon can do with it.
 6. **Static bridge options and visibility.** Confirm 64 KiB remains a suitable
    declaration-time limit, that opaque options should continue to be shared by
    every host rather than resolved per host, and whether deep-frozen plain JSON
@@ -1661,7 +1608,7 @@ Docs: `providers.md`, [provider-plugin-api.md](provider-plugin-api.md) §1–2.
    installed-only provider, and that targeted requests may continue resolving
    a registered provider even while discovery says it is absent.
 
-## `@get-bb/plugin-sdk/provider-bridge` (the provider-bridge authoring surface)
+## `@hyperfide/plugin-sdk/provider-bridge` (the provider-bridge authoring surface)
 
 **Kept experimental (2026-08-22).** `experimental_defineProviderBridge` /
 `experimental_apiVersion` are an artifact↔daemon contract (the bootstrap
@@ -1671,7 +1618,7 @@ independently-updating artifacts and daemons (item 2) is undecided.
 The published module a provider bridge compiles against. It holds
 `experimental_defineProviderBridge`, the Provider Bridge Protocol's methods,
 the `thread/delta` grammar and param schemas, the bridge kit's helpers, and
-the `@bb/domain` command-plane vocabulary those params reference. It is
+the `@hyperfide/domain` command-plane vocabulary those params reference. It is
 curated by hand with named exports only, and bundled into the plugin's
 artifact rather than stubbed at runtime.
 
@@ -1679,7 +1626,7 @@ Docs: `providers.md`, [provider-plugin-api.md](provider-plugin-api.md) §2,
 [provider-bridge-protocol.md](provider-bridge-protocol.md).
 
 Decided (Aug 2026): bridges emit the protocol's own `thread/delta` grammar,
-and the `@bb/domain` command-plane, interaction and enum types they reference
+and the `@hyperfide/domain` command-plane, interaction and enum types they reference
 stay re-exported through the facade permanently.
 
 **Audit before stabilizing.**
@@ -1691,13 +1638,13 @@ stay re-exported through the facade permanently.
    bump (a plugin's artifact and the daemon update independently) before the
    first third-party bridge ships.
 
-## `@get-bb/plugin-sdk/provider-bridge/testing` (the provider-bridge testing kit)
+## `@hyperfide/plugin-sdk/provider-bridge/testing` (the provider-bridge testing kit)
 
 **Kept experimental (2026-08-22).** Items 2 and 5 below change the public
 shape (a pluggable replay child, pinning a grammar version in the exports).
 
 The published kit a bridge author proves a bridge with, with no private
-`@bb/*` package in reach. It contains the conformance runner
+`@hyperfide/*` package in reach. It contains the conformance runner
 (`experimental_runBridgeConformance`), the real delta assembler, the
 delta→event collector, the in-process JSON-RPC harness, the calibration
 normalizer, and the recorded-replay harness and readers. It is
@@ -1737,18 +1684,18 @@ Docs: `providers.md`.
    its exports (the assembler already names `ASSEMBLER_GRAMMAR_VERSIONS`)
    before stabilizing.
 
-## `experimental_scanPublicSdkOnly` (`@get-bb/plugin-sdk/testing`)
+## `experimental_scanPublicSdkOnly` (`@hyperfide/plugin-sdk/testing`)
 
 Scans a plugin package for imports outside the public SDK and an allowlist.
-It returns the files read and each offending specifier: a private `@bb/*`
-package, `outside-package`, `dynamic-specifier`, and `@bb/*` package.json
+It returns the files read and each offending specifier: a private `@hyperfide/*`
+package, `outside-package`, `dynamic-specifier`, and `@hyperfide/*` package.json
 dependencies. The suite asserts on the result.
 
 Docs: `testing.md`.
 
 **Audit before stabilizing.**
 
-1. **The allowlist is bb's.** The default admits every published SDK subpath
+1. **The allowlist is hyperfide platform's.** The default admits every published SDK subpath
    and `vitest`; a plugin on another runner or another schema library must
    name it in `allow`. Decide whether the defaults should read the plugin's
    own package.json dependencies instead of a fixed list.
@@ -1761,7 +1708,7 @@ Docs: `testing.md`.
    falls back when no closing tag matches. Decide whether a full parser is
    owed before the scan is a promise.
 
-## `app.experimental_useProviders` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_useProviders` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** The hook returns `ProviderInfo`, which
 carries the unresolved `icon` / `logoUrl` pair and `maintenance`. Stabilizing
@@ -1785,10 +1732,10 @@ Docs: `frontend-registration.md`,
    field when `ProviderInfo` stabilizes, and whether the monochrome mask
    rendering is the contract or a full-color logo path is owed.
 
-## `app.experimental_useCodeTheme` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_useCodeTheme` (`@hyperfide/plugin-sdk/app`)
 
 Returns `{ mode, name, theme }`: the active light/dark mode, the code theme
-name bb renders it with, and the resolved VS Code theme document, for plugins
+name hyperfide platform renders it with, and the resolved VS Code theme document, for plugins
 that render code with their own engine.
 
 Docs: `frontend-hooks-and-ui.md`.
@@ -1796,9 +1743,9 @@ Docs: `frontend-hooks-and-ui.md`.
 **Audit before stabilizing.**
 
 1. **Shape of the document.** `PluginCodeThemeData` mirrors Shiki's
-   `ThemeRegistrationResolved` minus the fields bb does not promise. Decide
+   `ThemeRegistrationResolved` minus the fields hyperfide platform does not promise. Decide
    whether freezing a Shiki-shaped payload is right, or whether the contract
-   should be bb's own normalized token model; a Shiki major that changes
+   should be hyperfide platform's own normalized token model; a Shiki major that changes
    `settings` normalization changes what plugins receive.
 2. **Both modes at once.** The hook serves only the active mode. Decide
    whether the state should carry the light/dark pair.
@@ -1809,10 +1756,10 @@ Docs: `frontend-hooks-and-ui.md`.
 4. **Consumer count.** One consumer today. Confirm a second engine (CodeMirror,
    xterm) needs the same payload before the prefix drops.
 
-## `app.experimental_copyToClipboard` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_copyToClipboard` (`@hyperfide/plugin-sdk/app`)
 
 A plain function, `({ text, html? }) => Promise<boolean>`, over the writer
-bb's own copy actions use: bb Desktop's native clipboard, then the Clipboard
+hyperfide platform's own copy actions use: hyperfide platform Desktop's native clipboard, then the Clipboard
 API, then `execCommand("copy")`. It resolves true only once a path wrote the
 content and never rejects. The test harness records writes in the most
 recently rendered slot's `inspection.experimental_clipboardWrites` and
@@ -1828,7 +1775,7 @@ Docs: `frontend-hooks-and-ui.md`.
 
 **Audit before stabilizing.**
 
-1. **Content shape.** Only plain text and HTML are supported. bb's message
+1. **Content shape.** Only plain text and HTML are supported. hyperfide platform's message
    copy also writes an image, through its own path with Android and browser
    variants. Decide whether images belong in this contract or stay core-only.
 2. **Harness scoping.** The clipboard is global, so the harness routes writes
@@ -1841,11 +1788,11 @@ Docs: `frontend-hooks-and-ui.md`.
 4. **Feedback.** Every caller pairs the result with a toast or a manual-copy
    fallback. Decide whether a shared toast helper belongs in the SDK.
 
-## `app.experimental_saveFile` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_saveFile` (`@hyperfide/plugin-sdk/app`)
 
 `experimental_saveFile({ fileName, url } | { fileName, blob })` starts a
-download through the same function bb's own downloads use. It clicks a
-temporary download anchor, using an object URL for a blob. The bb iOS shell
+download through the same function hyperfide platform's own downloads use. It clicks a
+temporary download anchor, using an object URL for a blob. The hyperfide platform iOS shell
 downloads through `WKDownload`, keeping the WebView's request context, then
 presents the share sheet; file bytes and cookies do not cross the JavaScript
 bridge. The promise resolves `started` once the link is clicked or `failed`,
@@ -1871,10 +1818,10 @@ Docs: `frontend-hooks-and-ui.md`.
 4. **Link helper.** Decide whether the repeated click handler belongs in a
    shared link component.
 
-## `app.experimental_usePluginId` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_usePluginId` (`@hyperfide/plugin-sdk/app`)
 
 Returns the id of the plugin that owns the calling component, the same value
-as `bb.pluginId`.
+as `hyperfide platform.pluginId`.
 
 Docs: `frontend-hooks-and-ui.md`.
 
@@ -1889,9 +1836,9 @@ Docs: `frontend-hooks-and-ui.md`.
 3. **Consumer count.** One consumer today. Confirm a second plugin needs it
    before the prefix drops.
 
-## `app.experimental_useQuestionFormHost` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_useQuestionFormHost` (`@hyperfide/plugin-sdk/app`)
 
-Returns the remappable answer shortcuts bb binds while a pending interaction is
+Returns the remappable answer shortcuts hyperfide platform binds while a pending interaction is
 open, keyed by option index, and `registerChoiceHandler` for a chosen index.
 Outside a pending interaction the map is empty and handlers never run.
 
@@ -1907,7 +1854,7 @@ Docs: `frontend-hooks-and-ui.md`.
    extension dialogs). Confirm a third-party form needs it before the prefix
    drops.
 
-## `app.slots.experimental_providerIcon` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_providerIcon` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** There are no shipped registrations, because
 declared glyphs and SVG assets cover every first-party provider without a
@@ -1943,9 +1890,9 @@ Docs: `frontend-renderer-slots.md`, `frontend-components.md`.
    the accessible label story: the host derives `ariaLabel` from its own
    provider data, falling back to the provider id, and the slot supplies none.
 
-## `experimental_ProviderModelPicker` (`@get-bb/plugin-sdk/app`)
+## `experimental_ProviderModelPicker` (`@hyperfide/plugin-sdk/app`)
 
-bb's execution picker as a controlled
+hyperfide platform's execution picker as a controlled
 `{ providerId, model, reasoningLevel, serviceTier? }` component. It has
 optional host/environment `routing`, `allowProviderChange`, `align` and
 `disabled`, and the composer's catalog and normalization policy.
@@ -1974,9 +1921,9 @@ Docs: `frontend-components.md`.
    especially whether they need an explicit loading/error callback. Tasks and
    Automations currently rely on the picker-owned loading/error UI.
 
-## `experimental_PermissionModePicker` (`@get-bb/plugin-sdk/app`)
+## `experimental_PermissionModePicker` (`@hyperfide/plugin-sdk/app`)
 
-bb's permission picker as a controlled
+hyperfide platform's permission picker as a controlled
 `{ providerId, value, onChange, routing?, align?, disabled?, className? }`
 component. It applies the composer's supported modes, fallback order and the
 routed machine's permission ceiling.
@@ -2000,7 +1947,7 @@ Docs: `frontend-components.md`.
    mode a provider supports and decide whether the picker should render an
    explicit unavailable state instead of the controller's existing fallback.
 
-## `app.slots.experimental_timelineRenderer` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_timelineRenderer` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** There are no extension-row consumers.
 Every item is about the prop shape, so the first real renderer must precede
@@ -2040,7 +1987,7 @@ Docs: `frontend-renderer-slots.md`, `backend-cli-agents.md` (form rows),
 6. **Form rows.** Decide whether form and extension rows need distinct `kind`
    values.
 
-## `experimental_NewThreadComposer` (`@get-bb/plugin-sdk/app`)
+## `experimental_NewThreadComposer` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** There are no consumers, and items 1 (a
 newly required create-thread field going missing silently) and 6
@@ -2049,7 +1996,7 @@ newly required create-thread field going missing silently) and 6
 The host-owned new-thread compose surface. It calls `onSubmit` with a
 `NewThreadRequest` carrying every resolved selection (including
 `sessionOptions` when the user changed a provider's agent option), and the plugin then
-creates the thread with `bb.sdk.threads.spawn`, which owns filing and
+creates the thread with `hyperfide platform.sdk.threads.spawn`, which owns filing and
 attribution.
 
 **Core callers.** The New thread screen (`RootComposeView`) renders the same
@@ -2063,7 +2010,7 @@ Docs: `frontend-components.md`.
 **Audit before stabilizing.**
 
 1. **`NewThreadRequest` vs. what `threads.spawn` accepts.** Confirm every
-   field still round-trips through `bb.sdk.threads.spawn` unchanged, that
+   field still round-trips through `hyperfide platform.sdk.threads.spawn` unchanged, that
    `executionInputSources` still means the same thing to the server, and that
    no newly required create-thread field is silently missing. The composer
    never reports a `providerId` provenance source even though it always sends
@@ -2097,7 +2044,7 @@ Docs: `frontend-components.md`.
    project switching is right for embedded plugin workflows, rather than
    adding an explicit project-locking policy.
 
-## `app.slots.experimental_appOverlay` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_appOverlay` (`@hyperfide/plugin-sdk/app`)
 
 Mounts a no-props plugin component once per app window, outside route-owned
 layout, with app-level SDK hook context. A crash hides only that overlay.
@@ -2113,7 +2060,7 @@ Docs: `frontend-core-slots.md`.
    layouts and document which pane-local capabilities remain unavailable to a
    once-per-window owner, including composer and side-panel hosts.
 3. **Host-owned layer.** Decide whether arbitrary fixed/portalled content is
-   sufficient or bb should provide a named overlay root, z-index band,
+   sufficient or hyperfide platform should provide a named overlay root, z-index band,
    collision area, docking, or drag persistence.
 4. **Responsive and accessibility policy.** Audit keyboard access, focus
    restoration, escape behavior, compact drawers, reduced motion, and whether
@@ -2128,7 +2075,7 @@ Docs: `frontend-core-slots.md`.
    standard slot-owned CSS retention are the right failure semantics for UI
    that may have no in-layout representation.
 
-## `app.slots.experimental_newThreadPanelAction` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_newThreadPanelAction` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** There are no consumers, and item 5 is
 deferred until an external plugin adopts it.
@@ -2160,7 +2107,7 @@ Before stabilization, audit:
    take `PluginPanelActionOpenOptions` and return `boolean`. Audit only
    whether the two contexts should merge.
 
-## `app.experimental_sidebarFooter` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_sidebarFooter` (`@hyperfide/plugin-sdk/app`)
 
 Registers host-rendered icon items in the sidebar footer: an `action` with
 `onActivate`, or a `disclosure` whose component is revealed above the row and
@@ -2193,12 +2140,12 @@ Docs: `frontend-core-slots.md`.
    disclosure replacement, plugin reload, crash isolation, and removal while
    open across desktop and compact sidebar layouts.
 
-## `app.slots.experimental_threadList` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_threadList` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** Only examples use it. No shipped consumer
 has tested the arbitration/fallback model or the accessibility contract.
 
-An exclusive slot that replaces the sidebar's scrolling thread list. bb's own
+An exclusive slot that replaces the sidebar's scrolling thread list. hyperfide platform's own
 list is the bundled `thread-list` plugin. Automatic selection prefers another
 registered list, and the user can pin one with `sidebar.threadListProvider`.
 
@@ -2224,7 +2171,7 @@ Docs: `frontend-registration.md`.
    focus order, and the mobile close behavior when a plugin owns the markup;
    `onNavigate` is currently the plugin's responsibility to call.
 
-## AI services (`bb.experimental_aiServices.register`)
+## AI services (`hyperfide platform.experimental_aiServices.register`)
 
 Registers `{ id, displayName, complete?, transcribe?, status? }`. `complete`
 serves thread titles and commit messages, `transcribe` serves voice input,
@@ -2245,13 +2192,13 @@ Docs: `backend-cli-agents.md`, [provider-plugin-api.md](provider-plugin-api.md) 
    instead of waiting for the next poll.
 3. **Voice payloads.** `transcribe` receives the whole `File` in process
    (25 MB cap). Decide whether streaming matters for long recordings.
-4. **Automatic order as policy.** Core prioritizes bb cloud, then sorts
+4. **Automatic order as policy.** Core prioritizes hyperfide platform cloud, then sorts
    by plugin id and service id, including third-party plugins. Decide whether
    this order and automatic inclusion should become user-editable settings.
 5. **Several services per plugin.** Confirm the id-per-registration shape and
    the per-plugin id scope (plugin id plus service id).
 
-## `PluginFileOpenerSource.experimental_hostId` (`@get-bb/plugin-sdk/app`)
+## `PluginFileOpenerSource.experimental_hostId` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** It is persisted in opener-tab `paramsJson`,
 so a rename needs a read-compat shim. Items 3–4 decide whether the stable name
@@ -2276,9 +2223,9 @@ Docs: `frontend-core-slots.md`.
    existed, and whether it can become a stable required `hostId` without
    breaking older opener implementations.
 
-## `experimental_VoiceInputTextarea` (`@get-bb/plugin-sdk/app`)
+## `experimental_VoiceInputTextarea` (`@hyperfide/plugin-sdk/app`)
 
-**What it does.** A host-owned controlled textarea with bb's voice input. It
+**What it does.** A host-owned controlled textarea with hyperfide platform's voice input. It
 takes `value`, `onValueChange`, and an optional `onVoiceInputActiveChange`;
 every other textarea attribute, including `ref` and `className`, reaches the
 underlying `<textarea>`. The caller styles the textarea; the host wraps it in
@@ -2293,9 +2240,9 @@ and error handling as the prompt box. Without voice support it renders the
 plain textarea; the test harness renders that plain textarea too.
 
 The registry's `voice-input-textarea` item re-exports it, and the registry's
-`question-form` renders its free-text answer with it. Inside bb, the built-in
-Ask User Question and pi plugins and bb's own question form reach the same
-component through the `@bb/shared-ui/voice-input-textarea` module the build
+`question-form` renders its free-text answer with it. Inside hyperfide platform, the built-in
+Ask User Question and pi plugins and hyperfide platform's own question form reach the same
+component through the `@hyperfide/shared-ui/voice-input-textarea` module the build
 shims.
 
 **Audit before stabilizing.**
@@ -2311,10 +2258,10 @@ shims.
    unsupported, with no reason shown. Decide whether callers need the
    unsupported reason or a way to hide the controls.
 4. **Consumer count.** One form (the shared question form, used by Ask User
-   Question, pi, and bb's own questions). Confirm a third-party consumer before
+   Question, pi, and hyperfide platform's own questions). Confirm a third-party consumer before
    the prefix drops.
 
-## `experimental_SourceCode` / `experimental_Diff` (`@get-bb/plugin-sdk/app`)
+## `experimental_SourceCode` / `experimental_Diff` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** It has one consumer (the github plugin's
 `Diff`), and items 2–4 all change the prop surface.
@@ -2322,7 +2269,7 @@ shims.
 Host-owned renderers for supplied code. `experimental_SourceCode` takes text
 and a path. `experimental_Diff` takes a single-file patch, a path and
 optional `experimental_fullFileContents` (`{ old, new }`). They are the same
-components bb's own surfaces use, so an active renderer replacement covers
+components hyperfide platform's own surfaces use, so an active renderer replacement covers
 both.
 
 Docs: `frontend-components.md`.
@@ -2335,38 +2282,38 @@ loader callback.
 1. **Prop surface.** Confirm content + path + presentation plus optional full
    diff sides is the right minimal contract, and decide whether `className`
    belongs in it at all. A replacement never receives it, so a `className`
-   that only styles bb's renderer is a quiet inconsistency.
+   that only styles hyperfide platform's renderer is a quiet inconsistency.
 2. **Diff input shape.** Confirm single-file patch text is the right currency.
    Multi-file patches, pre-parsed input, and per-hunk rendering are all things
    callers have wanted; none are expressible now.
 3. **Language selection.** Highlighting is inferred from `path` only. Confirm
    an explicit language override is not needed before the names freeze, and
    that no implementation-library language union leaks in when it is added.
-4. **Worker pool.** Thread panes and plugin nav panels provide bb's
+4. **Worker pool.** Thread panes and plugin nav panels provide hyperfide platform's
    highlighting worker pool; homepage and settings sections do not, so a diff
    rendered there is unhighlighted. Decide whether the host should provide the
    pool at the component instead of the surface.
-5. **Selection to chat.** bb's own surfaces pass a selection-to-composer
+5. **Selection to chat.** hyperfide platform's own surfaces pass a selection-to-composer
    handler that the public component withholds. Confirm plugins should reach
    that through `useComposer()` rather than a renderer prop.
 6. **Size and virtualization.** Neither component caps input size or
    virtualizes. Audit against a plugin that renders a very large file or patch.
 
-## `app.slots.experimental_sourceCodeRenderer` / `app.slots.experimental_diffRenderer` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_sourceCodeRenderer` / `app.slots.experimental_diffRenderer` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** There are no registrations, and "two slots
 or one" changes the registration shape.
 
-Exclusive slots that replace bb's source or diff renderer everywhere it draws
+Exclusive slots that replace hyperfide platform's source or diff renderer everywhere it draws
 supplied content, including other plugins' calls to the public components.
 Automatic selection prefers a registration from a plugin the user installed
-over one bundled with bb (such as Monaco), then the first in slot order, and
-the user can pin bb's renderer or a provider per client. A crash falls back to bb's
+over one bundled with hyperfide platform (such as Monaco), then the first in slot order, and
+the user can pin hyperfide platform's renderer or a provider per client. A crash falls back to hyperfide platform's
 renderer.
 
 Docs: `frontend-renderer-slots.md`.
 
-Decided (Aug 2026): the pin stays per client; a crash swaps back to bb's
+Decided (Aug 2026): the pin stays per client; a crash swaps back to hyperfide platform's
 renderer silently and disables the slot for the session; the replacement is
 global, other plugins' surfaces included; replacements receive
 `experimental_fullFileContents` like the public component.
@@ -2384,7 +2331,7 @@ global, other plugins' surfaces included; replacements receive
 4. **Two slots or one.** Confirm source and diff should stay separately
    replaceable rather than one "code renderer" registration.
 
-## `app.slots.experimental_codeFenceRenderer` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_codeFenceRenderer` (`@hyperfide/plugin-sdk/app`)
 
 Renders fenced code blocks of the claimed `languages` in assistant and
 nested-agent message Markdown, where `messageDirective` activates. The
@@ -2398,7 +2345,7 @@ exposes `loadPluginApp(...).codeFenceRenderers`.
 **Core callers.** `MarkdownPreview`'s code renderer
 (`markdown-code-fence-renderers.tsx`), the pipeline that also resolves
 `messageDirective`, hosts every claimed fence; the built-in `inline-vis`
-plugin renders through it. BB's `mermaid` diagram stays a core special case
+plugin renders through it. HYPERFIDE's `mermaid` diagram stays a core special case
 inside `Original`, because it renders on every Markdown surface and this slot
 is scoped to messages.
 
@@ -2407,21 +2354,21 @@ Docs: `frontend-renderer-slots.md`, `testing.md`.
 **Audit before stabilizing.**
 
 1. **Collision model.** Confirm that a contested language falling back to
-   BB's code block is enough, or whether users need a per-language picker
+   HYPERFIDE's code block is enough, or whether users need a per-language picker
    like the source/diff renderer pin.
 2. **Streaming contract.** Confirm `code`/`status`/`index` cover real
    generative-UI renderers (partial JSON/DSL parsing), and whether the rest
    of the info string should be exposed as `meta`.
 3. **Scope.** Confirm the slot should stay limited to assistant and
    nested-agent Markdown, whether common languages (`json`, `ts`) should be
-   claimable, and whether `mermaid` should be claimable or reserved for BB.
+   claimable, and whether `mermaid` should be claimable or reserved for HYPERFIDE.
 4. **Identity.** Confirm keying a fence by source offset holds for every
    path that rewrites a message's text, and decide whether iframes must
    survive the tail-to-settled move in browsers without `moveBefore`.
-5. **Source visibility.** Decide whether BB should offer its own "view
+5. **Source visibility.** Decide whether HYPERFIDE should offer its own "view
    source" control for claimed fences instead of leaving it to each plugin.
 
-## `experimental_useSidebarThreads` / `experimental_useSidebarThreadActions` (`@get-bb/plugin-sdk/app`)
+## `experimental_useSidebarThreads` / `experimental_useSidebarThreadActions` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** There are no consumers. Items 4 (a
 paged/windowed read at 10k threads) and 5 (the draft indicator gap) cannot be
@@ -2454,7 +2401,7 @@ Docs: `frontend-registration.md`.
    rule. `host` is resolved to `{ id, name }`; confirm resolution belongs here
    rather than in a separate hosts hook, and that falling back to the id for an
    unknown host is the right failure.
-2. **Indicator coupling.** `indicator` freezes bb's precedence into the
+2. **Indicator coupling.** `indicator` freezes hyperfide platform's precedence into the
    contract. Confirm new kinds can ship without breaking plugins, and that the
    documented "treat unknown as none" rule is enough.
 3. **Unread semantics.** `isUnread` is plain read state, so it is true for
@@ -2491,10 +2438,10 @@ Docs: `frontend-registration.md`.
    actions. Audit empty machine sections, machine removal, rename updates, and
    loading behavior for `experimental_hosts`.
 
-## `app.slots.experimental_threadHeaderAction` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_threadHeaderAction` (`@hyperfide/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** There are no consumers, and item 1 (merging
-with `bb.ui.registerThreadAction`) is cheapest to decide before the first one.
+with `hyperfide platform.ui.registerThreadAction`) is cheapest to decide before the first one.
 
 Renders a plugin component in the thread header's action row, once per pane
 with that pane's `threadId`, for controls that draw live state. A crash
@@ -2504,7 +2451,7 @@ Docs: `frontend-registration.md`.
 
 **Audit before stabilizing.**
 
-1. **Two APIs, one region.** `bb.ui.registerThreadAction` and this slot share a
+1. **Two APIs, one region.** `hyperfide platform.ui.registerThreadAction` and this slot share a
    row. Confirm the ordering rule between them, and whether the two should
    merge behind one registration.
 2. **Budget.** The row is short and already holds five host controls. Decide a
@@ -2526,13 +2473,13 @@ Docs: `frontend-registration.md`.
    that split, and decide whether other multi-mount slots need the same
    treatment.
 
-## `app.slots.experimental_threadInfoRow` / `app.slots.experimental_threadInfoSection` / `experimental_THREAD_INFO_ROW_GROUPS` / `experimental_THREAD_INFO_SECTION_GROUPS` / `experimental_InfoSection` / `experimental_DetailRow` / `experimental_InfoList` / `experimental_InfoListRow` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_threadInfoRow` / `app.slots.experimental_threadInfoSection` / `experimental_THREAD_INFO_ROW_GROUPS` / `experimental_THREAD_INFO_SECTION_GROUPS` / `experimental_InfoSection` / `experimental_DetailRow` / `experimental_InfoList` / `experimental_InfoListRow` (`@hyperfide/plugin-sdk/app`)
 
 A registration is `{ id, group, order?, component }`. The component receives
 `{ threadId, projectId }` and mounts once per visible thread's Info tab. Rows
 render in the details block, sections below it, each sorted the way thread
 actions are: by `group` (string compare), then `order` within the group (unset
-last), then registration order with core first on a tie. bb's groups are the
+last), then registration order with core first on a tie. hyperfide platform's groups are the
 two exported tables; core uses orders 10, 20, 30 within each. Groups draw no
 separator. Each plugin
 entry mounts in its own crash boundary keyed by thread, so a crash drops only
@@ -2548,7 +2495,7 @@ stored in the `infoPanel.collapsedSections` preference under the core id or
 `ThreadInfoRows` and `ThreadInfoSections`
 (`apps/app/src/components/secondary-panel/info/ThreadInfoSlots.tsx`), which
 merge `CORE_THREAD_INFO_ROWS` and `CORE_THREAD_INFO_SECTIONS` with plugin
-registrations. `experimental_DetailRow` is bb's only label/value row
+registrations. `experimental_DetailRow` is hyperfide platform's only label/value row
 (`DetailRow` in `apps/app/src/components/ui/detail-card.tsx`): all eleven core
 rows and the commit dialog draw with it, and core's five sections draw with
 `InfoSection` and `InfoList`. The
@@ -2576,7 +2523,7 @@ Docs: `frontend-registration.md`, `frontend-components.md`.
    `[data-info-section]`, so a section that renders without
    `experimental_InfoSection` gets no separator. Confirm that is acceptable.
 
-## `app.slots.experimental_threadAction` / `experimental_useThreadActions` / `experimental_useThreadActionRegistrations` / `experimental_ThreadActionsMenu` / `experimental_ThreadActionsContextMenu` / `experimental_THREAD_ACTION_GROUPS` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_threadAction` / `experimental_useThreadActions` / `experimental_useThreadActionRegistrations` / `experimental_ThreadActionsMenu` / `experimental_ThreadActionsContextMenu` / `experimental_THREAD_ACTION_GROUPS` (`@hyperfide/plugin-sdk/app`)
 
 A registration is `{ id, title, icon, group, order?, useData?, item }`.
 `useData` runs once per registration for the whole app and receives
@@ -2589,9 +2536,9 @@ for every menu and the quick-action picker. Thread-list registers Move to
 section, and push-notifications registers Notifications. The SDK test fake
 throws when a menu `trigger` drops its props and ref.
 
-**Core callers.** bb's own actions are `CORE_THREAD_ACTIONS`
+**Core callers.** hyperfide platform's own actions are `CORE_THREAD_ACTIONS`
 (`apps/app/src/lib/thread-actions/core-thread-actions.ts`), registered under
-the reserved `bb--core` owner. The header menu (`ThreadDetailView` →
+the reserved `hyperfide--core` owner. The header menu (`ThreadDetailView` →
 `ThreadDetailHeader`), `RootComposeMobileRecents`, and
 `ThreadArchiveCommandHandler` read the same registry, and the thread list's
 row menus and quick actions use the SDK exports. The contract table in
@@ -2615,7 +2562,7 @@ Docs: `frontend-registration.md`.
    about a thread. Confirm it should stay a component prop rather than a
    registration.
 
-## `experimental_useArchiveEnvironmentThreads` (`@get-bb/plugin-sdk/app`)
+## `experimental_useArchiveEnvironmentThreads` (`@hyperfide/plugin-sdk/app`)
 
 Returns `(environmentId) => Promise<void>`, core's environment-group archive:
 the optimistic `environments.archiveThreads`, split-pane cleanup, route
@@ -2626,7 +2573,7 @@ toast, and archive failures reject. It replaces
 harness records calls in `inspection.experimental_environmentArchiveCalls`.
 
 **Core callers.** The hook returns `ThreadActionsProvider`'s
-`archiveEnvironmentThreads`, bb's only environment-group archive, which the
+`archiveEnvironmentThreads`, hyperfide platform's only environment-group archive, which the
 deprecated sidebar-actions shim also calls. Its one caller is the built-in
 thread list's environment group menu.
 
@@ -2644,7 +2591,7 @@ Docs: `frontend-registration.md`.
    archived threads, split panes, navigation during the Undo window, and
    failure rollback across sidebar organization modes.
 
-## `app.slots.experimental_browserToolbarAction` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_browserToolbarAction` (`@hyperfide/plugin-sdk/app`)
 
 Renders a plugin component beside the address bar in each Browser tab. It
 receives `threadId`, `tabId`, `url` and a compact-viewport hint, with a crash
@@ -2657,11 +2604,11 @@ controls without crowding the address field, whether ordering needs a user
 preference, and whether plugins need browser instance or environment identity
 instead of resolving it server-side from the thread and tab ids.
 
-## `ExperimentalPluginBrowserToolbarActionProps.experimental_page` (`@get-bb/plugin-sdk/app`)
+## `ExperimentalPluginBrowserToolbarActionProps.experimental_page` (`@hyperfide/plugin-sdk/app`)
 
 Gives a Browser toolbar action script access to its tab's top-level document
 without a CDP lease. `evaluate(expression, { world })` runs in the main world
-or bb's isolated world, where `bb.postMessage` reaches the calling plugin's
+or hyperfide platform's isolated world, where `hyperfide platform.postMessage` reaches the calling plugin's
 `onMessage` listeners. The value is `null` outside the desktop app.
 
 Docs: `frontend-registration.md`.
@@ -2672,10 +2619,10 @@ or origin allowlist. Plugins share one isolated world, so a plugin can post on
 another plugin's channel; decide whether per-plugin worlds are required.
 Confirm message size and rate bounds, subframe support, behavior during
 navigation and renderer crashes, whether `evaluate` should time out while a
-page is still loading, and whether an SDK or `bb` CLI surface is needed for
+page is still loading, and whether an SDK or `hyperfide platform` CLI surface is needed for
 automation outside the toolbar component.
 
-## `PluginMentionProviderRegistration.resolve().experimental_images` (`@get-bb/plugin-sdk`)
+## `PluginMentionProviderRegistration.resolve().experimental_images` (`@hyperfide/plugin-sdk`)
 
 Lets a mention provider resolve a picked mention to agent-only image inputs,
 each optionally preceded by a short agent-only text input. The images are
@@ -2745,7 +2692,7 @@ with a user-presentable reason when it cannot. It requires a draft: where the
 shortcut would steer the next queued message from an empty draft, `submit`
 rejects instead. Without a mode it runs whichever one
 Enter runs for this user; `"queue-if-active"` and `"steer-if-active"`, the
-names `bb.sdk.threads.send` uses, pick one explicitly, and
+names `hyperfide platform.sdk.threads.send` uses, pick one explicitly, and
 `"steer-if-active"` starts a turn where the composer has nothing to steer. The
 options combine: `sendAt` and the plugin data travel into the same send,
 queue or steer request the shortcuts build, so a scheduled steer steers the
@@ -2847,19 +2794,19 @@ Docs: `frontend-hooks-and-ui.md` (`setSelection`). No doc covers the
 
 ## Desktop browser control
 
-`bb.sdk.experimental_desktopBrowsers` (`ExperimentalDesktopBrowsersArea` and
+`hyperfide platform.sdk.experimental_desktopBrowsers` (`ExperimentalDesktopBrowsersArea` and
 its `ExperimentalDesktopBrowser*` types) drives the desktop app's browser. It
-provides explicit host/window/thread discovery, tab creation in the single bb
+provides explicit host/window/thread discovery, tab creation in the single hyperfide platform
 browser profile, and expiring control leases with scoped CDP connections. It
 also provides capture, reveal, close and release, plus `subscribe`, which
 polls tab state every two seconds and is not a lossless event log. Cookie
 import from an installed browser uses `listImportSources` and `importCookies`.
 Connection credentials stay private to workers on the browser host. The core
-CLI is `bb browser`.
+CLI is `hyperfide platform browser`.
 
 Before stabilization, audit control and cookie import authorization. Any
 caller with server access can control tabs carrying the user's logins and copy
-the desktop user's browser sessions into the bb profile. OS consent applies
+the desktop user's browser sessions into the hyperfide platform profile. OS consent applies
 only where the platform demands it: macOS Keychain for Chromium, Full Disk
 Access for Safari, and none for Firefox or keyring-free Linux Chromium.
 Decide whether control or import should require a desktop-side confirmation.
@@ -2871,14 +2818,14 @@ registration are outside this surface.
 
 ## Machine paths and environment cleanup
 
-`bb.sdk.hosts.get({ hostId })` includes nullable `threadStorageRootPath` from
+`hyperfide platform.sdk.hosts.get({ hostId })` includes nullable `threadStorageRootPath` from
 the machine's latest daemon session, without waking the machine (CLI:
-`bb machine show`). `bb.sdk.environments.experimental_cleanup({ environmentId })`
+`hyperfide platform machine show`). `hyperfide platform.sdk.environments.experimental_cleanup({ environmentId })`
 requests removal of an unused provider-managed environment, overriding
 retention and bypassing cleanup backoff. It rejects live threads and unmanaged
 environments and succeeds for already-removed ones. Acceptance is not
 completion: read the environment lifecycle fields for progress (CLI:
-`bb environment cleanup`). After five failed attempts, automatic removal stops
+`hyperfide platform environment cleanup`). After five failed attempts, automatic removal stops
 with a "Needs recovery" message in the existing lifecycle fields.
 The additive `recover: true` option acknowledges interrupted hooks and retries
 failed cleanup after an explicit inspection. Core's cleanup route and the CLI
@@ -2893,7 +2840,7 @@ machine re-enrollment, and cleanup retry behavior across unavailable
 providers, concurrent attempts, and environments shared by archived and live
 threads.
 
-## Workspace diff Viewed state (`bb.sdk.environments.experimental_diffViewed`, `experimental_markDiffViewed`, `experimental_clearDiffViewed`)
+## Workspace diff Viewed state (`hyperfide platform.sdk.environments.experimental_diffViewed`, `experimental_markDiffViewed`, `experimental_clearDiffViewed`)
 
 `GET /environments/:id/diff/viewed` (diff target in the query) lists
 `{ files: { path, revision }[] }` for one environment and diff target.
@@ -2914,7 +2861,7 @@ counts as Viewed only while the stored revision equals the current one.
 
 Core callers: the workspace diff panel's Viewed checkbox
 (`DiffFilesPanel` through `useSetDiffFileViewed` and
-`useEnvironmentDiffViewed`) and `bb environment diff-viewed list|mark|unmark|clear`.
+`useEnvironmentDiffViewed`) and `hyperfide platform environment diff-viewed list|mark|unmark|clear`.
 
 **Audit before stabilizing.**
 
@@ -2926,7 +2873,7 @@ Core callers: the workspace diff panel's Viewed checkbox
 3. **Shape.** Decide whether the file list should carry `viewed` itself so
    callers do not join two reads.
 
-## Host process primitives (`@get-bb/plugin-sdk/host`)
+## Host process primitives (`@hyperfide/plugin-sdk/host`)
 
 `experimental_spawnPortableOutputProcess` spawns an output-only child process,
 and `experimental_sanitizeInheritedChildProcessEnv`
@@ -2937,10 +2884,10 @@ Before stabilization, audit command cancellation, inherited environment
 filtering, and portable output handling for host-local plugin commands on
 every supported OS.
 
-## `TimelineOutputPreview.experimental_fullOutputAvailability` (`@get-bb/plugin-sdk`)
+## `TimelineOutputPreview.experimental_fullOutputAvailability` (`@hyperfide/plugin-sdk`)
 
 Says why a timeline row holds a preview instead of the full output, as
-returned by `bb.sdk.threads.timeline`. `available` means a detail read can
+returned by `hyperfide platform.sdk.threads.timeline`. `available` means a detail read can
 still hydrate it. `detail-limit` means that read exceeded its byte budget.
 `retention-expired` means the full value no longer exists.
 
@@ -2965,7 +2912,7 @@ workspace. Omitting it keeps message routing.
 Stabilize after plugin consumers verify nested paths, source identity, missing
 files, containment and line locations.
 
-## `PluginFileOpenerProps.experimental_lineRange` (`@get-bb/plugin-sdk/app`)
+## `PluginFileOpenerProps.experimental_lineRange` (`@hyperfide/plugin-sdk/app`)
 
 Passes the owning file tab's latest one-based, inclusive
 `{ startLineNumber, endLineNumber }` range to its opener (`null` for no
@@ -2986,7 +2933,7 @@ Docs: `frontend-core-slots.md`.
    reload restoration and cross-client range updates under the existing tab
    policy.
 
-## `bb.experimental_serverAccess.recheck`
+## `hyperfide platform.experimental_serverAccess.recheck`
 
 Sends a payload-less system `config-changed` notification to connected
 clients, so configuration re-reads every registered provider's availability.
@@ -2998,7 +2945,7 @@ plugin is inert, that a provider cannot use it to force repeated refreshes of
 unrelated configuration, and that pairing, unpairing and credential rejection
 each reach the Machines settings section without a manual reload.
 
-## `bb.experimental_serverAccess.register`
+## `hyperfide platform.experimental_serverAccess.register`
 
 Registers a server access provider: `availability` (optionally with a public
 `serverUrl`), `acquire({ key, hostId, signal })` returning a grant
@@ -3016,7 +2963,7 @@ prove reachability from a remote machine.
 
 ## Machine enrollment and bootstrap
 
-`bb.experimental_machines.bootstrap` prepares enrollment through the
+`hyperfide platform.experimental_machines.bootstrap` prepares enrollment through the
 provider's `MachineExecutor` and waits for the daemon connection. Each call
 issues a fresh single-use credential for the same durable host identity. The
 supporting `MachineExecutorRequest`, `MachineExecutor`,
@@ -3039,7 +2986,7 @@ integration release gate.
 A required callback on `PluginMachineProviderDefinition`, used only when no
 resource checkpoint exists. It discovers and removes uncertain allocations by
 the durable launch key and must never allocate or bootstrap. Experimental
-through `bb.experimental_machines`.
+through `hyperfide platform.experimental_machines`.
 
 Docs: `backend-machines.md`.
 
@@ -3071,7 +3018,7 @@ Audit ownership propagation and recovery before stabilizing.
 
 ## Coordinated machine maintenance
 
-`bb.sdk.hosts.experimental_suspend({ hostId })` drains active work (bounded at
+`hyperfide platform.sdk.hosts.experimental_suspend({ hostId })` drains active work (bounded at
 five minutes) and invokes the provider's suspend callback. It rejects with
 `machine_busy` while a live launch, provisioning environment or checkout
 preparation ties work to the host. Plugins own idle timing and preservation.
@@ -3109,7 +3056,7 @@ should replace it, and a second consumer.
 
 `experimental_host.deleted` delivers the removed host's public DTO once,
 fire-and-forget. A plugin not loaded at removal never sees it, so it must
-also reconcile against a 404 from `bb.sdk.hosts.get`.
+also reconcile against a 404 from `hyperfide platform.sdk.hosts.get`.
 
 Docs: `backend-events.md`.
 
@@ -3129,7 +3076,7 @@ Docs: `backend-events.md`.
 Stabilization requires review of the payload fields, repeat-removal
 semantics, notification timing, and recovery without guaranteed delivery.
 
-## `bb.experimental_machines.getResource`
+## `hyperfide platform.experimental_machines.getResource`
 
 `getResource(hostId)` returns core's persisted host resource JSON, or null when
 the host or resource is absent. Any plugin can read it, following the host
@@ -3141,7 +3088,7 @@ additional machine providers.
 
 ## Environment compositions
 
-`bb.experimental_environments.register({ id, displayName, description, icon, machineProviderId, environmentProviderId })`
+`hyperfide platform.experimental_environments.register({ id, displayName, description, icon, machineProviderId, environmentProviderId })`
 declares a new-machine environment option backed by one concrete environment
 provider. It supplies no lifecycle callbacks or inputs.
 
@@ -3153,11 +3100,11 @@ later project-checkout/worktree reuse.
 
 ## Experimental host SDK machine operations
 
-`bb.sdk.hosts.experimental_create`, `experimental_getEnrollmentCommand`,
+`hyperfide platform.sdk.hosts.experimental_create`, `experimental_getEnrollmentCommand`,
 `experimental_listProviders`, `experimental_reconnect`, `experimental_suspend`,
 `experimental_resume` and `experimental_retryCleanup` have no unprefixed
 aliases. `hosts.delete({ hostId, force: true })` is the path core's machine
-removal dialog and `bb machine remove --force` use to finish a persistent
+removal dialog and `hyperfide platform machine remove --force` use to finish a persistent
 machine's removal whose environment cleanup failed while the machine is
 disconnected; it skips on-machine environment cleanup, emits
 `experimental_environment.removed` for each environment, and still runs the
@@ -3176,7 +3123,7 @@ same-host restoration, serialized removal, plugin callers and UI/CLI parity.
 The enrollment command requires expiry/removal, credential authorization and
 transcript-redaction coverage.
 
-## Moving the server (`bb.sdk.experimental_server`, `hosts.experimental_deleteOldServerCopy`)
+## Moving the server (`hyperfide platform.sdk.experimental_server`, `hosts.experimental_deleteOldServerCopy`)
 
 `experimental_server.checkMove({ targetHostId, serverUrl })` returns the
 pre-move checklist (`ServerMoveCheckResponse`).
@@ -3192,11 +3139,11 @@ switch starts, and in `recovery_required` it rolls the switch back.
 copy. All of them refuse machine credentials. Everything except status and
 cancel requires the default-off `serverMove` experiment (403
 `server_move_experiment_disabled`). CLI:
-`bb server move|export|import|unlock|allow-connect|delete-old-copy|install-machine-service`.
+`hyperfide platform server move|export|import|unlock|allow-connect|delete-old-copy|install-machine-service`.
 
-Before stabilization, audit: authorization for plugin backends (`bb.sdk` runs
+Before stabilization, audit: authorization for plugin backends (`hyperfide platform.sdk` runs
 with owner access, so a plugin can export every secret or move the server);
-the switch ordering against the bb connect tunnel and daemons that miss
+the switch ordering against the hyperfide platform connect tunnel and daemons that miss
 `server.moved`; archive size limits and streaming memory use; cancellation
 and failure recovery at every step, including a server restart mid-move;
 behavior when the target runs a provider-managed machine; and whether
@@ -3235,9 +3182,9 @@ cross-plugin overrides, reload/error/recursion behavior, accessibility and
 theme rendering on desktop and mobile. Keep metadata fetching and plugin
 branding separate from provider artwork resolution.
 
-## `experimental_ThreadStatusGlyph` (`@get-bb/plugin-sdk/app`)
+## `experimental_ThreadStatusGlyph` (`@hyperfide/plugin-sdk/app`)
 
-Renders bb's thread status glyph from `PluginThreadStatusGlyphProps`
+Renders hyperfide platform's thread status glyph from `PluginThreadStatusGlyphProps`
 (`indicator`, `archived?`, `rowStatus`, `hideIdleDraftLabel`, `size`); the
 host owns icons, colors, and labels, and the caller resolves the indicator.
 The SDK test fake exposes the props as `data-*` attributes.
@@ -3254,7 +3201,7 @@ Docs: `frontend-registration.md`.
 
 1. **Indicator resolution.** The caller resolves the indicator, so the
    thread-list plugin keeps its own copy of the indicator precedence and labels
-   that `@bb/client-core` holds for bb's surfaces. Decide whether the SDK should
+   that `@hyperfide/client-core` holds for hyperfide platform's surfaces. Decide whether the SDK should
    export the resolver and labels instead.
 2. **Archived rows.** No plugin passes `archived` yet; confirm the archived
    glyph belongs on this component rather than in the archived list.
@@ -3265,14 +3212,14 @@ Explicitly reconciles a provider-managed machine with core's recorded state.
 For a suspended machine it starts the provider's suspension operation and
 returns HTTP 202; callers poll host status for completion. Active and
 transitional states are left unchanged. Provider suspend and resume must be
-idempotent. CLI: `bb machine reconcile`.
+idempotent. CLI: `hyperfide platform machine reconcile`.
 
 Validate concurrent resume/removal, failure reporting, long-running caller
 behavior, and the scope of supported states before stabilizing this API.
 
 ## Lifecycle ownership on thread creation
 
-`bb.sdk.threads.spawn` and `bb.sdk.threads.fork` accept
+`hyperfide platform.sdk.threads.spawn` and `hyperfide platform.sdk.threads.fork` accept
 `lifecycleOwnerThreadId`, and thread responses expose its nullable value.
 These are data fields on existing SDK methods, so they carry no prefix.
 
@@ -3324,7 +3271,7 @@ stabilizing this option.
 
 ## Provider discovery metadata
 
-`package.json` → `bb.experimental_providers` statically declares
+`package.json` → `hyperfide platform.experimental_providers` statically declares
 `{ kind, id, displayName }` provider identities before a plugin runs. Only
 `kind: "agent"` is accepted. It keeps a disabled plugin's agents discoverable
 in Settings → Providers, and grants no runtime capability. Add `"environment"`
@@ -3334,14 +3281,14 @@ Stabilize after validating first-install discovery, shared-plugin enablement,
 dynamic provider removal, plugin upgrades, and duplicate-ID ownership behavior
 with third-party providers.
 
-## Global prompt history (`bb.sdk.experimental_promptHistory`)
+## Global prompt history (`hyperfide platform.sdk.experimental_promptHistory`)
 
 `list({ cursor?, limit?, signal? })` returns `{ entries, nextCursor }`, every
 accepted user prompt newest first, each with `id`, `createdAt`, `input`,
 `projectId`, `threadId`, and `scope` (`"project"` for a prompt that started
 a top-level thread, `"thread"` for a follow-up). `limit` is a digit string (default 100, max 1000).
 A page can be short while `nextCursor` is set, because unparseable rows are
-skipped. The same route backs `bb prompt-history list`.
+skipped. The same route backs `hyperfide platform prompt-history list`.
 
 Before stabilization, audit whether `limit` should be a number, whether the cursor format needs versioning, whether project or thread filters belong on this call rather than on `projects.promptHistory` and `threads.promptHistory`, and whether skipped rows should fill the page.
 
@@ -3350,7 +3297,7 @@ Before stabilization, audit whether `limit` should be a number, whether the curs
 The message reference handed to `messageAction` runs, `ThreadChat` consumer
 message actions, and prose selections carries the event sequence that recorded
 the message. It is the `msg` value of a message link and the seq accepted by
-`sdk.threads.message` and `bb thread log --message`, so a plugin can build or
+`sdk.threads.message` and `hyperfide platform thread log --message`, so a plugin can build or
 resolve a message link without guessing. It equals `sourceSeqEnd` except for a
 steer, which is recorded by its request and shown at its acceptance.
 Stabilize once message links have shipped and the seq has stayed stable across
@@ -3370,33 +3317,20 @@ be cancelled during activation or rollback.
 Stabilization requires exercising reconnect/reload, concurrent deduplication,
 rollback delivery, missing jobs after restart, and CLI/SDK parity.
 
-## `PluginBbSdk.system.experimental_recordTelemetryEvent`
-
-Posts one anonymous product event to `POST /api/v1/system/telemetry/events`,
-which forwards it to usage telemetry under the install's anonymous id and
-drops it when usage data sharing is off. The schema is a strict allow-list of
-setup-guide and new-thread-submit events; anything else is a 400. Core
-callers, all through `recordTelemetryEvent` in
-`apps/app/src/components/onboarding/onboarding-telemetry.ts`: the setup guide
-(`OnboardingFlow`) and `NewThreadComposer`'s `new_thread_submit` outcomes.
-
-Stabilize after deciding whether third-party plugins may emit product events
-at all and, if so, how they are namespaced and rate limited.
-
 ## `PluginBbSdk.system.experimental_cliCommand`, `experimental_installCliCommand`, and `experimental_removeCliCommand`
 
-`experimental_cliCommand()` reports whether `bb` is on PATH on the server's
-computer: `supported` (false without an installed bb-app launcher),
+`experimental_cliCommand()` reports whether `hyperfide platform` is on PATH on the server's
+computer: `supported` (false without an installed hyperfide-app launcher),
 `installedPath`, `onPath`, and `shadowedBy` (`source` `npm`, `machine`, or
-`other`). Install links `<dataDir>/bin/bb` into a PATH folder (on Windows,
-adds `<dataDir>\bin` to the user PATH) and refuses to replace another `bb`
+`other`). Install links `<dataDir>/bin/hyperfide platform` into a PATH folder (on Windows,
+adds `<dataDir>\bin` to the user PATH) and refuses to replace another `hyperfide platform`
 (`409 cli_command_blocked`); install and remove return the new status, fail
 with `409 cli_command_unsupported` when unsupported, and 403 for machine
 credentials. Core callers: Settings → General → Command line
-(`CliCommandSettingsSection`) and `bb settings cli-command`.
+(`CliCommandSettingsSection`) and `hyperfide platform settings cli-command`.
 
 Stabilize after deciding whether the command should be installable per
-machine through the host daemon (enrolled machines get `~/.local/bin/bb` from
+machine through the host daemon (enrolled machines get `~/.local/bin/hyperfide platform` from
 `install-machine.sh` today), and after exercising real Windows and macOS
 installs.
 
@@ -3408,14 +3342,14 @@ last 30 days, newest first, each with `path`, `name`, `lastActivityAt`,
 `originUrl`, and the bound `projectId` or null; `truncated` reports an
 exhausted three-second walk budget. The walk skips dot, build, and scratch
 directories, linked worktrees, and submodules. Core callers: the setup guide
-(`OnboardingFlow`) and `bb project discover`; it rides the
+(`OnboardingFlow`) and `hyperfide platform project discover`; it rides the
 `host.discover_repos` daemon command.
 
 Stabilize after deciding whether depth, recency window, and limit should be
 caller options, and after exercising slow or network-mounted home directories
 and Windows hosts.
 
-## Shared VCS process admission (`@get-bb/plugin-sdk/host`)
+## Shared VCS process admission (`@hyperfide/plugin-sdk/host`)
 
 `experimental_runVcsProcess(command, args, operation, options)` admits a `git`
 or `gh` operation to the runtime's shared queue before invoking it. `args` are
@@ -3487,27 +3421,17 @@ field introduces no separate backend or headless side effect.
 
 ## Plugin contract live reads and writes
 
-- `experimental_useRpcQuery`, `experimental_useRpcKeyedQuery`, `experimental_useRpcMutation`, and `experimental_useRpcRefresh` use the core `@bb/query-tags` cache mechanism per client. Query state keeps previous data during refresh errors; consumers show an inline Retry using `refetch`. Successful reads clear the error. Keyed calls accept `{ keys }` and return a record containing every requested key; consumers share one observer per plugin/method and requests batch up to 200 keys. A pure `select` projection retains unchanged JSON subobjects across key and fetch-state changes, so default rows do not republish unchanged notification levels.
+- `experimental_useRpcQuery`, `experimental_useRpcKeyedQuery`, `experimental_useRpcMutation`, and `experimental_useRpcRefresh` use the core `@hyperfide/query-tags` cache mechanism per client. Query state keeps previous data during refresh errors; consumers show an inline Retry using `refetch`. Successful reads clear the error. Keyed calls accept `{ keys }` and return a record containing every requested key; consumers share one observer per plugin/method and requests batch up to 200 keys. A pure `select` projection retains unchanged JSON subobjects across key and fetch-state changes, so default rows do not republish unchanged notification levels.
 - `ExperimentalRpcMutationState.pendingInputs` contains every in-flight input for that hook instance until the server acknowledges its write. Background rereads are excluded. `isPending` remains true while any input is pending. Core `useTaggedMutation` exposes the same state from TanStack's mutation cache. Stabilization requires hook-instance isolation, concurrent targets, failure cleanup, and pending feedback surviving row moves between groups.
-- `ExperimentalRpcMutationOptions.optimistic(input, cache)` predicts loaded cached values before the write. `cache.update(method, input, updater)` targets a plain read, and `cache.updateKey(method, key, updater)` targets one keyed row. `cache` is an `ExperimentalRpcOptimisticCache`. Pure updaters receive the currently visible value and return its prediction. An absent plain read is skipped; a keyed row that loads while the write is pending shows the prediction. Predictions are shared by every reader on that client. The core route mutation accepts the same core optimistic descriptors and uses the same `@bb/query-tags` implementation. Ui-preferences already updates its shared Jotai atoms optimistically, which remains unchanged.
-- Predictions remain over incoming reads until confirmed matched reads arrive, independently of mutation pending state. A rejected write rolls back its layer and surfaces the mutation error. An accepted write whose refresh fails keeps its prediction with the read error and Retry; a successful refresh replaces it. Later predictions and confirmed values are protected from older mutation settles and rollbacks. Inverted completion retains the later confirmed value until a subsequent fresh read can replace it. Keyed rows live in the `@bb/query-tags` keyed store: an accepted row prediction becomes the row's value, and only a read of that row that started after acceptance replaces it. Stabilization includes overlapping writes, external invalidation, refresh failures, plain/keyed targets and completion without stale flicker.
+- `ExperimentalRpcMutationOptions.optimistic(input, cache)` predicts loaded cached values before the write. `cache.update(method, input, updater)` targets a plain read, and `cache.updateKey(method, key, updater)` targets one keyed row. `cache` is an `ExperimentalRpcOptimisticCache`. Pure updaters receive the currently visible value and return its prediction. An absent plain read is skipped; a keyed row that loads while the write is pending shows the prediction. Predictions are shared by every reader on that client. The core route mutation accepts the same core optimistic descriptors and uses the same `@hyperfide/query-tags` implementation. Ui-preferences already updates its shared Jotai atoms optimistically, which remains unchanged.
+- Predictions remain over incoming reads until confirmed matched reads arrive, independently of mutation pending state. A rejected write rolls back its layer and surfaces the mutation error. An accepted write whose refresh fails keeps its prediction with the read error and Retry; a successful refresh replaces it. Later predictions and confirmed values are protected from older mutation settles and rollbacks. Inverted completion retains the later confirmed value until a subsequent fresh read can replace it. Keyed rows live in the `@hyperfide/query-tags` keyed store: an accepted row prediction becomes the row's value, and only a read of that row that started after acceptance replaces it. Stabilization includes overlapping writes, external invalidation, refresh failures, plain/keyed targets and completion without stale flicker.
 - `defineRpcContract` accepts the core `ContractTagDeclarations`: `tags(input, output)`, `keyTags(key, value)`, and `invalidates(input, output)` receive validated values. Tags are in the RPC envelope; successful writes broadcast their invalidated tags and return `invalidated`. Tagged mutations resolve at write acknowledgement while matching active reads refresh in the background.
-- `bb.rpc.experimental_invalidate(tags)` requires nonempty tags; `experimental_invalidateAll()` refreshes all reads of that plugin, including untagged reads. Load, reload, disable and reconnect refresh plugin reads through the same cache path. Plugin changed messages are scoped to `{ kind: "plugin", pluginId }` subscribers; reconnect batches subscriptions and unknown targets are ignored.
-- Core uses the same tagged reads, invalidation and mutation implementation for UI preferences. Core keeps each thread once, in the same `@bb/query-tags` keyed store as plugin keyed rows, and derives thread detail, every thread list, search and sidebar navigation from it as keyed views. Every core thread write (pin and unpin through one batcher, read state, rename, section and parent moves, archive, unarchive, delete, stop, send status, environment rename) predicts on the entity with `optimisticKeyedUpdate` through `beginOptimisticMutation`, the path `cache.updateKey` uses, and confirms at the server's acknowledgement. One contract table (`@bb/query-tags/testing`) runs against core thread entities and plugin keyed rows; the pin hooks add `useTaggedMutation` with `meta.errorMessage` for core's error toast. Push-notifications thread levels are the first plugin caller; delivery retains `useRealtime`. Core's composer banner, Info row and the retired sidebar pull request member call `experimental_useRpcKeyedQuery` and `experimental_useRpcMutation` with an explicit `pluginId: "bb--github-pr-status"` outside any plugin slot, the calls another plugin makes, so that UI can move into the plugin unchanged; the hooks require `pluginId` only when no plugin slot provides one. Stabilization requires additional plugin callers and validation of scoped tags, failures, reconnects, batching and sidebar observer counts. Cache seeding remains outside this API.
+- `hyperfide platform.rpc.experimental_invalidate(tags)` requires nonempty tags; `experimental_invalidateAll()` refreshes all reads of that plugin, including untagged reads. Load, reload, disable and reconnect refresh plugin reads through the same cache path. Plugin changed messages are scoped to `{ kind: "plugin", pluginId }` subscribers; reconnect batches subscriptions and unknown targets are ignored.
+- Core uses the same tagged reads, invalidation and mutation implementation for UI preferences. Core keeps each thread once, in the same `@hyperfide/query-tags` keyed store as plugin keyed rows, and derives thread detail, every thread list, search and sidebar navigation from it as keyed views. Every core thread write (pin and unpin through one batcher, read state, rename, section and parent moves, archive, unarchive, delete, stop, send status, environment rename) predicts on the entity with `optimisticKeyedUpdate` through `beginOptimisticMutation`, the path `cache.updateKey` uses, and confirms at the server's acknowledgement. One contract table (`@hyperfide/query-tags/testing`) runs against core thread entities and plugin keyed rows; the pin hooks add `useTaggedMutation` with `meta.errorMessage` for core's error toast. Push-notifications thread levels are the first plugin caller; delivery retains `useRealtime`. Core's composer banner, Info row and the retired sidebar pull request member call `experimental_useRpcKeyedQuery` and `experimental_useRpcMutation` with an explicit `pluginId: "hyperfide--github-pr-status"` outside any plugin slot, the calls another plugin makes, so that UI can move into the plugin unchanged; the hooks require `pluginId` only when no plugin slot provides one. Stabilization requires additional plugin callers and validation of scoped tags, failures, reconnects, batching and sidebar observer counts. Cache seeding remains outside this API.
 
 ## Typed RPC refusals (`experimental_PluginRpcRefusal`)
 
-- Handlers throw `new experimental_PluginRpcRefusal({ code, message, issues? })` from `@get-bb/plugin-sdk`. Codes map to HTTP statuses: `forbidden` 403, `not_found` 404, `conflict` 409, `invalid` 422. Issues use `PluginRpcValidationIssue[]`. The existing `{ ok: false, error: { code, message, issues? } }` envelope carries the refusal to app hooks, SDK calls and CLI errors.
-- Refusals count as invocations, but do not increment handler errors or change plugin status detail. Ordinary throws remain `handler_error` / 500. Refused writes publish no invalidations and reject so shared optimistic updates roll back.
-- Core caller: bb-account's connect-only credential RPC handlers use the same runtime, HTTP route and caller contract as third-party plugins. The fake host and `renderSlot` accept the same thrown refusal.
-- Stabilize after validating caller-gated refusals and optional issue propagation across HTTP, app queries/mutations, SDK watches and CLI, including rollback and crash accounting. Watching is added by the next stack PR; its `onError` receives the SDK error carrying the refusal code.
-
 ## Plugin RPC contract and client-state guarantees
-
-- All three live hooks use `{ contract, method, ... }` with contract/method inference and no explicit generic arguments. Plain reads add `input`, keyed reads add `keys` and optional `select`, and mutations add optional `optimistic`. `experimental_useRpcKeyedQuery({ contract, method, keys, select? })` infers rows and selection results from the contract value. `ExperimentalRpcKeyedMethod` restricts methods to schemas accepting only `{ keys: string[] }` plus optional/defaulted fields and returning string-indexed records; `ExperimentalRpcKeyedValue` derives their row values. `defineRpcContract` rejects `keyTags` unless parsed input has string keys and output is a string-indexed record. Push-notifications is the first caller. Stabilization includes transformed schemas, invalid shapes and projected selections.
-- `experimental_PluginRpcCallError` is exported from the SDK root and app entry and is the error of live read/mutation hooks and every rejected `mutate`. It always has `code: PluginRpcErrorCode`, `message`, optional validated issues and optional HTTP status. `transport_error`, `invalid_response` and `unknown_error` cover client failures. The union may grow: consumers need a fallback; unknown server codes map to `unknown_error` and remain in `serverCode`. CLI output preserves newer codes without assuming an exhaustive list. Core callers use the same HTTP, SDK and command error boundaries; bb-account exercises expected refusals. Stabilize after version-skew, transport, malformed-response and refusal checks.
-- `mutate`, `isPending` and `pendingInputs` finish at write acknowledgement. Core `runRouteMutation` has the same semantics through `runTaggedMutation`; ui-preferences saves the acknowledged revision independently of refresh completion. Cache predictions survive background refreshes and failed rereads until fresh confirmed data arrives. Write rejection rolls back. Owner tests cover acknowledgement, held refreshes, reconciliation and concurrent predictions.
-- BB read state means: `data` is the latest successful value plus predictions, retained during refresh errors (plain reads start undefined; keyed selections receive loaded rows, initially an empty record). `isLoading` means an enabled read is fetching never-loaded requested data. `isFetching` includes background attempts; keyed views share method activity. `error` records the completed read failure and clears on success; retrying a first load clears its old error while loading. `refetch` forces a read and waits through retries; failure remains in `error` and its promise resolves. Production freshness is two seconds without polling. Focus does not refetch while BB's realtime connection is healthy; while disconnected, focus/browser-online events recheck stale active reads. BB reconnect invalidates all plugin reads regardless of freshness. Page hiding cancels active attempts and resume restarts cancelled reads. Invalidations refresh immediately. Tags remain plain strings. Network/abort failures retry twice with 250 ms delay, HTTP failures never retry, and writes never retry automatically. No query-library options are exposed.
 
 ## Page titles
 
@@ -3535,19 +3459,19 @@ back/forward navigation, crash/reload recovery, links and overflow.
 
 The GitHub PR Status plugin's keyed `pullRequests` read is the first producer: it re-checks a watched environment every 30 seconds while checks are pending, auto-merge is on, the PR is queued or mergeability is unknown, and after a thread on the environment goes idle or the environment's refs, status or metadata change. It invalidates the row's key tag only when the row changed, replacing core's `environment-pull-request` watched target.
 
-`bb.rpc.experimental_whileWatched(method, handler)` starts one producer for each distinct subscribed `{input}` or `{key}` read, and aborts it when its last client leaves or the plugin unloads. An app tab hidden for five seconds stops counting as a client until it is visible again. Register after the RPC method. Read identity uses canonical JSON and the encoded read is capped at 16 KiB. The server drops an oversized target from a subscribe message and keeps the rest, and the app doesn't send one. Every live app query hook holds a `plugin-read` subscription for its read, whether or not the method has a producer. Producers start and stop through the hub's watched-target registry, the path core uses for daemon git and thread-storage watching, thread timeline pushes and environment pull request checks.
+`hyperfide platform.rpc.experimental_whileWatched(method, handler)` starts one producer for each distinct subscribed `{input}` or `{key}` read, and aborts it when its last client leaves or the plugin unloads. An app tab hidden for five seconds stops counting as a client until it is visible again. Register after the RPC method. Read identity uses canonical JSON and the encoded read is capped at 16 KiB. The server drops an oversized target from a subscribe message and keeps the rest, and the app doesn't send one. Every live app query hook holds a `plugin-read` subscription for its read, whether or not the method has a producer. Producers start and stop through the hub's watched-target registry, the path core uses for daemon git and thread-storage watching, thread timeline pushes and environment pull request checks.
 
 Stabilize after exercising producer cancellation, reload, reconnect and byte limits across additional consumers. In the app, core and plugin surfaces subscribe through the same `WebSocketManager` (`apps/app/src/lib/ws.ts`). The SDK has no watched-read API yet.
 
 ## Retired `experimental_useSidebarThreadPullRequest` runtime member
 
-`experimental_useSidebarThreadPullRequest(threadId)` and its `PluginSidebarPullRequest` and `PluginSidebarThreadPullRequestState` types are gone from `@get-bb/plugin-sdk/app`, the Plugin Guide and the authoring docs. Published bundles resolve `@get-bb/plugin-sdk/app` exports by name on `globalThis.__bbPluginRuntime.pluginSdkApp`, so the app installs `retiredPluginSdkAppMembers` (`apps/app/src/lib/plugin-sdk-app-impl.tsx`) next to the implementation. The member keeps its old shape, reads the GitHub PR Status plugin's `pullRequests` row for the thread's environment through the same `useEnvironmentPullRequest` hook core's banner and Info row use, and returns `{ isLoading: false, pullRequest: null }` when the plugin is disabled or the read fails. The name leaves only the typings. `bb-plugin-build` keeps it in the `@get-bb/plugin-sdk/app` runtime shim's export list (`RETIRED_PLUGIN_SDK_APP_EXPORTS` in `packages/plugin-build/src/build-plugin-app.ts`), so plugins that still import it build and run, because git-sourced marketplace plugins are built by bb at install and update and path and builtin plugins rebuild when the SDK version changes. An import of it is a build warning carrying the replacement call: `bb plugin build` and `bb plugin dev` print it, and the server writes it to the plugin's log and the server log when it builds the plugin. Callers are marketplace plugins written against the old SDK (t3sidebar, dockside, gtd-sidebar, thread-inbox, radar-sidebar, bb-sidebar, sidebar-plus, cursor-sidebar, switchboard, vantage, jb-flow, tinted-threads among them). Remove the runtime member and the shim entry only after those plugins have migrated.
+`experimental_useSidebarThreadPullRequest(threadId)` and its `PluginSidebarPullRequest` and `PluginSidebarThreadPullRequestState` types are gone from `@hyperfide/plugin-sdk/app`, the Plugin Guide and the authoring docs. Published bundles resolve `@hyperfide/plugin-sdk/app` exports by name on `globalThis.__bbPluginRuntime.pluginSdkApp`, so the app installs `retiredPluginSdkAppMembers` (`apps/app/src/lib/plugin-sdk-app-impl.tsx`) next to the implementation. The member keeps its old shape, reads the GitHub PR Status plugin's `pullRequests` row for the thread's environment through the same `useEnvironmentPullRequest` hook core's banner and Info row use, and returns `{ isLoading: false, pullRequest: null }` when the plugin is disabled or the read fails. The name leaves only the typings. `hyperfide-plugin-build` keeps it in the `@hyperfide/plugin-sdk/app` runtime shim's export list (`RETIRED_PLUGIN_SDK_APP_EXPORTS` in `packages/plugin-build/src/build-plugin-app.ts`), so plugins that still import it build and run, because git-sourced marketplace plugins are built by hyperfide platform at install and update and path and builtin plugins rebuild when the SDK version changes. An import of it is a build warning carrying the replacement call: `hyperfide platform plugin build` and `hyperfide platform plugin dev` print it, and the server writes it to the plugin's log and the server log when it builds the plugin. Callers are marketplace plugins written against the old SDK (t3sidebar, dockside, gtd-sidebar, thread-inbox, radar-sidebar, hyperfide-sidebar, sidebar-plus, cursor-sidebar, switchboard, vantage, jb-flow, tinted-threads among them). Remove the runtime member and the shim entry only after those plugins have migrated.
 
 ## Unified tabs (`experimental_tab`)
 
 - **Surface:** `app.slots.experimental_tab`, `ExperimentalTabRegistration`, `ExperimentalTabContext`, `ExperimentalTabReference`, `ExperimentalTabTargetReference`, `ExperimentalThreadActionTabProps`, `ExperimentalThreadTabActionContext`, and `ExperimentalAppPanel.experimental_openTab`. Context is thread (`threadId`) or an owned navigation panel (`panelId`, component `subPath`). Availability is fixed or action. Only actions accept `run`, default `params` and per-open persisted params/title; navigation-page fixed tabs retain validated session targets. `tooltip` defaults to title and layout is padded or flush.
 - **Behavior:** one registry and destination dispatcher serve thread fixed, thread action, navigation-page fixed and navigation-page action tabs. `useVisible` runs inside plugin scope/crash isolation for the current context. It hides a destination or launcher without removing saved fixed identity/order or already-open action instances. Action params deduplicate instances; fixed tabs have one identity and cannot close. Existing `openFixedTab`, action `openPanel`, message-action openers and `openThreadPanel` delegate through the shared dispatcher. New-thread-screen actions retain their project-context API and use the same action-opening implementation.
-- **Compatibility:** `threadPanelAction`, `PluginThreadPanelActionRegistration`, `PluginThreadPanelProps`, `PluginThreadPanelActionContext`, `navPanel.fixedTabs`, `PluginFixedTabRegistration` and `PluginFixedTabDeclaration` are removed from public source typings by explicit product decision. Runtime adapters in the registration collector remain for published bundles and Git-source install/update builds: 92 marketplace repositories use `threadPanelAction`, 15 use `fixedTabs`. Legacy optional icons, unknown fields and older fixed-tab owner shapes are accepted; malformed entries warn/skip rather than crashing the plugin. `bb-plugin-build` emits migration warnings with replacement examples and the authoring migration link. Server install/rebuild paths copy warnings into the plugin log; warnings never block install or update. The runtime export manifest continues to expose existing SDK functions. Remove adapters only after known callers have migrated.
-- **Persistence and automation:** thread fixed entries use `{id, kind: 'plugin-fixed', pluginId, tabId}` through SDK `threads.tabs.get/update` and CLI `bb thread tabs show/set`, with revision checks. Existing `plugin-page-fixed` and `plugin-panel` action entries/params keep their IDs and storage keys. Selection is client-local. Legacy core Info/Diff kinds, active selections and split IDs convert without reordering; server entries rewrite through the revision-checked queue. Split restoration waits for registration/visibility readiness.
+- **Compatibility:** `threadPanelAction`, `PluginThreadPanelActionRegistration`, `PluginThreadPanelProps`, `PluginThreadPanelActionContext`, `navPanel.fixedTabs`, `PluginFixedTabRegistration` and `PluginFixedTabDeclaration` are removed from public source typings by explicit product decision. Runtime adapters in the registration collector remain for published bundles and Git-source install/update builds: 92 marketplace repositories use `threadPanelAction`, 15 use `fixedTabs`. Legacy optional icons, unknown fields and older fixed-tab owner shapes are accepted; malformed entries warn/skip rather than crashing the plugin. `hyperfide-plugin-build` emits migration warnings with replacement examples and the authoring migration link. Server install/rebuild paths copy warnings into the plugin log; warnings never block install or update. The runtime export manifest continues to expose existing SDK functions. Remove adapters only after known callers have migrated.
+- **Persistence and automation:** thread fixed entries use `{id, kind: 'plugin-fixed', pluginId, tabId}` through SDK `threads.tabs.get/update` and CLI `hyperfide platform thread tabs show/set`, with revision checks. Existing `plugin-page-fixed` and `plugin-panel` action entries/params keep their IDs and storage keys. Selection is client-local. Legacy core Info/Diff kinds, active selections and split IDs convert without reordering; server entries rewrite through the revision-checked queue. Split restoration waits for registration/visibility readiness.
 - **Core callers:** Info and Diff register as thread + fixed and use the shared content host, visibility, descriptor and open paths. Diff retains shortcut, Git setting, file/commit navigation and review state. Core-only Info metadata and Diff controllers remain pane-owned contexts; they are not public plugin API. Docs, GitHub, Side Chat, Tasks, Workflows and the ThreadChat demo use the unified registration.
 - **Stabilization:** audit context typing, targets versus persisted inputs, visibility and crash/reload lifecycles, independent panes/threads, startup split restoration, revision conflicts and compact drawers. Keep the shared contract table across contexts and legacy adapters, verify actual published plugin installs, then rename project-wide and remove this entry.

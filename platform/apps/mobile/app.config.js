@@ -24,7 +24,7 @@ module.exports = ({ config }) => {
     extra: { ...config.extra, bbMobileVariant: variant },
     ...(isDev
       ? {
-          name: "bb dev",
+          name: "Hyperfide dev",
           icon: "./assets/icon-dev.png",
           web: { ...config.web, favicon: "./assets/favicon-dev.png" },
           plugins: config.plugins.map((plugin) =>
@@ -48,7 +48,7 @@ module.exports = ({ config }) => {
       ...config.android,
       ...(isDev
         ? {
-            package: "app.getbb.mobile.dev",
+            package: "app.hyperfide.mobile.dev",
             googleServicesFile: undefined,
             intentFilters: [],
             adaptiveIcon: {

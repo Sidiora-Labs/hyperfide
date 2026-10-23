@@ -111,10 +111,10 @@ revision is stored or checked. Other edits do not automatically reject a cursor.
 A content cut can return only part of a group. Ancestor summaries retain their
 full IDs, source bounds, counts, and status; their child arrays can contain only
 part of the group. Prepend older pages with
-`prependOlderTimelineRows` from `@bb/client-core`: it joins turn children and
+`prependOlderTimelineRows` from `@hyperfide/client-core`: it joins turn children and
 delegation children recursively by ID while preserving order. Do not flatten
 responses by concatenation or replace an entire summary solely because its ID
-was already seen. `bb thread log --all --format verbose` uses this merge.
+was already seen. `hyperfide platform thread log --all --format verbose` uses this merge.
 
 The 4 MiB response target and event setting determine content-page boundaries
 after grouping. At least one indivisible row is returned, even if it exceeds
@@ -148,7 +148,7 @@ resolves. An item the range does not contain returns HTTP 400
 
 `deferContent=true` on the timeline and on `turn-summary-details` leaves out
 content that is only visible when a settled row is expanded. Without it,
-responses keep every row's content inline, as `bb thread log` and SDK callers
+responses keep every row's content inline, as `hyperfide platform thread log` and SDK callers
 expect. With it:
 
 - a delegation that is no longer pending and has children returns

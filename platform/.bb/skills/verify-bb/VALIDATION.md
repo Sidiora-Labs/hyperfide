@@ -20,13 +20,13 @@ A real authenticated Codex provider performed the short conversation.
 | Journey          | Observed result                                                                                                                                                                                                                                                                  |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Local project    | Added the fixture through the folder picker; selected it in compose; reloaded; API retained the exact local path, host, and default source.                                                                                                                                      |
-| Thread lifecycle | Submitted through the UI; final output was exactly `BB verification complete.`; thread returned idle; response survived reload; rename persisted; archive set `archivedAt`; unarchive cleared it and restored the composer. Fixture Git status stayed clean. |
+| Thread lifecycle | Submitted through the UI; final output was exactly `HYPERFIDE verification complete.`; thread returned idle; response survived reload; rename persisted; archive set `archivedAt`; unarchive cleared it and restored the composer. Fixture Git status stayed clean. |
 | Appearance       | Dark theme survived reload in browser storage and the root class; Nord palette survived reload and the server config reported `nord`; original System/Default selections were restored.                                                                                          |
 | Compact menu     | Theme drawer opened and realized its options; Light selection persisted; content remained mounted after close; reopen and Escape worked; app root was non-inert and exposed in the sampled states; original theme was restored.                                                  |
 
 The generated launch block was executed from the skill on a second fresh
 store. All four recipes were then driven through the live UI, supplemented by
-API reads and CLI calls. Later maintenance discovered that inherited `BB_CLI`
+API reads and CLI calls. Later maintenance discovered that inherited `HYPERFIDE_CLI`
 can redirect the source entrypoint to the installed client; this initial run
 did not independently establish client executable provenance. Its UI/API
 observations remain historical evidence. Screenshots were inspected. The creation and
@@ -63,15 +63,6 @@ restored settings, stopped its named browser and checkout-owned processes,
 and retained evidence outside the disposable dev data directory.
 
 ## Exhaustive documentation expansion
-
-On 2026-09-05, the map was expanded from four smoke journeys to 49 feature
-pages, adding 344 capability recipes. The source baseline was
-`61d55e03d` plus this documentation/helper change; product source was unchanged.
-The pages cover the core app and agent interfaces, all 28 plugins in this
-checkout, desktop, the native mobile shell, hosted website/dashboard,
-cloud gateway, and developer/support surfaces. Recipes overlap where a shared
-behavior requires a provider or platform check; the recipe count is not a
-count of unique product features.
 
 The source inventory records 61 review groups, including 187 literal CLI
 command declarations, 149 API route declarations, 39 app route constants and

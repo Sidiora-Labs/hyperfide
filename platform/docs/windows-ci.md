@@ -11,9 +11,9 @@ selected Windows job is blocking, not advisory.
 The `Windows host packages (Node 22.x)` job runs lint, typecheck, and the full
 test suite for nine packages:
 
-- `@bb/process-utils`, `@bb/host-workspace`, and `@bb/host-watcher`
-- `@bb/agent-runtime`, `@bb/provider-bridge-protocol`, and `@bb/provider-bridge-acp`
-- `@bb/host-daemon-contract`, `@bb/config`, and `@bb/db`
+- `@hyperfide/process-utils`, `@hyperfide/host-workspace`, and `@hyperfide/host-watcher`
+- `@hyperfide/agent-runtime`, `@hyperfide/provider-bridge-protocol`, and `@hyperfide/provider-bridge-acp`
+- `@hyperfide/host-daemon-contract`, `@hyperfide/config`, and `@hyperfide/db`
 
 Turbo reuses results from Windows-only cache keys; Linux and macOS entries
 cannot satisfy these checks. `--concurrency=2` limits contention between
@@ -23,8 +23,8 @@ Reproduce from the repository root in PowerShell:
 
 ```powershell
 npm install --global pnpm@9.15.0 --ignore-scripts
-pnpm install --frozen-lockfile --ignore-scripts --filter bb --filter "@bb/process-utils..." --filter "@bb/host-workspace..." --filter "@bb/host-watcher..." --filter "@bb/agent-runtime..." --filter "@bb/provider-bridge-protocol..." --filter "@bb/provider-bridge-acp..." --filter "@bb/host-daemon-contract..." --filter "@bb/config..." --filter "@bb/db..." --filter "bb-plugin-provider-acp..." --filter "bb-plugin-provider-codex..." --filter "bb-plugin-echo-provider..." --filter "@bb/app..."
-pnpm exec turbo run lint typecheck test --filter=@bb/process-utils --filter=@bb/host-workspace --filter=@bb/host-watcher --filter=@bb/agent-runtime --filter=@bb/provider-bridge-protocol --filter=@bb/provider-bridge-acp --filter=@bb/host-daemon-contract --filter=@bb/config --filter=@bb/db --continue --concurrency=2 --output-logs=new-only --summarize
+pnpm install --frozen-lockfile --ignore-scripts --filter hyperfide platform --filter "@hyperfide/process-utils..." --filter "@hyperfide/host-workspace..." --filter "@hyperfide/host-watcher..." --filter "@hyperfide/agent-runtime..." --filter "@hyperfide/provider-bridge-protocol..." --filter "@hyperfide/provider-bridge-acp..." --filter "@hyperfide/host-daemon-contract..." --filter "@hyperfide/config..." --filter "@hyperfide/db..." --filter "hyperfide-plugin-provider-acp..." --filter "hyperfide-plugin-provider-codex..." --filter "hyperfide-plugin-echo-provider..." --filter "@hyperfide/app..."
+pnpm exec turbo run lint typecheck test --filter=@hyperfide/process-utils --filter=@hyperfide/host-workspace --filter=@hyperfide/host-watcher --filter=@hyperfide/agent-runtime --filter=@hyperfide/provider-bridge-protocol --filter=@hyperfide/provider-bridge-acp --filter=@hyperfide/host-daemon-contract --filter=@hyperfide/config --filter=@hyperfide/db --continue --concurrency=2 --output-logs=new-only --summarize
 ```
 
 The filtered install adds the provider plugins used by runtime and
@@ -40,17 +40,17 @@ package outside the nine above, on the same runner image. A failure fails the
 job. The thirteen shards cover each
 suite exactly once:
 
-- `server-1` to `server-3`: `@bb/server`, split by file into three Vitest
+- `server-1` to `server-3`: `@hyperfide/server`, split by file into three Vitest
   shards.
-- `app-1` to `app-4`: `@bb/app`, split the same way into four.
-- `plugins-1`: the provider plugins (`bb-plugin-provider-*`) and the three
+- `app-1` to `app-4`: `@hyperfide/app`, split the same way into four.
+- `plugins-1`: the provider plugins (`hyperfide-plugin-provider-*`) and the three
   other slowest plugin suites: Tasks, Connect, and the thread list. This shard
   installs Bun, which the Pi plugin's runtime regression requires in CI.
-- `plugins-2`: every other `bb-plugin-*` package. Its negative filters exclude
+- `plugins-2`: every other `hyperfide-plugin-*` package. Its negative filters exclude
   `plugins-1`, so a new plugin lands here without a workflow change.
 - `packages-host`: host daemon and CLI, one suite at a time.
 - `integration`: the integration tests, alone.
-- `packages-build`: templates, bb-app, demo server, desktop, and plugin build,
+- `packages-build`: templates, hyperfide-app, demo server, desktop, and plugin build,
   the same group as the Linux `packages-build` shard.
 - `packages-other`: every remaining package, including provider parity. Its
   negative filters exclude the groups above and the nine host packages, so a
@@ -94,7 +94,7 @@ The test step differs from the Linux one in three ways:
   runs in `packages-other`.
 
 App and server shards, on Linux and Windows, select their Vitest shard with
-the internal `BB_CI_TEST_SHARD` variable (for example `1/3`). Vitest validates
+the internal `HYPERFIDE_CI_TEST_SHARD` variable (for example `1/3`). Vitest validates
 and applies it, and Turbo hashes it only for those test tasks. Do not pass
 shard selection after Turbo's `--`: those arguments also reach prerequisite
 builds and give identical SDK type builds different cache keys. Linux caps
@@ -104,8 +104,8 @@ full install:
 
 ```powershell
 pnpm install --frozen-lockfile --ignore-scripts
-$env:BB_CI_TEST_SHARD = "1/3"
-pnpm exec turbo run test --filter=@bb/server --continue --output-logs=new-only
+$env:HYPERFIDE_CI_TEST_SHARD = "1/3"
+pnpm exec turbo run test --filter=@hyperfide/server --continue --output-logs=new-only
 ```
 
 Each shard uploads `.turbo/runs/*.json` as a
@@ -132,39 +132,39 @@ turn off.
 
 ## App boot smoke
 
-The `Windows app smoke (Node 22.x)` job builds `bb-app` from the checkout and
-runs `packages/bb-app/scripts/smoke-boot.mjs`: it starts the built launcher on
+The `Windows app smoke (Node 22.x)` job builds `hyperfide-app` from the checkout and
+runs `packages/hyperfide-app/scripts/smoke-boot.mjs`: it starts the built launcher on
 free ports with a temporary data directory, waits for `/health`, runs
-`bb status` through the bundled CLI, waits for the built-in plugins to report
+`hyperfide platform status` through the bundled CLI, waits for the built-in plugins to report
 `running` and the host daemon to connect, then stops the process tree. It then
-runs `packages/bb-app/scripts/smoke-tarball.mjs`, which packs `bb-app`, runs it
+runs `packages/hyperfide-app/scripts/smoke-tarball.mjs`, which packs `hyperfide-app`, runs it
 through `npx --package`, installs the tarball, runs each installed command
 through npm's `.cmd` shim, and starts the full stack and a joined daemon. The
 same tasks run on macOS and Linux:
 
 ```powershell
 pnpm install --frozen-lockfile --ignore-scripts
-pnpm exec turbo run smoke:boot --filter=bb-app --output-logs=new-only
-pnpm exec turbo run smoke:tarball --filter=bb-app --output-logs=new-only
+pnpm exec turbo run smoke:boot --filter=hyperfide-app --output-logs=new-only
+pnpm exec turbo run smoke:tarball --filter=hyperfide-app --output-logs=new-only
 ```
 
 The `Windows desktop smoke (Node 22.x)` job packages the desktop app from the
 same checkout and runs the packaged-app smoke against the result. Both
-packaging smoke jobs install the workspace without `@bb/mobile`, which is not
+packaging smoke jobs install the workspace without `@hyperfide/mobile`, which is not
 in the desktop or launcher dependency chain:
 
 ```powershell
-pnpm exec turbo run package:win --filter=@bb/desktop --output-logs=new-only
-pnpm exec turbo run smoke:packaged --filter=@bb/desktop --force --output-logs=new-only
+pnpm exec turbo run package:win --filter=@hyperfide/desktop --output-logs=new-only
+pnpm exec turbo run smoke:packaged --filter=@hyperfide/desktop --force --output-logs=new-only
 ```
 
-It is a separate job because both smokes build `bb-app` and then spend about a
+It is a separate job because both smokes build `hyperfide-app` and then spend about a
 minute each on work that cannot overlap: the tarball smoke prunes and packs
-`packages/bb-app/dist` while packaging copies it. In one job they ran back to
+`packages/hyperfide-app/dist` while packaging copies it. In one job they ran back to
 back and that job finished last in the workflow.
 
-The daemon bundle ships `bb.cmd` beside the extensionless `bb` script so
-PowerShell and `cmd.exe` find `bb` on agent shells' PATH; the launcher and CLI
+The daemon bundle ships `hyperfide-platform.cmd` beside the extensionless `hyperfide platform` script so
+PowerShell and `cmd.exe` find `hyperfide platform` on agent shells' PATH; the launcher and CLI
 re-exec run the extensionless script through Node because Windows cannot
 execute a file by its shebang.
 

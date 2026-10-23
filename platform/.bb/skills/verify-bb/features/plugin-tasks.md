@@ -4,7 +4,7 @@ Status: **2026-09-05: 11 passed, 2 partial/blocked**. See [the audit](../MAINTEN
 
 ## Setup and entry points
 
-Tasks panel; bb tasks --help. Use a uniquely prefixed disposable task project and synthetic attachments.
+Tasks panel; hyperfide platform tasks --help. Use a uniquely prefixed disposable task project and synthetic attachments.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test

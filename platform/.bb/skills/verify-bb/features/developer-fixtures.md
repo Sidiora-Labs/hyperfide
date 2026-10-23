@@ -12,7 +12,7 @@ typechecks and package tests use Turbo with the applicable package filter.
 
 - `apps/demo-server/package.json`
 - `packages/scripts/src/commands/run-dev.ts`
-- `scripts/bb-cloud-dev.mjs`
+- `scripts/hyperfide-cloud-dev.mjs`
 - `plugins/plugin-api-docs/src/surfaces.ts`
 
 ## Feature recipes
@@ -34,5 +34,5 @@ preferences, and remove only synthetic resources after evidence is preserved.
 
 ## Maintenance notes
 
-- Cloud preflight also requires its checkout-derived gateway/worker/web ports to be free and `.wrangler/cloud-dev` absent or owned. Preserve local R2/D1 fixtures outside the checkout after stopping only the owned invocation. Source: `scripts/bb-cloud-dev.mjs:163`.
+- Cloud preflight also requires its checkout-derived gateway/worker/web ports to be free and `.wrangler/cloud-dev` absent or owned. Preserve local R2/D1 fixtures outside the checkout after stopping only the owned invocation. Source: `scripts/hyperfide-cloud-dev.mjs:163`.
 - The demo implements a limited fixed-data API (including sidebar-bootstrap/threads/timeline), not every current app route: /projects and /plugins may return501. Use an isolated frontend proxy to the demo API, label rendered conversation/tool events synthetic, and report unsupported app/plugin endpoints separately. Source: `apps/demo-server/src/demo-world.ts:173`.

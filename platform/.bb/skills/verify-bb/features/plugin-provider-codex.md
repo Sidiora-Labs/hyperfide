@@ -23,7 +23,7 @@ SKILL.md. Inspect nested `--help` before selecting flags and IDs.
 | --- | --- | --- |
 | Selection and execution | Choose supported model/reasoning/service tier/permission combinations and run a short turn. | The actual session uses accepted options and rejects unsupported combinations at the boundary. |
 | Plan and durable goal | Create a harmless plan and bounded goal, inspect progress, cancel/clear as appropriate. | Plan decisions and goal state remain distinct and survive supported continuation without invented completion. |
-| Session controls | Fork, compact, edit at a checkpoint, rename/archive, stop/retry, and resume synthetic sessions. | Provider/session and BB thread state stay consistent; unsupported operations fail explicitly. |
+| Session controls | Fork, compact, edit at a checkpoint, rename/archive, stop/retry, and resume synthetic sessions. | Provider/session and HYPERFIDE thread state stay consistent; unsupported operations fail explicitly. |
 | Tools and interactions | Drive a fixture file edit, command approval, and question card. | Correct interaction decisions reach the active turn once with no unapproved command execution. |
 | Native memory and subagents | Toggle provider memory and native-subagent settings, then start a fresh task. | Instruction/tool exposure follows configuration and does not mutate an already running turn retroactively. |
 | Skills and health | Resolve a native skill and inspect install/version/auth/usage through maintenance controls. | Host discovery and execution agree; errors distinguish unavailable CLI from missing authentication. |

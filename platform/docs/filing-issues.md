@@ -18,26 +18,26 @@ Two or three sentences: what you did, what happened, what you expected. Write it
 
 ### 2. Versions and environment
 
-- bb version (`bb --version` or Settings → About) and how it was installed (desktop app, `npx bb-app`, `install.sh`, from source at commit).
+- hyperfide platform version (`hyperfide platform --version` or Settings → About) and how it was installed (desktop app, `hyperfide platform`, `install.sh`, from source at commit).
 - OS and version. Node version if you run from source or npm.
 - Provider and provider CLI version when the bug involves an agent (`claude --version`, `codex --version`, `pi --version`, ACP agent build).
-- Anything unusual about the setup: remote machine, bb Connect, worktree environment, custom ports or data dir, cgroup/memory limits.
+- Anything unusual about the setup: remote machine, hyperfide platform Connect, worktree environment, custom ports or data dir, cgroup/memory limits.
 
 ### 3. Steps to reproduce
 
-Numbered, copy-pasteable, minimal. Exact commands, exact UI clicks, exact prompt text. Include a tiny scratch repo or fixture if the bug needs one. Prefer `bb …` CLI steps over UI descriptions when both work; they are unambiguous.
+Numbered, copy-pasteable, minimal. Exact commands, exact UI clicks, exact prompt text. Include a tiny scratch repo or fixture if the bug needs one. Prefer `hyperfide platform …` CLI steps over UI descriptions when both work; they are unambiguous.
 
 State the smallest thing that still reproduces it, and note anything you tried that did **not** reproduce it. That negative space is often the fastest route to the cause.
 
 ### 4. Expected vs actual
 
-Paste the actual output verbatim (terminal output, log lines, HTTP responses, `bb thread log` excerpts). For visual bugs attach a screenshot or short recording and say what to look at. Then state what you expected instead.
+Paste the actual output verbatim (terminal output, log lines, HTTP responses, `hyperfide platform thread log` excerpts). For visual bugs attach a screenshot or short recording and say what to look at. Then state what you expected instead.
 
 ### 5. Evidence
 
-- Logs from `~/.bb/logs/` (or the dev data dir printed by `pnpm dev`), trimmed to the relevant window.
+- Logs from `~/.hyperfide/logs/` (or the dev data dir printed by `pnpm dev`), trimmed to the relevant window.
 - Thread ids (`thr_…`), project ids, environment ids when relevant. They are primary keys and let us query the database directly.
-- If you cite code, use a permalink to a commit: `https://github.com/get-bb/bb/blob/<sha>/<path>#L<n>-L<m>`. Branch links rot.
+- If you cite code, use a permalink to a commit: `https://github.com/Sidiora-Labs/hyperfide/blob/<sha>/<path>#L<n>-L<m>`. Branch links rot.
 - If you measured something (memory, timings, counts), say how.
 
 ### 6. What you ruled out
@@ -61,7 +61,7 @@ Agents file many issues in this repo. The same bar applies, plus:
 - Reproduce before you file. A log line or a symptom in one thread is not a bug report. If a live repro is impossible, write the closest faithful repro (for example a unit test at the exact code path) and mark the issue as unverified.
 - Question the report you were handed. If a user's stated cause is wrong, say what you actually observed and what you refuted.
 - Include the base commit you tested against and permalinks to the code you cite.
-- Link the bb thread or the investigation report that produced the finding.
+- Link the hyperfide platform thread or the investigation report that produced the finding.
 - Do not open duplicates: search first, and if you find the same root cause under a different symptom, comment on the existing issue with the new evidence.
 - End the body with `> AGENT GENERATED` (see [AGENTS.md](../AGENTS.md)).
 

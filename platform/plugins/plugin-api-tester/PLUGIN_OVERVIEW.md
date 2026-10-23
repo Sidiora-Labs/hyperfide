@@ -1,4 +1,4 @@
-A workbench for people who build bb plugins. Enable it when you want a placeholder page in the sidebar that confirms plugin loading works in your build.
+A workbench for people who build hyperfide platform plugins. Enable it when you want a placeholder page in the sidebar that confirms plugin loading works in your build.
 
 ## What you get
 
@@ -9,7 +9,7 @@ A workbench for people who build bb plugins. Enable it when you want a placehold
 
 The plugin registers one full-page panel and nothing else. It adds no agent tools, no CLI commands, and no settings. It is enabled by default in a development build and disabled by default in a release build.
 
-Use it as a smoke test when you change how bb loads bundled plugins. Use the Plugin Guide plugin to browse the full plugin API.
+Use it as a smoke test when you change how hyperfide platform loads bundled plugins. Use the Plugin Guide plugin to browse the full plugin API.
 
 ## Requirements
 

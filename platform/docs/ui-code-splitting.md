@@ -77,7 +77,7 @@ the implementation through a barrel imported by the shell.
 | Tier      | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `intent`  | Load when rendered, or earlier on a trigger's pointer-enter, focus, or pointer-down.                                                                                                                                                                                                                                                                                                                                                                               |
-| `preload` | Queued when the split is defined. The queue drains at browser idle (one-second timeout/fallback) once no critical load is pending: the route import, the current page's split, and any split being rendered. While the plugins that draw the thread list and sidebar navigation load first (bb's own until another plugin has drawn them), it also waits, for at most ten seconds, until plugin frontends have loaded. Intent and rendering still load it earlier. |
+| `preload` | Queued when the split is defined. The queue drains at browser idle (one-second timeout/fallback) once no critical load is pending: the route import, the current page's split, and any split being rendered. While the plugins that draw the thread list and sidebar navigation load first (hyperfide platform's own until another plugin has drawn them), it also waits, for at most ten seconds, until plugin frontends have loaded. Intent and rendering still load it earlier. |
 
 Wire intent on the actual trigger:
 
@@ -118,7 +118,7 @@ modules; the real split stays in the `intent` tier. IDs must uniquely identify a
 split. An import already started suppresses speculative downloads; an import
 that follows a pending download waits for its bytes, avoiding duplicate
 transfers. Asset responses must be cacheable for subsequent imports to reuse
-them. BB serves hashed assets with immutable caching. Development HTML has no
+them. HYPERFIDE serves hashed assets with immutable caching. Development HTML has no
 manifest, so dev servers retain demand loading. This is currently used for
 Markdown's sanitized HTML pipeline on workspace routes and queued messages when
 a thread view mounts.
@@ -150,7 +150,7 @@ used by other features; do not forbid them globally without checking those uses.
 Build and check through:
 
 ```sh
-pnpm exec turbo run build --filter=@bb/app
+pnpm exec turbo run build --filter=@hyperfide/app
 node apps/app/scripts/check-bundle-budget.mjs
 ```
 

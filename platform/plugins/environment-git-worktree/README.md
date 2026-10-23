@@ -2,7 +2,7 @@
 
 Creates an isolated Git worktree from the project checkout on an enrolled machine. The plugin supplies base-branch inputs, runs workspace setup, and removes owned worktrees after core retires them. Project sub-threads receive fresh worktrees by default.
 
-Bundled and installed automatically. Select it through the environment picker or `bb thread spawn --environment-provider git-worktree`. Use `bb environment providers --json` for its inputs and availability.
+Bundled and installed automatically. Select it through the environment picker or `hyperfide platform thread spawn --environment-provider git-worktree`. Use `hyperfide platform environment providers --json` for its inputs and availability.
 
 New branches start at the selected base without an upstream. Publish with `git push -u origin HEAD` to track the task's remote branch. Existing branches keep their upstream configuration.
 

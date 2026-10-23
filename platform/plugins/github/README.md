@@ -1,11 +1,11 @@
-# bb-plugin-github
+# Hyperfide-plugin-github
 
-GitHub issues and pull requests inside BB, with one-click agent dispatch.
+GitHub issues and pull requests inside HYPERFIDE, with one-click agent dispatch.
 
-Install it from the BB Official catalog:
+Install it from the HYPERFIDE Official catalog:
 
 ```sh
-bb plugin install github
+hyperfide platform plugin install github
 ```
 
 ## What it does
@@ -16,13 +16,13 @@ bb plugin install github
 - **Issue detail**: markdown body, comments, comment box, status,
   assignee, and label editing, plus "Send agent".
   Deep-linkable via the URL hash: `#/issues/<owner>/<repo>/<number>`.
-- **Send agent / Review with agent**: spawns a BB worker thread on the issue
-  (or a review thread on the PR) in the repo's BB project. The issue/PR then
+- **Send agent / Review with agent**: spawns a HYPERFIDE worker thread on the issue
+  (or a review thread on the PR) in the repo's HYPERFIDE project. The issue/PR then
   shows a ⚡ pill linking to the thread.
 - **Homepage section**: recent open issues with the same Send agent buttons.
 - **Mentions**: `@` or `#` in any composer completes GitHub issues and PRs; the
   selected item's title/body/state is attached as agent context at send time.
-- **`bb github` CLI**: `repos`, `issues [repo]`, `prs [repo]`, `sync` — also
+- **`hyperfide platform github` CLI**: `repos`, `issues [repo]`, `prs [repo]`, `sync` — also
   discoverable by agents through the plugin-commands skill. Each command takes
   `--json` (`{"ok":true,…}` on success, `{"ok":false,"error":{…}}` on failure)
   and `--help`, which prints its arguments and options and exits 0.
@@ -34,17 +34,17 @@ it reports needs-configuration. No tokens are stored by the plugin.
 
 ## Which repos are tracked
 
-- Every BB project source whose checkout has a GitHub `origin` remote
+- Every HYPERFIDE project source whose checkout has a GitHub `origin` remote
   (repo → project mapping is also how spawn picks the project).
 - Plus the `extraRepos` setting: comma-separated `owner/repo` list. Entries that
   are not `owner/repo` — a `owner/*` wildcard, a bare owner, a typo — are not
-  tracked; `bb github repos` names them on stderr and the plugin log warns once
+  tracked; `hyperfide platform github repos` names them on stderr and the plugin log warns once
   per distinct set. Wildcards are not supported.
 - `defaultProject` setting: where threads spawn for repos with no project.
 
 ```
-bb plugin config github set extraRepos "owner/repo, owner/other"
-bb plugin reload github
+hyperfide platform plugin config github set extraRepos "owner/repo, owner/other"
+hyperfide platform plugin reload github
 ```
 
 A background service refreshes immediately on startup, then waits 15 minutes
@@ -59,7 +59,7 @@ repository’s cached rows.
 Batching reduces list-fetch process invocations from four to one per repository
 (75%). This does not measure GraphQL rate-limit point savings.
 Background data may take 15 minutes plus sync time to refresh. The panel's
-Refresh button, the `refresh` RPC, or `bb github sync` starts a sync immediately.
+Refresh button, the `refresh` RPC, or `hyperfide platform github sync` starts a sync immediately.
 
 Transient authentication failures and failures across all repositories retain
 the existing retry backoff: 30 seconds, doubling to a five-minute cap, reset
@@ -71,5 +71,5 @@ The interval is internal policy; there is no polling setting.
 Run the checks from the repository root:
 
 ```sh
-pnpm exec turbo run typecheck test --filter=bb-plugin-github
+pnpm exec turbo run typecheck test --filter=hyperfide-plugin-github
 ```

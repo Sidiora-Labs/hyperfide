@@ -1,19 +1,19 @@
 # Provider plugin API
 
-This document is the contract for BB's provider plugin surface — what "a
+This document is the contract for HYPERFIDE's provider plugin surface — what "a
 provider is a plugin" means. Every change that touches this surface keeps it
 true, and a test (`packages/plugin-sdk/src/__tests__/provider-plugin-doc.test.ts`)
 checks its code blocks against the real types. Members that still carry the
 `experimental_` prefix are named with it here; each has an entry in
 [api_to_audit.md](api_to_audit.md) saying why. How to build, test, and ship a
-provider plugin is in the bb-plugin-authoring skill
-(`plugins/bb-guide/skills/bb-plugin-authoring/references/providers.md`); the
+provider plugin is in the hyperfide-plugin-authoring skill
+(`plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/providers.md`); the
 wire grammar is [provider-bridge-protocol.md](provider-bridge-protocol.md).
 
-A "provider" is a coding agent BB can run a thread on (Claude Code, Codex, Pi,
+A "provider" is a coding agent HYPERFIDE can run a thread on (Claude Code, Codex, Pi,
 ACP agents such as Cursor or Amp). The design goal is that **everything a
 provider touches is owned by its plugin** — translating the agent's native
-output into BB's data model, projecting that data onto the timeline, and how
+output into HYPERFIDE's data model, projecting that data onto the timeline, and how
 its tools are represented — with the smallest possible provider-agnostic core.
 
 ## Principles
@@ -40,13 +40,13 @@ timeline projection (core)  ─►  renderers (core + optional plugin web render
 
 ## 1. Registration (plugin server code)
 
-A plugin registers one or more providers through `bb.providers.register`. One
+A plugin registers one or more providers through `hyperfide platform.providers.register`. One
 plugin may own several providers (the ACP plugin owns Cursor and the
 user-configured agents); user-configured instances are rows in the plugin's
 own settings that produce registrations at runtime.
 
 ```ts
-bb.providers.register({
+hyperfide platform.providers.register({
   id: "claude-code", // flat; first registration wins; no reservation
   displayName: "Claude Code",
   family: undefined, // optional grouping key (the ACP agents share one)
@@ -84,7 +84,7 @@ bb.providers.register({
   models: { fallback: [], scope: "host" }, // cold-cache placeholder; scope is
   // "host" | "workspace" (default): how far one
   // model/list answer travels
-  env: { passthrough: ["BB_CLAUDE_CODE_EXECUTABLE"] },
+  env: { passthrough: ["HYPERFIDE_CLAUDE_CODE_EXECUTABLE"] },
   deriveProviderOptions(ctx) {
     // called on every command
     // ctx: { threadId, projectId, model, permissionMode, promptMode?, settings }
@@ -95,7 +95,7 @@ bb.providers.register({
 ```
 
 Each `model/list` entry may carry `supportedServiceTiers: [{ id, label?,
-description? }]`, the tiers that model accepts besides `default`. bb offers
+description? }]`, the tiers that model accepts besides `default`. hyperfide platform offers
 only the ids the declaration also lists, preferring the entry's label and
 description; an empty array hides the tier picker for that model, and an entry
 without the field accepts every declared tier. The server rejects an explicit
@@ -110,34 +110,34 @@ provider's own, shown under the entry's optional `label` and sent back as
 omits it rather than failing the turn.
 
 A `model/list` entry may also carry `sessionOptions`, the
-`bb/session-options` option shape with `value` as the provider's default. A
+`hyperfide/session-options` option shape with `value` as the provider's default. A
 `select` lists only the values that model supports; a `boolean` with
 `fixed: true` says the model runs only with that value. The new-thread model
 picker shows the union, disables models the current choices rule out, and
 sends the choices as `sessionOptions` on the thread's first commands. The
 server applies the same rule on every create: a caller that leaves the model
-to bb starts on a model that fits (the default when it does), and a named
+to hyperfide platform starts on a model that fits (the default when it does), and a named
 model the choices rule out is refused with a model that fits.
 
 `models.fallback` is shown only until the first `model/list` probe completes,
 or when a probe fails transiently; a non-empty list has exactly one
-`isDefault`. bb keeps each machine's last successful `model/list` answer per
+`isDefault`. hyperfide platform keeps each machine's last successful `model/list` answer per
 `models.scope` across daemon reconnects and server restarts, serves it
 immediately, and refreshes it in the background once it is 10 minutes old.
 `"host"` scope means the bridge answers from account or agent state and
-ignores the workspace path, so bb probes once per machine. A stored answer is
+ignores the workspace path, so hyperfide platform probes once per machine. A stored answer is
 discarded when the bridge fingerprint changes (plugin bundle digest, bridge
 options, env passthrough, contributed provider environment). A list that depends on login state, CLI version, or
 environment values is corrected only by the next refresh.
 
 `env.passthrough` names the daemon environment variables the bridge may read:
-provider processes are spawned with inherited `BB_*` variables stripped, and
+provider processes are spawned with inherited `HYPERFIDE_*` variables stripped, and
 exactly these are forwarded. `deriveProviderOptions` runs synchronously on
 every session and turn command; its plain JSON result (at most 64 KiB) reaches
 the bridge as `options.providerOptions`, merged over
 `experimental_bridgeOptions` (a derived key replaces its static key), and core
 never reads it. `ctx.settings` holds the plugin's own non-secret
-`bb.settings` values.
+`hyperfide platform.settings` values.
 
 A `workspace`-scoped provider's `model/list` carries `cwd`: the environment's
 directory for an existing thread or a reused environment, and the project's
@@ -146,7 +146,7 @@ neither is known (a thread without a project, or a project with no checkout on
 that machine). A `host`-scoped provider never receives it.
 
 Every `model/list` carries `envVars`: the provider environment plugins
-contribute for that machine through `bb.providers.experimental_contributeEnv`,
+contribute for that machine through `hyperfide platform.providers.experimental_contributeEnv`,
 resolved with a `null` thread and project and expanded like a session's
 `options.envVars`. A bridge whose catalog depends on credentials or routing,
 such as Codex behind the Account Pooler, launches its listing process with
@@ -171,18 +171,18 @@ Still experimental on the declaration (see api_to_audit.md):
   directories, `ancestors` (project roots only) also scans the same relative
   directory in every ancestor of the workspace up to the repository root,
   `namePrefix` is prepended to every name under the root, and `skipIfManifest`
-  names the marker file whose presence makes bb skip a directory as a vendor
+  names the marker file whose presence makes hyperfide platform skip a directory as a vendor
   plugin rather than a skill. A symlink out of a project root is followed
   within the workspace for a plain root and within the repository root for a
   root that walks ancestors or that the plugin resolved. Declared roots are
   relative to the host home (`user`) or the workspace (`project`) only.
-- `experimental_resolvesNativeRoots` — the plugin's `bb.host` entry answers
+- `experimental_resolvesNativeRoots` — the plugin's `hyperfide platform.host` entry answers
   `resolveNativeRoots({ providerId, cwd })` with the roots only that host
   and workspace know: a moved config directory, installed vendor plugins,
   config-file entries. A host-absolute directory is always the resolver's
   answer. An answer lists each path once per side, and the
-  `@get-bb/plugin-sdk/host` vendor-plugin readers keep the first root per path
-  in answer order. bb scans each absolute path once per provider across the
+  `@hyperfide/plugin-sdk/host` vendor-plugin readers keep the first root per path
+  in answer order. hyperfide platform scans each absolute path once per provider across the
   declared and resolved roots: the first root in declaration order wins —
   declared skills (project, then user), declared commands, then the resolved
   skills and commands, each in the order given — and a later root with the
@@ -201,21 +201,21 @@ Rules:
 - The plugin learns per-instance truth itself (probe through its own host RPC,
   register conservatively while the host is offline, re-register on connect).
 - Picker order and the default provider are user settings (Settings →
-  Providers, `bb settings general providerOrder '["my-agent","codex"]'`,
-  `bb settings general defaultProviderId my-agent`); the initial order is
+  Providers, `hyperfide platform settings general providerOrder '["my-agent","codex"]'`,
+  `hyperfide platform settings general defaultProviderId my-agent`); the initial order is
   plugin install order, bundled first-party plugins first.
 - `completedTurnDisplay` is the provider's default for finished turns in the
   thread timeline. `"collapse"` folds a finished turn's work into one "Worked
   for" row beside the final answer; `"flat"` keeps every row visible, as while
   the turn ran — pick it when the agent narrates its work in text the user
   should keep reading. The user overrides it per provider in Settings →
-  Providers or with `bb settings completed-turns <provider> <mode>`, and the
+  Providers or with `hyperfide platform settings completed-turns <provider> <mode>`, and the
   server applies the result to the timeline, turn details, conversation
-  outline, and `bb thread log`.
+  outline, and `hyperfide platform thread log`.
 - Third-party ACP agents (for example Amp) register the same way, with a
   bridge built from the published ACP kit.
 
-## 2. Bridge (plugin `bb.host` artifact, runs on the host)
+## 2. Bridge (plugin `hyperfide platform.host` artifact, runs on the host)
 
 ```ts
 export const experimental_providerBridge = experimental_defineProviderBridge({
@@ -266,7 +266,7 @@ Execution options ride every command and carry no provider-named field:
 ```
 
 `sessionOptions` carries the user's pending choices among the options the
-bridge published as `bb/session-options`
+bridge published as `hyperfide/session-options`
 ([provider-bridge-protocol.md](provider-bridge-protocol.md), Grammar v3).
 
 **Bridge → runtime**: notifications `thread/delta` (one streaming dialect, one
@@ -288,8 +288,8 @@ hints", for the per-kind runtime actions and the carrier rule.
 
 The delta assembler runs in the daemon and is generic for extension kinds. It
 ships with the conformance kit and JSON-RPC harness as
-`@get-bb/plugin-sdk/provider-bridge/testing`; the ACP bridge ships as
-`@get-bb/plugin-sdk/provider-bridge/acp`.
+`@hyperfide/plugin-sdk/provider-bridge/testing`; the ACP bridge ships as
+`@hyperfide/plugin-sdk/provider-bridge/acp`.
 
 ## 3. Vocabulary
 
@@ -312,12 +312,12 @@ glyph.
 **Thread state** — core: `usage`, `contextWindow`, `rateLimits`,
 `modelFallback`, `contextCleared`. Extension: `"<pluginId>/<name>"`, latest
 snapshot wins per kind, same schema and emitter rules as extension items.
-Two state kinds are bb's own and open to every provider: `bb/provider-commands`
-(the provider's live slash commands for the thread) and `bb/session-options`
+Two state kinds are hyperfide platform's own and open to every provider: `hyperfide/provider-commands`
+(the provider's live slash commands for the thread) and `hyperfide/session-options`
 (its per-session settings other than the model and reasoning level). A user
 picks a value in the model picker (the `mode` option sits in the composer
 footer) or with
-`bb thread options --set`; the server holds the choice, sends it as
+`hyperfide platform thread options --set`; the server holds the choice, sends it as
 `sessionOptions` with the next turn, and drops it once the bridge publishes
 that value.
 
@@ -345,9 +345,9 @@ presentation: {
 `icon.glyph` is a name, never bytes or a path: a host glyph (`"FileText"`)
 or one of the plugin's own declared icons by its namespaced glyph
 (`"<pluginId>/<name>"`, an entry of the manifest's
-`bb.branding.experimental_icons`). The server rejects at ingest a namespaced
+`hyperfide platform.branding.experimental_icons`). The server rejects at ingest a namespaced
 glyph that is not the emitting plugin's declared icon (`provider/unhandled`,
-reason naming the glyph); for a `server: "bb"` tool row the emitting plugin is
+reason naming the glyph); for a `server: "hyperfide platform"` tool row the emitting plugin is
 the one that registered the tool, whose presentation the bridge stamps as
 handed to it. Clients resolve the name against the plugin inventory they hold
 and draw the SVG tinted with `currentColor`. If the plugin is gone or the name
@@ -413,7 +413,7 @@ the id of the plugin's `pendingInteraction` slot registration and `data` is
 whatever that form reads (the kind grammar is lowercase `[a-z0-9-]`, so a
 form a bridge can address must register a lowercase id). No permission mode
 answers a request: it reaches the user through the plugin's form on the web
-app (`bb thread interactions respond <id> --value '<json>'` from the CLI;
+app (`hyperfide platform thread interactions respond <id> --value '<json>'` from the CLI;
 the phone shows a card that points at the desktop app), and the answer comes
 back as `{ kind: "request_answer", value }` — the form's submitted value,
 capped at 64 KiB (`PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES`, the same cap on the
@@ -458,7 +458,7 @@ to every window whether or not the provider is selected. Mobile renders the
 declarative base for every kind.
 
 The provider directory is available to plugins through
-`app.experimental_useProviders()` (frontend) and `bb.sdk.providers`
+`app.experimental_useProviders()` (frontend) and `hyperfide platform.sdk.providers`
 (backend); no plugin re-vendors provider names or icons. Every provider's
 mark is the icon its plugin declared — a path or declared icon served as
 `logoUrl` and drawn as a `currentColor` mask, or a host glyph name; core
@@ -479,5 +479,5 @@ plugin, and only on hosts its server instructs.
 ## 7. AI services
 
 Helper tasks (thread titles, commit messages, voice transcripts) are
-plugin-served through `bb.experimental_aiServices`, documented in the
-bb-plugin-authoring skill's `backend-cli-agents.md`.
+plugin-served through `hyperfide platform.experimental_aiServices`, documented in the
+hyperfide-plugin-authoring skill's `backend-cli-agents.md`.

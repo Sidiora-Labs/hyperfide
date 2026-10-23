@@ -4,7 +4,7 @@ Status: **2026-09-05: 2 passed, 1 partial/blocked**. See [the audit](../MAINTENA
 
 ## Setup and entry points
 
-Settings → Plugins → Custom instructions; bb plugin run custom-instructions --help and the plugin command schema.
+Settings → Plugins → Custom instructions; hyperfide platform plugin run custom-instructions --help and the plugin command schema.
 
 Use the main skill’s isolated targets and evidence rules. A plugin can be present
 in this checkout but disabled in an installation. Enable it only in the test
@@ -36,4 +36,4 @@ External account changes use authorized disposable targets.
 
 ## Maintenance notes
 
-- Use bb instructions get|set|clear, or explicit bb plugin run custom-instructions get|set|clear. Settings route is /settings/plugins/custom-instructions. Source: `plugins/custom-instructions/server.ts:73`.
+- Use hyperfide platform instructions get|set|clear, or explicit hyperfide platform plugin run custom-instructions get|set|clear. Settings route is /settings/plugins/custom-instructions. Source: `plugins/custom-instructions/server.ts:73`.

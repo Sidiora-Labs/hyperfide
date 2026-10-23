@@ -5,7 +5,7 @@ description: Audit an existing verification skill and feature map against source
 
 # Maintain a verification skill
 
-Keep a repository's `.bb/skills/verify-<app>/` usable by the next agent.
+Keep a repository's `.hyperfide/skills/verify-<app>/` usable by the next agent.
 
 ## Locate and scope
 

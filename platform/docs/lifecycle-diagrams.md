@@ -1,12 +1,12 @@
 <!-- GENERATED FILE — do not edit by hand.
      Source: packages/domain/src/thread-lifecycle.ts and
      packages/domain/src/environment-lifecycle.ts.
-     Regenerate: pnpm --filter @bb/domain exec vitest run test/lifecycle-diagram.test.ts -u -->
+     Regenerate: pnpm --filter @hyperfide/domain exec vitest run test/lifecycle-diagram.test.ts -u -->
 
 # Lifecycle state machines
 
 Rendered from `THREAD_LIFECYCLE` and `ENVIRONMENT_LIFECYCLE` — the
-transition tables consumed by the CAS single-writers in `@bb/db`
+transition tables consumed by the CAS single-writers in `@hyperfide/db`
 (`applyThreadLifecycleEvent` / `applyEnvironmentLifecycleEvent`).
 
 How to read these: each edge groups all events that transition between

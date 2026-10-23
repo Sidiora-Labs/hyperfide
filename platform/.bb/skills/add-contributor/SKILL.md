@@ -1,11 +1,11 @@
 ---
 name: add-contributor
-description: Approve a GitHub contributor to open PRs in get-bb/bb, then land the allowlist change with SlopCop and CI skipped. Use for requests such as "add @username to be able to open PRs" or an explicit add-contributor invocation.
+description: Approve a GitHub contributor to open PRs in hyperfide/hyperfide platform, then land the allowlist change with SlopCop and CI skipped. Use for requests such as "add @username to be able to open PRs" or an explicit add-contributor invocation.
 ---
 
 # Add a contributor
 
-Approve the requested GitHub account for PRs in `get-bb/bb`. The default workflow
+Approve the requested GitHub account for PRs in `hyperfide/hyperfide platform`. The default workflow
 includes committing, opening a PR, and closing it out with SlopCop review and CI
 skipped. Honor narrower user instructions, such as opening a PR for review only.
 Loading this skill without a request to approve someone does not authorize changes.

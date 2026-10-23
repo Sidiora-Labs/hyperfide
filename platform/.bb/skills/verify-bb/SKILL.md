@@ -1,9 +1,9 @@
 ---
-name: verify-bb
-description: Verify BB user journeys in an isolated source dev app using dev-browser@next and the matching source CLI. Use after BB feature changes or when asked to verify or smoke-test BB. The feature map covers core UI and agent interfaces, every repository plugin, desktop, mobile, and hosted services; select the affected recipes and platform prerequisites.
+name: verify-hyperfide
+description: Verify HYPERFIDE user journeys in an isolated source dev app using dev-browser@next and the matching source CLI. Use after HYPERFIDE feature changes or when asked to verify or smoke-test HYPERFIDE. The feature map covers core UI and agent interfaces, every repository plugin, desktop, mobile, and hosted services; select the affected recipes and platform prerequisites.
 ---
 
-# Verify BB
+# Verify HYPERFIDE
 
 Run from the repository root. Start with [the feature map](features/README.md)
 and select the affected journeys. Read `docs/debugging-and-qa.md` for the
@@ -24,7 +24,7 @@ an unexecuted recipe to a pass.
 Run the read-only inventory check before selecting coverage:
 
 ```bash
-.bb/skills/verify-bb/scripts/inventory.py
+.hyperfide/skills/verify-hyperfide/scripts/inventory.py
 ```
 
 Python 3 and Git are required. The check compares source declarations and
@@ -49,11 +49,11 @@ An exhaustive map is the test inventory, not a whole-product pass.
 After changing the inventory helper, run its standalone fixture tests:
 
 ```bash
-.bb/skills/verify-bb/scripts/test_inventory.py
+.hyperfide/skills/verify-hyperfide/scripts/test_inventory.py
 ```
 
 These use temporary Git repositories and verify drift, missing ownership,
-catalog consistency, and index coverage without starting BB.
+catalog consistency, and index coverage without starting HYPERFIDE.
 
 ## Launch
 
@@ -80,14 +80,14 @@ Use a fresh store, never an imported store or the user's production database.
 
 For a new run, create a unique evidence directory and a nonempty fresh dev
 directory. The marker also prevents `migrateLegacyDevData` from adopting
-legacy data from the parent `.bb-dev` directory. If `mkdir` finds an existing
+legacy data from the parent `.hyperfide-dev` directory. If `mkdir` finds an existing
 dev directory, stop this setup and use another unused checkout; do not delete
 or adopt the existing data.
 
 ```bash
-export BB_VERIFY_RUN="$(mktemp -d /tmp/bb-verification-XXXXXX)"
-export BB_VERIFY_BROWSER="verify-bb-$(basename "$BB_VERIFY_RUN")"
-node --conditions=source --import tsx --input-type=module > "$BB_VERIFY_RUN/before-launch.txt" <<'JS'
+export HYPERFIDE_VERIFY_RUN="$(mktemp -d /tmp/hyperfide-verification-XXXXXX)"
+export HYPERFIDE_VERIFY_BROWSER="verify-hyperfide-$(basename "$HYPERFIDE_VERIFY_RUN")"
+node --conditions=source --import tsx --input-type=module > "$HYPERFIDE_VERIFY_RUN/before-launch.txt" <<'JS'
 import { resolveCurrentDevInstanceConfig } from './packages/config/src/runtime.ts';
 const config = resolveCurrentDevInstanceConfig(process.cwd());
 console.log(`App: http://127.0.0.1:${config.ports.appPort}`);
@@ -96,18 +96,18 @@ console.log(`Host daemon: http://127.0.0.1:${config.ports.hostDaemonPort}`);
 console.log(`Data dir: ${config.dataDir}`);
 JS
 command -v lsof >/dev/null || exit 1
-for BB_VERIFY_PORT in $(sed -nE 's/^(App|Server|Host daemon): http:\/\/[^:]+:([0-9]+)$/\2/p' "$BB_VERIFY_RUN/before-launch.txt"); do
-  if lsof -nP -iTCP:"$BB_VERIFY_PORT" -sTCP:LISTEN; then
+for HYPERFIDE_VERIFY_PORT in $(sed -nE 's/^(App|Server|Host daemon): http:\/\/[^:]+:([0-9]+)$/\2/p' "$HYPERFIDE_VERIFY_RUN/before-launch.txt"); do
+  if lsof -nP -iTCP:"$HYPERFIDE_VERIFY_PORT" -sTCP:LISTEN; then
     exit 1
   fi
 done
-export BB_VERIFY_DATA_DIR="$(sed -n 's/^Data dir: //p' "$BB_VERIFY_RUN/before-launch.txt")"
-export BB_VERIFY_APP_URL="$(sed -n 's/^App: //p' "$BB_VERIFY_RUN/before-launch.txt")"
-test -n "$BB_VERIFY_DATA_DIR" && test -n "$BB_VERIFY_APP_URL" || exit 1
-mkdir "$BB_VERIFY_DATA_DIR" || exit 1
-printf '%s\n' "$BB_VERIFY_RUN" > "$BB_VERIFY_DATA_DIR/verify-bb-owner"
-git rev-parse HEAD > "$BB_VERIFY_RUN/source-commit.txt"
-pnpm dev > "$BB_VERIFY_RUN/launch.log" 2>&1
+export HYPERFIDE_VERIFY_DATA_DIR="$(sed -n 's/^Data dir: //p' "$HYPERFIDE_VERIFY_RUN/before-launch.txt")"
+export HYPERFIDE_VERIFY_APP_URL="$(sed -n 's/^App: //p' "$HYPERFIDE_VERIFY_RUN/before-launch.txt")"
+test -n "$HYPERFIDE_VERIFY_DATA_DIR" && test -n "$HYPERFIDE_VERIFY_APP_URL" || exit 1
+mkdir "$HYPERFIDE_VERIFY_DATA_DIR" || exit 1
+printf '%s\n' "$HYPERFIDE_VERIFY_RUN" > "$HYPERFIDE_VERIFY_DATA_DIR/verify-hyperfide-owner"
+git rev-parse HEAD > "$HYPERFIDE_VERIFY_RUN/source-commit.txt"
+pnpm dev > "$HYPERFIDE_VERIFY_RUN/launch.log" 2>&1
 ```
 
 All three ports must be unoccupied before starting; checkout-derived ports
@@ -134,13 +134,13 @@ use an isolated checkout and keep the serving checkout's data/ports stable.
 ## Doctor
 
 ```bash
-export BB_SERVER_URL="$(sed -n 's/^Server: //p' "$BB_VERIFY_RUN/before-launch.txt")"
-export BB_HOST_DAEMON_PORT="$(sed -nE 's/^Host daemon: http:\/\/[^:]+:([0-9]+)$/\1/p' "$BB_VERIFY_RUN/before-launch.txt")"
-unset BB_THREAD_ID BB_ENVIRONMENT_ID BB_THREAD_STORAGE BB_PROJECT_ID BB_CLI BB_CLI_REEXEC
-pnpm exec turbo run build --filter=@bb/cli
-curl -fsS "$BB_SERVER_URL/health"
-curl -fsS "http://127.0.0.1:$BB_HOST_DAEMON_PORT/health"
-curl -fsS "$BB_SERVER_URL/api/v1/hosts"
+export HYPERFIDE_SERVER_URL="$(sed -n 's/^Server: //p' "$HYPERFIDE_VERIFY_RUN/before-launch.txt")"
+export HYPERFIDE_HOST_DAEMON_PORT="$(sed -nE 's/^Host daemon: http:\/\/[^:]+:([0-9]+)$/\1/p' "$HYPERFIDE_VERIFY_RUN/before-launch.txt")"
+unset HYPERFIDE_THREAD_ID HYPERFIDE_ENVIRONMENT_ID HYPERFIDE_THREAD_STORAGE HYPERFIDE_PROJECT_ID HYPERFIDE_CLI HYPERFIDE_CLI_REEXEC
+pnpm exec turbo run build --filter=@hyperfide/cli
+curl -fsS "$HYPERFIDE_SERVER_URL/health"
+curl -fsS "http://127.0.0.1:$HYPERFIDE_HOST_DAEMON_PORT/health"
+curl -fsS "$HYPERFIDE_SERVER_URL/api/v1/hosts"
 node apps/cli/dist/index.js project list --json
 ```
 
@@ -155,16 +155,16 @@ The doctor shell clears inherited thread context and CLI overrides and sets
 explicit dev endpoints from preflight. Use `node apps/cli/dist/index.js` for
 CLI checks after the Turbo build above.
 
-The source entry point otherwise reexecutes an inherited `BB_CLI`, silently
+The source entry point otherwise reexecutes an inherited `HYPERFIDE_CLI`, silently
 using the installed client against the dev server. During maintenance,
-`pnpm --silent bb:dev` also changed literal newlines in arguments into
+`pnpm --silent hyperfide platform:dev` also changed literal newlines in arguments into
 backslash-plus-n bytes. Direct Node invocation with quoted arguments preserved
 the bytes. Check the returned content and revision, not only the exit code.
 Keep these environment changes inside the test shell or wrapper; use bare
-`bb` outside it for coordination with the parent BB thread.
+`hyperfide platform` outside it for coordination with the parent HYPERFIDE thread.
 
 Commands such as workflows require thread context. After configuring the dev
-environment, set `BB_THREAD_ID`, `BB_PROJECT_ID`, and `BB_ENVIRONMENT_ID` only
+environment, set `HYPERFIDE_THREAD_ID`, `HYPERFIDE_PROJECT_ID`, and `HYPERFIDE_ENVIRONMENT_ID` only
 from synthetic entities created in that instance. Never restore the parent's
 production context. A wrapper that changes directory must invoke the built
 CLI by its absolute checkout path; scaffold commands should run in an owned
@@ -177,11 +177,11 @@ turns; inspect it through the UI or source CLI, never by printing credentials.
 ## Drive
 
 ```bash
-dev-browser --headless -b "$BB_VERIFY_BROWSER" -e "const p = await browser.getPage('bb'); await p.goto('$BB_VERIFY_APP_URL'); console.log(await p.snapshot({interactive:true}));"
+dev-browser --headless -b "$HYPERFIDE_VERIFY_BROWSER" -e "const p = await browser.getPage('hyperfide platform'); await p.goto('$HYPERFIDE_VERIFY_APP_URL'); console.log(await p.snapshot({interactive:true}));"
 ```
 
-For later steps use `dev-browser --headless -b "$BB_VERIFY_BROWSER"` with a
-quoted heredoc, get page `bb`, and follow the feature recipe. Read a fresh
+For later steps use `dev-browser --headless -b "$HYPERFIDE_VERIFY_BROWSER"` with a
+quoted heredoc, get page `hyperfide platform`, and follow the feature recipe. Read a fresh
 snapshot before using its `ref/eN` selector. References are observations,
 not durable selectors; never copy their numbers from another run. Prefer
 the stable selectors documented in each recipe. Wait for the expected route,
@@ -207,7 +207,7 @@ use `p.shot()` and copy its returned file into the evidence directory.
 ## Evidence
 
 Save before/action/after screenshots, compact text observations, selected API
-fields, and command results under `$BB_VERIFY_RUN`. Read the screenshots.
+fields, and command results under `$HYPERFIDE_VERIFY_RUN`. Read the screenshots.
 Keep raw evidence local: provider pickers and logs can expose private model
 names and host paths. Review and redact before committing or sharing it.
 
@@ -227,9 +227,9 @@ Send Ctrl-C to the `pnpm dev` session saved at launch and wait for it to exit.
 Stop any separately started desktop task through its own session too.
 
 ```bash
-test "$(cat "$BB_VERIFY_DATA_DIR/verify-bb-owner")" = "$BB_VERIFY_RUN" || exit 1
-dev-browser stop "$BB_VERIFY_BROWSER"
-test -s "$BB_VERIFY_RUN/source-commit.txt"
+test "$(cat "$HYPERFIDE_VERIFY_DATA_DIR/verify-hyperfide-owner")" = "$HYPERFIDE_VERIFY_RUN" || exit 1
+dev-browser stop "$HYPERFIDE_VERIFY_BROWSER"
+test -s "$HYPERFIDE_VERIFY_RUN/source-commit.txt"
 ```
 
 Check that the three previously recorded ports have no listeners and the

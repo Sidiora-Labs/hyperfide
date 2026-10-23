@@ -1,4 +1,4 @@
-bb's sidebar navigation, as a plugin.
+hyperfide platform's sidebar navigation, as a plugin.
 
 ## What you get
 
@@ -9,4 +9,4 @@ bb's sidebar navigation, as a plugin.
 
 ## How it works
 
-Both layouts draw bb's navigation model through the plugin SDK. Order and visibility are bb settings (`sidebar.pluginPanelOrder` and `sidebar.visiblePluginPanels`), so they carry over when you switch layouts or install another navigation plugin. **Customize navigation** opens bb's own editor. Pick a layout under Settings → Appearance → Navigation, or with `bb settings ui set sidebar.navigationProvider navigation/top-list`.
+Both layouts draw hyperfide platform's navigation model through the plugin SDK. Order and visibility are hyperfide platform settings (`sidebar.pluginPanelOrder` and `sidebar.visiblePluginPanels`), so they carry over when you switch layouts or install another navigation plugin. **Customize navigation** opens hyperfide platform's own editor. Pick a layout under Settings → Appearance → Navigation, or with `hyperfide platform settings ui set sidebar.navigationProvider navigation/top-list`.

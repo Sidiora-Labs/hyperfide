@@ -1,6 +1,6 @@
 # Git and GitHub subprocess admission
 
-BB's host runtime shares a queue across workspace git/gh calls, watcher setup,
+HYPERFIDE's host runtime shares a queue across workspace git/gh calls, watcher setup,
 provisioning, and bundled plugin module copies. The server-side GitHub plugin
 uses the same queue implementation in the server runtime. Budgets are local to
 each Node runtime; agent commands, terminals, and other processes are outside
