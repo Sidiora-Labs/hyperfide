@@ -35,7 +35,7 @@ it.each(["stdout", "stderr"])(
 );
 
 it("does not reintroduce sanitized parent runtime settings", async () => {
-  vi.stubEnv("BB_PROCESS_PARENT_SECRET", "parent-only");
+  vi.stubEnv("HYPERFIDE_PROCESS_PARENT_SECRET", "parent-only");
   onTestFinished(() => {
     vi.unstubAllEnvs();
   });
@@ -43,7 +43,7 @@ it("does not reintroduce sanitized parent runtime settings", async () => {
     process.execPath,
     [
       "-e",
-      'process.stdout.write(JSON.stringify([process.env.BB_PROCESS_PARENT_SECRET ?? null, process.env.PROVIDER_TOKEN]) + "\\n");',
+      'process.stdout.write(JSON.stringify([process.env.HYPERFIDE_PROCESS_PARENT_SECRET ?? null, process.env.PROVIDER_TOKEN]) + "\\n");',
     ],
     {
       ...options,

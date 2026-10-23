@@ -369,7 +369,7 @@ export interface ThreadQueuedMessageGroupBoundaryArgs extends SetQueuedMessageGr
 
 /**
  * Both filters are genuinely absent by default: no filter lists every live
- * queued row in the workspace, which is what `bb thread queue list` with no
+ * queued row in the workspace, which is what `hyperfide-platform thread queue list` with no
  * thread and a limiter plugin's own bookkeeping ask for.
  */
 export interface ThreadQueueListArgs {
@@ -523,7 +523,7 @@ export class ThreadWaitUnreachableError extends Error {
   }) {
     super(
       `Thread ${args.threadId} is in status ${args.currentStatus} and will not reach idle by waiting alone. ` +
-        `Inspect it with 'bb thread show ${args.threadId}' and recover by sending a follow-up.`,
+        `Inspect it with 'hyperfide-platform thread show ${args.threadId}' and recover by sending a follow-up.`,
     );
     this.name = "ThreadWaitUnreachableError";
     this.currentStatus = args.currentStatus;

@@ -706,7 +706,7 @@ function printPlugin(plugin: PluginEntry): void {
     const collisionNote = RESERVED_HYPERFIDE_CLI_COMMANDS.includes(
       plugin.cliCommand.name,
     )
-      ? ` (core command "bb ${plugin.cliCommand.name}" takes precedence)`
+      ? ` (core command "hyperfide-platform ${plugin.cliCommand.name}" takes precedence)`
       : "";
     console.log(
       `  command: ${pluginCliCall(plugin.id, plugin.cliCommand.name)} — ${plugin.cliCommand.summary}${collisionNote}`,
@@ -2013,7 +2013,7 @@ export function registerPluginCommands(
   plugin
     .command("run <id> [args...]")
     .description(
-      "Run a plugin's CLI command (explicit form of `bb <command> ...`)",
+      "Run a plugin's CLI command (explicit form of `hyperfide-platform <command> ...`)",
     )
     .passThroughOptions()
     .allowUnknownOption()

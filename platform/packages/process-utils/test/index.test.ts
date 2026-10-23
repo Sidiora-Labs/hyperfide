@@ -283,8 +283,8 @@ describe("process utils", () => {
 
   it("scrubs inherited bb runtime env vars and node mode", () => {
     const env: NodeJS.ProcessEnv = {
-      BB_DATA_DIR: "/tmp/bb-data",
-      BB_HOST_DAEMON_PORT: "38887",
+      HYPERFIDE_DATA_DIR: "/tmp/hyperfide-data",
+      HYPERFIDE_HOST_DAEMON_PORT: "38887",
       NODE_ENV: "development",
       NODE_OPTIONS: "--enable-source-maps",
       OPENAI_API_KEY: "external-secret",
@@ -308,8 +308,8 @@ describe("process utils", () => {
       CODEX_OPENAI_BASE_URL: "http://127.0.0.1:38886/pool/http/v1",
       CODEX_POOL_AUTH_TOKEN: "parent-hub-token",
       ENABLE_TOOL_SEARCH: "true",
-      BB_ACCOUNT_POOL_PARENT_URL: "http://127.0.0.1:38886/pool/http",
-      BB_ACCOUNT_POOL_PARENT_TOKEN: "parent-hub-token",
+      HYPERFIDE_ACCOUNT_POOL_PARENT_URL: "http://127.0.0.1:38886/pool/http",
+      HYPERFIDE_ACCOUNT_POOL_PARENT_TOKEN: "parent-hub-token",
       PATH: "/bin",
     };
 
@@ -325,7 +325,7 @@ describe("process utils", () => {
 
   it("does not mutate the inherited env", () => {
     const env: NodeJS.ProcessEnv = {
-      BB_DATA_DIR: "/tmp/bb-data",
+      HYPERFIDE_DATA_DIR: "/tmp/hyperfide-data",
       NODE_ENV: "development",
       PATH: "/bin",
     };

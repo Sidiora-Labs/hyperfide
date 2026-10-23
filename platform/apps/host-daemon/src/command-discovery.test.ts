@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import {
   chmod,
   mkdir,
@@ -9,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ProviderNativeRoot,
   ProviderNativeRootSet,
@@ -145,10 +146,29 @@ function skillFile(name: string, description = name): string {
 }
 
 beforeEach(async () => {
-  tempRoot = await mkdtemp(path.join(tmpdir(), "bb-command-discovery-"));
+  tempRoot = await mkdtemp(path.join(tmpdir(), "hyperfide-command-discovery-"));
+  // Repository markers outside this fixture must not affect ancestor discovery.
+  const externalMarkers = new Set<string>();
+  let ancestor = path.dirname(tempRoot);
+  while (true) {
+    externalMarkers.add(path.join(ancestor, ".git"));
+    const parent = path.dirname(ancestor);
+    if (parent === ancestor) break;
+    ancestor = parent;
+  }
+  const lstat = fs.lstat.bind(fs);
+  vi.spyOn(fs, "lstat").mockImplementation((...args) => {
+    if (externalMarkers.has(String(args[0]))) {
+      return Promise.reject(
+        Object.assign(new Error("No fixture marker"), { code: "ENOENT" }),
+      );
+    }
+    return lstat(...args);
+  });
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await rm(tempRoot, { recursive: true, force: true });
 });
 
