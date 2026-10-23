@@ -1325,7 +1325,7 @@ owner = "docs"
 
 [task.8.2]
 title = "A usable docs claims ledger"
-status = "pending"
+status = "implemented"
 wave = 8
 requires = ["8.1"]
 touches = ["src/docs.c", "tests/integration/97_docs_ledger.sh"]

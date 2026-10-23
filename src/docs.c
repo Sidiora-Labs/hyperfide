@@ -288,35 +288,100 @@ static bool docs_route_exists(Cg *cg, const char *value, const char *path) {
     return found;
 }
 
-/* Seed the private claims ledger with every changed graph entry point and
- * route attributed to this feature. The documentation agent supplies the
- * document mapping and may append additional claims; the checker proves them.
+/* One derived required claim: the public surface the ledger must cover. */
+typedef struct { char *type, *value, *evidence; } DocsRequired;
+typedef struct { DocsRequired *v; int n, cap; } DocsSurface;
+
+static void docs_surface_add(DocsSurface *s, const char *type,
+                             const char *value, const char *evidence) {
+    if (s->n == s->cap) {
+        s->cap = s->cap ? s->cap * 2 : 32;
+        s->v = xrealloc(s->v, (size_t)s->cap * sizeof *s->v);
+    }
+    s->v[s->n].type = xstrdup(type);
+    s->v[s->n].value = xstrdup(value);
+    s->v[s->n].evidence = xstrdup(evidence);
+    s->n++;
+}
+
+static void docs_surface_free(DocsSurface *s) {
+    for (int i = 0; i < s->n; i++) {
+        free(s->v[i].type); free(s->v[i].value); free(s->v[i].evidence);
+    }
+    free(s->v);
+    memset(s, 0, sizeof *s);
+}
+
+static bool docs_has_semantic(Cg *cg) {
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='semantic_symbols' LIMIT 1");
+    bool found = sqlite3_step(st) == SQLITE_ROW;
+    sqlite3_finalize(st);
+    return found;
+}
+
+/* Contract: "public" is what a reader outside the file can name, decided by
+ * the language and never by usage, so the ledger grows with the API rather
+ * than with the code (see tests/integration/97_docs_ledger.sh for the
+ * measured counts). Test and fixture paths are never public. A C/C++
+ * header's functions and types are the linkage surface; its macros are not.
+ * Elsewhere the parser's verdict decides: exported, or visibility "public";
+ * Go's capital is its export. `main`, dispatch-table names and route
+ * handlers are not claims of their own; routes are claimed directly. */
+static bool docs_symbol_public(Cg *cg, bool semantic, long id,
+                               const char *name, const char *kind,
+                               const char *path) {
+    if (graph_path_is_test(path)) return false;
+    int exported = -1;
+    char visibility[32] = "";
+    if (semantic) {
+        sqlite3_stmt *st = cg_prep(cg,
+            "SELECT exported,visibility FROM semantic_symbols "
+            "WHERE symbol_id=?1 LIMIT 1");
+        sqlite3_bind_int64(st, 1, id);
+        if (sqlite3_step(st) == SQLITE_ROW) {
+            if (sqlite3_column_type(st, 0) != SQLITE_NULL)
+                exported = sqlite3_column_int(st, 0);
+            const char *v = (const char *)sqlite3_column_text(st, 1);
+            if (v) snprintf(visibility, sizeof visibility, "%s", v);
+        }
+        sqlite3_finalize(st);
+    }
+    if (strcmp(visibility, "file") == 0 || strcmp(visibility, "private") == 0 ||
+        strcmp(visibility, "private-convention") == 0 ||
+        strcmp(visibility, "internal") == 0) return false;
+    const char *ext = path_ext(path);
+    if (ext && (strcmp(ext, ".h") == 0 || strcmp(ext, ".hh") == 0 ||
+                strcmp(ext, ".hpp") == 0 || strcmp(ext, ".hxx") == 0)) {
+        const char *api[] = { "function", "typedef", "struct", "enum",
+                              "union", "class", NULL };
+        for (int i = 0; kind && api[i]; i++)
+            if (strcmp(kind, api[i]) == 0) return true;
+        return false;
+    }
+    const char *lang = lang_for_path(path);
+    if (lang && strcmp(lang, "go") == 0 && name[0] >= 'A' && name[0] <= 'Z')
+        return true;
+    return exported == 1 || strcmp(visibility, "public") == 0;
+}
+
+/* Derive the required public surface in memory: every public symbol and
+ * every non-test route in the paths this closure covers. It reads the graph
+ * only; docs_ledger_write is the one writer.
  *
  * Every query here is branch-scoped. A fleet's worktrees each index the same
  * paths into one graph, so an unscoped join would derive a path's surface once
  * per branch, carrying line numbers from trees the documentation is not about.
  * The GROUP BY behind the scope is the fallback for a busy registry that left
  * no branch id to scope to: one row per observation either way. */
-static int docs_claims_template(DocsProject *p, const char *path) {
-    struct stat st;
-    bool claims_exist = stat(path, &st) == 0;
-    StrBuf b, required; sb_init(&b); sb_init(&required);
-    sb_puts(&b,
-        "# Derived documentation claim ledger. Fill document mappings; add "
-        "claims when prose makes additional factual assertions.\n\n"
-        "[coverage]\n"
-        "user                 = \"\"\n"
-        "developer            = \"\"\n"
-        "release_or_migration = \"\"\n"
-        "exclusions           = \"\"\n"
-        "unresolved           = \"\"\n\n");
-    sb_puts(&required,
-        "# Derived required public surface. Regenerated from task-tagged "
-        "snapshots; do not edit.\n\n");
+static void docs_surface_derive(DocsProject *p, DocsSurface *out) {
+    memset(out, 0, sizeof *out);
     char needle[400];
     snprintf(needle, sizeof needle, "[spec:%s/", p->feature);
     char scope[64], sql[640];
     branch_scope_sql(p->cg, "f", scope, sizeof scope);
+    bool semantic = docs_has_semantic(p->cg);
     char **paths = NULL;
     int np = 0;
     if (p->incremental) np = vcs_changed_paths(p->cg, needle, &paths);
@@ -333,8 +398,8 @@ static int docs_claims_template(DocsProject *p, const char *path) {
         }
         sqlite3_finalize(files);
     }
-    int nclaim = 0;
     for (int i = 0; i < np; i++) {
+        if (graph_path_is_test(paths[i])) continue;
         snprintf(sql, sizeof sql,
             "SELECT MIN(s.id),s.name,s.kind,s.line FROM symbols s JOIN files f "
             "ON f.id=s.file_id WHERE f.path=?1 %s"
@@ -346,18 +411,11 @@ static int docs_claims_template(DocsProject *p, const char *path) {
             const char *name = (const char *)sqlite3_column_text(ss, 1);
             const char *kind = (const char *)sqlite3_column_text(ss, 2);
             int line = sqlite3_column_int(ss, 3);
-            if (!name || !kind || !is_entrypoint(p->cg, id, name, kind, paths[i]))
+            if (!name || !name[0] ||
+                !docs_symbol_public(p->cg, semantic, id, name, kind, paths[i]))
                 continue;
-            sb_printf(&b, "[claim.%d]\ntype     = \"symbol\"\n", ++nclaim);
-            sb_puts(&b, "value    = "); sb_json_str(&b, name);
-            sb_puts(&b, "\ndocument = \"\"\nevidence = ");
             char ev[700]; snprintf(ev, sizeof ev, "%s:%d", paths[i], line);
-            sb_json_str(&b, ev); sb_puts(&b, "\nrequired = true\n\n");
-            sb_printf(&required, "[required.%d]\ntype = \"symbol\"\nvalue = ",
-                      nclaim);
-            sb_json_str(&required, name);
-            sb_puts(&required, "\nevidence = "); sb_json_str(&required, ev);
-            sb_puts(&required, "\n\n");
+            docs_surface_add(out, "symbol", name, ev);
         }
         sqlite3_finalize(ss);
         snprintf(sql, sizeof sql,
@@ -371,40 +429,60 @@ static int docs_claims_template(DocsProject *p, const char *path) {
             const char *pattern = (const char *)sqlite3_column_text(rs, 1);
             int line = sqlite3_column_int(rs, 2);
             char value[700], ev[700];
-            snprintf(value, sizeof value, "%s %s", method, pattern);
+            snprintf(value, sizeof value, "%s %s", method ? method : "",
+                     pattern ? pattern : "");
             snprintf(ev, sizeof ev, "%s:%d", paths[i], line);
-            sb_printf(&b, "[claim.%d]\ntype     = \"route\"\n", ++nclaim);
-            sb_puts(&b, "value    = "); sb_json_str(&b, value);
-            sb_puts(&b, "\ndocument = \"\"\nevidence = ");
-            sb_json_str(&b, ev); sb_puts(&b, "\nrequired = true\n\n");
-            sb_printf(&required, "[required.%d]\ntype = \"route\"\nvalue = ",
-                      nclaim);
-            sb_json_str(&required, value);
-            sb_puts(&required, "\nevidence = "); sb_json_str(&required, ev);
-            sb_puts(&required, "\n\n");
+            docs_surface_add(out, "route", value, ev);
         }
         sqlite3_finalize(rs);
     }
     for (int i = 0; i < np; i++) free(paths[i]);
     free(paths);
-    if (nclaim == 0) {
-        sb_puts(&b, "[claim.1]\ntype     = \"path\"\nvalue    = ");
+    if (out->n == 0) {
         char spec_rel[1600];
         snprintf(spec_rel, sizeof spec_rel, "%s/%s/spec.kvx",
                  config_spec_rel(p->root), p->feature);
-        sb_json_str(&b, spec_rel);
+        docs_surface_add(out, "path", spec_rel, spec_rel);
+    }
+}
+
+/* The ledger's only writer, reached from `docs packet`: required.kvx is
+ * rewritten from the derived surface; claims.kvx is seeded only when absent,
+ * because the documentation agent owns its mappings once it exists. */
+static int docs_ledger_write(DocsProject *p, const DocsSurface *s,
+                             const char *claims_path) {
+    struct stat st;
+    bool claims_exist = stat(claims_path, &st) == 0;
+    StrBuf b, required; sb_init(&b); sb_init(&required);
+    sb_puts(&b,
+        "# Derived documentation claim ledger. Fill document mappings; add "
+        "claims when prose makes additional factual assertions.\n\n"
+        "[coverage]\n"
+        "user                 = \"\"\n"
+        "developer            = \"\"\n"
+        "release_or_migration = \"\"\n"
+        "exclusions           = \"\"\n"
+        "unresolved           = \"\"\n\n");
+    sb_puts(&required,
+        "# Derived required public surface, written by `docs packet`. `docs "
+        "check` derives it afresh and never reads or writes this copy.\n\n");
+    for (int i = 0; i < s->n; i++) {
+        const DocsRequired *r = &s->v[i];
+        sb_printf(&b, "[claim.%d]\ntype     = ", i + 1);
+        sb_json_str(&b, r->type);
+        sb_puts(&b, "\nvalue    = "); sb_json_str(&b, r->value);
         sb_puts(&b, "\ndocument = \"\"\nevidence = ");
-        sb_json_str(&b, spec_rel);
-        sb_puts(&b, "\nrequired = true\n");
-        sb_puts(&required, "[required.1]\ntype = \"path\"\nvalue = ");
-        sb_json_str(&required, spec_rel);
-        sb_puts(&required, "\nevidence = "); sb_json_str(&required, spec_rel);
-        sb_putc(&required, '\n');
+        sb_json_str(&b, r->evidence); sb_puts(&b, "\nrequired = true\n\n");
+        sb_printf(&required, "[required.%d]\ntype = ", i + 1);
+        sb_json_str(&required, r->type);
+        sb_puts(&required, "\nvalue = "); sb_json_str(&required, r->value);
+        sb_puts(&required, "\nevidence = "); sb_json_str(&required, r->evidence);
+        sb_puts(&required, "\n\n");
     }
     char required_path[4800];
     snprintf(required_path, sizeof required_path, "%s/required.kvx", p->dir);
     int rc = write_entire_file(required_path, required.p, required.len);
-    if (rc == 0 && !claims_exist) rc = write_entire_file(path, b.p, b.len);
+    if (rc == 0 && !claims_exist) rc = write_entire_file(claims_path, b.p, b.len);
     sb_free(&b); sb_free(&required);
     return rc;
 }
@@ -586,7 +664,12 @@ static int docs_packet(Cg *cg, bool json) {
     snprintf(ledger_path, sizeof ledger_path, "%s/provenance.json", p.dir);
     snprintf(claims_path, sizeof claims_path, "%s/claims.kvx", p.dir);
     int rc = write_entire_file(packet_path, packet.p, packet.len);
-    if (rc == 0) rc = docs_claims_template(&p, claims_path);
+    if (rc == 0) {
+        DocsSurface surface;
+        docs_surface_derive(&p, &surface);
+        rc = docs_ledger_write(&p, &surface, claims_path);
+        docs_surface_free(&surface);
+    }
     StrBuf manifest; sb_init(&manifest);
     sb_puts(&manifest, "{\"version\":1,\"feature\":");
     sb_json_str(&manifest, p.feature);
@@ -726,14 +809,13 @@ static bool docs_claim_evidence(const DocsProject *p, const char *evidence,
 static int docs_check_claims(DocsProject *p, DocsCheck *c) {
     char path[4800];
     snprintf(path, sizeof path, "%s/claims.kvx", p->dir);
-    /* Required coverage is derived afresh, not trusted from an editable file. */
-    if (docs_claims_template(p, path) != 0) {
-        docs_check_say(c, false, "cannot derive required public surface");
-        return 1;
-    }
+    /* Read-only: the ledger is the documentation agent's, written only by
+     * `docs packet`. Required coverage is derived afresh in memory, never
+     * trusted from (or written to) the editable required.kvx. */
     Kvx *claims = kvx_parse(path);
     if (!claims) {
-        docs_check_say(c, false, "claim ledger is missing: %s", path);
+        docs_check_say(c, false, "claim ledger is missing: %s (run `hyperfide "
+                       "docs packet` to seed it)", path);
         return 1;
     }
     const char *coverage_keys[] = { "user", "developer", "release_or_migration" };
@@ -787,25 +869,21 @@ static int docs_check_claims(DocsProject *p, DocsCheck *c) {
         free(doc); free(evidence); free(ids[i]);
     }
     free(ids);
-    char required_path[4800];
-    snprintf(required_path, sizeof required_path, "%s/required.kvx", p->dir);
-    Kvx *required = kvx_parse(required_path);
-    char **rids = NULL;
-    int nr = required ? kvx_subsections(required, "required", &rids) : 0;
-    docs_check_say(c, required != NULL && nr > 0,
-                   "required public surface ledger contains %d item(s)", nr);
-    for (int i = 0; i < nr; i++) {
-        char sec[300]; snprintf(sec, sizeof sec, "required.%s", rids[i]);
-        char *type = docs_str(required, sec, "type", "");
-        char *value = docs_str(required, sec, "value", "");
+    DocsSurface required;
+    docs_surface_derive(p, &required);
+    docs_check_say(c, required.n > 0,
+                   "required public surface ledger contains %d item(s)",
+                   required.n);
+    for (int i = 0; i < required.n; i++) {
+        const DocsRequired *r = &required.v[i];
         bool covered = false;
         for (int j = 0; j < n; j++)
-            if (strcmp(type, claim_types[j]) == 0 &&
-                strcmp(value, claim_values[j]) == 0) covered = true;
-        docs_check_say(c, covered, "required %s %s is documented", type, value);
-        free(type); free(value); free(rids[i]);
+            if (strcmp(r->type, claim_types[j]) == 0 &&
+                strcmp(r->value, claim_values[j]) == 0) covered = true;
+        docs_check_say(c, covered, "required %s %s is documented", r->type,
+                       r->value);
     }
-    free(rids); kvx_free(required);
+    docs_surface_free(&required);
     for (int i = 0; i < n; i++) {
         free(claim_types[i]); free(claim_values[i]);
     }
@@ -815,7 +893,11 @@ static int docs_check_claims(DocsProject *p, DocsCheck *c) {
 }
 
 /* Deterministic closure gate: the agent may write prose, but only configured
- * documents with resolvable links and an evidence-mapped claim ledger pass. */
+ * documents with resolvable links and an evidence-mapped claim ledger pass.
+ * Contract: check never writes the ledger (claims.kvx, required.kvx) and never
+ * creates the docs directory. Its only writes are its own verdict inside a
+ * directory `docs packet` made: check.json, and the verified marker that
+ * `docs close` requires (removed again by a failing check). */
 static int docs_check(Cg *cg, bool json) {
     DocsProject p;
     if (docs_project_open(cg, &p) != 0) return 1;
@@ -852,13 +934,15 @@ static int docs_check(Cg *cg, bool json) {
                    "at least one configured document changed (%d)", doc_changes);
     docs_check_claims(&p, &c);
 
-    if (mkdirs(p.dir) != 0) c.errors++;
+    struct stat dst;
+    bool have_dir = stat(p.dir, &dst) == 0 && S_ISDIR(dst.st_mode);
+    if (!have_dir) c.errors++; /* no packet, no verdict to record */
     if (c.errors == 0) {
         char body[512];
         snprintf(body, sizeof body, "feature=%s\nchecked=%d\ntime_ms=%ld\n",
                  p.feature, c.checks, now_ms());
         if (write_entire_file(marker, body, strlen(body)) != 0) c.errors++;
-    } else {
+    } else if (have_dir) {
         unlink(marker); /* exact derived marker; a failed recheck revokes it */
     }
     StrBuf report; sb_init(&report);
@@ -868,7 +952,7 @@ static int docs_check(Cg *cg, bool json) {
               c.errors == 0 ? "true" : "false", c.checks, c.errors);
     sb_json_str(&report, c.report.p ? c.report.p : "");
     sb_puts(&report, "}\n");
-    write_entire_file(report_path, report.p, report.len);
+    if (have_dir) write_entire_file(report_path, report.p, report.len);
     if (json) fputs(report.p, stdout);
     else {
         printf("documentation check: %s (%d checks, %d errors)\n",
