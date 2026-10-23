@@ -132,3 +132,5 @@ export default function registerWaveClosure(host: ClosurePluginHost) {
   );
   return publication;
 }
+
+export { registerLaneReceipts } from "./projection-lane-receipts";
