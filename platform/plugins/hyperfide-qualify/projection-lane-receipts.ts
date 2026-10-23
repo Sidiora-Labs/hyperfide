@@ -1,6 +1,6 @@
 import { openQualifyStorage } from './storage';
 import { writeReceipt, type PassedLane } from "./receipts";
-import { runBinary, type Runner } from "../hyperfide-spec/projection-run-task";
+import { runBinary, type Runner } from "../hyperfide-spec/src/execution";
 // Projection of 4.1's lane completion event; replace this adapter when its host lands.
 export interface LaneReceiptHost {
   onLaneFinished(handler: (lane: PassedLane) => Promise<void>): void;

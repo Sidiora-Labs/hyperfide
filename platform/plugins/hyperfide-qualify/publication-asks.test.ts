@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { AskBridge } from "../hyperfide-asks/src/bridge";
-import { localGraphHost } from "../hyperfide-asks/src/graph-host-projection";
+import { localGraphHost } from "../hyperfide-asks/src/graph-host";
 import { binaryCommand } from "../hyperfide-spec/src/reader";
 import { publicationAsks } from "./publication-asks";
 

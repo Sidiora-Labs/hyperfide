@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { registerReceiptDetail, type ReceiptDetailHost } from "./receipt-detail";
-import { runBinary } from "./projection-run-task";
+import { runBinary } from "./src/execution";
 
 it("registers the task detail lifecycle and calls the checker through the shared runner", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "hyperfide-detail-"));
