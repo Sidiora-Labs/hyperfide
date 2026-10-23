@@ -20,8 +20,22 @@
 #              patch against the real cg, reconnect, fallback on an old cg
 #   pushed   — (v21 1.12) an approval the real cg raises reaches the chat
 #              as a card through cg serve, once, and again after a reconnect
+#   sandboxes — (v21 6.4) the console.sandboxes view and its attach
+#   needs    — (v21 6.2) the Needs view: Asks from the real cg and
+#              console.needs rows, the answer inputs, answers settled through
+#              the real cg, the ask policy at the deadline, the offline notice
+#   issues   — (v21 6.3) the Issues view: console.issues rows, drift.*
+#              from the real cg log and routed live, diagnostics, blocked
+#              cleared on resolution
+#   leaders  — (v21 6.5) the Leaders webview: a tab per leader, attach and
+#              steer through the real cg, its open Asks inline and answered
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
+
+# cg rejects an alias pair with differing values (exit 78), and a supervising
+# host such as `cg spec done` exports both names of whatever it was given; the
+# variables this suite sets per command start unset so its values win.
+unset CG_AGENT HYPERFIDE_AGENT CG_ROLE HYPERFIDE_ROLE CG_PARENT HYPERFIDE_PARENT CG_FEATURE HYPERFIDE_FEATURE CG_WAVE HYPERFIDE_WAVE CG_BASE HYPERFIDE_BASE CG_GH HYPERFIDE_GH CG_JEV_CURL HYPERFIDE_JEV_CURL CG_JEV_BACKOFF_MS HYPERFIDE_JEV_BACKOFF_MS
 section="${1:-all}"
 
 want() { [ "$section" = all ] || [ "$section" = "$1" ]; }
@@ -725,12 +739,15 @@ const fs = require('fs'), path = require('path');
 const dir = process.argv[2];
 const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
 // commands are registered from extension.js, agents.js, acp.js, tasks.js,
-// and fleet.js
+// fleet.js and sandboxes.js
 const src = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'agents.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'acp.js'), 'utf8') +
     fs.readFileSync(path.join(dir, 'tasks.js'), 'utf8') +
-    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+    fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'needs.js'), 'utf8') +
+    fs.readFileSync(path.join(dir, 'issues.js'), 'utf8');
 
 if (pkg.publisher !== 'SidioraLabs' || pkg.name !== 'codify-workflow') {
     throw new Error(`unexpected Marketplace identity: ${pkg.publisher}.${pkg.name}`);
@@ -2743,6 +2760,221 @@ JS
     [ $? -eq 0 ] || fail "reconnect snapshot, agent names, transcripts"
 fi
 
+# ---- needs (hyperfide-v21 6.2): the Needs view. Asks the real cg raised in
+#      a project of its own, read back through `cg ask list`; console.needs
+#      rows in the exact console.ts shape (a fixture: the service is not on
+#      this host); the input each kind gets; answers settled through the real
+#      cg, a raw secret refused by both; the 3.6 policy at the deadline; the
+#      real cg's answer to the console verb in a local project
+if want needs; then
+    rm -rf "$TMP/nd"; mkdir -p "$TMP/nd"; cd "$TMP/nd"
+    "$CG" init >/dev/null 2>&1 || fail "needs: cg init"
+    node - "$EXT" "$CG" "$TMP/nd" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const path = require('path'), fs = require('fs'), cp = require('child_process');
+const Module = require('module');
+const [, , dir, CG, repo, src] = process.argv;
+const eq = (got, want, what) => {
+    if (got !== want) throw new Error(`${what}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+};
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+const stub = {
+    EventEmitter: class { constructor() { this.n = 0; this.event = () => ({ dispose() {} }); } fire() { this.n++; } },
+    TreeItem,
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class { constructor(id, color) { this.id = id; this.color = color; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    commands: { executeCommand: () => {}, registerCommand: () => ({ dispose() {} }) },
+    window: {},
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const { NeedsView, needsModel, answerPlan, answerCommand, consolePanel, CONSOLE_ARGS, LOCAL_ARGS } =
+    require(path.join(dir, 'needs.js'));
+const run = (args) => cp.spawnSync(CG, args, { cwd: repo, encoding: 'utf8' });
+const ok = (args, what) => { const r = run(args); if (r.status !== 0) throw new Error(`${what}: ${r.stderr}`); return r; };
+const json = (args) => JSON.parse(ok([...args, '--json'], args.join(' ')).stdout);
+const raised = (args) => json(['ask', 'raise', ...args]).id;
+
+// ---- the real cg raises one Ask of every kind
+const dec = raised(['decision', 'Pick the store', '--option', 'sqlite', '--option', 'pg',
+                    '--recommend', 'pg', '--deadline', '2h', '--task', '2.1', '--body', 'Both fit']);
+const vari = raised(['variable', 'Deploy region', '--deadline', '@1000', '--task', '2.2']);
+const que = raised(['question', 'Keep the cache?', '--recommend', 'yes', '--deadline', '1d']);
+const sec = raised(['secret', 'Registry token', '--task', '2.1']);
+const per = raised(['permission', 'Drop the old table']);
+const late = raised(['decision', 'Retry policy', '--option', 'once', '--option', 'never',
+                     '--recommend', 'once', '--deadline', '@1000']);
+
+// ---- the local model from the real `cg ask list --json`
+eq(LOCAL_ARGS.join(' '), 'ask list', 'local verb');
+eq(CONSOLE_ARGS.join(' '), 'console needs', 'console verb (5.3)');
+let m = needsModel(null, json(LOCAL_ARGS));
+eq(m.available, false, 'no console in a local project');
+eq(m.counts.asks, 6, 'six open Asks');
+const row = (id) => m.sections[0].rows.find((r) => r.id === String(id));
+const d = row(dec);
+eq(d.kind, 'decision', 'row kind'); eq(d.task, '2.1', 'row task'); eq(d.recommended, 'pg', 'row recommended');
+eq(typeof d.deadline === 'string' && Date.parse(d.deadline) > Date.now(), true, 'row deadline in the future');
+eq(d.policy, 'proceed-and-flag', 'decision policy'); eq(d.overdue, false, 'not overdue');
+eq(row(vari).overdue, true, 'past-deadline variable overdue');
+eq(row(vari).policy, 'block', 'variable blocks');
+eq(m.sections[0].rows[0].deadline <= m.sections[0].rows[1].deadline, true, 'nearest deadline first');
+eq(m.sections[0].rows.slice(-1)[0].deadline, null, 'no deadline last');
+eq(m.overdue, 2, 'two overdue');
+
+// ---- the input each kind gets
+let plan = answerPlan(d);
+eq(plan.input, 'quickpick', 'decision: QuickPick');
+eq(plan.items[0].value, 'pg', 'recommended option first');
+eq(plan.items[0].description, 'recommended', 'and labelled');
+eq(answerPlan(row(que)).input, 'quickpick', 'question with options: QuickPick');
+eq(answerPlan(row(per)).items.map((i) => i.value).join(), 'approve,reject', 'permission options');
+plan = answerPlan(row(sec));
+eq(plan.input, 'password', 'secret: password input');
+eq(plan.validate('hunter2') !== null, true, 'a raw secret value is refused by the input');
+eq(plan.validate('secret-ref:registry-token'), null, 'a secret-ref is accepted');
+plan = answerPlan(row(vari));
+eq(plan.input, 'text', 'variable: free text');
+eq(plan.validate('') !== null, true, 'an empty answer is refused');
+// a free-text question: the console row of a question offered without options
+eq(answerPlan({ answerable: true, kind: 'question', options: [], recommended: null }).input, 'text', 'question: free text');
+
+// ---- negatives: refused before cg sees them, and refused by cg too
+eq(answerCommand(row(sec), 'hunter2'), null, 'raw secret never becomes a command');
+eq(answerCommand(d, 'mysql'), null, 'an answer outside the options');
+eq(run(['ask', 'answer', String(sec), 'hunter2']).status !== 0, true, 'the real cg refuses a raw secret');
+eq(run(['ask', 'answer', String(dec), 'mysql']).status !== 0, true, 'the real cg refuses a non-option');
+
+// ---- positives: answers settle through the real cg
+const settle = (r, answer) => {
+    const c = answerCommand(r, answer);
+    eq(c.file, null, 'a local answer needs no input file');
+    eq(c.args.slice(0, 3).join(' '), `ask answer ${r.id}`, 'local answer verb');
+    ok(c.args, `answer ${r.id}`);
+};
+settle(d, 'pg');
+settle(row(sec), 'secret-ref:registry-token');
+settle(row(vari), 'eu-west-1');   // expired but blocking: still answerable
+const after = json(['ask', 'list', '--all']).asks;
+const st = (id) => after.find((a) => a.id === id);
+eq(st(dec).state, 'answered', 'decision answered'); eq(st(dec).answer, 'pg', 'with pg');
+eq(st(sec).answer, 'secret-ref:registry-token', 'secret answered with its reference');
+eq(st(vari).state, 'answered', 'blocking variable answered past its deadline');
+m = needsModel(null, json(LOCAL_ARGS));
+eq(m.counts.asks, 3, 'answered rows leave the view');
+eq(row(dec), undefined, 'decision gone');
+
+// ---- the 3.6 policy at the deadline: proceed-and-flag takes the default and leaves;
+//      block stays waiting, overdue and answerable
+const blk = raised(['variable', 'Bucket name', '--deadline', '@1000']);
+ok(['ask', 'expire'], 'ask expire');
+m = needsModel(null, json(LOCAL_ARGS));
+eq(row(late), undefined, 'proceed-and-flag past its deadline decided by default');
+eq(json(['ask', 'list', '--all']).asks.find((a) => a.id === late).decided_by_default, true, 'recorded as a default');
+eq(row(blk).state, 'expired', 'a blocking Ask expires');
+eq(row(blk).answerable && row(blk).overdue, true, 'and still waits for a person');
+
+// ---- console.needs rows, in the shape console.ts builds them
+const cts = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const k of ["view:'console.needs'", "'asks'|'human_intents'|'admission_escalations'",
+                 'detail:{ask_kind:a.kind,body:a.body,options:a.options,recommended:a.recommended',
+                 'deadline:iso(a.deadline)', 'state_version:String(a.state_version)', 'task_key:a.task_key']) {
+    if (!cts.includes(k)) throw new Error('console.ts no longer has ' + k);
+}
+const hi = fs.readFileSync(path.join(src, 'services/hyperfide/src/policy/human_interface.ts'), 'utf8');
+if (!hi.includes("exact(input,['ask_id','expected_state_version','answer'])")) {
+    throw new Error('human.ask.answer input moved');
+}
+const asOf = new Date().toISOString(), soon = new Date(Date.now() + 3600e3).toISOString();
+const fr = { observed_at: asOf, age_seconds: 0, source: 'hyperfide.asks' };
+const ASK = '7d1e0c3a-0000-4000-8000-0000000000a1', RUN = '7d1e0c3a-0000-4000-8000-0000000000f1';
+const panel = {
+    view: 'console.needs', scope: { organisation_id: 'o', run_id: RUN }, as_of: asOf,
+    counts: { asks: 1, human_intents: 1, admission_escalations: 0 },
+    authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    sections: {
+        asks: { truncated: true, rows: [{ kind: 'ASK', id: ASK, state: 'OPEN', title: 'Pick a queue', since: asOf, freshness: fr,
+            references: { ask_id: ASK, run_id: RUN, task_id: 't-1', task_key: 'hf/3.2' },
+            detail: { ask_kind: 'decision', body: 'b', options: ['sqs', 'pg'], recommended: 'pg', default_policy: 'proceed-and-flag',
+                      deadline: soon, seconds_to_deadline: 3600, overdue: false, blocking: false, state_version: '4' } }] },
+        human_intents: { truncated: false, rows: [{ kind: 'HUMAN_INTENT', id: 'ev-1', state: 'PENDING', title: 'PAUSE r-1',
+            since: asOf, freshness: fr, references: { root_event_id: 'ev-1' }, detail: {} }] },
+        admission_escalations: { truncated: false, rows: [] },
+    },
+};
+eq(consolePanel({ ok: true, result: panel }).view, 'console.needs', 'enveloped panel');
+eq(consolePanel({ view: 'console.issues', sections: {} }), null, 'issues is not needs');
+eq(consolePanel({ ok: false, error: { code: 'X', message: 'no' } }), null, 'an error is no panel');
+m = needsModel(panel, json(LOCAL_ARGS));
+eq(m.available, true, 'console available');
+eq(m.counts.asks, 1, 'the console wins over the local table');
+eq(m.counts.human_intents, 1, 'human intents shown');
+eq(m.sections[0].truncated, true, 'truncation kept');
+const c = m.sections[0].rows[0];
+eq(c.kind, 'decision', 'console kind'); eq(c.task, 'hf/3.2', 'console task'); eq(c.deadline, soon, 'console deadline');
+eq(c.recommended, 'pg', 'console recommended');
+eq(m.sections[1].rows[0].answerable, false, 'an intent is not answered here');
+const routed = answerCommand(c, 'pg', repo);
+eq(routed.args[0] + ' ' + routed.args[1], 'ask answer', 'routed verb');
+for (const f of ['--input-file', '--run-id', '--operation-id', '--idempotency-key', '--correlation-id']) {
+    if (!routed.args.includes(f)) throw new Error('routed answer lacks ' + f);
+}
+eq(routed.args[routed.args.indexOf('--run-id') + 1], RUN, 'routed run');
+eq(JSON.stringify(routed.input), JSON.stringify({ ask_id: ASK, expected_state_version: '4', answer: 'pg' }), 'human.ask.answer input');
+eq(answerCommand(c, 'mysql', repo), null, 'routed non-option refused');
+eq(answerCommand({ ...c, kind: 'secret', options: [] }, 'hunter2', repo), null, 'routed raw secret refused');
+
+// ---- the view against the real cg: the console verb, the offline notice, the local Asks
+const cgJson = async (args) => { try { return JSON.parse(run([...args, '--json']).stdout); } catch { return null; } };
+const cv = run([...CONSOLE_ARGS, '--json']);
+eq(cv.status !== 0, true, 'the console verb fails in a local project');
+eq(consolePanel((() => { try { return JSON.parse(cv.stdout); } catch { return null; } })()), null, 'and prints no panel');
+let errJson = null; try { errJson = JSON.parse(cv.stderr.trim().split('\n').pop()); } catch { /* an older cg: plain text */ }
+if (errJson) { eq(errJson.ok, false, 'console error envelope'); eq(typeof errJson.error.code, 'string', 'with a code'); }
+(async () => {
+    const v = new NeedsView({ cgJson, cg: async (a) => { const r = run(a); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; } });
+    await v.refresh();
+    eq(v.model.available, false, 'view: console offline');
+    const top = v.getChildren();
+    eq(top[0].id, 'needs:offline', 'offline notice first');
+    eq(top[0].command.command, 'codify.needs.refresh', 'notice retries');
+    eq(top.length, 2, 'notice and Asks only');
+    const kids = v.getChildren(top[1]);
+    eq(kids.length, v.model.counts.asks, 'one item per Ask');
+    const it = kids.find((k) => k.row.id === String(blk));
+    eq(it.contextValue, 'needs-row-answerable', 'answerable row');
+    eq(it.command.command, 'codify.needs.answer', 'click answers');
+    eq(/variable/.test(it.description) && /overdue/.test(it.description), true, 'description: kind and deadline');
+    const q = kids.find((k) => k.row.id === String(que));
+    eq(/→ yes/.test(q.description), true, 'description: recommended option');
+    const fired0 = v._em.n;
+    v.visible = false;
+    eq(v.route({ kind: 'ask.answered', subject: '1' }), true, 'ask.* routed');
+    eq(v.route({ kind: 'ask.raised', subject: '2' }), true, 'a burst is routed too');
+    eq(v.route({ kind: 'memory.add' }), false, 'others are not');
+    await new Promise((r) => setTimeout(r, 2500));
+    eq(v._em.n - fired0, 1, 'a routed burst redraws the hidden view once, by itself');
+    const ext0 = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+    eq(/applied\.view === 'needs'\) \{ needsApi\.route\(ev\); return; \}/.test(ext0), true,
+       'ask events do not queue the full catch-up refresh');
+    const { applyEvent, liveModel } = require(path.join(dir, 'serve.js'));
+    eq(applyEvent(liveModel(), { kind: 'ask.raised', subject: '9', payload: {} }).view, 'needs', 'serve classifies ask.*');
+    const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+    if (!/require\('\.\/needs'\)/.test(ext) || !/needs\.register\(ctx/.test(ext) || !/applied\.view === 'needs'/.test(ext)) {
+        throw new Error('extension.js does not wire the Needs view');
+    }
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    const views = Object.values(pkg.contributes.views).flat().map((x) => x.id);
+    if (!views.includes('codifyNeeds')) throw new Error('codifyNeeds not declared');
+    if (!/createTreeView\('codifyNeeds'/.test(fs.readFileSync(path.join(dir, 'needs.js'), 'utf8'))) {
+        throw new Error('codifyNeeds declared but never provided');
+    }
+})().catch((e) => { console.error(e); process.exitCode = 1; });
+JS
+    [ $? -eq 0 ] || fail "needs view"
+    cd "$EXT"
+fi
+
 # ---- ask registry (hyperfide-v21 6.1): ACP permission asks, fleet approvals
 #      and durable Asks in one registry; a fleet gate and its permission Ask
 #      are one item; the count reaches the status bar and the view badge;
@@ -3017,6 +3249,582 @@ check(/function watchFleetEvents\(\) \{[^}]*askApi\.reload\(\)/.test(acp), 'a (r
 console.log('ask registry wiring ok');
 JS
     [ $? -eq 0 ] || fail "ask registry wiring"
+fi
+
+if want sandboxes; then
+# ---- sandboxes (hyperfide-v21 6.4): the codifySandboxes view over the
+#      console.sandboxes read model: provider, pool, task, heartbeat, slice
+#      size, snapshot state and queue position per row, attach opening the
+#      worker's session, and a refusal shown as a refusal, never as rows
+    rm -rf "$TMP/sbx"; mkdir -p "$TMP/sbx"; cd "$TMP/sbx"
+    "$CG" init >/dev/null 2>&1
+    node - "$EXT" "$CG" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const fs = require('fs'), path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, src] = process.argv.slice(2);
+const eq = (a, b, m) => { if (a !== b) throw new Error(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
+const ok = (c, m) => { if (!c) throw new Error(m); };
+
+// manifest: the view and its commands are declared, registered and wired
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const sbxSrc = fs.readFileSync(path.join(dir, 'sandboxes.js'), 'utf8');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+ok(pkg.contributes.views.codify.some((v) => v.id === 'codifySandboxes'), 'codifySandboxes view not declared');
+ok(/createTreeView\('codifySandboxes'/.test(sbxSrc), 'codifySandboxes declared but never populated');
+const declared = pkg.contributes.commands.map((c) => c.command);
+for (const c of ['codify.sandboxes.refresh', 'codify.sandboxes.attach']) {
+    ok(declared.includes(c), `${c} not declared`);
+    ok(sbxSrc.includes(`'${c}':`), `${c} not registered`);
+}
+ok(pkg.contributes.menus['view/item/context'].some((m) => m.command === 'codify.sandboxes.attach' &&
+    /viewItem == sandbox-worker-session/.test(m.when)), 'attach is not offered on a worker with a session');
+ok(/sandboxes\.register\(ctx,/.test(ext) && /await sandboxesApi\.refresh\(\)/.test(ext), 'extension.js does not wire the view into the one scheduler');
+ok(!/setInterval|createFileSystemWatcher/.test(sbxSrc), 'sandboxes.js runs a clock of its own');
+
+// every field the view reads is one console.ts declares (the read model of 5.2)
+const consoleTs = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const f of ['view:\'console.sandboxes\'', 'heartbeat_max_age_seconds', 'liveness', 'pool_id', 'provider', 'heartbeat_age_seconds',
+                 'native_sandbox_id', 'workers', 'slot_key', 'task_id', 'session_id', 'included_paths', 'closure_files',
+                 'snapshot:{state:\'NO_ATTEMPT\'|\'NONE\'|\'CAPTURED\'', 'as_of', 'counts', 'truncated'])
+    ok(consoleTs.includes(f), `console.ts no longer declares ${f}`);
+
+const { sandboxNodes, parseAnswer, summary, queuePositions, COMMAND } = require(path.join(dir, 'sandboxes.js'));
+eq(COMMAND.join(' '), 'console sandboxes --json', 'the view reads the console verb');
+const worker = (slot, task, session, paths, closure, snap) => ({
+    slot_id: `slot-${slot}`, slot_key: slot, capacity_kind: 'TASK', state: task ? 'BUSY' : 'IDLE', boot_generation: '1',
+    attempt: task ? { run_id: 'run-1', id: `att-${task}`, task_id: task, generation: '1', kind: 'TASK', execution_state: 'RUNNING', compute_authority: 'CURRENT', lease_expires_at: null } : null,
+    runner: session ? { run_id: 'run-1', session_id: session, credential_id: 'c', state: 'CURRENT', observed_at: '2026-10-22T10:00:00.000Z', heartbeat_at: '2026-10-22T10:00:00.000Z' } : null,
+    slice: paths === null ? null : { state: 'MATERIALISED', run_id: 'run-1', digest: 'd', materialisation_id: 'm', mode: 'SPARSE', fallback_reason: null, included_paths: paths, closure_files: closure, verified_head: null, at: '2026-10-22T10:00:00.000Z' },
+    snapshot: task ? (snap ? { state: 'CAPTURED', id: 'snap-1', result_tree: 't', files_changed: '3', checkpoint_digest: null, at: 'x' } : { state: 'NONE', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null })
+        : { state: 'NO_ATTEMPT', id: null, result_tree: null, files_changed: null, checkpoint_digest: null, at: null },
+});
+const row = (o) => Object.assign({ kind: 'SANDBOX', reasons: [], region: 'us-west', native_sandbox_id: null, desired_state: 'RUNNING', observed_state: 'RUNNING',
+    boot_generation: '1', work_admitted: true, heartbeat_at: null, heartbeat_age_seconds: null, intent: null, quarantined_intents: [], orphan: null, attempts: 0, workers: [] }, o);
+const inv = { view: 'console.sandboxes', scope: { organisation_id: 'org' }, as_of: '2026-10-22T10:00:05.000Z', heartbeat_max_age_seconds: 90,
+    counts: { LIVE: 1, LOST: 1, QUARANTINED: 0, ORPHANED: 1, PENDING: 2, RETIRED: 0 }, truncated: false, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    rows: [
+        row({ liveness: 'LIVE', sandbox_id: 'sb-live', pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-1', heartbeat_age_seconds: 5,
+              workers: [worker('w0', '6.4', 'sess-1', 12, 40, true), worker('w1', null, null, null, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p1', pool_id: 'pool-a', provider: 'railway', observed_state: null }),
+        row({ liveness: 'LOST', sandbox_id: 'sb-lost', pool_id: 'pool-b', provider: 'local', heartbeat_age_seconds: 600, reasons: ['HEARTBEAT_STALE'],
+              workers: [worker('w0', '6.9', 'sess-2', 1, null, false)] }),
+        row({ liveness: 'PENDING', sandbox_id: 'sb-p2', pool_id: 'pool-b', provider: 'local', observed_state: null }),
+        row({ kind: 'ORPHAN', liveness: 'ORPHANED', sandbox_id: null, pool_id: 'pool-a', provider: 'railway', native_sandbox_id: 'rw-9',
+              orphan: { state: 'UNVERIFIED', suspected_intent_id: null, first_observed_at: 'x', last_observed_at: 'x' } }),
+    ] };
+const m = sandboxNodes(inv);
+eq(m.ok, true, 'a console.sandboxes inventory is accepted');
+eq(m.nodes.length, 5, 'one row per sandbox and orphan');
+const [live, p1, lost, p2, orphan] = m.nodes;
+eq(live.provider, 'railway', 'provider'); eq(live.pool, 'pool-a', 'pool');
+eq(live.heartbeat, 'just now', 'heartbeat of a live sandbox'); eq(live.stale, false, 'a fresh heartbeat is not stale');
+eq(lost.heartbeat, '10m ago', 'heartbeat of a lost sandbox'); eq(lost.stale, true, 'past heartbeat_max_age_seconds is stale');
+eq(p1.heartbeat, 'no heartbeat', 'a pending sandbox has none');
+eq(p1.queue, 1, 'first pending sandbox is queue #1'); eq(p2.queue, 2, 'second pending sandbox is queue #2');
+eq(live.queue, null, 'a live sandbox is not queued'); eq(orphan.kind, 'orphan', 'orphan row kept');
+ok(/PENDING · railway\/pool-a · no heartbeat · queue #1/.test(p1.description), `pending row description: ${p1.description}`);
+eq(queuePositions([{ liveness: 'PENDING', queue_position: 7 }, { liveness: 'PENDING' }]).get(0), 7, 'the read model\'s own queue position wins');
+const [w0, w1] = live.workers;
+eq(w0.task, '6.4', 'worker task'); eq(w0.session, 'sess-1', 'worker session');
+eq(w0.slice.paths, 12, 'slice size in paths'); eq(w0.slice.text, '12 paths · closure 40 files', 'slice text');
+eq(w0.snapshot, 'CAPTURED', 'snapshot state'); eq(lost.workers[0].snapshot, 'NONE', 'no snapshot yet');
+eq(w1.task, null, 'idle worker'); eq(w1.snapshot, 'NO_ATTEMPT', 'idle worker snapshot'); eq(w1.slice.text, 'no slice', 'no slice is not zero');
+eq(lost.workers[0].slice.text, '1 path', 'singular slice');
+eq(live.tasks.join(), '6.4', 'tasks of a sandbox');
+ok(summary(m).startsWith('as of 2026-10-22T10:00:05.000Z · 1 live · 2 pending · 1 lost · 1 orphaned'), `summary: ${summary(m)}`);
+
+// negatives: a refusal, a foreign answer, a timeout and garbage are errors, never rows
+const refused = sandboxNodes(parseAnswer({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"CONSOLE_FORBIDDEN","message":"The console is for operators"}}' }));
+eq(refused.ok, false, 'a refusal is not an inventory'); ok(/CONSOLE_FORBIDDEN/.test(refused.error), 'the refusal code is shown');
+eq(refused.nodes.length, 0, 'a refusal draws no rows');
+eq(sandboxNodes({ view: 'console.needs', rows: [] }).ok, false, 'another console view is refused');
+eq(sandboxNodes(parseAnswer(null)).error, 'TIMEOUT: no answer in 20s', 'a wedged call is a timeout');
+ok(/EXIT_2: boom/.test(sandboxNodes(parseAnswer({ code: 2, stdout: 'boom\n', stderr: '' })).error), 'non-JSON output is an exit error');
+
+// the real cg: whatever it answers in this throwaway project (no distributed
+// authority) is either a real inventory or an error the view states
+const real = cp.spawnSync(CG, COMMAND, { encoding: 'utf8' });
+const rm = sandboxNodes(parseAnswer({ code: real.status, stdout: real.stdout, stderr: real.stderr }));
+ok(rm.ok ? Array.isArray(rm.nodes) : (typeof rm.error === 'string' && rm.error.length > 0 && rm.nodes.length === 0),
+   `real cg answer not handled: ${JSON.stringify(rm)}`);
+
+// the view against a stub vscode: hidden it asks nothing, visible it draws
+// the rows, and attach opens the worker's session document
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+class EventEmitter { constructor() { this.fns = []; this.event = (f) => { this.fns.push(f); return { dispose() {} }; }; } fire(x) { this.fns.forEach((f) => f(x)); } }
+const commands = {}, opened = [];
+let providerOf = null, tv = null;
+const stub = {
+    TreeItem, EventEmitter, ThemeIcon: class { constructor(id, c) { this.id = id; this.color = c; } }, ThemeColor: class { constructor(id) { this.id = id; } },
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    window: {
+        createTreeView: (id, o) => { eq(id, 'codifySandboxes', 'tree view id'); tv = { visible: false, message: '', provider: o.treeDataProvider,
+            onDidChangeVisibility: (f) => { tv.fire = f; return { dispose() {} }; }, dispose() {} }; return tv; },
+        showInformationMessage: () => {}, showQuickPick: async (items) => items[0], showTextDocument: async (d) => { opened.push(d); },
+    },
+    workspace: { registerTextDocumentContentProvider: (s, p) => { eq(s, 'hyperfide-session', 'session scheme'); providerOf = p; return { dispose() {} }; },
+                 openTextDocument: async (uri) => ({ uri, text: providerOf.provideTextDocumentContent(uri) }) },
+    commands: { registerCommand: (n, f) => { commands[n] = f; return { dispose() {} }; } },
+    Uri: { parse: (u) => ({ toString: () => u }) },
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+delete require.cache[require.resolve(path.join(dir, 'sandboxes.js'))];
+const sbx = require(path.join(dir, 'sandboxes.js'));
+const calls = [];
+const events = [
+    { seq: 1, kind: 'agent.text', session: 'sess-1', payload: { text: 'working on 6.4' } },
+    { seq: 2, kind: 'agent.text', session: 'sess-2', payload: { text: 'not mine' } },
+    { seq: 3, kind: 'agent.tool', payload: { session_id: 'sess-1', tool: 'Edit' } },
+];
+const api = sbx.register({ subscriptions: [] }, { cg: async (args) => { calls.push(args.join(' '));
+    if (args[0] === 'console') return { code: 0, stdout: JSON.stringify(inv), stderr: '' };
+    if (args[0] === 'events') return { code: 0, stdout: events.map((e) => JSON.stringify(e)).join('\n') + '\n', stderr: '' };
+    return { code: 1, stdout: '', stderr: '' }; } });
+(async () => {
+    await api.refresh();               // the first pass always loads
+    eq(calls.length, 1, 'first refresh loads once');
+    await api.refresh();
+    eq(calls.length, 1, 'a hidden view asks nothing');
+    tv.fire({ visible: true }); await new Promise((r) => setImmediate(r));
+    eq(calls.length, 2, 'becoming visible loads');
+    const roots = tv.provider.getChildren();
+    eq(roots.length, 5, 'five roots');
+    const item = tv.provider.getTreeItem(roots[0]);
+    ok(/LIVE · railway\/pool-a · just now/.test(item.description), `sandbox item: ${item.description}`);
+    const kids = tv.provider.getChildren(roots[0]);
+    const wi = tv.provider.getTreeItem(kids[0]);
+    eq(wi.description, 'task 6.4 · slice 12 paths · closure 40 files · snapshot CAPTURED', 'worker item');
+    eq(wi.contextValue, 'sandbox-worker-session', 'a worker with a session offers attach');
+    eq(wi.command.command, 'codify.sandboxes.attach', 'clicking a worker attaches');
+    eq(tv.provider.getTreeItem(kids[1]).contextValue, 'sandbox-worker', 'an idle worker offers no attach');
+    ok(tv.message.startsWith('as of '), 'the view states its freshness');
+    await commands['codify.sandboxes.attach'](wi.command.arguments[0]);
+    eq(opened.length, 1, 'attach opens one document');
+    const text = opened[0].text;
+    ok(text.startsWith('# session sess-1'), 'the document is the worker\'s session');
+    ok(/task      6\.4/.test(text) && /working on 6\.4/.test(text) && /agent\.tool  Edit/.test(text), 'the session\'s events are in it');
+    ok(!/not mine/.test(text), 'another session\'s events are not');
+    await commands['codify.sandboxes.attach']();   // from the palette: a pick
+    eq(opened.length, 2, 'attach from the palette picks a worker');
+    // a refusal empties the view and says why
+    const api2 = sbx.register({ subscriptions: [] }, { cg: async () => ({ code: 1, stdout: '', stderr: '{"ok":false,"error":{"code":"OFFLINE_AUTHORITY_UNAVAILABLE","message":"offline"}}' }) });
+    await api2.refresh();
+    eq(tv.provider.getChildren().length, 0, 'a refusal draws no rows');
+    ok(/OFFLINE_AUTHORITY_UNAVAILABLE/.test(tv.message), 'the refusal is stated');
+    console.log('sandboxes ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "sandboxes view"
+    cd "$TMP"
+fi
+
+# ---- issues (hyperfide-v21 6.3): the Issues view. console.issues rows in
+#      the exact console.ts row shape (a fixture: the service is not on this
+#      host), drift.* events from the real cg log and routed live through
+#      route(), file diagnostics, the badge, blocked cleared on resolution,
+#      and the real cg's answer to the console verb in a local project
+if want issues; then
+    rm -rf "$TMP/iss"; mkdir -p "$TMP/iss/src"; cd "$TMP/iss"
+    git init -q -b main . 2>/dev/null || git init -q .
+    git config user.email t@t; git config user.name t
+    echo 'export function alpha(){}' > src/a.ts
+    "$CG" spec new iv >/dev/null
+    "$CG" spec add 2.1 --title "Alpha" --wave 1 --touches 'src/a.ts' >/dev/null
+    "$CG" init >/dev/null
+    printf '.codegraph/\n*.lock\n' > .gitignore
+    git add -A >/dev/null; git commit -qm base >/dev/null
+    git checkout -qb task/iv/2.1
+    echo 'export function beta(){}' > src/b.ts
+    echo 'export function alpha(x){}' > src/a.ts
+    git add -A >/dev/null; git commit -qm work >/dev/null
+    "$CG" index >/dev/null 2>&1
+    "$CG" drift check 2.1 --base main --json > "$TMP/iss-spec.json"
+    "$CG" drift coverage -f iv --json >/dev/null
+    node - "$EXT" "$CG" "$TMP/iss" "$TMP/iss-spec.json" "$(cd "$EXT/../.." && pwd)" <<'JS'
+const path = require('path'), fs = require('fs'), cp = require('child_process');
+const Module = require('module');
+const [, , dir, CG, repo, specReport, src] = process.argv;
+const eq = (got, want, what) => {
+    if (got !== want) throw new Error(`${what}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+};
+const diag = { sets: new Map(), clears: 0 };
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+const stub = {
+    EventEmitter: class { constructor() { this.n = 0; this.event = () => ({ dispose() {} }); } fire() { this.n++; } },
+    TreeItem,
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class { constructor(id, color) { this.id = id; this.color = color; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    Uri: { file: (p) => ({ scheme: 'file', fsPath: p }) },
+    Range: class { constructor(a, b, c, d) { this.start = { line: a, character: b }; this.end = { line: c, character: d }; } },
+    Diagnostic: class { constructor(range, message, severity) { this.range = range; this.message = message; this.severity = severity; } },
+    DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2, Hint: 3 },
+    commands: { executeCommand: () => {}, registerCommand: () => ({ dispose() {} }) },
+    window: {},
+};
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? stub : load.apply(this, arguments); };
+const { IssuesView, issuesModel, consolePanel, driftRows, CONSOLE_ARGS } = require(path.join(dir, 'issues.js'));
+const run = (args) => cp.spawnSync(CG, args, { cwd: repo, encoding: 'utf8' });
+
+// ---- a console.issues panel, row for row in the shape console.ts builds
+const asOf = new Date().toISOString();
+const fr = (s) => ({ observed_at: asOf, age_seconds: 0, source: s });
+const ASK = '7d1e0c3a-0000-4000-8000-000000000001';
+const panel = (askState, withRepair) => ({
+    view: 'console.issues', scope: { organisation_id: 'o', run_id: 'r' }, as_of: asOf,
+    counts: {}, authority: 'PRIMARY_OBSERVATION', activity_is_qualified_progress: false,
+    sections: {
+        leader_queue: { truncated: false, rows: [{ kind: 'LEADER_QUEUE', id: 'route-1', state: 'WAITING',
+            title: 'Null deref in parser', since: asOf, freshness: fr('hyperfide.finding_routes'),
+            references: { route_id: 'route-1', finding_id: 'f-1' },
+            detail: { severity: 'ERROR', path: 'src/a.ts', line: 1 } }] },
+        external_intake: { truncated: true, rows: [{ kind: 'EXTERNAL_INTAKE', id: 'repo#7', state: 'OPEN',
+            title: 'Crash on start', since: asOf, freshness: fr('github'),
+            references: { repository: 'acme/app', issue_number: '7' }, detail: { state: 'OPEN' } }] },
+        escalated_repairs: { truncated: false, rows: withRepair ? [{ kind: 'ESCALATED_REPAIR', id: 'rep-1',
+            state: 'ESCALATED', title: 'Repair of finding f-2', since: asOf, freshness: fr('hyperfide.finding_repairs'),
+            references: { repair_id: 'rep-1', finding_id: 'f-2', task_id: 't-9', ask_id: ASK },
+            detail: { severity: 'WARNING', ask: { state: askState, answer: null, decided_by_default: false, deadline: asOf },
+                      locations: [{ path: 'src/b.ts', line: 1 }] } }] : [] },
+        drift: { truncated: false, rows: [{ kind: 'DRIFT', id: 'SANDBOX:s-1', state: 'OBSERVATION_STALE',
+            title: 'SANDBOX desired RUNNING, observed RUNNING', since: asOf,
+            freshness: { ...fr('hyperfide.observability_observations'), stale: true },
+            references: { entity_type: 'SANDBOX', sandbox_id: 's-1' }, detail: {} }] },
+    },
+});
+// the shape is the service's: every row field console.ts declares
+const cts = fs.readFileSync(path.join(src, 'services/hyperfide/src/observability/console.ts'), 'utf8');
+for (const k of ["'leader_queue'", "'external_intake'", "'escalated_repairs'", "'drift'", "view:'console.issues'",
+                 'id:string;state:string;title:string;since:string;freshness:ConsoleFreshness']) {
+    if (!cts.includes(k)) throw new Error('console.ts no longer has ' + k);
+}
+
+// ---- consolePanel: bare, enveloped, and the negatives
+eq(consolePanel(panel('OPEN', true)).view, 'console.issues', 'bare panel');
+eq(consolePanel({ ok: true, result: panel('OPEN', true) }).as_of, asOf, 'enveloped panel');
+eq(consolePanel({ view: 'console.needs', sections: {} }), null, 'needs is not issues');
+eq(consolePanel(null), null, 'nothing');
+eq(consolePanel({ ok: false, error: { code: 'X' } }), null, 'an error');
+
+// ---- the drift log the real cg wrote, plus drift.spec with the real report
+const logged = run(['events', '--kind', 'drift.,task.status', '-n', '500', '--json']).stdout
+    .split('\n').filter(Boolean).map((l) => JSON.parse(l));
+const cov = logged.find((e) => e.kind === 'drift.coverage');
+if (!cov) throw new Error('the real cg logged no drift.coverage: ' + JSON.stringify(logged));
+const report = JSON.parse(fs.readFileSync(specReport, 'utf8'));
+eq(report.files_outside.join(), 'src/b.ts', 'real drift check: b.ts outside touches');
+// drift.c emits these keys; the reducer reads them
+const dc = fs.readFileSync(path.join(src, 'src/drift.c'), 'utf8');
+for (const k of ['"drift.spec"', '"drift.interface"', '"drift.coverage"', ',\\"files_outside\\":[%s],\\"symbols_undeclared\\":[%s]',
+                 '",\\"sites\\":[%s]', ',\\"line\\":%d}']) {
+    if (!dc.includes(k)) throw new Error('drift.c no longer emits ' + k);
+}
+const oc = fs.readFileSync(path.join(src, 'src/orchestrate.c'), 'utf8');
+if (!oc.includes('"drift.collision"') || !oc.includes(',\\"with\\":')) throw new Error('orchestrate.c collision payload moved');
+const specEv = { seq: 9001, at: Date.now(), kind: 'drift.spec', subject: report.task, branch: 'task/iv/2.1',
+                 payload: { task: report.task, base: 'main', head: 'task/iv/2.1',
+                            files_outside: report.files_outside, symbols_undeclared: report.symbols_undeclared } };
+
+// ---- the pure model
+const m = issuesModel(panel('OPEN', true), [cov, specEv]);
+eq(m.available, true, 'console available');
+eq(String(m.sections.map((s) => s.key)), 'leader_queue,external_intake,escalated_repairs,drift', 'four sections');
+eq(m.counts.drift, 3, 'console drift + coverage + spec');
+eq(m.sections[1].truncated, true, 'intake truncation kept');
+eq(m.blocked, 1, 'the repair with an open Ask holds work');
+const rep = m.sections[2].rows[0];
+eq(rep.blocked, true, 'repair blocked'); eq(rep.blockedBy, ASK, 'by its Ask');
+eq(m.diagnostics['src/a.ts'].some((d) => d.severity === 'error' && /Null deref/.test(d.message)), true, 'leader queue finding on a.ts');
+eq(m.diagnostics['src/b.ts'].some((d) => /outside its touches/.test(d.message)), true, 'drift.spec on b.ts');
+eq(m.diagnostics['src/a.ts'].some((d) => /alpha, which it does not declare/.test(d.message)), true, 'undeclared alpha at a.ts');
+eq(m.diagnostics['src/b.ts'].some((d) => d.source === 'hyperfide escalated_repair'), true, 'repair location');
+// a newer coverage event with nothing uncovered resolves the old one
+eq(driftRows([cov, { seq: cov.seq + 1, kind: 'drift.coverage', subject: 'iv', payload: { feature: 'iv', uncovered: 0, total: 1 } }]).length, 0,
+   'coverage resolved');
+// answered Ask: still listed, no longer blocked, and the transition reported
+const m2 = issuesModel(panel('ANSWERED', true), [cov, specEv], { previous: m });
+eq(m2.blocked, 0, 'answered Ask unblocks');
+eq(m2.cleared.map((r) => r.key).join(), 'console:escalated_repairs:rep-1', 'cleared on resolution');
+// a collision blocks until the awaited task is done
+const coll = { seq: 9002, kind: 'drift.collision', subject: 'iv/2.2', payload: { task: '2.2', with: '2.1', why: 'both touch src/a.ts', action: 'serialized' } };
+eq(driftRows([coll])[0].blocked, true, 'collision blocks');
+eq(driftRows([coll, { seq: 9003, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'in_progress', feature: 'iv' } }]).length, 1,
+   'in progress does not resolve');
+eq(driftRows([coll, { seq: 9004, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'done', feature: 'iv' } }]).length, 0,
+   'done resolves the collision');
+eq(driftRows([coll, { seq: 9004, kind: 'task.status', subject: 'other/2.1', payload: { status: 'done', feature: 'other' } }]).length, 1,
+   'another feature\'s 2.1 does not');
+
+// ---- the view against the real cg: console from a scripted source, drift from the real log
+let source = panel('OPEN', true);
+const calls = [];
+const cleared = [];
+const dcol = { set: (uri, list) => diag.sets.set(uri.fsPath, list), clear: () => { diag.sets.clear(); diag.clears++; } };
+const view = new IssuesView({
+    cgJson: async (args) => { calls.push(args.join(' ')); return args.join(' ') === CONSOLE_ARGS.join(' ') ? source : null; },
+    cg: async (args) => { const r = run(args); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; },
+    workspaceRoot: () => repo, diagnostics: dcol, onCleared: (rows) => cleared.push(...rows),
+});
+view.view = {};
+(async () => {
+    await view.refresh();
+    eq(calls[0], 'console issues', 'reads console.issues');
+    eq(view.state, 'ready', 'ready');
+    let top = view.getChildren();
+    eq(top.map((t) => t.label).join(), 'Leader queue,External intake,Escalated repairs,Drift', 'tree roots');
+    eq(top[1].description, '1+', 'truncated count');
+    eq(top[2].description, '1 · 1 blocked', 'blocked count on the section');
+    eq(view.view.badge.value, 1, 'view badge counts blocked issues');
+    const repRow = view.getChildren(top[2])[0];
+    eq(repRow.contextValue, 'issues-row-blocked', 'blocked row');
+    eq(repRow.iconPath.id, 'circle-slash', 'blocked icon');
+    eq(repRow.command.command, 'codify.issues.open', 'a located row opens');
+    const lq = view.getChildren(top[0])[0];
+    eq(lq.iconPath.id, 'error', 'ERROR severity');
+    eq(view.getChildren(top[3]).length, 2, 'console drift + the real coverage event');
+    const aPath = path.join(repo, 'src/a.ts');
+    eq(diag.sets.has(aPath), true, 'diagnostics on a.ts');
+    eq(diag.sets.get(aPath)[0].severity, 0, 'error severity diagnostic');
+    eq(diag.sets.get(aPath)[0].range.start.line, 0, 'line 1 is range line 0');
+    // drift routed live: folded on at once, no cg call, not twice on replay
+    const before = calls.length;
+    eq(view.route(specEv), true, 'drift.spec routed');
+    eq(view.route(specEv), false, 'the same event is not counted twice');
+    eq(view.route({ seq: 1, kind: 'agent.text', subject: 'x', payload: {} }), false, 'other kinds are not issues');
+    eq(calls.length, before, 'routing makes no cg call');
+    eq(view.getChildren(view.getChildren()[3]).length, 3, 'routed drift.spec row');
+    eq(diag.sets.get(path.join(repo, 'src/b.ts')).some((d) => /outside its touches/.test(d.message)), true, 'routed diagnostic on b.ts');
+    view.route(coll);
+    eq(view.model.blocked, 2, 'collision adds a blocked row');
+    view.route({ seq: 9004, kind: 'task.status', subject: 'iv/2.1', payload: { status: 'done', feature: 'iv' } });
+    eq(view.model.blocked, 1, 'the awaited task done clears the collision');
+    eq(cleared.some((r) => r.drift === 'collision'), true, 'collision reported cleared');
+    // resolution in the read model: the repair leaves, its block and diagnostic go
+    source = panel('OPEN', false);
+    await view.refresh();
+    eq(view.model.blocked, 0, 'repair resolved');
+    eq(view.view.badge, undefined, 'badge cleared');
+    eq(cleared.some((r) => r.key === 'console:escalated_repairs:rep-1'), true, 'repair reported cleared');
+    eq((diag.sets.get(path.join(repo, 'src/b.ts')) || []).some((d) => d.source === 'hyperfide escalated_repair'), false,
+       'the resolved repair\'s diagnostic is gone');
+    // negative: the real cg in a local project has no console — notice, drift still shown
+    const real = new IssuesView({
+        cgJson: async (args) => { const r = run([...args, '--json']); try { return JSON.parse(r.stdout); } catch { return null; } },
+        cg: async (args) => { const r = run(args); return { code: r.status, stdout: r.stdout, stderr: r.stderr }; },
+        workspaceRoot: () => repo, diagnostics: null,
+    });
+    await real.refresh();
+    eq(real.model.available, false, 'no console in a local project');
+    top = real.getChildren();
+    eq(top.map((t) => t.label).join(), 'Hyperfide console not reachable,Drift', 'notice, then drift');
+    eq(top[0].command.command, 'codify.issues.refresh', 'notice retries');
+    eq(real.getChildren(top[1]).some((r) => /acceptance criteria uncovered/.test(r.label)), true, 'real coverage drift shown');
+    console.log('issues ok');
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    [ $? -eq 0 ] || fail "issues view"
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const dir = process.argv[2];
+const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+const views = Object.values(pkg.contributes.views).flat().map((v) => v.id);
+if (!views.includes('codifyIssues')) throw new Error('codifyIssues not declared');
+const is = fs.readFileSync(path.join(dir, 'issues.js'), 'utf8');
+if (!/createTreeView\('codifyIssues'/.test(is)) throw new Error('codifyIssues never populated');
+if (!/createDiagnosticCollection\(/.test(is)) throw new Error('no DiagnosticCollection for findings');
+const fl = fs.readFileSync(path.join(dir, 'fleet.js'), 'utf8');
+if (!/issues\.register\(ctx, d\)/.test(fl) || !/await issuesApi\.refresh\(\)/.test(fl)) throw new Error('issues not in the refresh chain');
+const ext = fs.readFileSync(path.join(dir, 'extension.js'), 'utf8');
+if (!/applied\.view === 'drift'[^\n]*fleetApi\.drift\(ev\)/.test(ext)) throw new Error('drift.* events are not routed to the Issues view');
+const sv = fs.readFileSync(path.join(dir, 'serve.js'), 'utf8');
+if (!/k\.startsWith\('drift\.'\)[\s\S]{0,80}view: 'drift'/.test(sv)) throw new Error('serve no longer classifies drift.*');
+console.log('issues manifest ok');
+JS
+    [ $? -eq 0 ] || fail "issues manifest"
+    cd "$EXT"
+fi
+
+# ---- leaders (hyperfide-v21 6.5): the Leaders webview, attach-only. The
+#      real extension.js activate() runs against a stubbed vscode module and
+#      the real cg and cg serve. Every leader the fleet knows (main, feature
+#      manager) gets its own tab and no worker does; each tab is fed by the
+#      attach code with every message stamped with its leader; a message
+#      typed in a tab steers that leader through the real `cg fleet steer`;
+#      the leader's open Asks (its own, its workers', escalated to it) ride
+#      inline and are answered through the real `cg ask answer`, a secret
+#      only through a password box. A mutant acp.js that drops the leader
+#      stamp must fail the same run.
+if want leaders; then
+    ldsetup() {
+        rm -rf "$1"; mkdir -p "$1/src"; cd "$1" || return 1
+        git init -q -b main . 2>/dev/null || git init -q .
+        git config user.email t@t; git config user.name t
+        echo 'export function alpha(){}' > src/a.ts
+        "$CG" spec new ld >/dev/null
+        "$CG" init >/dev/null
+        printf '.codegraph/\n*.lock\n' > .gitignore
+        git add -A >/dev/null; git commit -qm base >/dev/null
+        CG_AGENT=gideon CG_ROLE=main "$CG" fleet status >/dev/null
+        CG_AGENT=fm-ld CG_ROLE=feature CG_PARENT=gideon "$CG" fleet status >/dev/null
+        CG_AGENT=w-ld-1 CG_ROLE=worker CG_PARENT=fm-ld "$CG" fleet status >/dev/null
+        CG_AGENT=w-ld-1 "$CG" ask raise decision "Merge order for wave 1" \
+            --option alpha-first --option beta-first --recommend alpha-first >/dev/null || return 1
+        CG_AGENT=fm-ld "$CG" ask raise secret "Railway token" >/dev/null || return 1
+        CG_AGENT=gideon "$CG" ask raise question "Ship on Friday?" \
+            --option yes --option no --recommend no >/dev/null || return 1
+    }
+    cat > "$TMP/leaders.js" <<'JS'
+'use strict';
+const path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, cwd, mode] = process.argv.slice(2);
+const check = (c, w) => { if (!c) throw new Error(w); };
+const run = (env, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (pred, ms) => { const end = Date.now() + ms; while (!pred() && Date.now() < end) await sleep(25); return pred(); };
+function auto() {
+    const kids = new Map();
+    return new Proxy(function () {}, {
+        get(t, k) {
+            if (Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+            if (k === 'then') return undefined;
+            if (k === Symbol.toPrimitive) return () => '';
+            if (k === Symbol.iterator) return function* () {};
+            if (typeof k === 'symbol') return undefined;
+            if (!kids.has(k)) kids.set(k, auto());
+            return kids.get(k);
+        },
+        apply: () => auto(), construct: () => auto(),
+    });
+}
+function stubbed(over) {
+    return new Proxy(over, { get(t, k) { if (k in t) return t[k]; if (k === 'then' || typeof k === 'symbol') return undefined; return (t[k] = auto()); } });
+}
+class EventEmitter {
+    constructor() { this.fns = []; this.event = (fn) => { this.fns.push(fn); return { dispose() {} }; }; }
+    fire(v) { for (const fn of this.fns) fn(v); }
+    dispose() {}
+}
+const posted = [];
+let inbox = null, leadersProvider = null;
+const view = {
+    webview: { cspSource: 'x', options: {}, html: '', postMessage: (m) => { posted.push(m); return Promise.resolve(true); },
+               onDidReceiveMessage: (fn) => { inbox = fn; return { dispose() {} }; }, asWebviewUri: (u) => u },
+    onDidDispose: () => ({ dispose() {} }), onDidChangeVisibility: () => ({ dispose() {} }), visible: true,
+};
+const boxes = [];
+let boxAnswer = '';
+const settings = { languageServer: false, serve: true };
+const configuration = () => ({ get: (k, d) => (k in settings ? settings[k] : d), inspect: (k) => (k === 'binaryPath' ? { globalValue: CG } : undefined), update: async () => {} });
+const vscode = stubbed({
+    EventEmitter,
+    window: stubbed({
+        registerWebviewViewProvider: (id, p) => { if (id === 'codifyLeaders') leadersProvider = p; return { dispose() {} }; },
+        showInputBox: async (o) => { boxes.push(o); return boxAnswer; },
+        state: { focused: false },
+    }),
+    workspace: stubbed({ workspaceFolders: [{ uri: { fsPath: cwd } }], getConfiguration: configuration }),
+    commands: stubbed({ registerCommand: () => ({ dispose() {} }), executeCommand: async () => {} }),
+});
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? vscode : load.apply(this, arguments); };
+process.on('unhandledRejection', (e) => console.error('unhandled (stubbed UI): ' + (e && e.message)));
+const asks = () => JSON.parse(run({}, 'ask', 'list', '--all', '--json').stdout).asks;
+const askId = (title) => asks().find((a) => a.title === title).id;
+const lastLeaders = () => { const l = posted.filter((m) => m.type === 'leaders'); return l.length ? l[l.length - 1].leaders : null; };
+const tab = (agent) => (lastLeaders() || []).find((r) => r.agent === agent);
+
+(async () => {
+    const ext = require(path.join(dir, 'extension.js'));
+    const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} }, globalState: { get: (k, d) => d, update: async () => {} },
+                  extensionPath: dir, extensionUri: { fsPath: dir } };
+    await ext.activate(ctx);
+    check(leadersProvider, 'no codifyLeaders view provider registered');
+    leadersProvider.resolveWebviewView(view);
+    check(view.webview.html.includes('id="leadertabs"'), 'the Leaders view is not the agent panel page');
+    await inbox({ type: 'ready' });
+    const init = posted.find((m) => m.type === 'init');
+    check(init && init.mode === 'leaders', `the view did not start in attach-only mode: ${JSON.stringify(init)}`);
+
+    // one tab per leader, no worker, each with its own open Asks
+    check(await until(() => lastLeaders() && lastLeaders().length >= 2, 8000), 'no leaders posted');
+    const names = lastLeaders().map((r) => r.agent).sort().join(',');
+    check(names === 'fm-ld,gideon', `leaders: ${names}`);
+    const fm = tab('fm-ld'), gid = tab('gideon');
+    check(fm.asks.map((a) => a.title).sort().join('|') === 'Merge order for wave 1|Railway token', `fm-ld asks: ${JSON.stringify(fm.asks)}`);
+    check(gid.asks.map((a) => a.title).join('|') === 'Ship on Friday?', `gideon asks: ${JSON.stringify(gid.asks)}`);
+    check(fm.asks.find((a) => a.kind === 'decision').recommended === 'alpha-first', 'recommended option carried');
+
+    // the attach code ran once per leader, each tab's messages stamped with it
+    const attached = (a) => posted.filter((m) => m.type === 'attached' && m.agent === a);
+    check(await until(() => attached('fm-ld').length && attached('gideon').length, 8000), 'attach did not run for every leader');
+    check(attached('fm-ld').every((m) => m.leader === 'fm-ld') && attached('gideon').every((m) => m.leader === 'gideon'),
+          `attach messages not stamped with their leader: ${JSON.stringify(posted.filter((m) => m.type === 'attached'))}`);
+    check(!posted.some((m) => m.type === 'attached' && m.agent === 'w-ld-1'), 'a worker was attached');
+
+    // a message typed in fm-ld's tab steers fm-ld through the real cg
+    await inbox({ type: 'send', text: 'hold the merge', leader: 'fm-ld' });
+    const steers = () => run({}, 'events', '--kind', 'agent.steer', '--json').stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    check(await until(() => steers().some((e) => e.payload.agent === 'fm-ld' && e.payload.message === 'hold the merge'), 5000), 'steer not recorded by cg');
+    check(await until(() => posted.some((m) => m.type === 'chunk' && m.leader === 'fm-ld' && /→ fm-ld: hold the merge/.test(m.text)), 5000), 'the steer echo is not in fm-ld\'s tab');
+    check(await until(() => posted.some((m) => m.type === 'agent_event' && m.kind === 'agent.steer' && m.leader === 'fm-ld'), 6000), 'the attached transcript did not show the steer');
+    check(!posted.some((m) => m.type === 'agent_event' && m.kind === 'agent.steer' && m.leader === 'gideon'), 'fm-ld\'s steer leaked into gideon\'s tab');
+
+    // an option answer from the tab settles the Ask; it leaves the tab
+    const merge = askId('Merge order for wave 1');
+    await inbox({ type: 'ask_answer', id: merge, answer: 'beta-first', leader: 'fm-ld' });
+    const m1 = asks().find((a) => a.id === merge);
+    check(m1.state === 'answered' && m1.answer === 'beta-first', `answer not recorded: ${JSON.stringify(m1)}`);
+    check(!tab('fm-ld').asks.some((a) => a.id === merge), 'an answered Ask is still inline');
+
+    // a secret is never answered from a webview button, only a password box
+    const tok = askId('Railway token');
+    await inbox({ type: 'ask_answer', id: tok, answer: 'hunter2', leader: 'fm-ld' });
+    check(asks().find((a) => a.id === tok).state === 'open', 'a secret was answered from a webview button');
+    boxAnswer = 'secret-ref:vault/railway';
+    await inbox({ type: 'ask_answer', id: tok, leader: 'fm-ld' });
+    check(boxes.length === 1 && boxes[0].password === true, `secret prompt is not a password box: ${JSON.stringify(boxes)}`);
+    const t1 = asks().find((a) => a.id === tok);
+    check(t1.state === 'answered' && t1.answer === 'secret-ref:vault/railway', `secret answer: ${JSON.stringify(t1)}`);
+
+    // an Ask raised later reaches its leader's tab without a click
+    const before = posted.filter((m) => m.type === 'leaders').length;
+    check(run({ CG_AGENT: 'gideon' }, 'ask', 'raise', 'variable', 'Deploy region').status === 0, 'raise');
+    check(await until(() => posted.filter((m) => m.type === 'leaders').length > before &&
+                      tab('gideon').asks.some((a) => a.title === 'Deploy region'), 20000), 'a new Ask did not reach gideon\'s tab');
+    check(!tab('fm-ld').asks.some((a) => a.title === 'Deploy region'), 'gideon\'s Ask shows in fm-ld\'s tab');
+    console.log('leaders ok' + (mode ? ' (' + mode + ')' : ''));
+    process.exit(0);
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    ldsetup "$TMP/ld" || fail "leaders: project setup"
+    node "$TMP/leaders.js" "$EXT" "$CG" "$(pwd -P)" || fail "leaders webview"
+
+    # the mutation: the same extension with the leader stamp dropped
+    rm -rf "$TMP/extld"; cp -R "$EXT" "$TMP/extld"
+    sed -i 's/Object\.assign({}, msg, { leader: agent })/msg/' "$TMP/extld/acp.js"
+    ! grep -q '{ leader: agent }' "$TMP/extld/acp.js" || fail "leaders: mutant still stamps"
+    ldsetup "$TMP/ldm" || fail "leaders: mutant project setup"
+    if node "$TMP/leaders.js" "$TMP/extld" "$CG" "$(pwd -P)" mutant >/dev/null 2>&1; then
+        fail "leaders: the check passes without the leader stamp"
+    fi
+
+    # the page: tabs route stamped messages, the composer steers the
+    # selected leader, a secret Ask never gets option buttons
+    node - "$EXT" <<'JS'
+const fs = require('fs'), path = require('path');
+const html = fs.readFileSync(path.join(process.argv[2], 'agentpanel.html'), 'utf8');
+const pkg = JSON.parse(fs.readFileSync(path.join(process.argv[2], 'package.json'), 'utf8'));
+const check = (c, w) => { if (!c) throw new Error(w); };
+check(Object.values(pkg.contributes.views).flat().some((v) => v.id === 'codifyLeaders' && v.type === 'webview'), 'codifyLeaders view not contributed');
+check(/id="leadertabs" role="tablist"/.test(html), 'no tab strip');
+check(/if \(!leaderMode \|\| !m\.leader\) \{ handle\(m\); return; \}/.test(html) && /inLeaderTab\(m\.leader, function \(\) \{ handle\(m\); \}\)/.test(html), 'stamped messages are not routed to their tab');
+check(/type: 'send', text: raw, leader: activeLeader/.test(html), 'the composer does not steer the selected leader');
+check(/a\.kind === 'secret' \? \[\] :/.test(html), 'a secret Ask could get option buttons');
+check(/if \(m\.mode === 'leaders'\) \{ enterLeaders\(m\); return; \}/.test(html), 'no attach-only mode');
+console.log('leaders page ok');
+JS
+    [ $? -eq 0 ] || fail "leaders page"
 fi
 
 echo "14_vscode ok ($section)"

@@ -231,12 +231,15 @@ function close(graph:Graph,repository:string,owned:string[],roots:{contracts:str
  const build=new Set<string>();
  const chains=new Set<string>();for(const p of [...included,...[...directories].map(d=>d+'x')])for(const a of ancestors(p))chains.add(a);
  for(const f of local){const slash=f.path.lastIndexOf('/'),dir=slash<0?'':f.path.slice(0,slash+1),name=f.path.slice(slash+1);if(chains.has(dir)&&BUILD_ROOT_NAMES.has(name))build.add(f.path);}
- // Attribute and module metadata decide checkout semantics (LFS filters, gitlinks) and are always part of a slice.
- const metadata=new Set<string>(['.gitmodules']);for(const dir of chains)metadata.add(dir+'.gitattributes');
+ // Attribute, ignore and module metadata decide checkout semantics (LFS filters, ignored paths, gitlinks) and are always
+ // part of a slice: a sealed partial clone cannot fetch an ancestor .gitignore that git status reads (v21 3.20).
+ const metadata=new Set<string>(['.gitmodules']);for(const dir of chains){metadata.add(dir+'.gitattributes');metadata.add(dir+'.gitignore');}
  return {fallback,diagnostics,owned:[...ownedFiles].map(id=>byId.get(id)!),closureFiles:[...closure].map(id=>byId.get(id)!),
   included:[...included,...build,...metadata,...directories],build:[...build].sort(compare),metadata:[...metadata].sort(compare),local,
   stats:{complete:!fallback,seeds:seeds.size,files:closure.size,edges,unresolved:unresolvedCount,truncated,tests,fixtures}};
 }
+/** The pure closure step, exported so its metadata roots (v21 3.20: ancestor .gitignore files) are testable. */
+export {close as sliceClosure};
 async function lfsPointers(tx:PrimaryTransaction,s:Scope,graphId:string,bundle:string,candidates:string[]):Promise<Set<string>>{
  if(!candidates.length)return new Set();
  const rows=await tx.query<{path:string}>('SELECT path FROM hyperfide.graph_source_bodies WHERE organisation_id=$1 AND run_id=$2 AND graph_id=$3 AND bundle_digest=$4 AND path=ANY($5::text[]) AND left(body,$6)=$7',
@@ -474,9 +477,10 @@ async function persistMaterialisation(ctx:Context,s:Scope,row:{id:string;slice:s
    [s.organisation_id,s.run_id,row.id,row.slice,row.slot.sandbox_id,row.slot.slot_id,row.slot.sandbox_boot_generation,row.outcome,row.reason,row.released,row.head,JSON.stringify(row.evidence),hash(row.evidence),s.credential_id]);
  });
 }
+// Occupancy is per run (v21 3.20): the release that frees a slot is recorded in the run that materialised it.
 async function currentMaterialisation(tx:QuerySession,s:Scope,slot:SliceManifestBody['slot']):Promise<{id:string;slice_digest:string}|undefined>{
- return (await tx.query<{id:string;slice_digest:string}>("SELECT m.id,m.slice_digest FROM hyperfide.workspace_slice_materialisations m WHERE m.organisation_id=$1 AND m.sandbox_id=$2 AND m.slot_id=$3 AND m.sandbox_boot_generation=$4 AND m.outcome='READY' AND NOT EXISTS(SELECT 1 FROM hyperfide.workspace_slice_materialisations r WHERE r.organisation_id=m.organisation_id AND r.run_id=m.run_id AND r.released_materialisation_id=m.id)",
-  [s.organisation_id,slot.sandbox_id,slot.slot_id,slot.sandbox_boot_generation])).rows[0];
+ return (await tx.query<{id:string;slice_digest:string}>("SELECT m.id,m.slice_digest FROM hyperfide.workspace_slice_materialisations m WHERE m.organisation_id=$1 AND m.run_id=$5 AND m.sandbox_id=$2 AND m.slot_id=$3 AND m.sandbox_boot_generation=$4 AND m.outcome='READY' AND NOT EXISTS(SELECT 1 FROM hyperfide.workspace_slice_materialisations r WHERE r.organisation_id=m.organisation_id AND r.run_id=m.run_id AND r.released_materialisation_id=m.id)",
+  [s.organisation_id,slot.sandbox_id,slot.slot_id,slot.sandbox_boot_generation,s.run_id])).rows[0];
 }
 const REFUSALS=new Set(['SLICE_SUBMODULE_UNDECLARED','SLICE_SUBMODULE_SOURCE_UNAVAILABLE','SLICE_LFS_UNAVAILABLE','SLICE_LFS_PATH_UNSUPPORTED','SLICE_SOURCE_UNAVAILABLE']);
 async function materialize(input:unknown,ctx:Context):Promise<unknown>{
@@ -761,17 +765,49 @@ export function decideWorkerWorkspace(declared:WorkspaceDeclaration|null,current
  }
  return {mode:'SLICE',source:'MATERIALISED_SLICE',slice_digest:current.slice_digest,materialisation_id:current.materialisation_id,fallback_reason:null};
 }
+// Without the slice schema no slice can exist, which is the same as an empty slot.
+async function sliceSchemaPresent(tx:Pick<QuerySession,'query'>):Promise<boolean>{
+ return (await tx.query<{present:boolean}>("SELECT to_regclass('hyperfide.workspace_slice_materialisations') IS NOT NULL AS present")).rows[0]?.present===true;
+}
 /** The slot's current READY, unreleased materialisation in this run, with its verified manifest mode and reason. */
 export async function resolveWorkerWorkspace(tx:Pick<QuerySession,'query'>,scope:{organisation_id:string;run_id:string},slot:SliceManifestBody['slot'],declared:WorkspaceDeclaration|null):Promise<WorkerWorkspace>{
- // Without the slice schema no slice can exist, which is the same as an empty slot.
- const present=(await tx.query<{present:boolean}>("SELECT to_regclass('hyperfide.workspace_slice_materialisations') IS NOT NULL AS present")).rows[0]?.present===true;
+ return decideWorkerWorkspace(declared,await currentWorkerWorkspace(tx,scope,slot));
+}
+/** The slot's current materialised workspace in this run, or null when the slot holds none. */
+export async function currentWorkerWorkspace(tx:Pick<QuerySession,'query'>,scope:{organisation_id:string;run_id:string},slot:SliceManifestBody['slot']):Promise<CurrentWorkspace|null>{
+ const present=await sliceSchemaPresent(tx);
  const rows=present?(await tx.query<{id:string;slice_digest:string}>("SELECT m.id::text AS id,m.slice_digest FROM hyperfide.workspace_slice_materialisations m WHERE m.organisation_id=$1 AND m.run_id=$2 AND m.sandbox_id=$3 AND m.slot_id=$4 AND m.sandbox_boot_generation=$5 AND m.outcome='READY' AND NOT EXISTS(SELECT 1 FROM hyperfide.workspace_slice_materialisations r WHERE r.organisation_id=m.organisation_id AND r.run_id=m.run_id AND r.released_materialisation_id=m.id) ORDER BY m.created_at DESC,m.id LIMIT 2",
   [scope.organisation_id,scope.run_id,slot.sandbox_id,slot.slot_id,slot.sandbox_boot_generation])).rows:[];
  if(rows.length>1)fail('WORKER_SLICE_AMBIGUOUS','The slot holds more than one unreleased workspace');
- let current:CurrentWorkspace|null=null;
- if(rows[0]){const manifest=await loadManifest(tx,scope,rows[0].slice_digest);current={materialisation_id:rows[0].id,slice_digest:manifest.digest,mode:manifest.mode,fallback_reason:manifest.fallback_reason};}
- return decideWorkerWorkspace(declared,current);
+ if(!rows[0])return null;
+ const manifest=await loadManifest(tx,scope,rows[0].slice_digest);
+ return {materialisation_id:rows[0].id,slice_digest:manifest.digest,mode:manifest.mode,fallback_reason:manifest.fallback_reason};
 }
+/**
+ * v21 3.20: an execution packet records a full-tree reason when a FULL_TREE manifest was derived for it (derive cut it
+ * with its fallback_reason). Agent launches carry only the packet digest, so this is their declaration.
+ */
+export async function packetFullTreeDeclaration(tx:Pick<QuerySession,'query'>,scope:{organisation_id:string;run_id:string},packet_digest:string):Promise<WorkspaceDeclaration|null>{
+ if(!DIGEST.test(packet_digest))fail('WORKER_WORKSPACE_INVALID','Packet digest required');
+ if(!await sliceSchemaPresent(tx))return null;
+ const row=(await tx.query<{fallback_reason:string|null}>("SELECT fallback_reason FROM hyperfide.workspace_slice_manifests WHERE organisation_id=$1 AND run_id=$2 AND packet_digest=$3 AND mode='FULL_TREE' ORDER BY created_at DESC,digest LIMIT 1",
+  [scope.organisation_id,scope.run_id,packet_digest])).rows[0];
+ return row&&typeof row.fallback_reason==='string'&&CODE.test(row.fallback_reason)?{mode:'FULL_TREE',fallback_reason:row.fallback_reason}:null;
+}
+/** The agent-launch gate: the launch slot must hold a slice, or the packet must record a full-tree reason. */
+export async function resolveLaunchWorkspace(tx:Pick<QuerySession,'query'>,scope:{organisation_id:string;run_id:string},slot:SliceManifestBody['slot'],packet_digest:string):Promise<WorkerWorkspace>{
+ if(!UUID.test(slot.sandbox_id)||!UUID.test(slot.slot_id)||!/^(0|[1-9][0-9]{0,18})$/.test(slot.sandbox_boot_generation))fail('WORKER_SLICE_SLOT_UNBOUND','An agent launch needs its slot to resolve its slice');
+ return resolveWorkerWorkspace(tx,scope,slot,await packetFullTreeDeclaration(tx,scope,packet_digest));
+}
+/** The trusted root slices are materialised under on this host, or null when none is configured (v21 3.20). */
+export function sliceWorkspaceRoot(env:Readonly<Record<string,string|undefined>>):string|null{
+ const root=env.HF_PREPARATION_WORKSPACE_ROOT;
+ if(root===undefined||root==='')return null;
+ if(!path.posix.isAbsolute(root)||root==='/'||path.posix.normalize(root)!==root||root.endsWith('/')||/[\x00-\x1f\\]/.test(root))fail('WORKER_WORKSPACE_ROOT_INVALID','The slice workspace root must be an absolute normalised path');
+ return root;
+}
+/** Where materialise placed the slot's workspace; a worker launches here. */
+export function sliceWorkspacePath(root:string,slot:SliceManifestBody['slot']):string{return path.join(slotDirectory(root,slot),'workspace');}
 
 export interface WidenFinding {access:'READ'|'WRITE';path:string|null;source:string;reason:string}
 export interface WidenPlan {requests:{reason:string;paths:string[]}[];refused:{path:string|null;reason:string}[];fallback_reason:string|null}

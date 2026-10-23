@@ -6,6 +6,11 @@
 # and say why they are not journaled.
 . "$(dirname "$0")/../lib.sh"
 
+# cg rejects an alias pair with differing values (exit 78), and a supervising
+# host such as `cg spec done` exports both names of whatever it was given; the
+# variables this suite sets per command start unset so its values win.
+unset CG_AGENT HYPERFIDE_AGENT CG_BUSY_TIMEOUT_MS HYPERFIDE_BUSY_TIMEOUT_MS
+
 cp -r "$FIXTURES/sample" "$TMP/proj"
 cd "$TMP/proj"
 "$CG" init >/dev/null
