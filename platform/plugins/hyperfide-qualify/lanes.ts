@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { createProjectionAdapter, runBinary, type QualificationAdapter } from './projection-adapter';
+import { createQualificationAdapter, runBinary, type QualificationAdapter } from './adapter';
 export type LaneState = 'queued' | 'running' | 'passed' | 'failed' | 'cancelled';
 export interface StartLane { repository: string; feature: string; task: string; mode?: 'verify' | 'done'; postgres?: boolean; busyTimeoutMs?: number }
 export interface Lane {
@@ -24,7 +24,7 @@ export class LaneService {
   private jobs = new Map<string, Job>();
   private logs = new Map<string, LogEntry[]>();
   private closed = false;
-  constructor(private adapter: QualificationAdapter = createProjectionAdapter(), private publish: (event: LaneEvent) => void = () => {}) {}
+  constructor(private adapter: QualificationAdapter = createQualificationAdapter(), private publish: (event: LaneEvent) => void = () => {}) {}
   get(id: string): Lane { const job = this.jobs.get(id); if (!job) throw new Error(`Unknown lane ${id}`); return structuredClone(job.lane); }
   list(repository?: string) { return [...this.jobs.keys()].map(id => this.get(id)).filter(l => !repository || l.repository === repository); }
   log(id: string, after = 0) { this.get(id); return structuredClone(this.logs.get(id)!.filter(e => e.sequence > after)); }
