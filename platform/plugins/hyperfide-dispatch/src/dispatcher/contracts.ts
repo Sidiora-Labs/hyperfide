@@ -1,11 +1,7 @@
 import type { SandboxMachine, SandboxMachineOps } from "../machine-ops";
-export interface SpecTask {
-  id: string;
-  status: string;
-  requires: string[];
-  wave: number;
-}
-// Projection adapters: integration supplies authoritative merged membership and claims.
+import type { Task } from "../../../hyperfide-spec/src/shared/model.js";
+export type SpecTask = Pick<Task, "id" | "status" | "requires" | "wave">;
+// Integration supplies authoritative merged membership and atomic claims.
 export interface SpecReadModel {
   tasks(): Promise<SpecTask[]>;
   merged(task: string, tip: string): Promise<boolean>;
