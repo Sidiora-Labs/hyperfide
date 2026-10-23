@@ -229,7 +229,7 @@ owner = "ci"
 
 [task.1.1]
 title = "hyperfide platform front door"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = []
 touches = ["src/platform_cmd.c", "src/platform_cmd.h", "src/main.c", "src/help.c", "Makefile", "docs/hyperfide/cli.md", "README.md", "tests/integration/99_platform_frontdoor.sh"]
