@@ -7,10 +7,13 @@ before rendering. The host supplies the initial model and transports `BoardRpc`
 to `createBoardServer` in the server process; repository and binary paths are
 server configuration. The app module has no Node imports.
 
-`read-model-projection.ts` is the local task 2.1 interface. Replace it with the
-shared read model when that task merges. Receipt URLs come from the read model;
+The package manifest registers `plugin-app.ts` and `host.ts`; the shared
+`read-model-server.ts` entry registers the read model and the board RPC routes.
+The Board navigation panel loads the selected host, repository and feature through
+SDK RPC. The server routes reads and actions to that host, where `SpecReader`
+loads the real shared model. The host finds the latest receipt in the repository's
+task artifacts. Receipt URLs are relative to the repository;
 only HTTP(S) and relative paths are rendered as links. A missing requirement
 blocks requires-satisfied just as an unfinished requirement does.
 
-`identity_gate_projection.py` is the local task 0.7 gate. The task verification
-prefers the canonical gate whenever it exists.
+The task verification runs the canonical identity gate directly.
