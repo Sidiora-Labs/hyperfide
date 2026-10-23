@@ -3917,6 +3917,9 @@ importers:
 
   plugins/hyperfide-asks:
     dependencies:
+      '@hyperfide/authority':
+        specifier: workspace:*
+        version: link:../../packages/hyperfide-authority
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -3954,6 +3957,9 @@ importers:
 
   plugins/hyperfide-dispatch:
     dependencies:
+      '@hyperfide/authority':
+        specifier: workspace:*
+        version: link:../../packages/hyperfide-authority
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -4037,6 +4043,9 @@ importers:
 
   plugins/hyperfide-qualify:
     dependencies:
+      '@hyperfide/authority':
+        specifier: workspace:*
+        version: link:../../packages/hyperfide-authority
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -4058,6 +4067,10 @@ importers:
         version: 4.1.1(@opentelemetry/api@1.9.1)(@types/node@22.19.10)(jsdom@29.0.1(@noble/hashes@2.4.0))(msw@2.12.14(@types/node@22.19.10)(typescript@7.0.2))(vite@8.3.5(@types/node@22.19.10)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.1)(yaml@2.9.1))
 
   plugins/hyperfide-spec:
+    dependencies:
+      '@hyperfide/authority':
+        specifier: workspace:*
+        version: link:../../packages/hyperfide-authority
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
