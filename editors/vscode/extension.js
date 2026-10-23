@@ -24,7 +24,10 @@ const tasks = require('./tasks');
 const memorybrowser = require('./memories');
 const { createRefresher } = require('./refresh');
 /* --- serve (v11 5.2): one connection for every call and every event --- */
-const { ServeClient, liveModel, applyEvent } = require('./serve');
+const { liveModel, applyEvent } = require('./serve');
+/* --- serve pool (hyperfide-v21 6.8): one cg serve per workspace root --- */
+const { ServePool, poolPlan, mergeOutputs } = require('./serve');
+const fs = require('fs');
 // --- fleet (5.3) ---
 const fleet = require('./fleet');
 /* The fleet view joins three cg reports of its own; it runs inside the one
@@ -57,6 +60,9 @@ let refresher;
 let scopeTask;   /* task the open documents were last validated against */
 /* --- serve (v11 5.2) --- */
 let serveClient = null;
+/* --- serve pool (6.8): every workspace root's client; serveClient is the
+ * primary's (the first folder), which everything but Needs and Issues uses */
+let pool = null;
 const live = liveModel();
 function serveConnected() { return !!(serveClient && serveClient.ready); }
 /* a burst of pushed events becomes one catch-up refresh, soon */
@@ -72,6 +78,31 @@ async function resyncAfterReconnect() {
     try { if (rows >= 0 && fleetApi.resync) fleetApi.resync(); }
     catch (e) { out.appendLine(`fleet resync: ${e.message}`); }
 }
+/* --- serve pool (6.8): the other roots' connections. Each pushes only what
+ * Needs and Issues fold: ask.* redraws Needs, drift.* and task.status reach
+ * Issues tagged with their project. A root whose serve does not answer is
+ * still read, one process at a time, by poolCg. --- */
+const POOL_KINDS = 'ask.,drift.,task.status';
+async function connectPoolOthers() {
+    if (!pool || !pool.multi) return;
+    for (const { member, ok } of await pool.startOthers()) {
+        if (!ok) {
+            out.appendLine(`hyperfide serve for ${member.name} did not connect — its Needs and Issues are read per call`);
+            continue;
+        }
+        const c = member.client;
+        c.on('event', (ev) => {
+            const k = String((ev && ev.kind) || '');
+            if (k.startsWith('ask.')) needsApi.route(ev);
+            else if ((k.startsWith('drift.') || k === 'task.status') && fleetApi.drift) fleetApi.drift(ev, member);
+        });
+        c.on('gap', () => scheduleRefresh(0));
+        c.on('reconnect', () => scheduleRefresh(0));
+        try { await c.subscribe(POOL_KINDS); } catch (e) { out.appendLine(`subscribe ${member.name}: ${e.message}`); }
+        out.appendLine(`hyperfide serve connected for ${member.name} (${member.root})`);
+    }
+}
+
 /* cg's shared root (the supervisor's log directory), from serve's handshake */
 function serveSharedRoot() {
     return (serveClient && serveClient.info && serveClient.info.shared) || null;
@@ -145,6 +176,59 @@ async function cgJson(args) {
     const r = await cg([...args, '--json']);
     /* exit codes carry meaning (lint returns 2, check returns 1); parse the
      * payload regardless and let the caller decide what the code means */
+    try { return JSON.parse(r.stdout); } catch { return null; }
+}
+
+/* ---------------- serve pool (hyperfide-v21 6.8) ----------------
+ *
+ * Every workspace folder is a project with a cg serve of its own. Needs and
+ * Issues read through poolCg: their reads (console needs/issues, ask list,
+ * the drift log) fan out to every root and merge in serve.js with the
+ * project named on each row, and an answer to a merged row goes back to
+ * its own root. Every other call is the primary's, as before; with one
+ * folder poolCg is cg. */
+function workspaceRoots() {
+    const f = vscode.workspace.workspaceFolders;
+    return f && f.length ? f.map((x) => ({ root: x.uri.fsPath, name: x.name })) : [];
+}
+
+/* one root's cg: its own serve connection, else a process in its folder */
+function cgIn(member, args) {
+    if (member.client && member.client.ready) return member.client.exec(args);
+    return new Promise((resolve) => {
+        cp.execFile(binary(), args, { cwd: member.root, maxBuffer: 16 * 1024 * 1024 },
+            (err, stdout, stderr) => resolve({
+                code: err ? (typeof err.code === 'number' ? err.code : 1) : 0,
+                stdout: stdout || '', stderr: stderr || '',
+            }));
+    });
+}
+
+async function poolCg(args) {
+    const plan = pool && pool.multi ? poolPlan(args) : null;
+    if (!plan) return cg(args);
+    if (plan.kind === 'answer') {
+        const u = pool.unqualify(plan.id);
+        const i = args.indexOf(plan.id);
+        return cgIn(u.member, args.map((a, j) => (j === i ? u.id : a)));
+    }
+    if (plan.kind === 'answer-file') {
+        /* the routed form: the Ask id is in the input file needs.js wrote */
+        let input;
+        try { input = JSON.parse(fs.readFileSync(plan.file, 'utf8')); } catch (e) {
+            return { code: 1, stdout: '', stderr: `cannot read ${plan.file}: ${e.message}\n` };
+        }
+        const u = pool.unqualify(input.ask_id);
+        fs.writeFileSync(plan.file, JSON.stringify(Object.assign(input, { ask_id: u.id })), { mode: 0o600 });
+        return cgIn(u.member, args);
+    }
+    const parts = await Promise.all(pool.members.map(async (member) =>
+        ({ member, r: await cgIn(member, args) })));
+    return mergeOutputs(plan, parts);
+}
+
+async function poolCgJson(args) {
+    const r = await poolCg([...args, '--json']);
     try { return JSON.parse(r.stdout); } catch { return null; }
 }
 
@@ -753,14 +837,20 @@ async function activate(ctx) {
     });
     // --- fleet (5.3) ---
     fleetApi = fleet.register(ctx, {
-        cg, cgJson, workspaceRoot, show, refresh: () => afterMutation(),
+        /* the Issues view rides on these deps: its reads go through the
+         * pool (6.8); the fleet's own calls are the primary's */
+        cg: poolCg, cgJson: poolCgJson, workspaceRoot, show, refresh: () => afterMutation(),
         /* the live model the serve events fold into: last step, cost */
         live: () => live,
         sharedRoot: serveSharedRoot,
     });
     // --- end fleet (5.3) ---
+    /* a drift event reaches Issues tagged with its project when the window
+     * has more than one (6.8): the pool's refresh read tags the same way */
+    const fleetDrift = fleetApi.drift;
+    if (fleetDrift) fleetApi.drift = (ev, member) => fleetDrift(pool ? pool.qualify(ev, member) : ev);
     sandboxesApi = sandboxes.register(ctx, { cg });
-    needsApi = needs.register(ctx, { cg, cgJson, workspaceRoot,
+    needsApi = needs.register(ctx, { cg: poolCg, cgJson: poolCgJson, workspaceRoot,
         registry: acpApi.asks && acpApi.asks.registry });
 
     /* Language features are best-effort: a workspace with no .codegraph, or
@@ -787,9 +877,12 @@ async function activate(ctx) {
     /* --- serve (v11 5.2): the one connection. Every pushed event patches
      * the view it belongs to at once and queues one catch-up refresh; an
      * older cg without `serve` leaves the v10 behaviour in place. --- */
+    if (root) {
+        pool = new ServePool(binary(), workspaceRoots(), (m) => out.appendLine(m));
+        ctx.subscriptions.push({ dispose: () => pool.dispose() });
+    }
     if (root && config().get('serve') !== false) {
-        serveClient = new ServeClient(binary(), root, (m) => out.appendLine(m));
-        ctx.subscriptions.push({ dispose: () => serveClient.dispose() });
+        serveClient = pool.primary.client;
         if (await serveClient.start()) {
             out.appendLine(`hyperfide serve connected (events from #${serveClient.cursor})`);
             /* the chat registered before this connection existed */
@@ -815,6 +908,7 @@ async function activate(ctx) {
                 resyncAfterReconnect().finally(() => scheduleRefresh(0)); });
             serveClient.on('down', () => scheduleRefresh());
             try { await serveClient.subscribe(); } catch (e) { out.appendLine(`subscribe: ${e.message}`); }
+            await connectPoolOthers();
         } else if (serveClient.unsupported) {
             out.appendLine('this hyperfide has no `serve` — polling as before (update hyperfide for live views)');
             serveClient = null;

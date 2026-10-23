@@ -29,6 +29,9 @@
 #              cleared on resolution
 #   leaders  — (v21 6.5) the Leaders webview: a tab per leader, attach and
 #              steer through the real cg, its open Asks inline and answered
+#   pool     — (v21 6.8) the serve pool: one cg serve per workspace root,
+#              Needs and Issues merged across roots with the project named on
+#              each row, answers routed back to their own root
 # Run one section: 14_vscode.sh tasks
 . "$(dirname "$0")/../lib.sh"
 
@@ -3828,6 +3831,222 @@ check(/if \(m\.mode === 'leaders'\) \{ enterLeaders\(m\); return; \}/.test(html)
 console.log('leaders page ok');
 JS
     [ $? -eq 0 ] || fail "leaders page"
+fi
+
+# ---- pool (hyperfide-v21 6.8): one cg serve per workspace root. Two real
+#      projects, alpha and beta, with the same feature and the same Ask ids
+#      (each numbers its own from 1). The merge in serve.js is proven on what
+#      the real cg printed in each; then the real extension.js activate()
+#      runs against a stubbed vscode with both folders open: two cg serve
+#      processes, one per root; the Needs and Issues trees hold both
+#      projects' rows, each named; an answer to beta's Ask #1 lands in beta
+#      and leaves alpha's #1 open; an Ask raised in beta afterwards reaches
+#      Needs pushed through beta's own connection. A mutant serve.js whose
+#      pool never counts as multi-root must fail the same run.
+if want pool; then
+    poolsetup() {
+        rm -rf "$1"; mkdir -p "$1/src"; cd "$1" || return 1
+        echo 'export function alpha(){}' > src/a.ts
+        "$CG" spec new pf >/dev/null || return 1
+        "$CG" spec add 2.1 --title "Alpha" --wave 1 --touches 'src/a.ts' >/dev/null || return 1
+        "$CG" init >/dev/null 2>&1 || return 1
+        "$CG" drift coverage -f pf --json >/dev/null || return 1
+    }
+    poolfixture() {
+        poolsetup "$1/alpha" || return 1
+        "$CG" ask raise decision "Pick the store" --option sqlite --option pg --recommend pg --task 2.1 >/dev/null || return 1
+        "$CG" ask raise variable "Deploy region" >/dev/null || return 1
+        poolsetup "$1/beta" || return 1
+        "$CG" ask raise variable "Registry host" --task 2.1 >/dev/null || return 1
+        cd "$1" || return 1
+    }
+    cat > "$TMP/pool.js" <<'JS'
+'use strict';
+const path = require('path'), cp = require('child_process'), Module = require('module');
+const [dir, CG, A, B, mode] = process.argv.slice(2);
+const check = (c, w) => { if (!c) throw new Error(w); };
+const run = (cwd, ...a) => cp.spawnSync(CG, a, { cwd, encoding: 'utf8' });
+const json = (cwd, ...a) => JSON.parse(run(cwd, ...a, '--json').stdout);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (pred, ms) => { const end = Date.now() + ms; while (!pred() && Date.now() < end) await sleep(25); return pred(); };
+function auto() {
+    const kids = new Map();
+    return new Proxy(function () {}, {
+        get(t, k) {
+            if (Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+            if (k === 'then') return undefined;
+            if (k === Symbol.toPrimitive) return () => '';
+            if (k === Symbol.iterator) return function* () {};
+            if (typeof k === 'symbol') return undefined;
+            if (!kids.has(k)) kids.set(k, auto());
+            return kids.get(k);
+        },
+        apply: () => auto(), construct: () => auto(),
+    });
+}
+function stubbed(over) {
+    return new Proxy(over, { get(t, k) { if (k in t) return t[k]; if (k === 'then' || typeof k === 'symbol') return undefined; return (t[k] = auto()); } });
+}
+class EventEmitter {
+    constructor() { this.fns = []; this.event = (fn) => { this.fns.push(fn); return { dispose() {} }; }; }
+    fire(v) { for (const fn of this.fns) fn(v); }
+    dispose() {}
+}
+class TreeItem { constructor(label, state) { this.label = label; this.collapsibleState = state; } }
+const trees = {}, commands = {};
+let boxAnswer = '';
+const settings = { languageServer: false, serve: true };
+const configuration = () => ({ get: (k, d) => (k in settings ? settings[k] : d), inspect: (k) => (k === 'binaryPath' ? { globalValue: CG } : undefined), update: async () => {} });
+const vscode = stubbed({
+    EventEmitter, TreeItem,
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class { constructor(id, color) { this.id = id; this.color = color; } },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    Uri: stubbed({ file: (p) => ({ scheme: 'file', fsPath: p }), parse: (s) => ({ scheme: 'codify', path: s }) }),
+    window: stubbed({
+        createTreeView: (id, o) => { trees[id] = o.treeDataProvider; return stubbed({ visible: true, onDidChangeVisibility: () => ({ dispose() {} }), dispose() {} }); },
+        showInputBox: async () => boxAnswer,
+        showQuickPick: async (items) => items[0],
+        state: { focused: false },
+    }),
+    workspace: stubbed({ workspaceFolders: [{ uri: { fsPath: A }, name: 'alpha' }, { uri: { fsPath: B }, name: 'beta' }],
+                         getConfiguration: configuration }),
+    commands: stubbed({ registerCommand: (id, fn) => { commands[id] = fn; return { dispose() {} }; }, executeCommand: async () => {} }),
+});
+const load = Module._load;
+Module._load = function (req) { return req === 'vscode' ? vscode : load.apply(this, arguments); };
+const serves = [];
+const spawn = cp.spawn;
+cp.spawn = function (bin, args, o) { const p = spawn.apply(this, arguments); if (Array.isArray(args) && args[0] === 'serve') serves.push({ p, cwd: o && o.cwd }); return p; };
+process.on('unhandledRejection', (e) => console.error('unhandled (stubbed UI): ' + (e && e.message)));
+
+const S = require(path.join(dir, 'serve.js'));
+const needs = require(path.join(dir, 'needs.js'));
+const issues = require(path.join(dir, 'issues.js'));
+
+function pure() {
+    const names = S.projectNames([{ root: '/x/app' }, { root: '/y/app' }, { root: '/z/lib', name: 'core' }]);
+    check(names.map((m) => m.name).join() === 'app,app-2,core', `project names: ${names.map((m) => m.name)}`);
+    const members = S.projectNames([{ root: A, name: 'alpha' }, { root: B, name: 'beta' }]);
+    const [ma, mb] = members;
+    // the real Ask lists collide on id: both projects number from 1
+    const la = json(A, 'ask', 'list'), lb = json(B, 'ask', 'list');
+    check(la.asks.some((a) => a.id === 1) && lb.asks.some((a) => a.id === 1), 'both projects have an Ask #1');
+    const merged = S.mergeAskLists([{ member: ma, json: la }, { member: mb, json: lb }]);
+    const m = needs.needsModel(null, merged);
+    const rows = m.sections[0].rows;
+    check(rows.length === 3, `merged Asks: ${rows.length}`);
+    check(new Set(rows.map((r) => r.key)).size === 3, 'merged row keys are unique');
+    check(rows.some((r) => r.title === 'Pick the store (alpha)' && r.recommended === 'pg' && r.task === '2.1'), 'alpha row named, recommendation kept');
+    check(rows.some((r) => r.title === 'Registry host (beta)'), 'beta row named');
+    const cmd = needs.answerCommand(rows.find((r) => /\(beta\)/.test(r.title)), 'reg.example');
+    check(cmd.args.join(' ') === 'ask answer 1@beta reg.example', `beta answer: ${cmd.args.join(' ')}`);
+    const u = S.unqualify('1@beta', members);
+    check(u.member === mb && u.id === '1', 'routed to beta with the bare id');
+    check(S.unqualify('7', members).member === ma, 'an unqualified id is the primary\'s');
+    // the plan: which calls fan out
+    check(S.poolPlan(['console', 'needs', '--json']).all === true, 'console.needs needs every root');
+    check(S.poolPlan(['console', 'issues', '--json']).all === false, 'console.issues merges what answers');
+    check(S.poolPlan(['ask', 'list', '--json']).kind === 'asks', 'ask list fans out');
+    check(S.poolPlan(['events', '--kind', 'drift.,task.status', '-n', '500', '--json']).kind === 'events', 'drift log fans out');
+    check(S.poolPlan(['events', '--kind', 'supervisor.,orch.spawn', '-n', '300', '--json']) === null, 'the fleet\'s own log does not');
+    check(S.poolPlan(['fleet', 'approvals', '--json']) === null && S.poolPlan(['ask', 'list', '--all', '--json']) === null, 'other calls are the primary\'s');
+    // console.needs from one root only: the view falls back to every root's local Asks
+    const panel = { view: 'console.needs', scope: { run_id: 'run-a' }, as_of: '2026-01-01T00:00:00Z',
+        sections: { asks: { rows: [{ kind: 'ASK', id: 'u1', state: 'OPEN', title: 'Ship it?', references: {},
+            detail: { ask_kind: 'decision', options: ['yes', 'no'], recommended: 'yes', state_version: 3 } }] },
+            human_intents: { rows: [] }, admission_escalations: { rows: [] } } };
+    const half = S.mergeOutputs({ kind: 'panel', view: 'console.needs', all: true },
+        [{ member: ma, r: { code: 0, stdout: JSON.stringify(panel) } }, { member: mb, r: { code: 1, stdout: '' } }]);
+    check(needs.consolePanel(JSON.parse(half.stdout)) === null && /1 of 2 projects/.test(half.stdout), `half a console: ${half.stdout}`);
+    const both = S.mergeOutputs({ kind: 'panel', view: 'console.needs', all: true },
+        [{ member: ma, r: { code: 0, stdout: JSON.stringify(panel) } }, { member: mb, r: { code: 0, stdout: JSON.stringify(panel) } }]);
+    const cm = needs.needsModel(JSON.parse(both.stdout), null);
+    check(cm.available && cm.sections[0].rows.length === 2, 'both consoles merged');
+    const crow = cm.sections[0].rows.find((r) => r.title === 'Ship it? (beta)');
+    check(crow && crow.runId === 'run-a' && crow.id === 'u1@beta', `console row keeps its run: ${JSON.stringify(crow)}`);
+    // the drift log from both real projects: one coverage row each, named
+    const ev = (cwd) => run(cwd, 'events', '--kind', 'drift.,task.status', '-n', '500', '--json');
+    const dl = S.mergeOutputs({ kind: 'events' }, [{ member: ma, r: { code: 0, stdout: ev(A).stdout } }, { member: mb, r: { code: 0, stdout: ev(B).stdout } }]);
+    const lines = dl.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    const im = issues.issuesModel(null, lines);
+    const drift = im.sections.find((s) => s.key === 'drift').rows;
+    check(drift.length === 2, `two coverage rows, not one: ${drift.map((r) => r.title)}`);
+    check(drift.some((r) => /^pf \(alpha\): 1 of 1/.test(r.title)) && drift.some((r) => /^pf \(beta\): 1 of 1/.test(r.title)), drift.map((r) => r.title).join(' | '));
+    check(new Set(lines.map((l) => l.seq)).size === lines.length, 'seqs unique across the pool');
+    // a collision in alpha is not resolved by beta's task of the same id
+    const coll = S.qualifyEvent({ seq: 5, kind: 'drift.collision', subject: 'pf/2.2', payload: { task: '2.2', with: '2.1', why: 'both touch src/a.ts' } }, ma);
+    const doneB = S.qualifyEvent({ seq: 6, kind: 'task.status', subject: 'pf/2.1', payload: { status: 'done', feature: 'pf' } }, mb);
+    const doneA = S.qualifyEvent({ seq: 7, kind: 'task.status', subject: 'pf/2.1', payload: { status: 'done', feature: 'pf' } }, ma);
+    check(issues.driftRows([coll])[0].title === '2.2 (alpha) waits for 2.1 (alpha): both touch src/a.ts', issues.driftRows([coll])[0].title);
+    check(issues.driftRows([coll, doneB]).length === 1, 'beta\'s 2.1 resolved alpha\'s collision');
+    check(issues.driftRows([coll, doneA]).length === 0, 'alpha\'s 2.1 did not resolve its own collision');
+    const spec = S.qualifyEvent({ seq: 8, kind: 'drift.spec', subject: 'pf/2.1', payload: { files_outside: ['src/b.ts'], symbols_undeclared: [] } }, mb);
+    check(spec.payload.files_outside[0] === path.join(B, 'src/b.ts'), 'paths absolute under their root');
+    // one root: nothing is qualified
+    const one = new S.ServePool(CG, [{ root: A, name: 'alpha' }], () => {});
+    check(!one.multi && one.qualify(coll) === coll, 'a single root reads as before');
+    one.dispose();
+    console.log('pool merge ok');
+}
+
+const needsRows = () => {
+    const p = trees.codifyNeeds; if (!p) return [];
+    const asks = (p.getChildren() || []).find((t) => t.id === 'needs:asks');
+    return asks ? p.getChildren(asks) : [];
+};
+const driftRowsShown = () => {
+    const p = trees.codifyIssues; if (!p) return [];
+    const d = (p.getChildren() || []).find((t) => t.id === 'issues:drift');
+    return d ? p.getChildren(d) : [];
+};
+
+(async () => {
+    if (mode !== 'mutant') pure();
+    const ext = require(path.join(dir, 'extension.js'));
+    const ctx = { subscriptions: [], workspaceState: { get: (k, d) => d, update: async () => {} }, globalState: { get: (k, d) => d, update: async () => {} },
+                  extensionPath: dir, extensionUri: { fsPath: dir } };
+    await ext.activate(ctx);
+    const roots = serves.map((s) => s.cwd).sort().join();
+    check(serves.length === 2 && roots === [A, B].sort().join(), `one cg serve per root: ${serves.length} (${roots})`);
+    check(serves.every((s) => s.p.exitCode === null), 'both servers alive');
+    // Needs: both projects, each row named, ids unique in the one tree
+    const named = (rows, n) => rows.filter((r) => r.label.endsWith(`(${n})`));
+    check(await until(() => named(needsRows(), 'alpha').length === 2 && named(needsRows(), 'beta').length === 1, 15000),
+          `Needs did not merge both roots: ${needsRows().map((r) => r.label)}`);
+    const nr = needsRows();
+    check(new Set(nr.map((r) => r.id)).size === nr.length, 'Needs tree ids unique');
+    // Issues: both projects' coverage drift, each named
+    check(await until(() => driftRowsShown().some((r) => /\(alpha\)/.test(r.label)) && driftRowsShown().some((r) => /\(beta\)/.test(r.label)), 15000),
+          `Issues did not merge both roots: ${driftRowsShown().map((r) => r.label)}`);
+    // answer beta's #1 from the merged tree: it lands in beta, alpha's #1 stays open
+    const reg = nr.find((r) => r.label === 'Registry host (beta)');
+    boxAnswer = 'registry.internal';
+    await commands['codify.needs.answer'](reg);
+    const b1 = json(B, 'ask', 'list', '--all').asks.find((a) => a.id === 1);
+    check(b1.state === 'answered' && b1.answer === 'registry.internal', `beta #1: ${JSON.stringify(b1)}`);
+    const a1 = json(A, 'ask', 'list', '--all').asks.find((a) => a.id === 1);
+    check(a1.state === 'open', `alpha #1 was touched: ${JSON.stringify(a1)}`);
+    check(await until(() => !needsRows().some((r) => r.label === 'Registry host (beta)'), 5000), 'the answered row is still shown');
+    // an Ask raised in beta reaches Needs through beta's own connection
+    check(run(B, 'ask', 'raise', 'variable', 'Bucket name').status === 0, 'raise in beta');
+    check(await until(() => needsRows().some((r) => r.label === 'Bucket name (beta)'), 10000), 'beta\'s new Ask did not reach Needs');
+    console.log('pool ok' + (mode ? ' (' + mode + ')' : ''));
+    process.exit(0);
+})().catch((e) => { console.error(e.stack || e); process.exit(1); });
+JS
+    poolfixture "$TMP/pool" || fail "pool: project setup"
+    node "$TMP/pool.js" "$EXT" "$CG" "$TMP/pool/alpha" "$TMP/pool/beta" || fail "serve pool"
+
+    # the mutation: a pool that never counts as multi-root
+    rm -rf "$TMP/extpool"; cp -R "$EXT" "$TMP/extpool"
+    sed -i 's/get multi() { return this\.members\.length > 1; }/get multi() { return false; }/' "$TMP/extpool/serve.js"
+    grep -q 'get multi() { return false; }' "$TMP/extpool/serve.js" || fail "pool: mutant not applied"
+    poolfixture "$TMP/poolm" || fail "pool: mutant project setup"
+    if node "$TMP/pool.js" "$TMP/extpool" "$CG" "$TMP/poolm/alpha" "$TMP/poolm/beta" mutant >/dev/null 2>&1; then
+        fail "pool: the check passes with one serve for every root"
+    fi
+    cd "$EXT"
 fi
 
 echo "14_vscode ok ($section)"
