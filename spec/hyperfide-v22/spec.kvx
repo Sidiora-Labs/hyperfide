@@ -508,7 +508,7 @@ owner = "qualification"
 
 [task.4.5]
 title = "Qualification end to end"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.4"]
 touches = ["tests/hyperfide/cases/v22/4_5.py", "tests/hyperfide/support/platform_fixture.py"]
