@@ -575,7 +575,7 @@ owner = "fleet"
 
 [task.5.5]
 title = "Collect and integrate"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.4"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/5_5.sh"]
