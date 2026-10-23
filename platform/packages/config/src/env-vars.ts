@@ -1,0 +1,442 @@
+import { z } from "zod";
+import { delimiter } from "node:path";
+import { defaultFeatureFlags } from "@bb/domain";
+import { DEFAULTS } from "./defaults.js";
+import {
+  APP_UPDATE_MODE_ENV_NAME,
+  appUpdateModeSchema,
+  type AppUpdateMode,
+} from "./app-update.js";
+import {
+  APP_INSTALL_KIND_ENV_NAME,
+  APP_SOURCE_COMMIT_ENV_NAME,
+  APP_SOURCE_ORIGIN_ENV_NAME,
+  appInstallKindSchema,
+  appSourceOriginSchema,
+  type AppInstallKind,
+  type AppSourceOrigin,
+} from "./app-install.js";
+import { CLI_LAUNCHER_ENV_NAME } from "./cli-command.js";
+import { defineEnvVar, type EnvVarParseArgs } from "./env.js";
+import {
+  APP_SURFACE_ENV_NAME,
+  APP_SURFACE_WEB,
+  formatAppSurfaceValues,
+  parseAppSurface,
+  type AppSurface,
+} from "./app-surface.js";
+import { validateLogLevel } from "./log-level.js";
+import { validateOptionalUrl, validateRequiredUrl } from "./public-url.js";
+import { HYPERFIDE_LOOPBACK_HOST, parsePortValue } from "./runtime.js";
+import { toOptionalString } from "./strings.js";
+
+export type ServerBindHost = "127.0.0.1" | "0.0.0.0";
+
+function parseBooleanEnvValue(args: EnvVarParseArgs): boolean {
+  const normalizedValue = args.value.trim().toLowerCase();
+  if (
+    normalizedValue === "true" ||
+    normalizedValue === "1" ||
+    normalizedValue === "yes" ||
+    normalizedValue === "y"
+  ) {
+    return true;
+  }
+  if (
+    normalizedValue === "false" ||
+    normalizedValue === "0" ||
+    normalizedValue === "no" ||
+    normalizedValue === "n"
+  ) {
+    return false;
+  }
+
+  throw new Error(`${args.name} must be a boolean`);
+}
+
+function parseAppSurfaceEnvValue(args: EnvVarParseArgs): AppSurface {
+  const parsed = parseAppSurface(args.value);
+  if (parsed !== undefined) {
+    return parsed;
+  }
+  throw new Error(`${args.name} must be one of ${formatAppSurfaceValues()}`);
+}
+
+function parseAppUpdateModeEnvValue(args: EnvVarParseArgs): AppUpdateMode {
+  const parsed = appUpdateModeSchema.safeParse(args.value);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  throw new Error(
+    `${args.name} must be one of ${appUpdateModeSchema.options.join(", ")}`,
+  );
+}
+
+function parseAppInstallKindEnvValue(args: EnvVarParseArgs): AppInstallKind {
+  const parsed = appInstallKindSchema.safeParse(args.value);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  throw new Error(
+    `${args.name} must be one of ${appInstallKindSchema.options.join(", ")}`,
+  );
+}
+
+function parseAppSourceOriginEnvValue(args: EnvVarParseArgs): AppSourceOrigin {
+  const parsed = appSourceOriginSchema.safeParse(args.value);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  throw new Error(
+    `${args.name} must be one of ${appSourceOriginSchema.options.join(", ")}`,
+  );
+}
+
+function parseOptionalPortEnvValue(args: EnvVarParseArgs): number | undefined {
+  if (args.value === "0") {
+    return undefined;
+  }
+
+  return parsePortValue({
+    name: args.name,
+    rawPort: args.value,
+  });
+}
+
+function parseOptionalTrimmedStringEnvValue(
+  args: EnvVarParseArgs,
+): string | undefined {
+  return toOptionalString(args.value);
+}
+
+function parseStringEnvValue(args: EnvVarParseArgs): string {
+  return args.value;
+}
+
+function parsePathListEnvValue(args: EnvVarParseArgs): string[] {
+  return args.value
+    .split(delimiter)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
+function parseNonEmptyStringEnvValue(args: EnvVarParseArgs): string {
+  if (args.value.length === 0) {
+    throw new Error(`${args.name} must not be empty`);
+  }
+
+  return args.value;
+}
+
+function parsePortEnvValue(args: EnvVarParseArgs): number {
+  return parsePortValue({
+    name: args.name,
+    rawPort: args.value,
+  });
+}
+
+export function parseServerBindHost(value: string): ServerBindHost {
+  const trimmedValue = value.trim();
+  if (trimmedValue === "127.0.0.1" || trimmedValue === "0.0.0.0") {
+    return trimmedValue;
+  }
+
+  throw new Error(
+    'HYPERFIDE_SERVER_BIND_HOST must be "127.0.0.1" or "0.0.0.0"',
+  );
+}
+
+function parseServerBindHostEnvValue(args: EnvVarParseArgs): ServerBindHost {
+  return parseServerBindHost(args.value);
+}
+
+function parsePositiveIntegerEnvValue(args: EnvVarParseArgs): number {
+  const parsed = Number(args.value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${args.name} must be a positive integer`);
+  }
+  return parsed;
+}
+
+function parseRequiredUrlEnvValue(args: EnvVarParseArgs): string {
+  return validateRequiredUrl(args.name, args.value);
+}
+
+function parseOptionalUrlEnvValue(args: EnvVarParseArgs): string {
+  return validateOptionalUrl(args.name, args.value);
+}
+
+function parseLogLevelValue(args: EnvVarParseArgs): string {
+  return validateLogLevel(args.value);
+}
+
+export const HYPERFIDE_LOG_LEVEL_ENV = defineEnvVar<string>({
+  description: "Log level: trace, debug, info, warn, error, fatal",
+  name: "HYPERFIDE_LOG_LEVEL",
+  parse: parseLogLevelValue,
+});
+
+export const HYPERFIDE_SERVER_PORT_ENV = defineEnvVar<number>({
+  description: "HTTP port for the server",
+  name: "HYPERFIDE_SERVER_PORT",
+  parse: parsePortEnvValue,
+});
+
+export const HYPERFIDE_SERVER_BIND_HOST_ENV = defineEnvVar<ServerBindHost>({
+  description: "HTTP bind host for the server",
+  name: "HYPERFIDE_SERVER_BIND_HOST",
+  parse: parseServerBindHostEnvValue,
+});
+
+export const HYPERFIDE_HOST_DAEMON_PORT_ENV = defineEnvVar<number>({
+  description: "Port the host daemon listens on for local API requests",
+  name: "HYPERFIDE_HOST_DAEMON_PORT",
+  parse: parsePortEnvValue,
+});
+
+export const HYPERFIDE_SERVER_URL_ENV = defineEnvVar<string>({
+  description: "URL of the bb server",
+  name: "HYPERFIDE_SERVER_URL",
+  parse: parseRequiredUrlEnvValue,
+});
+
+export const HYPERFIDE_APP_VERSION_ENV = defineEnvVar<string>({
+  description:
+    "Version of the running bb-app package. The bb-app launcher sets this from packages/bb-app/package.json; defaults to a sentinel for dev/source runs.",
+  name: "HYPERFIDE_APP_VERSION",
+  parse: parseNonEmptyStringEnvValue,
+});
+
+export const HYPERFIDE_SERVER_LAUNCH_ID_ENV = defineEnvVar<string>({
+  description:
+    "Internal per-spawn identity the bb-app launcher hands its server child. The server echoes it on /health so the launcher can tell its own child apart from another bb server that already owns the port.",
+  name: "HYPERFIDE_SERVER_LAUNCH_ID",
+  parse: parseNonEmptyStringEnvValue,
+});
+
+export const HYPERFIDE_APP_UPDATE_MODE_ENV = defineEnvVar<AppUpdateMode>({
+  description:
+    "Internal marker the bb-app launcher hands its server child when it runs under the in-app update shim: npm for package installs, source for pnpm start checkouts. The server offers in-app updates only when it is set.",
+  name: APP_UPDATE_MODE_ENV_NAME,
+  parse: parseAppUpdateModeEnvValue,
+});
+
+export const HYPERFIDE_CLI_LAUNCHER_ENV = defineEnvVar<string>({
+  description:
+    "Internal path the bb-app launcher hands its server child: the bb command launcher it wrote in the data directory for this install. The server offers to put the bb command on PATH only when it is set.",
+  name: CLI_LAUNCHER_ENV_NAME,
+  parse: parseNonEmptyStringEnvValue,
+});
+
+export const HYPERFIDE_APP_INSTALL_KIND_ENV = defineEnvVar<AppInstallKind>({
+  description:
+    "Internal marker the bb-app launcher hands its server child for telemetry attribution: desktop for the desktop app, npm for package installs, source for pnpm start checkouts. Absent when the server runs without the launcher.",
+  name: APP_INSTALL_KIND_ENV_NAME,
+  parse: parseAppInstallKindEnvValue,
+});
+
+export const HYPERFIDE_APP_SOURCE_ORIGIN_ENV = defineEnvVar<AppSourceOrigin>({
+  description:
+    "Internal marker the bb-app launcher hands its server child for source checkouts: official when the origin remote is github.com/get-bb/bb or github.com/ymichael/bb, fork for any other origin, none without one.",
+  name: APP_SOURCE_ORIGIN_ENV_NAME,
+  parse: parseAppSourceOriginEnvValue,
+});
+
+export const HYPERFIDE_APP_SOURCE_COMMIT_ENV = defineEnvVar<string>({
+  description:
+    "Internal marker the bb-app launcher hands its server child with the HEAD commit of an official source checkout. Never set for forks.",
+  name: APP_SOURCE_COMMIT_ENV_NAME,
+  parse: parseNonEmptyStringEnvValue,
+});
+
+export const HYPERFIDE_APP_SURFACE_ENV = defineEnvVar<AppSurface>({
+  description:
+    "Internal launcher marker for telemetry attribution. Set by bb-app and desktop launchers.",
+  name: APP_SURFACE_ENV_NAME,
+  parse: parseAppSurfaceEnvValue,
+});
+
+export const HYPERFIDE_APP_URL_ENV = defineEnvVar<string>({
+  description:
+    "Human-facing app/server base URL used for generated links, allowed browser origins, and the allowed DNS hostname for incoming requests. Does not control which host or port the server binds to.",
+  name: "HYPERFIDE_APP_URL",
+  parse: parseOptionalUrlEnvValue,
+});
+
+export const HYPERFIDE_EXTERNAL_URL_ENV = defineEnvVar<string>({
+  description:
+    "Internet-facing HTTPS base URL used for generated public links. Does not control which host or port the server binds to.",
+  name: "HYPERFIDE_EXTERNAL_URL",
+  parse: parseOptionalUrlEnvValue,
+});
+
+export const HYPERFIDE_MARKETPLACE_URL_ENV = defineEnvVar<string>({
+  description:
+    "Manifest URL of the reserved bb-community plugin marketplace, which lists as BB Community. Point it at a local file server to test catalog refreshes.",
+  name: "HYPERFIDE_MARKETPLACE_URL",
+  parse: parseOptionalUrlEnvValue,
+});
+
+export const HYPERFIDE_CONNECT_GATE_KEYS_URL_ENV = defineEnvVar<string>({
+  description:
+    "URL of the bb connect next gate public key set the server's tunnel ingress verifies gate assertions with. Point it at a local file server to test the ingress.",
+  name: "HYPERFIDE_CONNECT_GATE_KEYS_URL",
+  parse: parseRequiredUrlEnvValue,
+});
+
+export const HYPERFIDE_POSTHOG_API_KEY_ENV = defineEnvVar<string>({
+  description:
+    "PostHog project API key for anonymous usage telemetry. Telemetry is disabled when empty.",
+  name: "HYPERFIDE_POSTHOG_API_KEY",
+  parse: parseStringEnvValue,
+});
+
+export const HYPERFIDE_PERF_DIAGNOSTICS_ENV = defineEnvVar<boolean>({
+  description:
+    "Permit server performance diagnostics when the performanceDiagnostics experiment is on. Requires restart.",
+  name: "HYPERFIDE_PERF_DIAGNOSTICS",
+  parse: parseBooleanEnvValue,
+});
+
+export const HYPERFIDE_SKIP_ONBOARDING_ENV = defineEnvVar<boolean>({
+  description:
+    "Mark first-run setup as completed at server startup so the setup screen is skipped. Settings can still replay it.",
+  name: "HYPERFIDE_SKIP_ONBOARDING",
+  parse: parseBooleanEnvValue,
+});
+
+export const HYPERFIDE_TELEMETRY_ENV = defineEnvVar<boolean>({
+  description:
+    "Anonymous usage telemetry (app starts, thread creation counts, user message counts, and plugin installs, tagged with app version, install kind, and OS and Node versions). Set to false to opt out.",
+  name: "HYPERFIDE_TELEMETRY",
+  parse: parseBooleanEnvValue,
+});
+
+export const HYPERFIDE_FF_PLACEHOLDER_ENV = defineEnvVar<boolean>({
+  description:
+    "Permanent placeholder feature flag. Non-functional keep-alive so the flag system has at least one entry; do not gate behavior on it.",
+  name: "HYPERFIDE_FF_PLACEHOLDER",
+  parse: parseBooleanEnvValue,
+});
+
+export const HYPERFIDE_FF_INITIATOR_TELEMETRY_ENV = defineEnvVar<boolean>({
+  description:
+    "Adds a fixed initiator value (user, agent, automation, plugin or system) to anonymous thread_created and user_message_sent telemetry. On by default; set false to omit it.",
+  name: "HYPERFIDE_FF_INITIATOR_TELEMETRY",
+  parse: parseBooleanEnvValue,
+});
+
+export const HYPERFIDE_FF_TIMELINE_WINDOW_EVENT_BUDGET_ENV =
+  defineEnvVar<number>({
+    description:
+      "Max events one thread-timeline window may span. Raise far above the default to restore unbounded windows.",
+    name: "HYPERFIDE_FF_TIMELINE_WINDOW_EVENT_BUDGET",
+    parse: parsePositiveIntegerEnvValue,
+  });
+
+export const HYPERFIDE_DEV_APP_HOST_ENV = defineEnvVar<string>({
+  description:
+    "Development-only Vite bind host override for apps/app. Defaults to 127.0.0.1 when unset.",
+  name: "HYPERFIDE_DEV_APP_HOST",
+  parse: parseStringEnvValue,
+});
+
+export const HYPERFIDE_DEV_APP_PORT_ENV = defineEnvVar<number | undefined>({
+  description: "Development-only Vite port for apps/app.",
+  name: "HYPERFIDE_DEV_APP_PORT",
+  parse: parseOptionalPortEnvValue,
+});
+
+export const HYPERFIDE_CLI_DIR_ENV = defineEnvVar<string | undefined>({
+  description:
+    "Directory containing the bb CLI executable to inject into runtime shells",
+  name: "HYPERFIDE_CLI_DIR",
+  parse: parseOptionalTrimmedStringEnvValue,
+});
+
+export const HYPERFIDE_INHERITED_SKILLS_ROOTS_ENV = defineEnvVar<string[]>({
+  description:
+    "Development-only path list of lower-priority inherited bb skill roots",
+  name: "HYPERFIDE_INHERITED_SKILLS_ROOTS",
+  parse: parsePathListEnvValue,
+});
+
+export const HYPERFIDE_BRIDGE_DIR_ENV = defineEnvVar<string | undefined>({
+  description:
+    "Directory containing provider bridge bundles for the host daemon runtime",
+  name: "HYPERFIDE_BRIDGE_DIR",
+  parse: parseOptionalTrimmedStringEnvValue,
+});
+
+export const HYPERFIDE_SERVER_HEADERS_ENV = defineEnvVar<
+  Record<string, string>
+>({
+  description: "Private JSON headers attached to machine server requests",
+  name: "HYPERFIDE_SERVER_HEADERS",
+  parse: ({ value }) => {
+    try {
+      return z.record(z.string(), z.string()).parse(JSON.parse(value));
+    } catch {
+      throw new Error(
+        "HYPERFIDE_SERVER_HEADERS must be a JSON object with string values",
+      );
+    }
+  },
+});
+
+export const HYPERFIDE_CONNECT_MACHINE_CREDENTIAL_ENV = defineEnvVar<
+  string | undefined
+>({
+  description:
+    "Daemon-managed bb connect credential for traversing the public machine gate",
+  name: "HYPERFIDE_CONNECT_MACHINE_CREDENTIAL",
+  parse: parseOptionalTrimmedStringEnvValue,
+});
+
+export const HYPERFIDE_HOST_ENROLL_KEY_ENV = defineEnvVar<string | undefined>({
+  description:
+    "One-time enrollment token used to bootstrap a host daemon with the bb server",
+  name: "HYPERFIDE_HOST_ENROLL_KEY",
+  parse: parseOptionalTrimmedStringEnvValue,
+});
+
+export const HYPERFIDE_HOST_DAEMON_AUTO_UPDATE_ENV = defineEnvVar<boolean>({
+  description:
+    "Allow a remote host daemon to install the exact bb-app package served by its server on a newer protocol mismatch",
+  name: "HYPERFIDE_HOST_DAEMON_AUTO_UPDATE",
+  parse: parseBooleanEnvValue,
+});
+
+export const HYPERFIDE_HOST_DAEMON_SUPERVISED_ENV = defineEnvVar<boolean>({
+  description:
+    "Set by bb-app host-daemon --supervise so a daemon that relaunches itself after a server move keeps its launcher restarting it",
+  name: "HYPERFIDE_HOST_DAEMON_SUPERVISED",
+  parse: parseBooleanEnvValue,
+});
+
+export const HYPERFIDE_HOST_ID_ENV = defineEnvVar<string | undefined>({
+  description:
+    "Preferred host ID to persist for the daemon instead of generating one locally",
+  name: "HYPERFIDE_HOST_ID",
+  parse: parseOptionalTrimmedStringEnvValue,
+});
+
+export const DEFAULT_HYPERFIDE_APP_VERSION = DEFAULTS.appVersion;
+export const DEFAULT_HYPERFIDE_APP_SURFACE = APP_SURFACE_WEB;
+export const DEFAULT_HYPERFIDE_APP_URL = "";
+export const DEFAULT_HYPERFIDE_SERVER_BIND_HOST: ServerBindHost =
+  HYPERFIDE_LOOPBACK_HOST;
+export const DEFAULT_HYPERFIDE_EXTERNAL_URL = "";
+export const DEFAULT_HYPERFIDE_POSTHOG_API_KEY =
+  "phc_tejoYoNLV6vG8QAd5eYXXvcsENFYnP4brpZDGqG7zvpy";
+export const DEFAULT_HYPERFIDE_TELEMETRY = true;
+export const DEFAULT_HYPERFIDE_DEV_APP_HOST = "";
+export const DEFAULT_HYPERFIDE_MARKETPLACE_URL =
+  "https://getbb.app/marketplace/v2/marketplace.json";
+export const DEFAULT_HYPERFIDE_CONNECT_GATE_KEYS_URL =
+  "https://getbb.app/.well-known/bb-connect-gate-keys.json";
+export const DEFAULT_HYPERFIDE_FF_PLACEHOLDER = defaultFeatureFlags.placeholder;
+export const DEFAULT_HYPERFIDE_FF_INITIATOR_TELEMETRY =
+  defaultFeatureFlags.initiatorTelemetry;
+export const DEFAULT_HYPERFIDE_FF_TIMELINE_WINDOW_EVENT_BUDGET =
+  defaultFeatureFlags.timelineWindowEventBudget;

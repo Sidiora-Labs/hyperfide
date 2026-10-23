@@ -1,0 +1,67 @@
+import { createFileRoute, getRouteApi } from "@tanstack/react-router";
+
+import { unfurlMeta } from "../landing/site.js";
+import { marketplacePluginRouteEntry } from "../marketplace/marketplace-route-data.js";
+import {
+  PublicMarketplaceDetailPage,
+  PublicMarketplaceUnavailablePage,
+} from "../marketplace/public-marketplace.js";
+
+const marketplaceRoute = getRouteApi("/marketplace_");
+
+export const Route = createFileRoute("/marketplace_/$pluginId")({
+  loader: async ({ params, location, parentMatchPromise }) => {
+    const { loaderData: marketplace } = await parentMatchPromise;
+    return marketplacePluginRouteEntry(
+      marketplace,
+      params.pluginId,
+      location.pathname,
+    );
+  },
+  head: ({ loaderData, params }) => {
+    const entry = loaderData;
+    const title = entry
+      ? `${entry.displayName} — bb Plugin Marketplace`
+      : "Plugin Marketplace — bb";
+    const description =
+      entry?.description ?? "Find built-in and community plugins for bb.";
+    const path = `/marketplace/${encodeURIComponent(params.pluginId)}`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { name: "robots", content: entry ? "index, follow" : "noindex" },
+        ...unfurlMeta(
+          title,
+          description,
+          path,
+          entry
+            ? {
+                path: `/marketplace/og/${encodeURIComponent(entry.id)}`,
+                width: 1200,
+                height: 630,
+                alt: `${entry.displayName} — ${entry.description}`,
+              }
+            : undefined,
+        ),
+      ],
+    };
+  },
+  component: MarketplaceDetailRoute,
+});
+
+function MarketplaceDetailRoute() {
+  const marketplace = marketplaceRoute.useLoaderData();
+  const entry = Route.useLoaderData();
+  if (marketplace.status === "unavailable") {
+    return <PublicMarketplaceUnavailablePage />;
+  }
+  if (entry === null) return null;
+  return (
+    <PublicMarketplaceDetailPage
+      manifest={marketplace.manifest}
+      entry={entry}
+      stats={marketplace.stats}
+    />
+  );
+}

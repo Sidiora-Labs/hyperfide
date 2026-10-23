@@ -1,0 +1,146 @@
+import { memo } from "react";
+import type {
+  PermissionMode,
+  ProviderOptionDescriptor,
+  ReasoningLevel,
+  ServiceTier,
+} from "@bb/domain";
+import type {
+  SystemExecutionOptionsModelLoadError,
+  SystemProvidersQuery,
+} from "@bb/server-contract";
+import { formatModelLabel } from "@/hooks/useThreadCreationOptions";
+import {
+  ModelReasoningPicker,
+  type ModelReasoningPickerHandoff,
+} from "@/components/pickers/ModelReasoningPicker";
+import { type PickerOption } from "@/components/pickers/OptionPicker";
+import type { ModelPickerOption } from "@/components/pickers/model-picker-option";
+import type { ProviderPickerOption } from "@/components/pickers/model-brand-prefix";
+import type {
+  SessionOptionChoice,
+  SessionOptionMenuSection,
+} from "@/components/pickers/SessionOptionsMenu";
+
+const EMPTY_SERVICE_TIER_OPTIONS: readonly ProviderOptionDescriptor[] = [];
+
+interface ExecutionProviderConfig {
+  options?: readonly ProviderPickerOption[];
+  selectedId?: string;
+  onChange?: (value: string) => void;
+  hasMultiple?: boolean;
+}
+
+interface ExecutionModelConfig {
+  active?: { model: string } | null;
+  selected: string;
+  options: readonly ModelPickerOption[];
+  moreOptions: readonly ModelPickerOption[];
+  isLoading: boolean;
+  loadFailed: boolean;
+  loadError?: SystemExecutionOptionsModelLoadError | null;
+  onChange: (value: string) => void;
+}
+
+interface ExecutionServiceTierConfig {
+  value?: ServiceTier;
+  onChange: (value: ServiceTier | undefined) => void;
+  supported: boolean;
+  supportByProvider?: Record<string, boolean>;
+  options: readonly ProviderOptionDescriptor[];
+}
+
+interface ExecutionReasoningConfig {
+  value: ReasoningLevel;
+  options: readonly PickerOption<ReasoningLevel>[];
+  onChange: (value: ReasoningLevel) => void;
+}
+
+export interface ExecutionPermissionConfig {
+  value?: PermissionMode;
+  options: readonly PickerOption<PermissionMode>[];
+  onChange: (value: PermissionMode) => void;
+  supported: boolean;
+}
+
+export interface ExecutionAgentOptionsConfig {
+  sections: readonly SessionOptionMenuSection[];
+  onChange: (optionId: string, value: SessionOptionChoice) => void;
+}
+
+export interface ExecutionControlsProps {
+  providerRouting?: SystemProvidersQuery;
+  provider: ExecutionProviderConfig;
+  model: ExecutionModelConfig;
+  serviceTier?: ExecutionServiceTierConfig;
+  agentOptions?: ExecutionAgentOptionsConfig;
+  reasoning: ExecutionReasoningConfig;
+  handoff?: ModelReasoningPickerHandoff;
+  disabled?: boolean;
+}
+
+export const ExecutionControls = memo(function ExecutionControls({
+  provider,
+  providerRouting,
+  model,
+  serviceTier,
+  agentOptions,
+  reasoning,
+  handoff,
+  disabled,
+}: ExecutionControlsProps) {
+  const handleServiceTierChange = serviceTier?.onChange ?? (() => {});
+  const selectedProviderId = provider.selectedId ?? "";
+
+  const canSwitchProviders = Boolean(
+    provider.hasMultiple &&
+    provider.onChange &&
+    provider.options &&
+    provider.options.length > 1,
+  );
+  const showModelPicker =
+    model.isLoading ||
+    model.loadFailed ||
+    model.options.length > 0 ||
+    canSwitchProviders ||
+    selectedProviderId.length > 0 ||
+    handoff !== undefined;
+
+  return (
+    <>
+      {showModelPicker ? (
+        <ModelReasoningPicker
+          providerOptions={provider.options ?? []}
+          providerRouting={providerRouting}
+          selectedProviderId={selectedProviderId}
+          onSelectedProviderChange={provider.onChange}
+          hasMultipleProviders={provider.hasMultiple ?? false}
+          modelValue={model.active?.model ?? model.selected}
+          modelOptions={model.options}
+          moreModelOptions={model.moreOptions}
+          modelIsLoading={model.isLoading}
+          modelLoadFailed={model.loadFailed}
+          modelLoadError={model.loadError}
+          onModelChange={model.onChange}
+          formatModelLabel={formatModelLabel}
+          reasoningValue={reasoning.value}
+          reasoningOptions={reasoning.options}
+          onReasoningChange={reasoning.onChange}
+          serviceTierValue={serviceTier?.value}
+          serviceTierOptions={
+            serviceTier?.supported
+              ? serviceTier.options
+              : EMPTY_SERVICE_TIER_OPTIONS
+          }
+          onServiceTierChange={handleServiceTierChange}
+          serviceTierSupportByProvider={serviceTier?.supportByProvider}
+          agentSections={agentOptions?.sections}
+          onAgentOptionChange={agentOptions?.onChange}
+          muted
+          disabled={disabled}
+          handoff={handoff}
+        />
+      ) : null}
+    </>
+  );
+});

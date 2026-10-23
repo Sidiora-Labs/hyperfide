@@ -1,0 +1,114 @@
+import { readdirSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import {
+  createFakePluginHost,
+  makePluginAgentConfigurationContext,
+} from "@get-bb/plugin-sdk/testing";
+import plugin from "./server.js";
+
+const bundledSkills = readdirSync(new URL("./skills", import.meta.url), {
+  withFileTypes: true,
+})
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name);
+
+it("introduces bb without user-question guidance", async () => {
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "bb-guide",
+    agentSkillIds: bundledSkills,
+  });
+  try {
+    await plugin(bb);
+    const introduction = harness.registrations.instructionProvider?.({
+      threadId: "thr_test",
+      projectId: "proj_test",
+    });
+    expect(introduction).toContain("You are working inside bb");
+    expect(introduction).toContain("agentic IDE");
+    expect(introduction).toContain(
+      "Reference a BB thread as `@thread:thr_abc123`",
+    );
+    expect(introduction).toContain("Do not construct thread URLs manually");
+    expect(introduction).toContain("`bb voice transcribe <path>`");
+    expect(introduction).not.toContain(
+      "Ask the user a blocking question only when",
+    );
+    expect(introduction).toBe(introduction?.trim());
+  } finally {
+    await harness.lifecycle.dispose();
+  }
+});
+
+it("keeps the introduction and skill switches independent across reloads", async () => {
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "bb-guide",
+    agentSkillIds: bundledSkills,
+  });
+  try {
+    await plugin(bb);
+    const instructions = () =>
+      harness.registrations.instructionProvider?.({
+        threadId: "thr_test",
+        projectId: "proj_test",
+      });
+    const skills = async () =>
+      (
+        await harness.behavior.resolveAgentConfiguration(
+          makePluginAgentConfigurationContext(),
+        )
+      ).skills;
+    expect(instructions()).toContain("You are working inside bb");
+    expect((await skills()).sort()).toEqual([...bundledSkills].sort());
+    await harness.behavior.setSettings({
+      introduction: false,
+      pluginAuthoring: false,
+    });
+    expect(instructions()).toBeNull();
+    expect(await skills()).toEqual([
+      "bb-cli",
+      "skill-creator",
+      "submit-a-plugin",
+    ]);
+    await harness.behavior.setSettings({ skills: false });
+    expect(await skills()).toEqual([]);
+    await harness.lifecycle.reload(plugin);
+    expect(instructions()).toBeNull();
+    expect(await skills()).toEqual([]);
+    await harness.behavior.setSettings({ introduction: true, skills: true });
+    expect(instructions()).toContain("bb status");
+    expect(await skills()).toEqual([
+      "bb-cli",
+      "skill-creator",
+      "submit-a-plugin",
+    ]);
+  } finally {
+    await harness.lifecycle.dispose();
+  }
+});
+
+describe("individual skill selection", () => {
+  it.each([
+    ["bbCli", ["bb-plugin-authoring", "skill-creator", "submit-a-plugin"]],
+    ["pluginAuthoring", ["bb-cli", "skill-creator", "submit-a-plugin"]],
+    ["skillCreator", ["bb-cli", "bb-plugin-authoring", "submit-a-plugin"]],
+    ["submitPlugin", ["bb-cli", "bb-plugin-authoring", "skill-creator"]],
+  ])("disables %s", async (key, expected) => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "bb-guide",
+      agentSkillIds: bundledSkills,
+    });
+    try {
+      await plugin(bb);
+      await harness.behavior.setSettings({ [key]: false });
+      expect(
+        (
+          await harness.behavior.resolveAgentConfiguration(
+            makePluginAgentConfigurationContext(),
+          )
+        ).skills,
+      ).toEqual(expected);
+    } finally {
+      await harness.lifecycle.dispose();
+    }
+  });
+});

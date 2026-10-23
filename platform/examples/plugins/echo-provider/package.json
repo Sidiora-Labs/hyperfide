@@ -1,0 +1,39 @@
+{
+  "name": "bb-plugin-echo-provider",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bb": ">=0.0",
+    "bbPluginSdk": ">=0.4.3"
+  },
+  "bb": {
+    "name": "Echo provider",
+    "description": "The third-party canary: a complete agent provider that exercises every provider-plugin capability through the public SDK alone.",
+    "branding": {
+      "icon": "Zap",
+      "experimental_icons": {
+        "receipt": "./icons/receipt.svg"
+      }
+    },
+    "server": "./server.ts",
+    "host": "./host.ts"
+  },
+  "keywords": [
+    "bb-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit"
+  },
+  "dependencies": {
+    "@get-bb/plugin-sdk": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

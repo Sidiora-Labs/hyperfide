@@ -1,0 +1,308 @@
+import { isVideoAttachment } from "@/lib/video-attachments";
+import { VideoThumbnail } from "@bb/shared-ui/video-thumbnail";
+import { useEffect, useState } from "react";
+import type { TimelineConversationAttachments } from "@bb/server-contract";
+import { fileNameFromPath } from "@bb/thread-view";
+import {
+  ImageLightbox,
+  getWrappedImageIndex,
+} from "../../ui/image-lightbox.js";
+import { cn } from "@bb/shared-ui/lib/utils";
+import {
+  buildProjectAttachmentContentUrl,
+  isAbsoluteLocalPath,
+  isProjectAttachmentPath,
+} from "@/lib/file-content-urls";
+import { formatByteSize } from "@/lib/format-byte-size";
+import { canSaveFileNatively, saveFile } from "@/lib/save-file";
+import { useAttachmentOpener } from "@/components/secondary-panel/AttachmentOpenerContext";
+import type {
+  ThreadTimelineLocalFileLinkHandler,
+  UserAttachmentImageSrcResolver,
+} from "./types.js";
+
+interface ConversationImageItem {
+  mediaType?: "image" | "video";
+  alt: string;
+  src: string;
+}
+
+export interface ConversationAttachmentItems {
+  filePaths: string[];
+  fileDetails: TimelineConversationAttachments["localFileDetails"];
+  imageItems: ConversationImageItem[];
+}
+
+interface ConversationAttachmentsProps extends ConversationAttachmentItems {
+  align?: "start" | "end";
+  onOpenLocalFileLink?: ThreadTimelineLocalFileLinkHandler;
+  projectId?: string;
+}
+
+interface BuildAttachmentItemsArgs {
+  attachments: TimelineConversationAttachments | null;
+  projectId?: string;
+  resolveUserAttachmentImageSrc?: UserAttachmentImageSrcResolver;
+}
+
+interface ProjectAttachmentHrefArgs {
+  path: string;
+  projectId: string | undefined;
+}
+
+function projectAttachmentHref({
+  path,
+  projectId,
+}: ProjectAttachmentHrefArgs): string | null {
+  if (!projectId || !isProjectAttachmentPath({ path })) {
+    return null;
+  }
+
+  return buildProjectAttachmentContentUrl(projectId, path);
+}
+
+export function buildAttachmentItems({
+  attachments,
+  projectId,
+  resolveUserAttachmentImageSrc,
+}: BuildAttachmentItemsArgs): ConversationAttachmentItems {
+  if (!attachments) {
+    return {
+      filePaths: [],
+      fileDetails: [],
+      imageItems: [],
+    };
+  }
+
+  const imageItems: ConversationImageItem[] = [
+    ...attachments.imageUrls.map((url) => ({
+      alt: fileNameFromPath(url),
+      src: url,
+    })),
+    ...attachments.localImagePaths.map((path) => ({
+      alt: fileNameFromPath(path),
+      src: resolveUserAttachmentImageSrc
+        ? resolveUserAttachmentImageSrc(path, projectId)
+        : path,
+    })),
+  ];
+
+  const videoPaths = attachments.localFilePaths.filter((path) =>
+    isVideoAttachment({ path }),
+  );
+  imageItems.push(
+    ...videoPaths.map((path) => ({
+      mediaType: "video" as const,
+      alt:
+        attachments.localFileDetails.find((file) => file.path === path)?.name ??
+        fileNameFromPath(path),
+      src: resolveUserAttachmentImageSrc
+        ? resolveUserAttachmentImageSrc(path, projectId)
+        : (projectAttachmentHref({ path, projectId }) ?? path),
+    })),
+  );
+
+  return {
+    filePaths: attachments.localFilePaths.filter(
+      (path) => !isVideoAttachment({ path }),
+    ),
+    fileDetails: attachments.localFileDetails,
+    imageItems,
+  };
+}
+
+export function ConversationAttachments({
+  align = "start",
+  filePaths,
+  fileDetails,
+  imageItems,
+  onOpenLocalFileLink,
+  projectId,
+}: ConversationAttachmentsProps) {
+  const openAttachment = useAttachmentOpener();
+  const [expandedImageIndex, setExpandedImageIndex] = useState<number | null>(
+    null,
+  );
+  const currentImageItem =
+    expandedImageIndex === null
+      ? null
+      : (imageItems[expandedImageIndex] ?? null);
+  const hasMultipleImages = imageItems.length > 1;
+  const justifyClassName = align === "end" ? "justify-end" : "justify-start";
+
+  useEffect(() => {
+    if (expandedImageIndex === null || expandedImageIndex < imageItems.length) {
+      return;
+    }
+    setExpandedImageIndex(null);
+  }, [expandedImageIndex, imageItems.length]);
+
+  if (filePaths.length === 0 && imageItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      {imageItems.length > 0 ? (
+        <div className={cn("flex flex-wrap gap-2", justifyClassName)}>
+          {imageItems.map((imageItem, index) => (
+            <button
+              type="button"
+              key={`${imageItem.src}-${index}`}
+              className={cn(
+                "cursor-zoom-in overflow-hidden rounded-md border",
+                align === "end"
+                  ? "border-surface-selected-border bg-surface-raised"
+                  : "border-border bg-surface-recessed",
+              )}
+              onClick={() => setExpandedImageIndex(index)}
+              aria-label={imageItem.alt}
+            >
+              {imageItem.mediaType === "video" ? (
+                <VideoThumbnail
+                  src={imageItem.src}
+                  className={align === "end" ? "h-20 w-36" : "h-16 w-24"}
+                />
+              ) : (
+                <img
+                  src={imageItem.src}
+                  alt={imageItem.alt}
+                  className={cn(
+                    "object-cover",
+                    align === "end" ? "h-20 max-w-36" : "h-16 w-24",
+                  )}
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {filePaths.length > 0 ? (
+        <div className={cn("flex flex-wrap gap-1.5", justifyClassName)}>
+          {filePaths.map((path) => {
+            const className = cn(
+              "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground",
+              align === "end"
+                ? "border-surface-selected-border bg-surface-raised"
+                : "border-border bg-surface-recessed",
+            );
+            const detail = fileDetails.find((file) => file.path === path);
+            const label = (
+              <span className="truncate">
+                {detail?.name ?? fileNameFromPath(path)}
+                {detail?.sizeBytes == null
+                  ? ""
+                  : ` · ${formatByteSize(detail.sizeBytes)}`}
+              </span>
+            );
+            const attachmentHref = projectAttachmentHref({ path, projectId });
+
+            if (attachmentHref && openAttachment && projectId) {
+              return (
+                <button
+                  key={path}
+                  type="button"
+                  className={cn(
+                    className,
+                    "cursor-pointer hover:bg-state-hover",
+                  )}
+                  onClick={() =>
+                    openAttachment({
+                      name: detail?.name ?? fileNameFromPath(path),
+                      path,
+                      projectId,
+                    })
+                  }
+                >
+                  {label}
+                </button>
+              );
+            }
+
+            if (attachmentHref) {
+              return (
+                <a
+                  key={path}
+                  href={attachmentHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => {
+                    if (!canSaveFileNatively()) return;
+                    event.preventDefault();
+                    void saveFile({
+                      url: attachmentHref,
+                      fileName: detail?.name ?? fileNameFromPath(path),
+                    });
+                  }}
+                  className={cn(
+                    className,
+                    "cursor-pointer hover:bg-state-hover",
+                  )}
+                >
+                  {label}
+                </a>
+              );
+            }
+
+            if (!onOpenLocalFileLink || !isAbsoluteLocalPath({ path })) {
+              return (
+                <span key={path} className={cn(className, "cursor-default")}>
+                  {label}
+                </span>
+              );
+            }
+
+            return (
+              <button
+                key={path}
+                type="button"
+                className={cn(className, "cursor-pointer hover:bg-state-hover")}
+                onClick={() => {
+                  onOpenLocalFileLink({
+                    lineRange: null,
+                    openTargetId: null,
+                    path,
+                  });
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <ImageLightbox
+        title="Attached media preview"
+        mediaType={currentImageItem?.mediaType}
+        imageSrc={currentImageItem?.src ?? null}
+        imageAlt={currentImageItem?.alt ?? "Attached image"}
+        hasMultipleImages={hasMultipleImages}
+        onPrevious={() => {
+          setExpandedImageIndex(
+            expandedImageIndex === null || imageItems.length <= 1
+              ? expandedImageIndex
+              : getWrappedImageIndex({
+                  currentIndex: expandedImageIndex,
+                  direction: "previous",
+                  itemCount: imageItems.length,
+                }),
+          );
+        }}
+        onNext={() => {
+          setExpandedImageIndex(
+            expandedImageIndex === null || imageItems.length <= 1
+              ? expandedImageIndex
+              : getWrappedImageIndex({
+                  currentIndex: expandedImageIndex,
+                  direction: "next",
+                  itemCount: imageItems.length,
+                }),
+          );
+        }}
+        onClose={() => setExpandedImageIndex(null)}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,137 @@
+import { expect, it } from "vitest";
+import { z } from "zod";
+import { createBbSdk } from "../src/core.js";
+import { createHttpTransport } from "../src/transport-http.js";
+
+it("discovers published methods with filters and calls using a copied response schema", async () => {
+  const requests: string[] = [];
+  const sdk = createBbSdk({
+    transport: createHttpTransport({
+      baseUrl: "http://bb.test",
+      runtime: "node",
+      fetch: async (input) => {
+        const url = String(input);
+        requests.push(url);
+        return Response.json(
+          url.includes("/rpc?")
+            ? [
+                {
+                  pluginId: "pool",
+                  displayName: "Pool",
+                  method: "usage.v1.get",
+                  registrationDescription: "Shared accounts",
+                  methodDescription: null,
+                  inputSchema: { type: "null" },
+                  outputSchema: { type: "object" },
+                },
+              ]
+            : { ok: true, result: { percent: 42 } },
+        );
+      },
+    }),
+  });
+  const [source] = await sdk.plugins.experimental_discoverRpc({
+    pluginId: "pool",
+    method: "usage.v1.get",
+  });
+  expect(source?.registrationDescription).toBe("Shared accounts");
+  expect(requests[0]).toContain("pluginId=pool&method=usage.v1.get");
+  await expect(
+    sdk.plugins.callRpc({
+      pluginId: "pool",
+      method: "usage.v1.get",
+      input: null,
+      outputSchema: z.object({ percent: z.number() }),
+    }),
+  ).resolves.toEqual({ percent: 42 });
+  await expect(
+    sdk.plugins.callRpc({
+      pluginId: "pool",
+      method: "usage.v1.get",
+      input: null,
+      outputSchema: z.object({ percent: z.string() }),
+    }),
+  ).rejects.toThrow();
+});
+
+it("omits absent and explicitly undefined discovery filters", async () => {
+  const urls: URL[] = [];
+  const sdk = createBbSdk({
+    transport: createHttpTransport({
+      baseUrl: "http://bb.test",
+      runtime: "node",
+      fetch: async (input) => {
+        urls.push(new URL(String(input)));
+        return Response.json([]);
+      },
+    }),
+  });
+  await sdk.plugins.experimental_discoverRpc();
+  await sdk.plugins.experimental_discoverRpc({
+    method: undefined,
+    pluginId: undefined,
+  });
+  await sdk.plugins.experimental_discoverRpc({
+    pluginId: "pool",
+    method: undefined,
+  });
+  expect(urls.map((url) => Object.fromEntries(url.searchParams))).toEqual([
+    {},
+    {},
+    { pluginId: "pool" },
+  ]);
+});
+
+it("cancels an in-flight discovery request when its signal aborts", async () => {
+  const sdk = createBbSdk({
+    transport: createHttpTransport({
+      baseUrl: "http://bb.test",
+      runtime: "node",
+      fetch: (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(init.signal?.reason),
+          );
+        }),
+    }),
+  });
+  const controller = new AbortController();
+  const discovery = sdk.plugins.experimental_discoverRpc({
+    method: "usage.v1.get",
+    signal: controller.signal,
+  });
+  controller.abort(new Error("unmounted"));
+  await expect(discovery).rejects.toThrow("unmounted");
+});
+
+it.each([
+  ["forbidden", 403],
+  ["not_found", 404],
+  ["conflict", 409],
+  ["invalid", 422],
+])("callRpc preserves refusal %s and HTTP %s", async (code, status) => {
+  const error = {
+    code,
+    message: "Caller cannot write",
+    issues: [{ path: ["id"], message: "Unavailable" }],
+  };
+  const sdk = createBbSdk({
+    transport: createHttpTransport({
+      baseUrl: "http://bb.test",
+      runtime: "node",
+      fetch: async () => Response.json({ ok: false, error }, { status }),
+    }),
+  });
+  await expect(
+    sdk.plugins.callRpc({
+      pluginId: "private",
+      method: "write",
+      outputSchema: z.null(),
+    }),
+  ).rejects.toMatchObject({
+    code,
+    status,
+    message: `HTTP ${status}: Caller cannot write`,
+    body: { ok: false, error },
+  });
+});

@@ -1,0 +1,2 @@
+DROP INDEX `pending_interactions_provider_request_idx`;--> statement-breakpoint
+CREATE UNIQUE INDEX `pending_interactions_provider_request_idx` ON `pending_interactions` (`provider_id`,`provider_thread_id`,`provider_request_id`);

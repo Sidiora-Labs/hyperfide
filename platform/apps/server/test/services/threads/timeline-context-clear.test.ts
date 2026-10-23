@@ -1,0 +1,476 @@
+import { describe, expect, it } from "vitest";
+import {
+  encodeClientTurnRequestIdNumber,
+  THREAD_CONTEXT_CLEAR_OPERATION,
+  threadScope,
+  turnScope,
+  type Thread,
+} from "@bb/domain";
+import {
+  createProject,
+  createThread,
+  insertEvents,
+  listEvents,
+  noopNotifier,
+  upsertHost,
+  type DbConnection,
+} from "@bb/db";
+import { createMigratedConnection } from "@bb/db/testing";
+import {
+  buildThreadConversationOutline,
+  buildThreadTimelineWithProfile,
+  getThreadMessage,
+  loadThreadConversationOutline,
+  THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT,
+} from "../../../src/services/threads/timeline.js";
+
+function clientTurnRequestedEvent(
+  thread: Thread,
+  sequence: number,
+  value: number,
+  text: string,
+) {
+  return {
+    threadId: thread.id,
+    sequence,
+    type: "client/turn/requested" as const,
+    scope: threadScope(),
+    itemId: null,
+    itemKind: null,
+    parentToolCallId: null,
+    data: JSON.stringify({
+      direction: "outbound",
+      source: "tell",
+      initiator: "user",
+      request: { method: "turn/start", params: {} },
+      requestId: encodeClientTurnRequestIdNumber({ value }),
+      senderThreadId: null,
+      input: [{ type: "text", text, mentions: [] }],
+      target: { kind: "new-turn" },
+      execution: {
+        model: "gpt-5",
+        serviceTier: "default",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        source: "client/turn/requested",
+      },
+    }),
+  };
+}
+
+function setup(): { db: DbConnection; thread: Thread } {
+  const db = createMigratedConnection();
+  const host = upsertHost(db, noopNotifier, {
+    name: "test-host",
+  });
+  const { project } = createProject(db, noopNotifier, {
+    name: "test-project",
+    source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
+  });
+  const thread = createThread(db, noopNotifier, {
+    projectId: project.id,
+    providerId: "codex",
+  });
+  return { db, thread };
+}
+
+describe("timeline context-clear epochs", () => {
+  it("excludes large old events from byte budgets and rejects cursors before the boundary", () => {
+    const { db, thread } = setup();
+    try {
+      insertEvents(db, noopNotifier, [
+        {
+          threadId: thread.id,
+          sequence: 1,
+          type: "system/manager/user_message",
+          scope: threadScope(),
+          itemId: null,
+          itemKind: null,
+          parentToolCallId: null,
+          data: JSON.stringify({
+            text: "x".repeat(THREAD_TIMELINE_EVENT_DATA_BYTE_LIMIT + 1),
+          }),
+        },
+        {
+          threadId: thread.id,
+          sequence: 2,
+          type: "system/operation",
+          scope: threadScope(),
+          itemId: null,
+          itemKind: null,
+          parentToolCallId: null,
+          data: JSON.stringify({
+            operation: THREAD_CONTEXT_CLEAR_OPERATION,
+            operationId: "clear",
+            status: "completed",
+            message: "Fresh context",
+          }),
+        },
+      ]);
+      const options = {
+        eventBudget: 1_000,
+        includeNestedRows: true,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        maxInlineOutputChars: null,
+        maxSeq: 2,
+      };
+      const latest = buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        ...options,
+        page: { kind: "latest", segmentLimit: 20 },
+      }).response;
+      expect(latest.rows).toEqual([
+        expect.objectContaining({
+          sourceSeqStart: 2,
+          title: "Context cleared",
+        }),
+      ]);
+      expect(latest.timelinePage).toMatchObject({
+        olderCursor: null,
+      });
+      expect(
+        () =>
+          buildThreadTimelineWithProfile(db, thread, {
+            completedTurnDisplay: "collapse",
+            ...options,
+            page: {
+              kind: "older",
+              segmentLimit: 20,
+              beforeCursor: { anchorId: "old-anchor", anchorSeq: 1 },
+            },
+          }).response,
+      ).toThrow(/no longer available/);
+    } finally {
+      db.$client.close();
+    }
+  });
+
+  it("shows only the latest completed epoch while retaining older events", () => {
+    const { db, thread } = setup();
+    insertEvents(db, noopNotifier, [
+      {
+        threadId: thread.id,
+        sequence: 1,
+        type: "system/manager/user_message",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({ text: "Old visible response" }),
+      },
+      {
+        threadId: thread.id,
+        sequence: 2,
+        type: "thread/contextWindowUsage/updated",
+        scope: turnScope("old-turn"),
+        providerThreadId: "provider-old",
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({
+          contextWindowUsage: {
+            estimated: false,
+            modelContextWindow: 100_000,
+            usedTokens: 9_000,
+          },
+        }),
+      },
+      {
+        threadId: thread.id,
+        sequence: 3,
+        type: "system/operation",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({
+          operation: THREAD_CONTEXT_CLEAR_OPERATION,
+          operationId: "failed-clear",
+          status: "failed",
+          message: "Clear failed",
+        }),
+      },
+      {
+        threadId: thread.id,
+        sequence: 4,
+        type: "system/manager/user_message",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({ text: "Still visible before success" }),
+      },
+      {
+        threadId: thread.id,
+        sequence: 5,
+        type: "system/operation",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({
+          operation: THREAD_CONTEXT_CLEAR_OPERATION,
+          operationId: "completed-clear",
+          status: "completed",
+          message: "Fresh context",
+        }),
+      },
+      {
+        threadId: thread.id,
+        sequence: 6,
+        type: "system/manager/user_message",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({ text: "Newest response" }),
+      },
+    ]);
+
+    const timeline = buildThreadTimelineWithProfile(db, thread, {
+      completedTurnDisplay: "collapse",
+      eventBudget: 1_000,
+      includeNestedRows: true,
+      includeClearedContextHistory: false,
+      includeDiagnosticOperations: false,
+      compactionOfferEnabled: false,
+      summarizeShellCommands: true,
+      maxInlineOutputChars: null,
+      maxSeq: 6,
+      page: { kind: "latest", segmentLimit: 20 },
+    }).response;
+
+    expect(timeline.contextBoundarySeq).toBe(5);
+    expect(
+      timeline.rows.map((row) => {
+        if (row.kind === "conversation") return row.text;
+        if (row.kind === "system") return row.title;
+        return row.kind;
+      }),
+    ).toEqual(["Context cleared", "Newest response"]);
+    expect(timeline.contextWindowUsage).toBeUndefined();
+    expect(timeline.timelinePage).toMatchObject({
+      olderCursor: null,
+    });
+    expect(
+      buildThreadConversationOutline(db, thread, {
+        completedTurnDisplay: "collapse",
+        includeClearedContextHistory: false,
+        maxSeq: 6,
+      }).items.map((item) => item.preview),
+    ).toEqual(["Newest response"]);
+    expect(listEvents(db, { threadId: thread.id })).toHaveLength(6);
+    db.$client.close();
+  });
+
+  it("never paginates older rows across the completed context boundary", () => {
+    const { db, thread } = setup();
+    const requestEvent = (sequence: number, value: number, text: string) =>
+      clientTurnRequestedEvent(thread, sequence, value, text);
+    insertEvents(db, noopNotifier, [
+      {
+        threadId: thread.id,
+        sequence: 1,
+        type: "system/manager/user_message",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({ text: "Old chat must stay hidden" }),
+      },
+      {
+        threadId: thread.id,
+        sequence: 2,
+        type: "system/operation",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({
+          operation: THREAD_CONTEXT_CLEAR_OPERATION,
+          operationId: "completed-clear",
+          status: "completed",
+          message: "Fresh context",
+        }),
+      },
+      requestEvent(3, 1, "First fresh message"),
+      {
+        threadId: thread.id,
+        sequence: 4,
+        type: "system/manager/user_message",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({ text: "First fresh response" }),
+      },
+      requestEvent(5, 2, "Second fresh message"),
+      {
+        threadId: thread.id,
+        sequence: 6,
+        type: "system/manager/user_message",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({ text: "Second fresh response" }),
+      },
+    ]);
+
+    let page = buildThreadTimelineWithProfile(db, thread, {
+      completedTurnDisplay: "collapse",
+      eventBudget: 1_000,
+      includeNestedRows: true,
+      includeClearedContextHistory: false,
+      includeDiagnosticOperations: false,
+      compactionOfferEnabled: false,
+      summarizeShellCommands: true,
+      maxInlineOutputChars: null,
+      maxSeq: 6,
+      page: { kind: "latest", segmentLimit: 1 },
+    }).response;
+    const rowSequences: number[] = [];
+
+    for (;;) {
+      expect(page.contextBoundarySeq).toBe(2);
+      rowSequences.push(...page.rows.map((row) => row.sourceSeqStart));
+      expect(page.rows.every((row) => row.sourceSeqStart >= 2)).toBe(true);
+      if (page.timelinePage.olderCursor === null) break;
+      const cursor = page.timelinePage.olderCursor;
+      if (cursor === null) throw new Error("expected an older cursor");
+      expect(cursor.anchorSeq).toBeGreaterThanOrEqual(2);
+      page = buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 1_000,
+        includeNestedRows: true,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        maxInlineOutputChars: null,
+        maxSeq: 6,
+        page: { kind: "older", segmentLimit: 1, beforeCursor: cursor },
+      }).response;
+    }
+
+    expect(rowSequences).toContain(2);
+    expect(rowSequences).not.toContain(1);
+    expect(page.timelinePage).toMatchObject({
+      olderCursor: null,
+    });
+    db.$client.close();
+  });
+
+  it("pages earlier contexts above the boundary when cleared history is included", () => {
+    const { db, thread } = setup();
+    insertEvents(db, noopNotifier, [
+      clientTurnRequestedEvent(thread, 1, 1, "Earlier task"),
+      {
+        threadId: thread.id,
+        sequence: 2,
+        type: "thread/contextWindowUsage/updated",
+        scope: turnScope("old-turn"),
+        providerThreadId: "provider-old",
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({
+          contextWindowUsage: {
+            estimated: false,
+            modelContextWindow: 100_000,
+            usedTokens: 9_000,
+          },
+        }),
+      },
+      {
+        threadId: thread.id,
+        sequence: 3,
+        type: "system/operation",
+        scope: threadScope(),
+        itemId: null,
+        itemKind: null,
+        parentToolCallId: null,
+        data: JSON.stringify({
+          operation: THREAD_CONTEXT_CLEAR_OPERATION,
+          operationId: "completed-clear",
+          status: "completed",
+          message: "Fresh context",
+        }),
+      },
+      clientTurnRequestedEvent(thread, 4, 2, "Fresh task"),
+    ]);
+    const options = {
+      completedTurnDisplay: "collapse" as const,
+      eventBudget: 1_000,
+      includeNestedRows: true,
+      includeClearedContextHistory: true,
+      includeDiagnosticOperations: false,
+      compactionOfferEnabled: false,
+      summarizeShellCommands: true,
+      maxInlineOutputChars: null,
+      maxSeq: 4,
+    };
+
+    let page = buildThreadTimelineWithProfile(db, thread, {
+      ...options,
+      page: { kind: "latest", segmentLimit: 1 },
+    }).response;
+    expect(page.contextBoundarySeq).toBe(3);
+    expect(page.contextWindowUsage).toBeUndefined();
+    const rows: string[] = [];
+    for (;;) {
+      rows.unshift(
+        ...page.rows.map((row) => {
+          if (row.kind === "conversation") return row.text;
+          if (row.kind === "system") return row.title;
+          return row.kind;
+        }),
+      );
+      const cursor = page.timelinePage.olderCursor;
+      if (page.timelinePage.olderCursor === null || cursor === null) break;
+      page = buildThreadTimelineWithProfile(db, thread, {
+        ...options,
+        page: { kind: "older", segmentLimit: 1, beforeCursor: cursor },
+      }).response;
+    }
+    expect(rows).toEqual(["Earlier task", "Context cleared", "Fresh task"]);
+
+    const outlineOptions = {
+      completedTurnDisplay: "collapse" as const,
+      includeClearedContextHistory: true,
+      maxSeq: 4,
+    };
+    expect(
+      buildThreadConversationOutline(db, thread, outlineOptions).items.map(
+        (item) => item.preview,
+      ),
+    ).toEqual(["Earlier task", "Fresh task"]);
+    expect(
+      loadThreadConversationOutline(db, thread, {
+        ...outlineOptions,
+        outlineSequence: 4,
+      }).items.map((item) => item.preview),
+    ).toEqual(["Earlier task", "Fresh task"]);
+    expect(
+      getThreadMessage(db, thread, {
+        ...outlineOptions,
+        seq: 1,
+        before: 0,
+        after: 0,
+      }).message.text,
+    ).toBe("Earlier task");
+    expect(() =>
+      getThreadMessage(db, thread, {
+        ...outlineOptions,
+        includeClearedContextHistory: false,
+        seq: 1,
+        before: 0,
+        after: 0,
+      }),
+    ).toThrow(/context clear hidden it/);
+    db.$client.close();
+  });
+});

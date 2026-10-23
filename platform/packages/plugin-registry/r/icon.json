@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "icon",
+  "type": "registry:ui",
+  "title": "icon",
+  "description": "BB ui \"icon\" — the plugin version of the BB app's icon, drawing on the host app at runtime (version-matched to this BB release).",
+  "files": [
+    {
+      "path": "registry/components/ui/icon.tsx",
+      "content": "import {\n  experimental_Icon,\n  type ExperimentalIconProps,\n} from \"@get-bb/plugin-sdk/app\";\n\nexport type IconName = string;\nexport type IconProps = ExperimentalIconProps;\nexport const Icon = experimental_Icon;\n",
+      "type": "registry:ui",
+      "target": "components/ui/icon.tsx"
+    }
+  ]
+}

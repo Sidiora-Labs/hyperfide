@@ -1,0 +1,62 @@
+import type {
+  ThreadResponse,
+  ThreadTimelineResponse,
+} from "@bb/server-contract";
+import { makeThreadWithRuntime } from "@bb/test-helpers/domain-fixtures";
+
+type ThreadResponseOverrides = Omit<Partial<ThreadResponse>, "runtime"> & {
+  runtime?: Partial<ThreadResponse["runtime"]>;
+};
+type ThreadTimelineResponseOverrides = Omit<
+  Partial<ThreadTimelineResponse>,
+  "timelinePage"
+> & {
+  timelinePage?: Partial<ThreadTimelineResponse["timelinePage"]>;
+};
+
+export function makeThreadResponse(
+  overrides: ThreadResponseOverrides = {},
+): ThreadResponse {
+  const thread = makeThreadWithRuntime({ runtime: overrides.runtime });
+  return {
+    ...thread,
+    activeBackgroundAgentCount: 0,
+    canRestoreEnvironment: false,
+    canEditMessages: true,
+    canSpawnChild: true,
+    queuedMessageCount: 0,
+    ...overrides,
+    runtime: thread.runtime,
+  };
+}
+
+export function makeThreadTimelineResponse(
+  overrides: ThreadTimelineResponseOverrides = {},
+): ThreadTimelineResponse {
+  const response: ThreadTimelineResponse = {
+    rows: [],
+    contextBoundarySeq: null,
+    completedTurnDisplay: "collapse",
+    activePromptMode: null,
+    activeThinking: null,
+    activeWorkflows: [],
+    activeBackgroundCommands: [],
+    pendingTodos: null,
+    goal: null,
+    providerCommands: null,
+    sessionOptions: null,
+    modelFallback: null,
+    maxSeq: 0,
+    timelinePage: {
+      returnedSegmentCount: 0,
+      olderCursor: null,
+      historySnapshot: "snapshot-1",
+      olderRowsSourceSeqEnd: null,
+    },
+  };
+  return {
+    ...response,
+    ...overrides,
+    timelinePage: { ...response.timelinePage, ...overrides.timelinePage },
+  };
+}

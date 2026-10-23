@@ -1,0 +1,74 @@
+{
+  "name": "bb-plugin-monaco-editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Edit files in BB with the Monaco editor instead of the read-only preview.",
+  "license": "MIT",
+  "homepage": "https://github.com/get-bb/bb#readme",
+  "bugs": {
+    "url": "https://github.com/get-bb/bb/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/get-bb/bb.git",
+    "directory": "plugins/monaco"
+  },
+  "files": [
+    "dist",
+    "server.ts",
+    "app.tsx",
+    "components",
+    "lib",
+    "README.md"
+  ],
+  "engines": {
+    "bb": ">=0.0",
+    "bbPluginSdk": ">=0.4.91"
+  },
+  "bb": {
+    "name": "File Editor",
+    "description": "Edit files in BB with the Monaco editor instead of the read-only preview.",
+    "branding": {
+      "icon": "Code"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "keywords": [
+    "bb-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit -p tsconfig.json",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "build:monaco": "node scripts/stage-assets.mjs",
+    "prepare:bundled": "bb-plugin-build prepare-bundled"
+  },
+  "dependencies": {
+    "@bb/shared-ui": "workspace:*",
+    "monaco-editor": "^0.56.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bb/plugin-build": "workspace:*",
+    "@get-bb/plugin-sdk": "workspace:*",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "esbuild": "^0.28.0",
+    "hono": "4.11.9",
+    "jsdom": "^29.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^1.7.4",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

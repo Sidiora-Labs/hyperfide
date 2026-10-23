@@ -1,0 +1,124 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Host, PermissionMode } from "@bb/domain";
+import { apiClient } from "@/lib/api-server";
+import { request } from "@/lib/api";
+import { sdk } from "@/lib/sdk";
+import { invalidateHostListQueries } from "../cache-owners/mutation-cache-effects";
+import { applyHostRenameResult } from "../cache-owners/system-cache-effects";
+
+interface RenameHostRequest {
+  hostId: string;
+  name: string;
+}
+
+export function useRenameHost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    meta: {
+      showErrorToast: false,
+    },
+    mutationFn: ({ hostId, name }: RenameHostRequest) =>
+      sdk.hosts.update({ hostId, name }),
+    onSuccess: (host) => {
+      applyHostRenameResult({ host, queryClient });
+      invalidateHostListQueries({ queryClient });
+    },
+  });
+}
+
+export function useRemoveHost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    meta: {
+      showErrorToast: false,
+    },
+    mutationFn: async ({
+      hostId,
+      force,
+    }: {
+      hostId: string;
+      force: boolean;
+    }) => {
+      await sdk.hosts.delete({ hostId, force });
+    },
+    onSuccess: () => {
+      invalidateHostListQueries({ queryClient });
+    },
+  });
+}
+
+interface UpdateHostPermissionCeilingRequest {
+  hostId: string;
+  maxPermissionMode: PermissionMode;
+}
+
+export function useUpdateHostPermissionCeiling() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    meta: {
+      showErrorToast: false,
+    },
+    mutationFn: ({
+      hostId,
+      maxPermissionMode,
+    }: UpdateHostPermissionCeilingRequest) =>
+      request<Host>(
+        apiClient.hosts[":id"]["permission-ceiling"].$patch({
+          param: { id: hostId },
+          json: { maxPermissionMode },
+        }),
+      ),
+    onSuccess: () => {
+      invalidateHostListQueries({ queryClient });
+    },
+  });
+}
+
+export function useRetryHostUpdate() {
+  return useMutation({
+    mutationFn: (hostId: string) => sdk.hosts.retryUpdate({ hostId }),
+  });
+}
+
+function useHostLifecycleMutation<Result>(
+  mutationFn: (hostId: string) => Promise<Result>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      invalidateHostListQueries({ queryClient });
+    },
+  });
+}
+
+export function useSuspendHost() {
+  return useHostLifecycleMutation((hostId) =>
+    sdk.hosts.experimental_suspend({ hostId }),
+  );
+}
+
+export function useResumeHost() {
+  return useHostLifecycleMutation((hostId) =>
+    sdk.hosts.experimental_resume({ hostId }),
+  );
+}
+
+export function useRetryHostCleanup() {
+  return useHostLifecycleMutation((hostId) =>
+    sdk.hosts.experimental_retryCleanup({ hostId }),
+  );
+}
+
+export function useReconnectHost() {
+  return useMutation({
+    meta: {
+      showErrorToast: false,
+    },
+    mutationFn: (hostId: string) =>
+      sdk.hosts.experimental_reconnect({ hostId }),
+  });
+}

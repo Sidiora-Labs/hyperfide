@@ -1,0 +1,512 @@
+import { PluginUpdateJobsHost } from "./components/plugin/PluginUpdateJobsHost";
+import { LazyThreadDetailView } from "./views/thread-detail/LazyThreadDetailView";
+import { LazyRootComposeView } from "./views/LazyRootComposeView";
+import { useRouteState } from "./hooks/useRouteState";
+import { lazy, Suspense, useEffect } from "react";
+import { parseMessageLink } from "@bb/client-core";
+import {
+  matchPath,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from "react-router-dom";
+import { AppLayout } from "./components/layout/AppLayout";
+import { AuthCallbackView } from "./views/AuthCallbackView";
+import { QuickCreateProjectProvider } from "./hooks/useQuickCreateProject";
+import { RouteNavigationProvider } from "./components/ui/app-route-anchor";
+import { RouteNavigationIndicator } from "./components/ui/route-navigation-indicator";
+import { AppNavigationUrlHost } from "./lib/url-open-routing";
+import { NativeShellReporter } from "./lib/native-shell";
+import { UiPreferencesSync } from "@/lib/ui-preferences/UiPreferencesSync";
+import { AppFileExternalNavigationHost } from "./components/plugin/AppFileExternalNavigationHost";
+import { pluginDetailKeyFromRoute } from "./components/plugin/plugin-detail-key";
+import { useAppTheme } from "./hooks/useAppTheme";
+import { useFaviconColorSync } from "./lib/favicon-color-preference";
+import { useDesktopThemeSync } from "./hooks/useDesktopThemeSync";
+import { usePluginFrontendBoot } from "./hooks/usePluginFrontendBoot";
+import { markRouteContentPainted } from "./lib/route-content-paint";
+import { useRememberPluginNavPanelChrome } from "@/lib/plugin-nav-panel-chrome";
+import { useWebSocket } from "./hooks/useWebSocket";
+import {
+  AUTH_CALLBACK_ROUTE_PATH,
+  LEGACY_AUTOMATION_DETAIL_ROUTE_PATH,
+  LEGACY_AUTOMATIONS_ROUTE_PATH,
+  LEGACY_TOOLS_AUTOMATION_BROWSE_ROUTE_PATH,
+  LEGACY_TOOLS_AUTOMATION_DETAIL_ROUTE_PATH,
+  LEGACY_TOOLS_AUTOMATION_EDIT_ROUTE_PATH,
+  LEGACY_TOOLS_AUTOMATIONS_ROUTE_PATH,
+  LEGACY_TOOLS_PREFIX_ROUTE_PATH,
+  LEGACY_TOOLS_SKILL_DETAIL_ROUTE_PATH,
+  LEGACY_TOOLS_SPLAT_ROUTE_PATH,
+  PROJECT_ARCHIVED_ROUTE_PATH,
+  PROJECTLESS_ARCHIVED_ROUTE_PATH,
+  LEGACY_PROJECT_SETTINGS_ROUTE_PATH,
+  PLUGIN_DETAIL_ROUTE_PATH,
+  PLUGINS_ROUTE_PATH,
+  REGISTRY_SKILL_DETAIL_ROUTE_PATH,
+  REGISTRY_SKILLS_ROUTE_PATH,
+  SETTINGS_PLUGIN_ROUTE_PATH,
+  SETTINGS_PLUGINS_ROUTE_PATH,
+  SETTINGS_MACHINE_ROUTE_PATH,
+  SETTINGS_PROJECT_ROUTE_PATH,
+  SETTINGS_ROUTE_PATH,
+  SETTINGS_SECTION_ROUTE_PATH,
+  SKILL_DETAIL_ROUTE_PATH,
+  SKILLS_ROUTE_PATH,
+  TOOLS_PLUGIN_BROWSE_ROUTE_PATH,
+  TOOLS_PLUGIN_DETAIL_ROUTE_PATH,
+  TOOLS_PLUGINS_ROUTE_PATH,
+  TOOLS_REGISTRY_SKILL_DETAIL_ROUTE_PATH,
+  TOOLS_REGISTRY_SKILLS_ROUTE_PATH,
+  TOOLS_ROUTE_PATH,
+  APP_ROOT_ROUTE_PATH,
+  TOOLS_SKILL_DETAIL_ROUTE_PATH,
+  TOOLS_SKILLS_ROUTE_PATH,
+  getAutomationDetailRoutePath,
+  getAutomationEditRoutePath,
+  getAutomationsRoutePath,
+  getPluginConfigurationRoutePath,
+  getSettingsRoutePath,
+  getSettingsProjectRoutePath,
+} from "./lib/route-paths";
+import { AppCommandProvider } from "./components/commands/AppCommandProvider";
+import { WindowFindHost } from "./components/layout/WindowFindHost";
+import { DesktopZoomIndicator } from "./components/layout/DesktopZoomIndicator";
+import { ProviderCliInstallLogDialogHost } from "./components/provider-cli/provider-cli-install";
+import { ServerMoveOverlay } from "./components/machines/ServerMoveOverlay";
+import { OnboardingGate } from "./components/onboarding/OnboardingGate";
+import { AppUpdateHost } from "./components/app-update/AppUpdateHost";
+import { PluginInstallJobsHost } from "./components/plugin/PluginInstallJobsHost";
+import { RouteLoadingSkeleton } from "./components/ui/route-loading-skeleton";
+import { ThreadTimelineLoadingSkeleton } from "./components/thread/timeline/ThreadTimelineLoadingSkeleton";
+import {
+  startSplitPreloading,
+  trackCriticalLoad,
+  whenCriticalLoadsSettled,
+} from "./lib/split-prefetch";
+
+const SettingsView = lazy(() =>
+  import("./views/SettingsView").then((m) => ({
+    default: m.SettingsView,
+  })),
+);
+const PluginsView = lazy(() =>
+  import("./views/ToolsView").then((m) => ({
+    default: m.PluginsView,
+  })),
+);
+const SkillsView = lazy(() =>
+  import("./views/ToolsView").then((m) => ({
+    default: m.SkillsView,
+  })),
+);
+const ProjectDetailSettingsView = lazy(() =>
+  import("./views/ProjectDetailSettingsView").then((m) => ({
+    default: m.ProjectDetailSettingsView,
+  })),
+);
+const MachineSettingsView = lazy(() =>
+  import("./views/MachineSettingsView").then((m) => ({
+    default: m.MachineSettingsView,
+  })),
+);
+const splitWorkspaceRouteModule = trackCriticalLoad(
+  import("./views/SplitWorkspaceRoute"),
+);
+splitWorkspaceRouteModule.catch(() => {});
+const SplitWorkspaceRoute = lazy(() => splitWorkspaceRouteModule);
+
+function NavigatePreservingLocation({ pathname }: { pathname: string }) {
+  const location = useLocation();
+  return (
+    <Navigate
+      to={{ pathname, search: location.search, hash: location.hash }}
+      replace
+    />
+  );
+}
+
+function LegacyProjectSettingsRedirect() {
+  const { projectId } = useParams<{ projectId: string }>();
+  return (
+    <NavigatePreservingLocation
+      pathname={
+        projectId
+          ? getSettingsProjectRoutePath(projectId)
+          : getSettingsRoutePath("projects")
+      }
+    />
+  );
+}
+
+function LegacyAutomationDetailRedirect() {
+  const location = useLocation();
+  const { projectId, automationId } = useParams<{
+    projectId?: string;
+    automationId?: string;
+  }>();
+
+  if (!projectId || !automationId) {
+    return <Navigate to={getAutomationsRoutePath()} replace />;
+  }
+  return (
+    <Navigate
+      to={
+        location.pathname.endsWith("/edit")
+          ? getAutomationEditRoutePath({ projectId, automationId })
+          : getAutomationDetailRoutePath({ projectId, automationId })
+      }
+      replace
+    />
+  );
+}
+
+function LegacyAutomationCollectionRedirect() {
+  const location = useLocation();
+  const browse =
+    location.pathname.endsWith("/browse") ||
+    new URLSearchParams(location.search).get("view") === "browse";
+  return (
+    <Navigate
+      to={
+        browse
+          ? `${getAutomationsRoutePath()}/browse`
+          : getAutomationsRoutePath()
+      }
+      replace
+    />
+  );
+}
+
+function normalizeLegacyPluginSuffix(suffix: string): string {
+  return matchPath("/browse", suffix) !== null ? "" : suffix;
+}
+
+export function LegacyPluginsPathRedirect() {
+  const location = useLocation();
+  const suffix = normalizeLegacyPluginSuffix(
+    location.pathname.slice(TOOLS_PLUGINS_ROUTE_PATH.length),
+  );
+  return (
+    <NavigatePreservingLocation pathname={`${PLUGINS_ROUTE_PATH}${suffix}`} />
+  );
+}
+
+function normalizeLegacySkillSuffix(suffix: string): string {
+  if (suffix === "/installed") return "/library";
+  if (suffix.startsWith("/installed/")) {
+    return `/library/${suffix.slice("/installed/".length)}`;
+  }
+  return suffix;
+}
+
+export function LegacySkillsPathRedirect() {
+  const location = useLocation();
+  const suffix = normalizeLegacySkillSuffix(
+    location.pathname.slice(TOOLS_SKILLS_ROUTE_PATH.length),
+  );
+  return (
+    <NavigatePreservingLocation pathname={`${SKILLS_ROUTE_PATH}${suffix}`} />
+  );
+}
+
+export function LegacyToolsPathRedirect() {
+  const location = useLocation();
+  const suffix = location.pathname.slice(LEGACY_TOOLS_PREFIX_ROUTE_PATH.length);
+  const pathname = suffix.startsWith("/plugins")
+    ? `${PLUGINS_ROUTE_PATH}${normalizeLegacyPluginSuffix(
+        suffix.slice("/plugins".length),
+      )}`
+    : suffix.startsWith("/skills")
+      ? `${SKILLS_ROUTE_PATH}${normalizeLegacySkillSuffix(
+          suffix.slice("/skills".length),
+        )}`
+      : suffix === "" || suffix === "/"
+        ? PLUGINS_ROUTE_PATH
+        : `${TOOLS_ROUTE_PATH}${suffix}`;
+  return <NavigatePreservingLocation pathname={pathname} />;
+}
+
+function hashTargetId(hash: string): string | null {
+  if (hash.length <= 1) return null;
+  try {
+    return decodeURIComponent(hash.slice(1));
+  } catch {
+    return hash.slice(1);
+  }
+}
+
+const HASH_NAVIGATION_WAIT_MS = 2_000;
+
+export function HashNavigationScroll() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (parseMessageLink(`${location.pathname}${location.hash}`) !== null) {
+      return;
+    }
+    const targetId = hashTargetId(location.hash);
+    if (targetId === null) return;
+
+    const scrollToTarget = (): boolean => {
+      const target = document.getElementById(targetId);
+      if (target === null) return false;
+      if (target.tabIndex < 0 && !target.hasAttribute("tabindex")) {
+        target.tabIndex = -1;
+      }
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: "start", inline: "nearest" });
+      return true;
+    };
+
+    if (scrollToTarget()) return;
+
+    let observer: MutationObserver | null = null;
+    let timeoutId: number | null = null;
+    const stopWaiting = () => {
+      observer?.disconnect();
+      observer = null;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+    observer = new MutationObserver(() => {
+      if (scrollToTarget()) stopWaiting();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    timeoutId = window.setTimeout(stopWaiting, HASH_NAVIGATION_WAIT_MS);
+    return stopWaiting;
+  }, [location.hash, location.key, location.pathname]);
+
+  return null;
+}
+
+export function AppRoutes() {
+  const { isThreadView } = useRouteState();
+  const isRootComposeView = useLocation().pathname === APP_ROOT_ROUTE_PATH;
+  useEffect(() => {
+    if (isThreadView) void trackCriticalLoad(LazyThreadDetailView.preload());
+  }, [isThreadView]);
+  useEffect(() => {
+    if (isRootComposeView)
+      void trackCriticalLoad(LazyRootComposeView.preload());
+  }, [isRootComposeView]);
+  return (
+    <AppLayout>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route
+            path="/settings/usage"
+            element={
+              <Navigate
+                to={getPluginConfigurationRoutePath({
+                  pluginId: "bb--provider-usage",
+                })}
+                replace
+              />
+            }
+          />
+          <Route path={SETTINGS_ROUTE_PATH} element={<SettingsView />} />
+          <Route
+            path={SETTINGS_SECTION_ROUTE_PATH}
+            element={<SettingsView />}
+          />
+          <Route
+            path={SETTINGS_PLUGINS_ROUTE_PATH}
+            element={<SettingsView />}
+          />
+          <Route path={SETTINGS_PLUGIN_ROUTE_PATH} element={<SettingsView />} />
+          <Route
+            path={SETTINGS_MACHINE_ROUTE_PATH}
+            element={<MachineSettingsView />}
+          />
+          <Route
+            path={SETTINGS_PROJECT_ROUTE_PATH}
+            element={<ProjectDetailSettingsView />}
+          />
+          <Route
+            path={LEGACY_PROJECT_SETTINGS_ROUTE_PATH}
+            element={<LegacyProjectSettingsRedirect />}
+          />
+          <Route
+            path={PROJECT_ARCHIVED_ROUTE_PATH}
+            element={<Navigate to={getSettingsRoutePath("archived")} replace />}
+          />
+          <Route
+            path={PROJECTLESS_ARCHIVED_ROUTE_PATH}
+            element={<Navigate to={getSettingsRoutePath("archived")} replace />}
+          />
+          <Route
+            path={LEGACY_TOOLS_AUTOMATIONS_ROUTE_PATH}
+            element={<LegacyAutomationCollectionRedirect />}
+          />
+          <Route
+            path={LEGACY_TOOLS_AUTOMATION_BROWSE_ROUTE_PATH}
+            element={<LegacyAutomationCollectionRedirect />}
+          />
+          <Route
+            path={LEGACY_TOOLS_AUTOMATION_DETAIL_ROUTE_PATH}
+            element={<LegacyAutomationDetailRedirect />}
+          />
+          <Route
+            path={LEGACY_TOOLS_AUTOMATION_EDIT_ROUTE_PATH}
+            element={<LegacyAutomationDetailRedirect />}
+          />
+          <Route
+            path={LEGACY_AUTOMATIONS_ROUTE_PATH}
+            element={<LegacyAutomationCollectionRedirect />}
+          />
+          <Route
+            path={LEGACY_AUTOMATION_DETAIL_ROUTE_PATH}
+            element={<LegacyAutomationDetailRedirect />}
+          />
+          <Route
+            path={TOOLS_ROUTE_PATH}
+            element={
+              <NavigatePreservingLocation pathname={PLUGINS_ROUTE_PATH} />
+            }
+          />
+          <Route
+            path={TOOLS_PLUGINS_ROUTE_PATH}
+            element={<LegacyPluginsPathRedirect />}
+          />
+          <Route
+            path={TOOLS_PLUGIN_BROWSE_ROUTE_PATH}
+            element={<LegacyPluginsPathRedirect />}
+          />
+          <Route
+            path={TOOLS_PLUGIN_DETAIL_ROUTE_PATH}
+            element={<LegacyPluginsPathRedirect />}
+          />
+          <Route
+            path={TOOLS_SKILLS_ROUTE_PATH}
+            element={<LegacySkillsPathRedirect />}
+          />
+          <Route
+            path={TOOLS_SKILL_DETAIL_ROUTE_PATH}
+            element={<LegacySkillsPathRedirect />}
+          />
+          <Route
+            path={LEGACY_TOOLS_SKILL_DETAIL_ROUTE_PATH}
+            element={<LegacySkillsPathRedirect />}
+          />
+          <Route
+            path={TOOLS_REGISTRY_SKILLS_ROUTE_PATH}
+            element={<LegacySkillsPathRedirect />}
+          />
+          <Route
+            path={TOOLS_REGISTRY_SKILL_DETAIL_ROUTE_PATH}
+            element={<LegacySkillsPathRedirect />}
+          />
+          <Route
+            path={LEGACY_TOOLS_PREFIX_ROUTE_PATH}
+            element={<LegacyToolsPathRedirect />}
+          />
+          <Route
+            path={LEGACY_TOOLS_SPLAT_ROUTE_PATH}
+            element={<LegacyToolsPathRedirect />}
+          />
+          <Route path={SKILLS_ROUTE_PATH} element={<SkillsView />} />
+          <Route path={SKILL_DETAIL_ROUTE_PATH} element={<SkillsView />} />
+          <Route path={REGISTRY_SKILLS_ROUTE_PATH} element={<SkillsView />} />
+          <Route
+            path={REGISTRY_SKILL_DETAIL_ROUTE_PATH}
+            element={<SkillsView />}
+          />
+          <Route path={PLUGINS_ROUTE_PATH} element={<PluginsRoute />} />
+          <Route path={PLUGIN_DETAIL_ROUTE_PATH} element={<PluginsRoute />} />
+          <Route
+            path="*"
+            element={
+              <Suspense
+                fallback={
+                  <RouteLoadingSkeleton
+                    isBoundedPane={false}
+                    variant={isRootComposeView ? "root-compose" : "default"}
+                  >
+                    {isThreadView ? <ThreadTimelineLoadingSkeleton /> : null}
+                  </RouteLoadingSkeleton>
+                }
+              >
+                <SplitWorkspaceRoute />
+              </Suspense>
+            }
+          />
+        </Routes>
+        <RouteContentPaintSignal />
+      </Suspense>
+    </AppLayout>
+  );
+}
+
+function RouteContentPaintSignal() {
+  useEffect(() => {
+    void whenCriticalLoadsSettled().then(markRouteContentPainted);
+    startSplitPreloading();
+  }, []);
+  return null;
+}
+
+function PluginsRoute() {
+  const { pluginId } = useParams<{ pluginId?: string }>();
+  const { search } = useLocation();
+  return (
+    <PluginsView
+      detailKey={
+        pluginId === undefined
+          ? undefined
+          : pluginDetailKeyFromRoute(pluginId, search)
+      }
+    />
+  );
+}
+
+export function App() {
+  useWebSocket();
+  useDesktopThemeSync();
+  useAppTheme();
+  useFaviconColorSync();
+  usePluginFrontendBoot();
+  useRememberPluginNavPanelChrome();
+
+  return (
+    <QuickCreateProjectProvider>
+      <AppCommandProvider>
+        <RouteNavigationProvider>
+          <RouteNavigationIndicator />
+          <AppNavigationUrlHost>
+            <AppFileExternalNavigationHost>
+              <HashNavigationScroll />
+              <NativeShellReporter />
+              <UiPreferencesSync />
+              <Routes>
+                <Route
+                  path={AUTH_CALLBACK_ROUTE_PATH}
+                  element={<AuthCallbackView />}
+                />
+                <Route
+                  path="*"
+                  element={
+                    <OnboardingGate>
+                      <AppRoutes />
+                    </OnboardingGate>
+                  }
+                />
+              </Routes>
+              <WindowFindHost />
+              <DesktopZoomIndicator />
+              <ProviderCliInstallLogDialogHost />
+              <ServerMoveOverlay />
+              <AppUpdateHost />
+              <PluginInstallJobsHost />
+              <PluginUpdateJobsHost />
+            </AppFileExternalNavigationHost>
+          </AppNavigationUrlHost>
+        </RouteNavigationProvider>
+      </AppCommandProvider>
+    </QuickCreateProjectProvider>
+  );
+}

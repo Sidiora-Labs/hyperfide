@@ -1,0 +1,142 @@
+import { normalizePromptTextMentions } from "@bb/client-core";
+import type { ComponentType } from "react";
+import type { Nodes, Parent, PhrasingContent, Text } from "mdast";
+import type {} from "mdast-util-to-hast";
+import { visit } from "unist-util-visit";
+import type { PromptTextMention } from "@bb/domain";
+import { PromptMentionPill } from "@/components/thread/timeline/ConversationMessageMentions.js";
+import type { PromptMentionLinkResolver } from "@bb/client-core";
+import { replaceTextMatches } from "./markdown-text-matches.js";
+
+const SENTINEL_OPEN = String.fromCharCode(0xe000);
+const SENTINEL_CLOSE = String.fromCharCode(0xe001);
+const PROMPT_MENTION_PATTERN = new RegExp(
+  `${SENTINEL_OPEN}(\\d+)${SENTINEL_CLOSE}`,
+  "gu",
+);
+
+const PROMPT_MENTION_HAST_NAME = "bb-prompt-mention";
+const PROMPT_MENTION_INDEX_PROPERTY = "dataMentionIndex";
+
+function promptMentionSentinel(index: number): string {
+  return `${SENTINEL_OPEN}${index}${SENTINEL_CLOSE}`;
+}
+
+export interface IndexedPromptMention {
+  resource: PromptTextMention["resource"];
+  serializedText: string;
+}
+
+interface SubstitutePromptMentionsResult {
+  content: string;
+  mentions: IndexedPromptMention[];
+}
+
+export function substitutePromptMentions(
+  text: string,
+  mentions: readonly PromptTextMention[],
+): SubstitutePromptMentionsResult {
+  const normalized = normalizePromptTextMentions(mentions, text.length);
+  if (normalized.length === 0) {
+    return { content: text, mentions: [] };
+  }
+
+  const indexed: IndexedPromptMention[] = [];
+  let content = "";
+  let cursor = 0;
+  for (const mention of normalized) {
+    if (mention.start < cursor) {
+      continue;
+    }
+    content += text.slice(cursor, mention.start);
+    content += promptMentionSentinel(indexed.length);
+    indexed.push({
+      resource: mention.resource,
+      serializedText: text.slice(mention.start, mention.end),
+    });
+    cursor = mention.end;
+  }
+  content += text.slice(cursor);
+  return { content, mentions: indexed };
+}
+
+function promptMentionNode(index: number): Text {
+  return {
+    type: "text",
+    value: "",
+    data: {
+      hName: PROMPT_MENTION_HAST_NAME,
+      hProperties: { [PROMPT_MENTION_INDEX_PROPERTY]: index },
+    },
+  };
+}
+
+function splitTextNodeOnMentions(node: Text): PhrasingContent[] {
+  return replaceTextMatches(node, PROMPT_MENTION_PATTERN, (match) => {
+    const index = match[1] === undefined ? Number.NaN : Number(match[1]);
+    return Number.isInteger(index) ? promptMentionNode(index) : null;
+  });
+}
+
+export function remarkPromptMentions() {
+  return (tree: Nodes): void => {
+    visit(tree, "text", (node: Text, index, parent: Parent | undefined) => {
+      if (parent === undefined || index === undefined) {
+        return;
+      }
+      const replacements = splitTextNodeOnMentions(node);
+      if (replacements.length === 1 && replacements[0] === node) {
+        return;
+      }
+      parent.children.splice(index, 1, ...replacements);
+      return index + replacements.length;
+    });
+  };
+}
+
+export interface MarkdownPromptMentions {
+  mentions: readonly PromptTextMention[];
+  resolveMentionLink?: PromptMentionLinkResolver;
+}
+
+interface BuildPromptMentionComponentArgs {
+  mentions: readonly IndexedPromptMention[];
+  resolveMentionLink?: PromptMentionLinkResolver;
+}
+
+interface PromptMentionElementProps {
+  "data-mention-index"?: string;
+}
+
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "bb-prompt-mention": PromptMentionElementProps;
+    }
+  }
+}
+
+export function buildPromptMentionComponent({
+  mentions,
+  resolveMentionLink,
+}: BuildPromptMentionComponentArgs): ComponentType<PromptMentionElementProps> {
+  function PromptMentionElement(props: PromptMentionElementProps) {
+    const rawIndex = props["data-mention-index"];
+    if (rawIndex === undefined) {
+      return null;
+    }
+    const mention = mentions[Number(rawIndex)];
+    if (mention === undefined) {
+      return null;
+    }
+    return (
+      <PromptMentionPill
+        resource={mention.resource}
+        resolveMentionLink={resolveMentionLink}
+        serializedText={mention.serializedText}
+      />
+    );
+  }
+
+  return PromptMentionElement;
+}

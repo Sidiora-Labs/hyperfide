@@ -1,0 +1,958 @@
+import {
+  createFakePluginHost,
+  makePluginAgentConfigurationContext,
+  makeHostResponse,
+  makeThreadResponse,
+} from "@get-bb/plugin-sdk/testing";
+import { describe, expect, it, vi } from "vitest";
+import plugin from "./server.js";
+import { rpcContract } from "./contracts.js";
+
+type FakeTab = { tabId: string; control: { leaseId: string } | null };
+type TabChangeListener = (result: { tabs: FakeTab[] }) => void;
+const leased = { leaseId: "lease" };
+
+async function setup() {
+  const desktopTabs: FakeTab[] = [{ tabId: "created", control: null }];
+  const tabChangeListeners: TabChangeListener[] = [];
+  const worker = vi.fn(
+    async ({
+      method,
+    }: {
+      method: string;
+      hostId: string;
+      signal?: AbortSignal;
+    }): Promise<unknown> =>
+      method === "run"
+        ? { text: "done", images: [], exitCode: 0 }
+        : method === "prepare"
+          ? { status: "ready", version: "1.0.0-test", source: "release" }
+          : null,
+  );
+  const host = createFakePluginHost({
+    pluginId: "browser-automation",
+    agentSkillIds: ["browser-automation"],
+    experimental_callHostRpc: worker,
+  });
+  host.harness.sdk.stub("threads.get", async () =>
+    makeThreadResponse({ id: "thread-test" }),
+  );
+  host.harness.sdk.stub(
+    "experimental_desktopBrowsers.listInstances",
+    async () => ({
+      instances: [
+        {
+          hostId: "desktop-host",
+          instanceId: "desktop",
+          generation: "generation",
+          label: "Desktop",
+        },
+      ],
+    }),
+  );
+  host.harness.sdk.stub("experimental_desktopBrowsers.createTab", async () => ({
+    tab: {
+      tabId: "created",
+      threadId: "thread-test",
+      url: "about:blank",
+      title: "",
+      control: null,
+      presentation: "hidden",
+    },
+  }));
+  host.harness.sdk.stub(
+    "experimental_desktopBrowsers.acquireControl",
+    async () => ({ leaseId: "lease", expiresAt: Date.now() + 60_000 }),
+  );
+  host.harness.sdk.stub(
+    "experimental_desktopBrowsers.openConnection",
+    async () => ({
+      hostId: "desktop-host",
+      expiresAt: Date.now() + 60_000,
+      wsEndpoint: "ws://127.0.0.1:9999/cdp?token=secret",
+    }),
+  );
+  host.harness.sdk.stub(
+    "experimental_desktopBrowsers.releaseControl",
+    async (input) => {
+      expect(Object.keys(input).sort()).toEqual([
+        "generation",
+        "hostId",
+        "instanceId",
+        "leaseId",
+        "threadId",
+      ]);
+      return { ok: true };
+    },
+  );
+  host.harness.sdk.stub(
+    "experimental_desktopBrowsers.closeTab",
+    async (input) => {
+      expect(Object.keys(input).sort()).toEqual([
+        "generation",
+        "hostId",
+        "instanceId",
+        "tabId",
+        "threadId",
+      ]);
+      return { ok: true };
+    },
+  );
+  host.harness.sdk.stub(
+    "experimental_desktopBrowsers.subscribe",
+    (input: { onChange: TabChangeListener }) => {
+      tabChangeListeners.push(input.onChange);
+      return { dispose() {} };
+    },
+  );
+  host.harness.sdk.stub("experimental_desktopBrowsers.listTabs", async () => ({
+    tabs: desktopTabs.map((tab) => ({ ...tab })),
+  }));
+  host.harness.sdk.stub("hosts.list", async () => [
+    makeHostResponse({ id: "local-host", name: "Lab workstation" }),
+    makeHostResponse({ id: "desktop-host", name: "Lab desktop" }),
+  ]);
+  await plugin(host.bb);
+  async function open(tabId?: string) {
+    const result = await host.harness.behavior.callRpc("open", {
+      threadId: "thread-test",
+      selection: {
+        backend: "desktop",
+        hostId: "desktop-host",
+        instanceId: "desktop",
+        ...(tabId ? { tabId } : {}),
+      },
+    });
+    return rpcContract.open.output.parse(result);
+  }
+  function setTabs(tabs: FakeTab[]) {
+    desktopTabs.splice(0, desktopTabs.length, ...tabs);
+  }
+  function closedTabIds() {
+    return host.harness.sdk
+      .callsTo("experimental_desktopBrowsers.closeTab")
+      .map(([input]) => (input as { tabId: string }).tabId)
+      .sort();
+  }
+  return { ...host, worker, open, setTabs, closedTabIds, tabChangeListeners };
+}
+
+describe("server session ownership", () => {
+  it.each([
+    ["local", "Lab workstation", "local-host"],
+    ["desktop", "Lab desktop", "desktop-host"],
+    ["local", "local-host", "local-host"],
+  ])(
+    "resolves %s machine selector %s before opening",
+    async (backend, target, hostId) => {
+      const h = await setup();
+      try {
+        const result = await h.harness.behavior.runCli(
+          [
+            "open",
+            "--backend",
+            backend,
+            "--machine",
+            target,
+            ...(backend === "local"
+              ? ["--headless"]
+              : ["--desktop", "desktop"]),
+            "--json",
+          ],
+          { threadId: "thread-test" },
+        );
+        expect(result.exitCode, result.stderr).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({ hostId });
+        expect(h.worker).toHaveBeenCalledWith(
+          expect.objectContaining({ method: "prepare", hostId }),
+        );
+      } finally {
+        await h.harness.lifecycle.dispose();
+      }
+    },
+  );
+
+  it("prefers an exact machine ID over a matching name", async () => {
+    const h = await setup();
+    h.harness.sdk.stub("hosts.list", async () => [
+      makeHostResponse({ id: "other-host", name: "local-host" }),
+      makeHostResponse({ id: "local-host", name: "Lab workstation" }),
+    ]);
+    try {
+      const result = await h.harness.behavior.runCli(
+        [
+          "open",
+          "--backend",
+          "local",
+          "--machine",
+          " local-host ",
+          "--headless",
+          "--json",
+        ],
+        { threadId: "thread-test" },
+      );
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ hostId: "local-host" });
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+
+  it.each([
+    ["Shared lab", "ambiguous"],
+    ["Missing lab", "not found"],
+  ])(
+    "rejects machine selector %s before creating a session",
+    async (target, message) => {
+      const h = await setup();
+      h.harness.sdk.stub("hosts.list", async () => [
+        makeHostResponse({ id: "host-a", name: "Shared lab" }),
+        makeHostResponse({ id: "host-b", name: "Shared lab" }),
+      ]);
+      try {
+        const result = await h.harness.behavior.runCli(
+          [
+            "open",
+            "--backend",
+            "local",
+            "--machine",
+            target,
+            "--headless",
+            "--json",
+          ],
+          { threadId: "thread-test" },
+        );
+        expect(result.exitCode).toBe(1);
+        expect(result.stderr).toContain(message);
+        expect(h.worker).not.toHaveBeenCalled();
+        expect(
+          await h.harness.behavior.callRpc("list", { threadId: "thread-test" }),
+        ).toEqual([]);
+      } finally {
+        await h.harness.lifecycle.dispose();
+      }
+    },
+  );
+
+  it("returns browser-host image paths through the CLI without registering tools", async () => {
+    const h = await setup();
+    try {
+      const session = await h.open();
+      const images = [
+        {
+          path: "/tmp/browser-session/tmp/capture.jpg",
+          mimeType: "image/jpeg",
+          width: 640,
+          height: 400,
+        },
+      ];
+      h.worker.mockResolvedValueOnce({ text: "captured", images, exitCode: 0 });
+      const result = await h.harness.behavior.runCli(
+        ["screenshot", session.id, "--json"],
+        { threadId: "thread-test" },
+      );
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({
+        text: "captured",
+        images,
+        exitCode: 0,
+        hostId: "desktop-host",
+      });
+      expect(h.harness.registrations.agentTools).toEqual([]);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("routes to the desktop host without exposing the connection and preserves a handed-off tab", async () => {
+    const h = await setup();
+    try {
+      const session = await h.open("handed-off");
+      expect(JSON.stringify(session)).not.toContain("secret");
+      expect(h.worker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hostId: "desktop-host",
+          method: "open",
+          input: expect.objectContaining({
+            connectionUrl: "ws://127.0.0.1:9999/cdp?token=secret",
+          }),
+        }),
+      );
+      await h.harness.behavior.callRpc("close", {
+        threadId: "thread-test",
+        sessionId: session.id,
+      });
+      expect(
+        h.harness.sdk.callsTo("experimental_desktopBrowsers.closeTab"),
+      ).toHaveLength(0);
+      expect(
+        h.harness.sdk.callsTo("experimental_desktopBrowsers.releaseControl"),
+      ).toHaveLength(1);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("closes pages the agent opened under its lease and keeps the user's tabs", async () => {
+    const h = await setup();
+    try {
+      const session = await h.open();
+      h.setTabs([
+        { tabId: "created", control: leased },
+        { tabId: "popup", control: leased },
+        { tabId: "user", control: null },
+      ]);
+      await h.harness.behavior.callRpc("close", {
+        threadId: "thread-test",
+        sessionId: session.id,
+      });
+      expect(h.closedTabIds()).toEqual(["created", "popup"]);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("closes pages opened during a handoff but keeps the handed-off tab", async () => {
+    const h = await setup();
+    try {
+      const session = await h.open("handed-off");
+      h.setTabs([
+        { tabId: "handed-off", control: leased },
+        { tabId: "popup", control: leased },
+        { tabId: "user", control: null },
+      ]);
+      await h.harness.behavior.callRpc("close", {
+        threadId: "thread-test",
+        sessionId: session.id,
+      });
+      expect(h.closedTabIds()).toEqual(["popup"]);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("remembers leased pages after the lease is lost so close still disposes them", async () => {
+    const h = await setup();
+    try {
+      const session = await h.open();
+      const [onChange] = h.tabChangeListeners;
+      onChange({
+        tabs: [
+          { tabId: "created", control: leased },
+          { tabId: "popup", control: leased },
+        ],
+      });
+      h.setTabs([
+        { tabId: "created", control: null },
+        { tabId: "popup", control: null },
+        { tabId: "user", control: null },
+      ]);
+      onChange({ tabs: [] });
+      await vi.waitFor(async () => {
+        const sessions = rpcContract.list.output.parse(
+          await h.harness.behavior.callRpc("list", {
+            threadId: "thread-test",
+          }),
+        );
+        expect(sessions.find((entry) => entry.id === session.id)?.state).toBe(
+          "stopped",
+        );
+      });
+      expect(h.closedTabIds()).toEqual([]);
+      await h.harness.behavior.callRpc("close", {
+        threadId: "thread-test",
+        sessionId: session.id,
+      });
+      expect(h.closedTabIds()).toEqual(["created", "popup"]);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("denies cross-thread RPC and CLI access before calling the worker", async () => {
+    const h = await setup();
+    try {
+      const session = await h.open();
+      await expect(
+        h.harness.behavior.callRpc("run", {
+          threadId: "other",
+          sessionId: session.id,
+          script: "1",
+        }),
+      ).rejects.toThrow();
+      const denied = await h.harness.behavior.runCli(
+        ["run", session.id, "--thread", "thread-test", "--script", "1"],
+        { threadId: "other" },
+      );
+      expect(denied.exitCode).toBe(1);
+      expect(denied.stderr).toContain("another thread");
+      expect(
+        h.worker.mock.calls.filter(([call]) => call.method === "run"),
+      ).toHaveLength(0);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it.each(["thread.archived", "thread.deleted", "thread.failed"] as const)(
+    "%s closes only the owning thread's sessions",
+    async (event) => {
+      const h = await setup();
+      try {
+        const session = await h.open("handed-off");
+        const other = rpcContract.open.output.parse(
+          await h.harness.behavior.callRpc("open", {
+            threadId: "other",
+            selection: { backend: "local", hostId: "local-host" },
+          }),
+        );
+        await h.harness.behavior.emitThreadEvent("thread.idle", {
+          thread: makeThreadResponse({ id: "thread-test" }),
+          lastAssistantText: null,
+        });
+        expect(
+          h.worker.mock.calls.filter(([call]) => call.method === "close"),
+        ).toHaveLength(0);
+        await h.harness.behavior.emitThreadEvent(event, {
+          thread: makeThreadResponse({ id: "thread-test" }),
+          error: null,
+        });
+        const own = rpcContract.list.output.parse(
+          await h.harness.behavior.callRpc("list", { threadId: "thread-test" }),
+        );
+        const remaining = rpcContract.list.output.parse(
+          await h.harness.behavior.callRpc("list", { threadId: "other" }),
+        );
+        expect(own.find((entry) => entry.id === session.id)?.state).toBe(
+          "closed",
+        );
+        expect(remaining.find((entry) => entry.id === other.id)?.state).toBe(
+          "ready",
+        );
+        expect(
+          h.harness.sdk.callsTo("experimental_desktopBrowsers.closeTab"),
+        ).toHaveLength(0);
+      } finally {
+        await h.harness.lifecycle.dispose();
+      }
+    },
+  );
+  it("concurrent stop and close leave the session closed", async () => {
+    const h = await setup();
+    try {
+      const session = await h.open();
+      const input = { threadId: "thread-test", sessionId: session.id };
+      await Promise.all([
+        h.harness.behavior.callRpc("stop", input),
+        h.harness.behavior.callRpc("close", input),
+      ]);
+      const sessions = rpcContract.list.output.parse(
+        await h.harness.behavior.callRpc("list", { threadId: "thread-test" }),
+      );
+      expect(sessions.find((entry) => entry.id === session.id)?.state).toBe(
+        "closed",
+      );
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("waits for the browser host to finish installing the runtime before opening", async () => {
+    const h = await setup();
+    try {
+      let polls = 0;
+      h.worker.mockImplementation(async ({ method }) => {
+        if (method === "prepare")
+          return ++polls < 3
+            ? { status: "installing", detail: `step ${polls}` }
+            : { status: "ready", version: "1.0.0-test", source: "release" };
+        return null;
+      });
+      await h.open();
+      const methods = h.worker.mock.calls.map(([call]) => call.method);
+      expect(methods.filter((method) => method === "prepare")).toHaveLength(3);
+      expect(methods.indexOf("open")).toBeGreaterThan(
+        methods.lastIndexOf("prepare"),
+      );
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("cleans up a newly created tab when worker launch fails", async () => {
+    const h = await setup();
+    try {
+      h.worker.mockImplementation(async ({ method }) => {
+        if (method === "open") throw new Error("failed startup");
+        if (method === "prepare")
+          return { status: "ready", version: "1.0.0-test", source: "release" };
+        return null;
+      });
+      await expect(h.open()).rejects.toThrow("failed startup");
+      expect(
+        h.harness.sdk.callsTo("experimental_desktopBrowsers.closeTab"),
+      ).toHaveLength(1);
+      expect(
+        h.harness.sdk.callsTo("experimental_desktopBrowsers.releaseControl"),
+      ).toHaveLength(1);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+});
+describe("server session cleanup", () => {
+  const ready = { status: "ready", version: "1.0.0-test", source: "release" };
+  const ownedBy = (sessionId: string) => ({
+    threadId: "thread-test",
+    sessionId,
+  });
+  async function openLocal(
+    h: Awaited<ReturnType<typeof setup>>,
+    hostId = "local-host",
+  ) {
+    return rpcContract.open.output.parse(
+      await h.harness.behavior.callRpc("open", {
+        threadId: "thread-test",
+        selection: { backend: "local", hostId },
+      }),
+    );
+  }
+  async function listed(h: Awaited<ReturnType<typeof setup>>, id: string) {
+    const sessions = rpcContract.list.output.parse(
+      await h.harness.behavior.callRpc("list", { threadId: "thread-test" }),
+    );
+    return sessions.find((entry) => entry.id === id);
+  }
+  const hostCalls = (h: Awaited<ReturnType<typeof setup>>, method: string) =>
+    h.worker.mock.calls.filter(([call]) => call.method === method);
+
+  it("renews real operations beyond 30 minutes and closes after 30 minutes idle", async () => {
+    vi.useFakeTimers();
+    const h = await setup();
+    try {
+      const session = await openLocal(h);
+      expect(hostCalls(h, "open")[0]?.[0]).toMatchObject({
+        input: {
+          expiresAt: session.createdAt + 8 * 60 * 60_000,
+          idleTimeoutMs: 30 * 60_000,
+        },
+      });
+      for (const [index, method] of ["run", "pages", "screenshot"].entries()) {
+        vi.setSystemTime(session.createdAt + (index + 1) * 20 * 60_000);
+        await h.harness.behavior.callRpc(method, {
+          ...ownedBy(session.id),
+          ...(method === "run" ? { script: "1" } : {}),
+        });
+        expect((await listed(h, session.id))?.expiresAt).toBe(
+          Date.now() + 30 * 60_000,
+        );
+      }
+      await vi.advanceTimersByTimeAsync(29 * 60_000);
+      expect((await listed(h, session.id))?.state).toBe("ready");
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect((await listed(h, session.id))?.state).toBe("closed");
+      expect(hostCalls(h, "close")).toHaveLength(1);
+    } finally {
+      await h.harness.lifecycle.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not let list or automatic preview polling keep an abandoned session alive", async () => {
+    vi.useFakeTimers();
+    const h = await setup();
+    try {
+      const session = await openLocal(h);
+      h.worker.mockResolvedValue({ frame: null });
+      vi.setSystemTime(session.createdAt + 29 * 60_000);
+      await h.harness.behavior.callRpc("preview", ownedBy(session.id));
+      expect((await listed(h, session.id))?.expiresAt).toBe(session.expiresAt);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect((await listed(h, session.id))?.state).toBe("closed");
+    } finally {
+      await h.harness.lifecycle.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it("caps renewal at eight hours and closes work still running at the cap", async () => {
+    vi.useFakeTimers();
+    const h = await setup();
+    try {
+      const session = await openLocal(h);
+      const input = { ...ownedBy(session.id), script: "1" };
+      for (let minute = 20; minute <= 460; minute += 20) {
+        vi.setSystemTime(session.createdAt + minute * 60_000);
+        await h.harness.behavior.callRpc("run", input);
+      }
+      const deadline = session.createdAt + 8 * 60 * 60_000;
+      expect((await listed(h, session.id))?.expiresAt).toBe(deadline);
+      vi.setSystemTime(deadline - 60_000);
+      let finishRun!: () => void;
+      const started = new Promise<void>((resolve) => {
+        h.worker.mockImplementation(async ({ method }) => {
+          if (method === "run") {
+            resolve();
+            await new Promise<void>((done) => (finishRun = done));
+            return { text: "done", images: [], exitCode: 0 };
+          }
+          return null;
+        });
+      });
+      const running = h.harness.behavior.callRpc("run", input);
+      await started;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect((await listed(h, session.id))?.state).toBe("closed");
+      finishRun();
+      await running;
+      await expect(h.harness.behavior.callRpc("run", input)).rejects.toThrow(
+        "stopped or expired",
+      );
+    } finally {
+      await h.harness.lifecycle.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(["run", "preview"])(
+    "rejects expired %s before the cleanup timer runs",
+    async (method) => {
+      vi.useFakeTimers();
+      const h = await setup();
+      try {
+        const session = await openLocal(h);
+        vi.setSystemTime(session.expiresAt);
+        const operation = h.harness.behavior.callRpc(method, {
+          ...ownedBy(session.id),
+          ...(method === "run" ? { script: "1" } : {}),
+        });
+        if (method === "run")
+          await expect(operation).rejects.toThrow("expired");
+        else expect(await operation).toMatchObject({ frame: null });
+        expect(hostCalls(h, method)).toHaveLength(0);
+        expect((await listed(h, session.id))?.expiresAt).toBe(
+          session.expiresAt,
+        );
+      } finally {
+        await h.harness.lifecycle.dispose();
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each([
+    [10 * 60_000, 20 * 60_000],
+    [20 * 60_000, 10 * 60_000],
+  ])(
+    "preserves the earlier desktop lease (%i) or connection (%i) deadline",
+    async (leaseMs, connectionMs) => {
+      vi.useFakeTimers();
+      const h = await setup();
+      try {
+        h.harness.sdk.stub(
+          "experimental_desktopBrowsers.acquireControl",
+          async () => ({
+            leaseId: "lease",
+            expiresAt: Date.now() + leaseMs,
+          }),
+        );
+        h.harness.sdk.stub(
+          "experimental_desktopBrowsers.openConnection",
+          async () => ({
+            hostId: "desktop-host",
+            expiresAt: Date.now() + connectionMs,
+            wsEndpoint: "ws://127.0.0.1:9999/cdp",
+          }),
+        );
+        const session = await h.open();
+        expect(session.expiresAt).toBe(session.createdAt + 10 * 60_000);
+        expect(hostCalls(h, "open")[0]?.[0]).toMatchObject({
+          input: { expiresAt: session.expiresAt },
+        });
+        vi.setSystemTime(session.expiresAt - 60_000);
+        await h.harness.behavior.callRpc("run", {
+          ...ownedBy(session.id),
+          script: "1",
+        });
+        expect((await listed(h, session.id))?.expiresAt).toBe(
+          session.expiresAt,
+        );
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect((await listed(h, session.id))?.state).toBe("closed");
+      } finally {
+        await h.harness.lifecycle.dispose();
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it("rejects close when the host cannot release the browser and retries on the next close", async () => {
+    const h = await setup();
+    try {
+      const flaky = await openLocal(h, "flaky-host");
+      const other = await openLocal(h);
+      h.worker.mockImplementation(async ({ method, hostId }) => {
+        if (method === "close" && hostId === "flaky-host")
+          throw new Error("profile directory busy");
+        return null;
+      });
+      await expect(
+        h.harness.behavior.callRpc("close", ownedBy(flaky.id)),
+      ).rejects.toThrow("profile directory busy");
+      expect((await listed(h, flaky.id))?.state).toBe("closed");
+      expect((await listed(h, other.id))?.state).toBe("ready");
+      await expect(
+        h.harness.behavior.callRpc("run", {
+          ...ownedBy(flaky.id),
+          script: "1",
+        }),
+      ).rejects.toThrow("stopped or expired");
+      await expect(
+        h.harness.behavior.callRpc("stop", ownedBy(flaky.id)),
+      ).rejects.toThrow("Browser session closed");
+      h.worker.mockImplementation(async () => null);
+      expect(
+        await h.harness.behavior.callRpc("close", ownedBy(flaky.id)),
+      ).toMatchObject({ state: "closed" });
+      await h.harness.behavior.callRpc("close", ownedBy(flaky.id));
+      expect(hostCalls(h, "close")).toHaveLength(3);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+
+  it("shares one cleanup outcome across concurrent closes", async () => {
+    const h = await setup();
+    try {
+      const session = await openLocal(h);
+      let failHost!: () => void;
+      h.worker.mockImplementation(async ({ method }) => {
+        if (method === "close")
+          await new Promise<void>(
+            (_resolve, reject) =>
+              (failHost = () => reject(new Error("browser still running"))),
+          );
+        return null;
+      });
+      const outcomes = Promise.allSettled([
+        h.harness.behavior.callRpc("close", ownedBy(session.id)),
+        h.harness.behavior.callRpc("close", ownedBy(session.id)),
+      ]);
+      await vi.waitFor(() => expect(hostCalls(h, "close")).toHaveLength(1));
+      failHost();
+      expect(
+        (await outcomes).map((outcome) =>
+          outcome.status === "rejected" ? String(outcome.reason) : "resolved",
+        ),
+      ).toEqual([
+        expect.stringContaining("browser still running"),
+        expect.stringContaining("browser still running"),
+      ]);
+      expect(hostCalls(h, "close")).toHaveLength(1);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+
+  it("aborts a host startup that completes after close", async () => {
+    const h = await setup();
+    try {
+      let finishStartup!: () => void;
+      h.worker.mockImplementation(async ({ method }) => {
+        if (method === "prepare") return ready;
+        if (method === "open")
+          await new Promise<void>((resolve) => (finishStartup = resolve));
+        return null;
+      });
+      const opening = h.harness.behavior.callRpc("open", {
+        threadId: "thread-test",
+        selection: { backend: "local", hostId: "local-host" },
+      });
+      const rejected = expect(opening).rejects.toThrow();
+      await vi.waitFor(() => expect(hostCalls(h, "open")).toHaveLength(1));
+      const [session] = rpcContract.list.output.parse(
+        await h.harness.behavior.callRpc("list", { threadId: "thread-test" }),
+      );
+      expect(
+        await h.harness.behavior.callRpc("close", ownedBy(session!.id)),
+      ).toMatchObject({ state: "closed" });
+      expect(hostCalls(h, "open")[0]![0].signal?.aborted).toBe(true);
+      finishStartup();
+      await rejected;
+      expect((await listed(h, session!.id))?.state).toBe("closed");
+      expect(hostCalls(h, "close")).toHaveLength(1);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+
+  it("finishes cleanup that was pending when the plugin restarted", async () => {
+    const h = await setup();
+    let current = h;
+    try {
+      const session = await openLocal(h);
+      h.worker.mockImplementation(async ({ method }) =>
+        method === "close" ? new Promise<null>(() => {}) : null,
+      );
+      void h.harness.behavior
+        .callRpc("close", ownedBy(session.id))
+        .catch(() => {});
+      await vi.waitFor(() => expect(hostCalls(h, "close")).toHaveLength(1));
+      h.worker.mockImplementation(async () => null);
+      current = { ...h, ...(await h.harness.lifecycle.reload(plugin)) };
+      expect(hostCalls(h, "close")).toHaveLength(1);
+      await current.harness.behavior.runService("restart-cleanup").done;
+      expect(hostCalls(h, "close")).toHaveLength(2);
+      expect(
+        await current.harness.behavior.callRpc("close", ownedBy(session.id)),
+      ).toMatchObject({ state: "closed" });
+      expect(hostCalls(h, "close")).toHaveLength(2);
+    } finally {
+      await current.harness.lifecycle.dispose();
+    }
+  });
+});
+describe("server live preview", () => {
+  const frame = {
+    sequence: 7,
+    mimeType: "image/jpeg" as const,
+    data: Buffer.from("jpeg-bytes").toString("base64"),
+    width: 1280,
+    height: 720,
+    url: "https://example.test/cart",
+    title: "Cart",
+  };
+  async function openLocal(
+    h: Awaited<ReturnType<typeof setup>>,
+    threadId = "thread-test",
+  ) {
+    return rpcContract.open.output.parse(
+      await h.harness.behavior.callRpc("open", {
+        threadId,
+        selection: { backend: "local", hostId: "local-host" },
+      }),
+    );
+  }
+  it("long-polls the browser host for headless frames only", async () => {
+    const h = await setup();
+    try {
+      const desktop = await h.open();
+      const local = await openLocal(h);
+      h.worker.mockImplementation(async ({ method }) =>
+        method === "preview" ? { frame } : null,
+      );
+      expect(
+        await h.harness.behavior.callRpc("preview", {
+          threadId: "thread-test",
+          sessionId: local.id,
+          afterSequence: 6,
+          size: "full",
+        }),
+      ).toEqual({ session: local, frame });
+      expect(h.worker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hostId: "local-host",
+          method: "preview",
+          input: {
+            sessionId: local.id,
+            afterSequence: 6,
+            waitMs: 5_000,
+            size: "full",
+          },
+        }),
+      );
+      expect(
+        await h.harness.behavior.callRpc("preview", {
+          threadId: "thread-test",
+          sessionId: desktop.id,
+        }),
+      ).toEqual({ session: desktop, frame: null });
+      await expect(
+        h.harness.behavior.callRpc("preview", {
+          threadId: "other",
+          sessionId: local.id,
+        }),
+      ).rejects.toThrow();
+      await h.harness.behavior.callRpc("close", {
+        threadId: "thread-test",
+        sessionId: local.id,
+      });
+      expect(
+        await h.harness.behavior.callRpc("preview", {
+          threadId: "thread-test",
+          sessionId: local.id,
+        }),
+      ).toMatchObject({ session: { state: "closed" }, frame: null });
+      expect(
+        h.worker.mock.calls.filter(([call]) => call.method === "preview"),
+      ).toHaveLength(1);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("hands agents an inline preview directive for headless sessions only", async () => {
+    const h = await setup();
+    try {
+      const local = await h.harness.behavior.runCli(
+        [
+          "open",
+          "--backend",
+          "local",
+          "--headless",
+          "--machine",
+          "local-host",
+          "--json",
+        ],
+        { threadId: "thread-test" },
+      );
+      expect(local.exitCode).toBe(0);
+      const opened = JSON.parse(local.stdout);
+      expect(opened.previewDirective).toBe(
+        `::browser-preview{session="${opened.id}"}`,
+      );
+      const desktop = await h.harness.behavior.runCli(
+        [
+          "open",
+          "--backend",
+          "desktop",
+          "--machine",
+          "desktop-host",
+          "--desktop",
+          "desktop",
+          "--json",
+        ],
+        { threadId: "thread-test" },
+      );
+      expect(desktop.exitCode).toBe(0);
+      expect(JSON.parse(desktop.stdout)).not.toHaveProperty("previewDirective");
+      const agent = await h.harness.behavior.resolveAgentConfiguration(
+        makePluginAgentConfigurationContext(),
+      );
+      expect(agent.skills).toEqual(["browser-automation"]);
+      expect(agent.instructions).toMatch(/previewDirective.*exactly once/);
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+  it("describes the live frame through the CLI without image bytes", async () => {
+    const h = await setup();
+    try {
+      const local = await openLocal(h);
+      h.worker.mockImplementation(async ({ method }) =>
+        method === "preview" ? { frame } : null,
+      );
+      const result = await h.harness.behavior.runCli(
+        ["preview", local.id, "--after", "6", "--json"],
+        { threadId: "thread-test" },
+      );
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).not.toContain(frame.data);
+      expect(JSON.parse(result.stdout)).toEqual({
+        session: local,
+        frame: {
+          sequence: 7,
+          mimeType: "image/jpeg",
+          width: 1280,
+          height: 720,
+          url: frame.url,
+          title: "Cart",
+          bytes: 10,
+        },
+      });
+    } finally {
+      await h.harness.lifecycle.dispose();
+    }
+  });
+});

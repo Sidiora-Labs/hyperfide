@@ -1,0 +1,827 @@
+#!/usr/bin/env node
+
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { createInterface } from "node:readline";
+
+let threadCounter = 0;
+let turnCounter = 0;
+const openTurnIdsByThreadId = new Map();
+const pendingStartTurnIdsByThreadId = new Map();
+let interruptAttempts = 0;
+const processInstanceId = `${process.pid}-${Date.now()}-${Math.random()}`;
+
+function send(message) {
+  process.stdout.write(`${JSON.stringify(message)}\n`);
+}
+
+function notify(method, params) {
+  send({ jsonrpc: "2.0", method, params });
+}
+
+function respond(id, result) {
+  send({ jsonrpc: "2.0", id, result });
+}
+
+function respondError(id, code, message) {
+  send({ jsonrpc: "2.0", id, error: { code, message } });
+}
+
+const ZERO_WORK_PROMPT_TEXT = "/clear";
+
+const COMPACTION_TURN_DELAY_MS = Number(
+  process.env.FAKE_CODEX_COMPACTION_TURN_DELAY_MS ?? "20",
+);
+const COMPACTION_MODE = process.env.FAKE_CODEX_COMPACTION_MODE ?? "turn";
+
+const LATE_TURN_START_PROMPT_TEXT = "/late-start";
+
+const LATE_START_INTERRUPTIBLE_PROMPT_TEXT = "/late-start-interruptible";
+const lateStartTurnIdsByThreadId = new Map();
+const LATE_TURN_START_DELAY_MS = 350;
+
+const RESPOND_THEN_EXIT_PROMPT_TEXT = "/respond-then-exit";
+
+const RESPOND_COMPLETED_PROMPT_TEXT = "/respond-completed";
+
+const STEER_INTO_ACTIVE_PROMPT_TEXT = "/steer-into-active";
+
+const INTERRUPT_BEFORE_START_PROMPT_TEXT = "/interrupt-before-start";
+
+const INTERRUPTIBLE_PROMPT_TEXT = "/wait-for-interrupt";
+
+const SUBAGENT_THEN_CRASH_PROMPT_TEXT = "/subagent-then-crash";
+
+function firstInputText(input) {
+  const first = Array.isArray(input) ? input[0] : undefined;
+  return first && first.type === "text" ? first.text : undefined;
+}
+
+const FIXED_TOKEN_USAGE = {
+  total: {
+    totalTokens: 39970,
+    inputTokens: 39960,
+    cachedInputTokens: 0,
+    outputTokens: 10,
+    reasoningOutputTokens: 0,
+  },
+  last: {
+    totalTokens: 19993,
+    inputTokens: 19988,
+    cachedInputTokens: 0,
+    outputTokens: 5,
+    reasoningOutputTokens: 0,
+  },
+  modelContextWindow: 258400,
+};
+
+function runCompaction(threadId) {
+  if (COMPACTION_MODE === "exit-before-turn") {
+    setTimeout(() => process.exit(1), 20);
+    return;
+  }
+  setTimeout(() => {
+    if (
+      COMPACTION_MODE === "idle-without-turn" ||
+      COMPACTION_MODE === "error-without-turn"
+    ) {
+      notify("thread/status/changed", {
+        threadId,
+        status: {
+          type:
+            COMPACTION_MODE === "error-without-turn" ? "systemError" : "idle",
+        },
+      });
+      return;
+    }
+    turnCounter += 1;
+    const turnId = `turn-fx-${turnCounter}`;
+    const itemId = `compaction-fx-${turnCounter}`;
+    notify("thread/status/changed", {
+      threadId,
+      status: { type: "active", activeFlags: [] },
+    });
+    notify("turn/started", {
+      threadId,
+      turn: { id: turnId, status: "inProgress" },
+    });
+    notify("item/started", {
+      threadId,
+      turnId,
+      item: { type: "contextCompaction", id: itemId },
+    });
+    if (COMPACTION_MODE === "wait-for-interrupt") {
+      openTurnIdsByThreadId.set(threadId, turnId);
+      return;
+    }
+    notify("item/completed", {
+      threadId,
+      turnId,
+      item: { type: "contextCompaction", id: itemId },
+    });
+    notify("thread/status/changed", { threadId, status: { type: "idle" } });
+    notify("turn/completed", {
+      threadId,
+      turn: { id: turnId, status: "completed" },
+    });
+  }, COMPACTION_TURN_DELAY_MS);
+}
+
+function runScriptedTurn(threadId, presetTurnId) {
+  turnCounter += 1;
+  const turnId = presetTurnId ?? `turn-fx-${turnCounter}`;
+  const itemId = `item-fx-${turnCounter}`;
+  const text = `hello from codex turn ${turnCounter}`;
+  openTurnIdsByThreadId.set(threadId, turnId);
+
+  notify("turn/started", {
+    threadId,
+    turn: { id: turnId, status: "inProgress" },
+  });
+  if (script?.lateStartTool && presetTurnId !== undefined) {
+    const item = {
+      type: "commandExecution",
+      id: `command-${turnId}`,
+      command: "echo verified",
+      cwd: "/tmp",
+      processId: null,
+      status: "inProgress",
+      commandActions: [],
+      aggregatedOutput: null,
+      exitCode: null,
+      durationMs: null,
+    };
+    notify("item/started", { threadId, turnId, item });
+    notify("item/completed", {
+      threadId,
+      turnId,
+      item: {
+        ...item,
+        status: "completed",
+        aggregatedOutput: "verified",
+        exitCode: 0,
+        durationMs: 1,
+      },
+    });
+  }
+
+  notify("item/agentMessage/delta", { threadId, turnId, itemId, delta: text });
+  notify("item/completed", {
+    threadId,
+    turnId,
+    item: { type: "agentMessage", id: itemId, text },
+  });
+  if (String(threadId).startsWith("usage-replay-")) {
+    notify("thread/tokenUsage/updated", {
+      threadId,
+      turnId,
+      tokenUsage: FIXED_TOKEN_USAGE,
+    });
+  }
+  notify("turn/completed", {
+    threadId,
+    turn: { id: turnId, status: "completed" },
+  });
+  openTurnIdsByThreadId.delete(threadId);
+}
+
+function scriptPathFromArgs(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "-c" || argument === "--config") {
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith("-")) continue;
+    return argument;
+  }
+  return undefined;
+}
+
+const scriptPath = scriptPathFromArgs(process.argv.slice(2));
+const script = scriptPath ? JSON.parse(readFileSync(scriptPath, "utf8")) : null;
+const scriptedTurns = script?.turns ?? null;
+const requestLogPath = script?.requestLogPath ?? null;
+const responseLogPath = script?.responseLogPath ?? null;
+const modelListFailOnceMarkerPath = script?.modelListFailOnceMarkerPath ?? null;
+if (script?.launchLogPath) {
+  appendFileSync(
+    script.launchLogPath,
+    `${JSON.stringify({
+      args: process.argv.slice(2),
+      poolToken: process.env.CODEX_POOL_AUTH_TOKEN ?? null,
+    })}\n`,
+  );
+}
+
+const archiveStatePath = script?.archiveStatePath ?? null;
+
+let renameEmptyRolloutFailuresLeft = script?.renameEmptyRolloutFailures ?? 0;
+const archivedThreadIds = new Set();
+
+const processLogPath = script?.processLogPath ?? null;
+const stallThreadStart = script?.stallThreadStart ?? false;
+const writerLockPath = script?.writerLockPath ?? null;
+const sigtermDelayMs = script?.sigtermDelayMs ?? 0;
+const stdinCloseDelayMs = script?.stdinCloseDelayMs ?? 0;
+let ownsWriterLock = false;
+let servesThread = false;
+
+function logProcessStep(step) {
+  if (processLogPath === null) {
+    return;
+  }
+  appendFileSync(processLogPath, `${step}:${process.pid}:${process.ppid}\n`);
+}
+
+function releaseWriterLock() {
+  if (!ownsWriterLock || writerLockPath === null) {
+    return;
+  }
+  ownsWriterLock = false;
+  if (
+    existsSync(writerLockPath) &&
+    readFileSync(writerLockPath, "utf8") === String(process.pid)
+  ) {
+    unlinkSync(writerLockPath);
+  }
+}
+
+function acquireWriterLock() {
+  if (writerLockPath === null || ownsWriterLock) {
+    return true;
+  }
+  try {
+    writeFileSync(writerLockPath, String(process.pid), { flag: "wx" });
+    ownsWriterLock = true;
+    return true;
+  } catch (error) {
+    if (!error || typeof error !== "object" || error.code !== "EEXIST") {
+      throw error;
+    }
+    const ownerPid = Number(readFileSync(writerLockPath, "utf8"));
+    try {
+      process.kill(ownerPid, 0);
+      return false;
+    } catch (ownerError) {
+      if (
+        !ownerError ||
+        typeof ownerError !== "object" ||
+        ownerError.code !== "ESRCH"
+      ) {
+        throw ownerError;
+      }
+      unlinkSync(writerLockPath);
+      return acquireWriterLock();
+    }
+  }
+}
+
+function exitCleanly() {
+  releaseWriterLock();
+  logProcessStep("exit");
+  process.exit(0);
+}
+
+process.on("exit", releaseWriterLock);
+process.on("SIGTERM", () => {
+  logProcessStep("sigterm");
+  if (sigtermDelayMs > 0 && servesThread) {
+    setTimeout(exitCleanly, sigtermDelayMs);
+    return;
+  }
+  exitCleanly();
+});
+logProcessStep("spawn");
+let scriptedTurnIndex = 0;
+
+function readArchivedThreadIds() {
+  if (archiveStatePath === null) {
+    return archivedThreadIds;
+  }
+  if (!existsSync(archiveStatePath)) {
+    return new Set();
+  }
+  return new Set(JSON.parse(readFileSync(archiveStatePath, "utf8")));
+}
+
+function setThreadArchived(threadId, archived) {
+  const ids = readArchivedThreadIds();
+  if (archived) {
+    ids.add(threadId);
+  } else {
+    ids.delete(threadId);
+  }
+  if (archiveStatePath === null) {
+    return;
+  }
+  writeFileSync(archiveStatePath, JSON.stringify([...ids]));
+}
+
+function isThreadArchived(threadId) {
+  return readArchivedThreadIds().has(threadId);
+}
+
+function shouldFailThisModelList() {
+  if (modelListFailOnceMarkerPath === null) {
+    return false;
+  }
+  try {
+    closeSync(openSync(modelListFailOnceMarkerPath, "wx"));
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "EEXIST") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function withThreadId(value, threadId) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => withThreadId(entry, threadId));
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  const rewritten = {};
+  for (const [key, entry] of Object.entries(value)) {
+    rewritten[key] =
+      key === "threadId" && typeof entry === "string"
+        ? threadId
+        : withThreadId(entry, threadId);
+  }
+  return rewritten;
+}
+
+let outboundRequestCounter = 0;
+const pendingOutboundRequests = new Map();
+
+function requestFromClient(method, params) {
+  outboundRequestCounter += 1;
+  const id = `fx-req-${outboundRequestCounter}`;
+  return new Promise((resolve) => {
+    pendingOutboundRequests.set(id, resolve);
+    send({ jsonrpc: "2.0", id, method, params });
+  });
+}
+
+const turnCursorPath = script?.turnCursorPath ?? null;
+
+function takeScriptedTurnIndex() {
+  if (turnCursorPath === null) {
+    const index = scriptedTurnIndex;
+    scriptedTurnIndex += 1;
+    return index;
+  }
+  const index = existsSync(turnCursorPath)
+    ? Number(readFileSync(turnCursorPath, "utf8"))
+    : 0;
+  writeFileSync(turnCursorPath, String(index + 1));
+  return index;
+}
+
+async function runScriptFileTurn(threadId) {
+  const turn = scriptedTurns[takeScriptedTurnIndex()] ?? [];
+  for (const entry of turn) {
+    const params = withThreadId(entry.params ?? {}, threadId);
+    if (entry.kind === "request") {
+      await requestFromClient(entry.method, params);
+      continue;
+    }
+    if (entry.method === "turn/started") {
+      openTurnIdsByThreadId.set(threadId, params.turn.id);
+    }
+    if (entry.method === "turn/completed") {
+      openTurnIdsByThreadId.delete(threadId);
+    }
+    notify(entry.method, params);
+  }
+}
+
+function replayLastTurnUsage(threadId) {
+  notify("thread/tokenUsage/updated", {
+    threadId,
+    turnId: "turn-fx-1",
+    tokenUsage: FIXED_TOKEN_USAGE,
+  });
+}
+
+async function handleRequest(message) {
+  const { id, method } = message;
+  const params = message.params ?? {};
+  if (requestLogPath !== null) {
+    appendFileSync(requestLogPath, `${JSON.stringify({ method, params })}\n`);
+  }
+  switch (method) {
+    case "initialize":
+      respond(id, {});
+      return;
+    case "account/rateLimits/read":
+      if (script?.rateLimitRead) {
+        if (script.rateLimitRead.hang) return;
+        setTimeout(() => {
+          if (script.rateLimitRead.error)
+            respondError(id, -32603, "Quota read unavailable");
+          else respond(id, script.rateLimitRead.result);
+        }, script.rateLimitRead.delayMs ?? 0);
+        return;
+      }
+      respond(id, { rateLimits: {} });
+      return;
+    case "model/list":
+      if (shouldFailThisModelList()) {
+        respond(id, { data: [] });
+        return;
+      }
+      if (script?.modelList) {
+        setTimeout(
+          () => respond(id, script.modelList),
+          script.modelListDelayMs ?? 0,
+        );
+        return;
+      }
+      respond(id, {
+        data: [
+          {
+            id: `fake-model-${processInstanceId}`,
+            model: `fake-model-${processInstanceId}`,
+            displayName: "Fake model",
+            description: "Hermetic bridge fixture model",
+            supportedReasoningEfforts: [
+              { reasoningEffort: "medium", description: "Medium" },
+            ],
+            defaultReasoningEffort: "medium",
+            isDefault: true,
+          },
+        ],
+      });
+      return;
+    case "config/read":
+      if (script?.configReadError) {
+        respondError(id, -32601, "Configuration read unavailable");
+      } else {
+        respond(id, script?.configRead ?? { config: { model: null } });
+      }
+      return;
+    case "skills/extraRoots/set":
+      respond(id, {});
+      return;
+    case "thread/start": {
+      servesThread = true;
+      if (stallThreadStart) {
+        await new Promise(() => undefined);
+      }
+      threadCounter += 1;
+      const threadId = `codex-fx-${processInstanceId}-${threadCounter}`;
+      notify("thread/started", { thread: { id: threadId } });
+      respond(id, { thread: { id: threadId } });
+      return;
+    }
+    case "thread/resume": {
+      servesThread = true;
+      if (!acquireWriterLock()) {
+        logProcessStep("writer-conflict");
+        respondError(
+          id,
+          -32603,
+          `thread ${params.threadId} already has an active writer`,
+        );
+        return;
+      }
+
+      if (
+        String(params.threadId).startsWith("archived-") ||
+        isThreadArchived(params.threadId)
+      ) {
+        respondError(
+          id,
+          -32603,
+          `session ${params.threadId} is archived; unarchive it and retry`,
+        );
+        return;
+      }
+
+      if (String(params.threadId).startsWith("usage-replay-")) {
+        replayLastTurnUsage(params.threadId);
+      }
+      respond(id, {
+        thread: {
+          id: params.threadId,
+          ...(script?.resumedDaybreakEnabled === undefined
+            ? {}
+            : { daybreakEnabled: script.resumedDaybreakEnabled }),
+        },
+      });
+      return;
+    }
+    case "thread/metadata/update":
+      if (script?.metadataUpdateError) {
+        respondError(id, -32603, "Thread metadata is unavailable");
+      } else {
+        respond(id, { thread: { id: params.threadId } });
+      }
+      return;
+    case "thread/fork": {
+      servesThread = true;
+
+      if (
+        String(params.threadId).startsWith("archived-") ||
+        isThreadArchived(params.threadId)
+      ) {
+        respondError(
+          id,
+          -32603,
+          `session ${params.threadId} is archived; unarchive it and retry`,
+        );
+        return;
+      }
+      threadCounter += 1;
+      const replaysUsage = String(params.threadId).startsWith("usage-replay-");
+      const threadId = replaysUsage
+        ? `usage-replay-fork-${processInstanceId}-${threadCounter}`
+        : `codex-fx-${processInstanceId}-fork-${threadCounter}`;
+      respond(id, { thread: { id: threadId } });
+
+      if (replaysUsage) {
+        replayLastTurnUsage(threadId);
+      }
+      return;
+    }
+    case "turn/start": {
+      if (firstInputText(params.input) === ZERO_WORK_PROMPT_TEXT) {
+        respond(id, {});
+        return;
+      }
+      if (firstInputText(params.input) === SUBAGENT_THEN_CRASH_PROMPT_TEXT) {
+        turnCounter += 1;
+        const turnId = `turn-fx-${turnCounter}`;
+        openTurnIdsByThreadId.set(params.threadId, turnId);
+        notify("turn/started", {
+          threadId: params.threadId,
+          turn: { id: turnId, status: "inProgress" },
+        });
+        notify("item/completed", {
+          threadId: params.threadId,
+          turnId,
+          item: {
+            type: "subAgentActivity",
+            id: `call-fx-${turnCounter}`,
+            kind: "started",
+            agentThreadId: `codex-fx-sub-${turnCounter}`,
+            agentPath: "reviewer",
+          },
+        });
+        respond(id, {});
+        setTimeout(() => process.exit(1), 20);
+        return;
+      }
+      if (firstInputText(params.input) === LATE_TURN_START_PROMPT_TEXT) {
+        turnCounter += 1;
+        const turnId = `turn-fx-${turnCounter}`;
+        respond(id, { turn: { id: turnId, status: "inProgress" } });
+        setTimeout(
+          () => runScriptedTurn(params.threadId, turnId),
+          LATE_TURN_START_DELAY_MS,
+        );
+        return;
+      }
+      if (
+        firstInputText(params.input) === LATE_START_INTERRUPTIBLE_PROMPT_TEXT
+      ) {
+        turnCounter += 1;
+        const turnId = `turn-fx-${turnCounter}`;
+        lateStartTurnIdsByThreadId.set(params.threadId, turnId);
+        respond(id, { turn: { id: turnId, status: "inProgress" } });
+        if (script?.neverStart) return;
+        setTimeout(() => {
+          lateStartTurnIdsByThreadId.delete(params.threadId);
+          openTurnIdsByThreadId.set(params.threadId, turnId);
+          notify("turn/started", {
+            threadId: params.threadId,
+            turn: { id: turnId, status: "inProgress" },
+          });
+        }, LATE_TURN_START_DELAY_MS);
+        return;
+      }
+      if (firstInputText(params.input) === RESPOND_THEN_EXIT_PROMPT_TEXT) {
+        turnCounter += 1;
+        const turnId = `turn-fx-${turnCounter}`;
+        respond(id, { turn: { id: turnId, status: "inProgress" } });
+        setTimeout(() => process.exit(1), 20);
+        return;
+      }
+      if (firstInputText(params.input) === RESPOND_COMPLETED_PROMPT_TEXT) {
+        turnCounter += 1;
+        const turnId = `turn-fx-${turnCounter}`;
+        respond(id, { turn: { id: turnId, status: "completed" } });
+        return;
+      }
+      if (firstInputText(params.input) === STEER_INTO_ACTIVE_PROMPT_TEXT) {
+        const activeTurnId = openTurnIdsByThreadId.get(params.threadId);
+        respond(id, { turn: { id: activeTurnId, status: "inProgress" } });
+        return;
+      }
+      if (firstInputText(params.input) === INTERRUPT_BEFORE_START_PROMPT_TEXT) {
+        turnCounter += 1;
+        const turnId = `turn-fx-${turnCounter}`;
+        pendingStartTurnIdsByThreadId.set(params.threadId, turnId);
+        respond(id, { turn: { id: turnId, status: "inProgress" } });
+        return;
+      }
+      if (firstInputText(params.input) === INTERRUPTIBLE_PROMPT_TEXT) {
+        turnCounter += 1;
+        const turnId = `turn-fx-${turnCounter}`;
+        openTurnIdsByThreadId.set(params.threadId, turnId);
+        notify("turn/started", {
+          threadId: params.threadId,
+          turn: { id: turnId, status: "inProgress" },
+        });
+        setTimeout(() => respond(id, {}), script?.startResponseDelayMs ?? 0);
+        return;
+      }
+      if (scriptedTurns) {
+        await runScriptFileTurn(params.threadId);
+      } else {
+        runScriptedTurn(params.threadId);
+      }
+      respond(id, {});
+      return;
+    }
+    case "turn/steer":
+      respond(id, {});
+      return;
+    case "turn/interrupt": {
+      interruptAttempts += 1;
+      if (
+        script?.interruptError &&
+        interruptAttempts <= (script.interruptErrorCount ?? 1)
+      ) {
+        if (script.startBeforeInterruptError) {
+          const turnId = lateStartTurnIdsByThreadId.get(params.threadId);
+          lateStartTurnIdsByThreadId.delete(params.threadId);
+          openTurnIdsByThreadId.set(params.threadId, turnId);
+          notify("turn/started", {
+            threadId: params.threadId,
+            turn: { id: turnId, status: "inProgress" },
+          });
+        }
+        if (script.settleBeforeInterruptError) {
+          notify("turn/completed", {
+            threadId: params.threadId,
+            turn: { id: params.turnId, status: "completed" },
+          });
+        }
+        respondError(
+          id,
+          script.interruptError.code,
+          script.interruptError.message,
+        );
+        return;
+      }
+      if (lateStartTurnIdsByThreadId.has(params.threadId)) {
+        respondError(id, -32600, "no active turn to interrupt");
+        return;
+      }
+      const pendingTurnId = pendingStartTurnIdsByThreadId.get(params.threadId);
+      if (pendingTurnId !== undefined) {
+        pendingStartTurnIdsByThreadId.delete(params.threadId);
+        notify("turn/completed", {
+          threadId: params.threadId,
+          turn: { id: pendingTurnId, status: "interrupted" },
+        });
+        notify("turn/started", {
+          threadId: params.threadId,
+          turn: { id: pendingTurnId, status: "inProgress" },
+        });
+        respond(id, {});
+        return;
+      }
+      const openTurnId = openTurnIdsByThreadId.get(params.threadId);
+      if (openTurnId !== undefined) {
+        openTurnIdsByThreadId.delete(params.threadId);
+        notify("turn/completed", {
+          threadId: params.threadId,
+          turn: { id: openTurnId, status: "interrupted" },
+        });
+      }
+      respond(id, {});
+      return;
+    }
+    case "thread/archive":
+      if (isThreadArchived(params.threadId)) {
+        respondError(
+          id,
+          -32603,
+          `no rollout found for thread id ${params.threadId}`,
+        );
+        return;
+      }
+      setThreadArchived(params.threadId, true);
+      respond(id, {});
+      return;
+    case "thread/unarchive":
+      if (!isThreadArchived(params.threadId)) {
+        respondError(
+          id,
+          -32603,
+          `no archived rollout found for thread id ${params.threadId}`,
+        );
+        return;
+      }
+      setThreadArchived(params.threadId, false);
+      respond(id, {});
+      return;
+    case "thread/name/set":
+      if (renameEmptyRolloutFailuresLeft > 0) {
+        renameEmptyRolloutFailuresLeft -= 1;
+        respondError(
+          id,
+          -32603,
+          `failed to set thread name: rollout at /tmp/${params.threadId}.jsonl is empty`,
+        );
+        return;
+      }
+      respond(id, {});
+      return;
+    case "thread/compact/start":
+      if (COMPACTION_MODE === "idle-before-rejection") {
+        notify("thread/status/changed", {
+          threadId: params.threadId,
+          status: { type: "idle" },
+        });
+        setTimeout(() => respondError(id, -32600, "compaction rejected"), 30);
+        return;
+      }
+      if (
+        COMPACTION_MODE === "idle-before-response" ||
+        COMPACTION_MODE === "error-before-response"
+      ) {
+        notify("thread/status/changed", {
+          threadId: params.threadId,
+          status: {
+            type:
+              COMPACTION_MODE === "idle-before-response"
+                ? "idle"
+                : "systemError",
+          },
+        });
+        setTimeout(() => respond(id, {}), 30);
+        return;
+      }
+      respond(id, {});
+      runCompaction(params.threadId);
+      return;
+    case "thread/goal/clear":
+      respond(id, {});
+      return;
+    default:
+      respondError(id, -32601, `Unknown method "${method}"`);
+  }
+}
+
+const stdinLines = createInterface({ input: process.stdin, terminal: false });
+stdinLines.on("line", (line) => {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return;
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return;
+  }
+  if (parsed.id !== undefined && typeof parsed.method === "string") {
+    void handleRequest(parsed);
+    return;
+  }
+  if (parsed.id !== undefined) {
+    const resolve = pendingOutboundRequests.get(parsed.id);
+    if (resolve) {
+      pendingOutboundRequests.delete(parsed.id);
+      if (responseLogPath !== null) {
+        appendFileSync(responseLogPath, `${JSON.stringify(parsed)}\n`);
+      }
+      resolve(parsed);
+    }
+  }
+});
+stdinLines.on("close", () => {
+  logProcessStep("stdin-close");
+  if (stdinCloseDelayMs > 0 && servesThread) {
+    setTimeout(exitCleanly, stdinCloseDelayMs);
+    return;
+  }
+  exitCleanly();
+});

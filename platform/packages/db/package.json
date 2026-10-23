@@ -1,0 +1,50 @@
+{
+  "name": "@bb/db",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./internal-environment-lifecycle": {
+      "source": "./src/internal-environment-lifecycle.ts",
+      "types": "./src/internal-environment-lifecycle.ts",
+      "default": "./src/internal-environment-lifecycle.ts"
+    },
+    "./testing": {
+      "source": "./src/testing.ts",
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
+    }
+  },
+  "types": "./src/index.ts",
+  "files": [
+    "drizzle"
+  ],
+  "scripts": {
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@bb/config": "workspace:*",
+    "@bb/domain": "workspace:*",
+    "@bb/text-utils": "workspace:*",
+    "better-sqlite3": "12.10.0",
+    "drizzle-orm": "^0.38.0",
+    "nanoid": "^5.0.9"
+  },
+  "devDependencies": {
+    "@bb/tsconfig": "workspace:*",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "drizzle-kit": "^0.30.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

@@ -1,0 +1,81 @@
+# Host UI, status, and lifecycle
+
+### bb.ui — host-rendered UI (no frontend bundle needed)
+
+```ts
+bb.ui.registerMentionProvider({
+  id: "issue",
+  label: "Issues",
+  triggers: ["@", "#"], // optional; defaults to ["@"]. Valid: @ # $ ! ~
+  search({ trigger, query, projectId, threadId }) {
+    // 2s time box, failure = empty list
+    return [{ id: "42", title: "ENG-42 Fix flake", subtitle: "Todo" }];
+  },
+  resolve(itemId) {
+    // once per unique item AT SEND TIME
+    return {
+      context: "# ENG-42…",
+      experimental_images: [
+        {
+          type: "localImage",
+          path: "/absolute/path/capture.jpg",
+          context: "Selected element",
+        },
+      ],
+    }; // attached as agent-only context; throwing BLOCKS the send
+  },
+});
+```
+
+Mention items render under `label` in the menu for each registered trigger.
+`experimental_images` may add bounded agent-only `image` URL or `localImage`
+path inputs, each with optional `context`. Treat remote and page-derived image
+content as untrusted evidence. Invalid images block the send rather than being
+silently dropped.
+All handlers run server-side. There is deliberately no plugin slash-command surface: the composer's `/`
+menu lists skills, so a plugin capability that crafts a prompt for the agent
+ships as a `skills/` entry instead.
+
+### bb.status
+
+`bb.status.needsConfiguration(message)` — mark the plugin
+`needs-configuration` (shown in `bb plugin list` and the UI) instead of
+failing. Cleared on the next load; saving settings retries the load.
+
+### bb.onInstall
+
+`bb.onInstall(handler)` runs once, right after the user installs
+the plugin and its server entry has loaded. It does not run on update,
+reload, enable, or server restart, and not for bb's bundled plugins;
+reinstalling after removal runs it again. Use it for one-time setup the user
+would expect from installing, such as picking the plugin's thread list:
+
+```ts
+bb.onInstall(async () => {
+  const { preferences } = await bb.sdk.system.uiPreferences.list();
+  await bb.sdk.system.uiPreferences.set({
+    key: "sidebar.threadListProvider",
+    value: "my-plugin/inbox",
+    expectedRevision: preferences["sidebar.threadListProvider"].revision,
+  });
+});
+```
+
+A handler that throws is logged and the install still succeeds; the install
+waits at most 30 seconds for handlers. In tests,
+`harness.lifecycle.install()` runs them.
+
+### bb.onDispose and the reload lifecycle
+
+`bb.onDispose(hook)` registers cleanup; hooks run **LIFO**. On reload the
+host first runs the factory against a candidate registration set; if it
+throws, the complete previous set stays live. Once the candidate succeeds, the
+old generation is torn down in order: its host workers stop, pending plugin
+input is interrupted, services are aborted and get up to five seconds each (a
+hung service marks the plugin degraded until it stops), dispose hooks run in
+LIFO order (one failed hook does not stop later cleanup), in-flight HTTP,
+RPC, and event handlers get five seconds to finish, and then database handles
+close and the old `bb` object is invalidated. Disable and shutdown use the
+same sequence without a replacement. A
+captured `bb` from a previous load throws `PluginContextStaleError` on use
+— never stash the API object in module-level state that outlives a load.

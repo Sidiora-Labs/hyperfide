@@ -1,0 +1,1 @@
+ALTER TABLE `host_daemon_sessions` DROP COLUMN `last_heartbeat_at`;

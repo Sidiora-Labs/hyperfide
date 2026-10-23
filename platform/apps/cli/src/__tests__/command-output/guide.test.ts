@@ -1,0 +1,71 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  setupCommandOutputTestEnvironment,
+  collectLogLines,
+  runCommand,
+} from "../helpers/command-output-harness.js";
+import { registerGuideCommand } from "../../commands/guide.js";
+
+describe("hyperfide-platform guide command output", () => {
+  setupCommandOutputTestEnvironment();
+
+  it("hyperfide-platform guide unknown chapter lists available chapters", async () => {
+    await expect(
+      runCommand(["guide", "missing"], registerGuideCommand),
+    ).rejects.toThrow("process.exit:1");
+
+    const errorOutput = collectLogLines(vi.mocked(console.error)).join("\n");
+    expect(errorOutput).toContain("Unknown guide chapter 'missing'");
+    expect(errorOutput).toContain(
+      "Available: threads, thread-inspection, thread-messaging, thread-lifecycle, environments, agent-configuration, providers, projects, machines, terminals, browser, customization, plugins, json.",
+    );
+  });
+
+  it("hyperfide-platform guide accepts the singular and synonym names agents guess", async () => {
+    await runCommand(["guide", "thread", "--json"], registerGuideCommand);
+    await runCommand(["guide", "host", "--json"], registerGuideCommand);
+
+    const chapters = collectLogLines(vi.mocked(console.log)).map(
+      (line) => JSON.parse(line).chapter,
+    );
+    expect(chapters).toEqual(["threads", "machines"]);
+  });
+
+  it("hyperfide-platform guide commands <group> lists each command once with its options and aliases", async () => {
+    await runCommand(["guide", "commands", "terminal"], registerGuideCommand);
+
+    const output = collectLogLines(vi.mocked(console.log)).join("\n");
+    expect(output).toContain(
+      "hyperfide-platform terminal output|read <terminalId>  [--since-seq <n>] [--tail-bytes <n>] [--limit-chunks <n>] [--json]\n    Print terminal output",
+    );
+    expect(output).not.toContain("hyperfide-platform thread ");
+  }, 30_000);
+
+  it("hyperfide-platform guide commands without a group leaves options out and says how to get them", async () => {
+    await runCommand(["guide", "commands"], registerGuideCommand);
+
+    const output = collectLogLines(vi.mocked(console.log)).join("\n");
+    expect(output).toContain(
+      "hyperfide-platform thread tell|message|send <id> [message]\n",
+    );
+    expect(output).toContain("hyperfide-platform guide commands <group>");
+  }, 30_000);
+
+  it("hyperfide-platform guide commands rejects a group that does not exist", async () => {
+    await expect(
+      runCommand(["guide", "commands", "nope"], registerGuideCommand),
+    ).rejects.toThrow("process.exit:1");
+
+    const errorOutput = collectLogLines(vi.mocked(console.error)).join("\n");
+    expect(errorOutput).toContain("Unknown command group 'nope'.");
+    expect(errorOutput).toContain("Command groups: browser, status");
+  }, 30_000);
+
+  it("hyperfide-platform guide terminals renders the terminals chapter", async () => {
+    await runCommand(["guide", "terminals"], registerGuideCommand);
+
+    expect(collectLogLines(vi.mocked(console.log)).join("\n")).toContain(
+      "hyperfide-platform terminal list --thread <thread-id>",
+    );
+  });
+});

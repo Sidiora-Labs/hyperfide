@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en" class="bb-app-shell-root">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#ffffff" id="theme-color" />
+    <!-- iOS ignores the manifest's display mode, so these opt the home-screen
+         app into standalone (chrome-less) launch. The translucent status bar
+         and viewport-fit=cover let app surfaces paint edge-to-edge; layout
+         chrome and overlays apply safe-area padding to their content. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="bb" />
+    <title>bb</title>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon-32x32.png"
+      id="favicon-32"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/favicon-16x16.png"
+      id="favicon-16"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/apple-touch-icon.png"
+      id="apple-touch-icon"
+    />
+    <link
+      rel="manifest"
+      href="/manifest.webmanifest"
+      id="app-manifest"
+      crossorigin="use-credentials"
+    />
+    <script>
+      (function () {
+        var dev = "%MODE%" === "development";
+        function setFavicon(dark) {
+          var s = dev ? "-dev" : dark ? "-dark" : "";
+          document.getElementById("favicon-32").href =
+            "/favicon-32x32" + s + ".png";
+          document.getElementById("favicon-16").href =
+            "/favicon-16x16" + s + ".png";
+        }
+        var mq = window.matchMedia("(prefers-color-scheme: dark)");
+        setFavicon(mq.matches);
+        if (!dev)
+          mq.addEventListener("change", function (e) {
+            setFavicon(e.matches);
+          });
+        function getFaviconColorSuffix() {
+          try {
+            var color = localStorage.getItem("bb.faviconColor");
+            return /^(red|orange|yellow|green|teal|blue|purple|pink)$/.test(
+              color,
+            )
+              ? "-" + color
+              : "";
+          } catch {
+            return "";
+          }
+        }
+        var faviconColorSuffix = getFaviconColorSuffix();
+        document.getElementById("app-manifest").href =
+          "/manifest" + faviconColorSuffix + ".webmanifest";
+        document.getElementById("apple-touch-icon").href =
+          "/apple-touch-icon" + faviconColorSuffix + ".png";
+        // Pre-paint browser-chrome color so PWA/status-bar chrome doesn't
+        // flash the wrong shade before the app boots; useTheme.ts owns the
+        // meta tag afterwards. Mirrors the bb.theme preference resolution and
+        // the --canvas values in theme.css (#151515 = oklch(0.195 0 0)).
+        var theme = null;
+        try {
+          theme = localStorage.getItem("bb.theme");
+        } catch {}
+        var darkTheme = theme === "dark" || (theme !== "light" && mq.matches);
+        document.getElementById("theme-color").content = darkTheme
+          ? "#151515"
+          : "#ffffff";
+        // theme.css keys every dark token off the `dark` class, so add it
+        // before the stylesheet applies. Otherwise the first paint is the
+        // light palette until main.tsx (behind ~1.5 MB of JS) toggles it,
+        // which reads as a white flash on every cold load. useTheme.ts owns
+        // the class afterwards and reconciles it with the same preference.
+        if (darkTheme) document.documentElement.classList.add("dark");
+      })();
+    </script>
+  </head>
+  <body class="bb-app-shell">
+    <div id="root"></div>
+    <script>
+      // Pre-paint the palette (Nord, Dracula, a custom theme, ...) cached by
+      // applyAppThemeCss from the previous load, so a non-default palette does
+      // not flash the default one until main.tsx runs. Runs at the end of
+      // <body> so the <style> lands after the app stylesheet Vite injects into
+      // <head>, where its :root/.dark overrides win by source order.
+      // applyCachedAppThemeCss reuses this element by id and re-appends it if
+      // anything (dev-mode style tags) got inserted after it.
+      (function () {
+        var css = null;
+        try {
+          css = localStorage.getItem("bb.appThemeCss");
+        } catch {}
+        if (!css) return;
+        var style = document.createElement("style");
+        style.id = "bb-app-theme";
+        style.textContent = css;
+        document.head.appendChild(style);
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,109 @@
+import { describe, expect, expectTypeOf, it } from "vitest";
+import {
+  threadEventSchema,
+  threadEventTypeValues,
+  type ThreadEventType,
+  turnScope,
+} from "../src/index.js";
+
+expectTypeOf<
+  (typeof threadEventTypeValues)[number]
+>().toEqualTypeOf<ThreadEventType>();
+
+const CLIENT_REQUEST_ID = "creq_23456789ab";
+
+describe("provider event schema", () => {
+  it("models context clears as turn-scoped provider events", () => {
+    expect(
+      threadEventSchema.parse({
+        type: "thread/context/cleared",
+        threadId: "thr_123",
+        providerThreadId: "provider-thread-123",
+        scope: turnScope("turn_123"),
+      }),
+    ).toEqual({
+      type: "thread/context/cleared",
+      threadId: "thr_123",
+      providerThreadId: "provider-thread-123",
+      scope: turnScope("turn_123"),
+    });
+  });
+
+  it("preserves opaque provider rate-limit window keys", () => {
+    expect(
+      threadEventSchema.parse({
+        type: "provider/rateLimits/updated",
+        threadId: "thr_123",
+        providerThreadId: "provider-thread-123",
+        scope: { kind: "thread" },
+        rateLimits: {
+          providerId: "claude-code",
+          status: "blocked",
+          kind: "subscription-window",
+          windows: [
+            {
+              providerKey: "seven_day_fable",
+              label: null,
+              status: "blocked",
+              resetsAtMs: 1_781_120_400_000,
+            },
+          ],
+          reachedReason: "seven_day_fable",
+          overageStatus: null,
+          overageReason: null,
+        },
+      }),
+    ).toMatchObject({
+      rateLimits: {
+        windows: [{ providerKey: "seven_day_fable" }],
+      },
+    });
+  });
+
+  it("uses clientRequestId for accepted input and user-message items", () => {
+    expect(
+      threadEventSchema.parse({
+        type: "turn/input/accepted",
+        threadId: "thr_123",
+        providerThreadId: "provider-thread-123",
+        clientRequestId: CLIENT_REQUEST_ID,
+        scope: turnScope("turn_123"),
+      }),
+    ).toMatchObject({
+      clientRequestId: CLIENT_REQUEST_ID,
+    });
+
+    expect(
+      threadEventSchema.parse({
+        type: "item/started",
+        threadId: "thr_123",
+        providerThreadId: "provider-thread-123",
+        item: {
+          type: "userMessage",
+          id: "item_123",
+          content: [{ type: "text", text: "hello" }],
+          clientRequestId: CLIENT_REQUEST_ID,
+        },
+        scope: turnScope("turn_123"),
+      }),
+    ).toMatchObject({
+      item: {
+        clientRequestId: CLIENT_REQUEST_ID,
+      },
+    });
+  });
+
+  it("allows provider turn starts to carry parent tool call ids", () => {
+    expect(
+      threadEventSchema.parse({
+        type: "turn/started",
+        threadId: "thr_child",
+        providerThreadId: "provider-thread-123",
+        parentToolCallId: "tool-call-123",
+        scope: turnScope("turn_child"),
+      }),
+    ).toMatchObject({
+      parentToolCallId: "tool-call-123",
+    });
+  });
+});

@@ -1,0 +1,283 @@
+import type { DesktopBrowserBroker } from "./desktop-browser-broker.js";
+import {
+  CompetingTurnError,
+  type AgentRuntimeBridgeLaunch,
+} from "@bb/agent-runtime";
+import type { AvailableModel } from "@bb/domain";
+import type { EventSink } from "./event-sink.js";
+import {
+  COMPETING_TURN_ERROR_CODE,
+  type EnvironmentHookProgressMessage,
+  type HostDaemonCommand,
+  type HostDaemonContributedEnvEntry,
+  type ProviderHealthResult,
+  type ProviderUsageResult,
+  type HostDaemonBridgeLaunch,
+  type HostDaemonInjectedSkillSource,
+  type HostDaemonOnlineRpcCommand,
+  type HostDaemonConnectTunnelIdentity,
+  type WorkspaceContext,
+} from "@bb/host-daemon-contract";
+import { BRIDGE_JSON_RPC_ERRORS } from "@bb/provider-bridge-protocol";
+import type {
+  CommandListResult,
+  ProviderInstallationCommand,
+  ProviderInstallationRunResult,
+  ProviderInstallationStatus,
+} from "@bb/provider-bridge-protocol";
+import { ensurePluginProcessDataDir } from "@bb/process-utils";
+import type { InteractiveResolveCommandInput } from "./interactive-request-registry.js";
+import { RuntimeManager, type RuntimeEntry } from "./runtime-manager.js";
+import type { FetchProjectAttachment } from "./project-attachments.js";
+import type { FetchSkillTree } from "./skill-trees.js";
+import type { HostDaemonLogger } from "./logger.js";
+import type { ServerMoveService } from "./server-move/service.js";
+import {
+  ensureCachedPluginHostArtifact,
+  type FetchPluginHostArtifact,
+} from "./plugin-host-artifact-cache.js";
+
+type DispatchCommand = HostDaemonCommand | HostDaemonOnlineRpcCommand;
+
+export type CommandOf<TType extends DispatchCommand["type"]> = Extract<
+  DispatchCommand,
+  { type: TType }
+>;
+
+export interface CommandDispatchOptions {
+  emitEnvironmentHookProgress?: (
+    message: EnvironmentHookProgressMessage,
+  ) => void;
+  desktopBrowserBroker?: DesktopBrowserBroker;
+  dataDir: string;
+  logger: Pick<HostDaemonLogger, "debug" | "warn">;
+  fetchProjectAttachment: FetchProjectAttachment;
+  fetchSkillTree?: FetchSkillTree;
+  fetchPluginHostArtifact?: FetchPluginHostArtifact;
+  runtimeManager: RuntimeManager;
+  eventSink: Pick<EventSink, "emit" | "flush">;
+  listModels: (args: {
+    providerId: string;
+    bridgeLaunch: AgentRuntimeBridgeLaunch;
+    cwd?: string;
+    contributedEnv: readonly HostDaemonContributedEnvEntry[];
+  }) => Promise<{
+    models: AvailableModel[];
+    selectedOnlyModels: AvailableModel[];
+  }>;
+  listCommands: (args: {
+    providerId: string;
+    bridgeLaunch: AgentRuntimeBridgeLaunch;
+    cwd: string;
+  }) => Promise<CommandListResult>;
+  providerHealth: (args: {
+    providerId: string;
+    bridgeLaunch: AgentRuntimeBridgeLaunch;
+    cwd?: string;
+  }) => Promise<ProviderHealthResult>;
+  providerUsage: (args: {
+    providerId: string;
+    bridgeLaunch: AgentRuntimeBridgeLaunch;
+    cwd?: string;
+  }) => Promise<ProviderUsageResult>;
+  providerInstallationStatus: (args: {
+    providerId: string;
+    bridgeLaunch: AgentRuntimeBridgeLaunch;
+    cwd?: string;
+    requirement?: "thread_rewind";
+    checkUpdates?: boolean;
+  }) => Promise<ProviderInstallationStatus>;
+  providerInstallationRun: (args: {
+    providerId: string;
+    action: "install" | "update";
+    bridgeLaunch: AgentRuntimeBridgeLaunch;
+    cwd?: string;
+  }) => Promise<ProviderInstallationRunResult>;
+  streamProviderInstallation?: (args: {
+    providerId: string;
+    plan: ProviderInstallationCommand;
+    env?: NodeJS.ProcessEnv;
+  }) => ReadableStream<Uint8Array>;
+  refreshShellEnv: (args: { allowStale: boolean }) => Promise<void>;
+  resolveInteractiveRequest?: (
+    request: InteractiveResolveCommandInput,
+  ) => Promise<void>;
+  ensureConnectTunnelIdentity?: () => Promise<HostDaemonConnectTunnelIdentity>;
+  serverMove?: ServerMoveService;
+  threadStorageRootPath: string;
+}
+
+export class CommandDispatchError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CommandDispatchError";
+  }
+}
+
+export class ExpectedCommandDispatchError extends CommandDispatchError {
+  constructor(code: string, message: string) {
+    super(code, message);
+    this.name = "ExpectedCommandDispatchError";
+  }
+}
+
+export function isExpectedCommandDispatchError(
+  error: unknown,
+): error is ExpectedCommandDispatchError {
+  return error instanceof ExpectedCommandDispatchError;
+}
+
+const EXPECTED_ONLINE_RPC_FAILURE_CODES = new Set([
+  "file_too_large",
+  "provision_cancelled",
+]);
+
+export function isExpectedOnlineRpcFailureError(error: unknown): boolean {
+  return (
+    isExpectedCommandDispatchError(error) ||
+    EXPECTED_ONLINE_RPC_FAILURE_CODES.has(getErrorCode(error))
+  );
+}
+
+const MISSING_EXECUTABLE_PATTERN = /\bENOENT\b/;
+const SPAWN_PATTERN = /\bspawn\b/;
+
+export async function resolveRuntimeBridgeLaunch(
+  bridgeLaunch: HostDaemonBridgeLaunch,
+  options: Pick<
+    CommandDispatchOptions,
+    "dataDir" | "fetchPluginHostArtifact" | "logger"
+  >,
+): Promise<AgentRuntimeBridgeLaunch> {
+  const capabilities = {
+    ...bridgeLaunch.capabilities,
+    permissionModes: [...bridgeLaunch.capabilities.permissionModes],
+  };
+  const providerOptions = { ...bridgeLaunch.providerOptions };
+  const envPassthrough = [...bridgeLaunch.envPassthrough];
+  const dataDir = await ensurePluginProcessDataDir({
+    daemonDataDir: options.dataDir,
+    pluginId: bridgeLaunch.pluginId,
+    kind: "bridge-data",
+  });
+  if (options.fetchPluginHostArtifact === undefined) {
+    throw new CommandDispatchError(
+      "provider_bridge_unavailable",
+      "This daemon has no plugin host artifact fetcher configured",
+    );
+  }
+  const artifactPath = await ensureCachedPluginHostArtifact({
+    dataDir: options.dataDir,
+    pluginId: bridgeLaunch.pluginId,
+    fetchArtifact: options.fetchPluginHostArtifact,
+    digest: bridgeLaunch.source.digest,
+    byteLength: bridgeLaunch.source.byteLength,
+    logger: options.logger,
+  });
+  return {
+    pluginId: bridgeLaunch.pluginId,
+    dataDir,
+    source: {
+      kind: "artifact",
+      digest: bridgeLaunch.source.digest,
+      artifactPath,
+    },
+    capabilities,
+    providerOptions,
+    envPassthrough,
+  };
+}
+
+export function getErrorCode(error: unknown): string {
+  if (error instanceof CommandDispatchError) {
+    return error.code;
+  }
+  if (error instanceof CompetingTurnError) {
+    return COMPETING_TURN_ERROR_CODE;
+  }
+  if (isBridgeMissingExecutableError(error)) {
+    return "missing_executable";
+  }
+  if (isStructuredSpawnMissingExecutableError(error)) {
+    return "missing_executable";
+  }
+  if (
+    error instanceof Error &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+  if (isMessageOnlySpawnMissingExecutableError(error)) {
+    return "missing_executable";
+  }
+  return "command_failed";
+}
+
+function isBridgeMissingExecutableError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    error.code === BRIDGE_JSON_RPC_ERRORS.MISSING_EXECUTABLE
+  );
+}
+
+function isStructuredSpawnMissingExecutableError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    "code" in error &&
+    error.code === "ENOENT" &&
+    "syscall" in error &&
+    typeof error.syscall === "string" &&
+    error.syscall.startsWith("spawn")
+  );
+}
+
+function isMessageOnlySpawnMissingExecutableError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    MISSING_EXECUTABLE_PATTERN.test(error.message) &&
+    SPAWN_PATTERN.test(error.message)
+  );
+}
+
+export async function requireWorkspaceEnvironment(
+  args: {
+    environmentId: string;
+    injectedSkillSources?: readonly HostDaemonInjectedSkillSource[];
+    targetThreadId?: string;
+    workspaceContext: WorkspaceContext;
+  },
+  runtimeManager: RuntimeManager,
+): Promise<RuntimeEntry> {
+  const existing = await runtimeManager.getOrAwait(args.environmentId);
+  if (existing) {
+    if (existing.path !== args.workspaceContext.workspacePath) {
+      await runtimeManager.forgetEnvironment(args.environmentId);
+      throw new ExpectedCommandDispatchError(
+        "workspace_type_mismatch",
+        `Loaded environment ${args.environmentId} is bound to ${existing.path}, not ${args.workspaceContext.workspacePath}`,
+      );
+    }
+  }
+
+  return runtimeManager.ensureEnvironment({
+    environmentId: args.environmentId,
+    ...(args.injectedSkillSources !== undefined
+      ? { injectedSkillSources: args.injectedSkillSources }
+      : {}),
+    ...(args.targetThreadId !== undefined
+      ? { targetThreadId: args.targetThreadId }
+      : {}),
+    workspacePath: args.workspaceContext.workspacePath,
+  });
+}

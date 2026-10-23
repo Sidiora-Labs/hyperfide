@@ -400,7 +400,7 @@ Controlled trials require exact-plan approval, independent randomised units, com
 
 ## Measured qualification limits
 
-No live provider, fleet, throughput, latency or restore limit has been measured: tasks 27.2 (schedule replay), 27.3 (live providers and native agents, 48/72-hour campaigns) and 27.4 (composite faults) are pending in the specification. 27.2 and 27.4 have task-component evidence only, 27.3 has none, and every referenced full acceptance case is UNRUN. The only figures in this guide are configured bounds enforced by code (protocol bytes, PostgreSQL pool and listener limits) and the local task-component observation recorded in artifacts/hyperfide/tasks/28.1/evidence-index.json: the twelve registered 28.1 assertions run against a local PostgreSQL fixture on Node 24.22.0. That observation is a task-component receipt only and cannot replace any full-case, provider, connector or campaign receipt.
+No live provider, fleet, throughput, latency or restore limit has been measured: tasks 27.2 (schedule replay), 27.3 (live providers and native agents, 48/72-hour campaigns) and 27.4 (composite faults) are pending in the specification. 27.2 and 27.4 have task-component evidence only, 27.3 has none, and every referenced full acceptance case is UNRUN. Apart from the sandbox base-build timing below, the figures in this guide are configured bounds enforced by code (protocol bytes, PostgreSQL pool and listener limits) and the local task-component observation recorded in artifacts/hyperfide/tasks/28.1/evidence-index.json: the twelve registered 28.1 assertions run against a local PostgreSQL fixture on Node 24.22.0. That observation is a task-component receipt only and cannot replace any full-case, provider, connector or campaign receipt.
 
 ## Stop, recovery and retention
 
@@ -456,3 +456,42 @@ The bounded 28.2 persistence fixture uses the actual createClosureComponent fact
 Component 28.4 separates a bounded structural mapping response from release.traceability.archive, which retains the complete sanitised public pack through artifact.store.v1. An archive verifies retrievable bytes and does not grant product qualification. Component 28.3 release.readiness.assess holds incomplete evidence. release.readiness.seal requires all full-case gates, current authoritative programme and documentation closure, a verified COMPLETE artifact, then a fresh guarded primary recheck before writing its immutable release record. Controlled complete-inventory checker fixtures do not establish a product release.
 
 Release evidence admission uses a deployment-owned protected schema_version 2 index. Each entry binds reference, evidence_root, campaign, receipt_id, receipt_digest and gate_kinds; the index organisation_id/run_id must match the actual invocation. evidence_root is an exclusively service-owned mode 0700 portable stage containing trusted-relocation.json. The service must keep untrusted agents in separate UIDs or VMs and freeze its own stage writers. The canonical checker verifies every original source/input/tool/artifact pin through the exact relocation map. The release consumer uses absolute isolated Python, a closed environment, the qualified proof assets, and the actual private-stage guard/inspection lock. HYPERFIDE_RELEASE_PYTHON and HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT are protected deployment settings, never request fields. Nonportable version 1 indexes fail closed. Component proof remains insufficient for full release gates.
+
+
+## Sandbox toolkit image steps and measured base build
+
+`deploy/hyperfide/sandbox/fleet.json` builds checkpoints in this order: clone the
+pinned commit, build cg, install and build the service, install platform, build
+platform, index, and report tools. Corepack activates pnpm 9.15.0, with a global
+npm install fallback. Platform requires `pnpm install --frozen-lockfile`; the
+separate `platform-build` step runs `pnpm build` best effort. Logs remain in
+`/work/logs/pnpm-g.log`, `/work/logs/pnpm-install.log`, and
+`/work/logs/pnpm-build.log`. Tools print pnpm and disk space; pool probes print
+pnpm. Preparation reinstalls when `platform/pnpm-lock.yaml` or
+`platform/pnpm-workspace.yaml` differs from the checkpoint commit, frozen first,
+falling back to `--no-frozen-lockfile`.
+
+The real Railway ledger `state/ledger/base-ce200df474.json` records checkpoint
+`hf22-base-ce200df474`, commit `ce200df474`, built 2026-10-23 08:36 to 08:44 UTC
+on 4 vCPU / 8 GB:
+
+| Step | Seconds |
+| --- | ---: |
+| create | 4.6 |
+| upload (99.3 MB bundle) | 19.9 |
+| clone | 8.2 |
+| cg | 32.5 |
+| service | 20.6 |
+| platform (frozen install; node_modules 4.3G) | 69.2 |
+| platform-build | 177.1 |
+| index (cg init, 1574 files, 8 workers) | 109.3 |
+| tools | 4.5 |
+| checkpoint | 11.5 |
+| total (approximately) | 457 (7 min 37 s) |
+
+`make platform-install`, `make platform-build`, and `make platform-test` run pnpm
+under platform/. `gen-jobs.py --codex hyperfide-v22 0.8` generates a packet;
+`--v21` remains an alias for v21 tasks. `HF_PACKET_PREAMBLE` appends a file to
+each packet. `node dispatch.mjs --watch` rescans jobs every tick and writes
+queued, running, settled and backoff state to `state/dispatch-loop.json`.
+Create `state/STOP` to stop admitting jobs, drain active runners, and exit.

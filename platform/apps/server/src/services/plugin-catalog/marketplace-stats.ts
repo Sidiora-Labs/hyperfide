@@ -1,0 +1,82 @@
+import { z } from "zod";
+import { parseJsonDocument } from "../plugins/collection-manifest.js";
+import type { MarketplaceFetch } from "./marketplace-http.js";
+
+const MARKETPLACE_STATS_FILENAME = "stats.json";
+
+const ENTRY_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
+
+const marketplaceStatsSchema = z.object({
+  schemaVersion: z.literal(1),
+  generatedAt: z.string(),
+  plugins: z.record(
+    z.string(),
+    z.object({ installs: z.number().int().nonnegative() }),
+  ),
+});
+
+export type MarketplaceStats = z.infer<typeof marketplaceStatsSchema>;
+
+export function parseMarketplaceStatsJson(
+  raw: string,
+  location: string,
+): MarketplaceStats {
+  const document = parseJsonDocument(raw, location);
+  const parsed = marketplaceStatsSchema.safeParse(document);
+  if (!parsed.success) {
+    const [issue] = parsed.error.issues;
+    throw new Error(
+      `invalid ${location}: ${issue === undefined ? "unexpected shape" : `${issue.path.join(".") || "/"} ${issue.message}`}`,
+    );
+  }
+  return {
+    ...parsed.data,
+    plugins: Object.fromEntries(
+      Object.entries(parsed.data.plugins).filter(([id]) =>
+        ENTRY_ID_PATTERN.test(id),
+      ),
+    ),
+  };
+}
+
+export function installCountsFromStatsJson(
+  statsJson: string | null,
+  onInvalid?: (message: string) => void,
+): ReadonlyMap<string, number> {
+  if (statsJson === null) return new Map();
+  try {
+    const stats = parseMarketplaceStatsJson(statsJson, "stored install counts");
+    return new Map(
+      Object.entries(stats.plugins).map(([id, entry]) => [id, entry.installs]),
+    );
+  } catch (error) {
+    onInvalid?.(error instanceof Error ? error.message : String(error));
+    return new Map();
+  }
+}
+
+export function marketplaceStatsUrl(manifestUrl: string): string {
+  return new URL(MARKETPLACE_STATS_FILENAME, manifestUrl).toString();
+}
+
+export async function fetchMarketplaceStats(args: {
+  manifestUrl: string;
+  fetch: MarketplaceFetch;
+}): Promise<MarketplaceStats | null> {
+  const url = marketplaceStatsUrl(args.manifestUrl);
+  const response = await args.fetch(url, {
+    method: "GET",
+    headers: new Headers({ accept: "application/json" }),
+    redirect: "error",
+  });
+  if (response.status === 404) {
+    await response.body?.cancel();
+    return null;
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`request failed with HTTP ${response.status}`);
+  }
+  const raw = await response.text();
+  return parseMarketplaceStatsJson(raw, "marketplace install counts");
+}

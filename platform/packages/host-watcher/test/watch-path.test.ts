@@ -1,0 +1,421 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import parcelWatcher from "@parcel/watcher";
+import { makeTempDir } from "@bb/test-helpers";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as pathExistsModule from "../src/path-exists.js";
+import { watchPathChanges as watchPathChangesImpl } from "../src/watch-path.js";
+
+type WatchPathChanges = typeof watchPathChangesImpl;
+type ParcelWatcherSubscribe = (typeof import("@parcel/watcher"))["subscribe"];
+type ParcelWatcherCallback = Parameters<ParcelWatcherSubscribe>[1];
+type ParcelWatcherSubscribeArgs = Parameters<ParcelWatcherSubscribe>;
+type ParcelWatcherEventBatch = Parameters<ParcelWatcherCallback>[1];
+type ParcelWatcherSubscribeResult = Awaited<ReturnType<ParcelWatcherSubscribe>>;
+
+interface MockWatchPathImport {
+  callbacks: ParcelWatcherCallback[];
+  rootPaths: string[];
+  subscribeCallCount: () => number;
+  unsubscribe: ReturnType<typeof vi.fn<() => Promise<void>>>;
+  watchPathChanges: WatchPathChanges;
+}
+
+interface ImportWatchPathOptions {
+  pathExistsImplementation?: (targetPath: string) => Promise<boolean>;
+  subscribeImplementation?: (
+    args: ParcelWatcherSubscribeArgs,
+  ) => Promise<ParcelWatcherSubscribeResult>;
+}
+
+type Sleep = (durationMs: number) => Promise<void>;
+
+const sleep: Sleep = (durationMs) =>
+  new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, durationMs);
+  });
+
+async function settleAsyncWatchWork(): Promise<void> {
+  await Promise.resolve();
+  await sleep(0);
+  await Promise.resolve();
+}
+
+async function waitFor<T>(
+  getValue: () => T,
+  predicate: (value: T) => boolean,
+  timeoutMs = 1_000,
+): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const value = getValue();
+    if (predicate(value)) {
+      return value;
+    }
+    await sleep(20);
+  }
+  throw new Error("Timed out waiting for watcher state");
+}
+
+function createDeferredPromise<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve;
+    reject = innerReject;
+  });
+  return { promise, reject, resolve };
+}
+
+async function importWatchPathWithMockedWatcher(
+  options: ImportWatchPathOptions = {},
+): Promise<MockWatchPathImport> {
+  const callbacks: ParcelWatcherCallback[] = [];
+  const rootPaths: string[] = [];
+  let subscribeCallCount = 0;
+  const unsubscribe = vi.fn<() => Promise<void>>(async () => undefined);
+
+  if (options.pathExistsImplementation) {
+    vi.spyOn(pathExistsModule, "pathExists").mockImplementation(
+      options.pathExistsImplementation,
+    );
+  }
+  const subscribe = async (
+    ...args: ParcelWatcherSubscribeArgs
+  ): Promise<ParcelWatcherSubscribeResult> => {
+    subscribeCallCount += 1;
+    rootPaths.push(args[0]);
+    callbacks.push(args[1]);
+    if (options.subscribeImplementation) {
+      return options.subscribeImplementation(args);
+    }
+    return { unsubscribe };
+  };
+  vi.spyOn(parcelWatcher, "subscribe").mockImplementation(subscribe);
+
+  return {
+    callbacks,
+    rootPaths,
+    subscribeCallCount: () => subscribeCallCount,
+    unsubscribe,
+    watchPathChanges: watchPathChangesImpl,
+  };
+}
+
+function createEventBatch(paths: string[]): ParcelWatcherEventBatch {
+  return paths.map((eventPath) => ({
+    path: eventPath,
+    type: "update",
+  }));
+}
+
+afterEach(async () => {
+  await settleAsyncWatchWork();
+  vi.restoreAllMocks();
+});
+
+describe.sequential("watchPathChanges", () => {
+  it("watches the target path and reports changed paths within that subtree", async () => {
+    const dataDir = await makeTempDir("bb-watch-path-");
+    const threadStorageRoot = path.join(dataDir, "thread-storage");
+    await fs.mkdir(threadStorageRoot, { recursive: true });
+    const onChange = vi.fn();
+    const onWatchError = vi.fn();
+    const { callbacks, rootPaths, watchPathChanges } =
+      await importWatchPathWithMockedWatcher();
+
+    const stopWatching = watchPathChanges(threadStorageRoot, {
+      onChange,
+      onWatchError,
+    });
+
+    const [callback] = await waitFor(
+      () => callbacks,
+      (currentCallbacks) => currentCallbacks.length === 1,
+    );
+
+    expect(rootPaths).toEqual([threadStorageRoot]);
+
+    callback(
+      null,
+      createEventBatch([
+        path.join(threadStorageRoot, "thread-2", "notes.md"),
+        path.join(threadStorageRoot, "thread-1"),
+        "../outside-root.txt",
+      ]),
+    );
+
+    await waitFor(
+      () => onChange.mock.calls.length,
+      (callCount) => callCount === 1,
+    );
+
+    expect(onChange).toHaveBeenCalledWith({
+      changedPaths: [
+        path.join(threadStorageRoot, "thread-1"),
+        path.join(threadStorageRoot, "thread-2", "notes.md"),
+      ],
+    });
+    expect(onWatchError).not.toHaveBeenCalled();
+
+    stopWatching();
+  });
+
+  it("reports a missing watched path once and retries until it appears", async () => {
+    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-missing");
+    let pathExistsCallCount = 0;
+    const onWatchError = vi.fn();
+    const { rootPaths, watchPathChanges } =
+      await importWatchPathWithMockedWatcher({
+        pathExistsImplementation: async () => {
+          pathExistsCallCount += 1;
+          return pathExistsCallCount >= 2;
+        },
+      });
+
+    const stopWatching = watchPathChanges(threadStorageRoot, {
+      onChange: () => undefined,
+      onWatchError,
+    });
+
+    try {
+      await waitFor(
+        () => onWatchError.mock.calls.length,
+        (callCount) => callCount === 1,
+      );
+      expect(rootPaths).toEqual([]);
+      expect(onWatchError).toHaveBeenCalledWith({
+        message: `Watched path does not exist yet: ${threadStorageRoot}`,
+        rootPath: threadStorageRoot,
+      });
+
+      await waitFor(
+        () => rootPaths.length,
+        (count) => count === 1,
+      );
+
+      expect(rootPaths).toEqual([threadStorageRoot]);
+      expect(onWatchError).toHaveBeenCalledTimes(1);
+    } finally {
+      stopWatching();
+    }
+  });
+
+  it("retries path subscriptions after a startup failure", async () => {
+    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-retry");
+    const onWatchError = vi.fn();
+    let shouldFail = true;
+    const { rootPaths, subscribeCallCount, watchPathChanges } =
+      await importWatchPathWithMockedWatcher({
+        pathExistsImplementation: async () => true,
+        subscribeImplementation: async () => {
+          if (shouldFail) {
+            shouldFail = false;
+            throw new Error("path subscription unavailable");
+          }
+          return {
+            unsubscribe: async () => undefined,
+          };
+        },
+      });
+
+    const stopWatching = watchPathChanges(threadStorageRoot, {
+      onChange: () => undefined,
+      onWatchError,
+    });
+
+    try {
+      await waitFor(subscribeCallCount, (count) => count === 1);
+      expect(onWatchError).toHaveBeenCalledWith({
+        message: "path subscription unavailable",
+        rootPath: threadStorageRoot,
+      });
+
+      await waitFor(subscribeCallCount, (count) => count === 2);
+
+      expect(rootPaths).toEqual([threadStorageRoot, threadStorageRoot]);
+    } finally {
+      stopWatching();
+    }
+  });
+
+  it("does not retry or unsubscribe after Parcel inotify poll interruptions", async () => {
+    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-poll");
+    const onWatchError = vi.fn();
+    const { callbacks, subscribeCallCount, unsubscribe, watchPathChanges } =
+      await importWatchPathWithMockedWatcher({
+        pathExistsImplementation: async () => true,
+      });
+
+    const stopWatching = watchPathChanges(threadStorageRoot, {
+      onChange: () => undefined,
+      onWatchError,
+    });
+
+    try {
+      const [callback] = await waitFor(
+        () => callbacks,
+        (currentCallbacks) => currentCallbacks.length === 1,
+      );
+
+      callback(new Error("Unable to poll: Interrupted system call"), []);
+
+      await waitFor(
+        () => onWatchError.mock.calls.length,
+        (callCount) => callCount === 1,
+      );
+      await sleep(600);
+
+      expect(onWatchError).toHaveBeenCalledWith({
+        message: "Unable to poll: Interrupted system call",
+        rootPath: threadStorageRoot,
+      });
+      expect(subscribeCallCount()).toBe(1);
+      expect(unsubscribe).not.toHaveBeenCalled();
+    } finally {
+      await stopWatching();
+    }
+
+    expect(unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it("settles disposal and cleans up a late startup subscription", async () => {
+    const threadStorageRoot = path.join(os.tmpdir(), "bb-watch-path-late");
+    const subscriptionDeferred =
+      createDeferredPromise<ParcelWatcherSubscribeResult>();
+    const unsubscribeDeferred = createDeferredPromise<void>();
+    const unsubscribe = vi.fn<() => Promise<void>>(
+      async () => unsubscribeDeferred.promise,
+    );
+    const { rootPaths, watchPathChanges } =
+      await importWatchPathWithMockedWatcher({
+        pathExistsImplementation: async () => true,
+        subscribeImplementation: async () => subscriptionDeferred.promise,
+      });
+
+    const stopWatching = watchPathChanges(threadStorageRoot, {
+      onChange: () => undefined,
+      onWatchError: () => undefined,
+    });
+
+    await waitFor(
+      () => rootPaths.length,
+      (count) => count === 1,
+    );
+    let stopResolved = false;
+    const stopPromise = stopWatching().then(() => {
+      stopResolved = true;
+    });
+    await stopPromise;
+    expect(stopResolved).toBe(true);
+
+    subscriptionDeferred.resolve({ unsubscribe });
+
+    await waitFor(
+      () => unsubscribe.mock.calls.length,
+      (callCount) => callCount === 1,
+    );
+
+    unsubscribeDeferred.resolve(undefined);
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("coalesces repeated batches before flushing", async () => {
+    const dataDir = await makeTempDir("bb-watch-path-");
+    const threadStorageRoot = path.join(dataDir, "thread-storage");
+    await fs.mkdir(threadStorageRoot, { recursive: true });
+    const onChange = vi.fn();
+    const { callbacks, watchPathChanges } =
+      await importWatchPathWithMockedWatcher();
+
+    const stopWatching = watchPathChanges(threadStorageRoot, {
+      onChange,
+      onWatchError: () => undefined,
+    });
+
+    const [callback] = await waitFor(
+      () => callbacks,
+      (currentCallbacks) => currentCallbacks.length === 1,
+    );
+
+    callback(
+      null,
+      createEventBatch([path.join(threadStorageRoot, "thread-1", "notes.md")]),
+    );
+    callback(
+      null,
+      createEventBatch([
+        path.join(threadStorageRoot, "thread-1", "notes.md"),
+        path.join(threadStorageRoot, "thread-1", "todo.md"),
+      ]),
+    );
+
+    await waitFor(
+      () => onChange.mock.calls.length,
+      (callCount) => callCount === 1,
+    );
+
+    expect(onChange).toHaveBeenCalledWith({
+      changedPaths: [
+        path.join(threadStorageRoot, "thread-1", "notes.md"),
+        path.join(threadStorageRoot, "thread-1", "todo.md"),
+      ],
+    });
+
+    stopWatching();
+  });
+
+  it("rescans children without warning when FSEvents drops events", async () => {
+    const dataDir = await makeTempDir("bb-watch-path-dropped-");
+    const threadStorageRoot = path.join(dataDir, "thread-storage");
+    await fs.mkdir(path.join(threadStorageRoot, "thread-1"), {
+      recursive: true,
+    });
+    await fs.mkdir(path.join(threadStorageRoot, "thread-2"), {
+      recursive: true,
+    });
+    const onChange = vi.fn();
+    const onWatchError = vi.fn();
+    const { callbacks, subscribeCallCount, watchPathChanges } =
+      await importWatchPathWithMockedWatcher();
+
+    const stopWatching = watchPathChanges(threadStorageRoot, {
+      onChange,
+      onWatchError,
+    });
+
+    try {
+      const [callback] = await waitFor(
+        () => callbacks,
+        (currentCallbacks) => currentCallbacks.length === 1,
+      );
+
+      callback(
+        new Error(
+          "Events were dropped by the FSEvents client. File system must be re-scanned.",
+        ),
+        [],
+      );
+
+      await waitFor(
+        () => onChange.mock.calls.length,
+        (callCount) => callCount >= 1,
+      );
+      await waitFor(subscribeCallCount, (count) => count === 2);
+
+      expect(onWatchError).not.toHaveBeenCalled();
+      expect(onChange).toHaveBeenCalledWith({
+        changedPaths: [
+          path.join(threadStorageRoot, "thread-1"),
+          path.join(threadStorageRoot, "thread-2"),
+        ],
+      });
+    } finally {
+      stopWatching();
+    }
+  });
+});

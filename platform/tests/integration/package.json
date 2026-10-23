@@ -1,0 +1,34 @@
+{
+  "name": "@bb/integration-tests",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.real-provider.config.ts",
+    "e2e:mobile-backend": "cross-env NODE_ENV=test node --conditions=source --import tsx mobile-e2e/backend.ts",
+    "e2e:mobile-connect-stub": "node --import tsx mobile-e2e/connect-stub.ts"
+  },
+  "dependencies": {
+    "@bb/config": "workspace:*",
+    "@bb/db": "workspace:*",
+    "@bb/domain": "workspace:*",
+    "@bb/host-daemon": "workspace:*",
+    "@bb/host-daemon-contract": "workspace:*",
+    "@bb/server": "workspace:*",
+    "@bb/server-contract": "workspace:*",
+    "@bb/test-helpers": "workspace:*",
+    "@hono/node-server": "^1.19.11",
+    "drizzle-orm": "^0.38.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bb/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "better-sqlite3": "12.10.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

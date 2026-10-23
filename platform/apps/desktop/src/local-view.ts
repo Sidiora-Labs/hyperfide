@@ -1,0 +1,227 @@
+import { stripVTControlCharacters } from "node:util";
+import { escapeHtmlText } from "@bb/text-utils";
+import { z } from "zod";
+
+export const STARTUP_ACTION_CHANNEL = "bb-desktop:startup-action";
+
+export const startupActionIdSchema = z.enum([
+  "choose-server",
+  "open-moved-server",
+  "reconnect-connect",
+  "retry",
+]);
+
+export type StartupActionId = z.infer<typeof startupActionIdSchema>;
+
+export interface StartupAction {
+  id: StartupActionId;
+  label: string;
+}
+
+export type LocalViewModel = LoadingViewModel | StartupErrorViewModel;
+
+interface LoadingViewModel {
+  kind: "loading";
+  message: string;
+  title: string;
+}
+
+interface StartupErrorViewModel {
+  actions: StartupAction[];
+  details: string;
+  kind: "error";
+  logText: string;
+  title: string;
+}
+
+interface CreateLocalViewUrlArgs {
+  viewModel: LocalViewModel;
+}
+
+function formatPlainLogText(value: string): string {
+  return stripVTControlCharacters(value).replace(/\r\n?/gu, "\n");
+}
+
+function renderLoadingView(viewModel: LoadingViewModel): string {
+  return `
+    <main class="shell">
+      <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" aria-hidden="true">
+        <path d="M12 3V6M12 18V21M21 12L18 12M6 12L3 12M18.3635 5.63672L16.2422 7.75804M7.75804 16.2422L5.63672 18.3635M18.3635 18.3635L16.2422 16.2422M7.75804 7.75804L5.63672 5.63672" />
+      </svg>
+      <h1>${escapeHtmlText(viewModel.title)}</h1>
+      <p>${escapeHtmlText(viewModel.message)}</p>
+    </main>
+  `;
+}
+
+function renderErrorView(viewModel: StartupErrorViewModel): string {
+  const logText = formatPlainLogText(viewModel.logText);
+  const logs =
+    logText.trim().length > 0 ? `<pre>${escapeHtmlText(logText)}</pre>` : "";
+  const buttons = viewModel.actions
+    .map(
+      (action) =>
+        `<button type="button" data-startup-action="${action.id}">${escapeHtmlText(action.label)}</button>`,
+    )
+    .join("");
+  const actions =
+    buttons.length > 0 ? `<div class="actions">${buttons}</div>` : "";
+  return `
+    <main class="shell shell-error">
+      <h1>${escapeHtmlText(viewModel.title)}</h1>
+      <p>${escapeHtmlText(viewModel.details)}</p>
+      ${actions}
+      ${logs}
+    </main>
+  `;
+}
+
+function renderLocalView(viewModel: LocalViewModel): string {
+  const body =
+    viewModel.kind === "loading"
+      ? renderLoadingView(viewModel)
+      : renderErrorView(viewModel);
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bb</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      align-items: center;
+      background: Canvas;
+      color: CanvasText;
+      display: flex;
+      height: 100vh;
+      justify-content: center;
+      margin: 0;
+    }
+
+    .titlebar-drag-region {
+      app-region: drag;
+      -webkit-app-region: drag;
+      background: transparent;
+      border: 0;
+      height: 28px;
+      left: 0;
+      position: fixed;
+      right: 0;
+      top: 0;
+      user-select: none;
+      z-index: 10;
+    }
+
+    button,
+    a,
+    input,
+    textarea,
+    select,
+    summary,
+    pre {
+      app-region: no-drag;
+      -webkit-app-region: no-drag;
+    }
+
+    .shell {
+      max-width: 680px;
+      padding: 32px;
+      text-align: center;
+    }
+
+    .shell-error {
+      text-align: left;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0;
+      line-height: 1.25;
+      margin: 16px 0 8px;
+    }
+
+    p {
+      color: color-mix(in srgb, CanvasText 74%, transparent);
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    button {
+      background: CanvasText;
+      border: 0;
+      border-radius: 6px;
+      color: Canvas;
+      cursor: pointer;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 14px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 18px 0 0;
+    }
+
+    .actions button + button {
+      background: color-mix(in srgb, CanvasText 10%, transparent);
+      color: CanvasText;
+    }
+
+    pre {
+      background: color-mix(in srgb, CanvasText 8%, transparent);
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      margin: 18px 0 0;
+      max-height: 260px;
+      overflow: auto;
+      padding: 12px;
+      white-space: pre-wrap;
+    }
+
+    .spinner {
+      animation: spin 1s linear infinite;
+      color: color-mix(in srgb, CanvasText 60%, transparent);
+      display: block;
+      height: 24px;
+      margin: 0 auto;
+      width: 24px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .spinner {
+        animation: none;
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="titlebar-drag-region" data-testid="bb-local-view-window-drag-region" aria-hidden="true"></div>
+${body}
+</body>
+</html>`;
+}
+
+export function createLocalViewUrl(args: CreateLocalViewUrlArgs): string {
+  return `data:text/html;charset=utf-8,${encodeURIComponent(
+    renderLocalView(args.viewModel),
+  )}`;
+}

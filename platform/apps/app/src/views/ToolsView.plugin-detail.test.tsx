@@ -1,0 +1,2652 @@
+// @vitest-environment jsdom
+
+import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { createStore, Provider } from "jotai";
+import { splitLayoutAtom, maximizedPaneIdAtom } from "@/lib/split-layout/atoms";
+import type { ReactNode } from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  EMPTY_PLUGIN_UPDATE_STATE,
+  type PluginListItem,
+} from "@/hooks/queries/plugin-settings-queries";
+import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
+import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import {
+  resetPluginSlotStoreForTest,
+  setPluginSlotRegistrations,
+} from "@/lib/plugin-slots";
+import { PluginsOverview } from "@/components/plugin/PluginsOverview";
+import { pluginDetailKeyFromRoute } from "@/components/plugin/plugin-detail-key";
+import { PluginDetailPaneView, PluginsView } from "./ToolsView";
+import { AppRoutes } from "../App";
+import {
+  CatalogPluginDetail,
+  CatalogPluginDetailBanner,
+  PluginDetail,
+  PluginDetailBanners,
+  pluginFrontendDiagnosticRequiresFailureBanner,
+} from "@/components/tools/PluginDetail";
+import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
+import { pluginSourceQueryKey } from "@/hooks/queries/query-keys";
+import { formatAbsoluteDate } from "@/components/plugin/management/plugin-ui";
+import type { PluginFrontendDiagnostic } from "@/lib/plugin-frontend";
+import {
+  makeInstalledPlugin,
+  makePluginListItem,
+  makePluginRegistrationSet,
+} from "@/test/fixtures/plugins";
+import { LocationProbe } from "@/test/location-probe";
+
+vi.mock("@/components/layout/AppLayout", () => ({
+  AppLayout: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+vi.mock(
+  "react-resizable-panels",
+  () => import("@/test/react-resizable-panels-browser"),
+);
+
+const GITHUB_PLUGIN = makePluginListItem({
+  id: "github",
+  source: "builtin:github",
+  rootDir: "/Users/you/.hyperfide/plugins/github",
+  description: "Browse GitHub issues and pull requests in BB.",
+  name: "GitHub",
+  icon: "Github",
+  app: { hasApp: true, bundle: null },
+  provenance: "catalog",
+  catalogEntryId: "github",
+  publisherLabel: "BB Official",
+  sourceDisplay: "BB Official · GitHub",
+});
+
+const GITHUB_CATALOG_ENTRY = {
+  entryId: "github",
+  marketplace: "bb-official",
+  pluginId: "github",
+  displayName: "GitHub",
+  description: "Browse GitHub issues and pull requests in BB.",
+  icon: "Github",
+  iconUrl: null,
+  iconTinted: false,
+  category: "Developer tools",
+  screenshots: [],
+  collections: [],
+  source: "builtin:github",
+  repositoryUrl: null,
+  marketplaceDisplayName: "BB Official",
+  publisherKey: "bb-official",
+  publisherLabel: "BB Official",
+  official: true,
+  author: null,
+  installed: false,
+  conflictingInstallSource: null,
+  installedByDefault: false,
+  installs: null,
+  compatible: true,
+  incompatibleReason: null,
+} satisfies PluginCatalogSearchEntry;
+
+function RoutedPluginsView() {
+  const location = useLocation();
+  const isSettings = location.pathname.startsWith("/settings/plugins");
+  const prefix = isSettings ? "/settings/plugins/" : "/plugins/";
+  const pluginId = location.pathname.startsWith(prefix)
+    ? decodeURIComponent(location.pathname.slice(prefix.length))
+    : undefined;
+  const detailKey =
+    pluginId === undefined
+      ? undefined
+      : pluginDetailKeyFromRoute(pluginId, location.search);
+  return (
+    <>
+      <TooltipProvider>
+        {isSettings ? (
+          pluginId ? (
+            <PluginDetailPaneView pluginId={pluginId} />
+          ) : (
+            <PluginsOverview mode="installed" />
+          )
+        ) : (
+          <PluginsView detailKey={detailKey} />
+        )}
+      </TooltipProvider>
+      <LocationProbe />
+    </>
+  );
+}
+
+function HistoryBackButton() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(-1)}>Browser back</button>;
+}
+
+function renderWithQueryClient(ui: ReactNode) {
+  return render(ui, { wrapper: createQueryClientTestHarness().wrapper });
+}
+
+afterEach(() => {
+  cleanup();
+  window.localStorage.removeItem("bb.plugins.workspace.tabs");
+  resetPluginSlotStoreForTest();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe("PluginDetail official catalog lifecycle", () => {
+  it("offers Install from an unowned BB Official plugin detail page", () => {
+    const onInstall = vi.fn();
+    const { container } = renderWithQueryClient(
+      <CatalogPluginDetail
+        entry={GITHUB_CATALOG_ENTRY}
+        onInstall={onInstall}
+        catalogEntries={[GITHUB_CATALOG_ENTRY]}
+        onOpenPlugin={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "GitHub" })).toBeTruthy();
+    expect(screen.getAllByText("BB Official").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Developer tools")).toBeNull();
+    expect(
+      screen.getByText("Browse GitHub issues and pull requests in BB."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Capabilities")).toBeNull();
+    expect(container.querySelector('[data-icon="Github"]')).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Install GitHub" }));
+    expect(onInstall).toHaveBeenCalledWith(GITHUB_CATALOG_ENTRY);
+  });
+
+  it("links the catalog entry's repository from the metadata line", () => {
+    renderWithQueryClient(
+      <CatalogPluginDetail
+        entry={{
+          ...GITHUB_CATALOG_ENTRY,
+          repositoryUrl: "https://github.com/acme/bb-github",
+        }}
+        onInstall={() => {}}
+        catalogEntries={[]}
+        onOpenPlugin={() => undefined}
+      />,
+    );
+
+    const link = screen.getByRole("link", {
+      name: /github\.com\/acme\/bb-github/u,
+    });
+    expect(link.getAttribute("href")).toBe("https://github.com/acme/bb-github");
+    expect(link.getAttribute("target")).toBe("_blank");
+  });
+
+  it("loads remote screenshots only in detail and shows the listed date", () => {
+    const { container } = renderWithQueryClient(
+      <CatalogPluginDetail
+        entry={{
+          ...GITHUB_CATALOG_ENTRY,
+          screenshots: ["https://images.example/plugin.png"],
+          publishedAt: "2026-08-20T00:00:00Z",
+        }}
+        onInstall={() => undefined}
+        catalogEntries={[]}
+        onOpenPlugin={() => undefined}
+      />,
+    );
+
+    const screenshot = screen.getByRole("img", {
+      name: "GitHub screenshot 1",
+    });
+    expect(screenshot.getAttribute("src")).toBe(
+      "https://images.example/plugin.png",
+    );
+    expect(screenshot.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(screenshot.getAttribute("loading")).toBe("lazy");
+    expect(screen.getByText("Listed")).toBeTruthy();
+    expect(container.textContent).not.toContain("Last updated");
+  });
+
+  it("links the category from the byline and drops the duplicate official marketplace", () => {
+    renderWithQueryClient(
+      <MemoryRouter>
+        <CatalogPluginDetail
+          entry={{
+            ...GITHUB_CATALOG_ENTRY,
+            categoryId: "code-and-reviews",
+            category: "Code & Reviews",
+          }}
+          onInstall={() => undefined}
+          catalogEntries={[]}
+          onOpenPlugin={() => undefined}
+        />
+      </MemoryRouter>,
+    );
+
+    const link = screen.getByRole("link", {
+      name: "Browse Code & Reviews plugins",
+    });
+    expect(link.getAttribute("href")).toBe(
+      "/plugins?shelf=category%3Acode-and-reviews",
+    );
+    expect(screen.queryByText("Marketplace")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Details" })).toBeNull();
+  });
+
+  it("explains why an incompatible official plugin cannot be installed", () => {
+    const incompatibleEntry = {
+      ...GITHUB_CATALOG_ENTRY,
+      compatible: false,
+      incompatibleReason: "Requires bb 0.20 or newer.",
+    };
+    renderWithQueryClient(
+      <>
+        <CatalogPluginDetailBanner
+          entry={incompatibleEntry}
+          onOpenPlugin={vi.fn()}
+        />
+        <CatalogPluginDetail
+          entry={incompatibleEntry}
+          onInstall={() => {}}
+          catalogEntries={[incompatibleEntry]}
+          onOpenPlugin={() => undefined}
+        />
+      </>,
+    );
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    const compatibilityStatus = screen
+      .getByText("Update bb to install this plugin")
+      .closest("div[class*='bg-surface-recessed']");
+    expect(compatibilityStatus).not.toBeNull();
+    if (compatibilityStatus === null) return;
+    expect(compatibilityStatus.textContent).toContain(
+      "Update bb to install this plugin",
+    );
+    expect(compatibilityStatus.textContent).toContain(
+      "Requires bb 0.20 or newer.",
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Install GitHub" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
+  });
+
+  it("keeps catalog provenance and release management in the unified detail taxonomy", async () => {
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    const onDelete = vi.fn();
+    const { container } = render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={GITHUB_PLUGIN}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={onDelete}
+            catalogEntry={GITHUB_CATALOG_ENTRY}
+            catalogEntries={[GITHUB_CATALOG_ENTRY]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText("BB Official").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Developer tools")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Uninstall GitHub" }),
+    ).toBeNull();
+
+    expect(screen.getByRole("heading", { name: "Details" })).toBeTruthy();
+    expect(
+      screen.getByText("Browse GitHub issues and pull requests in BB."),
+    ).toBeTruthy();
+    const meta = screen.getByText("0.1.0");
+    expect(
+      meta
+        .closest("[data-resource-detail-section]")
+        ?.getAttribute("data-resource-detail-section"),
+    ).toBe("release");
+    expect(screen.queryByText("~/.hyperfide/plugins/github")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Copy plugin path/u }),
+    ).toBeNull();
+    expect(screen.getByText("Updates with bb")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Check now" })).toBeNull();
+
+    expect(container.querySelector('[data-icon="Github"]')).not.toBeNull();
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "GitHub actions" }),
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Uninstall" }));
+    expect(onDelete).toHaveBeenCalledWith(GITHUB_PLUGIN);
+  });
+
+  it("keeps the update action separate from Details metadata", () => {
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    const plugin: PluginListItem = {
+      ...GITHUB_PLUGIN,
+      source: "npm:@example/github@^1.0.0",
+      provenance: "direct",
+      catalogEntryId: null,
+      publisherLabel: null,
+      updateState: {
+        ...EMPTY_PLUGIN_UPDATE_STATE,
+        availableVersion: "1.5.0",
+      },
+    };
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={plugin}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    const version = screen.getByText(GITHUB_PLUGIN.version);
+    const update = screen.getByRole("button", {
+      name: "Update GitHub to 1.5.0",
+    });
+    const activation = screen.getByRole("switch", { name: "Disable GitHub" });
+    const path = screen.queryByText("~/.hyperfide/plugins/github");
+    const releaseSection = document.querySelector(
+      '[data-resource-detail-section="release"]',
+    );
+
+    expect(releaseSection?.contains(version)).toBe(true);
+    expect(releaseSection?.contains(update)).toBe(true);
+    expect(releaseSection?.contains(activation)).toBe(false);
+    expect(path).toBeNull();
+    expect(version.closest("dl")).not.toBeNull();
+    expect(update.closest("dl")).toBeNull();
+    const updateLabel = screen.getByText("Update", { selector: "p" });
+    const updateRow = updateLabel.parentElement;
+    expect(updateRow).not.toBeNull();
+    if (updateRow === null) return;
+    const updateDetails = updateRow.querySelector('[role="status"]');
+    expect(updateRow.closest("dl")).toBeNull();
+    expect(updateRow?.textContent).toContain("1.5.0");
+    expect(updateRow?.textContent).toContain("Available");
+    expect(updateRow?.contains(update)).toBe(false);
+    expect(updateDetails?.textContent).toContain("1.5.0");
+    const versionLabel = screen.getByText("Version", { selector: "dt" });
+    expect(releaseSection?.contains(versionLabel)).toBe(true);
+  });
+
+  it("never describes a managed plugin with an unknown install date as bundled", () => {
+    const plugin: PluginListItem = {
+      ...GITHUB_PLUGIN,
+      source: "npm:@example/github@^1.0.0",
+      provenance: "direct",
+      catalogEntryId: null,
+      publisherLabel: null,
+    };
+    const { queryClient, wrapper: QueryClientWrapper } =
+      createQueryClientTestHarness();
+    queryClient.setQueryData(pluginSourceQueryKey(plugin.id), null);
+
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={plugin}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Installed", { selector: "dt" })).toBeTruthy();
+    expect(screen.getByText("Install date unavailable")).toBeTruthy();
+    expect(screen.queryByText("Updates with bb")).toBeNull();
+  });
+
+  it("loads the install date for a local plugin", async () => {
+    const installedAt = Date.UTC(2026, 8, 1);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input) === "/api/v1/plugins/github/source"
+          ? Response.json({
+              requested: "path:/Users/you/src/bb-plugin-github",
+              resolved: "0.1.0",
+              engines: {},
+              installedAt,
+              history: [],
+            })
+          : Response.json({ error: "not found" }, { status: 404 }),
+      ),
+    );
+    const plugin: PluginListItem = {
+      ...GITHUB_PLUGIN,
+      source: "path:/Users/you/src/bb-plugin-github",
+      rootDir: "/Users/you/src/bb-plugin-github",
+      provenance: "direct",
+      catalogEntryId: null,
+      publisherLabel: null,
+    };
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={plugin}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(formatAbsoluteDate(installedAt)),
+    ).toBeTruthy();
+    expect(screen.queryByText("Loading…")).toBeNull();
+  });
+
+  it.each([
+    {
+      state: "failed",
+      updateState: {
+        ...EMPTY_PLUGIN_UPDATE_STATE,
+        availableVersion: "1.5.0",
+        lastFailure: {
+          version: "1.5.0",
+          at: null,
+          detail: "The plugin failed to load.",
+        },
+      },
+      expected: "Update failed",
+      actionName: "Retry update to 1.5.0",
+    },
+    {
+      state: "blocked",
+      updateState: {
+        ...EMPTY_PLUGIN_UPDATE_STATE,
+        blockedVersion: "2.0.0",
+        blockedReasons: ["Requires bb 0.20 or newer."],
+      },
+      expected: "Update blocked",
+      actionName: null,
+    },
+  ])(
+    "places $state information below metadata and keeps its action in the section header",
+    ({ updateState, expected, actionName }) => {
+      const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+      render(
+        <MemoryRouter>
+          <QueryClientWrapper>
+            <PluginDetail
+              isLoading={false}
+              plugin={{
+                ...GITHUB_PLUGIN,
+                source: "npm:@example/github@^1.0.0",
+                provenance: "direct",
+                catalogEntryId: null,
+                publisherLabel: null,
+                updateState,
+              }}
+              pending={false}
+              openSourceDisabled
+              onToggle={() => {}}
+              onEdit={() => {}}
+              onOpenSource={() => {}}
+              onDelete={() => {}}
+              catalogEntries={[]}
+              onOpenPlugin={() => undefined}
+            />
+          </QueryClientWrapper>
+        </MemoryRouter>,
+      );
+
+      const updateLabel = screen.getByText("Update", { selector: "p" });
+      const updateRow = updateLabel.parentElement;
+      const status = screen.getByRole("status", { name: expected });
+      expect(updateRow?.contains(status)).toBe(true);
+      expect(screen.queryByText(expected)).toBeNull();
+      expect(
+        screen.getByText("Version", { selector: "dt" }).parentElement,
+      ).not.toBe(updateRow);
+      const action =
+        actionName === null
+          ? null
+          : screen.getByRole("button", { name: actionName });
+      expect(action?.closest("dl") ?? null).toBeNull();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    },
+  );
+
+  it("uses a plugin-owned canonical icon when no rich logo is declared", () => {
+    const compactIconUrl = "/api/v1/plugins/omega/assets/icon?h=abc";
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    const { container } = render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={{
+              ...GITHUB_PLUGIN,
+              id: "omega",
+              name: "Omegacode",
+              icon: null,
+              compactIconUrl,
+              source: "path:/plugins/omega",
+              provenance: "direct",
+              catalogEntryId: null,
+              publisherLabel: null,
+            }}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    const icon = container.querySelector(
+      `[data-plugin-icon-asset="${compactIconUrl}"]`,
+    );
+    expect(icon).not.toBeNull();
+  });
+
+  it("shows a disabled Uninstall action for a built-in plugin", async () => {
+    const onDelete = vi.fn();
+    const builtinPlugin = {
+      ...GITHUB_PLUGIN,
+      id: "automations",
+      name: "Automations",
+      source: "builtin:automations",
+      provenance: "builtin" as const,
+      catalogEntryId: null,
+      publisherKey: "bb-official",
+      publisherLabel: "BB Official",
+    };
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={builtinPlugin}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={onDelete}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText("BB Official").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("switch", { name: "Disable Automations" }),
+    ).toBeTruthy();
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Automations actions" }),
+    );
+    const uninstall = await screen.findByRole("menuitem", {
+      name: "Uninstall",
+    });
+    expect(uninstall.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(uninstall);
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.pointerMove(uninstall);
+    expect(
+      await screen.findAllByText(
+        "Included with BB; disable this plugin instead.",
+      ),
+    ).not.toHaveLength(0);
+  });
+
+  it("copies the public marketplace link for a BB Community catalog entry", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const entry = {
+      ...GITHUB_CATALOG_ENTRY,
+      entryId: "acme github",
+      pluginId: "acme-github",
+      marketplace: "bb-community",
+      marketplaceDisplayName: "BB Community",
+      official: false,
+    } satisfies PluginCatalogSearchEntry;
+    renderWithQueryClient(
+      <CatalogPluginDetail
+        entry={entry}
+        onInstall={() => {}}
+        catalogEntries={[entry]}
+        onOpenPlugin={() => undefined}
+      />,
+    );
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "GitHub actions" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Copy marketplace link" }),
+    );
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        "https://getbb.app/marketplace/acme%20github",
+      ),
+    );
+  });
+
+  it("copies the marketplace link for an installed BB Community plugin without a loaded catalog entry", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={{
+              ...GITHUB_PLUGIN,
+              source: "github:acme/bb-github",
+              catalogEntryId: "acme-github",
+              catalogMarketplaceName: "bb-community",
+            }}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "GitHub actions" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Copy marketplace link" }),
+    );
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        "https://getbb.app/marketplace/acme-github",
+      ),
+    );
+  });
+
+  it("offers no marketplace link for plugins outside BB Community", async () => {
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={GITHUB_PLUGIN}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntry={GITHUB_CATALOG_ENTRY}
+            catalogEntries={[GITHUB_CATALOG_ENTRY]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "GitHub actions" }),
+    );
+    await screen.findByRole("menuitem", { name: "Uninstall" });
+    expect(
+      screen.queryByRole("menuitem", { name: "Copy marketplace link" }),
+    ).toBeNull();
+  });
+});
+
+describe("BB Official plugin detail routing", () => {
+  it.each([false, true])(
+    "keeps official attribution and tabs through collection navigation (compact: %s)",
+    async (compact) => {
+      const author = {
+        name: "BB",
+        github: "get-bb",
+        url: "https://github.com/get-bb",
+      };
+      const entries = [
+        { ...GITHUB_CATALOG_ENTRY, author, installed: true },
+        {
+          ...GITHUB_CATALOG_ENTRY,
+          author,
+          entryId: "automations",
+          pluginId: "automations",
+          source: "builtin:automations",
+          displayName: "Automations",
+        },
+      ];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url === "/api/v1/plugins")
+            return new Response(
+              JSON.stringify({
+                enabled: true,
+                plugins: [
+                  makeInstalledPlugin({
+                    id: "github",
+                    name: "GitHub",
+                    source: "builtin:github",
+                    provenance: "builtin",
+                    publisherLabel: "BB Official",
+                  }),
+                ],
+              }),
+              { headers: { "content-type": "application/json" } },
+            );
+          if (url.startsWith("/api/v1/plugin-catalog/search"))
+            return new Response(
+              JSON.stringify({ results: entries, collections: [] }),
+              { headers: { "content-type": "application/json" } },
+            );
+          return new Response(JSON.stringify({ error: "not found" }), {
+            status: 404,
+            headers: { "content-type": "application/json" },
+          });
+        }),
+      );
+      const { wrapper } = createQueryClientTestHarness();
+      render(
+        <CompactViewportOverrideProvider isCompactViewport={compact}>
+          <MemoryRouter initialEntries={["/plugins/github?view=installed"]}>
+            <RoutedPluginsView />
+          </MemoryRouter>
+        </CompactViewportOverrideProvider>,
+        { wrapper },
+      );
+      const title = await screen.findByRole("heading", {
+        name: "GitHub",
+        level: 1,
+      });
+      const header = title.parentElement?.parentElement;
+      expect(header).not.toBeNull();
+      if (!header) throw new Error("Plugin header missing");
+      const authorLink = await within(header).findByRole("link", {
+        name: "BB Official",
+      });
+      expect(within(header).queryByText(/^By/u)).toBeNull();
+      expect(within(header).getAllByText("BB Official")).toHaveLength(1);
+      expect(
+        within(header).getByRole("img", {
+          name: "BB Official's GitHub avatar",
+        }),
+      ).toBeTruthy();
+      fireEvent.click(authorLink);
+      expect(
+        await screen.findByRole("heading", { name: /^BB Official/u, level: 1 }),
+      ).toBeTruthy();
+      if (compact) {
+        await waitFor(() =>
+          expect(
+            screen.queryByRole("heading", { name: "GitHub", level: 1 }),
+          ).toBeNull(),
+        );
+        expect(
+          JSON.parse(
+            window.localStorage.getItem("bb.plugins.workspace.tabs") ?? "{}",
+          ).tabs,
+        ).toContain("github");
+        fireEvent.click(
+          (
+            await screen.findAllByRole("button", {
+              name: "Open Automations details",
+            })
+          )[0]!,
+        );
+        expect(
+          await screen.findByRole("button", { name: "Close Automations" }),
+        ).toBeTruthy();
+        expect(
+          screen.queryByRole("button", { name: "Close GitHub" }),
+        ).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: "Previous tab" }));
+        expect(
+          await screen.findByRole("heading", { name: "GitHub", level: 1 }),
+        ).toBeTruthy();
+        expect(
+          screen.getByRole("button", { name: "Close GitHub" }),
+        ).toBeTruthy();
+        expect(
+          screen.queryByRole("button", { name: "Close Automations" }),
+        ).toBeNull();
+        return;
+      }
+      expect(screen.getByRole("button", { name: "Close GitHub" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "GitHub", level: 1 })).toBe(
+        title,
+      );
+      fireEvent.click(
+        (
+          await screen.findAllByRole("button", {
+            name: "Open Automations details",
+          })
+        )[0]!,
+      );
+      expect(
+        await screen.findByRole("button", { name: "Close Automations" }),
+      ).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Close GitHub" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("link", { name: "Browse plugins" }));
+      await waitFor(() =>
+        expect(screen.getByTestId("location").textContent).toBe("/plugins"),
+      );
+      expect(
+        screen.getByRole("button", { name: "Close Automations" }),
+      ).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Close GitHub" })).toBeTruthy();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Close Automations" }),
+      );
+      expect(
+        await screen.findByRole("heading", { name: "GitHub", level: 1 }),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("button", { name: "Close Automations" }),
+      ).toBeNull();
+    },
+  );
+
+  it("opens a marketplace entry instead of a local plugin that shares its id", async () => {
+    const marketplaceCanvas = {
+      ...GITHUB_CATALOG_ENTRY,
+      entryId: "canvas",
+      pluginId: "canvas",
+      displayName: "Canvas",
+      description: "Draw diagrams on a shared tldraw canvas.",
+      source: "git:https://github.com/example/canvas.git@main",
+      marketplace: "bb-community",
+      marketplaceDisplayName: "BB Community",
+      publisherKey: "bb-community",
+      publisherLabel: "BB Community",
+      official: false,
+      conflictingInstallSource: "path:/Users/you/git/canvas",
+    } satisfies PluginCatalogSearchEntry;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/v1/plugins") {
+          return new Response(
+            JSON.stringify({
+              enabled: true,
+              plugins: [
+                makeInstalledPlugin({
+                  id: "canvas",
+                  name: "Canvas",
+                  description: "Edit .mdx files beside the chat.",
+                  source: "path:/Users/you/git/canvas",
+                  rootDir: "/Users/you/git/canvas",
+                  provenance: "direct",
+                }),
+              ],
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.startsWith("/api/v1/plugin-catalog/search")) {
+          return new Response(
+            JSON.stringify({ results: [marketplaceCanvas], collections: [] }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/plugins?q=canvas"]}>
+        <Routes>
+          <Route path="/plugins/*" element={<RoutedPluginsView />} />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open Canvas details" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/plugins/canvas?q=canvas&listing=bb-community",
+      );
+    });
+    await waitFor(() => {
+      expect(document.querySelector("[data-plugin-summary]")?.textContent).toBe(
+        "Draw diagrams on a shared tldraw canvas.",
+      );
+    });
+    expect(screen.getByText("Another plugin uses this ID")).toBeTruthy();
+    const installButtons = screen.getAllByRole("button", { name: /Install/u });
+    expect(installButtons).toHaveLength(2);
+    for (const button of installButtons) {
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+    }
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View installed plugin" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/plugins/canvas?q=canvas",
+      );
+    });
+    await waitFor(() => {
+      expect(document.querySelector("[data-plugin-summary]")?.textContent).toBe(
+        "Edit .mdx files beside the chat.",
+      );
+    });
+    expect(screen.getByText("Also published in BB Community")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "View listing" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/plugins/canvas?q=canvas&listing=bb-community",
+      );
+    });
+  });
+
+  it("uses the installed catalog identity when plugin ids collide", async () => {
+    const firstCatalogEntry = {
+      ...GITHUB_CATALOG_ENTRY,
+      marketplace: "bb-community",
+      marketplaceDisplayName: "BB Community",
+      publisherKey: "bb-community:example",
+      publisherLabel: "BB Community",
+      description: "Description from the first catalog.",
+      repositoryUrl: "https://github.com/example/first-catalog-plugin",
+      author: {
+        name: "First publisher",
+        github: "first-publisher",
+        url: "https://github.com/first-publisher",
+      },
+    };
+    const installedCatalogEntry = {
+      ...GITHUB_CATALOG_ENTRY,
+      marketplace: "partner-catalog",
+      marketplaceDisplayName: "Partner Catalog",
+      publisherKey: "partner-catalog:example",
+      publisherLabel: "Partner Catalog",
+      description: "Description from the installed catalog.",
+      repositoryUrl: "https://github.com/example/installed-catalog-plugin",
+      author: {
+        name: "Installed publisher",
+        github: "installed-publisher",
+        url: "https://github.com/installed-publisher",
+      },
+      installed: true,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/v1/plugins") {
+          return new Response(
+            JSON.stringify({
+              enabled: true,
+              plugins: [
+                {
+                  ...GITHUB_PLUGIN,
+                  catalogMarketplaceName: "partner-catalog",
+                  publisherLabel: "Partner Catalog",
+                  iconUrl: null,
+                  screenshots: [],
+                  collections: [],
+                  providerIds: [],
+                  icons: {},
+                  updateState: {},
+                },
+              ],
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.startsWith("/api/v1/plugin-catalog/search")) {
+          return new Response(
+            JSON.stringify({
+              results: [firstCatalogEntry, installedCatalogEntry],
+              collections: [],
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/settings/plugins/github"]}>
+        <Routes>
+          <Route path="/settings/plugins/*" element={<RoutedPluginsView />} />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector("[data-plugin-summary]")?.textContent).toBe(
+        "Description from the installed catalog.",
+      );
+    });
+    const title = screen.getByRole("heading", { name: "GitHub", level: 1 });
+    const header = title.parentElement?.parentElement;
+    if (!header) throw new Error("Plugin header missing");
+    expect(within(header).queryByText("Partner Catalog")).toBeNull();
+    const source = screen.getByRole("link", {
+      name: /github.com\/example\/installed-catalog-plugin/u,
+    });
+    expect(source.querySelector('[data-icon="GithubLogo"]')).not.toBeNull();
+    expect(
+      within(header).getByRole("link", { name: "Installed publisher" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Partner Catalog")).toBeTruthy();
+  });
+
+  it("uses installed metadata when its catalog entry is unavailable", async () => {
+    const unrelatedCatalogEntry = {
+      ...GITHUB_CATALOG_ENTRY,
+      marketplace: "bb-community",
+      marketplaceDisplayName: "BB Community",
+      publisherKey: "bb-community:example",
+      publisherLabel: "BB Community",
+      description: "Description from an unrelated catalog entry.",
+      repositoryUrl: "https://github.com/example/unrelated-catalog-plugin",
+      author: {
+        name: "Unrelated publisher",
+        github: "unrelated-publisher",
+        url: "https://github.com/unrelated-publisher",
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/v1/plugins") {
+          return new Response(
+            JSON.stringify({
+              enabled: true,
+              plugins: [
+                {
+                  ...GITHUB_PLUGIN,
+                  description: "Description from installed metadata.",
+                  catalogMarketplaceName: "partner-catalog",
+                  publisherLabel: "Partner Catalog",
+                  iconUrl: null,
+                  screenshots: [],
+                  collections: [],
+                  providerIds: [],
+                  icons: {},
+                  updateState: {},
+                },
+              ],
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.startsWith("/api/v1/plugin-catalog/search")) {
+          return new Response(
+            JSON.stringify({
+              results: [unrelatedCatalogEntry],
+              collections: [],
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/settings/plugins/github"]}>
+        <Routes>
+          <Route path="/settings/plugins/*" element={<RoutedPluginsView />} />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector("[data-plugin-summary]")?.textContent).toBe(
+        "Description from installed metadata.",
+      );
+    });
+  });
+
+  it("resolves an uninstalled catalog plugin and opens its install confirmation", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/v1/plugins") {
+          return new Response(JSON.stringify({ enabled: true, plugins: [] }), {
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (url === "/api/v1/plugin-catalog/search?q=") {
+          return new Response(
+            JSON.stringify({
+              results: [GITHUB_CATALOG_ENTRY],
+              collections: [],
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/plugins/github"]}>
+        <Routes>
+          <Route
+            path="/plugins/:pluginId"
+            element={
+              <TooltipProvider>
+                <PluginsView detailKey="github" />
+              </TooltipProvider>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    expect(await screen.findByRole("heading", { name: "GitHub" })).toBeTruthy();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Install GitHub" }).at(-1)!,
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Install GitHub?" }),
+    ).toBeTruthy();
+    expect(screen.getByTestId("full-trust-warning")).toBeTruthy();
+  });
+
+  it.each(["browse", "installed"] as const)(
+    "preserves %s and restores card focus across the real app routes",
+    async (mode) => {
+      const installed = mode === "installed";
+      const pluginName = installed ? "Local GitHub" : "GitHub";
+      const searchLabel = installed
+        ? "Search installed plugins"
+        : "Search plugins";
+      const catalogEntry = {
+        ...GITHUB_CATALOG_ENTRY,
+        installed,
+        categoryId: "code-and-reviews",
+        category: "Code & Reviews",
+        author: {
+          name: "BB",
+          github: "get-bb",
+          url: "https://github.com/get-bb",
+        },
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url === "/api/v1/plugins") {
+            return new Response(
+              JSON.stringify({
+                enabled: true,
+                plugins: installed
+                  ? [makeInstalledPlugin({ id: "github", name: pluginName })]
+                  : [],
+              }),
+              {
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+          if (url.startsWith("/api/v1/plugin-catalog/search")) {
+            return new Response(
+              JSON.stringify({ results: [catalogEntry], collections: [] }),
+              { headers: { "content-type": "application/json" } },
+            );
+          }
+          return new Response(JSON.stringify({ error: "not found" }), {
+            status: 404,
+            headers: { "content-type": "application/json" },
+          });
+        }),
+      );
+
+      const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+      render(
+        <MemoryRouter
+          initialEntries={[installed ? "/plugins?view=installed" : "/plugins"]}
+        >
+          <TooltipProvider>
+            <AppRoutes />
+          </TooltipProvider>
+          <LocationProbe />
+          <HistoryBackButton />
+        </MemoryRouter>,
+        { wrapper: QueryClientWrapper },
+      );
+
+      const card = await screen.findByRole("button", {
+        name: installed
+          ? `${pluginName} plugin details`
+          : "Open GitHub details",
+      });
+      const panels = Array.from(document.querySelectorAll("[data-panel]"));
+      expect(panels).toHaveLength(2);
+      expect(panels[0]?.getAttribute("data-panel-size")).toBe("100.0");
+      expect(panels[1]?.getAttribute("data-panel-size")).toBe("0.0");
+      const search = screen.getByRole("textbox", { name: searchLabel });
+      if (installed) {
+        fireEvent.change(search, { target: { value: "Local GitHub" } });
+      }
+      card.focus();
+      fireEvent.click(card);
+      expect(
+        await screen.findByRole("button", { name: `Close ${pluginName}` }),
+      ).toBeTruthy();
+      expect(screen.getByRole("textbox", { name: searchLabel })).toBeTruthy();
+      expect(screen.getAllByRole("button", { name: /^Close /u })).toHaveLength(
+        1,
+      );
+      expect(Array.from(document.querySelectorAll("[data-panel]"))).toEqual(
+        panels,
+      );
+      expect(screen.getByRole("textbox", { name: searchLabel })).toBe(search);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: `Close ${pluginName}` }),
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId("location").textContent).toBe(
+          installed ? "/plugins?view=installed&query=Local+GitHub" : "/plugins",
+        );
+        expect(document.activeElement).toBe(card);
+        if (installed) expect(search).toHaveProperty("value", "Local GitHub");
+      });
+      expect(Array.from(document.querySelectorAll("[data-panel]"))).toEqual(
+        panels,
+      );
+      expect(panels[0]?.getAttribute("data-panel-size")).toBe("100.0");
+      expect(panels[1]?.getAttribute("data-panel-size")).toBe("0.0");
+      expect(screen.getByRole("textbox", { name: searchLabel })).toBe(search);
+
+      fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("location").textContent).toBe(
+          installed ? "/plugins/github?view=installed" : "/plugins/github",
+        );
+      });
+    },
+  );
+
+  it.each([
+    "/settings/plugins/github?view=installed",
+    "/settings/plugins",
+    "/plugins/github?view=installed",
+    "/plugins?view=installed",
+  ])("opens installed plugin settings from %s", async (path) => {
+    const author = {
+      name: "BB",
+      github: "get-bb",
+      url: "https://github.com/get-bb",
+    };
+    const catalogEntries = [
+      { ...GITHUB_CATALOG_ENTRY, author, installed: true },
+      {
+        ...GITHUB_CATALOG_ENTRY,
+        entryId: "automations",
+        pluginId: "automations",
+        displayName: "Automations",
+        author,
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/v1/plugins") {
+          return new Response(
+            JSON.stringify({
+              enabled: true,
+              plugins: [
+                {
+                  ...GITHUB_PLUGIN,
+                  catalogMarketplaceName: "bb-official",
+                  iconUrl: null,
+                  screenshots: [],
+                  collections: [],
+                  providerIds: [],
+                  icons: {},
+                  updateState: {},
+                },
+              ],
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        if (url.startsWith("/api/v1/plugin-catalog/search")) {
+          return new Response(
+            JSON.stringify({ results: catalogEntries, collections: [] }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/plugins/*" element={<RoutedPluginsView />} />
+          <Route path="/settings/plugins/*" element={<RoutedPluginsView />} />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    if (path === "/settings/plugins" || path === "/plugins?view=installed") {
+      expect(
+        await screen.findByRole("textbox", {
+          name: "Search installed plugins",
+        }),
+      ).toBeTruthy();
+      expect(screen.getByTestId("location").textContent).toBe(path);
+      const pluginButton = await screen.findByRole("button", {
+        name: "GitHub plugin details",
+      });
+
+      fireEvent.click(pluginButton);
+    }
+
+    const relatedPluginButton = await screen.findByRole("button", {
+      name: "Open Automations details",
+    });
+    expect(screen.getAllByText("GitHub", { selector: "h1" })).toHaveLength(1);
+    fireEvent.click(relatedPluginButton);
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/plugins/automations?view=installed",
+      );
+    });
+    expect(
+      await screen.findByRole("button", { name: "Close Automations" }),
+    ).toBeTruthy();
+  });
+
+  it("opens an author from a card and returns to the prior Browse filters", async () => {
+    const author = {
+      name: "BB",
+      github: "get-bb",
+      url: "https://github.com/get-bb",
+    };
+    const catalogEntries = [
+      {
+        ...GITHUB_CATALOG_ENTRY,
+        categoryId: "code-and-reviews",
+        category: "Code & Reviews",
+        author,
+      },
+      {
+        ...GITHUB_CATALOG_ENTRY,
+        entryId: "automations",
+        pluginId: "automations",
+        displayName: "Automations",
+        categoryId: "tasks-and-workflows",
+        category: "Tasks & Workflows",
+        author,
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/v1/plugins") {
+          return new Response(JSON.stringify({ enabled: true, plugins: [] }), {
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (url.startsWith("/api/v1/plugin-catalog/search")) {
+          return new Response(
+            JSON.stringify({ results: catalogEntries, collections: [] }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter
+        initialEntries={[
+          "/plugins?category=code-and-reviews&sort=recently-added",
+        ]}
+      >
+        <Routes>
+          <Route path="/plugins/*" element={<RoutedPluginsView />} />
+        </Routes>
+        <HistoryBackButton />
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    fireEvent.click(
+      (await screen.findAllByRole("link", { name: "BB Official" }))[0]!,
+    );
+    expect(await screen.findByRole("heading", { name: /^BB/u })).toBeTruthy();
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/plugins?category=code-and-reviews&sort=recently-added&author=11%3Abb-official%3Agithub%3Aget-bb",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /^BB/u })).toBeNull();
+    });
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/plugins?category=code-and-reviews&sort=recently-added",
+    );
+
+    fireEvent.click(
+      (await screen.findAllByRole("link", { name: "BB Official" }))[0]!,
+    );
+    const card = await screen.findByRole("button", {
+      name: "Open GitHub details",
+    });
+    card.focus();
+    fireEvent.click(card);
+    expect(
+      await screen.findByRole("heading", { name: "More from this author" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close GitHub" }));
+    await waitFor(() => expect(document.activeElement).toBe(card));
+  });
+
+  it("routes the detail author link to the restored author page", async () => {
+    const author = {
+      name: "BB",
+      github: "get-bb",
+      url: "https://github.com/get-bb",
+    };
+    const catalogEntries = [
+      { ...GITHUB_CATALOG_ENTRY, author },
+      {
+        ...GITHUB_CATALOG_ENTRY,
+        entryId: "automations",
+        pluginId: "automations",
+        displayName: "Automations",
+        author,
+      },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/v1/plugins") {
+          return new Response(JSON.stringify({ enabled: true, plugins: [] }), {
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (url.startsWith("/api/v1/plugin-catalog/search")) {
+          return new Response(
+            JSON.stringify({ results: catalogEntries, collections: [] }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/plugins/github"]}>
+        <Routes>
+          <Route path="/plugins/*" element={<RoutedPluginsView />} />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "More from this author" }),
+    ).toBeTruthy();
+    const authorLinks = screen.getAllByRole("link", { name: "BB Official" });
+    fireEvent.click(authorLinks.at(-1)!);
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toBe(
+        "/plugins?author=11%3Abb-official%3Agithub%3Aget-bb",
+      );
+    });
+    expect(await screen.findByRole("heading", { name: /^BB/u })).toBeTruthy();
+  });
+});
+
+describe("plugin removal confirmation", () => {
+  it("warns that removing a local plugin deletes its settings, secrets, and schedules and names the move path", async () => {
+    const localPlugin = {
+      id: "github",
+      source: "path:/Users/you/src/bb-plugin-github",
+      rootDir: "/Users/you/src/bb-plugin-github",
+      version: "0.1.0",
+      provenance: "direct",
+      isOrphanedBuiltin: false,
+      publisherLabel: null,
+      sourceDisplay: "path · /Users/you/src/bb-plugin-github",
+      updateState: {},
+      enabled: true,
+      description: "Browse GitHub issues and pull requests in BB.",
+      name: "GitHub",
+      icon: "Github",
+      iconUrl: null,
+      status: "running",
+      statusDetail: null,
+      handlerStats: { count: 0, totalMs: 0, maxMs: 0, errorCount: 0 },
+      services: [],
+      schedules: [],
+      cliCommand: null,
+      capabilities: [],
+      hasSettings: false,
+      app: { hasApp: false, bundle: null },
+      logoUrl: null,
+      logoDarkUrl: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/v1/plugins") {
+          return new Response(
+            JSON.stringify({ enabled: true, plugins: [localPlugin] }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ error: "not found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/plugins/github"]}>
+        <Routes>
+          <Route
+            path="/plugins/:pluginId"
+            element={
+              <TooltipProvider>
+                <PluginsView detailKey="github" />
+              </TooltipProvider>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+      { wrapper: QueryClientWrapper },
+    );
+
+    expect(await screen.findByRole("heading", { name: "GitHub" })).toBeTruthy();
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "GitHub actions" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Remove from bb" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Remove plugin from bb?" }),
+    ).toBeTruthy();
+    const description = screen.getByText(/Remove "github" from bb/);
+    expect(description.textContent).toContain(
+      "delete its settings, secrets, and schedules",
+    );
+    expect(description.textContent).toContain("source files stay on disk");
+    expect(description.textContent).toContain("install the new path instead");
+  });
+});
+
+describe("PluginDetail banner precedence", () => {
+  const managedPlugin: PluginListItem = {
+    ...GITHUB_PLUGIN,
+    source: "npm:@example/github@^1.0.0",
+    provenance: "direct",
+    catalogEntryId: null,
+    publisherLabel: null,
+  };
+  const collision: PluginListItem = {
+    ...managedPlugin,
+    status: "degraded",
+    statusDetail: "service issue-sync did not stop",
+    handlerStats: {
+      ...managedPlugin.handlerStats,
+      errorCount: 3,
+    },
+    updateState: {
+      ...EMPTY_PLUGIN_UPDATE_STATE,
+      availableVersion: "1.5.0",
+      blockedVersion: "2.0.0",
+      blockedReasons: ["Requires a newer bb."],
+      lastFailure: {
+        version: "1.4.5",
+        at: null,
+        detail: "The plugin failed to load after the update.",
+      },
+    },
+  };
+
+  it("renders only current health and keeps diagnostics out of user copy", () => {
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <PluginDetailBanners
+        plugin={collision}
+        catalogEntries={[]}
+        onOpenPlugin={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]?.textContent).toContain("Degraded");
+    expect(alerts[0]?.textContent).toContain("A service is still stopping.");
+    expect(alerts[0]?.textContent).toContain("Wait, then reload.");
+    expect(alerts[0]?.textContent).not.toContain("issue-sync");
+    expect(alerts[0]?.textContent).not.toContain("handler");
+    expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Update" })).toBeNull();
+  });
+
+  it("does not promote cumulative handler diagnostics into a page banner", () => {
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <PluginDetailBanners
+        plugin={{
+          ...managedPlugin,
+          handlerStats: { ...managedPlugin.handlerStats, errorCount: 3 },
+        }}
+        catalogEntries={[]}
+        onOpenPlugin={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+  });
+
+  it("does not treat a cleanup failure from an active frontend as a startup failure", () => {
+    const activeWithCleanupFailure = {
+      pluginId: "github",
+      status: "active",
+      active: { generation: 2, hash: "v2", contentScriptIds: ["sync"] },
+      lastFailure: {
+        phase: "dispose",
+        message: "old generation cleanup failed",
+        scriptId: "sync",
+      },
+    } satisfies PluginFrontendDiagnostic;
+    const failedToLoad = {
+      pluginId: "github",
+      status: "failed",
+      active: null,
+      lastFailure: {
+        phase: "load",
+        message: "bundle import failed",
+        scriptId: null,
+      },
+    } satisfies PluginFrontendDiagnostic;
+
+    expect(
+      pluginFrontendDiagnosticRequiresFailureBanner(activeWithCleanupFailure),
+    ).toBe(false);
+    expect(pluginFrontendDiagnosticRequiresFailureBanner(failedToLoad)).toBe(
+      true,
+    );
+  });
+});
+
+describe("PluginDetail runtime health", () => {
+  function renderRuntimeStatus(
+    status: Extract<
+      PluginListItem["status"],
+      | "starting"
+      | "error"
+      | "incompatible"
+      | "missing"
+      | "needs-configuration"
+      | "degraded"
+    >,
+    overrides: Partial<PluginListItem> = {},
+  ) {
+    const { queryClient, wrapper: QueryClientWrapper } =
+      createQueryClientTestHarness();
+    const plugin = {
+      ...GITHUB_PLUGIN,
+      source: "builtin:github",
+      provenance: "builtin" as const,
+      catalogEntryId: null,
+      publisherKey: "bb-official",
+      publisherLabel: "BB Official",
+      status,
+      statusDetail: "The runtime reported a problem.",
+      ...overrides,
+    };
+    const result = render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetailBanners
+            plugin={plugin}
+            catalogEntries={[]}
+            onOpenPlugin={vi.fn()}
+          />
+          <PluginDetail
+            isLoading={false}
+            plugin={plugin}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+    return { ...result, queryClient };
+  }
+
+  it("shows startup as a neutral status without failure recovery", () => {
+    renderRuntimeStatus("starting", { statusDetail: null });
+    expect(screen.getByRole("status").textContent).toContain("Starting");
+    expect(screen.getByRole("status").textContent).toContain(
+      "The plugin is starting.",
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+  });
+
+  it("lifts a failed runtime status into a destructive alert above the content", () => {
+    const { container } = renderRuntimeStatus("error");
+    const alert = screen.getByRole("alert");
+
+    expect(alert.textContent).toContain("Failed");
+    expect(alert.textContent).toContain("The plugin couldn't start.");
+    expect(alert.textContent).not.toContain("runtime reported");
+    expect(alert.textContent).toContain("Try reloading it.");
+    expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
+
+    const about = container.querySelector(
+      '[data-resource-detail-section="overview"]',
+    ) as HTMLElement;
+    expect(
+      alert.compareDocumentPosition(about) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("offers Reload for degraded runtime status and keeps diagnostics out of the banner", () => {
+    renderRuntimeStatus("degraded", {
+      statusDetail: "service issue-sync did not stop",
+      handlerStats: {
+        ...GITHUB_PLUGIN.handlerStats,
+        errorCount: 3,
+      },
+    });
+
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    const alertText = alerts[0]?.textContent;
+    expect(alertText).toContain("Degraded");
+    expect(alertText).toContain("A service is still stopping.");
+    expect(alertText).toContain("Wait, then reload.");
+    expect(alertText).not.toContain("issue-sync");
+    expect(alertText).not.toContain("handler");
+    expect(alertText).not.toContain("Restart bb");
+    expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
+  });
+
+  it.each([
+    ["incompatible", "This version is incompatible with bb.", "Update bb."],
+    ["missing", "Plugin files are missing.", "Update or reinstall bb."],
+  ] as const)(
+    "explains the %s condition and a supported recovery without offering Reload",
+    (status, condition, recovery) => {
+      renderRuntimeStatus(status);
+
+      const alert = screen.getByRole("alert");
+      expect(alert.textContent).toContain(condition);
+      expect(alert.textContent).toContain(recovery);
+      expect(alert.textContent).not.toContain("runtime reported");
+      expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+    },
+  );
+
+  it("sends needs-configuration to the plugin settings page instead of Reload", () => {
+    renderRuntimeStatus("needs-configuration", {
+      statusDetail: "An API token is required.",
+      hasSettings: true,
+    });
+
+    const alert = screen.getByRole("alert");
+    expect(alert.querySelector("p")?.textContent).toBe("Needs configuration");
+    const settingsLink = within(alert).getByRole("link", {
+      name: "Open settings",
+    });
+    expect(settingsLink.getAttribute("href")).toBe("/settings/plugins/github");
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+  });
+
+  it("offers Reload when required configuration lives outside Settings", () => {
+    renderRuntimeStatus("needs-configuration", {
+      statusDetail: "Set GITHUB_TOKEN in the server environment.",
+      hasSettings: false,
+    });
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain(
+      "Set GITHUB_TOKEN in the server environment.",
+    );
+    expect(alert.textContent).toContain("Then reload.");
+    expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
+    expect(
+      within(alert).queryByRole("link", { name: "Open settings" }),
+    ).toBeNull();
+  });
+
+  it("links to a settings page contributed by the plugin frontend and keeps Reload", () => {
+    setPluginSlotRegistrations(
+      "github",
+      makePluginRegistrationSet({
+        settingsSections: [
+          { id: "accounts", title: "Accounts", component: () => null },
+        ],
+        navPanels: [],
+        threadPanelActions: [],
+        composerCustomizations: [],
+        pendingInteractions: [],
+        sidebarFooterActions: [],
+        fileOpeners: [],
+        messageDirectives: [],
+      }),
+    );
+
+    renderRuntimeStatus("needs-configuration", {
+      statusDetail: "Add and enable an account.",
+      hasSettings: false,
+    });
+
+    const alert = screen.getByRole("alert");
+    const settingsLink = within(alert).getByRole("link", {
+      name: "Open settings",
+    });
+    expect(settingsLink.getAttribute("href")).toBe("/settings/plugins/github");
+    expect(within(alert).getByRole("button", { name: "Reload" })).toBeTruthy();
+  });
+
+  it("does not offer a settings link for other runtime failures", () => {
+    setPluginSlotRegistrations(
+      "github",
+      makePluginRegistrationSet({
+        settingsSections: [
+          { id: "accounts", title: "Accounts", component: () => null },
+        ],
+        navPanels: [],
+        threadPanelActions: [],
+        composerCustomizations: [],
+        pendingInteractions: [],
+        sidebarFooterActions: [],
+        fileOpeners: [],
+        messageDirectives: [],
+      }),
+    );
+
+    renderRuntimeStatus("error");
+
+    const alert = screen.getByRole("alert");
+    expect(
+      within(alert).queryByRole("link", { name: "Open settings" }),
+    ).toBeNull();
+    expect(within(alert).getByRole("button", { name: "Reload" })).toBeTruthy();
+  });
+
+  it("reloads the affected plugin and reflects its pending state", async () => {
+    let resolveReload: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveReload = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { queryClient } = renderRuntimeStatus("error");
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/plugins/reload?id=github",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    const pending = screen.getByRole("button", { name: "Reloading…" });
+    expect(pending.getAttribute("disabled")).not.toBeNull();
+
+    resolveReload?.(
+      new Response(JSON.stringify({ ok: true, plugins: [] }), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["plugin-list"] });
+    });
+  });
+});
+
+describe("PluginDetail capability inventory", () => {
+  it("lists each contributed capability and keeps health separate", async () => {
+    const EmptySlot = () => null;
+    setPluginSlotRegistrations(
+      "capability-demo",
+      makePluginRegistrationSet({
+        settingsSections: [
+          {
+            id: "preferences",
+            title: "Advanced preferences",
+            component: EmptySlot,
+          },
+        ],
+        navPanels: [
+          {
+            id: "run-monitor",
+            title: "Run monitor",
+            icon: "Workflow",
+            path: "runs",
+            component: EmptySlot,
+          },
+        ],
+        threadPanelActions: [],
+        composerCustomizations: [
+          {
+            id: "prompt-tools",
+            actions: [{ id: "enhance-prompt", component: EmptySlot }],
+          },
+        ],
+        pendingInteractions: [],
+        sidebarFooterActions: [],
+        fileOpeners: [],
+        messageDirectives: [],
+      }),
+    );
+
+    const plugin = {
+      ...GITHUB_PLUGIN,
+      id: "capability-demo",
+      name: "Capability demo",
+      source: "path:/plugins/capability-demo",
+      provenance: "direct" as const,
+      catalogEntryId: null,
+      publisherLabel: null,
+      sourceDisplay: "Local path",
+      hasSettings: true,
+      cliCommand: {
+        name: "capability",
+        summary: "Inspect contributed capabilities.",
+      },
+      capabilities: [
+        {
+          kind: "skill",
+          id: "review",
+          label: "review",
+          detail: "Review repository changes.",
+        },
+        {
+          kind: "agent-tool",
+          id: "fetch_issues",
+          label: "fetch_issues",
+          detail: "Fetches repository issues.",
+        },
+        {
+          kind: "thread-integration",
+          id: "pull-request-mentions",
+          label: "Pull request mentions",
+          detail: "Displays pull request references.",
+        },
+        {
+          kind: "theme",
+          id: "github.dark",
+          label: "GitHub Dark",
+          detail: "A dark GitHub-inspired theme.",
+        },
+      ],
+      services: [
+        { name: "watch", state: "running" as const },
+        { name: "restart", state: "backoff" as const },
+        { name: "sync", state: "stopped" as const },
+      ],
+      schedules: [
+        {
+          name: "daily-cleanup",
+          cron: "0 9 * * *",
+          nextRunAt: 1_800_000_000_000,
+          lastRunAt: null,
+          lastStatus: null,
+          lastError: null,
+        },
+        {
+          name: "in-progress",
+          cron: "0 10 * * *",
+          nextRunAt: 1_800_000_000_000,
+          lastRunAt: null,
+          lastStatus: "running" as const,
+          lastError: null,
+        },
+        {
+          name: "completed",
+          cron: "0 11 * * *",
+          nextRunAt: 1_800_000_000_000,
+          lastRunAt: null,
+          lastStatus: "ok" as const,
+          lastError: null,
+        },
+        {
+          name: "failed",
+          cron: "0 12 * * *",
+          nextRunAt: 1_800_000_000_000,
+          lastRunAt: null,
+          lastStatus: "error" as const,
+          lastError: "Timed out",
+        },
+      ],
+    } satisfies PluginListItem;
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    const { container } = render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={plugin}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    const includes = container.querySelector(
+      '[data-resource-detail-section="includes"]',
+    );
+    expect(includes).not.toBeNull();
+    const inventory = within(includes as HTMLElement);
+    const table = includes?.querySelector("table");
+    expect(table).not.toBeNull();
+
+    expect(
+      includes?.querySelector("[data-plugin-capability-group]"),
+    ).toBeNull();
+    for (const text of [
+      "Run monitor",
+      "Adds a page to the app sidebar.",
+      "enhance-prompt",
+      "Adds an action beside the thread composer.",
+      "bb capability",
+      "Inspect contributed capabilities.",
+      "review",
+      "Review repository changes.",
+      "fetch_issues",
+      "Fetches repository issues.",
+      "Pull request mentions",
+      "Displays pull request references.",
+      "GitHub Dark",
+      "A dark GitHub-inspired theme.",
+    ]) {
+      expect(inventory.getByText(text)).toBeTruthy();
+    }
+    expect(inventory.queryByText("Advanced preferences")).toBeNull();
+    expect(inventory.queryByText("API token")).toBeNull();
+    expect(inventory.queryByText("watch")).toBeNull();
+    expect(inventory.queryByText("daily-cleanup")).toBeNull();
+    expect(includes?.textContent).not.toContain("2 background services");
+
+    const commandGlyph = inventory.getByRole("img", { name: "Command" });
+    fireEvent.pointerMove(commandGlyph);
+    expect((await screen.findByRole("tooltip")).textContent).toBe("Command");
+
+    const [services, schedules] = Array.from(
+      container.querySelectorAll('[data-resource-detail-section="activity"]'),
+    ) as HTMLElement[];
+    expect(schedules).toBeTruthy();
+    expect(container.textContent).not.toContain("Health");
+
+    const serviceSection = within(services as HTMLElement);
+    const serviceTable = serviceSection.getByRole("table", {
+      name: "Background services",
+    });
+    const serviceTableQueries = within(serviceTable);
+    expect(
+      serviceTableQueries
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Status", "Service"]);
+    for (const name of ["watch", "restart", "sync"]) {
+      expect(serviceTableQueries.getByRole("rowheader", { name })).toBeTruthy();
+    }
+    expect(serviceTableQueries.queryByText("daily-cleanup")).toBeNull();
+    for (const label of ["Running", "Restarting", "Stopped"]) {
+      expect(serviceTableQueries.getByText(label)).toBeTruthy();
+    }
+    expect(
+      serviceTableQueries.getByText("Running").getAttribute("class"),
+    ).toContain("animate-shine");
+    expect(
+      serviceTableQueries.getByText("Restarting").getAttribute("class"),
+    ).toContain("animate-shine");
+    const scheduleTable = within(schedules as HTMLElement);
+    expect(scheduleTable.getByText("Scheduled jobs")).toBeTruthy();
+    expect(scheduleTable.getByText("daily-cleanup")).toBeTruthy();
+    expect(scheduleTable.getByText("in-progress")).toBeTruthy();
+    expect(scheduleTable.getByText("completed")).toBeTruthy();
+    expect(scheduleTable.getByText("failed")).toBeTruthy();
+    expect(scheduleTable.queryByText("watch")).toBeNull();
+
+    for (const [label, icon] of [
+      ["Scheduled", "Clock"],
+      ["Running", "Clock"],
+      ["Succeeded", "CircleCheck"],
+      ["Failed", "CircleX"],
+    ] as const) {
+      const status = scheduleTable
+        .getAllByRole("img", { name: label })
+        .find(
+          (element) => element.querySelector(`[data-icon="${icon}"]`) !== null,
+        );
+      expect(status, `${label} should use ${icon}`).toBeTruthy();
+      expect(status?.getAttribute("tabindex")).toBe("0");
+    }
+    expect(
+      scheduleTable
+        .getAllByRole("img", { name: "Running" })
+        .some((element) =>
+          element
+            .querySelector('[data-icon="Clock"]')
+            ?.getAttribute("class")
+            ?.includes("animate-shine-icon"),
+        ),
+    ).toBe(true);
+  });
+
+  it("names repeated product-titled surfaces by their actual capability", () => {
+    const EmptySlot = () => null;
+    setPluginSlotRegistrations(
+      "simple-notes",
+      makePluginRegistrationSet({
+        navPanels: [
+          {
+            id: "docs",
+            title: "Docs",
+            icon: "FileText",
+            path: "docs",
+            component: EmptySlot,
+          },
+        ],
+        threadPanelActions: [
+          {
+            id: "document",
+            title: "Document",
+            icon: "FileText",
+            component: EmptySlot,
+          },
+        ],
+        composerCustomizations: [],
+        pendingInteractions: [],
+        sidebarFooterActions: [],
+        fileOpeners: [
+          {
+            id: "docs",
+            title: "Markdown",
+            extensions: ["md", "mdx", "markdown"],
+            component: EmptySlot,
+          },
+        ],
+        messageDirectives: [{ id: "docs", component: EmptySlot }],
+      }),
+    );
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={{
+              ...GITHUB_PLUGIN,
+              id: "simple-notes",
+              name: "Docs",
+              capabilities: [],
+            }}
+            pending={false}
+            openSourceDisabled
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={() => {}}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText("Docs")).toHaveLength(2);
+    for (const label of ["Document", "Markdown", "::docs"]) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+  });
+});
+
+describe("detail disable workspace cleanup", () => {
+  it.each([false, true])(
+    "preserves the workspace until disable settles (failure=%s)",
+    async (fails) => {
+      const store = createStore();
+      const layout = {
+        root: {
+          type: "pane" as const,
+          paneId: "github",
+          content: {
+            kind: "plugin-panel" as const,
+            pluginId: "github",
+            panelPath: "main",
+            subPath: "",
+          },
+        },
+        focusedPaneId: "github",
+      };
+      store.set(splitLayoutAtom, layout);
+      store.set(maximizedPaneIdAtom, "github");
+      let complete: ((response: Response) => void) | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url.includes("/github/disable"))
+            return new Promise<Response>((resolve) => {
+              complete = resolve;
+            });
+          if (url === "/api/v1/plugins")
+            return Response.json({
+              plugins: [makeInstalledPlugin({ id: "github", name: "GitHub" })],
+            });
+          if (url.includes("plugin-catalog/search"))
+            return Response.json({ results: [], collections: [] });
+          return Response.json({ error: "not found" }, { status: 404 });
+        }),
+      );
+      const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+      render(
+        <QueryClientWrapper>
+          <Provider store={store}>
+            <MemoryRouter initialEntries={["/skills", "/plugins/github/main"]}>
+              <TooltipProvider>
+                <PluginDetailPaneView pluginId="github" />
+              </TooltipProvider>
+              <LocationProbe />
+              <HistoryBackButton />
+            </MemoryRouter>
+          </Provider>
+        </QueryClientWrapper>,
+      );
+      fireEvent.click(
+        await screen.findByRole("switch", { name: "Disable GitHub" }),
+      );
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole("switch", { name: "Disable GitHub" })
+            .hasAttribute("disabled"),
+        ).toBe(true),
+      );
+      await waitFor(() => expect(complete).toBeDefined());
+      expect(store.get(splitLayoutAtom)).toEqual(layout);
+      await act(async () =>
+        complete?.(
+          fails
+            ? Response.json({ error: "denied" }, { status: 500 })
+            : Response.json({
+                ok: true,
+                plugin: makeInstalledPlugin({
+                  id: "github",
+                  enabled: false,
+                  status: "disabled",
+                }),
+              }),
+        ),
+      );
+      if (fails) {
+        expect(store.get(splitLayoutAtom)).toEqual(layout);
+        expect(store.get(maximizedPaneIdAtom)).toBe("github");
+        expect(screen.getByTestId("location").textContent).toBe(
+          "/plugins/github/main",
+        );
+      } else {
+        expect(store.get(splitLayoutAtom)?.root).toMatchObject({
+          content: { kind: "new-thread" },
+        });
+        expect(store.get(maximizedPaneIdAtom)).toBeNull();
+        expect(screen.getByTestId("location").textContent).toBe("/");
+        fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
+        expect(screen.getByTestId("location").textContent).toBe("/skills");
+      }
+    },
+  );
+});
+
+describe("plugin detail source and settings", () => {
+  it("shows a local plugin's source with open and copy actions outside the overflow menu", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const onOpenSource = vi.fn();
+    const plugin: PluginListItem = {
+      ...GITHUB_PLUGIN,
+      source: "path:/Users/you/src/bb-plugin-github",
+      rootDir: "/Users/you/src/bb-plugin-github",
+      provenance: "direct",
+      catalogEntryId: null,
+      publisherLabel: null,
+    };
+    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter>
+        <QueryClientWrapper>
+          <PluginDetail
+            isLoading={false}
+            plugin={plugin}
+            pending={false}
+            openSourceDisabled={false}
+            onToggle={() => {}}
+            onEdit={() => {}}
+            onOpenSource={onOpenSource}
+            onDelete={() => {}}
+            catalogEntries={[]}
+            onOpenPlugin={() => undefined}
+          />
+        </QueryClientWrapper>
+      </MemoryRouter>,
+    );
+
+    const source = screen
+      .getByRole("heading", { name: "Source" })
+      .closest("[data-resource-detail-section]");
+    expect(source).not.toBeNull();
+    if (source === null) return;
+    expect(
+      within(source as HTMLElement).getByText("~/src/bb-plugin-github"),
+    ).toBeTruthy();
+    fireEvent.click(
+      within(source as HTMLElement).getByRole("button", {
+        name: "Open source",
+      }),
+    );
+    expect(onOpenSource).toHaveBeenCalledWith(plugin);
+    fireEvent.click(
+      within(source as HTMLElement).getByRole("button", {
+        name: "Copy plugin path: /Users/you/src/bb-plugin-github",
+      }),
+    );
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("/Users/you/src/bb-plugin-github");
+    });
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "GitHub actions" }),
+    );
+    expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Open source" })).toBeNull();
+  });
+
+  it("opens settings in place from the detail gear and returns to details", async () => {
+    stubConfigurablePlugin("running");
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/plugins/github?view=installed"]}>
+        <TooltipProvider>
+          <PluginDetailPaneView pluginId="github" />
+        </TooltipProvider>
+        <LocationProbe />
+        <HistoryBackButton />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Details" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Configuration" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "GitHub settings" }));
+    expect(await screen.findByLabelText("Repository")).toHaveProperty(
+      "value",
+      "get-bb/bb",
+    );
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/plugins/github?view=installed&configure=github",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Plugin details" }));
+    expect(
+      await screen.findByRole("heading", { name: "Details" }),
+    ).toBeTruthy();
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/plugins/github?view=installed",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
+    expect(await screen.findByLabelText("Repository")).toHaveProperty(
+      "value",
+      "get-bb/bb",
+    );
+  });
+
+  function stubConfigurablePlugin(status: "running" | "needs-configuration") {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/v1/plugins") {
+          return Response.json({
+            enabled: true,
+            plugins: [
+              makeInstalledPlugin({
+                id: "github",
+                name: "GitHub",
+                hasSettings: true,
+                status,
+              }),
+            ],
+          });
+        }
+        if (url.startsWith("/api/v1/plugin-catalog/search")) {
+          return Response.json({ results: [], collections: [] });
+        }
+        if (url === "/api/v1/plugins/github/settings") {
+          return Response.json({
+            ok: true,
+            schema: { repository: { type: "string", label: "Repository" } },
+            values: { repository: "get-bb/bb" },
+          });
+        }
+        return Response.json({ error: "not found" }, { status: 404 });
+      }),
+    );
+  }
+
+  it("points the needs-configuration banner at settings in place", async () => {
+    stubConfigurablePlugin("needs-configuration");
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/plugins/github?view=installed"]}>
+        <TooltipProvider>
+          <PluginDetailPaneView pluginId="github" />
+        </TooltipProvider>
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    const openSettings = await screen.findByRole("link", {
+      name: "Open settings",
+    });
+    expect(openSettings.getAttribute("href")).toBe(
+      "/plugins/github?view=installed&configure=github",
+    );
+  });
+
+  it("opens settings in place for a legacy #configuration link", async () => {
+    stubConfigurablePlugin("running");
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter
+        initialEntries={["/plugins/github?view=installed#configuration"]}
+      >
+        <TooltipProvider>
+          <PluginDetailPaneView pluginId="github" />
+        </TooltipProvider>
+        <LocationProbe />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    expect(await screen.findByLabelText("Repository")).toHaveProperty(
+      "value",
+      "get-bb/bb",
+    );
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/plugins/github?view=installed&configure=github",
+    );
+  });
+
+  it("keeps in-place settings out of the URL when the detail pane is embedded in a thread", async () => {
+    stubConfigurablePlugin("running");
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/threads/thr_1?panel=files"]}>
+        <TooltipProvider>
+          <PluginDetailPaneView pluginId="github" />
+        </TooltipProvider>
+        <LocationProbe />
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Details" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "GitHub settings" }));
+    expect(await screen.findByLabelText("Repository")).toHaveProperty(
+      "value",
+      "get-bb/bb",
+    );
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/threads/thr_1?panel=files",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Plugin details" }));
+    expect(
+      await screen.findByRole("heading", { name: "Details" }),
+    ).toBeTruthy();
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/threads/thr_1?panel=files",
+    );
+  });
+});

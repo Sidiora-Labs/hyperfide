@@ -1,0 +1,94 @@
+import { describe, expect, it } from "vitest";
+import type { PaletteAction } from "./palette-action";
+import { rankPaletteActions } from "./palette-ranking";
+
+function action(id: string, title: string, group: string): PaletteAction {
+  return {
+    id,
+    bucket: group === "Threads" ? "Threads" : "Actions",
+    title,
+    group,
+    shortcut: null,
+    run: () => {},
+  };
+}
+
+const ACTIONS: readonly PaletteAction[] = [
+  action("app:thread.new", "New thread", "Threads"),
+  action("app:thread.next", "Next thread", "Threads"),
+  action("app:panel.toggle", "Toggle panel", "Window and layout"),
+  action("app:browser.reload", "Reload page", "Browser"),
+];
+
+const titlesOf = (ranked: ReturnType<typeof rankPaletteActions>) =>
+  ranked.map((entry) => entry.action.title);
+
+describe("rankPaletteActions", () => {
+  it("keeps the default catalog stable even with usage history", () => {
+    expect(
+      titlesOf(
+        rankPaletteActions({
+          actions: ACTIONS,
+          query: "",
+          recentIds: ["app:browser.reload", "app:panel.toggle"],
+        }),
+      ),
+    ).toEqual(["New thread", "Next thread", "Toggle panel", "Reload page"]);
+  });
+
+  it("keeps the full catalog browsable while limiting search results", () => {
+    const actions = Array.from({ length: 60 }, (_, index) =>
+      action(`plugin:${index}`, `Plugin action ${index}`, "Plugins"),
+    );
+    expect(
+      rankPaletteActions({ actions, query: " ", recentIds: [] }),
+    ).toHaveLength(60);
+    expect(
+      rankPaletteActions({ actions, query: "Plugin action", recentIds: [] }),
+    ).toHaveLength(50);
+  });
+
+  it("matches the group so a query can name a section", () => {
+    expect(
+      titlesOf(
+        rankPaletteActions({
+          actions: ACTIONS,
+          query: "browser",
+          recentIds: [],
+        }),
+      ),
+    ).toEqual(["Reload page"]);
+  });
+
+  it("emphasizes matched characters of the title only", () => {
+    const [first] = rankPaletteActions({
+      actions: ACTIONS,
+      query: "nt",
+      recentIds: [],
+    });
+    expect(first?.action.title).toBe("New thread");
+    expect(first?.positions).toEqual([0, 4]);
+  });
+
+  it("emphasizes nothing when the query only matched the group", () => {
+    const [first] = rankPaletteActions({
+      actions: ACTIONS,
+      query: "browser",
+      recentIds: [],
+    });
+    expect(first?.positions).toEqual([]);
+  });
+
+  it("breaks score ties on recency", () => {
+    const tied = [
+      action("app:a", "Toggle diff", "Workspace"),
+      action("app:b", "Toggle diff", "Window and layout"),
+    ];
+    const ranked = rankPaletteActions({
+      actions: tied,
+      query: "toggle diff",
+      recentIds: ["app:b"],
+    });
+    expect(ranked.map((entry) => entry.action.id)).toEqual(["app:b", "app:a"]);
+  });
+});

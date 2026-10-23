@@ -1,0 +1,184 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness } from "@get-bb/plugin-sdk/provider-bridge/testing";
+import type { BridgeJsonRpcOutputMessage } from "@get-bb/plugin-sdk/provider-bridge/testing";
+import { handleLine } from "./bridge.js";
+import {
+  cleanupBridgeProcessTest,
+  spawnedAppServerPids,
+} from "./bridge-process.test-support.js";
+import {
+  FULL_ACCESS_SESSION_OPTIONS,
+  stubFakeCodexAppServer,
+} from "./fake-codex-app-server-harness.js";
+
+const THREAD_ID = "thr_archived_rebuild_1";
+const PROVIDER_THREAD_ID = "rebuild-rollout-1";
+const ARCHIVED_ERROR_TEXT = `session ${PROVIDER_THREAD_ID} is archived; unarchive it and retry`;
+
+const sessionOptions = {
+  ...FULL_ACCESS_SESSION_OPTIONS,
+  reasoningLevel: "low",
+} as const;
+
+const changedSessionOptions = {
+  ...sessionOptions,
+  reasoningLevel: "high",
+} as const;
+
+const turnInput = [{ type: "text", text: "hello", mentions: [] }];
+
+let harness: ReturnType<typeof createBridgeJsonRpcTestHarness>;
+let workspaceDir = "";
+let archiveStatePath = "";
+let processLogPath = "";
+
+beforeEach(() => {
+  workspaceDir = mkdtempSync(join(tmpdir(), "bb-codex-archived-rebuild-"));
+  archiveStatePath = join(workspaceDir, "fake-codex-archived.json");
+  processLogPath = join(workspaceDir, "app-server-processes.log");
+  const scriptPath = join(workspaceDir, "fake-codex-script.json");
+  writeFileSync(
+    scriptPath,
+    JSON.stringify({ archiveStatePath, processLogPath }),
+  );
+  stubFakeCodexAppServer(scriptPath);
+  harness = createBridgeJsonRpcTestHarness(handleLine);
+});
+
+afterEach(async () => {
+  await cleanupBridgeProcessTest({
+    harness,
+    cleanupId: 993_001,
+    threadId: THREAD_ID,
+    providerThreadId: PROVIDER_THREAD_ID,
+    processLogPath,
+    workspaceDir,
+    unstubEnvs: vi.unstubAllEnvs,
+  });
+});
+
+async function resumeThread(): Promise<void> {
+  harness.sendRequest(1, "thread/resume", {
+    threadId: THREAD_ID,
+    providerThreadId: PROVIDER_THREAD_ID,
+    cwd: workspaceDir,
+    instructionMode: "append",
+    options: sessionOptions,
+  });
+  const response = await harness.waitForResponse(1);
+  expect(response.error).toBeUndefined();
+}
+
+function archiveOutsideBb(): void {
+  writeFileSync(archiveStatePath, JSON.stringify([PROVIDER_THREAD_ID]));
+}
+
+async function startTurn(
+  id: number,
+  options: typeof sessionOptions | typeof changedSessionOptions,
+): Promise<BridgeJsonRpcOutputMessage> {
+  harness.sendRequest(id, "turn/start", {
+    threadId: THREAD_ID,
+    providerThreadId: PROVIDER_THREAD_ID,
+    clientRequestId: "creq_abcdefghjk",
+    input: turnInput,
+    options,
+  });
+  return harness.waitForResponse(id);
+}
+
+function sessionReplacedNotifications(): BridgeJsonRpcOutputMessage[] {
+  return harness.messages.filter(
+    (message) => message.method === "session/replaced",
+  );
+}
+
+async function waitForTurnBoundary(): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const settled = harness.messages.some(
+      (message) =>
+        message.method === "thread/delta" &&
+        JSON.stringify(message.params).includes('"turn.boundary"'),
+    );
+    if (settled) {
+      return;
+    }
+    await new Promise((resolveTick) => setTimeout(resolveTick, 20));
+  }
+  throw new Error("Timed out waiting for the turn to settle");
+}
+
+async function expectArchivedHint(
+  response: BridgeJsonRpcOutputMessage,
+): Promise<void> {
+  expect(response.result).toBeUndefined();
+  expect(response.error?.message).toBe(ARCHIVED_ERROR_TEXT);
+  expect(response.error?.data).toEqual({
+    recovery: {
+      kind: "sessionArchived",
+      message: ARCHIVED_ERROR_TEXT,
+      retryable: true,
+    },
+  });
+  expect(sessionReplacedNotifications()).toEqual([]);
+}
+
+async function expectRetryAfterUnarchiveSucceeds(
+  options: typeof sessionOptions | typeof changedSessionOptions,
+): Promise<void> {
+  harness.sendRequest(3, "thread/unarchive", {
+    threadId: THREAD_ID,
+    providerThreadId: PROVIDER_THREAD_ID,
+  });
+  expect((await harness.waitForResponse(3)).error).toBeUndefined();
+
+  const retried = await startTurn(4, options);
+  expect(retried.error).toBeUndefined();
+  expect(retried.result).toEqual({ threadId: THREAD_ID });
+  expect(sessionReplacedNotifications()).toHaveLength(1);
+  expect(sessionReplacedNotifications()[0]?.params).toMatchObject({
+    threadId: THREAD_ID,
+    providerThreadId: PROVIDER_THREAD_ID,
+    contextLost: false,
+  });
+  await waitForTurnBoundary();
+}
+
+it("keeps the thread resumable when a settings-change rebuild hits an externally archived rollout", async () => {
+  await resumeThread();
+  archiveOutsideBb();
+
+  await expectArchivedHint(await startTurn(2, changedSessionOptions));
+  await expectRetryAfterUnarchiveSucceeds(changedSessionOptions);
+}, 30_000);
+
+it("keeps the thread resumable when the rebuild after the child died hits an externally archived rollout", async () => {
+  await resumeThread();
+  const [childPid] = spawnedAppServerPids(processLogPath);
+  expect(childPid).toBeDefined();
+  if (childPid === undefined) {
+    throw new Error("Expected the fake app-server child to have spawned");
+  }
+  process.kill(childPid, "SIGKILL");
+  const deadline = Date.now() + 15_000;
+  while (
+    !harness.messages.some(
+      (message) =>
+        message.method === "error" &&
+        JSON.stringify(message.params).includes("exited unexpectedly"),
+    )
+  ) {
+    if (Date.now() > deadline) {
+      throw new Error("Timed out waiting for the child exit report");
+    }
+    await new Promise((resolveTick) => setTimeout(resolveTick, 20));
+  }
+  archiveOutsideBb();
+
+  await expectArchivedHint(await startTurn(2, sessionOptions));
+  await expectRetryAfterUnarchiveSucceeds(sessionOptions);
+}, 30_000);

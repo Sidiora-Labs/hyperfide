@@ -1,0 +1,250 @@
+import { z } from "zod";
+import { threadCreateOriginSchema } from "./thread-create-origin.js";
+import { environmentWorkspaceDisplayKindSchema } from "./environment.js";
+import { gitCheckoutRefSchema } from "./git-checkout.js";
+import {
+  queuedMessageFailureReasonSchema,
+  queuedMessagePayloadSchema,
+  queuedMessageWaitingOnSchema,
+} from "./queued-message.js";
+import { queuedMessageStateSchema } from "./queued-message-lifecycle.js";
+import {
+  promptInputSchema,
+  permissionModeSchema,
+  reasoningLevelSchema,
+  serviceTierSchema,
+} from "./shared-types.js";
+import { threadStatusSchema, threadStatusValues } from "./thread-status.js";
+import { threadOriginKindSchema } from "./thread-origin-kind.js";
+import { threadParentNotificationsSchema } from "./thread-parent-notifications.js";
+import { threadVisibilitySchema } from "./thread-visibility.js";
+import {
+  threadRuntimeDisplayStatusSchema,
+  threadRuntimeStateSchema,
+  threadActivityStateSchema,
+} from "./thread-runtime-state.js";
+export {
+  threadRuntimeStateSchema,
+  threadActivityStateSchema,
+} from "./thread-runtime-state.js";
+export { threadStatusSchema, threadStatusValues } from "./thread-status.js";
+export type { ThreadStatus } from "./thread-status.js";
+export { threadOriginKindSchema } from "./thread-origin-kind.js";
+export type { ThreadOriginKind } from "./thread-origin-kind.js";
+
+/**
+ * The three additions to {@link threadStatusValues} are display-only: they
+ * refine `active`/`idle` with host and workspace facts the durable status does
+ * not record.
+ *
+ * A never-started thread needs no such refinement — `pending` is a real thread
+ * status now, so it travels to the client as itself. It used to arrive as a
+ * separate `held` display status, derived from an `idle` thread holding a live
+ * dispatch hold; that derivation and the holds behind it are both gone.
+ */
+
+export type ThreadRuntimeDisplayStatus = z.infer<
+  typeof threadRuntimeDisplayStatusSchema
+>;
+
+export type ThreadRuntimeState = z.infer<typeof threadRuntimeStateSchema>;
+
+export type ThreadActivityState = z.infer<typeof threadActivityStateSchema>;
+
+const workspaceStateValues = [
+  "clean",
+  "untracked",
+  "dirty_uncommitted",
+  "committed_unmerged",
+  "dirty_and_committed_unmerged",
+] as const;
+const workspaceStateSchema = z.enum(workspaceStateValues);
+
+const workspaceFileStatusKindSchema = z.enum([
+  "M",
+  "A",
+  "D",
+  "R",
+  "C",
+  "U",
+  "??",
+  "?",
+]);
+export type WorkspaceFileStatusKind = z.infer<
+  typeof workspaceFileStatusKindSchema
+>;
+
+const workspaceFileStatusSchema = z.object({
+  path: z.string(),
+  status: workspaceFileStatusKindSchema,
+  insertions: z.number().nullable(),
+  deletions: z.number().nullable(),
+});
+export type WorkspaceFileStatus = z.infer<typeof workspaceFileStatusSchema>;
+
+const workspaceCommitSummarySchema = z.object({
+  sha: z.string(),
+  shortSha: z.string(),
+  subject: z.string(),
+  authorName: z.string(),
+  authoredAt: z.number(),
+});
+export type WorkspaceCommitSummary = z.infer<
+  typeof workspaceCommitSummarySchema
+>;
+
+const workspaceChangeStatsSchema = z.object({
+  insertions: z.number(),
+  deletions: z.number(),
+  lineStatsComplete: z.boolean(),
+  fileCount: z.number().int().nonnegative(),
+  files: z.array(workspaceFileStatusSchema),
+});
+export type WorkspaceChangeStats = z.infer<typeof workspaceChangeStatsSchema>;
+
+const workspaceWorkingTreeSchema = workspaceChangeStatsSchema.extend({
+  hasUncommittedChanges: z.boolean(),
+  state: workspaceStateSchema,
+});
+export type WorkspaceWorkingTree = z.infer<typeof workspaceWorkingTreeSchema>;
+
+const workspaceBranchSchema = z.object({
+  currentBranch: z.string().nullable(),
+  defaultBranch: z.string(),
+});
+
+const workspaceMergeBaseSchema = workspaceChangeStatsSchema.extend({
+  mergeBaseBranch: z.string(),
+  baseRef: z.string().nullable(),
+  aheadCount: z.number(),
+  behindCount: z.number(),
+  squashMergeCheckComplete: z.boolean(),
+  hasCommittedUnmergedChanges: z.boolean(),
+  commits: z.array(workspaceCommitSummarySchema),
+});
+export type WorkspaceMergeBase = z.infer<typeof workspaceMergeBaseSchema>;
+
+export const workspaceStatusSchema = z.object({
+  workingTree: workspaceWorkingTreeSchema,
+  checkout: gitCheckoutRefSchema,
+  branch: workspaceBranchSchema,
+  mergeBase: workspaceMergeBaseSchema.nullable(),
+});
+export type WorkspaceStatus = z.infer<typeof workspaceStatusSchema>;
+
+export const threadQueuedMessageSchema = z.object({
+  id: z.string(),
+  origin: threadCreateOriginSchema.nullable(),
+  originPluginId: z.string().nullable(),
+  initiator: z.enum(["user", "agent", "system"]),
+  senderThreadId: z.string().nullable(),
+  /**
+   * The thread this row is waiting on. Redundant on the thread-scoped list
+   * route that first served this DTO, and load-bearing everywhere else it is
+   * now served: a `queue.*` plugin event and a cross-thread wait-holder query
+   * both hand out rows with no surrounding thread to read it from.
+   */
+  threadId: z.string(),
+  content: z.array(promptInputSchema).min(1),
+  model: z.string().min(1),
+  reasoningLevel: reasoningLevelSchema,
+  permissionMode: permissionModeSchema,
+  serviceTier: serviceTierSchema,
+  groupWithNext: z.boolean(),
+  /**
+   * Epoch ms this row is scheduled to attempt dispatch, or null when it is
+   * eligible as soon as its other waits clear.
+   */
+  sendAt: z.number().int().nonnegative().nullable(),
+  state: queuedMessageStateSchema,
+  /**
+   * Why this row is queued, or null for a `queued` row that is simply next in
+   * line behind the running turn.
+   */
+  waitingOn: queuedMessageWaitingOnSchema.nullable(),
+  /**
+   * Why this row's last DRAIN attempt failed outright, or null when it has not
+   * failed one — which is every row that has never been re-attempted, and
+   * every row whose latest attempt merely queued again. An inline attempt
+   * reports its failure to the sender that is still listening and never lands
+   * here.
+   *
+   * Independent of `waitingOn`, not folded into it: the row is still waiting on
+   * whatever it was waiting on, and writing a wait rewrites it wholesale, so a
+   * failure stored there would not survive the next attempt.
+   */
+  failureReason: queuedMessageFailureReasonSchema.nullable(),
+  payload: queuedMessagePayloadSchema,
+  /**
+   * Whether the sender may still rewrite this row's input. Not derivable from
+   * `payload` alone: a `retry` row is never editable, and an `inline` row
+   * stops being editable once the drain has claimed it — and the claim is
+   * deliberately not part of this response, since it is drain bookkeeping and
+   * not something a client should reason about. The server folds both into
+   * this one answer.
+   */
+  editable: z.boolean(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+export type ThreadQueuedMessage = z.infer<typeof threadQueuedMessageSchema>;
+
+export const threadSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  environmentId: z.string().nullable(),
+  providerId: z.string(),
+  title: z.string().nullable(),
+  titleFallback: z.string().nullable(),
+  sectionId: z.string().nullable(),
+  status: threadStatusSchema,
+  parentThreadId: z.string().nullable(),
+  lifecycleOwnerThreadId: z.string().nullable(),
+  sourceThreadId: z.string().nullable(),
+  originKind: threadOriginKindSchema.nullable(),
+  originPluginId: z.string().nullable(),
+  visibility: threadVisibilitySchema,
+  parentNotifications: threadParentNotificationsSchema,
+  archivedAt: z.number().nullable(),
+  pinnedAt: z.number().nullable(),
+  deletedAt: z.number().nullable(),
+  lastReadAt: z.number().nullable(),
+  latestAttentionAt: z.number(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+export type Thread = z.infer<typeof threadSchema>;
+
+export const threadWithRuntimeSchema = threadSchema.extend({
+  runtime: threadRuntimeStateSchema,
+});
+export type ThreadWithRuntime = z.infer<typeof threadWithRuntimeSchema>;
+
+/**
+ * Whether a thread has work waiting on its queue, as a list row needs to know
+ * it: not how many rows, but whether any are waiting and whether any of them
+ * failed to go out.
+ *
+ * `failed` outranks `waiting` because a failure is the only one of the two a
+ * reader has to act on — a waiting row will clear itself. Deliberately a
+ * queue fact only: whether the thread is also running is the list row's
+ * question, not the queue's, and the row's glyph precedence answers it.
+ */
+export const threadQueuedWorkValues = ["none", "waiting", "failed"] as const;
+export const threadQueuedWorkSchema = z.enum(threadQueuedWorkValues);
+export type ThreadQueuedWork = z.infer<typeof threadQueuedWorkSchema>;
+
+export const threadListEntrySchema = threadWithRuntimeSchema.extend({
+  activity: threadActivityStateSchema,
+  queuedWork: threadQueuedWorkSchema,
+  pinSortKey: z.string().nullable(),
+  hasPendingInteraction: z.boolean(),
+  environmentHostId: z.string().nullable(),
+  environmentName: z.string().nullable(),
+  environmentBranchName: z.string().nullable(),
+  environmentPath: z.string().nullable(),
+  environmentProviderId: z.string().nullable(),
+  environmentIsWorktree: z.boolean().nullable(),
+  environmentWorkspaceDisplayKind: environmentWorkspaceDisplayKindSchema,
+});
+export type ThreadListEntry = z.infer<typeof threadListEntrySchema>;

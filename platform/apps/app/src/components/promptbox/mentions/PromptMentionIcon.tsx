@@ -1,0 +1,46 @@
+import type { PromptMentionResource } from "@bb/domain";
+import type { ComposerMentionTargetShape } from "@bb/client-core";
+import { Icon } from "@bb/shared-ui/icon";
+import { PluginItemIcon } from "@/components/plugin/PluginIcon";
+import { promptMentionIconName } from "@bb/client-core";
+import { composerMentionResource } from "./prompt-mention-pill";
+
+export function PromptMentionIcon({
+  className,
+  resource,
+}: {
+  className?: string;
+  resource: PromptMentionResource;
+}) {
+  if (resource.kind === "plugin") {
+    return (
+      <PluginItemIcon
+        pluginId={resource.pluginId}
+        icon={resource.icon ?? null}
+        className={className}
+      />
+    );
+  }
+  return (
+    <Icon
+      name={promptMentionIconName(resource)}
+      className={className}
+      aria-hidden
+    />
+  );
+}
+
+export function ComposerMentionIcon({
+  mention,
+  className,
+}: {
+  mention: ComposerMentionTargetShape;
+  className?: string;
+}) {
+  return (
+    <PromptMentionIcon
+      resource={composerMentionResource(mention)}
+      {...(className === undefined ? {} : { className })}
+    />
+  );
+}

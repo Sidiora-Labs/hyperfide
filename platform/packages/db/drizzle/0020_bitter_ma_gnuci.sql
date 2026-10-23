@@ -1,0 +1,1 @@
+ALTER TABLE `environments` ADD `name` text;

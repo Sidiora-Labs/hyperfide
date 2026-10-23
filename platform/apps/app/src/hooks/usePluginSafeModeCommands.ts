@@ -1,0 +1,79 @@
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
+import { appToast } from "@/components/ui/app-toast";
+import {
+  applyPluginSafeMode,
+  invalidatePluginList,
+} from "@/hooks/cache-owners/plugin-cache-owner";
+import {
+  setPluginSafeMode,
+  usePluginSafeMode,
+} from "@/hooks/queries/plugin-settings-queries";
+
+interface ChangePluginSafeModeArgs {
+  enabled: boolean;
+  queryClient: QueryClient;
+}
+
+export function changePluginSafeMode({
+  enabled,
+  queryClient,
+}: ChangePluginSafeModeArgs): Promise<void> {
+  return setPluginSafeMode(fetch, enabled)
+    .then(
+      (result) => {
+        applyPluginSafeMode({ queryClient, enabled: result.enabled });
+        if (result.problems.length > 0) {
+          appToast.warning(
+            result.enabled
+              ? "Plugin safe mode is on"
+              : "Some plugins did not start",
+            { description: result.problems.join("\n") },
+          );
+          return;
+        }
+        appToast.success(
+          result.enabled ? "Plugin safe mode is on" : "Plugin safe mode is off",
+          {
+            description: result.enabled
+              ? "Only plugins included with bb are running."
+              : "Your enabled plugins are running again.",
+          },
+        );
+      },
+      (error: unknown) => {
+        appToast.error(
+          enabled
+            ? "Failed to turn on plugin safe mode"
+            : "Failed to turn off plugin safe mode",
+          {
+            description: error instanceof Error ? error.message : String(error),
+          },
+        );
+      },
+    )
+    .finally(() => invalidatePluginList({ queryClient }));
+}
+
+export function usePluginSafeModeCommands(): void {
+  const queryClient = useQueryClient();
+  const safeMode = usePluginSafeMode().data;
+
+  function run(enabled: boolean): boolean {
+    void changePluginSafeMode({ enabled, queryClient });
+    return true;
+  }
+
+  useAppCommandHandler(
+    "plugins.enterSafeMode",
+    () => run(true),
+    0,
+    safeMode === false,
+  );
+  useAppCommandHandler(
+    "plugins.exitSafeMode",
+    () => run(false),
+    0,
+    safeMode === true,
+  );
+}

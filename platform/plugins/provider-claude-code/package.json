@@ -1,0 +1,54 @@
+{
+  "name": "bb-plugin-provider-claude-code",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Run bb threads with Claude Code.",
+  "engines": {
+    "bb": ">=0.0",
+    "bbPluginSdk": ">=0.4.90"
+  },
+  "bb": {
+    "name": "Claude Code provider",
+    "description": "Run bb threads with Claude Code.",
+    "branding": {
+      "icon": "./icons/claude-code.svg"
+    },
+    "server": "./server.ts",
+    "host": "./src/host.ts",
+    "experimental_providers": [
+      {
+        "kind": "agent",
+        "id": "claude-code",
+        "displayName": "Claude Code"
+      }
+    ]
+  },
+  "keywords": [
+    "bb-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "prepare:bundled": "bb-plugin-build prepare-bundled"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.93.0",
+    "@bb/plugin-build": "workspace:*",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "hono": "4.11.9",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.245",
+    "@get-bb/plugin-sdk": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  }
+}

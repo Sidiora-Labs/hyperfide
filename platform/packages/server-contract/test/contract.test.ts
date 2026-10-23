@@ -1,0 +1,2327 @@
+import {
+  collectOptionalFieldPaths,
+  makeWorkspaceStatus,
+} from "@bb/test-helpers";
+import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
+import {
+  gitBranchSelectionSchema,
+  TERMINAL_COLS_MAX,
+  TERMINAL_DATA_MAX_BASE64_LENGTH,
+  TERMINAL_DATA_MAX_BYTES,
+  TERMINAL_ROWS_MAX,
+} from "@bb/domain";
+import { describe, expect, it } from "vitest";
+import * as contract from "../src/index.js";
+import {
+  createTerminalRequestSchema,
+  createHostJoinCodeRequestSchema,
+  createQueuedMessageRequestSchema,
+  createProjectSourceRequestSchema,
+  createPublicApiClient,
+  createThreadRequestSchema,
+  environmentActionRequestSchema,
+  gitBranchNameSchema,
+  reorderPinnedThreadRequestSchema,
+  reorderQueuedMessageRequestSchema,
+  resolvePendingInteractionRequestSchema,
+  sendQueuedMessageRequestSchema,
+  sendMessageRequestSchema,
+  systemEnvironmentProviderSchema,
+  systemEnvironmentProvidersQuerySchema,
+  terminalClientMessageSchema,
+  terminalOutputChunkSchema,
+  terminalOutputResponseSchema,
+  terminalSessionSchema,
+  terminalWebSocketQuerySchema,
+  threadListResponseSchema,
+  threadPendingInteractionsResponseSchema,
+  timelineTurnSummaryDetailsResponseSchema,
+  updateQueuedMessageRequestSchema,
+  updateEnvironmentRequestSchema,
+  unmanagedBranchSpecSchema,
+} from "../src/index.js";
+
+interface OptionalServerFieldGroup {
+  fields: readonly string[];
+  reason: string;
+}
+
+const OPTIONAL_SERVER_FIELD_GROUP_LIMIT = 46;
+
+const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
+  {
+    reason:
+      "Older parent notices have no per-child outcomes. New notices omit interruption details for completed, failed, or unclassified turns; a recorded host-connection-loss cause is optional even when the interruption reason is known.",
+    fields: [
+      "threadTimelineResponseSchema.delta.upsertRows.systemMessageSubject.outcomes",
+      "threadTimelineResponseSchema.delta.upsertRows.systemMessageSubject.outcomes.interruption",
+      "threadTimelineResponseSchema.delta.upsertRows.systemMessageSubject.outcomes.interruption.cause",
+      "threadTimelineResponseSchema.rows.systemMessageSubject.outcomes",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.systemMessageSubject.outcomes",
+      "threadTimelineResponseSchema.rows.systemMessageSubject.outcomes.interruption",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.systemMessageSubject.outcomes.interruption",
+      "threadTimelineResponseSchema.rows.systemMessageSubject.outcomes.interruption.cause",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.systemMessageSubject.outcomes.interruption.cause",
+    ],
+  },
+  {
+    reason:
+      "A submitted plugin form leaves on its row only what the plugin's describeSubmission returned, and the whole description is absent when the plugin declares no describeSubmission or when that call throws or times out. Within one, an absent title means the presentation's completed label stands, an absent detail means the title is the whole row, and an absent payload means the row renders without handing anything to the plugin's own timeline renderer. bb never stores the form's payload or the submitted value, so these fields are the entire record of what happened.",
+    fields: [
+      "threadPendingInteractionsResponseSchema.resolution.description",
+      "threadPendingInteractionsResponseSchema.resolution.description.detail",
+      "threadPendingInteractionsResponseSchema.resolution.description.payload",
+      "threadPendingInteractionsResponseSchema.resolution.description.title",
+    ],
+  },
+  {
+    reason:
+      "The resolve route's body is the persisted resolution union, so it also admits the plugin_submitted arm and its description. No caller can send one: a plugin interaction is submitted through the respond route, and validatePendingInteractionResolution rejects every plugin interaction before a resolution is read. These four exist only because the request schema reuses the persisted shape.",
+    fields: [
+      "resolvePendingInteractionRequestSchema.description",
+      "resolvePendingInteractionRequestSchema.description.detail",
+      "resolvePendingInteractionRequestSchema.description.payload",
+      "resolvePendingInteractionRequestSchema.description.title",
+    ],
+  },
+  {
+    reason:
+      "A localFile prompt input names, sizes, and types itself only when the uploader knew those facts; the path is the only required identity. Absence means unknown, never an unnamed or empty file, and no reader may treat a missing size as zero.",
+    fields: [
+      "createQueuedMessageRequestSchema.input.mimeType",
+      "createQueuedMessageRequestSchema.input.name",
+      "createQueuedMessageRequestSchema.input.sizeBytes",
+      "createThreadRequestSchema.input.mimeType",
+      "createThreadRequestSchema.input.name",
+      "createThreadRequestSchema.input.sizeBytes",
+      "forkThreadRequestSchema.agentContextSeed.mimeType",
+      "forkThreadRequestSchema.agentContextSeed.name",
+      "forkThreadRequestSchema.agentContextSeed.sizeBytes",
+      "forkThreadRequestSchema.input.mimeType",
+      "forkThreadRequestSchema.input.name",
+      "forkThreadRequestSchema.input.sizeBytes",
+      "sendMessageRequestSchema.input.mimeType",
+      "sendMessageRequestSchema.input.name",
+      "sendMessageRequestSchema.input.sizeBytes",
+      "sendQueuedMessageResponseSchema.queuedMessage.content.mimeType",
+      "sendQueuedMessageResponseSchema.queuedMessage.content.name",
+      "sendQueuedMessageResponseSchema.queuedMessage.content.sizeBytes",
+    ],
+  },
+  {
+    reason:
+      "A prompt input declares visibility only to hide itself from the person: the single value agent-only marks an input the transcript does not show. Absence is the ordinary visible input, so the field is never written for the common case.",
+    fields: [
+      "createQueuedMessageRequestSchema.input.visibility",
+      "createThreadRequestSchema.input.visibility",
+      "forkThreadRequestSchema.agentContextSeed.visibility",
+      "forkThreadRequestSchema.input.visibility",
+      "sendMessageRequestSchema.input.visibility",
+      "sendQueuedMessageResponseSchema.queuedMessage.content.visibility",
+    ],
+  },
+  {
+    reason:
+      "A row carries a declarative presentation only when a bridge or plugin attached one; rows persisted before grammar v2, and rows from a bridge that declares none, have no presentation and clients fall back to bb's own rendering for the row kind.",
+    fields: [
+      "threadPendingInteractionsResponseSchema.payload.presentation",
+      "threadTimelineResponseSchema.activeBackgroundCommands.presentation",
+      "threadTimelineResponseSchema.activeWorkflows.presentation",
+      "threadTimelineResponseSchema.delta.upsertRows.presentation",
+      "threadTimelineResponseSchema.rows.presentation",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.presentation",
+    ],
+  },
+  {
+    reason:
+      "Within a presentation each member is separately optional and absence is a definite answer, not a blank: no title means the label stands alone, no detail means the label and title are the whole summary, no suppress means render normally, no tint means the neutral row tint (which is not a colour value), and no badge means there is nothing to flag about how the call will run.",
+    fields: [
+      "threadPendingInteractionsResponseSchema.payload.presentation.badge",
+      "threadPendingInteractionsResponseSchema.payload.presentation.detail",
+      "threadPendingInteractionsResponseSchema.payload.presentation.suppress",
+      "threadPendingInteractionsResponseSchema.payload.presentation.tint",
+      "threadPendingInteractionsResponseSchema.payload.presentation.title",
+      "threadPendingInteractionsResponseSchema.payload.subject.presentation.badge",
+      "threadPendingInteractionsResponseSchema.payload.subject.presentation.detail",
+      "threadPendingInteractionsResponseSchema.payload.subject.presentation.suppress",
+      "threadPendingInteractionsResponseSchema.payload.subject.presentation.tint",
+      "threadPendingInteractionsResponseSchema.payload.subject.presentation.title",
+      "threadTimelineResponseSchema.activeBackgroundCommands.presentation.badge",
+      "threadTimelineResponseSchema.activeBackgroundCommands.presentation.detail",
+      "threadTimelineResponseSchema.activeBackgroundCommands.presentation.suppress",
+      "threadTimelineResponseSchema.activeBackgroundCommands.presentation.tint",
+      "threadTimelineResponseSchema.activeBackgroundCommands.presentation.title",
+      "threadTimelineResponseSchema.activeWorkflows.presentation.badge",
+      "threadTimelineResponseSchema.activeWorkflows.presentation.detail",
+      "threadTimelineResponseSchema.activeWorkflows.presentation.suppress",
+      "threadTimelineResponseSchema.activeWorkflows.presentation.tint",
+      "threadTimelineResponseSchema.activeWorkflows.presentation.title",
+      "threadTimelineResponseSchema.delta.upsertRows.presentation.badge",
+      "threadTimelineResponseSchema.delta.upsertRows.presentation.detail",
+      "threadTimelineResponseSchema.delta.upsertRows.presentation.suppress",
+      "threadTimelineResponseSchema.delta.upsertRows.presentation.tint",
+      "threadTimelineResponseSchema.delta.upsertRows.presentation.title",
+      "threadTimelineResponseSchema.rows.presentation.badge",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.presentation.badge",
+      "threadTimelineResponseSchema.rows.presentation.detail",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.presentation.detail",
+      "threadTimelineResponseSchema.rows.presentation.suppress",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.presentation.suppress",
+      "threadTimelineResponseSchema.rows.presentation.tint",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.presentation.tint",
+      "threadTimelineResponseSchema.rows.presentation.title",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.presentation.title",
+    ],
+  },
+  {
+    reason:
+      "A user question omits shortLabel when its prompt is short enough to title the row itself, omits options when it takes free text only, and omits an option description when the option label needs no gloss. Each absence is the question's shape, not missing data.",
+    fields: [
+      "threadPendingInteractionsResponseSchema.payload.questions.options",
+      "threadPendingInteractionsResponseSchema.payload.questions.options.description",
+      "threadPendingInteractionsResponseSchema.payload.questions.shortLabel",
+      "threadTimelineResponseSchema.delta.upsertRows.questions.options",
+      "threadTimelineResponseSchema.delta.upsertRows.questions.options.description",
+      "threadTimelineResponseSchema.delta.upsertRows.questions.shortLabel",
+      "threadTimelineResponseSchema.rows.questions.options",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.questions.options",
+      "threadTimelineResponseSchema.rows.questions.options.description",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.questions.options.description",
+      "threadTimelineResponseSchema.rows.questions.shortLabel",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.questions.shortLabel",
+    ],
+  },
+  {
+    reason:
+      "A workflow agent snapshot reports only what has happened to that agent so far: a queued agent has no startedAt, an unsettled one no durationMs, resultPreview, tokens, or toolCalls, one that has called nothing no lastToolName or lastToolSummary, and one that succeeded no error. phaseIndex and phaseTitle are absent for a workflow with no phases, agentType and isolation for an agent that took the defaults, and promptPreview when the prompt was not captured. Filling these with zeros or empty strings would make 'not yet' indistinguishable from 'nothing'.",
+    fields: [
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.agentType",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.durationMs",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.error",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.isolation",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.lastToolName",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.lastToolSummary",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.phaseIndex",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.phaseTitle",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.promptPreview",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.queuedAt",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.resultPreview",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.startedAt",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.tokens",
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.agents.toolCalls",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.agentType",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.durationMs",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.error",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.isolation",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.lastToolName",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.lastToolSummary",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.phaseIndex",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.phaseTitle",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.promptPreview",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.queuedAt",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.resultPreview",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.startedAt",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.tokens",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.agents.toolCalls",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.agentType",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.durationMs",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.error",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.isolation",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.lastToolName",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.lastToolSummary",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.phaseIndex",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.phaseTitle",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.promptPreview",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.queuedAt",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.resultPreview",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.startedAt",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.tokens",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.agents.toolCalls",
+      "threadTimelineResponseSchema.rows.workflow.agents.agentType",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.agentType",
+      "threadTimelineResponseSchema.rows.workflow.agents.durationMs",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.durationMs",
+      "threadTimelineResponseSchema.rows.workflow.agents.error",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.error",
+      "threadTimelineResponseSchema.rows.workflow.agents.isolation",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.isolation",
+      "threadTimelineResponseSchema.rows.workflow.agents.lastToolName",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.lastToolName",
+      "threadTimelineResponseSchema.rows.workflow.agents.lastToolSummary",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.lastToolSummary",
+      "threadTimelineResponseSchema.rows.workflow.agents.phaseIndex",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.phaseIndex",
+      "threadTimelineResponseSchema.rows.workflow.agents.phaseTitle",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.phaseTitle",
+      "threadTimelineResponseSchema.rows.workflow.agents.promptPreview",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.promptPreview",
+      "threadTimelineResponseSchema.rows.workflow.agents.queuedAt",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.queuedAt",
+      "threadTimelineResponseSchema.rows.workflow.agents.resultPreview",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.resultPreview",
+      "threadTimelineResponseSchema.rows.workflow.agents.startedAt",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.startedAt",
+      "threadTimelineResponseSchema.rows.workflow.agents.tokens",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.tokens",
+      "threadTimelineResponseSchema.rows.workflow.agents.toolCalls",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.agents.toolCalls",
+    ],
+  },
+  {
+    reason:
+      "A workflow phase carries a kind only when the script labelled it; absence means an ordinary phase identified by its index and title.",
+    fields: [
+      "threadTimelineResponseSchema.activeBackgroundCommands.workflow.phases.kind",
+      "threadTimelineResponseSchema.activeWorkflows.workflow.phases.kind",
+      "threadTimelineResponseSchema.delta.upsertRows.workflow.phases.kind",
+      "threadTimelineResponseSchema.rows.workflow.phases.kind",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.workflow.phases.kind",
+    ],
+  },
+  {
+    reason:
+      "A command row carries an output preview only when its output was truncated and the full text may still be fetchable, and a row is marked contentDeferred only when its expandable content was left out to be loaded on expand; absence means the row's fields hold the whole content.",
+    fields: [
+      "threadTimelineResponseSchema.delta.upsertRows.contentDeferred",
+      "threadTimelineResponseSchema.rows.contentDeferred",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.contentDeferred",
+      "threadTimelineResponseSchema.delta.upsertRows.outputPreview",
+      "threadTimelineResponseSchema.rows.outputPreview",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.outputPreview",
+    ],
+  },
+  {
+    reason:
+      "A generic operation row carries a reasoning id only when the provider tied the operation to a reasoning block; absence means there is no reasoning to link to.",
+    fields: [
+      "threadTimelineResponseSchema.delta.upsertRows.reasoningId",
+      "threadTimelineResponseSchema.rows.reasoningId",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.reasoningId",
+    ],
+  },
+  {
+    reason:
+      "A plan step carries a status only once the provider reports progress on it; absence means the step is listed but not yet started, which is not the same as pending.",
+    fields: [
+      "threadTimelineResponseSchema.delta.upsertRows.steps.status",
+      "threadTimelineResponseSchema.rows.steps.status",
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates.steps.status",
+    ],
+  },
+  {
+    reason:
+      "A pending interaction has an expiry only on a host that expires them; a persistent host leaves the field off, and null means the same thing for a stored row that predates it.",
+    fields: ["threadPendingInteractionsResponseSchema.expiresAt"],
+  },
+  {
+    reason:
+      "A provider interaction carries an explicit origin only since bb began recording which provider raised it; absence means an older row whose provider is still readable from the providerId, providerThreadId, and providerRequestId beside it.",
+    fields: ["threadPendingInteractionsResponseSchema.origin"],
+  },
+  {
+    reason:
+      "Timeline snapshot fields are absent on older servers; content metadata and detail continuation inputs only apply to paginated content; older row updates only appear when a latest page omits rows that changed inside its window; a detail item scope is absent when the whole turn is requested, and content stays inline unless deferral is requested.",
+    fields: [
+      "threadTimelineResponseSchema.timelinePage.olderRowUpdates",
+      "timelineTurnSummaryDetailsQuerySchema.beforeCursor",
+      "timelineTurnSummaryDetailsQuerySchema.deferContent",
+      "timelineTurnSummaryDetailsQuerySchema.itemId",
+    ],
+  },
+  {
+    reason:
+      "Base error payloads omit optional details and retryability when a route has no structured details or retry guidance.",
+    fields: [
+      "apiErrorSchema.details",
+      "apiErrorSchema.retryable",
+      "environmentActionApiErrorSchema.details",
+      "environmentActionApiErrorSchema.retryable",
+    ],
+  },
+  {
+    reason:
+      "Unmanaged workspaces may omit branch checkout intent when the daemon should leave HEAD untouched.",
+    fields: [
+      "createThreadRequestSchema.environment.workspace.branch",
+      "forkThreadRequestSchema.environment.workspace.branch",
+    ],
+  },
+  {
+    reason:
+      "Personal workspace requests may omit hostId so the server can use the default connected local host.",
+    fields: [
+      "createThreadRequestSchema.environment.hostId",
+      "forkThreadRequestSchema.environment.hostId",
+    ],
+  },
+  {
+    reason:
+      "Composed environment providers choose their declared machine provider; concrete providers require an explicit machine selection.",
+    fields: [
+      "createThreadRequestSchema.environment.machine",
+      "forkThreadRequestSchema.environment.machine",
+    ],
+  },
+  {
+    reason:
+      'originPluginId is present exactly when origin is "plugin" (enforced by refinement); omission means a non-plugin origin.',
+    fields: ["createThreadRequestSchema.originPluginId"],
+  },
+  {
+    reason:
+      "Thread creation may omit visibility and parentNotifications; the server fills visible and auto at the creation boundary.",
+    fields: [
+      "createThreadRequestSchema.visibility",
+      "createThreadRequestSchema.parentNotifications",
+    ],
+  },
+  {
+    reason:
+      "Lifecycle ownership is explicitly assigned at creation; omission creates an independent thread.",
+    fields: [
+      "createThreadRequestSchema.lifecycleOwnerThreadId",
+      "forkThreadRequestSchema.lifecycleOwnerThreadId",
+    ],
+  },
+  {
+    reason:
+      'pluginMetadata is accepted only when origin is "plugin"; plugin submission data is present only for experimental composer submissions and queued payloads that preserve them.',
+    fields: [
+      "createThreadRequestSchema.pluginMetadata",
+      "forkThreadRequestSchema.pluginMetadata",
+      "createThreadRequestSchema.pluginSubmission",
+      "sendMessageRequestSchema.pluginSubmission",
+    ],
+  },
+  {
+    reason:
+      "Fork creation requires only a source thread; all other fields either select an optional behavior or receive an explicit server-boundary default.",
+    fields: [
+      "forkThreadRequestSchema.agentContextSeed",
+      "forkThreadRequestSchema.environment",
+      "forkThreadRequestSchema.input",
+      "forkThreadRequestSchema.originPluginId",
+      "forkThreadRequestSchema.permissionMode",
+      "forkThreadRequestSchema.sourceSeqEnd",
+      "forkThreadRequestSchema.title",
+    ],
+  },
+  {
+    reason:
+      "Thread creation may omit root-thread presentation and execution fields so the server can resolve project/provider defaults.",
+    fields: [
+      "createThreadRequestSchema.sectionId",
+      "createThreadRequestSchema.pinned",
+      "createThreadRequestSchema.model",
+      "createThreadRequestSchema.parentThreadId",
+      "createThreadRequestSchema.providerId",
+      "createThreadRequestSchema.permissionMode",
+      "createThreadRequestSchema.reasoningLevel",
+      "createThreadRequestSchema.serviceTier",
+      "createThreadRequestSchema.sessionOptions",
+      "createThreadRequestSchema.sourceSeqEnd",
+      "createThreadRequestSchema.sourceThreadId",
+      "createThreadRequestSchema.title",
+    ],
+  },
+  {
+    reason:
+      "Follow-up and queued messages may omit execution fields so the thread's current/default execution settings are reused.",
+    fields: [
+      "createQueuedMessageRequestSchema.model",
+      "createQueuedMessageRequestSchema.reasoningLevel",
+      "createQueuedMessageRequestSchema.permissionMode",
+      "createQueuedMessageRequestSchema.serviceTier",
+      "sendMessageRequestSchema.model",
+      "sendMessageRequestSchema.permissionMode",
+      "sendMessageRequestSchema.reasoningLevel",
+      "sendMessageRequestSchema.serviceTier",
+    ],
+  },
+  {
+    reason:
+      "Execution input source metadata is omitted by legacy callers; when omitted, supplied execution values are treated as explicit.",
+    fields: [
+      "createQueuedMessageRequestSchema.executionInputSources",
+      "createQueuedMessageRequestSchema.executionInputSources.model",
+      "createQueuedMessageRequestSchema.executionInputSources.permissionMode",
+      "createQueuedMessageRequestSchema.executionInputSources.reasoningLevel",
+      "createQueuedMessageRequestSchema.executionInputSources.serviceTier",
+      "createThreadRequestSchema.executionInputSources",
+      "createThreadRequestSchema.executionInputSources.model",
+      "createThreadRequestSchema.executionInputSources.permissionMode",
+      "createThreadRequestSchema.executionInputSources.providerId",
+      "createThreadRequestSchema.executionInputSources.reasoningLevel",
+      "createThreadRequestSchema.executionInputSources.serviceTier",
+      "sendMessageRequestSchema.executionInputSources",
+      "sendMessageRequestSchema.executionInputSources.model",
+      "sendMessageRequestSchema.executionInputSources.permissionMode",
+      "sendMessageRequestSchema.executionInputSources.reasoningLevel",
+      "sendMessageRequestSchema.executionInputSources.serviceTier",
+    ],
+  },
+  {
+    reason:
+      "Thread creation, queued messages, and follow-up messages omit their sender unless the request originates from another thread or, for sends, a plugin.",
+    fields: [
+      "createQueuedMessageRequestSchema.senderThreadId",
+      "sendMessageRequestSchema.senderThreadId",
+      "createThreadRequestSchema.senderThreadId",
+      "sendMessageRequestSchema.originPluginId",
+    ],
+  },
+  {
+    reason:
+      "Environment PATCH requests omit metadata fields that should be left unchanged; null explicitly clears nullable values.",
+    fields: [
+      "updateEnvironmentRequestSchema.mergeBaseBranch",
+      "updateEnvironmentRequestSchema.name",
+    ],
+  },
+  {
+    reason:
+      "Project and project-source PATCH requests omit fields that should be left unchanged.",
+    fields: [
+      "updateProjectRequestSchema.name",
+      "updateProjectSourceRequestSchema.isDefault",
+      "updateProjectSourceRequestSchema.path",
+    ],
+  },
+  {
+    reason:
+      "Thread PATCH requests omit fields that should be left unchanged; null explicitly clears nullable values.",
+    fields: [
+      "updateThreadRequestSchema.model",
+      "updateThreadRequestSchema.sectionId",
+      "updateThreadRequestSchema.parentThreadId",
+      "updateThreadRequestSchema.reasoningLevel",
+      "updateThreadRequestSchema.sessionOptions",
+      "updateThreadRequestSchema.title",
+      "updateThreadRequestSchema.visibility",
+      "updateThreadRequestSchema.parentNotifications",
+    ],
+  },
+  {
+    reason:
+      "Queued-message reorder requests may omit the grouping boundary to leave grouping unchanged.",
+    fields: ["reorderQueuedMessageRequestSchema.groupBoundaryQueuedMessageId"],
+  },
+  {
+    reason:
+      "File listing queries may omit search and limit parameters to use unfiltered/default result windows.",
+    fields: [
+      "threadStorageFilesQuerySchema.limit",
+      "threadStorageFilesQuerySchema.query",
+      "projectFilesQuerySchema.limit",
+      "projectFilesQuerySchema.query",
+    ],
+  },
+  {
+    reason:
+      "Pre-environment project workspace queries may omit both routing selectors to use the project's primary source.",
+    fields: [
+      "projectFilesQuerySchema.environmentId",
+      "projectFilesQuerySchema.hostId",
+    ],
+  },
+  {
+    reason:
+      "System provider lookups may target a host indirectly or directly, omit provider id to use the host default, omit the project when no project checkout should scope the model list, and omit capability to return the full roster.",
+    fields: [
+      "systemExecutionOptionsQuerySchema.environmentId",
+      "systemExecutionOptionsQuerySchema.hostId",
+      "systemExecutionOptionsQuerySchema.projectId",
+      "systemExecutionOptionsQuerySchema.providerId",
+      "systemProvidersQuerySchema.capability",
+      "systemProvidersQuerySchema.environmentId",
+      "systemProvidersQuerySchema.hostId",
+    ],
+  },
+  {
+    reason:
+      "Thread event queries may omit filters and pagination to read the default ascending page from the beginning.",
+    fields: [
+      "threadEventsQuerySchema.afterSeq",
+      "threadEventsQuerySchema.beforeSeq",
+      "threadEventsQuerySchema.limit",
+      "threadEventsQuerySchema.order",
+      "threadEventsQuerySchema.types",
+    ],
+  },
+  {
+    reason:
+      "Thread list queries may omit filters and pagination to include the corresponding unfiltered/default set.",
+    fields: [
+      "threadListQuerySchema.archived",
+      "threadListQuerySchema.environmentId",
+      "threadListQuerySchema.hostId",
+      "threadListQuerySchema.sectionId",
+      "threadListQuerySchema.limit",
+      "threadListQuerySchema.hasParent",
+      "threadListQuerySchema.includeHidden",
+      "threadListQuerySchema.offset",
+      "threadListQuerySchema.originKind",
+      "threadListQuerySchema.originPluginId",
+      "threadListQuerySchema.parentThreadId",
+      "threadListQuerySchema.projectId",
+      "threadListQuerySchema.sourceThreadId",
+      "threadListQuerySchema.threadIds",
+      "threadListQuerySchema.unsectioned",
+    ],
+  },
+  {
+    reason:
+      "Timeline queries may omit pagination and rendering flags to request the latest full timeline page with server defaults.",
+    fields: [
+      "threadTimelineQuerySchema.includeNestedRows",
+      "threadTimelineQuerySchema.segmentLimit",
+      "threadTimelineQuerySchema.beforeAnchorSeq",
+      "threadTimelineQuerySchema.beforeAnchorId",
+      "threadTimelineQuerySchema.summaryOnly",
+      "threadTimelineQuerySchema.afterSequence",
+      "threadTimelineQuerySchema.deferContent",
+    ],
+  },
+  {
+    reason:
+      "Timeline responses omit context-window usage when the provider did not report it.",
+    fields: ["threadTimelineResponseSchema.contextWindowUsage"],
+  },
+  {
+    reason:
+      "Context snapshots are omitted when the latest measurement has no breakdown, session cost when the provider reports none, and the compaction offer time unless the compactExpiredCache experiment is on and the provider reported a prompt-cache lifetime for a context of at least 100k tokens.",
+    fields: [
+      "threadTimelineResponseSchema.contextWindowUsage.snapshot",
+      "threadTimelineResponseSchema.contextWindowUsage.cost",
+      "threadTimelineResponseSchema.contextWindowUsage.compactionOfferAt",
+    ],
+  },
+  {
+    reason:
+      "Timeline responses carry a row-patch delta only for a usable afterSequence, and that delta carries rowOrder only when membership or ordering changed.",
+    fields: [
+      "threadTimelineResponseSchema.delta",
+      "threadTimelineResponseSchema.delta.rowOrder",
+    ],
+  },
+  {
+    reason:
+      "Uploaded attachments may omit mime type when the client could not determine one. A source project is present only while an uploaded attachment still belongs to a different project, and a machine only on an absolute-path attachment from prompt history or a draft; the server checks and strips both, and destination-relative and legacy references omit them.",
+    fields: [
+      "uploadedPromptAttachmentSchema.mimeType",
+      "uploadedPromptAttachmentSchema.sourceProjectId",
+      "createQueuedMessageRequestSchema.input.sourceProjectId",
+      "createThreadRequestSchema.input.sourceProjectId",
+      "forkThreadRequestSchema.agentContextSeed.sourceProjectId",
+      "forkThreadRequestSchema.input.sourceProjectId",
+      "sendMessageRequestSchema.input.sourceProjectId",
+      "sendQueuedMessageResponseSchema.queuedMessage.content.sourceProjectId",
+      "createQueuedMessageRequestSchema.input.hostId",
+      "createThreadRequestSchema.input.hostId",
+      "forkThreadRequestSchema.agentContextSeed.hostId",
+      "forkThreadRequestSchema.input.hostId",
+      "sendMessageRequestSchema.input.hostId",
+      "sendQueuedMessageResponseSchema.queuedMessage.content.hostId",
+    ],
+  },
+  {
+    reason:
+      "sendAt is present only when the caller is scheduling the dispatch, and compactFirst only when it asks to compact before the message; omission means attempt the dispatch now, which allocates no queued row at all when nothing blocks it.",
+    fields: [
+      "createThreadRequestSchema.sendAt",
+      "sendMessageRequestSchema.sendAt",
+      "sendMessageRequestSchema.compactFirst",
+    ],
+  },
+  {
+    reason:
+      "GET /threads/count filters are all genuinely absent by default: omitting one does not filter on it, and groups is present only when groupBy was asked for.",
+    fields: [
+      "threadCountQuerySchema.status",
+      "threadCountQuerySchema.hostId",
+      "threadCountQuerySchema.providerId",
+      "threadCountQuerySchema.projectId",
+      "threadCountQuerySchema.parentThreadId",
+      "threadCountQuerySchema.groupBy",
+      "threadCountQuerySchema.includeArchived",
+      "threadCountQuerySchema.includeHidden",
+      "threadCountResponseSchema.groups",
+    ],
+  },
+  {
+    reason:
+      "The cross-thread queue list is unfiltered by default: omitting threadId or waitHolder means every live queued row, which is what a workspace-wide pending view asks for.",
+    fields: [
+      "queuedMessageListQuerySchema.threadId",
+      "queuedMessageListQuerySchema.waitHolder",
+    ],
+  },
+];
+
+function buildIntentionalOptionalServerFields(
+  groups: readonly OptionalServerFieldGroup[],
+): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const group of groups) {
+    for (const field of group.fields) {
+      fields[field] = group.reason;
+    }
+  }
+  return fields;
+}
+
+const INTENTIONAL_OPTIONAL_SERVER_FIELDS = buildIntentionalOptionalServerFields(
+  OPTIONAL_SERVER_FIELD_GROUPS,
+);
+
+function terminalDataBase64(byteLength: number): string {
+  return Buffer.alloc(byteLength, "a").toString("base64");
+}
+
+const WORKSPACE_RESOLUTION_FAILURE: WorkspaceResolutionFailure = {
+  code: "path_not_found",
+  workspacePath: "/tmp/missing-workspace",
+  message: "Managed workspace path does not exist: /tmp/missing-workspace",
+};
+
+describe("environment workspace response contract", () => {
+  it("uses explicit status outcomes instead of nullable parallel fields", () => {
+    expect(
+      contract.environmentStatusResponseSchema.safeParse({
+        outcome: "available",
+        workspace: makeWorkspaceStatus(),
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentStatusResponseSchema.safeParse({
+        outcome: "not_applicable",
+        reason: "non_git_environment",
+        message: "Workspace status is not available for non-git environments",
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentStatusResponseSchema.safeParse({
+        outcome: "unavailable",
+        failure: WORKSPACE_RESOLUTION_FAILURE,
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentStatusResponseSchema.safeParse({
+        workspace: null,
+        workspaceUnavailable: null,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("uses explicit diff outcomes instead of nullable parallel fields", () => {
+    expect(
+      contract.environmentDiffResponseSchema.safeParse({
+        outcome: "available",
+        diff: {
+          diff: "",
+          files: "",
+          mergeBaseRef: null,
+          shortstat: "",
+          truncated: false,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentDiffResponseSchema.safeParse({
+        outcome: "not_applicable",
+        reason: "non_git_environment",
+        message: "Workspace diff is not available for non-git environments",
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentDiffResponseSchema.safeParse({
+        outcome: "unavailable",
+        failure: WORKSPACE_RESOLUTION_FAILURE,
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentDiffResponseSchema.safeParse({
+        diff: null,
+        workspaceUnavailable: WORKSPACE_RESOLUTION_FAILURE,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("types workspace unavailable environment action errors", () => {
+    expect(
+      contract.environmentActionApiErrorSchema.safeParse({
+        code: "workspace_unavailable",
+        message: WORKSPACE_RESOLUTION_FAILURE.message,
+        details: {
+          kind: "workspace_unavailable",
+          failure: WORKSPACE_RESOLUTION_FAILURE,
+        },
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe("git branch name contract", () => {
+  it("accepts valid branch names", () => {
+    const validNames = [
+      "main",
+      "release/1.2",
+      "feature.foo",
+      "user_name",
+      "bb/thread-123",
+    ];
+
+    for (const name of validNames) {
+      expect(gitBranchNameSchema.safeParse(name).success).toBe(true);
+    }
+  });
+
+  it("rejects names git may parse ambiguously or refuses as refs", () => {
+    const invalidNames = [
+      "",
+      "   ",
+      "-release",
+      "/release",
+      ".release",
+      "bar/.hidden",
+      "bad\nbranch",
+      "bad\u007fbranch",
+      "bad branch",
+      "bad\tbranch",
+      "bad..branch",
+      "bad@{branch",
+      "bad\\branch",
+      "bad:branch",
+      "bad~branch",
+      "bad^branch",
+      "bad?branch",
+      "bad*branch",
+      "bad[branch",
+      "bad/",
+      "bad.lock",
+      "bad.lock/branch",
+      "bad//branch",
+      "bad.",
+      "@",
+      "HEAD",
+      "FETCH_HEAD",
+    ];
+
+    for (const name of invalidNames) {
+      expect(gitBranchNameSchema.safeParse(name).success).toBe(false);
+    }
+  });
+
+  it("uses the shared validator for managed and unmanaged branch specs", () => {
+    expect(
+      gitBranchSelectionSchema.safeParse({
+        kind: "named",
+        name: "release/1.2",
+      }).success,
+    ).toBe(true);
+    expect(
+      gitBranchSelectionSchema.safeParse({ kind: "named", name: "-release" })
+        .success,
+    ).toBe(false);
+    expect(
+      unmanagedBranchSpecSchema.safeParse({
+        kind: "existing",
+        name: "release/1.2",
+      }).success,
+    ).toBe(true);
+    expect(
+      unmanagedBranchSpecSchema.safeParse({
+        kind: "existing",
+        name: "release/1.2",
+        mergeBaseBranch: "origin/main",
+      }).success,
+    ).toBe(false);
+    expect(
+      unmanagedBranchSpecSchema.safeParse({
+        kind: "new",
+        baseBranch: "release/1.2",
+      }).success,
+    ).toBe(true);
+    expect(
+      unmanagedBranchSpecSchema.safeParse({
+        kind: "existing",
+        name: "release 1.2",
+      }).success,
+    ).toBe(false);
+    expect(
+      unmanagedBranchSpecSchema.safeParse({
+        kind: "new",
+        baseBranch: "release 1.2",
+      }).success,
+    ).toBe(false);
+    expect(
+      contract.environmentDiffBranchesQuerySchema.safeParse({
+        selectedBranch: "origin/main",
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentDiffBranchesQuerySchema.safeParse({
+        selectedBranch: "origin/main lock",
+      }).success,
+    ).toBe(false);
+    expect(
+      contract.projectBranchesQuerySchema.safeParse({
+        hostId: "host_123",
+        selectedBranch: "upstream/main",
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.projectBranchesQuerySchema.safeParse({
+        hostId: "host_123",
+        refresh: "blocking",
+      }).success,
+    ).toBe(false);
+    expect(
+      contract.projectBranchesQuerySchema.safeParse({
+        hostId: "host_123",
+        selectedBranch: "upstream/main lock",
+      }).success,
+    ).toBe(false);
+    expect(
+      updateEnvironmentRequestSchema.safeParse({
+        mergeBaseBranch: "origin/main",
+      }).success,
+    ).toBe(true);
+    expect(
+      updateEnvironmentRequestSchema.safeParse({
+        name: "Review workspace",
+      }).success,
+    ).toBe(true);
+    expect(
+      updateEnvironmentRequestSchema.safeParse({
+        mergeBaseBranch: "origin/main lock",
+      }).success,
+    ).toBe(false);
+    expect(updateEnvironmentRequestSchema.safeParse({}).success).toBe(false);
+    expect(
+      contract.environmentStatusQuerySchema.safeParse({
+        mergeBaseBranch: "origin/main",
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentStatusQuerySchema.safeParse({
+        mergeBaseBranch: "origin/main lock",
+      }).success,
+    ).toBe(false);
+    expect(
+      contract.environmentDiffQuerySchema.safeParse({
+        target: "all",
+        mergeBaseBranch: "origin/main",
+      }).success,
+    ).toBe(true);
+    expect(
+      contract.environmentDiffQuerySchema.safeParse({
+        target: "all",
+        mergeBaseBranch: "origin/main lock",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("public host contracts", () => {
+  it("accepts an empty join-code request and rejects the deleted host type", () => {
+    expect(createHostJoinCodeRequestSchema.parse({})).toEqual({});
+    expect(
+      createHostJoinCodeRequestSchema.safeParse({ hostType: "ephemeral" })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("public terminal contracts", () => {
+  it("allows threadless terminal session responses", () => {
+    expect(
+      terminalSessionSchema.safeParse({
+        id: "term_1",
+        threadId: null,
+        environmentId: "env_1",
+        hostId: "host_1",
+        title: "Terminal 1",
+        initialCwd: "/tmp/workspace",
+        cols: 80,
+        rows: 24,
+        status: "running",
+        exitCode: null,
+        closeReason: null,
+        createdAt: 1,
+        updatedAt: 1,
+        lastUserInputAt: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("bounds terminal dimensions", () => {
+    expect(
+      createTerminalRequestSchema.safeParse({
+        cols: TERMINAL_COLS_MAX,
+        rows: TERMINAL_ROWS_MAX,
+        target: { kind: "thread", threadId: "thr_1" },
+      }).success,
+    ).toBe(true);
+    expect(
+      createTerminalRequestSchema.safeParse({
+        cols: TERMINAL_COLS_MAX + 1,
+        rows: TERMINAL_ROWS_MAX,
+        target: { kind: "thread", threadId: "thr_1" },
+      }).success,
+    ).toBe(false);
+    expect(
+      terminalClientMessageSchema.safeParse({
+        type: "resize",
+        cols: TERMINAL_COLS_MAX,
+        rows: TERMINAL_ROWS_MAX + 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("bounds and validates terminal data payloads", () => {
+    const maxPayload = terminalDataBase64(TERMINAL_DATA_MAX_BYTES);
+    const oversizedDecodedPayload = terminalDataBase64(
+      TERMINAL_DATA_MAX_BYTES + 1,
+    );
+    const oversizedEncodedPayload = "A".repeat(
+      TERMINAL_DATA_MAX_BASE64_LENGTH + 4,
+    );
+
+    expect(
+      terminalClientMessageSchema.safeParse({
+        type: "input",
+        dataBase64: maxPayload,
+      }).success,
+    ).toBe(true);
+    expect(
+      terminalOutputChunkSchema.safeParse({
+        seq: 0,
+        dataBase64: maxPayload,
+      }).success,
+    ).toBe(true);
+    expect(
+      terminalClientMessageSchema.safeParse({
+        type: "input",
+        dataBase64: oversizedDecodedPayload,
+      }).success,
+    ).toBe(false);
+    expect(
+      terminalOutputChunkSchema.safeParse({
+        seq: 0,
+        dataBase64: "not base64!",
+      }).success,
+    ).toBe(false);
+    expect(
+      terminalClientMessageSchema.safeParse({
+        type: "input",
+        dataBase64: oversizedEncodedPayload,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("defaults and validates the terminal websocket replay sequence", () => {
+    expect(terminalWebSocketQuerySchema.parse({})).toEqual({
+      outputAcks: false,
+      sinceSeq: 0,
+    });
+    expect(
+      terminalWebSocketQuerySchema.parse({ outputAcks: "1", sinceSeq: "12" }),
+    ).toEqual({
+      outputAcks: true,
+      sinceSeq: 12,
+    });
+    expect(
+      terminalWebSocketQuerySchema.safeParse({ sinceSeq: "-1" }).success,
+    ).toBe(false);
+    expect(
+      terminalWebSocketQuerySchema.safeParse({ outputAcks: "true" }).success,
+    ).toBe(false);
+  });
+
+  it("requires output responses to signal truncation and terminal state", () => {
+    expect(
+      terminalOutputResponseSchema.safeParse({
+        chunks: [],
+        nextSeq: 12,
+        truncated: false,
+        status: "exited",
+        exitCode: 1,
+        closeReason: "process-exit",
+      }).success,
+    ).toBe(true);
+    expect(
+      terminalOutputResponseSchema.safeParse({
+        chunks: [],
+        nextSeq: 12,
+        status: "running",
+        exitCode: null,
+        closeReason: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      terminalOutputResponseSchema.safeParse({
+        chunks: [],
+        nextSeq: 12,
+        truncated: false,
+        exitCode: null,
+        closeReason: null,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("server-contract canonical schemas", () => {
+  it("parses lifecycle API error envelopes by code", () => {
+    expect(
+      contract.lifecycleApiErrorSchema.parse({
+        code: "environment_not_ready",
+        message: "Environment unavailable",
+        details: {
+          environmentStatus: "destroyed",
+          hasPath: false,
+        },
+      }),
+    ).toMatchObject({
+      code: "environment_not_ready",
+      details: { environmentStatus: "destroyed" },
+    });
+
+    expect(
+      contract.lifecycleApiErrorSchema.parse({
+        code: "thread_not_writable",
+        message: "Thread is not writable",
+        details: {
+          reason: "not_active",
+          archivedAt: null,
+          threadStatus: "idle",
+        },
+      }),
+    ).toMatchObject({
+      code: "thread_not_writable",
+      details: { reason: "not_active" },
+    });
+
+    expect(
+      contract.lifecycleApiErrorSchema.parse({
+        code: "thread_environment_unavailable",
+        message: "Thread environment is unavailable",
+        details: {
+          reason: "never_attached",
+          environmentStatus: null,
+        },
+      }),
+    ).toMatchObject({
+      code: "thread_environment_unavailable",
+      details: { reason: "never_attached" },
+    });
+
+    expect(
+      contract.lifecycleApiErrorSchema.parse({
+        code: "host_unavailable",
+        message: "Host is unavailable",
+        details: {
+          reason: "disconnected",
+          hostStatus: "disconnected",
+          suspendedAt: null,
+          destroyedAt: null,
+        },
+      }),
+    ).toMatchObject({
+      code: "host_unavailable",
+      details: { reason: "disconnected" },
+    });
+
+    expect(
+      contract.lifecycleApiErrorSchema.parse({
+        code: "project_unavailable",
+        message: "Project is unavailable",
+        details: {
+          reason: "pending_deletion",
+          deletedAt: null,
+        },
+      }),
+    ).toMatchObject({
+      code: "project_unavailable",
+      details: { reason: "pending_deletion" },
+    });
+
+    expect(() =>
+      contract.lifecycleApiErrorSchema.parse({
+        code: "parent_thread_invalid",
+        message: "Parent thread is invalid",
+        details: {
+          reason: "not_a_valid_reason",
+          subject: "parent",
+        },
+      }),
+    ).toThrow();
+
+    expect(() =>
+      contract.lifecycleApiErrorSchema.parse({
+        code: "thread_not_writable",
+        message: "Thread is not writable",
+        details: {
+          reason: "destroyed",
+          archivedAt: null,
+          threadStatus: "idle",
+        },
+      }),
+    ).toThrow();
+  });
+
+  it("fills a provider's path ownership once at the boundary", () => {
+    expect(
+      contract.providerReadyEnvironmentSchema.parse({
+        type: "host",
+        hostId: "host_1",
+        path: "/tmp/produced",
+      }),
+    ).toEqual({
+      type: "host",
+      hostId: "host_1",
+      path: "/tmp/produced",
+      ownsPath: true,
+    });
+    expect(
+      contract.providerReadyEnvironmentSchema.parse({
+        type: "host",
+        hostId: "host_1",
+        path: "/tmp/attached",
+        ownsPath: false,
+      }),
+    ).toMatchObject({ ownsPath: false });
+  });
+
+  it("parses request contracts", () => {
+    expect(
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Ship it" }],
+        environment: {
+          type: "host",
+          hostId: "host_abc",
+          workspace: { type: "unmanaged", path: null },
+        },
+      }),
+    ).toMatchObject({
+      projectId: "proj_123",
+    });
+
+    expect(
+      sendMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Follow up" }],
+        mode: "queue-if-active",
+      }),
+    ).toMatchObject({
+      mode: "queue-if-active",
+    });
+
+    expect(sendQueuedMessageRequestSchema.parse({ mode: "auto" })).toEqual({
+      mode: "auto",
+    });
+    expect(() => sendQueuedMessageRequestSchema.parse({})).toThrow();
+    expect(
+      updateQueuedMessageRequestSchema.parse({
+        expectedUpdatedAt: 42,
+        input: [{ type: "text", text: "Edited queued message" }],
+      }),
+    ).toMatchObject({ expectedUpdatedAt: 42 });
+    expect(() =>
+      updateQueuedMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Edited queued message" }],
+      }),
+    ).toThrow();
+    expect(
+      reorderQueuedMessageRequestSchema.parse({
+        previousQueuedMessageId: null,
+        nextQueuedMessageId: "qmsg_next",
+      }),
+    ).toEqual({
+      previousQueuedMessageId: null,
+      nextQueuedMessageId: "qmsg_next",
+    });
+    expect(() =>
+      reorderQueuedMessageRequestSchema.parse({
+        nextQueuedMessageId: "qmsg_next",
+      }),
+    ).toThrow();
+    expect(
+      reorderPinnedThreadRequestSchema.parse({
+        previousThreadId: null,
+        nextThreadId: "thr_next",
+      }),
+    ).toEqual({
+      previousThreadId: null,
+      nextThreadId: "thr_next",
+    });
+    expect(() =>
+      reorderPinnedThreadRequestSchema.parse({
+        nextThreadId: "thr_next",
+      }),
+    ).toThrow();
+
+    expect(
+      threadListResponseSchema.parse([
+        {
+          id: "thr_123",
+          projectId: "proj_123",
+          environmentId: null,
+          providerId: "codex",
+          title: "Pending thread",
+          titleFallback: "Pending thread",
+          sectionId: null,
+          status: "idle",
+          parentThreadId: null,
+          sourceThreadId: null,
+          lifecycleOwnerThreadId: null,
+          originKind: null,
+          originPluginId: null,
+          visibility: "visible",
+          parentNotifications: "auto",
+          archivedAt: null,
+          pinnedAt: null,
+          pinSortKey: null,
+          deletedAt: null,
+          lastReadAt: null,
+          latestAttentionAt: 2,
+          createdAt: 1,
+          updatedAt: 2,
+          runtime: {
+            displayStatus: "idle",
+          },
+          activity: {
+            activeWorkflowCount: 0,
+            activeBackgroundAgentCount: 0,
+            activeBackgroundCommandCount: 0,
+            activePlanModeCount: 0,
+            activeGoalCount: 0,
+          },
+          hasPendingInteraction: true,
+          environmentHostId: "host_123",
+          environmentName: null,
+          environmentBranchName: "bb/test",
+          environmentPath: null,
+          environmentProviderId: "git-worktree",
+          environmentIsWorktree: true,
+          environmentWorkspaceDisplayKind: "managed-worktree",
+          queuedWork: "none",
+        },
+      ]),
+    ).toMatchObject([
+      {
+        id: "thr_123",
+        lifecycleOwnerThreadId: null,
+        hasPendingInteraction: true,
+        environmentHostId: "host_123",
+        environmentName: null,
+        environmentBranchName: "bb/test",
+        environmentPath: null,
+        environmentProviderId: "git-worktree",
+        environmentIsWorktree: true,
+        environmentWorkspaceDisplayKind: "managed-worktree",
+        queuedWork: "none",
+      },
+    ]);
+
+    expect(
+      threadPendingInteractionsResponseSchema.parse([
+        {
+          id: "pi_123",
+          threadId: "thr_123",
+          turnId: "turn_123",
+          providerId: "codex",
+          providerThreadId: "provider-thread-123",
+          providerRequestId: "request-123",
+          status: "pending",
+          payload: {
+            kind: "approval",
+            subject: {
+              kind: "command",
+              itemId: "item_123",
+              command: "git push",
+              cwd: "/tmp/project",
+              actions: [],
+              sessionGrant: null,
+            },
+            reason: "Needs approval",
+            availableDecisions: ["allow_once", "deny"],
+          },
+          resolution: null,
+          statusReason: null,
+          createdAt: 1,
+          resolvedAt: null,
+        },
+      ]),
+    ).toHaveLength(1);
+
+    expect(
+      resolvePendingInteractionRequestSchema.parse({
+        decision: "allow_for_session",
+        grantedPermissions: null,
+      }),
+    ).toMatchObject({
+      decision: "allow_for_session",
+    });
+
+    expect(
+      resolvePendingInteractionRequestSchema.parse({
+        decision: "deny",
+      }),
+    ).toMatchObject({
+      decision: "deny",
+    });
+
+    expect(
+      environmentActionRequestSchema.parse({
+        action: "commit",
+      }),
+    ).toMatchObject({
+      action: "commit",
+    });
+
+    expect(() =>
+      environmentActionRequestSchema.parse({
+        action: "squash_merge",
+        options: { mergeBaseBranch: "main" },
+      }),
+    ).toThrow();
+
+    expect(() =>
+      environmentActionRequestSchema.parse({
+        action: "pull_request_merge",
+        options: { method: "squash" },
+      }),
+    ).toThrow();
+
+    expect(() =>
+      environmentActionRequestSchema.parse({
+        action: "commit",
+        threadId: "thr_123",
+      }),
+    ).toThrow();
+
+    expect(() =>
+      contract.environmentActionResponseSchema.parse({
+        action: "commit",
+        commitSha: "sha",
+        commitSubject: "subject",
+        message: "",
+        ok: true,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      contract.environmentActionResponseSchema.parse({
+        action: "squash_merge",
+        commitSha: "sha",
+        commitSubject: "subject",
+        merged: true,
+        message: "Squash merge completed",
+        ok: true,
+      }),
+    ).toThrow();
+
+    expect(
+      updateEnvironmentRequestSchema.parse({
+        mergeBaseBranch: null,
+      }),
+    ).toEqual({
+      mergeBaseBranch: null,
+    });
+    expect(
+      updateEnvironmentRequestSchema.parse({
+        name: "  Review workspace  ",
+      }),
+    ).toEqual({
+      name: "Review workspace",
+    });
+
+    expect(
+      createProjectSourceRequestSchema.parse({
+        hostId: "host_123",
+        type: "local_path",
+        path: " /tmp/project/ ",
+      }),
+    ).toMatchObject({
+      type: "local_path",
+      path: "/tmp/project",
+    });
+
+    expect(() =>
+      createProjectSourceRequestSchema.parse({
+        hostId: "host_123",
+        type: "local_path",
+        path: "relative/project",
+      }),
+    ).toThrow("Project path must be an absolute path.");
+
+    expect(
+      contract.updateProjectSourceRequestSchema.parse({
+        type: "local_path",
+        path: " c:/Users/michael/bb/ ",
+      }),
+    ).toMatchObject({ path: "C:\\Users\\michael\\bb" });
+
+    expect(() =>
+      contract.updateProjectSourceRequestSchema.parse({
+        type: "local_path",
+        path: "\\\\server\\share\\bb",
+      }),
+    ).toThrow("Windows network paths are not supported");
+
+    expect(() =>
+      contract.updateProjectSourceRequestSchema.parse({
+        type: "local_path",
+        path: "relative/path",
+      }),
+    ).toThrow("Project path must be an absolute path.");
+
+    expect(
+      timelineTurnSummaryDetailsResponseSchema.parse({ rows: [] }),
+    ).toEqual({
+      rows: [],
+    });
+  });
+
+  it("normalizes the deprecated writable alias without widening readonly", () => {
+    const createBase = {
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "app" as const,
+      input: [{ type: "text" as const, text: "Ship it" }],
+      environment: {
+        type: "host" as const,
+        hostId: "host_abc",
+        workspace: { type: "unmanaged" as const, path: null },
+      },
+    };
+
+    expect(
+      createThreadRequestSchema.parse({
+        ...createBase,
+        permissionMode: "workspace-write",
+      }).permissionMode,
+    ).toBe("accept-edits");
+    expect(
+      sendMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Follow up" }],
+        mode: "queue-if-active",
+        permissionMode: "workspace-write",
+      }).permissionMode,
+    ).toBe("accept-edits");
+    expect(
+      createQueuedMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Later" }],
+        permissionMode: "workspace-write",
+      }).permissionMode,
+    ).toBe("accept-edits");
+
+    expect(() =>
+      createThreadRequestSchema.parse({
+        ...createBase,
+        permissionMode: "readonly",
+      }),
+    ).toThrow();
+    expect(() =>
+      sendMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Follow up" }],
+        mode: "queue-if-active",
+        permissionMode: "readonly",
+      }),
+    ).toThrow();
+    expect(() =>
+      createQueuedMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Later" }],
+        permissionMode: "readonly",
+      }),
+    ).toThrow();
+  });
+
+  it("keeps only intentional optional request fields", () => {
+    expect(
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Ship it" }],
+        environment: {
+          type: "host",
+          hostId: "host_abc",
+          workspace: { type: "unmanaged", path: null },
+        },
+      }),
+    ).toMatchObject({
+      environment: {
+        type: "host",
+      },
+    });
+
+    expect(
+      createThreadRequestSchema.parse({
+        projectId: "proj_personal",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Ship it without a project" }],
+        environment: {
+          type: "host",
+          workspace: { type: "personal" },
+        },
+      }),
+    ).toMatchObject({
+      environment: {
+        type: "host",
+        workspace: { type: "personal" },
+      },
+    });
+
+    expect(() =>
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Missing host" }],
+        environment: {
+          type: "host",
+          workspace: { type: "unmanaged", path: null },
+        },
+      }),
+    ).toThrow();
+
+    expect(
+      sendMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Use the thread defaults" }],
+        mode: "queue-if-active",
+      }),
+    ).toMatchObject({
+      mode: "queue-if-active",
+    });
+
+    expect(
+      createQueuedMessageRequestSchema.parse({
+        input: [{ type: "text", text: "Queue this with inherited defaults" }],
+      }),
+    ).toMatchObject({
+      input: [{ type: "text", text: "Queue this with inherited defaults" }],
+    });
+
+    expect(() =>
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        input: [{ type: "text", text: "Ship it" }],
+        environment: {
+          type: "host",
+          hostId: "host_abc",
+          workspace: { type: "unmanaged", path: null },
+        },
+      }),
+    ).toThrow();
+  });
+
+  it("round-trips plugin mention resources on message input (plugin design §4.9)", () => {
+    const pluginMention = {
+      start: 0,
+      end: 14,
+      resource: {
+        kind: "plugin" as const,
+        pluginId: "linear",
+        itemId: "issues:ISS-42",
+        label: "Fix login bug",
+      },
+    };
+    const parsed = sendMessageRequestSchema.parse({
+      input: [
+        {
+          type: "text",
+          text: "@Fix login bug please",
+          mentions: [pluginMention],
+        },
+      ],
+      mode: "start",
+    });
+    expect(parsed.input[0]).toMatchObject({ mentions: [pluginMention] });
+
+    expect(() =>
+      sendMessageRequestSchema.parse({
+        input: [
+          {
+            type: "text",
+            text: "@broken",
+            mentions: [
+              {
+                start: 0,
+                end: 7,
+                resource: { kind: "plugin", pluginId: "linear" },
+              },
+            ],
+          },
+        ],
+        mode: "start",
+      }),
+    ).toThrow();
+  });
+
+  it("defaults startedOnBehalfOf and originKind to null", () => {
+    const parsed = createThreadRequestSchema.parse({
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "app",
+      input: [{ type: "text", text: "Normal user start" }],
+      environment: {
+        type: "host",
+        hostId: "host_abc",
+        workspace: { type: "unmanaged", path: null },
+      },
+    });
+    expect(parsed.startedOnBehalfOf).toBeNull();
+    expect(parsed.originKind).toBeNull();
+  });
+
+  it("accepts sdk as a thread creation origin", () => {
+    const parsed = createThreadRequestSchema.parse({
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "sdk",
+      input: [{ type: "text", text: "Scripted start" }],
+      environment: {
+        type: "host",
+        hostId: "host_abc",
+        workspace: { type: "unmanaged", path: null },
+      },
+    });
+    expect(parsed.origin).toBe("sdk");
+  });
+
+  it("accepts generic hidden thread visibility without changing omitted requests", () => {
+    const base = {
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "sdk" as const,
+      input: [{ type: "text" as const, text: "Scripted start" }],
+      environment: {
+        type: "host" as const,
+        hostId: "host_abc",
+        workspace: { type: "unmanaged" as const, path: null },
+      },
+    };
+
+    expect(createThreadRequestSchema.parse(base).visibility).toBeUndefined();
+    expect(
+      createThreadRequestSchema.parse({ ...base, visibility: "hidden" })
+        .visibility,
+    ).toBe("hidden");
+  });
+
+  it("allows assigning a hidden thread to a section at creation", () => {
+    expect(
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "sdk",
+        input: [{ type: "text", text: "Background work" }],
+        visibility: "hidden",
+        sectionId: "sec_work",
+        environment: {
+          type: "host",
+          hostId: "host_abc",
+          workspace: { type: "unmanaged", path: null },
+        },
+      }).sectionId,
+    ).toBe("sec_work");
+  });
+
+  it("rejects empty input for a normal thread start", () => {
+    expect(() =>
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [],
+        environment: {
+          type: "host",
+          hostId: "host_abc",
+          workspace: { type: "unmanaged", path: null },
+        },
+      }),
+    ).toThrow("input must contain at least one entry");
+  });
+
+  it("accepts empty input for an idle fork", () => {
+    const parsed = createThreadRequestSchema.parse({
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "app",
+      input: [],
+      environment: {
+        type: "host",
+        hostId: "host_abc",
+        workspace: { type: "unmanaged", path: null },
+      },
+      originKind: "fork",
+      sourceSeqEnd: 12,
+      sourceThreadId: "thr_source",
+      startedOnBehalfOf: null,
+    });
+    expect(parsed.input).toEqual([]);
+  });
+
+  it("rejects sourceSeqEnd on normal thread starts", () => {
+    expect(() =>
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Start normally", mentions: [] }],
+        environment: {
+          type: "host",
+          hostId: "host_abc",
+          workspace: { type: "unmanaged", path: null },
+        },
+        sourceSeqEnd: 12,
+      }),
+    ).toThrow("sourceSeqEnd requires an originKind");
+  });
+
+  it("accepts an agent startedOnBehalfOf with a sender thread", () => {
+    const parsed = createThreadRequestSchema.parse({
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "app",
+      input: [{ type: "text", text: "Forked anchor" }],
+      environment: {
+        type: "host",
+        hostId: "host_abc",
+        workspace: { type: "unmanaged", path: null },
+      },
+      startedOnBehalfOf: { initiator: "agent", senderThreadId: "thr_source" },
+      originKind: "fork",
+    });
+    expect(parsed.startedOnBehalfOf).toEqual({
+      initiator: "agent",
+      senderThreadId: "thr_source",
+    });
+    expect(parsed.originKind).toBe("fork");
+  });
+
+  it("rejects startedOnBehalfOf without a sender thread or with initiator user", () => {
+    const baseRequest = {
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "app" as const,
+      input: [{ type: "text", text: "Bad anchor" }],
+      environment: {
+        type: "host" as const,
+        hostId: "host_abc",
+        workspace: { type: "unmanaged" as const, path: null },
+      },
+    };
+    expect(() =>
+      createThreadRequestSchema.parse({
+        ...baseRequest,
+        startedOnBehalfOf: { initiator: "agent" },
+      }),
+    ).toThrow();
+    expect(() =>
+      createThreadRequestSchema.parse({
+        ...baseRequest,
+        startedOnBehalfOf: { initiator: "agent", senderThreadId: "" },
+      }),
+    ).toThrow();
+    expect(() =>
+      createThreadRequestSchema.parse({
+        ...baseRequest,
+        startedOnBehalfOf: { initiator: "user", senderThreadId: "thr_source" },
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an unknown originKind", () => {
+    expect(() =>
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Bad origin" }],
+        environment: {
+          type: "host",
+          hostId: "host_abc",
+          workspace: { type: "unmanaged", path: null },
+        },
+        originKind: "branch",
+      }),
+    ).toThrow();
+  });
+
+  it("accepts input parts marked agent-only", () => {
+    const parsed = createThreadRequestSchema.parse({
+      projectId: "proj_123",
+      providerId: "codex",
+      origin: "app",
+      input: [
+        { type: "text", text: "Visible question" },
+        { type: "text", text: "Hidden context", visibility: "agent-only" },
+      ],
+      environment: {
+        type: "host",
+        hostId: "host_abc",
+        workspace: { type: "unmanaged", path: null },
+      },
+    });
+    expect(parsed.input).toHaveLength(2);
+    expect(parsed.input[1]).toMatchObject({ visibility: "agent-only" });
+  });
+});
+
+describe("server-contract clients", () => {
+  it("keeps the api client off the route table's value import graph", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("../src/api-client.ts", import.meta.url)),
+      "utf8",
+    );
+    const file = ts.createSourceFile(
+      "api-client.ts",
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
+    );
+    const edges = file.statements.flatMap((statement) => {
+      if (
+        ts.isImportDeclaration(statement) &&
+        ts.isStringLiteral(statement.moduleSpecifier)
+      ) {
+        return [
+          {
+            specifier: statement.moduleSpecifier.text,
+            typeOnly:
+              statement.importClause?.phaseModifier ===
+              ts.SyntaxKind.TypeKeyword,
+          },
+        ];
+      }
+      if (
+        ts.isExportDeclaration(statement) &&
+        statement.moduleSpecifier !== undefined &&
+        ts.isStringLiteral(statement.moduleSpecifier)
+      ) {
+        return [
+          {
+            specifier: statement.moduleSpecifier.text,
+            typeOnly: statement.isTypeOnly,
+          },
+        ];
+      }
+      return [];
+    });
+
+    const valueSpecifiers = edges
+      .filter((edge) => !edge.typeOnly)
+      .map((edge) => edge.specifier);
+    expect(new Set(valueSpecifiers)).toEqual(new Set(["hono/client"]));
+    expect(
+      edges.filter((edge) => edge.specifier === "./public-api.js"),
+    ).toEqual([{ specifier: "./public-api.js", typeOnly: true }]);
+  });
+
+  it("declares the package side-effect free so the barrel's route-table edge is droppable", () => {
+    const manifest = readFileSync(
+      fileURLToPath(new URL("../package.json", import.meta.url)),
+      "utf8",
+    );
+    expect(JSON.parse(manifest)).toHaveProperty("sideEffects", false);
+  });
+
+  it("builds canonical public routes", () => {
+    const publicClient = createPublicApiClient("http://localhost:3334");
+
+    expect(
+      publicClient.threads[":id"].send.$url({ param: { id: "thr_123" } })
+        .pathname,
+    ).toBe("/api/v1/threads/thr_123/send");
+    expect(
+      publicClient.threads[":id"]["queued-messages"].$url({
+        param: { id: "thr_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/queued-messages");
+    expect(
+      publicClient.threads[":id"]["queued-messages"][
+        ":queuedMessageId"
+      ].order.$url({
+        param: { id: "thr_123", queuedMessageId: "qmsg_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/queued-messages/qmsg_123/order");
+    expect(
+      publicClient.threads[":id"].pin.$url({
+        param: { id: "thr_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/pin");
+    expect(
+      publicClient.threads[":id"].unpin.$url({
+        param: { id: "thr_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/unpin");
+    expect(
+      publicClient.threads[":id"]["pin-order"].$url({
+        param: { id: "thr_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/pin-order");
+    expect(publicClient.system["execution-options"].$url().pathname).toBe(
+      "/api/v1/system/execution-options",
+    );
+    expect(
+      publicClient.projects[":id"].paths.$url({
+        param: { id: "proj_123" },
+        query: {
+          environmentId: "",
+          includeFiles: "true",
+          includeDirectories: "true",
+        },
+      }).pathname,
+    ).toBe("/api/v1/projects/proj_123/paths");
+    expect(
+      publicClient.threads[":id"].timeline["turn-summary-details"].$url({
+        param: { id: "thr_123" },
+        query: {
+          turnId: "turn_123",
+          sourceSeqStart: "1",
+          sourceSeqEnd: "2",
+        },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/timeline/turn-summary-details");
+    expect(
+      publicClient.threads[":id"]["thread-storage"].files.$url({
+        param: { id: "thr_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/thread-storage/files");
+    expect(
+      publicClient.threads[":id"]["thread-storage"].location.$url({
+        param: { id: "thr_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/thread-storage/location");
+    expect(
+      publicClient.threads[":id"]["thread-storage"].paths.$url({
+        param: { id: "thr_123" },
+        query: {
+          includeFiles: "true",
+          includeDirectories: "true",
+        },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/thread-storage/paths");
+    expect(
+      publicClient.threads[":id"].interactions.$url({
+        param: { id: "thr_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/interactions");
+    expect(
+      publicClient.threads[":id"].interactions[":interactionId"].resolve.$url({
+        param: { id: "thr_123", interactionId: "pi_123" },
+      }).pathname,
+    ).toBe("/api/v1/threads/thr_123/interactions/pi_123/resolve");
+  });
+
+  it("bounds public file list search queries", () => {
+    const maxQuery = "a".repeat(contract.FILE_LIST_QUERY_MAX_LENGTH);
+    const longQuery = `${maxQuery}a`;
+
+    expect(
+      contract.projectFilesQuerySchema.parse({
+        query: maxQuery,
+        environmentId: "",
+      }),
+    ).toEqual({ query: maxQuery, environmentId: undefined });
+    expect(() =>
+      contract.projectFilesQuerySchema.parse({
+        query: longQuery,
+        environmentId: "",
+      }),
+    ).toThrow();
+    expect(
+      contract.threadStorageFilesQuerySchema.parse({ query: maxQuery }),
+    ).toMatchObject({ query: maxQuery });
+    expect(() =>
+      contract.threadStorageFilesQuerySchema.parse({ query: longQuery }),
+    ).toThrow();
+  });
+
+  it("keeps project command catalog queries snapshot-only", () => {
+    expect(
+      contract.projectCommandsQuerySchema.parse({
+        provider: "codex",
+        environmentId: "",
+      }),
+    ).toEqual({ provider: "codex", environmentId: undefined });
+    expect(() =>
+      contract.projectCommandsQuerySchema.parse({
+        provider: "codex",
+        query: "review",
+      }),
+    ).toThrow();
+    expect(() =>
+      contract.projectCommandsQuerySchema.parse({
+        provider: "codex",
+        limit: "50",
+      }),
+    ).toThrow();
+  });
+
+  it("accepts the history epoch and rejects invalid timeline cursor sequences", () => {
+    expect(
+      contract.timelinePaginationCursorSchema.parse({
+        anchorSeq: 0,
+        anchorId: "timeline-window:0",
+      }),
+    ).toEqual({ anchorSeq: 0, anchorId: "timeline-window:0" });
+    expect(
+      contract.threadTimelineQuerySchema.parse({
+        beforeAnchorSeq: "0",
+        beforeAnchorId: "timeline-window:0",
+      }),
+    ).toMatchObject({ beforeAnchorSeq: "0" });
+    for (const anchorSeq of [-1, 0.5]) {
+      expect(() =>
+        contract.timelinePaginationCursorSchema.parse({
+          anchorSeq,
+          anchorId: "timeline-window:0",
+        }),
+      ).toThrow();
+    }
+    for (const beforeAnchorSeq of ["-1", "0.5", "00", "01"]) {
+      expect(() =>
+        contract.threadTimelineQuerySchema.parse({
+          beforeAnchorSeq,
+          beforeAnchorId: "timeline-window:0",
+        }),
+      ).toThrow();
+    }
+  });
+
+  it("requires parent change timeline system rows to carry status", () => {
+    const baseRow = {
+      id: "row-1",
+      threadId: "thr_123",
+      turnId: null,
+      sourceSeqStart: 1,
+      sourceSeqEnd: 1,
+      startedAt: 1,
+      createdAt: 1,
+      kind: "system",
+      title: "Thread assigned to parent",
+      detail: null,
+    };
+    const parentChangeRow = {
+      ...baseRow,
+      systemKind: "operation",
+      operationKind: "parent-change",
+      status: "completed",
+      completedAt: 1,
+      parentChange: {
+        action: "assign",
+        previousParentThreadId: null,
+        previousParentThreadTitle: null,
+        nextParentThreadId: "thr_parent",
+        nextParentThreadTitle: "Parent thread",
+      },
+    };
+
+    expect(
+      contract.timelineParentChangeSystemRowSchema.parse(parentChangeRow),
+    ).toMatchObject({
+      status: "completed",
+    });
+    expect(() =>
+      contract.timelineParentChangeSystemRowSchema.parse({
+        ...parentChangeRow,
+        status: null,
+      }),
+    ).toThrow();
+    expect(
+      contract.timelineSystemRowSchema.parse({
+        ...baseRow,
+        systemKind: "debug",
+        status: null,
+      }),
+    ).toMatchObject({
+      status: null,
+    });
+  });
+
+  it("keeps contract optional fields on an explicit allowlist", () => {
+    const optionalFieldPaths = collectOptionalFieldPaths({
+      apiErrorSchema: contract.apiErrorSchema,
+      commitActionResponseSchema: contract.commitActionResponseSchema,
+      createQueuedMessageRequestSchema:
+        contract.createQueuedMessageRequestSchema,
+      createThreadRequestSchema: contract.createThreadRequestSchema,
+      queuedMessageListQuerySchema: contract.queuedMessageListQuerySchema,
+      forkThreadRequestSchema: contract.forkThreadRequestSchema,
+      environmentActionApiErrorSchema: contract.environmentActionApiErrorSchema,
+      environmentStatusResponseSchema: contract.environmentStatusResponseSchema,
+      threadStorageFilesQuerySchema: contract.threadStorageFilesQuerySchema,
+      projectFilesQuerySchema: contract.projectFilesQuerySchema,
+      reorderPinnedThreadRequestSchema:
+        contract.reorderPinnedThreadRequestSchema,
+      reorderProjectRequestSchema: contract.reorderProjectRequestSchema,
+      reorderQueuedMessageRequestSchema:
+        contract.reorderQueuedMessageRequestSchema,
+      sendQueuedMessageRequestSchema: contract.sendQueuedMessageRequestSchema,
+      sendQueuedMessageResponseSchema: contract.sendQueuedMessageResponseSchema,
+      sendMessageRequestSchema: contract.sendMessageRequestSchema,
+      systemExecutionOptionsQuerySchema:
+        contract.systemExecutionOptionsQuerySchema,
+      systemProvidersQuerySchema: contract.systemProvidersQuerySchema,
+      threadEventsQuerySchema: contract.threadEventsQuerySchema,
+      threadCountQuerySchema: contract.threadCountQuerySchema,
+      threadCountResponseSchema: contract.threadCountResponseSchema,
+      threadListQuerySchema: contract.threadListQuerySchema,
+      threadPendingInteractionsResponseSchema:
+        contract.threadPendingInteractionsResponseSchema,
+      threadTimelineQuerySchema: contract.threadTimelineQuerySchema,
+      threadTimelineResponseSchema: contract.threadTimelineResponseSchema,
+      timelineTurnSummaryDetailsQuerySchema:
+        contract.timelineTurnSummaryDetailsQuerySchema,
+      resolvePendingInteractionRequestSchema:
+        contract.resolvePendingInteractionRequestSchema,
+      updateEnvironmentRequestSchema: contract.updateEnvironmentRequestSchema,
+      updateProjectRequestSchema: contract.updateProjectRequestSchema,
+      updateProjectSourceRequestSchema:
+        contract.updateProjectSourceRequestSchema,
+      updateThreadRequestSchema: contract.updateThreadRequestSchema,
+      uploadedPromptAttachmentSchema: contract.uploadedPromptAttachmentSchema,
+    });
+    const groupedFieldCount = OPTIONAL_SERVER_FIELD_GROUPS.reduce(
+      (count, group) => count + group.fields.length,
+      0,
+    );
+
+    expect(optionalFieldPaths).toEqual(
+      Object.keys(INTENTIONAL_OPTIONAL_SERVER_FIELDS).sort(),
+    );
+    expect(groupedFieldCount).toBe(
+      Object.keys(INTENTIONAL_OPTIONAL_SERVER_FIELDS).length,
+    );
+    expect(OPTIONAL_SERVER_FIELD_GROUPS.length).toBeLessThanOrEqual(
+      OPTIONAL_SERVER_FIELD_GROUP_LIMIT,
+    );
+    expect(
+      Object.values(INTENTIONAL_OPTIONAL_SERVER_FIELDS).every(
+        (reason) => reason.trim().length > 0,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("environment provider contracts", () => {
+  it("requires a machine selection and fills provider inputs with null at the boundary", () => {
+    expect(
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Ship it" }],
+        environment: {
+          type: "provider",
+          environmentProviderId: "container",
+          machine: { type: "existing", hostId: "host_abc" },
+        },
+      }).environment,
+    ).toEqual({
+      type: "provider",
+      environmentProviderId: "container",
+      machine: { type: "existing", hostId: "host_abc" },
+      inputs: null,
+    });
+    expect(
+      createThreadRequestSchema.parse({
+        projectId: "proj_123",
+        providerId: "codex",
+        origin: "app",
+        input: [{ type: "text", text: "Ship it" }],
+        environment: {
+          type: "provider",
+          environmentProviderId: "container",
+          machine: {
+            type: "new",
+            machineProviderId: "modal-sandbox",
+            inputs: { region: "us-west" },
+          },
+          inputs: { image: "img", cpus: 4 },
+        },
+      }).environment,
+    ).toEqual({
+      type: "provider",
+      environmentProviderId: "container",
+      machine: {
+        type: "new",
+        machineProviderId: "modal-sandbox",
+        inputs: { region: "us-west" },
+      },
+      inputs: { image: "img", cpus: 4 },
+    });
+  });
+
+  it("lists provider requirements, input defaults, and availability", () => {
+    const base = {
+      id: "container",
+      machineProviderId: null,
+      displayName: "Container",
+      description: "Prepare a workspace for this thread.",
+      icon: "Folder",
+      logoUrl: null,
+      pluginId: "sandbox",
+      acceptsEmptyInputs: false,
+      machineAvailability: {},
+      availability: {
+        status: "setup-required" as const,
+        message: "Add credentials",
+      },
+      requires: {
+        projectCheckout: false,
+        gitCheckout: false,
+        gitRemote: false,
+        projectless: false,
+      },
+    };
+    expect(
+      systemEnvironmentProviderSchema.parse({
+        ...base,
+        inputs: { type: "object", properties: { image: { type: "string" } } },
+      }).inputs,
+    ).toEqual({ type: "object", properties: { image: { type: "string" } } });
+    expect(
+      systemEnvironmentProviderSchema.parse({ ...base, inputs: null }).inputs,
+    ).toBeNull();
+    expect(
+      systemEnvironmentProviderSchema.safeParse({
+        ...base,
+        requires: { ...base.requires, gitBranch: true },
+        inputs: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      systemEnvironmentProviderSchema.safeParse({
+        ...base,
+        requires: { host: true, gitBranch: false, custom: false },
+        inputs: null,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires a project when provider availability names a machine", () => {
+    expect(
+      systemEnvironmentProvidersQuerySchema.safeParse({ hostId: "host_1" })
+        .success,
+    ).toBe(false);
+    expect(
+      systemEnvironmentProvidersQuerySchema.parse({
+        projectId: "proj_1",
+        hostId: "host_1",
+      }),
+    ).toEqual({ projectId: "proj_1", hostId: "host_1" });
+  });
+});

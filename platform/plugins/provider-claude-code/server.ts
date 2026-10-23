@@ -1,0 +1,125 @@
+import { registerUsageSource } from "./src/usage-source.js";
+import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { CLAUDE_NATIVE_ROOTS_DECLARATION } from "./src/native-roots.js";
+
+export default function plugin(bb: BbPluginApi) {
+  registerUsageSource(bb);
+  bb.settings.define({
+    memoryEnabled: {
+      type: "boolean",
+      label: "Claude Code memory",
+      description:
+        "Allow Claude Code to read and write its native auto-memory for bb threads.",
+      default: true,
+    },
+    subagentsDisabled: {
+      type: "boolean",
+      label: "Disable provider subagents",
+      description:
+        "Hide Claude Code's native Task tool so agents use bb for delegation.",
+      default: false,
+    },
+    workflowsDisabled: {
+      type: "boolean",
+      label: "Disable Workflow tool",
+      description: "Hide Claude Code's native Workflow tool for bb threads.",
+      default: false,
+    },
+    disable1MContext: {
+      type: "boolean",
+      label: "Disable 1M context",
+      description:
+        "Disable the 1M-token context window for Claude Code threads. Applies on the next turn.",
+      default: false,
+    },
+    chromeEnabled: {
+      type: "boolean",
+      label: "Claude in Chrome",
+      description:
+        "Start Claude Code with the Claude in Chrome browser tools. Needs the Chrome extension and a claude.ai login on the host.",
+      default: false,
+    },
+    artifactsEnabled: {
+      type: "boolean",
+      label: "Claude Artifacts",
+      description:
+        "Give Claude Code its Artifact tools to read, publish, and edit claude.ai artifacts. Claude may publish private pages to claude.ai without asking. Needs a claude.ai login on the host. Applies on the next turn.",
+      default: false,
+    },
+    sandboxEnabled: {
+      type: "boolean",
+      label: "Claude Code sandbox",
+      description:
+        "Run Bash commands in Claude Code's sandbox in Accept Edits and Approve for me modes. Turn off to use Claude Code's own command approvals and sandbox settings instead.",
+      default: true,
+    },
+  });
+
+  bb.providers.register({
+    id: "claude-code",
+    displayName: "Claude Code",
+    icon: "./icons/claude-code.svg",
+    strings: {
+      signInHint: "Run `claude` on the machine to sign in.",
+      expiredHint: "Your Claude session expired. Run `claude`, then reload.",
+      installUrl: "https://claude.com/claude-code",
+      brandPrefix: "Claude ",
+      planModeCopy:
+        "Claude Code will plan without normal full-access execution.",
+      iconTint: { light: "#D97757", dark: "#D97757" },
+    },
+    ...CLAUDE_NATIVE_ROOTS_DECLARATION,
+    maintenance: { health: true, usage: true, installation: true },
+    capabilities: {
+      supportsServiceTier: true,
+      supportsNativeUserQuestion: true,
+      fork: "checkpoint",
+      supportsManualCompaction: true,
+      supportsThreadArchive: false,
+      supportsThreadRename: false,
+      permissionModes: ["accept-edits", "auto", "full"],
+      reasoningLevels: ["low", "medium", "high", "xhigh", "ultracode", "max"],
+    },
+    reasoningLevels: [
+      { id: "low", label: "Low" },
+      { id: "medium", label: "Medium" },
+      { id: "high", label: "High" },
+      { id: "xhigh", label: "Extra High" },
+      {
+        id: "ultracode",
+        label: "Ultracode",
+        description: "Extra-high effort plus standing workflow orchestration.",
+      },
+      { id: "max", label: "Max" },
+    ],
+    serviceTiers: [
+      { id: "default", label: "Default" },
+      {
+        id: "fast",
+        label: "Fast",
+        description:
+          "Faster responses on supported Opus models at a higher cost per token.",
+      },
+    ],
+    composerActions: ["plan"],
+    completedTurnDisplay: "flat",
+    env: {
+      passthrough: ["BB_CLAUDE_CODE_EXECUTABLE", "CLAUDE_CODE_OAUTH_TOKEN"],
+    },
+    models: { scope: "host" },
+    deriveProviderOptions(context) {
+      return {
+        memoryEnabled: context.settings.memoryEnabled !== false,
+        providerSubagentsEnabled: context.settings.subagentsDisabled !== true,
+        workflowsEnabled: context.settings.workflowsDisabled !== true,
+        chromeEnabled: context.settings.chromeEnabled === true,
+        disable1MContext: context.settings.disable1MContext === true,
+        artifactsEnabled: context.settings.artifactsEnabled === true,
+        sandboxEnabled: context.settings.sandboxEnabled !== false,
+        ...(context.promptMode === "plan"
+          ? { claudeCodePermissionMode: "plan" }
+          : {}),
+      };
+    },
+  });
+}

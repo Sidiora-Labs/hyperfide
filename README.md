@@ -25,6 +25,10 @@ The local CLI is pure C11: one binary, one SQLite database, no telemetry.
 
 ## Overview
 
+Run `hyperfide platform --help` for the Hyperfide platform runtime commands.
+The front door preserves arguments, streams and exit codes; see the
+[platform CLI guide](docs/hyperfide/cli.md) for executable lookup and environment.
+
 Hyperfide is an agent workflow engine in a single binary, `hyperfide`. It maintains the four things a project needs beyond the code itself — what the code **is**, how it got **here**, what happens **next**, and what was **learned** along the way — and serves all four to humans and AI agents alike.
 
 This tree is Hyperfide 2.0 in development: `hyperfide version` prints `2.0.0-dev`, and nothing in it is a production release. Hyperfide grew out of Codify, whose 1.x releases, feature IDs (such as `codify-v15` and `codify-v16`) and commit history keep their original names. 2.0 adds a [distributed control plane](#the-hyperfide-control-plane) — a leader and feature managers on a supervisory server, remote sandboxes for builds and agents, PostgreSQL as the authority — around the same local CLI.

@@ -1,0 +1,54 @@
+import { describe, expect, it } from "vitest";
+import { Command } from "commander";
+
+import { registerStatusCommand } from "../commands/status.js";
+import { registerProjectCommands } from "../commands/project.js";
+import { registerPromptHistoryCommands } from "../commands/prompt-history.js";
+import { registerProviderCommands } from "../commands/provider.js";
+import { registerMachineCommands } from "../commands/machine.js";
+import { registerServerCommands } from "../commands/server.js";
+import { registerThreadCommands } from "../commands/thread/index.js";
+const EXCLUDED_COMMANDS = new Set<string>();
+
+function collectLeafCommands(
+  cmd: Command,
+  prefix = "",
+): Array<{ path: string; cmd: Command }> {
+  const results: Array<{ path: string; cmd: Command }> = [];
+  for (const sub of cmd.commands) {
+    const fullPath = prefix ? `${prefix} ${sub.name()}` : sub.name();
+    const children = sub.commands;
+    if (children.length === 0) {
+      results.push({ path: fullPath, cmd: sub });
+    } else {
+      results.push(...collectLeafCommands(sub, fullPath));
+    }
+  }
+  return results;
+}
+
+describe("CLI --json flag enforcement", () => {
+  it("all CLI commands support --json", () => {
+    const program = new Command();
+    const getUrl = () => "http://localhost";
+
+    registerStatusCommand(program, getUrl);
+    registerProjectCommands(program, getUrl);
+    registerPromptHistoryCommands(program, getUrl);
+    registerProviderCommands(program, getUrl);
+    registerMachineCommands(program, getUrl);
+    registerServerCommands(program, getUrl);
+    registerThreadCommands(program, getUrl);
+
+    const commands = collectLeafCommands(program);
+    const missing: string[] = [];
+
+    for (const { path, cmd } of commands) {
+      if (EXCLUDED_COMMANDS.has(path)) continue;
+      const hasJson = cmd.options.some((opt) => opt.long === "--json");
+      if (!hasJson) missing.push(path);
+    }
+
+    expect(missing).toEqual([]);
+  });
+});

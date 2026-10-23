@@ -1,0 +1,311 @@
+// @vitest-environment jsdom
+
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import type {
+  BbDesktopBrowserApi,
+  BbDesktopBrowserState,
+} from "@bb/desktop-contract";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  createBbDesktopApi,
+  createNoopDesktopBrowserApi,
+} from "@/test/bb-desktop-test-utils";
+import { BrowserTabContent } from "./BrowserTabContent";
+
+const desktopInfo = {
+  lastCheckedAt: null,
+  latestVersion: null,
+  pendingVersion: null,
+  platform: "macos" as const,
+  updateAvailable: false,
+  updateDownloaded: false,
+  version: "0.0.0-test",
+};
+
+interface BrowserChromeHarness {
+  api: BbDesktopBrowserApi;
+  emitState: (state: BbDesktopBrowserState) => void;
+  emitNativeFocus: (tabId: string) => void;
+  focus: ReturnType<typeof vi.fn>;
+  goBack: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+}
+
+function createBrowserChromeHarness(): BrowserChromeHarness {
+  const stateListeners = new Set<(state: BbDesktopBrowserState) => void>();
+  const focusListeners = new Set<(tabId: string) => void>();
+  const focus = vi.fn();
+  const goBack = vi.fn();
+  const stop = vi.fn();
+  const api: BbDesktopBrowserApi = {
+    ...createNoopDesktopBrowserApi(),
+    goBack,
+    focus,
+    stop,
+    onState(listener) {
+      stateListeners.add(listener);
+      return () => stateListeners.delete(listener);
+    },
+    onFocus(listener) {
+      focusListeners.add(listener);
+      return () => focusListeners.delete(listener);
+    },
+  };
+  return {
+    api,
+    emitState(state) {
+      for (const listener of stateListeners) listener(state);
+    },
+    emitNativeFocus(tabId) {
+      for (const listener of focusListeners) listener(tabId);
+    },
+    focus,
+    goBack,
+    stop,
+  };
+}
+
+function browserState(
+  overrides: Partial<BbDesktopBrowserState> = {},
+): BbDesktopBrowserState {
+  return {
+    tabId: "browser:test",
+    url: "https://example.com/docs",
+    title: "Example docs",
+    isLoading: false,
+    canGoBack: false,
+    canGoForward: false,
+    errorText: null,
+    ...overrides,
+  };
+}
+
+function renderBrowserChrome(
+  harness: BrowserChromeHarness,
+  initialUrl = "",
+  options: {
+    canHandleBrowserCommands?: boolean;
+    canShowNativeBrowserView?: boolean;
+    onNativeFocus?: () => void;
+    onOpenInNewTab?: (url: string) => void;
+  } = {},
+) {
+  window.bbDesktop = createBbDesktopApi(desktopInfo, harness.api);
+  return render(
+    <BrowserTabContent
+      tabId="browser:test"
+      initialUrl={initialUrl}
+      addressFocusRequest={null}
+      canHandleBrowserCommands={options.canHandleBrowserCommands}
+      canShowNativeBrowserView={options.canShowNativeBrowserView ?? false}
+      onNativeFocus={options.onNativeFocus}
+      visibilityCoordinator={null}
+      environmentId={null}
+      threadId="thread-1"
+      onUpdate={() => {}}
+      onOpenInNewTab={options.onOpenInNewTab ?? null}
+    />,
+  );
+}
+
+describe("BrowserTabContent persistent navigation", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+    delete window.bbDesktop;
+  });
+
+  it("keeps navigation visible while loading and preserves the stop action", () => {
+    const harness = createBrowserChromeHarness();
+    renderBrowserChrome(harness, "https://example.com/docs");
+
+    act(() => harness.emitState(browserState({ isLoading: true })));
+
+    const stopButton = screen.getByRole("button", { name: "Stop loading" });
+    fireEvent.click(stopButton);
+    expect(harness.stop).toHaveBeenCalledWith("browser:test");
+  });
+
+  it("preserves browser navigation actions", () => {
+    const harness = createBrowserChromeHarness();
+    renderBrowserChrome(harness, "https://example.com/docs");
+
+    act(() => harness.emitState(browserState({ canGoBack: true })));
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+    expect(harness.goBack).toHaveBeenCalledWith("browser:test");
+  });
+
+  it.each([
+    [8, 8],
+    [0, 6],
+    [6, 12],
+  ])(
+    "selects the whole address on the first click with native selection %i–%i and places the caret on later clicks",
+    (start, end) => {
+      const harness = createBrowserChromeHarness();
+      renderBrowserChrome(harness, "https://example.com/docs");
+      const address = screen.getByRole<HTMLInputElement>("textbox", {
+        name: /Address and search bar/,
+      });
+      const clickAt = (start: number, end: number) => {
+        fireEvent.mouseDown(address);
+        act(() => address.focus());
+        address.setSelectionRange(start, end);
+        fireEvent.mouseUp(address);
+      };
+
+      clickAt(start, end);
+      expect([address.selectionStart, address.selectionEnd]).toEqual([
+        0,
+        "https://example.com/docs".length,
+      ]);
+
+      clickAt(8, 8);
+      expect([address.selectionStart, address.selectionEnd]).toEqual([8, 8]);
+    },
+  );
+
+  it.each(["", "https://example.com/docs"])(
+    "moves focus from the address bar to the page after submitting from %s",
+    async (initialUrl) => {
+      const harness = createBrowserChromeHarness();
+      const navigate = vi.spyOn(harness.api, "navigate");
+      renderBrowserChrome(harness, initialUrl, {
+        canHandleBrowserCommands: true,
+        canShowNativeBrowserView: true,
+      });
+      const address = screen.getByRole("textbox", {
+        name: /Address and search bar/,
+      });
+      act(() => address.focus());
+      fireEvent.change(address, { target: { value: "google.com" } });
+      fireEvent.submit(address.closest("form")!);
+
+      expect(navigate).toHaveBeenCalledWith({
+        tabId: "browser:test",
+        url: "https://google.com",
+      });
+      expect(document.activeElement).not.toBe(address);
+      await waitFor(() =>
+        expect(harness.focus).toHaveBeenCalledWith("browser:test"),
+      );
+    },
+  );
+
+  it("cancels address edits with Escape without navigating", async () => {
+    const harness = createBrowserChromeHarness();
+    const navigate = vi.spyOn(harness.api, "navigate");
+    renderBrowserChrome(harness, "https://example.com/docs");
+    const address = screen.getByRole<HTMLInputElement>("textbox", {
+      name: /Address and search bar/,
+    });
+    act(() => address.focus());
+    fireEvent.change(address, { target: { value: "unfinished address" } });
+    fireEvent.keyDown(address, { key: "Escape" });
+
+    expect(address.value).toBe("https://example.com/docs");
+    await waitFor(() =>
+      expect([address.selectionStart, address.selectionEnd]).toEqual([
+        0,
+        address.value.length,
+      ]),
+    );
+    expect(document.activeElement).toBe(address);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { platform: "MacIntel", modifiers: { metaKey: true }, opensNewTab: true },
+    { platform: "MacIntel", modifiers: { ctrlKey: true }, opensNewTab: false },
+    { platform: "Win32", modifiers: { altKey: true }, opensNewTab: true },
+    {
+      platform: "Linux x86_64",
+      modifiers: { altKey: true },
+      opensNewTab: true,
+    },
+    { platform: "Win32", modifiers: { ctrlKey: true }, opensNewTab: false },
+  ])(
+    "handles modified Enter in the address bar on $platform with $modifiers",
+    ({ platform, modifiers, opensNewTab }) => {
+      vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+      const harness = createBrowserChromeHarness();
+      const navigate = vi.spyOn(harness.api, "navigate");
+      const onOpenInNewTab = vi.fn();
+      renderBrowserChrome(harness, "https://example.com/docs", {
+        canHandleBrowserCommands: true,
+        canShowNativeBrowserView: true,
+        onOpenInNewTab,
+      });
+      const address = screen.getByRole<HTMLInputElement>("textbox", {
+        name: /Address and search bar/,
+      });
+      act(() => address.focus());
+      fireEvent.change(address, { target: { value: "google.com" } });
+      fireEvent.keyDown(address, { key: "Enter", ...modifiers });
+
+      if (!opensNewTab) {
+        expect(onOpenInNewTab).not.toHaveBeenCalled();
+        return;
+      }
+      expect(onOpenInNewTab).toHaveBeenCalledWith("https://google.com");
+      expect(navigate).not.toHaveBeenCalled();
+      expect(document.activeElement).not.toBe(address);
+      expect(address.value).toBe("https://example.com/docs");
+    },
+  );
+
+  it.each(["Stop", "Take over"])(
+    "releases native control with %s",
+    async (action) => {
+      const harness = createBrowserChromeHarness();
+      const releaseControl = vi.fn();
+      harness.api.releaseControl = releaseControl;
+      harness.api.getControl = async () => ({
+        tabId: "browser:test",
+        threadId: "thread-1",
+        control: {
+          leaseId: "lease-1",
+          controllerLabel: "Browser agent",
+          expiresAt: Date.now() + 60_000,
+        },
+      });
+      renderBrowserChrome(harness, "https://example.com/docs");
+      const button = await screen.findByRole("button", {
+        name: action,
+      });
+      harness.focus.mockClear();
+      fireEvent.click(button);
+      expect(releaseControl).toHaveBeenCalledWith("browser:test");
+      if (action === "Take over")
+        expect(harness.focus).toHaveBeenCalledWith("browser:test");
+      else expect(harness.focus).not.toHaveBeenCalled();
+    },
+  );
+
+  it("restores a browser without taking focus and still reports explicit page focus", async () => {
+    const harness = createBrowserChromeHarness();
+    const onNativeFocus = vi.fn();
+    renderBrowserChrome(harness, "https://example.com/docs", {
+      canHandleBrowserCommands: true,
+      canShowNativeBrowserView: true,
+      onNativeFocus,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Address and search bar")).not.toBeNull(),
+    );
+    expect(harness.focus).not.toHaveBeenCalled();
+    act(() => harness.emitNativeFocus("browser:other"));
+    expect(onNativeFocus).not.toHaveBeenCalled();
+    act(() => harness.emitNativeFocus("browser:test"));
+    expect(onNativeFocus).toHaveBeenCalledTimes(1);
+  });
+});

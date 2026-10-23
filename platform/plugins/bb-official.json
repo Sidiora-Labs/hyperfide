@@ -1,0 +1,200 @@
+{
+  "account-pool": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "agent-annotations": {
+    "category": "code-and-reviews",
+    "screenshots": []
+  },
+  "ask-user-question": {
+    "category": "thread-content",
+    "screenshots": []
+  },
+  "automations": {
+    "category": "tasks-and-workflows",
+    "screenshots": [
+      "https://getbb.app/marketplace/v2/screenshots/automations/automations-catalog.png",
+      "https://getbb.app/marketplace/v2/screenshots/automations/automations-sidebar.png"
+    ]
+  },
+  "bb-account": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "bb-ai": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "connect": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "connect-next": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "custom-instructions": {
+    "category": "memory-and-context",
+    "screenshots": []
+  },
+  "plugin-api-tester": {
+    "category": "plugin-development",
+    "screenshots": []
+  },
+  "inline-vis": {
+    "category": "thread-content",
+    "screenshots": []
+  },
+  "monaco-editor": {
+    "category": "file-viewers-and-editors",
+    "screenshots": []
+  },
+  "pdf-preview": {
+    "category": "file-viewers-and-editors",
+    "screenshots": []
+  },
+  "provider-codex": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-claude-code": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-pi": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-acp": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "keep-awake": {
+    "category": "utilities",
+    "screenshots": []
+  },
+  "plugin-api-docs": {
+    "category": "plugin-development",
+    "screenshots": [
+      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-map.png",
+      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-surfaces.png",
+      "https://getbb.app/marketplace/v2/screenshots/plugin-api-docs/plugin-guide-reference.png"
+    ]
+  },
+  "provider-retry": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "provider-usage": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "secrets": {
+    "category": "security",
+    "screenshots": []
+  },
+  "scheduled-send": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "drafts": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "navigation": {
+    "category": "thread-management",
+    "screenshots": []
+  },
+  "thread-list": {
+    "category": "thread-management",
+    "screenshots": []
+  },
+  "composer": {
+    "category": "thread-management",
+    "screenshots": []
+  },
+  "concurrency-limit": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "side-chat": {
+    "category": "thread-content",
+    "screenshots": []
+  },
+  "workflows": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "github": {
+    "category": "code-and-reviews",
+    "screenshots": []
+  },
+  "github-pr-status": {
+    "category": "code-and-reviews",
+    "screenshots": []
+  },
+  "docs": {
+    "category": "file-viewers-and-editors",
+    "screenshots": [
+      "https://getbb.app/marketplace/v2/screenshots/docs/docs-21ddb6757-inline-review-desktop.png",
+      "https://getbb.app/marketplace/v2/screenshots/docs/docs-f4957b72f-inline-editing-desktop.png",
+      "https://getbb.app/marketplace/v2/screenshots/docs/docs-f4957b72f-ask-mobile.png",
+      "https://getbb.app/marketplace/v2/screenshots/docs/docs-63b536e70-workspace-desktop.png",
+      "https://getbb.app/marketplace/v2/screenshots/docs/docs-21ddb6757-html-desktop.png",
+      "https://getbb.app/marketplace/v2/screenshots/docs/docs-21ddb6757-vault-desktop.png"
+    ]
+  },
+  "memory": {
+    "category": "memory-and-context",
+    "screenshots": []
+  },
+  "tasks": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  },
+  "theme-preview": {
+    "category": "themes-and-appearance",
+    "screenshots": []
+  },
+  "push-notifications": {
+    "category": "notifications",
+    "screenshots": []
+  },
+  "browser-automation": {
+    "category": "agents-and-providers",
+    "screenshots": []
+  },
+  "environment-project-checkout": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "environment-git-worktree": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "environment-personal-workspace": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "bb-guide": {
+    "category": "memory-and-context",
+    "screenshots": []
+  },
+  "environment-modal-sandbox": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "prompt-library": {
+    "category": "memory-and-context",
+    "screenshots": []
+  },
+  "mcp": {
+    "category": "cloud-and-remote",
+    "screenshots": []
+  },
+  "storage-retention": {
+    "category": "tasks-and-workflows",
+    "screenshots": []
+  }
+}

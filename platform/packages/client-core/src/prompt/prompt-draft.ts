@@ -1,0 +1,377 @@
+import {
+  promptTextMentionSchema,
+  type PromptInput,
+  type PromptTextMention,
+} from "@bb/domain";
+import { uploadedPromptAttachmentSchema } from "@bb/server-contract";
+import { z } from "zod";
+
+const draftAttachmentFields = uploadedPromptAttachmentSchema
+  .omit({ sourceProjectId: true })
+  .extend({ sizeBytes: z.number().nonnegative().optional() });
+
+const promptDraftAttachmentSchema = z.union([
+  draftAttachmentFields.extend({
+    hostId: z.string().min(1),
+    sourceProjectId: z.undefined().optional(),
+  }),
+  draftAttachmentFields.extend({
+    sourceProjectId: z.string().min(1).optional(),
+    hostId: z.undefined().optional(),
+  }),
+]);
+
+export type PromptDraftAttachment = z.infer<typeof promptDraftAttachmentSchema>;
+
+function attachmentOwner(attachment: {
+  sourceProjectId?: string;
+  hostId?: string;
+}) {
+  if (attachment.hostId !== undefined) return { hostId: attachment.hostId };
+  return attachment.sourceProjectId === undefined
+    ? {}
+    : { sourceProjectId: attachment.sourceProjectId };
+}
+
+export interface PromptDraftState {
+  text: string;
+  mentions: PromptTextMention[];
+  attachments: PromptDraftAttachment[];
+}
+
+const promptDraftStorageSchema = z.object({
+  text: z.string().default(""),
+  mentions: z
+    .array(z.unknown())
+    .default([])
+    .transform((items) =>
+      items.flatMap((item) => {
+        const result = promptTextMentionSchema.safeParse(item);
+        return result.success ? [result.data] : [];
+      }),
+    ),
+  attachments: z
+    .array(z.unknown())
+    .default([])
+    .transform((items) =>
+      items.flatMap((item) => {
+        const result = promptDraftAttachmentSchema.safeParse(item);
+        if (!result.success) return [];
+        const { sizeBytes, ...attachment } = result.data;
+        return [
+          sizeBytes === undefined || sizeBytes === 0
+            ? attachment
+            : { ...attachment, sizeBytes },
+        ];
+      }),
+    ),
+});
+
+export function emptyPromptDraftState(): PromptDraftState {
+  return {
+    text: "",
+    mentions: [],
+    attachments: [],
+  };
+}
+
+function normalizeQuotedSelectionText(text: string): string {
+  const lines = text.replace(/\r\n|\r/gu, "\n").split("\n");
+  const normalizedLines: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
+    const previousLine = normalizedLines.at(-1);
+    const nextLine = lines[index + 1];
+    if (
+      line.trim().length === 0 &&
+      previousLine?.startsWith(">") === true &&
+      nextLine?.startsWith(">") === true
+    ) {
+      continue;
+    }
+    normalizedLines.push(line);
+  }
+
+  return normalizedLines.join("\n").trim();
+}
+
+export function appendQuoteToDraftText<Draft extends { text: string }>(
+  state: Draft,
+  quotedText: string,
+): Draft {
+  const trimmed = normalizeQuotedSelectionText(quotedText);
+  if (trimmed === "") return state;
+
+  const block = trimmed
+    .split("\n")
+    .map((line) => (line.length > 0 ? `> ${line}` : ">"))
+    .join("\n");
+
+  const text = state.text === "" ? `${block}\n` : `${state.text}\n${block}\n`;
+
+  return { ...state, text };
+}
+
+export function appendQuoteAndAttachmentsToDraft<
+  Draft extends { text: string; attachments: readonly PromptDraftAttachment[] },
+>(
+  state: Draft,
+  quotedText: string,
+  attachments: readonly PromptDraftAttachment[],
+): Draft {
+  const quotedState = appendQuoteToDraftText(state, quotedText);
+  if (attachments.length === 0) {
+    return quotedState;
+  }
+
+  const existingAttachmentPaths = new Set(
+    quotedState.attachments.map((attachment) => attachment.path),
+  );
+  const mergedAttachments = [...quotedState.attachments];
+  for (const attachment of attachments) {
+    if (existingAttachmentPaths.has(attachment.path)) {
+      continue;
+    }
+    existingAttachmentPaths.add(attachment.path);
+    mergedAttachments.push(attachment);
+  }
+
+  if (mergedAttachments.length === quotedState.attachments.length) {
+    return quotedState;
+  }
+
+  return { ...quotedState, attachments: mergedAttachments };
+}
+
+export function isPromptDraftEmpty(draft: PromptDraftState): boolean {
+  return (
+    draft.text.length === 0 &&
+    draft.mentions.length === 0 &&
+    draft.attachments.length === 0
+  );
+}
+
+export function parsePromptDraftStorage(
+  rawValue: string | null,
+): PromptDraftState {
+  if (!rawValue) return emptyPromptDraftState();
+
+  try {
+    const parsed: unknown = JSON.parse(rawValue);
+    const result = promptDraftStorageSchema.safeParse(parsed);
+    return result.success ? result.data : emptyPromptDraftState();
+  } catch {
+    return emptyPromptDraftState();
+  }
+}
+
+export function serializePromptDraftStorage(
+  draft: PromptDraftState,
+): string | null {
+  const text = draft.text;
+  const mentions = draft.mentions;
+  const attachments = draft.attachments;
+  if (isPromptDraftEmpty(draft)) {
+    return null;
+  }
+  return JSON.stringify({
+    text,
+    ...(mentions.length > 0 ? { mentions } : {}),
+    attachments,
+  });
+}
+
+function sortObjectKeys(_key: string, value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).sort(([left], [right]) =>
+      left < right ? -1 : left > right ? 1 : 0,
+    ),
+  );
+}
+
+function canonicalPromptDraftJson(draft: PromptDraftState): string {
+  return JSON.stringify(
+    {
+      text: draft.text,
+      mentions: draft.mentions,
+      attachments: draft.attachments,
+    },
+    sortObjectKeys,
+  );
+}
+
+export function arePromptDraftStatesEqual(
+  left: PromptDraftState,
+  right: PromptDraftState,
+): boolean {
+  return canonicalPromptDraftJson(left) === canonicalPromptDraftJson(right);
+}
+
+function getFileNameFromPath(path: string): string {
+  const trimmedPath = path.trim();
+  if (trimmedPath.length === 0) {
+    return "Attachment";
+  }
+
+  const segments = trimmedPath.split("/");
+  const lastSegment = segments[segments.length - 1];
+  return lastSegment && lastSegment.length > 0 ? lastSegment : trimmedPath;
+}
+
+export function normalizePromptTextMentions(
+  mentions: readonly PromptTextMention[],
+  textLength: number,
+): PromptTextMention[] {
+  return mentions
+    .filter(
+      (mention) =>
+        mention.start >= 0 &&
+        mention.end > mention.start &&
+        mention.end <= textLength,
+    )
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+}
+
+export function promptDraftToInput(draft: PromptDraftState): PromptInput[] {
+  const input: PromptInput[] = [];
+
+  const trimStartLength = draft.text.length - draft.text.trimStart().length;
+  const trimEndIndex = draft.text.trimEnd().length;
+  const text = draft.text.slice(trimStartLength, trimEndIndex);
+  if (text.length > 0) {
+    const attachedPaths = new Set(
+      draft.attachments.map((attachment) => attachment.path),
+    );
+    const mentions = normalizePromptTextMentions(
+      draft.mentions.flatMap((mention) => {
+        if (
+          mention.resource.kind === "attachment" &&
+          !attachedPaths.has(mention.resource.path)
+        ) {
+          return [];
+        }
+        const visibleStart = Math.max(mention.start, trimStartLength);
+        const visibleEnd = Math.min(mention.end, trimEndIndex);
+        return visibleStart < visibleEnd
+          ? [
+              {
+                ...mention,
+                start: visibleStart - trimStartLength,
+                end: visibleEnd - trimStartLength,
+              },
+            ]
+          : [];
+      }),
+      text.length,
+    );
+    input.push({ type: "text", text, mentions });
+  }
+
+  for (const attachment of draft.attachments) {
+    if (attachment.type === "localImage") {
+      input.push({
+        type: "localImage",
+        path: attachment.path,
+        ...attachmentOwner(attachment),
+      });
+      continue;
+    }
+
+    input.push({
+      type: "localFile",
+      path: attachment.path,
+      ...attachmentOwner(attachment),
+      name: attachment.name,
+      ...(attachment.sizeBytes ? { sizeBytes: attachment.sizeBytes } : {}),
+      ...(attachment.mimeType ? { mimeType: attachment.mimeType } : {}),
+    });
+  }
+
+  return input;
+}
+
+export function promptInputToDraft(
+  input: readonly PromptInput[],
+): PromptDraftState {
+  const textSegments: string[] = [];
+  const mentions: PromptTextMention[] = [];
+  const attachments: PromptDraftState["attachments"] = [];
+  let textOffset = 0;
+
+  for (const chunk of input) {
+    if (chunk.type === "text") {
+      if (chunk.text.trim().length > 0) {
+        if (textSegments.length > 0) {
+          textOffset += 2;
+        }
+        for (const mention of chunk.mentions) {
+          if (
+            mention.start >= 0 &&
+            mention.end > mention.start &&
+            mention.end <= chunk.text.length
+          ) {
+            mentions.push({
+              ...mention,
+              start: textOffset + mention.start,
+              end: textOffset + mention.end,
+            });
+          }
+        }
+        textSegments.push(chunk.text);
+        textOffset += chunk.text.length;
+      }
+      continue;
+    }
+
+    if (chunk.type === "localImage") {
+      attachments.push({
+        type: "localImage",
+        path: chunk.path,
+        ...attachmentOwner(chunk),
+        name: getFileNameFromPath(chunk.path),
+      });
+      continue;
+    }
+
+    if (chunk.type === "localFile") {
+      attachments.push({
+        type: "localFile",
+        path: chunk.path,
+        ...attachmentOwner(chunk),
+        name: chunk.name ?? getFileNameFromPath(chunk.path),
+        ...(chunk.sizeBytes === undefined
+          ? {}
+          : { sizeBytes: chunk.sizeBytes }),
+        ...(chunk.mimeType ? { mimeType: chunk.mimeType } : {}),
+      });
+    }
+  }
+
+  return {
+    text: textSegments.join("\n\n"),
+    mentions,
+    attachments,
+  };
+}
+
+export function getProjectStoredPromptAttachmentPaths(
+  attachments: readonly PromptDraftAttachment[],
+): string[] {
+  return [
+    ...new Set(
+      attachments.flatMap((attachment) => {
+        if (attachment.sourceProjectId !== undefined) return [];
+        const path = attachment.path;
+        const isRuntimeReadable =
+          /^[\\/]/u.test(path) ||
+          /^[a-zA-Z]:[\\/]/u.test(path) ||
+          /^[a-zA-Z][a-zA-Z0-9+.-]*:/u.test(path);
+        return isRuntimeReadable ? [] : [path];
+      }),
+    ),
+  ];
+}

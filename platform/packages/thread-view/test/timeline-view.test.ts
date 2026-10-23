@@ -1,0 +1,836 @@
+import { describe, expect, it } from "vitest";
+import type {
+  TimelineActivityIntent,
+  TimelineCommandWorkRow,
+  TimelineConversationRow,
+  TimelineDelegationWorkRow,
+  TimelineFileChangeWorkRow,
+  TimelineRowBase,
+  TimelineRowStatus,
+  TimelineToolWorkRow,
+  TimelineSystemRow,
+} from "@bb/server-contract";
+import {
+  buildTimelineWorkSummaryLabel,
+  buildTimelineViewRows,
+  type ThreadTimelineViewRow,
+  type TimelineBundleSummaryRow,
+  type TimelineStepSummaryRow,
+  type TimelineViewDelegationWorkRow,
+} from "../src/timeline-view.js";
+
+interface WorkRowOverrides {
+  createdAt?: number;
+  id?: string;
+  sourceSeqEnd?: number;
+  sourceSeqStart?: number;
+  startedAt?: number;
+  status?: TimelineRowStatus;
+  turnId?: string | null;
+}
+
+function baseRow(
+  id: string,
+  overrides: WorkRowOverrides = {},
+): TimelineRowBase {
+  return {
+    id,
+    threadId: "thread-1",
+    turnId: overrides.turnId ?? "turn-1",
+    sourceSeqStart: overrides.sourceSeqStart ?? 1,
+    sourceSeqEnd: overrides.sourceSeqEnd ?? 1,
+    startedAt: overrides.startedAt ?? 1,
+    createdAt: overrides.createdAt ?? 1,
+  };
+}
+
+function assistantRow({
+  id,
+  text = "",
+  ...overrides
+}: WorkRowOverrides & { id: string; text?: string }): TimelineConversationRow {
+  return {
+    ...baseRow(id, overrides),
+    kind: "conversation",
+    messageSeq: overrides.sourceSeqEnd ?? 1,
+    role: "assistant",
+    text,
+    attachments: null,
+    turnRequest: null,
+  };
+}
+
+interface CommandRowOverrides extends WorkRowOverrides {
+  activityIntents?: TimelineActivityIntent[];
+  callId?: string;
+  command?: string;
+  durationMs?: number | null;
+}
+
+function commandRow({
+  activityIntents = [],
+  callId = "call-1",
+  command = "pnpm test",
+  durationMs = 200,
+  id = "command-1",
+  sourceSeqEnd = 1,
+  sourceSeqStart = 1,
+  status = "completed",
+  ...baseOverrides
+}: CommandRowOverrides = {}): TimelineCommandWorkRow {
+  return {
+    ...baseRow(id, { ...baseOverrides, sourceSeqEnd, sourceSeqStart }),
+    kind: "work",
+    workKind: "command",
+    status,
+    callId,
+    command,
+    cwd: null,
+    source: null,
+    output: "",
+    exitCode: 0,
+    completedAt:
+      durationMs === null ? null : (baseOverrides.startedAt ?? 1) + durationMs,
+    approvalStatus: null,
+    activityIntents,
+  };
+}
+
+function readIntent(path: string): TimelineActivityIntent {
+  return {
+    type: "read",
+    command: `cat ${path}`,
+    name: path.split("/").pop() ?? path,
+    path,
+  };
+}
+
+function listIntent(path: string | null): TimelineActivityIntent {
+  return {
+    type: "list_files",
+    command: path ? `ls ${path}` : "ls",
+    path,
+  };
+}
+
+function searchIntent(
+  query: string,
+  path: string | null,
+): TimelineActivityIntent {
+  return {
+    type: "search",
+    command: `rg ${query}${path ? ` ${path}` : ""}`,
+    query,
+    path,
+  };
+}
+
+function commandRowReadingPaths(paths: readonly string[], seq: number) {
+  return commandRow({
+    activityIntents: paths.map(readIntent),
+    callId: `read-call-${seq}`,
+    id: `read-${seq}`,
+    sourceSeqEnd: seq,
+    sourceSeqStart: seq,
+  });
+}
+
+function explorationIntents(
+  row: ThreadTimelineViewRow,
+): TimelineActivityIntent[] {
+  if (row.kind !== "work" || row.workKind !== "command") return [];
+  return [...row.activityIntents];
+}
+
+interface FileChangeRowOverrides extends WorkRowOverrides {
+  callId?: string;
+  path?: string;
+}
+
+function fileChangeRow({
+  callId = "file-edit-1",
+  id = "file-change-1",
+  path = "src/app.ts",
+  status = "completed",
+  ...baseOverrides
+}: FileChangeRowOverrides = {}): TimelineFileChangeWorkRow {
+  return {
+    ...baseRow(id, baseOverrides),
+    kind: "work",
+    workKind: "file-change",
+    status,
+    callId,
+    change: {
+      path,
+      kind: "update",
+      movePath: null,
+      diff: "@@ -1 +1 @@\n-before\n+after",
+      diffStats: {
+        added: 1,
+        removed: 1,
+      },
+    },
+    stdout: null,
+    stderr: null,
+    approvalStatus: null,
+  };
+}
+
+interface ToolRowOverrides extends WorkRowOverrides {
+  callId?: string;
+  durationMs?: number | null;
+  output?: string;
+  toolArgs?: TimelineToolWorkRow["toolArgs"];
+  toolName?: string;
+}
+
+function toolRow({
+  callId = "tool-call-1",
+  durationMs = 200,
+  id = "tool-1",
+  output = "",
+  status = "completed",
+  toolArgs = { query: "select:TodoWrite" },
+  toolName = "LookupTool",
+  ...baseOverrides
+}: ToolRowOverrides = {}): TimelineToolWorkRow {
+  return {
+    ...baseRow(id, baseOverrides),
+    kind: "work",
+    workKind: "tool",
+    status,
+    callId,
+    toolName,
+    toolArgs,
+    output,
+    completedAt:
+      durationMs === null ? null : (baseOverrides.startedAt ?? 1) + durationMs,
+    approvalStatus: null,
+  };
+}
+
+interface DelegationRowOverrides extends WorkRowOverrides {
+  callId?: string;
+  childRows?: TimelineDelegationWorkRow["childRows"];
+}
+
+function delegationRow({
+  callId = "delegation-call-1",
+  childRows = [],
+  id = "delegation-1",
+  status = "completed",
+  ...baseOverrides
+}: DelegationRowOverrides = {}): TimelineDelegationWorkRow {
+  return {
+    ...baseRow(id, baseOverrides),
+    kind: "work",
+    workKind: "delegation",
+    status,
+    callId,
+    toolName: "spawnAgent",
+    childRef: null,
+    background: false,
+    subagentType: "reviewer",
+    description: "Review timeline grouping",
+    output: "",
+    completedAt: (baseOverrides.startedAt ?? 1) + 500,
+    childRows,
+  };
+}
+
+function expectStepSummaryRow(
+  row: ThreadTimelineViewRow | undefined,
+): TimelineStepSummaryRow {
+  if (!row || row.kind !== "step-summary") {
+    throw new Error("Expected step summary row");
+  }
+  return row;
+}
+
+function expectBundleSummaryRow(
+  row: ThreadTimelineViewRow | undefined,
+): TimelineBundleSummaryRow {
+  if (!row || row.kind !== "bundle-summary") {
+    throw new Error("Expected bundle summary row");
+  }
+  return row;
+}
+
+function expectDelegationWorkRow(
+  row: ThreadTimelineViewRow | undefined,
+): TimelineViewDelegationWorkRow {
+  if (!row || row.kind !== "work" || row.workKind !== "delegation") {
+    throw new Error("Expected delegation work row");
+  }
+  return row;
+}
+
+describe("buildTimelineViewRows", () => {
+  it("keeps a single completed command work run visible as a leaf", () => {
+    const rows = buildTimelineViewRows([commandRow()]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kind: "work",
+      workKind: "command",
+      id: "command-1",
+      callId: "call-1",
+      command: "pnpm test",
+      completedAt: 201,
+      status: "completed",
+      sourceSeqStart: 1,
+      sourceSeqEnd: 1,
+      startedAt: 1,
+      createdAt: 1,
+      turnId: "turn-1",
+    });
+  });
+
+  it("keeps single terminal work rows as direct leaves regardless of status", () => {
+    const cases = [
+      commandRow({ id: "command-error", status: "error" }),
+      commandRow({ id: "command-interrupted", status: "interrupted" }),
+      {
+        ...commandRow({ id: "command-denied" }),
+        approvalStatus: "denied" as const,
+      },
+      fileChangeRow({ id: "file-change-error", status: "error" }),
+      fileChangeRow({ id: "file-change-interrupted", status: "interrupted" }),
+      {
+        ...fileChangeRow({ id: "file-change-denied" }),
+        approvalStatus: "denied" as const,
+      },
+      toolRow({ id: "tool-error", status: "error" }),
+      toolRow({ id: "tool-interrupted", status: "interrupted" }),
+      {
+        ...toolRow({ id: "tool-denied" }),
+        approvalStatus: "denied" as const,
+      },
+    ] as const;
+
+    for (const inputRow of cases) {
+      expect(buildTimelineViewRows([inputRow])).toEqual([inputRow]);
+    }
+  });
+
+  it("keeps activity summary identity stable as a run grows", () => {
+    const firstRows = buildTimelineViewRows([
+      commandRow({
+        id: "command-1",
+        sourceSeqStart: 1,
+        sourceSeqEnd: 1,
+      }),
+    ]);
+    const nextRows = buildTimelineViewRows([
+      commandRow({
+        id: "command-1",
+        sourceSeqStart: 1,
+        sourceSeqEnd: 1,
+      }),
+      commandRow({
+        id: "command-2",
+        sourceSeqStart: 2,
+        sourceSeqEnd: 2,
+      }),
+    ]);
+    const nextSummary = expectBundleSummaryRow(nextRows[0]);
+
+    expect(firstRows[0]).toMatchObject({
+      kind: "work",
+      workKind: "command",
+      id: "command-1",
+    });
+    expect(nextSummary.id).toBe("thread-1:turn-1:work-summary:command-1");
+    expect(nextSummary.status).toBe("completed");
+    expect(nextSummary.sourceSeqStart).toBe(1);
+    expect(nextSummary.sourceSeqEnd).toBe(2);
+    expect(nextSummary.children.map((child) => child.id)).toEqual([
+      "command-1",
+      "command-2",
+    ]);
+    expect(buildTimelineWorkSummaryLabel(nextSummary)).toBe("Ran 2 commands");
+  });
+
+  it("keeps bundle row identity stable across activity transitions", () => {
+    const pendingRows = buildTimelineViewRows([
+      commandRow({
+        id: "command-1",
+        sourceSeqStart: 1,
+        status: "pending",
+      }),
+      commandRow({
+        id: "command-2",
+        sourceSeqStart: 2,
+        status: "pending",
+      }),
+    ]);
+    const completedRows = buildTimelineViewRows([
+      commandRow({
+        id: "command-1",
+        sourceSeqStart: 1,
+        status: "completed",
+      }),
+      commandRow({
+        id: "command-2",
+        sourceSeqStart: 2,
+        status: "completed",
+      }),
+    ]);
+
+    const pendingSummary = expectBundleSummaryRow(pendingRows[0]);
+    const completedSummary = expectBundleSummaryRow(completedRows[0]);
+
+    expect(pendingSummary.id).toBe("thread-1:turn-1:work-summary:command-1");
+    expect(completedSummary.id).toBe(pendingSummary.id);
+    expect(
+      buildTimelineWorkSummaryLabel(pendingSummary, { active: true }),
+    ).toBe("Running 2 commands");
+    expect(buildTimelineWorkSummaryLabel(completedSummary)).toBe(
+      "Ran 2 commands",
+    );
+  });
+
+  it("keeps single non-terminal work rows visible as leaves", () => {
+    const pendingRows = buildTimelineViewRows([
+      commandRow({ id: "command-pending", status: "pending" }),
+    ]);
+    const waitingRows = buildTimelineViewRows([
+      {
+        ...commandRow({ id: "command-waiting" }),
+        approvalStatus: "waiting_for_approval",
+      },
+    ]);
+
+    expect(pendingRows).toHaveLength(1);
+    expect(pendingRows[0]).toMatchObject({
+      kind: "work",
+      workKind: "command",
+      id: "command-pending",
+      status: "pending",
+    });
+    expect(waitingRows).toHaveLength(1);
+    expect(waitingRows[0]).toMatchObject({
+      kind: "work",
+      workKind: "command",
+      id: "command-waiting",
+      approvalStatus: "waiting_for_approval",
+    });
+  });
+
+  it("groups same-concept consecutive work into a bundle regardless of status mix", () => {
+    const rows = buildTimelineViewRows([
+      commandRow({ id: "command-completed", sourceSeqStart: 1 }),
+      commandRow({
+        id: "command-pending",
+        sourceSeqStart: 2,
+        status: "pending",
+      }),
+    ]);
+
+    expect(rows).toHaveLength(1);
+    const bundle = expectBundleSummaryRow(rows[0]);
+    expect(bundle.children.map((c) => c.id)).toEqual([
+      "command-completed",
+      "command-pending",
+    ]);
+  });
+
+  it("uses active labels for command, subagent, and file-edit runs", () => {
+    const commandSummary = expectBundleSummaryRow(
+      buildTimelineViewRows([
+        commandRow({
+          id: "command-pending-1",
+          sourceSeqStart: 1,
+          status: "pending",
+        }),
+        commandRow({
+          id: "command-pending-2",
+          sourceSeqStart: 2,
+          status: "pending",
+        }),
+      ])[0],
+    );
+    const delegationSummary = expectBundleSummaryRow(
+      buildTimelineViewRows([
+        delegationRow({
+          id: "delegation-pending-1",
+          sourceSeqStart: 1,
+          status: "pending",
+        }),
+        delegationRow({
+          id: "delegation-pending-2",
+          sourceSeqStart: 2,
+          status: "pending",
+        }),
+      ])[0],
+    );
+    const fileEditSummary = expectBundleSummaryRow(
+      buildTimelineViewRows([
+        fileChangeRow({
+          id: "file-change-pending-1",
+          path: "src/app.ts",
+          sourceSeqStart: 1,
+          status: "pending",
+        }),
+        fileChangeRow({
+          id: "file-change-pending-2",
+          path: "src/other.ts",
+          sourceSeqStart: 2,
+          status: "pending",
+        }),
+      ])[0],
+    );
+
+    expect(
+      buildTimelineWorkSummaryLabel(commandSummary, { active: true }),
+    ).toBe("Running 2 commands");
+    expect(
+      buildTimelineWorkSummaryLabel(delegationSummary, { active: true }),
+    ).toBe("Running 2 subagents");
+    expect(
+      buildTimelineWorkSummaryLabel(fileEditSummary, { active: true }),
+    ).toBe("Editing 2 files");
+    expect(commandSummary.status).toBe("pending");
+    expect(delegationSummary.status).toBe("pending");
+    expect(fileEditSummary.children[0]).toMatchObject({
+      workKind: "file-change",
+      change: {
+        path: "src/app.ts",
+        diffStats: {
+          added: 1,
+          removed: 1,
+        },
+      },
+    });
+  });
+
+  it("emits multi-concept step-summary phrasing once an assistant boundary closes the step", () => {
+    const rows = buildTimelineViewRows([
+      commandRow({
+        activityIntents: [readIntent("src/app.ts")],
+        id: "read-1",
+        sourceSeqStart: 1,
+      }),
+      commandRow({
+        id: "command-1",
+        sourceSeqStart: 2,
+      }),
+      assistantRow({ id: "assistant-1", sourceSeqStart: 3 }),
+    ]);
+
+    const summary = expectStepSummaryRow(rows[0]);
+    expect(buildTimelineWorkSummaryLabel(summary)).toBe(
+      "Explored 1 file, ran 1 command",
+    );
+    expect(rows[1]?.kind).toBe("conversation");
+  });
+
+  it("uses active labels for tool-only bundle summaries", () => {
+    const rows = buildTimelineViewRows([
+      toolRow({
+        id: "tool-pending-1",
+        sourceSeqStart: 1,
+        status: "pending",
+      }),
+      toolRow({
+        id: "tool-pending-2",
+        sourceSeqStart: 2,
+        status: "pending",
+      }),
+    ]);
+    const summary = expectBundleSummaryRow(rows[0]);
+
+    expect(buildTimelineWorkSummaryLabel(summary, { active: true })).toBe(
+      "Running 2 tools",
+    );
+  });
+
+  it("collapses completed delegation children into a step-summary", () => {
+    const rows = buildTimelineViewRows([
+      delegationRow({
+        childRows: [
+          commandRow({
+            id: "child-command-1",
+            callId: "child-call-1",
+            sourceSeqStart: 10,
+            sourceSeqEnd: 10,
+            startedAt: 10,
+            createdAt: 10,
+          }),
+          commandRow({
+            id: "child-command-2",
+            callId: "child-call-2",
+            sourceSeqStart: 11,
+            sourceSeqEnd: 11,
+            startedAt: 11,
+            createdAt: 11,
+          }),
+        ],
+      }),
+    ]);
+
+    const delegation = expectDelegationWorkRow(rows[0]);
+    const childSummary = expectStepSummaryRow(delegation.childRows?.[0]);
+
+    expect(rows).toHaveLength(1);
+    expect(delegation.childRows).toHaveLength(1);
+    expect(buildTimelineWorkSummaryLabel(childSummary)).toBe("Ran 2 commands");
+    expect(childSummary).toMatchObject({
+      status: "completed",
+      sourceSeqStart: 10,
+      sourceSeqEnd: 11,
+      startedAt: 10,
+      createdAt: 11,
+      turnId: "turn-1",
+    });
+    expect(
+      childSummary.children.map((child) => ({
+        id: child.id,
+        callId:
+          child.kind === "work" && child.workKind === "command"
+            ? child.callId
+            : null,
+        command:
+          child.kind === "work" && child.workKind === "command"
+            ? child.command
+            : null,
+      })),
+    ).toEqual([
+      {
+        id: "child-command-1",
+        callId: "child-call-1",
+        command: "pnpm test",
+      },
+      {
+        id: "child-command-2",
+        callId: "child-call-2",
+        command: "pnpm test",
+      },
+    ]);
+  });
+});
+
+describe("bundle activity intent dedupe", () => {
+  it("collapses consecutive duplicate read intents across bundle children", () => {
+    const rows = buildTimelineViewRows([
+      commandRowReadingPaths(["a/b/c"], 1),
+      commandRowReadingPaths(["a/b/c"], 2),
+      commandRowReadingPaths(["a/b/d"], 3),
+      commandRowReadingPaths(["a/b/c"], 4),
+    ]);
+
+    const bundle = expectBundleSummaryRow(rows[0]);
+    const flatPaths = bundle.children
+      .flatMap(explorationIntents)
+      .map((intent) => (intent.type === "read" ? intent.path : null));
+    expect(flatPaths).toEqual(["a/b/c", "a/b/d", "a/b/c"]);
+  });
+
+  it("collapses consecutive duplicate list_files and search intents too", () => {
+    const rows = buildTimelineViewRows([
+      commandRow({
+        activityIntents: [listIntent("src")],
+        callId: "list-call-1",
+        id: "list-1",
+        sourceSeqEnd: 1,
+        sourceSeqStart: 1,
+      }),
+      commandRow({
+        activityIntents: [listIntent("src")],
+        callId: "list-call-2",
+        id: "list-2",
+        sourceSeqEnd: 2,
+        sourceSeqStart: 2,
+      }),
+      commandRow({
+        activityIntents: [searchIntent("TODO", "src")],
+        callId: "search-call-1",
+        id: "search-1",
+        sourceSeqEnd: 3,
+        sourceSeqStart: 3,
+      }),
+      commandRow({
+        activityIntents: [searchIntent("TODO", "src")],
+        callId: "search-call-2",
+        id: "search-2",
+        sourceSeqEnd: 4,
+        sourceSeqStart: 4,
+      }),
+    ]);
+
+    const bundle = expectBundleSummaryRow(rows[0]);
+    const flatTypes = bundle.children
+      .flatMap(explorationIntents)
+      .map((intent) => intent.type);
+    expect(flatTypes).toEqual(["list_files", "search"]);
+  });
+
+  it("dedupes consecutive duplicates within a single row's intents", () => {
+    const rows = buildTimelineViewRows([
+      commandRow({
+        activityIntents: [
+          readIntent("a"),
+          readIntent("a"),
+          readIntent("b"),
+          readIntent("a"),
+        ],
+        callId: "multi-call-1",
+        id: "multi-1",
+        sourceSeqEnd: 1,
+        sourceSeqStart: 1,
+      }),
+      commandRowReadingPaths(["c"], 2),
+    ]);
+
+    const bundle = expectBundleSummaryRow(rows[0]);
+    const flatPaths = bundle.children
+      .flatMap(explorationIntents)
+      .map((intent) => (intent.type === "read" ? intent.path : null));
+    expect(flatPaths).toEqual(["a", "b", "a", "c"]);
+  });
+
+  it("non-exploration siblings break the dedupe chain inside step-summary children", () => {
+    const rows = buildTimelineViewRows([
+      commandRowReadingPaths(["a"], 1),
+      fileChangeRow({ id: "edit-1", sourceSeqStart: 2, sourceSeqEnd: 2 }),
+      commandRowReadingPaths(["a"], 3),
+      assistantRow({ id: "assistant-1", sourceSeqStart: 4 }),
+    ]);
+
+    const step = expectStepSummaryRow(rows[0]);
+    const flatPaths = step.children
+      .flatMap(explorationIntents)
+      .map((intent) => (intent.type === "read" ? intent.path : null));
+    expect(flatPaths).toEqual(["a", "a"]);
+  });
+
+  it("does not modify activityIntents on standalone (non-bundled) rows", () => {
+    const rows = buildTimelineViewRows([
+      commandRow({
+        activityIntents: [readIntent("a"), readIntent("a")],
+        callId: "solo-call",
+        id: "solo",
+        sourceSeqEnd: 1,
+        sourceSeqStart: 1,
+      }),
+    ]);
+
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
+    if (!row || row.kind !== "work" || row.workKind !== "command") {
+      throw new Error("expected standalone command row");
+    }
+    expect(
+      row.activityIntents.map((intent) =>
+        intent.type === "read" ? intent.path : null,
+      ),
+    ).toEqual(["a", "a"]);
+  });
+});
+
+describe("reasoning within activity groups", () => {
+  function thought(
+    id: string,
+    seq: number,
+  ): Extract<TimelineSystemRow, { systemKind: "operation" }> & {
+    operationKind: "reasoning";
+  } {
+    return {
+      ...baseRow(id, {
+        sourceSeqStart: seq,
+        sourceSeqEnd: seq,
+        startedAt: seq,
+        createdAt: seq + 1,
+      }),
+      kind: "system",
+      systemKind: "operation",
+      operationKind: "reasoning",
+      status: "completed",
+      title: "Thought",
+      detail: "Consider the next change.",
+      completedAt: seq + 1,
+    };
+  }
+
+  it("keeps interleaved thoughts inside a closed exploration and edit step", () => {
+    const input = [
+      thought("before", 1),
+      commandRowReadingPaths(["src/app.ts"], 2),
+      thought("between", 3),
+      fileChangeRow({ id: "edit", sourceSeqStart: 4 }),
+      thought("after", 5),
+    ];
+    const liveRows = buildTimelineViewRows(input);
+    expect(liveRows.map((row) => row.kind)).toEqual([
+      "bundle-summary",
+      "bundle-summary",
+    ]);
+    expect(
+      buildTimelineWorkSummaryLabel(expectBundleSummaryRow(liveRows[0])),
+    ).toBe("Explored 1 file");
+    expect(
+      buildTimelineWorkSummaryLabel(expectBundleSummaryRow(liveRows[1])),
+    ).toBe("Edited 1 file");
+    const rows = buildTimelineViewRows([
+      ...input,
+      assistantRow({ id: "response", sourceSeqStart: 6 }),
+    ]);
+    const summary = expectStepSummaryRow(rows[0]);
+    expect(summary.children.map((row) => row.id)).toEqual(
+      input.map((row) => row.id),
+    );
+    expect(buildTimelineWorkSummaryLabel(summary)).toBe(
+      "Explored 1 file, edited 1 file",
+    );
+    expect(rows[1]?.id).toBe("response");
+  });
+
+  it("bundles live exploration across thoughts without counting them as work", () => {
+    const input = [
+      thought("before", 1),
+      commandRowReadingPaths(["a.ts"], 2),
+      thought("between", 3),
+      commandRowReadingPaths(["b.ts"], 4),
+      thought("after", 5),
+    ];
+    const rows = buildTimelineViewRows(input);
+    expect(rows).toHaveLength(1);
+    const summary = expectBundleSummaryRow(rows[0]);
+    expect(summary.children.map((row) => row.id)).toEqual(
+      input.map((row) => row.id),
+    );
+    expect(buildTimelineWorkSummaryLabel(summary)).toBe("Explored 2 files");
+  });
+
+  it("leaves thought-only sequences visible and does not cross warnings or messages", () => {
+    const first = thought("first", 1);
+    const second = thought("second", 2);
+    expect(
+      buildTimelineViewRows([first, second], { closedScope: true }),
+    ).toEqual([first, second]);
+    expect(buildTimelineViewRows([first, second])).toEqual([first, second]);
+    const warning: TimelineSystemRow = {
+      ...first,
+      id: "warning",
+      systemKind: "operation",
+      operationKind: "warning",
+    };
+    const rows = buildTimelineViewRows([
+      commandRowReadingPaths(["a.ts"], 0),
+      first,
+      warning,
+      commandRowReadingPaths(["b.ts"], 3),
+      second,
+      assistantRow({ id: "response", sourceSeqStart: 4 }),
+      commandRowReadingPaths(["c.ts"], 5),
+    ]);
+    expect(rows.map((row) => row.kind)).toEqual([
+      "bundle-summary",
+      "system",
+      "step-summary",
+      "conversation",
+      "work",
+    ]);
+    expect(rows[1]?.id).toBe("warning");
+  });
+});

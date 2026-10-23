@@ -1,0 +1,433 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CompactSecondaryPanelShelf } from "./CompactSecondaryPanelShelf";
+import { MobilePanelTabPager } from "./MobilePanelTabPager";
+import { APP_OVERLAY_LAYER } from "@/components/ui/app-overlay-layers";
+import {
+  getCompactSecondaryPanelPresentation,
+  isCompactSecondaryPanelSwipeOpening,
+} from "@/components/ui/secondary-panel-shelf-visibility";
+
+function createTouch(clientX: number, clientY: number): Touch {
+  return { identifier: 1, clientX, clientY } as Touch;
+}
+
+function createTouchList(...touches: Touch[]): TouchList {
+  const touchList = {
+    length: touches.length,
+    item: (index: number) => touches[index] ?? null,
+  };
+  touches.forEach((touch, index) => {
+    Object.defineProperty(touchList, index, { value: touch });
+  });
+  return touchList as unknown as TouchList;
+}
+
+function fireTouch(
+  target: Element | Window,
+  type: "touchstart" | "touchmove" | "touchend",
+  touch: Touch,
+) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    touches: {
+      value: type === "touchend" ? createTouchList() : createTouchList(touch),
+    },
+    changedTouches: { value: createTouchList(touch) },
+  });
+  fireEvent(target, event);
+}
+
+afterEach(() => {
+  cleanup();
+  window.getSelection()?.removeAllRanges();
+  vi.restoreAllMocks();
+});
+
+function renderShelf(open: boolean, onClose = vi.fn()) {
+  const view = render(
+    <CompactSecondaryPanelShelf
+      open={open}
+      onClose={onClose}
+      srLabel="Right panel"
+    >
+      <div data-testid="panel-body" />
+    </CompactSecondaryPanelShelf>,
+  );
+  return { ...view, onClose };
+}
+
+describe("CompactSecondaryPanelShelf", () => {
+  it("keeps portaled panel controls inside the device safe area", () => {
+    renderShelf(true);
+
+    const shelf = screen.getByTestId("secondary-panel-shelf");
+    expect(shelf.className).toContain("pt-[env(safe-area-inset-top)]");
+    expect(shelf.className).toContain("pr-[env(safe-area-inset-right)]");
+    expect(shelf.className).toContain(
+      "pb-[var(--bb-safe-area-bottom,env(safe-area-inset-bottom))]",
+    );
+    expect(shelf.className).toContain("pl-[env(safe-area-inset-left)]");
+  });
+
+  it("stacks the full page panel above app chrome and below shared overlays", () => {
+    renderShelf(true);
+
+    const shelf = screen.getByTestId("secondary-panel-shelf");
+    expect(shelf.style.zIndex).toBe(
+      String(APP_OVERLAY_LAYER.secondaryPanelFullPage),
+    );
+    expect(APP_OVERLAY_LAYER.secondaryPanelFullPage).toBeGreaterThan(
+      APP_OVERLAY_LAYER.sidebarTrigger,
+    );
+    expect(APP_OVERLAY_LAYER.sharedPortaledOverlay).toBeGreaterThan(
+      APP_OVERLAY_LAYER.secondaryPanelFullPage,
+    );
+  });
+
+  it("opens from a leftward swipe on the main content and snaps back from a short one", () => {
+    vi.useFakeTimers();
+    try {
+      const onOpen = vi.fn();
+      Object.defineProperty(document.documentElement, "clientWidth", {
+        configurable: true,
+        value: 400,
+      });
+      render(
+        <>
+          <main data-sidebar="inset">
+            <div data-testid="main-body" />
+            <textarea data-testid="composer" />
+          </main>
+          <CompactSecondaryPanelShelf
+            open={false}
+            onClose={vi.fn()}
+            onOpen={onOpen}
+            srLabel="Right panel"
+          >
+            <div data-testid="panel-body" />
+          </CompactSecondaryPanelShelf>
+        </>,
+      );
+      const inset = document.querySelector<HTMLElement>(
+        '[data-sidebar="inset"]',
+      );
+      if (inset === null) throw new Error("missing inset");
+      const shelf = screen.getByTestId("secondary-panel-shelf");
+      const body = screen.getByTestId("main-body");
+
+      fireTouch(body, "touchstart", createTouch(300, 160));
+      fireTouch(window, "touchmove", createTouch(260, 162));
+      expect(Number.parseFloat(inset.style.translate)).toBeCloseTo(-40);
+      expect(shelf.style.visibility).toBe("visible");
+      fireTouch(window, "touchend", createTouch(260, 162));
+      vi.advanceTimersByTime(250);
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(inset.style.translate).toBe("");
+      expect(shelf.style.visibility).toBe("");
+
+      fireTouch(body, "touchstart", createTouch(100, 160));
+      fireTouch(window, "touchmove", createTouch(300, 162));
+      fireTouch(window, "touchend", createTouch(300, 162));
+      vi.advanceTimersByTime(250);
+      expect(onOpen).not.toHaveBeenCalled();
+
+      inset.setAttribute("data-sidebar-shelf", "open");
+      fireTouch(body, "touchstart", createTouch(300, 160));
+      fireTouch(window, "touchmove", createTouch(100, 162));
+      expect(inset.style.translate).toBe("");
+      fireTouch(window, "touchend", createTouch(100, 162));
+      vi.advanceTimersByTime(250);
+      expect(onOpen).not.toHaveBeenCalled();
+      inset.removeAttribute("data-sidebar-shelf");
+
+      const composer = screen.getByTestId("composer");
+      fireTouch(composer, "touchstart", createTouch(300, 160));
+      fireTouch(window, "touchmove", createTouch(100, 162));
+      fireTouch(window, "touchend", createTouch(100, 162));
+      vi.advanceTimersByTime(250);
+      expect(onOpen).not.toHaveBeenCalled();
+
+      fireTouch(body, "touchstart", createTouch(300, 160));
+      fireTouch(window, "touchmove", createTouch(100, 162));
+      expect(Number.parseFloat(inset.style.translate)).toBeCloseTo(-200);
+      expect(isCompactSecondaryPanelSwipeOpening()).toBe(true);
+      fireTouch(window, "touchend", createTouch(100, 162));
+      expect(onOpen).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(250);
+      expect(onOpen).toHaveBeenCalledOnce();
+      expect(isCompactSecondaryPanelSwipeOpening()).toBe(false);
+      expect(inset.style.translate).toBe("");
+      expect(shelf.style.visibility).toBe("");
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+      Reflect.deleteProperty(document.documentElement, "clientWidth");
+    }
+  });
+
+  it("navigates tab swipes without dismissing while preserving body dismissal", () => {
+    const onClose = vi.fn();
+    const tabs = ["README.md", "package.json", "AGENTS.md"].map((label) => ({
+      id: label,
+      label,
+      ariaLabel: label,
+      leadingVisual: null,
+      onSelect: vi.fn(),
+      onClose: null,
+    }));
+    render(
+      <CompactSecondaryPanelShelf open onClose={onClose} srLabel="Right panel">
+        <MobilePanelTabPager
+          activeTabId="package.json"
+          fixedTabs={[]}
+          tabs={tabs}
+          newTabControl={null}
+        />
+        <div data-testid="panel-body" />
+      </CompactSecondaryPanelShelf>,
+    );
+    const shelf = screen.getByTestId("secondary-panel-shelf");
+    Object.defineProperty(shelf, "clientWidth", { value: 390 });
+    const tab = screen.getByRole("button", { name: "package.json" });
+
+    for (const endX of [280, 40]) {
+      fireTouch(tab, "touchstart", createTouch(160, 20));
+      fireTouch(tab, "touchmove", createTouch(endX, 20));
+      fireTouch(tab, "touchend", createTouch(endX, 20));
+      expect(onClose).not.toHaveBeenCalled();
+    }
+    expect(tabs[0].onSelect).toHaveBeenCalledOnce();
+    expect(tabs[2].onSelect).toHaveBeenCalledOnce();
+
+    const body = screen.getByTestId("panel-body");
+    fireTouch(body, "touchstart", createTouch(60, 160));
+    fireTouch(body, "touchmove", createTouch(240, 164));
+    fireTouch(body, "touchend", createTouch(240, 164));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it.each(["before touch", "after long press"])(
+    "preserves text selection established %s instead of dismissing",
+    (timing) => {
+      const { onClose } = renderShelf(true);
+      const shelf = screen.getByTestId("secondary-panel-shelf");
+      const body = screen.getByTestId("panel-body");
+      body.textContent = "Select this preview text";
+      Object.defineProperty(shelf, "clientWidth", { value: 300 });
+      const selectText = () => {
+        const range = document.createRange();
+        range.selectNodeContents(body);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
+        expect(document.getSelection()?.toString()).toBe(
+          "Select this preview text",
+        );
+      };
+
+      if (timing === "before touch") selectText();
+      fireTouch(body, "touchstart", createTouch(60, 160));
+      if (timing === "after long press") selectText();
+      fireTouch(window, "touchmove", createTouch(240, 164));
+      fireTouch(window, "touchend", createTouch(240, 164));
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(window.getSelection()?.toString()).toBe(
+        "Select this preview text",
+      );
+
+      window.getSelection()?.removeAllRanges();
+      fireTouch(body, "touchstart", createTouch(60, 160));
+      fireTouch(window, "touchmove", createTouch(240, 164));
+      fireTouch(window, "touchend", createTouch(240, 164));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("clears only its selected text on close so reopening restores swiping", () => {
+    const onClose = vi.fn();
+    const view = (open: boolean) => (
+      <>
+        <div data-testid="outside-selection">Outside selection</div>
+        <CompactSecondaryPanelShelf
+          open={open}
+          onClose={onClose}
+          srLabel="Right panel"
+        >
+          <div data-testid="panel-body">Preview selection</div>
+        </CompactSecondaryPanelShelf>
+      </>
+    );
+    const selectContents = (element: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+    };
+    const { rerender } = render(view(true));
+
+    selectContents(screen.getByTestId("outside-selection"));
+    rerender(view(false));
+    expect(window.getSelection()?.toString()).toBe("Outside selection");
+
+    rerender(view(true));
+    const shelf = screen.getByTestId("secondary-panel-shelf");
+    Object.defineProperty(shelf, "clientWidth", { value: 300 });
+    selectContents(screen.getByTestId("panel-body"));
+    rerender(view(false));
+    expect(window.getSelection()?.isCollapsed).toBe(true);
+
+    rerender(view(true));
+    fireTouch(shelf, "touchstart", createTouch(60, 160));
+    fireTouch(window, "touchmove", createTouch(240, 164));
+    fireTouch(window, "touchend", createTouch(240, 164));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a closing swipe from the left browser edge", () => {
+    const { onClose } = renderShelf(true);
+    const shelf = screen.getByTestId("secondary-panel-shelf");
+    Object.defineProperty(shelf, "clientWidth", { value: 300 });
+
+    fireTouch(shelf, "touchstart", createTouch(12, 160));
+    fireTouch(window, "touchmove", createTouch(180, 164));
+    fireTouch(window, "touchend", createTouch(180, 164));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("hides the closed shelf so it cannot cover the sidebar shelf", () => {
+    renderShelf(false);
+
+    const shelf = screen.getByTestId("secondary-panel-shelf");
+    expect(shelf.dataset.state).toBe("closed");
+    expect(shelf.style.zIndex).toBe(String(APP_OVERLAY_LAYER.secondaryPanel));
+    expect(shelf.className).toContain("data-[state=closed]:invisible");
+    expect(shelf.className).toContain(
+      "data-[state=closed]:[transition:visibility_0s_linear_220ms]",
+    );
+    expect(shelf.className).toContain("motion-reduce:transition-none!");
+  });
+
+  it("marks the shelf inert while closed and interactive while open", () => {
+    const { rerender } = renderShelf(false);
+    expect(
+      screen.getByTestId("secondary-panel-shelf").hasAttribute("inert"),
+    ).toBe(true);
+
+    rerender(
+      <CompactSecondaryPanelShelf open onClose={vi.fn()} srLabel="Right panel">
+        <div data-testid="panel-body" />
+      </CompactSecondaryPanelShelf>,
+    );
+    expect(
+      screen.getByTestId("secondary-panel-shelf").hasAttribute("inert"),
+    ).toBe(false);
+  });
+
+  it("publishes the presentation so the page knows when to move aside", () => {
+    const { rerender, unmount } = renderShelf(true);
+    expect(getCompactSecondaryPanelPresentation()).toBe("full");
+
+    rerender(
+      <CompactSecondaryPanelShelf
+        open={false}
+        onClose={vi.fn()}
+        srLabel="Right panel"
+      >
+        <div data-testid="panel-body" />
+      </CompactSecondaryPanelShelf>,
+    );
+    expect(getCompactSecondaryPanelPresentation()).toBe("closed");
+
+    rerender(
+      <CompactSecondaryPanelShelf open onClose={vi.fn()} srLabel="Right panel">
+        <div data-testid="panel-body" />
+      </CompactSecondaryPanelShelf>,
+    );
+    expect(getCompactSecondaryPanelPresentation()).toBe("full");
+
+    unmount();
+    expect(getCompactSecondaryPanelPresentation()).toBe("closed");
+  });
+
+  it("closes on Escape only while open", () => {
+    const { onClose, rerender } = renderShelf(false);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+
+    rerender(
+      <CompactSecondaryPanelShelf open onClose={onClose} srLabel="Right panel">
+        <div data-testid="panel-body" />
+      </CompactSecondaryPanelShelf>,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("contains focus, yields to nested overlays, and restores the trigger", () => {
+    function FocusShelf() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open right panel
+          </button>
+          <CompactSecondaryPanelShelf
+            open={open}
+            onClose={() => setOpen(false)}
+            srLabel="Right panel"
+          >
+            <button type="button">First action</button>
+            <button type="button">Last action</button>
+          </CompactSecondaryPanelShelf>
+        </>
+      );
+    }
+
+    render(<FocusShelf />);
+    const trigger = screen.getByRole("button", { name: "Open right panel" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const shelf = screen.getByRole("dialog", { name: "Right panel" });
+    expect(document.activeElement).toBe(shelf);
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "First action" }),
+    );
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Last action" }),
+    );
+
+    const nestedAction = document.createElement("button");
+    nestedAction.setAttribute("data-bb-portaled-overlay", "");
+    nestedAction.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") event.preventDefault();
+    });
+    document.body.appendChild(nestedAction);
+    nestedAction.focus();
+    fireEvent.keyDown(nestedAction, { key: "Tab" });
+    expect(document.activeElement).toBe(nestedAction);
+    fireEvent.keyDown(nestedAction, { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "Right panel" })).not.toBeNull();
+    nestedAction.remove();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(shelf.getAttribute("data-state")).toBe("closed");
+    expect(shelf.hasAttribute("inert")).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("renders outside the transformed page so it does not slide with it", () => {
+    renderShelf(true);
+
+    const shelf = screen.getByTestId("secondary-panel-shelf");
+    expect(shelf.closest('[data-sidebar="inset"]')).toBeNull();
+    expect(shelf.parentElement).toBe(document.body);
+  });
+});

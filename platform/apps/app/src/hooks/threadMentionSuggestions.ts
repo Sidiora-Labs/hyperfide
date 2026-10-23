@@ -1,0 +1,245 @@
+import { fuzzyMatchText } from "@bb/fuzzy-match";
+import { PERSONAL_PROJECT_ID, type Thread } from "@bb/domain";
+import type {
+  PromptMentionSuggestion,
+  ThreadMentionRelation,
+} from "@bb/client-core";
+import { compareCodepoint, mentionIdentityMatchRank } from "@bb/client-core";
+
+type ThreadMentionSuggestion = Extract<
+  PromptMentionSuggestion,
+  { kind: "thread" }
+>;
+
+interface BuildThreadMentionSuggestionsArgs {
+  threads: readonly Thread[];
+  query: string;
+  currentProjectId?: string;
+  currentThreadId?: string;
+  currentEnvironmentId: string | null;
+  projectNamesById: ReadonlyMap<string, string>;
+  limit: number;
+  resolveTitle: (title: string) => string;
+}
+
+interface RankedThreadMentionSuggestion {
+  suggestion: ThreadMentionSuggestion;
+  matchRank: number;
+  relationRank: number;
+  score: number;
+  activityAt: number;
+}
+
+interface ThreadMentionContext {
+  currentParentThreadId: string | null;
+  currentProjectId?: string;
+  currentThreadId?: string;
+  currentEnvironmentId: string | null;
+}
+
+const THREAD_RELATION_RANK = {
+  directParentOrChild: 0,
+  sameParent: 1,
+  sameEnvironment: 2,
+  sameProject: 3,
+  unrelated: 4,
+};
+
+function getThreadDisplayTitle(thread: Thread): string | undefined {
+  const title = thread.title?.trim();
+  if (title) {
+    return title;
+  }
+
+  const titleFallback = thread.titleFallback?.trim();
+  return titleFallback || undefined;
+}
+
+function getThreadSearchText(thread: Thread): string {
+  const title = getThreadDisplayTitle(thread);
+  return title ?? thread.id;
+}
+
+function canSuggestThread(
+  thread: Thread,
+  args: BuildThreadMentionSuggestionsArgs,
+): boolean {
+  return thread.id !== args.currentThreadId && thread.visibility !== "hidden";
+}
+
+function shouldShowProjectName(
+  thread: Thread,
+  context: ThreadMentionContext,
+): boolean {
+  if (thread.projectId === PERSONAL_PROJECT_ID) {
+    return false;
+  }
+
+  return (
+    context.currentProjectId === undefined ||
+    thread.projectId !== context.currentProjectId
+  );
+}
+
+function toThreadMentionSuggestion(
+  thread: Thread,
+  context: ThreadMentionContext,
+  projectNamesById: ReadonlyMap<string, string>,
+): ThreadMentionSuggestion {
+  const projectName = shouldShowProjectName(thread, context)
+    ? projectNamesById.get(thread.projectId)
+    : undefined;
+  return {
+    kind: "thread",
+    path: `thread:${thread.id}`,
+    replacement: `thread:${thread.id}`,
+    projectId: thread.projectId,
+    ...(projectName ? { projectName } : {}),
+    threadId: thread.id,
+    title: getThreadDisplayTitle(thread),
+    relation: getThreadMentionRelation(thread, context),
+  };
+}
+
+function getThreadMentionContext(
+  args: BuildThreadMentionSuggestionsArgs,
+): ThreadMentionContext {
+  const currentThread = args.currentThreadId
+    ? args.threads.find((thread) => thread.id === args.currentThreadId)
+    : undefined;
+
+  return {
+    currentParentThreadId: currentThread?.parentThreadId ?? null,
+    currentProjectId: args.currentProjectId ?? currentThread?.projectId,
+    currentThreadId: args.currentThreadId,
+    currentEnvironmentId:
+      args.currentEnvironmentId ?? currentThread?.environmentId ?? null,
+  };
+}
+
+function getThreadMentionRelation(
+  thread: Thread,
+  context: ThreadMentionContext,
+): ThreadMentionRelation | null {
+  if (
+    context.currentParentThreadId !== null &&
+    thread.id === context.currentParentThreadId
+  ) {
+    return "parent";
+  }
+  if (
+    context.currentThreadId !== undefined &&
+    thread.parentThreadId === context.currentThreadId
+  ) {
+    return "child";
+  }
+  if (
+    context.currentParentThreadId !== null &&
+    thread.parentThreadId === context.currentParentThreadId
+  ) {
+    return "same-parent";
+  }
+  if (
+    context.currentEnvironmentId !== null &&
+    thread.environmentId === context.currentEnvironmentId
+  ) {
+    return "same-environment";
+  }
+  return null;
+}
+
+function getThreadRelationRank(
+  thread: Thread,
+  context: ThreadMentionContext,
+  relation: ThreadMentionRelation | null,
+): number {
+  if (relation === "parent" || relation === "child") {
+    return THREAD_RELATION_RANK.directParentOrChild;
+  }
+  if (relation === "same-parent") {
+    return THREAD_RELATION_RANK.sameParent;
+  }
+  if (relation === "same-environment") {
+    return THREAD_RELATION_RANK.sameEnvironment;
+  }
+  if (
+    context.currentProjectId !== undefined &&
+    thread.projectId === context.currentProjectId
+  ) {
+    return THREAD_RELATION_RANK.sameProject;
+  }
+  return THREAD_RELATION_RANK.unrelated;
+}
+
+function compareRankedThreadMentionSuggestions(
+  left: RankedThreadMentionSuggestion,
+  right: RankedThreadMentionSuggestion,
+): number {
+  if (left.matchRank !== right.matchRank) {
+    return left.matchRank - right.matchRank;
+  }
+  if (left.relationRank !== right.relationRank) {
+    return left.relationRank - right.relationRank;
+  }
+  if (left.score !== right.score) {
+    return right.score - left.score;
+  }
+  if (left.activityAt !== right.activityAt) {
+    return right.activityAt - left.activityAt;
+  }
+  return compareCodepoint(left.suggestion.threadId, right.suggestion.threadId);
+}
+
+export function buildThreadMentionSuggestions(
+  args: BuildThreadMentionSuggestionsArgs,
+): ThreadMentionSuggestion[] {
+  const trimmedQuery = args.query.trim();
+  if (trimmedQuery.length === 0 || args.limit <= 0) {
+    return [];
+  }
+
+  const candidateThreads = args.threads.filter((thread) =>
+    canSuggestThread(thread, args),
+  );
+  const context = getThreadMentionContext(args);
+  const matches = fuzzyMatchText({
+    items: candidateThreads,
+    query: trimmedQuery,
+    getText: getThreadSearchText,
+    getAliases: (thread) => {
+      const title = getThreadDisplayTitle(thread);
+      const resolvedTitle =
+        title === undefined ? undefined : args.resolveTitle(title);
+      return resolvedTitle === undefined || resolvedTitle === title
+        ? [thread.id]
+        : [thread.id, resolvedTitle];
+    },
+    limit: candidateThreads.length,
+  });
+
+  return matches
+    .map<RankedThreadMentionSuggestion>((match) => {
+      const suggestion = toThreadMentionSuggestion(
+        match.item,
+        context,
+        args.projectNamesById,
+      );
+      return {
+        suggestion,
+        matchRank: mentionIdentityMatchRank(
+          [suggestion.title ?? suggestion.threadId, suggestion.threadId],
+          trimmedQuery,
+        ),
+        relationRank: getThreadRelationRank(
+          match.item,
+          context,
+          suggestion.relation,
+        ),
+        score: match.score,
+        activityAt: match.item.updatedAt,
+      };
+    })
+    .sort(compareRankedThreadMentionSuggestions)
+    .slice(0, args.limit)
+    .map((match) => match.suggestion);
+}
