@@ -1,3 +1,4 @@
+import { openQualifyStorage, publicationStore } from './storage';
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
@@ -53,7 +54,23 @@ const identifier = (value: string) => {
 
 export class WavePublication {
   private busy = false;
-  constructor(private host: PublicationHost) {}
+  constructor(private host: PublicationHost) {
+    const previous = host.store;
+    const use = async <T>(fn: (store: PublicationStore) => Promise<T>) => {
+      const storage = await openQualifyStorage(host.repository);
+      try { return await fn(publicationStore(storage)); } finally { storage.close(); }
+    };
+    this.host = Object.assign(Object.create(host) as PublicationHost, { store: {
+      get: (key: string) => use(async store => {
+        const saved = await store.get(key);
+        if (saved) return saved;
+        const old = await previous.get(key);
+        if (old) await store.put(key, old);
+        return old;
+      }),
+      put: (key: string, value: Publication) => use(store => store.put(key, value)),
+    }});
+  }
   private async git(...args: string[]) {
     return (
       await exec(

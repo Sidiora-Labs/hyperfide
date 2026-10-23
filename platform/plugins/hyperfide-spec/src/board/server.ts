@@ -1,3 +1,5 @@
+import { openSpecStorage } from '../storage.js';
+import type { PluginStorage } from '@hyperfide/authority';
 import { execFile } from 'node:child_process';
 import type { BoardAction, BoardRpc, Task } from './read-model-projection';
 
@@ -11,9 +13,17 @@ const run: CommandRunner = (binary, args, cwd) => new Promise((resolve, reject) 
 
 // Repository and binary are server configuration, never client supplied paths.
 export function createBoardServer(repository: string, readTasks: BoardRpc['tasks'],
-  binary = 'hyperfide', execute: CommandRunner = run): BoardRpc {
+  binary = 'hyperfide', execute: CommandRunner = run, suppliedStorage?: PluginStorage): BoardRpc {
+  const tasks = async (feature: string) => {
+    const storage = suppliedStorage ?? await openSpecStorage(repository);
+    try {
+      const rows = await readTasks(feature);
+      await storage.put('board:' + feature, rows);
+      return rows;
+    } finally { if (!suppliedStorage) storage.close(); }
+  };
   return {
-    tasks: readTasks,
+    tasks,
     async action(feature: string, id: string, action: BoardAction) {
       if (action !== 'start' && action !== 'implemented') throw new Error('Unsupported board action');
       if (!/^[a-zA-Z0-9_.-]+$/.test(feature) || !/^[a-zA-Z0-9_.-]+$/.test(id)) {
