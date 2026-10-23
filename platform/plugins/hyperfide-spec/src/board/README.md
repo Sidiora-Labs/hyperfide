@@ -7,11 +7,12 @@ before rendering. The host supplies the initial model and transports `BoardRpc`
 to `createBoardServer` in the server process; repository and binary paths are
 server configuration. The app module has no Node imports.
 
-The package manifest registers `plugin-app.ts` and `host.ts`; the shared
-`read-model-server.ts` entry registers the read model and the board RPC routes.
-The Board navigation panel loads the selected host, repository and feature through
-SDK RPC. The server routes reads and actions to that host, where `SpecReader`
-loads the real shared model. The host finds the latest receipt in the repository's
+The package manifest registers `plugin-app.ts`; the shared
+`read-model-server.ts` entry registers the read model and board RPC routes.
+The Board navigation panel loads the selected repository and feature through
+SDK RPC. The server accepts repositories configured for the read model and runs
+reads, actions, storage and memory access in the platform server process.
+No host process is required. The server finds the latest receipt in the repository's
 task artifacts. Receipt URLs are relative to the repository;
 only HTTP(S) and relative paths are rendered as links. A missing requirement
 blocks requires-satisfied just as an unfinished requirement does.
