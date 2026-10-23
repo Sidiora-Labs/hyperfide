@@ -545,6 +545,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/9.3/2",
+      "task": "9.3",
+      "commit": "59838d60c388658c56c8068ad06173a7f620afef",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/9.4/1",
       "task": "9.4",
       "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",

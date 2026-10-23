@@ -1349,7 +1349,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.9.3]
 title = "Track Railway durable sessions, logs and process termination"
-status = "pending"
+status = "done"
 wave = 16
 requires = ["9.2", "12.2", "15.2"]
 touches = ["services/hyperfide/src/providers/railway/processes.ts", "tests/hyperfide/manifests/tasks/9.3.json", "tests/hyperfide/cases/tasks/9_3.py", "tests/hyperfide/registrations/9.3.json", "services/hyperfide/components/9.3.json"]
