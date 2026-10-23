@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Disposable fleet qualification fixture.
 
-FLEET_PROJECTION is the removable local interface for unmerged tasks 5.3-5.6.
-It uses local Git repositories as fake machines; no cloud or model is contacted.
+The fleet scenario drives the dispatch plugin with its fake machine provider
+and echo runner, using local Git repositories without cloud or model traffic.
 
 ASKS_PROJECTION is the removable Ask plugin boundary for unmerged tasks 3.1-3.4
 (task 3.5): threads, provider execution, interrupts, transcripts, Ask
@@ -43,8 +43,8 @@ def run_fleet():
     if not tsx.is_file():
         raise PlatformBuildAbsent('platform dependencies absent; run pnpm -C platform install')
     with tempfile.TemporaryDirectory(prefix='hyperfide-fleet-') as directory:
-        entry = Path(directory) / 'fleet-projection.mts'
-        entry.write_text(FLEET_PROJECTION)
+        entry = Path(directory) / 'fleet-scenario.mts'
+        entry.write_text(FLEET_SCENARIO)
         result = subprocess.run([str(tsx), str(entry), directory], cwd=ROOT,
                                 capture_output=True, text=True, timeout=120)
         if result.returncode:
@@ -52,110 +52,142 @@ def run_fleet():
         return json.loads(result.stdout)
 
 
-FLEET_PROJECTION = r'''
-import {execFileSync, spawn} from 'node:child_process';
+FLEET_SCENARIO = r'''
+import {execFileSync} from 'node:child_process';
 import {mkdirSync, writeFileSync, readFileSync} from 'node:fs';
 import {join} from 'node:path';
-const root = process.argv[2];
-const repo = join(root, 'integration');
-const git = (cwd, ...args) => execFileSync('git', args, {cwd, encoding:'utf8',
-  env:{...process.env, GIT_CONFIG_NOSYSTEM:'1', GIT_CONFIG_GLOBAL:'/dev/null'}}).trim();
-const identity = cwd => {git(cwd,'config','user.name','Hyperfide fixture'); git(cwd,'config','user.email','fixture@hyperfide.test');};
+import {pathToFileURL} from 'node:url';
+const source = join(process.cwd(), 'platform/plugins/hyperfide-dispatch/src');
+const load = path => import(pathToFileURL(join(source, path)).href);
+const {ImageBuilder} = await load('image-builder/builder.ts');
+const {Dispatcher} = await load('dispatcher/dispatcher.ts');
+const {IntegrationQueue} = await load('integrate/queue.ts');
+const {registerFleetRpc} = await load('fleet-view/rpc.ts');
+const {FakeMachineProvider} = await load('testing/fake-machine.ts');
+const {EchoRunner} = await load('testing/echo-runner.ts');
+const root = process.argv[2], repo = join(root, 'integration');
+const git = (cwd, ...args) => execFileSync('git', args, {cwd, encoding:'utf8', stdio:['ignore','pipe','pipe']}).trim();
 mkdirSync(repo);
-git(repo,'init','-b','main'); identity(repo);
+git(repo,'init','-b','main');
+git(repo,'config','user.name','Hyperfide fixture');
+git(repo,'config','user.email','fixture@hyperfide.test');
 mkdirSync(join(repo,'spec/fleet'),{recursive:true});
-const spec = ['A','B','C'].map(id => `[task.${id}]\nstatus = "pending"\nrequires = ${id === 'A' ? '[]' : '["A"]'}\n`).join('\n');
-writeFileSync(join(repo,'spec/fleet/spec.kvx'),spec);
-git(repo,'add','.'); git(repo,'commit','-m','Create fleet spec');
+writeFileSync(join(repo,'spec/workflow.kvx'),'[meta]\nactive_feature = "fleet"\n');
+writeFileSync(join(repo,'spec/fleet/spec.kvx'), ['A','B','C'].map(id =>
+  `[task.${id}]\ntitle = "Echo ${id}"\nstatus = "pending"\nwave = ${id==='A'?1:2}\nrequires = ${id==='A'?'[]':'["A"]'}\ntouches = ["result-${id}.txt"]\nverify_cmd = "git diff --check"\n\n`).join(''));
+git(repo,'add','.');git(repo,'commit','-m','Create fleet spec');
 const initial = git(repo,'rev-parse','HEAD');
-const machines = [], events = [], ledgers = [];
-let tick = 0, active = 0, peak = 0;
-const cap = 2, keys = ['fixture-key-1', 'fixture-key-2'], leasedKeys = new Set();
-const event = (job,state) => {const item={task:job.task,state,sequence:++tick}; events.push(item); job.timeline.push(item); job.state=state;};
-class FakeMachineProvider {
-  create(checkpoint) {
-    const machine={id:`machine-${machines.length+1}`,provider:'fake',state:'running',checkpoint,path:join(root,`machine-${machines.length+1}`)};
-    mkdirSync(machine.path); machines.push(machine); return machine;
-  }
-  upload(machine,bundle) {git(machine.path,'clone','-b','main',bundle,'.');identity(machine.path);}
-  destroy(machine) {machine.state='destroyed';}
-}
-const provider = new FakeMachineProvider();
-const storage = join(root,'ledger.json');
-const persist = () => writeFileSync(storage,JSON.stringify(ledgers));
-// The image builder executes local base steps against the uploaded commit bundle.
-const builder=provider.create('parent');
-const baseBundle=join(root,'base.bundle'); git(repo,'bundle','create',baseBundle,'main');
-provider.upload(builder,baseBundle);
-const steps=[];
-for (const name of ['clone','cg','service','platform','index','tools']) {
-  const start=performance.now();
-  if (name === 'clone') git(builder.path,'fsck','--no-dangling');
-  else git(builder.path,'rev-parse','HEAD');
-  steps.push({name,state:'succeeded',duration:performance.now()-start});
-}
-const image={checkpoint:`hf-base-${initial.slice(0,10)}`,commit:initial,steps};
-provider.destroy(builder);
-writeFileSync(join(root,'image.json'),JSON.stringify(image));
-const statuses=()=>Object.fromEntries([...readFileSync(join(repo,'spec/fleet/spec.kvx'),'utf8').matchAll(/\[task\.(\w+)\]\nstatus = "(\w+)"/g)].map(m=>[m[1],m[2]]));
-const echoRunner = async (machine,job) => {
-  // Actual child processes overlap; the barrier below makes parallelism observable.
-  const code=`const fs=require('node:fs'); fs.writeFileSync('result-${job.task}.txt','echo ${job.task}\\n');`;
-  await new Promise((resolve,reject)=>{
-    const child=spawn(process.execPath,['-e',code],{cwd:machine.path,stdio:'pipe'});
-    child.on('error',reject); child.on('close',code=>code===0?resolve():reject(Error('echo runner failed')));
-  });
-  const path=join(machine.path,'spec/fleet/spec.kvx');
-  writeFileSync(path,readFileSync(path,'utf8').replace(`[task.${job.task}]\nstatus = "pending"`,`[task.${job.task}]\nstatus = "implemented"`));
-  git(machine.path,'add','.');git(machine.path,'commit','-m',`Implement ${job.task}`);
-  job.workerCommit=git(machine.path,'rev-parse','HEAD');
+git(repo,'checkout','--detach');
+const machines = new FakeMachineProvider();
+machines.checkpoints.set('parent', new Map());
+const fleetPath = join(root,'fleet.json');
+const names = ['clone','cg','service','platform','index','tools'];
+writeFileSync(fleetPath,JSON.stringify({checkpoint:'parent',workspace:'/workspace',shellPrefix:'',
+  base:{steps:names.map(name=>[name,`git rev-parse HEAD # ${name}`,30])}}));
+const builds = new Map();
+const builder = new ImageBuilder({machines,repository:repo,fleetPath,
+  storage:{set:async(key,value)=>builds.set(key,structuredClone(value))}});
+const built = await builder.wait((await builder.start(initial)).id);
+if(built.status!=='succeeded') throw Error(JSON.stringify(built));
+const storedBuild = builds.get(`image-build/${built.id}`);
+if(JSON.stringify(storedBuild)!==JSON.stringify(built)) throw Error('Image ledger differs from completed build');
+const image = {...storedBuild,steps:storedBuild.steps.map(s=>({name:s.name,state:s.status,duration:s.ms}))};
+const statuses = () => Object.fromEntries([...git(repo,'show','main:spec/fleet/spec.kvx')
+  .matchAll(/\[task\.(\w+)\]\ntitle = .*\nstatus = "(\w+)"/g)].map(m=>[m[1],m[2]]));
+const ledgers=[], claimed=new Set();
+let sequence=0, active=0, peak=0, expected=1, entered=0, release;
+let barrier=new Promise(resolve=>release=resolve);
+const event=(job,state)=>{job.state=state;job.timeline.push({task:job.task,state,sequence:++sequence});};
+// The fake provider owns machine lifetime and uploads. This transport adapter
+// materializes its bundle bytes as real local Git checkouts for the echo worker.
+const create=machines.create.bind(machines);
+machines.create=async options=>{
+  const machine=await create(options), original=machine.exec.bind(machine);
+  machine.exec=async(command,options)=>{
+    const result=await original(command,options);
+    if(command.startsWith('git fetch')) {
+      const directory=join(root,machine.id);mkdirSync(directory);
+      const bundle=join(root,machine.id+'.bundle');
+      writeFileSync(bundle,await machine.readFile('/tmp/hyperfide-integration.bundle'));
+      git(directory,'clone',bundle,'.');
+      const tip=command.match(/--detach '([^']+)'/)[1];
+      git(directory,'checkout','--detach',tip);
+      git(directory,'config','user.name','Hyperfide fixture');git(directory,'config','user.email','fixture@hyperfide.test');
+      machine.directory=directory;machine.tip=tip;
+    }
+    return result;
+  };
+  return machine;
 };
-async function dispatch(tasks) {
-  if (tasks.length > cap || active + tasks.length > cap) throw Error('concurrency cap exceeded');
-  const tip=git(repo,'rev-parse','HEAD');
-  const bundle=join(root,`input-${tick}.bundle`);git(repo,'bundle','create',bundle,'main');
-  let release; const barrier=new Promise(resolve=>{release=resolve;}); let entered=0;
-  await Promise.all(tasks.map(async task=>{
-    const job={task,state:'created',attempt:1,base:tip,timeline:[],log:[]};ledgers.push(job);event(job,'created');
-    job.key=keys.find(key=>!leasedKeys.has(key));
-    if (!job.key) throw Error('key pool exhausted');
-    leasedKeys.add(job.key);
-    const machine=provider.create(image.checkpoint);job.machine=machine.id;
-    provider.upload(machine,bundle);git(machine.path,'checkout','-b',`worker-${task}`);
-    event(job,'prepared');active++;peak=Math.max(peak,active); event(job,'running');
-    if (++entered===tasks.length) release(); await barrier;
-    try {
-      await echoRunner(machine,job);job.log.push(`echo ${task}`);
-      job.bundle=join(root,`result-${task}.bundle`);git(machine.path,'bundle','create',job.bundle,`worker-${task}`);
-      event(job,'packed');
-    } finally {active--;leasedKeys.delete(job.key);provider.destroy(machine);persist();}
-  }));
+const echo = new EchoRunner();
+const runner={run:async(packet,machine,key)=>{
+  const job={task:packet.task,machine:machine.id,base:machine.tip,key,timeline:[],log:[]};
+  ledgers.push(job);event(job,'created');event(job,'prepared');event(job,'running');
+  active++;peak=Math.max(peak,active);
+  if(++entered===expected) release();
+  await barrier;
+  try {
+    const result=await echo.run(packet,machine,key);
+    const directory=machine.directory;
+    // Execute the deterministic worker in a child process; only the model is fake.
+    execFileSync(process.execPath,['-e',`require('node:fs').writeFileSync('result-${packet.task}.txt',${JSON.stringify(result.stdout+'\n')})`],{cwd:directory});
+    const path=join(directory,'spec/fleet/spec.kvx');
+    writeFileSync(path,readFileSync(path,'utf8').replace(
+      `[task.${packet.task}]\ntitle = "Echo ${packet.task}"\nstatus = "pending"`,
+      `[task.${packet.task}]\ntitle = "Echo ${packet.task}"\nstatus = "implemented"`));
+    git(directory,'checkout','-b','worker-'+packet.task);
+    git(directory,'add','.');git(directory,'commit','-m','Implement '+packet.task);
+    job.workerCommit=git(directory,'rev-parse','HEAD');job.log.push(result.stdout);
+    job.bundle=join(root,'result-'+packet.task+'.bundle');
+    git(directory,'bundle','create',job.bundle,'worker-'+packet.task);event(job,'packed');
+    return {...result,commits:[job.workerCommit]};
+  } finally {active--;}
+}};
+const dispatcher=new Dispatcher({directory:join(root,'dispatch'),machines,runner,cap:2,
+ keys:[{id:'one',value:'fixture-key-1',concurrency:1},{id:'two',value:'fixture-key-2',concurrency:1}],
+ limits:async()=>({global:2,host:2,otherRunning:0}),checkpoint:async()=>built.checkpoint,
+ integration:async()=>{const bundle=join(root,'input.bundle');git(repo,'bundle','create',bundle,'main');return {tip:git(repo,'rev-parse','main'),bundle:readFileSync(bundle)};},
+ packet:async task=>({task,prompt:'echo '+task}),prepare:'git diff --check',
+ spec:{tasks:async()=>Object.entries(statuses()).map(([id,status])=>({id,status,wave:id==='A'?1:2,requires:id==='A'?[]:['A']})),
+ merged:async(id,tip)=>ledgers.some(j=>j.task===id&&j.state==='merged'&&git(repo,'merge-base',j.merge,tip)===j.merge),
+ claim:async id=>{if(claimed.has(id))return false;claimed.add(id);return true;},release:async id=>{claimed.delete(id);}}});
+const queue=new IntegrationQueue(repo,'main',{machines,asks:async()=>[],
+ command:async(command,args,cwd)=>{try {execFileSync(join(process.cwd(),'cg'),args,{cwd,stdio:'pipe'});return {exitCode:0,stderr:''};}catch(e){return {exitCode:e.status,stderr:String(e.stderr)};}},
+ spawnConflictThread:async input=>{throw Error(JSON.stringify(input));}});
+async function dispatch(count){expected=count;entered=0;barrier=new Promise(resolve=>release=resolve);await dispatcher.tick();await dispatcher.drain();}
+async function collect(){
+ for(const job of ledgers.filter(j=>j.state==='packed')){
+  const raw=[...dispatcher.jobs.values()].find(j=>j.task===job.task);
+  const persisted=JSON.parse(readFileSync(join(root,'dispatch',raw.id+'.json'),'utf8'));
+  if(persisted.state!=='succeeded'||persisted.commits[0]!==job.workerCommit)throw Error(JSON.stringify(persisted));
+  job.attempt=persisted.attempt;event(job,'collected');
+  const merged=await queue.enqueue({id:raw.id,feature:'fleet',task:job.task,bundle:job.bundle,ref:'refs/heads/worker-'+job.task});
+  if(merged.status!=='merged')throw Error(JSON.stringify(merged));
+  job.merge=merged.commit;event(job,'merged');
+ }
 }
-function collectAndIntegrate() {
-  for (const job of ledgers.filter(j=>j.state==='packed')) {
-    git(repo,'fetch',job.bundle,`worker-${job.task}:refs/heads/sandbox/${job.task}`);event(job,'collected');
-    git(repo,'merge-tree','--write-tree','HEAD',`sandbox/${job.task}`);
-    git(repo,'merge','--no-ff',`sandbox/${job.task}`,'-m',`Integrate ${job.task} [spec:fleet/${job.task}]`);
-    job.merge=git(repo,'rev-parse','HEAD'); event(job,'merged');persist();
-  }
-}
-const ready=()=>Object.entries(statuses()).filter(([id,state])=>state==='pending' && !ledgers.some(j=>j.task===id) && (id==='A'||ledgers.some(j=>j.task==='A'&&j.state==='merged'))).map(([id])=>id);
-const first=ready();await dispatch(first);
-const beforeCollect=ready();collectAndIntegrate();
-const second=ready();await dispatch(second);
-const parallelSnapshot=JSON.parse(readFileSync(storage,'utf8'));
-collectAndIntegrate();
-// Reload persisted records for the dashboard RPC read model.
-function dashboardRpc(method) {
-  if(method!=='fleet.snapshot') throw Error('unknown RPC');
-  return {machines:machines.map(({path,...m})=>m),jobs:JSON.parse(readFileSync(storage,'utf8')),
-    budget:{cap,inFlight:active,keys:keys.length,backoffUntil:null},image:JSON.parse(readFileSync(join(root,'image.json'),'utf8'))};
-}
-const merges=ledgers.map(j=>({task:j.task,hash:j.merge,message:git(repo,'show','-s','--format=%s',j.merge),
-  parents:git(repo,'show','-s','--format=%P',j.merge).split(' '),worker:j.workerCommit,
-  content:git(repo,'show',`${j.merge}:result-${j.task}.txt`)}));
-console.log(JSON.stringify({interface:'fleet-projection',initial,image,first,beforeCollect,second,peak,
-  ledgers:JSON.parse(readFileSync(storage,'utf8')),parallelSnapshot,merges,statuses:statuses(),dashboard:dashboardRpc('fleet.snapshot')}));
+await dispatcher.start();await dispatch(1);
+const first=ledgers.map(j=>j.task);
+await dispatcher.tick();await dispatcher.drain();
+const beforeCollect=ledgers.filter(j=>!first.includes(j.task)).map(j=>j.task);
+await collect();await dispatch(2);
+const second=ledgers.filter(j=>!first.includes(j.task)).map(j=>j.task);
+// Persist the collected read model separately from the dispatch execution ledger.
+const storage=join(root,'fleet-ledger.json');
+const save=()=>writeFileSync(storage,JSON.stringify(ledgers));
+save();const parallelSnapshot=JSON.parse(readFileSync(storage,'utf8'));
+await collect();save();
+const iso=new Date().toISOString();let handlers;
+registerFleetRpc({rpc:{register:(_contract,value)=>{handlers=value;}}},{readLedger:async()=>({
+ machines:[...machines.machines.values()].map(m=>({id:m.id,provider:'fake',state:m.destroyed?'destroyed':'running',job:null,createdAt:iso})),
+ jobs:JSON.parse(readFileSync(storage,'utf8')).map(j=>({id:j.task,task:j.task,state:j.state,attempt:j.attempt,worker:j.machine,started:iso,finished:iso,log:j.log.join('\n')})),
+ budget:{cap:2,maximum:2,inFlight:active,keys:2,backoffUntil:null,paused:false},
+ timelines:ledgers.map(j=>({task:j.task,events:j.timeline.map(e=>({stage:e.state,at:iso}))}))})});
+const rpc=await handlers.fleetLedger();
+const dashboard={...rpc,jobs:rpc.jobs.map(j=>({...ledgers.find(l=>l.task===j.task),state:j.state,attempt:j.attempt,log:j.log.split('\n')})),
+ budget:{cap:rpc.budget.cap,inFlight:rpc.budget.inFlight,keys:rpc.budget.keys,backoffUntil:rpc.budget.backoffUntil},image};
+const merges=ledgers.map(j=>({task:j.task,hash:j.merge,message:git(repo,'show','-s','--format=%s',j.merge),parents:git(repo,'show','-s','--format=%P',j.merge).split(' '),worker:j.workerCommit,content:git(repo,'show',`${j.merge}:result-${j.task}.txt`)}));
+console.log(JSON.stringify({interface:'hyperfide-dispatch',initial,image,first,beforeCollect,second,peak,ledgers,parallelSnapshot,merges,statuses:statuses(),dashboard,rpc,dispatch:[...dispatcher.jobs.values()],integration:queue.list(),echoCalls:echo.calls}));
 '''
 
 
