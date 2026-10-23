@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "typeRoots": ["../environment-personal-workspace/node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": ["*.ts", "../../packages/bundled-plugins/environment-slices.ts"]
+}
