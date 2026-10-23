@@ -13,6 +13,7 @@ import {exactAgentObject,agentString,agentError,agentDigest,agentTransaction} fr
 import {classifyNativeEvent} from './admission.js';
 import {nativeAskRequests,raiseNativeAsks} from './native_asks.js';
 import type {NativeAskRequest,RaisedNativeAsk} from './native_asks.js';
+import {answeredAsk,answerOperationId,answerText} from '../events/instructions.js';
 
 export interface MainStartupBudget {schema_version:1;host_id:string;pool_id:string;allowance:{cpu_millis:string;memory_bytes:string;agent_slots:string};headroom:{cpu_millis:string;memory_bytes:string}}
 export interface MainHostObservation {cpu_available_millis:string;memory_available_bytes:string;observed_at:string;source:'LINUX_PROCFS_CGROUP'}
@@ -154,6 +155,24 @@ async function sealPlan(ctx:ComponentContext,body:MapValue):Promise<{plan_path:s
 export function createComponent(ctx:ComponentContext):Component{
  const inventory=profiles(ctx);void inventory.catch(()=>{});
  const action=(fn:(v:MapValue,i:InvocationContext)=>Promise<unknown>)=>async(v:unknown,c:ComponentContext)=>{assertInvocation(c.invocation);if(!object(v))agentError('AGENT_INPUT_INVALID');if(!['OPERATOR','COORDINATOR','LEADER'].includes(c.invocation.principal.role))agentError('SUPERVISOR_SCOPE_DENIED');return fn(v,c.invocation);};
+ const sessionInput=(i:InvocationContext,launchId:string,operationId:string,text:string)=>agentTransaction(ctx,i,async tx=>{
+   const row=(await tx.query('SELECT * FROM hyperfide.supervisor_launches WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[i.principal.organisation_id,i.principal.run_id,launchId])).rows[0];
+   if(!row||row.state!=='RUNNING'||!row.native_session_id||!row.process_identity)agentError('SUPERVISOR_NATIVE_ID_PENDING');
+   const p=(await inventory).find(p=>p.profile_id===row.profile_id);if(!p)agentError('SUPERVISOR_MAIN_BUDGET_UNCONFIGURED');
+   const native=ctx.dependencies.require('14.3','identity.native-auth',isNativeAuthAuthority).resolve(p.profile_id);
+   if(native.profile_digest!==row.profile_digest||native.connector!=='claude'||native.qualification.state!=='QUALIFIED'||!native.qualification.live_qualified||!native.qualification.receipt_digest)agentError('SUPERVISOR_NATIVE_UNQUALIFIED');
+   await credentialCurrent(ctx,tx as PrimaryTransaction,i,native);
+   const old=exactAgentObject((row.placement as MapValue).launcher_input,['session_id','leader_generation','package_id','package_generation']);
+   const placement=ctx.dependencies.require('1.1','policy.placement.v1',placementAuthority);
+   const auth=await placement.authorizeSupervisor(tx as PrimaryTransaction,i,{session_id:row.session_id,leader_generation:old.leader_generation,package_id:old.package_id??null,package_generation:old.package_generation??null});
+   if(auth.supervisor_session_id!==row.session_id||auth.host_id!==row.host_id||auth.restriction_profile_digest!==p.restriction_profile_digest||auth.restriction_evidence_digest!==native.qualification.receipt_digest)agentError('SUPERVISOR_RESTRICTION_UNQUALIFIED');
+   await runtimeFiles(p,{session_id:String(row.session_id),run_id:i.principal.run_id});
+   const result=await nativeAdapter(ctx,p,native as unknown as MapValue,'connector.encode',{connector:'claude',operation:'input',native_session_id:row.native_session_id,request_id:operationId,text:text});
+   if(!object(result.frame)||result.replay_safe!==false)agentError('SUPERVISOR_NATIVE_ADAPTER_UNAVAILABLE');
+   const frame=Buffer.from(JSON.stringify(result.frame)+'\n');if(frame.length>65536)agentError('AGENT_INPUT_INVALID');
+   const response=await hostRequest(ctx,{action:'input',launch_id:launchId,operation_id:operationId,process_identity:hostIdentity(row.process_identity),frame_digest:hash(frame),frame_b64:frame.toString('base64')});
+   return {launch_id:launchId,operation_id:operationId,delivery:response.delivery,replayed:response.replayed===true,native_consumption_observed:false,capacity_retained:true,grants_authority:false};
+ });
  return {apiVersion:1,actions:{
  'supervisor.session.describe':action(async(v,_i)=>{exactAgentObject(v,[]);return {schema_version:1,configured_profiles:(await inventory).map(p=>p.profile_id),supported_connector:'claude',codex_restriction_support:'UNQUALIFIED',execution_started:false,grants_authority:false};}),
  'supervisor.session.launch':action(async(input,i)=>{
@@ -265,24 +284,23 @@ export function createComponent(ctx:ComponentContext):Component{
  'supervisor.session.input':action(async(input,i)=>{
   const v=exactAgentObject(input,['launch_id','operation_id','text']);agentString(v.launch_id,'uuid');agentString(v.operation_id,'uuid');
   if(typeof v.text!=='string'||!v.text.length||Buffer.byteLength(v.text)>32768||v.text.includes('\0'))agentError('AGENT_INPUT_INVALID');
-  return agentTransaction(ctx,i,async tx=>{
-   const row=(await tx.query('SELECT * FROM hyperfide.supervisor_launches WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[i.principal.organisation_id,i.principal.run_id,v.launch_id])).rows[0];
-   if(!row||row.state!=='RUNNING'||!row.native_session_id||!row.process_identity)agentError('SUPERVISOR_NATIVE_ID_PENDING');
-   const p=(await inventory).find(p=>p.profile_id===row.profile_id);if(!p)agentError('SUPERVISOR_MAIN_BUDGET_UNCONFIGURED');
-   const native=ctx.dependencies.require('14.3','identity.native-auth',isNativeAuthAuthority).resolve(p.profile_id);
-   if(native.profile_digest!==row.profile_digest||native.connector!=='claude'||native.qualification.state!=='QUALIFIED'||!native.qualification.live_qualified||!native.qualification.receipt_digest)agentError('SUPERVISOR_NATIVE_UNQUALIFIED');
-   await credentialCurrent(ctx,tx as PrimaryTransaction,i,native);
-   const old=exactAgentObject((row.placement as MapValue).launcher_input,['session_id','leader_generation','package_id','package_generation']);
-   const placement=ctx.dependencies.require('1.1','policy.placement.v1',placementAuthority);
-   const auth=await placement.authorizeSupervisor(tx as PrimaryTransaction,i,{session_id:row.session_id,leader_generation:old.leader_generation,package_id:old.package_id??null,package_generation:old.package_generation??null});
-   if(auth.supervisor_session_id!==row.session_id||auth.host_id!==row.host_id||auth.restriction_profile_digest!==p.restriction_profile_digest||auth.restriction_evidence_digest!==native.qualification.receipt_digest)agentError('SUPERVISOR_RESTRICTION_UNQUALIFIED');
-   await runtimeFiles(p,{session_id:String(row.session_id),run_id:i.principal.run_id});
-   const result=await nativeAdapter(ctx,p,native as unknown as MapValue,'connector.encode',{connector:'claude',operation:'input',native_session_id:row.native_session_id,request_id:v.operation_id,text:v.text});
-   if(!object(result.frame)||result.replay_safe!==false)agentError('SUPERVISOR_NATIVE_ADAPTER_UNAVAILABLE');
-   const frame=Buffer.from(JSON.stringify(result.frame)+'\n');if(frame.length>65536)agentError('AGENT_INPUT_INVALID');
-   const response=await hostRequest(ctx,{action:'input',launch_id:v.launch_id,operation_id:v.operation_id,process_identity:hostIdentity(row.process_identity),frame_digest:hash(frame),frame_b64:frame.toString('base64')});
-   return {launch_id:v.launch_id,operation_id:v.operation_id,delivery:response.delivery,replayed:response.replayed===true,native_consumption_observed:false,capacity_retained:true,grants_authority:false};
+  return sessionInput(i,String(v.launch_id),String(v.operation_id),v.text);
+ }),
+ // 4.4 (req 4 ac_2): the answer to a leader's own Ask is session input on its launch, under every guard of
+ // supervisor.session.input; the operation id derives from the Ask, so a repeated delivery is one frame.
+ 'supervisor.session.answer':action(async(input,i)=>{
+  const v=exactAgentObject(input,['launch_id','ask_id']);agentString(v.launch_id,'uuid');agentString(v.ask_id,'uuid');
+  const s={organisation_id:i.principal.organisation_id,run_id:i.principal.run_id};
+  const answered=await agentTransaction(ctx,i,async tx=>{
+   const launch=(await tx.query('SELECT session_id::text FROM hyperfide.supervisor_launches WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[s.organisation_id,s.run_id,v.launch_id])).rows[0];
+   if(!launch)agentError('SUPERVISOR_LAUNCH_NOT_FOUND');
+   const a=await answeredAsk(tx as PrimaryTransaction,s,String(v.ask_id));
+   if(a.session!==launch.session_id||a.attempt!==null)agentError('SUPERVISOR_ANSWER_SCOPE_DENIED');
+   return a;
   });
+  // 7000 characters of answer plus a 512-character title stay under the 32768-byte input bound in any UTF-8.
+  const delivered=await sessionInput(i,String(v.launch_id),answerOperationId(s,answered.id,'leader'),answerText(answered,7000));
+  return {...delivered,ask_id:answered.id,decided_by_default:answered.decided_by_default};
  }),
  'supervisor.session.stop':action(async(input,i)=>{
   const v=exactAgentObject(input,['launch_id','operation_id']);agentString(v.launch_id,'uuid');agentString(v.operation_id,'uuid');
