@@ -386,6 +386,17 @@ export function MachineSettingsView() {
   return (
     <PageShell contentClassName="pt-4 md:pt-5">
       <div className="mx-auto w-full max-w-3xl space-y-6 pb-10">
+        <section aria-label="Hyperfide status" className="rounded-lg border p-4 text-sm">
+          <h2 className="font-medium">Hyperfide</h2>
+          <p>{!host.hyperfide ? "Binary status unavailable" :
+            !host.hyperfide.ok ? "Binary missing or verification failed" :
+            host.status !== "connected" || now - host.hyperfide.checkedAt > 120_000 ? "Binary status stale" :
+            `${host.hyperfide.version} · ${host.hyperfide.digest?.slice(0, 12)}`}</p>
+          {host.hyperfide?.index && <div>
+            <h3 className="mt-2 font-medium">Repository index</h3>
+            <pre className="overflow-auto whitespace-pre-wrap">{JSON.stringify(host.hyperfide.index, null, 2)}</pre>
+          </div>}
+        </section>
         <MachineSettingsHeader
           host={host}
           machineProvider={machineProvider}

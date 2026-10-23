@@ -1,3 +1,4 @@
+import { recordHyperfideStatus } from "../services/hosts/hyperfide-status.js";
 import { reportEnvironmentHookProgress } from "../services/environments/environment-hooks.js";
 import { syncDesktopBrowserTabs } from "../services/desktop-browsers.js";
 import { heartbeatSession } from "@hyperfide/db";
@@ -241,6 +242,10 @@ export function onDaemonSocketMessage(
       }
       if (message.type === "connect-tunnel.identity") {
         deps.sharedPorts.recordTunnelIdentity(args.hostId, message.identity);
+        return;
+      }
+      if (message.type === "hyperfide.status") {
+        recordHyperfideStatus(deps.db, args.hostId, message.status);
         return;
       }
       if (message.type === "connect-next.status") {

@@ -12,7 +12,7 @@ import {
   makeHost as makeHostFixture,
   makeThreadListEntry,
 } from "@hyperfide/test-helpers/domain-fixtures";
-import type { SystemConfigResponse } from "@hyperfide/server-contract";
+import type { HostWithHyperfideStatus, SystemConfigResponse } from "@hyperfide/server-contract";
 import type {
   ProviderCliKey,
   ProviderCliStatus,
@@ -197,6 +197,44 @@ afterEach(() => {
 });
 
 describe("MachineSettingsView", () => {
+  it("shows the verified binary version, digest prefix and repository index", async () => {
+    vi.mocked(sdk.system.config).mockResolvedValue(systemConfig());
+    const machine: HostWithHyperfideStatus = {
+      ...host({ status: "connected" }),
+      hyperfide: {
+        path: "/repo/cg", version: "hyperfide 22", digest: "a".repeat(64),
+        ok: true, checkedAt: Date.now(), repository: "/repo",
+        index: { symbols: 42, stale: false },
+      },
+    };
+    vi.mocked(sdk.hosts.list).mockResolvedValue([machine]);
+    stubSupportingFetches();
+    renderView();
+
+    const status = await screen.findByRole("region", { name: "Hyperfide status" });
+    expect(within(status).getByText(/hyperfide 22/).textContent).toContain("aaaaaaaaaaaa");
+    expect(within(status).getByText(/"symbols": 42/)).toBeDefined();
+  });
+
+  it.each([
+    { ok: false, age: 0, message: "Binary missing or verification failed" },
+    { ok: true, age: 121_000, message: "Binary status stale" },
+  ])("shows $message for an unusable binary observation", async ({ ok, age, message }) => {
+    vi.mocked(sdk.system.config).mockResolvedValue(systemConfig());
+    const machine: HostWithHyperfideStatus = {
+      ...host({ status: "connected" }),
+      hyperfide: {
+        path: null, version: null, digest: null, ok,
+        checkedAt: Date.now() - age, repository: "/repo", index: null,
+      },
+    };
+    vi.mocked(sdk.hosts.list).mockResolvedValue([machine]);
+    stubSupportingFetches();
+    renderView();
+
+    expect(await screen.findByText(message)).toBeDefined();
+  });
+
   it("links update issues to Updates in a warning pill", async () => {
     vi.mocked(sdk.system.config).mockResolvedValue(systemConfig());
     vi.mocked(sdk.hosts.list).mockResolvedValue([host()]);

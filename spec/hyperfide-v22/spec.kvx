@@ -242,7 +242,7 @@ owner = "core"
 
 [task.1.2]
 title = "Host daemon locates and verifies the binary"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["0.2", "0.3"]
 touches = ["platform/apps/host-daemon/src/**", "platform/packages/host-daemon-contract/src/**", "platform/apps/server/src/**", "platform/packages/server-contract/src/**", "platform/apps/app/src/**", "tests/hyperfide/cases/v22/1_2.sh"]
