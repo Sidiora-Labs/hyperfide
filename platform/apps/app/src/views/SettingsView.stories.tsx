@@ -1,0 +1,434 @@
+import { MobileAppSection } from "@/components/settings/MobileAppSection";
+import { CliCommandSettingsSectionContent } from "@/components/settings/CliCommandSettingsSection";
+import { CliSkillsSettingsSectionContent } from "@/components/settings/CliSkillsSettingsSection";
+import { useEffect, useRef, useState } from "react";
+import { Route, Routes, useNavigate } from "react-router-dom";
+import {
+  defaultAppTheme,
+  defaultExperiments,
+  earlyAdopterExperiments,
+  type AppTheme,
+  type ExperimentUpdates,
+  defaultAppSettings,
+  type AppSettings,
+} from "@bb/domain";
+import type {
+  WorkspaceOpenTarget,
+  WorkspaceOpenTargetId,
+} from "@bb/host-daemon-contract";
+import { VoiceInputSettingsSectionContent } from "@/components/settings/VoiceInputSettingsSection";
+import { AiServicesSettingsSection } from "@/components/settings/AiServicesSettingsSection";
+import { ArchivedThreadsSettingsSection } from "@/components/settings/ArchivedThreadsSettingsSection";
+import { CommunitySettingsSection } from "@/components/settings/CommunitySettingsSection";
+import { FileOpenersSettingsSection } from "@/components/settings/FileOpenersSettingsSection";
+import { KeyboardSettingsSection } from "@/components/settings/KeyboardSettingsSection";
+import { MarketplacesSettingsSection } from "@/components/settings/MarketplacesSettingsSection";
+import { MachineEnvironmentSettings } from "@/components/settings/MachineEnvironmentSettings";
+import { MachinesSettingsSection } from "@/components/settings/MachinesSettingsSection";
+import { ProjectsSettingsSection } from "@/components/settings/ProjectsSettingsSection";
+import {
+  SettingsStoryChrome,
+  type SettingsStoryRoute,
+  useSettingsStoryRoute,
+} from "../../.ladle/story-settings-chrome";
+import {
+  SettingsStoryFixtures,
+  SettingsUpdatesStory,
+} from "../../.ladle/settings-story-fixtures";
+import type { ThemePreference } from "@/hooks/useTheme";
+import type { AudioInputDeviceOption } from "@/hooks/useAudioInputDevices";
+import { useAudioInputDevicePreferenceValue } from "@/lib/audio-input-device-preference";
+import {
+  SETTINGS_MACHINE_ROUTE_PATH,
+  SETTINGS_PROJECT_ROUTE_PATH,
+} from "@/lib/route-paths";
+import {
+  AppearanceSettingsSection,
+  PrivacySettingsSection,
+  ExperimentsSettingsSection,
+  GeneralSettingsSection,
+  LocalOpenTargetSettingsSection,
+  type LocalOpenTargetSettingsSectionProps,
+} from "./SettingsView";
+import { MachineSettingsView } from "./MachineSettingsView";
+import { ProjectDetailSettingsView } from "./ProjectDetailSettingsView";
+import { ProvidersSettingsSection } from "@/components/settings/ProvidersSettingsSection";
+
+export default {
+  title: "settings/Settings",
+};
+
+type StoredTargetId = LocalOpenTargetSettingsSectionProps["directoryTargetId"];
+
+const audioInputDevices: AudioInputDeviceOption[] = [
+  { deviceId: "macbook-mic", label: "MacBook Pro Microphone" },
+  { deviceId: "studio-mic", label: "Studio Display Microphone" },
+];
+
+const vscodeTarget: WorkspaceOpenTarget = {
+  capabilities: {
+    openDirectory: true,
+    openFile: true,
+    openFileAtLine: true,
+  },
+  id: "vscode",
+  label: "VS Code",
+};
+
+const finderTarget: WorkspaceOpenTarget = {
+  capabilities: {
+    openDirectory: true,
+    openFile: false,
+    openFileAtLine: false,
+  },
+  id: "finder",
+  label: "Finder",
+};
+
+const terminalTarget: WorkspaceOpenTarget = {
+  capabilities: {
+    openDirectory: true,
+    openFile: false,
+    openFileAtLine: false,
+  },
+  id: "terminal",
+  label: "Terminal",
+};
+
+const defaultAppTarget: WorkspaceOpenTarget = {
+  capabilities: {
+    openDirectory: true,
+    openFile: true,
+    openFileAtLine: false,
+  },
+  id: "default-app",
+  label: "Default App",
+};
+
+const connectedTargets: WorkspaceOpenTarget[] = [
+  vscodeTarget,
+  finderTarget,
+  terminalTarget,
+  defaultAppTarget,
+];
+
+function useSettingsStoryState() {
+  const [themePreference, setThemePreference] =
+    useState<ThemePreference>("system");
+  const [appearance, setAppearance] = useState<AppTheme>({
+    ...defaultAppTheme,
+    faviconColor: "red",
+  });
+  const [navigateToThreadAfterCreate, setNavigateToThreadAfterCreate] =
+    useState(false);
+  const [openLinksInAppBrowser, setOpenLinksInAppBrowser] = useState(false);
+  const [rewriteLocalhostLinks, setRewriteLocalhostLinks] = useState(true);
+  const [steerActiveThreadOnEnter, setSteerActiveThreadOnEnter] =
+    useState(false);
+  const [confirmThreadArchive, setConfirmThreadArchive] = useState(true);
+  const [keepHistoryAfterContextClear, setKeepHistoryAfterContextClear] =
+    useState(false);
+  const [summarizeShellCommands, setSummarizeShellCommands] = useState(true);
+  const [showGitChanges, setShowGitChanges] = useState(true);
+  const [streamerMode, setStreamerMode] = useState(false);
+  const [telemetryEnabled, setTelemetryEnabled] = useState(true);
+  const [managedBranchPrefix, setManagedBranchPrefix] = useState(
+    defaultAppSettings.managedBranchPrefix,
+  );
+  const [showDiagnosticEvents, setShowDiagnosticEvents] = useState(false);
+  const [directoryTargetId, setDirectoryTargetId] =
+    useState<StoredTargetId>("finder");
+  const [fileTargetId, setFileTargetId] =
+    useState<StoredTargetId>("default-app");
+
+  return {
+    appearance,
+    directoryTargetId,
+    fileTargetId,
+    managedBranchPrefix,
+    navigateToThreadAfterCreate,
+    openLinksInAppBrowser,
+    rewriteLocalhostLinks,
+    steerActiveThreadOnEnter,
+    showGitChanges,
+    setShowGitChanges,
+    confirmThreadArchive,
+    setConfirmThreadArchive,
+    keepHistoryAfterContextClear,
+    setKeepHistoryAfterContextClear,
+    summarizeShellCommands,
+    setSummarizeShellCommands,
+    streamerMode,
+    telemetryEnabled,
+    setTelemetryEnabled,
+    showDiagnosticEvents,
+    setAppearance,
+    setDirectoryTargetId,
+    setFileTargetId,
+    setManagedBranchPrefix,
+    setNavigateToThreadAfterCreate,
+    setOpenLinksInAppBrowser,
+    setRewriteLocalhostLinks,
+    setSteerActiveThreadOnEnter,
+    setStreamerMode,
+    setShowDiagnosticEvents,
+    setThemePreference,
+    themePreference,
+  };
+}
+
+function VoiceInputStory() {
+  const preferredDeviceId = useAudioInputDevicePreferenceValue();
+
+  return (
+    <VoiceInputSettingsSectionContent
+      devices={audioInputDevices}
+      errorMessage={null}
+      isLoading={false}
+      isSupported={true}
+      onRefresh={() => undefined}
+      preferredDeviceId={preferredDeviceId}
+    />
+  );
+}
+
+function GeneralSettingsStory({
+  desktopBrowserAvailable = false,
+}: {
+  desktopBrowserAvailable?: boolean;
+}) {
+  const state = useSettingsStoryState();
+  const [terminalCopyOnSelect, setTerminalCopyOnSelect] = useState(true);
+
+  return (
+    <>
+      <GeneralSettingsSection
+        showGitChanges={state.showGitChanges}
+        onShowGitChangesChange={state.setShowGitChanges}
+        confirmThreadArchive={state.confirmThreadArchive}
+        onConfirmThreadArchiveChange={state.setConfirmThreadArchive}
+        keepHistoryAfterContextClear={state.keepHistoryAfterContextClear}
+        onKeepHistoryAfterContextClearChange={
+          state.setKeepHistoryAfterContextClear
+        }
+        summarizeShellCommands={state.summarizeShellCommands}
+        onSummarizeShellCommandsChange={state.setSummarizeShellCommands}
+        desktopBrowserAvailable={desktopBrowserAvailable}
+        generalSettingsDisabled={false}
+        terminalCopyOnSelect={terminalCopyOnSelect}
+        onTerminalCopyOnSelectChange={setTerminalCopyOnSelect}
+        managedBranchPrefix={state.managedBranchPrefix}
+        onManagedBranchPrefixChange={state.setManagedBranchPrefix}
+        navigateToThreadAfterCreate={state.navigateToThreadAfterCreate}
+        onNavigateToThreadAfterCreateChange={
+          state.setNavigateToThreadAfterCreate
+        }
+        onOpenLinksInAppBrowserChange={state.setOpenLinksInAppBrowser}
+        onReplaySetupGuide={() => {}}
+        onRewriteLocalhostLinksChange={state.setRewriteLocalhostLinks}
+        onSteerActiveThreadOnEnterChange={state.setSteerActiveThreadOnEnter}
+        openLinksInAppBrowser={state.openLinksInAppBrowser}
+        rewriteLocalhostLinks={state.rewriteLocalhostLinks}
+        steerActiveThreadOnEnter={state.steerActiveThreadOnEnter}
+      />
+      <CliCommandSettingsSectionContent
+        onChange={() => {}}
+        pending={false}
+        status={{
+          installedPath: null,
+          onPath: false,
+          shadowedBy: null,
+          supported: true,
+        }}
+      />
+      <CliSkillsSettingsSectionContent
+        hasConnectedMachine={false}
+        onOpenPicker={() => {}}
+        pending={false}
+        statusBadge={null}
+      />
+      <VoiceInputStory />
+      <PrivacySettingsSection
+        onStreamerModeChange={state.setStreamerMode}
+        telemetryEnabled={state.telemetryEnabled}
+        onTelemetryEnabledChange={state.setTelemetryEnabled}
+        streamerMode={state.streamerMode}
+        disabled={false}
+        enabled={state.showDiagnosticEvents}
+        onEnabledChange={state.setShowDiagnosticEvents}
+      />
+    </>
+  );
+}
+
+function AppearanceSettingsStory() {
+  const state = useSettingsStoryState();
+
+  return (
+    <AppearanceSettingsSection
+      appearance={state.appearance}
+      appearanceDisabled={false}
+      customThemes={["Monochrome Lab", "Low Contrast"]}
+      pluginThemes={[]}
+      faviconColor={state.appearance.faviconColor}
+      onAppearanceThemeChange={(themeId) =>
+        state.setAppearance((current) => ({ ...current, themeId }))
+      }
+      onAppearanceThemePrefetch={() => undefined}
+      onAppearanceThemePreview={() => undefined}
+      onCreatePalette={() => undefined}
+      onFaviconColorChange={(faviconColor) =>
+        state.setAppearance((current) => ({ ...current, faviconColor }))
+      }
+      onThemePreferenceChange={state.setThemePreference}
+      themePreference={state.themePreference}
+    />
+  );
+}
+
+function FilePreferencesStory() {
+  const state = useSettingsStoryState();
+
+  function handleDirectoryTargetChange(targetId: WorkspaceOpenTargetId): void {
+    state.setDirectoryTargetId(targetId);
+  }
+
+  function handleFileTargetChange(targetId: WorkspaceOpenTargetId): void {
+    state.setFileTargetId(targetId);
+  }
+
+  return (
+    <>
+      <LocalOpenTargetSettingsSection
+        accessState="available"
+        directoryTargetId={state.directoryTargetId}
+        fileTargetId={state.fileTargetId}
+        hasDaemon={true}
+        onDirectoryTargetChange={handleDirectoryTargetChange}
+        onFileTargetChange={handleFileTargetChange}
+        onRequestAccess={async () => true}
+        targets={connectedTargets}
+      />
+      <FileOpenersSettingsSection />
+    </>
+  );
+}
+
+function ExperimentsStory() {
+  const [earlyAdopter, setEarlyAdopter] = useState(false);
+  const [overrides, setOverrides] = useState<ExperimentUpdates>({});
+
+  return (
+    <ExperimentsSettingsSection
+      disabled={false}
+      earlyAdopter={earlyAdopter}
+      onEarlyAdopterChange={setEarlyAdopter}
+      experiments={{
+        ...(earlyAdopter ? earlyAdopterExperiments : defaultExperiments),
+        ...overrides,
+      }}
+      performanceDiagnosticsAvailable={true}
+      onExperimentChange={(key, enabled) =>
+        setOverrides((current) => ({ ...current, [key]: enabled }))
+      }
+    />
+  );
+}
+
+function ProvidersSettingsStory() {
+  const [generalSettings, setGeneralSettings] =
+    useState<AppSettings>(defaultAppSettings);
+  return (
+    <ProvidersSettingsSection
+      disabled={false}
+      generalSettings={generalSettings}
+      onGeneralSettingsChange={(patch) =>
+        setGeneralSettings((current) => ({ ...current, ...patch }))
+      }
+    />
+  );
+}
+
+function SettingsStoryContent({ route }: { route: SettingsStoryRoute }) {
+  if (route.kind === "machine") {
+    return (
+      <Routes>
+        <Route
+          path={SETTINGS_MACHINE_ROUTE_PATH}
+          element={<MachineSettingsView />}
+        />
+      </Routes>
+    );
+  }
+  if (route.kind === "project") {
+    return (
+      <Routes>
+        <Route
+          path={SETTINGS_PROJECT_ROUTE_PATH}
+          element={<ProjectDetailSettingsView />}
+        />
+      </Routes>
+    );
+  }
+
+  switch (route.id) {
+    case "providers":
+      return <ProvidersSettingsStory />;
+    case "ai-services":
+      return <AiServicesSettingsSection />;
+    case "appearance":
+      return <AppearanceSettingsStory />;
+    case "keyboard":
+      return <KeyboardSettingsSection />;
+    case "files":
+      return <FilePreferencesStory />;
+    case "projects":
+      return <ProjectsSettingsSection />;
+    case "machines":
+      return <MachinesSettingsSection />;
+    case "environment-variables":
+      return <MachineEnvironmentSettings />;
+    case "updates":
+      return <SettingsUpdatesStory />;
+    case "mobile":
+      return <MobileAppSection />;
+    case "experiments":
+      return <ExperimentsStory />;
+    case "marketplaces":
+      return <MarketplacesSettingsSection />;
+    case "community":
+      return <CommunitySettingsSection />;
+    case "archived":
+      return <ArchivedThreadsSettingsSection />;
+    case "general":
+      return (
+        <>
+          <GeneralSettingsStory desktopBrowserAvailable />
+        </>
+      );
+  }
+}
+
+export function FullPage() {
+  const navigate = useNavigate();
+  const route = useSettingsStoryRoute();
+  const initializedFromStoryPath = useRef(false);
+  useEffect(() => {
+    if (initializedFromStoryPath.current) return;
+    initializedFromStoryPath.current = true;
+    const storyPath =
+      new URLSearchParams(window.location.hash.slice(1)).get("settingsPath") ??
+      new URLSearchParams(window.location.search).get("settingsPath");
+    if (storyPath?.startsWith("/settings") === true) {
+      navigate(storyPath, { replace: true });
+    }
+  }, [navigate]);
+
+  return (
+    <SettingsStoryFixtures>
+      <SettingsStoryChrome contentOwnsPageShell={route.kind !== "section"}>
+        <SettingsStoryContent route={route} />
+      </SettingsStoryChrome>
+    </SettingsStoryFixtures>
+  );
+}

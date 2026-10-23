@@ -1,0 +1,985 @@
+// @vitest-environment jsdom
+
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
+import {
+  loadPluginApp,
+  renderSlot,
+  type PluginRpcTestHandlers,
+} from "@get-bb/plugin-sdk/testing/app";
+
+import type { rpcContract } from "./server";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+type Catalog = Awaited<
+  ReturnType<PluginRpcTestHandlers<typeof rpcContract>["themeCatalog"]>
+>;
+
+const DEFAULT_CATALOG: Catalog = {
+  activeThemeId: "default",
+  revision: 0,
+  themes: [
+    {
+      id: "default",
+      name: "Default",
+      light: null,
+      dark: null,
+    },
+    {
+      id: "plugin:endless:endless-color",
+      name: "Endless Color",
+      light: null,
+      dark: null,
+    },
+  ],
+};
+
+const ENDLESS_CATALOG: Catalog = {
+  ...DEFAULT_CATALOG,
+  activeThemeId: "plugin:endless:endless-color",
+};
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve(value: T): void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+let panel: Awaited<ReturnType<typeof loadPluginApp>>["navPanels"][number];
+
+beforeAll(async () => {
+  globalThis.ResizeObserver =
+    ResizeObserverStub as unknown as typeof ResizeObserver;
+  Object.assign(HTMLElement.prototype, {
+    scrollIntoView: () => {},
+    hasPointerCapture: () => false,
+    setPointerCapture: () => {},
+    releasePointerCapture: () => {},
+  });
+  const root = document.documentElement.style;
+  const tokens: Record<string, string> = {
+    canvas: "#ffffff",
+    ink: "#222222",
+    sidebar: "#f5f5f5",
+    "sidebar-foreground": "#222222",
+    card: "#ffffff",
+    popover: "#ffffff",
+    secondary: "#eeeeee",
+    muted: "#e8e8e8",
+    "surface-recessed-solid": "#f2f2f2",
+    "surface-scrim": "#ffffffee",
+    foreground: "#222222",
+    "subtle-foreground": "#666666",
+    "readback-foreground": "#999999",
+    primary: "#444444",
+    "file-accent": "#4779a8",
+    "timeline-accent": "#4779a8",
+    "surface-selected": "#d7e4ef",
+    "state-hover": "#eeeeee",
+    "state-active": "#dddddd",
+    success: "#3b966c",
+    warning: "#b56b2c",
+    attention: "#c49a32",
+    destructive: "#b6383f",
+    "pr-merged": "#7550a8",
+    "font-sans": "Inter, sans-serif",
+    "diff-added": "#3b966c",
+    "diff-removed": "#b6383f",
+    border: "#cccccc",
+    "border-hairline": "#eeeeee",
+    "border-seam": "#dddddd",
+    "sidebar-border": "#cccccc",
+    input: "#aaaaaa",
+    ring: "#4779a8",
+    "font-mono": "Menlo, monospace",
+    "text-sm": "13px",
+    "text-sm--line-height": "20px",
+    spacing: "4px",
+    "tracking-normal": "0em",
+    "bb-sidebar-row-height": "28px",
+    "icon-stroke-width": "1.75",
+    radius: "8px",
+    "shadow-x": "0px",
+    "shadow-y": "2px",
+    "shadow-blur": "0px",
+    "shadow-spread": "0px",
+    "shadow-color": "#333333",
+    "shadow-opacity": "0.15",
+  };
+  for (const [name, value] of Object.entries(tokens))
+    root.setProperty(`--${name}`, value);
+  const app = await loadPluginApp(() => import("./app"));
+  const registered = app.navPanels.find(({ id }) => id === "preview");
+  if (!registered) throw new Error("Theme Preview panel was not registered");
+  panel = registered;
+});
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.clearAllMocks();
+  document.documentElement.classList.remove("dark");
+  localStorage.removeItem("bb.theme");
+});
+
+function renderPreview(
+  rpc: PluginRpcTestHandlers<typeof rpcContract>,
+  subPath = "thread",
+) {
+  return renderSlot(panel, { subPath }, { rpc });
+}
+
+function themeControl(): HTMLButtonElement {
+  const control = document.querySelector<HTMLButtonElement>(
+    "[data-tp-theme-control]",
+  );
+  if (!control) throw new Error("Theme picker control was not rendered");
+  return control;
+}
+
+function openThemeMenu(): void {
+  fireEvent.click(themeControl());
+}
+
+function pickOption(option: HTMLElement): void {
+  fireEvent.click(option);
+}
+
+async function chooseEndlessDark(): Promise<void> {
+  const control = themeControl();
+  await waitFor(() => expect(control.textContent).toContain("Default"));
+  openThemeMenu();
+  const options = await screen.findAllByRole("option");
+  const endless = options.find((option) =>
+    option.textContent?.includes("Endless Color"),
+  );
+  if (!endless) throw new Error("Endless Color option was not rendered");
+  pickOption(endless);
+}
+
+describe("Theme Preview", () => {
+  it.each([390, 700, 807, 808, 1280])(
+    "offers supported views in bb's tabs and themes in bb's select at %ipx",
+    async (panelWidth) => {
+      const width = vi
+        .spyOn(HTMLElement.prototype, "clientWidth", "get")
+        .mockReturnValue(panelWidth);
+      try {
+        renderPreview({
+          themeCatalog: () => DEFAULT_CATALOG,
+          setTheme: () => DEFAULT_CATALOG,
+        });
+
+        const tabs = within(
+          screen.getByRole("tablist", { name: "Preview view" }),
+        ).getAllByRole("tab");
+        expect(tabs.map((tab) => tab.textContent)).toEqual(
+          panelWidth < 808
+            ? ["Thread", "New thread", "Settings"]
+            : ["Thread", "New thread", "Split", "Settings"],
+        );
+        expect(themeControl().getAttribute("role")).toBe("combobox");
+      } finally {
+        width.mockRestore();
+      }
+    },
+  );
+
+  it("keeps Split availability and its preview aligned across compact widths", async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(700);
+    try {
+      renderPreview(
+        {
+          themeCatalog: () => DEFAULT_CATALOG,
+          setTheme: () => DEFAULT_CATALOG,
+        },
+        "split",
+      );
+      expect(screen.queryByRole("tab", { name: "Split" })).toBeNull();
+      expect(
+        screen
+          .getByRole("tab", { name: "Thread" })
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+      expect(document.querySelector("[data-tp-mobile-scene]")).not.toBeNull();
+      expect(document.querySelector("[data-tp-split-pane]")).toBeNull();
+      width.mockReturnValue(808);
+      fireEvent(window, new Event("resize"));
+      expect(
+        screen
+          .getByRole("tab", { name: "Split" })
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+      expect(document.querySelector("[data-tp-mobile-scene]")).toBeNull();
+      expect(document.querySelectorAll("[data-tp-split-pane]")).toHaveLength(2);
+      width.mockReturnValue(700);
+      fireEvent(window, new Event("resize"));
+      expect(screen.queryByRole("tab", { name: "Split" })).toBeNull();
+      expect(document.querySelector("[data-tp-mobile-scene]")).not.toBeNull();
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("keeps the thread table of contents open and interactive", async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(1280);
+    try {
+      renderPreview({
+        themeCatalog: () => DEFAULT_CATALOG,
+        setTheme: () => DEFAULT_CATALOG,
+      });
+
+      const toc = await waitFor(() => {
+        const found = document.querySelector<HTMLElement>(
+          "[data-tp-thread-toc]",
+        );
+        expect(found).not.toBeNull();
+        return found as HTMLElement;
+      });
+      const tabs = within(toc).getAllByRole("tab");
+      expect(tabs.map((tab) => tab.textContent)).toEqual(["Agent", "You"]);
+      expect(
+        within(toc)
+          .getByRole("tab", { name: "You" })
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+      expect(
+        within(toc)
+          .getByRole("button", { name: /Make the blacklight variant/i })
+          .getAttribute("aria-current"),
+      ).toBe("true");
+
+      fireEvent.mouseDown(within(toc).getByRole("tab", { name: "Agent" }));
+      const second = await within(toc).findByRole("button", {
+        name: /Selection now reads/i,
+      });
+      fireEvent.click(second);
+      expect(second.getAttribute("aria-current")).toBe("true");
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("projects every mock view from its current BB screen anatomy", async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(1280);
+    const rpc = {
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => DEFAULT_CATALOG,
+    };
+    try {
+      renderPreview(rpc, "thread");
+      const info = await waitFor(() => {
+        const found = document.querySelector<HTMLElement>(
+          "[data-tp-thread-info]",
+        );
+        expect(found).not.toBeNull();
+        return found as HTMLElement;
+      });
+      expect(within(info).getByText("Info")).toBeDefined();
+      expect(within(info).getByText("Diff")).toBeDefined();
+      expect(within(info).queryByText("Changes")).toBeNull();
+
+      cleanup();
+      renderPreview(rpc, "new");
+      const newThread = await waitFor(() => {
+        const found = document.querySelector<HTMLElement>(
+          "[data-tp-new-thread]",
+        );
+        expect(found).not.toBeNull();
+        return found as HTMLElement;
+      });
+      expect(within(newThread).getByText("Ask anything…")).toBeDefined();
+      expect(within(newThread).queryByRole("button")).toBeNull();
+
+      cleanup();
+      renderPreview(rpc, "split");
+      await waitFor(() =>
+        expect(document.querySelectorAll("[data-tp-split-pane]")).toHaveLength(
+          2,
+        ),
+      );
+      const splitPanes = [
+        ...document.querySelectorAll<HTMLElement>("[data-tp-split-pane]"),
+      ];
+      expect(splitPanes.map((pane) => pane.dataset.focused)).toEqual([
+        "true",
+        "false",
+      ]);
+      expect(
+        splitPanes[1]?.querySelector<HTMLElement>("[data-pane-focus-scrim]")
+          ?.style.background,
+      ).toContain("30%");
+
+      cleanup();
+      renderPreview(rpc, "settings");
+      const settings = await waitFor(() => {
+        const found = document.querySelector<HTMLElement>(
+          "[data-tp-settings-content=appearance]",
+        );
+        expect(found).not.toBeNull();
+        return found as HTMLElement;
+      });
+      expect(
+        screen
+          .getByRole("button", { name: "Appearance" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
+      expect(
+        within(settings).getByRole("button", { name: "Palette" }).textContent,
+      ).toContain("Default");
+      expect(
+        within(settings).getByRole("switch", { name: "Fade inactive splits" }),
+      ).toBeDefined();
+      expect(
+        document.querySelector("[data-tp-mock-sidebar=settings]"),
+      ).not.toBeNull();
+      expect(
+        document.querySelector(
+          "[data-tp-mock-sidebar=settings] [data-tp-sidebar-state=selected]",
+        )?.textContent,
+      ).toContain("Appearance");
+      expect(within(settings).queryByText("Extensions")).toBeNull();
+      expect(within(settings).queryByText("Installed")).toBeNull();
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("lists every theme in both modes as real select options", async () => {
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => DEFAULT_CATALOG,
+    });
+
+    const control = themeControl();
+    await waitFor(() => expect(control.textContent).toContain("Default"));
+    expect(
+      screen
+        .getByRole("button", { name: "Light mode" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: "Dark mode" })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+    openThemeMenu();
+
+    const listbox = await screen.findByRole("listbox");
+    const options = within(listbox).getAllByRole("option");
+    expect(options).toHaveLength(2);
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Default",
+      "Endless Color",
+    ]);
+    expect(listbox.textContent).not.toMatch(/light|dark/i);
+    const active = options.find(
+      (option) => option.getAttribute("aria-selected") === "true",
+    );
+    expect(active?.textContent).toContain("Default");
+  });
+
+  it("uses light and dark icons while preserving keyboard mode selection", async () => {
+    const selections: Array<{ themeId: string }> = [];
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: (selection) => {
+        selections.push(selection);
+        return DEFAULT_CATALOG;
+      },
+    });
+
+    await screen.findByRole("combobox", { name: /Default light/i });
+    const light = screen.getByRole("button", { name: "Light mode" });
+    const dark = screen.getByRole("button", { name: "Dark mode" });
+    expect(light.querySelector('[data-tp-mode-icon="light"]')).not.toBeNull();
+    expect(dark.querySelector('[data-tp-mode-icon="dark"]')).not.toBeNull();
+    expect(light.getAttribute("aria-pressed")).toBe("true");
+    expect(dark.getAttribute("aria-pressed")).toBe("false");
+
+    dark.focus();
+    expect(document.activeElement).toBe(dark);
+    fireEvent.click(dark, { detail: 0 });
+    await waitFor(() => expect(selections).toEqual([{ themeId: "default" }]));
+    expect(dark.getAttribute("aria-pressed")).toBe("true");
+    expect(light.getAttribute("aria-pressed")).toBe("false");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(localStorage.getItem("bb.theme")).toBe("dark");
+    expect(document.documentElement.style.colorScheme).toBe("");
+
+    light.focus();
+    fireEvent.click(light, { detail: 0 });
+    await waitFor(() =>
+      expect(selections).toEqual([
+        { themeId: "default" },
+        { themeId: "default" },
+      ]),
+    );
+    expect(light.getAttribute("aria-pressed")).toBe("true");
+    expect(dark.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it.each([390, 600, 1199])(
+    "restacks the main areas at %ipx with the read-only style sheet last",
+    async (panelWidth) => {
+      const width = vi
+        .spyOn(HTMLElement.prototype, "clientWidth", "get")
+        .mockReturnValue(panelWidth);
+      try {
+        renderPreview({
+          themeCatalog: () => DEFAULT_CATALOG,
+          setTheme: () => DEFAULT_CATALOG,
+        });
+
+        await waitFor(() =>
+          expect(
+            document.querySelector(
+              `[data-tp-band=${panelWidth < 600 ? "mobile" : "narrow"}]`,
+            ),
+          ).not.toBeNull(),
+        );
+        expect(
+          screen.queryByRole("button", { name: /full style guide/i }),
+        ).toBeNull();
+        expect(document.querySelector("[data-tp-section=rail]")).toBeNull();
+        const areas = [...document.querySelectorAll("[data-tp-area]")].map(
+          (el) => el.getAttribute("data-tp-area"),
+        );
+        expect(areas).toEqual(["mock", "overlays", "components", "stylesheet"]);
+        expect(
+          document.querySelector("[data-tp-style-readonly]"),
+        ).not.toBeNull();
+        expect(
+          document.querySelector("[data-tp-shadow-preview]"),
+        ).not.toBeNull();
+      } finally {
+        width.mockRestore();
+      }
+    },
+  );
+
+  it("opens and closes mobile shelves and resets them when the preview view changes", async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(390);
+    try {
+      const mounted = renderPreview({
+        themeCatalog: () => DEFAULT_CATALOG,
+        setTheme: () => DEFAULT_CATALOG,
+      });
+      await screen.findByRole("button", { name: "Show navigation preview" });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show navigation preview" }),
+      );
+      expect(
+        document.querySelector("[data-tp-mobile-navigation]"),
+      ).not.toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Close navigation preview" }),
+      );
+      expect(document.querySelector("[data-tp-mobile-navigation]")).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show right panel preview" }),
+      );
+      expect(screen.getByText("Pull request")).toBeDefined();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Return to conversation preview" }),
+      );
+      expect(document.querySelector("[data-tp-mobile-panel]")).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show navigation preview" }),
+      );
+      const Component = panel.component;
+      mounted.rerender(<Component subPath="new" />);
+      await waitFor(() =>
+        expect(
+          document.querySelector("[data-tp-mobile-navigation]"),
+        ).toBeNull(),
+      );
+      expect(screen.getByText("Recent threads")).toBeDefined();
+      expect(screen.getByText("Ask anything…")).toBeDefined();
+      mounted.rerender(<Component subPath="split" />);
+      expect(
+        screen
+          .getByRole("tab", { name: "Thread" })
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+      expect(screen.queryByRole("tab", { name: "Split" })).toBeNull();
+      expect(document.querySelector("[data-tp-split-pane]")).toBeNull();
+      width.mockReturnValue(1280);
+      fireEvent(window, new Event("resize"));
+      expect(
+        screen
+          .getByRole("tab", { name: "Split" })
+          .getAttribute("aria-selected"),
+      ).toBe("true");
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("includes the sidebar and info panel once the pane is wide enough", async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(1280);
+    try {
+      renderPreview({
+        themeCatalog: () => DEFAULT_CATALOG,
+        setTheme: () => DEFAULT_CATALOG,
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByText("bb-plugins")).not.toBeNull(),
+      );
+      expect(screen.getByText("Pull request")).toBeDefined();
+      expect(
+        document.querySelector("[data-tp-mock-sidebar=left]"),
+      ).not.toBeNull();
+      expect(
+        document.querySelector("[data-tp-mock-sidebar=right]"),
+      ).not.toBeNull();
+      expect(
+        document.querySelector(
+          "[data-tp-mock-sidebar=left] [data-tp-sidebar-state=selected]",
+        )?.textContent,
+      ).toContain("Endless theme family");
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("keeps the transient bb surfaces deliberately inspectable in the overlays block", async () => {
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => DEFAULT_CATALOG,
+    });
+
+    expect(screen.getByText("Overlays")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Overlays" }));
+    for (const name of [
+      "Menu",
+      "Dialog",
+      "Popover",
+      "Tooltip",
+      "Hover card",
+      "Toast",
+    ]) {
+      expect(screen.getByRole("button", { name })).toBeDefined();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Dialog" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Archive thread?")).toBeDefined();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Menu" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Rename…", "Open in split", "Copy link", "Archive"]);
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Tooltip" }));
+    expect(await screen.findByRole("tooltip")).toBeDefined();
+  });
+
+  it("keeps the hover card dismissible and its controls usable", async () => {
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => DEFAULT_CATALOG,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Overlays" }));
+    const trigger = document.querySelector<HTMLButtonElement>(
+      "[data-tp-hovercard-trigger]",
+    );
+    if (!trigger) throw new Error("Hover card trigger was not rendered");
+
+    expect(trigger.getAttribute("data-state")).toBe("closed");
+
+    fireEvent.click(trigger);
+    const card = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>(
+        "[data-tp-hovercard-content]",
+      );
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+
+    const copy = within(card).getByRole("button", { name: "Copy branch" });
+    expect(
+      within(card).getByRole("button", { name: "Open in split" }),
+    ).toBeDefined();
+    fireEvent.click(copy);
+    expect(
+      document.querySelector("[data-tp-hovercard-content]"),
+    ).not.toBeNull();
+
+    fireEvent.click(trigger);
+    await waitFor(() =>
+      expect(document.querySelector("[data-tp-hovercard-content]")).toBeNull(),
+    );
+  });
+
+  it("keeps preview controls genuinely interactive", async () => {
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => DEFAULT_CATALOG,
+    });
+
+    for (const name of ["Overlays", "Components", "Style sheet"]) {
+      expect(
+        screen.getByRole("button", { name }).getAttribute("aria-expanded"),
+      ).toBe("false");
+    }
+    expect(
+      screen.queryByRole("textbox", { name: "Search threads" }),
+    ).toBeNull();
+    const components = screen.getByRole("button", { name: "Components" });
+    fireEvent.click(components);
+
+    const search = await screen.findByRole("textbox", {
+      name: "Search threads",
+    });
+    fireEvent.change(search, { target: { value: "endless color" } });
+    expect((search as HTMLInputElement).value).toBe("endless color");
+    expect(screen.queryByRole("textbox", { name: "Filter" })).toBeNull();
+
+    const notifications = screen.getByRole("switch", { name: "Notifications" });
+    const before = notifications.getAttribute("aria-checked");
+    fireEvent.click(notifications);
+    expect(notifications.getAttribute("aria-checked")).not.toBe(before);
+
+    const drafts = screen.getByRole("checkbox", { name: "Include drafts" });
+    const checkedBefore = drafts.getAttribute("aria-checked");
+    fireEvent.click(drafts);
+    expect(drafts.getAttribute("aria-checked")).not.toBe(checkedBefore);
+
+    expect(
+      (screen.getByRole("button", { name: "Disabled" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.click(components);
+    expect(
+      screen.queryByRole("textbox", { name: "Search threads" }),
+    ).toBeNull();
+    fireEvent.click(components);
+    expect(screen.getByRole("textbox", { name: "Search threads" })).toBe(
+      search,
+    );
+    expect((search as HTMLInputElement).value).toBe("endless color");
+    expect(
+      screen
+        .getByRole("switch", { name: "Notifications" })
+        .getAttribute("aria-checked"),
+    ).not.toBe(before);
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Include drafts" })
+        .getAttribute("aria-checked"),
+    ).not.toBe(checkedBefore);
+  });
+
+  it("gives the tooltip a dismissal delay and keyboard focus support", async () => {
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => DEFAULT_CATALOG,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Overlays" }));
+    const trigger = await waitFor(() => {
+      const found = document.querySelector<HTMLButtonElement>(
+        "[data-tp-tooltip-trigger]",
+      );
+      expect(found).not.toBeNull();
+      return found as HTMLButtonElement;
+    });
+    fireEvent.focus(trigger);
+    await waitFor(() =>
+      expect(
+        document.querySelector("[data-tp-tooltip-content]"),
+      ).not.toBeNull(),
+    );
+
+    vi.useFakeTimers();
+    fireEvent.mouseLeave(trigger);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(699);
+    });
+    expect(document.querySelector("[data-tp-tooltip-content]")).not.toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(document.querySelector("[data-tp-tooltip-content]")).toBeNull();
+  });
+
+  it("reports neutral contrast ratios without accessibility verdicts or authoring actions", async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, "clientWidth", "get")
+      .mockReturnValue(1280);
+    try {
+      const slot = renderPreview({
+        themeCatalog: () => DEFAULT_CATALOG,
+        setTheme: () => DEFAULT_CATALOG,
+      });
+      await waitFor(() =>
+        expect(document.querySelector("[data-tp-band=desktop]")).not.toBeNull(),
+      );
+
+      const sheet = document.querySelector("[data-tp-area=stylesheet]");
+      const blocks = [
+        ...(sheet?.querySelectorAll("[data-tp-block]") ?? []),
+      ].map((el) => el.getAttribute("data-tp-block"));
+      expect(blocks).toEqual([
+        "surfaces",
+        "ink",
+        "accent",
+        "status",
+        "lines",
+        "typography",
+        "rhythm",
+        "radius",
+        "shadow",
+      ]);
+      expect(sheet?.querySelector("input, select, [role=slider]")).toBeNull();
+      expect(sheet?.querySelectorAll("button")).toHaveLength(1);
+      expect(
+        screen
+          .getByRole("button", { name: "Style sheet" })
+          .getAttribute("aria-expanded"),
+      ).toBe("true");
+      const ratios = await waitFor(() => {
+        const found = document.querySelectorAll("[data-tp-contrast-ratio]");
+        expect(found).toHaveLength(13);
+        expect(
+          document.querySelector(
+            "[data-tp-specimen='color:ink'] [data-tp-contrast-ratio]",
+          )?.textContent,
+        ).toMatch(/^\d+\.\d{2}:1$/);
+        expect(
+          document.querySelector(
+            "[data-tp-specimen='color:readback-foreground'] [data-tp-contrast-ratio]",
+          )?.textContent,
+        ).toMatch(/^\d+\.\d{2}:1$/);
+        return found;
+      });
+      expect(
+        [...ratios].some(
+          (ratio) =>
+            ratio.textContent?.includes("Pass") ||
+            ratio.textContent?.includes("Fail"),
+        ),
+      ).toBe(false);
+      expect(sheet?.querySelector("[data-tp-validation]")).toBeNull();
+      expect(slot.inspection.rpcCalls.map((call) => call.method)).toEqual([
+        "themeCatalog",
+      ]);
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it("keeps the last resolved catalog across route remounts instead of flashing an empty picker", async () => {
+    const first = renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => DEFAULT_CATALOG,
+    });
+    await screen.findByRole("combobox", { name: /Default/i });
+    first.lifecycle.unmount();
+
+    const refresh = deferred<Catalog>();
+    renderPreview({
+      themeCatalog: () => refresh.promise,
+      setTheme: () => DEFAULT_CATALOG,
+    });
+
+    expect(screen.getByRole("combobox", { name: /Default/i })).toBeDefined();
+    expect(
+      screen.queryByRole("combobox", { name: "Loading themes" }),
+    ).toBeNull();
+    await act(async () => refresh.resolve(DEFAULT_CATALOG));
+  });
+
+  it("queues one immediate refresh when change signals arrive during a stale catalog request", async () => {
+    const stale = deferred<Catalog>();
+    let catalogCalls = 0;
+    const slot = renderPreview({
+      themeCatalog: () => {
+        catalogCalls += 1;
+        return catalogCalls === 1 ? stale.promise : ENDLESS_CATALOG;
+      },
+      setTheme: () => ENDLESS_CATALOG,
+    });
+
+    await waitFor(() => expect(catalogCalls).toBe(1));
+    await slot.behavior.emitRealtime("theme-preview:changed", null);
+    await slot.behavior.emitRealtime("theme-preview:changed", null);
+
+    await act(async () => stale.resolve(DEFAULT_CATALOG));
+
+    await waitFor(() => expect(catalogCalls).toBe(2));
+    expect(
+      screen.getByRole("combobox", { name: /Endless Color/i }),
+    ).toBeDefined();
+    expect(catalogCalls).toBe(2);
+  });
+
+  it("times out a stuck catalog request and lets the queued refresh recover", async () => {
+    vi.useFakeTimers();
+    const stuck = deferred<Catalog>();
+    let catalogCalls = 0;
+    renderPreview({
+      themeCatalog: () => {
+        catalogCalls += 1;
+        return catalogCalls === 1 ? stuck.promise : ENDLESS_CATALOG;
+      },
+      setTheme: () => ENDLESS_CATALOG,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(catalogCalls).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(catalogCalls).toBe(2);
+    expect(
+      screen.getByRole("combobox", { name: /Endless Color/i }),
+    ).toBeDefined();
+  });
+
+  it("owns a visible pending state and blocks duplicate selections", async () => {
+    const pending = deferred<Catalog>();
+    let selectionCalls = 0;
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => {
+        selectionCalls += 1;
+        return pending.promise;
+      },
+    });
+
+    await chooseEndlessDark();
+
+    const control = await screen.findByRole("combobox", {
+      name: /Applying Endless Color/i,
+    });
+    expect((control as HTMLButtonElement).disabled).toBe(true);
+    expect(control.getAttribute("aria-busy")).toBe("true");
+    fireEvent.click(control);
+    expect(selectionCalls).toBe(1);
+    expect(screen.queryByRole("listbox")).toBeNull();
+
+    await act(async () => pending.resolve(ENDLESS_CATALOG));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("combobox", {
+            name: /Endless Color/i,
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+  });
+
+  it("keeps a failed selection recoverable beside the owning control", async () => {
+    let selectionCalls = 0;
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => {
+        selectionCalls += 1;
+        if (selectionCalls === 1) throw new Error("rpc disconnected");
+        return ENDLESS_CATALOG;
+      },
+    });
+
+    await chooseEndlessDark();
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Theme didn’t apply",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry theme" }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("combobox", {
+            name: /Endless Color/i,
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    expect(selectionCalls).toBe(2);
+  });
+
+  it("releases a never-settling selection when its deadline expires", async () => {
+    const stuck = deferred<Catalog>();
+    renderPreview({
+      themeCatalog: () => DEFAULT_CATALOG,
+      setTheme: () => stuck.promise,
+    });
+
+    const control = themeControl();
+    await waitFor(() => expect(control.textContent).toContain("Default"));
+
+    vi.useFakeTimers();
+    openThemeMenu();
+    const options = screen.getAllByRole("option");
+    const endless = options.find((option) =>
+      option.textContent?.includes("Endless Color"),
+    );
+    if (!endless) throw new Error("Endless Color option was not rendered");
+    pickOption(endless);
+
+    expect(control.disabled).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(control.disabled).toBe(false);
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Theme didn’t apply",
+    );
+  });
+});

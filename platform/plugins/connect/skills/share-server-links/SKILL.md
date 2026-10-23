@@ -1,0 +1,78 @@
+---
+name: share-server-links
+description: "Expose a local HTTP server through BB Connect and give the user its remotely accessible URL."
+---
+
+# Share local server links via bb connect
+
+When you start an HTTP server the user should open, give them a connect share
+URL — not a localhost URL. Shares work from threads running on any enrolled
+host, and the command resolves the thread's host automatically.
+
+1. Check remote access: run `bb connect status --json`. If `paired` is
+   false, give the localhost URL and mention that remote URLs work once this
+   bb is signed in to its bb account (`bb account login`). If `enabled` is
+   false, the user turned remote access off with `bb connect off`; give the
+   localhost URL and mention `bb connect on`. Don't turn it on or sign in
+   yourself unless the user asks.
+2. From the thread that started the HTTP server, run `bb connect expose
+<port>`. It prints that host's share URL. Use `--host <name-or-id>` only
+   when you intentionally need another enrolled host; outside a thread,
+   sharing defaults to the machine running the bb server.
+3. Give the returned URL to the user as a markdown link. It works for viewers
+   who have the owner's getbb.app session; it is not a public internet link.
+4. When the server stops, run `bb connect unexpose <port>` from the same
+   thread (or with the same `--host`) so the share is cleaned up. Use
+   `bb connect shares [--host <name-or-id>]` to inspect that host's shares.
+
+Use `bb connect unexpose-all [--host <id>] [--json]` to revoke all shared ports
+on one machine, including an unavailable machine. It defaults to the thread's
+machine, or the server machine outside a thread, and keeps machine pairing intact.
+Each collapsible machine group in settings offers **Revoke all** for that machine.
+The typed plugin RPC is `unexposeAll` with `{ hostId: string }` input and a
+`{ removed: number }` result. Bulk revocation attempts every share on that
+machine; any failures report partial progress and can be retried.
+
+`bb connect --help` and `bb connect <command> --help` print the commands and
+their flags and exit 0. Unknown commands and flags fail with a suggestion —
+`bb connect list` points at `bb connect shares` — and with `--json` a failure
+prints `{"ok":false,"error":{"code":…,"message":…}}` on stdout while the same
+message stays on stderr.
+
+Server-host shares use `https://<server-label>--<port>.<base-domain>` through
+the server tunnel. While bb connect next is on (`bb connect-next status`),
+server-host shares also answer at
+`https://<server-label>--<port>.next.<base-domain>`: `bb connect expose` prints
+that URL on a second line, `bb connect shares` after the first URL, and
+`--json` listings carry it as `nextUrl`. Give the user both, or the one on the
+address they are using. Other enrolled hosts use
+`https://<machine-label>--<port>.<base-domain>` through their daemon, and
+while bb connect next is on also
+`https://<machine-label>--<port>.next.<base-domain>` (the same second line and
+`nextUrl`; a machine whose daemon predates protocol 247 serves it once it
+updates). A machine enrolled through the next address has only the next URL:
+it is the listing's `url`, with no `nextUrl`. If a
+machine was not enrolled through Connect, expose fails with instructions to
+remove and re-add it under Settings > Machines.
+
+## Remote access and the bb account
+
+Remote access runs through the bb account plugin, which holds the getbb.app
+pairing. `bb connect off` turns remote access off and keeps the account
+signed in; `bb connect on` turns it back on. Both set the connect
+`remoteAccess` setting (`bb plugin config connect set remoteAccess false`).
+`bb account logout` forgets the
+pairing, and `bb account status` shows which account is signed in.
+`bb connect --code <code>` still pairs with a dashboard code like
+`bb account login --code <code>`, and also turns remote access back on if it
+was off. `--server` takes the dashboard's `https://<handle>.getbb.app` (or
+`https://<handle>.vibecodethis.site`) URL; other origins are refused.
+
+## Agent instructions setting
+
+Settings → Installed plugins → Connect has a "Tell agents about remote access"
+toggle, enabled by default. Use
+`bb plugin config connect set sendRemoteInstructions false` to suppress the
+remote-access message, or `true` to restore it. This controls only the message;
+sharing still works. The message otherwise requires active or recent remote
+usage. Changes apply when session instructions are next assembled.

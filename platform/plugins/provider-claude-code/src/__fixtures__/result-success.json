@@ -1,0 +1,38 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "duration_ms": 14523,
+  "duration_api_ms": 12870,
+  "is_error": false,
+  "num_turns": 3,
+  "result": "I've refactored the formatDate function to use locale-aware formatting. The change is in /Users/developer/project/src/utils/format.ts.",
+  "stop_reason": "end_turn",
+  "total_cost_usd": 0.0847,
+  "usage": {
+    "input_tokens": 8420,
+    "output_tokens": 1253,
+    "cache_creation_input_tokens": 512,
+    "cache_read_input_tokens": 6500,
+    "cache_creation": null,
+    "cache_read": null,
+    "inference_geo": "us",
+    "iterations": null,
+    "server_tool_use": null,
+    "service_tier": "standard"
+  },
+  "modelUsage": {
+    "claude-sonnet-4-6": {
+      "inputTokens": 8420,
+      "outputTokens": 1253,
+      "cacheReadInputTokens": 6500,
+      "cacheCreationInputTokens": 512,
+      "webSearchRequests": 0,
+      "costUSD": 0.0847,
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000
+    }
+  },
+  "permission_denials": [],
+  "uuid": "f2b3c4d5-6789-0123-ef01-234567890123",
+  "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}

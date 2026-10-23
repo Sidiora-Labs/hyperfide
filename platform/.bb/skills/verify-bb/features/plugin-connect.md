@@ -1,0 +1,46 @@
+# Remote Connect and port sharing
+
+Status: **2026-09-05: 5 passed, 2 partial/blocked**. See [the audit](../MAINTENANCE.md) and [per-recipe ledger](../validation-2026-09-05.json).
+
+## Setup and entry points
+
+Settings → Remote access; use `bb connect` for command help. bb account holds the credential: sign in with the bb account plugin (plugin-bb-account.md) first. Use the local cloud stack and a fresh synthetic store/account. Never pair an imported store or use the owner’s live tunnel as a fixture.
+
+Use the main skill’s isolated targets and evidence rules. A plugin can be present
+in this checkout but disabled in an installation. Enable it only in the test
+store before checking its surfaces. Read its current command/schema definitions
+from the source below; CLI references use the matching source CLI described in
+SKILL.md. Inspect nested `--help` before selecting flags and IDs.
+
+## Source
+
+- `plugins/connect/package.json`
+- `plugins/connect/src/server.ts`
+- `plugins/connect/src/tunnel.ts`
+- `plugins/connect/app.tsx`
+
+## Feature recipes
+
+| Feature | Drive | Observable success |
+| --- | --- | --- |
+| Account pairing | Create a dashboard pairing code and redeem it with `connect --code` (signs in like `account login --code` and turns remote access back on), then try expired/reused codes; separately upgrade a store that still holds a legacy Connect credential. | Only the intended test server signs in; the tunnel dials with the server credential (`tunnel connected` in the server log); a legacy credential is copied into bb account and stays in Connect's `credential` KV key for older builds; invalid codes cannot claim another account or tunnel. |
+| Revoked credential and downgrade | Disconnect the test server from the local dashboard while its tunnel is up, and let it reconnect; separately downgrade a signed-in store to a build from before bb account. | Server log shows `the gate refused this bb's server credential` and then bb account's `signed out`, and remote access shows signed out; the older build starts paired from Connect's `credential` KV key. |
+| Remote app and status | Open the returned test tunnel URL, inspect connect status, and perform a read-only project lookup. | Remote browser and CLI address the same synthetic server and authenticated account. |
+| Reconnect | Interrupt only the test tunnel, observe disconnected status, and restore its connection. | The same authorized test server recovers; stale credentials cannot take ownership. |
+| Port shares | Start a harmless HTTP fixture, expose its port, inspect shares, request the returned URL, then unexpose it. | Shared response is the fixture’s; removal makes that share unavailable without stopping unrelated shares. |
+| Mobile machine code and QR | With the mobile experiment enabled, pair a test phone/profile using the supported QR and machine-code flow. | Correct machine label/origin is stored; consumed/revoked codes fail. |
+| Disable and forget | Run `connect off` and `connect on`, then `account logout`. | `off` closes the tunnel and keeps the account signed in; `on` reopens it; signing out closes it and requires a fresh sign-in. |
+| Authentication isolation | Open a test tunnel as another synthetic account and test revoked sessions. | Unauthorized requests cannot access another account’s machine; evidence excludes session credentials. |
+
+## Evidence and cleanup
+
+Record each row’s UI/tool/CLI action and observed result separately. Inspect the
+registered plugin command and SDK call before claiming agent parity; do not
+invent a plugin CLI where the feature uses a core command instead. Preserve
+failed attempts and missing prerequisites as unverified results. Restore plugin
+configuration and remove only this run’s fixtures, registrations, and workers.
+External account changes use authorized disposable targets.
+
+## Maintenance notes
+
+- Open Settings → Remote access (plugin id `connect`). Use `bb connect` for command help; this parser rejects `bb connect --help` as an unknown flag. Use `off` to disconnect and forget credentials, or the plugin enable toggle to suspend the tunnel while retaining pairing. Source: `plugins/connect/src/cli.ts:74`.

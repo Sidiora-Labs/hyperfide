@@ -1,0 +1,349 @@
+# Core command index
+
+This index lists every command path that the core CLI registers, including aliases: `thread get|view|status` run `thread show`, `thread message|send` run `thread tell`, `thread messages|timeline` run `thread log`, `thread create|new` run `thread spawn`, `terminal read` runs `terminal output`, `plugin uninstall` runs `plugin remove`, and `environment get` runs `environment show`. At the top level `bb host`, `bb hosts`, and `bb machines` run `bb machine`, `bb env` runs `bb environment`, and the plurals `threads`, `projects`, `terminals`, `providers`, `plugins`, and `skills` run their singular command, unless a plugin registers that name. `bb guide commands <group>` prints a group's commands with every option on one page. Check live help for flags and defaults.
+
+## status
+
+- `bb status`
+
+## settings
+
+- `bb settings`
+- `bb settings show`
+- `bb settings mobile-app`
+- `bb settings ai-services`
+- `bb settings ai-services show`
+- `bb settings ai-services set`
+- `bb settings ai-services test`
+- `bb settings cli-command`
+- `bb settings cli-command show`
+- `bb settings cli-command install`
+- `bb settings cli-command remove`
+- `bb settings general`
+- `bb settings replay-onboarding`
+- `bb settings completed-turns`
+- `bb settings experiment`
+- `bb settings keyboard`
+- `bb settings keyboard hints`
+- `bb settings keyboard list`
+- `bb settings keyboard set`
+- `bb settings keyboard reset`
+- `bb settings ui`
+- `bb settings ui list`
+- `bb settings ui get`
+- `bb settings ui set`
+- `bb settings ui reset`
+- `bb settings usage`
+- `bb settings version`
+- `bb settings reload`
+
+`bb settings usage` accepts `--refresh` to fetch fresh provider usage.
+
+## project
+
+- `bb project`
+- `bb project source`
+- `bb project source add`
+- `bb project source update`
+- `bb project source delete`
+- `bb project attachment`
+- `bb project attachment upload`
+- `bb project attachment download`
+- `bb project list`
+- `bb project discover`
+- `bb project history`
+- `bb project reorder`
+- `bb project branches`
+- `bb project paths`
+- `bb project commands`
+- `bb project files`
+- `bb project content`
+- `bb project create`
+- `bb project show`
+- `bb project update`
+- `bb project delete`
+
+## prompt-history
+
+- `bb prompt-history`
+- `bb prompt-history list`
+
+## provider
+
+- `bb provider`
+- `bb provider list`
+- `bb provider enable`
+- `bb provider disable`
+- `bb provider models`
+
+## machine
+
+- `bb machine`
+- `bb machine providers`
+- `bb machine enroll`
+- `bb machine env`
+- `bb machine env list`
+- `bb machine env set`
+- `bb machine env unset`
+- `bb machine create`
+- `bb machine list`
+- `bb machine show`
+- `bb machine reconnect`
+- `bb machine rename`
+- `bb machine remove`
+- `bb machine suspend`
+- `bb machine resume`
+- `bb machine reconcile`
+- `bb machine retry-cleanup`
+- `bb machine retry-update`
+- `bb machine provider-cli`
+- `bb machine provider-cli status`
+- `bb machine provider-cli install`
+
+## server
+
+- `bb server`
+- `bb server move`
+- `bb server move status`
+- `bb server move cancel`
+- `bb server export`
+- `bb server import`
+- `bb server unlock`
+- `bb server allow-connect`
+- `bb server delete-old-copy`
+- `bb server install-machine-service`
+
+## updates
+
+- `bb updates`
+- `bb updates status`
+- `bb updates apply`
+- `bb updates app`
+- `bb updates app status`
+- `bb updates app apply`
+- `bb updates app dismiss`
+
+## terminal
+
+- `bb terminal`
+- `bb terminal list`
+- `bb terminal create`
+- `bb terminal start`
+- `bb terminal show`
+- `bb terminal attach`
+- `bb terminal send`
+- `bb terminal resize`
+- `bb terminal output`
+- `bb terminal read`
+- `bb terminal wait`
+- `bb terminal rename`
+- `bb terminal restart`
+- `bb terminal close`
+- `bb terminal stop`
+
+## thread
+
+- `bb thread`
+- `bb thread wait`
+- `bb thread spawn`
+- `bb thread create`
+- `bb thread new`
+- `bb thread fork`
+- `bb thread list`
+- `bb thread show`
+- `bb thread get`
+- `bb thread view`
+- `bb thread status`
+- `bb thread log`
+- `bb thread messages`
+- `bb thread timeline`
+- `bb thread output`
+- `bb thread open`
+- `bb thread pane`
+- `bb thread section`
+- `bb thread section list`
+- `bb thread section create`
+- `bb thread section rename`
+- `bb thread section delete`
+- `bb thread search`
+- `bb thread history`
+- `bb thread read`
+- `bb thread unread`
+- `bb thread reorder-pinned`
+- `bb thread count`
+- `bb thread queue`
+- `bb thread queue list`
+- `bb thread queue create`
+- `bb thread queue update`
+- `bb thread queue send`
+- `bb thread queue delete`
+- `bb thread queue reorder`
+- `bb thread queue group`
+- `bb thread tabs`
+- `bb thread tabs show`
+- `bb thread tabs set`
+- `bb thread update`
+- `bb thread archive`
+- `bb thread unarchive`
+- `bb thread restore-environment`
+- `bb thread pin`
+- `bb thread unpin`
+- `bb thread delete`
+- `bb thread edit-message`
+- `bb thread tell`
+- `bb thread message`
+- `bb thread send`
+- `bb thread retry`
+- `bb thread stop`
+- `bb thread compact`
+- `bb thread context`
+- `bb thread commands`
+- `bb thread options`
+- `bb thread clear`
+- `bb thread cancel-plan`
+- `bb thread clear-goal`
+- `bb thread interactions`
+- `bb thread interactions list`
+- `bb thread interactions show`
+- `bb thread interactions approve`
+- `bb thread interactions grant`
+- `bb thread interactions answer`
+- `bb thread interactions respond`
+- `bb thread interactions deny`
+
+## environment
+
+- `bb environment`
+- `bb environment providers`
+- `bb environment list`
+- `bb environment delete`
+- `bb environment cleanup`
+- `bb environment show`
+- `bb environment get`
+- `bb environment status`
+- `bb environment branches`
+- `bb environment paths`
+- `bb environment diff`
+- `bb environment diff-files`
+- `bb environment diff-file`
+- `bb environment diff-patch`
+- `bb environment diff-viewed`
+- `bb environment diff-viewed list`
+
+  Repeat `--path` for a bounded lookup.
+
+- `bb environment diff-viewed mark`
+- `bb environment diff-viewed unmark`
+- `bb environment diff-viewed clear`
+- `bb environment update`
+- `bb environment commit`
+- `bb environment archive-threads`
+
+## file
+
+- `bb file`
+- `bb file read`
+- `bb file write`
+- `bb file list`
+- `bb file paths`
+- `bb file mkdir`
+- `bb file move`
+- `bb file remove`
+
+## theme
+
+- `bb theme`
+- `bb theme list`
+- `bb theme set`
+- `bb theme dir`
+- `bb theme favicon`
+- `bb theme favicon set`
+- `bb theme favicon reset`
+- `bb theme show`
+- `bb theme reset`
+
+## plugin
+
+- `bb plugin`
+- `bb plugin search`
+- `bb plugin list`
+- `bb plugin source`
+- `bb plugin install`
+- `bb plugin install-jobs`
+- `bb plugin cancel-install`
+- `bb plugin outdated`
+- `bb plugin update`
+- `bb plugin update-jobs`
+- `bb plugin new`
+- `bb plugin types`
+- `bb plugin migrate`
+- `bb plugin build`
+- `bb plugin dev`
+- `bb plugin reload`
+- `bb plugin rpc`
+- `bb plugin rpc list`
+- `bb plugin rpc inspect`
+- `bb plugin rpc call`
+- `bb plugin enable`
+- `bb plugin disable`
+- `bb plugin safe-mode`
+- `bb plugin prune`
+- `bb plugin config`
+- `bb plugin token`
+- `bb plugin run`
+- `bb plugin logs`
+- `bb plugin remove`
+- `bb plugin uninstall`
+
+## marketplace
+
+- `bb marketplace`
+- `bb marketplace add`
+- `bb marketplace list`
+- `bb marketplace refresh`
+- `bb marketplace remove`
+
+## skill
+
+- `bb skill`
+- `bb skill list`
+- `bb skill show`
+- `bb skill files`
+- `bb skill update`
+- `bb skill delete`
+- `bb skill search`
+- `bb skill registry`
+- `bb skill registry detail`
+- `bb skill install`
+- `bb skill cli-skills-status`
+- `bb skill install-cli-skills`
+
+## guide
+
+- `bb guide`
+
+## diagnostics
+
+- `bb diagnostics`
+- `bb diagnostics cli-errors`
+
+## voice
+
+- `bb voice`
+- `bb voice transcribe`
+
+## browser
+
+- `bb browser`
+- `bb browser instances`
+- `bb browser tabs`
+- `bb browser create`
+- `bb browser acquire`
+- `bb browser connection`
+- `bb browser release`
+- `bb browser reveal`
+- `bb browser close`
+- `bb browser capture`
+- `bb browser watch`
+- `bb browser import-sources`
+- `bb browser import-cookies`

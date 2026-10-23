@@ -1,0 +1,514 @@
+import { constants, type BigIntStats } from "node:fs";
+import { isUtf8 } from "node:buffer";
+import fs from "node:fs/promises";
+import path from "node:path";
+import mimeTypes from "mime-types";
+import type {
+  HostReadFileIfNoneMatch,
+  HostReadFileRelativeDotfilePolicy,
+} from "@bb/host-daemon-contract";
+import {
+  readGitBlob,
+  WorkspaceError,
+  type GitProcessOptions,
+} from "@bb/host-workspace";
+import { isPathWithinDirectory } from "@bb/process-utils";
+import {
+  CommandDispatchError,
+  ExpectedCommandDispatchError,
+} from "../command-dispatch-support.js";
+import { isFsErrorWithCode } from "../fs-errors.js";
+import { sha256Hex } from "../sha256-hex.js";
+import { resolveNonSymlinkDirectoryPath } from "./root-path.js";
+
+const IMAGE_FILE_SIZE_LIMIT_BYTES = 10 * 1024 * 1024;
+export const NON_IMAGE_FILE_SIZE_LIMIT_BYTES = 25 * 1024 * 1024;
+
+type FileContentEncoding = "base64" | "utf8";
+
+interface ReadFileForTransportMetadata {
+  contentEncoding: FileContentEncoding;
+  mimeType?: string;
+  modifiedAtMs?: number;
+  path: string;
+  sha256: string;
+  sizeBytes: number;
+}
+
+export interface ReadFileContentForTransportResult extends ReadFileForTransportMetadata {
+  content: string;
+}
+
+interface ReadFileNotModifiedForTransportResult extends ReadFileForTransportMetadata {
+  notModified: true;
+}
+
+export type ReadFileForTransportResult =
+  | ReadFileContentForTransportResult
+  | ReadFileNotModifiedForTransportResult;
+
+interface ReadFileForTransportArgs {
+  ifNoneMatch?: HostReadFileIfNoneMatch;
+  resolvedPath: string;
+  resultPath: string;
+  rootPath?: string;
+}
+
+interface ReadRootRelativeFileForTransportArgs {
+  followRootSymlink: boolean;
+  rootPath: string;
+  relativePath: string;
+  dotfiles: HostReadFileRelativeDotfilePolicy;
+}
+
+interface ResolveRootPathForReadArgs {
+  resultPath: string;
+  rootPath: string;
+}
+
+interface ValidateRootRelativePathArgs {
+  relativePath: string;
+  dotfiles: HostReadFileRelativeDotfilePolicy;
+}
+
+interface ValidatedRootRelativePath {
+  segments: readonly string[];
+  resultPath: string;
+}
+
+interface ReadFileFromGitRefArgs extends GitProcessOptions {
+  ifNoneMatch?: HostReadFileIfNoneMatch;
+  rootPath: string;
+  resolvedPath: string;
+  resultPath: string;
+  ref: string;
+}
+
+function isBinaryImageMimeType(mimeType?: string): boolean {
+  return Boolean(
+    mimeType && mimeType.startsWith("image/") && mimeType !== "image/svg+xml",
+  );
+}
+
+function getFileSizeLimitBytes(mimeType?: string): number {
+  return isBinaryImageMimeType(mimeType)
+    ? IMAGE_FILE_SIZE_LIMIT_BYTES
+    : NON_IMAGE_FILE_SIZE_LIMIT_BYTES;
+}
+
+function getContentEncoding(
+  fileContents: Buffer,
+  mimeType?: string,
+): FileContentEncoding {
+  if (isBinaryImageMimeType(mimeType)) {
+    return "base64";
+  }
+
+  if (isUtf8(fileContents)) {
+    return "utf8";
+  }
+  return "base64";
+}
+
+interface ReadFileBytes {
+  contents: Buffer;
+  mimeType?: string;
+  modifiedAtMs?: number;
+  path: string;
+  sizeBytes: number;
+}
+
+function createReadFileForTransportMetadata(
+  args: ReadFileBytes,
+): ReadFileForTransportMetadata {
+  const contentEncoding = getContentEncoding(args.contents, args.mimeType);
+  return {
+    contentEncoding,
+    ...(args.mimeType ? { mimeType: args.mimeType } : {}),
+    ...(args.modifiedAtMs !== undefined
+      ? { modifiedAtMs: args.modifiedAtMs }
+      : {}),
+    path: args.path,
+    sha256: sha256Hex(args.contents),
+    sizeBytes: args.sizeBytes,
+  };
+}
+
+function addFileContent(
+  metadata: ReadFileForTransportMetadata,
+  contents: Buffer,
+): ReadFileContentForTransportResult {
+  return {
+    ...metadata,
+    content:
+      metadata.contentEncoding === "utf8"
+        ? contents.toString("utf8")
+        : contents.toString("base64"),
+  };
+}
+
+function createReadFileForTransportResult(
+  args: ReadFileBytes & { ifNoneMatch?: HostReadFileIfNoneMatch },
+): ReadFileForTransportResult {
+  const metadata = createReadFileForTransportMetadata(args);
+  if (
+    args.ifNoneMatch?.kind === "any" ||
+    args.ifNoneMatch?.values.includes(metadata.sha256)
+  ) {
+    return { ...metadata, notModified: true };
+  }
+  return addFileContent(metadata, args.contents);
+}
+
+function createUnconditionalReadFileForTransportResult(
+  args: ReadFileBytes,
+): ReadFileContentForTransportResult {
+  return addFileContent(
+    createReadFileForTransportMetadata(args),
+    args.contents,
+  );
+}
+
+export function createMissingTargetError(
+  resultPath: string,
+): ExpectedCommandDispatchError {
+  return new ExpectedCommandDispatchError(
+    "ENOENT",
+    `Path does not exist: ${resultPath}`,
+  );
+}
+
+function validateRootRelativePath(
+  args: ValidateRootRelativePathArgs,
+): ValidatedRootRelativePath {
+  if (
+    args.relativePath.includes("\0") ||
+    args.relativePath.includes("\\") ||
+    path.posix.isAbsolute(args.relativePath)
+  ) {
+    throw new CommandDispatchError("invalid_path", "Path must be relative");
+  }
+
+  const segments = args.relativePath.split("/");
+  if (
+    segments.some(
+      (segment) => segment.length === 0 || segment === "." || segment === "..",
+    )
+  ) {
+    throw new CommandDispatchError("invalid_path", "Path must be relative");
+  }
+
+  if (
+    args.dotfiles === "deny" &&
+    segments.some((segment) => segment.startsWith("."))
+  ) {
+    throw createMissingTargetError(args.relativePath);
+  }
+
+  return {
+    segments,
+    resultPath: segments.join("/"),
+  };
+}
+
+async function resolveRootPathOrThrowMissingPath(
+  args: ResolveRootPathForReadArgs,
+): Promise<string> {
+  try {
+    return await resolveNonSymlinkDirectoryPath({
+      description: "Root path",
+      path: args.rootPath,
+    });
+  } catch (error) {
+    if (isFsErrorWithCode(error, "ENOENT")) {
+      throw createMissingTargetError(args.resultPath);
+    }
+    throw error;
+  }
+}
+
+async function throwMissingTargetOrRethrow(
+  args: ReadFileForTransportArgs,
+  error: unknown,
+): Promise<never> {
+  if (!isFsErrorWithCode(error, "ENOENT")) {
+    throw error;
+  }
+
+  const rootPath = args.rootPath;
+  if (!rootPath) {
+    throw createMissingTargetError(args.resultPath);
+  }
+
+  await resolveRootPathOrThrowMissingPath({
+    resultPath: args.resultPath,
+    rootPath,
+  });
+
+  throw createMissingTargetError(args.resultPath);
+}
+
+async function resolveReadablePath(
+  args: ReadFileForTransportArgs,
+): Promise<string> {
+  const rootPath = args.rootPath;
+  if (!rootPath) {
+    return args.resolvedPath;
+  }
+
+  const realRootPath = await resolveRootPathOrThrowMissingPath({
+    resultPath: args.resultPath,
+    rootPath,
+  });
+  const realResolvedPath = await fs
+    .realpath(args.resolvedPath)
+    .catch((error: unknown) => throwMissingTargetOrRethrow(args, error));
+  if (!isPathWithinDirectory(realRootPath, realResolvedPath)) {
+    throw new CommandDispatchError(
+      "invalid_path",
+      `Path "${args.resultPath}" escapes read root`,
+    );
+  }
+
+  return realResolvedPath;
+}
+
+export async function readFileFromGitRef(
+  args: ReadFileFromGitRefArgs,
+): Promise<ReadFileForTransportResult> {
+  if (!path.isAbsolute(args.rootPath)) {
+    throw new CommandDispatchError("invalid_path", "rootPath must be absolute");
+  }
+  if (!path.isAbsolute(args.resolvedPath)) {
+    throw new CommandDispatchError("invalid_path", "Path must be absolute");
+  }
+  const relativePath = path.relative(args.rootPath, args.resolvedPath);
+  if (
+    relativePath === "" ||
+    relativePath.startsWith("..") ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new CommandDispatchError(
+      "invalid_path",
+      `Path "${args.resultPath}" escapes read root`,
+    );
+  }
+  const gitRelativePath = relativePath.split(path.sep).join("/");
+  const mimeType = mimeTypes.lookup(args.resultPath) || undefined;
+  const fileSizeLimitBytes = getFileSizeLimitBytes(mimeType);
+
+  let blob;
+  try {
+    blob = await readGitBlob(
+      args.rootPath,
+      args.ref,
+      gitRelativePath,
+      fileSizeLimitBytes,
+      args,
+    );
+  } catch (error) {
+    if (error instanceof WorkspaceError && error.code === "blob_too_large") {
+      throw new CommandDispatchError("file_too_large", error.message);
+    }
+    throw error;
+  }
+
+  if (blob.contents === null) {
+    return createReadFileForTransportResult({
+      contents: Buffer.alloc(0),
+      ...(args.ifNoneMatch !== undefined
+        ? { ifNoneMatch: args.ifNoneMatch }
+        : {}),
+      mimeType,
+      path: args.resultPath,
+      sizeBytes: 0,
+    });
+  }
+
+  return createReadFileForTransportResult({
+    contents: blob.contents,
+    ...(args.ifNoneMatch !== undefined
+      ? { ifNoneMatch: args.ifNoneMatch }
+      : {}),
+    mimeType,
+    path: args.resultPath,
+    sizeBytes: blob.sizeBytes,
+  });
+}
+
+export async function readFileForTransport(
+  args: ReadFileForTransportArgs,
+): Promise<ReadFileForTransportResult> {
+  const readablePath = await resolveReadablePath(args);
+  const stat = await fs
+    .stat(readablePath)
+    .catch((error: unknown) => throwMissingTargetOrRethrow(args, error));
+  if (stat.isDirectory()) {
+    throw new CommandDispatchError(
+      "invalid_path",
+      "Path is a directory, not a file",
+    );
+  }
+  if (!stat.isFile()) {
+    throw new CommandDispatchError(
+      "invalid_path",
+      "Path is not a regular file",
+    );
+  }
+
+  const mimeType = mimeTypes.lookup(args.resultPath) || undefined;
+  const fileSizeLimitBytes = getFileSizeLimitBytes(mimeType);
+  if (stat.size > fileSizeLimitBytes) {
+    throw new CommandDispatchError(
+      "file_too_large",
+      `File size ${stat.size} bytes exceeds the ${Math.floor(fileSizeLimitBytes / (1024 * 1024))} MB limit`,
+    );
+  }
+
+  const fileContents = await fs
+    .readFile(readablePath)
+    .catch((error: unknown) => throwMissingTargetOrRethrow(args, error));
+  return createReadFileForTransportResult({
+    contents: fileContents,
+    ifNoneMatch: args.ifNoneMatch,
+    mimeType,
+    modifiedAtMs: stat.mtimeMs,
+    path: args.resultPath,
+    sizeBytes: stat.size,
+  });
+}
+
+export async function readRootRelativeFileForTransport(
+  args: ReadRootRelativeFileForTransportArgs,
+): Promise<ReadFileContentForTransportResult> {
+  if (!path.isAbsolute(args.rootPath)) {
+    throw new CommandDispatchError("invalid_path", "rootPath must be absolute");
+  }
+
+  const relativePath = validateRootRelativePath({
+    relativePath: args.relativePath,
+    dotfiles: args.dotfiles,
+  });
+  const rootPath = args.followRootSymlink
+    ? await fs.realpath(args.rootPath).catch((error: unknown) => {
+        if (isFsErrorWithCode(error, "ENOENT")) {
+          throw createMissingTargetError(relativePath.resultPath);
+        }
+        throw error;
+      })
+    : args.rootPath;
+  const resolvedPath = path.join(rootPath, ...relativePath.segments);
+  const readArgs: ReadFileForTransportArgs = {
+    resolvedPath,
+    resultPath: relativePath.resultPath,
+    rootPath,
+  };
+  const readablePath = await resolveReadablePath(readArgs);
+  const stat = await fs
+    .stat(readablePath)
+    .catch((error: unknown) => throwMissingTargetOrRethrow(readArgs, error));
+  if (stat.isDirectory()) {
+    throw new CommandDispatchError(
+      "invalid_path",
+      "Path is a directory, not a file",
+    );
+  }
+  if (!stat.isFile()) {
+    throw new CommandDispatchError(
+      "invalid_path",
+      "Path is not a regular file",
+    );
+  }
+
+  const mimeType = mimeTypes.lookup(relativePath.resultPath) || undefined;
+  const fileContents = await fs
+    .readFile(readablePath)
+    .catch((error: unknown) => throwMissingTargetOrRethrow(readArgs, error));
+  return createUnconditionalReadFileForTransportResult({
+    contents: fileContents,
+    mimeType,
+    modifiedAtMs: stat.mtimeMs,
+    path: relativePath.resultPath,
+    sizeBytes: stat.size,
+  });
+}
+
+function fileRevision(stat: BigIntStats): string {
+  return sha256Hex(
+    Buffer.from(
+      [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":"),
+    ),
+  );
+}
+
+export async function readFileChunkForTransport(
+  args: ReadFileForTransportArgs & {
+    offset: number;
+    length: number;
+    revision: string | null;
+  },
+) {
+  const readablePath = await resolveReadablePath(args);
+  const file = await fs
+    .open(
+      readablePath,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    )
+    .catch((error: unknown) => throwMissingTargetOrRethrow(args, error));
+  try {
+    const stat = await file.stat({ bigint: true });
+    if (!stat.isFile()) {
+      throw new CommandDispatchError(
+        "invalid_path",
+        "Path is not a regular file",
+      );
+    }
+    if (stat.size > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new CommandDispatchError(
+        "file_too_large",
+        "File size exceeds supported byte offsets",
+      );
+    }
+    const revision = fileRevision(stat);
+    if (args.revision !== null && args.revision !== revision) {
+      throw new ExpectedCommandDispatchError(
+        "file_changed",
+        "File changed during read",
+      );
+    }
+    const sizeBytes = Number(stat.size);
+    const length = Math.min(args.length, Math.max(0, sizeBytes - args.offset));
+    const bytes = Buffer.alloc(length);
+    let offset = 0;
+    while (offset < length) {
+      const { bytesRead } = await file.read(
+        bytes,
+        offset,
+        length - offset,
+        args.offset + offset,
+      );
+      if (bytesRead === 0) break;
+      offset += bytesRead;
+    }
+    if (
+      offset !== length ||
+      fileRevision(await file.stat({ bigint: true })) !== revision
+    ) {
+      throw new ExpectedCommandDispatchError(
+        "file_changed",
+        "File changed during read",
+      );
+    }
+    return {
+      path: args.resultPath,
+      sizeBytes,
+      modifiedAtMs: Number(stat.mtimeNs) / 1_000_000,
+      mimeType: mimeTypes.lookup(args.resultPath) || null,
+      revision,
+      offset: args.offset,
+      content: bytes.toString("base64"),
+    };
+  } finally {
+    await file.close();
+  }
+}

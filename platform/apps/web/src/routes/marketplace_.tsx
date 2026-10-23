@@ -1,0 +1,92 @@
+import {
+  createFileRoute,
+  Outlet,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
+
+import { siteHeadLinks } from "../landing/page-head.js";
+import marketplaceCss from "../marketplace/marketplace.css?url";
+import {
+  marketplaceIndexHead,
+  validateMarketplaceSearch,
+} from "../marketplace/marketplace-route-data.js";
+import { getPublicMarketplace } from "../marketplace/marketplace-server.js";
+import {
+  PublicMarketplaceNotFoundPage,
+  PublicMarketplacePage,
+  PublicMarketplaceUnavailablePage,
+  MarketplaceNavigationProvider,
+  MarketplaceRenderTimeProvider,
+} from "../marketplace/public-marketplace.js";
+
+export const Route = createFileRoute("/marketplace_")({
+  staticData: { ownsCanonical: true },
+  validateSearch: validateMarketplaceSearch,
+  loader: async () => ({
+    ...(await getPublicMarketplace()),
+    renderedAt: Date.now(),
+  }),
+  head: ({ loaderData, match, matches }) => {
+    const lastMatch = matches.at(-1);
+    const isIndex = lastMatch?.routeId === match.routeId;
+    const notFound = matches.some(
+      (candidate) => candidate.status === "notFound",
+    );
+    const sharedLinks = siteHeadLinks(marketplaceCss);
+    if (notFound) {
+      return {
+        meta: [
+          { title: "Page not found — bb" },
+          { name: "robots", content: "noindex" },
+        ],
+        links: sharedLinks,
+      };
+    }
+    if (!isIndex) return { links: sharedLinks };
+    const head = marketplaceIndexHead(loaderData, match.search.category);
+    return { meta: head.meta, links: [...sharedLinks, head.canonical] };
+  },
+  notFoundComponent: PublicMarketplaceNotFoundPage,
+  component: MarketplaceRoute,
+});
+
+function MarketplaceRoute() {
+  const path = useRouterState({ select: (state) => state.location.pathname });
+  const marketplace = Route.useLoaderData();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const router = useRouter();
+  return (
+    <MarketplaceNavigationProvider
+      navigate={(href) => void router.navigate({ href })}
+    >
+      <MarketplaceRenderTimeProvider renderedAt={marketplace.renderedAt}>
+        {path !== "/marketplace" && path !== "/marketplace/" ? (
+          <Outlet />
+        ) : marketplace.status === "unavailable" ? (
+          <PublicMarketplaceUnavailablePage />
+        ) : (
+          <PublicMarketplacePage
+            manifest={marketplace.manifest}
+            stats={marketplace.stats}
+            state={{
+              category: search.category,
+              collection: search.collection,
+              sort: search.sort,
+            }}
+            onStateChange={(next) =>
+              void navigate({
+                search: {
+                  category: next.category,
+                  collection: next.collection,
+                  sort: next.sort,
+                },
+              })
+            }
+          />
+        )}
+      </MarketplaceRenderTimeProvider>
+    </MarketplaceNavigationProvider>
+  );
+}

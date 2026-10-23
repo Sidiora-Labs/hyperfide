@@ -1,0 +1,114 @@
+import { useState } from "react";
+import type { TimelineWorkflowWorkRow } from "@bb/server-contract";
+import { ThreadBackgroundCommandsCard } from "./ThreadBackgroundCommandsCard";
+import { backgroundCommandRow } from "@/test/fixtures/thread-timeline-rows";
+import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
+import { FauxComposer, ResponsiveStage } from "./banner-story-stages";
+
+export default {
+  title: "promptbox/banner/Background Commands Card",
+};
+
+const runningCommand = (
+  args: Parameters<typeof backgroundCommandRow>[0],
+): TimelineWorkflowWorkRow =>
+  backgroundCommandRow({
+    status: "pending",
+    taskStatus: "running",
+    summary: null,
+    ...args,
+  });
+
+const single: TimelineWorkflowWorkRow[] = [
+  runningCommand({
+    id: "thr_fixture:bg:tail-dev-log",
+    description: "Poll all CI runs for batching head until completion",
+    startedAt: Date.now() - 8_000,
+  }),
+];
+
+const many: TimelineWorkflowWorkRow[] = [
+  runningCommand({
+    id: "thr_fixture:bg:dev-server",
+    description: "Run the dev server",
+    startedAt: Date.now() - 26_000,
+  }),
+  runningCommand({
+    id: "thr_fixture:bg:watch-tests",
+    description: "Watch and re-run tests",
+    startedAt: Date.now() - 12_000,
+  }),
+  runningCommand({
+    id: "thr_fixture:bg:tail-log",
+    description: "Tail the dev server log",
+    startedAt: Date.now() - 4_000,
+  }),
+];
+
+const longCommand: TimelineWorkflowWorkRow[] = [
+  runningCommand({
+    id: "thr_fixture:bg:ladle",
+    description:
+      "cd /Users/fixture/.bb/plugins/environment-git-worktree/host-data/worktrees/thr_fixture-1/bb/apps/app && (pnpm exec ladle serve --port 61234 > $TMPDIR/ladle.log 2>&1 &) ; for i in $(seq 1 40); do curl -s localhost:61234/meta.json >/dev/null && break; sleep 2; done",
+    startedAt: Date.now() - 74_000,
+  }),
+];
+
+function ExpandableCard({
+  commands,
+  startExpanded = false,
+}: {
+  commands: TimelineWorkflowWorkRow[];
+  startExpanded?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(startExpanded);
+  return (
+    <div className="flex flex-col gap-2">
+      <ThreadBackgroundCommandsCard
+        commands={commands}
+        isExpanded={expanded}
+        onToggle={() => setExpanded((value) => !value)}
+      />
+      <FauxComposer />
+    </div>
+  );
+}
+
+export function Overview() {
+  return (
+    <StoryCard>
+      <StoryRow
+        label="single"
+        hint="compact: summarized and expandable; wide: detailed single line"
+      >
+        <ResponsiveStage>
+          <ExpandableCard commands={single} />
+        </ResponsiveStage>
+      </StoryRow>
+      <StoryRow
+        label="multiple (collapsed)"
+        hint="most recent command + total count; click to expand"
+      >
+        <ResponsiveStage>
+          <ExpandableCard commands={many} />
+        </ResponsiveStage>
+      </StoryRow>
+      <StoryRow
+        label="multiple (expanded)"
+        hint="expanded: the other running commands listed below the primary"
+      >
+        <ResponsiveStage>
+          <ExpandableCard commands={many} startExpanded />
+        </ResponsiveStage>
+      </StoryRow>
+      <StoryRow
+        label="long command (expanded)"
+        hint="compact rows clamp the command to two lines"
+      >
+        <ResponsiveStage>
+          <ExpandableCard commands={longCommand} startExpanded />
+        </ResponsiveStage>
+      </StoryRow>
+    </StoryCard>
+  );
+}

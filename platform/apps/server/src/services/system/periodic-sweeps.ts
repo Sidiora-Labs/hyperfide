@@ -1,0 +1,679 @@
+import {
+  runThreadPruningSweep,
+  THREAD_PRUNING_SWEEP_LIMITS,
+  type ThreadPruningSweepLimits,
+} from "./thread-pruning-sweep.js";
+import {
+  PROJECT_ATTACHMENT_BACKFILL_LIMITS,
+  runProjectAttachmentBackfill,
+  runProjectAttachmentPrune,
+} from "../projects/attachment-maintenance.js";
+import { sweepProviderLifecycles } from "../environments/environment-engine.js";
+import {
+  runThreadStorageOrphanSweep,
+  THREAD_STORAGE_ORPHAN_SWEEP_CADENCE_MS,
+} from "../threads/thread-storage-orphans.js";
+import { and, eq, isNull, isNotNull, inArray } from "drizzle-orm";
+import { sweepMachineLifecycles } from "../machines/provider-orchestration.js";
+import {
+  CLOSED_SESSION_ROW_RETENTION_MS,
+  compactDatabase,
+  DATABASE_COMPACTION_MIN_RECLAIMABLE_BYTES,
+  DATABASE_COMPACTION_MIN_RECLAIMABLE_RATIO,
+  DATABASE_INCREMENTAL_VACUUM_MAX_PAGES,
+  DATABASE_INCREMENTAL_VACUUM_MIN_FREELIST_PAGES,
+  DEFAULT_CLOSED_SESSION_PRUNE_BATCH_SIZE,
+  deleteExpiredRetainedEventOutputs,
+  dropDeferredLegacyTables,
+  getDatabaseAutoVacuumMode,
+  getDatabaseCompactionStats,
+  getDatabaseFreelistStats,
+  getDatabaseMaintenanceActivity,
+  getEnvironment,
+  isDatabaseMaintenanceIdle,
+  listArchivedThreadsPendingTeardown,
+  listDeferredLegacyTables,
+  migrateNextCompletedEventItemOutput,
+  migrateNextLegacyImageGenerationOutput,
+  environments,
+  pruneClosedSessions,
+  RETAINED_EVENT_OUTPUT_TARGETS,
+  runIncrementalVacuum,
+  shouldCompactDatabase,
+  shouldRunIncrementalVacuum,
+  threads,
+  DEFAULT_COMPLETED_EVENT_OUTPUT_MIGRATION_SCAN_LIMIT,
+  DEFAULT_LEGACY_IMAGE_GENERATION_MIGRATION_SCAN_LIMIT,
+} from "@bb/db";
+import type {
+  AppDeps,
+  LoggedPendingInteractionWorkSessionDeps,
+} from "../../types.js";
+import { advanceEnvironmentProvisioning } from "../environments/environment-engine.js";
+import {
+  advanceProjectDeletion,
+  listProjectsPendingDeletion,
+} from "../projects/project-deletion.js";
+import {
+  finalizeStoppedThread,
+  hasLiveThreadStartInFlight,
+  requestThreadStopForCurrentState,
+  requestThreadStorageDeletion,
+} from "../threads/thread-lifecycle.js";
+import {
+  archiveUndoGraceKeepsTerminals,
+  archiveUndoGraceKeepsTurnRunning,
+} from "../threads/archive-undo-grace.js";
+import { advanceThreadProvisioning } from "../threads/thread-provisioning.js";
+import {
+  runQueuedMessageDispatch,
+  type QueueWaitPluginDirectory,
+} from "../threads/queued-message-dispatch.js";
+import { deliverLegacyDeferredThreadMessages } from "../threads/legacy-deferred-messages.js";
+import { releaseOrphanedQueuedMessageDispatchClaims } from "../threads/queued-messages.js";
+import { runEventLoopWork, runEventLoopWorkSync } from "./event-loop-work.js";
+
+type DatabaseMaintenanceSweepDeps = Pick<AppDeps, "db" | "logger">;
+
+interface PluginScheduleSweeper {
+  sweepDueSchedules(now: number): Promise<void>;
+}
+
+type PeriodicSweepDeps = LoggedPendingInteractionWorkSessionDeps & {
+  pluginSchedules: PluginScheduleSweeper;
+  /** Liveness directory for `plugin:<id>` wait holders. */
+  plugins: QueueWaitPluginDirectory;
+};
+
+const DATABASE_MAINTENANCE_CHECK_INTERVAL_MS = 60 * 60_000;
+const DATABASE_INCREMENTAL_VACUUM_CHUNK_PAGES = 256;
+const COMPLETED_EVENT_OUTPUT_MIGRATION_MAX_ADVANCES_PER_SWEEP = 64;
+const RETAINED_EVENT_OUTPUT_EXPIRY_MAX_ADVANCES_PER_SWEEP = 256;
+const RETAINED_EVENT_OUTPUT_EXPIRY_BATCH_SIZE = 1;
+
+type PeriodicSweepJobCategory =
+  | "retention"
+  | "durable-intent-retry"
+  | "orphan-cleanup"
+  | "maintenance"
+  | "scheduler";
+
+export interface PeriodicSweepJob {
+  cadenceMs: number;
+  category: PeriodicSweepJobCategory;
+  name: string;
+  run(deps: PeriodicSweepDeps, now: number): Promise<void> | void;
+}
+
+interface PeriodicSweepJobState {
+  lastStartedAt: number;
+  running: boolean;
+}
+
+type PeriodicSweepJobList = readonly PeriodicSweepJob[];
+const periodicSweepJobStates = new Map<string, PeriodicSweepJobState>();
+
+function getPeriodicSweepJobState(
+  job: PeriodicSweepJob,
+): PeriodicSweepJobState {
+  const existing = periodicSweepJobStates.get(job.name);
+  if (existing) {
+    return existing;
+  }
+
+  const created: PeriodicSweepJobState = {
+    lastStartedAt: 0,
+    running: false,
+  };
+  periodicSweepJobStates.set(job.name, created);
+  return created;
+}
+
+async function runPeriodicSweepJob(
+  deps: PeriodicSweepDeps,
+  job: PeriodicSweepJob,
+  now: number,
+): Promise<void> {
+  const state = getPeriodicSweepJobState(job);
+  if (state.running) {
+    deps.logger.debug(
+      { sweepJob: job.name, sweepJobCategory: job.category },
+      "Periodic sweep job skipped while already running",
+    );
+    return;
+  }
+
+  if (job.cadenceMs > 0 && now - state.lastStartedAt < job.cadenceMs) {
+    return;
+  }
+
+  state.lastStartedAt = now;
+  state.running = true;
+  try {
+    await runEventLoopWork(`sweep:${job.name}`, () => job.run(deps, now));
+  } catch (error) {
+    deps.logger.error(
+      {
+        err: error,
+        sweepJob: job.name,
+        sweepJobCategory: job.category,
+      },
+      "Periodic sweep job failed",
+    );
+  } finally {
+    state.running = false;
+  }
+}
+
+export async function runPeriodicSweepJobs(
+  deps: PeriodicSweepDeps,
+  jobs: PeriodicSweepJobList,
+  now: number,
+): Promise<void> {
+  for (const job of jobs) {
+    await runPeriodicSweepJob(deps, job, now);
+  }
+}
+
+async function runChunkedIncrementalVacuum(
+  db: DatabaseMaintenanceSweepDeps["db"],
+): Promise<ReturnType<typeof runIncrementalVacuum>> {
+  let first: ReturnType<typeof runIncrementalVacuum> | null = null;
+  let last: ReturnType<typeof runIncrementalVacuum> | null = null;
+  for (
+    let vacuumedPages = 0;
+    vacuumedPages < DATABASE_INCREMENTAL_VACUUM_MAX_PAGES;
+    vacuumedPages += DATABASE_INCREMENTAL_VACUUM_CHUNK_PAGES
+  ) {
+    if (last !== null) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    last = runIncrementalVacuum(db, {
+      maxPages: Math.min(
+        DATABASE_INCREMENTAL_VACUUM_CHUNK_PAGES,
+        DATABASE_INCREMENTAL_VACUUM_MAX_PAGES - vacuumedPages,
+      ),
+    });
+    first ??= last;
+    if (last.after.freelistCount === 0) {
+      break;
+    }
+  }
+  if (first === null || last === null) {
+    throw new Error("Incremental vacuum ran no chunks");
+  }
+  return { before: first.before, after: last.after };
+}
+
+export async function runDatabaseMaintenanceSweep(
+  deps: DatabaseMaintenanceSweepDeps,
+): Promise<void> {
+  const deferredLegacyTables = listDeferredLegacyTables(deps.db);
+  if (deferredLegacyTables.length > 0) {
+    const activity = getDatabaseMaintenanceActivity(deps.db);
+    if (!isDatabaseMaintenanceIdle(activity)) {
+      deps.logger.debug(
+        { activity, deferredLegacyTables },
+        "Deferred legacy database table cleanup skipped while app work is active",
+      );
+      return;
+    }
+
+    try {
+      const result = dropDeferredLegacyTables(deps.db);
+      deps.logger.info(
+        { result },
+        "Deferred legacy database table cleanup completed",
+      );
+    } catch (error) {
+      deps.logger.warn(
+        { err: error },
+        "Deferred legacy database table cleanup failed",
+      );
+    }
+    return;
+  }
+
+  const autoVacuumMode = getDatabaseAutoVacuumMode(deps.db);
+
+  if (autoVacuumMode === "incremental") {
+    const freelistStats = getDatabaseFreelistStats(deps.db);
+    if (
+      !shouldRunIncrementalVacuum({
+        minFreelistPages: DATABASE_INCREMENTAL_VACUUM_MIN_FREELIST_PAGES,
+        stats: freelistStats,
+      })
+    ) {
+      deps.logger.debug(
+        { freelistStats },
+        "Incremental database vacuum skipped below freelist threshold",
+      );
+      return;
+    }
+    try {
+      const result = await runChunkedIncrementalVacuum(deps.db);
+      deps.logger.info({ result }, "Incremental database vacuum completed");
+    } catch (error) {
+      deps.logger.warn({ err: error }, "Incremental database vacuum failed");
+    }
+    return;
+  }
+
+  const activity = getDatabaseMaintenanceActivity(deps.db);
+  if (!isDatabaseMaintenanceIdle(activity)) {
+    deps.logger.debug(
+      { activity },
+      "Database maintenance skipped while app work is active",
+    );
+    return;
+  }
+
+  const stats = getDatabaseCompactionStats(deps.db);
+  if (
+    !shouldCompactDatabase({
+      minReclaimableBytes: DATABASE_COMPACTION_MIN_RECLAIMABLE_BYTES,
+      minReclaimableRatio: DATABASE_COMPACTION_MIN_RECLAIMABLE_RATIO,
+      stats,
+    })
+  ) {
+    deps.logger.debug(
+      { stats },
+      "Database maintenance skipped below compaction threshold",
+    );
+    return;
+  }
+
+  try {
+    const result = compactDatabase(deps.db);
+    deps.logger.info({ result }, "Database compaction completed");
+  } catch (error) {
+    deps.logger.warn({ err: error }, "Database compaction failed");
+  }
+}
+
+async function runProjectDeletionSweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+): Promise<void> {
+  for (const projectId of listProjectsPendingDeletion(deps)) {
+    try {
+      await advanceProjectDeletion(deps, { projectId });
+    } catch (error) {
+      deps.logger.warn(
+        {
+          err: error,
+          projectId,
+        },
+        "Project deletion sweep failed",
+      );
+    }
+  }
+}
+
+export async function runEnvironmentProvisioningSweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+): Promise<void> {
+  const provisioningEnvironments = deps.db
+    .select({ id: environments.id })
+    .from(environments)
+    .where(inArray(environments.status, ["creating", "provisioning"]))
+    .all();
+
+  for (const environment of provisioningEnvironments) {
+    try {
+      await advanceEnvironmentProvisioning(deps, {
+        environmentId: environment.id,
+      });
+    } catch (error) {
+      deps.logger.warn(
+        {
+          err: error,
+          environmentId: environment.id,
+        },
+        "Environment provisioning sweep failed",
+      );
+    }
+  }
+}
+
+async function runThreadProvisioningOrphanCleanupSweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  now: number,
+): Promise<void> {
+  const provisioningThreads = deps.db
+    .select({
+      id: threads.id,
+      status: threads.status,
+    })
+    .from(threads)
+    .where(and(eq(threads.status, "starting"), isNull(threads.deletedAt)))
+    .all();
+
+  for (const thread of provisioningThreads) {
+    try {
+      if (hasLiveThreadStartInFlight(thread.id)) {
+        continue;
+      }
+      await advanceThreadProvisioning(deps, {
+        threadId: thread.id,
+      });
+    } catch (error) {
+      deps.logger.warn(
+        {
+          err: error,
+          threadId: thread.id,
+        },
+        "Thread provisioning sweep failed",
+      );
+    }
+  }
+  for (const thread of listArchivedThreadsPendingTeardown(deps.db)) {
+    if (!archiveUndoGraceKeepsTerminals(thread, now)) {
+      deps.terminalSessions.closeArchivedThreadTerminals({
+        threadId: thread.id,
+      });
+    }
+    if (archiveUndoGraceKeepsTurnRunning(thread, now)) {
+      continue;
+    }
+    requestThreadStopForCurrentState(
+      deps,
+      thread,
+      thread.environmentId
+        ? getEnvironment(deps.db, thread.environmentId)
+        : null,
+    );
+  }
+  const deletedThreads = deps.db
+    .select({
+      environmentId: threads.environmentId,
+      id: threads.id,
+      storageDeletedAt: threads.storageDeletedAt,
+    })
+    .from(threads)
+    .where(isNotNull(threads.deletedAt))
+    .all();
+  for (const thread of deletedThreads) {
+    deps.terminalSessions.closeDeletedThreadTerminals({ threadId: thread.id });
+    if (thread.storageDeletedAt !== null) {
+      finalizeStoppedThread(deps, { threadId: thread.id });
+      continue;
+    }
+    const environment = thread.environmentId
+      ? getEnvironment(deps.db, thread.environmentId)
+      : null;
+    requestThreadStorageDeletion(deps, thread, environment);
+  }
+}
+
+export async function runThreadLifecycleSweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+): Promise<void> {
+  await runThreadProvisioningOrphanCleanupSweep(deps, Date.now());
+  await sweepProviderLifecycles(deps);
+  await sweepMachineLifecycles(deps);
+}
+
+async function runMachineAuthPruneSweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+): Promise<void> {
+  await deps.machineAuth.pruneExpiredKeys();
+}
+
+async function runCompletedEventOutputMigrationSweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  now: number,
+): Promise<void> {
+  const migrationTargetCount = RETAINED_EVENT_OUTPUT_TARGETS.length + 1;
+  const exhaustedTargets = new Set<number>();
+  const changedThreadIds = new Set<string>();
+  let targetIndex = 0;
+  try {
+    for (
+      let advance = 0;
+      advance < COMPLETED_EVENT_OUTPUT_MIGRATION_MAX_ADVANCES_PER_SWEEP &&
+      exhaustedTargets.size < migrationTargetCount;
+      advance += 1
+    ) {
+      while (exhaustedTargets.has(targetIndex)) {
+        targetIndex = (targetIndex + 1) % migrationTargetCount;
+      }
+      const result = runEventLoopWorkSync(
+        "sweep:completed-event-output-migration:advance",
+        () => {
+          const target = RETAINED_EVENT_OUTPUT_TARGETS[targetIndex];
+          return target
+            ? migrateNextCompletedEventItemOutput(deps.db, {
+                ...target,
+                limit: DEFAULT_COMPLETED_EVENT_OUTPUT_MIGRATION_SCAN_LIMIT,
+                migratedAt: now,
+              })
+            : migrateNextLegacyImageGenerationOutput(deps.db, {
+                limit: DEFAULT_LEGACY_IMAGE_GENERATION_MIGRATION_SCAN_LIMIT,
+                migratedAt: now,
+              });
+        },
+      );
+      if (result.action === "migrated") {
+        if (!result.threadId) {
+          throw new Error("Migrated completed output has no thread");
+        }
+        changedThreadIds.add(result.threadId);
+      } else if (result.action === "complete" || result.action === "idle") {
+        exhaustedTargets.add(targetIndex);
+      }
+      targetIndex = (targetIndex + 1) % migrationTargetCount;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  } finally {
+    for (const threadId of changedThreadIds) {
+      deps.hub.notifyThread(threadId, ["history-compacted"]);
+    }
+  }
+}
+
+async function runRetainedEventOutputExpirySweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  now: number,
+): Promise<void> {
+  const changedThreadIds = new Set<string>();
+  try {
+    for (
+      let advance = 0;
+      advance < RETAINED_EVENT_OUTPUT_EXPIRY_MAX_ADVANCES_PER_SWEEP;
+      advance += 1
+    ) {
+      const { deleted, threadIds } = runEventLoopWorkSync(
+        "sweep:retained-event-output-expiry:delete",
+        () =>
+          deleteExpiredRetainedEventOutputs(deps.db, {
+            expiredAtOrBefore: now,
+            limit: RETAINED_EVENT_OUTPUT_EXPIRY_BATCH_SIZE,
+          }),
+      );
+      for (const threadId of threadIds) {
+        changedThreadIds.add(threadId);
+      }
+      if (deleted === 0) {
+        break;
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  } finally {
+    for (const threadId of changedThreadIds) {
+      deps.hub.notifyThread(threadId, ["history-compacted"]);
+    }
+  }
+}
+
+function runClosedSessionPruneSweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  now: number,
+): void {
+  pruneClosedSessions(deps.db, {
+    closedBefore: now - CLOSED_SESSION_ROW_RETENTION_MS,
+    limit: DEFAULT_CLOSED_SESSION_PRUNE_BATCH_SIZE,
+  });
+}
+
+export function createThreadEventPruningJob(
+  limits: ThreadPruningSweepLimits,
+): PeriodicSweepJob {
+  return {
+    cadenceMs: 0,
+    category: "retention",
+    name: "thread-event-pruning",
+    run: (deps) => runThreadPruningSweep(deps, limits),
+  };
+}
+
+const PERIODIC_SWEEP_JOBS: PeriodicSweepJob[] = [
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "environment-provider-lifecycle",
+    run: sweepProviderLifecycles,
+  },
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "machine-provider-lifecycle",
+    run: (deps) => sweepMachineLifecycles(deps, { background: true }),
+  },
+  {
+    cadenceMs: 0,
+    category: "retention",
+    name: "machine-auth-prune",
+    run: runMachineAuthPruneSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "retention",
+    name: "completed-event-output-migration",
+    run: runCompletedEventOutputMigrationSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "retention",
+    name: "retained-event-output-expiry",
+    run: runRetainedEventOutputExpirySweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "retention",
+    name: "closed-session-prune",
+    run: runClosedSessionPruneSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "orphan-cleanup",
+    name: "environment-provisioning-orphan-cleanup",
+    run: runEnvironmentProvisioningSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "orphan-cleanup",
+    name: "thread-provisioning-orphan-cleanup",
+    run: runThreadProvisioningOrphanCleanupSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "queued-message-auto-send",
+    run: (deps, now) =>
+      runQueuedMessageDispatch(deps, {
+        kind: "idle-recovery",
+        now,
+      }),
+  },
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "due-scheduled-queue-dispatch",
+    run: (deps, now) =>
+      runQueuedMessageDispatch(deps, { kind: "time-reached", now }),
+  },
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "failed-queue-message-retry",
+    run: (deps, now) =>
+      runQueuedMessageDispatch(deps, { kind: "failed-retry", now }),
+  },
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "orphaned-queue-wait-clear",
+    run: (deps) =>
+      runQueuedMessageDispatch(deps, {
+        kind: "orphaned-plugin-recovery",
+        plugins: deps.plugins,
+      }),
+  },
+  {
+    cadenceMs: 0,
+    category: "durable-intent-retry",
+    name: "project-deletion",
+    run: runProjectDeletionSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "scheduler",
+    name: "plugin-schedule",
+    run: (deps, now) => deps.pluginSchedules.sweepDueSchedules(now),
+  },
+  createThreadEventPruningJob(THREAD_PRUNING_SWEEP_LIMITS),
+  {
+    cadenceMs: DATABASE_MAINTENANCE_CHECK_INTERVAL_MS,
+    category: "maintenance",
+    name: "database-maintenance",
+    run: runDatabaseMaintenanceSweep,
+  },
+  {
+    cadenceMs: 0,
+    category: "maintenance",
+    name: "project-attachment-backfill",
+    run: (deps, now) =>
+      runProjectAttachmentBackfill(
+        deps,
+        PROJECT_ATTACHMENT_BACKFILL_LIMITS,
+        now,
+      ),
+  },
+  {
+    cadenceMs: 60_000,
+    category: "retention",
+    name: "project-attachment-orphan-prune",
+    run: runProjectAttachmentPrune,
+  },
+  {
+    cadenceMs: THREAD_STORAGE_ORPHAN_SWEEP_CADENCE_MS,
+    category: "orphan-cleanup",
+    name: "thread-storage-orphan-cleanup",
+    run: runThreadStorageOrphanSweep,
+  },
+];
+
+export async function runStartupRecoverySweep(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+): Promise<void> {
+  const releasedClaims = releaseOrphanedQueuedMessageDispatchClaims(
+    deps,
+    Date.now(),
+  );
+  if (releasedClaims > 0) {
+    deps.logger.info(
+      { releasedClaims },
+      "Released queued message claims left by the previous server process",
+    );
+  }
+  await deliverLegacyDeferredThreadMessages(deps);
+  await runEnvironmentProvisioningSweep(deps);
+  await runThreadLifecycleSweep(deps);
+}
+
+export async function runPeriodicSweeps(
+  deps: PeriodicSweepDeps,
+): Promise<void> {
+  const now = Date.now();
+  await runPeriodicSweepJobs(deps, PERIODIC_SWEEP_JOBS, now);
+}

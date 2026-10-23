@@ -1,0 +1,14 @@
+{
+  "type": "tool_execution_end",
+  "toolCallId": "tc_01a2b3c4d5e6f7g8h9i0j1k2",
+  "toolName": "bash",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": " M src/config/database.ts\n M src/utils/connection.ts\n?? src/migrations/003_add_timeout.sql"
+      }
+    ]
+  },
+  "isError": false
+}

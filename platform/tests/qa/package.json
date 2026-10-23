@@ -1,0 +1,30 @@
+{
+  "name": "@bb/qa",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "standalone:start": "tsx src/standalone/start.ts",
+    "standalone:stop": "tsx src/standalone/stop.ts",
+    "standalone:cleanup": "tsx src/standalone/cleanup.ts"
+  },
+  "dependencies": {
+    "@bb/domain": "workspace:*",
+    "@bb/host-daemon-contract": "workspace:*",
+    "@bb/server-contract": "workspace:*",
+    "@bb/test-helpers": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bb/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "rimraf": "^6.1.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "tsx": "^4.23.1",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

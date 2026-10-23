@@ -1,0 +1,357 @@
+import { preloadThreadSecondaryPanel } from "@/components/secondary-panel/lazySecondaryPanelComponents";
+import {
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
+import { Button } from "@bb/shared-ui/button";
+import { useAtomValue } from "jotai";
+import { COARSE_POINTER_TOOLBAR_ACTION_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@bb/shared-ui/icon";
+import { SplitButton } from "@/components/ui/split-button.js";
+import {
+  AppPageHeader,
+  HEADER_ICON_BUTTON_CLASS,
+  HEADER_PANE_ACTION_ICON_BUTTON_CLASS,
+} from "@/components/layout/AppPageHeader";
+import type { ThreadGitActionDialogTarget } from "@/components/dialogs/ThreadGitActionDialog";
+import {
+  getBbDesktopInfo,
+  MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS,
+  MACOS_WINDOW_NO_DRAG_CLASS,
+  shouldUseMacosDesktopChrome,
+} from "@/lib/bb-desktop";
+import { useIsSidebarFramed } from "@/components/ui/sidebar.js";
+import { cn } from "@bb/shared-ui/lib/utils";
+import {
+  useAppCommandHandler,
+  useAppCommandShortcut,
+} from "@/components/commands/AppCommandProvider";
+import { useSidebarRename } from "@/components/sidebar/SidebarInlineRename";
+import { useThreadActions } from "@/components/thread/ThreadActionsProvider";
+import { ThreadTitle } from "@/components/thread/ThreadTitleMentions";
+import { useDefaultRequestRename } from "@/lib/thread-actions/thread-action-registry";
+import { SecondaryPanelHostLayoutContext } from "@/components/secondary-panel/SecondaryPanelHostLayoutContext";
+import {
+  RIGHT_PANEL_TOGGLE_ICON_NAME,
+  RIGHT_PANEL_TOGGLE_SHORTCUT_HINT_CLASS,
+} from "@/components/secondary-panel/panelToggleControlState";
+import { AppCommandShortcutHint } from "@/components/commands/AppCommandShortcutHint";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { dimInactiveSplitsAtom } from "@/lib/split-layout/atoms";
+import {
+  CONTEXT_INACTIVE_TEXT_CLASS,
+  CONTEXT_SELECTION_SURFACE_CLASS,
+} from "@bb/shared-ui/context-selection";
+import { usePaneContext } from "./PaneContext";
+import { PaneMaximizeButton } from "./PaneMaximizeButton";
+import type { ThreadHeaderGitAction } from "./useThreadGitActions";
+
+const THREAD_HEADER_ACTION_BUTTON_CLASS = cn(
+  COARSE_POINTER_TOOLBAR_ACTION_BUTTON_CLASS,
+  "border-border/70 bg-transparent font-normal hover:bg-state-hover",
+);
+const NARROW_SPLIT_HEADER_MAX_WIDTH = 560;
+
+export interface ThreadDetailHeaderActionsMenuArgs {
+  includeResponsiveActions: boolean;
+  requestRename: (threadId: string) => void;
+  onCloseAutoFocus: (event: Event) => void;
+}
+
+interface ThreadDetailHeaderProps {
+  actionsMenu: ((args: ThreadDetailHeaderActionsMenuArgs) => ReactNode) | null;
+  isSecondaryPanelOpen: boolean;
+  onClosePane?: () => void;
+  onOpenThreadGitAction: (target: ThreadGitActionDialogTarget) => void;
+  onToggleSecondaryPanel: () => void;
+  pluginActions?: ReactNode;
+  threadHeaderGitActions: ThreadHeaderGitAction[];
+  threadId: string;
+  threadTitle: string;
+  workspaceOpenButton?: ReactNode;
+}
+
+export function ThreadDetailHeader({
+  actionsMenu,
+  isSecondaryPanelOpen,
+  onClosePane,
+  onOpenThreadGitAction,
+  onToggleSecondaryPanel,
+  pluginActions,
+  threadHeaderGitActions,
+  threadId,
+  threadTitle,
+  workspaceOpenButton,
+}: ThreadDetailHeaderProps) {
+  const isCompactViewport = useIsCompactViewport();
+  const isPointerCoarse = usePointerCoarse();
+  const [primaryAction, ...secondaryActions] = threadHeaderGitActions;
+  const { renameThreadAsync } = useThreadActions();
+  const handleRename = useCallback(
+    (nextTitle: string) => renameThreadAsync(threadId, nextTitle),
+    [renameThreadAsync, threadId],
+  );
+  const { editor, isEditing, startEditing } = useSidebarRename({
+    kind: "thread",
+    id: threadId,
+    name: threadTitle,
+    label: "Thread name",
+    onSave: handleRename,
+  });
+  const requestRenameDialog = useDefaultRequestRename();
+  const pendingMenuRename = useRef(false);
+  const requestRename = (id: string) => {
+    if (isCompactViewport || isPointerCoarse) requestRenameDialog(id);
+    else startEditing();
+  };
+  const requestRenameFromMenu = (id: string) => {
+    if (isCompactViewport || isPointerCoarse) requestRenameDialog(id);
+    else pendingMenuRename.current = true;
+  };
+  const handleActionsMenuCloseAutoFocus = (event: Event) => {
+    if (!pendingMenuRename.current) return;
+    pendingMenuRename.current = false;
+    event.preventDefault();
+    startEditing();
+  };
+  const [desktopInfo] = useState(getBbDesktopInfo);
+  const dimsInactiveSplits = useAtomValue(dimInactiveSplitsAtom);
+  const panelShortcut = useAppCommandShortcut("panel.toggle");
+  const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
+  const isSidebarFramed = useIsSidebarFramed();
+  const headerRef = useRef<HTMLElement>(null!);
+  const {
+    beginPaneDrag,
+    isFocused,
+    isTopRow,
+    ownsWindowTopLeft,
+    reservesWindowPanelToggle,
+    secondaryPanelHost,
+  } = usePaneContext();
+  useAppCommandHandler("thread.rename", () => {
+    if (!isFocused) return false;
+    requestRename(threadId);
+    return true;
+  });
+  const isWindowPanelOpen =
+    useContext(SecondaryPanelHostLayoutContext)?.isOpen === true;
+  const isSplitPaneHeader = beginPaneDrag !== undefined;
+  const [measuredPaneWidth, setMeasuredPaneWidth] = useState(0);
+  const usesResponsiveActionOverflow =
+    isCompactViewport ||
+    (isSplitPaneHeader &&
+      measuredPaneWidth > 0 &&
+      measuredPaneWidth < NARROW_SPLIT_HEADER_MAX_WIDTH);
+  useLayoutEffect(() => {
+    if (!isSplitPaneHeader) {
+      return;
+    }
+
+    const header = headerRef.current;
+    const pane = header.closest<HTMLElement>("[data-split-pane-id]");
+    const measuredElement = pane ?? header;
+    const measure = () => {
+      const width = measuredElement.getBoundingClientRect().width;
+      if (width > 0) {
+        setMeasuredPaneWidth(width);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(measuredElement);
+    return () => {
+      observer.disconnect();
+    };
+  }, [isSplitPaneHeader]);
+  const handleTitlePointerDown = (event: ReactPointerEvent) => {
+    if (isEditing || !beginPaneDrag || event.button !== 0) {
+      return;
+    }
+    beginPaneDrag(event, threadTitle);
+  };
+  const handleTitleDoubleClick = () => {
+    if (isEditing) {
+      return;
+    }
+    if (isPointerCoarse) requestRenameDialog(threadId);
+    else startEditing();
+  };
+  const rightPanelLabel = isSecondaryPanelOpen
+    ? "Hide right panel"
+    : "Show right panel";
+  const rightPanelIconName = RIGHT_PANEL_TOGGLE_ICON_NAME;
+  const showRightPanelToggle =
+    secondaryPanelHost === null && (!isSecondaryPanelOpen || isCompactViewport);
+
+  const center = (
+    <>
+      <div
+        data-pane-header-focus-tab={
+          isSplitPaneHeader && isFocused ? "" : undefined
+        }
+        className={cn(
+          "relative min-w-0",
+          isSplitPaneHeader && "-my-1 -ml-2 rounded-md px-2 py-1",
+          isSplitPaneHeader && isFocused && CONTEXT_SELECTION_SURFACE_CLASS,
+        )}
+      >
+        <p
+          className={cn(
+            "relative min-w-0 text-sm font-normal transition-colors",
+            isEditing && "overflow-visible",
+            isSplitPaneHeader &&
+              !isFocused &&
+              dimsInactiveSplits &&
+              CONTEXT_INACTIVE_TEXT_CLASS,
+            usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+            beginPaneDrag && !isEditing && "cursor-grab touch-none select-none",
+          )}
+          onDoubleClick={handleTitleDoubleClick}
+          onPointerDown={beginPaneDrag ? handleTitlePointerDown : undefined}
+        >
+          {isEditing ? editor : <ThreadTitle title={threadTitle} />}
+        </p>
+      </div>
+      {actionsMenu == null ? null : (
+        <span
+          className={cn(
+            "flex items-center",
+            usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+          )}
+        >
+          {actionsMenu({
+            includeResponsiveActions: usesResponsiveActionOverflow,
+            requestRename: requestRenameFromMenu,
+            onCloseAutoFocus: handleActionsMenuCloseAutoFocus,
+          })}
+        </span>
+      )}
+    </>
+  );
+
+  const actions = (
+    <>
+      <div
+        className="flex items-center gap-1"
+        data-thread-header-workflow-actions=""
+      >
+        {pluginActions}
+        {!usesResponsiveActionOverflow && workspaceOpenButton ? (
+          <span className="inline-flex" data-thread-header-responsive-action="">
+            {workspaceOpenButton}
+          </span>
+        ) : null}
+        {!usesResponsiveActionOverflow && primaryAction ? (
+          <span className="inline-flex" data-thread-header-responsive-action="">
+            {secondaryActions.length > 0 ? (
+              <SplitButton
+                className={THREAD_HEADER_ACTION_BUTTON_CLASS}
+                primaryAction={{
+                  label: primaryAction.label,
+                  onSelect: () => onOpenThreadGitAction(primaryAction.target),
+                }}
+                secondaryActions={secondaryActions.map((action) => ({
+                  label: action.label,
+                  onSelect: () => onOpenThreadGitAction(action.target),
+                }))}
+              />
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={THREAD_HEADER_ACTION_BUTTON_CLASS}
+                onClick={() => onOpenThreadGitAction(primaryAction.target)}
+              >
+                {primaryAction.label}
+              </Button>
+            )}
+          </span>
+        ) : null}
+      </div>
+      <div
+        className="ml-1 flex items-center gap-0.5"
+        data-thread-header-pane-actions=""
+      >
+        <PaneMaximizeButton />
+        {onClosePane ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              HEADER_PANE_ACTION_ICON_BUTTON_CLASS,
+              CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS,
+            )}
+            aria-label="Close pane"
+            onClick={onClosePane}
+          >
+            <Icon name="CloseThreadPane" />
+          </Button>
+        ) : null}
+        {showRightPanelToggle ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              HEADER_ICON_BUTTON_CLASS,
+              CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS,
+              "relative",
+              usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+              isTopRow &&
+                isSidebarFramed &&
+                MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS,
+            )}
+            aria-label={
+              panelShortcut
+                ? `${rightPanelLabel} (${panelShortcut.label})`
+                : rightPanelLabel
+            }
+            aria-keyshortcuts={panelShortcut?.ariaKeyshortcuts}
+            aria-expanded={isSecondaryPanelOpen}
+            onPointerEnter={preloadThreadSecondaryPanel}
+            onFocus={preloadThreadSecondaryPanel}
+            onPointerDown={preloadThreadSecondaryPanel}
+            onClick={onToggleSecondaryPanel}
+          >
+            <Icon name={rightPanelIconName} />
+            <AppCommandShortcutHint
+              shortcut={panelShortcut}
+              className={RIGHT_PANEL_TOGGLE_SHORTCUT_HINT_CLASS}
+            />
+          </Button>
+        ) : null}
+        {reservesWindowPanelToggle && !isWindowPanelOpen ? (
+          <span
+            aria-hidden
+            className={cn(
+              HEADER_ICON_BUTTON_CLASS,
+              isTopRow &&
+                isSidebarFramed &&
+                MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS,
+            )}
+          />
+        ) : null}
+      </div>
+    </>
+  );
+
+  return (
+    <AppPageHeader
+      headerRef={headerRef}
+      center={center}
+      actions={actions}
+      isWindowDragRegion={isTopRow}
+      ownsWindowTopLeft={ownsWindowTopLeft}
+      className={beginPaneDrag ? "z-[21]" : undefined}
+    />
+  );
+}

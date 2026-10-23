@@ -54,3 +54,6 @@ tmp/
 deploy/hyperfide/identity/*
 !deploy/hyperfide/identity/*.example.json
 spec/hyperfide/evidence/
+
+# Ported platform runtime keeps its tracked build inputs
+!/platform/apps/desktop/build/

@@ -1,0 +1,2085 @@
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  memo,
+  useLayoutEffect,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type CSSProperties,
+  type Dispatch,
+  type MouseEvent as ReactMouseEvent,
+  type ReactElement,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@bb/shared-ui/context-menu";
+import type {
+  Components,
+  ExtraProps,
+  Options as ReactMarkdownOptions,
+  UrlTransform,
+} from "react-markdown";
+import { LazyMarkdownHtml } from "./lazy-markdown-html";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import { ImageLightbox, getWrappedImageIndex } from "./image-lightbox.js";
+import { InlineImageGalleryContext } from "./inline-image-gallery-context.js";
+import { remarkInlineDollarMath } from "./markdown-inline-dollar-math.js";
+import { normalizeMathFences } from "./markdown-math-fences.js";
+import { MARKDOWN_TABLE_START_OFFSET_VARIABLE } from "./markdown-table-breakout.js";
+import {
+  markdownMayContainMath,
+  useRehypeKatex,
+  type RehypeKatex,
+} from "./markdown-katex-loader.js";
+import { CopyButton } from "./copy-button.js";
+import { Icon } from "@bb/shared-ui/icon";
+import { LINE_WRAP_LABEL } from "@/lib/code-overflow-mode";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@bb/shared-ui/tooltip";
+import { WorkspaceOpenTargetIcon } from "@/components/workspace-open-target/WorkspaceOpenTargetIcon";
+import { RouteAnchor } from "./app-route-anchor.js";
+import {
+  getMarkdownCodeLanguage,
+  isMarkdownCodeBlock,
+} from "./markdown-code-block.js";
+import { highlightMarkdownCode } from "./markdown-code-highlight.js";
+import "./markdown-code-highlight.css";
+import { normalizeLocalFileMarkdownLinks } from "./markdown-local-file-link-normalize.js";
+import {
+  buildLocalFileAnchorHref,
+  parseLocalFileHref,
+  resolveRelativeLocalFileHref,
+  type MarkdownAbsoluteLocalFileLinkRouting,
+  type MarkdownPreviewLocalFileLink,
+  type MarkdownRelativeLocalFileLinkRouting,
+} from "./markdown-local-file-link.js";
+import {
+  MarkdownLocalFileContextMenuContext,
+  MarkdownLocalFileOpenTargetsContext,
+  type MarkdownLinkRouting,
+  type MarkdownLocalFileContextMenuItem,
+  type MarkdownLocalFileLinkRouting,
+  type MarkdownLocalImageRouting,
+} from "./markdown-link-routing.js";
+import {
+  buildThreadMentionComponent,
+  remarkThreadMentions,
+  splitRawThreadIdsInText,
+} from "./markdown-thread-mentions.js";
+import {
+  buildPromptMentionComponent,
+  remarkPromptMentions,
+  substitutePromptMentions,
+  type IndexedPromptMention,
+  type MarkdownPromptMentions,
+} from "./markdown-prompt-mentions.js";
+import {
+  MessageDirectiveElement,
+  EMPTY_MOUNTED_MESSAGE_DIRECTIVES,
+  MESSAGE_DIRECTIVE_MOUNT_LIMIT,
+  MessageDirectiveMountsContext,
+  remarkMessageDirectives,
+  type MarkdownMessageDirectives,
+  type MountedMessageDirective,
+} from "./markdown-message-directives.js";
+import {
+  CodeFencePlaceholder,
+  remarkCodeFenceRenderers,
+  useCodeFenceLanguages,
+  type CodeFenceElementProps,
+} from "./markdown-code-fence-renderers.js";
+import {
+  createMarkdownPieceCache,
+  resolveMarkdownPieces,
+  type MarkdownPieceRenderConfig,
+} from "./markdown-incremental-pieces.js";
+import { normalizePromptBlockquoteBoundaries } from "./markdown-prompt-blockquote-boundaries.js";
+import { MarkdownMermaidDiagram } from "./markdown-mermaid-diagram.js";
+import type { PromptTextMention } from "@bb/domain";
+import type { PromptMentionLinkResolver } from "@bb/client-core";
+import { usePreferredTheme, type Theme } from "@/hooks/useTheme";
+import {
+  rewriteLocalhostLinkHref,
+  useRewriteLocalhostLinksPreference,
+} from "@/lib/localhost-link-rewrite-preference";
+import { resolveRouteHref } from "@/lib/route-paths";
+import { cn } from "@bb/shared-ui/lib/utils";
+import remarkDirective from "remark-directive";
+import { PromptMentionPill } from "@/components/thread/timeline/ConversationMessageMentions.js";
+import {
+  RawThreadMentionBatchProvider,
+  useRawThreadMentionResources,
+} from "@/components/thread/ThreadTitleMentions.js";
+
+interface MarkdownPreviewProps {
+  allowHtml?: boolean;
+  className?: string;
+  content: string;
+  sourcePrefix?: string;
+  imagePolicy?: MarkdownImagePolicy;
+  incrementalBlocks?: boolean;
+  tableLayout?: "breakout" | "contained";
+  linkRouting?: MarkdownLinkRouting;
+  threadMentions?: MarkdownThreadMentions;
+  promptMentions?: MarkdownPromptMentions;
+  messageDirectives?: MarkdownMessageDirectives;
+  urlTransform?: UrlTransform;
+}
+
+type MarkdownImagePolicy = "alt-text" | "render";
+
+export interface MarkdownThreadMentions {
+  mentions: readonly PromptTextMention[];
+  preserveSoftBreaks: boolean;
+}
+
+interface MarkdownAnchorProps
+  extends ComponentPropsWithoutRef<"a">, ExtraProps {
+  linkRouting?: MarkdownLinkRouting;
+  rewriteLocalhostLinks?: boolean;
+}
+
+interface IsMarkdownAppRouteHrefArgs {
+  href: string | undefined;
+}
+
+interface BuildMarkdownComponentsArgs {
+  tableLayout: "breakout" | "contained";
+  imagePolicy: MarkdownImagePolicy;
+  imageSourceOffset: number;
+  linkRouting?: MarkdownLinkRouting;
+  preferredTheme: Theme;
+  rewriteLocalhostLinks: boolean;
+  setExpandedImage: ExpandedMarkdownImageSetter;
+  threadMentions?: MarkdownThreadMentions;
+  promptMentions?: ResolvedPromptMentions;
+  hasMessageDirectives: boolean;
+}
+
+interface ResolvedPromptMentions {
+  mentions: readonly IndexedPromptMention[];
+  resolveMentionLink?: PromptMentionLinkResolver;
+}
+
+interface BuildLocalAwareUrlTransformArgs {
+  fallbackUrlTransform: UrlTransform | undefined;
+  localFileRouting: MarkdownLocalFileLinkRouting | undefined;
+  localImageRouting: MarkdownLocalImageRouting | undefined;
+}
+
+interface ResolvedMarkdownLocalFileTarget {
+  href: string;
+  link: MarkdownPreviewLocalFileLink;
+  sourceKind: "absolute" | "relative";
+}
+
+interface MarkdownImageRendererArgs {
+  alt: ComponentPropsWithoutRef<"img">["alt"];
+  sourceOffset: number | undefined;
+  imageAttributes: MarkdownImageRenderAttributes;
+  setExpandedImage: ExpandedMarkdownImageSetter;
+  src: ComponentPropsWithoutRef<"img">["src"];
+}
+
+interface ResolveMarkdownSourceMediaArgs {
+  media: MarkdownSourceMedia;
+  preferredTheme: Theme;
+}
+
+interface AreMarkdownAbsoluteLocalFileLinkRoutingsEqualArgs {
+  next: MarkdownAbsoluteLocalFileLinkRouting | undefined;
+  previous: MarkdownAbsoluteLocalFileLinkRouting | undefined;
+}
+
+interface AreMarkdownRelativeLocalFileLinkRoutingsEqualArgs {
+  next: MarkdownRelativeLocalFileLinkRouting | undefined;
+  previous: MarkdownRelativeLocalFileLinkRouting | undefined;
+}
+
+interface AreMarkdownLocalFileLinkRoutingsEqualArgs {
+  next: MarkdownLocalFileLinkRouting | undefined;
+  previous: MarkdownLocalFileLinkRouting | undefined;
+}
+
+interface AreMarkdownLocalImageRoutingsEqualArgs {
+  next: MarkdownLocalImageRouting | undefined;
+  previous: MarkdownLocalImageRouting | undefined;
+}
+
+interface AreMarkdownLinkRoutingsEqualArgs {
+  next: MarkdownLinkRouting | undefined;
+  previous: MarkdownLinkRouting | undefined;
+}
+
+interface AreMarkdownThreadMentionsEqualArgs {
+  next: MarkdownThreadMentions | undefined;
+  previous: MarkdownThreadMentions | undefined;
+}
+
+interface AreMarkdownPromptMentionsEqualArgs {
+  next: MarkdownPromptMentions | undefined;
+  previous: MarkdownPromptMentions | undefined;
+}
+
+interface AreMarkdownMessageDirectivesEqualArgs {
+  next: MarkdownMessageDirectives | undefined;
+  previous: MarkdownMessageDirectives | undefined;
+}
+
+interface ExpandedMarkdownImage {
+  imageSources: readonly string[];
+  index: number;
+  url: string;
+}
+
+type ExpandedMarkdownImageSetter = Dispatch<
+  SetStateAction<ExpandedMarkdownImage | null>
+>;
+
+interface SetMarkdownContentWidthVariableArgs {
+  element: HTMLElement;
+  width: number;
+}
+
+type MarkdownPreviewPropsEqual = (
+  previous: MarkdownPreviewProps,
+  next: MarkdownPreviewProps,
+) => boolean;
+type MarkdownAnchorEvent = ReactMouseEvent<HTMLAnchorElement>;
+type MarkdownBlockquoteProps = ComponentPropsWithoutRef<"blockquote"> &
+  ExtraProps;
+type MarkdownCodeProps = ComponentPropsWithoutRef<"code"> &
+  ExtraProps &
+  CodeFenceElementProps;
+interface MarkdownCodeRendererProps extends MarkdownCodeProps {
+  codeFenceSourceOffset: number;
+  imagePolicy: MarkdownImagePolicy;
+  linkRouting?: MarkdownLinkRouting;
+  preferredTheme: Theme;
+  rewriteLocalhostLinks: boolean;
+}
+type MarkdownHeadingProps = ComponentPropsWithoutRef<"h1"> & ExtraProps;
+type MarkdownHrProps = ComponentPropsWithoutRef<"hr"> & ExtraProps;
+type MarkdownImageProps = ComponentPropsWithoutRef<"img"> &
+  ExtraProps & {
+    "data-markdown-image-offset"?: number;
+  };
+type MarkdownImageRenderAttributes = Omit<
+  MarkdownImageProps,
+  "alt" | "children" | "className" | "node" | "src"
+>;
+type MarkdownListItemProps = ComponentPropsWithoutRef<"li"> & ExtraProps;
+type MarkdownOrderedListProps = ComponentPropsWithoutRef<"ol"> & ExtraProps;
+type MarkdownParagraphProps = ComponentPropsWithoutRef<"p"> & ExtraProps;
+type MarkdownPreProps = ComponentPropsWithoutRef<"pre"> & ExtraProps;
+type MarkdownSourceMedia = ComponentPropsWithoutRef<"source">["media"];
+type MarkdownSourceProps = ComponentPropsWithoutRef<"source"> & ExtraProps;
+type MarkdownTableProps = ComponentPropsWithoutRef<"table"> & ExtraProps;
+type MarkdownTableCellProps = ComponentPropsWithoutRef<"td"> & ExtraProps;
+type MarkdownTableHeadProps = ComponentPropsWithoutRef<"thead"> & ExtraProps;
+type MarkdownTableHeaderProps = ComponentPropsWithoutRef<"th"> & ExtraProps;
+type MarkdownUnorderedListProps = ComponentPropsWithoutRef<"ul"> & ExtraProps;
+type MarkdownRehypePlugins = NonNullable<ReactMarkdownOptions["rehypePlugins"]>;
+type MarkdownRemarkPlugins = NonNullable<ReactMarkdownOptions["remarkPlugins"]>;
+
+const MARKDOWN_TABLE_BREAKOUT_LIMIT_VARIABLE = "--md-table-breakout-max";
+const MARKDOWN_TABLE_BREAKOUT_WIDTH = `max(100%, min(1100px, 100cqw - 2rem, var(${MARKDOWN_TABLE_BREAKOUT_LIMIT_VARIABLE}, 100cqw)))`;
+const MARKDOWN_TABLE_BREAKOUT_START_MARGIN = `var(${MARKDOWN_TABLE_START_OFFSET_VARIABLE}, calc((100% - ${MARKDOWN_TABLE_BREAKOUT_WIDTH}) / 2))`;
+const MARKDOWN_CONTENT_WIDTH_VARIABLE = "--md-content-w";
+const MARKDOWN_SOURCE_COLOR_SCHEME_MEDIA_PATTERN =
+  /^\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)$/iu;
+
+const MARKDOWN_PLAIN_REHYPE_PLUGINS: MarkdownRehypePlugins = [];
+
+function resolveRehypePlugins({
+  rehypeKatex,
+}: {
+  rehypeKatex: RehypeKatex | null;
+}): MarkdownRehypePlugins {
+  const base = MARKDOWN_PLAIN_REHYPE_PLUGINS;
+  return rehypeKatex === null ? base : [...base, rehypeKatex];
+}
+
+function areMarkdownAbsoluteLocalFileLinkRoutingsEqual({
+  next,
+  previous,
+}: AreMarkdownAbsoluteLocalFileLinkRoutingsEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  if (previous.kind !== next.kind) return false;
+  if (previous.kind === "trusted-host" || next.kind === "trusted-host") {
+    return true;
+  }
+  return previous.rootPath === next.rootPath;
+}
+
+function areMarkdownRelativeLocalFileLinkRoutingsEqual({
+  next,
+  previous,
+}: AreMarkdownRelativeLocalFileLinkRoutingsEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  return (
+    previous.baseDir === next.baseDir && previous.rootPath === next.rootPath
+  );
+}
+
+function areMarkdownLocalFileLinkRoutingsEqual({
+  next,
+  previous,
+}: AreMarkdownLocalFileLinkRoutingsEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  return (
+    previous.onOpenLink === next.onOpenLink &&
+    areMarkdownAbsoluteLocalFileLinkRoutingsEqual({
+      next: next.absoluteLinks,
+      previous: previous.absoluteLinks,
+    }) &&
+    areMarkdownRelativeLocalFileLinkRoutingsEqual({
+      next: next.relativeLinks,
+      previous: previous.relativeLinks,
+    })
+  );
+}
+
+function areMarkdownLocalImageRoutingsEqual({
+  next,
+  previous,
+}: AreMarkdownLocalImageRoutingsEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  return (
+    previous.resolveSrc === next.resolveSrc &&
+    areMarkdownAbsoluteLocalFileLinkRoutingsEqual({
+      next: next.absolutePaths,
+      previous: previous.absolutePaths,
+    }) &&
+    areMarkdownRelativeLocalFileLinkRoutingsEqual({
+      next: next.relativePaths,
+      previous: previous.relativePaths,
+    })
+  );
+}
+
+function areMarkdownLinkRoutingsEqual({
+  next,
+  previous,
+}: AreMarkdownLinkRoutingsEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  return (
+    previous.onOpenLink === next.onOpenLink &&
+    areMarkdownLocalFileLinkRoutingsEqual({
+      next: next.localFile,
+      previous: previous.localFile,
+    }) &&
+    areMarkdownLocalImageRoutingsEqual({
+      next: next.localImage,
+      previous: previous.localImage,
+    })
+  );
+}
+
+function areMarkdownThreadMentionsEqual({
+  next,
+  previous,
+}: AreMarkdownThreadMentionsEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  return (
+    previous.mentions === next.mentions &&
+    previous.preserveSoftBreaks === next.preserveSoftBreaks
+  );
+}
+
+function areMarkdownPromptMentionsEqual({
+  next,
+  previous,
+}: AreMarkdownPromptMentionsEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  return (
+    previous.mentions === next.mentions &&
+    previous.resolveMentionLink === next.resolveMentionLink
+  );
+}
+
+function areMarkdownMessageDirectivesEqual({
+  next,
+  previous,
+}: AreMarkdownMessageDirectivesEqualArgs): boolean {
+  if (previous === next) return true;
+  if (previous === undefined || next === undefined) return false;
+  return (
+    previous.registry === next.registry &&
+    previous.openWorkspaceFile === next.openWorkspaceFile &&
+    previous.openThreadPanel === next.openThreadPanel &&
+    previous.message.id === next.message.id &&
+    previous.message.threadId === next.message.threadId &&
+    previous.message.turnId === next.message.turnId &&
+    previous.message.projectId === next.message.projectId
+  );
+}
+
+const areMarkdownPreviewPropsEqual: MarkdownPreviewPropsEqual = (
+  previous,
+  next,
+) =>
+  (previous.allowHtml ?? false) === (next.allowHtml ?? false) &&
+  previous.className === next.className &&
+  previous.content === next.content &&
+  (previous.sourcePrefix ?? "") === (next.sourcePrefix ?? "") &&
+  (previous.imagePolicy ?? "render") === (next.imagePolicy ?? "render") &&
+  (previous.incrementalBlocks ?? false) === (next.incrementalBlocks ?? false) &&
+  previous.urlTransform === next.urlTransform &&
+  (previous.tableLayout ?? "breakout") === (next.tableLayout ?? "breakout") &&
+  areMarkdownThreadMentionsEqual({
+    next: next.threadMentions,
+    previous: previous.threadMentions,
+  }) &&
+  areMarkdownPromptMentionsEqual({
+    next: next.promptMentions,
+    previous: previous.promptMentions,
+  }) &&
+  areMarkdownMessageDirectivesEqual({
+    next: next.messageDirectives,
+    previous: previous.messageDirectives,
+  }) &&
+  areMarkdownLinkRoutingsEqual({
+    next: next.linkRouting,
+    previous: previous.linkRouting,
+  });
+
+function isMarkdownAppRouteHref({ href }: IsMarkdownAppRouteHrefArgs): boolean {
+  if (!href || typeof window === "undefined") {
+    return false;
+  }
+
+  return (
+    resolveRouteHref({
+      currentOrigin: window.location.origin,
+      href,
+    }) !== null
+  );
+}
+
+function resolveMarkdownLocalFileTarget(
+  value: string,
+  absolute: MarkdownAbsoluteLocalFileLinkRouting,
+  relative: MarkdownRelativeLocalFileLinkRouting | undefined,
+): ResolvedMarkdownLocalFileTarget | null {
+  const absoluteLink =
+    parseLocalFileHref({ absoluteLinks: absolute, href: value }) ??
+    (absolute.kind === "trusted-host" && relative !== undefined
+      ? parseLocalFileHref({
+          absoluteLinks: { kind: "contained", rootPath: relative.rootPath },
+          href: value,
+        })
+      : null);
+  if (absoluteLink !== null) {
+    return {
+      href: value,
+      link: absoluteLink,
+      sourceKind: "absolute",
+    };
+  }
+  if (relative === undefined) {
+    return null;
+  }
+
+  const resolvedHref = resolveRelativeLocalFileHref({
+    href: value,
+    ...relative,
+  });
+  if (resolvedHref === null) {
+    return null;
+  }
+  const relativeLink = parseLocalFileHref({
+    absoluteLinks:
+      absolute.kind === "trusted-host"
+        ? { kind: "contained", rootPath: relative.rootPath }
+        : absolute,
+    href: resolvedHref,
+  });
+  return relativeLink === null
+    ? null
+    : {
+        href: resolvedHref,
+        link: relativeLink,
+        sourceKind: "relative",
+      };
+}
+
+function buildLocalAwareUrlTransform({
+  fallbackUrlTransform,
+  localFileRouting,
+  localImageRouting,
+}: BuildLocalAwareUrlTransformArgs): UrlTransform {
+  return (value, key, node) => {
+    if (key === "href" && localFileRouting !== undefined) {
+      const localFile = resolveMarkdownLocalFileTarget(
+        value,
+        localFileRouting.absoluteLinks,
+        localFileRouting.relativeLinks,
+      );
+      if (localFile !== null) {
+        return localFile.href;
+      }
+    }
+
+    if (
+      (key === "src" || (key === "poster" && node.tagName === "video")) &&
+      localImageRouting !== undefined
+    ) {
+      const localImage = resolveMarkdownLocalFileTarget(
+        value,
+        localImageRouting.absolutePaths,
+        localImageRouting.relativePaths,
+      );
+      if (localImage !== null) {
+        return localImageRouting.resolveSrc(
+          localImage.link,
+          localImage.sourceKind,
+        );
+      }
+    }
+
+    return (fallbackUrlTransform ?? defaultUrlTransform)(value, key, node);
+  };
+}
+
+function resolveInlineCodeFileHref({
+  codeText,
+  localFileRouting,
+}: {
+  codeText: string;
+  localFileRouting: MarkdownLocalFileLinkRouting | undefined;
+}): string | null {
+  if (
+    localFileRouting === undefined ||
+    codeText.length === 0 ||
+    /\s/u.test(codeText)
+  ) {
+    return null;
+  }
+
+  const target = resolveMarkdownLocalFileTarget(
+    codeText,
+    localFileRouting.absoluteLinks,
+    localFileRouting.relativeLinks,
+  );
+  if (target === null) {
+    return null;
+  }
+
+  return /^(?:[/\\]|\.{1,2}[/\\]|[a-zA-Z]:[/\\]|file:\/\/)/u.test(codeText) ||
+    /\.[\p{L}\p{N}_-]+$/u.test(target.link.path) ||
+    target.link.lineRange !== null
+    ? target.href
+    : null;
+}
+
+const markdownLinkGraphemes = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
+const MARKDOWN_LOCAL_FILE_LINK_ICON = (
+  <Icon
+    name="ExternalLink"
+    aria-hidden
+    className="ml-1 inline size-3 align-[-0.125em] text-subtle-foreground"
+  />
+);
+
+function appendMarkdownLinkIcon(
+  children: ReactNode,
+  icon: ReactNode,
+): ReactNode {
+  let appended = false;
+  const append = (node: ReactNode): ReactNode => {
+    if (typeof node === "string" || typeof node === "number") {
+      const text = String(node);
+      const last = markdownLinkGraphemes
+        .segment(text)
+        .containing(text.trimEnd().length - 1);
+      if (!last) return node;
+      appended = true;
+      return (
+        <>
+          {text.slice(0, last.index)}
+          <span className="whitespace-nowrap">
+            {text.slice(last.index)}
+            {icon}
+          </span>
+        </>
+      );
+    }
+    if (isValidElement<{ children?: ReactNode }>(node)) {
+      const content = append(node.props.children);
+      return appended ? cloneElement(node, undefined, content) : node;
+    }
+    const nodes: ReactNode[] = Children.toArray(node);
+    for (let index = nodes.length - 1; index >= 0 && !appended; index--) {
+      nodes[index] = append(nodes[index]);
+    }
+    return nodes;
+  };
+  const content = append(children);
+  return appended ? (
+    content
+  ) : (
+    <span className="whitespace-nowrap">
+      {children}
+      {icon}
+    </span>
+  );
+}
+
+function MarkdownAnchor({
+  children,
+  href,
+  linkRouting,
+  rewriteLocalhostLinks,
+  ...anchorProps
+}: MarkdownAnchorProps) {
+  const localFileRouting = linkRouting?.localFile;
+  const onOpenLocalFileLink = localFileRouting?.onOpenLink;
+  const rewrittenHref = rewriteLocalhostLinkHref({
+    currentHostname:
+      typeof window === "undefined" ? undefined : window.location.hostname,
+    enabled: rewriteLocalhostLinks ?? false,
+    href,
+  });
+  const isAppRouteHref = isMarkdownAppRouteHref({ href: rewrittenHref });
+  const localFileLink =
+    !isAppRouteHref && localFileRouting && rewrittenHref
+      ? (resolveMarkdownLocalFileTarget(
+          rewrittenHref,
+          localFileRouting.absoluteLinks,
+          localFileRouting.relativeLinks,
+        )?.link ?? null)
+      : null;
+  const anchorHref = buildLocalFileAnchorHref(localFileLink, rewrittenHref);
+  const getContextMenuItems = useContext(MarkdownLocalFileContextMenuContext);
+  const openTargets = useContext(MarkdownLocalFileOpenTargetsContext);
+  if (!anchorHref) {
+    return <span>{children}</span>;
+  }
+  const contextMenuItems =
+    localFileLink !== null && getContextMenuItems !== null
+      ? getContextMenuItems(localFileLink)
+      : null;
+  const openTarget =
+    localFileLink === null || localFileLink.openTargetId === null
+      ? undefined
+      : openTargets.find((target) => target.id === localFileLink.openTargetId);
+  const handleAnchorClick = (event: MarkdownAnchorEvent) => {
+    if (localFileLink && onOpenLocalFileLink) {
+      if (onOpenLocalFileLink(localFileLink)) {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    if (isAppRouteHref) {
+      return;
+    }
+
+    if (
+      linkRouting?.onOpenLink &&
+      rewrittenHref &&
+      linkRouting.onOpenLink({ href: rewrittenHref })
+    ) {
+      event.preventDefault();
+      return;
+    }
+  };
+
+  const anchor = (
+    <RouteAnchor
+      {...anchorProps}
+      title={
+        anchorProps.title ??
+        (openTarget === undefined ? undefined : `Open in ${openTarget.label}`)
+      }
+      href={anchorHref}
+      className={cn(
+        "break-words [overflow-wrap:anywhere] underline underline-offset-2",
+      )}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={handleAnchorClick}
+    >
+      {localFileLink
+        ? appendMarkdownLinkIcon(
+            children,
+            openTarget === undefined ? (
+              MARKDOWN_LOCAL_FILE_LINK_ICON
+            ) : (
+              <WorkspaceOpenTargetIcon
+                target={openTarget}
+                className="ml-1 inline-block size-3.5 align-[-0.2em]"
+              />
+            ),
+          )
+        : children}
+    </RouteAnchor>
+  );
+  if (contextMenuItems === null || contextMenuItems.length === 0) {
+    return anchor;
+  }
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{anchor}</ContextMenuTrigger>
+      <ContextMenuContent className="min-w-44">
+        {contextMenuItems.map(renderMarkdownLocalFileContextMenuItem)}
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function renderMarkdownLocalFileContextMenuItem(
+  item: MarkdownLocalFileContextMenuItem,
+) {
+  if (item.type === "separator") {
+    return <ContextMenuSeparator key={item.id} />;
+  }
+  if (item.type === "submenu") {
+    return (
+      <ContextMenuSub key={item.id}>
+        <ContextMenuSubTrigger>{item.label}</ContextMenuSubTrigger>
+        <ContextMenuSubContent className="min-w-44">
+          {item.items.map(renderMarkdownLocalFileContextMenuItem)}
+        </ContextMenuSubContent>
+      </ContextMenuSub>
+    );
+  }
+  return (
+    <ContextMenuItem key={item.id} onSelect={item.onSelect}>
+      {item.label}
+    </ContextMenuItem>
+  );
+}
+
+function MarkdownCodeBlock({
+  codeProps,
+  codeText,
+  imagePolicy,
+  language,
+  preferredTheme,
+}: {
+  codeProps: ComponentPropsWithoutRef<"code">;
+  codeText: string;
+  imagePolicy: MarkdownImagePolicy;
+  language: string | null;
+  preferredTheme: Theme;
+}) {
+  const [softWrap, setSoftWrap] = useState(false);
+  const highlightedHtml = useMemo(
+    () =>
+      language !== "mermaid"
+        ? highlightMarkdownCode({ code: codeText, language })
+        : null,
+    [language, codeText],
+  );
+  const highlightedMarkup = useMemo(
+    () => (highlightedHtml === null ? null : { __html: highlightedHtml }),
+    [highlightedHtml],
+  );
+  if (language === "mermaid" && imagePolicy === "render") {
+    return (
+      <MarkdownMermaidDiagram
+        preferredTheme={preferredTheme}
+        source={codeText}
+      />
+    );
+  }
+
+  return (
+    <div className="my-2 overflow-hidden rounded-md border border-border bg-surface-recessed">
+      <div
+        data-clipboard-ignore
+        className="flex items-center justify-between pl-3 pr-1.5 pt-1.5"
+      >
+        <span className="font-mono text-xs uppercase text-muted-foreground">
+          {language ?? ""}
+        </span>
+        <div className="flex items-center gap-0.5">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-pressed={softWrap}
+                  aria-label={LINE_WRAP_LABEL}
+                  onClick={() => {
+                    setSoftWrap((value) => !value);
+                  }}
+                  className="inline-flex size-5 cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:text-foreground aria-pressed:text-foreground"
+                >
+                  <Icon name="TextWrap" className="size-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{LINE_WRAP_LABEL}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <CopyButton text={codeText} label="Copy code" />
+        </div>
+      </div>
+      <pre
+        className={cn(
+          "bb-code-highlight px-3 pb-3 pt-1",
+          softWrap
+            ? "whitespace-pre-wrap [overflow-wrap:anywhere]"
+            : "overflow-x-auto",
+        )}
+      >
+        {highlightedMarkup === null ? (
+          <code className="font-mono text-xs" {...codeProps}>
+            {codeText}
+          </code>
+        ) : (
+          <code
+            className={cn(
+              "font-mono text-xs",
+              language ? `language-${language}` : "",
+            )}
+            dangerouslySetInnerHTML={highlightedMarkup}
+            {...codeProps}
+          />
+        )}
+      </pre>
+    </div>
+  );
+}
+
+function MarkdownCode({
+  className: codeClassName,
+  children,
+  codeFenceSourceOffset,
+  imagePolicy,
+  linkRouting,
+  node: _node,
+  preferredTheme,
+  rewriteLocalhostLinks,
+  "data-code-fence-offset": codeFenceOffset,
+  "data-code-fence-closed": codeFenceClosed,
+  ...props
+}: MarkdownCodeRendererProps) {
+  const codeText =
+    typeof children === "string" ? children.replace(/\n$/, "") : "";
+  const language = getMarkdownCodeLanguage({ className: codeClassName });
+  const isBlock = isMarkdownCodeBlock({ codeText, language });
+  if (isBlock) {
+    const original = (
+      <MarkdownCodeBlock
+        codeProps={props}
+        codeText={codeText}
+        imagePolicy={imagePolicy}
+        language={language}
+        preferredTheme={preferredTheme}
+      />
+    );
+    return codeFenceOffset === undefined || language === null ? (
+      original
+    ) : (
+      <CodeFencePlaceholder
+        closed={codeFenceClosed === "true"}
+        code={codeText}
+        language={language}
+        offset={codeFenceSourceOffset + Number(codeFenceOffset)}
+        original={original}
+      />
+    );
+  }
+
+  const localFileHref = resolveInlineCodeFileHref({
+    codeText,
+    localFileRouting: linkRouting?.localFile,
+  });
+  if (localFileHref !== null) {
+    return (
+      <MarkdownAnchor
+        href={localFileHref}
+        linkRouting={linkRouting}
+        rewriteLocalhostLinks={rewriteLocalhostLinks}
+      >
+        {codeText}
+      </MarkdownAnchor>
+    );
+  }
+
+  return (
+    <code
+      className="rounded bg-muted/70 px-1.5 py-0.5 font-mono text-xs"
+      {...props}
+    >
+      {children}
+    </code>
+  );
+}
+
+function MarkdownPre({ children }: MarkdownPreProps) {
+  return <>{children}</>;
+}
+
+function MarkdownH1({ children }: MarkdownHeadingProps) {
+  return (
+    <h1 className="mb-2 mt-4 text-lg font-semibold text-foreground first:mt-0">
+      {children}
+    </h1>
+  );
+}
+
+function MarkdownH2({ children }: MarkdownHeadingProps) {
+  return (
+    <h2 className="mb-2 mt-4 text-base font-semibold text-foreground first:mt-0">
+      {children}
+    </h2>
+  );
+}
+
+function MarkdownH3({ children }: MarkdownHeadingProps) {
+  return (
+    <h3 className="mb-2 mt-3 text-sm font-semibold text-foreground first:mt-0">
+      {children}
+    </h3>
+  );
+}
+
+function MarkdownH4({ children }: MarkdownHeadingProps) {
+  return (
+    <h4 className="mb-1 mt-3 text-sm font-medium text-foreground first:mt-0">
+      {children}
+    </h4>
+  );
+}
+
+function MarkdownH5({ children }: MarkdownHeadingProps) {
+  return (
+    <h5 className="mb-1 mt-2 text-sm font-semibold uppercase text-muted-foreground first:mt-0">
+      {children}
+    </h5>
+  );
+}
+
+function MarkdownH6({ children }: MarkdownHeadingProps) {
+  return (
+    <h6 className="mb-1 mt-2 text-xs font-semibold uppercase text-muted-foreground first:mt-0">
+      {children}
+    </h6>
+  );
+}
+
+function MarkdownParagraph({
+  children,
+  className: _className,
+  node: _node,
+  ...paragraphProps
+}: MarkdownParagraphProps) {
+  return (
+    <p {...paragraphProps} className="mb-2 text-foreground last:mb-0">
+      {children}
+    </p>
+  );
+}
+
+function MarkdownUnorderedList({ children }: MarkdownUnorderedListProps) {
+  return <ul className="mb-2 list-disc pl-5 text-foreground">{children}</ul>;
+}
+
+function MarkdownOrderedList({
+  children,
+  className: _className,
+  node,
+  ...orderedListProps
+}: MarkdownOrderedListProps) {
+  const itemCount =
+    node?.children.filter(
+      (child) => child.type === "element" && child.tagName === "li",
+    ).length ?? Children.toArray(children).filter(isValidElement).length;
+  const start = orderedListProps.start ?? 1;
+  const markerDigits = Math.max(
+    String(start).length,
+    String(start + Math.max(0, itemCount - 1)).length,
+  );
+  const style: CSSProperties & { "--markdown-list-marker-digits": number } = {
+    "--markdown-list-marker-digits": markerDigits,
+    paddingInlineStart:
+      "calc(var(--spacing) * 5 + (var(--markdown-list-marker-digits) - 1) * 1ch)",
+  };
+  return (
+    <ol
+      {...orderedListProps}
+      className="mb-2 list-decimal pl-5 text-foreground"
+      style={style}
+    >
+      {children}
+    </ol>
+  );
+}
+
+function MarkdownListItem({ children }: MarkdownListItemProps) {
+  return <li className="mb-1 text-foreground">{children}</li>;
+}
+
+function MarkdownBlockquote({ children }: MarkdownBlockquoteProps) {
+  return (
+    <blockquote className="my-2 border-l-2 border-surface-selected-border pl-3 text-muted-foreground">
+      {children}
+    </blockquote>
+  );
+}
+
+function ContainedMarkdownTable({ children }: MarkdownTableProps) {
+  return (
+    <div className="my-2 max-w-full overflow-x-auto">
+      <table className="border border-border">{children}</table>
+    </div>
+  );
+}
+
+function MarkdownTable({ children }: MarkdownTableProps) {
+  const breakoutRef = useMarkdownTableContentWidthVariable();
+
+  return (
+    <div
+      ref={breakoutRef}
+      className="my-2"
+      style={{
+        width: MARKDOWN_TABLE_BREAKOUT_WIDTH,
+        marginInlineStart: MARKDOWN_TABLE_BREAKOUT_START_MARGIN,
+        marginInlineEnd: `calc(100% - ${MARKDOWN_TABLE_BREAKOUT_WIDTH} - ${MARKDOWN_TABLE_BREAKOUT_START_MARGIN})`,
+      }}
+    >
+      <div
+        className="w-max max-w-full overflow-x-auto"
+        style={{
+          minWidth: `min(var(${MARKDOWN_CONTENT_WIDTH_VARIABLE}, 100%), 100%)`,
+          marginInlineStart: `var(${MARKDOWN_TABLE_START_OFFSET_VARIABLE}, auto)`,
+          marginInlineEnd: "auto",
+        }}
+      >
+        <table className="border border-border">{children}</table>
+      </div>
+    </div>
+  );
+}
+
+function MarkdownTableHead({ children }: MarkdownTableHeadProps) {
+  return <thead className="bg-surface-recessed">{children}</thead>;
+}
+
+function MarkdownTableHeader({ children }: MarkdownTableHeaderProps) {
+  return (
+    <th className="border border-border px-2 py-1 text-left font-medium">
+      {children}
+    </th>
+  );
+}
+
+function MarkdownTableCell({ children }: MarkdownTableCellProps) {
+  return <td className="border border-border px-2 py-1">{children}</td>;
+}
+
+function MarkdownRenderedImage({
+  alt,
+  sourceOffset,
+  imageAttributes,
+  setExpandedImage,
+  src,
+}: MarkdownImageRendererArgs) {
+  const openGallery = useContext(InlineImageGalleryContext);
+  const imageUrl = typeof src === "string" ? src : "";
+  if (!imageUrl) return null;
+  return (
+    <img
+      {...imageAttributes}
+      src={imageUrl}
+      alt={typeof alt === "string" ? alt : "Image"}
+      className="my-2 max-h-[max(384px,50vh)] max-w-full cursor-zoom-in object-contain"
+      loading="lazy"
+      data-markdown-image=""
+      data-markdown-image-offset={sourceOffset}
+      onClick={(event) => {
+        if (openGallery) {
+          openGallery(event.currentTarget);
+          return;
+        }
+        const markdownElement = event.currentTarget.closest(
+          "[data-markdown-preview]",
+        );
+        const images = Array.from(
+          markdownElement?.querySelectorAll("img") ?? [],
+        );
+        const imageIndex = images.indexOf(event.currentTarget);
+        const imageSources = images.map(
+          (image) => image.getAttribute("src") ?? image.src,
+        );
+        setExpandedImage({
+          imageSources,
+          index: imageIndex,
+          url: event.currentTarget.getAttribute("src") ?? imageUrl,
+        });
+      }}
+    />
+  );
+}
+
+function MarkdownHr(_props: MarkdownHrProps) {
+  return <hr className="my-4 border-t border-border" />;
+}
+
+function parseMarkdownSourceColorScheme(media: string): Theme | null {
+  const match = MARKDOWN_SOURCE_COLOR_SCHEME_MEDIA_PATTERN.exec(media);
+  const colorScheme = match?.[1];
+  if (colorScheme === "dark" || colorScheme === "light") {
+    return colorScheme;
+  }
+  return null;
+}
+
+function resolveMarkdownSourceMedia({
+  media,
+  preferredTheme,
+}: ResolveMarkdownSourceMediaArgs): MarkdownSourceMedia {
+  if (!media) return media;
+
+  const colorScheme = parseMarkdownSourceColorScheme(media);
+  if (!colorScheme) return media;
+
+  return colorScheme === preferredTheme ? "all" : "not all";
+}
+
+const EMPTY_THREAD_IDS: readonly string[] = [];
+
+function buildMarkdownComponents({
+  tableLayout,
+  imagePolicy,
+  imageSourceOffset,
+  linkRouting,
+  preferredTheme,
+  rewriteLocalhostLinks,
+  setExpandedImage,
+  threadMentions,
+  promptMentions,
+  hasMessageDirectives,
+}: BuildMarkdownComponentsArgs): Components {
+  interface RawThreadIdLabelCandidate {
+    end: number;
+    start: number;
+    threadId: string;
+  }
+
+  function flattenMarkdownLinkLabel(node: ReactNode): {
+    codeRanges: ReadonlyArray<{ end: number; start: number }>;
+    text: string;
+  } {
+    const codeRanges: Array<{ end: number; start: number }> = [];
+    let text = "";
+    const append = (child: ReactNode): void => {
+      if (typeof child === "string" || typeof child === "number") {
+        text += String(child);
+        return;
+      }
+      if (!isValidElement(child)) {
+        Children.forEach(child, append);
+        return;
+      }
+      const element = child as ReactElement<{ children?: ReactNode }>;
+      const isCode =
+        element.type === "code" || element.type === MarkdownCodeRenderer;
+      const start = text.length;
+      append(element.props.children);
+      if (isCode && text.length > start) {
+        codeRanges.push({ start, end: text.length });
+      }
+    };
+    append(node);
+    return { codeRanges, text };
+  }
+
+  function rawThreadIdLabelCandidates(
+    node: ReactNode,
+  ): RawThreadIdLabelCandidate[] {
+    const flattened = flattenMarkdownLinkLabel(node);
+    const candidates: RawThreadIdLabelCandidate[] = [];
+    let offset = 0;
+    for (const segment of splitRawThreadIdsInText(flattened.text)) {
+      const start = offset;
+      const end = start + segment.text.length;
+      offset = end;
+      if (
+        segment.rawThreadId === null ||
+        flattened.codeRanges.some(
+          (range) => start < range.end && end > range.start,
+        )
+      ) {
+        continue;
+      }
+      candidates.push({ start, end, threadId: segment.rawThreadId });
+    }
+    return candidates;
+  }
+
+  function renderLiftedMarkdownLinkLabel(
+    node: ReactNode,
+    anchorProps: Omit<MarkdownAnchorProps, "children">,
+    candidates: readonly RawThreadIdLabelCandidate[],
+    resourceById: ReadonlyMap<string, PromptTextMention["resource"]>,
+    cursor: { value: number },
+  ): ReactNode {
+    if (typeof node === "string" || typeof node === "number") {
+      const text = String(node);
+      const start = cursor.value;
+      const end = start + text.length;
+      cursor.value = end;
+      const containedCandidates = candidates.filter(
+        (candidate) => candidate.start >= start && candidate.end <= end,
+      );
+      if (containedCandidates.length === 0) {
+        return (
+          <MarkdownAnchor
+            {...anchorProps}
+            linkRouting={linkRouting}
+            rewriteLocalhostLinks={rewriteLocalhostLinks}
+          >
+            {text}
+          </MarkdownAnchor>
+        );
+      }
+      const rendered: ReactNode[] = [];
+      let localCursor = 0;
+      for (const candidate of containedCandidates) {
+        const candidateStart = candidate.start - start;
+        const candidateEnd = candidate.end - start;
+        if (candidateStart > localCursor) {
+          rendered.push(
+            <MarkdownAnchor
+              key={`text:${localCursor}`}
+              {...anchorProps}
+              linkRouting={linkRouting}
+              rewriteLocalhostLinks={rewriteLocalhostLinks}
+            >
+              {text.slice(localCursor, candidateStart)}
+            </MarkdownAnchor>,
+          );
+        }
+        const resource = resourceById.get(candidate.threadId);
+        if (resource !== undefined) {
+          rendered.push(
+            <PromptMentionPill
+              key={`${candidate.threadId}:${candidateStart}`}
+              resource={resource}
+              serializedText={candidate.threadId}
+            />,
+          );
+        }
+        localCursor = candidateEnd;
+      }
+      if (localCursor < text.length) {
+        rendered.push(
+          <MarkdownAnchor
+            key={`text:${localCursor}`}
+            {...anchorProps}
+            linkRouting={linkRouting}
+            rewriteLocalhostLinks={rewriteLocalhostLinks}
+          >
+            {text.slice(localCursor)}
+          </MarkdownAnchor>,
+        );
+      }
+      return rendered;
+    }
+    if (!isValidElement(node)) {
+      return Children.map(node, (child) =>
+        renderLiftedMarkdownLinkLabel(
+          child,
+          anchorProps,
+          candidates,
+          resourceById,
+          cursor,
+        ),
+      );
+    }
+    if (node.type === "code" || node.type === MarkdownCodeRenderer) {
+      cursor.value += flattenMarkdownLinkLabel(node).text.length;
+      return (
+        <MarkdownAnchor
+          {...anchorProps}
+          linkRouting={linkRouting}
+          rewriteLocalhostLinks={rewriteLocalhostLinks}
+        >
+          {node}
+        </MarkdownAnchor>
+      );
+    }
+    const element = node as ReactElement<{ children?: ReactNode }>;
+    return cloneElement(
+      element,
+      undefined,
+      renderLiftedMarkdownLinkLabel(
+        element.props.children,
+        anchorProps,
+        candidates,
+        resourceById,
+        cursor,
+      ),
+    );
+  }
+
+  function MarkdownLink(props: MarkdownAnchorProps) {
+    const { children, ...anchorProps } = props;
+    const candidates = useMemo(
+      () =>
+        threadMentions === undefined
+          ? []
+          : rawThreadIdLabelCandidates(children),
+      [children],
+    );
+    const candidateThreadIds = useMemo(
+      () =>
+        candidates.length === 0
+          ? EMPTY_THREAD_IDS
+          : [...new Set(candidates.map((candidate) => candidate.threadId))],
+      [candidates],
+    );
+    const resourceById = useRawThreadMentionResources(candidateThreadIds);
+    const resolvedCandidates = candidates.filter((candidate) =>
+      resourceById.has(candidate.threadId),
+    );
+    if (resolvedCandidates.length > 0) {
+      return (
+        <>
+          {renderLiftedMarkdownLinkLabel(
+            children,
+            anchorProps,
+            resolvedCandidates,
+            resourceById,
+            { value: 0 },
+          )}
+        </>
+      );
+    }
+    return (
+      <MarkdownAnchor
+        {...anchorProps}
+        linkRouting={linkRouting}
+        rewriteLocalhostLinks={rewriteLocalhostLinks}
+      >
+        {children}
+      </MarkdownAnchor>
+    );
+  }
+
+  function MarkdownCodeRenderer(props: MarkdownCodeProps) {
+    return (
+      <MarkdownCode
+        {...props}
+        codeFenceSourceOffset={imageSourceOffset}
+        imagePolicy={imagePolicy}
+        linkRouting={linkRouting}
+        preferredTheme={preferredTheme}
+        rewriteLocalhostLinks={rewriteLocalhostLinks}
+      />
+    );
+  }
+
+  function MarkdownImage({
+    src,
+    alt,
+    className: _className,
+    node,
+    "data-markdown-image-offset": pieceOffset,
+    ...imageAttributes
+  }: MarkdownImageProps) {
+    if (imagePolicy === "alt-text") {
+      return (
+        <span data-markdown-image-fallback="">
+          [Image: {typeof alt === "string" && alt.length > 0 ? alt : "image"}]
+        </span>
+      );
+    }
+    const sourceOffset = pieceOffset ?? node?.position?.start.offset;
+    return (
+      <MarkdownRenderedImage
+        alt={alt}
+        sourceOffset={
+          sourceOffset === undefined
+            ? undefined
+            : imageSourceOffset + sourceOffset
+        }
+        imageAttributes={imageAttributes}
+        setExpandedImage={setExpandedImage}
+        src={src}
+      />
+    );
+  }
+
+  function MarkdownVideo({
+    node: _node,
+    children,
+    src,
+    poster,
+    controls = true,
+    playsInline = true,
+    preload = "metadata",
+    width,
+    height,
+    title,
+    "aria-label": label,
+  }: ComponentPropsWithoutRef<"video"> & ExtraProps) {
+    if (imagePolicy === "alt-text") {
+      return <span>[Video: {label || title || "video"}]</span>;
+    }
+    return (
+      <video
+        src={src}
+        poster={poster}
+        aria-label={label || title || "Video"}
+        controls={controls}
+        playsInline={playsInline}
+        preload={preload}
+        width={width}
+        height={height}
+        className="my-2 max-h-[max(384px,50vh)] max-w-full"
+      >
+        {children}
+      </video>
+    );
+  }
+
+  function MarkdownSource({
+    media,
+    node: _node,
+    ...sourceProps
+  }: MarkdownSourceProps) {
+    if (imagePolicy === "alt-text") {
+      return null;
+    }
+    return (
+      <source
+        {...sourceProps}
+        media={resolveMarkdownSourceMedia({ media, preferredTheme })}
+      />
+    );
+  }
+
+  const components: Components = {
+    a: MarkdownLink,
+    blockquote: MarkdownBlockquote,
+    code: MarkdownCodeRenderer,
+    h1: MarkdownH1,
+    h2: MarkdownH2,
+    h3: MarkdownH3,
+    h4: MarkdownH4,
+    h5: MarkdownH5,
+    h6: MarkdownH6,
+    hr: MarkdownHr,
+    img: MarkdownImage,
+    li: MarkdownListItem,
+    ol: MarkdownOrderedList,
+    p: MarkdownParagraph,
+    pre: MarkdownPre,
+    source: MarkdownSource,
+    video: MarkdownVideo,
+    table: tableLayout === "contained" ? ContainedMarkdownTable : MarkdownTable,
+    td: MarkdownTableCell,
+    th: MarkdownTableHeader,
+    thead: MarkdownTableHead,
+    ul: MarkdownUnorderedList,
+  };
+
+  if (threadMentions !== undefined) {
+    components["bb-thread-mention"] = buildThreadMentionComponent({
+      mentions: threadMentions.mentions,
+    });
+  }
+
+  if (promptMentions !== undefined) {
+    components["bb-prompt-mention"] = buildPromptMentionComponent({
+      mentions: promptMentions.mentions,
+      resolveMentionLink: promptMentions.resolveMentionLink,
+    });
+  }
+
+  if (hasMessageDirectives) {
+    components["bb-message-directive"] = MessageDirectiveElement;
+  }
+
+  return components;
+}
+
+function setMarkdownContentWidthVariable({
+  element,
+  width,
+}: SetMarkdownContentWidthVariableArgs): void {
+  if (width <= 0) {
+    return;
+  }
+  element.style.setProperty(MARKDOWN_CONTENT_WIDTH_VARIABLE, `${width}px`);
+}
+
+interface MarkdownTableGeometryRegistration {
+  breakout: HTMLElement;
+  clip: HTMLElement | null;
+  content: HTMLElement;
+  lastClipWidth: number;
+  lastContentWidth: number;
+}
+
+type MarkdownTableBreakoutLimitMeasurement =
+  | { kind: "remove" }
+  | { kind: "set"; value: string }
+  | { kind: "unchanged" };
+
+interface MarkdownTableGeometryMeasurement {
+  breakout: HTMLElement;
+  breakoutLimit: MarkdownTableBreakoutLimitMeasurement;
+  contentWidth: number;
+}
+
+const markdownTableRegistrationsByElement = new Map<
+  HTMLElement,
+  Set<MarkdownTableGeometryRegistration>
+>();
+let sharedMarkdownTableResizeObserver: ResizeObserver | null = null;
+
+function measureMarkdownTableGeometry(
+  registrations: Iterable<MarkdownTableGeometryRegistration>,
+): void {
+  const measurements: MarkdownTableGeometryMeasurement[] = [];
+  for (const registration of registrations) {
+    const { breakout, clip, content } = registration;
+    const contentWidth = content.getBoundingClientRect().width;
+    const clipWidth = clip?.clientWidth ?? -1;
+    if (
+      contentWidth === registration.lastContentWidth &&
+      clipWidth === registration.lastClipWidth
+    ) {
+      continue;
+    }
+    registration.lastContentWidth = contentWidth;
+    registration.lastClipWidth = clipWidth;
+    measurements.push({
+      breakout,
+      breakoutLimit: readMarkdownTableBreakoutLimit({ breakout, clip }),
+      contentWidth,
+    });
+  }
+
+  for (const { breakout, breakoutLimit, contentWidth } of measurements) {
+    setMarkdownContentWidthVariable({
+      element: breakout,
+      width: contentWidth,
+    });
+    applyMarkdownTableBreakoutLimit({ breakout, measurement: breakoutLimit });
+  }
+}
+
+function getSharedMarkdownTableResizeObserver(): ResizeObserver {
+  sharedMarkdownTableResizeObserver ??= new ResizeObserver((entries) => {
+    const registrations = new Set<MarkdownTableGeometryRegistration>();
+    for (const entry of entries) {
+      if (!(entry.target instanceof HTMLElement)) continue;
+      for (const registration of markdownTableRegistrationsByElement.get(
+        entry.target,
+      ) ?? []) {
+        registrations.add(registration);
+      }
+    }
+    measureMarkdownTableGeometry(registrations);
+  });
+  return sharedMarkdownTableResizeObserver;
+}
+
+function observeMarkdownTableGeometry(
+  registration: MarkdownTableGeometryRegistration,
+): () => void {
+  const elements =
+    registration.clip === null || registration.clip === registration.content
+      ? [registration.content]
+      : [registration.content, registration.clip];
+  const observer = getSharedMarkdownTableResizeObserver();
+  for (const element of elements) {
+    let registrations = markdownTableRegistrationsByElement.get(element);
+    if (!registrations) {
+      registrations = new Set();
+      markdownTableRegistrationsByElement.set(element, registrations);
+      observer.observe(element);
+    }
+    registrations.add(registration);
+  }
+
+  return () => {
+    for (const element of elements) {
+      const registrations = markdownTableRegistrationsByElement.get(element);
+      registrations?.delete(registration);
+      if (registrations?.size === 0) {
+        markdownTableRegistrationsByElement.delete(element);
+        sharedMarkdownTableResizeObserver?.unobserve(element);
+      }
+    }
+    if (markdownTableRegistrationsByElement.size === 0) {
+      sharedMarkdownTableResizeObserver?.disconnect();
+      sharedMarkdownTableResizeObserver = null;
+    }
+  };
+}
+
+function useMarkdownTableContentWidthVariable() {
+  const breakoutRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const breakout = breakoutRef.current;
+    const content = breakout?.closest<HTMLElement>("[data-markdown-preview]");
+    if (!breakout || !content) {
+      return;
+    }
+    const clip = findHorizontalClipAncestor(content);
+    const registration: MarkdownTableGeometryRegistration = {
+      breakout,
+      clip,
+      content,
+      lastClipWidth: -1,
+      lastContentWidth: -1,
+    };
+
+    if (typeof ResizeObserver === "undefined") {
+      measureMarkdownTableGeometry([registration]);
+      return;
+    }
+
+    return observeMarkdownTableGeometry(registration);
+  }, []);
+
+  return breakoutRef;
+}
+
+const HORIZONTAL_CLIP_OVERFLOW_VALUES = new Set([
+  "hidden",
+  "clip",
+  "auto",
+  "scroll",
+]);
+
+function findHorizontalClipAncestor(element: HTMLElement): HTMLElement | null {
+  let current: HTMLElement | null = element;
+  while (current && current !== document.body) {
+    if (
+      HORIZONTAL_CLIP_OVERFLOW_VALUES.has(getComputedStyle(current).overflowX)
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+function readMarkdownTableBreakoutLimit({
+  breakout,
+  clip,
+}: {
+  breakout: HTMLElement;
+  clip: HTMLElement | null;
+}): MarkdownTableBreakoutLimitMeasurement {
+  const parent = breakout.parentElement;
+  if (!clip || !parent) {
+    return { kind: "remove" };
+  }
+  const parentStyle = getComputedStyle(parent);
+  const parentPaddingLeft =
+    parent.getBoundingClientRect().left + parent.clientLeft + clip.scrollLeft;
+  const parentLeft = parentPaddingLeft + cssPixels(parentStyle.paddingLeft);
+  const parentRight =
+    parentPaddingLeft +
+    parent.clientWidth -
+    cssPixels(parentStyle.paddingRight);
+  const parentWidth = parentRight - parentLeft;
+  if (parentWidth <= 0) {
+    return { kind: "unchanged" };
+  }
+  const clipLeft = clip.getBoundingClientRect().left + clip.clientLeft;
+  const clipRight = clipLeft + clip.clientWidth;
+  const endRoom = Math.max(0, clipRight - parentRight);
+  if (
+    parentStyle
+      .getPropertyValue(MARKDOWN_TABLE_START_OFFSET_VARIABLE)
+      .trim() !== ""
+  ) {
+    return { kind: "set", value: `calc(${parentWidth + endRoom}px - 1rem)` };
+  }
+  const room = Math.min(Math.max(0, parentLeft - clipLeft), endRoom);
+  return { kind: "set", value: `${parentWidth + 2 * room}px` };
+}
+
+function applyMarkdownTableBreakoutLimit({
+  breakout,
+  measurement,
+}: {
+  breakout: HTMLElement;
+  measurement: MarkdownTableBreakoutLimitMeasurement;
+}): void {
+  if (measurement.kind === "remove") {
+    breakout.style.removeProperty(MARKDOWN_TABLE_BREAKOUT_LIMIT_VARIABLE);
+  } else if (measurement.kind === "set") {
+    breakout.style.setProperty(
+      MARKDOWN_TABLE_BREAKOUT_LIMIT_VARIABLE,
+      measurement.value,
+    );
+  }
+}
+
+function cssPixels(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+const FRONTMATTER_PATTERN =
+  /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
+
+function splitMarkdownFrontmatter(markdown: string): {
+  frontmatter: string | null;
+  body: string;
+} {
+  const match = FRONTMATTER_PATTERN.exec(markdown);
+  if (match === null) {
+    return { frontmatter: null, body: markdown };
+  }
+  return { frontmatter: match[1], body: markdown.slice(match[0].length) };
+}
+
+function MarkdownFrontmatter({ source }: { source: string }) {
+  const lines = source.split("\n").filter((line) => line.trim().length > 0);
+  if (lines.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
+      {lines.map((line, index) => {
+        const separator = line.indexOf(":");
+        if (separator > 0 && !/^[\s-]/.test(line)) {
+          const key = line.slice(0, separator).trim();
+          const value = line.slice(separator + 1).trim();
+          return (
+            <div key={index} className="contents">
+              <span className="font-medium text-muted-foreground/70">
+                {key}
+              </span>
+              <span className="min-w-0 break-words">{value}</span>
+            </div>
+          );
+        }
+        return (
+          <div
+            key={index}
+            className="col-span-2 whitespace-pre-wrap break-words text-muted-foreground/80"
+          >
+            {line}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MarkdownPreviewComponent({
+  allowHtml = false,
+  className,
+  content,
+  sourcePrefix = "",
+  imagePolicy = "render",
+  incrementalBlocks = false,
+  tableLayout = "breakout",
+  linkRouting,
+  threadMentions,
+  promptMentions,
+  messageDirectives,
+  urlTransform,
+}: MarkdownPreviewProps) {
+  const preferredTheme = usePreferredTheme();
+  const [rewriteLocalhostLinks] = useRewriteLocalhostLinksPreference();
+  const [expandedImage, setExpandedImage] =
+    useState<ExpandedMarkdownImage | null>(null);
+  const [markdownPieceCache] = useState(createMarkdownPieceCache);
+  const rendersHtml = allowHtml && content.includes("<");
+  const usesIncrementalBlocks =
+    incrementalBlocks && !rendersHtml && promptMentions === undefined;
+  const localFileRouting = linkRouting?.localFile;
+  const localImageRouting = linkRouting?.localImage;
+  const normalizeLocalFileLinks =
+    localFileRouting !== undefined || localImageRouting !== undefined;
+  const imageSourceOffset = useMemo(() => {
+    const prefix = normalizeLocalFileLinks
+      ? normalizeLocalFileMarkdownLinks(sourcePrefix)
+      : sourcePrefix;
+    return normalizeMathFences(splitMarkdownFrontmatter(prefix).body).length;
+  }, [sourcePrefix, normalizeLocalFileLinks]);
+  const promptMentionSubstitution = useMemo(
+    () =>
+      promptMentions
+        ? substitutePromptMentions(content, promptMentions.mentions)
+        : null,
+    [content, promptMentions],
+  );
+  const resolvedPromptMentions = useMemo<ResolvedPromptMentions | undefined>(
+    () =>
+      promptMentions && promptMentionSubstitution
+        ? {
+            mentions: promptMentionSubstitution.mentions,
+            resolveMentionLink: promptMentions.resolveMentionLink,
+          }
+        : undefined,
+    [promptMentions, promptMentionSubstitution],
+  );
+  const substitutedContent = promptMentionSubstitution?.content ?? content;
+  const markdownContent = useMemo(
+    () =>
+      normalizeLocalFileLinks
+        ? normalizeLocalFileMarkdownLinks(substitutedContent)
+        : substitutedContent,
+    [substitutedContent, normalizeLocalFileLinks],
+  );
+  const promptMarkdownContent = useMemo(
+    () =>
+      promptMentions !== undefined
+        ? normalizePromptBlockquoteBoundaries(markdownContent)
+        : markdownContent,
+    [markdownContent, promptMentions],
+  );
+  const { frontmatter, body } = useMemo(() => {
+    const split = splitMarkdownFrontmatter(promptMarkdownContent);
+    return {
+      frontmatter: split.frontmatter,
+      body: normalizeMathFences(split.body),
+    };
+  }, [promptMarkdownContent]);
+  const messageDirectiveMounts = useMemo(() => {
+    if (messageDirectives === undefined) {
+      return null;
+    }
+    const mounts: MountedMessageDirective[] = [];
+    return {
+      mounts,
+      message: messageDirectives.message,
+      openWorkspaceFile: messageDirectives.openWorkspaceFile,
+      openThreadPanel: messageDirectives.openThreadPanel,
+      registry: messageDirectives.registry,
+    };
+  }, [messageDirectives]);
+  const markdownComponents = useMemo(
+    () =>
+      buildMarkdownComponents({
+        tableLayout,
+        imagePolicy,
+        imageSourceOffset,
+        linkRouting,
+        preferredTheme,
+        rewriteLocalhostLinks,
+        setExpandedImage,
+        threadMentions,
+        promptMentions: resolvedPromptMentions,
+        hasMessageDirectives: messageDirectiveMounts !== null,
+      }),
+    [
+      tableLayout,
+      linkRouting,
+      imagePolicy,
+      imageSourceOffset,
+      preferredTheme,
+      rewriteLocalhostLinks,
+      threadMentions,
+      resolvedPromptMentions,
+      messageDirectiveMounts,
+    ],
+  );
+  const hasMessageDirectives = messageDirectiveMounts !== null;
+  const baseRemarkPlugins = useMemo((): MarkdownRemarkPlugins => {
+    const plugins: MarkdownRemarkPlugins = [
+      remarkGfm,
+      [remarkMath, { singleDollarTextMath: false }],
+      remarkInlineDollarMath,
+    ];
+    if (
+      threadMentions?.preserveSoftBreaks === true ||
+      promptMentions !== undefined
+    ) {
+      plugins.push(remarkBreaks);
+    }
+    if (threadMentions !== undefined) {
+      plugins.push(remarkThreadMentions);
+    }
+    if (promptMentions !== undefined) {
+      plugins.push(remarkPromptMentions);
+    }
+    if (hasMessageDirectives) {
+      plugins.push(remarkDirective);
+    }
+    return plugins;
+  }, [threadMentions, promptMentions, hasMessageDirectives]);
+  const codeFenceRegistry = useCodeFenceLanguages();
+  const remarkPlugins = useMemo((): MarkdownRemarkPlugins => {
+    const plugins: MarkdownRemarkPlugins = [...baseRemarkPlugins];
+    if (messageDirectiveMounts !== null) {
+      plugins.push([
+        remarkMessageDirectives,
+        {
+          indexBase: 0,
+          limit: MESSAGE_DIRECTIVE_MOUNT_LIMIT,
+          mounts: messageDirectiveMounts.mounts,
+          registry: messageDirectiveMounts.registry,
+        },
+      ]);
+    }
+    if (codeFenceRegistry !== null) {
+      plugins.push([
+        remarkCodeFenceRenderers,
+        { registry: codeFenceRegistry, sourceOffset: 0 },
+      ]);
+    }
+    return plugins;
+  }, [baseRemarkPlugins, messageDirectiveMounts, codeFenceRegistry]);
+  const resolvedUrlTransform = useMemo(
+    () =>
+      localFileRouting || localImageRouting
+        ? buildLocalAwareUrlTransform({
+            fallbackUrlTransform: urlTransform,
+            localFileRouting,
+            localImageRouting,
+          })
+        : urlTransform,
+    [localFileRouting, localImageRouting, urlTransform],
+  );
+
+  const rehypeKatex = useRehypeKatex(markdownMayContainMath(body));
+  const rehypePlugins = useMemo(
+    () => resolveRehypePlugins({ rehypeKatex }),
+    [rehypeKatex],
+  );
+
+  const markdownPieceRenderConfig = useMemo(
+    (): MarkdownPieceRenderConfig => ({
+      codeFenceRendererRegistry: codeFenceRegistry,
+      components: markdownComponents,
+      messageDirectiveRegistry: messageDirectiveMounts?.registry ?? null,
+      rehypePlugins,
+      remarkPlugins: baseRemarkPlugins,
+      urlTransform: resolvedUrlTransform,
+    }),
+    [
+      codeFenceRegistry,
+      markdownComponents,
+      messageDirectiveMounts,
+      rehypePlugins,
+      baseRemarkPlugins,
+      resolvedUrlTransform,
+    ],
+  );
+  const markdownPieces = usesIncrementalBlocks
+    ? resolveMarkdownPieces(markdownPieceCache, markdownPieceRenderConfig, body)
+    : null;
+
+  const Markdown = rendersHtml ? LazyMarkdownHtml : ReactMarkdown;
+  const renderedMarkdown =
+    markdownPieces === null ? (
+      <Markdown
+        rehypePlugins={rehypePlugins}
+        remarkPlugins={remarkPlugins}
+        components={markdownComponents}
+        urlTransform={resolvedUrlTransform}
+      >
+        {body}
+      </Markdown>
+    ) : (
+      markdownPieces.children
+    );
+
+  const imageSources = expandedImage?.imageSources ?? [];
+  const expandedImageIndex = expandedImage?.index ?? -1;
+  const hasImageNavigation =
+    expandedImageIndex !== -1 && imageSources.length > 1;
+  const stepExpandedImage = (direction: "previous" | "next") => {
+    if (expandedImageIndex === -1) return;
+    const nextIndex = getWrappedImageIndex({
+      currentIndex: expandedImageIndex,
+      direction,
+      itemCount: imageSources.length,
+    });
+    const nextImageSource = imageSources[nextIndex];
+    setExpandedImage(
+      nextImageSource === undefined
+        ? null
+        : { imageSources, index: nextIndex, url: nextImageSource },
+    );
+  };
+
+  return (
+    <>
+      <div
+        data-markdown-preview=""
+        className={cn(
+          "max-w-none break-words text-sm leading-relaxed text-foreground",
+          className,
+        )}
+      >
+        {frontmatter !== null ? (
+          <MarkdownFrontmatter source={frontmatter} />
+        ) : null}
+        <MessageDirectiveMountsContext.Provider
+          value={{
+            mounts:
+              markdownPieces?.mounts ??
+              messageDirectiveMounts?.mounts ??
+              EMPTY_MOUNTED_MESSAGE_DIRECTIVES,
+            render: messageDirectiveMounts,
+          }}
+        >
+          {threadMentions === undefined ? (
+            renderedMarkdown
+          ) : (
+            <RawThreadMentionBatchProvider>
+              {renderedMarkdown}
+            </RawThreadMentionBatchProvider>
+          )}
+        </MessageDirectiveMountsContext.Provider>
+      </div>
+
+      <ImageLightbox
+        imageSrc={expandedImage?.url ?? null}
+        imageAlt="Expanded image"
+        title="Expanded image preview"
+        hasMultipleImages={hasImageNavigation}
+        onPrevious={() => stepExpandedImage("previous")}
+        onNext={() => stepExpandedImage("next")}
+        onClose={() => setExpandedImage(null)}
+      />
+    </>
+  );
+}
+
+export const MarkdownPreview = memo(
+  MarkdownPreviewComponent,
+  areMarkdownPreviewPropsEqual,
+);
+MarkdownPreview.displayName = "MarkdownPreview";

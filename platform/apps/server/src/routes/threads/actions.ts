@@ -1,0 +1,646 @@
+import { refreshProviderRetirement } from "../../services/environments/environment-engine.js";
+import {
+  deleteQueuedThreadMessage,
+  getEnvironment,
+  getQueuedThreadMessage,
+  getThread,
+  listActiveVisiblePinnedThreadRootsWithPendingInteractionState,
+  pinThread,
+  reorderPinnedThread,
+  reorderQueuedThreadMessage,
+  setQueuedThreadMessageGroupBoundary,
+  unarchiveThread,
+  unpinThread,
+  updateQueuedThreadMessage,
+  updateThread,
+  type ReorderPinnedThreadResult,
+  type ReorderQueuedThreadMessageResult,
+  type SetQueuedThreadMessageGroupBoundaryResult,
+} from "@bb/db";
+import {
+  publicApiRoutes,
+  typedRoutes,
+  type ThreadListResponse,
+  type PublicApiSchema,
+} from "@bb/server-contract";
+import type { Hono } from "hono";
+import { type ThreadQueuedMessage } from "@bb/domain";
+import type { AppDeps } from "../../types.js";
+import { ApiError } from "../../errors.js";
+import {
+  emitPluginMessageCancelled,
+  emitPluginThreadUnarchived,
+} from "../../services/plugins/plugin-thread-events.js";
+import { toThreadQueuedMessage } from "../../services/threads/thread-queued-messages.js";
+import { retryFailedTurn } from "../../services/threads/turn-retry.js";
+import {
+  requireConnectedHostSession,
+  requirePublicThread,
+} from "../../services/lib/entity-lookup.js";
+import { parseSafeRelativeRoutePath } from "../relative-route-path.js";
+import { resolvePromptAttachmentReferences } from "../../services/projects/attachments.js";
+import {
+  compactThreadContext,
+  threadTargetHostId,
+} from "../../services/threads/dispatch-attempt.js";
+import {
+  createQueuedMessageForThread,
+  holdQueuedMessageForEdit,
+  releaseQueuedMessageEditHold,
+  requestEditReleasedQueuedMessageDispatch,
+  sendQueuedMessageNow,
+} from "../../services/threads/queued-messages.js";
+import {
+  ensureThreadIsNotAwaitingUserInteraction,
+  ensureThreadIsWritable,
+  ensureThreadQueueIsWritable,
+} from "../../services/threads/thread-send.js";
+import { acceptThreadSendRequest } from "../../services/threads/thread-send-request.js";
+import { editThreadMessage } from "../../services/threads/thread-edit-message.js";
+import { clearThreadContext } from "../../services/threads/thread-context-clear.js";
+import {
+  buildExecutionOptions,
+  dispatchThreadUnarchiveCommand,
+  prepareTurnSubmitCommandPayload,
+} from "../../services/threads/thread-commands.js";
+import { getLastProviderThreadId } from "../../services/threads/thread-events.js";
+import { stopThreadForCurrentState } from "../../services/threads/thread-lifecycle.js";
+import {
+  buildThreadStatusChangeMetadata,
+  getThreadPromptBannerActivity,
+  toThreadListEntryResponses,
+  toThreadResponseFromThread,
+} from "../../services/threads/thread-runtime-display.js";
+import {
+  resolveThreadEnvironmentRestore,
+  throwThreadEnvironmentRestoreRefusal,
+} from "../../services/threads/thread-environment-restore.js";
+import {
+  requestThreadEnvironmentRestore,
+  scheduleThreadProvisioningAdvance,
+} from "../../services/threads/thread-provisioning.js";
+import { archiveThreadAndChildren } from "../../services/threads/thread-archive.js";
+import {
+  requireThreadCommandEnvironment,
+  requireThreadHostCommandEnvironment,
+  resolveThreadHostCommandEnvironment,
+} from "../../services/threads/thread-command-environment.js";
+import {
+  LIVE_DAEMON_COMMAND_TIMEOUT_MS,
+  runLiveHostCommand,
+} from "../../services/hosts/live-command.js";
+
+function toQueuedMessageOrderResponse(
+  result: ReorderQueuedThreadMessageResult,
+): ThreadQueuedMessage[] {
+  switch (result.kind) {
+    case "reordered":
+    case "unchanged":
+      return result.queuedMessages.map(toThreadQueuedMessage);
+    case "not_found":
+      throw new ApiError(404, "invalid_request", "Queued message not found");
+    case "claimed":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued message is already being sent",
+      );
+    case "stale_neighbor":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued message order changed",
+      );
+    case "invalid_neighbor_order":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued message order is invalid",
+      );
+    case "invalid_sender":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued messages from different senders cannot be grouped",
+      );
+    case "invalid_execution_options":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued messages with different execution options cannot be grouped",
+      );
+  }
+}
+
+function toQueuedMessageGroupBoundaryResponse(
+  result: SetQueuedThreadMessageGroupBoundaryResult,
+): ThreadQueuedMessage[] {
+  switch (result.kind) {
+    case "updated":
+    case "unchanged":
+      return result.queuedMessages.map(toThreadQueuedMessage);
+    case "not_found":
+      throw new ApiError(404, "invalid_request", "Queued message not found");
+    case "claimed":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued message is already being sent",
+      );
+    case "stale_neighbor":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued message order changed",
+      );
+    case "invalid_sender":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued messages from different senders cannot be grouped",
+      );
+    case "invalid_execution_options":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued messages with different execution options cannot be grouped",
+      );
+  }
+}
+
+function buildActivePinnedThreadRootListResponse(
+  deps: AppDeps,
+): ThreadListResponse {
+  return toThreadListEntryResponses(deps, {
+    threads: listActiveVisiblePinnedThreadRootsWithPendingInteractionState(
+      deps.db,
+    ),
+  });
+}
+
+function assertPinnedThreadOrderResult(
+  result: ReorderPinnedThreadResult,
+): void {
+  switch (result.kind) {
+    case "reordered":
+    case "unchanged":
+      return;
+    case "not_found":
+      throw new ApiError(404, "thread_not_found", "Thread not found");
+    case "not_pinned":
+      throw new ApiError(409, "invalid_request", "Thread is not pinned");
+    case "stale_neighbor":
+      throw new ApiError(409, "invalid_request", "Pinned thread order changed");
+    case "invalid_neighbor_order":
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Pinned thread order is invalid",
+      );
+  }
+}
+
+export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
+  const { post, patch, del } = typedRoutes<PublicApiSchema>(app, {
+    onValidationError: (msg) => new ApiError(400, "invalid_request", msg),
+  });
+  const routes = publicApiRoutes.threads;
+
+  post(routes.send, async (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    return context.json(
+      await acceptThreadSendRequest(deps, { payload, thread }),
+    );
+  });
+
+  post(routes.editMessage, async (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const environment = await requireThreadCommandEnvironment(deps, {
+      thread,
+    });
+    const result = await editThreadMessage(deps, {
+      environment,
+      payload,
+      thread,
+    });
+    return context.json(result);
+  });
+
+  post(routes.retry, async (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    ensureThreadIsWritable(thread);
+    const result = await retryFailedTurn(deps, { request: payload, thread });
+    return context.json(result);
+  });
+
+  post(routes.createQueuedMessage, async (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const queuedMessage = await createQueuedMessageForThread(deps, {
+      payload,
+      thread,
+    });
+    return context.json(queuedMessage, 201);
+  });
+
+  post(routes.sendQueuedMessage, async (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    ensureThreadQueueIsWritable(thread);
+    ensureThreadIsNotAwaitingUserInteraction(deps, thread.id);
+    const result = await sendQueuedMessageNow(deps, {
+      queuedMessageId: context.req.param("queuedMessageId"),
+      mode: payload.mode,
+      threadId: context.req.param("id"),
+    });
+    return context.json({ ok: true, ...result });
+  });
+
+  patch(routes.reorderQueuedMessage, (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    ensureThreadQueueIsWritable(thread);
+    return context.json(
+      toQueuedMessageOrderResponse(
+        reorderQueuedThreadMessage({
+          db: deps.db,
+          notifier: deps.hub,
+          threadId: thread.id,
+          queuedMessageId: context.req.param("queuedMessageId"),
+          previousQueuedMessageId: payload.previousQueuedMessageId,
+          nextQueuedMessageId: payload.nextQueuedMessageId,
+          groupBoundaryQueuedMessageId: payload.groupBoundaryQueuedMessageId,
+        }),
+      ),
+    );
+  });
+
+  patch(routes.setQueuedMessageGroupBoundary, (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    ensureThreadQueueIsWritable(thread);
+    return context.json(
+      toQueuedMessageGroupBoundaryResponse(
+        setQueuedThreadMessageGroupBoundary({
+          db: deps.db,
+          notifier: deps.hub,
+          threadId: thread.id,
+          expectedGroupedPrefixQueuedMessageIds:
+            payload.expectedGroupedPrefixQueuedMessageIds,
+          groupBoundaryQueuedMessageId: payload.groupBoundaryQueuedMessageId,
+        }),
+      ),
+    );
+  });
+
+  patch(routes.updateQueuedMessage, async (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    ensureThreadQueueIsWritable(thread);
+    const input = await resolvePromptAttachmentReferences({
+      db: deps.db,
+      dataDir: deps.config.dataDir,
+      input: payload.input,
+      projectId: thread.projectId,
+      hostId: threadTargetHostId(deps, thread),
+    });
+    const result = updateQueuedThreadMessage(deps.db, deps.hub, {
+      content: input,
+      expectedUpdatedAt: payload.expectedUpdatedAt,
+      id: context.req.param("queuedMessageId"),
+      threadId: thread.id,
+    });
+    if (result.kind === "not_found") {
+      throw new ApiError(404, "invalid_request", "Queued message not found");
+    }
+    if (result.kind === "claimed") {
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued message is already being sent",
+      );
+    }
+    if (result.kind === "stale") {
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Queued message changed since editing began",
+      );
+    }
+    if (result.releasedEditHold) {
+      requestEditReleasedQueuedMessageDispatch(deps, {
+        queuedMessageId: result.queuedMessage.id,
+        threadId: thread.id,
+      });
+    }
+    return context.json(toThreadQueuedMessage(result.queuedMessage));
+  });
+
+  post(routes.holdQueuedMessageForEdit, (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    ensureThreadQueueIsWritable(thread);
+    return context.json(
+      holdQueuedMessageForEdit(deps, {
+        queuedMessageId: context.req.param("queuedMessageId"),
+        threadId: thread.id,
+      }),
+    );
+  });
+
+  del(routes.releaseQueuedMessageEditHold, (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    releaseQueuedMessageEditHold(deps, {
+      queuedMessageId: context.req.param("queuedMessageId"),
+      threadId: thread.id,
+    });
+    return context.json({ ok: true });
+  });
+
+  del(routes.deleteQueuedMessage, (context) => {
+    const queuedMessage = getQueuedThreadMessage(
+      deps.db,
+      context.req.param("queuedMessageId"),
+    );
+    if (!queuedMessage || queuedMessage.threadId !== context.req.param("id")) {
+      throw new ApiError(404, "invalid_request", "Queued message not found");
+    }
+    const deleted = deleteQueuedThreadMessage(
+      deps.db,
+      deps.hub,
+      context.req.param("queuedMessageId"),
+    );
+    if (!deleted) {
+      throw new ApiError(404, "invalid_request", "Queued message not found");
+    }
+    emitPluginMessageCancelled(toThreadQueuedMessage(queuedMessage));
+    return context.json({ ok: true });
+  });
+
+  post(routes.stop, async (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const environment = resolveThreadHostCommandEnvironment({
+      db: deps.db,
+      thread,
+    });
+    await stopThreadForCurrentState(deps, thread, environment);
+    return context.json({ ok: true });
+  });
+
+  post(routes.compact, async (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    await compactThreadContext(deps, thread);
+    return context.json({ ok: true });
+  });
+
+  post(routes.clearContext, async (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const environment = await requireThreadCommandEnvironment(deps, { thread });
+    await clearThreadContext(deps, { environment, thread });
+    return context.json({ ok: true });
+  });
+
+  post(routes.cancelPlan, async (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const activity = getThreadPromptBannerActivity(deps, thread);
+    if (activity.activePlanModeCount === 0) {
+      throw new ApiError(409, "invalid_request", "Plan mode is not active");
+    }
+    if (activity.activePlanTurnId === null) {
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "The active Plan turn could not be identified",
+      );
+    }
+    const environment = requireThreadHostCommandEnvironment({
+      db: deps.db,
+      thread,
+    });
+    await runLiveHostCommand(deps, {
+      command: {
+        type: "thread.plan.cancel",
+        environmentId: environment.id,
+        threadId: thread.id,
+        expectedTurnId: activity.activePlanTurnId,
+      },
+      hostId: environment.hostId,
+      timeoutMs: LIVE_DAEMON_COMMAND_TIMEOUT_MS,
+    });
+    const updatedThread = requirePublicThread(deps.db, thread.id);
+    if (
+      getThreadPromptBannerActivity(deps, updatedThread).activePlanModeCount > 0
+    ) {
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "The provider did not confirm that Plan mode exited",
+      );
+    }
+    return context.json({ ok: true });
+  });
+
+  post(routes.clearGoal, async (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const activity = getThreadPromptBannerActivity(deps, thread);
+    if (activity.activeGoalCount === 0) {
+      throw new ApiError(409, "invalid_request", "No active Goal to clear");
+    }
+    const environment = await requireThreadCommandEnvironment(deps, {
+      thread,
+    });
+    requireConnectedHostSession(deps, environment.hostId);
+    const execution = await buildExecutionOptions(
+      deps,
+      {},
+      { threadId: thread.id },
+    );
+    const preparedRuntimeCommand = await prepareTurnSubmitCommandPayload(deps, {
+      environment,
+      execution,
+      input: [],
+      permissionEscalation: "deny",
+      target: { mode: "auto", expectedTurnId: null },
+      thread,
+    });
+    const result = await runLiveHostCommand(deps, {
+      command: {
+        type: "thread.goal.clear",
+        environmentId: environment.id,
+        threadId: thread.id,
+        options: preparedRuntimeCommand.options,
+        resumeContext: preparedRuntimeCommand.resumeContext,
+        bridgeLaunch: preparedRuntimeCommand.bridgeLaunch,
+      },
+      hostId: environment.hostId,
+      timeoutMs: LIVE_DAEMON_COMMAND_TIMEOUT_MS,
+    });
+    const updatedThread = requirePublicThread(deps.db, thread.id);
+    const updatedActivity = getThreadPromptBannerActivity(deps, updatedThread);
+    if (updatedActivity.activeGoalCount > 0 && !result.cleared) {
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "The provider did not clear the active Goal",
+      );
+    }
+    if (updatedActivity.activeGoalCount > 0) {
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "The provider did not confirm that the active Goal was cleared",
+      );
+    }
+    return context.json({ ok: true });
+  });
+
+  post(routes.open, (context, payload) => {
+    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
+    if (payload.file !== null) {
+      parseSafeRelativeRoutePath(payload.file.path);
+    }
+    const delivered = deps.hub.notifyThreadOpen(
+      { projectId: publicThread.projectId, threadId: publicThread.id },
+      { split: payload.split ?? "replace", file: payload.file },
+    );
+    return context.json({ delivered });
+  });
+
+  post(routes.paneAction, (context, payload) => {
+    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
+    const delivered = deps.hub.notifyThreadPaneAction(
+      { projectId: publicThread.projectId, threadId: publicThread.id },
+      payload.action,
+    );
+    return context.json({ delivered });
+  });
+
+  post(routes.pin, (context) => {
+    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = pinThread(deps.db, deps.hub, {
+      threadId: publicThread.id,
+    });
+    if (!thread) {
+      throw new ApiError(404, "thread_not_found", "Thread not found");
+    }
+    return context.json(toThreadResponseFromThread(deps, { thread }));
+  });
+
+  post(routes.unpin, (context) => {
+    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = unpinThread(deps.db, deps.hub, {
+      threadId: publicThread.id,
+    });
+    if (!thread) {
+      throw new ApiError(404, "thread_not_found", "Thread not found");
+    }
+    return context.json(toThreadResponseFromThread(deps, { thread }));
+  });
+
+  patch(routes.pinOrder, (context, payload) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    assertPinnedThreadOrderResult(
+      reorderPinnedThread({
+        db: deps.db,
+        notifier: deps.hub,
+        threadId: thread.id,
+        previousThreadId: payload.previousThreadId,
+        nextThreadId: payload.nextThreadId,
+      }),
+    );
+    return context.json(buildActivePinnedThreadRootListResponse(deps));
+  });
+
+  post(routes.archiveAll, (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const archivedThreadIds = archiveThreadAndChildren(deps, {
+      parentThread: thread,
+    });
+    return context.json({
+      ok: true,
+      archivedThreadIds,
+    });
+  });
+
+  post(routes.unarchive, (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    if (thread.archivedAt === null) return context.json({ ok: true });
+    const providerThreadId = getLastProviderThreadId(deps, thread.id);
+    if (!unarchiveThread(deps.db, deps.hub, thread.id)) {
+      if (getThread(deps.db, thread.id)?.archivedAt === null)
+        return context.json({ ok: true });
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Lifecycle owner must be unarchived first",
+      );
+    }
+    const unarchivedThread = getThread(deps.db, thread.id);
+    if (unarchivedThread !== null) {
+      if (unarchivedThread.environmentId !== null)
+        refreshProviderRetirement(deps, unarchivedThread.environmentId);
+      emitPluginThreadUnarchived(unarchivedThread);
+    }
+    const environment = thread.environmentId
+      ? getEnvironment(deps.db, thread.environmentId)
+      : null;
+    if (providerThreadId && environment) {
+      dispatchThreadUnarchiveCommand(deps, {
+        environment,
+        providerThreadId,
+        thread,
+      });
+    }
+    return context.json({ ok: true });
+  });
+
+  post(routes.restoreEnvironment, (context) => {
+    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    ensureThreadIsWritable(thread);
+    const resolution = resolveThreadEnvironmentRestore(deps, { thread });
+    if (!resolution.restorable) {
+      throwThreadEnvironmentRestoreRefusal(resolution.refusal, thread);
+    }
+    const started = requestThreadEnvironmentRestore(deps, {
+      environment: resolution.target.environment,
+      provider: {
+        environmentProviderId: resolution.target.environmentProviderId,
+        selection: resolution.target.selection,
+      },
+      thread,
+    });
+    if (started === null) {
+      throw new ApiError(
+        409,
+        "invalid_request",
+        "Thread is no longer idle, so its workspace cannot be restored",
+      );
+    }
+    const restoringThread = requirePublicThread(deps.db, thread.id);
+    deps.hub.notifyThread(
+      thread.id,
+      ["status-changed"],
+      buildThreadStatusChangeMetadata(deps, restoringThread),
+    );
+    scheduleThreadProvisioningAdvance(deps, thread.id);
+    return context.json(
+      toThreadResponseFromThread(deps, { thread: restoringThread }),
+    );
+  });
+
+  post(routes.read, (context) => {
+    requirePublicThread(deps.db, context.req.param("id"));
+    const thread = updateThread(deps.db, deps.hub, context.req.param("id"), {
+      lastReadAt: Date.now(),
+    });
+    if (!thread) {
+      throw new ApiError(404, "thread_not_found", "Thread not found");
+    }
+    return context.json(toThreadResponseFromThread(deps, { thread }));
+  });
+
+  post(routes.unread, (context) => {
+    requirePublicThread(deps.db, context.req.param("id"));
+    const thread = updateThread(deps.db, deps.hub, context.req.param("id"), {
+      lastReadAt: null,
+    });
+    if (!thread) {
+      throw new ApiError(404, "thread_not_found", "Thread not found");
+    }
+    return context.json(toThreadResponseFromThread(deps, { thread }));
+  });
+}

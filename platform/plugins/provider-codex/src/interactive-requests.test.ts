@@ -1,0 +1,893 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  buildCodexInteractiveResponse,
+  buildCodexInteractiveResult,
+  decodeCodexInteractiveRequest,
+  extractCodexMacOsPermissionRequest,
+} from "./interactive-requests.js";
+import {
+  ProviderRequestDecodeError,
+  interactionRequestPayloadSchema,
+} from "@get-bb/plugin-sdk/provider-bridge";
+import computerUseElicitation from "./fixtures/computer-use-elicitation.json";
+
+it("surfaces a standard elicitation from another MCP server", () => {
+  expect(
+    decodeCodexInteractiveRequest({
+      id: 41,
+      method: "mcpServer/elicitation/request",
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        serverName: "travel",
+        mode: "form",
+        _meta: null,
+        message: "Choose your destination",
+        requestedSchema: {
+          type: "object",
+          properties: { destination: { type: "string", minLength: 1 } },
+          required: ["destination"],
+        },
+      },
+    }),
+  ).toMatchObject({
+    requestId: 41,
+    turnId: "turn-1",
+    payload: {
+      kind: "provider-codex/mcp-elicitation",
+      data: { kind: "form", serverName: "travel" },
+    },
+  });
+});
+
+it("bounds a long elicitation title and keeps the full message", () => {
+  const message = `${"Confirm the deployment target. ".repeat(7)}Continue?`;
+  const decoded = decodeCodexInteractiveRequest({
+    id: 42,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      serverName: "deploy",
+      mode: "form",
+      _meta: null,
+      message,
+      requestedSchema: {
+        type: "object",
+        properties: { region: { type: "string" } },
+      },
+    },
+  });
+  if (!decoded) throw new Error("Expected a decoded elicitation");
+  const payload = interactionRequestPayloadSchema.parse(decoded.payload);
+
+  expect(message.length).toBe(226);
+  expect(payload).toMatchObject({
+    title: `${message.slice(0, 159).trimEnd()}…`,
+    data: { kind: "form", message },
+  });
+});
+
+it("bounds a long title without splitting a surrogate pair at the limit", () => {
+  const message = `${"a".repeat(158)}😀 and more text after the emoji`;
+  const decoded = decodeCodexInteractiveRequest({
+    id: 43,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread-1",
+      turnId: "turn-1",
+      serverName: "emoji",
+      mode: "url",
+      _meta: null,
+      message,
+      url: "https://example.com/emoji",
+      elicitationId: "emoji-1",
+    },
+  });
+  if (!decoded) throw new Error("Expected a decoded elicitation");
+  expect(interactionRequestPayloadSchema.parse(decoded.payload)).toMatchObject({
+    title: `${"a".repeat(158)}…`,
+  });
+});
+
+describe("buildCodexInteractiveResult", () => {
+  const decoded = decodeCodexInteractiveRequest(computerUseElicitation);
+  if (!decoded) throw new Error("Expected a decoded elicitation");
+  const cancel = { action: "cancel", content: null, _meta: null };
+
+  it("cancels the elicitation when the turn stops or the runtime disconnects", () => {
+    expect(
+      buildCodexInteractiveResult(decoded.payload, {
+        status: "rejected",
+        reason: new Error("Thread interrupted"),
+      }),
+    ).toEqual(cancel);
+  });
+
+  it.each([
+    { decision: "deny" },
+    { kind: "plugin_submitted" },
+    { kind: "user_answer", answers: {} },
+    null,
+  ])("cancels the elicitation for a non-answer resolution %j", (value) => {
+    expect(
+      buildCodexInteractiveResult(decoded.payload, {
+        status: "fulfilled",
+        value,
+      }),
+    ).toEqual(cancel);
+  });
+
+  it("encodes a request answer", () => {
+    expect(
+      buildCodexInteractiveResult(decoded.payload, {
+        status: "fulfilled",
+        value: {
+          kind: "request_answer",
+          value: { action: "accept", persist: "session" },
+        },
+      }),
+    ).toEqual({ action: "accept", content: {}, _meta: { persist: "session" } });
+  });
+
+  it("still surfaces runtime failures for approvals", () => {
+    const error = new Error("Thread interrupted");
+    expect(() =>
+      buildCodexInteractiveResult(
+        {
+          kind: "approval",
+          subject: {
+            kind: "file_change",
+            itemId: "item-1",
+            writeScope: null,
+            sessionGrant: null,
+          },
+          reason: null,
+          availableDecisions: ["allow_once", "deny"],
+        },
+        { status: "rejected", reason: error },
+      ),
+    ).toThrow(error);
+  });
+});
+
+it("surfaces a native Computer Use app permission request", () => {
+  expect(decodeCodexInteractiveRequest(computerUseElicitation)).toEqual({
+    requestId: computerUseElicitation.id,
+    method: computerUseElicitation.method,
+    providerThreadId: computerUseElicitation.params.threadId,
+    turnId: null,
+    payload: {
+      kind: "provider-codex/mcp-elicitation",
+      title: "Allow Codex to use Calculator?",
+      data: {
+        kind: "computer_use",
+        serverName: "cua_repl",
+        app: {
+          id: "com.apple.calculator",
+          name: "Calculator",
+          iconDataUrl: null,
+        },
+        message: computerUseElicitation.params.message,
+        scopes: ["session", "always"],
+        warning: null,
+        riskLevel: "low",
+      },
+    },
+  });
+});
+
+describe("decodeCodexInteractiveRequest", () => {
+  it("maps command approval requests into pending interaction payloads", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 8,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-1",
+          itemId: "item-1",
+          reason: "Needs approval",
+          command: "git push",
+          cwd: "/tmp/project",
+          commandActions: [
+            {
+              type: "unknown",
+              command: "git push",
+            },
+          ],
+          additionalPermissions: {
+            network: { enabled: true },
+            fileSystem: null,
+            macos: null,
+          },
+          availableDecisions: ["accept", "acceptForSession", "decline"],
+        },
+      }),
+    ).toEqual({
+      requestId: 8,
+      method: "item/commandExecution/requestApproval",
+      providerThreadId: "t1",
+      turnId: "turn-1",
+      payload: {
+        kind: "approval",
+        subject: {
+          kind: "command",
+          itemId: "item-1",
+          command: "git push",
+          cwd: "/tmp/project",
+          actions: [
+            {
+              type: "unknown",
+              command: "git push",
+            },
+          ],
+          sessionGrant: {
+            network: { enabled: true },
+            fileSystem: null,
+          },
+        },
+        reason: "Needs approval",
+        availableDecisions: ["allow_once", "allow_for_session", "deny"],
+      },
+    });
+  });
+
+  it("omits command session approval without session grants", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 80,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-1",
+          itemId: "item-1",
+          reason: "Needs approval",
+          command: "git push",
+          cwd: "/tmp/project",
+          commandActions: [],
+          availableDecisions: ["accept", "acceptForSession", "decline"],
+        },
+      }),
+    ).toEqual({
+      requestId: 80,
+      method: "item/commandExecution/requestApproval",
+      providerThreadId: "t1",
+      turnId: "turn-1",
+      payload: {
+        kind: "approval",
+        subject: {
+          kind: "command",
+          itemId: "item-1",
+          command: "git push",
+          cwd: "/tmp/project",
+          actions: [],
+          sessionGrant: null,
+        },
+        reason: "Needs approval",
+        availableDecisions: ["allow_once", "deny"],
+      },
+    });
+  });
+
+  it("rejects empty command approval decisions as invalid params", () => {
+    expect(() =>
+      decodeCodexInteractiveRequest({
+        id: 8,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-1",
+          itemId: "item-1",
+          reason: "Needs approval",
+          command: "git push",
+          cwd: "/tmp/project",
+          commandActions: [],
+          availableDecisions: [],
+        },
+      }),
+    ).toThrowError(ProviderRequestDecodeError);
+  });
+
+  it("maps cancel-only command approval decisions to deny", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 8,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-1",
+          itemId: "item-1",
+          reason: "Needs approval",
+          command: "git push",
+          cwd: "/tmp/project",
+          commandActions: [],
+          availableDecisions: ["cancel"],
+        },
+      }),
+    ).toMatchObject({
+      payload: {
+        availableDecisions: ["deny"],
+      },
+    });
+  });
+
+  it("keeps a command approval that asks for macOS permissions and surfaces the profile beside it", () => {
+    const request = {
+      id: 8,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        threadId: "t1",
+        turnId: "turn-1",
+        itemId: "item-1",
+        reason: "Needs approval",
+        command: "osascript -e 'tell app \"Finder\" to activate'",
+        cwd: "/tmp/project",
+        commandActions: [],
+        additionalPermissions: {
+          network: { enabled: true },
+          fileSystem: null,
+          macos: {
+            preferences: "read_only",
+            automations: {
+              bundle_ids: ["com.apple.finder"],
+            },
+            launchServices: true,
+            accessibility: true,
+            calendar: false,
+            reminders: false,
+            contacts: "none",
+          },
+        },
+        availableDecisions: ["accept", "acceptForSession", "decline"],
+      },
+    };
+
+    const decoded = decodeCodexInteractiveRequest(request);
+    expect(decoded?.payload).toMatchObject({
+      kind: "approval",
+      subject: {
+        kind: "command",
+        itemId: "item-1",
+        sessionGrant: { network: { enabled: true }, fileSystem: null },
+      },
+      availableDecisions: ["allow_once", "allow_for_session", "deny"],
+    });
+
+    expect(extractCodexMacOsPermissionRequest(request)).toEqual({
+      providerThreadId: "t1",
+      turnId: "turn-1",
+      item: {
+        approvalItemId: "item-1",
+        reason: "Needs approval",
+        permissions: {
+          preferences: "read_only",
+          automations: { kind: "bundle_ids", bundleIds: ["com.apple.finder"] },
+          launchServices: true,
+          accessibility: true,
+          calendar: false,
+          reminders: false,
+          contacts: "none",
+        },
+      },
+    });
+  });
+
+  it("extracts no macOS profile from approvals that carry none", () => {
+    expect(
+      extractCodexMacOsPermissionRequest({
+        id: 81,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-1",
+          itemId: "item-1",
+          reason: null,
+          command: "open -a Finder",
+          cwd: "/tmp/project",
+          commandActions: [],
+          additionalPermissions: { network: null, fileSystem: null },
+          availableDecisions: ["accept", "decline"],
+        },
+      }),
+    ).toBeNull();
+    expect(
+      extractCodexMacOsPermissionRequest({
+        id: 82,
+        method: "item/permissions/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-1",
+          itemId: "item-1",
+          reason: null,
+          permissions: { network: { enabled: true }, fileSystem: null },
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it("ignores unsupported policy-amendment decisions when simple decisions remain", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 9,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-2",
+          itemId: "item-2",
+          reason: "Needs approval",
+          command: "git push",
+          cwd: "/tmp/project",
+          commandActions: [],
+          additionalPermissions: null,
+          availableDecisions: [
+            {
+              acceptWithExecpolicyAmendment: {
+                execpolicy_amendment: ["allow", "git", "push"],
+              },
+            },
+            {
+              applyNetworkPolicyAmendment: {
+                network_policy_amendment: {
+                  host: "api.openai.com",
+                  action: "allow",
+                },
+              },
+            },
+            "decline",
+          ],
+        },
+      }),
+    ).toMatchObject({
+      payload: {
+        kind: "approval",
+        subject: {
+          kind: "command",
+          command: "git push",
+        },
+        availableDecisions: ["deny"],
+      },
+    });
+  });
+
+  it("rejects policy-amendment-only command approval decisions", () => {
+    expect(() =>
+      decodeCodexInteractiveRequest({
+        id: 90,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-network-amendment",
+          itemId: "item-network-amendment",
+          reason: "Needs network policy approval",
+          command: "curl https://api.openai.com",
+          cwd: "/tmp/project",
+          commandActions: [],
+          additionalPermissions: null,
+          availableDecisions: [
+            {
+              acceptWithExecpolicyAmendment: {
+                execpolicy_amendment: ["allow", "git", "push"],
+              },
+            },
+            {
+              applyNetworkPolicyAmendment: {
+                network_policy_amendment: {
+                  host: "api.openai.com",
+                  action: "allow",
+                },
+              },
+            },
+          ],
+        },
+      }),
+    ).toThrowError(ProviderRequestDecodeError);
+  });
+
+  it("preserves deny when policy amendments are paired with cancel", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 91,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-network-amendment-deny",
+          itemId: "item-network-amendment-deny",
+          reason: "Needs network policy approval",
+          command: "curl https://api.openai.com",
+          cwd: "/tmp/project",
+          commandActions: [],
+          additionalPermissions: null,
+          availableDecisions: [
+            {
+              applyNetworkPolicyAmendment: {
+                network_policy_amendment: {
+                  host: "api.openai.com",
+                  action: "allow",
+                },
+              },
+            },
+            "cancel",
+          ],
+        },
+      }),
+    ).toMatchObject({
+      payload: {
+        availableDecisions: ["deny"],
+      },
+    });
+  });
+
+  it("maps file-change approvals into pending interactions", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 10,
+        method: "item/fileChange/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-file-change",
+          itemId: "item-file-change",
+          reason: "Review generated file changes",
+          grantRoot: "/tmp/project",
+        },
+      }),
+    ).toEqual({
+      requestId: 10,
+      method: "item/fileChange/requestApproval",
+      providerThreadId: "t1",
+      turnId: "turn-file-change",
+      payload: {
+        kind: "approval",
+        subject: {
+          kind: "file_change",
+          itemId: "item-file-change",
+          writeScope: "/tmp/project",
+          sessionGrant: {
+            network: null,
+            fileSystem: {
+              read: [],
+              write: ["/tmp/project"],
+            },
+          },
+        },
+        reason: "Review generated file changes",
+        availableDecisions: ["allow_once", "allow_for_session", "deny"],
+      },
+    });
+  });
+
+  it("omits file-change session approval without grant root", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 11,
+        method: "item/fileChange/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-file-change",
+          itemId: "item-file-change",
+          reason: "Review generated file changes",
+          grantRoot: null,
+        },
+      }),
+    ).toEqual({
+      requestId: 11,
+      method: "item/fileChange/requestApproval",
+      providerThreadId: "t1",
+      turnId: "turn-file-change",
+      payload: {
+        kind: "approval",
+        subject: {
+          kind: "file_change",
+          itemId: "item-file-change",
+          writeScope: null,
+          sessionGrant: null,
+        },
+        reason: "Review generated file changes",
+        availableDecisions: ["allow_once", "deny"],
+      },
+    });
+  });
+
+  it("maps permission approvals into pending interactions", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 11,
+        method: "item/permissions/requestApproval",
+        params: {
+          threadId: "t1",
+          turnId: "turn-permissions",
+          itemId: "item-permissions",
+          reason: "Need network access",
+          permissions: {
+            network: { enabled: true },
+            fileSystem: {
+              read: ["/tmp/project/README.md"],
+              write: [],
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      requestId: 11,
+      method: "item/permissions/requestApproval",
+      providerThreadId: "t1",
+      turnId: "turn-permissions",
+      payload: {
+        kind: "approval",
+        subject: {
+          kind: "permission_grant",
+          itemId: "item-permissions",
+          toolName: null,
+          permissions: {
+            network: { enabled: true },
+            fileSystem: {
+              read: ["/tmp/project/README.md"],
+              write: [],
+            },
+          },
+        },
+        reason: "Need network access",
+        availableDecisions: ["allow_once", "allow_for_session", "deny"],
+      },
+    });
+  });
+
+  it("maps blocking Codex user input into a durable user-question interaction", () => {
+    expect(
+      decodeCodexInteractiveRequest({
+        id: 12,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "t1",
+          turnId: "turn-user-input",
+          itemId: "item-user-input",
+          questions: [
+            {
+              id: "deployment",
+              header: "Deployment",
+              question:
+                "Which deployment path should we use? Include the context before deciding.",
+              isOther: true,
+              isSecret: false,
+              options: [
+                {
+                  label: "Staging",
+                  description: "Validate before production.",
+                },
+                {
+                  label: "Production",
+                  description: "Run the approved release.",
+                },
+              ],
+            },
+          ],
+          isBlocking: true,
+          autoResolutionMs: null,
+        },
+      }),
+    ).toEqual({
+      requestId: 12,
+      method: "item/tool/requestUserInput",
+      providerThreadId: "t1",
+      turnId: "turn-user-input",
+      payload: {
+        kind: "user_question",
+        questions: [
+          {
+            id: "deployment",
+            prompt:
+              "Which deployment path should we use? Include the context before deciding.",
+            shortLabel: "Deployment",
+            multiSelect: false,
+            options: [
+              {
+                value: "deployment:option-1",
+                label: "Staging",
+                description: "Validate before production.",
+              },
+              {
+                value: "deployment:option-2",
+                label: "Production",
+                description: "Run the approved release.",
+              },
+            ],
+            allowFreeText: true,
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects secret Codex user input instead of rendering it in the BB form", () => {
+    expect(() =>
+      decodeCodexInteractiveRequest({
+        id: 13,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "t1",
+          turnId: "turn-secret-input",
+          itemId: "item-secret-input",
+          questions: [
+            {
+              id: "token",
+              header: "Token",
+              question: "Enter the token",
+              isOther: true,
+              isSecret: true,
+              options: null,
+            },
+          ],
+          isBlocking: true,
+          autoResolutionMs: 300_000,
+        },
+      }),
+    ).toThrowError(ProviderRequestDecodeError);
+  });
+});
+
+describe("buildCodexInteractiveResponse", () => {
+  it("maps bb command approvals back to Codex responses", () => {
+    expect(
+      buildCodexInteractiveResponse({
+        payload: {
+          kind: "approval",
+          subject: {
+            kind: "command",
+            itemId: "item-1",
+            command: "git push",
+            cwd: "/tmp/project",
+            actions: [],
+            sessionGrant: null,
+          },
+          reason: null,
+          availableDecisions: ["allow_once", "allow_for_session", "deny"],
+        },
+        resolution: {
+          decision: "allow_for_session",
+          grantedPermissions: null,
+        },
+      }),
+    ).toEqual({
+      decision: "acceptForSession",
+    });
+  });
+
+  it("maps command denial back to Codex responses", () => {
+    expect(
+      buildCodexInteractiveResponse({
+        payload: {
+          kind: "approval",
+          subject: {
+            kind: "command",
+            itemId: "item-3",
+            command: "git push",
+            cwd: "/tmp/project",
+            actions: [],
+            sessionGrant: null,
+          },
+          reason: null,
+          availableDecisions: ["allow_once", "deny"],
+        },
+        resolution: {
+          decision: "deny",
+        },
+      }),
+    ).toEqual({
+      decision: "decline",
+    });
+  });
+
+  it("maps file-change approvals back to Codex responses", () => {
+    expect(
+      buildCodexInteractiveResponse({
+        payload: {
+          kind: "approval",
+          subject: {
+            kind: "file_change",
+            itemId: "item-file-change",
+            writeScope: null,
+            sessionGrant: null,
+          },
+          reason: "Review generated file changes",
+          availableDecisions: ["allow_once", "allow_for_session", "deny"],
+        },
+        resolution: {
+          decision: "allow_for_session",
+          grantedPermissions: null,
+        },
+      }),
+    ).toEqual({
+      decision: "acceptForSession",
+    });
+  });
+
+  it("maps permission grants back to Codex responses", () => {
+    expect(
+      buildCodexInteractiveResponse({
+        payload: {
+          kind: "approval",
+          subject: {
+            kind: "permission_grant",
+            itemId: "item-permissions",
+            toolName: null,
+            permissions: {
+              network: { enabled: true },
+              fileSystem: {
+                read: ["/tmp/project/README.md"],
+                write: [],
+              },
+            },
+          },
+          reason: "Need network access",
+          availableDecisions: ["allow_once", "allow_for_session", "deny"],
+        },
+        resolution: {
+          decision: "allow_for_session",
+          grantedPermissions: {
+            network: { enabled: true },
+            fileSystem: {
+              read: ["/tmp/project/README.md"],
+              write: [],
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      permissions: {
+        network: { enabled: true },
+        fileSystem: {
+          read: ["/tmp/project/README.md"],
+          write: null,
+        },
+      },
+      scope: "session",
+    });
+  });
+
+  it("maps a user-question answer back to Codex option labels and free text", () => {
+    expect(
+      buildCodexInteractiveResponse({
+        payload: {
+          kind: "user_question",
+          questions: [
+            {
+              id: "deployment",
+              prompt: "Which deployment path should we use?",
+              shortLabel: "Deployment",
+              multiSelect: true,
+              options: [
+                {
+                  value: "deployment:option-1",
+                  label: "Staging",
+                  description: "Validate before production.",
+                },
+                {
+                  value: "deployment:option-2",
+                  label: "Production",
+                  description: "Run the approved release.",
+                },
+              ],
+              allowFreeText: true,
+            },
+          ],
+        },
+        resolution: {
+          kind: "user_answer",
+          answers: {
+            deployment: {
+              selected: ["deployment:option-2"],
+              freeText: "Use the audited release window.",
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      answers: {
+        deployment: {
+          answers: ["Production", "Use the audited release window."],
+        },
+      },
+    });
+  });
+});

@@ -1,0 +1,700 @@
+import "../../../.ladle/composer-plugin";
+import { useState } from "react";
+import type { PermissionMode, PromptTextMention } from "@bb/domain";
+import type { SystemExecutionOptionsModelLoadError } from "@bb/server-contract";
+import {
+  NewThreadPromptBoxUI,
+  type NewThreadEnvironmentConfig,
+  type NewThreadModeConfig,
+  type NewThreadProjectConfig,
+  type NewThreadWorktreeConfig,
+} from "@/components/promptbox/NewThreadPromptBox";
+import type {
+  HistoryConfig,
+  PromptBoxAction,
+} from "@/components/promptbox/ComposerBox";
+import { ProviderCliBanner } from "@/components/promptbox/banner/ProviderCliBanner";
+import type { PickerOption } from "@/components/pickers/OptionPicker";
+import { StoryCard, StoryRow } from "../../../.ladle/story-card";
+import { ModelPickerStoryQueryProvider } from "../../../.ladle/model-picker-query-provider";
+import {
+  HOST_IDS,
+  PROJECT_IDS,
+  STORY_CLAUDE_CODE_MORE_MODELS,
+  STORY_ENVIRONMENT_PROVIDERS,
+  STORY_PROJECTS,
+  STORY_PROJECT_SOURCES,
+  STORY_WORKTREE_OPTIONS,
+  makeAttachmentsConfig as makeAttachments,
+  makeExecutionControlsProps,
+  useInteractiveExecutionControls,
+  makeTypeaheadConfig as makeTypeahead,
+  makeHost,
+} from "../../../.ladle/story-fixtures";
+
+export default {
+  title: "promptbox/New Thread Prompt Box",
+};
+
+const noop = () => {};
+
+const baseExecution = makeExecutionControlsProps();
+const codexModelLoadError = {
+  providerId: "codex",
+  code: "failed",
+  detail:
+    "bb could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
+} satisfies SystemExecutionOptionsModelLoadError;
+const codexMissingCliModelLoadError = {
+  providerId: "codex",
+  code: "missing_executable",
+  detail: null,
+} satisfies SystemExecutionOptionsModelLoadError;
+
+const baseEnvironment: NewThreadEnvironmentConfig = {
+  value: `host:${HOST_IDS.local}:local`,
+  sources: STORY_PROJECT_SOURCES,
+  host: makeHost({ id: HOST_IDS.local }),
+  isLocal: true,
+};
+
+const baseWorktree: NewThreadWorktreeConfig = {
+  options: STORY_WORKTREE_OPTIONS,
+  value: null,
+  onChange: noop,
+};
+
+const baseProject: NewThreadProjectConfig = {
+  projects: STORY_PROJECTS,
+  value: PROJECT_IDS.bb,
+  onChange: noop,
+};
+
+const permissionModeOptions: readonly PickerOption<PermissionMode>[] = [
+  { value: "accept-edits", label: "Accept Edits" },
+  { value: "auto", label: "Approve for me" },
+  { value: "full", label: "Full Access", tone: "warning" },
+];
+
+const basePermission = {
+  value: "auto" as PermissionMode,
+  options: permissionModeOptions,
+  onChange: noop,
+  supported: true,
+};
+
+const baseHistory: HistoryConfig = {
+  currentDraft: { text: "", mentions: [], attachments: [] },
+  entries: [
+    { text: "review thread workspace", mentions: [], attachments: [] },
+    {
+      text: "investigate timeline pagination",
+      mentions: [],
+      attachments: [],
+    },
+  ],
+  onSelectEntry: noop,
+};
+
+const promptActions: readonly PromptBoxAction[] = [
+  { kind: "skills", text: "/" },
+  {
+    kind: "plan",
+    command: { trigger: "/", name: "plan", trailingText: " " },
+    text: "/plan ",
+  },
+  {
+    kind: "goal",
+    command: { trigger: "/", name: "goal", trailingText: " " },
+    text: "/goal ",
+  },
+];
+
+function useControlledValue(initial: string) {
+  const [value, setValue] = useState(initial);
+  const [mentionRanges, setMentionRanges] = useState<PromptTextMention[]>([]);
+  const onChange = (nextValue: string, nextMentions: PromptTextMention[]) => {
+    setValue(nextValue);
+    setMentionRanges(nextMentions);
+  };
+  return { value, mentionRanges, onChange };
+}
+
+const baseModeConfig: NewThreadModeConfig = {
+  environment: baseEnvironment,
+  worktree: baseWorktree,
+  permission: basePermission,
+};
+
+interface PromptStageProps {
+  children: React.ReactNode;
+}
+
+function PromptStage({ children }: PromptStageProps) {
+  return <div className="mx-auto w-full max-w-[760px]">{children}</div>;
+}
+
+function DefaultRow() {
+  const { value, mentionRanges, onChange } = useControlledValue("");
+  const execution = useInteractiveExecutionControls(baseExecution);
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-default"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled={false}
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        promptActions={promptActions}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={execution}
+      />
+    </PromptStage>
+  );
+}
+
+function SubmittingRow() {
+  const { value, mentionRanges, onChange } = useControlledValue(
+    "Investigate the timeline pagination flicker.",
+  );
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-submitting"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting
+        disabled
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={baseExecution}
+      />
+    </PromptStage>
+  );
+}
+
+function LoadingModelsRow() {
+  const { value, mentionRanges, onChange } = useControlledValue(
+    "Investigate the timeline pagination flicker.",
+  );
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-loading-models"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={{
+          ...baseExecution,
+          model: {
+            ...baseExecution.model,
+            active: null,
+            selected: "",
+            options: [],
+            isLoading: true,
+          },
+        }}
+      />
+    </PromptStage>
+  );
+}
+
+function ModelLoadFailedRow() {
+  const { value, mentionRanges, onChange } = useControlledValue(
+    "Investigate the timeline pagination flicker.",
+  );
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-model-load-failed"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={{
+          ...baseExecution,
+          model: {
+            ...baseExecution.model,
+            active: null,
+            selected: "",
+            options: [],
+            isLoading: false,
+            loadFailed: true,
+            loadError: codexModelLoadError,
+          },
+        }}
+      />
+    </PromptStage>
+  );
+}
+
+function UnsupportedCodexCliRow() {
+  const { value, mentionRanges, onChange } = useControlledValue(
+    "Create an automation that checks the release until CI passes.",
+  );
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-unsupported-codex-cli"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled
+        autoFocus={false}
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        promptActions={promptActions}
+        modeConfig={{
+          ...baseModeConfig,
+          banner: (
+            <ProviderCliBanner
+              displayName="Codex"
+              installed
+              currentVersion="0.135.0"
+              minimumSupportedVersion="0.136.0"
+              canRunAction
+              actionRunning={false}
+              onAction={noop}
+            />
+          ),
+        }}
+        project={baseProject}
+        execution={baseExecution}
+      />
+    </PromptStage>
+  );
+}
+
+function MissingCodexCliRow() {
+  const { value, mentionRanges, onChange } = useControlledValue(
+    "Investigate the timeline pagination flicker.",
+  );
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-missing-codex-cli"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled
+        autoFocus={false}
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={{
+          ...baseModeConfig,
+          banner: (
+            <ProviderCliBanner
+              displayName="Codex"
+              installed={false}
+              currentVersion={null}
+              minimumSupportedVersion={null}
+              canRunAction
+              actionRunning={false}
+              onAction={noop}
+            />
+          ),
+        }}
+        project={baseProject}
+        execution={{
+          ...baseExecution,
+          model: {
+            ...baseExecution.model,
+            active: null,
+            selected: "",
+            options: [],
+            isLoading: false,
+            loadFailed: true,
+            loadError: codexMissingCliModelLoadError,
+          },
+        }}
+      />
+    </PromptStage>
+  );
+}
+
+function GenericModelRequestFailedRow() {
+  const { value, mentionRanges, onChange } = useControlledValue(
+    "Investigate the timeline pagination flicker.",
+  );
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-model-request-failed"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={{
+          ...baseExecution,
+          provider: {
+            options: [],
+            selectedId: "",
+            onChange: noop,
+            hasMultiple: false,
+          },
+          model: {
+            ...baseExecution.model,
+            active: null,
+            selected: "",
+            options: [],
+            isLoading: false,
+            loadFailed: true,
+            loadError: null,
+          },
+        }}
+      />
+    </PromptStage>
+  );
+}
+
+function NoModelsAvailableRow() {
+  const { value, mentionRanges, onChange } = useControlledValue(
+    "Investigate the timeline pagination flicker.",
+  );
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-no-models"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={{
+          ...baseExecution,
+          model: {
+            ...baseExecution.model,
+            active: null,
+            selected: "",
+            options: [],
+            isLoading: false,
+            loadFailed: false,
+            loadError: null,
+          },
+        }}
+      />
+    </PromptStage>
+  );
+}
+
+function CustomModelAfterLoadErrorRow() {
+  const { value, mentionRanges, onChange } = useControlledValue("");
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-custom-model-after-load-error"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled={false}
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={{
+          ...baseExecution,
+          model: {
+            ...baseExecution.model,
+            active: { model: "gpt-example-preview" },
+            selected: "gpt-example-preview",
+            options: [
+              {
+                value: "gpt-example-preview",
+                label: "GPT Example Preview",
+              },
+            ],
+            isLoading: false,
+            loadFailed: true,
+            loadError: codexModelLoadError,
+          },
+        }}
+      />
+    </PromptStage>
+  );
+}
+
+function ClaudeProviderRow() {
+  const { value, mentionRanges, onChange } = useControlledValue("");
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-claude"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled={false}
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={baseModeConfig}
+        project={baseProject}
+        execution={{
+          ...baseExecution,
+          provider: { ...baseExecution.provider, selectedId: "claude-code" },
+          model: {
+            active: { model: "claude-opus-4-8[1m]" },
+            selected: "claude-opus-4-8[1m]",
+            options: [
+              { value: "claude-fable-5", label: "Claude Fable 5" },
+              { value: "claude-opus-4-8[1m]", label: "Claude Opus 4.8 (1M)" },
+              { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+            ],
+            moreOptions: STORY_CLAUDE_CODE_MORE_MODELS,
+            isLoading: false,
+            loadFailed: false,
+            onChange: noop,
+          },
+          serviceTier: { ...baseExecution.serviceTier!, supported: true },
+        }}
+      />
+    </PromptStage>
+  );
+}
+
+function FullAccessRow() {
+  const { value, mentionRanges, onChange } = useControlledValue("");
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-full-access"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled={false}
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={{
+          ...baseModeConfig,
+          permission: { ...basePermission, value: "full" },
+        }}
+        project={baseProject}
+        execution={baseExecution}
+      />
+    </PromptStage>
+  );
+}
+
+const projectlessHosts = [
+  makeHost({ id: HOST_IDS.local, name: "MacBook Air" }),
+  makeHost({
+    id: HOST_IDS.remote,
+    name: "Bersabel’s development MacBook Air with a long machine name",
+  }),
+];
+
+function ProjectlessThreadRow() {
+  const { value, mentionRanges, onChange } = useControlledValue("");
+  const execution = useInteractiveExecutionControls(baseExecution);
+  const [permission, setPermission] = useState<PermissionMode>("auto");
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [hostId, setHostId] = useState<string | null>(HOST_IDS.remote);
+  const [environmentValue, setEnvironmentValue] = useState(
+    "provider:personal-workspace",
+  );
+  const [worktreeId, setWorktreeId] = useState<string | null>(null);
+  return (
+    <PromptStage>
+      <NewThreadPromptBoxUI
+        mentionMenuPlacement="bottom"
+        id="story-new-thread-projectless"
+        value={value}
+        mentionRanges={mentionRanges}
+        onChange={onChange}
+        onSubmit={noop}
+        isSubmitting={false}
+        disabled={false}
+        history={baseHistory}
+        typeahead={makeTypeahead()}
+        attachments={makeAttachments()}
+        modeConfig={{
+          environment: {
+            ...baseEnvironment,
+            value: environmentValue,
+            machines: {
+              hosts: projectlessHosts,
+              localDaemonHostId: HOST_IDS.local,
+              primaryHostId: HOST_IDS.local,
+            },
+            providers: STORY_ENVIRONMENT_PROVIDERS,
+            selectedProviderHostId: hostId,
+            onSelectProvider: (provider, selectedHostId) => {
+              setEnvironmentValue(`provider:${provider.id}`);
+              setHostId(selectedHostId);
+            },
+          },
+          worktree: {
+            ...baseWorktree,
+            value: worktreeId,
+            onChange: setWorktreeId,
+          },
+          permission: {
+            ...basePermission,
+            value: permission,
+            onChange: setPermission,
+          },
+        }}
+        project={{
+          ...baseProject,
+          value: projectId,
+          onChange: (selectedProjectId) => {
+            setProjectId(selectedProjectId);
+            setEnvironmentValue(
+              selectedProjectId === null
+                ? "provider:personal-workspace"
+                : "provider:project-checkout",
+            );
+          },
+          allowNoProject: true,
+        }}
+        execution={execution}
+      />
+    </PromptStage>
+  );
+}
+
+export function Overview() {
+  return (
+    <ModelPickerStoryQueryProvider>
+      <StoryCard>
+        <StoryRow
+          label="default"
+          hint="interactive provider, model, reasoning, and fast mode"
+        >
+          <DefaultRow />
+        </StoryRow>
+        <StoryRow label="submitting" hint="create-thread mutation in flight">
+          <SubmittingRow />
+        </StoryRow>
+        <StoryRow
+          label="loading models"
+          hint="committed provider models are loading; submit is disabled"
+        >
+          <LoadingModelsRow />
+        </StoryRow>
+        <StoryRow
+          label="provider failed"
+          hint="provider-specific error; picker menu keeps provider tabs"
+        >
+          <ModelLoadFailedRow />
+        </StoryRow>
+        <StoryRow
+          label="unsupported Codex CLI"
+          hint="thread creation blocked; banner exposes Update action"
+        >
+          <UnsupportedCodexCliRow />
+        </StoryRow>
+        <StoryRow
+          label="missing Codex CLI"
+          hint="thread creation blocked; banner exposes Install action, picker keeps provider tabs"
+        >
+          <MissingCodexCliRow />
+        </StoryRow>
+        <StoryRow
+          label="request failed"
+          hint="generic request failure; picker menu hides provider tabs"
+        >
+          <GenericModelRequestFailedRow />
+        </StoryRow>
+        <StoryRow
+          label="no models"
+          hint="successful empty model list; provider tabs remain available"
+        >
+          <NoModelsAvailableRow />
+        </StoryRow>
+        <StoryRow
+          label="custom model after error"
+          hint="provider failed, but configured custom model remains selectable"
+        >
+          <CustomModelAfterLoadErrorRow />
+        </StoryRow>
+        <StoryRow
+          label="claude-code provider"
+          hint="Fast mode on supported Opus models"
+        >
+          <ClaudeProviderRow />
+        </StoryRow>
+        <StoryRow label="full access" hint='permission tone="warning"'>
+          <FullAccessRow />
+        </StoryRow>
+        <StoryRow
+          label="projectless"
+          hint="interactive machine, project, model, and permissions; long machine label truncates"
+        >
+          <ProjectlessThreadRow />
+        </StoryRow>
+        <StoryRow
+          label="mobile width"
+          hint="the projectless composer constrained to a 390px viewport"
+        >
+          <div className="w-full max-w-[390px]">
+            <ProjectlessThreadRow />
+          </div>
+        </StoryRow>
+      </StoryCard>
+    </ModelPickerStoryQueryProvider>
+  );
+}

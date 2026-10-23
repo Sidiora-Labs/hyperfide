@@ -1,0 +1,612 @@
+import { z } from "zod";
+import {
+  ProviderRequestDecodeError as ProviderRequestDecodeErrorValue,
+  ProviderResponseEncodeError,
+  isApprovalInteractionOutcome,
+  providerInteractionOutcomeSchema,
+  userQuestionInteractionOutcomeSchema,
+  type ApprovalInteractionOutcome,
+  type DecodedInteractiveRequest,
+  type ProviderInboundRequest,
+  type PendingInteractionApprovalDecision,
+  type PendingInteractionGrantablePermissionProfile,
+  type PendingInteractionGrantedPermissionProfile,
+  type PendingInteractionRequestedPermissionProfile,
+  type ProviderInteractionOutcome,
+  type UserQuestionInteractionOutcome,
+  type UserQuestionPendingInteractionPayload,
+} from "@get-bb/plugin-sdk/provider-bridge";
+import type { CodexMacOsPermissionItem } from "./extension-kinds.js";
+import { normalizePendingInteractionRequestedPermissionProfile } from "./pending-interaction-normalization.js";
+import type { CommandExecutionRequestApprovalResponse } from "./generated/codex-app-server/schema/v2/CommandExecutionRequestApprovalResponse.js";
+import type { FileChangeRequestApprovalResponse } from "./generated/codex-app-server/schema/v2/FileChangeRequestApprovalResponse.js";
+import type { PermissionsRequestApprovalResponse } from "./generated/codex-app-server/schema/v2/PermissionsRequestApprovalResponse.js";
+import {
+  CODEX_MCP_ELICITATION_CANCEL_RESPONSE,
+  CODEX_MCP_ELICITATION_KIND,
+  normalizeCodexMcpElicitation,
+  codexMcpElicitationSchema,
+  codexMcpElicitationResponseSchema,
+  buildCodexMcpElicitationResponse,
+  type CodexNativeMcpElicitationResponse,
+} from "./mcp-elicitation.js";
+import { codexMcpElicitationTitle } from "./mcp-elicitation-title.js";
+import {
+  codexCommandExecutionRequestApprovalParamsSchema,
+  codexFileChangeRequestApprovalParamsSchema,
+  codexPermissionsRequestApprovalParamsSchema,
+  codexToolRequestUserInputParamsSchema,
+} from "./schemas.js";
+import type {
+  CodexAdditionalPermissions,
+  CodexCommandApprovalDecision,
+  CodexRequestedPermissionProfile,
+  CodexSimpleCommandApprovalDecision,
+} from "./schemas.js";
+
+type CodexInteractiveResponse =
+  | CommandExecutionRequestApprovalResponse
+  | FileChangeRequestApprovalResponse
+  | PermissionsRequestApprovalResponse
+  | { answers: Record<string, { answers: string[] }> }
+  | CodexNativeMcpElicitationResponse;
+
+function assertNever(value: never): never {
+  throw new ProviderResponseEncodeError(`Unexpected value: ${String(value)}`);
+}
+
+function requireGrantedPermissions(
+  args: Extract<
+    ApprovalInteractionOutcome["resolution"],
+    { decision: "allow_once" | "allow_for_session" }
+  >,
+) {
+  if (args.grantedPermissions === null) {
+    throw new ProviderResponseEncodeError(
+      "Permission grant approval must include granted permissions",
+    );
+  }
+  return args.grantedPermissions;
+}
+
+function hasGrantablePermissions(
+  permissions: PendingInteractionGrantablePermissionProfile | null,
+): boolean {
+  const fileSystem = permissions?.fileSystem ?? null;
+  return (
+    permissions?.network?.enabled === true ||
+    (fileSystem !== null &&
+      (fileSystem.read.length > 0 || fileSystem.write.length > 0))
+  );
+}
+
+function filterSessionDecisionWithoutGrant(
+  decisions: PendingInteractionApprovalDecision[],
+  sessionGrant: PendingInteractionGrantablePermissionProfile | null,
+): PendingInteractionApprovalDecision[] {
+  if (hasGrantablePermissions(sessionGrant)) {
+    return decisions;
+  }
+
+  const filtered = decisions.filter(
+    (decision) => decision !== "allow_for_session",
+  );
+  if (filtered.length === 0) {
+    throw new ProviderRequestDecodeErrorValue(
+      "Approval request did not include decisions compatible with the requested permissions",
+    );
+  }
+  return filtered;
+}
+
+function buildCodexUserQuestionId(
+  questionId: string,
+  optionIndex: number,
+): string {
+  return `${questionId}:option-${optionIndex + 1}`;
+}
+
+function buildCodexUserQuestionPayload(params: {
+  questions: Array<{
+    id: string;
+    header: string;
+    question: string;
+    isSecret: boolean;
+    options: Array<{ label: string; description: string }> | null;
+  }>;
+}): UserQuestionPendingInteractionPayload {
+  const payload = userQuestionInteractionOutcomeSchema.shape.payload.safeParse({
+    kind: "user_question",
+    questions: params.questions.map((question) => ({
+      id: question.id,
+      prompt: question.question,
+      shortLabel: question.header,
+      multiSelect: false,
+      options: question.options?.map((option, optionIndex) => ({
+        value: buildCodexUserQuestionId(question.id, optionIndex),
+        label: option.label,
+        description: option.description,
+      })),
+      allowFreeText: true,
+    })),
+  });
+  if (!payload.success) {
+    throw new ProviderRequestDecodeErrorValue(payload.error.message);
+  }
+  return payload.data;
+}
+
+function buildCodexUserQuestionResponse(args: UserQuestionInteractionOutcome): {
+  answers: Record<string, { answers: string[] }>;
+} {
+  const answers: Record<string, { answers: string[] }> = {};
+  for (const question of args.payload.questions) {
+    const answer = args.resolution.answers[question.id];
+    if (!answer) {
+      throw new ProviderResponseEncodeError(
+        `Missing answer for user question '${question.id}'`,
+      );
+    }
+    const selected = answer.selected.map((value) => {
+      const option = question.options?.find(
+        (candidate) => candidate.value === value,
+      );
+      if (!option) {
+        throw new ProviderResponseEncodeError(
+          `Unknown selected option '${value}' for user question '${question.id}'`,
+        );
+      }
+      return option.label;
+    });
+    const values = answer.freeText ? [...selected, answer.freeText] : selected;
+    if (values.length === 0) {
+      throw new ProviderResponseEncodeError(
+        `Answer for user question '${question.id}' is empty`,
+      );
+    }
+    answers[question.id] = { answers: values };
+  }
+  return { answers };
+}
+
+export function decodeCodexInteractiveRequest(
+  request: ProviderInboundRequest,
+): DecodedInteractiveRequest | null {
+  if (typeof request.id !== "string" && typeof request.id !== "number") {
+    return null;
+  }
+
+  switch (request.method) {
+    case "mcpServer/elicitation/request": {
+      try {
+        const { threadId, turnId, elicitation } = normalizeCodexMcpElicitation(
+          request.params,
+        );
+        return {
+          requestId: request.id,
+          method: request.method,
+          providerThreadId: threadId,
+          turnId,
+          payload: {
+            kind: CODEX_MCP_ELICITATION_KIND,
+            title: codexMcpElicitationTitle(elicitation),
+            data: elicitation,
+          },
+        };
+      } catch (error) {
+        throw new ProviderRequestDecodeErrorValue(
+          `Invalid Codex MCP elicitation envelope: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    case "item/commandExecution/requestApproval": {
+      const parsed = codexCommandExecutionRequestApprovalParamsSchema.safeParse(
+        request.params,
+      );
+      if (!parsed.success) {
+        return null;
+      }
+      const availableDecisions = parseCodexAvailableDecisions(
+        parsed.data.availableDecisions,
+      );
+      if (!parsed.data.command) {
+        throw new ProviderRequestDecodeErrorValue(
+          "Command approval request did not include a command subject",
+        );
+      }
+      const sessionGrant = parsed.data.additionalPermissions
+        ? toPendingInteractionGrantablePermissionProfile(
+            parsed.data.additionalPermissions,
+          )
+        : null;
+      return {
+        requestId: request.id,
+        method: request.method,
+        providerThreadId: parsed.data.threadId,
+        turnId: parsed.data.turnId,
+        payload: {
+          kind: "approval",
+          subject: {
+            kind: "command",
+            itemId: parsed.data.itemId,
+            command: parsed.data.command,
+            cwd: parsed.data.cwd ?? null,
+            actions: parsed.data.commandActions ?? [],
+            sessionGrant: hasGrantablePermissions(sessionGrant)
+              ? sessionGrant
+              : null,
+          },
+          reason: parsed.data.reason ?? null,
+          availableDecisions: filterSessionDecisionWithoutGrant(
+            availableDecisions,
+            sessionGrant,
+          ),
+        },
+      };
+    }
+    case "item/fileChange/requestApproval": {
+      const parsed = codexFileChangeRequestApprovalParamsSchema.safeParse(
+        request.params,
+      );
+      if (!parsed.success) {
+        return null;
+      }
+      const sessionGrant: PendingInteractionGrantablePermissionProfile | null =
+        parsed.data.grantRoot
+          ? {
+              network: null,
+              fileSystem: {
+                read: [],
+                write: [parsed.data.grantRoot],
+              },
+            }
+          : null;
+      return {
+        requestId: request.id,
+        method: request.method,
+        providerThreadId: parsed.data.threadId,
+        turnId: parsed.data.turnId,
+        payload: {
+          kind: "approval",
+          subject: {
+            kind: "file_change",
+            itemId: parsed.data.itemId,
+            writeScope: parsed.data.grantRoot ?? null,
+            sessionGrant,
+          },
+          reason: parsed.data.reason ?? null,
+          availableDecisions: filterSessionDecisionWithoutGrant(
+            ["allow_once", "allow_for_session", "deny"],
+            sessionGrant,
+          ),
+        },
+      };
+    }
+    case "item/permissions/requestApproval": {
+      const parsed = codexPermissionsRequestApprovalParamsSchema.safeParse(
+        request.params,
+      );
+      if (!parsed.success) {
+        return null;
+      }
+      const permissions = toPendingInteractionGrantablePermissionProfile(
+        parsed.data.permissions,
+      );
+      return {
+        requestId: request.id,
+        method: request.method,
+        providerThreadId: parsed.data.threadId,
+        turnId: parsed.data.turnId,
+        payload: {
+          kind: "approval",
+          subject: {
+            kind: "permission_grant",
+            itemId: parsed.data.itemId,
+            toolName: null,
+            permissions,
+          },
+          reason: parsed.data.reason,
+          availableDecisions: ["allow_once", "allow_for_session", "deny"],
+        },
+      };
+    }
+    case "item/tool/requestUserInput": {
+      const parsed = codexToolRequestUserInputParamsSchema.safeParse(
+        request.params,
+      );
+      if (!parsed.success) {
+        return null;
+      }
+      if (parsed.data.questions.some((question) => question.isSecret)) {
+        throw new ProviderRequestDecodeErrorValue(
+          "Codex secret user input is not supported by the BB question form",
+        );
+      }
+      return {
+        requestId: request.id,
+        method: request.method,
+        providerThreadId: parsed.data.threadId,
+        turnId: parsed.data.turnId,
+        payload: buildCodexUserQuestionPayload(parsed.data),
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+const requestAnswerResolutionSchema = z.object({
+  kind: z.literal("request_answer"),
+});
+
+export function buildCodexInteractiveResult(
+  payload: DecodedInteractiveRequest["payload"],
+  runtimeResult: PromiseSettledResult<unknown>,
+): CodexInteractiveResponse {
+  if (
+    payload.kind === CODEX_MCP_ELICITATION_KIND &&
+    (runtimeResult.status === "rejected" ||
+      !requestAnswerResolutionSchema.safeParse(runtimeResult.value).success)
+  ) {
+    return CODEX_MCP_ELICITATION_CANCEL_RESPONSE;
+  }
+  if (runtimeResult.status === "rejected") {
+    throw runtimeResult.reason;
+  }
+  return buildCodexInteractiveResponse(
+    providerInteractionOutcomeSchema.parse({
+      payload,
+      resolution: runtimeResult.value,
+    }),
+  );
+}
+
+export function buildCodexInteractiveResponse(
+  args: ProviderInteractionOutcome,
+): CodexInteractiveResponse {
+  if (args.payload.kind === "user_question") {
+    return buildCodexUserQuestionResponse(
+      userQuestionInteractionOutcomeSchema.parse(args),
+    );
+  }
+  if (!isApprovalInteractionOutcome(args)) {
+    if (args.payload.kind !== CODEX_MCP_ELICITATION_KIND) {
+      throw new ProviderResponseEncodeError(
+        `Unsupported Codex interaction outcome: ${args.payload.kind}`,
+      );
+    }
+    if (
+      !("kind" in args.resolution) ||
+      args.resolution.kind !== "request_answer"
+    ) {
+      return CODEX_MCP_ELICITATION_CANCEL_RESPONSE;
+    }
+    try {
+      const elicitation = codexMcpElicitationSchema.parse(args.payload.data);
+      const response = codexMcpElicitationResponseSchema.parse(
+        args.resolution.value,
+      );
+      return buildCodexMcpElicitationResponse(elicitation, response);
+    } catch (error) {
+      throw new ProviderResponseEncodeError(
+        `Invalid Codex MCP elicitation response: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  switch (args.payload.subject.kind) {
+    case "command": {
+      const response: CommandExecutionRequestApprovalResponse = {
+        decision: toCodexCommandApprovalDecision(args.resolution.decision),
+      };
+      return response;
+    }
+    case "file_change": {
+      const response: FileChangeRequestApprovalResponse = {
+        decision:
+          pendingInteractionToCodexFileChangeApprovalDecision[
+            args.resolution.decision
+          ],
+      };
+      return response;
+    }
+    case "permission_grant": {
+      if (args.resolution.decision === "deny") {
+        const response: PermissionsRequestApprovalResponse = {
+          permissions: {},
+          scope: "turn",
+        };
+        return response;
+      }
+      const response: PermissionsRequestApprovalResponse = {
+        permissions: toCodexGrantedPermissionProfile(
+          requireGrantedPermissions(args.resolution),
+        ),
+        scope:
+          args.resolution.decision === "allow_for_session" ? "session" : "turn",
+      };
+      return response;
+    }
+    case "plan":
+      throw new ProviderResponseEncodeError(
+        "Codex plan-review interactive requests are unsupported",
+      );
+    case "tool_use":
+      throw new ProviderResponseEncodeError(
+        "tool_use approval subjects are not produced by the Codex bridge",
+      );
+    default:
+      return assertNever(args.payload.subject);
+  }
+}
+
+const codexToPendingInteractionApprovalDecision = {
+  accept: "allow_once",
+  acceptForSession: "allow_for_session",
+  decline: "deny",
+  cancel: "deny",
+} satisfies Record<
+  CodexSimpleCommandApprovalDecision,
+  PendingInteractionApprovalDecision
+>;
+
+const pendingInteractionToCodexSimpleApprovalDecision = {
+  allow_once: "accept",
+  allow_for_session: "acceptForSession",
+  deny: "decline",
+} satisfies Record<
+  PendingInteractionApprovalDecision,
+  Exclude<CodexSimpleCommandApprovalDecision, "cancel">
+>;
+
+const pendingInteractionToCodexFileChangeApprovalDecision = {
+  allow_once: "accept",
+  allow_for_session: "acceptForSession",
+  deny: "decline",
+} satisfies Record<
+  PendingInteractionApprovalDecision,
+  FileChangeRequestApprovalResponse["decision"]
+>;
+
+function toPendingInteractionPermissionProfile(
+  permissions: CodexAdditionalPermissions | CodexRequestedPermissionProfile,
+): PendingInteractionRequestedPermissionProfile {
+  return normalizePendingInteractionRequestedPermissionProfile({
+    network: permissions.network
+      ? { enabled: permissions.network.enabled }
+      : null,
+    fileSystem: permissions.fileSystem
+      ? {
+          read: permissions.fileSystem.read ?? [],
+          write: permissions.fileSystem.write ?? [],
+        }
+      : null,
+    macos:
+      "macos" in permissions && permissions.macos
+        ? {
+            preferences: permissions.macos.preferences,
+            automations: permissions.macos.automations,
+            launchServices: permissions.macos.launchServices,
+            accessibility: permissions.macos.accessibility,
+            calendar: permissions.macos.calendar,
+            reminders: permissions.macos.reminders,
+            contacts: permissions.macos.contacts,
+          }
+        : null,
+  });
+}
+
+function toPendingInteractionGrantablePermissionProfile(
+  permissions: CodexAdditionalPermissions | CodexRequestedPermissionProfile,
+): PendingInteractionGrantablePermissionProfile {
+  const normalized = toPendingInteractionPermissionProfile(permissions);
+  return {
+    network: normalized.network,
+    fileSystem: normalized.fileSystem,
+  };
+}
+
+export interface CodexMacOsPermissionRequest {
+  providerThreadId: string;
+  turnId: string;
+  item: CodexMacOsPermissionItem;
+}
+
+export function extractCodexMacOsPermissionRequest(
+  request: ProviderInboundRequest,
+): CodexMacOsPermissionRequest | null {
+  if (request.method !== "item/commandExecution/requestApproval") {
+    return null;
+  }
+  const parsed = codexCommandExecutionRequestApprovalParamsSchema.safeParse(
+    request.params,
+  );
+  if (!parsed.success) {
+    return null;
+  }
+  const macos = parsed.data.additionalPermissions?.macos;
+  if (macos === null || macos === undefined) {
+    return null;
+  }
+  return {
+    providerThreadId: parsed.data.threadId,
+    turnId: parsed.data.turnId,
+    item: {
+      approvalItemId: parsed.data.itemId,
+      reason: parsed.data.reason ?? null,
+      permissions: macos,
+    },
+  };
+}
+
+function toCodexGrantedPermissionProfile(
+  args: PendingInteractionGrantedPermissionProfile,
+): PermissionsRequestApprovalResponse["permissions"] {
+  return {
+    ...(args.network ? { network: { enabled: args.network.enabled } } : {}),
+    ...(args.fileSystem
+      ? {
+          fileSystem: {
+            read: args.fileSystem.read.length > 0 ? args.fileSystem.read : null,
+            write:
+              args.fileSystem.write.length > 0 ? args.fileSystem.write : null,
+          },
+        }
+      : {}),
+  };
+}
+
+function fromCodexCommandApprovalDecision(
+  decision: CodexSimpleCommandApprovalDecision,
+): PendingInteractionApprovalDecision {
+  return codexToPendingInteractionApprovalDecision[decision];
+}
+
+type CodexPolicyAmendmentDecision = Extract<
+  CodexCommandApprovalDecision,
+  object
+>;
+
+function isCodexPolicyAmendmentDecision(
+  decision: CodexCommandApprovalDecision,
+): decision is CodexPolicyAmendmentDecision {
+  return (
+    typeof decision === "object" &&
+    decision !== null &&
+    ("acceptWithExecpolicyAmendment" in decision ||
+      "applyNetworkPolicyAmendment" in decision)
+  );
+}
+
+function toCodexCommandApprovalDecision(
+  decision: PendingInteractionApprovalDecision,
+): CommandExecutionRequestApprovalResponse["decision"] {
+  return pendingInteractionToCodexSimpleApprovalDecision[decision];
+}
+
+function parseCodexAvailableDecisions(
+  decisions: CodexCommandApprovalDecision[] | null | undefined,
+): PendingInteractionApprovalDecision[] {
+  if (!decisions) {
+    return ["allow_once", "allow_for_session", "deny"];
+  }
+  if (decisions.length === 0) {
+    throw new ProviderRequestDecodeErrorValue(
+      "Command approval requests must include at least one available decision",
+    );
+  }
+
+  const mappedDecisions: PendingInteractionApprovalDecision[] = [];
+  for (const decision of decisions) {
+    if (isCodexPolicyAmendmentDecision(decision)) {
+      continue;
+    }
+    mappedDecisions.push(fromCodexCommandApprovalDecision(decision));
+  }
+  const uniqueDecisions = [...new Set(mappedDecisions)];
+  if (uniqueDecisions.length === 0) {
+    throw new ProviderRequestDecodeErrorValue(
+      "Command approval request did not include provider-neutral decisions",
+    );
+  }
+  return uniqueDecisions;
+}

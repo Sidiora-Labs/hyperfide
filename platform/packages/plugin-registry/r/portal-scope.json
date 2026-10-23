@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "portal-scope",
+  "type": "registry:lib",
+  "title": "portal-scope",
+  "description": "BB lib \"portal-scope\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "files": [
+    {
+      "path": "registry/lib/portal-scope.ts",
+      "content": "declare const __BB_PLUGIN_ID__: string | undefined;\n\nexport function usePortalScopeProps(): {\n  \"data-bb-portaled-overlay\": \"\";\n  \"data-bb-plugin-root\"?: \"\";\n  \"data-bb-plugin\"?: string;\n} {\n  const pluginId =\n    typeof __BB_PLUGIN_ID__ === \"string\" ? __BB_PLUGIN_ID__ : undefined;\n  return {\n    \"data-bb-portaled-overlay\": \"\",\n    \"data-bb-plugin-root\": \"\",\n    ...(pluginId !== undefined ? { \"data-bb-plugin\": pluginId } : {}),\n  };\n}\n",
+      "type": "registry:lib",
+      "target": "lib/portal-scope.ts"
+    }
+  ]
+}

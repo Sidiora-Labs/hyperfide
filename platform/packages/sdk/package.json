@@ -1,0 +1,64 @@
+{
+  "name": "@bb/sdk",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/node.ts",
+      "types": "./src/node.ts",
+      "browser": "./dist/browser.js",
+      "node": "./dist/node.js",
+      "import": "./dist/node.js",
+      "default": "./dist/node.js"
+    },
+    "./core": {
+      "source": "./src/core.ts",
+      "types": "./src/core.ts",
+      "import": "./dist/core.js",
+      "default": "./dist/core.js"
+    },
+    "./browser": {
+      "source": "./src/browser.ts",
+      "types": "./src/browser.ts",
+      "import": "./dist/browser.js",
+      "default": "./dist/browser.js"
+    },
+    "./node": {
+      "source": "./src/node.ts",
+      "types": "./src/node.ts",
+      "import": "./dist/node.js",
+      "default": "./dist/node.js"
+    },
+    "./node-websocket": {
+      "source": "./src/node-websocket.ts",
+      "types": "./src/node-websocket.ts",
+      "import": "./dist/node-websocket.js",
+      "default": "./dist/node-websocket.js"
+    }
+  },
+  "types": "./src/node.ts",
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@bb/config": "workspace:*",
+    "@bb/core-ui": "workspace:*",
+    "@bb/domain": "workspace:*",
+    "@bb/host-daemon-contract": "workspace:*",
+    "@bb/server-contract": "workspace:*",
+    "@bb/templates": "workspace:*",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bb/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

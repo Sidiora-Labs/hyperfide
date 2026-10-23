@@ -1,0 +1,921 @@
+import { flushSync } from "react-dom";
+import { Icon, type IconName } from "@bb/shared-ui/icon";
+import { Button } from "@bb/shared-ui/button";
+import type { FollowUpSubmitMode, PromptDraftState } from "@bb/client-core";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FocusEvent as ReactFocusEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import type {
+  PromptTextMention,
+  ThreadRuntimeDisplayStatus,
+  ThreadTimelineActivePromptMode,
+} from "@bb/domain";
+import type { ComposerView, PluginComposerScope } from "@get-bb/plugin-sdk";
+import type { ComposerSubmitExtras } from "@get-bb/plugin-sdk/internal/composer-handle";
+import type { ComposerTextEffectSource } from "@/lib/composer-text-effects";
+import { modifierSubmitShortcutLabel } from "./modifier-submit-shortcut";
+import { isKeyboardFocusTarget } from "@/components/layout/useMobileVisualViewportHeight";
+import { ComposerBannersSlot } from "@/components/plugin/PluginComposerBanners";
+import {
+  composerScopeIdentity,
+  PluginComposerHostProvider,
+  PluginComposerViewProvider,
+  type PluginComposerHost,
+  usePluginComposerHostDraft,
+  usePluginComposerViewModel,
+} from "@/components/plugin/plugin-composer-host";
+import {
+  ComposerExtensionHost,
+  useComposerExtensionController,
+} from "@/components/plugin/ComposerExtensionHost";
+import {
+  ComposerBox,
+  DEFAULT_COMPOSER_SCOPE,
+  type AttachmentsConfig,
+  type HistoryConfig,
+  type PromptBoxAction,
+  type PromptBoxHandle,
+  type TypeaheadConfig,
+} from "@/components/promptbox/ComposerBox";
+import { usePromptModePermissionDisplay } from "@/components/promptbox/usePromptModePermissionDisplay";
+import { usePromptVoice } from "@/components/promptbox/usePromptVoice";
+import { PermissionModePicker } from "@/components/pickers/PermissionModePicker";
+import {
+  ExecutionControls,
+  type ExecutionControlsProps,
+  type ExecutionPermissionConfig,
+} from "@/components/promptbox/ExecutionControls";
+import { useBottomAnchoredScroll } from "@/components/ui/bottom-anchored-scroll-body.js";
+import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { ThreadTimelineScrollToBottomButton } from "@/views/thread-detail/ThreadTimelineScrollToBottomButton";
+import { ThreadContextWindowIndicator } from "@/components/thread/timeline";
+import { formatCompactTokenCount } from "@/components/thread/timeline/thread-context-window-usage";
+import {
+  CompactBeforeSendChip,
+  type CompactBeforeSendOffer,
+} from "@/components/promptbox/CompactBeforeSendChip";
+import {
+  PROMPT_CONTEXT_BANNER_COLLAPSED_HEIGHT,
+  PROMPT_STACK_TRACK_CLASS,
+} from "@/components/promptbox/banner/PromptStackCard";
+
+type PromptBoxWithScrollAnchorProps = ComponentProps<typeof ComposerBox> & {
+  scrollToBottomOnSubmit?: boolean;
+};
+
+function PromptBoxWithScrollAnchor({
+  onSubmit,
+  scrollToBottomOnSubmit = true,
+  submission,
+  ...promptBoxProps
+}: PromptBoxWithScrollAnchorProps) {
+  const bottomAnchor = useBottomAnchoredScroll();
+  const handleSubmit = (extras?: ComposerSubmitExtras) => {
+    const submitted = onSubmit(extras);
+    if (scrollToBottomOnSubmit) {
+      bottomAnchor?.scrollToBottom();
+    }
+    return submitted;
+  };
+  const handleModifierSubmit =
+    submission?.onModifierSubmit === undefined
+      ? undefined
+      : (extras?: ComposerSubmitExtras) => {
+          const submitted = submission.onModifierSubmit?.(extras);
+          bottomAnchor?.scrollToBottom();
+          return submitted;
+        };
+  const anchoredSubmission =
+    submission === undefined
+      ? undefined
+      : {
+          ...submission,
+          ...(handleModifierSubmit
+            ? { onModifierSubmit: handleModifierSubmit }
+            : {}),
+        };
+  return (
+    <ComposerBox
+      {...promptBoxProps}
+      onSubmit={handleSubmit}
+      submission={anchoredSubmission}
+    />
+  );
+}
+
+const FOLLOW_UP_PROMPT_BOX_DEFAULT_MIN_HEIGHT = 68;
+const FOLLOW_UP_PROMPT_BOX_ELASTIC_TARGET_HEIGHT =
+  FOLLOW_UP_PROMPT_BOX_DEFAULT_MIN_HEIGHT +
+  PROMPT_CONTEXT_BANNER_COLLAPSED_HEIGHT;
+const COMPOSER_CONTROL_SELECTOR = "button, [role='button'], [aria-haspopup]";
+const COMPOSER_OVERLAY_TRIGGER_SELECTOR = "[aria-haspopup]";
+const OPEN_COMPOSER_OVERLAY_TRIGGER_SELECTOR = `${COMPOSER_OVERLAY_TRIGGER_SELECTOR}[aria-expanded="true"]`;
+const MOBILE_KEYBOARD_VIEWPORT_MIN_DELTA_PX = 80;
+const MOBILE_FOCUS_EXPANSION_FALLBACK_MS = 350;
+const MOBILE_KEYBOARD_DISMISSAL_FALLBACK_MS = 750;
+
+export type { FollowUpSubmitMode } from "@bb/client-core";
+
+export interface FollowUpComposerProps {
+  history: HistoryConfig;
+  isFollowUpSubmitting: boolean;
+  message: string;
+  mentionRanges: readonly PromptTextMention[];
+  onChangeMessage: (value: string, mentionRanges: PromptTextMention[]) => void;
+  onModifierSubmit: (extras?: ComposerSubmitExtras) => void | Promise<void>;
+  onSubmit: (extras?: ComposerSubmitExtras) => void | Promise<void>;
+  onEscape?: () => void;
+  submitLabel?: string;
+  submitIcon?: IconName;
+  submitTitle?: string;
+  compactPromptPlaceholder: string;
+  promptPlaceholder: string;
+  canModifierSubmit: boolean;
+  steerActiveThreadOnEnter: boolean;
+  submitMode: FollowUpSubmitMode;
+  threadRuntimeDisplayStatus: ThreadRuntimeDisplayStatus;
+}
+
+type ContextWindowUsage = ComponentProps<
+  typeof ThreadContextWindowIndicator
+>["usage"];
+
+export interface FollowUpPromptBoxProps {
+  id?: string;
+  attachments: AttachmentsConfig;
+  stack: ReactNode | null;
+  activePromptMode?: ThreadTimelineActivePromptMode | null;
+  composer: FollowUpComposerProps | null;
+  environmentSummary: ReactNode | null;
+  compactEnvironmentSummary?: ReactNode;
+  contextWindowUsage: ContextWindowUsage | null;
+  compactBeforeSend?: CompactBeforeSendOffer | null;
+  execution: ExecutionControlsProps;
+  permission: ExecutionPermissionConfig;
+  sessionOptionsControl?: ReactNode;
+  executionReadOnly?: boolean;
+  permissionReadOnly?: boolean;
+  typeahead: TypeaheadConfig;
+  promptActions?: readonly PromptBoxAction[];
+  suppressPluginComposerCustomizations?: boolean;
+  pluginComposerHost?: PluginComposerHost | null;
+  voiceDraft?: {
+    getCurrent: () => PromptDraftState;
+    setDraft: (draft: PromptDraftState) => void;
+  };
+  pluginComposerScope?: PluginComposerScope | null;
+  textEffects?: readonly ComposerTextEffectSource[];
+  collapseResetKey: string | number;
+  preferExpanded?: boolean;
+  focusEndKey?: string | number;
+  isPrimaryComposer?: boolean;
+  showScrollToBottomButton?: boolean;
+  pendingInteraction?: ReactNode;
+}
+
+type FollowUpPromptBoxWithComposerProps = Omit<
+  FollowUpPromptBoxProps,
+  "composer"
+> & {
+  composer: FollowUpComposerProps;
+};
+
+function FollowUpPromptBoxStackOnly({
+  stack,
+  pluginComposerHost,
+  pluginComposerScope,
+}: Pick<
+  FollowUpPromptBoxProps,
+  "stack" | "pluginComposerHost" | "pluginComposerScope"
+>) {
+  const composerScope =
+    pluginComposerScope ?? pluginComposerHost?.scope ?? null;
+  const hostDraft = usePluginComposerHostDraft(pluginComposerHost ?? null);
+  const composerView = usePluginComposerViewModel({
+    scope: composerScope ?? DEFAULT_COMPOSER_SCOPE,
+    layout: "expanded",
+    text: hostDraft?.text ?? "",
+    attachmentCount: hostDraft?.attachments.length ?? 0,
+    isRunning: false,
+    isSubmitting: false,
+  });
+  if (!stack && !composerScope) {
+    return null;
+  }
+  return (
+    <PluginComposerViewProvider value={composerView}>
+      <PluginComposerHostProvider value={pluginComposerHost ?? null}>
+        <div data-promptbox-shell="" className="space-y-2">
+          <div className={`grid gap-2 ${PROMPT_STACK_TRACK_CLASS}`}>
+            {composerScope ? (
+              <ComposerBannersSlot>{stack}</ComposerBannersSlot>
+            ) : (
+              stack
+            )}
+          </div>
+        </div>
+      </PluginComposerHostProvider>
+    </PluginComposerViewProvider>
+  );
+}
+
+function FollowUpPromptBoxWithComposer({
+  id,
+  attachments,
+  stack,
+  activePromptMode = null,
+  composer,
+  environmentSummary,
+  compactEnvironmentSummary = null,
+  contextWindowUsage,
+  compactBeforeSend = null,
+  execution,
+  permission,
+  sessionOptionsControl = null,
+  executionReadOnly,
+  permissionReadOnly,
+  typeahead,
+  promptActions,
+  suppressPluginComposerCustomizations,
+  pluginComposerHost,
+  voiceDraft,
+  pluginComposerScope,
+  textEffects,
+  collapseResetKey,
+  preferExpanded = false,
+  focusEndKey,
+  isPrimaryComposer = true,
+  showScrollToBottomButton = true,
+  pendingInteraction = null,
+}: FollowUpPromptBoxWithComposerProps) {
+  const submitMode = composer.submitMode;
+  const hasPendingInteraction =
+    pendingInteraction !== null && pendingInteraction !== undefined;
+  const isStopping = submitMode.kind === "queue-while-stopping";
+  const canQueueFollowUp = submitMode.kind === "queue" || isStopping;
+  const canSubmit = submitMode.kind === "ready" || canQueueFollowUp;
+  const isLoadingExecutionOptions =
+    submitMode.kind === "blocked" &&
+    submitMode.reason === "loading-execution-options";
+  const isUnavailable =
+    submitMode.kind === "blocked" && submitMode.reason === "unavailable";
+  const onStopRuntime =
+    submitMode.kind === "queue" ? submitMode.onStop : undefined;
+  const canStopRuntime = onStopRuntime !== undefined;
+  const attachmentCount = attachments.items?.length ?? 0;
+  const composerScope =
+    pluginComposerScope ?? pluginComposerHost?.scope ?? null;
+  const [composerLayout, setComposerLayout] =
+    useState<ComposerView["layout"]>("expanded");
+  const composerView = usePluginComposerViewModel({
+    scope: composerScope ?? DEFAULT_COMPOSER_SCOPE,
+    layout: composerLayout,
+    text: composer.message,
+    attachmentCount,
+    isRunning: canStopRuntime || isStopping,
+    isSubmitting: composer.isFollowUpSubmitting,
+  });
+  const promptBoxRef = useRef<PromptBoxHandle>(null);
+  const focusDefault = useCallback(() => {
+    promptBoxRef.current?.focusEnd();
+    return promptBoxRef.current !== null;
+  }, []);
+  const steerOnPrimarySubmit =
+    submitMode.kind === "queue" && composer.steerActiveThreadOnEnter;
+  const onModifierSubmit = composer.canModifierSubmit
+    ? composer.onModifierSubmit
+    : undefined;
+  const voice = usePromptVoice(
+    promptBoxRef,
+    voiceDraft
+      ? {
+          ...voiceDraft,
+          submit:
+            steerOnPrimarySubmit && onModifierSubmit
+              ? onModifierSubmit
+              : composer.onSubmit,
+        }
+      : (pluginComposerHost ?? undefined),
+    composerScope ? composerScopeIdentity(composerScope) : null,
+  );
+  const isCompactViewport = useIsCompactViewport();
+  const isPointerCoarse = usePointerCoarse();
+  const composerInteractionRef = useRef<HTMLDivElement>(null);
+  const focusesEditorOnMount = !isPointerCoarse;
+  const interactionExpandedRef = useRef(focusesEditorOnMount);
+  const pendingFocusExpansionCleanupRef = useRef<(() => void) | null>(null);
+  const pendingFocusLossCleanupRef = useRef<(() => void) | null>(null);
+  const deferredControlFocusLossRef = useRef<(() => void) | null>(null);
+  const pressedComposerControlRef = useRef(false);
+  const pressedComposerControlCleanupRef = useRef<(() => void) | null>(null);
+  const [isInteractionExpanded, setIsInteractionExpanded] =
+    useState(focusesEditorOnMount);
+  const [widePromptBoxCollapsedFor, setWidePromptBoxCollapsedFor] = useState<
+    string | number | null
+  >(null);
+  const isWidePromptBoxCollapsed =
+    widePromptBoxCollapsedFor === collapseResetKey;
+  const isEditorExpanded =
+    isInteractionExpanded || (preferExpanded && !isWidePromptBoxCollapsed);
+  const isPromptBoxCompact =
+    isWidePromptBoxCollapsed || (isCompactViewport && !isEditorExpanded);
+  const compactWhen: "always" | "narrow" | null = isPromptBoxCompact
+    ? "always"
+    : isEditorExpanded
+      ? null
+      : "narrow";
+  const compactConfig = useMemo(
+    () =>
+      compactWhen === null
+        ? undefined
+        : { when: compactWhen, placeholder: composer.compactPromptPlaceholder },
+    [compactWhen, composer.compactPromptPlaceholder],
+  );
+  const setInteractionExpanded = useCallback((nextExpanded: boolean) => {
+    if (interactionExpandedRef.current === nextExpanded) return;
+    interactionExpandedRef.current = nextExpanded;
+    setIsInteractionExpanded(nextExpanded);
+  }, []);
+  const cancelPendingFocusExpansion = useCallback(() => {
+    pendingFocusExpansionCleanupRef.current?.();
+    pendingFocusExpansionCleanupRef.current = null;
+  }, []);
+  const cancelPendingFocusLoss = useCallback(() => {
+    deferredControlFocusLossRef.current = null;
+    const cleanup = pendingFocusLossCleanupRef.current;
+    pendingFocusLossCleanupRef.current = null;
+    cleanup?.();
+  }, []);
+  const cancelPressedComposerControl = useCallback(() => {
+    const cleanup = pressedComposerControlCleanupRef.current;
+    pressedComposerControlCleanupRef.current = null;
+    cleanup?.();
+  }, []);
+  const handleComposerPointerDown = useCallback(
+    (event: ReactPointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        !target.closest(COMPOSER_CONTROL_SELECTOR)
+      ) {
+        return;
+      }
+
+      cancelPendingFocusExpansion();
+      cancelPendingFocusLoss();
+      cancelPressedComposerControl();
+      pressedComposerControlRef.current = true;
+      let releaseTimeout: number | null = null;
+      const removeReleaseListeners = () => {
+        window.removeEventListener("pointerup", finishRelease, true);
+        window.removeEventListener("pointercancel", finishRelease, true);
+      };
+      const finishRelease = () => {
+        removeReleaseListeners();
+        releaseTimeout = window.setTimeout(() => {
+          releaseTimeout = null;
+          pressedComposerControlRef.current = false;
+          pressedComposerControlCleanupRef.current = null;
+          const resumeFocusLoss = deferredControlFocusLossRef.current;
+          deferredControlFocusLossRef.current = null;
+          resumeFocusLoss?.();
+        });
+      };
+      const cleanup = () => {
+        removeReleaseListeners();
+        if (releaseTimeout !== null) {
+          window.clearTimeout(releaseTimeout);
+        }
+        pressedComposerControlRef.current = false;
+      };
+
+      window.addEventListener("pointerup", finishRelease, {
+        capture: true,
+        once: true,
+      });
+      window.addEventListener("pointercancel", finishRelease, {
+        capture: true,
+        once: true,
+      });
+      pressedComposerControlCleanupRef.current = cleanup;
+    },
+    [
+      cancelPendingFocusExpansion,
+      cancelPendingFocusLoss,
+      cancelPressedComposerControl,
+    ],
+  );
+  const handleComposerFocus = useCallback(
+    (event: ReactFocusEvent) => {
+      cancelPendingFocusLoss();
+      if (pressedComposerControlRef.current) return;
+      setWidePromptBoxCollapsedFor(null);
+      if (interactionExpandedRef.current) return;
+      if (
+        !isCompactViewport ||
+        !isPointerCoarse ||
+        !isKeyboardFocusTarget(event.target) ||
+        !window.visualViewport
+      ) {
+        setInteractionExpanded(true);
+        return;
+      }
+      if (pendingFocusExpansionCleanupRef.current) return;
+
+      const visualViewport = window.visualViewport;
+      const initialViewportHeight = visualViewport.height;
+      let animationFrame: number | null = null;
+      let fallbackTimeout: number | null = null;
+      let hasFinished = false;
+      const removeSignals = () => {
+        visualViewport.removeEventListener("resize", handleViewportResize);
+        if (fallbackTimeout !== null) {
+          window.clearTimeout(fallbackTimeout);
+          fallbackTimeout = null;
+        }
+      };
+      const cleanup = () => {
+        removeSignals();
+        if (animationFrame !== null) {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = null;
+        }
+      };
+      const finishExpansion = () => {
+        if (hasFinished) return;
+        hasFinished = true;
+        removeSignals();
+        animationFrame = window.requestAnimationFrame(() => {
+          animationFrame = null;
+          pendingFocusExpansionCleanupRef.current = null;
+          setInteractionExpanded(true);
+        });
+      };
+      const handleViewportResize = () => {
+        if (
+          initialViewportHeight - visualViewport.height <
+          MOBILE_KEYBOARD_VIEWPORT_MIN_DELTA_PX
+        ) {
+          return;
+        }
+        finishExpansion();
+      };
+
+      visualViewport.addEventListener("resize", handleViewportResize);
+      fallbackTimeout = window.setTimeout(
+        finishExpansion,
+        MOBILE_FOCUS_EXPANSION_FALLBACK_MS,
+      );
+      pendingFocusExpansionCleanupRef.current = cleanup;
+    },
+    [
+      cancelPendingFocusLoss,
+      isCompactViewport,
+      isPointerCoarse,
+      setInteractionExpanded,
+    ],
+  );
+  const scheduleCollapseAfterFocusLoss = useCallback(
+    (event: ReactFocusEvent) => {
+      cancelPendingFocusLoss();
+      const dismissedKeyboard = isKeyboardFocusTarget(event.target);
+      const scheduleFocusLoss = () => {
+        const frame = window.requestAnimationFrame(checkFocusLoss);
+        pendingFocusLossCleanupRef.current = () => {
+          window.cancelAnimationFrame(frame);
+        };
+      };
+      const checkFocusLoss = () => {
+        pendingFocusLossCleanupRef.current = null;
+        const composerElement = composerInteractionRef.current;
+        if (!composerElement) return;
+
+        if (composerElement.contains(document.activeElement)) return;
+
+        if (pressedComposerControlRef.current) {
+          deferredControlFocusLossRef.current = scheduleFocusLoss;
+          return;
+        }
+
+        if (
+          composerElement.querySelector(OPEN_COMPOSER_OVERLAY_TRIGGER_SELECTOR)
+        ) {
+          return;
+        }
+
+        const collapse = () => {
+          cancelPendingFocusExpansion();
+          setInteractionExpanded(false);
+        };
+        const focusSettledOnDocument =
+          document.activeElement === document.body ||
+          document.activeElement === document.documentElement;
+        const visualViewport = window.visualViewport;
+        if (
+          !dismissedKeyboard ||
+          !focusSettledOnDocument ||
+          !isCompactViewport ||
+          !isPointerCoarse ||
+          !visualViewport
+        ) {
+          collapse();
+          return;
+        }
+
+        const keyboardViewportHeight = visualViewport.height;
+        let fallbackTimeout: number | null = null;
+        let hasFinished = false;
+        const cleanup = () => {
+          visualViewport.removeEventListener("resize", handleViewportResize);
+          if (fallbackTimeout !== null) {
+            window.clearTimeout(fallbackTimeout);
+            fallbackTimeout = null;
+          }
+        };
+        const finishCollapse = () => {
+          if (hasFinished) return;
+          hasFinished = true;
+          cleanup();
+          pendingFocusLossCleanupRef.current = null;
+          collapse();
+        };
+        const handleViewportResize = () => {
+          if (
+            visualViewport.height - keyboardViewportHeight <
+            MOBILE_KEYBOARD_VIEWPORT_MIN_DELTA_PX
+          ) {
+            return;
+          }
+          finishCollapse();
+        };
+
+        visualViewport.addEventListener("resize", handleViewportResize);
+        fallbackTimeout = window.setTimeout(
+          finishCollapse,
+          MOBILE_KEYBOARD_DISMISSAL_FALLBACK_MS,
+        );
+        pendingFocusLossCleanupRef.current = cleanup;
+      };
+      scheduleFocusLoss();
+    },
+    [
+      cancelPendingFocusExpansion,
+      cancelPendingFocusLoss,
+      isCompactViewport,
+      isPointerCoarse,
+      setInteractionExpanded,
+    ],
+  );
+  const collapseWidePromptBox = useCallback(() => {
+    cancelPendingFocusExpansion();
+    cancelPendingFocusLoss();
+    interactionExpandedRef.current = false;
+    setIsInteractionExpanded(false);
+    setWidePromptBoxCollapsedFor(collapseResetKey);
+  }, [cancelPendingFocusExpansion, cancelPendingFocusLoss, collapseResetKey]);
+  const collapseIfFocused = useCallback(() => {
+    const activeElement = document.activeElement;
+    if (
+      !(activeElement instanceof HTMLElement) ||
+      !composerInteractionRef.current?.contains(activeElement)
+    ) {
+      return false;
+    }
+    activeElement.blur();
+    collapseWidePromptBox();
+    return true;
+  }, [collapseWidePromptBox]);
+  const extensionController = useComposerExtensionController({
+    host: pluginComposerHost ?? null,
+    view: composerView,
+    collapseIfFocused,
+    focusDefault,
+  });
+  useEffect(
+    () => () => {
+      cancelPendingFocusExpansion();
+      cancelPendingFocusLoss();
+      cancelPressedComposerControl();
+    },
+    [
+      cancelPendingFocusExpansion,
+      cancelPendingFocusLoss,
+      cancelPressedComposerControl,
+    ],
+  );
+  const isSteeringWhenReady =
+    steerOnPrimarySubmit &&
+    (composer.threadRuntimeDisplayStatus === "provisioning" ||
+      composer.threadRuntimeDisplayStatus === "starting");
+  const modifierSubmitHint = (action: "queue" | "steer"): string =>
+    onModifierSubmit ? `, ${modifierSubmitShortcutLabel()} to ${action}` : "";
+  const executionControlsDisabled =
+    (executionReadOnly ?? false) || hasPendingInteraction;
+  const executionControls = useMemo(
+    () => (
+      <ExecutionControls {...execution} disabled={executionControlsDisabled} />
+    ),
+    [execution, executionControlsDisabled],
+  );
+  const { permissionDisplayOverride, permissionPickerDisabledByPlanMode } =
+    usePromptModePermissionDisplay({
+      execution,
+      value: composer.message,
+      mentionRanges: composer.mentionRanges,
+      activePromptMode,
+    });
+  const permissionReadOnlyResolved =
+    (permissionReadOnly ?? false) || hasPendingInteraction;
+  const permissionPickerDisabled =
+    permissionReadOnlyResolved || permissionPickerDisabledByPlanMode;
+  const permissionControl = useMemo(
+    () => (
+      <PermissionModePicker
+        value={permission.value}
+        options={permission.options}
+        onChange={permission.onChange}
+        supported={permission.supported}
+        disabled={permissionPickerDisabled}
+        showChevronWhenDisabled={permissionPickerDisabledByPlanMode}
+        displayOverride={permissionDisplayOverride}
+        className="h-6 max-md:pointer-coarse:h-11 max-md:pointer-coarse:px-2"
+      />
+    ),
+    [
+      permission.onChange,
+      permission.options,
+      permission.supported,
+      permission.value,
+      permissionDisplayOverride,
+      permissionPickerDisabledByPlanMode,
+      permissionPickerDisabled,
+    ],
+  );
+  const stackRef = useRef<HTMLDivElement>(null);
+  const lastStackHeightRef = useRef(0);
+  const [stackHeight, setStackHeight] = useState(0);
+  const applyStackHeight = useCallback((measured: number) => {
+    if (lastStackHeightRef.current === measured) return;
+    lastStackHeightRef.current = measured;
+    setStackHeight(measured);
+  }, []);
+
+  useLayoutEffect(() => {
+    const element = stackRef.current;
+    if (element) {
+      applyStackHeight(element.offsetHeight);
+    }
+  }, [applyStackHeight, stack]);
+
+  useEffect(() => {
+    const element = stackRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries.find((candidate) => candidate.target === element);
+      if (!entry) return;
+      const borderBoxSize = Array.isArray(entry.borderBoxSize)
+        ? entry.borderBoxSize[0]
+        : entry.borderBoxSize;
+      const measured = borderBoxSize?.blockSize ?? entry.contentRect.height;
+      if (lastStackHeightRef.current === measured) return;
+      flushSync(() => applyStackHeight(measured));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [applyStackHeight]);
+  const elasticTextareaMinHeight =
+    stack === null
+      ? FOLLOW_UP_PROMPT_BOX_DEFAULT_MIN_HEIGHT
+      : Math.max(
+          FOLLOW_UP_PROMPT_BOX_DEFAULT_MIN_HEIGHT,
+          FOLLOW_UP_PROMPT_BOX_ELASTIC_TARGET_HEIGHT - stackHeight,
+        );
+
+  const composerElement = (
+    <div
+      ref={composerInteractionRef}
+      className="relative z-20"
+      data-follow-up-composer=""
+      data-follow-up-composer-expanded={isEditorExpanded ? "" : undefined}
+      data-follow-up-composer-footer-visible={
+        isCompactViewport && isEditorExpanded ? "" : undefined
+      }
+      hidden={hasPendingInteraction}
+      onBlurCapture={scheduleCollapseAfterFocusLoss}
+      onFocusCapture={handleComposerFocus}
+      onPointerDownCapture={handleComposerPointerDown}
+    >
+      <PromptBoxWithScrollAnchor
+        id={id}
+        promptBoxRef={promptBoxRef}
+        onFocusCommand={extensionController.focus}
+        voice={voice}
+        minHeight={elasticTextareaMinHeight}
+        value={composer.message}
+        mentionRanges={composer.mentionRanges}
+        onChange={composer.onChangeMessage}
+        onSubmit={composer.onSubmit}
+        onEscape={composer.onEscape}
+        textEffects={textEffects}
+        onComposerLayoutChange={setComposerLayout}
+        scrollToBottomOnSubmit={submitMode.kind !== "queue"}
+        history={composer.history}
+        focusEndKey={focusEndKey}
+        placeholder={composer.promptPlaceholder}
+        mentionMenuPlacement="top"
+        submission={{
+          label: composer.submitLabel,
+          icon: composer.submitIcon,
+          onStop: onStopRuntime,
+          isSubmitting: composer.isFollowUpSubmitting,
+          disabled:
+            !canSubmit ||
+            composer.isFollowUpSubmitting ||
+            (steerOnPrimarySubmit && !composer.canModifierSubmit),
+          disabledReason: composer.isFollowUpSubmitting
+            ? "Submitting..."
+            : isLoadingExecutionOptions
+              ? "Loading models..."
+              : isUnavailable
+                ? "Unavailable"
+                : undefined,
+          onModifierSubmit,
+          queuesDraft: submitMode.kind === "queue",
+          swapSubmitActions: steerOnPrimarySubmit,
+          showModifierSubmitAction: submitMode.kind === "queue",
+          title: composer.isFollowUpSubmitting
+            ? "Submitting..."
+            : canSubmit && compactBeforeSend?.compactFirst
+              ? `Compact ${formatCompactTokenCount(compactBeforeSend.tokens)} tokens, then send (Enter)`
+              : canSubmit && composer.submitTitle !== undefined
+                ? composer.submitTitle
+                : isStopping
+                  ? "Queue for after the stop (Enter)"
+                  : canQueueFollowUp
+                    ? steerOnPrimarySubmit
+                      ? isSteeringWhenReady
+                        ? `Steer when ready (Enter)${modifierSubmitHint("queue")}`
+                        : `Steer current run (Enter)${modifierSubmitHint("queue")}`
+                      : `Queue follow-up (Enter)${modifierSubmitHint("steer")}`
+                    : isLoadingExecutionOptions
+                      ? "Loading models..."
+                      : isUnavailable
+                        ? "Unavailable"
+                        : "Submit (Enter)",
+          isRunning: canStopRuntime,
+        }}
+        typeahead={typeahead}
+        attachments={attachments}
+        promptActions={promptActions}
+        compactBeforeSend={
+          compactBeforeSend ? (
+            <CompactBeforeSendChip {...compactBeforeSend} />
+          ) : null
+        }
+        suppressPluginComposerCustomizations={
+          suppressPluginComposerCustomizations
+        }
+        compact={compactConfig}
+        surface="thread"
+        onCollapse={isCompactViewport ? undefined : collapseWidePromptBox}
+        handoff={
+          execution.handoff?.active ? (
+            <div className="flex min-h-7 items-center gap-1.5 text-xs text-subtle-foreground">
+              <Icon
+                name="MessageSquarePlus"
+                className="size-3.5 shrink-0"
+                aria-hidden
+              />
+              <span>Handoff to new thread</span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="ml-auto size-6 shrink-0 text-subtle-foreground"
+                onClick={execution.handoff.onExit}
+                disabled={executionControlsDisabled}
+                aria-label="Exit handoff"
+              >
+                <Icon name="X" className="size-3" aria-hidden />
+              </Button>
+            </div>
+          ) : null
+        }
+        executionControls={executionControls}
+      />
+      {!isPromptBoxCompact ? (
+        <div
+          data-follow-up-composer-footer=""
+          className="mt-1 flex min-h-6 max-h-6 select-none max-md:mt-0 max-md:pointer-coarse:min-h-11 max-md:pointer-coarse:max-h-11 items-center justify-between gap-2 overflow-hidden pl-[15px] pr-3.5 opacity-100 transition-[max-height,min-height,margin-top,opacity] duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+            {isCompactViewport ? compactEnvironmentSummary : environmentSummary}
+          </div>
+          <div className="flex shrink-0 items-center gap-2 max-md:gap-0">
+            {sessionOptionsControl}
+            {permissionControl}
+            {contextWindowUsage ? (
+              <ThreadContextWindowIndicator usage={contextWindowUsage} />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <ComposerExtensionHost
+      controller={extensionController}
+      defaultRenderer={
+        <DefaultFollowUpComposer
+          active={composer.threadRuntimeDisplayStatus === "active"}
+          composerElement={composerElement}
+          hasPluginComposerScope={
+            composerScope !== null && !suppressPluginComposerCustomizations
+          }
+          isPrimaryComposer={isPrimaryComposer}
+          pendingInteraction={pendingInteraction}
+          showScrollToBottomButton={showScrollToBottomButton}
+          stack={stack}
+          stackRef={stackRef}
+        />
+      }
+    />
+  );
+}
+
+interface DefaultFollowUpComposerProps {
+  active: boolean;
+  composerElement: ReactNode;
+  hasPluginComposerScope: boolean;
+  isPrimaryComposer: boolean;
+  pendingInteraction?: ReactNode;
+  showScrollToBottomButton: boolean;
+  stack: ReactNode | null;
+  stackRef: RefObject<HTMLDivElement | null>;
+}
+
+function DefaultFollowUpComposer({
+  active,
+  composerElement,
+  hasPluginComposerScope,
+  isPrimaryComposer,
+  pendingInteraction = null,
+  showScrollToBottomButton,
+  stack,
+  stackRef,
+}: DefaultFollowUpComposerProps) {
+  return (
+    <>
+      {showScrollToBottomButton ? (
+        <ThreadTimelineScrollToBottomButton active={active} />
+      ) : null}
+      <div
+        data-app-composer=""
+        data-app-composer-role={isPrimaryComposer ? "primary" : "secondary"}
+        data-promptbox-shell=""
+        className="space-y-2"
+      >
+        <div
+          ref={stackRef}
+          className={`grid gap-2 ${PROMPT_STACK_TRACK_CLASS}`}
+        >
+          {hasPluginComposerScope ? (
+            <ComposerBannersSlot>{stack}</ComposerBannersSlot>
+          ) : (
+            stack
+          )}
+          {pendingInteraction}
+        </div>
+        <div data-follow-up-composer-anchor="">{composerElement}</div>
+      </div>
+    </>
+  );
+}
+
+export const FollowUpPromptBox = memo(function FollowUpPromptBox(
+  props: FollowUpPromptBoxProps,
+) {
+  if (props.composer === null) {
+    return (
+      <FollowUpPromptBoxStackOnly
+        stack={props.stack}
+        pluginComposerHost={props.pluginComposerHost}
+        pluginComposerScope={props.pluginComposerScope}
+      />
+    );
+  }
+  return <FollowUpPromptBoxWithComposer {...props} composer={props.composer} />;
+});

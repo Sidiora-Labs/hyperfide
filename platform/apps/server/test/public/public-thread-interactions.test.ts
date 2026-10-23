@@ -1,0 +1,1533 @@
+import { createQueuedThreadMessage, listQueuedThreadMessages } from "@bb/db";
+import {
+  turnScope,
+  USER_QUESTION_MAX_FREE_TEXT_LENGTH,
+  USER_QUESTION_MAX_SELECTED,
+} from "@bb/domain";
+import type { PendingInteractionCreate } from "@bb/domain";
+import type {
+  PendingInteractionResolution,
+  UserQuestionPendingInteractionPayload,
+} from "@bb/domain";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AppDeps } from "../../src/types.js";
+import type { PendingInteractionLifecycle } from "../../src/services/interactions/pending-interactions.js";
+import { readJson } from "../helpers/json.js";
+import {
+  reportQueuedCommandSuccess,
+  waitForQueuedCommand,
+} from "../helpers/commands.js";
+import { textInput } from "../helpers/prompt-input.js";
+import {
+  createAllowForSessionResolution,
+  createAllowOnceResolution,
+  createCommandApprovalPayload,
+  createDenyResolution,
+  createFileChangeApprovalPayload,
+  createPermissionGrantApprovalPayload,
+  createUserQuestionPayload,
+} from "../helpers/pending-interactions.js";
+import {
+  seedEnvironment,
+  seedHostSession,
+  seedThreadFixture,
+  seedProjectWithSource,
+  seedSession,
+  seedThread,
+  seedThreadRuntimeState,
+  seedTurnStarted,
+} from "../helpers/seed.js";
+import { withTestHarness } from "../helpers/test-app.js";
+import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";
+import { appendThreadEvent } from "../../src/services/threads/thread-events.js";
+
+function registerPendingInteraction(
+  deps: Pick<AppDeps, "db" | "hub">,
+  lifecycle: PendingInteractionLifecycle,
+  interaction: PendingInteractionCreate,
+) {
+  seedTurnStarted(deps, {
+    threadId: interaction.threadId,
+    turnId: interaction.turnId,
+    providerThreadId: interaction.providerThreadId,
+  });
+  return lifecycle.registerPendingInteraction({
+    interaction,
+  });
+}
+
+interface InvalidUserQuestionResolutionCase {
+  createPayload: () => UserQuestionPendingInteractionPayload;
+  expectedMessage: string;
+  id: string;
+  name: string;
+  resolution: PendingInteractionResolution;
+}
+
+const invalidUserQuestionResolutionCases: InvalidUserQuestionResolutionCase[] =
+  [
+    {
+      id: "wrong-kind",
+      name: "wrong resolution kind",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        decision: "deny",
+      },
+      expectedMessage:
+        "Approval resolutions can only resolve approval interactions",
+    },
+    {
+      id: "unknown-question",
+      name: "unknown question id",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "missing-question": {
+            selected: ["staging"],
+          },
+          "question-1": {
+            selected: ["staging"],
+          },
+        },
+      },
+      expectedMessage: "Answer references unknown question 'missing-question'",
+    },
+    {
+      id: "missing-answer",
+      name: "missing answer",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {},
+      },
+      expectedMessage: "Missing answer for question 'question-1'",
+    },
+    {
+      id: "duplicate-selections",
+      name: "duplicate selections",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: ["staging", "staging"],
+          },
+        },
+      },
+      expectedMessage:
+        "Answer for question 'question-1' contains duplicate selections",
+    },
+    {
+      id: "single-select-multiple",
+      name: "multiple selections for single-select",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: ["staging", "production"],
+          },
+        },
+      },
+      expectedMessage: "Question 'question-1' accepts only one selected option",
+    },
+    {
+      id: "unavailable-option",
+      name: "unavailable selected option",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: ["qa"],
+          },
+        },
+      },
+      expectedMessage:
+        "Answer for question 'question-1' selected an unavailable option",
+    },
+    {
+      id: "more-selections-than-options",
+      name: "more selections than available options",
+      createPayload: () =>
+        createUserQuestionPayload({
+          multiSelect: true,
+        }),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: ["staging", "production", "qa"],
+          },
+        },
+      },
+      expectedMessage:
+        "Answer for question 'question-1' selects more options than are available",
+    },
+    {
+      id: "too-many-selections",
+      name: "too many selections",
+      createPayload: () =>
+        createUserQuestionPayload({
+          multiSelect: true,
+        }),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: Array.from(
+              { length: USER_QUESTION_MAX_SELECTED + 1 },
+              (_, index) => `option-${index}`,
+            ),
+          },
+        },
+      },
+      expectedMessage: `User question selected choices cannot exceed ${USER_QUESTION_MAX_SELECTED}`,
+    },
+    {
+      id: "free-text-disallowed",
+      name: "free text disallowed",
+      createPayload: () => createUserQuestionPayload({ allowFreeText: false }),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: ["staging"],
+            freeText: "Use staging first.",
+          },
+        },
+      },
+      expectedMessage:
+        "Question 'question-1' does not accept free-text answers",
+    },
+    {
+      id: "empty-answer",
+      name: "empty answer",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: [],
+          },
+        },
+      },
+      expectedMessage:
+        "Question 'question-1' must include a selected option or free-text answer",
+    },
+    {
+      id: "blank-free-text",
+      name: "blank free text",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: [],
+            freeText: "   ",
+          },
+        },
+      },
+      expectedMessage: "User question free text cannot be blank",
+    },
+    {
+      id: "oversized-free-text",
+      name: "oversized free text",
+      createPayload: () => createUserQuestionPayload(),
+      resolution: {
+        kind: "user_answer",
+        answers: {
+          "question-1": {
+            selected: [],
+            freeText: "x".repeat(USER_QUESTION_MAX_FREE_TEXT_LENGTH + 1),
+          },
+        },
+      },
+      expectedMessage: `User question free text cannot exceed ${USER_QUESTION_MAX_FREE_TEXT_LENGTH} characters`,
+    },
+  ];
+
+describe("public thread interaction routes", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("lists, gets, and resolves thread-owned interactions", async () => {
+    await withTestHarness(async (harness) => {
+      const { session, project, environment, thread } = seedThreadFixture(
+        harness,
+        {
+          session: {
+            id: "host-public-thread-interactions",
+          },
+        },
+      );
+      const otherThread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+      });
+
+      const registered = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-public-1",
+          providerId: "codex",
+          providerThreadId: "provider-thread-1",
+          providerRequestId: "request-1",
+          payload: createCommandApprovalPayload({
+            itemId: "item-1",
+            reason: "Approve command",
+            command: "git push",
+            cwd: "/tmp/project",
+          }),
+        },
+      );
+      if (registered.outcome === "rejected") {
+        throw new Error(
+          `Expected interaction registration to succeed: ${registered.reason}`,
+        );
+      }
+
+      const listResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions`,
+      );
+      expect(listResponse.status).toBe(200);
+      await expect(readJson(listResponse)).resolves.toMatchObject([
+        {
+          id: registered.interaction.id,
+          threadId: thread.id,
+          status: "pending",
+          payload: {
+            kind: "approval",
+            subject: {
+              kind: "command",
+              command: "git push",
+            },
+          },
+        },
+      ]);
+
+      const getResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${registered.interaction.id}`,
+      );
+      expect(getResponse.status).toBe(200);
+      await expect(readJson(getResponse)).resolves.toMatchObject({
+        id: registered.interaction.id,
+        threadId: thread.id,
+        status: "pending",
+      });
+
+      const invalidInteractionIdResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/not-an-interaction-id`,
+      );
+      expect(invalidInteractionIdResponse.status).toBe(400);
+      await expect(readJson(invalidInteractionIdResponse)).resolves.toEqual({
+        code: "invalid_request",
+        message: "Invalid pending interaction id",
+      });
+
+      const wrongThreadResponse = await harness.app.request(
+        `/api/v1/threads/${otherThread.id}/interactions/${registered.interaction.id}`,
+      );
+      expect(wrongThreadResponse.status).toBe(404);
+      await expect(readJson(wrongThreadResponse)).resolves.toEqual({
+        code: "invalid_request",
+        message: "Pending interaction not found",
+      });
+
+      const resolveResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${registered.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(createAllowOnceResolution()),
+        },
+      );
+      expect(resolveResponse.status).toBe(200);
+      await expect(readJson(resolveResponse)).resolves.toMatchObject({
+        id: registered.interaction.id,
+        status: "resolving",
+        resolution: createAllowOnceResolution(),
+      });
+
+      const duplicateResolveResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${registered.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(createAllowOnceResolution()),
+        },
+      );
+      expect(duplicateResolveResponse.status).toBe(200);
+      await expect(readJson(duplicateResolveResponse)).resolves.toMatchObject({
+        id: registered.interaction.id,
+        status: "resolving",
+        resolution: createAllowOnceResolution(),
+      });
+
+      const conflictingResolveResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${registered.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(createDenyResolution()),
+        },
+      );
+      expect(conflictingResolveResponse.status).toBe(409);
+      await expect(readJson(conflictingResolveResponse)).resolves.toEqual({
+        code: "invalid_request",
+        message: `Pending interaction ${registered.interaction.id} is already resolving`,
+      });
+
+      const queuedResolve = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "interactive.resolve" &&
+          command.interactionId === registered.interaction.id,
+      );
+      expect(queuedResolve.row.sessionId).toBe(session.id);
+      const commandResultResponse = await reportQueuedCommandSuccess(
+        harness,
+        queuedResolve,
+        {},
+      );
+      expect(commandResultResponse.status).toBe(200);
+
+      const postResolveListResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions`,
+      );
+      expect(postResolveListResponse.status).toBe(200);
+      await expect(readJson(postResolveListResponse)).resolves.toEqual([]);
+    });
+  });
+
+  it("rejects unavailable command decisions and malformed provider-specific resolutions", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread } = seedThreadFixture(harness, {
+        session: {
+          id: "host-public-thread-invalid-resolution",
+        },
+      });
+
+      const commandApproval = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-invalid-command-resolution",
+          providerId: "codex",
+          providerThreadId: "provider-thread-invalid-command-resolution",
+          providerRequestId: "request-invalid-command-resolution",
+          payload: createCommandApprovalPayload({
+            itemId: "item-invalid-command-resolution",
+            reason: "Approve command",
+            command: "git push",
+            cwd: "/tmp/project",
+            availableDecisions: ["allow_once", "deny"],
+          }),
+        },
+      );
+      if (commandApproval.outcome === "rejected") {
+        throw new Error(
+          `Expected command interaction registration to succeed: ${commandApproval.reason}`,
+        );
+      }
+
+      const invalidCommandResolution = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${commandApproval.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(createAllowForSessionResolution()),
+        },
+      );
+      expect(invalidCommandResolution.status).toBe(400);
+      await expect(readJson(invalidCommandResolution)).resolves.toEqual({
+        code: "invalid_request",
+        message: `Approval decision 'allow_for_session' is not available for interaction ${commandApproval.interaction.id}`,
+      });
+
+      const malformedBodyResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${commandApproval.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            kind: "permission_request",
+            decision: "allow",
+          }),
+        },
+      );
+      expect(malformedBodyResponse.status).toBe(400);
+      await expect(readJson(malformedBodyResponse)).resolves.toEqual({
+        code: "invalid_request",
+        message:
+          "Invalid discriminator value. Expected 'allow_once' | 'allow_for_session' | 'deny'",
+      });
+
+      harness.db.transaction((tx) =>
+        harness.deps.pendingInteractions.interruptPendingInteractionInTransaction(
+          { db: tx, hub: harness.deps.hub },
+          {
+            interactionId: commandApproval.interaction.id,
+            reason: "Provider exited",
+          },
+        ),
+      );
+
+      const interruptedResolution = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${commandApproval.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            decision: "allow_once",
+            grantedPermissions: null,
+          }),
+        },
+      );
+      expect(interruptedResolution.status).toBe(409);
+      await expect(readJson(interruptedResolution)).resolves.toEqual({
+        code: "invalid_request",
+        message: `Pending interaction ${commandApproval.interaction.id} is already interrupted`,
+      });
+    });
+  });
+
+  it("resolves permission requests and rejects grants outside the requested scope", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread } = seedThreadFixture(harness, {
+        session: {
+          id: "host-public-thread-permission-resolution",
+        },
+      });
+
+      const permissionRequest = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-permission-resolution",
+          providerId: "codex",
+          providerThreadId: "provider-thread-permission-resolution",
+          providerRequestId: "request-permission-resolution",
+          payload: createPermissionGrantApprovalPayload({
+            itemId: "item-permission-resolution",
+            reason: "Grant workspace access",
+            toolName: null,
+            permissions: {
+              network: { enabled: true },
+              fileSystem: {
+                read: ["/tmp/project/README.md"],
+                write: ["/tmp/project/notes.md"],
+              },
+            },
+          }),
+        },
+      );
+      if (permissionRequest.outcome === "rejected") {
+        throw new Error(
+          `Expected permission interaction registration to succeed: ${permissionRequest.reason}`,
+        );
+      }
+
+      const grantResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${permissionRequest.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(
+            createAllowForSessionResolution({
+              network: { enabled: true },
+              fileSystem: {
+                read: ["/tmp/project/README.md"],
+                write: [],
+              },
+            }),
+          ),
+        },
+      );
+      expect(grantResponse.status).toBe(200);
+      await expect(readJson(grantResponse)).resolves.toMatchObject({
+        id: permissionRequest.interaction.id,
+        status: "resolving",
+        resolution: createAllowForSessionResolution({
+          network: { enabled: true },
+          fileSystem: {
+            read: ["/tmp/project/README.md"],
+            write: [],
+          },
+        }),
+      });
+      const grantCommand = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "interactive.resolve" &&
+          command.interactionId === permissionRequest.interaction.id,
+      );
+      const grantCommandResponse = await reportQueuedCommandSuccess(
+        harness,
+        grantCommand,
+        {},
+      );
+      expect(grantCommandResponse.status).toBe(200);
+
+      const deniedPermissionRequest = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-permission-resolution-denied",
+          providerId: "codex",
+          providerThreadId: "provider-thread-permission-resolution",
+          providerRequestId: "request-permission-resolution-denied",
+          payload: createPermissionGrantApprovalPayload({
+            itemId: "item-permission-resolution-denied",
+            reason: "Grant network access",
+            toolName: null,
+            permissions: {
+              network: { enabled: true },
+              fileSystem: null,
+            },
+          }),
+        },
+      );
+      if (deniedPermissionRequest.outcome === "rejected") {
+        throw new Error(
+          `Expected permission interaction registration to succeed: ${deniedPermissionRequest.reason}`,
+        );
+      }
+
+      const denyResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${deniedPermissionRequest.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(createDenyResolution()),
+        },
+      );
+      expect(denyResponse.status).toBe(200);
+      await expect(readJson(denyResponse)).resolves.toMatchObject({
+        id: deniedPermissionRequest.interaction.id,
+        status: "resolving",
+        resolution: createDenyResolution(),
+      });
+      const denyCommand = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "interactive.resolve" &&
+          command.interactionId === deniedPermissionRequest.interaction.id,
+      );
+      const denyCommandResponse = await reportQueuedCommandSuccess(
+        harness,
+        denyCommand,
+        {},
+      );
+      expect(denyCommandResponse.status).toBe(200);
+
+      const invalidPermissionRequest = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-permission-resolution-invalid",
+          providerId: "codex",
+          providerThreadId: "provider-thread-permission-resolution",
+          providerRequestId: "request-permission-resolution-invalid",
+          payload: createPermissionGrantApprovalPayload({
+            itemId: "item-permission-resolution-invalid",
+            reason: "Grant workspace access",
+            toolName: null,
+            permissions: {
+              network: null,
+              fileSystem: {
+                read: ["/tmp/project/README.md"],
+                write: [],
+              },
+            },
+          }),
+        },
+      );
+      if (invalidPermissionRequest.outcome === "rejected") {
+        throw new Error(
+          `Expected permission interaction registration to succeed: ${invalidPermissionRequest.reason}`,
+        );
+      }
+
+      const invalidGrantResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${invalidPermissionRequest.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            decision: "allow_once",
+            grantedPermissions: {
+              network: { enabled: true },
+              fileSystem: {
+                read: ["/tmp/project/README.md"],
+                write: [],
+              },
+            },
+          }),
+        },
+      );
+      expect(invalidGrantResponse.status).toBe(400);
+      await expect(readJson(invalidGrantResponse)).resolves.toEqual({
+        code: "invalid_request",
+        message:
+          "Granted network permissions must be a subset of the requested permissions",
+      });
+    });
+  });
+
+  it("rejects provider-specific command approval amendment resolutions", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread } = seedThreadFixture(harness, {
+        session: {
+          id: "host-public-thread-amendment-resolution",
+        },
+      });
+
+      const commandApproval = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-amendment-resolution",
+          providerId: "codex",
+          providerThreadId: "provider-thread-amendment-resolution",
+          providerRequestId: "request-amendment-resolution",
+          payload: createCommandApprovalPayload({
+            itemId: "item-amendment-resolution",
+            reason: "Approve command",
+            command: "git push",
+            cwd: "/tmp/project",
+            availableDecisions: ["allow_once", "deny"],
+          }),
+        },
+      );
+      if (commandApproval.outcome === "rejected") {
+        throw new Error(
+          `Expected command interaction registration to succeed: ${commandApproval.reason}`,
+        );
+      }
+
+      const resolveResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/interactions/${commandApproval.interaction.id}/resolve`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            kind: "command_approval",
+            decision: {
+              kind: "accept_with_exec_policy_amendment",
+              execPolicyAmendment: ["allow", "git", "push"],
+            },
+          }),
+        },
+      );
+      expect(resolveResponse.status).toBe(400);
+      await expect(readJson(resolveResponse)).resolves.toEqual({
+        code: "invalid_request",
+        message:
+          "Invalid discriminator value. Expected 'allow_once' | 'allow_for_session' | 'deny'",
+      });
+    });
+  });
+
+  it.each(invalidUserQuestionResolutionCases)(
+    "rejects invalid user-question resolutions: $name",
+    async (testCase) => {
+      await withTestHarness(async (harness) => {
+        const { host } = seedHostSession(harness.deps, {
+          id: `host-public-thread-question-${testCase.id}`,
+        });
+        const { project } = seedProjectWithSource(harness.deps, {
+          hostId: host.id,
+        });
+        const environment = seedEnvironment(harness.deps, {
+          hostId: host.id,
+          projectId: project.id,
+        });
+        const thread = seedThread(harness.deps, {
+          projectId: project.id,
+          environmentId: environment.id,
+          providerId: "claude-code",
+        });
+
+        const userQuestion = registerPendingInteraction(
+          harness.deps,
+          harness.deps.pendingInteractions,
+          {
+            threadId: thread.id,
+            turnId: `turn-question-${testCase.id}`,
+            providerId: "claude-code",
+            providerThreadId: `provider-thread-question-${testCase.id}`,
+            providerRequestId: `request-question-${testCase.id}`,
+            payload: testCase.createPayload(),
+          },
+        );
+        if (userQuestion.outcome === "rejected") {
+          throw new Error(
+            `Expected user-question interaction registration to succeed: ${userQuestion.reason}`,
+          );
+        }
+
+        const resolveResponse = await harness.app.request(
+          `/api/v1/threads/${thread.id}/interactions/${userQuestion.interaction.id}/resolve`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify(testCase.resolution),
+          },
+        );
+        expect(resolveResponse.status).toBe(400);
+        await expect(readJson(resolveResponse)).resolves.toEqual({
+          code: "invalid_request",
+          message: testCase.expectedMessage,
+        });
+
+        const getResponse = await harness.app.request(
+          `/api/v1/threads/${thread.id}/interactions/${userQuestion.interaction.id}`,
+        );
+        expect(getResponse.status).toBe(200);
+        await expect(readJson(getResponse)).resolves.toMatchObject({
+          id: userQuestion.interaction.id,
+          resolution: null,
+          status: "pending",
+        });
+      });
+    },
+  );
+
+  it("holds sends and rejects queued-message send while a thread awaits user interaction", async () => {
+    await withTestHarness(async (harness) => {
+      const { host } = seedHostSession(harness.deps, {
+        id: "host-public-thread-blocked-send",
+      });
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+        path: "/tmp/blocked-send-project",
+      });
+      const thread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        status: "idle",
+      });
+      // An `idle` thread has always run a turn, and the checkpoint resolves the
+      // execution tuple it would freeze on a queued row before it decides to
+      // queue — so the fixture needs the prior turn a real thread would have.
+      seedThreadRuntimeState(harness.deps, {
+        environmentId: environment.id,
+        providerThreadId: "provider-thread-blocked",
+        threadId: thread.id,
+      });
+      const queuedMessage = createQueuedThreadMessage(harness.db, harness.hub, {
+        threadId: thread.id,
+        content: textInput("Queued message"),
+        model: "gpt-5",
+        serviceTier: "default",
+        reasoningLevel: "medium",
+        permissionMode: "full",
+        waitingOn: null,
+        sendAt: null,
+        payload: { kind: "inline" },
+        systemNotice: null,
+      });
+      const pending = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-blocked-send",
+          providerId: "codex",
+          providerThreadId: "provider-thread-blocked",
+          providerRequestId: "request-blocked",
+          payload: createCommandApprovalPayload({
+            itemId: "item-blocked",
+            reason: "Approve command",
+            command: "git push",
+            cwd: "/tmp/project",
+          }),
+        },
+      );
+      if (pending.outcome === "rejected") {
+        throw new Error(
+          `Expected interaction registration to succeed: ${pending.reason}`,
+        );
+      }
+
+      const sendResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            mode: "auto",
+            input: [{ type: "text", text: "Try to send" }],
+          }),
+        },
+      );
+      // A prompt cannot interrupt the interaction, but the message is not lost:
+      // it joins the queue and delivers once the interaction settles (#1650).
+      expect(sendResponse.status).toBe(200);
+      await expect(readJson(sendResponse)).resolves.toMatchObject({
+        ok: true,
+        delivery: "queued",
+        queuedMessage: {
+          id: expect.any(String),
+          waitingOn: { kind: "interaction" },
+          sendAt: null,
+        },
+      });
+      // The queued row sits alongside the message that was already queued, and
+      // it is the only one carrying the interaction wait.
+      expect(
+        listQueuedThreadMessages(harness.db, thread.id).filter(
+          (row) => row.waitingOn !== null,
+        ),
+      ).toHaveLength(1);
+
+      const startResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            mode: "start",
+            input: [{ type: "text", text: "Try to start" }],
+          }),
+        },
+      );
+      expect(startResponse.status).toBe(409);
+      await expect(readJson(startResponse)).resolves.toEqual({
+        code: "awaiting_user_interaction",
+        message:
+          "Thread is awaiting user interaction. Resolve the pending interaction before sending another prompt.",
+      });
+
+      const queuedMessageSendResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/queued-messages/${queuedMessage.id}/send`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ mode: "auto" }),
+        },
+      );
+      expect(queuedMessageSendResponse.status).toBe(409);
+      await expect(readJson(queuedMessageSendResponse)).resolves.toEqual({
+        code: "awaiting_user_interaction",
+        message:
+          "Thread is awaiting user interaction. Resolve the pending interaction before sending another prompt.",
+      });
+
+      const activeThread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        status: "active",
+      });
+      seedThreadRuntimeState(harness.deps, {
+        threadId: activeThread.id,
+        environmentId: environment.id,
+        providerThreadId: "provider-thread-active-blocked",
+      });
+      const activeThreadPending = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: activeThread.id,
+          turnId: "turn-active-blocked-send",
+          providerId: "codex",
+          providerThreadId: "provider-thread-active-blocked",
+          providerRequestId: "request-active-blocked",
+          payload: createCommandApprovalPayload({
+            itemId: "item-active-blocked",
+            reason: "Approve command",
+            command: "git push",
+            cwd: "/tmp/project",
+          }),
+        },
+      );
+      if (activeThreadPending.outcome === "rejected") {
+        throw new Error(
+          `Expected active interaction registration to succeed: ${activeThreadPending.reason}`,
+        );
+      }
+
+      const activeSendResponse = await harness.app.request(
+        `/api/v1/threads/${activeThread.id}/send`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            mode: "queue-if-active",
+            input: [{ type: "text", text: "Try to queue while blocked" }],
+          }),
+        },
+      );
+      // The queue drains when the thread is next idle, which an open
+      // interaction does not change, so an explicit queue request queues behind
+      // the running turn rather than behind the interaction.
+      expect(activeSendResponse.status).toBe(200);
+      await expect(readJson(activeSendResponse)).resolves.toMatchObject({
+        ok: true,
+        delivery: "queued",
+        queuedMessage: {
+          id: expect.any(String),
+          waitingOn: { kind: "thread-busy" },
+          sendAt: null,
+        },
+      });
+      expect(
+        listQueuedThreadMessages(harness.db, activeThread.id),
+      ).toHaveLength(1);
+    });
+  });
+
+  it("queues turn commands with the resolved permission mode", async () => {
+    await withTestHarness(async (harness) => {
+      const { host } = seedHostSession(harness.deps, {
+        id: "host-public-thread-permission-mode",
+      });
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+        path: "/tmp/permission-mode-project",
+      });
+      const thread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        providerId: "codex",
+        status: "idle",
+      });
+      seedThreadRuntimeState(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        providerThreadId: "provider-thread-permission-mode",
+      });
+
+      const response = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            mode: "queue-if-active",
+            input: [{ type: "text", text: "Run the command" }],
+          }),
+        },
+      );
+      expect(response.status).toBe(200);
+
+      const queued = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "turn.submit" && command.threadId === thread.id,
+      );
+      if (queued.command.type !== "turn.submit") {
+        throw new Error("Expected turn.submit command");
+      }
+      expect(queued.command.options).toMatchObject({
+        permissionMode: "full",
+        permissionEscalation: null,
+      });
+    });
+  });
+
+  it("normalizes the writable alias in queued messages without accepting readonly", async () => {
+    await withTestHarness(async (harness) => {
+      const { host } = seedHostSession(harness.deps, {
+        id: "host-public-queued-permission-compatibility",
+      });
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+      });
+      const thread = seedThread(harness.deps, {
+        environmentId: environment.id,
+        projectId: project.id,
+        providerId: "codex",
+        status: "active",
+      });
+      seedThreadRuntimeState(harness.deps, {
+        environmentId: environment.id,
+        providerThreadId: "provider-public-queued-permission-compatibility",
+        threadId: thread.id,
+      });
+
+      const compatibleResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            input: [{ type: "text", text: "Queue legacy writable alias" }],
+            mode: "queue-if-active",
+            permissionMode: "workspace-write",
+          }),
+        },
+      );
+      expect(compatibleResponse.status).toBe(200);
+      expect(listQueuedThreadMessages(harness.db, thread.id)).toMatchObject([
+        { permissionMode: "accept-edits" },
+      ]);
+
+      const readonlyResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            input: [{ type: "text", text: "Do not widen readonly" }],
+            mode: "queue-if-active",
+            permissionMode: "readonly",
+          }),
+        },
+      );
+      expect(readonlyResponse.status).toBe(400);
+      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
+    });
+  });
+
+  it("rejects explicit send permission modes unsupported by the provider", async () => {
+    await withTestHarness(async (harness) => {
+      const { host } = seedHostSession(harness.deps, {
+        id: "host-public-thread-unsupported-permission-mode",
+      });
+      const { project } = seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+        path: "/tmp/unsupported-permission-mode-project",
+      });
+      const thread = seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        providerId: "pi",
+        status: "idle",
+      });
+
+      const response = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            mode: "auto",
+            input: [{ type: "text", text: "Run the command" }],
+            model: "openai/codex-mini",
+            permissionMode: "workspace-write",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(400);
+      await expect(readJson(response)).resolves.toEqual({
+        code: "invalid_request",
+        message: "Provider pi only supports full permission mode.",
+      });
+    });
+  });
+
+  it("keeps a pending interaction answerable across a host disconnect", async () => {
+    await withTestHarness(async (harness) => {
+      const { host, session, thread } = seedThreadFixture(harness, {
+        session: { id: "host-public-thread-interaction-disconnect" },
+        thread: { status: "active" },
+      });
+      const registered = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-disconnect",
+          providerId: "codex",
+          providerThreadId: "provider-thread-disconnect",
+          providerRequestId: "request-disconnect",
+          payload: createFileChangeApprovalPayload({
+            itemId: "item-disconnect",
+            reason: "Approve file changes",
+          }),
+        },
+      );
+      if (registered.outcome === "rejected") {
+        throw new Error(registered.reason);
+      }
+      const interactionUrl = `/api/v1/threads/${thread.id}/interactions/${registered.interaction.id}`;
+      const resolve = () =>
+        harness.app.request(`${interactionUrl}/resolve`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(createAllowOnceResolution()),
+        });
+
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      vi.advanceTimersByTime(10 * 60_000);
+      vi.useRealTimers();
+
+      const offline = await resolve();
+      expect(offline.status).toBe(502);
+      await expect(readJson(offline)).resolves.toMatchObject({
+        code: "host_unavailable",
+      });
+      const stillPending = await harness.app.request(interactionUrl);
+      await expect(readJson(stillPending)).resolves.toMatchObject({
+        status: "pending",
+      });
+
+      seedSession(harness.deps, host.id);
+      const reconnected = await resolve();
+      expect(reconnected.status).toBe(200);
+      await expect(readJson(reconnected)).resolves.toMatchObject({
+        status: "resolving",
+      });
+    });
+  });
+
+  it("projects pending-interaction lifecycle updates into the thread timeline", async () => {
+    await withTestHarness(async (harness) => {
+      const { environment, thread } = seedThreadFixture(harness, {
+        session: {
+          id: "host-public-thread-interaction-timeline",
+        },
+        thread: { status: "active" },
+      });
+      appendThreadEvent(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        type: "turn/started",
+        providerThreadId: "provider-thread-timeline",
+        scope: turnScope("turn-timeline"),
+        data: {
+          providerThreadId: "provider-thread-timeline",
+        },
+      });
+
+      const registered = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-timeline",
+          providerId: "codex",
+          providerThreadId: "provider-thread-timeline",
+          providerRequestId: "request-timeline",
+          payload: createCommandApprovalPayload({
+            itemId: "item-timeline",
+            reason: "Approve command",
+            command: "git push",
+            cwd: "/tmp/project",
+          }),
+        },
+      );
+      if (registered.outcome === "rejected") {
+        throw new Error(
+          `Expected interaction registration to succeed: ${registered.reason}`,
+        );
+      }
+
+      harness.deps.pendingInteractions.resolvePendingInteraction({
+        threadId: thread.id,
+        interactionId: registered.interaction.id,
+        resolution: createAllowOnceResolution(),
+      });
+      const queuedResolve = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "interactive.resolve" &&
+          command.interactionId === registered.interaction.id,
+      );
+      const commandResultResponse = await reportQueuedCommandSuccess(
+        harness,
+        queuedResolve,
+        {},
+      );
+      expect(commandResultResponse.status).toBe(200);
+
+      const timelineResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/timeline`,
+      );
+      expect(timelineResponse.status).toBe(200);
+      await expect(readJson(timelineResponse)).resolves.toEqual(
+        expect.objectContaining({
+          rows: expect.arrayContaining([
+            expect.objectContaining({
+              kind: "work",
+              workKind: "command",
+              callId: "item-timeline",
+              command: "git push",
+              cwd: "/tmp/project",
+              status: "pending",
+              approvalStatus: null,
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it("projects denied command approvals into target-specific timeline rows", async () => {
+    await withTestHarness(async (harness) => {
+      const { environment, thread } = seedThreadFixture(harness, {
+        session: {
+          id: "host-public-thread-interaction-denied-timeline",
+        },
+        thread: { status: "active" },
+      });
+      appendThreadEvent(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        type: "turn/started",
+        providerThreadId: "provider-thread-denied-timeline",
+        scope: turnScope("turn-denied-timeline"),
+        data: {
+          providerThreadId: "provider-thread-denied-timeline",
+        },
+      });
+
+      const registered = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-denied-timeline",
+          providerId: "codex",
+          providerThreadId: "provider-thread-denied-timeline",
+          providerRequestId: "request-denied-timeline",
+          payload: createCommandApprovalPayload({
+            itemId: "item-denied-timeline",
+            reason: "Approve command",
+            command: "rm -rf build",
+            cwd: "/tmp/project",
+          }),
+        },
+      );
+      if (registered.outcome === "rejected") {
+        throw new Error(
+          `Expected interaction registration to succeed: ${registered.reason}`,
+        );
+      }
+
+      harness.deps.pendingInteractions.resolvePendingInteraction({
+        threadId: thread.id,
+        interactionId: registered.interaction.id,
+        resolution: createDenyResolution(),
+      });
+      const queuedResolve = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "interactive.resolve" &&
+          command.interactionId === registered.interaction.id,
+      );
+      const commandResultResponse = await reportQueuedCommandSuccess(
+        harness,
+        queuedResolve,
+        {},
+      );
+      expect(commandResultResponse.status).toBe(200);
+
+      const timelineResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/timeline`,
+      );
+      expect(timelineResponse.status).toBe(200);
+      await expect(readJson(timelineResponse)).resolves.toEqual(
+        expect.objectContaining({
+          rows: expect.arrayContaining([
+            expect.objectContaining({
+              kind: "work",
+              workKind: "command",
+              callId: "item-denied-timeline",
+              command: "rm -rf build",
+              cwd: "/tmp/project",
+              status: "interrupted",
+              approvalStatus: "denied",
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it("projects file-change approvals into item-specific timeline rows without diffs", async () => {
+    await withTestHarness(async (harness) => {
+      const { environment, thread } = seedThreadFixture(harness, {
+        session: {
+          id: "host-public-thread-interaction-file-timeline",
+        },
+        thread: { status: "active" },
+      });
+      appendThreadEvent(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        type: "turn/started",
+        providerThreadId: "provider-thread-file-timeline",
+        scope: turnScope("turn-file-timeline"),
+        data: {
+          providerThreadId: "provider-thread-file-timeline",
+        },
+      });
+
+      const registered = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-file-timeline",
+          providerId: "codex",
+          providerThreadId: "provider-thread-file-timeline",
+          providerRequestId: "request-file-timeline",
+          payload: createFileChangeApprovalPayload({
+            itemId: "item-file-timeline",
+            reason: "Approve file edits",
+            writeScope: "/tmp/project",
+          }),
+        },
+      );
+      if (registered.outcome === "rejected") {
+        throw new Error(
+          `Expected interaction registration to succeed: ${registered.reason}`,
+        );
+      }
+
+      const timelineResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/timeline`,
+      );
+      expect(timelineResponse.status).toBe(200);
+      await expect(readJson(timelineResponse)).resolves.toEqual(
+        expect.objectContaining({
+          rows: expect.arrayContaining([
+            expect.objectContaining({
+              kind: "work",
+              workKind: "approval",
+              approvalKind: "file-edit",
+              interactionId: "item-file-timeline",
+              lifecycle: "waiting",
+              status: "pending",
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
+  it("projects permission-grant approvals into typed lifecycle timeline rows", async () => {
+    await withTestHarness(async (harness) => {
+      const { environment, thread } = seedThreadFixture(harness, {
+        session: {
+          id: "host-public-thread-interaction-permission-timeline",
+        },
+        thread: { status: "active" },
+      });
+      appendThreadEvent(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        type: "turn/started",
+        providerThreadId: "provider-thread-permission-timeline",
+        scope: turnScope("turn-permission-timeline"),
+        data: {
+          providerThreadId: "provider-thread-permission-timeline",
+        },
+      });
+
+      const registered = registerPendingInteraction(
+        harness.deps,
+        harness.deps.pendingInteractions,
+        {
+          threadId: thread.id,
+          turnId: "turn-permission-timeline",
+          providerId: "codex",
+          providerThreadId: "provider-thread-permission-timeline",
+          providerRequestId: "request-permission-timeline",
+          payload: createPermissionGrantApprovalPayload({
+            itemId: "item-permission-timeline",
+            reason: "Need network access",
+            toolName: "Bash",
+            permissions: {
+              network: { enabled: true },
+              fileSystem: null,
+            },
+          }),
+        },
+      );
+      if (registered.outcome === "rejected") {
+        throw new Error(
+          `Expected interaction registration to succeed: ${registered.reason}`,
+        );
+      }
+
+      const timelineResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/timeline`,
+      );
+      expect(timelineResponse.status).toBe(200);
+      await expect(readJson(timelineResponse)).resolves.toEqual(
+        expect.objectContaining({
+          rows: expect.arrayContaining([
+            expect.objectContaining({
+              kind: "work",
+              workKind: "approval",
+              approvalKind: "permission-grant",
+              lifecycle: "pending",
+              status: "pending",
+              grantScope: null,
+              statusReason: null,
+              target: {
+                itemId: "item-permission-timeline",
+                toolName: "Bash",
+              },
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+});

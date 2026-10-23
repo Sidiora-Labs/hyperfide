@@ -1,0 +1,147 @@
+import { describe, expect, it } from "vitest";
+import type { PendingInteraction, PendingInteractionPayload } from "@bb/domain";
+import {
+  buildPendingInteractionApprovalResolution,
+  formatPendingInteractionApprovalResolutionOutcome,
+  formatPendingInteractionSubjectDetailLines,
+  summarizePendingInteractionRequestedPermissions,
+} from "../src/index.js";
+
+function createInteraction(
+  payload: PendingInteractionPayload,
+): PendingInteraction {
+  const base = {
+    id: "pint_123456789a",
+    threadId: "thr_123",
+    turnId: "turn_123",
+    providerId: "codex",
+    providerThreadId: "provider-thread-123",
+    providerRequestId: "request-123",
+    status: "pending" as const,
+    resolution: null,
+    statusReason: null,
+    createdAt: 1,
+    resolvedAt: null,
+  };
+  switch (payload.kind) {
+    case "approval":
+      return { ...base, payload };
+    case "user_question":
+      return { ...base, payload };
+    default:
+      return { ...base, payload };
+  }
+}
+
+describe("pending interaction formatting", () => {
+  it("summarizes requested permissions consistently", () => {
+    expect(
+      summarizePendingInteractionRequestedPermissions({
+        network: { enabled: true },
+        fileSystem: {
+          read: ["/tmp/read-a", "/tmp/read-b"],
+          write: ["/tmp/write-a"],
+        },
+        macos: {
+          preferences: "read_only",
+          automations: "all",
+          launchServices: true,
+          accessibility: false,
+          calendar: false,
+          reminders: true,
+          contacts: "none",
+        },
+      }),
+    ).toEqual([
+      "Network access",
+      "Read 2 paths",
+      "Write 1 path",
+      "macOS launch services",
+      "macOS reminders",
+      "macOS preferences (read only)",
+      "macOS automation (all apps)",
+    ]);
+  });
+
+  it("formats approval outcomes consistently", () => {
+    expect(
+      formatPendingInteractionApprovalResolutionOutcome("allow_for_session"),
+    ).toBe("approved for this session");
+    expect(formatPendingInteractionApprovalResolutionOutcome("deny")).toBe(
+      "denied",
+    );
+  });
+
+  it("builds session approval resolutions with explicit command session grants", () => {
+    const interaction = createInteraction({
+      kind: "approval",
+      subject: {
+        kind: "command",
+        itemId: "item_123",
+        command: "curl https://example.com",
+        cwd: "/tmp/project",
+        actions: [{ type: "unknown", command: "curl https://example.com" }],
+        sessionGrant: {
+          network: { enabled: true },
+          fileSystem: null,
+        },
+      },
+      reason: "Needs network",
+      availableDecisions: ["allow_once", "allow_for_session", "deny"],
+    });
+
+    expect(
+      buildPendingInteractionApprovalResolution(
+        interaction,
+        "allow_for_session",
+      ),
+    ).toEqual({
+      decision: "allow_for_session",
+      grantedPermissions: {
+        network: { enabled: true },
+        fileSystem: null,
+      },
+    });
+
+    expect(
+      buildPendingInteractionApprovalResolution(interaction, "allow_once"),
+    ).toEqual({
+      decision: "allow_once",
+      grantedPermissions: null,
+    });
+
+    expect(formatPendingInteractionSubjectDetailLines(interaction)).toEqual([
+      "Command: curl https://example.com",
+      "Cwd: /tmp/project",
+      "Action: curl https://example.com",
+      "Session grant: Network access",
+    ]);
+  });
+
+  it("builds approval resolutions with explicit permission-grant permissions", () => {
+    const interaction = createInteraction({
+      kind: "approval",
+      subject: {
+        kind: "permission_grant",
+        itemId: "item_123",
+        toolName: "WebFetch",
+        permissions: {
+          network: { enabled: true },
+          fileSystem: null,
+        },
+      },
+      reason: "Needs network",
+      availableDecisions: ["allow_once", "allow_for_session", "deny"],
+    });
+
+    expect(
+      buildPendingInteractionApprovalResolution(interaction, "allow_once"),
+    ).toEqual({
+      decision: "allow_once",
+      grantedPermissions: {
+        network: { enabled: true },
+        fileSystem: null,
+      },
+    });
+  });
+});

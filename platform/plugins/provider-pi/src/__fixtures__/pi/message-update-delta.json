@@ -1,0 +1,64 @@
+{
+  "type": "message_update",
+  "message": {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "text",
+        "text": "Let me check the current"
+      }
+    ],
+    "api": "anthropic-messages",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "usage": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "totalTokens": 0,
+      "cost": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "total": 0
+      }
+    },
+    "stopReason": "stop",
+    "timestamp": 0
+  },
+  "assistantMessageEvent": {
+    "type": "text_delta",
+    "contentIndex": 0,
+    "delta": "current",
+    "partial": {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Let me check the current"
+        }
+      ],
+      "api": "anthropic-messages",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "stopReason": "stop",
+      "timestamp": 0
+    }
+  }
+}

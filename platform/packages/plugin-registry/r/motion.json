@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "motion",
+  "type": "registry:ui",
+  "title": "motion",
+  "description": "BB ui \"motion\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "files": [
+    {
+      "path": "registry/components/ui/motion.ts",
+      "content": "export const CONTROL_HOVER_TRANSITION =\n  \"transition-colors duration-150 hover:duration-0\";\n\nexport const LIST_HOVER_TRANSITION = \"transition-none\";\n",
+      "type": "registry:ui",
+      "target": "components/ui/motion.ts"
+    }
+  ]
+}

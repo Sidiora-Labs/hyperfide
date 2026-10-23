@@ -1,0 +1,1629 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["BB_BUILD_TOOLCHAIN"],
+  "globalPassThroughEnv": ["npm_config_store_dir", "pnpm_config_store_dir"],
+  "tasks": {
+    "@bb/db#db:generate": { "cache": false },
+    "@bb/desktop#smoke:browser-broker": {
+      "cache": false,
+      "dependsOn": [
+        "@bb/templates#generate:templates",
+        "@get-bb/plugin-sdk#build:types",
+        "@bb/cli#build"
+      ],
+      "outputs": []
+    },
+    "@bb/desktop#smoke:browser-address": {
+      "cache": false,
+      "dependsOn": ["topo"],
+      "passThroughEnv": ["DISPLAY"],
+      "outputs": []
+    },
+    "@bb/desktop#smoke:browser-cdp": {
+      "cache": false,
+      "dependsOn": ["topo"],
+      "passThroughEnv": ["DISPLAY"]
+    },
+    "@bb/web#build": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/src/generated/bb-official-marketplace/marketplace.json",
+        "$TURBO_ROOT$/plugins/*/icons/*.svg",
+        "$TURBO_ROOT$/plugins/*/*.svg",
+        "$TURBO_ROOT$/CHANGELOG.md",
+        "$TURBO_ROOT$/changelog-metadata.ts",
+        "$TURBO_ROOT$/changelog-parser.ts",
+        "$TURBO_ROOT$/apps/web/package.json",
+        "$TURBO_ROOT$/apps/web/src/**",
+        "$TURBO_ROOT$/apps/web/tsconfig.json",
+        "$TURBO_ROOT$/apps/web/vite.config.ts",
+        "$TURBO_ROOT$/assets/bb-logo.svg",
+        "$TURBO_ROOT$/packages/shared-ui/src/**",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/turbo.json"
+      ],
+      "env": ["CLOUDFLARE_ENV", "VITE_POSTHOG_KEY", "VITE_POSTHOG_HOST"],
+      "outputs": ["dist/**"]
+    },
+    // Mirrors "build" but also caches bundle-stats.json, which the
+    // bb:bundle-stats Vite plugin writes beside dist for the boot-payload
+    // budget check. Without it a cache hit would leave CI checking a stale
+    // file, or none at all.
+    // The docs' UI-anatomy manifest is the contract this test checks the real
+    // app components against, so a manifest edit must re-run it.
+    "@bb/app#test": {
+      "env": ["BB_CI_TEST_SHARD", "VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/CHANGELOG.md",
+        "$TURBO_ROOT$/changelog-metadata.ts",
+        "$TURBO_ROOT$/changelog-parser.ts",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/anatomy-manifest.json",
+        "$TURBO_ROOT$/plugins/theme-preview/taxonomy.ts",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    "@bb/demo-server#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@bb/demo-server#build", "topo"]
+    },
+    "@bb/demo-server#build": {
+      "dependsOn": [
+        "@bb/app#build",
+        "bb-plugin-navigation#prepare:bundled",
+        "bb-plugin-thread-list#prepare:bundled"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/plugins/provider-codex/icons/codex.svg",
+        "$TURBO_ROOT$/plugins/provider-claude-code/icons/claude-code.svg",
+        "$TURBO_ROOT$/plugins/provider-pi/icons/pi.svg"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@bb/app#build": {
+      "env": [
+        "NODE_OPTIONS",
+        "NODE_ENV",
+        "BABEL_*",
+        "ENABLE_REACT_COMPILER_TIMINGS",
+        "VITE_*"
+      ],
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env*",
+        ".env*",
+        "$TURBO_ROOT$/CHANGELOG.md",
+        "$TURBO_ROOT$/changelog-metadata.ts",
+        "$TURBO_ROOT$/changelog-parser.ts",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/scripts/build-node-entry.mjs",
+        "$TURBO_ROOT$/scripts/build-package.mjs",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
+        "$TURBO_ROOT$/scripts/precompress-app-dist.mjs",
+        "$TURBO_ROOT$/turbo.json"
+      ],
+      "outputs": ["bundle-stats.json", "dist/**"]
+    },
+    "build": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/scripts/build-node-entry.mjs",
+        "$TURBO_ROOT$/scripts/build-package.mjs",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
+        "$TURBO_ROOT$/scripts/precompress-app-dist.mjs",
+        "$TURBO_ROOT$/turbo.json"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@bb/sdk#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/*/package.json",
+        "$TURBO_ROOT$/apps/*/scripts/**",
+        "$TURBO_ROOT$/apps/*/src/**",
+        "$TURBO_ROOT$/apps/*/tsconfig.json",
+        "$TURBO_ROOT$/apps/*/vite.config.ts",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/*/scripts/**",
+        "$TURBO_ROOT$/packages/*/src/**",
+        "$TURBO_ROOT$/packages/*/tsconfig.json",
+        "$TURBO_ROOT$/packages/db/drizzle/**",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/scripts/*.mjs",
+        "$TURBO_ROOT$/turbo.json",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    "@bb/server#build": {
+      "dependsOn": ["topo"],
+      "outputs": ["dist/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/plugins/bb-guide/skills/**",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/scripts/build-node-entry.mjs",
+        "$TURBO_ROOT$/scripts/build-package.mjs",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
+        "$TURBO_ROOT$/turbo.json"
+      ]
+    },
+    "@bb/plugin-build#build": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
+        "$TURBO_ROOT$/scripts/build-node-entry.mjs",
+        "$TURBO_ROOT$/packages/bb-app/package.json"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "prepare:bundled": {
+      "dependsOn": ["topo", "^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!dist/**",
+        "!.bundled-runtime/**",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ],
+      "outputs": [".bundled-runtime/**"]
+    },
+    "@bb/bundled-plugins#build": {
+      "dependsOn": [
+        "^prepare:bundled",
+        "@bb/server#generate:bb-official-marketplace"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/src/services/plugins/builtin-registry.ts",
+        "$TURBO_ROOT$/apps/server/src/services/plugin-catalog/bundled-marketplace-paths.ts"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "bb-app#build": {
+      "dependsOn": [
+        "@bb/app#build",
+        "@bb/server#build",
+        "@bb/bundled-plugins#build",
+        "@bb/host-daemon#build",
+        "@bb/cli#build",
+        "@bb/sdk#build",
+        "@get-bb/plugin-sdk#build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/bb-app/package.json",
+        "$TURBO_ROOT$/packages/bb-app/scripts/**",
+        "$TURBO_ROOT$/packages/bb-app/src/**",
+        "$TURBO_ROOT$/packages/bb-app/tsconfig.json",
+        "$TURBO_ROOT$/packages/sdk/package.json",
+        "$TURBO_ROOT$/packages/sdk/src/**",
+        "$TURBO_ROOT$/packages/sdk/tsconfig.json",
+        "$TURBO_ROOT$/packages/shared-ui/package.json",
+        "$TURBO_ROOT$/packages/shared-ui/src/**",
+        "$TURBO_ROOT$/packages/shared-ui/tsconfig.json",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/scripts/*.mjs"
+      ],
+      "outputs": ["app/**", "dist/**", "host-daemon/**", "server/**"]
+    },
+    "bb-app#build:host": {
+      "dependsOn": ["@bb/host-daemon#build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/host-daemon/dist/**",
+        "$TURBO_ROOT$/packages/bb-app/package.json",
+        "$TURBO_ROOT$/packages/bb-app/scripts/build-host.mjs",
+        "$TURBO_ROOT$/packages/bb-app/src/**",
+        "$TURBO_ROOT$/packages/bb-app/tsconfig.json",
+        "$TURBO_ROOT$/packages/config/package.json",
+        "$TURBO_ROOT$/packages/config/src/**",
+        "$TURBO_ROOT$/packages/config/tsconfig.json",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs"
+      ],
+      "outputs": ["host-package/**"]
+    },
+    "bb-plugin-tasks#build": {
+      // The tasks plugin's app bundle imports the @get-bb/plugin-sdk root at
+      // runtime (shared RPC contract), so the SDK dist must exist first.
+      "dependsOn": ["topo", "@get-bb/plugin-sdk#build"]
+    },
+    "@bb/desktop#build": {
+      "dependsOn": ["bb-app#build"],
+      "env": ["BB_DESKTOP_RELEASE_CHANNEL"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/desktop/**",
+        "$TURBO_ROOT$/packages/bb-app/app/**",
+        "$TURBO_ROOT$/packages/bb-app/dist/**",
+        "$TURBO_ROOT$/packages/bb-app/host-daemon/**",
+        "$TURBO_ROOT$/packages/bb-app/package.json",
+        "$TURBO_ROOT$/packages/bb-app/server/**",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/turbo.json"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@bb/desktop#desktop:build": {
+      "dependsOn": ["bb-app#build", "@bb/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#desktop:build:linux": {
+      "dependsOn": ["bb-app#build", "@bb/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#desktop:build:win": {
+      "dependsOn": ["bb-app#build", "@bb/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#smoke:packaged": {
+      "cache": false,
+      "outputs": [],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#smoke:packaged-npm": {
+      "cache": false,
+      "outputs": [],
+      "passThroughEnv": ["BB_DESKTOP_RELEASE_CHANNEL"]
+    },
+    "@bb/desktop#package": {
+      "dependsOn": ["bb-app#build", "@bb/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#package:linux": {
+      "dependsOn": ["bb-app#build", "@bb/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#package:win": {
+      "dependsOn": ["bb-app#build", "@bb/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#smoke:appimage-lifecycle": {
+      "cache": false,
+      "outputs": [],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#dev": {
+      "dependsOn": ["bb-app#build"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "@bb/desktop#start": {
+      "dependsOn": ["bb-app#build"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "@bb/app#dev": {
+      "dependsOn": ["@bb/templates#generate:templates"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "@bb/mobile#theme:generate": {
+      "cache": false
+    },
+    "@bb/mobile#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest*.ts",
+        "$TURBO_ROOT$/apps/app/src/components/ui/theme.css",
+        "$TURBO_ROOT$/apps/app/src/lib/themes/**"
+      ]
+    },
+    "@bb/mobile#dev": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "@bb/mobile#build:android:local": {
+      "cache": false,
+      "outputs": ["build-output/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/mobile#build:android:dev": {
+      "cache": false,
+      "outputs": ["build-output/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@bb/mobile#e2e:android": {
+      "cache": false,
+      "passThroughEnv": ["*"]
+    },
+    "storybook": {
+      "dependsOn": ["@bb/templates#generate:templates"],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "@bb/host-daemon#dev": {
+      // The source daemon injects apps/cli/bin/bb into agent shells. Build its
+      // gitignored runtime before the daemon starts so a sandboxed thread never
+      // has to write back into the daemon's checkout to bootstrap `bb`.
+      "dependsOn": [
+        "@bb/cli#build",
+        "@bb/templates#generate:templates",
+        "@bb/plugin-build#generate"
+      ],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "@bb/server#dev": {
+      // The server installs first-party provider plugins during startup and
+      // builds their host artifacts. Those builds resolve the published
+      // `@get-bb/plugin-sdk/provider-bridge` entry from the SDK dist, so a
+      // clean worktree must build that runtime before the server starts.
+      "dependsOn": [
+        "@bb/server#generate:bb-official-marketplace",
+        "@bb/templates#generate:templates",
+        "@bb/plugin-build#generate",
+        "@get-bb/plugin-sdk#build:runtime"
+      ],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "lint": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.oxlintrc.json",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/packages/plugin-registry/r/**",
+        "$TURBO_ROOT$/scripts/forkable-plugins.json",
+        "$TURBO_ROOT$/scripts/oxlint-plugin.mjs"
+      ]
+    },
+    "//#ensure-native-modules": {
+      "cache": false,
+      "inputs": [
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/db/package.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/scripts/ensure-native-modules.mjs"
+      ],
+      "outputs": []
+    },
+    // Transit node (no package defines a `topo` script; nothing executes).
+    // It exists so tasks that resolve `@bb/*` imports to *sources* — vitest
+    // and tsc both use the `source` export condition — hash the sources of
+    // dependency packages. Without it, a change in e.g. packages/domain
+    // would cache-hit @bb/server#test/#typecheck and skip them stale.
+    "topo": {
+      "dependsOn": ["^topo"]
+    },
+    // ---- Source generators --------------------------------------------------
+    // Generated modules are never committed (see .gitignore). Each generator
+    // is a turbo task with explicit inputs/outputs, so staleness is
+    // structurally impossible and the files can never merge-conflict.
+    //
+    // The owning package's `topo` node depends on its generators, so every
+    // task of that package and of every package that (transitively) depends
+    // on it — the ones that can resolve the generated sources — is ordered
+    // after them and hashes them. Unrelated packages are untouched.
+    "@bb/templates#topo": {
+      "dependsOn": [
+        "^topo",
+        "@bb/templates#generate:templates",
+        "@bb/templates#generate:plugin-scaffold"
+      ]
+    },
+    "@bb/process-utils#topo": {
+      "dependsOn": ["^topo", "@bb/process-utils#generate:profile-worker"]
+    },
+    "@bb/process-utils#generate:profile-worker": {
+      "dependsOn": [],
+      "inputs": [
+        "src/profile-worker.ts",
+        "src/stall-attribution.ts",
+        "src/stall-windows.ts",
+        "src/event-loop-delay.ts",
+        "scripts/generate-profile-worker.mjs",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml"
+      ],
+      "outputs": ["src/generated/profile-worker.ts"]
+    },
+    "@bb/plugin-build#topo": {
+      "dependsOn": ["^topo", "@bb/plugin-build#generate"]
+    },
+    "@bb/web#topo": {
+      "dependsOn": ["^topo", "@bb/server#generate:bb-official-marketplace"]
+    },
+    "@bb/server#topo": {
+      "dependsOn": ["^topo", "@bb/server#generate:bb-official-marketplace"]
+    },
+    "@bb/server#generate:bb-official-marketplace": {
+      "dependsOn": [],
+      "inputs": [
+        "scripts/generate-bb-official-marketplace.ts",
+        "src/services/plugin-catalog/bundled-marketplace-paths.ts",
+        "src/services/plugins/builtin-registry.ts",
+        "$TURBO_ROOT$/packages/domain/src/plugin-catalog-category.ts",
+        "$TURBO_ROOT$/packages/domain/src/plugin-id.ts",
+        "$TURBO_ROOT$/packages/domain/src/plugin-manifest.ts",
+        "$TURBO_ROOT$/plugins/*/package.json",
+        "$TURBO_ROOT$/plugins/*/PLUGIN_OVERVIEW.md",
+        "$TURBO_ROOT$/plugins/bb-official.json"
+      ],
+      "outputs": ["src/generated/bb-official-marketplace/marketplace.json"]
+    },
+    "@bb/templates#generate:templates": {
+      "dependsOn": [],
+      "inputs": [
+        "scripts/generate-templates.mjs",
+        "scripts/write-generated.mjs",
+        "src/templates/**"
+      ],
+      "outputs": ["src/generated/templates.generated.ts"]
+    },
+    // The `bb plugin new` starter files from the (committed) component
+    // registry.
+    "@bb/templates#generate:plugin-scaffold": {
+      "dependsOn": [],
+      "inputs": [
+        "scripts/generate-plugin-scaffold.mjs",
+        "scripts/write-generated.mjs",
+        "$TURBO_ROOT$/apps/app/package.json",
+        "$TURBO_ROOT$/packages/plugin-build/src/runtime-shims.mjs",
+        "$TURBO_ROOT$/packages/plugin-registry/r/**"
+      ],
+      "outputs": ["src/generated/plugin-starter-files.generated.ts"]
+    },
+    // Plugin theme CSS (from the app's theme.css + tw-animate-css) and the
+    // shared-runtime export manifest (introspected from installed packages).
+    "@bb/plugin-build#generate": {
+      "dependsOn": [],
+      "inputs": [
+        "scripts/generate-plugin-theme.mjs",
+        "scripts/generate-runtime-export-manifest.mjs",
+        "src/runtime-shims.mjs",
+        "$TURBO_ROOT$/apps/app/package.json",
+        "$TURBO_ROOT$/apps/app/src/components/ui/theme.css",
+        "$TURBO_ROOT$/packages/plugin-sdk/src/**",
+        "$TURBO_ROOT$/packages/shared-ui/src/**",
+        "$TURBO_ROOT$/pnpm-lock.yaml"
+      ],
+      "outputs": ["src/generated/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["topo"]
+    },
+    "@bb/app#typecheck": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/changelog-metadata.ts",
+        "$TURBO_ROOT$/changelog-parser.ts"
+      ]
+    },
+    "@bb/web#typecheck": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/changelog-metadata.ts",
+        "$TURBO_ROOT$/changelog-parser.ts",
+        "$TURBO_ROOT$/packages/shared-ui/src/**",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**"
+      ]
+    },
+    "@bb/host-daemon#build": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/scripts/build-node-entry.mjs",
+        "$TURBO_ROOT$/scripts/build-package.mjs",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
+        "$TURBO_ROOT$/scripts/precompress-app-dist.mjs",
+        "$TURBO_ROOT$/turbo.json"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@bb/cli#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/plugins/bb-guide/skills/bb-cli/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    // Integration tests typecheck without the `source` condition, so
+    // @get-bb/plugin-sdk (reached through apps/server sources) resolves to the
+    // package's published `types`: bundled-types/.
+    "@bb/integration-tests#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/package.json",
+        "$TURBO_ROOT$/apps/server/tsconfig.json",
+        "$TURBO_ROOT$/apps/server/src/**",
+        "$TURBO_ROOT$/packages/templates/package.json",
+        "$TURBO_ROOT$/packages/templates/scripts/**",
+        "$TURBO_ROOT$/packages/templates/src/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    // The source-wrapper test invokes the root `pnpm bb` script, which builds
+    // and executes @bb/cli. Model that cross-package dependency so CLI changes
+    // cannot leave this test hidden behind a stale Turbo cache entry.
+    "@bb/web#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest*.ts",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**",
+        "$TURBO_ROOT$/plugins/*/package.json"
+      ],
+      "passThroughEnv": [
+        "UPDATE_PARITY_ROW_COUNTS",
+        "UPDATE_TRANSCRIPT_EXPECTATIONS"
+      ]
+    },
+    "@bb/scripts#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "@bb/cli#build", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.github/actions/setup-workspace/**",
+        "$TURBO_ROOT$/.github/actions/setup-workspace-tools/**",
+        "$TURBO_ROOT$/.github/actions/install-appimage-fuse/**",
+        "$TURBO_ROOT$/.github/actions/cache-workspace/**",
+        "$TURBO_ROOT$/.github/workflows/ci.yml",
+        "$TURBO_ROOT$/.github/workflows/ci-cache-maintenance.yml",
+        "$TURBO_ROOT$/scripts/lib/**",
+        "$TURBO_ROOT$/scripts/forkable-plugins.json",
+        "$TURBO_ROOT$/.github/APPROVED_CONTRIBUTORS",
+        "$TURBO_ROOT$/.github/workflows/approve-contributor.yml",
+        "$TURBO_ROOT$/.github/workflows/pr-gate.yml",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/scripts/*.mjs",
+        "$TURBO_ROOT$/turbo.json",
+        "$TURBO_ROOT$/plugins/*/package.json",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/first-party-plugins.json",
+        "$TURBO_ROOT$/packages/bundled-plugins/package.json",
+        "$TURBO_ROOT$/apps/server/src/services/plugins/builtin-registry.ts",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    "@bb/provider-bridge-protocol#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest*.ts",
+        "$TURBO_ROOT$/plugins/provider-codex/src/**",
+        "$TURBO_ROOT$/plugins/provider-codex/package.json",
+        "$TURBO_ROOT$/plugins/provider-claude-code/src/**",
+        "$TURBO_ROOT$/plugins/provider-claude-code/package.json",
+        "$TURBO_ROOT$/packages/plugin-sdk/src/**"
+      ]
+    },
+    "@bb/provider-parity#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-sdk/package.json",
+        "$TURBO_ROOT$/packages/plugin-sdk/src/**",
+        "$TURBO_ROOT$/packages/provider-bridge-acp/package.json",
+        "$TURBO_ROOT$/packages/provider-bridge-acp/src/**",
+        "$TURBO_ROOT$/plugins/provider-acp/package.json",
+        "$TURBO_ROOT$/plugins/provider-acp/src/**",
+        "$TURBO_ROOT$/plugins/provider-acp/tsconfig.json",
+        "$TURBO_ROOT$/plugins/provider-claude-code/package.json",
+        "$TURBO_ROOT$/plugins/provider-claude-code/src/**",
+        "$TURBO_ROOT$/plugins/provider-claude-code/tsconfig.json",
+        "$TURBO_ROOT$/plugins/provider-codex/package.json",
+        "$TURBO_ROOT$/plugins/provider-codex/src/**",
+        "$TURBO_ROOT$/plugins/provider-codex/tsconfig.json",
+        "$TURBO_ROOT$/plugins/provider-pi/package.json",
+        "$TURBO_ROOT$/plugins/provider-pi/src/**",
+        "$TURBO_ROOT$/plugins/provider-pi/tsconfig.json",
+        "$TURBO_ROOT$/vitest*.ts"
+      ],
+      "passThroughEnv": ["UPDATE_PARITY_ROW_COUNTS"]
+    },
+    "test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
+      // Re-pin knobs a suite reads to rewrite its own committed baseline.
+      // Turbo strips undeclared variables, so a documented re-pin command
+      // (`UPDATE_PARITY_ROW_COUNTS=1 pnpm exec turbo run test …`) silently
+      // does nothing without them.
+      "passThroughEnv": [
+        "UPDATE_PARITY_ROW_COUNTS",
+        "UPDATE_TRANSCRIPT_EXPECTATIONS"
+      ]
+    },
+    "@bb/desktop#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
+      "passThroughEnv": ["DISPLAY"]
+    },
+    // plugin-scaffold-external packs @get-bb/plugin-sdk (prepack rebuilds its
+    // dist), so the SDK build is a dependency.
+    "@bb/templates#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "@get-bb/plugin-sdk#build:types",
+        "topo"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"]
+    },
+    // Installs first-party provider plugins, which makes the plugin runtime
+    // build their host artifacts. esbuild resolves the plugin sources'
+    // `@get-bb/plugin-sdk/provider-bridge` import through the package export
+    // map to `packages/plugin-sdk/dist/provider-bridge.js` — the `source`
+    // condition that lets vitest read `src/` does not apply inside that
+    // bundling step — so the SDK dist must exist before the suite runs.
+    "@bb/server#test": {
+      "env": ["BB_CI_TEST_SHARD", "VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "@bb/agent-runtime#generate:test-bridges",
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "@get-bb/plugin-sdk#build:types",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/plugins/*/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/host.ts",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
+        "$TURBO_ROOT$/examples/plugins/echo-provider/*.ts",
+        "$TURBO_ROOT$/examples/plugins/echo-provider/package.json",
+        "$TURBO_ROOT$/examples/plugins/echo-provider/src/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    // The thread.stop race suite builds the scripted echo bridge artifact and
+    // serves it through the daemon's artifact cache, so it needs the SDK dist
+    // for the same reason as @bb/server#test.
+    "@bb/host-daemon#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/host.ts",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    // Opt-in benchmarks: each package's bench script sets its own enable
+    // variable; output and size knobs pass through. Timings are not cacheable.
+    "bench": {
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "cache": false,
+      "passThroughEnv": [
+        "BB_SIDEBAR_BENCH_OUT",
+        "BB_SIDEBAR_BENCH_THREADS",
+        "BB_WATCHER_BENCHMARK_OUTPUT",
+        "PROMPTBOX_PERF_FIXTURE_OUT"
+      ]
+    },
+    // The provider-corpus gates read a private corpus through
+    // BB_PROVIDER_CORPUS_DIR and write snapshots next to it, so the task is
+    // uncacheable and must see those two variables (strict env mode strips
+    // everything undeclared). Without the variable the suites skip.
+    "@bb/server#test:provider-corpus": {
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "cache": false,
+      "passThroughEnv": [
+        "BB_PROVIDER_CORPUS_DIR",
+        "BB_PROVIDER_CORPUS_SNAPSHOT",
+        "BB_PROVIDER_CORPUS_SNAPSHOT_DIR",
+        "BB_PROVIDER_CORPUS_ALLOWLIST",
+        "BB_PROVIDER_CORPUS_ROW_CLASSES"
+      ]
+    },
+    // Builds real plugin host artifacts (the builtin artifacts suite, plus the
+    // fixture that pins the published bridge surface as bundled-not-stubbed),
+    // so it needs the SDK dist for the same reason as @bb/server#test.
+    "@bb/plugin-build#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "@get-bb/plugin-sdk#build:types",
+        "topo"
+      ],
+      // The SVG validator suite reads every first-party branding SVG.
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/vitest*.ts",
+        "$TURBO_ROOT$/plugins/*/icons/**",
+        "$TURBO_ROOT$/examples/plugins/*/icons/**"
+      ]
+    },
+    // Runtime unit suites restart the scripted echo provider repeatedly. Build
+    // the real bridge worker and bridge artifact once so each child launch
+    // executes JavaScript instead of re-transforming the TypeScript sources.
+    "@bb/agent-runtime#generate:test-bridges": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/domain/src/**",
+        "$TURBO_ROOT$/packages/plugin-sdk/src/**",
+        "$TURBO_ROOT$/packages/provider-bridge-protocol/src/**",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/src/**"
+      ],
+      "outputs": ["dist/test-bridges/**"]
+    },
+    "@bb/agent-runtime#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@bb/agent-runtime#generate:test-bridges",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    // The live-CLI suite's global setup rebuilds every first-party provider
+    // bridge from source, so it needs the SDK dist too.
+    "@bb/agent-runtime#test:integration": {
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
+      // The live-CLI suites spawn real provider CLIs. Turbo strips undeclared
+      // variables, so without these they start unauthenticated.
+      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "BB_CLAUDE_CODE_EXECUTABLE"]
+    },
+    "smoke:tarball": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "outputs": []
+    },
+    "smoke:boot": {
+      "dependsOn": ["build", "//#ensure-native-modules"],
+      "cache": false,
+      "outputs": []
+    },
+    // Boots the real server, which installs the first-party provider plugins
+    // and builds their host artifacts; those bundles resolve
+    // `@get-bb/plugin-sdk/provider-bridge` to the SDK dist.
+    "@bb/integration-tests#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/package.json",
+        "$TURBO_ROOT$/apps/server/tsconfig.json",
+        "$TURBO_ROOT$/apps/server/src/**",
+        "$TURBO_ROOT$/packages/templates/package.json",
+        "$TURBO_ROOT$/packages/templates/scripts/**",
+        "$TURBO_ROOT$/packages/templates/src/**",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/host.ts",
+        "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    "@bb/integration-tests#e2e:mobile-backend": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "@bb/integration-tests#e2e:mobile-connect-stub": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
+    },
+    "test:integration": {
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
+      // The live-CLI suites spawn real provider CLIs. Turbo strips undeclared
+      // variables, so without these they start unauthenticated.
+      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "BB_CLAUDE_CODE_EXECUTABLE"]
+    },
+    "@bb/integration-tests#test:integration": {
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@bb/agent-runtime#test:integration",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/package.json",
+        "$TURBO_ROOT$/apps/server/tsconfig.json",
+        "$TURBO_ROOT$/apps/server/src/**",
+        "$TURBO_ROOT$/packages/templates/package.json",
+        "$TURBO_ROOT$/packages/templates/scripts/**",
+        "$TURBO_ROOT$/packages/templates/src/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ],
+      "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "BB_CLAUDE_CODE_EXECUTABLE"]
+    },
+    // bundled-types/*.d.ts: the package's published `types` surface and the
+    // in-repo plugins' typecheck surface. ~20s (rollup-plugin-dts), so only
+    // real consumers depend on it. Generated modules are excluded from the
+    // hash: they are derived from sources already hashed here.
+    "@get-bb/plugin-sdk#build:types": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs"
+      ],
+      "outputs": ["bundled-types/**"]
+    },
+    "@get-bb/plugin-sdk#build": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@get-bb/plugin-sdk#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    // Several suites read bundled-types/*.d.ts from disk.
+    "@get-bb/plugin-sdk#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build:types",
+        "topo"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"]
+    },
+    "@get-bb/plugin-sdk#build:runtime": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/build-utils.mjs",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs"
+      ],
+      "outputs": ["dist/**"],
+      "dependsOn": ["topo"]
+    },
+    // ---- In-repo plugins typecheck against the SDK's bundled .d.ts ----------
+    // Either through a tsconfig `paths` map or through the workspace symlink's
+    // package `types` field; both land on bundled-types/, a build output.
+    "bb-plugin-bb--storage-retention#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-bb--composer#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-bb--composer#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@get-bb/plugin-sdk#build", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-composer-customization#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-plugin-api-docs#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-plugin-api-docs#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-plugin-api-docs#scaffold:surface-entry": {
+      "cache": false
+    },
+    "bb-plugin-echo-provider#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-scripted-echo-provider#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-replacement-lab-alpha#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-replacement-lab-beta#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-thread-chat-demo#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-ask-user-question#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-ask-user-question#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-account-pool#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-account-pool#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-automations#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-automations#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-concurrency-limit#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-concurrency-limit#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-environment-project-checkout#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-environment-git-worktree#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb--github-pr-status#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb--github-pr-status#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@get-bb/plugin-sdk#build", "topo"]
+    },
+    "bb-plugin-environment-personal-workspace#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-environment-personal-workspace#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-environment-modal-sandbox#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-environment-modal-sandbox#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-connect#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb--connect-next#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb-account#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb-ai#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb-guide#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb-guide#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-custom-instructions#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-custom-instructions#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-simple-notes#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-simple-notes#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-github#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-github#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-inline-vis#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-inline-vis#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-agent-annotations#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-agent-annotations#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-push-notifications#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-push-notifications#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-keep-awake#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-keep-awake#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-memory#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-memory#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-monaco-editor#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-monaco-editor#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-pdf-preview#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-pdf-preview#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-plugin-api-tester#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-plugin-api-tester#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-provider-acp#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-provider-acp#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-provider-claude-code#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-provider-claude-code#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-provider-codex#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-provider-codex#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-provider-pi#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-provider-pi#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-bb--mcp#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb--mcp#test": {
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-bb--prompt-library#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-bb--prompt-library#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-bb--provider-usage#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-bb--provider-usage#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-provider-retry#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-provider-retry#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-secrets#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-secrets#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-scheduled-send#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-scheduled-send#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-drafts#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"]
+    },
+    "bb-plugin-drafts#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "bb-plugin-side-chat#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-side-chat#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-theme-preview#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-theme-preview#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-navigation#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-navigation#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@get-bb/plugin-sdk#build", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-thread-list#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-thread-list#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-tasks#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-tasks#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-workflows#typecheck": {
+      "dependsOn": ["@get-bb/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "bb-plugin-workflows#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@get-bb/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "@bb/plugin-registry#typecheck": {
+      "dependsOn": ["topo"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/shared-ui/src/**"]
+    },
+    "@bb/plugin-registry#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/shared-ui/src/**"]
+    }
+  }
+}

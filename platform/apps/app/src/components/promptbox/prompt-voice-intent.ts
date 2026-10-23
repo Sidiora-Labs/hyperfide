@@ -1,0 +1,37 @@
+import type { PromptDraftState } from "@bb/client-core";
+import type { VoiceDelivery } from "@/lib/voice-recording-store";
+import type { PromptBoxHandle } from "./ComposerBox";
+
+export interface PromptVoiceDraftTarget {
+  getCurrent: () => PromptDraftState;
+  setDraft: (draft: PromptDraftState) => void;
+  submit?: () => void | Promise<void>;
+}
+
+interface PromptVoiceTranscriptTarget {
+  mounted: boolean;
+  promptBox: PromptBoxHandle | null;
+  draft: PromptVoiceDraftTarget | undefined;
+}
+
+export function deliverPromptVoiceTranscript(
+  text: string,
+  delivery: VoiceDelivery,
+  { mounted, promptBox, draft }: PromptVoiceTranscriptTarget,
+): Promise<void> | undefined {
+  const send = delivery === "send";
+  const voice = mounted ? promptBox?.voice : null;
+  if (voice) {
+    voice.deliverTranscript(text, delivery);
+    return;
+  }
+  if (!draft) return;
+  const current = draft.getCurrent();
+  const separator =
+    current.text.length > 0 && !/\s$/.test(current.text) ? " " : "";
+  draft.setDraft({
+    ...current,
+    text: `${current.text}${separator}${text}`,
+  });
+  if (send) return Promise.resolve(draft.submit?.());
+}

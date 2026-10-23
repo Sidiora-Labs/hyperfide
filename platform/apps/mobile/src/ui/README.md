@@ -1,0 +1,175 @@
+# bb mobile design system (`src/ui`, `src/theme`)
+
+NativeWind v5 (Tailwind v4) primitives that mirror `@bb/shared-ui`'s variant
+names, driven by the tokens generated from the web app's `theme.css`. Import
+from `@/ui` and `@/theme`.
+
+Android uses the web app’s palette, colored icon tiles, rounded bordered sections and
+center-aligned action sheets. Android action sheets default to menu rows; use
+`presentation="prompt"` for a permission or confirmation with an icon above the heading
+and primary action. Set an action’s `dismissOnPress` to `false` when it advances
+the same sheet to a confirmation. iOS keeps its system palette and inset grouped
+controls. The generator emits both palettes into `theme.native.ts`; edit
+`android-overrides.css` or `mobile-overrides.css`, then run
+`pnpm exec turbo run theme:generate --filter=@bb/mobile`.
+
+## Wiring (once, in `app/_layout.tsx`)
+
+```tsx
+import "../global.css";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { holdLaunchSplash, LaunchSplash, useAppBoot } from "@/app-shell";
+import { ThemeProvider } from "@/theme";
+import { SheetProvider, Toaster } from "@/ui";
+
+holdLaunchSplash();
+
+export default function RootLayout() {
+  const { ready } = useAppBoot();
+  if (!ready) return null;
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider
+          palette={
+            paletteFromServerConfig /* BuiltInThemeId, default "default" */
+          }
+        >
+          <SheetProvider>
+            <Stack />
+            <Toaster />
+            <LaunchSplash />
+          </SheetProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+```
+
+The native splash stays up until boot finishes, then `LaunchSplash` takes over
+with a pixel-identical React Native copy so the app keeps drawing underneath
+(Android's native splash blocks all drawing while it is up).
+Native screens fade the copy out on mount; `/` and `/webview` keep it until the
+web app reports ready or the shell shows an error (`revealApp()`), capped at
+eight seconds. Keep its logo sizes and colors in sync with the
+`expo-splash-screen` config in `app.json` and its overrides in `app.config.js`.
+The `bbMobileVariant` Expo extra value selects the orange dev logo for the
+React overlay, matching the native dev splash in both light and dark mode.
+
+`SheetProvider` is the `BottomSheetModalProvider` host; `Toaster` must sit
+inside it.
+
+## Theme
+
+- `useTheme()` → `{ palette, mode, preference, tokens, radii, setMode }`.
+  - `tokens` is `NativeThemeTokens` (camelCase, e.g. `tokens.mutedForeground`),
+    the palette × mode slice of the generated `theme.native.ts`.
+  - `setMode("system" | "light" | "dark")` persists to MMKV key `bb.theme`
+    (same key/values as the web app) and also forces RN's `Appearance` so
+    native surfaces follow.
+- Utility classes: every web `--color-*` token exists here with the same name
+  (`bg-background`, `text-foreground`, `border-border`, `bg-sidebar-accent`,
+  `text-destructive-text`, `bg-surface-selected`, …), plus opacity modifiers
+  (`bg-foreground/90`) and `active:` / `focus:` (Pressable / TextInput) in
+  place of web `hover:` / `focus-visible:`. Radii: `rounded-sm|md|lg|xl|2xl|full`
+  = 4/6/8/12/16/9999 (`theme.radii.sm|md|lg|xl|xl2|full`).
+- Type scale: the Apple text-style ramp, `text-2xs|xs|sm|base|lg|xl|2xl|3xl` =
+  11/13, 13/18, 15/20, 17/22, 20/25, 22/28, 28/34, 34/41 (size/line height:
+  caption2, footnote, subheadline, body, title3, title2, title1, largeTitle).
+  `nativeTypography` (from `@/theme/theme.native`) carries the same numbers for inline
+  styles. Large titles in navigation headers come from the native `Stack`,
+  not from `Text`.
+- Where values come from: `apps/app/src/components/ui/theme.css`, then
+  `src/theme/mobile-overrides.css` layered on top (the iOS system look for the
+  default palette: black/white anchors, systemBlue `--primary`, system status
+  colors, separator-class borders, `#1c1c1c`-class dark surfaces), then each
+  built-in palette last — so Nord/Dracula/… keep their own anchors and every
+  override derives from `--canvas`/`--ink`. Mobile-only values go in the
+  override file, never in theme.css; afterwards run
+  `pnpm --filter @bb/mobile theme:generate` and update the pinned tests
+  (`generate-native-theme.test.ts`, `theme-vars.test.ts`).
+- Grouped lists (iOS inset style): `bg-surface-grouped` is the page behind
+  the cards and `bg-surface-grouped-cell` the cards (`tokens.surfaceGrouped` /
+  `tokens.surfaceGroupedCell`). Light: tinted page, white cells; dark: black
+  page, lifted cells. These two tokens exist only on mobile.
+- Fonts: the platform system faces — SF Pro on iOS (`fontFamily: undefined`
+  plus a numeric `fontWeight`; italics via `fontStyle: "italic"`),
+  `sans-serif` on Android; mono is `Menlo` on iOS and `monospace` on Android
+  (`src/theme/font-platform.ts` + `font-platform.ios.ts`, chosen by Metro).
+  Nothing is downloaded or bundled, so there is no font load gate. `<Text>`
+  sets `fontFamily` + `fontWeight` from `weight`/`mono` or from
+  `font-medium|semibold|bold|mono` classes via `resolveFont`; outside `<Text>`
+  spread `resolveFont(...)` from `@/theme/fonts`, or read `FONT_FAMILIES` from
+  the same module (`FONT_FAMILIES.mono.regular` is always a string) with a
+  matching `fontWeight`.
+  `global.css` keeps `font-sans` / `font-mono` resolvable (`"System"` /
+  `monospace`) only so the class names work; CSS cannot select a family per
+  platform, so `<Text>`'s inline style is what actually renders. There are no
+  per-weight `font-sans-*` / `font-mono-*` utilities.
+- Do not use `leading-*` utilities (NativeWind emits em multipliers); the
+  `text-*` sizes already carry the web line heights.
+- `dark:` variants are unnecessary — swap happens through variables.
+
+## Platform rule
+
+iOS is the design target; Android must not crash. Primitives branch on
+`process.env.EXPO_OS === "ios"` (a module-level `IS_IOS`) for the iOS look
+and keep the previous Material/web look as the default. iOS-only modules
+(`@expo/ui/community/segmented-control`, `sf:` sources) live in `*.ios.tsx`
+siblings under `src/` with a same-named default twin (`Icon.ios.tsx` /
+`Icon.tsx`, `SegmentedChoice.ios.tsx` / `SegmentedChoice.tsx`) — never under `app/`, where
+expo-router would register them as routes. `platform-neutrality.test.ts`
+scans for `@expo/ui/swift-ui`, `Color.ios`, `Alert.prompt(` and `sf:` and
+fails unless the occurrence is in such a sibling or within 40 lines of a
+`Platform.select` / `Platform.OS === "ios"` / `EXPO_OS === "ios"` guard.
+Colors are always token strings (`tokens.primary`, `withAlpha(...)`); there
+is no `Color.ios` palette layer. `expo-glass-effect` (the Liquid Glass
+native view) is imported only in `GlassSurface.ios.tsx`; the same test fails
+an import anywhere else.
+
+### Liquid Glass (iOS 26)
+
+`GlassSurface` renders the Liquid Glass view only on iOS 26+ with the
+`UIGlassEffect` API present and falls back to its plain view on Android and
+older iOS. `HeaderGlass` puts it behind the native stack headers.
+
+## Primitives
+
+| Component                     | Props (beyond RN passthrough)                                                                                                                                                                                                                                                                                                | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Text`                        | `variant` body(15)·bodyLarge(17)·heading(17/600)·headline(17/600)·caption(13 muted)·footnote(13)·sectionLabel; `tone` default·muted·primary·destructive·warning·success; `weight`; `mono`; `className`                                                                                                                       | Themed RN Text on the Apple ramp. `sectionLabel` is sentence-case footnote on iOS, the uppercase overline on Android.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `Button`                      | `variant` default·outline·ghost·link; `size` sm·default; `icon` (IconName), `iconPosition`; `loading`; `onPress`; string or node children; `className`                                                                                                                                                                       | iOS maps the names onto system styles: default → filled primary capsule (44pt), outline → tinted (primary 15%), ghost/link → plain primary text; pressing dims to 60%. Android uses centered capsule buttons (48dp default, 36dp small).                                                                                                                                                                                                                                                                                                                                                                                         |
+| `Input`                       | `invalid`, `mono`, `grouped` (cell fill inside a `GroupedSection`), all `TextInputProps`                                                                                                                                                                                                                                     | iOS: 44pt filled field (`muted`), radius 10 continuous, no border (invalid = destructive hairline), clear button while editing, keyboard follows the theme mode. Android: h-10 bordered, `focus:border-ring`. `useInputFieldProps()` exposes the shared appearance for other inputs.                                                                                                                                                                                                                                                                                                                 |
+| `Switch`                      | `checked`, `onCheckedChange`, `disabled`                                                                                                                                                                                                                                                                                     | iOS: untinted system switch on the default palette, `primary` on-track for other palettes. Android: token-tinted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `Spinner`                     | `size`, `color`                                                                                                                                                                                                                                                                                                              | ActivityIndicator.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `EmptyStatePanel`             | children                                                                                                                                                                                                                                                                                                                     | Dashed panel.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `ListRow`                     | `title`, `leading` (node), `onPress`, `destructive`, `disabled`, `testID`                                                                                                                                                                                                                                                    | The `ActionSheet` row: 44pt, 17pt title, pressed = `state-active`. Also exports `DisclosureChevron` and `SelectedCheck`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `GroupedSection`              | `title`, `footer` (string or node), `separatorInset` (`"text"` or px), `testID`, children                                                                                                                                                                                                                                    | iOS inset-grouped card (`bg-surface-grouped-cell`, radius 10 continuous) with a footnote header/footer and hairline separators between direct children, inset past each row's `leading`/`badge` to its text column. Host screens use `bg-surface-grouped`.                                                                                                                                                                                                                                                                                                                                           |
+| `GroupedRow`                  | `title`, `subtitle`, `value`, `leading` / `leadingTone`, `badge: {icon, symbol?, color}`, `trailing` `"chevron"`·`"checkmark"`·node, `onPress`, `onLongPress`, `destructive`, `disabled`, `selected`, `titleLines`, `testID`, `accessibilityLabel`                                                                                       | One grouped cell: 44pt min, 17pt label, 17pt muted value on the right, SF chevron 14pt semibold. Put a `Switch` in `trailing` for toggle rows.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `IconBadge`                   | `icon`, `symbol`, `color` (token string)                                                                                                                                                                                                                                                                                     | Tinted 29pt rounded square (radius 7 continuous) with a white glyph — the iOS Settings row badge.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `Separator`                   | `inset` (px)                                                                                                                                                                                                                                                                                                                 | Hairline in `border-hairline`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `GlassSurface`                | `style` (shape + padding: `borderRadius`, `borderCurve`), `fallbackStyle` (fill + border without glass), `glassStyle` regular·clear, `tintColor` (token string), `interactive` (touch highlight, off by default), `layout` (Reanimated transition), `ViewProps`                                                              | A Liquid Glass surface on iOS 26+ (`expo-glass-effect` `GlassView`, children inside the effect, the radius shapes the glass; the view itself is the animated node so a `layout` transition grows the glass with the card) and the plain `style` + `fallbackStyle` view everywhere else.                                                                                                                                                                                                                                                                                                              |
+| `Icon`                        | `name` (IconName), `size` (default 20), `color` (default foreground token), `strokeWidth` (Hugeicons), `weight` (SF Symbols), `symbol` (iOS: an exact SF Symbol, e.g. a `.fill` variant, instead of the mapped one), `effect` (iOS 17+: expo-image `sfEffect`, e.g. `{ effect: "pulse", repeat: -1 }`), `accessibilityLabel` | The names the native screens render, bound to the same glyphs as shared-ui `ICON_MAP`; iOS renders the mapped SF Symbol (`sf-symbol-map.ts`), Android the Hugeicons glyph; `isIconName()` guard. `symbol`/`effect` are ignored by the Hugeicons renderer, so `name` stays the Android glyph.                                                                                                                                                                                                                                                                                                         |
+| `ActionSheet`                 | `controller` (from `useSheet()`); `title`, `message`, `actions: {key,label,icon?,destructive?,disabled?,onPress}[]`, `onDismiss`                                                                                                                                                                                             | A bottom sheet (`Sheet`, @gorhom/bottom-sheet in the UIKit sheet look: top radius 38 on iOS / 28 on Android, continuous, 36×5 grabber at 30% foreground, grouped page color; children realized two frames after present, retained afterwards) with a grouped card of 17pt rows (SF glyphs, destructive in red, warning haptic) and a separate tinted Cancel card. testIDs `action-sheet-<key>` / `action-sheet-cancel`. `useSheet()` → `SheetController {present, dismiss}` (stable; call from handlers): `const menu = useSheet(); <ActionSheet controller={menu} …/>; onLongPress={menu.present}`. |
+| `confirmDestructive(options)` | `{ title, message?, actionLabel, cancelLabel?, onConfirm, onCancel? }`                                                                                                                                                                                                                                                       | Warning haptic + `Alert.alert` with Cancel and a destructive button; used for native iOS confirmations; Android settings confirmations use `ActionSheet` prompts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `toast` / `Toaster`           | `toast.success \| error \| info \| message(msg, {description, duration, action})`                                                                                                                                                                                                                                            | sonner-native, themed: SF status glyphs via `Icon`, raised surface, radius 14 continuous, hairline only in light mode, system font.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+## Android WebView keyboard resizing
+
+`WebViewKeyboardFrame.android.tsx` reserves the keyboard’s target height at
+transition start and reconciles it at transition end. It deliberately does
+not follow animation frames: animating padding resizes Chromium repeatedly,
+causing page layout and paint work during both focus and blur. The default
+frame is a plain View for iOS. When changing keyboard handling, measure
+viewport resize counts during repeated focus/blur and verify Android Back,
+draft retention, keyboard height changes and rotation with the IME open.
+
+## Android action alignment
+
+Android `ActionSheet` menus and confirmation prompts center their headers,
+descriptions, and action labels. Actions are text-only so their labels stay
+centered. Confirmation prompts place one icon centered above the heading.
+Destructive confirmations use the same button height and capsule shape as
+notification prompts, with destructive text and a tinted background.

@@ -1,0 +1,732 @@
+@import "@fontsource-variable/inter";
+@import "@/components/ui/theme.css";
+
+@layer base {
+  /*
+   * Keep the real app shell from becoming a second scroll container. These
+   * selectors are class-scoped because Ladle imports app.css but does not use
+   * the Vite index.html shell classes.
+   *
+   * Use the dynamic viewport height in browser tabs so native/in-app browser
+   * chrome cannot leave the percentage-height containing block taller than
+   * the visible window.
+   *
+   * iOS standalone subtracts the top safe-area inset from the small and
+   * dynamic viewports but not from the large one. On a 852pt screen with a
+   * 59pt inset, innerHeight/100svh/100dvh/height:100% all report 793 while
+   * 100lvh reports the true 852. The shell starts at y=0 under the
+   * translucent status bar, so a 793pt shell leaves a 59pt dead band at the
+   * bottom. 100lvh is the only value that spans the screen.
+   *
+   * Scoped to standalone: in a Safari tab, lvh is the toolbars-retracted
+   * height, which is taller than what the user can see.
+   *
+   * `position: fixed` elements cannot inherit the shell height: a percentage
+   * height on them resolves against the initial containing block, which is the
+   * short 793pt viewport. They have to name the unit themselves, so this
+   * variable is the single switch both they and the shell root read.
+   */
+  :root {
+    --bb-app-chrome-row-height: 3rem;
+    --bb-chrome-control-gap: 0.25rem;
+    --bb-panel-chrome-padding: 1rem;
+    --bb-shell-height: 100dvh;
+    --bb-window-frame-top: 0px;
+    --bb-window-frame-lip: 0px;
+    --bb-window-frame-leading-lip: 0px;
+    --secondary-panel-width-mobile: min(76vw, 320px);
+    --bb-sidebar-rail-padding: var(--bb-frame-rail-padding);
+    --bb-sidebar-control-size: var(--bb-frame-rail-control-size);
+    --bb-sidebar-control-icon-size: 16px;
+  }
+
+  @media (width < 48rem) and (pointer: coarse) {
+    :root {
+      --bb-sidebar-rail-padding: 12px;
+      --bb-sidebar-control-size: 36px;
+      --bb-sidebar-control-icon-size: 20px;
+    }
+  }
+
+  [data-sidebar-header-slot]
+    :where(
+      button,
+      a,
+      input,
+      select,
+      textarea,
+      [role="button"],
+      [role="link"],
+      [tabindex]
+    ) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+
+  html.bb-app-shell-root {
+    height: var(--bb-shell-height);
+  }
+
+  body.bb-app-shell,
+  body.bb-app-shell #root {
+    height: 100%;
+  }
+
+  @media (display-mode: standalone) {
+    :root {
+      --bb-shell-height: 100lvh;
+    }
+  }
+
+  html.bb-app-shell-root,
+  body.bb-app-shell {
+    overflow: hidden;
+    /*
+     * Suppress vertical rubber-banding without blocking the native horizontal
+     * two-finger back/forward gesture.
+     */
+    overscroll-behavior-y: none;
+  }
+
+  /*
+   * App chrome (sidebar, page headers, composer toolbars) opts out of text
+   * selection with `select-none` so drags and Select All only pick up
+   * content. `user-select: auto` resolves from the parent, so WebKit would
+   * carry that opt-out into editable controls inside those regions (the
+   * inline thread-title rename, for example) and refuse to select their text.
+   * Restore native selection on the controls themselves.
+   */
+  .select-none
+    :where(input, textarea, [contenteditable]:not([contenteditable="false"])) {
+    user-select: text;
+  }
+
+  .chat-prompt-box {
+    padding-bottom: 0.5rem;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent)
+      transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+  }
+
+  /*
+   * Default the keyboard focus ring to the app's achromatic `--ring` instead of
+   * the browser's native outline, which `color-scheme` renders in the OS accent
+   * (blue in dark, the system accent in light) and clashes with the chroma-0
+   * design. Components that supply their own `focus-visible:outline-none` + ring
+   * override this from the utilities layer, so this only catches elements that
+   * would otherwise fall through to the UA focus ring.
+   */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+
+  /* Keep the drag cursor stable while crossing rows whose normal pointer
+   * cursor would otherwise override the cursor inherited from the body.
+   * Only the sidebar panel's rows carry their own cursor rules, so the
+   * descendant override is scoped to that panel rather than the whole
+   * document, and the rules exist only for fine pointers: a touch drag has
+   * no cursor, and a document-wide `*` rule would restyle every mounted
+   * timeline node when the body attribute flips at drag start and end. */
+  @media (pointer: fine) {
+    body[data-sidebar-dragging="true"],
+    body[data-sidebar-dragging="true"] [data-sidebar="panel"] * {
+      cursor: grabbing !important;
+    }
+  }
+
+  /* A sidebar drag projects the dragged row into the hovered list, which can
+   * grow or shrink content above the scrolled viewport. Scroll anchoring would
+   * then move scrollTop to keep the visible rows still, but dnd-kit offsets
+   * its measured droppable rects by that scroll delta even though nothing
+   * moved on screen, so `over` resolves against the wrong rows and the
+   * projection flips back and forth (#1830). Keep scrollTop stable while a
+   * sidebar drag is active so the measured geometry matches the pointer. */
+  body[data-sidebar-dragging="true"] [data-sidebar="content"] {
+    overflow-anchor: none;
+  }
+}
+
+@layer components {
+  /*
+   * Mention-pill surface. PROMPT_MENTION_PILL_CLASS owns layout, radius, and
+   * border width; this paints the theme-specific face, border, and soft shadow.
+   * The --selected modifier tints the same chip for the editor's drag-select
+   * highlight (mention icons are SVG and never take the native ::selection
+   * paint, so the pill colors itself).
+   */
+  .prompt-mention-pill {
+    color: var(--pill-foreground);
+    background: var(--pill-surface);
+    border-color: var(--pill-surface-border);
+    box-shadow: var(--pill-shadow);
+  }
+
+  /* Leading mention identity: a plain near-black outline glyph (near-white in
+   * dark), with no fill. */
+  .prompt-mention-pill svg {
+    color: var(--pill-icon);
+  }
+
+  /*
+   * Light up the `ultracode` keyword in the prompt editor with animated purple
+   * sparkles (mirrors Claude Code). The wrapping span is added as a ProseMirror
+   * inline decoration (see prompt-ultracode-highlight-extension.ts); it stays
+   * editable text, so this is paint-only. `background-clip: text` shimmers a
+   * purple gradient through the glyphs, and two pseudo-element glints twinkle at
+   * opposite corners. `prefers-reduced-motion` keeps the purple, drops motion.
+   */
+  .prompt-ultracode-highlight {
+    position: relative;
+    font-weight: 600;
+    background: linear-gradient(
+      90deg,
+      oklch(0.62 0.21 300) 0%,
+      oklch(0.74 0.18 318) 30%,
+      oklch(0.82 0.15 286) 50%,
+      oklch(0.74 0.18 318) 70%,
+      oklch(0.62 0.21 300) 100%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: ultracode-shimmer 3s linear infinite;
+  }
+
+  .prompt-ultracode-highlight::before,
+  .prompt-ultracode-highlight::after {
+    content: "✦";
+    position: absolute;
+    font-size: 0.62em;
+    line-height: 1;
+    color: oklch(0.84 0.16 308);
+    /* `-webkit-text-fill-color` is inherited, so the transparent fill above
+     * would hide these glyphs — repaint them solid. */
+    -webkit-text-fill-color: oklch(0.84 0.16 308);
+    pointer-events: none;
+    opacity: 0;
+    animation: ultracode-sparkle 1.8s ease-in-out infinite;
+  }
+
+  .prompt-ultracode-highlight::before {
+    top: -0.32em;
+    right: -0.42em;
+  }
+
+  .prompt-ultracode-highlight::after {
+    bottom: -0.22em;
+    left: -0.42em;
+    animation-delay: 0.9s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .prompt-ultracode-highlight {
+      animation: none;
+      background-position: 50% 0%;
+    }
+
+    .prompt-ultracode-highlight::before,
+    .prompt-ultracode-highlight::after {
+      animation: none;
+      opacity: 0.9;
+    }
+  }
+
+  [data-composer-box] {
+    container: promptbox / inline-size;
+  }
+
+  [data-promptbox-shell] {
+    container: promptbox-shell / inline-size;
+  }
+
+  /*
+   * The thread pane (timeline + composer footer) is a size container so a
+   * short stacked split can compact the follow-up composer. Its dimensions
+   * are determined by the split track, making size containment safe here.
+   */
+  [data-thread-window] {
+    container: thread-pane / size;
+  }
+
+  [data-follow-up-composer] {
+    container-name: follow-up-composer;
+  }
+
+  [data-scroll-overlay] {
+    container: scroll-overlay / inline-size;
+  }
+
+  [data-thread-toc] {
+    display: none;
+  }
+
+  @container scroll-overlay (min-width: 56rem) {
+    [data-thread-toc] {
+      display: block;
+    }
+  }
+
+  [data-promptbox-compact-label] {
+    display: none;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @container promptbox (max-width: 30rem) {
+    [data-composer-box] [data-promptbox-full-label],
+    [data-composer-box] [data-promptbox-hide-compact] {
+      display: none !important;
+    }
+
+    [data-composer-box] [data-promptbox-compact-label] {
+      display: block;
+      flex: 1 1 auto;
+    }
+
+    [data-composer-box] [data-promptbox-icon-only-control] {
+      flex-shrink: 0;
+    }
+
+    [data-composer-box] [data-promptbox-shrinkable-control] {
+      flex-shrink: 1 !important;
+    }
+  }
+
+  @container promptbox-shell (max-width: 34rem) {
+    [data-promptbox-shell] [data-promptbox-full-label],
+    [data-promptbox-shell] [data-promptbox-hide-compact] {
+      display: none !important;
+    }
+
+    [data-promptbox-shell] [data-promptbox-compact-label] {
+      display: block;
+      flex: 1 1 auto;
+    }
+
+    [data-promptbox-shell] [data-promptbox-icon-only-control] {
+      flex-shrink: 0;
+    }
+
+    [data-promptbox-shell] [data-promptbox-shrinkable-control] {
+      flex-shrink: 1 !important;
+    }
+
+    [data-promptbox-shell] [data-promptbox-project-control] {
+      flex-shrink: 0;
+      max-inline-size: 10rem;
+    }
+  }
+
+  @container promptbox-shell (max-width: 22rem) {
+    [data-promptbox-shell] [data-promptbox-hide-branch-compact],
+    [data-promptbox-shell] [data-promptbox-hide-tiny] {
+      display: none !important;
+    }
+  }
+
+  @media (width < 48rem) and (pointer: coarse) {
+    [data-new-thread-footer] button {
+      min-block-size: 2.75rem;
+    }
+  }
+
+  @media (width < 48rem) {
+    [data-new-thread-footer]
+      [data-promptbox-shrinkable-control]:has(~ :not(:empty)) {
+      flex-shrink: 0 !important;
+    }
+
+    [data-new-thread-footer]
+      [data-promptbox-shrinkable-control]:has(~ :not(:empty))
+      [data-promptbox-compact-label] {
+      display: none !important;
+    }
+
+    [data-new-thread-footer]
+      [data-promptbox-icon-only-control]
+      [data-promptbox-full-label] {
+      display: block !important;
+    }
+
+    [data-new-thread-footer] [data-promptbox-icon-only-control] {
+      flex-shrink: 1;
+    }
+  }
+}
+
+/*
+ * A narrow prompt shell or short thread pane sets the same custom-property
+ * flag on the follow-up composer. The style query below applies its one-line
+ * presentation once for either condition, then lets focus expand it. This is
+ * intentionally unlayered so it can override the prompt's utility classes.
+ * The mobile path still owns its React state so software-keyboard expansion
+ * remains synchronized with visualViewport changes.
+ */
+[data-plugin-shelf] {
+  container: plugin-shelf / inline-size;
+}
+
+[data-plugin-shelf-grid] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container plugin-shelf (min-width: 32.5rem) {
+  [data-plugin-shelf-grid] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container plugin-shelf (min-width: 49rem) {
+  [data-plugin-shelf-grid] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container promptbox-shell (max-width: 30rem) {
+  [data-follow-up-composer] {
+    --follow-up-composer-container-compact: true;
+  }
+}
+
+@container thread-pane ((min-height: 1px) and (max-height: 26rem)) {
+  [data-follow-up-composer] {
+    --follow-up-composer-container-compact: true;
+  }
+}
+
+@container follow-up-composer style(--follow-up-composer-container-compact: true) {
+  [data-follow-up-composer]:not([data-follow-up-composer-footer-visible])
+    [data-follow-up-composer-footer] {
+    min-height: 0;
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@layer base {
+  /*
+   * Sonner clips collapsed native toasts on the toast node. Our custom card
+   * lives inside that node, so clip it there too when it is behind the front
+   * toast in the stack.
+   */
+  :where(
+    [data-sonner-toast].bb-app-toast[data-expanded="false"][data-front="false"]
+  ) {
+    overflow: hidden;
+    border-radius: var(--radius-md);
+  }
+
+  /*
+   * Opt out of the global thin scrollbar for horizontally-scrolling strips
+   * (e.g. the secondary-panel tab strip) where the scrollbar would clutter a
+   * short row. The element still scrolls; only the scrollbar chrome is hidden.
+   */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * Keep reading surfaces visually quiet at rest while preserving the native
+   * scroll container, its hit area, and its layout geometry. The scroll owner
+   * briefly sets `data-scrollbar-scrolling` for real scroll events, matching
+   * the platform's transient scrollbar behavior without making content reflow
+   * as the thumb appears.
+   */
+  .thread-scrollbar,
+  .transient-scrollbar {
+    scrollbar-color: transparent transparent;
+  }
+
+  .thread-scrollbar::-webkit-scrollbar-thumb,
+  .thread-scrollbar::-webkit-scrollbar-thumb:hover,
+  .transient-scrollbar::-webkit-scrollbar-thumb,
+  .transient-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: transparent;
+  }
+
+  .thread-scrollbar[data-scrollbar-scrolling="true"],
+  .transient-scrollbar[data-scrollbar-scrolling="true"] {
+    scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent)
+      transparent;
+  }
+
+  .thread-scrollbar[data-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb,
+  .transient-scrollbar[data-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+  }
+
+  .thread-scrollbar[data-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb:hover,
+  .transient-scrollbar[data-scrollbar-scrolling="true"]::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .thread-scrollbar,
+    [data-sidebar="content"] {
+      scrollbar-width: none;
+    }
+
+    .thread-scrollbar::-webkit-scrollbar,
+    [data-sidebar="content"]::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  [data-vaul-drawer-direction] [data-sidebar="content"] {
+    scrollbar-color: transparent transparent;
+  }
+
+  [data-vaul-drawer-direction]
+    [data-sidebar="content"]::-webkit-scrollbar-thumb,
+  [data-vaul-drawer-direction]
+    [data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+    background-color: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    [data-vaul-drawer-direction] [data-sidebar="content"]:hover {
+      scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent)
+        transparent;
+    }
+
+    [data-vaul-drawer-direction]
+      [data-sidebar="content"]:hover::-webkit-scrollbar-thumb {
+      background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+    }
+
+    [data-vaul-drawer-direction]
+      [data-sidebar="content"]:hover::-webkit-scrollbar-thumb:hover {
+      background-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+    }
+  }
+
+  /*
+   * Opt out of the global thin scrollbar into always-visible classic
+   * scrollbars for two-axis data surfaces (e.g. the CSV table preview).
+   * Native thin scrollbars render as macOS overlay bars that fade out and
+   * give a wide table no persistent horizontal-scroll affordance. Chromium
+   * only honors `::-webkit-scrollbar` customization when `scrollbar-width`
+   * and `scrollbar-color` are both `auto`, so those resets are what
+   * re-enable the persistent chrome below.
+   */
+  .persistent-scrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  .persistent-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .persistent-scrollbar::-webkit-scrollbar-track,
+  .persistent-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .persistent-scrollbar::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .persistent-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+  }
+}
+
+/* Sweep the purple gradient across the `ultracode` glyphs. */
+@keyframes ultracode-shimmer {
+  0% {
+    background-position: 200% 0%;
+  }
+  100% {
+    background-position: -200% 0%;
+  }
+}
+
+/* Twinkle each corner sparkle: fade in, scale up, and spin a quarter turn. */
+@keyframes ultracode-sparkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(90deg);
+  }
+}
+
+@keyframes bb-search-flash {
+  0%,
+  25% {
+    background-color: var(--state-hover);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.bb-search-flash {
+  border-radius: var(--radius-lg, 0.5rem);
+  background-color: var(--state-hover);
+  animation: bb-search-flash 1.6s ease-out forwards;
+}
+
+@keyframes bb-settings-search-flash {
+  0%,
+  25% {
+    background-color: var(--state-hover);
+    box-shadow: 0 0 0 0.5rem var(--state-hover);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0.5rem transparent;
+  }
+}
+
+[data-settings-anchor].bb-search-flash {
+  box-shadow: 0 0 0 0.5rem var(--state-hover);
+  animation-name: bb-settings-search-flash;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-search-flash {
+    animation: none;
+  }
+}
+
+@keyframes bb-count-flash {
+  0%,
+  35% {
+    background-color: var(--foreground);
+    color: var(--background);
+  }
+}
+
+@keyframes bb-count-roll-in {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes bb-count-roll-out {
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+.bb-count-flash {
+  animation: bb-count-flash 1.2s ease-out;
+}
+
+.bb-count-roll-in {
+  animation: bb-count-roll-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bb-count-roll-out {
+  animation: bb-count-roll-out 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-count-roll-in {
+    animation: none;
+  }
+
+  .bb-count-roll-out {
+    display: none;
+  }
+}
+
+/* Browse hero (Plugins → Browse plugins): the archetype chips orbiting the mini bb
+ * window drift slowly so the hero reads as alive without competing with the
+ * composer sitting in the middle of it. Duration and delay are per-chip custom
+ * properties so each chip drifts out of phase with its neighbours from one
+ * shared rule. */
+@keyframes bb-hero-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+.bb-hero-chip {
+  animation: bb-hero-drift var(--bb-hero-drift-duration, 6s) ease-in-out
+    infinite;
+  animation-delay: var(--bb-hero-drift-delay, 0s);
+}
+
+/* Autoplay progress for the active slide segment. The element is keyed by slide
+ * in React, so a slide change remounts it and restarts the animation from zero
+ * rather than needing an imperative reset. */
+@keyframes bb-hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.bb-hero-progress-fill {
+  transform-origin: left center;
+  animation: bb-hero-progress var(--bb-hero-slide-duration, 5s) linear forwards;
+}
+
+.bb-hero-progress-fill[data-paused="true"] {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-hero-chip {
+    animation: none;
+  }
+
+  /* No autoplay under reduced motion, so the segment shows a resting full
+   * state instead of an animation frozen at zero width. */
+  .bb-hero-progress-fill {
+    animation: none;
+    transform: scaleX(1);
+  }
+}

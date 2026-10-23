@@ -1,0 +1,168 @@
+import { acquireProjectAttachmentOwnership } from "./project-attachments.js";
+import { projectAttachmentPaths } from "@bb/domain";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import {
+  PROMPT_HISTORY_ENTRY_LIMIT,
+  type PromptHistoryScope,
+  type PromptInput,
+} from "@bb/domain";
+import type { DbQueryConnection } from "../connection.js";
+import { promptHistoryEntries, threads } from "../schema.js";
+import { createPromptHistoryEntryId } from "../ids.js";
+
+export interface StoredPromptHistoryEntryRow {
+  createdAt: number;
+  id: string;
+  input: string;
+  projectId: string;
+  requestSequence: number;
+  scope: PromptHistoryScope;
+  threadId: string;
+}
+
+const storedPromptHistoryEntryColumns = {
+  createdAt: promptHistoryEntries.createdAt,
+  id: promptHistoryEntries.id,
+  input: promptHistoryEntries.input,
+  projectId: promptHistoryEntries.projectId,
+  requestSequence: promptHistoryEntries.requestSequence,
+  scope: promptHistoryEntries.scope,
+  threadId: promptHistoryEntries.threadId,
+};
+
+export interface CreatePromptHistoryEntryInput {
+  createdAt?: number;
+  input: PromptInput[];
+  projectId: string;
+  requestSequence: number;
+  scope: PromptHistoryScope;
+  threadId: string;
+}
+
+export interface ListStoredPromptHistoryArgs {
+  limit: number;
+}
+
+export interface ListStoredProjectPromptHistoryArgs extends ListStoredPromptHistoryArgs {
+  projectId: string;
+}
+
+export interface ListStoredThreadPromptHistoryArgs extends ListStoredPromptHistoryArgs {
+  threadId: string;
+}
+
+export interface PromptHistoryPosition {
+  createdAt: number;
+  requestSequence: number;
+  id: string;
+}
+
+export interface ListPromptHistoryPageArgs {
+  before: PromptHistoryPosition | null;
+  limit: number;
+}
+
+function rawPromptHistoryRowLimit(limit: number): number {
+  return Math.min(
+    PROMPT_HISTORY_ENTRY_LIMIT * 2,
+    limit + PROMPT_HISTORY_ENTRY_LIMIT,
+  );
+}
+
+export function createPromptHistoryEntry(
+  db: DbQueryConnection,
+  input: CreatePromptHistoryEntryInput,
+): StoredPromptHistoryEntryRow {
+  return db.transaction(
+    (tx) => {
+      acquireProjectAttachmentOwnership(
+        tx,
+        input.threadId,
+        projectAttachmentPaths(input.input),
+      );
+      const createdAt = input.createdAt ?? Date.now();
+      return tx
+        .insert(promptHistoryEntries)
+        .values({
+          id: createPromptHistoryEntryId(),
+          projectId: input.projectId,
+          threadId: input.threadId,
+          scope: input.scope,
+          requestSequence: input.requestSequence,
+          input: JSON.stringify(input.input),
+          createdAt,
+        })
+        .returning(storedPromptHistoryEntryColumns)
+        .get();
+    },
+    { behavior: "immediate" },
+  );
+}
+
+export function listStoredProjectPromptHistoryRows(
+  db: DbQueryConnection,
+  args: ListStoredProjectPromptHistoryArgs,
+): StoredPromptHistoryEntryRow[] {
+  return db
+    .select(storedPromptHistoryEntryColumns)
+    .from(promptHistoryEntries)
+    .innerJoin(threads, eq(threads.id, promptHistoryEntries.threadId))
+    .where(
+      and(
+        eq(promptHistoryEntries.projectId, args.projectId),
+        eq(promptHistoryEntries.scope, "project"),
+        isNull(threads.deletedAt),
+      ),
+    )
+    .orderBy(
+      desc(promptHistoryEntries.createdAt),
+      desc(promptHistoryEntries.requestSequence),
+      desc(promptHistoryEntries.id),
+    )
+    .limit(rawPromptHistoryRowLimit(args.limit))
+    .all();
+}
+
+export function listStoredThreadPromptHistoryRows(
+  db: DbQueryConnection,
+  args: ListStoredThreadPromptHistoryArgs,
+): StoredPromptHistoryEntryRow[] {
+  return db
+    .select(storedPromptHistoryEntryColumns)
+    .from(promptHistoryEntries)
+    .where(
+      and(
+        eq(promptHistoryEntries.threadId, args.threadId),
+        eq(promptHistoryEntries.scope, "thread"),
+      ),
+    )
+    .orderBy(
+      desc(promptHistoryEntries.createdAt),
+      desc(promptHistoryEntries.requestSequence),
+      desc(promptHistoryEntries.id),
+    )
+    .limit(rawPromptHistoryRowLimit(args.limit))
+    .all();
+}
+
+export function listPromptHistoryPage(
+  db: DbQueryConnection,
+  args: ListPromptHistoryPageArgs,
+): StoredPromptHistoryEntryRow[] {
+  const before = args.before;
+  return db
+    .select(storedPromptHistoryEntryColumns)
+    .from(promptHistoryEntries)
+    .where(
+      before === null
+        ? undefined
+        : sql`(${promptHistoryEntries.createdAt}, ${promptHistoryEntries.requestSequence}, ${promptHistoryEntries.id}) < (${before.createdAt}, ${before.requestSequence}, ${before.id})`,
+    )
+    .orderBy(
+      desc(promptHistoryEntries.createdAt),
+      desc(promptHistoryEntries.requestSequence),
+      desc(promptHistoryEntries.id),
+    )
+    .limit(args.limit)
+    .all();
+}

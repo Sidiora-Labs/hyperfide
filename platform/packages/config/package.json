@@ -1,0 +1,175 @@
+{
+  "name": "@bb/config",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    "./server": {
+      "source": "./src/server.ts",
+      "types": "./src/server.ts",
+      "default": "./src/server.ts"
+    },
+    "./vite-dev": {
+      "source": "./src/vite-dev.ts",
+      "types": "./src/vite-dev.ts",
+      "default": "./src/vite-dev.ts"
+    },
+    "./host-daemon": {
+      "source": "./src/host-daemon.ts",
+      "types": "./src/host-daemon.ts",
+      "default": "./src/host-daemon.ts"
+    },
+    "./host-daemon-entrypoint": {
+      "source": "./src/host-daemon-entrypoint.ts",
+      "types": "./src/host-daemon-entrypoint.ts",
+      "default": "./src/host-daemon-entrypoint.ts"
+    },
+    "./log-level": {
+      "source": "./src/log-level.ts",
+      "types": "./src/log-level.ts",
+      "default": "./src/log-level.ts"
+    },
+    "./logger": {
+      "source": "./src/logger.ts",
+      "types": "./src/logger.ts",
+      "default": "./src/logger.ts"
+    },
+    "./cli": {
+      "source": "./src/cli.ts",
+      "types": "./src/cli.ts",
+      "default": "./src/cli.ts"
+    },
+    "./defaults": {
+      "source": "./src/defaults.ts",
+      "types": "./src/defaults.ts",
+      "default": "./src/defaults.ts"
+    },
+    "./local-app-origins": {
+      "source": "./src/local-app-origins.ts",
+      "types": "./src/local-app-origins.ts",
+      "default": "./src/local-app-origins.ts"
+    },
+    "./loopback": {
+      "source": "./src/loopback.ts",
+      "types": "./src/loopback.ts",
+      "default": "./src/loopback.ts"
+    },
+    "./runtime": {
+      "source": "./src/runtime.ts",
+      "types": "./src/runtime.ts",
+      "default": "./src/runtime.ts"
+    },
+    "./objects": {
+      "source": "./src/objects.ts",
+      "types": "./src/objects.ts",
+      "default": "./src/objects.ts"
+    },
+    "./strings": {
+      "source": "./src/strings.ts",
+      "types": "./src/strings.ts",
+      "default": "./src/strings.ts"
+    },
+    "./server-url": {
+      "source": "./src/server-url.ts",
+      "types": "./src/server-url.ts",
+      "default": "./src/server-url.ts"
+    },
+    "./public-url": {
+      "source": "./src/public-url.ts",
+      "types": "./src/public-url.ts",
+      "default": "./src/public-url.ts"
+    },
+    "./bb-app-managed-config": {
+      "source": "./src/bb-app-managed-config.ts",
+      "types": "./src/bb-app-managed-config.ts",
+      "default": "./src/bb-app-managed-config.ts"
+    },
+    "./managed-json-file": {
+      "source": "./src/managed-json-file.ts",
+      "types": "./src/managed-json-file.ts",
+      "default": "./src/managed-json-file.ts"
+    },
+    "./file-lock": {
+      "source": "./src/file-lock.ts",
+      "types": "./src/file-lock.ts",
+      "default": "./src/file-lock.ts"
+    },
+    "./client-config": {
+      "source": "./src/client-config.ts",
+      "types": "./src/client-config.ts",
+      "default": "./src/client-config.ts"
+    },
+    "./app-runtime-file": {
+      "source": "./src/app-runtime-file.ts",
+      "types": "./src/app-runtime-file.ts",
+      "default": "./src/app-runtime-file.ts"
+    },
+    "./app-install": {
+      "source": "./src/app-install.ts",
+      "types": "./src/app-install.ts",
+      "default": "./src/app-install.ts"
+    },
+    "./cli-command": {
+      "source": "./src/cli-command.ts",
+      "types": "./src/cli-command.ts",
+      "default": "./src/cli-command.ts"
+    },
+    "./app-update": {
+      "source": "./src/app-update.ts",
+      "types": "./src/app-update.ts",
+      "default": "./src/app-update.ts"
+    },
+    "./app-surface": {
+      "source": "./src/app-surface.ts",
+      "types": "./src/app-surface.ts",
+      "default": "./src/app-surface.ts"
+    },
+    "./skill-storage-paths": {
+      "source": "./src/skill-storage-paths.ts",
+      "types": "./src/skill-storage-paths.ts",
+      "default": "./src/skill-storage-paths.ts"
+    },
+    "./codex-home": {
+      "source": "./src/codex-home.ts",
+      "types": "./src/codex-home.ts",
+      "default": "./src/codex-home.ts"
+    },
+    "./verified-process-stop": {
+      "source": "./src/verified-process-stop.ts",
+      "types": "./src/verified-process-stop.ts",
+      "default": "./src/verified-process-stop.ts"
+    },
+    "./machine-service": {
+      "source": "./src/machine-service.ts",
+      "types": "./src/machine-service.ts",
+      "default": "./src/machine-service.ts"
+    },
+    "./child-process-exit": {
+      "source": "./src/child-process-exit.ts",
+      "types": "./src/child-process-exit.ts",
+      "default": "./src/child-process-exit.ts"
+    },
+    "./desktop-app-update": {
+      "source": "./src/desktop-app-update.ts",
+      "types": "./src/desktop-app-update.ts",
+      "default": "./src/desktop-app-update.ts"
+    }
+  },
+  "scripts": {
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "lint": "oxlint src",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@bb/domain": "workspace:*",
+    "@bb/process-utils": "workspace:*",
+    "fs-native-extensions": "1.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@bb/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
+  }
+}

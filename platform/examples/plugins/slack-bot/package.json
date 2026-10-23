@@ -1,0 +1,30 @@
+{
+  "name": "bb-plugin-slack-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bb": ">=0.0",
+    "bbPluginSdk": ">=0.4.3"
+  },
+  "bb": {
+    "name": "Slack bot",
+    "description": "Demonstrate a signed webhook bot backed by BB agent threads.",
+    "branding": {
+      "icon": "Zap"
+    },
+    "server": "./server.ts"
+  },
+  "keywords": [
+    "bb-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "workspace:*",
+    "@types/node": "^22.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

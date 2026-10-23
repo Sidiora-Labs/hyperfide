@@ -1,0 +1,73 @@
+import { describe, expect, it } from "vitest";
+import type { PendingInteraction, PendingInteractionPayload } from "@bb/domain";
+import { formatPendingInteractionSummary } from "../src/pending-interaction-presentation.js";
+
+function createInteraction(
+  payload: PendingInteractionPayload,
+): PendingInteraction {
+  const base = {
+    id: "pint_123456789a",
+    threadId: "thr_123",
+    turnId: "turn_123",
+    providerId: "codex",
+    providerThreadId: "provider-thread-123",
+    providerRequestId: "request-123",
+    status: "pending" as const,
+    resolution: null,
+    statusReason: null,
+    createdAt: 1,
+    resolvedAt: null,
+  };
+  switch (payload.kind) {
+    case "approval":
+      return { ...base, payload };
+    case "user_question":
+      return { ...base, payload };
+    default:
+      return { ...base, payload };
+  }
+}
+
+describe("pending interaction presentation", () => {
+  it("formats command approval summaries from the approval reason", () => {
+    const interaction = createInteraction({
+      kind: "approval",
+      subject: {
+        kind: "command",
+        itemId: "item_123",
+        command: "npm publish",
+        cwd: "/tmp/project",
+        actions: [],
+        sessionGrant: null,
+      },
+      reason: "Needs approval to publish",
+      availableDecisions: ["allow_once", "deny"],
+    });
+
+    expect(formatPendingInteractionSummary({ interaction })).toBe(
+      "Needs approval to publish",
+    );
+  });
+
+  it("formats permission request summaries from the tool name", () => {
+    const interaction = createInteraction({
+      kind: "approval",
+      subject: {
+        kind: "permission_grant",
+        itemId: "item_123",
+        toolName: "WebFetch",
+        permissions: {
+          network: { enabled: true },
+          fileSystem: {
+            read: ["/tmp/a", "/tmp/b"],
+            write: [],
+          },
+        },
+      },
+      reason: null,
+      availableDecisions: ["allow_once", "allow_for_session", "deny"],
+    });
+
+    expect(formatPendingInteractionSummary({ interaction })).toBe("WebFetch");
+  });
+});

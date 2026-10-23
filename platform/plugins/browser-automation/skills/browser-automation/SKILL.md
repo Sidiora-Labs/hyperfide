@@ -1,0 +1,119 @@
+---
+name: browser-automation
+description: Use the Browser Automation BB plugin to inspect and automate persistent browser pages in an explicit desktop or local headless session. Use for browser navigation, snapshots, clicking, forms, and verification screenshots.
+---
+
+Use `bb browser-automation`. Open one session, retain its session ID, then inspect,
+act, and verify in short scripts.
+
+`--machine` accepts an exact host ID or an unambiguous machine name. Exact IDs
+take precedence over names; unknown or ambiguous names fail before opening a session.
+
+Choose `--backend local --headless --machine <host-id>` for headless Chrome on
+an enrolled host. Choose `--backend desktop --machine <host-id> --desktop
+<instance-id>` for a new desktop automation tab. Desktop tabs use the BB
+browser's profile, including the user's signed-in cookies. Starting desktop
+control opens the side panel and selects the browser tab only if its thread is
+already focused. New or activated controller pages follow the same rule;
+automation does not switch threads or bring the desktop window forward. While
+controlled, a desktop tab never takes keyboard focus from the composer or other
+apps; the user presses Take over to type into it. Headless sessions remain headless.
+Plugin-owned local/headless Chrome launches with `--no-sandbox`, disabling Chrome's
+sandbox. Desktop attachment does not change the browser's launch flags.
+Resolve the explicit instance with `bb browser instances --host <host-id> --json`
+first. Never silently choose a different host or mode.
+Adding `--tab <tab-id>` takes control of an existing tab; do so only when the
+user asked to use that tab. The CLI uses the
+current thread, or `--thread <id>` outside a thread. Each session belongs to
+that thread.
+
+CLI opening:
+
+```sh
+bb browser-automation open --backend local --headless --machine <host-id> --json
+bb browser-automation open --backend desktop --machine <host-id> --desktop <instance-id> --json
+```
+
+Run scripts:
+
+```sh
+bb browser-automation run <session-id> --script 'const p = await browser.getPage("main"); await p.goto("https://example.com"); await p.snapshot()' --json
+bb browser-automation run <session-id> --script 'const p = await browser.getPage("main"); await p.click("ref/e6"); await p.snapshot()' --json
+bb browser-automation screenshot <session-id> --page main --json
+```
+
+Take a fresh snapshot before using refs after navigation or document changes.
+Use refs from that session's DevBrowser snapshot. Do not mix agent-browser refs
+or invent selectors. Prefer a cheap URL/text/snapshot check after each action;
+request a screenshot when visual verification matters. Use
+`await p.shot({type:"jpeg",maxEdge:960,quality:70}); undefined` inside scripts to
+return a bounded JPEG file.
+
+`run` and `screenshot` return JSON with `hostId` and `images`, where each image
+has `path`, `mimeType`, `width`, and `height`. The path is in the browser session's
+temporary directory on that host. Use your image-reading tool on the path when
+you are on the same machine. If the browser host differs, fetch the image to
+local temporary storage first (substitute the returned path and host ID):
+
+```sh
+bb file read '<image-path>' --host '<host-id>' --json | node -e '
+const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
+const file = JSON.parse(fs.readFileSync(0, "utf8"));
+if (file.contentEncoding !== "base64") throw new Error("Expected binary image");
+const destination = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "browser-image-")), "capture.jpg");
+fs.writeFileSync(destination, Buffer.from(file.content, "base64"), {mode: 0o600});
+console.log(destination);
+'
+```
+
+Read the printed local path with your image-reading tool. Do not print base64
+image bytes into the conversation. Read or copy captures before closing the
+session: cleanup removes its temporary directory. Remove local copies when
+finished.
+
+A local headless `open` returns a `previewDirective`, for example
+`::browser-preview{session="<session-id>"}`. Copy it into your next message
+exactly once as a standalone line, before you continue working. Do not wrap it
+in backticks or a code fence, and do not invent or edit the session ID. BB
+renders it as a live view of that browser in the chat, which the user can
+expand, so they can watch while you work. Desktop
+sessions return no directive; that browser is already visible in the side
+panel. `bb browser-automation preview <session-id> --json` reports the live
+frame's `url`, `title`, size, and `sequence` without image bytes; it is not a
+substitute for `screenshot` when you need to see the page.
+
+`pages` lists persistent pages. Runs serialize within a session. Scripts are
+trusted JavaScript with Puppeteer-style DevBrowser APIs, not a sandbox.
+`--script-file` requires `--script-host <host-id>` naming the source host explicitly. Browser file
+operations and `localhost` refer to the browser host. Transfer files explicitly.
+
+Stop cancels running and queued work and releases desktop control. Cancellation
+and timeout stop the session too; open a new session to resume. Close disposes
+owned Chrome and desktop tabs the session opened while preserving a `--tab` tab.
+Close sessions after use. When `close` or `stop` fails, the session still
+accepts no more commands, but its browser may still be running; run `close`
+again to retry cleanup. `run`, `pages`, and `screenshot` renew expiry at their start and completion to
+30 minutes later, capped at eight hours from creation. Active scripts are not idle;
+the hard deadline still stops running work. `list` and live preview do not renew
+expiry. Desktop leases and connections cannot be renewed through the current API,
+so desktop sessions still end at their earlier deadline (at most 30 minutes from
+creation). Timeouts default to 30 seconds, maximum 120 seconds: pass either
+`--timeout-ms <1000-120000>` or `--timeout <duration>`, where a duration carries
+a unit (`90s`, `2m`, `1500ms`) and a bare number is read as seconds (1-120) or
+milliseconds (1000-120000).
+
+A run may return at most 4 screenshots, JPEG only, 500 KB combined; a larger or
+differently encoded capture fails the run. `bb browser-automation --help` and
+`bb browser-automation <command> --help` print every flag with these limits.
+Unknown commands and flags fail with a suggestion, and with `--json` a failure
+prints `{"ok":false,"error":{"code":…,"message":…,"hint":…}}` on stdout (code
+`session_unavailable` when the session stopped or expired, `screenshot_limit`
+for capture limits) while the same message stays on stderr.
+
+An unavailable backend or a failed runtime install is an actionable setup
+error, not permission to attach to a random browser. The first open on a host
+installs the pinned `dev-browser` npm release into plugin-owned host storage
+there and verifies its provenance and digest; it needs npm, network access, and
+Chrome on that host, and can take a minute. Later opens reuse the verified
+install offline. The exact pin and Chrome setup are documented in the plugin
+README. Cloud browsers and arbitrary CDP endpoints are unsupported.

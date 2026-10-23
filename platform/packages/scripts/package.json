@@ -1,0 +1,44 @@
+{
+  "name": "@bb/scripts",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "bb-script-archive-codex-tmp-bb-sessions": "./dist/commands/archive-codex-tmp-bb-sessions.js",
+    "bb-script-reset-bb-data": "./dist/commands/reset-bb-data.js",
+    "bb-script-run-cli": "./dist/commands/run-cli.js"
+  },
+  "exports": {
+    "./lib/run-dev-supervisor": {
+      "source": "./src/lib/run-dev-supervisor.ts",
+      "types": "./src/lib/run-dev-supervisor.ts",
+      "import": "./dist/lib/run-dev-supervisor.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@bb/config": "workspace:*",
+    "@bb/db": "workspace:*",
+    "@bb/domain": "workspace:*",
+    "@bb/host-daemon-contract": "workspace:*",
+    "@bb/process-utils": "workspace:*",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@bb/test-helpers": "workspace:*",
+    "@bb/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1",
+    "yaml": "^2.9.0"
+  }
+}

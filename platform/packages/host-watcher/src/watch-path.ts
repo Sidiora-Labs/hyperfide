@@ -1,0 +1,164 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { createDebouncedCallbackScheduler } from "@bb/domain";
+import { isPathWithinDirectory } from "@bb/process-utils";
+import {
+  RootSubscription,
+  type ParcelWatcherEventBatch,
+} from "./root-subscription.js";
+import { toWatchErrorMessage } from "./watch-error.js";
+import type {
+  PathChangeWatchArgs,
+  PathChangeWatchError,
+} from "./watch-path-types.js";
+import { resolveEventPath } from "./watch-specs.js";
+
+const PATH_CHANGE_WATCH_DEBOUNCE_MS = 75;
+const PATH_CHANGE_WATCH_MAX_WAIT_MS = 500;
+const PATH_CHANGE_WATCH_RETRY_DELAY_MS = 250;
+const PATH_CHANGE_WATCH_MAX_RETRY_DELAY_MS = 30_000;
+const PATH_CHANGE_WATCH_HEAVY_TREE_NAMES = [
+  "node_modules",
+  ".pnpm-store",
+  ".venv",
+  "venv",
+  ".turbo",
+  ".next",
+  ".cache",
+  "__pycache__",
+];
+const PATH_CHANGE_WATCH_IGNORES = [
+  `**/{${PATH_CHANGE_WATCH_HEAVY_TREE_NAMES.join(",")}}/**`,
+  "**/.git/**",
+];
+
+interface PathChangeWatcherArgs extends PathChangeWatchArgs {
+  path: string;
+  debounceMs: number;
+  maxRetryDelayMs: number;
+  maxWaitMs: number;
+  retryDelayMs: number;
+}
+
+function createPathChangeCallbackError(
+  watchedPath: string,
+  error: unknown,
+): PathChangeWatchError {
+  return {
+    message: `Path change callback failed: ${toWatchErrorMessage(error)}`,
+    rootPath: watchedPath,
+  };
+}
+
+function collectTouchedTargetPaths(
+  targetPath: string,
+  events: ParcelWatcherEventBatch,
+): string[] {
+  const touchedPaths = new Set<string>();
+  for (const event of events) {
+    const candidatePath = resolveEventPath(targetPath, event.path);
+    if (isPathWithinDirectory(targetPath, candidatePath)) {
+      touchedPaths.add(candidatePath);
+    }
+  }
+  return Array.from(touchedPaths).sort();
+}
+
+class PathChangeWatcher {
+  private disposed = false;
+  private readonly changedPaths = new Set<string>();
+  private readonly subscription: RootSubscription;
+  private readonly changeScheduler;
+  private readonly targetPath: string;
+
+  constructor(private readonly args: PathChangeWatcherArgs) {
+    this.targetPath = path.resolve(args.path);
+    this.changeScheduler = createDebouncedCallbackScheduler({
+      debounceMs: args.debounceMs,
+      maxWaitMs: args.maxWaitMs,
+      onFlush: () => {
+        if (this.disposed) {
+          return;
+        }
+        try {
+          const changedPaths = Array.from(this.changedPaths).sort();
+          this.changedPaths.clear();
+          if (changedPaths.length === 0) {
+            return;
+          }
+          this.args.onChange({ changedPaths });
+        } catch (error) {
+          this.args.onWatchError(
+            createPathChangeCallbackError(this.targetPath, error),
+          );
+        }
+      },
+    });
+    this.subscription = new RootSubscription({
+      rootPath: this.targetPath,
+      subscribeOptions: { ignore: [...PATH_CHANGE_WATCH_IGNORES] },
+      retryDelayMs: args.retryDelayMs,
+      maxRetryDelayMs: args.maxRetryDelayMs,
+      onEvents: (events) => {
+        const touchedPaths = collectTouchedTargetPaths(this.targetPath, events);
+        if (touchedPaths.length === 0) {
+          return;
+        }
+        for (const touchedPath of touchedPaths) {
+          this.changedPaths.add(touchedPath);
+        }
+        this.changeScheduler.schedule();
+      },
+      onDroppedEvents: () => {
+        void this.rescanAfterDroppedEvents();
+      },
+      onWatchError: (message) => {
+        this.args.onWatchError({ message, rootPath: this.targetPath });
+      },
+    });
+  }
+
+  start(): void {
+    this.subscription.start();
+  }
+
+  async dispose(): Promise<void> {
+    this.disposed = true;
+    this.changeScheduler.dispose();
+    this.changedPaths.clear();
+    await this.subscription.dispose();
+  }
+
+  private async rescanAfterDroppedEvents(): Promise<void> {
+    let entries: string[];
+    try {
+      entries = await fs.readdir(this.targetPath);
+    } catch {
+      return;
+    }
+    if (this.disposed || entries.length === 0) {
+      return;
+    }
+    for (const entry of entries) {
+      this.changedPaths.add(path.join(this.targetPath, entry));
+    }
+    this.changeScheduler.schedule();
+  }
+}
+
+export function watchPathChanges(
+  watchedPath: string,
+  args: PathChangeWatchArgs,
+): () => Promise<void> {
+  const watcher = new PathChangeWatcher({
+    path: watchedPath,
+    debounceMs: PATH_CHANGE_WATCH_DEBOUNCE_MS,
+    maxRetryDelayMs: PATH_CHANGE_WATCH_MAX_RETRY_DELAY_MS,
+    maxWaitMs: PATH_CHANGE_WATCH_MAX_WAIT_MS,
+    onChange: args.onChange,
+    onWatchError: args.onWatchError,
+    retryDelayMs: PATH_CHANGE_WATCH_RETRY_DELAY_MS,
+  });
+  watcher.start();
+  return () => watcher.dispose();
+}

@@ -1,0 +1,121 @@
+{
+  "expo": {
+    "name": "bb",
+    "slug": "bb-app",
+    "owner": "bb-team",
+    "version": "0.39.0",
+    "scheme": "bb",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "app.getbb.mobile",
+      "supportsTablet": true,
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/ios-icon-dark.png"
+      },
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "bb connects to a bb server on your local network or tailnet.",
+        "NSCameraUsageDescription": "bb attaches photos you take to your prompts.",
+        "NSMicrophoneUsageDescription": "bb records voice input and transcribes it into your prompt.",
+        "NSPhotoLibraryUsageDescription": "bb attaches photos you pick to your prompts.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "UIBackgroundModes": ["remote-notification"]
+      },
+      "associatedDomains": ["applinks:getbb.app", "applinks:*.getbb.app"]
+    },
+    "android": {
+      "package": "app.getbb.mobile",
+      "permissions": ["android.permission.MODIFY_AUDIO_SETTINGS"],
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "*.getbb.app",
+              "pathPrefix": "/threads/"
+            },
+            {
+              "scheme": "https",
+              "host": "*.getbb.app",
+              "pathPrefix": "/projects/"
+            },
+            {
+              "scheme": "https",
+              "host": "*.getbb.app",
+              "pathPrefix": "/settings/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "./plugins/with-selection-accent",
+      "./plugins/with-push-consent",
+      "expo-router",
+      "expo-secure-store",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 88,
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/splash-logo-dark.png",
+            "backgroundColor": "#000000"
+          },
+          "android": {
+            "dark": {
+              "backgroundColor": "#151515"
+            }
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-notification-icon.png",
+          "color": "#000000",
+          "defaultChannel": "threads"
+        }
+      ],
+      "expo-quick-actions",
+      "expo-camera",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3dca8cca-f48a-4c3a-ba3d-3af40e58a588"
+      }
+    }
+  }
+}

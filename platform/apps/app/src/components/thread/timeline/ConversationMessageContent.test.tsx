@@ -1,0 +1,622 @@
+// @vitest-environment jsdom
+
+import { LazyMarkdownHtml } from "@/components/ui/lazy-markdown-html";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ThreadListEntry } from "@bb/domain";
+import { beforeAll, afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
+import { RouteNavigationProvider } from "@/components/ui/app-route-anchor";
+import {
+  MessageDirectiveRegistryProvider,
+  type MessageDirectiveRegistry,
+} from "@/components/ui/markdown-message-directives";
+import { ConversationMessageContent } from "./ConversationMessageContent";
+import { USER_MESSAGE_CHAR_CAP } from "@bb/client-core";
+import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
+import { makeThreadListEntry as makeThreadListEntryFixture } from "@bb/test-helpers/domain-fixtures";
+
+beforeAll(() => LazyMarkdownHtml.preload());
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+function threadListEntry(
+  overrides: Partial<ThreadListEntry> = {},
+): ThreadListEntry {
+  return makeThreadListEntryFixture({
+    id: "thr_test",
+    title: "Thread",
+    titleFallback: "Thread",
+    lastReadAt: 0,
+    latestAttentionAt: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  });
+}
+
+describe("ConversationMessageContent assistant images", () => {
+  it("serves local Markdown images through the thread host-file route", () => {
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ConversationMessageContent
+            role="assistant"
+            attachments={null}
+            id="msg_image"
+            threadId="thr_image"
+            turnId="turn_image"
+            showActions={false}
+            mobileActionDisplay="overflow"
+            streaming={false}
+            timestamp={0}
+            text={
+              '![Generated diagram](/workspace/output/diagram.png)\n\n<video src="/workspace/output/clip.mp4" title="Clip" controls></video>'
+            }
+          />
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen
+        .getByRole("img", { name: "Generated diagram" })
+        .getAttribute("src"),
+    ).toBe("/api/v1/threads/thr_image/host-files/workspace/output/diagram.png");
+    expect(screen.getByLabelText("Clip").getAttribute("src")).toBe(
+      "/api/v1/threads/thr_image/host-files/workspace/output/clip.mp4",
+    );
+  });
+});
+
+describe("ConversationMessageContent user images", () => {
+  it("passes original attachment names and sizes through the user message", () => {
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ConversationMessageContent
+            role="user"
+            attachments={{
+              webImages: 0,
+              localImages: 0,
+              localFiles: 1,
+              imageUrls: [],
+              localImagePaths: [],
+              localFilePaths: ["uploaded-paste.txt"],
+              localFileDetails: [
+                {
+                  path: "uploaded-paste.txt",
+                  name: "Pasted text.txt",
+                  sizeBytes: 3638577,
+                },
+              ],
+            }}
+            initiator="user"
+            mentions={[]}
+            senderThreadId={null}
+            senderThreadTitle={null}
+            senderIsPluginSideChat={false}
+            systemMessageKind="unlabeled"
+            systemMessageSubject={null}
+            text="Inspect errors"
+            timestamp={0}
+            threadId="thr_paste"
+            projectId="proj_paste"
+            turnRequest={{
+              isGrouped: false,
+              kind: "message",
+              status: "accepted",
+            }}
+          />
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+    expect(
+      screen
+        .getByRole("link", { name: "Pasted text.txt · 3.5 MB" })
+        .getAttribute("href"),
+    ).toBe(
+      "/api/v1/projects/proj_paste/attachments/content?path=uploaded-paste.txt",
+    );
+  });
+
+  it("uses the same local image routing as assistant messages", () => {
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ConversationMessageContent
+            role="user"
+            attachments={null}
+            initiator="user"
+            mentions={[]}
+            senderThreadId={null}
+            senderThreadTitle={null}
+            senderIsPluginSideChat={false}
+            systemMessageKind="unlabeled"
+            systemMessageSubject={null}
+            text="![diagram](output/diagram.png)"
+            timestamp={0}
+            threadId="thr_image"
+            turnRequest={{
+              isGrouped: false,
+              kind: "message",
+              status: "accepted",
+            }}
+            workspaceRootPath="/workspace"
+          />
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("img", { name: "diagram" }).getAttribute("src"),
+    ).toBe("/api/v1/threads/thr_image/host-files/workspace/output/diagram.png");
+  });
+});
+
+describe("ConversationMessageContent user HTML", () => {
+  it("shows typed HTML tags as literal text", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ConversationMessageContent
+            role="user"
+            attachments={null}
+            initiator="user"
+            mentions={[]}
+            senderThreadId={null}
+            senderThreadTitle={null}
+            senderIsPluginSideChat={false}
+            systemMessageKind="unlabeled"
+            systemMessageSubject={null}
+            text={
+              "<details><summary>x</summary>hidden</details>\n\ninline <b>bold</b> here"
+            }
+            timestamp={0}
+            threadId="thr_html"
+            turnRequest={{
+              isGrouped: false,
+              kind: "message",
+              status: "accepted",
+            }}
+            workspaceRootPath="/workspace"
+          />
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    expect(container.querySelector("details, b")).toBeNull();
+    expect(
+      screen.getByText("<details><summary>x</summary>hidden</details>"),
+    ).toBeTruthy();
+    expect(screen.getByText("inline <b>bold</b> here")).toBeTruthy();
+  });
+});
+
+describe("ConversationMessageContent assistant thread mentions", () => {
+  it("renders an agent-authored thread token with the referenced thread title", () => {
+    const mentionedThread = threadListEntry({
+      id: "thr_xpxxt2ipz8",
+      projectId: "proj_personal",
+      title: "Plugin composer support on root new-thread page",
+    });
+    const messageDirectiveRegistry: MessageDirectiveRegistry = new Map([
+      [
+        "inline-vis",
+        { status: "collision", pluginIds: ["plugin-a", "plugin-b"] },
+      ],
+    ]);
+
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ThreadTitleMentionResourcesProvider
+            sectionNamesById={new Map()}
+            projectNamesById={new Map()}
+            threadById={new Map([[mentionedThread.id, mentionedThread]])}
+          >
+            <MessageDirectiveRegistryProvider
+              registry={messageDirectiveRegistry}
+            >
+              <ConversationMessageContent
+                role="assistant"
+                attachments={null}
+                id="msg_spawned"
+                threadId="thr_parent"
+                turnId="turn_spawned"
+                showActions={false}
+                mobileActionDisplay="overflow"
+                streaming={false}
+                text="Spawned and parented: @thread:thr_xpxxt2ipz8"
+                timestamp={0}
+              />
+            </MessageDirectiveRegistryProvider>
+          </ThreadTitleMentionResourcesProvider>
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    const mentionLink = screen.getByRole("link", {
+      name: "Plugin composer support on root new-thread page",
+    });
+    expect(mentionLink.getAttribute("href")).toBe("/threads/thr_xpxxt2ipz8");
+    expect(screen.queryByText("@thread", { exact: false })).toBeNull();
+  });
+});
+
+describe("ConversationMessageContent long user messages", () => {
+  const rawThreadId = "thr_dcwivn5n8w";
+  const mentionedThread = threadListEntry({
+    id: rawThreadId,
+    projectId: "proj_target",
+    title: "Should stay code",
+  });
+
+  function renderLongUserMessage(text: string) {
+    const { wrapper } = createQueryClientTestHarness();
+    return render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ThreadTitleMentionResourcesProvider
+            sectionNamesById={new Map()}
+            projectNamesById={new Map()}
+            threadById={new Map([[mentionedThread.id, mentionedThread]])}
+          >
+            <ConversationMessageContent
+              role="user"
+              attachments={null}
+              initiator="user"
+              mentions={[]}
+              senderThreadId={null}
+              senderThreadTitle={null}
+              senderIsPluginSideChat={false}
+              systemMessageKind="unlabeled"
+              systemMessageSubject={null}
+              text={text}
+              timestamp={0}
+              turnRequest={{
+                isGrouped: false,
+                kind: "message",
+                status: "accepted",
+              }}
+            />
+          </ThreadTitleMentionResourcesProvider>
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+      { wrapper },
+    );
+  }
+
+  it("renders the complete message after expanding a capped preview", () => {
+    const hiddenTail = "FULL_MESSAGE_TAIL";
+    const text = `${"a".repeat(USER_MESSAGE_CHAR_CAP)}\n\n${hiddenTail}`;
+
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ConversationMessageContent
+            role="user"
+            attachments={null}
+            initiator="user"
+            mentions={[]}
+            senderThreadId={null}
+            senderThreadTitle={null}
+            senderIsPluginSideChat={false}
+            systemMessageKind="unlabeled"
+            systemMessageSubject={null}
+            text={text}
+            timestamp={0}
+            turnRequest={{
+              isGrouped: false,
+              kind: "message",
+              status: "accepted",
+            }}
+          />
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText(hiddenTail)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(screen.getByText(hiddenTail)).not.toBeNull();
+    expect(screen.queryByText("[truncated]")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+
+    expect(screen.queryByText(hiddenTail)).toBeNull();
+  });
+
+  it("does not manufacture a pill when an inline-code span crosses the collapsed cap", () => {
+    const text = `\`${rawThreadId} ${"x".repeat(USER_MESSAGE_CHAR_CAP)}\` tail`;
+    const { container } = renderLongUserMessage(text);
+
+    expect(screen.queryByRole("link", { name: "Should stay code" })).toBeNull();
+    expect(container.querySelector("code")?.textContent).toContain(rawThreadId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(screen.queryByRole("link", { name: "Should stay code" })).toBeNull();
+    expect(container.querySelector("code")?.textContent).toContain(rawThreadId);
+  });
+
+  it("does not close a capped mixed code span into an exact raw-id pill", () => {
+    const prefix = "x".repeat(USER_MESSAGE_CHAR_CAP - rawThreadId.length - 1);
+    const text = `${prefix}\`${rawThreadId} remains mixed\` tail`;
+    const { container } = renderLongUserMessage(text);
+
+    expect(screen.queryByRole("link", { name: "Should stay code" })).toBeNull();
+    expect(container.querySelector("code")).toBeNull();
+    expect(container.textContent).toContain(`\`${rawThreadId}`);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(screen.queryByRole("link", { name: "Should stay code" })).toBeNull();
+    expect(container.querySelector("code")?.textContent).toBe(
+      `${rawThreadId} remains mixed`,
+    );
+  });
+
+  it("preserves unmatched backticks in short and fully expanded messages", () => {
+    const shortView = renderLongUserMessage("hello `world");
+
+    expect(shortView.container.querySelector("code")).toBeNull();
+    expect(shortView.container.textContent).toContain("hello `world");
+    shortView.unmount();
+
+    const longText = `hello \`world ${"tail ".repeat(USER_MESSAGE_CHAR_CAP)}`;
+    const longView = renderLongUserMessage(longText);
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(longView.container.querySelector("code")).toBeNull();
+    expect(longView.container.textContent).toContain("hello `world");
+  });
+
+  it("does not manufacture a pill when a path suffix falls beyond the collapsed cap", () => {
+    const prefix = `${"a".repeat(
+      USER_MESSAGE_CHAR_CAP - rawThreadId.length - 1,
+    )} `;
+    const text = `${prefix}${rawThreadId}/path`;
+    const { container } = renderLongUserMessage(text);
+
+    expect(screen.queryByRole("link", { name: "Should stay code" })).toBeNull();
+    expect(container.textContent).not.toContain(rawThreadId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(screen.queryByRole("link", { name: "Should stay code" })).toBeNull();
+    expect(container.textContent).toContain(`${rawThreadId}/path`);
+  });
+});
+
+describe("ConversationMessageContent user thread mentions", () => {
+  it("renders a raw thread id in message text as a linked mention pill", () => {
+    const mentionedThread = threadListEntry({
+      id: "thr_dcwivn5n8w",
+      projectId: "proj_personal",
+      title: "Raw ID mention target",
+    });
+
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ThreadTitleMentionResourcesProvider
+            sectionNamesById={new Map()}
+            projectNamesById={new Map()}
+            threadById={new Map([[mentionedThread.id, mentionedThread]])}
+          >
+            <ConversationMessageContent
+              role="user"
+              attachments={null}
+              initiator="user"
+              mentions={[]}
+              senderThreadId={null}
+              senderThreadTitle={null}
+              senderIsPluginSideChat={false}
+              systemMessageKind="unlabeled"
+              systemMessageSubject={null}
+              text="Continue in thr_dcwivn5n8w when this is ready."
+              timestamp={0}
+              turnRequest={{
+                isGrouped: false,
+                kind: "message",
+                status: "accepted",
+              }}
+            />
+          </ThreadTitleMentionResourcesProvider>
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+      { wrapper },
+    );
+
+    const mentionLink = screen.getByRole("link", {
+      name: "Raw ID mention target",
+    });
+    expect(mentionLink.getAttribute("href")).toBe("/threads/thr_dcwivn5n8w");
+    expect(screen.queryByText("thr_dcwivn5n8w")).toBeNull();
+  });
+
+  it("routes a raw thread token through the target thread project", () => {
+    const mentionedThread = threadListEntry({
+      id: "thr_cross_project",
+      projectId: "proj_target",
+      title: "Cross-project mention",
+    });
+
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ThreadTitleMentionResourcesProvider
+            sectionNamesById={new Map()}
+            projectNamesById={new Map()}
+            threadById={new Map([[mentionedThread.id, mentionedThread]])}
+          >
+            <ConversationMessageContent
+              role="user"
+              attachments={null}
+              initiator="user"
+              mentions={[]}
+              senderThreadId={null}
+              senderThreadTitle={null}
+              senderIsPluginSideChat={false}
+              systemMessageKind="unlabeled"
+              systemMessageSubject={null}
+              text="See @thread:thr_cross_project for the result."
+              timestamp={0}
+              turnRequest={{
+                isGrouped: false,
+                kind: "message",
+                status: "accepted",
+              }}
+            />
+          </ThreadTitleMentionResourcesProvider>
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen
+        .getByRole("link", { name: "Cross-project mention" })
+        .getAttribute("href"),
+    ).toBe("/projects/proj_target/threads/thr_cross_project");
+  });
+});
+
+describe("ConversationMessageContent automation messages", () => {
+  it("renders an automation prompt as a compact expandable row without the marker", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ConversationMessageContent
+            role="user"
+            attachments={null}
+            initiator="user"
+            mentions={[]}
+            senderThreadId={null}
+            senderThreadTitle={null}
+            senderIsPluginSideChat={false}
+            systemMessageKind="unlabeled"
+            systemMessageSubject={null}
+            text={
+              "[bb automation due:auto_zto0dtbcxme]\n\nWeekday unread digest.\n\nSearch Gmail for AUTOMATION_PROMPT_TAIL."
+            }
+            projectId="proj_automation"
+            timestamp={0}
+            threadId="thr_automation"
+            turnRequest={{
+              isGrouped: false,
+              kind: "message",
+              status: "accepted",
+            }}
+          />
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    expect(container.textContent).not.toContain("[bb automation due:");
+    expect(
+      screen.getByRole("link", { name: "Automation" }).getAttribute("href"),
+    ).toBe("/plugins/automations/automations/proj_automation/auto_zto0dtbcxme");
+    expect(container.querySelector("time")?.getAttribute("dateTime")).toBe(
+      new Date(0).toISOString(),
+    );
+    expect(screen.getByText("Weekday unread digest.")).toBeTruthy();
+    expect(container.textContent).not.toContain("AUTOMATION_PROMPT_TAIL");
+
+    fireEvent.click(screen.getByRole("button", { name: /Automation/u }));
+
+    expect(container.textContent).toContain("AUTOMATION_PROMPT_TAIL");
+    expect(container.textContent).not.toContain("[bb automation due:");
+  });
+});
+
+describe("ConversationMessageContent undelivered automation messages", () => {
+  it("names a rejected automation steer in the collapsed row", () => {
+    render(
+      <MemoryRouter>
+        <RouteNavigationProvider>
+          <ConversationMessageContent
+            role="user"
+            attachments={null}
+            initiator="user"
+            mentions={[]}
+            senderThreadId={null}
+            senderThreadTitle={null}
+            senderIsPluginSideChat={false}
+            systemMessageKind="unlabeled"
+            systemMessageSubject={null}
+            text={
+              "[bb automation due:auto_zto0dtbcxme]\n\nWeekday unread digest."
+            }
+            timestamp={0}
+            threadId="thr_automation"
+            turnRequest={{
+              isGrouped: false,
+              kind: "steer",
+              status: "rejected",
+            }}
+          />
+        </RouteNavigationProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Steer failed")).toBeTruthy();
+  });
+});
+
+describe("user message overflow", () => {
+  it.each([
+    { label: "horizontal", width: 500, height: 40, expandable: false },
+    { label: "vertical", width: 100, height: 400, expandable: true },
+  ])(
+    "uses vertical clipping to decide expansion ($label overflow)",
+    ({ width, height, expandable }) => {
+      vi.stubGlobal("ResizeObserver", undefined);
+      vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(
+        100,
+      );
+      vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(
+        width,
+      );
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(
+        40,
+      );
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(
+        height,
+      );
+      render(
+        <MemoryRouter>
+          <RouteNavigationProvider>
+            <ConversationMessageContent
+              role="user"
+              initiator="user"
+              attachments={null}
+              mentions={[]}
+              senderThreadId={null}
+              senderThreadTitle={null}
+              senderIsPluginSideChat={false}
+              systemMessageKind="unlabeled"
+              systemMessageSubject={null}
+              text="What does this mean?"
+              timestamp={0}
+              turnRequest={{
+                isGrouped: false,
+                kind: "message",
+                status: "accepted",
+              }}
+            />
+          </RouteNavigationProvider>
+        </MemoryRouter>,
+      );
+      expect(screen.queryByRole("button", { name: "Show more" }) !== null).toBe(
+        expandable,
+      );
+    },
+  );
+});

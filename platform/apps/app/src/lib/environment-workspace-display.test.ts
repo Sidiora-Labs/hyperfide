@@ -1,0 +1,382 @@
+import type { Host } from "@bb/domain";
+import { describe, expect, it } from "vitest";
+import type { EnvironmentDisplayInfo } from "@bb/core-ui";
+import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import {
+  findEnvironmentDisplayProvider,
+  getEnvironmentDisplayIconName,
+  getEnvironmentWorkspaceInfoDisplay,
+  getEnvironmentWorkspaceSummaryDisplay,
+  isHostAmbiguous,
+} from "./environment-workspace-display";
+
+describe("isHostAmbiguous", () => {
+  it("treats a lone persistent machine as unambiguous", () => {
+    expect(isHostAmbiguous(false, "persistent")).toBe(false);
+  });
+
+  it("treats more than one persistent machine as ambiguous", () => {
+    expect(isHostAmbiguous(true, "persistent")).toBe(true);
+  });
+
+  it("treats a machine that is not persistent as ambiguous", () => {
+    expect(isHostAmbiguous(false, "ephemeral")).toBe(true);
+    expect(isHostAmbiguous(false, null)).toBe(true);
+  });
+});
+
+const worktreeProvider: SystemEnvironmentProvider = {
+  machineProviderId: null,
+  id: "git-worktree",
+  displayName: "Worktree",
+  description: "Prepare a workspace for this thread.",
+  icon: "FolderGit",
+  logoUrl: null,
+  pluginId: "environment-git-worktree",
+  acceptsEmptyInputs: true,
+  machineAvailability: {},
+  availability: null,
+  requires: {
+    projectCheckout: true,
+    gitCheckout: true,
+    gitRemote: false,
+    projectless: false,
+  },
+  inputs: null,
+};
+
+const personalProvider: SystemEnvironmentProvider = {
+  machineProviderId: null,
+  id: "personal-workspace",
+  displayName: "Personal workspace",
+  description: "Prepare a workspace for this thread.",
+  icon: "Folder",
+  logoUrl: null,
+  pluginId: "environment-personal-workspace",
+  acceptsEmptyInputs: true,
+  machineAvailability: {},
+  availability: null,
+  requires: {
+    projectCheckout: false,
+    gitCheckout: false,
+    gitRemote: false,
+    projectless: true,
+  },
+  inputs: null,
+};
+
+const machineContainerProvider: SystemEnvironmentProvider = {
+  machineProviderId: null,
+  id: "container",
+  displayName: "Container",
+  description: "Prepare a workspace for this thread.",
+  icon: "Box",
+  logoUrl: null,
+  pluginId: "containers",
+  acceptsEmptyInputs: false,
+  machineAvailability: {},
+  availability: null,
+  requires: {
+    projectCheckout: false,
+    gitCheckout: false,
+    gitRemote: false,
+    projectless: false,
+  },
+  inputs: {
+    type: "object",
+    properties: { image: { type: "string" } },
+    required: ["image"],
+  },
+};
+
+function makeDisplay(
+  overrides: Partial<EnvironmentDisplayInfo> = {},
+): EnvironmentDisplayInfo {
+  return {
+    modeLabel: "Working locally",
+    compactModeLabel: "Local",
+    providerLabel: null,
+    lifecycle: null,
+    id: "env_test",
+    ...overrides,
+  };
+}
+
+const noProviderLookup = findEnvironmentDisplayProvider([], null);
+const worktreeProviderLookup = findEnvironmentDisplayProvider(
+  [worktreeProvider],
+  "git-worktree",
+);
+const personalProviderLookup = findEnvironmentDisplayProvider(
+  [personalProvider],
+  "personal-workspace",
+);
+const containerProviderLookup = findEnvironmentDisplayProvider(
+  [machineContainerProvider],
+  "container",
+);
+
+interface SummaryDisplayOverrides {
+  display?: EnvironmentDisplayInfo;
+  providerLookup?: ReturnType<typeof findEnvironmentDisplayProvider>;
+  hasMultipleMachines?: boolean;
+  hostName?: string | null;
+  hostType?: Host["type"] | null;
+}
+
+function getSummaryDisplay({
+  display = makeDisplay(),
+  providerLookup = noProviderLookup,
+  hasMultipleMachines = false,
+  hostName = "Michael-M4",
+  hostType = "persistent",
+}: SummaryDisplayOverrides = {}) {
+  return getEnvironmentWorkspaceSummaryDisplay({
+    display,
+    providerLookup,
+    hasMultipleMachines,
+    hostName,
+    hostType,
+  });
+}
+
+describe("findEnvironmentDisplayProvider", () => {
+  it("reports a provider id no running plugin registers as loaded and unknown", () => {
+    expect(
+      findEnvironmentDisplayProvider([worktreeProvider], "modal-sandbox"),
+    ).toEqual({
+      status: "loaded",
+      provider: null,
+      environmentProviderId: "modal-sandbox",
+    });
+  });
+
+  it("reports loading while the provider list has not arrived", () => {
+    expect(findEnvironmentDisplayProvider(undefined, "git-worktree")).toEqual({
+      status: "loading",
+    });
+  });
+
+  it("reports a row with no provider as loaded even before the list arrives", () => {
+    expect(findEnvironmentDisplayProvider(undefined, null)).toEqual({
+      status: "loaded",
+      provider: null,
+      environmentProviderId: null,
+    });
+  });
+});
+
+describe("getEnvironmentDisplayIconName", () => {
+  it("uses the provider icon", () => {
+    expect(getEnvironmentDisplayIconName(worktreeProviderLookup)).toBe(
+      "FolderGit",
+    );
+  });
+
+  it("preserves a custom icon reference for the reactive renderer", () => {
+    expect(
+      getEnvironmentDisplayIconName({
+        status: "loaded",
+        provider: { ...worktreeProvider, icon: "acme/workspace" },
+      }),
+    ).toBe("acme/workspace");
+  });
+
+  it("has no icon for a row with no provider or while the list loads", () => {
+    expect(getEnvironmentDisplayIconName(noProviderLookup)).toBeNull();
+    expect(getEnvironmentDisplayIconName({ status: "loading" })).toBeNull();
+  });
+});
+
+describe("getEnvironmentWorkspaceSummaryDisplay", () => {
+  it("retains the current sandbox identity when persistent machine choices are singular", () => {
+    expect(
+      getSummaryDisplay({
+        providerLookup: worktreeProviderLookup,
+        hostName: "Modal sandbox",
+        hostType: "ephemeral",
+        hasMultipleMachines: false,
+      }),
+    ).toMatchObject({
+      label: "Modal sandbox",
+      compactLabel: "Modal sandbox",
+      icon: "FolderGit",
+    });
+  });
+
+  it("keeps provisioning ahead of the provider icon and label", () => {
+    expect(
+      getSummaryDisplay({
+        display: makeDisplay({
+          modeLabel: "Provisioning",
+          compactModeLabel: "Provisioning",
+          lifecycle: "provisioning",
+          providerLabel: "Worktree",
+        }),
+        providerLookup: worktreeProviderLookup,
+        hasMultipleMachines: true,
+      }),
+    ).toEqual({
+      label: "Provisioning",
+      compactLabel: "Provisioning",
+      icon: "Loading",
+      providerName: null,
+    });
+  });
+
+  it("keeps destroyed ahead of a machine label", () => {
+    expect(
+      getSummaryDisplay({
+        display: makeDisplay({
+          modeLabel: "Environment unavailable",
+          compactModeLabel: "Environment unavailable",
+          lifecycle: "destroyed",
+        }),
+        providerLookup: worktreeProviderLookup,
+        hasMultipleMachines: true,
+      }),
+    ).toMatchObject({
+      label: "Environment unavailable",
+      compactLabel: "Environment unavailable",
+    });
+  });
+  it.each([
+    {
+      name: "a local project checkout",
+      display: makeDisplay(),
+    },
+    {
+      name: "a remote project checkout",
+      display: makeDisplay({
+        modeLabel: "Working remotely",
+        compactModeLabel: "Remote",
+      }),
+    },
+  ])("shows nothing for $name with no environment provider", (testCase) => {
+    expect(
+      getSummaryDisplay({
+        display: testCase.display,
+        providerLookup: noProviderLookup,
+      }),
+    ).toBeNull();
+  });
+
+  it("names a projectless thread by its provider on a lone persistent machine", () => {
+    expect(
+      getSummaryDisplay({ providerLookup: personalProviderLookup }),
+    ).toMatchObject({
+      label: "Personal workspace",
+      compactLabel: "Personal workspace",
+    });
+  });
+
+  it("marks an unregistered provider as not installed on a single machine", () => {
+    expect(
+      getSummaryDisplay({
+        providerLookup: findEnvironmentDisplayProvider([], "retired-cloud"),
+      }),
+    ).toMatchObject({ label: "retired-cloud (not installed)" });
+  });
+  it.each([
+    { name: "project checkout", providerLookup: noProviderLookup },
+    { name: "git-worktree", providerLookup: worktreeProviderLookup },
+    { name: "personal-workspace", providerLookup: personalProviderLookup },
+    {
+      name: "third-party provider that runs on a machine",
+      providerLookup: containerProviderLookup,
+    },
+  ])("uses the machine name for a multi-machine $name", (testCase) => {
+    expect(
+      getSummaryDisplay({
+        providerLookup: testCase.providerLookup,
+        hasMultipleMachines: true,
+      }),
+    ).toMatchObject({ label: "Michael-M4", compactLabel: "Michael-M4" });
+  });
+
+  it("shows nothing while the provider list is still loading", () => {
+    expect(
+      getSummaryDisplay({
+        providerLookup: { status: "loading" },
+        hasMultipleMachines: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("uses the machine when an environment has a custom name", () => {
+    expect(
+      getSummaryDisplay({
+        display: makeDisplay({
+          modeLabel: "Design system polish",
+          compactModeLabel: "Design system polish",
+        }),
+        providerLookup: worktreeProviderLookup,
+        hasMultipleMachines: true,
+      }),
+    ).toMatchObject({
+      label: "Michael-M4",
+      compactLabel: "Michael-M4",
+    });
+  });
+
+  it("uses the provider on one machine when an environment has a custom name", () => {
+    expect(
+      getSummaryDisplay({
+        display: makeDisplay({
+          modeLabel: "Design system polish",
+          compactModeLabel: "Design system polish",
+        }),
+        providerLookup: worktreeProviderLookup,
+      }),
+    ).toMatchObject({ label: "Worktree", compactLabel: "Worktree" });
+  });
+});
+
+describe("getEnvironmentWorkspaceInfoDisplay", () => {
+  it("shows the environment label and machine for a provider that runs on one", () => {
+    expect(
+      getEnvironmentWorkspaceInfoDisplay({
+        display: makeDisplay({
+          modeLabel: "Design system polish",
+          compactModeLabel: "Design system polish",
+          providerLabel: "Worktree",
+        }),
+        providerLookup: worktreeProviderLookup,
+        hostName: "Michael-M4",
+        locality: "local",
+      }),
+    ).toEqual({
+      label: "Worktree",
+      icon: "FolderGit",
+      machineName: "Michael-M4",
+    });
+  });
+
+  it("shows an unregistered provider as not installed in the info tab", () => {
+    expect(
+      getEnvironmentWorkspaceInfoDisplay({
+        display: makeDisplay({ compactModeLabel: "retired-cloud" }),
+        providerLookup: findEnvironmentDisplayProvider([], "retired-cloud"),
+        hostName: "Michael-M4",
+        locality: "local",
+      }),
+    ).toMatchObject({
+      label: "retired-cloud (not installed)",
+      machineName: "Michael-M4",
+    });
+  });
+
+  it("uses locality for a named environment without a provider", () => {
+    expect(
+      getEnvironmentWorkspaceInfoDisplay({
+        display: makeDisplay({
+          modeLabel: "Design system polish",
+          compactModeLabel: "Design system polish",
+        }),
+        providerLookup: noProviderLookup,
+        hostName: "Michael-M4",
+        locality: "local",
+      }),
+    ).toMatchObject({ label: "Local", machineName: "Michael-M4" });
+  });
+});

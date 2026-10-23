@@ -1,0 +1,22 @@
+# Launch and pair: first run reaches the add-server screen, a Direct server
+# saves, and the app lands in the WebView shell with the page rendered.
+#
+# The narrowest flow that proves the shell boots at all. Everything else here
+# assumes it.
+#
+# Needs the harness backend started with BB_MOBILE_E2E_SERVE_APP=1 and a built
+# apps/app (`pnpm exec turbo run build --filter=@bb/app`); without them the
+# server answers API routes only and the WebView shows the native error state.
+appId: app.getbb.mobile
+env:
+  METRO_URL: "http://127.0.0.1:8082"
+  SERVER_URL: "http://127.0.0.1:41999"
+---
+- runFlow: ../subflows/launch-app.yaml
+- runFlow: ../subflows/pair-direct-server.yaml
+# Page content, not native chrome: the shell is really rendering the server's
+# web interface.
+- extendedWaitUntil:
+    visible: ".*Ask anything.*"
+    timeout: 60000
+- takeScreenshot: shell-launch

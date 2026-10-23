@@ -1,0 +1,13 @@
+{
+  "name": "bb-plugin-builtin-fixture",
+  "version": "0.1.0",
+  "type": "module",
+  "bb": {
+    "name": "Builtin fixture",
+    "description": "Test fixture for builtin plugin packaging.",
+    "branding": {
+      "icon": "EditFile"
+    },
+    "server": "./server.ts"
+  }
+}

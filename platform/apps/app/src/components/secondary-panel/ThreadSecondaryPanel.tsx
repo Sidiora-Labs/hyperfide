@@ -1,0 +1,1227 @@
+import { ThreadDiffContentContext } from "./git-diff/thread-diff-registration";
+import { useThreadDiffContent } from "./git-diff/useThreadDiffContent";
+import { isGitDiffFixedPanelTab } from "@/lib/fixed-panel-tabs-state";
+import { ThreadInfoContentContext } from "@/components/secondary-panel/thread-info-registration";
+import { usePluginDetailPanelProps } from "@/components/plugin/plugin-detail-navigation";
+import {
+  type CSSProperties,
+  type FocusEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useAtomValue } from "jotai";
+import { Icon } from "@bb/shared-ui/icon";
+import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
+import { Panel, PanelResizeHandle } from "react-resizable-panels";
+import { Button } from "@bb/shared-ui/button";
+import { HEADER_PANE_ACTION_ICON_BUTTON_CLASS } from "@/components/layout/AppPageHeader";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import {
+  COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS,
+  COARSE_POINTER_HEADER_ICON_BUTTON_CLASS,
+} from "@bb/shared-ui/coarse-pointer-sizing";
+import { cn } from "@bb/shared-ui/lib/utils";
+import {
+  PANEL_COLLAPSE_TRANSITION_CLASS,
+  PANEL_RESIZE_HANDLE_LAYER_CLASS,
+  PANEL_RESIZE_HIT_TARGET_CLASS,
+} from "./panelTransitionTokens";
+import {
+  PANEL_SCROLL_SLOT_CLASS,
+  PANEL_TAB_CONTROL_CLASS,
+  SECONDARY_PANEL_TOP_CHROME_BACKGROUND_CLASS,
+} from "./panelChromeClasses";
+import {
+  CONVERSATION_COLLAPSED_PANEL_SIZE_PERCENT,
+  useSecondaryPanelMinimum,
+} from "./secondaryPanelSizing";
+import {
+  RIGHT_PANEL_TOGGLE_ICON_NAME,
+  RIGHT_PANEL_TOGGLE_SHORTCUT_HINT_CLASS,
+  resolveConversationCollapseControl,
+} from "./panelToggleControlState";
+import { SecondaryPanelHostLayoutContext } from "./SecondaryPanelHostLayoutContext";
+import { MobilePanelTabPager } from "./MobilePanelTabPager";
+import { SecondaryPanelTabStrip } from "./SecondaryPanelTabStrip";
+import { ImageTabLightboxProvider } from "./ImageTabLightboxContext";
+import { FilePreviewScrollPositionContext } from "./filePreviewScrollPositionContext";
+import type {
+  MarketplacePluginDetailPanelTab,
+  SecondaryPanelPaneRenderContext,
+  SecondaryPanelRenderableTab,
+  SecondaryPanelTabReorderHandler,
+} from "./secondaryPanelTab";
+import { useResponsiveGitDiffPanelDisplay } from "./git-diff/useResponsiveGitDiffPanelDisplay";
+import { useSecondaryPanelResize } from "./useSecondaryPanelResize";
+import { threadSecondaryPanelResizingAtom } from "./threadSecondaryPanelAtoms";
+import {
+  CHROME_ROW_CLASS,
+  getBbDesktopInfo,
+  MACOS_CHROME_CONTROL_AXIS_CLASS,
+  MACOS_COLLAPSED_TOP_LEFT_RESERVE_CLASS,
+  MACOS_TITLE_BAR_COLLAPSED_SIDEBAR_RESERVE_CLASS,
+  MACOS_TITLE_BAR_BAND_CLASS,
+  MACOS_TITLE_BAR_CONTROL_AXIS_CLASS,
+  MACOS_TITLE_BAR_CONTROL_SIZE_CLASS,
+  MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS,
+  MACOS_WINDOW_DRAG_CLASS,
+  MACOS_WINDOW_NO_DRAG_CLASS,
+  shouldReserveMacosTrafficLights,
+  shouldUseMacosDesktopChrome,
+} from "@/lib/bb-desktop";
+import { useDesktopWindowState } from "@/hooks/useDesktopWindowState";
+import { TitleBarScrollFade } from "@/components/ui/title-bar-scroll-fade";
+import {
+  useIsSidebarFramed,
+  useOptionalIsSidebarShowing,
+  useSidebarKeepsCollapsedRail,
+} from "@/components/ui/sidebar.js";
+import { IframeDragGuardOverlay } from "@/lib/iframe-drag-guard";
+import type {
+  FixedPanelViewTab,
+  SecondaryFixedPanelTab,
+} from "@/lib/fixed-panel-tabs-state";
+import { useAppCommandShortcut } from "@/components/commands/AppCommandProvider";
+import { AppCommandShortcutHint } from "@/components/commands/AppCommandShortcutHint";
+import type { AppShortcutPresentation } from "@/lib/app-keybindings";
+import { TabPill } from "@/components/ui/tab-pill";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
+import type { SplitSide } from "@/lib/split-layout";
+import { PaneArrangementButton } from "@/views/thread-detail/PaneMaximizeButton";
+import {
+  SidebarSplitContainer,
+  type SidebarSplitPaneRenderArgs,
+  type SidebarSplitTabDescriptor,
+} from "./SidebarSplitContainer";
+import { SIDEBAR_FIXED_INFO_TAB_ID } from "./sidebarSplitLayout";
+import type { GitDiffTabStatus } from "./gitDiffTabEligibility";
+export type {
+  SecondaryPanelPaneRenderContext,
+  SecondaryPanelRenderableTab,
+} from "./secondaryPanelTab";
+
+const SECONDARY_RESIZABLE_PANEL_STYLE: CSSProperties = {
+  pointerEvents: "auto",
+};
+const SECONDARY_PANEL_CHROME_ICON_BUTTON_CLASS = `${COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS} shrink-0 ${CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS}`;
+const SECONDARY_PANEL_HIDE_ICON_BUTTON_CLASS = `${COARSE_POINTER_HEADER_ICON_BUTTON_CLASS} shrink-0 ${CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS}`;
+type FilePreviewScrollPositions = Map<string, { scrollTop: number }>;
+const scopedFilePreviewScrollPositions = new Map<
+  string,
+  FilePreviewScrollPositions
+>();
+
+function getScopedFilePreviewScrollPositions(
+  panelStateId: string,
+): FilePreviewScrollPositions {
+  const existing = scopedFilePreviewScrollPositions.get(panelStateId);
+  if (existing !== undefined) return existing;
+  const positions: FilePreviewScrollPositions = new Map();
+  scopedFilePreviewScrollPositions.set(panelStateId, positions);
+  return positions;
+}
+
+export function getSecondaryPanelChromeStackClassName(
+  hasGitDiffToolbar: boolean,
+): string {
+  return cn(
+    "shrink-0 select-none",
+    hasGitDiffToolbar && "flex flex-col",
+    SECONDARY_PANEL_TOP_CHROME_BACKGROUND_CLASS,
+  );
+}
+
+const FRAMED_PANEL_SURFACE_CLASS =
+  "isolate bg-transparent before:pointer-events-none before:absolute before:inset-x-0 before:bottom-0 before:top-[calc(var(--bb-window-title-bar-height)+1px)] before:-z-10 before:rounded-tr-(--bb-frame-card-radius) before:bg-sidebar";
+
+interface CollapsedPanelTrafficLightReserveArgs {
+  isConversationCollapsed: boolean;
+  isPanelInFrame: boolean;
+  renderAsDrawer: boolean;
+  isSidebarShowing: boolean | null;
+  sidebarKeepsCollapsedRail: boolean;
+  reserveMacosTrafficLights: boolean;
+}
+
+export function resolveCollapsedPanelTrafficLightReserveClassName({
+  isConversationCollapsed,
+  isPanelInFrame,
+  renderAsDrawer,
+  isSidebarShowing,
+  sidebarKeepsCollapsedRail,
+  reserveMacosTrafficLights,
+}: CollapsedPanelTrafficLightReserveArgs): string | false {
+  if (isPanelInFrame) {
+    return (
+      isConversationCollapsed &&
+      isSidebarShowing === false &&
+      MACOS_TITLE_BAR_COLLAPSED_SIDEBAR_RESERVE_CLASS
+    );
+  }
+  if (!reserveMacosTrafficLights) return false;
+  if (renderAsDrawer) return MACOS_COLLAPSED_TOP_LEFT_RESERVE_CLASS;
+  return (
+    isConversationCollapsed &&
+    isSidebarShowing === false &&
+    !sidebarKeepsCollapsedRail &&
+    MACOS_COLLAPSED_TOP_LEFT_RESERVE_CLASS
+  );
+}
+
+const HIDE_PANEL_LABEL = "Hide right panel";
+
+export interface SecondaryPanelFixedTab {
+  ariaLabel: string;
+  contentFillsRegion?: boolean;
+  label: string;
+  leadingVisual: ReactNode;
+  onSelect: () => void;
+  renderContent?: (pane: SecondaryPanelPaneRenderContext) => ReactNode;
+  tab: FixedPanelViewTab;
+  title: string;
+}
+
+export interface ThreadSecondaryPanelProps {
+  activeTab: SecondaryFixedPanelTab | MarketplacePluginDetailPanelTab | null;
+  canUseGitUi: boolean;
+  canNavigateTabs?: boolean;
+  areFixedTabsReady?: boolean;
+  gitDiffTabStatus?: GitDiffTabStatus;
+  onRetryGitDiffEligibility?: () => void;
+  requestedMergeBaseBranch?: string;
+  environmentId?: string;
+  metadataContent: ReactNode;
+  tabs: readonly SecondaryPanelRenderableTab[];
+  fixedTabs: readonly SecondaryPanelFixedTab[];
+  onTabReorder: SecondaryPanelTabReorderHandler;
+  renderBrowserDeck?: (
+    activeBrowserTabId: string | null,
+    pane: SecondaryPanelPaneRenderContext,
+  ) => ReactNode;
+  splitPanelStateId?: string;
+  isOpen: boolean;
+  showConversationCollapseControl?: boolean;
+  showFullScreenShortcut?: boolean;
+  showNewTabButton?: boolean;
+  inlinePanelToggle?: "button" | "hidden";
+  resizablePanelId?: string;
+  onPanelFocus: () => void;
+  onCollapse: () => void;
+  onClose: () => void;
+  onClearPendingGitDiffIntent?: () => void;
+  onOpenNewTab: () => void;
+  pendingGitDiffCommitSha?: string | null;
+  pendingGitDiffScrollPath?: string | null;
+  workspaceRootPath?: string | null;
+  onOpenFileInEditor?: (path: string) => void;
+  onOpenFilePreview?: (path: string) => void;
+  onSelectionAddToChat?: (text: string) => void;
+  isConversationCollapsed: boolean;
+  onToggleConversationCollapse: () => void;
+  renderAsDrawer: boolean;
+  isAtWindowTop?: boolean;
+}
+
+export function ThreadSecondaryPanel(props: ThreadSecondaryPanelProps) {
+  const panelProps = usePluginDetailPanelProps(props);
+  return (
+    <ThreadInfoContentContext.Provider value={props.metadataContent}>
+      <ThreadSecondaryPanelContent {...panelProps} />
+    </ThreadInfoContentContext.Provider>
+  );
+}
+
+function ThreadSecondaryPanelContent({
+  activeTab,
+  canUseGitUi,
+  canNavigateTabs = true,
+  areFixedTabsReady = true,
+  gitDiffTabStatus,
+  requestedMergeBaseBranch,
+  environmentId,
+  tabs,
+  fixedTabs,
+  onTabReorder,
+  renderBrowserDeck,
+  splitPanelStateId,
+  isOpen,
+  showConversationCollapseControl = true,
+  showFullScreenShortcut = false,
+  showNewTabButton = true,
+  inlinePanelToggle = "button",
+  resizablePanelId = "thread-detail-secondary-panel",
+  onPanelFocus,
+  onCollapse,
+  onClose,
+  onClearPendingGitDiffIntent,
+  onOpenNewTab,
+  onRetryGitDiffEligibility,
+  pendingGitDiffCommitSha,
+  pendingGitDiffScrollPath,
+  workspaceRootPath,
+  onOpenFileInEditor,
+  onOpenFilePreview,
+  onSelectionAddToChat,
+  isConversationCollapsed,
+  onToggleConversationCollapse,
+  renderAsDrawer,
+  isAtWindowTop = false,
+}: ThreadSecondaryPanelProps) {
+  const resolvedGitDiffTabStatus =
+    gitDiffTabStatus ?? (canUseGitUi ? "eligible" : "ineligible");
+  const newTabShortcut = useAppCommandShortcut("panel.newTab");
+  const togglePanelShortcut = useAppCommandShortcut("panel.toggle");
+  const boundFullScreenShortcut = useAppCommandShortcut(
+    "panel.fullScreen.toggle",
+  );
+  const fullScreenShortcut = showFullScreenShortcut
+    ? boundFullScreenShortcut
+    : null;
+  const diffShortcut = useAppCommandShortcut("diff.toggle");
+  const visibleTabs = useMemo(
+    () => tabs.filter((tab) => tab.isHidden !== true),
+    [tabs],
+  );
+  const [instanceScrollPositions] = useState<FilePreviewScrollPositions>(
+    () => new Map(),
+  );
+  const filePreviewScrollPositions =
+    splitPanelStateId === undefined
+      ? instanceScrollPositions
+      : getScopedFilePreviewScrollPositions(splitPanelStateId);
+  useLayoutEffect(() => {
+    const openTabIds = new Set(tabs.map((tab) => tab.tab.id));
+    for (const tabId of filePreviewScrollPositions.keys()) {
+      if (!openTabIds.has(tabId)) filePreviewScrollPositions.delete(tabId);
+    }
+  }, [tabs, filePreviewScrollPositions]);
+  const activeRenderableTab =
+    tabs.find((tab) => tab.tab.id === activeTab?.id) ??
+    (activeTab === null && fixedTabs.length === 0 ? visibleTabs[0] : undefined);
+  const hasActiveRenderableTab = activeRenderableTab !== undefined;
+  const conversationCollapseControl =
+    renderAsDrawer || !showConversationCollapseControl
+      ? null
+      : resolveConversationCollapseControl({
+          isConversationCollapsed,
+          onToggleConversationCollapse,
+        });
+  const {
+    gitDiffDisplayMode,
+    handleGitDiffDisplayModeChange,
+    handleSecondaryPanelWidthChange,
+  } = useResponsiveGitDiffPanelDisplay({ isSecondaryPanelOpen: isOpen });
+  const {
+    handleSecondaryPanelResize,
+    resizeHitTargetRef,
+    persistedWidthPercent,
+    secondaryPanelRef: panelRef,
+    secondaryResizablePanelRef: resizablePanelRef,
+  } = useSecondaryPanelResize({
+    isSecondaryPanelOpen: isOpen,
+    onPanelWidthChange: handleSecondaryPanelWidthChange,
+    panelId: resizablePanelId,
+    renderAsDrawer,
+  });
+  const hasPanelExpandedRef = useRef(false);
+  useLayoutEffect(() => {
+    hasPanelExpandedRef.current = false;
+  }, [splitPanelStateId]);
+  const handlePanelResize = useCallback(
+    (size: number) => {
+      if (size > 0) {
+        hasPanelExpandedRef.current = true;
+      }
+      handleSecondaryPanelResize(size);
+    },
+    [handleSecondaryPanelResize],
+  );
+  const minimumSize = useSecondaryPanelMinimum();
+  const hostLayout = useContext(SecondaryPanelHostLayoutContext);
+  const handlePanelCollapse = useCallback(() => {
+    if (!isOpen || hostLayout?.isSuppressed) {
+      return;
+    }
+    if (!hasPanelExpandedRef.current) {
+      return;
+    }
+    hasPanelExpandedRef.current = false;
+    onCollapse();
+  }, [hostLayout?.isSuppressed, isOpen, onCollapse]);
+  const isLayoutOpen =
+    (hostLayout?.isOpen ?? isOpen) && !hostLayout?.isSuppressed;
+  const activeFixedTab =
+    fixedTabs.find((fixedTab) => fixedTab.tab.id === activeTab?.id) ??
+    (!hasActiveRenderableTab ? fixedTabs[0] : undefined);
+  const diffContent = useThreadDiffContent({
+    toolbarClassName: getSecondaryPanelChromeStackClassName(true),
+    environmentId,
+    requestedMergeBaseBranch,
+    onClearPendingGitDiffIntent,
+    pendingGitDiffCommitSha,
+    pendingGitDiffScrollPath,
+    onRetryGitDiffEligibility,
+    onOpenFileInEditor,
+    onOpenFilePreview,
+    onSelectionAddToChat,
+    workspaceRootPath,
+    isDiffPanelLive:
+      resolvedGitDiffTabStatus === "eligible" &&
+      isGitDiffFixedPanelTab(activeFixedTab?.tab) &&
+      isLayoutOpen,
+    isLayoutOpen,
+    resolvedGitDiffTabStatus,
+    gitDiffDisplayMode,
+    handleGitDiffDisplayModeChange,
+  });
+  const isSecondaryPanelResizing = useAtomValue(
+    threadSecondaryPanelResizingAtom,
+  );
+  const [desktopInfo] = useState(getBbDesktopInfo);
+  const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
+  const desktopWindowState = useDesktopWindowState();
+  const isSidebarShowing = useOptionalIsSidebarShowing();
+  const isFramed = useIsSidebarFramed();
+  const isPanelInFrame = isFramed && isAtWindowTop && !renderAsDrawer;
+  const sidebarKeepsCollapsedRail = useSidebarKeepsCollapsedRail();
+  const collapsedPanelTrafficLightReserveClassName =
+    resolveCollapsedPanelTrafficLightReserveClassName({
+      isConversationCollapsed,
+      isPanelInFrame,
+      renderAsDrawer,
+      isSidebarShowing,
+      sidebarKeepsCollapsedRail,
+      reserveMacosTrafficLights: shouldReserveMacosTrafficLights({
+        desktopInfo,
+        windowState: desktopWindowState,
+      }),
+    });
+  const handlePanelFocusCapture = (event: FocusEvent<HTMLElement>) => {
+    const previousTarget = event.relatedTarget;
+    if (
+      previousTarget instanceof Node &&
+      event.currentTarget.contains(previousTarget)
+    ) {
+      return;
+    }
+    onPanelFocus();
+  };
+
+  interface PanelSurfaceArgs {
+    activeSurfaceFixedTab: SecondaryPanelFixedTab | undefined;
+    activeSurfaceTabId: string | null;
+    surfaceTabs: readonly SecondaryPanelRenderableTab[];
+    fixedSurfaceTabs: readonly SecondaryPanelFixedTab[];
+    isFocused: boolean;
+    isFullScreen?: boolean;
+    onBeginTabDrag?: (
+      tabId: string,
+      event: ReactPointerEvent<HTMLElement>,
+    ) => void;
+    onMoveActiveTabToSide?: (side: SplitSide) => void;
+    onRemoveSplit?: () => void;
+    onToggleFullScreen?: () => void;
+    onFocusPane: () => void;
+    onSurfaceTabReorder: SecondaryPanelTabReorderHandler;
+    paneId: string | null;
+    reserveLeadingChrome: boolean;
+    reserveNewTabControl: boolean;
+    showNewTabControl: boolean;
+    showOuterControls: boolean;
+    usesPaneArrangementControl: boolean;
+    usesWindowChrome: boolean;
+  }
+
+  interface PanelTabGroupArgs {
+    activeSurfaceFixedTab: SecondaryPanelFixedTab | undefined;
+    activeSurfaceTabId: string | null;
+    surfaceTabs: readonly SecondaryPanelRenderableTab[];
+    fixedSurfaceTabs: readonly SecondaryPanelFixedTab[];
+    onBeginTabDrag?: (
+      tabId: string,
+      event: ReactPointerEvent<HTMLElement>,
+    ) => void;
+    newTabAriaLabel: string;
+    onSurfaceTabReorder: SecondaryPanelTabReorderHandler;
+    reserveNewTabButton: boolean;
+    showNewTabButton: boolean;
+  }
+
+  const renderHidePanelButton = () => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className={cn(
+        renderAsDrawer
+          ? PANEL_TAB_CONTROL_CLASS
+          : SECONDARY_PANEL_HIDE_ICON_BUTTON_CLASS,
+        CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS,
+        "relative",
+        usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+        isPanelInFrame && MACOS_TITLE_BAR_TRAILING_TOGGLE_CLASS,
+      )}
+      onClick={onClose}
+      aria-label={
+        togglePanelShortcut
+          ? `${HIDE_PANEL_LABEL} (${togglePanelShortcut.label})`
+          : HIDE_PANEL_LABEL
+      }
+      aria-keyshortcuts={togglePanelShortcut?.ariaKeyshortcuts}
+    >
+      <Icon name={RIGHT_PANEL_TOGGLE_ICON_NAME} />
+      <AppCommandShortcutHint
+        shortcut={togglePanelShortcut}
+        className={RIGHT_PANEL_TOGGLE_SHORTCUT_HINT_CLASS}
+      />
+    </Button>
+  );
+
+  const renderRemoveSplitButton = (onRemoveSplit?: () => void) =>
+    onRemoveSplit ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={cn(
+          renderAsDrawer
+            ? PANEL_TAB_CONTROL_CLASS
+            : HEADER_PANE_ACTION_ICON_BUTTON_CLASS,
+          CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS,
+          "shrink-0",
+          usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+        )}
+        aria-label="Remove split"
+        onClick={onRemoveSplit}
+      >
+        <Icon name="CloseThreadPane" />
+      </Button>
+    ) : null;
+
+  const renderConversationCollapseButton = ({
+    isFullScreen,
+    onMoveActiveTabToSide,
+    onToggleFullScreen,
+    usesPaneArrangementControl,
+  }: {
+    isFullScreen?: boolean;
+    onMoveActiveTabToSide?: (side: SplitSide) => void;
+    onToggleFullScreen?: () => void;
+    usesPaneArrangementControl: boolean;
+  }) => {
+    if (usesPaneArrangementControl) {
+      if (onToggleFullScreen === undefined) return null;
+      return (
+        <PaneArrangementButton
+          className={cn(
+            renderAsDrawer ? PANEL_TAB_CONTROL_CLASS : "shrink-0",
+            usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+          )}
+          isFullScreen={isFullScreen ?? false}
+          onMoveToSide={onMoveActiveTabToSide}
+          onToggleFullScreen={onToggleFullScreen}
+          shortcut={fullScreenShortcut ?? undefined}
+        />
+      );
+    }
+    if (conversationCollapseControl === null) return null;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              renderAsDrawer
+                ? PANEL_TAB_CONTROL_CLASS
+                : HEADER_PANE_ACTION_ICON_BUTTON_CLASS,
+              CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS,
+              "shrink-0",
+              usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+            )}
+            onClick={conversationCollapseControl.onClick}
+            aria-label={
+              fullScreenShortcut
+                ? `${conversationCollapseControl.label} (${fullScreenShortcut.label})`
+                : conversationCollapseControl.label
+            }
+            aria-keyshortcuts={fullScreenShortcut?.ariaKeyshortcuts}
+            aria-pressed={conversationCollapseControl.isFullScreen}
+          >
+            <Icon name={conversationCollapseControl.iconName} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <span>{conversationCollapseControl.label}</span>
+          {fullScreenShortcut ? ` (${fullScreenShortcut.label})` : ""}
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const renderPanelTabGroup = ({
+    activeSurfaceFixedTab,
+    activeSurfaceTabId,
+    surfaceTabs,
+    fixedSurfaceTabs,
+    newTabAriaLabel,
+    onBeginTabDrag,
+    onSurfaceTabReorder,
+    reserveNewTabButton,
+    showNewTabButton: showGroupNewTabButton,
+  }: PanelTabGroupArgs) => {
+    const activeSurfaceTab = surfaceTabs.find(
+      (tab) => tab.tab.id === activeSurfaceTabId,
+    );
+    const visibleSurfaceTabs = surfaceTabs.filter(
+      (tab) => tab.isHidden !== true,
+    );
+    const hasActiveSurfaceTab = activeSurfaceTab !== undefined;
+    const newTabControl = showGroupNewTabButton ? (
+      <NewTabButton
+        ariaLabel={newTabAriaLabel}
+        onOpenNewTab={onOpenNewTab}
+        shortcut={newTabShortcut}
+        usesDesktopChrome={usesDesktopChrome}
+        compact={renderAsDrawer}
+      />
+    ) : reserveNewTabButton ? (
+      <div
+        aria-hidden
+        data-new-tab-control-reserved=""
+        className={cn(
+          renderAsDrawer
+            ? PANEL_TAB_CONTROL_CLASS
+            : SECONDARY_PANEL_CHROME_ICON_BUTTON_CLASS,
+          usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+        )}
+      />
+    ) : null;
+
+    if (renderAsDrawer) {
+      return (
+        <MobilePanelTabPager
+          activeTabId={
+            activeSurfaceTabId ?? activeSurfaceFixedTab?.tab.id ?? null
+          }
+          fixedTabs={fixedSurfaceTabs.map((tab) => ({
+            id: tab.tab.id,
+            label: tab.label,
+            ariaLabel: tab.ariaLabel,
+            leadingVisual: tab.leadingVisual,
+            onSelect: tab.onSelect,
+          }))}
+          tabs={visibleSurfaceTabs.map((tab) => ({
+            id: tab.tab.id,
+            label: tab.label,
+            ariaLabel: tab.label,
+            leadingVisual: tab.leadingVisual,
+            onSelect: tab.onSelect,
+            onClose: tab.isPinned ? null : tab.onClose,
+          }))}
+          newTabControl={newTabControl}
+        />
+      );
+    }
+
+    return (
+      <>
+        {fixedSurfaceTabs.map((fixedTab) => {
+          const shortcut = isGitDiffFixedPanelTab(fixedTab.tab)
+            ? diffShortcut
+            : null;
+          return (
+            <PinnedIconTab
+              key={fixedTab.tab.id}
+              ariaLabel={
+                shortcut
+                  ? `${fixedTab.ariaLabel} (${shortcut.label})`
+                  : fixedTab.ariaLabel
+              }
+              ariaKeyshortcuts={shortcut?.ariaKeyshortcuts}
+              isActive={
+                activeSurfaceFixedTab?.tab.id === fixedTab.tab.id &&
+                !hasActiveSurfaceTab
+              }
+              label={fixedTab.label}
+              leadingVisual={fixedTab.leadingVisual}
+              onClick={fixedTab.onSelect}
+              onPointerDown={
+                onBeginTabDrag
+                  ? (event) => onBeginTabDrag(fixedTab.tab.id, event)
+                  : undefined
+              }
+              title={fixedTab.title}
+              usesDesktopChrome={usesDesktopChrome}
+            />
+          );
+        })}
+        {visibleSurfaceTabs.length > 0 ? (
+          <SecondaryPanelTabStrip
+            activeTabId={activeSurfaceTabId}
+            tabs={visibleSurfaceTabs}
+            onBeginTabDrag={onBeginTabDrag}
+            onReorderTab={onSurfaceTabReorder}
+            usesDesktopChrome={usesDesktopChrome}
+            isPanelOpen={isOpen}
+          />
+        ) : null}
+        {newTabControl}
+      </>
+    );
+  };
+
+  const renderPanelSurface = ({
+    activeSurfaceFixedTab,
+    activeSurfaceTabId,
+    surfaceTabs,
+    fixedSurfaceTabs,
+    isFocused,
+    isFullScreen,
+    onBeginTabDrag,
+    onFocusPane,
+    onMoveActiveTabToSide,
+    onRemoveSplit,
+    onToggleFullScreen,
+    onSurfaceTabReorder,
+    paneId,
+    reserveLeadingChrome,
+    reserveNewTabControl,
+    showNewTabControl,
+    showOuterControls,
+    usesPaneArrangementControl,
+    usesWindowChrome,
+  }: PanelSurfaceArgs) => {
+    const activeSurfaceTab =
+      surfaceTabs.find((tab) => tab.tab.id === activeSurfaceTabId) ?? null;
+    const activeSurfaceModel = activeSurfaceTab?.tab ?? null;
+    const hasActiveSurfaceTab = activeSurfaceTab !== null;
+    const paneRenderContext = { isFocused, onFocusPane };
+    const isBrowserSurfaceActive = activeSurfaceModel?.kind === "browser";
+    const browserSurface =
+      renderBrowserDeck === undefined ||
+      (paneId !== null && !isBrowserSurfaceActive)
+        ? null
+        : renderBrowserDeck(
+            isBrowserSurfaceActive ? activeSurfaceModel.id : null,
+            paneRenderContext,
+          );
+    const surfaceContent =
+      activeSurfaceTab === null || isBrowserSurfaceActive
+        ? null
+        : activeSurfaceTab.renderContent(paneRenderContext);
+    const surfaceContentFillsRegion =
+      activeSurfaceTab?.contentFillsRegion === true;
+    const filePreviewScrollPosition =
+      activeSurfaceModel === null || isBrowserSurfaceActive
+        ? null
+        : (filePreviewScrollPositions.get(activeSurfaceModel.id) ?? {
+            scrollTop: 0,
+          });
+    if (activeSurfaceModel !== null && filePreviewScrollPosition !== null) {
+      filePreviewScrollPositions.set(
+        activeSurfaceModel.id,
+        filePreviewScrollPosition,
+      );
+    }
+    const fixedSurfaceContent =
+      activeSurfaceFixedTab?.renderContent?.(paneRenderContext);
+    const fixedSurfaceContentFillsRegion =
+      activeSurfaceFixedTab?.contentFillsRegion === true;
+    const isSurfaceTerminalActive =
+      activeSurfaceModel?.kind === "terminal" && hasActiveSurfaceTab;
+
+    return (
+      <ImageTabLightboxProvider
+        activeTabId={activeSurfaceTabId}
+        tabs={surfaceTabs}
+      >
+        <div
+          className={cn(
+            getSecondaryPanelChromeStackClassName(false),
+            isPanelInFrame && "bg-transparent",
+          )}
+        >
+          <div
+            data-testid="thread-secondary-panel-top-chrome"
+            className={cn(
+              CHROME_ROW_CLASS,
+              "min-w-0 justify-between gap-2",
+              renderAsDrawer ? "px-2" : "px-(--bb-panel-chrome-padding)",
+              usesDesktopChrome && usesWindowChrome && MACOS_WINDOW_DRAG_CLASS,
+              usesDesktopChrome &&
+                usesWindowChrome && [
+                  MACOS_CHROME_CONTROL_AXIS_CLASS,
+                  MACOS_TITLE_BAR_CONTROL_SIZE_CLASS,
+                ],
+              isPanelInFrame &&
+                usesWindowChrome && [
+                  MACOS_TITLE_BAR_BAND_CLASS,
+                  MACOS_TITLE_BAR_CONTROL_AXIS_CLASS,
+                ],
+            )}
+          >
+            <div
+              className={cn(
+                "flex min-w-0 flex-1 items-center gap-1",
+                renderAsDrawer && "gap-0",
+                `transition-[padding] ${PANEL_COLLAPSE_TRANSITION_CLASS}`,
+                reserveLeadingChrome &&
+                  collapsedPanelTrafficLightReserveClassName,
+              )}
+              data-sidebar-split-tab-group={paneId ?? undefined}
+              role="toolbar"
+              aria-label="Right panel views"
+            >
+              {renderPanelTabGroup({
+                activeSurfaceFixedTab,
+                activeSurfaceTabId,
+                surfaceTabs,
+                fixedSurfaceTabs,
+                newTabAriaLabel:
+                  onRemoveSplit === undefined
+                    ? "Open new tab"
+                    : "Open new tab in this pane",
+                onBeginTabDrag,
+                onSurfaceTabReorder,
+                reserveNewTabButton: reserveNewTabControl,
+                showNewTabButton: showNewTabControl,
+              })}
+            </div>
+            {showOuterControls ||
+            onRemoveSplit ||
+            usesPaneArrangementControl ? (
+              <div
+                className={cn(
+                  "flex min-w-0 shrink-0 items-center gap-1",
+                  renderAsDrawer && "gap-0",
+                )}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                {usesPaneArrangementControl || showOuterControls
+                  ? renderConversationCollapseButton({
+                      isFullScreen,
+                      onMoveActiveTabToSide,
+                      onToggleFullScreen,
+                      usesPaneArrangementControl,
+                    })
+                  : null}
+                {renderRemoveSplitButton(onRemoveSplit)}
+                {showOuterControls &&
+                (renderAsDrawer || inlinePanelToggle === "button")
+                  ? renderHidePanelButton()
+                  : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar">
+          {isPanelInFrame && usesWindowChrome ? (
+            <TitleBarScrollFade tone="sidebar" />
+          ) : null}
+          {browserSurface}
+          {isBrowserSurfaceActive ? null : hasActiveSurfaceTab ? (
+            <div
+              className={
+                isSurfaceTerminalActive || surfaceContentFillsRegion
+                  ? "min-h-0 flex-1 overflow-hidden"
+                  : cn(PANEL_SCROLL_SLOT_CLASS, "pb-3")
+              }
+              data-file-preview-scroll-container={
+                isSurfaceTerminalActive || surfaceContentFillsRegion
+                  ? undefined
+                  : ""
+              }
+            >
+              <FilePreviewScrollPositionContext.Provider
+                value={filePreviewScrollPosition}
+              >
+                {surfaceContent ?? (
+                  <EmptyStatePanel className="mx-4 rounded-lg">
+                    No file preview content provided.
+                  </EmptyStatePanel>
+                )}
+              </FilePreviewScrollPositionContext.Provider>
+            </div>
+          ) : activeSurfaceFixedTab !== undefined &&
+            fixedSurfaceContent !== undefined ? (
+            <div
+              className={
+                fixedSurfaceContentFillsRegion
+                  ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                  : cn(PANEL_SCROLL_SLOT_CLASS, "p-4 pb-3")
+              }
+            >
+              <ThreadDiffContentContext.Provider value={diffContent}>
+                {fixedSurfaceContent}
+              </ThreadDiffContentContext.Provider>
+            </div>
+          ) : isLayoutOpen ? (
+            <EmptyStatePanel className="m-4 rounded-lg">
+              This panel view is unavailable.
+            </EmptyStatePanel>
+          ) : null}
+        </div>
+      </ImageTabLightboxProvider>
+    );
+  };
+
+  const shouldEnableSidebarSplits =
+    !renderAsDrawer && splitPanelStateId !== undefined && areFixedTabsReady;
+  const splitTabs = shouldEnableSidebarSplits
+    ? ([
+        ...fixedTabs.map((fixedTab) => ({
+          id: fixedTab.tab.id,
+          label: fixedTab.label,
+          restoresPlacementAfterRemoval: true,
+        })),
+        ...visibleTabs.map((tab) => ({
+          id: tab.tab.id,
+          label: tab.label,
+          restoresPlacementAfterRemoval: tab.tab.kind !== "new-tab",
+        })),
+      ] satisfies SidebarSplitTabDescriptor[])
+    : [];
+  const globalActiveTabId =
+    activeRenderableTab?.tab.id ??
+    activeFixedTab?.tab.id ??
+    fixedTabs[0]?.tab.id ??
+    SIDEBAR_FIXED_INFO_TAB_ID;
+  const resolveSplitPaneTabs = (pane: SidebarSplitPaneRenderArgs) =>
+    pane.group.tabIds
+      .map((tabId) => tabs.find((tab) => tab.tab.id === tabId))
+      .filter((tab): tab is SecondaryPanelRenderableTab => tab !== undefined)
+      .map((tab) => ({
+        ...tab,
+        onSelect: () => pane.onSelectTab(tab.tab.id),
+      }));
+  const panelSurface = shouldEnableSidebarSplits ? (
+    <SidebarSplitContainer
+      key={splitPanelStateId}
+      activeTabId={globalActiveTabId}
+      canNavigateTabs={canNavigateTabs && isLayoutOpen}
+      fixedTabIds={fixedTabs.map((tab) => tab.tab.id)}
+      hasNewTabButton={showNewTabButton}
+      onTabNavigated={(paneId, isNewTabButton) => {
+        window.requestAnimationFrame(() => {
+          const control = isNewTabButton
+            ? "button[data-panel-new-tab]"
+            : 'button[aria-pressed="true"]';
+          panelRef.current
+            ?.querySelector<HTMLElement>(
+              `[data-sidebar-split-tab-group="${CSS.escape(paneId)}"] ${control}`,
+            )
+            ?.focus({ preventScroll: true });
+        });
+      }}
+      isFullScreen={isConversationCollapsed}
+      onActivateTab={(tabId) => {
+        const fixedTab = fixedTabs.find(
+          (candidate) => candidate.tab.id === tabId,
+        );
+        if (fixedTab !== undefined) fixedTab.onSelect();
+        else tabs.find((tab) => tab.tab.id === tabId)?.onSelect();
+      }}
+      onGlobalTabReorder={onTabReorder}
+      onToggleFullScreen={onToggleConversationCollapse}
+      panelStateId={splitPanelStateId}
+      tabs={splitTabs}
+      renderPane={(pane: SidebarSplitPaneRenderArgs) => {
+        const activePaneTabId = pane.group.activeTabId;
+        const isSplitPane = pane.onRemoveSplit !== undefined;
+        const paneTabs = resolveSplitPaneTabs(pane);
+        const paneFixedTabs = fixedTabs
+          .filter((fixedTab) => pane.group.tabIds.includes(fixedTab.tab.id))
+          .map((fixedTab) => ({
+            ...fixedTab,
+            onSelect: () => pane.onSelectTab(fixedTab.tab.id),
+          }));
+        const activePaneFixedTab = paneFixedTabs.find(
+          (fixedTab) => fixedTab.tab.id === activePaneTabId,
+        );
+        return renderPanelSurface({
+          activeSurfaceFixedTab: activePaneFixedTab,
+          activeSurfaceTabId: activePaneTabId,
+          surfaceTabs: paneTabs,
+          fixedSurfaceTabs: paneFixedTabs,
+          isFocused: pane.isFocused,
+          isFullScreen: pane.isMaximized,
+          onBeginTabDrag: pane.onBeginTabDrag,
+          onFocusPane: pane.onFocusPane,
+          onMoveActiveTabToSide: pane.onMoveActiveTabToSide,
+          onRemoveSplit: pane.onRemoveSplit,
+          onToggleFullScreen: pane.onToggleMaximize,
+          onSurfaceTabReorder: pane.onReorderTab,
+          paneId: pane.paneId,
+          reserveLeadingChrome: pane.isTopRow && pane.isLeftEdge,
+          reserveNewTabControl:
+            isSplitPane && !pane.isFocused && showNewTabButton,
+          showNewTabControl:
+            (!isSplitPane || pane.isFocused) && showNewTabButton,
+          showOuterControls: pane.showOuterControls,
+          usesPaneArrangementControl: true,
+          usesWindowChrome: pane.isTopRow,
+        });
+      }}
+    />
+  ) : (
+    renderPanelSurface({
+      activeSurfaceFixedTab: activeFixedTab,
+      activeSurfaceTabId: activeRenderableTab?.tab.id ?? activeTab?.id ?? null,
+      surfaceTabs: tabs,
+      fixedSurfaceTabs: fixedTabs,
+      isFocused: true,
+      onFocusPane: onPanelFocus,
+      onSurfaceTabReorder: onTabReorder,
+      paneId: null,
+      reserveLeadingChrome: true,
+      reserveNewTabControl: false,
+      showNewTabControl: showNewTabButton,
+      showOuterControls: true,
+      usesPaneArrangementControl: false,
+      usesWindowChrome: true,
+    })
+  );
+
+  const asideMarkup = (
+    <aside
+      ref={panelRef}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+      onFocusCapture={handlePanelFocusCapture}
+      style={
+        !renderAsDrawer && !isSecondaryPanelResizing
+          ? {
+              width: isConversationCollapsed
+                ? "100%"
+                : `var(--secondary-swipe-width, ${persistedWidthPercent}cqw)`,
+            }
+          : undefined
+      }
+      className={cn(
+        "flex h-full min-h-0 flex-col overflow-hidden bg-sidebar",
+        renderAsDrawer && "min-w-0 flex-1",
+        isPanelInFrame && FRAMED_PANEL_SURFACE_CLASS,
+        !renderAsDrawer && [
+          "absolute inset-y-0 left-0",
+          hostLayout === null &&
+            !isConversationCollapsed &&
+            (isPanelInFrame
+              ? "border-l border-border"
+              : "border-l border-border-seam"),
+          isSecondaryPanelResizing && "right-0",
+          !isOpen && "pointer-events-none",
+        ],
+      )}
+    >
+      {panelSurface}
+      <IframeDragGuardOverlay
+        active={isSecondaryPanelResizing}
+        cursor="col-resize"
+      />
+    </aside>
+  );
+
+  if (renderAsDrawer) {
+    return asideMarkup;
+  }
+
+  return (
+    <>
+      <SecondaryPanelResizeHandle
+        isOpen={isOpen}
+        isConversationCollapsed={isConversationCollapsed}
+        matchesSplitDividers={hostLayout !== null}
+        hitTargetRef={resizeHitTargetRef}
+      />
+      <Panel
+        ref={resizablePanelRef}
+        id={resizablePanelId}
+        collapsible
+        collapsedSize={0}
+        defaultSize={
+          isLayoutOpen
+            ? isConversationCollapsed
+              ? CONVERSATION_COLLAPSED_PANEL_SIZE_PERCENT
+              : persistedWidthPercent
+            : 0
+        }
+        minSize={(1 - minimumSize.max) * 100}
+        maxSize={isConversationCollapsed ? 100 : (1 - minimumSize.min) * 100}
+        onCollapse={handlePanelCollapse}
+        onResize={handlePanelResize}
+        order={2}
+        style={SECONDARY_RESIZABLE_PANEL_STYLE}
+        className={cn(
+          "min-w-0 overflow-clip",
+          `relative transition-[flex-grow,flex-basis] ${PANEL_COLLAPSE_TRANSITION_CLASS}`,
+        )}
+      >
+        {asideMarkup}
+      </Panel>
+    </>
+  );
+}
+
+interface NewTabButtonProps {
+  compact: boolean;
+  ariaLabel: string;
+  onOpenNewTab: () => void;
+  shortcut: AppShortcutPresentation | null;
+  usesDesktopChrome: boolean;
+}
+
+interface PinnedIconTabProps {
+  ariaLabel: string;
+  ariaKeyshortcuts?: string;
+  isActive: boolean;
+  label: string;
+  leadingVisual: ReactNode;
+  onClick: () => void;
+  onPointerDown?: (event: ReactPointerEvent<HTMLElement>) => void;
+  title: string;
+  usesDesktopChrome: boolean;
+}
+
+function PinnedIconTab({
+  ariaLabel,
+  ariaKeyshortcuts,
+  isActive,
+  label,
+  leadingVisual,
+  onClick,
+  onPointerDown,
+  title,
+  usesDesktopChrome,
+}: PinnedIconTabProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          data-testid={label === "Info" ? "thread-info-tab" : undefined}
+          className={cn(
+            "shrink-0",
+            usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+          )}
+          onPointerDown={onPointerDown}
+        >
+          <TabPill
+            label={label}
+            ariaLabel={ariaLabel}
+            ariaKeyshortcuts={ariaKeyshortcuts}
+            iconOnly
+            leadingVisual={leadingVisual}
+            title={title}
+            isActive={isActive}
+            onSelect={onClick}
+            closeAction={null}
+          />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>{title}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function NewTabButton({
+  compact,
+  ariaLabel,
+  onOpenNewTab,
+  shortcut,
+  usesDesktopChrome,
+}: NewTabButtonProps) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={cn(
+        compact
+          ? PANEL_TAB_CONTROL_CLASS
+          : SECONDARY_PANEL_CHROME_ICON_BUTTON_CLASS,
+        "text-muted-foreground/70 hover:text-foreground focus:ring-1 focus:ring-ring",
+        usesDesktopChrome && MACOS_WINDOW_NO_DRAG_CLASS,
+      )}
+      onClick={onOpenNewTab}
+      data-panel-new-tab=""
+      aria-label={shortcut ? `${ariaLabel} (${shortcut.label})` : ariaLabel}
+      aria-keyshortcuts={shortcut?.ariaKeyshortcuts}
+    >
+      <Icon name="Plus" />
+    </Button>
+  );
+}
+
+interface SecondaryPanelResizeHandleProps {
+  isOpen: boolean;
+  isConversationCollapsed: boolean;
+  matchesSplitDividers: boolean;
+  hitTargetRef: RefObject<HTMLSpanElement | null>;
+}
+
+function SecondaryPanelResizeHandle({
+  isOpen,
+  isConversationCollapsed,
+  matchesSplitDividers,
+  hitTargetRef,
+}: SecondaryPanelResizeHandleProps) {
+  const isResizing = useAtomValue(threadSecondaryPanelResizingAtom);
+  const dividerClass = useIsSidebarFramed() ? "bg-border" : "bg-border-seam";
+  return (
+    <PanelResizeHandle
+      id="thread-detail-secondary-panel-handle"
+      disabled={!isOpen || isConversationCollapsed}
+      data-panel-resize-snap-handle=""
+      hitAreaMargins={{ coarse: 0, fine: 0 }}
+      tabIndex={-1}
+      className={cn(
+        "group relative shrink-0 overflow-visible transition-[width,opacity,background-color]",
+        PANEL_RESIZE_HANDLE_LAYER_CLASS,
+        PANEL_COLLAPSE_TRANSITION_CLASS,
+        isConversationCollapsed ? "cursor-default" : "cursor-col-resize",
+        matchesSplitDividers
+          ? [
+              dividerClass,
+              "hover:bg-ring/40",
+              isOpen && !isConversationCollapsed
+                ? "w-px opacity-100"
+                : "pointer-events-none w-0 opacity-0",
+              isResizing && "bg-ring/40",
+            ]
+          : [
+              "bg-transparent",
+              isOpen && !isConversationCollapsed
+                ? "w-0 opacity-100"
+                : "pointer-events-none w-0 opacity-0",
+              isResizing && "bg-accent/20",
+            ],
+      )}
+      aria-label="Resize thread and right panel"
+    >
+      <span
+        aria-hidden
+        ref={hitTargetRef}
+        data-panel-resize-hit-target=""
+        className={PANEL_RESIZE_HIT_TARGET_CLASS}
+      />
+      {matchesSplitDividers ? null : (
+        <span
+          className={cn(
+            "pointer-events-none absolute inset-y-0 left-full z-10 w-px transition-colors",
+            isResizing
+              ? "bg-accent-foreground/50"
+              : [dividerClass, "group-hover:bg-accent-foreground/35"],
+          )}
+        />
+      )}
+    </PanelResizeHandle>
+  );
+}

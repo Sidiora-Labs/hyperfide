@@ -1,0 +1,299 @@
+import {
+  HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS,
+  HOST_DAEMON_PROTOCOL_VERSION,
+  type HostDaemonInternalSchema,
+} from "@bb/host-daemon-contract";
+import type { Hono } from "hono";
+import { hc } from "hono/client";
+import { describe, expect, it } from "vitest";
+import { getHost, setAppSettings, updateHost, upsertHost } from "@bb/db";
+import { defaultAppSettings } from "@bb/domain";
+import {
+  createTestDaemonHostKey,
+  startTestServer,
+} from "../helpers/test-app.js";
+
+function createHostDaemonClient(baseUrl: string, hostKey: string) {
+  return hc<Hono<{}, HostDaemonInternalSchema, "/">>(`${baseUrl}/internal`, {
+    headers: { authorization: `Bearer ${hostKey}` },
+  });
+}
+
+describe("internal session protocol version", () => {
+  it.each(["suspending", "suspended"] as const)(
+    "rejects a session open while the machine is %s",
+    async (phase) => {
+      const server = await startTestServer();
+      try {
+        const hostId = `host-${phase}`;
+        const hostKey = createTestDaemonHostKey({ hostId });
+        upsertHost(server.db, server.hub, { id: hostId, name: "Paused Host" });
+        updateHost(server.db, server.hub, hostId, { phase });
+
+        const response = await fetch(
+          `${server.baseUrl}/internal/session/open`,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${hostKey}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              hostId,
+              instanceId: `instance-${phase}`,
+              hostName: "Paused Host",
+              hasMachineCredential: true,
+              platform: "linux",
+              dataDir: `/tmp/${hostId}`,
+              localApiPort: 38_888,
+              protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+              activeThreads: [],
+              undeliveredEventThreadIds: [],
+              loadedEnvironments: [],
+            }),
+          },
+        );
+
+        expect(response.status).toBe(409);
+        expect(await response.json()).toMatchObject({
+          code: "machine_suspended",
+          message:
+            "Machine daemon sessions are disabled while the machine is suspending or suspended",
+        });
+      } finally {
+        await server.close();
+      }
+    },
+  );
+
+  it("accepts a session open while the machine is resuming", async () => {
+    const server = await startTestServer();
+    try {
+      const hostId = "host-resuming";
+      const hostKey = createTestDaemonHostKey({ hostId });
+      upsertHost(server.db, server.hub, { id: hostId, name: "Resuming Host" });
+      updateHost(server.db, server.hub, hostId, { phase: "resuming" });
+      setAppSettings(server.db, {
+        ...defaultAppSettings,
+        idleProviderSessionTimeoutMinutes: 5,
+      });
+
+      const response = await fetch(`${server.baseUrl}/internal/session/open`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${hostKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          hostId,
+          instanceId: "instance-resuming",
+          hostName: "Resuming Host",
+          hasMachineCredential: true,
+          platform: "linux",
+          dataDir: `/tmp/${hostId}`,
+          localApiPort: 38_888,
+          protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+          activeThreads: [],
+          undeliveredEventThreadIds: [],
+          loadedEnvironments: [],
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      expect(await response.json()).toMatchObject({
+        idleProviderSessionTimeoutMinutes: 5,
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("rejects a session open whose protocol version does not match the server", async () => {
+    const server = await startTestServer();
+    try {
+      const hostKey = createTestDaemonHostKey({ hostId: "host-protocol" });
+      upsertHost(server.db, server.hub, {
+        id: "host-protocol",
+        name: "Protocol Host",
+      });
+      const daemonClient = createHostDaemonClient(server.baseUrl, hostKey);
+      const staleProtocolVersion =
+        Math.min(...HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS) - 1;
+
+      const priorProtocolResponse = await fetch(
+        `${server.baseUrl}/internal/session/open`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${hostKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            hostId: "host-protocol",
+            instanceId: "instance-protocol-pr1",
+            hostName: "Protocol Host",
+            hostType: "persistent",
+            hasMachineCredential: false,
+            platform: "darwin",
+            dataDir: "/tmp/host-protocol-data",
+            localApiPort: 38_888,
+            protocolVersion: 188,
+            activeThreads: [],
+            undeliveredEventThreadIds: [],
+            loadedEnvironments: [],
+          }),
+        },
+      );
+      expect(priorProtocolResponse.status).toBe(400);
+      expect(await priorProtocolResponse.json()).toMatchObject({
+        code: "protocol_version_mismatch",
+        details: {
+          retryUpdate: false,
+          serverProtocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+        },
+        message: `Daemon protocol version 188 does not match server protocol version ${HOST_DAEMON_PROTOCOL_VERSION}`,
+      });
+      expect(
+        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+      ).toBe(188);
+
+      const preLocalApiPortProtocolVersion = 139;
+      const oldDaemonResponse = await fetch(
+        `${server.baseUrl}/internal/session/open`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${hostKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            hostId: "host-protocol",
+            instanceId: "instance-pre-local-api-port",
+            hostName: "Protocol Host",
+            hasMachineCredential: false,
+            platform: "darwin",
+            dataDir: "/tmp/host-protocol-data",
+            protocolVersion: preLocalApiPortProtocolVersion,
+            activeThreads: [],
+            undeliveredEventThreadIds: [],
+            loadedEnvironments: [],
+          }),
+        },
+      );
+      expect(oldDaemonResponse.status).toBe(400);
+      expect(await oldDaemonResponse.json()).toMatchObject({
+        code: "protocol_version_mismatch",
+        details: {
+          retryUpdate: false,
+          serverProtocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+        },
+        message: `Daemon protocol version ${preLocalApiPortProtocolVersion} does not match server protocol version ${HOST_DAEMON_PROTOCOL_VERSION}`,
+      });
+      expect(
+        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+      ).toBe(preLocalApiPortProtocolVersion);
+
+      const response = await daemonClient.session.open.$post({
+        json: {
+          hostId: "host-protocol",
+          instanceId: "instance-1",
+          hostName: "Protocol Host",
+          hasMachineCredential: false,
+          platform: "darwin",
+          dataDir: "/tmp/host-protocol-data",
+          localApiPort: 38_888,
+          protocolVersion: staleProtocolVersion,
+          activeThreads: [],
+          undeliveredEventThreadIds: [],
+          loadedEnvironments: [],
+        },
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        code: "protocol_version_mismatch",
+        details: {
+          retryUpdate: false,
+          serverProtocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+        },
+        message: `Daemon protocol version ${staleProtocolVersion} does not match server protocol version ${HOST_DAEMON_PROTOCOL_VERSION}`,
+      });
+      expect(
+        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+      ).toBe(staleProtocolVersion);
+      await expect(
+        fetch(`${server.baseUrl}/api/v1/hosts/host-protocol`).then((result) =>
+          result.json(),
+        ),
+      ).resolves.toMatchObject({
+        lastRejectedProtocolVersion: staleProtocolVersion,
+      });
+
+      server.hub.requestHostProtocolUpdateRetry("host-protocol");
+      const forcedRetry = await daemonClient.session.open.$post({
+        json: {
+          hostId: "host-protocol",
+          instanceId: "instance-retry",
+          hostName: "Protocol Host",
+          hasMachineCredential: false,
+          platform: "darwin",
+          dataDir: "/tmp/host-protocol-data",
+          localApiPort: 38_888,
+          protocolVersion: staleProtocolVersion,
+          activeThreads: [],
+          undeliveredEventThreadIds: [],
+          loadedEnvironments: [],
+        },
+      });
+      expect(await forcedRetry.json()).toMatchObject({
+        details: { retryUpdate: true },
+      });
+
+      const consumedRetry = await daemonClient.session.open.$post({
+        json: {
+          hostId: "host-protocol",
+          instanceId: "instance-retry-consumed",
+          hostName: "Protocol Host",
+          hasMachineCredential: false,
+          platform: "darwin",
+          dataDir: "/tmp/host-protocol-data",
+          localApiPort: 38_888,
+          protocolVersion: staleProtocolVersion,
+          activeThreads: [],
+          undeliveredEventThreadIds: [],
+          loadedEnvironments: [],
+        },
+      });
+      expect(await consumedRetry.json()).toMatchObject({
+        details: { retryUpdate: false },
+      });
+
+      const accepted = await daemonClient.session.open.$post({
+        json: {
+          hostId: "host-protocol",
+          instanceId: "instance-2",
+          hostName: "Protocol Host",
+          hasMachineCredential: false,
+          platform: "darwin",
+          dataDir: "/tmp/host-protocol-data",
+          localApiPort: 38_888,
+          protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+          activeThreads: [],
+          undeliveredEventThreadIds: [],
+          loadedEnvironments: [],
+        },
+      });
+      expect(accepted.status).toBe(201);
+      expect(
+        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+      ).toBeNull();
+      await expect(
+        fetch(`${server.baseUrl}/api/v1/hosts/host-protocol`).then((result) =>
+          result.json(),
+        ),
+      ).resolves.toMatchObject({ lastRejectedProtocolVersion: null });
+    } finally {
+      await server.close();
+    }
+  });
+});

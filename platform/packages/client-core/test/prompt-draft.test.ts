@@ -1,0 +1,421 @@
+import { describe, expect, it } from "vitest";
+import type { PromptMentionResource } from "@bb/domain";
+import {
+  appendQuoteAndAttachmentsToDraft,
+  appendQuoteToDraftText,
+  emptyPromptDraftState,
+  isPromptDraftEmpty,
+  getProjectStoredPromptAttachmentPaths,
+  parsePromptDraftStorage,
+  promptDraftToInput,
+  promptInputToDraft,
+  serializePromptDraftStorage,
+} from "../src/prompt/prompt-draft.js";
+
+describe("prompt draft helpers", () => {
+  it("drops invalid legacy raw text drafts", () => {
+    const parsed = parsePromptDraftStorage("Investigate flaky login redirect");
+    expect(parsed).toEqual({
+      text: "",
+      mentions: [],
+      attachments: [],
+    });
+  });
+
+  it("treats a stored zero attachment size as unknown", () => {
+    const parsed = parsePromptDraftStorage(
+      JSON.stringify({
+        text: "",
+        attachments: [
+          {
+            type: "localFile",
+            path: "/tmp/spec.md",
+            name: "spec.md",
+            sizeBytes: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(parsed.attachments).toEqual([
+      { type: "localFile", path: "/tmp/spec.md", name: "spec.md" },
+    ]);
+    expect(promptDraftToInput(parsed)).toEqual([
+      { type: "localFile", path: "/tmp/spec.md", name: "spec.md" },
+    ]);
+  });
+
+  it("preserves portable attachments through history conversion and persisted drafts", () => {
+    const input = [
+      {
+        type: "localImage" as const,
+        path: "shot.png",
+        sourceProjectId: "proj_source",
+      },
+      {
+        type: "localFile" as const,
+        path: "notes.txt",
+        name: "notes.txt",
+        sizeBytes: 5,
+        mimeType: "text/plain",
+        sourceProjectId: "proj_other",
+      },
+      {
+        type: "localFile" as const,
+        path: "/tmp/report.txt",
+        name: "report.txt",
+        hostId: "host_1",
+      },
+    ];
+    const restored = parsePromptDraftStorage(
+      serializePromptDraftStorage(promptInputToDraft(input)),
+    );
+
+    expect(promptDraftToInput(restored)).toEqual(input);
+    expect(
+      getProjectStoredPromptAttachmentPaths([
+        ...restored.attachments,
+        {
+          type: "localFile",
+          path: "legacy.txt",
+          name: "legacy.txt",
+          sizeBytes: 1,
+        },
+      ]),
+    ).toEqual(["legacy.txt"]);
+  });
+
+  it("parses structured drafts with attachments", () => {
+    const parsed = parsePromptDraftStorage(
+      JSON.stringify({
+        text: "Review",
+        attachments: [
+          {
+            type: "localImage",
+            path: "/tmp/image.png",
+            name: "image.png",
+            sizeBytes: 12,
+            mimeType: "image/png",
+          },
+        ],
+      }),
+    );
+
+    expect(parsed).toEqual({
+      text: "Review",
+      mentions: [],
+      attachments: [
+        {
+          type: "localImage",
+          path: "/tmp/image.png",
+          name: "image.png",
+          sizeBytes: 12,
+          mimeType: "image/png",
+        },
+      ],
+    });
+  });
+
+  it("detects whether a draft has any submittable state", () => {
+    expect(isPromptDraftEmpty(emptyPromptDraftState())).toBe(true);
+    expect(
+      isPromptDraftEmpty({
+        text: "",
+        mentions: [],
+        attachments: [
+          {
+            type: "localFile",
+            path: "/tmp/spec.md",
+            name: "spec.md",
+            sizeBytes: 42,
+            mimeType: "text/markdown",
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("maps draft text and attachments to prompt input list", () => {
+    const input = promptDraftToInput({
+      text: "  Ship this patch  ",
+      mentions: [],
+      attachments: [
+        {
+          type: "localImage",
+          path: "/tmp/image.png",
+          name: "image.png",
+          sizeBytes: 32,
+          mimeType: "image/png",
+        },
+        {
+          type: "localFile",
+          path: "/tmp/spec.md",
+          name: "spec.md",
+          sizeBytes: 42,
+          mimeType: "text/markdown",
+        },
+      ],
+    });
+
+    expect(input).toEqual([
+      { type: "text", text: "Ship this patch", mentions: [] },
+      { type: "localImage", path: "/tmp/image.png" },
+      {
+        type: "localFile",
+        path: "/tmp/spec.md",
+        name: "spec.md",
+        sizeBytes: 42,
+        mimeType: "text/markdown",
+      },
+    ]);
+  });
+
+  it("keeps attachment mentions only while their attachment is in the draft", () => {
+    const text = "Compare @Pasted text.txt with @Pasted text 2.txt";
+    const attached = {
+      kind: "attachment" as const,
+      path: "Pasted-text-1.txt",
+      label: "Pasted text.txt",
+    };
+    const removed = {
+      kind: "attachment" as const,
+      path: "Pasted-text-2.txt",
+      label: "Pasted text 2.txt",
+    };
+    const input = promptDraftToInput({
+      text,
+      mentions: [
+        { start: 8, end: 24, resource: attached },
+        { start: 30, end: 48, resource: removed },
+      ],
+      attachments: [
+        { type: "localFile", path: "Pasted-text-1.txt", name: "Pasted text.txt" },
+      ],
+    });
+
+    expect(input[0]).toEqual({
+      type: "text",
+      text,
+      mentions: [{ start: 8, end: 24, resource: attached }],
+    });
+  });
+
+  it("sends no size for an unknown or zero-size placeholder attachment", () => {
+    const input = promptDraftToInput({
+      text: "",
+      mentions: [],
+      attachments: [
+        { type: "localFile", path: "uploads/spec.md", name: "spec.md" },
+        {
+          type: "localFile",
+          path: "uploads/plugin.md",
+          name: "plugin.md",
+          sizeBytes: 0,
+        },
+      ],
+    });
+
+    expect(input).toEqual([
+      { type: "localFile", path: "uploads/spec.md", name: "spec.md" },
+      { type: "localFile", path: "uploads/plugin.md", name: "plugin.md" },
+    ]);
+  });
+
+  it("keeps visible mention ranges when trailing trim clips mention whitespace", () => {
+    const resource: PromptMentionResource = {
+      kind: "thread",
+      threadId: "thr_parent",
+      label: "Prompt UX thread",
+    };
+    const text = "  Ask @manager   ";
+    const token = "@manager";
+    const start = text.indexOf(token);
+    if (start < 0) {
+      throw new Error("Expected mention token in test text");
+    }
+
+    const input = promptDraftToInput({
+      text,
+      mentions: [
+        {
+          start,
+          end: text.length,
+          resource,
+        },
+      ],
+      attachments: [],
+    });
+
+    expect(input).toEqual([
+      {
+        type: "text",
+        text: "Ask @manager",
+        mentions: [
+          {
+            start: "Ask ".length,
+            end: "Ask @manager".length,
+            resource,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("maps prompt input back to an editable draft", () => {
+    const draft = promptInputToDraft([
+      { type: "text", text: "Investigate", mentions: [] },
+      { type: "image", url: "https://example.com/image.png" },
+      { type: "localImage", path: "/tmp/screenshot.png" },
+      {
+        type: "localFile",
+        path: "/tmp/spec.md",
+        name: "spec.md",
+        sizeBytes: 42,
+        mimeType: "text/markdown",
+      },
+    ]);
+
+    expect(draft).toEqual({
+      text: "Investigate",
+      mentions: [],
+      attachments: [
+        {
+          type: "localImage",
+          path: "/tmp/screenshot.png",
+          name: "screenshot.png",
+        },
+        {
+          type: "localFile",
+          path: "/tmp/spec.md",
+          name: "spec.md",
+          sizeBytes: 42,
+          mimeType: "text/markdown",
+        },
+      ],
+    });
+  });
+});
+
+describe("appendQuoteToDraftText", () => {
+  it("appends a one-line quote to an empty draft with a trailing newline", () => {
+    const next = appendQuoteToDraftText(
+      emptyPromptDraftState(),
+      "  hello world  ",
+    );
+    expect(next.text).toBe("> hello world\n");
+  });
+
+  it("prefixes each line of a multi-line quote and prefixes blank lines as `>`", () => {
+    const next = appendQuoteToDraftText(
+      emptyPromptDraftState(),
+      "para one\n\npara two",
+    );
+    expect(next.text).toBe("> para one\n>\n> para two\n");
+  });
+
+  it("appends to existing text separated by a newline", () => {
+    const base = { text: "existing reply", mentions: [], attachments: [] };
+    const next = appendQuoteToDraftText(base, "quoted");
+    expect(next.text).toBe("existing reply\n> quoted\n");
+  });
+
+  it("stacks a second quote below the first, separated by a blank line", () => {
+    const first = appendQuoteToDraftText(emptyPromptDraftState(), "first");
+    expect(appendQuoteToDraftText(first, "second").text).toBe(
+      "> first\n\n> second\n",
+    );
+  });
+
+  it("ignores an empty or whitespace-only quote", () => {
+    const base = emptyPromptDraftState();
+    expect(appendQuoteToDraftText(base, "")).toBe(base);
+    expect(appendQuoteToDraftText(base, "   \n  ")).toBe(base);
+  });
+
+  it("leaves existing mention offsets byte-for-byte unchanged (appends to the end)", () => {
+    const resource: PromptMentionResource = {
+      kind: "thread",
+      threadId: "thr_parent",
+      label: "Prompt UX thread",
+    };
+    const text = "Ask @manager now";
+    const start = text.indexOf("@manager");
+    const mention = { start, end: start + "@manager".length, resource };
+    const base = { text, mentions: [mention], attachments: [] };
+
+    const next = appendQuoteToDraftText(base, "context");
+
+    expect(next.mentions).toEqual([mention]);
+    expect(next.text.startsWith(text)).toBe(true);
+  });
+});
+
+describe("appendQuoteAndAttachmentsToDraft", () => {
+  it("appends a quote and merges new attachments", () => {
+    const next = appendQuoteAndAttachmentsToDraft(
+      emptyPromptDraftState(),
+      "review this",
+      [
+        {
+          type: "localImage",
+          path: "uploads/screenshot.png",
+          name: "screenshot.png",
+          sizeBytes: 0,
+        },
+      ],
+    );
+
+    expect(next).toEqual({
+      text: "> review this\n",
+      mentions: [],
+      attachments: [
+        {
+          type: "localImage",
+          path: "uploads/screenshot.png",
+          name: "screenshot.png",
+          sizeBytes: 0,
+        },
+      ],
+    });
+  });
+
+  it("adds attachments even when there is no quote text", () => {
+    const next = appendQuoteAndAttachmentsToDraft(emptyPromptDraftState(), "", [
+      {
+        type: "localFile",
+        path: "uploads/spec.md",
+        name: "spec.md",
+        sizeBytes: 0,
+      },
+    ]);
+
+    expect(next).toEqual({
+      text: "",
+      mentions: [],
+      attachments: [
+        {
+          type: "localFile",
+          path: "uploads/spec.md",
+          name: "spec.md",
+          sizeBytes: 0,
+        },
+      ],
+    });
+  });
+
+  it("dedupes attachments by path", () => {
+    const attachment = {
+      type: "localFile" as const,
+      path: "uploads/spec.md",
+      name: "spec.md",
+      sizeBytes: 0,
+    };
+    const base = {
+      text: "",
+      mentions: [],
+      attachments: [attachment],
+    };
+
+    expect(appendQuoteAndAttachmentsToDraft(base, "", [attachment])).toBe(base);
+  });
+});

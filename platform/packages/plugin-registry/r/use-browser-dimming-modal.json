@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "use-browser-dimming-modal",
+  "type": "registry:hook",
+  "title": "use-browser-dimming-modal",
+  "description": "BB hook \"use-browser-dimming-modal\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "files": [
+    {
+      "path": "registry/hooks/useBrowserDimmingModal.ts",
+      "content": "export function useBrowserDimmingModal(_active: boolean): void {}\n\nexport function useIsBrowserDimmingModalOpen(): boolean {\n  return false;\n}\n",
+      "type": "registry:hook",
+      "target": "hooks/useBrowserDimmingModal.ts"
+    }
+  ]
+}

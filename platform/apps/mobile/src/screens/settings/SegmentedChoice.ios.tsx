@@ -1,0 +1,31 @@
+import SegmentedControl from "@expo/ui/community/segmented-control";
+import { haptic } from "@/lib/haptics";
+import type { SegmentedChoiceProps } from "./segmented-choice-types";
+
+export function SegmentedChoice<T extends string>({
+  options,
+  value,
+  onChange,
+}: SegmentedChoiceProps<T>) {
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+  return (
+    <SegmentedControl
+      values={options.map((option) => option.label)}
+      selectedIndex={selectedIndex}
+      onChange={(event) => {
+        const option = options[event.nativeEvent.selectedSegmentIndex];
+        if (option === undefined || option.value === value) return;
+        haptic("selection");
+        onChange(option.value);
+      }}
+    />
+  );
+}
+
+export type {
+  SegmentedChoiceOption,
+  SegmentedChoiceProps,
+} from "./segmented-choice-types";
