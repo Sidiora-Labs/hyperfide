@@ -668,7 +668,7 @@ owner = "authority"
 
 [task.6.5]
 title = "Authority end to end"
-status = "implemented"
+status = "done"
 wave = 6
 requires = ["6.3", "6.4"]
 touches = ["tests/hyperfide/cases/v22/6_5.py", "tests/hyperfide/support/platform_fixture.py"]
