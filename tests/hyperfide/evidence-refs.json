@@ -1094,9 +1094,27 @@
       ]
     },
     {
+      "ref": "refs/evidence/17.4/2",
+      "task": "17.4",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/18.1/1",
       "task": "18.1",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/18.1/2",
+      "task": "18.1",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
       "fields": [
         "commit",
         "requalified_on"
@@ -1274,6 +1292,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/21.4/2",
+      "task": "21.4",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/22.1/1",
       "task": "22.1",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
@@ -1337,6 +1364,15 @@
       ]
     },
     {
+      "ref": "refs/evidence/23.2/2",
+      "task": "23.2",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
       "ref": "refs/evidence/23.3/1",
       "task": "23.3",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
@@ -1349,6 +1385,15 @@
       "ref": "refs/evidence/23.4/1",
       "task": "23.4",
       "commit": "a923d185cd035c9620195fcf2d0e12c512e73d37",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/23.4/2",
+      "task": "23.4",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
       "fields": [
         "commit",
         "requalified_on"
@@ -1394,6 +1439,15 @@
       "ref": "refs/evidence/24.3/1",
       "task": "24.3",
       "commit": "6544166d354dbc95ba53e965efb3aae1e6dca2ac",
+      "fields": [
+        "commit",
+        "requalified_on"
+      ]
+    },
+    {
+      "ref": "refs/evidence/24.3/2",
+      "task": "24.3",
+      "commit": "6cb5e7dba58e682c0c124b3d7ebd2a01f35f7479",
       "fields": [
         "commit",
         "requalified_on"

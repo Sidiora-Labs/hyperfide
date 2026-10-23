@@ -1332,7 +1332,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.21.4]
 title = "Persist complete decision audit records and eventual outcomes"
-status = "pending"
+status = "done"
 wave = 22
 requires = ["20.4", "15.2", "4.4", "12.1", "25.3"]
 touches = ["services/hyperfide/src/decisions/audit.ts", "tests/hyperfide/manifests/tasks/21.4.json", "tests/hyperfide/cases/tasks/21_4.py", "tests/hyperfide/registrations/21.4.json", "services/hyperfide/components/21.4.json", "services/hyperfide/migrations/0021-decisions.sql", "src/hyperfide/advisory.c", "src/hyperfide/advisory.h", "src/hyperfide/components/21.4.kvx"]
@@ -1660,7 +1660,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.23.2]
 title = "Account for distinct infrastructure and model resource dimensions"
-status = "pending"
+status = "done"
 wave = 22
 requires = ["5.4", "8.2", "12.3", "23.1"]
 touches = ["services/hyperfide/src/observability/resources.ts", "tests/hyperfide/manifests/tasks/23.2.json", "tests/hyperfide/cases/tasks/23_2.py", "tests/hyperfide/registrations/23.2.json", "services/hyperfide/components/23.2.json"]
@@ -1764,7 +1764,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.18.1]
 title = "Implement canonical findings and provenance-preserving deduplication"
-status = "pending"
+status = "done"
 wave = 22
 requires = ["16.3", "3.1", "17.3"]
 touches = ["services/hyperfide/src/findings/registry.ts", "tests/hyperfide/manifests/tasks/18.1.json", "tests/hyperfide/cases/tasks/18_1.py", "tests/hyperfide/registrations/18.1.json", "services/hyperfide/components/18.1.json", "services/hyperfide/migrations/0018-findings.sql"]
@@ -1815,7 +1815,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.17.4]
 title = "Dispatch remote reproductions and contract/system qualification jobs"
-status = "pending"
+status = "done"
 wave = 22
 requires = ["17.2", "16.2", "11.3", "12.4", "15.2", "2.4", "17.3", "16.3"]
 touches = ["services/hyperfide/src/review/reproductions.ts", "tests/hyperfide/manifests/tasks/17.4.json", "tests/hyperfide/cases/tasks/17_4.py", "tests/hyperfide/registrations/17.4.json", "services/hyperfide/components/17.4.json"]
@@ -1989,7 +1989,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.23.4]
 title = "Deliver bounded actionable notifications and durable evidence links"
-status = "pending"
+status = "done"
 wave = 22
 requires = ["23.1", "6.2"]
 touches = ["services/hyperfide/src/observability/notifications.ts", "tests/hyperfide/manifests/tasks/23.4.json", "tests/hyperfide/cases/tasks/23_4.py", "tests/hyperfide/registrations/23.4.json", "services/hyperfide/components/23.4.json"]
@@ -2006,7 +2006,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.24.3]
 title = "Implement scoped pause, drain, cancel and fleet stop controllers"
-status = "pending"
+status = "done"
 wave = 22
 requires = ["12.4", "24.2", "15.4", "5.1", "25.1", "9.3", "10.3"]
 touches = ["services/hyperfide/src/recovery/stop.ts", "tests/hyperfide/manifests/tasks/24.3.json", "tests/hyperfide/cases/tasks/24_3.py", "tests/hyperfide/registrations/24.3.json", "services/hyperfide/components/24.3.json", "services/hyperfide/src/recovery/fencing.ts", "services/hyperfide/components/external-fencing.json", "services/hyperfide/src/recovery/fencing_service.ts"]
