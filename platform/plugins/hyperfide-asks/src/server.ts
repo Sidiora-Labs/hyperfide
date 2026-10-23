@@ -1,9 +1,10 @@
 import { AskBridge as StoreBridge } from "./bridge.js";
-import { localGraphHost } from "./graph-host-projection.js";
+import { settingsSchema } from "../../hyperfide-graph/contract.js";
+import { localGraphHost } from "./graph-host.js";
 import { bridgeContract } from "./bridge-contract.js";
 import { z } from "zod";
 import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
-import { BinaryAskBridge, type AskBridge } from "./bridge-projection.js";
+import { BinaryAskBridge, type AskBridge } from "./inbox-adapter.js";
 import { InboxService } from "./inbox.js";
 import { inboxContract } from "./contract.js";
 import { createThreadAskLifecycle } from "../../../packages/plugin-sdk/src/thread-ask-lifecycle.js";
@@ -12,7 +13,7 @@ import { AskThreadLifecycle } from "./thread-lifecycle.js";
 import type {
   AskBridge as ThreadAskBridge,
   TaskThreads,
-} from "./task-3-2-projection.js";
+} from "./thread-bridge.js";
 
 export function registerInbox(api: HyperfidePluginApi, bridge: AskBridge) {
   const inbox = new InboxService(bridge, async (value) => {
@@ -38,9 +39,19 @@ export default async function plugin(api: HyperfidePluginApi) {
       project.sources.map((source) => source.path),
     );
   const paths = [...new Set(repositories)];
-  const binary = await api.storage.kv.get<string>("graph.binaryPath");
-  const bridge = new StoreBridge(localGraphHost(binary), (channel, payload) =>
-    api.realtime.publish(channel, payload),
+  const bridge = new StoreBridge(
+    localGraphHost(async (repository, hostId) => {
+      const settings = await api.sdk.plugins.callRpc({
+        pluginId: "hyperfide-graph",
+        method: "getSettings",
+        input: { repository, hostId },
+        outputSchema: settingsSchema,
+      });
+      if (!settings.enabled)
+        throw new Error("Graph is disabled for this repository");
+      return settings.binaryPath;
+    }),
+    (channel, payload) => api.realtime.publish(channel, payload),
   );
   const repositoryFor = (repository?: string) => {
     if (repository) return repository;
@@ -66,7 +77,7 @@ export default async function plugin(api: HyperfidePluginApi) {
     journal: ({ repository }) => bridge.journal(repository),
     policy: ({ repository }) => bridge.policy(repositoryFor(repository)),
   });
-  registerInbox(api, new BinaryAskBridge(paths, binary, bridge));
+  registerInbox(api, new BinaryAskBridge(paths, bridge));
   for (const repository of paths) {
     try {
       api.onDispose(await bridge.watch(repository));

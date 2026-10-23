@@ -1,6 +1,6 @@
 import type { ThreadAskLifecycle } from "../../../packages/plugin-sdk/src/thread-ask-lifecycle.js";
 import type { AskTaskFlags } from "../../hyperfide-spec/src/ask-task-flags.js";
-import type { AskBridge, AskRow, TaskThreads } from "./task-3-2-projection.js";
+import type { AskBridge, AskRow, TaskThreads } from "./thread-bridge.js";
 
 interface ThreadState {
   pending: Map<string, AskRow>;

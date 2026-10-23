@@ -1,6 +1,5 @@
 // Inbox compatibility adapter for the shared Ask bridge.
 import { AskBridge as StoreBridge } from "./bridge.js";
-import { localGraphHost } from "./graph-host-projection.js";
 export type Kind =
   | "secret"
   | "variable"
@@ -27,10 +26,9 @@ export class BinaryAskBridge implements AskBridge {
   private bridge: StoreBridge;
   constructor(
     private repositories: string[],
-    binary?: string,
-    bridge?: StoreBridge,
+    bridge: StoreBridge,
   ) {
-    this.bridge = bridge ?? new StoreBridge(localGraphHost(binary), () => {});
+    this.bridge = bridge;
   }
   async list(): Promise<Ask[]> {
     return (

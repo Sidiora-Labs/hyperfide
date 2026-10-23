@@ -1,7 +1,7 @@
 import type { PluginStorage } from '@hyperfide/authority';
 import { openAskStorage } from './storage.js';
 import { join } from "node:path";
-import type { GraphHost } from "./graph-host-projection.js";
+import type { GraphHost } from "./graph-host.js";
 export type Policy = Record<string, "block" | "proceed-and-flag">;
 export const fallbackPolicy: Policy = {
   secret: "block",
@@ -80,9 +80,9 @@ export class AskBridge {
   ) {}
   private async command(repository: string, args: string[]) {
     const { root, hostId } = await this.graph.resolveRepository(repository);
-    const binary = await this.graph.binaryPath(hostId);
     // Child errors may contain answers in argv; never forward them.
     try {
+      const binary = await this.graph.binaryPath(hostId, root);
       return await this.graph.exec(hostId, { binary, args, cwd: root });
     } catch {
       throw new Error("Hyperfide ask command failed");

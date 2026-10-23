@@ -1,15 +1,16 @@
-// Task 1.3 integration seam: replace with the graph plugin's host daemon client.
+// Local host I/O uses the daemon binary verifier and graph repository settings.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
 import { watch } from "node:fs";
 import { dirname, basename, resolve } from "node:path";
+import { inspectHyperfide } from "../../../apps/host-daemon/src/hyperfide-status.js";
 const execute = promisify(execFile);
 export interface GraphHost {
   resolveRepository(
     repository: string,
   ): Promise<{ root: string; hostId: string }>;
-  binaryPath(hostId: string): Promise<string>;
+  binaryPath(hostId: string, repository: string): Promise<string>;
   exec(
     hostId: string,
     command: { binary: string; args: string[]; cwd: string },
@@ -21,12 +22,35 @@ export interface GraphHost {
     changed: () => void,
   ): Promise<() => void>;
 }
-export function localGraphHost(binary = "hyperfide"): GraphHost {
+export function localGraphHost(
+  setting:
+    | string
+    | ((repository: string, hostId: string) => Promise<string | undefined>) = async () => undefined,
+): GraphHost {
+  const binaries = new Map<string, Promise<string>>();
   return {
     async resolveRepository(repository) {
       return { root: resolve(repository), hostId: "local" };
     },
-    async binaryPath() {
+    async binaryPath(hostId, repository) {
+      const configured = typeof setting === "string"
+        ? setting
+        : await setting(repository, hostId);
+      const key = JSON.stringify([hostId, repository, configured]);
+      let binary = binaries.get(key);
+      if (!binary) {
+        binary = (async () => {
+          const status = await inspectHyperfide(repository, {
+            ...process.env,
+            ...(configured ? { HYPERFIDE_BIN: configured } : {}),
+          });
+          if (!status.ok || !status.path)
+            throw new Error("Hyperfide binary unavailable on host");
+          return status.path;
+        })();
+        binaries.set(key, binary);
+        void binary.catch(() => binaries.delete(key));
+      }
       return binary;
     },
     async exec(_host, { binary, args, cwd }) {
