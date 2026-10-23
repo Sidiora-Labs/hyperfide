@@ -1,4 +1,4 @@
-import type { HumanJob } from "../hyperfide-spec/closure-projection";
+import type { HumanJob } from "../hyperfide-spec/wave-authority";
 import type { closureView } from "../hyperfide-spec/wave-detail";
 
 export interface WaveClient {

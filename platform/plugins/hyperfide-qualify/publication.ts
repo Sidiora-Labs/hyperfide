@@ -7,10 +7,14 @@ import { isAbsolute, join } from "node:path";
 import { createHash } from "node:crypto";
 import { closureView, waveSummary } from "../hyperfide-spec/wave-detail";
 import type {
-  AsksProjection,
+  PublicationAsks,
   WaveAuthority,
-} from "../hyperfide-spec/closure-projection";
+} from "../hyperfide-spec/wave-authority";
 import type { WavePullRequest } from "../github/wave-publication";
+import { createWaveAuthority } from "../hyperfide-spec/wave-authority";
+import { publicationAsks } from "./publication-asks";
+import { binaryCommand } from "../hyperfide-spec/src/reader";
+import type { AskBridge } from "../hyperfide-asks/src/bridge";
 
 const exec = promisify(execFile);
 const gitEnvironment = () => ({
@@ -40,9 +44,23 @@ export interface PublicationStore {
 export interface PublicationHost {
   repository: string;
   authority: WaveAuthority;
-  asks: AsksProjection;
+  asks: PublicationAsks;
   store: PublicationStore;
   pullRequest?: (wave: WavePullRequest) => Promise<{ url: string }>;
+}
+export function createPublicationHost(input: Parameters<typeof createWaveAuthority>[0] & {
+  asks: AskBridge;
+  binary?: string;
+  store: PublicationStore;
+  pullRequest?: PublicationHost["pullRequest"];
+}): PublicationHost {
+  return {
+    repository: input.repository,
+    authority: createWaveAuthority(input),
+    asks: publicationAsks(input.repository, input.asks, binaryCommand(input.binary)),
+    store: input.store,
+    pullRequest: input.pullRequest,
+  };
 }
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");

@@ -1,7 +1,7 @@
 import { runBinary, runTaskThread, type Runner, type RunTaskHost } from "../hyperfide-spec/projection-run-task";
 import { WavePublication, type PublicationHost } from "./publication";
 import { waveDetail } from "../hyperfide-spec/wave-detail";
-import type { HumanJob, Operator } from "../hyperfide-spec/closure-projection";
+import type { HumanJob, Operator } from "../hyperfide-spec/wave-authority";
 
 export interface ImplementedTask {
   id: string; status: string; wave: number; cwd: string; base: string;
@@ -102,7 +102,7 @@ export function registerChecker(host: CheckerHost, config: CheckerConfig) {
 }
 
 // ---- Wave closure and publication (task 4.4)
-// Projection host adapter: the real plugin host supplies authority, Asks and storage.
+// The host supplies repository authority, authenticated operators and storage.
 export interface ClosurePluginHost extends PublicationHost {
   operator(): Promise<Operator>;
   rpc: {

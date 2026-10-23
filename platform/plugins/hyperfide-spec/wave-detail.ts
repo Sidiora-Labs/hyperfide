@@ -6,7 +6,7 @@ import {
   type Operator,
   type WaveAuthority,
   type WaveSnapshot,
-} from "./closure-projection";
+} from "./wave-authority";
 
 export function closureView(wave: WaveSnapshot, publicationAsk?: string) {
   const blockers: string[] = [];

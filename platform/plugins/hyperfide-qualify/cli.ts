@@ -1,5 +1,5 @@
 import type { WavePublication } from "./publication";
-import type { WaveAuthority } from "../hyperfide-spec/closure-projection";
+import type { WaveAuthority } from "../hyperfide-spec/wave-authority";
 import { closureView } from "../hyperfide-spec/wave-detail";
 
 export function waveCommands(
