@@ -24,6 +24,9 @@ const UNPREFIXED_BUNDLED_PLUGIN_IDS = [
   "environment-personal-workspace",
   "environment-project-checkout",
   "github",
+  "hyperfide-graph",
+  "hyperfide-machine-blaxel",
+  "hyperfide-machine-railway",
   "inline-vis",
   "keep-awake",
   "memory",
@@ -103,5 +106,15 @@ describe("bundled plugin artifact resolution", () => {
     expect(
       resolveBuiltinPluginRootPathForModuleDir({ moduleDir, name: "connect" }),
     ).toBe(plugin);
+  });
+});
+
+it("installs and enables Hyperfide Graph by default", () => {
+  expect(
+    BUNDLED_PLUGINS.find((plugin) => plugin.pluginId === "hyperfide-graph"),
+  ).toMatchObject({
+    name: "hyperfide-graph",
+    autoInstall: true,
+    defaultEnabled: true,
   });
 });

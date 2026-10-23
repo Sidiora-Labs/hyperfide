@@ -35,6 +35,7 @@ export function accountPoolDefaultEnabled(
 const REPO_PLUGINS_DIRECTORY_NAME = "plugins";
 
 export const BUILTIN_PLUGINS = [
+  { name: "hyperfide-graph", pluginId: "hyperfide-graph", defaultEnabled: true },
   {
     name: "storage-retention",
     pluginId: "bb--storage-retention",
