@@ -157,6 +157,7 @@ spec-import spec.projection.check
 9.3 *
 9.4 *
 external-fencing *
+platform-authority *
 finding-github *
 finding-registry *
 finding-remediation *

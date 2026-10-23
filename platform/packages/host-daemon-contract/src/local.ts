@@ -1,3 +1,4 @@
+import type { LanguageServerStatusResponse } from "./language-server.js";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import { z } from "zod";
@@ -265,6 +266,12 @@ export type ProviderCliInstallEvent = z.infer<
 >;
 
 export type HostDaemonLocalSchema = {
+  "/language-server/status": {
+    $get: Endpoint<
+      { query: { repository: string } },
+      LanguageServerStatusResponse
+    >;
+  };
   [DEFAULT_HOST_DAEMON_LOCAL_HEALTH_PATH]: {
     $get: Endpoint<EmptyInput, HealthResponse>;
   };

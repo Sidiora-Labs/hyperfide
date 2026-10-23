@@ -149,7 +149,7 @@ owner = "identity"
 
 [task.0.4]
 title = "Remove the marketing site, hosted connect gates and hosted account"
-status = "implemented"
+status = "done"
 wave = 0
 requires = []
 touches = ["platform/apps/web/**", "platform/apps/connect/**", "platform/apps/connect-next/**", "platform/packages/connect-client/**", "platform/packages/connect-db/**", "platform/packages/tunnel-client/**", "platform/packages/tunnel-contract/**", "platform/packages/frp-client/**", "platform/plugins/connect/**", "platform/plugins/connect-next/**", "platform/plugins/*-account/**", "platform/plugins/*-official.json", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/apps/cli/src/**", "platform/packages/bundled-plugins/**", "platform/package.json", "platform/pnpm-lock.yaml", "platform/turbo.json", "platform/docs/**", "tests/hyperfide/cases/v22/0_4.sh"]
@@ -281,7 +281,7 @@ owner = "graph"
 
 [task.1.5]
 title = "Editor language server from the binary"
-status = "pending"
+status = "implemented"
 wave = 1
 requires = ["1.3"]
 touches = ["platform/plugins/monaco-editor/**", "platform/plugins/hyperfide-graph/**", "platform/apps/host-daemon/src/**", "platform/packages/host-daemon-contract/src/**", "tests/hyperfide/cases/v22/1_5.sh"]
@@ -309,7 +309,7 @@ owner = "graph"
 
 [task.2.1]
 title = "Spec read model and RPC"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["1.3"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/2_1.sh"]
@@ -322,7 +322,7 @@ owner = "spec"
 
 [task.2.2]
 title = "Task board"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.1"]
 touches = ["platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/2_2.sh"]
@@ -335,7 +335,7 @@ owner = "spec"
 
 [task.2.3]
 title = "Run task: worker thread with packet"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.1", "1.4"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/apps/server/src/**", "tests/hyperfide/cases/v22/2_3.sh"]
@@ -348,7 +348,7 @@ owner = "spec"
 
 [task.2.4]
 title = "Spec commands in the platform CLI"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.1"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/apps/cli/src/**", "tests/hyperfide/cases/v22/2_4.sh"]
@@ -361,7 +361,7 @@ owner = "spec"
 
 [task.2.5]
 title = "VS Code extension reduced to a language client"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.2"]
 touches = ["editors/vscode/**", "tests/integration/14_vscode.sh", "docs/hyperfide/editors.md", "tests/hyperfide/cases/v22/2_5.sh"]
@@ -374,7 +374,7 @@ owner = "editor"
 
 [task.2.6]
 title = "Spec end to end"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["2.3", "2.4"]
 touches = ["tests/hyperfide/cases/v22/2_6.py", "tests/hyperfide/support/platform_fixture.py"]
@@ -402,7 +402,7 @@ owner = "ask"
 
 [task.3.2]
 title = "Blocking policy in the thread lifecycle"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.1", "2.3"]
 touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-spec/**", "platform/apps/server/src/**", "platform/packages/plugin-sdk/src/**", "tests/hyperfide/cases/v22/3_2.sh"]
@@ -415,7 +415,7 @@ owner = "ask"
 
 [task.3.3]
 title = "Inbox and secret references"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.1"]
 touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/secrets/**", "tests/hyperfide/cases/v22/3_3.sh"]
@@ -428,7 +428,7 @@ owner = "ask"
 
 [task.3.4]
 title = "Notifications and in-thread questions"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.3"]
 touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/push-notifications/**", "platform/plugins/ask-user-question/**", "tests/hyperfide/cases/v22/3_4.sh"]
@@ -441,7 +441,7 @@ owner = "ask"
 
 [task.3.5]
 title = "Asks end to end"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.2", "3.3", "3.4"]
 touches = ["tests/hyperfide/cases/v22/3_5.py", "tests/hyperfide/support/platform_fixture.py"]
@@ -469,7 +469,7 @@ owner = "qualification"
 
 [task.4.2]
 title = "Receipts, evidence and closure check"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.1"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/closure_check.py", "tests/hyperfide/cases/v22/4_2.sh"]
@@ -482,7 +482,7 @@ owner = "qualification"
 
 [task.4.3]
 title = "Checker thread"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.1", "2.3"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/4_3.sh"]
@@ -495,7 +495,7 @@ owner = "qualification"
 
 [task.4.4]
 title = "Wave closure and publication"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.2", "4.3", "3.2"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "platform/plugins/github/**", "tests/hyperfide/cases/v22/4_4.sh"]
@@ -508,7 +508,7 @@ owner = "qualification"
 
 [task.4.5]
 title = "Qualification end to end"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.4"]
 touches = ["tests/hyperfide/cases/v22/4_5.py", "tests/hyperfide/support/platform_fixture.py"]
@@ -523,7 +523,7 @@ owner = "qualification"
 
 [task.5.1]
 title = "Railway machine provider"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["0.2", "0.3"]
 touches = ["platform/plugins/machine-railway/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/5_1.sh"]
@@ -536,7 +536,7 @@ owner = "fleet"
 
 [task.5.2]
 title = "Blaxel machine provider"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["0.2", "0.3"]
 touches = ["platform/plugins/machine-blaxel/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/5_2.sh"]
@@ -549,10 +549,10 @@ owner = "fleet"
 
 [task.5.3]
 title = "Image builder"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.1"]
-touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/machine-railway/**", "deploy/hyperfide/sandbox/fleet.json", "tests/hyperfide/cases/v22/5_3.sh"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/5_3.sh"]
 verify_cmd = "bash tests/hyperfide/cases/v22/5_3.sh"
 do_1 = "Create platform/plugins/hyperfide-dispatch with its first capability, the image builder: given a repository commit it makes a git bundle, creates a machine from the recorded parent checkpoint, uploads the bundle, runs the base steps of deploy/hyperfide/sandbox/fleet.json (clone, cg, service, platform, index, tools), checkpoints as hf-base-<commit10>, destroys the builder and records {checkpoint, commit, steps, timings} in plugin storage and in fleet.json."
 do_2 = "The builder is a long-running job with progress in the app and cancellation; a failed step keeps the log and the partial record."
@@ -562,7 +562,7 @@ owner = "fleet"
 
 [task.5.4]
 title = "Dispatcher"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["2.3", "5.1", "4.1"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/concurrency-limit/**", "tests/hyperfide/cases/v22/5_4.sh"]
@@ -575,7 +575,7 @@ owner = "fleet"
 
 [task.5.5]
 title = "Collect and integrate"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.4"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/5_5.sh"]
@@ -588,7 +588,7 @@ owner = "fleet"
 
 [task.5.6]
 title = "Fleet dashboard"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.4"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/5_6.sh"]
@@ -601,7 +601,7 @@ owner = "fleet"
 
 [task.5.7]
 title = "Fleet end to end with a fake machine provider"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.5", "5.6", "5.3"]
 touches = ["tests/hyperfide/cases/v22/5_7.py", "tests/hyperfide/support/platform_fixture.py"]
@@ -629,7 +629,7 @@ owner = "authority"
 
 [task.6.2]
 title = "Authority client: operators, receipts, transactions"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["6.1", "1.2"]
 touches = ["platform/packages/hyperfide-authority/**", "platform/apps/server/src/**", "services/hyperfide/src/**", "deploy/hyperfide/env/control.env.example", "tests/hyperfide/cases/v22/6_2.sh"]
@@ -668,7 +668,7 @@ owner = "authority"
 
 [task.6.5]
 title = "Authority end to end"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["6.3", "6.4"]
 touches = ["tests/hyperfide/cases/v22/6_5.py", "tests/hyperfide/support/platform_fixture.py"]
@@ -683,7 +683,7 @@ owner = "qualification"
 
 [task.7.1]
 title = "Slices environment provider"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["2.3", "1.6"]
 touches = ["platform/plugins/environment-slices/**", "platform/packages/bundled-plugins/**", "docs/hyperfide/source-tracking.md", "tests/hyperfide/cases/v22/7_1.sh"]
@@ -696,7 +696,7 @@ owner = "source"
 
 [task.7.2]
 title = "Memory bridge"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["2.3", "1.3"]
 touches = ["platform/plugins/memory/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/7_2.sh"]

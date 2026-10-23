@@ -5,7 +5,7 @@ import {
   type FakePluginHost,
   makePluginAgentConfigurationContext,
 } from "@hyperfide/plugin-sdk/testing";
-import plugin, { TOOL_NAME } from "./server.js";
+import plugin, { createAskUserQuestionPlugin, TOOL_NAME } from "./server.js";
 import { TOO_FEW_OPTIONS_MESSAGE } from "./tool-definition.js";
 import {
   ASK_USER_QUESTION_RENDERER_ID,
@@ -15,8 +15,22 @@ import {
 } from "./contracts.js";
 
 function createHost(): FakePluginHost {
-  const host = createFakePluginHost({ pluginId: "ask-user-question" });
-  plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+  const host = createFakePluginHost({
+    pluginId: "hyperfide-ask-user-question",
+    sdk: {
+      plugins: {
+        callRpc: async ({ method }) =>
+          method === "context"
+            ? { repository: "/fixture", task: "3.4" }
+            : { status: "open" },
+      },
+    },
+  });
+  let nextId = 0;
+  createAskUserQuestionPlugin({
+    command: async (_repository, argv) =>
+      argv[1] === "raise" ? JSON.stringify({ id: ++nextId }) : "",
+  })(host.bb);
   return host;
 }
 
@@ -309,11 +323,9 @@ describe("asking a question", () => {
   });
 
   it("returns the reason when the question cannot be shown", async () => {
-    const host = createFakePluginHost({ pluginId: "ask-user-question" });
+    const host = createHost();
     host.bb.ui.requestInput = () =>
       Promise.reject(new Error("Thread does not exist"));
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
-
     const result = await host.harness.callAgentTool(TOOL_NAME, { questions });
 
     expect(result).toMatchObject({ isError: true });

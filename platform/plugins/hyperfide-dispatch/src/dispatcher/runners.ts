@@ -1,0 +1,68 @@
+import type { TaskRunner } from "./contracts";
+const quote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
+function toml(value: unknown): string {
+  if (Array.isArray(value)) return "[" + value.map(toml).join(", ") + "]";
+  if (value !== null && typeof value === "object")
+    return (
+      "{ " +
+      Object.entries(value)
+        .map(([k, v]) => JSON.stringify(k) + " = " + toml(v))
+        .join(", ") +
+      " }"
+    );
+  if (
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    typeof value === "number"
+  )
+    return JSON.stringify(value);
+  throw new Error("Unsupported MCP configuration value");
+}
+export function commandRunner(
+  kind: "codex" | "claude",
+  mcp: Record<string, unknown>,
+): TaskRunner {
+  return {
+    async run(packet, machine, key) {
+      const base = await machine.exec("git rev-parse HEAD", {
+        cwd: "/workspace",
+      });
+      if (base.exitCode || base.timedOut)
+        throw new Error("Cannot read runner base commit");
+      await machine.writeFile(
+        "/tmp/hyperfide-task.txt",
+        Buffer.from(packet.prompt),
+        { mode: 0o600 },
+      );
+      await machine.writeFile(
+        "/tmp/hyperfide-mcp.json",
+        Buffer.from(JSON.stringify({ mcpServers: { codify: mcp } })),
+        { mode: 0o600 },
+      );
+      const command =
+        kind === "codex"
+          ? `codex --ask-for-approval never -c ${quote("mcp_servers.codify=" + toml(mcp))} exec --sandbox danger-full-access - < /tmp/hyperfide-task.txt`
+          : "claude --print --permission-mode bypassPermissions --mcp-config /tmp/hyperfide-mcp.json < /tmp/hyperfide-task.txt";
+      const result = await machine.exec(command, {
+        cwd: "/workspace",
+        env: { HYPERFIDE_GATEWAY_KEY: key },
+      });
+      if (result.exitCode || result.timedOut)
+        return {
+          ...result,
+          exitCode: result.timedOut ? 124 : result.exitCode,
+          commits: [],
+        };
+      const commits = await machine.exec(
+        `git rev-list --reverse ${quote(base.stdout.trim() + "..HEAD")}`,
+        { cwd: "/workspace" },
+      );
+      if (commits.exitCode || commits.timedOut)
+        throw new Error("Cannot collect runner commits");
+      return {
+        ...result,
+        commits: commits.stdout.trim().split("\n").filter(Boolean),
+      };
+    },
+  };
+}

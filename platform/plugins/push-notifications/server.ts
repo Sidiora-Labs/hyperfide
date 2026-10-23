@@ -1,4 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
+import { createAskBridge } from "../hyperfide-asks/bridge-projection.js";
+import {
+  createAskNotifications,
+  type AskNotificationState,
+} from "./ask-notifications.js";
 import {
   PluginCliError,
   cliCommand,
@@ -33,6 +39,7 @@ import {
 import { createPushSubscriptionStore } from "./subscriptions.js";
 
 interface PushNotificationsPluginOptions {
+  askPollMs?: number;
   coalesceMs?: number;
   createId?: () => string;
   fetch?: CreatePushSenderArgs["fetch"];
@@ -117,6 +124,14 @@ export function createPushNotificationsPlugin(
     bb: BbPluginApi,
   ): Promise<void> {
     const settings = bb.settings.define({
+      askDigest: {
+        type: "select",
+        label: "Flagged Ask digest",
+        description:
+          "Batch flagged Asks; blocking Asks always notify immediately.",
+        options: ["Off", "5 minutes", "1 hour", "1 day"],
+        default: "1 hour",
+      },
       mobileEnabled: {
         type: "boolean",
         label: "Mobile notifications",
@@ -487,6 +502,41 @@ export function createPushNotificationsPlugin(
           await waitForAbort(signal);
         } finally {
           await sender.stop();
+        }
+      },
+    });
+    const askNotifications = createAskNotifications({
+      bridge: createAskBridge(
+        <T>(method: string, input: Record<string, string>) =>
+          bb.sdk.plugins.callRpc({
+            pluginId: "hyperfide-asks",
+            method,
+            input,
+            outputSchema: z.custom<T>(),
+          }),
+      ),
+      read: async () =>
+        (await bb.storage.kv.get<AskNotificationState>("ask-notifications")) ??
+        null,
+      write: (state) => bb.storage.kv.set("ask-notifications", state),
+      digestMinutes: async () => {
+        const value = (await settings.get()).askDigest;
+        return (
+          { Off: 0, "5 minutes": 5, "1 hour": 60, "1 day": 1440 }[value] ?? 60
+        );
+      },
+      send: (notification) => sender.sendAsk(notification),
+      ...(options.now === undefined ? {} : { now: options.now }),
+    });
+    bb.background.service("ask-notifications", {
+      async start(signal) {
+        while (!signal.aborted) {
+          await askNotifications.refresh();
+          await delay(options.askPollMs ?? 1000, undefined, { signal }).catch(
+            (error) => {
+              if (!signal.aborted) throw error;
+            },
+          );
         }
       },
     });

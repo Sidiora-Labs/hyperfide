@@ -8,7 +8,7 @@ describe("resolveBbAppVersion", () => {
   let tempRoot: string;
 
   beforeEach(async () => {
-    tempRoot = await mkdtemp(join(tmpdir(), "bb-cli-version-"));
+    tempRoot = await mkdtemp(join(tmpdir(), "hyperfide-cli-version-"));
   });
 
   afterEach(async () => {
@@ -24,13 +24,13 @@ describe("resolveBbAppVersion", () => {
     ).toBe("4.5.6");
   });
 
-  it("reads the bb-app package.json adjacent to the binary", async () => {
+  it("reads the hyperfide-app package.json adjacent to the binary", async () => {
     const packageRoot = join(tempRoot, "package-root");
     const binDir = join(packageRoot, "host-daemon", "dist");
     await mkdir(binDir, { recursive: true });
     await writeFile(
       join(packageRoot, "package.json"),
-      JSON.stringify({ name: "bb-app", version: "0.0.7" }),
+      JSON.stringify({ name: "hyperfide-app", version: "0.0.7" }),
     );
     expect(
       resolveBbAppVersion({
@@ -40,23 +40,23 @@ describe("resolveBbAppVersion", () => {
     ).toBe("0.0.7");
   });
 
-  it("ignores adjacent package.json files that are not bb-app", async () => {
+  it("ignores adjacent package.json files that are not hyperfide-app", async () => {
     const repoRoot = join(tempRoot, "repo");
     const cliDistDir = join(repoRoot, "apps", "cli", "dist");
     await mkdir(cliDistDir, { recursive: true });
     await writeFile(
       join(repoRoot, "package.json"),
-      JSON.stringify({ name: "bb", version: "0.0.0", private: true }),
+      JSON.stringify({ name: "hyperfide", version: "0.0.0", private: true }),
     );
     await writeFile(
       join(repoRoot, "apps", "cli", "package.json"),
       JSON.stringify({ name: "@hyperfide/cli", version: "0.0.1" }),
     );
-    const bbAppDir = join(repoRoot, "packages", "bb-app");
+    const bbAppDir = join(repoRoot, "packages", "hyperfide-app");
     await mkdir(bbAppDir, { recursive: true });
     await writeFile(
       join(bbAppDir, "package.json"),
-      JSON.stringify({ name: "bb-app", version: "0.1.2" }),
+      JSON.stringify({ name: "hyperfide-app", version: "0.1.2" }),
     );
     expect(
       resolveBbAppVersion({
@@ -66,7 +66,7 @@ describe("resolveBbAppVersion", () => {
     ).toBe("0.1.2");
   });
 
-  it("falls back to the dev sentinel when no bb-app package.json is found", () => {
+  it("falls back to the dev sentinel when no hyperfide-app package.json is found", () => {
     expect(
       resolveBbAppVersion({
         env: {},

@@ -1,4 +1,7 @@
 import type { BbPluginApi, PluginAgentToolResult } from "@hyperfide/plugin-sdk";
+import { z } from "zod";
+import { createAskBridge } from "../../hyperfide-asks/bridge-projection.js";
+import { askWithInbox, type AskCommand } from "./ask-sync.js";
 import {
   ASK_USER_QUESTION_RENDERER_ID,
   interactionResponseSchema,
@@ -38,103 +41,165 @@ function errorResult(message: string): PluginAgentToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
-export default function plugin(bb: BbPluginApi) {
-  const settings = bb.settings.define({
-    questionTimeout: {
-      type: "select",
-      label: "Question timeout",
-      description:
-        "How long a question card stays open waiting for your answer.",
-      options: [...QUESTION_TIMEOUT_OPTIONS.keys()],
-      default: "30 minutes",
-    },
-  });
+export function createAskUserQuestionPlugin(
+  options: { command?: AskCommand; pollMs?: number } = {},
+) {
+  return function plugin(bb: BbPluginApi) {
+    const bridge = createAskBridge(
+      <T>(method: string, input: Record<string, string>) =>
+        bb.sdk.plugins.callRpc({
+          pluginId: "hyperfide-asks",
+          method,
+          input,
+          outputSchema: z.custom<T>(),
+        }),
+    );
+    const settings = bb.settings.define({
+      questionTimeout: {
+        type: "select",
+        label: "Question timeout",
+        description:
+          "How long a question card stays open waiting for your answer.",
+        options: [...QUESTION_TIMEOUT_OPTIONS.keys()],
+        default: "30 minutes",
+      },
+    });
 
-  bb.agents.registerTool({
-    name: TOOL_NAME,
-    description: TOOL_DESCRIPTION,
-    presentation: {
-      label: { pending: "Asking a question", completed: "Asked a question" },
-      icon: { glyph: "MessageQuestion" },
-      suppress: true,
-    },
-    parameters: toolInputSchema,
-    async execute(input, ctx) {
-      const invalid = validateToolInput(input);
-      if (invalid !== null) return errorResult(invalid);
+    bb.agents.registerTool({
+      name: TOOL_NAME,
+      description: TOOL_DESCRIPTION,
+      presentation: {
+        label: { pending: "Asking a question", completed: "Asked a question" },
+        icon: { glyph: "MessageQuestion" },
+        suppress: true,
+      },
+      parameters: toolInputSchema,
+      async execute(input, ctx) {
+        const invalid = validateToolInput(input);
+        if (invalid !== null) return errorResult(invalid);
 
-      const payload = buildInteractionPayload(input);
-      try {
-        assertInteractionPayloadFits(payload);
-      } catch (error) {
-        return errorResult(
-          error instanceof Error ? error.message : String(error),
-        );
-      }
+        const payload = buildInteractionPayload(input);
+        try {
+          assertInteractionPayloadFits(payload);
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
 
-      const { questionTimeout } = await settings.get();
-      const askedAt = Date.now();
-      let result;
-      try {
-        result = await bb.ui.requestInput(
-          {
-            threadId: ctx.threadId,
-            rendererId: ASK_USER_QUESTION_RENDERER_ID,
-            title: buildInteractionTitle(payload),
+        const { questionTimeout } = await settings.get();
+        const askedAt = Date.now();
+        let result;
+        try {
+          result = await askWithInbox({
+            bridge,
             payload,
-            timeoutMs: questionTimeoutMs(questionTimeout),
-            presentation: {
-              label: { pending: "Asking a question", completed: "Asked" },
-              icon: { glyph: "MessageQuestion" },
+            threadId: ctx.threadId,
+            projectId: ctx.projectId,
+            signal: ctx.signal,
+            ...options,
+            recommendations: Object.fromEntries(
+              input.questions.map((question, index) => [
+                `q${index}`,
+                question.recommendation ??
+                  question.options.find((option) =>
+                    option.label.endsWith("(Recommended)"),
+                  )?.label ??
+                  "",
+              ]),
+            ),
+            save: (mapping) =>
+              bb.storage.kv.set(`question:${mapping.requestId}`, mapping),
+            submit: async (requestId, value) => {
+              const interactions = await bb.sdk.threads.interactions.list({
+                threadId: ctx.threadId,
+              });
+              const interaction = interactions.find((entry) => {
+                if (
+                  entry.status !== "pending" ||
+                  entry.payload.kind !== "plugin"
+                )
+                  return false;
+                const data = entry.payload.data;
+                return (
+                  data !== null &&
+                  typeof data === "object" &&
+                  !Array.isArray(data) &&
+                  data.askRequestId === requestId
+                );
+              });
+              if (!interaction) return false;
+              await bb.sdk.threads.interactions.respond({
+                threadId: ctx.threadId,
+                interactionId: interaction.id,
+                value,
+              });
+              return true;
             },
-            describeSubmission: (value) => {
-              const parsed = interactionResponseSchema.safeParse(value);
-              if (!parsed.success) return {};
-              return describeAnswers(
-                payload,
-                buildToolResult(payload, parsed.data),
-              );
-            },
-          },
-          { signal: ctx.signal },
-        );
-      } catch (error) {
-        return errorResult(
-          `The question could not be shown (${error instanceof Error ? error.message : String(error)}). Continue with your best judgement.`,
-        );
-      }
+            display: (requestId, signal) =>
+              bb.ui.requestInput(
+                {
+                  threadId: ctx.threadId,
+                  rendererId: ASK_USER_QUESTION_RENDERER_ID,
+                  title: buildInteractionTitle(payload),
+                  payload: { ...payload, askRequestId: requestId },
+                  timeoutMs: questionTimeoutMs(questionTimeout),
+                  presentation: {
+                    label: { pending: "Asking a question", completed: "Asked" },
+                    icon: { glyph: "MessageQuestion" },
+                  },
+                  describeSubmission: (value) => {
+                    const parsed = interactionResponseSchema.safeParse(value);
+                    if (!parsed.success) return {};
+                    return describeAnswers(
+                      payload,
+                      buildToolResult(payload, parsed.data),
+                    );
+                  },
+                },
+                { signal },
+              ),
+          });
+        } catch (error) {
+          return errorResult(
+            `The question could not be shown (${error instanceof Error ? error.message : String(error)}). Continue with your best judgement.`,
+          );
+        }
 
-      if (result.outcome === "cancelled") {
-        return errorResult(
-          result.reason === "timeout"
-            ? buildTimeoutMessage(Date.now() - askedAt)
-            : "The user dismissed the question without answering. Proceed with your best judgement, or ask again in your reply.",
-        );
-      }
+        if (result.outcome === "cancelled") {
+          return errorResult(
+            result.reason === "timeout"
+              ? buildTimeoutMessage(Date.now() - askedAt)
+              : "The user dismissed the question without answering. Proceed with your best judgement, or ask again in your reply.",
+          );
+        }
 
-      const parsed = interactionResponseSchema.safeParse(result.value);
-      if (!parsed.success) {
-        return errorResult(
-          "The answer could not be read. Ask the question again in your reply instead.",
-        );
-      }
-      const toolResult = buildToolResult(payload, parsed.data);
-      if (Object.keys(toolResult.answers).length === 0) {
-        return errorResult(
-          "The user submitted no answers. Proceed with your best judgement, or ask again in your reply.",
-        );
-      }
-      return JSON.stringify(toolResult);
-    },
-  });
+        const parsed = interactionResponseSchema.safeParse(result.value);
+        if (!parsed.success) {
+          return errorResult(
+            "The answer could not be read. Ask the question again in your reply instead.",
+          );
+        }
+        const toolResult = buildToolResult(payload, parsed.data);
+        if (Object.keys(toolResult.answers).length === 0) {
+          return errorResult(
+            "The user submitted no answers. Proceed with your best judgement, or ask again in your reply.",
+          );
+        }
+        return JSON.stringify(toolResult);
+      },
+    });
 
-  bb.agents.configure((context) => {
-    if (context.provider.capabilities.supportsNativeUserQuestion) {
-      return { tools: [], skills: [] };
-    }
-    return {
-      tools: [TOOL_NAME],
-      skills: [],
-    };
-  });
+    bb.agents.configure((context) => {
+      if (context.provider.capabilities.supportsNativeUserQuestion) {
+        return { tools: [], skills: [] };
+      }
+      return {
+        tools: [TOOL_NAME],
+        skills: [],
+      };
+    });
+  };
 }
+
+export default createAskUserQuestionPlugin();

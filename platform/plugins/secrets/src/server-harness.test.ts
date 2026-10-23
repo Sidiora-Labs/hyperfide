@@ -290,11 +290,11 @@ describe("secrets plugin server", () => {
       ok: false,
       error: {
         code: "missing_thread",
-        message: "bb secret request must run from a bb thread.",
+        message: "hyperfide platform secret request must run from a Hyperfide thread.",
       },
     });
     expect(result.stderr).toBe(
-      "bb secret request must run from a bb thread.\n",
+      "hyperfide platform secret request must run from a Hyperfide thread.\n",
     );
     expect(host.harness.pendingInteractions).toEqual([]);
   });
@@ -311,7 +311,7 @@ describe("secrets plugin server", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("bb secret request");
+      expect(result.stdout).toContain("secret request");
       expect(host.harness.pendingInteractions).toEqual([]);
     },
   );

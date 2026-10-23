@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { Command } from "commander";
 import {
   CORE_COMMAND_GROUPS,
+  LOCAL_PLUGIN_COMMAND_GROUPS,
   selectCommandGroups,
   type CommandGroupDeps,
 } from "../command-groups.js";
 
-const ALL_GROUP_NAMES = CORE_COMMAND_GROUPS.map((group) => group.name);
+const ALL_GROUP_NAMES = [...CORE_COMMAND_GROUPS, ...LOCAL_PLUGIN_COMMAND_GROUPS].map((group) => group.name);
 
 describe("selectCommandGroups", () => {
   it("needs no command group to answer --version", () => {
@@ -45,7 +46,7 @@ describe("CORE_COMMAND_GROUPS", () => {
       register(program, deps);
     }
     expect(program.commands.map((command) => command.name())).toEqual(
-      ALL_GROUP_NAMES,
+      CORE_COMMAND_GROUPS.map((group) => group.name),
     );
     expect(program.commands.flatMap((command) => command.aliases())).toEqual(
       [],

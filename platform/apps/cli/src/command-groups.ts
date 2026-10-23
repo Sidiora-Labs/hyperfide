@@ -24,6 +24,14 @@ function group<Module>(
   return { name, load: () => load().then(register) };
 }
 
+export const LOCAL_PLUGIN_COMMAND_GROUPS: readonly CommandGroup[] = [
+  group(
+    "spec",
+    () => import("./commands/spec.js"),
+    (m) => (program) => m.registerSpecCommands(program),
+  ),
+];
+
 export const CORE_COMMAND_GROUPS: readonly CommandGroup[] = [
   group(
     "browser",
@@ -136,8 +144,9 @@ export function selectCommandGroups(
   firstArg: string | undefined,
 ): readonly CommandGroup[] {
   if (firstArg === "--version" || firstArg === "-V") return [];
-  const match = CORE_COMMAND_GROUPS.find((entry) => entry.name === firstArg);
-  return match === undefined ? CORE_COMMAND_GROUPS : [match];
+  const groups = [...CORE_COMMAND_GROUPS, ...LOCAL_PLUGIN_COMMAND_GROUPS];
+  const match = groups.find((entry) => entry.name === firstArg);
+  return match === undefined ? groups : [match];
 }
 
 export function pluginProxyCandidate(
@@ -146,6 +155,8 @@ export function pluginProxyCandidate(
 ): string | null {
   if (firstArg === undefined || firstArg.length === 0) return null;
   if (firstArg.startsWith("-")) return null;
+  if (LOCAL_PLUGIN_COMMAND_GROUPS.some((entry) => entry.name === firstArg) &&
+      [undefined, "next", "start", "implemented", "status", "--help", "-h"].includes(process.argv[3])) return null;
   if (knownCommandNames.has(firstArg)) return null;
   return firstArg;
 }
