@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "variant": "full:V-057",
+  "task": "28.3",
+  "scope": "full-case",
+  "cases": [
+    "V-057"
+  ],
+  "assertion_ids": [
+    "V-057.11.5.slice.fixture.scale-and-languages",
+    "V-057.11.5.slice.graph.extraction-matches-live-7.1",
+    "V-057.11.5.slice.graph.real-publication",
+    "V-057.11.5.slice.component.registered-both-roles",
+    "V-057.11.5.slice.placement.role-separation",
+    "V-057.11.5.slice.derive.concurrent-distinct-slices",
+    "V-057.11.5.slice.derive.exact-commit-and-graph",
+    "V-057.11.5.slice.derive.file-level-closure",
+    "V-057.11.5.slice.derive.build-roots-tests-fixtures-contracts",
+    "V-057.11.5.slice.derive.unchanged-input-hit",
+    "V-057.11.5.slice.derive.changed-input-miss",
+    "V-057.11.5.slice.manifest.immutable",
+    "V-057.11.5.slice.fallback.unresolved-closure-edge",
+    "V-057.11.5.slice.fallback.unparsed-language",
+    "V-057.11.5.slice.fallback.budget-truncated",
+    "V-057.11.5.slice.fallback.graph-not-required",
+    "V-057.11.5.slice.fallback.stale-graph-generation",
+    "V-057.11.5.slice.fallback.reason-always-recorded",
+    "V-057.11.5.slice.materialize.concurrent-slots",
+    "V-057.11.5.slice.materialize.partial-clone-positive",
+    "V-057.11.5.slice.materialize.byte-identical-to-full-tree",
+    "V-057.11.5.slice.materialize.lfs-inside-slice",
+    "V-057.11.5.slice.materialize.submodule-and-lfs-full-tree",
+    "V-057.11.5.slice.materialize.undeclared-submodule-refused",
+    "V-057.11.5.slice.materialize.ineffective-partial-clone-never-ready",
+    "V-057.11.5.slice.materialize.slot-binding-and-occupancy",
+    "V-057.11.5.slice.cost.against-full-tree-baseline",
+    "V-057.11.5.slice.run.out-of-slice-read-refused",
+    "V-057.11.5.slice.run.out-of-slice-write-refused",
+    "V-057.11.5.slice.run.access-monitor-recorded",
+    "V-057.11.5.slice.run.excluded-build-root-refused",
+    "V-057.11.5.slice.widen.explicit-new-manifest",
+    "V-057.11.5.slice.widen.conflicting-identity-refused",
+    "V-057.11.5.slice.run.widened-slice-qualifies-inputs",
+    "V-057.11.5.slice.run.receipt-carries-slice-identity",
+    "V-057.11.5.slice.run.full-tree-detects-omitted-inputs",
+    "V-057.11.5.slice.run.full-tree-fallback-receipt",
+    "V-057.11.5.slice.run.operation-replay",
+    "V-057.11.5.slice.sql.immutable-history",
+    "V-057.11.5.slice.sql.repeatable-read-refused",
+    "V-057.11.5.slice.canary.no-authority-material",
+    "V-057.11.5.slice.cleanup.observed",
+    "V-057.11.5.exit-clean",
+    "V-057.11.5.inventory-exact",
+    "V-057.11.5.cleanup-complete",
+    "V-057.11.5.artifacts-present"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-057"
+  ],
+  "timeout_seconds": 3600,
+  "required_env": [
+    "DATABASE_URL"
+  ],
+  "fixtures": [
+    "cg",
+    "services/hyperfide/dist/control.js",
+    "services/hyperfide/dist/graph/extraction.js",
+    "services/hyperfide/dist/hierarchy/packets.js",
+    "services/hyperfide/dist/preparation/slices.js",
+    "services/hyperfide/dist/provisioner.js",
+    "tests/hyperfide/cases/support/large_repo_fixture.py",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "actions": [
+    "graph.component.invoke",
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop",
+    "slice.component.invoke",
+    "slice.remote.materialize"
+  ],
+  "resources": [
+    {
+      "id": "11.5:hf-task-11.5-database",
+      "kind": "postgresql-database",
+      "scope": "task-11.5-disposable-component"
+    },
+    {
+      "id": "11.5:hf-task-11.5-repository-root",
+      "kind": "filesystem-directory",
+      "scope": "task-11.5-disposable-fixture-repository-graph-scratch-and-slots"
+    }
+  ],
+  "required_artifacts": [
+    "components/11.5/slices/observations.json",
+    "components/11.5/slices/resource-absence.json"
+  ],
+  "source_files": [
+    "services/hyperfide/components/11.5.json",
+    "services/hyperfide/migrations/0045-workspace-slices.sql",
+    "services/hyperfide/package-lock.json",
+    "services/hyperfide/package.json",
+    "services/hyperfide/src/components/registry.ts",
+    "services/hyperfide/src/graph/extraction.ts",
+    "services/hyperfide/src/graph/ingestion.ts",
+    "services/hyperfide/src/graph/publication.ts",
+    "services/hyperfide/src/hierarchy/packets.ts",
+    "services/hyperfide/src/preparation/manifests.ts",
+    "services/hyperfide/src/preparation/slices.ts",
+    "services/hyperfide/tsconfig.json",
+    "tests/hyperfide/cases/full/compose.py",
+    "tests/hyperfide/cases/full/register.py",
+    "tests/hyperfide/cases/tasks/11_5.py",
+    "tests/hyperfide/cases/tasks/3_1.py",
+    "tests/hyperfide/cases/tasks/3_2.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/registrations/11.5.json",
+    "tests/hyperfide/registry.json"
+  ],
+  "source_roots": [
+    "services/hyperfide/components",
+    "services/hyperfide/dist",
+    "services/hyperfide/migrations",
+    "services/hyperfide/src"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-057",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 180
+}

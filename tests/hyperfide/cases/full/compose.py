@@ -199,7 +199,7 @@ def run(argv, env, timeout, log_prefix):
     return {"exit_code": child.returncode, "timed_out": timed_out, "leaked_descendants": leaked}, stdout, stderr
 
 
-def campaign_dir(case, variant):
+def campaign_dir():
     base = os.environ.get("HYPERFIDE_CAMPAIGN_DIR")
     require(base, "HYPERFIDE_CAMPAIGN_DIR absent: run through qualify.py")
     return Path(base)
@@ -372,7 +372,7 @@ def main(argv=None):
         registry = read_json(REGISTRY)
         declared = registry["cases"].get(args.case, {}).get("full_assertion_ids")
         require(declared == full_inventory(args.case), "registry full inventory differs from the registered components of " + args.case)
-        directory = campaign_dir(args.case, args.variant)
+        directory = campaign_dir()
     except (ComposeError, OSError, ValueError, KeyError) as exc:
         print(json.dumps({"status": "BLOCKED", "error": str(exc)}), file=sys.stderr)
         return 2
@@ -386,6 +386,7 @@ def main(argv=None):
     if not has_cleanup(args.case):
         event = report_components(args.case, directory)
         print(json.dumps(event, sort_keys=True), flush=True)
+        return 0 if event["complete"] else 1
     return 0
 
 
