@@ -5,6 +5,8 @@
 # worktree add plus a no-cone sparse-checkout from the same manifest
 # `hyperfide slice` prints. A task the slice cannot state, or a worker told
 # --full-tree, gets the whole tree with the reason recorded, never silently.
+# Since 3.20 sparse is the default ([hierarchy] sparse = "full" opts out) and
+# `slice <id> --widen PATH --reason CODE` is the recorded way out of a slice.
 . "$(dirname "$0")/../lib.sh"
 
 pyjson() { python3 -c "import json,sys; d=json.load(sys.stdin); $1"; }
@@ -126,18 +128,66 @@ assert w['mode'] == 'FULL_TREE' and w['fallback_reason'] == 'TASK_HAS_NO_TOUCHES
     || fail "fallback begin"
 [ -f "$wt2/lib/b.ts" ] && [ -f "$wt2/src/b.ts" ] || fail "fallback tree is not full"
 
-# ---- the workflow switch: [hierarchy] sparse = "slice" without a flag
+# ---- sparse is the default (3.20): no flag and no [hierarchy] key cuts a slice
 out="$("$CG" fleet begin 2.7 --json)"
+wt7="$(echo "$out" | pyjson 'print(d["worktree"])')"
 echo "$out" | pyjson "
 w = d['workspace']
-assert w['mode'] == 'FULL_TREE' and w['fallback_reason'] == 'SPARSE_NOT_REQUESTED', w" \
-    || fail "default begin records why the tree is full"
-echo 'sparse    = "slice"' >> spec/workflow.kvx
+assert w['mode'] == 'SLICE' and w['fallback_reason'] is None and w['slice_digest'].startswith('sha256:'), w" \
+    || fail "a default fleet worker is not sparse"
+[ -f "$wt7/lib/sub/package.json" ] || fail "default slice lost its touch"
+[ ! -e "$wt7/src/a.ts" ] && [ ! -e "$wt7/lib/b.ts" ] || fail "default slice holds paths outside it"
+[ "$(git -C "$wt7" config --get core.sparseCheckout)" = "true" ] || fail "default worker tree is not sparse"
+# [hierarchy] sparse = "full" opts the fleet out, and the opt-out is the reason
+echo 'sparse    = "full"' >> spec/workflow.kvx
 out="$("$CG" fleet begin 2.4 --json)"
 wt4="$(echo "$out" | pyjson 'print(d["worktree"])')"
-echo "$out" | pyjson "assert d['workspace']['mode'] == 'SLICE', d['workspace']" || fail "sparse = slice"
-want="$(printf '%s\n' Makefile package.json docs/d.md $spec_files | LC_ALL=C sort)"
-[ "$(tree_files "$wt4")" = "$want" ] || fail "configured sparse tree differs: $(tree_files "$wt4")"
+echo "$out" | pyjson "
+w = d['workspace']
+assert w['mode'] == 'FULL_TREE' and w['fallback_reason'] == 'HIERARCHY_SPARSE_FULL' and w['slice_digest'] is None, w" \
+    || fail "sparse = full did not record its reason"
+[ -f "$wt4/lib/b.ts" ] && [ -f "$wt4/src/b.ts" ] || fail "sparse = full tree is not full"
+
+# ---- the local widen step: the path joins the checkout and the task packet
+wspec="$wt/spec/wt/spec.kvx"
+[ -f "$wspec" ] || fail "the worker holds no spec at $wspec"
+if "$CG" slice 2.1 --widen lib/b.ts >/dev/null 2>&1; then fail "a widen without --reason was accepted"; fi
+if "$CG" slice 2.1 --widen lib/b.ts --reason "why" >/dev/null 2>&1; then fail "a widen reason that is not a code was accepted"; fi
+if "$CG" slice 2.1 --widen ../x --reason OUT_OF_SLICE_WRITE >/dev/null 2>&1; then fail "a widen outside the repository was accepted"; fi
+if "$CG" slice 2.1 --widen 'lib/*.ts' --reason OUT_OF_SLICE_WRITE >/dev/null 2>&1; then fail "a widen glob was accepted"; fi
+if "$CG" slice 2.1 --widen src/deep/c.ts --reason OUT_OF_SLICE_WRITE >/dev/null 2>&1; then
+    fail "a widen of a path already in the slice was accepted"
+fi
+if "$CG" slice 2.4 --widen lib/b.ts --reason OUT_OF_SLICE_WRITE >/dev/null 2>&1; then
+    fail "a widen of a full-tree worker was accepted"
+fi
+out="$("$CG" slice 2.1 --widen lib/b.ts --widen docs/ --reason OUT_OF_SLICE_WRITE --json)"
+echo "$out" | pyjson "
+assert d['task'] == '2.1' and d['reason'] == 'OUT_OF_SLICE_WRITE', d
+assert d['added_paths'] == ['lib/b.ts', 'docs/'], d['added_paths']
+assert d['parent_slice_digest'] == '$digest' and d['slice_digest'] != '$digest', d
+assert d['recorded_in'] == '$wspec', d" || fail "widen result"
+python3 - "$wspec" <<'PY' || fail "the widen is not recorded in the worker's task packet"
+import re, sys
+t = open(sys.argv[1]).read()
+blk = t[t.index("[task.2.1]"):]
+blk = blk[:blk.find("\n[", 1)] if "\n[" in blk[1:] else blk
+assert re.search(r'touches\s*=\s*\["src/a.ts", "src/deep", "lib/b.ts", "docs/"\]', blk), blk
+assert re.search(r'widened\s*=\s*\["OUT_OF_SLICE_WRITE:lib/b.ts", "OUT_OF_SLICE_WRITE:docs/"\]', blk), blk
+PY
+[ -f "$wt/lib/b.ts" ] && [ -f "$wt/docs/d.md" ] || fail "widened paths are not checked out"
+[ ! -e "$wt/src/b.ts" ] || fail "the widen checked out more than it named"
+git -C "$wt" sparse-checkout list | grep -qx '/lib/b.ts' || fail "sparse patterns lack the widened path"
+echo 'export const l = 40;' > "$wt/lib/b.ts"
+git -C "$wt" add lib/b.ts spec/wt/spec.kvx || fail "git add of a widened path was refused"
+git -C "$wt" commit -qm "widened"
+"$CG" events --kind fleet.widen --json -n 5 | python3 -c '
+import json, sys
+rows = [json.loads(l) for l in sys.stdin if l.strip()]
+pay = lambda r: r["payload"] if isinstance(r.get("payload"), dict) else json.loads(r.get("payload") or "{}")
+p = [pay(r) for r in rows if pay(r).get("task") == "2.1"]
+assert p and p[0]["reason"] == "OUT_OF_SLICE_WRITE" and p[0]["added_paths"] == ["lib/b.ts", "docs/"], p' \
+    || fail "no fleet.widen event"
 
 # ---- --full-tree records its reason, and refuses one that is not a code
 if "$CG" fleet begin 2.5 --full-tree "because" >/dev/null 2>&1; then
@@ -155,7 +205,8 @@ rows = [json.loads(l) for l in sys.stdin if l.strip()]
 pay = lambda r: r["payload"] if isinstance(r.get("payload"), dict) else json.loads(r.get("payload") or "{}")
 seen = {pay(r).get("task"): pay(r) for r in rows}
 assert seen["2.5"]["workspace"] == "FULL_TREE" and seen["2.5"]["fallback_reason"] == "WHOLE_REPO_REFACTOR", seen["2.5"]
-assert seen["2.4"]["workspace"] == "SLICE" and seen["2.4"]["slice_digest"].startswith("sha256:"), seen["2.4"]' \
+assert seen["2.7"]["workspace"] == "SLICE" and seen["2.7"]["slice_digest"].startswith("sha256:"), seen["2.7"]
+assert seen["2.4"]["workspace"] == "FULL_TREE" and seen["2.4"]["fallback_reason"] == "HIERARCHY_SPARSE_FULL", seen["2.4"]' \
     || fail "fleet.begin events do not record the workspace"
 
 # ---- a service manifest (the routed `slice inspect` result) wins

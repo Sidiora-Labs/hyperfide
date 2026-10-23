@@ -4,7 +4,8 @@
 #   E2E_DIR   scratch dir for markers; CG the cg binary
 #
 # Workers (feature alpha):
-#   2.1  fails its first attempt with an error result; the retry does the work
+#   2.1  fails its first attempt with an error result; the retry does the work,
+#        widening its slice to docs/d.md (slice --widen) before it edits it
 #   2.2  stalls on its first attempt (sleeps until stopped); the retry changes
 #        alpha's signature — the interface change
 #   3.2  (wave 2) writes src/d.ts calling alpha and indexes its branch, then
@@ -33,7 +34,12 @@ if [ "$CG_ROLE" = worker ]; then
             mark "fail"; exit 1
         fi
         echo 'export function beta(): number { return 2; }' > src/b.ts
-        echo "# doc, by 2.1" > docs/d.md ;;         # the other side of 3.2's conflict
+        # the other side of 3.2's conflict: outside 2.1's slice, so widened
+        # (recorded in its touches) before it is written; claimed first, as
+        # the widened touches overlap 3.2's, which a later start refuses
+        "$CG" spec start "$TASK" >/dev/null 2>&1
+        "$CG" slice "$TASK" --widen docs/d.md --reason CONFLICT_UNDER_TEST >/dev/null || { mark "widen refused"; exit 1; }
+        echo "# doc, by 2.1" > docs/d.md ;;
       alpha/2.2)
         if [ "$n" = 1 ]; then mark "stalling"; sleep 300; exit 0; fi
         printf 'export function alpha(n: number): number {\n  return n;\n}\n' > src/a.ts ;;

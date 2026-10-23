@@ -315,7 +315,7 @@ export async function executeReproduction(ctx:ComponentContext,value:unknown):Pr
   const inputValidation=await measuredReproductionInputs(ctx,db,binding,measuredJob);
   const permit=await runner.prepare(db,(ctx as Data).invocation,{job_namespace:'REPRODUCTION',input_validation:inputValidation,session_id:registered.session_id,operation_id:id,repository_id:job.snapshot.repository_id,reservation_id:job.reservation_id,task_id:job.snapshot.task_id,job_id:id,job_kind:'TEST',argv:check.argv,cwd:'.',environment:{},environment_digest:hash({}),artifact_paths:artifactPaths,
    timeout_ms:check.timeout_ms,source_digest:job.snapshot.source_manifest_digest,source_provenance_digest:hash(job.snapshot.execution_inputs),policy_digest:job.snapshot.registry_digest,
-   executable_digest:check.executable_digest});
+   executable_digest:check.executable_digest,workspace:{mode:'FULL_TREE',fallback_reason:'INDEPENDENT_VERIFICATION'}});
   await db.query("UPDATE hyperfide.review_reproduction_jobs SET state='RUNNING',runner_session_id=$4,runner_boot_id=$5,workspace_path=$6,runner_slot_generation=$7 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[binding.organisation_id,binding.run_id,id,registered.session_id,registered.boot_id,registered.workspace_path,decimal(registered.slot_generation)]);
   return {permit,inputValidation,job:{...job,runner_session_id:registered.session_id,runner_boot_id:registered.boot_id,runner_slot_generation:decimal(registered.slot_generation),workspace_path:registered.workspace_path} as Data};
  });

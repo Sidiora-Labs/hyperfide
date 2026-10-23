@@ -30,6 +30,14 @@ ttl    = 3600
 # stall (90s, 30m, 2h), spend (USD per attempt), retries, and approve — a
 # list of land, pr, retry, drift that stop for `hyperfide fleet approve`. Unset
 # keys take the defaults `hyperfide fleet roles` prints.
+#
+# Workspaces: a task worker's worktree is a sparse slice of its touches by
+# default (sparse = "slice"); sparse = "full" opts the fleet out and is
+# recorded as HIERARCHY_SPARSE_FULL. A worker that needs a path outside its
+# slice widens with `hyperfide slice <id> --widen PATH --reason CODE`, which
+# records the path in its [task] touches and widened. Manager and wave
+# worktrees are always the full tree (MANAGER_INTEGRATES_WAVE): they merge
+# every worker's branch and run the wave's gates.
 [hierarchy]
 enabled    = true
 main       = "main"
@@ -39,6 +47,7 @@ test_gate  = "make test"
 lint_gate  = "make hyperfide CFLAGS='-O2 -Werror'"
 pr         = "auto"
 checkpoint = "manual"
+sparse     = "slice"
 
 [role.main]
 title  = "Main Gideon"

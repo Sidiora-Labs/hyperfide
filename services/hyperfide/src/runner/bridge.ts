@@ -19,6 +19,8 @@ import type {PreparationReceiptPlan,VerifiedPreparationReceipt} from './preparat
 import {lockRun,scopeOf} from '../recovery/control.js';
 import {readReproductionJobInputs} from '../review/reproductions.js';
 import {reproductionJobRequest,bindReproductionInputs} from './reproduction_jobs.js';
+import {currentWorkerWorkspace,workspaceDeclaration} from '../preparation/slices.js';
+import type {WorkspaceDeclaration} from '../preparation/slices.js';
 
 export interface RunnerRemotePlan {
  session_id:string;operation_id:string;repository_id:string;reservation_id:string;
@@ -29,6 +31,9 @@ export interface RunnerRemotePlan {
  environment_digest:string;artifact_paths:string[];
  /** The task's secret references, NAME to 'secret-ref:ID' (D17); admission checks them against the pool profile. */
  env_refs?:Record<string,string>;
+ /** v21 3.20: the job's workspace. A producer that needs the full tree declares {mode:'FULL_TREE',fallback_reason};
+  * admission otherwise writes the slot's materialised slice here, and the executor refuses a job with neither. */
+ workspace?:WorkspaceDeclaration;
 }
 export interface RunnerStagingReference {
  role:string;artifact_id:string;storage_kind:'object'|'manifest';digest:string;manifest_digest?:string;size_bytes:string;
@@ -137,8 +142,24 @@ export async function taskEnvReferences(tx:Pick<PrimaryTransaction,'query'>,orga
  * packet bytes as before. */
 export async function runnerAdmissionPacket(tx:Pick<PrimaryTransaction,'query'>,plan:RunnerRemotePlan,binding:Record<string,unknown>,allocation:Record<string,unknown>,readiness:Record<string,unknown>):Promise<{packet:Record<string,unknown>;digest:string}>{
  const env_refs=await taskEnvReferences(tx,String(binding.organisation_id),String(binding.pool_id),plan.env_refs);
- const packet=JSON.parse(JSON.stringify({request:plan,binding,allocation,source_state_digest:readiness.source_state_digest,workspace_digest:readiness.workspace_digest,...(Object.keys(env_refs).length?{env_refs}:{})})) as Record<string,unknown>;
+ const request=plan.workspace===undefined?await admittedWorkspace(tx,plan,binding,allocation):plan;
+ const packet=JSON.parse(JSON.stringify({request,binding,allocation,source_state_digest:readiness.source_state_digest,workspace_digest:readiness.workspace_digest,...(Object.keys(env_refs).length?{env_refs}:{})})) as Record<string,unknown>;
  return {packet,digest:hash(runnerCanonical(packet))};
+}
+/** v21 3.20: admission writes request.workspace from the slot's materialised slice (or full-tree manifest), so the
+ * packet names the workspace the executor gate and launch use. With no materialisation the request is unchanged. */
+async function admittedWorkspace(tx:Pick<PrimaryTransaction,'query'>,plan:RunnerRemotePlan,binding:Record<string,unknown>,allocation:Record<string,unknown>):Promise<RunnerRemotePlan>{
+ const slot={sandbox_id:String(allocation.sandbox_id),slot_id:String(allocation.slot_id),sandbox_boot_generation:String(allocation.sandbox_boot_generation)};
+ if(!uuid(slot.sandbox_id)||!uuid(slot.slot_id)||!decimal(slot.sandbox_boot_generation,true)||!uuid(String(binding.organisation_id))||!uuid(String(binding.run_id)))return plan;
+ const current=await currentWorkerWorkspace(tx,{organisation_id:String(binding.organisation_id),run_id:String(binding.run_id)},slot);
+ if(!current)return plan;
+ const workspace:WorkspaceDeclaration=current.mode==='SLICE'?{mode:'SLICE',slice_digest:current.slice_digest}:{mode:'FULL_TREE',fallback_reason:String(current.fallback_reason)};
+ return {...plan,workspace};
+}
+/** The recorded request as its producer submitted it: an admission-written workspace is not part of the replayed plan. */
+function submittedRequest(recorded:unknown,plan:RunnerRemotePlan):unknown{
+ if(plan.workspace!==undefined||!object(recorded)||recorded.workspace===undefined)return recorded;
+ return Object.fromEntries(Object.entries(recorded).filter(([key])=>key!=='workspace'));
 }
 async function schema(ctx:ComponentContext):Promise<void> {
  const bytes=await fs.readFile(new URL('../../migrations/0012-runner-registry.sql',import.meta.url));
@@ -352,6 +373,7 @@ const permits=new WeakMap<object,{context:ComponentContext;plan:RunnerRemotePlan
 function validatePlan(plan:RunnerRemotePlan):void {
  if(!object(plan)||![plan.session_id,plan.operation_id,plan.repository_id,plan.reservation_id].every(uuid)||plan.job_id!==undefined&&!uuid(plan.job_id)||!Array.isArray(plan.argv)||!plan.argv.length||plan.argv.length>256||typeof plan.argv[0]!=='string'||!plan.argv[0]||plan.argv.some(x=>typeof x!=='string'||x.length>4096||x.includes('\0'))||plan.cwd!=='.'&&!safeRelative(plan.cwd)||!object(plan.environment)||Object.entries(plan.environment).some(([k,v])=>!/^[A-Z][A-Z0-9_]{0,63}$/.test(k)||/^(LD_|DYLD_|HF_|HOME$|TMPDIR$|PATH$)/.test(k)||typeof v!=='string'||v.includes('\0'))||plan.stdin!==undefined&&(typeof plan.stdin!=='string'||Buffer.byteLength(plan.stdin)>65536)||!Number.isInteger(plan.timeout_ms)||plan.timeout_ms<1||plan.timeout_ms>259200000||![plan.source_digest,plan.policy_digest,plan.executable_digest,plan.environment_digest].every(digest)||!Array.isArray(plan.artifact_paths)||plan.artifact_paths.length>64||plan.artifact_paths.some(x=>typeof x!=='string'||!safeRelative(x))||new Set(plan.artifact_paths).size!==plan.artifact_paths.length)fail('INVALID_REMOTE_PLAN','Bounded immutable registered command/source/environment plan required');
  if(hash(runnerCanonical(plan.environment))!==plan.environment_digest)fail('REMOTE_ENVIRONMENT_MISMATCH','Explicit environment bytes differ from the registered digest');
+ if(plan.workspace!==undefined)workspaceDeclaration(plan.workspace);
  if(plan.env_refs!==undefined){envReferenceShape(plan.env_refs);if(Object.keys(plan.env_refs).some(name=>Object.hasOwn(plan.environment,name)))fail('RUNNER_SECRET_REFERENCE_INVALID','A variable is either explicit or a secret reference, never both');}
 }
 export {validatePlan as validateRunnerPlan};
@@ -503,7 +525,7 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    // readmitting or relaunching work, even if its original allocation expired.
    const prior=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[p.organisation_id,p.run_id,plan.operation_id])).rows[0];
    if(prior){
-    if(!object(prior.plan)||!object(prior.plan.binding)||runnerCanonical(prior.plan.request)!==runnerCanonical(plan)||prior.principal.actor_id!==p.actor_id||prior.principal.role!==p.role||prior.authority_epoch!==p.deployment_epoch)fail('REMOTE_OPERATION_CONFLICT','Recorded operation identity or exact immutable plan differs');
+    if(!object(prior.plan)||!object(prior.plan.binding)||runnerCanonical(submittedRequest(prior.plan.request,plan))!==runnerCanonical(plan)||prior.principal.actor_id!==p.actor_id||prior.principal.role!==p.role||prior.authority_epoch!==p.deployment_epoch)fail('REMOTE_OPERATION_CONFLICT','Recorded operation identity or exact immutable plan differs');
     const permit=Object.freeze({}) as RunnerRemotePermit;permits.set(permit,{context:ctx,plan,binding:prior.plan.binding as Binding,principal:p,invocation:i,digest:prior.plan_digest});return permit;
    }
    const r=await readRunnerBinding(tx,{organisation_id:p.organisation_id,run_id:p.run_id,session_id:plan.session_id});await readRunnerReadiness(tx,r);
