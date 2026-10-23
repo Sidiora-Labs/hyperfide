@@ -495,7 +495,7 @@ owner = "qualification"
 
 [task.4.4]
 title = "Wave closure and publication"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["4.2", "4.3", "3.2"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "platform/plugins/github/**", "tests/hyperfide/cases/v22/4_4.sh"]
