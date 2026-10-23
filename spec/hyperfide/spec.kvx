@@ -2297,7 +2297,7 @@ do_3 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.28.2]
 title = "Persist deterministic documentation closure snapshots and receipts"
-status = "pending"
+status = "done"
 wave = 32
 requires = ["28.1", "19.3", "15.2", "12.4", "4.2", "5.1"]
 touches = ["services/hyperfide/src/docs/closure.ts", "tests/hyperfide/manifests/tasks/28.2.json", "tests/hyperfide/cases/tasks/28_2.py", "tests/hyperfide/registrations/28.2.json", "services/hyperfide/components/28.2.json", "services/hyperfide/migrations/0028-documentation.sql"]
