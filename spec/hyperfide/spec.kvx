@@ -2058,7 +2058,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.22.4]
 title = "Gate decision promotion, drift rollback and optional Span self-hosting"
-status = "pending"
+status = "done"
 wave = 29
 requires = ["22.3"]
 touches = ["services/hyperfide/src/evaluation/promotion.ts", "tests/hyperfide/manifests/tasks/22.4.json", "tests/hyperfide/cases/tasks/22_4.py", "tests/hyperfide/registrations/22.4.json", "services/hyperfide/components/22.4.json"]
@@ -2216,7 +2216,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.24.4]
 title = "Exercise operational recovery runbooks and declared RPO/RTO"
-status = "pending"
+status = "done"
 wave = 29
 requires = ["24.3", "4.4", "19.4"]
 touches = ["services/hyperfide/src/recovery/drills.ts", "tests/hyperfide/manifests/tasks/24.4.json", "tests/hyperfide/cases/tasks/24_4.py", "tests/hyperfide/registrations/24.4.json", "services/hyperfide/components/24.4.json", "services/hyperfide/src/storage/recovery_probes.ts", "tests/hyperfide/cases/support/postgres_drills.py"]
@@ -2233,7 +2233,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.27.2]
 title = "Replay deterministic large-spec, mixed-graph and 1500-session schedules"
-status = "pending"
+status = "done"
 wave = 29
 requires = ["5.4", "7.4", "23.4", "24.3", "19.4"]
 touches = ["tests/hyperfide/campaigns/deterministic.py", "tests/hyperfide/manifests/tasks/27.2.json", "tests/hyperfide/cases/tasks/27_2.py", "tests/hyperfide/registrations/27.2.json", "tests/hyperfide/campaigns/authority.py", "tests/hyperfide/test_authority_campaign.py", "tests/hyperfide/campaigns/parity.py", "tests/hyperfide/cases/parity/v020.py", "tests/hyperfide/cases/parity/v025.py", "tests/hyperfide/registrations/full/V-020.json", "tests/hyperfide/registrations/full/V-025.json", "tests/hyperfide/manifests/full/V-020.json", "tests/hyperfide/manifests/full/V-025.json"]
