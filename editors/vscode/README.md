@@ -1,8 +1,8 @@
 # Hyperfide for VS Code
 
-The whole Hyperfide workflow, inside the editor. Everything is driven by the `hyperfide` binary — the extension holds no state and never parses specs or code itself, so it cannot disagree with the CLI. `cg` is a deprecated compatibility alias of the same executable, with identical arguments, JSON and exit codes; it stays for the compatibility window of the approved release, and some extension paths still launch it by default (see [Requirements](#requirements)).
+The whole Hyperfide workflow, inside the editor. Everything is driven by the `hyperfide` binary — the extension holds no state and never parses specs or code itself, so it cannot disagree with the CLI. `cg` is a deprecated compatibility alias of the same executable, with identical arguments, JSON and exit codes; it stays for the compatibility window of the approved release, and the extension launches it only when `codify.binaryPath` is set explicitly (see [Requirements](#requirements)).
 
-The extension keeps its historical identifiers: the package is `codify-workflow`, command ids are `codify.*` (each is also registered as `hyperfide.*` for keybindings), and settings stay under `codify.*` apart from `hyperfide.binaryPath`. The palette titles read **Hyperfide: …**. It drives the local `hyperfide` CLI only; it does not talk to the Hyperfide control service described in [docs/hyperfide/operations.md](../../docs/hyperfide/operations.md).
+The extension keeps its historical identifiers: the package is `codify-workflow`, command ids are `codify.*`, and every one is also contributed and registered as `hyperfide.*` with the same title and the same handler (the palette lists the `hyperfide.*` name; keybindings and tasks may use either), and settings stay under `codify.*` apart from `hyperfide.binaryPath`. The palette titles read **Hyperfide: …**. It drives the local `hyperfide` CLI only; it does not talk to the Hyperfide control service described in [docs/hyperfide/operations.md](../../docs/hyperfide/operations.md).
 
 ## Code navigation from the graph
 
@@ -29,7 +29,7 @@ A "Hyperfide" container in the activity bar, with four views: **Tasks**, **Agent
 - Tasks group by **feature → section → wave** — the way the spec is written, and the way a fleet divides work. Each level carries its own progress, and a wave names the branch its worker takes (`wave/<feature>/<n>`, from `hyperfide fleet plan`).
 - Each row says whether you can pick it up: status icon, the agent holding the lease with its role, the branch work is on, and the requires that are not met yet (*blocked by 3.2*). The next eligible task is marked; `implemented` tasks read as *qualification pending* rather than done.
 - **Filter** the tree by status (including *blocked* and *open*), wave or owner, and **search** it by id, title, section, owner, symbol or path. The active filter is shown in the view title with a count badge, and is remembered per workspace — a filter that hides work never hides silently.
-- Inline actions run the real workflow — start, mark implemented, complete. `hyperfide spec done` is refused when `verify_cmd` or the graph checks fail, with the failing checks shown in the output channel (still named `Codify`) and a deliberately awkward, modal "Force done anyway" escape hatch.
+- Inline actions run the real workflow — start, mark implemented, complete. `hyperfide spec done` is refused when `verify_cmd` or the graph checks fail, with the failing checks shown in the `Hyperfide` output channel and a deliberately awkward, modal "Force done anyway" escape hatch.
 - In parallel mode, tasks show who holds their lease, and claim/release actions appear. **Open Task Branch or Worktree** opens the worktree the fleet created for the task (in this window or a new one); with no worktree here it offers the branch name or the `git switch` line rather than checking out for you.
 
 ### Task detail
@@ -114,7 +114,7 @@ The board *drives* the same chat. **Start Agent Session on Task** (task node or 
 
 If the view already has a chat going, you choose: replace it (with the usual handoff/release offer for an attached task) or **open beside** — an editor panel running a second concurrent session. When any session ends with its task not yet qualified, the extension offers to record a handoff or release the claim — the same discipline as the terminal path.
 
-If the adapter is missing or fails to start (auth methods, when the agent reports them, are named in the error), any claim is released and the extension offers the terminal session as the fallback. Set `codify.agent.interface: "terminal"` to route task starts to a seeded terminal (`codify: <driver> <id>`) instead of the view.
+If the adapter is missing or fails to start (auth methods, when the agent reports them, are named in the error), any claim is released and the extension offers the terminal session as the fallback. Set `codify.agent.interface: "terminal"` to route task starts to a seeded terminal (`hyperfide: <driver> <id>`) instead of the view.
 
 The rest of the lifecycle:
 
@@ -130,7 +130,7 @@ When a session's terminal closes — or a headless run exits — with the task n
 
 ## How the board stays fresh
 
-**Live, with a current `hyperfide`.** The extension keeps one `hyperfide serve` child open for the whole window. Every `hyperfide` call it makes goes down that one pipe, and every change in the repository — a task status, a claim, an agent's tool call, a merge, a stall, an approval — comes back up it as a pushed event. The task, memory, and fleet views patch themselves from those events, so the polls below are switched off while the connection is up; `tests/integration/14_vscode.sh` asserts that a claim made by another process reaches the view model within 300 ms (a test bound, not a field measurement). If the server goes away the extension reconnects with a backoff and takes one full refresh, because events pushed while the pipe was down are gone. Set `codify.serve` to `false`, or run a binary without `serve`, and the `Codify` output channel says so and everything below applies unchanged.
+**Live, with a current `hyperfide`.** The extension keeps one `hyperfide serve` child open for the whole window. Every `hyperfide` call it makes goes down that one pipe, and every change in the repository — a task status, a claim, an agent's tool call, a merge, a stall, an approval — comes back up it as a pushed event. The task, memory, and fleet views patch themselves from those events, so the polls below are switched off while the connection is up; `tests/integration/14_vscode.sh` asserts that a claim made by another process reaches the view model within 300 ms (a test bound, not a field measurement). If the server goes away the extension reconnects with a backoff and takes one full refresh, because events pushed while the pipe was down are gone. Set `codify.serve` to `false`, or run a binary without `serve`, and the `Hyperfide` output channel says so and everything below applies unchanged.
 
 **The fallback.** Every refresh — a spec file changing, an agent's turn ending, a command finishing, a poll — goes through one scheduler. It runs a single short chain of `hyperfide` calls at a time (`sync --max-age 3000 --background --wait 0`, `spec status`, `spec trace --no-sync`, `recall`, `guard`), debounces bursts into one run, keeps at least two seconds between runs unless a command asked for one, and queues at most one trailing run behind a chain in flight. The sync is a no-op when a whole-tree pass ran in the last three seconds; otherwise it is one low-priority pass that never waits on another process's pass. The extension does not watch `.codegraph/graph.db`, because its own sync writes it and a watcher there turned each refresh into the next. Claims and evidence written by agents outside the editor, which touch no spec file, arrive through the 10-second poll while a session is tracked and a 60-second poll while the window is focused; regaining focus refreshes once.
 
@@ -224,6 +224,10 @@ Neither is required for the other. kvx highlighting works everywhere.
 | `codify.acp.claudeCommand` | `claude-code-acp` | Command that starts the Claude Code ACP adapter (quote-aware) |
 | `codify.acp.codexCommand` | `npx -y @agentclientprotocol/codex-acp@1.7.0` | Command that starts the Codex ACP adapter (quote-aware). The former `npx … @zed-industries/codex-acp` value is compatibility-redirected because its embedded Codex lacks current model metadata. |
 | `codify.acp.customCommand` | *(empty)* | Any ACP-speaking agent command, offered as the Custom provider; used by default when set and no provider was picked |
+| `codify.acp.authMethod` | *(empty)* | ACP auth method id used when an agent asks for sign-in. Empty: use the only method offered, or ask |
+| `codify.acp.envRefs` | *(empty)* | Variables the ACP adapter starts with, as `NAME: "secret-ref:ID"`. Only references live here; each value is kept in VS Code secret storage under its ID and asked for once |
+| `codify.acp.mcpEnv` | *(empty)* | Variable names passed to the injected Hyperfide MCP server, each from `codify.acp.envRefs` when referenced there, otherwise from the editor's environment. Nothing else is passed |
+| `codify.acp.selectionContext` | `true` | Attach the current editor selection to the next chat message (embedded when the agent accepts it, otherwise as a link) |
 | `codify.agent.codexPath` | `codex` | Path to the Codex CLI (terminal sessions) |
 | `codify.agent.claudePath` | `claude` | Path to the Claude Code CLI |
 | `codify.agent.codexArgs` | *(empty)* | Extra arguments passed to codex when starting a session |
@@ -232,13 +236,14 @@ Neither is required for the other. kvx highlighting works everywhere.
 
 ## Install
 
-No build step and no dependencies — the extension is plain JavaScript, including its Language Server client. `vsce package` needs no `npm install`.
+No build step and no dependencies — the extension is plain JavaScript, including its Language Server client. `vsce package` needs no `npm install`, and the repository packages it without npm at all:
 
 ```sh
-cd editors/vscode
-npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
-code --install-extension codify-workflow-2.0.0-dev.vsix --force
+python3 -I scripts/package-vsix.py   # produces editors/vscode/codify-workflow-2.0.0-dev.vsix
+code --install-extension editors/vscode/codify-workflow-2.0.0-dev.vsix --force
 ```
+
+The VSIX is named and stamped with the `version` in `package.json`; packaging removes any older `codify-workflow-*.vsix` beside it, and `python3 -I scripts/package-vsix.py --check <file.vsix>` fails when a package's version differs from `package.json` (`tests/integration/14_vscode.sh` runs both). `cd editors/vscode && npx @vscode/vsce package` produces the same file name.
 
 The Marketplace identity is `SidioraLabs.codify-workflow`. In a Remote SSH,
 WSL, or container window, install the VSIX on the **remote** extension host,
