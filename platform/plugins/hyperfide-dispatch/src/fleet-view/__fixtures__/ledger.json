@@ -1,0 +1,72 @@
+{
+  "machines": [
+    {
+      "id": "machine-1",
+      "provider": "fake-provider",
+      "state": "running",
+      "job": "job-1",
+      "createdAt": "2026-10-23T10:00:00Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "job-1",
+      "task": "task-42",
+      "state": "running",
+      "attempt": 2,
+      "worker": "machine-1",
+      "started": "2026-10-23T10:00:00Z",
+      "finished": null,
+      "log": "worker started\npacking output <script>fixture</script>"
+    },
+    {
+      "id": "job-2",
+      "task": "task-43",
+      "state": "merged",
+      "attempt": 1,
+      "worker": "machine-2",
+      "started": "2026-10-23T10:00:00Z",
+      "finished": "2026-10-23T10:01:00Z",
+      "log": "merged successfully"
+    }
+  ],
+  "budget": {
+    "cap": 2,
+    "maximum": 8,
+    "inFlight": 1,
+    "keys": 3,
+    "backoffUntil": "2026-10-23T11:00:00Z",
+    "paused": false
+  },
+  "timelines": [
+    {
+      "task": "task-43",
+      "events": [
+        {
+          "stage": "created",
+          "at": "2026-10-23T10:00:00Z"
+        },
+        {
+          "stage": "prepared",
+          "at": "2026-10-23T10:00:00Z"
+        },
+        {
+          "stage": "running",
+          "at": "2026-10-23T10:00:00Z"
+        },
+        {
+          "stage": "packed",
+          "at": "2026-10-23T10:00:00Z"
+        },
+        {
+          "stage": "collected",
+          "at": "2026-10-23T10:00:00Z"
+        },
+        {
+          "stage": "merged",
+          "at": "2026-10-23T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}

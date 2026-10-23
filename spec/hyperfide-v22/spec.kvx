@@ -588,7 +588,7 @@ owner = "fleet"
 
 [task.5.6]
 title = "Fleet dashboard"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.4"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/5_6.sh"]
