@@ -1106,7 +1106,7 @@ title = "Aliases, README and a current VSIX"
 status = "implemented"
 wave = 6
 requires = ["6.2", "6.3", "6.4", "6.5"]
-touches = ["editors/vscode/README.md", "editors/vscode/package.json", "tests/integration/14_vscode.sh"]
+touches = ["editors/vscode/README.md", "editors/vscode/package.json", "editors/vscode/extension.js", "scripts/package-vsix.py", "tests/integration/14_vscode.sh"]
 verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
 do_1 = "Every command carries the hyperfide alias; README strings match the code; repackage the VSIX at the source version with a check that fails when the packaged version differs from package.json."
 do_2 = "14_vscode.sh asserts alias coverage and the version check."
