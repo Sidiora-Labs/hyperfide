@@ -6,8 +6,9 @@ import { execFileSync } from 'node:child_process';
 import { SpecReader, binaryCommand, type SpecStorage } from './reader.js';
 import type { SpecRead, SpecSnapshot } from './shared/model.js';
 import { parseKvx } from './kvx.js';
-import { registerSpecReadModel, type SpecReadHost } from './read-model-server.js';
-import { specReadModelPlugin } from '../../../packages/bundled-plugins/hyperfide-spec.js';
+import specPlugin from './read-model-server.js';
+import { createFakePluginHost } from '@hyperfide/plugin-sdk/testing';
+import { BUILTIN_PLUGINS } from '../../../apps/server/src/services/plugins/builtin-registry.js';
 
 const binary = process.env.HYPERFIDE_TEST_BINARY ?? resolve(import.meta.dirname, '../../../../cg');
 let repository: string;
@@ -83,18 +84,31 @@ describe('spec read model', () => {
     await expect(other.refresh()).rejects.toThrow();
   });
   it('registers RPCs and shuts down through the host lifecycle', async () => {
-    expect(specReadModelPlugin.pluginId).toBe('hyperfide-spec');
-    expect(specReadModelPlugin.register).toBe(registerSpecReadModel);
-    const handlers = new Map<string, (input: { feature?: string; id?: string }) => Promise<unknown>>();
-    let dispose = () => {};
-    const host: SpecReadHost = { storage, rpc: { register(name, fn) { handlers.set(name, fn); } },
-      realtime: { async publish() {} }, onDispose(fn) { dispose = fn; } };
-    reader = await registerSpecReadModel(host, repository, binary);
-    expect([...handlers.keys()]).toEqual(['features', 'tasks', 'task', 'waves']);
-    expect(await handlers.get('task')!({ feature: 'demo', id: '2' })).toMatchObject({ id: '2' });
-    await expect(handlers.get('tasks')!({ feature: 'absent' })).rejects.toThrow('Unknown feature');
-    dispose();
+    expect(BUILTIN_PLUGINS).toContainEqual({ name: 'hyperfide-spec', pluginId: 'hyperfide-spec', autoInstall: true, defaultEnabled: true });
+    const host = createFakePluginHost({ pluginId: 'hyperfide-spec' });
+    await host.hyperfide.storage.kv.set('spec.repositories', [repository]);
+    await host.hyperfide.storage.kv.set('spec.binaryPath', binary);
+    try {
+      const readers = await specPlugin(host.hyperfide);
+      const call = host.harness.behavior.callRpc;
+      expect(await call('features', {})).toMatchObject([{ id: 'demo' }]);
+      expect(await call('task', { feature: 'demo', id: '2' })).toMatchObject({ id: '2', do_1: 'First' });
+      expect(await call('waves', { feature: 'demo' })).toHaveLength(3);
+      await expect(call('tasks', { feature: 'absent' })).rejects.toThrow('Unknown feature');
+      await expect(call('tasks', { feature: 'demo', repository: '/unknown' })).rejects.toThrow('repository');
+      expect(await host.hyperfide.storage.kv.get(`hyperfide-spec:${repository}`)).toMatchObject({ repository });
+      reader = readers.get(repository);
+      await writeFile(join(repository, 'spec/demo/spec.kvx'), fixture('RPC edit'));
+      await expect.poll(() => host.harness.inspection.realtimeSignals.length).toBe(1);
+      expect(host.harness.inspection.realtimeSignals[0]).toMatchObject({
+        channel: 'hyperfide-spec:changed', payload: { repository },
+      });
+      expect(await call('task', { feature: 'demo', id: '2' })).toMatchObject({ title: 'RPC edit' });
+    } finally {
+      await host.harness.dispose();
+    }
   });
+
   it('parses multiline arrays, escaped strings and rejects duplicate sections', () => {
     expect(parseKvx('[meta]\nname = "A \\"quote\\"" # comment\nreqs = [\n "1",\n "2"\n]').get('meta')).toEqual({ name: 'A "quote"', reqs: ['1', '2'] });
     expect(() => parseKvx('[meta]\n[meta]')).toThrow('Duplicate');

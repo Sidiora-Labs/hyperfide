@@ -35,6 +35,7 @@ export function accountPoolDefaultEnabled(
 const REPO_PLUGINS_DIRECTORY_NAME = "plugins";
 
 export const BUILTIN_PLUGINS = [
+  { name: "hyperfide-spec", pluginId: "hyperfide-spec", defaultEnabled: true },
   { name: "hyperfide-qualify", pluginId: "hyperfide-qualify", defaultEnabled: true },
   { name: "hyperfide-graph", pluginId: "hyperfide-graph", defaultEnabled: true },
   { name: "hyperfide-asks", pluginId: "hyperfide-asks", defaultEnabled: true },
