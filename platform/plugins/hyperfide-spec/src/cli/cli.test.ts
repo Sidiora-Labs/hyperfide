@@ -1,17 +1,17 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { mkdtempSync, cpSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createSpecCli, registerSpecCli } from "./cli.mjs";
+import { createSpecCli, registerSpecCli } from "./index.mjs";
 
-const repo = resolve(import.meta.dirname, "../../..");
+const repo = resolve(import.meta.dirname, "../../../../..");
 test("plugin registration exposes all four commands", () => {
-  let registration;
+  let registration: import("./index.mjs").SpecCliRegistration | undefined;
   registerSpecCli({ cli: { register(value) { registration = value; } } });
-  assert.equal(registration.name, "spec");
-  assert.deepEqual(registration.commands.map((item) => item.name), ["next", "start", "implemented", "status"]);
+  assert.equal(registration!.name, "spec");
+  assert.deepEqual(registration!.commands.map((item) => item.name), ["next", "start", "implemented", "status"]);
 });
 
 test("process adapter preserves arbitrary exit codes and JSON bytes", async () => {
@@ -25,7 +25,7 @@ test("process adapter preserves arbitrary exit codes and JSON bytes", async () =
     assert.equal(result.stderr, "failure\nhyperfide spec: feature demo, task (board)\n");
     const missing = await createSpecCli({ binary: resolve(cwd, "absent") }).run(["start", "1.2", "-f", "demo"], { cwd });
     assert.equal(missing.exitCode, 1);
-    assert.match(missing.stderr, /feature demo, task 1\.2/);
+    assert.match(missing.stderr!, /feature demo, task 1\.2/);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
@@ -51,16 +51,16 @@ test("all commands match the binary against independent fixture repositories", a
       const actual = await cli.run(argv, { cwd: platform });
       assert.equal(actual.exitCode, expected.status, argv.join(" "));
       assert.equal(actual.stdout, expected.stdout.replaceAll(direct, platform));
-      assert.ok(actual.stderr.startsWith(expected.stderr.replaceAll(direct, platform)));
-      if (actual.exitCode === 0) assert.match(actual.stderr, /Board: .*\/plugins\/hyperfide-spec\?feature=demo/);
-      else assert.match(actual.stderr, /feature .*task /);
-      if (argv[0] === "status" && argv.includes("--json") && actual.exitCode === 0) JSON.parse(actual.stdout);
+      assert.ok(actual.stderr!.startsWith(expected.stderr.replaceAll(direct, platform)));
+      if (actual.exitCode === 0) assert.match(actual.stderr!, /Board: .*\/plugins\/hyperfide-spec\?feature=demo/);
+      else assert.match(actual.stderr!, /feature .*task /);
+      if (argv[0] === "status" && argv.includes("--json") && actual.exitCode === 0) JSON.parse(actual.stdout!);
     }
     const rooted = await cli.run(["status", "--json", "-f", "demo", "--root", platform], { cwd: root });
     assert.equal(rooted.exitCode, 0, rooted.stderr);
-    assert.equal(JSON.parse(rooted.stdout).feature, "demo");
+    assert.equal(JSON.parse(rooted.stdout!).feature, "demo");
     const inferred = await cli.run(["start", "missing"], { cwd: platform });
     assert.equal(inferred.exitCode, 1);
-    assert.match(inferred.stderr, /feature demo, task missing/);
+    assert.match(inferred.stderr!, /feature demo, task missing/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

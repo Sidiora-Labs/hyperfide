@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -60,14 +60,8 @@ export function resolveHyperfideAppVersion(args: ResolveHyperfideAppVersionArgs)
     if (candidateVersion !== null) {
       return candidateVersion;
     }
-    // Locate the launcher by manifest identity while package paths are migrated.
-    try {
-      const packages = join(currentDir, "packages");
-      for (const entry of readdirSync(packages)) {
-        const version = readHyperfideAppVersionAt(join(packages, entry, "package.json"));
-        if (version !== null) return version;
-      }
-    } catch { /* This ancestor need not be a workspace. */ }
+    const workspaceVersion = readHyperfideAppVersionAt(join(currentDir, "packages", "hyperfide-app", "package.json"));
+    if (workspaceVersion !== null) return workspaceVersion;
     const parentDir = dirname(currentDir);
     if (parentDir === currentDir) {
       break;

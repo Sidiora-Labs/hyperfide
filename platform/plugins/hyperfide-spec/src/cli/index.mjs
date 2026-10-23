@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseKvx } from "../kvx.js";
 
 /**
- * CLI-only projection of task 2.1; the server can register this unchanged.
- * @param {import('./cli.mjs').SpecCliOptions} options
- * @returns {import('./cli.mjs').SpecCliRegistration}
+ * Native process adapter for the plugin CLI registration.
+ * @param {import('./index.mjs').SpecCliOptions} options
+ * @returns {import('./index.mjs').SpecCliRegistration}
  */
 export function createSpecCli(options = {}) {
   const commands = ["next", "start", "implemented", "status"];
@@ -30,7 +31,8 @@ export function createSpecCli(options = {}) {
       const root = resolve(cwd, value("--root") ?? process.env.HYPERFIDE_REPO_ROOT ?? ".");
       let activeFeature;
       try {
-        activeFeature = /active_feature\s*=\s*"([^"]+)"/u.exec(readFileSync(resolve(root, "spec/workflow.kvx"), "utf8"))?.[1];
+        const active = parseKvx(readFileSync(resolve(root, "spec/workflow.kvx"), "utf8")).get("meta")?.active_feature;
+        if (typeof active === "string") activeFeature = active;
       } catch { /* The binary reports missing or invalid workflow files. */ }
       const feature = value("-f") ?? value("--feature") ?? activeFeature ?? "(repository feature)";
       const task = ["start", "implemented"].includes(argv[0]) ? argv[1] ?? "(missing)" : "(board)";
@@ -70,8 +72,8 @@ export function createSpecCli(options = {}) {
 }
 
 /**
- * @param {{cli: {register(value: import('./cli.mjs').SpecCliRegistration): void}}} ctx
- * @param {import('./cli.mjs').SpecCliOptions} options
+ * @param {{cli: {register(value: import('./index.mjs').SpecCliRegistration): void}}} ctx
+ * @param {import('./index.mjs').SpecCliOptions} options
  */
 export function registerSpecCli(ctx, options = {}) {
   ctx.cli.register(createSpecCli(options));
