@@ -40,7 +40,7 @@
     {
       "channel": "latest",
       "provider": "generic",
-      "url": "https://github.com/hyperfide/hyperfide/releases/download/desktop-latest/"
+      "url": "https://github.com/Sidiora-Labs/hyperfide/releases/download/desktop-latest/"
     }
   ],
   "mac": {

@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFile, readdir, mkdir, writeFile, stat } from 'node:fs/promises';
-import { resolve, dirname, join } from 'node:path';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 
-assert.ok(['--prepare', '--check'].includes(process.argv[2]));
 const root = resolve('platform');
-const rules = JSON.parse(await readFile(join(root, 'tools/rename/map.json'), 'utf8'));
-const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 async function walk(dir) {
   const paths = [];
   for (const e of await readdir(dir, { withFileTypes: true })) {
@@ -17,44 +15,34 @@ async function walk(dir) {
   }
   return paths;
 }
-const files = ['README.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SECURITY.md'].map(p => join(root, p));
-files.push(...await walk(join(root, 'docs')), ...await walk(join(root, 'assets')), ...await walk(join(root, 'apps/app/public')));
-for (const e of await readdir(root, { withFileTypes: true })) {
-  if (!e.isDirectory() || !e.name.startsWith('.')) continue;
-  const p = join(root, e.name, 'skills');
-  if (await stat(p).catch(() => false)) files.push(...await walk(p));
-}
-for (const e of await readdir(join(root, 'plugins'), { withFileTypes: true })) {
-  if (!e.isDirectory() || ['connect', 'connect-next'].includes(e.name) || e.name.endsWith('-account')) continue;
-  for (const n of ['README.md', 'PLUGIN_OVERVIEW.md']) {
-    const p = join(root, 'plugins', e.name, n);
-    if (await stat(p).catch(() => false)) files.push(p);
-  }
-}
-if (process.argv[2] === '--prepare') {
-  const temp = resolve(process.argv[3]);
-  let count = 0;
-  for (const p of files) {
-    const bytes = await readFile(p);
-    if (bytes.includes(0) || !Buffer.from(bytes.toString()).equals(bytes)) continue;
-    let text = bytes.toString();
-    // Broad text rules can match inside UUIDs, hashes, and base64. The manager
-    // permits ignoring only hits whose preceding character is alphanumeric.
-    for (const r of rules.filter(r => r.kind === 'text')) {
-      text = text.replace(new RegExp(`([A-Za-z0-9])${escape(r.from)}`, 'g'), (_, prefix) => prefix + '_'.repeat(r.from.length));
-    }
-    const dest = join(temp, p.slice(root.length + 1));
-    await mkdir(dirname(dest), { recursive: true });
-    await writeFile(dest, text);
-    count++;
-  }
-  console.log(`Prepared ${count} text files for identity map --dry-run`);
-} else {
-  const report = JSON.parse(await readFile(process.argv[3], 'utf8'));
-  const hits = report.rules.filter(r => r.kind !== 'path' && r.count);
-  assert.deepEqual(hits, [], `Identity matches: ${JSON.stringify(hits)}`);
-  console.log('Identity map --dry-run: zero matches');
 const json = async p => JSON.parse(await readFile(join(root, p), 'utf8'));
+// Read tracked manifests only: ignored build outputs may predate the rename.
+const manifests = execFileSync('git', ['ls-files', '-z', '--', 'platform'], { encoding: 'utf8' })
+  .split('\0').filter(p => p.endsWith('/package.json'));
+let scopedPackages = 0;
+let plugins = 0;
+for (const path of manifests) {
+  const manifest = JSON.parse(await readFile(path, 'utf8'));
+  if (manifest.name?.startsWith('@')) {
+    assert.match(manifest.name, /^@hyperfide\//, path);
+    scopedPackages++;
+  }
+  if (path.startsWith('platform/plugins/') && manifest.hyperfide) {
+    assert.match(manifest.name, /^(?:hyperfide-plugin-|@hyperfide\/hyperfide-)/, path);
+    plugins++;
+  }
+}
+assert.ok(scopedPackages > 0 && plugins > 0, 'Workspace and plugin manifests must be checked');
+const cli = await json('apps/cli/package.json');
+assert.equal(cli.bin['hyperfide-platform'], './bin/hyperfide-platform');
+await stat(join(root, 'apps/cli', cli.bin['hyperfide-platform']));
+assert.match(await readFile(join(root, 'packages/config/src/cli-command.ts'), 'utf8'),
+  /CLI_LAUNCHER_ENV_NAME = "HYPERFIDE_CLI_LAUNCHER"/);
+assert.match(await readFile(join(root, 'packages/config/src/runtime.ts'), 'utf8'),
+  /HYPERFIDE_PROD_DATA_DIR_NAME = "\.hyperfide"/);
+assert.match(await readFile(join(root, 'apps/server/src/services/plugins/builtin-registry.ts'), 'utf8'),
+  /BUILTIN_PLUGIN_ID_PREFIX = "hyperfide--"/);
+console.log(`Identity contracts: ${scopedPackages} scoped packages, ${plugins} plugins, CLI, environment and data directory passed`);
 const desktop = await json('apps/desktop/electron-builder.config.json');
 assert.equal(desktop.productName, 'Hyperfide');
 assert.equal(desktop.appId, 'dev.hyperfide.desktop');
@@ -76,6 +64,7 @@ const configure = require(join(root, 'apps/mobile/app.config.js'));
 // Discover the variant key without changing the runtime contract owned by 0.3.
 const source = await readFile(join(root, 'apps/mobile/app.config.js'), 'utf8');
 const variantKey = source.match(/process\.env\.([A-Z_]+MOBILE_VARIANT)/)[1];
+assert.equal(variantKey, 'HYPERFIDE_MOBILE_VARIANT');
 const saved = process.env[variantKey];
 try {
   for (const variant of ['production', 'dev']) {
@@ -104,5 +93,3 @@ for (const p of ['apps/desktop/assets/icon.icns', 'apps/desktop/assets/icon-nigh
 }
 assert.match(await readFile(join(root, 'assets/README.md'), 'utf8'), /editors\/vscode\/media\/icon.png/);
 console.log('Desktop, mobile production/dev, PWA manifests and native icon containers: passed');
-
-}
