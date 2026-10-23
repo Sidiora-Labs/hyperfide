@@ -74,6 +74,13 @@ const toolOptionSchema = z.strictObject({
 });
 
 const toolQuestionSchema = z.strictObject({
+  recommendation: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Exact label of the recommended option; alternatively mark an option label with (Recommended).",
+    ),
   question: z
     .string()
     .min(1)

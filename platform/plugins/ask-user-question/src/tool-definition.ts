@@ -3,7 +3,7 @@ export const TOOL_DESCRIPTION = `Use this tool only when you are blocked on a de
 Usage notes:
 - Users will always be able to select "Other" to provide custom text input
 - Use multiSelect: true to allow multiple answers to be selected for a question
-- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
+- Supply a recommendation matching an option label, or mark an option with "(Recommended)"; the shared Ask inbox needs the recommendation to record its proceeding policy
 
 Reserve this for decisions where the user's answer changes what you do next — not for choices with a conventional default or facts you can verify in the codebase yourself. In those cases pick the obvious option, mention it in your response, and proceed.
 
