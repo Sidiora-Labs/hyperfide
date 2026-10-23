@@ -138,6 +138,7 @@
     "micromark-util-types": "^2.0.2",
     "oniguruma-to-es": "^4.3.4",
     "remark-parse": "^11.0.0",
+    "rolldown": "1.0.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.3.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
