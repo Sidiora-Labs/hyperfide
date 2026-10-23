@@ -965,7 +965,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.5.2]
 title = "Enforce monotonic generations and primary-clock leases"
-status = "pending"
+status = "done"
 wave = 13
 requires = ["5.1"]
 touches = ["services/hyperfide/src/scheduler/leases.ts", "tests/hyperfide/manifests/tasks/5.2.json", "tests/hyperfide/cases/tasks/5_2.py", "tests/hyperfide/registrations/5.2.json", "services/hyperfide/components/5.2.json"]
@@ -983,7 +983,7 @@ do_5 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.5.4]
 title = "Replace fixed local slot/start limits with resource admission and fairness"
-status = "pending"
+status = "done"
 wave = 13
 requires = ["5.1"]
 touches = ["services/hyperfide/src/scheduler/resources.ts", "tests/hyperfide/manifests/tasks/5.4.json", "tests/hyperfide/cases/tasks/5_4.py", "tests/hyperfide/registrations/5.4.json", "services/hyperfide/components/5.4.json"]
@@ -1208,7 +1208,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.7.4]
 title = "Port graph query and search semantics with differential parity"
-status = "pending"
+status = "done"
 wave = 13
 requires = ["7.3", "4.3"]
 touches = ["services/hyperfide/src/graph/query.ts", "tests/hyperfide/manifests/tasks/7.4.json", "tests/hyperfide/cases/tasks/7_4.py", "tests/hyperfide/registrations/7.4.json", "services/hyperfide/components/7.4.json", "services/hyperfide/src/graph/contract_query.ts", "services/hyperfide/src/graph/projection.ts", "services/hyperfide/src/graph/projection_extract.ts", "tests/hyperfide/cases/support/graph_contracts.py", "tests/hyperfide/cases/support/graph_projection.py", "services/hyperfide/migrations/0704-graph-query-parity.sql", "services/hyperfide/src/graph/replica_query.ts", "tests/hyperfide/cases/support/graph_replicas.py"]
