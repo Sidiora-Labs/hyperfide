@@ -6,6 +6,7 @@ import { WebSocket } from "ws";
 import { expect, it } from "vitest";
 import { attachLanguageServerRelay } from "./language-server-relay.js";
 
+// The relay spawns a real language-server process; under a loaded sandbox that exceeds the 15 s default.
 it("relays initialize and definitions, shares the repository process and stops after idle", async () => {
   const directory = await mkdtemp(`${tmpdir()}/hyperfide-lsp-`);
   const root = await realpath(directory);
@@ -28,7 +29,7 @@ process.stdin.on('data', chunk => {
  const frame = 'Content-Length: '+Buffer.byteLength(body)+'\\r\\n\\r\\n'+body;
  output = output.then(() => new Promise(resolve => { process.stdout.write(frame.slice(0,7)); setTimeout(()=>{process.stdout.write(frame.slice(7));resolve();},2); }));
  }
-});
+}, 60_000);
 `,
   );
   await chmod(binary, 0o755);

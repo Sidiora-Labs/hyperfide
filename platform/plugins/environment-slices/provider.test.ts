@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, rm, cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { SlicesProvider, providerId, type SliceManifest } from "./provider.ts";
 import {
   installSlicesEnvironment,
@@ -21,7 +22,11 @@ type Registration = {
   remove(context: unknown): Promise<unknown>;
 };
 
-const binary = resolve(process.env.HYPERFIDE_BINARY ?? "./cg");
+// The platform test run starts each package in its own directory, so the binary under test is the
+// repository's own `cg` resolved from this file unless HYPERFIDE_BINARY names another one.
+const binary = process.env.HYPERFIDE_BINARY
+  ? resolve(process.env.HYPERFIDE_BINARY)
+  : fileURLToPath(new URL("../../../cg", import.meta.url));
 test("real snapshots: create, isolated edit, thread finish, restart, discard and publication", async () => {
   const home = await mkdtemp(join(tmpdir(), "hyperfide-slices-"));
   const repo = join(home, "repository");
