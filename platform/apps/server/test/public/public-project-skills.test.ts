@@ -190,13 +190,13 @@ async function writePluginSkillFixture(rootPath: string): Promise<{
   pluginRootPath: string;
   skillFilePath: string;
 }> {
-  const pluginRootPath = join(rootPath, "bb-plugin-skill-catalog-fixture");
+  const pluginRootPath = join(rootPath, "hyperfide-plugin-skill-catalog-fixture");
   const skillRootPath = join(pluginRootPath, "skills", "plugin-notes");
   await mkdir(skillRootPath, { recursive: true });
   await writeFile(
     join(pluginRootPath, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-skill-catalog-fixture",
+      name: "hyperfide-plugin-skill-catalog-fixture",
       version: "0.1.0",
       bb: {
         name: "Skill catalog fixture",
@@ -1289,7 +1289,7 @@ describe("public project skills route", () => {
   });
 
   it("lists and reads a bb plugin skill from the authoritative runtime catalog", async () => {
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-skill-route-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-skill-route-"));
     try {
       await withTestHarness(async (harness) => {
         setExperiments(harness.db, {

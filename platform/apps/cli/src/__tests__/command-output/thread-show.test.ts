@@ -4,7 +4,7 @@ import type * as serverContract from "@hyperfide/server-contract";
 import type {
   EnvironmentPullRequest,
   PullRequest,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-bb--github-pr-status/contract";
 import {
   setupCommandOutputTestEnvironment,
   collectLogLines,

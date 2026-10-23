@@ -446,7 +446,7 @@ describe("FollowUpPromptBox", () => {
     const initialMinHeight = Number(promptBox.getAttribute("data-min-height"));
     const stackElement = screen
       .getByText("Expandable plugin banner")
-      .closest("[data-bb-plugin-root]")?.parentElement;
+      .closest("[data-hyperfide-plugin-root]")?.parentElement;
     if (!stackElement) throw new Error("Expected measured composer stack");
     Object.defineProperty(stackElement, "offsetHeight", {
       configurable: true,
@@ -511,7 +511,7 @@ describe("FollowUpPromptBox", () => {
 
     const pluginHeaderRoot = screen
       .getByTestId("plugin-header")
-      .closest("[data-bb-plugin-root]");
+      .closest("[data-hyperfide-plugin-root]");
     const queuedMessages = screen.getByTestId("queued-messages");
     expect(queuedMessages.previousElementSibling).toBe(pluginHeaderRoot);
   });

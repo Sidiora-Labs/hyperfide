@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ClaudeContextUsageCollector } from "./context-usage.js";
+import { claudeWorkerInjection } from "../worker-injection.js";
 import { readIsolatedClaudeContextUsage } from "./context-usage-probe.js";
 
 import {
@@ -2331,18 +2332,34 @@ function attachThreadSession(
   resume: boolean,
 ): void {
   const threadIdRef = { current: params.threadId };
+  const worker = claudeWorkerInjection({
+    cwd: params.cwd,
+    threadId: params.threadId,
+    task: params.task ?? readConfigEnvOverrides(params.config)?.CG_TASK,
+  });
+  params = {
+    ...params,
+    baseInstructions: [params.baseInstructions, worker.instructions]
+      .filter(Boolean)
+      .join("\n\n"),
+  };
   const env = buildSessionEnv(readConfigEnvOverrides(params.config));
   const sessionOptions = buildTrackedSessionOptions(params, env, threadIdRef);
   if (!resume) {
     sessionOptions.sessionId = providerThreadId;
   }
   sessionOptions.canUseTool = createCanUseTool(threadIdRef);
+  if (worker.attachedCapabilities.length)
+    sessionOptions.mcpServers = worker.mcpServers;
   if (params.dynamicTools && params.dynamicTools.length > 0) {
     const mcpServer = buildBridgeMcpServer(
       params.dynamicTools,
       createForwardToolCall(() => threadIdRef.current),
     );
-    sessionOptions.mcpServers = { [HYPERFIDE_BRIDGE_MCP_SERVER_NAME]: mcpServer };
+    sessionOptions.mcpServers = {
+      ...sessionOptions.mcpServers,
+      [HYPERFIDE_BRIDGE_MCP_SERVER_NAME]: mcpServer,
+    };
     sessionOptions.allowedTools = getAllowedToolNames(params.dynamicTools);
   }
 
@@ -2361,7 +2378,13 @@ function attachThreadSession(
 
   sendThreadIdentity(params.threadId, providerThreadId);
   sendSessionReset(params.threadId);
-  sendResult(id, { providerThreadId, sessionRestorable: true });
+  sendResult(id, {
+    providerThreadId,
+    sessionRestorable: true,
+    ...(worker.attachedCapabilities.length
+      ? { attachedCapabilities: worker.attachedCapabilities }
+      : {}),
+  });
 }
 
 async function handleThreadStart(
@@ -2480,14 +2503,17 @@ async function handleThreadFork(
 function toClaudeSessionParams(
   params: z.infer<typeof canonicalThreadStartParamsSchema>,
 ): Record<string, unknown> {
-  return buildClaudeSessionParams({
-    threadId: params.threadId,
-    cwd: params.cwd,
-    options: params.options,
-    instructionMode: params.instructionMode,
-    dynamicTools: params.dynamicTools,
-    skillRoots: configuredSkillRoots ?? undefined,
-  });
+  return {
+    task: params.task,
+    ...buildClaudeSessionParams({
+      threadId: params.threadId,
+      cwd: params.cwd,
+      options: params.options,
+      instructionMode: params.instructionMode,
+      dynamicTools: params.dynamicTools,
+      skillRoots: configuredSkillRoots ?? undefined,
+    }),
+  };
 }
 
 async function runTurnInput(

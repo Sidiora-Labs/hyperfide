@@ -204,7 +204,7 @@ describe("plugin catalog routes", () => {
             icon: "Zap",
             author: { name: "Acme" },
             source: {
-              npm: { package: "bb-plugin-notes", range: "^1.0.0" },
+              npm: { package: "hyperfide-plugin-notes", range: "^1.0.0" },
             },
           },
         ],
@@ -332,10 +332,10 @@ describe("plugin catalog routes", () => {
           kind: "marketplace",
           marketplace: "acme-plugins",
           official: false,
-          source: "npm:bb-plugin-notes@^1.0.0",
+          source: "npm:hyperfide-plugin-notes@^1.0.0",
           resolvedSource: {
             kind: "npm",
-            package: "bb-plugin-notes",
+            package: "hyperfide-plugin-notes",
             range: "^1.0.0",
             unresolvedReason: "no registry in this test",
           },
@@ -360,7 +360,7 @@ describe("plugin catalog routes", () => {
         marketplace: "acme-plugins",
         confirmedSource: {
           kind: "npm",
-          package: "bb-plugin-notes",
+          package: "hyperfide-plugin-notes",
           range: "^1.0.0",
           unresolvedReason: "no registry in this test",
         },

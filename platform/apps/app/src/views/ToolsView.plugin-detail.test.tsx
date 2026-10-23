@@ -446,7 +446,7 @@ describe("PluginDetail official catalog lifecycle", () => {
       vi.fn(async (input: RequestInfo | URL) =>
         String(input) === "/api/v1/plugins/github/source"
           ? Response.json({
-              requested: "path:/Users/you/src/bb-plugin-github",
+              requested: "path:/Users/you/src/hyperfide-plugin-github",
               resolved: "0.1.0",
               engines: {},
               installedAt,
@@ -457,8 +457,8 @@ describe("PluginDetail official catalog lifecycle", () => {
     );
     const plugin: PluginListItem = {
       ...GITHUB_PLUGIN,
-      source: "path:/Users/you/src/bb-plugin-github",
-      rootDir: "/Users/you/src/bb-plugin-github",
+      source: "path:/Users/you/src/hyperfide-plugin-github",
+      rootDir: "/Users/you/src/hyperfide-plugin-github",
       provenance: "direct",
       catalogEntryId: null,
       publisherLabel: null,
@@ -1603,13 +1603,13 @@ describe("plugin removal confirmation", () => {
   it("warns that removing a local plugin deletes its settings, secrets, and schedules and names the move path", async () => {
     const localPlugin = {
       id: "github",
-      source: "path:/Users/you/src/bb-plugin-github",
-      rootDir: "/Users/you/src/bb-plugin-github",
+      source: "path:/Users/you/src/hyperfide-plugin-github",
+      rootDir: "/Users/you/src/hyperfide-plugin-github",
       version: "0.1.0",
       provenance: "direct",
       isOrphanedBuiltin: false,
       publisherLabel: null,
-      sourceDisplay: "path · /Users/you/src/bb-plugin-github",
+      sourceDisplay: "path · /Users/you/src/hyperfide-plugin-github",
       updateState: {},
       enabled: true,
       description: "Browse GitHub issues and pull requests in BB.",
@@ -2432,8 +2432,8 @@ describe("plugin detail source and settings", () => {
     const onOpenSource = vi.fn();
     const plugin: PluginListItem = {
       ...GITHUB_PLUGIN,
-      source: "path:/Users/you/src/bb-plugin-github",
-      rootDir: "/Users/you/src/bb-plugin-github",
+      source: "path:/Users/you/src/hyperfide-plugin-github",
+      rootDir: "/Users/you/src/hyperfide-plugin-github",
       provenance: "direct",
       catalogEntryId: null,
       publisherLabel: null,
@@ -2464,7 +2464,7 @@ describe("plugin detail source and settings", () => {
     expect(source).not.toBeNull();
     if (source === null) return;
     expect(
-      within(source as HTMLElement).getByText("~/src/bb-plugin-github"),
+      within(source as HTMLElement).getByText("~/src/hyperfide-plugin-github"),
     ).toBeTruthy();
     fireEvent.click(
       within(source as HTMLElement).getByRole("button", {
@@ -2474,11 +2474,11 @@ describe("plugin detail source and settings", () => {
     expect(onOpenSource).toHaveBeenCalledWith(plugin);
     fireEvent.click(
       within(source as HTMLElement).getByRole("button", {
-        name: "Copy plugin path: /Users/you/src/bb-plugin-github",
+        name: "Copy plugin path: /Users/you/src/hyperfide-plugin-github",
       }),
     );
     await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith("/Users/you/src/bb-plugin-github");
+      expect(writeText).toHaveBeenCalledWith("/Users/you/src/hyperfide-plugin-github");
     });
 
     fireEvent.pointerDown(

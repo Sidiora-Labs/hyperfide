@@ -1,7 +1,7 @@
 import {
   readDefaultBranchRefs,
   type DefaultBranchRelation,
-} from "bb-environment-provider-host/git";
+} from "hyperfide-environment-provider-host/git";
 import type { WorktreeBaseBranch } from "../contract.js";
 
 interface ResolveDefaultWorktreeBaseBranchArgs {

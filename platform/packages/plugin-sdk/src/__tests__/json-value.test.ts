@@ -37,11 +37,11 @@ describe("plugin SDK JsonValue contract", () => {
   it("exports JsonValue from both bundled frontend declaration surfaces", async () => {
     const [rootDeclarations, appDeclarations] = await Promise.all([
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/hyperfide-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk-app.d.ts", import.meta.url),
+        new URL("../../bundled-types/hyperfide-plugin-sdk-app.d.ts", import.meta.url),
         "utf8",
       ),
     ]);

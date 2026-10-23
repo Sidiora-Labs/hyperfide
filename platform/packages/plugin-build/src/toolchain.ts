@@ -158,7 +158,7 @@ export async function resolvePluginBuildToolchain(
     await mkdir(staging, { recursive: true });
     await writeFile(
       join(staging, "package.json"),
-      `${JSON.stringify({ name: "bb-plugin-toolchain", private: true, version: "0.0.0" }, null, 2)}\n`,
+      `${JSON.stringify({ name: "hyperfide-plugin-toolchain", private: true, version: "0.0.0" }, null, 2)}\n`,
     );
     await run(
       process.execPath,

@@ -1,3 +1,4 @@
+import { openSpecStorage, specCache } from './storage.js';
 import { SpecReader, binaryCommand, type SpecStorage } from './reader.js';
 import type { SpecRead, SpecRpc } from './shared/model.js';
 
@@ -9,7 +10,13 @@ export interface SpecReadHost {
   onDispose(dispose: () => void): void;
 }
 export async function registerSpecReadModel(host: SpecReadHost, repository: string, binary = 'hyperfide') {
-  const reader = new SpecReader(repository, host.storage,
+  const storage = await openSpecStorage(repository);
+  const cache = specCache(storage);
+  const key = `hyperfide-spec:${repository}`;
+  const previous = await host.storage.get(key);
+  if (previous && await storage.get(key) === undefined) await storage.import([{ key, value: previous }]);
+  host.onDispose(() => storage.close());
+  const reader = new SpecReader(repository, cache,
     snapshot => host.realtime.publish('hyperfide-spec:changed', snapshot), binaryCommand(binary));
   host.onDispose(() => reader.close());
   host.rpc.register('features', () => reader.features());

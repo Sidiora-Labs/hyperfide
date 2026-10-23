@@ -3,6 +3,7 @@
   "globalEnv": ["BB_BUILD_TOOLCHAIN"],
   "globalPassThroughEnv": ["npm_config_store_dir", "pnpm_config_store_dir"],
   "tasks": {
+    "@hyperfide/hyperfide-graph#typecheck": { "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"] },
     "@hyperfide/db#db:generate": { "cache": false },
     "@hyperfide/desktop#smoke:browser-broker": {
       "cache": false,
@@ -1211,6 +1212,7 @@
     "@hyperfide/hyperfide-dispatch#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
+    "@hyperfide/hyperfide-qualify#typecheck": {"dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]},
     "@hyperfide/hyperfide-spec#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },

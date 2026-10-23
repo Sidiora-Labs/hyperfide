@@ -26,7 +26,7 @@ const roots: string[] = [];
 const ARTIFACT_LIFECYCLE_TIMEOUT_MS = 15_000;
 const MODES = ["repo-src", "repo-dist", "packaged"] as const;
 const packageJson = {
-  name: "bb-app",
+  name: "hyperfide-app",
   version: "1.2.3-test",
   type: "module",
   os: ["darwin", "linux"],
@@ -41,7 +41,7 @@ const packageJson = {
   },
   bin: {
     bb: "dist/bb.js",
-    "bb-app": "dist/bb-app.js",
+    "hyperfide-app": "dist/bb-app.js",
     "bb-host-daemon": "dist/bb-host-daemon.js",
   },
   files: ["dist", "host-daemon", "README.md"],
@@ -68,7 +68,7 @@ async function writeHostPackage(root: string, readme: string): Promise<void> {
     "bb",
     "bb.cmd",
     "bb-parcel-watcher-child.mjs",
-    "bb-plugin-host-worker.mjs",
+    "hyperfide-plugin-host-worker.mjs",
     "bb-provider-bridge-worker.mjs",
     "daemon-bundle.mjs",
   ]) {
@@ -162,7 +162,7 @@ describe("bb-app artifact service (desktop packaging)", () => {
           "package/host-daemon/dist/bb.cmd",
           "package/host-daemon/dist/bb-chunks/chunk-TEST.js",
           "package/host-daemon/dist/bb-parcel-watcher-child.mjs",
-          "package/host-daemon/dist/bb-plugin-host-worker.mjs",
+          "package/host-daemon/dist/hyperfide-plugin-host-worker.mjs",
           "package/host-daemon/dist/bb-provider-bridge-worker.mjs",
           "package/host-daemon/dist/daemon-bundle.mjs",
         ]),
@@ -338,14 +338,14 @@ describe.each(MODES)("bb-app artifact service (%s)", (mode) => {
         ).stdout,
       );
       expect(packedPackageJson).toMatchObject({
-        name: "bb-app",
+        name: "hyperfide-app",
         version: "1.2.3-test",
         os: isRepoMode(mode)
           ? ["darwin", "linux"]
           : ["darwin", "linux", "win32"],
         bin: {
           bb: "dist/bb.js",
-          "bb-app": "dist/bb-app.js",
+          "hyperfide-app": "dist/bb-app.js",
           "bb-host-daemon": "dist/bb-host-daemon.js",
         },
       });

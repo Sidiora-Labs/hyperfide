@@ -7,6 +7,7 @@ import {
 } from "@hyperfide/domain";
 import { z } from "zod";
 import { bridgeExecutionOptionsSchema } from "./execution-options.js";
+import { workerCapabilitySchema } from "./worker-mcp.js";
 
 export const BRIDGE_REQUEST_METHODS = {
   initialize: "initialize",
@@ -31,6 +32,7 @@ export const BRIDGE_REQUEST_METHODS = {
 } as const;
 
 const sessionConstructionFields = {
+  task: z.string().min(1).optional(),
   threadId: z.string().min(1),
   cwd: z.string().min(1),
   options: bridgeExecutionOptionsSchema,
@@ -146,6 +148,7 @@ export const skillsConfigureParamsSchema = z
 
 export const threadIdentityResultSchema = z
   .object({
+    attachedCapabilities: z.array(workerCapabilitySchema).optional(),
     providerThreadId: z.string().min(1),
     sessionRestorable: z.boolean().optional(),
   })

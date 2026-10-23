@@ -51,13 +51,13 @@ async function setUpPluginHarness(serverSource: string): Promise<{
   cleanup(): Promise<void>;
 }> {
   const harness = await createTestAppHarness();
-  const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-events-"));
-  const rootDir = join(workDir, "bb-plugin-observer");
+  const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-events-"));
+  const rootDir = join(workDir, "hyperfide-plugin-observer");
   await mkdir(rootDir, { recursive: true });
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-observer",
+      name: "hyperfide-plugin-observer",
       version: "0.1.0",
       bb: {
         name: "Observer fixture",

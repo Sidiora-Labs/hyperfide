@@ -31,13 +31,13 @@ describe("plugin server build", () => {
   });
 
   it("builds a pre-rename source importing bare @hyperfide/plugin-sdk", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-legacy-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-legacy-"));
     tempDirs.push(dir);
     await mkdir(join(dir, "dist"), { recursive: true });
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-legacy-sdk-fixture",
+        name: "hyperfide-plugin-legacy-sdk-fixture",
         version: "0.0.0",
         bb: {
           name: "Legacy SDK fixture",
@@ -72,7 +72,7 @@ describe("plugin server build", () => {
 
   describe("host-provided zod", () => {
     const manifest = {
-      name: "bb-plugin-zod-host",
+      name: "hyperfide-plugin-zod-host",
       version: "0.0.0",
       bb: {
         name: "Zod host fixture",
@@ -91,7 +91,7 @@ describe("plugin server build", () => {
     ].join("\n");
 
     async function buildFixture(options?: { hostProvidedZod: boolean }) {
-      const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-zod-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-zod-"));
       tempDirs.push(dir);
       await writeFile(join(dir, "package.json"), JSON.stringify(manifest));
       await writeFile(join(dir, "server.ts"), serverSource);
@@ -129,12 +129,12 @@ describe("plugin server build", () => {
 
   describe("runtime dependency resolution", () => {
     async function fixture(source: string) {
-      const dir = await mkdtemp(join(tmpdir(), "bb-plugin-runtime-resolve-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-runtime-resolve-"));
       tempDirs.push(dir);
       await writeFile(
         join(dir, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-runtime-resolution",
+          name: "hyperfide-plugin-runtime-resolution",
           version: "0.0.0",
           bb: {
             name: "Runtime resolution",
@@ -225,13 +225,13 @@ export default () => [z.string().parse("full"), mini.string().parse("mini")];
   });
 
   it("accepts runtime-validated server config without applying release asset validation", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-runtime-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-runtime-"));
     tempDirs.push(dir);
     const serverEntry = join(dir, "server.ts");
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-runtime-fixture",
+        name: "hyperfide-plugin-runtime-fixture",
         version: "1.0.0",
         bb: {
           name: "Runtime fixture",
@@ -254,7 +254,7 @@ export default () => [z.string().parse("full"), mini.string().parse("mini")];
       {
         validatedConfig: {
           serverEntry,
-          packageName: "bb-plugin-runtime-fixture",
+          packageName: "hyperfide-plugin-runtime-fixture",
           pluginVersion: "1.0.0",
         },
       },
@@ -266,12 +266,12 @@ export default () => [z.string().parse("full"), mini.string().parse("mini")];
   });
 
   it("places release ESM in an explicit module package scope", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-commonjs-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-commonjs-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-commonjs-fixture",
+        name: "hyperfide-plugin-commonjs-fixture",
         version: "1.0.0",
         type: "commonjs",
         bb: {
@@ -299,7 +299,7 @@ export default () => [z.string().parse("full"), mini.string().parse("mini")];
   });
 
   it("preserves module locations without rewriting source text", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-location-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-location-"));
     tempDirs.push(dir);
     const serverEntry = join(dir, "server.ts");
     await writeFile(
@@ -334,7 +334,7 @@ export default async function plugin() {
         externalizeSourceOutsideRoot: true,
         validatedConfig: {
           serverEntry,
-          packageName: "bb-plugin-location-fixture",
+          packageName: "hyperfide-plugin-location-fixture",
           pluginVersion: "1.0.0",
         },
       },
@@ -358,7 +358,7 @@ export default async function plugin() {
   });
 
   it("keeps named exports of CommonJS dependencies when preserving module locations", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-cjs-dep-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-cjs-dep-"));
     tempDirs.push(dir);
     const serverEntry = join(dir, "server.ts");
     const dependencyDir = join(dir, "node_modules", "cjs-dependency");
@@ -386,7 +386,7 @@ export default async function plugin() {
         externalizeSourceOutsideRoot: true,
         validatedConfig: {
           serverEntry,
-          packageName: "bb-plugin-cjs-dependency-fixture",
+          packageName: "hyperfide-plugin-cjs-dependency-fixture",
           pluginVersion: "1.0.0",
         },
       },
@@ -400,7 +400,7 @@ export default async function plugin() {
 
   it("resolves CommonJS module paths against their original files", async () => {
     const dir = await realpath(
-      await mkdtemp(join(tmpdir(), "bb-plugin-server-cjs-paths-")),
+      await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-cjs-paths-")),
     );
     tempDirs.push(dir);
     const serverEntry = join(dir, "server.ts");
@@ -441,7 +441,7 @@ export default () => ({
         externalizeSourceOutsideRoot: true,
         validatedConfig: {
           serverEntry,
-          packageName: "bb-plugin-cjs-paths-fixture",
+          packageName: "hyperfide-plugin-cjs-paths-fixture",
           pluginVersion: "1.0.0",
         },
       },
@@ -459,7 +459,7 @@ export default () => ({
 
   it("compiles Zod installed inside the plugin root when preserving module locations", async () => {
     const dir = await realpath(
-      await mkdtemp(join(tmpdir(), "bb-plugin-server-inroot-zod-")),
+      await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-inroot-zod-")),
     );
     tempDirs.push(dir);
     const serverEntry = join(dir, "server.ts");
@@ -505,7 +505,7 @@ export default () => ({
         externalizeSourceOutsideRoot: true,
         validatedConfig: {
           serverEntry,
-          packageName: "bb-plugin-inroot-zod-fixture",
+          packageName: "hyperfide-plugin-inroot-zod-fixture",
           pluginVersion: "1.0.0",
         },
       },
@@ -518,7 +518,7 @@ export default () => ({
   });
 
   it("rejects static source imports outside the plugin tree", async () => {
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-server-boundary-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-boundary-"));
     tempDirs.push(workDir);
     const dir = join(workDir, "plugin");
     await mkdir(dir);
@@ -535,7 +535,7 @@ export default () => ({
         externalizeSourceOutsideRoot: true,
         validatedConfig: {
           serverEntry,
-          packageName: "bb-plugin-boundary-fixture",
+          packageName: "hyperfide-plugin-boundary-fixture",
           pluginVersion: "1.0.0",
         },
       }),
@@ -546,7 +546,7 @@ export default () => ({
 
   describe("SDK subpath imports", () => {
     const manifest = {
-      name: "bb-plugin-server-subpath-fixture",
+      name: "hyperfide-plugin-server-subpath-fixture",
       version: "1.0.0",
       engines: { bb: ">=0.0" },
       bb: {
@@ -572,7 +572,7 @@ export default () => ({
     }
 
     it("keeps the bare specifier external and bundles the subpath from the plugin's SDK", async () => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-subpath-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-subpath-"));
       tempDirs.push(dir);
       await writeFixture(dir);
       await mkdir(join(dir, "node_modules", "@hyperfide"), { recursive: true });
@@ -596,7 +596,7 @@ export default () => ({
     });
 
     it("names the missing SDK dependency when the plugin has no node_modules", async () => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-plugin-server-no-sdk-"));
+      const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-no-sdk-"));
       tempDirs.push(dir);
       await writeFixture(dir);
 
@@ -609,7 +609,7 @@ export default () => ({
 
     it("names the unbuilt SDK dist when the package is installed without it", async () => {
       const dir = await mkdtemp(
-        join(tmpdir(), "bb-plugin-server-unbuilt-sdk-"),
+        join(tmpdir(), "hyperfide-plugin-server-unbuilt-sdk-"),
       );
       tempDirs.push(dir);
       await writeFixture(dir);

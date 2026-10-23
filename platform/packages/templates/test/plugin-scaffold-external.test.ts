@@ -388,7 +388,7 @@ describe("external plugin scaffold types", () => {
     await mkdir(templateDir);
     await writeFile(
       join(templateDir, "package.json"),
-      JSON.stringify({ name: "bb-plugin-external-fixture", private: true }),
+      JSON.stringify({ name: "hyperfide-plugin-external-fixture", private: true }),
     );
     await installPackedSdk(templateDir, tarball);
     await linkExternalDependencies(templateDir);
@@ -408,10 +408,10 @@ describe("external plugin scaffold types", () => {
   });
 
   it("typechecks full SDK results against the installed package, with library checks enabled", async () => {
-    const targetDir = join(workDir, "bb-plugin-external");
+    const targetDir = join(workDir, "hyperfide-plugin-external");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-external",
+      packageName: "hyperfide-plugin-external",
       bbVersion: "0.9.0",
     });
     await writeFile(join(targetDir, "server.ts"), REPRESENTATIVE_SERVER);
@@ -430,7 +430,7 @@ describe("external plugin scaffold types", () => {
     expect(tsconfig.compilerOptions.skipLibCheck).toBe(false);
     expect(Object.keys(tsconfig.compilerOptions.paths ?? {})).toEqual(["@/*"]);
     await expect(
-      access(join(targetDir, "types", "bb-plugin-sdk.d.ts")),
+      access(join(targetDir, "types", "hyperfide-plugin-sdk.d.ts")),
     ).rejects.toThrow();
     await expect(
       access(
@@ -440,7 +440,7 @@ describe("external plugin scaffold types", () => {
           "@hyperfide",
           "plugin-sdk",
           "bundled-types",
-          "bb-plugin-sdk.d.ts",
+          "hyperfide-plugin-sdk.d.ts",
         ),
       ),
     ).resolves.toBeUndefined();
@@ -455,10 +455,10 @@ describe("external plugin scaffold types", () => {
     expect(packedListing).toContain("package/dist/testing/index.js");
     expect(packedListing).toContain("package/dist/testing/app.js");
     expect(packedListing).toContain(
-      "package/bundled-types/bb-plugin-sdk-testing.d.ts",
+      "package/bundled-types/hyperfide-plugin-sdk-testing.d.ts",
     );
     expect(packedListing).toContain(
-      "package/bundled-types/bb-plugin-sdk-testing-app.d.ts",
+      "package/bundled-types/hyperfide-plugin-sdk-testing-app.d.ts",
     );
     expect(
       packedListing.some((entry) => entry.startsWith("package/src/")),
@@ -467,10 +467,10 @@ describe("external plugin scaffold types", () => {
       packedListing.some((entry) => entry.startsWith("package/scripts/")),
     ).toBe(false);
 
-    const backendDir = join(workDir, "bb-plugin-external-backend");
+    const backendDir = join(workDir, "hyperfide-plugin-external-backend");
     await scaffoldPlugin({
       targetDir: backendDir,
-      packageName: "bb-plugin-external-backend",
+      packageName: "hyperfide-plugin-external-backend",
       bbVersion: "0.9.0",
     });
     await useInstalledNodeModules(backendDir);
@@ -542,10 +542,10 @@ describe("external plugin scaffold types", () => {
     expect(backendTsconfig.compilerOptions.skipLibCheck).toBe(false);
     expect(backendTsconfig.compilerOptions.paths).toEqual({ "@/*": ["./*"] });
 
-    const frontendDir = join(workDir, "bb-plugin-external-frontend");
+    const frontendDir = join(workDir, "hyperfide-plugin-external-frontend");
     await scaffoldPlugin({
       targetDir: frontendDir,
-      packageName: "bb-plugin-external-frontend",
+      packageName: "hyperfide-plugin-external-frontend",
       bbVersion: "0.9.0",
     });
     await useInstalledNodeModules(frontendDir);

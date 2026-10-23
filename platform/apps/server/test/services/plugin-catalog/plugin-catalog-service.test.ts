@@ -709,7 +709,7 @@ describe("plugin catalog service", () => {
           icon: "Zap",
           source: {
             npm: {
-              package: "bb-plugin-widgets",
+              package: "hyperfide-plugin-widgets",
               tag: "beta",
               registry: "https://npm.acme.test",
             },
@@ -724,7 +724,7 @@ describe("plugin catalog service", () => {
           marketplace: "bb-community",
           entryId: "widgets",
           pluginId: "widgets",
-          source: "npm:bb-plugin-widgets@beta",
+          source: "npm:hyperfide-plugin-widgets@beta",
           selection: ROOT_PLUGIN_SOURCE_SELECTION,
           npmRegistry: "https://npm.acme.test",
         },
@@ -1023,7 +1023,7 @@ describe("plugin catalog service", () => {
                     icon: "ZoomIn",
                     source: {
                       npm: {
-                        package: "bb-plugin-widgets",
+                        package: "hyperfide-plugin-widgets",
                         range: "^1.0.0",
                         registry: "https://npm.acme.test",
                       },
@@ -1036,7 +1036,7 @@ describe("plugin catalog service", () => {
 
       await refreshCuratedMarketplace(catalog, 1_000);
       expect((await catalog.search("widgets"))[0]?.source).toBe(
-        "npm:bb-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
+        "npm:hyperfide-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
       );
     });
   });

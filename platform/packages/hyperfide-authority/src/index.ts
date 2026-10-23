@@ -119,7 +119,7 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
               if (!record(value) || value.protocol_version !== 1 || typeof value.ok !== "boolean") throw Error();
               if (value.ok === false) {
                 if (!record(value.error) || typeof value.error.code !== "string") throw Error();
-                fail(new AuthorityError(value.error.code, "Authority rejected the operation", operationId));
+                fail(new AuthorityError(value.error.code, `Authority rejected the operation (${value.error.code})`, operationId));
               } else {
                 if (response.statusCode !== 200 || value.operation_id !== operationId || value.id !== operationId || !("result" in value)) throw Error();
                 settled = true;
@@ -134,6 +134,8 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
     } finally { active--; }
   }
   return Object.freeze({
+    pluginState: (input: PluginStateRequest, identity?: TransactionIdentity) =>
+      invoke<PluginStateEntry[]>("authority.plugin-state", input, identity),
     operator: (signal?: AbortSignal) => invoke<Operator>("authority.operator", {}, undefined, signal),
     health: (signal?: AbortSignal) => invoke<{status: "ready"}>("authority.health", {}, undefined, signal),
     receipt: (id: string, signal?: AbortSignal) => invoke<Receipt | null>("authority.receipt.read", {id}, undefined, signal),
@@ -143,3 +145,5 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
   });
 }
 export type AuthorityClient = Awaited<ReturnType<typeof createAuthorityClient>>;
+import type { PluginStateEntry, PluginStateRequest } from "./plugin-storage.js";
+export * from "./plugin-storage.js";

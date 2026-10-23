@@ -6,7 +6,7 @@ import { createDeferredPromise, initRepo, makeTempDir } from "@hyperfide/test-he
 import {
   ProcessLocalQueuedLockTimeoutError,
   withProcessLocalQueuedLocks,
-} from "bb-environment-provider-host/process-local-lock";
+} from "hyperfide-environment-provider-host/process-local-lock";
 import { Workspace } from "../src/workspace.js";
 import { WorkspaceError } from "../src/git.js";
 import { runGit } from "../src/git.js";

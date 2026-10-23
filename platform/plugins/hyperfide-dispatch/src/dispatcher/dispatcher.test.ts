@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { openDispatchStorage } from '../storage';
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -122,10 +123,9 @@ describe("dispatcher", () => {
       true,
     );
     const job = [...d.jobs.values()][0];
-    const serialized = await readFile(
-      join(f.options.directory, job.id + ".json"),
-      "utf8",
-    );
+    const storage = await openDispatchStorage(f.options.directory);
+    const serialized = JSON.stringify(await storage.get('job:' + job.id));
+    storage.close();
     expect(JSON.parse(serialized).commits).toEqual(["echo-commit"]);
     expect(serialized).not.toContain("key-test");
   });
@@ -145,8 +145,7 @@ describe("dispatcher", () => {
     await d.start();
     await Promise.all([d.tick(), d.tick()]);
     // Wait for preparation without completing either runner.
-    for (let i = 0; i < 30 && f.runner.calls.length < 2; i++)
-      await new Promise((r) => setTimeout(r, 5));
+    await vi.waitFor(() => expect(f.runner.calls).toHaveLength(2), { timeout: 5000 });
     expect(d.jobs.size).toBe(2);
     expect(new Set(f.runner.calls.map((c) => c.key)).size).toBe(2);
     finish();
@@ -202,6 +201,7 @@ describe("dispatcher", () => {
     await d.start();
     await d.tick();
     await d.drain();
+    expect([...d.jobs.values()][0].error).toContain("HTTP 429");
     expect(delays).toEqual([60000]);
     f.tasks.push({ id: "next", status: "pending", requires: [], wave: 2 });
     const restarted = new Dispatcher(f.options);

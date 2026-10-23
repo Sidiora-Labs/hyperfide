@@ -1,7 +1,7 @@
 import type {
   PullRequest,
   PullRequestMergeMethod,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-bb--github-pr-status/contract";
 import { createCoreComposerActions } from "@/lib/plugin-composer-handle";
 import { useQueuedMessagesExpanded } from "@/components/promptbox/banner/queued-messages-expanded";
 import type { MachineRemovalStatus } from "@/lib/machine-removal-display";

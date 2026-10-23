@@ -104,7 +104,7 @@ function buildScriptedEchoArtifact(): Promise<{
       new URL("../../../../tests/scripted-echo-provider", import.meta.url),
     );
     const toolchain = await resolvePluginBuildToolchain(
-      path.join(os.tmpdir(), "bb-plugin-build-toolchain"),
+      path.join(os.tmpdir(), "hyperfide-plugin-build-toolchain"),
     );
     const build = await buildPluginHost(rootDir, "0.0.0-test", toolchain);
     return {

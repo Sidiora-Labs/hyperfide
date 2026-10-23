@@ -231,7 +231,7 @@ export function PluginSlotMount({
       >
         {wrapRoot ? (
           <div
-            data-bb-plugin-root=""
+            data-hyperfide-plugin-root=""
             data-bb-plugin={pluginId}
             className="contents"
             onClick={onRouteAnchorClick}

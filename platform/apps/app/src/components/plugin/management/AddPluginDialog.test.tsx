@@ -149,10 +149,10 @@ describe("AddPluginDialog", () => {
   it("leads with and submits a pasted GitHub repository URL", async () => {
     const requests = stubFetch();
     renderDialog();
-    const source = "https://github.com/acme/bb-plugin-usage";
+    const source = "https://github.com/acme/hyperfide-plugin-usage";
     const input = screen.getByLabelText("Plugin source") as HTMLInputElement;
 
-    expect(input.placeholder).toBe("https://github.com/owner/bb-plugin-name");
+    expect(input.placeholder).toBe("https://github.com/owner/hyperfide-plugin-name");
     expect(screen.getByText(/GitHub repository URL/)).toBeTruthy();
     fireEvent.change(input, { target: { value: source } });
     fireEvent.click(screen.getByRole("button", { name: /install plugin/i }));
@@ -268,7 +268,7 @@ describe("AddPluginDialog", () => {
       icon: "Zap",
       iconUrl: null,
       iconTinted: false,
-      source: "npm:bb-plugin-widgets@^1.0.0",
+      source: "npm:hyperfide-plugin-widgets@^1.0.0",
     });
     expect(
       screen.getByText(
@@ -288,12 +288,12 @@ describe("AddPluginDialog", () => {
       iconTinted: false,
       marketplace: "bb-community",
       publisherLabel: "BB Community",
-      source: "npm:bb-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
+      source: "npm:hyperfide-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
     });
 
     expect(
       screen.getByText(
-        "npm:bb-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
+        "npm:hyperfide-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
       ),
     ).not.toBeNull();
   });
@@ -342,7 +342,7 @@ describe("AddPluginDialog", () => {
       icon: null,
       iconUrl,
       iconTinted: false,
-      source: "npm:bb-plugin-widgets@1.0.0",
+      source: "npm:hyperfide-plugin-widgets@1.0.0",
     });
 
     expect(document.querySelector(`img[src="${iconUrl}"]`)).not.toBeNull();

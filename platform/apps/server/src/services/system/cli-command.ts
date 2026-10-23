@@ -165,7 +165,7 @@ async function isBbAppPackageCommand(command: string): Promise<boolean> {
     const parsed = z
       .object({ name: z.string() })
       .safeParse(JSON.parse(await readFile(packageJsonPath, "utf8")));
-    return parsed.success && parsed.data.name === "bb-app";
+    return parsed.success && parsed.data.name === "hyperfide-app";
   } catch {
     return false;
   }

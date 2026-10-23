@@ -47,15 +47,15 @@ describe("review fixes: idempotent enable, cli auth, dispose drain", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-review-fixes-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-review-fixes-"));
     delete globals.__rfLoads;
     delete globals.__rfDisposals;
-    const rootDir = join(workDir, "bb-plugin-review-fixes");
+    const rootDir = join(workDir, "hyperfide-plugin-review-fixes");
     await mkdir(rootDir, { recursive: true });
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-review-fixes",
+        name: "hyperfide-plugin-review-fixes",
         version: "0.1.0",
         bb: {
           name: "Review fixes fixture",

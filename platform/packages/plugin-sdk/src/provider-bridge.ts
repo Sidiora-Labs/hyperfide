@@ -44,6 +44,16 @@
 // ---------------------------------------------------------------------------
 
 export {
+  resolveWorkerMcp,
+  workerCapabilitySchema,
+} from "@hyperfide/provider-bridge-protocol";
+export type {
+  WorkerCapability,
+  WorkerMcpContext,
+  WorkerMcpHook,
+} from "@hyperfide/provider-bridge-protocol";
+
+export {
   PROVIDER_BRIDGE_EXPORT_NAME,
   experimental_defineProviderBridge,
 } from "@hyperfide/provider-bridge-protocol/bridge-kit";

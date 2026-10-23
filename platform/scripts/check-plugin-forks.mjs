@@ -316,7 +316,7 @@ async function checkPlugin(pluginDir, workDir, sdkTarball, log) {
   }
 }
 
-const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-fork-"));
+const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-fork-"));
 const evidenceDir =
   process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_TEMP
     ? join(process.env.RUNNER_TEMP, "plugin-fork-evidence")

@@ -1,4 +1,4 @@
-import { WorkspaceError } from "bb-environment-provider-host/git";
+import { WorkspaceError } from "hyperfide-environment-provider-host/git";
 import { createHash } from "node:crypto";
 import path from "node:path";
 

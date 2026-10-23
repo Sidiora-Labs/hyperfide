@@ -62,7 +62,7 @@ function fakeNpm(args: {
         JSON.parse(readFileSync(join(call.cwd, "package.json"), "utf8")),
       );
       writePackage(
-        join(call.cwd, "node_modules", "bb-app"),
+        join(call.cwd, "node_modules", "hyperfide-app"),
         args.installedVersion ?? "1.1.0",
         args.omitFiles === true ? [] : NPM_REVISION_REQUIRED_FILES,
       );

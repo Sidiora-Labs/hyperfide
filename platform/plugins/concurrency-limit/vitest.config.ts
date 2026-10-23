@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "bb-plugin-concurrency-limit",
+    name: "hyperfide-plugin-concurrency-limit",
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["dist/**", "node_modules/**"],
   },

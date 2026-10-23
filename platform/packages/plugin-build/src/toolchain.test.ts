@@ -69,7 +69,7 @@ describe("plugin build toolchain", () => {
         await writeFile(
           join(pluginDir, "package.json"),
           JSON.stringify({
-            name: "bb-plugin-fetched",
+            name: "hyperfide-plugin-fetched",
             version: "0.1.0",
             bb: {
               name: "Fetched",

@@ -126,7 +126,7 @@ describe("bb command launcher", () => {
     async () => {
       const root = scratchDir();
       const mountDir = join(root, "mount");
-      const entryPath = join(mountDir, "resources", "bb-app", "dist", "bb.js");
+      const entryPath = join(mountDir, "resources", "hyperfide-app", "dist", "bb.js");
       writeExecutable(entryPath, ARGUMENT_ECHO_SCRIPT);
       const appImagePath = join(root, "bb.AppImage");
       writeExecutable(
@@ -147,12 +147,12 @@ describe("bb command launcher", () => {
         electron: true,
         env: { APPDIR: join(root, "stale-mount"), APPIMAGE: appImagePath },
         execPath: join(root, "stale-mount", "hyperfide-platform"),
-        packageRoot: join(root, "stale-mount", "resources", "bb-app"),
+        packageRoot: join(root, "stale-mount", "resources", "hyperfide-app"),
         platform: "linux",
       });
       expect(target).toEqual({
         appImagePath,
-        entryRelativePath: join("resources", "bb-app", "dist", "bb.js"),
+        entryRelativePath: join("resources", "hyperfide-app", "dist", "bb.js"),
         kind: "appimage",
       });
       const launcherPath = join(root, "bin", "hyperfide-platform");

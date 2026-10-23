@@ -198,7 +198,7 @@ export async function enrollMachine(
     throw new Error("Refusing to overwrite a different machine identity");
   async function prepareRuntime(): Promise<void> {
     await reservePort(dataDir);
-    const launcher = join(dataDir, "npm", "bin", "bb-app");
+    const launcher = join(dataDir, "npm", "bin", "hyperfide-app");
     try {
       await access(launcher);
     } catch {

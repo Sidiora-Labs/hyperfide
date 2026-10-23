@@ -2161,7 +2161,7 @@ function requiredHostArtifactPaths(context: BbAppStartContext): ArtifactPath[] {
     {
       kind: "file",
       label: "plugin host worker",
-      path: join(context.daemonBundleDir, "bb-plugin-host-worker.mjs"),
+      path: join(context.daemonBundleDir, "hyperfide-plugin-host-worker.mjs"),
     },
   ];
 }

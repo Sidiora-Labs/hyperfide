@@ -77,7 +77,7 @@ describe("isSameRevision", () => {
       "app-versions",
       "1.1.0",
       "node_modules",
-      "bb-app",
+      "hyperfide-app",
     );
     mkdirSync(packageRoot, { recursive: true });
     symlinkSync(realDataDir, join(root, "linked"));
@@ -92,7 +92,7 @@ describe("isSameRevision", () => {
             "app-versions",
             "1.1.0",
             "node_modules",
-            "bb-app",
+            "hyperfide-app",
           ),
           version: "1.1.0",
         },

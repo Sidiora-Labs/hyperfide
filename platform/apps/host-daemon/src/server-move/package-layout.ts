@@ -4,7 +4,7 @@ import { z } from "zod";
 import { pathExists } from "./fs.js";
 
 const HYPERFIDE_APP_VERSION_DEV_FALLBACK = "0.0.0-dev";
-const HYPERFIDE_APP_PACKAGE_NAME = "bb-app";
+const HYPERFIDE_APP_PACKAGE_NAME = "hyperfide-app";
 
 const packageJsonVersionSchema = z.object({ version: z.string().min(1) });
 

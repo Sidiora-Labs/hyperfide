@@ -21,17 +21,17 @@ const fixtureRoot = resolve(
   "..",
   "fixtures",
   "plugins",
-  "bb-plugin-builtin-fixture",
+  "hyperfide-plugin-builtin-fixture",
 );
 const globals = globalThis as Record<string, unknown>;
 
 async function writePathPlugin(dir: string, name: string): Promise<string> {
-  const rootDir = join(dir, `bb-plugin-${name}`);
+  const rootDir = join(dir, `hyperfide-plugin-${name}`);
   await mkdir(rootDir, { recursive: true });
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${name}`,
+      name: `hyperfide-plugin-${name}`,
       version: "0.1.0",
       bb: {
         name: "Safe mode fixture",
@@ -94,7 +94,7 @@ describe("plugin safe mode", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-safe-mode-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-safe-mode-"));
     service = createService();
     await service.start();
   });

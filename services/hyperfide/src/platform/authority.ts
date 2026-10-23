@@ -1,3 +1,4 @@
+import {pluginState} from '../plugin-state/storage.js';
 import {randomUUID} from 'node:crypto';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {identityTransaction,isIdentityAuthority,recorded} from '../identity/enrollment.js';
@@ -35,10 +36,11 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
    // The service-owned credential UUID allow-list is already loaded and validated by identity startup.
    // A delegated operator outside that list cannot acquire platform authority.
    if(!operators.has(i.principal.credential_id))fail('AUTH_SCOPE_DENIED','Operator is outside the service allow-list');
-   if(i.payload.action==='authority.transaction')return recorded(tx,i.principal.credential_id,i.payload.action,i.operation,()=>fn(tx,i,v));
+   if(i.payload.action==='authority.transaction'||i.payload.action==='authority.plugin-state' && !['list','get','scopes'].includes(String((v as {operation?:string})?.operation)))return recorded(tx,i.principal.credential_id,i.payload.action,i.operation,()=>fn(tx,i,v));
    return fn(tx,i,v);
   });
  return {apiVersion:1,actions:{
+  'authority.plugin-state':action(pluginState),
   'authority.operator':action(async(_tx,i,v)=>{exact(v,[]);return i.principal;}),
   'authority.health':action(async(_tx,_i,v)=>{exact(v,[]);return {status:'ready'};}),
   'authority.receipt.read':action(async(tx,i,v)=>{exact(v,['id']);if(!uuid(v.id))fail('INVALID_REQUEST','Receipt UUID required');return read(tx,i,'receipt',v.id);}),

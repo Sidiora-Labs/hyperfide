@@ -150,11 +150,11 @@ describe("bb command on PATH", () => {
     const fixture = createUnixFixture({
       pathDirectories: (home) => [join(home, "npm", "bin")],
     });
-    const packageRoot = join(fixture.home, "npm", "lib", "bb-app");
+    const packageRoot = join(fixture.home, "npm", "lib", "hyperfide-app");
     writeExecutable(join(packageRoot, "dist", "bb.js"), "");
     writeFileSync(
       join(packageRoot, "package.json"),
-      JSON.stringify({ name: "bb-app" }),
+      JSON.stringify({ name: "hyperfide-app" }),
     );
     const npmBin = join(fixture.home, "npm", "bin", "hyperfide-platform");
     mkdirSync(dirname(npmBin));

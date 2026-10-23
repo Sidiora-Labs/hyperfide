@@ -16,7 +16,7 @@ function declarationValueExports(declarations: string): string[] {
 describe("frontend plugin SDK export parity", () => {
   it("declares every public runtime value except the compatibility exports", async () => {
     const declarations = await readFile(
-      new URL("../../bundled-types/bb-plugin-sdk-app.d.ts", import.meta.url),
+      new URL("../../bundled-types/hyperfide-plugin-sdk-app.d.ts", import.meta.url),
       "utf8",
     );
     const declared = declarationValueExports(declarations);

@@ -191,7 +191,7 @@ export async function buildPluginServer(
         ...(options.preserveSourceModuleLocation === true
           ? [
               {
-                name: "bb-plugin-source-url",
+                name: "hyperfide-plugin-source-url",
                 setup(build: import("esbuild").PluginBuild) {
                   build.onLoad(
                     { filter: /\.(?:[cm]?[jt]s|[jt]sx)$/ },
@@ -209,7 +209,7 @@ export async function buildPluginServer(
             ]
           : []),
         {
-          name: "bb-plugin-sdk-resolution",
+          name: "hyperfide-plugin-sdk-resolution",
           setup(build) {
             for (const [specifier, entry] of Object.entries(runtimeImports)) {
               const escaped = specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

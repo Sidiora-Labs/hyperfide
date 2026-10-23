@@ -181,7 +181,7 @@ describe("PluginHostManager", () => {
   async function createManagerFixture(
     overrides: Partial<ConstructorParameters<typeof PluginHostManager>[0]> = {},
   ): Promise<{ dataDir: string; manager: PluginHostManager }> {
-    const dataDir = await mkdtemp(join(tmpdir(), "bb-plugin-host-test-"));
+    const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-host-test-"));
     tempDirs.push(dataDir);
     const manager = new PluginHostManager({
       dataDir,

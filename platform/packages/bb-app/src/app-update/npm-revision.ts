@@ -69,7 +69,7 @@ export function formatNpmRevisionPackageRoot(
   return join(
     formatNpmRevisionInstallDir(dataDir, version),
     "node_modules",
-    "bb-app",
+    "hyperfide-app",
   );
 }
 
@@ -219,7 +219,7 @@ export async function pruneNpmRevisions(args: {
   }
   for (const entry of entries) {
     const installDir = join(versionsDir, entry);
-    const packageRoot = join(installDir, "node_modules", "bb-app");
+    const packageRoot = join(installDir, "node_modules", "hyperfide-app");
     if (args.keepPackageRoots.some((root) => isSamePath(root, packageRoot))) {
       continue;
     }

@@ -32,12 +32,12 @@ import { testLogger } from "../../helpers/test-app.js";
 const logger = testLogger as unknown as Logger;
 
 async function writePathPlugin(dir: string, name: string): Promise<string> {
-  const rootDir = join(dir, `bb-plugin-${name}`);
+  const rootDir = join(dir, `hyperfide-plugin-${name}`);
   await mkdir(rootDir, { recursive: true });
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${name}`,
+      name: `hyperfide-plugin-${name}`,
       version: "0.1.0",
       bb: {
         name: `Retirement fixture ${name}`,
@@ -125,7 +125,7 @@ describe("retired bundled plugins", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-retired-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-retired-"));
     service = createService();
     await service.start();
     await service.installPath(await writePathPlugin(workDir, "successor"));

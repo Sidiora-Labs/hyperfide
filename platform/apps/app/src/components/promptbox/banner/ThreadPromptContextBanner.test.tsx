@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { PullRequest } from "bb-plugin-bb--github-pr-status/contract";
+import type { PullRequest } from "hyperfide-plugin-bb--github-pr-status/contract";
 import { cleanup, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";

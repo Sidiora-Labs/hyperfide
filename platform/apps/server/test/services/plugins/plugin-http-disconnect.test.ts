@@ -17,7 +17,7 @@ describe("plugin HTTP disconnect cleanup", () => {
       await writeFile(
         join(root, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-disconnect",
+          name: "hyperfide-plugin-disconnect",
           version: "0.1.0",
           bb: {
             name: "Disconnect fixture",

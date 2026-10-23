@@ -37,7 +37,7 @@ async function buildPublicSdkDeclarations() {
 }
 
 const entrypoints = [
-  ["bb-app", "bb-app.js"],
+  ["hyperfide-app", "bb-app.js"],
   ["bb", "bb.js"],
   ["bb-server", "bb-server.js"],
   ["bb-host-daemon", "bb-host-daemon.js"],
@@ -45,7 +45,7 @@ const entrypoints = [
 
 for (const [sourceName, outputName] of entrypoints) {
   await buildNodeEsmEntry({
-    cleanDist: sourceName === "bb-app",
+    cleanDist: sourceName === "hyperfide-app",
     entryPoint: resolve(packageRoot, "src", "bin", `${sourceName}.ts`),
     executable: true,
     outfile: resolve(packageRoot, "dist", outputName),

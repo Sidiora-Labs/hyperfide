@@ -14,7 +14,7 @@ describe("promoteRuntimeEntries", () => {
   });
 
   it("replaces staged exports without making a live export disappear", async () => {
-    rootDir = await mkdtemp(path.join(tmpdir(), "bb-plugin-sdk-promote-"));
+    rootDir = await mkdtemp(path.join(tmpdir(), "hyperfide-plugin-sdk-promote-"));
     const distDir = path.join(rootDir, "dist");
     const stagingDir = path.join(rootDir, "staging");
     await mkdir(path.join(distDir, "internal"), { recursive: true });

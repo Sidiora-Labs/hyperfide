@@ -362,7 +362,7 @@ async function installPackage({ dataDir, npmPrefix, source }) {
 }
 
 export function packageRoot(npmPrefix) {
-  return join(npmPrefix, "node_modules", "bb-app");
+  return join(npmPrefix, "node_modules", "hyperfide-app");
 }
 
 async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
@@ -402,7 +402,7 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
   if (response.status === 404) {
     warn("The server does not provide its bb-app package");
     step("Installing bb-app from the npm registry");
-    await installPackage({ dataDir, npmPrefix, source: "bb-app" });
+    await installPackage({ dataDir, npmPrefix, source: "hyperfide-app" });
     done("Installed bb-app from the npm registry");
     return;
   }

@@ -90,11 +90,11 @@ async function openImportedDataDir() {
   });
   upsertInstalledPlugin(db, {
     id: "tasks",
-    source: "npm:bb-plugin-tasks",
+    source: "npm:hyperfide-plugin-tasks",
     provenance: { kind: "direct" },
     sourceIntent: {
       kind: "npm",
-      packageName: "bb-plugin-tasks",
+      packageName: "hyperfide-plugin-tasks",
       registry: "https://registry.npmjs.org",
       requestedSpec: "1.0.0",
       specKind: "exact",

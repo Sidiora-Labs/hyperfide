@@ -6,8 +6,8 @@ const version = "0.5.0";
 
 const files = {
   "README.md": "# sdk\n",
-  "bundled-types/bb-plugin-sdk.d.ts": "export declare const a: string;\n",
-  "bundled-types/bb-plugin-sdk-app.d.ts": "export declare const b: number;\n",
+  "bundled-types/hyperfide-plugin-sdk.d.ts": "export declare const a: string;\n",
+  "bundled-types/hyperfide-plugin-sdk-app.d.ts": "export declare const b: number;\n",
   "dist/index.js": "export const a = 'a';\n",
   "dist/app.js": "export const b = 1;\n",
 };
@@ -19,7 +19,7 @@ const manifest = {
   peerDependenciesMeta: { react: { optional: true } },
   publishConfig: { access: "public" },
   repository: { type: "git", url: "git+https://example.invalid/bb.git" },
-  types: "./bundled-types/bb-plugin-sdk.d.ts",
+  types: "./bundled-types/hyperfide-plugin-sdk.d.ts",
 };
 
 const local = { kind: "packed", files, manifest };
@@ -61,7 +61,7 @@ describe("decideNpmVersionGuard", () => {
       local,
       registry: publishedRegistry({
         files: {
-          "bundled-types/bb-plugin-sdk.d.ts":
+          "bundled-types/hyperfide-plugin-sdk.d.ts":
             "export declare const a: string;\r\n\r\n",
           "dist/index.js": "export const a = 'a';",
         },
@@ -102,7 +102,7 @@ describe("decideNpmVersionGuard", () => {
       local,
       registry: publishedRegistry({
         files: {
-          "bundled-types/bb-plugin-sdk-app.d.ts":
+          "bundled-types/hyperfide-plugin-sdk-app.d.ts":
             "export declare const b: boolean;\n",
         },
       }),
@@ -110,7 +110,7 @@ describe("decideNpmVersionGuard", () => {
     expect(decision).toMatchObject({
       status: "fail",
       exitCode: 1,
-      changedFiles: ["bundled-types/bb-plugin-sdk-app.d.ts"],
+      changedFiles: ["bundled-types/hyperfide-plugin-sdk-app.d.ts"],
     });
     expect(decision.message).toContain("plugin-sdk-version.ts");
   });

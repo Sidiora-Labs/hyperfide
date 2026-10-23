@@ -198,13 +198,13 @@ describe("appearance settings", () => {
       const root = join(
         harness.config.dataDir,
         "fixtures",
-        "bb-plugin-palette",
+        "hyperfide-plugin-palette",
       );
       await mkdir(join(root, "themes"), { recursive: true });
       await writeFile(
         join(root, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-palette",
+          name: "hyperfide-plugin-palette",
           version: "0.1.0",
           bb: {
             name: "Palette fixture",

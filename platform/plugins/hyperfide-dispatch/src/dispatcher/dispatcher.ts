@@ -1,5 +1,6 @@
-import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir } from "node:fs/promises";
+import type { PluginStorage } from "@hyperfide/authority";
+import { openDispatchStorage, migrateDispatchDirectory } from "../storage";
 import { randomUUID } from "node:crypto";
 import type { SandboxMachine } from "../machine-ops";
 import type { DispatcherOptions } from "./contracts";
@@ -20,15 +21,14 @@ export class Dispatcher {
   private backoffUntil = 0;
   private backoffMs = 0;
   private initialized = false;
+  private storage!: PluginStorage;
+  close() { this.storage?.close(); }
   constructor(private options: DispatcherOptions) {}
   private now() {
     return this.options.now?.() ?? Date.now();
   }
   private async atomic(name: string, value: unknown) {
-    const path = join(this.options.directory, name);
-    const temp = path + "." + randomUUID() + ".tmp";
-    await writeFile(temp, JSON.stringify(value), { mode: 0o600 });
-    await rename(temp, path);
+    await this.storage.put(name === "budget.json" ? "budget" : "job:" + name.slice(0, -5), value);
   }
   private async save(job: JobLedger) {
     await this.atomic(job.id + ".json", job);
@@ -36,15 +36,17 @@ export class Dispatcher {
   async start() {
     if (this.initialized) throw new Error("Dispatcher already started");
     await mkdir(this.options.directory, { recursive: true });
-    for (const file of await readdir(this.options.directory)) {
-      if (!file.endsWith(".json")) continue;
-      const data = JSON.parse(
-        await readFile(join(this.options.directory, file), "utf8"),
-      );
-      if (file === "budget.json") {
+    this.storage = this.options.storage ?? await openDispatchStorage(this.options.directory);
+    await migrateDispatchDirectory(this.options.directory, this.storage);
+    for (const {key, value} of await this.storage.entries()) {
+      if (key === 'budget') {
+        const data = value as { until: number; ms: number };
         this.backoffUntil = data.until;
         this.backoffMs = data.ms;
-      } else this.jobs.set(data.id, data);
+      } else if (key.startsWith('job:')) {
+        const data = value as JobLedger;
+        this.jobs.set(data.id, data);
+      }
     }
     // This directory is a single dispatcher lease. A restart interrupts its live jobs.
     const owned = new Set([...this.jobs.values()].map((job) => job.machine));

@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import {
   query,
   type CanUseTool,
-  type McpSdkServerConfigWithInstance,
   type Options,
   type Query,
   type Settings,
@@ -34,7 +33,7 @@ export interface SdkSessionOptions {
   allowBypassPermissions: boolean;
   sandbox?: Options["sandbox"];
   hooks?: Options["hooks"];
-  mcpServers?: Record<string, McpSdkServerConfigWithInstance>;
+  mcpServers?: Options["mcpServers"];
   allowedTools?: string[];
   canUseTool?: CanUseTool;
   env?: NodeJS.ProcessEnv;

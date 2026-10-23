@@ -132,7 +132,7 @@ for c in d["commands"]:
     for r in c["related"]:
         assert r in names, f"{c['name']}: related {r} is not a command"
 groups = [g["title"] for g in d["groups"]]
-assert groups == ["graph", "version control", "memory", "agentic",
+assert groups == ["platform", "graph", "version control", "memory", "agentic",
                   "spec workflow", "fleet", "jev", "skills",
                   "configuration"], groups
 assert {f["flag"] for f in d["global_flags"]} >= {"--json", "--branch <name>",

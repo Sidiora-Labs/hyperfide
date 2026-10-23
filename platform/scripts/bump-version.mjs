@@ -14,7 +14,7 @@ const USAGE =
 const defaultRepoRoot = resolve(dirname(scriptPath), "..");
 const packageTargets = [
   {
-    label: "bb-app",
+    label: "hyperfide-app",
     path: "packages/bb-app/package.json",
   },
   {

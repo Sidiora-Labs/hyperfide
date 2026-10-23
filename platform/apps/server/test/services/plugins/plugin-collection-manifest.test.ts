@@ -145,7 +145,7 @@ describe("collection manifest in a checkout", () => {
     await writeFile(
       join(repoDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-root",
+        name: "hyperfide-plugin-root",
         version: "0.1.0",
         bb: {
           name: "Root",

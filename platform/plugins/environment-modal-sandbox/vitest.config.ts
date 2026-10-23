@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "bb-plugin-environment-modal-sandbox",
+    name: "hyperfide-plugin-environment-modal-sandbox",
     include: ["**/*.test.ts", "**/*.test.tsx"],
     exclude: ["dist/**", "node_modules/**"],
   },

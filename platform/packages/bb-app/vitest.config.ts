@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     environment: "node",
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "bb-app",
+      name: "hyperfide-app",
       include: ["test/**/*.test.{mjs,ts}"],
     }),
   },

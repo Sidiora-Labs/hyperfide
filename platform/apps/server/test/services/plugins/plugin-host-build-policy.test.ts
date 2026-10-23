@@ -53,14 +53,14 @@ describe("mutable plugin host build policy", () => {
     db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "bb-host-build-policy-"));
     service = createService("0.9.0");
-    rootDir = join(workDir, "bb-plugin-host-policy");
+    rootDir = join(workDir, "hyperfide-plugin-host-policy");
     artifactPath = join(rootDir, "dist", "host.js");
     metaPath = join(rootDir, "dist", "host.meta.json");
     await mkdir(rootDir, { recursive: true });
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-host-policy",
+        name: "hyperfide-plugin-host-policy",
         version: "0.1.0",
         bb: {
           name: "Host policy fixture",

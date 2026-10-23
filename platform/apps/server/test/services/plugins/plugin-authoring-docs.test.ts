@@ -55,7 +55,7 @@ const REPO_ROOT = fileURLToPath(new URL("../../../../../", import.meta.url));
 
 const SKILL_ROOT = fileURLToPath(
   new URL(
-    "../../../../../plugins/bb-guide/skills/bb-plugin-authoring/",
+    "../../../../../plugins/bb-guide/skills/hyperfide-plugin-authoring/",
     import.meta.url,
   ),
 );
@@ -144,12 +144,12 @@ const FRONTEND_TEST_EXPORT_NAMES = [
 );
 
 const PUBLIC_PLUGIN_SDK_EXPORT_NAMES = [
-  "bb-plugin-sdk.d.ts",
-  "bb-plugin-sdk-provider-bridge.d.ts",
-  "bb-plugin-sdk-provider-bridge-testing.d.ts",
-  "bb-plugin-sdk-provider-bridge-acp.d.ts",
-  "bb-plugin-sdk-host.d.ts",
-  "bb-plugin-sdk-testing.d.ts",
+  "hyperfide-plugin-sdk.d.ts",
+  "hyperfide-plugin-sdk-provider-bridge.d.ts",
+  "hyperfide-plugin-sdk-provider-bridge-testing.d.ts",
+  "hyperfide-plugin-sdk-provider-bridge-acp.d.ts",
+  "hyperfide-plugin-sdk-host.d.ts",
+  "hyperfide-plugin-sdk-testing.d.ts",
 ].flatMap((filename) =>
   declarationExportNames(
     readFileSync(
@@ -611,7 +611,7 @@ const _assertAllThreadChatMessageActionFieldsListed: MissingThreadChatMessageAct
   : never = true;
 void _assertAllThreadChatMessageActionFieldsListed;
 
-describe("bb-plugin-authoring skill", () => {
+describe("hyperfide-plugin-authoring skill", () => {
   const skillEntry = readFileSync(SKILL_PATH, "utf8");
   const skill = readSkillTree();
 
@@ -653,7 +653,7 @@ describe("bb-plugin-authoring skill", () => {
   });
 
   it("has frontmatter naming the skill after its directory", () => {
-    expect(skillEntry).toMatch(/^---\nname: bb-plugin-authoring\n/);
+    expect(skillEntry).toMatch(/^---\nname: hyperfide-plugin-authoring\n/);
   });
 
   it("documents every BbPluginApi property", () => {

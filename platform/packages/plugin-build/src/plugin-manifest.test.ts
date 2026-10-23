@@ -37,7 +37,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
       experimental_icons: icons,
     },
   ): Promise<{ dir: string; manifest: unknown }> {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icons-build-"));
+    const dir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-icons-build-"));
     tempDirs.push(dir);
     await writeFile(join(dir, "server.ts"), "export default () => {};\n");
     for (const [relative, contents] of Object.entries(files)) {
@@ -47,7 +47,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
     return {
       dir,
       manifest: {
-        name: "bb-plugin-icons-fixture",
+        name: "hyperfide-plugin-icons-fixture",
         version: "0.0.0",
         bb: {
           name: "Icons fixture",
@@ -98,7 +98,7 @@ describe("validatePluginBuildManifest: bb.branding assets", () => {
       ),
     ).rejects.toThrow(/experimental_icons\["receipt"\] must point at a file/);
 
-    const outside = await mkdtemp(join(tmpdir(), "bb-plugin-icons-outside-"));
+    const outside = await mkdtemp(join(tmpdir(), "hyperfide-plugin-icons-outside-"));
     tempDirs.push(outside);
     await writeFile(join(outside, "mark.svg"), SVG);
     const escaping = await fixture({ mark: "./icons/mark.svg" });

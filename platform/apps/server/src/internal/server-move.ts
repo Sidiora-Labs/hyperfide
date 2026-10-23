@@ -26,7 +26,7 @@ export interface RegisterInternalServerMoveRoutesArgs {
 
 const DOWNLOAD_CONTENT_TYPES: Record<ServerMoveDownloadKind, string> = {
   archive: "application/octet-stream",
-  "bb-app": "application/gzip",
+  "hyperfide-app": "application/gzip",
 };
 
 async function serverMoveDownloadResponse(
@@ -101,6 +101,6 @@ export function registerInternalServerMoveRoutes(
   );
 
   app.get("/server-move/:moveId/bb-app.tgz", (context) =>
-    serverMoveDownloadResponse(context, args.serverMove, "bb-app"),
+    serverMoveDownloadResponse(context, args.serverMove, "hyperfide-app"),
   );
 }

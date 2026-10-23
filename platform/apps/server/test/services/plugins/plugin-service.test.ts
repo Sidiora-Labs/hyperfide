@@ -75,7 +75,7 @@ async function writeEsmPlugin(rootDir: string, id: string): Promise<void> {
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${id}`,
+      name: `hyperfide-plugin-${id}`,
       version: "0.1.0",
       type: "module",
       bb: {
@@ -114,7 +114,7 @@ describe("plugin service", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -172,7 +172,7 @@ describe("plugin service", () => {
     "reports starting while a %s factory is pending",
     async (mode) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-starting",
+        name: "hyperfide-plugin-starting",
         serverSource: `export default function plugin() { throw new Error("failed"); }`,
       });
       expect((await service.installPath(rootDir)).status).toBe("error");
@@ -234,7 +234,7 @@ describe("plugin service", () => {
   );
 
   it("summarizes user-facing capabilities and drops the live ones when disabled", async () => {
-    const rootDir = join(workDir, "bb-plugin-capabilities");
+    const rootDir = join(workDir, "hyperfide-plugin-capabilities");
     await mkdir(join(rootDir, "skills", "review"), { recursive: true });
     await mkdir(join(rootDir, "skills", "triage"), { recursive: true });
     await mkdir(join(rootDir, "skills", "not-a-skill"), { recursive: true });
@@ -242,7 +242,7 @@ describe("plugin service", () => {
     await writeFile(join(rootDir, "skills", "triage", "SKILL.md"), "# triage");
     await writeFile(join(rootDir, "midnight.css"), ":root { --canvas: #000; }");
     await writePlugin(workDir, {
-      name: "bb-plugin-capabilities",
+      name: "hyperfide-plugin-capabilities",
       bb: {
         themes: [
           {
@@ -319,11 +319,11 @@ describe("plugin service", () => {
 
   it("marks a throwing factory as error without affecting others", async () => {
     const bad = await writePlugin(workDir, {
-      name: "bb-plugin-bad",
+      name: "hyperfide-plugin-bad",
       serverSource: `export default function plugin() { throw new Error("boom at load"); }`,
     });
     const good = await writePlugin(workDir, {
-      name: "bb-plugin-good",
+      name: "hyperfide-plugin-good",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(bad);
@@ -338,7 +338,7 @@ describe("plugin service", () => {
 
   it("reload re-runs the factory against current sources and runs dispose hooks LIFO", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-cycler",
+      name: "hyperfide-plugin-cycler",
       serverSource: `
         export default function plugin(bb: any) {
           const g = globalThis as any;
@@ -364,7 +364,7 @@ describe("plugin service", () => {
   });
 
   it("reload re-reads an ESM plugin's entry and its submodules", async () => {
-    const rootDir = join(workDir, "bb-plugin-esm-reloader");
+    const rootDir = join(workDir, "hyperfide-plugin-esm-reloader");
     await writeEsmPlugin(rootDir, "esm-reloader");
     const globals = globalThis as Record<string, unknown>;
 
@@ -383,7 +383,7 @@ describe("plugin service", () => {
 
   it("runs a CommonJS entry whose module.exports is the factory", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-cjs-factory",
+      name: "hyperfide-plugin-cjs-factory",
       serverSource: "",
       bb: { server: "./server.cjs" },
     });
@@ -403,7 +403,7 @@ describe("plugin service", () => {
   });
 
   it("reload re-reads a plugin's CommonJS children", async () => {
-    const rootDir = join(workDir, "bb-plugin-cjs-child");
+    const rootDir = join(workDir, "hyperfide-plugin-cjs-child");
     await writeEsmPlugin(rootDir, "cjs-child");
     const writeSources = async (value: string): Promise<void> => {
       await writeFile(
@@ -436,8 +436,8 @@ describe("plugin service", () => {
   });
 
   it("hides a failed reload's sources from a plugin that imports it", async () => {
-    const importerDir = join(workDir, "bb-plugin-fail-importer");
-    const importedDir = join(workDir, "bb-plugin-fail-imported");
+    const importerDir = join(workDir, "hyperfide-plugin-fail-importer");
+    const importedDir = join(workDir, "hyperfide-plugin-fail-imported");
     await writeEsmPlugin(importerDir, "fail-importer");
     await writeEsmPlugin(importedDir, "fail-imported");
     await writeEsmSources(importedDir, "failImported", "entry1", "sub1");
@@ -521,7 +521,7 @@ describe("plugin service", () => {
   });
 
   it("keeps a live plugin's lazy imports coherent after a failed reload", async () => {
-    const rootDir = join(workDir, "bb-plugin-rollback");
+    const rootDir = join(workDir, "hyperfide-plugin-rollback");
     await writeEsmPlugin(rootDir, "rollbacker");
     await writeFile(join(rootDir, "lazy.js"), `export const LAZY = "lazy1";\n`);
     await writeFile(
@@ -553,7 +553,7 @@ describe("plugin service", () => {
 
   it("stale API handles throw after reload", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-staler",
+      name: "hyperfide-plugin-staler",
       serverSource: `
         export default function plugin(bb: any) {
           (globalThis as any).__stalerApi = bb;
@@ -570,7 +570,7 @@ describe("plugin service", () => {
 
   it("marks initial engine mismatches incompatible and preserves a live plugin when reload finds its directory missing", async () => {
     const tooNew = await writePlugin(workDir, {
-      name: "bb-plugin-too-new",
+      name: "hyperfide-plugin-too-new",
       engines: ">=99.0.0",
       serverSource: `export default function plugin() {}`,
     });
@@ -580,7 +580,7 @@ describe("plugin service", () => {
     );
 
     const vanishing = await writePlugin(workDir, {
-      name: "bb-plugin-vanishing",
+      name: "hyperfide-plugin-vanishing",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(vanishing);
@@ -597,7 +597,7 @@ describe("plugin service", () => {
     const globals = globalThis as Record<string, unknown>;
     globals.__slowFactoryEntered = false;
     const slowRoot = await writePlugin(workDir, {
-      name: "bb-plugin-aaa-slow",
+      name: "hyperfide-plugin-aaa-slow",
       serverSource: `
         export default async function plugin() {
           (globalThis as any).__slowFactoryEntered = true;
@@ -606,11 +606,11 @@ describe("plugin service", () => {
       `,
     });
     const pendingRoot = await writePlugin(workDir, {
-      name: "bb-plugin-zzz-pending",
+      name: "hyperfide-plugin-zzz-pending",
       serverSource: `export default function plugin() {}`,
     });
     const brokenRoot = await writePlugin(workDir, {
-      name: "bb-plugin-zzz-broken",
+      name: "hyperfide-plugin-zzz-broken",
       serverSource: `export default function plugin() { throw new Error("nope"); }`,
     });
     const install = (id: string, rootDir: string) => {
@@ -710,7 +710,7 @@ describe("plugin service", () => {
         bundledPlugins: [],
       });
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-notify",
+      name: "hyperfide-plugin-notify",
       version: "0.2.1",
       engines: ">=0.38.0 <0.39.0",
       serverSource: `export default function plugin() {}`,
@@ -750,10 +750,10 @@ describe("plugin service", () => {
 
   it("keeps a persisted 0.4.8 scaffold plugin running after an SDK upgrade", async () => {
     const fixtureDir = new URL(
-      "../../fixtures/plugins/bb-plugin-sdk-0.4.8-scaffold/",
+      "../../fixtures/plugins/hyperfide-plugin-sdk-0.4.8-scaffold/",
       import.meta.url,
     );
-    const rootDir = join(workDir, "bb-plugin-sdk-upgrade-fixture");
+    const rootDir = join(workDir, "hyperfide-plugin-sdk-upgrade-fixture");
     await cp(fixtureDir, rootDir, { recursive: true });
     const manifest = JSON.parse(
       await readFile(join(rootDir, "package.json"), "utf8"),
@@ -832,7 +832,7 @@ describe("plugin service", () => {
       loadTimeoutMs: 2000,
     });
     const gated = await writePlugin(workDir, {
-      name: "bb-plugin-dev-gated",
+      name: "hyperfide-plugin-dev-gated",
       engines: ">=0.9",
       serverSource: `export default function plugin() {}`,
     });
@@ -845,7 +845,7 @@ describe("plugin service", () => {
     const captured: TelemetryEvent[] = [];
     const tracked = createTelemetryTrackedService(captured);
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-tracked",
+      name: "hyperfide-plugin-tracked",
       serverSource: "export default function plugin() {}",
     });
     const installed = await tracked.installPath(rootDir);
@@ -877,7 +877,7 @@ describe("plugin service", () => {
     const captured: TelemetryEvent[] = [];
     const tracked = createTelemetryTrackedService(captured);
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-reconciled",
+      name: "hyperfide-plugin-reconciled",
       serverSource: "export default function plugin() {}",
     });
     await tracked.installPath(rootDir);
@@ -1064,7 +1064,7 @@ describe("plugin service", () => {
             icon: "Zap",
             category: "acme-tools",
             author: { name: "Acme" },
-            source: { npm: { package: "bb-plugin-installed-tool" } },
+            source: { npm: { package: "hyperfide-plugin-installed-tool" } },
           },
         ],
       }),
@@ -1083,7 +1083,7 @@ describe("plugin service", () => {
 
   it("times out a hung factory and reports error", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-hang",
+      name: "hyperfide-plugin-hang",
       serverSource: `export default function plugin() { return new Promise(() => {}); }`,
     });
     await service.installPath(rootDir);
@@ -1095,20 +1095,20 @@ describe("plugin service", () => {
   it("holds every plugin a hold names at start without running its factory or starting its services", async () => {
     const globals = globalThis as Record<string, unknown>;
     const db = createMigratedConnection();
-    const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-hold-test-"));
+    const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-hold-test-"));
     const fixture = { db, workDir };
     let service = createTelemetryTrackedService([], fixture);
 
     try {
       const heldAccountRoot = await writePlugin(workDir, {
-        name: "bb-plugin-held-account",
+        name: "hyperfide-plugin-held-account",
         serverSource: `export default function plugin() {
           const g = globalThis as any;
           g.__heldFactoryRuns = (g.__heldFactoryRuns ?? 0) + 1;
         }`,
       });
       const heldRoot = await writePlugin(workDir, {
-        name: "bb-plugin-held-tunnel",
+        name: "hyperfide-plugin-held-tunnel",
         serverSource: `export default function plugin(bb: any) {
           const g = globalThis as any;
           g.__heldFactoryRuns = (g.__heldFactoryRuns ?? 0) + 1;
@@ -1123,7 +1123,7 @@ describe("plugin service", () => {
         }`,
       });
       const otherRoot = await writePlugin(workDir, {
-        name: "bb-plugin-unheld",
+        name: "hyperfide-plugin-unheld",
         serverSource: `export default function plugin() {}`,
       });
       const held = await service.installPath(heldRoot);
@@ -1174,14 +1174,14 @@ describe("plugin service", () => {
       holdActive = true;
       globals.__heldLoads = 0;
       const heldRoot = await writePlugin(workDir, {
-        name: "bb-plugin-held-copy",
+        name: "hyperfide-plugin-held-copy",
         serverSource: `export default function plugin() {
           const g = globalThis as any;
           g.__heldLoads = (g.__heldLoads ?? 0) + 1;
         }`,
       });
       const otherRoot = await writePlugin(workDir, {
-        name: "bb-plugin-free-copy",
+        name: "hyperfide-plugin-free-copy",
         serverSource: `export default function plugin() {}`,
       });
       const held = await service.installPath(heldRoot);
@@ -1259,7 +1259,7 @@ describe("plugin service", () => {
 
   it("enables a disabled path plugin when it is reinstalled", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-reinstalled",
+      name: "hyperfide-plugin-reinstalled",
       serverSource: `export default function plugin() {}`,
     });
     await service.install(rootDir, { kind: "root" });
@@ -1280,7 +1280,7 @@ describe("plugin service", () => {
   it("reports a settings change to the server once the plugin's own listeners ran", async () => {
     const changed: string[] = [];
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-observed",
+      name: "hyperfide-plugin-observed",
       serverSource: `
         export default function plugin(bb) {
           const settings = bb.settings.define({
@@ -1337,11 +1337,11 @@ describe("plugin service", () => {
         globalThis.__movedCheckout = "${marker}";
       }`;
     const checkoutA = await writePlugin(join(workDir, "a"), {
-      name: "bb-plugin-moved",
+      name: "hyperfide-plugin-moved",
       serverSource: serverSource("a"),
     });
     const checkoutB = await writePlugin(join(workDir, "b"), {
-      name: "bb-plugin-moved",
+      name: "hyperfide-plugin-moved",
       serverSource: serverSource("b"),
     });
     await service.installPath(checkoutA);
@@ -1376,7 +1376,7 @@ describe("plugin service", () => {
         .all("moved"),
     ).toEqual([{ name: "sweep" }]);
 
-    const checkoutC = join(workDir, "c", "bb-plugin-moved");
+    const checkoutC = join(workDir, "c", "hyperfide-plugin-moved");
     await mkdir(checkoutC, { recursive: true });
     await writeFile(join(checkoutC, "package.json"), "{ not json");
     await expect(service.installPath(checkoutC)).rejects.toThrowError();
@@ -1396,11 +1396,11 @@ describe("plugin service", () => {
         globalThis.__disabledMoveStarted = "${marker}";
       }`;
     const checkoutA = await writePlugin(join(workDir, "a"), {
-      name: "bb-plugin-dormant",
+      name: "hyperfide-plugin-dormant",
       serverSource: serverSource("a"),
     });
     const checkoutB = await writePlugin(join(workDir, "b"), {
-      name: "bb-plugin-dormant",
+      name: "hyperfide-plugin-dormant",
       serverSource: serverSource("b"),
     });
     await service.installPath(checkoutA);
@@ -1437,7 +1437,7 @@ describe("plugin service", () => {
 
   it("rejects a path move whose new checkout fails to start and keeps the old install running", async () => {
     const checkoutA = await writePlugin(join(workDir, "a"), {
-      name: "bb-plugin-brittle",
+      name: "hyperfide-plugin-brittle",
       version: "0.2.0",
       serverSource: `
         export default function plugin(bb) {
@@ -1448,7 +1448,7 @@ describe("plugin service", () => {
         }`,
     });
     const checkoutB = await writePlugin(join(workDir, "b"), {
-      name: "bb-plugin-brittle",
+      name: "hyperfide-plugin-brittle",
       version: "0.3.0",
       serverSource: `
         export default function plugin() {
@@ -1488,10 +1488,10 @@ describe("plugin service", () => {
       "data",
       "personal-workspaces",
       "env_test",
-      "bb-plugin-managed",
+      "hyperfide-plugin-managed",
     );
     const written = await writePlugin(workDir, {
-      name: "bb-plugin-managed",
+      name: "hyperfide-plugin-managed",
       serverSource: `export default function plugin() {}`,
     });
     await mkdir(dirname(managedRoot), { recursive: true });
@@ -1507,7 +1507,7 @@ describe("plugin service", () => {
     const warnSpy = vi.spyOn(logger, "warn");
     warnSpy.mockClear();
     const checkoutRoot = await writePlugin(join(workDir, "checkout"), {
-      name: "bb-plugin-attached",
+      name: "hyperfide-plugin-attached",
       serverSource: `export default function plugin() {}`,
     });
     seedEnvironmentAtPath(db, {
@@ -1526,7 +1526,7 @@ describe("plugin service", () => {
     const warnSpy = vi.spyOn(logger, "warn");
     warnSpy.mockClear();
     const ownedRoot = await writePlugin(join(workDir, "owned"), {
-      name: "bb-plugin-owned",
+      name: "hyperfide-plugin-owned",
       serverSource: `export default function plugin() {}`,
     });
     seedEnvironmentAtPath(db, {
@@ -1553,7 +1553,7 @@ describe("plugins-changed broadcast", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-notify-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-notify-test-"));
     notifySystem = vi.fn<(changes: SystemChangeKind[]) => void>();
     providerRegistry = createProviderRegistryService();
     service = createPluginService({
@@ -1582,7 +1582,7 @@ describe("plugins-changed broadcast", () => {
 
   it("broadcasts plugins-changed on install, reload, and enable/disable", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-notifier",
+      name: "hyperfide-plugin-notifier",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);

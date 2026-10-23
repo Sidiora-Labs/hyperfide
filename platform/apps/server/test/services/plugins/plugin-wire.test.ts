@@ -213,7 +213,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
   beforeEach(async () => {
     harness = await createTestAppHarness({ devAppPort: 5173 });
     rootDir = await writePlugin(join(harness.config.dataDir, "fixtures"), {
-      name: "bb-plugin-wire",
+      name: "hyperfide-plugin-wire",
       serverSource: WIRE_SOURCE,
     });
     const entry = await harness.pluginService.installPath(rootDir);
@@ -384,7 +384,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
     const viaHeader = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/guarded`,
-      { headers: { "x-bb-plugin-token": token, origin: EVIL_ORIGIN } },
+      { headers: { "x-hyperfide-plugin-token": token, origin: EVIL_ORIGIN } },
     );
     expect(viaHeader.status).toBe(200);
     expect(await viaHeader.json()).toEqual({ guarded: true });
@@ -407,13 +407,13 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
     const staleToken = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/guarded`,
-      { headers: { "x-bb-plugin-token": token } },
+      { headers: { "x-hyperfide-plugin-token": token } },
     );
     expect(staleToken.status).toBe(401);
 
     const freshToken = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/guarded`,
-      { headers: { "x-bb-plugin-token": nextToken } },
+      { headers: { "x-hyperfide-plugin-token": nextToken } },
     );
     expect(freshToken.status).toBe(200);
 
@@ -769,7 +769,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
   it("rpc resolves the handler after the body arrives, so a reload during the body read never runs a stale handler", async () => {
     const genDir = await writePlugin(join(harness.config.dataDir, "fixtures"), {
-      name: "bb-plugin-gen",
+      name: "hyperfide-plugin-gen",
       serverSource: `
         import { defineRpcContract } from "@hyperfide/plugin-sdk";
         import { z } from "zod";
@@ -898,7 +898,7 @@ describe("plugin WebSocket routes", () => {
   beforeEach(async () => {
     server = await startTestServer({ devAppPort: 5173 });
     rootDir = await writePlugin(join(server.config.dataDir, "fixtures"), {
-      name: "bb-plugin-wire",
+      name: "hyperfide-plugin-wire",
       serverSource: WIRE_SOURCE,
     });
     const entry = await server.pluginService.installPath(rootDir);
@@ -971,7 +971,7 @@ describe("plugin WebSocket routes", () => {
     const guardedConnection = await openPluginWebSocketWithFirstMessage(
       guardedUrl,
       {
-        headers: { "x-bb-plugin-token": token ?? "" },
+        headers: { "x-hyperfide-plugin-token": token ?? "" },
       },
     );
     const { socket: guarded } = guardedConnection;

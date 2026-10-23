@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import uuid
+import sys
 
 ROOT = Path(__file__).resolve().parents[4]
 spec = importlib.util.spec_from_file_location("identity_fixture", ROOT / "tests/hyperfide/support/identity_fixture.py")
@@ -33,6 +34,15 @@ try:
         "keyFile": str(fixture.keys["other"]["path"]), "credentialId": fixture.ids["unlisted"]})
     env["HYPERFIDE_AUTHORITY_TEST_ROOT"] = str(ROOT)
     env["HYPERFIDE_AUTHORITY_TEST_DATABASE_URL"] = fixture.url
+    if '--plugins' in sys.argv:
+        for name, value in {'URL': fixture.origin, 'CA_FILE': str(fixture.ca),
+                            'KEY_FILE': str(fixture.keys['operator']['path']),
+                            'CREDENTIAL_ID': fixture.ids['operator'], 'RUN_ID': fixture.ids['run']}.items():
+            env['HYPERFIDE_AUTHORITY_' + name] = value
+        subprocess.run(['pnpm', '-C', 'platform', 'exec', 'turbo', 'run', 'typecheck', 'test',
+            '--filter=./plugins/hyperfide-spec', '--filter=./plugins/hyperfide-asks',
+            '--filter=./plugins/hyperfide-qualify', '--filter=./plugins/hyperfide-dispatch',
+            '--env-mode=loose', '--force'], cwd=ROOT, env=env, check=True)
     subprocess.run(["pnpm", "-C", "platform", "exec", "vitest", "run", "--config",
         str(ROOT / "platform/packages/hyperfide-authority/vitest.config.ts"), "--root", str(ROOT / "platform/packages/hyperfide-authority")],
         cwd=ROOT, env=env, check=True)

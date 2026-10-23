@@ -128,7 +128,7 @@ export const acquireShimLock: AcquireShimLock = async (dataDir) => {
   const path = formatAppUpdateShimLockPath(dataDir);
   await mkdir(dataDir, { recursive: true });
   const record: ShimLockFile = {
-    entryPath: process.argv[1] ?? "bb-app",
+    entryPath: process.argv[1] ?? "hyperfide-app",
     pid: process.pid,
     startedAt: new Date().toISOString(),
   };

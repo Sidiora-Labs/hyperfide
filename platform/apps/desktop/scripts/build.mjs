@@ -146,7 +146,7 @@ await Promise.all([
   build({
     ...commonOptions,
     entryPoints: [resolve(packageRoot, "src", "bb-app-bridge.ts")],
-    external: ["bb-app", "bb-app/*"],
+    external: ["hyperfide-app", "bb-app/*"],
     format: "esm",
     outfile: resolve(distDir, "bb-app-bridge.mjs"),
   }),
