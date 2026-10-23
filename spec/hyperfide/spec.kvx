@@ -1191,7 +1191,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.1.2]
 title = "Expose one human programme interface through primary leader"
-status = "pending"
+status = "done"
 wave = 15
 requires = ["3.1", "6.3", "6.2"]
 touches = ["services/hyperfide/src/policy/human_interface.ts", "tests/hyperfide/manifests/tasks/1.2.json", "tests/hyperfide/cases/tasks/1_2.py", "tests/hyperfide/registrations/1.2.json", "services/hyperfide/components/1.2.json"]
@@ -1262,7 +1262,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.9.2]
 title = "Apply complete Railway runtime profiles for every launch"
-status = "pending"
+status = "done"
 wave = 15
 requires = ["9.1", "8.2"]
 touches = ["services/hyperfide/src/providers/railway/profile.ts", "tests/hyperfide/manifests/tasks/9.2.json", "tests/hyperfide/cases/tasks/9_2.py", "tests/hyperfide/registrations/9.2.json", "services/hyperfide/components/9.2.json"]
@@ -1279,7 +1279,7 @@ do_4 = "Implement the task's registered positive/negative assertions and immutab
 
 [task.10.2]
 title = "Apply explicit Blaxel process and sandbox lifetime controls"
-status = "pending"
+status = "done"
 wave = 15
 requires = ["10.1", "8.2"]
 touches = ["services/hyperfide/src/providers/blaxel/lifetime.ts", "tests/hyperfide/manifests/tasks/10.2.json", "tests/hyperfide/cases/tasks/10_2.py", "tests/hyperfide/registrations/10.2.json", "services/hyperfide/components/10.2.json"]
