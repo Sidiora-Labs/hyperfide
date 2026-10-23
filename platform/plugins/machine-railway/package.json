@@ -1,0 +1,10 @@
+{
+  "name": "hyperfide-plugin-machine-railway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "hyperfide": { "name": "Railway machines", "server": "./server.ts" },
+  "scripts": { "test": "vitest run", "typecheck": "tsrs --noEmit" },
+  "dependencies": { "railway": "3.16.0", "ws": "8.18.3" },
+  "devDependencies": { "@hyperfide/plugin-sdk": "workspace:*", "@types/node": "^22.0.0", "@types/ws": "8.18.1", "tsrs": "0.18.0-ts7.1.0-dev.20260929", "vitest": "^4.1.1" }
+}
