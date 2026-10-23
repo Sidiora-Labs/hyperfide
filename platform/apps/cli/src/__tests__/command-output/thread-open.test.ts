@@ -46,14 +46,14 @@ function stubThreadOpenApi(args: {
   return { getEnvironment, getThread, openThread };
 }
 
-describe("bb thread open command output", () => {
+describe("hyperfide-platform thread open command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("uses BB_THREAD_ID and opens a thread-relative workspace path", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-current");
+  it("uses HYPERFIDE_THREAD_ID and opens a thread-relative workspace path", async () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-current");
     const { openThread } = stubThreadOpenApi({
       open: async () => ({ delivered: 2 }),
     });
@@ -80,7 +80,7 @@ describe("bb thread open command output", () => {
   });
 
   it("resolves an absolute workspace path through the target thread environment", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-workspace");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-workspace");
     const thread = fixtures.makeThread({
       id: "thread-workspace",
       projectId: "proj-workspace",
@@ -137,8 +137,11 @@ describe("bb thread open command output", () => {
   });
 
   it("opens an absolute thread-storage path for the current thread", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-storage");
-    vi.stubEnv("BB_THREAD_STORAGE", "/tmp/bb-thread-storage/thread-storage");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-storage");
+    vi.stubEnv(
+      "HYPERFIDE_THREAD_STORAGE",
+      "/tmp/bb-thread-storage/thread-storage",
+    );
     const { getEnvironment, getThread, openThread } = stubThreadOpenApi({
       open: async () => ({ delivered: 1 }),
     });
@@ -239,7 +242,7 @@ describe("bb thread open command output", () => {
   });
 
   it("opens another thread from a lone thread id inside a BB thread", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thr_currentabc");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thr_currentabc");
     const { openThread } = stubThreadOpenApi({});
 
     await runCommand(["thread", "open", "thr_2thread345"], register);
@@ -251,7 +254,7 @@ describe("bb thread open command output", () => {
   });
 
   it("opens a ./-prefixed file named like a thread id in the current thread", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thr_currentabc");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thr_currentabc");
     const { openThread } = stubThreadOpenApi({});
 
     await runCommand(["thread", "open", "./thr_2thread345"], register);
@@ -265,7 +268,7 @@ describe("bb thread open command output", () => {
   });
 
   it("opens a file in another thread inside a BB thread", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-current");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-current");
     const { openThread } = stubThreadOpenApi({});
 
     await runCommand(

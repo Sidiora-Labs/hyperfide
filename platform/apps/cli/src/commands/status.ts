@@ -197,13 +197,15 @@ export function registerStatusCommand(
         if (attention.length > 0) {
           console.log("");
           console.log(
-            `${attention.length} plugin${attention.length === 1 ? "" : "s"} not running (${attention.map((p) => `${p.id}: ${p.status}`).join(", ")}). Run bb plugin list.`,
+            `${attention.length} plugin${attention.length === 1 ? "" : "s"} not running (${attention.map((p) => `${p.id}: ${p.status}`).join(", ")}). Run hyperfide-platform plugin list.`,
           );
         }
 
         if (!context.projectId && !context.threadId) {
           console.log("");
-          console.log("Tip: run bb guide for help getting started.");
+          console.log(
+            "Tip: run hyperfide-platform guide for help getting started.",
+          );
         }
       }),
     );

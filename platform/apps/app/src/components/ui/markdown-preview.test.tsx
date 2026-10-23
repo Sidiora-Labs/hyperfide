@@ -675,7 +675,7 @@ describe("MarkdownPreview", () => {
 
     render(
       <MarkdownPreview
-        content="Open [review](devin://file/Users/me/.bb/artifacts/thr_1/review.diff) or [cursor](Cursor://file/workspace/My%20App.ts:12:3)."
+        content="Open [review](devin://file/Users/me/.hyperfide/artifacts/thr_1/review.diff) or [cursor](Cursor://file/workspace/My%20App.ts:12:3)."
         linkRouting={{
           localFile: {
             absoluteLinks: { kind: "trusted-host" },
@@ -688,7 +688,7 @@ describe("MarkdownPreview", () => {
 
     const review = screen.getByRole("link", { name: "review" });
     expect(review.getAttribute("href")).toBe(
-      "file:///Users/me/.bb/artifacts/thr_1/review.diff",
+      "file:///Users/me/.hyperfide/artifacts/thr_1/review.diff",
     );
     fireEvent.click(review);
     fireEvent.click(screen.getByRole("link", { name: "cursor" }));
@@ -698,7 +698,7 @@ describe("MarkdownPreview", () => {
         {
           lineRange: null,
           openTargetId: "devin-desktop",
-          path: "/Users/me/.bb/artifacts/thr_1/review.diff",
+          path: "/Users/me/.hyperfide/artifacts/thr_1/review.diff",
         },
       ],
       [
@@ -898,7 +898,10 @@ describe("MarkdownPreview", () => {
       );
 
       expect(
-        Array.from(container.querySelectorAll("code"), (node) => node.textContent),
+        Array.from(
+          container.querySelectorAll("code"),
+          (node) => node.textContent,
+        ),
       ).toEqual([
         "$",
         "singleDollarTextMath: false",

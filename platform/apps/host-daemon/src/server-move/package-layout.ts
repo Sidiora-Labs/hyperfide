@@ -3,8 +3,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { pathExists } from "./fs.js";
 
-const BB_APP_VERSION_DEV_FALLBACK = "0.0.0-dev";
-const BB_APP_PACKAGE_NAME = "bb-app";
+const HYPERFIDE_APP_VERSION_DEV_FALLBACK = "0.0.0-dev";
+const HYPERFIDE_APP_PACKAGE_NAME = "bb-app";
 
 const packageJsonVersionSchema = z.object({ version: z.string().min(1) });
 
@@ -27,7 +27,7 @@ export function resolvePackagedBbAppRoot(
 }
 
 export function npmPrefixBbAppRoot(npmPrefix: string): string {
-  return join(npmPrefix, "lib", "node_modules", BB_APP_PACKAGE_NAME);
+  return join(npmPrefix, "lib", "node_modules", HYPERFIDE_APP_PACKAGE_NAME);
 }
 
 export async function resolveBbServerEntry(
@@ -59,12 +59,12 @@ export async function readBbAppVersion(args: {
   env: NodeJS.ProcessEnv;
   packageRoot: string | null;
 }): Promise<string> {
-  const configured = args.env.BB_APP_VERSION?.trim();
+  const configured = args.env.HYPERFIDE_APP_VERSION?.trim();
   if (configured !== undefined && configured !== "") {
     return configured;
   }
   if (args.packageRoot === null) {
-    return BB_APP_VERSION_DEV_FALLBACK;
+    return HYPERFIDE_APP_VERSION_DEV_FALLBACK;
   }
   try {
     return packageJsonVersionSchema.parse(
@@ -73,6 +73,6 @@ export async function readBbAppVersion(args: {
       ),
     ).version;
   } catch {
-    return BB_APP_VERSION_DEV_FALLBACK;
+    return HYPERFIDE_APP_VERSION_DEV_FALLBACK;
   }
 }

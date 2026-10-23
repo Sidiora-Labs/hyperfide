@@ -3,9 +3,10 @@ import { join } from "node:path";
 import { z } from "zod";
 import { mutateManagedJsonFile } from "./managed-json-file.js";
 
-export const APP_UPDATE_SHIM_PROTOCOL_ENV_NAME = "BB_APP_UPDATE_SHIM_PROTOCOL";
+export const APP_UPDATE_SHIM_PROTOCOL_ENV_NAME =
+  "HYPERFIDE_APP_UPDATE_SHIM_PROTOCOL";
 export const APP_UPDATE_SHIM_PROTOCOL_VERSION = 1;
-export const APP_UPDATE_MODE_ENV_NAME = "BB_APP_UPDATE_MODE";
+export const APP_UPDATE_MODE_ENV_NAME = "HYPERFIDE_APP_UPDATE_MODE";
 export const APP_UPDATE_RESTART_EXIT_CODE = 75;
 export const APP_UPDATE_STATE_FILE_NAME = "bb-app-update.json";
 export const APP_UPDATE_SHIM_LOCK_FILE_NAME = "bb-app-update-shim.json";

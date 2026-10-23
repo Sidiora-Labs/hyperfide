@@ -7,7 +7,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
+import { HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH } from "@bb/desktop-contract";
 import type {
   BbDesktopBrowserApi,
   BbDesktopBrowserFindInPageRequest,
@@ -300,14 +300,20 @@ describe("BrowserTabContent find in page", () => {
     const harness = createFindHarness();
     renderBrowser(harness, "https://example.com/docs");
     pressFindChord(screen.getByLabelText(/Address and search bar/));
-    expect(findInput().maxLength).toBe(BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH);
+    expect(findInput().maxLength).toBe(
+      HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
+    );
 
-    const oversized = "a".repeat(BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH + 10);
+    const oversized = "a".repeat(
+      HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH + 10,
+    );
     fireEvent.change(findInput(), { target: { value: oversized } });
     const sent = harness.findInPage.mock.lastCall?.[0];
-    expect(sent?.text).toHaveLength(BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH);
+    expect(sent?.text).toHaveLength(
+      HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
+    );
     expect(findInput().value).toHaveLength(
-      BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
+      HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
     );
   });
 

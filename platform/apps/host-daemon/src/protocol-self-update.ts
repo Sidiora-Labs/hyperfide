@@ -161,7 +161,7 @@ export const defaultRunProcess: SelfUpdateProcessRunner = async (
   await execFileAsync(command, args, options);
 };
 
-const BB_APP_ALLOW_SCRIPTS_ARG =
+const HYPERFIDE_APP_ALLOW_SCRIPTS_ARG =
   "--allow-scripts=better-sqlite3,node-pty,@parcel/watcher";
 
 export async function defaultInstallTarball(
@@ -173,17 +173,23 @@ export async function defaultInstallTarball(
   const path = inheritedPath
     ? `${executableDirectory}${delimiter}${inheritedPath}`
     : executableDirectory;
-  const rawConfiguredPrefix = process.env.BB_APP_NPM_PREFIX?.trim();
+  const rawConfiguredPrefix = process.env.HYPERFIDE_APP_NPM_PREFIX?.trim();
   const configuredPrefix =
     rawConfiguredPrefix === "" ? undefined : rawConfiguredPrefix;
   if (configuredPrefix !== undefined && !isAbsolute(configuredPrefix)) {
-    throw new Error("BB_APP_NPM_PREFIX must be an absolute path");
+    throw new Error("HYPERFIDE_APP_NPM_PREFIX must be an absolute path");
   }
   const prefixArgs =
     configuredPrefix === undefined ? [] : ["--prefix", configuredPrefix];
   await runProcess(
     "npm",
-    ["install", "-g", BB_APP_ALLOW_SCRIPTS_ARG, ...prefixArgs, tarballPath],
+    [
+      "install",
+      "-g",
+      HYPERFIDE_APP_ALLOW_SCRIPTS_ARG,
+      ...prefixArgs,
+      tarballPath,
+    ],
     {
       env: { ...process.env, PATH: path },
     },

@@ -1,6 +1,6 @@
 import { extractErrorMessage } from "@bb/core-ui";
 
-export const DEFAULT_BB_REQUEST_TIMEOUT_MS = 75_000;
+export const DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS = 75_000;
 
 export type FetchImplementation = typeof fetch;
 

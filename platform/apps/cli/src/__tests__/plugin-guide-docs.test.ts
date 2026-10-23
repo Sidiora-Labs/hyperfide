@@ -19,22 +19,24 @@ function buildPluginCommand(): Command {
 }
 
 describe("plugins guide chapter", () => {
-  it("mentions every bb plugin subcommand", () => {
+  it("mentions every hyperfide-platform plugin subcommand", () => {
     const plugin = buildPluginCommand();
     const names = plugin.commands.map((command) => command.name());
     expect(names.length).toBeGreaterThan(0);
 
     const guide = renderTemplate("bbGuidePlugins", {});
     for (const name of names) {
-      const pattern = new RegExp(`bb plugin (?:[a-z-]+\\|)*${name}\\b`);
+      const pattern = new RegExp(
+        `hyperfide-platform plugin (?:[a-z-]+\\|)*${name}\\b`,
+      );
       expect(
         guide,
-        `"bb plugin ${name}" is not documented in bb-guide-plugins.md`,
+        `"hyperfide-platform plugin ${name}" is not documented in bb-guide-plugins.md`,
       ).toMatch(pattern);
     }
   });
 
-  it("mentions every declared bb plugin option flag", () => {
+  it("mentions every declared hyperfide-platform plugin option flag", () => {
     const plugin = buildPluginCommand();
     const guide = renderTemplate("bbGuidePlugins", {});
     let optionCount = 0;
@@ -47,14 +49,14 @@ describe("plugins guide chapter", () => {
         expect(forms.length).toBeGreaterThan(0);
         expect(
           forms.some((form) => guide.includes(form)),
-          `"bb plugin ${command.name()}" flag "${option.flags}" is not documented in bb-guide-plugins.md`,
+          `"hyperfide-platform plugin ${command.name()}" flag "${option.flags}" is not documented in bb-guide-plugins.md`,
         ).toBe(true);
       }
     }
     expect(optionCount).toBeGreaterThan(0);
   });
 
-  it("mentions every bb marketplace subcommand", () => {
+  it("mentions every hyperfide-platform marketplace subcommand", () => {
     const marketplace = buildGroupCommand("marketplace");
     const names = marketplace.commands.map((command) => command.name());
     expect(names.length).toBeGreaterThan(0);
@@ -63,8 +65,8 @@ describe("plugins guide chapter", () => {
     for (const name of names) {
       expect(
         guide,
-        `"bb marketplace ${name}" is not documented in bb-guide-plugins.md`,
-      ).toMatch(new RegExp(`bb marketplace ${name}\\b`));
+        `"hyperfide-platform marketplace ${name}" is not documented in bb-guide-plugins.md`,
+      ).toMatch(new RegExp(`hyperfide-platform marketplace ${name}\\b`));
     }
   });
 });

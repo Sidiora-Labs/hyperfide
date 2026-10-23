@@ -203,31 +203,31 @@ import {
 } from "./desktop-auto-update.js";
 import { mergeDesktopUpdateInfo } from "./desktop-update-info.js";
 import {
-  BB_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
-  BB_DESKTOP_GET_INFO_CHANNEL,
-  BB_DESKTOP_INFO_CHANGED_CHANNEL,
-  BB_DESKTOP_INSTALL_UPDATE_CHANNEL,
-  BB_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
-  BB_DESKTOP_SET_THEME_CHANNEL,
-  BB_DESKTOP_ZOOM_COMMAND_CHANNEL,
+  HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
+  HYPERFIDE_DESKTOP_GET_INFO_CHANNEL,
+  HYPERFIDE_DESKTOP_INFO_CHANGED_CHANNEL,
+  HYPERFIDE_DESKTOP_INSTALL_UPDATE_CHANNEL,
+  HYPERFIDE_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
+  HYPERFIDE_DESKTOP_SET_THEME_CHANNEL,
+  HYPERFIDE_DESKTOP_ZOOM_COMMAND_CHANNEL,
 } from "./desktop-update-ipc.js";
 import {
-  BB_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL,
-  BB_DESKTOP_APP_COMMAND_CHANNEL,
-  BB_DESKTOP_OPEN_WINDOW_FIND_CHANNEL,
-  BB_DESKTOP_RELOAD_WINDOW_CHANNEL,
-  BB_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
-  BB_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
-  BB_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
-  BB_DESKTOP_GET_WINDOW_STATE_CHANNEL,
-  BB_DESKTOP_OPEN_NEW_TAB_CHANNEL,
-  BB_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL,
-  BB_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
-  BB_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+  HYPERFIDE_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL,
+  HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
+  HYPERFIDE_DESKTOP_OPEN_WINDOW_FIND_CHANNEL,
+  HYPERFIDE_DESKTOP_RELOAD_WINDOW_CHANNEL,
+  HYPERFIDE_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
+  HYPERFIDE_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
+  HYPERFIDE_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
+  HYPERFIDE_DESKTOP_GET_WINDOW_STATE_CHANNEL,
+  HYPERFIDE_DESKTOP_OPEN_NEW_TAB_CHANNEL,
+  HYPERFIDE_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL,
+  HYPERFIDE_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
+  HYPERFIDE_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
   CLOSE_WINDOW_REQUEST_TIMEOUT_MS,
 } from "./desktop-window-command-ipc.js";
 import {
-  BB_BROWSER_PARTITION,
+  HYPERFIDE_BROWSER_PARTITION,
   createDesktopBrowserViewManager,
   type DesktopBrowserViewManager,
 } from "./desktop-browser-view.js";
@@ -254,12 +254,12 @@ import {
 } from "@bb/desktop-contract";
 import { nextZoomFactor } from "./desktop-zoom.js";
 import {
-  BB_DESKTOP_BROWSER_TARGET_CHANNEL,
-  BB_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
-  BB_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
-  BB_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
-  BB_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
-  BB_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_TARGET_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
 } from "./desktop-browser-ipc.js";
 import { parseDesktopSystemConfig } from "./desktop-system-config.js";
 import { ensurePackagedUserShellPath } from "./desktop-shell-path.js";
@@ -285,7 +285,7 @@ import {
 } from "./log-viewer-contract.js";
 import {
   ATTACH_PROBE_TIMEOUT_MS,
-  DEFAULT_BB_SERVER_URL,
+  DEFAULT_HYPERFIDE_SERVER_URL,
   PROCESS_LOG_LINE_LIMIT,
   STARTUP_POLL_INTERVAL_MS,
   STARTUP_TIMEOUT_MS,
@@ -440,7 +440,7 @@ let connectSessionRenewal: ConnectSessionRenewal | null = null;
 let serverTargetGeneration = 0;
 let connectAccountServers: ConnectAccountServer[] = [];
 let connectServerSyncSkipReason: ConnectServerSyncSkipReason | null = null;
-let builtinServerUrl: string = DEFAULT_BB_SERVER_URL;
+let builtinServerUrl: string = DEFAULT_HYPERFIDE_SERVER_URL;
 let desktopBridgePath: string | null = null;
 let desktopUserDataPath: string | null = null;
 let builtinDataDir: string | null = null;
@@ -453,9 +453,9 @@ let serverUrlDialogPreloadPath: string | null = null;
 let existingServerDialogPreloadPath: string | null = null;
 
 function resolveDesktopServerUrl(args: ResolveDesktopServerUrlArgs): string {
-  const rawPort = args.env.BB_SERVER_PORT?.trim();
+  const rawPort = args.env.HYPERFIDE_SERVER_PORT?.trim();
   if (rawPort === undefined || rawPort.length === 0) {
-    return DEFAULT_BB_SERVER_URL;
+    return DEFAULT_HYPERFIDE_SERVER_URL;
   }
 
   const port = Number(rawPort);
@@ -463,11 +463,11 @@ function resolveDesktopServerUrl(args: ResolveDesktopServerUrlArgs): string {
     return `http://127.0.0.1:${port}`;
   }
 
-  throw new Error("BB_SERVER_PORT must be a valid TCP port");
+  throw new Error("HYPERFIDE_SERVER_PORT must be a valid TCP port");
 }
 
 function resolveDesktopWindowUrl(args: ResolveDesktopWindowUrlArgs): string {
-  const rawAppUrl = args.env.BB_DESKTOP_APP_URL?.trim();
+  const rawAppUrl = args.env.HYPERFIDE_DESKTOP_APP_URL?.trim();
   if (rawAppUrl === undefined || rawAppUrl.length === 0) {
     return args.serverUrl;
   }
@@ -475,10 +475,10 @@ function resolveDesktopWindowUrl(args: ResolveDesktopWindowUrlArgs): string {
   try {
     parsedAppUrl = new URL(rawAppUrl);
   } catch {
-    throw new Error("BB_DESKTOP_APP_URL must be a valid URL");
+    throw new Error("HYPERFIDE_DESKTOP_APP_URL must be a valid URL");
   }
   if (parsedAppUrl.protocol !== "http:" && parsedAppUrl.protocol !== "https:") {
-    throw new Error("BB_DESKTOP_APP_URL must be an http(s) URL");
+    throw new Error("HYPERFIDE_DESKTOP_APP_URL must be an http(s) URL");
   }
   return rawAppUrl;
 }
@@ -499,7 +499,7 @@ function canReplaceAppImage(appImagePath: string): boolean {
 function resolveDesktopUpdateFeedUrl(
   args: ResolveDesktopUpdateFeedUrlArgs,
 ): string {
-  const rawFeedUrl = args.env.BB_DESKTOP_VERSION_FEED_URL?.trim();
+  const rawFeedUrl = args.env.HYPERFIDE_DESKTOP_VERSION_FEED_URL?.trim();
   if (rawFeedUrl === undefined || rawFeedUrl.length === 0) {
     return createDesktopUpdateFeedUrl(args.platform);
   }
@@ -509,16 +509,16 @@ function resolveDesktopUpdateFeedUrl(
 function readDesktopAboutFacts(applicationName: string): DesktopAboutFacts {
   return {
     applicationName,
-    buildDate: process.env.BB_DESKTOP_BUILD_DATE ?? "",
+    buildDate: process.env.HYPERFIDE_DESKTOP_BUILD_DATE ?? "",
     channel: DESKTOP_RELEASE_CHANNEL,
-    commit: process.env.BB_DESKTOP_COMMIT ?? "",
+    commit: process.env.HYPERFIDE_DESKTOP_COMMIT ?? "",
     electronVersion: process.versions.electron,
     osArch: arch(),
     osRelease: release(),
     osType: osType(),
     platform: process.platform,
-    pluginSdkVersion: process.env.BB_DESKTOP_PLUGIN_SDK_VERSION ?? "",
-    version: getDesktopVersion(process.env.BB_DESKTOP_VERSION),
+    pluginSdkVersion: process.env.HYPERFIDE_DESKTOP_PLUGIN_SDK_VERSION ?? "",
+    version: getDesktopVersion(process.env.HYPERFIDE_DESKTOP_VERSION),
   };
 }
 
@@ -622,11 +622,14 @@ function sendDesktopInfoChanged(): void {
     if (applicationWindowWebContentsIds.has(browserWindow.webContents.id)) {
       sendToApplicationRenderer(
         browserWindow,
-        BB_DESKTOP_INFO_CHANGED_CHANNEL,
+        HYPERFIDE_DESKTOP_INFO_CHANGED_CHANNEL,
         info,
       );
     } else {
-      browserWindow.webContents.send(BB_DESKTOP_INFO_CHANGED_CHANNEL, info);
+      browserWindow.webContents.send(
+        HYPERFIDE_DESKTOP_INFO_CHANGED_CHANNEL,
+        info,
+      );
     }
   }
 }
@@ -650,7 +653,7 @@ function sendDesktopWindowStateChanged(
 ): void {
   sendToApplicationRenderer(
     browserWindow as BrowserWindow,
-    BB_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+    HYPERFIDE_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
     getDesktopWindowState(browserWindow),
   );
 }
@@ -658,9 +661,9 @@ function sendDesktopWindowStateChanged(
 const desktopLogger = createDesktopLogger({ logDir: formatLogDirectory() });
 
 function resolveDataDirFromEnv(args: ResolveDataDirFromEnvArgs): string {
-  const rawDataDir = args.env.BB_DATA_DIR?.trim();
+  const rawDataDir = args.env.HYPERFIDE_DATA_DIR?.trim();
   if (rawDataDir === undefined || rawDataDir.length === 0) {
-    return join(args.homeDir, ".bb");
+    return join(args.homeDir, ".hyperfide");
   }
   if (rawDataDir === "~") {
     return args.homeDir;
@@ -717,7 +720,7 @@ function requestRendererWindowClose(browserWindow: BrowserWindow): void {
   );
   sendToApplicationRenderer(
     browserWindow,
-    BB_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
+    HYPERFIDE_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
     null,
   );
 }
@@ -824,7 +827,7 @@ function refreshApplicationMenu(): void {
     if (applicationWindowWebContentsIds.has(browserWindow.webContents.id)) {
       sendToApplicationRenderer(
         browserWindow,
-        BB_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL,
+        HYPERFIDE_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL,
         choices,
       );
     }
@@ -847,12 +850,12 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_OPEN_NEW_TAB_CHANNEL,
+          HYPERFIDE_DESKTOP_OPEN_NEW_TAB_CHANNEL,
           null,
         );
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
           "panel.newTab",
         );
       }
@@ -862,7 +865,7 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
           "thread.new",
         );
       }
@@ -872,7 +875,7 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
           "panel.reopenClosedTab",
         );
       }
@@ -882,7 +885,7 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
           "settings.open",
         );
       }
@@ -1188,7 +1191,7 @@ async function authenticateConnectTarget(
 ): Promise<ConnectDesktopSessionResult> {
   const cookieStores = [
     session.defaultSession.cookies,
-    session.fromPartition(BB_BROWSER_PARTITION).cookies,
+    session.fromPartition(HYPERFIDE_BROWSER_PARTITION).cookies,
   ] as const;
   let cachedFailure: ConnectDesktopSessionResult | null = null;
   if (cachedConnectCredential !== null) {
@@ -2261,7 +2264,7 @@ async function loadBbApp(serverUrl: string): Promise<void> {
 }
 
 function shouldOpenDevTools(): boolean {
-  return process.env.BB_DESKTOP_OPEN_DEVTOOLS === "1";
+  return process.env.HYPERFIDE_DESKTOP_OPEN_DEVTOOLS === "1";
 }
 
 async function createApplicationWindow(
@@ -2381,34 +2384,43 @@ function registerDesktopUpdateIpc(): void {
   });
   registerDesktopWindowFocusIpc(applicationWindowWebContentsIds);
   registerDesktopClipboardIpc(applicationWindowWebContentsIds);
-  ipcMain.on(BB_DESKTOP_ZOOM_COMMAND_CHANNEL, (event, payload: unknown) => {
-    const parsed = bbDesktopZoomCommandSchema.safeParse(payload);
-    if (parsed.success) {
-      zoomWebContents(
-        resolveApplicationWindow(event.sender)?.webContents,
-        parsed.data,
-      );
-    }
-  });
-  ipcMain.handle(BB_DESKTOP_GET_INFO_CHANNEL, () => {
+  ipcMain.on(
+    HYPERFIDE_DESKTOP_ZOOM_COMMAND_CHANNEL,
+    (event, payload: unknown) => {
+      const parsed = bbDesktopZoomCommandSchema.safeParse(payload);
+      if (parsed.success) {
+        zoomWebContents(
+          resolveApplicationWindow(event.sender)?.webContents,
+          parsed.data,
+        );
+      }
+    },
+  );
+  ipcMain.handle(HYPERFIDE_DESKTOP_GET_INFO_CHANNEL, () => {
     return getCurrentDesktopInfo();
   });
-  ipcMain.handle(BB_DESKTOP_GET_WINDOW_STATE_CHANNEL, (event) => {
+  ipcMain.handle(HYPERFIDE_DESKTOP_GET_WINDOW_STATE_CHANNEL, (event) => {
     return getSenderDesktopWindowState(event);
   });
-  ipcMain.handle(BB_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL, async () => {
-    await openLocalLogs();
-  });
-  ipcMain.handle(BB_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL, async () => {
+  ipcMain.handle(
+    HYPERFIDE_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
+    async () => {
+      await openLocalLogs();
+    },
+  );
+  ipcMain.handle(HYPERFIDE_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL, async () => {
     await openDataDirectory();
   });
-  ipcMain.handle(BB_DESKTOP_CHECK_FOR_UPDATES_CHANNEL, async () => {
+  ipcMain.handle(HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL, async () => {
     await checkDesktopUpdates();
     return getCurrentDesktopInfo();
   });
-  ipcMain.handle(BB_DESKTOP_INSTALL_UPDATE_CHANNEL, installDesktopUpdate);
+  ipcMain.handle(
+    HYPERFIDE_DESKTOP_INSTALL_UPDATE_CHANNEL,
+    installDesktopUpdate,
+  );
   ipcMain.on(
-    BB_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
+    HYPERFIDE_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
     (event, enabled: unknown, directionalCommands: unknown) => {
       if (
         !applicationWindowWebContentsIds.has(event.sender.id) ||
@@ -2435,13 +2447,16 @@ function registerDesktopUpdateIpc(): void {
       }
     },
   );
-  ipcMain.on(BB_DESKTOP_SET_THEME_CHANNEL, (_event, payload: unknown) => {
-    const parsed = bbDesktopThemeSchema.safeParse(payload);
-    if (!parsed.success) {
-      return;
-    }
-    nativeTheme.themeSource = parsed.data;
-  });
+  ipcMain.on(
+    HYPERFIDE_DESKTOP_SET_THEME_CHANNEL,
+    (_event, payload: unknown) => {
+      const parsed = bbDesktopThemeSchema.safeParse(payload);
+      if (!parsed.success) {
+        return;
+      }
+      nativeTheme.themeSource = parsed.data;
+    },
+  );
   ipcMain.on(STARTUP_ACTION_CHANNEL, (event, ...payload: unknown[]) => {
     const action = startupActionIdSchema.safeParse(payload[0]);
     const page = startupErrorPage;
@@ -2459,18 +2474,21 @@ function registerDesktopUpdateIpc(): void {
     void runStartupAction(action.data, resolveApplicationWindow(event.sender));
   });
 
-  ipcMain.on(BB_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL, (event, payload) => {
-    const pending = pendingCloseWindowRequests.get(event.sender.id);
-    if (pending !== undefined) {
-      clearTimeout(pending);
-      pendingCloseWindowRequests.delete(event.sender.id);
-    }
-    if (payload === false) {
-      resolveApplicationWindow(event.sender)?.close();
-    }
-  });
   ipcMain.on(
-    BB_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
+    HYPERFIDE_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
+    (event, payload) => {
+      const pending = pendingCloseWindowRequests.get(event.sender.id);
+      if (pending !== undefined) {
+        clearTimeout(pending);
+        pendingCloseWindowRequests.delete(event.sender.id);
+      }
+      if (payload === false) {
+        resolveApplicationWindow(event.sender)?.close();
+      }
+    },
+  );
+  ipcMain.on(
+    HYPERFIDE_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
     (_event, payload: unknown) => {
       const url = resolveDesktopExternalUrl(payload);
       if (url !== null) {
@@ -2658,10 +2676,10 @@ function shouldAskBeforeAttaching(): boolean {
   if (!app.isPackaged || existingServerDialogPreloadPath === null) {
     return false;
   }
-  if (process.env.BB_DESKTOP_ATTACH_WITHOUT_PROMPT === "1") {
+  if (process.env.HYPERFIDE_DESKTOP_ATTACH_WITHOUT_PROMPT === "1") {
     return false;
   }
-  return (process.env.BB_DESKTOP_APP_URL ?? "").trim().length === 0;
+  return (process.env.HYPERFIDE_DESKTOP_APP_URL ?? "").trim().length === 0;
 }
 
 async function waitForServerToStop(serverUrl: string): Promise<boolean> {
@@ -2905,7 +2923,7 @@ async function runDesktopApp(): Promise<void> {
 
   const paths = createDesktopPathContext();
   const devIcon =
-    !paths.isPackaged || process.env.BB_DESKTOP_DEV_ICON === "1";
+    !paths.isPackaged || process.env.HYPERFIDE_DESKTOP_DEV_ICON === "1";
   const iconPath = resolveDesktopIconPath({
     devIcon,
     packagedIconFileName: DESKTOP_RELEASE_INFO.iconFileName,
@@ -2941,7 +2959,9 @@ async function runDesktopApp(): Promise<void> {
   const serverUrl = resolveDesktopServerUrl({ env: process.env });
   builtinServerUrl = serverUrl;
   desktopBridgePath = bridgePath;
-  const desktopVersion = getDesktopVersion(process.env.BB_DESKTOP_VERSION);
+  const desktopVersion = getDesktopVersion(
+    process.env.HYPERFIDE_DESKTOP_VERSION,
+  );
   const desktopPlatform = resolveBbDesktopPlatform(process.platform);
   const desktopUpdateFeedUrl = resolveDesktopUpdateFeedUrl({
     env: process.env,
@@ -3067,7 +3087,7 @@ async function runDesktopApp(): Promise<void> {
     currentVersion: desktopVersion,
     enabled:
       desktopUpdateSupport.versionCheck &&
-      (app.isPackaged || process.env.BB_DESKTOP_VERSION_CHECK === "1"),
+      (app.isPackaged || process.env.HYPERFIDE_DESKTOP_VERSION_CHECK === "1"),
     feedUrl: desktopUpdateFeedUrl,
     logger: desktopLogger,
     platform: desktopPlatform,
@@ -3081,7 +3101,7 @@ async function runDesktopApp(): Promise<void> {
         isPackaged: app.isPackaged,
       }),
     forceDevUpdateConfig:
-      !app.isPackaged && process.env.BB_DESKTOP_AUTO_UPDATE === "1",
+      !app.isPackaged && process.env.HYPERFIDE_DESKTOP_AUTO_UPDATE === "1",
     logger: desktopLogger,
     platform: desktopPlatform,
     updater: createElectronAutoUpdaterAdapter(
@@ -3107,21 +3127,24 @@ async function runDesktopApp(): Promise<void> {
   desktopFindViewManager = createDesktopFindViewManager({
     preloadPath: findBarPreloadPath,
   });
-  ipcMain.on(BB_DESKTOP_OPEN_WINDOW_FIND_CHANNEL, (event, payload: unknown) => {
-    if (
-      !applicationWindowWebContentsIds.has(event.sender.id) ||
-      event.senderFrame !== event.sender.mainFrame
-    ) {
-      return;
-    }
-    const parsed = bbDesktopWindowFindRequestSchema.safeParse(payload);
-    const browserWindow = resolveApplicationWindow(event.sender);
-    if (!parsed.success || browserWindow === null) {
-      return;
-    }
-    desktopFindViewManager?.open(browserWindow, parsed.data);
-  });
-  ipcMain.on(BB_DESKTOP_RELOAD_WINDOW_CHANNEL, (event) => {
+  ipcMain.on(
+    HYPERFIDE_DESKTOP_OPEN_WINDOW_FIND_CHANNEL,
+    (event, payload: unknown) => {
+      if (
+        !applicationWindowWebContentsIds.has(event.sender.id) ||
+        event.senderFrame !== event.sender.mainFrame
+      ) {
+        return;
+      }
+      const parsed = bbDesktopWindowFindRequestSchema.safeParse(payload);
+      const browserWindow = resolveApplicationWindow(event.sender);
+      if (!parsed.success || browserWindow === null) {
+        return;
+      }
+      desktopFindViewManager?.open(browserWindow, parsed.data);
+    },
+  );
+  ipcMain.on(HYPERFIDE_DESKTOP_RELOAD_WINDOW_CHANNEL, (event) => {
     if (
       !applicationWindowWebContentsIds.has(event.sender.id) ||
       event.senderFrame !== event.sender.mainFrame
@@ -3145,7 +3168,7 @@ async function runDesktopApp(): Promise<void> {
       }
       sendToApplicationRenderer(
         browserWindow,
-        BB_DESKTOP_APP_COMMAND_CHANNEL,
+        HYPERFIDE_DESKTOP_APP_COMMAND_CHANNEL,
         command,
       );
     },
@@ -3190,14 +3213,14 @@ async function runDesktopApp(): Promise<void> {
     browserImport: browserImportService,
   });
   ipcMain.handle(
-    BB_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
+    HYPERFIDE_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
     async (event) => {
       if (!applicationWindowWebContentsIds.has(event.sender.id)) return null;
       return { sources: await browserImportService.listSources() };
     },
   );
   ipcMain.handle(
-    BB_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
+    HYPERFIDE_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
     async (event, payload: unknown) => {
       const parsed =
         bbDesktopBrowserImportCookiesRequestSchema.safeParse(payload);
@@ -3218,7 +3241,7 @@ async function runDesktopApp(): Promise<void> {
     },
   );
   ipcMain.on(
-    BB_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
+    HYPERFIDE_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
     (event) => {
       if (
         !applicationWindowWebContentsIds.has(event.sender.id) ||
@@ -3230,13 +3253,13 @@ async function runDesktopApp(): Promise<void> {
       );
     },
   );
-  ipcMain.handle(BB_DESKTOP_BROWSER_TARGET_CHANNEL, (event) => {
+  ipcMain.handle(HYPERFIDE_DESKTOP_BROWSER_TARGET_CHANNEL, (event) => {
     return applicationWindowWebContentsIds.has(event.sender.id)
       ? (desktopBrowserBroker?.getTarget(event.sender.id) ?? null)
       : null;
   });
   ipcMain.handle(
-    BB_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
+    HYPERFIDE_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
     (event, payload: unknown) => {
       const parsed = bbDesktopBrowserTabRefSchema.safeParse(payload);
       return parsed.success &&
@@ -3249,7 +3272,7 @@ async function runDesktopApp(): Promise<void> {
     },
   );
   ipcMain.on(
-    BB_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
+    HYPERFIDE_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
     (event, payload: unknown) => {
       const parsed = bbDesktopBrowserTabRefSchema.safeParse(payload);
       if (

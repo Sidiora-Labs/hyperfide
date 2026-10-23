@@ -28,13 +28,13 @@ it("passes the exact bootstrap and arguments to the installer without shell expa
     "the enrollment command is a POSIX sh pipeline",
   );
   const script = enrolledInstallerScript(
-    'printf "%s\\n%s\\n%s" "$1" "$2" "$BB_ENROLLMENT"',
+    'printf "%s\\n%s\\n%s" "$1" "$2" "$HYPERFIDE_ENROLLMENT"',
     bootstrap,
   );
   const result = spawnSync("sh", ["-c", script], { encoding: "utf8" });
   expect(result.status).toBe(0);
   expect(result.stdout).toBe(
-    `--bootstrap-env\nBB_ENROLLMENT\n${JSON.stringify(bootstrap)}`,
+    `--bootstrap-env\nHYPERFIDE_ENROLLMENT\n${JSON.stringify(bootstrap)}`,
   );
 });
 
@@ -63,12 +63,12 @@ it("wraps the Windows installer and its bootstrap in literal PowerShell strings"
   expect(lines[start + 1]).toBe("console.log('$env:USERNAME `n');");
   expect(lines[start + 2]).toBe("'@, (New-Object Text.UTF8Encoding $false))");
   expect(lines[start + 3]).toBe(
-    `$env:BB_ENROLLMENT = '${JSON.stringify(bootstrap).replaceAll("'", "''")}'`,
+    `$env:HYPERFIDE_ENROLLMENT = '${JSON.stringify(bootstrap).replaceAll("'", "''")}'`,
   );
   expect(script).toContain(
-    "& $bbNode.Source $bbInstaller --bootstrap-env BB_ENROLLMENT",
+    "& $bbNode.Source $bbInstaller --bootstrap-env HYPERFIDE_ENROLLMENT",
   );
-  expect(script).toContain("Remove-Item Env:BB_ENROLLMENT");
+  expect(script).toContain("Remove-Item Env:HYPERFIDE_ENROLLMENT");
 });
 
 it("refuses a Windows installer that would end the PowerShell here-string early", () => {

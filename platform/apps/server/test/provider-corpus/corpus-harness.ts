@@ -34,11 +34,11 @@ import {
   shortenTimelineResponseOutputs,
 } from "../../src/services/threads/timeline-output-shortening.js";
 
-export const SNAPSHOT_MODE_ENV = "BB_PROVIDER_CORPUS_SNAPSHOT";
+export const SNAPSHOT_MODE_ENV = "HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT";
 
-export const SNAPSHOT_ROWS_DIR_ENV = "BB_PROVIDER_CORPUS_SNAPSHOT_DIR";
+export const SNAPSHOT_ROWS_DIR_ENV = "HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT_DIR";
 
-export const ALLOWLIST_FILE_ENV = "BB_PROVIDER_CORPUS_ALLOWLIST";
+export const ALLOWLIST_FILE_ENV = "HYPERFIDE_PROVIDER_CORPUS_ALLOWLIST";
 
 export function resolveSnapshotRowsDir(
   snapshotsDir: string,

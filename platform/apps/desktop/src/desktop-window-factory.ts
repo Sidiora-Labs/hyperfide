@@ -24,7 +24,7 @@ import {
   MACOS_TRAFFIC_LIGHT_SIZE_PX,
   MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
 } from "@bb/desktop-contract";
-import { BB_DESKTOP_ZOOM_CHANGED_CHANNEL } from "./desktop-update-ipc.js";
+import { HYPERFIDE_DESKTOP_ZOOM_CHANGED_CHANNEL } from "./desktop-update-ipc.js";
 
 type DesktopWindowIcon = BrowserWindowConstructorOptions["icon"];
 
@@ -337,12 +337,14 @@ export function createDesktopWindowFactory(
         );
       }
       if (args.isMac) {
-        browserWindow.webContents.ipc.on(BB_DESKTOP_ZOOM_CHANGED_CHANNEL, () =>
-          browserWindow.setWindowButtonPosition(
-            getMacosTrafficLightPosition(
-              browserWindow.webContents.getZoomFactor(),
+        browserWindow.webContents.ipc.on(
+          HYPERFIDE_DESKTOP_ZOOM_CHANGED_CHANNEL,
+          () =>
+            browserWindow.setWindowButtonPosition(
+              getMacosTrafficLightPosition(
+                browserWindow.webContents.getZoomFactor(),
+              ),
             ),
-          ),
         );
       }
       browserWindow.webContents.session.setSpellCheckerEnabled(true);

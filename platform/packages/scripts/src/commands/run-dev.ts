@@ -101,16 +101,16 @@ export function toDevLaunchProcessEnv(args: {
     baseEnv: args.baseEnv,
     config: args.config,
   });
-  env.BB_SKIP_ONBOARDING ??= "1";
+  env.HYPERFIDE_SKIP_ONBOARDING ??= "1";
   if (args.cloud === "staging") {
-    env.BB_DEV_CONNECT_BASE_URL = STAGING_CLOUD_URL;
+    env.HYPERFIDE_DEV_CONNECT_BASE_URL = STAGING_CLOUD_URL;
   }
   if (args.mode === "vite") {
     return env;
   }
 
-  delete env.BB_DEV_APP_PORT;
-  env.BB_TELEMETRY = "false";
+  delete env.HYPERFIDE_DEV_APP_PORT;
+  env.HYPERFIDE_TELEMETRY = "false";
   env.NODE_ENV = "production";
   return env;
 }
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
     });
     if (migration.skippedReason === "legacy-dev-process-running") {
       throw new Error(
-        "[dev] Legacy ~/.bb-dev data was found, but an old dev server or host-daemon is still running. Stop the old dev process and rerun pnpm dev to migrate it.",
+        "[dev] Legacy ~/.hyperfide-dev data was found, but an old dev server or host-daemon is still running. Stop the old dev process and rerun pnpm dev to migrate it.",
       );
     }
     await assertPortsAvailable(config, mode);

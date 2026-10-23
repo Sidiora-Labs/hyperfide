@@ -20,7 +20,7 @@ import type {
   BbDesktopBrowserViewBounds,
 } from "@bb/desktop-contract";
 import {
-  BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
+  HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
   clampBbDesktopBrowserViewBounds,
 } from "@bb/desktop-contract";
 import {
@@ -890,7 +890,10 @@ export function BrowserTabContent({
 
   const handleFindQueryChange = useCallback(
     (rawQuery: string) => {
-      const query = rawQuery.slice(0, BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH);
+      const query = rawQuery.slice(
+        0,
+        HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH,
+      );
       setFindQuery(query);
       if (query.length === 0) {
         clearFind();

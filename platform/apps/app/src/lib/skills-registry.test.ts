@@ -34,7 +34,7 @@ function installedSkill(overrides: Partial<SkillSummary> = {}): SkillSummary {
     provider: null,
     scope: "bb-user",
     pluginId: null,
-    filePath: "/home/u/.bb/skills/useful-skill/SKILL.md",
+    filePath: "/home/u/.hyperfide/skills/useful-skill/SKILL.md",
     manageable: true,
     registrySkillId: registrySkill.id,
     ...overrides,

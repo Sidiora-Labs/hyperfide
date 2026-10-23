@@ -159,7 +159,7 @@ const PUBLIC_PLUGIN_SDK_EXPORT_NAMES = [
   ).filter((name) => !name.startsWith("InternalDoNotUse")),
 );
 
-const BB_PLUGIN_API_KEYS = [
+const HYPERFIDE_PLUGIN_API_KEYS = [
   "pluginId",
   "log",
   "settings",
@@ -188,7 +188,7 @@ const BB_PLUGIN_API_KEYS = [
 
 type MissingApiKey = Exclude<
   keyof BbPluginApi,
-  (typeof BB_PLUGIN_API_KEYS)[number]
+  (typeof HYPERFIDE_PLUGIN_API_KEYS)[number]
 >;
 const _assertAllApiKeysListed: MissingApiKey extends never ? true : never =
   true;
@@ -657,7 +657,7 @@ describe("bb-plugin-authoring skill", () => {
   });
 
   it("documents every BbPluginApi property", () => {
-    for (const key of BB_PLUGIN_API_KEYS) {
+    for (const key of HYPERFIDE_PLUGIN_API_KEYS) {
       expect(skill, `bb.${key} is not documented in the skill`).toContain(
         `bb.${key}`,
       );

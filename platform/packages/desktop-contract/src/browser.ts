@@ -6,8 +6,8 @@ import {
   type DesktopBrowserImportSource,
 } from "@bb/host-daemon-contract";
 
-export const BB_DESKTOP_BROWSER_MAX_URL_LENGTH = 4096;
-export const BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH = 1024;
+export const HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH = 4096;
+export const HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH = 1024;
 
 export const bbDesktopBrowserTargetSchema = z
   .object({
@@ -121,7 +121,7 @@ export const bbDesktopBrowserAttachRequestSchema = z
   .object({
     tabId: z.string().min(1),
     threadId: z.string().min(1),
-    url: z.string().max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
     existingOnly: z.literal(true).optional(),
     bounds: bbDesktopBrowserViewBoundsSchema,
     visible: z.boolean(),
@@ -134,7 +134,7 @@ export type BbDesktopBrowserAttachRequest = z.infer<
 export const bbDesktopBrowserNavigateRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    url: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
 export type BbDesktopBrowserNavigateRequest = z.infer<
@@ -183,28 +183,34 @@ export type BbDesktopBrowserSetThreadDiscardedRequest = z.infer<
 export const bbDesktopBrowserStateSchema = z
   .object({
     tabId: z.string().min(1),
-    url: z.string().max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
-    title: z.string().max(BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH).nullable(),
+    url: z.string().max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    title: z
+      .string()
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH)
+      .nullable(),
     faviconUrl: z
       .string()
-      .max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH)
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH)
       .nullable()
       .optional(),
     faviconUrls: z
-      .array(z.string().max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH))
+      .array(z.string().max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH))
       .max(8)
       .optional(),
     isLoading: z.boolean(),
     canGoBack: z.boolean(),
     canGoForward: z.boolean(),
-    errorText: z.string().max(BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH).nullable(),
+    errorText: z
+      .string()
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH)
+      .nullable(),
   })
   .strict();
 export type BbDesktopBrowserState = z.infer<typeof bbDesktopBrowserStateSchema>;
 
 export const bbDesktopBrowserOpenTabRequestSchema = z
   .object({
-    url: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
 export type BbDesktopBrowserOpenTabRequest = z.infer<
@@ -214,21 +220,21 @@ export type BbDesktopBrowserOpenTabRequest = z.infer<
 export const bbDesktopBrowserScopedOpenTabRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    url: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
 export type BbDesktopBrowserScopedOpenTabRequest = z.infer<
   typeof bbDesktopBrowserScopedOpenTabRequestSchema
 >;
 
-const BB_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH = 8_388_608;
+const HYPERFIDE_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH = 8_388_608;
 
 export const bbDesktopBrowserSnapshotSchema = z
   .object({
     tabId: z.string().min(1),
     dataUrl: z
       .string()
-      .max(BB_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH)
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH)
       .nullable(),
   })
   .strict();
@@ -236,12 +242,12 @@ export type BbDesktopBrowserSnapshot = z.infer<
   typeof bbDesktopBrowserSnapshotSchema
 >;
 
-export const BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH = 1024;
+export const HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH = 1024;
 
 export const bbDesktopBrowserFindInPageRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    text: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH),
+    text: z.string().min(1).max(HYPERFIDE_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH),
     forward: z.boolean(),
     newSession: z.boolean(),
   })
@@ -273,8 +279,8 @@ export type BbDesktopBrowserFindResult = z.infer<
   typeof bbDesktopBrowserFindResultSchema
 >;
 
-export const BB_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH = 4_000_000;
-export const BB_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH = 256;
+export const HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH = 4_000_000;
+export const HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH = 256;
 
 export const bbDesktopBrowserPageWorldSchema = z.enum(["main", "isolated"]);
 
@@ -284,9 +290,12 @@ export const bbDesktopBrowserEvaluateRequestSchema = z
     expression: z
       .string()
       .min(1)
-      .max(BB_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH),
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH),
     world: bbDesktopBrowserPageWorldSchema,
-    channel: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
+    channel: z
+      .string()
+      .min(1)
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
   })
   .strict();
 export type BbDesktopBrowserEvaluateRequest = z.infer<
@@ -304,7 +313,10 @@ export type BbDesktopBrowserEvaluateResult = z.infer<
 export const bbDesktopBrowserPageMessageSchema = z
   .object({
     tabId: z.string().min(1),
-    channel: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
+    channel: z
+      .string()
+      .min(1)
+      .max(HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
     data: jsonValueSchema,
   })
   .strict();

@@ -4,25 +4,25 @@ import {
   type EnvLoaderArgs,
 } from "./env.js";
 import {
-  BB_SERVER_HEADERS_ENV,
-  BB_BRIDGE_DIR_ENV,
-  BB_CLI_DIR_ENV,
-  BB_CONNECT_MACHINE_CREDENTIAL_ENV,
-  BB_HOST_ENROLL_KEY_ENV,
-  BB_HOST_DAEMON_AUTO_UPDATE_ENV,
-  BB_HOST_DAEMON_SUPERVISED_ENV,
-  BB_HOST_ID_ENV,
+  HYPERFIDE_SERVER_HEADERS_ENV,
+  HYPERFIDE_BRIDGE_DIR_ENV,
+  HYPERFIDE_CLI_DIR_ENV,
+  HYPERFIDE_CONNECT_MACHINE_CREDENTIAL_ENV,
+  HYPERFIDE_HOST_ENROLL_KEY_ENV,
+  HYPERFIDE_HOST_DAEMON_AUTO_UPDATE_ENV,
+  HYPERFIDE_HOST_DAEMON_SUPERVISED_ENV,
+  HYPERFIDE_HOST_ID_ENV,
 } from "./env-vars.js";
 import { assignIfDefined } from "./objects.js";
 
 export interface HostDaemonEntrypointConfig {
-  BB_BRIDGE_DIR?: string;
-  BB_CLI_DIR?: string;
-  BB_SERVER_HEADERS?: Record<string, string>;
-  BB_HOST_ENROLL_KEY?: string;
-  BB_HOST_DAEMON_AUTO_UPDATE?: boolean;
-  BB_HOST_DAEMON_SUPERVISED?: boolean;
-  BB_HOST_ID?: string;
+  HYPERFIDE_BRIDGE_DIR?: string;
+  HYPERFIDE_CLI_DIR?: string;
+  HYPERFIDE_SERVER_HEADERS?: Record<string, string>;
+  HYPERFIDE_HOST_ENROLL_KEY?: string;
+  HYPERFIDE_HOST_DAEMON_AUTO_UPDATE?: boolean;
+  HYPERFIDE_HOST_DAEMON_SUPERVISED?: boolean;
+  HYPERFIDE_HOST_ID?: string;
 }
 
 type LoadHostDaemonEntrypointConfigArgs = EnvLoaderArgs;
@@ -34,38 +34,38 @@ export function loadHostDaemonEntrypointConfig(
   const config: HostDaemonEntrypointConfig = {};
   const bridgeDir = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_BRIDGE_DIR_ENV,
+    definition: HYPERFIDE_BRIDGE_DIR_ENV,
     env: loader.env,
   });
   const cliDir = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_CLI_DIR_ENV,
+    definition: HYPERFIDE_CLI_DIR_ENV,
     env: loader.env,
   });
   const enrollKey = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_HOST_ENROLL_KEY_ENV,
+    definition: HYPERFIDE_HOST_ENROLL_KEY_ENV,
     env: loader.env,
   });
   const autoUpdate = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_HOST_DAEMON_AUTO_UPDATE_ENV,
+    definition: HYPERFIDE_HOST_DAEMON_AUTO_UPDATE_ENV,
     env: loader.env,
   });
   const supervised = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_HOST_DAEMON_SUPERVISED_ENV,
+    definition: HYPERFIDE_HOST_DAEMON_SUPERVISED_ENV,
     env: loader.env,
   });
   const machineCredential = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_CONNECT_MACHINE_CREDENTIAL_ENV,
+    definition: HYPERFIDE_CONNECT_MACHINE_CREDENTIAL_ENV,
     env: loader.env,
   });
   const serverHeaders =
     readOptionalEnvVar({
       context: loader.context,
-      definition: BB_SERVER_HEADERS_ENV,
+      definition: HYPERFIDE_SERVER_HEADERS_ENV,
       env: loader.env,
     }) ??
     (machineCredential === undefined
@@ -73,42 +73,42 @@ export function loadHostDaemonEntrypointConfig(
       : { "x-bb-connect-machine": machineCredential });
   const hostId = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_HOST_ID_ENV,
+    definition: HYPERFIDE_HOST_ID_ENV,
     env: loader.env,
   });
 
   assignIfDefined({
-    key: "BB_BRIDGE_DIR",
+    key: "HYPERFIDE_BRIDGE_DIR",
     target: config,
     value: bridgeDir,
   });
   assignIfDefined({
-    key: "BB_CLI_DIR",
+    key: "HYPERFIDE_CLI_DIR",
     target: config,
     value: cliDir,
   });
   assignIfDefined({
-    key: "BB_SERVER_HEADERS",
+    key: "HYPERFIDE_SERVER_HEADERS",
     target: config,
     value: serverHeaders,
   });
   assignIfDefined({
-    key: "BB_HOST_DAEMON_AUTO_UPDATE",
+    key: "HYPERFIDE_HOST_DAEMON_AUTO_UPDATE",
     target: config,
     value: autoUpdate,
   });
   assignIfDefined({
-    key: "BB_HOST_DAEMON_SUPERVISED",
+    key: "HYPERFIDE_HOST_DAEMON_SUPERVISED",
     target: config,
     value: supervised,
   });
   assignIfDefined({
-    key: "BB_HOST_ENROLL_KEY",
+    key: "HYPERFIDE_HOST_ENROLL_KEY",
     target: config,
     value: enrollKey,
   });
   assignIfDefined({
-    key: "BB_HOST_ID",
+    key: "HYPERFIDE_HOST_ID",
     target: config,
     value: hostId,
   });

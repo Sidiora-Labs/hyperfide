@@ -20,12 +20,12 @@ function resolveBrowserHostDevWebSocketBaseUrl(
 
 function resolveDevWebSocketBaseUrl(): string | undefined {
   if (
-    typeof __BB_DEV_WS_BROWSER_HOST_PORT__ === "number" &&
-    typeof __BB_DEV_APP_BROWSER_HOST_PORT__ === "number"
+    typeof __HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__ === "number" &&
+    typeof __HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__ === "number"
   ) {
     return resolveBrowserHostDevWebSocketBaseUrl(
-      __BB_DEV_WS_BROWSER_HOST_PORT__,
-      __BB_DEV_APP_BROWSER_HOST_PORT__,
+      __HYPERFIDE_DEV_WS_BROWSER_HOST_PORT__,
+      __HYPERFIDE_DEV_APP_BROWSER_HOST_PORT__,
     );
   }
 

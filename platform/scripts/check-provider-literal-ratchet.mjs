@@ -29,7 +29,7 @@
  *   node scripts/check-provider-literal-ratchet.mjs --write         # regenerate baseline (refuses to raise the total)
  *   node scripts/check-provider-literal-ratchet.mjs --list          # print every occurrence
  *
- * `BB_RATCHET_ROOT=<dir>` points the CLI at another tree (its baseline at
+ * `HYPERFIDE_RATCHET_ROOT=<dir>` points the CLI at another tree (its baseline at
  * `<dir>/scripts/provider-literal-baseline.json`, its git history for
  * `--base`); the fixture tests drive the refusal paths through it.
  *
@@ -236,7 +236,7 @@ function baselineFromGit(root, ref) {
 // --- CLI ---------------------------------------------------------------------
 function main() {
   const ROOT =
-    process.env.BB_RATCHET_ROOT ??
+    process.env.HYPERFIDE_RATCHET_ROOT ??
     fileURLToPath(new URL("..", import.meta.url));
   const BASELINE_PATH = join(ROOT, "scripts", "provider-literal-baseline.json");
   const argv = process.argv.slice(2);
@@ -270,13 +270,13 @@ function main() {
     if (
       committed &&
       scan.total > committed.total &&
-      process.env.BB_RATCHET_ALLOW_INCREASE !== "1"
+      process.env.HYPERFIDE_RATCHET_ALLOW_INCREASE !== "1"
     ) {
       console.error(
         `Refusing to raise the baseline (${committed.total} → ${scan.total}). The ratchet only goes down.`,
       );
       console.error(
-        "If a new core provider-id reference is genuinely unavoidable this layer, set BB_RATCHET_ALLOW_INCREASE=1 AND open a follow-up task to remove it.",
+        "If a new core provider-id reference is genuinely unavoidable this layer, set HYPERFIDE_RATCHET_ALLOW_INCREASE=1 AND open a follow-up task to remove it.",
       );
       return 1;
     }

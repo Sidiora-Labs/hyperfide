@@ -134,7 +134,8 @@ export async function bumpPluginSdk(options) {
 }
 
 async function main() {
-  const repoRoot = process.env.BB_BUMP_PLUGIN_SDK_REPO_ROOT ?? defaultRepoRoot;
+  const repoRoot =
+    process.env.HYPERFIDE_BUMP_PLUGIN_SDK_REPO_ROOT ?? defaultRepoRoot;
 
   await bumpPluginSdk({
     args: process.argv.slice(2),

@@ -1,12 +1,12 @@
 import { bbDesktopClipboardContentSchema } from "@bb/desktop-contract";
 import { clipboard, ClipboardItem, ipcMain } from "electron";
-import { BB_DESKTOP_WRITE_CLIPBOARD_CHANNEL } from "./desktop-window-command-ipc.js";
+import { HYPERFIDE_DESKTOP_WRITE_CLIPBOARD_CHANNEL } from "./desktop-window-command-ipc.js";
 
 export function registerDesktopClipboardIpc(
   applicationWindowWebContentsIds: ReadonlySet<number>,
 ): void {
   ipcMain.handle(
-    BB_DESKTOP_WRITE_CLIPBOARD_CHANNEL,
+    HYPERFIDE_DESKTOP_WRITE_CLIPBOARD_CHANNEL,
     async (event, payload: unknown) => {
       if (!applicationWindowWebContentsIds.has(event.sender.id)) {
         throw new Error("Clipboard writes are limited to bb windows");

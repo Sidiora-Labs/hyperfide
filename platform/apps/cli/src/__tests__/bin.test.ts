@@ -42,10 +42,10 @@ describe("bb bin wrapper", () => {
       JSON.stringify({ name: "bb", private: true }),
     );
     await copyFile(
-      join(repoRoot, "apps", "cli", "bin", "bb"),
-      join(fakeBinDir, "bb"),
+      join(repoRoot, "apps", "cli", "bin", "hyperfide-platform"),
+      join(fakeBinDir, "hyperfide-platform"),
     );
-    await chmod(join(fakeBinDir, "bb"), 0o755);
+    await chmod(join(fakeBinDir, "hyperfide-platform"), 0o755);
     return fakeRepoRoot;
   }
 
@@ -61,7 +61,7 @@ describe("bb bin wrapper", () => {
   it("builds the source CLI before executing when dist is missing", async ({
     skip,
   }) => {
-    skip(process.platform === "win32", "bin/bb is a POSIX sh wrapper");
+    skip(process.platform === "win32", "test fixtures require POSIX shell");
     const fakeRepoRoot = await createFakeRepo();
     const pnpmArgsPath = join(tempRoot, "pnpm-args.txt");
     const fakePnpmDir = await writeFakePnpm(`#!/bin/sh
@@ -82,7 +82,7 @@ NODE
 `);
 
     const result = await execFileAsync(
-      join(fakeRepoRoot, "apps", "cli", "bin", "bb"),
+      join(fakeRepoRoot, "apps", "cli", "bin", "hyperfide-platform"),
       ["status", "--json"],
       {
         cwd: fakeRepoRoot,
@@ -98,12 +98,14 @@ NODE
       readFile(join(fakeRepoRoot, "apps", "cli", "dist", "index.js"), "utf8"),
     ).resolves.toContain("process.stdout.write");
     await expect(readFile(pnpmArgsPath, "utf8")).resolves.toBe(
-      ["-C", fakeRepoRoot, "run", "--silent", "cli:prepare", ""].join("\n"),
+      ["-C", fakeRepoRoot + "/", "run", "--silent", "cli:prepare", ""].join(
+        "\n",
+      ),
     );
   });
 
   it("uses the built CLI directly when dist exists", async ({ skip }) => {
-    skip(process.platform === "win32", "bin/bb is a POSIX sh wrapper");
+    skip(process.platform === "win32", "test fixtures require POSIX shell");
     const fakeRepoRoot = await createFakeRepo();
     const fakeDistDir = join(fakeRepoRoot, "apps", "cli", "dist");
     const pnpmCalledPath = join(tempRoot, "pnpm-called.txt");
@@ -118,7 +120,7 @@ exit 42
     );
 
     const result = await execFileAsync(
-      join(fakeRepoRoot, "apps", "cli", "bin", "bb"),
+      join(fakeRepoRoot, "apps", "cli", "bin", "hyperfide-platform"),
       ["--help"],
       {
         cwd: fakeRepoRoot,

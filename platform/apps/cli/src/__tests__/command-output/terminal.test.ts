@@ -48,7 +48,7 @@ function makeHost(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("bb terminal command output", () => {
+describe("hyperfide-platform terminal command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -588,7 +588,7 @@ describe("bb terminal command output", () => {
 
     expect(collectLogLines(vi.mocked(console.error))).toEqual([
       "Error: Terminal term-1 exited with code 0 before this wait started, so no new output will arrive.",
-      "Match its existing output with --from-start, or read it with `bb terminal output term-1`.",
+      "Match its existing output with --from-start, or read it with `hyperfide-platform terminal output term-1`.",
     ]);
   });
 
@@ -620,7 +620,7 @@ describe("bb terminal command output", () => {
   });
 
   it("fills in this thread when terminal list has no scope", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thr_current");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thr_current");
 
     await expect(
       runCommand(["terminal", "list", "--json"], register),

@@ -16,7 +16,7 @@ import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import * as fixtures from "../helpers/command-output-fixtures.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread show command output", () => {
+describe("hyperfide-platform thread show command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -83,7 +83,7 @@ describe("bb thread show command output", () => {
       label: "Pinned:",
     },
   ])(
-    "bb thread show prints $flag timestamp for $flag threads",
+    "hyperfide-platform thread show prints $flag timestamp for $flag threads",
     async ({ flag, stamp, label }) => {
       const thread: domain.Thread = fixtures.makeThread({
         id: `thread-${flag}-1`,
@@ -115,8 +115,8 @@ describe("bb thread show command output", () => {
     },
   );
 
-  it("bb thread show --self resolves from BB_THREAD_ID", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-self");
+  it("hyperfide-platform thread show --self resolves from HYPERFIDE_THREAD_ID", async () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-show-self");
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-show-self",
       projectId: "proj-1",
@@ -140,7 +140,7 @@ describe("bb thread show command output", () => {
     expect(collectLogLines(vi.mocked(console.error))).toEqual([]);
   });
 
-  it("bb thread show --work-status prints non-git environment message", async () => {
+  it("hyperfide-platform thread show --work-status prints non-git environment message", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-show-work-status",
       projectId: "proj-1",
@@ -187,8 +187,8 @@ describe("bb thread show command output", () => {
     );
   });
 
-  it("bb thread show rejects combining a thread id with --self", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-self");
+  it("hyperfide-platform thread show rejects combining a thread id with --self", async () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-show-self");
 
     await expect(
       runCommand(["thread", "show", "thread-explicit", "--self"], register),
@@ -200,7 +200,7 @@ describe("bb thread show command output", () => {
     expect(createClientMock).not.toHaveBeenCalled();
   });
 
-  it("bb thread show --git-diff uses the environment base branch before the repository default", async () => {
+  it("hyperfide-platform thread show --git-diff uses the environment base branch before the repository default", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-show-diff-base",
       projectId: "proj-1",
@@ -256,7 +256,7 @@ describe("bb thread show command output", () => {
     });
   });
 
-  it("bb thread show --git-diff renders an available uncommitted diff response", async () => {
+  it("hyperfide-platform thread show --git-diff renders an available uncommitted diff response", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-show-uncommitted-diff",
       projectId: "proj-1",
@@ -319,7 +319,7 @@ describe("bb thread show command output", () => {
     expect(output).toContain("diff --git a/smoke.txt b/smoke.txt");
   });
 
-  it("bb thread show prints pull request details for the thread environment", async () => {
+  it("hyperfide-platform thread show prints pull request details for the thread environment", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-show-pr",
       projectId: "proj-1",
@@ -377,7 +377,7 @@ describe("bb thread show command output", () => {
     expect(output).toContain("Merge:        mergeable");
   });
 
-  it("bb thread show reports a failed pull request lookup distinctly from none", async () => {
+  it("hyperfide-platform thread show reports a failed pull request lookup distinctly from none", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-show-pr-down",
       projectId: "proj-1",
@@ -415,7 +415,7 @@ describe("bb thread show command output", () => {
     expect(output).not.toContain("Pull request: none");
   });
 
-  it("bb thread show --json includes pull request details", async () => {
+  it("hyperfide-platform thread show --json includes pull request details", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-json-show-pr",
       projectId: "proj-1",
@@ -466,7 +466,7 @@ describe("bb thread show command output", () => {
     });
   });
 
-  it("bb thread show --json prints the thread in status payload format", async () => {
+  it("hyperfide-platform thread show --json prints the thread in status payload format", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-json-show",
       projectId: "proj-1",

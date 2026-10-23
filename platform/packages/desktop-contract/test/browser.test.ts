@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  BB_DESKTOP_BROWSER_MAX_URL_LENGTH,
+  HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
   bbDesktopBrowserAttachRequestSchema,
   bbDesktopBrowserSetBoundsRequestSchema,
   bbDesktopBrowserStateSchema,
@@ -131,7 +131,7 @@ describe("desktop browser IPC schemas", () => {
 
   it("rejects oversized URLs beyond the length cap", () => {
     const longUrl = `https://example.com/${"a".repeat(
-      BB_DESKTOP_BROWSER_MAX_URL_LENGTH,
+      HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
     )}`;
     expect(
       bbDesktopBrowserAttachRequestSchema.safeParse({

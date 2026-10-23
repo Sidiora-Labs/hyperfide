@@ -29,11 +29,11 @@ export async function resolve(specifier, context, nextResolve) {
 const REGISTER_HOOKS_SOURCE = `
 import { register } from "node:module";
 register(new URL("./resolve-hooks.mjs", import.meta.url), {
-  data: { logPath: process.env.BB_STARTUP_GRAPH_LOG },
+  data: { logPath: process.env.HYPERFIDE_STARTUP_GRAPH_LOG },
 });
 `;
 
-const STRIPPED_ENV_KEYS = new Set(["BB_CLI", "BB_APP_VERSION"]);
+const STRIPPED_ENV_KEYS = new Set(["HYPERFIDE_CLI", "HYPERFIDE_APP_VERSION"]);
 
 const cliPackageJsonSchema = z.object({
   scripts: z.object({ build: z.string() }),
@@ -80,9 +80,9 @@ describe("bb startup module graph", () => {
         ([key]) => !STRIPPED_ENV_KEYS.has(key),
       ),
     );
-    env.BB_CLI_REEXEC = "1";
-    env.BB_STARTUP_GRAPH_LOG = logPath;
-    if (serverUrl !== undefined) env.BB_SERVER_URL = serverUrl;
+    env.HYPERFIDE_CLI_REEXEC = "1";
+    env.HYPERFIDE_STARTUP_GRAPH_LOG = logPath;
+    if (serverUrl !== undefined) env.HYPERFIDE_SERVER_URL = serverUrl;
     const entryArgs =
       entry === "source"
         ? [
@@ -136,10 +136,10 @@ describe("bb startup module graph", () => {
     }
   }, 30_000);
 
-  it("loads only the named command group for `bb thread`", async () => {
+  it("loads only the named command group for `hyperfide-platform thread`", async () => {
     const run = await runCli("source", ["thread", "--help"]);
 
-    expect(run.stdout).toContain("Usage: bb thread");
+    expect(run.stdout).toContain("Usage: hyperfide-platform thread");
     expect(loaded(run, "/apps/cli/src/commands/thread/index.ts")).toHaveLength(
       1,
     );
@@ -214,13 +214,13 @@ describe("bb startup module graph", () => {
     it("does not print Node's NO_COLOR warning when a harness also sets FORCE_COLOR", async () => {
       const env: NodeJS.ProcessEnv = {
         ...process.env,
-        BB_CLI_REEXEC: "1",
-        BB_SERVER_URL: "http://127.0.0.1:1",
+        HYPERFIDE_CLI_REEXEC: "1",
+        HYPERFIDE_SERVER_URL: "http://127.0.0.1:1",
         FORCE_COLOR: "1",
         NO_COLOR: "1",
       };
-      delete env.BB_PROJECT_ID;
-      delete env.BB_THREAD_ID;
+      delete env.HYPERFIDE_PROJECT_ID;
+      delete env.HYPERFIDE_THREAD_ID;
       const { stdout, stderr } = await execFileAsync(
         process.execPath,
         [distEntry, "status"],
@@ -231,10 +231,10 @@ describe("bb startup module graph", () => {
       expect(stderr).toBe("");
     }, 30_000);
 
-    it("loads only the thread chunk for `bb thread`", async () => {
+    it("loads only the thread chunk for `hyperfide-platform thread`", async () => {
       const run = await runCli("dist", ["thread", "--help"]);
 
-      expect(run.stdout).toContain("Usage: bb thread");
+      expect(run.stdout).toContain("Usage: hyperfide-platform thread");
       expect(loaded(run, `${chunkDirUrl}thread-`)).toHaveLength(1);
 
       const otherGroups = CORE_COMMAND_GROUPS.map((group) => group.name).filter(

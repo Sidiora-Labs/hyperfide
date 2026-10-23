@@ -19,7 +19,9 @@ afterEach(() => {
 describe("reset-bb-data", () => {
   it("documents the NODE_ENV-based reset contract", () => {
     expect(renderHelpText()).not.toContain("--mode");
-    expect(renderHelpText()).toContain("Production resets respect BB_DATA_DIR");
+    expect(renderHelpText()).toContain(
+      "Production resets respect HYPERFIDE_DATA_DIR",
+    );
     expect(renderHelpText()).toContain(
       "Development resets always target this checkout's dev data directory",
     );
@@ -36,9 +38,9 @@ describe("reset-bb-data", () => {
     ]);
   });
 
-  it("ignores BB_DATA_DIR for the development target", () => {
+  it("ignores HYPERFIDE_DATA_DIR for the development target", () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("BB_DATA_DIR", "~/custom-bb");
+    vi.stubEnv("HYPERFIDE_DATA_DIR", "~/custom-bb");
 
     expect(resolveResetTargets(new Set())).toEqual([
       expectedDevDataDir({
@@ -54,18 +56,18 @@ describe("reset-bb-data", () => {
     const targets = resolveResetTargets(new Set(["--all"]));
 
     expect(targets).toEqual([
-      join(os.homedir(), ".bb"),
+      join(os.homedir(), ".hyperfide"),
       expectedDevDataDir({
         homeDir: os.homedir(),
         repoRoot,
       }),
     ]);
-    expect(targets).not.toContain(join(os.homedir(), ".bb-dev"));
+    expect(targets).not.toContain(join(os.homedir(), ".hyperfide-dev"));
   });
 
-  it("lets BB_DATA_DIR override the production target for --all", () => {
+  it("lets HYPERFIDE_DATA_DIR override the production target for --all", () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("BB_DATA_DIR", "~/custom-bb");
+    vi.stubEnv("HYPERFIDE_DATA_DIR", "~/custom-bb");
 
     expect(resolveResetTargets(new Set(["--all"]))).toEqual([
       join(os.homedir(), "custom-bb"),
@@ -76,9 +78,9 @@ describe("reset-bb-data", () => {
     ]);
   });
 
-  it("lets BB_DATA_DIR override the single reset target", () => {
+  it("lets HYPERFIDE_DATA_DIR override the single reset target", () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("BB_DATA_DIR", "~/custom-bb");
+    vi.stubEnv("HYPERFIDE_DATA_DIR", "~/custom-bb");
 
     expect(resolveResetTargets(new Set())).toEqual([
       join(os.homedir(), "custom-bb"),

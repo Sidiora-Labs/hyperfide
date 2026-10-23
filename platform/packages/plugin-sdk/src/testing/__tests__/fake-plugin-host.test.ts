@@ -9,7 +9,7 @@ import {
   defineRpcContract,
   experimental_PluginRpcRefusal,
 } from "../../rpc-contract.js";
-import { RESERVED_BB_CLI_COMMANDS } from "../../internal/host-policy.js";
+import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "../../internal/host-policy.js";
 import {
   createFakePluginHost,
   makeHostResponse,
@@ -919,7 +919,7 @@ describe("cli", () => {
   });
 
   it("uses the production host's reserved CLI names", () => {
-    for (const name of RESERVED_BB_CLI_COMMANDS) {
+    for (const name of RESERVED_HYPERFIDE_CLI_COMMANDS) {
       const reservedHost = createFakePluginHost();
       expect(() =>
         reservedHost.bb.cli.register({

@@ -40,7 +40,7 @@ function queuedMessage(
   };
 }
 
-describe("bb thread organization commands", () => {
+describe("hyperfide-platform thread organization commands", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -293,7 +293,9 @@ describe("bb thread organization commands", () => {
         .join("\n");
       expect(output).toContain("failed_exhausted");
       expect(output).toContain(`Failed queued-1: ${failureReason}`);
-      expect(output).toContain("bb thread queue send thread-1 queued-1");
+      expect(output).toContain(
+        "hyperfide-platform thread queue send thread-1 queued-1",
+      );
       expect(output).not.toContain("waiting for Michael-M4 to reconnect");
     },
   );

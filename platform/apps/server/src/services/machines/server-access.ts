@@ -48,7 +48,7 @@ const availabilitySchema = z.discriminatedUnion("status", [
 
 export function machineServerUrl(deps: Dependencies) {
   const configured = getAppSettings(deps.db).machineServerUrl;
-  const raw = configured ?? process.env.BB_EXTERNAL_URL ?? null;
+  const raw = configured ?? process.env.HYPERFIDE_EXTERNAL_URL ?? null;
   const parsed = reachableUrlSchema.safeParse(raw);
   return {
     url: parsed.success ? parsed.data.replace(/\/$/u, "") : null,
@@ -56,7 +56,7 @@ export function machineServerUrl(deps: Dependencies) {
       configured !== null
         ? ("setting" as const)
         : raw !== null
-          ? ("BB_EXTERNAL_URL" as const)
+          ? ("HYPERFIDE_EXTERNAL_URL" as const)
           : null,
   };
 }

@@ -82,7 +82,7 @@ function readModuleVersion(repoRoot) {
 function runScript(repoRoot, args) {
   return spawnSync(process.execPath, [scriptPath, ...args], {
     encoding: "utf8",
-    env: { ...process.env, BB_BUMP_PLUGIN_SDK_REPO_ROOT: repoRoot },
+    env: { ...process.env, HYPERFIDE_BUMP_PLUGIN_SDK_REPO_ROOT: repoRoot },
   });
 }
 

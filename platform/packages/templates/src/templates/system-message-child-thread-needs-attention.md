@@ -8,7 +8,7 @@ variables:
   blockerSummary: Compact summary of the pending interaction, or a fallback sentence when no safe summary is available.
   threadMention: Serialized thread mention token, e.g. '@thread:thr_abc123'.
 ---
-[bb system]
+[hyperfide-platform system]
 
 {{threadMention}} needs help.
 {{blockerSummary}}

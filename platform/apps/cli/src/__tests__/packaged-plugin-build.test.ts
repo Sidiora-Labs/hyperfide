@@ -95,10 +95,10 @@ describe("packaged CLI plugin build", () => {
 
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
-      BB_CLI_REEXEC: "1",
+      HYPERFIDE_CLI_REEXEC: "1",
     };
-    delete childEnv.BB_CLI;
-    delete childEnv.BB_APP_VERSION;
+    delete childEnv.HYPERFIDE_CLI;
+    delete childEnv.HYPERFIDE_APP_VERSION;
 
     expect(await readdir(join(tempRoot, "cli-chunks"))).not.toHaveLength(0);
     const { stdout: versionOutput } = await execFileAsync(

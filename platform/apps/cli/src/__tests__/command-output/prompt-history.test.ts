@@ -8,7 +8,7 @@ import {
 } from "../helpers/command-output-harness.js";
 import { registerPromptHistoryCommands } from "../../commands/prompt-history.js";
 
-describe("bb prompt-history command output", () => {
+describe("hyperfide-platform prompt-history command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -56,7 +56,7 @@ describe("bb prompt-history command output", () => {
       "2026-10-01T12:00:00.000Z  thr_1   Fix the login flow [file spec.md]",
     );
     expect(output).toContain(
-      "Next page: bb prompt-history list --cursor abc --limit 1",
+      "Next page: hyperfide-platform prompt-history list --cursor abc --limit 1",
     );
   });
 });

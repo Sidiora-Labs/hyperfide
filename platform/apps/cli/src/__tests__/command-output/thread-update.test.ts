@@ -10,13 +10,13 @@ import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import * as fixtures from "../helpers/command-output-fixtures.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread update command output", () => {
+describe("hyperfide-platform thread update command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("bb thread update sets the parent thread id", async () => {
+  it("hyperfide-platform thread update sets the parent thread id", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-update-1",
       projectId: "proj-1",
@@ -53,7 +53,7 @@ describe("bb thread update command output", () => {
     );
   });
 
-  it("bb thread update changes visibility", async () => {
+  it("hyperfide-platform thread update changes visibility", async () => {
     const thread = fixtures.makeThread({
       id: "thread-update-visibility",
       projectId: "proj-1",
@@ -83,7 +83,7 @@ describe("bb thread update command output", () => {
     );
   });
 
-  it("bb thread update rejects invalid parent-thread values", async () => {
+  it("hyperfide-platform thread update rejects invalid parent-thread values", async () => {
     const patch = vi.fn(async () =>
       fixtures.makeThread({
         id: "thread-update-invalid-parent",
@@ -112,8 +112,8 @@ describe("bb thread update command output", () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
-  it("bb thread update clears the parent thread id", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-update-2");
+  it("hyperfide-platform thread update clears the parent thread id", async () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-update-2");
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-update-2",
       projectId: "proj-1",
@@ -143,7 +143,7 @@ describe("bb thread update command output", () => {
     );
   });
 
-  it("bb thread update moves a thread into a section", async () => {
+  it("hyperfide-platform thread update moves a thread into a section", async () => {
     const thread = fixtures.makeThread({
       id: "thread-section",
       projectId: "proj-1",
@@ -164,7 +164,7 @@ describe("bb thread update command output", () => {
     });
   });
 
-  it("bb thread update sets a sticky model and reasoning level override", async () => {
+  it("hyperfide-platform thread update sets a sticky model and reasoning level override", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-update-3",
       projectId: "proj-1",
@@ -202,7 +202,7 @@ describe("bb thread update command output", () => {
     expect(lines).toContain("Reasoning level: high");
   });
 
-  it("bb thread update sets the model override independently", async () => {
+  it("hyperfide-platform thread update sets the model override independently", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-update-4",
       projectId: "proj-1",
@@ -229,7 +229,7 @@ describe("bb thread update command output", () => {
     });
   });
 
-  it("bb thread update sends a provider-specific reasoning level for the server to check against the model", async () => {
+  it("hyperfide-platform thread update sends a provider-specific reasoning level for the server to check against the model", async () => {
     const thread: domain.Thread = fixtures.makeThread({
       id: "thread-update-5",
       projectId: "proj-1",
@@ -255,7 +255,7 @@ describe("bb thread update command output", () => {
     });
   });
 
-  it("bb thread update rejects an empty reasoning level before calling the API", async () => {
+  it("hyperfide-platform thread update rejects an empty reasoning level before calling the API", async () => {
     const patch = vi.fn();
     stubServerApi({ "v1.threads.:id.$patch": patch });
 

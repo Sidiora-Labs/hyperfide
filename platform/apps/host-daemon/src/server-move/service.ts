@@ -138,10 +138,10 @@ const ACTIVATION_SESSION_CLOSE_TIMEOUT_MS = 90_000;
 const SESSION_CLOSE_POLL_INTERVAL_MS = 250;
 const PROBE_TIMEOUT_MS = 10_000;
 const PROGRESS_INTERVAL_MS = 1_000;
-const BB_APP_MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
+const HYPERFIDE_APP_MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
 const SERVER_DATABASE_PATHS = ["bb.db", "bb.db-wal", "bb.db-shm"] as const;
 const HOST_ARTIFACT_DIGEST_FILE_NAME = "host-artifact.sha256";
-const STANDALONE_DATA_DIR_NAME = ".bb";
+const STANDALONE_DATA_DIR_NAME = ".hyperfide";
 const SERVER_DATABASE_FILE_NAME = "bb.db";
 const SERVER_MOVE_LOG_FILE_NAME = "server-move.log";
 const INSTALL_DAEMON_PID_FILE_NAME = "install-daemon.pid";
@@ -1055,7 +1055,7 @@ export class ServerMoveService {
   }
 
   private npmPrefix(): string | null {
-    const npmPrefix = this.options.env.BB_APP_NPM_PREFIX?.trim();
+    const npmPrefix = this.options.env.HYPERFIDE_APP_NPM_PREFIX?.trim();
     return npmPrefix !== undefined && npmPrefix !== "" && isAbsolute(npmPrefix)
       ? npmPrefix
       : null;
@@ -1093,15 +1093,17 @@ export class ServerMoveService {
       env: this.options.env,
     });
     const executableDirectory = dirname(process.execPath);
-    const npmPrefix = this.options.env.BB_APP_NPM_PREFIX;
+    const npmPrefix = this.options.env.HYPERFIDE_APP_NPM_PREFIX;
     return {
       ...sanitized,
       PATH:
         sanitized.PATH === undefined
           ? executableDirectory
           : `${executableDirectory}${delimiter}${sanitized.PATH}`,
-      BB_DATA_DIR: this.options.dataDir,
-      ...(npmPrefix === undefined ? {} : { BB_APP_NPM_PREFIX: npmPrefix }),
+      HYPERFIDE_DATA_DIR: this.options.dataDir,
+      ...(npmPrefix === undefined
+        ? {}
+        : { HYPERFIDE_APP_NPM_PREFIX: npmPrefix }),
       ...(forcesNoServiceManager(this.options.env)
         ? { [SERVER_MOVE_SERVICE_MANAGER_ENV]: "none" }
         : {}),
@@ -1383,7 +1385,7 @@ export class ServerMoveService {
       destinationPath: tarballPath,
       sha256: bbApp.sha256,
       sizeBytes: bbApp.sizeBytes,
-      maxSizeBytes: BB_APP_MAX_DOWNLOAD_BYTES,
+      maxSizeBytes: HYPERFIDE_APP_MAX_DOWNLOAD_BYTES,
       signal,
     });
     signal.throwIfAborted();

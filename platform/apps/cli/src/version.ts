@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const BB_APP_VERSION_FALLBACK = "0.0.0-dev";
+const HYPERFIDE_APP_VERSION_FALLBACK = "0.0.0-dev";
 const PARENT_LOOKUP_MAX_DEPTH = 8;
 
 interface ResolveBbAppVersionArgs {
@@ -48,7 +48,7 @@ function trimEnvValue(value: string | undefined): string | undefined {
 }
 
 export function resolveBbAppVersion(args: ResolveBbAppVersionArgs): string {
-  const envValue = trimEnvValue(args.env.BB_APP_VERSION);
+  const envValue = trimEnvValue(args.env.HYPERFIDE_APP_VERSION);
   if (envValue !== undefined) {
     return envValue;
   }
@@ -79,7 +79,7 @@ export function resolveBbAppVersion(args: ResolveBbAppVersionArgs): string {
     currentDir = parentDir;
   }
 
-  return BB_APP_VERSION_FALLBACK;
+  return HYPERFIDE_APP_VERSION_FALLBACK;
 }
 
 export function resolveBbCliVersion(): string {

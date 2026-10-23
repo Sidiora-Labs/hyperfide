@@ -14,7 +14,7 @@ import {
 import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import { registerProjectCommands } from "../../commands/project.js";
 
-describe("bb project command output", () => {
+describe("hyperfide-platform project command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -225,7 +225,7 @@ describe("bb project command output", () => {
     }
   });
 
-  it("bb project list --json prints raw projects", async () => {
+  it("hyperfide-platform project list --json prints raw projects", async () => {
     const projects = [
       {
         id: "proj-1",
@@ -245,7 +245,7 @@ describe("bb project command output", () => {
     expect(get).toHaveBeenCalledWith({ query: {} });
   });
 
-  it("bb project list can include the personal project", async () => {
+  it("hyperfide-platform project list can include the personal project", async () => {
     const projects = [{ id: "proj_personal", name: "Personal" }];
     const get = vi.fn(async () => projects);
     stubServerApi({ "v1.projects.$get": get });
@@ -263,7 +263,7 @@ describe("bb project command output", () => {
     ).toEqual(projects);
   });
 
-  it("bb project branches waits for remote refs implicitly", async () => {
+  it("hyperfide-platform project branches waits for remote refs implicitly", async () => {
     const branches = { branches: ["main"], remoteBranches: ["origin/main"] };
     const get = vi.fn(async () => branches);
     stubServerApi({ "v1.projects.:id.branches.$get": get });
@@ -282,7 +282,7 @@ describe("bb project command output", () => {
     ).toEqual(branches);
   });
 
-  it("bb project list renders the shared borderless table", async () => {
+  it("hyperfide-platform project list renders the shared borderless table", async () => {
     const projects = [
       {
         id: "proj-1",
@@ -306,7 +306,7 @@ describe("bb project command output", () => {
     ]);
   });
 
-  it("bb project files resolves a machine name and prints JSON", async () => {
+  it("hyperfide-platform project files resolves a machine name and prints JSON", async () => {
     const getFiles = vi.fn(async () => ({
       files: [{ name: "remote.txt", path: "remote.txt" }],
       truncated: false,
@@ -342,7 +342,7 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project content routes by environment and prints the portable DTO as JSON", async () => {
+  it("hyperfide-platform project content routes by environment and prints the portable DTO as JSON", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response("environment text", {
         headers: { "content-type": "text/plain" },
@@ -375,7 +375,7 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project discovery rejects simultaneous machine and environment selectors", async () => {
+  it("hyperfide-platform project discovery rejects simultaneous machine and environment selectors", async () => {
     await expect(
       runCommand(
         [
@@ -396,7 +396,7 @@ describe("bb project command output", () => {
     );
   });
 
-  it("bb project create --json prints the created project", async () => {
+  it("hyperfide-platform project create --json prints the created project", async () => {
     const created = {
       id: "proj-created",
       name: "Alpha",
@@ -439,7 +439,7 @@ describe("bb project command output", () => {
     ["machine name", "--machine", "builder"],
     ["host alias", "--host", "host-remote"],
   ])(
-    "bb project create binds a local path through an explicit %s",
+    "hyperfide-platform project create binds a local path through an explicit %s",
     async (_selectorKind, selectorFlag, selector) => {
       const post = vi.fn(async () => ({
         id: "proj-created",
@@ -490,7 +490,7 @@ describe("bb project command output", () => {
     },
   );
 
-  it("bb project create rejects simultaneous machine and host selectors", async () => {
+  it("hyperfide-platform project create rejects simultaneous machine and host selectors", async () => {
     await expect(
       runCommand(
         [
@@ -568,7 +568,7 @@ describe("bb project command output", () => {
     );
   });
 
-  it("bb project source add targets an unambiguous machine name", async () => {
+  it("hyperfide-platform project source add targets an unambiguous machine name", async () => {
     const post = vi.fn(async () => ({
       id: "source-remote",
       projectId: "proj-1",
@@ -618,7 +618,7 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project source add supports clone options through the --host alias", async () => {
+  it("hyperfide-platform project source add supports clone options through the --host alias", async () => {
     const post = vi.fn(async () => ({
       id: "source-clone",
       projectId: "proj-1",
@@ -671,7 +671,7 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project source add rejects clone-only options without --clone", async () => {
+  it("hyperfide-platform project source add rejects clone-only options without --clone", async () => {
     await expect(
       runCommand(
         [
@@ -692,7 +692,7 @@ describe("bb project command output", () => {
     expect(resolveLocalHostIdMock).not.toHaveBeenCalled();
   });
 
-  it("bb project source update patches the existing source type", async () => {
+  it("hyperfide-platform project source update patches the existing source type", async () => {
     const get = vi.fn(async () => ({
       createdAt: 1,
       id: "proj-1",
@@ -758,7 +758,7 @@ describe("bb project command output", () => {
     );
   });
 
-  it("bb project source delete deletes without prompting when --yes is passed", async () => {
+  it("hyperfide-platform project source delete deletes without prompting when --yes is passed", async () => {
     const del = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.projects.:id.sources.:sourceId.$delete": del });
 

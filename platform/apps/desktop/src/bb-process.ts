@@ -85,7 +85,7 @@ interface ResolveBbAppProcessRuntimeArgs {
 }
 
 const APPIMAGE_BRIDGE_RELATIVE_PATH_ENV =
-  "BB_DESKTOP_APPIMAGE_BRIDGE_RELATIVE_PATH";
+  "HYPERFIDE_DESKTOP_APPIMAGE_BRIDGE_RELATIVE_PATH";
 
 async function runAppImageBridgeSupervisor(
   bridgeRelativePathEnv: string,
@@ -286,10 +286,10 @@ export function resolveBbAppProcessRuntime(
     };
   }
 
-  const rawNodeExecPath = args.env.BB_DESKTOP_NODE_EXEC_PATH?.trim();
+  const rawNodeExecPath = args.env.HYPERFIDE_DESKTOP_NODE_EXEC_PATH?.trim();
   if (rawNodeExecPath === undefined || rawNodeExecPath.length === 0) {
     throw new Error(
-      "BB_DESKTOP_NODE_EXEC_PATH is required in desktop dev mode. Launch through apps/desktop/scripts/run-electron-dev.mjs.",
+      "HYPERFIDE_DESKTOP_NODE_EXEC_PATH is required in desktop dev mode. Launch through apps/desktop/scripts/run-electron-dev.mjs.",
     );
   }
 

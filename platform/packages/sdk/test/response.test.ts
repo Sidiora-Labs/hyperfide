@@ -2,7 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   BbHttpError,
   createRequestTimeoutFetch,
-  DEFAULT_BB_REQUEST_TIMEOUT_MS,
+  DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
   readJsonResponse,
   readVoidResponse,
 } from "../src/response.js";
@@ -328,7 +328,7 @@ describe("createRequestTimeoutFetch()", () => {
 
   it("uses the default timeout when creating the node transport", async () => {
     useImmediateTimeoutSignalFor({
-      timeoutMs: DEFAULT_BB_REQUEST_TIMEOUT_MS,
+      timeoutMs: DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
     });
     mockPendingFetchUntilAbort();
     const transport = createNodeTransport({ baseUrl: "http://server" });

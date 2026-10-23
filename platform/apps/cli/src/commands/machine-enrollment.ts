@@ -132,16 +132,16 @@ export async function enrollMachine(
   const home = runtime.homeDir ?? homedir();
   const serverUrl = normalizeUrl(bootstrap.serverUrl);
   const dataDir = resolve(
-    env.BB_DATA_DIR ??
+    env.HYPERFIDE_DATA_DIR ??
       bootstrap.dataDir ??
       join(
         home,
-        ".bb-machines",
+        ".hyperfide-machines",
         new URL(bootstrap.serverUrl).host.replace(/[^a-zA-Z0-9.-]/gu, "-"),
       ),
   );
   if (
-    dataDir === resolve(home, ".bb") &&
+    dataDir === resolve(home, ".hyperfide") &&
     (await readOptional(join(dataDir, "host-id")))?.trim() !== bootstrap.hostId
   )
     throw new Error(

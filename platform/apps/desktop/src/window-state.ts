@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
-  BB_DESKTOP_MIN_ZOOM_PERCENT,
-  BB_DESKTOP_MAX_ZOOM_PERCENT,
+  HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT,
+  HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT,
 } from "@bb/desktop-contract";
 import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -41,8 +41,8 @@ const persistedWindowStateFileSchema = z.object({
   windows: z.array(persistedWindowStateEntrySchema),
   zoomFactor: z
     .number()
-    .min(BB_DESKTOP_MIN_ZOOM_PERCENT / 100)
-    .max(BB_DESKTOP_MAX_ZOOM_PERCENT / 100)
+    .min(HYPERFIDE_DESKTOP_MIN_ZOOM_PERCENT / 100)
+    .max(HYPERFIDE_DESKTOP_MAX_ZOOM_PERCENT / 100)
     .catch(1),
 });
 

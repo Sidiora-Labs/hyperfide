@@ -91,18 +91,18 @@ describe("highlightMarkdownCode", () => {
     for (const role of ["add", "remove", "hunk", "meta"]) {
       expect(html).toContain(`sh__line--diff-${role}`);
       expect(stylesheet).toContain(
-        `.bb-code-highlight .sh__line--diff-${role}`,
+        `.hyperfide-code-highlight .sh__line--diff-${role}`,
       );
     }
 
     expect(stylesheet).toMatch(
-      /\.bb-code-highlight \.sh__line\s*\{[^}]*display: inline-block;[^}]*min-width: 100%;[^}]*\}/u,
+      /\.hyperfide-code-highlight \.sh__line\s*\{[^}]*display: inline-block;[^}]*min-width: 100%;[^}]*\}/u,
     );
     expect(stylesheet).toMatch(
-      /\.bb-code-highlight \.sh__line--diff-add\s*\{[^}]*var\(--diff-added\)[^}]*\}/u,
+      /\.hyperfide-code-highlight \.sh__line--diff-add\s*\{[^}]*var\(--diff-added\)[^}]*\}/u,
     );
     expect(stylesheet).toMatch(
-      /\.bb-code-highlight \.sh__line--diff-remove\s*\{[^}]*var\(--diff-removed\)[^}]*\}/u,
+      /\.hyperfide-code-highlight \.sh__line--diff-remove\s*\{[^}]*var\(--diff-removed\)[^}]*\}/u,
     );
   });
 

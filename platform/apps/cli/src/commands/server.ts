@@ -87,12 +87,12 @@ function startServerHint(dataDir: string): string {
 
 function allowConnectCommand(dataDir: string): string {
   return isDefaultDataDir(dataDir)
-    ? "bb server allow-connect"
-    : `bb server allow-connect --data-dir ${dataDir}`;
+    ? "hyperfide-platform server allow-connect"
+    : `hyperfide-platform server allow-connect --data-dir ${dataDir}`;
 }
 
 const STOPPED_FOLLOWING_MESSAGE =
-  "Stopped following; the move continues. Run bb server move status to check on it or bb server move cancel to cancel it.";
+  "Stopped following; the move continues. Run hyperfide-platform server move status to check on it or hyperfide-platform server move cancel to cancel it.";
 
 function parseAddress(address: string | undefined): string | null {
   if (address === undefined) return null;
@@ -186,7 +186,7 @@ async function runServerMove(
 ): Promise<void> {
   if (opts.to === undefined || opts.to.trim().length === 0) {
     throw new Error(
-      "Pass --to <machine> with the ID or name of the machine that should run the server. Run bb server move status to check on a move in progress.",
+      "Pass --to <machine> with the ID or name of the machine that should run the server. Run hyperfide-platform server move status to check on a move in progress.",
     );
   }
   const serverUrl = parseAddress(opts.address);
@@ -226,7 +226,7 @@ async function runServerMove(
   if (
     !opts.yes &&
     !(await confirmDestructiveAction(
-      `Stop all running work and move the bb server to ${check.targetHostName}?`,
+      `Stop all running work and move the hyperfide-platform server to ${check.targetHostName}?`,
     ))
   ) {
     return;
@@ -276,11 +276,13 @@ export function registerServerCommands(
 ): void {
   const server = program
     .command("server")
-    .description("Move, export, and import the bb server");
+    .description("Move, export, and import the hyperfide-platform server");
 
   const move = server
     .command("move")
-    .description("Move the bb server to another machine (experimental)")
+    .description(
+      "Move the hyperfide-platform server to another machine (experimental)",
+    )
     .option("--to <machine>", "Machine ID or name that should run the server")
     .option(
       "--address <url>",
@@ -289,7 +291,7 @@ export function registerServerCommands(
     .option("--check", "Print the checklist without moving")
     .option(
       "--archive-existing-data",
-      "Move existing bb server data on the target aside before the move",
+      "Move existing hyperfide-platform server data on the target aside before the move",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -362,7 +364,7 @@ export function registerServerCommands(
 
   server
     .command("export")
-    .description("Export the bb server's data to an archive")
+    .description("Export the hyperfide-platform server's data to an archive")
     .requiredOption("--out <file>", "Write the archive to this file")
     .option("--json", "Print machine-readable JSON output")
     .action(
@@ -388,7 +390,7 @@ export function registerServerCommands(
         };
         if (outputJson(opts, result)) return;
         console.log(
-          `Exported the bb server to ${outPath} (${formatServerDataSize(exported.sizeBytes)})`,
+          `Exported the hyperfide-platform server to ${outPath} (${formatServerDataSize(exported.sizeBytes)})`,
         );
         console.error(SERVER_EXPORT_UNENCRYPTED_WARNING);
       }),
@@ -401,7 +403,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory to import into (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory to import into (default: HYPERFIDE_DATA_DIR or ~/.hyperfide)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -424,11 +426,11 @@ export function registerServerCommands(
           console.log(`Rolled back an interrupted import in ${dataDir}.`);
         }
         console.log(
-          `Imported the bb server into ${dataDir} (${String(result.importedEntries.length)} files from ${result.sourceDataDir}, exported by bb ${result.bbVersion}).`,
+          `Imported the hyperfide-platform server into ${dataDir} (${String(result.importedEntries.length)} files from ${result.sourceDataDir}, exported by bb ${result.bbVersion}).`,
         );
         console.log("");
         console.log(
-          "Stop the original bb server before you start this one. Two servers holding the same bb connect credential take each other's tunnel.",
+          "Stop the original hyperfide-platform server before you start this one. Two servers holding the same bb connect credential take each other's tunnel.",
         );
         console.log(
           `bb connect stays off in this copy until you run ${allowConnectCommand(dataDir)}.`,
@@ -444,7 +446,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory of the old server copy (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory of the old server copy (default: HYPERFIDE_DATA_DIR or ~/.hyperfide)",
     )
     .option(
       "--force",
@@ -465,7 +467,7 @@ export function registerServerCommands(
         }
         if (lock.oldCopyEntries.length === 0) {
           throw new Error(
-            `The old server copy in ${dataDir} was deleted, so there is nothing to unlock. Unlocking would start an empty bb server.`,
+            `The old server copy in ${dataDir} was deleted, so there is nothing to unlock. Unlocking would start an empty hyperfide-platform server.`,
           );
         }
         const serviceFile = await findLocalMachineServiceFile(dataDir);
@@ -488,18 +490,18 @@ export function registerServerCommands(
           }
         }
         console.error(
-          `This bb server moved to ${lock.toHostName} (${lock.serverUrl}) on ${new Date(lock.movedAt).toLocaleString()}.`,
+          `This hyperfide-platform server moved to ${lock.toHostName} (${lock.serverUrl}) on ${new Date(lock.movedAt).toLocaleString()}.`,
         );
         console.error(
           `Unlocking starts this old copy again. Everything since the move is lost here: threads, settings, and plugin data changed on ${lock.toHostName} stay there.`,
         );
         console.error(
-          `Stop the bb server on ${lock.toHostName} first. Two servers holding the same bb connect credential take each other's tunnel.`,
+          `Stop the hyperfide-platform server on ${lock.toHostName} first. Two servers holding the same bb connect credential take each other's tunnel.`,
         );
         if (
           !opts.yes &&
           !(await confirmDestructiveAction(
-            `Unlock the old bb server copy in ${dataDir}?`,
+            `Unlock the old hyperfide-platform server copy in ${dataDir}?`,
           ))
         ) {
           return;
@@ -525,7 +527,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory the server moved away from (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory the server moved away from (default: HYPERFIDE_DATA_DIR or ~/.hyperfide)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -555,7 +557,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory of the imported server (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory of the imported server (default: HYPERFIDE_DATA_DIR or ~/.hyperfide)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -569,12 +571,12 @@ export function registerServerCommands(
           return;
         }
         console.error(
-          "Stop the original bb server first. Two servers holding the same bb account credential take each other's tunnel and spend the same hosted quota.",
+          "Stop the original hyperfide-platform server first. Two servers holding the same bb account credential take each other's tunnel and spend the same hosted quota.",
         );
         if (
           !opts.yes &&
           !(await confirmDestructiveAction(
-            `Let bb account and bb connect start from the imported bb server in ${dataDir}?`,
+            `Let bb account and bb connect start from the imported hyperfide-platform server in ${dataDir}?`,
           ))
         ) {
           return;
@@ -594,7 +596,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory of the old server copy (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory of the old server copy (default: HYPERFIDE_DATA_DIR or ~/.hyperfide)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -616,7 +618,7 @@ export function registerServerCommands(
         if (
           !opts.yes &&
           !(await confirmDestructiveAction(
-            `Delete the old bb server copy in ${dataDir} (${String(lock.oldCopyEntries.length)} entries)? The server now runs on ${lock.toHostName}; this cannot be undone.`,
+            `Delete the old hyperfide-platform server copy in ${dataDir} (${String(lock.oldCopyEntries.length)} entries)? The server now runs on ${lock.toHostName}; this cannot be undone.`,
           ))
         ) {
           return;
@@ -624,7 +626,7 @@ export function registerServerCommands(
         const result = await deleteOldServerCopy(dataDir, lock);
         if (outputJson(opts, result)) return;
         console.log(
-          `Deleted the old bb server copy from ${dataDir} (${String(result.deletedEntries.length)} entries). This computer keeps running as a regular machine.`,
+          `Deleted the old hyperfide-platform server copy from ${dataDir} (${String(result.deletedEntries.length)} entries). This computer keeps running as a regular machine.`,
         );
       }),
     );

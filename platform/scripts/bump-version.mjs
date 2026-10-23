@@ -124,7 +124,8 @@ export async function bumpVersion(options) {
 }
 
 async function main() {
-  const repoRoot = process.env.BB_BUMP_VERSION_REPO_ROOT ?? defaultRepoRoot;
+  const repoRoot =
+    process.env.HYPERFIDE_BUMP_VERSION_REPO_ROOT ?? defaultRepoRoot;
 
   await bumpVersion({
     args: process.argv.slice(2),

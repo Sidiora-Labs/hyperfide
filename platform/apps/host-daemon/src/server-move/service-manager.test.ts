@@ -30,7 +30,7 @@ function definition(
     path: `/services/${unitName}`,
     unitName,
     programArguments: ["node", "bb-app", "start"],
-    environment: { BB_DATA_DIR: "/data" },
+    environment: { HYPERFIDE_DATA_DIR: "/data" },
     content: "",
   };
 }

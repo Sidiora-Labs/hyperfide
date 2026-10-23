@@ -1103,7 +1103,7 @@ describe("environment providers are asked inside provisioning", () => {
 
       await reportQueuedCommandError(harness, queued, {
         errorCode: "setup_script_failed",
-        errorMessage: ".bb-env-setup.sh failed with exit code 7",
+        errorMessage: ".hyperfide-env-setup.sh failed with exit code 7",
       });
       await vi.waitFor(() => {
         expect(getThread(harness.db, created.id)).toMatchObject({

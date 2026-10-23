@@ -298,7 +298,7 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
     gitRemoteUrl: "git@example.com:me/project.git",
   },
   "project.clone_default_path": {
-    path: "/home/me/.bb/checkouts/project",
+    path: "/home/me/.hyperfide/checkouts/project",
   },
   "host.pick_folder": {
     path: "/home/me/project",
@@ -320,7 +320,7 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
         id: `skill_${"a".repeat(64)}`,
         name: "review",
         description: "Review the current diff",
-        filePath: "/home/user/.bb/skills/review/SKILL.md",
+        filePath: "/home/user/.hyperfide/skills/review/SKILL.md",
         rootKind: "bb-data-dir",
         linked: false,
       },
@@ -341,11 +341,11 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
     sharedSkills: [],
   },
   "host.delete_skill": {
-    deletedPath: "/home/user/.bb/skills/review",
+    deletedPath: "/home/user/.hyperfide/skills/review",
   },
   "host.write_skill": {
     outcome: "written",
-    filePath: "/home/user/.bb/skills/review/SKILL.md",
+    filePath: "/home/user/.hyperfide/skills/review/SKILL.md",
     sha256: "b".repeat(64),
   },
   "host.global_skills_status": {
@@ -532,7 +532,7 @@ const ONLINE_RPC_RESPONSE_RESULT_FIXTURES: OnlineRpcResponseResultFixtures = {
   "workspace.diffFiles": WORKSPACE_UNAVAILABLE_RESULT,
   "workspace.diffPatch": WORKSPACE_UNAVAILABLE_RESULT,
   "server_move.inspect": {
-    dataDir: "/home/me/.bb-machines/bb.example.com",
+    dataDir: "/home/me/.hyperfide-machines/bb.example.com",
     platform: "linux",
     timeZone: "America/Los_Angeles",
     bbAppVersion: "0.0.5",
@@ -585,7 +585,7 @@ const SETTLED_RESPONSE_RESULT_FIXTURES: SettledResponseResultFixtures = {
     aborted: true,
   },
   "project.clone": {
-    path: "/home/me/.bb/checkouts/project",
+    path: "/home/me/.hyperfide/checkouts/project",
     gitRemoteUrl: "git@example.com:me/project.git",
   },
   "workspace.commit": {
@@ -1471,7 +1471,7 @@ describe("host-daemon command schemas", () => {
         },
         workspaceProvisionType: "managed-worktree",
         sourcePath: "/tmp/project",
-        targetPath: "/tmp/project/.bb/env",
+        targetPath: "/tmp/project/.hyperfide/env",
         branchName: "bb/env-123",
         baseBranch: null,
         setupTimeoutMs: 900000,
@@ -1872,7 +1872,7 @@ describe("host-daemon command schemas", () => {
         initiator: null,
         workspaceProvisionType: "managed-worktree",
         sourcePath: "/tmp/project",
-        targetPath: "/tmp/project/.bb/env",
+        targetPath: "/tmp/project/.hyperfide/env",
       }),
     ).toThrow();
 
@@ -2328,7 +2328,7 @@ describe("host-daemon command schemas", () => {
         fork: "tip",
       },
       providerOptions: { launch: { command: "echo-agent" } },
-      envPassthrough: ["BB_ECHO_AGENT_EXECUTABLE"],
+      envPassthrough: ["HYPERFIDE_ECHO_AGENT_EXECUTABLE"],
     };
 
     const providerListModelsCommand = {
@@ -2457,8 +2457,8 @@ describe("host-daemon command schemas", () => {
         ...base,
         kind: "workspace-path",
         sourceType: "project",
-        sourceRootPath: "/workspace/.bb/skills/workflow-help",
-        skillFilePath: "/workspace/.bb/skills/workflow-help/SKILL.md",
+        sourceRootPath: "/workspace/.hyperfide/skills/workflow-help",
+        skillFilePath: "/workspace/.hyperfide/skills/workflow-help/SKILL.md",
       }),
     ).toMatchObject({ kind: "workspace-path", sourceType: "project" });
     expect(
@@ -2735,7 +2735,7 @@ describe("host-daemon command schemas", () => {
         },
         workspaceProvisionType: "managed-worktree",
         sourcePath: "/tmp/project",
-        targetPath: "/tmp/project/.bb/env",
+        targetPath: "/tmp/project/.hyperfide/env",
         branchName: "bb/env-123",
         setupTimeoutMs: 900000,
       }),

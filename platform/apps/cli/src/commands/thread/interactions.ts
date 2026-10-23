@@ -338,7 +338,7 @@ function printPluginRequestInteraction(
   );
   console.log(`  Data: ${JSON.stringify(interaction.payload.data)}`);
   console.log(
-    "  Answer: bb thread interactions respond <interactionId> --value '<json>'",
+    "  Answer: hyperfide-platform thread interactions respond <interactionId> --value '<json>'",
   );
 }
 
@@ -621,7 +621,7 @@ function buildBinaryResolution(
     approvalInteraction.payload.subject.kind === "permission_grant"
   ) {
     throw new Error(
-      `Interaction ${interaction.id} is a permission grant; use bb thread interactions grant.`,
+      `Interaction ${interaction.id} is a permission grant; use hyperfide-platform thread interactions grant.`,
     );
   }
   const decision = pickApprovalDecision(approvalInteraction, action);
@@ -688,7 +688,7 @@ function registerBinaryResolutionCommand(
   interactions
     .command(`${name} <interactionId> [id]`)
     .description(description)
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -724,7 +724,7 @@ export function registerInteractionCommands(
   interactions
     .command("list [id]")
     .description("List interactions for a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -767,7 +767,7 @@ export function registerInteractionCommands(
   interactions
     .command("show <interactionId> [id]")
     .description("Show an interaction")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -801,7 +801,7 @@ export function registerInteractionCommands(
   interactions
     .command("grant <interactionId> [id]")
     .description("Grant a permission interaction")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option("--scope <scope>", "Grant scope: turn or session")
     .action(
@@ -830,7 +830,7 @@ export function registerInteractionCommands(
   interactions
     .command("answer <interactionId> [id]")
     .description("Answer a user-question interaction")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option(
       "--choice <questionId=value>",
@@ -875,7 +875,7 @@ export function registerInteractionCommands(
     .description(
       "Answer a plugin form (a plugin's request or a provider's plugin-defined request) with a JSON value",
     )
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from HYPERFIDE_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .requiredOption(
       "--value <json>",

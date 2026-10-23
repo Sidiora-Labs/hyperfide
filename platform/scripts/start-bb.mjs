@@ -79,7 +79,7 @@ async function buildRuntimeArtifacts() {
     cwd: repoRoot,
     env: {
       ...process.env,
-      BB_BUILD_TOOLCHAIN: `${process.version}-${process.platform}-${process.arch}`,
+      HYPERFIDE_BUILD_TOOLCHAIN: `${process.version}-${process.platform}-${process.arch}`,
     },
   });
   if (result.code === 0) {

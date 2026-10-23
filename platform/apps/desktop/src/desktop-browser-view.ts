@@ -17,8 +17,8 @@ import {
   type WebPreferences,
 } from "electron";
 import {
-  BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH,
-  BB_DESKTOP_BROWSER_MAX_URL_LENGTH,
+  HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH,
+  HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
   bbDesktopBrowserEvaluateResultSchema,
   bbDesktopBrowserPageMessageSchema,
   clampBbDesktopBrowserViewBounds,
@@ -49,16 +49,16 @@ import {
   type AppShortcutInput,
 } from "@bb/domain";
 import {
-  BB_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
-  BB_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,
-  BB_DESKTOP_BROWSER_PAGE_BRIDGE_KEY,
-  BB_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL,
-  BB_DESKTOP_BROWSER_PAGE_WORLD_ID,
-  BB_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
-  BB_DESKTOP_BROWSER_FOCUSED_CHANNEL,
-  BB_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
-  BB_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
-  BB_DESKTOP_BROWSER_STATE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_PAGE_BRIDGE_KEY,
+  HYPERFIDE_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_PAGE_WORLD_ID,
+  HYPERFIDE_DESKTOP_BROWSER_OPEN_TAB_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FOCUSED_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
 } from "./desktop-browser-ipc.js";
 import {
   evaluatePopupRate,
@@ -157,7 +157,7 @@ function guardMainFrameNavigation(
   });
 }
 
-export const BB_BROWSER_PARTITION = "persist:bb-browser";
+export const HYPERFIDE_BROWSER_PARTITION = "persist:bb-browser";
 
 const ERR_ABORTED = -3;
 
@@ -366,7 +366,7 @@ function browserViewKey(
   return `${hostWindow.webContents.id}:${tabId}`;
 }
 
-const BB_DESKTOP_BROWSER_MAX_PAGE_MESSAGE_LENGTH = 1_000_000;
+const HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_MESSAGE_LENGTH = 1_000_000;
 
 const guestPageMessageSchema = bbDesktopBrowserPageMessageSchema.omit({
   tabId: true,
@@ -377,7 +377,7 @@ export function browserPageEvaluationSource(
 ): string {
   const bridge =
     request.world === "isolated"
-      ? `{ postMessage: (data) => globalThis[${JSON.stringify(BB_DESKTOP_BROWSER_PAGE_BRIDGE_KEY)}].postMessage(${JSON.stringify(request.channel)}, data) }`
+      ? `{ postMessage: (data) => globalThis[${JSON.stringify(HYPERFIDE_DESKTOP_BROWSER_PAGE_BRIDGE_KEY)}].postMessage(${JSON.stringify(request.channel)}, data) }`
       : "null";
   return [
     "(async (bb) => {",
@@ -439,11 +439,11 @@ function buildBrowserState(
   const title = rawTitle.length > 0 && rawTitle !== url ? rawTitle : null;
   return {
     tabId,
-    url: truncate(url, BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: truncate(url, HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH),
     title:
       title === null
         ? null
-        : truncate(title, BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH),
+        : truncate(title, HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH),
     faviconUrl: entry.faviconUrl,
     faviconUrls: entry.faviconUrls,
     isLoading: webContents.isLoadingMainFrame(),
@@ -452,7 +452,10 @@ function buildBrowserState(
     errorText:
       entry.lastErrorText === null
         ? null
-        : truncate(entry.lastErrorText, BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH),
+        : truncate(
+            entry.lastErrorText,
+            HYPERFIDE_DESKTOP_BROWSER_MAX_TITLE_LENGTH,
+          ),
   };
 }
 
@@ -486,7 +489,7 @@ function isAllowedBrowserPermission(permission: string): boolean {
 export function createDesktopBrowserViewManager(
   args: CreateDesktopBrowserViewManagerArgs,
 ): DesktopBrowserViewManager {
-  const partition = args.partition ?? BB_BROWSER_PARTITION;
+  const partition = args.partition ?? HYPERFIDE_BROWSER_PARTITION;
   const pagePreloadPath = args.pagePreloadPath;
   let entries = new Map<string, BrowserViewEntry>();
   const serverEntries = new Map<string, Map<string, BrowserViewEntry>>();
@@ -786,7 +789,7 @@ export function createDesktopBrowserViewManager(
         const dataUrl = `data:image/jpeg;base64,${image
           .toJPEG(RESIZE_SNAPSHOT_JPEG_QUALITY)
           .toString("base64")}`;
-        send(hostWindow, BB_DESKTOP_BROWSER_SNAPSHOT_CHANNEL, {
+        send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL, {
           tabId,
           dataUrl,
         });
@@ -886,7 +889,7 @@ export function createDesktopBrowserViewManager(
     }
     send(
       hostWindow,
-      BB_DESKTOP_BROWSER_STATE_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL,
       buildBrowserState(tabId, entry),
     );
   }
@@ -978,18 +981,18 @@ export function createDesktopBrowserViewManager(
 
     if (pagePreloadPath !== null) {
       webContents.ipc.on(
-        BB_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,
+        HYPERFIDE_DESKTOP_BROWSER_GUEST_MESSAGE_CHANNEL,
         (_event, payload: unknown) => {
           if (entry.registry !== entries) return;
           const parsed = guestPageMessageSchema.safeParse(payload);
           if (
             !parsed.success ||
             JSON.stringify(parsed.data.data).length >
-              BB_DESKTOP_BROWSER_MAX_PAGE_MESSAGE_LENGTH
+              HYPERFIDE_DESKTOP_BROWSER_MAX_PAGE_MESSAGE_LENGTH
           ) {
             return;
           }
-          send(hostWindow, BB_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL, {
+          send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL, {
             tabId,
             channel: parsed.data.channel,
             data: parsed.data.data,
@@ -1007,7 +1010,7 @@ export function createDesktopBrowserViewManager(
         setTimeout(() => returnFocusToHost(hostWindow), 0);
         return;
       }
-      send(hostWindow, BB_DESKTOP_BROWSER_FOCUSED_CHANNEL, { tabId });
+      send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_FOCUSED_CHANNEL, { tabId });
     });
 
     webContents.on("before-input-event", (event, input) => {
@@ -1080,10 +1083,10 @@ export function createDesktopBrowserViewManager(
             createPopupWindow(options, details.url, entry),
         };
       }
-      send(hostWindow, BB_DESKTOP_BROWSER_OPEN_TAB_CHANNEL, {
+      send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_OPEN_TAB_CHANNEL, {
         url: details.url,
       });
-      send(hostWindow, BB_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL, {
+      send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_SCOPED_OPEN_TAB_CHANNEL, {
         tabId,
         url: details.url,
       });
@@ -1139,7 +1142,7 @@ export function createDesktopBrowserViewManager(
       ) {
         return;
       }
-      send(hostWindow, BB_DESKTOP_BROWSER_FIND_RESULT_CHANNEL, {
+      send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_FIND_RESULT_CHANNEL, {
         tabId,
         requestId: result.requestId,
         activeMatchOrdinal: result.activeMatchOrdinal,
@@ -1230,7 +1233,8 @@ export function createDesktopBrowserViewManager(
       pageFaviconOrigin = origin;
       entry.faviconUrls = [...new Set(favicons.slice(0, 64))]
         .filter((url) => {
-          if (url.length > BB_DESKTOP_BROWSER_MAX_URL_LENGTH) return false;
+          if (url.length > HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH)
+            return false;
           try {
             const protocol = new URL(url).protocol;
             return (
@@ -1677,7 +1681,7 @@ export function createDesktopBrowserViewManager(
       if (cold !== undefined && cold.threadId !== request.threadId) return;
       if (cold !== undefined && !request.visible) {
         cold.desiredBounds = request.bounds;
-        send(hostWindow, BB_DESKTOP_BROWSER_STATE_CHANNEL, cold.state);
+        send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_STATE_CHANNEL, cold.state);
         return;
       }
       const existing = warmEntry(key) ?? null;
@@ -1743,7 +1747,7 @@ export function createDesktopBrowserViewManager(
           request.world === "main"
             ? entry.webContents.executeJavaScript(source)
             : entry.webContents.executeJavaScriptInIsolatedWorld(
-                BB_DESKTOP_BROWSER_PAGE_WORLD_ID,
+                HYPERFIDE_DESKTOP_BROWSER_PAGE_WORLD_ID,
                 [{ code: source }],
               ),
         );
@@ -1854,7 +1858,7 @@ export function createDesktopBrowserViewManager(
           applyEntryDesiredBounds(entry, hostWindow);
         }
         applyEntryVisibility(entry, hostWindow);
-        send(hostWindow, BB_DESKTOP_BROWSER_SNAPSHOT_CHANNEL, {
+        send(hostWindow, HYPERFIDE_DESKTOP_BROWSER_SNAPSHOT_CHANNEL, {
           tabId: key.slice(prefix.length),
           dataUrl: null,
         });

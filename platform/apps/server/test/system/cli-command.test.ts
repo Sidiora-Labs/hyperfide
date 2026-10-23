@@ -60,7 +60,7 @@ function createUnixFixture(
   args: { pathDirectories?: (home: string) => string[] } = {},
 ): UnixFixture {
   const home = join(scratchDir(), "home");
-  const launcherPath = join(home, ".bb", "bin", "bb");
+  const launcherPath = join(home, ".hyperfide", "bin", "hyperfide-platform");
   const localBin = join(home, ".local", "bin");
   writeExecutable(launcherPath, `#!/bin/sh\n# ${CLI_LAUNCHER_MARKER}\n`);
   return {
@@ -93,7 +93,7 @@ describe("bb command on PATH", () => {
     "links the launcher into a PATH folder and removes it again",
     async () => {
       const fixture = createUnixFixture();
-      const link = join(fixture.localBin, "bb");
+      const link = join(fixture.localBin, "hyperfide-platform");
 
       await expect(fixture.service.getStatus()).resolves.toEqual(NOT_INSTALLED);
       await expect(fixture.service.install()).resolves.toEqual({
@@ -116,7 +116,7 @@ describe("bb command on PATH", () => {
 
     await expect(fixture.service.install()).resolves.toEqual({
       ...NOT_INSTALLED,
-      installedPath: join(fixture.localBin, "bb"),
+      installedPath: join(fixture.localBin, "hyperfide-platform"),
       onPath: false,
     });
   });
@@ -128,7 +128,7 @@ describe("bb command on PATH", () => {
         join(home, ".local", "bin"),
       ],
     });
-    const foreign = join(fixture.home, "tools", "bb");
+    const foreign = join(fixture.home, "tools", "hyperfide-platform");
     writeExecutable(foreign, "#!/bin/sh\necho babashka\n");
 
     await expect(fixture.service.getStatus()).resolves.toEqual({
@@ -142,7 +142,7 @@ describe("bb command on PATH", () => {
       },
       status: 409,
     });
-    expect(existsSync(join(fixture.localBin, "bb"))).toBe(false);
+    expect(existsSync(join(fixture.localBin, "hyperfide-platform"))).toBe(false);
     expect(readFileSync(foreign, "utf8")).toBe("#!/bin/sh\necho babashka\n");
   });
 
@@ -156,7 +156,7 @@ describe("bb command on PATH", () => {
       join(packageRoot, "package.json"),
       JSON.stringify({ name: "bb-app" }),
     );
-    const npmBin = join(fixture.home, "npm", "bin", "bb");
+    const npmBin = join(fixture.home, "npm", "bin", "hyperfide-platform");
     mkdirSync(dirname(npmBin));
     symlinkSync(join(packageRoot, "dist", "bb.js"), npmBin);
 
@@ -175,7 +175,7 @@ describe("bb command on PATH", () => {
     "recognises the command a bb machine install added and leaves it",
     async () => {
       const fixture = createUnixFixture();
-      const machineShim = join(fixture.localBin, "bb");
+      const machineShim = join(fixture.localBin, "hyperfide-platform");
       writeExecutable(
         machineShim,
         `#!/bin/sh\nprintf '%s\\n' '${MACHINE_CLI_SHIM_MARKER}' >&2\nexit 1\n`,
@@ -209,12 +209,12 @@ describe("bb command on PATH", () => {
       ],
     });
     writeExecutable(
-      join(fixture.home, ".npm", "_npx", "abc", "node_modules", ".bin", "bb"),
+      join(fixture.home, ".npm", "_npx", "abc", "node_modules", ".bin", "hyperfide-platform"),
       "#!/bin/sh\n",
     );
 
     await expect(fixture.service.install()).resolves.toMatchObject({
-      installedPath: join(fixture.localBin, "bb"),
+      installedPath: join(fixture.localBin, "hyperfide-platform"),
       onPath: true,
     });
   });
@@ -223,9 +223,9 @@ describe("bb command on PATH", () => {
     "repoints a link left by a bb that used another data directory",
     async () => {
       const fixture = createUnixFixture();
-      const otherLauncher = join(fixture.home, "other-data", "bin", "bb");
+      const otherLauncher = join(fixture.home, "other-data", "bin", "hyperfide-platform");
       writeExecutable(otherLauncher, `#!/bin/sh\n# ${CLI_LAUNCHER_MARKER}\n`);
-      const link = join(fixture.localBin, "bb");
+      const link = join(fixture.localBin, "hyperfide-platform");
       mkdirSync(fixture.localBin, { recursive: true });
       symlinkSync(otherLauncher, link);
 
@@ -245,7 +245,7 @@ describe("bb command on PATH", () => {
         message: `The bb command launcher at ${fixture.launcherPath} is missing. Restart bb, then try again.`,
       },
     });
-    expect(existsSync(join(fixture.localBin, "bb"))).toBe(false);
+    expect(existsSync(join(fixture.localBin, "hyperfide-platform"))).toBe(false);
   });
 
   it("is unavailable when bb runs without a launcher, such as a source checkout", async () => {
@@ -274,7 +274,7 @@ describe("bb command on the Windows PATH", () => {
     userPath: () => string;
     writes: () => number;
   } {
-    const launcherPath = join(scratchDir(), "bb.cmd");
+    const launcherPath = join(scratchDir(), "hyperfide-platform.cmd");
     writeFileSync(launcherPath, `@echo off\r\nrem ${CLI_LAUNCHER_MARKER}\r\n`);
     let value = initialPath instanceof Error ? "" : initialPath;
     let writes = 0;

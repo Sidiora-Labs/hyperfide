@@ -11,7 +11,7 @@ const SOURCE_REMOTE = "origin";
 const UPSTREAM_REF = `${SOURCE_REMOTE}/${SOURCE_BRANCH}`;
 const FETCH_TIMEOUT_MS = 2 * 60 * 1000;
 const INCOMING_SUBJECT_LIMIT = 20;
-const BB_APP_PACKAGE_JSON_PATH = "packages/bb-app/package.json";
+const HYPERFIDE_APP_PACKAGE_JSON_PATH = "packages/bb-app/package.json";
 
 const packageJsonSchema = z
   .object({ version: z.string().min(1) })
@@ -78,7 +78,7 @@ async function readVersionAt(
 ): Promise<string> {
   const raw = await readSourceFileAt({
     ...args,
-    path: BB_APP_PACKAGE_JSON_PATH,
+    path: HYPERFIDE_APP_PACKAGE_JSON_PATH,
   });
   if (raw === null) return "unknown";
   try {

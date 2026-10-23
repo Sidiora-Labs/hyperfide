@@ -565,7 +565,7 @@ describe("electron-builder signing config", () => {
 
   it("creates a separate nightly app identity and update feed", async () => {
     const { config } = await readResolvedConfig({
-      BB_DESKTOP_RELEASE_CHANNEL: "nightly",
+      HYPERFIDE_DESKTOP_RELEASE_CHANNEL: "nightly",
     });
     const nightlyRelease = createDesktopReleaseInfo("nightly");
 
@@ -590,12 +590,12 @@ describe("electron-builder signing config", () => {
 
   it("rejects unknown desktop release channels", async () => {
     const result = await runConfigScript({
-      BB_DESKTOP_RELEASE_CHANNEL: "canary",
+      HYPERFIDE_DESKTOP_RELEASE_CHANNEL: "canary",
     });
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain(
-      "BB_DESKTOP_RELEASE_CHANNEL must be latest or nightly",
+      "HYPERFIDE_DESKTOP_RELEASE_CHANNEL must be latest or nightly",
     );
   });
 

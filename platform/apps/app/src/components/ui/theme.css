@@ -248,7 +248,7 @@
      other content surfaces. A sticky sidebar row needs an opaque sidebar layer
      beneath that tint, or scrolled descendant text paints through the row. */
   [data-sidebar-sticky-stack]
-    [data-sidebar-sticky-tier].bb-sidebar-selected-row {
+    [data-sidebar-sticky-tier].hyperfide-sidebar-selected-row {
     background-image:
       linear-gradient(var(--state-active), var(--state-active)),
       linear-gradient(var(--sidebar), var(--sidebar));
@@ -257,7 +257,7 @@
   /* This state is sidebar-only, so resolve its quiet accent tint against the
      sidebar up front. Keeping it opaque prevents an unfocused split's sticky
      parent-thread row from revealing descendants that scroll underneath it. */
-  .bb-sidebar-open-in-split-row {
+  .hyperfide-sidebar-open-in-split-row {
     --bb-sidebar-open-in-split-background: color-mix(
       in oklch,
       var(--sidebar-accent) 50%,
@@ -269,7 +269,7 @@
   /* Utility-layer bg-sidebar owns the sticky tier's base background-color, so
      paint the state above it as an image just like the selected-row treatment. */
   [data-sidebar-sticky-stack]
-    [data-sidebar-sticky-tier].bb-sidebar-open-in-split-row {
+    [data-sidebar-sticky-tier].hyperfide-sidebar-open-in-split-row {
     background-image: linear-gradient(
       var(--bb-sidebar-open-in-split-background),
       var(--bb-sidebar-open-in-split-background)
@@ -277,7 +277,7 @@
   }
 
   [data-sidebar-sticky-stack]
-    [data-sidebar-sticky-tier].bb-sidebar-accent-row:is(
+    [data-sidebar-sticky-tier].hyperfide-sidebar-accent-row:is(
       :hover,
       :has([data-state="open"]),
       :has([data-sidebar-rename-anchor]:focus-visible),
@@ -289,16 +289,16 @@
       linear-gradient(var(--sidebar), var(--sidebar));
   }
 
-  .bb-sidebar-hover-actions {
+  .hyperfide-sidebar-hover-actions {
     pointer-events: none;
     opacity: 0;
     transition-property: opacity;
     transition-duration: 0ms;
   }
 
-  .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-    .bb-sidebar-hover-actions,
-  .bb-sidebar-hover-actions[data-sidebar-hover-actions-open="true"] {
+  .hyperfide-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+    .hyperfide-sidebar-hover-actions,
+  .hyperfide-sidebar-hover-actions[data-sidebar-hover-actions-open="true"] {
     pointer-events: auto;
     opacity: 1;
   }
@@ -308,17 +308,17 @@
    * their width, one action unless the row sets the inset variable, under the
    * same row states that reveal the overlay, so the title truncates instead of
    * running under the buttons. */
-  .bb-sidebar-hover-actions-inset {
+  .hyperfide-sidebar-hover-actions-inset {
     transition-property: padding;
     transition-duration: 0ms;
   }
 
-  .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-    .bb-sidebar-hover-actions-inset,
-  .bb-sidebar-hover-actions-row:has(
-      .bb-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
+  .hyperfide-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+    .hyperfide-sidebar-hover-actions-inset,
+  .hyperfide-sidebar-hover-actions-row:has(
+      .hyperfide-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
     )
-    .bb-sidebar-hover-actions-inset {
+    .hyperfide-sidebar-hover-actions-inset {
     padding-right: var(
       --bb-sidebar-hover-actions-inset,
       calc(var(--spacing) * 7.5)
@@ -326,12 +326,12 @@
   }
 
   @media (hover: hover) {
-    .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-      .bb-sidebar-hover-actions-mask,
-    .bb-sidebar-hover-actions-row:has(
-        .bb-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
+    .hyperfide-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+      .hyperfide-sidebar-hover-actions-mask,
+    .hyperfide-sidebar-hover-actions-row:has(
+        .hyperfide-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
       )
-      .bb-sidebar-hover-actions-mask {
+      .hyperfide-sidebar-hover-actions-mask {
       mask-image: linear-gradient(
         to left,
         transparent var(--bb-sidebar-hover-actions-inset),
@@ -340,45 +340,45 @@
     }
   }
 
-  .bb-sidebar-hover-actions-fade {
+  .hyperfide-sidebar-hover-actions-fade {
     opacity: 1;
     transition-property: opacity;
     transition-duration: 0ms;
   }
 
-  .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-    .bb-sidebar-hover-actions-fade,
-  .bb-sidebar-hover-actions-fade[data-sidebar-hover-actions-open="true"] {
+  .hyperfide-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+    .hyperfide-sidebar-hover-actions-fade,
+  .hyperfide-sidebar-hover-actions-fade[data-sidebar-hover-actions-open="true"] {
     opacity: 0;
   }
 
   @media (hover: none) {
     /* The overlay is hidden where the primary input cannot hover, so no room is reserved. */
-    .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-      .bb-sidebar-hover-actions-inset,
-    .bb-sidebar-hover-actions-row:has(
-        .bb-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
+    .hyperfide-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+      .hyperfide-sidebar-hover-actions-inset,
+    .hyperfide-sidebar-hover-actions-row:has(
+        .hyperfide-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
       )
-      .bb-sidebar-hover-actions-inset {
+      .hyperfide-sidebar-hover-actions-inset {
       padding-right: 0;
     }
 
-    .bb-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
-      .bb-sidebar-hover-actions:not(
+    .hyperfide-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
+      .hyperfide-sidebar-hover-actions:not(
         [data-sidebar-hover-actions-open="true"]
       ):not([data-sidebar-hover-actions-mobile="always"]) {
       pointer-events: none;
       opacity: 0;
     }
 
-    .bb-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
-      .bb-sidebar-hover-actions-fade:not(
+    .hyperfide-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
+      .hyperfide-sidebar-hover-actions-fade:not(
         [data-sidebar-hover-actions-open="true"]
       ) {
       opacity: 1;
     }
 
-    .bb-sidebar-hover-actions[data-sidebar-hover-actions-mobile="always"] {
+    .hyperfide-sidebar-hover-actions[data-sidebar-hover-actions-mobile="always"] {
       pointer-events: auto;
       opacity: 1;
     }
@@ -928,7 +928,7 @@
     touch-action: manipulation;
   }
 
-  .bb-icon-stroke {
+  .hyperfide-icon-stroke {
     stroke-width: var(--icon-stroke-width);
   }
 }
@@ -966,11 +966,11 @@ body.sidebar-resizing [data-sidebar="panel"] {
 }
 
 @layer utilities {
-  .bb-thread-title {
+  .hyperfide-thread-title {
     @apply flex min-w-0 items-baseline;
   }
 
-  .bb-thread-title .prompt-mention-pill {
+  .hyperfide-thread-title .prompt-mention-pill {
     @apply min-w-10;
     flex: 1 1 0%;
     max-width: max-content;

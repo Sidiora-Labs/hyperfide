@@ -1,7 +1,7 @@
 const fs = require("node:fs/promises");
 const { syncBuiltinESMExports } = require("node:module");
 const nativeLocks = require("fs-native-extensions");
-const target = process.env.BB_TEST_TARGET;
+const target = process.env.HYPERFIDE_TEST_TARGET;
 const mutationRead = target.endsWith("client.json") ? 1 : 2;
 let reads = 0;
 let blocked = false;
@@ -11,13 +11,13 @@ function notify(event) {
 }
 
 async function checkpoint(stage) {
-  if (process.env.BB_TEST_PAUSE === stage) {
+  if (process.env.HYPERFIDE_TEST_PAUSE === stage) {
     await new Promise((resolve) => {
       process.once("message", resolve);
       notify("paused");
     });
   }
-  if (process.env.BB_TEST_FAIL === stage) {
+  if (process.env.HYPERFIDE_TEST_FAIL === stage) {
     throw Object.assign(new Error(`Injected ${stage} failure`), {
       code: "EIO",
     });
@@ -41,7 +41,7 @@ fs.writeFile = async function (path, ...args) {
   const isTemp = String(path).endsWith(".tmp");
   if (isTemp) {
     await checkpoint("write");
-    if (process.env.BB_TEST_FAIL === "partial-write") {
+    if (process.env.HYPERFIDE_TEST_FAIL === "partial-write") {
       await writeFile.call(this, path, "partial synthetic data", {
         mode: 0o600,
       });

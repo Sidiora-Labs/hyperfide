@@ -39,7 +39,7 @@ export function registerPaneCommand(
 ): void {
   parent
     .command("pane")
-    .description("Control an open thread pane in connected BB apps")
+    .description("Control an open thread pane in connected Hyperfide apps")
     .usage("<maximize|restore|toggle|spotlight|clear-spotlight> [id] [options]")
     .argument(
       "<action>",

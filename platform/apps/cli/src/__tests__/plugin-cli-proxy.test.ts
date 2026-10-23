@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { Writable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Agent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
-import { RESERVED_BB_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+import { RESERVED_HYPERFIDE_CLI_COMMANDS } from "@bb/domain/plugin-cli";
 
 import {
   CORE_COMMAND_GROUPS,
@@ -20,9 +20,9 @@ import {
   type PluginCliContributionEntry,
 } from "../plugin-cli-proxy.js";
 
-describe("reserved bb CLI command names", () => {
+describe("reserved hyperfide-platform CLI command names", () => {
   it("matches the complete core command-group registry plus help", () => {
-    expect([...RESERVED_BB_CLI_COMMANDS].sort()).toEqual(
+    expect([...RESERVED_HYPERFIDE_CLI_COMMANDS].sort()).toEqual(
       [...CORE_COMMAND_GROUPS.map((group) => group.name), "help"].sort(),
     );
   });
@@ -63,7 +63,7 @@ describe("pluginProxyCandidate", () => {
     const names = new Set(CORE_COMMAND_GROUPS.map((group) => group.name));
     names.add("help");
     for (const moved of ["automation", "connect"]) {
-      expect(RESERVED_BB_CLI_COMMANDS).not.toContain(moved);
+      expect(RESERVED_HYPERFIDE_CLI_COMMANDS).not.toContain(moved);
       expect(pluginProxyCandidate(moved, names)).toBe(moved);
     }
   });

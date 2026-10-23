@@ -7,7 +7,10 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { Command, Option } from "commander";
 import { z } from "zod";
 import { derivePluginId, jsonValueSchema } from "@bb/domain";
-import { pluginCliCall, RESERVED_BB_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+import {
+  pluginCliCall,
+  RESERVED_HYPERFIDE_CLI_COMMANDS,
+} from "@bb/domain/plugin-cli";
 import {
   pluginInstallBadge,
   type PluginInstallBadge,
@@ -66,7 +69,7 @@ export function resolveNewPluginTarget(name: string): NewPluginTarget | null {
     return null;
   }
   const pluginId = derivePluginId(packageName);
-  if (RESERVED_BB_CLI_COMMANDS.includes(pluginId)) return null;
+  if (RESERVED_HYPERFIDE_CLI_COMMANDS.includes(pluginId)) return null;
   return {
     packageName,
     directoryName: `bb-plugin-${pluginId}`,
@@ -92,7 +95,7 @@ function formatCacheBytes(bytes: number): string {
 }
 
 function toolchainBaseDir(): string {
-  const configured = process.env.BB_DATA_DIR;
+  const configured = process.env.HYPERFIDE_DATA_DIR;
   const dataDir =
     configured === undefined || configured.trim().length === 0
       ? resolveProdDataDir({ homeDir: homedir() })
@@ -179,7 +182,7 @@ async function readPluginManifest(
 
 const LEGACY_PLUGIN_SDK_LAYOUT_MESSAGE =
   "This plugin uses the legacy vendored SDK layout. Its SDK types will not be updated.\n" +
-  "Please run `bb plugin migrate` to update to the latest SDK types.";
+  "Please run `hyperfide-platform plugin migrate` to update to the latest SDK types.";
 
 async function checkPluginSdkLayout(rootDir: string): Promise<void> {
   const layout = await resolvePluginSdkLayout(rootDir);
@@ -196,7 +199,7 @@ function warnIfSdkPinIsStale(pin: string | null): void {
   if (pin === null || !EXACT_VERSION_PATTERN.test(pin)) return;
   if (pin === PLUGIN_SDK_VERSION) return;
   console.warn(
-    `This plugin pins @get-bb/plugin-sdk ${pin}; this bb's SDK is ${PLUGIN_SDK_VERSION} — \`bb plugin types\` updates the pin.`,
+    `This plugin pins @get-bb/plugin-sdk ${pin}; this bb's SDK is ${PLUGIN_SDK_VERSION} — \`hyperfide-platform plugin types\` updates the pin.`,
   );
 }
 
@@ -254,7 +257,7 @@ async function requirePluginManifest(
   }
   if (typeof manifest.bb?.server !== "string") {
     console.error(
-      `${rootDir} is not a bb plugin — package.json has no "bb.server" entry.`,
+      `${rootDir} is not a hyperfide-platform plugin — package.json has no "bb.server" entry.`,
     );
     process.exit(1);
   }
@@ -402,14 +405,14 @@ async function installScaffoldDependencies(
     });
   } catch (cause) {
     console.warn(
-      `Could not run npm install — run it in the plugin directory before \`bb plugin build\`.${npmFailureDetail(cause)}`,
+      `Could not run npm install — run it in the plugin directory before \`hyperfide-platform plugin build\`.${npmFailureDetail(cause)}`,
     );
     return false;
   }
   const problem = await unresolvedScaffoldPackages(targetDir);
   if (problem !== null) {
     console.warn(
-      `npm install reported success but ${problem} — run \`npm install --include=dev\` in the plugin directory before \`bb plugin build\`.`,
+      `npm install reported success but ${problem} — run \`npm install --include=dev\` in the plugin directory before \`hyperfide-platform plugin build\`.`,
     );
     return false;
   }
@@ -700,7 +703,7 @@ function printPlugin(plugin: PluginEntry): void {
     );
   }
   if (plugin.cliCommand) {
-    const collisionNote = RESERVED_BB_CLI_COMMANDS.includes(
+    const collisionNote = RESERVED_HYPERFIDE_CLI_COMMANDS.includes(
       plugin.cliCommand.name,
     )
       ? ` (core command "bb ${plugin.cliCommand.name}" takes precedence)`
@@ -793,7 +796,7 @@ export function registerPluginCommands(
 ): void {
   const plugin = program
     .command("plugin")
-    .description("Manage BB plugins")
+    .description("Manage Hyperfide plugins")
     .enablePositionalOptions();
 
   const rpc = plugin
@@ -1058,7 +1061,7 @@ export function registerPluginCommands(
     .option("--yes", "Skip the confirmation prompt")
     .option(
       "--no-wait",
-      "Start the install in the background and print its job; follow it with `bb plugin install-jobs`",
+      "Start the install in the background and print its job; follow it with `hyperfide-platform plugin install-jobs`",
     )
     .option("--json", "Output JSON")
     .action(
@@ -1182,7 +1185,7 @@ export function registerPluginCommands(
               `Installing ${job.displayName} in the background (job ${job.id}).`,
             );
             console.log(
-              `Follow it with \`bb plugin install-jobs\`; cancel it with \`bb plugin cancel-install ${job.id}\`.`,
+              `Follow it with \`hyperfide-platform plugin install-jobs\`; cancel it with \`hyperfide-platform plugin cancel-install ${job.id}\`.`,
             );
             return;
           }
@@ -1387,7 +1390,7 @@ export function registerPluginCommands(
             if (!shouldAttempt) {
               if (result.outcome === "pinned") {
                 console.log(
-                  `${result.id}: skipped — pinned${detail ? ` (${detail})` : ""}; remove and reinstall with a tracking npm range, git branch, or git semver range to receive updates (remove deletes the plugin's settings, secrets, and schedules). A local path plugin updates with \`bb plugin reload\`; move it with \`bb plugin install path:<new directory>\`.`,
+                  `${result.id}: skipped — pinned${detail ? ` (${detail})` : ""}; remove and reinstall with a tracking npm range, git branch, or git semver range to receive updates (remove deletes the plugin's settings, secrets, and schedules). A local path plugin updates with \`hyperfide-platform plugin reload\`; move it with \`hyperfide-platform plugin install path:<new directory>\`.`,
                 );
               } else if (result.outcome === "incompatible") {
                 console.log(
@@ -1423,7 +1426,7 @@ export function registerPluginCommands(
                 `Updating ${job.displayName} in the background (job ${job.id}).`,
               );
               console.log(
-                `Follow it with \`bb plugin update-jobs ${job.id}\`.`,
+                `Follow it with \`hyperfide-platform plugin update-jobs ${job.id}\`.`,
               );
               continue;
             }
@@ -1479,7 +1482,7 @@ export function registerPluginCommands(
         if (!installed) {
           console.log("  npm install --include=dev");
         }
-        console.log("  bb plugin install .");
+        console.log("  hyperfide-platform plugin install .");
       }),
     );
 
@@ -1521,15 +1524,15 @@ export function registerPluginCommands(
             if (pending.pin !== null || pending.movedFromDependencies) {
               console.error(
                 pending.pin === null
-                  ? 'Move "@get-bb/plugin-sdk" from dependencies to devDependencies — bb provides its runtime (`bb plugin types` does it for you).'
-                  : `Set "@get-bb/plugin-sdk" to ${PLUGIN_SDK_VERSION} in devDependencies and re-run npm install (\`bb plugin types\` does it for you).`,
+                  ? 'Move "@get-bb/plugin-sdk" from dependencies to devDependencies — bb provides its runtime (`hyperfide-platform plugin types` does it for you).'
+                  : `Set "@get-bb/plugin-sdk" to ${PLUGIN_SDK_VERSION} in devDependencies and re-run npm install (\`hyperfide-platform plugin types\` does it for you).`,
               );
             }
             for (const shim of pending.shimmedTypePins) {
               console.error(
                 shim.movedFromDependencies
-                  ? `Move "${shim.name}" from dependencies to devDependencies at ${shim.to} — bb shims it at runtime and never bundles it (\`bb plugin types\` does it for you).`
-                  : `Set "${shim.name}" to ${shim.to} in devDependencies — the version this bb shims at runtime (\`bb plugin types\` does it for you).`,
+                  ? `Move "${shim.name}" from dependencies to devDependencies at ${shim.to} — bb shims it at runtime and never bundles it (\`hyperfide-platform plugin types\` does it for you).`
+                  : `Set "${shim.name}" to ${shim.to} in devDependencies — the version this bb shims at runtime (\`hyperfide-platform plugin types\` does it for you).`,
               );
             }
             process.exit(1);
@@ -1611,7 +1614,7 @@ export function registerPluginCommands(
         });
         if (!samePlan(plan, confirmedPlan)) {
           console.error(
-            "The plugin changed while awaiting confirmation — nothing was written. Re-run `bb plugin migrate` to see the current plan.",
+            "The plugin changed while awaiting confirmation — nothing was written. Re-run `hyperfide-platform plugin migrate` to see the current plan.",
           );
           process.exit(1);
         }
@@ -1684,7 +1687,7 @@ export function registerPluginCommands(
         );
         if (!entry) {
           console.error(
-            `This directory is not installed as a plugin — run \`bb plugin install ${path ?? "."}\` first, then re-run \`bb plugin dev\`.`,
+            `This directory is not installed as a plugin — run \`hyperfide-platform plugin install ${path ?? "."}\` first, then re-run \`hyperfide-platform plugin dev\`.`,
           );
           process.exit(1);
         }
@@ -1940,15 +1943,17 @@ export function registerPluginCommands(
           ) {
             console.error(
               actionName === "set"
-                ? "Usage: bb plugin config <id> set <key> <value>"
-                : "Usage: bb plugin config <id> unset <key>",
+                ? "Usage: hyperfide-platform plugin config <id> set <key> <value>"
+                : "Usage: hyperfide-platform plugin config <id> unset <key>",
             );
             process.exit(1);
           }
           let parsedValue: string | number | boolean | null = null;
           if (actionName === "set") {
             if (value === undefined) {
-              console.error("Usage: bb plugin config <id> set <key> <value>");
+              console.error(
+                "Usage: hyperfide-platform plugin config <id> set <key> <value>",
+              );
               process.exit(1);
             }
             const current = pluginSettingsResultSchema.parse(

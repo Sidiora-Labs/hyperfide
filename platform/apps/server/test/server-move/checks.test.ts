@@ -387,11 +387,11 @@ describe("server move checks", () => {
         NEW,
         inspectResult({
           platform: "unknown",
-          dataDir: "/home/me/.bb-machines/laptop",
+          dataDir: "/home/me/.hyperfide-machines/laptop",
           dataDirHasServerData: true,
           portAvailable: false,
           serverEntryAvailable: false,
-          existingServerData: { path: "/home/me/.bb", sizeBytes: 2_048 },
+          existingServerData: { path: "/home/me/.hyperfide", sizeBytes: 2_048 },
           pathsExist: { "/home/me/code/local-plugin": false },
           ghAuthenticated: false,
           codexCredentialsPresent: false,
@@ -413,8 +413,11 @@ describe("server move checks", () => {
         mode: "direct",
         requiresServerUrl: true,
         serverUrl: DIRECT_URL,
-        targetDataDir: "/home/me/.bb-machines/laptop",
-        existingTargetServerData: { path: "/home/me/.bb", sizeBytes: 2_048 },
+        targetDataDir: "/home/me/.hyperfide-machines/laptop",
+        existingTargetServerData: {
+          path: "/home/me/.hyperfide",
+          sizeBytes: 2_048,
+        },
         canMove: false,
       });
       expect(itemIds(result.response.items)).toEqual([
@@ -574,7 +577,7 @@ describe("server move checks", () => {
             severity: "blocker",
             title: "Desktop doesn't have room for the server data",
             detail:
-              "The move needs about 1.0 GB free in /home/me/.bb-machines/laptop, but only 1.0 GB is available. Free up space on Desktop, then check again.",
+              "The move needs about 1.0 GB free in /home/me/.hyperfide-machines/laptop, but only 1.0 GB is available. Free up space on Desktop, then check again.",
           },
         ],
       });
@@ -588,7 +591,7 @@ describe("server move checks", () => {
             severity: "warning",
             title: "Space is tight on Desktop",
             detail:
-              "The move needs about 1.0 GB of the 1.0 GB free in /home/me/.bb-machines/laptop, which leaves little room for the server to grow.",
+              "The move needs about 1.0 GB of the 1.0 GB free in /home/me/.hyperfide-machines/laptop, which leaves little room for the server to grow.",
           },
         ],
       });
@@ -713,14 +716,14 @@ describe("server move checks", () => {
       await writeFile(
         join(dataDir, "config.json"),
         JSON.stringify({
-          config: { BB_APP_URL: "http://laptop.lan.test:38887" },
+          config: { HYPERFIDE_APP_URL: "http://laptop.lan.test:38887" },
         }),
       );
       await writeFile(
         join(dataDir, "env.json"),
         JSON.stringify({
           env: {
-            BB_EXTERNAL_URL: "http://127.0.0.1:5173",
+            HYPERFIDE_EXTERNAL_URL: "http://127.0.0.1:5173",
             CACHE_DIR: "~/tool-cache",
             NAME: "plain value",
             TOOL_HOME: "/opt/tools",
@@ -768,10 +771,10 @@ describe("server move checks", () => {
           "skills/linked-skill",
         );
         expect(byId.get("app-url-rewrite")?.title).toBe(
-          `BB_APP_URL in config.json will change to ${DIRECT_URL}`,
+          `HYPERFIDE_APP_URL in config.json will change to ${DIRECT_URL}`,
         );
         expect(byId.get("external-url-address")?.title).toBe(
-          "BB_EXTERNAL_URL in env.json points at http://127.0.0.1:5173",
+          "HYPERFIDE_EXTERNAL_URL in env.json points at http://127.0.0.1:5173",
         );
         expect(byId.get("env-paths-missing")?.detail).toContain(
           "TOOL_HOME (/opt/tools)",

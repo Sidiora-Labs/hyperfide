@@ -7,7 +7,7 @@ import {
 } from "../helpers/command-output-harness.js";
 import { registerPluginCommands } from "../../commands/plugin.js";
 
-describe("bb plugin rpc call refusals", () => {
+describe("hyperfide-platform plugin rpc call refusals", () => {
   setupCommandOutputTestEnvironment();
   const register: CommandRegistrar = (program) =>
     registerPluginCommands(program, () => "http://server");

@@ -69,7 +69,7 @@ export function createPendingServerEnv(
         : `${executableDirectory}${delimiter}${sanitized.PATH}`,
     ...(hostDaemonPort === null
       ? {}
-      : { BB_HOST_DAEMON_PORT: String(hostDaemonPort) }),
+      : { HYPERFIDE_HOST_DAEMON_PORT: String(hostDaemonPort) }),
   };
 }
 

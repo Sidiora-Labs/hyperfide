@@ -12,8 +12,8 @@ import {
 
 describe("context-env", () => {
   beforeEach(() => {
-    vi.stubEnv("BB_PROJECT_ID", undefined);
-    vi.stubEnv("BB_THREAD_ID", undefined);
+    vi.stubEnv("HYPERFIDE_PROJECT_ID", undefined);
+    vi.stubEnv("HYPERFIDE_THREAD_ID", undefined);
   });
 
   afterEach(() => {
@@ -27,7 +27,7 @@ describe("context-env", () => {
   });
 
   it("resolves explicit ID flags without environment fallback", () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-env");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-env");
 
     expect(
       resolveExplicitIdFlag({
@@ -59,8 +59,8 @@ describe("context-env", () => {
   });
 
   it("captures a consistent context snapshot", () => {
-    vi.stubEnv("BB_PROJECT_ID", "proj-1");
-    vi.stubEnv("BB_THREAD_ID", "thread-1");
+    vi.stubEnv("HYPERFIDE_PROJECT_ID", "proj-1");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-1");
 
     expect(resolveContextProjectId()).toBe("proj-1");
     expect(resolveContextThreadId()).toBe("thread-1");
@@ -73,8 +73,8 @@ describe("context-env", () => {
   it("resolves connection settings from one CLI runtime context", () => {
     const context = createCliRuntimeContext({
       cliConfig: {
-        BB_HOST_DAEMON_PORT: 4567,
-        BB_SERVER_URL: "http://server.test",
+        HYPERFIDE_HOST_DAEMON_PORT: 4567,
+        HYPERFIDE_SERVER_URL: "http://server.test",
       },
     });
 
@@ -84,8 +84,8 @@ describe("context-env", () => {
     );
   });
 
-  it("resolves --self from BB_THREAD_ID for thread commands", () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-self");
+  it("resolves --self from HYPERFIDE_THREAD_ID for thread commands", () => {
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-self");
 
     expect(requireThreadIdOrSelf(undefined, { self: true })).toBe(
       "thread-self",
@@ -93,7 +93,7 @@ describe("context-env", () => {
   });
 
   it("rejects combining a thread id with --self for thread commands", () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-self");
+    vi.stubEnv("HYPERFIDE_THREAD_ID", "thread-self");
 
     expect(() =>
       requireThreadIdOrSelf("thread-explicit", { self: true }),

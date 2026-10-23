@@ -7,8 +7,8 @@ import {
 } from "../src/server-target.js";
 import { createConnectServerSync } from "../src/connect-server-sync.js";
 import {
-  BB_DESKTOP_GET_SERVER_CHOICES_CHANNEL,
-  BB_DESKTOP_SELECT_SERVER_CHANNEL,
+  HYPERFIDE_DESKTOP_GET_SERVER_CHOICES_CHANNEL,
+  HYPERFIDE_DESKTOP_SELECT_SERVER_CHANNEL,
 } from "../src/desktop-window-command-ipc.js";
 
 const ipc = vi.hoisted(() => ({ handle: vi.fn(), on: vi.fn() }));
@@ -73,7 +73,7 @@ describe("server choice IPC", () => {
       onError: () => undefined,
     });
     const list = ipc.handle.mock.calls.find(
-      ([channel]) => channel === BB_DESKTOP_GET_SERVER_CHOICES_CHANNEL,
+      ([channel]) => channel === HYPERFIDE_DESKTOP_GET_SERVER_CHOICES_CHANNEL,
     )?.[1];
     if (!list) throw new Error("Missing list handler");
     const initial = list(event);
@@ -132,7 +132,7 @@ describe("server choice IPC", () => {
       onError,
     });
     const request = ipc.on.mock.calls.find(
-      ([channel]) => channel === BB_DESKTOP_SELECT_SERVER_CHANNEL,
+      ([channel]) => channel === HYPERFIDE_DESKTOP_SELECT_SERVER_CHANNEL,
     )?.[1];
     if (!request) throw new Error("Missing select handler");
     for (const id of ["builtin", "unknown", "https://injected.example", {}, ""])

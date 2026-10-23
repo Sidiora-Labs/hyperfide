@@ -32,7 +32,7 @@ export function collectOption(value: string, previous: string[]): string[] {
 
 export function printThreadContextLabel(resolved: ResolvedId): void {
   if (resolved.source === "env") {
-    console.error(`Thread ${resolved.id} (from BB_THREAD_ID)`);
+    console.error(`Thread ${resolved.id} (from HYPERFIDE_THREAD_ID)`);
   }
 }
 

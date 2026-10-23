@@ -40,11 +40,11 @@ data_dir=$3
 case "$(uname -s)" in
   Darwin)
     mkdir -p "$HOME/Library/LaunchAgents"
-    printf '<plist><dict><key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>%s</string></dict></dict></plist>\\n' "$data_dir" >"$HOME/Library/LaunchAgents/app.getbb.host-daemon.test.plist"
+    printf '<plist><dict><key>EnvironmentVariables</key><dict><key>HYPERFIDE_DATA_DIR</key><string>%s</string></dict></dict></plist>\\n' "$data_dir" >"$HOME/Library/LaunchAgents/app.getbb.host-daemon.test.plist"
     ;;
   *)
     mkdir -p "$HOME/.config/systemd/user"
-    printf '[Service]\\nEnvironment="BB_DATA_DIR=%s"\\n' "$data_dir" >"$HOME/.config/systemd/user/bb-host-daemon-test.service"
+    printf '[Service]\\nEnvironment="HYPERFIDE_DATA_DIR=%s"\\n' "$data_dir" >"$HOME/.config/systemd/user/bb-host-daemon-test.service"
     ;;
 esac
 exit "\${FAKE_INSTALLER_EXIT:-0}"
@@ -95,7 +95,7 @@ async function createFixture(): Promise<Fixture> {
   await writeFile(installerPath, FAKE_INSTALLER);
   const installerLog = join(root, "installer.log");
   vi.stubEnv("HOME", homeDir);
-  vi.stubEnv("BB_MACHINE_INSTALLER", installerPath);
+  vi.stubEnv("HYPERFIDE_MACHINE_INSTALLER", installerPath);
   vi.stubEnv("FAKE_INSTALLER_LOG", installerLog);
   return { dataDir, homeDir, installerLog, root };
 }
@@ -129,7 +129,7 @@ afterAll(async () => {
   );
 });
 
-describe("bb server install-machine-service", () => {
+describe("hyperfide-platform server install-machine-service", () => {
   setupCommandOutputTestEnvironment();
 
   it("stops the bb running from the data directory and installs the service for it", async ({
@@ -193,7 +193,7 @@ describe("bb server install-machine-service", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      `Error: ${fixture.dataDir} is not locked by a server move. This command keeps a computer connected as a machine after its bb server moved to another machine.`,
+      `Error: ${fixture.dataDir} is not locked by a server move. This command keeps a computer connected as a machine after its hyperfide-platform server moved to another machine.`,
     ]);
     await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
   });
@@ -287,7 +287,7 @@ describe("bb server install-machine-service", () => {
   });
 });
 
-describe("bb server unlock with a machine service", () => {
+describe("hyperfide-platform server unlock with a machine service", () => {
   setupCommandOutputTestEnvironment();
 
   it("refuses while a background service runs this computer as a machine", async ({

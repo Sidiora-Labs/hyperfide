@@ -4,9 +4,10 @@ import { CLI_LAUNCHER_MARKER } from "@bb/config/cli-command";
 
 const CLI_LAUNCHER_MOVED_MESSAGE =
   "bb has moved or been removed. Start bb once to update this command.";
-const CLI_COMMAND_NAME = "bb";
-const APPIMAGE_ENTRY_ENV_NAME = "BB_CLI_APPIMAGE_ENTRY";
-const APPIMAGE_ARGUMENT_COUNT_ENV_NAME = "BB_CLI_APPIMAGE_ARGUMENT_COUNT";
+const CLI_COMMAND_NAME = "hyperfide-platform";
+const APPIMAGE_ENTRY_ENV_NAME = "HYPERFIDE_CLI_APPIMAGE_ENTRY";
+const APPIMAGE_ARGUMENT_COUNT_ENV_NAME =
+  "HYPERFIDE_CLI_APPIMAGE_ARGUMENT_COUNT";
 const APPIMAGE_NO_SANDBOX_ARGUMENT = "--no-sandbox";
 const APPIMAGE_BOOTSTRAP = [
   'const { resolve } = process.getBuiltinModule("node:path");',
@@ -121,7 +122,7 @@ function renderWindowsCliLauncher(args: {
           "chcp 65001 >nul",
         ]
       : []),
-    `if not defined BB_DATA_DIR set "BB_DATA_DIR=${cmdText(args.dataDir)}"`,
+    `if not defined HYPERFIDE_DATA_DIR set "HYPERFIDE_DATA_DIR=${cmdText(args.dataDir)}"`,
     ...(args.target.electron ? ['set "ELECTRON_RUN_AS_NODE=1"'] : []),
     `if not exist ${cmdWord(args.target.runtimePath)} goto moved`,
     `if exist ${cmdWord(args.target.entryPath)} goto run`,
@@ -154,7 +155,7 @@ export function renderCliLauncher(args: {
     "#!/bin/sh",
     `# ${CLI_LAUNCHER_MARKER}`,
     `data_dir=${shellWord(args.dataDir)}`,
-    'export BB_DATA_DIR="${BB_DATA_DIR:-$data_dir}"',
+    'export HYPERFIDE_DATA_DIR="${HYPERFIDE_DATA_DIR:-$data_dir}"',
   ];
   const moved = [`  echo "${CLI_LAUNCHER_MOVED_MESSAGE}" >&2`, "  exit 127"];
   if (target.kind === "direct") {

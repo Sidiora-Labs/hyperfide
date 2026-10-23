@@ -1,6 +1,6 @@
 import { parseServerUrl } from "../shell/shell-url";
 
-const BB_URL_SCHEME = "bb";
+const HYPERFIDE_URL_SCHEME = "bb";
 
 export interface LinkProfileLike {
   id: string;
@@ -63,7 +63,7 @@ function splitPathAndSearch(rest: string): {
 
 export function parseIncomingLink(
   url: string,
-  scheme: string = BB_URL_SCHEME,
+  scheme: string = HYPERFIDE_URL_SCHEME,
 ): IncomingLink {
   const match = SCHEME_URL_PATTERN.exec(url.trim());
   if (!match) return { kind: "foreign" };

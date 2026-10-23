@@ -24,7 +24,7 @@ const NODE_VERSION_TIMEOUT_MS = 10_000;
 const RUNTIME_STOP_TIMEOUT_MS = 15_000;
 const RUNTIME_STOP_KILL_TIMEOUT_MS = 3_000;
 const INSTALL_COMMAND =
-  "npx -y --package bb-app bb server install-machine-service";
+  "npx -y --package bb-app hyperfide-platform server install-machine-service";
 
 export interface InstallMachineServiceArgs {
   confirm(message: string): Promise<boolean>;
@@ -180,7 +180,7 @@ export async function installMachineService(
   const lock = await readServerMovedFile(dataDir);
   if (lock === null) {
     throw new Error(
-      `${dataDir} is not locked by a server move. This command keeps a computer connected as a machine after its bb server moved to another machine.`,
+      `${dataDir} is not locked by a server move. This command keeps a computer connected as a machine after its hyperfide-platform server moved to another machine.`,
     );
   }
   if (process.platform === "win32") {

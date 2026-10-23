@@ -28,7 +28,7 @@ describe("rewriteManagedConfigServer", () => {
     await writeFile(
       join(dataDir, "config.json"),
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { HYPERFIDE_LOG_LEVEL: "debug" },
         customModels: [{ providerId: "codex", model: "gpt-custom" }],
         serverUrl: "https://old.example.test",
         serverHeaders: { "x-bb-connect-machine": "bbcm_old" },
@@ -47,7 +47,7 @@ describe("rewriteManagedConfigServer", () => {
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_LOG_LEVEL: "debug" },
+      config: { HYPERFIDE_LOG_LEVEL: "debug" },
       customModels: [{ providerId: "codex", model: "gpt-custom" }],
       serverUrl: "https://new.example.test",
       serverHeaders: { "x-bb-connect-machine": "bbcm_new" },
@@ -87,7 +87,7 @@ describe("move import config handling", () => {
     await writeFile(
       join(dataDir, "config.json"),
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "info" },
+        config: { HYPERFIDE_LOG_LEVEL: "info" },
         serverUrl: "http://127.0.0.1:38886",
         connectMachineId: "imported-server-machine",
       }),
@@ -96,7 +96,7 @@ describe("move import config handling", () => {
     await writeFile(
       backupPath,
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { HYPERFIDE_LOG_LEVEL: "debug" },
         serverUrl: "https://old.example.test",
         serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
         machineCredential: "bbcm_target",
@@ -111,7 +111,7 @@ describe("move import config handling", () => {
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { HYPERFIDE_LOG_LEVEL: "info" },
       serverUrl: "https://old.example.test",
       serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
       machineCredential: "bbcm_target",
@@ -125,7 +125,7 @@ describe("move import config handling", () => {
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { HYPERFIDE_LOG_LEVEL: "info" },
       serverUrl: "http://127.0.0.1:38886",
     });
   });

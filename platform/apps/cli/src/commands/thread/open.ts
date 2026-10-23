@@ -40,7 +40,7 @@ export function registerOpenCommand(
 ): void {
   parent
     .command("open")
-    .description("Open a BB thread, optionally with a file in its panel")
+    .description("Open a Hyperfide thread, optionally with a file in its panel")
     .usage("[id] [path] [options]")
     .argument(
       "[id]",
@@ -199,7 +199,7 @@ async function resolveThreadOpenFileRequest(args: {
   }
 
   const acceptedRoots = threadStorageRoot
-    ? "the target thread workspace or BB_THREAD_STORAGE"
+    ? "the target thread workspace or HYPERFIDE_THREAD_STORAGE"
     : "the target thread workspace";
   throw new Error(`Absolute path must be inside ${acceptedRoots}.`);
 }
@@ -223,7 +223,7 @@ async function resolveThreadWorkspaceRoot(
 
 function resolveThreadStorageRoot(threadId: string): string | undefined {
   if (resolveContextThreadId() !== threadId) return undefined;
-  const rawRoot = process.env.BB_THREAD_STORAGE?.trim();
+  const rawRoot = process.env.HYPERFIDE_THREAD_STORAGE?.trim();
   if (!rawRoot) return undefined;
   return path.resolve(rawRoot);
 }

@@ -1,6 +1,6 @@
 import type { WebContentsView } from "electron";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL } from "../src/find-bar-ipc.js";
+import { HYPERFIDE_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL } from "../src/find-bar-ipc.js";
 import {
   createDesktopFindViewManager,
   type FindViewBounds,
@@ -159,7 +159,10 @@ describe("createDesktopFindViewManager", () => {
     expect(view?.visible).toBe(true);
     expect(view?.focusCount).toBe(1);
     expect(view?.sendCalls).toEqual([
-      { channel: BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL, payload: undefined },
+      {
+        channel: HYPERFIDE_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL,
+        payload: undefined,
+      },
     ]);
   });
 

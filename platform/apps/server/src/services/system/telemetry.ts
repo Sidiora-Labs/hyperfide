@@ -103,29 +103,31 @@ export function createNoopTelemetryService(): TelemetryService {
 export function appInstallFromServerConfig(
   config: Pick<
     ServerConfig,
-    "BB_APP_INSTALL_KIND" | "BB_APP_SOURCE_COMMIT" | "BB_APP_SOURCE_ORIGIN"
+    | "HYPERFIDE_APP_INSTALL_KIND"
+    | "HYPERFIDE_APP_SOURCE_COMMIT"
+    | "HYPERFIDE_APP_SOURCE_ORIGIN"
   >,
 ): AppInstall | null {
-  switch (config.BB_APP_INSTALL_KIND) {
+  switch (config.HYPERFIDE_APP_INSTALL_KIND) {
     case undefined:
       return null;
     case "desktop":
     case "npm":
-      return { kind: config.BB_APP_INSTALL_KIND };
+      return { kind: config.HYPERFIDE_APP_INSTALL_KIND };
     case "source":
       if (
-        config.BB_APP_SOURCE_ORIGIN === "official" &&
-        config.BB_APP_SOURCE_COMMIT !== undefined
+        config.HYPERFIDE_APP_SOURCE_ORIGIN === "official" &&
+        config.HYPERFIDE_APP_SOURCE_COMMIT !== undefined
       ) {
         return {
-          commit: config.BB_APP_SOURCE_COMMIT,
+          commit: config.HYPERFIDE_APP_SOURCE_COMMIT,
           kind: "source",
           origin: "official",
         };
       }
       return {
         kind: "source",
-        origin: config.BB_APP_SOURCE_ORIGIN === "fork" ? "fork" : "none",
+        origin: config.HYPERFIDE_APP_SOURCE_ORIGIN === "fork" ? "fork" : "none",
       };
   }
 }

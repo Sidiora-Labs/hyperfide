@@ -35,8 +35,8 @@ async function harness() {
     ),
   );
   const env: NodeJS.ProcessEnv = {
-    BB_DATA_DIR: dir,
-    BB_ENROLLMENT: JSON.stringify(bundle()),
+    HYPERFIDE_DATA_DIR: dir,
+    HYPERFIDE_ENROLLMENT: JSON.stringify(bundle()),
     PATH: "/nonexistent",
   };
   return {
@@ -45,7 +45,7 @@ async function harness() {
     env,
     run: () =>
       enrollMachine(
-        { bootstrapEnv: "BB_ENROLLMENT" },
+        { bootstrapEnv: "HYPERFIDE_ENROLLMENT" },
         { env, fetchFn, homeDir: dir },
       ),
   };
@@ -59,7 +59,7 @@ describe("machine enroll", () => {
     await expect(readFile(join(h.dir, "auth.json"))).rejects.toMatchObject({
       code: "ENOENT",
     });
-    h.env.BB_ENROLLMENT = JSON.stringify({
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({
       ...bundle(),
       credential: "replacement-bootstrap",
     });
@@ -76,7 +76,7 @@ describe("machine enroll", () => {
   it("exchanges through authorization, persists private credentials, and no-ops on same identity with expired material", async () => {
     const h = await harness();
     expect(await h.run()).toEqual({ hostId: "host_test" });
-    expect(h.env.BB_ENROLLMENT).toBeUndefined();
+    expect(h.env.HYPERFIDE_ENROLLMENT).toBeUndefined();
     expect(h.fetchFn.mock.calls[0]?.[1]?.headers).toMatchObject({
       authorization: "Bearer private-bootstrap",
     });
@@ -88,7 +88,7 @@ describe("machine enroll", () => {
     );
     expect(port).toBeGreaterThan(0);
     expect(port).toBeLessThanOrEqual(65535);
-    h.env.BB_ENROLLMENT = JSON.stringify({ ...bundle(), expiresAt: 1 });
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({ ...bundle(), expiresAt: 1 });
     expect(await h.run()).toEqual({ hostId: "host_test" });
     expect(h.fetchFn).toHaveBeenCalledOnce();
   });
@@ -108,15 +108,15 @@ describe("machine enroll", () => {
 
   it("rejects invalid and expired bundles without exposing their input", async () => {
     const h = await harness();
-    h.env.BB_ENROLLMENT = '{"credential":"do-not-echo"';
+    h.env.HYPERFIDE_ENROLLMENT = '{"credential":"do-not-echo"';
     await expect(h.run()).rejects.toThrow(
       /^Invalid machine enrollment bootstrap$/,
     );
-    h.env.BB_ENROLLMENT = JSON.stringify({ ...bundle(), version: 2 });
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({ ...bundle(), version: 2 });
     await expect(h.run()).rejects.toThrow(
       /^Invalid machine enrollment bootstrap$/,
     );
-    h.env.BB_ENROLLMENT = JSON.stringify({ ...bundle(), expiresAt: 1 });
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({ ...bundle(), expiresAt: 1 });
     await expect(h.run()).rejects.toThrow("expired");
     expect(h.fetchFn).not.toHaveBeenCalled();
   });
@@ -127,14 +127,14 @@ describe("machine enroll", () => {
     await expect(h.run()).rejects.toThrow(
       /^Could not exchange machine enrollment credential$/,
     );
-    h.env.BB_ENROLLMENT = JSON.stringify(bundle());
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify(bundle());
     await expect(h.run()).resolves.toEqual({ hostId: "host_test" });
   });
 
   it("persists provider headers and sends them directly on enrollment without redemption", async () => {
     const h = await harness();
     const headers = { "x-access-token": "private-provider-header" };
-    h.env.BB_ENROLLMENT = JSON.stringify({ ...bundle(), headers });
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({ ...bundle(), headers });
     await h.run();
     expect(h.fetchFn).toHaveBeenCalledOnce();
     expect(String(h.fetchFn.mock.calls[0]?.[0])).toBe(
@@ -160,7 +160,7 @@ describe("machine enroll", () => {
       }),
     );
     const headers = { "x-access-token": "new-access" };
-    h.env.BB_ENROLLMENT = JSON.stringify({
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({
       ...bundle(),
       headers,
       reconnect: true,
@@ -188,14 +188,17 @@ describe("machine enroll", () => {
 
   it("uses the default BB data directory only when it already holds this machine", async () => {
     const h = await harness();
-    const defaultDir = join(h.dir, ".bb");
-    h.env.BB_DATA_DIR = defaultDir;
+    const defaultDir = join(h.dir, ".hyperfide");
+    h.env.HYPERFIDE_DATA_DIR = defaultDir;
     await expect(h.run()).rejects.toThrow(
       "cannot use the default BB data directory",
     );
     await mkdir(defaultDir);
     await writeFile(join(defaultDir, "host-id"), "host_other\n");
-    h.env.BB_ENROLLMENT = JSON.stringify({ ...bundle(), reconnect: true });
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({
+      ...bundle(),
+      reconnect: true,
+    });
     await expect(h.run()).rejects.toThrow(
       "cannot use the default BB data directory",
     );
@@ -212,18 +215,21 @@ describe("machine enroll", () => {
         serverHeaders: { "x-access-token": "old-access" },
       }),
     );
-    h.env.BB_ENROLLMENT = JSON.stringify({ ...bundle(), reconnect: true });
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({
+      ...bundle(),
+      reconnect: true,
+    });
     await expect(h.run()).resolves.toEqual({ hostId: "host_test" });
     expect(
       JSON.parse(await readFile(join(defaultDir, "auth.json"), "utf8")),
     ).toEqual({ hostId: "host_test", hostKey: "private-durable" });
   });
 
-  it("reconnects in the data directory the server recorded when BB_DATA_DIR is unset", async () => {
+  it("reconnects in the data directory the server recorded when HYPERFIDE_DATA_DIR is unset", async () => {
     const h = await harness();
     await h.run();
-    delete h.env.BB_DATA_DIR;
-    h.env.BB_ENROLLMENT = JSON.stringify({
+    delete h.env.HYPERFIDE_DATA_DIR;
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({
       ...bundle(),
       reconnect: true,
       dataDir: h.dir,
@@ -242,7 +248,10 @@ describe("machine enroll", () => {
 
   it("refuses a reconnect bundle where this machine was never installed", async () => {
     const h = await harness();
-    h.env.BB_ENROLLMENT = JSON.stringify({ ...bundle(), reconnect: true });
+    h.env.HYPERFIDE_ENROLLMENT = JSON.stringify({
+      ...bundle(),
+      reconnect: true,
+    });
     await expect(h.run()).rejects.toThrow(
       "Machine host_test is not installed in",
     );
@@ -268,7 +277,7 @@ it("accepts delivered direct and Connect bundles from file and environment", asy
       };
       const path = join(h.dir, "bootstrap.json");
       await writeFile(path, JSON.stringify(value));
-      h.env.BB_ENROLLMENT = JSON.stringify(value);
+      h.env.HYPERFIDE_ENROLLMENT = JSON.stringify(value);
       h.fetchFn.mockImplementation(async () =>
         Response.json(
           { hostId: "host_test", hostKey: "private-durable" },
@@ -279,7 +288,7 @@ it("accepts delivered direct and Connect bundles from file and environment", asy
         enrollMachine(
           source === "file"
             ? { bootstrapFile: path }
-            : { bootstrapEnv: "BB_ENROLLMENT" },
+            : { bootstrapEnv: "HYPERFIDE_ENROLLMENT" },
           { env: h.env, homeDir: h.dir, fetchFn: h.fetchFn },
         ),
       ).resolves.toEqual({ hostId: "host_test" });

@@ -54,7 +54,7 @@ describe("desktop release compatibility metadata", () => {
         });
         await execFileAsync(process.execPath, [script], {
           cwd: root,
-          env: { ...process.env, BB_DESKTOP_RELEASE_CHANNEL: channel },
+          env: { ...process.env, HYPERFIDE_DESKTOP_RELEASE_CHANNEL: channel },
         });
         const updated: unknown = parse(await readFile(metadataPath, "utf8"));
         expect(updated).toEqual(

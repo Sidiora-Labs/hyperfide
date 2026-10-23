@@ -1,6 +1,6 @@
 ---
 kind: instruction
-title: bb Guide — Thread messaging
+title: hyperfide-platform Guide — Thread messaging
 summary: Command reference for thread messages, ownership, interactions, and queued messages.
 intent: Document how agents talk to threads and manage their queues.
 editingNotes: Keep flags accurate against the CLI implementation. Run the json-flag-enforcement and command-output tests after changes.
@@ -11,11 +11,11 @@ Messaging commands require an explicit thread ID or --self.
 
 Messaging:
 
-  bb thread tell <id> <message>            Send a follow-up message
-  bb thread tell <id> --message-file <path>
+  hyperfide-platform thread tell <id> <message>            Send a follow-up message
+  hyperfide-platform thread tell <id> --message-file <path>
                                            Read the message from a file; `-` reads stdin. Use this for
                                            multi-line or Markdown messages: inside double quotes the
-                                           shell runs `backticks` and $(...) before bb sees them
+                                           shell runs `backticks` and $(...) before hyperfide-platform sees them
     --mode <mode>                          Message mode: steer (default), queue, or auto
     --model <model>                        Model override for this turn
     --reasoning-level <level>              Reasoning level override
@@ -42,14 +42,14 @@ Messaging:
   sends, so the agent proposes a plan for approval before executing (Claude
   Code and Codex threads). Plain "/plan ..." text is not recognized; it reaches
   the provider as literal text. Approve or deny the proposed plan with
-  `bb thread interactions`; `bb thread cancel-plan` leaves Plan mode early.
+  `hyperfide-platform thread interactions`; `hyperfide-platform thread cancel-plan` leaves Plan mode early.
   SDK callers build the same input with
   `createBuiltinPlanCommandTextInput(text)` from `@bb/sdk` and pass it as
   `input` to `threads.spawn` or `threads.send`.
 
 Ownership:
 
-  bb thread update [id]                    Update thread metadata
+  hyperfide-platform thread update [id]                    Update thread metadata
     --self                                 Target current thread
     --title <title>                        Set title
     --parent-thread <id>                   Assign to a parent thread
@@ -69,24 +69,24 @@ Ownership:
   validates them against that provider's current model catalog, applies them on
   the next turn, and keeps using them on later turns until changed.
 
-  bb thread read [id]                      Mark read
-  bb thread unread [id]                    Mark unread
-  bb thread reorder-pinned <id> [--after <id>] [--before <id>]
+  hyperfide-platform thread read [id]                      Mark read
+  hyperfide-platform thread unread [id]                    Mark unread
+  hyperfide-platform thread reorder-pinned <id> [--after <id>] [--before <id>]
 
 Interactions:
 
-  bb thread interactions list [id]         List a thread's pending and past interactions
-  bb thread interactions show <interaction-id> [id]
+  hyperfide-platform thread interactions list [id]         List a thread's pending and past interactions
+  hyperfide-platform thread interactions show <interaction-id> [id]
                                            Show one interaction (approval details, questions, or a plugin form's data)
-  bb thread interactions approve <interaction-id> [id]
+  hyperfide-platform thread interactions approve <interaction-id> [id]
                                            Allow a command, file-change, plan, or tool-use approval
-  bb thread interactions deny <interaction-id> [id]
+  hyperfide-platform thread interactions deny <interaction-id> [id]
                                            Deny an approval
-  bb thread interactions grant <interaction-id> [id] --scope turn|session
+  hyperfide-platform thread interactions grant <interaction-id> [id] --scope turn|session
                                            Grant a permission interaction
-  bb thread interactions answer <interaction-id> [id] --choice <questionId=value> --text <questionId=text>
+  hyperfide-platform thread interactions answer <interaction-id> [id] --choice <questionId=value> --text <questionId=text>
                                            Answer a provider's user question
-  bb thread interactions respond <interaction-id> [id] --value '<json>'
+  hyperfide-platform thread interactions respond <interaction-id> [id] --value '<json>'
                                            Answer a plugin form: a plugin's own request, or a request the agent raised through a provider (kind `<pluginId>/<name>`)
     --self                                 Target current thread (every subcommand)
     --json                                 Machine-readable output (every subcommand)
@@ -97,14 +97,14 @@ Interactions:
 
 Queued messages:
 
-  bb thread queue list [<thread-id>] [--wait-holder plugin:<plugin-id>]
-  bb thread queue create <thread-id> <message> [--file <path>] [--image <path>]
-  bb thread queue update <thread-id> <message-id> <message> [--file <path>] [--image <path>]
+  hyperfide-platform thread queue list [<thread-id>] [--wait-holder plugin:<plugin-id>]
+  hyperfide-platform thread queue create <thread-id> <message> [--file <path>] [--image <path>]
+  hyperfide-platform thread queue update <thread-id> <message-id> <message> [--file <path>] [--image <path>]
                                            create and update also take --message-file <path>
-  bb thread queue send <thread-id> <message-id> [--mode auto|steer]
-  bb thread queue reorder <thread-id> <message-id> [--after <id>] [--before <id>]
-  bb thread queue group <thread-id> <boundary-id> --prefix <comma-separated-ids>
-  bb thread queue delete <thread-id> <message-id>
+  hyperfide-platform thread queue send <thread-id> <message-id> [--mode auto|steer]
+  hyperfide-platform thread queue reorder <thread-id> <message-id> [--after <id>] [--before <id>]
+  hyperfide-platform thread queue group <thread-id> <boundary-id> --prefix <comma-separated-ids>
+  hyperfide-platform thread queue delete <thread-id> <message-id>
 
   The `Sender` column identifies agent threads and system notices; user messages
   leave it blank. The SDK and `--json` include `initiator` and `senderThreadId`.
@@ -127,7 +127,7 @@ Queued messages:
   attempt is sending it).
 
   Failed rows show their failure reason instead of their previous wait, followed
-  by a recovery command: `bb thread queue send <thread-id> <message-id>`.
+  by a recovery command: `hyperfide-platform thread queue send <thread-id> <message-id>`.
   Use it to retry immediately, including after automatic retries are exhausted.
   Editing the message does not clear its failure or trigger a retry.
 
@@ -139,7 +139,7 @@ Queued messages:
   queued until the workspace is ready.
   `queue delete` discards it instead. Both are always permitted.
 
-  --compact-first runs the same /compact turn as `bb thread compact` and queues
+  --compact-first runs the same /compact turn as `hyperfide-platform thread compact` and queues
   the message behind it, so it needs an idle or errored thread whose provider
   supports manual compaction; it cannot be combined with --send-at. The SDK
   takes `compactFirst: true` on `threads.send`, which also rejects

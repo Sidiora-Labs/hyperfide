@@ -2,9 +2,9 @@ const { existsSync } = require("node:fs");
 const { resolve } = require("node:path");
 
 module.exports = ({ config }) => {
-  const variant = process.env.BB_MOBILE_VARIANT ?? "production";
+  const variant = process.env.HYPERFIDE_MOBILE_VARIANT ?? "production";
   if (variant !== "production" && variant !== "dev") {
-    throw new Error("BB_MOBILE_VARIANT must be production or dev");
+    throw new Error("HYPERFIDE_MOBILE_VARIANT must be production or dev");
   }
   const isDev = variant === "dev";
   const googleServicesFile = process.env.GOOGLE_SERVICES_JSON

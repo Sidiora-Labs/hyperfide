@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  BB_DESKTOP_BROWSER_MAX_URL_LENGTH,
+  HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH,
   type BbDesktopBrowserAttachRequest,
   type BbDesktopBrowserFindInPageRequest,
   type BbDesktopBrowserNavigateRequest,
@@ -11,22 +11,22 @@ import {
   type BbDesktopBrowserEvaluateResult,
 } from "@bb/desktop-contract";
 import {
-  BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
-  BB_DESKTOP_BROWSER_DETACH_CHANNEL,
-  BB_DESKTOP_BROWSER_EVALUATE_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
-  BB_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL,
-  BB_DESKTOP_BROWSER_FOCUS_CHANNEL,
-  BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
-  BB_DESKTOP_BROWSER_GO_BACK_CHANNEL,
-  BB_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
-  BB_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
-  BB_DESKTOP_BROWSER_RELOAD_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
-  BB_DESKTOP_BROWSER_STOP_CHANNEL,
-  BB_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_EVALUATE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL,
+  HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
 } from "../src/desktop-browser-ipc.js";
 import { registerDesktopBrowserIpc } from "../src/desktop-browser-main-ipc.js";
 import type {
@@ -279,7 +279,7 @@ function sendBrowserIpc(args: SendBrowserIpcArgs): void {
 }
 
 function oversizedBrowserUrl(): string {
-  return `https://example.com/${"a".repeat(BB_DESKTOP_BROWSER_MAX_URL_LENGTH)}`;
+  return `https://example.com/${"a".repeat(HYPERFIDE_DESKTOP_BROWSER_MAX_URL_LENGTH)}`;
 }
 
 describe("registerDesktopBrowserIpc", () => {
@@ -288,7 +288,7 @@ describe("registerDesktopBrowserIpc", () => {
     registerDesktopBrowserIpc(manager);
     const renderer = createTrustedRenderer("main-window");
     const handler = electronMock.handlers.get(
-      BB_DESKTOP_BROWSER_EVALUATE_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_EVALUATE_CHANNEL,
     );
     if (handler === undefined) {
       throw new Error("Expected an evaluate handler.");
@@ -338,27 +338,27 @@ describe("registerDesktopBrowserIpc", () => {
     };
 
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
       payload: attachRequest,
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
       payload: attachRequest,
       sender: untrustedSender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
       payload: navigateRequest,
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_RELOAD_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL,
       payload: { tabId: "browser:a" },
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_FOCUS_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL,
       payload: { tabId: "browser:a" },
       sender: renderer.sender,
     });
@@ -381,7 +381,7 @@ describe("registerDesktopBrowserIpc", () => {
     const manager = new RecordingDesktopBrowserViewManager();
     registerDesktopBrowserIpc(manager);
     const renderer = createTrustedRenderer("main-window");
-    const channel = BB_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL;
+    const channel = HYPERFIDE_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL;
     for (const payload of [
       { threadId: "", discarded: true },
       { threadId: "thread-1" },
@@ -435,7 +435,7 @@ describe("registerDesktopBrowserIpc", () => {
       tab("browser:d", "thread-3"),
     ]);
     const handler = electronMock.handlers.get(
-      BB_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL,
     );
     if (handler === undefined) {
       throw new Error("Expected a list-threads-with-tabs handler.");
@@ -474,28 +474,28 @@ describe("registerDesktopBrowserIpc", () => {
       { tabId: "browser:a", text: "x" },
     ]) {
       sendBrowserIpc({
-        channel: BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
         payload,
         sender: renderer.sender,
       });
     }
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
       payload: findRequest,
       sender: untrustedSender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
       payload: findRequest,
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
       payload: { tabId: "browser:a", action: "explode" },
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
       payload: stopRequest,
       sender: renderer.sender,
     });
@@ -527,7 +527,7 @@ describe("registerDesktopBrowserIpc", () => {
       { ...validAttachRequest, bounds: { x: 0, y: 0, width: -1, height: 600 } },
     ]) {
       sendBrowserIpc({
-        channel: BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
         payload,
         sender: renderer.sender,
       });
@@ -539,7 +539,7 @@ describe("registerDesktopBrowserIpc", () => {
       { tabId: "browser:a", url: "https://example.com/", extra: true },
     ]) {
       sendBrowserIpc({
-        channel: BB_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
+        channel: HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
         payload,
         sender: renderer.sender,
       });
@@ -563,7 +563,7 @@ describe("registerDesktopBrowserIpc", () => {
     };
 
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
       payload: {
         ...boundsRequest,
         bounds: { x: 0.5, y: 0, width: 1, height: 1 },
@@ -571,33 +571,33 @@ describe("registerDesktopBrowserIpc", () => {
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
       payload: boundsRequest,
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
       payload: { tabId: "browser:a", visible: "yes" },
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
       payload: visibleRequest,
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
       payload: visibleRequest,
       sender: renderer.sender,
     });
 
     for (const channel of [
-      BB_DESKTOP_BROWSER_DETACH_CHANNEL,
-      BB_DESKTOP_BROWSER_FOCUS_CHANNEL,
-      BB_DESKTOP_BROWSER_GO_BACK_CHANNEL,
-      BB_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
-      BB_DESKTOP_BROWSER_RELOAD_CHANNEL,
-      BB_DESKTOP_BROWSER_STOP_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL,
+      HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL,
     ]) {
       sendBrowserIpc({
         channel,
@@ -607,22 +607,22 @@ describe("registerDesktopBrowserIpc", () => {
     }
 
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_DETACH_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,
       payload: { tabId: "browser:a" },
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_GO_BACK_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL,
       payload: { tabId: "browser:a" },
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
       payload: { tabId: "browser:a" },
       sender: renderer.sender,
     });
     sendBrowserIpc({
-      channel: BB_DESKTOP_BROWSER_STOP_CHANNEL,
+      channel: HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL,
       payload: { tabId: "browser:a" },
       sender: renderer.sender,
     });

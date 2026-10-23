@@ -980,12 +980,12 @@ async function main() {
       2,
     ),
   );
-  console.log("BB_CDP_SMOKE_COMPLETE");
+  console.log("HYPERFIDE_CDP_SMOKE_COMPLETE");
   app.quit();
 }
 
 main().catch((error) => {
   console.error(error instanceof Error ? error.stack : String(error));
-  console.log("BB_CDP_SMOKE_FAILED");
+  console.log("HYPERFIDE_CDP_SMOKE_FAILED");
   app.exit(1);
 });

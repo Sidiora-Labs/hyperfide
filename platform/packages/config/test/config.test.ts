@@ -44,9 +44,9 @@ function createServerRuntimeEnv(
   overrides: NodeJS.ProcessEnv = {},
 ): NodeJS.ProcessEnv {
   return {
-    BB_DATA_DIR: "/tmp/bb-data",
-    BB_HOST_DAEMON_PORT: "5555",
-    BB_SERVER_PORT: "4444",
+    HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+    HYPERFIDE_HOST_DAEMON_PORT: "5555",
+    HYPERFIDE_SERVER_PORT: "4444",
     NODE_ENV: "development",
     ...overrides,
   };
@@ -56,8 +56,8 @@ function createHostDaemonRuntimeEnv(
   overrides: NodeJS.ProcessEnv = {},
 ): NodeJS.ProcessEnv {
   return {
-    BB_HOST_DAEMON_PORT: "5555",
-    BB_SERVER_URL: "http://localhost:4444",
+    HYPERFIDE_HOST_DAEMON_PORT: "5555",
+    HYPERFIDE_SERVER_URL: "http://localhost:4444",
     NODE_ENV: "development",
     ...overrides,
   };
@@ -77,11 +77,11 @@ describe("common config", () => {
           NODE_ENV: "production",
         },
         homeDir: "/Users/tester",
-      }).BB_DATA_DIR,
-    ).toBe(path.normalize("/Users/tester/.bb"));
+      }).HYPERFIDE_DATA_DIR,
+    ).toBe(path.normalize("/Users/tester/.hyperfide"));
   });
 
-  it("requires repoRoot or BB_DATA_DIR for development data dir resolution", () => {
+  it("requires repoRoot or HYPERFIDE_DATA_DIR for development data dir resolution", () => {
     expect(() =>
       loadCommonConfig({
         env: {
@@ -89,7 +89,7 @@ describe("common config", () => {
         },
         homeDir: "/Users/tester",
       }),
-    ).toThrow("repoRoot is required to resolve development BB_DATA_DIR");
+    ).toThrow("repoRoot is required to resolve development HYPERFIDE_DATA_DIR");
   });
 
   it("resolves development defaults from the checkout instance", () => {
@@ -103,18 +103,18 @@ describe("common config", () => {
         },
         homeDir,
         repoRoot,
-      }).BB_DATA_DIR,
-    ).toBe(path.normalize("/Users/tester/.bb-dev/src-bb-9039de53a76a"));
+      }).HYPERFIDE_DATA_DIR,
+    ).toBe(path.normalize("/Users/tester/.hyperfide-dev/src-bb-9039de53a76a"));
   });
 
-  it("expands home-directory overrides for BB_DATA_DIR", () => {
+  it("expands home-directory overrides for HYPERFIDE_DATA_DIR", () => {
     expect(
       loadCommonConfig({
         env: {
-          BB_DATA_DIR: "~/custom-bb",
+          HYPERFIDE_DATA_DIR: "~/custom-bb",
           NODE_ENV: "production",
         },
-      }).BB_DATA_DIR,
+      }).HYPERFIDE_DATA_DIR,
     ).toBe(path.join(os.homedir(), "custom-bb"));
   });
 
@@ -124,34 +124,34 @@ describe("common config", () => {
       expect(
         loadCommonConfig({
           env: {
-            BB_DATA_DIR: "~\\custom-bb",
+            HYPERFIDE_DATA_DIR: "~\\custom-bb",
             NODE_ENV: "production",
           },
-        }).BB_DATA_DIR,
+        }).HYPERFIDE_DATA_DIR,
       ).toBe(path.join(os.homedir(), "custom-bb"));
     },
   );
 
-  it("rejects whitespace-only BB_DATA_DIR overrides", () => {
+  it("rejects whitespace-only HYPERFIDE_DATA_DIR overrides", () => {
     expect(() =>
       loadCommonConfig({
         env: {
-          BB_DATA_DIR: "   ",
+          HYPERFIDE_DATA_DIR: "   ",
           NODE_ENV: "production",
         },
       }),
-    ).toThrow("BB_DATA_DIR must not be empty");
+    ).toThrow("HYPERFIDE_DATA_DIR must not be empty");
   });
 
-  it("rejects unsupported BB_LOG_LEVEL overrides", () => {
+  it("rejects unsupported HYPERFIDE_LOG_LEVEL overrides", () => {
     expect(() =>
       loadCommonConfig({
         env: {
-          BB_LOG_LEVEL: "bogus",
+          HYPERFIDE_LOG_LEVEL: "bogus",
           NODE_ENV: "production",
         },
       }),
-    ).toThrow(/BB_LOG_LEVEL/u);
+    ).toThrow(/HYPERFIDE_LOG_LEVEL/u);
   });
 });
 
@@ -159,9 +159,9 @@ describe("data-dir helpers", () => {
   it("expands a bare home-directory override", () => {
     expect(
       resolveConfiguredDataDir({
-        defaultDataDir: path.join(os.homedir(), ".bb"),
+        defaultDataDir: path.join(os.homedir(), ".hyperfide"),
         env: {
-          BB_DATA_DIR: "~",
+          HYPERFIDE_DATA_DIR: "~",
         },
         homeDir: os.homedir(),
       }),
@@ -171,13 +171,13 @@ describe("data-dir helpers", () => {
   it("rejects whitespace-only data dir overrides", () => {
     expect(() =>
       resolveConfiguredDataDir({
-        defaultDataDir: path.join(os.homedir(), ".bb"),
+        defaultDataDir: path.join(os.homedir(), ".hyperfide"),
         env: {
-          BB_DATA_DIR: " ",
+          HYPERFIDE_DATA_DIR: " ",
         },
         homeDir: os.homedir(),
       }),
-    ).toThrow("BB_DATA_DIR must not be empty");
+    ).toThrow("HYPERFIDE_DATA_DIR must not be empty");
   });
 
   it("resolves development defaults from the current checkout instance", () => {
@@ -191,7 +191,7 @@ describe("data-dir helpers", () => {
         mode: "dev",
         repoRoot,
       }),
-    ).toBe(path.normalize("/Users/tester/.bb-dev/src-bb-9039de53a76a"));
+    ).toBe(path.normalize("/Users/tester/.hyperfide-dev/src-bb-9039de53a76a"));
   });
 
   it("keeps the legacy fallback label for degenerate checkout labels", () => {
@@ -202,7 +202,9 @@ describe("data-dir helpers", () => {
         mode: "dev",
         repoRoot: "/Users/tester/---",
       }),
-    ).toBe(path.normalize("/Users/tester/.bb-dev/worktree-41987f975862"));
+    ).toBe(
+      path.normalize("/Users/tester/.hyperfide-dev/worktree-41987f975862"),
+    );
   });
 });
 
@@ -210,13 +212,13 @@ describe("port helpers", () => {
   it("accepts the TCP port boundary values", () => {
     expect(
       parsePortValue({
-        name: "BB_SERVER_PORT",
+        name: "HYPERFIDE_SERVER_PORT",
         rawPort: "1",
       }),
     ).toBe(1);
     expect(
       parsePortValue({
-        name: "BB_SERVER_PORT",
+        name: "HYPERFIDE_SERVER_PORT",
         rawPort: "65535",
       }),
     ).toBe(65_535);
@@ -238,10 +240,10 @@ describe("port helpers", () => {
     ]) {
       expect(() =>
         parsePortValue({
-          name: "BB_SERVER_PORT",
+          name: "HYPERFIDE_SERVER_PORT",
           rawPort,
         }),
-      ).toThrow("BB_SERVER_PORT must be a valid TCP port");
+      ).toThrow("HYPERFIDE_SERVER_PORT must be a valid TCP port");
     }
   });
 
@@ -250,7 +252,7 @@ describe("port helpers", () => {
       resolvePortFromEnv({
         defaultPort: 4444,
         env: {},
-        name: "BB_SERVER_PORT",
+        name: "HYPERFIDE_SERVER_PORT",
       }),
     ).toBe(4444);
 
@@ -258,40 +260,40 @@ describe("port helpers", () => {
       resolvePortFromEnv({
         defaultPort: 4444,
         env: {
-          BB_SERVER_PORT: "",
+          HYPERFIDE_SERVER_PORT: "",
         },
-        name: "BB_SERVER_PORT",
+        name: "HYPERFIDE_SERVER_PORT",
       }),
-    ).toThrow("BB_SERVER_PORT must be a valid TCP port");
+    ).toThrow("HYPERFIDE_SERVER_PORT must be a valid TCP port");
   });
 
   it("rejects whitespace-padded port env values through every port loader path", () => {
     expect(() =>
       loadServerPortConfig({
         env: {
-          BB_SERVER_PORT: " 4444",
+          HYPERFIDE_SERVER_PORT: " 4444",
           NODE_ENV: "development",
         },
       }),
-    ).toThrow("BB_SERVER_PORT must be a valid TCP port");
+    ).toThrow("HYPERFIDE_SERVER_PORT must be a valid TCP port");
 
     expect(() =>
       resolvePortFromEnv({
         defaultPort: 4444,
         env: {
-          BB_SERVER_PORT: " 4444",
+          HYPERFIDE_SERVER_PORT: " 4444",
         },
-        name: "BB_SERVER_PORT",
+        name: "HYPERFIDE_SERVER_PORT",
       }),
-    ).toThrow("BB_SERVER_PORT must be a valid TCP port");
+    ).toThrow("HYPERFIDE_SERVER_PORT must be a valid TCP port");
 
     expect(() =>
       loadCliConfig({
         env: createHostDaemonRuntimeEnv({
-          BB_HOST_DAEMON_PORT: " 5555",
+          HYPERFIDE_HOST_DAEMON_PORT: " 5555",
         }),
       }),
-    ).toThrow("BB_HOST_DAEMON_PORT must be a valid TCP port");
+    ).toThrow("HYPERFIDE_HOST_DAEMON_PORT must be a valid TCP port");
   });
 });
 
@@ -299,22 +301,22 @@ describe("consumer-specific config", () => {
   it("builds server config from explicit runtime env", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_APP_URL: undefined,
-        BB_APP_VERSION: undefined,
-        BB_EXTERNAL_URL: undefined,
-        BB_FF_PLACEHOLDER: undefined,
+        HYPERFIDE_APP_URL: undefined,
+        HYPERFIDE_APP_VERSION: undefined,
+        HYPERFIDE_EXTERNAL_URL: undefined,
+        HYPERFIDE_FF_PLACEHOLDER: undefined,
       }),
     });
 
-    expect(serverConfig.BB_PERF_DIAGNOSTICS).toBe(false);
-    expect(serverConfig.BB_SERVER_PORT).toBe(4444);
-    expect(serverConfig.BB_HOST_DAEMON_PORT).toBe(5555);
+    expect(serverConfig.HYPERFIDE_PERF_DIAGNOSTICS).toBe(false);
+    expect(serverConfig.HYPERFIDE_SERVER_PORT).toBe(4444);
+    expect(serverConfig.HYPERFIDE_HOST_DAEMON_PORT).toBe(5555);
     expect(serverConfig.databasePath).toBe(path.resolve("/tmp/bb-data/bb.db"));
-    expect(serverConfig.BB_APP_URL).toBe("");
-    expect(serverConfig.BB_APP_SURFACE).toBe("web");
-    expect(serverConfig.BB_APP_VERSION).toBe("0.0.0-dev");
-    expect(serverConfig.BB_EXTERNAL_URL).toBe("");
-    expect(serverConfig.BB_CONNECT_GATE_KEYS_URL).toBe(
+    expect(serverConfig.HYPERFIDE_APP_URL).toBe("");
+    expect(serverConfig.HYPERFIDE_APP_SURFACE).toBe("web");
+    expect(serverConfig.HYPERFIDE_APP_VERSION).toBe("0.0.0-dev");
+    expect(serverConfig.HYPERFIDE_EXTERNAL_URL).toBe("");
+    expect(serverConfig.HYPERFIDE_CONNECT_GATE_KEYS_URL).toBe(
       "https://getbb.app/.well-known/bb-connect-gate-keys.json",
     );
     expect(serverConfig.featureFlags).toEqual({
@@ -328,93 +330,95 @@ describe("consumer-specific config", () => {
     expect(
       loadServerConfig({
         env: createServerRuntimeEnv({
-          BB_CONNECT_GATE_KEYS_URL: "http://127.0.0.1:9999/keys.json",
+          HYPERFIDE_CONNECT_GATE_KEYS_URL: "http://127.0.0.1:9999/keys.json",
         }),
-      }).BB_CONNECT_GATE_KEYS_URL,
+      }).HYPERFIDE_CONNECT_GATE_KEYS_URL,
     ).toBe("http://127.0.0.1:9999/keys.json");
     expect(() =>
       loadServerConfig({
-        env: createServerRuntimeEnv({ BB_CONNECT_GATE_KEYS_URL: "" }),
+        env: createServerRuntimeEnv({ HYPERFIDE_CONNECT_GATE_KEYS_URL: "" }),
       }),
-    ).toThrow("BB_CONNECT_GATE_KEYS_URL");
+    ).toThrow("HYPERFIDE_CONNECT_GATE_KEYS_URL");
   });
 
   it("validates the opt-in performance diagnostics setting", () => {
     expect(
       loadServerConfig({
-        env: createServerRuntimeEnv({ BB_PERF_DIAGNOSTICS: "1" }),
-      }).BB_PERF_DIAGNOSTICS,
+        env: createServerRuntimeEnv({ HYPERFIDE_PERF_DIAGNOSTICS: "1" }),
+      }).HYPERFIDE_PERF_DIAGNOSTICS,
     ).toBe(true);
     expect(() =>
       loadServerConfig({
-        env: createServerRuntimeEnv({ BB_PERF_DIAGNOSTICS: "typo" }),
+        env: createServerRuntimeEnv({ HYPERFIDE_PERF_DIAGNOSTICS: "typo" }),
       }),
-    ).toThrow("BB_PERF_DIAGNOSTICS must be a boolean");
+    ).toThrow("HYPERFIDE_PERF_DIAGNOSTICS must be a boolean");
   });
 
   it("carries the launcher's server launch id only when it is set", () => {
     expect(
       loadServerConfig({
-        env: createServerRuntimeEnv({ BB_SERVER_LAUNCH_ID: undefined }),
+        env: createServerRuntimeEnv({ HYPERFIDE_SERVER_LAUNCH_ID: undefined }),
       }),
-    ).not.toHaveProperty("BB_SERVER_LAUNCH_ID");
+    ).not.toHaveProperty("HYPERFIDE_SERVER_LAUNCH_ID");
     expect(
       loadServerConfig({
-        env: createServerRuntimeEnv({ BB_SERVER_LAUNCH_ID: "launch-123" }),
-      }).BB_SERVER_LAUNCH_ID,
+        env: createServerRuntimeEnv({
+          HYPERFIDE_SERVER_LAUNCH_ID: "launch-123",
+        }),
+      }).HYPERFIDE_SERVER_LAUNCH_ID,
     ).toBe("launch-123");
   });
 
   it("carries the launcher's in-app update mode and rejects unknown modes", () => {
     expect(
       loadServerConfig({ env: createServerRuntimeEnv({}) }),
-    ).not.toHaveProperty("BB_APP_UPDATE_MODE");
+    ).not.toHaveProperty("HYPERFIDE_APP_UPDATE_MODE");
     expect(
       loadServerConfig({
-        env: createServerRuntimeEnv({ BB_APP_UPDATE_MODE: "source" }),
-      }).BB_APP_UPDATE_MODE,
+        env: createServerRuntimeEnv({ HYPERFIDE_APP_UPDATE_MODE: "source" }),
+      }).HYPERFIDE_APP_UPDATE_MODE,
     ).toBe("source");
     expect(() =>
       loadServerConfig({
-        env: createServerRuntimeEnv({ BB_APP_UPDATE_MODE: "brew" }),
+        env: createServerRuntimeEnv({ HYPERFIDE_APP_UPDATE_MODE: "brew" }),
       }),
-    ).toThrow("BB_APP_UPDATE_MODE must be one of npm, source");
+    ).toThrow("HYPERFIDE_APP_UPDATE_MODE must be one of npm, source");
   });
 
   it("defaults the server bind host to loopback", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_SERVER_BIND_HOST: undefined,
+        HYPERFIDE_SERVER_BIND_HOST: undefined,
       }),
     });
 
-    expect(serverConfig.BB_SERVER_BIND_HOST).toBe("127.0.0.1");
+    expect(serverConfig.HYPERFIDE_SERVER_BIND_HOST).toBe("127.0.0.1");
   });
 
   it("honors an explicit wildcard server bind host", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_SERVER_BIND_HOST: "0.0.0.0",
+        HYPERFIDE_SERVER_BIND_HOST: "0.0.0.0",
       }),
     });
 
-    expect(serverConfig.BB_SERVER_BIND_HOST).toBe("0.0.0.0");
+    expect(serverConfig.HYPERFIDE_SERVER_BIND_HOST).toBe("0.0.0.0");
   });
 
   it("rejects an unsupported server bind host", () => {
     expect(() =>
       loadServerConfig({
         env: createServerRuntimeEnv({
-          BB_SERVER_BIND_HOST: "localhost",
+          HYPERFIDE_SERVER_BIND_HOST: "localhost",
         }),
       }),
-    ).toThrow(/BB_SERVER_BIND_HOST/u);
+    ).toThrow(/HYPERFIDE_SERVER_BIND_HOST/u);
   });
 
   it("parses the placeholder feature flag from env", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_FF_PLACEHOLDER: "true",
+        HYPERFIDE_FF_PLACEHOLDER: "true",
       }),
     });
 
@@ -424,7 +428,7 @@ describe("consumer-specific config", () => {
   it("parses the initiator telemetry flag from env", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_FF_INITIATOR_TELEMETRY: "false",
+        HYPERFIDE_FF_INITIATOR_TELEMETRY: "false",
       }),
     });
 
@@ -434,7 +438,7 @@ describe("consumer-specific config", () => {
   it("parses the timeline window event budget from env", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_FF_TIMELINE_WINDOW_EVENT_BUDGET: "4000",
+        HYPERFIDE_FF_TIMELINE_WINDOW_EVENT_BUDGET: "4000",
       }),
     });
 
@@ -445,7 +449,7 @@ describe("consumer-specific config", () => {
     expect(() =>
       loadServerConfig({
         env: createServerRuntimeEnv({
-          BB_FF_TIMELINE_WINDOW_EVENT_BUDGET: "0",
+          HYPERFIDE_FF_TIMELINE_WINDOW_EVENT_BUDGET: "0",
         }),
       }),
     ).toThrow(/positive integer/);
@@ -455,64 +459,64 @@ describe("consumer-specific config", () => {
     expect(() =>
       loadServerConfig({
         env: createServerRuntimeEnv({
-          BB_FF_PLACEHOLDER: "not-bool",
+          HYPERFIDE_FF_PLACEHOLDER: "not-bool",
         }),
       }),
-    ).toThrow(/BB_FF_PLACEHOLDER/u);
+    ).toThrow(/HYPERFIDE_FF_PLACEHOLDER/u);
   });
 
-  it("uses 0.0.0-dev as the default BB_APP_VERSION in production", () => {
+  it("uses 0.0.0-dev as the default HYPERFIDE_APP_VERSION in production", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_APP_VERSION: undefined,
+        HYPERFIDE_APP_VERSION: undefined,
         NODE_ENV: "production",
       }),
     });
 
-    expect(serverConfig.BB_APP_VERSION).toBe("0.0.0-dev");
+    expect(serverConfig.HYPERFIDE_APP_VERSION).toBe("0.0.0-dev");
   });
 
-  it("honors an explicit BB_APP_VERSION env override", () => {
+  it("honors an explicit HYPERFIDE_APP_VERSION env override", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_APP_VERSION: "0.1.2",
+        HYPERFIDE_APP_VERSION: "0.1.2",
         NODE_ENV: "production",
       }),
     });
 
-    expect(serverConfig.BB_APP_VERSION).toBe("0.1.2");
+    expect(serverConfig.HYPERFIDE_APP_VERSION).toBe("0.1.2");
   });
 
   it("parses the internal app surface marker for server telemetry", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_APP_SURFACE: "desktop",
+        HYPERFIDE_APP_SURFACE: "desktop",
         NODE_ENV: "production",
       }),
     });
 
-    expect(serverConfig.BB_APP_SURFACE).toBe("desktop");
+    expect(serverConfig.HYPERFIDE_APP_SURFACE).toBe("desktop");
 
     expect(() =>
       loadServerConfig({
         env: createServerRuntimeEnv({
-          BB_APP_SURFACE: "mobile",
+          HYPERFIDE_APP_SURFACE: "mobile",
           NODE_ENV: "production",
         }),
       }),
-    ).toThrow("BB_APP_SURFACE must be one of desktop, web");
+    ).toThrow("HYPERFIDE_APP_SURFACE must be one of desktop, web");
   });
 
   it("lets tooling read the server port without validating unrelated server env", () => {
     const serverPortConfig = loadServerPortConfig({
       env: {
-        BB_EXTERNAL_URL: "not-a-url",
-        BB_SERVER_PORT: "4444",
+        HYPERFIDE_EXTERNAL_URL: "not-a-url",
+        HYPERFIDE_SERVER_PORT: "4444",
         NODE_ENV: "development",
       },
     });
 
-    expect(serverPortConfig.BB_SERVER_PORT).toBe(4444);
+    expect(serverPortConfig.HYPERFIDE_SERVER_PORT).toBe(4444);
   });
 
   it("validates server port env at loader call time", () => {
@@ -522,14 +526,14 @@ describe("consumer-specific config", () => {
           NODE_ENV: "development",
         },
       }),
-    ).toThrow(/BB_SERVER_PORT/u);
+    ).toThrow(/HYPERFIDE_SERVER_PORT/u);
   });
 
   it("derives the database path from data dir without validating unrelated server env", () => {
     const databaseConfig = loadDatabaseConfig({
       env: {
-        BB_DATA_DIR: "/tmp/bb-data",
-        BB_EXTERNAL_URL: "not-a-url",
+        HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+        HYPERFIDE_EXTERNAL_URL: "not-a-url",
         NODE_ENV: "development",
       },
     });
@@ -541,102 +545,104 @@ describe("consumer-specific config", () => {
 
   it("requires a valid server URL for the daemon and CLI", () => {
     const env = createHostDaemonRuntimeEnv({
-      BB_SERVER_URL: "http://localhost:9999",
+      HYPERFIDE_SERVER_URL: "http://localhost:9999",
     });
     const hostDaemonConfig = loadHostDaemonConnectionConfig({ env });
     const cliConfig = loadCliConfig({ env });
 
-    expect(hostDaemonConfig.BB_SERVER_URL).toBe("http://localhost:9999");
-    expect(cliConfig.BB_SERVER_URL).toBe("http://localhost:9999");
+    expect(hostDaemonConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
+    expect(cliConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
 
     expect(() =>
       loadCliConfig({
         env: createHostDaemonRuntimeEnv({
-          BB_SERVER_URL: "not-a-url",
+          HYPERFIDE_SERVER_URL: "not-a-url",
         }),
       }),
-    ).toThrow(/BB_SERVER_URL/u);
+    ).toThrow(/HYPERFIDE_SERVER_URL/u);
   });
 
   it("normalizes server URL whitespace consistently for the daemon and CLI", () => {
     const env = createHostDaemonRuntimeEnv({
-      BB_SERVER_URL: " http://localhost:9999 ",
+      HYPERFIDE_SERVER_URL: " http://localhost:9999 ",
     });
     const hostDaemonConfig = loadHostDaemonConnectionConfig({ env });
     const cliConfig = loadCliConfig({ env });
 
-    expect(hostDaemonConfig.BB_SERVER_URL).toBe("http://localhost:9999");
-    expect(cliConfig.BB_SERVER_URL).toBe("http://localhost:9999");
+    expect(hostDaemonConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
+    expect(cliConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
 
     expect(() =>
       loadCliConfig({
         env: createHostDaemonRuntimeEnv({
-          BB_SERVER_URL: "   ",
+          HYPERFIDE_SERVER_URL: "   ",
         }),
       }),
-    ).toThrow("BB_SERVER_URL must not be empty");
+    ).toThrow("HYPERFIDE_SERVER_URL must not be empty");
   });
 
   it("validates host-daemon connection config without requiring data dir", () => {
     const hostDaemonConfig = loadHostDaemonConnectionConfig({
       env: {
-        BB_HOST_DAEMON_PORT: "3999",
-        BB_SERVER_URL: "http://localhost:9999",
+        HYPERFIDE_HOST_DAEMON_PORT: "3999",
+        HYPERFIDE_SERVER_URL: "http://localhost:9999",
         NODE_ENV: "development",
       },
     });
 
-    expect(hostDaemonConfig.BB_SERVER_URL).toBe("http://localhost:9999");
-    expect(hostDaemonConfig.BB_HOST_DAEMON_PORT).toBe(3999);
+    expect(hostDaemonConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
+    expect(hostDaemonConfig.HYPERFIDE_HOST_DAEMON_PORT).toBe(3999);
   });
 
   it("validates explicit host-daemon ports with the shared port validator", () => {
     expect(() =>
       loadHostDaemonConnectionConfig({
         env: {
-          BB_SERVER_URL: "http://localhost:9999",
+          HYPERFIDE_SERVER_URL: "http://localhost:9999",
           NODE_ENV: "development",
         },
         hostDaemonPort: 0,
       }),
-    ).toThrow("BB_HOST_DAEMON_PORT must be a valid TCP port");
+    ).toThrow("HYPERFIDE_HOST_DAEMON_PORT must be a valid TCP port");
   });
 
   it("builds full host-daemon config when the daemon entrypoint owns data dir", () => {
     const hostDaemonConfig = loadHostDaemonConfig({
       env: {
-        BB_DATA_DIR: "/tmp/bb-data",
-        BB_HOST_DAEMON_PORT: "3999",
-        BB_SERVER_URL: "http://localhost:9999",
+        HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+        HYPERFIDE_HOST_DAEMON_PORT: "3999",
+        HYPERFIDE_SERVER_URL: "http://localhost:9999",
         NODE_ENV: "development",
       },
     });
 
-    expect(hostDaemonConfig.BB_DATA_DIR).toBe(path.resolve("/tmp/bb-data"));
-    expect(hostDaemonConfig.BB_SERVER_URL).toBe("http://localhost:9999");
-    expect(hostDaemonConfig.BB_HOST_DAEMON_PORT).toBe(3999);
+    expect(hostDaemonConfig.HYPERFIDE_DATA_DIR).toBe(
+      path.resolve("/tmp/bb-data"),
+    );
+    expect(hostDaemonConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
+    expect(hostDaemonConfig.HYPERFIDE_HOST_DAEMON_PORT).toBe(3999);
   });
 
   it("builds host-daemon start config from full config when data dir is not provided", () => {
     const hostDaemonStartConfig = loadHostDaemonStartConfig({
       env: {
-        BB_DATA_DIR: "/tmp/bb-data",
-        BB_HOST_DAEMON_PORT: "3999",
-        BB_SERVER_URL: "http://localhost:9999",
+        HYPERFIDE_DATA_DIR: "/tmp/bb-data",
+        HYPERFIDE_HOST_DAEMON_PORT: "3999",
+        HYPERFIDE_SERVER_URL: "http://localhost:9999",
         NODE_ENV: "development",
       },
     });
 
     expect(hostDaemonStartConfig.dataDir).toBe(path.resolve("/tmp/bb-data"));
-    expect(hostDaemonStartConfig.connectionConfig.BB_SERVER_URL).toBe(
+    expect(hostDaemonStartConfig.connectionConfig.HYPERFIDE_SERVER_URL).toBe(
       "http://localhost:9999",
     );
-    expect(hostDaemonStartConfig.connectionConfig.BB_HOST_DAEMON_PORT).toBe(
-      3999,
-    );
+    expect(
+      hostDaemonStartConfig.connectionConfig.HYPERFIDE_HOST_DAEMON_PORT,
+    ).toBe(3999);
   });
 
-  it("builds logger config from an explicit data dir without resolving BB_DATA_DIR", () => {
+  it("builds logger config from an explicit data dir without resolving HYPERFIDE_DATA_DIR", () => {
     const loggerConfig = loadLoggerConfig({
       dataDir: "/tmp/logger-data",
       env: {
@@ -644,8 +650,8 @@ describe("consumer-specific config", () => {
       },
     });
 
-    expect(loggerConfig.BB_DATA_DIR).toBe("/tmp/logger-data");
-    expect(loggerConfig.BB_LOG_LEVEL).toBe("debug");
+    expect(loggerConfig.HYPERFIDE_DATA_DIR).toBe("/tmp/logger-data");
+    expect(loggerConfig.HYPERFIDE_LOG_LEVEL).toBe("debug");
   });
 
   it("defaults CLI connection env to the local app instance", () => {
@@ -655,85 +661,87 @@ describe("consumer-specific config", () => {
       },
     });
 
-    expect(cliConfig.BB_SERVER_URL).toBe("http://127.0.0.1:38886");
-    expect(cliConfig.BB_HOST_DAEMON_PORT).toBe(38887);
+    expect(cliConfig.HYPERFIDE_SERVER_URL).toBe("http://127.0.0.1:38886");
+    expect(cliConfig.HYPERFIDE_HOST_DAEMON_PORT).toBe(38887);
   });
 
   it("lets explicit CLI env overrides win over NODE_ENV-selected defaults", () => {
     const cliConfig = loadCliConfig({
       env: {
-        BB_HOST_DAEMON_PORT: "3999",
-        BB_SERVER_URL: "http://localhost:9999",
+        HYPERFIDE_HOST_DAEMON_PORT: "3999",
+        HYPERFIDE_SERVER_URL: "http://localhost:9999",
         NODE_ENV: "development",
       },
     });
 
-    expect(cliConfig.BB_SERVER_URL).toBe("http://localhost:9999");
-    expect(cliConfig.BB_HOST_DAEMON_PORT).toBe(3999);
+    expect(cliConfig.HYPERFIDE_SERVER_URL).toBe("http://localhost:9999");
+    expect(cliConfig.HYPERFIDE_HOST_DAEMON_PORT).toBe(3999);
   });
 
   it("allows app and external URLs to be omitted in production server config", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_APP_URL: undefined,
-        BB_EXTERNAL_URL: undefined,
+        HYPERFIDE_APP_URL: undefined,
+        HYPERFIDE_EXTERNAL_URL: undefined,
         NODE_ENV: "production",
       }),
     });
 
-    expect(serverConfig.BB_APP_URL).toBe("");
-    expect(serverConfig.BB_EXTERNAL_URL).toBe("");
+    expect(serverConfig.HYPERFIDE_APP_URL).toBe("");
+    expect(serverConfig.HYPERFIDE_EXTERNAL_URL).toBe("");
   });
 
   it("validates app and external URLs independently", () => {
     const serverConfig = loadServerConfig({
       env: createServerRuntimeEnv({
-        BB_APP_URL: "https://app.example.test",
-        BB_EXTERNAL_URL: "https://external.example.test",
+        HYPERFIDE_APP_URL: "https://app.example.test",
+        HYPERFIDE_EXTERNAL_URL: "https://external.example.test",
         NODE_ENV: "production",
       }),
     });
 
-    expect(serverConfig.BB_APP_URL).toBe("https://app.example.test");
-    expect(serverConfig.BB_EXTERNAL_URL).toBe("https://external.example.test");
+    expect(serverConfig.HYPERFIDE_APP_URL).toBe("https://app.example.test");
+    expect(serverConfig.HYPERFIDE_EXTERNAL_URL).toBe(
+      "https://external.example.test",
+    );
 
     expect(() =>
       loadServerConfig({
         env: createServerRuntimeEnv({
-          BB_APP_URL: "not-a-url",
+          HYPERFIDE_APP_URL: "not-a-url",
           NODE_ENV: "production",
         }),
       }),
-    ).toThrow(/BB_APP_URL/u);
+    ).toThrow(/HYPERFIDE_APP_URL/u);
 
     expect(() =>
       loadServerConfig({
         env: createServerRuntimeEnv({
-          BB_APP_URL: "https://app.example.test",
-          BB_EXTERNAL_URL: "not-a-url",
+          HYPERFIDE_APP_URL: "https://app.example.test",
+          HYPERFIDE_EXTERNAL_URL: "not-a-url",
           NODE_ENV: "production",
         }),
       }),
-    ).toThrow(/BB_EXTERNAL_URL/u);
+    ).toThrow(/HYPERFIDE_EXTERNAL_URL/u);
   });
 
   it("reads dev app host from its dedicated config scope", () => {
     const devAppConfig = loadDevAppConfig({
       env: {
-        BB_DEV_APP_HOST: "0.0.0.0",
+        HYPERFIDE_DEV_APP_HOST: "0.0.0.0",
         NODE_ENV: "development",
       },
     });
 
-    expect(devAppConfig.BB_DEV_APP_HOST).toBe("0.0.0.0");
-    expect(devAppConfig.BB_DEV_APP_PORT).toBeUndefined();
+    expect(devAppConfig.HYPERFIDE_DEV_APP_HOST).toBe("0.0.0.0");
+    expect(devAppConfig.HYPERFIDE_DEV_APP_PORT).toBeUndefined();
   });
 
   it("builds app Vite dev config from the app dev entrypoint scope", () => {
     const defaultViteDevConfig = loadViteDevConfig({
       env: {
-        BB_DEV_APP_PORT: "4173",
-        BB_SERVER_PORT: "4444",
+        HYPERFIDE_DEV_APP_PORT: "4173",
+        HYPERFIDE_SERVER_PORT: "4444",
         NODE_ENV: "development",
       },
     });
@@ -747,9 +755,9 @@ describe("consumer-specific config", () => {
 
     const explicitViteDevConfig = loadViteDevConfig({
       env: {
-        BB_DEV_APP_HOST: "0.0.0.0",
-        BB_DEV_APP_PORT: "4173",
-        BB_SERVER_PORT: "4444",
+        HYPERFIDE_DEV_APP_HOST: "0.0.0.0",
+        HYPERFIDE_DEV_APP_PORT: "4173",
+        HYPERFIDE_SERVER_PORT: "4444",
         NODE_ENV: "development",
       },
     });
@@ -761,39 +769,39 @@ describe("consumer-specific config", () => {
     expect(() =>
       loadViteDevConfig({
         env: {
-          BB_SERVER_PORT: "4444",
+          HYPERFIDE_SERVER_PORT: "4444",
           NODE_ENV: "development",
         },
       }),
-    ).toThrow("BB_DEV_APP_PORT is required to run the app dev server");
+    ).toThrow("HYPERFIDE_DEV_APP_PORT is required to run the app dev server");
   });
 
   it("parses optional host-daemon entrypoint env vars in one place", () => {
     const hostDaemonEntrypointConfig = loadHostDaemonEntrypointConfig({
       env: {
-        BB_BRIDGE_DIR: " /tmp/bridges ",
-        BB_CLI_DIR: " /tmp/bb-bin ",
-        BB_HOST_ENROLL_KEY: " enroll-token ",
-        BB_HOST_DAEMON_AUTO_UPDATE: "true",
-        BB_HOST_ID: " host-123 ",
+        HYPERFIDE_BRIDGE_DIR: " /tmp/bridges ",
+        HYPERFIDE_CLI_DIR: " /tmp/bb-bin ",
+        HYPERFIDE_HOST_ENROLL_KEY: " enroll-token ",
+        HYPERFIDE_HOST_DAEMON_AUTO_UPDATE: "true",
+        HYPERFIDE_HOST_ID: " host-123 ",
       },
     });
 
     expect(hostDaemonEntrypointConfig).toEqual({
-      BB_BRIDGE_DIR: "/tmp/bridges",
-      BB_CLI_DIR: "/tmp/bb-bin",
-      BB_HOST_ENROLL_KEY: "enroll-token",
-      BB_HOST_DAEMON_AUTO_UPDATE: true,
-      BB_HOST_ID: "host-123",
+      HYPERFIDE_BRIDGE_DIR: "/tmp/bridges",
+      HYPERFIDE_CLI_DIR: "/tmp/bb-bin",
+      HYPERFIDE_HOST_ENROLL_KEY: "enroll-token",
+      HYPERFIDE_HOST_DAEMON_AUTO_UPDATE: true,
+      HYPERFIDE_HOST_ID: "host-123",
     });
   });
 
   it("drops empty optional host-daemon entrypoint env vars", () => {
     const hostDaemonEntrypointConfig = loadHostDaemonEntrypointConfig({
       env: {
-        BB_BRIDGE_DIR: "",
-        BB_CLI_DIR: "   ",
-        BB_HOST_ENROLL_KEY: " ",
+        HYPERFIDE_BRIDGE_DIR: "",
+        HYPERFIDE_CLI_DIR: "   ",
+        HYPERFIDE_HOST_ENROLL_KEY: " ",
       },
     });
 
