@@ -3,27 +3,24 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { graphWorkerMcp, WORKER_SKILL } from "./worker-injection.js";
-import { registerGraphWorker } from "./graph-lifecycle-projection.js";
-import type { WorkerCapability } from "../../../../packages/provider-bridge-protocol/src/worker-mcp.js";
+import { resolveWorkerMcp } from "@hyperfide/plugin-sdk/provider-bridge";
 
 const root = mkdtempSync(join(tmpdir(), "hyperfide-worker-"));
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-it("attaches the graph capability in thread info and persists repository opt-out", () => {
+it("resolves the validated graph capability and honors persisted repository opt-out", () => {
   mkdirSync(join(root, ".codegraph"), { recursive: true });
   mkdirSync(join(root, "src"));
-  let info!: (threadId: string) => WorkerCapability[];
-  let setting!: (cwd: string, enabled: boolean) => void;
-  registerGraphWorker({
-    threadContext: (threadId) => ({ cwd: join(root, "src"), threadId, task: "hyperfide-v22/1.4" }),
-    registerThreadInfo: (id, read) => {
-      expect(id).toBe("hyperfide-worker");
-      info = read;
-    },
-    registerRepositorySetting: (_id, set) => {
-      setting = set;
-    },
-  });
+  const info = (threadId: string) => {
+    const capability = resolveWorkerMcp(
+      { cwd: join(root, "src"), threadId, task: "hyperfide-v22/1.4" },
+      graphWorkerMcp,
+    );
+    return capability ? [capability] : [];
+  };
+  const setting = (cwd: string, enabled: boolean) => {
+    writeFileSync(join(cwd, ".codegraph", "worker-injection.json"), JSON.stringify({ enabled }));
+  };
   expect(info("thread")).toEqual([
     expect.objectContaining({
       instructions: WORKER_SKILL,
