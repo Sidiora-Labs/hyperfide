@@ -45,7 +45,7 @@
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit -p tsconfig.json",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

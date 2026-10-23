@@ -15,7 +15,7 @@ const TEST_HYPERFIDE_VERSION = "0.9.0-test";
 
 const FIXTURE_PACKAGE_JSON = JSON.stringify(
   {
-    name: "bb-plugin-server-fixture",
+    name: "hyperfide-plugin-server-fixture",
     version: "0.1.0",
     type: "module",
     bb: {
@@ -43,7 +43,7 @@ describe("buildPluginServer", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "bb-plugin-server-build-"));
+    root = await mkdtemp(join(tmpdir(), "hyperfide-plugin-server-build-"));
   });
 
   afterEach(async () => {
@@ -113,7 +113,7 @@ describe("buildPluginServer", () => {
   it("errors clearly when package.json has no bb.server entry", async () => {
     await writeFile(
       join(root, "package.json"),
-      JSON.stringify({ name: "bb-plugin-headless", version: "0.1.0" }),
+      JSON.stringify({ name: "hyperfide-plugin-headless", version: "0.1.0" }),
     );
     await expect(
       buildPluginServer(root, TEST_HYPERFIDE_VERSION, await testToolchain()),
@@ -125,7 +125,7 @@ describe("buildPluginServer", () => {
     await writeFile(
       join(root, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-legacy",
+        name: "hyperfide-plugin-legacy",
         version: "0.1.0",
         bb: { server: "./server.ts" },
       }),

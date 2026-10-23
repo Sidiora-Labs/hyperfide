@@ -29,7 +29,7 @@ function definition(
     manager,
     path: `/services/${unitName}`,
     unitName,
-    programArguments: ["node", "bb-app", "start"],
+    programArguments: ["node", "hyperfide-app", "start"],
     environment: { HYPERFIDE_DATA_DIR: "/data" },
     content: "",
   };

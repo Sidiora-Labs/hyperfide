@@ -50,13 +50,13 @@ async function installIssueLauncher(
   pluginsDir: string,
 ): Promise<() => Promise<ConfigureObservation[]>> {
   const observationsPath = join(pluginsDir, "configure-observations.jsonl");
-  const rootDir = join(pluginsDir, "bb-plugin-issue-launcher");
+  const rootDir = join(pluginsDir, "hyperfide-plugin-issue-launcher");
   await mkdir(rootDir, { recursive: true });
   await writeFile(observationsPath, "");
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-issue-launcher",
+      name: "hyperfide-plugin-issue-launcher",
       version: "0.1.0",
       bb: {
         name: "Issue launcher fixture",

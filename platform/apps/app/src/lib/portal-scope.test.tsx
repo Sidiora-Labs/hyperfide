@@ -52,9 +52,9 @@ describe("usePortalScopeProps", () => {
     const content = baseElement.querySelector('[role="dialog"]');
     expect(content).not.toBeNull();
     expect(content!.getAttribute("data-bb-portaled-overlay")).toBe("");
-    expect(content!.getAttribute("data-bb-plugin-root")).toBe("");
+    expect(content!.getAttribute("data-hyperfide-plugin-root")).toBe("");
 
-    const scoped = baseElement.querySelectorAll("[data-bb-plugin-root]");
+    const scoped = baseElement.querySelectorAll("[data-hyperfide-plugin-root]");
     expect(scoped.length).toBe(2);
     for (const root of scoped) {
       expect(root.getAttribute("data-bb-plugin")).toBe("test-plugin");
@@ -69,9 +69,9 @@ describe("usePortalScopeProps", () => {
 
     const content = baseElement.querySelector('[role="dialog"]');
     expect(content).not.toBeNull();
-    expect(content!.hasAttribute("data-bb-plugin-root")).toBe(false);
+    expect(content!.hasAttribute("data-hyperfide-plugin-root")).toBe(false);
     expect(content!.getAttribute("data-bb-portaled-overlay")).toBe("");
-    expect(baseElement.querySelectorAll("[data-bb-plugin-root]").length).toBe(
+    expect(baseElement.querySelectorAll("[data-hyperfide-plugin-root]").length).toBe(
       0,
     );
   });
@@ -89,10 +89,10 @@ describe("usePortalScopeProps", () => {
     );
 
     const tip = baseElement.querySelector(
-      '[data-bb-plugin-root][role="tooltip"], [role="tooltip"]',
+      '[data-hyperfide-plugin-root][role="tooltip"], [role="tooltip"]',
     );
     expect(tip).not.toBeNull();
-    const scopedTip = baseElement.querySelector("[data-bb-plugin-root]");
+    const scopedTip = baseElement.querySelector("[data-hyperfide-plugin-root]");
     expect(scopedTip).not.toBeNull();
     expect(scopedTip!.getAttribute("data-bb-plugin")).toBe("test-plugin");
     expect(scopedTip!.getAttribute("data-bb-portaled-overlay")).toBe("");

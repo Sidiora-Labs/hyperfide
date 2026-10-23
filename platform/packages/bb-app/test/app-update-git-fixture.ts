@@ -39,7 +39,7 @@ export async function commitVersion(
   writeRepoFile(
     repo,
     "packages/bb-app/package.json",
-    `${JSON.stringify({ name: "bb-app", version })}\n`,
+    `${JSON.stringify({ name: "hyperfide-app", version })}\n`,
   );
   await git(repo, "add", "-A");
   await git(repo, "commit", "-q", "-m", subject);

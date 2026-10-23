@@ -425,7 +425,7 @@ async function smokeNpxEntrypoint(tarballPath) {
         "--package",
         tarballPath,
         "--",
-        "bb-app",
+        "hyperfide-app",
         "--help",
       ],
       command: "npx",
@@ -714,7 +714,7 @@ async function smokeProviderBridgeBundles(packageDir) {
   });
 }
 
-// The daemon forks bb-plugin-host-worker.mjs (a sibling of daemon-bundle.mjs)
+// The daemon forks hyperfide-plugin-host-worker.mjs (a sibling of daemon-bundle.mjs)
 // for every plugin `bb.host` entry. The published package must ship it, and
 // it must load a packed builtin host artifact and report ready over IPC;
 // otherwise every host plugin call fails with "host plugin worker exited (1)".
@@ -723,7 +723,7 @@ async function smokePluginHostWorkerBundle(packageDir) {
     packageDir,
     "host-daemon",
     "dist",
-    "bb-plugin-host-worker.mjs",
+    "hyperfide-plugin-host-worker.mjs",
   );
   const artifactPath = join(
     packageDir,
@@ -798,7 +798,7 @@ async function smokePluginHostWorkerBundle(packageDir) {
 
 async function smokeHelpCommands(binDir) {
   await runCommand({
-    ...createInstalledBinInvocation(binDir, "bb-app", ["--help"]),
+    ...createInstalledBinInvocation(binDir, "hyperfide-app", ["--help"]),
     label: "bb-app help",
   });
   await runCommand({
@@ -818,7 +818,7 @@ async function smokeHelpCommands(binDir) {
 async function smokeConfigCommand(binDir) {
   const dataDir = join(tempRoot, "config-command-data");
   await runCommand({
-    ...createInstalledBinInvocation(binDir, "bb-app", [
+    ...createInstalledBinInvocation(binDir, "hyperfide-app", [
       "--data-dir",
       dataDir,
       "env",
@@ -829,7 +829,7 @@ async function smokeConfigCommand(binDir) {
     label: "bb-app env OPENAI_API_KEY",
   });
   await runCommand({
-    ...createInstalledBinInvocation(binDir, "bb-app", [
+    ...createInstalledBinInvocation(binDir, "hyperfide-app", [
       "--data-dir",
       dataDir,
       "config",
@@ -877,7 +877,7 @@ async function smokeSdkPackage(tarballPath) {
     args: [
       "--input-type=module",
       "-e",
-      'import { BBSdk } from "bb-app"; if (typeof BBSdk !== "function" || typeof new BBSdk().experimental_desktopBrowsers?.listInstances !== "function") process.exit(1);',
+      'import { BBSdk } from "hyperfide-app"; if (typeof BBSdk !== "function" || typeof new BBSdk().experimental_desktopBrowsers?.listInstances !== "function") process.exit(1);',
     ],
     command: "node",
     cwd: sdkDir,
@@ -893,7 +893,7 @@ async function smokeSdkPackage(tarballPath) {
         'import { dirname, join } from "node:path";',
         'import { execFileSync } from "node:child_process";',
         "const require = createRequire(import.meta.url);",
-        'const bbRequire = createRequire(require.resolve("bb-app"));',
+        'const bbRequire = createRequire(require.resolve("hyperfide-app"));',
         'const npmRoot = dirname(bbRequire.resolve("npm/package.json"));',
         'const version = execFileSync(process.execPath, [join(npmRoot, "bin/npm-cli.js"), "--version"], { encoding: "utf8", env: { ...process.env, PATH: "" } }).trim();',
         'if (version !== bbRequire("npm/package.json").version) process.exit(1);',
@@ -905,7 +905,7 @@ async function smokeSdkPackage(tarballPath) {
   await writeFile(
     join(sdkDir, "sdk-smoke.ts"),
     [
-      'import { BBSdk, BbHttpError } from "bb-app";',
+      'import { BBSdk, BbHttpError } from "hyperfide-app";',
       "",
       'const bb = new BBSdk({ baseUrl: "http://127.0.0.1:38886" });',
       "const error: typeof BbHttpError = BbHttpError;",
@@ -1030,7 +1030,7 @@ async function smokeFullStackAttempt(binDir, sdkDir, attempt) {
   try {
     await closePortReservations(reservations);
     stack = spawnManagedProcess({
-      ...createInstalledBinInvocation(binDir, "bb-app", [
+      ...createInstalledBinInvocation(binDir, "hyperfide-app", [
         "--data-dir",
         dataDir,
         "--server-port",
@@ -1097,7 +1097,7 @@ async function smokeFullStackAttempt(binDir, sdkDir, attempt) {
         "--input-type=module",
         "-e",
         [
-          'import { BBSdk } from "bb-app";',
+          'import { BBSdk } from "hyperfide-app";',
           "const bb = new BBSdk({ baseUrl: process.env.BB_SERVER_URL });",
           "await bb.status.get();",
         ].join("\n"),
@@ -1179,7 +1179,7 @@ async function smokeDaemonJoinAttempt(binDir, attempt) {
     for (const spec of daemonSpecs) {
       await closePortReservation(spec.reservation);
       const daemon = spawnManagedProcess({
-        ...createInstalledBinInvocation(binDir, "bb-app", [
+        ...createInstalledBinInvocation(binDir, "hyperfide-app", [
           "host-daemon",
           "join",
           "--data-dir",
@@ -1273,7 +1273,7 @@ try {
     sdkDir = await timed("sdk package", () => smokeSdkPackage(tarballPath));
   }
   const installedBinDir = join(sdkDir, "node_modules", ".bin");
-  const installedPackageDir = join(sdkDir, "node_modules", "bb-app");
+  const installedPackageDir = join(sdkDir, "node_modules", "hyperfide-app");
   await timed("help commands", () => smokeHelpCommands(installedBinDir));
   await timed("config command", () => smokeConfigCommand(installedBinDir));
   await timed("installed repack", () =>

@@ -1,5 +1,5 @@
 import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
-import { createHostProgress } from "bb-environment-provider-host/progress";
+import { createHostProgress } from "hyperfide-environment-provider-host/progress";
 import { checkoutHostContract, checkoutHostSignals } from "./contract.js";
 import { attachCheckout, inspectCheckout } from "./host/checkout.js";
 

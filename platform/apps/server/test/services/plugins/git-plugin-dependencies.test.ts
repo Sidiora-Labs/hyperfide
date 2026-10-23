@@ -22,7 +22,7 @@ function manifest(
 ): string {
   return JSON.stringify(
     {
-      name: "bb-plugin-runtime-only",
+      name: "hyperfide-plugin-runtime-only",
       version: "1.0.0",
       bb: {
         name: "Runtime only",
@@ -79,7 +79,7 @@ it("installs runtime dependencies with development dependencies present and life
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-runtime-only",
+      name: "hyperfide-plugin-runtime-only",
       version: "1.0.0",
       dependencies,
       devDependencies,

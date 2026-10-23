@@ -31,7 +31,7 @@ async function writeVendoredPlugin(
     join(rootDir, "package.json"),
     `${JSON.stringify(
       overrides.manifest ?? {
-        name: "bb-plugin-legacy",
+        name: "hyperfide-plugin-legacy",
         version: "0.1.0",
         engines: { bb: ">=0.9", bbPluginSdk: ">=0.2.0" },
         bb: { server: "./server.ts" },
@@ -49,8 +49,8 @@ async function writeVendoredPlugin(
         compilerOptions: {
           strict: true,
           paths: {
-            "@hyperfide/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"],
-            "@hyperfide/plugin-sdk/app": ["./types/bb-plugin-sdk-app.d.ts"],
+            "@hyperfide/plugin-sdk": ["./types/hyperfide-plugin-sdk.d.ts"],
+            "@hyperfide/plugin-sdk/app": ["./types/hyperfide-plugin-sdk-app.d.ts"],
             "@/*": ["./*"],
           },
         },
@@ -61,8 +61,8 @@ async function writeVendoredPlugin(
     )}\n`,
   );
   const declarations = overrides.declarations ?? [
-    "bb-plugin-sdk.d.ts",
-    "bb-plugin-sdk-app.d.ts",
+    "hyperfide-plugin-sdk.d.ts",
+    "hyperfide-plugin-sdk-app.d.ts",
   ];
   if (declarations.length > 0) {
     await mkdir(join(rootDir, "types"), { recursive: true });
@@ -87,7 +87,7 @@ describe("migratePluginToPackageLayout", () => {
   let rootDir: string;
 
   beforeEach(async () => {
-    rootDir = await mkdtemp(join(tmpdir(), "bb-plugin-migrate-"));
+    rootDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-migrate-"));
   });
 
   afterEach(async () => {
@@ -105,8 +105,8 @@ describe("migratePluginToPackageLayout", () => {
     expect(result.changed).toBe(true);
     expect(result.pin).toEqual({ from: null, to: SDK_VERSION });
     expect(result.deletedFiles).toEqual([
-      "types/bb-plugin-sdk.d.ts",
-      "types/bb-plugin-sdk-app.d.ts",
+      "types/hyperfide-plugin-sdk.d.ts",
+      "types/hyperfide-plugin-sdk-app.d.ts",
     ]);
     expect(result.removedTypesDir).toBe(true);
 
@@ -141,11 +141,11 @@ describe("migratePluginToPackageLayout", () => {
       )?.bbPluginSdk,
     ).toBe(">=0.4.3");
 
-    const newer = await mkdtemp(join(tmpdir(), "bb-plugin-migrate-newer-"));
+    const newer = await mkdtemp(join(tmpdir(), "hyperfide-plugin-migrate-newer-"));
     try {
       await writeVendoredPlugin(newer, {
         manifest: {
-          name: "bb-plugin-newer",
+          name: "hyperfide-plugin-newer",
           engines: { bbPluginSdk: ">=9.1.0" },
           bb: { server: "./server.ts" },
         },
@@ -184,7 +184,7 @@ describe("migratePluginToPackageLayout", () => {
     async (range, sdkVersion, raises) => {
       await writeVendoredPlugin(rootDir, {
         manifest: {
-          name: "bb-plugin-range",
+          name: "hyperfide-plugin-range",
           engines: { bbPluginSdk: range },
           bb: { server: "./server.ts" },
         },
@@ -242,7 +242,7 @@ describe("migratePluginToPackageLayout", () => {
   it("converges a half-migrated plugin instead of rejecting it", async () => {
     await writeVendoredPlugin(rootDir, {
       manifest: {
-        name: "bb-plugin-half",
+        name: "hyperfide-plugin-half",
         engines: { bbPluginSdk: `>=${SDK_VERSION}` },
         bb: { server: "./server.ts" },
         devDependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
@@ -276,7 +276,7 @@ describe("migratePluginToPackageLayout", () => {
 
     expect(result.removedTypesDir).toBe(false);
     expect(await exists(join(rootDir, "types", "custom.d.ts"))).toBe(true);
-    expect(await exists(join(rootDir, "types", "bb-plugin-sdk.d.ts"))).toBe(
+    expect(await exists(join(rootDir, "types", "hyperfide-plugin-sdk.d.ts"))).toBe(
       false,
     );
     expect(result.removedIncludes).toEqual([]);
@@ -289,8 +289,8 @@ describe("migratePluginToPackageLayout", () => {
       tsconfig: {
         compilerOptions: {
           paths: {
-            "@hyperfide/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"],
-            "@hyperfide/plugin-sdk/app": ["./types/bb-plugin-sdk-app.d.ts"],
+            "@hyperfide/plugin-sdk": ["./types/hyperfide-plugin-sdk.d.ts"],
+            "@hyperfide/plugin-sdk/app": ["./types/hyperfide-plugin-sdk-app.d.ts"],
             "@/*": ["./*"],
           },
         },
@@ -318,7 +318,7 @@ describe("migratePluginToPackageLayout", () => {
     await writeVendoredPlugin(rootDir, {
       declarations: [],
       manifest: {
-        name: "bb-plugin-runtime-pin",
+        name: "hyperfide-plugin-runtime-pin",
         engines: { bbPluginSdk: `>=${SDK_VERSION}` },
         bb: { server: "./server.ts" },
         dependencies: { "@hyperfide/plugin-sdk": SDK_VERSION, zod: "^4.3.6" },
@@ -345,7 +345,7 @@ describe("migratePluginToPackageLayout", () => {
     await writeVendoredPlugin(rootDir, {
       declarations: [],
       manifest: {
-        name: "bb-plugin-pinless",
+        name: "hyperfide-plugin-pinless",
         bb: { server: "./server.ts" },
         devDependencies: { typescript: "^5.7.0" },
       },
@@ -457,7 +457,7 @@ describe("migratePluginToPackageLayout", () => {
     await writeVendoredPlugin(rootDir, {
       declarations: [],
       manifest: {
-        name: "bb-plugin-imports-only",
+        name: "hyperfide-plugin-imports-only",
         engines: { bbPluginSdk: `>=${SDK_VERSION}` },
         bb: { server: "./server.ts" },
         devDependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
@@ -493,16 +493,16 @@ describe("migratePluginToPackageLayout", () => {
     expect(plan.changed).toBe(true);
     expect(plan.deletedFiles.length).toBe(2);
     expect(await readFile(join(rootDir, "package.json"), "utf8")).toBe(before);
-    expect(await exists(join(rootDir, "types", "bb-plugin-sdk.d.ts"))).toBe(
+    expect(await exists(join(rootDir, "types", "hyperfide-plugin-sdk.d.ts"))).toBe(
       true,
     );
   });
 
   it("refuses a symlinked types/ and changes nothing at all", async () => {
     await writeVendoredPlugin(rootDir, { declarations: [] });
-    const outside = await mkdtemp(join(tmpdir(), "bb-plugin-outside-"));
+    const outside = await mkdtemp(join(tmpdir(), "hyperfide-plugin-outside-"));
     try {
-      await writeFile(join(outside, "bb-plugin-sdk.d.ts"), "PRECIOUS\n");
+      await writeFile(join(outside, "hyperfide-plugin-sdk.d.ts"), "PRECIOUS\n");
       await symlink(outside, join(rootDir, "types"));
       const manifestBefore = await readFile(
         join(rootDir, "package.json"),
@@ -513,7 +513,7 @@ describe("migratePluginToPackageLayout", () => {
         migratePluginToPackageLayout({ rootDir, sdkVersion: SDK_VERSION }),
       ).rejects.toThrow(/symbolic link/);
 
-      expect(await readFile(join(outside, "bb-plugin-sdk.d.ts"), "utf8")).toBe(
+      expect(await readFile(join(outside, "hyperfide-plugin-sdk.d.ts"), "utf8")).toBe(
         "PRECIOUS\n",
       );
       expect(await readFile(join(rootDir, "package.json"), "utf8")).toBe(
@@ -542,7 +542,7 @@ describe("migratePluginToPackageLayout", () => {
     expect(await readFile(join(rootDir, "package.json"), "utf8")).toBe(
       manifestBefore,
     );
-    expect(await exists(join(rootDir, "types", "bb-plugin-sdk.d.ts"))).toBe(
+    expect(await exists(join(rootDir, "types", "hyperfide-plugin-sdk.d.ts"))).toBe(
       true,
     );
   });
@@ -552,7 +552,7 @@ describe("setPluginSdkPin", () => {
   let rootDir: string;
 
   beforeEach(async () => {
-    rootDir = await mkdtemp(join(tmpdir(), "bb-plugin-pin-"));
+    rootDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-pin-"));
   });
 
   afterEach(async () => {
@@ -564,7 +564,7 @@ describe("setPluginSdkPin", () => {
       join(rootDir, "package.json"),
       `${JSON.stringify(
         {
-          name: "bb-plugin-pinned",
+          name: "hyperfide-plugin-pinned",
           engines: { bbPluginSdk: ">=0.2.0" },
           bb: { server: "./server.ts" },
           devDependencies: {
@@ -606,7 +606,7 @@ describe("setPluginSdkPin", () => {
       join(rootDir, "package.json"),
       `${JSON.stringify(
         {
-          name: "bb-plugin-exact-runtime-dep",
+          name: "hyperfide-plugin-exact-runtime-dep",
           bb: { server: "./server.ts" },
           dependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
         },
@@ -642,7 +642,7 @@ describe("setPluginSdkPin", () => {
       join(rootDir, "package.json"),
       `${JSON.stringify(
         {
-          name: "bb-plugin-toasty",
+          name: "hyperfide-plugin-toasty",
           bb: { server: "./server.ts", app: "./app.tsx" },
           dependencies: { vaul: "^0.9.0", zod: "^4.3.6" },
           devDependencies: {
@@ -703,7 +703,7 @@ describe("setPluginSdkPin", () => {
     "allows an app plugin with no shim packages (dryRun: %s)",
     async (dryRun) => {
       const original = JSON.stringify({
-        name: "bb-plugin-pruned",
+        name: "hyperfide-plugin-pruned",
         bb: { server: "./server.ts", app: "./app.tsx" },
         devDependencies: { "@hyperfide/plugin-sdk": SDK_VERSION },
       });
@@ -727,7 +727,7 @@ describe("setPluginSdkPin", () => {
       join(rootDir, "package.json"),
       `${JSON.stringify(
         {
-          name: "bb-plugin-headless",
+          name: "hyperfide-plugin-headless",
           bb: { server: "./server.ts" },
           devDependencies: {
             "@hyperfide/plugin-sdk": SDK_VERSION,

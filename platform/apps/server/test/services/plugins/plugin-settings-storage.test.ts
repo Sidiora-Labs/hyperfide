@@ -81,7 +81,7 @@ describe("plugin settings + storage", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-storage-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-storage-test-"));
     dataDir = join(workDir, "data");
     systemBroadcasts = [];
     service = createPluginService({
@@ -112,7 +112,7 @@ describe("plugin settings + storage", () => {
   describe("settings", () => {
     async function installConfigurable(): Promise<void> {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-configurable",
+        name: "hyperfide-plugin-configurable",
         serverSource: `
           export default async function plugin(bb: any) {
             const settings = bb.settings.define({
@@ -242,7 +242,7 @@ describe("plugin settings + storage", () => {
 
     it("lets plugin server code validate and persist its own settings", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-self-configuring",
+        name: "hyperfide-plugin-self-configuring",
         dependencies: { zod: "^4.3.6" },
         serverSource: `
           import { z } from "zod";
@@ -416,7 +416,7 @@ describe("plugin settings + storage", () => {
 
     it("marks a plugin error when it defines an invalid descriptor", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-bad-schema",
+        name: "hyperfide-plugin-bad-schema",
         serverSource: `
           export default function plugin(bb: any) {
             bb.settings.define({ broken: { type: "select", label: "Broken", options: [] } });
@@ -433,7 +433,7 @@ describe("plugin settings + storage", () => {
   describe("kv storage", () => {
     it("round-trips JSON values, lists by prefix, and caps value size", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-kver",
+        name: "hyperfide-plugin-kver",
         serverSource: `export default function plugin() {}`,
       });
       await service.installPath(rootDir);
@@ -488,7 +488,7 @@ describe("plugin settings + storage", () => {
 
     it("vends a WAL handle, applies migrations once, and closes handles on reload", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-sqler",
+        name: "hyperfide-plugin-sqler",
         serverSource: sqlerSource,
       });
       await service.installPath(rootDir);
@@ -517,7 +517,7 @@ describe("plugin settings + storage", () => {
 
     it("rejects a changed migration statement at an applied index", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-migration-collision",
+        name: "hyperfide-plugin-migration-collision",
         serverSource: `
           export default function plugin(bb: any) {
             const db = bb.storage.database();
@@ -542,7 +542,7 @@ describe("plugin settings + storage", () => {
 
     it("reserves unknown legacy indexes before later statements can reuse them", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-legacy-migrations",
+        name: "hyperfide-plugin-legacy-migrations",
         serverSource: `export default function plugin() {}`,
       });
       await service.installPath(rootDir);
@@ -577,7 +577,7 @@ describe("plugin settings + storage", () => {
     it("returns one reused handle per plugin load instead of a connection per call", async () => {
       const CALLS = 200;
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-chatty",
+        name: "hyperfide-plugin-chatty",
         serverSource: `
           export default function plugin(bb: any) {
             const g = globalThis as any;
@@ -622,7 +622,7 @@ describe("plugin settings + storage", () => {
 
   it("saving settings auto-reloads a needs-configuration plugin (regression: pasting the key in Settings must take effect)", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-needs-key",
+      name: "hyperfide-plugin-needs-key",
       serverSource: `
         export default async function plugin(bb: any) {
           const g = globalThis as any;
@@ -654,7 +654,7 @@ describe("plugin settings + storage", () => {
 
   it("saving settings does NOT reload a healthy running plugin", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-healthy",
+      name: "hyperfide-plugin-healthy",
       serverSource: `
         export default function plugin(bb: any) {
           const g = globalThis as any;

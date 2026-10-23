@@ -27,10 +27,10 @@ describe("scaffoldPlugin SDK dependency", () => {
   });
 
   it("pins @hyperfide/plugin-sdk exactly and vendors no declarations", async () => {
-    const targetDir = join(workDir, "bb-plugin-todo");
+    const targetDir = join(workDir, "hyperfide-plugin-todo");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-todo",
+      packageName: "hyperfide-plugin-todo",
       bbVersion: "0.9.0",
     });
 
@@ -70,7 +70,7 @@ describe("scaffoldPlugin SDK dependency", () => {
 
     const readme = await readFile(join(targetDir, "README.md"), "utf8");
     expect(readme).toContain(
-      "node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts",
+      "node_modules/@hyperfide/plugin-sdk/bundled-types/hyperfide-plugin-sdk.d.ts",
     );
     expect(readme).toContain(
       "sync this plugin's SDK surface to the running BB",
@@ -89,10 +89,10 @@ describe("scaffoldPlugin SDK dependency", () => {
   });
 
   it("writes a store overview that follows the marketplace content rules", async () => {
-    const targetDir = join(workDir, "bb-plugin-todo");
+    const targetDir = join(workDir, "hyperfide-plugin-todo");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-todo",
+      packageName: "hyperfide-plugin-todo",
       bbVersion: "0.9.0",
     });
 
@@ -115,17 +115,17 @@ describe("scaffoldPlugin SDK dependency", () => {
   });
 
   it("uses the canonical id in a scoped package scaffold", async () => {
-    const targetDir = join(workDir, "bb-plugin-scoped");
+    const targetDir = join(workDir, "hyperfide-plugin-scoped");
     await scaffoldPlugin({
       targetDir,
-      packageName: "@acme/bb-plugin-scoped",
+      packageName: "@acme/hyperfide-plugin-scoped",
       bbVersion: "0.9.0",
     });
 
     const pkg = JSON.parse(
       await readFile(join(targetDir, "package.json"), "utf8"),
     );
-    expect(pkg.name).toBe("@acme/bb-plugin-scoped");
+    expect(pkg.name).toBe("@acme/hyperfide-plugin-scoped");
     expect(pkg.bb.name).toBe("Scoped");
 
     const readme = await readFile(join(targetDir, "README.md"), "utf8");
@@ -160,10 +160,10 @@ describe("resolvePluginSdkLayout", () => {
   });
 
   it("reports the npm layout with its exact pin for a fresh scaffold", async () => {
-    const targetDir = join(workDir, "bb-plugin-new-style");
+    const targetDir = join(workDir, "hyperfide-plugin-new-style");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-new-style",
+      packageName: "hyperfide-plugin-new-style",
       bbVersion: "0.9.0",
     });
 
@@ -174,10 +174,10 @@ describe("resolvePluginSdkLayout", () => {
   });
 
   it("reports the vendored layout for a legacy plugin", async () => {
-    const targetDir = join(workDir, "bb-plugin-legacy");
+    const targetDir = join(workDir, "hyperfide-plugin-legacy");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-legacy",
+      packageName: "hyperfide-plugin-legacy",
       bbVersion: "0.9.0",
     });
     const pkgPath = join(targetDir, "package.json");
@@ -187,7 +187,7 @@ describe("resolvePluginSdkLayout", () => {
     const tsconfigPath = join(targetDir, "tsconfig.json");
     const tsconfig = JSON.parse(await readFile(tsconfigPath, "utf8"));
     tsconfig.compilerOptions.paths = {
-      "@hyperfide/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"],
+      "@hyperfide/plugin-sdk": ["./types/hyperfide-plugin-sdk.d.ts"],
     };
     await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`);
 
@@ -198,14 +198,14 @@ describe("resolvePluginSdkLayout", () => {
   });
 
   it("stays vendored while declarations exist but the path map is gone", async () => {
-    const targetDir = join(workDir, "bb-plugin-half-migrated");
+    const targetDir = join(workDir, "hyperfide-plugin-half-migrated");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-half-migrated",
+      packageName: "hyperfide-plugin-half-migrated",
       bbVersion: "0.9.0",
     });
     await mkdir(join(targetDir, "types"));
-    await writeFile(join(targetDir, "types", "bb-plugin-sdk.d.ts"), "legacy\n");
+    await writeFile(join(targetDir, "types", "hyperfide-plugin-sdk.d.ts"), "legacy\n");
 
     const layout = await resolvePluginSdkLayout(targetDir);
     expect(layout.kind).toBe("vendored");

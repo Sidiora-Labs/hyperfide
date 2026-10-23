@@ -27,7 +27,7 @@ describe("plugin host worker lifecycle", () => {
     artifactSource: string,
     disposeTimeoutMs = 50,
   ): Promise<ChildProcess> {
-    const root = await mkdtemp(join(tmpdir(), "bb-plugin-worker-test-"));
+    const root = await mkdtemp(join(tmpdir(), "hyperfide-plugin-worker-test-"));
     tempDirs.push(root);
     const artifactPath = join(root, "host.mjs");
     const dataDir = join(root, "data");

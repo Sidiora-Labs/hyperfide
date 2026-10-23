@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "bb-plugin-provider-codex",
+    name: "hyperfide-plugin-provider-codex",
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
   },

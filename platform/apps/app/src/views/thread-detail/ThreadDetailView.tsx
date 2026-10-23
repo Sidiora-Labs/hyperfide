@@ -47,7 +47,7 @@ import {
   type ThreadWithRuntime,
 } from "@hyperfide/domain";
 import type { TerminalSession, TimelineRow } from "@hyperfide/server-contract";
-import type { PullRequestMergeMethod } from "bb-plugin-bb--github-pr-status/contract";
+import type { PullRequestMergeMethod } from "hyperfide-plugin-bb--github-pr-status/contract";
 import type { WorkspaceOpenTarget } from "@hyperfide/host-daemon-contract";
 import { appToast } from "@/components/ui/app-toast";
 import { copyToClipboardWithToast } from "@/lib/clipboard";

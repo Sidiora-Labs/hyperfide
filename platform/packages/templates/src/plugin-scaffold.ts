@@ -36,8 +36,8 @@ export async function resolvePluginSdkLayout(
 ): Promise<PluginSdkLayout> {
   const pin = await readDeclaredSdkPin(rootDir);
   const hasVendoredTypes =
-    (await pathExists(join(rootDir, "types", "bb-plugin-sdk.d.ts"))) ||
-    (await pathExists(join(rootDir, "types", "bb-plugin-sdk-app.d.ts")));
+    (await pathExists(join(rootDir, "types", "hyperfide-plugin-sdk.d.ts"))) ||
+    (await pathExists(join(rootDir, "types", "hyperfide-plugin-sdk-app.d.ts")));
   const hasPathMap = await tsconfigMapsSdk(rootDir);
   return {
     kind: hasVendoredTypes || hasPathMap ? "vendored" : "package",
@@ -48,8 +48,8 @@ export async function resolvePluginSdkLayout(
 const SDK_PATH_MAP_PREFIXES = ["@hyperfide/plugin-sdk", "@hyperfide/plugin-sdk"] as const;
 
 const VENDORED_DECLARATIONS = [
-  "bb-plugin-sdk.d.ts",
-  "bb-plugin-sdk-app.d.ts",
+  "hyperfide-plugin-sdk.d.ts",
+  "hyperfide-plugin-sdk-app.d.ts",
 ] as const;
 
 const LEGACY_SDK_SPECIFIER_PATTERN =
@@ -1396,8 +1396,8 @@ that scaffolded this plugin). After \`npm install\`, the full surface is on disk
 at:
 
 \`\`\`
-node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
-node_modules/@hyperfide/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
+node_modules/@hyperfide/plugin-sdk/bundled-types/hyperfide-plugin-sdk.d.ts      # backend
+node_modules/@hyperfide/plugin-sdk/bundled-types/hyperfide-plugin-sdk-app.d.ts  # frontend
 \`\`\`
 
 Your editor and \`tsc\` resolve \`@hyperfide/plugin-sdk\` there through ordinary node
@@ -1412,7 +1412,7 @@ bb plugin types          # sync this plugin's SDK surface to the running BB
 bb plugin types --check  # CI: fail when it does not match
 \`\`\`
 
-Ask BB to write plugins for you: the \`bb-plugin-authoring\` skill documents
+Ask BB to write plugins for you: the \`hyperfide-plugin-authoring\` skill documents
 the whole surface with examples.
 
 Confused by the API, or need something the types don't explain? Clone the BB

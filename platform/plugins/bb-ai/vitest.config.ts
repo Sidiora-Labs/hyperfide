@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     silent: "passed-only",
     projects: sharedWorkerProjects({
       pkgDir: __dirname,
-      name: "bb-plugin-bb-ai",
+      name: "hyperfide-plugin-bb-ai",
       include: ["**/*.test.{ts,tsx}"],
     }),
   },

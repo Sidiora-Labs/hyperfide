@@ -407,7 +407,7 @@ describe("service definition rewrites", () => {
     expect(
       replaceServerUrlArgument(
         [
-          "bb-app",
+          "hyperfide-app",
           "host-daemon",
           "--server=http://old",
           "--server-url",
@@ -416,7 +416,7 @@ describe("service definition rewrites", () => {
         "http://new",
       ),
     ).toEqual([
-      "bb-app",
+      "hyperfide-app",
       "host-daemon",
       "--server=http://new",
       "--server-url",

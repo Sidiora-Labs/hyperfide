@@ -18,7 +18,7 @@ import {
   environmentPullRequestSchema,
   GITHUB_PR_STATUS_PLUGIN_ID,
   type PullRequest,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-bb--github-pr-status/contract";
 import { z } from "zod";
 import type {
   EnvironmentDiffQuery,

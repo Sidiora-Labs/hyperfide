@@ -134,7 +134,7 @@ describe("hyperfide-platform updates command output", () => {
     await runCommand(["updates"], register);
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("bb-app");
+    expect(output).toContain("hyperfide-app");
     expect(output).toContain("0.0.32 -> 0.0.33");
     expect(output).toContain("Update available (run: npx bb-app@latest)");
     expect(output).toContain("workstation · Codex");

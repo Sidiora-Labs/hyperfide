@@ -96,7 +96,7 @@ const ACME_AI = { pluginId: "acme-ai", serviceId: "acme-ai" };
 async function withPluginHarness(
   run: (harness: TestAppHarness, workDir: string) => Promise<void>,
 ): Promise<void> {
-  const workDir = await mkdtemp(join(tmpdir(), "bb-plugin-ai-service-test-"));
+  const workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-ai-service-test-"));
   try {
     await withTestHarness((harness) => run(harness, workDir));
   } finally {
@@ -108,7 +108,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
   it("lands the service when the load commits and removes it when the plugin is disabled", async () => {
     await withPluginHarness(async (harness, workDir) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-acme-ai",
+        name: "hyperfide-plugin-acme-ai",
         serverSource: REGISTER_AI_SERVICE_SOURCE("acme-ai"),
         withHost: false,
       });
@@ -141,7 +141,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
   it("fails the load of a plugin whose service answers nothing", async () => {
     await withPluginHarness(async (harness, workDir) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-empty-ai",
+        name: "hyperfide-plugin-empty-ai",
         serverSource: `
           export default function plugin(bb: any) {
             bb.experimental_aiServices.register({ id: "empty-ai", displayName: "Empty" });
@@ -166,7 +166,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
   it("fails the load on the host build error for a plugin that registers only an AI service", async () => {
     await withPluginHarness(async (harness, workDir) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-broken-host-ai",
+        name: "hyperfide-plugin-broken-host-ai",
         serverSource: REGISTER_AI_SERVICE_SOURCE("broken-host-ai"),
       });
       await writeFile(
@@ -192,7 +192,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
       await withPluginHarness(async (harness, workDir) => {
         const id = `dual-${order}`;
         const rootDir = await writePlugin(workDir, {
-          name: `bb-plugin-${id}`,
+          name: `hyperfide-plugin-${id}`,
           serverSource: REGISTER_AI_SERVICE_AND_PROVIDER_SOURCE(id, order),
         });
         await writeFile(
@@ -251,13 +251,13 @@ describe("bb.experimental_aiServices.register (server)", () => {
     await withPluginHarness(async (harness, workDir) => {
       const first = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-first-ai",
+          name: "hyperfide-plugin-first-ai",
           serverSource: REGISTER_AI_SERVICE_SOURCE("codex"),
         }),
       );
       const second = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-second-ai",
+          name: "hyperfide-plugin-second-ai",
           serverSource: REGISTER_AI_SERVICE_SOURCE("codex"),
         }),
       );
@@ -286,7 +286,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
     await withPluginHarness(async (harness, workDir) => {
       const entry = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-twice-ai",
+          name: "hyperfide-plugin-twice-ai",
           serverSource: `
             export default function plugin(bb: any) {
               const complete = async () => "reply";
@@ -309,7 +309,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
     await withPluginHarness(async (harness, workDir) => {
       const entry = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-reserved-ai",
+          name: "hyperfide-plugin-reserved-ai",
           serverSource: REGISTER_AI_SERVICE_SOURCE("automatic"),
           withHost: false,
         }),

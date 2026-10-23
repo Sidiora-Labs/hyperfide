@@ -150,7 +150,7 @@ function workerLogContext(worker: WorkerState): Record<string, unknown> {
 
 function defaultWorkerEntryPath(): string {
   const candidates = [
-    "./bb-plugin-host-worker.mjs",
+    "./hyperfide-plugin-host-worker.mjs",
     "./plugin-host-worker.js",
     "./plugin-host-worker.ts",
   ];

@@ -60,7 +60,7 @@ describe("bb.onInstall", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-install-hook-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-install-hook-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -90,7 +90,7 @@ describe("bb.onInstall", () => {
     const rootDir = join(workDir, "hooked");
     const markerPath = join(workDir, "runs.txt");
     await writeHookPlugin(rootDir, {
-      name: "bb-plugin-hooked",
+      name: "hyperfide-plugin-hooked",
       handlerBody: `appendFileSync(${JSON.stringify(markerPath)}, "install\\n");`,
     });
 
@@ -111,7 +111,7 @@ describe("bb.onInstall", () => {
   it("keeps the install when a handler throws", async () => {
     const rootDir = join(workDir, "throwing");
     await writeHookPlugin(rootDir, {
-      name: "bb-plugin-throwing",
+      name: "hyperfide-plugin-throwing",
       handlerBody: `throw new Error("install hook exploded");`,
     });
 
@@ -123,7 +123,7 @@ describe("bb.onInstall", () => {
   it("stops waiting for a handler that never settles", async () => {
     const rootDir = join(workDir, "hanging");
     await writeHookPlugin(rootDir, {
-      name: "bb-plugin-hanging",
+      name: "hyperfide-plugin-hanging",
       handlerBody: `await new Promise(() => {});`,
     });
 

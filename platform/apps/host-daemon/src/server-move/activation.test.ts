@@ -264,7 +264,7 @@ describe("server_move.activate sequencing", () => {
       {
         command: process.execPath,
         args: [
-          join(fixture.npmPrefix, "bin", "bb-app"),
+          join(fixture.npmPrefix, "bin", "hyperfide-app"),
           "start",
           "--data-dir",
           fixture.dataDir,

@@ -4157,7 +4157,7 @@ describe("migrate", () => {
           'marketplace',
           'bb-official',
           'custom-entry',
-          'npm:bb-plugin-custom@^1'
+          'npm:hyperfide-plugin-custom@^1'
         );
       `);
 
@@ -4343,7 +4343,7 @@ describe("migrate", () => {
       migrate(db);
       db.$client.exec(`
         INSERT INTO plugins (id, source, root_dir, version, enabled, installed_at, updated_at, provenance, source_kind)
-        VALUES ('provider-usage', 'git:https://github.com/braedonsaunders/bb-plugin-provider-usage.git', '/managed/provider-usage', '0.4.0', 1, 1, 1, 'catalog', 'git');
+        VALUES ('provider-usage', 'git:https://github.com/braedonsaunders/hyperfide-plugin-provider-usage.git', '/managed/provider-usage', '0.4.0', 1, 1, 1, 'catalog', 'git');
       `);
 
       runMigrationFile({

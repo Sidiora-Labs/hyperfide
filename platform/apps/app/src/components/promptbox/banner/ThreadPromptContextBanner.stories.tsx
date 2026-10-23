@@ -1,7 +1,7 @@
 import type {
   PullRequest,
   PullRequestMergeMethod,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-bb--github-pr-status/contract";
 import { useState, type ReactNode } from "react";
 import type { WorkspaceFileStatus, WorkspaceStatus } from "@hyperfide/domain";
 import {

@@ -37,6 +37,6 @@
     "vitest": "^4.1.1"
   },
   "bin": {
-    "bb-plugin-build": "./bin/bb-plugin-build.mjs"
+    "hyperfide-plugin-build": "./bin/hyperfide-plugin-build.mjs"
   }
 }

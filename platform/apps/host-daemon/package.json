@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@hyperfide/agent-runtime": "workspace:*",
-    "bb-environment-provider-host": "workspace:*",
+    "hyperfide-environment-provider-host": "workspace:*",
     "@hyperfide/cli": "workspace:*",
     "@hyperfide/config": "workspace:*",
     "@hyperfide/domain": "workspace:*",

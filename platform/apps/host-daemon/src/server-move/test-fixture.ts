@@ -271,10 +271,10 @@ async function createSourceServer(root: string): Promise<SourceServer> {
 }
 
 async function createPackageRoot(root: string): Promise<string> {
-  const packageRoot = join(root, "npm", "lib", "node_modules", "bb-app");
+  const packageRoot = join(root, "npm", "lib", "node_modules", "hyperfide-app");
   await writeFileWithDirs(
     join(packageRoot, "package.json"),
-    JSON.stringify({ name: "bb-app", version: "1.0.0" }),
+    JSON.stringify({ name: "hyperfide-app", version: "1.0.0" }),
   );
   for (const file of [
     "host-daemon/dist/daemon-bundle.mjs",
@@ -285,7 +285,7 @@ async function createPackageRoot(root: string): Promise<string> {
   ]) {
     await writeFileWithDirs(join(packageRoot, ...file.split("/")), "");
   }
-  await writeFileWithDirs(join(root, "npm", "bin", "bb-app"), "");
+  await writeFileWithDirs(join(root, "npm", "bin", "hyperfide-app"), "");
   return packageRoot;
 }
 

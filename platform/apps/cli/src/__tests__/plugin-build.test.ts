@@ -58,7 +58,7 @@ async function metafileRejectingToolchain(
 
 const FIXTURE_PACKAGE_JSON = JSON.stringify(
   {
-    name: "bb-plugin-fixture",
+    name: "hyperfide-plugin-fixture",
     version: "0.1.0",
     type: "module",
     bb: {
@@ -96,7 +96,7 @@ describe("buildPluginApp", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "bb-plugin-build-"));
+    root = await mkdtemp(join(tmpdir(), "hyperfide-plugin-build-"));
   });
 
   afterEach(async () => {
@@ -145,7 +145,7 @@ describe("buildPluginApp", () => {
     expect(css).toContain(".animate-in");
     expect(css).toContain(".fade-in-0");
     const scope =
-      ":where([data-bb-plugin=fixture],[data-bb-plugin-root]:not([data-bb-plugin]))";
+      ":where([data-bb-plugin=fixture],[data-hyperfide-plugin-root]:not([data-bb-plugin]))";
     expect(css).toContain(`${scope} .animate-in`);
     expect(css).toContain(`${scope}.animate-in`);
     expect(css).not.toContain("@scope");
@@ -281,7 +281,7 @@ describe("buildPluginApp", () => {
     await writeFile(
       join(root, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-headless",
+        name: "hyperfide-plugin-headless",
         version: "0.1.0",
         bb: {
           name: "Headless fixture",
@@ -329,10 +329,10 @@ describe("buildPluginApp", () => {
   });
 
   it("builds the `hyperfide-platform plugin new` scaffold end to end", async () => {
-    const targetDir = join(root, "bb-plugin-scaffolded");
+    const targetDir = join(root, "hyperfide-plugin-scaffolded");
     await scaffoldPlugin({
       targetDir,
-      packageName: "bb-plugin-scaffolded",
+      packageName: "hyperfide-plugin-scaffolded",
       bbVersion: "0.9.0",
     });
     await linkScaffoldDeps(targetDir, [

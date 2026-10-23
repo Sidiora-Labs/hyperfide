@@ -5,7 +5,7 @@ import type {
   PluginEnvironmentProviderCreateResult,
   PluginEnvironmentProviderProgress,
 } from "@hyperfide/plugin-sdk/environment-provider";
-import { reportHostProgress } from "bb-environment-provider-host/progress";
+import { reportHostProgress } from "hyperfide-environment-provider-host/progress";
 import { z } from "zod";
 import {
   checkoutBranchSelectionSchema,

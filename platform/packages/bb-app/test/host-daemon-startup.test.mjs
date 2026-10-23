@@ -28,7 +28,7 @@ beforeAll(async () => {
     "bb-chunks/fixture.js",
     "bb-provider-bridge-worker.mjs",
     "bb-parcel-watcher-child.mjs",
-    "bb-plugin-host-worker.mjs",
+    "hyperfide-plugin-host-worker.mjs",
   ]) {
     await writeFile(join(bundleDir, name), "");
   }

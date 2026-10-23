@@ -181,7 +181,7 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     harness = await createTestAppHarness();
     const rootDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
-      { name: "bb-plugin-mentions", serverSource: MENTION_SOURCE },
+      { name: "hyperfide-plugin-mentions", serverSource: MENTION_SOURCE },
     );
     const entry = await harness.pluginService.installPath(rootDir);
     expect(entry.status).toBe("running");
@@ -604,7 +604,7 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     const dupeDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-dupe-mentions",
+        name: "hyperfide-plugin-dupe-mentions",
         serverSource: `
           export default function plugin(bb: any) {
             bb.ui.registerMentionProvider({
@@ -626,7 +626,7 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     const badIdDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-bad-mention-id",
+        name: "hyperfide-plugin-bad-mention-id",
         serverSource: `
           export default function plugin(bb: any) {
             bb.ui.registerMentionProvider({
@@ -643,7 +643,7 @@ describe("plugin mention providers (bb.ui.registerMentionProvider)", () => {
     const badTriggerDir = await writePlugin(
       join(harness.config.dataDir, "fixtures"),
       {
-        name: "bb-plugin-bad-mention-trigger",
+        name: "hyperfide-plugin-bad-mention-trigger",
         serverSource: `
           export default function plugin(bb: any) {
             bb.ui.registerMentionProvider({
@@ -668,7 +668,7 @@ describe("mention search time box", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-mention-timeout-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-mention-timeout-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -695,7 +695,7 @@ describe("mention search time box", () => {
 
   it("drops a slow provider after the time box and keeps fast providers", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-slow-mentions",
+      name: "hyperfide-plugin-slow-mentions",
       serverSource: `
         export default function plugin(bb: any) {
           bb.ui.registerMentionProvider({
@@ -748,7 +748,7 @@ describe("mention resolve time box", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-resolve-timeout-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-resolve-timeout-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
@@ -775,7 +775,7 @@ describe("mention resolve time box", () => {
 
   it("fails the resolve after the time box instead of hanging the send", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-slow-resolve",
+      name: "hyperfide-plugin-slow-resolve",
       serverSource: `
         export default function plugin(bb: any) {
           bb.ui.registerMentionProvider({

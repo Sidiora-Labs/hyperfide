@@ -25,7 +25,7 @@
     "bench": "cross-env PROMPTBOX_PERF=1 vitest run --config vitest.config.ts src/editor/prompt-paste-performance.test.ts",
     "typecheck": "tsrs --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/shared-ui": "workspace:*",

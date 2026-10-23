@@ -58,11 +58,11 @@ interface NewPluginTarget {
 export function resolveNewPluginTarget(name: string): NewPluginTarget | null {
   const packageName = name.startsWith("@")
     ? name
-    : name.startsWith("bb-plugin-")
+    : name.startsWith("hyperfide-plugin-")
       ? name
-      : `bb-plugin-${name}`;
+      : `hyperfide-plugin-${name}`;
   if (
-    !/^(?:@[a-z0-9][a-z0-9-]*\/)?bb-plugin-[a-z0-9][a-z0-9-]*$/.test(
+    !/^(?:@[a-z0-9][a-z0-9-]*\/)?hyperfide-plugin-[a-z0-9][a-z0-9-]*$/.test(
       packageName,
     )
   ) {
@@ -72,7 +72,7 @@ export function resolveNewPluginTarget(name: string): NewPluginTarget | null {
   if (RESERVED_HYPERFIDE_CLI_COMMANDS.includes(pluginId)) return null;
   return {
     packageName,
-    directoryName: `bb-plugin-${pluginId}`,
+    directoryName: `hyperfide-plugin-${pluginId}`,
   };
 }
 
@@ -337,7 +337,7 @@ async function warnIfSdkVersionUnpublished(): Promise<void> {
   console.warn("  devDependency at the tarball:");
   console.warn("    (cd <bb-repo>/packages/plugin-sdk && npm pack)");
   console.warn(
-    '    npm pkg set devDependencies.@hyperfide/plugin-sdk="file:/abs/path/to/get-bb-plugin-sdk-' +
+    '    npm pkg set devDependencies.@hyperfide/plugin-sdk="file:/abs/path/to/get-hyperfide-plugin-sdk-' +
       `${PLUGIN_SDK_VERSION}.tgz"`,
   );
 }
@@ -1456,14 +1456,14 @@ export function registerPluginCommands(
   plugin
     .command("new <name>")
     .description(
-      "Scaffold a plugin in ./bb-plugin-<name>; accepts @scope/bb-plugin-<name>",
+      "Scaffold a plugin in ./hyperfide-plugin-<name>; accepts @scope/hyperfide-plugin-<name>",
     )
     .action(
       action(async (name: string) => {
         const target = resolveNewPluginTarget(name);
         if (target === null) {
           console.error(
-            `Invalid or reserved plugin name "${name}" — use a non-core name, bb-plugin-name, or @scope/bb-plugin-name.`,
+            `Invalid or reserved plugin name "${name}" — use a non-core name, hyperfide-plugin-name, or @scope/hyperfide-plugin-name.`,
           );
           process.exit(1);
         }

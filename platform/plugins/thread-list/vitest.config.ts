@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "bb-plugin-thread-list",
+    name: "hyperfide-plugin-thread-list",
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
   },

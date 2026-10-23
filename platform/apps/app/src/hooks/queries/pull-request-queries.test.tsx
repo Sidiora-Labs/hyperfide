@@ -4,7 +4,7 @@ import { cleanup, renderHook } from "@testing-library/react";
 import type {
   EnvironmentPullRequest,
   PullRequest,
-} from "bb-plugin-bb--github-pr-status/contract";
+} from "hyperfide-plugin-bb--github-pr-status/contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isEnvironmentPullRequestStale,

@@ -84,7 +84,7 @@ describe("plugin cache pruning", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    dataDir = await mkdtemp(join(tmpdir(), "bb-plugin-prune-"));
+    dataDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-prune-"));
     gitRepoCache = join(
       dataDir,
       "plugins",
@@ -360,7 +360,7 @@ describe("git plugin cache lifecycle", () => {
     await writeFile(
       join(repo, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-cached",
+        name: "hyperfide-plugin-cached",
         version,
         type: "module",
         bb: {
@@ -382,7 +382,7 @@ describe("git plugin cache lifecycle", () => {
 
   beforeEach(async () => {
     db = createMigratedConnection();
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-cache-"));
+    workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-cache-"));
     repo = join(workDir, "repo");
     await mkdir(repo, { recursive: true });
     await git(["init", "-q", "-b", "main"]);

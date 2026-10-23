@@ -28,7 +28,7 @@ export function PluginAppOverlays() {
   if (appOverlays.length === 0) return null;
 
   return (
-    <div data-bb-plugin-app-overlays="" className="contents">
+    <div data-hyperfide-plugin-app-overlays="" className="contents">
       {appOverlays.map((slot) => (
         <PluginAppOverlay
           key={`${slot.pluginId}/${slot.id}/${slot.generation}`}
