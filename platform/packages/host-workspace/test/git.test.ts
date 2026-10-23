@@ -145,14 +145,14 @@ afterEach(async () => {
 describe("runGit", () => {
   it("scrubs inherited bb runtime env vars and node mode", async () => {
     const repoPath = await initEmptyRepo();
-    vi.stubEnv("BB_DATA_DIR", "/tmp/leaked-bb-data");
+    vi.stubEnv("HYPERFIDE_DATA_DIR", "/tmp/leaked-hyperfide-data");
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("OPENAI_API_KEY", "external-secret");
 
     const result = await runGit(
       [
         "-c",
-        `alias.env-probe=!printf '%s|%s|%s' "\${BB_DATA_DIR-missing}" "\${NODE_ENV-missing}" "\${OPENAI_API_KEY-missing}"`,
+        `alias.env-probe=!printf '%s|%s|%s' "\${HYPERFIDE_DATA_DIR-missing}" "\${NODE_ENV-missing}" "\${OPENAI_API_KEY-missing}"`,
         "env-probe",
       ],
       { cwd: repoPath },

@@ -13,7 +13,7 @@ export function sanitizeInheritedChildProcessEnv(
     }
     const normalizedKey =
       process.platform === "win32" ? key.toUpperCase() : key;
-    if (normalizedKey === "NODE_ENV" || normalizedKey.startsWith("BB_")) {
+    if (normalizedKey === "NODE_ENV" || normalizedKey.startsWith("HYPERFIDE_")) {
       continue;
     }
     sanitizedEnv[normalizedKey === "PATH" ? "PATH" : key] = value;
