@@ -71,3 +71,27 @@ export async function mountWaveClosure(
   }
   element.replaceChildren(section);
 }
+
+import type { Lane, LaneEvent, LogEntry } from './lanes';
+export interface LaneStreamClient {
+  subscribe(channel: string, callback: (event: LaneEvent) => void): () => void;
+  log(id: string, after: number): Promise<LogEntry[]>;
+}
+export async function streamLane(client: LaneStreamClient, id: string, onLog: (entry: LogEntry) => void, onState: (lane: Lane) => void) {
+  const pending = new Map<number, LogEntry>();
+  let sequence = 0;
+  const accept = (entries: LogEntry[]) => {
+    for (const entry of entries) if (entry.sequence > sequence) pending.set(entry.sequence, entry);
+    while (pending.has(sequence + 1)) { const entry = pending.get(++sequence)!; pending.delete(sequence); onLog(entry); }
+  };
+  const off = client.subscribe('hyperfide-qualify:lane', event => { if (event.lane.id === id) { onState(event.lane); if (event.log) accept([event.log]); } });
+  try { accept(await client.log(id, sequence)); } catch (error) { off(); throw error; }
+  return off;
+}
+export async function mountLane(element: HTMLElement, client: LaneStreamClient, id: string) {
+  const status = element.ownerDocument.createElement('p');
+  status.setAttribute('role', 'status');
+  const log = element.ownerDocument.createElement('pre');
+  element.replaceChildren(status, log);
+  return streamLane(client, id, entry => { log.append(entry.text); }, lane => { status.textContent = `${lane.task}: ${lane.state}`; });
+}

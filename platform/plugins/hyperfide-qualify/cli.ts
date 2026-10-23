@@ -15,3 +15,8 @@ export function waveCommands(
       publication.publish(feature, wave),
   };
 }
+
+import type { StartLane } from './lanes';
+export interface QualificationRpcClient { call(method: string, input: unknown): Promise<unknown> }
+export const startLane = (client: QualificationRpcClient, input: StartLane) => client.call('start', input);
+export const cancelLane = (client: QualificationRpcClient, id: string) => client.call('cancel', {id});
