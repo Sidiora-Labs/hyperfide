@@ -39,7 +39,10 @@ describe("spec task worker", () => {
     expect(echo).toMatchObject({ task: "2.3", cwd: thread.environment });
     for (const text of ["# Task demo/2.3: Worker packet", "2.1, 1.4", "src/**", "npm test", "Standing rules", "[spec:demo/2.3]", "Repository-specific instructions.", await provider.baseCommit(repo)]) expect(echo.packet).toContain(text);
     expect(echo.packet.indexOf("do_2:")).toBeLessThan(echo.packet.indexOf("do_10:"));
-    expect(provider.updates).toEqual([{ feature: "demo", task: "2.3", threadId: thread.id, status: "implemented" }]);
+    // The worker publishes its execution context with the status so the checker can run in the same worktree.
+    expect(provider.updates).toEqual([{ feature: "demo", task: "2.3", threadId: thread.id, status: "implemented",
+      repository: repo, environment: thread.environment, projectId: "proj_test", providerId: "scripted-echo",
+      base: await provider.baseCommit(repo) }]);
     expect((await provider.readTask(repo, "demo", "2.3")).status).toBe("pending");
     expect((await provider.readTask(thread.environment, "demo", "9")).status).toBe("pending");
   });
