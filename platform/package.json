@@ -95,5 +95,6 @@
       "@better-auth/api-key@1.6.23": "patches/@better-auth__api-key@1.6.23.patch",
       "mermaid@11.15.0": "patches/mermaid@11.15.0.patch"
     }
-  }
+  },
+  "version": "2.2.0"
 }

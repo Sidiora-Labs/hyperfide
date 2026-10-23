@@ -21,9 +21,7 @@
 #define CG_OBJECTS  ".codegraph/objects"
 #define CG_HEAD     ".codegraph/HEAD"
 #define CG_IGNORE   ".cgignore"
-#ifndef HYPERFIDE_VERSION
-#define HYPERFIDE_VERSION "2.0.0-dev"
-#endif
+#include "version.h"
 #define CG_VERSION HYPERFIDE_VERSION
 #define HYPERFIDE_PRODUCT "Hyperfide"
 #define CG_MCP_VERSION "2025-11-25"

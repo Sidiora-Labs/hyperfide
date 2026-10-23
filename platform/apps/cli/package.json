@@ -1,6 +1,6 @@
 {
   "name": "@hyperfide/cli",
-  "version": "0.0.1",
+  "version": "2.2.0",
   "type": "module",
   "bin": {
     "hyperfide-platform": "./bin/hyperfide-platform",
