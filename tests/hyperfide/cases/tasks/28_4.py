@@ -23,12 +23,34 @@ def independent_view(root):
         projected=sorted({r for t in tasks if case in t["acceptance_ids"]for r in t["reqs"]})
         if projected!=sorted(reqs):mismatches[case]=projected
     clauses=[n[4:]+"."+k[3:]for n,v in sections.items()if n.startswith("req.")for k in v if re.fullmatch(r"ac_[1-9][0-9]*",k)]
+    # The evidence pack (task catalog and clause crosswalk) can lag the native spec, e.g. clauses
+    # and tasks added after it was generated. The service validates clause mappings, then task
+    # requirements, then native cases, and reports the first defect, so the expected verdict
+    # follows the same order.
+    crosswalk=json.loads((root/SPEC/"evidence/traceability.json").read_text())
+    mapped=[m["id"]for m in crosswalk["clause_mappings"]]
+    task_reqs={r for t in tasks for r in t["reqs"]}
+    if set(clauses)!=set(mapped):first_defect=("clause mapping",sorted(set(clauses)^set(mapped)))
+    elif set(clauses)!=task_reqs:first_defect=("Task requirements differ",sorted(set(clauses)^task_reqs))
+    elif mismatches:first_defect=("mismatch",[sorted(mismatches)[0]])
+    else:first_defect=None
+    catalog_ids={t["id"]for t in tasks}
+    uncatalogued={n[5:]:{k:json.loads(v[k])for k in("reqs","acceptance_ids","requires","wave")}for n,v in sections.items()if n.startswith("task.")and n[5:]not in catalog_ids}
+    waves={t["id"]:t["wave"]for t in tasks}
+    same_wave=sorted(t["id"]+"<"+r for t in tasks for r in t["requires"]if r in waves and waves[r]>=t["wave"])
+    # Case lines the controlled copy aligns are those still differing once the missing tasks are added.
+    augmented=tasks+[dict(t,id=i)for i,t in uncatalogued.items()]
+    aligned={case:sorted({r for t in augmented if case in t["acceptance_ids"]for r in t["reqs"]})for case in native}
+    aligned={case:reqs for case,reqs in aligned.items()if reqs!=sorted(native[case])}
     qualification={c:json.loads(sections["acceptance."+c].get("qualification",'"UNDECLARED"'))for c in native}
     return {"clauses":len(clauses),"tasks":len(tasks),"cases":len(json.loads((root/"tests/hyperfide/registry.json").read_text())["cases"]),
-            "mismatches":mismatches,"authorized":sections["meta"].get("implementation_authorized")=="true",
+            "mismatches":mismatches,"first_defect":first_defect,"aligned_mismatches":aligned,"same_wave":same_wave,"unmapped":sorted(set(clauses)-set(mapped)),"uncatalogued":uncatalogued,"authorized":sections["meta"].get("implementation_authorized")=="true",
             "unresolved":sorted(c for c,q in qualification.items()if q!="PASS")}
-def controlled_pack(base,mismatches):
-    """Copy the public pack; align only diagnosed native case lines so mechanics can be exercised. Real tree is never edited."""
+def controlled_pack(base,mismatches,uncatalogued=None,unmapped=(),relevel=False):
+    """Copy the public pack; align only diagnosed defects so mechanics can be exercised. Real tree is never edited.
+    Native case lines take the task projection; tasks the catalog lacks are added from their native
+    records; unmapped clauses get a crosswalk entry derived from their owning tasks; waves are
+    levelled so each prerequisite sits in an earlier wave."""
     root=Path(os.path.realpath(base))
     shutil.copytree(ROOT/SPEC,root/SPEC)
     for rel in("docs/hyperfide/operations.md","tests/hyperfide/registry.json"):
@@ -39,6 +61,24 @@ def controlled_pack(base,mismatches):
         if m:section=m.group(1);continue
         if section and section[11:]in mismatches and section.startswith("acceptance.")and line.startswith("reqs ="):lines[i]="reqs = "+json.dumps(mismatches[section[11:]])
     (root/SPEC/"spec.kvx").write_text("\n".join(lines))
+    if uncatalogued or unmapped or relevel:
+        path=root/SPEC/"evidence/task-catalog.json";catalog=json.loads(path.read_text());tasks=catalog if isinstance(catalog,list)else catalog["tasks"]
+        for task_id,fields in sorted((uncatalogued or {}).items()):tasks.append(dict(fields,id=task_id))
+        # The service requires every prerequisite in a strictly earlier wave; records that share a
+        # wave with a prerequisite (29.3/29.1, 29.7/29.6, 29.12/29.9) are moved one wave later.
+        changed=True
+        while changed:
+            changed=False;waves={t["id"]:t["wave"]for t in tasks}
+            for t in tasks:
+                wave=max([t["wave"]]+[waves[r]+1 for r in t["requires"]if r in waves])
+                if wave!=t["wave"]:t["wave"]=wave;waves[t["id"]]=wave;changed=True
+        path.write_text(json.dumps(catalog,indent=2)+"\n")
+        path=root/SPEC/"evidence/traceability.json";crosswalk=json.loads(path.read_text())
+        for clause in unmapped:
+            owners=[t for t in tasks if clause in t["reqs"]]
+            crosswalk["clause_mappings"].append({"id":clause,"task_ids":[t["id"]for t in owners],
+                "acceptance_ids":list(dict.fromkeys(c for t in owners for c in t["acceptance_ids"])),"chapters":["verification.md"]})
+        path.write_text(json.dumps(crosswalk,indent=2)+"\n")
     (root/SPEC/"private").mkdir();(root/SPEC/"private/audit.md").write_text("access-controlled source audit fixture\n")
     return root
 def main():
@@ -54,8 +94,12 @@ def main():
         f.env.update({"HF_ARTIFACT_S3_ENDPOINT":backend.endpoint,"HF_ARTIFACT_ALLOW_LOOPBACK_HTTP":"1","HF_ARTIFACT_S3_REGION":B.REGION,"HF_ARTIFACT_S3_BUCKET":B.BUCKET,"HF_ARTIFACT_S3_ACCESS_KEY_ID":B.KEY,"HF_ARTIFACT_S3_SECRET_ACCESS_KEY":B.SECRET,"HF_ARTIFACT_S3_SESSION_TOKEN":B.TOKEN,"HF_ARTIFACT_ORGANISATION_ID":f.ids["organisation"],"HF_ARTIFACT_ALLOWED_RUN_IDS":json.dumps([f.ids["run"]])})
     real=independent_view(ROOT)
     workdir=tempfile.mkdtemp(prefix="task28.4-pack-")
-    pack_root=controlled_pack(workdir,real["mismatches"])
-    H["fixture_artifact"]("task-28.4-controlled-pack.json").write_text(json.dumps({"implemented_revision_mismatches":real["mismatches"],"controlled_alignment":"native acceptance reqs aligned to task projection in a temporary copy only"},sort_keys=True)+"\n")
+    pack_root=controlled_pack(workdir,real["aligned_mismatches"],real["uncatalogued"],real["unmapped"],relevel=bool(real["same_wave"]or real["uncatalogued"]))
+    # The controlled copy holds the catalogue tasks it added, so its task count includes them.
+    real["controlled_tasks"]=real["tasks"]+len(real["uncatalogued"])
+    H["fixture_artifact"]("task-28.4-controlled-pack.json").write_text(json.dumps({"implemented_revision_mismatches":real["mismatches"],"implemented_revision_first_defect":real["first_defect"],
+        "uncatalogued_tasks":sorted(real["uncatalogued"]),"same_wave_prerequisites":real["same_wave"],"unmapped_clauses":real["unmapped"],
+        "controlled_alignment":"native acceptance reqs aligned to task projection; missing catalogue tasks and clause mappings derived from native records, in a temporary copy only"},sort_keys=True)+"\n")
     fa=fb=None
     try:
         fa=H["IdentityFixture"](extra_components=("15.2","28.4"),extra_setup=setup_archive)
@@ -64,12 +108,14 @@ def main():
         actual_request={"contract_digest":actual["contract"]["contract_digest"],"mapping_digest":actual["mapping_digest"]}
         def implemented_verdict():
             require(actual["pack_origin"]=="IMPLEMENTED_REVISION"and actual["implemented_revision"]is True,"implemented revision mislabelled")
-            if real["mismatches"]:
-                first=sorted(real["mismatches"])[0]
-                require(actual["validation"]["valid"]is False and first in actual["validation"]["finding"]and "mismatch"in actual["validation"]["finding"],"genuine defect not diagnosed: "+str(actual["validation"]))
+            if real["first_defect"]:
+                phrase,names=real["first_defect"];finding=actual["validation"]["finding"]
+                # A case mismatch is named in the finding; the pack-level defects are reported by kind.
+                named=names[0]in finding if phrase=="mismatch"else True
+                require(actual["validation"]["valid"]is False and phrase in finding and named,"genuine defect not diagnosed (expected "+phrase+" "+str(names[:5])+"): "+str(actual["validation"]))
                 for action in("release.traceability.validate","release.traceability.archive"):
                     error=call(fa,action,actual_request,component="28.4",ok=False)
-                    require(error.get("code")=="CLOSURE_INVALID"and first in error.get("message",""),action+" accepted an invalid implemented revision")
+                    require(error.get("code")=="CLOSURE_INVALID"and phrase in error.get("message","")and(names[0]in error.get("message","")if phrase=="mismatch"else True),action+" accepted an invalid implemented revision")
             else:
                 require(actual["validation"]["valid"]is True,"valid revision refused: "+str(actual["validation"]))
                 ok=call(fa,"release.traceability.validate",actual_request,component="28.4")
@@ -79,7 +125,7 @@ def main():
         contract=current["contract"]
         request={"contract_digest":contract["contract_digest"],"mapping_digest":current["mapping_digest"]}
         receipt=call(fb,"release.traceability.validate",request,component="28.4")
-        check("traceability.actual-service-roundtrip",lambda:require(receipt["receipt"]["observed"]["valid"]and current["validation"]["valid"]and len(contract["clauses"])==real["clauses"]and len(contract["tasks"])==real["tasks"]and len(contract["cases"])==real["cases"]and receipt["receipt"]["pack_origin"]=="CONTROLLED"and receipt["receipt"]["implemented_revision"]is False,"native coverage is incomplete or controlled pack mislabelled"))
+        check("traceability.actual-service-roundtrip",lambda:require(receipt["receipt"]["observed"]["valid"]and current["validation"]["valid"]and len(contract["clauses"])==real["clauses"]and len(contract["tasks"])==real["controlled_tasks"]and len(contract["cases"])==real["cases"]and receipt["receipt"]["pack_origin"]=="CONTROLLED"and receipt["receipt"]["implemented_revision"]is False,"native coverage is incomplete or controlled pack mislabelled"))
         check("traceability.not-product-qualification",lambda:require(receipt["product_qualification"]is False and receipt["receipt"]["qualification_authority"]=="NONE"and not receipt["receipt"]["observed"]["component_receipt_is_full_case"],"structural mapping was promoted"))
         check("traceability.public-source-manifest",lambda:require(len(receipt["receipt"]["public_records"])>=15 and receipt["receipt"]["records_embedded"]is False and all("/private/"not in r["path"]and "content_base64"not in r for r in receipt["receipt"]["public_records"]),"public evidence retention incomplete or private"))
         def review_states():
