@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "variant": "full:V-022",
+  "task": "28.3",
+  "scope": "full-case",
+  "cases": [
+    "V-022"
+  ],
+  "assertion_ids": [
+    "V-022.7.2.graph.ingestion.retry-yields-primary-capacity",
+    "V-022.7.2.graph.ingestion.real-copy-describe",
+    "V-022.7.2.graph.ingestion.persist-build",
+    "V-022.7.2.graph.ingestion.replay-build",
+    "V-022.7.2.graph.ingestion.reject-incomplete-seal",
+    "V-022.7.2.graph.ingestion.actual-copy-row-count",
+    "V-022.7.2.graph.ingestion.restart-after-staged-chunk",
+    "V-022.7.2.graph.ingestion.replay-chunk",
+    "V-022.7.2.graph.ingestion.reject-tampered-copy",
+    "V-022.7.2.graph.ingestion.reject-cross-run",
+    "V-022.7.2.graph.ingestion.reject-stale-epoch",
+    "V-022.7.2.graph.ingestion.complete-chunk-set",
+    "V-022.7.2.graph.ingestion.seal-resume",
+    "V-022.7.2.graph.ingestion.reject-late-new-chunk",
+    "V-022.7.2.graph.ingestion.bounded-restart-resolution",
+    "V-022.7.2.graph.ingestion.file-projection",
+    "V-022.7.2.graph.ingestion.symbol-projection",
+    "V-022.7.2.graph.ingestion.reference-projection",
+    "V-022.7.2.graph.ingestion.body-reconstruction",
+    "V-022.7.2.graph.ingestion.no-publication-side-effect",
+    "V-022.7.2.graph.ingestion.concurrent-exact-build-replay",
+    "V-022.7.2.graph.ingestion.reject-incomplete-manifest-artifact-reuse",
+    "V-022.7.2.graph.ingestion.reject-quarantined-build-replay",
+    "V-022.7.2.graph.ingestion.bounded-network-amplification",
+    "V-022.7.2.graph.ingestion.typed-graph-overload-preserves-coordination",
+    "V-022.7.2.graph.ingestion.concurrent-branch-race-isolated",
+    "V-022.7.2.exit-clean",
+    "V-022.7.2.inventory-exact",
+    "V-022.7.2.cleanup-complete",
+    "V-022.7.2.artifacts-present",
+    "V-022.7.3.graph.publication.reject-partial",
+    "V-022.7.3.graph.publication.complete-build",
+    "V-022.7.3.graph.publication.reject-quarantined-artifact",
+    "V-022.7.3.graph.publication.atomic-commit",
+    "V-022.7.3.graph.publication.reject-repeatable-read-graph_bundle_inputs",
+    "V-022.7.3.graph.publication.reject-repeatable-read-graph_ingestion_chunks",
+    "V-022.7.3.graph.publication.reject-repeatable-read-graph_fact_rows",
+    "V-022.7.3.graph.publication.reject-repeatable-read-graph_resolution_progress",
+    "V-022.7.3.graph.publication.reject-repeatable-read-graph_source_bodies",
+    "V-022.7.3.graph.publication.reject-repeatable-read-graph_publication_receipts",
+    "V-022.7.3.graph.publication.durable-channel",
+    "V-022.7.3.graph.publication.crash-preserves-committed-receipt",
+    "V-022.7.3.graph.publication.idempotent-operation",
+    "V-022.7.3.graph.publication.reject-operation-conflict",
+    "V-022.7.3.graph.publication.reject-cas-conflict",
+    "V-022.7.3.graph.publication.sql-immutable-facts",
+    "V-022.7.3.graph.publication.replace-new-generation",
+    "V-022.7.3.graph.publication.reject-same-generation-different-configuration",
+    "V-022.7.3.graph.publication.reject-delayed-extraction",
+    "V-022.7.3.graph.publication.preserve-old-version",
+    "V-022.7.3.graph.publication.reject-published-extension-scope-move",
+    "V-022.7.3.graph.publication.exact-source-snapshot",
+    "V-022.7.3.graph.publication.reject-wrong-source-snapshot",
+    "V-022.7.3.graph.publication.reject-overlay-relabel",
+    "V-022.7.3.graph.publication.concurrent-cas",
+    "V-022.7.3.graph.publication.reject-unavailable-history-and-replay",
+    "V-022.7.3.graph.publication.failed-build-exposes-debt",
+    "V-022.7.3.exit-clean",
+    "V-022.7.3.inventory-exact",
+    "V-022.7.3.cleanup-complete",
+    "V-022.7.3.artifacts-present"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-022"
+  ],
+  "timeout_seconds": 900,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "cg",
+    "services/hyperfide/dist/control.js",
+    "services/hyperfide/dist/graph/extraction.js",
+    "services/hyperfide/dist/identity/enrollment.js"
+  ],
+  "actions": [
+    "graph.component.invoke",
+    "graph.remote.extract",
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "resources": [
+    {
+      "id": "7.2:hf-domain07-database",
+      "kind": "postgresql-database",
+      "scope": "domain07-disposable-component"
+    },
+    {
+      "id": "7.3:hf-domain07-database",
+      "kind": "postgresql-database",
+      "scope": "domain07-disposable-component"
+    }
+  ],
+  "required_artifacts": [
+    "components/7.2/graph/database-absence.json",
+    "components/7.2/graph/database-resource.json",
+    "components/7.2/graph/task-7.2-observations.json",
+    "components/7.3/graph/database-absence.json",
+    "components/7.3/graph/database-resource.json",
+    "components/7.3/graph/task-7.3-observations.json"
+  ],
+  "source_files": [
+    "cg",
+    "services/hyperfide/package-lock.json",
+    "services/hyperfide/package.json",
+    "services/hyperfide/tsconfig.json",
+    "src/scan.c",
+    "tests/hyperfide/cases/full/compose.py",
+    "tests/hyperfide/cases/full/register.py",
+    "tests/hyperfide/cases/tasks/7_1.py",
+    "tests/hyperfide/cases/tasks/7_2.py",
+    "tests/hyperfide/cases/tasks/7_3.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/registrations/7.2.json",
+    "tests/hyperfide/registrations/7.3.json",
+    "tests/hyperfide/registry.json",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "services/hyperfide/components",
+    "services/hyperfide/dist",
+    "services/hyperfide/migrations",
+    "services/hyperfide/src"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/full/compose.py",
+    "V-022",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 180
+}
