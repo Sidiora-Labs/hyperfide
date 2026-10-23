@@ -58,6 +58,9 @@ class Fixture(up.Fixture):
   if code:expect(r.get("error",{}).get("code")==code,json.dumps(r))
 
 def main():
+ # The probe tool path links the mise-installed codex; without mise this case cannot run, so it says so.
+ if shutil.which("mise") is None:
+  print("SKIP: mise is not on PATH (10.1 links the mise-installed codex)",flush=True);return 77
  daemon=None
  with tempfile.TemporaryDirectory(prefix="hyperfide-blaxel-")as td:
   base=pathlib.Path(td);tools=base/"tools";tools.mkdir()

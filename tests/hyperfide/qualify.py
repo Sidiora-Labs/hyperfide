@@ -265,7 +265,84 @@ def load_registry(path):
         if len({item['id'] for item in resources}) != len(resources):
             raise GateError('duplicate resource identity')
         variants[variant] = (registration, registration_path)
+    # task_suites name registered task variants, not V-cases: each member runs through --task against its tracked manifest.
+    task_suites = registry.get("task_suites", {})
+    if not isinstance(task_suites, dict):
+        raise GateError("malformed task suites")
+    for suite, tasks in task_suites.items():
+        strings(tasks, "task suite " + suite)
+        if len(tasks) != len(set(tasks)) or any("task:" + task not in variants for task in tasks):
+            raise GateError("task suite names a duplicate or unregistered task: " + suite)
     return registry, variants
+
+def probe_skip(summary):
+    """The probe's own SKIP line when its receipt records exit 77, else None."""
+    try:
+        campaign = Path(summary["campaign_dir"])
+        receipt = read_json(campaign / "receipts" / (summary["receipt_id"] + ".json"))
+        if receipt["command"].get("exit_code") != 77:
+            return None
+        output = (campaign / "artifacts" / summary["receipt_id"] / "stdout.log").read_text(errors="replace")
+    except (KeyError, TypeError, OSError, ValueError, GateError):
+        return None
+    lines = [line.strip() for line in output.splitlines() if line.strip().startswith("SKIP")]
+    return lines[0] if lines else "probe exited 77 without naming its prerequisite"
+
+def run_task_suite(args, root, registry_path, registry, variants):
+    """Runs every member of a task suite; a member that cannot run is SKIP and fails the suite."""
+    manifests = {}
+    for path in sorted((registry_path.parent / "manifests").glob("**/*.json")):
+        manifests.setdefault(read_json(path).get("registered_variant"), path)
+    results = []
+    for task in registry["task_suites"][args.suite]:
+        variant = "task:" + task
+        registration, _ = variants[variant]
+        missing = [name + " unset" for name in registration.get("required_env", []) if not os.environ.get(name)]
+        missing += ["fixture " + fixture + " absent" for fixture in registration.get("fixtures", []) if not (root / fixture).is_file()]
+        if variant not in manifests:
+            missing.append("no tracked manifest pins " + variant)
+        if missing:
+            results.append({"variant": variant, "status": "SKIP", "prerequisites": missing})
+            continue
+        argv = [sys.executable, str(Path(__file__).resolve()), "--task", task, "--manifest", str(manifests[variant].resolve()),
+                "--registry", str(registry_path), "--root", str(root)] + (["--require-evidence"] if args.require_evidence else [])
+        timeout = registration.get("timeout_seconds", 60) + registration.get("cleanup_timeout_seconds", 60) + 600
+        try:
+            proc = subprocess.run(argv, cwd=root, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            results.append({"variant": variant, "status": "FAIL", "diagnostics": ["member timed out"]})
+            continue
+        summary = {}
+        for line in reversed(proc.stdout.splitlines()):
+            try:
+                summary = json.loads(line)
+                break
+            except ValueError:
+                continue
+        status = "PASS" if proc.returncode == 0 and summary.get("status") == "PASS" else "FAIL"
+        skipped = probe_skip(summary) if status == "FAIL" else None
+        if skipped is not None:
+            # The probe ran and exited 77: it could not run here, and its own SKIP line names the prerequisite.
+            results.append({"variant": variant, "status": "SKIP", "prerequisites": [skipped], "receipt_id": summary.get("receipt_id"),
+                            "campaign_dir": summary.get("campaign_dir")})
+            continue
+        results.append({"variant": variant, "status": status, "child_status": summary.get("status"), "exit_code": proc.returncode,
+                        "receipt_id": summary.get("receipt_id"), "campaign_dir": summary.get("campaign_dir"),
+                        "diagnostics": summary.get("diagnostics", []) or ([proc.stderr.strip()[-400:]] if status != "PASS" else [])})
+    counts = {key: sum(1 for item in results if item["status"] == key) for key in ("PASS", "FAIL", "SKIP")}
+    status = "PASS" if counts["PASS"] == len(results) else "FAIL"
+    if args.format == "text":
+        for item in results:
+            if item["status"] == "SKIP":
+                print("SKIP %s: cannot run: %s" % (item["variant"], "; ".join(item["prerequisites"])))
+            elif item["status"] == "PASS":
+                print("PASS %s receipt %s evidence %s" % (item["variant"], item["receipt_id"], item["campaign_dir"]))
+            else:
+                print("FAIL %s (%s, exit %s) %s" % (item["variant"], item.get("child_status"), item.get("exit_code"), "; ".join(map(str, item["diagnostics"]))[:600]))
+        print("suite %s: %s, %d passed, %d failed, %d skipped" % (args.suite, status, counts["PASS"], counts["FAIL"], counts["SKIP"]))
+    else:
+        print(json.dumps({"status": status, "suite": args.suite, "counts": counts, "members": results}))
+    return 0 if status == "PASS" else 1
 
 def validate_manifest(manifest, registration, registry):
     required = ("campaign_id", "registered_variant", "scope", "case_ids", "expected_assertion_ids",
@@ -606,6 +683,10 @@ def main():
             cases = [{"id": key, **value, "registered_variants": [name for name, (reg, _) in variants.items() if key in reg["cases"]]} for key, value in registry["cases"].items()]
             print(json.dumps({"schema_version": 1, "cases": cases}) if args.format == "json" else "\n".join(item["id"] for item in cases))
             return 0
+        if args.suite is not None and not args.manifest:
+            if args.suite not in registry.get("task_suites", {}):
+                raise GateError("unknown task suite: " + args.suite)
+            return run_task_suite(args, root, registry_path, registry, variants)
         if not args.manifest:
             raise GateError("execution requires an immutable manifest")
         manifest_path = Path(args.manifest).resolve()

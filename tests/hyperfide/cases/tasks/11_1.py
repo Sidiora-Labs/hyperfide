@@ -156,6 +156,10 @@ def using(base,callback):
         callback(Fixture(Path(folder)))
 
 def main():
+    # filesystem.actual-mise-binary snapshots the installed mise; without it this case cannot run, so it says so.
+    if not Path("/root/.local/bin/mise").exists():
+        print("SKIP: /root/.local/bin/mise is not installed (preparation.filesystem.actual-mise-binary needs it)",flush=True)
+        return 77
     with tempfile.TemporaryDirectory(prefix="hyperfide-preparation-") as folder:
         base=Path(folder)
         def case(identity,callback):
