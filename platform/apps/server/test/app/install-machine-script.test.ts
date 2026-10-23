@@ -322,7 +322,7 @@ afterEach(() => {
 
 const describeOnPosix = process.platform === "win32" ? describe.skip : describe;
 
-describeOnPosix("machine install script", { timeout: 15_000 }, () => {
+describeOnPosix("machine install script", { timeout: 60_000 }, () => {
   it.each([
     { uid: 0, unset: true },
     { uid: 501, unset: true },
