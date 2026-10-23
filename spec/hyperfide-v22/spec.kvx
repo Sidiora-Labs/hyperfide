@@ -162,7 +162,7 @@ owner = "port"
 
 [task.0.5]
 title = "Remove third-party telemetry"
-status = "implemented"
+status = "blocked"
 wave = 0
 requires = []
 touches = ["platform/packages/*-app/**", "platform/packages/scripts/**", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/packages/config/**", "tests/hyperfide/cases/v22/0_5.sh"]
@@ -173,6 +173,7 @@ do_3 = "0_5.sh asserts no tracked file under platform/ outside node_modules refe
 reqs = ["1.3"]
 owner = "port"
 
+blocked_ask = "2"
 [task.0.6]
 title = "Documentation, skills and brand assets sweep"
 status = "done"

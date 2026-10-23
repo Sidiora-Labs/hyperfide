@@ -35,7 +35,9 @@ const workspacePackageNames = new Set(
 function isWorkspacePackage(specifier) {
   const segments = specifier.split("/");
   return (
-    specifier.startsWith("@hyperfide/") ||
+    (specifier.startsWith("@hyperfide/") &&
+      specifier !== "@hyperfide/plugin-sdk" &&
+      !specifier.startsWith("@hyperfide/plugin-sdk/")) ||
     workspacePackageNames.has(
       specifier.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0],
     )

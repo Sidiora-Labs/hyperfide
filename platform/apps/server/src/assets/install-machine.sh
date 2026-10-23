@@ -255,7 +255,7 @@ run_lifecycle() {
     [ -n "$daemon_pid" ] || return 1
     case "$daemon_pid" in *[!0-9]*|'0'|'1') fail_step "Invalid installed daemon PID."; exit 1 ;; esac
     daemon_command=$(ps -p "$daemon_pid" -o command= 2>/dev/null) || return 1
-    launcher="$data_dir/npm/bin/bb-app"
+    launcher="$data_dir/npm/bin/hyperfide-app"
     case " $daemon_command " in *" $launcher "*" host-daemon "*" --host-daemon-port $host_daemon_port "*" --server-url $server_url "*) return 0 ;; esac
     fail_step "Recorded daemon PID belongs to another process."
     exit 1
@@ -271,7 +271,7 @@ run_lifecycle() {
         systemctl "$systemd_scope" start "$service_name"
       fi
     elif ! owned_pid; then
-      HYPERFIDE_APP_NPM_PREFIX="$data_dir/npm" HYPERFIDE_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/bb-app" host-daemon --auto-update --supervise --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
+      HYPERFIDE_APP_NPM_PREFIX="$data_dir/npm" HYPERFIDE_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/hyperfide-app" host-daemon --auto-update --supervise --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
       daemon_pid=$!
       (umask 077 && printf '%s\n' "$daemon_pid" >"$pid_file")
     fi
@@ -719,9 +719,9 @@ fi
 package_headers="$package_dir/headers"
 host_artifact_digest_file="$data_dir/host-artifact.sha256"
 installed_artifact_digest=
-if [ -x "$machine_npm_prefix/bin/bb-app" ] && \
+if [ -x "$machine_npm_prefix/bin/hyperfide-app" ] && \
    [ -x "$machine_npm_prefix/bin/bb" ] && \
-   [ -f "$machine_npm_prefix/lib/node_modules/bb-app/host-daemon/dist/daemon-bundle.mjs" ]; then
+   [ -f "$machine_npm_prefix/lib/node_modules/hyperfide-app/host-daemon/dist/daemon-bundle.mjs" ]; then
   installed_artifact_digest=$(node -e '
     const fs = require("node:fs");
     try {
@@ -814,9 +814,9 @@ elif [ "$package_status" -ge 200 ] && [ "$package_status" -lt 300 ]; then
   fi
   bb_app_npm_prefix=$machine_npm_prefix
   complete_step "Installed the server's bb-app build"
-elif command -v bb-app >/dev/null 2>&1; then
+elif command -v hyperfide-app >/dev/null 2>&1; then
   rm -f "$host_artifact_digest_file"
-  bb_app=$(command -v bb-app)
+  bb_app=$(command -v hyperfide-app)
   if [ "$package_status" = 404 ]; then
     warning_step "The server does not provide its bb-app package; using bb-app at $bb_app"
   else
@@ -827,7 +827,7 @@ elif [ "$package_status" = 404 ]; then
   rm -f "$host_artifact_digest_file"
   warning_step "The server does not provide its bb-app package"
   active_step "Installing bb-app from the npm registry"
-  if ! npm install -g "$bb_app_allow_scripts" --prefix "$machine_npm_prefix" bb-app; then
+  if ! npm install -g "$bb_app_allow_scripts" --prefix "$machine_npm_prefix" hyperfide-app; then
     rm -rf "$package_dir"
     fail_step "Could not install bb-app for this machine. Check the npm error above, then rerun this command."
     exit 1
@@ -842,7 +842,7 @@ fi
 rm -rf "$package_dir"
 
 if [ -n "$bb_app_npm_prefix" ]; then
-  bb_app="$bb_app_npm_prefix/bin/bb-app"
+  bb_app="$bb_app_npm_prefix/bin/hyperfide-app"
   if [ ! -x "$bb_app" ]; then
     fail_step "npm installed bb-app, but did not create the expected executable at $bb_app."
     exit 1
@@ -850,7 +850,7 @@ if [ -n "$bb_app_npm_prefix" ]; then
   # Fail loudly if npm skipped the native add-on install scripts (npm >= 12
   # allowScripts policy, or ignore-scripts=true in an npmrc). Without this
   # check the join only fails later, in the daemon, with a raw stack trace.
-  bb_app_root="$bb_app_npm_prefix/lib/node_modules/bb-app"
+  bb_app_root="$bb_app_npm_prefix/lib/node_modules/hyperfide-app"
   if ! node -e '
     const root = process.argv[1];
     require(root + "/node_modules/node-pty");
@@ -1129,7 +1129,7 @@ else
   if [ "$systemd_scope" = --system ]; then
     service_dir="$canonical_data_dir/systemd"
     service_target=multi-user.target
-    owned_launcher="$canonical_data_dir/npm/bin/bb-app"
+    owned_launcher="$canonical_data_dir/npm/bin/hyperfide-app"
     if [ "$bb_app" != "$owned_launcher" ]; then
       mkdir -p "$data_dir/npm/bin"
       ln -sf "$bb_app" "$owned_launcher"
