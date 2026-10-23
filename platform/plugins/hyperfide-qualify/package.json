@@ -5,10 +5,24 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsrs --noEmit"
+    "typecheck": "tsrs --noEmit",
+    "prepare:bundled": "node prepare.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "esbuild": "^0.28.0"
+  },
+  "dependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "hyperfide": {
+    "id": "hyperfide-qualify",
+    "name": "Qualification",
+    "server": "./server.ts",
+    "app": "./app.ts",
+    "cli": "./cli.ts"
   }
 }
