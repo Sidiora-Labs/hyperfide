@@ -7,6 +7,7 @@
     "build": "cd ../.. && node --conditions=source --import tsx packages/bundled-plugins/build.ts"
   },
   "dependencies": {
+    "@hyperfide/plugin-asks": "workspace:*",
     "bb-plugin-account-pool": "workspace:*",
     "bb-plugin-agent-annotations": "workspace:*",
     "bb-plugin-ask-user-question": "workspace:*",
