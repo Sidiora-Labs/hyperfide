@@ -1214,6 +1214,9 @@
     "@hyperfide/hyperfide-spec#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },
+    "@hyperfide/plugin-asks#typecheck": {
+      "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
+    },
     "hyperfide-plugin-machine-blaxel#typecheck": {
       "dependsOn": ["@hyperfide/plugin-sdk#build:types", "topo"]
     },

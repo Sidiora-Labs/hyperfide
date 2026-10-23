@@ -415,7 +415,7 @@ owner = "ask"
 
 [task.3.3]
 title = "Inbox and secret references"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["3.1"]
 touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/secrets/**", "tests/hyperfide/cases/v22/3_3.sh"]
