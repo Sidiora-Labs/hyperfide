@@ -6,9 +6,10 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsrs --noEmit",
-    "prepare:bundled": "node prepare.mjs"
+    "prepare:bundled": "node ../../packages/plugin-build/dist/cli.js prepare-bundled"
   },
   "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:^",
     "@types/node": "^22.0.0",
     "vitest": "^4.1.1",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
