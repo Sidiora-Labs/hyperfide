@@ -223,7 +223,7 @@ if want fleet; then
           --reqs 1.1 >/dev/null
     "$CG" init >/dev/null
     printf '.codegraph/\n*.lock\ncodify.kvx\n' > .gitignore
-    printf '\n[hierarchy]\ntest_gate = "true"\npr = "manual"\n' >> spec/workflow.kvx
+    printf '\n[hierarchy]\ntest_gate = "true"\npr = "manual"\nsparse = "full"\n' >> spec/workflow.kvx
     git add -A >/dev/null; git commit -qm base >/dev/null
     proj="$(pwd -P)"
     wt="$proj/.codegraph/worktrees"
