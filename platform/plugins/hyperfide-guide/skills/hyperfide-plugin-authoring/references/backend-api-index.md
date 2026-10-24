@@ -30,6 +30,8 @@ Read the installed declarations for exact current signatures.
 - `ComposerInsertOptions`
 - `DiffProps`
 - `DiffViewMode`
+- `ExperimentalSandboxMachine`
+- `ExperimentalSandboxOperations`
 - `ExperimentalTabRegistration`
 - `ExperimentalTabContext`
 - `ExperimentalTabReference`
@@ -437,6 +439,8 @@ Read the installed declarations for exact current signatures.
 - `ExperimentalProcessIdentity`
 - `ExperimentalQuestionFormHost`
 - `ExperimentalQuestionShortcut`
+- `ExperimentalSandboxMachine`
+- `ExperimentalSandboxOperations`
 - `ExperimentalSanitizeInheritedChildProcessEnvArgs`
 - `ExperimentalVcsProcessOptions`
 - `ExperimentalVcsProcessPriority`
