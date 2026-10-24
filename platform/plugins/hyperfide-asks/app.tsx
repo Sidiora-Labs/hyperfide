@@ -87,7 +87,7 @@ export default definePluginApp((app) => {
   app.slots.navPanel({
     id: "inbox",
     title: "Inbox",
-    icon: "Inbox",
+    icon: "Mail",
     path: PANEL_PATH,
     component: Inbox,
   });
