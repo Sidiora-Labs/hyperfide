@@ -894,3 +894,16 @@ do_2 = "The endpoint never awaits the network: it answers at once with the curre
 do_3 = "app-version.test.ts covers: default config makes no fetch and returns latestVersion null; with a channel configured and a fetch that never resolves the service answers within 100 ms from cache or null; a 404 or throwing fetch is cached for the negative TTL and a second call inside the TTL makes no fetch. 7_17.sh runs the server typecheck and the app-version unit tests, then boots platform/apps/server/dist/index.js the way 7_7.sh does with no update channel configured and asserts GET /api/v1/system/version returns 200 in under 1 s with latestVersion null; it prints each step's seconds and exit code and ends with `ok: 7.17`."
 reqs = ["8.5"]
 owner = "app"
+
+[task.7.18]
+title = "Fix: the index pass's resolve phase holds the graph write lock in one transaction for the whole pass"
+status = "pending"
+wave = 7
+requires = ["7.15"]
+touches = ["src/scan.c", "src/semantic.c", "src/sem_routes.c", "src/progress.c", "tests/hyperfide/cases/v22/7_18.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_18.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24: while the owner's IDE language server (`hyperfide lsp` 2.2.0) ran its index pass over the 2.7 GB graph, `hyperfide ask raise` failed four times in a row with `could not record the Ask: database is locked` (default CG_BUSY_TIMEOUT_MS 30000) and a probe `BEGIN IMMEDIATE` with a 20 s timeout failed as well: the write lock was held continuously for more than two minutes. The write phase in src/scan.c chunks its commits exactly as its design note says (the lock is the scarce resource; waiting writers land in the gaps), but the resolve phase (progress_begin_write at src/scan.c:1983, then anchor_edges, resolve_imports, resolve_refs and sem_incremental_run, COMMIT at src/scan.c:2010) is one transaction for the whole tree, so every other writer (asks, spec status, leases) fails instead of landing in a gap."
+do_2 = "Bound the hold: the resolve and semantic phases commit in chunks the way the write phase does (per bounded unit of work, or after at most about two seconds of lock time), releasing and re-acquiring the write lock between chunks; chunks already committed stay valid when a later one is abandoned, and the pass bookkeeping (index_health_finish and the pkey meta) is written only when the last chunk commits, so a stalled run stays recoverable exactly as today. A full pass over a fixture produces the same rows, edges and route facts as before."
+do_3 = "7_18.sh indexes a synthetic fixture large enough that the resolve plus semantic phase takes more than 20 s in the sandbox while a prober loop runs `BEGIN IMMEDIATE; ROLLBACK;` against the graph with a 5 s busy timeout once a second; it asserts that no probe fails during the pass and that the longest observed lock wait is under 5 s, and that the resulting graph matches an unchunked reference pass on the counts of files, symbols, semantic_edges and semantic_route_facts; it prints each step's seconds and exit code and ends with `ok: 7.18`."
+reqs = ["2.1"]
+owner = "source"
