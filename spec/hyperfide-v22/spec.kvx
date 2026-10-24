@@ -784,3 +784,15 @@ do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): hyperfide
 do_2 = "7_8.sh boots the built server exactly as 7_7.sh does and asserts with `hyperfide-platform plugin list --json` that hyperfide-environment-slices is running without an error, and that the server log under the data dir carries no `plugin hyperfide-environment-slices failed to load` line."
 reqs = ["8.1"]
 owner = "source"
+
+[task.7.9]
+title = "Fix: dispatch plugin wired into the server as a bundled builtin"
+status = "pending"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "platform/turbo.json", "platform/pnpm-lock.yaml", "tests/hyperfide/cases/v22/7_9.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_9.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): the running 2.2.0 server registers no dispatch plugin. platform/plugins/hyperfide-dispatch has no `hyperfide` manifest block and no prepare:bundled script, is absent from platform/packages/bundled-plugins/package.json and from BUILTIN_PLUGINS and OFFICIAL_PLUGINS in apps/server/src/services/plugins/builtin-registry.ts, and its server.ts exports a createFleetPlugin(backend) factory that nothing in the server calls. Fix: the plugin gets a manifest (a server entry that builds the FleetBackend from the registered machine providers and the spec read model and registers the fleet and image-builder RPC; app entry ./app.tsx), a prepare:bundled script through the plugin-build CLI, a dependency in bundled-plugins/package.json and a BUILTIN_PLUGINS entry (pluginId hyperfide-dispatch, defaultEnabled true), so `pnpm -C platform build` ships it and the server loads it; platform/pnpm-lock.yaml follows and a frozen install proves it settled."
+do_2 = "7_9.sh boots the built server as 7_7.sh does and asserts with `hyperfide-platform plugin list --json` that hyperfide-dispatch is running without an error and that `hyperfide-platform plugin rpc list hyperfide-dispatch` lists the fleet RPC methods; `bash tests/hyperfide/cases/v22/5_4.sh` still passes."
+reqs = ["6.4"]
+owner = "fleet"
