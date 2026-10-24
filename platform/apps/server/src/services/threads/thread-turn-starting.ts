@@ -15,19 +15,19 @@ export type QueueInputForStartingTurnResult =
   | { kind: "queued"; entry: ThreadQueuedMessage }
   | { kind: "retry"; thread: Thread | null };
 
-export function queueInputForStartingTurn(
+export async function queueInputForStartingTurn(
   deps: TurnStartingDeps,
   args: {
     claimed: readonly ClaimedQueuedThreadMessageRow[] | null;
     input: QueuedDispatchMessage;
     threadId: string;
   },
-): QueueInputForStartingTurnResult {
+): Promise<QueueInputForStartingTurnResult> {
   if (args.input.input.length === 0) return { kind: "dispatched" };
   const notifications = new NotificationBuffer();
-  const outcome: QueueInputForStartingTurnResult = deps.db.transaction(
-    (tx) => {
-      const thread = getThread(tx, args.threadId);
+  const outcome: QueueInputForStartingTurnResult = await deps.db.transaction(
+    async (tx) => {
+      const thread = await getThread(tx, args.threadId);
       if (
         !thread ||
         thread.archivedAt !== null ||
@@ -36,10 +36,10 @@ export function queueInputForStartingTurn(
       ) {
         return { kind: "retry", thread };
       }
-      if (getActiveTurnId({ db: tx }, args.threadId) !== null) {
+      if ((await getActiveTurnId({ db: tx }, args.threadId)) !== null) {
         return { kind: "retry", thread };
       }
-      const entry = recordQueuedMessageWait(
+      const entry = await recordQueuedMessageWait(
         { db: tx, hub: notifications },
         {
           thread,
@@ -55,7 +55,7 @@ export function queueInputForStartingTurn(
     },
     { behavior: "immediate" },
   );
-  notifications.flushInto(deps.hub);
+  await notifications.flushInto(deps.hub);
   if (outcome.kind === "queued") {
     deps.logger.info(
       { queuedMessageId: outcome.entry.id, threadId: args.threadId },

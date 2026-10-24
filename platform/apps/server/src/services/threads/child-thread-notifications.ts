@@ -238,21 +238,21 @@ function buildChildThreadBatchStatusLineSegments(
   ];
 }
 
-function getChildThreadCompletionOutput(
+async function getChildThreadCompletionOutput(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: QueueChildThreadTurnNotificationArgs,
-): string | null {
+): Promise<string | null> {
   if (args.turnStatus !== "completed") {
     return null;
   }
-  return getLastThreadOutput(deps.db, args.childThread.id);
+  return await getLastThreadOutput(deps.db, args.childThread.id);
 }
 
-function getChildThreadActiveWorkflowCount(
+async function getChildThreadActiveWorkflowCount(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: QueueChildThreadTurnNotificationArgs,
-): number {
-  const [activity] = listActiveBackgroundTaskCountsByThreadIds(deps.db, {
+): Promise<number> {
+  const [activity] = await listActiveBackgroundTaskCountsByThreadIds(deps.db, {
     threadIds: [args.childThread.id],
   });
   return activity?.activeWorkflowCount ?? 0;
@@ -419,23 +419,33 @@ async function flushChildThreadTurnNotificationBatch(
   }
 }
 
+const pendingChildNotificationFlushes = new Set<Promise<void>>();
+export async function whenChildThreadNotificationsIdle(): Promise<void> {
+  while (pendingChildNotificationFlushes.size)
+    await Promise.all([...pendingChildNotificationFlushes]);
+}
+
 function scheduleChildThreadTurnNotificationBatchFlush(
   deps: LoggedPendingInteractionWorkSessionDeps,
   parentThreadId: string,
 ): ReturnType<typeof setTimeout> {
   return setTimeout(() => {
-    void flushChildThreadTurnNotificationBatch(deps, parentThreadId);
+    const pending = flushChildThreadTurnNotificationBatch(
+      deps,
+      parentThreadId,
+    ).finally(() => pendingChildNotificationFlushes.delete(pending));
+    pendingChildNotificationFlushes.add(pending);
   }, CHILD_THREAD_TURN_NOTIFICATION_BATCH_DELAY_MS);
 }
 
-function queueChildThreadTurnNotificationBatchItem(
+async function queueChildThreadTurnNotificationBatchItem(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: QueueChildThreadTurnNotificationArgs,
-): void {
+): Promise<void> {
   const item: ChildThreadTurnNotificationBatchItem = {
-    activeWorkflowCount: getChildThreadActiveWorkflowCount(deps, args),
+    activeWorkflowCount: await getChildThreadActiveWorkflowCount(deps, args),
     childThread: args.childThread,
-    terminalOutput: getChildThreadCompletionOutput(deps, args),
+    terminalOutput: await getChildThreadCompletionOutput(deps, args),
     turnStatus: args.turnStatus,
     ...(args.failureContext ? { failureContext: args.failureContext } : {}),
     ...(args.interruption ? { interruption: args.interruption } : {}),
@@ -483,7 +493,7 @@ export async function queueChildThreadTurnNotificationBestEffort(
   args: QueueChildThreadTurnNotificationArgs,
 ): Promise<void> {
   try {
-    queueChildThreadTurnNotificationBatchItem(deps, args);
+    await queueChildThreadTurnNotificationBatchItem(deps, args);
   } catch (error) {
     deps.logger.error(
       {

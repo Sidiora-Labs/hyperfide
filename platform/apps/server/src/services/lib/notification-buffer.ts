@@ -9,7 +9,7 @@ import type {
 import type { DbNotifier } from "@hyperfide/db";
 
 interface BufferedNotification {
-  flush(notifier: DbNotifier): void;
+  flush(notifier: DbNotifier): void | Promise<void>;
 }
 
 export class NotificationBuffer implements DbNotifier {
@@ -54,9 +54,9 @@ export class NotificationBuffer implements DbNotifier {
     });
   }
 
-  flushInto(notifier: DbNotifier): void {
+  async flushInto(notifier: DbNotifier): Promise<void> {
     for (const notification of this.notifications) {
-      notification.flush(notifier);
+      await notification.flush(notifier);
     }
   }
 }

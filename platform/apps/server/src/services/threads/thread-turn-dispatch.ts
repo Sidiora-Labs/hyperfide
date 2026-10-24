@@ -6,7 +6,11 @@ import type {
   Thread,
   ThreadTurnInitiator,
 } from "@hyperfide/domain";
-import { getThread, type DbTransaction, type EnvironmentRow } from "@hyperfide/db";
+import {
+  getThread,
+  type DbTransaction,
+  type EnvironmentRow,
+} from "@hyperfide/db";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import {
   goneThreadEnvironmentDetails,
@@ -26,7 +30,9 @@ export interface ReadyThreadEnvironment extends EnvironmentRow {
 }
 
 interface DispatchTurnDuringReprovisionArgs {
-  beforeRequestAppendInTransaction?: (args: { tx: DbTransaction }) => void;
+  beforeRequestAppendInTransaction?: (args: {
+    tx: DbTransaction;
+  }) => void | Promise<void>;
   deps: LoggedPendingInteractionWorkSessionDeps;
   environment: EnvironmentRow;
   execution: ResolvedThreadExecutionOptions;
@@ -69,10 +75,10 @@ export async function dispatchTurnDuringReprovision(
     args.environment.status !== "provisioning" &&
     args.environment.status !== "destroyed"
   ) {
-    requestThreadTargetReprovision(args.deps, {
-      beforeRequestAppendInTransaction: ({ tx }) => {
-        args.beforeRequestAppendInTransaction?.({ tx });
-        const prepared = applyLoggedThreadLifecycleEventInTransaction(
+    await requestThreadTargetReprovision(args.deps, {
+      beforeRequestAppendInTransaction: async ({ tx }) => {
+        await args.beforeRequestAppendInTransaction?.({ tx });
+        const prepared = await applyLoggedThreadLifecycleEventInTransaction(
           { db: tx, logger: args.deps.logger },
           { event: { type: "run.preparing" }, threadId: args.thread.id },
         );
@@ -94,15 +100,15 @@ export async function dispatchTurnDuringReprovision(
       },
       thread: args.thread,
     });
-    const startingThread = getThread(args.deps.db, args.thread.id);
+    const startingThread = await getThread(args.deps.db, args.thread.id);
     if (startingThread !== null) {
-      args.deps.hub.notifyThread(
+      await args.deps.hub.notifyThread(
         args.thread.id,
         ["status-changed"],
-        buildThreadStatusChangeMetadata(args.deps, startingThread),
+        await buildThreadStatusChangeMetadata(args.deps, startingThread),
       );
     }
-    scheduleThreadProvisioningAdvance(args.deps, args.thread.id);
+    await scheduleThreadProvisioningAdvance(args.deps, args.thread.id);
     return true;
   }
 

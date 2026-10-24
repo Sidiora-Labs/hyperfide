@@ -18,9 +18,9 @@ describe("performance diagnostics gates", () => {
   it.each([false, true])(
     "requires launch permission %s as well as the live experiment",
     async (allowed) => {
-      const db = createMigratedConnection();
+      const db = await createMigratedConnection();
       const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-perf-gates-"));
-      const hub = new NotificationHub();
+      const hub = await new NotificationHub();
       const messages: string[] = [];
       const monitor = await startGatedPerformanceDiagnostics({
         allowed,
@@ -39,8 +39,8 @@ describe("performance diagnostics gates", () => {
       try {
         expect(monitor.isEnabled()).toBe(false);
         expect(await readdir(dataDir)).toEqual([]);
-        setExperiments(db, { performanceDiagnostics: true });
-        hub.notifySystem(["config-changed"]);
+        await setExperiments(db, { performanceDiagnostics: true });
+        await hub.notifySystem(["config-changed"]);
         expect(monitor.isEnabled()).toBe(allowed);
         if (allowed) {
           await until(() =>
@@ -51,8 +51,8 @@ describe("performance diagnostics gates", () => {
           expect(messages).toEqual([]);
           expect(await readdir(dataDir)).toEqual([]);
         }
-        setExperiments(db, { performanceDiagnostics: false });
-        hub.notifySystem(["config-changed"]);
+        await setExperiments(db, { performanceDiagnostics: false });
+        await hub.notifySystem(["config-changed"]);
         expect(monitor.isEnabled()).toBe(false);
         if (allowed) {
           await until(() =>
@@ -62,11 +62,11 @@ describe("performance diagnostics gates", () => {
           expect(captures).toHaveLength(1);
           expect(captures[0]).toMatch(/\.cpuprofile$/);
         }
-        setExperiments(db, { performanceDiagnostics: true });
-        hub.notifySystem(["config-changed"]);
+        await setExperiments(db, { performanceDiagnostics: true });
+        await hub.notifySystem(["config-changed"]);
         await monitor.stop();
         expect(monitor.isEnabled()).toBe(false);
-        hub.notifySystem(["config-changed"]);
+        await hub.notifySystem(["config-changed"]);
         expect(monitor.isEnabled()).toBe(false);
         const restarted = await startGatedPerformanceDiagnostics({
           allowed,
@@ -82,7 +82,7 @@ describe("performance diagnostics gates", () => {
         }
       } finally {
         await monitor.stop();
-        db.$client.close();
+        await db.close();
         await rm(dataDir, { recursive: true, force: true });
       }
     },

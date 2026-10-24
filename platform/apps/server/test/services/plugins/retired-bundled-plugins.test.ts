@@ -54,11 +54,11 @@ async function writePathPlugin(dir: string, name: string): Promise<string> {
   return rootDir;
 }
 
-function insertRetiredBuiltin(
+async function insertRetiredBuiltin(
   db: DbConnection,
   args: { rootDir: string; enabled: boolean },
-): void {
-  upsertInstalledPlugin(db, {
+): Promise<void> {
+  await upsertInstalledPlugin(db, {
     id: "retired",
     source: "builtin:retired",
     provenance: { kind: "builtin" },
@@ -110,8 +110,10 @@ describe("retired bundled plugins", () => {
     });
   }
 
-  function state(id: string) {
-    const plugin = service.list().find((candidate) => candidate.id === id);
+  async function state(id: string) {
+    const plugin = (await service.list()).find(
+      (candidate) => candidate.id === id,
+    );
     return plugin === undefined
       ? null
       : { enabled: plugin.enabled, status: plugin.status };
@@ -124,7 +126,7 @@ describe("retired bundled plugins", () => {
   }
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-retired-"));
     service = createService();
     await service.start();
@@ -133,99 +135,110 @@ describe("retired bundled plugins", () => {
 
   afterEach(async () => {
     await service.stop();
-    db.$client.close();
+    await db.close();
     await rm(workDir, { recursive: true, force: true });
   });
 
   it("hands an enabled retired plugin's listed settings to its successor and turns the successor on", async () => {
     await service.setEnabled("successor", false);
-    setPluginSettingsValues(db, "successor", {
+    await setPluginSettingsValues(db, "successor", {
       agents: JSON.stringify("[old]"),
       unrelated: JSON.stringify("stays"),
     });
-    insertRetiredBuiltin(db, {
+    await insertRetiredBuiltin(db, {
       rootDir: join(workDir, "gone"),
       enabled: true,
     });
-    setPluginSettingsValues(db, "retired", {
+    await setPluginSettingsValues(db, "retired", {
       agents: JSON.stringify("[new]"),
       other: JSON.stringify("dropped"),
     });
-    setPluginKvValue(db, "retired", "registry-cache", JSON.stringify({}));
+    await setPluginKvValue(db, "retired", "registry-cache", JSON.stringify({}));
 
     await restart();
 
-    expect(state("successor")).toEqual({ enabled: true, status: "running" });
-    expect(getPluginSettingsValues(db, "successor")).toEqual({
+    expect(await state("successor")).toEqual({
+      enabled: true,
+      status: "running",
+    });
+    expect(await getPluginSettingsValues(db, "successor")).toEqual({
       agents: JSON.stringify("[new]"),
       unrelated: JSON.stringify("stays"),
     });
-    expect(getInstalledPluginRegistration(db, "retired")).toBeUndefined();
-    expect(getPluginSettingsValues(db, "retired")).toEqual({});
-    expect(getPluginKvValue(db, "retired", "registry-cache")).toBeUndefined();
+    expect(await getInstalledPluginRegistration(db, "retired")).toBeUndefined();
+    expect(await getPluginSettingsValues(db, "retired")).toEqual({});
+    expect(
+      await getPluginKvValue(db, "retired", "registry-cache"),
+    ).toBeUndefined();
   });
 
   it("leaves the successor alone when the retired plugin was off, and keeps the user's disabled providers", async () => {
     await service.setEnabled("successor", false);
-    setPluginSettingsValues(db, "successor", {
+    await setPluginSettingsValues(db, "successor", {
       agents: JSON.stringify("[kept]"),
     });
-    insertRetiredBuiltin(db, {
+    await insertRetiredBuiltin(db, {
       rootDir: join(workDir, "gone"),
       enabled: false,
     });
-    setPluginSettingsValues(db, "retired", {
+    await setPluginSettingsValues(db, "retired", {
       agents: JSON.stringify("[stale]"),
     });
-    setDisabledPluginProviderCatalog(db, "retired", [
+    await setDisabledPluginProviderCatalog(db, "retired", [
       { id: "shared", displayName: "Shared" },
     ]);
-    setDisabledProviderIds(db, ["shared"]);
+    await setDisabledProviderIds(db, ["shared"]);
 
     await restart();
 
-    expect(state("successor")).toEqual({ enabled: false, status: "disabled" });
-    expect(getPluginSettingsValues(db, "successor")).toEqual({
+    expect(await state("successor")).toEqual({
+      enabled: false,
+      status: "disabled",
+    });
+    expect(await getPluginSettingsValues(db, "successor")).toEqual({
       agents: JSON.stringify("[kept]"),
     });
-    expect(getInstalledPluginRegistration(db, "retired")).toBeUndefined();
-    expect(getDisabledProviderIds(db)).toEqual(["shared"]);
+    expect(await getInstalledPluginRegistration(db, "retired")).toBeUndefined();
+    expect(await getDisabledProviderIds(db)).toEqual(["shared"]);
   });
 
   it("restores a removed successor and hands it the retired plugin's settings", async () => {
-    markInstalledPluginRemoved(db, "successor");
-    insertRetiredBuiltin(db, {
+    await markInstalledPluginRemoved(db, "successor");
+    await insertRetiredBuiltin(db, {
       rootDir: join(workDir, "gone"),
       enabled: true,
     });
-    setPluginSettingsValues(db, "retired", {
+    await setPluginSettingsValues(db, "retired", {
       agents: JSON.stringify("[kept]"),
     });
 
     await restart();
 
-    expect(state("successor")).toEqual({ enabled: true, status: "running" });
-    expect(getPluginSettingsValues(db, "successor")).toEqual({
+    expect(await state("successor")).toEqual({
+      enabled: true,
+      status: "running",
+    });
+    expect(await getPluginSettingsValues(db, "successor")).toEqual({
       agents: JSON.stringify("[kept]"),
     });
-    expect(getInstalledPluginRegistration(db, "retired")).toBeUndefined();
+    expect(await getInstalledPluginRegistration(db, "retired")).toBeUndefined();
   });
 
   it("keeps the handed-over settings for a successor that is not installed yet", async () => {
     expect(await service.remove("successor")).toBe(true);
-    insertRetiredBuiltin(db, {
+    await insertRetiredBuiltin(db, {
       rootDir: join(workDir, "gone"),
       enabled: true,
     });
-    setPluginSettingsValues(db, "retired", {
+    await setPluginSettingsValues(db, "retired", {
       agents: JSON.stringify("[waiting]"),
     });
 
     await restart();
 
-    expect(getInstalledPluginRegistration(db, "retired")).toBeUndefined();
-    expect(getPluginSettingsValues(db, "retired")).toEqual({});
-    expect(getPluginSettingsValues(db, "successor")).toEqual({
+    expect(await getInstalledPluginRegistration(db, "retired")).toBeUndefined();
+    expect(await getPluginSettingsValues(db, "retired")).toEqual({});
+    expect(await getPluginSettingsValues(db, "successor")).toEqual({
       agents: JSON.stringify("[waiting]"),
     });
   });

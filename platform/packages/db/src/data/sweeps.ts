@@ -102,12 +102,15 @@ interface CompletedEventOutputMigrationStrategy {
     args: MigrateNextCompletedEventItemOutputArgs,
     cursor: CompletedEventOutputScanCursor,
     window: CompletedEventOutputScanCursor,
-  ) => CompletedEventOutputCandidateRow | undefined;
+  ) =>
+    | CompletedEventOutputCandidateRow
+    | undefined
+    | Promise<CompletedEventOutputCandidateRow | undefined>;
   listScanRows: (
     db: DbConnection,
     args: MigrateNextCompletedEventItemOutputArgs,
     cursor: CompletedEventOutputScanCursor,
-  ) => CompletedEventOutputScanRow[];
+  ) => CompletedEventOutputScanRow[] | Promise<CompletedEventOutputScanRow[]>;
   missingScanRowError: string;
   prepare: (
     candidate: CompletedEventOutputCandidateRow,
@@ -164,11 +167,11 @@ export interface MigrateNextLegacyImageGenerationOutputArgs {
   migratedAt: number;
 }
 
-export function pruneClosedSessions(
+export async function pruneClosedSessions(
   db: DbConnection,
   args: PruneClosedSessionsArgs,
-): PruneClosedSessionsResult {
-  const result = db.$client
+): Promise<PruneClosedSessionsResult> {
+  const result = await db.$client
     .prepare<ClosedSessionDeleteParameters>(
       `
         DELETE FROM host_daemon_sessions
@@ -200,15 +203,15 @@ function buildCompletedEventOutputCursorId(
   ].join(":");
 }
 
-function getCompletedEventOutputScanState(
+async function getCompletedEventOutputScanState(
   db: DbQueryConnection,
   args: RetainedEventOutputTarget,
   cursorPolicy: string,
   windowPolicy: string,
-): CompletedEventOutputScanState {
+): Promise<CompletedEventOutputScanState> {
   const cursorId = buildCompletedEventOutputCursorId(args, cursorPolicy);
   const windowId = buildCompletedEventOutputCursorId(args, windowPolicy);
-  const rows = db
+  const rows = await db
     .select({
       id: maintenanceScanCursors.id,
       lastCreatedAt: maintenanceScanCursors.lastCreatedAt,
@@ -228,16 +231,16 @@ function getCompletedEventOutputScanState(
   };
 }
 
-function listCompletedEventOutputScanRows(
+async function listCompletedEventOutputScanRows(
   db: DbConnection,
   args: MigrateNextCompletedEventItemOutputArgs,
   cursor: CompletedEventOutputScanCursor,
-): CompletedEventOutputScanRow[] {
+): Promise<CompletedEventOutputScanRow[]> {
   if (args.limit <= 0) {
     return [];
   }
 
-  return db.$client
+  return await db.$client
     .prepare<CompletedEventOutputScanParameters, CompletedEventOutputScanRow>(
       `
         SELECT id, created_at
@@ -260,15 +263,15 @@ function listCompletedEventOutputScanRows(
     );
 }
 
-function findCompletedEventOutputCandidate(
+async function findCompletedEventOutputCandidate(
   db: DbConnection,
   args: MigrateNextCompletedEventItemOutputArgs,
   cursor: CompletedEventOutputScanCursor,
   window: CompletedEventOutputScanCursor,
-): CompletedEventOutputCandidateRow | undefined {
+): Promise<CompletedEventOutputCandidateRow | undefined> {
   const valuePath = `$.item.${args.outputPath}`;
   const truncationPath = `$.item.truncation.${args.outputPath}`;
-  return db.$client
+  return await db.$client
     .prepare<
       CompletedEventOutputCandidateParameters,
       CompletedEventOutputCandidateRow
@@ -282,13 +285,13 @@ function findCompletedEventOutputCandidate(
           AND (created_at, id) > (?, ?)
           AND (created_at, id) <= (?, ?)
           AND CASE
-          WHEN octet_length(data) > ? THEN 0
+          WHEN octet_length(data) > ? THEN (1 = 0)
           WHEN json_valid(data) THEN
             json_type(data, ?) = 'text'
             AND json_type(data, ?) IS NULL
             AND json_extract(data, ?) = ?
             AND octet_length(json_extract(data, ?)) > ?
-          ELSE 0 END
+          ELSE (1 = 0) END
         ORDER BY created_at, id
         LIMIT 1
       `,
@@ -311,15 +314,15 @@ function findCompletedEventOutputCandidate(
     );
 }
 
-function listLegacyImageGenerationScanRows(
+async function listLegacyImageGenerationScanRows(
   db: DbConnection,
   args: MigrateNextCompletedEventItemOutputArgs,
   cursor: CompletedEventOutputScanCursor,
-): CompletedEventOutputScanRow[] {
+): Promise<CompletedEventOutputScanRow[]> {
   if (args.limit <= 0) {
     return [];
   }
-  return db.$client
+  return await db.$client
     .prepare<LegacyImageGenerationScanParameters, CompletedEventOutputScanRow>(
       `
         SELECT id, 0 AS created_at
@@ -332,13 +335,13 @@ function listLegacyImageGenerationScanRows(
     .all(cursor.lastEventId, args.limit);
 }
 
-function findLegacyImageGenerationCandidate(
+async function findLegacyImageGenerationCandidate(
   db: DbConnection,
   args: MigrateNextCompletedEventItemOutputArgs,
   cursor: CompletedEventOutputScanCursor,
   window: CompletedEventOutputScanCursor,
-): CompletedEventOutputCandidateRow | undefined {
-  return db.$client
+): Promise<CompletedEventOutputCandidateRow | undefined> {
+  return await db.$client
     .prepare<
       LegacyImageGenerationCandidateParameters,
       CompletedEventOutputCandidateRow
@@ -351,7 +354,7 @@ function findLegacyImageGenerationCandidate(
           AND type = ?
           AND created_at < ?
           AND CASE
-          WHEN octet_length(data) > ? THEN 0
+          WHEN octet_length(data) > ? THEN (1 = 0)
           WHEN json_valid(data) THEN
             json_extract(data, '$.rawType') = ?
             AND json_extract(data, '$.rawEvent.method') = ?
@@ -359,7 +362,7 @@ function findLegacyImageGenerationCandidate(
             AND json_type(data, '$.rawEvent.params.item.result') = 'text'
             AND json_type(data, '$.rawEvent.params.item.truncation.result') IS NULL
             AND octet_length(json_extract(data, '$.rawEvent.params.item.result')) > ?
-          ELSE 0 END
+          ELSE (1 = 0) END
         ORDER BY id
         LIMIT 1
       `,
@@ -377,12 +380,13 @@ function findLegacyImageGenerationCandidate(
     );
 }
 
-function advanceCompletedEventOutputMigrationCursor(
+async function advanceCompletedEventOutputMigrationCursor(
   db: DbQueryConnection,
   args: AdvanceCompletedEventOutputMigrationCursorArgs,
   policy: string,
-): void {
-  db.insert(maintenanceScanCursors)
+): Promise<void> {
+  await db
+    .insert(maintenanceScanCursors)
     .values({
       id: buildCompletedEventOutputCursorId(args, policy),
       policy,
@@ -404,12 +408,13 @@ function advanceCompletedEventOutputMigrationCursor(
     .run();
 }
 
-function clearCompletedEventOutputMigrationWindow(
+async function clearCompletedEventOutputMigrationWindow(
   db: DbQueryConnection,
   args: RetainedEventOutputTarget,
   windowPolicy: string,
-): void {
-  db.delete(maintenanceScanCursors)
+): Promise<void> {
+  await db
+    .delete(maintenanceScanCursors)
     .where(
       eq(
         maintenanceScanCursors.id,
@@ -440,15 +445,15 @@ function completedEventOutputScanPositionAfter(
   );
 }
 
-function persistCompletedEventOutputMigrationPosition(
+async function persistCompletedEventOutputMigrationPosition(
   db: DbQueryConnection,
   args: MigrateNextCompletedEventItemOutputArgs,
   position: CompletedEventOutputScanCursor,
   window: CompletedEventOutputScanCursor,
   cursorPolicy: string,
   windowPolicy: string,
-): void {
-  advanceCompletedEventOutputMigrationCursor(
+): Promise<void> {
+  await advanceCompletedEventOutputMigrationCursor(
     db,
     {
       ...args,
@@ -459,10 +464,10 @@ function persistCompletedEventOutputMigrationPosition(
     cursorPolicy,
   );
   if (sameCompletedEventOutputScanPosition(position, window)) {
-    clearCompletedEventOutputMigrationWindow(db, args, windowPolicy);
+    await clearCompletedEventOutputMigrationWindow(db, args, windowPolicy);
     return;
   }
-  advanceCompletedEventOutputMigrationCursor(
+  await advanceCompletedEventOutputMigrationCursor(
     db,
     {
       ...args,
@@ -489,22 +494,22 @@ function emptyCompletedEventOutputMigrationResult(
   };
 }
 
-export function migrateNextCompletedEventItemOutput(
+export async function migrateNextCompletedEventItemOutput(
   db: DbConnection,
   args: MigrateNextCompletedEventItemOutputArgs,
-): MigrateNextCompletedEventItemOutputResult {
-  return migrateNextCompletedEventOutput(
+): Promise<MigrateNextCompletedEventItemOutputResult> {
+  return await migrateNextCompletedEventOutput(
     db,
     args,
     COMPLETED_EVENT_ITEM_OUTPUT_MIGRATION_STRATEGY,
   );
 }
 
-export function migrateNextLegacyImageGenerationOutput(
+export async function migrateNextLegacyImageGenerationOutput(
   db: DbConnection,
   args: MigrateNextLegacyImageGenerationOutputArgs,
-): MigrateNextCompletedEventItemOutputResult {
-  return migrateNextCompletedEventOutput(
+): Promise<MigrateNextCompletedEventItemOutputResult> {
+  return await migrateNextCompletedEventOutput(
     db,
     {
       ...LEGACY_IMAGE_GENERATION_TARGET,
@@ -548,15 +553,15 @@ const LEGACY_IMAGE_GENERATION_OUTPUT_MIGRATION_STRATEGY: CompletedEventOutputMig
     windowPolicy: LEGACY_IMAGE_GENERATION_MIGRATION_WINDOW_POLICY,
   };
 
-function migrateNextCompletedEventOutput(
+async function migrateNextCompletedEventOutput(
   db: DbConnection,
   args: MigrateNextCompletedEventItemOutputArgs,
   strategy: CompletedEventOutputMigrationStrategy,
-): MigrateNextCompletedEventItemOutputResult {
+): Promise<MigrateNextCompletedEventItemOutputResult> {
   if (args.limit <= 0) {
     return emptyCompletedEventOutputMigrationResult("idle", 0);
   }
-  const state = getCompletedEventOutputScanState(
+  const state = await getCompletedEventOutputScanState(
     db,
     args,
     strategy.cursorPolicy,
@@ -573,11 +578,11 @@ function migrateNextCompletedEventOutput(
       : null;
   let initialWindowScanRows: number | null = null;
   if (!window) {
-    const rows = strategy.listScanRows(db, args, cursor);
+    const rows = await strategy.listScanRows(db, args, cursor);
     if (rows.length === 0) {
       if (cursor.lastCreatedAt === 0 && cursor.lastEventId === "") {
         if (state.window) {
-          clearCompletedEventOutputMigrationWindow(
+          await clearCompletedEventOutputMigrationWindow(
             db,
             args,
             strategy.windowPolicy,
@@ -585,9 +590,9 @@ function migrateNextCompletedEventOutput(
         }
         return emptyCompletedEventOutputMigrationResult("idle", 0);
       }
-      db.transaction(
-        (tx) => {
-          advanceCompletedEventOutputMigrationCursor(
+      await db.transaction(
+        async (tx) => {
+          await advanceCompletedEventOutputMigrationCursor(
             tx,
             {
               ...args,
@@ -597,7 +602,7 @@ function migrateNextCompletedEventOutput(
             },
             strategy.cursorPolicy,
           );
-          clearCompletedEventOutputMigrationWindow(
+          await clearCompletedEventOutputMigrationWindow(
             tx,
             args,
             strategy.windowPolicy,
@@ -619,7 +624,7 @@ function migrateNextCompletedEventOutput(
     initialWindowScanRows = rows.length;
   }
 
-  const candidate = strategy.findCandidate(db, args, cursor, window);
+  const candidate = await strategy.findCandidate(db, args, cursor, window);
   const candidatePosition = candidate
     ? {
         lastCreatedAt: candidate.scan_created_at,
@@ -629,9 +634,9 @@ function migrateNextCompletedEventOutput(
     : window;
   const scanRows = initialWindowScanRows ?? 0;
   if (!candidate) {
-    db.transaction(
-      (tx) =>
-        persistCompletedEventOutputMigrationPosition(
+    await db.transaction(
+      async (tx) =>
+        await persistCompletedEventOutputMigrationPosition(
           tx,
           args,
           candidatePosition,
@@ -646,9 +651,9 @@ function migrateNextCompletedEventOutput(
 
   const prepared = strategy.prepare(candidate, args);
   if (!prepared.retainedOutput) {
-    db.transaction(
-      (tx) =>
-        persistCompletedEventOutputMigrationPosition(
+    await db.transaction(
+      async (tx) =>
+        await persistCompletedEventOutputMigrationPosition(
           tx,
           args,
           candidatePosition,
@@ -662,9 +667,9 @@ function migrateNextCompletedEventOutput(
   }
   const retainedOutput = prepared.retainedOutput;
   const retained = retainedOutput.expiresAt > args.migratedAt;
-  db.transaction(
-    (tx) => {
-      const update = tx
+  await db.transaction(
+    async (tx) => {
+      const update = await tx
         .update(events)
         .set({ data: prepared.data })
         .where(
@@ -675,15 +680,19 @@ function migrateNextCompletedEventOutput(
         throw new Error(strategy.eventChangedError);
       }
       if (prepared.data !== candidate.data)
-        markThreadPruningPolicyWork(tx, [candidate.thread_id], "resolved-items");
+        await markThreadPruningPolicyWork(
+          tx,
+          [candidate.thread_id],
+          "resolved-items",
+        );
       bumpThreadEventRewriteGeneration(candidate.thread_id);
       if (retained) {
-        insertPreparedRetainedEventOutput(tx, {
+        await insertPreparedRetainedEventOutput(tx, {
           eventId: candidate.id,
           output: retainedOutput,
         });
       }
-      persistCompletedEventOutputMigrationPosition(
+      await persistCompletedEventOutputMigrationPosition(
         tx,
         args,
         candidatePosition,

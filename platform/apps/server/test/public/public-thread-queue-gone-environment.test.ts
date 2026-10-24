@@ -65,21 +65,24 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
     "rejects queue-create when the machine is $phase but the environment is still ready",
     async ({ phase, destroyedAt, code }) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { host } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           status: "ready",
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           status: "idle",
         });
-        updateHost(harness.db, harness.hub, host.id, { phase, destroyedAt });
+        await updateHost(harness.db, harness.hub, host.id, {
+          phase,
+          destroyedAt,
+        });
 
         const sendResponse = await harness.app.request(
           `/api/v1/threads/${thread.id}/send`,
@@ -94,8 +97,10 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
         );
         expect(sendResponse.status).toBe(phase === "removing" ? 409 : 404);
         expect(await readJson(sendResponse)).toMatchObject({ code });
-        expect(getThread(harness.db, thread.id)?.status).toBe("idle");
-        expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(0);
+        expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
+        expect(
+          await listQueuedThreadMessages(harness.db, thread.id),
+        ).toHaveLength(0);
 
         const response = await postQueuedMessage(
           harness,
@@ -111,7 +116,9 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
           phase === "removing" ? 409 : 404,
         );
         expect(body).toMatchObject({ code });
-        expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(0);
+        expect(
+          await listQueuedThreadMessages(harness.db, thread.id),
+        ).toHaveLength(0);
       });
     },
   );
@@ -121,26 +128,26 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
   ] as const satisfies readonly EnvironmentStatus[]) {
     it(`rejects queue-create when the environment is ${status}`, async () => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: `host-queue-${status}`,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: null,
           status,
           isGitRepo: false,
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           status: "idle",
         });
 
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           threadId: thread.id,
           environmentId: environment.id,
           sequence: 1,
@@ -168,36 +175,38 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
           "queued into a gone env",
         );
         const body = await readJson(queueResponse);
-        expect(getThread(harness.db, thread.id)?.status).toBe("idle");
+        expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
         expect(
           queueResponse.status,
           `queue-create answered ${queueResponse.status} ${JSON.stringify(body)}; queued rows: ${
-            listQueuedThreadMessages(harness.db, thread.id).length
+            (await listQueuedThreadMessages(harness.db, thread.id)).length
           }`,
         ).toBe(409);
         expect(body).toMatchObject({
           code: "thread_environment_unavailable",
           details: { reason: status, environmentStatus: status },
         });
-        expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(0);
+        expect(
+          await listQueuedThreadMessages(harness.db, thread.id),
+        ).toHaveLength(0);
       });
     });
   }
 
   it("rejects queue-create when a thread that ran before lost its environment row", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-queue-pruned",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: null,
         status: "idle",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: null,
         sequence: 1,
@@ -205,12 +214,12 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
         scope: threadScope(),
         data: earlierTurnEventData,
       });
-      seedThreadIdentity(harness.deps, {
+      await seedThreadIdentity(harness.deps, {
         threadId: thread.id,
         environmentId: null,
         providerThreadId: "provider-turn-1",
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         threadId: thread.id,
         environmentId: null,
         turnId: "turn-1",
@@ -226,17 +235,21 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
         code: "thread_environment_unavailable",
         details: { reason: "never_attached", environmentStatus: null },
       });
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(0);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(0);
     });
   });
 
   it("still accepts queue-create for a thread that has not run and has no environment yet", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-queue-new" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-queue-new",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: null,
         status: "idle",
@@ -249,67 +262,71 @@ describe("queued message into a thread whose environment is gone (#1789)", () =>
         { model: "gpt-5" },
       );
       expect(queueResponse.status, await queueResponse.text()).toBe(201);
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(1);
     });
   });
 
   it("drops a thread from the auto-send sweep once its environment is gone, so pre-existing queued rows stop failing every cycle", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-queue-sweep",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         status: "ready",
         isGitRepo: false,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         turnId: "turn-1",
       });
-      seedQueuedMessage(harness.deps, {
+      await seedQueuedMessage(harness.deps, {
         threadId: thread.id,
         content: [
           { type: "text", text: "queued before destroy", mentions: [] },
         ],
       });
-      const sweepCandidates = () =>
-        listIdleThreadsWithQueuedMessages(harness.db).map(
+      const sweepCandidates = async () =>
+        (await listIdleThreadsWithQueuedMessages(harness.db)).map(
           (row) => row.threadId,
         );
-      expect(sweepCandidates()).toEqual([thread.id]);
+      expect(await sweepCandidates()).toEqual([thread.id]);
 
-      archiveThread(harness.db, harness.hub, thread.id);
-      applyEnvironmentLifecycleEvent(harness.db, harness.hub, {
+      await archiveThread(harness.db, harness.hub, thread.id);
+      await applyEnvironmentLifecycleEvent(harness.db, harness.hub, {
         environmentId: environment.id,
         event: { type: "destroy.recorded" },
       });
-      expect(getEnvironment(harness.db, environment.id)?.status).toBe(
+      expect((await getEnvironment(harness.db, environment.id))?.status).toBe(
         "destroyed",
       );
-      expect(sweepCandidates()).toEqual([]);
+      expect(await sweepCandidates()).toEqual([]);
       const unarchiveResponse = await harness.app.request(
         `/api/v1/threads/${thread.id}/unarchive`,
         { method: "POST" },
       );
       expect(unarchiveResponse.status).toBe(200);
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         archivedAt: null,
         status: "idle",
       });
 
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
-      expect(sweepCandidates()).toEqual([]);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(1);
+      expect(await sweepCandidates()).toEqual([]);
     });
   });
 });

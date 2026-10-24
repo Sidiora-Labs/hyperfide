@@ -24,7 +24,7 @@ export async function acceptThreadSendRequest(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: AcceptThreadSendRequestArgs,
 ): Promise<SendMessageResponse> {
-  assertThreadHostAcceptsWork(deps.db, args.thread);
+  await assertThreadHostAcceptsWork(deps.db, args.thread);
   const { compactFirst, ...request } = args.payload;
   if (isStandaloneBuiltinClearCommand(request.input)) {
     if (compactFirst) throwInvalidCompactFirst("cannot clear the context");
@@ -58,8 +58,8 @@ export async function acceptThreadSendRequest(
   const outcome = await runWithTurnTrace(
     deps,
     { threadId: args.thread.id },
-    () =>
-      attemptDispatch(deps, {
+    async () =>
+      await attemptDispatch(deps, {
         thread: args.thread,
         payload,
         source: { kind: "inline" },

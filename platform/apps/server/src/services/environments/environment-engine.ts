@@ -172,26 +172,26 @@ const environmentOperations = new WeakMap<
   Map<string, ActiveOperation>
 >();
 
-function writeEnvironment(
+async function writeEnvironment(
   deps: Pick<Deps, "db" | "hub">,
   environmentId: string,
   change: Partial<EnvironmentRow>,
-): void {
-  deps.db
+): Promise<void> {
+  await deps.db
     .update(environments)
     .set({ ...change, updatedAt: Date.now() })
     .where(eq(environments.id, environmentId))
     .run();
-  deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
+  await deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
 }
 
-function mutateProvisioning(
+async function mutateProvisioning(
   deps: Deps,
   provisioning: EnvironmentRow,
   phases: EnvironmentRow["status"][],
   change: (row: EnvironmentRow) => void,
-): boolean {
-  const row = getEnvironment(deps.db, provisioning.id);
+): Promise<boolean> {
+  const row = await getEnvironment(deps.db, provisioning.id);
   if (
     row === null ||
     row.attempt !== provisioning.attempt ||
@@ -200,10 +200,15 @@ function mutateProvisioning(
   )
     return false;
   const before = JSON.stringify(row);
+  const expectedStatus = row.status;
   change(row);
   if (JSON.stringify(row) === before) return false;
-  const updated = updatePreparingEnvironment(deps.db, row);
-  if (updated) deps.hub.notifyEnvironment(row.id, ["metadata-changed"]);
+  const updated = await updatePreparingEnvironment(
+    deps.db,
+    row,
+    expectedStatus,
+  );
+  if (updated) await deps.hub.notifyEnvironment(row.id, ["metadata-changed"]);
   return updated;
 }
 
@@ -211,19 +216,26 @@ function provisioningReporter(
   deps: Deps,
   provisioning: EnvironmentRow,
 ): PluginEnvironmentProviderProgress {
-  const report = (
+  const report = async (
     change: (row: EnvironmentRow) => void,
     step: string | null,
   ) => {
-    const before = getEnvironment(deps.db, provisioning.id);
-    if (!mutateProvisioning(deps, provisioning, ["creating"], change)) return;
+    const before = await getEnvironment(deps.db, provisioning.id);
+    if (!(await mutateProvisioning(deps, provisioning, ["creating"], change)))
+      return;
     const owner = provisioning.ownerThreadId;
     if (owner === null) return;
-    const context = getThreadProvisionContext(deps.db, owner);
+    const context = await getThreadProvisionContext(deps.db, owner);
     if (context !== null)
-      deps.db.transaction((tx) => {
-        const row = getEnvironment(tx, provisioning.id);
-        if (row === null) return;
+      await deps.db.transaction(async (tx) => {
+        const row = await getEnvironment(tx, provisioning.id);
+        if (
+          row === null ||
+          row.status !== "creating" ||
+          row.teardownStatus !== null ||
+          (await getThread(tx, owner))?.status !== "starting"
+        )
+          return;
         const entries: ProvisioningTranscriptEntry[] = [];
         const key = (text: string) => `provider-step-${row.attempt}-${text}`;
         if (step !== null) {
@@ -248,19 +260,20 @@ function provisioningReporter(
             text: row.pendingLog,
           });
         if (entries.length > 0)
-          appendThreadProvisioningEventInTransaction(tx, {
+          await appendThreadProvisioningEventInTransaction(tx, {
             threadId: owner,
             environmentId: row.id,
             provisioningId: context.state.provisioningId,
             status: "active",
             entries,
           });
-        tx.update(environments)
+        await tx
+          .update(environments)
           .set({ pendingLog: "" })
           .where(eq(environments.id, row.id))
           .run();
-        deps.hub.notifyThread(owner, ["events-appended"], {
-          timelineSequence: getLatestThreadSequence(deps.db, {
+        await deps.hub.notifyThread(owner, ["events-appended"], {
+          timelineSequence: await getLatestThreadSequence(deps.db, {
             threadId: owner,
           }),
           eventTypes: ["system/thread-provisioning"],
@@ -269,15 +282,15 @@ function provisioningReporter(
     requestEnvironmentProvisioningRecheck(owner);
   };
   return {
-    step: (text) =>
-      report(
+    step: async (text) =>
+      await report(
         (row) => {
           row.statusMessage = text.slice(0, 200);
         },
         text.slice(0, 200),
       ),
-    log: (text) =>
-      report((row) => {
+    log: async (text) =>
+      await report((row) => {
         row.pendingLog = (row.pendingLog + text).slice(-16_384);
       }, null),
   };
@@ -287,12 +300,12 @@ function emptyReporter(): PluginEnvironmentProviderProgress {
   return { step: () => undefined, log: () => undefined };
 }
 
-function runTrackedOperation(args: {
+async function runTrackedOperation(args: {
   kind: ActiveOperation["kind"];
   map: Map<string, ActiveOperation>;
   key: string;
   run: (signal: AbortSignal) => Promise<void>;
-}): ActiveOperation {
+}): Promise<ActiveOperation> {
   const existing = args.map.get(args.key);
   if (existing !== undefined) return existing;
   const controller = new AbortController();
@@ -365,14 +378,14 @@ async function runCreate(
 ): Promise<void> {
   const signal = outerSignal;
   let changed = false;
-  mutateProvisioning(deps, provisioning, ["creating"], (row) => {
+  await mutateProvisioning(deps, provisioning, ["creating"], (row) => {
     row.hostId = context.host.id;
   });
   try {
     const previous =
       context.environment === null
         ? null
-        : getEnvironment(deps.db, context.environment.id);
+        : await getEnvironment(deps.db, context.environment.id);
     const operation = {
       thread: context.thread,
       project: context.project,
@@ -392,14 +405,18 @@ async function runCreate(
         if (signal.aborted) return false;
         const normalizedPath = canonicalizeHostPath(path);
         if (
-          findBlockingEnvironmentPathClaim(deps, {
+          (await findBlockingEnvironmentPathClaim(deps, {
             hostId: context.host.id,
             path: normalizedPath,
             owner: provisioning,
-          }) !== null
+          })) !== null
         )
           return false;
-        return claimEnvironmentPath(deps.db, provisioning, normalizedPath);
+        return await claimEnvironmentPath(
+          deps.db,
+          provisioning,
+          normalizedPath,
+        );
       },
       report: provisioningReporter(deps, provisioning),
       signal: signal,
@@ -417,7 +434,7 @@ async function runCreate(
           ? await invokeRestore(record, {
               ...operation,
               previous: {
-                environment: toEnvironmentResponse(deps.db, previous),
+                environment: await toEnvironmentResponse(deps.db, previous),
                 resource:
                   previous.teardownStatus === "removed"
                     ? null
@@ -436,20 +453,20 @@ async function runCreate(
         await ensureHostSessionReadyForWork(deps, {
           hostId: context.host.id,
         });
-        findBlockingEnvironmentPathClaim(deps, {
+        await findBlockingEnvironmentPathClaim(deps, {
           hostId: context.host.id,
           path: producedPath,
           owner: provisioning,
         });
-        deps.db.transaction(
-          () => {
-            const refusal = foreignProjectOwnedPathRefusal(deps.db, {
+        await deps.db.transaction(
+          async () => {
+            const refusal = await foreignProjectOwnedPathRefusal(deps.db, {
               hostId: context.host.id,
               path: producedPath,
               projectId: context.project.id,
             });
             if (refusal !== null) throw new Error(refusal);
-            const claimed = claimEnvironmentPath(
+            const claimed = await claimEnvironmentPath(
               deps.db,
               provisioning,
               producedPath,
@@ -459,7 +476,7 @@ async function runCreate(
               throw new Error(
                 "Workspace path is already claimed by another provisioning.",
               );
-            const existing = findProjectEnvironmentByHostPath(
+            const existing = await findProjectEnvironmentByHostPath(
               deps.db,
               context.project.id,
               context.host.id,
@@ -478,7 +495,7 @@ async function runCreate(
             existingProviderOwnsLifecycle =
               existing?.environmentProviderId != null;
             const reservedId = provisioning.id;
-            provisioning = bindEnvironmentPath(
+            provisioning = await bindEnvironmentPath(
               deps.db,
               provisioning,
               producedPath,
@@ -489,7 +506,7 @@ async function runCreate(
         );
         result = { ...result, path: producedPath };
       } catch (error) {
-        mutateProvisioning(
+        await mutateProvisioning(
           deps,
           provisioning,
           ["creating", "ready", "error"],
@@ -503,7 +520,7 @@ async function runCreate(
         throw error;
       }
       const produced = result;
-      mutateProvisioning(
+      await mutateProvisioning(
         deps,
         provisioning,
         ["creating", "ready", "error"],
@@ -523,7 +540,7 @@ async function runCreate(
       );
       signal.throwIfAborted();
     }
-    changed = mutateProvisioning(
+    changed = await mutateProvisioning(
       deps,
       provisioning,
       ["creating", "ready"],
@@ -537,30 +554,39 @@ async function runCreate(
       },
     );
   } catch (error) {
-    const current = getEnvironment(deps.db, provisioning.id);
+    const current = await getEnvironment(deps.db, provisioning.id);
     if (
       signal.aborted &&
       current?.attempt === provisioning.attempt &&
       current.teardownStatus === "running"
     )
       return;
-    changed = mutateProvisioning(deps, provisioning, ["creating"], (row) => {
-      row.status = "error";
-      row.statusMessage = `The "${record.provider.id}" environment provider (plugin "${record.pluginId}") failed: ${errorMessage(error)}`;
-    });
+    changed = await mutateProvisioning(
+      deps,
+      provisioning,
+      ["creating"],
+      (row) => {
+        row.status = "error";
+        row.statusMessage = `The "${record.provider.id}" environment provider (plugin "${record.pluginId}") failed: ${errorMessage(error)}`;
+      },
+    );
   } finally {
     if (
       changed ||
-      getPreparingEnvironment(deps.db, context.thread.id)?.status === "ready"
+      (await getPreparingEnvironment(deps.db, context.thread.id))?.status ===
+        "ready"
     ) {
-      const row = getPreparingEnvironment(deps.db, context.thread.id);
-      const startup = getThreadProvisionContext(deps.db, context.thread.id);
+      const row = await getPreparingEnvironment(deps.db, context.thread.id);
+      const startup = await getThreadProvisionContext(
+        deps.db,
+        context.thread.id,
+      );
       if (
         row !== null &&
         startup !== null &&
         (row.status === "ready" || row.status === "provisioning")
       ) {
-        appendThreadProvisioningEvent(deps, {
+        await appendThreadProvisioningEvent(deps, {
           threadId: context.thread.id,
           environmentId: row.id,
           provisioningId: startup.state.provisioningId,
@@ -574,8 +600,8 @@ async function runCreate(
             },
           ],
         });
-        deps.hub.notifyThread(context.thread.id, ["events-appended"], {
-          timelineSequence: getLatestThreadSequence(deps.db, {
+        await deps.hub.notifyThread(context.thread.id, ["events-appended"], {
+          timelineSequence: await getLatestThreadSequence(deps.db, {
             threadId: context.thread.id,
           }),
           eventTypes: ["system/thread-provisioning"],
@@ -586,17 +612,18 @@ async function runCreate(
   }
 }
 
-export function markProviderEnvironmentAttached(
+export async function markProviderEnvironmentAttached(
   db: DbConnection | DbTransaction,
   threadId: string,
   environmentId: string,
-): void {
-  const row = getPreparingEnvironment(db, threadId);
+): Promise<void> {
+  const row = await getPreparingEnvironment(db, threadId);
   if (row === null || (row.status !== "provisioning" && row.status !== "ready"))
     return;
   if (row.id !== environmentId)
     throw new Error("Provisioning must attach its reserved environment");
-  db.update(environments)
+  await db
+    .update(environments)
     .set({
       ownerThreadId: null,
       claimPath: null,
@@ -610,25 +637,25 @@ export async function cancelProviderEnvironmentCreation(
   deps: Deps,
   threadId: string,
 ): Promise<void> {
-  const row = getPreparingEnvironment(deps.db, threadId);
+  const row = await getPreparingEnvironment(deps.db, threadId);
   if (row === null) return;
   if (row.teardownStatus === "removed") {
     if (row.status !== "destroyed")
-      writeEnvironment(deps, row.id, { status: "destroyed" });
+      await writeEnvironment(deps, row.id, { status: "destroyed" });
     return;
   }
   if (row.teardownStatus === null) {
-    updatePreparingEnvironment(deps.db, {
+    await updatePreparingEnvironment(deps.db, {
       ...row,
       teardownStatus: "running",
       retireAt: Date.now(),
     });
   }
   await sweepProviderEnvironment(deps, row.id);
-  let current = getPreparingEnvironment(deps.db, threadId);
+  let current = await getPreparingEnvironment(deps.db, threadId);
   if (current !== null && current.id !== row.id) {
     await sweepProviderEnvironment(deps, current.id);
-    current = getPreparingEnvironment(deps.db, threadId);
+    current = await getPreparingEnvironment(deps.db, threadId);
   }
   if (current !== null && current.teardownStatus !== "removed")
     throw new Error(
@@ -636,17 +663,21 @@ export async function cancelProviderEnvironmentCreation(
     );
 }
 
-export function requestEnvironmentRemoval(
+export async function requestEnvironmentRemoval(
   deps: Deps,
   environmentId: string,
-): boolean {
-  const row = getEnvironment(deps.db, environmentId);
+): Promise<boolean> {
+  const row = await getEnvironment(deps.db, environmentId);
   if (row === null) return false;
-  const removingMachine = getHost(deps.db, row.hostId)?.phase === "removing";
-  if (!removingMachine && environmentHasLiveThreads(deps.db, environmentId))
+  const removingMachine =
+    (await getHost(deps.db, row.hostId))?.phase === "removing";
+  if (
+    !removingMachine &&
+    (await environmentHasLiveThreads(deps.db, environmentId))
+  )
     return false;
   if (row.ownerThreadId !== null && row.teardownStatus === null) {
-    const owner = getThread(deps.db, row.ownerThreadId);
+    const owner = await getThread(deps.db, row.ownerThreadId);
     if (
       !removingMachine &&
       owner !== null &&
@@ -655,7 +686,7 @@ export function requestEnvironmentRemoval(
       owner.deletedAt === null
     )
       return false;
-    updatePreparingEnvironment(deps.db, {
+    await updatePreparingEnvironment(deps.db, {
       ...row,
       teardownStatus: "running",
       retireAt: Date.now(),
@@ -663,13 +694,15 @@ export function requestEnvironmentRemoval(
   }
   if (row.status === "destroyed") return true;
   if (row.environmentProviderId === null) {
-    return applyLoggedEnvironmentLifecycleEvent(deps, {
-      environmentId,
-      event: { type: "destroy.recorded" },
-    }).applied;
+    return (
+      await applyLoggedEnvironmentLifecycleEvent(deps, {
+        environmentId,
+        event: { type: "destroy.recorded" },
+      })
+    ).applied;
   }
   if (row.teardownStatus === null) {
-    deps.db
+    await deps.db
       .update(environments)
       .set({
         retireAt: Date.now(),
@@ -677,7 +710,7 @@ export function requestEnvironmentRemoval(
       })
       .where(eq(environments.id, environmentId))
       .run();
-    deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
+    await deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
   }
   return true;
 }
@@ -689,7 +722,7 @@ async function runRemove(
   resumeOnly: boolean,
   signal: AbortSignal,
 ): Promise<void> {
-  const row = getEnvironment(deps.db, environmentId);
+  const row = await getEnvironment(deps.db, environmentId);
   if (
     row === null ||
     row.environmentProviderId === null ||
@@ -728,12 +761,12 @@ async function runRemove(
       const invocation = await invokeEnvironmentProvider(
         record,
         "environment remove",
-        () =>
+        async () =>
           record.provider.remove({
             environment:
               row.ownerThreadId !== null
                 ? null
-                : toEnvironmentResponse(deps.db, row),
+                : await toEnvironmentResponse(deps.db, row),
             hostId: row.hostId,
             path: row.path,
             pathKey: row.environmentProviderInstanceKey ?? row.id,
@@ -748,18 +781,22 @@ async function runRemove(
         throw new Error("The environment provider became unavailable.");
       const result = removeResultSchema.parse(invocation.value);
       if (result.status === "failed") {
-        writeEnvironmentTeardownFailure(deps, environmentId, result.message);
+        await writeEnvironmentTeardownFailure(
+          deps,
+          environmentId,
+          result.message,
+        );
         return;
       }
-      deps.db.transaction(() => {
-        writeEnvironment(deps, environmentId, {
+      await deps.db.transaction(async () => {
+        await writeEnvironment(deps, environmentId, {
           teardownStatus: "removed",
           teardownMessage: null,
           claimPath: null,
           resource: null,
           retireAt: null,
         });
-        applyLoggedEnvironmentLifecycleEvent(deps, {
+        await applyLoggedEnvironmentLifecycleEvent(deps, {
           environmentId,
           event: { type: "destroy.recorded" },
         });
@@ -772,20 +809,24 @@ async function runRemove(
         providerOwnedPath: row.providerOwnsPath,
       });
     } catch (error) {
-      writeEnvironmentTeardownFailure(deps, environmentId, errorMessage(error));
+      await writeEnvironmentTeardownFailure(
+        deps,
+        environmentId,
+        errorMessage(error),
+      );
     }
   });
 }
 
-function writeEnvironmentTeardownFailure(
+async function writeEnvironmentTeardownFailure(
   deps: Pick<Deps, "db" | "hub">,
   environmentId: string,
   message: string,
-): void {
-  const row = getEnvironment(deps.db, environmentId);
+): Promise<void> {
+  const row = await getEnvironment(deps.db, environmentId);
   if (row === null) return;
   const exhausted = row.teardownAttempt >= MAX_REMOVE_ATTEMPTS;
-  const written = deps.db
+  const written = await deps.db
     .update(environments)
     .set({
       teardownStatus: "failed",
@@ -810,7 +851,7 @@ function writeEnvironmentTeardownFailure(
     .returning({ id: environments.id })
     .all();
   if (written.length > 0)
-    deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
+    await deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
 }
 
 async function removeEnvironment(
@@ -820,22 +861,25 @@ async function removeEnvironment(
   const map = perDbRegistry(environmentOperations, deps.db);
   const active = map.get(environmentId);
   if (active !== undefined) {
-    const row = getEnvironment(deps.db, environmentId);
+    const row = await getEnvironment(deps.db, environmentId);
     if (active.kind === "create" && row?.teardownStatus === "running")
       active.controller.abort();
     await active.done;
     if (active.kind === "remove") return;
   }
-  const operation = runTrackedOperation({
+  const operation = await runTrackedOperation({
     kind: "remove",
     map,
     key: environmentId,
-    run: (signal) => {
-      const row = getEnvironment(deps.db, environmentId);
+    run: async (signal) => {
+      const row = await getEnvironment(deps.db, environmentId);
       return row === null
         ? Promise.resolve()
-        : withEnvironmentCleanupSlot(deps.db, row.hostId, () =>
-            sweepProviderEnvironmentInSlot(deps, environmentId, signal),
+        : await withEnvironmentCleanupSlot(
+            deps.db,
+            row.hostId,
+            async () =>
+              await sweepProviderEnvironmentInSlot(deps, environmentId, signal),
           );
     },
   });
@@ -847,7 +891,7 @@ async function sweepProviderEnvironmentInSlot(
   environmentId: string,
   signal: AbortSignal,
 ): Promise<void> {
-  let row = getEnvironment(deps.db, environmentId);
+  let row = await getEnvironment(deps.db, environmentId);
   if (
     row === null ||
     row.environmentProviderId === null ||
@@ -855,9 +899,11 @@ async function sweepProviderEnvironmentInSlot(
   )
     return;
   const environmentProviderId = row.environmentProviderId;
-  const machineRemoving = getHost(deps.db, row.hostId)?.phase === "removing";
+  const machineRemoving =
+    (await getHost(deps.db, row.hostId))?.phase === "removing";
   const shared =
-    !machineRemoving && environmentHasLiveThreads(deps.db, environmentId);
+    !machineRemoving &&
+    (await environmentHasLiveThreads(deps.db, environmentId));
   if (
     !machineRemoving &&
     row.ownerThreadId !== null &&
@@ -870,7 +916,7 @@ async function sweepProviderEnvironmentInSlot(
       retireAt: null,
       teardownStatus: null,
     };
-    writeEnvironment(deps, environmentId, released);
+    await writeEnvironment(deps, environmentId, released);
     row = { ...row, ...released };
   }
   const cancelled = row.ownerThreadId !== null && row.teardownStatus !== null;
@@ -880,12 +926,12 @@ async function sweepProviderEnvironmentInSlot(
   const now = Date.now();
   if (shared) {
     if (row.retireAt !== null && row.teardownStatus === null)
-      writeEnvironment(deps, environmentId, { retireAt: null });
+      await writeEnvironment(deps, environmentId, { retireAt: null });
     return;
   }
   if (record.pluginId !== row.environmentProviderPluginId) {
     if (row.teardownMessage !== PROVIDER_OWNER_MISMATCH_MESSAGE)
-      writeEnvironment(deps, environmentId, {
+      await writeEnvironment(deps, environmentId, {
         teardownStatus: "failed",
         teardownMessage: PROVIDER_OWNER_MISMATCH_MESSAGE,
       });
@@ -896,7 +942,7 @@ async function sweepProviderEnvironmentInSlot(
       row.retireAt !== null ||
       !row.teardownMessage?.startsWith("Needs recovery:")
     )
-      writeEnvironmentTeardownFailure(
+      await writeEnvironmentTeardownFailure(
         deps,
         environmentId,
         row.teardownMessage ?? "Cleanup did not complete.",
@@ -914,12 +960,12 @@ async function sweepProviderEnvironmentInSlot(
       row.status === "destroyed" || cancelled
         ? now
         : now + (record.provider.policy.retireGraceMs ?? 0);
-    writeEnvironment(deps, environmentId, { retireAt });
+    await writeEnvironment(deps, environmentId, { retireAt });
     row = { ...row, retireAt };
   }
   if (row.retireAt !== null && row.retireAt > now) return;
-  if (!requestEnvironmentRemoval(deps, environmentId)) return;
-  row = getEnvironment(deps.db, environmentId);
+  if (!(await requestEnvironmentRemoval(deps, environmentId))) return;
+  row = await getEnvironment(deps.db, environmentId);
   if (row === null || row.teardownStatus === "removed") return;
   if (
     row.teardownStatus === "failed" &&
@@ -931,14 +977,14 @@ async function sweepProviderEnvironmentInSlot(
     row.teardownStatus === "running" && row.teardownAttempt > 0
       ? row.teardownAttempt
       : row.teardownAttempt + 1;
-  writeEnvironment(deps, environmentId, {
+  await writeEnvironment(deps, environmentId, {
     status: row.status === "destroyed" ? "destroyed" : "error",
     teardownStatus: "running",
     teardownAttempt: attempt,
     teardownMessage: null,
   });
   try {
-    const setupOperation = deps.db
+    const setupOperation = await deps.db
       .select({ finishedAt: environmentHookOperations.finishedAt })
       .from(environmentHookOperations)
       .where(
@@ -952,7 +998,7 @@ async function sweepProviderEnvironmentInSlot(
       (setupOperation !== undefined && setupOperation.finishedAt === null) ||
       cancelled ||
       ((row.status === "provisioning" || row.status === "error") &&
-        deps.db
+        (await deps.db
           .select({ id: environmentHookOperations.id })
           .from(environmentHookOperations)
           .where(
@@ -961,7 +1007,7 @@ async function sweepProviderEnvironmentInSlot(
               `environment:${row.id}:${row.environmentProviderInstanceKey}:teardown`,
             ),
           )
-          .get() === undefined);
+          .get()) === undefined);
     if (setupUnresolved && row.providerOwnsPath && row.path !== null) {
       await cancelPendingEnvironmentHook(deps, {
         id: `environment:${row.id}:${row.environmentProviderInstanceKey}:setup`,
@@ -976,17 +1022,24 @@ async function sweepProviderEnvironmentInSlot(
       signal,
     );
   } catch (error) {
-    writeEnvironmentTeardownFailure(deps, environmentId, errorMessage(error));
+    await writeEnvironmentTeardownFailure(
+      deps,
+      environmentId,
+      errorMessage(error),
+    );
   }
 }
 
-export function cleanupEnvironment(deps: Deps, environmentId: string): boolean {
-  const row = getEnvironment(deps.db, environmentId);
+export async function cleanupEnvironment(
+  deps: Deps,
+  environmentId: string,
+): Promise<boolean> {
+  const row = await getEnvironment(deps.db, environmentId);
   if (
     row === null ||
     row.environmentProviderId === null ||
     !row.providerOwnsPath ||
-    environmentHasLiveThreads(deps.db, environmentId)
+    (await environmentHasLiveThreads(deps.db, environmentId))
   )
     return false;
   if (row.teardownStatus === "removed") return true;
@@ -996,7 +1049,7 @@ export function cleanupEnvironment(deps: Deps, environmentId: string): boolean {
       "invalid_request",
       `Needs recovery. Inspect the workspace, then run hyperfide environment cleanup ${environmentId} --recover.`,
     );
-  writeEnvironment(deps, environmentId, { retireAt: Date.now() });
+  await writeEnvironment(deps, environmentId, { retireAt: Date.now() });
   void sweepProviderEnvironment(deps, environmentId).catch((error) => {
     deps.logger.warn(
       { environmentId, error: errorMessage(error) },
@@ -1017,109 +1070,111 @@ export async function recoverEnvironmentCleanup(
       "invalid_request",
       "Environment cleanup is still running",
     );
-  await runTrackedOperation({
-    kind: "remove",
-    map,
-    key: environmentId,
-    run: async (signal) => {
-      const row = getEnvironment(deps.db, environmentId);
-      if (
-        row === null ||
-        row.environmentProviderId === null ||
-        row.teardownStatus !== "failed" ||
-        environmentHasLiveThreads(deps.db, environmentId)
-      )
-        throw new ApiError(
-          409,
-          "invalid_request",
-          "Recovery requires a failed, unused provider-managed environment",
-        );
-      const workspacePath = row.providerOwnsPath ? row.path : null;
-      await withEnvironmentCleanupSlot(deps.db, row.hostId, async () => {
-        if (workspacePath !== null) {
-          const inspection = await callHostOnlineRpc(deps, {
-            hostId: row.hostId,
-            timeoutMs: 30_000,
-            command: {
-              type: "environment.inspect_cleanup",
-              environmentId,
-              path: workspacePath,
-            },
-          });
-          if (
-            !inspection.supported ||
-            inspection.active ||
-            inspection.pids.length > 0 ||
-            inspection.unreadablePids.length > 0
-          )
-            throw new ApiError(
-              409,
-              "invalid_request",
-              `Recovery refused: ${!inspection.supported ? "process inspection requires Linux" : inspection.active ? "setup or a hook is still running" : inspection.pids.length > 0 ? `workspace processes remain (${inspection.pids.join(", ")})` : `cannot inspect same-user processes (${inspection.unreadablePids.join(", ")})`}`,
-            );
-        }
-        const current = getEnvironment(deps.db, environmentId);
+  await (
+    await runTrackedOperation({
+      kind: "remove",
+      map,
+      key: environmentId,
+      run: async (signal) => {
+        const row = await getEnvironment(deps.db, environmentId);
         if (
-          current === null ||
-          current.path !== row.path ||
-          current.environmentProviderInstanceKey !==
-            row.environmentProviderInstanceKey ||
-          current.teardownStatus !== "failed" ||
-          environmentHasLiveThreads(deps.db, environmentId)
+          row === null ||
+          row.environmentProviderId === null ||
+          row.teardownStatus !== "failed" ||
+          (await environmentHasLiveThreads(deps.db, environmentId))
         )
           throw new ApiError(
             409,
             "invalid_request",
-            "Environment changed during recovery inspection; inspect it again",
+            "Recovery requires a failed, unused provider-managed environment",
           );
-        deps.db.transaction(() => {
-          if (workspacePath !== null)
-            for (const kind of ["setup", "teardown"] as const) {
-              const id = `environment:${row.id}:${row.environmentProviderInstanceKey}:${kind}`;
-              const finishedAt = Date.now();
-              if (
-                kind === "teardown" &&
-                deps.db
-                  .select({ id: environmentHookOperations.id })
-                  .from(environmentHookOperations)
-                  .where(eq(environmentHookOperations.id, id))
-                  .get() === undefined
-              )
-                continue;
-              deps.db
-                .insert(environmentHookOperations)
-                .values({
-                  id,
-                  operationId: id,
-                  hostId: row.hostId,
-                  path: workspacePath,
-                  kind,
-                  startedAt: finishedAt,
-                  finishedAt,
-                  error:
-                    "Interrupted hook acknowledged by explicit cleanup recovery",
-                })
-                .onConflictDoUpdate({
-                  target: environmentHookOperations.id,
-                  set: {
+        const workspacePath = row.providerOwnsPath ? row.path : null;
+        await withEnvironmentCleanupSlot(deps.db, row.hostId, async () => {
+          if (workspacePath !== null) {
+            const inspection = await callHostOnlineRpc(deps, {
+              hostId: row.hostId,
+              timeoutMs: 30_000,
+              command: {
+                type: "environment.inspect_cleanup",
+                environmentId,
+                path: workspacePath,
+              },
+            });
+            if (
+              !inspection.supported ||
+              inspection.active ||
+              inspection.pids.length > 0 ||
+              inspection.unreadablePids.length > 0
+            )
+              throw new ApiError(
+                409,
+                "invalid_request",
+                `Recovery refused: ${!inspection.supported ? "process inspection requires Linux" : inspection.active ? "setup or a hook is still running" : inspection.pids.length > 0 ? `workspace processes remain (${inspection.pids.join(", ")})` : `cannot inspect same-user processes (${inspection.unreadablePids.join(", ")})`}`,
+              );
+          }
+          const current = await getEnvironment(deps.db, environmentId);
+          if (
+            current === null ||
+            current.path !== row.path ||
+            current.environmentProviderInstanceKey !==
+              row.environmentProviderInstanceKey ||
+            current.teardownStatus !== "failed" ||
+            (await environmentHasLiveThreads(deps.db, environmentId))
+          )
+            throw new ApiError(
+              409,
+              "invalid_request",
+              "Environment changed during recovery inspection; inspect it again",
+            );
+          await deps.db.transaction(async () => {
+            if (workspacePath !== null)
+              for (const kind of ["setup", "teardown"] as const) {
+                const id = `environment:${row.id}:${row.environmentProviderInstanceKey}:${kind}`;
+                const finishedAt = Date.now();
+                if (
+                  kind === "teardown" &&
+                  (await deps.db
+                    .select({ id: environmentHookOperations.id })
+                    .from(environmentHookOperations)
+                    .where(eq(environmentHookOperations.id, id))
+                    .get()) === undefined
+                )
+                  continue;
+                await deps.db
+                  .insert(environmentHookOperations)
+                  .values({
+                    id,
+                    operationId: id,
+                    hostId: row.hostId,
+                    path: workspacePath,
+                    kind,
+                    startedAt: finishedAt,
                     finishedAt,
                     error:
                       "Interrupted hook acknowledged by explicit cleanup recovery",
-                  },
-                  setWhere: isNull(environmentHookOperations.finishedAt),
-                })
-                .run();
-            }
-          writeEnvironment(deps, environmentId, {
-            teardownAttempt: 0,
-            retireAt: Date.now(),
-            teardownMessage: null,
+                  })
+                  .onConflictDoUpdate({
+                    target: environmentHookOperations.id,
+                    set: {
+                      finishedAt,
+                      error:
+                        "Interrupted hook acknowledged by explicit cleanup recovery",
+                    },
+                    setWhere: isNull(environmentHookOperations.finishedAt),
+                  })
+                  .run();
+              }
+            await writeEnvironment(deps, environmentId, {
+              teardownAttempt: 0,
+              retireAt: Date.now(),
+              teardownMessage: null,
+            });
           });
+          await sweepProviderEnvironmentInSlot(deps, environmentId, signal);
         });
-        await sweepProviderEnvironmentInSlot(deps, environmentId, signal);
-      });
-    },
-  }).done;
+      },
+    })
+  ).done;
 }
 
 function yieldToEventLoop(): Promise<void> {
@@ -1129,7 +1184,7 @@ function yieldToEventLoop(): Promise<void> {
 export async function sweepProviderLifecycles(deps: Deps): Promise<void> {
   const pending: Promise<void>[] = [];
   for (const record of listEnvironmentProviders()) {
-    for (const row of listProviderLifecycleEnvironments(
+    for (const row of await listProviderLifecycleEnvironments(
       deps.db,
       record.provider.id,
       {
@@ -1151,26 +1206,26 @@ export async function sweepProviderLifecycles(deps: Deps): Promise<void> {
     await yieldToEventLoop();
   }
   await Promise.all(pending);
-  releaseFinishedEnvironmentPreparationOwners(deps.db);
+  await releaseFinishedEnvironmentPreparationOwners(deps.db);
 }
 
-export function providerEnvironmentHasPendingWork(
+export async function providerEnvironmentHasPendingWork(
   db: DbConnection | DbTransaction,
   threadId: string,
-): boolean {
-  const row = getPreparingEnvironment(db, threadId);
+): Promise<boolean> {
+  const row = await getPreparingEnvironment(db, threadId);
   if (row === null) return false;
   return row.teardownStatus !== "removed";
 }
 
-export function refreshProviderRetirement(
+export async function refreshProviderRetirement(
   deps: {
     db: DbConnection | DbTransaction;
     hub: Pick<Deps["hub"], "notifyEnvironment">;
   },
   environmentId: string,
-): void {
-  const row = getEnvironment(deps.db, environmentId);
+): Promise<void> {
+  const row = await getEnvironment(deps.db, environmentId);
   if (
     row === null ||
     row.environmentProviderId === null ||
@@ -1181,16 +1236,16 @@ export function refreshProviderRetirement(
   if (provider === undefined) return;
   const grace = provider.provider.policy.retireGraceMs;
   const retireAt =
-    grace === null || environmentHasLiveThreads(deps.db, environmentId)
+    grace === null || (await environmentHasLiveThreads(deps.db, environmentId))
       ? null
       : (row.retireAt ?? Date.now() + grace);
   if (row.retireAt === retireAt) return;
-  deps.db
+  await deps.db
     .update(environments)
     .set({ retireAt })
     .where(eq(environments.id, environmentId))
     .run();
-  deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
+  await deps.hub.notifyEnvironment(environmentId, ["metadata-changed"]);
 }
 
 type EnvironmentProvisionCommand =
@@ -1289,11 +1344,11 @@ interface AppendThreadProvisioningEventToEnvironmentThreadsArgs {
   threads?: LiveEnvironmentThread[];
 }
 
-function listLiveEnvironmentThreads(
+async function listLiveEnvironmentThreads(
   deps: EnvironmentProvisionReadDeps,
   environmentId: string,
-): LiveEnvironmentThread[] {
-  return deps.db
+): Promise<LiveEnvironmentThread[]> {
+  return await deps.db
     .select({
       environmentId: threads.environmentId,
       id: threads.id,
@@ -1306,11 +1361,11 @@ function listLiveEnvironmentThreads(
     .all();
 }
 
-function listStopRequestedEnvironmentProvisionThreads(
+async function listStopRequestedEnvironmentProvisionThreads(
   deps: EnvironmentProvisionReadDeps,
   environmentId: string,
-): StopRequestedEnvironmentProvisionThread[] {
-  return deps.db
+): Promise<StopRequestedEnvironmentProvisionThread[]> {
+  return await deps.db
     .select({
       id: threads.id,
       status: threads.status,
@@ -1327,32 +1382,33 @@ function listStopRequestedEnvironmentProvisionThreads(
     .all();
 }
 
-function resolveLiveThreadProvisioningId(
+async function resolveLiveThreadProvisioningId(
   deps: EnvironmentProvisionReadDeps,
   thread: LiveEnvironmentThread,
   fallbackProvisioningId: string,
-): string {
-  const context = getThreadProvisionContext(deps.db, thread.id);
+): Promise<string> {
+  const context = await getThreadProvisionContext(deps.db, thread.id);
   if (context?.state.environmentId === thread.environmentId) {
     return context.state.provisioningId;
   }
   return fallbackProvisioningId;
 }
 
-function appendThreadProvisioningEventToEnvironmentThreadsInTransaction(
+async function appendThreadProvisioningEventToEnvironmentThreadsInTransaction(
   deps: EnvironmentProvisionTransactionDeps,
   args: AppendThreadProvisioningEventToEnvironmentThreadsArgs,
-): void {
+): Promise<void> {
   const liveThreads =
-    args.threads ?? listLiveEnvironmentThreads(deps, args.environmentId);
+    args.threads ??
+    (await listLiveEnvironmentThreads(deps, args.environmentId));
 
   for (const thread of liveThreads) {
-    const provisioningId = resolveLiveThreadProvisioningId(
+    const provisioningId = await resolveLiveThreadProvisioningId(
       deps,
       thread,
       args.fallbackProvisioningId,
     );
-    appendThreadProvisioningEventInTransaction(deps.db, {
+    await appendThreadProvisioningEventInTransaction(deps.db, {
       entries: args.entries,
       environmentId: args.environmentId,
       provisioningId,
@@ -1360,7 +1416,7 @@ function appendThreadProvisioningEventToEnvironmentThreadsInTransaction(
       threadId: thread.id,
     });
     deps.hub.notifyThread(thread.id, ["events-appended"], {
-      timelineSequence: getLatestThreadSequence(deps.db, {
+      timelineSequence: await getLatestThreadSequence(deps.db, {
         threadId: thread.id,
       }),
       eventTypes: ["system/thread-provisioning"],
@@ -1368,21 +1424,21 @@ function appendThreadProvisioningEventToEnvironmentThreadsInTransaction(
   }
 }
 
-function hasActiveThreadProvisioningContext(
+async function hasActiveThreadProvisioningContext(
   deps: EnvironmentProvisionReadDeps,
   thread: LiveEnvironmentThread,
-): boolean {
-  const context = getThreadProvisionContext(deps.db, thread.id);
+): Promise<boolean> {
+  const context = await getThreadProvisionContext(deps.db, thread.id);
   return context?.state.environmentId === thread.environmentId;
 }
 
-function shouldPreserveThreadProvisionCancellationOutcome(
+async function shouldPreserveThreadProvisionCancellationOutcome(
   deps: EnvironmentProvisionReadDeps,
   args: { provisioningId: string; thread: LiveEnvironmentThread },
-): boolean {
+): Promise<boolean> {
   if (args.thread.status === "stopping") return true;
   return (
-    deps.db
+    (await deps.db
       .select({ id: events.id })
       .from(events)
       .where(
@@ -1397,49 +1453,56 @@ function shouldPreserveThreadProvisionCancellationOutcome(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-function recordEnvironmentProvisioningFailureInTransaction(
+async function recordEnvironmentProvisioningFailureInTransaction(
   deps: EnvironmentProvisionTransactionDeps,
   args: FailEnvironmentProvisioningDurablyArgs,
-): string[] {
-  const environment = getEnvironment(deps.db, args.environmentId);
+): Promise<string[]> {
+  const environment = await getEnvironment(deps.db, args.environmentId);
   if (!environment) {
     return [];
   }
-  const liveThreads = listLiveEnvironmentThreads(deps, environment.id);
-  const failureThreads = liveThreads.filter(
-    (thread) =>
-      !shouldPreserveThreadProvisionCancellationOutcome(deps, {
-        provisioningId: args.provisioningId,
-        thread,
-      }),
-  );
+  const liveThreads = await listLiveEnvironmentThreads(deps, environment.id);
+  const failureThreads = (
+    await Promise.all(
+      liveThreads.map(async (value, index, array) =>
+        (await (async (thread) =>
+          !(await shouldPreserveThreadProvisionCancellationOutcome(deps, {
+            provisioningId: args.provisioningId,
+            thread,
+          })))(value))
+          ? [value]
+          : [],
+      ),
+    )
+  ).flat();
   if (failureThreads.length === 0 && liveThreads.length > 0) {
     if (environment.status === "destroyed") return [];
-    const outcome = applyLoggedEnvironmentLifecycleEventInTransaction(deps, {
-      environmentId: environment.id,
-      event: { type: "provision.cancelled" },
-    });
+    const outcome = await applyLoggedEnvironmentLifecycleEventInTransaction(
+      deps,
+      {
+        environmentId: environment.id,
+        event: { type: "provision.cancelled" },
+      },
+    );
     if (outcome.applied)
       deps.hub.notifyEnvironment(environment.id, outcome.changes);
     return [];
   }
 
-  const failureOutcome = applyLoggedEnvironmentLifecycleEventInTransaction(
-    deps,
-    {
+  const failureOutcome =
+    await applyLoggedEnvironmentLifecycleEventInTransaction(deps, {
       environmentId: environment.id,
       event: { type: "provision.failed" },
-    },
-  );
+    });
   if (failureOutcome.applied) {
     deps.hub.notifyEnvironment(environment.id, failureOutcome.changes);
   }
 
-  appendThreadProvisioningEventToEnvironmentThreadsInTransaction(deps, {
+  await appendThreadProvisioningEventToEnvironmentThreadsInTransaction(deps, {
     environmentId: environment.id,
     fallbackProvisioningId: args.provisioningId,
     status: "failed",
@@ -1450,7 +1513,7 @@ function recordEnvironmentProvisioningFailureInTransaction(
   const failedThreadIds: string[] = [];
   for (const thread of failureThreads) {
     clearThreadProvisionSchedule(thread.id);
-    appendSystemErrorEventInTransaction(deps, {
+    await appendSystemErrorEventInTransaction(deps, {
       threadId: thread.id,
       environmentId: environment.id,
       code: "thread_provisioning_failed",
@@ -1458,7 +1521,7 @@ function recordEnvironmentProvisioningFailureInTransaction(
       detail: args.failureReason,
       scope: threadScope(),
     });
-    const outcome = applyLoggedThreadLifecycleEventInTransaction(deps, {
+    const outcome = await applyLoggedThreadLifecycleEventInTransaction(deps, {
       event: { type: "run.failed" },
       threadId: thread.id,
     });
@@ -1471,34 +1534,34 @@ function recordEnvironmentProvisioningFailureInTransaction(
   return failedThreadIds;
 }
 
-export function settleEnvironmentProvisionCommandResult(
+export async function settleEnvironmentProvisionCommandResult(
   args: SettleEnvironmentProvisionCommandResultArgs,
-): CommandResultSideEffectsResult {
-  return settleEnvironmentProvisionOutcome({
+): Promise<CommandResultSideEffectsResult> {
+  return await settleEnvironmentProvisionOutcome({
     ...args,
     headSha: null,
     initiatorStreamed: true,
     mergeBaseBranch:
-      getEnvironment(args.deps.db, args.command.environmentId)
+      (await getEnvironment(args.deps.db, args.command.environmentId))
         ?.mergeBaseBranch ?? null,
   });
 }
 
-function settleEnvironmentProvisionOutcome(
+async function settleEnvironmentProvisionOutcome(
   args: SettleEnvironmentProvisionOutcomeArgs,
-): CommandResultSideEffectsResult {
+): Promise<CommandResultSideEffectsResult> {
   const postCommitActions: CommandResultPostCommitAction[] = [];
   const initiator = args.command.initiator;
   if (
     args.command.setupScriptTimeoutMs !== null &&
     (args.report.ok || args.report.errorCode === "setup_script_failed")
   ) {
-    const environment = getEnvironment(
+    const environment = await getEnvironment(
       args.deps.db,
       args.command.environmentId,
     );
     if (environment !== null)
-      args.deps.db
+      await args.deps.db
         .update(environmentHookOperations)
         .set({
           finishedAt: Date.now(),
@@ -1513,7 +1576,7 @@ function settleEnvironmentProvisionOutcome(
         .run();
   }
   if (!initiator && !args.report.ok) {
-    const outcome = applyLoggedEnvironmentLifecycleEventInTransaction(
+    const outcome = await applyLoggedEnvironmentLifecycleEventInTransaction(
       args.deps,
       {
         environmentId: args.command.environmentId,
@@ -1529,14 +1592,14 @@ function settleEnvironmentProvisionOutcome(
     return emptyCommandResultSideEffects();
   }
 
-  const boundThreads = args.deps.db
+  const boundThreads = await args.deps.db
     .select()
     .from(threads)
     .where(eq(threads.environmentId, args.command.environmentId))
     .all();
 
   if (args.report.ok) {
-    recordProvisionedEnvironmentWorkspace(
+    await recordProvisionedEnvironmentWorkspace(
       args.deps.db,
       args.deps.hub,
       args.command.environmentId,
@@ -1552,7 +1615,7 @@ function settleEnvironmentProvisionOutcome(
       },
     );
     const provisionedOutcome =
-      applyLoggedEnvironmentLifecycleEventInTransaction(args.deps, {
+      await applyLoggedEnvironmentLifecycleEventInTransaction(args.deps, {
         environmentId: args.command.environmentId,
         event: { type: "provision.succeeded" },
       });
@@ -1578,17 +1641,17 @@ function settleEnvironmentProvisionOutcome(
 
     for (const thread of boundThreads) {
       if (thread.deletedAt !== null) {
-        finalizeStoppedThreadInTransaction(args.deps, {
+        await finalizeStoppedThreadInTransaction(args.deps, {
           threadId: thread.id,
         });
         continue;
       }
       if (
         thread.archivedAt !== null ||
-        shouldPreserveThreadProvisionCancellationOutcome(args.deps, {
+        (await shouldPreserveThreadProvisionCancellationOutcome(args.deps, {
           provisioningId: environmentProvisioningId,
           thread,
-        })
+        }))
       ) {
         continue;
       }
@@ -1598,8 +1661,8 @@ function settleEnvironmentProvisionOutcome(
           ? []
           : cwdBranchEntries;
 
-      if (!hasActiveThreadProvisioningContext(args.deps, thread)) {
-        appendThreadProvisioningEventInTransaction(args.deps.db, {
+      if (!(await hasActiveThreadProvisioningContext(args.deps, thread))) {
+        await appendThreadProvisioningEventInTransaction(args.deps.db, {
           threadId: thread.id,
           environmentId: args.command.environmentId,
           provisioningId: environmentProvisioningId,
@@ -1607,7 +1670,7 @@ function settleEnvironmentProvisionOutcome(
           entries,
         });
         args.deps.hub.notifyThread(thread.id, ["events-appended"], {
-          timelineSequence: getLatestThreadSequence(args.deps.db, {
+          timelineSequence: await getLatestThreadSequence(args.deps.db, {
             threadId: thread.id,
           }),
           eventTypes: ["system/thread-provisioning"],
@@ -1615,13 +1678,14 @@ function settleEnvironmentProvisionOutcome(
         continue;
       }
 
-      ensureWorkspaceReadyEventInTransaction(args.deps, {
+      await ensureWorkspaceReadyEventInTransaction(args.deps, {
         threadId: thread.id,
         environmentId: args.command.environmentId,
         entries,
       });
       postCommitActions.push({
-        run: (deps) => advanceThreadProvisioning(deps, { threadId: thread.id }),
+        run: async (deps) =>
+          await advanceThreadProvisioning(deps, { threadId: thread.id }),
       });
     }
 
@@ -1632,9 +1696,8 @@ function settleEnvironmentProvisionOutcome(
     return emptyCommandResultSideEffects();
   }
   const environmentProvisioningId = initiator.provisioningId;
-  const failedThreadIds = recordEnvironmentProvisioningFailureInTransaction(
-    args.deps,
-    {
+  const failedThreadIds =
+    await recordEnvironmentProvisioningFailureInTransaction(args.deps, {
       environmentId: args.command.environmentId,
       failureReason: args.report.errorMessage,
       provisioningId: environmentProvisioningId,
@@ -1646,29 +1709,28 @@ function settleEnvironmentProvisionOutcome(
         startedAt: args.execution.createdAt,
         metadata: { durationMs: Date.now() - args.execution.createdAt },
       },
-    },
-  );
+    });
   for (const threadId of failedThreadIds) {
     postCommitActions.push({
-      run: (deps) => {
-        const thread = getThread(deps.db, threadId);
+      run: async (deps) => {
+        const thread = await getThread(deps.db, threadId);
         if (thread && thread.deletedAt === null)
-          queueChildSetupFailureNotification(deps, thread);
+          await queueChildSetupFailureNotification(deps, thread);
       },
     });
   }
   return { postCommitActions };
 }
 
-export function settleEnvironmentProvisionCancelCommandResult(
+export async function settleEnvironmentProvisionCancelCommandResult(
   args: SettleEnvironmentProvisionCancelCommandResultArgs,
-): CommandResultSideEffectsResult {
-  const stoppedThreads = listStopRequestedEnvironmentProvisionThreads(
+): Promise<CommandResultSideEffectsResult> {
+  const stoppedThreads = await listStopRequestedEnvironmentProvisionThreads(
     args.deps,
     args.command.environmentId,
   );
   if (!args.report.ok) {
-    const environment = getEnvironment(
+    const environment = await getEnvironment(
       args.deps.db,
       args.command.environmentId,
     );
@@ -1693,9 +1755,9 @@ export function settleEnvironmentProvisionCancelCommandResult(
     return {
       postCommitActions: [
         {
-          run: (deps) => {
+          run: async (deps) => {
             for (const thread of stoppedThreads) {
-              requestThreadStopForCurrentState(
+              await requestThreadStopForCurrentState(
                 deps,
                 {
                   environmentId: args.command.environmentId,
@@ -1715,13 +1777,11 @@ export function settleEnvironmentProvisionCancelCommandResult(
   }
 
   const postCommitActions: CommandResultPostCommitAction[] = [];
-  const cancelledOutcome = applyLoggedEnvironmentLifecycleEventInTransaction(
-    args.deps,
-    {
+  const cancelledOutcome =
+    await applyLoggedEnvironmentLifecycleEventInTransaction(args.deps, {
       environmentId: args.command.environmentId,
       event: { type: "provision.cancelled" },
-    },
-  );
+    });
   if (cancelledOutcome.applied) {
     args.deps.hub.notifyEnvironment(
       args.command.environmentId,
@@ -1730,7 +1790,7 @@ export function settleEnvironmentProvisionCancelCommandResult(
   }
 
   for (const thread of stoppedThreads) {
-    finalizeStoppedThreadInTransaction(args.deps, {
+    await finalizeStoppedThreadInTransaction(args.deps, {
       threadId: thread.id,
     });
   }
@@ -1738,19 +1798,19 @@ export function settleEnvironmentProvisionCancelCommandResult(
   return { postCommitActions };
 }
 
-function interruptUnrecoverableEnvironmentProvisioning(
+async function interruptUnrecoverableEnvironmentProvisioning(
   deps: CommandResultSideEffectsDeps,
   args: InterruptUnrecoverableEnvironmentProvisioningArgs,
-): void {
-  const environment = getEnvironment(deps.db, args.environmentId);
+): Promise<void> {
+  const environment = await getEnvironment(deps.db, args.environmentId);
   if (!environment || environment.status !== "provisioning") {
     return;
   }
 
   const now = Date.now();
-  const failedThreadIds = deps.db.transaction(
-    (tx) => {
-      return recordEnvironmentProvisioningFailureInTransaction(
+  const failedThreadIds = await deps.db.transaction(
+    async (tx) => {
+      return await recordEnvironmentProvisioningFailureInTransaction(
         {
           ...deps,
           db: tx,
@@ -1773,17 +1833,17 @@ function interruptUnrecoverableEnvironmentProvisioning(
     { behavior: "immediate" },
   );
   for (const threadId of failedThreadIds) {
-    const thread = getThread(deps.db, threadId);
+    const thread = await getThread(deps.db, threadId);
     if (thread && thread.deletedAt === null)
-      queueChildSetupFailureNotification(deps, thread);
+      await queueChildSetupFailureNotification(deps, thread);
   }
 }
 
-export function interruptEnvironmentProvisioningForHost(
+export async function interruptEnvironmentProvisioningForHost(
   deps: CommandResultSideEffectsDeps,
   args: InterruptEnvironmentProvisioningForHostArgs,
-): void {
-  const environmentIds = deps.db
+): Promise<void> {
+  const environmentIds = await deps.db
     .select({ id: environments.id })
     .from(environments)
     .where(
@@ -1794,7 +1854,7 @@ export function interruptEnvironmentProvisioningForHost(
     )
     .all();
   for (const environment of environmentIds) {
-    interruptUnrecoverableEnvironmentProvisioning(deps, {
+    await interruptUnrecoverableEnvironmentProvisioning(deps, {
       environmentId: environment.id,
       reason: args.reason,
     });
@@ -1805,7 +1865,7 @@ export async function resumeEnvironmentProvisioningForHost(
   deps: CommandResultSideEffectsDeps,
   args: { hostId: string },
 ): Promise<void> {
-  const environmentIds = deps.db
+  const environmentIds = await deps.db
     .select({ id: environments.id })
     .from(environments)
     .where(
@@ -1830,7 +1890,7 @@ export async function runTrackedEnvironmentAttach(
     timeoutMs: number;
   },
 ): Promise<void> {
-  const operation = runTrackedOperation({
+  const operation = await runTrackedOperation({
     kind: "attach",
     map: perDbRegistry(environmentOperations, deps.db),
     key: args.command.environmentId,
@@ -1848,19 +1908,19 @@ async function runEnvironmentProvisionCommand(
   if (args.request.command.setupScriptTimeoutMs !== null) {
     const environment = args.environment;
     const id = `environment:${environment.id}:${environment.environmentProviderInstanceKey}:setup`;
-    const existing = deps.db
+    const existing = await deps.db
       .select({ finishedAt: environmentHookOperations.finishedAt })
       .from(environmentHookOperations)
       .where(eq(environmentHookOperations.id, id))
       .get();
     if (existing !== undefined && existing.finishedAt === null) {
-      interruptUnrecoverableEnvironmentProvisioning(deps, {
+      await interruptUnrecoverableEnvironmentProvisioning(deps, {
         environmentId: environment.id,
         reason: `An earlier setup has an unknown outcome. Archive its threads, inspect the workspace, then run hyperfide environment cleanup ${environment.id} --recover.`,
       });
       return;
     }
-    deps.db
+    await deps.db
       .insert(environmentHookOperations)
       .values({
         id,
@@ -1929,12 +1989,12 @@ async function runEnvironmentProvisionCommand(
   });
 }
 
-function recoverEnvironmentProvisionRequest(
+async function recoverEnvironmentProvisionRequest(
   deps: CommandResultSideEffectsDeps,
   environment: EnvironmentRow,
-): EnvironmentProvisionRequest | null {
+): Promise<EnvironmentProvisionRequest | null> {
   if (environment.path === null) return null;
-  const owners = deps.db
+  const owners = await deps.db
     .select({ id: threads.id })
     .from(threads)
     .where(
@@ -1947,7 +2007,7 @@ function recoverEnvironmentProvisionRequest(
     )
     .all();
   for (const owner of owners) {
-    const context = getThreadProvisionContext(deps.db, owner.id);
+    const context = await getThreadProvisionContext(deps.db, owner.id);
     if (context?.state.environmentId !== environment.id) continue;
     return {
       command: buildEnvironmentProvisionCommand({
@@ -1967,12 +2027,52 @@ function recoverEnvironmentProvisionRequest(
   return null;
 }
 
+const environmentAdvanceLocks = new WeakMap<
+  object,
+  Map<string, Promise<unknown>>
+>();
+
+export async function stopEnvironmentOperations(db: object): Promise<void> {
+  for (;;) {
+    const operations = [...(environmentOperations.get(db)?.values() ?? [])];
+    const advances = [...(environmentAdvanceLocks.get(db)?.values() ?? [])];
+    if (!operations.length && !advances.length) return;
+    for (const operation of operations) operation.controller.abort();
+    await Promise.allSettled([
+      ...operations.map((operation) => operation.done),
+      ...advances,
+    ]);
+  }
+}
+
 export async function advanceEnvironmentProvisioning(
   deps: CommandResultSideEffectsDeps,
   args: AdvanceEnvironmentProvisioningArgs,
 ): Promise<void> {
   if (!args.environmentId) return;
-  let environment = getEnvironment(deps.db, args.environmentId);
+  let locks = environmentAdvanceLocks.get(deps.db);
+  if (!locks) {
+    locks = new Map();
+    environmentAdvanceLocks.set(deps.db, locks);
+  }
+  const key = args.environmentId;
+  const pending = (locks.get(key) ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => advanceEnvironmentProvisioningOnce(deps, args));
+  locks.set(key, pending);
+  try {
+    await pending;
+  } finally {
+    if (locks.get(key) === pending) locks.delete(key);
+  }
+}
+
+async function advanceEnvironmentProvisioningOnce(
+  deps: CommandResultSideEffectsDeps,
+  args: AdvanceEnvironmentProvisioningArgs,
+): Promise<void> {
+  if (!args.environmentId) return;
+  let environment = await getEnvironment(deps.db, args.environmentId);
   if (environment === null) return;
   const map = perDbRegistry(environmentOperations, deps.db);
   if (
@@ -1980,7 +2080,7 @@ export async function advanceEnvironmentProvisioning(
     environment.ownerThreadId !== null &&
     environment.ownerThreadId !== args.threadId
   )
-    assertEnvironmentPathAvailable(deps, {
+    await assertEnvironmentPathAvailable(deps, {
       ...environment,
       threadId: args.threadId,
     });
@@ -1994,14 +2094,14 @@ export async function advanceEnvironmentProvisioning(
   }
   if (
     environment.status === "provisioning" &&
-    listStopRequestedEnvironmentProvisionThreads(deps, environment.id).length >
-      0 &&
-    !listLiveEnvironmentThreads(deps, environment.id).some(
+    (await listStopRequestedEnvironmentProvisionThreads(deps, environment.id))
+      .length > 0 &&
+    !(await listLiveEnvironmentThreads(deps, environment.id)).some(
       (thread) => thread.status === "starting",
     )
   ) {
     const row = environment;
-    const cancel = () =>
+    const cancel = async () =>
       runLiveHostCommand(deps, {
         command: { type: "environment.attach.cancel", environmentId: row.id },
         hostId: row.hostId,
@@ -2016,7 +2116,13 @@ export async function advanceEnvironmentProvisioning(
         );
     const active = map.get(row.id);
     if (active !== undefined) active.cancellation ??= cancel();
-    else runTrackedOperation({ kind: "attach", map, key: row.id, run: cancel });
+    else
+      await runTrackedOperation({
+        kind: "attach",
+        map,
+        key: row.id,
+        run: cancel,
+      });
     return;
   }
   if (environment.status === "destroyed") return;
@@ -2025,9 +2131,11 @@ export async function advanceEnvironmentProvisioning(
     const owner =
       environment.ownerThreadId === null
         ? null
-        : getThread(deps.db, environment.ownerThreadId);
+        : await getThread(deps.db, environment.ownerThreadId);
     const context =
-      owner === null ? null : getThreadProvisionContext(deps.db, owner.id);
+      owner === null
+        ? null
+        : await getThreadProvisionContext(deps.db, owner.id);
     const record =
       args.creation?.record ??
       (environment.environmentProviderId === null
@@ -2035,7 +2143,7 @@ export async function advanceEnvironmentProvisioning(
         : getEnvironmentProvider(environment.environmentProviderId));
     if (record === undefined) return;
     const row = environment;
-    const operation = runTrackedOperation({
+    const operation = await runTrackedOperation({
       kind: "create",
       map,
       key: row.id,
@@ -2054,7 +2162,7 @@ export async function advanceEnvironmentProvisioning(
                 )
               : null);
         } catch (error) {
-          mutateProvisioning(deps, row, ["creating"], (current) => {
+          await mutateProvisioning(deps, row, ["creating"], (current) => {
             current.status = "error";
             current.statusMessage = errorMessage(error);
           });
@@ -2071,7 +2179,7 @@ export async function advanceEnvironmentProvisioning(
         const current =
           row.ownerThreadId === null
             ? null
-            : getPreparingEnvironment(deps.db, row.ownerThreadId);
+            : await getPreparingEnvironment(deps.db, row.ownerThreadId);
         if (current !== null && current.status !== "creating")
           await advanceEnvironmentProvisioning(deps, {
             environmentId: current.id,
@@ -2089,28 +2197,28 @@ export async function advanceEnvironmentProvisioning(
     if (
       environment.ownerThreadId !== null ||
       args.threadId === undefined ||
-      getThread(deps.db, args.threadId)?.status !== "starting"
+      (await getThread(deps.db, args.threadId))?.status !== "starting"
     )
       return;
-    const outcome = applyLoggedEnvironmentLifecycleEvent(deps, {
+    const outcome = await applyLoggedEnvironmentLifecycleEvent(deps, {
       environmentId: environment.id,
       event: { type: "provision.requested" },
     });
     if (!outcome.applied) return;
-    writeEnvironment(deps, environment.id, {
+    await writeEnvironment(deps, environment.id, {
       attempt: environment.attempt + 1,
       statusMessage: "Retrying workspace setup",
     });
-    environment = getEnvironment(deps.db, environment.id)!;
+    environment = (await getEnvironment(deps.db, environment.id))!;
   }
   const threadId = environment.ownerThreadId ?? args.threadId;
   if (threadId !== undefined && threadId !== null) {
-    const context = getThreadProvisionContext(deps.db, threadId);
+    const context = await getThreadProvisionContext(deps.db, threadId);
     if (context === null) return;
     const target = environment;
     const preparation =
       target.ownerThreadId === null
-        ? getPreparingEnvironment(deps.db, threadId)
+        ? await getPreparingEnvironment(deps.db, threadId)
         : target;
     const needsAttachment =
       target.ownerThreadId !== null ||
@@ -2119,7 +2227,7 @@ export async function advanceEnvironmentProvisioning(
       context.state.environmentId !== target.id ||
       context.request.environmentIntent.type !== "reuse" ||
       context.request.environmentIntent.environmentId !== target.id ||
-      getThread(deps.db, threadId)?.environmentId !== target.id;
+      (await getThread(deps.db, threadId))?.environmentId !== target.id;
     if (
       target.status === "ready" &&
       target.ownerThreadId !== null &&
@@ -2130,23 +2238,25 @@ export async function advanceEnvironmentProvisioning(
         hostId: target.hostId,
         path: target.path,
       });
-    assertEnvironmentPathAvailable(deps, { ...target, threadId });
+    await assertEnvironmentPathAvailable(deps, { ...target, threadId });
     if (needsAttachment) {
-      deps.db.transaction(
-        (tx) => {
+      await deps.db.transaction(
+        async (tx) => {
           if (
-            getThreadProvisionContext(tx, threadId)?.state.provisioningId !==
-            context.state.provisioningId
+            (await getThreadProvisionContext(tx, threadId))?.state
+              .provisioningId !== context.state.provisioningId
           )
             return;
-          updateThread(tx, deps.hub, threadId, { environmentId: target.id });
-          markProviderEnvironmentAttached(tx, threadId, target.id);
+          await updateThread(tx, deps.hub, threadId, {
+            environmentId: target.id,
+          });
+          await markProviderEnvironmentAttached(tx, threadId, target.id);
           context.request.environmentIntent = {
             type: "reuse",
             environmentId: target.id,
           };
           context.state.environmentId = target.id;
-          saveThreadProvisionContext({
+          await saveThreadProvisionContext({
             replace: false,
             db: tx,
             threadId,
@@ -2155,25 +2265,31 @@ export async function advanceEnvironmentProvisioning(
         },
         { behavior: "immediate" },
       );
-      environment = getEnvironment(deps.db, environment.id);
+      environment = await getEnvironment(deps.db, environment.id);
       if (environment === null || environment.ownerThreadId !== null) return;
     }
   }
   if (environment.status === "ready") {
     if (threadId != null && args.threadId === undefined)
-      void advanceThreadProvisioning(deps, { threadId });
+      void advanceThreadProvisioning(deps, { threadId }).catch((error) =>
+        deps.logger.warn(
+          { threadId, error },
+          "Thread provisioning advancement failed",
+        ),
+      );
     return;
   }
   if (
     environment.status !== "provisioning" ||
     map.has(environment.id) ||
-    findHostDataDir(deps, environment.hostId) === null
+    (await findHostDataDir(deps, environment.hostId)) === null
   )
     return;
   const request =
-    args.request ?? recoverEnvironmentProvisionRequest(deps, environment);
+    args.request ??
+    (await recoverEnvironmentProvisionRequest(deps, environment));
   if (request === null) {
-    interruptUnrecoverableEnvironmentProvisioning(deps, {
+    await interruptUnrecoverableEnvironmentProvisioning(deps, {
       environmentId: environment.id,
       reason:
         "Environment setup did not finish. Retry provisioning to continue.",
@@ -2181,12 +2297,12 @@ export async function advanceEnvironmentProvisioning(
     return;
   }
   const row = environment;
-  runTrackedOperation({
+  await runTrackedOperation({
     kind: "attach",
     map,
     key: row.id,
-    run: () =>
-      runEnvironmentProvisionCommand(deps, { environment: row, request }),
+    run: async () =>
+      await runEnvironmentProvisionCommand(deps, { environment: row, request }),
   });
 }
 
@@ -2195,8 +2311,8 @@ export async function forgetHostEnvironments(
   hostId: string,
 ): Promise<void> {
   const map = perDbRegistry(environmentOperations, deps.db);
-  const listRows = () =>
-    deps.db
+  const listRows = async () =>
+    await deps.db
       .select({
         id: environments.id,
         path: environments.path,
@@ -2208,12 +2324,12 @@ export async function forgetHostEnvironments(
       .where(eq(environments.hostId, hostId))
       .all();
   await Promise.all(
-    listRows().map((row) => map.get(row.id)?.done.catch(() => {})),
+    (await listRows()).map((row) => map.get(row.id)?.done.catch(() => {})),
   );
-  const pending = listRows().filter(
+  const pending = (await listRows()).filter(
     (row) => row.status !== "destroyed" || row.teardownStatus !== "removed",
   );
-  markHostEnvironmentsDestroyed(deps.db, deps.hub, hostId);
+  await markHostEnvironmentsDestroyed(deps.db, deps.hub, hostId);
   const removedAt = Date.now();
   for (const row of pending) {
     emitPluginEnvironmentRemoved({

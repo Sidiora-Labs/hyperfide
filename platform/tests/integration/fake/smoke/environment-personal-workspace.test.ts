@@ -6,8 +6,8 @@ import { withHarness } from "../../helpers/harness.js";
 import { createReadyThread } from "./shared.js";
 
 describe.sequential("personal workspace plugin integration", () => {
-  it("gives every root personal thread its own workspace directory", () =>
-    withHarness(
+  it("gives every root personal thread its own workspace directory", async () =>
+    await withHarness(
       { builtinPlugins: ["environment-personal-workspace"] },
       async (harness) => {
         const first = await createReadyThread(harness, {

@@ -120,15 +120,15 @@ interface NotifyInsertedEventThreadsArgs {
   insertedInputIndexes: number[];
 }
 
-function preserveTerminalProvisioningStatus(
+async function preserveTerminalProvisioningStatus(
   deps: Pick<AppDeps, "db">,
   entry: PostableEventBatchEntry,
-): PostableEventBatchEntry {
+): Promise<PostableEventBatchEntry> {
   const event = entry.envelope.event;
   if (event.type !== "system/thread-provisioning") {
     return entry;
   }
-  const latest = deps.db
+  const latest = await deps.db
     .select({
       status: sql<unknown>`json_extract(${storedEvents.data}, '$.status')`,
     })
@@ -236,7 +236,7 @@ interface ResolveActivePruneCandidatesArgs {
 interface AddParentTurnNotificationFollowUpArgs {
   failedParentNotificationThreadIds: Set<string>;
   followUps: EventEffectFollowUp[] | ParentTurnNotificationFollowUp[];
-  thread: NonNullable<ReturnType<typeof getThread>>;
+  thread: NonNullable<Awaited<ReturnType<typeof getThread>>>;
   turnStatus: ThreadEventTurnStatus;
   interruption?: ChildThreadOutcome["interruption"];
 }
@@ -355,10 +355,10 @@ function toStoredEvent(args: ToStoredEventArgs): AppendDaemonEventInput {
   };
 }
 
-function notifyInsertedEventThreads(
+async function notifyInsertedEventThreads(
   deps: NotifyInsertedEventThreadsDeps,
   args: NotifyInsertedEventThreadsArgs,
-): void {
+): Promise<void> {
   const eventTypesByThreadId = new Map<string, Set<ThreadEventType>>();
   const backgroundActivityThreadIds = new Set<string>();
   for (const index of args.insertedInputIndexes) {
@@ -375,12 +375,12 @@ function notifyInsertedEventThreads(
     }
   }
   for (const [threadId, eventTypes] of eventTypesByThreadId) {
-    deps.hub.notifyThread(threadId, ["events-appended"], {
+    await deps.hub.notifyThread(threadId, ["events-appended"], {
       ...(backgroundActivityThreadIds.has(threadId)
         ? { backgroundActivityChanged: true }
         : {}),
       eventTypes: Array.from(eventTypes),
-      timelineSequence: getLatestThreadSequence(deps.db, { threadId }),
+      timelineSequence: await getLatestThreadSequence(deps.db, { threadId }),
     });
   }
 }
@@ -423,7 +423,7 @@ async function applyEventEffects(
           scope: event.scope,
         });
         if (
-          hasThreadStopBeforeTurnStarted(deps, {
+          await hasThreadStopBeforeTurnStarted(deps, {
             threadId: entry.threadId,
             turnId,
           })
@@ -437,10 +437,10 @@ async function applyEventEffects(
           kind: "queued-message-dispatch",
           wake: { kind: "turn-started", threadId: entry.threadId },
         });
-        if (hasThreadAlreadyStartedRun(deps, entry.threadId)) {
+        if (await hasThreadAlreadyStartedRun(deps, entry.threadId)) {
           continue;
         }
-        applyLoggedThreadLifecycleEvent(deps, {
+        await applyLoggedThreadLifecycleEvent(deps, {
           event: { type: "run.started" },
           threadId: entry.threadId,
         });
@@ -451,7 +451,7 @@ async function applyEventEffects(
         if (event.source === "agent") {
           const title = sanitizeGeneratedTitle(event.threadName);
           if (title !== null) {
-            applyGeneratedThreadTitle(deps, {
+            await applyGeneratedThreadTitle(deps, {
               threadId: entry.threadId,
               title,
             });
@@ -462,10 +462,10 @@ async function applyEventEffects(
 
       if (event.type === "thread/extensionState/updated") {
         if (event.kind === THREAD_SESSION_OPTIONS_STATE_KIND) {
-          dropSettledThreadSessionOptionSelections(deps, {
+          await dropSettledThreadSessionOptionSelections(deps, {
             threadId: entry.threadId,
             environmentId:
-              getThread(deps.db, entry.threadId)?.environmentId ?? null,
+              (await getThread(deps.db, entry.threadId))?.environmentId ?? null,
           });
         }
         continue;
@@ -488,14 +488,14 @@ async function applyEventEffects(
         });
         if (
           event.status !== "interrupted" &&
-          hasThreadStopBeforeTurnStarted(deps, {
+          (await hasThreadStopBeforeTurnStarted(deps, {
             threadId: entry.threadId,
             turnId,
-          })
+          }))
         ) {
           continue;
         }
-        const turnCompleted = applyTurnCompletedEvent(deps, {
+        const turnCompleted = await applyTurnCompletedEvent(deps, {
           ...event,
           threadId: entry.threadId,
         });
@@ -503,8 +503,11 @@ async function applyEventEffects(
           event.status === "completed" &&
           turnCompleted.nextStatus === "idle" &&
           turnCompleted.isRootTurnCompletion &&
-          !wasTurnManuallyStopped(deps, { threadId: entry.threadId, turnId })
-            ? findEnvironmentDirectoryContinuation(deps, {
+          !(await wasTurnManuallyStopped(deps, {
+            threadId: entry.threadId,
+            turnId,
+          }))
+            ? await findEnvironmentDirectoryContinuation(deps, {
                 threadId: entry.threadId,
                 turnId,
               })
@@ -518,13 +521,13 @@ async function applyEventEffects(
         ) {
           const alreadyHandledByCommandFailure =
             event.status === "failed" &&
-            hasThreadCommandFailureSystemErrorForTurn(deps, {
+            (await hasThreadCommandFailureSystemErrorForTurn(deps, {
               threadId: turnCompleted.thread.id,
               turnId,
-            });
+            }));
           const interruption =
             event.status === "interrupted"
-              ? getTurnInterruption(deps, {
+              ? await getTurnInterruption(deps, {
                   threadId: turnCompleted.thread.id,
                   turnId,
                 })
@@ -532,10 +535,10 @@ async function applyEventEffects(
           const manuallyStopped =
             interruption?.reason === "manual-stop" ||
             (event.status === "interrupted" &&
-              wasTurnManuallyStopped(deps, {
+              (await wasTurnManuallyStopped(deps, {
                 threadId: turnCompleted.thread.id,
                 turnId,
-              }));
+              })));
           if (!alreadyHandledByCommandFailure && !manuallyStopped) {
             addParentTurnNotificationFollowUp({
               failedParentNotificationThreadIds,
@@ -571,16 +574,18 @@ async function applyEventEffects(
         event.type === "system/error" &&
         event.code === "provider_process_exited"
       ) {
-        const thread = getThread(deps.db, entry.threadId);
+        const thread = await getThread(deps.db, entry.threadId);
         if (!thread) {
           continue;
         }
-        deps.pendingInteractions.interruptPendingInteractionsForThreadIds({
-          threadIds: [entry.threadId],
-          reason:
-            "Provider process exited while awaiting user interaction; retry the thread to continue",
-        });
-        const outcome = applyLoggedThreadLifecycleEvent(deps, {
+        await deps.pendingInteractions.interruptPendingInteractionsForThreadIds(
+          {
+            threadIds: [entry.threadId],
+            reason:
+              "Provider process exited while awaiting user interaction; retry the thread to continue",
+          },
+        );
+        const outcome = await applyLoggedThreadLifecycleEvent(deps, {
           event: { type: "run.failed" },
           threadId: entry.threadId,
         });
@@ -674,22 +679,30 @@ async function executeEventFollowUpBestEffort(
   }
 }
 
-function deferEventFollowUpBatch(
+async function deferEventFollowUpBatch(
   deps: LoggedPendingInteractionWorkSessionDeps,
   followUps: EventEffectFollowUp[],
-): void {
+): Promise<void> {
   if (followUps.length === 0) {
     return;
   }
 
+  const deferred: EventEffectFollowUp[] = [];
+  for (const followUp of followUps) {
+    if (followUp.kind === "parent-turn-notification")
+      await executeEventFollowUpBestEffort(deps, followUp);
+    else deferred.push(followUp);
+  }
+  if (deferred.length === 0) return;
   deferAfterResponse({
     config: deps.config,
     logger: deps.logger,
     name: "Event follow-up scheduling",
     work: async () => {
       await Promise.all(
-        followUps.map((followUp) =>
-          executeEventFollowUpBestEffort(deps, followUp),
+        deferred.map(
+          async (followUp) =>
+            await executeEventFollowUpBestEffort(deps, followUp),
         ),
       );
     },
@@ -700,12 +713,12 @@ function toTurnKey(args: TurnKeyArgs): string {
   return `${args.threadId}:${args.turnId}`;
 }
 
-function hasThreadCommandFailureSystemErrorForTurn(
+async function hasThreadCommandFailureSystemErrorForTurn(
   deps: HasThreadCommandFailureSystemErrorForTurnDeps,
   args: HasThreadCommandFailureSystemErrorForTurnArgs,
-): boolean {
+): Promise<boolean> {
   return (
-    deps.db
+    (await deps.db
       .select({ id: storedEvents.id })
       .from(storedEvents)
       .where(
@@ -718,15 +731,15 @@ function hasThreadCommandFailureSystemErrorForTurn(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-function hasThreadStopBeforeTurnStarted(
+async function hasThreadStopBeforeTurnStarted(
   deps: Pick<AppDeps, "db">,
   args: HasThreadStopBeforeTurnStartedArgs,
-): boolean {
-  const turnStarted = deps.db
+): Promise<boolean> {
+  const turnStarted = await deps.db
     .select({ sequence: storedEvents.sequence })
     .from(storedEvents)
     .where(
@@ -742,7 +755,7 @@ function hasThreadStopBeforeTurnStarted(
     return false;
   }
 
-  const latestTurnRequest = deps.db
+  const latestTurnRequest = await deps.db
     .select({ sequence: storedEvents.sequence })
     .from(storedEvents)
     .where(
@@ -758,7 +771,7 @@ function hasThreadStopBeforeTurnStarted(
   const lowerSequence = latestTurnRequest?.sequence ?? 0;
 
   return (
-    deps.db
+    (await deps.db
       .select({ id: storedEvents.id })
       .from(storedEvents)
       .where(
@@ -770,15 +783,15 @@ function hasThreadStopBeforeTurnStarted(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-function wasTurnManuallyStopped(
+async function wasTurnManuallyStopped(
   deps: Pick<AppDeps, "db">,
   args: HasThreadStopBeforeTurnStartedArgs,
-): boolean {
-  const turnStarted = deps.db
+): Promise<boolean> {
+  const turnStarted = await deps.db
     .select({ sequence: storedEvents.sequence })
     .from(storedEvents)
     .where(
@@ -793,7 +806,7 @@ function wasTurnManuallyStopped(
   if (!turnStarted) return false;
 
   return (
-    deps.db
+    (await deps.db
       .select({ id: storedEvents.id })
       .from(storedEvents)
       .where(
@@ -805,15 +818,15 @@ function wasTurnManuallyStopped(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-function getTurnInterruption(
+async function getTurnInterruption(
   deps: Pick<AppDeps, "db">,
   args: HasThreadStopBeforeTurnStartedArgs,
-): ChildThreadOutcome["interruption"] {
-  const turnStarted = deps.db
+): Promise<ChildThreadOutcome["interruption"]> {
+  const turnStarted = await deps.db
     .select({ sequence: storedEvents.sequence })
     .from(storedEvents)
     .where(
@@ -829,7 +842,7 @@ function getTurnInterruption(
     return undefined;
   }
 
-  const turnCompleted = deps.db
+  const turnCompleted = await deps.db
     .select({ sequence: storedEvents.sequence })
     .from(storedEvents)
     .where(
@@ -844,7 +857,7 @@ function getTurnInterruption(
     .get();
   if (!turnCompleted) return undefined;
 
-  const interruption = deps.db
+  const interruption = await deps.db
     .select({ data: storedEvents.data })
     .from(storedEvents)
     .where(
@@ -865,11 +878,11 @@ function getTurnInterruption(
     : undefined;
 }
 
-function hasThreadAlreadyStartedRun(
+async function hasThreadAlreadyStartedRun(
   deps: Pick<AppDeps, "db">,
   threadId: string,
-): boolean {
-  const thread = getThread(deps.db, threadId);
+): Promise<boolean> {
+  const thread = await getThread(deps.db, threadId);
   return (
     thread?.status === "active" &&
     thread.archivedAt === null &&
@@ -877,9 +890,9 @@ function hasThreadAlreadyStartedRun(
   );
 }
 
-function listCompletedTurnKeysForStartedEvents(
+async function listCompletedTurnKeysForStartedEvents(
   args: ListCompletedTurnKeysForStartedEventsArgs,
-): Set<string> {
+): Promise<Set<string>> {
   const startedTurnKeys: TurnKeyArgs[] = [];
 
   for (const entry of args.batchEvents) {
@@ -900,7 +913,7 @@ function listCompletedTurnKeysForStartedEvents(
   }
 
   const completedTurnKeys = new Set(
-    listStoredTurnCompletedKeys(args.db, { keys: startedTurnKeys }).map(
+    (await listStoredTurnCompletedKeys(args.db, { keys: startedTurnKeys })).map(
       toTurnKey,
     ),
   );
@@ -947,11 +960,11 @@ function shouldApplyEventEffect(args: ShouldApplyEventEffectArgs): boolean {
   return true;
 }
 
-function resolveEventsToApply(
+async function resolveEventsToApply(
   args: ResolveEventsToApplyArgs,
-): HostDaemonEventEnvelope[] {
+): Promise<HostDaemonEventEnvelope[]> {
   const insertedEventIndexLookup = new Set(args.insertedEventIndexes);
-  const completedTurnKeyLookup = listCompletedTurnKeysForStartedEvents({
+  const completedTurnKeyLookup = await listCompletedTurnKeysForStartedEvents({
     batchEvents: args.events,
     db: args.db,
     insertedEventIndexLookup,
@@ -1016,10 +1029,10 @@ function summarizeRejectedDaemonEvents(
   };
 }
 
-function resolvePostableEventBatchEntries(
+async function resolvePostableEventBatchEntries(
   deps: Pick<AppDeps, "db">,
   args: ResolvePostableEventBatchEntriesArgs,
-): ResolvePostableEventBatchEntriesResult {
+): Promise<ResolvePostableEventBatchEntriesResult> {
   const threadIds = [...new Set(args.events.map((entry) => entry.threadId))];
   if (threadIds.length === 0) {
     return {
@@ -1028,7 +1041,7 @@ function resolvePostableEventBatchEntries(
     };
   }
 
-  const ownedThreads = listThreadEnvironmentAssignmentsOnHost(deps.db, {
+  const ownedThreads = await listThreadEnvironmentAssignmentsOnHost(deps.db, {
     hostId: args.hostId,
     threadIds,
   });
@@ -1120,9 +1133,11 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
     hostDaemonEventBatchRequestSchema,
     async (context, payload) => {
       const receivedAt = performance.now();
-      let session: ReturnType<typeof requireAuthenticatedDaemonSession>;
+      let session: Awaited<
+        ReturnType<typeof requireAuthenticatedDaemonSession>
+      >;
       try {
-        session = requireAuthenticatedDaemonSession({
+        session = await requireAuthenticatedDaemonSession({
           context,
           db: deps.db,
           sessionId: payload.sessionId,
@@ -1133,7 +1148,7 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
           error.body.code === "inactive_session"
         ) {
           deps.logger.info(
-            getInactiveSessionLogFields(deps.db, {
+            await getInactiveSessionLogFields(deps.db, {
               authenticatedHostId: getAuthenticatedDaemon(context).hostId,
               now: Date.now(),
               sessionId: payload.sessionId,
@@ -1145,7 +1160,7 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
       }
       const events = ungroupHostDaemonEvents(payload.eventGroups);
       const { entries: ownedEntries, rejectedEvents } =
-        resolvePostableEventBatchEntries(deps, {
+        await resolvePostableEventBatchEntries(deps, {
           hostId: session.hostId,
           events,
         });
@@ -1171,27 +1186,32 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
           "Rejected daemon events for threads outside the session host",
         );
       }
-      const validatedEnvelopes = validatePresentationIcons(
+      const validatedEnvelopes = await validatePresentationIcons(
         deps,
         await validateExtensionPayloads(
           deps,
           entries.map((entry) => entry.envelope),
         ),
       );
-      const labelledEntries = entries
-        .map((entry, index) => {
-          const validated = validatedEnvelopes[index];
-          if (validated === undefined) {
-            throw new Error(
-              "Missing validated envelope for daemon event entry",
-            );
-          }
-          return {
-            ...entry,
-            envelope: validated,
-          };
-        })
-        .map((entry) => preserveTerminalProvisioningStatus(deps, entry));
+      const labelledEntries = await Promise.all(
+        entries
+          .map((entry, index) => {
+            const validated = validatedEnvelopes[index];
+            if (validated === undefined) {
+              throw new Error(
+                "Missing validated envelope for daemon event entry",
+              );
+            }
+            return {
+              ...entry,
+              envelope: validated,
+            };
+          })
+          .map(
+            async (entry) =>
+              await preserveTerminalProvisioningStatus(deps, entry),
+          ),
+      );
       const eventInputs = labelledEntries.map((entry) => {
         return toStoredEvent({
           envelope: entry.envelope,
@@ -1201,8 +1221,8 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
       const postableEvents = labelledEntries.map((entry) => entry.envelope);
       let appendResult: AppendDaemonEventsResult;
       try {
-        appendResult = deps.db.transaction(
-          (tx) => appendDaemonEventsInTransaction(tx, eventInputs),
+        appendResult = await deps.db.transaction(
+          async (tx) => await appendDaemonEventsInTransaction(tx, eventInputs),
           { behavior: "immediate" },
         );
       } catch (error) {
@@ -1231,7 +1251,7 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
         );
       }
       const committedAt = performance.now();
-      notifyInsertedEventThreads(deps, {
+      await notifyInsertedEventThreads(deps, {
         eventInputs,
         insertedInputIndexes: appendResult.insertedInputIndexes,
       });
@@ -1242,11 +1262,11 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
         receivedAt,
       };
       observeTurnTraceEventBatch(turnTraceBatch);
-      observeStreamTraceEventBatch(deps, turnTraceBatch);
+      await observeStreamTraceEventBatch(deps, turnTraceBatch);
 
       const followUps = await applyEventEffects(
         deps,
-        resolveEventsToApply({
+        await resolveEventsToApply({
           db: deps.db,
           events: postableEvents,
           insertedEventIndexes: appendResult.insertedInputIndexes,
@@ -1257,10 +1277,10 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
         events: postableEvents,
         insertedEventIndexes: appendResult.insertedInputIndexes,
       })) {
-        maybePruneActiveThreadEventHistory(deps, candidate);
+        await maybePruneActiveThreadEventHistory(deps, candidate);
       }
 
-      deferEventFollowUpBatch(deps, followUps);
+      await deferEventFollowUpBatch(deps, followUps);
       const response: HostDaemonEventBatchResponse = {
         acceptedEvents: appendResult.acceptedEvents.map(
           (acceptedEvent, acceptedIndex) => {

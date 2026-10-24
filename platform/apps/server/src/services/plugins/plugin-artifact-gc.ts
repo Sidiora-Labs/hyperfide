@@ -66,12 +66,12 @@ interface PlannedArtifactRemoval {
   removedRoot: string;
 }
 
-function planArtifactRemovals(args: {
+async function planArtifactRemovals(args: {
   db: DbConnection;
   dataDir: string;
   artifacts: PluginArtifactRow[];
   warn: (message: string) => void;
-}): PlannedArtifactRemoval[] {
+}): Promise<PlannedArtifactRemoval[]> {
   const collectableIds = new Set(args.artifacts.map((artifact) => artifact.id));
   const plannedIds = new Set<string>();
   const removals: PlannedArtifactRemoval[] = [];
@@ -90,10 +90,10 @@ function planArtifactRemovals(args: {
     const checkoutTenants =
       checkoutRoot === null
         ? null
-        : listPluginArtifactsInGitCheckout(args.db, checkoutRoot);
+        : await listPluginArtifactsInGitCheckout(args.db, checkoutRoot);
     const overlappingTenants =
       checkoutTenants ??
-      listPluginArtifactsUnderPath(args.db, storageRoot, sep);
+      (await listPluginArtifactsUnderPath(args.db, storageRoot, sep));
     if (
       overlappingTenants.some(
         (tenant) =>
@@ -113,8 +113,8 @@ function planArtifactRemovals(args: {
         ? checkoutRoot
         : storageRoot;
     if (
-      listInstalledPluginIdsOverlappingPath(args.db, removedRoot, sep).length >
-      0
+      (await listInstalledPluginIdsOverlappingPath(args.db, removedRoot, sep))
+        .length > 0
     ) {
       continue;
     }
@@ -157,7 +157,7 @@ async function executeArtifactRemovals(args: {
   for (const { artifact, removedRoot } of args.removals) {
     try {
       await removeCacheDirectory(args.dataDir, removedRoot);
-      deletePluginArtifact(args.db, artifact.id);
+      await deletePluginArtifact(args.db, artifact.id);
       removedIds.add(artifact.id);
     } catch (error) {
       args.warn(
@@ -175,23 +175,26 @@ export async function garbageCollectPluginArtifacts(args: {
   retentionMs: number;
   warn: (message: string) => void;
 }): Promise<void> {
-  for (const snapshot of listExpiredPluginStateSnapshots(args.db, args.now)) {
+  for (const snapshot of await listExpiredPluginStateSnapshots(
+    args.db,
+    args.now,
+  )) {
     try {
       await rm(snapshot.snapshotPath, { recursive: true, force: true });
-      deletePluginStateSnapshot(args.db, snapshot.id);
+      await deletePluginStateSnapshot(args.db, snapshot.id);
     } catch (error) {
       args.warn(
         `plugin snapshot GC failed for ${snapshot.id}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
-  const artifacts = listGarbageCollectablePluginArtifacts(args.db, {
+  const artifacts = await listGarbageCollectablePluginArtifacts(args.db, {
     retention: { now: args.now, cutoff: args.now - args.retentionMs },
     pluginId: null,
   });
   await executeArtifactRemovals({
     ...args,
-    removals: planArtifactRemovals({ ...args, artifacts }),
+    removals: await planArtifactRemovals({ ...args, artifacts }),
   });
 }
 
@@ -201,13 +204,13 @@ export async function removeUnusedPluginArtifacts(args: {
   pluginId: string;
   warn: (message: string) => void;
 }): Promise<void> {
-  const artifacts = listGarbageCollectablePluginArtifacts(args.db, {
+  const artifacts = await listGarbageCollectablePluginArtifacts(args.db, {
     retention: null,
     pluginId: args.pluginId,
   });
   await executeArtifactRemovals({
     ...args,
-    removals: planArtifactRemovals({ ...args, artifacts }),
+    removals: await planArtifactRemovals({ ...args, artifacts }),
   });
 }
 
@@ -218,7 +221,7 @@ async function diskUsageBytes(path: string): Promise<number> {
   if (!stats.isDirectory()) return own;
   const children = await readdir(path).catch(() => []);
   const sizes = await Promise.all(
-    children.map((child) => diskUsageBytes(join(path, child))),
+    children.map(async (child) => await diskUsageBytes(join(path, child))),
   );
   return sizes.reduce((total, size) => total + size, own);
 }
@@ -273,11 +276,11 @@ export async function prunePluginCache(args: {
   warn: (message: string) => void;
 }): Promise<PluginCachePruneResponse> {
   const cacheRoot = pluginCacheRoot(args.dataDir);
-  const artifacts = listGarbageCollectablePluginArtifacts(args.db, {
+  const artifacts = await listGarbageCollectablePluginArtifacts(args.db, {
     retention: null,
     pluginId: null,
   });
-  const removals = planArtifactRemovals({ ...args, artifacts });
+  const removals = await planArtifactRemovals({ ...args, artifacts });
   const plannedIds = new Set(removals.map(({ artifact }) => artifact.id));
   const orphans: string[] = [];
   for (const entry of [
@@ -287,11 +290,14 @@ export async function prunePluginCache(args: {
     if (removals.some(({ removedRoot }) => isInside(removedRoot, entry))) {
       continue;
     }
-    const owned = listPluginArtifactsAtOrUnderPath(args.db, entry, sep).some(
-      (artifact) => !plannedIds.has(artifact.id),
-    );
+    const owned = (
+      await listPluginArtifactsAtOrUnderPath(args.db, entry, sep)
+    ).some((artifact) => !plannedIds.has(artifact.id));
     if (owned) continue;
-    if (listInstalledPluginIdsOverlappingPath(args.db, entry, sep).length > 0) {
+    if (
+      (await listInstalledPluginIdsOverlappingPath(args.db, entry, sep))
+        .length > 0
+    ) {
       continue;
     }
     orphans.push(entry);

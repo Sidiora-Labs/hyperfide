@@ -99,31 +99,33 @@ function toUnhandledEvent(
   };
 }
 
-export function validatePresentationIcons(
+export async function validatePresentationIcons(
   deps: PresentationIconValidationDeps,
   envelopes: readonly HostDaemonEventEnvelope[],
-): HostDaemonEventEnvelope[] {
-  return envelopes.map((envelope) => {
-    const site = presentationIconSiteOf(envelope.event);
-    if (site === null) {
-      return envelope;
-    }
-    const providerId =
-      getThread(deps.db, site.event.threadId)?.providerId ?? null;
-    const reason = presentationIconProblem(deps, site, providerId);
-    if (reason === null) {
-      return envelope;
-    }
-    deps.logger.warn(
-      {
-        threadId: envelope.threadId,
-        eventType: envelope.event.type,
-        itemType: site.event.item.type,
-        glyph: site.glyph,
-        reason,
-      },
-      "Rejected provider presentation icon at ingest",
-    );
-    return { ...envelope, event: toUnhandledEvent(site, providerId, reason) };
-  });
+): Promise<HostDaemonEventEnvelope[]> {
+  return await Promise.all(
+    envelopes.map(async (envelope) => {
+      const site = presentationIconSiteOf(envelope.event);
+      if (site === null) {
+        return envelope;
+      }
+      const providerId =
+        (await getThread(deps.db, site.event.threadId))?.providerId ?? null;
+      const reason = presentationIconProblem(deps, site, providerId);
+      if (reason === null) {
+        return envelope;
+      }
+      deps.logger.warn(
+        {
+          threadId: envelope.threadId,
+          eventType: envelope.event.type,
+          itemType: site.event.item.type,
+          glyph: site.glyph,
+          reason,
+        },
+        "Rejected provider presentation icon at ingest",
+      );
+      return { ...envelope, event: toUnhandledEvent(site, providerId, reason) };
+    }),
+  );
 }

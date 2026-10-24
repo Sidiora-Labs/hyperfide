@@ -36,7 +36,7 @@ describe("production static cache headers", () => {
     );
 
     const harness = await createTestAppHarness();
-    const serverApp = createApp(harness.deps, { staticDir });
+    const serverApp = await createApp(harness.deps, { staticDir });
     try {
       const rootResponse = await serverApp.app.request("/");
       expect(rootResponse.headers.get("cache-control")).toBe("no-cache");

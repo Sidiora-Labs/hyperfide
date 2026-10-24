@@ -173,7 +173,7 @@ export function createFullHyperfideAppArtifactService(
         version: resolved.version,
       };
     },
-    build() {
+    async build() {
       artifactPromise ??= buildArtifact().catch((error: unknown) => {
         artifactPromise = undefined;
         throw error;

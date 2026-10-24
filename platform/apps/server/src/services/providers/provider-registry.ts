@@ -49,7 +49,9 @@ export interface ProviderRegistration {
   resolvesNativeRoots: boolean;
   deriveProviderOptions: (
     context: Omit<PluginProviderOptionsContext, "settings">,
-  ) => Readonly<Record<string, JsonValue>>;
+  ) =>
+    | Readonly<Record<string, JsonValue>>
+    | Promise<Readonly<Record<string, JsonValue>>>;
   icon?: { bytes: Uint8Array; contentType: string; hash: string };
   iconNames: ReadonlySet<string>;
 }
@@ -57,9 +59,9 @@ export interface ProviderRegistration {
 const PROVIDER_INSTALLED_CACHE_TTL_MS = 5 * 60_000;
 
 export interface ProviderRegistryService {
-  list(): ProviderRegistration[];
-  disabledProviderIds(): ReadonlySet<string>;
-  getUserDefaultProviderId(): string | null;
+  list(): Promise<ProviderRegistration[]>;
+  disabledProviderIds(): Promise<ReadonlySet<string>>;
+  getUserDefaultProviderId(): Promise<string | null>;
   get(providerId: string): ProviderRegistration | null;
   getRegistrationRevision(): number;
   lookupInstalled(key: ProviderHealthCacheKey): Promise<boolean> | undefined;
@@ -93,11 +95,17 @@ export interface ProviderRegistryService {
 const REGISTRATIONS_SETTLED_TIMEOUT_MS = 30_000;
 
 interface ProviderRegistryDeps {
-  readUserProviderPreferences?: () => {
-    providerOrder: readonly string[];
-    defaultProviderId: string | null;
-    disabledProviderIds?: readonly string[];
-  };
+  readUserProviderPreferences?: () =>
+    | {
+        providerOrder: readonly string[];
+        defaultProviderId: string | null;
+        disabledProviderIds?: readonly string[];
+      }
+    | Promise<{
+        providerOrder: readonly string[];
+        defaultProviderId: string | null;
+        disabledProviderIds?: readonly string[];
+      }>;
   deferRegistrationsSettled?: boolean;
 }
 
@@ -192,17 +200,17 @@ export function createProviderRegistryService(
   }
 
   const service: ProviderRegistryService = {
-    disabledProviderIds() {
+    async disabledProviderIds() {
       return new Set(
-        deps.readUserProviderPreferences?.().disabledProviderIds ?? [],
+        (await deps.readUserProviderPreferences?.())?.disabledProviderIds ?? [],
       );
     },
-    list() {
+    async list() {
       const entries = [...pluginRegistrations.values()].sort(
         compareInstallRank,
       );
       const userOrder =
-        deps.readUserProviderPreferences?.().providerOrder ?? [];
+        (await deps.readUserProviderPreferences?.())?.providerOrder ?? [];
       if (userOrder.length === 0) {
         return entries;
       }
@@ -213,8 +221,8 @@ export function createProviderRegistryService(
       return entries.sort((a, b) => pinned(a) - pinned(b));
     },
 
-    getUserDefaultProviderId() {
-      const preferences = deps.readUserProviderPreferences?.();
+    async getUserDefaultProviderId() {
+      const preferences = await deps.readUserProviderPreferences?.();
       const preferred = preferences?.defaultProviderId ?? null;
       if (
         preferred === null ||

@@ -8,12 +8,12 @@ import {
 import { upsertHost } from "../../src/data/hosts.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "defaults-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "defaults-project",
     source: {
       type: "local_path",
@@ -25,20 +25,20 @@ function setup() {
 }
 
 describe("project-execution-defaults", () => {
-  it("returns null when a project has no stored defaults for a provider", () => {
-    const { db, project } = setup();
+  it("returns null when a project has no stored defaults for a provider", async () => {
+    const { db, project } = await setup();
 
     expect(
-      getProjectExecutionDefaults(db, {
+      await getProjectExecutionDefaults(db, {
         projectId: project.id,
       }),
     ).toBeNull();
   });
 
-  it("upserts provider-scoped execution defaults", () => {
-    const { db, project } = setup();
+  it("upserts provider-scoped execution defaults", async () => {
+    const { db, project } = await setup();
 
-    upsertProjectExecutionDefaults(db, {
+    await upsertProjectExecutionDefaults(db, {
       projectId: project.id,
       providerId: "codex",
       model: "gpt-5",
@@ -48,7 +48,7 @@ describe("project-execution-defaults", () => {
     });
 
     expect(
-      getProjectExecutionDefaults(db, {
+      await getProjectExecutionDefaults(db, {
         projectId: project.id,
       }),
     ).toEqual({
@@ -60,10 +60,10 @@ describe("project-execution-defaults", () => {
     });
   });
 
-  it("replaces the previous defaults for the same project and provider", () => {
-    const { db, project } = setup();
+  it("replaces the previous defaults for the same project and provider", async () => {
+    const { db, project } = await setup();
 
-    upsertProjectExecutionDefaults(db, {
+    await upsertProjectExecutionDefaults(db, {
       projectId: project.id,
       providerId: "codex",
       model: "gpt-5",
@@ -71,7 +71,7 @@ describe("project-execution-defaults", () => {
       permissionMode: "full",
       serviceTier: "default",
     });
-    upsertProjectExecutionDefaults(db, {
+    await upsertProjectExecutionDefaults(db, {
       projectId: project.id,
       providerId: "codex",
       model: "gpt-5-mini",
@@ -81,7 +81,7 @@ describe("project-execution-defaults", () => {
     });
 
     expect(
-      getProjectExecutionDefaults(db, {
+      await getProjectExecutionDefaults(db, {
         projectId: project.id,
       }),
     ).toEqual({
@@ -93,10 +93,10 @@ describe("project-execution-defaults", () => {
     });
   });
 
-  it("replaces the remembered provider choice for the project", () => {
-    const { db, project } = setup();
+  it("replaces the remembered provider choice for the project", async () => {
+    const { db, project } = await setup();
 
-    upsertProjectExecutionDefaults(db, {
+    await upsertProjectExecutionDefaults(db, {
       projectId: project.id,
       providerId: "codex",
       model: "gpt-5",
@@ -104,7 +104,7 @@ describe("project-execution-defaults", () => {
       permissionMode: "full",
       serviceTier: "default",
     });
-    upsertProjectExecutionDefaults(db, {
+    await upsertProjectExecutionDefaults(db, {
       projectId: project.id,
       providerId: "claude-code",
       model: "claude-opus-4-1",
@@ -114,7 +114,7 @@ describe("project-execution-defaults", () => {
     });
 
     expect(
-      getProjectExecutionDefaults(db, {
+      await getProjectExecutionDefaults(db, {
         projectId: project.id,
       }),
     ).toMatchObject({
@@ -123,10 +123,10 @@ describe("project-execution-defaults", () => {
     });
   });
 
-  it("deletes defaults when the project is deleted", () => {
-    const { db, project } = setup();
+  it("deletes defaults when the project is deleted", async () => {
+    const { db, project } = await setup();
 
-    upsertProjectExecutionDefaults(db, {
+    await upsertProjectExecutionDefaults(db, {
       projectId: project.id,
       providerId: "codex",
       model: "gpt-5",
@@ -135,9 +135,9 @@ describe("project-execution-defaults", () => {
       serviceTier: "default",
     });
 
-    expect(deleteProject(db, noopNotifier, project.id)).toBe(true);
+    expect(await deleteProject(db, noopNotifier, project.id)).toBe(true);
     expect(
-      getProjectExecutionDefaults(db, {
+      await getProjectExecutionDefaults(db, {
         projectId: project.id,
       }),
     ).toBeNull();

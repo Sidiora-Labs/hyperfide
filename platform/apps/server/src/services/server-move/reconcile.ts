@@ -188,7 +188,7 @@ export async function reconcileServerMoveRunAtBoot(
     await bestEffort(
       args,
       "Could not remove server-move-run.json at boot",
-      () => removeServerMoveRunFile(args.dataDir),
+      async () => await removeServerMoveRunFile(args.dataDir),
     );
     args.logger.info(
       { moveId },
@@ -200,7 +200,7 @@ export async function reconcileServerMoveRunAtBoot(
     await bestEffort(
       args,
       "Could not remove server-moved.json for an abandoned server move",
-      () => unlockOldServerDataDir(args.dataDir),
+      async () => await unlockOldServerDataDir(args.dataDir),
     );
   }
   const configBackup = run.configBackup;
@@ -208,7 +208,7 @@ export async function reconcileServerMoveRunAtBoot(
     await bestEffort(
       args,
       "Could not restore config.json for an abandoned server move",
-      () => restoreOldServerDaemonConfig(configBackup),
+      async () => await restoreOldServerDaemonConfig(configBackup),
     );
   }
   args.logger.warn(

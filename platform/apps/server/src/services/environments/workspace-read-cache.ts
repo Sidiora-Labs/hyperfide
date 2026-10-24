@@ -36,8 +36,8 @@ export class EnvironmentReadCache<
     this.cache = createAsyncTtlMemo({ ...options, maxEntries: 1_024 });
   }
 
-  read(args: EnvironmentReadCacheReadArgs<TValue>): Promise<TValue> {
-    return this.cache.run(
+  async read(args: EnvironmentReadCacheReadArgs<TValue>): Promise<TValue> {
+    return await this.cache.run(
       `${args.environmentId} ${args.hostId} ${args.key}`,
       args.load,
     );

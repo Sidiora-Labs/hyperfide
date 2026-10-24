@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getLatestThreadSequence, listQueuedThreadMessages } from "@hyperfide/db";
+import {
+  getLatestThreadSequence,
+  listQueuedThreadMessages,
+} from "@hyperfide/db";
 import {
   createStandaloneBuiltinCompactCommandInput,
   turnScope,
@@ -24,25 +27,25 @@ import {
 } from "../helpers/seed.js";
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
-function seedCompactableThread(
+async function seedCompactableThread(
   harness: TestAppHarness,
   args: { providerId: string; providerThreadId: string },
 ) {
-  const { host, session } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { host, session } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     providerId: args.providerId,
     status: "idle",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: args.providerThreadId,
     threadId: thread.id,
@@ -50,11 +53,11 @@ function seedCompactableThread(
   return { host, session, thread };
 }
 
-function registerSuccessfulTurnResponder(
+async function registerSuccessfulTurnResponder(
   harness: TestAppHarness,
   args: { hostId: string; sessionId: string },
 ) {
-  return registerHostRpcResponder(harness, {
+  return await registerHostRpcResponder(harness, {
     ...args,
     handle: ({ command }): HostRpcHandlerResult => {
       if (command.type === "host.read_workspace_agent_context") {
@@ -68,7 +71,7 @@ function registerSuccessfulTurnResponder(
   });
 }
 
-function seedAcceptedProviderTurn(
+async function seedAcceptedProviderTurn(
   harness: TestAppHarness,
   args: {
     clientRequestId: ClientTurnRequestId;
@@ -77,19 +80,20 @@ function seedAcceptedProviderTurn(
     threadId: string;
     turnId: string;
   },
-): void {
-  seedTurnStarted(harness.deps, {
+): Promise<void> {
+  await seedTurnStarted(harness.deps, {
     environmentId: args.environmentId,
     providerThreadId: args.providerThreadId,
     threadId: args.threadId,
     turnId: args.turnId,
   });
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId: args.providerThreadId,
     sequence:
-      getLatestThreadSequence(harness.db, { threadId: args.threadId }) + 1,
+      (await getLatestThreadSequence(harness.db, { threadId: args.threadId })) +
+      1,
     type: "turn/input/accepted",
     scope: turnScope(args.turnId),
     data: {
@@ -102,11 +106,11 @@ function seedAcceptedProviderTurn(
 describe("public thread compaction", () => {
   it("dispatches the same structured /compact turn as the composer", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedCompactableThread(harness, {
+      const { host, session, thread } = await seedCompactableThread(harness, {
         providerId: "pi",
         providerThreadId: "provider-thread-1",
       });
-      const responder = registerSuccessfulTurnResponder(harness, {
+      const responder = await registerSuccessfulTurnResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
@@ -139,11 +143,11 @@ describe("public thread compaction", () => {
     "routes %s compaction onto the bridge's /compact turn",
     async (providerId) => {
       await withTestHarness(async (harness) => {
-        const { host, session, thread } = seedCompactableThread(harness, {
+        const { host, session, thread } = await seedCompactableThread(harness, {
           providerId,
           providerThreadId: "provider-thread-acp",
         });
-        const responder = registerSuccessfulTurnResponder(harness, {
+        const responder = await registerSuccessfulTurnResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
         });
@@ -175,11 +179,11 @@ describe("public thread compaction", () => {
 
   it("queues sends and defers send-now while manual compaction is active", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedCompactableThread(harness, {
+      const { host, session, thread } = await seedCompactableThread(harness, {
         providerId: "pi",
         providerThreadId: "provider-thread-queue",
       });
-      const responder = registerSuccessfulTurnResponder(harness, {
+      const responder = await registerSuccessfulTurnResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
@@ -199,7 +203,7 @@ describe("public thread compaction", () => {
         throw new Error("Expected compactable thread environment");
       }
       const compactionTurnId = "turn-manual-compaction";
-      seedAcceptedProviderTurn(harness, {
+      await seedAcceptedProviderTurn(harness, {
         clientRequestId: compactRequest.command.requestId,
         environmentId: thread.environmentId,
         providerThreadId: "provider-thread-queue",
@@ -219,7 +223,10 @@ describe("public thread compaction", () => {
         },
       );
       expect(sendResponse.status).toBe(200);
-      const [queuedMessage] = listQueuedThreadMessages(harness.db, thread.id);
+      const [queuedMessage] = await listQueuedThreadMessages(
+        harness.db,
+        thread.id,
+      );
       if (!queuedMessage) {
         throw new Error("Expected the send to remain queued");
       }
@@ -233,7 +240,9 @@ describe("public thread compaction", () => {
         },
       );
       expect(sendNowResponse.status).toBe(200);
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(1);
       expect(
         responder.requests.filter(
           ({ command }) => command.type === "turn.submit",
@@ -245,14 +254,17 @@ describe("public thread compaction", () => {
           threadId: thread.id,
         }),
       ).toBe(false);
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(1);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: thread.environmentId,
         providerThreadId: "provider-thread-queue",
         sequence:
-          getLatestThreadSequence(harness.db, { threadId: thread.id }) + 1,
+          (await getLatestThreadSequence(harness.db, { threadId: thread.id })) +
+          1,
         type: "turn/completed",
         scope: turnScope(compactionTurnId),
         data: {
@@ -260,7 +272,7 @@ describe("public thread compaction", () => {
           status: "completed",
         },
       });
-      const completion = applyTurnCompletedEvent(harness.deps, {
+      const completion = await applyTurnCompletedEvent(harness.deps, {
         threadId: thread.id,
         providerThreadId: "provider-thread-queue",
         type: "turn/completed",
@@ -273,7 +285,9 @@ describe("public thread compaction", () => {
           threadId: thread.id,
         }),
       ).toBe(true);
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(0);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(0);
       await expect
         .poll(
           () =>
@@ -287,11 +301,11 @@ describe("public thread compaction", () => {
 
   it("compacts first and delivers the message once compaction finishes", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedCompactableThread(harness, {
+      const { host, session, thread } = await seedCompactableThread(harness, {
         providerId: "pi",
         providerThreadId: "provider-thread-compact-first",
       });
-      const responder = registerSuccessfulTurnResponder(harness, {
+      const responder = await registerSuccessfulTurnResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
@@ -323,25 +337,28 @@ describe("public thread compaction", () => {
       expect(turnSubmits()[0]).toMatchObject({
         input: createStandaloneBuiltinCompactCommandInput(),
       });
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(1);
 
       if (!thread.environmentId) {
         throw new Error("Expected compactable thread environment");
       }
       const compactionTurnId = "turn-compact-first";
-      seedAcceptedProviderTurn(harness, {
+      await seedAcceptedProviderTurn(harness, {
         clientRequestId: turnSubmits()[0]!.requestId,
         environmentId: thread.environmentId,
         providerThreadId: "provider-thread-compact-first",
         threadId: thread.id,
         turnId: compactionTurnId,
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: thread.environmentId,
         providerThreadId: "provider-thread-compact-first",
         sequence:
-          getLatestThreadSequence(harness.db, { threadId: thread.id }) + 1,
+          (await getLatestThreadSequence(harness.db, { threadId: thread.id })) +
+          1,
         type: "turn/completed",
         scope: turnScope(compactionTurnId),
         data: {
@@ -349,7 +366,7 @@ describe("public thread compaction", () => {
           status: "completed",
         },
       });
-      applyTurnCompletedEvent(harness.deps, {
+      await applyTurnCompletedEvent(harness.deps, {
         threadId: thread.id,
         providerThreadId: "provider-thread-compact-first",
         type: "turn/completed",
@@ -370,15 +387,15 @@ describe("public thread compaction", () => {
 
   it("rejects invalid follow-up attachments before starting compaction", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedCompactableThread(harness, {
+      const { host, session, thread } = await seedCompactableThread(harness, {
         providerId: "pi",
         providerThreadId: "provider-thread-invalid-attachment",
       });
-      const responder = registerSuccessfulTurnResponder(harness, {
+      const responder = await registerSuccessfulTurnResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
-      const sequenceBefore = getLatestThreadSequence(harness.db, {
+      const sequenceBefore = await getLatestThreadSequence(harness.db, {
         threadId: thread.id,
       });
       const response = await harness.app.request(
@@ -409,10 +426,12 @@ describe("public thread compaction", () => {
           ({ command }) => command.type === "turn.submit",
         ),
       ).toHaveLength(0);
-      expect(getLatestThreadSequence(harness.db, { threadId: thread.id })).toBe(
-        sequenceBefore,
-      );
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(0);
+      expect(
+        await getLatestThreadSequence(harness.db, { threadId: thread.id }),
+      ).toBe(sequenceBefore);
+      expect(
+        await listQueuedThreadMessages(harness.db, thread.id),
+      ).toHaveLength(0);
     });
   });
 
@@ -433,11 +452,11 @@ describe("public thread compaction", () => {
     ],
   ])("rejects compactFirst with %j", async (overrides, status, message) => {
     await withTestHarness(async (harness) => {
-      const { host, session, thread } = seedCompactableThread(harness, {
+      const { host, session, thread } = await seedCompactableThread(harness, {
         providerId: "pi",
         providerThreadId: "provider-thread-invalid",
       });
-      const responder = registerSuccessfulTurnResponder(harness, {
+      const responder = await registerSuccessfulTurnResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
@@ -461,16 +480,16 @@ describe("public thread compaction", () => {
 
   it("rejects manual compaction for unsupported providers and active threads", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const unsupportedThread = seedThread(harness.deps, {
+      const unsupportedThread = await seedThread(harness.deps, {
         projectId: project.id,
         providerId: "acp-cursor",
         status: "idle",
       });
-      const activeThread = seedThread(harness.deps, {
+      const activeThread = await seedThread(harness.deps, {
         projectId: project.id,
         providerId: "codex",
         status: "active",

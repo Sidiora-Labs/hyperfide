@@ -70,12 +70,12 @@ function closeTerminalSocketForError(
   });
 }
 
-export function onTerminalSocketOpen(
+export async function onTerminalSocketOpen(
   deps: TerminalProtocolDeps,
   args: TerminalSocketOpenArgs,
-): void {
+): Promise<void> {
   try {
-    deps.terminalSessions.attachBrowserTerminal({
+    await deps.terminalSessions.attachBrowserTerminal({
       outputAcks: args.outputAcks,
       socket: args.socket,
       sinceSeq: args.sinceSeq,
@@ -86,10 +86,10 @@ export function onTerminalSocketOpen(
   }
 }
 
-export function onTerminalSocketMessage(
+export async function onTerminalSocketMessage(
   deps: TerminalProtocolDeps,
   args: TerminalSocketMessageArgs,
-): void {
+): Promise<void> {
   const message = parseSocketMessage(
     args.socket,
     args.raw,
@@ -100,7 +100,7 @@ export function onTerminalSocketMessage(
   }
 
   try {
-    deps.terminalSessions.handleBrowserTerminalMessage({
+    await deps.terminalSessions.handleBrowserTerminalMessage({
       message,
       socket: args.socket,
       terminalId: args.terminalId,

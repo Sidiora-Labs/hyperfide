@@ -46,7 +46,7 @@ describe("project reads during provider startup", () => {
         };
         for (const phase of ["starting", "unavailable"] as const) {
           if (phase === "unavailable") {
-            upsertProjectExecutionDefaults(harness.db, {
+            await upsertProjectExecutionDefaults(harness.db, {
               projectId: "proj_personal",
               ...defaults,
             });

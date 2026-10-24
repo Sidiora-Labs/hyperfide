@@ -46,13 +46,14 @@ async function writePlugin(
   return rootDir;
 }
 
-function setNextRunAt(
+async function setNextRunAt(
   db: DbConnection,
   pluginId: string,
   name: string,
   nextRunAt: number,
-): void {
-  db.update(pluginSchedules)
+): Promise<void> {
+  await db
+    .update(pluginSchedules)
     .set({ nextRunAt })
     .where(
       and(
@@ -71,7 +72,7 @@ describe("plugin background services", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-bg-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -128,7 +129,7 @@ describe("plugin background services", () => {
     await service.reload("connector");
     expect(globals.__connAborts).toBe(1);
     expect(globals.__connStarts).toBe(2);
-    const reloaded = service.list().find((p) => p.id === "connector");
+    const reloaded = (await service.list()).find((p) => p.id === "connector");
     expect(reloaded?.status).toBe("running");
     expect(reloaded?.services).toEqual([{ name: "conn", state: "running" }]);
   });
@@ -136,7 +137,10 @@ describe("plugin background services", () => {
   it("suspends every plugin but the kept ones without disabling them, then resumes them", async () => {
     globals.__suspendStarts = {};
     globals.__suspendAborts = {};
-    for (const name of ["hyperfide-plugin-suspended", "hyperfide-plugin-kept"]) {
+    for (const name of [
+      "hyperfide-plugin-suspended",
+      "hyperfide-plugin-kept",
+    ]) {
       const rootDir = await writePlugin(workDir, {
         name,
         serverSource: `
@@ -168,12 +172,14 @@ describe("plugin background services", () => {
     expect(suspended).toEqual(["suspended"]);
     expect(service.getApi("suspended")).toBeUndefined();
     expect(service.getApi("kept")).toBeDefined();
-    expect(service.isPluginExpectedToRun("suspended")).toBe(true);
-    expect(service.isPluginExpectedToRun("kept")).toBe(true);
-    expect(globals.__suspendAborts).toEqual({ "hyperfide-plugin-suspended": 1 });
-    expect(getInstalledPlugin(db, "suspended")?.enabled).toBe(true);
+    expect(await service.isPluginExpectedToRun("suspended")).toBe(true);
+    expect(await service.isPluginExpectedToRun("kept")).toBe(true);
+    expect(globals.__suspendAborts).toEqual({
+      "hyperfide-plugin-suspended": 1,
+    });
+    expect((await getInstalledPlugin(db, "suspended"))?.enabled).toBe(true);
     expect(
-      service.list().find((plugin) => plugin.id === "suspended"),
+      (await service.list()).find((plugin) => plugin.id === "suspended"),
     ).toMatchObject({
       status: "disabled",
       statusDetail: "Paused while the server moves to another machine",
@@ -181,7 +187,7 @@ describe("plugin background services", () => {
 
     expect(await service.resumeSuspendedPlugins()).toEqual(["suspended"]);
     expect(service.getApi("suspended")).toBeDefined();
-    expect(service.isPluginExpectedToRun("suspended")).toBe(true);
+    expect(await service.isPluginExpectedToRun("suspended")).toBe(true);
     expect(globals.__suspendStarts).toEqual({
       "hyperfide-plugin-suspended": 2,
       "hyperfide-plugin-kept": 1,
@@ -195,8 +201,8 @@ describe("plugin background services", () => {
       outcome: "cancelled" as const,
       reason: "plugin-disposed" as const,
     }));
-    const interruptPluginInteractions = vi.fn(() => []);
-    const local = createPluginService({
+    const interruptPluginInteractions = vi.fn(async () => []);
+    const local = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -259,7 +265,7 @@ describe("plugin background services", () => {
   });
 
   it("serializes concurrent reloads so a slow-stopping service never double-starts", async () => {
-    const local = createPluginService({
+    const local = await createPluginService({
       aiServices: createAiServiceRegistry(),
       telemetry: createNoopTelemetryService(),
       db,
@@ -308,7 +314,7 @@ describe("plugin background services", () => {
       const entry = await local.installPath(rootDir);
       expect(entry.status).toBe("running");
       await Promise.all([local.reload("slowstop"), local.reload("slowstop")]);
-      const reloaded = local.list().find((p) => p.id === "slowstop");
+      const reloaded = (await local.list()).find((p) => p.id === "slowstop");
       expect(reloaded?.status).toBe("running");
       expect(reloaded?.services).toEqual([{ name: "slow", state: "running" }]);
       expect(globals.__slowStarts).toBe(3);
@@ -334,20 +340,20 @@ describe("plugin background services", () => {
     });
     await service.installPath(rootDir);
     const outcome = await service.reload("stubborn");
-    const entry = service.list().find((p) => p.id === "stubborn");
+    const entry = (await service.list()).find((p) => p.id === "stubborn");
     expect(entry?.status).toBe("degraded");
     expect(entry?.statusDetail).toContain("service socket did not stop");
     expect(service.getApi("stubborn")).toBeUndefined();
     expect(outcome).toEqual({
       ok: false,
       error: 'plugin "stubborn" reload failed: service socket did not stop',
-      plugins: service.list(),
+      plugins: await service.list(),
     });
 
     const again = await service.reload("stubborn");
-    expect(service.list().find((p) => p.id === "stubborn")?.status).toBe(
-      "degraded",
-    );
+    expect(
+      (await service.list()).find((p) => p.id === "stubborn")?.status,
+    ).toBe("degraded");
     expect(again.ok).toBe(false);
   });
 
@@ -370,7 +376,7 @@ describe("plugin background services", () => {
       `export default function plugin() { throw new Error("boom on load"); }`,
     );
     const outcome = await service.reload("keeper");
-    const entry = service.list().find((p) => p.id === "keeper");
+    const entry = (await service.list()).find((p) => p.id === "keeper");
     expect(entry?.status).toBe("running");
     expect(entry?.statusDetail).toBe("reload failed: boom on load");
     expect(service.getApi("keeper")).toBeDefined();
@@ -387,7 +393,7 @@ describe("plugin background services", () => {
     );
     expect((await service.reload("keeper")).ok).toBe(true);
     expect(
-      service.list().find((p) => p.id === "keeper")?.statusDetail,
+      (await service.list()).find((p) => p.id === "keeper")?.statusDetail,
     ).toBeNull();
   });
 
@@ -416,10 +422,10 @@ describe("plugin background services", () => {
       },
       { timeout: 2000 },
     );
-    await vi.waitFor(() => {
-      expect(service.list().find((p) => p.id === "crashy")?.services).toEqual([
-        { name: "flaky", state: "running" },
-      ]);
+    await vi.waitFor(async () => {
+      expect(
+        (await service.list()).find((p) => p.id === "crashy")?.services,
+      ).toEqual([{ name: "flaky", state: "running" }]);
     });
   });
 
@@ -452,8 +458,9 @@ describe("plugin background services", () => {
     const vitestListeners = process.listeners("uncaughtException");
     process.removeAllListeners("uncaughtException");
     const unclaimed: unknown[] = [];
-    process.on("uncaughtException", (error) => {
-      if (!service.handleUncaughtException(error)) unclaimed.push(error);
+    process.on("uncaughtException", async (error) => {
+      if (!(await service.handleUncaughtException(error)))
+        unclaimed.push(error);
     });
     try {
       await service.installPath(rootDir);
@@ -464,15 +471,15 @@ describe("plugin background services", () => {
         { timeout: 2000 },
       );
       expect(globals.__emitterAborts).toBe(1);
-      await vi.waitFor(() => {
+      await vi.waitFor(async () => {
         expect(
-          service.list().find((p) => p.id === "emitter")?.services,
+          (await service.list()).find((p) => p.id === "emitter")?.services,
         ).toEqual([{ name: "imap", state: "running" }]);
       });
       expect(unclaimed).toEqual([]);
-      expect(service.list().find((p) => p.id === "emitter")?.status).toBe(
-        "running",
-      );
+      expect(
+        (await service.list()).find((p) => p.id === "emitter")?.status,
+      ).toBe("running");
     } finally {
       process.removeAllListeners("uncaughtException");
       for (const listener of vitestListeners) {
@@ -500,12 +507,12 @@ describe("plugin background services", () => {
       `,
     });
     await service.installPath(rootDir);
-    await vi.waitFor(() => {
-      expect(service.list().find((p) => p.id === "needy")?.status).toBe(
+    await vi.waitFor(async () => {
+      expect((await service.list()).find((p) => p.id === "needy")?.status).toBe(
         "needs-configuration",
       );
     });
-    const entry = service.list().find((p) => p.id === "needy");
+    const entry = (await service.list()).find((p) => p.id === "needy");
     expect(entry?.statusDetail).toBe("api key missing");
     expect(entry?.services).toEqual([{ name: "bot", state: "stopped" }]);
     await new Promise((resolve) => setTimeout(resolve, 60));
@@ -542,7 +549,7 @@ describe("plugin background services", () => {
       `,
     });
     await service.installPath(rootDir);
-    const entry = service.list().find((p) => p.id === "badcron");
+    const entry = (await service.list()).find((p) => p.id === "badcron");
     expect(entry?.status).toBe("error");
     expect(entry?.statusDetail).toContain('invalid cron "not a cron"');
   });
@@ -554,7 +561,7 @@ describe("plugin schedules", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-sched-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -598,24 +605,24 @@ describe("plugin schedules", () => {
   it("registration upserts the row with a future next_run_at", async () => {
     const before = Date.now();
     await installTicker();
-    const rows = listPluginSchedules(db, "ticker");
+    const rows = await listPluginSchedules(db, "ticker");
     expect(rows).toHaveLength(1);
     expect(rows[0]?.name).toBe("tick");
     expect(rows[0]?.cron).toBe("*/5 * * * *");
     expect(rows[0]?.nextRunAt).toBeGreaterThan(before);
     expect(rows[0]?.lastStatus).toBeNull();
-    const entry = service.list().find((p) => p.id === "ticker");
+    const entry = (await service.list()).find((p) => p.id === "ticker");
     expect(entry?.schedules).toHaveLength(1);
     expect(entry?.schedules[0]?.name).toBe("tick");
   });
 
   it("runs a due schedule and advances next_run_at per cron", async () => {
     await installTicker();
-    setNextRunAt(db, "ticker", "tick", Date.now() - 60_000);
-    const now = Date.now();
+    await setNextRunAt(db, "ticker", "tick", Date.now() - 60_000);
+    const now = await Date.now();
     await service.sweepDueSchedules(now);
     expect(globals.__tickRuns).toBe(1);
-    const row = listPluginSchedules(db, "ticker")[0];
+    const row = (await listPluginSchedules(db, "ticker"))[0];
     const expectedNext = CronExpressionParser.parse("*/5 * * * *", {
       currentDate: new Date(now),
     })
@@ -630,11 +637,11 @@ describe("plugin schedules", () => {
   it("leaves due schedules unclaimed while schedules are paused", async () => {
     await installTicker();
     const past = Date.now() - 60_000;
-    setNextRunAt(db, "ticker", "tick", past);
+    await setNextRunAt(db, "ticker", "tick", past);
     service.setSchedulesPaused(true);
     await service.sweepDueSchedules(Date.now());
     expect(globals.__tickRuns).toBe(0);
-    expect(listPluginSchedules(db, "ticker")[0]?.nextRunAt).toBe(past);
+    expect((await listPluginSchedules(db, "ticker"))[0]?.nextRunAt).toBe(past);
     service.setSchedulesPaused(false);
     await service.sweepDueSchedules(Date.now());
     expect(globals.__tickRuns).toBe(1);
@@ -643,14 +650,14 @@ describe("plugin schedules", () => {
   it("claims with CAS: parallel sweeps run the fn exactly once", async () => {
     await installTicker();
     const past = Date.now() - 60_000;
-    setNextRunAt(db, "ticker", "tick", past);
+    await setNextRunAt(db, "ticker", "tick", past);
     const now = Date.now();
     await Promise.all([
       service.sweepDueSchedules(now),
       service.sweepDueSchedules(now),
     ]);
     expect(globals.__tickRuns).toBe(1);
-    const claimed = claimPluginScheduledRun(db, {
+    const claimed = await claimPluginScheduledRun(db, {
       pluginId: "ticker",
       name: "tick",
       expectedNextRunAt: past,
@@ -672,30 +679,30 @@ describe("plugin schedules", () => {
       `,
     });
     await service.installPath(rootDir);
-    setNextRunAt(db, "boomer", "boom", Date.now() - 60_000);
+    await setNextRunAt(db, "boomer", "boom", Date.now() - 60_000);
     const now = Date.now();
     await service.sweepDueSchedules(now);
-    const row = listPluginSchedules(db, "boomer")[0];
+    const row = (await listPluginSchedules(db, "boomer"))[0];
     expect(row?.lastStatus).toBe("error");
     expect(row?.lastError).toContain("sync exploded");
     expect(row?.nextRunAt).toBeGreaterThan(now);
-    const entry = service.list().find((p) => p.id === "boomer");
+    const entry = (await service.list()).find((p) => p.id === "boomer");
     expect(entry?.handlerStats.errorCount).toBe(1);
   });
 
   it("leaves rows unclaimed while the plugin is not loaded; remove deletes them", async () => {
     await installTicker();
     await service.setEnabled("ticker", false);
-    expect(listPluginSchedules(db, "ticker")).toHaveLength(1);
+    expect(await listPluginSchedules(db, "ticker")).toHaveLength(1);
     const past = Date.now() - 60_000;
-    setNextRunAt(db, "ticker", "tick", past);
+    await setNextRunAt(db, "ticker", "tick", past);
     await service.sweepDueSchedules(Date.now());
     expect(globals.__tickRuns).toBe(0);
-    expect(listPluginSchedules(db, "ticker")[0]?.nextRunAt).toBe(past);
+    expect((await listPluginSchedules(db, "ticker"))[0]?.nextRunAt).toBe(past);
 
     await service.setEnabled("ticker", true);
     await service.remove("ticker");
-    expect(listPluginSchedules(db, "ticker")).toHaveLength(0);
+    expect(await listPluginSchedules(db, "ticker")).toHaveLength(0);
   });
 
   it("prunes rows for schedule names the plugin no longer registers", async () => {
@@ -708,9 +715,9 @@ describe("plugin schedules", () => {
       `,
     });
     await service.installPath(rootDir);
-    expect(listPluginSchedules(db, "renamer").map((r) => r.name)).toEqual([
-      "old-name",
-    ]);
+    expect(
+      (await listPluginSchedules(db, "renamer")).map((r) => r.name),
+    ).toEqual(["old-name"]);
     await writeFile(
       join(rootDir, "server.ts"),
       `export default function plugin(hyperfide: any) {
@@ -718,8 +725,8 @@ describe("plugin schedules", () => {
       }`,
     );
     await service.reload("renamer");
-    expect(listPluginSchedules(db, "renamer").map((r) => r.name)).toEqual([
-      "new-name",
-    ]);
+    expect(
+      (await listPluginSchedules(db, "renamer")).map((r) => r.name),
+    ).toEqual(["new-name"]);
   });
 });

@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { noopNotifier } from "../../src/notifier.js";
@@ -13,20 +15,20 @@ import { getHost, upsertHost } from "../../src/data/hosts.js";
 import { hostDaemonSessions } from "../../src/schema.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
   return { db, host };
 }
 
 describe("sessions", () => {
-  it("marks the host as seen on open, heartbeat, and close", () => {
-    const { db, host } = setup();
-    expect(getHost(db, host.id)?.lastSeenAt).toBeNull();
+  it("marks the host as seen on open, heartbeat, and close", async () => {
+    const { db, host } = await setup();
+    expect((await getHost(db, host.id))?.lastSeenAt).toBeNull();
 
-    const session = openSession(db, {
+    const session = await openSession(db, {
       hostId: host.id,
       instanceId: "inst-1",
       hostName: "test-host",
@@ -35,44 +37,55 @@ describe("sessions", () => {
       heartbeatIntervalMs: 10_000,
       leaseTimeoutMs: 30_000,
     });
-    const seenAtOpen = getHost(db, host.id)?.lastSeenAt ?? null;
+    const seenAtOpen = (await getHost(db, host.id))?.lastSeenAt ?? null;
     expect(seenAtOpen).not.toBeNull();
 
-    heartbeatSession(db, session.id, Date.now() + 30_000);
-    const seenAtHeartbeat = getHost(db, host.id)?.lastSeenAt ?? null;
+    await heartbeatSession(db, session.id, Date.now() + 30_000);
+    const seenAtHeartbeat = (await getHost(db, host.id))?.lastSeenAt ?? null;
     expect(seenAtHeartbeat).not.toBeNull();
     expect(seenAtHeartbeat!).toBeGreaterThanOrEqual(seenAtOpen!);
 
-    closeSession(db, noopNotifier, session.id, "test");
-    const seenAtClose = getHost(db, host.id)?.lastSeenAt ?? null;
+    await closeSession(db, noopNotifier, session.id, "test");
+    const seenAtClose = (await getHost(db, host.id))?.lastSeenAt ?? null;
     expect(seenAtClose).not.toBeNull();
     expect(seenAtClose!).toBeGreaterThanOrEqual(seenAtHeartbeat!);
   });
 
-  it("rolls back the lease renewal if updating host liveness fails", () => {
-    const { db, host } = setup();
-    const session = openSession(db, {
-      hostId: host.id,
-      instanceId: "inst-1",
-      hostName: "test-host",
-      dataDir: "/tmp/test-host-data",
-      protocolVersion: 1,
-      heartbeatIntervalMs: 5_000,
-      leaseTimeoutMs: 30_000,
-    });
-    db.$client.exec(`CREATE TRIGGER reject_host_liveness BEFORE UPDATE ON hosts
+  it.skipIf(isPostgresTest)(
+    "rolls back the lease renewal if updating host liveness fails",
+    async () => {
+      const { db, host } = await setup();
+      const session = await openSession(db, {
+        hostId: host.id,
+        instanceId: "inst-1",
+        hostName: "test-host",
+        dataDir: "/tmp/test-host-data",
+        protocolVersion: 1,
+        heartbeatIntervalMs: 5_000,
+        leaseTimeoutMs: 30_000,
+      });
+      db.$client
+        .exec(`CREATE TRIGGER reject_host_liveness BEFORE UPDATE ON hosts
       BEGIN SELECT RAISE(ABORT, 'host update failed'); END`);
-    expect(() =>
-      heartbeatSession(db, session.id, session.leaseExpiresAt + 10_000),
-    ).toThrow("host update failed");
-    expect(getSessionById(db, { sessionId: session.id })).toEqual(session);
-    db.$client.close();
-  });
+      await expect(
+        (async () =>
+          await heartbeatSession(
+            db,
+            session.id,
+            session.leaseExpiresAt + 10_000,
+          ))(),
+      ).rejects.toThrow("host update failed");
+      expect(await getSessionById(db, { sessionId: session.id })).toEqual(
+        session,
+      );
+      await db.close();
+    },
+  );
 
-  it("closes a session", () => {
-    const { db, host } = setup();
+  it("closes a session", async () => {
+    const { db, host } = await setup();
 
-    const session = openSession(db, {
+    const session = await openSession(db, {
       hostId: host.id,
       instanceId: "inst-1",
       hostName: "test-host",
@@ -82,20 +95,25 @@ describe("sessions", () => {
       leaseTimeoutMs: 30_000,
     });
 
-    const closed = closeSession(db, noopNotifier, session.id, "user-requested");
+    const closed = await closeSession(
+      db,
+      noopNotifier,
+      session.id,
+      "user-requested",
+    );
     expect(closed?.status).toBe("closed");
     expect(closed?.closeReason).toBe("user-requested");
     expect(closed?.closedAt).toBeTypeOf("number");
 
-    expect(getSessionById(db, { sessionId: session.id })?.status).toBe(
+    expect((await getSessionById(db, { sessionId: session.id }))?.status).toBe(
       "closed",
     );
   });
 
-  it("closes old session when opening new one for same host", () => {
-    const { db, host } = setup();
+  it("closes old session when opening new one for same host", async () => {
+    const { db, host } = await setup();
 
-    const session1 = openSession(db, {
+    const session1 = await openSession(db, {
       hostId: host.id,
       instanceId: "inst-1",
       hostName: "test-host",
@@ -105,7 +123,7 @@ describe("sessions", () => {
       leaseTimeoutMs: 30_000,
     });
 
-    const session2 = openSession(db, {
+    const session2 = await openSession(db, {
       hostId: host.id,
       instanceId: "inst-2",
       hostName: "test-host",
@@ -117,11 +135,11 @@ describe("sessions", () => {
 
     expect(session2.id).not.toBe(session1.id);
 
-    expect(getLatestSessionForHost(db, { hostId: host.id })?.id).toBe(
+    expect((await getLatestSessionForHost(db, { hostId: host.id }))?.id).toBe(
       session2.id,
     );
 
-    const old = db
+    const old = await db
       .select()
       .from(hostDaemonSessions)
       .where(eq(hostDaemonSessions.id, session1.id))
@@ -130,13 +148,13 @@ describe("sessions", () => {
     expect(old?.closeReason).toBe("replaced");
   });
 
-  it("lists the most recently closed session for each requested host", () => {
-    const { db, host } = setup();
-    const otherHost = upsertHost(db, noopNotifier, {
+  it("lists the most recently closed session for each requested host", async () => {
+    const { db, host } = await setup();
+    const otherHost = await upsertHost(db, noopNotifier, {
       name: "test-host-2",
     });
-    const openTestSession = (hostId: string, instanceId: string) =>
-      openSession(db, {
+    const openTestSession = async (hostId: string, instanceId: string) =>
+      await openSession(db, {
         hostId,
         instanceId,
         hostName: "test-host",
@@ -146,20 +164,21 @@ describe("sessions", () => {
         leaseTimeoutMs: 30_000,
       });
 
-    const earlierClosed = openTestSession(host.id, "inst-1");
-    closeSession(db, noopNotifier, earlierClosed.id, "daemon-disconnect");
-    const laterClosed = openTestSession(host.id, "inst-2");
-    closeSession(db, noopNotifier, laterClosed.id, "daemon-disconnect");
-    openTestSession(host.id, "inst-3");
-    const otherClosed = openTestSession(otherHost.id, "inst-4");
-    closeSession(db, noopNotifier, otherClosed.id, "expired");
+    const earlierClosed = await openTestSession(host.id, "inst-1");
+    await closeSession(db, noopNotifier, earlierClosed.id, "daemon-disconnect");
+    const laterClosed = await openTestSession(host.id, "inst-2");
+    await closeSession(db, noopNotifier, laterClosed.id, "daemon-disconnect");
+    await openTestSession(host.id, "inst-3");
+    const otherClosed = await openTestSession(otherHost.id, "inst-4");
+    await closeSession(db, noopNotifier, otherClosed.id, "expired");
 
     for (const sessionUpdate of [
       { sessionId: earlierClosed.id, closedAt: 20, updatedAt: 50 },
       { sessionId: laterClosed.id, closedAt: 30, updatedAt: 30 },
       { sessionId: otherClosed.id, closedAt: 40, updatedAt: 40 },
     ]) {
-      db.update(hostDaemonSessions)
+      await db
+        .update(hostDaemonSessions)
         .set({
           closedAt: sessionUpdate.closedAt,
           updatedAt: sessionUpdate.updatedAt,
@@ -168,7 +187,7 @@ describe("sessions", () => {
         .run();
     }
 
-    const sessions = listLatestClosedSessionsForHosts(db, {
+    const sessions = await listLatestClosedSessionsForHosts(db, {
       hostIds: [host.id, host.id, otherHost.id, "host-missing"],
     });
 
@@ -177,9 +196,9 @@ describe("sessions", () => {
     );
   });
 
-  it("prefers an active replacement session when latest timestamps tie", () => {
-    const { db, host } = setup();
-    const closedSession = openSession(db, {
+  it("prefers an active replacement session when latest timestamps tie", async () => {
+    const { db, host } = await setup();
+    const closedSession = await openSession(db, {
       hostId: host.id,
       instanceId: "inst-1",
       hostName: "test-host",
@@ -188,7 +207,7 @@ describe("sessions", () => {
       heartbeatIntervalMs: 10_000,
       leaseTimeoutMs: 30_000,
     });
-    const activeSession = openSession(db, {
+    const activeSession = await openSession(db, {
       hostId: host.id,
       instanceId: "inst-2",
       hostName: "test-host",
@@ -198,7 +217,8 @@ describe("sessions", () => {
       leaseTimeoutMs: 30_000,
     });
 
-    db.update(hostDaemonSessions)
+    await db
+      .update(hostDaemonSessions)
       .set({
         id: "hses_z_closed",
         createdAt: 100,
@@ -206,7 +226,8 @@ describe("sessions", () => {
       })
       .where(eq(hostDaemonSessions.id, closedSession.id))
       .run();
-    db.update(hostDaemonSessions)
+    await db
+      .update(hostDaemonSessions)
       .set({
         id: "hses_a_active",
         createdAt: 100,
@@ -215,14 +236,14 @@ describe("sessions", () => {
       .where(eq(hostDaemonSessions.id, activeSession.id))
       .run();
 
-    expect(getLatestSessionForHost(db, { hostId: host.id })?.id).toBe(
+    expect((await getLatestSessionForHost(db, { hostId: host.id }))?.id).toBe(
       "hses_a_active",
     );
   });
 
-  it("does not overwrite an already closed session", () => {
-    const { db, host } = setup();
-    const session = openSession(db, {
+  it("does not overwrite an already closed session", async () => {
+    const { db, host } = await setup();
+    const session = await openSession(db, {
       hostId: host.id,
       instanceId: "inst-1",
       hostName: "test-host",
@@ -232,8 +253,8 @@ describe("sessions", () => {
       leaseTimeoutMs: 30_000,
     });
 
-    closeSession(db, noopNotifier, session.id, "replaced");
-    const closedAgain = closeSession(
+    await closeSession(db, noopNotifier, session.id, "replaced");
+    const closedAgain = await closeSession(
       db,
       noopNotifier,
       session.id,

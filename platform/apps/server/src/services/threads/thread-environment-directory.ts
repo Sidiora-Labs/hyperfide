@@ -146,7 +146,7 @@ function successMessage(path: string): string {
   return `Environment directory updated to ${path}. This applies to future turns; end this turn now and hyperfide will start the next turn in the updated directory so you can continue the task there.`;
 }
 
-function attachReadyEnvironment(
+async function attachReadyEnvironment(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     currentEnvironment: EnvironmentRow;
@@ -155,10 +155,10 @@ function attachReadyEnvironment(
     thread: Thread;
     turnId: string;
   },
-): AttachEnvironmentResult {
-  const result = deps.db.transaction(
-    (tx): AttachEnvironmentResult => {
-      const latestThread = getThread(tx, args.thread.id);
+): Promise<AttachEnvironmentResult> {
+  const result = await deps.db.transaction(
+    async (tx): Promise<AttachEnvironmentResult> => {
+      const latestThread = await getThread(tx, args.thread.id);
       if (!latestThread || latestThread.deletedAt !== null) {
         return {
           kind: "thread_unavailable",
@@ -179,10 +179,10 @@ function attachReadyEnvironment(
         return { kind: "environment_changed" };
       }
 
-      updateThread(tx, deps.hub, latestThread.id, {
+      await updateThread(tx, deps.hub, latestThread.id, {
         environmentId: args.targetEnvironment.id,
       });
-      appendThreadEventInTransaction(tx, {
+      await appendThreadEventInTransaction(tx, {
         threadId: latestThread.id,
         environmentId: args.targetEnvironment.id,
         type: "system/operation",
@@ -207,8 +207,8 @@ function attachReadyEnvironment(
   );
 
   if (result.kind === "attached" && result.changed) {
-    deps.hub.notifyThread(args.thread.id, ["events-appended"], {
-      timelineSequence: getLatestThreadSequence(deps.db, {
+    await deps.hub.notifyThread(args.thread.id, ["events-appended"], {
+      timelineSequence: await getLatestThreadSequence(deps.db, {
         threadId: args.thread.id,
       }),
       eventTypes: ["system/operation"],
@@ -226,7 +226,7 @@ async function provisionUnmanagedEnvironmentForPath(
     thread: Thread;
   },
 ): Promise<ReadyEnvironment | ToolCallResponse> {
-  const environment = createEnvironment(deps.db, deps.hub, {
+  const environment = await createEnvironment(deps.db, deps.hub, {
     projectId: args.thread.projectId,
     hostId: args.currentEnvironment.hostId,
     providerOwnsPath: false,
@@ -254,7 +254,7 @@ async function provisionUnmanagedEnvironmentForPath(
     );
   }
 
-  const readyEnvironment = getEnvironment(deps.db, environment.id);
+  const readyEnvironment = await getEnvironment(deps.db, environment.id);
   if (!readyEnvironment) {
     return toolCallFailure("Prepared environment no longer exists.");
   }
@@ -288,7 +288,7 @@ export async function handleUpdateEnvironmentDirectoryToolCall(
   }
 
   try {
-    assertEnvironmentPathAvailable(deps, {
+    await assertEnvironmentPathAvailable(deps, {
       hostId: args.currentEnvironment.hostId,
       path: normalizedPath,
       threadId: args.thread.id,
@@ -300,14 +300,15 @@ export async function handleUpdateEnvironmentDirectoryToolCall(
   }
 
   if (
-    getEnvironment(deps.db, args.currentEnvironment.id)?.path === normalizedPath
+    (await getEnvironment(deps.db, args.currentEnvironment.id))?.path ===
+    normalizedPath
   ) {
     return toolCallSuccess(
       `This thread is already using ${normalizedPath} as its environment directory.`,
     );
   }
 
-  const existingEnvironment = findProjectEnvironmentByHostPath(
+  const existingEnvironment = await findProjectEnvironmentByHostPath(
     deps.db,
     args.thread.projectId,
     args.currentEnvironment.hostId,
@@ -323,8 +324,8 @@ export async function handleUpdateEnvironmentDirectoryToolCall(
     }
     targetEnvironment = ready;
   } else {
-    const dataDir = findHostDataDir(deps, args.currentEnvironment.hostId);
-    const refusal = suppliedWorkspacePathRefusal(deps.db, {
+    const dataDir = await findHostDataDir(deps, args.currentEnvironment.hostId);
+    const refusal = await suppliedWorkspacePathRefusal(deps.db, {
       dataDir,
       hostId: args.currentEnvironment.hostId,
       path: normalizedPath,
@@ -351,11 +352,11 @@ export async function handleUpdateEnvironmentDirectoryToolCall(
 
   let attachResult: AttachEnvironmentResult;
   try {
-    assertEnvironmentPathAvailable(deps, {
+    await assertEnvironmentPathAvailable(deps, {
       ...targetEnvironment,
       threadId: args.thread.id,
     });
-    attachResult = attachReadyEnvironment(deps, {
+    attachResult = await attachReadyEnvironment(deps, {
       currentEnvironment: args.currentEnvironment,
       createdEnvironment,
       targetEnvironment,

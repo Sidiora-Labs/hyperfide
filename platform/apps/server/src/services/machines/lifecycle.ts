@@ -30,11 +30,11 @@ const preparingPauses = new WeakMap<
 
 type Deps = Pick<WorkSessionDeps, "db" | "hub" | "logger">;
 
-export function assertMachineLifecycleAdmission(
+export async function assertMachineLifecycleAdmission(
   deps: Deps,
   hostId: string,
-): void {
-  const host = getHost(deps.db, hostId);
+): Promise<void> {
+  const host = await getHost(deps.db, hostId);
   if (host?.phase === "suspending")
     throw new ApiError(
       409,
@@ -52,11 +52,11 @@ export function cancelPreparingMachinePause(
   if (pending !== undefined) pending.cancelled = true;
 }
 
-export function isMachineWaitingForExecution(
+export async function isMachineWaitingForExecution(
   deps: Pick<Deps, "db">,
   hostId: string,
-): boolean {
-  const host = getHost(deps.db, hostId);
+): Promise<boolean> {
+  const host = await getHost(deps.db, hostId);
   return (
     host?.suspendedAt != null ||
     host?.phase === "suspending" ||
@@ -71,7 +71,7 @@ export async function maintainMachine(
   operationId: string,
   save: () => Promise<void>,
 ): Promise<void> {
-  const host = getHost(deps.db, hostId);
+  const host = await getHost(deps.db, hostId);
   if (host === null)
     throw new ApiError(404, "host_not_found", "Host not found");
   if (host.suspendRetryAt !== null && host.suspendRetryAt > Date.now())
@@ -86,18 +86,18 @@ export async function maintainMachine(
   preparingPauses.set(deps.db, pauses);
   pauses.set(hostId, pending);
   const originalPhase = host.phase;
-  updateHost(deps.db, deps.hub, hostId, {
+  await updateHost(deps.db, deps.hub, hostId, {
     phase: "suspending",
     machineOperationId: operationId,
     statusMessage:
       "Preserving this machine. Active turns will be interrupted and open terminals closed before the filesystem is saved.",
     suspendRetryAt: null,
   });
-  deps.hub.notifyHost(hostId, ["host-disconnected"]);
+  await deps.hub.notifyHost(hostId, ["host-disconnected"]);
   try {
     const drainDeadline = { db: deps.db, timeoutMs: 5 * 60_000 };
     await boundedDrain(async () => {
-      const hooks = deps.db
+      const hooks = await deps.db
         .select({ id: environmentHookOperations.id })
         .from(environmentHookOperations)
         .where(
@@ -108,11 +108,12 @@ export async function maintainMachine(
         )
         .all();
       await Promise.all(
-        hooks.map((hook) =>
-          cancelPendingEnvironmentHook(deps, { id: hook.id, hostId }),
+        hooks.map(
+          async (hook) =>
+            await cancelPendingEnvironmentHook(deps, { id: hook.id, hostId }),
         ),
       );
-      const active = deps.db
+      const active = await deps.db
         .select({
           id: threads.id,
           status: threads.status,
@@ -128,7 +129,7 @@ export async function maintainMachine(
         )
         .all();
       for (const thread of active)
-        appendSystemErrorEvent(deps, {
+        await appendSystemErrorEvent(deps, {
           threadId: thread.id,
           environmentId: thread.environmentId,
           scope: threadScope(),
@@ -137,18 +138,19 @@ export async function maintainMachine(
             "Machine preservation is interrupting this turn. Its result is not a successful completion. Continue with a new turn after the machine resumes.",
         });
       await Promise.all(
-        active.map((thread) =>
-          stopThreadForCurrentState(
-            deps,
-            thread,
-            thread.environmentId === null
-              ? null
-              : { id: thread.environmentId, hostId },
-            { requireStopped: true },
-          ),
+        active.map(
+          async (thread) =>
+            await stopThreadForCurrentState(
+              deps,
+              thread,
+              thread.environmentId === null
+                ? null
+                : { id: thread.environmentId, hostId },
+              { requireStopped: true },
+            ),
         ),
       );
-      const stillActive = deps.db
+      const stillActive = await deps.db
         .select({ id: threads.id })
         .from(threads)
         .innerJoin(environments, eq(threads.environmentId, environments.id))
@@ -164,7 +166,7 @@ export async function maintainMachine(
         throw new Error(
           "A turn did not stop; refusing to save or terminate live writers",
         );
-      const terminals = deps.db
+      const terminals = await deps.db
         .select({ id: terminalSessions.id })
         .from(terminalSessions)
         .where(
@@ -179,11 +181,12 @@ export async function maintainMachine(
         )
         .all();
       await Promise.all(
-        terminals.map((terminal) =>
-          deps.terminalSessions.closeTerminal({
-            terminalId: terminal.id,
-            payload: { mode: "force", reason: "user" },
-          }),
+        terminals.map(
+          async (terminal) =>
+            await deps.terminalSessions.closeTerminal({
+              terminalId: terminal.id,
+              payload: { mode: "force", reason: "user" },
+            }),
         ),
       );
     }, drainDeadline);
@@ -195,12 +198,12 @@ export async function maintainMachine(
         "Pause cancelled because a follow-up was sent.",
       );
     }
-    updateHost(deps.db, deps.hub, hostId, {
+    await updateHost(deps.db, deps.hub, hostId, {
       statusMessage: "Saving the filesystem before terminating compute.",
     });
-    deps.hub.notifyHost(hostId, ["host-disconnected"]);
+    await deps.hub.notifyHost(hostId, ["host-disconnected"]);
     await save();
-    updateHost(deps.db, deps.hub, hostId, {
+    await updateHost(deps.db, deps.hub, hostId, {
       statusMessage: null,
       suspendRetryAt: null,
     });
@@ -209,7 +212,7 @@ export async function maintainMachine(
       error instanceof ApiError &&
       error.body.code === "machine_pause_cancelled";
     const message = error instanceof Error ? error.message : String(error);
-    const current = getHost(deps.db, hostId);
+    const current = await getHost(deps.db, hostId);
     const phase =
       current?.phase === "removing"
         ? current.phase
@@ -218,12 +221,12 @@ export async function maintainMachine(
           : originalPhase === "suspending"
             ? "active"
             : originalPhase;
-    updateHost(deps.db, deps.hub, hostId, {
+    await updateHost(deps.db, deps.hub, hostId, {
       phase,
       statusMessage: cancelled ? null : `Machine suspension failed: ${message}`,
       suspendRetryAt: cancelled ? null : Date.now() + RETRY_MS,
     });
-    deps.hub.notifyHost(hostId, ["host-disconnected"]);
+    await deps.hub.notifyHost(hostId, ["host-disconnected"]);
     throw error;
   } finally {
     pauses.delete(hostId);

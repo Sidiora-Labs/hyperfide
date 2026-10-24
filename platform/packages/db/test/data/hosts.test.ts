@@ -11,15 +11,15 @@ import {
 } from "../../src/data/hosts.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
+async function setup() {
+  const db = await createMigratedConnection();
   return { db };
 }
 
 describe("hosts", () => {
-  it("upsert creates a new host", () => {
-    const { db } = setup();
-    const host = upsertHost(db, noopNotifier, {
+  it("upsert creates a new host", async () => {
+    const { db } = await setup();
+    const host = await upsertHost(db, noopNotifier, {
       name: "My Machine",
     });
 
@@ -29,16 +29,16 @@ describe("hosts", () => {
     expect(host.lastSeenAt).toBeNull();
   });
 
-  it("upsert with same ID preserves the display name and lastSeenAt", () => {
-    const { db } = setup();
-    const host1 = upsertHost(db, noopNotifier, {
+  it("upsert with same ID preserves the display name and lastSeenAt", async () => {
+    const { db } = await setup();
+    const host1 = await upsertHost(db, noopNotifier, {
       connectMachineId: "machine-1",
       name: "My Machine",
     });
 
-    markHostSeen(db, host1.id, 1_000);
+    await markHostSeen(db, host1.id, 1_000);
 
-    const host2 = upsertHost(db, noopNotifier, {
+    const host2 = await upsertHost(db, noopNotifier, {
       connectMachineId: "machine-2",
       id: host1.id,
       name: "Updated Reported Name",
@@ -50,14 +50,14 @@ describe("hosts", () => {
     expect(host2.lastSeenAt).toBe(1_000);
   });
 
-  it("preserves destroyedAt when omitted on update", () => {
-    const { db } = setup();
-    const host = upsertHost(db, noopNotifier, {
+  it("preserves destroyedAt when omitted on update", async () => {
+    const { db } = await setup();
+    const host = await upsertHost(db, noopNotifier, {
       destroyedAt: 123,
       name: "Disconnected Host",
     });
 
-    const updated = upsertHost(db, noopNotifier, {
+    const updated = await upsertHost(db, noopNotifier, {
       id: host.id,
       name: "Disconnected Host Renamed",
     });
@@ -69,8 +69,8 @@ describe("hosts", () => {
     });
   });
 
-  it("notifies when upsertHost updates connection state", () => {
-    const { db } = setup();
+  it("notifies when upsertHost updates connection state", async () => {
+    const { db } = await setup();
     const notifyHost = vi.fn();
     const notifier = {
       notifyEnvironment() {},
@@ -79,13 +79,13 @@ describe("hosts", () => {
       notifySystem() {},
       notifyThread() {},
     };
-    const host = upsertHost(db, notifier, {
+    const host = await upsertHost(db, notifier, {
       destroyedAt: 123,
       name: "Persistent Host",
     });
     notifyHost.mockClear();
 
-    upsertHost(db, notifier, {
+    await upsertHost(db, notifier, {
       destroyedAt: null,
       id: host.id,
       name: "Persistent Host",
@@ -94,8 +94,8 @@ describe("hosts", () => {
     expect(notifyHost).toHaveBeenCalledWith(host.id, ["host-connected"]);
   });
 
-  it("does not notify when upsertHost changes metadata without a connection-state change", () => {
-    const { db } = setup();
+  it("does not notify when upsertHost changes metadata without a connection-state change", async () => {
+    const { db } = await setup();
     const notifyHost = vi.fn();
     const notifier = {
       notifyEnvironment() {},
@@ -104,12 +104,12 @@ describe("hosts", () => {
       notifySystem() {},
       notifyThread() {},
     };
-    const host = upsertHost(db, notifier, {
+    const host = await upsertHost(db, notifier, {
       name: "Persistent Host",
     });
     notifyHost.mockClear();
 
-    upsertHost(db, notifier, {
+    await upsertHost(db, notifier, {
       id: host.id,
       name: "Persistent Host Renamed",
     });
@@ -117,75 +117,81 @@ describe("hosts", () => {
     expect(notifyHost).not.toHaveBeenCalled();
   });
 
-  it("lists only non-destroyed hosts for the public inventory", () => {
-    const { db } = setup();
-    const visibleHost = upsertHost(db, noopNotifier, {
+  it("lists only non-destroyed hosts for the public inventory", async () => {
+    const { db } = await setup();
+    const visibleHost = await upsertHost(db, noopNotifier, {
       id: "host-visible",
       name: "Visible Host",
     });
-    const ephemeralHost = upsertHost(db, noopNotifier, {
+    const ephemeralHost = await upsertHost(db, noopNotifier, {
       id: "host-ephemeral",
       name: "Ephemeral Host",
     });
-    const destroyedHost = upsertHost(db, noopNotifier, {
+    const destroyedHost = await upsertHost(db, noopNotifier, {
       id: "host-destroyed",
       name: "Destroyed Host",
     });
-    updateHost(db, noopNotifier, ephemeralHost.id, { phase: "creating" });
-    updateHost(db, noopNotifier, destroyedHost.id, { destroyedAt: 123 });
+    await updateHost(db, noopNotifier, ephemeralHost.id, { phase: "creating" });
+    await updateHost(db, noopNotifier, destroyedHost.id, { destroyedAt: 123 });
 
-    expect(listPublicHosts(db).map((host) => host.id)).toEqual([
+    expect((await listPublicHosts(db)).map((host) => host.id)).toEqual([
       visibleHost.id,
     ]);
     expect(
-      listPublicHosts(db, { includeCreating: true }).map((host) => host.id),
+      (await listPublicHosts(db, { includeCreating: true })).map(
+        (host) => host.id,
+      ),
     ).toEqual([visibleHost.id, ephemeralHost.id]);
   });
 
-  it("filters the public inventory by host type", () => {
-    const { db } = setup();
-    const persistentHost = upsertHost(db, noopNotifier, {
+  it("filters the public inventory by host type", async () => {
+    const { db } = await setup();
+    const persistentHost = await upsertHost(db, noopNotifier, {
       id: "host-persistent",
       name: "Persistent Host",
     });
-    const ephemeralHost = upsertHost(db, noopNotifier, {
+    const ephemeralHost = await upsertHost(db, noopNotifier, {
       id: "host-ephemeral",
       name: "Ephemeral Host",
       type: "ephemeral",
     });
 
     expect(
-      listPublicHosts(db, { type: "persistent" }).map((host) => host.id),
+      (await listPublicHosts(db, { type: "persistent" })).map(
+        (host) => host.id,
+      ),
     ).toEqual([persistentHost.id]);
     expect(
-      listPublicHosts(db, { type: "ephemeral" }).map((host) => host.id),
+      (await listPublicHosts(db, { type: "ephemeral" })).map((host) => host.id),
     ).toEqual([ephemeralHost.id]);
   });
 
-  it("filters destroyed hosts from non-destroyed lookups", () => {
-    const { db } = setup();
-    const visibleHost = upsertHost(db, noopNotifier, {
+  it("filters destroyed hosts from non-destroyed lookups", async () => {
+    const { db } = await setup();
+    const visibleHost = await upsertHost(db, noopNotifier, {
       id: "host-visible",
       name: "Visible Host",
     });
-    const destroyedHost = upsertHost(db, noopNotifier, {
+    const destroyedHost = await upsertHost(db, noopNotifier, {
       id: "host-destroyed",
       name: "Destroyed Host",
     });
 
-    updateHost(db, noopNotifier, destroyedHost.id, { destroyedAt: 123 });
+    await updateHost(db, noopNotifier, destroyedHost.id, { destroyedAt: 123 });
 
-    expect(getNonDestroyedHost(db, visibleHost.id)?.id).toBe(visibleHost.id);
-    expect(getNonDestroyedHost(db, destroyedHost.id)).toBeNull();
+    expect((await getNonDestroyedHost(db, visibleHost.id))?.id).toBe(
+      visibleHost.id,
+    );
+    expect(await getNonDestroyedHost(db, destroyedHost.id)).toBeNull();
     expect(
-      listNonDestroyedHostsByIds(db, [visibleHost.id, destroyedHost.id]).map(
-        (host) => host.id,
-      ),
+      (
+        await listNonDestroyedHostsByIds(db, [visibleHost.id, destroyedHost.id])
+      ).map((host) => host.id),
     ).toEqual([visibleHost.id]);
   });
 
-  it("notifies when updateHost changes host connection state", () => {
-    const { db } = setup();
+  it("notifies when updateHost changes host connection state", async () => {
+    const { db } = await setup();
     const notifyHost = vi.fn();
     const notifier = {
       notifyEnvironment() {},
@@ -194,23 +200,23 @@ describe("hosts", () => {
       notifySystem() {},
       notifyThread() {},
     };
-    const host = upsertHost(db, notifier, {
+    const host = await upsertHost(db, notifier, {
       name: "Persistent Host",
     });
     notifyHost.mockClear();
 
-    updateHost(db, notifier, host.id, {
+    await updateHost(db, notifier, host.id, {
       destroyedAt: 456,
     });
 
     expect(notifyHost).toHaveBeenCalledWith(host.id, ["host-disconnected"]);
-    expect(getHost(db, host.id)).toMatchObject({
+    expect(await getHost(db, host.id)).toMatchObject({
       destroyedAt: 456,
     });
   });
 
-  it("does not notify when updateHost only changes host metadata", () => {
-    const { db } = setup();
+  it("does not notify when updateHost only changes host metadata", async () => {
+    const { db } = await setup();
     const notifyHost = vi.fn();
     const notifier = {
       notifyEnvironment() {},
@@ -219,12 +225,12 @@ describe("hosts", () => {
       notifySystem() {},
       notifyThread() {},
     };
-    const host = upsertHost(db, notifier, {
+    const host = await upsertHost(db, notifier, {
       name: "Persistent Host",
     });
     notifyHost.mockClear();
 
-    updateHost(db, notifier, host.id, {
+    await updateHost(db, notifier, host.id, {
       name: "Persistent Host Renamed",
     });
 

@@ -66,20 +66,25 @@ function logUnappliedThreadLifecycleEvent(
   );
 }
 
-export function applyLoggedThreadLifecycleEvent(
+export async function applyLoggedThreadLifecycleEvent(
   deps: ApplyLoggedThreadLifecycleEventDeps,
   args: ApplyThreadLifecycleEventArgs,
-): ApplyThreadLifecycleEventOutcome {
-  const previousStatus = getThread(deps.db, args.threadId)?.status;
-  const outcome = applyThreadLifecycleEvent(deps.db, args);
+): Promise<ApplyThreadLifecycleEventOutcome> {
+  const previousStatus = (await getThread(deps.db, args.threadId))?.status;
+  const outcome = await applyThreadLifecycleEvent(deps.db, args);
   if (outcome.applied && previousStatus !== undefined) {
-    recordFinishedTurn(deps.db, args.threadId, args.event, previousStatus);
+    await recordFinishedTurn(
+      deps.db,
+      args.threadId,
+      args.event,
+      previousStatus,
+    );
   }
   if (outcome.applied) {
-    deps.hub.notifyThread(
+    await deps.hub.notifyThread(
       args.threadId,
       ["status-changed"],
-      buildThreadStatusChangeMetadata(deps, outcome.thread),
+      await buildThreadStatusChangeMetadata(deps, outcome.thread),
     );
   }
   logUnappliedThreadLifecycleEvent(deps.logger, args, outcome);
@@ -88,14 +93,19 @@ export function applyLoggedThreadLifecycleEvent(
   return outcome;
 }
 
-export function applyLoggedThreadLifecycleEventInTransaction(
+export async function applyLoggedThreadLifecycleEventInTransaction(
   deps: ApplyLoggedThreadLifecycleEventTransactionDeps,
   args: ApplyThreadLifecycleEventArgs,
-): ApplyThreadLifecycleEventOutcome {
-  const previousStatus = getThread(deps.db, args.threadId)?.status;
-  const outcome = applyThreadLifecycleEventInTransaction(deps.db, args);
+): Promise<ApplyThreadLifecycleEventOutcome> {
+  const previousStatus = (await getThread(deps.db, args.threadId))?.status;
+  const outcome = await applyThreadLifecycleEventInTransaction(deps.db, args);
   if (outcome.applied && previousStatus !== undefined) {
-    recordFinishedTurn(deps.db, args.threadId, args.event, previousStatus);
+    await recordFinishedTurn(
+      deps.db,
+      args.threadId,
+      args.event,
+      previousStatus,
+    );
   }
   logUnappliedThreadLifecycleEvent(deps.logger, args, outcome);
   emitPluginThreadLifecycleOutcome(outcome);

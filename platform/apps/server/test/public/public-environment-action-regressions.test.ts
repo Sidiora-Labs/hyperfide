@@ -35,13 +35,13 @@ describe("public environment action regressions", () => {
 
   it("rejects legacy environment action payloads that still send threadId", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-target",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         environmentProviderId: "git-worktree",
@@ -68,13 +68,13 @@ describe("public environment action regressions", () => {
 
   it("preserves daemon branch metadata during commit action status preflight", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-commit-observed-branch",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         branchName: "feature/observed",
@@ -144,7 +144,7 @@ describe("public environment action regressions", () => {
       await expect(readJson(response)).resolves.toMatchObject({
         code: "no_changes",
       });
-      expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
         branchName: "feature/observed",
         defaultBranch: "main",
       });

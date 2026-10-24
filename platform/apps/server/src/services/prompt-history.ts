@@ -59,7 +59,9 @@ interface InternalPromptHistoryEntry extends PromptHistoryEntry {
   threadId: string;
 }
 
-type ThreadHostLookup = (threadId: string) => string | null;
+type ThreadHostLookup = (
+  threadId: string,
+) => string | null | Promise<string | null>;
 
 interface ResolveAcceptedPromptHistoryScopeArgs {
   initiator: ThreadTurnInitiator;
@@ -76,7 +78,7 @@ interface RecordAcceptedPromptHistoryEntryArgs {
 }
 
 interface BuildPromptHistoryEntriesArgs<TRow, TEntry> {
-  buildEntry: (row: TRow) => TEntry;
+  buildEntry: (row: TRow) => TEntry | Promise<TEntry>;
   rows: readonly TRow[];
 }
 
@@ -102,12 +104,12 @@ function portablePromptHistoryInput(
 
 function threadHostLookup(deps: PromptHistoryServiceDeps): ThreadHostLookup {
   const hosts = new Map<string, string | null>();
-  return (threadId) => {
+  return async (threadId) => {
     if (!hosts.has(threadId)) {
-      const thread = getThread(deps.db, threadId);
+      const thread = await getThread(deps.db, threadId);
       hosts.set(
         threadId,
-        thread === null ? null : threadTargetHostId(deps, thread),
+        thread === null ? null : await threadTargetHostId(deps, thread),
       );
     }
     return hosts.get(threadId) ?? null;
@@ -152,31 +154,31 @@ function comparePromptHistoryEntries(
   return right.id.localeCompare(left.id);
 }
 
-function toPromptHistoryEntry(
+async function toPromptHistoryEntry(
   entry: InternalPromptHistoryEntry,
   projectId: string,
   hostOf: ThreadHostLookup,
-): PromptHistoryEntry {
+): Promise<PromptHistoryEntry> {
   return {
     id: entry.id,
     createdAt: entry.createdAt,
     input: portablePromptHistoryInput(
       entry.input,
       projectId,
-      hostOf(entry.threadId),
+      await hostOf(entry.threadId),
     ),
   };
 }
 
-function buildPromptHistoryEntries<TRow, TEntry>({
+async function buildPromptHistoryEntries<TRow, TEntry>({
   buildEntry,
   rows,
-}: BuildPromptHistoryEntriesArgs<TRow, TEntry>): TEntry[] {
+}: BuildPromptHistoryEntriesArgs<TRow, TEntry>): Promise<TEntry[]> {
   const entries: TEntry[] = [];
 
   for (const row of rows) {
     try {
-      entries.push(buildEntry(row));
+      entries.push(await buildEntry(row));
     } catch {
       continue;
     }
@@ -203,66 +205,77 @@ function resolveAcceptedPromptHistoryScope(
   return "project";
 }
 
-function buildVisibleThreadPromptHistory(
+async function buildVisibleThreadPromptHistory(
   queuedEntries: readonly InternalPromptHistoryEntry[],
   acceptedEntries: readonly InternalPromptHistoryEntry[],
   limit: number,
   projectId: string,
   hostOf: ThreadHostLookup,
-): PromptHistoryEntry[] {
+): Promise<PromptHistoryEntry[]> {
   const mergedEntries = [...queuedEntries, ...acceptedEntries].sort(
     comparePromptHistoryEntries,
   );
-  return takeVisiblePromptHistoryEntries({
-    entries: mergedEntries,
-    limit,
-  }).map((entry) => toPromptHistoryEntry(entry, projectId, hostOf));
+  return await Promise.all(
+    takeVisiblePromptHistoryEntries({
+      entries: mergedEntries,
+      limit,
+    }).map(
+      async (entry) => await toPromptHistoryEntry(entry, projectId, hostOf),
+    ),
+  );
 }
 
-export function listProjectPromptHistory(
+export async function listProjectPromptHistory(
   deps: PromptHistoryServiceDeps,
   args: ProjectPromptHistoryArgs,
-): PromptHistoryEntry[] {
-  const acceptedEntries = buildPromptHistoryEntries({
-    rows: listStoredProjectPromptHistoryRows(deps.db, {
+): Promise<PromptHistoryEntry[]> {
+  const acceptedEntries = await buildPromptHistoryEntries({
+    rows: await listStoredProjectPromptHistoryRows(deps.db, {
       projectId: args.projectId,
       limit: args.limit,
     }),
     buildEntry: buildAcceptedPromptHistoryEntry,
   });
 
-  return takeVisiblePromptHistoryEntries({
-    entries: acceptedEntries,
-    limit: args.limit,
-  }).map((entry) =>
-    toPromptHistoryEntry(entry, args.projectId, threadHostLookup(deps)),
+  return await Promise.all(
+    takeVisiblePromptHistoryEntries({
+      entries: acceptedEntries,
+      limit: args.limit,
+    }).map(
+      async (entry) =>
+        await toPromptHistoryEntry(
+          entry,
+          args.projectId,
+          threadHostLookup(deps),
+        ),
+    ),
   );
 }
 
-export function listThreadPromptHistory(
+export async function listThreadPromptHistory(
   deps: PromptHistoryServiceDeps,
   args: ThreadPromptHistoryArgs,
-): PromptHistoryEntry[] {
-  const thread = getThread(deps.db, args.threadId);
+): Promise<PromptHistoryEntry[]> {
+  const thread = await getThread(deps.db, args.threadId);
   if (thread === null) return [];
-  const queuedEntries = buildPromptHistoryEntries({
-    rows: listQueuedThreadMessages(deps.db, args.threadId),
+  const queuedEntries = await buildPromptHistoryEntries({
+    rows: await listQueuedThreadMessages(deps.db, args.threadId),
     buildEntry: buildQueuedPromptHistoryEntry,
   });
-  const acceptedEntries = buildPromptHistoryEntries({
-    rows: listStoredThreadPromptHistoryRows(deps.db, {
+  const acceptedEntries = await buildPromptHistoryEntries({
+    rows: await listStoredThreadPromptHistoryRows(deps.db, {
       threadId: args.threadId,
       limit: args.limit,
     }),
     buildEntry: buildAcceptedPromptHistoryEntry,
   });
 
-  return buildVisibleThreadPromptHistory(
+  return await buildVisibleThreadPromptHistory(
     queuedEntries,
     acceptedEntries,
     args.limit,
     thread.projectId,
-    () => threadTargetHostId(deps, thread),
+    async () => await threadTargetHostId(deps, thread),
   );
 }
 
@@ -291,25 +304,25 @@ export function decodePromptHistoryCursor(
   }
 }
 
-export function listPromptHistory(
+export async function listPromptHistory(
   deps: PromptHistoryServiceDeps,
   args: { before: PromptHistoryPosition | null; limit: number },
-): { entries: PromptHistoryListEntry[]; nextCursor: string | null } {
-  const rows = listPromptHistoryPage(deps.db, {
+): Promise<{ entries: PromptHistoryListEntry[]; nextCursor: string | null }> {
+  const rows = await listPromptHistoryPage(deps.db, {
     before: args.before,
     limit: args.limit + 1,
   });
   const pageRows = rows.slice(0, args.limit);
   const hostOf = threadHostLookup(deps);
-  const entries = buildPromptHistoryEntries({
+  const entries = await buildPromptHistoryEntries({
     rows: pageRows,
-    buildEntry: (row): PromptHistoryListEntry => ({
+    buildEntry: async (row): Promise<PromptHistoryListEntry> => ({
       id: row.id,
       createdAt: row.createdAt,
       input: portablePromptHistoryInput(
         parseStoredPromptHistoryInput(row),
         row.projectId,
-        hostOf(row.threadId),
+        await hostOf(row.threadId),
       ),
       projectId: row.projectId,
       threadId: row.threadId,
@@ -326,10 +339,10 @@ export function listPromptHistory(
   };
 }
 
-export function recordAcceptedPromptHistoryEntry(
+export async function recordAcceptedPromptHistoryEntry(
   deps: PromptHistoryRecordDeps,
   args: RecordAcceptedPromptHistoryEntryArgs,
-): boolean {
+): Promise<boolean> {
   const input = args.input.filter((item) => item.visibility !== "agent-only");
   if (input.length === 0) {
     return false;
@@ -343,7 +356,7 @@ export function recordAcceptedPromptHistoryEntry(
     return false;
   }
 
-  createPromptHistoryEntry(deps.db, {
+  await createPromptHistoryEntry(deps.db, {
     projectId: args.thread.projectId,
     threadId: args.thread.id,
     scope,

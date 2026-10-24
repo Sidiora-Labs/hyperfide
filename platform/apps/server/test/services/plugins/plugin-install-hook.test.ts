@@ -59,7 +59,7 @@ describe("hyperfide.onInstall", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-install-hook-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),

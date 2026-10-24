@@ -30,19 +30,21 @@ import {
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
 async function queueOfflineFollowUp(harness: TestAppHarness) {
-  const host = seedHost(harness.deps, { id: "host-frozen", name: "M5" });
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+  const host = await seedHost(harness.deps, { id: "host-frozen", name: "M5" });
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: "/tmp/frozen-followup",
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     status: "idle",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     threadId: thread.id,
     environmentId: environment.id,
     providerThreadId: "provider-frozen-followup",
@@ -74,8 +76,8 @@ afterEach(() => {
 });
 
 describe("work while a server move is frozen", () => {
-  it("holds queued dispatch and connect resumes while frozen, then releases them on unfreeze", () =>
-    withTestHarness(async (harness) => {
+  it("holds queued dispatch and connect resumes while frozen, then releases them on unfreeze", async () =>
+    await withTestHarness(async (harness) => {
       const { host, thread } = await queueOfflineFollowUp(harness);
       const resumeProvisioning = vi.spyOn(
         environmentEngine,
@@ -83,22 +85,22 @@ describe("work while a server move is frozen", () => {
       );
       setServerMoveFrozen(harness.db, true);
       try {
-        const session = seedSession(harness.deps, host.id);
-        onDaemonSocketOpen(harness.deps, {
+        const session = await seedSession(harness.deps, host.id);
+        await onDaemonSocketOpen(harness.deps, {
           hostId: host.id,
           sessionId: session.id,
-          socket: registerTestHostRpcCapture(harness.deps, {
+          socket: await registerTestHostRpcCapture(harness.deps, {
             hostId: host.id,
             sessionId: session.id,
           }),
         });
-        requestQueuedMessageDispatch(harness.deps, {
+        await requestQueuedMessageDispatch(harness.deps, {
           kind: "host-connected",
           hostId: host.id,
         });
         await new Promise<void>((resolve) => setTimeout(resolve, 50));
         expect(
-          listQueuedThreadCommands(harness, "turn.submit", thread.id),
+          await listQueuedThreadCommands(harness, "turn.submit", thread.id),
         ).toEqual([]);
         await runQueuedMessageDispatch(harness.deps, {
           kind: "host-connected",
@@ -106,15 +108,17 @@ describe("work while a server move is frozen", () => {
         });
 
         expect(
-          listQueuedThreadCommands(harness, "turn.submit", thread.id),
+          await listQueuedThreadCommands(harness, "turn.submit", thread.id),
         ).toEqual([]);
-        expect(listQueuedThreadMessages(harness.db, thread.id)).toHaveLength(1);
+        expect(
+          await listQueuedThreadMessages(harness.db, thread.id),
+        ).toHaveLength(1);
         expect(resumeProvisioning).not.toHaveBeenCalled();
       } finally {
         setServerMoveFrozen(harness.db, false);
       }
 
-      resumeServerMoveDeferredWork(harness.deps);
+      await resumeServerMoveDeferredWork(harness.deps);
       expect(resumeProvisioning).toHaveBeenCalledWith(harness.deps, {
         hostId: host.id,
       });
@@ -127,39 +131,39 @@ describe("work while a server move is frozen", () => {
       expect(dispatched.command.type).toBe("turn.submit");
     }));
 
-  it("keeps stopping turns that start while running work is being stopped", () =>
-    withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+  it("keeps stopping turns that start while running work is being stopped", async () =>
+    await withTestHarness(async (harness) => {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-stop-loop",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const first = seedThread(harness.deps, {
+      const first = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "active",
       });
-      const late = seedThread(harness.deps, {
+      const late = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
       });
       const stopped: string[] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
-        handle: ({ command }) => {
+        handle: async ({ command }) => {
           if (command.type !== "thread.stop") {
             throw new Error(`Unexpected command: ${command.type}`);
           }
           stopped.push(command.threadId);
           if (command.threadId === first.id) {
-            harness.db
+            await harness.db
               .update(threads)
               .set({ status: "active" })
               .where(eq(threads.id, late.id))

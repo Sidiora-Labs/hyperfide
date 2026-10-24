@@ -168,13 +168,14 @@ function toQueuedMessageGroupBoundaryResponse(
   }
 }
 
-function buildActivePinnedThreadRootListResponse(
+async function buildActivePinnedThreadRootListResponse(
   deps: AppDeps,
-): ThreadListResponse {
-  return toThreadListEntryResponses(deps, {
-    threads: listActiveVisiblePinnedThreadRootsWithPendingInteractionState(
-      deps.db,
-    ),
+): Promise<ThreadListResponse> {
+  return await toThreadListEntryResponses(deps, {
+    threads:
+      await listActiveVisiblePinnedThreadRootsWithPendingInteractionState(
+        deps.db,
+      ),
   });
 }
 
@@ -207,14 +208,14 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
   const routes = publicApiRoutes.threads;
 
   post(routes.send, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
       await acceptThreadSendRequest(deps, { payload, thread }),
     );
   });
 
   post(routes.editMessage, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     const environment = await requireThreadCommandEnvironment(deps, {
       thread,
     });
@@ -227,14 +228,14 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
   });
 
   post(routes.retry, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     ensureThreadIsWritable(thread);
     const result = await retryFailedTurn(deps, { request: payload, thread });
     return context.json(result);
   });
 
   post(routes.createQueuedMessage, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     const queuedMessage = await createQueuedMessageForThread(deps, {
       payload,
       thread,
@@ -243,9 +244,9 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
   });
 
   post(routes.sendQueuedMessage, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     ensureThreadQueueIsWritable(thread);
-    ensureThreadIsNotAwaitingUserInteraction(deps, thread.id);
+    await ensureThreadIsNotAwaitingUserInteraction(deps, thread.id);
     const result = await sendQueuedMessageNow(deps, {
       queuedMessageId: context.req.param("queuedMessageId"),
       mode: payload.mode,
@@ -254,12 +255,12 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ ok: true, ...result });
   });
 
-  patch(routes.reorderQueuedMessage, (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  patch(routes.reorderQueuedMessage, async (context, payload) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     ensureThreadQueueIsWritable(thread);
     return context.json(
       toQueuedMessageOrderResponse(
-        reorderQueuedThreadMessage({
+        await reorderQueuedThreadMessage({
           db: deps.db,
           notifier: deps.hub,
           threadId: thread.id,
@@ -272,12 +273,12 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     );
   });
 
-  patch(routes.setQueuedMessageGroupBoundary, (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  patch(routes.setQueuedMessageGroupBoundary, async (context, payload) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     ensureThreadQueueIsWritable(thread);
     return context.json(
       toQueuedMessageGroupBoundaryResponse(
-        setQueuedThreadMessageGroupBoundary({
+        await setQueuedThreadMessageGroupBoundary({
           db: deps.db,
           notifier: deps.hub,
           threadId: thread.id,
@@ -290,16 +291,16 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
   });
 
   patch(routes.updateQueuedMessage, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     ensureThreadQueueIsWritable(thread);
     const input = await resolvePromptAttachmentReferences({
       db: deps.db,
       dataDir: deps.config.dataDir,
       input: payload.input,
       projectId: thread.projectId,
-      hostId: threadTargetHostId(deps, thread),
+      hostId: await threadTargetHostId(deps, thread),
     });
-    const result = updateQueuedThreadMessage(deps.db, deps.hub, {
+    const result = await updateQueuedThreadMessage(deps.db, deps.hub, {
       content: input,
       expectedUpdatedAt: payload.expectedUpdatedAt,
       id: context.req.param("queuedMessageId"),
@@ -323,7 +324,7 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
       );
     }
     if (result.releasedEditHold) {
-      requestEditReleasedQueuedMessageDispatch(deps, {
+      await requestEditReleasedQueuedMessageDispatch(deps, {
         queuedMessageId: result.queuedMessage.id,
         threadId: thread.id,
       });
@@ -331,35 +332,35 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     return context.json(toThreadQueuedMessage(result.queuedMessage));
   });
 
-  post(routes.holdQueuedMessageForEdit, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  post(routes.holdQueuedMessageForEdit, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     ensureThreadQueueIsWritable(thread);
     return context.json(
-      holdQueuedMessageForEdit(deps, {
+      await holdQueuedMessageForEdit(deps, {
         queuedMessageId: context.req.param("queuedMessageId"),
         threadId: thread.id,
       }),
     );
   });
 
-  del(routes.releaseQueuedMessageEditHold, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    releaseQueuedMessageEditHold(deps, {
+  del(routes.releaseQueuedMessageEditHold, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    await releaseQueuedMessageEditHold(deps, {
       queuedMessageId: context.req.param("queuedMessageId"),
       threadId: thread.id,
     });
     return context.json({ ok: true });
   });
 
-  del(routes.deleteQueuedMessage, (context) => {
-    const queuedMessage = getQueuedThreadMessage(
+  del(routes.deleteQueuedMessage, async (context) => {
+    const queuedMessage = await getQueuedThreadMessage(
       deps.db,
       context.req.param("queuedMessageId"),
     );
     if (!queuedMessage || queuedMessage.threadId !== context.req.param("id")) {
       throw new ApiError(404, "invalid_request", "Queued message not found");
     }
-    const deleted = deleteQueuedThreadMessage(
+    const deleted = await deleteQueuedThreadMessage(
       deps.db,
       deps.hub,
       context.req.param("queuedMessageId"),
@@ -372,8 +373,8 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
   });
 
   post(routes.stop, async (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const environment = resolveThreadHostCommandEnvironment({
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const environment = await resolveThreadHostCommandEnvironment({
       db: deps.db,
       thread,
     });
@@ -382,21 +383,21 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
   });
 
   post(routes.compact, async (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     await compactThreadContext(deps, thread);
     return context.json({ ok: true });
   });
 
   post(routes.clearContext, async (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     const environment = await requireThreadCommandEnvironment(deps, { thread });
     await clearThreadContext(deps, { environment, thread });
     return context.json({ ok: true });
   });
 
   post(routes.cancelPlan, async (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const activity = getThreadPromptBannerActivity(deps, thread);
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const activity = await getThreadPromptBannerActivity(deps, thread);
     if (activity.activePlanModeCount === 0) {
       throw new ApiError(409, "invalid_request", "Plan mode is not active");
     }
@@ -407,7 +408,7 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
         "The active Plan turn could not be identified",
       );
     }
-    const environment = requireThreadHostCommandEnvironment({
+    const environment = await requireThreadHostCommandEnvironment({
       db: deps.db,
       thread,
     });
@@ -421,9 +422,10 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
       hostId: environment.hostId,
       timeoutMs: LIVE_DAEMON_COMMAND_TIMEOUT_MS,
     });
-    const updatedThread = requirePublicThread(deps.db, thread.id);
+    const updatedThread = await requirePublicThread(deps.db, thread.id);
     if (
-      getThreadPromptBannerActivity(deps, updatedThread).activePlanModeCount > 0
+      (await getThreadPromptBannerActivity(deps, updatedThread))
+        .activePlanModeCount > 0
     ) {
       throw new ApiError(
         409,
@@ -435,15 +437,15 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
   });
 
   post(routes.clearGoal, async (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const activity = getThreadPromptBannerActivity(deps, thread);
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const activity = await getThreadPromptBannerActivity(deps, thread);
     if (activity.activeGoalCount === 0) {
       throw new ApiError(409, "invalid_request", "No active Goal to clear");
     }
     const environment = await requireThreadCommandEnvironment(deps, {
       thread,
     });
-    requireConnectedHostSession(deps, environment.hostId);
+    await requireConnectedHostSession(deps, environment.hostId);
     const execution = await buildExecutionOptions(
       deps,
       {},
@@ -469,8 +471,11 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
       hostId: environment.hostId,
       timeoutMs: LIVE_DAEMON_COMMAND_TIMEOUT_MS,
     });
-    const updatedThread = requirePublicThread(deps.db, thread.id);
-    const updatedActivity = getThreadPromptBannerActivity(deps, updatedThread);
+    const updatedThread = await requirePublicThread(deps.db, thread.id);
+    const updatedActivity = await getThreadPromptBannerActivity(
+      deps,
+      updatedThread,
+    );
     if (updatedActivity.activeGoalCount > 0 && !result.cleared) {
       throw new ApiError(
         409,
@@ -488,8 +493,11 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ ok: true });
   });
 
-  post(routes.open, (context, payload) => {
-    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
+  post(routes.open, async (context, payload) => {
+    const publicThread = await requirePublicThread(
+      deps.db,
+      context.req.param("id"),
+    );
     if (payload.file !== null) {
       parseSafeRelativeRoutePath(payload.file.path);
     }
@@ -500,8 +508,11 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ delivered });
   });
 
-  post(routes.paneAction, (context, payload) => {
-    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
+  post(routes.paneAction, async (context, payload) => {
+    const publicThread = await requirePublicThread(
+      deps.db,
+      context.req.param("id"),
+    );
     const delivered = deps.hub.notifyThreadPaneAction(
       { projectId: publicThread.projectId, threadId: publicThread.id },
       payload.action,
@@ -509,32 +520,38 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ delivered });
   });
 
-  post(routes.pin, (context) => {
-    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
-    const thread = pinThread(deps.db, deps.hub, {
+  post(routes.pin, async (context) => {
+    const publicThread = await requirePublicThread(
+      deps.db,
+      context.req.param("id"),
+    );
+    const thread = await pinThread(deps.db, deps.hub, {
       threadId: publicThread.id,
     });
     if (!thread) {
       throw new ApiError(404, "thread_not_found", "Thread not found");
     }
-    return context.json(toThreadResponseFromThread(deps, { thread }));
+    return context.json(await toThreadResponseFromThread(deps, { thread }));
   });
 
-  post(routes.unpin, (context) => {
-    const publicThread = requirePublicThread(deps.db, context.req.param("id"));
-    const thread = unpinThread(deps.db, deps.hub, {
+  post(routes.unpin, async (context) => {
+    const publicThread = await requirePublicThread(
+      deps.db,
+      context.req.param("id"),
+    );
+    const thread = await unpinThread(deps.db, deps.hub, {
       threadId: publicThread.id,
     });
     if (!thread) {
       throw new ApiError(404, "thread_not_found", "Thread not found");
     }
-    return context.json(toThreadResponseFromThread(deps, { thread }));
+    return context.json(await toThreadResponseFromThread(deps, { thread }));
   });
 
-  patch(routes.pinOrder, (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  patch(routes.pinOrder, async (context, payload) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     assertPinnedThreadOrderResult(
-      reorderPinnedThread({
+      await reorderPinnedThread({
         db: deps.db,
         notifier: deps.hub,
         threadId: thread.id,
@@ -542,12 +559,12 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
         nextThreadId: payload.nextThreadId,
       }),
     );
-    return context.json(buildActivePinnedThreadRootListResponse(deps));
+    return context.json(await buildActivePinnedThreadRootListResponse(deps));
   });
 
-  post(routes.archiveAll, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const archivedThreadIds = archiveThreadAndChildren(deps, {
+  post(routes.archiveAll, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const archivedThreadIds = await archiveThreadAndChildren(deps, {
       parentThread: thread,
     });
     return context.json({
@@ -556,12 +573,12 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     });
   });
 
-  post(routes.unarchive, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  post(routes.unarchive, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     if (thread.archivedAt === null) return context.json({ ok: true });
-    const providerThreadId = getLastProviderThreadId(deps, thread.id);
-    if (!unarchiveThread(deps.db, deps.hub, thread.id)) {
-      if (getThread(deps.db, thread.id)?.archivedAt === null)
+    const providerThreadId = await getLastProviderThreadId(deps, thread.id);
+    if (!(await unarchiveThread(deps.db, deps.hub, thread.id))) {
+      if ((await getThread(deps.db, thread.id))?.archivedAt === null)
         return context.json({ ok: true });
       throw new ApiError(
         409,
@@ -569,17 +586,17 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
         "Lifecycle owner must be unarchived first",
       );
     }
-    const unarchivedThread = getThread(deps.db, thread.id);
+    const unarchivedThread = await getThread(deps.db, thread.id);
     if (unarchivedThread !== null) {
       if (unarchivedThread.environmentId !== null)
-        refreshProviderRetirement(deps, unarchivedThread.environmentId);
+        await refreshProviderRetirement(deps, unarchivedThread.environmentId);
       emitPluginThreadUnarchived(unarchivedThread);
     }
     const environment = thread.environmentId
-      ? getEnvironment(deps.db, thread.environmentId)
+      ? await getEnvironment(deps.db, thread.environmentId)
       : null;
     if (providerThreadId && environment) {
-      dispatchThreadUnarchiveCommand(deps, {
+      await dispatchThreadUnarchiveCommand(deps, {
         environment,
         providerThreadId,
         thread,
@@ -588,14 +605,14 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ ok: true });
   });
 
-  post(routes.restoreEnvironment, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  post(routes.restoreEnvironment, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     ensureThreadIsWritable(thread);
-    const resolution = resolveThreadEnvironmentRestore(deps, { thread });
+    const resolution = await resolveThreadEnvironmentRestore(deps, { thread });
     if (!resolution.restorable) {
       throwThreadEnvironmentRestoreRefusal(resolution.refusal, thread);
     }
-    const started = requestThreadEnvironmentRestore(deps, {
+    const started = await requestThreadEnvironmentRestore(deps, {
       environment: resolution.target.environment,
       provider: {
         environmentProviderId: resolution.target.environmentProviderId,
@@ -610,37 +627,47 @@ export function registerThreadActionRoutes(app: Hono, deps: AppDeps): void {
         "Thread is no longer idle, so its workspace cannot be restored",
       );
     }
-    const restoringThread = requirePublicThread(deps.db, thread.id);
-    deps.hub.notifyThread(
+    const restoringThread = await requirePublicThread(deps.db, thread.id);
+    await deps.hub.notifyThread(
       thread.id,
       ["status-changed"],
-      buildThreadStatusChangeMetadata(deps, restoringThread),
+      await buildThreadStatusChangeMetadata(deps, restoringThread),
     );
-    scheduleThreadProvisioningAdvance(deps, thread.id);
+    await scheduleThreadProvisioningAdvance(deps, thread.id);
     return context.json(
-      toThreadResponseFromThread(deps, { thread: restoringThread }),
+      await toThreadResponseFromThread(deps, { thread: restoringThread }),
     );
   });
 
-  post(routes.read, (context) => {
-    requirePublicThread(deps.db, context.req.param("id"));
-    const thread = updateThread(deps.db, deps.hub, context.req.param("id"), {
-      lastReadAt: Date.now(),
-    });
+  post(routes.read, async (context) => {
+    await requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await updateThread(
+      deps.db,
+      deps.hub,
+      context.req.param("id"),
+      {
+        lastReadAt: Date.now(),
+      },
+    );
     if (!thread) {
       throw new ApiError(404, "thread_not_found", "Thread not found");
     }
-    return context.json(toThreadResponseFromThread(deps, { thread }));
+    return context.json(await toThreadResponseFromThread(deps, { thread }));
   });
 
-  post(routes.unread, (context) => {
-    requirePublicThread(deps.db, context.req.param("id"));
-    const thread = updateThread(deps.db, deps.hub, context.req.param("id"), {
-      lastReadAt: null,
-    });
+  post(routes.unread, async (context) => {
+    await requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await updateThread(
+      deps.db,
+      deps.hub,
+      context.req.param("id"),
+      {
+        lastReadAt: null,
+      },
+    );
     if (!thread) {
       throw new ApiError(404, "thread_not_found", "Thread not found");
     }
-    return context.json(toThreadResponseFromThread(deps, { thread }));
+    return context.json(await toThreadResponseFromThread(deps, { thread }));
   });
 }

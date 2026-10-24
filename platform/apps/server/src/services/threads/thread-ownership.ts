@@ -6,7 +6,11 @@ import {
   type DbTransaction,
   updateThread,
 } from "@hyperfide/db";
-import type { PromptInput, SystemMessageSubject, Thread } from "@hyperfide/domain";
+import type {
+  PromptInput,
+  SystemMessageSubject,
+  Thread,
+} from "@hyperfide/domain";
 import { renderTemplate } from "@hyperfide/templates";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { NotificationBuffer } from "../lib/notification-buffer.js";
@@ -128,7 +132,7 @@ export async function handleThreadOwnershipChange(
     return;
   }
 
-  appendThreadOwnershipChangeEvent(deps, {
+  await appendThreadOwnershipChangeEvent(deps, {
     threadId: args.updatedThread.id,
     environmentId: args.updatedThread.environmentId,
     previousParentThreadId: args.previousThread.parentThreadId,
@@ -154,7 +158,7 @@ export async function handleThreadOwnershipChange(
     : args.previousThread.parentThreadId;
   const timer = setTimeout(() => {
     pendingChanges.delete(childThreadId);
-    void sendThreadOwnershipNotices(
+    const sending = sendThreadOwnershipNotices(
       deps,
       childThreadId,
       previousParentThreadId,
@@ -163,10 +167,16 @@ export async function handleThreadOwnershipChange(
         { childThreadId, err: error },
         "Failed to send delayed ownership system messages",
       );
-    });
+    }).finally(() => pendingOwnershipNotices.delete(sending));
+    pendingOwnershipNotices.add(sending);
   }, THREAD_OWNERSHIP_NOTICE_DELAY_MS);
   timer.unref();
   pendingChanges.set(childThreadId, { previousParentThreadId, timer });
+}
+
+const pendingOwnershipNotices = new Set<Promise<void>>();
+export async function whenOwnershipNoticesIdle(): Promise<void> {
+  while (pendingOwnershipNotices.size) await Promise.all([...pendingOwnershipNotices]);
 }
 
 async function sendThreadOwnershipNotices(
@@ -174,7 +184,7 @@ async function sendThreadOwnershipNotices(
   childThreadId: string,
   previousParentThreadId: string | null,
 ): Promise<void> {
-  const thread = getThread(deps.db, childThreadId);
+  const thread = await getThread(deps.db, childThreadId);
   if (
     !thread ||
     thread.deletedAt !== null ||
@@ -212,24 +222,29 @@ async function sendThreadOwnershipNotices(
   }
 }
 
-function releaseUnarchivedChildrenFromArchivedThreadInTransaction(
+async function releaseUnarchivedChildrenFromArchivedThreadInTransaction(
   deps: ThreadOwnershipTransactionDeps,
   args: ReleaseUnarchivedChildrenFromArchivedThreadArgs,
-): Thread[] {
-  const childThreads = listUnarchivedAssignedChildThreads(deps.db, {
+): Promise<Thread[]> {
+  const childThreads = await listUnarchivedAssignedChildThreads(deps.db, {
     parentThreadId: args.parentThreadId,
   });
   const released: Thread[] = [];
 
   for (const childThread of childThreads) {
-    const updatedThread = updateThread(deps.db, deps.hub, childThread.id, {
-      parentThreadId: null,
-      sectionId: args.sectionId,
-    });
+    const updatedThread = await updateThread(
+      deps.db,
+      deps.hub,
+      childThread.id,
+      {
+        parentThreadId: null,
+        sectionId: args.sectionId,
+      },
+    );
     if (!updatedThread) {
       continue;
     }
-    appendThreadOwnershipChangeEventInTransaction(deps, {
+    await appendThreadOwnershipChangeEventInTransaction(deps, {
       threadId: updatedThread.id,
       environmentId: updatedThread.environmentId,
       previousParentThreadId: childThread.parentThreadId,
@@ -240,14 +255,14 @@ function releaseUnarchivedChildrenFromArchivedThreadInTransaction(
   return released;
 }
 
-export function archiveThreadAndReleaseChildren(
+export async function archiveThreadAndReleaseChildren(
   deps: Pick<LoggedPendingInteractionWorkSessionDeps, "db" | "hub">,
   args: ArchiveThreadAndReleaseChildrenArgs,
-): Thread | null {
+): Promise<Thread | null> {
   const notificationBuffer = new NotificationBuffer();
-  const result = deps.db.transaction(
-    (tx) => {
-      const archivedThread = archiveThread(
+  const result = await deps.db.transaction(
+    async (tx) => {
+      const archivedThread = await archiveThread(
         tx,
         notificationBuffer,
         args.threadId,
@@ -256,23 +271,24 @@ export function archiveThreadAndReleaseChildren(
         return null;
       }
 
-      const released = releaseUnarchivedChildrenFromArchivedThreadInTransaction(
-        {
-          db: tx,
-          hub: notificationBuffer,
-        },
-        {
-          parentThreadId: archivedThread.id,
-          sectionId: archivedThread.sectionId,
-        },
-      );
+      const released =
+        await releaseUnarchivedChildrenFromArchivedThreadInTransaction(
+          {
+            db: tx,
+            hub: notificationBuffer,
+          },
+          {
+            parentThreadId: archivedThread.id,
+            sectionId: archivedThread.sectionId,
+          },
+        );
 
       return { archivedThread, released };
     },
     { behavior: "immediate" },
   );
 
-  notificationBuffer.flushInto(deps.hub);
+  await notificationBuffer.flushInto(deps.hub);
   if (result === null) return null;
   for (const thread of result.released) {
     emitPluginThreadParentChanged(thread, result.archivedThread.id);

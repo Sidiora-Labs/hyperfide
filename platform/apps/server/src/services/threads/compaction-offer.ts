@@ -14,12 +14,12 @@ interface CompactionOfferDeps {
   providerRegistry: Pick<ProviderRegistryService, "supportsManualCompaction">;
 }
 
-export function isCompactionOfferEnabled(
+export async function isCompactionOfferEnabled(
   deps: CompactionOfferDeps,
   providerId: string,
-): boolean {
+): Promise<boolean> {
   return (
-    getExperiments(deps.db).compactExpiredCache &&
+    (await getExperiments(deps.db)).compactExpiredCache &&
     deps.providerRegistry.supportsManualCompaction(providerId)
   );
 }
@@ -31,14 +31,14 @@ interface WithCompactionOfferArgs {
   usage: ThreadContextWindowUsage;
 }
 
-export function withCompactionOffer(
+export async function withCompactionOffer(
   db: DbConnection,
   args: WithCompactionOfferArgs,
-): ThreadContextWindowUsage {
+): Promise<ThreadContextWindowUsage> {
   if (!args.enabled || args.usage.usedTokens < COMPACTION_OFFER_MIN_TOKENS) {
     return args.usage;
   }
-  const row = getLatestTokenUsageRow(db, {
+  const row = await getLatestTokenUsageRow(db, {
     sequenceStart: args.sequenceStart,
     threadId: args.threadId,
   });

@@ -10,12 +10,12 @@ export type ProviderModelCatalogRowKey = Pick<
   "hostId" | "providerId" | "scopeKey"
 >;
 
-export function getStoredProviderModelCatalog(
+export async function getStoredProviderModelCatalog(
   db: DbConnection,
   key: ProviderModelCatalogRowKey,
-): StoredProviderModelCatalog | null {
+): Promise<StoredProviderModelCatalog | null> {
   return (
-    db
+    (await db
       .select()
       .from(providerModelCatalogs)
       .where(
@@ -25,20 +25,21 @@ export function getStoredProviderModelCatalog(
           eq(providerModelCatalogs.scopeKey, key.scopeKey),
         ),
       )
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function replaceStoredProviderModelCatalog(
+export async function replaceStoredProviderModelCatalog(
   db: DbConnection,
   args: {
     row: StoredProviderModelCatalog;
     pruneWorkspaceRowsFetchedBefore: number | null;
   },
-): void {
+): Promise<void> {
   const { row, pruneWorkspaceRowsFetchedBefore } = args;
-  db.transaction((tx) => {
-    tx.insert(providerModelCatalogs)
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(providerModelCatalogs)
       .values(row)
       .onConflictDoUpdate({
         target: [
@@ -55,7 +56,8 @@ export function replaceStoredProviderModelCatalog(
       })
       .run();
     if (pruneWorkspaceRowsFetchedBefore !== null) {
-      tx.delete(providerModelCatalogs)
+      await tx
+        .delete(providerModelCatalogs)
         .where(
           and(
             eq(providerModelCatalogs.hostId, row.hostId),
@@ -72,11 +74,12 @@ export function replaceStoredProviderModelCatalog(
   });
 }
 
-export function deleteStoredProviderModelCatalogsForHost(
+export async function deleteStoredProviderModelCatalogsForHost(
   db: DbConnection,
   hostId: string,
-): void {
-  db.delete(providerModelCatalogs)
+): Promise<void> {
+  await db
+    .delete(providerModelCatalogs)
     .where(eq(providerModelCatalogs.hostId, hostId))
     .run();
 }

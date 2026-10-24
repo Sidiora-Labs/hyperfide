@@ -40,8 +40,8 @@ async function visibleProvisioningStatuses(
 }
 
 describe.sequential("fake provider smoke reuse integration", () => {
-  it("moves a thread to error and records failure events when environment provisioning fails", () =>
-    withHarness(async (harness) => {
+  it("moves a thread to error and records failure events when environment provisioning fails", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(
         harness,
         "Provision Failure Smoke",
@@ -85,8 +85,8 @@ describe.sequential("fake provider smoke reuse integration", () => {
       ).toBe(true);
     }));
 
-  it("reuses the same unmanaged environment when two host threads target the same path", () =>
-    withHarness(async (harness) => {
+  it("reuses the same unmanaged environment when two host threads target the same path", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(
         harness,
         "Implicit Reuse Smoke",
@@ -113,8 +113,8 @@ describe.sequential("fake provider smoke reuse integration", () => {
       expect(secondThread.environment.id).toBe(firstThread.environment.id);
     }));
 
-  it("creates a reuse thread without provisioning a second environment", () =>
-    withHarness(async (harness) => {
+  it("creates a reuse thread without provisioning a second environment", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(harness, "Reuse Smoke");
       const { environment, thread } = await createReadyThread(harness, {
         projectId: project.id,
@@ -160,8 +160,8 @@ describe.sequential("fake provider smoke reuse integration", () => {
 
   it.each([false, true])(
     "re-attaches a checkout whose row lost its path with delayed start acknowledgment: %s",
-    (delayStartAcknowledgment) =>
-      withHarness(async (harness) => {
+    async (delayStartAcknowledgment) =>
+      await withHarness(async (harness) => {
         const acknowledgment = createDeferredPromise<void>();
         const requestRpc = harness.hub.requestHostOnlineRpc.bind(harness.hub);
         let delayedStart = false;
@@ -195,7 +195,7 @@ describe.sequential("fake provider smoke reuse integration", () => {
           if (delayStartAcknowledgment) {
             expect(hasLiveThreadStartInFlight(thread.id)).toBe(true);
           }
-          harness.db
+          await harness.db
             .update(environments)
             .set({
               path: null,

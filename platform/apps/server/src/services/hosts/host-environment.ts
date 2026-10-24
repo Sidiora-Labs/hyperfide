@@ -14,14 +14,14 @@ export async function resolveHostEnvironment(
   deps: { db: AppDeps["db"]; config: Pick<AppDeps["config"], "dataDir"> },
   context: HostEnvironmentContext,
 ): Promise<HostDaemonContributedEnvEntry[]> {
-  const host = getHost(deps.db, context.hostId);
+  const host = await getHost(deps.db, context.hostId);
   if (!host || host.destroyedAt !== null) return [];
   const primaryHostId = readPrimaryHostIdFromDataDir({
     dataDir: deps.config.dataDir,
   });
   const builtIn =
     primaryHostId !== context.hostId &&
-    getAppSettings(deps.db).machineGitCredentialsEnabled
+    (await getAppSettings(deps.db)).machineGitCredentialsEnabled
       ? await resolveGitCredentials()
       : [];
   const [global, project] = await Promise.all([

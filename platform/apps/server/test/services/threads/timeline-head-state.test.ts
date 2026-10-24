@@ -28,16 +28,16 @@ const execution = {
 const requestId = (value: number): ClientTurnRequestId =>
   encodeClientTurnRequestIdNumber({ value });
 
-function setup(): { db: DbConnection; thread: Thread } {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<{ db: DbConnection; thread: Thread }> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "claude-code",
     status: "active",
@@ -45,14 +45,14 @@ function setup(): { db: DbConnection; thread: Thread } {
   return { db, thread };
 }
 
-function seedThreadWithEarlyHeadState(
+async function seedThreadWithEarlyHeadState(
   db: DbConnection,
   thread: Thread,
   turns: number,
   itemsPerTurn: number,
   runningWorkflow: boolean,
   pendingCommand = false,
-): void {
+): Promise<void> {
   const events: Parameters<typeof insertEvents>[2] = [];
   let sequence = 0;
   for (let turn = 1; turn <= turns; turn += 1) {
@@ -213,7 +213,7 @@ function seedThreadWithEarlyHeadState(
       });
     }
   }
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
 const baseOptions = {
@@ -228,20 +228,24 @@ const baseOptions = {
 };
 
 describe("timeline head state under a budgeted window", () => {
-  it("keeps goal, todos, and a running workflow when the budget excludes the turn that set them", () => {
-    const { db, thread } = setup();
-    seedThreadWithEarlyHeadState(db, thread, 12, 60, true);
+  it("keeps goal, todos, and a running workflow when the budget excludes the turn that set them", async () => {
+    const { db, thread } = await setup();
+    await seedThreadWithEarlyHeadState(db, thread, 12, 60, true);
 
-    const unbudgeted = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      ...baseOptions,
-      eventBudget: 1_000_000,
-    }).response;
-    const budgeted = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      ...baseOptions,
-      eventBudget: 100,
-    }).response;
+    const unbudgeted = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        ...baseOptions,
+        eventBudget: 1_000_000,
+      })
+    ).response;
+    const budgeted = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        ...baseOptions,
+        eventBudget: 100,
+      })
+    ).response;
 
     expect(budgeted.timelinePage.returnedSegmentCount).toBeLessThan(
       unbudgeted.timelinePage.returnedSegmentCount,
@@ -261,10 +265,10 @@ describe("timeline head state under a budgeted window", () => {
     expect(budgeted.activeWorkflows).toHaveLength(1);
   });
 
-  it("keeps historical plan state without loading intervening conversation markers", () => {
-    const { db, thread } = setup();
-    seedThreadWithEarlyHeadState(db, thread, 100, 1, false);
-    const latest = buildThreadTimelineWithProfile(db, thread, {
+  it("keeps historical plan state without loading intervening conversation markers", async () => {
+    const { db, thread } = await setup();
+    await seedThreadWithEarlyHeadState(db, thread, 100, 1, false);
+    const latest = await buildThreadTimelineWithProfile(db, thread, {
       ...baseOptions,
       completedTurnDisplay: "collapse",
       eventBudget: 8,
@@ -278,20 +282,21 @@ describe("timeline head state under a budgeted window", () => {
       false,
     );
     expect(latest.profile.eventRowCount).toBeLessThan(20);
-    db.$client.close();
+    await db.close();
   });
 
-  it("still marks an omitted older message changed by a late completion", () => {
-    const { db, thread } = setup();
-    seedThreadWithEarlyHeadState(db, thread, 100, 1, false, true);
+  it("still marks an omitted older message changed by a late completion", async () => {
+    const { db, thread } = await setup();
+    await seedThreadWithEarlyHeadState(db, thread, 100, 1, false, true);
     const options = {
       ...baseOptions,
       completedTurnDisplay: "collapse" as const,
       eventBudget: 8,
       page: { kind: "latest" as const, segmentLimit: 2 },
     };
-    const before = buildThreadTimelineWithProfile(db, thread, options).response;
-    insertEvents(db, noopNotifier, [
+    const before = (await buildThreadTimelineWithProfile(db, thread, options))
+      .response;
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: before.maxSeq + 1,
@@ -316,17 +321,18 @@ describe("timeline head state under a budgeted window", () => {
         }),
       },
     ]);
-    const after = buildThreadTimelineWithProfile(db, thread, options).response;
+    const after = (await buildThreadTimelineWithProfile(db, thread, options))
+      .response;
     expect(
       after.timelinePage.olderRowUpdates?.map((row) => row.sourceSeqEnd),
     ).toContain(before.maxSeq + 1);
     expect(after.pendingTodos).toEqual(before.pendingTodos);
     expect(after.goal).toEqual(before.goal);
-    db.$client.close();
+    await db.close();
   });
 
-  it("still reports no head state when the thread never set any", () => {
-    const { db, thread } = setup();
+  it("still reports no head state when the thread never set any", async () => {
+    const { db, thread } = await setup();
     const events: Parameters<typeof insertEvents>[2] = [];
     events.push({
       threadId: thread.id,
@@ -348,13 +354,15 @@ describe("timeline head state under a budgeted window", () => {
         execution,
       }),
     });
-    insertEvents(db, noopNotifier, events);
+    await insertEvents(db, noopNotifier, events);
 
-    const budgeted = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      ...baseOptions,
-      eventBudget: 100,
-    }).response;
+    const budgeted = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        ...baseOptions,
+        eventBudget: 100,
+      })
+    ).response;
     expect(budgeted.pendingTodos).toBeNull();
     expect(budgeted.goal).toBeNull();
     expect(budgeted.activeWorkflows).toHaveLength(0);

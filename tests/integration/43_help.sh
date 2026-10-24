@@ -182,9 +182,15 @@ for f, parent, var in subs:
 missing = sorted(w for w in want if w not in known)
 assert not missing, f"dispatched but not in cg help --json: {missing}"
 
-# every row answers cg help <name> and cg <name> --help
+# every row answers cg help <name> and cg <name> --help. A front door whose
+# usage ends in <args...> forwards every argument verbatim to another program
+# (99_platform_frontdoor.sh), so only cg help <name> is its own to answer.
+forwarding = {c["name"] for c in d["commands"] if c["usage"].endswith("<args...>")}
 for n in sorted(names):
-    for argv in ([cg, "help"] + n.split(), [cg] + n.split() + ["--help"]):
+    forms = [[cg, "help"] + n.split()]
+    if n not in forwarding:
+        forms.append([cg] + n.split() + ["--help"])
+    for argv in forms:
         r = subprocess.run(argv, capture_output=True, text=True)
         assert r.returncode == 0, (argv, r.returncode, r.stderr)
         assert f"usage: {prog} " in r.stdout, argv

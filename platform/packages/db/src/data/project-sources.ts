@@ -1,5 +1,15 @@
 import { hostPathEquals } from "./host-path-sql.js";
-import { and, asc, count, desc, eq, inArray, isNull, ne, notInArray } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  notInArray,
+} from "drizzle-orm";
 import type { ProjectSource } from "@hyperfide/domain";
 import type { DbConnection } from "../connection.js";
 import type { DbNotifier } from "../notifier.js";
@@ -35,15 +45,15 @@ export function toProjectSource(row: ProjectSourceRow): ProjectSource {
   };
 }
 
-export function createProjectSource(
+export async function createProjectSource(
   db: DbConnection,
   notifier: DbNotifier,
   input: CreateProjectSourceInput,
 ) {
-  const row = db.transaction((tx) => {
+  const row = await db.transaction(async (tx) => {
     const now = Date.now();
     const id = createProjectSourceId();
-    const existingSources = tx
+    const existingSources = await tx
       .select({ id: projectSources.id })
       .from(projectSources)
       .where(eq(projectSources.projectId, input.projectId))
@@ -52,13 +62,14 @@ export function createProjectSource(
       input.isDefault === true || existingSources.length === 0;
 
     if (shouldBeDefault) {
-      tx.update(projectSources)
+      await tx
+        .update(projectSources)
         .set({ isDefault: false, updatedAt: now })
         .where(eq(projectSources.projectId, input.projectId))
         .run();
     }
 
-    return tx
+    return await tx
       .insert(projectSources)
       .values({
         id,
@@ -74,11 +85,11 @@ export function createProjectSource(
       .returning()
       .get();
   });
-  notifier.notifyProject(input.projectId, ["project-sources-changed"]);
+  await notifier.notifyProject(input.projectId, ["project-sources-changed"]);
   return toProjectSource(row);
 }
 
-export function listProjectSourcesByProjectIds(
+export async function listProjectSourcesByProjectIds(
   db: DbConnection,
   projectIds: readonly string[],
 ) {
@@ -86,24 +97,26 @@ export function listProjectSourcesByProjectIds(
     return [];
   }
 
-  return db
-    .select()
-    .from(projectSources)
-    .where(inArray(projectSources.projectId, [...projectIds]))
-    .all()
-    .map(toProjectSource);
+  return (
+    await db
+      .select()
+      .from(projectSources)
+      .where(inArray(projectSources.projectId, [...projectIds]))
+      .all()
+  ).map(toProjectSource);
 }
 
-export function listProjectSourcesByHost(
+export async function listProjectSourcesByHost(
   db: DbConnection,
   hostId: string,
 ) {
-  return db
-    .select()
-    .from(projectSources)
-    .where(eq(projectSources.hostId, hostId))
-    .all()
-    .map(toProjectSource);
+  return (
+    await db
+      .select()
+      .from(projectSources)
+      .where(eq(projectSources.hostId, hostId))
+      .all()
+  ).map(toProjectSource);
 }
 
 export interface GetProjectSourceForProjectArgs {
@@ -111,11 +124,11 @@ export interface GetProjectSourceForProjectArgs {
   sourceId: string;
 }
 
-export function getProjectSourceForProject(
+export async function getProjectSourceForProject(
   db: DbConnection,
   args: GetProjectSourceForProjectArgs,
 ) {
-  const source = db
+  const source = await db
     .select()
     .from(projectSources)
     .where(
@@ -133,11 +146,11 @@ export interface CountProjectSourcesArgs {
   projectId: string;
 }
 
-export function countProjectSources(
+export async function countProjectSources(
   db: DbConnection,
   args: CountProjectSourcesArgs,
-): number {
-  const row = db
+): Promise<number> {
+  const row = await db
     .select({ count: count() })
     .from(projectSources)
     .where(eq(projectSources.projectId, args.projectId))
@@ -153,14 +166,14 @@ export interface UpdateLocalPathProjectSourceInput {
 
 export type UpdateProjectSourceInput = UpdateLocalPathProjectSourceInput;
 
-export function updateProjectSource(
+export async function updateProjectSource(
   db: DbConnection,
   notifier: DbNotifier,
   id: string,
   input: UpdateProjectSourceInput,
 ) {
-  const updated = db.transaction((tx) => {
-    const existing = tx
+  const updated = await db.transaction(async (tx) => {
+    const existing = await tx
       .select()
       .from(projectSources)
       .where(eq(projectSources.id, id))
@@ -171,14 +184,15 @@ export function updateProjectSource(
 
     const now = Date.now();
     if (input.isDefault) {
-      tx.update(projectSources)
+      await tx
+        .update(projectSources)
         .set({ isDefault: false, updatedAt: now })
         .where(eq(projectSources.projectId, existing.projectId))
         .run();
     }
     const { isDefault: _isDefault, ...rest } = input;
     const updatedRow =
-      tx
+      (await tx
         .update(projectSources)
         .set({
           ...rest,
@@ -187,7 +201,7 @@ export function updateProjectSource(
         })
         .where(eq(projectSources.id, id))
         .returning()
-        .get() ?? null;
+        .get()) ?? null;
 
     return updatedRow
       ? { projectId: existing.projectId, row: updatedRow }
@@ -197,17 +211,17 @@ export function updateProjectSource(
     return null;
   }
 
-  notifier.notifyProject(updated.projectId, ["project-sources-changed"]);
+  await notifier.notifyProject(updated.projectId, ["project-sources-changed"]);
   return toProjectSource(updated.row);
 }
 
-export function getProjectSourceByHost(
+export async function getProjectSourceByHost(
   db: DbConnection,
   projectId: string,
   hostId: string,
 ) {
   const source =
-    db
+    (await db
       .select()
       .from(projectSources)
       .where(
@@ -216,16 +230,16 @@ export function getProjectSourceByHost(
           eq(projectSources.hostId, hostId),
         ),
       )
-      .get() ?? null;
+      .get()) ?? null;
   return source ? toProjectSource(source) : null;
 }
 
-export function getProjectSourceOnPersistentHost(
+export async function getProjectSourceOnPersistentHost(
   db: DbConnection,
   projectId: string,
 ) {
   const row =
-    db
+    (await db
       .select({ source: projectSources })
       .from(projectSources)
       .innerJoin(hosts, eq(hosts.id, projectSources.hostId))
@@ -244,17 +258,17 @@ export function getProjectSourceOnPersistentHost(
         asc(projectSources.id),
       )
       .limit(1)
-      .get() ?? null;
+      .get()) ?? null;
   return row ? toProjectSource(row.source) : null;
 }
 
-export function deleteProjectSource(
+export async function deleteProjectSource(
   db: DbConnection,
   notifier: DbNotifier,
   id: string,
 ) {
-  const deleted = db.transaction((tx) => {
-    const existing = tx
+  const deleted = await db.transaction(async (tx) => {
+    const existing = await tx
       .select()
       .from(projectSources)
       .where(eq(projectSources.id, id))
@@ -264,16 +278,17 @@ export function deleteProjectSource(
     }
 
     const now = Date.now();
-    tx.delete(projectSources).where(eq(projectSources.id, id)).run();
+    await tx.delete(projectSources).where(eq(projectSources.id, id)).run();
     if (existing.isDefault) {
       const replacement =
-        tx
+        (await tx
           .select()
           .from(projectSources)
           .where(eq(projectSources.projectId, existing.projectId))
-          .get() ?? null;
+          .get()) ?? null;
       if (replacement) {
-        tx.update(projectSources)
+        await tx
+          .update(projectSources)
           .set({ isDefault: true, updatedAt: now })
           .where(
             and(
@@ -290,13 +305,29 @@ export function deleteProjectSource(
     return false;
   }
 
-  notifier.notifyProject(deleted, ["project-sources-changed"]);
+  await notifier.notifyProject(deleted, ["project-sources-changed"]);
   return true;
 }
 
-
-export function projectSourceOwnsPath(db: DbConnection, projectId: string, hostId: string, path: string): boolean {
-  return db.select({ ownsPath: projectSources.ownsPath }).from(projectSources).where(and(
-    eq(projectSources.projectId, projectId), eq(projectSources.hostId, hostId), hostPathEquals(projectSources.path, path),
-  )).get()?.ownsPath ?? false;
+export async function projectSourceOwnsPath(
+  db: DbConnection,
+  projectId: string,
+  hostId: string,
+  path: string,
+): Promise<boolean> {
+  return (
+    (
+      await db
+        .select({ ownsPath: projectSources.ownsPath })
+        .from(projectSources)
+        .where(
+          and(
+            eq(projectSources.projectId, projectId),
+            eq(projectSources.hostId, hostId),
+            hostPathEquals(projectSources.path, path),
+          ),
+        )
+        .get()
+    )?.ownsPath ?? false
+  );
 }

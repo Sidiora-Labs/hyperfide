@@ -37,10 +37,7 @@ export function providerOperations(
   decide: (
     context: TestEnvironmentProviderContext,
   ) => TestProviderDecision | Promise<TestProviderDecision>,
-): Pick<
-  PluginEnvironmentProviderDeclaration,
-  "create" | "restore" | "remove"
-> {
+): Pick<PluginEnvironmentProviderDeclaration, "create" | "restore" | "remove"> {
   async function run(
     context: TestEnvironmentProviderContext,
     report: Parameters<
@@ -58,9 +55,9 @@ export function providerOperations(
 
           message: decision.message,
         };
-      if (decision.log !== undefined) report.log(decision.log);
+      if (decision.log !== undefined) await report.log(decision.log);
       if (decision.action === "wait") {
-        report.step(decision.reason);
+        await report.step(decision.reason);
         await new Promise<void>((resolve) => setTimeout(resolve, 10));
         continue;
       }
@@ -89,7 +86,7 @@ export function providerOperations(
         inputs: jsonValueSchema.parse(context.inputs),
         environment: null,
       };
-      return run(facts, context.report, context.signal);
+      return await run(facts, context.report, context.signal);
     },
     restore: async (context) => {
       const facts = {
@@ -98,7 +95,7 @@ export function providerOperations(
         inputs: jsonValueSchema.parse(context.inputs),
         environment: context.previous.environment,
       };
-      return run(facts, context.report, context.signal);
+      return await run(facts, context.report, context.signal);
     },
     remove: async () => ({ status: "removed" }),
   };

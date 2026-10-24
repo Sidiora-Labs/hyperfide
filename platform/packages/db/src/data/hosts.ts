@@ -56,12 +56,12 @@ export interface UpdateHostInput {
   teardownStatus?: "running" | "failed" | "removed" | null;
 }
 
-function notifyHostMutation(
+async function notifyHostMutation(
   db: HostWriteConnection,
   notifier: DbNotifier,
-  previous: ReturnType<typeof getHost>,
-  next: ReturnType<typeof getHost>,
-): void {
+  previous: Awaited<ReturnType<typeof getHost>>,
+  next: Awaited<ReturnType<typeof getHost>>,
+): Promise<void> {
   if (!previous || !next) {
     return;
   }
@@ -70,12 +70,12 @@ function notifyHostMutation(
     resolveEnvironmentHostLifecycle(previous) !==
     resolveEnvironmentHostLifecycle(next)
   ) {
-    for (const environment of db
+    for (const environment of await db
       .select({ id: environments.id })
       .from(environments)
       .where(eq(environments.hostId, next.id))
       .all()) {
-      notifier.notifyEnvironment(environment.id, ["status-changed"]);
+      await notifier.notifyEnvironment(environment.id, ["status-changed"]);
     }
   }
 
@@ -84,12 +84,12 @@ function notifyHostMutation(
     return;
   }
 
-  notifier.notifyHost(next.id, [hostChange]);
+  await notifier.notifyHost(next.id, [hostChange]);
 }
 
 function getHostConnectionChange(
-  previous: NonNullable<ReturnType<typeof getHost>>,
-  next: NonNullable<ReturnType<typeof getHost>>,
+  previous: NonNullable<Awaited<ReturnType<typeof getHost>>>,
+  next: NonNullable<Awaited<ReturnType<typeof getHost>>>,
 ): HostChangeKind | null {
   if (previous.destroyedAt === null && next.destroyedAt !== null) {
     return "host-disconnected";
@@ -102,17 +102,17 @@ function getHostConnectionChange(
   return null;
 }
 
-export function upsertHost(
+export async function upsertHost(
   db: HostWriteConnection,
   notifier: DbNotifier,
   input: UpsertHostInput,
 ) {
   const now = Date.now();
   const id = input.id ?? createHostId();
-  const existing = db.select().from(hosts).where(eq(hosts.id, id)).get();
+  const existing = await db.select().from(hosts).where(eq(hosts.id, id)).get();
 
   if (existing) {
-    const updated = db
+    const updated = (await db
       .update(hosts)
       .set({
         type: input.type ?? existing.type,
@@ -130,11 +130,11 @@ export function upsertHost(
       })
       .where(eq(hosts.id, id))
       .returning()
-      .get()!;
-    notifyHostMutation(db, notifier, existing, updated);
+      .get())!;
+    await notifyHostMutation(db, notifier, existing, updated);
     return updated;
   } else {
-    const row = db
+    const row = await db
       .insert(hosts)
       .values({
         id,
@@ -158,17 +158,18 @@ export function upsertHost(
       })
       .returning()
       .get();
-    notifier.notifyHost(id, ["host-connected"]);
+    await notifier.notifyHost(id, ["host-connected"]);
     return row;
   }
 }
 
-export function markHostSeen(
+export async function markHostSeen(
   db: HostWriteConnection,
   hostId: string,
   at: number = Date.now(),
-): void {
-  db.update(hosts)
+): Promise<void> {
+  await db
+    .update(hosts)
     .set({ lastSeenAt: at, updatedAt: at })
     .where(eq(hosts.id, hostId))
     .run();
@@ -181,42 +182,42 @@ const prepareGetHost = (db: DbQueryConnection) =>
     .where(eq(hosts.id, placeholder("id")))
     .prepare();
 
-export function getHost(db: HostWriteConnection, id: string) {
-  return prepareCachedQuery(db, prepareGetHost).get({ id }) ?? null;
+export async function getHost(db: HostWriteConnection, id: string) {
+  return (await prepareCachedQuery(db, prepareGetHost).get({ id })) ?? null;
 }
 
-export function getNonDestroyedHost(db: DbConnection, id: string) {
+export async function getNonDestroyedHost(db: DbConnection, id: string) {
   return (
-    db
+    (await db
       .select()
       .from(hosts)
       .where(and(eq(hosts.id, id), isNull(hosts.destroyedAt)))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function getNonDestroyedHostByLaunchKey(
+export async function getNonDestroyedHostByLaunchKey(
   db: HostWriteConnection,
   launchKey: string,
 ) {
   return (
-    db
+    (await db
       .select()
       .from(hosts)
       .where(and(eq(hosts.launchKey, launchKey), isNull(hosts.destroyedAt)))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function listHosts(db: DbConnection) {
-  return db.select().from(hosts).all();
+export async function listHosts(db: DbConnection) {
+  return await db.select().from(hosts).all();
 }
 
-export function listPublicHosts(
+export async function listPublicHosts(
   db: DbConnection,
   options?: { includeCreating?: boolean; type?: HostType },
 ) {
-  return db
+  return await db
     .select()
     .from(hosts)
     .where(
@@ -229,16 +230,19 @@ export function listPublicHosts(
     .all();
 }
 
-export function listHostsByIds(db: DbConnection, hostIds: readonly string[]) {
+export async function listHostsByIds(
+  db: DbConnection,
+  hostIds: readonly string[],
+) {
   if (hostIds.length === 0) return [];
-  return db
+  return await db
     .select()
     .from(hosts)
     .where(inArray(hosts.id, [...hostIds]))
     .all();
 }
 
-export function listNonDestroyedHostsByIds(
+export async function listNonDestroyedHostsByIds(
   db: DbConnection,
   hostIds: readonly string[],
 ) {
@@ -246,26 +250,27 @@ export function listNonDestroyedHostsByIds(
     return [];
   }
 
-  return db
+  return await db
     .select()
     .from(hosts)
     .where(and(inArray(hosts.id, [...hostIds]), isNull(hosts.destroyedAt)))
     .all();
 }
 
-export function updateHost(
-  db: DbConnection,
+export async function updateHost(
+  db: HostWriteConnection,
   notifier: DbNotifier,
   hostId: string,
   input: UpdateHostInput,
 ) {
-  const existing = getHost(db, hostId);
+  const existing = await getHost(db, hostId);
   if (!existing) {
     return null;
   }
 
   const now = Date.now();
-  db.update(hosts)
+  await db
+    .update(hosts)
     .set({
       ...(input.type !== undefined ? { type: input.type } : {}),
       ...(input.destroyedAt !== undefined
@@ -314,7 +319,7 @@ export function updateHost(
     .where(eq(hosts.id, hostId))
     .run();
 
-  const updated = getHost(db, hostId);
-  notifyHostMutation(db, notifier, existing, updated);
+  const updated = await getHost(db, hostId);
+  await notifyHostMutation(db, notifier, existing, updated);
   return updated;
 }

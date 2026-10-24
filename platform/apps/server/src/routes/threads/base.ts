@@ -98,24 +98,24 @@ interface BuildThreadSearchResponseArgs {
   archived: DbThreadSearchResultGroup;
 }
 
-function resolveIncludedThreadEnvironment(
+async function resolveIncludedThreadEnvironment(
   deps: Pick<AppDeps, "db">,
   thread: Thread,
-): Environment | null {
+): Promise<Environment | null> {
   if (thread.environmentId === null) {
     return null;
   }
-  const environment = getEnvironment(deps.db, thread.environmentId);
+  const environment = await getEnvironment(deps.db, thread.environmentId);
   return environment === null
     ? null
-    : toEnvironmentResponse(deps.db, environment);
+    : await toEnvironmentResponse(deps.db, environment);
 }
 
-function buildThreadResponse(
+async function buildThreadResponse(
   deps: AppDeps,
   args: BuildThreadResponseArgs,
-): ThreadWithIncludesResponse {
-  const response: ThreadWithIncludesResponse = toThreadResponseFromThread(
+): Promise<ThreadWithIncludesResponse> {
+  const response: ThreadWithIncludesResponse = await toThreadResponseFromThread(
     deps,
     {
       thread: args.thread,
@@ -124,7 +124,7 @@ function buildThreadResponse(
   const shouldResolveEnvironment =
     args.includes.has("environment") || args.includes.has("host");
   const environment = shouldResolveEnvironment
-    ? resolveIncludedThreadEnvironment(deps, args.thread)
+    ? await resolveIncludedThreadEnvironment(deps, args.thread)
     : null;
 
   if (args.includes.has("environment")) {
@@ -132,10 +132,10 @@ function buildThreadResponse(
   }
   if (args.includes.has("host")) {
     response.host = environment
-      ? getNonDestroyedHostWithStatus(deps, environment.hostId)
+      ? await getNonDestroyedHostWithStatus(deps, environment.hostId)
       : null;
     response.environmentHostName = environment
-      ? (getHost(deps.db, environment.hostId)?.name ?? null)
+      ? ((await getHost(deps.db, environment.hostId))?.name ?? null)
       : null;
   }
   return response;
@@ -181,20 +181,20 @@ function parseSearchLimitPerGroup(value: string | undefined): number {
   return limit;
 }
 
-function requireThreadSection(
+async function requireThreadSection(
   deps: Pick<AppDeps, "db">,
   sectionId: string,
-): void {
-  if (!getThreadSectionById(deps.db, sectionId)) {
+): Promise<void> {
+  if (!(await getThreadSectionById(deps.db, sectionId))) {
     throw new ApiError(404, "section_not_found", "Section not found");
   }
 }
 
-function buildThreadSearchGroupResponse(
+async function buildThreadSearchGroupResponse(
   deps: AppDeps,
   args: BuildThreadSearchGroupResponseArgs,
-): ThreadSearchResultGroupResponse {
-  const threadEntries = toThreadListEntryResponses(deps, {
+): Promise<ThreadSearchResultGroupResponse> {
+  const threadEntries = await toThreadListEntryResponses(deps, {
     threads: args.group.results.map((result) => result.thread),
   });
   const threadEntriesById = new Map(
@@ -213,13 +213,15 @@ function buildThreadSearchGroupResponse(
   };
 }
 
-function buildThreadSearchResponse(
+async function buildThreadSearchResponse(
   deps: AppDeps,
   args: BuildThreadSearchResponseArgs,
-): ThreadSearchResponse {
+): Promise<ThreadSearchResponse> {
   return {
-    active: buildThreadSearchGroupResponse(deps, { group: args.active }),
-    archived: buildThreadSearchGroupResponse(deps, { group: args.archived }),
+    active: await buildThreadSearchGroupResponse(deps, { group: args.active }),
+    archived: await buildThreadSearchGroupResponse(deps, {
+      group: args.archived,
+    }),
   };
 }
 
@@ -229,11 +231,11 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
   });
   const routes = publicApiRoutes.threads;
 
-  get(routes.count, (context, query) => {
+  get(routes.count, async (context, query) => {
     if (query.projectId) {
-      requirePublicProject(deps.db, query.projectId);
+      await requirePublicProject(deps.db, query.projectId);
     }
-    const result = countThreads(deps.db, {
+    const result = await countThreads(deps.db, {
       ...(query.status !== undefined ? { status: query.status } : {}),
       ...(query.hostId !== undefined ? { hostId: query.hostId } : {}),
       ...(query.providerId !== undefined
@@ -262,23 +264,23 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
     return context.json(response);
   });
 
-  post(routes.ancestors, (context, payload) => {
+  post(routes.ancestors, async (context, payload) => {
     return context.json({
-      threads: listThreadAncestors(deps.db, payload.threadIds),
+      threads: await listThreadAncestors(deps.db, payload.threadIds),
     } satisfies ThreadAncestorsListResponse);
   });
 
-  post(routes.descendants, (context, payload) => {
+  post(routes.descendants, async (context, payload) => {
     return context.json({
-      threads: listThreadDescendants(deps.db, payload.threadIds, {
+      threads: await listThreadDescendants(deps.db, payload.threadIds, {
         includeArchived: payload.includeArchived ?? false,
         includeHidden: payload.includeHidden ?? false,
       }),
     } satisfies ThreadDescendantsListResponse);
   });
 
-  post(routes.pluginMetadata.list, (context, payload) => {
-    const { threads, corruptThreadIds } = listPluginThreadMetadata(
+  post(routes.pluginMetadata.list, async (context, payload) => {
+    const { threads, corruptThreadIds } = await listPluginThreadMetadata(
       deps.db,
       payload.pluginId,
       payload.threadIds,
@@ -291,19 +293,21 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ threads } satisfies PluginThreadMetadataListResponse);
   });
 
-  get(routes.running, (context) => {
+  get(routes.running, async (context) => {
     return context.json(
-      listRunningThreadsWithIntendedHosts(deps) satisfies ThreadRunningResponse,
+      (await listRunningThreadsWithIntendedHosts(
+        deps,
+      )) satisfies ThreadRunningResponse,
     );
   });
 
-  get(routes.list, (context, query) => {
+  get(routes.list, async (context, query) => {
     const { limit, offset } = parsePaginationQuery({
       limit: query.limit,
       offset: query.offset,
     });
     if (query.projectId) {
-      requirePublicProject(deps.db, query.projectId);
+      await requirePublicProject(deps.db, query.projectId);
     }
     if (query.sectionId && query.unsectioned === "true") {
       throw new ApiError(
@@ -313,9 +317,9 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
       );
     }
     if (query.sectionId) {
-      requireThreadSection(deps, query.sectionId);
+      await requireThreadSection(deps, query.sectionId);
     }
-    const threads = listThreadsWithPendingInteractionState(deps.db, {
+    const threads = await listThreadsWithPendingInteractionState(deps.db, {
       ...(query.projectId ? { projectId: query.projectId } : {}),
       ...(query.environmentId ? { environmentId: query.environmentId } : {}),
       ...(query.hostId ? { hostId: query.hostId } : {}),
@@ -337,11 +341,13 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
       ...(offset !== undefined ? { offset } : {}),
     });
     return context.json(
-      toThreadListEntryResponses(deps, { threads }) satisfies ThreadListEntry[],
+      (await toThreadListEntryResponses(deps, {
+        threads,
+      })) satisfies ThreadListEntry[],
     );
   });
 
-  get(routes.search, (context, query) => {
+  get(routes.search, async (context, query) => {
     const searchQuery = query.query.trim();
     if (countNonWhitespaceChars(searchQuery) < 2) {
       throw new ApiError(
@@ -352,22 +358,21 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
     }
     const limitPerGroup = parseSearchLimitPerGroup(query.limitPerGroup);
     return context.json(
-      buildThreadSearchResponse(deps, {
-        ...searchThreadsWithPendingInteractionState(deps.db, {
+      (await buildThreadSearchResponse(deps, {
+        ...(await searchThreadsWithPendingInteractionState(deps.db, {
           query: searchQuery,
           limitPerGroup,
-        }),
-      }) satisfies ThreadSearchResponse,
+        })),
+      })) satisfies ThreadSearchResponse,
     );
   });
 
-  post(routes.resolveMentions, (context, payload) => {
+  post(routes.resolveMentions, async (context, payload) => {
     const uniqueThreadIds = [...new Set(payload.threadIds)];
     const rowsById = new Map(
-      listThreadMentionRowsByIds(deps.db, uniqueThreadIds).map((thread) => [
-        thread.id,
-        thread,
-      ]),
+      (await listThreadMentionRowsByIds(deps.db, uniqueThreadIds)).map(
+        (thread) => [thread.id, thread],
+      ),
     );
     const resolved = uniqueThreadIds.flatMap((threadId) => {
       const thread = rowsById.get(threadId);
@@ -387,52 +392,63 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
 
   post(routes.create, async (context, payload) => {
     if (payload.sectionId) {
-      requireThreadSection(deps, payload.sectionId);
+      await requireThreadSection(deps, payload.sectionId);
     }
     const thread = await createThreadFromRequest(deps, {
       ...payload,
       origin: payload.origin,
     });
-    return context.json(toThreadResponseFromThread(deps, { thread }), 201);
+    return context.json(
+      await toThreadResponseFromThread(deps, { thread }),
+      201,
+    );
   });
 
   post(routes.fork, async (context, payload) => {
     const thread = await createThreadForkFromRequest(deps, payload);
-    return context.json(toThreadResponseFromThread(deps, { thread }), 201);
+    return context.json(
+      await toThreadResponseFromThread(deps, { thread }),
+      201,
+    );
   });
 
-  get(routes.get, (context, query) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.get, async (context, query) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      buildThreadResponse(deps, {
+      await buildThreadResponse(deps, {
         includes: parseThreadIncludes(query),
         thread,
       }),
     );
   });
 
-  function getThreadChildSummary(thread: Thread): ThreadChildSummaryResponse {
-    const nonDeletedChildCount = countNonDeletedAssignedChildThreads(deps.db, {
-      parentThreadId: thread.id,
-    });
+  async function getThreadChildSummary(
+    thread: Thread,
+  ): Promise<ThreadChildSummaryResponse> {
+    const nonDeletedChildCount = await countNonDeletedAssignedChildThreads(
+      deps.db,
+      {
+        parentThreadId: thread.id,
+      },
+    );
     return {
       nonDeletedChildCount,
-      unarchivedDescendantCount: countUnarchivedThreadDescendants(
+      unarchivedDescendantCount: await countUnarchivedThreadDescendants(
         deps.db,
         thread,
       ),
     };
   }
 
-  get(routes.childSummary, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    return context.json(getThreadChildSummary(thread));
+  get(routes.childSummary, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    return context.json(await getThreadChildSummary(thread));
   });
 
   patch(routes.update, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     if (payload.parentThreadId) {
-      assertValidParentThread(deps, {
+      await assertValidParentThread(deps, {
         childThreadId: thread.id,
         parentThreadId: payload.parentThreadId,
       });
@@ -451,7 +467,7 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
     }
 
     if (payload.sessionOptions !== undefined) {
-      applyThreadSessionOptionPatch(deps, {
+      await applyThreadSessionOptionPatch(deps, {
         thread,
         patch: payload.sessionOptions,
       });
@@ -464,7 +480,7 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
     const sectionId = payload.sectionId;
     if (sectionId !== undefined) {
       if (sectionId !== null) {
-        requireThreadSection(deps, sectionId);
+        await requireThreadSection(deps, sectionId);
       }
       metadataUpdate.sectionId = sectionId;
     } else if (
@@ -472,7 +488,7 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
       thread.parentThreadId !== null
     ) {
       metadataUpdate.sectionId =
-        getThread(deps.db, thread.parentThreadId)?.sectionId ?? null;
+        (await getThread(deps.db, thread.parentThreadId))?.sectionId ?? null;
     }
     if ("parentThreadId" in payload) {
       metadataUpdate.parentThreadId = payload.parentThreadId;
@@ -485,8 +501,8 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
     }
     const updated =
       Object.keys(metadataUpdate).length > 0
-        ? updateThread(deps.db, deps.hub, thread.id, metadataUpdate)
-        : requirePublicThread(deps.db, thread.id);
+        ? await updateThread(deps.db, deps.hub, thread.id, metadataUpdate)
+        : await requirePublicThread(deps.db, thread.id);
     if (!updated) {
       throw new ApiError(404, "thread_not_found", "Thread not found");
     }
@@ -496,9 +512,12 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
       payload.title !== thread.title &&
       updated.environmentId
     ) {
-      const environment = requireEnvironment(deps.db, updated.environmentId);
+      const environment = await requireEnvironment(
+        deps.db,
+        updated.environmentId,
+      );
       if (environment.status === "ready" && environment.path) {
-        dispatchThreadRenameCommand(deps, {
+        await dispatchThreadRenameCommand(deps, {
           environment: {
             id: environment.id,
             hostId: environment.hostId,
@@ -520,33 +539,35 @@ export function registerThreadBaseRoutes(app: Hono, deps: AppDeps): void {
       });
     }
 
-    return context.json(toThreadResponseFromThread(deps, { thread: updated }));
+    return context.json(
+      await toThreadResponseFromThread(deps, { thread: updated }),
+    );
   });
 
   del(routes.delete, async (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    requireChildThreadsConfirmation({
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    await requireChildThreadsConfirmation({
       action: "delete",
       confirmed: payload.childThreadsConfirmed,
       deps,
       thread,
     });
-    const dependents = listThreadDeletionTree(deps.db, thread.id);
-    markThreadDeleted(deps.db, deps.hub, { threadId: thread.id });
+    const dependents = await listThreadDeletionTree(deps.db, thread.id);
+    await markThreadDeleted(deps.db, deps.hub, { threadId: thread.id });
     for (const dependent of dependents) {
-      const deleted = getThread(deps.db, dependent.id);
+      const deleted = await getThread(deps.db, dependent.id);
       if (!deleted) continue;
       if (dependent.deletedAt === null) emitPluginThreadDeleted(deleted);
-      cancelAbandonedProviderCreations(deps, deleted.id);
-      deps.terminalSessions.closeDeletedThreadTerminals({
+      await cancelAbandonedProviderCreations(deps, deleted.id);
+      await deps.terminalSessions.closeDeletedThreadTerminals({
         threadId: deleted.id,
       });
-      requestThreadStorageDeletion(
+      await requestThreadStorageDeletion(
         deps,
         deleted,
         deleted.environmentId === null
           ? null
-          : getEnvironment(deps.db, deleted.environmentId),
+          : await getEnvironment(deps.db, deleted.environmentId),
       );
     }
     return context.json({ ok: true });

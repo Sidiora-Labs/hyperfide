@@ -27,8 +27,8 @@ export async function serveDaemonFileStream(
   request: Request,
   prepareHeaders: (metadata: FileChunk) => Headers,
 ): Promise<Response> {
-  const read: ReadChunk = (offset, length, revision, signal) =>
-    callHostRetryableOnlineRpc(deps, {
+  const read: ReadChunk = async (offset, length, revision, signal) =>
+    await callHostRetryableOnlineRpc(deps, {
       hostId: target.hostId,
       signal,
       timeoutMs: COMMAND_TIMEOUT_MS,
@@ -75,7 +75,7 @@ export async function createDaemonFileStreamResponse(
     );
   if (!headers.has("cache-control"))
     headers.set("cache-control", "private, no-cache");
-  return createFileStreamResponse({
+  return await createFileStreamResponse({
     request,
     headers,
     source: createDaemonFileSource(metadata, read),

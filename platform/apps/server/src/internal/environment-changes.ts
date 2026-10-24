@@ -33,11 +33,11 @@ export function notifyWorkspaceMutationResult(
   deps.hub.notifyEnvironment(args.environmentId, ["work-status-changed"]);
 }
 
-export function notifyDaemonEnvironmentChange(
+export async function notifyDaemonEnvironmentChange(
   deps: Pick<AppDeps, "db" | "hub">,
   args: NotifyDaemonEnvironmentChangeArgs,
-): void {
-  const environment = getEnvironment(deps.db, args.environmentId);
+): Promise<void> {
+  const environment = await getEnvironment(deps.db, args.environmentId);
   if (
     !environment ||
     environment.hostId !== args.hostId ||
@@ -46,14 +46,14 @@ export function notifyDaemonEnvironmentChange(
     return;
   }
 
-  deps.hub.notifyEnvironment(environment.id, [args.change]);
+  await deps.hub.notifyEnvironment(environment.id, [args.change]);
 }
 
-export function recordDaemonEnvironmentMetadataChange(
+export async function recordDaemonEnvironmentMetadataChange(
   deps: Pick<AppDeps, "db" | "hub">,
   args: RecordDaemonEnvironmentMetadataChangeArgs,
-): void {
-  const environment = getEnvironment(deps.db, args.environmentId);
+): Promise<void> {
+  const environment = await getEnvironment(deps.db, args.environmentId);
   if (
     !environment ||
     environment.hostId !== args.hostId ||
@@ -63,7 +63,7 @@ export function recordDaemonEnvironmentMetadataChange(
     return;
   }
 
-  recordProvisionedEnvironmentWorkspace(
+  await recordProvisionedEnvironmentWorkspace(
     deps.db,
     deps.hub,
     environment.id,

@@ -47,10 +47,10 @@ function isRestoreReadyThreadStatus(status: Thread["status"]): boolean {
   return status === "idle" || status === "error";
 }
 
-export function resolveThreadEnvironmentRestore(
+export async function resolveThreadEnvironmentRestore(
   deps: ThreadEnvironmentRestoreDeps,
   args: { thread: RestoreCandidateThread },
-): ThreadEnvironmentRestoreResolution {
+): Promise<ThreadEnvironmentRestoreResolution> {
   const { thread } = args;
   if (thread.deletedAt !== null || thread.archivedAt !== null) {
     return { restorable: false, refusal: "thread_busy" };
@@ -61,7 +61,7 @@ export function resolveThreadEnvironmentRestore(
   if (thread.environmentId === null) {
     return { restorable: false, refusal: "never_attached" };
   }
-  const environment = getEnvironment(deps.db, thread.environmentId);
+  const environment = await getEnvironment(deps.db, thread.environmentId);
   if (environment === null) {
     return { restorable: false, refusal: "never_attached" };
   }
@@ -81,8 +81,9 @@ export function resolveThreadEnvironmentRestore(
     return { restorable: false, refusal: "unrecoverable" };
   }
   if (
-    resolveEnvironmentHostLifecycle(getHost(deps.db, environment.hostId)) !==
-    "active"
+    resolveEnvironmentHostLifecycle(
+      await getHost(deps.db, environment.hostId),
+    ) !== "active"
   ) {
     return { restorable: false, refusal: "unrecoverable" };
   }
@@ -96,11 +97,11 @@ export function resolveThreadEnvironmentRestore(
   };
 }
 
-export function canRestoreThreadEnvironment(
+export async function canRestoreThreadEnvironment(
   deps: ThreadEnvironmentRestoreDeps,
   args: { thread: RestoreCandidateThread },
-): boolean {
-  return resolveThreadEnvironmentRestore(deps, args).restorable;
+): Promise<boolean> {
+  return (await resolveThreadEnvironmentRestore(deps, args)).restorable;
 }
 
 export function throwThreadEnvironmentRestoreRefusal(

@@ -87,14 +87,14 @@ function sliceInClauseBatches<T>(values: readonly T[]): T[][] {
   return batches;
 }
 
-function updatePendingInteractionTerminalState(
+async function updatePendingInteractionTerminalState(
   db: PendingInteractionWriteConnection,
   args: SetPendingInteractionTerminalStateArgs,
-): PendingInteractionRow | null {
+): Promise<PendingInteractionRow | null> {
   const now = Date.now();
 
   return (
-    db
+    (await db
       .update(pendingInteractions)
       .set({
         status: args.status,
@@ -110,17 +110,17 @@ function updatePendingInteractionTerminalState(
         ),
       )
       .returning()
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function createPendingInteraction(
+export async function createPendingInteraction(
   db: PendingInteractionWriteConnection,
   input: CreatePendingInteractionInput,
-): PendingInteractionRow {
+): Promise<PendingInteractionRow> {
   const now = Date.now();
 
-  return db
+  return await db
     .insert(pendingInteractions)
     .values({
       id: createPendingInteractionId(),
@@ -147,25 +147,25 @@ export function createPendingInteraction(
     .get();
 }
 
-export function getPendingInteraction(
+export async function getPendingInteraction(
   db: PendingInteractionReadConnection,
   id: string,
-): PendingInteractionRow | null {
+): Promise<PendingInteractionRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(pendingInteractions)
       .where(eq(pendingInteractions.id, id))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function getPendingInteractionByProviderRequest(
+export async function getPendingInteractionByProviderRequest(
   db: PendingInteractionReadConnection,
   args: PendingInteractionProviderRequestIdentity,
-): PendingInteractionRow | null {
+): Promise<PendingInteractionRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(pendingInteractions)
       .where(
@@ -176,14 +176,14 @@ export function getPendingInteractionByProviderRequest(
           eq(pendingInteractions.providerRequestId, args.providerRequestId),
         ),
       )
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function listActivePluginPendingInteractions(
+export async function listActivePluginPendingInteractions(
   db: PendingInteractionReadConnection,
-): PendingInteractionRow[] {
-  return db
+): Promise<PendingInteractionRow[]> {
+  return await db
     .select()
     .from(pendingInteractions)
     .where(
@@ -196,12 +196,12 @@ export function listActivePluginPendingInteractions(
     .all();
 }
 
-export function getActivePendingInteractionForThread(
+export async function getActivePendingInteractionForThread(
   db: PendingInteractionReadConnection,
   threadId: string,
-): PendingInteractionRow | null {
+): Promise<PendingInteractionRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(pendingInteractions)
       .where(
@@ -211,16 +211,16 @@ export function getActivePendingInteractionForThread(
         ),
       )
       .orderBy(desc(pendingInteractions.createdAt))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function hasTurnBoundActivePendingInteractionForThread(
+export async function hasTurnBoundActivePendingInteractionForThread(
   db: PendingInteractionReadConnection,
   threadId: string,
-): boolean {
+): Promise<boolean> {
   return (
-    db
+    (await db
       .select({ id: pendingInteractions.id })
       .from(pendingInteractions)
       .where(
@@ -230,15 +230,15 @@ export function hasTurnBoundActivePendingInteractionForThread(
           isNotNull(pendingInteractions.turnId),
         ),
       )
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-export function listPendingInteractionsByThread(
+export async function listPendingInteractionsByThread(
   db: PendingInteractionReadConnection,
   args: ListPendingInteractionsArgs,
-): PendingInteractionRow[] {
-  return db
+): Promise<PendingInteractionRow[]> {
+  return await db
     .select()
     .from(pendingInteractions)
     .where(
@@ -253,14 +253,14 @@ export function listPendingInteractionsByThread(
     .all();
 }
 
-export function setPendingInteractionResolved(
+export async function setPendingInteractionResolved(
   db: PendingInteractionWriteConnection,
   args: {
     id: string;
     resolution: string;
   },
-): PendingInteractionRow | null {
-  return updatePendingInteractionTerminalState(db, {
+): Promise<PendingInteractionRow | null> {
+  return await updatePendingInteractionTerminalState(db, {
     id: args.id,
     allowedCurrentStatuses: ["pending", "resolving"],
     resolution: args.resolution,
@@ -269,14 +269,14 @@ export function setPendingInteractionResolved(
   });
 }
 
-export function setPendingInteractionResolving(
+export async function setPendingInteractionResolving(
   db: PendingInteractionWriteConnection,
   args: SetPendingInteractionResolvingArgs,
-): PendingInteractionRow | null {
+): Promise<PendingInteractionRow | null> {
   const now = Date.now();
 
   return (
-    db
+    (await db
       .update(pendingInteractions)
       .set({
         status: "resolving",
@@ -291,18 +291,18 @@ export function setPendingInteractionResolving(
         ),
       )
       .returning()
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function setPendingInteractionInterrupted(
+export async function setPendingInteractionInterrupted(
   db: PendingInteractionWriteConnection,
   args: {
     id: string;
     statusReason: string;
   },
-): PendingInteractionRow | null {
-  return updatePendingInteractionTerminalState(db, {
+): Promise<PendingInteractionRow | null> {
+  return await updatePendingInteractionTerminalState(db, {
     id: args.id,
     allowedCurrentStatuses: ["pending", "resolving"],
     resolution: null,
@@ -311,14 +311,14 @@ export function setPendingInteractionInterrupted(
   });
 }
 
-function interruptPendingInteractionsBatched(
+async function interruptPendingInteractionsBatched(
   db: PendingInteractionWriteConnection,
   args: {
     extraConditions: SQL[];
     statusReason: string;
     threadIds: readonly string[];
   },
-): PendingInteractionRow[] {
+): Promise<PendingInteractionRow[]> {
   if (args.threadIds.length === 0) {
     return [];
   }
@@ -328,7 +328,7 @@ function interruptPendingInteractionsBatched(
 
   for (const threadIdsBatch of sliceInClauseBatches(args.threadIds)) {
     interruptedRows.push(
-      ...db
+      ...(await db
         .update(pendingInteractions)
         .set({
           status: "interrupted",
@@ -344,18 +344,18 @@ function interruptPendingInteractionsBatched(
           ),
         )
         .returning()
-        .all(),
+        .all()),
     );
   }
 
   return interruptedRows;
 }
 
-export function interruptPendingInteractionsForThreads(
+export async function interruptPendingInteractionsForThreads(
   db: PendingInteractionWriteConnection,
   args: InterruptPendingInteractionsForThreadsArgs,
-): PendingInteractionRow[] {
-  return interruptPendingInteractionsBatched(db, {
+): Promise<PendingInteractionRow[]> {
+  return await interruptPendingInteractionsBatched(db, {
     extraConditions: [
       eq(pendingInteractions.originKind, "provider"),
       eq(pendingInteractions.providerId, args.providerId),
@@ -365,12 +365,12 @@ export function interruptPendingInteractionsForThreads(
   });
 }
 
-export function interruptPendingInteractionsForPlugin(
+export async function interruptPendingInteractionsForPlugin(
   db: PendingInteractionWriteConnection,
   args: InterruptPendingInteractionsForPluginArgs,
-): PendingInteractionRow[] {
+): Promise<PendingInteractionRow[]> {
   const now = Date.now();
-  return db
+  return await db
     .update(pendingInteractions)
     .set({
       status: "interrupted",
@@ -389,11 +389,11 @@ export function interruptPendingInteractionsForPlugin(
     .all();
 }
 
-export function interruptPendingInteractionsForThreadIds(
+export async function interruptPendingInteractionsForThreadIds(
   db: PendingInteractionWriteConnection,
   args: InterruptPendingInteractionsForThreadIdsArgs,
-): PendingInteractionRow[] {
-  return interruptPendingInteractionsBatched(db, {
+): Promise<PendingInteractionRow[]> {
+  return await interruptPendingInteractionsBatched(db, {
     extraConditions: [],
     statusReason: args.statusReason,
     threadIds: args.threadIds,

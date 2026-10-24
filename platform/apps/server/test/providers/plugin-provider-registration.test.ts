@@ -35,9 +35,9 @@ function declaration(
 const NO_SETTINGS = () => ({});
 
 describe("buildPluginProviderRegistration", () => {
-  it("maps a declaration onto the single ProviderInfo and server capabilities", () => {
+  it("maps a declaration onto the single ProviderInfo and server capabilities", async () => {
     const normalized = declaration();
-    const registration = buildPluginProviderRegistration({
+    const registration = await buildPluginProviderRegistration({
       available: true,
       pluginId: "acme-agent",
       declaration: normalized,
@@ -98,7 +98,7 @@ describe("buildPluginProviderRegistration", () => {
     expect(registration.fallbackModels).toStrictEqual([]);
     expect(registration.envPassthrough).toStrictEqual([]);
     expect(
-      registration.deriveProviderOptions({
+      await registration.deriveProviderOptions({
         threadId: "thr_1",
         projectId: "proj_1",
         model: "m",
@@ -162,8 +162,8 @@ describe("buildPluginProviderRegistration", () => {
     });
   });
 
-  it("binds the options hook to the plugin's settings and validates its result", () => {
-    const registration = buildPluginProviderRegistration({
+  it("binds the options hook to the plugin's settings and validates its result", async () => {
+    const registration = await buildPluginProviderRegistration({
       iconHash: null,
       available: true,
       pluginId: "acme-agent",
@@ -194,7 +194,7 @@ describe("buildPluginProviderRegistration", () => {
     });
 
     expect(
-      registration.deriveProviderOptions({
+      await registration.deriveProviderOptions({
         threadId: "thr_1",
         projectId: "proj_1",
         model: "m-1",
@@ -221,7 +221,7 @@ describe("buildPluginProviderRegistration", () => {
     ]);
   });
 
-  it("refuses a hook result that is not bounded plain JSON", () => {
+  it("refuses a hook result that is not bounded plain JSON", async () => {
     const registration = buildPluginProviderRegistration({
       iconHash: null,
       available: true,
@@ -233,14 +233,15 @@ describe("buildPluginProviderRegistration", () => {
       }),
       readSettings: NO_SETTINGS,
     });
-    expect(() =>
-      registration.deriveProviderOptions({
-        threadId: "thr_1",
-        projectId: "proj_1",
-        model: "m",
-        permissionMode: "full",
-      }),
-    ).toThrow(/deriveProviderOptions result/);
+    await expect(
+      (async () =>
+        registration.deriveProviderOptions({
+          threadId: "thr_1",
+          projectId: "proj_1",
+          model: "m",
+          permissionMode: "full",
+        }))(),
+    ).rejects.toThrow(/deriveProviderOptions result/);
   });
 
   it("projects each fork ladder rung onto the two client booleans", () => {

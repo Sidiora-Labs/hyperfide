@@ -1,4 +1,4 @@
 import { beforeAll } from "vitest";
 import { warmTestHarness } from "../helpers/test-harness-warmup.js";
 
-beforeAll(warmTestHarness);
+beforeAll(warmTestHarness, 60_000);

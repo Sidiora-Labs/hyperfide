@@ -74,10 +74,10 @@ function parseStoredSettingValue(
   return coerceStoredPluginSettingValue(descriptor, parsed);
 }
 
-export function readPluginSettingsValuesSync(
+export async function readPluginSettingsValuesSync(
   args: Omit<PluginSettingsStoreArgs, "dataDir">,
-): Record<string, PluginSettingValue | undefined> {
-  const stored = getPluginSettingsValues(args.db, args.pluginId);
+): Promise<Record<string, PluginSettingValue | undefined>> {
+  const stored = await getPluginSettingsValues(args.db, args.pluginId);
   const values: Record<string, PluginSettingValue | undefined> = {};
   for (const [key, descriptor] of Object.entries(args.descriptors)) {
     if (isSecret(descriptor)) continue;
@@ -89,7 +89,7 @@ export function readPluginSettingsValuesSync(
 export async function readPluginSettingsValues(
   args: PluginSettingsStoreArgs,
 ): Promise<Record<string, PluginSettingValue | undefined>> {
-  const values = readPluginSettingsValuesSync(args);
+  const values = await readPluginSettingsValuesSync(args);
   for (const [key, descriptor] of Object.entries(args.descriptors)) {
     if (!isSecret(descriptor)) continue;
     values[key] =
@@ -115,7 +115,7 @@ export async function writePluginSettingsUpdate(
     rowUpdates[key] = value === null ? null : JSON.stringify(value);
   }
   if (Object.keys(rowUpdates).length > 0) {
-    setPluginSettingsValues(args.db, args.pluginId, rowUpdates);
+    await setPluginSettingsValues(args.db, args.pluginId, rowUpdates);
   }
 }
 

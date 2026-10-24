@@ -26,23 +26,26 @@ interface ThreadHostCommandEnvironment {
   id: string;
 }
 
-export function resolveThreadHostCommandEnvironment(
+export async function resolveThreadHostCommandEnvironment(
   args: RequireThreadHostCommandEnvironmentArgs,
-): ThreadHostCommandEnvironment | null {
+): Promise<ThreadHostCommandEnvironment | null> {
   if (args.thread.environmentId === null) {
     return null;
   }
-  const environment = requireEnvironment(args.db, args.thread.environmentId);
+  const environment = await requireEnvironment(
+    args.db,
+    args.thread.environmentId,
+  );
   return {
     id: environment.id,
     hostId: environment.hostId,
   };
 }
 
-export function requireThreadHostCommandEnvironment(
+export async function requireThreadHostCommandEnvironment(
   args: RequireThreadHostCommandEnvironmentArgs,
-): ThreadHostCommandEnvironment {
-  const environment = resolveThreadHostCommandEnvironment(args);
+): Promise<ThreadHostCommandEnvironment> {
+  const environment = await resolveThreadHostCommandEnvironment(args);
   if (environment !== null) {
     return environment;
   }
@@ -57,12 +60,15 @@ export async function requireThreadCommandEnvironment(
   args: RequireThreadCommandEnvironmentArgs,
 ): Promise<EnvironmentRow> {
   if (args.thread.environmentId !== null) {
-    const environment = requireEnvironment(deps.db, args.thread.environmentId);
+    const environment = await requireEnvironment(
+      deps.db,
+      args.thread.environmentId,
+    );
     const goneDetails = goneThreadEnvironmentDetails(environment);
     if (goneDetails && environment.environmentProviderId === null) {
       throwThreadEnvironmentUnavailable(goneDetails);
     }
-    assertEnvironmentPathAvailable(deps, {
+    await assertEnvironmentPathAvailable(deps, {
       ...environment,
       threadId: args.thread.id,
     });

@@ -149,7 +149,7 @@ export async function createPluginStateSnapshotOnDisk(args: {
   const secretsPath = join(snapshotPath, "secrets");
   const hasDatabase = await exists(sourceDatabasePath);
   const hasSecrets = await exists(sourceSecretsPath);
-  const record = createPluginStateSnapshot(args.db, {
+  const record = await createPluginStateSnapshot(args.db, {
     id,
     pluginId: args.pluginId,
     fromArtifactId: args.fromArtifactId,
@@ -186,9 +186,9 @@ export async function createPluginStateSnapshotOnDisk(args: {
     await writeFile(
       statePath,
       JSON.stringify({
-        kv: listPluginKvRows(args.db, args.pluginId),
-        settings: listPluginSettingRows(args.db, args.pluginId),
-        schedules: listPluginSchedules(args.db, args.pluginId),
+        kv: await listPluginKvRows(args.db, args.pluginId),
+        settings: await listPluginSettingRows(args.db, args.pluginId),
+        schedules: await listPluginSchedules(args.db, args.pluginId),
       }),
       { mode: 0o600 },
     );
@@ -197,10 +197,10 @@ export async function createPluginStateSnapshotOnDisk(args: {
       JSON.stringify(args.previousRegistration),
       { mode: 0o600 },
     );
-    setPluginStateSnapshotStatus(args.db, id, "ready", args.now);
+    await setPluginStateSnapshotStatus(args.db, id, "ready", args.now);
     return { ...record, status: "ready" };
   } catch (error) {
-    setPluginStateSnapshotStatus(args.db, id, "failed", args.now);
+    await setPluginStateSnapshotStatus(args.db, id, "failed", args.now);
     throw error;
   }
 }
@@ -211,7 +211,7 @@ export async function restorePluginStateSnapshot(args: {
   snapshotId: string;
   now: number;
 }): Promise<void> {
-  const snapshot = getPluginStateSnapshot(args.db, args.snapshotId);
+  const snapshot = await getPluginStateSnapshot(args.db, args.snapshotId);
   if (snapshot === undefined) {
     throw new Error(`plugin state snapshot disappeared: ${args.snapshotId}`);
   }
@@ -225,7 +225,12 @@ export async function restorePluginStateSnapshot(args: {
       `plugin state snapshot ${snapshot.id} is not restorable (${snapshot.status})`,
     );
   }
-  setPluginStateSnapshotStatus(args.db, snapshot.id, "restoring", args.now);
+  await setPluginStateSnapshotStatus(
+    args.db,
+    snapshot.id,
+    "restoring",
+    args.now,
+  );
   const targetDir = pluginDataDir(args.dataDir, snapshot.pluginId);
   await mkdir(targetDir, { recursive: true });
   const targetDatabasePath = join(targetDir, "data.db");
@@ -251,7 +256,7 @@ export async function readPluginSnapshotRegistration(args: {
   db: DbConnection;
   snapshotId: string;
 }): Promise<InstalledPluginRow> {
-  const snapshot = getPluginStateSnapshot(args.db, args.snapshotId);
+  const snapshot = await getPluginStateSnapshot(args.db, args.snapshotId);
   if (snapshot === undefined) {
     throw new Error(`plugin state snapshot disappeared: ${args.snapshotId}`);
   }
@@ -267,7 +272,7 @@ export async function readPluginSnapshotRegistration(args: {
   if (current.success) return current.data;
   const legacy = legacyInstalledPluginRowSchema.parse(json);
   const { marketplaceId, marketplaceEntryId, ...registration } = legacy;
-  const installed = getInstalledPlugin(args.db, legacy.id);
+  const installed = await getInstalledPlugin(args.db, legacy.id);
   if (
     legacy.provenance === "marketplace" &&
     marketplaceId === CURATED_PLUGIN_MARKETPLACE_NAME &&
@@ -294,12 +299,12 @@ export async function restorePluginHostStateSnapshot(args: {
   db: DbConnection;
   snapshotId: string;
 }): Promise<void> {
-  const snapshot = getPluginStateSnapshot(args.db, args.snapshotId);
+  const snapshot = await getPluginStateSnapshot(args.db, args.snapshotId);
   if (snapshot === undefined) {
     throw new Error(`plugin state snapshot disappeared: ${args.snapshotId}`);
   }
   const state = stateSchema.parse(
     JSON.parse(await readFile(snapshot.statePath, "utf8")),
   );
-  replacePluginSnapshotState(args.db, snapshot.pluginId, state);
+  await replacePluginSnapshotState(args.db, snapshot.pluginId, state);
 }

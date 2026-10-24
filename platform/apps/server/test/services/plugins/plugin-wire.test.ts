@@ -467,7 +467,9 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
       ok: false,
       error: expect.stringContaining("route boom"),
     });
-    const entry = harness.pluginService.list().find((p) => p.id === "wire");
+    const entry = (await harness.pluginService.list()).find(
+      (p) => p.id === "wire",
+    );
     expect(entry?.handlerStats.errorCount).toBe(1);
     expect(entry?.statusDetail).toContain("http GET /boom failed");
   });
@@ -480,7 +482,9 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     expect(response.status).toBe(201);
     expect(response.headers.get("x-foreign")).toBe("yes");
     expect(await response.json()).toEqual({ foreign: true });
-    const entry = harness.pluginService.list().find((p) => p.id === "wire");
+    const entry = (await harness.pluginService.list()).find(
+      (p) => p.id === "wire",
+    );
     expect(entry?.handlerStats.errorCount).toBe(0);
   });
 
@@ -494,7 +498,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
         `${BASE}/api/v1/plugins/wire/http/foreign-stream`,
       );
       expect(response.status).toBe(200);
-      const reader = response.body!.getReader();
+      const reader = await response.body!.getReader();
       const decoder = new TextDecoder();
       const first = await reader.read();
       expect(decoder.decode(first.value)).toBe("first;");
@@ -578,7 +582,9 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     const candidateRpc = await rpc(harness, "candidate", {});
     expect(candidateRpc.status).toBe(404);
     expect(
-      harness.pluginService.list().find((plugin) => plugin.id === "wire"),
+      (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "wire",
+      ),
     ).toMatchObject({
       status: "running",
       statusDetail: expect.stringContaining("reload failed: candidate failed"),
@@ -601,7 +607,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     });
 
     expect(
-      harness.pluginService.list().find((p) => p.id === "wire"),
+      (await harness.pluginService.list()).find((p) => p.id === "wire"),
     ).toMatchObject({
       handlerStats: { errorCount: 1 },
       statusDetail: "rpc boom failed: rpc boom",
@@ -634,7 +640,9 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     "rpc refusal %s returns %s without crash accounting or invalidation",
     async (code, status) => {
       const changed = vi.spyOn(harness.hub, "notifyPluginChanged");
-      const before = harness.pluginService.list().find((p) => p.id === "wire");
+      const before = (await harness.pluginService.list()).find(
+        (p) => p.id === "wire",
+      );
       const response = await rpc(harness, "refuse", code);
       expect(response.status).toBe(status);
       expect(await response.json()).toEqual({
@@ -645,7 +653,9 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
           issues: [{ path: ["id"], message: "Unavailable" }],
         },
       });
-      const after = harness.pluginService.list().find((p) => p.id === "wire");
+      const after = (await harness.pluginService.list()).find(
+        (p) => p.id === "wire",
+      );
       expect(after?.handlerStats.count).toBe(
         (before?.handlerStats.count ?? 0) + 1,
       );
@@ -1006,10 +1016,11 @@ describe("plugin WebSocket routes", () => {
     );
     sockets.add(socket);
     socket.send("boom");
-    await vi.waitFor(() => {
+    await vi.waitFor(async () => {
       expect(
-        server.pluginService.list().find((plugin) => plugin.id === "wire")
-          ?.handlerStats.errorCount,
+        (await server.pluginService.list()).find(
+          (plugin) => plugin.id === "wire",
+        )?.handlerStats.errorCount,
       ).toBe(2);
     });
 

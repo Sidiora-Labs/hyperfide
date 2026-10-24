@@ -15,30 +15,30 @@ import { createMigratedConnection } from "../../src/testing.js";
  * Two hosts, two projects and threads spread across both, so every grouping
  * has more than one bucket and a filter that ignored its argument would show.
  */
-function setup() {
-  const db = createMigratedConnection();
-  const hostA = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const hostA = await upsertHost(db, noopNotifier, {
     name: "host-a",
   });
-  const hostB = upsertHost(db, noopNotifier, {
+  const hostB = await upsertHost(db, noopNotifier, {
     name: "host-b",
   });
-  const { project: projectA } = createProject(db, noopNotifier, {
+  const { project: projectA } = await createProject(db, noopNotifier, {
     name: "project-a",
     source: { type: "local_path", hostId: hostA.id, path: "/tmp/a" },
   });
-  const { project: projectB } = createProject(db, noopNotifier, {
+  const { project: projectB } = await createProject(db, noopNotifier, {
     name: "project-b",
     source: { type: "local_path", hostId: hostB.id, path: "/tmp/b" },
   });
-  const environmentA = createEnvironment(db, noopNotifier, {
-      providerOwnsPath: false,
+  const environmentA = await createEnvironment(db, noopNotifier, {
+    providerOwnsPath: false,
     hostId: hostA.id,
     projectId: projectA.id,
     path: "/tmp/a",
   });
-  const environmentB = createEnvironment(db, noopNotifier, {
-      providerOwnsPath: false,
+  const environmentB = await createEnvironment(db, noopNotifier, {
+    providerOwnsPath: false,
     hostId: hostB.id,
     projectId: projectB.id,
     path: "/tmp/b",
@@ -47,64 +47,68 @@ function setup() {
 }
 
 describe("countThreads", () => {
-  it("counts live visible threads and excludes archived and deleted ones", () => {
-    const { db, environmentA, projectA } = setup();
-    const live = createThread(db, noopNotifier, {
+  it("counts live visible threads and excludes archived and deleted ones", async () => {
+    const { db, environmentA, projectA } = await setup();
+    const live = await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
     });
-    const archived = createThread(db, noopNotifier, {
+    const archived = await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
     });
-    const deleted = createThread(db, noopNotifier, {
+    const deleted = await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
     });
-    const hidden = createThread(db, noopNotifier, {
+    const hidden = await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
       visibility: "hidden",
     });
-    archiveThread(db, noopNotifier, archived.id);
-    markThreadDeleted(db, noopNotifier, { threadId: deleted.id });
+    await archiveThread(db, noopNotifier, archived.id);
+    await markThreadDeleted(db, noopNotifier, { threadId: deleted.id });
 
-    expect(countThreads(db, {})).toEqual({ total: 1 });
+    expect(await countThreads(db, {})).toEqual({ total: 1 });
     // Archived rows are countable on request; deleted ones never are.
-    expect(countThreads(db, { includeArchived: true })).toEqual({ total: 2 });
-    expect(countThreads(db, { includeHidden: true })).toEqual({ total: 2 });
+    expect(await countThreads(db, { includeArchived: true })).toEqual({
+      total: 2,
+    });
+    expect(await countThreads(db, { includeHidden: true })).toEqual({
+      total: 2,
+    });
     expect(
-      countThreads(db, { includeArchived: true, includeHidden: true }),
+      await countThreads(db, { includeArchived: true, includeHidden: true }),
     ).toEqual({ total: 3 });
-    expect(countThreads(db, { status: "active" }).total).toBe(1);
-    expect(countThreads(db, { status: "idle" }).total).toBe(0);
+    expect((await countThreads(db, { status: "active" })).total).toBe(1);
+    expect((await countThreads(db, { status: "idle" })).total).toBe(0);
     expect(live.id).not.toBe(hidden.id);
   });
 
-  it("groups by host, provider and project", () => {
+  it("groups by host, provider and project", async () => {
     const { db, environmentA, environmentB, hostA, hostB, projectA, projectB } =
-      setup();
-    createThread(db, noopNotifier, {
+      await setup();
+    await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
     });
-    createThread(db, noopNotifier, {
+    await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "claude-code",
       status: "active",
     });
-    createThread(db, noopNotifier, {
+    await createThread(db, noopNotifier, {
       environmentId: environmentB.id,
       projectId: projectB.id,
       providerId: "codex",
@@ -112,14 +116,14 @@ describe("countThreads", () => {
     });
     // A thread with no environment yet — the case a host grouping has to place
     // somewhere rather than drop.
-    createThread(db, noopNotifier, {
+    await createThread(db, noopNotifier, {
       environmentId: null,
       projectId: projectA.id,
       providerId: "codex",
       status: "starting",
     });
 
-    const byHost = countThreads(db, { groupBy: "host" });
+    const byHost = await countThreads(db, { groupBy: "host" });
     expect(byHost.total).toBe(4);
     expect(byKey(byHost.groups)).toEqual({
       "<none>": 1,
@@ -127,52 +131,54 @@ describe("countThreads", () => {
       [hostB.id]: 1,
     });
 
-    const byProvider = countThreads(db, { groupBy: "provider" });
+    const byProvider = await countThreads(db, { groupBy: "provider" });
     expect(byKey(byProvider.groups)).toEqual({ "claude-code": 1, codex: 3 });
 
-    const byProject = countThreads(db, { groupBy: "project" });
+    const byProject = await countThreads(db, { groupBy: "project" });
     expect(byKey(byProject.groups)).toEqual({
       [projectA.id]: 3,
       [projectB.id]: 1,
     });
   });
 
-  it("filters by host through the environment join", () => {
+  it("filters by host through the environment join", async () => {
     const { db, environmentA, environmentB, hostA, projectA, projectB } =
-      setup();
-    createThread(db, noopNotifier, {
+      await setup();
+    await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
     });
-    createThread(db, noopNotifier, {
+    await createThread(db, noopNotifier, {
       environmentId: environmentB.id,
       projectId: projectB.id,
       providerId: "codex",
       status: "active",
     });
 
-    expect(countThreads(db, { hostId: hostA.id })).toEqual({ total: 1 });
-    expect(countThreads(db, { hostId: "host_missing" })).toEqual({ total: 0 });
+    expect(await countThreads(db, { hostId: hostA.id })).toEqual({ total: 1 });
+    expect(await countThreads(db, { hostId: "host_missing" })).toEqual({
+      total: 0,
+    });
   });
 
-  it("distinguishes root threads from a named parent and from no filter", () => {
-    const { db, environmentA, projectA } = setup();
-    const root = createThread(db, noopNotifier, {
+  it("distinguishes root threads from a named parent and from no filter", async () => {
+    const { db, environmentA, projectA } = await setup();
+    const root = await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
     });
-    createThread(db, noopNotifier, {
+    await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       parentThreadId: root.id,
       projectId: projectA.id,
       providerId: "codex",
       status: "active",
     });
-    createThread(db, noopNotifier, {
+    await createThread(db, noopNotifier, {
       environmentId: environmentA.id,
       parentThreadId: root.id,
       projectId: projectA.id,
@@ -182,12 +188,16 @@ describe("countThreads", () => {
 
     // Three states, three answers — this is what the route's "none" sentinel
     // buys over an empty-string parameter.
-    expect(countThreads(db, {}).total).toBe(3);
-    expect(countThreads(db, { parent: { kind: "root" } }).total).toBe(1);
+    expect((await countThreads(db, {})).total).toBe(3);
+    expect((await countThreads(db, { parent: { kind: "root" } })).total).toBe(
+      1,
+    );
     expect(
-      countThreads(db, {
-        parent: { kind: "id", parentThreadId: root.id },
-      }).total,
+      (
+        await countThreads(db, {
+          parent: { kind: "id", parentThreadId: root.id },
+        })
+      ).total,
     ).toBe(2);
   });
 });

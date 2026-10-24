@@ -59,9 +59,12 @@ const planPromptInput: PromptInput[] = [
   },
 ];
 
-function seedOpenPlanTurnWithGoal(db: DbConnection, threadId: string): void {
+async function seedOpenPlanTurnWithGoal(
+  db: DbConnection,
+  threadId: string,
+): Promise<void> {
   const requestId = formatClientTurnRequestIdSuffix({ suffix: "23456789ab" });
-  appendStoredThreadEvent(db, noopNotifier, {
+  await appendStoredThreadEvent(db, noopNotifier, {
     threadId,
     scope: threadScope(),
     type: "client/turn/requested",
@@ -83,14 +86,14 @@ function seedOpenPlanTurnWithGoal(db: DbConnection, threadId: string): void {
       },
     },
   });
-  appendStoredThreadEvent(db, noopNotifier, {
+  await appendStoredThreadEvent(db, noopNotifier, {
     threadId,
     scope: turnScope("turn-plan"),
     providerThreadId: "provider-plan",
     type: "turn/input/accepted",
     data: { providerThreadId: "provider-plan", clientRequestId: requestId },
   });
-  appendStoredThreadEvent(db, noopNotifier, {
+  await appendStoredThreadEvent(db, noopNotifier, {
     threadId,
     scope: threadScope(),
     providerThreadId: "provider-plan",
@@ -114,25 +117,25 @@ interface Setup {
   projectId: string;
 }
 
-function setup(status: ThreadStatus): Setup {
-  const db = createMigratedConnection();
-  const hub = new NotificationHub();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(status: ThreadStatus): Promise<Setup> {
+  const db = await createMigratedConnection();
+  const hub = await new NotificationHub();
+  const host = await upsertHost(db, noopNotifier, {
     id: "host-lifecycle-outcome",
     name: "Lifecycle Outcome Host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "Lifecycle Outcome Project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/lifecycle" },
   });
-  const environment = createEnvironment(db, noopNotifier, {
+  const environment = await createEnvironment(db, noopNotifier, {
     providerOwnsPath: false,
     hostId: host.id,
     projectId: project.id,
     path: "/tmp/lifecycle/env",
     status: "ready",
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     environmentId: environment.id,
     providerId: "codex",
@@ -147,8 +150,12 @@ function setup(status: ThreadStatus): Setup {
   };
 }
 
-function connectDaemon(db: DbConnection, hub: NotificationHub, hostId: string) {
-  const session = openSession(db, {
+async function connectDaemon(
+  db: DbConnection,
+  hub: NotificationHub,
+  hostId: string,
+) {
+  const session = await openSession(db, {
     hostId,
     instanceId: `instance-${randomUUID()}`,
     hostName: "Lifecycle Outcome Host",
@@ -157,7 +164,7 @@ function connectDaemon(db: DbConnection, hub: NotificationHub, hostId: string) {
     heartbeatIntervalMs: 5_000,
     leaseTimeoutMs: 30_000,
   });
-  hub.registerDaemon(session.id, hostId, { close() {}, send() {} });
+  await hub.registerDaemon(session.id, hostId, { close() {}, send() {} });
 }
 
 function lastThreadListMessage(
@@ -175,19 +182,19 @@ function lastThreadListMessage(
 }
 
 describe("applyLoggedThreadLifecycleEvent", () => {
-  it("broadcasts status-changed with the post-transition row and runtime", () => {
-    const { db, hostId, hub, projectId, threadId } = setup("idle");
-    connectDaemon(db, hub, hostId);
+  it("broadcasts status-changed with the post-transition row and runtime", async () => {
+    const { db, hostId, hub, projectId, threadId } = await setup("idle");
+    await connectDaemon(db, hub, hostId);
     const socket = createMockHubSocket();
     hub.subscribe(socket, { kind: "thread-list" });
 
-    const outcome = applyLoggedThreadLifecycleEvent(
+    const outcome = await applyLoggedThreadLifecycleEvent(
       { db, hub, logger: testLogger, providerRegistry },
       { event: { type: "run.started" }, threadId },
     );
 
     expect(outcome.applied).toBe(true);
-    const row = getThread(db, threadId);
+    const row = await getThread(db, threadId);
     expect(row?.status).toBe("active");
     expect(socket.messages).toHaveLength(1);
     expect(lastThreadListMessage(socket.messages)).toEqual({
@@ -210,12 +217,12 @@ describe("applyLoggedThreadLifecycleEvent", () => {
     });
   });
 
-  it("reports the host-derived runtime when the thread activates without a connected daemon", () => {
-    const { db, hub, threadId } = setup("idle");
+  it("reports the host-derived runtime when the thread activates without a connected daemon", async () => {
+    const { db, hub, threadId } = await setup("idle");
     const socket = createMockHubSocket();
     hub.subscribe(socket, { kind: "thread-list" });
 
-    applyLoggedThreadLifecycleEvent(
+    await applyLoggedThreadLifecycleEvent(
       { db, hub, logger: testLogger, providerRegistry },
       { event: { type: "run.started" }, threadId },
     );
@@ -226,14 +233,14 @@ describe("applyLoggedThreadLifecycleEvent", () => {
     ).toBe("waiting-for-host");
   });
 
-  it("carries the status-gated plan and goal activity of the post-transition row", () => {
-    const { db, hostId, hub, threadId } = setup("idle");
-    connectDaemon(db, hub, hostId);
-    seedOpenPlanTurnWithGoal(db, threadId);
+  it("carries the status-gated plan and goal activity of the post-transition row", async () => {
+    const { db, hostId, hub, threadId } = await setup("idle");
+    await connectDaemon(db, hub, hostId);
+    await seedOpenPlanTurnWithGoal(db, threadId);
     const socket = createMockHubSocket();
     hub.subscribe(socket, { kind: "thread-list" });
 
-    applyLoggedThreadLifecycleEvent(
+    await applyLoggedThreadLifecycleEvent(
       { db, hub, logger: testLogger, providerRegistry },
       { event: { type: "run.started" }, threadId },
     );
@@ -241,7 +248,7 @@ describe("applyLoggedThreadLifecycleEvent", () => {
       lastThreadListMessage(socket.messages).metadata?.statusChange?.activity,
     ).toEqual({ ...NO_ACTIVITY, activeGoalCount: 1, activePlanModeCount: 1 });
 
-    applyLoggedThreadLifecycleEvent(
+    await applyLoggedThreadLifecycleEvent(
       { db, hub, logger: testLogger, providerRegistry },
       { event: { type: "run.succeeded" }, threadId },
     );
@@ -253,12 +260,12 @@ describe("applyLoggedThreadLifecycleEvent", () => {
     });
   });
 
-  it("does not broadcast when the event is not applied", () => {
-    const { db, hub, threadId } = setup("idle");
+  it("does not broadcast when the event is not applied", async () => {
+    const { db, hub, threadId } = await setup("idle");
     const socket = createMockHubSocket();
     hub.subscribe(socket, { kind: "thread-list" });
 
-    const outcome = applyLoggedThreadLifecycleEvent(
+    const outcome = await applyLoggedThreadLifecycleEvent(
       { db, hub, logger: testLogger, providerRegistry },
       { event: { type: "run.succeeded" }, threadId },
     );

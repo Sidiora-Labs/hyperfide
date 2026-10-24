@@ -17,29 +17,33 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("internal event envelope threadId regression", () => {
   it("uses the validated envelope threadId for side effects instead of the nested event threadId", async () => {
     await withTestHarness(async (harness) => {
-      const hostA = seedHostSession(harness.deps, { id: "host-envelope-a" });
-      const hostB = seedHostSession(harness.deps, { id: "host-envelope-b" });
-      const { project: projectA } = seedProjectWithSource(harness.deps, {
+      const hostA = await seedHostSession(harness.deps, {
+        id: "host-envelope-a",
+      });
+      const hostB = await seedHostSession(harness.deps, {
+        id: "host-envelope-b",
+      });
+      const { project: projectA } = await seedProjectWithSource(harness.deps, {
         hostId: hostA.host.id,
       });
-      const { project: projectB } = seedProjectWithSource(harness.deps, {
+      const { project: projectB } = await seedProjectWithSource(harness.deps, {
         hostId: hostB.host.id,
       });
-      const environmentA = seedEnvironment(harness.deps, {
+      const environmentA = await seedEnvironment(harness.deps, {
         hostId: hostA.host.id,
         projectId: projectA.id,
       });
-      const environmentB = seedEnvironment(harness.deps, {
+      const environmentB = await seedEnvironment(harness.deps, {
         hostId: hostB.host.id,
         projectId: projectB.id,
       });
-      const threadA = seedThread(harness.deps, {
+      const threadA = await seedThread(harness.deps, {
         projectId: projectA.id,
         environmentId: environmentA.id,
         title: "Owned thread",
         titleFallback: "Owned thread",
       });
-      const threadB = seedThread(harness.deps, {
+      const threadB = await seedThread(harness.deps, {
         projectId: projectB.id,
         environmentId: environmentB.id,
         title: "Foreign thread",
@@ -48,7 +52,7 @@ describe("internal event envelope threadId regression", () => {
 
       const response = await harness.app.request("/internal/session/events", {
         method: "POST",
-        headers: internalAuthHeaders(harness, { hostId: hostA.host.id }),
+        headers: await internalAuthHeaders(harness, { hostId: hostA.host.id }),
         body: JSON.stringify({
           sessionId: hostA.session.id,
           eventGroups: groupHostDaemonEvents([
@@ -67,24 +71,28 @@ describe("internal event envelope threadId regression", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(getThread(harness.db, threadA.id)?.title).toBe("Owned thread");
-      expect(getThread(harness.db, threadB.id)?.title).toBe("Foreign thread");
+      expect((await getThread(harness.db, threadA.id))?.title).toBe(
+        "Owned thread",
+      );
+      expect((await getThread(harness.db, threadB.id))?.title).toBe(
+        "Foreign thread",
+      );
     });
   });
 
   it("does not apply provider names to thread titles", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-fork-provider-title",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = createThread(harness.db, harness.hub, {
+      const thread = await createThread(harness.db, harness.hub, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
@@ -95,7 +103,7 @@ describe("internal event envelope threadId regression", () => {
 
       const response = await harness.app.request("/internal/session/events", {
         method: "POST",
-        headers: internalAuthHeaders(harness, { hostId: host.id }),
+        headers: await internalAuthHeaders(harness, { hostId: host.id }),
         body: JSON.stringify({
           sessionId: session.id,
           eventGroups: groupHostDaemonEvents([
@@ -114,8 +122,8 @@ describe("internal event envelope threadId regression", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(getThread(harness.db, thread.id)?.title).toBeNull();
-      expect(getThread(harness.db, thread.id)?.titleFallback).toBe(
+      expect((await getThread(harness.db, thread.id))?.title).toBeNull();
+      expect((await getThread(harness.db, thread.id))?.titleFallback).toBe(
         "Summarize the work",
       );
     });
@@ -123,17 +131,17 @@ describe("internal event envelope threadId regression", () => {
 
   it("uses a title the agent itself set when the thread has none, and keeps an existing title", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-agent-title",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const untitled = createThread(harness.db, harness.hub, {
+      const untitled = await createThread(harness.db, harness.hub, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "acp-opencode",
@@ -141,7 +149,7 @@ describe("internal event envelope threadId regression", () => {
         titleFallback: "fix it",
         status: "active",
       });
-      const titled = seedThread(harness.deps, {
+      const titled = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         title: "Chosen by the user",
@@ -150,7 +158,7 @@ describe("internal event envelope threadId regression", () => {
 
       const response = await harness.app.request("/internal/session/events", {
         method: "POST",
-        headers: internalAuthHeaders(harness, { hostId: host.id }),
+        headers: await internalAuthHeaders(harness, { hostId: host.id }),
         body: JSON.stringify({
           sessionId: session.id,
           eventGroups: groupHostDaemonEvents(
@@ -172,10 +180,10 @@ describe("internal event envelope threadId regression", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(getThread(harness.db, untitled.id)?.title).toBe(
+      expect((await getThread(harness.db, untitled.id))?.title).toBe(
         "Fix the login redirect",
       );
-      expect(getThread(harness.db, titled.id)?.title).toBe(
+      expect((await getThread(harness.db, titled.id))?.title).toBe(
         "Chosen by the user",
       );
     });

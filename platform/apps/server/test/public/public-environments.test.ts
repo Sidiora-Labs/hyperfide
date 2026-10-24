@@ -19,18 +19,18 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("public environments", () => {
   it("lists cached branch options while remotes refresh in the background", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-environment-branch-options",
       });
-      registerTestHostRpcCapture(harness, {
+      await registerTestHostRpcCapture(harness, {
         hostId: host.id,
         sessionId: session.id,
         queueBranchOptions: true,
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/branch-options-env",
@@ -74,13 +74,13 @@ describe("public environments", () => {
 
   it("propagates a bounded truncated diff table of contents", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-truncated-diff",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/truncated-diff-env",
@@ -142,19 +142,19 @@ describe("public environments", () => {
 
   it("stores viewed files per environment and diff target", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-diff-viewed",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/diff-viewed-env",
         environmentProviderId: "git-worktree",
       });
-      const other = seedEnvironment(harness.deps, {
+      const other = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/diff-viewed-other-env",
@@ -273,13 +273,13 @@ describe("public environments", () => {
 
   it("forwards ignoreWhitespace to the daemon diff file list and patches", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-ignore-whitespace",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/ignore-whitespace-env",
@@ -363,13 +363,13 @@ describe("public environments", () => {
 
   it("remaps a daemon file-read failure on diff/file to its HTTP status", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-diff-file-enoent",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/diff-file-env",
@@ -402,13 +402,13 @@ describe("public environments", () => {
 
   it("remaps an oversized daemon file read on diff/file to 413", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-diff-file-too-large",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/diff-file-large-env",
@@ -434,13 +434,13 @@ describe("public environments", () => {
 
   it("keeps stored branch metadata unchanged when reading workspace status", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-current-branch",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         branchName: "feature/observed",
@@ -498,7 +498,7 @@ describe("public environments", () => {
           },
         },
       });
-      expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
         branchName: "feature/observed",
         defaultBranch: "main",
       });
@@ -507,13 +507,13 @@ describe("public environments", () => {
 
   it("keeps the stored branch when reading detached workspace status", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-detached-branch",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         branchName: "feature/observed",
@@ -557,7 +557,7 @@ describe("public environments", () => {
 
       const response = await statusPromise;
       expect(response.status).toBe(200);
-      expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
         branchName: "feature/observed",
         defaultBranch: "main",
       });
@@ -566,13 +566,13 @@ describe("public environments", () => {
 
   it("renames an environment through the public update route", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-rename",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         environmentProviderId: "git-worktree",
@@ -615,13 +615,13 @@ describe("public environments", () => {
 
   it("lists workspace paths via host.list_paths for a personal-workspace environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-paths",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/personal-workspace",
@@ -690,13 +690,13 @@ describe("public environments", () => {
 
   it("returns not-ready for workspace path search on an unprovisioned environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-environment-paths-pending",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         status: "provisioning",
@@ -714,20 +714,22 @@ describe("public environments", () => {
 describe("environment list and delete", () => {
   it("lists non-destroyed environments, scoped to a project", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-env-list" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-env-list",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const { project: other } = seedProjectWithSource(harness.deps, {
+      const { project: other } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/env-list-other",
       });
-      const mine = seedEnvironment(harness.deps, {
+      const mine = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/env-list-a",
       });
-      seedEnvironment(harness.deps, {
+      await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: other.id,
         path: "/tmp/env-list-b",
@@ -749,17 +751,23 @@ describe("environment list and delete", () => {
 
   it("pages the list with limit and offset", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-env-page" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-env-page",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const ids = ["a", "b", "c"].map(
-        (suffix) =>
-          seedEnvironment(harness.deps, {
-            hostId: host.id,
-            projectId: project.id,
-            path: `/tmp/env-page-${suffix}`,
-          }).id,
+      const ids = await Promise.all(
+        ["a", "b", "c"].map(
+          async (suffix) =>
+            (
+              await seedEnvironment(harness.deps, {
+                hostId: host.id,
+                projectId: project.id,
+                path: `/tmp/env-page-${suffix}`,
+              })
+            ).id,
+        ),
       );
 
       const firstPage = (await readJson(
@@ -788,32 +796,34 @@ describe("environment list and delete", () => {
 
   it("narrows the list by provider, machine and status in one query", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-env-filter" });
-      const { host: otherHost } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-env-filter",
+      });
+      const { host: otherHost } = await seedHostSession(harness.deps, {
         id: "host-env-filter-other",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const worktree = seedEnvironment(harness.deps, {
+      const worktree = await seedEnvironment(harness.deps, {
         environmentProviderId: "git-worktree",
         hostId: host.id,
         path: "/tmp/env-filter-worktree",
         projectId: project.id,
       });
-      seedEnvironment(harness.deps, {
+      await seedEnvironment(harness.deps, {
         environmentProviderId: "git-worktree",
         hostId: otherHost.id,
         path: "/tmp/env-filter-elsewhere",
         projectId: project.id,
       });
-      seedEnvironment(harness.deps, {
+      await seedEnvironment(harness.deps, {
         environmentProviderId: "personal-workspace",
         hostId: host.id,
         path: "/tmp/env-filter-personal",
         projectId: project.id,
       });
-      const broken = seedEnvironment(harness.deps, {
+      const broken = await seedEnvironment(harness.deps, {
         environmentProviderId: "git-worktree",
         hostId: host.id,
         path: "/tmp/env-filter-broken",
@@ -843,13 +853,13 @@ describe("environment list and delete", () => {
 
   it("returns destroyed rows only when the caller names that status", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-env-destroyed",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const gone = seedEnvironment(harness.deps, {
+      const gone = await seedEnvironment(harness.deps, {
         hostId: host.id,
         path: null,
         projectId: project.id,
@@ -874,11 +884,13 @@ describe("environment list and delete", () => {
 
   it("records a deleted environment as destroyed and hides it from the list", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-env-del" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-env-del",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/env-delete",
@@ -889,7 +901,7 @@ describe("environment list and delete", () => {
         { method: "DELETE" },
       );
       expect(response.status).toBe(200);
-      const after = getEnvironment(harness.db, environment.id);
+      const after = await getEnvironment(harness.db, environment.id);
       expect(after?.status).toBe("destroyed");
       expect(after?.path).toBeNull();
 
@@ -918,17 +930,17 @@ describe("environment list and delete", () => {
 
   it("requests provider teardown without a machine round trip", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-env-release",
       });
-      registerTestHostRpcCapture(harness, {
+      await registerTestHostRpcCapture(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/env-release",
@@ -940,7 +952,7 @@ describe("environment list and delete", () => {
         { method: "DELETE" },
       );
       expect(response.status).toBe(200);
-      expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
         status: "ready",
         path: environment.path,
         teardownStatus: "running",
@@ -951,16 +963,18 @@ describe("environment list and delete", () => {
 
   it("refuses to delete an environment with live threads", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-env-live" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-env-live",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/env-delete-live",
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
@@ -970,9 +984,9 @@ describe("environment list and delete", () => {
         { method: "DELETE" },
       );
       expect(response.status).toBe(409);
-      expect(getEnvironment(harness.db, environment.id)?.status).not.toBe(
-        "destroyed",
-      );
+      expect(
+        (await getEnvironment(harness.db, environment.id))?.status,
+      ).not.toBe("destroyed");
     });
   });
 });

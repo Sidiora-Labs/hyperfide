@@ -12,7 +12,7 @@ export async function ensureHostSessionReadyForWork(
   deps: WorkSessionDeps,
   args: { hostId: string },
 ) {
-  const host = getHost(deps.db, args.hostId);
+  const host = await getHost(deps.db, args.hostId);
   if (!host || host.destroyedAt !== null) {
     throw new ApiError(404, "host_not_found", "Host not found");
   }
@@ -27,8 +27,8 @@ export async function ensureHostSessionReadyForWork(
 
   await waitForMachineMaintenance(deps, host.id);
   await resumeMachine(deps, host.id);
-  assertMachineLifecycleAdmission(deps, host.id);
-  const current = getHost(deps.db, host.id);
+  await assertMachineLifecycleAdmission(deps, host.id);
+  const current = await getHost(deps.db, host.id);
   if (current?.phase === "removing") {
     throw new ApiError(
       409,
@@ -37,5 +37,5 @@ export async function ensureHostSessionReadyForWork(
     );
   }
 
-  return requireConnectedHostSession(deps, host.id);
+  return await requireConnectedHostSession(deps, host.id);
 }

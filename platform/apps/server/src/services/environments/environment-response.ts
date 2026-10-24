@@ -55,22 +55,22 @@ export function resolveEnvironmentWorkspaceDisplayKind(
   return "other";
 }
 
-export function toEnvironmentResponse(
+export async function toEnvironmentResponse(
   db: DbConnection,
   row: EnvironmentRow,
-): Environment {
+): Promise<Environment> {
   return toEnvironmentResponseWithHostLifecycle(
     row,
-    resolveEnvironmentHostLifecycle(getHost(db, row.hostId)),
+    resolveEnvironmentHostLifecycle(await getHost(db, row.hostId)),
   );
 }
 
-export function toEnvironmentResponses(
+export async function toEnvironmentResponses(
   db: DbConnection,
   rows: readonly EnvironmentRow[],
-): Environment[] {
+): Promise<Environment[]> {
   const hostById = new Map(
-    listHostsByIds(db, [...new Set(rows.map((row) => row.hostId))]).map(
+    (await listHostsByIds(db, [...new Set(rows.map((row) => row.hostId))])).map(
       (host) => [host.id, host],
     ),
   );

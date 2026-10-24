@@ -13,12 +13,13 @@ export interface PluginScheduleRow {
   updatedAt: number;
 }
 
-export function upsertPluginSchedule(
+export async function upsertPluginSchedule(
   db: DbConnection,
   args: { pluginId: string; name: string; cron: string; nextRunAt: number },
-): void {
+): Promise<void> {
   const updatedAt = Date.now();
-  db.insert(pluginSchedules)
+  await db
+    .insert(pluginSchedules)
     .values({ ...args, updatedAt })
     .onConflictDoUpdate({
       target: [pluginSchedules.pluginId, pluginSchedules.name],
@@ -27,32 +28,37 @@ export function upsertPluginSchedule(
     .run();
 }
 
-export function prunePluginSchedules(
+export async function prunePluginSchedules(
   db: DbConnection,
   pluginId: string,
   keepNames: string[],
-): void {
+): Promise<void> {
   const conditions = [eq(pluginSchedules.pluginId, pluginId)];
   if (keepNames.length > 0) {
     conditions.push(notInArray(pluginSchedules.name, keepNames));
   }
-  db.delete(pluginSchedules)
+  await db
+    .delete(pluginSchedules)
     .where(and(...conditions))
     .run();
 }
 
-export function deletePluginSchedules(db: DbConnection, pluginId: string): void {
-  db.delete(pluginSchedules)
+export async function deletePluginSchedules(
+  db: DbConnection,
+  pluginId: string,
+): Promise<void> {
+  await db
+    .delete(pluginSchedules)
     .where(eq(pluginSchedules.pluginId, pluginId))
     .run();
 }
 
-export function listPluginSchedules(
+export async function listPluginSchedules(
   db: DbConnection,
   pluginId?: string,
-): PluginScheduleRow[] {
+): Promise<PluginScheduleRow[]> {
   const query = db.select().from(pluginSchedules);
-  return (
+  return await (
     pluginId === undefined
       ? query
       : query.where(eq(pluginSchedules.pluginId, pluginId))
@@ -61,11 +67,11 @@ export function listPluginSchedules(
     .all();
 }
 
-export function listDuePluginSchedules(
+export async function listDuePluginSchedules(
   db: DbConnection,
   args: { now: number; limit: number },
-): PluginScheduleRow[] {
-  return db
+): Promise<PluginScheduleRow[]> {
+  return await db
     .select()
     .from(pluginSchedules)
     .where(lte(pluginSchedules.nextRunAt, args.now))
@@ -74,7 +80,7 @@ export function listDuePluginSchedules(
     .all();
 }
 
-export function claimPluginScheduledRun(
+export async function claimPluginScheduledRun(
   db: DbConnection,
   args: {
     pluginId: string;
@@ -83,8 +89,8 @@ export function claimPluginScheduledRun(
     newNextRunAt: number;
     now: number;
   },
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(pluginSchedules)
     .set({
       nextRunAt: args.newNextRunAt,
@@ -104,7 +110,7 @@ export function claimPluginScheduledRun(
   return result.changes > 0;
 }
 
-export function recordPluginScheduleResult(
+export async function recordPluginScheduleResult(
   db: DbConnection,
   args: {
     pluginId: string;
@@ -113,9 +119,14 @@ export function recordPluginScheduleResult(
     error: string | null;
     now: number;
   },
-): void {
-  db.update(pluginSchedules)
-    .set({ lastStatus: args.status, lastError: args.error, updatedAt: args.now })
+): Promise<void> {
+  await db
+    .update(pluginSchedules)
+    .set({
+      lastStatus: args.status,
+      lastError: args.error,
+      updatedAt: args.now,
+    })
     .where(
       and(
         eq(pluginSchedules.pluginId, args.pluginId),

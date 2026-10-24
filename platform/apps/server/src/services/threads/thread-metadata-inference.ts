@@ -1,4 +1,7 @@
-import type { PromptInput, ProvisioningTranscriptEntry } from "@hyperfide/domain";
+import type {
+  PromptInput,
+  ProvisioningTranscriptEntry,
+} from "@hyperfide/domain";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { appendThreadProvisioningEvent } from "./thread-events.js";
 import {
@@ -50,7 +53,7 @@ export async function inferThreadMetadata(
   const startedAt = Date.now();
   const provisioningId = args.provisioningId;
   if (args.writeTranscript) {
-    appendThreadProvisioningEvent(deps, {
+    await appendThreadProvisioningEvent(deps, {
       threadId: args.threadId,
       environmentId: null,
       provisioningId,
@@ -73,7 +76,7 @@ export async function inferThreadMetadata(
   });
 
   if (args.writeTranscript) {
-    appendThreadProvisioningEvent(deps, {
+    await appendThreadProvisioningEvent(deps, {
       threadId: args.threadId,
       environmentId: null,
       provisioningId,
@@ -85,7 +88,7 @@ export async function inferThreadMetadata(
   let titleApplied = false;
   if (outcome.metadata?.title) {
     try {
-      titleApplied = applyGeneratedThreadTitle(deps, {
+      titleApplied = await applyGeneratedThreadTitle(deps, {
         threadId: args.threadId,
         title: outcome.metadata.title,
       });

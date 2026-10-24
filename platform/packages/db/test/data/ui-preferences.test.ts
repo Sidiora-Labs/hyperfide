@@ -10,31 +10,31 @@ import { createMigratedConnection } from "../../src/testing.js";
 describe("ui preferences data", () => {
   let db: DbConnection;
 
-  beforeEach(() => {
-    db = createMigratedConnection();
+  beforeEach(async () => {
+    db = await createMigratedConnection();
   });
 
-  afterEach(() => {
-    db.$client.close();
+  afterEach(async () => {
+    await db.close();
   });
 
-  it("creates a row at revision 1 only when the expected revision is 0", () => {
-    expect(listStoredUiPreferences(db)).toEqual([]);
+  it("creates a row at revision 1 only when the expected revision is 0", async () => {
+    expect(await listStoredUiPreferences(db)).toEqual([]);
     expect(
-      replaceStoredUiPreference(db, {
+      await replaceStoredUiPreference(db, {
         expectedRevision: 3,
         key: "sidebar.organizationMode",
         valueJson: '"machine"',
       }),
     ).toEqual({ outcome: "conflict", revision: 0 });
     expect(
-      replaceStoredUiPreference(db, {
+      await replaceStoredUiPreference(db, {
         expectedRevision: 0,
         key: "sidebar.organizationMode",
         valueJson: '"machine"',
       }),
     ).toEqual({ outcome: "updated", revision: 1 });
-    expect(listStoredUiPreferences(db)).toEqual([
+    expect(await listStoredUiPreferences(db)).toEqual([
       {
         key: "sidebar.organizationMode",
         revision: 1,
@@ -43,25 +43,25 @@ describe("ui preferences data", () => {
     ]);
   });
 
-  it("rejects stale writes and keeps the current value", () => {
-    replaceStoredUiPreference(db, {
+  it("rejects stale writes and keeps the current value", async () => {
+    await replaceStoredUiPreference(db, {
       expectedRevision: 0,
       key: "sidebar.hiddenFooterItems",
       valueJson: '["prj_1"]',
     });
-    replaceStoredUiPreference(db, {
+    await replaceStoredUiPreference(db, {
       expectedRevision: 1,
       key: "sidebar.hiddenFooterItems",
       valueJson: '["prj_1","prj_2"]',
     });
     expect(
-      replaceStoredUiPreference(db, {
+      await replaceStoredUiPreference(db, {
         expectedRevision: 1,
         key: "sidebar.hiddenFooterItems",
         valueJson: "[]",
       }),
     ).toEqual({ outcome: "conflict", revision: 2 });
-    expect(listStoredUiPreferences(db)).toEqual([
+    expect(await listStoredUiPreferences(db)).toEqual([
       {
         key: "sidebar.hiddenFooterItems",
         revision: 2,
@@ -70,25 +70,25 @@ describe("ui preferences data", () => {
     ]);
   });
 
-  it("overwrites without a revision check and still advances the revision", () => {
+  it("overwrites without a revision check and still advances the revision", async () => {
     expect(
-      overwriteStoredUiPreference(db, {
+      await overwriteStoredUiPreference(db, {
         key: "sidebar.chronologicalSort",
         valueJson: '"alpha"',
       }),
     ).toEqual({ revision: 1 });
-    replaceStoredUiPreference(db, {
+    await replaceStoredUiPreference(db, {
       expectedRevision: 1,
       key: "sidebar.chronologicalSort",
       valueJson: '"created"',
     });
     expect(
-      overwriteStoredUiPreference(db, {
+      await overwriteStoredUiPreference(db, {
         key: "sidebar.chronologicalSort",
         valueJson: '"updated"',
       }),
     ).toEqual({ revision: 3 });
-    expect(listStoredUiPreferences(db)).toEqual([
+    expect(await listStoredUiPreferences(db)).toEqual([
       {
         key: "sidebar.chronologicalSort",
         revision: 3,

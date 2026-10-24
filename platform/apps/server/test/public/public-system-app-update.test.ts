@@ -3,12 +3,12 @@ import type { SystemAppUpdateStatus } from "@hyperfide/server-contract";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 
-const API = "/api/v1/system/app-update";
+const API = await "/api/v1/system/app-update";
 const MACHINE_HEADERS = { "x-hyperfide-gate-auth": "machine" };
 
 describe("/api/v1/system/app-update", () => {
-  it("reports in-app updates as unavailable when hyperfide runs without the launcher shim", () =>
-    withTestHarness({ isDevelopment: false }, async (harness) => {
+  it("reports in-app updates as unavailable when hyperfide runs without the launcher shim", async () =>
+    await withTestHarness({ isDevelopment: false }, async (harness) => {
       const response = await harness.app.request(API);
 
       expect(response.status).toBe(200);
@@ -21,8 +21,8 @@ describe("/api/v1/system/app-update", () => {
       expect(body.runningThreadCount).toBe(0);
     }));
 
-  it("refuses to apply an update the launcher cannot perform", () =>
-    withTestHarness({ isDevelopment: false }, async (harness) => {
+  it("refuses to apply an update the launcher cannot perform", async () =>
+    await withTestHarness({ isDevelopment: false }, async (harness) => {
       const response = await harness.app.request(`${API}/apply`, {
         body: JSON.stringify({ confirmInterruptingThreads: true }),
         headers: { "content-type": "application/json" },
@@ -35,8 +35,8 @@ describe("/api/v1/system/app-update", () => {
       });
     }));
 
-  it("rejects malformed apply requests", () =>
-    withTestHarness(async (harness) => {
+  it("rejects malformed apply requests", async () =>
+    await withTestHarness(async (harness) => {
       const response = await harness.app.request(`${API}/apply`, {
         body: JSON.stringify({}),
         headers: { "content-type": "application/json" },
@@ -46,8 +46,8 @@ describe("/api/v1/system/app-update", () => {
       expect(response.status).toBe(400);
     }));
 
-  it("does not let machine credentials update or dismiss results", () =>
-    withTestHarness(async (harness) => {
+  it("does not let machine credentials update or dismiss results", async () =>
+    await withTestHarness(async (harness) => {
       const responses = await Promise.all([
         harness.app.request(`${API}/apply`, {
           body: JSON.stringify({ confirmInterruptingThreads: true }),

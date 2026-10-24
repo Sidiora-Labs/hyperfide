@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "@hyperfide/db/testing";
 import { describe, expect, it } from "vitest";
 import { getTimelineGroupingContext } from "../../../src/services/threads/timeline-context-order.js";
 import { prependOlderTimelineRows } from "@hyperfide/client-core";
@@ -43,8 +45,8 @@ it.each([
   { ends: [30, 10], accepted: 0, boundary: null },
   { ends: [10, 12], accepted: -1, boundary: null },
   { ends: [20, 30], accepted: 1, boundary: 15 },
-])("finds external requests among overlapping turns: %j", (testCase) => {
-  const { db, thread } = setup();
+])("finds external requests among overlapping turns: %j", async (testCase) => {
+  const { db, thread } = await setup();
   try {
     const events: Parameters<typeof insertEvents>[2] = [];
     for (const [index, end] of testCase.ends.entries()) {
@@ -83,20 +85,22 @@ it.each([
         input: [{ type: "text", text: "external request", mentions: [] }],
       }),
     });
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       events.sort((a, b) => a.sequence - b.sequence),
     );
     expect(
-      getTimelineGroupingContext(db, {
-        threadId: thread.id,
-        sequenceStart: 0,
-        maxSeq: 30,
-      }).orderingBoundarySequence,
+      (
+        await getTimelineGroupingContext(db, {
+          threadId: thread.id,
+          sequenceStart: 0,
+          maxSeq: 30,
+        })
+      ).orderingBoundarySequence,
     ).toBe(testCase.boundary);
   } finally {
-    db.$client.close();
+    await db.close();
   }
 });
 
@@ -113,31 +117,31 @@ function requestId(value: number): ClientTurnRequestId {
   return encodeClientTurnRequestIdNumber({ value });
 }
 
-function setup(connection?: DbConnection): {
+async function setup(connection?: DbConnection): Promise<{
   db: DbConnection;
   thread: Thread;
-} {
-  const db = connection ?? createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+}> {
+  const db = (await connection) ?? (await createMigratedConnection());
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "claude-code",
   });
   return { db, thread };
 }
 
-function insertTurns(
+async function insertTurns(
   db: DbConnection,
   thread: Thread,
   turnCount: number,
   itemsPerTurn: readonly number[] | number,
-): void {
+): Promise<void> {
   const events: Parameters<typeof insertEvents>[2] = [];
   let sequence = 0;
   for (let turn = 1; turn <= turnCount; turn += 1) {
@@ -213,15 +217,15 @@ function insertTurns(
       });
     }
   }
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
-function insertTurnsWithReusedFileChangeItemId(
+async function insertTurnsWithReusedFileChangeItemId(
   db: DbConnection,
   thread: Thread,
   turnCount: number,
   fillerItemsPerTurn: number,
-): void {
+): Promise<void> {
   const reusedItemId = "acp-fs-write-1";
   const events: Parameters<typeof insertEvents>[2] = [];
   let sequence = 0;
@@ -320,21 +324,19 @@ function insertTurnsWithReusedFileChangeItemId(
       });
     }
   }
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
-function walkAllFileChangeDiffs(
+async function walkAllFileChangeDiffs(
   db: DbConnection,
   thread: Thread,
   eventBudget: number,
-): string[] {
+): Promise<string[]> {
   const diffsByPage: string[][] = [];
   let cursor: TimelinePaginationCursor | null = null;
   for (let page = 0; page < 200; page += 1) {
-    const response: ThreadTimelineResponse = buildThreadTimelineWithProfile(
-      db,
-      thread,
-      {
+    const response: ThreadTimelineResponse = await (
+      await buildThreadTimelineWithProfile(db, thread, {
         completedTurnDisplay: "collapse",
         eventBudget,
         includeClearedContextHistory: false,
@@ -347,7 +349,7 @@ function walkAllFileChangeDiffs(
         page: cursor
           ? { kind: "older", beforeCursor: cursor, segmentLimit: 20 }
           : { kind: "latest", segmentLimit: 20 },
-      },
+      })
     ).response;
     diffsByPage.push(
       response.rows
@@ -372,21 +374,19 @@ interface WalkResult {
   userMessages: string[];
 }
 
-function walkAllPages(
+async function walkAllPages(
   db: DbConnection,
   thread: Thread,
   eventBudget: number,
-): WalkResult {
+): Promise<WalkResult> {
   const messagesByPage: string[][] = [];
   const seenCursors = new Set<string>();
   let cursor: TimelinePaginationCursor | null = null;
   let pages = 0;
 
   for (;;) {
-    const response: ThreadTimelineResponse = buildThreadTimelineWithProfile(
-      db,
-      thread,
-      {
+    const response: ThreadTimelineResponse = await (
+      await buildThreadTimelineWithProfile(db, thread, {
         completedTurnDisplay: "collapse",
         eventBudget,
         includeClearedContextHistory: false,
@@ -399,7 +399,7 @@ function walkAllPages(
         page: cursor
           ? { kind: "older", beforeCursor: cursor, segmentLimit: 20 }
           : { kind: "latest", segmentLimit: 20 },
-      },
+      })
     ).response;
     pages += 1;
     messagesByPage.push(
@@ -425,10 +425,10 @@ function walkAllPages(
 }
 
 describe("timeline event budget", () => {
-  it("walks arbitrary event windows without any request hints", () => {
-    const { db, thread } = setup();
+  it("walks arbitrary event windows without any request hints", async () => {
+    const { db, thread } = await setup();
     try {
-      insertEvents(
+      await insertEvents(
         db,
         noopNotifier,
         Array.from({ length: 40 }, (_, index) => ({
@@ -457,25 +457,25 @@ describe("timeline event budget", () => {
         maxInlineOutputChars: null,
         maxSeq: 0,
       } as const;
-      const full = buildThreadTimelineWithProfile(db, thread, {
-        ...options,
-        eventBudget: LARGE_BUDGET,
-        page: { kind: "latest", segmentLimit: 20 },
-      }).response;
+      const full = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          ...options,
+          eventBudget: LARGE_BUDGET,
+          page: { kind: "latest", segmentLimit: 20 },
+        })
+      ).response;
       let rows: TimelineRow[] = [];
       let cursor: TimelinePaginationCursor | null = null;
       const seen = new Set<string>();
       do {
-        const page: ThreadTimelineResponse = buildThreadTimelineWithProfile(
-          db,
-          thread,
-          {
+        const page: ThreadTimelineResponse = (
+          await buildThreadTimelineWithProfile(db, thread, {
             ...options,
             eventBudget: 5,
             page: cursor
               ? { kind: "older", beforeCursor: cursor, segmentLimit: 20 }
               : { kind: "latest", segmentLimit: 20 },
-          },
+          })
         ).response;
         expect(page.rows.length).toBeGreaterThan(0);
         expect(page.rows.length).toBeLessThanOrEqual(5);
@@ -493,15 +493,15 @@ describe("timeline event budget", () => {
       expect(rows).toEqual(full.rows);
       expect(rows).toHaveLength(40);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("skips windows containing only hidden requests without losing their earlier visible row", () => {
-    const { db, thread } = setup();
+  it("skips windows containing only hidden requests without losing their earlier visible row", async () => {
+    const { db, thread } = await setup();
     try {
-      insertTurns(db, thread, 1, 1);
-      insertEvents(
+      await insertTurns(db, thread, 1, 1);
+      await insertEvents(
         db,
         noopNotifier,
         Array.from({ length: 40 }, (_, index) => ({
@@ -535,28 +535,32 @@ describe("timeline event budget", () => {
         maxInlineOutputChars: null,
         maxSeq: 0,
       } as const;
-      const full = buildThreadTimelineWithProfile(db, thread, {
-        ...options,
-        eventBudget: LARGE_BUDGET,
-        page: { kind: "latest", segmentLimit: 100 },
-      }).response;
-      const latest = buildThreadTimelineWithProfile(db, thread, {
-        ...options,
-        eventBudget: 10,
-        page: { kind: "latest", segmentLimit: 10 },
-      }).response;
+      const full = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          ...options,
+          eventBudget: LARGE_BUDGET,
+          page: { kind: "latest", segmentLimit: 100 },
+        })
+      ).response;
+      const latest = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          ...options,
+          eventBudget: 10,
+          page: { kind: "latest", segmentLimit: 10 },
+        })
+      ).response;
       expect(latest.rows).toEqual(full.rows);
       expect(latest.rows.length).toBeGreaterThan(0);
       expect(latest.timelinePage.olderCursor).toBeNull();
       expect(latest.timelinePage.olderCursor).toBeNull();
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("preserves canonical rows through the client merge with tiny event windows", () => {
-    const { db, thread } = setup();
-    insertTurns(db, thread, 3, [10, 120, 10]);
+  it("preserves canonical rows through the client merge with tiny event windows", async () => {
+    const { db, thread } = await setup();
+    await insertTurns(db, thread, 3, [10, 120, 10]);
     const options = {
       includeClearedContextHistory: false,
       includeDiagnosticOperations: false,
@@ -566,26 +570,26 @@ describe("timeline event budget", () => {
       maxInlineOutputChars: null,
       maxSeq: 0,
     } as const;
-    const canonical = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      ...options,
-      eventBudget: LARGE_BUDGET,
-      page: { kind: "latest", segmentLimit: 100 },
-    }).response;
+    const canonical = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        ...options,
+        eventBudget: LARGE_BUDGET,
+        page: { kind: "latest", segmentLimit: 100 },
+      })
+    ).response;
     let rows: TimelineRow[] = [];
     let cursor: TimelinePaginationCursor | null = null;
     for (let index = 0; index < 200; index += 1) {
-      const response: ThreadTimelineResponse = buildThreadTimelineWithProfile(
-        db,
-        thread,
-        {
+      const response: ThreadTimelineResponse = await (
+        await buildThreadTimelineWithProfile(db, thread, {
           completedTurnDisplay: "collapse",
           ...options,
           eventBudget: 5,
           page: cursor
             ? { kind: "older", beforeCursor: cursor, segmentLimit: 1 }
             : { kind: "latest", segmentLimit: 1 },
-        },
+        })
       ).response;
       rows = prependOlderTimelineRows({
         loadedRows: rows,
@@ -596,7 +600,7 @@ describe("timeline event budget", () => {
     }
     expect(cursor).toBeNull();
     expect(rows).toEqual(canonical.rows);
-    db.$client.close();
+    await db.close();
   });
 
   it("excludes later appends and continues endpoint pagination after an edit", async () => {
@@ -604,8 +608,8 @@ describe("timeline event budget", () => {
       featureFlags: { ...defaultFeatureFlags, timelineWindowEventBudget: 5 },
     });
     try {
-      const { db, thread } = setup(harness.db);
-      insertTurns(db, thread, 3, [10, 40, 10]);
+      const { db, thread } = await setup(harness.db);
+      await insertTurns(db, thread, 3, [10, 40, 10]);
       const read = async (query: string) => {
         const response = await harness.app.request(
           `/api/v1/threads/${thread.id}/timeline?includeNestedRows=true&segmentLimit=1&${query}`,
@@ -613,21 +617,23 @@ describe("timeline event budget", () => {
         expect(response.status).toBe(200);
         return threadTimelineResponseSchema.parse(await response.json());
       };
-      const expected = buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        includeClearedContextHistory: false,
-        includeDiagnosticOperations: false,
-        compactionOfferEnabled: false,
-        summarizeShellCommands: true,
-        includeNestedRows: true,
-        maxInlineOutputChars: 32_000,
-        maxSeq: 0,
-        eventBudget: LARGE_BUDGET,
-        page: { kind: "latest", segmentLimit: 100 },
-      }).response.rows;
+      const expected = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          completedTurnDisplay: "collapse",
+          includeClearedContextHistory: false,
+          includeDiagnosticOperations: false,
+          compactionOfferEnabled: false,
+          summarizeShellCommands: true,
+          includeNestedRows: true,
+          maxInlineOutputChars: 32_000,
+          maxSeq: 0,
+          eventBudget: LARGE_BUDGET,
+          page: { kind: "latest", segmentLimit: 100 },
+        })
+      ).response.rows;
       const latest = await read("");
       const originalCursor = latest.timelinePage.olderCursor!;
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           threadId: thread.id,
           sequence: latest.maxSeq + 1,
@@ -684,20 +690,22 @@ describe("timeline event budget", () => {
           surfaceKey: thread.id,
         }).rows,
       ).toEqual(
-        buildThreadTimelineWithProfile(db, thread, {
-          completedTurnDisplay: "collapse",
-          includeClearedContextHistory: false,
-          includeDiagnosticOperations: false,
-          compactionOfferEnabled: false,
-          summarizeShellCommands: true,
-          includeNestedRows: true,
-          maxInlineOutputChars: 32_000,
-          maxSeq: 0,
-          eventBudget: LARGE_BUDGET,
-          page: { kind: "latest", segmentLimit: 100 },
-        }).response.rows,
+        (
+          await buildThreadTimelineWithProfile(db, thread, {
+            completedTurnDisplay: "collapse",
+            includeClearedContextHistory: false,
+            includeDiagnosticOperations: false,
+            compactionOfferEnabled: false,
+            summarizeShellCommands: true,
+            includeNestedRows: true,
+            maxInlineOutputChars: 32_000,
+            maxSeq: 0,
+            eventBudget: LARGE_BUDGET,
+            page: { kind: "latest", segmentLimit: 100 },
+          })
+        ).response.rows,
       );
-      db.$client
+      await db.$client
         .prepare(
           "UPDATE events SET data = json_set(data, '$.item.text', 'Edited response') WHERE thread_id = ? AND item_id = ?",
         )
@@ -710,7 +718,7 @@ describe("timeline event budget", () => {
       expect(continued.timelinePage.historySnapshot).toBe(
         latest.timelinePage.historySnapshot,
       );
-      db.$client
+      await db.$client
         .prepare("DELETE FROM events WHERE thread_id = ? AND sequence = ?")
         .run(thread.id, originalCursor.anchorSeq);
       const missingAnchor = await harness.app.request(
@@ -728,8 +736,8 @@ describe("timeline event budget", () => {
       featureFlags: { ...defaultFeatureFlags, timelineWindowEventBudget: 5 },
     });
     try {
-      const { db, thread } = setup(harness.db);
-      insertTurns(db, thread, 3, [10, 40, 10]);
+      const { db, thread } = await setup(harness.db);
+      await insertTurns(db, thread, 3, [10, 40, 10]);
       const read = async (query: string) => {
         const response = await harness.app.request(
           `/api/v1/threads/${thread.id}/timeline?includeNestedRows=true&segmentLimit=1&${query}`,
@@ -764,7 +772,7 @@ describe("timeline event budget", () => {
         surfaceKey: thread.id,
         historySnapshot: latest.timelinePage.historySnapshot,
       });
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           threadId: thread.id,
           sequence: latest.maxSeq + 1,
@@ -799,18 +807,20 @@ describe("timeline event budget", () => {
           surfaceKey: thread.id,
         }).rows,
       ).toEqual(
-        buildThreadTimelineWithProfile(db, thread, {
-          completedTurnDisplay: "collapse",
-          includeClearedContextHistory: false,
-          includeDiagnosticOperations: false,
-          compactionOfferEnabled: false,
-          summarizeShellCommands: true,
-          includeNestedRows: true,
-          maxInlineOutputChars: 32_000,
-          maxSeq: 0,
-          eventBudget: LARGE_BUDGET,
-          page: { kind: "latest", segmentLimit: 100 },
-        }).response.rows,
+        (
+          await buildThreadTimelineWithProfile(db, thread, {
+            completedTurnDisplay: "collapse",
+            includeClearedContextHistory: false,
+            includeDiagnosticOperations: false,
+            compactionOfferEnabled: false,
+            summarizeShellCommands: true,
+            includeNestedRows: true,
+            maxInlineOutputChars: 32_000,
+            maxSeq: 0,
+            eventBudget: LARGE_BUDGET,
+            page: { kind: "latest", segmentLimit: 100 },
+          })
+        ).response.rows,
       );
     } finally {
       await harness.cleanup();
@@ -830,7 +840,7 @@ describe("timeline event budget", () => {
         featureFlags: { ...defaultFeatureFlags, timelineWindowEventBudget: 5 },
       });
       try {
-        const { db, thread } = setup(harness.db);
+        const { db, thread } = await setup(harness.db);
         type EventInput = Parameters<typeof insertEvents>[2][number];
         const events: EventInput[] = [];
         const push = (event: Omit<EventInput, "sequence">): void => {
@@ -920,7 +930,7 @@ describe("timeline event budget", () => {
             });
           }
         }
-        insertEvents(db, noopNotifier, events);
+        await insertEvents(db, noopNotifier, events);
         const read = async (query: string) => {
           const response = await harness.app.request(
             `/api/v1/threads/${thread.id}/timeline?segmentLimit=1&${query}`,
@@ -946,7 +956,7 @@ describe("timeline event budget", () => {
           cursor = older.timelinePage.olderCursor;
         }
         expect(rows.length).toBeGreaterThan(latest.rows.length);
-        insertEvents(db, noopNotifier, [
+        await insertEvents(db, noopNotifier, [
           { ...command("completed"), sequence: latest.maxSeq + 1 },
         ]);
 
@@ -986,18 +996,20 @@ describe("timeline event budget", () => {
           reloadCursor = older.timelinePage.olderCursor;
         }
         expect(reloadedRows).toEqual(
-          buildThreadTimelineWithProfile(db, thread, {
-            completedTurnDisplay: "collapse",
-            includeClearedContextHistory: false,
-            includeDiagnosticOperations: false,
-            compactionOfferEnabled: false,
-            summarizeShellCommands: true,
-            includeNestedRows: false,
-            maxInlineOutputChars: 32_000,
-            maxSeq: 0,
-            eventBudget: LARGE_BUDGET,
-            page: { kind: "latest", segmentLimit: 100 },
-          }).response.rows,
+          (
+            await buildThreadTimelineWithProfile(db, thread, {
+              completedTurnDisplay: "collapse",
+              includeClearedContextHistory: false,
+              includeDiagnosticOperations: false,
+              compactionOfferEnabled: false,
+              summarizeShellCommands: true,
+              includeNestedRows: false,
+              maxInlineOutputChars: 32_000,
+              maxSeq: 0,
+              eventBudget: LARGE_BUDGET,
+              page: { kind: "latest", segmentLimit: 100 },
+            })
+          ).response.rows,
         );
       } finally {
         await harness.cleanup();
@@ -1010,7 +1022,7 @@ describe("timeline event budget", () => {
     async (secondMessage) => {
       const harness = await createTestAppHarness();
       try {
-        const { db, thread } = setup(harness.db);
+        const { db, thread } = await setup(harness.db);
         type EventInput = Parameters<typeof insertEvents>[2][number];
         let sequence = 0;
         const event = (
@@ -1111,7 +1123,7 @@ describe("timeline event budget", () => {
             }),
           ];
         };
-        insertEvents(db, noopNotifier, [
+        await insertEvents(db, noopNotifier, [
           ...request(1),
           event("item/started", turnScope("turn-1"), {
             itemId: delegationId,
@@ -1171,7 +1183,7 @@ describe("timeline event budget", () => {
 
         let previous = latest;
         for (const progress of [1, 2]) {
-          insertEvents(db, noopNotifier, [
+          await insertEvents(db, noopNotifier, [
             message(`subagent-${progress}`, delegationId),
             event("item/backgroundTask/progress", threadScope(), {
               itemId: backgroundTaskId,
@@ -1209,10 +1221,10 @@ describe("timeline event budget", () => {
     },
   );
 
-  it("preserves canonical content under a tiny response byte budget", () => {
-    const { db, thread } = setup();
+  it("preserves canonical content under a tiny response byte budget", async () => {
+    const { db, thread } = await setup();
     try {
-      insertTurns(db, thread, 3, [2, 30, 2]);
+      await insertTurns(db, thread, 3, [2, 30, 2]);
       const options = {
         includeClearedContextHistory: false,
         includeDiagnosticOperations: false,
@@ -1223,26 +1235,26 @@ describe("timeline event budget", () => {
         maxSeq: 0,
         eventBudget: LARGE_BUDGET,
       } as const;
-      const canonical = buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        ...options,
-        page: { kind: "latest", segmentLimit: 100 },
-      }).response;
+      const canonical = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          completedTurnDisplay: "collapse",
+          ...options,
+          page: { kind: "latest", segmentLimit: 100 },
+        })
+      ).response;
       let rows: TimelineRow[] = [];
       let cursor: TimelinePaginationCursor | null = null;
       let pages = 0;
       do {
-        const response: ThreadTimelineResponse = buildThreadTimelineWithProfile(
-          db,
-          thread,
-          {
+        const response: ThreadTimelineResponse = (
+          await buildThreadTimelineWithProfile(db, thread, {
             completedTurnDisplay: "collapse",
             ...options,
             responseByteBudget: 512,
             page: cursor
               ? { kind: "older", beforeCursor: cursor, segmentLimit: 2 }
               : { kind: "latest", segmentLimit: 2 },
-          },
+          })
         ).response;
         rows = prependOlderTimelineRows({
           loadedRows: rows,
@@ -1254,94 +1266,109 @@ describe("timeline event budget", () => {
       expect(rows).toEqual(canonical.rows);
       expect(pages).toBeGreaterThan(3);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("continues after suffix replacement but rejects a deleted cursor anchor", () => {
-    const { db, thread } = setup();
-    try {
-      insertTurns(db, thread, 3, 2);
-      const options = {
-        includeClearedContextHistory: false,
-        includeDiagnosticOperations: false,
-        compactionOfferEnabled: false,
-        summarizeShellCommands: true,
-        includeNestedRows: true,
-        maxInlineOutputChars: null,
-        maxSeq: 0,
-        eventBudget: 1,
-      } as const;
-      const latest = buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        ...options,
-        page: { kind: "latest", segmentLimit: 1 },
-      }).response;
-      const beforeCursor = latest.timelinePage.olderCursor!;
-      const copy = createConnection(db.$client.serialize());
+  it.skipIf(isPostgresTest)(
+    "continues after suffix replacement but rejects a deleted cursor anchor",
+    async () => {
+      const { db, thread } = await setup();
       try {
-        expect(
-          buildThreadTimelineWithProfile(copy, thread, {
+        await insertTurns(db, thread, 3, 2);
+        const options = {
+          includeClearedContextHistory: false,
+          includeDiagnosticOperations: false,
+          compactionOfferEnabled: false,
+          summarizeShellCommands: true,
+          includeNestedRows: true,
+          maxInlineOutputChars: null,
+          maxSeq: 0,
+          eventBudget: 1,
+        } as const;
+        const latest = (
+          await buildThreadTimelineWithProfile(db, thread, {
+            completedTurnDisplay: "collapse",
+            ...options,
+            page: { kind: "latest", segmentLimit: 1 },
+          })
+        ).response;
+        const beforeCursor = latest.timelinePage.olderCursor!;
+        const copy = await createConnection(
+          db.dialect === "postgresql"
+            ? db.databaseUrl!
+            : db.$client.serialize(),
+        );
+        try {
+          expect(
+            (
+              await buildThreadTimelineWithProfile(copy, thread, {
+                completedTurnDisplay: "collapse",
+                ...options,
+                page: { kind: "older", beforeCursor, segmentLimit: 1 },
+              })
+            ).response.timelinePage.historySnapshot,
+          ).toBe(latest.timelinePage.historySnapshot);
+        } finally {
+          await copy.close();
+        }
+        await db.$client
+          .prepare("DELETE FROM events WHERE thread_id = ? AND sequence = ?")
+          .run(thread.id, latest.maxSeq);
+        await insertEvents(db, noopNotifier, [
+          {
+            threadId: thread.id,
+            sequence: latest.maxSeq,
+            type: "item/completed",
+            scope: turnScope("turn-3"),
+            providerThreadId,
+            itemId: "replacement",
+            itemKind: "agentMessage",
+            parentToolCallId: null,
+            data: JSON.stringify({
+              item: {
+                type: "agentMessage",
+                id: "replacement",
+                text: "Replacement",
+              },
+            }),
+          },
+        ]);
+        const continued = (
+          await buildThreadTimelineWithProfile(db, thread, {
             completedTurnDisplay: "collapse",
             ...options,
             page: { kind: "older", beforeCursor, segmentLimit: 1 },
-          }).response.timelinePage.historySnapshot,
-        ).toBe(latest.timelinePage.historySnapshot);
+          })
+        ).response;
+        expect(continued.timelinePage.historySnapshot).toBe(
+          latest.timelinePage.historySnapshot,
+        );
+        await db.$client
+          .prepare("DELETE FROM events WHERE thread_id = ? AND sequence >= ?")
+          .run(thread.id, beforeCursor.anchorSeq);
+        await expect(
+          (async () =>
+            (
+              await buildThreadTimelineWithProfile(db, thread, {
+                completedTurnDisplay: "collapse",
+                ...options,
+                page: { kind: "older", beforeCursor, segmentLimit: 1 },
+              })
+            ).response)(),
+        ).rejects.toThrow(/no longer available/);
       } finally {
-        copy.$client.close();
+        await db.close();
       }
-      db.$client
-        .prepare("DELETE FROM events WHERE thread_id = ? AND sequence = ?")
-        .run(thread.id, latest.maxSeq);
-      insertEvents(db, noopNotifier, [
-        {
-          threadId: thread.id,
-          sequence: latest.maxSeq,
-          type: "item/completed",
-          scope: turnScope("turn-3"),
-          providerThreadId,
-          itemId: "replacement",
-          itemKind: "agentMessage",
-          parentToolCallId: null,
-          data: JSON.stringify({
-            item: {
-              type: "agentMessage",
-              id: "replacement",
-              text: "Replacement",
-            },
-          }),
-        },
-      ]);
-      const continued = buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        ...options,
-        page: { kind: "older", beforeCursor, segmentLimit: 1 },
-      }).response;
-      expect(continued.timelinePage.historySnapshot).toBe(
-        latest.timelinePage.historySnapshot,
-      );
-      db.$client
-        .prepare("DELETE FROM events WHERE thread_id = ? AND sequence >= ?")
-        .run(thread.id, beforeCursor.anchorSeq);
-      expect(
-        () =>
-          buildThreadTimelineWithProfile(db, thread, {
-            completedTurnDisplay: "collapse",
-            ...options,
-            page: { kind: "older", beforeCursor, segmentLimit: 1 },
-          }).response,
-      ).toThrow(/no longer available/);
-    } finally {
-      db.$client.close();
-    }
-  });
+    },
+  );
 
-  it("reaches every user message that the unbudgeted build reaches", () => {
-    const { db, thread } = setup();
-    insertTurns(db, thread, 12, 60);
+  it("reaches every user message that the unbudgeted build reaches", async () => {
+    const { db, thread } = await setup();
+    await insertTurns(db, thread, 12, 60);
 
-    const unbudgeted = walkAllPages(db, thread, LARGE_BUDGET);
-    const budgeted = walkAllPages(db, thread, 150);
+    const unbudgeted = await walkAllPages(db, thread, LARGE_BUDGET);
+    const budgeted = await walkAllPages(db, thread, 150);
 
     expect(budgeted.userMessages).toEqual(unbudgeted.userMessages);
     expect(budgeted.userMessages).toHaveLength(12);
@@ -1349,36 +1376,40 @@ describe("timeline event budget", () => {
     expect(budgeted.pages).toBeGreaterThan(1);
   });
 
-  it("reports older rows when the budget truncates a window that fits in segmentLimit", () => {
-    const { db, thread } = setup();
-    insertTurns(db, thread, 8, 40);
+  it("reports older rows when the budget truncates a window that fits in segmentLimit", async () => {
+    const { db, thread } = await setup();
+    await insertTurns(db, thread, 8, 40);
 
-    const unbudgeted = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: LARGE_BUDGET,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: true,
-      maxInlineOutputChars: null,
-      maxSeq: 0,
-      page: { kind: "latest", segmentLimit: 20 },
-    }).response;
+    const unbudgeted = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: LARGE_BUDGET,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: true,
+        maxInlineOutputChars: null,
+        maxSeq: 0,
+        page: { kind: "latest", segmentLimit: 20 },
+      })
+    ).response;
     expect(unbudgeted.timelinePage.olderCursor).toBeNull();
 
-    const budgeted = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: 100,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: true,
-      maxInlineOutputChars: null,
-      maxSeq: 0,
-      page: { kind: "latest", segmentLimit: 20 },
-    }).response;
+    const budgeted = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 100,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: true,
+        maxInlineOutputChars: null,
+        maxSeq: 0,
+        page: { kind: "latest", segmentLimit: 20 },
+      })
+    ).response;
     expect(budgeted.timelinePage.returnedSegmentCount).toBeLessThan(
       unbudgeted.timelinePage.returnedSegmentCount,
     );
@@ -1388,11 +1419,11 @@ describe("timeline event budget", () => {
 
   it.each(["agent-only", "empty", "mixed"])(
     "walks across a %s request accepted into an earlier visible turn",
-    (visibility) => {
-      const { db, thread } = setup();
-      insertTurns(db, thread, 1, 1);
+    async (visibility) => {
+      const { db, thread } = await setup();
+      await insertTurns(db, thread, 1, 1);
       const clientRequestId = requestId(2);
-      insertEvents(db, noopNotifier, [
+      await insertEvents(db, noopNotifier, [
         {
           threadId: thread.id,
           sequence: 5,
@@ -1455,18 +1486,20 @@ describe("timeline event budget", () => {
         },
       ]);
 
-      const response = buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        eventBudget: 2,
-        includeClearedContextHistory: false,
-        includeDiagnosticOperations: false,
-        compactionOfferEnabled: false,
-        summarizeShellCommands: true,
-        includeNestedRows: true,
-        maxInlineOutputChars: null,
-        maxSeq: 0,
-        page: { kind: "latest", segmentLimit: 20 },
-      }).response;
+      const response = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          completedTurnDisplay: "collapse",
+          eventBudget: 2,
+          includeClearedContextHistory: false,
+          includeDiagnosticOperations: false,
+          compactionOfferEnabled: false,
+          summarizeShellCommands: true,
+          includeNestedRows: true,
+          maxInlineOutputChars: null,
+          maxSeq: 0,
+          page: { kind: "latest", segmentLimit: 20 },
+        })
+      ).response;
 
       expect(response.rows.length).toBeGreaterThan(0);
       expect(
@@ -1488,20 +1521,24 @@ describe("timeline event budget", () => {
         maxInlineOutputChars: null,
         maxSeq: 0,
       } as const;
-      const canonical = buildThreadTimelineWithProfile(db, thread, {
-        ...options,
-        eventBudget: LARGE_BUDGET,
-        page: { kind: "latest", segmentLimit: 20 },
-      }).response;
+      const canonical = (
+        await buildThreadTimelineWithProfile(db, thread, {
+          ...options,
+          eventBudget: LARGE_BUDGET,
+          page: { kind: "latest", segmentLimit: 20 },
+        })
+      ).response;
       let rows = response.rows;
       let cursor = response.timelinePage.olderCursor;
       let pages = 1;
       while (cursor !== null) {
-        const older = buildThreadTimelineWithProfile(db, thread, {
-          ...options,
-          eventBudget: 2,
-          page: { kind: "older", beforeCursor: cursor, segmentLimit: 20 },
-        }).response;
+        const older = (
+          await buildThreadTimelineWithProfile(db, thread, {
+            ...options,
+            eventBudget: 2,
+            page: { kind: "older", beforeCursor: cursor, segmentLimit: 20 },
+          })
+        ).response;
         rows = prependOlderTimelineRows({
           loadedRows: rows,
           olderRows: older.rows,
@@ -1510,52 +1547,54 @@ describe("timeline event budget", () => {
         expect(++pages).toBeLessThan(10);
       }
       expect(rows).toEqual(canonical.rows);
-      db.$client.close();
+      await db.close();
     },
   );
 
-  it("still renders a single turn larger than the whole budget", () => {
-    const { db, thread } = setup();
-    insertTurns(db, thread, 3, [10, 400, 10]);
+  it("still renders a single turn larger than the whole budget", async () => {
+    const { db, thread } = await setup();
+    await insertTurns(db, thread, 3, [10, 400, 10]);
 
-    const budgeted = buildThreadTimelineWithProfile(db, thread, {
-      completedTurnDisplay: "collapse",
-      eventBudget: 50,
-      includeClearedContextHistory: false,
-      includeDiagnosticOperations: false,
-      compactionOfferEnabled: false,
-      summarizeShellCommands: true,
-      includeNestedRows: true,
-      maxInlineOutputChars: null,
-      maxSeq: 0,
-      page: { kind: "latest", segmentLimit: 20 },
-    }).response;
+    const budgeted = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 50,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        includeNestedRows: true,
+        maxInlineOutputChars: null,
+        maxSeq: 0,
+        page: { kind: "latest", segmentLimit: 20 },
+      })
+    ).response;
     expect(budgeted.timelinePage.returnedSegmentCount).toBeGreaterThanOrEqual(
       1,
     );
     expect(budgeted.rows.length).toBeGreaterThan(0);
 
-    expect(walkAllPages(db, thread, 50).userMessages).toEqual(
-      walkAllPages(db, thread, LARGE_BUDGET).userMessages,
+    expect((await walkAllPages(db, thread, 50)).userMessages).toEqual(
+      (await walkAllPages(db, thread, LARGE_BUDGET)).userMessages,
     );
   });
 
-  it("keeps one file change per turn when turns reuse a file-change item id", () => {
-    const { db, thread } = setup();
-    insertTurnsWithReusedFileChangeItemId(db, thread, 3, 8);
+  it("keeps one file change per turn when turns reuse a file-change item id", async () => {
+    const { db, thread } = await setup();
+    await insertTurnsWithReusedFileChangeItemId(db, thread, 3, 8);
 
-    const unbudgeted = walkAllFileChangeDiffs(db, thread, LARGE_BUDGET);
+    const unbudgeted = await walkAllFileChangeDiffs(db, thread, LARGE_BUDGET);
     expect(unbudgeted).toEqual([
       "@@ -1 +1 @@\n-old\n+turn-1",
       "@@ -1 +1 @@\n-old\n+turn-2",
       "@@ -1 +1 @@\n-old\n+turn-3",
     ]);
-    expect(walkAllFileChangeDiffs(db, thread, 10)).toEqual(unbudgeted);
+    expect(await walkAllFileChangeDiffs(db, thread, 10)).toEqual(unbudgeted);
   });
 
-  it("leaves a thread that fits inside the budget byte-identical", () => {
-    const { db, thread } = setup();
-    insertTurns(db, thread, 4, 5);
+  it("leaves a thread that fits inside the budget byte-identical", async () => {
+    const { db, thread } = await setup();
+    await insertTurns(db, thread, 4, 5);
 
     const page = { kind: "latest", segmentLimit: 20 } as const;
     const options = {
@@ -1569,35 +1608,43 @@ describe("timeline event budget", () => {
       page,
     };
     expect(
-      buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        ...options,
-        eventBudget: 1_500,
-      }).response,
+      (
+        await buildThreadTimelineWithProfile(db, thread, {
+          completedTurnDisplay: "collapse",
+          ...options,
+          eventBudget: 1_500,
+        })
+      ).response,
     ).toEqual(
-      buildThreadTimelineWithProfile(db, thread, {
-        completedTurnDisplay: "collapse",
-        ...options,
-        eventBudget: LARGE_BUDGET,
-      }).response,
+      (
+        await buildThreadTimelineWithProfile(db, thread, {
+          completedTurnDisplay: "collapse",
+          ...options,
+          eventBudget: LARGE_BUDGET,
+        })
+      ).response,
     );
   });
 });
 
-it("does not decode unrelated turn history for a one-group page", () => {
-  const { db, thread } = setup();
-  insertTurns(db, thread, 200, 3);
-  const { response, profile } = buildThreadTimelineWithProfile(db, thread, {
-    completedTurnDisplay: "collapse",
-    eventBudget: 1500,
-    includeClearedContextHistory: false,
-    includeDiagnosticOperations: false,
-    compactionOfferEnabled: false,
-    summarizeShellCommands: true,
-    maxInlineOutputChars: 32000,
-    maxSeq: 0,
-    page: { kind: "latest", segmentLimit: 1 },
-  });
+it("does not decode unrelated turn history for a one-group page", async () => {
+  const { db, thread } = await setup();
+  await insertTurns(db, thread, 200, 3);
+  const { response, profile } = await buildThreadTimelineWithProfile(
+    db,
+    thread,
+    {
+      completedTurnDisplay: "collapse",
+      eventBudget: 1500,
+      includeClearedContextHistory: false,
+      includeDiagnosticOperations: false,
+      compactionOfferEnabled: false,
+      summarizeShellCommands: true,
+      maxInlineOutputChars: 32000,
+      maxSeq: 0,
+      page: { kind: "latest", segmentLimit: 1 },
+    },
+  );
   expect(
     response.rows.some(
       (row) =>
@@ -1607,43 +1654,32 @@ it("does not decode unrelated turn history for a one-group page", () => {
     ),
   ).toBe(true);
   expect(profile.decodedEventCount).toBeLessThan(20);
-  db.$client.close();
+  await db.close();
 });
 
-it("resolves acceptance after the next conversation boundary", () => {
-  const { db, thread } = setup();
-  insertTurns(db, thread, 3, 1);
-  db.$client
+it("resolves acceptance after the next conversation boundary", async () => {
+  const { db, thread } = await setup();
+  await insertTurns(db, thread, 3, 1);
+  await db.$client
     .prepare(
       "UPDATE events SET sequence = sequence + 1000 WHERE thread_id = ? AND turn_id = 'turn-1'",
     )
     .run(thread.id);
-  const expected = buildThreadTimelineWithProfile(db, thread, {
-    completedTurnDisplay: "collapse",
-    eventBudget: LARGE_BUDGET,
-    includeClearedContextHistory: false,
-    includeDiagnosticOperations: false,
-    compactionOfferEnabled: false,
-    summarizeShellCommands: true,
-    maxInlineOutputChars: 32000,
-    maxSeq: 0,
-    page: { kind: "latest", segmentLimit: 100 },
-  }).response;
-  let page = buildThreadTimelineWithProfile(db, thread, {
-    completedTurnDisplay: "collapse",
-    eventBudget: 5,
-    includeClearedContextHistory: false,
-    includeDiagnosticOperations: false,
-    compactionOfferEnabled: false,
-    summarizeShellCommands: true,
-    maxInlineOutputChars: 32000,
-    maxSeq: 0,
-    page: { kind: "latest", segmentLimit: 1 },
-  }).response;
-  let rows = page.rows;
-  for (let count = 0; page.timelinePage.olderCursor !== null; count++) {
-    expect(count).toBeLessThan(20);
-    page = buildThreadTimelineWithProfile(db, thread, {
+  const expected = (
+    await buildThreadTimelineWithProfile(db, thread, {
+      completedTurnDisplay: "collapse",
+      eventBudget: LARGE_BUDGET,
+      includeClearedContextHistory: false,
+      includeDiagnosticOperations: false,
+      compactionOfferEnabled: false,
+      summarizeShellCommands: true,
+      maxInlineOutputChars: 32000,
+      maxSeq: 0,
+      page: { kind: "latest", segmentLimit: 100 },
+    })
+  ).response;
+  let page = (
+    await buildThreadTimelineWithProfile(db, thread, {
       completedTurnDisplay: "collapse",
       eventBudget: 5,
       includeClearedContextHistory: false,
@@ -1652,14 +1688,31 @@ it("resolves acceptance after the next conversation boundary", () => {
       summarizeShellCommands: true,
       maxInlineOutputChars: 32000,
       maxSeq: 0,
-      page: {
-        kind: "older",
-        segmentLimit: 1,
-        beforeCursor: page.timelinePage.olderCursor,
-      },
-    }).response;
+      page: { kind: "latest", segmentLimit: 1 },
+    })
+  ).response;
+  let rows = page.rows;
+  for (let count = 0; page.timelinePage.olderCursor !== null; count++) {
+    expect(count).toBeLessThan(20);
+    page = (
+      await buildThreadTimelineWithProfile(db, thread, {
+        completedTurnDisplay: "collapse",
+        eventBudget: 5,
+        includeClearedContextHistory: false,
+        includeDiagnosticOperations: false,
+        compactionOfferEnabled: false,
+        summarizeShellCommands: true,
+        maxInlineOutputChars: 32000,
+        maxSeq: 0,
+        page: {
+          kind: "older",
+          segmentLimit: 1,
+          beforeCursor: page.timelinePage.olderCursor,
+        },
+      })
+    ).response;
     rows = prependOlderTimelineRows({ loadedRows: rows, olderRows: page.rows });
   }
   expect(rows).toEqual(expected.rows);
-  db.$client.close();
+  await db.close();
 });

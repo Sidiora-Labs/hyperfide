@@ -255,7 +255,10 @@ describe("plugin-declared icons", () => {
   });
 
   it("fails the load for an icon reached through a symlink outside the plugin", async () => {
-    const outside = join(tmpdir(), `hyperfide-plugin-icon-outside-${Date.now()}`);
+    const outside = join(
+      tmpdir(),
+      `hyperfide-plugin-icon-outside-${Date.now()}`,
+    );
     await mkdir(outside, { recursive: true });
     await writeFile(join(outside, "receipt.svg"), SVG);
     const rootDir = join(

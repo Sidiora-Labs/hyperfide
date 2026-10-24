@@ -291,7 +291,7 @@ async function pollForEventAfter<T>(
 async function waitForTurnStartedAfter(
   args: WaitForThreadEventArgs,
 ): Promise<WaitForTurnStartedResult> {
-  return pollForEventAfter(args, {
+  return await pollForEventAfter(args, {
     find: findTurnStartedAfter,
     label: "turn/started",
   });
@@ -300,7 +300,7 @@ async function waitForTurnStartedAfter(
 export async function waitForInputAcceptedAfter(
   args: WaitForThreadEventArgs,
 ): Promise<WaitForInputAcceptedResult> {
-  return pollForEventAfter(args, {
+  return await pollForEventAfter(args, {
     find: findInputAcceptedAfter,
     label: "turn/input/accepted",
   });
@@ -319,7 +319,7 @@ export async function sendLongRunningTurnAndWaitStarted(
     }),
     text: "Write a detailed 20 section essay about the history of computing with four sentences per section.",
   });
-  return waitForTurnStartedAfter({
+  return await waitForTurnStartedAfter({
     baselineSequence,
     harness: args.harness,
     threadId: args.threadId,

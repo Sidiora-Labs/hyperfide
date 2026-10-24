@@ -30,11 +30,12 @@ export interface OpenSessionInput {
   leaseTimeoutMs: number;
 }
 
-export function openSession(db: DbConnection, input: OpenSessionInput) {
+export async function openSession(db: DbConnection, input: OpenSessionInput) {
   const now = Date.now();
   const id = createHostDaemonSessionId();
 
-  db.update(hostDaemonSessions)
+  await db
+    .update(hostDaemonSessions)
     .set({
       status: "closed",
       closedAt: now,
@@ -51,7 +52,7 @@ export function openSession(db: DbConnection, input: OpenSessionInput) {
 
   const leaseExpiresAt = now + input.leaseTimeoutMs;
 
-  const row = db
+  const row = await db
     .insert(hostDaemonSessions)
     .values({
       id,
@@ -70,18 +71,18 @@ export function openSession(db: DbConnection, input: OpenSessionInput) {
     .returning()
     .get();
 
-  markHostSeen(db, input.hostId, now);
+  await markHostSeen(db, input.hostId, now);
 
   return row;
 }
 
-export function closeSession(
+export async function closeSession(
   db: DbConnection,
   notifier: DbNotifier,
   sessionId: string,
   closeReason: string,
 ) {
-  const existing = db
+  const existing = await db
     .select()
     .from(hostDaemonSessions)
     .where(eq(hostDaemonSessions.id, sessionId))
@@ -94,7 +95,7 @@ export function closeSession(
   }
 
   const now = Date.now();
-  const updated = db
+  const updated = await db
     .update(hostDaemonSessions)
     .set({
       status: "closed",
@@ -106,17 +107,17 @@ export function closeSession(
     .returning()
     .get();
 
-  notifier.notifyHost(existing.hostId, ["host-disconnected"]);
+  await notifier.notifyHost(existing.hostId, ["host-disconnected"]);
 
   return updated ?? null;
 }
 
-export function getLatestSessionForHost(
+export async function getLatestSessionForHost(
   db: SessionReadConnection,
   args: GetLatestSessionForHostArgs,
-): HostDaemonSessionRow | null {
+): Promise<HostDaemonSessionRow | null> {
   return (
-    db
+    (await db
       .select()
       .from(hostDaemonSessions)
       .where(eq(hostDaemonSessions.hostId, args.hostId))
@@ -129,20 +130,20 @@ export function getLatestSessionForHost(
         desc(hostDaemonSessions.id),
       )
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function listLatestClosedSessionsForHosts(
+export async function listLatestClosedSessionsForHosts(
   db: SessionReadConnection,
   args: ListLatestClosedSessionsForHostsArgs,
-): HostDaemonSessionRow[] {
+): Promise<HostDaemonSessionRow[]> {
   const hostIds = [...new Set(args.hostIds)];
   if (hostIds.length === 0) {
     return [];
   }
 
-  return db
+  return await db
     .select()
     .from(hostDaemonSessions)
     .where(
@@ -161,28 +162,28 @@ export function listLatestClosedSessionsForHosts(
     .all();
 }
 
-export function getSessionById(
+export async function getSessionById(
   db: SessionReadConnection,
   args: GetSessionByIdArgs,
 ) {
   return (
-    db
+    (await db
       .select()
       .from(hostDaemonSessions)
       .where(eq(hostDaemonSessions.id, args.sessionId))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function heartbeatSession(
+export async function heartbeatSession(
   db: DbConnection,
   sessionId: string,
   leaseExpiresAt: number,
 ) {
-  return db.transaction((tx) => {
+  return await db.transaction(async (tx) => {
     const now = Date.now();
     const updated =
-      tx
+      (await tx
         .update(hostDaemonSessions)
         .set({
           leaseExpiresAt,
@@ -190,9 +191,9 @@ export function heartbeatSession(
         })
         .where(eq(hostDaemonSessions.id, sessionId))
         .returning()
-        .get() ?? null;
+        .get()) ?? null;
     if (updated) {
-      markHostSeen(tx, updated.hostId, now);
+      await markHostSeen(tx, updated.hostId, now);
     }
     return updated;
   });

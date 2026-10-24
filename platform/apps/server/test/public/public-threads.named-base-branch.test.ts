@@ -57,10 +57,10 @@ async function createNamedBaseBranchThread(
     ) => void;
   },
 ): Promise<JsonValue> {
-  const provider = installFakeGitWorktreeProvider();
-  const { host, session } = seedHostSession(harness.deps);
+  const provider = await installFakeGitWorktreeProvider();
+  const { host, session } = await seedHostSession(harness.deps);
   seedPrimaryHost(harness.deps, host.id);
-  registerTestHostRpcCapture(harness, {
+  await registerTestHostRpcCapture(harness, {
     hostId: host.id,
     sessionId: session.id,
     gitSourceInspectionResult: buildCheckout("local-behind"),
@@ -68,7 +68,7 @@ async function createNamedBaseBranchThread(
       ? { onInspectGitSource: args.onInspectGitSource }
       : {}),
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: SOURCE_PATH,
   });
@@ -100,15 +100,15 @@ async function createNamedBaseBranchThread(
 describe("named managed-worktree base branch", () => {
   it("accepts an explicit base for a detached single-branch checkout", async () => {
     await withTestHarness(async (harness) => {
-      const provider = installFakeGitWorktreeProvider();
-      const { host, session } = seedHostSession(harness.deps);
+      const provider = await installFakeGitWorktreeProvider();
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
-      registerTestHostRpcCapture(harness, {
+      await registerTestHostRpcCapture(harness, {
         hostId: host.id,
         sessionId: session.id,
         gitSourceInspectionResult: buildDetachedSingleBranchCheckout(),
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SOURCE_PATH,
       });
@@ -176,34 +176,34 @@ describe("named managed-worktree base branch", () => {
 
   it("passes a fork's explicitly named base branch through unchanged", async () => {
     await withTestHarness(async (harness) => {
-      const provider = installFakeGitWorktreeProvider();
-      const { host, session } = seedHostSession(harness.deps);
-      registerTestHostRpcCapture(harness, {
+      const provider = await installFakeGitWorktreeProvider();
+      const { host, session } = await seedHostSession(harness.deps);
+      await registerTestHostRpcCapture(harness, {
         hostId: host.id,
         sessionId: session.id,
         gitSourceInspectionResult: buildCheckout("local-behind"),
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: SOURCE_PATH,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         branchName: "feature/source",
         hostId: host.id,
         path: SOURCE_PATH,
         projectId: project.id,
       });
-      const sourceThread = seedThread(harness.deps, {
+      const sourceThread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
       });
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: environment.id,
         permissionMode: "full",
         providerThreadId: "provider-fork-source",
         threadId: sourceThread.id,
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         environmentId: environment.id,
         providerThreadId: "provider-fork-source",
         sequence: 3,

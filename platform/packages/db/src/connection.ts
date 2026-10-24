@@ -1,4 +1,6 @@
-import Database from "better-sqlite3";
+import type Database from "better-sqlite3";
+import { createRequire } from "node:module";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 import { resourceUsage, threadCpuUsage } from "node:process";
@@ -26,16 +28,25 @@ export interface SlowDbQueryLogger {
 }
 
 export interface CreateConnectionOptions {
+  postgresIdleTimeoutMs?: number;
   slowQueryLogger?: SlowDbQueryLogger;
   slowQueryThresholdMs?: number | (() => number);
   slowQueryDiagnosticsEnabled?: () => boolean;
 }
 
-export type DbConnection = ReturnType<typeof createConnection>;
-export type DbTransaction = Parameters<
-  Parameters<DbConnection["transaction"]>[0]
->[0];
-export type DbQueryConnection = DbConnection | DbTransaction;
+import type {
+  DbConnection,
+  DbTransaction,
+  DbQueryConnection,
+} from "./async-connection.js";
+export type {
+  DbConnection,
+  DbTransaction,
+  DbQueryConnection,
+} from "./async-connection.js";
+export { afterCommit } from "./async-connection.js";
+import { asyncBuilder, withCommitCallbacks } from "./async-connection.js";
+import { createPostgresConnection } from "./postgres.js";
 export type SlowDbQueryOperation =
   | "all"
   | "get"
@@ -47,15 +58,6 @@ const compiledQueries = new WeakMap<
   DbQueryConnection,
   Map<(db: DbQueryConnection) => unknown, unknown>
 >();
-
-type CommitContext = { pending: Array<() => void> | undefined };
-const commitContexts = new WeakMap<DbQueryConnection, CommitContext>();
-
-export function afterCommit(db: DbQueryConnection, callback: () => void): void {
-  const pending = commitContexts.get(db)?.pending;
-  if (pending) pending.push(callback);
-  else callback();
-}
 
 export function prepareCachedQuery<TQuery>(
   db: DbQueryConnection,
@@ -284,11 +286,14 @@ function instrumentSqliteClient(
   });
 }
 
-export function createConnection(
+function createSqliteConnection(
   source: string | Buffer = "hyperfide.db",
   options: CreateConnectionOptions = {},
 ) {
-  const sqlite = new Database(source);
+  const NativeDatabase = createRequire(import.meta.url)(
+    "better-sqlite3",
+  ) as typeof Database;
+  const sqlite = new NativeDatabase(source);
 
   sqlite.pragma("auto_vacuum = INCREMENTAL");
   sqlite.pragma("journal_mode = WAL");
@@ -301,55 +306,86 @@ export function createConnection(
   instrumentSqliteClient(sqlite, options);
 
   const db = drizzle({ client: sqlite, schema });
+  let queue: Promise<unknown> = Promise.resolve();
+  const active = new AsyncLocalStorage<boolean>();
   const queries = new Map<(db: DbQueryConnection) => unknown, unknown>();
-  compiledQueries.set(db, queries);
-  const originalTransaction = db.transaction.bind(db);
-  const commitContext: CommitContext = { pending: undefined };
-  commitContexts.set(db, commitContext);
-  function prepareTransaction(tx: DbTransaction): void {
-    compiledQueries.set(tx, queries);
-    commitContexts.set(tx, commitContext);
-    const nestedTransaction = tx.transaction.bind(tx);
-    tx.transaction = (work) =>
-      transactionCallbacks(() =>
-        nestedTransaction((nested) => {
-          prepareTransaction(nested);
-          return work(nested);
-        }),
-      );
-  }
-  function transactionCallbacks<T>(work: () => T): T {
-    const parent = commitContext.pending;
-    const callbacks: Array<() => void> = [];
-    let result: T;
-    try {
-      commitContext.pending = callbacks;
-      result = work();
-    } finally {
-      commitContext.pending = parent;
-    }
-    if (parent) parent.push(...callbacks);
-    else
-      for (const callback of callbacks) {
-        try {
-          callback();
-        } catch {}
-      }
+  let savepoint = 0;
+  function enqueue<T>(work: () => T | Promise<T>): Promise<T> {
+    const result = queue.then(work, work);
+    queue = result.catch(() => {});
     return result;
   }
-  db.transaction = (work, config) =>
-    transactionCallbacks(() =>
-      originalTransaction((tx) => {
-        prepareTransaction(tx);
-        return work(tx);
-      }, config),
-    );
-  const originalClose = sqlite.close.bind(sqlite);
-  sqlite.close = () => {
-    const result = originalClose();
-    queries.clear();
-    return result;
-  };
+  function wrap(connection: typeof db, inTransaction = false): DbConnection {
+    const schedule = (work: () => any) =>
+      inTransaction || active.getStore()
+        ? Promise.resolve().then(work)
+        : enqueue(work);
+    const wrapped = new Proxy(connection, {
+      get(target, key) {
+        if (key === "$client") return sqlite;
+        if (key === "dialect") return "sqlite";
+        if (key === "close")
+          return () =>
+            enqueue(() => {
+              sqlite.close();
+              queries.clear();
+            });
+        if (key === "transaction")
+          return (
+            work: (tx: DbTransaction) => unknown,
+            config?: { behavior?: string },
+          ) => {
+            const nested = inTransaction || active.getStore();
+            const execute = async () => {
+              const name = `hyperfide_sp_${++savepoint}`;
+              sqlite.exec(
+                nested
+                  ? `SAVEPOINT ${name}`
+                  : `BEGIN ${config?.behavior ?? "DEFERRED"}`,
+              );
+              try {
+                const result = await active.run(true, () =>
+                  work(wrap(target, true) as unknown as DbTransaction),
+                );
+                sqlite.exec(nested ? `RELEASE SAVEPOINT ${name}` : "COMMIT");
+                return result;
+              } catch (error) {
+                sqlite.exec(
+                  nested ? `ROLLBACK TO SAVEPOINT ${name}` : "ROLLBACK",
+                );
+                if (nested) sqlite.exec(`RELEASE SAVEPOINT ${name}`);
+                throw error;
+              }
+            };
+            return withCommitCallbacks(() =>
+              nested ? execute() : enqueue(execute),
+            );
+          };
+        const member = Reflect.get(target, key);
+        if (typeof member !== "function") return member;
+        if (["all", "get", "run", "values"].includes(String(key)))
+          return (...args: unknown[]) =>
+            schedule(() => member.apply(target, args));
+        return (...args: unknown[]) =>
+          asyncBuilder(member.apply(target, args), schedule);
+      },
+    }) as unknown as DbConnection;
+    compiledQueries.set(wrapped, queries);
+    return wrapped;
+  }
+  return wrap(db);
+}
 
-  return db;
+export function createConnection(
+  source: string | Buffer = process.env.HYPERFIDE_DATABASE_URL ??
+    "hyperfide.db",
+  options: CreateConnectionOptions = {},
+): DbConnection {
+  if (typeof source === "string" && /^postgres(?:ql)?:/.test(source))
+    return createPostgresConnection(source, options);
+  const sqliteSource =
+    typeof source === "string"
+      ? source.replace(/^sqlite:(?:\/\/)?/, "")
+      : source;
+  return createSqliteConnection(sqliteSource, options);
 }

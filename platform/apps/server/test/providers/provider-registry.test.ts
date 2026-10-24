@@ -107,8 +107,8 @@ describe("provider registry policy accessors", () => {
 });
 
 describe("provider registry ordering", () => {
-  it("lists bundled plugins first in bundled order, then others by install time", () => {
-    const registry = createProviderRegistryService();
+  it("lists bundled plugins first in bundled order, then others by install time", async () => {
+    const registry = await createProviderRegistryService();
     registerProvider(registry, "late-agent", "late", {
       bundledIndex: null,
       installedAt: 2_000,
@@ -126,16 +126,13 @@ describe("provider registry ordering", () => {
       installedAt: 9_000,
     });
 
-    expect(registry.list().map((entry) => entry.info.id)).toStrictEqual([
-      "codex",
-      "pi",
-      "early-agent",
-      "late-agent",
-    ]);
+    expect((await registry.list()).map((entry) => entry.info.id)).toStrictEqual(
+      ["codex", "pi", "early-agent", "late-agent"],
+    );
   });
 
-  it("keeps registration order among entries with no install rank", () => {
-    const registry = createProviderRegistryService();
+  it("keeps registration order among entries with no install rank", async () => {
+    const registry = await createProviderRegistryService();
     registerProvider(registry, "zeta-agent", "zeta");
     registerProvider(registry, "alpha-agent", "alpha");
     registerProvider(registry, "codex", "provider-codex", {
@@ -143,15 +140,13 @@ describe("provider registry ordering", () => {
       installedAt: 0,
     });
 
-    expect(registry.list().map((entry) => entry.info.id)).toStrictEqual([
-      "codex",
-      "zeta-agent",
-      "alpha-agent",
-    ]);
+    expect((await registry.list()).map((entry) => entry.info.id)).toStrictEqual(
+      ["codex", "zeta-agent", "alpha-agent"],
+    );
   });
 
-  it("re-enabling a provider plugin restores its listing position", () => {
-    const registry = createProviderRegistryService();
+  it("re-enabling a provider plugin restores its listing position", async () => {
+    const registry = await createProviderRegistryService();
     registerProvider(registry, "codex", "provider-codex", {
       bundledIndex: 0,
       installedAt: 0,
@@ -166,28 +161,25 @@ describe("provider registry ordering", () => {
     });
 
     pi.dispose();
-    expect(registry.list().map((entry) => entry.info.id)).toStrictEqual([
-      "codex",
-      "acp-cursor",
-    ]);
+    expect((await registry.list()).map((entry) => entry.info.id)).toStrictEqual(
+      ["codex", "acp-cursor"],
+    );
 
     registerProvider(registry, "pi", "provider-pi", {
       bundledIndex: 1,
       installedAt: 0,
     });
-    expect(registry.list().map((entry) => entry.info.id)).toStrictEqual([
-      "codex",
-      "pi",
-      "acp-cursor",
-    ]);
+    expect((await registry.list()).map((entry) => entry.info.id)).toStrictEqual(
+      ["codex", "pi", "acp-cursor"],
+    );
   });
 
-  it("lets the user's providerOrder lead and reads a default only when registered", () => {
+  it("lets the user's providerOrder lead and reads a default only when registered", async () => {
     const preferences = {
       providerOrder: ["acp-cursor", "ghost", "pi"],
       defaultProviderId: "ghost" as string | null,
     };
-    const registry = createProviderRegistryService({
+    const registry = await createProviderRegistryService({
       readUserProviderPreferences: () => preferences,
     });
     registerProvider(registry, "codex", "provider-codex", {
@@ -203,26 +195,22 @@ describe("provider registry ordering", () => {
       installedAt: 0,
     });
 
-    expect(registry.list().map((entry) => entry.info.id)).toStrictEqual([
-      "acp-cursor",
-      "pi",
-      "codex",
-    ]);
-    expect(registry.getUserDefaultProviderId()).toBeNull();
+    expect((await registry.list()).map((entry) => entry.info.id)).toStrictEqual(
+      ["acp-cursor", "pi", "codex"],
+    );
+    expect(await registry.getUserDefaultProviderId()).toBeNull();
     preferences.defaultProviderId = "codex";
-    expect(registry.getUserDefaultProviderId()).toBe("codex");
+    expect(await registry.getUserDefaultProviderId()).toBe("codex");
     preferences.providerOrder = [];
-    expect(registry.list().map((entry) => entry.info.id)).toStrictEqual([
-      "codex",
-      "pi",
-      "acp-cursor",
-    ]);
+    expect((await registry.list()).map((entry) => entry.info.id)).toStrictEqual(
+      ["codex", "pi", "acp-cursor"],
+    );
   });
 });
 
 describe("provider registry", () => {
-  it("starts empty: providers exist only while a plugin declares them", () => {
-    expect(createProviderRegistryService().list()).toStrictEqual([]);
+  it("starts empty: providers exist only while a plugin declares them", async () => {
+    expect(await createProviderRegistryService().list()).toStrictEqual([]);
   });
 
   it("frees an id the moment its registration is disposed", () => {
@@ -237,8 +225,8 @@ describe("provider registry", () => {
     }
   });
 
-  it("adds and disposes plugin registrations", () => {
-    const registry = createProviderRegistryService();
+  it("adds and disposes plugin registrations", async () => {
+    const registry = await createProviderRegistryService();
     const handle = registry.register(
       minimalProviderRegistration({
         pluginId: "some-plugin",
@@ -249,11 +237,11 @@ describe("provider registry", () => {
     expect(registry.get("plugin-provider")).toMatchObject({
       pluginId: "some-plugin",
     });
-    expect(registry.list()).toHaveLength(1);
+    expect(await registry.list()).toHaveLength(1);
 
     handle.dispose();
     expect(registry.get("plugin-provider")).toBeNull();
-    expect(registry.list()).toHaveLength(0);
+    expect(await registry.list()).toHaveLength(0);
 
     const second = registry.register(
       minimalProviderRegistration({
@@ -270,7 +258,7 @@ describe("provider registry", () => {
   });
 
   it("releases a provider-scoped boot wait as soon as that provider registers", async () => {
-    const registry = createProviderRegistryService({
+    const registry = await createProviderRegistryService({
       deferRegistrationsSettled: true,
     });
     let requestedProviderReady = false;
@@ -296,7 +284,7 @@ describe("provider registry", () => {
   });
 
   it("releases an ACP wait only on that agent's own registration", async () => {
-    const registry = createProviderRegistryService({
+    const registry = await createProviderRegistryService({
       deferRegistrationsSettled: true,
     });
     let released = false;
@@ -316,14 +304,14 @@ describe("provider registry", () => {
 
 describe("installed-state cache", () => {
   it("serves a remembered answer and dedupes concurrent probes", async () => {
-    const registry = createProviderRegistryService({});
+    const registry = await createProviderRegistryService({});
     registerProvider(registry, "codex", "provider-codex");
     const key = {
       hostId: "host_1",
       providerId: "codex",
     };
 
-    expect(registry.lookupInstalled(key)).toBeUndefined();
+    expect(await registry.lookupInstalled(key)).toBeUndefined();
 
     let probes = 0;
     const probe = () => {
@@ -339,7 +327,7 @@ describe("installed-state cache", () => {
   });
 
   it("serves the answer when the registration revision moves and replaces it after exactly one revalidation", async () => {
-    const registry = createProviderRegistryService({});
+    const registry = await createProviderRegistryService({});
     registerProvider(registry, "codex", "provider-codex");
     const key = {
       hostId: "host_1",
@@ -368,7 +356,7 @@ describe("installed-state cache", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime(1_800_000_000_000);
-      const registry = createProviderRegistryService({});
+      const registry = await createProviderRegistryService({});
       const failing = { hostId: "host_1", providerId: "codex" };
       const replaced = { hostId: "host_1", providerId: "pi" };
       registry.rememberInstalled(failing, Promise.resolve(true));
@@ -378,7 +366,7 @@ describe("installed-state cache", () => {
       await registry.revalidateInstalled(failing, () =>
         Promise.reject(new Error("health failed")),
       );
-      expect(registry.lookupInstalled(failing)).toBeUndefined();
+      expect(await registry.lookupInstalled(failing)).toBeUndefined();
 
       const held = createDeferredPromise<boolean>();
       const revalidation = registry.revalidateInstalled(
@@ -396,7 +384,7 @@ describe("installed-state cache", () => {
   });
 
   it("forgets one host-provider answer or all answers", async () => {
-    const registry = createProviderRegistryService({});
+    const registry = await createProviderRegistryService({});
     registerProvider(registry, "codex", "provider-codex");
     const hostOneCodex = {
       hostId: "host_1",
@@ -415,11 +403,11 @@ describe("installed-state cache", () => {
     registry.rememberInstalled(hostOnePi, Promise.resolve(false));
 
     registry.forgetInstalledKey(hostOneCodex);
-    expect(registry.lookupInstalled(hostOneCodex)).toBeUndefined();
+    expect(await registry.lookupInstalled(hostOneCodex)).toBeUndefined();
     expect(await registry.lookupInstalled(hostTwoCodex)).toBe(false);
     expect(await registry.lookupInstalled(hostOnePi)).toBe(false);
 
     registry.forgetAllInstalled();
-    expect(registry.lookupInstalled(hostOnePi)).toBeUndefined();
+    expect(await registry.lookupInstalled(hostOnePi)).toBeUndefined();
   });
 });

@@ -78,7 +78,7 @@ interface SeedTurnStartedArgs {
   turnId: string;
 }
 
-export function seedHost(
+export async function seedHost(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     connectMachineId?: string;
@@ -86,7 +86,7 @@ export function seedHost(
     name?: string;
   } = {},
 ) {
-  return upsertHost(deps.db, deps.hub, {
+  return await upsertHost(deps.db, deps.hub, {
     ...(args.connectMachineId !== undefined
       ? { connectMachineId: args.connectMachineId }
       : {}),
@@ -95,12 +95,12 @@ export function seedHost(
   });
 }
 
-export function seedHostSession(
+export async function seedHostSession(
   deps: Pick<AppDeps, "db" | "hub">,
   args: { id?: string; name?: string; platform?: HostPlatform } = {},
 ) {
-  const host = seedHost(deps, args);
-  const session = seedSession(deps, host.id, { platform: args.platform });
+  const host = await seedHost(deps, args);
+  const session = await seedSession(deps, host.id, { platform: args.platform });
   return { host, session };
 }
 
@@ -111,12 +111,12 @@ export function seedPrimaryHost(
   writeFileSync(join(deps.config.dataDir, HOST_ID_FILE_NAME), hostId);
 }
 
-export function seedSession(
+export async function seedSession(
   deps: Pick<AppDeps, "db" | "hub">,
   hostId: string,
   options: { instanceId?: string; platform?: HostPlatform } = {},
 ) {
-  const session = openSession(deps.db, {
+  const session = await openSession(deps.db, {
     hostId,
     instanceId: options.instanceId ?? "instance-1",
     hostName: "Test Host",
@@ -129,15 +129,15 @@ export function seedSession(
     session.id,
     options.platform ?? "darwin",
   );
-  registerTestHostRpcCapture(deps, { hostId, sessionId: session.id });
+  await registerTestHostRpcCapture(deps, { hostId, sessionId: session.id });
   return session;
 }
 
-export function seedProjectWithSource(
+export async function seedProjectWithSource(
   deps: Pick<AppDeps, "db" | "hub">,
   args: { hostId: string; name?: string; path?: string },
 ) {
-  const { project, source } = createProject(deps.db, deps.hub, {
+  const { project, source } = await createProject(deps.db, deps.hub, {
     name: args.name ?? "Test Project",
     source: {
       type: "local_path",
@@ -151,7 +151,7 @@ export function seedProjectWithSource(
   return { project, source };
 }
 
-export function seedEnvironment(
+export async function seedEnvironment(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     hostId: string;
@@ -170,7 +170,7 @@ export function seedEnvironment(
     mergeBaseBranch?: string | null;
   },
 ) {
-  return createEnvironment(deps.db, deps.hub, {
+  return await createEnvironment(deps.db, deps.hub, {
     providerOwnsPath: args.providerOwnsPath ?? false,
     projectId: args.projectId,
     hostId: args.hostId,
@@ -198,7 +198,7 @@ export function seedEnvironment(
   });
 }
 
-export function seedThread(
+export async function seedThread(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     projectId: string;
@@ -216,7 +216,7 @@ export function seedThread(
     parentNotifications?: ThreadParentNotifications;
   },
 ) {
-  return createThread(deps.db, deps.hub, {
+  return await createThread(deps.db, deps.hub, {
     projectId: args.projectId,
     environmentId: args.environmentId ?? null,
     providerId: args.providerId ?? "codex",
@@ -233,7 +233,7 @@ export function seedThread(
   });
 }
 
-export function seedThreadFixture(
+export async function seedThreadFixture(
   harness: { deps: Pick<AppDeps, "db" | "hub"> },
   args: {
     session?: Parameters<typeof seedHostSession>[1];
@@ -247,14 +247,16 @@ export function seedThreadFixture(
     >;
   } = {},
 ) {
-  const { host, session } = seedHostSession(harness.deps, args.session);
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+  const { host, session } = await seedHostSession(harness.deps, args.session);
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     ...args.environment,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     ...args.thread,
@@ -262,7 +264,7 @@ export function seedThreadFixture(
   return { host, session, project, environment, thread };
 }
 
-export function seedQueuedMessage(
+export async function seedQueuedMessage(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     content: PromptInput[];
@@ -277,7 +279,7 @@ export function seedQueuedMessage(
     sendAt?: number | null;
   },
 ) {
-  return createQueuedThreadMessage(deps.db, deps.hub, {
+  return await createQueuedThreadMessage(deps.db, deps.hub, {
     threadId: args.threadId,
     content: args.content,
     model: args.model ?? "gpt-5",
@@ -296,10 +298,10 @@ export function seedEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: SeedEventArgs<ThreadEventType>,
 ): void;
-export function seedEvent<TType extends ThreadEventType>(
+export async function seedEvent<TType extends ThreadEventType>(
   deps: Pick<AppDeps, "db" | "hub">,
   args: SeedEventArgs<TType>,
-): void {
+): Promise<void> {
   const event = parseStoredThreadEvent({
     data: args.data,
     providerThreadId: args.providerThreadId ?? null,
@@ -307,15 +309,18 @@ export function seedEvent<TType extends ThreadEventType>(
     threadId: args.threadId,
     type: args.type,
   });
-  seedStoredEvent(deps, { ...args, ...deriveStoredEventItemFields(event) });
+  await seedStoredEvent(deps, {
+    ...args,
+    ...deriveStoredEventItemFields(event),
+  });
 }
 
-export function seedTurnStarted(
+export async function seedTurnStarted(
   deps: Pick<AppDeps, "db" | "hub">,
   args: SeedTurnStartedArgs,
-): void {
+): Promise<void> {
   if (
-    hasStoredTurnStarted(deps.db, {
+    await hasStoredTurnStarted(deps.db, {
       threadId: args.threadId,
       turnId: args.turnId,
     })
@@ -324,20 +329,20 @@ export function seedTurnStarted(
   }
 
   const providerThreadId = args.providerThreadId ?? `provider-${args.turnId}`;
-  seedEvent(deps, {
+  await seedEvent(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId ?? null,
     providerThreadId,
     sequence:
       args.sequence ??
-      getLatestThreadSequence(deps.db, { threadId: args.threadId }) + 1,
+      (await getLatestThreadSequence(deps.db, { threadId: args.threadId })) + 1,
     type: "turn/started",
     scope: turnScope(args.turnId),
     data: { providerThreadId },
   });
 }
 
-export function seedThreadIdentity(
+export async function seedThreadIdentity(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     createdAt?: number;
@@ -346,22 +351,22 @@ export function seedThreadIdentity(
     sequence?: number;
     threadId: string;
   },
-): void {
-  seedEvent(deps, {
+): Promise<void> {
+  await seedEvent(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId ?? null,
     providerThreadId: args.providerThreadId,
     createdAt: args.createdAt,
     sequence:
       args.sequence ??
-      getLatestThreadSequence(deps.db, { threadId: args.threadId }) + 1,
+      (await getLatestThreadSequence(deps.db, { threadId: args.threadId })) + 1,
     type: "thread/identity",
     scope: threadScope(),
     data: {},
   });
 }
 
-export function seedThreadRuntimeState(
+export async function seedThreadRuntimeState(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     environmentId: string | null;
@@ -374,9 +379,9 @@ export function seedThreadRuntimeState(
     serviceTier?: string;
     threadId: string;
   },
-): void {
+): Promise<void> {
   const sequenceStart = args.sequenceStart ?? 1;
-  seedEvent(deps, {
+  await seedEvent(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId: args.providerThreadId,
@@ -385,7 +390,7 @@ export function seedThreadRuntimeState(
     scope: threadScope(),
     data: {},
   });
-  seedEvent(deps, {
+  await seedEvent(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId: args.providerThreadId,
@@ -420,11 +425,11 @@ export function seedThreadRuntimeState(
   });
 }
 
-export function seedStoredEvent(
+export async function seedStoredEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: SeedStoredEventArgs,
-): void {
-  insertEvents(deps.db, deps.hub, [
+): Promise<void> {
+  await insertEvents(deps.db, deps.hub, [
     {
       createdAt: args.createdAt,
       threadId: args.threadId,
@@ -441,11 +446,11 @@ export function seedStoredEvent(
   ]);
 }
 
-export function expireArchiveUndoGrace(
+export async function expireArchiveUndoGrace(
   deps: Pick<AppDeps, "db">,
   threadId: string,
-): void {
-  deps.db
+): Promise<void> {
+  await deps.db
     .update(threads)
     .set({ archivedAt: Date.now() - ARCHIVE_UNDO_GRACE_MS - 1 })
     .where(eq(threads.id, threadId))

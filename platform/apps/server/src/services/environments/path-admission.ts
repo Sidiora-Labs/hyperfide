@@ -15,18 +15,22 @@ import { ApiError } from "../../errors.js";
 export const CHECKOUT_BUSY_MESSAGE =
   "Cannot checkout branch while another thread is using this workspace";
 
-export function findBlockingEnvironmentPathClaim(
+export async function findBlockingEnvironmentPathClaim(
   deps: Pick<WorkSessionDeps, "db" | "hub">,
   args: { hostId: string; path: string; owner: EnvironmentRow | null },
-): EnvironmentRow | null {
+): Promise<EnvironmentRow | null> {
   if (
-    findEnvironmentPathClaim(deps.db, args.hostId, args.path, args.owner) ===
-    null
+    (await findEnvironmentPathClaim(
+      deps.db,
+      args.hostId,
+      args.path,
+      args.owner,
+    )) === null
   )
     return null;
-  return deps.db.transaction(
-    () => {
-      let claim = findEnvironmentPathClaim(
+  return await deps.db.transaction(
+    async () => {
+      let claim = await findEnvironmentPathClaim(
         deps.db,
         args.hostId,
         args.path,
@@ -35,14 +39,15 @@ export function findBlockingEnvironmentPathClaim(
       while (claim !== null) {
         if (claim.ownerThreadId === null || claim.teardownStatus !== null)
           return claim;
-        const owner = getThread(deps.db, claim.ownerThreadId);
+        const owner = await getThread(deps.db, claim.ownerThreadId);
         if (owner?.status === "starting" || owner?.status === "stopping")
           return claim;
-        if (getHost(deps.db, claim.hostId)?.phase === "removing") return claim;
+        if ((await getHost(deps.db, claim.hostId))?.phase === "removing")
+          return claim;
         const reusable =
           (claim.status === "ready" && claim.path !== null) ||
-          environmentHasLiveThreads(deps.db, claim.id);
-        const updated = deps.db
+          (await environmentHasLiveThreads(deps.db, claim.id));
+        const updated = await deps.db
           .update(environments)
           .set(
             reusable
@@ -62,9 +67,9 @@ export function findBlockingEnvironmentPathClaim(
           .where(eq(environments.id, claim.id))
           .run();
         if (updated.changes === 0) return claim;
-        deps.hub.notifyEnvironment(claim.id, ["metadata-changed"]);
+        await deps.hub.notifyEnvironment(claim.id, ["metadata-changed"]);
         if (!reusable) return { ...claim, teardownStatus: "running" };
-        claim = findEnvironmentPathClaim(
+        claim = await findEnvironmentPathClaim(
           deps.db,
           args.hostId,
           args.path,
@@ -77,17 +82,17 @@ export function findBlockingEnvironmentPathClaim(
   );
 }
 
-export function assertEnvironmentPathAvailable(
+export async function assertEnvironmentPathAvailable(
   deps: Pick<WorkSessionDeps, "db" | "hub">,
   args: { hostId: string; path: string | null; threadId: string | null },
-): void {
+): Promise<void> {
   if (args.path === null) return;
   const path = canonicalizeHostPath(args.path);
   const owner =
     args.threadId === null
       ? null
-      : getPreparingEnvironment(deps.db, args.threadId);
-  const claim = findBlockingEnvironmentPathClaim(deps, {
+      : await getPreparingEnvironment(deps.db, args.threadId);
+  const claim = await findBlockingEnvironmentPathClaim(deps, {
     hostId: args.hostId,
     path,
     owner,

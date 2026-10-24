@@ -19,8 +19,8 @@ import {
 describe.sequential("fake provider graceful recovery integration", () => {
   it(
     "restarts cleanly after a graceful shutdown and continues an existing thread",
-    () =>
-      withHarness(async (harness) => {
+    async () =>
+      await withHarness(async (harness) => {
         const { thread } = await createRecoveryThread(
           harness,
           "Graceful Shutdown Recovery",

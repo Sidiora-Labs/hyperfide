@@ -19,19 +19,19 @@ import { installFakeGitWorktreeProvider } from "../../helpers/environment-provid
 describe("project execution defaults persistence", () => {
   it("does not overwrite project defaults when an app thread reuses an existing environment", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-reuse-defaults",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/reuse-defaults-environment",
       });
 
-      upsertProjectExecutionDefaults(harness.db, {
+      await upsertProjectExecutionDefaults(harness.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5-mini",
@@ -54,7 +54,7 @@ describe("project execution defaults persistence", () => {
       });
 
       expect(
-        getProjectExecutionDefaults(harness.db, {
+        await getProjectExecutionDefaults(harness.db, {
           projectId: project.id,
         }),
       ).toEqual({
@@ -69,14 +69,14 @@ describe("project execution defaults persistence", () => {
 
   it("does overwrite project defaults for a regular app thread (non-reuse env)", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-non-reuse-defaults",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
 
-      upsertProjectExecutionDefaults(harness.db, {
+      await upsertProjectExecutionDefaults(harness.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5-mini",
@@ -103,7 +103,7 @@ describe("project execution defaults persistence", () => {
       });
 
       expect(
-        getProjectExecutionDefaults(harness.db, {
+        await getProjectExecutionDefaults(harness.db, {
           projectId: project.id,
         }),
       ).toEqual({
@@ -119,32 +119,32 @@ describe("project execution defaults persistence", () => {
   it("does not overwrite project defaults for a fork/side-chat child spawn", async () => {
     await withTestHarness(async (harness) => {
       installFakeGitWorktreeProvider();
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-origin-kind-defaults",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const parentEnvironment = seedEnvironment(harness.deps, {
+      const parentEnvironment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/origin-kind-defaults-source",
       });
-      const parentThread = seedThread(harness.deps, {
+      const parentThread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: parentEnvironment.id,
       });
-      seedThreadIdentity(harness.deps, {
+      await seedThreadIdentity(harness.deps, {
         threadId: parentThread.id,
         providerThreadId: "provider-origin-kind-defaults-source",
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         threadId: parentThread.id,
         turnId: "turn-origin-kind-defaults-source",
         providerThreadId: "provider-origin-kind-defaults-source",
       });
 
-      upsertProjectExecutionDefaults(harness.db, {
+      await upsertProjectExecutionDefaults(harness.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-5-mini",
@@ -173,7 +173,7 @@ describe("project execution defaults persistence", () => {
       });
 
       expect(
-        getProjectExecutionDefaults(harness.db, {
+        await getProjectExecutionDefaults(harness.db, {
           projectId: project.id,
         }),
       ).toEqual({

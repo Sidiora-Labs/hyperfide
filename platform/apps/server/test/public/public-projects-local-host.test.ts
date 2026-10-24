@@ -34,17 +34,17 @@ const projectResponseSchema = z.object({
 describe("public project local host routes", () => {
   it("creates a project when a personal thread already uses its folder", async () => {
     await withTestHarness(async (harness) => {
-      const offlinePrimary = seedHost(harness.deps, {
+      const offlinePrimary = await seedHost(harness.deps, {
         id: "host-personal-folder-project",
       });
       seedPrimaryHost(harness.deps, offlinePrimary.id);
-      ensurePersonalProject(harness.db);
-      const personalEnvironment = seedEnvironment(harness.deps, {
+      await ensurePersonalProject(harness.db);
+      const personalEnvironment = await seedEnvironment(harness.deps, {
         hostId: offlinePrimary.id,
         projectId: PERSONAL_PROJECT_ID,
         path: "/tmp/personal-thread-folder",
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         projectId: PERSONAL_PROJECT_ID,
         environmentId: personalEnvironment.id,
         status: "idle",
@@ -66,7 +66,7 @@ describe("public project local host routes", () => {
       expect(response.status).toBe(201);
       const project = projectResponseSchema.parse(await readJson(response));
       expect(project.id).not.toBe(PERSONAL_PROJECT_ID);
-      expect(listPublicProjects(harness.db)).toEqual([
+      expect(await listPublicProjects(harness.db)).toEqual([
         expect.objectContaining({ id: project.id }),
       ]);
     });
@@ -74,7 +74,7 @@ describe("public project local host routes", () => {
 
   it("keeps one project for every spelling of a Windows folder", async () => {
     await withTestHarness(async (harness) => {
-      const offlinePrimary = seedHost(harness.deps, {
+      const offlinePrimary = await seedHost(harness.deps, {
         id: "host-windows-project",
       });
       seedPrimaryHost(harness.deps, offlinePrimary.id);
@@ -102,13 +102,13 @@ describe("public project local host routes", () => {
 
       expect(new Set(projects.map((project) => project.id)).size).toBe(1);
       expect(projects[0]?.sources[0]?.path).toBe("C:\\src\\repo");
-      expect(listPublicProjects(harness.db)).toHaveLength(1);
+      expect(await listPublicProjects(harness.db)).toHaveLength(1);
     });
   });
 
   it("refuses a Windows folder on a machine that reported a POSIX platform", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-posix-project",
       });
       seedPrimaryHost(harness.deps, host.id);
@@ -130,13 +130,13 @@ describe("public project local host routes", () => {
       await expect(readJson(response)).resolves.toMatchObject({
         message: expect.stringContaining("This machine uses POSIX paths"),
       });
-      expect(listPublicProjects(harness.db)).toEqual([]);
+      expect(await listPublicProjects(harness.db)).toEqual([]);
     });
   });
 
   it("refuses a POSIX folder on a machine that reported Windows", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-windows-platform",
         platform: "win32",
       });
@@ -157,13 +157,13 @@ describe("public project local host routes", () => {
       await expect(readJson(refused)).resolves.toMatchObject({
         message: expect.stringContaining("This machine uses Windows paths"),
       });
-      expect(listPublicProjects(harness.db)).toEqual([]);
+      expect(await listPublicProjects(harness.db)).toEqual([]);
     });
   });
 
   it("returns the existing project when its local folder is added again", async () => {
     await withTestHarness(async (harness) => {
-      const offlinePrimary = seedHost(harness.deps, {
+      const offlinePrimary = await seedHost(harness.deps, {
         id: "host-duplicate-project",
       });
       seedPrimaryHost(harness.deps, offlinePrimary.id);
@@ -200,13 +200,13 @@ describe("public project local host routes", () => {
         await readJson(repeatedResponse),
       );
       expect(repeatedProject.id).toBe(firstProject.id);
-      expect(listPublicProjects(harness.db)).toHaveLength(1);
+      expect(await listPublicProjects(harness.db)).toHaveLength(1);
     });
   });
 
   it("creates projects and local sources when inspection is unavailable", async () => {
     await withTestHarness(async (harness) => {
-      const offlinePrimary = seedHost(harness.deps, {
+      const offlinePrimary = await seedHost(harness.deps, {
         id: "host-offline-primary",
       });
       seedPrimaryHost(harness.deps, offlinePrimary.id);
@@ -229,10 +229,10 @@ describe("public project local host routes", () => {
       );
       expect(project.gitRemoteUrl).toBeNull();
 
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
-      const offlineSecondary = seedHost(harness.deps, {
+      const offlineSecondary = await seedHost(harness.deps, {
         id: "host-offline-secondary",
       });
       const sourceResponse = await harness.app.request(
@@ -263,12 +263,14 @@ describe("public project local host routes", () => {
 
   it("supports local project source updates and secondary host sources", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, { id: "host-source-1" });
+      const { host } = await seedHostSession(harness.deps, {
+        id: "host-source-1",
+      });
       seedPrimaryHost(harness.deps, host.id);
-      const { host: secondaryHost } = seedHostSession(harness.deps, {
+      const { host: secondaryHost } = await seedHostSession(harness.deps, {
         id: "host-source-2",
       });
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
 

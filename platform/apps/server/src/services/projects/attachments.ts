@@ -127,14 +127,14 @@ export async function ensureAttachmentReferenceExists(
   const dir = projectAttachmentDir(dataDir, projectId);
   const resolved = resolveAttachmentPath(dir, attachmentPath);
   const storedPath = canonicalProjectAttachmentPath(attachmentPath);
-  const existing = getProjectAttachment(db, projectId, storedPath);
+  const existing = await getProjectAttachment(db, projectId, storedPath);
   if (
     existing &&
     (existing.deletionClaimedAt !== null || existing.readyAt === null)
   )
     throw attachmentUnavailable(storedPath);
   if (!existing) {
-    const backfill = db
+    const backfill = await db
       .select()
       .from(projectAttachmentBackfills)
       .where(eq(projectAttachmentBackfills.projectId, projectId))
@@ -146,7 +146,7 @@ export async function ensureAttachmentReferenceExists(
   if (!fileStat || !fileStat.isFile())
     throw missingAttachmentReferenceError(attachmentPath);
   if (!existing) {
-    recordProjectAttachment(db, {
+    await recordProjectAttachment(db, {
       projectId,
       storedPath,
       originalName: basename(storedPath),
@@ -165,14 +165,14 @@ export async function inventoryAttachmentReference(
   attachmentPath: string,
 ): Promise<void> {
   const storedPath = canonicalProjectAttachmentPath(attachmentPath);
-  if (getProjectAttachment(db, projectId, storedPath)) return;
+  if (await getProjectAttachment(db, projectId, storedPath)) return;
   const resolved = resolveAttachmentPath(
     projectAttachmentDir(dataDir, projectId),
     storedPath,
   );
   const fileStat = await stat(resolved).catch(() => null);
   if (!fileStat || !fileStat.isFile()) return;
-  recordProjectAttachment(db, {
+  await recordProjectAttachment(db, {
     projectId,
     storedPath,
     originalName: basename(storedPath),
@@ -236,7 +236,7 @@ export async function resolvePromptAttachmentReferences(
     }
     const { sourceProjectId: sourceProjectId = args.projectId, ...attachment } =
       input;
-    requirePublicProject(args.db, sourceProjectId);
+    await requirePublicProject(args.db, sourceProjectId);
     await ensureAttachmentReferenceExists(
       args.db,
       args.dataDir,
@@ -370,7 +370,7 @@ export async function createAttachmentContentResponse({
   request: Request;
 }): Promise<Response> {
   const attachment = await statAttachment(dataDir, projectId, path);
-  return createFileStreamResponse({
+  return await createFileStreamResponse({
     source: attachment.source,
     request,
     headers: new Headers({
@@ -397,7 +397,7 @@ export async function copyProjectAttachments(
   const attachments = [];
   for (const path of uniquePaths) {
     const { content } = await readAttachment(dataDir, sourceProjectId, path);
-    const source = getProjectAttachment(db, sourceProjectId, path);
+    const source = await getProjectAttachment(db, sourceProjectId, path);
     attachments.push({
       path,
       content,
@@ -445,13 +445,13 @@ async function writeInventoriedAttachment(
   originalName: string,
   mimeType: string | null,
 ): Promise<void> {
-  const existing = getProjectAttachment(db, projectId, storedPath);
+  const existing = await getProjectAttachment(db, projectId, storedPath);
   if (existing) {
     await ensureAttachmentReferenceExists(db, dataDir, projectId, storedPath);
     return;
   }
   const now = Date.now();
-  const row = recordProjectAttachment(db, {
+  const row = await recordProjectAttachment(db, {
     projectId,
     storedPath,
     originalName,
@@ -469,9 +469,9 @@ async function writeInventoriedAttachment(
     await mkdir(dirname(pendingPath), { recursive: true });
     await mkdir(dirname(outputPath), { recursive: true });
     await writeFile(pendingPath, content, { flag: "wx" });
-    db.transaction(
-      (tx) => {
-        const current = getProjectAttachment(tx, projectId, storedPath);
+    await db.transaction(
+      async (tx) => {
+        const current = await getProjectAttachment(tx, projectId, storedPath);
         if (
           !current ||
           current.id !== row.id ||
@@ -480,7 +480,8 @@ async function writeInventoriedAttachment(
         )
           throw attachmentUnavailable(storedPath);
         renameSync(pendingPath, outputPath);
-        tx.update(projectAttachments)
+        await tx
+          .update(projectAttachments)
           .set({ readyAt: Date.now() })
           .where(eq(projectAttachments.id, row.id))
           .run();
@@ -489,7 +490,8 @@ async function writeInventoriedAttachment(
     );
   } catch (error) {
     await rm(pendingPath, { force: true });
-    db.update(projectAttachments)
+    await db
+      .update(projectAttachments)
       .set({ deletionClaimedAt: Date.now() })
       .where(
         and(
@@ -512,17 +514,17 @@ async function* walkFiles(root: string, prefix = ""): AsyncGenerator<string> {
   for await (const entry of dir) {
     if (prefix === "" && entry.name === ".pending") continue;
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) yield* walkFiles(root, path);
+    if (entry.isDirectory()) yield* await walkFiles(root, path);
     else if (entry.isFile()) yield path;
     else throw new Error(`Attachment inventory cannot inspect ${path}`);
   }
 }
 
-export function walkProjectAttachmentFiles(
+export async function walkProjectAttachmentFiles(
   dataDir: string,
   projectId: string,
-): AsyncGenerator<string> {
-  return walkFiles(projectAttachmentDir(dataDir, projectId));
+): Promise<AsyncGenerator<string>> {
+  return await walkFiles(projectAttachmentDir(dataDir, projectId));
 }
 
 export async function deleteInventoriedAttachmentFiles(

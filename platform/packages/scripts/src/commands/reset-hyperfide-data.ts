@@ -1,3 +1,4 @@
+import { resetConfiguredDatabase } from "../lib/reset-configured-database.js";
 import { existsSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
@@ -89,7 +90,7 @@ export function renderHelpText(): string {
 }
 
 async function confirmReset(targets: string[]): Promise<boolean> {
-  return confirmTypedWord({
+  return await confirmTypedWord({
     renderIntro: () => {
       process.stdout.write("\n");
       log(
@@ -132,6 +133,9 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   }
 
   process.stdout.write("\n");
+
+  if (process.env.HYPERFIDE_DATABASE_URL)
+    await resetConfiguredDatabase(process.env.HYPERFIDE_DATABASE_URL);
 
   let removedCount = 0;
   for (const target of targets) {

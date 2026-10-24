@@ -37,12 +37,12 @@ export async function withThreadSendGuard<T>(
   threadId: string,
   work: () => Promise<T>,
 ): Promise<T> {
-  return withThreadContextMutationGuard(threadId, "send", work);
+  return await withThreadContextMutationGuard(threadId, "send", work);
 }
 
 export async function withThreadContextClearGuard<T>(
   threadId: string,
   work: () => Promise<T>,
 ): Promise<T> {
-  return withThreadContextMutationGuard(threadId, "clear", work);
+  return await withThreadContextMutationGuard(threadId, "clear", work);
 }

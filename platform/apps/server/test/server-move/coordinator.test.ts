@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { isPostgresTest } from "@hyperfide/db/testing";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -64,13 +65,13 @@ function fail(errorMessage: string): FakeDaemonReply {
   return { ok: false, errorCode: "test_failure", errorMessage };
 }
 
-function seedTopology(harness: TestAppHarness): void {
-  seedHost(harness.deps, { id: OLD, name: "Laptop" });
+async function seedTopology(harness: TestAppHarness): Promise<void> {
+  await seedHost(harness.deps, { id: OLD, name: "Laptop" });
   seedPrimaryHost(harness.deps, OLD);
-  seedHost(harness.deps, { id: NEW, name: "Desktop" });
-  seedHost(harness.deps, { id: WORKER, name: "Worker" });
-  seedHost(harness.deps, { id: OFFLINE, name: "Offline" });
-  upsertHost(harness.db, harness.hub, {
+  await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+  await seedHost(harness.deps, { id: WORKER, name: "Worker" });
+  await seedHost(harness.deps, { id: OFFLINE, name: "Offline" });
+  await upsertHost(harness.db, harness.hub, {
     id: SANDBOX,
     name: "Sandbox",
     type: "ephemeral",
@@ -123,9 +124,9 @@ function requireCommand<TType extends HostDaemonRpcCommand["type"]>(
   return command;
 }
 
-function captureError(run: () => unknown): unknown {
+async function captureError(run: () => unknown): Promise<unknown> {
   try {
-    run();
+    await run();
   } catch (error) {
     return error;
   }
@@ -167,501 +168,544 @@ async function writeConfig(harness: TestAppHarness, value: unknown) {
   return { path, text };
 }
 
+// Server moves transfer a physical SQLite backup in the server archive.
 describe("server move coordinator", () => {
-  it("runs a direct move in step order and hands the server to the target", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const config = await writeConfig(harness, {
-        config: { HYPERFIDE_LOG_LEVEL: "debug" },
-        machineCredential: "stale-credential",
-        serverHeaders: { "x-stale": "1" },
-      });
-      await writeFile(join(harness.config.dataDir, "hyperfide.db"), "");
-      const { environment, events, plugins, retired } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      const notifySystem = vi.spyOn(harness.hub, "notifySystem");
-      const progressSnapshots: (ServerMoveStatus | null)[] = [];
-      const old = registerFakeDaemon(harness, {
-        events,
-        hostId: OLD,
-        handle: probeReply,
-      });
-      const worker = registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      const sandbox = registerFakeDaemon(harness, {
-        events,
-        hostId: SANDBOX,
-        handle: (request) => {
-          throw new Error(`The sandbox got ${request.command.type}`);
-        },
-      });
-      const target = registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) => {
-          if (request.command.type === "server_move.prepare") {
-            coordinator.handleProgress(NEW, {
-              type: "server_move.progress",
-              moveId: request.command.moveId,
-              step: "transfer",
-              message: "Downloading the export",
-            });
-            progressSnapshots.push(coordinator.getStatus());
-            coordinator.handleProgress(WORKER, {
-              type: "server_move.progress",
-              moveId: request.command.moveId,
-              step: "start-target",
-              message: "Ignored from another machine",
-            });
-            coordinator.handleProgress(NEW, {
-              type: "server_move.progress",
-              moveId: request.command.moveId,
-              step: "update-target",
-              message: "Installing hyperfide",
-            });
-            progressSnapshots.push(coordinator.getStatus());
-            coordinator.handleProgress(NEW, {
-              type: "server_move.progress",
-              moveId: request.command.moveId,
-              step: "start-target",
-              message: "Starting the new server",
-            });
-            progressSnapshots.push(coordinator.getStatus());
-          }
-          return targetReply(request);
-        },
-      });
+  it.skipIf(isPostgresTest)(
+    "runs a direct move in step order and hands the server to the target",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const config = await writeConfig(harness, {
+          config: { HYPERFIDE_LOG_LEVEL: "debug" },
+          machineCredential: "stale-credential",
+          serverHeaders: { "x-stale": "1" },
+        });
+        await writeFile(join(harness.config.dataDir, "hyperfide.db"), "");
+        const { environment, events, plugins, retired } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        const notifySystem = vi.spyOn(harness.hub, "notifySystem");
+        const progressSnapshots: (ServerMoveStatus | null)[] = [];
+        const old = await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        const worker = await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        const sandbox = await registerFakeDaemon(harness, {
+          events,
+          hostId: SANDBOX,
+          handle: (request) => {
+            throw new Error(`The sandbox got ${request.command.type}`);
+          },
+        });
+        const target = await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: async (request) => {
+            if (request.command.type === "server_move.prepare") {
+              await coordinator.handleProgress(NEW, {
+                type: "server_move.progress",
+                moveId: request.command.moveId,
+                step: "transfer",
+                message: "Downloading the export",
+              });
+              progressSnapshots.push(coordinator.getStatus());
+              await coordinator.handleProgress(WORKER, {
+                type: "server_move.progress",
+                moveId: request.command.moveId,
+                step: "start-target",
+                message: "Ignored from another machine",
+              });
+              await coordinator.handleProgress(NEW, {
+                type: "server_move.progress",
+                moveId: request.command.moveId,
+                step: "update-target",
+                message: "Installing hyperfide",
+              });
+              progressSnapshots.push(coordinator.getStatus());
+              await coordinator.handleProgress(NEW, {
+                type: "server_move.progress",
+                moveId: request.command.moveId,
+                step: "start-target",
+                message: "Starting the new server",
+              });
+              progressSnapshots.push(coordinator.getStatus());
+            }
+            return targetReply(request);
+          },
+        });
 
-      const started = await coordinator.start(START_DIRECT);
+        const started = await coordinator.start(START_DIRECT);
 
-      expect(started).toMatchObject({
-        state: "preparing",
-        mode: "direct",
-        targetHostId: NEW,
-        targetHostName: "Desktop",
-        serverUrl: DIRECT_URL,
-        destinationStatusUrl: `${DIRECT_URL}/health`,
-        finishedAt: null,
-        error: null,
-        cancellable: true,
-      });
-      expect(coordinator.isFrozen()).toBe(true);
-      await retired;
-      await expect
-        .poll(() => existsSync(join(harness.config.dataDir, "server-move")))
-        .toBe(false);
+        expect(started).toMatchObject({
+          state: "preparing",
+          mode: "direct",
+          targetHostId: NEW,
+          targetHostName: "Desktop",
+          serverUrl: DIRECT_URL,
+          destinationStatusUrl: `${DIRECT_URL}/health`,
+          finishedAt: null,
+          error: null,
+          cancellable: true,
+        });
+        await vi.waitFor(() => expect(coordinator.isFrozen()).toBe(true), {
+          timeout: 10_000,
+        });
+        await retired;
+        await expect
+          .poll(() => existsSync(join(harness.config.dataDir, "server-move")))
+          .toBe(false);
 
-      const status = coordinator.getStatus();
-      expect(status).toMatchObject({
-        moveId: started.moveId,
-        state: "completed",
-        error: null,
-        cancellable: false,
-      });
-      expect(stepStatuses(status)).toEqual([
-        ["stop-work", "done"],
-        ["update-target", "done"],
-        ["export", "done"],
-        ["transfer", "done"],
-        ["start-target", "done"],
-        ["verify-address", "done"],
-        ["switch", "done"],
-      ]);
-      expect(progressSnapshots[0]?.steps[3]).toEqual({
-        id: "transfer",
-        status: "running",
-        message: "Downloading the export",
-      });
-      expect(stepStatuses(progressSnapshots[1] ?? null)).toEqual([
-        ["stop-work", "done"],
-        ["update-target", "running"],
-        ["export", "done"],
-        ["transfer", "done"],
-        ["start-target", "pending"],
-        ["verify-address", "pending"],
-        ["switch", "pending"],
-      ]);
-      expect(progressSnapshots[1]?.steps[1]?.message).toBe("Installing hyperfide");
-      expect(progressSnapshots[2]?.steps.slice(3, 5)).toEqual([
-        { id: "transfer", status: "done", message: "Downloading the export" },
-        {
-          id: "start-target",
+        const status = coordinator.getStatus();
+        expect(status).toMatchObject({
+          moveId: started.moveId,
+          state: "completed",
+          error: null,
+          cancellable: false,
+        });
+        expect(stepStatuses(status)).toEqual([
+          ["stop-work", "done"],
+          ["update-target", "done"],
+          ["export", "done"],
+          ["transfer", "done"],
+          ["start-target", "done"],
+          ["verify-address", "done"],
+          ["switch", "done"],
+        ]);
+        expect(progressSnapshots[0]?.steps[3]).toEqual({
+          id: "transfer",
           status: "running",
-          message: "Starting the new server",
-        },
-      ]);
-      expect(progressSnapshots[2]?.steps[1]?.status).toBe("done");
-
-      const probes = events
-        .filter((event) => event.endsWith(":server_move.probe"))
-        .sort();
-      expect(probes).toEqual([
-        `${OLD}:server_move.probe`,
-        `${WORKER}:server_move.probe`,
-      ]);
-      for (const probe of probes) {
-        expect(events.indexOf(probe)).toBeGreaterThan(
-          events.indexOf(`${NEW}:server_move.prepare`),
+          message: "Downloading the export",
+        });
+        expect(stepStatuses(progressSnapshots[1] ?? null)).toEqual([
+          ["stop-work", "done"],
+          ["update-target", "running"],
+          ["export", "done"],
+          ["transfer", "done"],
+          ["start-target", "pending"],
+          ["verify-address", "pending"],
+          ["switch", "pending"],
+        ]);
+        expect(progressSnapshots[1]?.steps[1]?.message).toBe(
+          "Installing hyperfide",
         );
-        expect(events.indexOf(probe)).toBeLessThan(
-          events.indexOf(`${NEW}:server_move.activate`),
-        );
-      }
-      expect(
-        events.filter((event) => !event.endsWith(":server_move.probe")),
-      ).toEqual([
-        `${NEW}:server_move.inspect`,
-        `${OLD}:server_move.inspect`,
-        "schedules:paused",
-        "stop-work",
-        "plugins:suspend",
-        `${NEW}:server_move.inspect`,
-        "export",
-        `${NEW}:server_move.prepare`,
-        `${NEW}:server_move.activate`,
-        "plugins:stop",
-        `server.moved:${OLD}`,
-        `server.moved:${WORKER}`,
-        "retire",
-      ]);
+        expect(progressSnapshots[2]?.steps.slice(3, 5)).toEqual([
+          { id: "transfer", status: "done", message: "Downloading the export" },
+          {
+            id: "start-target",
+            status: "running",
+            message: "Starting the new server",
+          },
+        ]);
+        expect(progressSnapshots[2]?.steps[1]?.status).toBe("done");
 
-      const prepare = requireCommand(target.requests, "server_move.prepare");
-      expect(prepare).toMatchObject({
-        moveId: started.moveId,
-        archive: {
-          downloadPath: `/internal/server-move/${started.moveId}/archive`,
-          sha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
-        },
-        hyperfideApp: null,
-        serverPort: 39_101,
-        bindHost: null,
-        sourceDataDir: harness.config.dataDir,
-        sourceServerHostId: OLD,
-        serverUrl: DIRECT_URL,
-        archiveExistingServerData: false,
-      });
-      expect(Object.keys(prepare.archive).sort()).toEqual([
-        "downloadPath",
-        "sha256",
-        "sizeBytes",
-      ]);
-      expect(requireCommand(target.requests, "server_move.activate")).toEqual({
-        type: "server_move.activate",
-        moveId: started.moveId,
-        activationToken: prepare.activationToken,
-        lastMove: {
+        const probes = events
+          .filter((event) => event.endsWith(":server_move.probe"))
+          .sort();
+        expect(probes).toEqual([
+          `${OLD}:server_move.probe`,
+          `${WORKER}:server_move.probe`,
+        ]);
+        for (const probe of probes) {
+          expect(events.indexOf(probe)).toBeGreaterThan(
+            events.indexOf(`${NEW}:server_move.prepare`),
+          );
+          expect(events.indexOf(probe)).toBeLessThan(
+            events.indexOf(`${NEW}:server_move.activate`),
+          );
+        }
+        expect(
+          events.filter((event) => !event.endsWith(":server_move.probe")),
+        ).toEqual([
+          `${NEW}:server_move.inspect`,
+          `${OLD}:server_move.inspect`,
+          "schedules:paused",
+          "stop-work",
+          "plugins:suspend",
+          `${NEW}:server_move.inspect`,
+          "export",
+          `${NEW}:server_move.prepare`,
+          `${NEW}:server_move.activate`,
+          "plugins:stop",
+          `server.moved:${OLD}`,
+          `server.moved:${WORKER}`,
+          "retire",
+        ]);
+
+        const prepare = requireCommand(target.requests, "server_move.prepare");
+        expect(prepare).toMatchObject({
+          moveId: started.moveId,
+          archive: {
+            downloadPath: `/internal/server-move/${started.moveId}/archive`,
+            sha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
+          },
+          hyperfideApp: null,
+          serverPort: 39_101,
+          bindHost: null,
+          sourceDataDir: harness.config.dataDir,
+          sourceServerHostId: OLD,
+          serverUrl: DIRECT_URL,
+          archiveExistingServerData: false,
+        });
+        expect(Object.keys(prepare.archive).sort()).toEqual([
+          "downloadPath",
+          "sha256",
+          "sizeBytes",
+        ]);
+        expect(requireCommand(target.requests, "server_move.activate")).toEqual(
+          {
+            type: "server_move.activate",
+            moveId: started.moveId,
+            activationToken: prepare.activationToken,
+            lastMove: {
+              moveId: started.moveId,
+              fromHostId: OLD,
+              fromHostName: "Laptop",
+              toHostId: NEW,
+              toHostName: "Desktop",
+              completedAt: expect.any(Number),
+              oldCopyDeletedAt: null,
+            },
+          },
+        );
+        expect(
+          target.requests.some(
+            (request) => request.command.type === "server_move.abort",
+          ),
+        ).toBe(false);
+
+        const moved = await readServerMovedFile(harness.config.dataDir);
+        expect(moved).toMatchObject({
+          version: 1,
           moveId: started.moveId,
           fromHostId: OLD,
-          fromHostName: "Laptop",
           toHostId: NEW,
           toHostName: "Desktop",
-          completedAt: expect.any(Number),
-          oldCopyDeletedAt: null,
-        },
-      });
-      expect(
-        target.requests.some(
-          (request) => request.command.type === "server_move.abort",
-        ),
-      ).toBe(false);
+          serverUrl: DIRECT_URL,
+          mode: "direct",
+          connectHandle: null,
+        });
+        expect(moved?.oldCopyEntries).toEqual(["auth-secret", "hyperfide.db"]);
+        expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual({
+          config: { HYPERFIDE_LOG_LEVEL: "debug" },
+          serverUrl: DIRECT_URL,
+        });
+        expect(old.movedMessages).toEqual([
+          { type: "server.moved", serverUrl: DIRECT_URL, headers: {} },
+        ]);
+        expect(worker.movedMessages).toEqual([
+          { type: "server.moved", serverUrl: DIRECT_URL, headers: {} },
+        ]);
+        expect(target.movedMessages).toEqual([]);
+        expect(sandbox.movedMessages).toEqual([]);
+        expect(coordinator.movedTo()).toEqual({
+          serverUrl: DIRECT_URL,
+          toHostName: "Desktop",
+          movedAt: moved?.movedAt,
+        });
+        expect(plugins).toEqual({
+          paused: true,
+          resumes: 0,
+          stops: 1,
+          suspends: 1,
+        });
+        await vi.waitFor(() => expect(coordinator.isFrozen()).toBe(true), {
+          timeout: 10_000,
+        });
+        expect(notifySystem).toHaveBeenCalledWith(["server-move-changed"]);
+        await expect
+          .poll(() =>
+            existsSync(
+              join(harness.config.dataDir, "server-move", started.moveId),
+            ),
+          )
+          .toBe(false);
+        await expect(coordinator.start(START_DIRECT)).resolves.toMatchObject({
+          moveId: started.moveId,
+          state: "completed",
+        });
+        await expect(
+          coordinator.start({ ...START_DIRECT, targetHostId: WORKER }),
+        ).rejects.toMatchObject({
+          status: 409,
+          body: { code: "server_move_in_progress" },
+        });
+      }),
+  );
 
-      const moved = await readServerMovedFile(harness.config.dataDir);
-      expect(moved).toMatchObject({
-        version: 1,
-        moveId: started.moveId,
-        fromHostId: OLD,
-        toHostId: NEW,
-        toHostName: "Desktop",
-        serverUrl: DIRECT_URL,
-        mode: "direct",
-        connectHandle: null,
-      });
-      expect(moved?.oldCopyEntries).toEqual(["auth-secret", "hyperfide.db"]);
-      expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual({
-        config: { HYPERFIDE_LOG_LEVEL: "debug" },
-        serverUrl: DIRECT_URL,
-      });
-      expect(old.movedMessages).toEqual([
-        { type: "server.moved", serverUrl: DIRECT_URL, headers: {} },
-      ]);
-      expect(worker.movedMessages).toEqual([
-        { type: "server.moved", serverUrl: DIRECT_URL, headers: {} },
-      ]);
-      expect(target.movedMessages).toEqual([]);
-      expect(sandbox.movedMessages).toEqual([]);
-      expect(coordinator.movedTo()).toEqual({
-        serverUrl: DIRECT_URL,
-        toHostName: "Desktop",
-        movedAt: moved?.movedAt,
-      });
-      expect(plugins).toEqual({
-        paused: true,
-        resumes: 0,
-        stops: 1,
-        suspends: 1,
-      });
-      expect(coordinator.isFrozen()).toBe(true);
-      expect(notifySystem).toHaveBeenCalledWith(["server-move-changed"]);
-      await expect
-        .poll(() =>
-          existsSync(
-            join(harness.config.dataDir, "server-move", started.moveId),
+  it.skipIf(isPostgresTest)(
+    "persists the run on each step transition in a file the export leaves out",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const config = await writeConfig(harness, {
+          config: { HYPERFIDE_LOG_LEVEL: "info" },
+        });
+        const { environment, events, retired } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        const prepareReply = createDeferredPromise<FakeDaemonReply>();
+        const activateReply = createDeferredPromise<FakeDaemonReply>();
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) => {
+            switch (request.command.type) {
+              case "server_move.prepare":
+                return prepareReply.promise;
+              case "server_move.activate":
+                return activateReply.promise;
+              default:
+                return targetReply(request);
+            }
+          },
+        });
+        const dataDir = harness.config.dataDir;
+
+        const started = await coordinator.start(START_DIRECT);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.prepare`))
+          .toBe(true);
+        await expect
+          .poll(
+            async () => (await readServerMoveRunFile(dataDir))?.status.steps[2],
+          )
+          .toMatchObject({ id: "export", status: "done" });
+
+        expect(await readServerMoveRunFile(dataDir)).toMatchObject({
+          version: 1,
+          status: { moveId: started.moveId, state: "preparing" },
+          sourceServerHost: { id: OLD, name: "Laptop" },
+          grant: { serverUrl: DIRECT_URL, headers: {} },
+          workDir: join(dataDir, "server-move", started.moveId),
+          configBackup: null,
+          movedAt: null,
+          activationRequestedAt: null,
+          activationConfirmedAt: null,
+        });
+        expect(
+          (await listServerOwnedEntries(dataDir)).entries.map(
+            (entry) => entry.path,
           ),
-        )
-        .toBe(false);
-      await expect(coordinator.start(START_DIRECT)).resolves.toMatchObject({
-        moveId: started.moveId,
-        state: "completed",
-      });
-      await expect(
-        coordinator.start({ ...START_DIRECT, targetHostId: WORKER }),
-      ).rejects.toMatchObject({
-        status: 409,
-        body: { code: "server_move_in_progress" },
-      });
-    }));
+        ).not.toContain(SERVER_MOVE_RUN_FILE_NAME);
 
-  it("persists the run on each step transition in a file the export leaves out", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const config = await writeConfig(harness, {
-        config: { HYPERFIDE_LOG_LEVEL: "info" },
-      });
-      const { environment, events, retired } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      const prepareReply = createDeferredPromise<FakeDaemonReply>();
-      const activateReply = createDeferredPromise<FakeDaemonReply>();
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) => {
-          switch (request.command.type) {
-            case "server_move.prepare":
-              return prepareReply.promise;
-            case "server_move.activate":
-              return activateReply.promise;
-            default:
-              return targetReply(request);
-          }
-        },
-      });
-      const dataDir = harness.config.dataDir;
+        prepareReply.resolve(
+          ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
+        );
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.activate`))
+          .toBe(true);
+        expect(await readServerMoveRunFile(dataDir)).toMatchObject({
+          status: { state: "switching" },
+          configBackup: null,
+          movedAt: expect.any(Number),
+          activationRequestedAt: expect.any(Number),
+          activationConfirmedAt: null,
+        });
+        expect(await readFile(config.path, "utf8")).toBe(config.text);
 
-      const started = await coordinator.start(START_DIRECT);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.prepare`))
-        .toBe(true);
-      await expect
-        .poll(
-          async () => (await readServerMoveRunFile(dataDir))?.status.steps[2],
-        )
-        .toMatchObject({ id: "export", status: "done" });
+        activateReply.resolve(ok({ ok: true }));
+        await retired;
+        await expect
+          .poll(
+            async () => (await readServerMoveRunFile(dataDir))?.status.state,
+          )
+          .toBe("completed");
+        expect(await readServerMoveRunFile(dataDir)).toMatchObject({
+          activationConfirmedAt: expect.any(Number),
+          configBackup: { path: config.path, originalText: config.text },
+        });
+      }),
+  );
 
-      expect(await readServerMoveRunFile(dataDir)).toMatchObject({
-        version: 1,
-        status: { moveId: started.moveId, state: "preparing" },
-        sourceServerHost: { id: OLD, name: "Laptop" },
-        grant: { serverUrl: DIRECT_URL, headers: {} },
-        workDir: join(dataDir, "server-move", started.moveId),
-        configBackup: null,
-        movedAt: null,
-        activationRequestedAt: null,
-        activationConfirmedAt: null,
-      });
-      expect(
-        (await listServerOwnedEntries(dataDir)).entries.map(
-          (entry) => entry.path,
-        ),
-      ).not.toContain(SERVER_MOVE_RUN_FILE_NAME);
+  it.skipIf(isPostgresTest)(
+    "returns the move underway for a retry to the same target and refuses a different target",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const { environment, events, retired } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        const prepareReply = createDeferredPromise<FakeDaemonReply>();
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) =>
+            request.command.type === "server_move.prepare"
+              ? prepareReply.promise
+              : targetReply(request),
+        });
 
-      prepareReply.resolve(
-        ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
-      );
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.activate`))
-        .toBe(true);
-      expect(await readServerMoveRunFile(dataDir)).toMatchObject({
-        status: { state: "switching" },
-        configBackup: null,
-        movedAt: expect.any(Number),
-        activationRequestedAt: expect.any(Number),
-        activationConfirmedAt: null,
-      });
-      expect(await readFile(config.path, "utf8")).toBe(config.text);
+        const [first, second] = await Promise.all([
+          coordinator.start(START_DIRECT),
+          coordinator.start(START_DIRECT),
+        ]);
+        expect(second.moveId).toBe(first.moveId);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.prepare`))
+          .toBe(true);
+        await expect(coordinator.start(START_DIRECT)).resolves.toMatchObject({
+          moveId: first.moveId,
+          state: "preparing",
+        });
+        await expect(
+          coordinator.start({ ...START_DIRECT, targetHostId: WORKER }),
+        ).rejects.toMatchObject({
+          status: 409,
+          body: { code: "server_move_in_progress" },
+        });
+        expect(countEvents(events, "stop-work")).toBe(1);
 
-      activateReply.resolve(ok({ ok: true }));
-      await retired;
-      await expect
-        .poll(async () => (await readServerMoveRunFile(dataDir))?.status.state)
-        .toBe("completed");
-      expect(await readServerMoveRunFile(dataDir)).toMatchObject({
-        activationConfirmedAt: expect.any(Number),
-        configBackup: { path: config.path, originalText: config.text },
-      });
-    }));
+        prepareReply.resolve(
+          ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
+        );
+        await retired;
+      }),
+  );
 
-  it("returns the move underway for a retry to the same target and refuses a different target", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const { environment, events, retired } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      const prepareReply = createDeferredPromise<FakeDaemonReply>();
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) =>
-          request.command.type === "server_move.prepare"
-            ? prepareReply.promise
-            : targetReply(request),
-      });
+  it.skipIf(isPostgresTest)(
+    "moves a hyperfide connect server whose source grant requires a writable account RPC",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const base = await createTestServerMoveEnvironment(harness);
+        const { events, retired } = base;
+        const grantHeaders = {
+          "x-hyperfide-connect-machine": "hyperfide_cm_laptop",
+        };
+        const accountRpcStatuses: number[] = [];
+        const accountRpcPath =
+          "/api/v1/plugins/hyperfide-account/rpc/hyperfide-account.v1.fetch";
+        const accountRpc = await new Hono();
+        accountRpc.onError(createServerErrorHandler(testLogger));
+        accountRpc.use(
+          "/api/v1/*",
+          serverMoveFreezeMiddleware({
+            isFrozen: () => coordinator.isFrozen(),
+          }),
+        );
+        accountRpc.post(accountRpcPath, (context) =>
+          context.json({ ok: true }),
+        );
+        const coordinator = await createServerMoveCoordinator({
+          ...base.environment,
+          resolveMode: async () => ({
+            mode: "connect",
+            connectHandle: "laptop",
+            serverUrl: CONNECT_URL,
+          }),
+          resolveServerHostGrant: async (hostId) => {
+            events.push(`grant:${hostId}`);
+            const response = await accountRpc.request(accountRpcPath, {
+              method: "POST",
+            });
+            accountRpcStatuses.push(response.status);
+            if (!response.ok) {
+              throw new Error(await response.text());
+            }
+            return { serverUrl: CONNECT_URL, headers: grantHeaders };
+          },
+        });
+        const old = await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        const worker = await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        const target = await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: targetReply,
+        });
 
-      const [first, second] = await Promise.all([
-        coordinator.start(START_DIRECT),
-        coordinator.start(START_DIRECT),
-      ]);
-      expect(second.moveId).toBe(first.moveId);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.prepare`))
-        .toBe(true);
-      await expect(coordinator.start(START_DIRECT)).resolves.toMatchObject({
-        moveId: first.moveId,
-        state: "preparing",
-      });
-      await expect(
-        coordinator.start({ ...START_DIRECT, targetHostId: WORKER }),
-      ).rejects.toMatchObject({
-        status: 409,
-        body: { code: "server_move_in_progress" },
-      });
-      expect(countEvents(events, "stop-work")).toBe(1);
-
-      prepareReply.resolve(
-        ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
-      );
-      await retired;
-    }));
-
-  it("moves a hyperfide-platform connect server whose source grant requires a writable account RPC", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const base = createTestServerMoveEnvironment(harness);
-      const { events, retired } = base;
-      const grantHeaders = { "x-hyperfide-connect-machine": "hyperfide_cm_laptop" };
-      const accountRpcStatuses: number[] = [];
-      const accountRpcPath =
-        "/api/v1/plugins/hyperfide-account/rpc/hyperfide-account.v1.fetch";
-      const accountRpc = new Hono();
-      accountRpc.onError(createServerErrorHandler(testLogger));
-      accountRpc.use(
-        "/api/v1/*",
-        serverMoveFreezeMiddleware({ isFrozen: () => coordinator.isFrozen() }),
-      );
-      accountRpc.post(accountRpcPath, (context) => context.json({ ok: true }));
-      const coordinator = createServerMoveCoordinator({
-        ...base.environment,
-        resolveMode: async () => ({
+        const started = await coordinator.start({
+          ...START_DIRECT,
+          serverUrl: null,
+        });
+        expect(started).toMatchObject({
           mode: "connect",
-          connectHandle: "laptop",
           serverUrl: CONNECT_URL,
-        }),
-        resolveServerHostGrant: async (hostId) => {
-          events.push(`grant:${hostId}`);
-          const response = await accountRpc.request(accountRpcPath, {
-            method: "POST",
-          });
-          accountRpcStatuses.push(response.status);
-          if (!response.ok) {
-            throw new Error(await response.text());
-          }
-          return { serverUrl: CONNECT_URL, headers: grantHeaders };
-        },
-      });
-      const old = registerFakeDaemon(harness, {
-        events,
-        hostId: OLD,
-        handle: probeReply,
-      });
-      const worker = registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      const target = registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: targetReply,
-      });
+          destinationStatusUrl: null,
+        });
+        await expect.poll(() => accountRpcStatuses).toEqual([200]);
+        await retired;
 
-      const started = await coordinator.start({
-        ...START_DIRECT,
-        serverUrl: null,
-      });
-      expect(started).toMatchObject({
-        mode: "connect",
-        serverUrl: CONNECT_URL,
-        destinationStatusUrl: null,
-      });
-      await expect.poll(() => accountRpcStatuses).toEqual([200]);
-      await retired;
+        expect(events).toEqual([
+          `${NEW}:server_move.inspect`,
+          `${OLD}:server_move.inspect`,
+          `grant:${OLD}`,
+          "schedules:paused",
+          "stop-work",
+          "plugins:suspend",
+          `${NEW}:server_move.inspect`,
+          "export",
+          `${NEW}:server_move.prepare`,
+          `${NEW}:server_move.activate`,
+          "plugins:stop",
+          `server.moved:${OLD}`,
+          "retire",
+        ]);
+        expect(coordinator.getStatus()?.steps[5]).toMatchObject({
+          id: "verify-address",
+          status: "skipped",
+        });
+        expect(old.movedMessages).toEqual([
+          {
+            type: "server.moved",
+            serverUrl: CONNECT_URL,
+            headers: grantHeaders,
+          },
+        ]);
+        expect(worker.movedMessages).toEqual([]);
+        expect(target.movedMessages).toEqual([]);
+        expect(
+          requireCommand(target.requests, "server_move.prepare"),
+        ).toMatchObject({ serverUrl: CONNECT_URL });
+        expect(await readServerMovedFile(harness.config.dataDir)).toMatchObject(
+          {
+            mode: "connect",
+            connectHandle: "laptop",
+            serverUrl: CONNECT_URL,
+          },
+        );
+        expect(
+          JSON.parse(
+            await readFile(join(harness.config.dataDir, "config.json"), "utf8"),
+          ),
+        ).toEqual({ serverUrl: CONNECT_URL, serverHeaders: grantHeaders });
+      }),
+  );
 
-      expect(events).toEqual([
-        `${NEW}:server_move.inspect`,
-        `${OLD}:server_move.inspect`,
-        `grant:${OLD}`,
-        "schedules:paused",
-        "stop-work",
-        "plugins:suspend",
-        `${NEW}:server_move.inspect`,
-        "export",
-        `${NEW}:server_move.prepare`,
-        `${NEW}:server_move.activate`,
-        "plugins:stop",
-        `server.moved:${OLD}`,
-        "retire",
-      ]);
-      expect(coordinator.getStatus()?.steps[5]).toMatchObject({
-        id: "verify-address",
-        status: "skipped",
-      });
-      expect(old.movedMessages).toEqual([
-        { type: "server.moved", serverUrl: CONNECT_URL, headers: grantHeaders },
-      ]);
-      expect(worker.movedMessages).toEqual([]);
-      expect(target.movedMessages).toEqual([]);
-      expect(
-        requireCommand(target.requests, "server_move.prepare"),
-      ).toMatchObject({ serverUrl: CONNECT_URL });
-      expect(await readServerMovedFile(harness.config.dataDir)).toMatchObject({
-        mode: "connect",
-        connectHandle: "laptop",
-        serverUrl: CONNECT_URL,
-      });
-      expect(
-        JSON.parse(
-          await readFile(join(harness.config.dataDir, "config.json"), "utf8"),
-        ),
-      ).toEqual({ serverUrl: CONNECT_URL, serverHeaders: grantHeaders });
-    }));
-
-  it.each([
+  it.skipIf(isPostgresTest).each([
     {
       name: "the target inspect during update-target",
       failedStep: "update-target",
@@ -717,101 +761,103 @@ describe("server move coordinator", () => {
       workerProbe: probeReply,
       pluginSuspends: 1,
     },
-  ])("aborts, unfreezes, and resumes schedules when $name fails", (scenario) =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const config = await writeConfig(harness, {
-        config: { HYPERFIDE_LOG_LEVEL: "info" },
-      });
-      const { environment, events, plugins } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      const old = registerFakeDaemon(harness, {
-        events,
-        hostId: OLD,
-        handle: probeReply,
-      });
-      const worker = registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: scenario.workerProbe,
-      });
-      const target = registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: scenario.configure({ inspects: 0 }),
-      });
+  ])(
+    "aborts, unfreezes, and resumes schedules when $name fails",
+    async (scenario) =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const config = await writeConfig(harness, {
+          config: { HYPERFIDE_LOG_LEVEL: "info" },
+        });
+        const { environment, events, plugins } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        const old = await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        const worker = await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: scenario.workerProbe,
+        });
+        const target = await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: scenario.configure({ inspects: 0 }),
+        });
 
-      await coordinator.start(START_DIRECT);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.abort`))
-        .toBe(true);
-      await expect
-        .poll(() => events.includes("deferred-work:resumed"))
-        .toBe(true);
+        await coordinator.start(START_DIRECT);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.abort`))
+          .toBe(true);
+        await expect
+          .poll(() => events.includes("deferred-work:resumed"))
+          .toBe(true);
 
-      const status = coordinator.getStatus();
-      expect(status).toMatchObject({
-        state: "failed",
-        cancellable: false,
-        error: { step: scenario.failedStep },
-      });
-      expect(status?.error?.message).toContain(scenario.stepMessage);
-      expect(
-        status?.steps.find((step) => step.id === scenario.failedStep),
-      ).toMatchObject({ status: "failed" });
-      expect(coordinator.isFrozen()).toBe(false);
-      expect(plugins).toEqual({
-        paused: false,
-        resumes: scenario.pluginSuspends,
-        stops: 0,
-        suspends: scenario.pluginSuspends,
-      });
-      expect(isServerMoveFrozen(harness.db)).toBe(false);
-      expect(events).toContain("schedules:resumed");
-      expect(events.indexOf("schedules:resumed")).toBeGreaterThan(
-        events.indexOf("plugins:resume"),
-      );
-      expect(events).not.toContain("retire");
-      expect(coordinator.movedTo()).toBeNull();
-      expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
-      expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
-        JSON.parse(config.text),
-      );
-      expect([
-        ...old.movedMessages,
-        ...worker.movedMessages,
-        ...target.movedMessages,
-      ]).toEqual([]);
-      await expect
-        .poll(() =>
-          existsSync(
-            join(harness.config.dataDir, "server-move", status?.moveId ?? ""),
-          ),
-        )
-        .toBe(false);
-      await expect
-        .poll(() =>
-          existsSync(join(harness.config.dataDir, SERVER_MOVE_RUN_FILE_NAME)),
-        )
-        .toBe(false);
-    }),
+        const status = coordinator.getStatus();
+        expect(status).toMatchObject({
+          state: "failed",
+          cancellable: false,
+          error: { step: scenario.failedStep },
+        });
+        expect(status?.error?.message).toContain(scenario.stepMessage);
+        expect(
+          status?.steps.find((step) => step.id === scenario.failedStep),
+        ).toMatchObject({ status: "failed" });
+        expect(coordinator.isFrozen()).toBe(false);
+        expect(plugins).toEqual({
+          paused: false,
+          resumes: scenario.pluginSuspends,
+          stops: 0,
+          suspends: scenario.pluginSuspends,
+        });
+        expect(isServerMoveFrozen(harness.db)).toBe(false);
+        expect(events).toContain("schedules:resumed");
+        expect(events.indexOf("schedules:resumed")).toBeGreaterThan(
+          events.indexOf("plugins:resume"),
+        );
+        expect(events).not.toContain("retire");
+        expect(coordinator.movedTo()).toBeNull();
+        expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
+        expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
+          JSON.parse(config.text),
+        );
+        expect([
+          ...old.movedMessages,
+          ...worker.movedMessages,
+          ...target.movedMessages,
+        ]).toEqual([]);
+        await expect
+          .poll(() =>
+            existsSync(
+              join(harness.config.dataDir, "server-move", status?.moveId ?? ""),
+            ),
+          )
+          .toBe(false);
+        await expect
+          .poll(() =>
+            existsSync(join(harness.config.dataDir, SERVER_MOVE_RUN_FILE_NAME)),
+          )
+          .toBe(false);
+      }),
   );
 
-  it.each([
+  it.skipIf(isPostgresTest).each([
     { hung: "suspendAllButConnect" as const, warning: "suspension" },
     { hung: "stop" as const, warning: "shutdown" },
   ])(
     "keeps moving when plugin $warning outlives its time box",
-    ({ hung, warning }) =>
-      withTestHarness(async (harness) => {
-        seedTopology(harness);
-        const base = createTestServerMoveEnvironment(harness, {
+    async ({ hung, warning }) =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const base = await createTestServerMoveEnvironment(harness, {
           timings: { ...TEST_SERVER_MOVE_TIMINGS, pluginShutdownTimeoutMs: 50 },
         });
         const { events, retired } = base;
-        const never = createDeferredPromise<void>();
-        const coordinator = createServerMoveCoordinator({
+        const never = await createDeferredPromise<void>();
+        const coordinator = await createServerMoveCoordinator({
           ...base.environment,
           plugins: {
             ...base.environment.plugins,
@@ -822,17 +868,17 @@ describe("server move coordinator", () => {
           },
         });
         const warn = vi.spyOn(harness.deps.logger, "warn");
-        registerFakeDaemon(harness, {
+        await registerFakeDaemon(harness, {
           events,
           hostId: OLD,
           handle: probeReply,
         });
-        registerFakeDaemon(harness, {
+        await registerFakeDaemon(harness, {
           events,
           hostId: WORKER,
           handle: probeReply,
         });
-        registerFakeDaemon(harness, {
+        await registerFakeDaemon(harness, {
           events,
           hostId: NEW,
           handle: targetReply,
@@ -852,826 +898,950 @@ describe("server move coordinator", () => {
       }),
   );
 
-  it("maps daemon error codes into the failed step's message", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const { environment, events } = createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) =>
-          request.command.type === "server_move.prepare"
-            ? {
-                ok: false,
-                errorCode: "server_move_archive_corrupt",
-                errorMessage: "Archive data is corrupt: unexpected end of file",
-              }
-            : targetReply(request),
-      });
-
-      await coordinator.start(START_DIRECT);
-      await expect.poll(() => coordinator.getStatus()?.state).toBe("failed");
-
-      expect(coordinator.getStatus()?.error).toEqual({
-        step: "transfer",
-        message:
-          "The machine couldn't unpack the export: Archive data is corrupt: unexpected end of file",
-      });
-    }));
-
-  it("treats an already-activated target as switched and never aborts it", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const { environment, events, plugins, retired } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) =>
-          request.command.type === "server_move.activate"
-            ? {
-                ok: false,
-                errorCode: "server_move_already_activated",
-                errorMessage: "Already activated",
-              }
-            : targetReply(request),
-      });
-
-      await coordinator.start(START_DIRECT);
-      await retired;
-
-      expect(coordinator.getStatus()?.state).toBe("completed");
-      expect(events).not.toContain(`${NEW}:server_move.abort`);
-      expect(events).toContain(`server.moved:${OLD}`);
-      expect(plugins).toMatchObject({ resumes: 0, stops: 1 });
-      expect(await readServerMovedFile(harness.config.dataDir)).not.toBeNull();
-    }));
-
-  it("rolls back the lock and keeps plugins running when the old config can't be rewritten", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const config = await writeConfig(harness, { unknownKey: true });
-      const { environment, events, plugins } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, { events, hostId: NEW, handle: targetReply });
-
-      await coordinator.start(START_DIRECT);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.abort`))
-        .toBe(true);
-
-      expect(coordinator.getStatus()).toMatchObject({
-        state: "failed",
-        error: { step: "switch" },
-      });
-      expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
-      expect(await readFile(config.path, "utf8")).toBe(config.text);
-      expect(events).not.toContain(`${NEW}:server_move.activate`);
-      expect(plugins).toEqual({
-        paused: false,
-        resumes: 1,
-        stops: 0,
-        suspends: 1,
-      });
-      expect(coordinator.isFrozen()).toBe(false);
-    }));
-
-  it("cancels while the target prepares, ignores its late reply, and allows a new move", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const { environment, events, plugins, retired } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      const prepareReply = createDeferredPromise<FakeDaemonReply>();
-      let prepares = 0;
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      const target = registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) => {
-          if (request.command.type === "server_move.prepare") {
-            prepares += 1;
-            if (prepares === 1) {
-              return prepareReply.promise;
-            }
-          }
-          return targetReply(request);
-        },
-      });
-      const session = openSession(harness.db, {
-        hostId: NEW,
-        instanceId: "instance-new",
-        hostName: "Desktop",
-        dataDir: "/home/me/.hyperfide-machines/laptop",
-        protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
-        heartbeatIntervalMs: 5_000,
-        leaseTimeoutMs: 30_000,
-      });
-
-      const started = await coordinator.start(START_DIRECT);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.prepare`))
-        .toBe(true);
-      onDaemonSocketMessage(
-        harness.deps,
-        {
+  it.skipIf(isPostgresTest)(
+    "maps daemon error codes into the failed step's message",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const { environment, events } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
           hostId: NEW,
-          raw: JSON.stringify({
-            type: "server_move.progress",
-            moveId: started.moveId,
-            step: "transfer",
-            message: "Downloaded 40%",
-          }),
-          sessionId: session.id,
-          socket: { close() {}, send() {} },
-        },
-        undefined,
-        coordinator,
-      );
-      expect(coordinator.getStatus()?.steps[3]).toEqual({
-        id: "transfer",
-        status: "running",
-        message: "Downloaded 40%",
-      });
-
-      expect(isServerMoveFrozen(harness.db)).toBe(true);
-      expect(plugins.suspends).toBe(1);
-
-      const cancelled = coordinator.cancel();
-
-      expect(cancelled).toMatchObject({
-        moveId: started.moveId,
-        state: "cancelled",
-        cancellable: false,
-        error: { step: "transfer", message: "The move was cancelled" },
-      });
-      expect(coordinator.isFrozen()).toBe(false);
-      expect(isServerMoveFrozen(harness.db)).toBe(false);
-      await expect.poll(() => events.includes("schedules:resumed")).toBe(true);
-      expect(events.indexOf("plugins:resume")).toBeLessThan(
-        events.indexOf("schedules:resumed"),
-      );
-      expect(plugins.paused).toBe(false);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.abort`))
-        .toBe(true);
-      prepareReply.resolve(
-        ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
-      );
-      await expect
-        .poll(() =>
-          existsSync(
-            join(harness.config.dataDir, "server-move", started.moveId),
-          ),
-        )
-        .toBe(false);
-      expect(coordinator.getStatus()?.state).toBe("cancelled");
-      expect(events).not.toContain(`${NEW}:server_move.activate`);
-      expect(events).not.toContain("plugins:stop");
-      expect(plugins).toMatchObject({ resumes: 1, stops: 0, suspends: 1 });
-      expect(captureError(() => coordinator.cancel())).toMatchObject({
-        status: 409,
-        body: { code: "server_move_not_cancellable" },
-      });
-
-      const restarted = await coordinator.start(START_DIRECT);
-      expect(restarted.moveId).not.toBe(started.moveId);
-      await retired;
-      expect(coordinator.getStatus()?.state).toBe("completed");
-      expect(plugins).toMatchObject({ resumes: 1, stops: 1, suspends: 2 });
-      expect(
-        target.requests.filter(
-          (request) => request.command.type === "server_move.activate",
-        ),
-      ).toHaveLength(1);
-    }));
-
-  it("keeps the tunnel up during activation and retries an unconfirmed activation", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const { environment, events, plugins, retired } =
-        createTestServerMoveEnvironment(harness, {
-          timings: {
-            ...TEST_SERVER_MOVE_TIMINGS,
-            activateAttemptTimeoutMs: 100,
-            activateRetryWindowMs: 2_000,
-          },
+          handle: (request) =>
+            request.command.type === "server_move.prepare"
+              ? {
+                  ok: false,
+                  errorCode: "server_move_archive_corrupt",
+                  errorMessage:
+                    "Archive data is corrupt: unexpected end of file",
+                }
+              : targetReply(request),
         });
-      const coordinator = createServerMoveCoordinator(environment);
-      const lostReply = createDeferredPromise<FakeDaemonReply>();
-      let activations = 0;
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) => {
-          if (request.command.type !== "server_move.activate") {
-            return targetReply(request);
-          }
-          activations += 1;
-          expect(plugins.stops).toBe(0);
-          return activations === 1 ? lostReply.promise : ok({ ok: true });
-        },
-      });
 
-      await coordinator.start(START_DIRECT);
-      await retired;
-
-      expect(activations).toBe(2);
-      expect(
-        events.slice(events.indexOf(`${NEW}:server_move.activate`)),
-      ).toEqual([
-        `${NEW}:server_move.activate`,
-        `${NEW}:server_move.activate`,
-        "plugins:stop",
-        `server.moved:${OLD}`,
-        `server.moved:${WORKER}`,
-        "retire",
-      ]);
-      expect(coordinator.getStatus()?.state).toBe("completed");
-      expect(events).not.toContain(`${NEW}:server_move.abort`);
-      expect(plugins).toMatchObject({ resumes: 0, stops: 1 });
-      lostReply.resolve(ok({ ok: true }));
-    }));
-
-  it("keeps a direct move frozen in recovery_required when activation is unconfirmed, then finishes once the destination is ready", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const config = await writeConfig(harness, {
-        config: { HYPERFIDE_LOG_LEVEL: "info" },
-      });
-      const { environment, events, plugins, retired } =
-        createTestServerMoveEnvironment(harness, { timings: RECOVERY_TIMINGS });
-      const coordinator = createServerMoveCoordinator(environment);
-      const destination: { state: "pending" | "ready" } = { state: "pending" };
-      registerFakeDaemon(harness, {
-        events,
-        hostId: OLD,
-        handle: (request) =>
-          request.command.type === "server_move.probe"
-            ? ok({ reachable: true, message: null, state: destination.state })
-            : probeReply(request),
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: dropOnActivation(harness),
-      });
-
-      try {
         await coordinator.start(START_DIRECT);
-        await expect
-          .poll(() => coordinator.getStatus()?.state)
-          .toBe("recovery_required");
-        await expect
-          .poll(() => countEvents(events, `${OLD}:server_move.probe`))
-          .toBeGreaterThan(2);
+        await expect.poll(() => coordinator.getStatus()?.state).toBe("failed");
 
-        expect(coordinator.getStatus()).toMatchObject({
-          cancellable: true,
-          finishedAt: null,
-          error: { step: "switch" },
+        expect(coordinator.getStatus()?.error).toEqual({
+          step: "transfer",
+          message:
+            "The machine couldn't unpack the export: Archive data is corrupt: unexpected end of file",
         });
-        expect(coordinator.getStatus()?.steps.at(-1)).toEqual({
-          id: "switch",
-          status: "running",
-          message: "Waiting for Desktop to confirm it took over",
+      }),
+  );
+
+  it.skipIf(isPostgresTest)(
+    "treats an already-activated target as switched and never aborts it",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const { environment, events, plugins, retired } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
         });
-        expect(coordinator.isFrozen()).toBe(true);
-        expect(isServerMoveFrozen(harness.db)).toBe(true);
-        expect(coordinator.movedTo()).toBeNull();
-        expect(plugins).toEqual({
-          paused: true,
-          resumes: 0,
-          stops: 0,
-          suspends: 1,
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
         });
-        expect(events).not.toContain("retire");
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) =>
+            request.command.type === "server_move.activate"
+              ? {
+                  ok: false,
+                  errorCode: "server_move_already_activated",
+                  errorMessage: "Already activated",
+                }
+              : targetReply(request),
+        });
+
+        await coordinator.start(START_DIRECT);
+        await retired;
+
+        expect(coordinator.getStatus()?.state).toBe("completed");
         expect(events).not.toContain(`${NEW}:server_move.abort`);
-        expect(events.some((event) => event.startsWith("server.moved"))).toBe(
-          false,
-        );
+        expect(events).toContain(`server.moved:${OLD}`);
+        expect(plugins).toMatchObject({ resumes: 0, stops: 1 });
         expect(
           await readServerMovedFile(harness.config.dataDir),
         ).not.toBeNull();
-        expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
-          JSON.parse(config.text),
-        );
-        await expect(
-          coordinator.start({ ...START_DIRECT, targetHostId: WORKER }),
-        ).rejects.toMatchObject({
-          status: 409,
-          body: { code: "server_move_in_progress" },
+      }),
+  );
+
+  // Physical archive export uses SQLite backups.
+  it.skipIf(isPostgresTest)(
+    "rolls back the lock and keeps plugins running when the old config can't be rewritten",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const config = await writeConfig(harness, { unknownKey: true });
+        const { environment, events, plugins } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: targetReply,
         });
 
-        destination.state = "ready";
+        await coordinator.start(START_DIRECT);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.abort`))
+          .toBe(true);
+
+        await expect
+          .poll(() => coordinator.getStatus())
+          .toMatchObject({
+            state: "failed",
+            error: { step: "switch" },
+          });
+        expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
+        expect(await readFile(config.path, "utf8")).toBe(config.text);
+        expect(events).not.toContain(`${NEW}:server_move.activate`);
+        expect(plugins).toEqual({
+          paused: false,
+          resumes: 1,
+          stops: 0,
+          suspends: 1,
+        });
+        expect(coordinator.isFrozen()).toBe(false);
+      }),
+  );
+
+  it.skipIf(isPostgresTest)(
+    "cancels while the target prepares, ignores its late reply, and allows a new move",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const { environment, events, plugins, retired } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        const prepareReply = createDeferredPromise<FakeDaemonReply>();
+        let prepares = 0;
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        const target = await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) => {
+            if (request.command.type === "server_move.prepare") {
+              prepares += 1;
+              if (prepares === 1) {
+                return prepareReply.promise;
+              }
+            }
+            return targetReply(request);
+          },
+        });
+        const session = await openSession(harness.db, {
+          hostId: NEW,
+          instanceId: "instance-new",
+          hostName: "Desktop",
+          dataDir: "/home/me/.hyperfide-machines/laptop",
+          protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+          heartbeatIntervalMs: 5_000,
+          leaseTimeoutMs: 30_000,
+        });
+
+        const started = await coordinator.start(START_DIRECT);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.prepare`))
+          .toBe(true);
+        await onDaemonSocketMessage(
+          harness.deps,
+          {
+            hostId: NEW,
+            raw: JSON.stringify({
+              type: "server_move.progress",
+              moveId: started.moveId,
+              step: "transfer",
+              message: "Downloaded 40%",
+            }),
+            sessionId: session.id,
+            socket: { close() {}, send() {} },
+          },
+          undefined,
+          coordinator,
+        );
+        expect(coordinator.getStatus()?.steps[3]).toEqual({
+          id: "transfer",
+          status: "running",
+          message: "Downloaded 40%",
+        });
+
+        expect(isServerMoveFrozen(harness.db)).toBe(true);
+        expect(plugins.suspends).toBe(1);
+
+        const cancelled = await coordinator.cancel();
+
+        expect(cancelled).toMatchObject({
+          moveId: started.moveId,
+          state: "cancelled",
+          cancellable: false,
+          error: { step: "transfer", message: "The move was cancelled" },
+        });
+        expect(coordinator.isFrozen()).toBe(false);
+        expect(isServerMoveFrozen(harness.db)).toBe(false);
+        await expect
+          .poll(() => events.includes("schedules:resumed"))
+          .toBe(true);
+        expect(events.indexOf("plugins:resume")).toBeLessThan(
+          events.indexOf("schedules:resumed"),
+        );
+        expect(plugins.paused).toBe(false);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.abort`))
+          .toBe(true);
+        prepareReply.resolve(
+          ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
+        );
+        await expect
+          .poll(() =>
+            existsSync(
+              join(harness.config.dataDir, "server-move", started.moveId),
+            ),
+          )
+          .toBe(false);
+        expect(coordinator.getStatus()?.state).toBe("cancelled");
+        expect(events).not.toContain(`${NEW}:server_move.activate`);
+        expect(events).not.toContain("plugins:stop");
+        expect(plugins).toMatchObject({ resumes: 1, stops: 0, suspends: 1 });
+        expect(
+          await captureError(async () => await coordinator.cancel()),
+        ).toMatchObject({
+          status: 409,
+          body: { code: "server_move_not_cancellable" },
+        });
+
+        const restarted = await coordinator.start(START_DIRECT);
+        expect(restarted.moveId).not.toBe(started.moveId);
+        await retired;
+        expect(coordinator.getStatus()?.state).toBe("completed");
+        expect(plugins).toMatchObject({ resumes: 1, stops: 1, suspends: 2 });
+        expect(
+          target.requests.filter(
+            (request) => request.command.type === "server_move.activate",
+          ),
+        ).toHaveLength(1);
+      }),
+  );
+
+  it.skipIf(isPostgresTest)(
+    "keeps the tunnel up during activation and retries an unconfirmed activation",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const { environment, events, plugins, retired } =
+          createTestServerMoveEnvironment(harness, {
+            timings: {
+              ...TEST_SERVER_MOVE_TIMINGS,
+              activateAttemptTimeoutMs: 100,
+              activateRetryWindowMs: 2_000,
+            },
+          });
+        const coordinator = await createServerMoveCoordinator(environment);
+        const lostReply = createDeferredPromise<FakeDaemonReply>();
+        let activations = 0;
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) => {
+            if (request.command.type !== "server_move.activate") {
+              return targetReply(request);
+            }
+            activations += 1;
+            expect(plugins.stops).toBe(0);
+            return activations === 1 ? lostReply.promise : ok({ ok: true });
+          },
+        });
+
+        await coordinator.start(START_DIRECT);
         await retired;
 
-        expect(coordinator.getStatus()).toMatchObject({
-          state: "completed",
-          error: null,
-          cancellable: false,
-        });
-        expect(events.slice(events.indexOf("plugins:stop"))).toEqual([
+        expect(activations).toBe(2);
+        expect(
+          events.slice(events.indexOf(`${NEW}:server_move.activate`)),
+        ).toEqual([
+          `${NEW}:server_move.activate`,
+          `${NEW}:server_move.activate`,
           "plugins:stop",
           `server.moved:${OLD}`,
           `server.moved:${WORKER}`,
           "retire",
         ]);
-        expect(coordinator.movedTo()).toMatchObject({ serverUrl: DIRECT_URL });
-        expect(JSON.parse(await readFile(config.path, "utf8"))).toMatchObject({
-          serverUrl: DIRECT_URL,
+        expect(coordinator.getStatus()?.state).toBe("completed");
+        expect(events).not.toContain(`${NEW}:server_move.abort`);
+        expect(plugins).toMatchObject({ resumes: 0, stops: 1 });
+        lostReply.resolve(ok({ ok: true }));
+      }),
+  );
+
+  it.skipIf(isPostgresTest)(
+    "keeps a direct move frozen in recovery_required when activation is unconfirmed, then finishes once the destination is ready",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const config = await writeConfig(harness, {
+          config: { HYPERFIDE_LOG_LEVEL: "info" },
         });
-      } finally {
-        coordinator.dispose();
-      }
-    }));
+        const { environment, events, plugins, retired } =
+          createTestServerMoveEnvironment(harness, {
+            timings: RECOVERY_TIMINGS,
+          });
+        const coordinator = await createServerMoveCoordinator(environment);
+        const destination: { state: "pending" | "ready" } = {
+          state: "pending",
+        };
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: (request) =>
+            request.command.type === "server_move.probe"
+              ? ok({ reachable: true, message: null, state: destination.state })
+              : probeReply(request),
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: dropOnActivation(harness),
+        });
 
-  it("keeps a hyperfide-platform connect move in recovery_required with the tunnel up and retries activation when the target reconnects", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const base = createTestServerMoveEnvironment(harness, {
-        timings: RECOVERY_TIMINGS,
-      });
-      const { events, plugins, retired } = base;
-      const grantHeaders = { "x-hyperfide-connect-machine": "hyperfide_cm_laptop" };
-      const coordinator = createServerMoveCoordinator({
-        ...base.environment,
-        resolveMode: async () => ({
-          mode: "connect",
-          connectHandle: "laptop",
-          serverUrl: CONNECT_URL,
-        }),
-        resolveServerHostGrant: async () => ({
-          serverUrl: CONNECT_URL,
-          headers: grantHeaders,
-        }),
-      });
-      const old = registerFakeDaemon(harness, {
-        events,
-        hostId: OLD,
-        handle: (request) =>
-          request.command.type === "server_move.probe"
-            ? ok({
-                reachable: false,
-                message: `${CONNECT_URL} answered for a different server move`,
-                state: null,
-              })
-            : probeReply(request),
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      let activations = 0;
-      const drop = dropOnActivation(harness);
-      const targetHandler = (
-        request: HostDaemonOnlineRpcRequestMessage,
-      ): FakeDaemonReply | Promise<FakeDaemonReply> => {
-        if (request.command.type !== "server_move.activate") {
-          return targetReply(request);
+        try {
+          await coordinator.start(START_DIRECT);
+          await expect
+            .poll(() => coordinator.getStatus()?.state)
+            .toBe("recovery_required");
+          await expect
+            .poll(() => countEvents(events, `${OLD}:server_move.probe`))
+            .toBeGreaterThan(2);
+
+          expect(coordinator.getStatus()).toMatchObject({
+            cancellable: true,
+            finishedAt: null,
+            error: { step: "switch" },
+          });
+          expect(coordinator.getStatus()?.steps.at(-1)).toEqual({
+            id: "switch",
+            status: "running",
+            message: "Waiting for Desktop to confirm it took over",
+          });
+          await vi.waitFor(() => expect(coordinator.isFrozen()).toBe(true), {
+            timeout: 10_000,
+          });
+          expect(isServerMoveFrozen(harness.db)).toBe(true);
+          expect(coordinator.movedTo()).toBeNull();
+          expect(plugins).toEqual({
+            paused: true,
+            resumes: 0,
+            stops: 0,
+            suspends: 1,
+          });
+          expect(events).not.toContain("retire");
+          expect(events).not.toContain(`${NEW}:server_move.abort`);
+          expect(events.some((event) => event.startsWith("server.moved"))).toBe(
+            false,
+          );
+          expect(
+            await readServerMovedFile(harness.config.dataDir),
+          ).not.toBeNull();
+          expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
+            JSON.parse(config.text),
+          );
+          await expect(
+            coordinator.start({ ...START_DIRECT, targetHostId: WORKER }),
+          ).rejects.toMatchObject({
+            status: 409,
+            body: { code: "server_move_in_progress" },
+          });
+
+          destination.state = "ready";
+          await retired;
+
+          expect(coordinator.getStatus()).toMatchObject({
+            state: "completed",
+            error: null,
+            cancellable: false,
+          });
+          expect(events.slice(events.indexOf("plugins:stop"))).toEqual([
+            "plugins:stop",
+            `server.moved:${OLD}`,
+            `server.moved:${WORKER}`,
+            "retire",
+          ]);
+          expect(coordinator.movedTo()).toMatchObject({
+            serverUrl: DIRECT_URL,
+          });
+          expect(JSON.parse(await readFile(config.path, "utf8"))).toMatchObject(
+            {
+              serverUrl: DIRECT_URL,
+            },
+          );
+        } finally {
+          coordinator.dispose();
         }
-        activations += 1;
-        return activations === 1 ? drop(request) : ok({ ok: true });
-      };
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: targetHandler,
-      });
+      }),
+  );
 
-      try {
-        await coordinator.start({ ...START_DIRECT, serverUrl: null });
-        await expect
-          .poll(() => coordinator.getStatus()?.state)
-          .toBe("recovery_required");
-        await expect
-          .poll(() => countEvents(events, `${OLD}:server_move.probe`))
-          .toBeGreaterThan(1);
-
-        expect(coordinator.isFrozen()).toBe(true);
-        expect(coordinator.movedTo()).toBeNull();
-        expect(plugins).toMatchObject({ stops: 0, resumes: 0, suspends: 1 });
-        expect(old.movedMessages).toEqual([]);
-        expect(events).not.toContain("retire");
-
-        registerFakeDaemon(harness, {
+  it.skipIf(isPostgresTest)(
+    "keeps a hyperfide connect move in recovery_required with the tunnel up and retries activation when the target reconnects",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const base = await createTestServerMoveEnvironment(harness, {
+          timings: RECOVERY_TIMINGS,
+        });
+        const { events, plugins, retired } = base;
+        const grantHeaders = {
+          "x-hyperfide-connect-machine": "hyperfide_cm_laptop",
+        };
+        const coordinator = await createServerMoveCoordinator({
+          ...base.environment,
+          resolveMode: async () => ({
+            mode: "connect",
+            connectHandle: "laptop",
+            serverUrl: CONNECT_URL,
+          }),
+          resolveServerHostGrant: async () => ({
+            serverUrl: CONNECT_URL,
+            headers: grantHeaders,
+          }),
+        });
+        const old = await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: (request) =>
+            request.command.type === "server_move.probe"
+              ? ok({
+                  reachable: false,
+                  message: `${CONNECT_URL} answered for a different server move`,
+                  state: null,
+                })
+              : probeReply(request),
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        let activations = 0;
+        const drop = dropOnActivation(harness);
+        const targetHandler = (
+          request: HostDaemonOnlineRpcRequestMessage,
+        ): FakeDaemonReply | Promise<FakeDaemonReply> => {
+          if (request.command.type !== "server_move.activate") {
+            return targetReply(request);
+          }
+          activations += 1;
+          return activations === 1 ? drop(request) : ok({ ok: true });
+        };
+        await registerFakeDaemon(harness, {
           events,
           hostId: NEW,
           handle: targetHandler,
         });
-        await retired;
 
-        expect(activations).toBe(2);
-        expect(coordinator.getStatus()?.state).toBe("completed");
-        expect(old.movedMessages).toEqual([
-          {
-            type: "server.moved",
-            serverUrl: CONNECT_URL,
-            headers: grantHeaders,
-          },
-        ]);
-        expect(plugins).toMatchObject({ stops: 1, resumes: 0 });
-        expect(events).not.toContain(`${NEW}:server_move.abort`);
-      } finally {
-        coordinator.dispose();
-      }
-    }));
+        try {
+          await coordinator.start({ ...START_DIRECT, serverUrl: null });
+          await expect
+            .poll(() => coordinator.getStatus()?.state)
+            .toBe("recovery_required");
+          await expect
+            .poll(() => countEvents(events, `${OLD}:server_move.probe`))
+            .toBeGreaterThan(1);
 
-  it("abandons a move in recovery_required on cancel and never finishes it later", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const config = await writeConfig(harness, {
-        config: { HYPERFIDE_LOG_LEVEL: "info" },
-      });
-      const { environment, events, plugins } = createTestServerMoveEnvironment(
-        harness,
-        { timings: RECOVERY_TIMINGS },
-      );
-      const coordinator = createServerMoveCoordinator(environment);
-      const destination: { state: "pending" | "ready" } = { state: "pending" };
-      registerFakeDaemon(harness, {
-        events,
-        hostId: OLD,
-        handle: (request) =>
-          request.command.type === "server_move.probe"
-            ? ok({ reachable: true, message: null, state: destination.state })
-            : probeReply(request),
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: dropOnActivation(harness),
-      });
+          await vi.waitFor(() => expect(coordinator.isFrozen()).toBe(true), {
+            timeout: 10_000,
+          });
+          expect(coordinator.movedTo()).toBeNull();
+          expect(plugins).toMatchObject({ stops: 0, resumes: 0, suspends: 1 });
+          expect(old.movedMessages).toEqual([]);
+          expect(events).not.toContain("retire");
 
-      try {
-        await coordinator.start(START_DIRECT);
-        await expect
-          .poll(() => coordinator.getStatus()?.state)
-          .toBe("recovery_required");
-        expect(isServerMoveSnapshotFenced(harness.db)).toBe(true);
+          await registerFakeDaemon(harness, {
+            events,
+            hostId: NEW,
+            handle: targetHandler,
+          });
+          await retired;
 
-        const cancelled = coordinator.cancel();
+          expect(activations).toBe(2);
+          expect(coordinator.getStatus()?.state).toBe("completed");
+          expect(old.movedMessages).toEqual([
+            {
+              type: "server.moved",
+              serverUrl: CONNECT_URL,
+              headers: grantHeaders,
+            },
+          ]);
+          expect(plugins).toMatchObject({ stops: 1, resumes: 0 });
+          expect(events).not.toContain(`${NEW}:server_move.abort`);
+        } finally {
+          coordinator.dispose();
+        }
+      }),
+  );
 
-        expect(cancelled).toMatchObject({
-          state: "cancelled",
-          cancellable: false,
-          error: {
-            step: "switch",
-            message:
-              "The move was abandoned before Desktop confirmed it took over",
-          },
+  it.skipIf(isPostgresTest)(
+    "abandons a move in recovery_required on cancel and never finishes it later",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const config = await writeConfig(harness, {
+          config: { HYPERFIDE_LOG_LEVEL: "info" },
         });
-        expect(coordinator.isFrozen()).toBe(false);
-        expect(isServerMoveFrozen(harness.db)).toBe(false);
-        expect(isServerMoveSnapshotFenced(harness.db)).toBe(false);
-        await expect.poll(() => plugins.paused).toBe(false);
-        expect(plugins).toMatchObject({ resumes: 1, stops: 0 });
-        expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
-        expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
-          JSON.parse(config.text),
-        );
-
-        registerFakeDaemon(harness, {
+        const { environment, events, plugins } =
+          createTestServerMoveEnvironment(harness, {
+            timings: RECOVERY_TIMINGS,
+          });
+        const coordinator = await createServerMoveCoordinator(environment);
+        const destination: { state: "pending" | "ready" } = {
+          state: "pending",
+        };
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: (request) =>
+            request.command.type === "server_move.probe"
+              ? ok({ reachable: true, message: null, state: destination.state })
+              : probeReply(request),
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
           events,
           hostId: NEW,
-          handle: targetReply,
+          handle: dropOnActivation(harness),
         });
-        await expect
-          .poll(() => events.includes(`${NEW}:server_move.abort`))
-          .toBe(true);
-        destination.state = "ready";
-        await new Promise<void>((resolve) => setTimeout(resolve, 80));
 
-        expect(coordinator.getStatus()?.state).toBe("cancelled");
+        try {
+          await coordinator.start(START_DIRECT);
+          await expect
+            .poll(() => coordinator.getStatus()?.state)
+            .toBe("recovery_required");
+          expect(isServerMoveSnapshotFenced(harness.db)).toBe(true);
+
+          const cancelled = await coordinator.cancel();
+
+          expect(cancelled).toMatchObject({
+            state: "cancelled",
+            cancellable: false,
+            error: {
+              step: "switch",
+              message:
+                "The move was abandoned before Desktop confirmed it took over",
+            },
+          });
+          expect(coordinator.isFrozen()).toBe(false);
+          expect(isServerMoveFrozen(harness.db)).toBe(false);
+          expect(isServerMoveSnapshotFenced(harness.db)).toBe(false);
+          await expect.poll(() => plugins.paused).toBe(false);
+          expect(plugins).toMatchObject({ resumes: 1, stops: 0 });
+          expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
+          expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
+            JSON.parse(config.text),
+          );
+
+          await registerFakeDaemon(harness, {
+            events,
+            hostId: NEW,
+            handle: targetReply,
+          });
+          await expect
+            .poll(() => events.includes(`${NEW}:server_move.abort`))
+            .toBe(true);
+          destination.state = "ready";
+          await new Promise<void>((resolve) => setTimeout(resolve, 80));
+
+          expect(coordinator.getStatus()?.state).toBe("cancelled");
+          expect(events).not.toContain("plugins:stop");
+          expect(events).not.toContain("retire");
+          expect(events.some((event) => event.startsWith("server.moved"))).toBe(
+            false,
+          );
+          expect(coordinator.movedTo()).toBeNull();
+        } finally {
+          coordinator.dispose();
+        }
+      }),
+  );
+
+  it.skipIf(isPostgresTest)(
+    "rolls back when the target is gone before activation can be sent",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const config = await writeConfig(harness, {
+          config: { HYPERFIDE_LOG_LEVEL: "info" },
+        });
+        const { environment, events, plugins } =
+          createTestServerMoveEnvironment(harness, {
+            timings: {
+              ...TEST_SERVER_MOVE_TIMINGS,
+              activateRetryWindowMs: 200,
+            },
+          });
+        const coordinator = await createServerMoveCoordinator(environment);
+        const handles: { targetSessionId: string | null } = {
+          targetSessionId: null,
+        };
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: (request) => {
+            if (
+              request.command.type === "server_move.probe" &&
+              handles.targetSessionId !== null
+            ) {
+              harness.hub.unregisterDaemon(handles.targetSessionId);
+            }
+            return probeReply(request);
+          },
+        });
+        handles.targetSessionId = (
+          await registerFakeDaemon(harness, {
+            events,
+            hostId: NEW,
+            handle: targetReply,
+          })
+        ).sessionId;
+
+        await coordinator.start(START_DIRECT);
+        await expect.poll(() => coordinator.getStatus()?.state).toBe("failed");
+        await expect.poll(() => plugins.resumes).toBe(1);
+
+        expect(coordinator.getStatus()?.error).toEqual({
+          step: "switch",
+          message: "Desktop disconnected before it could take over",
+        });
+        expect(events).not.toContain(`${NEW}:server_move.activate`);
         expect(events).not.toContain("plugins:stop");
         expect(events).not.toContain("retire");
         expect(events.some((event) => event.startsWith("server.moved"))).toBe(
           false,
         );
-        expect(coordinator.movedTo()).toBeNull();
-      } finally {
-        coordinator.dispose();
-      }
-    }));
+        expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
+        expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
+          JSON.parse(config.text),
+        );
+        expect(coordinator.isFrozen()).toBe(false);
+      }),
+  );
 
-  it("rolls back when the target is gone before activation can be sent", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const config = await writeConfig(harness, {
-        config: { HYPERFIDE_LOG_LEVEL: "info" },
-      });
-      const { environment, events, plugins } = createTestServerMoveEnvironment(
-        harness,
-        {
-          timings: {
-            ...TEST_SERVER_MOVE_TIMINGS,
-            activateRetryWindowMs: 200,
+  it.skipIf(isPostgresTest)(
+    "keeps a newer move frozen and suspends its plugins only after the cancelled move's slow resume finishes",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const base = await createTestServerMoveEnvironment(harness);
+        const { events, plugins, retired } = base;
+        const slowResume = await createDeferredPromise<void>();
+        const coordinator = await createServerMoveCoordinator({
+          ...base.environment,
+          plugins: {
+            ...base.environment.plugins,
+            resumeSuspended: async () => {
+              await base.environment.plugins.resumeSuspended();
+              await slowResume.promise;
+              events.push("plugins:resume:settled");
+            },
           },
-        },
-      );
-      const coordinator = createServerMoveCoordinator(environment);
-      const handles: { targetSessionId: string | null } = {
-        targetSessionId: null,
-      };
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: (request) => {
-          if (
-            request.command.type === "server_move.probe" &&
-            handles.targetSessionId !== null
-          ) {
-            harness.hub.unregisterDaemon(handles.targetSessionId);
-          }
-          return probeReply(request);
-        },
-      });
-      handles.targetSessionId = registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: targetReply,
-      }).sessionId;
-
-      await coordinator.start(START_DIRECT);
-      await expect.poll(() => coordinator.getStatus()?.state).toBe("failed");
-      await expect.poll(() => plugins.resumes).toBe(1);
-
-      expect(coordinator.getStatus()?.error).toEqual({
-        step: "switch",
-        message: "Desktop disconnected before it could take over",
-      });
-      expect(events).not.toContain(`${NEW}:server_move.activate`);
-      expect(events).not.toContain("plugins:stop");
-      expect(events).not.toContain("retire");
-      expect(events.some((event) => event.startsWith("server.moved"))).toBe(
-        false,
-      );
-      expect(await readServerMovedFile(harness.config.dataDir)).toBeNull();
-      expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual(
-        JSON.parse(config.text),
-      );
-      expect(coordinator.isFrozen()).toBe(false);
-    }));
-
-  it("keeps a newer move frozen and suspends its plugins only after the cancelled move's slow resume finishes", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const base = createTestServerMoveEnvironment(harness);
-      const { events, plugins, retired } = base;
-      const slowResume = createDeferredPromise<void>();
-      const coordinator = createServerMoveCoordinator({
-        ...base.environment,
-        plugins: {
-          ...base.environment.plugins,
-          resumeSuspended: async () => {
-            await base.environment.plugins.resumeSuspended();
-            await slowResume.promise;
-            events.push("plugins:resume:settled");
-          },
-        },
-      });
-      const secondPrepare = createDeferredPromise<FakeDaemonReply>();
-      let prepares = 0;
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) => {
-          if (request.command.type === "server_move.prepare") {
-            prepares += 1;
-            return prepares === 1
-              ? createDeferredPromise<FakeDaemonReply>().promise
-              : secondPrepare.promise;
-          }
-          return targetReply(request);
-        },
-      });
-
-      await coordinator.start(START_DIRECT);
-      await expect.poll(() => prepares).toBe(1);
-      coordinator.cancel();
-      await expect.poll(() => plugins.resumes).toBe(1);
-
-      await coordinator.start(START_DIRECT);
-      await expect
-        .poll(() => coordinator.getStatus()?.steps[0]?.message)
-        .toBe("Pausing plugins");
-      await new Promise<void>((resolve) => setTimeout(resolve, 20));
-      expect(plugins.suspends).toBe(1);
-      slowResume.resolve();
-      await expect.poll(() => prepares).toBe(2);
-
-      expect(coordinator.getStatus()?.state).toBe("preparing");
-      expect(isServerMoveFrozen(harness.db)).toBe(true);
-      expect(plugins).toMatchObject({ paused: true, resumes: 1, suspends: 2 });
-      expect(events.indexOf("plugins:resume:settled")).toBeLessThan(
-        events.lastIndexOf("plugins:suspend"),
-      );
-      expect(events).not.toContain("deferred-work:resumed");
-
-      secondPrepare.resolve(
-        ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
-      );
-      await retired;
-      expect(coordinator.getStatus()?.state).toBe("completed");
-    }));
-
-  it("resumes nothing for a cancelled move whose release runs after a newer move took over", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const base = createTestServerMoveEnvironment(harness);
-      const { events, plugins, retired } = base;
-      const firstSuspension = createDeferredPromise<void>();
-      let suspensions = 0;
-      const coordinator = createServerMoveCoordinator({
-        ...base.environment,
-        plugins: {
-          ...base.environment.plugins,
-          suspendAllButConnect: async () => {
-            suspensions += 1;
-            await base.environment.plugins.suspendAllButConnect();
-            if (suspensions === 1) {
-              await firstSuspension.promise;
+        });
+        const secondPrepare = createDeferredPromise<FakeDaemonReply>();
+        let prepares = 0;
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) => {
+            if (request.command.type === "server_move.prepare") {
+              prepares += 1;
+              return prepares === 1
+                ? createDeferredPromise<FakeDaemonReply>().promise
+                : secondPrepare.promise;
             }
+            return targetReply(request);
           },
-        },
-      });
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, { events, hostId: NEW, handle: targetReply });
+        });
 
-      const first = await coordinator.start(START_DIRECT);
-      await expect.poll(() => suspensions).toBe(1);
-      coordinator.cancel();
-      const second = await coordinator.start(START_DIRECT);
-      expect(second.moveId).not.toBe(first.moveId);
-      await expect.poll(() => isServerMoveFrozen(harness.db)).toBe(true);
-      firstSuspension.resolve();
-      await retired;
+        await coordinator.start(START_DIRECT);
+        await expect.poll(() => prepares).toBe(1);
+        await coordinator.cancel();
+        await expect.poll(() => plugins.resumes).toBe(1);
 
-      expect(coordinator.getStatus()).toMatchObject({
-        moveId: second.moveId,
-        state: "completed",
-      });
-      expect(plugins).toMatchObject({ resumes: 0, suspends: 2, stops: 1 });
-      expect(events).not.toContain("plugins:resume");
-      expect(events).not.toContain("deferred-work:resumed");
-      expect(isServerMoveFrozen(harness.db)).toBe(true);
-    }));
+        await coordinator.start(START_DIRECT);
+        await expect
+          .poll(() => coordinator.getStatus()?.steps[0]?.message)
+          .toBe("Pausing plugins");
+        await new Promise<void>((resolve) => setTimeout(resolve, 20));
+        expect(plugins.suspends).toBe(1);
+        slowResume.resolve();
+        await expect.poll(() => prepares).toBe(2);
 
-  it("lets queued dispatch run at cancel while a slow plugin resume is still running", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const base = createTestServerMoveEnvironment(harness);
-      const { events, plugins } = base;
-      const slowResume = createDeferredPromise<void>();
-      const coordinator = createServerMoveCoordinator({
-        ...base.environment,
-        plugins: {
-          ...base.environment.plugins,
-          resumeSuspended: async () => {
-            await base.environment.plugins.resumeSuspended();
-            await slowResume.promise;
+        expect(coordinator.getStatus()?.state).toBe("preparing");
+        expect(isServerMoveFrozen(harness.db)).toBe(true);
+        expect(plugins).toMatchObject({
+          paused: true,
+          resumes: 1,
+          suspends: 2,
+        });
+        expect(events.indexOf("plugins:resume:settled")).toBeLessThan(
+          events.lastIndexOf("plugins:suspend"),
+        );
+        expect(events).not.toContain("deferred-work:resumed");
+
+        secondPrepare.resolve(
+          ok({ localServerUrl: "http://127.0.0.1:39101", pid: 4242 }),
+        );
+        await retired;
+        expect(coordinator.getStatus()?.state).toBe("completed");
+      }),
+  );
+
+  it.skipIf(isPostgresTest)(
+    "resumes nothing for a cancelled move whose release runs after a newer move took over",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const base = await createTestServerMoveEnvironment(harness);
+        const { events, plugins, retired } = base;
+        const firstSuspension = await createDeferredPromise<void>();
+        let suspensions = 0;
+        const coordinator = await createServerMoveCoordinator({
+          ...base.environment,
+          plugins: {
+            ...base.environment.plugins,
+            suspendAllButConnect: async () => {
+              suspensions += 1;
+              await base.environment.plugins.suspendAllButConnect();
+              if (suspensions === 1) {
+                await firstSuspension.promise;
+              }
+            },
           },
-        },
-      });
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) =>
-          request.command.type === "server_move.prepare"
-            ? createDeferredPromise<FakeDaemonReply>().promise
-            : targetReply(request),
-      });
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: targetReply,
+        });
 
-      await coordinator.start(START_DIRECT);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.prepare`))
-        .toBe(true);
-      expect(isServerMoveFrozen(harness.db)).toBe(true);
+        const first = await coordinator.start(START_DIRECT);
+        await expect.poll(() => suspensions).toBe(1);
+        await coordinator.cancel();
+        const second = await coordinator.start(START_DIRECT);
+        expect(second.moveId).not.toBe(first.moveId);
+        await expect.poll(() => isServerMoveFrozen(harness.db)).toBe(true);
+        firstSuspension.resolve();
+        await retired;
 
-      coordinator.cancel();
+        expect(coordinator.getStatus()).toMatchObject({
+          moveId: second.moveId,
+          state: "completed",
+        });
+        expect(plugins).toMatchObject({ resumes: 0, suspends: 2, stops: 1 });
+        expect(events).not.toContain("plugins:resume");
+        expect(events).not.toContain("deferred-work:resumed");
+        expect(isServerMoveFrozen(harness.db)).toBe(true);
+      }),
+  );
 
-      expect(coordinator.isFrozen()).toBe(false);
-      expect(isServerMoveFrozen(harness.db)).toBe(false);
-      await expect.poll(() => plugins.resumes).toBe(1);
-      await new Promise<void>((resolve) => setTimeout(resolve, 20));
-      expect(isServerMoveFrozen(harness.db)).toBe(false);
-      expect(plugins.paused).toBe(true);
-      expect(events).not.toContain("deferred-work:resumed");
+  it.skipIf(isPostgresTest)(
+    "lets queued dispatch run at cancel while a slow plugin resume is still running",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const base = await createTestServerMoveEnvironment(harness);
+        const { events, plugins } = base;
+        const slowResume = await createDeferredPromise<void>();
+        const coordinator = await createServerMoveCoordinator({
+          ...base.environment,
+          plugins: {
+            ...base.environment.plugins,
+            resumeSuspended: async () => {
+              await base.environment.plugins.resumeSuspended();
+              await slowResume.promise;
+            },
+          },
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) =>
+            request.command.type === "server_move.prepare"
+              ? createDeferredPromise<FakeDaemonReply>().promise
+              : targetReply(request),
+        });
 
-      slowResume.resolve();
-      await expect
-        .poll(() => events.includes("deferred-work:resumed"))
-        .toBe(true);
-      expect(plugins.paused).toBe(false);
-    }));
+        await coordinator.start(START_DIRECT);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.prepare`))
+          .toBe(true);
+        expect(isServerMoveFrozen(harness.db)).toBe(true);
 
-  it("refuses to cancel once the switch starts", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const { environment, events, retired } =
-        createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      const activateReply = createDeferredPromise<FakeDaemonReply>();
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: (request) =>
-          request.command.type === "server_move.activate"
-            ? activateReply.promise
-            : targetReply(request),
-      });
+        await coordinator.cancel();
 
-      await coordinator.start(START_DIRECT);
-      await expect
-        .poll(() => events.includes(`${NEW}:server_move.activate`))
-        .toBe(true);
-      expect(coordinator.getStatus()).toMatchObject({
-        state: "switching",
-        cancellable: false,
-      });
+        expect(coordinator.isFrozen()).toBe(false);
+        expect(isServerMoveFrozen(harness.db)).toBe(false);
+        await expect.poll(() => plugins.resumes).toBe(1);
+        await new Promise<void>((resolve) => setTimeout(resolve, 20));
+        expect(isServerMoveFrozen(harness.db)).toBe(false);
+        expect(plugins.paused).toBe(true);
+        expect(events).not.toContain("deferred-work:resumed");
 
-      expect(captureError(() => coordinator.cancel())).toMatchObject({
-        status: 409,
-        body: {
-          code: "server_move_not_cancellable",
-          message: "The move can't be cancelled after the switch starts",
-        },
-      });
-      activateReply.resolve(ok({ ok: true }));
-      await retired;
-      expect(coordinator.getStatus()?.state).toBe("completed");
-      expect(events).not.toContain(`${NEW}:server_move.abort`);
-    }));
+        slowResume.resolve();
+        await expect
+          .poll(() => events.includes("deferred-work:resumed"))
+          .toBe(true);
+        expect(plugins.paused).toBe(false);
+      }),
+  );
 
-  it("rejects starts that are blocked or need confirmation, and cancels without a move", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it.skipIf(isPostgresTest)(
+    "refuses to cancel once the switch starts",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const { environment, events, retired } =
+          createTestServerMoveEnvironment(harness);
+        const coordinator = await createServerMoveCoordinator(environment);
+        const activateReply = createDeferredPromise<FakeDaemonReply>();
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
+        });
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: (request) =>
+            request.command.type === "server_move.activate"
+              ? activateReply.promise
+              : targetReply(request),
+        });
+
+        await coordinator.start(START_DIRECT);
+        await expect
+          .poll(() => events.includes(`${NEW}:server_move.activate`))
+          .toBe(true);
+        expect(coordinator.getStatus()).toMatchObject({
+          state: "switching",
+          cancellable: false,
+        });
+
+        expect(
+          await captureError(async () => await coordinator.cancel()),
+        ).toMatchObject({
+          status: 409,
+          body: {
+            code: "server_move_not_cancellable",
+            message: "The move can't be cancelled after the switch starts",
+          },
+        });
+        activateReply.resolve(ok({ ok: true }));
+        await retired;
+        expect(coordinator.getStatus()?.state).toBe("completed");
+        expect(events).not.toContain(`${NEW}:server_move.abort`);
+      }),
+  );
+
+  it("rejects starts that are blocked or need confirmation, and cancels without a move", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const { environment, events } = createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
+      const coordinator = await createServerMoveCoordinator(environment);
+      await registerFakeDaemon(harness, {
+        events,
+        hostId: OLD,
+        handle: probeReply,
+      });
+      await registerFakeDaemon(harness, {
         events,
         hostId: NEW,
         handle: (request) =>
@@ -1687,7 +1857,9 @@ describe("server move coordinator", () => {
             : targetReply(request),
       });
 
-      expect(captureError(() => coordinator.cancel())).toMatchObject({
+      expect(
+        await captureError(async () => await coordinator.cancel()),
+      ).toMatchObject({
         status: 409,
         body: {
           code: "server_move_not_cancellable",

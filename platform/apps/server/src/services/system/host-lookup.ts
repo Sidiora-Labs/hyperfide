@@ -11,18 +11,18 @@ type SystemHostLookupQuery = Pick<
   "environmentId" | "hostId"
 >;
 
-export function resolveSystemLookupHostId(
+export async function resolveSystemLookupHostId(
   deps: WorkSessionDeps,
   query: SystemHostLookupQuery,
-): string {
+): Promise<string> {
   if (query.environmentId) {
-    const environment = requireEnvironment(deps.db, query.environmentId);
-    assertUsableHostId(deps, { hostId: environment.hostId });
+    const environment = await requireEnvironment(deps.db, query.environmentId);
+    await assertUsableHostId(deps, { hostId: environment.hostId });
     return environment.hostId;
   }
   if (query.hostId) {
-    assertUsableHostId(deps, { hostId: query.hostId });
+    await assertUsableHostId(deps, { hostId: query.hostId });
     return query.hostId;
   }
-  return requireConnectedPrimaryHostId(deps);
+  return await requireConnectedPrimaryHostId(deps);
 }

@@ -61,7 +61,9 @@ describe("submit-a-plugin skill", () => {
     const manifestPath = path.join(directory, "package.json");
     await writeFile(
       manifestPath,
-      JSON.stringify({ name: "hyperfide-plugin-notes$(touch metadata-executed)" }),
+      JSON.stringify({
+        name: "hyperfide-plugin-notes$(touch metadata-executed)",
+      }),
       "utf8",
     );
 

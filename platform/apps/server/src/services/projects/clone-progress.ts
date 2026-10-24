@@ -9,7 +9,7 @@ export function createCloneProgressReporter(
   let lastEmittedAt = Number.NEGATIVE_INFINITY;
   let disposed = false;
 
-  function flush() {
+  async function flush() {
     if (timer !== null) clearTimeout(timer);
     timer = null;
     if (pending === null) return;
@@ -18,14 +18,14 @@ export function createCloneProgressReporter(
     if (text === lastText) return;
     lastText = text;
     lastEmittedAt = Date.now();
-    target.log(text);
+    await target.log(text);
   }
 
-  function log(text: string) {
+  async function log(text: string) {
     if (disposed) return;
     pending = text;
     const delay = Math.max(0, 1_000 - (Date.now() - lastEmittedAt));
-    if (delay === 0) flush();
+    if (delay === 0) await flush();
     else if (timer === null) {
       timer = setTimeout(flush, delay);
       timer.unref();
@@ -34,9 +34,9 @@ export function createCloneProgressReporter(
 
   return {
     report: { log, step: log } satisfies PluginEnvironmentProviderProgress,
-    dispose() {
+    async dispose() {
       disposed = true;
-      flush();
+      await flush();
     },
   };
 }

@@ -18,10 +18,12 @@ function createHarnessApp(): Hono {
   const app = new Hono();
   const compressResponse = compress();
   const compressApiJson = apiJsonCompression();
-  app.use("*", (context, next) =>
-    compressResponse(context, async () => {
-      await compressApiJson(context, next);
-    }),
+  app.use(
+    "*",
+    async (context, next) =>
+      await compressResponse(context, async () => {
+        await compressApiJson(context, next);
+      }),
   );
   app.get("/api/v1/large", (context) => context.json(LARGE_PAYLOAD));
   app.get("/api/v1/small", (context) => context.json(SMALL_PAYLOAD));
@@ -49,7 +51,7 @@ function createHarnessApp(): Hono {
 
 describe("API JSON compression", () => {
   it("sends Brotli with an exact Content-Length and Vary for large JSON", async () => {
-    const app = createHarnessApp();
+    const app = await createHarnessApp();
     const response = await app.request("/api/v1/large", {
       headers: { "accept-encoding": "gzip, deflate, br" },
     });
@@ -64,7 +66,7 @@ describe("API JSON compression", () => {
   });
 
   it("falls back to gzip when Brotli is not accepted and honours q=0", async () => {
-    const app = createHarnessApp();
+    const app = await createHarnessApp();
     const gzipResponse = await app.request("/api/v1/large", {
       headers: { "accept-encoding": "gzip" },
     });
@@ -84,7 +86,7 @@ describe("API JSON compression", () => {
   });
 
   it("leaves small JSON identity-encoded with a Content-Length", async () => {
-    const app = createHarnessApp();
+    const app = await createHarnessApp();
     const response = await app.request("/api/v1/small", {
       headers: { "accept-encoding": "gzip, br" },
     });
@@ -96,7 +98,7 @@ describe("API JSON compression", () => {
   });
 
   it("does not buffer plugin http handlers or internal routes", async () => {
-    const app = createHarnessApp();
+    const app = await createHarnessApp();
     for (const path of [
       "/api/v1/plugins/demo/http/stream",
       "/api/v1/plugins/demo/http",

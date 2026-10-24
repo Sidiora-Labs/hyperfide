@@ -27,20 +27,22 @@ import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
 afterEach(() => vi.restoreAllMocks());
 
-function seedFixture(harness: TestAppHarness) {
-  const { host, session } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+async function seedFixture(harness: TestAppHarness) {
+  const { host, session } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     providerId: "codex",
     status: "idle",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     providerThreadId: "provider-before-clear",
     threadId: thread.id,
@@ -48,12 +50,12 @@ function seedFixture(harness: TestAppHarness) {
   return { host, session, thread };
 }
 
-function registerResponder(
+async function registerResponder(
   harness: TestAppHarness,
-  fixture: ReturnType<typeof seedFixture>,
+  fixture: Awaited<ReturnType<typeof seedFixture>>,
   stop: () => Promise<void>,
 ) {
-  return registerHostRpcResponder(harness, {
+  return await registerHostRpcResponder(harness, {
     hostId: fixture.host.id,
     sessionId: fixture.session.id,
     handle: async ({ command }): Promise<HostRpcHandlerResult> => {
@@ -82,13 +84,17 @@ describe("context clear dispatch races", () => {
     "rejects clear while a %s is preparing a turn",
     async (source) => {
       await withTestHarness(async (harness) => {
-        const fixture = seedFixture(harness);
+        const fixture = await seedFixture(harness);
         const { thread } = fixture;
-        const entered = createDeferredPromise<void>();
-        const release = createDeferredPromise<void>();
-        const responder = registerResponder(harness, fixture, async () => {});
+        const entered = await createDeferredPromise<void>();
+        const release = await createDeferredPromise<void>();
+        const responder = await registerResponder(
+          harness,
+          fixture,
+          async () => {},
+        );
         if (source === "queue") {
-          seedQueuedMessage(harness.deps, {
+          await seedQueuedMessage(harness.deps, {
             threadId: thread.id,
             content: textInput("Queued follow-up"),
           });
@@ -101,12 +107,12 @@ describe("context clear dispatch races", () => {
             return [];
           });
         } else {
-          const buildExecutionOptions = commands.buildExecutionOptions;
+          const buildExecutionOptions = await commands.buildExecutionOptions;
           vi.spyOn(commands, "buildExecutionOptions").mockImplementationOnce(
             async (...args) => {
               entered.resolve();
               await release.promise;
-              return buildExecutionOptions(...args);
+              return await buildExecutionOptions(...args);
             },
           );
         }
@@ -128,9 +134,9 @@ describe("context clear dispatch races", () => {
             { method: "POST" },
           );
           expect(response.status).toBe(409);
-          expect(getLastStoredProviderThreadId(harness.db, thread.id)).toBe(
-            "provider-before-clear",
-          );
+          expect(
+            await getLastStoredProviderThreadId(harness.db, thread.id),
+          ).toBe("provider-before-clear");
           expect(responder.requests).not.toContainEqual(
             expect.objectContaining({
               command: expect.objectContaining({ type: "thread.stop" }),
@@ -155,16 +161,20 @@ describe("context clear dispatch races", () => {
     "retains a %s during clear and dispatches it into a fresh session afterward",
     async (source) => {
       await withTestHarness(async (harness) => {
-        const fixture = seedFixture(harness);
+        const fixture = await seedFixture(harness);
         const { thread } = fixture;
-        const stopping = createDeferredPromise<void>();
-        const release = createDeferredPromise<void>();
-        const responder = registerResponder(harness, fixture, async () => {
-          stopping.resolve();
-          await release.promise;
-        });
+        const stopping = await createDeferredPromise<void>();
+        const release = await createDeferredPromise<void>();
+        const responder = await registerResponder(
+          harness,
+          fixture,
+          async () => {
+            stopping.resolve();
+            await release.promise;
+          },
+        );
         if (source !== "new notice") {
-          createQueuedThreadMessage(harness.db, harness.hub, {
+          await createQueuedThreadMessage(harness.db, harness.hub, {
             threadId: thread.id,
             content: textInput("Follow-up after clear"),
             senderThreadId: null,
@@ -202,9 +212,9 @@ describe("context clear dispatch races", () => {
               threadId: thread.id,
             }),
           ).resolves.toBe(false);
-          expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([
-            expect.objectContaining({ claimedAt: null, failureReason: null }),
-          ]);
+          expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual(
+            [expect.objectContaining({ claimedAt: null, failureReason: null })],
+          );
           expect(
             responder.requests.filter(
               ({ command }) =>
@@ -216,13 +226,15 @@ describe("context clear dispatch races", () => {
           release.resolve();
           expect((await clearing).status).toBe(200);
         }
-        await vi.waitFor(() => {
+        await vi.waitFor(async () => {
           expect(
             responder.requests.filter(
               ({ command }) => command.type === "thread.start",
             ),
           ).toHaveLength(1);
-          expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+          expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual(
+            [],
+          );
         });
         expect(
           responder.requests.filter(

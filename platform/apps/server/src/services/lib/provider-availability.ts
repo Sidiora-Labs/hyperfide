@@ -60,7 +60,7 @@ export function parseProviderAvailabilityInvocation(
 
 const emptyInputsCache = new WeakMap<object, Promise<boolean>>();
 
-export function acceptsEmptyInputs(
+export async function acceptsEmptyInputs(
   provider: { inputs: StandardSchemaV1 | null },
   invoke: ProviderInvoke,
 ): Promise<boolean> {

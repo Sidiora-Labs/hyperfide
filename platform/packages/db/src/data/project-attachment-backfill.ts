@@ -25,11 +25,12 @@ export function startAttachmentBackfillPhase(
   return { ...state, ...emptyCursor, phase, threadCursor };
 }
 
-export function ensureProjectAttachmentBackfill(
+export async function ensureProjectAttachmentBackfill(
   db: DbConnection,
   projectId: string,
-): AttachmentBackfill {
-  db.insert(projectAttachmentBackfills)
+): Promise<AttachmentBackfill> {
+  await db
+    .insert(projectAttachmentBackfills)
     .values({
       projectId,
       phase: "files",
@@ -39,18 +40,18 @@ export function ensureProjectAttachmentBackfill(
     })
     .onConflictDoNothing()
     .run();
-  return db
+  return (await db
     .select()
     .from(projectAttachmentBackfills)
     .where(eq(projectAttachmentBackfills.projectId, projectId))
-    .get()!;
+    .get())!;
 }
 
-export function nextProjectAttachmentBackfill(
+export async function nextProjectAttachmentBackfill(
   db: DbConnection,
   now: number,
-): string | null {
-  const missing = db
+): Promise<string | null> {
+  const missing = await db
     .select({ id: projects.id })
     .from(projects)
     .leftJoin(
@@ -63,42 +64,49 @@ export function nextProjectAttachmentBackfill(
     .get();
   if (missing) return missing.id;
   return (
-    db
-      .select({ id: projectAttachmentBackfills.projectId })
-      .from(projectAttachmentBackfills)
-      .where(
-        and(
-          ne(projectAttachmentBackfills.phase, "done"),
-          or(
-            isNull(projectAttachmentBackfills.error),
-            lt(projectAttachmentBackfills.attemptedAt, now - 60_000),
+    (
+      await db
+        .select({ id: projectAttachmentBackfills.projectId })
+        .from(projectAttachmentBackfills)
+        .where(
+          and(
+            ne(projectAttachmentBackfills.phase, "done"),
+            or(
+              isNull(projectAttachmentBackfills.error),
+              lt(projectAttachmentBackfills.attemptedAt, now - 60_000),
+            ),
           ),
-        ),
-      )
-      .orderBy(
-        asc(projectAttachmentBackfills.attemptedAt),
-        asc(projectAttachmentBackfills.projectId),
-      )
-      .limit(1)
-      .get()?.id ?? null
+        )
+        .orderBy(
+          asc(projectAttachmentBackfills.attemptedAt),
+          asc(projectAttachmentBackfills.projectId),
+        )
+        .limit(1)
+        .get()
+    )?.id ?? null
   );
 }
 
-export function updateAttachmentBackfill(
+export async function updateAttachmentBackfill(
   db: DbQueryConnection,
   state: AttachmentBackfill,
-): void {
-  db.update(projectAttachmentBackfills)
+): Promise<void> {
+  await db
+    .update(projectAttachmentBackfills)
     .set(state)
     .where(eq(projectAttachmentBackfills.projectId, state.projectId))
     .run();
 }
 
-export function readAttachmentBackfillInput(
+export async function readAttachmentBackfillInput(
   db: DbConnection,
   state: AttachmentBackfill,
-): { paths: string[]; next: AttachmentBackfill; threadId: string | null } {
-  const thread = db
+): Promise<{
+  paths: string[];
+  next: AttachmentBackfill;
+  threadId: string | null;
+}> {
+  const thread = await db
     .select({ id: threads.id })
     .from(threads)
     .where(
@@ -121,7 +129,7 @@ export function readAttachmentBackfillInput(
   if (thread.id !== state.threadCursor)
     state = startAttachmentBackfillPhase(state, "events", thread.id);
   if (state.phase === "events") {
-    const row = db
+    const row = await db
       .select({ data: events.data, sequence: events.sequence })
       .from(events)
       .where(
@@ -147,7 +155,7 @@ export function readAttachmentBackfillInput(
     };
   }
   if (state.phase === "queue") {
-    const row = db
+    const row = await db
       .select({
         data: queuedThreadMessages.content,
         createdAt: queuedThreadMessages.createdAt,
@@ -179,7 +187,7 @@ export function readAttachmentBackfillInput(
     };
   }
   const scope = state.phase === "history-thread" ? "thread" : "project";
-  const row = db
+  const row = await db
     .select({
       data: promptHistoryEntries.input,
       createdAt: promptHistoryEntries.createdAt,
@@ -218,7 +226,7 @@ export function readAttachmentBackfillInput(
       threadId: thread.id,
       next: startAttachmentBackfillPhase(state, "history-project"),
     };
-  const nextThread = db
+  const nextThread = await db
     .select({ id: threads.id })
     .from(threads)
     .where(

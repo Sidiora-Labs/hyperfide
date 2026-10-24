@@ -43,67 +43,74 @@ export type UpsertPluginMarketplaceIconInput = Omit<
   "updatedAt"
 >;
 
-export function getPluginMarketplace(
+export async function getPluginMarketplace(
   db: DbQueryConnection,
   name: string,
-): PluginMarketplaceRow | undefined {
-  return db
+): Promise<PluginMarketplaceRow | undefined> {
+  return await db
     .select()
     .from(pluginMarketplaces)
     .where(eq(pluginMarketplaces.name, name))
     .get();
 }
 
-export function listPluginMarketplaces(
+export async function listPluginMarketplaces(
   db: DbQueryConnection,
-): PluginMarketplaceRow[] {
-  return db
+): Promise<PluginMarketplaceRow[]> {
+  return await db
     .select()
     .from(pluginMarketplaces)
     .orderBy(asc(pluginMarketplaces.name))
     .all();
 }
 
-export function deletePluginMarketplace(
+export async function deletePluginMarketplace(
   db: DbQueryConnection,
   name: string,
-): boolean {
-  db.delete(pluginMarketplaceIcons)
+): Promise<boolean> {
+  await db
+    .delete(pluginMarketplaceIcons)
     .where(eq(pluginMarketplaceIcons.marketplaceName, name))
     .run();
   return (
-    db.delete(pluginMarketplaces).where(eq(pluginMarketplaces.name, name)).run()
-      .changes > 0
+    (
+      await db
+        .delete(pluginMarketplaces)
+        .where(eq(pluginMarketplaces.name, name))
+        .run()
+    ).changes > 0
   );
 }
 
-export function upsertPluginMarketplace(
+export async function upsertPluginMarketplace(
   db: DbQueryConnection,
   input: UpsertPluginMarketplaceInput,
-): PluginMarketplaceRow {
+): Promise<PluginMarketplaceRow> {
   const now = Date.now();
   const { name, ...columns } = input;
-  db.insert(pluginMarketplaces)
+  await db
+    .insert(pluginMarketplaces)
     .values({ name, ...columns, createdAt: now, updatedAt: now })
     .onConflictDoUpdate({
       target: pluginMarketplaces.name,
       set: { ...columns, updatedAt: now },
     })
     .run();
-  const row = getPluginMarketplace(db, name);
+  const row = await getPluginMarketplace(db, name);
   if (row === undefined) {
     throw new Error(`plugin marketplace "${name}" missing after upsert`);
   }
   return row;
 }
 
-export function recordPluginMarketplaceRefreshFailure(
+export async function recordPluginMarketplaceRefreshFailure(
   db: DbConnection,
   name: string,
   attemptedAt: number,
   error: string,
-): PluginMarketplaceRow | undefined {
-  db.update(pluginMarketplaces)
+): Promise<PluginMarketplaceRow | undefined> {
+  await db
+    .update(pluginMarketplaces)
     .set({
       lastAttemptedRefreshAt: attemptedAt,
       lastError: error,
@@ -111,26 +118,26 @@ export function recordPluginMarketplaceRefreshFailure(
     })
     .where(eq(pluginMarketplaces.name, name))
     .run();
-  return getPluginMarketplace(db, name);
+  return await getPluginMarketplace(db, name);
 }
 
-export function listPluginMarketplaceIcons(
+export async function listPluginMarketplaceIcons(
   db: DbQueryConnection,
   marketplaceName: string,
-): PluginMarketplaceIconRow[] {
-  return db
+): Promise<PluginMarketplaceIconRow[]> {
+  return await db
     .select()
     .from(pluginMarketplaceIcons)
     .where(eq(pluginMarketplaceIcons.marketplaceName, marketplaceName))
     .all();
 }
 
-export function getPluginMarketplaceIcon(
+export async function getPluginMarketplaceIcon(
   db: DbQueryConnection,
   marketplaceName: string,
   entryId: string,
-): PluginMarketplaceIconRow | undefined {
-  return db
+): Promise<PluginMarketplaceIconRow | undefined> {
+  return await db
     .select()
     .from(pluginMarketplaceIcons)
     .where(
@@ -142,12 +149,13 @@ export function getPluginMarketplaceIcon(
     .get();
 }
 
-function upsertPluginMarketplaceIcon(
+async function upsertPluginMarketplaceIcon(
   db: DbQueryConnection,
   input: UpsertPluginMarketplaceIconInput,
-): void {
+): Promise<void> {
   const now = Date.now();
-  db.insert(pluginMarketplaceIcons)
+  await db
+    .insert(pluginMarketplaceIcons)
     .values({ ...input, updatedAt: now })
     .onConflictDoUpdate({
       target: [
@@ -166,13 +174,14 @@ function upsertPluginMarketplaceIcon(
     .run();
 }
 
-export function replacePluginMarketplaceIcons(
+export async function replacePluginMarketplaceIcons(
   db: DbQueryConnection,
   marketplaceName: string,
   icons: readonly UpsertPluginMarketplaceIconInput[],
-): void {
-  db.delete(pluginMarketplaceIcons)
+): Promise<void> {
+  await db
+    .delete(pluginMarketplaceIcons)
     .where(eq(pluginMarketplaceIcons.marketplaceName, marketplaceName))
     .run();
-  for (const icon of icons) upsertPluginMarketplaceIcon(db, icon);
+  for (const icon of icons) await upsertPluginMarketplaceIcon(db, icon);
 }

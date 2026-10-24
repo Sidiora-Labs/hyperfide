@@ -17,8 +17,8 @@ function skillDirectories(
 }
 
 const pluginManifests = await Promise.all(
-  listBundledPluginRegistrations().map((plugin) =>
-    readPluginManifest(plugin.rootDir),
+  listBundledPluginRegistrations().map(
+    async (plugin) => await readPluginManifest(plugin.rootDir),
   ),
 );
 const SHIPPED_SKILLS = [

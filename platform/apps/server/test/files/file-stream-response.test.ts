@@ -54,7 +54,7 @@ describe.each(["local", "daemon"] as const)(
           },
         );
       }
-      const open = source.open;
+      const open = await source.open;
       source.open = async (signal) => {
         const reader = await open(signal);
         const observed = {
@@ -77,13 +77,13 @@ describe.each(["local", "daemon"] as const)(
       await rm(directory, { recursive: true, force: true });
     });
 
-    function respond(
+    async function respond(
       headers: HeadersInit = {},
       method = "GET",
       signal?: AbortSignal,
       cacheControl = "private, no-cache",
     ) {
-      return createFileStreamResponse({
+      return await createFileStreamResponse({
         source,
         request: new Request("http://hyperfide.test/recording.mp4", {
           headers,
@@ -241,7 +241,7 @@ describe.each(["local", "daemon"] as const)(
         const abort = new AbortController();
         const response = await respond({}, "GET", abort.signal);
         const reader = opened[0]!;
-        const stream = response.body!.getReader();
+        const stream = await response.body!.getReader();
         expect(reader.read).toHaveBeenCalledTimes(1);
         expect((await stream.read()).value!.every((byte) => byte === 7)).toBe(
           true,
@@ -265,7 +265,7 @@ describe.each(["local", "daemon"] as const)(
       async (phase) => {
         await prepare(Buffer.alloc(3 * 1024 * 1024));
         if (phase === "before headers") {
-          const open = source.open;
+          const open = await source.open;
           source.open = async (signal) => {
             const reader = await open(signal);
             opened[0]!.read.mockRejectedValueOnce(new Error("read failed"));
@@ -286,7 +286,8 @@ describe.each(["local", "daemon"] as const)(
         "detects a local file change %s",
         async (phase) => {
           await prepare(Buffer.alloc(3 * 1024 * 1024));
-          const response = phase === "after headers" ? await respond() : null;
+          const response =
+            (await phase) === "after headers" ? await respond() : null;
           await writeFile(join(directory, "recording.mp4"), "changed");
           if (response)
             await expect(response.arrayBuffer()).rejects.toThrow(

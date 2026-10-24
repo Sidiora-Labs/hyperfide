@@ -4,6 +4,7 @@ export interface AsyncDeduper<TKey, TValue> {
 
 export interface AsyncRerunner<TKey> {
   run(key: TKey, task: () => Promise<void>): Promise<void>;
+  idle(): Promise<void>;
 }
 
 export function createAsyncDeduper<TKey, TValue>(): AsyncDeduper<TKey, TValue> {
@@ -51,7 +52,7 @@ export function createKeyedLock<TKey>(): <TValue>(
   operation: () => Promise<TValue>,
 ) => Promise<TValue> {
   const locks = new Map<TKey, Promise<unknown>>();
-  return (key, operation) => runSerialized(locks, key, operation);
+  return async (key, operation) => await runSerialized(locks, key, operation);
 }
 
 export function createAsyncRerunner<TKey>(): AsyncRerunner<TKey> {
@@ -63,7 +64,14 @@ export function createAsyncRerunner<TKey>(): AsyncRerunner<TKey> {
   const pendingByKey = new Map<TKey, State>();
 
   return {
-    run(key, task) {
+    async idle() {
+      while (pendingByKey.size) {
+        await Promise.allSettled(
+          [...pendingByKey.values()].map((state) => state.promise),
+        );
+      }
+    },
+    async run(key, task) {
       const pending = pendingByKey.get(key);
       if (pending !== undefined) {
         pending.nextTask = task;

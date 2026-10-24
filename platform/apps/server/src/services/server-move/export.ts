@@ -65,7 +65,7 @@ export async function exportServerArchive(
       SERVER_DATABASE_ARCHIVE_PATH,
     );
     await args.db.$client.backup(databaseSnapshotPath);
-    const migrationCount = countAppliedMigrations(args.db);
+    const migrationCount = await countAppliedMigrations(args.db);
     const inventory = await listServerOwnedEntries(args.dataDir);
     if (inventory.skippedPaths.length > 0) {
       args.logger.warn(
@@ -104,7 +104,7 @@ export async function exportServerArchive(
         migrationCount,
         sourceDataDir: args.dataDir,
         sourceServerHostId: args.sourceServerHostId,
-        serverMoveExperiment: getExperiments(args.db).serverMove,
+        serverMoveExperiment: (await getExperiments(args.db)).serverMove,
       },
     });
     return {

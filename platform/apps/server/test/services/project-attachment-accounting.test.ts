@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "@hyperfide/db/testing";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
@@ -54,7 +56,7 @@ const input = (path: string): PromptInput[] => [{ type: "localFile", path }];
 async function completeBackfill(h: TestAppHarness, projectId: string) {
   for (let count = 0; count < 200; count += 1) {
     await runProjectAttachmentBackfill(h.deps, UNTIMED_BACKFILL_LIMITS);
-    const state = h.db
+    const state = await h.db
       .select()
       .from(projectAttachmentBackfills)
       .where(eq(projectAttachmentBackfills.projectId, projectId))
@@ -70,7 +72,7 @@ async function upload(
   projectId: string,
   name = "notes.txt",
 ) {
-  return storeAttachment(
+  return await storeAttachment(
     h.db,
     h.config.dataDir,
     projectId,
@@ -78,8 +80,8 @@ async function upload(
   );
 }
 
-function ageUploads(h: TestAppHarness, projectId: string) {
-  h.db
+async function ageUploads(h: TestAppHarness, projectId: string) {
+  await h.db
     .update(projectAttachments)
     .set({ createdAt: Date.now() - PROJECT_ATTACHMENT_GRACE_MS - 1000 })
     .where(eq(projectAttachments.projectId, projectId))
@@ -89,8 +91,8 @@ function ageUploads(h: TestAppHarness, projectId: string) {
 describe("project attachment accounting", () => {
   it("retries after a failure selecting the next backfill project", async () => {
     await withTestHarness(async (h) => {
-      const { project } = seedThreadFixture(h);
-      h.db.$client.exec(
+      const { project } = await seedThreadFixture(h);
+      await h.db.$client.exec(
         "ALTER TABLE project_attachment_backfills RENAME TO unavailable_attachment_backfills",
       );
       try {
@@ -98,7 +100,7 @@ describe("project attachment accounting", () => {
           runProjectAttachmentBackfill(h.deps, UNTIMED_BACKFILL_LIMITS),
         ).resolves.toBeUndefined();
       } finally {
-        h.db.$client.exec(
+        await h.db.$client.exec(
           "ALTER TABLE unavailable_attachment_backfills RENAME TO project_attachment_backfills",
         );
       }
@@ -108,71 +110,75 @@ describe("project attachment accounting", () => {
 
   it("retains original and edited queue attachments until the last owning thread is hard-deleted", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const a = await upload(h, project.id, "a.txt");
       const b = await upload(h, project.id, "b.txt");
-      const queued = seedQueuedMessage(h.deps, {
+      const queued = await seedQueuedMessage(h.deps, {
         threadId: thread.id,
         content: input(a.path),
         waitingOn: { kind: "time" },
         sendAt: Date.now() + 30 * 24 * 3600_000,
       });
-      const result = updateQueuedThreadMessage(h.db, h.hub, {
+      const result = await updateQueuedThreadMessage(h.db, h.hub, {
         id: queued.id,
         threadId: thread.id,
         expectedUpdatedAt: queued.updatedAt,
         content: input(b.path),
       });
       expect(result.kind).toBe("updated");
-      acquireProjectAttachmentOwnership(
+      await acquireProjectAttachmentOwnership(
         h.db,
         thread.id,
         projectAttachmentPaths(input(`./${b.path}`)),
       );
-      expect(h.db.select().from(projectAttachmentThreads).all()).toHaveLength(
-        2,
-      );
       expect(
-        updateQueuedThreadMessage(h.db, h.hub, {
-          id: queued.id,
-          threadId: thread.id,
-          expectedUpdatedAt: queued.updatedAt,
-          content: input("missing.txt"),
-        }).kind,
+        await h.db.select().from(projectAttachmentThreads).all(),
+      ).toHaveLength(2);
+      expect(
+        (
+          await updateQueuedThreadMessage(h.db, h.hub, {
+            id: queued.id,
+            threadId: thread.id,
+            expectedUpdatedAt: queued.updatedAt,
+            content: input("missing.txt"),
+          })
+        ).kind,
       ).toBe("stale");
-      deleteQueuedThreadMessage(h.db, h.hub, queued.id);
-      const fork = seedThread(h.deps, {
+      await deleteQueuedThreadMessage(h.db, h.hub, queued.id);
+      const fork = await seedThread(h.deps, {
         projectId: project.id,
         sourceThreadId: thread.id,
         originKind: "fork",
       });
-      h.db
+      await h.db
         .update(threads)
         .set({ deletedAt: Date.now() })
         .where(eq(threads.id, thread.id))
         .run();
       await completeBackfill(h, project.id);
-      ageUploads(h, project.id);
+      await ageUploads(h, project.id);
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(0);
-      h.db.delete(threads).where(eq(threads.id, thread.id)).run();
+      await h.db.delete(threads).where(eq(threads.id, thread.id)).run();
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(0);
-      h.db.delete(threads).where(eq(threads.id, fork.id)).run();
+      await h.db.delete(threads).where(eq(threads.id, fork.id)).run();
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(2);
-      expect(h.db.select().from(projectAttachments).all()).toHaveLength(0);
+      expect(await h.db.select().from(projectAttachments).all()).toHaveLength(
+        0,
+      );
     });
   });
 
   it("acquires ownership through event/history persistence and keeps it after pruning", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const file = await upload(h, project.id);
-      insertEvents(h.db, h.hub, [
+      await insertEvents(h.db, h.hub, [
         {
           threadId: thread.id,
           sequence: 1,
@@ -186,50 +192,51 @@ describe("project attachment accounting", () => {
           parentToolCallId: null,
         },
       ]);
-      createPromptHistoryEntry(h.db, {
+      await createPromptHistoryEntry(h.db, {
         projectId: project.id,
         threadId: thread.id,
         scope: "thread",
         requestSequence: 1,
         input: input(file.path),
       });
-      h.db.delete(events).where(eq(events.threadId, thread.id)).run();
-      h.db
+      await h.db.delete(events).where(eq(events.threadId, thread.id)).run();
+      await h.db
         .delete(promptHistoryEntries)
         .where(eq(promptHistoryEntries.threadId, thread.id))
         .run();
       await completeBackfill(h, project.id);
-      ageUploads(h, project.id);
+      await ageUploads(h, project.id);
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(0);
-      const before = h.db.select().from(events).all().length;
-      expect(() =>
-        insertEvents(h.db, h.hub, [
-          {
-            threadId: thread.id,
-            sequence: 2,
-            type: "client/turn/requested",
-            data: JSON.stringify({ input: input("missing.txt") }),
-            scope: threadScope(),
-            environmentId: null,
-            providerThreadId: null,
-            itemId: null,
-            itemKind: null,
-            parentToolCallId: null,
-          },
-        ]),
-      ).toThrow("not uploaded");
-      expect(h.db.select().from(events).all()).toHaveLength(before);
+      const before = (await h.db.select().from(events).all()).length;
+      await expect(
+        (async () =>
+          await insertEvents(h.db, h.hub, [
+            {
+              threadId: thread.id,
+              sequence: 2,
+              type: "client/turn/requested",
+              data: JSON.stringify({ input: input("missing.txt") }),
+              scope: threadScope(),
+              environmentId: null,
+              providerThreadId: null,
+              itemId: null,
+              itemKind: null,
+              parentToolCallId: null,
+            },
+          ]))(),
+      ).rejects.toThrow("not uploaded");
+      expect(await h.db.select().from(events).all()).toHaveLength(before);
     });
   });
 
   it("serializes deletion against ownership and prevents copy from overwriting a claimed file", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const survivor = await upload(h, project.id, "survivor.txt");
       const doomed = await upload(h, project.id, "doomed.txt");
-      const source = seedThreadFixture(h);
+      const source = await seedThreadFixture(h);
       await mkdir(join(h.config.dataDir, "attachments", source.project.id), {
         recursive: true,
       });
@@ -238,21 +245,28 @@ describe("project attachment accounting", () => {
         "replacement",
       );
       await completeBackfill(h, project.id);
-      ageUploads(h, project.id);
-      acquireProjectAttachmentOwnership(
+      await ageUploads(h, project.id);
+      await acquireProjectAttachmentOwnership(
         h.db,
         thread.id,
         projectAttachmentPaths(input(survivor.path)),
       );
-      const claimed = claimProjectAttachments(h.db, project.id, Date.now());
+      const claimed = await claimProjectAttachments(
+        h.db,
+        project.id,
+        Date.now(),
+      );
       expect(claimed.map((row) => row.storedPath)).toEqual([doomed.path]);
-      expect(() =>
-        seedQueuedMessage(h.deps, {
-          threadId: thread.id,
-          content: input(doomed.path),
-        }),
-      ).toThrow("expired");
-      expect(h.db.select().from(queuedThreadMessages).all()).toHaveLength(0);
+      await expect(
+        (async () =>
+          await seedQueuedMessage(h.deps, {
+            threadId: thread.id,
+            content: input(doomed.path),
+          }))(),
+      ).rejects.toThrow("expired");
+      expect(await h.db.select().from(queuedThreadMessages).all()).toHaveLength(
+        0,
+      );
       await expect(
         copyProjectAttachments(
           h.db,
@@ -282,10 +296,10 @@ describe("project attachment accounting", () => {
 
   it("resumes claimed deletion after unlink failure and tolerates already removed bytes", async () => {
     await withTestHarness(async (h) => {
-      const { project } = seedThreadFixture(h);
+      const { project } = await seedThreadFixture(h);
       const file = await upload(h, project.id);
       await completeBackfill(h, project.id);
-      ageUploads(h, project.id);
+      await ageUploads(h, project.id);
       const path = join(h.config.dataDir, "attachments", project.id, file.path);
       await rm(path);
       await mkdir(path);
@@ -293,19 +307,22 @@ describe("project attachment accounting", () => {
       const failed = await pruneProjectAttachments(h.deps, project.id);
       expect(failed.failedCount).toBe(1);
       expect(
-        getProjectAttachment(h.db, project.id, file.path)?.deletionClaimedAt,
+        (await getProjectAttachment(h.db, project.id, file.path))
+          ?.deletionClaimedAt,
       ).not.toBeNull();
       await rm(path, { recursive: true });
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(1);
-      expect(getProjectAttachment(h.db, project.id, file.path)).toBeUndefined();
+      expect(
+        await getProjectAttachment(h.db, project.id, file.path),
+      ).toBeUndefined();
     });
   });
 
   it("backfills legacy events, queues, and both history scopes while keeping cleanup gated", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const paths = [
         "event.txt",
         "queue.txt",
@@ -316,7 +333,7 @@ describe("project attachment accounting", () => {
       const dir = join(h.config.dataDir, "attachments", project.id);
       await mkdir(dir, { recursive: true });
       for (const path of paths) await writeFile(join(dir, path), path);
-      h.db
+      await h.db
         .insert(events)
         .values({
           id: "legacy-event",
@@ -328,17 +345,17 @@ describe("project attachment accounting", () => {
           createdAt: 1,
         })
         .run();
-      const queued = seedQueuedMessage(h.deps, {
+      const queued = await seedQueuedMessage(h.deps, {
         threadId: thread.id,
         content: [{ type: "text", text: "legacy", mentions: [] }],
       });
-      h.db
+      await h.db
         .update(queuedThreadMessages)
         .set({ content: JSON.stringify(input("queue.txt")) })
         .where(eq(queuedThreadMessages.id, queued.id))
         .run();
       for (const [i, scope] of (["thread", "project"] as const).entries())
-        h.db
+        await h.db
           .insert(promptHistoryEntries)
           .values({
             id: `legacy-${scope}`,
@@ -361,18 +378,20 @@ describe("project attachment accounting", () => {
         input: input("./event.txt"),
       });
       await completeBackfill(h, project.id);
-      expect(h.db.select().from(projectAttachmentThreads).all()).toHaveLength(
-        4,
-      );
-      ageUploads(h, project.id);
+      expect(
+        await h.db.select().from(projectAttachmentThreads).all(),
+      ).toHaveLength(4);
+      await ageUploads(h, project.id);
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(1);
       expect(
-        h.db
-          .select({ path: projectAttachments.storedPath })
-          .from(projectAttachments)
-          .all()
+        (
+          await h.db
+            .select({ path: projectAttachments.storedPath })
+            .from(projectAttachments)
+            .all()
+        )
           .map((row) => row.path)
           .sort(),
       ).toEqual(paths.slice(0, 4).sort());
@@ -381,9 +400,9 @@ describe("project attachment accounting", () => {
 
   it("completes backfill when legacy input references bytes that are gone", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const orphan = await upload(h, project.id, "orphan.txt");
-      h.db
+      await h.db
         .insert(events)
         .values({
           id: "vanished-legacy",
@@ -397,26 +416,26 @@ describe("project attachment accounting", () => {
         .run();
       await completeBackfill(h, project.id);
       expect(
-        ensureProjectAttachmentBackfill(h.db, project.id).error,
+        (await ensureProjectAttachmentBackfill(h.db, project.id)).error,
       ).toBeNull();
       expect(
-        getProjectAttachment(h.db, project.id, "vanished.txt"),
+        await getProjectAttachment(h.db, project.id, "vanished.txt"),
       ).toBeUndefined();
-      ageUploads(h, project.id);
+      await ageUploads(h, project.id);
       const pruned = await pruneProjectAttachments(h.deps, project.id);
       expect(pruned.status).toBe("complete");
       expect(pruned.reclaimedCount).toBe(1);
       expect(
-        getProjectAttachment(h.db, project.id, orphan.path),
+        await getProjectAttachment(h.db, project.id, orphan.path),
       ).toBeUndefined();
     });
   });
 
   it("completes backfill when legacy input references an unresolvable path", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const orphan = await upload(h, project.id, "orphan.txt");
-      h.db
+      await h.db
         .insert(events)
         .values({
           id: "traversal-legacy",
@@ -429,12 +448,12 @@ describe("project attachment accounting", () => {
         })
         .run();
       await completeBackfill(h, project.id);
-      ageUploads(h, project.id);
+      await ageUploads(h, project.id);
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(1);
       expect(
-        getProjectAttachment(h.db, project.id, orphan.path),
+        await getProjectAttachment(h.db, project.id, orphan.path),
       ).toBeUndefined();
       await expect(
         resolvePromptAttachmentReferences({
@@ -450,9 +469,9 @@ describe("project attachment accounting", () => {
 
   it("ignores unreadable legacy input and preserves young unowned uploads", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const file = await upload(h, project.id);
-      h.db
+      await h.db
         .insert(events)
         .values({
           id: "bad-legacy",
@@ -466,30 +485,30 @@ describe("project attachment accounting", () => {
         .run();
       await completeBackfill(h, project.id);
       expect(
-        ensureProjectAttachmentBackfill(h.db, project.id).error,
+        (await ensureProjectAttachmentBackfill(h.db, project.id)).error,
       ).toBeNull();
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(0);
       expect(
-        getProjectAttachment(h.db, project.id, file.path)?.readyAt,
+        (await getProjectAttachment(h.db, project.id, file.path))?.readyAt,
       ).not.toBeNull();
     });
   });
 
   it("normalizes aliases, rejects traversal, and excludes runtime paths", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const file = await upload(h, project.id);
       expect(canonicalProjectAttachmentPath(`folder\\..\\${file.path}`)).toBe(
         file.path,
       );
-      acquireProjectAttachmentOwnership(
+      await acquireProjectAttachmentOwnership(
         h.db,
         thread.id,
         projectAttachmentPaths(input(`folder/../${file.path}`)),
       );
-      acquireProjectAttachmentOwnership(
+      await acquireProjectAttachmentOwnership(
         h.db,
         thread.id,
         projectAttachmentPaths([
@@ -498,31 +517,33 @@ describe("project attachment accounting", () => {
           ...input("https://example.test/file"),
         ]),
       );
-      expect(h.db.select().from(projectAttachmentThreads).all()).toHaveLength(
-        1,
-      );
-      expect(() =>
-        acquireProjectAttachmentOwnership(
-          h.db,
-          thread.id,
-          projectAttachmentPaths(input("../outside.txt")),
-        ),
-      ).toThrow("escapes");
-      const other = seedThreadFixture(h);
-      expect(() =>
-        acquireProjectAttachmentOwnership(
-          h.db,
-          other.thread.id,
-          projectAttachmentPaths(input(file.path)),
-        ),
-      ).toThrow("not uploaded");
+      expect(
+        await h.db.select().from(projectAttachmentThreads).all(),
+      ).toHaveLength(1);
+      await expect(
+        (async () =>
+          await acquireProjectAttachmentOwnership(
+            h.db,
+            thread.id,
+            projectAttachmentPaths(input("../outside.txt")),
+          ))(),
+      ).rejects.toThrow("escapes");
+      const other = await seedThreadFixture(h);
+      await expect(
+        (async () =>
+          await acquireProjectAttachmentOwnership(
+            h.db,
+            other.thread.id,
+            projectAttachmentPaths(input(file.path)),
+          ))(),
+      ).rejects.toThrow("not uploaded");
     });
   });
   it("reclaims interrupted upload staging and reads oversized legacy payloads", async () => {
     await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h);
+      const { project, thread } = await seedThreadFixture(h);
       const file = await upload(h, project.id);
-      const row = getProjectAttachment(h.db, project.id, file.path);
+      const row = await getProjectAttachment(h.db, project.id, file.path);
       if (!row) throw new Error("Missing uploaded inventory");
       const pending = join(
         h.config.dataDir,
@@ -536,18 +557,18 @@ describe("project attachment accounting", () => {
         { recursive: true },
       );
       await writeFile(pending, "interrupted bytes");
-      h.db
+      await h.db
         .update(projectAttachments)
         .set({ readyAt: null })
         .where(eq(projectAttachments.id, row.id))
         .run();
       await completeBackfill(h, project.id);
-      ageUploads(h, project.id);
+      await ageUploads(h, project.id);
       expect(
         (await pruneProjectAttachments(h.deps, project.id)).reclaimedCount,
       ).toBe(1);
       await expect(readFile(pending)).rejects.toMatchObject({ code: "ENOENT" });
-      h.db
+      await h.db
         .insert(events)
         .values({
           id: "oversized-legacy",
@@ -562,7 +583,7 @@ describe("project attachment accounting", () => {
           createdAt: 1,
         })
         .run();
-      h.db
+      await h.db
         .update(projectAttachmentBackfills)
         .set({
           phase: "events",
@@ -575,118 +596,124 @@ describe("project attachment accounting", () => {
         .run();
       await completeBackfill(h, project.id);
       expect(
-        ensureProjectAttachmentBackfill(h.db, project.id).error,
+        (await ensureProjectAttachmentBackfill(h.db, project.id)).error,
       ).toBeNull();
     });
   });
 
-  it("bounds backfill work on large histories while accepting queued messages", async () => {
-    const eventCount = 4_000;
-    const inputEventInterval = 20;
-    const batchLimits = {
-      elapsedBudgetMs: Number.POSITIVE_INFINITY,
-      maxSteps: 5,
-    };
-    await withTestHarness(async (h) => {
-      const { project, thread } = seedThreadFixture(h, {
-        thread: { status: "active" },
-      });
-      const file = await upload(h, project.id);
-      const output = JSON.stringify({ message: "x".repeat(4096) });
-      const request = JSON.stringify({
-        input: input(file.path),
-        direction: "outbound",
-        requestId: encodeClientTurnRequestIdNumber({ value: 1 }),
-        source: "tell",
-        initiator: "user",
-        senderThreadId: null,
-        target: { kind: "new-turn" },
-        request: { method: "turn/start", params: {} },
-        execution: {
-          model: "gpt-5",
-          serviceTier: "default",
-          reasoningLevel: "medium",
-          permissionMode: "full",
-          source: "client/turn/requested",
-        },
-      });
-      const insert = h.db.$client.prepare(
-        "INSERT INTO events (id, thread_id, scope_kind, sequence, type, data, created_at) VALUES (?, ?, 'thread', ?, ?, ?, 1)",
-      );
-      h.db.$client.transaction(() => {
-        for (let n = 1; n <= eventCount; n += 1)
-          insert.run(
-            `perf-${n}`,
-            thread.id,
-            n,
-            n % inputEventInterval === 0
-              ? "client/turn/requested"
-              : "system/error",
-            n % inputEventInterval === 0 ? request : output,
-          );
-      })();
-      const plan = h.db.$client
-        .prepare(
-          "EXPLAIN QUERY PLAN SELECT data, sequence FROM events WHERE thread_id = ? AND type = 'client/turn/requested' AND sequence > ? ORDER BY sequence LIMIT 1",
-        )
-        .all(thread.id, 0);
-      expect(JSON.stringify(plan)).toContain("events_thread_type_sequence_idx");
-      const batchMs: number[] = [];
-      const queueMs: number[] = [];
-      let yields = 0;
-      const timer = setInterval(() => {
-        yields += 1;
-      }, 1);
-      try {
-        for (let n = 0; n < 200; n += 1) {
-          const started = performance.now();
-          await runProjectAttachmentBackfill(h.deps, batchLimits);
-          batchMs.push(performance.now() - started);
-          const queueStarted = performance.now();
-          const response = await h.app.request(
-            `/api/v1/threads/${thread.id}/queued-messages`,
-            {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ input: input(file.path) }),
-            },
-          );
-          expect(response.status, await response.text()).toBe(201);
-          queueMs.push(performance.now() - queueStarted);
-          if (
-            ensureProjectAttachmentBackfill(h.db, project.id).phase === "done"
-          )
-            break;
-        }
-      } finally {
-        clearInterval(timer);
-      }
-      expect(ensureProjectAttachmentBackfill(h.db, project.id).phase).toBe(
-        "done",
-      );
-      expect(batchMs.length).toBeGreaterThan(30);
-      expect(yields).toBeGreaterThan(0);
-      expect(h.db.select().from(projectAttachmentThreads).all()).toHaveLength(
-        1,
-      );
-      const p95 = (values: number[]) =>
-        [...values].sort((a, b) => a - b)[Math.floor(values.length * 0.95)];
-      console.log(
-        JSON.stringify({
-          attachmentBackfillBenchmark: {
-            events: eventCount,
-            inputEvents: eventCount / inputEventInterval,
-            outputBytes:
-              output.length * (eventCount - eventCount / inputEventInterval),
-            batches: batchMs.length,
-            batchP95Ms: p95(batchMs),
-            batchMaxMs: Math.max(...batchMs),
-            queueP95Ms: p95(queueMs),
-            queueMaxMs: Math.max(...queueMs),
-            timerYields: yields,
+  it.skipIf(isPostgresTest)(
+    "bounds backfill work on large histories while accepting queued messages",
+    async () => {
+      const eventCount = 4_000;
+      const inputEventInterval = 20;
+      const batchLimits = {
+        elapsedBudgetMs: Number.POSITIVE_INFINITY,
+        maxSteps: 5,
+      };
+      await withTestHarness(async (h) => {
+        const { project, thread } = await seedThreadFixture(h, {
+          thread: { status: "active" },
+        });
+        const file = await upload(h, project.id);
+        const output = JSON.stringify({ message: "x".repeat(4096) });
+        const request = JSON.stringify({
+          input: input(file.path),
+          direction: "outbound",
+          requestId: encodeClientTurnRequestIdNumber({ value: 1 }),
+          source: "tell",
+          initiator: "user",
+          senderThreadId: null,
+          target: { kind: "new-turn" },
+          request: { method: "turn/start", params: {} },
+          execution: {
+            model: "gpt-5",
+            serviceTier: "default",
+            reasoningLevel: "medium",
+            permissionMode: "full",
+            source: "client/turn/requested",
           },
-        }),
-      );
-    });
-  });
+        });
+        const insert = h.db.$client.prepare(
+          "INSERT INTO events (id, thread_id, scope_kind, sequence, type, data, created_at) VALUES (?, ?, 'thread', ?, ?, ?, 1)",
+        );
+        h.db.$client.transaction(() => {
+          for (let n = 1; n <= eventCount; n += 1)
+            insert.run(
+              `perf-${n}`,
+              thread.id,
+              n,
+              n % inputEventInterval === 0
+                ? "client/turn/requested"
+                : "system/error",
+              n % inputEventInterval === 0 ? request : output,
+            );
+        })();
+        const plan = await h.db.$client
+          .prepare(
+            "EXPLAIN QUERY PLAN SELECT data, sequence FROM events WHERE thread_id = ? AND type = 'client/turn/requested' AND sequence > ? ORDER BY sequence LIMIT 1",
+          )
+          .all(thread.id, 0);
+        expect(JSON.stringify(plan)).toContain(
+          "events_thread_type_sequence_idx",
+        );
+        const batchMs: number[] = [];
+        const queueMs: number[] = [];
+        let yields = 0;
+        const timer = setInterval(() => {
+          yields += 1;
+        }, 1);
+        try {
+          for (let n = 0; n < 200; n += 1) {
+            const started = performance.now();
+            await runProjectAttachmentBackfill(h.deps, batchLimits);
+            batchMs.push(performance.now() - started);
+            const queueStarted = performance.now();
+            const response = await h.app.request(
+              `/api/v1/threads/${thread.id}/queued-messages`,
+              {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ input: input(file.path) }),
+              },
+            );
+            expect(response.status, await response.text()).toBe(201);
+            queueMs.push(performance.now() - queueStarted);
+            if (
+              (await ensureProjectAttachmentBackfill(h.db, project.id))
+                .phase === "done"
+            )
+              break;
+          }
+        } finally {
+          clearInterval(timer);
+        }
+        expect(
+          (await ensureProjectAttachmentBackfill(h.db, project.id)).phase,
+        ).toBe("done");
+        expect(batchMs.length).toBeGreaterThan(30);
+        expect(yields).toBeGreaterThan(0);
+        expect(
+          await h.db.select().from(projectAttachmentThreads).all(),
+        ).toHaveLength(1);
+        const p95 = (values: number[]) =>
+          [...values].sort((a, b) => a - b)[Math.floor(values.length * 0.95)];
+        console.log(
+          JSON.stringify({
+            attachmentBackfillBenchmark: {
+              events: eventCount,
+              inputEvents: eventCount / inputEventInterval,
+              outputBytes:
+                output.length * (eventCount - eventCount / inputEventInterval),
+              batches: batchMs.length,
+              batchP95Ms: p95(batchMs),
+              batchMaxMs: Math.max(...batchMs),
+              queueP95Ms: p95(queueMs),
+              queueMaxMs: Math.max(...queueMs),
+              timerYields: yields,
+            },
+          }),
+        );
+      });
+    },
+  );
 });

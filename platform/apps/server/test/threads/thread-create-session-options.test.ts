@@ -32,11 +32,11 @@ function daybreakModel(
   };
 }
 
-function registerDaybreakCatalog(
+async function registerDaybreakCatalog(
   harness: TestAppHarness,
   args: { hostId: string; sessionId: string },
 ) {
-  registerProviderHostRpcResponder(harness, {
+  await registerProviderHostRpcResponder(harness, {
     hostId: args.hostId,
     sessionId: args.sessionId,
     restoreCommandCaptureAfterResponse: true,
@@ -100,15 +100,15 @@ async function createThread(
   });
 }
 
-function seedWorkspace(harness: TestAppHarness, name: string) {
-  const { host, session } = seedHostSession(harness.deps, {
+async function seedWorkspace(harness: TestAppHarness, name: string) {
+  const { host, session } = await seedHostSession(harness.deps, {
     id: `host-${name}`,
   });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: `/tmp/${name}-project`,
   });
-  seedEnvironment(harness.deps, {
+  await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: `/tmp/${name}-workspace`,
@@ -128,7 +128,7 @@ function seedWorkspace(harness: TestAppHarness, name: string) {
 describe("session options chosen when a thread is created", () => {
   it("sends the choices with the thread's first command, before the provider has reported any option", async () => {
     await withTestHarness(async (harness) => {
-      const { host, project } = seedWorkspace(harness, "create-options");
+      const { host, project } = await seedWorkspace(harness, "create-options");
 
       const response = await createThread(harness, {
         hostId: host.id,
@@ -148,15 +148,18 @@ describe("session options chosen when a thread is created", () => {
           ? start.command.options.sessionOptions
           : null,
       ).toEqual({ daybreak: true, mode: "plan" });
-      expect(resolvePendingThreadSessionOptions(harness.db, thread.id)).toEqual(
-        { daybreak: true, mode: "plan" },
-      );
+      expect(
+        await resolvePendingThreadSessionOptions(harness.db, thread.id),
+      ).toEqual({ daybreak: true, mode: "plan" });
     });
   });
 
   it("sends nothing when no choice was made, and refuses a value that is neither text nor on/off", async () => {
     await withTestHarness(async (harness) => {
-      const { host, project } = seedWorkspace(harness, "create-no-options");
+      const { host, project } = await seedWorkspace(
+        harness,
+        "create-no-options",
+      );
 
       const plain = await createThread(harness, {
         hostId: host.id,
@@ -184,11 +187,11 @@ describe("session options chosen when a thread is created", () => {
 
   it("starts on a model that fits the chosen options when the caller left the model to hyperfide, keeping a remembered model that fits", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, project } = seedWorkspace(
+      const { host, session, project } = await seedWorkspace(
         harness,
         "create-options-default-model",
       );
-      registerDaybreakCatalog(harness, {
+      await registerDaybreakCatalog(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
@@ -216,7 +219,7 @@ describe("session options chosen when a thread is created", () => {
         ),
       ).toBe("gpt-both");
 
-      upsertProjectExecutionDefaults(harness.db, {
+      await upsertProjectExecutionDefaults(harness.db, {
         projectId: project.id,
         providerId: "codex",
         model: "gpt-standard",
@@ -240,11 +243,11 @@ describe("session options chosen when a thread is created", () => {
 
   it("refuses a model the caller named that cannot run with the chosen options, and names one that can", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session, project } = seedWorkspace(
+      const { host, session, project } = await seedWorkspace(
         harness,
         "create-options-explicit-model",
       );
-      registerDaybreakCatalog(harness, {
+      await registerDaybreakCatalog(harness, {
         hostId: host.id,
         sessionId: session.id,
       });

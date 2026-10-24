@@ -67,7 +67,7 @@ describe("hyperfide.agents.registerTool", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-tools-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -247,7 +247,8 @@ describe("hyperfide.agents.registerTool", () => {
       "query",
     );
     expect(
-      service.list().find((p) => p.id === "zodded")?.handlerStats.errorCount,
+      (await service.list()).find((p) => p.id === "zodded")?.handlerStats
+        .errorCount,
     ).toBe(0);
 
     api!.agents.registerTool({
@@ -269,7 +270,8 @@ describe("hyperfide.agents.registerTool", () => {
       "tool boom",
     );
     expect(
-      service.list().find((p) => p.id === "zodded")?.handlerStats.errorCount,
+      (await service.list()).find((p) => p.id === "zodded")?.handlerStats
+        .errorCount,
     ).toBe(1);
   });
 
@@ -571,7 +573,7 @@ describe("hyperfide.agents.contributeInstructions", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-instr-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
@@ -668,7 +670,9 @@ describe("plugin tools reach thread runtime config", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    pluginsDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-tools-runtime-"));
+    pluginsDir = await mkdtemp(
+      join(tmpdir(), "hyperfide-plugin-tools-runtime-"),
+    );
   });
 
   afterEach(async () => {
@@ -701,18 +705,18 @@ describe("plugin tools reach thread runtime config", () => {
     const entry = await harness.pluginService.installPath(rootDir);
     expect(entry.status).toBe("running");
 
-    const { host } = seedHostSession(harness.deps, {
+    const { host } = await seedHostSession(harness.deps, {
       id: "host-plugin-agent-tools",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       path: join(harness.config.dataDir, "plugin-tools-workspace"),
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       providerId: "codex",
@@ -722,8 +726,8 @@ describe("plugin tools reach thread runtime config", () => {
       { model: "gpt-5" },
       { threadId: thread.id },
     );
-    const buildCommand = (requestValue: number) =>
-      buildThreadStartCommand(harness.deps, {
+    const buildCommand = async (requestValue: number) =>
+      await buildThreadStartCommand(harness.deps, {
         environment,
         execution,
         fork: null,
@@ -846,44 +850,48 @@ describe("plugin tools reach thread runtime config", () => {
     await harness.pluginService.installPath(rootDir);
     await harness.pluginService.installPath(brokenRoot);
 
-    const alphaHost = seedHostSession(harness.deps, {
-      id: "host-conditional-alpha",
-      name: "Alpha Host",
-    }).host;
-    const betaHost = seedHostSession(harness.deps, {
-      id: "host-conditional-beta",
-      name: "Beta Host",
-    }).host;
-    const makeTarget = (args: {
+    const alphaHost = (
+      await seedHostSession(harness.deps, {
+        id: "host-conditional-alpha",
+        name: "Alpha Host",
+      })
+    ).host;
+    const betaHost = (
+      await seedHostSession(harness.deps, {
+        id: "host-conditional-beta",
+        name: "Beta Host",
+      })
+    ).host;
+    const makeTarget = async (args: {
       hostId: string;
       projectName: string;
       providerId: string;
       model: string;
     }) => {
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: args.hostId,
         name: args.projectName,
         path: join(harness.config.dataDir, args.projectName),
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: args.hostId,
         projectId: project.id,
         path: join(harness.config.dataDir, args.projectName),
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: args.providerId,
       });
       return { ...args, project, environment, thread };
     };
-    const alpha = makeTarget({
+    const alpha = await makeTarget({
       hostId: alphaHost.id,
       projectName: "Alpha Project",
       providerId: "codex",
       model: "gpt-5.6",
     });
-    const beta = makeTarget({
+    const beta = await makeTarget({
       hostId: betaHost.id,
       projectName: "Beta Project",
       providerId: "claude-code",
@@ -895,7 +903,7 @@ describe("plugin tools reach thread runtime config", () => {
         { model: target.model },
         { threadId: target.thread.id },
       );
-      return buildThreadStartCommand(harness.deps, {
+      return await buildThreadStartCommand(harness.deps, {
         environment: target.environment,
         execution,
         fork: null,
@@ -965,16 +973,15 @@ describe("plugin tools reach thread runtime config", () => {
       "broken_tool",
     );
     expect(
-      harness.pluginService
-        .list()
-        .find((plugin) => plugin.id === "broken-conditional")?.handlerStats
-        .errorCount,
+      (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "broken-conditional",
+      )?.handlerStats.errorCount,
     ).toBe(2);
     expect(
       harness.pluginService.listAgentTools().map((tool) => tool.tool.name),
     ).toEqual(["broken_tool", "alpha_tool", "beta_tool"]);
 
-    const sideThread = seedThread(harness.deps, {
+    const sideThread = await seedThread(harness.deps, {
       projectId: alpha.project.id,
       environmentId: alpha.environment.id,
       providerId: alpha.providerId,
@@ -1007,8 +1014,9 @@ describe("plugin tools reach thread runtime config", () => {
       'The following dynamic instructions come from the HYPERFIDE plugin "conditional":',
     );
     expect(
-      harness.pluginService.list().find((plugin) => plugin.id === "conditional")
-        ?.handlerStats.errorCount,
+      (await harness.pluginService.list()).find(
+        (plugin) => plugin.id === "conditional",
+      )?.handlerStats.errorCount,
     ).toBe(0);
     const betaAgain = await build(beta, 13);
     expect(betaAgain.instructions).toContain("factory=1;configure=4");
@@ -1042,7 +1050,9 @@ describe("plugin tools reach thread runtime config", () => {
 describe("internal tool-call dispatch to plugin tools", () => {
   it("dispatches by name to plugin tools and keeps update_environment_directory working", async () => {
     await withTestHarness(async (harness) => {
-      const pluginsDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-tools-wire-"));
+      const pluginsDir = await mkdtemp(
+        join(tmpdir(), "hyperfide-plugin-tools-wire-"),
+      );
       try {
         const rootDir = await writePlugin(pluginsDir, {
           name: "hyperfide-plugin-wired",
@@ -1070,26 +1080,26 @@ describe("internal tool-call dispatch to plugin tools", () => {
           execute: ({ a, b }) => `sum=${a + b}`,
         });
 
-        const { session } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { session } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: session.hostId,
         });
         const environmentPath = join(harness.config.dataDir, "wire-workspace");
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: session.hostId,
           projectId: project.id,
           path: environmentPath,
         });
-        const thread = seedThread(harness.deps, {
+        const thread = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
           status: "active",
         });
 
-        const postToolCall = (tool: string, args: unknown) =>
+        const postToolCall = async (tool: string, args: unknown) =>
           harness.app.request("/internal/session/tool-call", {
             method: "POST",
-            headers: internalAuthHeaders(harness),
+            headers: await internalAuthHeaders(harness),
             body: JSON.stringify({
               sessionId: session.id,
               threadId: thread.id,

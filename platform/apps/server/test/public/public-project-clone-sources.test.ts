@@ -49,7 +49,7 @@ function cloneSourceRequest(args: {
 
 describe("project clone sources", () => {
   it("contributes machine credentials to setup clones without persisting them", async () => {
-    const resolve = vi
+    const resolve = await vi
       .spyOn(gitCredentials, "resolveGitCredentials")
       .mockResolvedValue([
         {
@@ -61,17 +61,21 @@ describe("project clone sources", () => {
       ]);
     try {
       await withTestHarness(async (harness) => {
-        setAppSettings(harness.db, {
-          ...getAppSettings(harness.db),
+        await setAppSettings(harness.db, {
+          ...(await getAppSettings(harness.db)),
           machineGitCredentialsEnabled: true,
         });
-        const first = seedHostSession(harness.deps, { id: "host-source" });
-        const machine = seedHostSession(harness.deps, { id: "host-machine" });
+        const first = await seedHostSession(harness.deps, {
+          id: "host-source",
+        });
+        const machine = await seedHostSession(harness.deps, {
+          id: "host-machine",
+        });
         seedPrimaryHost(harness.deps, first.host.id);
-        updateHost(harness.db, harness.hub, machine.host.id, {
+        await updateHost(harness.db, harness.hub, machine.host.id, {
           machineProviderId: "manual",
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: first.host.id,
         });
         await replaceMachineEnvironment(harness.db, harness.config.dataDir, {
@@ -105,7 +109,7 @@ describe("project clone sources", () => {
         });
         expect((await response).status).toBe(201);
         expect(
-          JSON.stringify(getProject(harness.db, project.id)),
+          JSON.stringify(await getProject(harness.db, project.id)),
         ).not.toContain("clone-secret");
       });
     } finally {
@@ -115,11 +119,11 @@ describe("project clone sources", () => {
 
   it("rejects an already-sourced host before dispatching clone", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-clone-conflict",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
 
@@ -135,19 +139,23 @@ describe("project clone sources", () => {
       await expect(readJson(response)).resolves.toMatchObject({
         code: "project_source_host_conflict",
       });
-      expect(listQueuedCommands(harness, "project.clone")).toEqual([]);
+      expect(await listQueuedCommands(harness, "project.clone")).toEqual([]);
     });
   });
 
   it("creates resolved sources, anchors origin, and defaults later clones to it", async () => {
     await withTestHarness(async (harness) => {
-      const first = seedHostSession(harness.deps, { id: "host-clone-first" });
-      const second = seedHostSession(harness.deps, { id: "host-clone-second" });
+      const first = await seedHostSession(harness.deps, {
+        id: "host-clone-first",
+      });
+      const second = await seedHostSession(harness.deps, {
+        id: "host-clone-second",
+      });
       seedPrimaryHost(harness.deps, first.host.id);
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: first.host.id,
         name: "Clone Me",
       });
@@ -181,11 +189,13 @@ describe("project clone sources", () => {
         hostId: second.host.id,
         path: "/remote/checkouts/clone-me",
       });
-      expect(getProject(harness.db, project.id)?.gitRemoteUrl).toBe(
+      expect((await getProject(harness.db, project.id))?.gitRemoteUrl).toBe(
         "ssh://git.example.test/team/repo.git",
       );
 
-      const third = seedHostSession(harness.deps, { id: "host-clone-third" });
+      const third = await seedHostSession(harness.deps, {
+        id: "host-clone-third",
+      });
       const secondResponsePromise = harness.app.fetch(
         cloneSourceRequest({ projectId: project.id, hostId: third.host.id }),
       );
@@ -208,18 +218,22 @@ describe("project clone sources", () => {
 
   it("propagates structured clone failures and creates no source row", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHostSession(harness.deps, {
+      const primary = await seedHostSession(harness.deps, {
         id: "host-clone-primary",
       });
-      const target = seedHostSession(harness.deps, { id: "host-clone-target" });
+      const target = await seedHostSession(harness.deps, {
+        id: "host-clone-target",
+      });
       seedPrimaryHost(harness.deps, primary.host.id);
-      setExperiments(harness.db, {
+      await setExperiments(harness.db, {
         ...defaultExperiments,
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: primary.host.id,
       });
-      const before = countProjectSources(harness.db, { projectId: project.id });
+      const before = await countProjectSources(harness.db, {
+        projectId: project.id,
+      });
 
       const missingRemoteResponse = await harness.app.fetch(
         cloneSourceRequest({
@@ -253,19 +267,19 @@ describe("project clone sources", () => {
         code: "target_not_empty",
         message: "Clone target is not empty: /target",
       });
-      expect(countProjectSources(harness.db, { projectId: project.id })).toBe(
-        before,
-      );
+      expect(
+        await countProjectSources(harness.db, { projectId: project.id }),
+      ).toBe(before);
     });
   });
 
   it("discovers the daemon-local default path without cloning", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-path-discovery",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         name: "Path Project",
       });

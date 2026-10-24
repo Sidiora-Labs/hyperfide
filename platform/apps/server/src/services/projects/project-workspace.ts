@@ -20,49 +20,53 @@ interface ResolveProjectWorkspaceArgs extends ProjectWorkspaceRoutingQuery {
   projectId: string;
 }
 
-function requireProjectEnvironment(
+async function requireProjectEnvironment(
   deps: Pick<AppDeps, "db">,
   args: { environmentId: string; projectId: string; ready: boolean },
 ) {
   const environment = args.ready
-    ? requireReadyEnvironment(deps.db, args.environmentId)
-    : requireEnvironment(deps.db, args.environmentId);
+    ? await requireReadyEnvironment(deps.db, args.environmentId)
+    : await requireEnvironment(deps.db, args.environmentId);
   if (environment.projectId !== args.projectId) {
     throw new ApiError(404, "environment_not_found", "Environment not found");
   }
   return environment;
 }
 
-function resolveProjectSourceOnHost(
+async function resolveProjectSourceOnHost(
   deps: Pick<AppDeps, "db">,
   args: { hostId: string; projectId: string },
-): ProjectWorkspaceTarget | null {
-  const source = getProjectSourceByHost(deps.db, args.projectId, args.hostId);
+): Promise<ProjectWorkspaceTarget | null> {
+  const source = await getProjectSourceByHost(
+    deps.db,
+    args.projectId,
+    args.hostId,
+  );
   if (!source || source.type !== "local_path") {
     return null;
   }
   return { hostId: source.hostId, path: source.path };
 }
 
-export function projectCheckoutPathOnHost(
+export async function projectCheckoutPathOnHost(
   deps: Pick<AppDeps, "db">,
   projectId: string,
   hostId: string,
-): string | undefined {
-  return resolveProjectSourceOnHost(deps, { hostId, projectId })?.path;
+): Promise<string | undefined> {
+  return (await resolveProjectSourceOnHost(deps, { hostId, projectId }))?.path;
 }
 
-export function resolveProjectWorkspaceTarget(
+export async function resolveProjectWorkspaceTarget(
   deps: Pick<AppDeps, "config" | "db" | "hub">,
   args: ResolveProjectWorkspaceArgs,
-): ProjectWorkspaceTarget {
+): Promise<ProjectWorkspaceTarget> {
   if (args.environmentId !== undefined) {
-    const environment = requireProjectEnvironment(deps, {
+    const environment = await requireProjectEnvironment(deps, {
       environmentId: args.environmentId,
       projectId: args.projectId,
       ready: true,
     });
-    assertUsableHostId(deps, { hostId: environment.hostId });
+    await assertUsableHostId(deps, { hostId: environment.hostId });
     if (environment.path === null) {
       throw new ApiError(
         409,
@@ -73,9 +77,9 @@ export function resolveProjectWorkspaceTarget(
     return { hostId: environment.hostId, path: environment.path };
   }
 
-  const hostId = args.hostId ?? requirePrimaryHostId(deps);
-  assertUsableHostId(deps, { hostId });
-  const source = resolveProjectSourceOnHost(deps, {
+  const hostId = args.hostId ?? (await requirePrimaryHostId(deps));
+  await assertUsableHostId(deps, { hostId });
+  const source = await resolveProjectSourceOnHost(deps, {
     hostId,
     projectId: args.projectId,
   });
@@ -96,38 +100,42 @@ export interface ProjectCommandWorkspace {
   cwd: string | null;
 }
 
-export function resolveProjectCommandWorkspace(
+export async function resolveProjectCommandWorkspace(
   deps: Pick<AppDeps, "config" | "db" | "hub">,
   args: ResolveProjectWorkspaceArgs,
-): ProjectCommandWorkspace {
+): Promise<ProjectCommandWorkspace> {
   if (args.environmentId !== undefined) {
-    const environment = requireProjectEnvironment(deps, {
+    const environment = await requireProjectEnvironment(deps, {
       environmentId: args.environmentId,
       projectId: args.projectId,
       ready: false,
     });
-    assertUsableHostId(deps, { hostId: environment.hostId });
+    await assertUsableHostId(deps, { hostId: environment.hostId });
     if (environment.status === "ready" && environment.path !== null) {
       return { hostId: environment.hostId, cwd: environment.path };
     }
     return {
       hostId: environment.hostId,
       cwd:
-        resolveProjectSourceOnHost(deps, {
-          hostId: environment.hostId,
-          projectId: args.projectId,
-        })?.path ?? null,
+        (
+          await resolveProjectSourceOnHost(deps, {
+            hostId: environment.hostId,
+            projectId: args.projectId,
+          })
+        )?.path ?? null,
     };
   }
 
-  const hostId = args.hostId ?? requirePrimaryHostId(deps);
-  assertUsableHostId(deps, { hostId });
+  const hostId = args.hostId ?? (await requirePrimaryHostId(deps));
+  await assertUsableHostId(deps, { hostId });
   return {
     hostId,
     cwd:
-      resolveProjectSourceOnHost(deps, {
-        hostId,
-        projectId: args.projectId,
-      })?.path ?? null,
+      (
+        await resolveProjectSourceOnHost(deps, {
+          hostId,
+          projectId: args.projectId,
+        })
+      )?.path ?? null,
   };
 }

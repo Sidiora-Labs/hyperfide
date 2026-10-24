@@ -49,7 +49,9 @@ export function registerSkillsRegistryRoutes(app: Hono, deps: AppDeps): void {
     const page = parsePageParameter(context.req.query("page"));
     const perPage = parsePerPageParameter(context.req.query("perPage"));
     return context.json(
-      await proxyUpstream(() => listRegistrySkills(query, page, perPage)),
+      await proxyUpstream(
+        async () => await listRegistrySkills(query, page, perPage),
+      ),
     );
   });
 
@@ -63,7 +65,7 @@ export function registerSkillsRegistryRoutes(app: Hono, deps: AppDeps): void {
       );
     }
     return context.json(
-      await proxyUpstream(() => resolveRegistrySkillById(id)),
+      await proxyUpstream(async () => await resolveRegistrySkillById(id)),
     );
   });
 
@@ -133,8 +135,8 @@ export function registerSkillsRegistryRoutes(app: Hono, deps: AppDeps): void {
         "Expected a valid source and skillId",
       );
     }
-    const detail = await proxyUpstream(() =>
-      fetchRegistrySkillDetail(source, skillId),
+    const detail = await proxyUpstream(
+      async () => await fetchRegistrySkillDetail(source, skillId),
     );
     if (!hasLoadableSkillContent(detail)) {
       throw new ApiError(

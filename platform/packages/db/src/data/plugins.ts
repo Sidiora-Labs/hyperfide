@@ -192,9 +192,7 @@ function normalizedColumns(
         ? plugin.sourceIntent.requestedSpec
         : null,
     sourceNpmSpecKind:
-      plugin.sourceIntent.kind === "npm"
-        ? plugin.sourceIntent.specKind
-        : null,
+      plugin.sourceIntent.kind === "npm" ? plugin.sourceIntent.specKind : null,
     sourceGitUrl:
       plugin.sourceIntent.kind === "git" ? plugin.sourceIntent.url : null,
     sourceGitSubdirectory:
@@ -228,30 +226,33 @@ function normalizedColumns(
   } as const;
 }
 
-export function listInstalledPlugins(db: DbConnection): InstalledPluginRow[] {
-  return db
-    .select({ plugin: installedPlugins, artifactPath: pluginArtifacts.path })
-    .from(installedPlugins)
-    .leftJoin(
-      pluginArtifacts,
-      eq(installedPlugins.activeArtifactId, pluginArtifacts.id),
-    )
-    .where(isNull(installedPlugins.removedAt))
-    .all()
-    .map(({ plugin, artifactPath }) => ({
-      ...plugin,
-      rootDir:
-        plugin.activeArtifactId !== null && artifactPath !== null
-          ? artifactPath
-          : plugin.rootDir,
-    }));
+export async function listInstalledPlugins(
+  db: DbConnection,
+): Promise<InstalledPluginRow[]> {
+  return (
+    await db
+      .select({ plugin: installedPlugins, artifactPath: pluginArtifacts.path })
+      .from(installedPlugins)
+      .leftJoin(
+        pluginArtifacts,
+        eq(installedPlugins.activeArtifactId, pluginArtifacts.id),
+      )
+      .where(isNull(installedPlugins.removedAt))
+      .all()
+  ).map(({ plugin, artifactPath }) => ({
+    ...plugin,
+    rootDir:
+      plugin.activeArtifactId !== null && artifactPath !== null
+        ? artifactPath
+        : plugin.rootDir,
+  }));
 }
 
-export function getInstalledPlugin(
+export async function getInstalledPlugin(
   db: DbConnection,
   id: string,
-): InstalledPluginRow | undefined {
-  const result = db
+): Promise<InstalledPluginRow | undefined> {
+  const result = await db
     .select({ plugin: installedPlugins, artifactPath: pluginArtifacts.path })
     .from(installedPlugins)
     .leftJoin(
@@ -270,17 +271,21 @@ export function getInstalledPlugin(
   };
 }
 
-export function getInstalledPluginRegistration(
+export async function getInstalledPluginRegistration(
   db: DbConnection,
   id: string,
-): InstalledPluginRow | undefined {
-  return db.select().from(installedPlugins).where(eq(installedPlugins.id, id)).get();
+): Promise<InstalledPluginRow | undefined> {
+  return await db
+    .select()
+    .from(installedPlugins)
+    .where(eq(installedPlugins.id, id))
+    .get();
 }
 
-export function listUnnormalizedPluginRegistrations(
+export async function listUnnormalizedPluginRegistrations(
   db: DbConnection,
-): LegacyInstalledPluginRegistration[] {
-  return db
+): Promise<LegacyInstalledPluginRegistration[]> {
+  return await db
     .select({
       id: installedPlugins.id,
       source: installedPlugins.source,
@@ -293,11 +298,11 @@ export function listUnnormalizedPluginRegistrations(
     .all();
 }
 
-export function normalizeInstalledPluginRegistration(
+export async function normalizeInstalledPluginRegistration(
   db: DbConnection,
   plugin: NormalizeLegacyInstalledPluginInput,
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(installedPlugins)
     .set(normalizedColumns(plugin))
     .where(
@@ -310,13 +315,14 @@ export function normalizeInstalledPluginRegistration(
   return result.changes > 0;
 }
 
-export function upsertInstalledPlugin(
+export async function upsertInstalledPlugin(
   db: DbConnection,
   plugin: UpsertInstalledPluginInput,
-): InstalledPluginRow {
+): Promise<InstalledPluginRow> {
   const now = Date.now();
   const normalized = normalizedColumns(plugin);
-  db.insert(installedPlugins)
+  await db
+    .insert(installedPlugins)
     .values({
       id: plugin.id,
       source: plugin.source,
@@ -343,16 +349,16 @@ export function upsertInstalledPlugin(
       },
     })
     .run();
-  const row = getInstalledPlugin(db, plugin.id);
+  const row = await getInstalledPlugin(db, plugin.id);
   if (!row) throw new Error(`plugin row missing after upsert: ${plugin.id}`);
   return row;
 }
 
-export function listInstalledPluginsFromMarketplace(
+export async function listInstalledPluginsFromMarketplace(
   db: DbQueryConnection,
   marketplaceName: string,
-): { id: string }[] {
-  return db
+): Promise<{ id: string }[]> {
+  return await db
     .select({ id: installedPlugins.id })
     .from(installedPlugins)
     .where(
@@ -365,11 +371,11 @@ export function listInstalledPluginsFromMarketplace(
     .all();
 }
 
-export function setInstalledPluginDirectProvenance(
+export async function setInstalledPluginDirectProvenance(
   db: DbQueryConnection,
   id: string,
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(installedPlugins)
     .set({
       provenance: "direct",
@@ -382,12 +388,12 @@ export function setInstalledPluginDirectProvenance(
   return result.changes > 0;
 }
 
-export function setInstalledPluginEnabled(
+export async function setInstalledPluginEnabled(
   db: DbConnection,
   id: string,
   enabled: boolean,
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(installedPlugins)
     .set({ enabled, enabledFollowsDefault: false, updatedAt: Date.now() })
     .where(eq(installedPlugins.id, id))
@@ -395,12 +401,12 @@ export function setInstalledPluginEnabled(
   return result.changes > 0;
 }
 
-export function setInstalledPluginUpdateState(
+export async function setInstalledPluginUpdateState(
   db: DbConnection,
   id: string,
   state: PluginUpdateState,
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(installedPlugins)
     .set({
       lastUpdateCheckAt: state.lastCheckAt,
@@ -414,7 +420,7 @@ export function setInstalledPluginUpdateState(
   return result.changes > 0;
 }
 
-export function setInstalledPluginLastFailure(
+export async function setInstalledPluginLastFailure(
   db: DbConnection,
   id: string,
   failure: {
@@ -422,8 +428,8 @@ export function setInstalledPluginLastFailure(
     detail: string;
     at: number;
   },
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(installedPlugins)
     .set({
       lastFailureVersion: failure.version,
@@ -436,18 +442,18 @@ export function setInstalledPluginLastFailure(
   return result.changes > 0;
 }
 
-export function setInstalledPluginSourceClassification(
+export async function setInstalledPluginSourceClassification(
   db: DbConnection,
   id: string,
   classification:
     | { kind: "npm"; specKind: "default" | "exact" | "tag" | "range" }
     | { kind: "git"; refKind: "branch" | "tag" | "commit" },
-): boolean {
+): Promise<boolean> {
   const values =
     classification.kind === "npm"
       ? { sourceNpmSpecKind: classification.specKind }
       : { sourceGitRefKind: classification.refKind };
-  const result = db
+  const result = await db
     .update(installedPlugins)
     .set({ ...values, updatedAt: Date.now() })
     .where(
@@ -461,19 +467,22 @@ export function setInstalledPluginSourceClassification(
   return result.changes > 0;
 }
 
-export function deleteInstalledPlugin(db: DbConnection, id: string): boolean {
-  const result = db
+export async function deleteInstalledPlugin(
+  db: DbConnection,
+  id: string,
+): Promise<boolean> {
+  const result = await db
     .delete(installedPlugins)
     .where(eq(installedPlugins.id, id))
     .run();
   return result.changes > 0;
 }
 
-export function restoreRemovedInstalledPlugin(
+export async function restoreRemovedInstalledPlugin(
   db: DbConnection,
   id: string,
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(installedPlugins)
     .set({
       enabled: true,
@@ -488,12 +497,12 @@ export function restoreRemovedInstalledPlugin(
   return result.changes > 0;
 }
 
-export function markInstalledPluginRemoved(
+export async function markInstalledPluginRemoved(
   db: DbConnection,
   id: string,
-): boolean {
+): Promise<boolean> {
   const now = Date.now();
-  const result = db
+  const result = await db
     .update(installedPlugins)
     .set({ enabled: false, removedAt: now, updatedAt: now })
     .where(eq(installedPlugins.id, id))

@@ -17,7 +17,7 @@ describe("timeline content continuation at the history epoch", () => {
         featureFlags: { ...defaultFeatureFlags, timelineWindowEventBudget: 2 },
       },
       async (harness) => {
-        const { thread, environment } = seedThreadFixture(harness, {
+        const { thread, environment } = await seedThreadFixture(harness, {
           thread: { providerId: "codex" },
         });
         const scope = {
@@ -26,14 +26,14 @@ describe("timeline content continuation at the history epoch", () => {
           providerThreadId: "provider-thread",
           scope: turnScope("turn-1"),
         };
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...scope,
           sequence: 1,
           type: "turn/started",
           data: {},
         });
         for (let index = 0; index < 3; index += 1) {
-          seedEvent(harness.deps, {
+          await seedEvent(harness.deps, {
             ...scope,
             sequence: index + 2,
             type: "item/completed",
@@ -52,7 +52,7 @@ describe("timeline content continuation at the history epoch", () => {
             },
           });
         }
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...scope,
           sequence: 5,
           type: "turn/completed",
