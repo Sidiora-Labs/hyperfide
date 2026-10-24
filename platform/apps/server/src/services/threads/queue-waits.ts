@@ -109,19 +109,19 @@ export interface RecordQueuedMessageWaitArgs {
  * Returns the row the wait now sits on, or null when a re-queue lost its row
  * (deleted under the drain), which the caller treats as "nothing to do".
  */
-export function recordQueuedMessageWait(
+export async function recordQueuedMessageWait(
   deps: QueueWaitDeps,
   args: RecordQueuedMessageWaitArgs,
-): ThreadQueuedMessage | null {
+): Promise<ThreadQueuedMessage | null> {
   const claimed = args.claimed ?? [];
   const leadClaim = claimed[0];
   let row: QueuedThreadMessageRow | null;
 
   if (leadClaim === undefined) {
-    row = deps.db.transaction(
-      (tx) => {
-        assertThreadHostAcceptsWork(tx, args.thread);
-        return createQueuedThreadMessageInTransaction(tx, {
+    row = await deps.db.transaction(
+      async (tx) => {
+        await assertThreadHostAcceptsWork(tx, args.thread);
+        return await createQueuedThreadMessageInTransaction(tx, {
           threadId: args.thread.id,
           content: args.message.input,
           senderThreadId: args.message.senderThreadId,
@@ -141,7 +141,7 @@ export function recordQueuedMessageWait(
       { behavior: "immediate" },
     );
   } else {
-    row = requeueClaimedQueuedThreadMessages(deps.db, deps.hub, {
+    row = await requeueClaimedQueuedThreadMessages(deps.db, deps.hub, {
       claims: claimed.map((claim) => ({
         id: claim.id,
         claimToken: claim.claimToken,
@@ -176,11 +176,11 @@ export function settleQueueRowDispatched(args: SettleQueueRowArgs): void {
  * Drops a row's wait so the next drain re-attempts it. The row stays exactly
  * where it is in the queue; only its eligibility changes.
  */
-export function clearQueuedMessageWait(
+export async function clearQueuedMessageWait(
   deps: { db: DbConnection; hub: DbNotifier },
   args: { queuedMessageId: string; threadId: string },
-): QueuedThreadMessageRow | null {
-  return clearQueuedThreadMessageWaitingOn(deps.db, deps.hub, {
+): Promise<QueuedThreadMessageRow | null> {
+  return await clearQueuedThreadMessageWaitingOn(deps.db, deps.hub, {
     id: args.queuedMessageId,
     threadId: args.threadId,
   });

@@ -137,60 +137,68 @@ function buildHostRpcResponse(
   };
 }
 
-export function registerHostRpcResponder(
+export async function registerHostRpcResponder(
   harness: TestAppHarness,
   args: RegisterHostRpcResponderArgs,
-): HostRpcResponder {
+): Promise<HostRpcResponder> {
   const requests: HostDaemonOnlineRpcRequestMessage[] = [];
+  let restoredCapture: Promise<TestHostRpcSocket> | undefined;
   const socket: TestHostRpcSocket = {
     close() {},
-    send(data) {
+    async send(data) {
       const message = hostDaemonServerWsMessageSchema.parse(JSON.parse(data));
-      if (message.type === "provider-session-policy.replace") return;
+      if (message.type === "host-rpc.cancel") return;
+      if (
+        message.type === "provider-session-policy.replace" ||
+        message.type === "machine-environment.replace"
+      )
+        return;
       if (message.type !== "host-rpc.request") {
         throw new Error(`Unexpected daemon websocket message ${message.type}`);
       }
       requests.push(message);
-      const respond = (
+      const respond = async (
         build: () => HostDaemonOnlineRpcResponseMessage,
-      ): void => {
+      ): Promise<void> => {
         let response: HostDaemonOnlineRpcResponseMessage;
         try {
           response = build();
         } catch (error) {
           response = buildTestFailureResponse(message, error);
         }
+        if (args.restoreCommandCaptureAfterResponse) {
+          restoredCapture ??= registerTestHostRpcCapture(harness, {
+            hostId: args.hostId,
+            sessionId: args.sessionId,
+          });
+          await restoredCapture;
+        }
         harness.hub.recordHostOnlineRpcResponse({
           message: response,
           sessionId: args.sessionId,
         });
-        if (args.restoreCommandCaptureAfterResponse) {
-          registerTestHostRpcCapture(harness, {
-            hostId: args.hostId,
-            sessionId: args.sessionId,
-          });
-        }
       };
       let handled: HostRpcHandlerResult | Promise<HostRpcHandlerResult>;
       try {
-        handled = args.handle(message);
+        handled = await args.handle(message);
       } catch (error) {
-        respond(() => buildTestFailureResponse(message, error));
+        await respond(() => buildTestFailureResponse(message, error));
         return;
       }
       if (handled instanceof Promise) {
         void handled.then(
-          (result) => respond(() => buildHostRpcResponse(message, result)),
-          (error: unknown) =>
-            respond(() => buildTestFailureResponse(message, error)),
+          async (result) =>
+            await respond(() => buildHostRpcResponse(message, result)),
+          async (error: unknown) =>
+            await respond(() => buildTestFailureResponse(message, error)),
         );
         return;
       }
       const result = handled;
-      respond(() => buildHostRpcResponse(message, result));
+      await respond(() => buildHostRpcResponse(message, result));
     },
   };
-  harness.hub.registerDaemon(args.sessionId, args.hostId, socket);
+  await harness.hub.registerDaemon(args.sessionId, args.hostId, socket);
 
   return {
     requests,
@@ -200,11 +208,11 @@ export function registerHostRpcResponder(
   };
 }
 
-export function registerProviderHostRpcResponder(
+export async function registerProviderHostRpcResponder(
   harness: TestAppHarness,
   args: RegisterProviderHostRpcArgs,
-): ProviderHostRpcResponder {
-  return registerHostRpcResponder(harness, {
+): Promise<ProviderHostRpcResponder> {
+  return await registerHostRpcResponder(harness, {
     hostId: args.hostId,
     sessionId: args.sessionId,
     restoreCommandCaptureAfterResponse: args.restoreCommandCaptureAfterResponse,

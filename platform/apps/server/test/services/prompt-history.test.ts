@@ -30,24 +30,28 @@ interface InsertPromptHistoryEntryArgs {
   threadId: string;
 }
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const firstProject = createProject(db, noopNotifier, {
-    name: "Project A",
-    source: { type: "local_path", hostId: host.id, path: "/tmp/project-a" },
-  }).project;
-  const secondProject = createProject(db, noopNotifier, {
-    name: "Project B",
-    source: { type: "local_path", hostId: host.id, path: "/tmp/project-b" },
-  }).project;
+  const firstProject = (
+    await createProject(db, noopNotifier, {
+      name: "Project A",
+      source: { type: "local_path", hostId: host.id, path: "/tmp/project-a" },
+    })
+  ).project;
+  const secondProject = (
+    await createProject(db, noopNotifier, {
+      name: "Project B",
+      source: { type: "local_path", hostId: host.id, path: "/tmp/project-b" },
+    })
+  ).project;
   return { db, firstProject, secondProject };
 }
 
-function insertPromptHistoryEntry(args: InsertPromptHistoryEntryArgs) {
-  return createPromptHistoryEntry(args.db, {
+async function insertPromptHistoryEntry(args: InsertPromptHistoryEntryArgs) {
+  return await createPromptHistoryEntry(args.db, {
     projectId: args.projectId,
     threadId: args.threadId,
     scope: args.scope,
@@ -58,22 +62,22 @@ function insertPromptHistoryEntry(args: InsertPromptHistoryEntryArgs) {
 }
 
 describe("prompt history service", () => {
-  it("returns project create history scoped to one project", () => {
-    const { db, firstProject, secondProject } = setup();
-    const firstThread = createThread(db, noopNotifier, {
+  it("returns project create history scoped to one project", async () => {
+    const { db, firstProject, secondProject } = await setup();
+    const firstThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const secondThread = createThread(db, noopNotifier, {
+    const secondThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const otherProjectThread = createThread(db, noopNotifier, {
+    const otherProjectThread = await createThread(db, noopNotifier, {
       projectId: secondProject.id,
       providerId: "codex",
     });
 
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: firstThread.id,
@@ -82,7 +86,7 @@ describe("prompt history service", () => {
       createdAt: 10,
       input: textInput("Investigate auth flow"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: secondThread.id,
@@ -91,7 +95,7 @@ describe("prompt history service", () => {
       createdAt: 20,
       input: textInput("Open incident thread"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: secondThread.id,
@@ -100,7 +104,7 @@ describe("prompt history service", () => {
       createdAt: 30,
       input: textInput("Open incident thread"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: secondThread.id,
@@ -109,7 +113,7 @@ describe("prompt history service", () => {
       createdAt: 40,
       input: textInput("Follow up inside thread"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: secondProject.id,
       threadId: otherProjectThread.id,
@@ -120,7 +124,7 @@ describe("prompt history service", () => {
     });
 
     expect(
-      listProjectPromptHistory(
+      await listProjectPromptHistory(
         { db },
         {
           projectId: firstProject.id,
@@ -141,18 +145,18 @@ describe("prompt history service", () => {
     ]);
   });
 
-  it("includes archived thread starter prompts in project history", () => {
-    const { db, firstProject } = setup();
-    const liveThread = createThread(db, noopNotifier, {
+  it("includes archived thread starter prompts in project history", async () => {
+    const { db, firstProject } = await setup();
+    const liveThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const archivedThread = createThread(db, noopNotifier, {
+    const archivedThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
 
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: liveThread.id,
@@ -161,7 +165,7 @@ describe("prompt history service", () => {
       createdAt: 10,
       input: textInput("Visible starter prompt"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: archivedThread.id,
@@ -170,10 +174,10 @@ describe("prompt history service", () => {
       createdAt: 20,
       input: textInput("Archived starter prompt"),
     });
-    archiveThread(db, noopNotifier, archivedThread.id);
+    await archiveThread(db, noopNotifier, archivedThread.id);
 
     expect(
-      listProjectPromptHistory(
+      await listProjectPromptHistory(
         { db },
         {
           projectId: firstProject.id,
@@ -194,19 +198,19 @@ describe("prompt history service", () => {
     ]);
   });
 
-  it("includes hidden root prompts in ordinary project history", () => {
-    const { db, firstProject } = setup();
-    const visibleThread = createThread(db, noopNotifier, {
+  it("includes hidden root prompts in ordinary project history", async () => {
+    const { db, firstProject } = await setup();
+    const visibleThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const hiddenRootThread = createThread(db, noopNotifier, {
+    const hiddenRootThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
       visibility: "hidden",
     });
 
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: visibleThread.id,
@@ -215,7 +219,7 @@ describe("prompt history service", () => {
       createdAt: 10,
       input: textInput("Visible starter prompt"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: hiddenRootThread.id,
@@ -226,7 +230,7 @@ describe("prompt history service", () => {
     });
 
     expect(
-      listProjectPromptHistory(
+      await listProjectPromptHistory(
         { db },
         {
           projectId: firstProject.id,
@@ -247,18 +251,18 @@ describe("prompt history service", () => {
     ]);
   });
 
-  it("excludes deleted thread starter prompts from project history", () => {
-    const { db, firstProject } = setup();
-    const liveThread = createThread(db, noopNotifier, {
+  it("excludes deleted thread starter prompts from project history", async () => {
+    const { db, firstProject } = await setup();
+    const liveThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const deletedThread = createThread(db, noopNotifier, {
+    const deletedThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
 
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: liveThread.id,
@@ -267,7 +271,7 @@ describe("prompt history service", () => {
       createdAt: 10,
       input: textInput("Visible starter prompt"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: deletedThread.id,
@@ -276,10 +280,10 @@ describe("prompt history service", () => {
       createdAt: 20,
       input: textInput("Deleted starter prompt"),
     });
-    markThreadDeleted(db, noopNotifier, { threadId: deletedThread.id });
+    await markThreadDeleted(db, noopNotifier, { threadId: deletedThread.id });
 
     expect(
-      listProjectPromptHistory(
+      await listProjectPromptHistory(
         { db },
         {
           projectId: firstProject.id,
@@ -295,24 +299,24 @@ describe("prompt history service", () => {
     ]);
   });
 
-  it("does not record project history for child thread starts", () => {
-    const { db, firstProject } = setup();
-    const parentThread = createThread(db, noopNotifier, {
+  it("does not record project history for child thread starts", async () => {
+    const { db, firstProject } = await setup();
+    const parentThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const directThread = createThread(db, noopNotifier, {
+    const directThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const childThread = createThread(db, noopNotifier, {
+    const childThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
       parentThreadId: parentThread.id,
     });
 
     expect(
-      recordAcceptedPromptHistoryEntry(
+      await recordAcceptedPromptHistoryEntry(
         { db },
         {
           thread: directThread,
@@ -324,7 +328,7 @@ describe("prompt history service", () => {
       ),
     ).toBe(true);
     expect(
-      recordAcceptedPromptHistoryEntry(
+      await recordAcceptedPromptHistoryEntry(
         { db },
         {
           thread: childThread,
@@ -337,7 +341,7 @@ describe("prompt history service", () => {
     ).toBe(false);
 
     expect(
-      listProjectPromptHistory(
+      await listProjectPromptHistory(
         { db },
         {
           projectId: firstProject.id,
@@ -353,14 +357,14 @@ describe("prompt history service", () => {
     ]);
   });
 
-  it("returns thread follow-up history with queued messages merged in", () => {
-    const { db, firstProject } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("returns thread follow-up history with queued messages merged in", async () => {
+    const { db, firstProject } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
 
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: thread.id,
@@ -369,7 +373,7 @@ describe("prompt history service", () => {
       createdAt: 10,
       input: textInput("Start thread"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: thread.id,
@@ -378,7 +382,7 @@ describe("prompt history service", () => {
       createdAt: 30,
       input: textInput("Fix the flaky test"),
     });
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: thread.id,
@@ -387,7 +391,7 @@ describe("prompt history service", () => {
       createdAt: 40,
       input: textInput("Add regression coverage"),
     });
-    createQueuedThreadMessage(db, noopNotifier, {
+    await createQueuedThreadMessage(db, noopNotifier, {
       threadId: thread.id,
       content: textInput("Add regression coverage"),
       model: "gpt-5",
@@ -401,7 +405,7 @@ describe("prompt history service", () => {
     });
 
     expect(
-      listThreadPromptHistory(
+      await listThreadPromptHistory(
         { db },
         {
           threadId: thread.id,
@@ -422,18 +426,18 @@ describe("prompt history service", () => {
     ]);
   });
 
-  it("silently skips malformed stored prompt history rows", () => {
-    const { db, firstProject } = setup();
-    const validThread = createThread(db, noopNotifier, {
+  it("silently skips malformed stored prompt history rows", async () => {
+    const { db, firstProject } = await setup();
+    const validThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
-    const malformedThread = createThread(db, noopNotifier, {
+    const malformedThread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
 
-    insertPromptHistoryEntry({
+    await insertPromptHistoryEntry({
       db,
       projectId: firstProject.id,
       threadId: validThread.id,
@@ -442,7 +446,8 @@ describe("prompt history service", () => {
       createdAt: 10,
       input: textInput("Recover valid prompt history"),
     });
-    db.insert(promptHistoryEntries)
+    await db
+      .insert(promptHistoryEntries)
       .values({
         id: "phist_malformed",
         projectId: firstProject.id,
@@ -455,7 +460,7 @@ describe("prompt history service", () => {
       .run();
 
     expect(
-      listProjectPromptHistory(
+      await listProjectPromptHistory(
         { db },
         {
           projectId: firstProject.id,
@@ -470,15 +475,15 @@ describe("prompt history service", () => {
       },
     ]);
   });
-  it("does not persist empty-input turns as prompt history rows", () => {
-    const { db, firstProject } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("does not persist empty-input turns as prompt history rows", async () => {
+    const { db, firstProject } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
 
     expect(
-      recordAcceptedPromptHistoryEntry(
+      await recordAcceptedPromptHistoryEntry(
         { db },
         {
           thread,
@@ -490,9 +495,9 @@ describe("prompt history service", () => {
       ),
     ).toBe(false);
 
-    expect(db.select().from(promptHistoryEntries).all()).toEqual([]);
+    expect(await db.select().from(promptHistoryEntries).all()).toEqual([]);
     expect(
-      listProjectPromptHistory(
+      await listProjectPromptHistory(
         { db },
         {
           projectId: firstProject.id,
@@ -502,16 +507,16 @@ describe("prompt history service", () => {
     ).toEqual([]);
   });
 
-  it("excludes agent-only context from recalled prompt history", () => {
-    const { db, firstProject } = setup();
-    const thread = createThread(db, noopNotifier, {
+  it("excludes agent-only context from recalled prompt history", async () => {
+    const { db, firstProject } = await setup();
+    const thread = await createThread(db, noopNotifier, {
       projectId: firstProject.id,
       providerId: "codex",
     });
     const visibleInput = textInput("Explain the selected message");
 
     expect(
-      recordAcceptedPromptHistoryEntry(
+      await recordAcceptedPromptHistoryEntry(
         { db },
         {
           thread,
@@ -531,7 +536,7 @@ describe("prompt history service", () => {
       ),
     ).toBe(true);
     expect(
-      listThreadPromptHistory({ db }, { threadId: thread.id, limit: 50 }),
+      await listThreadPromptHistory({ db }, { threadId: thread.id, limit: 50 }),
     ).toEqual([
       {
         id: expect.stringMatching(/^phist_/u),

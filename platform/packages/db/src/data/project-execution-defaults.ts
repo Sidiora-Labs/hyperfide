@@ -24,11 +24,11 @@ export interface UpsertProjectExecutionDefaultsArgs extends GetProjectExecutionD
   serviceTier: ServiceTier;
 }
 
-export function getProjectExecutionDefaults(
+export async function getProjectExecutionDefaults(
   db: DbConnection,
   args: GetProjectExecutionDefaultsArgs,
-): ProjectExecutionDefaults | null {
-  const row = db
+): Promise<ProjectExecutionDefaults | null> {
+  const row = await db
     .select({
       providerId: projectExecutionDefaults.providerId,
       model: projectExecutionDefaults.model,
@@ -43,16 +43,16 @@ export function getProjectExecutionDefaults(
   return row ?? null;
 }
 
-export function listProjectExecutionDefaultsByProjectIds(
+export async function listProjectExecutionDefaultsByProjectIds(
   db: DbConnection,
   args: ListProjectExecutionDefaultsByProjectIdsArgs,
-): Map<string, ProjectExecutionDefaults> {
+): Promise<Map<string, ProjectExecutionDefaults>> {
   const byProjectId = new Map<string, ProjectExecutionDefaults>();
   if (args.projectIds.length === 0) {
     return byProjectId;
   }
 
-  const rows = db
+  const rows = await db
     .select({
       projectId: projectExecutionDefaults.projectId,
       providerId: projectExecutionDefaults.providerId,
@@ -72,12 +72,12 @@ export function listProjectExecutionDefaultsByProjectIds(
   return byProjectId;
 }
 
-export function upsertProjectExecutionDefaults(
+export async function upsertProjectExecutionDefaults(
   db: DbConnection,
   args: UpsertProjectExecutionDefaultsArgs,
-): ProjectExecutionDefaults {
+): Promise<ProjectExecutionDefaults> {
   const updatedAt = Date.now();
-  const row = db
+  const row = await db
     .insert(projectExecutionDefaults)
     .values({
       projectId: args.projectId,

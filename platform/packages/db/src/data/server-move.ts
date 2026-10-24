@@ -64,124 +64,150 @@ function rerootCondition(
     : isUnderRoot(column, args.fromRoot);
 }
 
-function rerootPluginColumns(
+async function rerootPluginColumns(
   transaction: DbTransaction,
   args: RerootServerOwnedPathsArgs,
-): number {
-  let changes = transaction
-    .update(installedPlugins)
-    .set({ rootDir: rerootedValue(installedPlugins.rootDir, args) })
-    .where(rerootCondition(installedPlugins.rootDir, args))
-    .run().changes;
-  changes += transaction
-    .update(installedPlugins)
-    .set({ sourcePath: rerootedValue(installedPlugins.sourcePath, args) })
-    .where(
-      and(
-        isNotNull(installedPlugins.sourcePath),
-        rerootCondition(installedPlugins.sourcePath, args),
-      ),
-    )
-    .run().changes;
+): Promise<number> {
+  let changes = (
+    await transaction
+      .update(installedPlugins)
+      .set({ rootDir: rerootedValue(installedPlugins.rootDir, args) })
+      .where(rerootCondition(installedPlugins.rootDir, args))
+      .run()
+  ).changes;
+  changes += (
+    await transaction
+      .update(installedPlugins)
+      .set({ sourcePath: rerootedValue(installedPlugins.sourcePath, args) })
+      .where(
+        and(
+          isNotNull(installedPlugins.sourcePath),
+          rerootCondition(installedPlugins.sourcePath, args),
+        ),
+      )
+      .run()
+  ).changes;
   return changes;
 }
 
-function rerootArtifactColumns(
+async function rerootArtifactColumns(
   transaction: DbTransaction,
   args: RerootServerOwnedPathsArgs,
-): number {
-  let changes = transaction
-    .update(pluginArtifacts)
-    .set({ path: rerootedValue(pluginArtifacts.path, args) })
-    .where(rerootCondition(pluginArtifacts.path, args))
-    .run().changes;
-  changes += transaction
-    .update(pluginArtifacts)
-    .set({
-      gitCheckoutRoot: rerootedValue(pluginArtifacts.gitCheckoutRoot, args),
-    })
-    .where(
-      and(
-        isNotNull(pluginArtifacts.gitCheckoutRoot),
-        rerootCondition(pluginArtifacts.gitCheckoutRoot, args),
-      ),
-    )
-    .run().changes;
+): Promise<number> {
+  let changes = (
+    await transaction
+      .update(pluginArtifacts)
+      .set({ path: rerootedValue(pluginArtifacts.path, args) })
+      .where(rerootCondition(pluginArtifacts.path, args))
+      .run()
+  ).changes;
+  changes += (
+    await transaction
+      .update(pluginArtifacts)
+      .set({
+        gitCheckoutRoot: rerootedValue(pluginArtifacts.gitCheckoutRoot, args),
+      })
+      .where(
+        and(
+          isNotNull(pluginArtifacts.gitCheckoutRoot),
+          rerootCondition(pluginArtifacts.gitCheckoutRoot, args),
+        ),
+      )
+      .run()
+  ).changes;
   return changes;
 }
 
-function rerootSnapshotColumns(
+async function rerootSnapshotColumns(
   transaction: DbTransaction,
   args: RerootServerOwnedPathsArgs,
-): number {
-  let changes = transaction
-    .update(pluginStateSnapshots)
-    .set({ snapshotPath: rerootedValue(pluginStateSnapshots.snapshotPath, args) })
-    .where(rerootCondition(pluginStateSnapshots.snapshotPath, args))
-    .run().changes;
-  changes += transaction
-    .update(pluginStateSnapshots)
-    .set({ statePath: rerootedValue(pluginStateSnapshots.statePath, args) })
-    .where(rerootCondition(pluginStateSnapshots.statePath, args))
-    .run().changes;
-  changes += transaction
-    .update(pluginStateSnapshots)
-    .set({ databasePath: rerootedValue(pluginStateSnapshots.databasePath, args) })
-    .where(
-      and(
-        isNotNull(pluginStateSnapshots.databasePath),
-        rerootCondition(pluginStateSnapshots.databasePath, args),
-      ),
-    )
-    .run().changes;
-  changes += transaction
-    .update(pluginStateSnapshots)
-    .set({ secretsPath: rerootedValue(pluginStateSnapshots.secretsPath, args) })
-    .where(
-      and(
-        isNotNull(pluginStateSnapshots.secretsPath),
-        rerootCondition(pluginStateSnapshots.secretsPath, args),
-      ),
-    )
-    .run().changes;
-  changes += transaction
-    .update(pluginStateSnapshots)
-    .set({
-      registrationPath: rerootedValue(
-        pluginStateSnapshots.registrationPath,
-        args,
-      ),
-    })
-    .where(
-      and(
-        isNotNull(pluginStateSnapshots.registrationPath),
-        rerootCondition(pluginStateSnapshots.registrationPath, args),
-      ),
-    )
-    .run().changes;
+): Promise<number> {
+  let changes = (
+    await transaction
+      .update(pluginStateSnapshots)
+      .set({
+        snapshotPath: rerootedValue(pluginStateSnapshots.snapshotPath, args),
+      })
+      .where(rerootCondition(pluginStateSnapshots.snapshotPath, args))
+      .run()
+  ).changes;
+  changes += (
+    await transaction
+      .update(pluginStateSnapshots)
+      .set({ statePath: rerootedValue(pluginStateSnapshots.statePath, args) })
+      .where(rerootCondition(pluginStateSnapshots.statePath, args))
+      .run()
+  ).changes;
+  changes += (
+    await transaction
+      .update(pluginStateSnapshots)
+      .set({
+        databasePath: rerootedValue(pluginStateSnapshots.databasePath, args),
+      })
+      .where(
+        and(
+          isNotNull(pluginStateSnapshots.databasePath),
+          rerootCondition(pluginStateSnapshots.databasePath, args),
+        ),
+      )
+      .run()
+  ).changes;
+  changes += (
+    await transaction
+      .update(pluginStateSnapshots)
+      .set({
+        secretsPath: rerootedValue(pluginStateSnapshots.secretsPath, args),
+      })
+      .where(
+        and(
+          isNotNull(pluginStateSnapshots.secretsPath),
+          rerootCondition(pluginStateSnapshots.secretsPath, args),
+        ),
+      )
+      .run()
+  ).changes;
+  changes += (
+    await transaction
+      .update(pluginStateSnapshots)
+      .set({
+        registrationPath: rerootedValue(
+          pluginStateSnapshots.registrationPath,
+          args,
+        ),
+      })
+      .where(
+        and(
+          isNotNull(pluginStateSnapshots.registrationPath),
+          rerootCondition(pluginStateSnapshots.registrationPath, args),
+        ),
+      )
+      .run()
+  ).changes;
   return changes;
 }
 
-function rerootMarketplaceColumns(
+async function rerootMarketplaceColumns(
   transaction: DbTransaction,
   args: RerootServerOwnedPathsArgs,
-): number {
-  return transaction
-    .update(pluginMarketplaces)
-    .set({ manifestUrl: rerootedValue(pluginMarketplaces.manifestUrl, args) })
-    .where(
-      and(
-        eq(pluginMarketplaces.sourceKind, "path"),
-        rerootCondition(pluginMarketplaces.manifestUrl, args),
-      ),
-    )
-    .run().changes;
+): Promise<number> {
+  return (
+    await transaction
+      .update(pluginMarketplaces)
+      .set({ manifestUrl: rerootedValue(pluginMarketplaces.manifestUrl, args) })
+      .where(
+        and(
+          eq(pluginMarketplaces.sourceKind, "path"),
+          rerootCondition(pluginMarketplaces.manifestUrl, args),
+        ),
+      )
+      .run()
+  ).changes;
 }
 
-export function rerootServerOwnedPluginPaths(
+export async function rerootServerOwnedPluginPaths(
   db: DbConnection,
   args: RerootServerOwnedPathsArgs,
-): RerootServerOwnedPathsResult {
+): Promise<RerootServerOwnedPathsResult> {
   if (args.fromRoot === args.toRoot) {
     return {
       pluginArtifacts: 0,
@@ -190,70 +216,75 @@ export function rerootServerOwnedPluginPaths(
       plugins: 0,
     };
   }
-  return db.transaction((transaction) => ({
-    plugins: rerootPluginColumns(transaction, args),
-    pluginArtifacts: rerootArtifactColumns(transaction, args),
-    pluginStateSnapshots: rerootSnapshotColumns(transaction, args),
-    pluginMarketplaces: rerootMarketplaceColumns(transaction, args),
+  return await db.transaction(async (transaction) => ({
+    plugins: await rerootPluginColumns(transaction, args),
+    pluginArtifacts: await rerootArtifactColumns(transaction, args),
+    pluginStateSnapshots: await rerootSnapshotColumns(transaction, args),
+    pluginMarketplaces: await rerootMarketplaceColumns(transaction, args),
   }));
 }
 
-export function swapServerHostRoles(
+export async function swapServerHostRoles(
   db: DbConnection,
   args: SwapServerHostRolesArgs,
-): SwapServerHostRolesResult {
-  return db.transaction((transaction) => {
+): Promise<SwapServerHostRolesResult> {
+  return await db.transaction(async (transaction) => {
     const targetHostBecameServer =
-      transaction
-        .update(hosts)
-        .set({ machineProviderId: null, resource: null, updatedAt: args.now })
-        .where(
-          and(
-            eq(hosts.id, args.targetHostId),
-            eq(hosts.machineProviderId, MANUAL_MACHINE_PROVIDER_ID),
-          ),
-        )
-        .run().changes > 0;
+      (
+        await transaction
+          .update(hosts)
+          .set({ machineProviderId: null, resource: null, updatedAt: args.now })
+          .where(
+            and(
+              eq(hosts.id, args.targetHostId),
+              eq(hosts.machineProviderId, MANUAL_MACHINE_PROVIDER_ID),
+            ),
+          )
+          .run()
+      ).changes > 0;
     const sourceServerHostId = args.sourceServerHostId;
     const sourceServerHostBecameManual =
       sourceServerHostId !== null &&
       sourceServerHostId !== args.targetHostId &&
-      transaction
-        .update(hosts)
-        .set({
-          machineProviderId: MANUAL_MACHINE_PROVIDER_ID,
-          resource: { version: 1, hostId: sourceServerHostId },
-          updatedAt: args.now,
-        })
-        .where(
-          and(
-            eq(hosts.id, sourceServerHostId),
-            isNull(hosts.machineProviderId),
-          ),
-        )
-        .run().changes > 0;
+      (
+        await transaction
+          .update(hosts)
+          .set({
+            machineProviderId: MANUAL_MACHINE_PROVIDER_ID,
+            resource: { version: 1, hostId: sourceServerHostId },
+            updatedAt: args.now,
+          })
+          .where(
+            and(
+              eq(hosts.id, sourceServerHostId),
+              isNull(hosts.machineProviderId),
+            ),
+          )
+          .run()
+      ).changes > 0;
     return { sourceServerHostBecameManual, targetHostBecameServer };
   });
 }
 
-export function listPathInstalledPluginSources(
+export async function listPathInstalledPluginSources(
   db: DbConnection,
-): PathInstalledPluginSource[] {
-  return db
-    .select({
-      id: installedPlugins.id,
-      sourcePath: installedPlugins.sourcePath,
-    })
-    .from(installedPlugins)
-    .where(
-      and(
-        eq(installedPlugins.sourceKind, "path"),
-        isNull(installedPlugins.removedAt),
-        isNotNull(installedPlugins.sourcePath),
-      ),
-    )
-    .all()
-    .flatMap((row) =>
-      row.sourcePath === null ? [] : [{ id: row.id, sourcePath: row.sourcePath }],
-    );
+): Promise<PathInstalledPluginSource[]> {
+  return (
+    await db
+      .select({
+        id: installedPlugins.id,
+        sourcePath: installedPlugins.sourcePath,
+      })
+      .from(installedPlugins)
+      .where(
+        and(
+          eq(installedPlugins.sourceKind, "path"),
+          isNull(installedPlugins.removedAt),
+          isNotNull(installedPlugins.sourcePath),
+        ),
+      )
+      .all()
+  ).flatMap((row) =>
+    row.sourcePath === null ? [] : [{ id: row.id, sourcePath: row.sourcePath }],
+  );
 }

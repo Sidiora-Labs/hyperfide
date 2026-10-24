@@ -224,7 +224,8 @@ async function tokenAuthProblem(
   id: string,
 ): Promise<WireAuthProblem | null> {
   const presented =
-    context.req.header("x-hyperfide-plugin-token") ?? context.req.query("token");
+    context.req.header("x-hyperfide-plugin-token") ??
+    context.req.query("token");
   const expected = await plugins.httpToken(id);
   if (
     expected === undefined ||
@@ -306,11 +307,11 @@ function pluginWebSocketEvents(args: {
     exposedSockets.set(socket, created);
     return created;
   };
-  const invoke = (
+  const invoke = async (
     socket: WSContext,
     event: "open" | "message" | "close" | "error",
-    run: () => void | Promise<void>,
-  ): void => {
+    run: () => unknown,
+  ): Promise<void> => {
     const previous = eventQueues.get(socket) ?? Promise.resolve();
     const current = args.plugins.invokeWebSocketEvent(
       args.id,
@@ -327,7 +328,7 @@ function pluginWebSocketEvents(args: {
     });
   };
   return {
-    onOpen(_event, socket) {
+    async onOpen(_event, socket) {
       const exposed = expose(socket);
       if (!args.route.active) {
         exposed.close(1012, "Plugin reloaded or disabled");
@@ -335,10 +336,10 @@ function pluginWebSocketEvents(args: {
       }
       args.route.sockets.add(exposed);
       if (args.handlers.onOpen !== undefined) {
-        invoke(socket, "open", () => args.handlers.onOpen?.(exposed));
+        await invoke(socket, "open", () => args.handlers.onOpen?.(exposed));
       }
     },
-    onMessage(event, socket) {
+    async onMessage(event, socket) {
       const exposed = expose(socket);
       if (
         !args.route.active ||
@@ -347,18 +348,18 @@ function pluginWebSocketEvents(args: {
       ) {
         return;
       }
-      invoke(socket, "message", async () =>
+      await invoke(socket, "message", async () =>
         args.handlers.onMessage?.(
           exposed,
           await pluginWebSocketMessage(event.data),
         ),
       );
     },
-    onClose(event, socket) {
+    async onClose(event, socket) {
       const exposed = expose(socket);
       if (!args.route.sockets.delete(exposed)) return;
       if (args.handlers.onClose !== undefined) {
-        invoke(socket, "close", () =>
+        await invoke(socket, "close", () =>
           args.handlers.onClose?.(exposed, {
             code: event.code,
             reason: event.reason,
@@ -366,10 +367,10 @@ function pluginWebSocketEvents(args: {
         );
       }
     },
-    onError(event, socket) {
+    async onError(event, socket) {
       if (args.handlers.onError === undefined) return;
       const exposed = expose(socket);
-      invoke(socket, "error", () =>
+      await invoke(socket, "error", () =>
         args.handlers.onError?.(exposed, pluginWebSocketError(event)),
       );
     },
@@ -390,7 +391,7 @@ export function registerPluginRoutes(
   const upgradePluginWebSocket = upgradeWebSocket?.(async (context) => {
     const id = context.req.param("id");
     const subPath = pluginHttpSubPath(context, id);
-    const lookup = plugins.getWebSocketRoute(id, subPath);
+    const lookup = await plugins.getWebSocketRoute(id, subPath);
     if (lookup.outcome === "unknown-plugin") {
       throw new ApiError(404, "unknown_plugin", `unknown plugin "${id}"`);
     }
@@ -422,7 +423,7 @@ export function registerPluginRoutes(
         problem.error,
       );
     }
-    const fresh = plugins.getWebSocketRoute(id, subPath);
+    const fresh = await plugins.getWebSocketRoute(id, subPath);
     if (fresh.outcome !== "found" || fresh.value.auth !== auth) {
       throw new ApiError(
         503,
@@ -457,7 +458,9 @@ export function registerPluginRoutes(
     return context.json(plugins.discoverRpc(query.data));
   });
 
-  app.get("/plugins", (context) => context.json({ plugins: plugins.list() }));
+  app.get("/plugins", async (context) =>
+    context.json({ plugins: await plugins.list() }),
+  );
 
   app.get("/plugins/contributions", (context) =>
     context.json({
@@ -527,7 +530,7 @@ export function registerPluginRoutes(
     if (typeof body?.threadId === "string") ctx.threadId = body.threadId;
     if (typeof body?.projectId === "string") ctx.projectId = body.projectId;
     ctx.signal = context.req.raw.signal;
-    return pluginCliResponse(
+    return await pluginCliResponse(
       plugins.runCliCommand(context.req.param("id"), argv, ctx),
       PLUGIN_CLI_KEEPALIVE_MS,
     );
@@ -564,7 +567,7 @@ export function registerPluginRoutes(
     } catch {
       return context.json({ ok: false, error: "bundle file missing" }, 404);
     }
-    return appAssetResponse(context, bytes, {
+    return await appAssetResponse(context, bytes, {
       assetKey: `${hash}:${spec.kind}`,
       cache: appAssetCompressionCache,
       contentType: spec.contentType,
@@ -630,7 +633,7 @@ export function registerPluginRoutes(
       context.req.query("h"),
       asset.hash,
     );
-    return appAssetResponse(context, bytes, {
+    return await appAssetResponse(context, bytes, {
       assetKey: `${context.req.param("id")}:${spec.kind}`,
       cache: appAssetCompressionCache,
       contentType: spec.contentType,
@@ -668,9 +671,9 @@ export function registerPluginRoutes(
     }
   });
 
-  app.get("/plugins/updates", (context) => {
+  app.get("/plugins/updates", async (context) => {
     try {
-      return context.json({ results: plugins.listUpdateResults() });
+      return context.json({ results: await plugins.listUpdateResults() });
     } catch (error) {
       return context.json(
         { error: error instanceof Error ? error.message : String(error) },
@@ -695,7 +698,7 @@ export function registerPluginRoutes(
       return context.json({ error: "expected an empty JSON object" }, 400);
     }
     const pluginId = context.req.param("id");
-    const job = updateJobs.start({
+    const job = await updateJobs.start({
       pluginId,
       displayName: plugins.getDisplayName(pluginId),
       run: async () => {
@@ -742,7 +745,7 @@ export function registerPluginRoutes(
       displayName: source,
       run: () => plugins.install(source, selection),
     });
-    return respondWithInstallJob(context, installJobs, job, (error) => ({
+    return await respondWithInstallJob(context, installJobs, job, (error) => ({
       ok: false,
       error,
     }));
@@ -763,8 +766,8 @@ export function registerPluginRoutes(
     return context.json(outcome);
   });
 
-  app.get("/plugins/safe-mode", (context) =>
-    context.json({ enabled: plugins.getSafeMode() }),
+  app.get("/plugins/safe-mode", async (context) =>
+    context.json({ enabled: await plugins.getSafeMode() }),
   );
 
   app.put("/plugins/safe-mode", async (context) => {
@@ -831,7 +834,7 @@ export function registerPluginRoutes(
 
   app.delete("/plugins/:id", async (context) => {
     const id = context.req.param("id");
-    if (plugins.isBuiltin(id)) {
+    if (await plugins.isBuiltin(id)) {
       return context.json(
         {
           ok: false,
@@ -883,7 +886,7 @@ export function registerPluginRoutes(
   app.all("/plugins/:id/http/*", async (context) => {
     const id = context.req.param("id");
     const subPath = pluginHttpSubPath(context, id);
-    const lookup = plugins.getHttpRoute(id, context.req.method, subPath);
+    const lookup = await plugins.getHttpRoute(id, context.req.method, subPath);
     if (lookup.outcome === "unknown-plugin") {
       return context.json({ ok: false, error: `unknown plugin "${id}"` }, 404);
     }
@@ -912,7 +915,7 @@ export function registerPluginRoutes(
     if (problem) {
       return context.json({ ok: false, error: problem.error }, problem.status);
     }
-    const fresh = plugins.getHttpRoute(id, context.req.method, subPath);
+    const fresh = await plugins.getHttpRoute(id, context.req.method, subPath);
     if (fresh.outcome !== "found" || fresh.value.auth !== auth) {
       return context.json(
         {
@@ -963,7 +966,7 @@ export function registerPluginRoutes(
         );
       }
     }
-    const lookup = plugins.getRpcHandler(id, method);
+    const lookup = await plugins.getRpcHandler(id, method);
     if (lookup.outcome === "unknown-plugin") {
       return context.json({ ok: false, error: `unknown plugin "${id}"` }, 404);
     }

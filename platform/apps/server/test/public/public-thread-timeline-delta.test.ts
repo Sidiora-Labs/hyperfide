@@ -45,23 +45,30 @@ async function getTimeline(
   return threadTimelineResponseSchema.parse(await readJson(response));
 }
 
-function buildColdLatestRows(
+async function buildColdLatestRows(
   harness: TestAppHarness,
   thread: Thread,
-): TimelineRow[] {
-  const clone = createConnection(harness.deps.db.$client.serialize());
+): Promise<TimelineRow[]> {
+  const clone = await createConnection(
+    harness.deps.db.dialect === "postgresql"
+      ? harness.deps.db.databaseUrl!
+      : harness.deps.db.$client.serialize(),
+  );
   try {
-    return buildRouteTimelinePage({
-      db: clone,
-      eventBudget: harness.deps.config.featureFlags.timelineWindowEventBudget,
-      includeDiagnosticOperations: getAppSettings(clone).showDiagnosticEvents,
-      page: latestTimelinePage(),
-      registry: harness.deps.providerRegistry,
-      thread,
-      variant: "default",
-    }).response.rows;
+    return (
+      await buildRouteTimelinePage({
+        db: clone,
+        eventBudget: harness.deps.config.featureFlags.timelineWindowEventBudget,
+        includeDiagnosticOperations: (await getAppSettings(clone))
+          .showDiagnosticEvents,
+        page: latestTimelinePage(),
+        registry: harness.deps.providerRegistry,
+        thread,
+        variant: "default",
+      })
+    ).response.rows;
   } finally {
-    clone.$client.close();
+    await clone.close();
   }
 }
 
@@ -81,8 +88,8 @@ function assistantText(rows: readonly TimelineRow[]): string | null {
 describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
   it("a full fetch carries no delta and echoes maxSeq", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedEvent(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -100,8 +107,8 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
   it("delta + merge reproduces a fresh full window when rows are appended", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedEvent(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "p1",
@@ -110,7 +117,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "p1",
@@ -130,7 +137,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
       const before = await getTimeline(harness, thread.id);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "p1",
@@ -156,20 +163,20 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
   it("delta + merge reproduces a fresh full window when a turn completes (collapse)", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "p1",
         scope: turnScope("turn-1"),
       } as const;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 1,
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 2,
         type: "item/completed",
@@ -183,7 +190,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
           },
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 3,
         type: "item/completed",
@@ -194,7 +201,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
       const before = await getTimeline(harness, thread.id);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 4,
         type: "turn/completed",
@@ -217,7 +224,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
   it("two interleaved clients both receive deltas (snapshot ring per params key)", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         threadId: thread.id,
         environmentId: environment.id,
@@ -225,9 +232,9 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         scope: turnScope("turn-1"),
       } as const;
       let sequence = 0;
-      const appendMessage = (text: string): void => {
+      const appendMessage = async (text: string): Promise<void> => {
         sequence += 1;
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...turn,
           sequence,
           type: "item/completed",
@@ -237,21 +244,21 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         });
       };
       sequence += 1;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence,
         type: "turn/started",
         data: {},
       });
-      appendMessage("one");
+      await appendMessage("one");
 
       const desktop = await getTimeline(harness, thread.id);
       const phone = desktop;
 
-      appendMessage("two");
+      await appendMessage("two");
       const desktopAt3 = await getTimeline(harness, thread.id, desktop.maxSeq);
       expect(desktopAt3.delta).toBeDefined();
-      appendMessage("three");
+      await appendMessage("three");
       const desktopAt4 = await getTimeline(
         harness,
         thread.id,
@@ -268,7 +275,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
       expect(merged).toEqual(fresh.rows);
 
       for (const text of ["four", "five", "six", "seven"]) {
-        appendMessage(text);
+        await appendMessage(text);
         const polled = await getTimeline(harness, thread.id, sequence - 1);
         expect(polled.delta).toBeDefined();
       }
@@ -280,7 +287,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
   it("streaming deltas: delta + merge equals a cold window on invisible and visible ticks", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
       const turn = {
@@ -289,9 +296,9 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         providerThreadId: "p1",
         scope: turnScope("turn-1"),
       } as const;
-      seedThreadRuntimeState(harness.deps, turn);
-      seedTurnStarted(harness.deps, { ...turn, turnId: "turn-1" });
-      seedEvent(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, turn);
+      await seedTurnStarted(harness.deps, { ...turn, turnId: "turn-1" });
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 4,
         type: "turn/input/accepted",
@@ -299,7 +306,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
           clientRequestId: encodeClientTurnRequestIdNumber({ value: 1 }),
         },
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 5,
         type: "item/started",
@@ -317,7 +324,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         "Sugar",
       ]) {
         streamed += chunk;
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...turn,
           sequence: before.maxSeq + 1,
           type: "item/agentMessage/delta",
@@ -328,7 +335,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         expect(tick.maxSeq).toBe(before.maxSeq + 1);
         expect(tick.delta).toBeDefined();
         const merged = applyTimelineDelta(before.rows, tick.delta!) ?? [];
-        expect(merged).toEqual(buildColdLatestRows(harness, thread));
+        expect(merged).toEqual(await buildColdLatestRows(harness, thread));
         expect(assistantText(merged) ?? "").toBe(
           streamed.slice(0, streamed.lastIndexOf("\n") + 1),
         );
@@ -342,8 +349,8 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
   it("answers every viewer of a compacted thread with a full window at the unchanged sequence", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedEvent(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -354,12 +361,12 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
       const before = await getTimeline(harness, thread.id);
       expect(JSON.stringify(before.rows)).toContain("before compaction");
 
-      harness.deps.db.$client
+      await harness.deps.db.$client
         .prepare(
           "UPDATE events SET data = ? WHERE thread_id = ? AND sequence = 1",
         )
         .run(JSON.stringify({ text: "after compaction" }), thread.id);
-      harness.deps.hub.notifyThread(thread.id, ["history-compacted"]);
+      await harness.deps.hub.notifyThread(thread.id, ["history-compacted"]);
 
       const firstViewer = await getTimeline(harness, thread.id, before.maxSeq);
       const secondViewer = await getTimeline(harness, thread.id, before.maxSeq);
@@ -369,7 +376,7 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
         expect(JSON.stringify(after.rows)).toContain("after compaction");
       }
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 2,
@@ -386,8 +393,8 @@ describe("GET /threads/:id/timeline?afterSequence (row-patch delta)", () => {
 
   it("a no-op delta (no new events) returns an empty patch and merges to the same rows", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedEvent(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,

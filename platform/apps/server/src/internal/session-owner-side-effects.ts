@@ -89,26 +89,26 @@ export async function handleHostSessionOpened(
       } else {
         deps.hub.closeDaemonSession(args.previousSession.id, "replaced");
       }
-      deps.terminalSessions.handleDaemonSessionClosed({
+      await deps.terminalSessions.handleDaemonSessionClosed({
         sessionId: args.previousSession.id,
       });
     }
 
     if (!sameDaemonInstance) {
-      interruptEnvironmentProvisioningForHost(deps, {
+      await interruptEnvironmentProvisioningForHost(deps, {
         hostId: args.hostId,
         reason: DAEMON_RESTARTED_ENVIRONMENT_PROVISIONING_REASON,
       });
-      interruptPendingInteractionsForHostThreads(deps, {
+      await interruptPendingInteractionsForHostThreads(deps, {
         hostId: args.hostId,
         reason: DAEMON_RESTARTED_PENDING_INTERACTION_REASON,
       });
-      interruptActiveThreadsForHost(deps, {
+      await interruptActiveThreadsForHost(deps, {
         includeStopping: false,
         hostId: args.hostId,
         reason: "host-daemon-restarted",
       });
-      settleDanglingBackgroundTasks(deps, { hostId: args.hostId });
+      await settleDanglingBackgroundTasks(deps, { hostId: args.hostId });
     }
   }
 
@@ -120,47 +120,47 @@ export async function handleHostSessionOpened(
   });
 }
 
-export function handleDaemonSocketClosed(
+export async function handleDaemonSocketClosed(
   deps: DaemonSocketClosedDeps,
   args: HandleDaemonSocketClosedArgs,
-): void {
+): Promise<void> {
   deps.logger.info({ sessionId: args.sessionId }, "Daemon WebSocket closed");
-  handleDaemonSessionLost(deps, {
+  await handleDaemonSessionLost(deps, {
     reason: "daemon-disconnect",
     sessionId: args.sessionId,
   });
 }
 
-export function handleDaemonSocketOpened(
+export async function handleDaemonSocketOpened(
   deps: Pick<AppDeps, "db" | "hub" | "providerRegistry">,
   args: { hostId: string },
-): void {
-  notifyHostThreadRuntimeStatusChanged(deps, args.hostId);
+): Promise<void> {
+  await notifyHostThreadRuntimeStatusChanged(deps, args.hostId);
 }
 
-export function handleDaemonSessionSilent(
+export async function handleDaemonSessionSilent(
   deps: DaemonSocketClosedDeps,
   args: HandleDaemonSocketClosedArgs,
-): void {
+): Promise<void> {
   deps.logger.warn(
     { leaseTimeoutMs: LEASE_TIMEOUT_MS, sessionId: args.sessionId },
     "Daemon sent nothing within its lease; closing its socket",
   );
   deps.hub.closeDaemonSession(args.sessionId, "expired");
-  handleDaemonSessionLost(deps, {
+  await handleDaemonSessionLost(deps, {
     reason: "expired",
     sessionId: args.sessionId,
   });
 }
 
-function handleDaemonSessionLost(
+async function handleDaemonSessionLost(
   deps: DaemonSocketClosedDeps,
   args: HandleDaemonSessionLostArgs,
-): void {
+): Promise<void> {
   deps.hub.unregisterDaemon(args.sessionId);
   deps.sharedPorts.clearHostConnectCapability(args.sessionId);
 
-  const session = deps.db
+  const session = await deps.db
     .select()
     .from(hostDaemonSessions)
     .where(eq(hostDaemonSessions.id, args.sessionId))
@@ -168,34 +168,34 @@ function handleDaemonSessionLost(
   if (!session || session.status !== "active") {
     return;
   }
-  deps.terminalSessions.handleDaemonSessionClosed({
+  await deps.terminalSessions.handleDaemonSessionClosed({
     sessionId: args.sessionId,
   });
 
-  closeSession(deps.db, deps.hub, args.sessionId, args.reason);
+  await closeSession(deps.db, deps.hub, args.sessionId, args.reason);
 
-  notifyHostThreadRuntimeStatusChanged(deps, session.hostId);
+  await notifyHostThreadRuntimeStatusChanged(deps, session.hostId);
   if (args.reason === "expired") {
     return;
   }
   deps.hub.scheduleDaemonDisconnect(
     args.sessionId,
     HOST_RECONNECT_GRACE_MS,
-    () => {
+    async () => {
       if (deps.hub.hasDaemonForHost(session.hostId)) {
         return;
       }
-      deps.hub.notifyHost(session.hostId, ["host-disconnected"]);
-      notifyHostThreadRuntimeStatusChanged(deps, session.hostId);
+      await deps.hub.notifyHost(session.hostId, ["host-disconnected"]);
+      await notifyHostThreadRuntimeStatusChanged(deps, session.hostId);
     },
   );
 }
 
-export function handleHostRemoved(
+export async function handleHostRemoved(
   deps: Omit<DaemonSocketClosedDeps, "sharedPorts">,
   args: HandleHostRemovedArgs,
-): void {
-  const session = deps.db
+): Promise<void> {
+  const session = await deps.db
     .select()
     .from(hostDaemonSessions)
     .where(eq(hostDaemonSessions.id, args.sessionId))
@@ -208,54 +208,56 @@ export function handleHostRemoved(
     return;
   }
 
-  closeSession(deps.db, deps.hub, args.sessionId, "expired");
+  await closeSession(deps.db, deps.hub, args.sessionId, "expired");
   deps.hub.closeDaemonSession(args.sessionId, "expired");
-  deps.terminalSessions.handleDaemonSessionClosed({
+  await deps.terminalSessions.handleDaemonSessionClosed({
     sessionId: args.sessionId,
   });
-  settleRemovedHostWork(deps, { hostId: args.hostId });
+  await settleRemovedHostWork(deps, { hostId: args.hostId });
 }
 
-export function settleRemovedHostWork(
+export async function settleRemovedHostWork(
   deps: Omit<DaemonSocketClosedDeps, "sharedPorts">,
   args: { hostId: string },
-): void {
-  interruptPendingInteractionsForHostThreads(deps, {
+): Promise<void> {
+  await interruptPendingInteractionsForHostThreads(deps, {
     hostId: args.hostId,
     reason: "The machine was removed",
   });
-  interruptEnvironmentProvisioningForHost(deps, {
+  await interruptEnvironmentProvisioningForHost(deps, {
     hostId: args.hostId,
     reason: DAEMON_RESTARTED_ENVIRONMENT_PROVISIONING_REASON,
   });
-  interruptActiveThreadsForHost(deps, {
+  await interruptActiveThreadsForHost(deps, {
     includeStopping: true,
     hostId: args.hostId,
     reason: "host-removed",
   });
-  settleDanglingBackgroundTasks(deps, { hostId: args.hostId });
-  notifyHostThreadRuntimeStatusChanged(deps, args.hostId);
+  await settleDanglingBackgroundTasks(deps, { hostId: args.hostId });
+  await notifyHostThreadRuntimeStatusChanged(deps, args.hostId);
 }
 
 interface DisconnectImportedDaemonSessionsArgs {
   sessions: ReadonlyArray<{ hostId: string; id: string }>;
 }
 
-export function disconnectImportedDaemonSessions(
+export async function disconnectImportedDaemonSessions(
   deps: LostHostWorkDeps,
   args: DisconnectImportedDaemonSessionsArgs,
-): void {
+): Promise<void> {
   if (args.sessions.length === 0) {
     return;
   }
   const hostIds = new Set<string>();
   for (const session of args.sessions) {
-    deps.terminalSessions.handleDaemonSessionClosed({ sessionId: session.id });
-    closeSession(deps.db, deps.hub, session.id, "daemon-disconnect");
+    await deps.terminalSessions.handleDaemonSessionClosed({
+      sessionId: session.id,
+    });
+    await closeSession(deps.db, deps.hub, session.id, "daemon-disconnect");
     hostIds.add(session.hostId);
   }
   for (const hostId of hostIds) {
-    settleLostHostWork(deps, { hostId });
+    await settleLostHostWork(deps, { hostId });
   }
   deps.logger.info(
     { hosts: hostIds.size, sessions: args.sessions.length },
@@ -263,38 +265,41 @@ export function disconnectImportedDaemonSessions(
   );
 }
 
-function settleLostHostWork(
+async function settleLostHostWork(
   deps: LostHostWorkDeps,
   args: { hostId: string },
-): void {
-  interruptPendingInteractionsForHostThreads(deps, {
+): Promise<void> {
+  await interruptPendingInteractionsForHostThreads(deps, {
     hostId: args.hostId,
     reason: DAEMON_DISCONNECTED_PENDING_INTERACTION_REASON,
   });
-  settleDanglingBackgroundTasks(deps, { hostId: args.hostId });
-  notifyHostThreadRuntimeStatusChanged(deps, args.hostId);
-  interruptActiveThreadsForHost(deps, {
+  await settleDanglingBackgroundTasks(deps, { hostId: args.hostId });
+  await notifyHostThreadRuntimeStatusChanged(deps, args.hostId);
+  await interruptActiveThreadsForHost(deps, {
     includeStopping: false,
     hostId: args.hostId,
     reason: "host-daemon-restarted",
     cause: "host-connection-lost",
   });
-  interruptEnvironmentProvisioningForHost(deps, {
+  await interruptEnvironmentProvisioningForHost(deps, {
     hostId: args.hostId,
     reason: DAEMON_DISCONNECTED_ENVIRONMENT_PROVISIONING_REASON,
   });
 }
 
-function notifyHostThreadRuntimeStatusChanged(
+async function notifyHostThreadRuntimeStatusChanged(
   deps: Pick<AppDeps, "db" | "hub" | "providerRegistry">,
   hostId: string,
-): void {
-  const metadataByThreadId = buildThreadStatusChangeMetadataByThreadId(deps, {
-    environmentHostId: hostId,
-    threads: listActiveHostThreads(deps.db, { hostId }),
-  });
-  for (const threadId of listHostThreadIds(deps.db, { hostId })) {
-    deps.hub.notifyThread(
+): Promise<void> {
+  const metadataByThreadId = await buildThreadStatusChangeMetadataByThreadId(
+    deps,
+    {
+      environmentHostId: hostId,
+      threads: await listActiveHostThreads(deps.db, { hostId }),
+    },
+  );
+  for (const threadId of await listHostThreadIds(deps.db, { hostId })) {
+    await deps.hub.notifyThread(
       threadId,
       ["status-changed"],
       metadataByThreadId.get(threadId),
@@ -302,12 +307,12 @@ function notifyHostThreadRuntimeStatusChanged(
   }
 }
 
-function interruptPendingInteractionsForHostThreads(
+async function interruptPendingInteractionsForHostThreads(
   deps: Pick<AppDeps, "db" | "pendingInteractions">,
   args: { hostId: string; reason: string },
-): void {
-  deps.pendingInteractions.interruptPendingInteractionsForThreadIds({
-    threadIds: listHostThreadIds(deps.db, { hostId: args.hostId }),
+): Promise<void> {
+  await deps.pendingInteractions.interruptPendingInteractionsForThreadIds({
+    threadIds: await listHostThreadIds(deps.db, { hostId: args.hostId }),
     reason: args.reason,
   });
 }

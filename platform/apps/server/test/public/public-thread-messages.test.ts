@@ -25,11 +25,11 @@ interface SeedRequestArgs {
   target: TurnRequestTarget;
 }
 
-function seedRequest(
+async function seedRequest(
   deps: Pick<AppDeps, "db" | "hub">,
   args: SeedRequestArgs,
-): void {
-  seedEvent(deps, {
+): Promise<void> {
+  await seedEvent(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     sequence: args.sequence,
@@ -55,7 +55,7 @@ function seedRequest(
   });
 }
 
-function seedTurnEvent(
+async function seedTurnEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     threadId: string;
@@ -64,8 +64,8 @@ function seedTurnEvent(
     type: "turn/started" | "turn/input/accepted" | "item/completed";
     data: Record<string, unknown>;
   },
-): void {
-  seedEvent(deps, {
+): Promise<void> {
+  await seedEvent(deps, {
     threadId: args.threadId,
     environmentId: args.environmentId,
     providerThreadId: "provider-thread-1",
@@ -91,22 +91,27 @@ function collectConversationRows(
   });
 }
 
-function seedSteeredThread(
+async function seedSteeredThread(
   deps: Pick<AppDeps, "db" | "hub">,
   ids: {
     threadId: string;
     environmentId: string;
   },
-): void {
-  seedRequest(deps, {
+): Promise<void> {
+  await seedRequest(deps, {
     ...ids,
     sequence: 1,
     requestId: 101,
     input: [{ type: "text", text: "First question", mentions: [] }],
     target: { kind: "new-turn" },
   });
-  seedTurnEvent(deps, { ...ids, sequence: 2, type: "turn/started", data: {} });
-  seedTurnEvent(deps, {
+  await seedTurnEvent(deps, {
+    ...ids,
+    sequence: 2,
+    type: "turn/started",
+    data: {},
+  });
+  await seedTurnEvent(deps, {
     ...ids,
     sequence: 3,
     type: "turn/input/accepted",
@@ -114,20 +119,20 @@ function seedSteeredThread(
       clientRequestId: encodeClientTurnRequestIdNumber({ value: 101 }),
     },
   });
-  seedTurnEvent(deps, {
+  await seedTurnEvent(deps, {
     ...ids,
     sequence: 4,
     type: "item/completed",
     data: { item: { type: "agentMessage", id: "a-1", text: "Working on it" } },
   });
-  seedRequest(deps, {
+  await seedRequest(deps, {
     ...ids,
     sequence: 5,
     requestId: 102,
     input: [{ type: "text", text: "Also check the tests", mentions: [] }],
     target: { kind: "steer", expectedTurnId: "turn-1" },
   });
-  seedTurnEvent(deps, {
+  await seedTurnEvent(deps, {
     ...ids,
     sequence: 6,
     type: "item/completed",
@@ -141,7 +146,7 @@ function seedSteeredThread(
       },
     },
   });
-  seedTurnEvent(deps, {
+  await seedTurnEvent(deps, {
     ...ids,
     sequence: 7,
     type: "turn/input/accepted",
@@ -149,13 +154,13 @@ function seedSteeredThread(
       clientRequestId: encodeClientTurnRequestIdNumber({ value: 102 }),
     },
   });
-  seedTurnEvent(deps, {
+  await seedTurnEvent(deps, {
     ...ids,
     sequence: 8,
     type: "item/completed",
     data: { item: { type: "agentMessage", id: "a-2", text: "Done" } },
   });
-  seedRequest(deps, {
+  await seedRequest(deps, {
     ...ids,
     sequence: 9,
     requestId: 103,
@@ -174,8 +179,8 @@ function seedSteeredThread(
 describe("thread messages", () => {
   it("resolves every timeline conversation row by its message seq", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedSteeredThread(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedSteeredThread(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
       });
@@ -222,8 +227,8 @@ describe("thread messages", () => {
 
   it("returns neighbouring messages in timeline order", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedSteeredThread(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedSteeredThread(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
       });
@@ -251,8 +256,8 @@ describe("thread messages", () => {
 
   it("reports sequences that hold no visible message as not found", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
-      seedSteeredThread(harness.deps, {
+      const { environment, thread } = await seedThreadFixture(harness);
+      await seedSteeredThread(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
       });

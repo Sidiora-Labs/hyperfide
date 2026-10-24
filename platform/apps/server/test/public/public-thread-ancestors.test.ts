@@ -29,26 +29,26 @@ async function ancestorsOf(harness: TestAppHarness, threadIds: string[]) {
   );
 }
 
-function seedTree(harness: TestAppHarness) {
-  const { host } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, {
+async function seedTree(harness: TestAppHarness) {
+  const { host } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
     path: "/tmp/public-thread-ancestors",
   });
-  const seed = (parentThreadId: string | null = null) =>
-    seedThread(harness.deps, { projectId: project.id, parentThreadId });
-  const root = seed();
-  const child = seed(root.id);
-  const grandchild = seed(child.id);
-  const other = seed();
+  const seed = async (parentThreadId: string | null = null) =>
+    await seedThread(harness.deps, { projectId: project.id, parentThreadId });
+  const root = await seed();
+  const child = await seed(root.id);
+  const grandchild = await seed(child.id);
+  const other = await seed();
   return { root, child, grandchild, other };
 }
 
 describe("POST /threads/ancestors", () => {
   it("returns each known thread's ancestors from the parent up, once per id", async () => {
     await withTestHarness(async (harness) => {
-      const { root, child, grandchild, other } = seedTree(harness);
-      markThreadDeleted(harness.db, harness.hub, { threadId: root.id });
+      const { root, child, grandchild, other } = await seedTree(harness);
+      await markThreadDeleted(harness.db, harness.hub, { threadId: root.id });
 
       const { body } = await listAncestors(harness, {
         threadIds: [grandchild.id, other.id, "thr_missing", grandchild.id],
@@ -64,7 +64,7 @@ describe("POST /threads/ancestors", () => {
 
   it("follows a thread nested under a new parent and children released by an archived parent", async () => {
     await withTestHarness(async (harness) => {
-      const { root, child, grandchild, other } = seedTree(harness);
+      const { root, child, grandchild, other } = await seedTree(harness);
 
       const nest = await harness.app.request(`/api/v1/threads/${child.id}`, {
         method: "PATCH",
@@ -76,7 +76,9 @@ describe("POST /threads/ancestors", () => {
         [grandchild.id]: [child.id, other.id],
       });
 
-      archiveThreadAndReleaseChildren(harness.deps, { threadId: other.id });
+      await archiveThreadAndReleaseChildren(harness.deps, {
+        threadId: other.id,
+      });
       await expect(
         ancestorsOf(harness, [child.id, grandchild.id, root.id]),
       ).resolves.toEqual({

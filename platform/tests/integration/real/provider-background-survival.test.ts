@@ -94,7 +94,7 @@ describe("real Claude background process integration", () => {
           text: "Reply exactly FOLLOWUP. Do not use any tools.",
         });
         await waitForCondition(
-          () => pathExists(markerPath),
+          async () => await pathExists(markerPath),
           45_000,
           "Background command did not write its marker after reconnect",
         );

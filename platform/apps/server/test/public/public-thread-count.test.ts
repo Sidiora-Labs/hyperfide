@@ -19,35 +19,35 @@ async function count(harness: TestAppHarness, query: string) {
 describe("GET /threads/count", () => {
   it("counts and groups without listing, excluding archived threads by default", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-count",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-count-source",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-count-source",
       });
-      const root = seedThread(harness.deps, {
+      const root = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "active",
       });
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         environmentId: environment.id,
         parentThreadId: root.id,
         projectId: project.id,
         status: "active",
       });
-      const archived = seedThread(harness.deps, {
+      const archived = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "idle",
       });
-      archiveThread(harness.db, harness.deps.hub, archived.id);
+      await archiveThread(harness.db, harness.deps.hub, archived.id);
 
       expect(await count(harness, "")).toEqual({ total: 2 });
       expect(await count(harness, "?includeArchived=true")).toEqual({

@@ -226,10 +226,10 @@ async function resolveCatalogExecutionDefaults(
   throw lastError;
 }
 
-function resolveForkPoint(
+async function resolveForkPoint(
   deps: Pick<ThreadCreateDeps, "db" | "providerRegistry">,
   args: ResolveForkPointArgs,
-): ThreadForkPoint | null {
+): Promise<ThreadForkPoint | null> {
   if (args.originKind === null || args.sourceThread === null) {
     return null;
   }
@@ -243,31 +243,31 @@ function resolveForkPoint(
   if (sourceEnvironmentId === null) {
     return null;
   }
-  const sourceEnvironment = getEnvironment(deps.db, sourceEnvironmentId);
+  const sourceEnvironment = await getEnvironment(deps.db, sourceEnvironmentId);
   if (sourceEnvironment === null) {
     return null;
   }
-  return resolveThreadForkPoint(deps, {
+  return await resolveThreadForkPoint(deps, {
     sourceSeqEnd: args.sourceSeqEnd,
     sourceThread: args.sourceThread,
   });
 }
 
-function assertForkSourceHost(
+async function assertForkSourceHost(
   deps: Pick<ThreadCreateDeps, "db">,
   args: {
     childHostId: string | null;
     originKind: ThreadOriginKind | null;
     sourceThread: Thread | null;
   },
-): void {
+): Promise<void> {
   if (args.originKind !== "fork" || args.sourceThread === null) {
     return;
   }
   const sourceEnvironment =
     args.sourceThread.environmentId === null
       ? null
-      : getEnvironment(deps.db, args.sourceThread.environmentId);
+      : await getEnvironment(deps.db, args.sourceThread.environmentId);
   if (sourceEnvironment !== null && args.childHostId === null) {
     throw new ApiError(
       400,
@@ -361,14 +361,14 @@ function assertProjectWorkspaceCompatibility(
   }
 }
 
-function requireLiveSourceThread(
+async function requireLiveSourceThread(
   deps: Pick<ThreadCreateDeps, "db">,
   args: {
     projectId: string;
     sourceThreadId: string;
   },
-): Thread {
-  const sourceThread = getThread(deps.db, args.sourceThreadId);
+): Promise<Thread> {
+  const sourceThread = await getThread(deps.db, args.sourceThreadId);
   if (sourceThread === null) {
     throw new ApiError(400, "invalid_request", "sourceThreadId not found");
   }
@@ -424,11 +424,14 @@ async function createPendingThreadAndAttemptFirstDispatch(
   const environment =
     args.environmentId === null
       ? null
-      : getEnvironment(deps.db, args.environmentId);
+      : await getEnvironment(deps.db, args.environmentId);
   if (environment !== null)
-    assertEnvironmentPathAvailable(deps, { ...environment, threadId: null });
+    await assertEnvironmentPathAvailable(deps, {
+      ...environment,
+      threadId: null,
+    });
   if (args.request.sourceThreadId) {
-    requireLiveSourceThread(deps, {
+    await requireLiveSourceThread(deps, {
       projectId: args.request.projectId,
       sourceThreadId: args.request.sourceThreadId,
     });
@@ -442,20 +445,20 @@ async function createPendingThreadAndAttemptFirstDispatch(
     startedOnBehalfOf: args.request.startedOnBehalfOf,
     titleProvided: Boolean(args.request.title),
   };
-  const placementHostId = hostIdForEnvironmentIntent(
+  const placementHostId = await hostIdForEnvironmentIntent(
     deps,
     args.environmentIntent,
   );
   if (placementHostId !== null)
-    requireEnvironmentPlacementHost(deps, placementHostId);
-  const thread = createThreadRecord(deps, {
+    await requireEnvironmentPlacementHost(deps, placementHostId);
+  const thread = await createThreadRecord(deps, {
     request: args.request,
     environmentId: args.environmentId,
     startupContext: JSON.stringify({ kind: "pending", ...startContext }),
   });
   let execution: Awaited<ReturnType<typeof buildExecutionOptions>>;
   try {
-    seedThreadSessionOptionSelections(deps, {
+    await seedThreadSessionOptionSelections(deps, {
       thread,
       selections: args.request.sessionOptions ?? {},
     });
@@ -464,7 +467,7 @@ async function createPendingThreadAndAttemptFirstDispatch(
       args.fork.historyEndSequence !== null &&
       args.request.visibility === "visible"
     ) {
-      copyForkSourceHistory(deps, {
+      await copyForkSourceHistory(deps, {
         fork: thread,
         historyEndSequence: args.fork.historyEndSequence,
         sourceThreadId: args.fork.sourceThreadId,
@@ -472,7 +475,7 @@ async function createPendingThreadAndAttemptFirstDispatch(
     }
     const executionPlanArgs = {
       projectDefaults: args.executionDefaults,
-      hostId: hostIdForEnvironmentIntent(deps, args.environmentIntent),
+      hostId: await hostIdForEnvironmentIntent(deps, args.environmentIntent),
       threadId: thread.id,
     };
     execution = await buildExecutionOptions(
@@ -510,24 +513,24 @@ async function createPendingThreadAndAttemptFirstDispatch(
       deletedAt: Date.now(),
       updatedAt: Date.now(),
     });
-    const deleted = markThreadDeleted(deps.db, deps.hub, {
+    const deleted = await markThreadDeleted(deps.db, deps.hub, {
       threadId: thread.id,
     });
     if (deleted)
-      requestThreadStorageDeletion(
+      await requestThreadStorageDeletion(
         deps,
         deleted,
         deleted.environmentId
-          ? getEnvironment(deps.db, deleted.environmentId)
+          ? await getEnvironment(deps.db, deleted.environmentId)
           : null,
       );
     throw error;
   }
-  rememberProjectExecutionDefaultsForCreate(deps, {
+  await rememberProjectExecutionDefaultsForCreate(deps, {
     execution,
     request: args.request,
   });
-  return getThreadSafe(deps, thread.id);
+  return await getThreadSafe(deps, thread.id);
 }
 
 interface ResolveCreateThreadVisibilityArgs {
@@ -574,7 +577,7 @@ export async function createThreadFromRequest(
     forkSourceEnvironmentId?: string;
   } = {},
 ) {
-  const project = requirePublicProjectForThreadCreate(
+  const project = await requirePublicProjectForThreadCreate(
     deps,
     rawRequestInput.projectId,
   );
@@ -606,7 +609,7 @@ export async function createThreadFromRequest(
   const hierarchyParentThreadId =
     originKind === null ? requestInput.parentThreadId : undefined;
   const parentThread = hierarchyParentThreadId
-    ? assertValidParentThread(deps, {
+    ? await assertValidParentThread(deps, {
         parentThreadId: hierarchyParentThreadId,
       })
     : null;
@@ -625,13 +628,13 @@ export async function createThreadFromRequest(
     );
   }
   const sourceThread = sourceThreadId
-    ? requireLiveSourceThread(deps, {
+    ? await requireLiveSourceThread(deps, {
         projectId: requestInput.projectId,
         sourceThreadId,
       })
     : null;
   if (originKind !== null && sourceThread !== null) {
-    assertValidParentThread(deps, {
+    await assertValidParentThread(deps, {
       parentThreadId: sourceThread.id,
     });
   }
@@ -683,7 +686,7 @@ export async function createThreadFromRequest(
     providerId,
     providerFallbackCandidates,
     requestedModel,
-  } = resolveProjectExecutionDefaultsForCreate(deps, {
+  } = await resolveProjectExecutionDefaultsForCreate(deps, {
     executionInputSources: requestInput.executionInputSources,
     model: requestInput.model,
     parentThread,
@@ -748,7 +751,7 @@ export async function createThreadFromRequest(
   const resolvedEnvironment =
     requestedEnvironment.type === "provider"
       ? null
-      : resolveStableThreadRequestEnvironment(deps, {
+      : await resolveStableThreadRequestEnvironment(deps, {
           allowUnmanagedPersonalProjectReuseEnvironmentId:
             forkSourceEnvironmentId,
           environment: requestedEnvironment,
@@ -762,7 +765,7 @@ export async function createThreadFromRequest(
           ? request.environment.machine.hostId
           : null
         : null;
-  assertForkSourceHost(deps, {
+  await assertForkSourceHost(deps, {
     childHostId,
     originKind: request.originKind ?? null,
     sourceThread,
@@ -775,7 +778,7 @@ export async function createThreadFromRequest(
       ? modelCatalogCwdForResolvedEnvironment(resolvedEnvironment)
       : request.environment.type === "provider" &&
           request.environment.machine?.type === "existing"
-        ? projectCheckoutPathOnHost(
+        ? await projectCheckoutPathOnHost(
             deps,
             request.projectId,
             request.environment.machine.hostId,
@@ -823,10 +826,10 @@ export async function createThreadFromRequest(
     dataDir: deps.config.dataDir,
     input: request.input,
     projectId: request.projectId,
-    hostId: hostIdForEnvironmentIntent(deps, environmentIntent),
+    hostId: await hostIdForEnvironmentIntent(deps, environmentIntent),
   });
 
-  const fork = resolveForkPoint(deps, {
+  const fork = await resolveForkPoint(deps, {
     originKind: request.originKind ?? null,
     providerId: request.providerId,
     sourceSeqEnd: request.sourceSeqEnd,
@@ -862,7 +865,7 @@ export async function createThreadFromRequest(
   });
   const spawnedByWorkingAgent =
     request.senderThreadId !== undefined &&
-    getActiveTurnId(deps, request.senderThreadId) !== null;
+    (await getActiveTurnId(deps, request.senderThreadId)) !== null;
   const telemetryInitiator = resolveTelemetryInitiator({
     origin: request.origin,
     originPluginId: request.originPluginId ?? null,

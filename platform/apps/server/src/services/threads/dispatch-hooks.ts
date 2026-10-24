@@ -258,18 +258,18 @@ export async function decideWithinBox<T>(
  * for every reader so a queue-failure line names the same host record —
  * including its live connection state — that the hook context did.
  */
-export function dispatchEnvironmentAndHost(
+export async function dispatchEnvironmentAndHost(
   deps: Pick<AppDeps, "db" | "hub">,
   environmentId: string | null,
-): { environment: Environment | null; host: Host | null } {
+): Promise<{ environment: Environment | null; host: Host | null }> {
   if (environmentId === null) return { environment: null, host: null };
-  const environment = getEnvironment(deps.db, environmentId);
+  const environment = await getEnvironment(deps.db, environmentId);
   if (environment === null) return { environment: null, host: null };
   // The same DTO `GET /threads/:id?include=host` serves, so a handler reading
   // `host.status` sees the live connection state rather than a stored row.
   return {
-    environment: toEnvironmentResponse(deps.db, environment),
-    host: getNonDestroyedHostWithStatus(deps, environment.hostId),
+    environment: await toEnvironmentResponse(deps.db, environment),
+    host: await getNonDestroyedHostWithStatus(deps, environment.hostId),
   };
 }
 
@@ -341,11 +341,11 @@ function summarizeDispatchProvenance(
  * change what the next one is deciding about, so the pass is a chain of
  * independent decisions on one unchanging fact.
  */
-function buildHookContext(
+async function buildHookContext(
   deps: DispatchHookDeps,
   request: MessageDispatchHookPassRequest,
-): MessageDispatchHookContext {
-  const { environment, host } = dispatchEnvironmentAndHost(
+): Promise<MessageDispatchHookContext> {
+  const { environment, host } = await dispatchEnvironmentAndHost(
     deps,
     request.environmentId,
   );
@@ -364,7 +364,7 @@ function buildHookContext(
       host ??
       (request.intendedHostId === null
         ? null
-        : getNonDestroyedHostWithStatus(deps, request.intendedHostId)),
+        : await getNonDestroyedHostWithStatus(deps, request.intendedHostId)),
     environmentIntent: request.environmentIntent,
     input: {
       blocks: [...request.input],
@@ -403,16 +403,16 @@ export async function runMessageDispatchHookPass(
     return { kind: "proceed" };
   }
 
-  return withEvaluationLock(async () => {
-    const context = buildHookContext(deps, request);
+  return await withEvaluationLock(async () => {
+    const context = await buildHookContext(deps, request);
     const waits: MessageDispatchWaitDecision[] = [];
 
     for (const hook of hooks) {
       const invocation = await provider.invokeHook(
         hook.pluginId,
         "message.dispatch hook",
-        () =>
-          decideWithinBox(
+        async () =>
+          await decideWithinBox(
             async () => hook.handler(context),
             provider.decisionTimeoutMs,
           ),

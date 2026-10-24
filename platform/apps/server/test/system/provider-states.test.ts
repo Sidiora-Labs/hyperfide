@@ -47,10 +47,10 @@ function healthForInstalledOnlyProvider(
 describe("getProviderStates", () => {
   it("reports paused readiness without probing a suspended host", async () => {
     await withTestHarness(async (harness) => {
-      const host = seedHost(harness.deps, {
+      const host = await seedHost(harness.deps, {
         id: "host-provider-states-suspended",
       });
-      updateHost(harness.db, harness.hub, host.id, {
+      await updateHost(harness.db, harness.hub, host.id, {
         phase: "suspended",
         suspendedAt: 123,
       });
@@ -100,8 +100,8 @@ describe("getProviderStates", () => {
             : null,
       });
       try {
-        const { host, session } = seedHostSession(harness.deps);
-        registerHostRpcResponder(harness, {
+        const { host, session } = await seedHostSession(harness.deps);
+        await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle: (request) => {
@@ -148,8 +148,8 @@ describe("getProviderStates", () => {
 
   it("asks each provider bridge and preserves model-picker order", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      registerHostRpcResponder(harness, {
+      const { host, session } = await seedHostSession(harness.deps);
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -219,8 +219,8 @@ describe("getProviderStates", () => {
           },
         }),
       );
-      const { host, session } = seedHostSession(harness.deps);
-      const responder = registerHostRpcResponder(harness, {
+      const { host, session } = await seedHostSession(harness.deps);
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -264,25 +264,25 @@ describe("getProviderStates", () => {
 
   it("resolves a reused environment and its cwd to the environment host", async () => {
     await withTestHarness(async (harness) => {
-      const primary = seedHostSession(harness.deps, {
+      const primary = await seedHostSession(harness.deps, {
         id: "host-primary",
         name: "Primary",
       });
-      const remote = seedHostSession(harness.deps, {
+      const remote = await seedHostSession(harness.deps, {
         id: "host-remote",
         name: "Remote",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: remote.host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: remote.host.id,
         projectId: project.id,
       });
       let primaryCalls = 0;
       const healthCwds: Array<string | undefined> = [];
 
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: primary.host.id,
         sessionId: primary.session.id,
         handle: () => {
@@ -290,7 +290,7 @@ describe("getProviderStates", () => {
           throw new Error("Primary host should not be queried");
         },
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: remote.host.id,
         sessionId: remote.session.id,
         handle: (request) => {

@@ -32,14 +32,16 @@ interface StoredTurnCompletion {
   sequence: number;
 }
 
-function readTurnCompletion(
+async function readTurnCompletion(
   deps: Pick<AppDeps, "db">,
   args: { threadId: string; turnId: string },
-): StoredTurnCompletion | null {
-  const row = listStoredTurnCompletedRowsByTurnIds(deps.db, {
-    threadId: args.threadId,
-    turnIds: [args.turnId],
-  }).at(-1);
+): Promise<StoredTurnCompletion | null> {
+  const row = (
+    await listStoredTurnCompletedRowsByTurnIds(deps.db, {
+      threadId: args.threadId,
+      turnIds: [args.turnId],
+    })
+  ).at(-1);
   if (row === undefined) {
     return null;
   }
@@ -50,14 +52,14 @@ function readTurnCompletion(
   return { event, sequence: row.sequence };
 }
 
-function classifyCompletionSession(
+async function classifyCompletionSession(
   deps: Pick<AppDeps, "db">,
   args: { completion: StoredTurnCompletion; sourceThreadId: string },
-): "owned" | "foreign" | "ambiguous" {
+): Promise<"owned" | "foreign" | "ambiguous"> {
   if (args.completion.event.providerThreadId === null) {
     return "foreign";
   }
-  const claim = classifyStoredProviderThreadClaim(deps.db, {
+  const claim = await classifyStoredProviderThreadClaim(deps.db, {
     providerThreadId: args.completion.event.providerThreadId,
     threadId: args.sourceThreadId,
   });
@@ -86,11 +88,11 @@ function resolveCheckpointForkDescriptor(args: {
   };
 }
 
-function resolveAnchoredForkPoint(
+async function resolveAnchoredForkPoint(
   deps: Pick<AppDeps, "db" | "providerRegistry">,
   args: { sourceSeqEnd: number; sourceThread: Thread },
-): ThreadForkPoint {
-  const anchor = findLastRootStoredTurnStarted(deps.db, {
+): Promise<ThreadForkPoint> {
+  const anchor = await findLastRootStoredTurnStarted(deps.db, {
     atOrBeforeSequence: args.sourceSeqEnd,
     threadId: args.sourceThread.id,
   });
@@ -99,7 +101,7 @@ function resolveAnchoredForkPoint(
       `Cannot fork at sequence ${args.sourceSeqEnd}: no turn has started at or before it`,
     );
   }
-  const completion = readTurnCompletion(deps, {
+  const completion = await readTurnCompletion(deps, {
     threadId: args.sourceThread.id,
     turnId: anchor.turnId,
   });
@@ -113,7 +115,7 @@ function resolveAnchoredForkPoint(
       `Cannot fork at sequence ${args.sourceSeqEnd}: the turn containing it has no provider session`,
     );
   }
-  const completionSession = classifyCompletionSession(deps, {
+  const completionSession = await classifyCompletionSession(deps, {
     completion,
     sourceThreadId: args.sourceThread.id,
   });
@@ -127,7 +129,7 @@ function resolveAnchoredForkPoint(
       `Cannot fork at sequence ${args.sourceSeqEnd}: the turn containing it is recorded under a provider session another thread announced at the same moment`,
     );
   }
-  const latestRootTurn = findLastRootStoredTurnStarted(deps.db, {
+  const latestRootTurn = await findLastRootStoredTurnStarted(deps.db, {
     threadId: args.sourceThread.id,
   });
   const anchorIsTip = latestRootTurn?.turnId === anchor.turnId;
@@ -164,17 +166,20 @@ function resolveAnchoredForkPoint(
   };
 }
 
-export function resolveThreadForkPoint(
+export async function resolveThreadForkPoint(
   deps: Pick<AppDeps, "db" | "providerRegistry">,
   args: { sourceSeqEnd: number | undefined; sourceThread: Thread },
-): ThreadForkPoint | null {
+): Promise<ThreadForkPoint | null> {
   if (args.sourceSeqEnd !== undefined) {
-    return resolveAnchoredForkPoint(deps, {
+    return await resolveAnchoredForkPoint(deps, {
       sourceSeqEnd: args.sourceSeqEnd,
       sourceThread: args.sourceThread,
     });
   }
-  const sourceSession = getStoredProviderSession(deps.db, args.sourceThread.id);
+  const sourceSession = await getStoredProviderSession(
+    deps.db,
+    args.sourceThread.id,
+  );
   if (sourceSession.kind === "none") {
     return null;
   }
@@ -194,7 +199,7 @@ export function resolveThreadForkPoint(
     );
   }
   const sourceProviderThreadId = sourceSession.providerThreadId;
-  const lastCompletedTurn = findLastCompletedRootStoredTurn(deps.db, {
+  const lastCompletedTurn = await findLastCompletedRootStoredTurn(deps.db, {
     threadId: args.sourceThread.id,
   });
   const tip: ThreadForkPoint = {
@@ -208,22 +213,22 @@ export function resolveThreadForkPoint(
   ) {
     return tip;
   }
-  const latestRootTurn = findLastRootStoredTurnStarted(deps.db, {
+  const latestRootTurn = await findLastRootStoredTurnStarted(deps.db, {
     threadId: args.sourceThread.id,
   });
   if (latestRootTurn?.turnId === lastCompletedTurn.turnId) {
     return tip;
   }
-  const completion = readTurnCompletion(deps, {
+  const completion = await readTurnCompletion(deps, {
     threadId: args.sourceThread.id,
     turnId: lastCompletedTurn.turnId,
   });
   const descriptor =
     completion === null ||
-    classifyCompletionSession(deps, {
+    (await classifyCompletionSession(deps, {
       completion,
       sourceThreadId: args.sourceThread.id,
-    }) !== "owned"
+    })) !== "owned"
       ? null
       : resolveCheckpointForkDescriptor({
           completion,
@@ -259,11 +264,11 @@ function parseAcceptedClientRequestId(row: StoredEventRow): string {
   return event.clientRequestId;
 }
 
-function selectInheritedForkEventRows(
+async function selectInheritedForkEventRows(
   deps: Pick<AppDeps, "db">,
   args: { historyEndSequence: number; sourceThreadId: string },
-): StoredEventRow[] {
-  const rows = listStoredEventRows(deps.db, {
+): Promise<StoredEventRow[]> {
+  const rows = await listStoredEventRows(deps.db, {
     beforeSequence: args.historyEndSequence + 1,
     threadId: args.sourceThreadId,
     types: INHERITED_EVENT_TYPES,
@@ -290,32 +295,34 @@ function selectInheritedForkEventRows(
   });
 }
 
-export function copyForkSourceHistory(
+export async function copyForkSourceHistory(
   deps: Pick<AppDeps, "db" | "hub">,
   args: {
     fork: Pick<Thread, "environmentId" | "id">;
     historyEndSequence: number;
     sourceThreadId: string;
   },
-): void {
-  const rows = selectInheritedForkEventRows(deps, {
-    historyEndSequence: args.historyEndSequence,
-    sourceThreadId: args.sourceThreadId,
-  }).map((row) => ({ ...row, providerThreadId: null }));
+): Promise<void> {
+  const rows = (
+    await selectInheritedForkEventRows(deps, {
+      historyEndSequence: args.historyEndSequence,
+      sourceThreadId: args.sourceThreadId,
+    })
+  ).map((row) => ({ ...row, providerThreadId: null }));
   if (rows.length === 0) {
     return;
   }
-  deps.db.transaction(
-    (tx) =>
-      copyStoredThreadEventsInTransaction(tx, {
+  await deps.db.transaction(
+    async (tx) =>
+      await copyStoredThreadEventsInTransaction(tx, {
         rows,
         targetEnvironmentId: args.fork.environmentId,
         targetThreadId: args.fork.id,
       }),
     { behavior: "immediate" },
   );
-  deps.hub.notifyThread(args.fork.id, ["events-appended"], {
-    timelineSequence: getLatestThreadSequence(deps.db, {
+  await deps.hub.notifyThread(args.fork.id, ["events-appended"], {
+    timelineSequence: await getLatestThreadSequence(deps.db, {
       threadId: args.fork.id,
     }),
     eventTypes: [...new Set(rows.map((row) => row.type))],

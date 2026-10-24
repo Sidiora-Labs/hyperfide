@@ -11,19 +11,19 @@ export class HostEnvironmentSync {
       logger: Pick<AppDeps["logger"], "warn">;
     },
   ) {
-    deps.hub.onChangedMessage((message) => {
+    deps.hub.onChangedMessage(async (message) => {
       if (
         message.entity === "system" &&
         message.changes.includes("config-changed")
       ) {
         for (const hostId of deps.hub.listConnectedHostIds())
-          this.refresh(hostId);
+          await this.refresh(hostId);
       } else if (
         message.entity === "host" &&
         message.id &&
         message.changes.includes("host-connected")
       ) {
-        this.refresh(message.id);
+        await this.refresh(message.id);
       }
     });
   }

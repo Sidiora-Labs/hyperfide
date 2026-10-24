@@ -181,7 +181,24 @@ export interface PluginKvStorage {
   list(prefix?: string): Promise<string[]>;
 }
 
+export interface PluginAsyncDatabase {
+  readonly dialect: "sqlite" | "postgresql";
+  query<T = Record<string, unknown>>(
+    sql: string,
+    parameters?: readonly unknown[],
+  ): Promise<T[]>;
+  execute(
+    sql: string,
+    parameters?: readonly unknown[],
+  ): Promise<{ changes: number }>;
+  transaction<T>(work: (db: PluginAsyncDatabase) => Promise<T>): Promise<T>;
+  migrate(statements: readonly string[]): Promise<void>;
+  close(): Promise<void>;
+}
+
 export interface PluginStorage {
+  /** Portable, asynchronous database using the server storage dialect. */
+  asyncDatabase(): Promise<PluginAsyncDatabase>;
   /** Namespaced JSON key-value rows in hyperfide.db; values ≤256KB each. */
   kv: PluginKvStorage;
   /**
@@ -939,7 +956,7 @@ export interface PluginBackground {
    * plugin is loaded. Failures land in last_status/last_error, visible in
    * `hyperfide-platform plugin list`.
    */
-  schedule(name: string, cron: string, fn: () => void | Promise<void>): void;
+  schedule(name: string, cron: string, fn: () => unknown): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -2090,7 +2107,10 @@ export interface PluginHosts {
    * credential is rejected. Tunnel identity is deliberately not accepted
    * here: it is owned by the daemon's trusted enrollment.
    */
-  declareSharedPorts(hostId: string, ports: readonly number[]): void;
+  declareSharedPorts(
+    hostId: string,
+    ports: readonly number[],
+  ): void | Promise<void>;
 
   /**
    * Internal to hyperfide's own connect plugins. Do not use: it is not part of the
@@ -2251,7 +2271,7 @@ export interface HyperfidePluginApi {
    * Register cleanup to run on reload/disable/shutdown. Hooks run LIFO.
    * The sanctioned place to clear timers and close connections.
    */
-  onDispose(hook: () => void | Promise<void>): void;
+  onDispose(hook: () => unknown): void;
   /**
    * Run a handler once, right after this plugin is installed and its server
    * entry has loaded: for example to pick its own sidebar slots with
@@ -2261,5 +2281,5 @@ export interface HyperfidePluginApi {
    * handler that throws is logged and the install still succeeds; the
    * install waits at most 30 seconds for handlers to finish.
    */
-  onInstall(handler: () => void | Promise<void>): void;
+  onInstall(handler: () => unknown): void;
 }

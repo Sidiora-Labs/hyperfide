@@ -157,8 +157,8 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const startedAt = Date.now();
   const db = createConnection(databasePath);
   try {
-    migrate(db);
-    const result = seedPerfFixture(db, {
+    await migrate(db);
+    const result = await seedPerfFixture(db, {
       hostId,
       workspacesRootPath: join(dataDir, "seed-workspaces"),
       projectCount: args.projectCount,
@@ -195,7 +195,7 @@ async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
     );
     process.stdout.write("\n");
   } finally {
-    db.$client.close();
+    await db.close();
   }
 }
 

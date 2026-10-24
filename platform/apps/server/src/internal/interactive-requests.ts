@@ -107,11 +107,11 @@ export function buildChildThreadBlockerSummary(
   );
 }
 
-function requestChildThreadNeedsAttentionNotification(
+async function requestChildThreadNeedsAttentionNotification(
   deps: AppDeps,
   args: RequestChildThreadNeedsAttentionNotificationArgs,
-): void {
-  const childThread = getThread(deps.db, args.childThreadId);
+): Promise<void> {
+  const childThread = await getThread(deps.db, args.childThreadId);
   if (
     !childThread ||
     !isParentNotifiableChildThread(childThread, "needs-attention")
@@ -128,8 +128,8 @@ function requestChildThreadNeedsAttentionNotification(
     },
     logger: deps.logger,
     name: "Child thread needs-attention notification",
-    work: () =>
-      queueChildThreadNeedsAttentionNotificationBestEffort(deps, {
+    work: async () =>
+      await queueChildThreadNeedsAttentionNotificationBestEffort(deps, {
         blockerSummary: args.blockerSummary,
         childThread,
         parentThreadId,
@@ -149,13 +149,13 @@ export function registerInternalInteractiveRequestRoutes(
     "/session/interactive-request",
     hostDaemonInteractiveRequestSchema,
     async (context, payload) => {
-      const session = requireAuthenticatedDaemonSession({
+      const session = await requireAuthenticatedDaemonSession({
         context,
         db: deps.db,
         sessionId: payload.sessionId,
       });
 
-      const { environment } = requireThreadEnvironment(
+      const { environment } = await requireThreadEnvironment(
         deps.db,
         payload.interaction.threadId,
       );
@@ -167,7 +167,7 @@ export function registerInternalInteractiveRequestRoutes(
         );
       }
 
-      const turnStarted = hasStoredTurnStarted(deps.db, {
+      const turnStarted = await hasStoredTurnStarted(deps.db, {
         threadId: payload.interaction.threadId,
         turnId: payload.interaction.turnId,
       });
@@ -190,9 +190,10 @@ export function registerInternalInteractiveRequestRoutes(
         );
       }
 
-      const registered = deps.pendingInteractions.registerPendingInteraction({
-        interaction: payload.interaction,
-      });
+      const registered =
+        await deps.pendingInteractions.registerPendingInteraction({
+          interaction: payload.interaction,
+        });
       if (registered.outcome === "rejected") {
         return context.json({
           outcome: "rejected",
@@ -200,7 +201,7 @@ export function registerInternalInteractiveRequestRoutes(
         });
       }
       if (registered.outcome === "created") {
-        requestChildThreadNeedsAttentionNotification(deps, {
+        await requestChildThreadNeedsAttentionNotification(deps, {
           blockerSummary: buildChildThreadBlockerSummary(
             registered.interaction,
           ),
@@ -219,8 +220,8 @@ export function registerInternalInteractiveRequestRoutes(
   post(
     "/session/interactive-request/interrupt",
     hostDaemonInteractiveInterruptRequestSchema,
-    (context, payload) => {
-      const session = requireAuthenticatedDaemonSession({
+    async (context, payload) => {
+      const session = await requireAuthenticatedDaemonSession({
         context,
         db: deps.db,
         sessionId: payload.sessionId,
@@ -230,10 +231,8 @@ export function registerInternalInteractiveRequestRoutes(
       for (const threadId of payload.threadIds) {
         let environmentHostId: string;
         try {
-          const { environment } = requireThreadEnvironmentAllowingDestroyed(
-            deps.db,
-            threadId,
-          );
+          const { environment } =
+            await requireThreadEnvironmentAllowingDestroyed(deps.db, threadId);
           environmentHostId = environment.hostId;
         } catch (error) {
           if (
@@ -256,7 +255,7 @@ export function registerInternalInteractiveRequestRoutes(
       }
 
       const interrupted =
-        deps.pendingInteractions.interruptPendingInteractionsForThreads({
+        await deps.pendingInteractions.interruptPendingInteractionsForThreads({
           providerId: payload.providerId,
           threadIds: interruptibleThreadIds,
           reason: payload.reason,

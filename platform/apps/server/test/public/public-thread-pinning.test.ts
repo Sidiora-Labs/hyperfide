@@ -1,6 +1,9 @@
 import { getThread, markThreadDeleted, pinThread } from "@hyperfide/db";
 import { threadSchema } from "@hyperfide/domain";
-import { apiErrorSchema, threadListResponseSchema } from "@hyperfide/server-contract";
+import {
+  apiErrorSchema,
+  threadListResponseSchema,
+} from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
 import {
@@ -13,14 +16,14 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("public thread pinning", () => {
   it("pins and unpins threads idempotently", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-pinning-idempotent",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-pinning-idempotent-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
 
@@ -32,7 +35,7 @@ describe("public thread pinning", () => {
       const pinnedThread = threadSchema.parse(await readJson(pinResponse));
       expect(pinnedThread.id).toBe(thread.id);
       expect(pinnedThread.pinnedAt).toEqual(expect.any(Number));
-      const pinnedRow = getThread(harness.db, thread.id);
+      const pinnedRow = await getThread(harness.db, thread.id);
       if (!pinnedRow) {
         throw new Error("Expected pinned thread row");
       }
@@ -48,7 +51,7 @@ describe("public thread pinning", () => {
         await readJson(repeatedPinResponse),
       );
       expect(repeatedPinnedThread.pinnedAt).toBe(pinnedThread.pinnedAt);
-      const repeatedPinnedRow = getThread(harness.db, thread.id);
+      const repeatedPinnedRow = await getThread(harness.db, thread.id);
       if (!repeatedPinnedRow) {
         throw new Error("Expected repeatedly pinned thread row");
       }
@@ -61,7 +64,7 @@ describe("public thread pinning", () => {
       expect(unpinResponse.status).toBe(200);
       const unpinnedThread = threadSchema.parse(await readJson(unpinResponse));
       expect(unpinnedThread.pinnedAt).toBeNull();
-      const unpinnedRow = getThread(harness.db, thread.id);
+      const unpinnedRow = await getThread(harness.db, thread.id);
       if (!unpinnedRow) {
         throw new Error("Expected unpinned thread row");
       }
@@ -81,14 +84,14 @@ describe("public thread pinning", () => {
 
   it("rejects missing and deleted threads", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-pinning-not-found",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-pinning-not-found-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
       });
 
@@ -104,7 +107,7 @@ describe("public thread pinning", () => {
       });
 
       expect(
-        markThreadDeleted(harness.db, harness.hub, {
+        await markThreadDeleted(harness.db, harness.hub, {
           threadId: thread.id,
         }),
       ).not.toBeNull();
@@ -123,33 +126,33 @@ describe("public thread pinning", () => {
 
   it("reorders pinned threads and returns visible pinned roots", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-pinning-reorder",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-pinning-reorder-source",
       });
-      const firstThread = seedThread(harness.deps, {
+      const firstThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "First pinned thread",
       });
-      const secondThread = seedThread(harness.deps, {
+      const secondThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Second pinned thread",
       });
-      const thirdThread = seedThread(harness.deps, {
+      const thirdThread = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Third pinned thread",
       });
       expect(
-        pinThread(harness.db, harness.hub, { threadId: firstThread.id }),
+        await pinThread(harness.db, harness.hub, { threadId: firstThread.id }),
       ).not.toBeNull();
       expect(
-        pinThread(harness.db, harness.hub, { threadId: secondThread.id }),
+        await pinThread(harness.db, harness.hub, { threadId: secondThread.id }),
       ).not.toBeNull();
       expect(
-        pinThread(harness.db, harness.hub, { threadId: thirdThread.id }),
+        await pinThread(harness.db, harness.hub, { threadId: thirdThread.id }),
       ).not.toBeNull();
 
       const response = await harness.app.request(
@@ -183,17 +186,17 @@ describe("public thread pinning", () => {
 
   it("maps pinned reorder conflicts", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-pinning-reorder-conflicts",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-pinning-reorder-conflicts-source",
       });
-      const pinnedThread = seedThread(harness.deps, {
+      const pinnedThread = await seedThread(harness.deps, {
         projectId: project.id,
       });
-      const unpinnedThread = seedThread(harness.deps, {
+      const unpinnedThread = await seedThread(harness.deps, {
         projectId: project.id,
       });
 
@@ -219,7 +222,7 @@ describe("public thread pinning", () => {
       });
 
       expect(
-        pinThread(harness.db, harness.hub, { threadId: pinnedThread.id }),
+        await pinThread(harness.db, harness.hub, { threadId: pinnedThread.id }),
       ).not.toBeNull();
       const staleNeighborResponse = await harness.app.request(
         `/api/v1/threads/${pinnedThread.id}/pin-order`,

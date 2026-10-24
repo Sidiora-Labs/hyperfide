@@ -76,7 +76,7 @@ describe("marketplace HTTP policy", () => {
   });
 
   it("refuses registry JSON before an oversized body is read", async () => {
-    const response = new Response("{}", {
+    const response = await new Response("{}", {
       headers: { "content-length": "1025" },
     });
     await expect(

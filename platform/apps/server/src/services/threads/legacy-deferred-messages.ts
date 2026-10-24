@@ -55,13 +55,15 @@ interface LegacyDeferredRow {
   payload: string;
 }
 
-function legacyDeferredTableExists(
+async function legacyDeferredTableExists(
   deps: Pick<LoggedPendingInteractionWorkSessionDeps, "db">,
-): boolean {
+): Promise<boolean> {
   return (
-    deps.db.get<{ name: string }>(
-      sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${LEGACY_DEFERRED_TABLE}`,
-    ) !== undefined
+    (await deps.db.get<{ name: string }>(
+      deps.db.dialect === "postgresql"
+        ? sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'platform' AND table_name = ${LEGACY_DEFERRED_TABLE}`
+        : sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${LEGACY_DEFERRED_TABLE}`,
+    )) !== undefined
   );
 }
 
@@ -102,10 +104,10 @@ function toSendPayload(
 export async function deliverLegacyDeferredThreadMessages(
   deps: LoggedPendingInteractionWorkSessionDeps,
 ): Promise<void> {
-  if (!legacyDeferredTableExists(deps)) {
+  if (!(await legacyDeferredTableExists(deps))) {
     return;
   }
-  const rows = deps.db.all<LegacyDeferredRow>(
+  const rows = await deps.db.all<LegacyDeferredRow>(
     sql`SELECT id, thread_id AS threadId, payload FROM deferred_thread_messages_legacy ORDER BY thread_id, created_at, id`,
   );
   let kept = 0;
@@ -116,7 +118,7 @@ export async function deliverLegacyDeferredThreadMessages(
         kept += 1;
         continue;
       }
-      deps.db.run(
+      await deps.db.run(
         sql`DELETE FROM deferred_thread_messages_legacy WHERE id = ${row.id}`,
       );
     } catch (error) {
@@ -132,7 +134,7 @@ export async function deliverLegacyDeferredThreadMessages(
     }
   }
   if (kept === 0) {
-    deps.db.run(sql`DROP TABLE deferred_thread_messages_legacy`);
+    await deps.db.run(sql`DROP TABLE deferred_thread_messages_legacy`);
     if (rows.length > 0) {
       deps.logger.info(
         { migrated: rows.length },
@@ -146,7 +148,7 @@ async function deliverLegacyDeferredRow(
   deps: LoggedPendingInteractionWorkSessionDeps,
   row: LegacyDeferredRow,
 ): Promise<"delivered" | "kept"> {
-  const thread = getThread(deps.db, row.threadId);
+  const thread = await getThread(deps.db, row.threadId);
   if (!thread || thread.deletedAt !== null || thread.archivedAt !== null) {
     // The thread the message was waiting for is gone; there is nobody left
     // to deliver to, and that is a resolution rather than a failure.

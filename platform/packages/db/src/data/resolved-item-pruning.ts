@@ -95,7 +95,7 @@ const prepareOutput = (db: DbQueryConnection) =>
     db,
     "events_thread_turn_type_item_sequence_idx",
     completionPredicate,
-    sql<number>`CASE WHEN json_valid(data) THEN json_type(data, '$.item.aggregatedOutput') IS NOT NULL ELSE 0 END`,
+    sql<number>`CASE WHEN json_valid(data) THEN json_type(data, '$.item.aggregatedOutput') IS NOT NULL ELSE (1 = 0) END`,
   );
 const prepareCompletion = (db: DbQueryConnection) =>
   prepareSupport(
@@ -104,7 +104,7 @@ const prepareCompletion = (db: DbQueryConnection) =>
     completionPredicate,
   );
 
-function pruneResolvedItemCandidates(
+async function pruneResolvedItemCandidates(
   db: DbQueryConnection,
   args: {
     threadId: string;
@@ -121,10 +121,10 @@ function pruneResolvedItemCandidates(
   let sequence = 0;
   let processed = 0;
   const reset = () => Object.assign(probe, emptyResolvedItemPruningProbe());
-  const readSupport = (
+  const readSupport = async (
     candidate: ResolvedItemPruningCandidate,
     limit: number,
-  ): Support[] => {
+  ): Promise<Support[]> => {
     const build =
       args.kind === "background"
         ? probe.probePhase === 0
@@ -135,7 +135,7 @@ function pruneResolvedItemCandidates(
           : candidate.type === "item/commandExecution/outputDelta"
             ? prepareOutput
             : prepareCompletion;
-    return prepareCachedQuery(db, build).all({
+    return await prepareCachedQuery(db, build).all({
       threadId: args.threadId,
       turnId: candidate.turnId,
       itemId: candidate.itemId,
@@ -168,10 +168,10 @@ function pruneResolvedItemCandidates(
       remaining > 0
     ) {
       const witness =
-        db.get(sql`SELECT 1 FROM events WHERE id = ${probe.probeWitnessId}
+        await db.get(sql`SELECT 1 FROM events WHERE id = ${probe.probeWitnessId}
         AND thread_id = ${args.threadId} AND turn_id = ${candidate.turnId} AND type = 'item/completed'
         AND item_id = ${candidate.itemId} AND item_kind = ${kind} AND parent_tool_call_id IS ${candidate.parentToolCallId}
-        AND (${candidate.type} <> 'item/commandExecution/outputDelta' OR CASE WHEN json_valid(data) THEN json_type(data, '$.item.aggregatedOutput') IS NOT NULL ELSE 0 END)`);
+        AND (${candidate.type} <> 'item/commandExecution/outputDelta' OR CASE WHEN json_valid(data) THEN json_type(data, '$.item.aggregatedOutput') IS NOT NULL ELSE (1 = 0) END)`);
       remaining -= 1;
       if (!witness) {
         probe.probePhase = 0;
@@ -181,7 +181,7 @@ function pruneResolvedItemCandidates(
     }
     while (!finished && remaining > 0) {
       const limit = Math.min(remaining, probe.probeSequence === 0 ? 1 : 64);
-      const support = readSupport(candidate, limit);
+      const support = await readSupport(candidate, limit);
       remaining -= Math.max(1, support.length);
       const match = support.find((row) =>
         args.kind === "background"
@@ -222,16 +222,18 @@ function pruneResolvedItemCandidates(
   const removed =
     discarded.length === 0
       ? 0
-      : db.run(
-          sql`DELETE FROM events WHERE id IN (${sql.join(
-            discarded.map((id) => sql`${id}`),
-            sql`, `,
-          )}) AND ${isBeforeLatestThreadEvent(args.threadId)}`,
+      : (
+          await db.run(
+            sql`DELETE FROM events WHERE id IN (${sql.join(
+              discarded.map((id) => sql`${id}`),
+              sql`, `,
+            )}) AND ${isBeforeLatestThreadEvent(args.threadId)}`,
+          )
         ).changes;
   return { removed, sequence, complete: processed === rows.length };
 }
 
-export function advanceLiveEventPruning(
+export async function advanceLiveEventPruning(
   db: DbQueryConnection,
   args: { threadId: string; kind: "deltas" | "background"; limit: number },
 ) {
@@ -239,13 +241,13 @@ export function advanceLiveEventPruning(
     eq(threadPruningCursors.scope, args.threadId),
     eq(threadPruningCursors.policy, args.kind),
   );
-  let cursor = db.select().from(threadPruningCursors).where(key).get();
+  let cursor = await db.select().from(threadPruningCursors).where(key).get();
   if (!cursor) {
-    const latest = db.get<{ sequence: number }>(
+    const latest = await db.get<{ sequence: number }>(
       sql`SELECT sequence FROM events WHERE thread_id = ${args.threadId} ORDER BY sequence DESC LIMIT 1`,
     );
     if (!latest) return { removed: 0, scanned: 0, complete: true };
-    cursor = db
+    cursor = await db
       .insert(threadPruningCursors)
       .values({
         policy: args.kind,
@@ -262,7 +264,7 @@ export function advanceLiveEventPruning(
     args.kind === "background"
       ? ["item/backgroundTask/progress"]
       : Object.keys(deltaKinds);
-  const candidates = db.all<ResolvedItemPruningCandidate>(sql`
+  const candidates = await db.all<ResolvedItemPruningCandidate>(sql`
     WITH candidate_ids AS MATERIALIZED (
       SELECT eventRowid, sequence FROM (${sql.join(
         types.map(
@@ -283,7 +285,7 @@ export function advanceLiveEventPruning(
     FROM candidate_ids JOIN events ON events.rowid = candidate_ids.eventRowid
     ORDER BY events.sequence
   `);
-  const result = pruneResolvedItemCandidates(db, {
+  const result = await pruneResolvedItemCandidates(db, {
     ...args,
     candidates,
     probe: cursor,
@@ -294,9 +296,10 @@ export function advanceLiveEventPruning(
     (candidates.length < args.limit || cursor.sequence >= cursor.upperSequence);
   cursor.updatedAt = Date.now();
   if (complete) {
-    db.delete(threadPruningCursors).where(key).run();
+    await db.delete(threadPruningCursors).where(key).run();
   } else {
-    db.insert(threadPruningCursors)
+    await db
+      .insert(threadPruningCursors)
       .values(cursor)
       .onConflictDoUpdate({
         target: [threadPruningCursors.policy, threadPruningCursors.scope],

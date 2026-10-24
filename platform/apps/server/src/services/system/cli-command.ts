@@ -152,7 +152,7 @@ async function isHyperfideLauncherLink(link: string): Promise<boolean> {
   } catch {
     return false;
   }
-  return isHyperfideLauncher(link);
+  return await isHyperfideLauncher(link);
 }
 
 async function isHyperfideAppPackageCommand(command: string): Promise<boolean> {
@@ -386,8 +386,8 @@ export function createCliCommandService(
   }
   const context: CliCommandContext = { ...args, launcherPath };
   const windows = args.platform === "win32";
-  const getStatus = (): Promise<SystemCliCommandStatus> =>
-    windows ? readWindowsStatus(context) : readUnixStatus(context);
+  const getStatus = async (): Promise<SystemCliCommandStatus> =>
+    windows ? await readWindowsStatus(context) : await readUnixStatus(context);
   return {
     getStatus,
     async install() {
@@ -396,12 +396,16 @@ export function createCliCommandService(
           `The hyperfide command launcher at ${launcherPath} is missing. Restart Hyperfide, then try again.`,
         );
       }
-      await (windows ? installWindows(context) : installUnix(context));
-      return getStatus();
+      await (windows
+        ? await installWindows(context)
+        : await installUnix(context));
+      return await getStatus();
     },
     async remove() {
-      await (windows ? removeWindows(context) : removeUnix(context));
-      return getStatus();
+      await (windows
+        ? await removeWindows(context)
+        : await removeUnix(context));
+      return await getStatus();
     },
   };
 }

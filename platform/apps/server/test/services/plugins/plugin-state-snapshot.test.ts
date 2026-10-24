@@ -35,12 +35,12 @@ describe("plugin activation snapshots and garbage collection", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     dataDir = await mkdtemp(join(tmpdir(), "hyperfide-plugin-snapshot-"));
   });
 
   afterEach(async () => {
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   });
 
@@ -49,13 +49,18 @@ describe("plugin activation snapshots and garbage collection", () => {
     const databasePath = join(pluginDir, "data.db");
     const secretPath = join(pluginDir, "secrets", "token");
     await mkdir(join(pluginDir, "secrets"), { recursive: true });
-    const pluginDb = new Database(databasePath);
+    const pluginDb = await new Database(databasePath);
     pluginDb.exec("CREATE TABLE state (value TEXT NOT NULL)");
-    pluginDb.prepare("INSERT INTO state VALUES (?)").run("original");
-    pluginDb.close();
-    setPluginKvValue(db, "snapshot-test", "cursor", JSON.stringify("original"));
+    await pluginDb.prepare("INSERT INTO state VALUES (?)").run("original");
+    await pluginDb.close();
+    await setPluginKvValue(
+      db,
+      "snapshot-test",
+      "cursor",
+      JSON.stringify("original"),
+    );
     await writeFile(secretPath, "opaque-secret", { mode: 0o600 });
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "snapshot-test",
       source: `path:${pluginDir}`,
       provenance: { kind: "direct" },
@@ -73,7 +78,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       enabled: true,
       enabledFollowsDefault: false,
     });
-    const previousRegistration = getInstalledPlugin(db, "snapshot-test");
+    const previousRegistration = await getInstalledPlugin(db, "snapshot-test");
     if (previousRegistration === undefined) {
       throw new Error("missing snapshot-test registration");
     }
@@ -89,10 +94,10 @@ describe("plugin activation snapshots and garbage collection", () => {
     });
 
     const mutate = async () => {
-      const changed = new Database(databasePath);
-      changed.prepare("UPDATE state SET value = ?").run("changed");
-      changed.close();
-      setPluginKvValue(
+      const changed = await new Database(databasePath);
+      await changed.prepare("UPDATE state SET value = ?").run("changed");
+      await changed.close();
+      await setPluginKvValue(
         db,
         "snapshot-test",
         "cursor",
@@ -108,7 +113,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       now: 110,
     });
     await mutate();
-    setPluginStateSnapshotStatus(db, snapshot.id, "restoring", 120);
+    await setPluginStateSnapshotStatus(db, snapshot.id, "restoring", 120);
     await restorePluginStateSnapshot({
       db,
       dataDir,
@@ -116,12 +121,12 @@ describe("plugin activation snapshots and garbage collection", () => {
       now: 130,
     });
 
-    const restored = new Database(databasePath, { readonly: true });
-    expect(restored.prepare("SELECT value FROM state").pluck().get()).toBe(
-      "original",
-    );
-    restored.close();
-    expect(getPluginKvValue(db, "snapshot-test", "cursor")).toBe(
+    const restored = await new Database(databasePath, { readonly: true });
+    expect(
+      await restored.prepare("SELECT value FROM state").pluck().get(),
+    ).toBe("original");
+    await restored.close();
+    expect(await getPluginKvValue(db, "snapshot-test", "cursor")).toBe(
       JSON.stringify("original"),
     );
     expect(await readFile(secretPath, "utf8")).toBe("opaque-secret");
@@ -130,7 +135,7 @@ describe("plugin activation snapshots and garbage collection", () => {
   it("reads a registration snapshotted before enabled-default tracking as an explicit choice", async () => {
     const pluginDir = join(dataDir, "plugins", "pre-default-tracking");
     await mkdir(pluginDir, { recursive: true });
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "pre-default-tracking",
       source: "npm:hyperfide-plugin-pre-default-tracking@1.0.0",
       provenance: { kind: "direct" },
@@ -158,7 +163,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       enabled: false,
       enabledFollowsDefault: false,
     });
-    const registration = getInstalledPlugin(db, "pre-default-tracking");
+    const registration = await getInstalledPlugin(db, "pre-default-tracking");
     if (registration === undefined) throw new Error("missing registration");
     const snapshot = await createPluginStateSnapshotOnDisk({
       db,
@@ -185,7 +190,7 @@ describe("plugin activation snapshots and garbage collection", () => {
   it("normalizes legacy marketplace registrations against migrated provenance", async () => {
     const pluginDir = join(dataDir, "plugins", "legacy-snapshot");
     await mkdir(pluginDir, { recursive: true });
-    upsertInstalledPlugin(db, {
+    await upsertInstalledPlugin(db, {
       id: "legacy-snapshot",
       source: "npm:hyperfide-plugin-legacy@^1.0.0",
       provenance: {
@@ -217,7 +222,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       enabled: true,
       enabledFollowsDefault: false,
     });
-    const registration = getInstalledPlugin(db, "legacy-snapshot");
+    const registration = await getInstalledPlugin(db, "legacy-snapshot");
     if (registration === undefined) throw new Error("missing registration");
     const snapshot = await createPluginStateSnapshotOnDisk({
       db,
@@ -291,7 +296,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       npmResolvedVersion: "1.2.0",
     });
 
-    db.$client
+    await db.$client
       .prepare(
         "UPDATE plugins SET provenance = 'direct', catalog_entry_id = NULL WHERE id = ?",
       )
@@ -329,8 +334,8 @@ describe("plugin activation snapshots and garbage collection", () => {
     const nestedPath = join(checkout, "plugins", "nested");
     await mkdir(nestedPath, { recursive: true });
     await writeFile(join(nestedPath, "sentinel"), "keep");
-    const makeArtifact = (id: string, pluginId: string, path: string) =>
-      createPluginArtifact(db, {
+    const makeArtifact = async (id: string, pluginId: string, path: string) =>
+      await createPluginArtifact(db, {
         id,
         pluginId,
         sourceKind: "git",
@@ -343,9 +348,9 @@ describe("plugin activation snapshots and garbage collection", () => {
         validationResult: "valid",
         validatedAt: 1,
       });
-    makeArtifact("root", "gc-root", checkout);
-    makeArtifact("nested", "gc-nested", nestedPath);
-    upsertInstalledPlugin(db, {
+    await makeArtifact("root", "gc-root", checkout);
+    await makeArtifact("nested", "gc-nested", nestedPath);
+    await upsertInstalledPlugin(db, {
       id: "gc-nested",
       source: `git:https://example.test/repo.git@main`,
       provenance: { kind: "direct" },
@@ -379,7 +384,7 @@ describe("plugin activation snapshots and garbage collection", () => {
     });
 
     await stat(join(nestedPath, "sentinel"));
-    expect(listPluginArtifacts(db, "gc-root")).toHaveLength(1);
+    expect(await listPluginArtifacts(db, "gc-root")).toHaveLength(1);
     expect(warnings).toEqual([]);
   });
 
@@ -397,8 +402,8 @@ describe("plugin activation snapshots and garbage collection", () => {
     const nestedPath = join(checkout, "plugins", "nested");
     await mkdir(nestedPath, { recursive: true });
     await writeFile(join(nestedPath, "sentinel"), "keep");
-    const makeArtifact = (id: string, pluginId: string, path: string) =>
-      createPluginArtifact(db, {
+    const makeArtifact = async (id: string, pluginId: string, path: string) =>
+      await createPluginArtifact(db, {
         id,
         pluginId,
         sourceKind: "git",
@@ -411,9 +416,9 @@ describe("plugin activation snapshots and garbage collection", () => {
         validationResult: "valid",
         validatedAt: 1,
       });
-    makeArtifact("active-root", "gc-active-root", checkout);
-    makeArtifact("nested-old", "gc-nested-old", nestedPath);
-    upsertInstalledPlugin(db, {
+    await makeArtifact("active-root", "gc-active-root", checkout);
+    await makeArtifact("nested-old", "gc-nested-old", nestedPath);
+    await upsertInstalledPlugin(db, {
       id: "gc-active-root",
       source: "git:https://example.test/repo.git@main",
       provenance: { kind: "direct" },
@@ -447,7 +452,7 @@ describe("plugin activation snapshots and garbage collection", () => {
     });
 
     await stat(join(nestedPath, "sentinel"));
-    expect(listPluginArtifacts(db, "gc-nested-old")).toHaveLength(1);
+    expect(await listPluginArtifacts(db, "gc-nested-old")).toHaveLength(1);
     expect(warnings).toEqual([]);
   });
 
@@ -465,8 +470,8 @@ describe("plugin activation snapshots and garbage collection", () => {
     const nestedPath = join(checkout, "vendor", commit);
     await mkdir(nestedPath, { recursive: true });
     await writeFile(join(nestedPath, "sentinel"), "keep");
-    const makeArtifact = (id: string, pluginId: string, path: string) =>
-      createPluginArtifact(db, {
+    const makeArtifact = async (id: string, pluginId: string, path: string) =>
+      await createPluginArtifact(db, {
         id,
         pluginId,
         sourceKind: "git",
@@ -479,9 +484,9 @@ describe("plugin activation snapshots and garbage collection", () => {
         validationResult: "valid",
         validatedAt: 1,
       });
-    makeArtifact("collision-root", "gc-collision-root", checkout);
-    makeArtifact("collision-nested", "gc-collision-nested", nestedPath);
-    upsertInstalledPlugin(db, {
+    await makeArtifact("collision-root", "gc-collision-root", checkout);
+    await makeArtifact("collision-nested", "gc-collision-nested", nestedPath);
+    await upsertInstalledPlugin(db, {
       id: "gc-collision-root",
       source: "git:https://example.test/repo.git@main",
       provenance: { kind: "direct" },
@@ -515,7 +520,9 @@ describe("plugin activation snapshots and garbage collection", () => {
     });
 
     await stat(join(nestedPath, "sentinel"));
-    expect(listPluginArtifacts(db, "gc-collision-nested")).toHaveLength(1);
+    expect(await listPluginArtifacts(db, "gc-collision-nested")).toHaveLength(
+      1,
+    );
     expect(warnings).toEqual([]);
   });
 
@@ -533,7 +540,7 @@ describe("plugin activation snapshots and garbage collection", () => {
     const nestedPath = join(checkout, "plugins", "nested");
     await mkdir(nestedPath, { recursive: true });
     await writeFile(join(checkout, "repository-file"), "remove");
-    createPluginArtifact(db, {
+    await createPluginArtifact(db, {
       id: "last-nested",
       pluginId: "gc-last-nested",
       sourceKind: "git",
@@ -557,7 +564,7 @@ describe("plugin activation snapshots and garbage collection", () => {
     });
 
     await expect(stat(checkout)).rejects.toMatchObject({ code: "ENOENT" });
-    expect(listPluginArtifacts(db, "gc-last-nested")).toHaveLength(0);
+    expect(await listPluginArtifacts(db, "gc-last-nested")).toHaveLength(0);
     expect(warnings).toEqual([]);
   });
 
@@ -572,8 +579,8 @@ describe("plugin activation snapshots and garbage collection", () => {
         await writeFile(join(path, "sentinel"), "keep");
       }),
     );
-    const makeArtifact = (id: string, path: string, commit: string) =>
-      createPluginArtifact(db, {
+    const makeArtifact = async (id: string, path: string, commit: string) =>
+      await createPluginArtifact(db, {
         id,
         pluginId: "gc-test",
         sourceKind: "git",
@@ -586,10 +593,10 @@ describe("plugin activation snapshots and garbage collection", () => {
         validationResult: "valid",
         validatedAt: 1,
       });
-    makeArtifact("active", activePath, "active");
-    makeArtifact("retained", retainedPath, "retained");
-    makeArtifact("unmanaged", localPath, "user-plugin");
-    upsertInstalledPlugin(db, {
+    await makeArtifact("active", activePath, "active");
+    await makeArtifact("retained", retainedPath, "retained");
+    await makeArtifact("unmanaged", localPath, "user-plugin");
+    await upsertInstalledPlugin(db, {
       id: "gc-test",
       source: "git:https://example.test/plugin.git@main",
       provenance: { kind: "direct" },
@@ -620,7 +627,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       "one",
     );
     await mkdir(snapshotPath, { recursive: true });
-    createPluginStateSnapshot(db, {
+    await createPluginStateSnapshot(db, {
       id: "snapshot",
       pluginId: "gc-test",
       fromArtifactId: "retained",
@@ -649,8 +656,8 @@ describe("plugin activation snapshots and garbage collection", () => {
       warn: (message) => warnings.push(message),
     });
 
-    expect(listPluginArtifacts(db, "gc-test")).toHaveLength(3);
-    expect(listPluginStateSnapshots(db, "gc-test")).toHaveLength(1);
+    expect(await listPluginArtifacts(db, "gc-test")).toHaveLength(3);
+    expect(await listPluginStateSnapshots(db, "gc-test")).toHaveLength(1);
     await Promise.all(
       [activePath, retainedPath, localPath].map((path) =>
         stat(join(path, "sentinel")),

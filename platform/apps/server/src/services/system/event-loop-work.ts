@@ -144,7 +144,7 @@ export async function runEventLoopWork<T>(
   work: () => Promise<T> | T,
 ): Promise<T> {
   const id = enterEventLoopWork(label, false);
-  return currentFrameId.run(id, async () => {
+  return await currentFrameId.run(id, async () => {
     try {
       return await work();
     } finally {

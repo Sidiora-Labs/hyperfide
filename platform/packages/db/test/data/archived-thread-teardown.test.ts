@@ -15,14 +15,14 @@ import { createMigratedConnection } from "../../src/testing.js";
 import type { ThreadStatus } from "@hyperfide/domain";
 import type { TerminalSessionStatus } from "@hyperfide/domain";
 
-function setup(status: ThreadStatus) {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, { name: "test-host" });
-  const { project } = createProject(db, noopNotifier, {
+async function setup(status: ThreadStatus) {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, { name: "test-host" });
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const environment = createEnvironment(db, noopNotifier, {
+  const environment = await createEnvironment(db, noopNotifier, {
     projectId: project.id,
     hostId: host.id,
     path: "/tmp/environment",
@@ -30,7 +30,7 @@ function setup(status: ThreadStatus) {
     status: "ready",
     environmentProvider: null,
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
     environmentId: environment.id,
@@ -39,8 +39,8 @@ function setup(status: ThreadStatus) {
   return { db, environment, host, thread };
 }
 
-function seedTerminal(
-  db: ReturnType<typeof createMigratedConnection>,
+async function seedTerminal(
+  db: Awaited<ReturnType<typeof createMigratedConnection>>,
   args: {
     environmentId: string;
     hostId: string;
@@ -48,7 +48,7 @@ function seedTerminal(
     threadId: string;
   },
 ) {
-  return createTerminalSession(db, {
+  return await createTerminalSession(db, {
     cols: 80,
     daemonSessionId: null,
     environmentId: args.environmentId,
@@ -62,83 +62,92 @@ function seedTerminal(
 }
 
 describe("listArchivedThreadsPendingTeardown", () => {
-  it("returns an archived thread whose status still holds host work", () => {
-    const { db, environment, host, thread } = setup("active");
+  it("returns an archived thread whose status still holds host work", async () => {
+    const { db, environment, host, thread } = await setup("active");
 
-    expect(listArchivedThreadsPendingTeardown(db)).toEqual([]);
+    expect(await listArchivedThreadsPendingTeardown(db)).toEqual([]);
 
-    archiveThread(db, noopNotifier, thread.id);
+    await archiveThread(db, noopNotifier, thread.id);
 
-    expect(listArchivedThreadsPendingTeardown(db)).toMatchObject([
+    expect(await listArchivedThreadsPendingTeardown(db)).toMatchObject([
       { id: thread.id, status: "active" },
     ]);
     for (const status of ["starting", "running", "disconnected"] as const) {
-      seedTerminal(db, {
+      await seedTerminal(db, {
         environmentId: environment.id,
         hostId: host.id,
         status,
         threadId: thread.id,
       });
     }
-    expect(listArchivedThreadsPendingTeardown(db)).toMatchObject([
+    expect(await listArchivedThreadsPendingTeardown(db)).toMatchObject([
       { id: thread.id, status: "active" },
     ]);
-    db.update(threads).set({ deletedAt: 1 }).where(eq(threads.id, thread.id)).run();
-    expect(listArchivedThreadsPendingTeardown(db)).toEqual([]);
-  });
-
-  it.each(["starting", "running", "disconnected"] as const)("returns an archived idle thread only while a terminal session is %s", (status) => {
-    const { db, environment, host, thread } = setup("active");
-    const terminal = seedTerminal(db, {
-      environmentId: environment.id,
-      hostId: host.id,
-      status,
-      threadId: thread.id,
-    });
-    archiveThread(db, noopNotifier, thread.id);
-    db.update(threads)
-      .set({ status: "idle" })
+    await db
+      .update(threads)
+      .set({ deletedAt: 1 })
       .where(eq(threads.id, thread.id))
       .run();
+    expect(await listArchivedThreadsPendingTeardown(db)).toEqual([]);
+  });
 
-    expect(listArchivedThreadsPendingTeardown(db)).toMatchObject([
-      { id: thread.id, status: "idle" },
-    ]);
+  it.each(["starting", "running", "disconnected"] as const)(
+    "returns an archived idle thread only while a terminal session is %s",
+    async (status) => {
+      const { db, environment, host, thread } = await setup("active");
+      const terminal = await seedTerminal(db, {
+        environmentId: environment.id,
+        hostId: host.id,
+        status,
+        threadId: thread.id,
+      });
+      await archiveThread(db, noopNotifier, thread.id);
+      await db
+        .update(threads)
+        .set({ status: "idle" })
+        .where(eq(threads.id, thread.id))
+        .run();
 
-    db.update(threads).set({ status: "idle" }).run();
-    seedTerminal(db, {
+      expect(await listArchivedThreadsPendingTeardown(db)).toMatchObject([
+        { id: thread.id, status: "idle" },
+      ]);
+
+      await db.update(threads).set({ status: "idle" }).run();
+      await seedTerminal(db, {
+        environmentId: environment.id,
+        hostId: host.id,
+        status: "exited",
+        threadId: thread.id,
+      });
+      expect(await listArchivedThreadsPendingTeardown(db)).toMatchObject([
+        { id: thread.id },
+      ]);
+
+      await db.update(threads).set({ archivedAt: null }).run();
+      expect(await listArchivedThreadsPendingTeardown(db)).toEqual([]);
+
+      await archiveThread(db, noopNotifier, thread.id);
+      expect(await listArchivedThreadsPendingTeardown(db)).toMatchObject([
+        { id: terminal.threadId },
+      ]);
+    },
+  );
+
+  it("skips an archived idle thread with no open terminal session", async () => {
+    const { db, environment, host, thread } = await setup("active");
+    await seedTerminal(db, {
       environmentId: environment.id,
       hostId: host.id,
       status: "exited",
       threadId: thread.id,
     });
-    expect(listArchivedThreadsPendingTeardown(db)).toMatchObject([
-      { id: thread.id },
-    ]);
-
-    db.update(threads).set({ archivedAt: null }).run();
-    expect(listArchivedThreadsPendingTeardown(db)).toEqual([]);
-
-    archiveThread(db, noopNotifier, thread.id);
-    expect(listArchivedThreadsPendingTeardown(db)).toMatchObject([
-      { id: terminal.threadId },
-    ]);
-  });
-
-  it("skips an archived idle thread with no open terminal session", () => {
-    const { db, environment, host, thread } = setup("active");
-    seedTerminal(db, {
-      environmentId: environment.id,
-      hostId: host.id,
-      status: "exited",
-      threadId: thread.id,
-    });
-    archiveThread(db, noopNotifier, thread.id);
-    db.update(threads)
+    await archiveThread(db, noopNotifier, thread.id);
+    await db
+      .update(threads)
       .set({ status: "idle" })
       .where(eq(threads.id, thread.id))
       .run();
 
-    expect(listArchivedThreadsPendingTeardown(db)).toEqual([]);
+    expect(await listArchivedThreadsPendingTeardown(db)).toEqual([]);
   });
 });

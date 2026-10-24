@@ -16,10 +16,10 @@ import { createThread } from "../../src/data/threads.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
 type TestDb = ReturnType<typeof createConnection>;
-type TestHost = ReturnType<typeof upsertHost>;
-type TestSession = ReturnType<typeof openSession>;
-type TestEnvironment = ReturnType<typeof createEnvironment>;
-type TestThread = ReturnType<typeof createThread>;
+type TestHost = Awaited<ReturnType<typeof upsertHost>>;
+type TestSession = Awaited<ReturnType<typeof openSession>>;
+type TestEnvironment = Awaited<ReturnType<typeof createEnvironment>>;
+type TestThread = Awaited<ReturnType<typeof createThread>>;
 
 interface TerminalSessionFixture {
   db: TestDb;
@@ -29,42 +29,45 @@ interface TerminalSessionFixture {
   thread: TestThread;
 }
 
-function listTerminalSessionsByThread(db: TestDb, threadId: string) {
-  return listTerminalSessions(db, {
+async function listTerminalSessionsByThread(db: TestDb, threadId: string) {
+  return await listTerminalSessions(db, {
     scope: { kind: "thread", threadId },
     visible: false,
   });
 }
 
-function listVisibleTerminalSessionsByThread(db: TestDb, threadId: string) {
-  return listTerminalSessions(db, {
+async function listVisibleTerminalSessionsByThread(
+  db: TestDb,
+  threadId: string,
+) {
+  return await listTerminalSessions(db, {
     scope: { kind: "thread", threadId },
     visible: true,
   });
 }
 
-function listThreadlessTerminalSessionsByEnvironment(
+async function listThreadlessTerminalSessionsByEnvironment(
   db: TestDb,
   environmentId: string,
 ) {
-  return listTerminalSessions(db, {
+  return await listTerminalSessions(db, {
     scope: { environmentId, kind: "threadless-environment" },
     visible: false,
   });
 }
 
-function markTerminalSessionUserInput(
+async function markTerminalSessionUserInput(
   db: TestDb,
   args: { now: number; terminalId: string; threadId: string },
 ) {
-  return updateTerminalSession(db, {
+  return await updateTerminalSession(db, {
     now: args.now,
     scope: { kind: "terminal", terminalId: args.terminalId },
     update: { kind: "user-input" },
   });
 }
 
-function markTerminalSessionRunning(
+async function markTerminalSessionRunning(
   db: TestDb,
   args: {
     cols: number;
@@ -75,7 +78,7 @@ function markTerminalSessionRunning(
     title: string;
   },
 ) {
-  return updateTerminalSession(db, {
+  return await updateTerminalSession(db, {
     scope: {
       daemonSessionId: args.daemonSessionId,
       kind: "daemon",
@@ -93,11 +96,11 @@ function markTerminalSessionRunning(
   });
 }
 
-function markThreadTerminalSessionsExited(
+async function markThreadTerminalSessionsExited(
   db: TestDb,
   args: { closeReason: "thread-deleted"; threadId: string },
 ) {
-  return updateTerminalSessions(db, {
+  return await updateTerminalSessions(db, {
     scope: {
       kind: "thread",
       statuses: ["starting", "running", "disconnected"],
@@ -107,11 +110,11 @@ function markThreadTerminalSessionsExited(
   });
 }
 
-function markEnvironmentTerminalSessionsExited(
+async function markEnvironmentTerminalSessionsExited(
   db: TestDb,
   args: { closeReason: "environment-destroyed"; environmentId: string },
 ) {
-  return updateTerminalSessions(db, {
+  return await updateTerminalSessions(db, {
     scope: {
       environmentId: args.environmentId,
       kind: "environment",
@@ -121,11 +124,11 @@ function markEnvironmentTerminalSessionsExited(
   });
 }
 
-function markDaemonTerminalSessionsDisconnected(
+async function markDaemonTerminalSessionsDisconnected(
   db: TestDb,
   args: { daemonSessionId: string },
 ) {
-  return updateTerminalSessions(db, {
+  return await updateTerminalSessions(db, {
     scope: {
       daemonSessionId: args.daemonSessionId,
       kind: "daemon",
@@ -135,8 +138,11 @@ function markDaemonTerminalSessionsDisconnected(
   });
 }
 
-function openTestSession(db: TestDb, hostId: string): TestSession {
-  return openSession(db, {
+async function openTestSession(
+  db: TestDb,
+  hostId: string,
+): Promise<TestSession> {
+  return await openSession(db, {
     hostId,
     instanceId: "inst-1",
     hostName: "test-host",
@@ -147,17 +153,17 @@ function openTestSession(db: TestDb, hostId: string): TestSession {
   });
 }
 
-function setup(): TerminalSessionFixture {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<TerminalSessionFixture> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const session = openTestSession(db, host.id);
-  const { project } = createProject(db, noopNotifier, {
+  const session = await openTestSession(db, host.id);
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/project" },
   });
-  const environment = createEnvironment(db, noopNotifier, {
+  const environment = await createEnvironment(db, noopNotifier, {
     providerOwnsPath: false,
     projectId: project.id,
     hostId: host.id,
@@ -169,7 +175,7 @@ function setup(): TerminalSessionFixture {
     defaultBranch: "main",
     mergeBaseBranch: null,
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     environmentId: environment.id,
     providerId: "codex",
@@ -184,8 +190,8 @@ function setup(): TerminalSessionFixture {
   };
 }
 
-function createStartingTerminal(fixture: TerminalSessionFixture) {
-  return createTerminalSession(fixture.db, {
+async function createStartingTerminal(fixture: TerminalSessionFixture) {
+  return await createTerminalSession(fixture.db, {
     cols: 80,
     daemonSessionId: fixture.session.id,
     environmentId: fixture.environment.id,
@@ -198,8 +204,10 @@ function createStartingTerminal(fixture: TerminalSessionFixture) {
   });
 }
 
-function createStartingThreadlessTerminal(fixture: TerminalSessionFixture) {
-  return createTerminalSession(fixture.db, {
+async function createStartingThreadlessTerminal(
+  fixture: TerminalSessionFixture,
+) {
+  return await createTerminalSession(fixture.db, {
     cols: 80,
     daemonSessionId: fixture.session.id,
     environmentId: fixture.environment.id,
@@ -213,27 +221,27 @@ function createStartingThreadlessTerminal(fixture: TerminalSessionFixture) {
 }
 
 describe("terminal sessions", () => {
-  it("keeps threadless environment terminals out of thread terminal queries", () => {
-    const fixture = setup();
-    const threadTerminal = createStartingTerminal(fixture);
-    const threadlessTerminal = createStartingThreadlessTerminal(fixture);
+  it("keeps threadless environment terminals out of thread terminal queries", async () => {
+    const fixture = await setup();
+    const threadTerminal = await createStartingTerminal(fixture);
+    const threadlessTerminal = await createStartingThreadlessTerminal(fixture);
 
-    expect(listTerminalSessionsByThread(fixture.db, fixture.thread.id)).toEqual(
-      [expect.objectContaining({ id: threadTerminal.id })],
-    );
     expect(
-      listThreadlessTerminalSessionsByEnvironment(
+      await listTerminalSessionsByThread(fixture.db, fixture.thread.id),
+    ).toEqual([expect.objectContaining({ id: threadTerminal.id })]);
+    expect(
+      await listThreadlessTerminalSessionsByEnvironment(
         fixture.db,
         fixture.environment.id,
       ),
     ).toEqual([expect.objectContaining({ id: threadlessTerminal.id })]);
   });
 
-  it("marks only the expected starting daemon session running", () => {
-    const fixture = setup();
-    const terminal = createStartingTerminal(fixture);
+  it("marks only the expected starting daemon session running", async () => {
+    const fixture = await setup();
+    const terminal = await createStartingTerminal(fixture);
 
-    const running = markTerminalSessionRunning(fixture.db, {
+    const running = await markTerminalSessionRunning(fixture.db, {
       cols: 100,
       daemonSessionId: fixture.session.id,
       initialCwd: "/tmp/workspace",
@@ -252,15 +260,15 @@ describe("terminal sessions", () => {
     });
   });
 
-  it("does not resurrect a terminal exited by thread deletion", () => {
-    const fixture = setup();
-    const terminal = createStartingTerminal(fixture);
-    markThreadTerminalSessionsExited(fixture.db, {
+  it("does not resurrect a terminal exited by thread deletion", async () => {
+    const fixture = await setup();
+    const terminal = await createStartingTerminal(fixture);
+    await markThreadTerminalSessionsExited(fixture.db, {
       threadId: fixture.thread.id,
       closeReason: "thread-deleted",
     });
 
-    const running = markTerminalSessionRunning(fixture.db, {
+    const running = await markTerminalSessionRunning(fixture.db, {
       cols: 100,
       daemonSessionId: fixture.session.id,
       initialCwd: "/tmp/workspace",
@@ -270,28 +278,28 @@ describe("terminal sessions", () => {
     });
 
     expect(running).toBeNull();
-    expect(listTerminalSessionsByThread(fixture.db, fixture.thread.id)).toEqual(
-      [
-        expect.objectContaining({
-          id: terminal.id,
-          closeReason: "thread-deleted",
-          daemonSessionId: null,
-          status: "exited",
-        }),
-      ],
-    );
+    expect(
+      await listTerminalSessionsByThread(fixture.db, fixture.thread.id),
+    ).toEqual([
+      expect.objectContaining({
+        id: terminal.id,
+        closeReason: "thread-deleted",
+        daemonSessionId: null,
+        status: "exited",
+      }),
+    ]);
   });
 
-  it("marks a terminal dirty on first user input only", () => {
-    const fixture = setup();
-    const terminal = createStartingTerminal(fixture);
+  it("marks a terminal dirty on first user input only", async () => {
+    const fixture = await setup();
+    const terminal = await createStartingTerminal(fixture);
 
-    const firstInput = markTerminalSessionUserInput(fixture.db, {
+    const firstInput = await markTerminalSessionUserInput(fixture.db, {
       terminalId: terminal.id,
       threadId: fixture.thread.id,
       now: 10,
     });
-    const secondInput = markTerminalSessionUserInput(fixture.db, {
+    const secondInput = await markTerminalSessionUserInput(fixture.db, {
       terminalId: terminal.id,
       threadId: fixture.thread.id,
       now: 20,
@@ -303,25 +311,25 @@ describe("terminal sessions", () => {
       updatedAt: 10,
     });
     expect(secondInput).toBeNull();
-    expect(listTerminalSessionsByThread(fixture.db, fixture.thread.id)).toEqual(
-      [
-        expect.objectContaining({
-          id: terminal.id,
-          lastUserInputAt: 10,
-        }),
-      ],
-    );
+    expect(
+      await listTerminalSessionsByThread(fixture.db, fixture.thread.id),
+    ).toEqual([
+      expect.objectContaining({
+        id: terminal.id,
+        lastUserInputAt: 10,
+      }),
+    ]);
   });
 
-  it("does not resurrect a terminal exited by environment destruction", () => {
-    const fixture = setup();
-    const terminal = createStartingTerminal(fixture);
-    markEnvironmentTerminalSessionsExited(fixture.db, {
+  it("does not resurrect a terminal exited by environment destruction", async () => {
+    const fixture = await setup();
+    const terminal = await createStartingTerminal(fixture);
+    await markEnvironmentTerminalSessionsExited(fixture.db, {
       environmentId: fixture.environment.id,
       closeReason: "environment-destroyed",
     });
 
-    const running = markTerminalSessionRunning(fixture.db, {
+    const running = await markTerminalSessionRunning(fixture.db, {
       cols: 100,
       daemonSessionId: fixture.session.id,
       initialCwd: "/tmp/workspace",
@@ -331,26 +339,26 @@ describe("terminal sessions", () => {
     });
 
     expect(running).toBeNull();
-    expect(listTerminalSessionsByThread(fixture.db, fixture.thread.id)).toEqual(
-      [
-        expect.objectContaining({
-          id: terminal.id,
-          closeReason: "environment-destroyed",
-          daemonSessionId: null,
-          status: "exited",
-        }),
-      ],
-    );
+    expect(
+      await listTerminalSessionsByThread(fixture.db, fixture.thread.id),
+    ).toEqual([
+      expect.objectContaining({
+        id: terminal.id,
+        closeReason: "environment-destroyed",
+        daemonSessionId: null,
+        status: "exited",
+      }),
+    ]);
   });
 
-  it("does not resurrect a terminal disconnected from its daemon session", () => {
-    const fixture = setup();
-    const terminal = createStartingTerminal(fixture);
-    markDaemonTerminalSessionsDisconnected(fixture.db, {
+  it("does not resurrect a terminal disconnected from its daemon session", async () => {
+    const fixture = await setup();
+    const terminal = await createStartingTerminal(fixture);
+    await markDaemonTerminalSessionsDisconnected(fixture.db, {
       daemonSessionId: fixture.session.id,
     });
 
-    const running = markTerminalSessionRunning(fixture.db, {
+    const running = await markTerminalSessionRunning(fixture.db, {
       cols: 100,
       daemonSessionId: fixture.session.id,
       initialCwd: "/tmp/workspace",
@@ -360,20 +368,20 @@ describe("terminal sessions", () => {
     });
 
     expect(running).toBeNull();
-    expect(listTerminalSessionsByThread(fixture.db, fixture.thread.id)).toEqual(
-      [
-        expect.objectContaining({
-          id: terminal.id,
-          daemonSessionId: null,
-          status: "disconnected",
-        }),
-      ],
-    );
+    expect(
+      await listTerminalSessionsByThread(fixture.db, fixture.thread.id),
+    ).toEqual([
+      expect.objectContaining({
+        id: terminal.id,
+        daemonSessionId: null,
+        status: "disconnected",
+      }),
+    ]);
   });
 
-  it("lists starting, running, and disconnected terminals as visible", () => {
-    const fixture = setup();
-    const starting = createTerminalSession(fixture.db, {
+  it("lists starting, running, and disconnected terminals as visible", async () => {
+    const fixture = await setup();
+    const starting = await createTerminalSession(fixture.db, {
       cols: 80,
       daemonSessionId: fixture.session.id,
       environmentId: fixture.environment.id,
@@ -385,7 +393,7 @@ describe("terminal sessions", () => {
       threadId: fixture.thread.id,
       title: "Starting terminal",
     });
-    const running = createTerminalSession(fixture.db, {
+    const running = await createTerminalSession(fixture.db, {
       cols: 80,
       daemonSessionId: fixture.session.id,
       environmentId: fixture.environment.id,
@@ -397,7 +405,7 @@ describe("terminal sessions", () => {
       threadId: fixture.thread.id,
       title: "Running terminal",
     });
-    const disconnected = createTerminalSession(fixture.db, {
+    const disconnected = await createTerminalSession(fixture.db, {
       cols: 80,
       daemonSessionId: null,
       environmentId: fixture.environment.id,
@@ -409,7 +417,7 @@ describe("terminal sessions", () => {
       threadId: fixture.thread.id,
       title: "Disconnected terminal",
     });
-    const exited = createTerminalSession(fixture.db, {
+    const exited = await createTerminalSession(fixture.db, {
       cols: 80,
       daemonSessionId: null,
       environmentId: fixture.environment.id,
@@ -423,7 +431,7 @@ describe("terminal sessions", () => {
     });
 
     expect(
-      listVisibleTerminalSessionsByThread(fixture.db, fixture.thread.id),
+      await listVisibleTerminalSessionsByThread(fixture.db, fixture.thread.id),
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: starting.id }),
@@ -432,21 +440,24 @@ describe("terminal sessions", () => {
       ]),
     );
     expect(
-      listVisibleTerminalSessionsByThread(fixture.db, fixture.thread.id),
+      await listVisibleTerminalSessionsByThread(fixture.db, fixture.thread.id),
     ).toHaveLength(3);
     expect(
-      listVisibleTerminalSessionsByThread(fixture.db, fixture.thread.id),
+      await listVisibleTerminalSessionsByThread(fixture.db, fixture.thread.id),
     ).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ id: exited.id })]),
     );
   });
 
-  it("does not mark a starting terminal running for another daemon session", () => {
-    const fixture = setup();
-    const terminal = createStartingTerminal(fixture);
-    const replacementSession = openTestSession(fixture.db, fixture.host.id);
+  it("does not mark a starting terminal running for another daemon session", async () => {
+    const fixture = await setup();
+    const terminal = await createStartingTerminal(fixture);
+    const replacementSession = await openTestSession(
+      fixture.db,
+      fixture.host.id,
+    );
 
-    const running = markTerminalSessionRunning(fixture.db, {
+    const running = await markTerminalSessionRunning(fixture.db, {
       cols: 100,
       daemonSessionId: replacementSession.id,
       initialCwd: "/tmp/workspace",
@@ -456,23 +467,25 @@ describe("terminal sessions", () => {
     });
 
     expect(running).toBeNull();
-    expect(listTerminalSessionsByThread(fixture.db, fixture.thread.id)).toEqual(
-      [
-        expect.objectContaining({
-          id: terminal.id,
-          daemonSessionId: fixture.session.id,
-          status: "starting",
-        }),
-      ],
-    );
+    expect(
+      await listTerminalSessionsByThread(fixture.db, fixture.thread.id),
+    ).toEqual([
+      expect.objectContaining({
+        id: terminal.id,
+        daemonSessionId: fixture.session.id,
+        status: "starting",
+      }),
+    ]);
   });
 });
 
 describe("countTerminalSessions", () => {
-  it("preserves historical scoped counts and live standalone host/path counts", () => {
-    const { db, host, environment, thread } = setup();
+  it("preserves historical scoped counts and live standalone host/path counts", async () => {
+    const { db, host, environment, thread } = await setup();
     try {
-      const otherHost = upsertHost(db, noopNotifier, { name: "other-host" });
+      const otherHost = await upsertHost(db, noopNotifier, {
+        name: "other-host",
+      });
       const rows = [
         {
           hostId: host.id,
@@ -539,7 +552,7 @@ describe("countTerminalSessions", () => {
         },
       ] as const;
       for (const row of rows) {
-        createTerminalSession(db, {
+        await createTerminalSession(db, {
           ...row,
           cols: 80,
           rows: 24,
@@ -548,13 +561,13 @@ describe("countTerminalSessions", () => {
         });
       }
       expect(
-        countTerminalSessions(db, {
+        await countTerminalSessions(db, {
           scope: { kind: "thread", threadId: thread.id },
           visible: false,
         }),
       ).toBe(2);
       expect(
-        countTerminalSessions(db, {
+        await countTerminalSessions(db, {
           scope: {
             kind: "threadless-environment",
             environmentId: environment.id,
@@ -569,14 +582,14 @@ describe("countTerminalSessions", () => {
         ["/missing", 0],
       ] as const) {
         expect(
-          countTerminalSessions(db, {
+          await countTerminalSessions(db, {
             scope: { kind: "host-path", hostId: host.id, cwd },
             visible: true,
           }),
         ).toBe(expected);
       }
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });

@@ -37,8 +37,8 @@ async function waitForThreadEventContaining(
 }
 
 describe.sequential("fake provider hidden delegation integration", () => {
-  it("hides a delegated child of a hidden parent and still notifies the parent", () =>
-    withHarness(async (harness) => {
+  it("hides a delegated child of a hidden parent and still notifies the parent", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(harness, "Hidden Delegation");
       const { environment, thread: parentThread } = await createReadyThread(
         harness,

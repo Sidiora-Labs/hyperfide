@@ -22,8 +22,8 @@ type InputsValue<S> = S extends StandardSchemaV1
 
 /** Attempt-scoped updates; core persists each update before this call returns. */
 export interface PluginEnvironmentProviderProgress {
-  step(text: string): void;
-  log(text: string): void;
+  step(text: string): void | Promise<void>;
+  log(text: string): void | Promise<void>;
 }
 
 export interface PluginEnvironmentProviderValidateContext<

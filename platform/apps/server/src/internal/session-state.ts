@@ -37,11 +37,11 @@ interface GetInactiveSessionLogFieldsArgs {
   sessionId: string;
 }
 
-export function requireAuthorizedOpenSession(
+export async function requireAuthorizedOpenSession(
   db: DbConnection,
   args: RequireAuthorizedActiveSessionArgs,
 ) {
-  const session = getSessionById(db, { sessionId: args.sessionId });
+  const session = await getSessionById(db, { sessionId: args.sessionId });
   if (!session || session.status !== "active") {
     throw new ApiError(401, "inactive_session", "Session is not active");
   }
@@ -56,26 +56,26 @@ export function requireAuthorizedOpenSession(
   return session;
 }
 
-export function requireAuthenticatedDaemonSession(
+export async function requireAuthenticatedDaemonSession(
   args: RequireAuthenticatedDaemonSessionArgs,
-): HostDaemonSessionRow {
+): Promise<HostDaemonSessionRow> {
   const daemon = getAuthenticatedDaemon(args.context);
-  return requireAuthorizedOpenSession(args.db, {
+  return await requireAuthorizedOpenSession(args.db, {
     hostId: daemon.hostId,
     sessionId: args.sessionId,
   });
 }
 
-export function getInactiveSessionLogFields(
+export async function getInactiveSessionLogFields(
   db: DbConnection,
   args: GetInactiveSessionLogFieldsArgs,
-): InactiveSessionLogFields {
+): Promise<InactiveSessionLogFields> {
   const session =
-    db
+    (await db
       .select()
       .from(hostDaemonSessions)
       .where(eq(hostDaemonSessions.id, args.sessionId))
-      .get() ?? null;
+      .get()) ?? null;
 
   if (!session) {
     return {

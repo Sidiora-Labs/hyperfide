@@ -19,25 +19,25 @@ import {
 
 const SIDEBAR_INSTALLATION_DEFAULTS_MIGRATION_TIMESTAMP = 1790009314673;
 
-it("leaves a fresh migrated database without an installation override", () => {
-  const db = createConnection(":memory:");
+it("leaves a fresh migrated database without an installation override", async () => {
+  const db = await createConnection(":memory:");
   try {
-    migrate(db);
+    await migrate(db);
     expect(
-      db.$client.prepare("SELECT * FROM ui_preference_defaults").all(),
+      await db.$client.prepare("SELECT * FROM ui_preference_defaults").all(),
     ).toEqual([]);
-    expect(db.$client.prepare("SELECT * FROM ui_preferences").all()).toEqual(
-      [],
-    );
-    db.$client.exec(
+    expect(
+      await db.$client.prepare("SELECT * FROM ui_preferences").all(),
+    ).toEqual([]);
+    await db.$client.exec(
       `INSERT INTO ui_preferences VALUES ('sidebar.chronologicalSort', '"alpha"', 1, 1)`,
     );
-    migrate(db);
+    await migrate(db);
     expect(
-      db.$client.prepare("SELECT * FROM ui_preference_defaults").all(),
+      await db.$client.prepare("SELECT * FROM ui_preference_defaults").all(),
     ).toEqual([]);
   } finally {
-    db.$client.close();
+    await db.close();
   }
 });
 
@@ -46,25 +46,25 @@ describe.each(["project", "thread", "preference"] as const)(
   (kind) => {
     it.each([null, "chronological", "machine", "project"])(
       "keeps saved choice %s separate from the fallback",
-      (choice) => {
-        const db = createConnection(":memory:");
+      async (choice) => {
+        const db = await createConnection(":memory:");
         try {
-          migrate(db);
+          await migrate(db);
           if (kind === "preference") {
-            db.$client.exec(
+            await db.$client.exec(
               `INSERT INTO ui_preferences VALUES ('sidebar.chronologicalSort', '"alpha"', 1, 1)`,
             );
           } else if (kind === "thread") {
-            createThread(db, noopNotifier, {
+            await createThread(db, noopNotifier, {
               projectId: PERSONAL_PROJECT_ID,
               providerId: "test-provider",
             });
           } else {
-            const host = upsertHost(db, noopNotifier, {
+            const host = await upsertHost(db, noopNotifier, {
               id: "host-sidebar",
               name: "Sidebar test",
             });
-            createProject(db, noopNotifier, {
+            await createProject(db, noopNotifier, {
               name: "Existing project",
               source: {
                 type: "local_path",
@@ -74,48 +74,54 @@ describe.each(["project", "thread", "preference"] as const)(
             });
           }
           if (choice !== null) {
-            db.$client
+            await db.$client
               .prepare(
                 "INSERT INTO ui_preferences VALUES ('sidebar.organizationMode', ?, 4, 123)",
               )
               .run(JSON.stringify(choice));
           }
-          const before = db.$client
+          const before = await db.$client
             .prepare("SELECT * FROM ui_preferences")
             .all();
-          const projects = db.$client.prepare("SELECT * FROM projects").all();
-          const threads = db.$client.prepare("SELECT * FROM threads").all();
-          db.$client.exec("DROP TABLE ui_preference_defaults");
+          const projects = await db.$client
+            .prepare("SELECT * FROM projects")
+            .all();
+          const threads = await db.$client
+            .prepare("SELECT * FROM threads")
+            .all();
+          await db.$client.exec("DROP TABLE ui_preference_defaults");
           dropIdleLifecycleIndexes(db);
-          rewindThreadPruningWork(db);
-          dropPluginEnabledFollowsDefaultColumn(db);
-          dropQueuedMessageEditHeldUntilColumn(db);
-          dropMarketplaceSourceGitSubdirectoryColumn(db);
-          dropThreadParentNotificationsColumn(db);
-          db.$client
+          await rewindThreadPruningWork(db);
+          await dropPluginEnabledFollowsDefaultColumn(db);
+          await dropQueuedMessageEditHeldUntilColumn(db);
+          await dropMarketplaceSourceGitSubdirectoryColumn(db);
+          await dropThreadParentNotificationsColumn(db);
+          await db.$client
             .prepare("DELETE FROM __drizzle_migrations WHERE created_at >= ?")
             .run(SIDEBAR_INSTALLATION_DEFAULTS_MIGRATION_TIMESTAMP);
-          migrate(db);
+          await migrate(db);
           expect(
-            db.$client.prepare("SELECT * FROM ui_preference_defaults").all(),
+            await db.$client
+              .prepare("SELECT * FROM ui_preference_defaults")
+              .all(),
           ).toEqual([
             { key: "sidebar.organizationMode", value_json: '"project"' },
           ]);
           expect(
-            db.$client.prepare("SELECT * FROM ui_preferences").all(),
+            await db.$client.prepare("SELECT * FROM ui_preferences").all(),
           ).toEqual(before);
-          expect(db.$client.prepare("SELECT * FROM projects").all()).toEqual(
-            projects,
-          );
-          expect(db.$client.prepare("SELECT * FROM threads").all()).toEqual(
-            threads,
-          );
-          migrate(db);
           expect(
-            db.$client.prepare("SELECT * FROM ui_preferences").all(),
+            await db.$client.prepare("SELECT * FROM projects").all(),
+          ).toEqual(projects);
+          expect(
+            await db.$client.prepare("SELECT * FROM threads").all(),
+          ).toEqual(threads);
+          await migrate(db);
+          expect(
+            await db.$client.prepare("SELECT * FROM ui_preferences").all(),
           ).toEqual(before);
         } finally {
-          db.$client.close();
+          await db.close();
         }
       },
     );

@@ -16,12 +16,12 @@ export const PROJECT_ATTACHMENT_GRACE_MS = 7 * 24 * 60 * 60_000;
 export const PROJECT_ATTACHMENT_BATCH_SIZE = 32;
 export type ProjectAttachmentRow = typeof projectAttachments.$inferSelect;
 
-export function getProjectAttachment(
+export async function getProjectAttachment(
   db: DbQueryConnection,
   projectId: string,
   storedPath: string,
 ) {
-  return db
+  return await db
     .select()
     .from(projectAttachments)
     .where(
@@ -39,40 +39,44 @@ export function attachmentUnavailable(path: string): ProjectAttachmentError {
   );
 }
 
-export function recordProjectAttachment(
+export async function recordProjectAttachment(
   db: DbQueryConnection,
   input: Omit<ProjectAttachmentRow, "id" | "deletionClaimedAt">,
-): ProjectAttachmentRow {
-  db.insert(projectAttachments)
+): Promise<ProjectAttachmentRow> {
+  await db
+    .insert(projectAttachments)
     .values({ ...input, id: randomUUID(), deletionClaimedAt: null })
     .onConflictDoNothing({
       target: [projectAttachments.projectId, projectAttachments.storedPath],
     })
     .run();
-  const row = getProjectAttachment(db, input.projectId, input.storedPath);
+  const row = await getProjectAttachment(db, input.projectId, input.storedPath);
   if (!row || row.deletionClaimedAt !== null)
     throw attachmentUnavailable(input.storedPath);
   return row;
 }
 
-
-export function acquireProjectAttachmentOwnership(
+export async function acquireProjectAttachmentOwnership(
   db: DbQueryConnection,
   threadId: string,
   paths: readonly string[],
   mode: ProjectAttachmentOwnershipMode = "required",
-): void {
+): Promise<void> {
   if (paths.length === 0) return;
-  db.transaction(
-    (tx) => {
-      const thread = tx
+  await db.transaction(
+    async (tx) => {
+      const thread = await tx
         .select({ projectId: threads.projectId })
         .from(threads)
         .where(eq(threads.id, threadId))
         .get();
       if (!thread) throw new Error(`Thread ${threadId} does not exist`);
       for (const path of paths) {
-        const attachment = getProjectAttachment(tx, thread.projectId, path);
+        const attachment = await getProjectAttachment(
+          tx,
+          thread.projectId,
+          path,
+        );
         if (
           !attachment ||
           attachment.readyAt === null ||
@@ -81,7 +85,8 @@ export function acquireProjectAttachmentOwnership(
           if (mode === "best-effort") continue;
           throw attachmentUnavailable(path);
         }
-        tx.insert(projectAttachmentThreads)
+        await tx
+          .insert(projectAttachmentThreads)
           .values({ attachmentId: attachment.id, threadId })
           .onConflictDoNothing()
           .run();
@@ -91,17 +96,17 @@ export function acquireProjectAttachmentOwnership(
   );
 }
 
-export function copyProjectAttachmentOwnership(
+export async function copyProjectAttachmentOwnership(
   db: DbQueryConnection,
   sourceThreadId: string,
   targetThreadId: string,
-): void {
-  const source = db
+): Promise<void> {
+  const source = await db
     .select({ projectId: threads.projectId })
     .from(threads)
     .where(eq(threads.id, sourceThreadId))
     .get();
-  const target = db
+  const target = await db
     .select({ projectId: threads.projectId })
     .from(threads)
     .where(eq(threads.id, targetThreadId))
@@ -110,18 +115,18 @@ export function copyProjectAttachmentOwnership(
     throw new Error(
       "Attachment ownership requires threads in the same project",
     );
-  db.run(sql`INSERT OR IGNORE INTO project_attachment_threads (attachment_id, thread_id)
+  await db.run(sql`INSERT OR IGNORE INTO project_attachment_threads (attachment_id, thread_id)
     SELECT attachment_id, ${targetThreadId} FROM project_attachment_threads WHERE thread_id = ${sourceThreadId}`);
 }
 
-export function claimProjectAttachments(
+export async function claimProjectAttachments(
   db: DbConnection,
   projectId: string,
   now: number,
-): ProjectAttachmentRow[] {
-  return db.transaction(
-    (tx) => {
-      const ready = tx
+): Promise<ProjectAttachmentRow[]> {
+  return await db.transaction(
+    async (tx) => {
+      const ready = await tx
         .select()
         .from(projectAttachmentBackfills)
         .where(
@@ -140,7 +145,7 @@ export function claimProjectAttachments(
             eq(projectAttachmentThreads.attachmentId, projectAttachments.id),
           ),
       );
-      const eligible = tx
+      const eligible = await tx
         .select()
         .from(projectAttachments)
         .where(
@@ -155,11 +160,12 @@ export function claimProjectAttachments(
         .limit(PROJECT_ATTACHMENT_BATCH_SIZE)
         .all();
       for (const row of eligible)
-        tx.update(projectAttachments)
+        await tx
+          .update(projectAttachments)
           .set({ deletionClaimedAt: now })
           .where(eq(projectAttachments.id, row.id))
           .run();
-      const claimed = tx
+      const claimed = await tx
         .select()
         .from(projectAttachments)
         .where(
@@ -175,7 +181,8 @@ export function claimProjectAttachments(
         .limit(PROJECT_ATTACHMENT_BATCH_SIZE)
         .all();
       for (const row of claimed)
-        tx.update(projectAttachments)
+        await tx
+          .update(projectAttachments)
           .set({ deletionClaimedAt: now })
           .where(eq(projectAttachments.id, row.id))
           .run();

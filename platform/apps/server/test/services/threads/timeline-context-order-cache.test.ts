@@ -12,6 +12,7 @@ import {
 } from "../../../src/services/threads/timeline-context-order.js";
 import {
   appendRows,
+  observePostgresQueries,
   createRandom,
   pick,
   randomInteger,
@@ -23,22 +24,29 @@ import {
 
 const SEEDS = 20;
 
-function expectCachedEqualsCold(
+async function expectCachedEqualsCold(
   testThread: TestThread,
   maxSeq: number,
   sequenceStart = 0,
-): ReturnType<typeof getTimelineGroupingContext> {
+): Promise<Awaited<ReturnType<typeof getTimelineGroupingContext>>> {
   const args = { maxSeq, sequenceStart, threadId: testThread.thread.id };
-  const cached = getTimelineGroupingContext(testThread.db, args);
+  const cached = await getTimelineGroupingContext(testThread.db, args);
   clearTimelineOrderingContextCache(testThread.coldDb);
   expect(cached, JSON.stringify(args)).toEqual(
-    getTimelineGroupingContext(testThread.coldDb, args),
+    await getTimelineGroupingContext(testThread.coldDb, args),
   );
   return cached;
 }
 
-function captureStatementSql(db: TestThread["db"], run: () => void): string[] {
+async function captureStatementSql(
+  db: TestThread["db"],
+  run: () => unknown,
+): Promise<string[]> {
   const captured: string[] = [];
+  if (db.dialect === "postgresql") {
+    await observePostgresQueries(db, run, (source) => captured.push(source));
+    return captured;
+  }
   const raw = db.$client;
   const originalPrepare = raw.prepare.bind(raw);
   Object.defineProperty(raw, "prepare", {
@@ -50,7 +58,7 @@ function captureStatementSql(db: TestThread["db"], run: () => void): string[] {
     },
   });
   try {
-    run();
+    await run();
   } finally {
     Object.defineProperty(raw, "prepare", {
       configurable: true,
@@ -180,9 +188,9 @@ describe("timeline grouping context cache", () => {
     },
   ])(
     "preserves request association and visibility for $name",
-    ({ initiator, input, boundary }) => {
-      withTestThread((testThread) => {
-        const maxSeq = appendRows(testThread, [
+    async ({ initiator, input, boundary }) => {
+      await withTestThread(async (testThread) => {
+        const maxSeq = await appendRows(testThread, [
           turnStarted("turn-1"),
           {
             type: "client/turn/requested",
@@ -195,7 +203,7 @@ describe("timeline grouping context cache", () => {
           },
           accepted("request-2", "turn-2"),
         ]);
-        const context = getTimelineGroupingContext(testThread.db, {
+        const context = await getTimelineGroupingContext(testThread.db, {
           threadId: testThread.thread.id,
           sequenceStart: 0,
           maxSeq,
@@ -206,10 +214,10 @@ describe("timeline grouping context cache", () => {
     },
   );
 
-  it("preserves the parented cutoff before a late accepted steer", () => {
-    withTestThread((testThread) => {
+  it("preserves the parented cutoff before a late accepted steer", async () => {
+    await withTestThread(async (testThread) => {
       const steer = userRequest("steer");
-      const maxSeq = appendRows(testThread, [
+      const maxSeq = await appendRows(testThread, [
         turnStarted("turn-a"),
         turnCompleted("turn-a"),
         {
@@ -228,20 +236,23 @@ describe("timeline grouping context cache", () => {
         accepted("steer", "turn-a"),
       ]);
       expect(
-        expectCachedEqualsCold(testThread, maxSeq).orderingBoundarySequence,
+        (await expectCachedEqualsCold(testThread, maxSeq))
+          .orderingBoundarySequence,
       ).toBe(8);
       expect(
-        expectCachedEqualsCold(
-          testThread,
-          appendRows(testThread, [child("parent", 2)]),
+        (
+          await expectCachedEqualsCold(
+            testThread,
+            await appendRows(testThread, [child("parent", 2)]),
+          )
         ).orderingBoundarySequence,
       ).toBe(8);
     });
   });
 
-  it("updates parented boundaries without rereading unchanged request and turn history", () => {
-    withTestThread((testThread) => {
-      const beforeChildren = appendRows(testThread, [
+  it("updates parented boundaries without rereading unchanged request and turn history", async () => {
+    await withTestThread(async (testThread) => {
+      const beforeChildren = await appendRows(testThread, [
         turnStarted("turn-1"),
         rootToolCall("call-1", "turn-1", "item/started"),
         child("call-1", 1),
@@ -249,23 +260,24 @@ describe("timeline grouping context cache", () => {
         userRequest("request-1"),
       ]);
       expect(
-        expectCachedEqualsCold(testThread, beforeChildren)
+        (await expectCachedEqualsCold(testThread, beforeChildren))
           .orderingBoundarySequence,
       ).toBeNull();
-      const statements = captureStatementSql(testThread.db, () => {
+      const statements = await captureStatementSql(testThread.db, async () => {
         for (let index = 0; index < 20; index += 1) {
-          const maxSeq = appendRows(testThread, [
+          const maxSeq = await appendRows(testThread, [
             {
               ...delta("nested-call-1", "child text"),
               parentToolCallId: "call-1",
             },
           ]);
           expect(
-            expectCachedEqualsCold(testThread, maxSeq).orderingBoundarySequence,
+            (await expectCachedEqualsCold(testThread, maxSeq))
+              .orderingBoundarySequence,
           ).toBe(5);
         }
         expect(
-          expectCachedEqualsCold(testThread, beforeChildren)
+          (await expectCachedEqualsCold(testThread, beforeChildren))
             .orderingBoundarySequence,
         ).toBeNull();
       });
@@ -275,9 +287,9 @@ describe("timeline grouping context cache", () => {
     });
   });
 
-  it("reuses the context across appended deltas and root tool-call rows without re-reading it", () => {
-    withTestThread((testThread) => {
-      appendRows(testThread, [
+  it("reuses the context across appended deltas and root tool-call rows without re-reading it", async () => {
+    await withTestThread(async (testThread) => {
+      await appendRows(testThread, [
         turnStarted("turn-1"),
         userRequest("request-1"),
         accepted("request-1", "turn-1"),
@@ -285,21 +297,21 @@ describe("timeline grouping context cache", () => {
         child("call-1", 1),
         userRequest("request-2"),
       ]);
-      const warm = expectCachedEqualsCold(
+      const warm = await expectCachedEqualsCold(
         testThread,
-        appendRows(testThread, [child("call-1", 2)]),
+        await appendRows(testThread, [child("call-1", 2)]),
       );
       expect(warm.orderingBoundarySequence).toBe(6);
 
-      const maxSeq = appendRows(testThread, [
+      const maxSeq = await appendRows(testThread, [
         delta("turn-1", "Hello"),
         delta("turn-1", " world"),
         reasoningDelta("turn-1"),
         rootToolCall("call-2", "turn-1", "item/started"),
         rootToolCall("call-2", "turn-1", "item/completed"),
       ]);
-      const statements = captureStatementSql(testThread.db, () => {
-        expect(expectCachedEqualsCold(testThread, maxSeq)).toBe(warm);
+      const statements = await captureStatementSql(testThread.db, async () => {
+        expect(await expectCachedEqualsCold(testThread, maxSeq)).toBe(warm);
       });
       expect(statements).toEqual([
         expect.stringContaining('"parent_tool_call_id" is not null'),
@@ -361,30 +373,31 @@ describe("timeline grouping context cache", () => {
       before: null,
       after: 5,
     },
-  ])("recomputes when $name", (testCase) => {
-    withTestThread((testThread) => {
-      const warm = expectCachedEqualsCold(
+  ])("recomputes when $name", async (testCase) => {
+    await withTestThread(async (testThread) => {
+      const warm = await expectCachedEqualsCold(
         testThread,
-        appendRows(testThread, testCase.seed),
+        await appendRows(testThread, testCase.seed),
       );
       expect(warm.orderingBoundarySequence).toBe(testCase.before);
 
-      const maxSeq = appendRows(testThread, [
+      const maxSeq = await appendRows(testThread, [
         delta("turn-1", "before"),
         ...testCase.appended,
         delta("turn-1", "after"),
       ]);
       expect(
-        expectCachedEqualsCold(testThread, maxSeq).orderingBoundarySequence,
+        (await expectCachedEqualsCold(testThread, maxSeq))
+          .orderingBoundarySequence,
       ).toBe(testCase.after);
     });
   });
 
-  it("reuses the context when a delegating item id is reused in a later turn", () => {
-    withTestThread((testThread) => {
-      const warm = expectCachedEqualsCold(
+  it("reuses the context when a delegating item id is reused in a later turn", async () => {
+    await withTestThread(async (testThread) => {
+      const warm = await expectCachedEqualsCold(
         testThread,
-        appendRows(testThread, [
+        await appendRows(testThread, [
           turnStarted("turn-1"),
           rootToolCall("call-1", "turn-1", "item/started"),
           userRequest("request-1"),
@@ -395,14 +408,14 @@ describe("timeline grouping context cache", () => {
       );
       expect(warm.orderingBoundarySequence).toBe(3);
 
-      const reusedMaxSeq = appendRows(testThread, [
+      const reusedMaxSeq = await appendRows(testThread, [
         rootToolCall("call-1", "turn-2", "item/started"),
         rootToolCall("call-1", "turn-2", "item/completed"),
       ]);
-      expect(expectCachedEqualsCold(testThread, reusedMaxSeq)).toBe(warm);
-      expectCachedEqualsCold(
+      expect(await expectCachedEqualsCold(testThread, reusedMaxSeq)).toBe(warm);
+      await expectCachedEqualsCold(
         testThread,
-        appendRows(testThread, [userRequest("request-2")]),
+        await appendRows(testThread, [userRequest("request-2")]),
       );
     });
   });
@@ -410,9 +423,9 @@ describe("timeline grouping context cache", () => {
   it.each([
     {
       name: "a suffix rewrite on the same connection",
-      remove: (testThread: TestThread, sequence: number) => {
-        testThread.db.transaction((tx) => {
-          deleteThreadEventSuffixInTransaction(tx, {
+      remove: async (testThread: TestThread, sequence: number) => {
+        await testThread.db.transaction(async (tx) => {
+          await deleteThreadEventSuffixInTransaction(tx, {
             cutoffSequence: sequence,
             oldMaxSequence: sequence,
             threadId: testThread.thread.id,
@@ -422,17 +435,17 @@ describe("timeline grouping context cache", () => {
     },
     {
       name: "another connection deletes a context row",
-      remove: (testThread: TestThread, sequence: number) => {
-        testThread.coldDb.$client
+      remove: async (testThread: TestThread, sequence: number) => {
+        await testThread.coldDb.$client
           .prepare("DELETE FROM events WHERE thread_id = ? AND sequence = ?")
           .run(testThread.thread.id, sequence);
       },
     },
   ])(
     "recomputes after $name leaves only appendable rows in the probed range",
-    ({ remove }) => {
-      withTestThread((testThread) => {
-        const warmMaxSeq = appendRows(testThread, [
+    async ({ remove }) => {
+      await withTestThread(async (testThread) => {
+        const warmMaxSeq = await appendRows(testThread, [
           turnStarted("turn-1"),
           rootToolCall("call-1", "turn-1", "item/started"),
           turnCompleted("turn-1"),
@@ -440,61 +453,67 @@ describe("timeline grouping context cache", () => {
           child("call-1", 1),
         ]);
         expect(
-          expectCachedEqualsCold(testThread, warmMaxSeq)
+          (await expectCachedEqualsCold(testThread, warmMaxSeq))
             .orderingBoundarySequence,
         ).toBe(4);
 
-        remove(testThread, warmMaxSeq);
-        const maxSeq = appendRows(testThread, [
+        await remove(testThread, warmMaxSeq);
+        const maxSeq = await appendRows(testThread, [
           delta("turn-1", "replacement"),
           delta("turn-1", " text"),
         ]);
         expect(
-          expectCachedEqualsCold(testThread, maxSeq).orderingBoundarySequence,
+          (await expectCachedEqualsCold(testThread, maxSeq))
+            .orderingBoundarySequence,
         ).toBeNull();
       });
     },
   );
 
-  it("serves an older snapshot below a cached entry only when no context rows lie between them", () => {
-    withTestThread((testThread) => {
-      const olderMaxSeq = appendRows(testThread, [
+  it("serves an older snapshot below a cached entry only when no context rows lie between them", async () => {
+    await withTestThread(async (testThread) => {
+      const olderMaxSeq = await appendRows(testThread, [
         turnStarted("turn-1"),
         userRequest("request-1"),
         delta("turn-1", "a"),
       ]);
-      const latest = expectCachedEqualsCold(
+      const latest = await expectCachedEqualsCold(
         testThread,
-        appendRows(testThread, [delta("turn-1", "b"), delta("turn-1", "c")]),
+        await appendRows(testThread, [
+          delta("turn-1", "b"),
+          delta("turn-1", "c"),
+        ]),
       );
-      expect(expectCachedEqualsCold(testThread, olderMaxSeq)).toBe(latest);
+      expect(await expectCachedEqualsCold(testThread, olderMaxSeq)).toBe(
+        latest,
+      );
 
       expect(latest.orderingBoundarySequence).toBe(2);
-      const acceptedMaxSeq = appendRows(testThread, [
+      const acceptedMaxSeq = await appendRows(testThread, [
         accepted("request-1", "turn-1"),
       ]);
       expect(
-        expectCachedEqualsCold(testThread, acceptedMaxSeq)
+        (await expectCachedEqualsCold(testThread, acceptedMaxSeq))
           .orderingBoundarySequence,
       ).toBeNull();
       expect(
-        expectCachedEqualsCold(testThread, olderMaxSeq)
+        (await expectCachedEqualsCold(testThread, olderMaxSeq))
           .orderingBoundarySequence,
       ).toBe(2);
     });
   });
 
-  it("matches a cold computation over randomized appends, rewrites and prunes", () => {
+  it("matches a cold computation over randomized appends, rewrites and prunes", async () => {
     let comparisons = 0;
     let changedContexts = 0;
     let prunedRows = 0;
     for (let seed = 1; seed <= SEEDS; seed += 1) {
       const random = createRandom(seed);
-      withTestThread((testThread) => {
+      await withTestThread(async (testThread) => {
         let previousBoundary: number | null = null;
         for (let step = 0; step < 40; step += 1) {
-          prunedRows += applyRandomStep(testThread, random, step);
-          const latest = getLatestThreadSequence(testThread.db, {
+          prunedRows += await applyRandomStep(testThread, random, step);
+          const latest = await getLatestThreadSequence(testThread.db, {
             threadId: testThread.thread.id,
           });
           const probes = [latest, latest - randomInteger(random, 1, 6), latest];
@@ -502,12 +521,15 @@ describe("timeline grouping context cache", () => {
             if (maxSeq < 0) continue;
             const sequenceStart =
               random() < 0.8
-                ? (getLatestCompletedThreadContextClearSequence(testThread.db, {
-                    atOrBeforeSequence: maxSeq,
-                    threadId: testThread.thread.id,
-                  }) ?? 0)
+                ? ((await getLatestCompletedThreadContextClearSequence(
+                    testThread.db,
+                    {
+                      atOrBeforeSequence: maxSeq,
+                      threadId: testThread.thread.id,
+                    },
+                  )) ?? 0)
                 : randomInteger(random, 0, Math.max(0, maxSeq));
-            const cached = expectCachedEqualsCold(
+            const cached = await expectCachedEqualsCold(
               testThread,
               maxSeq,
               sequenceStart,
@@ -524,7 +546,7 @@ describe("timeline grouping context cache", () => {
     expect(comparisons).toBeGreaterThan(SEEDS * 100);
     expect(changedContexts).toBeGreaterThan(SEEDS * 10);
     expect(prunedRows).toBeGreaterThan(0);
-  }, 60_000);
+  }, /^postgres(?:ql)?:/.test(process.env.HYPERFIDE_DATABASE_URL ?? "") ? 300_000 : 60_000);
 });
 
 const RANDOM_TURN_IDS = ["turn-a", "turn-b", "turn-c"] as const;
@@ -576,13 +598,13 @@ function randomRow(random: Random): RowSpec {
   };
 }
 
-function applyRandomStep(
+async function applyRandomStep(
   testThread: TestThread,
   random: Random,
   step: number,
-): number {
+): Promise<number> {
   const threadId = testThread.thread.id;
-  const latest = getLatestThreadSequence(testThread.db, { threadId });
+  const latest = await getLatestThreadSequence(testThread.db, { threadId });
   const choice = random();
   if (step > 3 && choice < 0.08) {
     const cutoffSequence = randomInteger(
@@ -590,8 +612,8 @@ function applyRandomStep(
       Math.max(1, latest - 4),
       latest,
     );
-    testThread.db.transaction((tx) => {
-      deleteThreadEventSuffixInTransaction(tx, {
+    await testThread.db.transaction(async (tx) => {
+      await deleteThreadEventSuffixInTransaction(tx, {
         cutoffSequence,
         oldMaxSequence: latest,
         threadId,
@@ -600,9 +622,9 @@ function applyRandomStep(
     return 0;
   }
   if (step > 3 && choice < 0.14) {
-    return advanceThreadPruning(testThread.db, { threadId }).removed;
+    return (await advanceThreadPruning(testThread.db, { threadId })).removed;
   }
-  appendRows(
+  await appendRows(
     testThread,
     Array.from({ length: randomInteger(random, 1, 4) }, () =>
       randomRow(random),

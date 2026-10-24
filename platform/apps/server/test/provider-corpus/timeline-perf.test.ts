@@ -160,11 +160,11 @@ function sumProfileDurations(pages: readonly BuiltTimelinePage[]): number {
   return pages.reduce((total, page) => total + page.profile.totalDurationMs, 0);
 }
 
-function sample<T>(build: () => T): T[] {
-  build();
+async function sample<T>(build: () => T | Promise<T>): Promise<T[]> {
+  await build();
   const samples: T[] = [];
   for (let index = 0; index < BUILD_SAMPLES; index += 1) {
-    samples.push(build());
+    samples.push(await build());
   }
   return samples;
 }
@@ -196,17 +196,17 @@ interface InterleavedSample {
   walk: BuiltTimelinePage[];
 }
 
-function measureCorpusThread(
+async function measureCorpusThread(
   threadId: string,
   registry: ProviderRegistryService,
-): PerfThreadBaseline {
+): Promise<PerfThreadBaseline> {
   const corpusThread = loadCorpusThread(threadId);
-  const loaded = loadCorpusThreadIntoDb(corpusThread);
+  const loaded = await loadCorpusThreadIntoDb(corpusThread);
   try {
-    const samples = sample((): InterleavedSample => {
+    const samples = await sample(async (): Promise<InterleavedSample> => {
       const calibrationMs = runCalibrationWorkload();
       clearCrossBuildTimelineCaches(loaded.db);
-      const latest = buildRouteTimelinePage({
+      const latest = await buildRouteTimelinePage({
         db: loaded.db,
         page: latestTimelinePage(),
         registry,
@@ -214,7 +214,7 @@ function measureCorpusThread(
         variant: "default",
       });
       clearCrossBuildTimelineCaches(loaded.db);
-      const walk = buildAllRouteTimelinePages({
+      const walk = await buildAllRouteTimelinePages({
         db: loaded.db,
         registry,
         thread: loaded.thread,
@@ -276,7 +276,7 @@ function measureCorpusThread(
       },
     };
   } finally {
-    loaded.close();
+    await loaded.close();
   }
 }
 
@@ -336,14 +336,14 @@ interface MeasuredThread {
   result: PerfThreadBaseline;
 }
 
-function measureThreadWithRetries(
+async function measureThreadWithRetries(
   threadId: string,
   registry: ProviderRegistryService,
   expected: PerfThreadBaseline | null,
-): MeasuredThread {
+): Promise<MeasuredThread> {
   const attempts: MeasuredThread[] = [];
   for (let attempt = 1; attempt <= MEASUREMENT_ATTEMPTS; attempt += 1) {
-    const result = measureCorpusThread(threadId, registry);
+    const result = await measureCorpusThread(threadId, registry);
     const failures = expected === null ? [] : perfChecks(result, expected);
     const candidate: MeasuredThread = { attempts: attempt, failures, result };
     if (expected !== null && failures.length === 0) {
@@ -412,7 +412,7 @@ describe.skipIf(!available)("provider corpus timeline perf baseline", () => {
 
   it.each(corpusThreads.map((thread) => [thread.id, thread.provider] as const))(
     "%s (%s)",
-    (threadId) => {
+    async (threadId) => {
       if (registry === null) {
         throw new Error("provider registry did not load");
       }
@@ -430,7 +430,11 @@ describe.skipIf(!available)("provider corpus timeline perf baseline", () => {
           );
         }
       }
-      const outcome = measureThreadWithRetries(threadId, registry, expected);
+      const outcome = await measureThreadWithRetries(
+        threadId,
+        registry,
+        expected,
+      );
       measured.set(threadId, outcome.result);
       attemptsByThread.set(threadId, outcome.attempts);
       for (const failure of outcome.failures) {
@@ -515,19 +519,19 @@ describe.skipIf(!available)("provider corpus timeline perf baseline", () => {
 describe("timeline build micro-benchmark", () => {
   it(`projects every page of a ${SYNTHETIC_EVENT_COUNT}-event thread within ${SYNTHETIC_CEILING_RATIO}x the calibration workload`, async () => {
     const registry = await createTestProviderRegistry();
-    const synthetic: SyntheticThread = createSyntheticThread(
+    const synthetic: SyntheticThread = await createSyntheticThread(
       SYNTHETIC_EVENT_COUNT,
     );
     try {
       expect(synthetic.eventCount).toBeGreaterThanOrEqual(
         SYNTHETIC_EVENT_COUNT,
       );
-      const samples = sample(() => {
+      const samples = await sample(async () => {
         const calibrationMs = runCalibrationWorkload();
         clearCrossBuildTimelineCaches(synthetic.db);
         return {
           calibrationMs,
-          pages: buildAllRouteTimelinePages({
+          pages: await buildAllRouteTimelinePages({
             db: synthetic.db,
             registry,
             thread: synthetic.thread,
@@ -558,10 +562,11 @@ describe("timeline build micro-benchmark", () => {
           `min calibration ratio ${round(minimumRatio, 4)} ` +
           `(samples ${durations.map((value) => round(value)).join(", ")})\n`,
       );
+      process.stdout.write(`${JSON.stringify(last.map((page) => page.profile.stageTimings))}\n`);
       expect(last.length).toBeGreaterThan(1);
       expect(minimumRatio).toBeLessThan(SYNTHETIC_CEILING_RATIO);
     } finally {
-      synthetic.close();
+      await synthetic.close();
     }
   }, 120_000);
 });

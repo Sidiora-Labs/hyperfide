@@ -180,7 +180,7 @@ async function startIntegrationServer(
     targetPath: builtinSkillsRootPath,
   });
 
-  const db = initDb(":memory:");
+  const db = await initDb(":memory:");
   const hub = new NotificationHub();
   const sharedPorts = new HostSharedPortCoordinator({ db, hub });
   const watchInterests = new WatchInterestCoordinator({ db, hub });
@@ -242,7 +242,7 @@ async function startIntegrationServer(
     telemetry,
     terminalSessions,
   });
-  pendingInteractions.start();
+  await pendingInteractions.start();
   const appVersion = createAppVersionService({
     installKind: null,
     sourceCommit: null,
@@ -254,11 +254,11 @@ async function startIntegrationServer(
     appSurface: "web",
     appVersion,
     config,
-    countRunningThreads: () => listRunningThreads(db).length,
+    countRunningThreads: async () => (await listRunningThreads(db)).length,
     launcher: null,
     logger: testLogger,
     mode: null,
-    notifyChanged: () => hub.notifySystem(["app-update-changed"]),
+    notifyChanged: async () => await hub.notifySystem(["app-update-changed"]),
   });
   const serverDeps = {
     appUpdate,
@@ -292,12 +292,13 @@ async function startIntegrationServer(
     watchInterests,
     workspaceReadCaches,
   };
-  const { app, closeWebSockets, injectWebSocket, pluginService } = createApp(
-    serverDeps,
-    options.staticDir === undefined
-      ? undefined
-      : { staticDir: options.staticDir },
-  );
+  const { app, closeWebSockets, injectWebSocket, pluginService } =
+    await createApp(
+      serverDeps,
+      options.staticDir === undefined
+        ? undefined
+        : { staticDir: options.staticDir },
+    );
 
   let addressInfo: ListeningAddress | null = null;
   const server = serve(
@@ -337,7 +338,7 @@ async function startIntegrationServer(
   }
 
   return {
-    sweepEnvironments: () => sweepProviderLifecycles(serverDeps),
+    sweepEnvironments: async () => await sweepProviderLifecycles(serverDeps),
     baseUrl,
     config,
     db,

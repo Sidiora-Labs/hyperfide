@@ -65,7 +65,7 @@ function captureEnvironmentRemovals(): string[] {
   return removed;
 }
 
-function seedMachineWithWorkspace(
+async function seedMachineWithWorkspace(
   harness: TestHarness,
   options: {
     machineRemove?: () => Promise<
@@ -74,19 +74,19 @@ function seedMachineWithWorkspace(
     workspaceRemove?: () => Promise<{ status: "removed" }>;
   } = {},
 ) {
-  const target = seedHostSession(harness.deps, { id: "gone-machine" });
-  const { project } = seedProjectWithSource(harness.deps, {
+  const target = await seedHostSession(harness.deps, { id: "gone-machine" });
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: target.host.id,
   });
   const machineRemove = vi.fn(
     options.machineRemove ?? (async () => ({ status: "removed" as const })),
   );
   installMachineProvider({ remove: machineRemove });
-  updateHost(harness.db, harness.hub, target.host.id, {
+  await updateHost(harness.db, harness.hub, target.host.id, {
     machineProviderId: "test-machine",
     resource: { id: "owned" },
   });
-  const environment = createEnvironment(harness.db, harness.hub, {
+  const environment = await createEnvironment(harness.db, harness.hub, {
     projectId: project.id,
     hostId: target.host.id,
     path: "/tmp/gone-worktree",
@@ -94,7 +94,7 @@ function seedMachineWithWorkspace(
     status: "ready",
     environmentProvider: null,
   });
-  harness.db
+  await harness.db
     .update(environments)
     .set({
       environmentProviderId: "gone-worktree",
@@ -157,23 +157,23 @@ async function strandRemoval(
   sessionId: string,
 ) {
   harness.hub.unregisterDaemon(sessionId);
-  expect(requestMachineRemoval(harness.deps, hostId)).toBe(true);
+  expect(await requestMachineRemoval(harness.deps, hostId)).toBe(true);
   await sweepProviderMachine(harness.deps, hostId);
 }
 
 it("finishes removing a machine whose workspace cleanup cannot reach it", async () =>
-  withTestHarness(async (harness) => {
+  await withTestHarness(async (harness) => {
     const { target, environment, machineRemove, workspaceRemove } =
-      seedMachineWithWorkspace(harness);
+      await seedMachineWithWorkspace(harness);
     await strandRemoval(harness, target.host.id, target.session.id);
-    expect(getHost(harness.db, target.host.id)).toMatchObject({
+    expect(await getHost(harness.db, target.host.id)).toMatchObject({
       phase: "removing",
       teardownStatus: "failed",
       destroyedAt: null,
     });
     const removals = captureEnvironmentRemovals();
     await retryMachineCleanup(harness.deps, target.host.id);
-    expect(getHost(harness.db, target.host.id)).toMatchObject({
+    expect(await getHost(harness.db, target.host.id)).toMatchObject({
       phase: "removing",
       teardownStatus: "failed",
     });
@@ -181,12 +181,14 @@ it("finishes removing a machine whose workspace cleanup cannot reach it", async 
 
     await forceMachineRemoval(harness.deps, target.host.id);
 
-    expect(getHost(harness.db, target.host.id)).toMatchObject({
+    expect(await getHost(harness.db, target.host.id)).toMatchObject({
       phase: "destroyed",
       teardownStatus: "removed",
     });
-    expect(getHost(harness.db, target.host.id)?.destroyedAt).not.toBeNull();
-    expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+    expect(
+      (await getHost(harness.db, target.host.id))?.destroyedAt,
+    ).not.toBeNull();
+    expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
       status: "destroyed",
       teardownStatus: "removed",
       path: null,
@@ -199,8 +201,8 @@ it("finishes removing a machine whose workspace cleanup cannot reach it", async 
   }));
 
 it("refuses to skip cleanup before teardown has failed", async () =>
-  withTestHarness(async (harness) => {
-    const { target, machineRemove } = seedMachineWithWorkspace(harness);
+  await withTestHarness(async (harness) => {
+    const { target, machineRemove } = await seedMachineWithWorkspace(harness);
     harness.hub.unregisterDaemon(target.session.id);
     await expect(
       forceMachineRemoval(harness.deps, target.host.id),
@@ -208,16 +210,20 @@ it("refuses to skip cleanup before teardown has failed", async () =>
       status: 409,
       body: { code: "machine_cleanup_not_failed" },
     });
-    expect(getHost(harness.db, target.host.id)?.phase).not.toBe("destroyed");
+    expect((await getHost(harness.db, target.host.id))?.phase).not.toBe(
+      "destroyed",
+    );
     expect(machineRemove).not.toHaveBeenCalled();
   }));
 
 it("refuses to skip cleanup while the machine is connected", async () =>
-  withTestHarness(async (harness) => {
+  await withTestHarness(async (harness) => {
     const { target, environment, machineRemove } =
-      seedMachineWithWorkspace(harness);
-    expect(requestMachineRemoval(harness.deps, target.host.id)).toBe(true);
-    updateHost(harness.db, harness.hub, target.host.id, {
+      await seedMachineWithWorkspace(harness);
+    expect(await requestMachineRemoval(harness.deps, target.host.id)).toBe(
+      true,
+    );
+    await updateHost(harness.db, harness.hub, target.host.id, {
       teardownStatus: "failed",
       statusMessage: "Workspace cleanup temporarily failed",
     });
@@ -227,15 +233,15 @@ it("refuses to skip cleanup while the machine is connected", async () =>
       status: 409,
       body: { code: "machine_connected" },
     });
-    expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+    expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
       status: "ready",
     });
     expect(machineRemove).not.toHaveBeenCalled();
   }));
 
 it("exposes forced removal as a forced machine delete", async () =>
-  withTestHarness(async (harness) => {
-    const { target, machineRemove } = seedMachineWithWorkspace(harness);
+  await withTestHarness(async (harness) => {
+    const { target, machineRemove } = await seedMachineWithWorkspace(harness);
     const early = await harness.app.request(
       `${API}/hosts/${target.host.id}?force=true`,
       { method: "DELETE" },
@@ -251,7 +257,9 @@ it("exposes forced removal as a forced machine delete", async () =>
     );
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({ ok: true });
-    expect(getHost(harness.db, target.host.id)?.phase).toBe("destroyed");
+    expect((await getHost(harness.db, target.host.id))?.phase).toBe(
+      "destroyed",
+    );
     expect(machineRemove).toHaveBeenCalledOnce();
     const missing = await harness.app.request(
       `${API}/hosts/${target.host.id}?force=true`,
@@ -261,13 +269,13 @@ it("exposes forced removal as a forced machine delete", async () =>
   }));
 
 it("keeps a forgotten environment removed when an in-flight teardown fails late", async () =>
-  withTestHarness(async (harness) => {
+  await withTestHarness(async (harness) => {
     let failLate: (error: Error) => void = () => {};
     let markStarted: () => void = () => {};
     const started = new Promise<void>((resolve) => {
       markStarted = resolve;
     });
-    const { target, environment } = seedMachineWithWorkspace(harness, {
+    const { target, environment } = await seedMachineWithWorkspace(harness, {
       workspaceRemove: () => {
         markStarted();
         return new Promise((_resolve, reject) => {
@@ -275,49 +283,51 @@ it("keeps a forgotten environment removed when an in-flight teardown fails late"
         });
       },
     });
-    harness.db
+    await harness.db
       .update(environments)
       .set({ providerOwnsPath: false })
       .where(eq(environments.id, environment.id))
       .run();
     harness.hub.unregisterDaemon(target.session.id);
-    expect(requestMachineRemoval(harness.deps, target.host.id)).toBe(true);
-    expect(requestEnvironmentRemoval(harness.deps, environment.id)).toBe(true);
+    expect(await requestMachineRemoval(harness.deps, target.host.id)).toBe(
+      true,
+    );
+    expect(await requestEnvironmentRemoval(harness.deps, environment.id)).toBe(
+      true,
+    );
     const sweep = sweepProviderEnvironment(harness.deps, environment.id);
     await started;
-    harness.db
+    await harness.db
       .update(environments)
       .set({ status: "destroyed", teardownStatus: "removed", path: null })
       .where(eq(environments.id, environment.id))
       .run();
     failLate(new Error("Host is not connected"));
     await sweep;
-    expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+    expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
       status: "destroyed",
       teardownStatus: "removed",
     });
   }));
 
 it("leaves a provider removal failure retryable after skipping cleanup", async () =>
-  withTestHarness(async (harness) => {
+  await withTestHarness(async (harness) => {
     let providerDown = true;
-    const { target, environment, machineRemove } = seedMachineWithWorkspace(
-      harness,
-      {
+    const { target, environment, machineRemove } =
+      await seedMachineWithWorkspace(harness, {
         machineRemove: async () =>
           providerDown
             ? { status: "failed", message: "Provider API unavailable" }
             : { status: "removed" },
-      },
-    );
+      });
     await strandRemoval(harness, target.host.id, target.session.id);
     await forceMachineRemoval(harness.deps, target.host.id);
-    expect(getHost(harness.db, target.host.id)).toMatchObject({
+    expect(await getHost(harness.db, target.host.id)).toMatchObject({
       phase: "removing",
       teardownStatus: "failed",
       statusMessage: "Provider API unavailable",
     });
-    expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+    expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
       status: "destroyed",
       teardownStatus: "removed",
     });
@@ -329,32 +339,38 @@ it("leaves a provider removal failure retryable after skipping cleanup", async (
     });
     providerDown = false;
     await retryMachineCleanup(harness.deps, target.host.id);
-    expect(getHost(harness.db, target.host.id)?.phase).toBe("destroyed");
+    expect((await getHost(harness.db, target.host.id))?.phase).toBe(
+      "destroyed",
+    );
     expect(machineRemove).toHaveBeenCalledTimes(2);
   }));
 
 it("skips cleanup for a stranded machine that was suspended without resuming it", async () =>
-  withTestHarness(async (harness) => {
+  await withTestHarness(async (harness) => {
     const resume = vi.fn(async () => ({ resource: { id: "owned" } }));
     const { target, environment, machineRemove } =
-      seedMachineWithWorkspace(harness);
+      await seedMachineWithWorkspace(harness);
     installMachineProvider({
       remove: machineRemove,
       resume,
       suspend: async () => ({ resource: { id: "owned" } }),
     });
     harness.hub.unregisterDaemon(target.session.id);
-    expect(requestMachineRemoval(harness.deps, target.host.id)).toBe(true);
-    updateHost(harness.db, harness.hub, target.host.id, {
+    expect(await requestMachineRemoval(harness.deps, target.host.id)).toBe(
+      true,
+    );
+    await updateHost(harness.db, harness.hub, target.host.id, {
       suspendedAt: Date.now(),
       teardownStatus: "failed",
       statusMessage: "Machine resume failed: compute is gone",
     });
     await forceMachineRemoval(harness.deps, target.host.id);
     expect(resume).not.toHaveBeenCalled();
-    expect(getEnvironment(harness.db, environment.id)?.status).toBe(
+    expect((await getEnvironment(harness.db, environment.id))?.status).toBe(
       "destroyed",
     );
-    expect(getHost(harness.db, target.host.id)?.phase).toBe("destroyed");
+    expect((await getHost(harness.db, target.host.id))?.phase).toBe(
+      "destroyed",
+    );
     expect(machineRemove).toHaveBeenCalledOnce();
   }));

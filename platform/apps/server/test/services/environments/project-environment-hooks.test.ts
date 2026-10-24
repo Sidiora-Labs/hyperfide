@@ -8,11 +8,11 @@ import { withTestHarness } from "../../helpers/test-app.js";
 
 it("resolves project overrides for teardown, including recovery dispatch", async () => {
   await withTestHarness(async (harness) => {
-    const { host, session } = seedHostSession(harness.deps);
-    updateHost(harness.db, harness.hub, host.id, {
+    const { host, session } = await seedHostSession(harness.deps);
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "manual",
     });
-    harness.db
+    await harness.db
       .insert(projects)
       .values({ id: "hook-project", name: "Hook", createdAt: 1, updatedAt: 1 })
       .run();
@@ -23,7 +23,7 @@ it("resolves project overrides for teardown, including recovery dispatch", async
       "hook-project",
     );
     const captured: unknown[] = [];
-    registerHostRpcResponder(harness, {
+    await registerHostRpcResponder(harness, {
       hostId: host.id,
       sessionId: session.id,
       handle: async (request) => {

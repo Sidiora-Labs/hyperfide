@@ -22,20 +22,18 @@ import { withTestHarness } from "../helpers/test-app.js";
 describe("public authorization regressions", () => {
   it("does not delete a project source through another project route", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-source-delete",
       });
-      const { project: projectA } = seedProjectWithSource(harness.deps, {
+      const { project: projectA } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/source-delete-a",
       });
-      const { project: projectB, source: sourceB } = seedProjectWithSource(
-        harness.deps,
-        {
+      const { project: projectB, source: sourceB } =
+        await seedProjectWithSource(harness.deps, {
           hostId: host.id,
           path: "/tmp/source-delete-b",
-        },
-      );
+        });
 
       const response = await harness.app.request(
         `/api/v1/projects/${projectA.id}/sources/${sourceB.id}`,
@@ -49,7 +47,7 @@ describe("public authorization regressions", () => {
         code: "invalid_request",
       });
       expect(
-        harness.db
+        await harness.db
           .select()
           .from(projectSources)
           .where(eq(projectSources.id, sourceB.id))
@@ -64,14 +62,14 @@ describe("public authorization regressions", () => {
 
   it("does not update a project source through another project route", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-source-update",
       });
-      const { project: projectA } = seedProjectWithSource(harness.deps, {
+      const { project: projectA } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/source-update-a",
       });
-      const { source: sourceB } = seedProjectWithSource(harness.deps, {
+      const { source: sourceB } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/original",
       });
@@ -90,25 +88,27 @@ describe("public authorization regressions", () => {
         code: "invalid_request",
       });
       expect(
-        harness.db
-          .select()
-          .from(projectSources)
-          .where(eq(projectSources.id, sourceB.id))
-          .get()?.path,
+        (
+          await harness.db
+            .select()
+            .from(projectSources)
+            .where(eq(projectSources.id, sourceB.id))
+            .get()
+        )?.path,
       ).toBe("/original");
     });
   });
 
   it("validates managed workspace requirements before inserting environment or thread rows", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-managed-check",
       });
       seedPrimaryHost(harness.deps, host.id);
-      const { host: sourceHost } = seedHostSession(harness.deps, {
+      const { host: sourceHost } = await seedHostSession(harness.deps, {
         id: "host-managed-check-source",
       });
-      const { project } = createProject(harness.db, harness.hub, {
+      const { project } = await createProject(harness.db, harness.hub, {
         name: "Project Without Matching Host Source",
         source: {
           type: "local_path",
@@ -142,14 +142,14 @@ describe("public authorization regressions", () => {
         code: "invalid_request",
       });
       expect(
-        harness.db
+        await harness.db
           .select()
           .from(environments)
           .where(eq(environments.projectId, project.id))
           .all(),
       ).toHaveLength(0);
       expect(
-        harness.db
+        await harness.db
           .select()
           .from(threads)
           .where(eq(threads.projectId, project.id))
@@ -160,29 +160,29 @@ describe("public authorization regressions", () => {
 
   it("does not delete a queued message through another thread route", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-queued-message-delete",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const threadA = seedThread(harness.deps, {
+      const threadA = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const threadB = seedThread(harness.deps, {
+      const threadB = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      seedQueuedMessage(harness.deps, {
+      await seedQueuedMessage(harness.deps, {
         threadId: threadA.id,
         content: textInput("Queued message A"),
       });
-      const queuedMessageB = seedQueuedMessage(harness.deps, {
+      const queuedMessageB = await seedQueuedMessage(harness.deps, {
         threadId: threadB.id,
         content: textInput("Queued message B"),
       });
@@ -199,7 +199,7 @@ describe("public authorization regressions", () => {
         code: "invalid_request",
       });
       expect(
-        getQueuedThreadMessage(harness.db, queuedMessageB.id),
+        await getQueuedThreadMessage(harness.db, queuedMessageB.id),
       ).toMatchObject({
         id: queuedMessageB.id,
         threadId: threadB.id,

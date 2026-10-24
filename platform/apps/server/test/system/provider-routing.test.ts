@@ -73,10 +73,10 @@ async function providerIds(response: Response): Promise<string[]> {
 describe("system provider host routing", () => {
   it("separates provider discovery by explicit host and environment host while preserving primary fallback", async () => {
     await withTestHarness({}, async (harness) => {
-      const primary = seedHostSession(harness.deps, {
+      const primary = await seedHostSession(harness.deps, {
         id: "host-provider-primary",
       });
-      const remote = seedHostSession(harness.deps, {
+      const remote = await seedHostSession(harness.deps, {
         id: "host-provider-remote",
       });
       const remoteModelCommands: Extract<
@@ -85,13 +85,13 @@ describe("system provider host routing", () => {
       >[] = [];
       seedPrimaryHost(harness.deps, primary.host.id);
 
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: primary.host.id,
         sessionId: primary.session.id,
         handle: (request) =>
           providerHostResponse(request, "acp-opencode", "primary-model"),
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: remote.host.id,
         sessionId: remote.session.id,
         handle: (request) => {
@@ -102,10 +102,10 @@ describe("system provider host routing", () => {
         },
       });
 
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: remote.host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: remote.host.id,
         projectId: project.id,
       });
@@ -178,18 +178,18 @@ describe("system provider host routing", () => {
 
   it("reports the routed machine's permission ceiling", async () => {
     await withTestHarness({}, async (harness) => {
-      const primary = seedHostSession(harness.deps, {
+      const primary = await seedHostSession(harness.deps, {
         id: "host-ceiling-primary",
       });
-      const capped = seedHostSession(harness.deps, {
+      const capped = await seedHostSession(harness.deps, {
         id: "host-ceiling-capped",
       });
       seedPrimaryHost(harness.deps, primary.host.id);
-      updateHost(harness.db, harness.hub, capped.host.id, {
+      await updateHost(harness.db, harness.hub, capped.host.id, {
         maxPermissionMode: "accept-edits",
       });
       for (const target of [primary, capped]) {
-        registerHostRpcResponder(harness, {
+        await registerHostRpcResponder(harness, {
           hostId: target.host.id,
           sessionId: target.session.id,
           handle: (request) =>
@@ -239,11 +239,11 @@ describe("system provider host routing", () => {
 describe("GET /api/v1/system/providers", () => {
   it("serves the maintenance facts under `maintenance` and no alias key", async () => {
     await withTestHarness({}, async (harness) => {
-      const primary = seedHostSession(harness.deps, {
+      const primary = await seedHostSession(harness.deps, {
         id: "host-provider-shape-primary",
       });
       seedPrimaryHost(harness.deps, primary.host.id);
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: primary.host.id,
         sessionId: primary.session.id,
         handle: (request) =>
@@ -281,7 +281,7 @@ async function saveProviderOrder(harness: TestAppHarness, order: string[]) {
     body: JSON.stringify({ ...defaultAppSettings, providerOrder: order }),
   });
   expect(response.status).toBe(200);
-  expect(getAppSettings(harness.db).providerOrder).toEqual(order);
+  expect((await getAppSettings(harness.db)).providerOrder).toEqual(order);
   const config = systemConfigResponseSchema.parse(
     await readJson(await harness.app.request("/api/v1/system/config")),
   );
@@ -300,10 +300,10 @@ const interleavedProviderOrder = [
 describe("persisted provider ordering", () => {
   it("preserves interleaved order after saving with warm probes and after invalidation", async () => {
     await withTestHarness({}, async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
       const installed = new Set(["acp-omp", "acp-opencode"]);
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) =>
@@ -317,7 +317,9 @@ describe("persisted provider ordering", () => {
           ),
       });
       const read = async () =>
-        providerIds(await harness.app.request("/api/v1/system/providers"));
+        await providerIds(
+          await harness.app.request("/api/v1/system/providers"),
+        );
       await read();
       const probeCount = responder.requests.length;
       expect(probeCount).toBeGreaterThan(0);
@@ -357,9 +359,9 @@ describe("persisted provider ordering", () => {
     "keeps visibility semantics and saved order when a probe is %s",
     async (status) => {
       await withTestHarness({}, async (harness) => {
-        const { host, session } = seedHostSession(harness.deps);
+        const { host, session } = await seedHostSession(harness.deps);
         seedPrimaryHost(harness.deps, host.id);
-        registerHostRpcResponder(harness, {
+        await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle: (request) => {
@@ -410,12 +412,13 @@ describe("persisted provider ordering", () => {
     "preserves order and probe selection for %s capability",
     async (capability) => {
       await withTestHarness({}, async (harness) => {
-        const { host, session } = seedHostSession(harness.deps);
+        const { host, session } = await seedHostSession(harness.deps);
         seedPrimaryHost(harness.deps, host.id);
         const registry = createProviderRegistryService({
-          readUserProviderPreferences: () => getAppSettings(harness.db),
+          readUserProviderPreferences: async () =>
+            await getAppSettings(harness.db),
         });
-        for (const registration of harness.deps.providerRegistry.list()) {
+        for (const registration of await harness.deps.providerRegistry.list()) {
           registry.register({
             ...registration,
             info:
@@ -433,14 +436,14 @@ describe("persisted provider ordering", () => {
         }
         registry.markRegistrationsSettled();
         harness.deps.providerRegistry = registry;
-        const responder = registerHostRpcResponder(harness, {
+        const responder = await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle: (request) =>
             providerHostResponse(request, "acp-opencode", "model"),
         });
         await saveProviderOrder(harness, interleavedProviderOrder);
-        const registrations = harness.deps.providerRegistry.list();
+        const registrations = await harness.deps.providerRegistry.list();
         const expected = registrations.filter(
           (entry) =>
             entry.info.maintenance[capability] &&
@@ -487,19 +490,20 @@ describe("persisted provider ordering", () => {
     "preserves order with only the %s group registered",
     async (visibility) => {
       await withTestHarness({}, async (harness) => {
-        const { host, session } = seedHostSession(harness.deps);
+        const { host, session } = await seedHostSession(harness.deps);
         seedPrimaryHost(harness.deps, host.id);
-        const registrations = harness.deps.providerRegistry
-          .list()
-          .filter((entry) => entry.visibility === visibility);
+        const registrations = (
+          await harness.deps.providerRegistry.list()
+        ).filter((entry) => entry.visibility === visibility);
         const registry = createProviderRegistryService({
-          readUserProviderPreferences: () => getAppSettings(harness.db),
+          readUserProviderPreferences: async () =>
+            await getAppSettings(harness.db),
         });
         for (const registration of registrations)
           registry.register(registration);
         registry.markRegistrationsSettled();
         harness.deps.providerRegistry = registry;
-        registerHostRpcResponder(harness, {
+        await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle: (request) =>

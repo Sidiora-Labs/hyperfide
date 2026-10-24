@@ -109,7 +109,7 @@ export interface ServerMoveEnvironment {
     hostId: string,
     signal: AbortSignal,
   ): Promise<ServerMoveGrant>;
-  resumeDeferredWork(): void;
+  resumeDeferredWork(): void | Promise<void>;
   retireProcess(): void;
   serverAppSurface: AppSurface;
   serverTimeZone: string | null;
@@ -138,18 +138,21 @@ export interface ResolveServerMoveDownloadArgs {
 }
 
 export interface ServerMoveCoordinator {
-  cancel(): ServerMoveStatus;
+  cancel(): ServerMoveStatus | Promise<ServerMoveStatus>;
   check(request: ServerMoveCheckRequest): Promise<ServerMoveCheckResponse>;
   dispose(): void;
   getStatus(): ServerMoveStatus | null;
   handlePluginsStarted(): Promise<void>;
-  handleProgress(hostId: string, message: ServerMoveProgressMessage): void;
+  handleProgress(
+    hostId: string,
+    message: ServerMoveProgressMessage,
+  ): void | Promise<void>;
   isFrozen(): boolean;
   movedTo(): ServerMovedErrorDetails | null;
   resolveDownload(
     args: ResolveServerMoveDownloadArgs,
   ): ServerMoveDownloadLookup;
-  restore(restored: RestoredServerMoveRun): void;
+  restore(restored: RestoredServerMoveRun): void | Promise<void>;
   start(request: ServerMoveStartRequest): Promise<ServerMoveStatus>;
 }
 
@@ -322,8 +325,9 @@ export function createServerMoveCoordinator(
     deps,
     fullArtifact: environment.fullArtifact,
     inspectTimeoutMs: timings.inspectTimeoutMs,
-    readServerDiskFreeBytes: () => environment.readServerDiskFreeBytes(),
-    resolveMode: () => environment.resolveMode(),
+    readServerDiskFreeBytes: async () =>
+      await environment.readServerDiskFreeBytes(),
+    resolveMode: async () => await environment.resolveMode(),
     serverAppSurface: environment.serverAppSurface,
     serverTimeZone: environment.serverTimeZone,
     targetServerPort: () => environment.targetServerPort(),
@@ -334,8 +338,8 @@ export function createServerMoveCoordinator(
   let pluginWork: Promise<void> = Promise.resolve();
   let pluginsSuspended = false;
 
-  function notify(): void {
-    deps.hub.notifySystem(["server-move-changed"]);
+  async function notify(): Promise<void> {
+    await deps.hub.notifySystem(["server-move-changed"]);
   }
 
   function runFileFor(move: MoveRun): ServerMoveRunFile {
@@ -362,7 +366,7 @@ export function createServerMoveCoordinator(
     };
   }
 
-  function queueRunFileWork(
+  async function queueRunFileWork(
     move: MoveRun,
     work: () => Promise<void>,
   ): Promise<void> {
@@ -380,16 +384,18 @@ export function createServerMoveCoordinator(
     return next;
   }
 
-  function persistRun(move: MoveRun): Promise<void> {
+  async function persistRun(move: MoveRun): Promise<void> {
     const snapshot = runFileFor(move);
-    return queueRunFileWork(move, () =>
-      writeServerMoveRunFile(deps.config.dataDir, snapshot),
+    return await queueRunFileWork(
+      move,
+      async () => await writeServerMoveRunFile(deps.config.dataDir, snapshot),
     );
   }
 
-  function forgetRun(move: MoveRun): Promise<void> {
-    return queueRunFileWork(move, () =>
-      removeServerMoveRunFile(deps.config.dataDir),
+  async function forgetRun(move: MoveRun): Promise<void> {
+    return await queueRunFileWork(
+      move,
+      async () => await removeServerMoveRunFile(deps.config.dataDir),
     );
   }
 
@@ -405,17 +411,17 @@ export function createServerMoveCoordinator(
     return step;
   }
 
-  function setStep(
+  async function setStep(
     move: MoveRun,
     id: ServerMoveStepId,
     status: ServerMoveStepStatus,
     message: string | null,
-  ): void {
+  ): Promise<void> {
     const step = findStep(move, id);
     const transitioned = step.status !== status;
     step.status = status;
     step.message = message;
-    notify();
+    await notify();
     if (transitioned) {
       void persistRun(move).catch(() => undefined);
     }
@@ -481,8 +487,8 @@ export function createServerMoveCoordinator(
     return next;
   }
 
-  function suspendPlugins(move: MoveRun): Promise<void> {
-    return queuePluginWork(async () => {
+  async function suspendPlugins(move: MoveRun): Promise<void> {
+    return await queuePluginWork(async () => {
       if (current !== move || !isServerMoveInFlight(move.status)) {
         return;
       }
@@ -496,8 +502,9 @@ export function createServerMoveCoordinator(
   }
 
   async function stopPlugins(move: MoveRun): Promise<void> {
-    await queuePluginWork(() =>
-      settlePluginWork(move, "shutdown", environment.plugins.stop()),
+    await queuePluginWork(
+      async () =>
+        await settlePluginWork(move, "shutdown", environment.plugins.stop()),
     ).catch((error: unknown) => {
       deps.logger.warn(
         { err: error, moveId: move.status.moveId },
@@ -515,8 +522,8 @@ export function createServerMoveCoordinator(
     setServerMoveSnapshotFence(deps.db, false);
   }
 
-  function resumePluginWork(move: MoveRun): Promise<void> {
-    return queuePluginWork(async () => {
+  async function resumePluginWork(move: MoveRun): Promise<void> {
+    return await queuePluginWork(async () => {
       if (current !== move) {
         return;
       }
@@ -537,12 +544,12 @@ export function createServerMoveCoordinator(
         return;
       }
       environment.plugins.setSchedulesPaused(false);
-      environment.resumeDeferredWork();
+      await environment.resumeDeferredWork();
     });
   }
 
   async function runStopWork(move: MoveRun): Promise<void> {
-    setStep(move, "stop-work", "running", "Resolving server access");
+    await setStep(move, "stop-work", "running", "Resolving server access");
     move.grant =
       move.status.mode === "connect"
         ? await untilCancelled(
@@ -557,7 +564,7 @@ export function createServerMoveCoordinator(
     move.frozen = true;
     setServerMoveFrozen(deps.db, true);
     environment.plugins.setSchedulesPaused(true);
-    setStep(move, "stop-work", "running", "Stopping running turns");
+    await setStep(move, "stop-work", "running", "Stopping running turns");
     await persistRun(move);
     await untilCancelled(
       move,
@@ -567,10 +574,10 @@ export function createServerMoveCoordinator(
       }),
     );
     assertNotCancelled(move);
-    setStep(move, "stop-work", "running", "Pausing plugins");
+    await setStep(move, "stop-work", "running", "Pausing plugins");
     await suspendPlugins(move);
     assertNotCancelled(move);
-    setStep(
+    await setStep(
       move,
       "stop-work",
       "done",
@@ -580,7 +587,7 @@ export function createServerMoveCoordinator(
 
   async function runUpdateTarget(move: MoveRun): Promise<void> {
     const targetName = move.status.targetHostName;
-    setStep(move, "update-target", "running", `Checking ${targetName}`);
+    await setStep(move, "update-target", "running", `Checking ${targetName}`);
     const inspect = await untilCancelled(
       move,
       callHostOnlineRpc(deps, {
@@ -613,7 +620,7 @@ export function createServerMoveCoordinator(
     }
     const appVersion = deps.config.appVersion;
     if (inspect.serverEntryAvailable && inspect.hyperfideAppVersion === appVersion) {
-      setStep(
+      await setStep(
         move,
         "update-target",
         "skipped",
@@ -621,7 +628,7 @@ export function createServerMoveCoordinator(
       );
       return;
     }
-    setStep(
+    await setStep(
       move,
       "update-target",
       "running",
@@ -629,7 +636,7 @@ export function createServerMoveCoordinator(
     );
     const hyperfideApp = await untilCancelled(move, environment.fullArtifact.build());
     move.hyperfideApp = hyperfideApp;
-    setStep(
+    await setStep(
       move,
       "update-target",
       "done",
@@ -638,7 +645,7 @@ export function createServerMoveCoordinator(
   }
 
   async function runExport(move: MoveRun): Promise<void> {
-    setStep(move, "export", "running", "Exporting server data");
+    await setStep(move, "export", "running", "Exporting server data");
     setServerMoveSnapshotFence(deps.db, true);
     const archive = await environment.exportArchive({
       sourceServerHostId: move.sourceServerHost.id,
@@ -646,7 +653,7 @@ export function createServerMoveCoordinator(
     });
     move.archive = archive;
     assertNotCancelled(move);
-    setStep(
+    await setStep(
       move,
       "export",
       "done",
@@ -657,7 +664,7 @@ export function createServerMoveCoordinator(
   async function runPrepare(move: MoveRun): Promise<void> {
     const archive = requireValue(move.archive, "its export");
     const targetName = move.status.targetHostName;
-    setStep(
+    await setStep(
       move,
       "transfer",
       "running",
@@ -699,9 +706,9 @@ export function createServerMoveCoordinator(
       findStep(move, "update-target").status = "done";
     }
     if (findStep(move, "transfer").status !== "done") {
-      setStep(move, "transfer", "done", `Sent to ${targetName}`);
+      await setStep(move, "transfer", "done", `Sent to ${targetName}`);
     }
-    setStep(
+    await setStep(
       move,
       "start-target",
       "done",
@@ -721,7 +728,7 @@ export function createServerMoveCoordinator(
   async function runVerifyAddress(move: MoveRun): Promise<void> {
     const serverUrl = move.status.serverUrl;
     if (move.status.mode === "connect") {
-      setStep(
+      await setStep(
         move,
         "verify-address",
         "skipped",
@@ -729,15 +736,14 @@ export function createServerMoveCoordinator(
       );
       return;
     }
-    setStep(
+    await setStep(
       move,
       "verify-address",
       "running",
       `Checking that machines can reach ${serverUrl}`,
     );
-    const hosts = listNonDestroyedHostsByIds(
-      deps.db,
-      deps.hub.listConnectedHostIds(),
+    const hosts = (
+      await listNonDestroyedHostsByIds(deps.db, deps.hub.listConnectedHostIds())
     ).filter(
       (host) =>
         host.type === "persistent" && host.id !== move.status.targetHostId,
@@ -773,7 +779,7 @@ export function createServerMoveCoordinator(
         `Not every machine can reach ${serverUrl}. ${problems.join("; ")}`,
       );
     }
-    setStep(
+    await setStep(
       move,
       "verify-address",
       "done",
@@ -887,8 +893,11 @@ export function createServerMoveCoordinator(
     }
   }
 
-  function sendServerMoved(move: MoveRun, grant: ServerMoveGrant): void {
-    const connectedHosts = listNonDestroyedHostsByIds(
+  async function sendServerMoved(
+    move: MoveRun,
+    grant: ServerMoveGrant,
+  ): Promise<void> {
+    const connectedHosts = await listNonDestroyedHostsByIds(
       deps.db,
       deps.hub.listConnectedHostIds(),
     );
@@ -922,7 +931,7 @@ export function createServerMoveCoordinator(
     const targetName = move.status.targetHostName;
     move.status.cancellable = false;
     move.status.state = "switching";
-    setStep(move, "switch", "running", `Switching to ${targetName}`);
+    await setStep(move, "switch", "running", `Switching to ${targetName}`);
     const movedAt = environment.now();
     try {
       await writeServerMovedFile(deps.config.dataDir, {
@@ -959,7 +968,7 @@ export function createServerMoveCoordinator(
     }
     move.finished = true;
     if (activation.outcome === "unconfirmed") {
-      enterRecovery(move, grant, activation.message);
+      await enterRecovery(move, grant, activation.message);
       return;
     }
     await completeSwitch(move, grant);
@@ -991,29 +1000,29 @@ export function createServerMoveCoordinator(
     move.activationConfirmedAt = environment.now();
     move.status.state = "switching";
     move.status.cancellable = false;
-    notify();
+    await notify();
     await persistRun(move).catch(() => undefined);
     await pointOldServerDaemonAtTarget(move, grant);
     await stopPlugins(move);
-    sendServerMoved(move, grant);
+    await sendServerMoved(move, grant);
     move.status.state = "completed";
     move.status.error = null;
     move.status.finishedAt = environment.now();
     const step = findStep(move, "switch");
     step.status = "done";
     step.message = `The server now runs on ${move.status.targetHostName}`;
-    notify();
+    await notify();
     await persistRun(move).catch(() => undefined);
     setTimeout(() => {
       environment.retireProcess();
     }, timings.retireDelayMs);
   }
 
-  function enterRecovery(
+  async function enterRecovery(
     move: MoveRun,
     grant: ServerMoveGrant,
     message: string,
-  ): void {
+  ): Promise<void> {
     deps.logger.warn(
       {
         err: message,
@@ -1025,17 +1034,20 @@ export function createServerMoveCoordinator(
     move.status.state = "recovery_required";
     move.status.cancellable = true;
     move.status.error = { step: "switch", message };
-    setStep(
+    await setStep(
       move,
       "switch",
       "running",
       `Waiting for ${move.status.targetHostName} to confirm it took over`,
     );
     void persistRun(move).catch(() => undefined);
-    startRecovery(move, grant);
+    await startRecovery(move, grant);
   }
 
-  function startRecovery(move: MoveRun, grant: ServerMoveGrant): void {
+  async function startRecovery(
+    move: MoveRun,
+    grant: ServerMoveGrant,
+  ): Promise<void> {
     const recovery = new AbortController();
     move.recovery = recovery;
     void runRecovery(move, grant, recovery.signal).catch((error: unknown) => {
@@ -1100,16 +1112,21 @@ export function createServerMoveCoordinator(
         );
       }
     }
-    return destinationReportsReady(move);
+    return await destinationReportsReady(move);
   }
 
-  function recoveryProbeHostId(move: MoveRun): string | null {
+  async function recoveryProbeHostId(move: MoveRun): Promise<string | null> {
     const sourceHostId = move.sourceServerHost.id;
     if (deps.hub.hasDaemonForHost(sourceHostId)) {
       return sourceHostId;
     }
     return (
-      listNonDestroyedHostsByIds(deps.db, deps.hub.listConnectedHostIds()).find(
+      (
+        await listNonDestroyedHostsByIds(
+          deps.db,
+          deps.hub.listConnectedHostIds(),
+        )
+      ).find(
         (host) =>
           host.type === "persistent" && host.id !== move.status.targetHostId,
       )?.id ?? null
@@ -1117,7 +1134,7 @@ export function createServerMoveCoordinator(
   }
 
   async function destinationReportsReady(move: MoveRun): Promise<boolean> {
-    const hostId = recoveryProbeHostId(move);
+    const hostId = await recoveryProbeHostId(move);
     if (hostId === null) {
       return false;
     }
@@ -1158,7 +1175,7 @@ export function createServerMoveCoordinator(
     );
   }
 
-  function abandonRecovery(move: MoveRun): ServerMoveStatus {
+  async function abandonRecovery(move: MoveRun): Promise<ServerMoveStatus> {
     move.recovery?.abort();
     move.recovery = null;
     const message = `The move was abandoned before ${move.status.targetHostName} confirmed it took over`;
@@ -1170,7 +1187,7 @@ export function createServerMoveCoordinator(
     move.status.cancellable = false;
     move.status.finishedAt = environment.now();
     clearFreeze(move);
-    notify();
+    await notify();
     deps.logger.warn(
       { moveId: move.status.moveId, targetHostId: move.status.targetHostId },
       "Server move abandoned before the target confirmed activation",
@@ -1256,7 +1273,7 @@ export function createServerMoveCoordinator(
     move.status.cancellable = false;
     move.status.finishedAt = environment.now();
     clearFreeze(move);
-    notify();
+    await notify();
     if (!cancelled) {
       deps.logger.warn(
         { err: error, moveId: move.status.moveId, step: failedStepId },
@@ -1295,10 +1312,10 @@ export function createServerMoveCoordinator(
   }
 
   return {
-    cancel() {
+    async cancel() {
       const move = current;
       if (move?.status.state === "recovery_required") {
-        return abandonRecovery(move);
+        return await abandonRecovery(move);
       }
       if (
         move === null ||
@@ -1336,7 +1353,7 @@ export function createServerMoveCoordinator(
       return current === null ? null : structuredClone(current.status);
     },
 
-    handleProgress(hostId, message) {
+    async handleProgress(hostId, message) {
       const move = current;
       if (
         move === null ||
@@ -1360,7 +1377,7 @@ export function createServerMoveCoordinator(
           finishedEarlierStep = true;
         }
       }
-      setStep(move, message.step, "running", message.message);
+      await setStep(move, message.step, "running", message.message);
       if (finishedEarlierStep) {
         void persistRun(move).catch(() => undefined);
       }
@@ -1429,7 +1446,7 @@ export function createServerMoveCoordinator(
       };
     },
 
-    start(request) {
+    async start(request) {
       const existing = current;
       if (existing !== null && isBlocking(existing)) {
         if (existing.status.targetHostId === request.targetHostId) {
@@ -1529,7 +1546,7 @@ export function createServerMoveCoordinator(
             ),
           };
           current = move;
-          notify();
+          await notify();
           void run(move);
           return structuredClone(move.status);
         } finally {
@@ -1540,15 +1557,15 @@ export function createServerMoveCoordinator(
       return promise;
     },
 
-    restore(restored) {
+    async restore(restored) {
       if (current !== null) {
         throw new Error("A server move is already loaded");
       }
       const move = moveFromRunFile(restored.run);
       current = move;
-      notify();
+      await notify();
       if (restored.kind === "ended") {
-        void abortTargetWhenReachable(move).finally(() =>
+        void abortTargetWhenReachable(move).finally(async () =>
           forgetRun(move).catch(() => undefined),
         );
         return;
@@ -1572,7 +1589,7 @@ export function createServerMoveCoordinator(
         return;
       }
       void persistRun(move).catch(() => undefined);
-      startRecovery(
+      await startRecovery(
         move,
         move.grant ?? { serverUrl: move.status.serverUrl, headers: {} },
       );

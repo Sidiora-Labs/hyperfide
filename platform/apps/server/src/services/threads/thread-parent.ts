@@ -69,10 +69,10 @@ export function isLiveParentThread(args: IsLiveParentThreadArgs): boolean {
   );
 }
 
-function resolveParentDepth(
+async function resolveParentDepth(
   deps: Pick<AppDeps, "db">,
   args: ResolveParentDepthArgs,
-): number {
+): Promise<number> {
   let depth = 0;
   let parentThread: ParentThread | null = args.parentThread;
   const visitedThreadIds = new Set<string>();
@@ -93,27 +93,27 @@ function resolveParentDepth(
       return depth;
     }
 
-    parentThread = getThread(deps.db, parentThread.parentThreadId);
+    parentThread = await getThread(deps.db, parentThread.parentThreadId);
   }
 
   return depth;
 }
 
-function resolveThreadSubtreeDepth(
+async function resolveThreadSubtreeDepth(
   deps: Pick<AppDeps, "db">,
   args: ResolveThreadSubtreeDepthArgs,
-): number {
+): Promise<number> {
   if (args.visitedThreadIds.has(args.threadId)) {
     throwParentThreadInvalid("cycle");
   }
   args.visitedThreadIds.add(args.threadId);
 
-  const childThreads = listNonDeletedChildThreads(deps.db, {
+  const childThreads = await listNonDeletedChildThreads(deps.db, {
     parentThreadId: args.threadId,
   });
   let maxChildDepth = 0;
   for (const childThread of childThreads) {
-    const childDepth = resolveThreadSubtreeDepth(deps, {
+    const childDepth = await resolveThreadSubtreeDepth(deps, {
       threadId: childThread.id,
       visitedThreadIds: args.visitedThreadIds,
     });
@@ -128,21 +128,21 @@ interface CanThreadSpawnChildArgs {
   thread: ParentThread;
 }
 
-export function canThreadSpawnChild(
+export async function canThreadSpawnChild(
   deps: Pick<AppDeps, "db">,
   args: CanThreadSpawnChildArgs,
-): boolean {
-  const depth = resolveParentDepth(deps, {
+): Promise<boolean> {
+  const depth = await resolveParentDepth(deps, {
     parentThread: args.thread,
   });
   return depth < MAX_THREAD_HIERARCHY_DEPTH;
 }
 
-export function assertValidParentThread(
+export async function assertValidParentThread(
   deps: Pick<AppDeps, "db">,
   args: AssertValidParentThreadArgs,
-): Thread {
-  const parentThread = getThread(deps.db, args.parentThreadId);
+): Promise<Thread> {
+  const parentThread = await getThread(deps.db, args.parentThreadId);
   if (parentThread === null) {
     throwParentThreadInvalid("not_found");
   }
@@ -154,12 +154,12 @@ export function assertValidParentThread(
   if (liveParentThread.deletedAt !== null) {
     throwParentThreadInvalid("deleted");
   }
-  const parentDepth = resolveParentDepth(deps, {
+  const parentDepth = await resolveParentDepth(deps, {
     childThreadId: args.childThreadId,
     parentThread: liveParentThread,
   });
   const childSubtreeDepth = args.childThreadId
-    ? resolveThreadSubtreeDepth(deps, {
+    ? await resolveThreadSubtreeDepth(deps, {
         threadId: args.childThreadId,
         visitedThreadIds: new Set<string>(),
       })

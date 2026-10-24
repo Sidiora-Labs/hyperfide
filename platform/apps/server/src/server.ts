@@ -1,4 +1,7 @@
-import { createAuthorityBridge, registerAuthorityBridge } from "./authority-bridge.js";
+import {
+  createAuthorityBridge,
+  registerAuthorityBridge,
+} from "./authority-bridge.js";
 import { createPluginUpdateJobs } from "./services/plugins/plugin-update-jobs.js";
 import { createFleetRoutes } from "./routes/fleet.js";
 import type { FleetService } from "./services/machines/fleet-projection.js";
@@ -123,7 +126,10 @@ import {
 const PLUGIN_WIRE_HTTP_PATH = /^\/api\/v1\/plugins\/[^/]+\/http(?:\/|$)/u;
 import { rankAcceptedAssetEncodings } from "./asset-content-encoding.js";
 import { apiJsonCompression } from "./api-response-compression.js";
-import { APP_SURFACE_WEB, type AppSurface } from "@hyperfide/config/app-surface";
+import {
+  APP_SURFACE_WEB,
+  type AppSurface,
+} from "@hyperfide/config/app-surface";
 import type { ServerBindHost } from "@hyperfide/config/server";
 import { registerServerMoveRoutes } from "./routes/server-move.js";
 import {
@@ -383,7 +389,7 @@ export function registerStaticAppRoutes(app: Hono, staticDir: string): void {
     if (urlPath.startsWith("/assets/")) {
       return context.notFound();
     }
-    return serveStaticAppFile({
+    return await serveStaticAppFile({
       acceptEncodingHeader: context.req.header("accept-encoding"),
       contentType: "text/html",
       filePath: join(root, "index.html"),
@@ -462,10 +468,10 @@ function closeWebSocketServer(args: CloseWebSocketServerArgs): Promise<void> {
   });
 }
 
-export function createApp(
+export async function createApp(
   deps: ServerAppDeps,
   options?: CreateAppOptions,
-): ServerApp {
+): Promise<ServerApp> {
   const app = new Hono();
   const { injectWebSocket, upgradeWebSocket, wss } = createNodeWebSocket({
     app,
@@ -514,7 +520,7 @@ export function createApp(
     if (!path.startsWith("/api/v1/") && !path.startsWith("/internal/")) {
       return next();
     }
-    return runEventLoopWork(`${context.req.method} ${path}`, next);
+    return await runEventLoopWork(`${context.req.method} ${path}`, next);
   });
   app.use(
     "*",
@@ -534,11 +540,11 @@ export function createApp(
   );
   const compressResponse = compress();
   const compressApiJson = apiJsonCompression();
-  app.use("*", (context, next) => {
+  app.use("*", async (context, next) => {
     if (PLUGIN_APP_ASSET_PATH_PATTERN.test(context.req.path)) {
       return next();
     }
-    return compressResponse(context, async () => {
+    return await compressResponse(context, async () => {
       await compressApiJson(context, next);
     });
   });
@@ -768,22 +774,25 @@ export function createApp(
     providerRegistry: deps.providerRegistry,
     pluginHostArtifacts: deps.pluginHostArtifacts,
     aiServices: deps.aiServices,
-    ensureSharedPortTunnel: (hostId) =>
-      deps.sharedPorts.ensureTunnelIdentity(hostId, () =>
-        callHostRetryableOnlineRpcForWork(deps, {
-          command: { type: "connect-tunnel.ensure-identity" },
-          hostId,
-          timeoutMs: 30_000,
-        }),
+    ensureSharedPortTunnel: async (hostId) =>
+      await deps.sharedPorts.ensureTunnelIdentity(
+        hostId,
+        async () =>
+          await callHostRetryableOnlineRpcForWork(deps, {
+            command: { type: "connect-tunnel.ensure-identity" },
+            hostId,
+            timeoutMs: 30_000,
+          }),
       ),
-    callPluginHost: (args) => callPluginHostRpc(deps, args),
-    disposePluginHost: (args) => disposePluginHostWorkers(deps, args),
+    callPluginHost: async (args) => await callPluginHostRpc(deps, args),
+    disposePluginHost: async (args) =>
+      await disposePluginHostWorkers(deps, args),
     onSettingsChanged: (pluginId) => {
       deps.providerNativeRoots.invalidate(pluginId);
       deps.providerRegistry.forgetAllInstalled();
     },
-    onPluginUnregistered: (pluginId) => {
-      requestQueuedMessageDispatch(deps, {
+    onPluginUnregistered: async (pluginId) => {
+      await requestQueuedMessageDispatch(deps, {
         kind: "plugin-unregistered",
         pluginId,
       });
@@ -792,28 +801,30 @@ export function createApp(
     // may have changed asks core to re-attempt the plugin-queued rows. Core
     // owns the walk, the coalescing and the pacing; the plugin owns knowing
     // when to ask.
-    requestQueueDrain: () => {
-      requestQueuedMessageDispatch(deps, { kind: "plugin-recheck" });
+    requestQueueDrain: async () => {
+      await requestQueuedMessageDispatch(deps, { kind: "plugin-recheck" });
     },
     watchBuiltinPluginSources:
       process.env.HYPERFIDE_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD === "1",
   });
   // Messages queued while a thread awaited user interaction stop waiting once
   // that interaction settles (#1650); the idle drain then delivers them.
-  deps.pendingInteractions.setThreadInteractionSettledListener((threadId) => {
-    requestQueuedMessageDispatch(deps, {
-      kind: "interaction-settled",
-      threadId,
-    });
-  });
+  deps.pendingInteractions.setThreadInteractionSettledListener(
+    async (threadId) => {
+      await requestQueuedMessageDispatch(deps, {
+        kind: "interaction-settled",
+        threadId,
+      });
+    },
+  );
   setTurnTelemetryDeps(deps);
   setPluginThreadEventEmitter(pluginService.events);
   // Bridge the dispatch pipeline to this service's hooks. Until this runs
   // there are no hooks, which is exactly the zero-overhead path.
   setPluginHookProvider(pluginService.hooks);
   setPluginEnvironmentProviderBridge(pluginService.environmentProviders);
-  setEnvironmentProvisioningRecheckHandler((threadId) =>
-    recheckEnvironmentProvisioning(deps, threadId),
+  setEnvironmentProvisioningRecheckHandler(
+    async (threadId) => await recheckEnvironmentProvisioning(deps, threadId),
   );
   setPluginMachineProviderBridge(
     withManualMachineProvider(
@@ -822,12 +833,12 @@ export function createApp(
     ),
   );
   setServerAccessBridge(pluginService.serverAccessProviders);
-  setServerAccessRecheckHandler(() => {
-    deps.hub.notifySystem(["config-changed"]);
+  setServerAccessRecheckHandler(async () => {
+    await deps.hub.notifySystem(["config-changed"]);
   });
-  setEnvironmentProviderRecheckHandler((pluginId) => {
+  setEnvironmentProviderRecheckHandler(async (pluginId) => {
     invalidateEnvironmentProviderMachineAvailability();
-    deps.hub.notifySystem(["config-changed"]);
+    await deps.hub.notifySystem(["config-changed"]);
     void recheckEnvironmentProviderCreations(deps, pluginId);
   });
   // Bridge runtime-config assembly to plugin skills + context (§4.4).
@@ -844,7 +855,7 @@ export function createApp(
     }),
   );
   if (serverMoveOptions.restoredRun !== null) {
-    serverMove.restore(serverMoveOptions.restoredRun);
+    await serverMove.restore(serverMoveOptions.restoredRun);
   }
   const serverMoveFreezeState = {
     isFrozen: () => pendingServerMove !== null || serverMove.isFrozen(),
@@ -877,17 +888,19 @@ export function createApp(
     }
     return next();
   });
-  const pluginCatalogService = createPluginCatalogService({
+  const pluginCatalogService = await createPluginCatalogService({
     db: deps.db,
     appVersion: deps.config.appVersion,
     marketplaceUrl: deps.config.marketplaceUrl,
     dataDir: deps.config.dataDir,
     plugins: pluginService,
-    notifyCatalogChanged: () => deps.hub.notifySystem(["plugins-changed"]),
+    notifyCatalogChanged: async () =>
+      await deps.hub.notifySystem(["plugins-changed"]),
     warn: (message) => deps.logger.warn(message),
   });
   registerAuthorityBridge(publicApi, authorityBridge);
-  if (options?.fleet) publicApi.route("/fleet", createFleetRoutes(options.fleet));
+  if (options?.fleet)
+    publicApi.route("/fleet", createFleetRoutes(options.fleet));
   registerProjectRoutes(publicApi, deps);
   registerPromptHistoryRoutes(publicApi, deps);
   registerThreadSectionRoutes(publicApi, deps);
@@ -901,10 +914,12 @@ export function createApp(
   registerSystemRoutes(publicApi, deps, pluginService, authorityBridge);
   registerUiPreferenceRoutes(publicApi, deps);
   const pluginInstallJobs = createPluginInstallJobs({
-    notifyChanged: () => deps.hub.notifySystem(["plugin-install-jobs-changed"]),
+    notifyChanged: async () =>
+      await deps.hub.notifySystem(["plugin-install-jobs-changed"]),
   });
   const pluginUpdateJobs = createPluginUpdateJobs({
-    notifyChanged: () => deps.hub.notifySystem(["plugin-update-jobs-changed"]),
+    notifyChanged: async () =>
+      await deps.hub.notifySystem(["plugin-update-jobs-changed"]),
   });
   registerPluginUpdateJobRoutes(publicApi, pluginUpdateJobs);
   registerPluginInstallJobRoutes(publicApi, pluginInstallJobs);
@@ -993,15 +1008,15 @@ export function createApp(
         );
       }
       return {
-        onOpen: (_event, socket) =>
-          onTerminalSocketOpen(deps, {
+        onOpen: async (_event, socket) =>
+          await onTerminalSocketOpen(deps, {
             outputAcks: query.data.outputAcks,
             socket,
             sinceSeq: query.data.sinceSeq,
             terminalId,
           }),
-        onMessage: (event, socket) =>
-          onTerminalSocketMessage(deps, {
+        onMessage: async (event, socket) =>
+          await onTerminalSocketMessage(deps, {
             raw: event.data,
             socket,
             terminalId,
@@ -1024,13 +1039,13 @@ export function createApp(
         sessionId: context.req.query("sessionId") ?? null,
       });
       return {
-        onOpen: (_event, socket) =>
-          onDaemonSocketOpen(deps, {
+        onOpen: async (_event, socket) =>
+          await onDaemonSocketOpen(deps, {
             ...websocketContext,
             socket,
           }),
-        onMessage: (event, socket) =>
-          onDaemonSocketMessage(
+        onMessage: async (event, socket) =>
+          await onDaemonSocketMessage(
             deps,
             {
               hostId: websocketContext.hostId,
@@ -1041,7 +1056,8 @@ export function createApp(
             pluginService,
             serverMove,
           ),
-        onClose: () => onDaemonSocketClose(deps, websocketContext.sessionId),
+        onClose: async () =>
+          await onDaemonSocketClose(deps, websocketContext.sessionId),
       };
     }),
   );

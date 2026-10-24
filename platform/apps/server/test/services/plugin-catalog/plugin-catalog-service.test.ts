@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "@hyperfide/db/testing";
 import {
   getPluginMarketplace,
   listPluginMarketplaceIcons,
@@ -71,18 +73,18 @@ describe("plugin catalog service", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    db = createMigratedConnection();
+    db = await createMigratedConnection();
     installedNames = [];
     installedCatalogEntries = [];
     dataDir = await mkdtemp(join(tmpdir(), "hyperfide-catalog-data-"));
   });
 
   afterEach(async () => {
-    db.$client.close();
+    await db.close();
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  function service(options?: {
+  async function service(options?: {
     bundledPlugins?: Parameters<
       typeof createPluginCatalogService
     >[0]["bundledPlugins"];
@@ -90,7 +92,7 @@ describe("plugin catalog service", () => {
     marketplaceUrl?: string;
     warn?: (message: string) => void;
   }) {
-    return createPluginCatalogService({
+    return await createPluginCatalogService({
       db,
       appVersion: "1.0.0",
       marketplaceUrl: options?.marketplaceUrl ?? MANIFEST_URL,
@@ -117,11 +119,11 @@ describe("plugin catalog service", () => {
     });
   }
 
-  function registerInstalledCatalogPlugin(args: {
+  async function registerInstalledCatalogPlugin(args: {
     pluginId: string;
     name: string;
-  }): void {
-    upsertInstalledPlugin(db, {
+  }): Promise<void> {
+    await upsertInstalledPlugin(db, {
       id: args.pluginId,
       source: `builtin:${args.name}`,
       provenance: {
@@ -147,15 +149,15 @@ describe("plugin catalog service", () => {
 
   it("starts without a hosted catalog or network calls when no marketplace is configured", async () => {
     const network = vi.fn();
-    const catalog = service({ marketplaceUrl: "", fetch: network });
+    const catalog = await service({ marketplaceUrl: "", fetch: network });
     expect(await catalog.search("")).toEqual([]);
-    expect(getPluginMarketplace(db, "hyperfide-official")).toBeUndefined();
-    expect(getPluginMarketplace(db, "hyperfide-community")).toBeUndefined();
+    expect(await getPluginMarketplace(db, "hyperfide-official")).toBeUndefined();
+    expect(await getPluginMarketplace(db, "hyperfide-community")).toBeUndefined();
     expect(network).not.toHaveBeenCalled();
   });
 
   it("groups a catalog entry by its curated tag", async () => {
-    const catalog = service();
+    const catalog = await service();
     const [hoverCards] = await catalog.search("thread-hover-cards");
     expect(hoverCards).toMatchObject({
       entryId: "thread-hover-cards",
@@ -172,7 +174,7 @@ describe("plugin catalog service", () => {
   });
 
   it("matches queries against entry id, plugin id, manifest text, and tags", async () => {
-    const catalog = service();
+    const catalog = await service();
     expect(
       (await catalog.search("thread-hover-cards")).map(
         (entry) => entry.entryId,
@@ -190,8 +192,8 @@ describe("plugin catalog service", () => {
   });
 
   it("reflects install and remove in the installed flag", async () => {
-    const catalog = service();
-    registerInstalledCatalogPlugin({
+    const catalog = await service();
+    await registerInstalledCatalogPlugin({
       pluginId: "thread-hover-cards",
       name: "thread-hover-cards",
     });
@@ -199,7 +201,7 @@ describe("plugin catalog service", () => {
       true,
     );
 
-    markInstalledPluginRemoved(db, "thread-hover-cards");
+    await markInstalledPluginRemoved(db, "thread-hover-cards");
     expect((await catalog.search("thread-hover-cards"))[0]?.installed).toBe(
       false,
     );
@@ -208,7 +210,7 @@ describe("plugin catalog service", () => {
   describe("refresh", () => {
     it("requests a custom configured v1 URL without a v2 rewrite", async () => {
       const requests: string[] = [];
-      const catalog = service({
+      const catalog = await service({
         marketplaceUrl: CUSTOM_V1_MANIFEST_URL,
         fetch: async (url) => {
           requests.push(url);
@@ -248,7 +250,7 @@ describe("plugin catalog service", () => {
               headers: { "content-type": "image/svg+xml" },
             });
       };
-      const catalog = service({ fetch: fetchImpl });
+      const catalog = await service({ fetch: fetchImpl });
 
       await refreshCuratedMarketplace(catalog, 1_000);
       const tinted = Object.fromEntries(
@@ -280,7 +282,7 @@ describe("plugin catalog service", () => {
           headers: { "content-type": "image/svg+xml", etag: '"icon-1"' },
         });
       };
-      const catalog = service({ fetch: fetchImpl });
+      const catalog = await service({ fetch: fetchImpl });
 
       await refreshCuratedMarketplace(catalog, 1_000);
       const results = await catalog.search("widgets");
@@ -315,7 +317,7 @@ describe("plugin catalog service", () => {
       expect(
         requests.filter((request) => request.url === ICON_URL),
       ).toHaveLength(1);
-      const row = getPluginMarketplace(db, "hyperfide-community");
+      const row = await getPluginMarketplace(db, "hyperfide-community");
       expect(row).toMatchObject({
         etag: '"v1"',
         lastSuccessfulRefreshAt: 2_000,
@@ -324,7 +326,7 @@ describe("plugin catalog service", () => {
     });
 
     it("keeps the last-known-good catalog when the payload is invalid", async () => {
-      const catalog = service({
+      const catalog = await service({
         fetch: async () =>
           Response.json(manifest([remoteEntry({ id: "Not Valid" })])),
       });
@@ -332,30 +334,30 @@ describe("plugin catalog service", () => {
         /invalid marketplace manifest/,
       );
       expect((await catalog.search("thread-hover-cards")).length).toBe(1);
-      expect(getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
+      expect(await getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
         lastAttemptedRefreshAt: 5_000,
         lastSuccessfulRefreshAt: null,
       });
-      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toMatch(
-        /invalid marketplace manifest/,
-      );
+      expect(
+        (await getPluginMarketplace(db, "hyperfide-community"))?.lastError,
+      ).toMatch(/invalid marketplace manifest/);
     });
 
     it("keeps the last-known-good catalog when the request fails", async () => {
-      const catalog = service({
+      const catalog = await service({
         fetch: async () => new Response("nope", { status: 503 }),
       });
       await expect(refreshCuratedMarketplace(catalog, 7_000)).rejects.toThrow(
         "HTTP 503",
       );
       expect((await catalog.search("")).length).toBe(SEED_ENTRY_COUNT);
-      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toContain(
-        "HTTP 503",
-      );
+      expect(
+        (await getPluginMarketplace(db, "hyperfide-community"))?.lastError,
+      ).toContain("HTTP 503");
     });
 
     it("refuses a manifest published under another marketplace name", async () => {
-      const catalog = service({
+      const catalog = await service({
         fetch: async () =>
           Response.json({
             ...(manifest([remoteEntry()]) as Record<string, unknown>),
@@ -369,14 +371,16 @@ describe("plugin catalog service", () => {
     });
 
     it("falls back to the bundled snapshot when the stored catalog is unreadable", async () => {
-      service();
-      const stored = getPluginMarketplace(db, "hyperfide-community");
+      await service();
+      const stored = await getPluginMarketplace(db, "hyperfide-community");
       if (stored === undefined) throw new Error("catalog row missing");
-      db.$client
+      await db.$client
         .prepare("UPDATE plugin_marketplaces SET manifest_json = ?")
         .run("{not json");
       const warnings: string[] = [];
-      const catalog = service({ warn: (message) => warnings.push(message) });
+      const catalog = await service({
+        warn: (message) => warnings.push(message),
+      });
       expect((await catalog.search("thread-hover-cards")).length).toBe(1);
       expect(warnings.some((warning) => warning.includes("bundled"))).toBe(
         true,
@@ -385,7 +389,7 @@ describe("plugin catalog service", () => {
 
     it("keeps an entry whose icon fails validation and warns", async () => {
       const warnings: string[] = [];
-      const catalog = service({
+      const catalog = await service({
         warn: (message) => warnings.push(message),
         fetch: async (url) =>
           url === MANIFEST_URL
@@ -405,7 +409,7 @@ describe("plugin catalog service", () => {
 
     it("refuses an icon larger than the cap", async () => {
       const warnings: string[] = [];
-      const catalog = service({
+      const catalog = await service({
         warn: (message) => warnings.push(message),
         fetch: async (url) =>
           url === MANIFEST_URL
@@ -422,7 +426,7 @@ describe("plugin catalog service", () => {
     it("keeps cached icons while retrying a missing one on a 304", async () => {
       let iconRequests = 0;
       let failFirstIcon = true;
-      const catalog = service({
+      const catalog = await service({
         warn: () => {},
         fetch: async (url) => {
           if (url === MANIFEST_URL) {
@@ -458,7 +462,7 @@ describe("plugin catalog service", () => {
 
     it("drops a cached icon the refreshed manifest no longer lists", async () => {
       let listIcon = true;
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) =>
           url === MANIFEST_URL
             ? Response.json(
@@ -477,7 +481,7 @@ describe("plugin catalog service", () => {
 
     it("drops a cached icon when its replacement URL fails", async () => {
       let iconUrl = "./icons/widgets.svg";
-      const catalog = service({
+      const catalog = await service({
         warn: () => {},
         fetch: async (url) => {
           if (url === MANIFEST_URL) {
@@ -498,32 +502,35 @@ describe("plugin catalog service", () => {
       expect(await catalog.icon("hyperfide-community", "widgets")).toBeUndefined();
     });
 
-    it("keeps the prior snapshot when an icon-table commit fails", async () => {
-      db.$client.exec(`
+    it.skipIf(isPostgresTest)(
+      "keeps the prior snapshot when an icon-table commit fails",
+      async () => {
+        await db.$client.exec(`
         CREATE TRIGGER reject_marketplace_icon
         BEFORE INSERT ON plugin_marketplace_icons
         BEGIN
           SELECT RAISE(ABORT, 'icon write failed');
         END;
       `);
-      const catalog = service({
-        fetch: async (url) =>
-          url === MANIFEST_URL
-            ? Response.json(manifest([remoteEntry()]))
-            : new Response(VALID_SVG, { status: 200 }),
-      });
+        const catalog = await service({
+          fetch: async (url) =>
+            url === MANIFEST_URL
+              ? Response.json(manifest([remoteEntry()]))
+              : new Response(VALID_SVG, { status: 200 }),
+        });
 
-      await expect(refreshCuratedMarketplace(catalog, 3_000)).rejects.toThrow(
-        "icon write failed",
-      );
-      expect(await catalog.search("widgets")).toEqual([]);
-      expect(await catalog.search("thread-hover-cards")).toHaveLength(1);
-      expect(getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
-        lastSuccessfulRefreshAt: null,
-        lastAttemptedRefreshAt: 3_000,
-        lastError: expect.stringContaining("icon write failed"),
-      });
-    });
+        await expect(refreshCuratedMarketplace(catalog, 3_000)).rejects.toThrow(
+          "icon write failed",
+        );
+        expect(await catalog.search("widgets")).toEqual([]);
+        expect(await catalog.search("thread-hover-cards")).toHaveLength(1);
+        expect(await getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
+          lastSuccessfulRefreshAt: null,
+          lastAttemptedRefreshAt: 3_000,
+          lastError: expect.stringContaining("icon write failed"),
+        });
+      },
+    );
   });
 
   describe("install counts", () => {
@@ -549,7 +556,7 @@ describe("plugin catalog service", () => {
     }
 
     it("reports counts for curated entries", async () => {
-      const catalog = service({
+      const catalog = await service({
         fetch: fetchWith(() =>
           statsResponse({
             widgets: { installs: 4_210 },
@@ -565,7 +572,7 @@ describe("plugin catalog service", () => {
     });
 
     it("leaves an entry the sidecar does not name uncounted", async () => {
-      const catalog = service({
+      const catalog = await service({
         fetch: fetchWith(() => statsResponse({ other: { installs: 9 } })),
       });
 
@@ -576,7 +583,7 @@ describe("plugin catalog service", () => {
     it("re-reads the sidecar when the manifest is unchanged", async () => {
       let manifestReads = 0;
       let installs = 5;
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) => {
           if (url === MANIFEST_URL) {
             manifestReads += 1;
@@ -606,7 +613,7 @@ describe("plugin catalog service", () => {
     it("keeps the stored counts when the sidecar fails, and the refresh still succeeds", async () => {
       const warnings: string[] = [];
       let sidecarBroken = false;
-      const catalog = service({
+      const catalog = await service({
         warn: (message) => warnings.push(message),
         fetch: fetchWith(() =>
           sidecarBroken
@@ -619,7 +626,7 @@ describe("plugin catalog service", () => {
       sidecarBroken = true;
       await refreshCuratedMarketplace(catalog, 2_000);
       expect((await catalog.search("widgets"))[0]?.installs).toBe(7);
-      expect(getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
+      expect(await getPluginMarketplace(db, "hyperfide-community")).toMatchObject({
         lastSuccessfulRefreshAt: 2_000,
         lastError: null,
       });
@@ -627,7 +634,7 @@ describe("plugin catalog service", () => {
     });
 
     it("rejects a malformed sidecar whole rather than counting part of it", async () => {
-      const catalog = service({
+      const catalog = await service({
         fetch: fetchWith(() =>
           Response.json({
             schemaVersion: 1,
@@ -645,7 +652,7 @@ describe("plugin catalog service", () => {
       const thirdPartyManifest =
         "https://acme.test/marketplace/marketplace.json";
       const statsRequests: string[] = [];
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) => {
           if (url === MANIFEST_URL) return Response.json(manifest([]));
           if (url.endsWith("/stats.json")) {
@@ -676,7 +683,7 @@ describe("plugin catalog service", () => {
 
   describe("catalog installs", () => {
     async function refreshedCatalog(entry: Record<string, unknown>) {
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) =>
           url === MANIFEST_URL
             ? Response.json(manifest([entry]))
@@ -749,8 +756,8 @@ describe("plugin catalog service", () => {
     });
 
     it("reads the installed flag from catalog provenance", async () => {
-      const catalog = service();
-      upsertInstalledPlugin(db, {
+      const catalog = await service();
+      await upsertInstalledPlugin(db, {
         id: "hover-cards",
         source:
           "git:https://github.com/brsbl/hyperfide-plugins.git@30f91fd977ba1ce60532af27a68534464fb62516",
@@ -830,8 +837,8 @@ describe("plugin catalog service", () => {
     }[])(
       "reports a direct install from $name with the same id as installed: $installed",
       async ({ source, sourceIntent, installed }) => {
-        const catalog = service();
-        upsertInstalledPlugin(db, {
+        const catalog = await service();
+        await upsertInstalledPlugin(db, {
           id: "thread-hover-cards",
           source,
           provenance: { kind: "direct" },
@@ -867,12 +874,14 @@ describe("plugin catalog service", () => {
           remoteEntry({ id: `widgets-${index}`, icon: "Zap" }),
         ),
       );
-      const catalog = service({
+      const catalog = await service({
         fetch: async () => Response.json(largeManifest),
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toBeNull();
+      expect(
+        (await getPluginMarketplace(db, "hyperfide-community"))?.lastError,
+      ).toBeNull();
       expect(await catalog.search("widgets")).toHaveLength(1025);
       expect(await catalog.search("widgets-1024")).toEqual([
         expect.objectContaining({ entryId: "widgets-1024" }),
@@ -890,12 +899,14 @@ describe("plugin catalog service", () => {
         ),
       );
       expect(JSON.stringify(largeManifest).length).toBeGreaterThan(1_048_576);
-      const catalog = service({
+      const catalog = await service({
         fetch: async () => Response.json(largeManifest),
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
-      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toBeNull();
+      expect(
+        (await getPluginMarketplace(db, "hyperfide-community"))?.lastError,
+      ).toBeNull();
       expect(await catalog.search("widgets")).toHaveLength(600);
     });
 
@@ -909,7 +920,7 @@ describe("plugin catalog service", () => {
           icon: { url: `./icons/widgets-${index}.svg` },
         }),
       );
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) =>
           url === MANIFEST_URL
             ? Response.json(manifest(entries))
@@ -920,7 +931,7 @@ describe("plugin catalog service", () => {
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
-      const icons = listPluginMarketplaceIcons(db, "hyperfide-community");
+      const icons = await listPluginMarketplaceIcons(db, "hyperfide-community");
       expect(icons).toHaveLength(64);
       expect(
         icons.reduce((total, icon) => total + icon.bytes.byteLength, 0),
@@ -936,7 +947,7 @@ describe("plugin catalog service", () => {
           icon: { url: `./icons/widgets-${index}.svg` },
         }),
       );
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) => {
           if (url === MANIFEST_URL) return Response.json(manifest(entries));
           inFlight += 1;
@@ -958,7 +969,7 @@ describe("plugin catalog service", () => {
     it("drops an icon aimed at a non-public address", async () => {
       const warnings: string[] = [];
       const iconRequests: string[] = [];
-      const catalog = service({
+      const catalog = await service({
         warn: (message) => warnings.push(message),
         fetch: async (url) => {
           if (url === MANIFEST_URL) {
@@ -987,7 +998,7 @@ describe("plugin catalog service", () => {
       const bundled = listBundledPluginRegistrations();
       const occupied = bundled[0];
       if (occupied === undefined) throw new Error("no bundled plugin");
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) =>
           url === MANIFEST_URL
             ? Response.json(
@@ -1008,13 +1019,15 @@ describe("plugin catalog service", () => {
         results.filter((entry) => entry.pluginId === occupied.pluginId),
       ).toHaveLength(0);
       expect(results.some((entry) => entry.entryId === "widgets")).toBe(true);
-      expect(getPluginMarketplace(db, "hyperfide-community")?.lastError).toMatch(
+      expect(
+        (await getPluginMarketplace(db, "hyperfide-community"))?.lastError,
+      ).toMatch(
         new RegExp(`matches a bundled plugin: ${occupied.pluginId}`, "u"),
       );
     });
 
     it("names the pinned npm registry in the entry source display", async () => {
-      const catalog = service({
+      const catalog = await service({
         fetch: async (url) =>
           url === MANIFEST_URL
             ? Response.json(
@@ -1044,12 +1057,12 @@ describe("plugin catalog service", () => {
   it("disables refresh and scheduling when the marketplace URL is empty", async () => {
     const fetch = vi.fn<MarketplaceFetch>();
     const warn = vi.fn();
-    service(); // An existing curated row must also be removed.
-    const catalog = service({ marketplaceUrl: "", fetch, warn });
+    await service(); // An existing curated row must also be removed.
+    const catalog = await service({ marketplaceUrl: "", fetch, warn });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       for (const frozen of [false, true]) {
-        setServerMoveFrozen(db, frozen);
+        await setServerMoveFrozen(db, frozen);
         expect(() => catalog.startPeriodicRefresh()).not.toThrow();
         await vi.advanceTimersByTimeAsync(SERVER_MOVE_FROZEN_RETRY_MS);
         expect(await catalog.refreshMarketplaces()).toEqual([]);
@@ -1059,7 +1072,7 @@ describe("plugin catalog service", () => {
           }),
         ).toEqual([]);
         expect(
-          getPluginMarketplace(db, CURATED_PLUGIN_MARKETPLACE_NAME),
+          await getPluginMarketplace(db, CURATED_PLUGIN_MARKETPLACE_NAME),
         ).toBeUndefined();
         expect(vi.getTimerCount()).toBe(0);
         catalog.stopPeriodicRefresh();
@@ -1068,14 +1081,14 @@ describe("plugin catalog service", () => {
       expect(warn).not.toHaveBeenCalled();
     } finally {
       catalog.stopPeriodicRefresh();
-      setServerMoveFrozen(db, false);
+      await setServerMoveFrozen(db, false);
       vi.useRealTimers();
     }
   });
 
   it("defers the periodic marketplace refresh while the server is moving", async () => {
     const fetched: string[] = [];
-    const catalog = service({
+    const catalog = await service({
       fetch: async (url) => {
         fetched.push(String(url));
         return new Response(null, { status: 503 });
@@ -1089,7 +1102,7 @@ describe("plugin catalog service", () => {
       expect(fetched).toEqual([]);
       expect(vi.getTimerCount()).toBe(1);
       expect(
-        getPluginMarketplace(db, CURATED_PLUGIN_MARKETPLACE_NAME)
+        (await getPluginMarketplace(db, CURATED_PLUGIN_MARKETPLACE_NAME))
           ?.lastAttemptedRefreshAt,
       ).toBeNull();
 

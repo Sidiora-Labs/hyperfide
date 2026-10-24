@@ -21,7 +21,7 @@ import {
   type HyperfideAppArtifactCommandRunner,
 } from "../../src/services/install/hyperfide-app-artifact.js";
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = await promisify(execFile);
 const roots: string[] = [];
 const ARTIFACT_LIFECYCLE_TIMEOUT_MS = 15_000;
 const MODES = ["repo-src", "repo-dist", "packaged"] as const;
@@ -142,7 +142,7 @@ describe("hyperfide-app artifact service (desktop packaging)", () => {
     async () => {
       const test = await fixture("packaged");
       await rm(join(test.packageRoot, "README.md"));
-      const service = createHyperfideAppArtifactService({
+      const service = await createHyperfideAppArtifactService({
         dataDir: join(test.root, "data"),
         serverEntryUrl: pathToFileURL(test.serverEntry).href,
       });
@@ -179,7 +179,7 @@ describe("hyperfide-app artifact service (desktop packaging)", () => {
     "packs with the bundled npm when the server has no npm on PATH",
     async () => {
       const test = await fixture("packaged");
-      const service = createHyperfideAppArtifactService({
+      const service = await createHyperfideAppArtifactService({
         dataDir: join(test.root, "data"),
         serverEntryUrl: pathToFileURL(test.serverEntry).href,
       });
@@ -218,7 +218,7 @@ describe("hyperfide-app artifact service (desktop packaging)", () => {
       await mkdir(nested, { recursive: true });
       await writeFile(join(nested, "deep.js"), "export {};\n");
       await setTreeReadOnly(join(test.packageRoot, "host-daemon"));
-      const service = createHyperfideAppArtifactService({
+      const service = await createHyperfideAppArtifactService({
         dataDir,
         serverEntryUrl: pathToFileURL(test.serverEntry).href,
       });
@@ -252,7 +252,7 @@ describe("hyperfide-app artifact service (desktop packaging)", () => {
     );
     await rm(join(test.packageRoot, "README.md"));
     await rm(runtimePath);
-    const service = createHyperfideAppArtifactService({
+    const service = await createHyperfideAppArtifactService({
       dataDir: join(test.root, "data"),
       serverEntryUrl: pathToFileURL(test.serverEntry).href,
     });
@@ -268,7 +268,7 @@ describe("hyperfide-app artifact service (desktop packaging)", () => {
     const readmePath = join(test.packageRoot, "README.md");
     await rm(readmePath);
     await mkdir(readmePath);
-    const service = createHyperfideAppArtifactService({
+    const service = await createHyperfideAppArtifactService({
       dataDir: join(test.root, "data"),
       serverEntryUrl: pathToFileURL(test.serverEntry).href,
     });
@@ -298,14 +298,14 @@ describe.each(MODES)("hyperfide-app artifact service (%s)", (mode) => {
           await test.refreshHostPackage();
           return "built";
         }
-        return defaultCommandRunner(command, args, cwd);
+        return await defaultCommandRunner(command, args, cwd);
       };
       const resolved = await resolveHyperfideAppPackage(
         pathToFileURL(test.serverEntry).href,
       );
       expect(resolved.root).toBe(test.packageRoot);
       expect(resolved.layout).toBe(isRepoMode(mode) ? "repo" : "packaged");
-      const service = createHyperfideAppArtifactService({
+      const service = await createHyperfideAppArtifactService({
         dataDir: join(test.root, "data"),
         commandRunner: runner,
         serverEntryUrl: pathToFileURL(test.serverEntry).href,
@@ -380,7 +380,7 @@ describe.each(MODES)("hyperfide-app artifact service (%s)", (mode) => {
           await test.refreshHostPackage();
           return "built";
         }
-        return defaultCommandRunner(command, args, cwd);
+        return await defaultCommandRunner(command, args, cwd);
       };
       const options = {
         dataDir: join(test.root, "data"),
@@ -418,7 +418,7 @@ describe.each(MODES)("hyperfide-app artifact service (%s)", (mode) => {
           await test.refreshHostPackage();
           return "built";
         }
-        return defaultCommandRunner(command, args, cwd);
+        return await defaultCommandRunner(command, args, cwd);
       };
       const baseOptions = {
         dataDir: join(test.root, "data"),
@@ -452,7 +452,7 @@ describe.each(MODES)("hyperfide-app artifact service (%s)", (mode) => {
           return "built";
         }
         if (failNextPack) throw new Error("npm pack exploded");
-        return defaultCommandRunner(command, args, cwd);
+        return await defaultCommandRunner(command, args, cwd);
       };
       const options = {
         dataDir: join(test.root, "data"),
@@ -464,7 +464,7 @@ describe.each(MODES)("hyperfide-app artifact service (%s)", (mode) => {
       const first = await createHyperfideAppArtifactService(options).getArtifact();
       failNextPack = true;
       await writeFile(join(test.packageRoot, "README.md"), "updated\n");
-      const service = createHyperfideAppArtifactService(options);
+      const service = await createHyperfideAppArtifactService(options);
       await expect(service.getArtifact()).rejects.toThrow("npm pack exploded");
       expect(
         (await execFileAsync("tar", ["-xOzf", first.path, "package/README.md"]))

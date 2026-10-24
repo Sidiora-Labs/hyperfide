@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import Database from "better-sqlite3";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -49,12 +51,12 @@ const TEST_DEFERRED_LEGACY_TABLE_NAMES = [
   "thread_operations",
 ];
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "maintenance-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "maintenance-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/project" },
   });
@@ -102,9 +104,10 @@ function createDeferredLegacyTables(db: DbConnection): void {
 
 function readPreservedValue(db: DbConnection): string | undefined {
   return db.$client
-    .prepare<[], PreservedValueRow>(
-      "SELECT value FROM preserved_rows WHERE id = 1",
-    )
+    .prepare<
+      [],
+      PreservedValueRow
+    >("SELECT value FROM preserved_rows WHERE id = 1")
     .get()?.value;
 }
 
@@ -117,29 +120,29 @@ function readProjectName(
     .get(projectId)?.name;
 }
 
-describe("database maintenance", () => {
-  it("detects active work that should block compaction", () => {
-    const { db, project } = setup();
-    const idleActivity = getDatabaseMaintenanceActivity(db);
+describe.skipIf(isPostgresTest)("database maintenance", () => {
+  it("detects active work that should block compaction", async () => {
+    const { db, project } = await setup();
+    const idleActivity = await getDatabaseMaintenanceActivity(db);
     expect(isDatabaseMaintenanceIdle(idleActivity)).toBe(true);
 
-    const activeThread = createThread(db, noopNotifier, {
+    const activeThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
       status: "active",
     });
-    const threadActivity = getDatabaseMaintenanceActivity(db);
+    const threadActivity = await getDatabaseMaintenanceActivity(db);
     expect(threadActivity.activeThreadCount).toBe(1);
     expect(isDatabaseMaintenanceIdle(threadActivity)).toBe(false);
 
-    markThreadDeleted(db, noopNotifier, { threadId: activeThread.id });
-    expect(isDatabaseMaintenanceIdle(getDatabaseMaintenanceActivity(db))).toBe(
-      true,
-    );
+    await markThreadDeleted(db, noopNotifier, { threadId: activeThread.id });
+    expect(
+      isDatabaseMaintenanceIdle(await getDatabaseMaintenanceActivity(db)),
+    ).toBe(true);
   });
 
-  it("drops deferred legacy queue tables without touching current data", () => {
-    const { db, project } = setup();
+  it("drops deferred legacy queue tables without touching current data", async () => {
+    const { db, project } = await setup();
     createDeferredLegacyTables(db);
     expect(listDeferredLegacyTables(db)).toEqual(
       [...TEST_DEFERRED_LEGACY_TABLE_NAMES].sort(),
@@ -154,37 +157,37 @@ describe("database maintenance", () => {
     expect(readProjectName(db, project.id)).toBe("maintenance-project");
   });
 
-  it("keeps fresh file-backed databases in incremental auto-vacuum mode after reopen", () => {
+  it("keeps fresh file-backed databases in incremental auto-vacuum mode after reopen", async () => {
     const tempDatabase = createTempDatabasePath();
     try {
-      const db = createConnection(tempDatabase.dbPath);
+      const db = await createConnection(tempDatabase.dbPath);
       try {
-        migrate(db);
+        await migrate(db);
         expect(getDatabaseAutoVacuumMode(db)).toBe("incremental");
       } finally {
-        db.$client.close();
+        await db.close();
       }
 
-      const reopenedDb = createConnection(tempDatabase.dbPath);
+      const reopenedDb = await createConnection(tempDatabase.dbPath);
       try {
-        migrate(reopenedDb);
+        await migrate(reopenedDb);
         expect(getDatabaseAutoVacuumMode(reopenedDb)).toBe("incremental");
       } finally {
-        reopenedDb.$client.close();
+        await reopenedDb.close();
       }
     } finally {
       tempDatabase.cleanup();
     }
   });
 
-  it("converts legacy databases to incremental auto-vacuum during compaction while preserving data", () => {
+  it("converts legacy databases to incremental auto-vacuum during compaction while preserving data", async () => {
     const tempDatabase = createTempDatabasePath();
     try {
       createLegacyDatabaseWithPreservedData(tempDatabase.dbPath);
 
-      const db = createConnection(tempDatabase.dbPath);
+      const db = await createConnection(tempDatabase.dbPath);
       try {
-        migrate(db);
+        await migrate(db);
         expect(getDatabaseAutoVacuumMode(db)).toBe("none");
         expect(readPreservedValue(db)).toBe("survives-vacuum");
 
@@ -193,18 +196,18 @@ describe("database maintenance", () => {
         expect(getDatabaseAutoVacuumMode(db)).toBe("incremental");
         expect(readPreservedValue(db)).toBe("survives-vacuum");
       } finally {
-        db.$client.close();
+        await db.close();
       }
     } finally {
       tempDatabase.cleanup();
     }
   });
 
-  it("reclaims freed pages incrementally without a full VACUUM", () => {
-    const { db } = setup();
+  it("reclaims freed pages incrementally without a full VACUUM", async () => {
+    const { db } = await setup();
     expect(getDatabaseAutoVacuumMode(db)).toBe("incremental");
 
-    db.$client.exec(
+    await db.$client.exec(
       "CREATE TABLE scratch_blobs (id INTEGER PRIMARY KEY, blob TEXT)",
     );
     const insert = db.$client.prepare(
@@ -217,7 +220,7 @@ describe("database maintenance", () => {
       }
     });
     insertMany(3_000);
-    db.$client.exec("DELETE FROM scratch_blobs");
+    await db.$client.exec("DELETE FROM scratch_blobs");
 
     const before = getDatabaseFreelistStats(db);
     expect(before.freelistCount).toBeGreaterThan(0);

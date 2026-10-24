@@ -1,6 +1,6 @@
 export function withWriteAfterFirstRead<T extends object>(
   connection: T,
-  onFirstRead: () => void,
+  onFirstRead: () => void | Promise<void>,
 ): T {
   let pending: (() => void) | null = onFirstRead;
   const wrapBuilder = (builder: object): object =>

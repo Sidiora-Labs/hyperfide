@@ -37,19 +37,19 @@ async function postPaneAction(
 describe("public thread open", () => {
   it("broadcasts an open-file signal to connected clients without persisting", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-open",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-open-source",
       });
-      const thread = seedThread(harness.deps, { projectId: project.id });
+      const thread = await seedThread(harness.deps, { projectId: project.id });
 
       const socket = createMockHubSocket();
       harness.deps.hub.registerClient(socket);
 
-      const before = getThread(harness.db, thread.id);
+      const before = await getThread(harness.db, thread.id);
 
       const response = await postOpen(harness, thread.id, {
         file: {
@@ -76,20 +76,20 @@ describe("public thread open", () => {
         },
       });
 
-      expect(getThread(harness.db, thread.id)).toEqual(before);
+      expect(await getThread(harness.db, thread.id)).toEqual(before);
     });
   });
 
   it("rejects unsafe paths and sends nothing", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-open-bad",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-open-bad-source",
       });
-      const thread = seedThread(harness.deps, { projectId: project.id });
+      const thread = await seedThread(harness.deps, { projectId: project.id });
 
       const socket = createMockHubSocket();
       harness.deps.hub.registerClient(socket);
@@ -124,14 +124,14 @@ describe("public thread open", () => {
 
   it("opens a hidden thread through the ordinary direct path", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-open-hidden",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-open-hidden-source",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         visibility: "hidden",
       });
@@ -150,14 +150,14 @@ describe("public thread open", () => {
 
   it("opens a thread without a file and validates split placement", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-open-split",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-open-split-source",
       });
-      const thread = seedThread(harness.deps, { projectId: project.id });
+      const thread = await seedThread(harness.deps, { projectId: project.id });
       const socket = createMockHubSocket();
       harness.deps.hub.registerClient(socket);
 
@@ -185,14 +185,14 @@ describe("public thread open", () => {
 
   it("broadcasts pane actions", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-pane-action",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-pane-action-source",
       });
-      const thread = seedThread(harness.deps, { projectId: project.id });
+      const thread = await seedThread(harness.deps, { projectId: project.id });
       const socket = createMockHubSocket();
       harness.deps.hub.registerClient(socket);
 

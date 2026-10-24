@@ -120,9 +120,8 @@ const DEFERRED_LEGACY_TABLE_NAMES = [
 const DEFERRED_LEGACY_TABLE_NAME_SET = new Set<string>(
   DEFERRED_LEGACY_TABLE_NAMES,
 );
-const DEFERRED_LEGACY_TABLE_NAME_LIST_SQL = DEFERRED_LEGACY_TABLE_NAMES.map(
-  quoteSqlString,
-).join(", ");
+const DEFERRED_LEGACY_TABLE_NAME_LIST_SQL =
+  DEFERRED_LEGACY_TABLE_NAMES.map(quoteSqlString).join(", ");
 
 function quoteSqlString(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
@@ -152,9 +151,8 @@ function readPageSize(db: DbConnection): number {
 
 function readFreelistCount(db: DbConnection): number {
   return (
-    db.$client
-      .prepare<[], FreelistCountRow>("PRAGMA freelist_count")
-      .get()?.freelist_count ?? 0
+    db.$client.prepare<[], FreelistCountRow>("PRAGMA freelist_count").get()
+      ?.freelist_count ?? 0
   );
 }
 
@@ -176,9 +174,10 @@ function readDbstatUnusedBytes(db: DbConnection): number {
   try {
     return (
       db.$client
-        .prepare<[], DbstatUnusedRow>(
-          "SELECT COALESCE(SUM(unused), 0) AS unusedBytes FROM dbstat WHERE name NOT LIKE 'sqlite_%'",
-        )
+        .prepare<
+          [],
+          DbstatUnusedRow
+        >("SELECT COALESCE(SUM(unused), 0) AS unusedBytes FROM dbstat WHERE name NOT LIKE 'sqlite_%'")
         .get()?.unusedBytes ?? 0
     );
   } catch {
@@ -200,11 +199,11 @@ function runWithMaintenanceBusyTimeout<TValue>(
   }
 }
 
-export function getDatabaseMaintenanceActivity(
+export async function getDatabaseMaintenanceActivity(
   db: DbConnection,
-): DatabaseMaintenanceActivity {
+): Promise<DatabaseMaintenanceActivity> {
   const activeThreadCount = countValue(
-    db
+    await db
       .select({ value: count() })
       .from(threads)
       .where(
@@ -216,28 +215,28 @@ export function getDatabaseMaintenanceActivity(
       .get(),
   );
   const activeProjectDeletionCount = countValue(
-    db
+    await db
       .select({ value: count() })
       .from(projects)
       .where(isNotNull(projects.deletedAt))
       .get(),
   );
   const activeEnvironmentProvisioningCount = countValue(
-    db
+    await db
       .select({ value: count() })
       .from(environments)
       .where(eq(environments.status, "provisioning"))
       .get(),
   );
   const activeThreadProvisioningCount = countValue(
-    db
+    await db
       .select({ value: count() })
       .from(threads)
       .where(eq(threads.status, "starting"))
       .get(),
   );
   const activePendingInteractionCount = countValue(
-    db
+    await db
       .select({ value: count() })
       .from(pendingInteractions)
       .where(
@@ -300,9 +299,9 @@ export function dropDeferredLegacyTables(
       db.$client.pragma("foreign_keys = OFF");
       try {
         for (const tableName of droppedTables) {
-          db.$client.prepare(
-            `DROP TABLE IF EXISTS ${quoteSqlIdentifier(tableName)}`,
-          ).run();
+          db.$client
+            .prepare(`DROP TABLE IF EXISTS ${quoteSqlIdentifier(tableName)}`)
+            .run();
         }
       } finally {
         db.$client.pragma(
@@ -376,9 +375,8 @@ export function getDatabaseAutoVacuumMode(
   db: DbConnection,
 ): DatabaseAutoVacuumMode {
   const mode =
-    db.$client
-      .prepare<[], AutoVacuumModeRow>("PRAGMA auto_vacuum")
-      .get()?.auto_vacuum ?? 0;
+    db.$client.prepare<[], AutoVacuumModeRow>("PRAGMA auto_vacuum").get()
+      ?.auto_vacuum ?? 0;
   switch (mode) {
     case 1:
       return "full";

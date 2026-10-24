@@ -206,7 +206,7 @@ export async function createHostThread(
   api: PublicApiClient,
   options: CreateHostThreadOptions,
 ): Promise<Thread> {
-  return postThread(
+  return await postThread(
     api,
     {
       type: "host",
@@ -222,7 +222,7 @@ export async function createReuseThread(
   api: PublicApiClient,
   options: CreateReuseThreadOptions,
 ): Promise<Thread> {
-  return postThread(
+  return await postThread(
     api,
     {
       type: "reuse",

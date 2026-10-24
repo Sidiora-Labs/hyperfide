@@ -30,8 +30,8 @@ export function registerPluginCatalogRoutes(
   catalog: PluginCatalogService,
   installJobs: PluginInstallJobs,
 ): void {
-  app.get("/plugin-catalog", (context) =>
-    context.json({ catalog: catalog.status() }),
+  app.get("/plugin-catalog", async (context) =>
+    context.json({ catalog: await catalog.status() }),
   );
 
   app.get("/plugin-catalog/search", async (context) =>
@@ -92,9 +92,9 @@ export function registerPluginCatalogRoutes(
         422,
       );
     }
-    let entry: ReturnType<PluginCatalogService["describeEntry"]>;
+    let entry: Awaited<ReturnType<PluginCatalogService["describeEntry"]>>;
     try {
-      entry = catalog.describeEntry(body.data);
+      entry = await catalog.describeEntry(body.data);
     } catch (error) {
       return context.json({ error: errorMessage(error) }, 422);
     }
@@ -108,13 +108,13 @@ export function registerPluginCatalogRoutes(
       displayName: entry.displayName,
       run: () => catalog.install(input),
     });
-    return respondWithInstallJob(context, installJobs, job, (error) => ({
+    return await respondWithInstallJob(context, installJobs, job, (error) => ({
       error,
     }));
   });
 
-  app.get("/marketplaces", (context) =>
-    context.json({ marketplaces: catalog.listMarketplaces() }),
+  app.get("/marketplaces", async (context) =>
+    context.json({ marketplaces: await catalog.listMarketplaces() }),
   );
 
   app.post("/marketplaces", async (context) => {

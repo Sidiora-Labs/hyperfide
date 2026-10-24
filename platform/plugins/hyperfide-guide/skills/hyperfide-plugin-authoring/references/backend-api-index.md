@@ -1,5 +1,9 @@
 # Backend API symbol index
 
+`PluginAsyncDatabase` is returned by `await hyperfide.storage.asyncDatabase()` on SQLite and PostgreSQL.
+Await `query`, `execute`, `transaction`, `migrate`, and `close`; use `dialect` to choose SQL placeholders.
+The synchronous `storage.database()` stays on SQLite. See `platform/docs/postgresql-storage.md`.
+
 Use this index to check backend, host, AI-service, and test imports.
 Read the detailed backend references for behavior, fields, and examples.
 Read the installed declarations for exact current signatures.

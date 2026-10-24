@@ -7,16 +7,16 @@ import { isServerMoveFrozen } from "../server-move/freeze-state.js";
 const PER_HOST_CONCURRENCY = 2;
 const GLOBAL_CONCURRENCY = 4;
 
-export function installProviderModelCatalogPrewarm(
+export async function installProviderModelCatalogPrewarm(
   deps: LoggedWorkSessionDeps,
-): { stop(): void } {
+): Promise<{ stop(): void }> {
   const pendingHosts = new Set<string>();
   const runningHosts = new Set<string>();
   const globalWaiters: (() => void)[] = [];
   let globalRunning = 0;
   let stopped = false;
 
-  function request(hostId: string): void {
+  async function request(hostId: string): Promise<void> {
     if (stopped) {
       return;
     }
@@ -65,7 +65,7 @@ export function installProviderModelCatalogPrewarm(
     const startedAt = Date.now();
     await deps.providerRegistry.whenRegistrationsSettled();
     const sessionId = deps.hub.getDaemonSessionIdForHost(hostId);
-    const host = getHost(deps.db, hostId);
+    const host = await getHost(deps.db, hostId);
     if (
       stopped ||
       isServerMoveFrozen(deps.db) ||
@@ -78,7 +78,8 @@ export function installProviderModelCatalogPrewarm(
       return;
     }
     const providers = await listSystemProviderInfosForHost(deps, hostId);
-    const defaultProviderId = deps.providerRegistry.getUserDefaultProviderId();
+    const defaultProviderId =
+      await deps.providerRegistry.getUserDefaultProviderId();
     const queue = providers
       .filter((provider) => provider.available)
       .sort(
@@ -128,23 +129,23 @@ export function installProviderModelCatalogPrewarm(
     );
   }
 
-  const unsubscribe = deps.hub.onChangedMessage((message) => {
+  const unsubscribe = deps.hub.onChangedMessage(async (message) => {
     if (
       message.entity === "host" &&
       message.changes.includes("host-connected")
     ) {
-      request(message.id);
+      await request(message.id);
     } else if (
       message.entity === "system" &&
       message.changes.includes("provider-registrations-changed")
     ) {
       for (const hostId of deps.hub.listConnectedHostIds()) {
-        request(hostId);
+        await request(hostId);
       }
     }
   });
   for (const hostId of deps.hub.listConnectedHostIds()) {
-    request(hostId);
+    await request(hostId);
   }
 
   return {

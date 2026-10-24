@@ -15,18 +15,18 @@ import {
 import { upsertHost } from "../../src/data/hosts.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "projects-host",
   });
   return { db, host };
 }
 
 describe("projects", () => {
-  it("returns the existing project when the same host path is added again", () => {
-    const { db, host } = setup();
-    const first = findOrCreateProjectByLocalPathSource(db, noopNotifier, {
+  it("returns the existing project when the same host path is added again", async () => {
+    const { db, host } = await setup();
+    const first = await findOrCreateProjectByLocalPathSource(db, noopNotifier, {
       name: "first-name",
       source: {
         type: "local_path",
@@ -35,26 +35,30 @@ describe("projects", () => {
       },
     });
 
-    const repeated = findOrCreateProjectByLocalPathSource(db, noopNotifier, {
-      name: "second-name",
-      source: {
-        type: "local_path",
-        hostId: host.id,
-        path: "/tmp/same-project",
+    const repeated = await findOrCreateProjectByLocalPathSource(
+      db,
+      noopNotifier,
+      {
+        name: "second-name",
+        source: {
+          type: "local_path",
+          hostId: host.id,
+          path: "/tmp/same-project",
+        },
       },
-    });
+    );
 
     expect(repeated).toEqual(first);
-    expect(listPublicProjects(db)).toEqual([first.project]);
+    expect(await listPublicProjects(db)).toEqual([first.project]);
   });
 
-  it("allows the same path on different hosts", () => {
-    const { db, host } = setup();
-    const otherHost = upsertHost(db, noopNotifier, {
+  it("allows the same path on different hosts", async () => {
+    const { db, host } = await setup();
+    const otherHost = await upsertHost(db, noopNotifier, {
       name: "other-projects-host",
     });
 
-    const first = findOrCreateProjectByLocalPathSource(db, noopNotifier, {
+    const first = await findOrCreateProjectByLocalPathSource(db, noopNotifier, {
       name: "first-host-project",
       source: {
         type: "local_path",
@@ -62,22 +66,26 @@ describe("projects", () => {
         path: "/tmp/shared-path",
       },
     });
-    const second = findOrCreateProjectByLocalPathSource(db, noopNotifier, {
-      name: "second-host-project",
-      source: {
-        type: "local_path",
-        hostId: otherHost.id,
-        path: "/tmp/shared-path",
+    const second = await findOrCreateProjectByLocalPathSource(
+      db,
+      noopNotifier,
+      {
+        name: "second-host-project",
+        source: {
+          type: "local_path",
+          hostId: otherHost.id,
+          path: "/tmp/shared-path",
+        },
       },
-    });
+    );
 
     expect(second.project.id).not.toBe(first.project.id);
-    expect(listPublicProjects(db)).toHaveLength(2);
+    expect(await listPublicProjects(db)).toHaveLength(2);
   });
 
-  it("sets a git remote anchor only while it is missing", () => {
-    const { db, host } = setup();
-    const { project } = createProject(db, noopNotifier, {
+  it("sets a git remote anchor only while it is missing", async () => {
+    const { db, host } = await setup();
+    const { project } = await createProject(db, noopNotifier, {
       name: "anchored-project",
       source: {
         type: "local_path",
@@ -88,46 +96,46 @@ describe("projects", () => {
 
     expect(project.gitRemoteUrl).toBeNull();
     expect(
-      setProjectGitRemoteUrlIfMissing(
-        db,
-        noopNotifier,
-        project.id,
-        "ssh://git.example.test/first.git",
+      (
+        await setProjectGitRemoteUrlIfMissing(
+          db,
+          noopNotifier,
+          project.id,
+          "ssh://git.example.test/first.git",
+        )
       )?.gitRemoteUrl,
     ).toBe("ssh://git.example.test/first.git");
     expect(
-      setProjectGitRemoteUrlIfMissing(
+      await setProjectGitRemoteUrlIfMissing(
         db,
         noopNotifier,
         project.id,
         "ssh://git.example.test/second.git",
       ),
     ).toBeNull();
-    expect(getProject(db, project.id)?.gitRemoteUrl).toBe(
+    expect((await getProject(db, project.id))?.gitRemoteUrl).toBe(
       "ssh://git.example.test/first.git",
     );
   });
 
-  it("ensures the singleton personal project idempotently", () => {
-    const { db } = setup();
+  it("ensures the singleton personal project idempotently", async () => {
+    const { db } = await setup();
 
-    const first = ensurePersonalProject(db);
-    const second = ensurePersonalProject(db);
+    const first = await ensurePersonalProject(db);
+    const second = await ensurePersonalProject(db);
 
     expect(first.id).toBe(PERSONAL_PROJECT_ID);
     expect(second.id).toBe(PERSONAL_PROJECT_ID);
     expect(
-      db
-        .select()
-        .from(projects)
-        .all()
-        .filter((project) => project.kind === "personal"),
+      (await db.select().from(projects).all()).filter(
+        (project) => project.kind === "personal",
+      ),
     ).toEqual([expect.objectContaining({ id: PERSONAL_PROJECT_ID })]);
   });
 
-  it("excludes deleted projects from public listings", () => {
-    const { db, host } = setup();
-    const { project: visibleProject } = createProject(db, noopNotifier, {
+  it("excludes deleted projects from public listings", async () => {
+    const { db, host } = await setup();
+    const { project: visibleProject } = await createProject(db, noopNotifier, {
       name: "visible-project",
       source: {
         type: "local_path",
@@ -135,7 +143,7 @@ describe("projects", () => {
         path: "/tmp/visible-project",
       },
     });
-    const { project: deletingProject } = createProject(db, noopNotifier, {
+    const { project: deletingProject } = await createProject(db, noopNotifier, {
       name: "deleting-project",
       source: {
         type: "local_path",
@@ -144,15 +152,13 @@ describe("projects", () => {
       },
     });
 
-    markProjectDeleted(db, noopNotifier, {
+    await markProjectDeleted(db, noopNotifier, {
       projectId: deletingProject.id,
     });
 
-    const allProjectIds = db
-      .select()
-      .from(projects)
-      .all()
-      .map((project) => project.id);
+    const allProjectIds = (await db.select().from(projects).all()).map(
+      (project) => project.id,
+    );
     expect(allProjectIds).toHaveLength(3);
     expect(allProjectIds).toEqual(
       expect.arrayContaining([
@@ -161,14 +167,14 @@ describe("projects", () => {
         deletingProject.id,
       ]),
     );
-    expect(listPublicProjects(db).map((project) => project.id)).toEqual([
-      visibleProject.id,
-    ]);
+    expect((await listPublicProjects(db)).map((project) => project.id)).toEqual(
+      [visibleProject.id],
+    );
   });
 
-  it("reorders public projects by neighboring projects", () => {
-    const { db, host } = setup();
-    const { project: firstProject } = createProject(db, noopNotifier, {
+  it("reorders public projects by neighboring projects", async () => {
+    const { db, host } = await setup();
+    const { project: firstProject } = await createProject(db, noopNotifier, {
       name: "first-project",
       source: {
         type: "local_path",
@@ -176,7 +182,7 @@ describe("projects", () => {
         path: "/tmp/first-project",
       },
     });
-    const { project: secondProject } = createProject(db, noopNotifier, {
+    const { project: secondProject } = await createProject(db, noopNotifier, {
       name: "second-project",
       source: {
         type: "local_path",
@@ -184,7 +190,7 @@ describe("projects", () => {
         path: "/tmp/second-project",
       },
     });
-    const { project: thirdProject } = createProject(db, noopNotifier, {
+    const { project: thirdProject } = await createProject(db, noopNotifier, {
       name: "third-project",
       source: {
         type: "local_path",
@@ -193,7 +199,7 @@ describe("projects", () => {
       },
     });
 
-    const result = reorderProject({
+    const result = await reorderProject({
       db,
       notifier: noopNotifier,
       projectId: thirdProject.id,
@@ -202,16 +208,14 @@ describe("projects", () => {
     });
 
     expect(result.kind).toBe("reordered");
-    expect(listPublicProjects(db).map((project) => project.id)).toEqual([
-      firstProject.id,
-      thirdProject.id,
-      secondProject.id,
-    ]);
+    expect((await listPublicProjects(db)).map((project) => project.id)).toEqual(
+      [firstProject.id, thirdProject.id, secondProject.id],
+    );
   });
 
-  it("returns unchanged when project order already matches neighboring projects", () => {
-    const { db, host } = setup();
-    const { project: firstProject } = createProject(db, noopNotifier, {
+  it("returns unchanged when project order already matches neighboring projects", async () => {
+    const { db, host } = await setup();
+    const { project: firstProject } = await createProject(db, noopNotifier, {
       name: "first-project",
       source: {
         type: "local_path",
@@ -219,7 +223,7 @@ describe("projects", () => {
         path: "/tmp/first-project",
       },
     });
-    const { project: secondProject } = createProject(db, noopNotifier, {
+    const { project: secondProject } = await createProject(db, noopNotifier, {
       name: "second-project",
       source: {
         type: "local_path",
@@ -227,7 +231,7 @@ describe("projects", () => {
         path: "/tmp/second-project",
       },
     });
-    const { project: thirdProject } = createProject(db, noopNotifier, {
+    const { project: thirdProject } = await createProject(db, noopNotifier, {
       name: "third-project",
       source: {
         type: "local_path",
@@ -236,7 +240,7 @@ describe("projects", () => {
       },
     });
 
-    const result = reorderProject({
+    const result = await reorderProject({
       db,
       notifier: noopNotifier,
       projectId: secondProject.id,
@@ -255,23 +259,25 @@ describe("projects", () => {
     ]);
   });
 
-  it("returns not_found when reordering a missing project", () => {
-    const { db } = setup();
+  it("returns not_found when reordering a missing project", async () => {
+    const { db } = await setup();
 
     expect(
-      reorderProject({
-        db,
-        notifier: noopNotifier,
-        projectId: "proj_missing",
-        previousProjectId: null,
-        nextProjectId: null,
-      }).kind,
+      (
+        await reorderProject({
+          db,
+          notifier: noopNotifier,
+          projectId: "proj_missing",
+          previousProjectId: null,
+          nextProjectId: null,
+        })
+      ).kind,
     ).toBe("not_found");
   });
 
-  it("rejects project reorder neighbors that are in reverse order", () => {
-    const { db, host } = setup();
-    const { project: firstProject } = createProject(db, noopNotifier, {
+  it("rejects project reorder neighbors that are in reverse order", async () => {
+    const { db, host } = await setup();
+    const { project: firstProject } = await createProject(db, noopNotifier, {
       name: "first-project",
       source: {
         type: "local_path",
@@ -279,7 +285,7 @@ describe("projects", () => {
         path: "/tmp/first-project",
       },
     });
-    const { project: secondProject } = createProject(db, noopNotifier, {
+    const { project: secondProject } = await createProject(db, noopNotifier, {
       name: "second-project",
       source: {
         type: "local_path",
@@ -287,7 +293,7 @@ describe("projects", () => {
         path: "/tmp/second-project",
       },
     });
-    const { project: thirdProject } = createProject(db, noopNotifier, {
+    const { project: thirdProject } = await createProject(db, noopNotifier, {
       name: "third-project",
       source: {
         type: "local_path",
@@ -297,24 +303,24 @@ describe("projects", () => {
     });
 
     expect(
-      reorderProject({
-        db,
-        notifier: noopNotifier,
-        projectId: thirdProject.id,
-        previousProjectId: secondProject.id,
-        nextProjectId: firstProject.id,
-      }).kind,
+      (
+        await reorderProject({
+          db,
+          notifier: noopNotifier,
+          projectId: thirdProject.id,
+          previousProjectId: secondProject.id,
+          nextProjectId: firstProject.id,
+        })
+      ).kind,
     ).toBe("invalid_neighbor_order");
-    expect(listPublicProjects(db).map((project) => project.id)).toEqual([
-      firstProject.id,
-      secondProject.id,
-      thirdProject.id,
-    ]);
+    expect((await listPublicProjects(db)).map((project) => project.id)).toEqual(
+      [firstProject.id, secondProject.id, thirdProject.id],
+    );
   });
 
-  it("appends new projects after existing project order", () => {
-    const { db, host } = setup();
-    const { project: firstProject } = createProject(db, noopNotifier, {
+  it("appends new projects after existing project order", async () => {
+    const { db, host } = await setup();
+    const { project: firstProject } = await createProject(db, noopNotifier, {
       name: "first-project",
       source: {
         type: "local_path",
@@ -322,7 +328,7 @@ describe("projects", () => {
         path: "/tmp/first-project",
       },
     });
-    const { project: secondProject } = createProject(db, noopNotifier, {
+    const { project: secondProject } = await createProject(db, noopNotifier, {
       name: "second-project",
       source: {
         type: "local_path",
@@ -331,7 +337,7 @@ describe("projects", () => {
       },
     });
 
-    reorderProject({
+    await reorderProject({
       db,
       notifier: noopNotifier,
       projectId: secondProject.id,
@@ -339,7 +345,7 @@ describe("projects", () => {
       nextProjectId: firstProject.id,
     });
 
-    const { project: thirdProject } = createProject(db, noopNotifier, {
+    const { project: thirdProject } = await createProject(db, noopNotifier, {
       name: "third-project",
       source: {
         type: "local_path",
@@ -348,16 +354,14 @@ describe("projects", () => {
       },
     });
 
-    expect(listPublicProjects(db).map((project) => project.id)).toEqual([
-      secondProject.id,
-      firstProject.id,
-      thirdProject.id,
-    ]);
+    expect((await listPublicProjects(db)).map((project) => project.id)).toEqual(
+      [secondProject.id, firstProject.id, thirdProject.id],
+    );
   });
 
-  it("rejects stale project reorder neighbors", () => {
-    const { db, host } = setup();
-    const { project: visibleProject } = createProject(db, noopNotifier, {
+  it("rejects stale project reorder neighbors", async () => {
+    const { db, host } = await setup();
+    const { project: visibleProject } = await createProject(db, noopNotifier, {
       name: "visible-project",
       source: {
         type: "local_path",
@@ -365,7 +369,7 @@ describe("projects", () => {
         path: "/tmp/visible-project",
       },
     });
-    const { project: deletingProject } = createProject(db, noopNotifier, {
+    const { project: deletingProject } = await createProject(db, noopNotifier, {
       name: "deleting-project",
       source: {
         type: "local_path",
@@ -373,18 +377,20 @@ describe("projects", () => {
         path: "/tmp/deleting-project",
       },
     });
-    markProjectDeleted(db, noopNotifier, {
+    await markProjectDeleted(db, noopNotifier, {
       projectId: deletingProject.id,
     });
 
     expect(
-      reorderProject({
-        db,
-        notifier: noopNotifier,
-        projectId: visibleProject.id,
-        previousProjectId: deletingProject.id,
-        nextProjectId: null,
-      }).kind,
+      (
+        await reorderProject({
+          db,
+          notifier: noopNotifier,
+          projectId: visibleProject.id,
+          previousProjectId: deletingProject.id,
+          nextProjectId: null,
+        })
+      ).kind,
     ).toBe("stale_neighbor");
   });
 });

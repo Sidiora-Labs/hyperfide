@@ -9,10 +9,10 @@ import {
   type PluginMachineProviderRecord,
 } from "../plugins/plugin-machine-provider-registry.js";
 
-export function machineProviderAcceptsEmptyInputs(
+export async function machineProviderAcceptsEmptyInputs(
   record: PluginMachineProviderRecord,
 ): Promise<boolean> {
-  return acceptsEmptyInputs(record.provider, (run) =>
+  return await acceptsEmptyInputs(record.provider, (run) =>
     invokeMachineProvider(
       record,
       `"${record.provider.id}" machine provider empty inputs`,
@@ -29,8 +29,8 @@ export async function machineProviderUnavailableReason(
   const invocation = await invokeMachineProvider(
     record,
     `"${record.provider.id}" machine provider availability`,
-    () =>
-      decideWithinBox(
+    async () =>
+      await decideWithinBox(
         () => Promise.resolve(availability()),
         machineProviderDecisionTimeoutMs(),
       ),

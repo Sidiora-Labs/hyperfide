@@ -9,7 +9,7 @@ import type {
   PluginEnvironmentProviderAvailability,
   PluginEnvironmentProviderValidateContext,
 } from "@hyperfide/plugin-sdk/environment-provider";
-import { expect, onTestFinished, vi } from "vitest";
+import { expect, onTestFinished } from "vitest";
 import {
   validatePluginEnvironmentProviderDeclaration,
   type NormalizedPluginEnvironmentProvider,
@@ -101,7 +101,8 @@ export function installDefaultEnvironmentProviders(): void {
     listEnvironmentProviders: () => records,
     getEnvironmentProvider: (id) =>
       records.find((record) => record.provider.id === id),
-    invokeProvider: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeProvider: async (_pluginId, _label, run) =>
+      await invokePluginInline(run),
     decisionTimeoutMs: 10_000,
   });
 }
@@ -133,7 +134,8 @@ export function installFakeEnvironmentProvider(
   setPluginEnvironmentProviderBridge({
     listEnvironmentProviders: () => [record],
     getEnvironmentProvider: (id) => (id === args.id ? record : undefined),
-    invokeProvider: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeProvider: async (_pluginId, _label, run) =>
+      await invokePluginInline(run),
     decisionTimeoutMs: 10_000,
   });
   onTestFinished(() => {
@@ -144,9 +146,7 @@ export function installFakeEnvironmentProvider(
   return {
     contexts,
     async waitForProvision() {
-      await vi.waitFor(() => {
-        expect(contexts.length).toBeGreaterThan(0);
-      });
+      await expect.poll(() => contexts.length).toBeGreaterThan(0);
       const context = contexts[0];
       if (context === undefined) {
         throw new Error(`Expected the ${args.id} provider to be asked`);

@@ -259,7 +259,7 @@ export function createHyperfideAppArtifactService(
   let resolvedPackagePromise: Promise<ResolvedHyperfideAppPackage> | undefined;
   let artifactPromise: Promise<HyperfideAppArtifact> | undefined;
 
-  function getResolvedPackage(): Promise<ResolvedHyperfideAppPackage> {
+  async function getResolvedPackage(): Promise<ResolvedHyperfideAppPackage> {
     resolvedPackagePromise ??= resolveHyperfideAppPackage(options.serverEntryUrl);
     return resolvedPackagePromise;
   }
@@ -315,7 +315,7 @@ export function createHyperfideAppArtifactService(
   }
 
   return {
-    getArtifact(): Promise<HyperfideAppArtifact> {
+    async getArtifact(): Promise<HyperfideAppArtifact> {
       artifactPromise ??= buildArtifact().catch((error: unknown) => {
         artifactPromise = undefined;
         throw error;

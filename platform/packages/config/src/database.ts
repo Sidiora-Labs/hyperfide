@@ -18,8 +18,10 @@ export function loadDatabaseConfig(
 ): DatabaseConfig {
   const commonConfig = args.commonConfig ?? loadCommonConfig(args);
   return {
-    databasePath: resolveDataDirDatabasePath({
-      dataDir: commonConfig.HYPERFIDE_DATA_DIR,
-    }),
+    databasePath:
+      (args.env ?? process.env).HYPERFIDE_DATABASE_URL ??
+      resolveDataDirDatabasePath({
+        dataDir: commonConfig.HYPERFIDE_DATA_DIR,
+      }),
   };
 }

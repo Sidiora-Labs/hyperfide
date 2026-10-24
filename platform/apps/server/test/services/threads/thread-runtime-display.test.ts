@@ -124,28 +124,28 @@ function turnRequestData({
   } as const;
 }
 
-function setup(): SetupResult {
-  const db = createMigratedConnection();
-  const hub = new NotificationHub();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<SetupResult> {
+  const db = await createMigratedConnection();
+  const hub = await new NotificationHub();
+  const host = await upsertHost(db, noopNotifier, {
     id: "host-runtime-display",
     name: "Runtime Display Host",
   });
   return { db, hostId: host.id, hub };
 }
 
-function registerTestDaemon(
+async function registerTestDaemon(
   hub: NotificationHub,
   args: { hostId: string; sessionId: string },
-): void {
-  hub.registerDaemon(args.sessionId, args.hostId, {
+): Promise<void> {
+  await hub.registerDaemon(args.sessionId, args.hostId, {
     close() {},
     send() {},
   });
 }
 
-function openTestSession(args: OpenTestSessionArgs) {
-  const session = openSession(args.db, {
+async function openTestSession(args: OpenTestSessionArgs) {
+  const session = await openSession(args.db, {
     hostId: args.hostId,
     instanceId: `instance-${randomUUID()}`,
     hostName: "Runtime Display Host",
@@ -156,7 +156,7 @@ function openTestSession(args: OpenTestSessionArgs) {
   });
 
   if (args.leaseExpiresAt !== undefined) {
-    args.db
+    await args.db
       .update(hostDaemonSessions)
       .set({ leaseExpiresAt: args.leaseExpiresAt })
       .where(eq(hostDaemonSessions.id, session.id))
@@ -166,14 +166,14 @@ function openTestSession(args: OpenTestSessionArgs) {
   return session;
 }
 
-function closeTestSession(args: CloseTestSessionArgs): void {
-  closeSession(
+async function closeTestSession(args: CloseTestSessionArgs): Promise<void> {
+  await closeSession(
     args.db,
     noopNotifier,
     args.sessionId,
     args.closeReason ?? "daemon-disconnect",
   );
-  args.db
+  await args.db
     .update(hostDaemonSessions)
     .set({
       closedAt: args.closedAt,
@@ -183,9 +183,11 @@ function closeTestSession(args: CloseTestSessionArgs): void {
     .run();
 }
 
-function createThreadWithEnvironment(args: CreateThreadWithEnvironmentArgs) {
+async function createThreadWithEnvironment(
+  args: CreateThreadWithEnvironmentArgs,
+) {
   const suffix = randomUUID();
-  const { project } = createProject(args.db, noopNotifier, {
+  const { project } = await createProject(args.db, noopNotifier, {
     name: `Runtime Display Project ${suffix}`,
     source: {
       type: "local_path",
@@ -193,7 +195,7 @@ function createThreadWithEnvironment(args: CreateThreadWithEnvironmentArgs) {
       path: `/tmp/${args.hostId}/project/${suffix}`,
     },
   });
-  const environment = createEnvironment(args.db, noopNotifier, {
+  const environment = await createEnvironment(args.db, noopNotifier, {
     providerOwnsPath: false,
     hostId: args.hostId,
     projectId: project.id,
@@ -211,7 +213,7 @@ function createThreadWithEnvironment(args: CreateThreadWithEnvironmentArgs) {
             },
           },
   });
-  const thread = createThread(args.db, noopNotifier, {
+  const thread = await createThread(args.db, noopNotifier, {
     projectId: project.id,
     environmentId: environment.id,
     providerId: args.providerId ?? "codex",
@@ -243,18 +245,18 @@ function createThreadListEntry(
 }
 
 describe("thread runtime display", () => {
-  it("keeps active threads active while the host daemon websocket is registered", () => {
-    const { db, hostId, hub } = setup();
-    const now = 1_000;
-    const session = openTestSession({
+  it("keeps active threads active while the host daemon websocket is registered", async () => {
+    const { db, hostId, hub } = await setup();
+    const now = await 1_000;
+    const session = await openTestSession({
       db,
       hostId,
       leaseExpiresAt: now - 1,
     });
-    registerTestDaemon(hub, { hostId, sessionId: session.id });
+    await registerTestDaemon(hub, { hostId, sessionId: session.id });
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         { environmentHostId: hostId, now, status: "active" },
       ),
@@ -263,17 +265,17 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("does not treat a fresh lease as active without a registered daemon websocket", () => {
-    const { db, hostId, hub } = setup();
-    const now = 1_000;
-    openTestSession({
+  it("does not treat a fresh lease as active without a registered daemon websocket", async () => {
+    const { db, hostId, hub } = await setup();
+    const now = await 1_000;
+    await openTestSession({
       db,
       hostId,
       leaseExpiresAt: now + 30_000,
     });
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         { environmentHostId: hostId, now, status: "active" },
       ),
@@ -282,18 +284,18 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("keeps an active thread active while its host's closed socket is within the reconnect grace", () => {
-    const { db, hostId, hub } = setup();
-    const now = 60_000;
-    const session = openTestSession({ db, hostId });
-    closeTestSession({
+  it("keeps an active thread active while its host's closed socket is within the reconnect grace", async () => {
+    const { db, hostId, hub } = await setup();
+    const now = await 60_000;
+    const session = await openTestSession({ db, hostId });
+    await closeTestSession({
       closedAt: now - HOST_RECONNECT_GRACE_MS + 1_000,
       db,
       sessionId: session.id,
     });
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         { environmentHostId: hostId, now, status: "active" },
       ),
@@ -302,19 +304,19 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("keeps an active thread active while its reconnecting daemon has not registered its socket", () => {
-    const { db, hostId, hub } = setup();
-    const now = Date.now();
-    const lost = openTestSession({ db, hostId });
-    closeTestSession({
+  it("keeps an active thread active while its reconnecting daemon has not registered its socket", async () => {
+    const { db, hostId, hub } = await setup();
+    const now = await Date.now();
+    const lost = await openTestSession({ db, hostId });
+    await closeTestSession({
       closedAt: now - 1_000,
       db,
       sessionId: lost.id,
     });
-    openTestSession({ db, hostId });
+    await openTestSession({ db, hostId });
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         { environmentHostId: hostId, now, status: "active" },
       ),
@@ -323,11 +325,11 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("shows waiting-for-host as soon as the server closes a silent daemon session", () => {
-    const { db, hostId, hub } = setup();
-    const now = 60_000;
-    const session = openTestSession({ db, hostId });
-    closeTestSession({
+  it("shows waiting-for-host as soon as the server closes a silent daemon session", async () => {
+    const { db, hostId, hub } = await setup();
+    const now = await 60_000;
+    const session = await openTestSession({ db, hostId });
+    await closeTestSession({
       closeReason: "expired",
       closedAt: now - 1_000,
       db,
@@ -335,7 +337,7 @@ describe("thread runtime display", () => {
     });
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         { environmentHostId: hostId, now, status: "active" },
       ),
@@ -344,18 +346,18 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("shows waiting-for-host after the reconnect grace expires", () => {
-    const { db, hostId, hub } = setup();
-    const now = 60_000;
-    const session = openTestSession({ db, hostId });
-    closeTestSession({
+  it("shows waiting-for-host after the reconnect grace expires", async () => {
+    const { db, hostId, hub } = await setup();
+    const now = await 60_000;
+    const session = await openTestSession({ db, hostId });
+    await closeTestSession({
       closedAt: now - HOST_RECONNECT_GRACE_MS - 1,
       db,
       sessionId: session.id,
     });
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         { environmentHostId: hostId, now, status: "active" },
       ),
@@ -364,11 +366,11 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("uses the thread status directly for non-active statuses", () => {
-    const { db, hostId, hub } = setup();
+  it("uses the thread status directly for non-active statuses", async () => {
+    const { db, hostId, hub } = await setup();
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         {
           environmentHostId: hostId,
@@ -381,11 +383,11 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("does not require a host id for active threads without an environment host", () => {
-    const { db, hub } = setup();
+  it("does not require a host id for active threads without an environment host", async () => {
+    const { db, hub } = await setup();
 
     expect(
-      resolveThreadRuntimeState(
+      await resolveThreadRuntimeState(
         { db, hub },
         {
           environmentHostId: null,
@@ -398,37 +400,43 @@ describe("thread runtime display", () => {
     } satisfies ThreadRuntimeState);
   });
 
-  it("carries the producing environment provider into the list entry", () => {
-    const { db, hostId, hub } = setup();
-    const provided = createThreadWithEnvironment({
+  it("carries the producing environment provider into the list entry", async () => {
+    const { db, hostId, hub } = await setup();
+    const provided = await createThreadWithEnvironment({
       db,
       hostId,
       environmentProviderId: "git-worktree",
     });
-    const checkout = createThreadWithEnvironment({ db, hostId });
+    const checkout = await createThreadWithEnvironment({ db, hostId });
 
     const providerIdByThreadId = new Map(
-      [provided, checkout].flatMap(({ project }) =>
-        toThreadListEntryResponses(
-          { db, hub, providerRegistry },
-          {
-            now: 1_000,
-            threads: listThreadsWithPendingInteractionState(db, {
-              projectId: project.id,
-            }),
-          },
-        ).map((entry) => [entry.id, entry.environmentProviderId]),
-      ),
+      (
+        await Promise.all(
+          [provided, checkout].map(async ({ project }) =>
+            (
+              await toThreadListEntryResponses(
+                { db, hub, providerRegistry },
+                {
+                  now: 1_000,
+                  threads: await listThreadsWithPendingInteractionState(db, {
+                    projectId: project.id,
+                  }),
+                },
+              )
+            ).map((entry) => [entry.id, entry.environmentProviderId] as const),
+          ),
+        )
+      ).flat(),
     );
 
     expect(providerIdByThreadId.get(provided.thread.id)).toBe("git-worktree");
     expect(providerIdByThreadId.get(checkout.thread.id)).toBeNull();
   });
 
-  it("reports the selected machine before a new thread has an environment", () => {
-    const { db, hostId, hub } = setup();
-    const { project } = createThreadWithEnvironment({ db, hostId });
-    const thread = createThread(db, noopNotifier, {
+  it("reports the selected machine before a new thread has an environment", async () => {
+    const { db, hostId, hub } = await setup();
+    const { project } = await createThreadWithEnvironment({ db, hostId });
+    const thread = await createThread(db, noopNotifier, {
       projectId: project.id,
       environmentId: null,
       providerId: "codex",
@@ -448,12 +456,14 @@ describe("thread runtime display", () => {
       }),
     });
 
-    const [entry] = toThreadListEntryResponses(
+    const [entry] = await toThreadListEntryResponses(
       { db, hub, providerRegistry },
       {
-        threads: listThreadsWithPendingInteractionState(db, {
-          projectId: project.id,
-        }).filter((row) => row.id === thread.id),
+        threads: (
+          await listThreadsWithPendingInteractionState(db, {
+            projectId: project.id,
+          })
+        ).filter((row) => row.id === thread.id),
       },
     );
 
@@ -461,24 +471,24 @@ describe("thread runtime display", () => {
     expect(entry?.environmentId).toBeNull();
   });
 
-  it("resolves list entry runtime from daemon registration per host", () => {
-    const { db, hostId, hub } = setup();
+  it("resolves list entry runtime from daemon registration per host", async () => {
+    const { db, hostId, hub } = await setup();
     const now = 1_000;
-    const session = openTestSession({
+    const session = await openTestSession({
       db,
       hostId,
       leaseExpiresAt: now - 1,
     });
-    registerTestDaemon(hub, { hostId, sessionId: session.id });
-    const first = createThreadWithEnvironment({ db, hostId });
-    const second = createThreadWithEnvironment({ db, hostId });
-    const noHost = createThreadWithEnvironment({
+    await registerTestDaemon(hub, { hostId, sessionId: session.id });
+    const first = await createThreadWithEnvironment({ db, hostId });
+    const second = await createThreadWithEnvironment({ db, hostId });
+    const noHost = await createThreadWithEnvironment({
       db,
       hostId,
       status: "active",
     });
 
-    const entries = toThreadListEntryResponses(
+    const entries = await toThreadListEntryResponses(
       { db, hub, providerRegistry },
       {
         now,
@@ -512,11 +522,23 @@ describe("thread runtime display", () => {
     ] satisfies ThreadRuntimeState[]);
   });
 
-  it("reports each thread's queued work, with a failure outranking a wait", () => {
-    const { db, hostId, hub } = setup();
-    const empty = createThreadWithEnvironment({ db, hostId, status: "idle" });
-    const waiting = createThreadWithEnvironment({ db, hostId, status: "idle" });
-    const failed = createThreadWithEnvironment({ db, hostId, status: "idle" });
+  it("reports each thread's queued work, with a failure outranking a wait", async () => {
+    const { db, hostId, hub } = await setup();
+    const empty = await createThreadWithEnvironment({
+      db,
+      hostId,
+      status: "idle",
+    });
+    const waiting = await createThreadWithEnvironment({
+      db,
+      hostId,
+      status: "idle",
+    });
+    const failed = await createThreadWithEnvironment({
+      db,
+      hostId,
+      status: "idle",
+    });
 
     // The failed thread holds BOTH a healthy row and a failed one, which is the
     // case the precedence rule exists for: a thread that queued two messages
@@ -526,7 +548,7 @@ describe("thread runtime display", () => {
       { thread: failed.thread, count: 2 },
     ]) {
       for (let index = 0; index < count; index += 1) {
-        createQueuedThreadMessage(db, noopNotifier, {
+        await createQueuedThreadMessage(db, noopNotifier, {
           threadId: thread.id,
           content: [{ type: "text", text: `queued ${index}`, mentions: [] }],
           model: "gpt-5",
@@ -540,8 +562,10 @@ describe("thread runtime display", () => {
         });
       }
     }
-    const failedRow = listQueuedThreadMessages(db, failed.thread.id)[0]!;
-    setQueuedThreadMessageFailureReason(db, noopNotifier, {
+    const failedRow = (
+      await listQueuedThreadMessages(db, failed.thread.id)
+    )[0]!;
+    await setQueuedThreadMessageFailureReason(db, noopNotifier, {
       id: failedRow.id,
       threadId: failed.thread.id,
       failureReason: "The message could not be sent.",
@@ -549,7 +573,7 @@ describe("thread runtime display", () => {
       retryDelaysMs: [],
     });
 
-    const entries = toThreadListEntryResponses(
+    const entries = await toThreadListEntryResponses(
       { db, hub, providerRegistry },
       {
         now: 1_000,
@@ -569,9 +593,9 @@ describe("thread runtime display", () => {
     ]);
   });
 
-  it("builds active list entries above the SQLite variable limit", () => {
-    const { db, hostId, hub } = setup();
-    const { thread } = createThreadWithEnvironment({ db, hostId });
+  it("builds active list entries above the SQLite variable limit", async () => {
+    const { db, hostId, hub } = await setup();
+    const { thread } = await createThreadWithEnvironment({ db, hostId });
     const template = createThreadListEntry({
       environmentHostId: null,
       thread,
@@ -582,7 +606,7 @@ describe("thread runtime display", () => {
     }));
 
     expect(
-      toThreadListEntryResponses(
+      await toThreadListEntryResponses(
         { db, hub, providerRegistry },
         {
           now: 1_000,
@@ -592,14 +616,17 @@ describe("thread runtime display", () => {
     ).toHaveLength(32_767);
   });
 
-  it("marks list entries active when the prompt banner would show plan or goal state", () => {
-    const { db, hostId, hub } = setup();
-    const activePlan = createThreadWithEnvironment({ db, hostId });
-    const completedPlan = createThreadWithEnvironment({ db, hostId });
-    const activeGoal = createThreadWithEnvironment({ db, hostId });
-    const clearedGoal = createThreadWithEnvironment({ db, hostId });
-    const concurrentPlanGoal = createThreadWithEnvironment({ db, hostId });
-    const claudePlan = createThreadWithEnvironment({
+  it("marks list entries active when the prompt banner would show plan or goal state", async () => {
+    const { db, hostId, hub } = await setup();
+    const activePlan = await createThreadWithEnvironment({ db, hostId });
+    const completedPlan = await createThreadWithEnvironment({ db, hostId });
+    const activeGoal = await createThreadWithEnvironment({ db, hostId });
+    const clearedGoal = await createThreadWithEnvironment({ db, hostId });
+    const concurrentPlanGoal = await createThreadWithEnvironment({
+      db,
+      hostId,
+    });
+    const claudePlan = await createThreadWithEnvironment({
       db,
       hostId,
       providerId: "claude-code",
@@ -617,7 +644,7 @@ describe("thread runtime display", () => {
       suffix: "23456789ae",
     });
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: activePlan.thread.id,
       scope: threadScope(),
       type: "client/turn/requested",
@@ -626,7 +653,7 @@ describe("thread runtime display", () => {
         requestId: activePlanRequestId,
       }),
     });
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: activePlan.thread.id,
       scope: turnScope("turn-active-plan"),
       providerThreadId: "provider-active-plan",
@@ -637,7 +664,7 @@ describe("thread runtime display", () => {
       },
     });
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: completedPlan.thread.id,
       scope: threadScope(),
       type: "client/turn/requested",
@@ -646,7 +673,7 @@ describe("thread runtime display", () => {
         requestId: completedPlanRequestId,
       }),
     });
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: completedPlan.thread.id,
       scope: turnScope("turn-completed-plan"),
       providerThreadId: "provider-completed-plan",
@@ -656,7 +683,7 @@ describe("thread runtime display", () => {
         clientRequestId: completedPlanRequestId,
       },
     });
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: completedPlan.thread.id,
       scope: turnScope("turn-completed-plan"),
       providerThreadId: "provider-completed-plan",
@@ -667,7 +694,7 @@ describe("thread runtime display", () => {
       },
     });
 
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: activeGoal.thread.id,
       scope: threadScope(),
       providerThreadId: "provider-active-goal",
@@ -681,7 +708,7 @@ describe("thread runtime display", () => {
         timeUsedSeconds: 42,
       },
     });
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: clearedGoal.thread.id,
       scope: threadScope(),
       providerThreadId: "provider-cleared-goal",
@@ -695,7 +722,7 @@ describe("thread runtime display", () => {
         timeUsedSeconds: 10,
       },
     });
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: clearedGoal.thread.id,
       scope: threadScope(),
       providerThreadId: "provider-cleared-goal",
@@ -716,13 +743,13 @@ describe("thread runtime display", () => {
         "provider-claude-plan",
       ],
     ] as const) {
-      appendStoredThreadEvent(db, noopNotifier, {
+      await appendStoredThreadEvent(db, noopNotifier, {
         threadId: target.thread.id,
         scope: threadScope(),
         type: "client/turn/requested",
         data: turnRequestData({ input: planPromptInput, requestId }),
       });
-      appendStoredThreadEvent(db, noopNotifier, {
+      await appendStoredThreadEvent(db, noopNotifier, {
         threadId: target.thread.id,
         scope: turnScope(turnId),
         providerThreadId,
@@ -730,7 +757,7 @@ describe("thread runtime display", () => {
         data: { providerThreadId, clientRequestId: requestId },
       });
     }
-    appendStoredThreadEvent(db, noopNotifier, {
+    await appendStoredThreadEvent(db, noopNotifier, {
       threadId: concurrentPlanGoal.thread.id,
       scope: threadScope(),
       providerThreadId: "provider-concurrent-plan-goal",
@@ -745,7 +772,7 @@ describe("thread runtime display", () => {
       },
     });
 
-    const entries = toThreadListEntryResponses(
+    const entries = await toThreadListEntryResponses(
       { db, hub, providerRegistry },
       {
         threads: [

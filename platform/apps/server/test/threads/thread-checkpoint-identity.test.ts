@@ -51,25 +51,25 @@ describe("checkpoint identity through runtime, ingestion, and editing", () => {
     "preserves the %s session and checkpoint through SQLite and rewind preparation",
     async (construction) => {
       await withTestHarness(async (harness) => {
-        const { host, session } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           status: "ready",
         });
-        const source = seedThread(harness.deps, {
+        const source = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
         });
-        const sibling = seedThread(harness.deps, {
+        const sibling = await seedThread(harness.deps, {
           projectId: project.id,
           environmentId: environment.id,
         });
         const events: ThreadEvent[] = [];
-        const runtime = createScriptedEchoRuntime({
+        const runtime = await createScriptedEchoRuntime({
           launch: { modulePath: bridgePath },
           runtime: {
             workspacePath: harness.config.dataDir,
@@ -89,7 +89,7 @@ describe("checkpoint identity through runtime, ingestion, and editing", () => {
             "/internal/session/events",
             {
               method: "POST",
-              headers: internalAuthHeaders(harness),
+              headers: await internalAuthHeaders(harness),
               body: JSON.stringify({
                 sessionId: session.id,
                 eventGroups: groupHostDaemonEvents(
@@ -124,7 +124,7 @@ describe("checkpoint identity through runtime, ingestion, and editing", () => {
           const requests: number[] = [];
           for (const text of ["first", "second"]) {
             const input: PromptInput[] = [{ type: "text", text, mentions: [] }];
-            const request = appendClientTurnEvent(harness.deps, {
+            const request = await appendClientTurnEvent(harness.deps, {
               type: "client/turn/requested",
               threadId: source.id,
               environmentId: environment.id,
@@ -153,10 +153,12 @@ describe("checkpoint identity through runtime, ingestion, and editing", () => {
             );
             await ingest();
           }
-          const storedCompletions = listEvents(harness.db, {
-            threadId: source.id,
-          }).filter((event) => event.type === "turn/completed");
-          const thread = getThread(harness.db, source.id);
+          const storedCompletions = (
+            await listEvents(harness.db, {
+              threadId: source.id,
+            })
+          ).filter((event) => event.type === "turn/completed");
+          const thread = await getThread(harness.db, source.id);
           if (!thread) throw new Error("Missing source thread");
           const edit = editThreadMessage(harness.deps, {
             environment,

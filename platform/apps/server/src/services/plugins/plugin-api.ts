@@ -16,6 +16,7 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { CronExpressionParser } from "cron-parser";
 import {
+  createAsyncPluginDatabase,
   deletePluginKvValue,
   getPluginKvValue,
   getHost,
@@ -237,7 +238,7 @@ export interface PluginBackgroundServiceRecord {
 interface PluginScheduleRecord {
   name: string;
   cron: string;
-  fn: () => void | Promise<void>;
+  fn: () => unknown;
 }
 
 interface PluginCliRegistrationRecord {
@@ -258,9 +259,9 @@ type PluginSettingsListener = (
 
 export interface PluginApiHandle {
   api: HyperfidePluginApi;
-  disposeHooks: Array<() => void | Promise<void>>;
+  disposeHooks: Array<() => unknown>;
   /** Handlers recorded by `hyperfide.onInstall`; run once after a fresh install. */
-  installHandlers: Array<() => void | Promise<void>>;
+  installHandlers: Array<() => unknown>;
   settings: {
     descriptors: PluginSettingDescriptors;
     listeners: PluginSettingsListener[];
@@ -295,7 +296,7 @@ export interface PluginApiHandle {
   agentConfigurationProvider: PluginAgentConfigurationProvider | null;
   instructionProvider: PluginInstructionProvider | null;
   mentionProviders: PluginMentionProviderRecord[];
-  activate(): void;
+  activate(): void | Promise<void>;
   closeWebSockets(): void;
   invalidate(): void;
 }
@@ -420,7 +421,7 @@ function createStagedRegistrations<
   alreadyRegisteredMessage: (id: string) => string;
   assertLive: () => void;
   isActivated: () => boolean;
-  disposeHooks: Array<() => void | Promise<void>>;
+  disposeHooks: Array<() => unknown>;
 }): {
   register(declaration: TDeclaration): { dispose(): void };
   flush(): void;
@@ -499,7 +500,7 @@ export function createPluginApi(options: {
    * Revoked when the handle is invalidated.
    */
   rpcCaller: PluginRpcCallerCredential;
-  invalidateRpc: (tags: readonly string[] | null) => void;
+  invalidateRpc: (tags: readonly string[] | null) => void | Promise<void>;
   whileRpcWatched?: (
     method: string,
     handler: Parameters<PluginRpc["experimental_whileWatched"]>[1],
@@ -535,7 +536,7 @@ export function createPluginApi(options: {
   validateSharedPortDeclaration: (
     hostId: string,
     ports: readonly number[],
-  ) => readonly number[];
+  ) => readonly number[] | Promise<readonly number[]>;
   declareSharedPorts: PluginHosts["declareSharedPorts"];
   setNextTunnels: PluginHosts["internal_DO_NOT_USE_setNextTunnels"];
   nextTunnelStatuses: PluginHosts["internal_DO_NOT_USE_nextTunnelStatuses"];
@@ -545,7 +546,7 @@ export function createPluginApi(options: {
       hostId: string;
       ports: readonly number[];
     }[],
-  ) => void;
+  ) => void | Promise<void>;
   callPluginHost: (args: {
     contract: PluginRpcContract;
     method: string;
@@ -601,8 +602,8 @@ export function createPluginApi(options: {
   let pendingNeedsConfiguration: string | null = null;
   const pendingAgentToolProblems: string[] = [];
   const pendingSharedPorts = new Map<string, readonly number[]>();
-  const disposeHooks: Array<() => void | Promise<void>> = [];
-  const installHandlers: Array<() => void | Promise<void>> = [];
+  const disposeHooks: Array<() => unknown> = [];
+  const installHandlers: Array<() => unknown> = [];
   const settingsRecord: PluginApiHandle["settings"] = {
     descriptors: {},
     listeners: [],
@@ -705,7 +706,7 @@ export function createPluginApi(options: {
   const kv: PluginKvStorage = {
     async get(key) {
       assertLive();
-      const raw = getPluginKvValue(db, pluginId, key);
+      const raw = await getPluginKvValue(db, pluginId, key);
       if (raw === undefined) return undefined;
       return JSON.parse(raw);
     },
@@ -722,21 +723,36 @@ export function createPluginApi(options: {
             `Store large data in storage.database() instead.`,
         );
       }
-      setPluginKvValue(db, pluginId, key, json);
+      await setPluginKvValue(db, pluginId, key, json);
     },
     async delete(key) {
       assertLive();
-      deletePluginKvValue(db, pluginId, key);
+      await deletePluginKvValue(db, pluginId, key);
     },
     async list(kvPrefix) {
       assertLive();
-      return listPluginKvKeys(db, pluginId, kvPrefix);
+      return await listPluginKvKeys(db, pluginId, kvPrefix);
     },
   };
 
   let databaseHandle: Database.Database | undefined;
+  let asyncDatabaseHandle:
+    | ReturnType<typeof createAsyncPluginDatabase>
+    | undefined;
   const storage: PluginStorage = {
     kv,
+    async asyncDatabase() {
+      assertLive();
+      if (!asyncDatabaseHandle) {
+        const source =
+          db.dialect === "postgresql" ? db.databaseUrl! : storage.database();
+        asyncDatabaseHandle = createAsyncPluginDatabase(source, pluginId);
+        disposeHooks.push(async () => {
+          await (await asyncDatabaseHandle)?.close();
+        });
+      }
+      return asyncDatabaseHandle;
+    },
     database() {
       assertLive();
       if (databaseHandle?.open) return databaseHandle;
@@ -865,13 +881,13 @@ export function createPluginApi(options: {
       record.whileWatched = true;
       disposeHooks.push(options.whileRpcWatched(method, handler));
     },
-    experimental_invalidate(tags) {
+    async experimental_invalidate(tags) {
       assertLive();
-      optionsInvalidate(rpcInvalidationTags.parse(tags));
+      await optionsInvalidate(rpcInvalidationTags.parse(tags));
     },
-    experimental_invalidateAll() {
+    async experimental_invalidateAll() {
       assertLive();
-      optionsInvalidate(null);
+      await optionsInvalidate(null);
     },
     register(contract, handlers, options) {
       assertLive();
@@ -1151,13 +1167,13 @@ export function createPluginApi(options: {
       assertLive();
       return ensureSharedPortTunnel(hostId);
     },
-    declareSharedPorts(hostId, ports) {
+    async declareSharedPorts(hostId, ports) {
       assertLive();
-      if (activated) declareSharedPorts(hostId, ports);
+      if (activated) await declareSharedPorts(hostId, ports);
       else {
         pendingSharedPorts.set(
           hostId,
-          validateSharedPortDeclaration(hostId, ports),
+          await validateSharedPortDeclaration(hostId, ports),
         );
       }
     },
@@ -1341,7 +1357,7 @@ export function createPluginApi(options: {
     ...createMachineBootstrapApi(enrollmentApi),
     async getResource(hostId) {
       assertLive();
-      return getHost(db, hostId)?.resource ?? null;
+      return (await getHost(db, hostId))?.resource ?? null;
     },
     register(declaration) {
       assertLive();
@@ -1463,10 +1479,10 @@ export function createPluginApi(options: {
       return instructionProvider;
     },
     mentionProviders,
-    activate() {
+    async activate() {
       if (activated) return;
       assertLive();
-      replaceDeclaredSharedPorts(
+      await replaceDeclaredSharedPorts(
         [...pendingSharedPorts].map(([hostId, ports]) => ({ hostId, ports })),
       );
       providerRegistrations.flush();

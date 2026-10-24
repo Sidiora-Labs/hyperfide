@@ -51,8 +51,8 @@ export async function getProviderUsageLimits(
   deps: AppDeps,
   query: SystemUsageLimitsQuery,
 ): Promise<ProviderUsageResponse> {
-  const hostId = query.hostId ?? requirePrimaryHostId(deps);
-  assertUsableHostId(deps, { hostId });
+  const hostId = query.hostId ?? (await requirePrimaryHostId(deps));
+  await assertUsableHostId(deps, { hostId });
   const providers = await listSystemProviderInfos(deps, {
     hostId,
     capability: "usage",
@@ -62,12 +62,15 @@ export async function getProviderUsageLimits(
     providers,
     async (provider): Promise<[string, ProviderUsage] | null> => {
       if (!provider.maintenance.usage) return null;
-      const bridgeLaunch = resolveBridgeLaunchForProviderId(deps, provider.id);
+      const bridgeLaunch = await resolveBridgeLaunchForProviderId(
+        deps,
+        provider.id,
+      );
       if (bridgeLaunch === null) return null;
       try {
         const result = await providerUsageCache(deps).run(
           `${hostId} ${provider.id} ${deps.providerRegistry.getRegistrationRevision()} ${JSON.stringify(bridgeLaunch)}`,
-          () =>
+          async () =>
             callHostRetryableOnlineRpc(deps, {
               hostId,
               timeoutMs: COMMAND_TIMEOUT_MS,

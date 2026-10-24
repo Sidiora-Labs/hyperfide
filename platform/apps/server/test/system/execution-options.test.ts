@@ -298,7 +298,7 @@ describe("resolveSystemExecutionOptions", () => {
           excludePluginIds: ["provider-acp"],
           unavailablePluginIds: ["provider-codex"],
         });
-        const { host } = seedHostSession(harness.deps, {
+        const { host } = await seedHostSession(harness.deps, {
           id: "host-execution-options-unavailable-provider",
         });
 
@@ -323,13 +323,13 @@ describe("resolveSystemExecutionOptions", () => {
 
   it("includes installed plugin providers and sends their launch spec when loading models", async () => {
     await withTestHarness({}, async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-execution-options-known-acp-installed",
       });
       const catalogModel = availableModelFixture({
         model: "opencode/default",
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -396,10 +396,10 @@ describe("resolveSystemExecutionOptions", () => {
 
   it("omits installed-only providers that their bridge reports missing", async () => {
     await withTestHarness({}, async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-execution-options-known-acp-missing",
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -427,10 +427,10 @@ describe("resolveSystemExecutionOptions", () => {
     await withTestHarness({}, async (harness) => {
       const warn = vi.fn();
       harness.deps.logger = { ...harness.deps.logger, warn };
-      const host = seedHost(harness.deps, {
+      const host = await seedHost(harness.deps, {
         id: "host-execution-options-suspended",
       });
-      updateHost(harness.db, harness.hub, host.id, {
+      await updateHost(harness.db, harness.hub, host.id, {
         phase: "suspended",
         suspendedAt: 123,
       });
@@ -462,12 +462,12 @@ describe("resolveSystemExecutionOptions", () => {
       { seedFirstPartyProviders: false },
       async (harness) => {
         registerInstalledOnlyProviderFixtures(harness);
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-execution-options-provider-discovery-budget",
         });
         let pendingProviders: ReturnType<
           typeof listSystemProviderInfos
-        > | null = null;
+        > | null = await null;
         vi.useFakeTimers();
         try {
           let settled = false;
@@ -479,17 +479,20 @@ describe("resolveSystemExecutionOptions", () => {
           });
 
           await vi.advanceTimersByTimeAsync(0);
-          expect(listQueuedCommands(harness, "provider.health")).toHaveLength(
-            3,
-          );
+          await expect
+            .poll(
+              async () =>
+                (await listQueuedCommands(harness, "provider.health")).length,
+            )
+            .toBe(3);
           await vi.advanceTimersByTimeAsync(29_999);
           expect(settled).toBe(false);
 
           const providers = await advanceUntilSettled(pendingProviders, 1);
           expect(settled).toBe(true);
-          expect(listQueuedCommands(harness, "provider.health")).toHaveLength(
-            6,
-          );
+          expect(
+            await listQueuedCommands(harness, "provider.health"),
+          ).toHaveLength(6);
           expect(providers.map((provider) => provider.id)).not.toContain(
             "acp-opencode",
           );
@@ -521,11 +524,11 @@ describe("resolveSystemExecutionOptions", () => {
         async (harness) => {
           const warn = vi.fn();
           harness.deps.logger = { ...harness.deps.logger, warn };
-          const { host, session } = seedHostSession(harness.deps, {
+          const { host, session } = await seedHostSession(harness.deps, {
             id: `host-execution-options-known-acp-status-fails-${failStatusRequest}`,
           });
           const catalogModel = availableModelFixture({ model: "gpt-5.5" });
-          const responder = registerHostRpcResponder(harness, {
+          const responder = await registerHostRpcResponder(harness, {
             hostId: host.id,
             sessionId: session.id,
             handle: (request) => {
@@ -618,7 +621,7 @@ describe("resolveSystemExecutionOptions", () => {
     await withTestHarness({}, async (harness) => {
       const warn = vi.fn();
       harness.deps.logger = { ...harness.deps.logger, warn };
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-execution-options-shared-provider-fallback",
       });
       let releaseHealthFailure = (): void => {};
@@ -630,7 +633,7 @@ describe("resolveSystemExecutionOptions", () => {
             errorMessage: "Host is not connected",
           });
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -668,10 +671,10 @@ describe("resolveSystemExecutionOptions", () => {
 
   it("keeps another host's provider answers when one host probe fails", async () => {
     await withTestHarness({}, async (harness) => {
-      const healthy = seedHostSession(harness.deps, {
+      const healthy = await seedHostSession(harness.deps, {
         id: "host-provider-cache-healthy",
       });
-      const healthyResponder = registerHostRpcResponder(harness, {
+      const healthyResponder = await registerHostRpcResponder(harness, {
         hostId: healthy.host.id,
         sessionId: healthy.session.id,
         handle: (request) => {
@@ -690,10 +693,10 @@ describe("resolveSystemExecutionOptions", () => {
       const healthyProbeCount = healthyResponder.requests.length;
       expect(healthyProbeCount).toBeGreaterThan(0);
 
-      const failing = seedHostSession(harness.deps, {
+      const failing = await seedHostSession(harness.deps, {
         id: "host-provider-cache-failing",
       });
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: failing.host.id,
         sessionId: failing.session.id,
         handle: (request) => {
@@ -784,10 +787,10 @@ describe("resolveSystemExecutionOptions", () => {
         ],
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-execution-options-model-load-error",
         });
-        registerProviderHostRpcResponder(harness, {
+        await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           modelErrorsByProviderId: {
@@ -828,11 +831,11 @@ describe("resolveSystemExecutionOptions", () => {
         ],
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-execution-options-streamer-mode",
         });
         const catalogModel = availableModelFixture({ model: "claude-opus-5" });
-        const responder = registerProviderHostRpcResponder(harness, {
+        const responder = await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           modelsByProviderId: {
@@ -852,14 +855,14 @@ describe("resolveSystemExecutionOptions", () => {
           "claude-example-preview",
         ]);
 
-        setAppSettings(harness.db, {
-          ...getAppSettings(harness.db),
+        await setAppSettings(harness.db, {
+          ...(await getAppSettings(harness.db)),
           streamerMode: true,
         });
         expect(await listModelIds()).toEqual(["claude-opus-5"]);
 
-        setAppSettings(harness.db, {
-          ...getAppSettings(harness.db),
+        await setAppSettings(harness.db, {
+          ...(await getAppSettings(harness.db)),
           streamerMode: false,
         });
         expect(await listModelIds()).toEqual([
@@ -883,18 +886,18 @@ describe("resolveSystemExecutionOptions", () => {
         ],
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-provider-models-streamer-mode",
         });
-        registerProviderHostRpcResponder(harness, {
+        await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           modelsByProviderId: {
             "claude-code": { models: [], selectedOnlyModels: [] },
           },
         });
-        setAppSettings(harness.db, {
-          ...getAppSettings(harness.db),
+        await setAppSettings(harness.db, {
+          ...(await getAppSettings(harness.db)),
           streamerMode: true,
         });
 
@@ -912,7 +915,7 @@ describe("resolveSystemExecutionOptions", () => {
 
   it("serves a provider's declared fallback models when the model probe fails transiently", async () => {
     await withTestHarness({}, async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-execution-options-provisional",
       });
       const base = requireRegistration(harness, "claude-code");
@@ -924,7 +927,7 @@ describe("resolveSystemExecutionOptions", () => {
           availableModelFixture({ model: "fallback-b" }),
         ],
       });
-      registerProviderHostRpcResponder(harness, {
+      await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelErrorsByProviderId: {
@@ -959,10 +962,10 @@ describe("resolveSystemExecutionOptions", () => {
     "offers no provisional Claude models for %s setup failures",
     async (_name, errorCode) => {
       await withTestHarness({}, async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: `host-execution-options-claude-${errorCode}`,
         });
-        registerProviderHostRpcResponder(harness, {
+        await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           modelErrorsByProviderId: {
@@ -992,10 +995,10 @@ describe("resolveSystemExecutionOptions", () => {
     await withTestHarness(async (harness) => {
       const warn = vi.fn();
       harness.deps.logger = { ...harness.deps.logger, warn };
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-execution-options-concise-model-log",
       });
-      registerProviderHostRpcResponder(harness, {
+      await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelErrorsByProviderId: {
@@ -1048,13 +1051,13 @@ describe("resolveSystemExecutionOptions", () => {
         ],
       },
       async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-execution-options-custom-acp",
         });
         const catalogModel = availableModelFixture({
           model: "example/default",
         });
-        const responder = registerProviderHostRpcResponder(harness, {
+        const responder = await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           modelsByProviderId: {
@@ -1131,10 +1134,10 @@ describe("resolveSystemExecutionOptions", () => {
           deferRegistrationsSettled: true,
         });
         harness.deps.providerRegistry = registry;
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-execution-options-boot-window",
         });
-        registerProviderHostRpcResponder(harness, {
+        await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
         });
@@ -1158,10 +1161,10 @@ describe("resolveSystemExecutionOptions", () => {
           deferRegistrationsSettled: true,
         });
         harness.deps.providerRegistry = registry;
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-execution-options-provider-ready",
         });
-        registerProviderHostRpcResponder(harness, {
+        await registerProviderHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
         });
@@ -1192,10 +1195,10 @@ describe("resolveSystemExecutionOptions", () => {
 
   it("returns no models for an unknown provider instead of the first provider's catalog", async () => {
     await withTestHarness({}, async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-execution-options-unknown-provider",
       });
-      const responder = registerProviderHostRpcResponder(harness, {
+      const responder = await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
       });
@@ -1233,10 +1236,10 @@ describe("resolveSystemExecutionOptions", () => {
           ],
         },
         async (harness) => {
-          const { host, session } = seedHostSession(harness.deps, {
+          const { host, session } = await seedHostSession(harness.deps, {
             id: `host-execution-options-${hostErrorCode}`,
           });
-          registerProviderHostRpcResponder(harness, {
+          await registerProviderHostRpcResponder(harness, {
             hostId: host.id,
             sessionId: session.id,
             modelErrorsByProviderId: {
@@ -1271,15 +1274,15 @@ describe("resolveSystemExecutionOptions", () => {
   );
 });
 
-function registerHeldModelListResponder(
+async function registerHeldModelListResponder(
   harness: TestAppHarness,
   args: { hostId: string; sessionId: string; modelId: string },
-): {
+): Promise<{
   requests: HostDaemonOnlineRpcRequestMessage[];
   release(): void;
-} {
+}> {
   const requests: HostDaemonOnlineRpcRequestMessage[] = [];
-  harness.hub.registerDaemon(args.sessionId, args.hostId, {
+  await harness.hub.registerDaemon(args.sessionId, args.hostId, {
     close() {},
     send(data: string) {
       const message = hostDaemonServerWsMessageSchema.parse(JSON.parse(data));
@@ -1328,40 +1331,42 @@ function registerHeldModelListResponder(
   };
 }
 
-function seedEnvironmentPath(
+async function seedEnvironmentPath(
   harness: TestAppHarness,
   args: { hostId: string; path: string },
-): string {
-  const { project } = seedProjectWithSource(harness.deps, {
+): Promise<string> {
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: args.hostId,
     path: args.path,
   });
-  return seedEnvironment(harness.deps, {
-    hostId: args.hostId,
-    projectId: project.id,
-    path: args.path,
-  }).id;
+  return (
+    await seedEnvironment(harness.deps, {
+      hostId: args.hostId,
+      projectId: project.id,
+      path: args.path,
+    })
+  ).id;
 }
 
 describe("resolveSystemExecutionOptions provider model catalog", () => {
   it("serves a host-scoped catalog to every environment on the host from one probe without the workspace path", async () => {
     await withTestHarness({}, async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-model-memo-shared",
       });
       const catalogModel = availableModelFixture({ model: "claude-opus-5" });
-      const responder = registerProviderHostRpcResponder(harness, {
+      const responder = await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelsByProviderId: {
           "claude-code": { models: [catalogModel], selectedOnlyModels: [] },
         },
       });
-      const environmentA = seedEnvironmentPath(harness, {
+      const environmentA = await seedEnvironmentPath(harness, {
         hostId: host.id,
         path: "/tmp/memo-workspace-a",
       });
-      const environmentB = seedEnvironmentPath(harness, {
+      const environmentB = await seedEnvironmentPath(harness, {
         hostId: host.id,
         path: "/tmp/memo-workspace-b",
       });
@@ -1395,10 +1400,10 @@ describe("resolveSystemExecutionOptions provider model catalog", () => {
 
   it("shares one in-flight probe between concurrent readers", async () => {
     await withTestHarness({}, async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-model-memo-inflight",
       });
-      const responder = registerHeldModelListResponder(harness, {
+      const responder = await registerHeldModelListResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelId: "gpt-5",
@@ -1435,12 +1440,12 @@ describe("resolveSystemExecutionOptions provider model catalog", () => {
       vi.useFakeTimers({ toFake: ["Date"] });
       try {
         vi.setSystemTime(1_800_000_000_000);
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: "host-installed-only-serve-stale",
         });
-        const heldHealth = createDeferredPromise<void>();
+        const heldHealth = await createDeferredPromise<void>();
         let expired = false;
-        const responder = registerHostRpcResponder(harness, {
+        const responder = await registerHostRpcResponder(harness, {
           hostId: host.id,
           sessionId: session.id,
           handle: async (request) => {

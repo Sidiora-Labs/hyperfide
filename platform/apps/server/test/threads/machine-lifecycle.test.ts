@@ -53,13 +53,15 @@ describe("composed machine thread lifecycle", () => {
     "pauses after a $firstTurn turn, resumes for a follow-up, and retires from $archiveFrom",
     async ({ firstTurn, archiveFrom }) => {
       await withTestHarness(async (harness) => {
-        const source = seedHostSession(harness.deps, { id: "source-machine" });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const source = await seedHostSession(harness.deps, {
+          id: "source-machine",
+        });
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: source.host.id,
         });
         const remoteUrl = "https://example.test/project.git";
         const path = "/tmp/machine-lifecycle-checkout";
-        setProjectGitRemoteUrlIfMissing(
+        await setProjectGitRemoteUrlIfMissing(
           harness.db,
           harness.hub,
           project.id,
@@ -69,10 +71,10 @@ describe("composed machine thread lifecycle", () => {
           expect(harness.hub.hasDaemonForHost(hostId)).toBe(false);
           return { resource: { snapshot: "saved" } };
         });
-        const resumeStarted = createDeferredPromise<void>();
-        const finishResume = createDeferredPromise<void>();
+        const resumeStarted = await createDeferredPromise<void>();
+        const finishResume = await createDeferredPromise<void>();
         const resume = vi.fn(async ({ hostId }: { hostId: string }) => {
-          seedSession(harness.deps, hostId);
+          await seedSession(harness.deps, hostId);
           resumeStarted.resolve();
           await finishResume.promise;
           return { resource: { snapshot: "saved" } };
@@ -87,9 +89,12 @@ describe("composed machine thread lifecycle", () => {
             icon: "Terminal",
             ephemeral: true,
             async create({ key }) {
-              const host = getNonDestroyedHostByLaunchKey(harness.db, key);
+              const host = await getNonDestroyedHostByLaunchKey(
+                harness.db,
+                key,
+              );
               if (host === null) throw new Error("Missing creating machine");
-              seedSession(harness.deps, host.id);
+              await seedSession(harness.deps, host.id);
               return {
                 status: "created",
                 name: "Test machine",
@@ -156,7 +161,7 @@ describe("composed machine thread lifecycle", () => {
           5_000,
         );
         const hostId = defaultPath.row.hostId;
-        expect(getHost(harness.db, hostId)).toMatchObject({
+        expect(await getHost(harness.db, hostId)).toMatchObject({
           launchKey: thread.id,
           type: "ephemeral",
           phase: "active",
@@ -181,7 +186,7 @@ describe("composed machine thread lifecycle", () => {
         );
         if (clone.command.type !== "project.clone")
           throw new Error("Expected clone");
-        reportEnvironmentHookProgress(harness.deps, hostId, {
+        await reportEnvironmentHookProgress(harness.deps, hostId, {
           type: "environment.hook.progress",
           operationId: clone.command.operationId,
           entry: {
@@ -191,7 +196,7 @@ describe("composed machine thread lifecycle", () => {
           },
         });
         expect(
-          listEvents(harness.db, { threadId: thread.id }).some(
+          (await listEvents(harness.db, { threadId: thread.id })).some(
             (event) =>
               event.type === "system/thread-provisioning" &&
               systemThreadProvisioningEventDataSchema
@@ -229,13 +234,13 @@ describe("composed machine thread lifecycle", () => {
         await reportQueuedCommandSuccess(harness, start, { providerThreadId });
 
         async function reportEvents(events: ThreadEvent[]) {
-          const session = getLatestSessionForHost(harness.db, { hostId });
+          const session = await getLatestSessionForHost(harness.db, { hostId });
           if (session === null) throw new Error("Missing daemon session");
           const response = await harness.app.request(
             "/internal/session/events",
             {
               method: "POST",
-              headers: internalAuthHeaders(harness, { hostId }),
+              headers: await internalAuthHeaders(harness, { hostId }),
               body: JSON.stringify({
                 sessionId: session.id,
                 eventGroups: groupHostDaemonEvents(
@@ -263,7 +268,7 @@ describe("composed machine thread lifecycle", () => {
             scope: turnScope("first-turn"),
           },
         ]);
-        expect(getThread(harness.db, thread.id)?.status).toBe("active");
+        expect((await getThread(harness.db, thread.id))?.status).toBe("active");
         if (firstTurn === "stopped") {
           const stopping = harness.app.request(
             `/api/v1/threads/${thread.id}/stop`,
@@ -288,12 +293,14 @@ describe("composed machine thread lifecycle", () => {
             },
           ]);
         }
-        expect(getThread(harness.db, thread.id)).toMatchObject({
+        expect(await getThread(harness.db, thread.id)).toMatchObject({
           status: "idle",
           archivedAt: null,
           environmentId,
         });
-        expect(getEnvironment(harness.db, environmentId)?.status).toBe("ready");
+        expect((await getEnvironment(harness.db, environmentId))?.status).toBe(
+          "ready",
+        );
 
         async function pause() {
           const response = await harness.app.request(
@@ -302,14 +309,14 @@ describe("composed machine thread lifecycle", () => {
           );
           expect(response.status).toBe(202);
           await expect
-            .poll(() => getHost(harness.db, hostId)?.phase)
+            .poll(async () => (await getHost(harness.db, hostId))?.phase)
             .toBe("suspended");
           expect(harness.hub.hasDaemonForHost(hostId)).toBe(false);
         }
 
         await pause();
         await sweepMachineLifecycles(harness.deps);
-        expect(getHost(harness.db, hostId)?.phase).toBe("suspended");
+        expect((await getHost(harness.db, hostId))?.phase).toBe("suspended");
         expect(remove).not.toHaveBeenCalled();
         const send = await harness.app.request(
           `/api/v1/threads/${thread.id}/send`,
@@ -325,7 +332,7 @@ describe("composed machine thread lifecycle", () => {
         expect(send.status).toBe(200);
         await resumeStarted.promise;
         try {
-          expect(getHost(harness.db, hostId)?.phase).toBe("resuming");
+          expect((await getHost(harness.db, hostId))?.phase).toBe("resuming");
           const resuming = await harness.app.request(`/api/v1/hosts/${hostId}`);
           expect(resuming.status).toBe(200);
           expect(await resuming.json()).toMatchObject({
@@ -351,8 +358,8 @@ describe("composed machine thread lifecycle", () => {
             scope: turnScope("followup-turn"),
           },
         ]);
-        expect(getThread(harness.db, thread.id)?.status).toBe("active");
-        expect(getHost(harness.db, hostId)?.phase).toBe("active");
+        expect((await getThread(harness.db, thread.id))?.status).toBe("active");
+        expect((await getHost(harness.db, hostId))?.phase).toBe("active");
         expect(resume).toHaveBeenCalledOnce();
         await reportEvents([
           {
@@ -363,8 +370,10 @@ describe("composed machine thread lifecycle", () => {
             status: "completed",
           },
         ]);
-        expect(getThread(harness.db, thread.id)?.status).toBe("idle");
-        expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+        expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
+        expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual(
+          [],
+        );
         if (archiveFrom === "suspended") await pause();
         const archive = await harness.app.request(
           `/api/v1/threads/${thread.id}/archive-all`,
@@ -372,17 +381,21 @@ describe("composed machine thread lifecycle", () => {
         );
         expect(archive.status).toBe(200);
         await expect
-          .poll(() => getHost(harness.db, hostId)?.phase)
+          .poll(async () => (await getHost(harness.db, hostId))?.phase)
           .toBe("destroyed");
         expect(remove).toHaveBeenCalledOnce();
         expect(suspend).toHaveBeenCalledTimes(
           archiveFrom === "suspended" ? 2 : 1,
         );
-        expect(getEnvironment(harness.db, environmentId)?.status).toBe(
+        expect((await getEnvironment(harness.db, environmentId))?.status).toBe(
           "destroyed",
         );
-        expect(getThread(harness.db, thread.id)?.archivedAt).not.toBeNull();
-        expect(getHost(harness.db, source.host.id)?.destroyedAt).toBeNull();
+        expect(
+          (await getThread(harness.db, thread.id))?.archivedAt,
+        ).not.toBeNull();
+        expect(
+          (await getHost(harness.db, source.host.id))?.destroyedAt,
+        ).toBeNull();
       });
     },
   );

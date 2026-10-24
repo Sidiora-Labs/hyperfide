@@ -55,7 +55,7 @@ export function describeDispatchFailure(error: unknown): string {
  * and surfaces its error to them instead, which is why a queued row never
  * shows a failure the sender was already told about to their face.
  */
-export function recordQueuedMessageDrainFailure(
+export async function recordQueuedMessageDrainFailure(
   deps: QueueDrainFailureDeps,
   args: {
     error: unknown;
@@ -63,10 +63,13 @@ export function recordQueuedMessageDrainFailure(
     row: { id: string; threadId: string };
     thread: Thread;
   },
-): void {
-  const { host } = dispatchEnvironmentAndHost(deps, args.thread.environmentId);
+): Promise<void> {
+  const { host } = await dispatchEnvironmentAndHost(
+    deps,
+    args.thread.environmentId,
+  );
   if (host !== null && !deps.hub.hasDaemonForHost(host.id)) {
-    setQueuedThreadMessageWaitingOn(deps.db, deps.hub, {
+    await setQueuedThreadMessageWaitingOn(deps.db, deps.hub, {
       id: args.row.id,
       threadId: args.row.threadId,
       waitingOn: { kind: "host-offline", hostName: host.name },
@@ -78,7 +81,7 @@ export function recordQueuedMessageDrainFailure(
     return;
   }
 
-  const updated = setQueuedThreadMessageFailureReason(deps.db, deps.hub, {
+  const updated = await setQueuedThreadMessageFailureReason(deps.db, deps.hub, {
     id: args.row.id,
     threadId: args.row.threadId,
     failureReason: describeDispatchFailure(args.error),
@@ -90,7 +93,7 @@ export function recordQueuedMessageDrainFailure(
     updated.state === "failed_exhausted" &&
     isParentNotifiableChildThread(args.thread, "failed")
   ) {
-    void queueChildThreadTurnNotificationBestEffort(deps, {
+    await queueChildThreadTurnNotificationBestEffort(deps, {
       childThread: args.thread,
       parentThreadId: args.thread.parentThreadId,
       turnStatus: "failed",

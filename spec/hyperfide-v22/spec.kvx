@@ -616,7 +616,7 @@ owner = "qualification"
 
 [task.6.1]
 title = "PostgreSQL storage for the platform server"
-status = "pending"
+status = "done"
 wave = 6
 requires = ["0.7"]
 touches = ["platform/packages/db/**", "platform/apps/server/src/**", "platform/packages/config/**", "platform/docs/**", "tests/hyperfide/cases/v22/6_1.sh", "platform/apps/server/test/**", "platform/packages/scripts/**", "platform/packages/plugin-sdk/src/**", "platform/tests/integration/**"]

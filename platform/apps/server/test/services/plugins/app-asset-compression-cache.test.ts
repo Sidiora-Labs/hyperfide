@@ -3,10 +3,10 @@ import { createAppAssetCompressionCache } from "../../../src/services/plugins/ap
 
 describe("plugin app asset compression cache", () => {
   it("deduplicates variants, resets changed hashes, and evicts old assets", async () => {
-    const cache = createAppAssetCompressionCache(1);
+    const cache = await createAppAssetCompressionCache(1);
     let compressionCount = 0;
-    const get = (assetKey: string, hash: string, encoding = "br") =>
-      cache.getOrCreate({
+    const get = async (assetKey: string, hash: string, encoding = "br") =>
+      await cache.getOrCreate({
         assetKey,
         compress: async () => {
           compressionCount += 1;
@@ -38,10 +38,10 @@ describe("plugin app asset compression cache", () => {
   });
 
   it("retries a failed compression instead of caching its rejection", async () => {
-    const cache = createAppAssetCompressionCache(1);
+    const cache = await createAppAssetCompressionCache(1);
     let attempts = 0;
-    const get = () =>
-      cache.getOrCreate({
+    const get = async () =>
+      await cache.getOrCreate({
         assetKey: "plugin:js",
         compress: async () => {
           attempts += 1;

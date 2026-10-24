@@ -231,21 +231,21 @@ export async function generateThreadMetadataWithOutcome(
   return title === null ? complete(null, "failed") : complete({ title });
 }
 
-export function applyGeneratedThreadTitle(
+export async function applyGeneratedThreadTitle(
   deps: Pick<AppDeps, "db" | "hub">,
   args: ApplyGeneratedThreadTitleArgs,
-): boolean {
+): Promise<boolean> {
   const title = args.title.trim();
   if (title.length === 0) {
     return false;
   }
 
-  const currentThread = getThread(deps.db, args.threadId);
+  const currentThread = await getThread(deps.db, args.threadId);
   if (!currentThread || currentThread.title) {
     return false;
   }
 
-  updateThread(deps.db, deps.hub, args.threadId, {
+  await updateThread(deps.db, deps.hub, args.threadId, {
     title,
   });
 

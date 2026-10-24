@@ -36,37 +36,37 @@ import {
   setServerMoveFrozen,
 } from "../../src/services/server-move/freeze-state.js";
 
-function registerPendingInteraction(
+async function registerPendingInteraction(
   deps: Pick<AppDeps, "db" | "hub">,
   lifecycle: PendingInteractionLifecycle,
   interaction: PendingInteractionCreate,
 ) {
-  seedTurnStarted(deps, {
+  await seedTurnStarted(deps, {
     threadId: interaction.threadId,
     turnId: interaction.turnId,
     providerThreadId: interaction.providerThreadId,
   });
-  return lifecycle.registerPendingInteraction({
+  return await lifecycle.registerPendingInteraction({
     interaction,
   });
 }
 
-function seedPluginInteractionThread(deps: AppDeps, suffix: string) {
-  const { host } = seedHostSession(deps, {
+async function seedPluginInteractionThread(deps: AppDeps, suffix: string) {
+  const { host } = await seedHostSession(deps, {
     id: `host-plugin-interaction-${suffix}`,
   });
-  const { project } = seedProjectWithSource(deps, { hostId: host.id });
-  const environment = seedEnvironment(deps, {
+  const { project } = await seedProjectWithSource(deps, { hostId: host.id });
+  const environment = await seedEnvironment(deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  return seedThread(deps, {
+  return await seedThread(deps, {
     projectId: project.id,
     environmentId: environment.id,
   });
 }
 
-function requestPluginInteraction(
+async function requestPluginInteraction(
   deps: AppDeps,
   args: {
     threadId: string;
@@ -74,7 +74,7 @@ function requestPluginInteraction(
     signal?: AbortSignal;
   },
 ) {
-  return deps.pendingInteractions.requestPluginInteraction({
+  return await deps.pendingInteractions.startPluginInteraction({
     pluginId: "secrets",
     threadId: args.threadId,
     rendererId: "secret-request",
@@ -96,19 +96,24 @@ function requestPluginInteraction(
 describe("pending interaction lifecycle", () => {
   it("announces each committed plugin prompt once without read duplicates", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(harness.deps, "pending-event");
+      const thread = await seedPluginInteractionThread(
+        harness.deps,
+        "pending-event",
+      );
       const emit = vi.spyOn(
         harness.pluginService.events,
         "emitInteractionPending",
       );
       const controller = new AbortController();
       try {
-        const pending = requestPluginInteraction(harness.deps, {
-          threadId: thread.id,
-          signal: controller.signal,
-        });
+        const pending = (
+          await requestPluginInteraction(harness.deps, {
+            threadId: thread.id,
+            signal: controller.signal,
+          })
+        ).response;
         const [interaction] =
-          harness.deps.pendingInteractions.listPendingThreadInteractions(
+          await harness.deps.pendingInteractions.listPendingThreadInteractions(
             thread.id,
           );
         expect(interaction).toMatchObject({
@@ -117,12 +122,14 @@ describe("pending interaction lifecycle", () => {
           threadId: thread.id,
         });
         expect(emit).toHaveBeenCalledExactlyOnceWith(thread, interaction);
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
-        listPendingInteractionsByThread(harness.db, {
-          threadId: thread.id,
-        }).map(toPendingInteraction);
+        (
+          await listPendingInteractionsByThread(harness.db, {
+            threadId: thread.id,
+          })
+        ).map(toPendingInteraction);
         expect(emit).toHaveBeenCalledTimes(1);
         controller.abort();
         await expect(pending).resolves.toMatchObject({ outcome: "cancelled" });
@@ -135,22 +142,24 @@ describe("pending interaction lifecycle", () => {
 
   it("holds a plugin interaction timeout while the server is moving", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(
+      const thread = await seedPluginInteractionThread(
         harness.deps,
         "frozen-timeout",
       );
-      const listPending = () =>
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+      const listPending = async () =>
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
       vi.useFakeTimers();
       try {
-        const pending = requestPluginInteraction(harness.deps, {
-          threadId: thread.id,
-        });
+        const pending = (
+          await requestPluginInteraction(harness.deps, {
+            threadId: thread.id,
+          })
+        ).response;
         setServerMoveFrozen(harness.db, true);
         await vi.advanceTimersByTimeAsync(10_000 + SERVER_MOVE_FROZEN_RETRY_MS);
-        expect(listPending()).toMatchObject([{ status: "pending" }]);
+        expect(await listPending()).toMatchObject([{ status: "pending" }]);
 
         setServerMoveFrozen(harness.db, false);
         await expect(
@@ -159,7 +168,7 @@ describe("pending interaction lifecycle", () => {
           outcome: "cancelled",
           reason: "timeout",
         });
-        expect(listPending()).toEqual([]);
+        expect(await listPending()).toEqual([]);
       } finally {
         setServerMoveFrozen(harness.db, false);
         vi.useRealTimers();
@@ -169,12 +178,17 @@ describe("pending interaction lifecycle", () => {
 
   it("returns a plugin response only through memory and persists metadata only", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(harness.deps, "memory-only");
-      const pending = requestPluginInteraction(harness.deps, {
-        threadId: thread.id,
-      });
+      const thread = await seedPluginInteractionThread(
+        harness.deps,
+        "memory-only",
+      );
+      const pending = (
+        await requestPluginInteraction(harness.deps, {
+          threadId: thread.id,
+        })
+      ).response;
       const [interaction] =
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
       expect(interaction?.payload.kind).toBe("plugin");
@@ -189,7 +203,7 @@ describe("pending interaction lifecycle", () => {
         outcome: "submitted",
         value: { values: { API_KEY: "sentinel-secret-value" } },
       });
-      const [stored] = harness.db
+      const [stored] = await harness.db
         .select()
         .from(pendingInteractionTable)
         .where(eq(pendingInteractionTable.id, interaction!.id))
@@ -197,19 +211,24 @@ describe("pending interaction lifecycle", () => {
       expect(JSON.stringify(stored)).not.toContain("sentinel-secret-value");
       expect(stored?.resolution).toBe('{"kind":"plugin_submitted"}');
       expect(
-        JSON.stringify(harness.db.select().from(eventTable).all()),
+        JSON.stringify(await harness.db.select().from(eventTable).all()),
       ).not.toContain("sentinel-secret-value");
     });
   });
 
   it("delivers a plugin response before terminal side effects run", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(harness.deps, "delivery");
-      const pending = requestPluginInteraction(harness.deps, {
-        threadId: thread.id,
-      });
+      const thread = await seedPluginInteractionThread(
+        harness.deps,
+        "delivery",
+      );
+      const pending = (
+        await requestPluginInteraction(harness.deps, {
+          threadId: thread.id,
+        })
+      ).response;
       const [interaction] =
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
       vi.spyOn(harness.hub, "notifyThread").mockImplementationOnce(() => {
@@ -232,14 +251,17 @@ describe("pending interaction lifecycle", () => {
 
   it("persists what the plugin describes for a submitted form and nothing else", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(harness.deps, "describe");
+      const thread = await seedPluginInteractionThread(
+        harness.deps,
+        "describe",
+      );
       const describeSubmission = vi.fn((value: unknown) => ({
         title: "Added API_KEY to .env",
         detail: `- ${Object.keys((value as { values: object }).values).join(", ")}`,
         payload: { names: ["API_KEY"] },
       }));
-      const pending = harness.deps.pendingInteractions.requestPluginInteraction(
-        {
+      const pending = (
+        await harness.deps.pendingInteractions.startPluginInteraction({
           pluginId: "secrets",
           threadId: thread.id,
           rendererId: "secret-request",
@@ -251,10 +273,10 @@ describe("pending interaction lifecycle", () => {
           },
           describeSubmission,
           timeoutMs: 10_000,
-        },
-      );
+        })
+      ).response;
       const [interaction] =
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
       expect(interaction?.payload).toMatchObject({
@@ -280,11 +302,13 @@ describe("pending interaction lifecycle", () => {
         },
       });
       await expect(pending).resolves.toMatchObject({ outcome: "submitted" });
-      const lifecycle = harness.db
-        .select()
-        .from(eventTable)
-        .where(eq(eventTable.threadId, thread.id))
-        .all()
+      const lifecycle = await (
+        await harness.db
+          .select()
+          .from(eventTable)
+          .where(eq(eventTable.threadId, thread.id))
+          .all()
+      )
         .filter((row) => row.type === "system/interaction/lifecycle")
         .map((row) => JSON.parse(row.data) as { interaction: unknown });
       expect(lifecycle.at(-1)?.interaction).toMatchObject({
@@ -297,7 +321,7 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects a concurrent submission before describing it", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(
+      const thread = await seedPluginInteractionThread(
         harness.deps,
         "concurrent-submit",
       );
@@ -308,8 +332,8 @@ describe("pending interaction lifecycle", () => {
             finishDescription = resolve;
           }),
       );
-      const pending = harness.deps.pendingInteractions.requestPluginInteraction(
-        {
+      const pending = (
+        await harness.deps.pendingInteractions.startPluginInteraction({
           pluginId: "secrets",
           threadId: thread.id,
           rendererId: "secret-request",
@@ -321,10 +345,10 @@ describe("pending interaction lifecycle", () => {
           },
           describeSubmission,
           timeoutMs: 10_000,
-        },
-      );
+        })
+      ).response;
       const [interaction] =
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
       const args = {
@@ -334,6 +358,7 @@ describe("pending interaction lifecycle", () => {
       };
       const first =
         harness.deps.pendingInteractions.respondToPluginInteraction(args);
+      await vi.waitFor(() => expect(describeSubmission).toHaveBeenCalledOnce());
       const second =
         harness.deps.pendingInteractions.respondToPluginInteraction({
           ...args,
@@ -353,12 +378,12 @@ describe("pending interaction lifecycle", () => {
 
   it("keeps the completed label when describe throws", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(
+      const thread = await seedPluginInteractionThread(
         harness.deps,
         "describe-throws",
       );
-      const pending = harness.deps.pendingInteractions.requestPluginInteraction(
-        {
+      const pending = (
+        await harness.deps.pendingInteractions.startPluginInteraction({
           pluginId: "secrets",
           threadId: thread.id,
           rendererId: "secret-request",
@@ -372,10 +397,10 @@ describe("pending interaction lifecycle", () => {
             throw new Error("plugin bug");
           },
           timeoutMs: 10_000,
-        },
-      );
+        })
+      ).response;
       const [interaction] =
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
       const resolved =
@@ -391,50 +416,69 @@ describe("pending interaction lifecycle", () => {
 
   it("interrupts a plugin interaction when its creation side effects fail", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(harness.deps, "setup-failure");
+      const thread = await seedPluginInteractionThread(
+        harness.deps,
+        "setup-failure",
+      );
       vi.spyOn(harness.hub, "notifyThread").mockImplementationOnce(() => {
         throw new Error("timeline notification failed");
       });
 
       await expect(
-        Promise.resolve().then(() =>
-          requestPluginInteraction(harness.deps, {
-            threadId: thread.id,
-          }),
+        Promise.resolve().then(
+          async () =>
+            await requestPluginInteraction(harness.deps, {
+              threadId: thread.id,
+            }),
         ),
       ).rejects.toThrow("timeline notification failed");
       expect(
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         ),
       ).toEqual([]);
       expect(
-        listPendingInteractionsByThread(harness.db, {
-          threadId: thread.id,
-        }).map(toPendingInteraction),
+        (
+          await listPendingInteractionsByThread(harness.db, {
+            threadId: thread.id,
+          })
+        ).map(toPendingInteraction),
       ).toMatchObject([{ status: "interrupted" }]);
     });
   });
 
   it("settles every plugin waiter before batch terminal side effects", async () => {
     await withTestHarness(async (harness) => {
-      const firstThread = seedPluginInteractionThread(harness.deps, "batch-1");
-      const secondThread = seedPluginInteractionThread(harness.deps, "batch-2");
-      const first = requestPluginInteraction(harness.deps, {
-        threadId: firstThread.id,
-        name: "FIRST",
-      });
-      const second = requestPluginInteraction(harness.deps, {
-        threadId: secondThread.id,
-        name: "SECOND",
-      });
+      const firstThread = await seedPluginInteractionThread(
+        harness.deps,
+        "batch-1",
+      );
+      const secondThread = await seedPluginInteractionThread(
+        harness.deps,
+        "batch-2",
+      );
+      const first = (
+        await requestPluginInteraction(harness.deps, {
+          threadId: firstThread.id,
+          name: "FIRST",
+        })
+      ).response;
+      const second = (
+        await requestPluginInteraction(harness.deps, {
+          threadId: secondThread.id,
+          name: "SECOND",
+        })
+      ).response;
       vi.spyOn(harness.hub, "notifyThread").mockImplementationOnce(() => {
         throw new Error("timeline notification failed");
       });
 
-      expect(() =>
-        harness.deps.pendingInteractions.interruptPluginInteractions("secrets"),
-      ).toThrow("timeline notification failed");
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.interruptPluginInteractions(
+            "secrets",
+          ))(),
+      ).rejects.toThrow("timeline notification failed");
       await expect(Promise.all([first, second])).resolves.toEqual([
         { outcome: "cancelled", reason: "plugin-disposed" },
         { outcome: "cancelled", reason: "plugin-disposed" },
@@ -444,23 +488,23 @@ describe("pending interaction lifecycle", () => {
 
   it("includes project and pending state metadata in interaction change notifications", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-notification-metadata",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
       const notifyThread = vi.spyOn(harness.hub, "notifyThread");
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -489,14 +533,15 @@ describe("pending interaction lifecycle", () => {
         { hasPendingInteraction: true, projectId: project.id },
       );
 
-      harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            resolution: createAllowOnceResolution(),
-          },
-        ),
+      await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: created.interaction.id,
+              resolution: createAllowOnceResolution(),
+            },
+          ),
       );
 
       expect(notifyThread).toHaveBeenCalledWith(
@@ -515,7 +560,7 @@ describe("pending interaction lifecycle", () => {
         info: vi.fn(),
         warn: vi.fn(),
       };
-      const lifecycle = new PendingInteractionLifecycle({
+      const lifecycle = await new PendingInteractionLifecycle({
         config: harness.deps.config,
         db: harness.db,
         hub: harness.hub,
@@ -529,41 +574,45 @@ describe("pending interaction lifecycle", () => {
         telemetry: harness.deps.telemetry,
         terminalSessions: harness.deps.terminalSessions,
       });
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-corrupt-list",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const corrupt = registerPendingInteraction(harness.deps, lifecycle, {
-        threadId: thread.id,
-        turnId: "turn-corrupt-list-1",
-        providerId: "codex",
-        providerThreadId: "provider-thread-corrupt-list",
-        providerRequestId: "request-corrupt-list-1",
-        payload: createCommandApprovalPayload({
-          itemId: "item-corrupt-list-1",
-          reason: "Needs approval",
-          command: "git push",
-          cwd: "/tmp/project",
-        }),
-      });
+      const corrupt = await registerPendingInteraction(
+        harness.deps,
+        lifecycle,
+        {
+          threadId: thread.id,
+          turnId: "turn-corrupt-list-1",
+          providerId: "codex",
+          providerThreadId: "provider-thread-corrupt-list",
+          providerRequestId: "request-corrupt-list-1",
+          payload: createCommandApprovalPayload({
+            itemId: "item-corrupt-list-1",
+            reason: "Needs approval",
+            command: "git push",
+            cwd: "/tmp/project",
+          }),
+        },
+      );
       if (corrupt.outcome === "rejected") {
         throw new Error(
           `Expected interaction registration to succeed: ${corrupt.reason}`,
         );
       }
 
-      harness.db
+      await harness.db
         .update(pendingInteractionTable)
         .set({
           status: "resolved",
@@ -573,7 +622,7 @@ describe("pending interaction lifecycle", () => {
         .where(eq(pendingInteractionTable.id, corrupt.interaction.id))
         .run();
 
-      const valid = registerPendingInteraction(harness.deps, lifecycle, {
+      const valid = await registerPendingInteraction(harness.deps, lifecycle, {
         threadId: thread.id,
         turnId: "turn-corrupt-list-2",
         providerId: "codex",
@@ -591,13 +640,13 @@ describe("pending interaction lifecycle", () => {
           `Expected interaction registration to succeed: ${valid.reason}`,
         );
       }
-      harness.db
+      await harness.db
         .update(pendingInteractionTable)
         .set({ status: "resolving", resolvedAt: null })
         .where(eq(pendingInteractionTable.id, corrupt.interaction.id))
         .run();
 
-      expect(lifecycle.listPendingThreadInteractions(thread.id)).toEqual([
+      expect(await lifecycle.listPendingThreadInteractions(thread.id)).toEqual([
         valid.interaction,
       ]);
       expect(logger.warn).toHaveBeenCalledWith(
@@ -607,34 +656,35 @@ describe("pending interaction lifecycle", () => {
         }),
         "Skipping corrupt pending interaction row",
       );
-      expect(() =>
-        lifecycle.getThreadInteraction({
-          threadId: thread.id,
-          interactionId: corrupt.interaction.id,
-        }),
-      ).toThrow("Stored pending interaction resolution is invalid");
+      await expect(
+        (async () =>
+          await lifecycle.getThreadInteraction({
+            threadId: thread.id,
+            interactionId: corrupt.interaction.id,
+          }))(),
+      ).rejects.toThrow("Stored pending interaction resolution is invalid");
     });
   });
 
   it("resolves user-question interactions with user answers", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-user-question-answer",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "claude-code",
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -656,7 +706,7 @@ describe("pending interaction lifecycle", () => {
         freeText: "Use staging until QA signs off.",
       });
       const resolving =
-        harness.deps.pendingInteractions.resolvePendingInteraction({
+        await harness.deps.pendingInteractions.resolvePendingInteraction({
           threadId: thread.id,
           interactionId: created.interaction.id,
           resolution: answerResolution,
@@ -668,14 +718,15 @@ describe("pending interaction lifecycle", () => {
         status: "resolving",
       });
 
-      const completed = harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            resolution: answerResolution,
-          },
-        ),
+      const completed = await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: created.interaction.id,
+              resolution: answerResolution,
+            },
+          ),
       );
 
       expect(completed).toMatchObject({
@@ -688,23 +739,23 @@ describe("pending interaction lifecycle", () => {
 
   it("interrupts pending user-question interactions without orphaning state", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-user-question-interrupted",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "claude-code",
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -722,14 +773,15 @@ describe("pending interaction lifecycle", () => {
         );
       }
 
-      const interrupted = harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.interruptPendingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            reason: "Provider exited",
-          },
-        ),
+      const interrupted = await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.interruptPendingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: created.interaction.id,
+              reason: "Provider exited",
+            },
+          ),
       );
 
       expect(interrupted).toMatchObject({
@@ -738,13 +790,14 @@ describe("pending interaction lifecycle", () => {
         status: "interrupted",
         statusReason: "Provider exited",
       });
-      expect(() =>
-        harness.deps.pendingInteractions.resolvePendingInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          resolution: createUserAnswerResolution(),
-        }),
-      ).toThrowError(
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.resolvePendingInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            resolution: createUserAnswerResolution(),
+          }))(),
+      ).rejects.toThrowError(
         `Pending interaction ${created.interaction.id} is already interrupted`,
       );
     });
@@ -752,22 +805,22 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects reused provider request ids after the original interaction is terminal", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-terminal-dedupe",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -790,23 +843,24 @@ describe("pending interaction lifecycle", () => {
         );
       }
 
-      harness.deps.pendingInteractions.resolvePendingInteraction({
+      await harness.deps.pendingInteractions.resolvePendingInteraction({
         threadId: thread.id,
         interactionId: created.interaction.id,
         resolution: createAllowOnceResolution(),
       });
-      harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            resolution: createAllowOnceResolution(),
-          },
-        ),
+      await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: created.interaction.id,
+              resolution: createAllowOnceResolution(),
+            },
+          ),
       );
 
       expect(
-        registerPendingInteraction(
+        await registerPendingInteraction(
           harness.deps,
           harness.deps.pendingInteractions,
           {
@@ -834,21 +888,21 @@ describe("pending interaction lifecycle", () => {
 
   it("preserves pending interactions when the same daemon instance reconnects", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-same-instance-reconnect",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -865,7 +919,7 @@ describe("pending interaction lifecycle", () => {
           `Expected interaction registration to succeed: ${created.reason}`,
         );
       }
-      const replacementSession = seedSession(harness.deps, host.id);
+      const replacementSession = await seedSession(harness.deps, host.id);
       await handleHostSessionOpened(harness.deps, {
         activeThreads: [],
         undeliveredEventThreadIds: [],
@@ -874,7 +928,7 @@ describe("pending interaction lifecycle", () => {
         previousSession: session,
       });
 
-      const row = harness.db
+      const row = await harness.db
         .select()
         .from(pendingInteractionTable)
         .where(eq(pendingInteractionTable.id, created.interaction.id))
@@ -888,17 +942,17 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects active provider request reuse with a different payload", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-reconnect-payload-mismatch",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
@@ -916,7 +970,7 @@ describe("pending interaction lifecycle", () => {
         }),
       };
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         baseInteraction,
@@ -928,7 +982,7 @@ describe("pending interaction lifecycle", () => {
       }
 
       expect(
-        registerPendingInteraction(
+        await registerPendingInteraction(
           harness.deps,
           harness.deps.pendingInteractions,
           {
@@ -951,24 +1005,24 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects interactions from providers that do not own the thread", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-provider-mismatch",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
       });
 
       expect(
-        registerPendingInteraction(
+        await registerPendingInteraction(
           harness.deps,
           harness.deps.pendingInteractions,
           {
@@ -995,22 +1049,22 @@ describe("pending interaction lifecycle", () => {
 
   it("treats reordered permission grants as idempotent resolution retries", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-idempotent-permissions",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1040,7 +1094,7 @@ describe("pending interaction lifecycle", () => {
       }
 
       const firstResolution =
-        harness.deps.pendingInteractions.resolvePendingInteraction({
+        await harness.deps.pendingInteractions.resolvePendingInteraction({
           threadId: thread.id,
           interactionId: created.interaction.id,
           resolution: createAllowOnceResolution({
@@ -1054,7 +1108,7 @@ describe("pending interaction lifecycle", () => {
       expect(firstResolution.status).toBe("resolving");
 
       const retryResolution =
-        harness.deps.pendingInteractions.resolvePendingInteraction({
+        await harness.deps.pendingInteractions.resolvePendingInteraction({
           threadId: thread.id,
           interactionId: created.interaction.id,
           resolution: createAllowOnceResolution({
@@ -1071,7 +1125,7 @@ describe("pending interaction lifecycle", () => {
         status: "resolving",
         resolution: firstResolution.resolution,
       });
-      const resolvingRow = harness.db
+      const resolvingRow = await harness.db
         .select()
         .from(pendingInteractionTable)
         .where(eq(pendingInteractionTable.id, created.interaction.id))
@@ -1081,23 +1135,24 @@ describe("pending interaction lifecycle", () => {
         resolution: JSON.stringify(firstResolution.resolution),
       });
 
-      const completed = harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            resolution: createAllowOnceResolution({
-              network: null,
-              fileSystem: {
-                read: ["/tmp/project/a", "/tmp/project/b"],
-                write: ["/tmp/project/c", "/tmp/project/d"],
-              },
-            }),
-          },
-        ),
+      const completed = await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: created.interaction.id,
+              resolution: createAllowOnceResolution({
+                network: null,
+                fileSystem: {
+                  read: ["/tmp/project/a", "/tmp/project/b"],
+                  write: ["/tmp/project/c", "/tmp/project/d"],
+                },
+              }),
+            },
+          ),
       );
       expect(completed?.status).toBe("resolved");
-      const resolvedRow = harness.db
+      const resolvedRow = await harness.db
         .select()
         .from(pendingInteractionTable)
         .where(eq(pendingInteractionTable.id, created.interaction.id))
@@ -1110,22 +1165,22 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects permission allow resolutions that grant nothing", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-empty-grant",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1151,46 +1206,49 @@ describe("pending interaction lifecycle", () => {
         );
       }
 
-      expect(() =>
-        harness.deps.pendingInteractions.resolvePendingInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          resolution: createAllowForSessionResolution({
-            network: null,
-            fileSystem: null,
-          }),
-        }),
-      ).toThrow(
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.resolvePendingInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            resolution: createAllowForSessionResolution({
+              network: null,
+              fileSystem: null,
+            }),
+          }))(),
+      ).rejects.toThrow(
         "Allowed permission resolutions must grant at least one permission",
       );
 
       expect(
-        harness.deps.pendingInteractions.getThreadInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-        }).status,
+        (
+          await harness.deps.pendingInteractions.getThreadInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+          })
+        ).status,
       ).toBe("pending");
     });
   });
 
   it("accepts tool-use approvals without a timeline item of their own", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-tool-use",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1207,17 +1265,18 @@ describe("pending interaction lifecycle", () => {
           `Expected interaction registration to succeed: ${created.reason}`,
         );
       }
-      const itemEventsFor = () =>
-        harness.db
-          .select()
-          .from(eventTable)
-          .where(eq(eventTable.threadId, thread.id))
-          .all()
-          .filter((row) => row.type.startsWith("item/"));
-      expect(itemEventsFor()).toEqual([]);
+      const itemEventsFor = async () =>
+        (
+          await harness.db
+            .select()
+            .from(eventTable)
+            .where(eq(eventTable.threadId, thread.id))
+            .all()
+        ).filter((row) => row.type.startsWith("item/"));
+      expect(await itemEventsFor()).toEqual([]);
 
       expect(
-        harness.deps.pendingInteractions.resolvePendingInteraction({
+        await harness.deps.pendingInteractions.resolvePendingInteraction({
           threadId: thread.id,
           interactionId: created.interaction.id,
           resolution: createDenyResolution(),
@@ -1228,32 +1287,34 @@ describe("pending interaction lifecycle", () => {
           resolution: expect.objectContaining({ decision: "deny" }),
         }),
       );
-      expect(itemEventsFor()).toEqual([]);
+      expect(await itemEventsFor()).toEqual([]);
     });
   });
 
   it("appends one interaction lifecycle event per status change, paired with the resolution, for every kind", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-lifecycle-event",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const lifecycleEvents = () =>
-        harness.db
-          .select()
-          .from(eventTable)
-          .where(eq(eventTable.threadId, thread.id))
-          .all()
+      const lifecycleEvents = async () =>
+        (
+          await harness.db
+            .select()
+            .from(eventTable)
+            .where(eq(eventTable.threadId, thread.id))
+            .all()
+        )
           .filter((row) => row.type === "system/interaction/lifecycle")
           .map((row) => ({
             scope:
@@ -1263,7 +1324,7 @@ describe("pending interaction lifecycle", () => {
             interaction: JSON.parse(row.data).interaction,
           }));
 
-      const grant = registerPendingInteraction(
+      const grant = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1284,22 +1345,23 @@ describe("pending interaction lifecycle", () => {
         network: null,
         fileSystem: null,
       });
-      harness.deps.pendingInteractions.resolvePendingInteraction({
+      await harness.deps.pendingInteractions.resolvePendingInteraction({
         threadId: thread.id,
         interactionId: grant.interaction.id,
         resolution,
       });
-      harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: grant.interaction.id,
-            resolution,
-          },
-        ),
+      await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: grant.interaction.id,
+              resolution,
+            },
+          ),
       );
 
-      expect(lifecycleEvents()).toEqual([
+      expect(await lifecycleEvents()).toEqual([
         {
           scope: { kind: "turn", turnId: "turn-lifecycle" },
           interaction: expect.objectContaining({
@@ -1339,16 +1401,18 @@ describe("pending interaction lifecycle", () => {
           }),
         },
       ]);
-      expect(lifecycleEvents()[0]?.interaction.payload).not.toHaveProperty(
-        "availableDecisions",
-      );
+      expect(
+        (await lifecycleEvents())[0]?.interaction.payload,
+      ).not.toHaveProperty("availableDecisions");
 
-      const pending = requestPluginInteraction(harness.deps, {
-        threadId: thread.id,
-        name: "SENTINEL_FIELD",
-      });
+      const pending = (
+        await requestPluginInteraction(harness.deps, {
+          threadId: thread.id,
+          name: "SENTINEL_FIELD",
+        })
+      ).response;
       const [pluginInteraction] =
-        harness.deps.pendingInteractions.listPendingThreadInteractions(
+        await harness.deps.pendingInteractions.listPendingThreadInteractions(
           thread.id,
         );
       await harness.deps.pendingInteractions.respondToPluginInteraction({
@@ -1357,7 +1421,7 @@ describe("pending interaction lifecycle", () => {
         value: { values: { API_KEY: "x" } },
       });
       await pending;
-      const pluginEvents = lifecycleEvents().filter(
+      const pluginEvents = (await lifecycleEvents()).filter(
         (event) => event.interaction.id === pluginInteraction!.id,
       );
       expect(pluginEvents.map((event) => event.interaction.status)).toEqual([
@@ -1398,27 +1462,29 @@ describe("pending interaction lifecycle", () => {
 
   it("writes a command approval's lifecycle record before its item at every status that touches the item", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-item-order",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const writes = () =>
-        harness.db
-          .select()
-          .from(eventTable)
-          .where(eq(eventTable.threadId, thread.id))
-          .orderBy(eventTable.sequence)
-          .all()
+      const writes = async () =>
+        (
+          await harness.db
+            .select()
+            .from(eventTable)
+            .where(eq(eventTable.threadId, thread.id))
+            .orderBy(eventTable.sequence)
+            .all()
+        )
           .filter(
             (row) =>
               row.type === "system/interaction/lifecycle" ||
@@ -1443,7 +1509,7 @@ describe("pending interaction lifecycle", () => {
         providerThreadId: "provider-thread-item-order",
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1458,42 +1524,46 @@ describe("pending interaction lifecycle", () => {
       if (created.outcome === "rejected") {
         throw new Error(`Expected registration to succeed: ${created.reason}`);
       }
-      expect(writes()).toEqual([lifecycle, item("item/started")]);
+      expect(await writes()).toEqual([lifecycle, item("item/started")]);
 
       const resolution = createDenyResolution();
-      harness.deps.pendingInteractions.resolvePendingInteraction({
+      await harness.deps.pendingInteractions.resolvePendingInteraction({
         threadId: thread.id,
         interactionId: created.interaction.id,
         resolution,
       });
-      expect(writes().slice(2)).toEqual([lifecycle]);
+      expect((await writes()).slice(2)).toEqual([lifecycle]);
 
-      harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            resolution,
-          },
-        ),
+      await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: created.interaction.id,
+              resolution,
+            },
+          ),
       );
-      expect(writes().slice(3)).toEqual([lifecycle, item("item/completed")]);
+      expect((await writes()).slice(3)).toEqual([
+        lifecycle,
+        item("item/completed"),
+      ]);
     });
   });
 
   it("carries a provider's plugin-defined request to the plugin form and its answer back as a request answer", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-plugin-request",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "acp-cursor",
@@ -1512,7 +1582,7 @@ describe("pending interaction lifecycle", () => {
         },
       };
       expect(
-        registerPendingInteraction(
+        await registerPendingInteraction(
           harness.deps,
           harness.deps.pendingInteractions,
           request,
@@ -1524,7 +1594,7 @@ describe("pending interaction lifecycle", () => {
       harness.deps.pendingInteractions.setPluginDirectory({
         isLoaded: (pluginId) => pluginId === "secrets",
       });
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         request,
@@ -1546,33 +1616,36 @@ describe("pending interaction lifecycle", () => {
           message: "Interaction response exceeds 64 KiB",
         }),
       );
-      expect(() =>
-        harness.deps.pendingInteractions.resolvePendingInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          resolution: { kind: "request_answer", value: oversized },
-        }),
-      ).toThrow(
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.resolvePendingInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            resolution: { kind: "request_answer", value: oversized },
+          }))(),
+      ).rejects.toThrow(
         expect.objectContaining({
           status: 413,
           message: "Interaction response exceeds 64 KiB",
         }),
       );
 
-      expect(() =>
-        harness.deps.pendingInteractions.resolvePendingInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          resolution: createDenyResolution(),
-        }),
-      ).toThrow("Only a request answer can resolve a plugin request");
-      expect(() =>
-        harness.deps.pendingInteractions.cancelPluginInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          reason: "user",
-        }),
-      ).toThrow("stop the turn instead");
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.resolvePendingInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            resolution: createDenyResolution(),
+          }))(),
+      ).rejects.toThrow("Only a request answer can resolve a plugin request");
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.cancelPluginInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            reason: "user",
+          }))(),
+      ).rejects.toThrow("stop the turn instead");
 
       const answer = { kind: "request_answer", value: { TOKEN: "sentinel-x" } };
       const responding =
@@ -1586,28 +1659,31 @@ describe("pending interaction lifecycle", () => {
         status: "resolving",
         resolution: answer,
       });
-      const completed = harness.db.transaction((tx) =>
-        harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: created.interaction.id,
-            resolution: {
-              kind: "request_answer",
-              value: { TOKEN: "sentinel-x" },
+      const completed = await harness.db.transaction(
+        async (tx) =>
+          await harness.deps.pendingInteractions.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: created.interaction.id,
+              resolution: {
+                kind: "request_answer",
+                value: { TOKEN: "sentinel-x" },
+              },
             },
-          },
-        ),
+          ),
       );
       expect(completed).toMatchObject({
         status: "resolved",
         resolution: answer,
       });
 
-      const lifecycle = harness.db
-        .select()
-        .from(eventTable)
-        .where(eq(eventTable.threadId, thread.id))
-        .all()
+      const lifecycle = await (
+        await harness.db
+          .select()
+          .from(eventTable)
+          .where(eq(eventTable.threadId, thread.id))
+          .all()
+      )
         .filter((row) => row.type === "system/interaction/lifecycle")
         .map((row) => JSON.parse(row.data).interaction);
       expect(lifecycle.map((record) => record.status)).toEqual([
@@ -1626,22 +1702,22 @@ describe("pending interaction lifecycle", () => {
 
   it("allows command approvals to grant explicit session permissions for session decisions", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-command-grant",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1668,7 +1744,7 @@ describe("pending interaction lifecycle", () => {
       }
 
       expect(
-        harness.deps.pendingInteractions.resolvePendingInteraction({
+        await harness.deps.pendingInteractions.resolvePendingInteraction({
           threadId: thread.id,
           interactionId: created.interaction.id,
           resolution: createAllowForSessionResolution({
@@ -1693,23 +1769,23 @@ describe("pending interaction lifecycle", () => {
 
   it("allows command session approvals when no HYPERFIDE session grant was requested", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-command-opaque-session",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "acp-opencode",
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1734,7 +1810,7 @@ describe("pending interaction lifecycle", () => {
       }
 
       expect(
-        harness.deps.pendingInteractions.resolvePendingInteraction({
+        await harness.deps.pendingInteractions.resolvePendingInteraction({
           threadId: thread.id,
           interactionId: created.interaction.id,
           resolution: createAllowForSessionResolution(null),
@@ -1753,22 +1829,22 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects narrowed command session approval grants", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-narrowed-command-grant",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1797,16 +1873,17 @@ describe("pending interaction lifecycle", () => {
         );
       }
 
-      expect(() =>
-        harness.deps.pendingInteractions.resolvePendingInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          resolution: createAllowForSessionResolution({
-            network: { enabled: true },
-            fileSystem: null,
-          }),
-        }),
-      ).toThrow(
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.resolvePendingInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            resolution: createAllowForSessionResolution({
+              network: { enabled: true },
+              fileSystem: null,
+            }),
+          }))(),
+      ).rejects.toThrow(
         "Command and file-change session approvals must grant the requested session permissions exactly",
       );
     });
@@ -1814,22 +1891,22 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects session command approvals without granted permissions", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-null-session-grant",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1855,13 +1932,14 @@ describe("pending interaction lifecycle", () => {
         );
       }
 
-      expect(() =>
-        harness.deps.pendingInteractions.resolvePendingInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          resolution: createAllowForSessionResolution(null),
-        }),
-      ).toThrow(
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.resolvePendingInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            resolution: createAllowForSessionResolution(null),
+          }))(),
+      ).rejects.toThrow(
         "Session approval resolutions must include granted permissions",
       );
     });
@@ -1869,22 +1947,22 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects file-change approvals that try to grant write-scope permissions", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-file-change-grant",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
-      const created = registerPendingInteraction(
+      const created = await registerPendingInteraction(
         harness.deps,
         harness.deps.pendingInteractions,
         {
@@ -1907,19 +1985,20 @@ describe("pending interaction lifecycle", () => {
         );
       }
 
-      expect(() =>
-        harness.deps.pendingInteractions.resolvePendingInteraction({
-          threadId: thread.id,
-          interactionId: created.interaction.id,
-          resolution: createAllowForSessionResolution({
-            network: null,
-            fileSystem: {
-              read: [],
-              write: ["/tmp/project"],
-            },
-          }),
-        }),
-      ).toThrow(
+      await expect(
+        (async () =>
+          await harness.deps.pendingInteractions.resolvePendingInteraction({
+            threadId: thread.id,
+            interactionId: created.interaction.id,
+            resolution: createAllowForSessionResolution({
+              network: null,
+              fileSystem: {
+                read: [],
+                write: ["/tmp/project"],
+              },
+            }),
+          }))(),
+      ).rejects.toThrow(
         "This approval subject and decision cannot grant the requested permissions",
       );
     });
@@ -1927,62 +2006,74 @@ describe("pending interaction lifecycle", () => {
 
   it("keeps a provider approval blocking alongside open plugin cards", async () => {
     await withTestHarness(async (harness) => {
-      const thread = seedPluginInteractionThread(harness.deps, "alongside");
-      const lifecycle = harness.deps.pendingInteractions;
+      const thread = await seedPluginInteractionThread(
+        harness.deps,
+        "alongside",
+      );
+      const lifecycle = await harness.deps.pendingInteractions;
       const notifyThread = vi.spyOn(harness.hub, "notifyThread");
-      const olderCard = requestPluginInteraction(harness.deps, {
-        threadId: thread.id,
-        name: "OLDER",
-      });
+      const olderCard = (
+        await requestPluginInteraction(harness.deps, {
+          threadId: thread.id,
+          name: "OLDER",
+        })
+      ).response;
 
-      const approval = registerPendingInteraction(harness.deps, lifecycle, {
-        threadId: thread.id,
-        turnId: "turn-alongside",
-        providerId: "codex",
-        providerThreadId: "provider-thread-alongside",
-        providerRequestId: "request-alongside",
-        payload: createCommandApprovalPayload({
-          itemId: "item-alongside",
-          reason: "Needs approval",
-          command: "git push",
-          cwd: "/tmp/project",
-        }),
-      });
+      const approval = await registerPendingInteraction(
+        harness.deps,
+        lifecycle,
+        {
+          threadId: thread.id,
+          turnId: "turn-alongside",
+          providerId: "codex",
+          providerThreadId: "provider-thread-alongside",
+          providerRequestId: "request-alongside",
+          payload: createCommandApprovalPayload({
+            itemId: "item-alongside",
+            reason: "Needs approval",
+            command: "git push",
+            cwd: "/tmp/project",
+          }),
+        },
+      );
       if (approval.outcome === "rejected") {
         throw new Error(`Expected the approval to open: ${approval.reason}`);
       }
-      const newerCard = requestPluginInteraction(harness.deps, {
-        threadId: thread.id,
-        name: "NEWER",
-      });
+      const newerCard = (
+        await requestPluginInteraction(harness.deps, {
+          threadId: thread.id,
+          name: "NEWER",
+        })
+      ).response;
 
-      expect(lifecycle.listPendingThreadInteractions(thread.id)).toHaveLength(
-        3,
-      );
-      expect(lifecycle.hasTurnBoundPendingThreadInteraction(thread.id)).toBe(
-        true,
+      expect(
+        await lifecycle.listPendingThreadInteractions(thread.id),
+      ).toHaveLength(3);
+      expect(
+        await lifecycle.hasTurnBoundPendingThreadInteraction(thread.id),
+      ).toBe(true);
+
+      await harness.db.transaction(
+        async (tx) =>
+          await lifecycle.completeResolvingInteractionInTransaction(
+            { db: tx, hub: harness.deps.hub },
+            {
+              interactionId: approval.interaction.id,
+              resolution: createAllowOnceResolution(),
+            },
+          ),
       );
 
-      harness.db.transaction((tx) =>
-        lifecycle.completeResolvingInteractionInTransaction(
-          { db: tx, hub: harness.deps.hub },
-          {
-            interactionId: approval.interaction.id,
-            resolution: createAllowOnceResolution(),
-          },
-        ),
-      );
-
-      expect(lifecycle.hasTurnBoundPendingThreadInteraction(thread.id)).toBe(
-        false,
-      );
+      expect(
+        await lifecycle.hasTurnBoundPendingThreadInteraction(thread.id),
+      ).toBe(false);
       expect(notifyThread).toHaveBeenLastCalledWith(
         thread.id,
         ["interactions-changed"],
         expect.objectContaining({ hasPendingInteraction: true }),
       );
 
-      lifecycle.interruptPluginInteractions("secrets");
+      await lifecycle.interruptPluginInteractions("secrets");
       await expect(Promise.all([olderCard, newerCard])).resolves.toEqual([
         { outcome: "cancelled", reason: "plugin-disposed" },
         { outcome: "cancelled", reason: "plugin-disposed" },
@@ -1997,23 +2088,23 @@ describe("pending interaction lifecycle", () => {
 
   it("rejects command approvals with no available decisions", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-pending-interaction-empty-decisions",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
 
       expect(
-        registerPendingInteraction(
+        await registerPendingInteraction(
           harness.deps,
           harness.deps.pendingInteractions,
           {
@@ -2041,14 +2132,18 @@ describe("pending interaction lifecycle", () => {
 
 it("rejects a late answer when an abort callback settled the waiter but failed to update storage", async () => {
   await withTestHarness(async (harness) => {
-    const thread = seedPluginInteractionThread(harness.deps, "orphan");
+    const thread = await seedPluginInteractionThread(harness.deps, "orphan");
     const controller = new AbortController();
-    const pending = requestPluginInteraction(harness.deps, {
-      threadId: thread.id,
-      signal: controller.signal,
-    });
+    const pending = (
+      await requestPluginInteraction(harness.deps, {
+        threadId: thread.id,
+        signal: controller.signal,
+      })
+    ).response;
     const [interaction] =
-      harness.deps.pendingInteractions.listPendingThreadInteractions(thread.id);
+      await harness.deps.pendingInteractions.listPendingThreadInteractions(
+        thread.id,
+      );
     const cancel = vi
       .spyOn(harness.deps.pendingInteractions, "cancelPluginInteraction")
       .mockImplementationOnce(() => {
@@ -2068,7 +2163,7 @@ it("rejects a late answer when an abort callback settled the waiter but failed t
       }),
     ).rejects.toThrow();
     expect(
-      harness.deps.pendingInteractions.getThreadInteraction({
+      await harness.deps.pendingInteractions.getThreadInteraction({
         threadId: thread.id,
         interactionId: interaction!.id,
       }),

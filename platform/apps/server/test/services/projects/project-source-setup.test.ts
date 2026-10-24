@@ -19,11 +19,13 @@ describe("automatic project source setup", () => {
     "serializes concurrent setup of a %s target",
     async (target) => {
       await withTestHarness(async (harness) => {
-        const original = seedHostSession(harness.deps, {
+        const original = await seedHostSession(harness.deps, {
           id: "source-original",
         });
-        const fresh = seedHostSession(harness.deps, { id: "source-fresh" });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const fresh = await seedHostSession(harness.deps, {
+          id: "source-fresh",
+        });
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: original.host.id,
         });
         const args = {
@@ -52,7 +54,7 @@ describe("automatic project source setup", () => {
           projectSlug: `project-${project.id}`,
         });
         expect(
-          listQueuedCommands(harness, "project.clone_default_path"),
+          await listQueuedCommands(harness, "project.clone_default_path"),
         ).toHaveLength(1);
         await reportQueuedCommandSuccess(harness, defaultPath, {
           path: targetPath,
@@ -69,7 +71,9 @@ describe("automatic project source setup", () => {
             harness,
             ({ command }) => command.type === "project.clone",
           );
-          expect(listQueuedCommands(harness, "project.clone")).toHaveLength(1);
+          expect(
+            await listQueuedCommands(harness, "project.clone"),
+          ).toHaveLength(1);
           expect(clone.command).toMatchObject({ remoteUrl, targetPath });
           if (clone.command.type !== "project.clone")
             throw new Error("Expected clone");
@@ -82,13 +86,17 @@ describe("automatic project source setup", () => {
               status: null,
             },
           };
-          reportEnvironmentHookProgress(
+          await reportEnvironmentHookProgress(
             harness.deps,
             original.host.id,
             progress,
           );
           for (const log of logs) expect(log).not.toHaveBeenCalled();
-          reportEnvironmentHookProgress(harness.deps, fresh.host.id, progress);
+          await reportEnvironmentHookProgress(
+            harness.deps,
+            fresh.host.id,
+            progress,
+          );
           expect(logs[0]).toHaveBeenCalledExactlyOnceWith(
             "Receiving objects: 42%\n",
           );
@@ -98,7 +106,11 @@ describe("automatic project source setup", () => {
             gitRemoteUrl: remoteUrl,
           });
           await setup;
-          reportEnvironmentHookProgress(harness.deps, fresh.host.id, progress);
+          await reportEnvironmentHookProgress(
+            harness.deps,
+            fresh.host.id,
+            progress,
+          );
           expect(logs[0]).toHaveBeenCalledTimes(1);
           expect(logs[1]).not.toHaveBeenCalled();
         } else {
@@ -107,9 +119,11 @@ describe("automatic project source setup", () => {
             ({ command }) => command.type === "project.inspect",
           );
           expect(
-            getProjectSourceByHost(harness.db, project.id, fresh.host.id),
+            await getProjectSourceByHost(harness.db, project.id, fresh.host.id),
           ).toBeNull();
-          expect(listQueuedCommands(harness, "project.clone")).toEqual([]);
+          expect(await listQueuedCommands(harness, "project.clone")).toEqual(
+            [],
+          );
           await reportQueuedCommandSuccess(harness, inspect, {
             path: targetPath,
             gitRemoteUrl:
@@ -120,7 +134,7 @@ describe("automatic project source setup", () => {
         }
         const results = await setup;
         expect(
-          projectSourceOwnsPath(
+          await projectSourceOwnsPath(
             harness.db,
             project.id,
             fresh.host.id,
@@ -143,11 +157,11 @@ describe("automatic project source setup", () => {
             },
           ]);
           expect(
-            getProjectSourceByHost(harness.db, project.id, fresh.host.id),
+            await getProjectSourceByHost(harness.db, project.id, fresh.host.id),
           ).toBeNull();
           return;
         }
-        const source = getProjectSourceByHost(
+        const source = await getProjectSourceByHost(
           harness.db,
           project.id,
           fresh.host.id,
@@ -163,9 +177,9 @@ describe("automatic project source setup", () => {
             projectName: "Renamed project",
           }),
         ).resolves.toEqual(source);
-        expect(listQueuedCommands(harness, "project.clone")).toEqual([]);
+        expect(await listQueuedCommands(harness, "project.clone")).toEqual([]);
         expect(
-          listQueuedCommands(harness, "project.clone_default_path"),
+          await listQueuedCommands(harness, "project.clone_default_path"),
         ).toEqual([]);
       });
     },
@@ -174,9 +188,13 @@ describe("automatic project source setup", () => {
 
 it("does not register a checkout or dispatch a turn after private repository authentication fails", async () => {
   await withTestHarness(async (harness) => {
-    const source = seedHostSession(harness.deps, { id: "private-source" });
-    const target = seedHostSession(harness.deps, { id: "private-target" });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const source = await seedHostSession(harness.deps, {
+      id: "private-source",
+    });
+    const target = await seedHostSession(harness.deps, {
+      id: "private-target",
+    });
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: source.host.id,
     });
     const log = vi.fn();
@@ -213,15 +231,15 @@ it("does not register a checkout or dispatch a turn after private repository aut
     expect(await result).toBe("checkout failed");
     if (clone.command.type !== "project.clone")
       throw new Error("Expected clone");
-    reportEnvironmentHookProgress(harness.deps, target.host.id, {
+    await reportEnvironmentHookProgress(harness.deps, target.host.id, {
       type: "environment.hook.progress",
       operationId: clone.command.operationId,
       entry: { type: "output", text: "late output", status: null },
     });
     expect(log).not.toHaveBeenCalled();
     expect(
-      getProjectSourceByHost(harness.db, project.id, target.host.id),
+      await getProjectSourceByHost(harness.db, project.id, target.host.id),
     ).toBeNull();
-    expect(listQueuedCommands(harness, "thread.start")).toEqual([]);
+    expect(await listQueuedCommands(harness, "thread.start")).toEqual([]);
   });
 });
