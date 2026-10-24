@@ -898,7 +898,7 @@ owner = "app"
 
 [task.7.18]
 title = "Fix: the index pass's resolve phase holds the graph write lock in one transaction for the whole pass"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.15"]
 touches = ["src/scan.c", "src/semantic.c", "src/sem_routes.c", "src/progress.c", "src/index_chunks.h", "src/resolve.c", "src/sem_channels.c", "src/sem_dispatch.c", "src/sem_imports.c", "src/sem_incremental.c", "src/sem_resolve.c", "src/sem_types.c", "tests/hyperfide/cases/v22/7_18.sh"]
