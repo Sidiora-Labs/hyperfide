@@ -24,6 +24,7 @@ const UNPREFIXED_BUNDLED_PLUGIN_IDS = [
   "github",
   "hyperfide-ai",
   "hyperfide-asks",
+  "hyperfide-dispatch",
   "hyperfide-environment-slices",
   "hyperfide-graph",
   "hyperfide-guide",

@@ -3,6 +3,10 @@
   "globalEnv": ["HYPERFIDE_BUILD_TOOLCHAIN"],
   "globalPassThroughEnv": ["npm_config_store_dir", "pnpm_config_store_dir"],
   "tasks": {
+    "@hyperfide/hyperfide-dispatch#prepare:bundled": {
+      "dependsOn": ["@hyperfide/plugin-build#build", "^build", "topo"],
+      "outputs": [".bundled-runtime/**"]
+    },
     "@hyperfide/hyperfide-asks#prepare:bundled": {
       "dependsOn": ["@hyperfide/plugin-build#build", "^build", "topo"],
       "outputs": [".bundled-runtime/**"]
