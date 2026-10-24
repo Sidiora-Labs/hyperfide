@@ -52,6 +52,7 @@ export interface ServerConfig
   HYPERFIDE_APP_URL: string;
   HYPERFIDE_APP_SURFACE: AppSurface;
   HYPERFIDE_APP_VERSION: string;
+  HYPERFIDE_APP_UPDATE_PACKAGE?: string;
   HYPERFIDE_DEV_APP_PORT?: number;
   HYPERFIDE_EXTERNAL_URL: string;
   HYPERFIDE_HOST_DAEMON_PORT: number;
@@ -227,6 +228,30 @@ export function loadServerConfig(
       context: loader.context,
       definition: HYPERFIDE_SERVER_LAUNCH_ID_ENV,
       env: loader.env,
+    }),
+  });
+
+  assignIfDefined({
+    key: "HYPERFIDE_APP_UPDATE_PACKAGE",
+    target: config,
+    value: readOptionalEnvVar({
+      context: loader.context,
+      env: loader.env,
+      definition: {
+        name: "HYPERFIDE_APP_UPDATE_PACKAGE",
+        description:
+          "Optional npm package used for update checks; unset disables remote checks.",
+        parse({ value }) {
+          if (
+            !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/.test(value)
+          ) {
+            throw new Error(
+              "HYPERFIDE_APP_UPDATE_PACKAGE must be an npm package name",
+            );
+          }
+          return value;
+        },
+      },
     }),
   });
 

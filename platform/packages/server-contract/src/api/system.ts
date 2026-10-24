@@ -378,10 +378,10 @@ export const systemVersionResponseSchema = z.object({
   installKind: z.enum(["desktop", "npm", "source"]).nullable(),
   currentVersion: z.string(),
   latestVersion: z.string().nullable(),
-  source: z.literal("npm"),
+  source: z.enum(["desktop", "npm", "source"]).nullable(),
   updateAvailable: z.boolean(),
   isDevelopment: z.boolean(),
-  upgradeCommand: z.string(),
+  upgradeCommand: z.string().nullable(),
 });
 export type SystemVersionResponse = z.infer<typeof systemVersionResponseSchema>;
 

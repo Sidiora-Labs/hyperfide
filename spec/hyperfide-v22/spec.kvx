@@ -884,7 +884,7 @@ owner = "qualification"
 
 [task.7.17]
 title = "Fix: the system version endpoint blocks boot on a public npm lookup for a package that is not ours"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/apps/server/src/services/system/app-version.ts", "platform/apps/server/src/services/system/app-version.test.ts", "platform/apps/server/src/services/system/app-update.ts", "platform/apps/server/src/routes/system.ts", "platform/apps/server/src/types.ts", "platform/apps/server/src/start-server.ts", "platform/packages/config/src/server.ts", "platform/packages/server-contract/src/api/system.ts", "platform/apps/app/src/components/settings/UpdatesSettingsSection.tsx", "platform/apps/app/src/components/settings/UpdatesSettingsSection.stories.tsx", "tests/hyperfide/cases/v22/7_17.sh"]

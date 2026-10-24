@@ -246,6 +246,13 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
   await pendingInteractions.start();
   setPluginToolCallRegistry(new PluginToolCallRegistry({ logger }));
 
+  const updatePackage = serverConfig.HYPERFIDE_APP_UPDATE_PACKAGE;
+  if (updatePackage !== undefined) {
+    runtimeConfig.updateChannel = {
+      url: `https://registry.npmjs.org/${encodeURIComponent(updatePackage)}/latest`,
+      upgradeCommand: `npx ${updatePackage}@latest`,
+    };
+  }
   const appVersion = createAppVersionService({
     installKind: serverConfig.HYPERFIDE_APP_INSTALL_KIND ?? null,
     sourceCommit: serverConfig.HYPERFIDE_APP_SOURCE_COMMIT ?? null,

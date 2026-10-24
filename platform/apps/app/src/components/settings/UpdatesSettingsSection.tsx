@@ -809,7 +809,12 @@ export function HyperfideAppUpdateRows({
         onClick={onRetryAppCheck}
       />
     );
-  const row: HyperfideAppRowRenderer = (name, indicator, caption, description) => (
+  const row: HyperfideAppRowRenderer = (
+    name,
+    indicator,
+    caption,
+    description,
+  ) => (
     <UpdatesRow
       leading={
         <span data-hyperfide-update-role="app" aria-hidden>
@@ -911,6 +916,24 @@ export function HyperfideAppUpdateRows({
   }
 
   if (
+    systemVersion !== undefined &&
+    systemVersion.installKind !== "source" &&
+    systemVersion.latestVersion === null &&
+    systemVersion.upgradeCommand === null
+  ) {
+    return row(
+      <RowName
+        name={rowName}
+        current={systemVersion.currentVersion}
+        latest={null}
+      />,
+      null,
+      undefined,
+      "No update channel configured.",
+    );
+  }
+
+  if (
     appUpdate !== undefined &&
     (appUpdate.support.kind === "supported" ||
       appUpdate.desktopUpdateSupported === true)
@@ -977,7 +1000,7 @@ export function HyperfideAppUpdateRows({
     />
   );
 
-  if (systemVersion.updateAvailable) {
+  if (systemVersion.updateAvailable && systemVersion.upgradeCommand !== null) {
     if (desktopHostedServer) {
       return row(name, <RowStateControl state="update-available" />);
     }
@@ -989,7 +1012,7 @@ export function HyperfideAppUpdateRows({
         actionLabel="Copy the upgrade command"
         actionTooltip="Copy command"
         onClick={() => {
-          void copyToClipboardWithToast(systemVersion.upgradeCommand, {
+          void copyToClipboardWithToast(systemVersion.upgradeCommand ?? "", {
             successMessage: "Upgrade command copied",
             errorMessage: "Couldn't copy upgrade command",
           });
@@ -1470,7 +1493,9 @@ function MachineRowNote({
   if (daemon === "updating") {
     return (
       <>
-        <RowStateCaption state="in-progress">Updating Hyperfide</RowStateCaption>
+        <RowStateCaption state="in-progress">
+          Updating Hyperfide
+        </RowStateCaption>
         <RowStateControl live state="in-progress" />
       </>
     );
@@ -1957,7 +1982,9 @@ export function ProviderCliUpdatesSection({
   );
 }
 
-function desktopRowNeedsAttention(desktopInfo: HyperfideDesktopInfo | null): boolean {
+function desktopRowNeedsAttention(
+  desktopInfo: HyperfideDesktopInfo | null,
+): boolean {
   if (desktopInfo === null) {
     return false;
   }
