@@ -943,7 +943,7 @@ owner = "machines"
 
 [task.7.21]
 title = "Import prior Claude Code and Codex sessions from the host into threads the app lists, shows and resumes"
-status = "pending"
+status = "blocked"
 wave = 7
 requires = ["7.9"]
 touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/apps/server/src/routes/threads/**", "platform/packages/server-contract/src/api/**", "platform/apps/cli/src/commands/thread/**", "platform/plugins/provider-claude-code/src/**", "platform/plugins/provider-codex/src/**", "platform/apps/app/src/components/settings/**", "tests/hyperfide/cases/v22/7_21.sh"]
@@ -953,3 +953,4 @@ do_2 = "A session import service discovers sources on the host daemon's machine 
 do_3 = "Tests use the existing __fixtures__/transcripts streams plus small redacted synthetic fixtures (one Claude session file with a subagent sidechain, one Codex rollout, together under 200 KB) and assert the thread, title, project mapping, event sequence, child thread and idempotency. 7_21.sh runs the server, cli and both provider typechecks and tests, boots the built server the way 7_7.sh does with HOME pointing at a temporary directory holding the fixtures, runs `thread import --json` twice and asserts the first run lists the expected titles and provider ids and the second imports 0; it prints each step's seconds and exit code and ends with `ok: 7.21`."
 reqs = ["8.5"]
 owner = "app"
+blocked_ask = "3"

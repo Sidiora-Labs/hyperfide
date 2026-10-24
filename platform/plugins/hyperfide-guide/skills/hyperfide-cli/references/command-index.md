@@ -167,6 +167,7 @@ This index lists every command path that the core CLI registers, including alias
 - `hyperfide-platform thread section delete`
 - `hyperfide-platform thread search`
 - `hyperfide-platform thread history`
+- `hyperfide-platform thread import`
 - `hyperfide-platform thread read`
 - `hyperfide-platform thread unread`
 - `hyperfide-platform thread reorder-pinned`

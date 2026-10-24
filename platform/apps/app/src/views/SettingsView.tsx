@@ -69,6 +69,7 @@ import { VoiceInputSettingsSection } from "@/components/settings/VoiceInputSetti
 import { AiServicesSettingsSection } from "@/components/settings/AiServicesSettingsSection";
 import { CommunitySettingsSection } from "@/components/settings/CommunitySettingsSection";
 import { UpdatesSettingsSection } from "@/components/settings/UpdatesSettingsSection";
+import { ImportSessionsSettingsSection } from "@/components/settings/ImportSessionsSettingsSection";
 import { KeyboardSettingsSection } from "@/components/settings/KeyboardSettingsSection";
 import { BrowserSettingsSection } from "@/components/settings/BrowserSettingsSection";
 import { MachinesSettingsSection } from "@/components/settings/MachinesSettingsSection";
@@ -1402,6 +1403,8 @@ export function SettingsView() {
     content = <MarketplacesSettingsSection />;
   } else if (activeSection === "community") {
     content = <CommunitySettingsSection />;
+  } else if (activeSection === "import-sessions") {
+    content = <ImportSessionsSettingsSection />;
   } else if (activeSection === "archived") {
     content = <ArchivedThreadsSettingsSection />;
   } else {
