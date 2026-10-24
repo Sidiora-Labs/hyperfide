@@ -52,9 +52,9 @@ Cancellation terminates the detached process group and escalates to SIGKILL befo
 cleaning up the environment. Lane records retain commit, environment id/path,
 command, exit, signal, elapsed milliseconds and toolchain versions in memory.
 
-`adapter.ts` composes the real spec model (`featureFromKvx`) with the platform's
-Git worktree provider (`createWorktree` and `removeWorktree`). Each lane gets a
-unique branch based on HEAD; cleanup removes both the worktree and its branch.
+`adapter.ts` composes the real spec model (`featureFromKvx`) with a
+server-safe Git worktree adapter. Each lane gets a detached snapshot of HEAD;
+cleanup removes the worktree without creating or mutating branches.
 Node 24 and Corepack pnpm 9.15.0 are pinned
 and checked before execution. PostgreSQL wrapping uses the checked-out repository's
 `tests/hyperfide/support/withpg.py`. Tests use temporary committed repositories

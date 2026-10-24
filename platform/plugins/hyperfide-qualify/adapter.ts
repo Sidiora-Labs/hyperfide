@@ -5,7 +5,6 @@ import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { featureFromKvx } from '../hyperfide-spec/src/kvx.js';
-import { createWorktree, removeWorktree } from '../environment-git-worktree/host/worktree.js';
 export const runBinary = promisify(execFile);
 export interface ManagedEnvironment { id: string; path: string; variables: NodeJS.ProcessEnv; release(): Promise<void> }
 export interface QualificationAdapter {
@@ -33,7 +32,8 @@ export function createQualificationAdapter(binary = process.env.HYPERFIDE_BINARY
       const path = join(root, 'worktree');
       let created = false;
       try {
-        await createWorktree({sourcePath: repository, targetPath: path, completionPath: join(root, 'complete'), ownWorktreesRoot: root, branchName: `hyperfide-qualify-${lane}`, baseBranch: 'HEAD', branchMode: 'reset'});
+        // Qualification needs a committed snapshot, with no host runtime or branch mutation.
+        await runBinary('git', ['worktree', 'add', '--detach', path, 'HEAD'], {cwd: repository});
         created = true;
         const bin = join(root, 'bin');
         await mkdir(bin);
@@ -42,14 +42,12 @@ export function createQualificationAdapter(binary = process.env.HYPERFIDE_BINARY
         return {id: `hyperfide-worktree-${lane}`, path,
           variables: {...process.env, PATH: `${bin}:${dirname(process.execPath)}:${process.env.PATH ?? ''}`},
           async release() {
-            await removeWorktree({path});
-            await runBinary('git', ['branch', '-D', `hyperfide-qualify-${lane}`], {cwd: repository});
+            await runBinary('git', ['worktree', 'remove', '--force', path], {cwd: repository});
             await rm(root, {recursive: true, force: true});
           }};
       } catch (error) {
         try {
-          await removeWorktree({path});
-          if (created) await runBinary('git', ['branch', '-D', `hyperfide-qualify-${lane}`], {cwd: repository});
+          if (created) await runBinary('git', ['worktree', 'remove', '--force', path], {cwd: repository});
         } finally {
           await rm(root, {recursive: true, force: true});
         }
