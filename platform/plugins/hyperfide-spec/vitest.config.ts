@@ -1,5 +1,9 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: { name: "hyperfide-spec", include: ["src/**/*.test.ts", "*.test.ts"] },
+  resolve: { tsconfigPaths: true },
+  test: {
+    name: "hyperfide-spec",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "*.test.ts"],
+  },
 });
