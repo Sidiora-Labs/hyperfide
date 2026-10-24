@@ -759,3 +759,40 @@ do_2 = "Any defect found becomes a fix task in wave 7 before the feature closes.
 do_3 = "7_6.sh validates human-gate.json (fields present, commit reachable, verdict pass) and that it is newer than the release commit."
 reqs = ["8.5"]
 owner = "human"
+
+[task.7.7]
+title = "Fix: qualify plugin server entry imports a host-only module"
+status = "pending"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/environment-git-worktree/**", "platform/packages/environment-provider-host/**", "tests/hyperfide/cases/v22/7_7.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_7.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): the bundled hyperfide-qualify server entry (platform/packages/bundled-plugins/dist/hyperfide-qualify/server.js) fails to load with `Cannot find package '@hyperfide/plugin-sdk'`. Cause: platform/plugins/hyperfide-qualify/adapter.ts imports createWorktree and removeWorktree from ../environment-git-worktree/host/worktree.js, a host-only module that drags `@hyperfide/plugin-sdk/host` and packages/environment-provider-host/src/git.ts into the server bundle, and the server runtime (apps/server/src/services/plugins/plugin-runtime.ts, pluginRuntimeExternalUrls) redirects only the bare `@hyperfide/plugin-sdk` specifier. Fix: the qualify server entry imports no host-only module; lane worktree creation and removal go through the environment-git-worktree provider contract on the host side (or a server-safe equivalent), so the prepared server bundle imports only `@hyperfide/plugin-sdk`, Node APIs and bundled dependencies."
+do_2 = "A unit test in the plugin suite asserts that the prepared server bundle (prepare.mjs output) contains no `@hyperfide/plugin-sdk/` subpath import, so the regression cannot return silently."
+do_3 = "7_7.sh boots platform/apps/server/dist/index.js (building first if dist is missing) with NODE_ENV=production, HYPERFIDE_SKIP_ONBOARDING=true, HYPERFIDE_SERVER_BIND_HOST=127.0.0.1, a free port and a temporary HYPERFIDE_DATA_DIR as the scripts/release.sh smoke does, waits for /health, and asserts with `hyperfide-platform plugin list --json` (HYPERFIDE_SERVER_URL set) that hyperfide-qualify is running without an error, and that the server log under the data dir carries no `plugin hyperfide-qualify failed to load` line."
+reqs = ["5.1"]
+owner = "qualification"
+
+[task.7.8]
+title = "Fix: environment-slices host entry rejected by the private-import guard"
+status = "pending"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/packages/plugin-build/src/build-plugin-host.ts", "platform/packages/plugin-build/src/build-plugin-host.test.ts", "platform/plugins/environment-slices/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "tests/hyperfide/cases/v22/7_8.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_8.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): hyperfide-environment-slices fails to load with `host entries cannot import private HYPERFIDE workspace package '@hyperfide/hyperfide-environment-slices'`. Cause: the reject-private-hyperfide-host-imports guard in platform/packages/plugin-build/src/build-plugin-host.ts rejects every loaded file whose owning package.json name starts with @hyperfide/ (isPrivateWorkspacePackage), and the plugin's own package is named @hyperfide/hyperfide-environment-slices while every other plugin with a host entry is named hyperfide-plugin-*. Fix (recommended): the guard exempts the plugin being built (files under its own root and its own package name) and keeps rejecting every other private @hyperfide/* package; build-plugin-host.test.ts covers a scoped plugin whose host entry imports only its own files and the SDK. Alternative: rename the package to hyperfide-plugin-environment-slices and update platform/packages/bundled-plugins/package.json and the registry entry accordingly."
+do_2 = "7_8.sh boots the built server exactly as 7_7.sh does and asserts with `hyperfide-platform plugin list --json` that hyperfide-environment-slices is running without an error, and that the server log under the data dir carries no `plugin hyperfide-environment-slices failed to load` line."
+reqs = ["8.1"]
+owner = "source"
+
+[task.7.9]
+title = "Fix: dispatch plugin wired into the server as a bundled builtin"
+status = "pending"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "platform/turbo.json", "platform/pnpm-lock.yaml", "tests/hyperfide/cases/v22/7_9.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_9.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): the running 2.2.0 server registers no dispatch plugin. platform/plugins/hyperfide-dispatch has no `hyperfide` manifest block and no prepare:bundled script, is absent from platform/packages/bundled-plugins/package.json and from BUILTIN_PLUGINS and OFFICIAL_PLUGINS in apps/server/src/services/plugins/builtin-registry.ts, and its server.ts exports a createFleetPlugin(backend) factory that nothing in the server calls. Fix: the plugin gets a manifest (a server entry that builds the FleetBackend from the registered machine providers and the spec read model and registers the fleet and image-builder RPC; app entry ./app.tsx), a prepare:bundled script through the plugin-build CLI, a dependency in bundled-plugins/package.json and a BUILTIN_PLUGINS entry (pluginId hyperfide-dispatch, defaultEnabled true), so `pnpm -C platform build` ships it and the server loads it; platform/pnpm-lock.yaml follows and a frozen install proves it settled."
+do_2 = "7_9.sh boots the built server as 7_7.sh does and asserts with `hyperfide-platform plugin list --json` that hyperfide-dispatch is running without an error and that `hyperfide-platform plugin rpc list hyperfide-dispatch` lists the fleet RPC methods; `bash tests/hyperfide/cases/v22/5_4.sh` still passes."
+reqs = ["6.4"]
+owner = "fleet"
