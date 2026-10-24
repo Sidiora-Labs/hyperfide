@@ -663,6 +663,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/6_4.sh"
 do_1 = "Several host daemons register with one server with operator-issued enrollment tokens recorded on the authority; the machine bootstrap enrolls a sandbox as a host so its threads run there; the dispatcher schedules across hosts by capacity."
 do_2 = "Host loss is detected and its jobs are retried elsewhere once; the app shows hosts with capacity and jobs."
 do_3 = "6_4.sh runs the multi-host tests with two daemons in-process and the fake machine provider (enrollment, scheduling, loss and retry) plus identity_gate.py --changed."
+do_4 = "Baseline repair recorded on 2026-10-25 by the feature manager: the machine-railway verify call (railwayVerify, the plugin page Verify button) failed against the live Railway API with a schema error because the identity query asked for the project under Environment, which the public schema exposes only as projectId; railwayIdentity now reads the environment name and projectId and resolves the project name with a second query by id, status.test.ts covers both requests, and the live call on the host reports the project and environment names."
 reqs = ["7.4"]
 owner = "authority"
 
@@ -957,3 +958,17 @@ do_4 = "Permission answered on 2026-10-24 by the feature manager (the worker ASK
 do_5 = "Baseline repair recorded on 2026-10-25 by the feature manager: the live import of 1,638 host sessions left one Claude Code session and its seven subagents unimported because a single torn transcript line (two records written over each other by the provider) made records() throw Invalid JSON and abort the whole session; records() now yields an empty record for an unparsable interior line, the unterminated-last-line deferral is unchanged, and service.test.ts covers the torn-record case."
 reqs = ["8.5"]
 owner = "app"
+
+[task.7.22]
+title = "Desktop shell signs in to a hyperfide-platform server behind HTTP basic authentication"
+status = "pending"
+wave = 7
+requires = []
+touches = ["platform/apps/desktop/src/**", "platform/apps/desktop/test/**", "platform/apps/desktop/README.md", "platform/packages/desktop-contract/src/**", "tests/hyperfide/cases/v22/7_22.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_22.sh"
+do_1 = "Gap found on 2026-10-24 at the owner's first desktop install: the published server sits behind an nginx HTTP basic-authentication gate, the shell probes /health and /api/v1/system/config with a bare fetch, so a 401 is reported as an incompatible or unreachable server and the window never gets past the startup error; Electron's app login event is not handled anywhere in platform/apps/desktop, so the renderer cannot answer the browser challenge either."
+do_2 = "The shell answers HTTP basic challenges: when the app login event fires for a server origin, saved credentials for that origin are answered once; with none saved, or after a failed attempt, a small modal credentials window (the server-url-dialog pattern: BrowserWindow, preload, typed IPC) collects username and password with a remember option; remembered credentials are stored per origin encrypted with Electron safeStorage under the user data directory, never in plain text and never logged or shown in error text; every shell-side fetch to that origin (server probe, system config, update feed) carries the Authorization header; the probe reports the kind auth-required on a 401 so the server-url and existing-server dialogs ask for credentials before the server is saved; cancel returns to the server chooser."
+do_3 = "Tests: vitest units for the probe (401 without credentials gives auth-required, with credentials the header is sent and the probe succeeds), for the login decision (saved credentials answered once, a repeated challenge for the same origin prompts, cancel aborts the load) and for the credential store round trip with a fake safeStorage; the verify script typechecks, tests and builds the desktop package and asserts that the login handler, the auth-required kind and the safeStorage use exist and that no log call carries a password."
+reqs = ["1.1"]
+owner = "app"
+
