@@ -1,4 +1,5 @@
 import { rpcInvalidationTags } from "@hyperfide/plugin-sdk/internal/rpc-tags";
+import { sandboxProvider } from "../hosts/sandbox-provider.js";
 import type { ContractTagDeclarations } from "@hyperfide/domain";
 import {
   environmentCompositionSchema,
@@ -1354,6 +1355,10 @@ export function createPluginApi(options: {
     },
   };
   const experimental_machines: PluginMachines = {
+    getSandboxProvider(id) {
+      assertLive();
+      return sandboxProvider(id);
+    },
     ...createMachineBootstrapApi(enrollmentApi),
     async getResource(hostId) {
       assertLive();

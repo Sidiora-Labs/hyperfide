@@ -1,5 +1,6 @@
 import { Sandbox, type CreateOptions, type ExecOptions, type ExecResult } from "railway";
 import WebSocket from "ws";
+import type { PluginMachineProviderDefinition } from "@hyperfide/plugin-sdk/machine-provider";
 
 export interface SandboxMachineCapabilities { checkpoint: boolean; list: boolean }
 export interface SandboxMachineCreateOptions { fromCheckpoint?: string; cpu?: number; memoryMiB?: number; idleTimeoutSec?: number; env?: Record<string, string>; name?: string; region?: string }
@@ -14,7 +15,7 @@ export interface SandboxMachine {
   checkpoint(name: string): Promise<{ name: string }>;
   destroy(): Promise<void>;
 }
-export interface SandboxMachineOps {
+export interface SandboxMachineOps extends NonNullable<PluginMachineProviderDefinition["sandbox"]> {
   readonly providerId: string;
   readonly capabilities: SandboxMachineCapabilities;
   create(options: SandboxMachineCreateOptions): Promise<SandboxMachine>;
