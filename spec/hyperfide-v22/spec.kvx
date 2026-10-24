@@ -859,7 +859,7 @@ owner = "app"
 
 [task.7.15]
 title = "Fix: the per-file semantic route purge scans every edge and FTS row on each indexed file"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.4"]
 touches = ["src/sem_routes.c", "src/semantic.c", "src/graph.c", "src/index.c", "tests/hyperfide/cases/v22/7_15.sh"]
