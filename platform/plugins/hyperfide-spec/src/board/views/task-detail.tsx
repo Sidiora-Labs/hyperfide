@@ -58,13 +58,11 @@ export function TaskDetail({
   task,
   tasks,
   pending,
-  onBack,
   onAction,
 }: {
   task: Task;
   tasks: Task[];
   pending: boolean;
-  onBack: () => void;
   onAction: (action: BoardAction) => void;
 }) {
   const blocks = tasks.filter(candidate => candidate.requires.includes(task.id));
@@ -73,10 +71,6 @@ export function TaskDetail({
   const decisions = task.recalledDecisions ?? [];
   return (
     <div className="space-y-4" aria-busy={pending || undefined}>
-      <Button type="button" variant="ghost" size="sm" className="-ml-2 text-muted-foreground" onClick={onBack}>
-        <Icon name="ChevronLeft" aria-hidden />
-        Board
-      </Button>
       <ResourceDetailPage
         leading={<TaskStatusIcon status={task.status} />}
         title={task.title}

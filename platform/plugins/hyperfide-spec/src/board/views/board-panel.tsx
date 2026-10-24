@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
-import { useRpc, type PluginNavPanelProps } from '@hyperfide/plugin-sdk/app';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useHyperfideNavigate, useRpc, type PluginNavPanelProps } from '@hyperfide/plugin-sdk/app';
 import { DelayedLoading } from '@/components/ui/delayed-loading';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/resource-list';
 import { boardContract } from '../contract.js';
 import { statuses, type BoardAction, type Task } from '../model.js';
+import { PANEL_PATH, parseBoardSubPath, taskSubPath } from './board-route.js';
 import { requiresSatisfied, statusPresentation, taskSearchValues } from './task-presentation.js';
 import { TaskDetail } from './task-detail.js';
 import { TaskRow } from './task-row.js';
@@ -84,14 +85,16 @@ function ScopeFields({
 
 const STATUS_ORDER = new Map(statuses.map((status, index) => [status, index]));
 
-export function BoardPanel(_props: PluginNavPanelProps) {
+export function BoardPanel({ subPath }: PluginNavPanelProps) {
   const rpc = useRpc<typeof boardContract>();
+  const navigate = useHyperfideNavigate();
+  const routeTaskId = parseBoardSubPath(subPath)?.taskId ?? null;
   const [repository, setRepository] = useState('');
   const [feature, setFeature] = useState('');
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState('');
   const [generation, setGeneration] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const detailLoaded = useRef(new Set<string>());
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState('');
   const [ownerFilters, setOwnerFilters] = useState<string[]>([]);
@@ -104,7 +107,7 @@ export function BoardPanel(_props: PluginNavPanelProps) {
     if (next.feature !== undefined) setFeature(next.feature);
     setTasks(null);
     setError('');
-    setSelectedId(null);
+    detailLoaded.current.clear();
   }, []);
 
   useEffect(() => {
@@ -126,21 +129,35 @@ export function BoardPanel(_props: PluginNavPanelProps) {
   const retry = useCallback(() => {
     setTasks(null);
     setError('');
+    detailLoaded.current.clear();
     setGeneration(current => current + 1);
   }, []);
 
-  const select = useCallback(
-    async (task: Task) => {
-      setSelectedId(task.id);
-      setError('');
-      try {
-        const detail = await rpc.call('boardTask', { repository, feature, id: task.id });
-        setTasks(rows => (rows === null ? rows : rows.map(row => (row.id === task.id ? detail : row))));
-      } catch (cause: unknown) {
-        setError(errorText(cause));
-      }
-    },
+  const loadDetail = useCallback(
+    (id: string) =>
+      rpc
+        .call('boardTask', { repository, feature, id })
+        .then(detail => {
+          setTasks(rows => (rows === null ? rows : rows.map(row => (row.id === id ? detail : row))));
+        })
+        .catch((cause: unknown) => {
+          setError(errorText(cause));
+        }),
     [rpc, repository, feature],
+  );
+
+  useEffect(() => {
+    if (routeTaskId === null || tasks === null || detailLoaded.current.has(routeTaskId)) return;
+    if (!tasks.some(task => task.id === routeTaskId)) return;
+    detailLoaded.current.add(routeTaskId);
+    void loadDetail(routeTaskId);
+  }, [routeTaskId, tasks, loadDetail]);
+
+  const open = useCallback(
+    (task: Task) => {
+      navigate.toPluginPanel(PANEL_PATH, { subPath: taskSubPath(task.id) });
+    },
+    [navigate],
   );
 
   const act = useCallback(
@@ -152,6 +169,7 @@ export function BoardPanel(_props: PluginNavPanelProps) {
         await rpc.call('boardAction', { repository, feature, id, action });
         const rows = await rpc.call('boardTasks', { repository, feature });
         const detail = await rpc.call('boardTask', { repository, feature, id }).catch(() => null);
+        detailLoaded.current.add(id);
         setTasks(detail ? rows.map(row => (row.id === id ? detail : row)) : rows);
       } catch (cause: unknown) {
         setError(errorText(cause));
@@ -193,7 +211,8 @@ export function BoardPanel(_props: PluginNavPanelProps) {
         ),
       }));
   }, [visible]);
-  const selected = selectedId === null ? null : (allTasks.find(task => task.id === selectedId) ?? null);
+  const selected = routeTaskId === null ? null : (allTasks.find(task => task.id === routeTaskId) ?? null);
+  const missingRouteTask = routeTaskId !== null && tasks !== null && selected === null;
   const hasFilters = ownerFilters.length > 0 || statusFilters.length > 0 || requirementFilters.length > 0;
 
   let body: ReactNode;
@@ -235,7 +254,7 @@ export function BoardPanel(_props: PluginNavPanelProps) {
       >
         <ResourceListPanel>
           {group.tasks.map(task => (
-            <TaskRow key={task.id} task={task} tasks={allTasks} onOpen={next => void select(next)} />
+            <TaskRow key={task.id} task={task} tasks={allTasks} onOpen={open} />
           ))}
         </ResourceListPanel>
       </ResourceDefinitionSection>
@@ -255,7 +274,6 @@ export function BoardPanel(_props: PluginNavPanelProps) {
             task={selected}
             tasks={allTasks}
             pending={pending}
-            onBack={() => setSelectedId(null)}
             onAction={action => void act(selected.id, action)}
           />
         </div>
@@ -317,6 +335,11 @@ export function BoardPanel(_props: PluginNavPanelProps) {
             onRepositoryChange={value => changeScope({ repository: value })}
             onFeatureChange={value => changeScope({ feature: value })}
           />
+          {missingRouteTask ? (
+            <p role="alert" className={ERROR_CLASS}>
+              Task {routeTaskId} is not on this board.
+            </p>
+          ) : null}
           {error && tasks !== null ? (
             <p role="alert" className={ERROR_CLASS}>
               {error}

@@ -1,3 +1,4 @@
+import { useIsCompactViewport } from '@/components/ui/hooks/use-compact-viewport';
 import { Icon } from '@/components/ui/icon';
 import { Pill } from '@/components/ui/pill';
 import { ResourceMeta, ResourceRow } from '@/components/ui/resource-list';
@@ -36,16 +37,18 @@ export function requirementsSummary(task: Task, tasks: Task[]): string {
 }
 
 export function TaskRow({ task, tasks, onOpen }: { task: Task; tasks: Task[]; onOpen: (task: Task) => void }) {
+  const compact = useIsCompactViewport();
   const touches = task.touches.length;
   return (
     <ResourceRow
       leading={<TaskStatusIcon status={task.status} />}
       title={task.title}
-      titleMeta={task.id}
+      titleMeta={compact ? undefined : task.id}
       state={<TaskStatusPill status={task.status} />}
       description={
         <ResourceMeta
           items={[
+            compact ? task.id : null,
             task.owner,
             requirementsSummary(task, tasks),
             touches > 0 ? `${touches} ${touches === 1 ? 'path' : 'paths'}` : null,

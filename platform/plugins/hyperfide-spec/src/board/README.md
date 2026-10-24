@@ -13,8 +13,10 @@ The Board navigation panel (`views/board-panel.tsx`, with `task-row.tsx` and
 `task-detail.tsx`) is a React view on the platform's shared resource kit: a
 scope panel for repository and feature, a toolbar with search and owner,
 status and requirement filters, one list section per wave, and a task detail
-page with the same Start / Implemented actions. It loads the selected
-repository and feature through SDK RPC. The server accepts repositories configured for the read model and runs
+page with the same Start / Implemented actions. Opening a task routes the
+panel to the `task/<id>` sub path (`views/board-route.ts`), so the page title
+shows breadcrumbs back to the list and browser history walks between them. It
+loads the selected repository and feature through SDK RPC. The server accepts repositories configured for the read model and runs
 reads, actions, storage and memory access in the platform server process.
 No host process is required. The server finds the latest receipt in the repository's
 task artifacts. Receipt URLs are relative to the repository;
