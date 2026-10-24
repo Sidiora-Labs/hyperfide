@@ -44,6 +44,7 @@ setup_repo() {
 [hierarchy]
 test_gate = "true"
 pr        = "manual"
+sparse    = "full"
 
 $1
 
