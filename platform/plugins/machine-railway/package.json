@@ -3,8 +3,33 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "hyperfide": { "name": "Railway machines", "description": "Run machines on Railway", "branding": { "icon": "ComputerCloud" }, "server": "./server.ts" },
-  "scripts": { "test": "vitest run", "typecheck": "tsrs --noEmit", "prepare:bundled": "node ../../packages/plugin-build/dist/cli.js prepare-bundled" },
-  "dependencies": { "railway": "3.16.0", "ws": "8.18.3" },
-  "devDependencies": { "@hyperfide/plugin-sdk": "workspace:*", "@types/node": "^22.0.0", "@types/ws": "8.18.1", "tsrs": "0.18.0-ts7.1.0-dev.20260929", "vitest": "^4.1.1" }
+  "hyperfide": {
+    "name": "Railway machines",
+    "description": "Run machines on Railway",
+    "branding": {
+      "icon": "ComputerCloud"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsrs --noEmit",
+    "prepare:bundled": "node ../../packages/plugin-build/dist/cli.js prepare-bundled"
+  },
+  "dependencies": {
+    "railway": "3.16.0",
+    "ws": "8.18.3",
+    "react": "^19.0.0",
+    "zod": "^4.3.6",
+    "@hyperfide/shared-ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/ws": "8.18.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "vitest": "^4.1.1",
+    "@types/react": "^19.0.0"
+  }
 }

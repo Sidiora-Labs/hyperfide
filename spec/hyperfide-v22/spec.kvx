@@ -927,7 +927,7 @@ owner = "platform"
 
 [task.7.20]
 title = "Fix: the Railway machines settings page shows two masked fields and nothing else, with no connection state, verification or fleet status"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["5.1"]
 touches = ["platform/plugins/machine-railway/**", "tests/hyperfide/cases/v22/7_20.sh"]
