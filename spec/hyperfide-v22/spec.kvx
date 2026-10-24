@@ -926,6 +926,7 @@ do_5 = "Tests: server-backend.test.ts covers the dispatcher starting paused with
 do_6 = "Permission granted on 2026-10-24 by the feature manager: the registered machine-provider contract may be widened, additively and capability-gated, with checkpoint creation, checkpoint-based allocation and command execution, across the plugin SDK contract files, the server plugin API and hosts services, and the Railway and Blaxel provider bridges now listed in touches. A rerun travels with the branch of the previous attempt (refs/remotes/in1/task/v22-7.19): merge it and continue rather than starting over."
 do_7 = "Recorded on 2026-10-24 by the feature manager: the rerun also had to register the new host capability in the SDK host policy and its public-types test, two consequential two-line edits now listed in touches."
 do_8 = "Baseline repair recorded on 2026-10-24 by the feature manager: the host contract exports ExperimentalSandboxOperations and ExperimentalSandboxMachine were missing from the plugin-authoring backend API index, which the server docs suite checks against the bundled declaration files; both are now listed and the index file is in touches."
+do_9 = "Baseline repair recorded on 2026-10-24 by the feature manager: the two sandbox host exports are indexed on one comma-joined line per section so references/backend-api-index.md stays at the 500-line cap that test/skills/shipped-skills-quality.test.ts enforces; the 7.21 qualification caught the 502-line overrun introduced by do_8."
 reqs = ["6.3", "6.4", "6.6"]
 owner = "platform"
 
