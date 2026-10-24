@@ -844,3 +844,15 @@ do_1 = "Defect found at the 7.6 owner test on 2026-10-24: the app sat on skeleto
 do_2 = "bridge.ts keeps one watcher per repository shared by every subscriber: a listing runs at most once per minIntervalMs (1 s) after a debounceMs (250 ms) quiet time, writes arriving during a listing coalesce into one trailing listing, and asks.changed plus the subscribers' callbacks fire only when the serialized list differs from the one last published (answer() passes through the same gate). bridge.test.ts proves that a 20-write storm costs at most 3 listings and no publish, that a real change publishes exactly once, and that two subscribers share one watcher. 7_13.sh runs the plugin typecheck and suite and the bundled-plugins build, printing timings and exit codes only."
 reqs = ["4.1"]
 owner = "app"
+
+[task.7.14]
+title = "Fix: the spec read model broadcasts its whole snapshot on every spec edit"
+status = "pending"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-spec/src/read-model-server.ts", "platform/plugins/hyperfide-spec/src/reader.ts", "platform/plugins/hyperfide-spec/src/shared/**", "platform/plugins/hyperfide-spec/src/*.test.ts", "tests/hyperfide/cases/v22/7_14.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_14.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24 while fixing 7.13: registerSpecReadModel publishes the complete SpecSnapshot (features, status and trace of every feature; 1.38 MB serialized for this repository) on the realtime channel hyperfide-spec:changed after every .kvx write under spec/, to every websocket client, although no client code subscribes to that channel; clients refresh through api.rpc.experimental_invalidateAll, which the same callback already calls. Every fleet landing therefore pushes 1.4 MB to each open tab for nothing and stalls a slow link for seconds."
+do_2 = "The change notice carries only what a subscriber needs to decide to refetch: repository, readAt, stale and error, and the ids of the features whose status or trace differ from the previous snapshot (the reader keeps the previous snapshot to diff); the full snapshot stays available over the spec RPCs and experimental_invalidateAll keeps firing. A unit test asserts the notice shape and that its serialized size stays under 4 KB for a snapshot with 60 tasks carrying trace evidence. 7_14.sh runs the hyperfide-spec typecheck and suite and the bundled-plugins build, printing timings and exit codes only."
+reqs = ["3.1"]
+owner = "app"
