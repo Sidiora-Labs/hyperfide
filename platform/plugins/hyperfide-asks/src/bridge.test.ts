@@ -38,6 +38,7 @@ beforeEach(async () => {
 const fs = require('node:fs');
 const args = process.argv.slice(2);
 const rows = JSON.parse(fs.readFileSync('store.json', 'utf8'));
+fs.appendFileSync('calls.log', args.join(' ') + '\\n');
 if (args.join(' ') === '--version') console.log('hyperfide fixture');
 else if (args.join(' ') === 'ask list --all --json') console.log(JSON.stringify({asks:rows}));
 else if (args[0] === 'ask' && args[1] === 'answer' && args.at(-1) === '--json') {
@@ -89,22 +90,72 @@ it("answers through the binary, publishes, and reads the answer journal", async 
     expect.objectContaining({ repository: root }),
   );
 });
-it("watches database and WAL changes, debounces, and disposes", async () => {
-  stop = await bridge.watch(root);
+const quickTiming = { debounceMs: 10, minIntervalMs: 40 };
+const listings = async () =>
+  (await readFile(join(root, "calls.log"), "utf8").catch(() => ""))
+    .split("\n")
+    .filter((line) => line === "ask list --all --json").length;
+it("watches database and WAL changes, coalesces write storms, and disposes", async () => {
+  const quick = new AskBridge(localGraphHost(join(root, "hyperfide")), publish, undefined, quickTiming);
+  stop = await quick.watch(root);
   await writeFile(join(root, ".codegraph/graph.db-wal"), "wal");
   await vi.waitFor(
     () => expect(publish).toHaveBeenCalledWith("asks.changed", expect.anything()),
     { timeout: 10_000 },
   );
+  expect(publish).toHaveBeenCalledTimes(1);
+  // The graph is written many times a second by indexers; a storm that leaves the asks
+  // untouched costs a couple of listings at most and publishes nothing.
   publish.mockClear();
+  const before = await listings();
+  for (let i = 0; i < 20; i++) {
+    await writeFile(join(root, ".codegraph/graph.db-wal"), `storm ${i}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  expect(publish).not.toHaveBeenCalled();
+  expect((await listings()) - before).toBeLessThanOrEqual(3);
+  // A write that changes the asks publishes exactly once.
+  await writeFile(
+    join(root, "store.json"),
+    JSON.stringify(rows.map((row) => (row.id === 2 ? { ...row, state: "answered", answer: "a" } : row))),
+  );
   await writeFile(join(root, ".codegraph/graph.db"), "db");
   await vi.waitFor(() => expect(publish).toHaveBeenCalledTimes(1), { timeout: 10_000 });
+  expect(publish.mock.calls[0]![1]).toMatchObject({
+    repository: root,
+    asks: expect.arrayContaining([expect.objectContaining({ id: 2, status: "answered" })]),
+  });
   stop();
   stop = undefined;
   publish.mockClear();
   await writeFile(join(root, ".codegraph/graph.db-wal"), "stopped");
   await new Promise((resolve) => setTimeout(resolve, 100));
   expect(publish).not.toHaveBeenCalled();
+});
+it("shares one graph watcher per repository and notifies each subscriber once per change", async () => {
+  const quick = new AskBridge(localGraphHost(join(root, "hyperfide")), publish, undefined, quickTiming);
+  const first = vi.fn();
+  const second = vi.fn();
+  const stopFirst = await quick.watch(root, first);
+  const stopSecond = await quick.watch(root, second);
+  await quick.answer(root, "1", "a");
+  expect(publish).toHaveBeenCalledTimes(1);
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(second).toHaveBeenCalledTimes(1);
+  // The WAL write made by the answer re-lists the same content: nothing more is published.
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  expect(publish).toHaveBeenCalledTimes(1);
+  stopFirst();
+  await writeFile(
+    join(root, "store.json"),
+    JSON.stringify(rows.map((row) => (row.id === 3 ? { ...row, state: "answered" } : row))),
+  );
+  await writeFile(join(root, ".codegraph/graph.db-wal"), "more");
+  await vi.waitFor(() => expect(second).toHaveBeenCalledTimes(2), { timeout: 10_000 });
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(publish).toHaveBeenCalledTimes(2);
+  stopSecond();
 });
 it("reads policy data with a complete built-in fallback", async () => {
   expect(await bridge.policy(root)).toEqual(fallbackPolicy);

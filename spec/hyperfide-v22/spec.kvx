@@ -832,3 +832,15 @@ do_1 = "Defect found at the 7.6 relaunch on 2026-10-24 (task 7.6, do_2) while di
 do_2 = "7_12.sh runs `hyperfide spec trace -f hyperfide-v22 --json --no-sync` and `--json` (default sync) on the repository with a warm graph, asserts both exit 0 with the same task set as before, and asserts the wall time is under 2 s and 5 s respectively (printing the timings); tests/hyperfide/cases for spec trace still pass."
 reqs = ["3.1"]
 owner = "source"
+
+[task.7.13]
+title = "Fix: the asks watcher re-lists and republishes on every graph write"
+status = "implemented"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-asks/src/bridge.ts", "platform/plugins/hyperfide-asks/src/bridge.test.ts", "tests/hyperfide/cases/v22/7_13.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_13.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24: the app sat on skeleton loaders for minutes behind a working HTTPS proxy. Cause: AskBridge.watch fs-watches .codegraph/graph.db and its WAL with a 40 ms debounce and no content check. The graph is the control plane and is written about ten times a second by the language server and indexers, so the server re-ran `hyperfide ask list --all --json` and broadcast the full list (39 KB) to every websocket client about 7.6 times a second (measured: 76 asks.changed signals, 3.0 MB in 10 s), sat at 50-70% CPU while idle, and pushed the boot endpoints system/config and provider-clis/status to 5-7 s."
+do_2 = "bridge.ts keeps one watcher per repository shared by every subscriber: a listing runs at most once per minIntervalMs (1 s) after a debounceMs (250 ms) quiet time, writes arriving during a listing coalesce into one trailing listing, and asks.changed plus the subscribers' callbacks fire only when the serialized list differs from the one last published (answer() passes through the same gate). bridge.test.ts proves that a 20-write storm costs at most 3 listings and no publish, that a real change publishes exactly once, and that two subscribers share one watcher. 7_13.sh runs the plugin typecheck and suite and the bundled-plugins build, printing timings and exit codes only."
+reqs = ["4.1"]
+owner = "app"
