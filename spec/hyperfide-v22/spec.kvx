@@ -162,7 +162,7 @@ owner = "port"
 
 [task.0.5]
 title = "Remove third-party telemetry"
-status = "implemented"
+status = "done"
 wave = 0
 requires = []
 touches = ["platform/packages/*-app/**", "platform/packages/scripts/**", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/packages/config/**", "tests/hyperfide/cases/v22/0_5.sh"]
