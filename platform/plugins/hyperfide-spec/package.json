@@ -30,7 +30,7 @@
     "name": "Spec",
     "description": "Repository spec tasks and waves",
     "branding": {
-      "icon": "ListChecks"
+      "icon": "ListTodo"
     },
     "server": "./src/read-model-server.ts",
     "app": "./src/board/plugin-app.ts"
