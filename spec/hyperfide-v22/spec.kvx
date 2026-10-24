@@ -835,7 +835,7 @@ owner = "source"
 
 [task.7.13]
 title = "Fix: the asks watcher re-lists and republishes on every graph write"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/plugins/hyperfide-asks/src/bridge.ts", "platform/plugins/hyperfide-asks/src/bridge.test.ts", "tests/hyperfide/cases/v22/7_13.sh"]
