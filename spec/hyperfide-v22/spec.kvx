@@ -799,7 +799,7 @@ owner = "fleet"
 
 [task.7.10]
 title = "UI parity: Hyperfide plugin pages match the native app's structure and feel"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-graph/**", "platform/plugins/hyperfide-spec/src/board/**", "platform/plugins/hyperfide-guide/**", "tests/hyperfide/cases/v22/7_10.sh", "platform/plugins/hyperfide-spec/package.json", "platform/plugins/hyperfide-spec/tsconfig.json", "platform/plugins/hyperfide-spec/vitest.config.ts", "platform/pnpm-lock.yaml"]
