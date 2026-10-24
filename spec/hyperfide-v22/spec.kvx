@@ -123,7 +123,7 @@ owner = "identity"
 
 [task.0.2]
 title = "Apply the package scope rename across the workspace"
-status = "implemented"
+status = "done"
 wave = 0
 requires = ["0.1", "0.4"]
 touches = ["platform/**", "tests/hyperfide/cases/v22/0_2.sh"]
