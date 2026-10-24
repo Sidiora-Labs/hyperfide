@@ -799,10 +799,10 @@ owner = "fleet"
 
 [task.7.10]
 title = "UI parity: Hyperfide plugin pages match the native app's structure and feel"
-status = "in_progress"
+status = "implemented"
 wave = 7
 requires = ["7.4"]
-touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-graph/**", "platform/plugins/hyperfide-spec/src/board/**", "platform/plugins/hyperfide-guide/**", "tests/hyperfide/cases/v22/7_10.sh"]
+touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-graph/**", "platform/plugins/hyperfide-spec/src/board/**", "platform/plugins/hyperfide-guide/**", "tests/hyperfide/cases/v22/7_10.sh", "platform/plugins/hyperfide-spec/package.json", "platform/plugins/hyperfide-spec/tsconfig.json", "platform/plugins/hyperfide-spec/vitest.config.ts", "platform/pnpm-lock.yaml"]
 verify_cmd = "bash tests/hyperfide/cases/v22/7_10.sh"
 do_1 = "Owner finding at the 7.6 launch on 2026-10-24: the Hyperfide-added app surfaces (asks inbox, graph index and survey panels, spec board, guide) read as bolted on: raw h1/dl/pre/select elements, ad-hoc spacing, no empty, loading or error states, no theme tokens, no compact layout. Each surface is rebuilt on the patterns native plugin apps use (tasks, automations, memory, secrets, provider-usage): the same page-header and list/detail composition, the same SDK-exported and shared-ui controls instead of bare elements, the same empty/loading/error states, spacing and type scale, theme tokens in light and dark, lucide icon vocabulary and compact behaviour. Plugin server and host code, RPC contracts and behaviour (filters, answering an Ask, secret handling, deadlines, index and survey calls) are unchanged; hyperfide-dispatch is excluded (7.9 owns it)."
 do_2 = "Before and after screenshots of every surface beside its native reference are kept as evidence; the changed plugins' app tests pass or are updated deliberately; 7_10.sh runs the vitest suites of hyperfide-asks, hyperfide-graph, hyperfide-spec and hyperfide-guide and builds @hyperfide/bundled-plugins, exiting non-zero on any failure."
