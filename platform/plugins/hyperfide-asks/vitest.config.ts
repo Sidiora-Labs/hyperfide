@@ -4,6 +4,7 @@ export default defineConfig({
     tsconfigPaths: true,
     conditions: ["source"],
     alias: {
+      "@hyperfide/plugin-sdk/testing/app": new URL("../../packages/plugin-sdk/src/testing/app.tsx", import.meta.url).pathname,
       "@hyperfide/plugin-sdk/testing": new URL("../../packages/plugin-sdk/src/testing/index.ts", import.meta.url).pathname,
     },
   },

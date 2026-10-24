@@ -3918,6 +3918,9 @@ importers:
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@hyperfide/shared-ui':
+        specifier: workspace:*
+        version: link:../../packages/shared-ui
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -3925,6 +3928,9 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
     devDependencies:
+      '@testing-library/dom':
+        specifier: ^10.4.1
+        version: 10.4.1
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -4001,6 +4007,9 @@ importers:
 
   plugins/hyperfide-graph:
     dependencies:
+      '@hyperfide/shared-ui':
+        specifier: workspace:*
+        version: link:../../packages/shared-ui
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -4017,6 +4026,12 @@ importers:
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@testing-library/dom':
+        specifier: ^10.4.1
+        version: 10.4.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.10
@@ -4026,6 +4041,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.13)
+      jsdom:
+        specifier: ^29.0.1
+        version: 29.0.1(@noble/hashes@2.4.0)
       react-dom:
         specifier: ^19.0.0
         version: 19.2.4(react@19.2.4)
@@ -4105,6 +4123,9 @@ importers:
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
+      '@hyperfide/shared-ui':
+        specifier: workspace:*
+        version: link:../../packages/shared-ui
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -4115,6 +4136,12 @@ importers:
       '@hyperfide/plugin-build':
         specifier: workspace:^
         version: link:../../packages/plugin-build
+      '@testing-library/dom':
+        specifier: ^10.4.1
+        version: 10.4.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/jsdom':
         specifier: ^27.0.0
         version: 27.0.0
@@ -11531,7 +11558,7 @@ packages:
 
   bunyan@1.8.15:
     resolution: {integrity: sha512-0tECWShh6wUysgucJcBAoYegf3JJoZWibxdqhTm7OHPeT42qdjkZ29QCMcKwbgU1kiH+auSIasNRXMLWXafXig==}
-    engines: {'0': node >=0.10.0}
+    engines: {node: '>=0.10.0'}
     hasBin: true
 
   bytes@3.1.2:
