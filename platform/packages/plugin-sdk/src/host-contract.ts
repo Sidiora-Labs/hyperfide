@@ -177,3 +177,22 @@ export function experimental_defineHostEntry<
     ...(args.dispose === undefined ? {} : { dispose: args.dispose }),
   };
 }
+/** Optional sandbox operations for trusted server plugins, independent of daemon enrollment. */
+export interface ExperimentalSandboxOperations {
+  providerId: string;
+  capabilities: { checkpoint: boolean; list: boolean };
+  create(options: { fromCheckpoint?: string; name?: string; env?: Record<string, string> }): Promise<ExperimentalSandboxMachine>;
+  connect(id: string): Promise<ExperimentalSandboxMachine>;
+  list(): Promise<{ id: string; name?: string; status: string; createdAt?: string }[]>;
+}
+
+export interface ExperimentalSandboxMachine {
+  id: string;
+  exec(command: string, options: { cwd?: string; timeoutSec?: number; maxOutputBytes?: number; env?: Record<string, string> }): Promise<{
+    exitCode: number; stdout: string; stderr: string; timedOut: boolean; truncated: boolean; ms: number;
+  }>;
+  readFile(path: string): Promise<Uint8Array>;
+  writeFile(path: string, data: Uint8Array, options?: { mode?: number }): Promise<void>;
+  checkpoint(name: string): Promise<{ name: string }>;
+  destroy(): Promise<void>;
+}

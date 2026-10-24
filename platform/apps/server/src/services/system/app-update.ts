@@ -115,7 +115,7 @@ function unsupportedMessage(support: SystemAppUpdateSupport): string {
     case "desktop":
       return "The desktop app updates itself; use its update controls.";
     case "unmanaged":
-      return "In-app updates are off. Start hyperfide with `npx hyperfide-app start` or `pnpm start`, without `--no-in-app-updates`, to turn them on.";
+      return "In-app updates are off. Use the update controls provided by your Hyperfide installation.";
   }
 }
 
@@ -254,6 +254,9 @@ export function createAppUpdateService(
     }
     if (support.mode === "npm") {
       const version = await args.appVersion.getSystemVersion({ forceRefresh });
+      if (version.latestVersion === null && version.upgradeCommand === null) {
+        return { available: null, blocked: null };
+      }
       if (version.latestVersion === null) {
         return {
           available: null,

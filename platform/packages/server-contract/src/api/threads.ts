@@ -480,6 +480,49 @@ export type SendQueuedMessageResponse = z.infer<
 export const threadListResponseSchema = z.array(threadListEntrySchema);
 export type ThreadListResponse = z.infer<typeof threadListResponseSchema>;
 
+export const threadImportSourceKindSchema = z.enum(["claude-code", "codex"]);
+export const threadImportSourcesQuerySchema = z
+  .object({
+    source: threadImportSourceKindSchema.optional(),
+    root: z.string().min(1).optional(),
+  })
+  .strict();
+export type ThreadImportSourcesQuery = z.infer<
+  typeof threadImportSourcesQuerySchema
+>;
+export const threadImportRequestSchema = threadImportSourcesQuerySchema.extend({
+  dryRun: z.boolean().optional(),
+});
+export type ThreadImportRequest = z.infer<typeof threadImportRequestSchema>;
+export const threadImportSourceSchema = z.object({
+  source: threadImportSourceKindSchema,
+  root: z.string().min(1),
+  count: z.number().int().nonnegative(),
+});
+export type ThreadImportSource = z.infer<typeof threadImportSourceSchema>;
+export const threadImportSourcesResponseSchema = z.object({
+  sources: z.array(threadImportSourceSchema),
+});
+export type ThreadImportSourcesResponse = z.infer<
+  typeof threadImportSourcesResponseSchema
+>;
+export const threadImportResponseSchema =
+  threadImportSourcesResponseSchema.extend({
+    imported: z.number().int().nonnegative(),
+    updated: z.number().int().nonnegative(),
+    records: z.number().int().nonnegative(),
+    threads: z.array(
+      z.object({
+        id: z.string().min(1),
+        title: z.string(),
+        providerId: z.string().min(1),
+        providerThreadId: z.string().min(1),
+      }),
+    ),
+    errors: z.array(z.object({ path: z.string(), message: z.string() })),
+  });
+export type ThreadImportResponse = z.infer<typeof threadImportResponseSchema>;
+
 export const resolveThreadMentionsRequestSchema = z
   .object({
     threadIds: z.array(rawThreadIdSchema).max(THREAD_MENTION_RESOLVE_MAX_IDS),

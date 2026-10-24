@@ -4,7 +4,7 @@ import { watch, type FSWatcher } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { featureFromKvx } from './kvx.js';
-import type { SpecRead, SpecSnapshot, SpecRpc } from './shared/model.js';
+import type { SpecChangeNotice, SpecRead, SpecSnapshot, SpecRpc } from './shared/model.js';
 import { taskReceipts } from '../receipt-detail.js';
 
 export interface SpecStorage {
@@ -30,13 +30,14 @@ export class SpecReader implements SpecRpc {
   readonly repository: string;
   private readonly key: string;
   private current?: SpecRead;
+  private previous?: SpecRead;
   private pending?: Promise<SpecRead>;
   private watcher?: FSWatcher;
   private timer?: ReturnType<typeof setTimeout>;
   private closed = false;
   private dirty = false;
   constructor(repository: string, private storage: SpecStorage,
-    private publish: (snapshot: SpecRead) => Promise<void>,
+    private publish: (notice: SpecChangeNotice) => Promise<void>,
     private command: SpecCommand = binaryCommand()) {
     this.repository = resolve(repository);
     this.key = `hyperfide-spec:${this.repository}`;
@@ -47,6 +48,7 @@ export class SpecReader implements SpecRpc {
     return this.pending;
   }
   private async read(): Promise<SpecRead> {
+    this.previous = this.current;
     try {
       const entries = await readdir(join(this.repository, 'spec'), { withFileTypes: true });
       const features: SpecSnapshot['features'] = [];
@@ -94,6 +96,20 @@ export class SpecReader implements SpecRpc {
     }
     return this.current;
   }
+  private changeNotice(snapshot: SpecRead): SpecChangeNotice {
+    const previous = this.previous;
+    const ids = new Set([
+      ...Object.keys(previous?.status ?? {}), ...Object.keys(previous?.trace ?? {}),
+      ...Object.keys(snapshot.status), ...Object.keys(snapshot.trace),
+    ]);
+    return {
+      repository: snapshot.repository, readAt: snapshot.readAt,
+      stale: snapshot.stale, error: snapshot.error,
+      changedFeatures: [...ids].filter(id =>
+        JSON.stringify(previous?.status[id]) !== JSON.stringify(snapshot.status[id]) ||
+        JSON.stringify(previous?.trace[id]) !== JSON.stringify(snapshot.trace[id])).sort(),
+    };
+  }
   async snapshot() { return this.current ?? this.refresh(); }
   async features() { return (await this.snapshot()).features; }
   async tasks(feature: string) {
@@ -136,7 +152,7 @@ export class SpecReader implements SpecRpc {
       repository: this.repository, readAt: '', features: [], status: {}, trace: {},
     }), stale: true, error: 'Refreshing spec snapshot' };
     void this.refresh().then(snapshot => {
-      if (!this.closed) return this.publish(snapshot);
+      if (!this.closed) return this.publish(this.changeNotice(snapshot));
     }).catch(() => {});
     return this.current;
   }
@@ -148,7 +164,7 @@ export class SpecReader implements SpecRpc {
       while (this.dirty && !this.closed) {
         this.dirty = false;
         const snapshot = await this.refresh();
-        if (!this.closed) await this.publish(snapshot);
+        if (!this.closed) await this.publish(this.changeNotice(snapshot));
       }
     } catch {
       // No successful cache exists yet; a later edit retries the read.

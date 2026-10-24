@@ -6,6 +6,7 @@
  * The Makefile discovers C sources in src, so there is no build change.
  */
 #include "cg.h"
+#include "index_chunks.h"
 #include <ctype.h>
 
 /* ---- manifest loading ---- */
@@ -581,7 +582,7 @@ static void resolve_imports_run(Cg *cg, bool scoped) {
     sqlite3_stmt *upd = cg_prep(cg,
         "UPDATE imports SET target_file_id=?, origin=? WHERE id=?");
 
-    while (sqlite3_step(sel) == SQLITE_ROW) {
+    while (index_chunks_step(cg, &sel) == SQLITE_ROW) {
         long imp_id  = sqlite3_column_int64(sel, 0);
         const char *module = (const char *)sqlite3_column_text(sel, 1);
         int sys      = sqlite3_column_int(sel, 2);
@@ -1151,7 +1152,7 @@ static void resolve_refs_run(Cg *cg, bool scoped) {
      * pass in this process (watch, mcp, lsp) may name the wrong files */
     c_builtin_reset();
 
-    while (sqlite3_step(sel) == SQLITE_ROW) {
+    while (index_chunks_step(cg, &sel) == SQLITE_ROW) {
         long ref_id   = sqlite3_column_int64(sel, 0);
         const char *name = (const char *)sqlite3_column_text(sel, 1);
         long file_id  = sqlite3_column_int64(sel, 2);

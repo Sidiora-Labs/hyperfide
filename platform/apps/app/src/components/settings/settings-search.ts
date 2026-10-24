@@ -35,6 +35,10 @@ export const SETTINGS_SEARCH_INDEX: Record<
   SettingsSectionId,
   SettingsSearchSection
 > = {
+  "import-sessions": {
+    keywords: ["history", "claude code", "codex", "sessions", "resume"],
+    settings: [{ title: "Import sessions", keywords: ["transcripts", "host"] }],
+  },
   general: {
     keywords: ["preferences"],
     settings: [

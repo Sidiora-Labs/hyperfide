@@ -26,8 +26,8 @@ export function statusPresentation(status: Task['status']): StatusPresentation {
   return STATUS_PRESENTATION[status] ?? STATUS_PRESENTATION.pending;
 }
 
-export function isSafeReceiptLink(value: string | undefined): value is string {
-  return value !== undefined && (/^https?:\/\//.test(value) || /^(?!\/\/)[/.]/.test(value));
+export function isSafeReceiptLink(value: string | null | undefined): value is string {
+  return typeof value === "string" && (/^https?:\/\//.test(value) || /^(?!\/\/)[/.]/.test(value));
 }
 
 export function taskSearchValues(task: Task): string[] {

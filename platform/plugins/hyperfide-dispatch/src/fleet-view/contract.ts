@@ -8,6 +8,10 @@ export const stages = [
   "packed",
   "collected",
   "merged",
+  "claimed",
+  "started",
+  "finished",
+  "failed",
 ] as const;
 const timestamp = z.string().datetime();
 export const ledgerSchema = z.object({
@@ -30,6 +34,7 @@ export const ledgerSchema = z.object({
       started: timestamp.nullable(),
       finished: timestamp.nullable(),
       log: z.string(),
+      source: z.string().optional(),
     }),
   ),
   budget: z.object({
@@ -39,6 +44,7 @@ export const ledgerSchema = z.object({
     keys: z.number().int().nonnegative(),
     backoffUntil: timestamp.nullable(),
     paused: z.boolean(),
+    status: z.string().optional(),
   }),
   timelines: z.array(
     z.object({
@@ -59,7 +65,30 @@ export const actionSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 export type FleetAction = z.infer<typeof actionSchema>;
+export const importLedgersSchema = z.object({
+  source: z.string().min(1),
+  jobs: z.array(
+    z.object({
+      id: z.string().min(1),
+      task: z.string().min(1),
+      state: z.enum(["claimed", "running", "succeeded", "failed"]),
+      attempt: z.number().int().nonnegative(),
+      keyId: z.string(),
+      commits: z.array(z.string()),
+      machine: z.string().optional(),
+      started: timestamp.optional(),
+      finished: timestamp.optional(),
+      worker: z.string().optional(),
+      log: z.string().max(16384).optional(),
+      error: z.string().optional(),
+      events: z
+        .array(z.object({ stage: z.enum(stages), at: timestamp }))
+        .optional(),
+    }),
+  ),
+});
 export const fleetRpcContract = defineRpcContract({
   fleetLedger: { input: z.null(), output: ledgerSchema },
   fleetAction: { input: actionSchema, output: ledgerSchema },
+  fleetImportLedgers: { input: importLedgersSchema, output: ledgerSchema },
 });

@@ -8,8 +8,8 @@ import registerBoard from './board/plugin-server.js';
 export async function registerSpecReadModel(api: HyperfidePluginApi, repositories: string[], binary = process.env.HYPERFIDE_BIN || 'hyperfide') {
   const readers = new Map<string, SpecReader>();
   for (const repository of new Set(repositories.map(path => resolve(path)))) {
-    const reader = new SpecReader(repository, snapshotStorage(api.storage.kv), async snapshot => {
-      api.realtime.publish('hyperfide-spec:changed', snapshot);
+    const reader = new SpecReader(repository, snapshotStorage(api.storage.kv), async notice => {
+      api.realtime.publish('hyperfide-spec:changed', notice);
       api.rpc.experimental_invalidateAll();
     }, binaryCommand(binary));
     readers.set(repository, reader);

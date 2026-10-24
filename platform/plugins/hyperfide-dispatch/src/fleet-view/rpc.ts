@@ -3,9 +3,11 @@ import {
   actionSchema,
   fleetRpcContract,
   ledgerSchema,
+  importLedgersSchema,
   type FleetAction,
   type FleetLedger,
 } from "./contract.js";
+import type { z } from "zod";
 
 // The dispatcher owns persistence and execution; this adapter only reads and commands it.
 export interface FleetBackend {
@@ -14,6 +16,7 @@ export interface FleetBackend {
   destroyMachine(id: string): Promise<void>;
   setPaused(paused: boolean): Promise<void>;
   setCap(cap: number): Promise<void>;
+  importLedgers?(input: z.infer<typeof importLedgersSchema>): Promise<void>;
 }
 
 export function createFleetHandlers(backend: FleetBackend) {
@@ -64,7 +67,15 @@ export function createFleetHandlers(backend: FleetBackend) {
     );
     return operation;
   };
-  return { fleetLedger, fleetAction };
+  const fleetImportLedgers = async (
+    input: z.infer<typeof importLedgersSchema>,
+  ) => {
+    if (!backend.importLedgers)
+      throw new Error("Ledger imports are unavailable");
+    await backend.importLedgers(importLedgersSchema.parse(input));
+    return fleetLedger();
+  };
+  return { fleetLedger, fleetAction, fleetImportLedgers };
 }
 
 export function registerFleetRpc(

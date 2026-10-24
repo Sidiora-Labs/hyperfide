@@ -5,6 +5,13 @@ import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 import definition from "../../app.js";
 import { imageBuilderContract } from "./rpc.js";
 import type { BuildRecord } from "./builder.js";
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
 afterEach(cleanup);
 it("starts builds through RPC, renders progress and logs, and cancels", async () => {
   const jobs: BuildRecord[] = [];
@@ -33,6 +40,10 @@ it("starts builds through RPC, renders progress and logs, and cancels", async ()
     { subPath: "" },
     {
       rpc: {
+        imageBuildConfiguration: async () => ({
+          configured: true,
+          message: "Ready",
+        }),
         imageBuilds: async () => structuredClone(jobs),
         imageBuildStart,
         imageBuildCancel,
@@ -49,8 +60,6 @@ it("starts builds through RPC, renders progress and logs, and cancels", async ()
   );
   expect(imageBuildStart).toHaveBeenCalledWith({ commit: "b".repeat(40) });
   fireEvent.click(slot.getByRole("button", { name: "Cancel build" }));
-  await waitFor(() =>
-    expect(slot.getByRole("status").textContent).toContain("cancelled"),
-  );
+  await waitFor(() => expect(slot.getByText("cancelled")).toBeTruthy());
   expect(imageBuildCancel).toHaveBeenCalledWith({ id: "build-1" });
 });

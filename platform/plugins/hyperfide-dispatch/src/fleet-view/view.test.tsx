@@ -7,6 +7,13 @@ import fixture from "./__fixtures__/ledger.json";
 import { fleetRpcContract, ledgerSchema, stages } from "./contract.js";
 import { createFleetHandlers, type FleetBackend } from "./rpc.js";
 
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
 afterEach(cleanup);
 
 function backend() {
@@ -66,7 +73,7 @@ describe("Fleet ledger dashboard", () => {
         /Cap: 2 \/ 8.*In flight: 1.*Keys: 3.*2026-10-23T11:00:00Z/,
       ),
     ).toBeTruthy();
-    for (const stage of stages)
+    for (const stage of fixture.timelines[0].events.map((event) => event.stage))
       expect(slot.getByText(`${stage}: 2026-10-23T10:00:00Z`)).toBeTruthy();
     expect(slot.getByLabelText("Log job-1").textContent).toContain(
       "<script>fixture</script>",

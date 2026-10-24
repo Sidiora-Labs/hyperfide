@@ -1,11 +1,12 @@
 import { Sandbox, type CreateOptions, type ExecOptions, type ExecResult } from "railway";
 import WebSocket from "ws";
+import type { PluginMachineProviderDefinition } from "@hyperfide/plugin-sdk/machine-provider";
 
 export interface SandboxMachineCapabilities { checkpoint: boolean; list: boolean }
 export interface SandboxMachineCreateOptions { fromCheckpoint?: string; cpu?: number; memoryMiB?: number; idleTimeoutSec?: number; env?: Record<string, string>; name?: string; region?: string }
 export interface SandboxExecOptions { cwd?: string; timeoutSec?: number; maxOutputBytes?: number; env?: Record<string, string> }
 export interface SandboxExecResult { exitCode: number; stdout: string; stderr: string; timedOut: boolean; truncated: boolean; ms: number }
-export interface SandboxMachineInfo { id: string; name?: string; status: string; createdAt?: string }
+export interface SandboxMachineInfo { id: string; name?: string; status: string; createdAt?: string; region?: string }
 export interface SandboxMachine {
   readonly id: string;
   exec(command: string, options?: SandboxExecOptions): Promise<SandboxExecResult>;
@@ -14,7 +15,7 @@ export interface SandboxMachine {
   checkpoint(name: string): Promise<{ name: string }>;
   destroy(): Promise<void>;
 }
-export interface SandboxMachineOps {
+export interface SandboxMachineOps extends NonNullable<PluginMachineProviderDefinition["sandbox"]> {
   readonly providerId: string;
   readonly capabilities: SandboxMachineCapabilities;
   create(options: SandboxMachineCreateOptions): Promise<SandboxMachine>;
@@ -69,7 +70,7 @@ export function createRailwayClient(credentials: Credentials, sdk: RailwaySdk = 
       return options.fromCheckpoint === undefined ? sdk.create(settings) : sdk.create(options.fromCheckpoint, settings);
     },
     connect: (id) => sdk.connect(id, config),
-    async list() { return (await sdk.list(config)).map(({ id, status, createdAt }) => ({ id, status, createdAt })); },
+    async list() { return (await sdk.list(config)).map(({ id, status, createdAt, region }) => ({ id, status, createdAt, region })); },
   };
 };
 

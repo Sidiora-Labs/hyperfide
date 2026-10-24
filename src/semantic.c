@@ -1,4 +1,5 @@
 #include "cg.h"
+#include "index_chunks.h"
 
 static char *dup(const char *s) { return s ? xstrdup(s) : NULL; }
 static void *grow(void *p, int *cap, int n, size_t size) {
@@ -138,6 +139,11 @@ static const char *SEM_SCHEMA =
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_target ON semantic_edges(branch_id,target_id,kind);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_file ON semantic_edges(branch_id,source_file_id);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_target_file ON semantic_edges(branch_id,target_file_id);"
+    /* File replacement can invalidate incoming edges across branches. */
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_source_id ON semantic_edges(source_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_target_id ON semantic_edges(target_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_source_file_id ON semantic_edges(source_file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_target_file_id ON semantic_edges(target_file_id);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_channel ON semantic_edges(branch_id,channel,kind);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_ref ON semantic_edges(branch_id,source_ref_id,provenance);"
     "CREATE TABLE IF NOT EXISTS semantic_dependencies("
@@ -470,6 +476,8 @@ int sem_pass_run(Cg *cg, const long *changed_files, int nfiles) {
     register_available();
     if (changed_files && nfiles==0) return 0;
     for (int i=0;i<npasses;i++)
-        if (passes[i].fn(cg,changed_files,nfiles)!=0) return -1;
+        if (index_chunks_checkpoint(cg) ||
+            passes[i].fn(cg,changed_files,nfiles)!=0 ||
+            index_chunks_failed()) return -1;
     return 0;
 }

@@ -1,6 +1,8 @@
 import type { HyperfideStatus } from "@hyperfide/host-daemon-contract";
 
-export type HostWithHyperfideStatus = Host & { hyperfide?: HyperfideStatus | null };
+export type HostWithHyperfideStatus = Host & {
+  hyperfide?: HyperfideStatus | null;
+};
 
 import {
   uiPreferencesRoute,
@@ -263,6 +265,10 @@ import type {
   ThreadGetQuery,
   ThreadCountQuery,
   ThreadCountResponse,
+  ThreadImportRequest,
+  ThreadImportResponse,
+  ThreadImportSourcesQuery,
+  ThreadImportSourcesResponse,
   ThreadListQuery,
   ThreadListResponse,
   ThreadConversationOutlineQuery,
@@ -404,6 +410,8 @@ import {
   threadMessageQuerySchema,
   threadGetQuerySchema,
   threadCountQuerySchema,
+  threadImportRequestSchema,
+  threadImportSourcesQuerySchema,
   threadListQuerySchema,
   threadOpenRequestSchema,
   threadPaneActionRequestSchema,
@@ -1357,6 +1365,22 @@ export const publicApiRoutes = {
   },
 
   threads: {
+    import: defineRoute({
+      path: "/threads/import",
+      method: "post",
+      request: jsonRequest<EmptyInput, ThreadImportRequest>(
+        threadImportRequestSchema,
+      ),
+      response: jsonResponse<ThreadImportResponse>(),
+    }),
+    importSources: defineRoute({
+      path: "/threads/import/sources",
+      method: "get",
+      request: optionalQueryRequest<EmptyInput, ThreadImportSourcesQuery>(
+        threadImportSourcesQuerySchema,
+      ),
+      response: jsonResponse<ThreadImportSourcesResponse>(),
+    }),
     list: defineRoute({
       path: "/threads",
       method: "get",

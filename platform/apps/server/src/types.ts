@@ -25,6 +25,7 @@ export type ServerLogger = Pick<Logger, "debug" | "error" | "info" | "warn">;
 
 export interface ServerRuntimeConfig {
   appVersion: string;
+  updateChannel?: { url: string; upgradeCommand?: string };
   builtinSkillsRootPath: string;
   customModels: CustomProviderModel[];
   dataDir: string;

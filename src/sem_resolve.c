@@ -1,4 +1,5 @@
 #include "cg.h"
+#include "index_chunks.h"
 #include "sem_resolve.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -288,7 +289,7 @@ int sem_resolve_run(Cg *cg, const long *changed_files, int nfiles) {
         "provenance,evidence,start_line,start_column,synthesized) "
         "VALUES(?,?,?,?,?,?,?,?,?,'resolved-receiver',?,?,?,0)");
     Candidate c[MAX_CANDIDATES];
-    while (sqlite3_step(refs)==SQLITE_ROW) {
+    while (index_chunks_step(cg, &refs)==SQLITE_ROW) {
         long rid=sqlite3_column_int64(refs,0), fid=sqlite3_column_int64(refs,1);
         char name[256],qual[256],original[512];
         snprintf(name,sizeof name,"%s",col(refs,2));

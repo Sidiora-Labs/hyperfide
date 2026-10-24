@@ -35,3 +35,11 @@ export interface SpecRpc {
   task(feature: string, id: string): Promise<Task>;
   waves(feature: string): Promise<Wave[]>;
 }
+
+export interface SpecChangeNotice {
+  repository: string;
+  readAt: string;
+  stale: boolean;
+  error?: string;
+  changedFeatures: string[];
+}

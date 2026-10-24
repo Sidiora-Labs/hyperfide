@@ -184,6 +184,8 @@ const EXPECTED_RPC_ROOT_VALUE_EXPORTS = [
 ] as const;
 
 const EXPECTED_HOST_ROOT_TYPE_EXPORTS = [
+  "ExperimentalSandboxMachine",
+  "ExperimentalSandboxOperations",
   "ExperimentalHostCallOptions",
   "ExperimentalHostClient",
   "ExperimentalHostEntry",

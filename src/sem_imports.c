@@ -1,4 +1,5 @@
 #include "sem_imports.h"
+#include "index_chunks.h"
 #include "semantic.h"
 #include <ctype.h>
 #include <sys/stat.h>
@@ -279,7 +280,7 @@ static void load_packages(ImportPass *p) {
     sqlite3_stmt *q=cg_prep(p->cg,"SELECT path FROM files WHERE branch_id=?1 "
                         "AND (path='package.json' OR path LIKE '%/package.json')");
     sqlite3_bind_int64(q,1,p->cg->branch_id);
-    while (sqlite3_step(q)==SQLITE_ROW) {
+    while (index_chunks_step(p->cg, &q)==SQLITE_ROW) {
         const char *rel=(const char *)sqlite3_column_text(q,0);
         if (!rel || strstr(rel,"node_modules/")) continue;
         char abs[PATH_CAP]; if (!path_format(abs,sizeof abs,"%s/%s",p->cg->root,rel)) continue;
@@ -495,7 +496,7 @@ int sem_imports_pass(Cg *cg,const long *changed_files,int nfiles) {
        "FROM semantic_bindings b JOIN files f ON f.id=b.file_id "
        "WHERE f.branch_id=?1 ORDER BY b.id");
     sqlite3_bind_int64(q,1,cg->branch_id);
-    while (sqlite3_step(q)==SQLITE_ROW) {
+    while (index_chunks_step(cg, &q)==SQLITE_ROW) {
         if (p.nbindings==p.capbindings) {
             p.capbindings=p.capbindings ? p.capbindings*2 : 128;
             p.bindings=xrealloc(p.bindings,sizeof *p.bindings*(size_t)p.capbindings);
@@ -517,6 +518,8 @@ int sem_imports_pass(Cg *cg,const long *changed_files,int nfiles) {
         "DELETE FROM semantic_dependencies WHERE branch_id=?1");
     sqlite3_bind_int64(q,1,cg->branch_id); checked_step(cg,q); sqlite3_finalize(q);
     for (int i=0;i<p.nbindings;i++) {
+        sqlite3_reset(p.find_file);
+        if (index_chunks_checkpoint(cg)) break;
         Binding *b=&p.bindings[i];
         sqlite3_stmt *fq=cg_prep(cg,"SELECT path,lang FROM files WHERE id=?1 AND branch_id=?2");
         sqlite3_bind_int64(fq,1,b->file_id); sqlite3_bind_int64(fq,2,cg->branch_id);
@@ -548,6 +551,8 @@ int sem_imports_pass(Cg *cg,const long *changed_files,int nfiles) {
     /* A second pass resolves re-export targets that were unknown at entry.
      * Additional chains are handled recursively by exported_symbol. */
     for (int i=0;i<p.nbindings;i++) {
+        sqlite3_reset(p.find_file);
+        if (index_chunks_checkpoint(cg)) break;
         Binding *b=&p.bindings[i];
         if (!b->target_file_id || !b->original || !strcmp(b->original,"*")) continue;
         long visited[EXPORT_DEPTH]={0};

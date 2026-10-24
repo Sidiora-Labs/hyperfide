@@ -14,6 +14,15 @@ export interface JobLedger {
   commits: string[];
   error?: string;
   cancelled?: boolean;
+  started?: string;
+  finished?: string;
+  worker?: string;
+  log?: string;
+  source?: string;
+  events?: {
+    stage: "claimed" | "started" | "finished" | "failed" | "merged";
+    at: string;
+  }[];
 }
 export class Dispatcher {
   readonly jobs = new Map<string, JobLedger>();
@@ -22,14 +31,30 @@ export class Dispatcher {
   private backoffUntil = 0;
   private backoffMs = 0;
   private initialized = false;
+  private stopped = false;
+  private activeMachines = new Map<string, SandboxMachine>();
+  private shutdown = new AbortController();
+  setPrepare(command: string) { this.options.prepare = command; }
+  async stop() {
+    this.stopped = true;
+    this.shutdown.abort();
+    await this.serial;
+    await Promise.allSettled([...this.activeMachines.values()].map(machine => machine.destroy()));
+    await this.drain();
+  }
   private storage!: PluginStorage;
-  close() { this.storage?.close(); }
+  close() {
+    this.storage?.close();
+  }
   constructor(private options: DispatcherOptions) {}
   private now() {
     return this.options.now?.() ?? Date.now();
   }
   private async atomic(name: string, value: unknown) {
-    await this.storage.put(name === "budget.json" ? "budget" : "job:" + name.slice(0, -5), value);
+    await this.storage.put(
+      name === "budget.json" ? "budget" : "job:" + name.slice(0, -5),
+      value,
+    );
   }
   private async save(job: JobLedger) {
     await this.atomic(job.id + ".json", job);
@@ -37,20 +62,25 @@ export class Dispatcher {
   async start() {
     if (this.initialized) throw new Error("Dispatcher already started");
     await mkdir(this.options.directory, { recursive: true });
-    this.storage = this.options.storage ?? await openDispatchStorage(this.options.directory);
+    this.storage =
+      this.options.storage ??
+      (await openDispatchStorage(this.options.directory));
     await migrateDispatchDirectory(this.options.directory, this.storage);
-    for (const {key, value} of await this.storage.entries()) {
-      if (key === 'budget') {
+    for (const { key, value } of await this.storage.entries()) {
+      if (key === "budget") {
         const data = value as { until: number; ms: number };
         this.backoffUntil = data.until;
         this.backoffMs = data.ms;
-      } else if (key.startsWith('job:')) {
+      } else if (key.startsWith("job:")) {
         const data = value as JobLedger;
         this.jobs.set(data.id, data);
       }
     }
     // This directory is a single dispatcher lease. A restart interrupts its live jobs.
-    const owned = new Set([...this.jobs.values()].map((job) => job.machine));
+    const ownedJobs = [...this.jobs.values()].filter(
+      (job) => !job.source || job.source === "dispatcher",
+    );
+    const owned = new Set(ownedJobs.map((job) => job.machine));
     for (const machine of await this.options.machines.list()) {
       if (
         owned.has(machine.id) ||
@@ -58,21 +88,25 @@ export class Dispatcher {
       )
         await (await this.options.machines.connect(machine.id)).destroy();
     }
-    for (const job of this.jobs.values()) {
+    for (const job of ownedJobs) {
       if (job.state === "running" || job.state === "claimed") {
         job.state = "failed";
         job.error = "Dispatcher restarted";
+        job.finished = new Date(this.now()).toISOString();
+        (job.events ??= []).push({ stage: "failed", at: job.finished });
         await this.save(job);
       }
       // A crash can occur after saving a terminal state but before releasing its claim.
       await this.options.spec.release(job.task, job.id);
     }
     this.initialized = true;
-    const control = await this.storage.get("fleet.control") as { cap?: number; paused?: boolean } | undefined;
+    const control = (await this.storage.get("fleet.control")) as
+      | { cap?: number; paused?: boolean }
+      | undefined;
     await this.storage.put("fleet.control", {
-      cap: control?.cap ?? this.options.cap,
+      cap: control?.cap ?? 0,
       maximum: this.options.cap,
-      paused: control?.paused ?? false,
+      paused: control?.paused ?? true,
     });
   }
   tick(): Promise<void> {
@@ -81,9 +115,12 @@ export class Dispatcher {
     return next;
   }
   private async schedule() {
+    if (this.stopped) return;
     if (!this.initialized) throw new Error("Call start before tick");
     if (this.now() < this.backoffUntil) return;
-    const control = await this.storage.get("fleet.control") as { cap: number; paused: boolean } | undefined;
+    const control = (await this.storage.get("fleet.control")) as
+      | { cap: number; paused: boolean }
+      | undefined;
     if (control?.paused) return;
     const limits = await this.options.limits();
     const cap = Math.max(
@@ -96,10 +133,18 @@ export class Dispatcher {
       ),
     );
     const integration = await this.options.integration();
+    for (const job of this.jobs.values()) {
+      if (job.state === "succeeded" && !job.events?.some(event => event.stage === "merged") &&
+          await this.options.spec.merged(job.task, integration.tip)) {
+        (job.events ??= []).push({ stage: "merged", at: new Date(this.now()).toISOString() });
+        await this.save(job);
+      }
+    }
     const tasks = (await this.options.spec.tasks()).sort(
       (a, b) => a.wave - b.wave || a.id.localeCompare(b.id),
     );
     for (const task of tasks) {
+      if (this.stopped) break;
       if (this.now() < this.backoffUntil || this.running.size >= cap) break;
       if (
         task.status !== "pending" ||
@@ -130,6 +175,8 @@ export class Dispatcher {
         attempt: 0,
         keyId: key.id,
         commits: [],
+        source: "dispatcher",
+        events: [{ stage: "claimed", at: new Date(this.now()).toISOString() }],
       };
       if (!(await this.options.spec.claim(task.id, job.id))) continue;
       this.jobs.set(job.id, job);
@@ -159,7 +206,11 @@ export class Dispatcher {
         let machine: SandboxMachine | undefined;
         let retry = false;
         try {
-          if ((await this.storage.get("job:" + job.id) as JobLedger | undefined)?.cancelled)
+          if (this.stopped) throw new Error("Dispatcher stopped");
+          if (
+            ((await this.storage.get("job:" + job.id)) as JobLedger | undefined)
+              ?.cancelled
+          )
             throw new Error("Cancelled by operator");
           job.attempt = attempt;
           machine = await this.options.machines.create({
@@ -167,7 +218,14 @@ export class Dispatcher {
             name: "hyperfide-dispatch-" + job.id,
           });
           job.machine = machine.id;
+          this.activeMachines.set(job.id, machine);
+          if (this.stopped) throw new Error("Dispatcher stopped");
           job.state = "running";
+          job.started ??= new Date(this.now()).toISOString();
+          (job.events ??= []).push({
+            stage: "started",
+            at: new Date(this.now()).toISOString(),
+          });
           await this.save(job);
           await machine.writeFile(
             "/tmp/hyperfide-integration.bundle",
@@ -184,7 +242,19 @@ export class Dispatcher {
             machine,
             key,
           );
-          if ((await this.storage.get("job:" + job.id) as JobLedger | undefined)?.cancelled)
+          job.log = (
+            (job.log ?? "") +
+            prep.stdout +
+            prep.stderr +
+            (result.stdout ?? "") +
+            (result.stderr ?? "")
+          )
+            .replaceAll(key, "[redacted]")
+            .slice(-16384);
+          if (
+            ((await this.storage.get("job:" + job.id)) as JobLedger | undefined)
+              ?.cancelled
+          )
             throw new Error("Cancelled by operator");
           if (
             result.exitCode ||
@@ -209,29 +279,45 @@ export class Dispatcher {
             });
           }
           job.state = "failed";
-          job.cancelled = (await this.storage.get("job:" + job.id) as JobLedger | undefined)?.cancelled;
-          retry = attempt < 2 && !job.cancelled;
+          job.cancelled = (
+            (await this.storage.get("job:" + job.id)) as JobLedger | undefined
+          )?.cancelled;
+          retry = attempt < 2 && !job.cancelled && !this.stopped;
         } finally {
           if (machine) {
             try {
               await machine.destroy();
             } catch (error) {
               job.state = "failed";
-              job.error = "Destroy failed: " + String(error);
+              job.error =
+                "Destroy failed: " +
+                String(error).replaceAll(key, "[redacted]");
               retry = false;
             }
           }
+          this.activeMachines.delete(job.id);
           await this.save(job);
         }
         if (!retry) break;
-        while (this.backoffUntil > this.now()) {
+        while (!this.stopped && this.backoffUntil > this.now()) {
           await (
             this.options.wait ??
-            ((ms) => new Promise((resolve) => setTimeout(resolve, ms)))
+            ((ms) => new Promise<void>((resolve) => {
+              const finish = () => { clearTimeout(timer); this.shutdown.signal.removeEventListener("abort", finish); resolve(); };
+              const timer = setTimeout(finish, ms);
+              this.shutdown.signal.addEventListener("abort", finish, { once: true });
+              if (this.stopped) finish();
+            }))
           )(this.backoffUntil - this.now());
         }
       }
     } finally {
+      job.finished = new Date(this.now()).toISOString();
+      (job.events ??= []).push({
+        stage: job.state === "succeeded" ? "finished" : "failed",
+        at: job.finished,
+      });
+      await this.save(job);
       await this.options.spec.release(job.task, job.id);
     }
   }

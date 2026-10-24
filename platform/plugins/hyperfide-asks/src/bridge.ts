@@ -72,12 +72,37 @@ export function parsePolicy(text: string | null): Policy {
     }),
   ) as Policy;
 }
+export interface WatchTiming {
+  /** Quiet time after a graph write before the asks are listed again. */
+  debounceMs: number;
+  /** Floor between two listings while the graph keeps being written. */
+  minIntervalMs: number;
+}
+export const defaultWatchTiming: WatchTiming = { debounceMs: 250, minIntervalMs: 1000 };
+interface WatchEntry {
+  ready: Promise<void>;
+  subscribers: Set<() => void>;
+  /** The last list published for this repository, serialized; gates duplicate signals. */
+  last?: string;
+  timer?: ReturnType<typeof setTimeout>;
+  inflight: boolean;
+  dirty: boolean;
+  refreshedAt: number;
+  stop?: () => void;
+  stopped: boolean;
+}
+const watchKey = (hostId: string, root: string) => `${hostId}\0${root}`;
 export class AskBridge {
+  private readonly watches = new Map<string, WatchEntry>();
+  private readonly timing: WatchTiming;
   constructor(
     private graph: GraphHost,
     private publish: (channel: string, payload: unknown) => void,
     private storage?: PluginStorage,
-  ) {}
+    timing: Partial<WatchTiming> = {},
+  ) {
+    this.timing = { ...defaultWatchTiming, ...timing };
+  }
   private async command(repository: string, args: string[]) {
     const { root, hostId } = await this.graph.resolveRepository(repository);
     // Child errors may contain answers in argv; never forward them.
@@ -126,7 +151,7 @@ export class AskBridge {
       "--json",
     ]);
     const asks = await this.list(repository);
-    this.publish("asks.changed", { repository, asks });
+    this.emit(repository, asks, await this.entryFor(repository));
     return asks.find((ask) => String(ask.id) === id) ?? null;
   }
   async journal(repository: string) {
@@ -148,44 +173,110 @@ export class AskBridge {
       await this.graph.readText(hostId, join(root, "spec/workflow.kvx")),
     );
   }
+  /**
+   * Re-list the asks when the graph database changes. The graph is the whole control plane and is
+   * written many times a second by indexers and language servers, so one watcher per repository
+   * coalesces those writes: a listing runs at most once per minIntervalMs, and `asks.changed` (and
+   * every subscriber's callback) fires only when the list differs from the one last published.
+   */
   async watch(repository: string, changed?: () => void): Promise<() => void> {
     const { root, hostId } = await this.graph.resolveRepository(repository);
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let queue = Promise.resolve();
-    const refresh = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        queue = queue.then(async () => {
-          if (stopped) return;
-          try {
-            const asks = await this.list(repository);
-            if (!stopped) {
-              this.publish("asks.changed", { repository, asks });
-              changed?.();
-            }
-          } catch {
-            if (!stopped)
-              this.publish("asks.error", {
-                repository,
-                message: "Ask refresh failed",
-              });
-          }
-        });
-      }, 40);
-    };
-    const stop = await this.graph.watch(
-      hostId,
-      [
-        join(root, ".codegraph/graph.db"),
-        join(root, ".codegraph/graph.db-wal"),
-      ],
-      refresh,
-    );
+    const key = watchKey(hostId, root);
+    const entry = this.watches.get(key) ?? this.open(key, repository, hostId, root);
+    const subscriber = () => changed?.();
+    entry.subscribers.add(subscriber);
+    try {
+      await entry.ready;
+    } catch (error) {
+      entry.subscribers.delete(subscriber);
+      throw error;
+    }
     return () => {
-      stopped = true;
-      clearTimeout(timer);
-      stop();
+      entry.subscribers.delete(subscriber);
+      if (entry.subscribers.size) return;
+      entry.stopped = true;
+      clearTimeout(entry.timer);
+      entry.stop?.();
+      if (this.watches.get(key) === entry) this.watches.delete(key);
     };
+  }
+  private open(key: string, repository: string, hostId: string, root: string): WatchEntry {
+    const entry: WatchEntry = {
+      ready: Promise.resolve(),
+      subscribers: new Set(),
+      inflight: false,
+      dirty: false,
+      refreshedAt: 0,
+      stopped: false,
+    };
+    this.watches.set(key, entry);
+    entry.ready = this.graph
+      .watch(
+        hostId,
+        [
+          join(root, ".codegraph/graph.db"),
+          join(root, ".codegraph/graph.db-wal"),
+        ],
+        () => this.schedule(repository, entry),
+      )
+      .then((stop) => {
+        if (entry.stopped) stop();
+        else entry.stop = stop;
+      })
+      .catch((error) => {
+        entry.stopped = true;
+        if (this.watches.get(key) === entry) this.watches.delete(key);
+        throw error;
+      });
+    return entry;
+  }
+  private async entryFor(repository: string) {
+    const { root, hostId } = await this.graph.resolveRepository(repository);
+    return this.watches.get(watchKey(hostId, root));
+  }
+  /** Publish once per actual change; the watcher's snapshot suppresses duplicates. */
+  private emit(repository: string, asks: Ask[], entry?: WatchEntry): boolean {
+    const serialized = JSON.stringify(asks);
+    if (entry) {
+      if (entry.last === serialized) return false;
+      entry.last = serialized;
+    }
+    this.publish("asks.changed", { repository, asks });
+    entry?.subscribers.forEach((notify) => notify());
+    return true;
+  }
+  private schedule(repository: string, entry: WatchEntry) {
+    if (entry.stopped) return;
+    if (entry.inflight) {
+      entry.dirty = true;
+      return;
+    }
+    if (entry.timer) return;
+    const delay = Math.max(
+      this.timing.debounceMs,
+      entry.refreshedAt + this.timing.minIntervalMs - Date.now(),
+    );
+    entry.timer = setTimeout(() => {
+      entry.timer = undefined;
+      void this.refresh(repository, entry);
+    }, delay);
+  }
+  private async refresh(repository: string, entry: WatchEntry) {
+    if (entry.stopped) return;
+    entry.inflight = true;
+    try {
+      const asks = await this.list(repository);
+      if (!entry.stopped) this.emit(repository, asks, entry);
+    } catch {
+      if (!entry.stopped)
+        this.publish("asks.error", { repository, message: "Ask refresh failed" });
+    } finally {
+      entry.inflight = false;
+      entry.refreshedAt = Date.now();
+      if (entry.dirty && !entry.stopped) {
+        entry.dirty = false;
+        this.schedule(repository, entry);
+      }
+    }
   }
 }

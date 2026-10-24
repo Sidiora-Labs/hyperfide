@@ -1,4 +1,5 @@
 #include "cg.h"
+#include "index_chunks.h"
 #include "semantic.h"
 #include "sem_dispatch.h"
 
@@ -206,7 +207,7 @@ static int paired(Cg *cg,long branch,const char *invoke_kind,
         "AND (?5<>1 OR t.evidence=?6) AND (?7 IS NULL OR EXISTS "
         "(SELECT 1 FROM semantic_references rr WHERE rr.file_id=t.file_id "
         "AND rr.start_line=t.start_line AND rr.qualifier=?7)) LIMIT 2");
-    while(sqlite3_step(inv)==SQLITE_ROW) {
+    while(index_chunks_step(cg, &inv)==SQLITE_ROW) {
         const char *key=(const char*)sqlite3_column_text(inv,0);
         long source=sqlite3_column_int64(inv,1),source_file=sqlite3_column_int64(inv,2);
         int line=sqlite3_column_int(inv,3),col=sqlite3_column_int(inv,4);
@@ -257,7 +258,7 @@ static int direct(Cg *cg,long branch,const char *fact_kind,const char *edge_kind
         "ON f.id=t.file_id WHERE f.branch_id=?1 AND t.kind=?2 "
         "AND t.owner_id IS NOT NULL");
     sqlite3_bind_int64(q,1,branch);sqlite3_bind_text(q,2,fact_kind,-1,SQLITE_STATIC);
-    while(sqlite3_step(q)==SQLITE_ROW) {
+    while(index_chunks_step(cg, &q)==SQLITE_ROW) {
         const char *name=(const char*)sqlite3_column_text(q,0);
         if (!strcmp(fact_kind,"callback_registration") && !callback_api(name)) continue;
         const char *value=(const char*)sqlite3_column_text(q,1);
@@ -291,7 +292,7 @@ static int interfaces(Cg *cg,long branch) {
         "JOIN symbols os ON os.id=other.symbol_id WHERE "
         "other.parent_id=child.symbol_id AND os.name=?3)=1 "
         "ORDER BY m.id LIMIT 33");
-    while(sqlite3_step(r)==SQLITE_ROW) {
+    while(index_chunks_step(cg, &r)==SQLITE_ROW) {
         long source=sqlite3_column_int64(r,0),file=sqlite3_column_int64(r,1);
         const char *text=(const char*)sqlite3_column_text(r,2);
         int line=sqlite3_column_int(r,3),col=sqlite3_column_int(r,4);
@@ -344,7 +345,7 @@ static int form_events(Cg *cg,long branch) {
         "WHERE ss.parent_id=?1 AND s.name=?2 "
         "AND s.kind IN ('method','function') LIMIT 2");
     int rc=0;
-    while(sqlite3_step(events)==SQLITE_ROW) {
+    while(index_chunks_step(cg, &events)==SQLITE_ROW) {
         long source=sqlite3_column_int64(events,0);
         const char *handler=(const char*)sqlite3_column_text(events,1);
         long file=sqlite3_column_int64(events,2);
@@ -386,9 +387,9 @@ static int form_events(Cg *cg,long branch) {
 
 int sem_dispatch_run(Cg *cg,const long *changed_files,int nfiles) {
     if (!cg || !cg->branch_id || !relevant(cg,changed_files,nfiles)) return 0;
-    /* Savepoint permits this pass to be called inside the scan writer's
-     * transaction; rollback leaves both old and base edges intact. */
-    cg_exec(cg,"SAVEPOINT sem_dispatch");
+    /* Standalone callers retain an atomic pass. The index instead commits
+     * work units and retains persistent retry debt until final publication. */
+    if (!index_chunks_active(cg)) cg_exec(cg,"SAVEPOINT sem_dispatch");
     sqlite3_stmt *d=cg_prep(cg,"DELETE FROM semantic_edges WHERE branch_id=?1 "
                               "AND synthesized=1 AND provenance='heuristic' "
                               "AND strategy LIKE 'dispatch:%'");
@@ -404,7 +405,7 @@ int sem_dispatch_run(Cg *cg,const long *changed_files,int nfiles) {
     if (!rc) rc=paired(cg,cg->branch_id,"state_setter_call","state_setter","state_render",1,0);
     if (!rc) rc=interfaces(cg,cg->branch_id);
     if (!rc) rc=form_events(cg,cg->branch_id);
-    cg_exec(cg,rc?"ROLLBACK TO sem_dispatch; RELEASE sem_dispatch":"RELEASE sem_dispatch");
+    if (!index_chunks_active(cg)) cg_exec(cg,rc?"ROLLBACK TO sem_dispatch; RELEASE sem_dispatch":"RELEASE sem_dispatch");
     return rc;
 }
 
