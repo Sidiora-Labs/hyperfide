@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 export default defineConfig({
-  resolve: { conditions: ["source"] },
+  resolve: { tsconfigPaths: true, conditions: ["source"] },
   test: {
     name: "hyperfide-dispatch",
     testTimeout: 15000,

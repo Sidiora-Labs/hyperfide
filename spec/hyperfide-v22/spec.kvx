@@ -912,7 +912,7 @@ owner = "source"
 
 [task.7.19]
 title = "Fix: the Fleet and Image builder pages are empty and unstyled because the platform never starts its dispatcher and the image builder ignores the registered provider"
-status = "pending"
+status = "blocked"
 wave = 7
 requires = ["7.9"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/7_19.sh"]
@@ -925,6 +925,7 @@ do_5 = "Tests: server-backend.test.ts covers the dispatcher starting paused with
 reqs = ["6.3", "6.4", "6.6"]
 owner = "platform"
 
+blocked_ask = "1"
 [task.7.20]
 title = "Fix: the Railway machines settings page shows two masked fields and nothing else, with no connection state, verification or fleet status"
 status = "pending"

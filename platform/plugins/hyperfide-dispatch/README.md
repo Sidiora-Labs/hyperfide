@@ -1,5 +1,23 @@
 # Multi-host dispatch projection
 
+The Dispatch plugin's Fleet page reads its private ledger and exposes
+`fleetImportLedgers` for external workers. Pass `{ source, jobs }`; each job uses
+the `JobLedger` fields and may include ISO `started`/`finished` timestamps,
+`worker`, a bounded `log`, and `events: [{ stage, at }]`. Reimporting a job ID
+updates its record. Imported sources remain visible and are excluded from the
+dispatcher's restart cleanup.
+
+Image builder settings are `dispatch_repository` and `dispatch_fleetPath`.
+Their labels retain the logical names `dispatch.repository` and
+`dispatch.fleetPath`; the host settings API forbids dots in keys. The revision
+field resolves branches, tags and short SHAs with Git. Both pages poll every
+five seconds.
+
+Task 7.19 remains blocked on permission Ask #1: the registered provider API has
+no named checkpoint allocation/result or command execution bridge. The default
+server entry still does not run a Dispatcher, and its image execution adapter
+still cannot build checkpoints. Ledger/UI checks alone do not prove those paths.
+
 The fleet contracts are exported from `@hyperfide/plugin-sdk/machine-provider`.
 
 Task 6.4 adds `src/host-capacity.ts` while task 5.4 is pending. Its

@@ -74,8 +74,20 @@ export class ImageBuilder {
     if (job.machine) await (job.cleanup ??= job.machine.destroy());
   }
   async start(commit: string): Promise<BuildRecord> {
-    if (!/^[a-f0-9]{40}$/.test(commit))
-      throw new Error("A full repository commit is required");
+    if (!/^[a-f0-9]{40}$/.test(commit)) {
+      try {
+        const result = await promisify(execFile)(
+          "git",
+          ["rev-parse", "--verify", "--end-of-options", `${commit}^{commit}`],
+          { cwd: this.options.repository },
+        );
+        commit = result.stdout.trim();
+      } catch {
+        throw new Error("Cannot resolve repository commit");
+      }
+      if (!/^[a-f0-9]{40}$/.test(commit))
+        throw new Error("Cannot resolve repository commit");
+    }
     if ([...this.jobs.values()].some((j) => j.record.status === "running"))
       throw new Error("An image build is already running");
     const record: BuildRecord = {
