@@ -214,7 +214,7 @@ owner = "runner"
 
 [task.0.9]
 title = "Platform CI workflow"
-status = "pending"
+status = "done"
 wave = 0
 requires = ["0.7"]
 touches = [".github/workflows/platform.yml", "scripts/platform-ci.sh", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/0_9.sh"]
@@ -268,7 +268,7 @@ owner = "graph"
 
 [task.1.4]
 title = "Worker skill and codify MCP injection"
-status = "implemented"
+status = "done"
 wave = 1
 requires = ["1.3"]
 touches = ["platform/plugins/hyperfide-graph/**", "platform/plugins/provider-claude-code/**", "platform/plugins/provider-codex/**", "platform/packages/provider-bridge-protocol/src/**", "platform/packages/plugin-sdk/src/**", "tests/hyperfide/cases/v22/1_4.sh"]
@@ -456,7 +456,7 @@ owner = "qualification"
 
 [task.4.1]
 title = "Verify lanes"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["2.1"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/4_1.sh"]
@@ -482,7 +482,7 @@ owner = "qualification"
 
 [task.4.3]
 title = "Checker thread"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["4.1", "2.3"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/4_3.sh"]
@@ -495,7 +495,7 @@ owner = "qualification"
 
 [task.4.4]
 title = "Wave closure and publication"
-status = "implemented"
+status = "done"
 wave = 4
 requires = ["4.2", "4.3", "3.2"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "platform/plugins/github/**", "tests/hyperfide/cases/v22/4_4.sh"]
@@ -549,7 +549,7 @@ owner = "fleet"
 
 [task.5.3]
 title = "Image builder"
-status = "implemented"
+status = "done"
 wave = 5
 requires = ["5.1"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/5_3.sh"]
@@ -642,7 +642,7 @@ owner = "authority"
 
 [task.6.3]
 title = "Plugin state on the authority"
-status = "implemented"
+status = "done"
 wave = 6
 requires = ["6.2", "5.5", "4.4", "3.5"]
 touches = ["platform/plugins/hyperfide-spec/**", "platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-dispatch/**", "platform/packages/hyperfide-authority/**", "services/hyperfide/src/**", "services/hyperfide/migrations/**", "tests/hyperfide/cases/v22/6_3.sh"]
@@ -709,7 +709,7 @@ owner = "memory"
 
 [task.7.3]
 title = "Documentation of the merged system"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["6.5", "5.7", "4.5", "7.1", "7.2"]
 touches = ["docs/hyperfide/platform.md", "docs/hyperfide/operations.md", "docs/ARCHITECTURE.md", "README.md", "platform/docs/**", "platform/README.md", "deploy/hyperfide/sandbox/README.md", "tests/hyperfide/cases/v22/7_3.sh"]
