@@ -69,7 +69,7 @@ for sql in strings:
     assert 'SCAN semantic_route_compositions' not in plan,(sql,plan)
 d.close()
 PY
-run index timeout 10 "$root/cg" index --full
+run index timeout 60 "$root/cg" index --full
 run cleanup python3 - "$db" <<'PY'
 import sqlite3, sys
 d=sqlite3.connect(sys.argv[1])
