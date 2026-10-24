@@ -37,7 +37,7 @@ const NPM_VERSION = {
   source: "npm" as const,
   updateAvailable: false,
   isDevelopment: false,
-  upgradeCommand: "npx hyperfide-app@latest",
+  upgradeCommand: "npx @hyperfide/app@latest",
 };
 
 const IN_APP_UPDATE: SystemAppUpdateStatus = {
@@ -252,6 +252,24 @@ function manualUpdateIssue(
     description: `${currentVersion} -> ${latestVersion}`,
     fingerprint: `${provider}:${currentVersion}:${latestVersion}:manual`,
   };
+}
+
+export function NoUpdateChannel() {
+  return (
+    <HyperfideUpdatesCard>
+      <HyperfideAppUpdateRows
+        systemVersion={{
+          ...NPM_VERSION,
+          latestVersion: null,
+          upgradeCommand: null,
+        }}
+        desktopInfo={null}
+        isDesktop={false}
+        onRelaunchDesktop={null}
+        onRetryDesktop={null}
+      />
+    </HyperfideUpdatesCard>
+  );
 }
 
 export function RowVariations() {
