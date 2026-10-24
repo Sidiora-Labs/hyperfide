@@ -9,7 +9,7 @@ import type {
   PluginEnvironmentProviderAvailability,
   PluginEnvironmentProviderValidateContext,
 } from "@hyperfide/plugin-sdk/environment-provider";
-import { expect, onTestFinished, vi } from "vitest";
+import { expect, onTestFinished } from "vitest";
 import {
   validatePluginEnvironmentProviderDeclaration,
   type NormalizedPluginEnvironmentProvider,
@@ -146,9 +146,7 @@ export function installFakeEnvironmentProvider(
   return {
     contexts,
     async waitForProvision() {
-      await vi.waitFor(() => {
-        expect(contexts.length).toBeGreaterThan(0);
-      });
+      await expect.poll(() => contexts.length).toBeGreaterThan(0);
       const context = contexts[0];
       if (context === undefined) {
         throw new Error(`Expected the ${args.id} provider to be asked`);

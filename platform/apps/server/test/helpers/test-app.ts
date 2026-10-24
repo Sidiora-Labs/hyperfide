@@ -358,6 +358,7 @@ export async function createTestAppHarness(
     pluginCatalogService,
     serverMove,
     async cleanup(): Promise<void> {
+      await hub.stopDaemonDisconnects();
       await stopEnvironmentProvisioningSchedules(db);
       clearAllThreadProvisionSchedules();
       await whenResponseDeferralsIdle(config);

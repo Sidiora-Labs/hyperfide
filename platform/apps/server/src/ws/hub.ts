@@ -285,6 +285,7 @@ export class NotificationHub implements DbNotifier {
     string,
     ReturnType<typeof setTimeout>
   >();
+  private readonly daemonDisconnectWork = new Set<Promise<void>>();
   private readonly terminalClientSocketsById = new Map<
     string,
     Set<HubSocket>
@@ -881,7 +882,22 @@ export class NotificationHub implements DbNotifier {
     delayMs: number,
     callback: () => void | Promise<void>,
   ): void {
-    scheduleTimer(this.pendingDaemonDisconnects, sessionId, delayMs, callback);
+    scheduleTimer(this.pendingDaemonDisconnects, sessionId, delayMs, () => {
+      const work = Promise.resolve().then(callback);
+      this.daemonDisconnectWork.add(work);
+      const finished = () => this.daemonDisconnectWork.delete(work);
+      void work.then(finished, finished);
+      return work;
+    });
+  }
+
+  async stopDaemonDisconnects(): Promise<void> {
+    for (const sessionId of this.pendingDaemonDisconnects.keys()) {
+      this.cancelPendingDaemonDisconnect(sessionId);
+    }
+    while (this.daemonDisconnectWork.size) {
+      await Promise.all([...this.daemonDisconnectWork]);
+    }
   }
 
   cancelPendingDaemonDisconnect(sessionId: string): void {

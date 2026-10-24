@@ -269,12 +269,14 @@ describe("GET /api/v1/system/usage-limits", () => {
       expect(response.status).toBe(200);
       expect(await readJson(response)).toEqual(USAGE_RESPONSE);
       expect(
-        responder.requests.flatMap((request) =>
-          request.command.type === "provider.usage"
-            ? [request.command.providerId]
-            : [],
-        ),
-      ).toEqual(["codex", "claude-code", "acp-cursor"]);
+        responder.requests
+          .flatMap((request) =>
+            request.command.type === "provider.usage"
+              ? [request.command.providerId]
+              : [],
+          )
+          .sort(),
+      ).toEqual(["acp-cursor", "claude-code", "codex"]);
     });
   });
 });

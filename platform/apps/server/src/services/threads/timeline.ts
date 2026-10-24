@@ -1034,19 +1034,23 @@ async function selectStandardTimelineEventRows(
     excludedTypes: THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
     maxInlineOutputChars,
   };
-  const groupingContext = await measureThreadTimelineStage(
-    profile,
-    "ordering-context-query",
-    async () =>
-      await getTimelineGroupingContext(db, {
-        threadId: thread.id,
-        sequenceStart: epochSequenceStart,
-        maxSeq,
-      }),
-  );
-  let rows = await listStoredTimelineThreadWindowEventRows(db, windowArgs);
+  const [groupingContext, windowRows, windowTurnIds] = await Promise.all([
+    measureThreadTimelineStage(
+      profile,
+      "ordering-context-query",
+      async () =>
+        await getTimelineGroupingContext(db, {
+          threadId: thread.id,
+          sequenceStart: epochSequenceStart,
+          maxSeq,
+        }),
+    ),
+    listStoredTimelineThreadWindowEventRows(db, windowArgs),
+    listTimelineRootWindowTurnIds(db, windowArgs),
+  ]);
+  let rows = windowRows;
   const initialTurnIds = [
-    ...(await listTimelineRootWindowTurnIds(db, windowArgs)),
+    ...windowTurnIds,
     ...rows.flatMap((row) => {
       if (row.type !== "client/turn/requested") return [];
       const requestId = tryReadClientTurnRequestedRequestId(row, decode);

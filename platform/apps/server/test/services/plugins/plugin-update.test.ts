@@ -1069,7 +1069,9 @@ describe("plugin update service and routes", () => {
     const first = service.checkForUpdates();
     expect(service.checkForUpdates()).toBe(first);
     await first;
-    expect(service.checkForUpdates()).not.toBe(first);
+    const next = service.checkForUpdates();
+    expect(next).not.toBe(first);
+    await next;
   }, 60_000);
 
   it("keeps the guarded registry policy for catalog installs during a check", async () => {

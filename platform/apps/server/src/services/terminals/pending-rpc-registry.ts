@@ -14,7 +14,7 @@ type PendingRpcRegistryOptions<TKey, TResult> = (
   | { timeoutError: (key: TKey) => Error; timeoutMs: number }
   | { timeoutMs: null }
 ) & {
-  onFail?: (key: TKey, error: Error) => void;
+  onFail?: (key: TKey, error: Error) => void | Promise<void>;
   onSettle?: (key: TKey, result: TResult) => void | Promise<void>;
 };
 
@@ -54,8 +54,7 @@ export class PendingRpcRegistry<TKey extends PendingRpcKey, TResult> {
         if (this.entries.get(key.rpcKey) !== entry) return;
         this.entries.delete(key.rpcKey);
         const error = timeout.timeoutError(key);
-        this.options.onFail?.(key, error);
-        entry.reject(error);
+        this.rejectAfterCleanup(entry, error);
       }, timeout.timeoutMs);
     }
     this.entries.set(key.rpcKey, entry);
@@ -86,8 +85,7 @@ export class PendingRpcRegistry<TKey extends PendingRpcKey, TResult> {
   fail(rpcKey: string, error: Error): boolean {
     const entry = this.take(rpcKey);
     if (!entry) return false;
-    this.options.onFail?.(entry.key, error);
-    entry.reject(error);
+    this.rejectAfterCleanup(entry, error);
     return true;
   }
 
@@ -104,8 +102,7 @@ export class PendingRpcRegistry<TKey extends PendingRpcKey, TResult> {
       if (!matches(entry.key)) continue;
       this.clear(entry);
       const failure = typeof error === "function" ? error(entry.key) : error;
-      this.options.onFail?.(entry.key, failure);
-      entry.reject(failure);
+      this.rejectAfterCleanup(entry, failure);
       failed += 1;
     }
     return failed;
@@ -116,6 +113,23 @@ export class PendingRpcRegistry<TKey extends PendingRpcKey, TResult> {
     if (!entry) return null;
     this.clear(entry);
     return entry;
+  }
+
+  private rejectAfterCleanup(
+    entry: PendingRpcEntry<TKey, TResult>,
+    error: Error,
+  ): void {
+    // Callers may read the finalized database state when the RPC rejects.
+    try {
+      const cleanup = this.options.onFail?.(entry.key, error);
+      if (cleanup) {
+        void cleanup.then(() => entry.reject(error), entry.reject);
+      } else {
+        entry.reject(error);
+      }
+    } catch (cleanupError) {
+      entry.reject(cleanupError as Error);
+    }
   }
 
   private clear(entry: PendingRpcEntry<TKey, TResult>): void {

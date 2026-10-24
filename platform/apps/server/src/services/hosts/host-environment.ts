@@ -28,7 +28,7 @@ export async function resolveHostEnvironment(
     resolveUserMachineEnvironment(deps.db, deps.config.dataDir),
     context.projectId === null
       ? []
-      : await resolveUserMachineEnvironment(
+      : resolveUserMachineEnvironment(
           deps.db,
           deps.config.dataDir,
           context.projectId,

@@ -621,7 +621,9 @@ export class TerminalSessionLifecycle {
       PendingTerminalRpcKey,
       TerminalReplayMessage
     >({
-      onFail: (key) => this.catchingUpTerminalIds.delete(key.terminalId),
+      onFail: (key) => {
+        this.catchingUpTerminalIds.delete(key.terminalId);
+      },
       onSettle: (key, message) => this.completeTerminalCatchUp(key, message),
       timeoutMs: attachTimeoutMs,
       timeoutError: terminalTimeoutError(

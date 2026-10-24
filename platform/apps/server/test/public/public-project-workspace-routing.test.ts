@@ -96,7 +96,11 @@ describe("public project workspace routing", () => {
 
       try {
         await vi.waitFor(() => expect(responder.requests).toHaveLength(2));
-        expect(responder.requests.map((request) => request.command)).toEqual([
+        expect(
+          responder.requests
+            .map((request) => request.command)
+            .sort((a, b) => a.type.localeCompare(b.type)),
+        ).toEqual([
           {
             type: "host.inspect_git_source",
             path: "/project/branches",
@@ -115,7 +119,11 @@ describe("public project workspace routing", () => {
       const response = await responsePromise;
 
       expect(response.status).toBe(200);
-      expect(responder.requests.map((request) => request.command)).toEqual([
+      expect(
+        responder.requests
+          .map((request) => request.command)
+          .sort((a, b) => a.type.localeCompare(b.type)),
+      ).toEqual([
         {
           type: "host.inspect_git_source",
           path: "/project/branches",

@@ -7,7 +7,7 @@ import {
   resolveLoadedTimelineSurfaceKey,
   type LoadedTimelineState,
 } from "@hyperfide/client-core";
-import { updateThread } from "@hyperfide/db";
+import { getLatestThreadSequence, updateThread } from "@hyperfide/db";
 import {
   defaultFeatureFlags,
   encodeClientTurnRequestIdNumber,
@@ -243,12 +243,19 @@ async function refresh(
     await refetch(harness, client, threadId);
     return;
   }
+  const targetSequence = await getLatestThreadSequence(harness.db, {
+    threadId,
+  });
   await harness.deps.hub.notifyThread(threadId, ["events-appended"]);
   await expect
     .poll(() =>
-      socket.messages.some(
-        (message) => JSON.parse(message).type === "thread-timeline",
-      ),
+      socket.messages.some((message) => {
+        const signal = JSON.parse(message);
+        return (
+          signal.type === "thread-timeline" &&
+          signal.timeline.maxSeq >= targetSequence
+        );
+      }),
     )
     .toBe(true);
   const signals = socket.messages
@@ -546,9 +553,21 @@ describe.each(["refetch", "push"] as const)(
           await refresh(harness, client, script.threadId);
 
           expect(client.loaded.rows).toEqual(client.latest.rows);
-          expect(client.loaded.olderCursor).toEqual(
-            client.latest.timelinePage.olderCursor,
-          );
+          const loadedCursor = client.loaded.olderCursor;
+          const latestCursor = client.latest.timelinePage.olderCursor;
+          expect(loadedCursor?.anchorSeq).toEqual(latestCursor?.anchorSeq);
+          if (loadedCursor !== null && latestCursor !== null) {
+            // Separate completion pushes can retain an earlier equivalent snapshot.
+            const [loadedPage, latestPage] = await Promise.all([
+              readPage(harness, script.threadId, loadedCursor),
+              readPage(harness, script.threadId, latestCursor),
+            ]);
+            expect(loadedPage.status).toBe(200);
+            expect(latestPage.status).toBe(200);
+            expect(loadedPage.timeline?.rows).toEqual(
+              latestPage.timeline?.rows,
+            );
+          }
           await walkToStart(harness, client, script.threadId);
           expect(client.loaded.rows).toEqual(
             await freshWalk(harness, script.threadId),
