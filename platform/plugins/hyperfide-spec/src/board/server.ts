@@ -33,11 +33,12 @@ const run: CommandRunner = (binary, args, cwd) => new Promise((resolve, reject) 
 // Repository and binary are server configuration, never client supplied paths.
 export function createBoardServer(repository: string, readTasks: BoardRpc['tasks'],
   binary: string | undefined = undefined, execute: CommandRunner = run, suppliedStorage?: PluginStorage): BoardRpc {
+  // One malformed artifact directory (an entry without receipt.json) must not take the whole board down.
   const tasks = async (feature: string) => {
     const storage = suppliedStorage ?? await openSpecStorage(repository);
     try {
       const rows = await Promise.all((await readTasks(feature)).map(async task => ({
-        ...task, receipts: await taskReceipts(repository, task.id, `spec/${feature}/spec.kvx`), latestReceipt: (await latestReceipt(repository, task.id)) ?? null,
+        ...task, receipts: await taskReceipts(repository, task.id, `spec/${feature}/spec.kvx`).catch(() => []), latestReceipt: (await latestReceipt(repository, task.id)) ?? null,
       })));
       await storage.put('board:' + feature, rows);
       return rows;
