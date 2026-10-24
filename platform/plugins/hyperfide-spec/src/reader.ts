@@ -12,8 +12,9 @@ export interface SpecStorage {
   set(key: string, value: SpecSnapshot): Promise<void>;
 }
 export type SpecCommand = (args: string[], repository: string) => Promise<Record<string, unknown>>;
-// Two sequential CLI calls give each feature at most 30 seconds of enrichment.
-export function binaryCommand(binary = process.env.HYPERFIDE_BIN || 'hyperfide', timeout = 15_000): SpecCommand {
+// Loading no longer waits for enrichment, so the per-call budget only bounds a background refresh;
+// `spec trace` without graph sync still measures tens of seconds on a large repository.
+export function binaryCommand(binary = process.env.HYPERFIDE_BIN || 'hyperfide', timeout = 120_000): SpecCommand {
   return (args, repository) => new Promise((accept, reject) => {
     execFile(binary, args, { cwd: repository, timeout, maxBuffer: 32 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) { reject(new Error(error.killed ? `Spec command exceeded ${timeout}ms budget` : stderr.trim() || error.message)); return; }
@@ -60,7 +61,7 @@ export class SpecReader implements SpecRpc {
         const feature = featureFromKvx(entry.name, source);
         try {
           status[entry.name] = await this.command(['spec', 'status', ...args], this.repository);
-          trace[entry.name] = await this.command(['spec', 'trace', ...args], this.repository);
+          trace[entry.name] = await this.command(['spec', 'trace', ...args, '--no-sync'], this.repository);
           // The CLI exposes counts/next and trace evidence, not the complete task fields.
           const evidence = (trace[entry.name] as { tasks?: { id: string; title: string; status: string; wave: number }[] }).tasks;
           for (const item of evidence ?? []) {
