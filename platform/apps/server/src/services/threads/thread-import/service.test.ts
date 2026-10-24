@@ -396,6 +396,28 @@ describe("host session import service", () => {
     });
   });
 
+  it("skips a torn interior record instead of failing the session", async () => {
+    const { deps, root } = await setup();
+    const rows = stamped(claudeRows()).split("\n");
+    const torn = JSON.stringify({
+      type: "assistant",
+      sessionId: "claude-session",
+      timestamp: "2026-10-24T12:00:30.000Z",
+      message: { role: "assistant", content: [{ type: "text", text: "cut" }] },
+    });
+    // Two records written over each other on one line, as a provider crash leaves them.
+    rows.splice(2, 0, torn.slice(0, Math.floor(torn.length / 2)) + torn);
+    await writeFile(join(root, "claude-session.jsonl"), rows.join("\n"));
+    const result = await importSessions(deps, { source: "claude-code", root });
+    expect(result).toMatchObject({ imported: 1, errors: [] });
+    expect(result.records).toBeGreaterThan(0);
+    const events = await listStoredEventRows(deps.db, {
+      threadId: result.threads[0].id,
+    });
+    for (const event of events)
+      expect(() => parseStoredEvent(event)).not.toThrow();
+    expect(JSON.stringify(events)).not.toContain("cut");
+  });
   it("defers an unterminated partial record then appends it exactly once when completed", async () => {
     const { deps, root } = await setup();
     const path = join(root, "claude-session.jsonl");

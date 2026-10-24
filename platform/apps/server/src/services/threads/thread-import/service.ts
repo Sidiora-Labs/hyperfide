@@ -83,6 +83,8 @@ function textContent(value: unknown): string {
 }
 
 // Snapshot the file and defer its last line until we know it was fully written.
+// A torn interior line (two records written over each other by the provider) is
+// skipped as an empty record so one bad write cannot sink the whole session.
 async function* records(path: string) {
   const file = await open(path, "r");
   let stream: ReturnType<typeof createReadStream> | undefined;
@@ -106,7 +108,7 @@ async function* records(path: string) {
       try {
         return { line, record: object(JSON.parse(value)) };
       } catch {
-        throw new Error(`Invalid JSON at line ${line}`);
+        return { line, record: {} };
       }
     }
     for await (const value of lines) {
