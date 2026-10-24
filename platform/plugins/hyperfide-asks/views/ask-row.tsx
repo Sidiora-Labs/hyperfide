@@ -1,11 +1,30 @@
 import { Button } from "@/components/ui/button";
+import { useIsCompactViewport } from "@/components/ui/hooks/use-compact-viewport";
 import { Icon } from "@/components/ui/icon";
 import { Pill } from "@/components/ui/pill";
 import { ResourceMeta, ResourceRow } from "@/components/ui/resource-list";
 import { cn } from "@/lib/utils";
 import type { Ask } from "../src/inbox-adapter.js";
-import { countdown } from "../src/inbox.js";
 import { kindPresentation, scopeLabel } from "./ask-kinds.js";
+
+function remainingMinutes(deadline: Ask["deadline"], now: number): number | null {
+  if (!deadline) return null;
+  const end =
+    typeof deadline === "number" ? deadline * 1000 : Date.parse(deadline);
+  if (!Number.isFinite(end)) return null;
+  return Math.ceil((end - now) / 60000);
+}
+
+export function remainingLabel(deadline: Ask["deadline"], now: number): string {
+  const minutes = remainingMinutes(deadline, now);
+  if (minutes === null) return "No deadline";
+  if (minutes <= 0) return "Overdue";
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  if (days > 0) return `${days}d ${hours}h remaining`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m remaining`;
+  return `${minutes}m remaining`;
+}
 
 export function AskDeadline({
   deadline,
@@ -16,7 +35,7 @@ export function AskDeadline({
   now: number;
   className?: string;
 }) {
-  const remaining = countdown(deadline, now);
+  const remaining = remainingLabel(deadline, now);
   const overdue = remaining === "Overdue";
   const open = remaining === "No deadline";
   return (
@@ -55,7 +74,9 @@ export function AskRow({
   onAnswer: (ask: Ask) => void;
 }) {
   const kind = kindPresentation(ask.kind);
+  const compact = useIsCompactViewport();
   const optionCount = ask.options?.length ?? 0;
+  const deadline = <AskDeadline deadline={ask.deadline} now={now} />;
   return (
     <ResourceRow
       leading={
@@ -66,11 +87,13 @@ export function AskRow({
         />
       }
       title={ask.question}
-      titleMeta={scopeLabel(ask)}
+      titleMeta={compact ? undefined : scopeLabel(ask)}
       state={<AskKindPill kind={ask.kind} />}
       description={
         <ResourceMeta
           items={[
+            compact ? deadline : null,
+            compact ? scopeLabel(ask) : null,
             ask.recommendation ? (
               <span className="font-medium text-foreground">
                 Recommended: {ask.recommendation}
@@ -84,7 +107,7 @@ export function AskRow({
           ]}
         />
       }
-      trailingMeta={<AskDeadline deadline={ask.deadline} now={now} />}
+      trailingMeta={compact ? undefined : deadline}
       persistentActions={
         <Button
           type="button"
