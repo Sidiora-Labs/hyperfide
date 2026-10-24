@@ -15,7 +15,7 @@ export const taskSchema: z.ZodType<Task> = z.object({
 const scope = z.object({ repository: z.string().min(1).optional() });
 const feature = scope.extend({ feature: z.string().min(1) });
 export const specContract = defineRpcContract({
-  features: { input: scope, output: z.array(z.object({ id: z.string(), name: z.string(), status: z.string(), tasks: z.array(taskSchema) })) },
+  features: { input: scope, output: z.array(z.object({ id: z.string(), name: z.string(), status: z.string(), stale: z.boolean().optional(), error: z.string().optional(), tasks: z.array(taskSchema) })) },
   tasks: { input: feature, output: z.array(taskSchema) },
   task: { input: feature.extend({ id: z.string().min(1) }), output: taskSchema },
   waves: { input: feature, output: z.array(z.object({ wave: z.number(), tasks: z.array(taskSchema) })) },

@@ -811,7 +811,7 @@ owner = "app"
 
 [task.7.11]
 title = "Fix: spec plugin load blocks on tracing every feature and times out"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/7_11.sh"]
