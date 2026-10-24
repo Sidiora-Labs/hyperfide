@@ -2644,6 +2644,7 @@ const environmentProviderPolicySchema = z
 export const MACHINE_PROVIDER_DESCRIPTION_MAX_CHARS = 200;
 
 export interface NormalizedPluginMachineProvider {
+  sandbox?: PluginMachineProviderDeclaration["sandbox"];
   id: string;
   displayName: string;
   description: string;
@@ -2718,6 +2719,7 @@ export function validatePluginMachineProviderDeclaration(
     description,
     icon,
     ephemeral,
+    ...(declaration.sandbox ? { sandbox: declaration.sandbox } : {}),
     inputs: inputs === null ? null : inputs.schema,
     inputsJsonSchema: inputs === null ? null : inputs.jsonSchema,
     availability: declaration.availability ?? null,

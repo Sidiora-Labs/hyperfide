@@ -7,6 +7,7 @@ export function machineProvider(ops: SandboxMachineOps, resolve: CredentialResol
     return resource.id;
   };
   return {
+    sandbox: ops,
     id: ops.providerId, displayName: 'Blaxel', description: 'Run a machine in a Blaxel sandbox', icon: 'server', ephemeral: true,
     async availability() {
       try {

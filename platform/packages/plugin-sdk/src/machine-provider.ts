@@ -70,6 +70,8 @@ export interface PluginMachineProviderDefinition<
   S extends PluginMachineProviderInputsSchema =
     PluginMachineProviderInputsSchema,
 > {
+  /** Capability-gated raw compute operations; optional for enrollment-only providers. */
+  sandbox?: import("./host-contract.js").ExperimentalSandboxOperations;
   id: string;
   displayName: string;
   /** One line telling a user what choosing this provider gets them, shown wherever a machine is added. */

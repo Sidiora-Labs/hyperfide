@@ -19,6 +19,7 @@ export function createProvider(ops: SandboxMachineOps, resolve: CredentialsResol
     return { status: "removed" as const };
   };
   return {
+    sandbox: ops,
     id: ops.providerId, displayName: "Railway", description: "Run machines in Railway sandboxes.", icon: "train", ephemeral: true,
     async availability() {
       try { return await resolve() ? { status: "available" } : { status: "setup-required", message: "Configure Railway credentials in plugin settings." }; }

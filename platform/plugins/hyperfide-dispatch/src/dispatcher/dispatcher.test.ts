@@ -17,6 +17,9 @@ afterEach(async () => {
 async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), "hyperfide-dispatch-"));
   directories.push(directory);
+  const controls = await openDispatchStorage(directory);
+  await controls.put("fleet.control", { cap: 2, maximum: 2, paused: false });
+  controls.close();
   const machines = new FakeMachineProvider();
   const seed = await machines.create();
   await seed.checkpoint("current");

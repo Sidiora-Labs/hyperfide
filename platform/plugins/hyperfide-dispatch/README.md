@@ -1,5 +1,36 @@
 # Multi-host dispatch projection
 
+The Dispatch plugin's Fleet page reads its private ledger and exposes
+`fleetImportLedgers` for external workers. Pass `{ source, jobs }`; each job uses
+the `JobLedger` fields and may include ISO `started`/`finished` timestamps,
+`worker`, a bounded `log`, and `events: [{ stage, at }]`. Reimporting a job ID
+updates its record. Imported sources remain visible and are excluded from the
+dispatcher's restart cleanup.
+
+Image builder settings are `dispatch_repository` and `dispatch_fleetPath`.
+Their labels retain the logical names `dispatch.repository` and
+`dispatch.fleetPath`; the host settings API forbids dots in keys. The revision
+field resolves branches, tags and short SHAs with Git. Both pages poll every
+five seconds.
+
+The server starts a background dispatcher after SDK bind. It begins paused with
+cap zero; configure gateway keys before raising the cap and resuming. Providers
+without checkpoint support remain available to their other consumers; Dispatch
+reports that no checkpoint-capable provider is available. Gateway key JSON is a
+secret setting containing `{ id, value, concurrency }` records; only counts and
+IDs enter the ledger.
+
+The fleet JSON retains the image builder's checkpoint/base fields and adds a
+`dispatcher` object with `feature`, `integrationRef`, `prepare`, `runner`
+(`codex` or `claude`) and `mcp` configuration. These values are required before
+an unpaused tick can launch work. Tasks come from the spec plugin read model;
+merged dependencies are checked against the integration ref's commit messages.
+Durable claims belong to this server's dispatcher and are released on terminal
+results or restart. The concurrency-limit snapshot bounds the key budget and
+accounts for running platform threads. Tick interval defaults to 15 seconds;
+backoff is persisted and retries wait until it expires. Service disposal stops
+scheduling, interrupts owned compute and drains ledger writes.
+
 The fleet contracts are exported from `@hyperfide/plugin-sdk/machine-provider`.
 
 Task 6.4 adds `src/host-capacity.ts` while task 5.4 is pending. Its

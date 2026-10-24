@@ -525,6 +525,8 @@ export interface PluginServerAccess {
 }
 
 export interface PluginMachines extends MachineBootstrapApi {
+  /** Registered provider operations, or null when this provider has no sandbox capability. */
+  getSandboxProvider?(id: string): import("./host-contract.js").ExperimentalSandboxOperations | null;
   /** Read core’s current persisted provider resource, or null when the host or resource is absent. Available across plugins; resources must not contain credentials. */
   getResource(hostId: string): Promise<JsonValue | null>;
   register<

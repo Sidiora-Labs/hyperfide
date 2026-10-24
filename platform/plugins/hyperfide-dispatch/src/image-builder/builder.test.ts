@@ -167,7 +167,7 @@ describe("image builder", () => {
       (await s.builder.wait((await s.builder.start(commit)).id)).error,
     ).toContain("Unknown checkpoint");
     await expect(s.builder.start("HEAD; echo unsafe")).rejects.toThrow(
-      "full repository commit",
+      "Cannot resolve repository commit",
     );
     await expect(s.builder.cancel("missing")).rejects.toThrow("Unknown build");
   });
@@ -197,6 +197,11 @@ describe("image builder", () => {
       s.dir,
     );
     await gitRunner(["bundle", "verify", bundle], s.dir);
+    for (const revision of ["main", "HEAD"]) {
+      const build = await s.builder.start(revision);
+      expect(build.commit).toMatch(/^[a-f0-9]{40}$/);
+      expect((await s.builder.wait(build.id)).status).toBe("succeeded");
+    }
     await gitRunner(["clone", bundle, join(s.dir, "clone")], s.dir);
     await gitRunner(
       [

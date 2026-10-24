@@ -912,7 +912,7 @@ owner = "source"
 
 [task.7.19]
 title = "Fix: the Fleet and Image builder pages are empty and unstyled because the platform never starts its dispatcher and the image builder ignores the registered provider"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.9"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/packages/plugin-sdk/src/machine-provider.ts", "platform/packages/plugin-sdk/src/backend-contract.ts", "platform/packages/plugin-sdk/src/host-contract.ts", "platform/apps/server/src/services/plugins/plugin-api.ts", "platform/apps/server/src/services/hosts/**", "platform/plugins/machine-railway/src/provider.ts", "platform/plugins/machine-railway/src/machine-ops.ts", "platform/plugins/machine-blaxel/src/provider.ts", "tests/hyperfide/cases/v22/7_19.sh"]
