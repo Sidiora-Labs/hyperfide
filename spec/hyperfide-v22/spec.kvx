@@ -808,3 +808,15 @@ do_1 = "Owner finding at the 7.6 launch on 2026-10-24: the Hyperfide-added app s
 do_2 = "Before and after screenshots of every surface beside its native reference are kept as evidence; the changed plugins' app tests pass or are updated deliberately; 7_10.sh runs the vitest suites of hyperfide-asks, hyperfide-graph, hyperfide-spec and hyperfide-guide and builds @hyperfide/bundled-plugins, exiting non-zero on any failure."
 reqs = ["2.2", "3.2", "4.3"]
 owner = "app"
+
+[task.7.11]
+title = "Fix: spec plugin load blocks on tracing every feature and times out"
+status = "pending"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/7_11.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_11.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2) after the rebuild with 7.7-7.9: the running 2.2.0 server reports `plugin hyperfide-spec failed to load: load timed out after 30000ms`. Cause: platform/plugins/hyperfide-spec/src/read-model-server.ts awaits SpecReader.start() for every repository before the plugin's default export resolves, and SpecReader.read() (src/reader.ts) runs `hyperfide spec status` and `hyperfide spec trace` sequentially for every feature directory under spec/ (18 features in this repository, 36 CLI runs; one `spec trace -f codify-v03 --json` ran over two minutes under load), so the load exceeds the server's loadTimeoutMs and the board, and the dispatch backend that reads features from this plugin, are gone. Fix: plugin load returns as soon as RPC is registered and the spec/ watcher is armed; the first read runs in the background and serves the cached snapshot (storage key hyperfide-spec:<repository>) or an empty snapshot flagged stale/refreshing until it lands, then publishes hyperfide-spec:changed; per-feature status/trace calls run with a bounded concurrency (4) instead of strictly sequentially; a feature whose trace fails or exceeds a per-feature budget is recorded as stale with its error instead of failing the whole read. No change to the RPC contract shape beyond the existing stale/error fields."
+do_2 = "7_11.sh boots the built server as 7_7.sh does with a project whose source is this repository and HYPERFIDE_BIN pointing at a wrapper script that delays every `spec trace` call by 3 seconds before delegating to the real binary; it asserts with `hyperfide-platform plugin list --json` that hyperfide-spec reaches running within 30 seconds with no error, that `plugin rpc call hyperfide-spec features` answers within 5 seconds (stale or empty allowed), and that within 240 seconds it returns all 18 features with hyperfide-v22 among them; the plugin's vitest suite covers the background first read, the bounded concurrency and the per-feature failure isolation."
+reqs = ["3.1"]
+owner = "spec"
