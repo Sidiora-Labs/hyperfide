@@ -30,6 +30,10 @@ server, host daemons and provider plugins to the C binary and control plane.
 Use Node 24 and pnpm 9.15: `pnpm -C platform install --frozen-lockfile`, then
 `pnpm -C platform dev`. The public command is `hyperfide platform --help`.
 
+| Command | Description |
+| --- | --- |
+| `hyperfide platform <args...>` | Front door to the platform runtime CLI: runs `HYPERFIDE_PLATFORM_BIN`, the repository's `platform/apps/cli/bin/hyperfide-platform`, or `hyperfide-platform` on PATH, in that order, passing arguments, streams and exit status through untouched |
+
 The [platform guide](docs/hyperfide/platform.md) describes runtime
 capabilities, authority plugins, fleet, slices and memory integration boundaries,
 and names the qualification command for each. The
@@ -208,6 +212,7 @@ Environment variables are spelled `HYPERFIDE_*` throughout. The older `CG_*` nam
 | `hyperfide init [--nested] [--force]` | Create `.codegraph/` and build the initial index; inside a linked git worktree of an initialized repository, join the shared graph under this branch instead. Refuses inside an enclosing project (`--nested` makes this directory its own) and in your home directory (`--force`) |
 | `hyperfide sync [paths] [--max-age MS] [--background] [--wait MS] [--auto] [--workers N]` | Incremental index: coalesces into a pass already running (`--wait`, default 2000 ms), skips when fresh, and walks only the paths named; `--auto` marks an implicit sync that `[sync] auto = false` skips |
 | `hyperfide index [--full] [--workers N]` | The blocking form of sync that always walks, waiting for a pass already running. `--workers N` (on both) beats `HYPERFIDE_INDEX_WORKERS` and `[index] workers` in the project configuration. Exits 75 when the database stays busy past the lock wait |
+| `hyperfide index-status [--json]` | Indexed file and symbol counts for the current branch; `--json` adds the total counts plus per-file paths and symbol counts |
 | `hyperfide branches` | Every branch indexed into the shared graph, with its worktree, head, base, and file count |
 | `hyperfide search <q> [-n N]` | Symbol and full-text search (default 20 results; `--path`, `--lang`, `--kind`, `--name`, `--no-tests` narrow it): a phrase matches names (`export memory` finds `memory_export` and `exportMemory`), doc comments and bodies, ranked in that order with source before tests; file hits show the matching line. Definitions answer, never their prototypes; a bounded typo fallback applies when exact and segment matches find nothing ([docs/retrieval.md](docs/retrieval.md)) |
 | `hyperfide grep <pattern> [-E] [-i]` | Line search instead of a shell grep: a literal (or `-E` regex) found through the trigram index, read from disk, each hit placed in its enclosing symbol, ranked and capped by `-n` and `--budget` with the omitted tail; `--path`, `--lang`, `--no-tests`, `--symbol`, `--kind`, `-C`, `--files`, `--count` ([docs/retrieval.md](docs/retrieval.md)) |
