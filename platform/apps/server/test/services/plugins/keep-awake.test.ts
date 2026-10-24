@@ -10,9 +10,9 @@ describe("builtin Keep Awake plugin", () => {
   it("owns its configuration and reconciles it without a core adapter", async () => {
     const server = await startTestServer();
     try {
-      const { host, session } = seedHostSession(server.deps);
+      const { host, session } = await seedHostSession(server.deps);
       seedPrimaryHost(server.deps, host.id);
-      const responder = registerHostRpcResponder(server, {
+      const responder = await registerHostRpcResponder(server, {
         hostId: host.id,
         sessionId: session.id,
         handle(request) {

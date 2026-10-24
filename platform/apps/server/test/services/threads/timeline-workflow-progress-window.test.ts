@@ -41,16 +41,16 @@ const execution = {
 
 type EventInput = Parameters<typeof insertEvents>[2][number];
 
-function setup(): { db: DbConnection; thread: Thread } {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<{ db: DbConnection; thread: Thread }> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "claude-code",
   });
@@ -93,14 +93,14 @@ function workflowTaskData(args: {
   });
 }
 
-function seedWorkflowThread(
+async function seedWorkflowThread(
   db: DbConnection,
   thread: Thread,
   options: {
     pendingTurnItems?: number;
     snapshotCount: number;
   },
-): void {
+): Promise<void> {
   const events: EventInput[] = [];
   let sequence = 0;
   const push = (event: Omit<EventInput, "sequence" | "threadId">): void => {
@@ -278,16 +278,16 @@ function seedWorkflowThread(
       data: workflowTaskData({ status: "pending", padding: SNAPSHOT_BYTES }),
     });
   }
-  insertEvents(db, noopNotifier, events);
+  await insertEvents(db, noopNotifier, events);
 }
 
-function buildPage(
+async function buildPage(
   db: DbConnection,
   thread: Thread,
   cursor: TimelinePaginationCursor | null,
   eventBudget = LARGE_BUDGET,
 ) {
-  return buildThreadTimelineWithProfile(db, thread, {
+  return await buildThreadTimelineWithProfile(db, thread, {
     completedTurnDisplay: "collapse",
     eventBudget,
     includeClearedContextHistory: false,
@@ -309,13 +309,16 @@ interface WalkResult {
   rows: TimelineRow[];
 }
 
-function walkAllPages(db: DbConnection, thread: Thread): WalkResult {
+async function walkAllPages(
+  db: DbConnection,
+  thread: Thread,
+): Promise<WalkResult> {
   const rowsByPage: TimelineRow[][] = [];
   let cursor: TimelinePaginationCursor | null = null;
   let maxEventDataBytes = 0;
   let pages = 0;
   for (;;) {
-    const { profile, response } = buildPage(db, thread, cursor);
+    const { profile, response } = await buildPage(db, thread, cursor);
     pages += 1;
     maxEventDataBytes = Math.max(maxEventDataBytes, profile.eventDataBytes);
     rowsByPage.push(response.rows);
@@ -330,11 +333,14 @@ function walkAllPages(db: DbConnection, thread: Thread): WalkResult {
 }
 
 describe("workflow progress snapshots across timeline pages", () => {
-  it("does not emit the spawning turn's summary on byte pages of a later turn", () => {
-    const { db, thread } = setup();
-    seedWorkflowThread(db, thread, { pendingTurnItems: 250, snapshotCount: 1 });
+  it("does not emit the spawning turn's summary on byte pages of a later turn", async () => {
+    const { db, thread } = await setup();
+    await seedWorkflowThread(db, thread, {
+      pendingTurnItems: 250,
+      snapshotCount: 1,
+    });
 
-    const walk = walkAllPages(db, thread);
+    const walk = await walkAllPages(db, thread);
     expect(walk.pages).toBeGreaterThan(1);
     const turnOneRows = walk.rows.filter(
       (row) => row.kind === "turn" && row.turnId === "turn-1",
@@ -344,15 +350,15 @@ describe("workflow progress snapshots across timeline pages", () => {
     expect(
       walk.rows.filter((row) => row.kind === "turn" && row.turnId === "turn-2"),
     ).toHaveLength(0);
-    const latest = buildPage(db, thread, null);
+    const latest = await buildPage(db, thread, null);
     expect(latest.response.activeWorkflows).toHaveLength(1);
   }, 15_000);
 
-  it("does not spend the byte budget on superseded progress snapshots", () => {
-    const { db, thread } = setup();
-    seedWorkflowThread(db, thread, { snapshotCount: SNAPSHOT_COUNT });
+  it("does not spend the byte budget on superseded progress snapshots", async () => {
+    const { db, thread } = await setup();
+    await seedWorkflowThread(db, thread, { snapshotCount: SNAPSHOT_COUNT });
 
-    const latest = buildPage(db, thread, null);
+    const latest = await buildPage(db, thread, null);
     expect(latest.response.timelinePage.olderCursor).toBeNull();
     expect(latest.profile.eventDataBytes).toBeLessThan(SNAPSHOT_BYTES * 3);
     expect(latest.response.activeWorkflows).toHaveLength(1);
@@ -362,11 +368,11 @@ describe("workflow progress snapshots across timeline pages", () => {
       ),
     ).toEqual(["turn-1"]);
 
-    const eventBudgeted = buildPage(db, thread, null, 30);
+    const eventBudgeted = await buildPage(db, thread, null, 30);
     expect(eventBudgeted.response.timelinePage.olderCursor).toBeNull();
     expect(eventBudgeted.response.rows).toEqual(latest.response.rows);
 
-    const outline = buildThreadConversationOutline(db, thread, {
+    const outline = await buildThreadConversationOutline(db, thread, {
       completedTurnDisplay: "collapse",
       includeClearedContextHistory: false,
       maxSeq: 0,

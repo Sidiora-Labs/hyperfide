@@ -1,5 +1,9 @@
 import { performance } from "node:perf_hooks";
-import { getAppSettings, getLatestThreadSequence, getThread } from "@hyperfide/db";
+import {
+  getAppSettings,
+  getLatestThreadSequence,
+  getThread,
+} from "@hyperfide/db";
 import {
   DEFAULT_COMPLETED_TURN_DISPLAY,
   type AppSettings,
@@ -60,7 +64,7 @@ export interface ThreadTimelineWindows {
     thread: Thread,
     request: ThreadTimelineWindowRequest,
     afterSequence: number | undefined,
-  ): ThreadTimelineResponse;
+  ): ThreadTimelineResponse | Promise<ThreadTimelineResponse>;
 }
 
 export function resolveThreadProviderDisplayName(
@@ -97,15 +101,15 @@ export function createThreadTimelineWindows(
     logger: deps.logger,
   });
 
-  function buildWindow(
+  async function buildWindow(
     thread: Thread,
     request: ThreadTimelineWindowRequest,
-  ): { paramsKey: string; response: ThreadTimelineResponse } {
+  ): Promise<{ paramsKey: string; response: ThreadTimelineResponse }> {
     const providerDisplayName = resolveThreadProviderDisplayName(
       deps,
       thread.providerId,
     );
-    const settings = getAppSettings(deps.db);
+    const settings = await getAppSettings(deps.db);
     const includeDiagnosticOperations = settings.showDiagnosticEvents;
     const includeClearedContextHistory = settings.keepHistoryAfterContextClear;
     const completedTurnDisplay = resolveThreadCompletedTurnDisplay(
@@ -113,9 +117,14 @@ export function createThreadTimelineWindows(
       settings,
       thread.providerId,
     );
-    const maxSeq = getLatestThreadSequence(deps.db, { threadId: thread.id });
+    const maxSeq = await getLatestThreadSequence(deps.db, {
+      threadId: thread.id,
+    });
     const surfaceOptions = {
-      compactionOfferEnabled: isCompactionOfferEnabled(deps, thread.providerId),
+      compactionOfferEnabled: await isCompactionOfferEnabled(
+        deps,
+        thread.providerId,
+      ),
       completedTurnDisplay,
       deferContent: request.deferContent,
       includeClearedContextHistory,
@@ -132,26 +141,24 @@ export function createThreadTimelineWindows(
     const keyArgs = {
       threadId: thread.id,
       status: thread.status,
-      surface: resolveThreadTimelineSurface(deps.db, thread, surfaceOptions)
-        .cacheKey,
+      surface: (
+        await resolveThreadTimelineSurface(deps.db, thread, surfaceOptions)
+      ).cacheKey,
       page: request.page,
       summaryOnly: request.summaryOnly,
     };
-    const response = timelineCache.getOrBuild(
+    const response = await timelineCache.getOrBuild(
       thread.id,
       buildThreadTimelineCacheKey({ ...keyArgs, maxSeq }),
-      () => {
-        const { profile, response: built } = buildThreadTimelineWithProfile(
-          deps.db,
-          thread,
-          {
+      async () => {
+        const { profile, response: built } =
+          await buildThreadTimelineWithProfile(deps.db, thread, {
             ...surfaceOptions,
             eventBudget: deps.config.featureFlags.timelineWindowEventBudget,
             maxSeq,
             page: request.page,
             summaryOnly: request.summaryOnly,
-          },
-        );
+          });
         slowTimelineBuildLogger.log({ profile, threadId: thread.id });
         return shortenTimelineResponseOutputs(built, {
           maxInlineOutputChars: DEFAULT_MAX_INLINE_OUTPUT_CHARS,
@@ -187,16 +194,16 @@ export function createThreadTimelineWindows(
         };
   }
 
-  function pushTarget(
+  async function pushTarget(
     thread: Thread,
     target: ThreadTimelineSubscriptionTarget,
-  ): ThreadTimelineSignal | null {
+  ): Promise<ThreadTimelineSignal | null> {
     const segmentLimit =
       target.segmentLimit ?? THREAD_TIMELINE_DEFAULT_SEGMENT_LIMIT;
     if (segmentLimit > THREAD_TIMELINE_SEGMENT_LIMIT_MAX) {
       return null;
     }
-    const { response } = buildWindow(thread, {
+    const { response } = await buildWindow(thread, {
       deferContent: target.deferContent,
       includeNestedRows: false,
       page: { kind: "latest", segmentLimit },
@@ -226,26 +233,26 @@ export function createThreadTimelineWindows(
         };
   }
 
-  function pushThread(threadId: string): void {
+  async function pushThread(threadId: string): Promise<void> {
     const targets = deps.hub
       .listWatchedTargets("thread-timeline")
       .filter((target) => target.threadId === threadId);
     if (targets.length === 0) {
       return;
     }
-    const thread = getThread(deps.db, threadId);
+    const thread = await getThread(deps.db, threadId);
     if (thread === null || thread.deletedAt !== null) {
       return;
     }
     for (const target of targets) {
       const startedAt = performance.now();
-      const signal = pushTarget(thread, target);
+      const signal = await pushTarget(thread, target);
       if (signal === null) {
         continue;
       }
       const builtAt = performance.now();
       const bytes = deps.hub.sendThreadTimelineSignal(signal);
-      observeTimelinePushTrace(deps, {
+      await observeTimelinePushTrace(deps, {
         builtAt,
         bytes,
         maxSeq: signal.timeline.maxSeq,
@@ -257,7 +264,7 @@ export function createThreadTimelineWindows(
     }
   }
 
-  function runScheduledPush(threadId: string): void {
+  async function runScheduledPush(threadId: string): Promise<void> {
     const schedule = pushSchedulesByThreadId.get(threadId);
     if (schedule === undefined) {
       return;
@@ -265,7 +272,7 @@ export function createThreadTimelineWindows(
     schedule.timer = null;
     const startedAt = performance.now();
     try {
-      pushThread(threadId);
+      await pushThread(threadId);
     } catch (error) {
       deps.logger.warn(
         {
@@ -290,12 +297,12 @@ export function createThreadTimelineWindows(
       return;
     }
     schedule.timer = setTimeout(
-      () => runScheduledPush(threadId),
+      async () => await runScheduledPush(threadId),
       Math.max(0, schedule.nextAllowedAt - performance.now()),
     );
   }
 
-  deps.hub.onChangedMessage((message) => {
+  deps.hub.onChangedMessage(async (message) => {
     if (message.entity !== "thread") {
       return;
     }
@@ -328,13 +335,13 @@ export function createThreadTimelineWindows(
     lastPushedByTarget = new WeakMap();
     deltaFloorByThreadId.set(
       message.id,
-      getLatestThreadSequence(deps.db, { threadId: message.id }),
+      await getLatestThreadSequence(deps.db, { threadId: message.id }),
     );
   });
 
   return {
-    read(thread, request, afterSequence) {
-      const { paramsKey, response } = buildWindow(thread, request);
+    async read(thread, request, afterSequence) {
+      const { paramsKey, response } = await buildWindow(thread, request);
       return (
         deltaSince(thread.id, paramsKey, afterSequence, response) ?? response
       );

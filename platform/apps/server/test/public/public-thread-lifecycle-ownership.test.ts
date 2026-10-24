@@ -40,26 +40,26 @@ describe("lifecycle ownership deletion", () => {
     "durably marks nested %s descendants before effects and recovers after interruption",
     async (relationship) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { host } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const owner = seedThread(harness.deps, { projectId: project.id });
-        const child = seedThread(harness.deps, {
+        const owner = await seedThread(harness.deps, { projectId: project.id });
+        const child = await seedThread(harness.deps, {
           projectId: project.id,
           [relationship]: owner.id,
         });
-        const nested = seedThread(harness.deps, {
+        const nested = await seedThread(harness.deps, {
           projectId: project.id,
           lifecycleOwnerThreadId: child.id,
         });
-        const hidden = seedThread(harness.deps, {
+        const hidden = await seedThread(harness.deps, {
           projectId: project.id,
           parentThreadId: nested.id,
           visibility: "hidden",
         });
-        archiveThread(harness.db, harness.deps.hub, nested.id);
-        archiveThread(harness.db, harness.deps.hub, hidden.id);
+        await archiveThread(harness.db, harness.deps.hub, nested.id);
+        await archiveThread(harness.db, harness.deps.hub, hidden.id);
         const descendants = [owner, child, nested, hidden];
         const close = vi
           .spyOn(harness.deps.terminalSessions, "closeDeletedThreadTerminals")
@@ -69,15 +69,15 @@ describe("lifecycle ownership deletion", () => {
         expect((await remove(harness, owner.id)).status).toBe(500);
         close.mockRestore();
         for (const thread of descendants)
-          expect(getThread(harness.db, thread.id)?.deletedAt).toEqual(
+          expect((await getThread(harness.db, thread.id))?.deletedAt).toEqual(
             expect.any(Number),
           );
-        expect(getThread(harness.db, nested.id)?.lifecycleOwnerThreadId).toBe(
-          child.id,
-        );
+        expect(
+          (await getThread(harness.db, nested.id))?.lifecycleOwnerThreadId,
+        ).toBe(child.id);
         for (let i = 0; i < 3; i++) await runThreadLifecycleSweep(harness.deps);
         for (const thread of descendants)
-          expect(getThread(harness.db, thread.id)).toBeNull();
+          expect(await getThread(harness.db, thread.id)).toBeNull();
       });
     },
   );
@@ -86,52 +86,55 @@ describe("lifecycle ownership deletion", () => {
     "retains owner until active cross-host dependent storage is deleted (archived: %s)",
     async (archived) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps);
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { host } = await seedHostSession(harness.deps);
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const other = seedHostSession(harness.deps).host;
-        const otherProject = seedProjectWithSource(harness.deps, {
-          hostId: other.id,
-        }).project;
-        const environment = seedEnvironment(harness.deps, {
+        const other = (await seedHostSession(harness.deps)).host;
+        const otherProject = (
+          await seedProjectWithSource(harness.deps, {
+            hostId: other.id,
+          })
+        ).project;
+        const environment = await seedEnvironment(harness.deps, {
           hostId: other.id,
           projectId: otherProject.id,
         });
-        const owner = seedThread(harness.deps, { projectId: project.id });
-        const child = seedThread(harness.deps, {
+        const owner = await seedThread(harness.deps, { projectId: project.id });
+        const child = await seedThread(harness.deps, {
           projectId: otherProject.id,
           lifecycleOwnerThreadId: owner.id,
           environmentId: environment.id,
           status: "active",
         });
-        seedThreadRuntimeState(harness.deps, {
+        await seedThreadRuntimeState(harness.deps, {
           environmentId: environment.id,
           threadId: child.id,
           providerThreadId: "dependent",
         });
-        const nested = seedThread(harness.deps, {
+        const nested = await seedThread(harness.deps, {
           projectId: project.id,
           lifecycleOwnerThreadId: child.id,
         });
-        const independent = seedThread(harness.deps, {
+        const independent = await seedThread(harness.deps, {
           projectId: project.id,
           sourceThreadId: owner.id,
           visibility: "hidden",
         });
-        const sidebar = seedThread(harness.deps, {
+        const sidebar = await seedThread(harness.deps, {
           projectId: project.id,
           parentThreadId: owner.id,
         });
-        if (archived) archiveThread(harness.db, harness.deps.hub, child.id);
+        if (archived)
+          await archiveThread(harness.db, harness.deps.hub, child.id);
         expect((await remove(harness, owner.id)).status).toBe(200);
-        expect(getThread(harness.db, nested.id)).toBeNull();
-        expect(getThread(harness.db, owner.id)?.deletedAt).toEqual(
+        expect(await getThread(harness.db, nested.id)).toBeNull();
+        expect((await getThread(harness.db, owner.id))?.deletedAt).toEqual(
           expect.any(Number),
         );
-        expect(getThread(harness.db, child.id)?.lifecycleOwnerThreadId).toBe(
-          owner.id,
-        );
+        expect(
+          (await getThread(harness.db, child.id))?.lifecycleOwnerThreadId,
+        ).toBe(owner.id);
         const command = await waitForQueuedCommand(
           harness,
           ({ command }) =>
@@ -142,9 +145,9 @@ describe("lifecycle ownership deletion", () => {
           errorCode: "temporary_failure",
           errorMessage: "Disconnected",
         });
-        expect(getThread(harness.db, child.id)?.lifecycleOwnerThreadId).toBe(
-          owner.id,
-        );
+        expect(
+          (await getThread(harness.db, child.id))?.lifecycleOwnerThreadId,
+        ).toBe(owner.id);
         await reconcileDaemonReportedThreads(harness.deps, {
           hostId: other.id,
           activeThreadIds: [child.id],
@@ -161,10 +164,10 @@ describe("lifecycle ownership deletion", () => {
           providerCheckpointId: null,
         });
         await runThreadLifecycleSweep(harness.deps);
-        expect(getThread(harness.db, owner.id)).toBeNull();
-        expect(getThread(harness.db, child.id)).toBeNull();
-        expect(getThread(harness.db, sidebar.id)).toBeNull();
-        expect(getThread(harness.db, independent.id)).toMatchObject({
+        expect(await getThread(harness.db, owner.id)).toBeNull();
+        expect(await getThread(harness.db, child.id)).toBeNull();
+        expect(await getThread(harness.db, sidebar.id)).toBeNull();
+        expect(await getThread(harness.db, independent.id)).toMatchObject({
           archivedAt: null,
           deletedAt: null,
           lifecycleOwnerThreadId: null,
@@ -179,46 +182,56 @@ describe("cross-project lifecycle ownership", () => {
     "deleting the %s project follows ownership only downward",
     async (target) => {
       await withTestHarness(async (harness) => {
-        const { host } = seedHostSession(harness.deps);
-        const ownerProject = seedProjectWithSource(harness.deps, {
-          hostId: host.id,
-          path: "/tmp/owner-project",
-        }).project;
-        const dependentProject = seedProjectWithSource(harness.deps, {
-          hostId: host.id,
-          path: "/tmp/dependent-project",
-        }).project;
-        const owner = seedThread(harness.deps, { projectId: ownerProject.id });
-        const child = seedThread(harness.deps, {
+        const { host } = await seedHostSession(harness.deps);
+        const ownerProject = (
+          await seedProjectWithSource(harness.deps, {
+            hostId: host.id,
+            path: "/tmp/owner-project",
+          })
+        ).project;
+        const dependentProject = (
+          await seedProjectWithSource(harness.deps, {
+            hostId: host.id,
+            path: "/tmp/dependent-project",
+          })
+        ).project;
+        const owner = await seedThread(harness.deps, {
+          projectId: ownerProject.id,
+        });
+        const child = await seedThread(harness.deps, {
           projectId: dependentProject.id,
           lifecycleOwnerThreadId: owner.id,
         });
-        const nested = seedThread(harness.deps, {
+        const nested = await seedThread(harness.deps, {
           projectId: ownerProject.id,
           lifecycleOwnerThreadId: child.id,
         });
-        const independent = seedThread(harness.deps, {
+        const independent = await seedThread(harness.deps, {
           projectId: dependentProject.id,
         });
         const projectId =
           target === "owner" ? ownerProject.id : dependentProject.id;
-        beginProjectDeletion(harness.deps, { projectId });
+        await beginProjectDeletion(harness.deps, { projectId });
         for (let i = 0; i < 3; i++) {
           await runThreadLifecycleSweep(harness.deps);
           await advanceProjectDeletion(harness.deps, { projectId });
         }
-        expect(getProject(harness.db, projectId)).toBeNull();
-        expect(getThread(harness.db, child.id)).toBeNull();
-        expect(getThread(harness.db, nested.id)).toBeNull();
+        expect(await getProject(harness.db, projectId)).toBeNull();
+        expect(await getThread(harness.db, child.id)).toBeNull();
+        expect(await getThread(harness.db, nested.id)).toBeNull();
         if (target === "owner") {
-          expect(getThread(harness.db, owner.id)).toBeNull();
-          expect(getThread(harness.db, independent.id)?.deletedAt).toBeNull();
+          expect(await getThread(harness.db, owner.id)).toBeNull();
           expect(
-            getProject(harness.db, dependentProject.id)?.deletedAt,
+            (await getThread(harness.db, independent.id))?.deletedAt,
+          ).toBeNull();
+          expect(
+            (await getProject(harness.db, dependentProject.id))?.deletedAt,
           ).toBeNull();
         } else {
-          expect(getThread(harness.db, owner.id)?.deletedAt).toBeNull();
-          expect(getProject(harness.db, ownerProject.id)?.deletedAt).toBeNull();
+          expect((await getThread(harness.db, owner.id))?.deletedAt).toBeNull();
+          expect(
+            (await getProject(harness.db, ownerProject.id))?.deletedAt,
+          ).toBeNull();
         }
       });
     },
@@ -226,17 +239,23 @@ describe("cross-project lifecycle ownership", () => {
 
   it("archives cross-project dependents and requires explicit owner-first unarchive", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const ownerProject = seedProjectWithSource(harness.deps, {
-        hostId: host.id,
-        path: "/tmp/archive-owner",
-      }).project;
-      const dependentProject = seedProjectWithSource(harness.deps, {
-        hostId: host.id,
-        path: "/tmp/archive-dependent",
-      }).project;
-      const owner = seedThread(harness.deps, { projectId: ownerProject.id });
-      const child = seedThread(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const ownerProject = (
+        await seedProjectWithSource(harness.deps, {
+          hostId: host.id,
+          path: "/tmp/archive-owner",
+        })
+      ).project;
+      const dependentProject = (
+        await seedProjectWithSource(harness.deps, {
+          hostId: host.id,
+          path: "/tmp/archive-dependent",
+        })
+      ).project;
+      const owner = await seedThread(harness.deps, {
+        projectId: ownerProject.id,
+      });
+      const child = await seedThread(harness.deps, {
         projectId: dependentProject.id,
         lifecycleOwnerThreadId: owner.id,
       });
@@ -247,12 +266,12 @@ describe("cross-project lifecycle ownership", () => {
           body: "{}",
         });
       expect((await post(owner.id, "archive-all")).status).toBe(200);
-      expect(getThread(harness.db, child.id)?.archivedAt).toEqual(
+      expect((await getThread(harness.db, child.id))?.archivedAt).toEqual(
         expect.any(Number),
       );
       expect((await post(child.id, "unarchive")).status).toBe(409);
       expect((await post(owner.id, "unarchive")).status).toBe(200);
-      expect(getThread(harness.db, child.id)?.archivedAt).toEqual(
+      expect((await getThread(harness.db, child.id))?.archivedAt).toEqual(
         expect.any(Number),
       );
       expect((await post(child.id, "unarchive")).status).toBe(200);
@@ -262,74 +281,74 @@ describe("cross-project lifecycle ownership", () => {
 
 it("environment archival stops cross-environment lifecycle dependents on their own host", async () => {
   await withTestHarness(async (harness) => {
-    const first = seedHostSession(harness.deps).host;
-    const second = seedHostSession(harness.deps).host;
-    const { project } = seedProjectWithSource(harness.deps, {
+    const first = (await seedHostSession(harness.deps)).host;
+    const second = (await seedHostSession(harness.deps)).host;
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: first.id,
     });
-    const ownerEnvironment = seedEnvironment(harness.deps, {
+    const ownerEnvironment = await seedEnvironment(harness.deps, {
       hostId: first.id,
       projectId: project.id,
     });
-    const childEnvironment = seedEnvironment(harness.deps, {
+    const childEnvironment = await seedEnvironment(harness.deps, {
       hostId: second.id,
       projectId: project.id,
     });
-    const owner = seedThread(harness.deps, {
+    const owner = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: ownerEnvironment.id,
     });
-    const child = seedThread(harness.deps, {
+    const child = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: childEnvironment.id,
       lifecycleOwnerThreadId: owner.id,
       status: "active",
     });
-    seedThreadRuntimeState(harness.deps, {
+    await seedThreadRuntimeState(harness.deps, {
       threadId: child.id,
       environmentId: childEnvironment.id,
       providerThreadId: "dependent-archive",
     });
-    const sidebarChild = seedThread(harness.deps, {
+    const sidebarChild = await seedThread(harness.deps, {
       projectId: project.id,
       parentThreadId: child.id,
       environmentId: childEnvironment.id,
     });
-    const hiddenFork = seedThread(harness.deps, {
+    const hiddenFork = await seedThread(harness.deps, {
       projectId: project.id,
       sourceThreadId: child.id,
       originKind: "fork",
       visibility: "hidden",
       environmentId: childEnvironment.id,
     });
-    const deleted = seedThread(harness.deps, {
+    const deleted = await seedThread(harness.deps, {
       projectId: project.id,
       lifecycleOwnerThreadId: child.id,
       environmentId: childEnvironment.id,
     });
-    markThreadDeleted(harness.db, harness.deps.hub, {
+    await markThreadDeleted(harness.db, harness.deps.hub, {
       threadId: deleted.id,
       deletedAt: 100,
     });
-    const archivedIds = archiveEnvironmentThreads(harness.deps, {
+    const archivedIds = await archiveEnvironmentThreads(harness.deps, {
       environment: ownerEnvironment,
     });
     expect(archivedIds).toEqual(
       expect.arrayContaining([sidebarChild.id, hiddenFork.id]),
     );
     expect(archivedIds).not.toContain(deleted.id);
-    expect(getThread(harness.db, deleted.id)).toMatchObject({
+    expect(await getThread(harness.db, deleted.id)).toMatchObject({
       deletedAt: 100,
       archivedAt: null,
     });
     for (const descendant of [sidebarChild, hiddenFork])
-      expect(getThread(harness.db, descendant.id)?.archivedAt).toEqual(
+      expect((await getThread(harness.db, descendant.id))?.archivedAt).toEqual(
         expect.any(Number),
       );
-    expect(getThread(harness.db, child.id)?.archivedAt).toEqual(
+    expect((await getThread(harness.db, child.id))?.archivedAt).toEqual(
       expect.any(Number),
     );
-    expireArchiveUndoGrace(harness.deps, child.id);
+    await expireArchiveUndoGrace(harness.deps, child.id);
     await runThreadLifecycleSweep(harness.deps);
     const command = await waitForQueuedCommand(
       harness,
@@ -342,34 +361,34 @@ it("environment archival stops cross-environment lifecycle dependents on their o
     await reportQueuedCommandSuccess(harness, command, {
       providerCheckpointId: null,
     });
-    expect(getThread(harness.db, child.id)?.status).toBe("idle");
+    expect((await getThread(harness.db, child.id))?.status).toBe("idle");
   });
 });
 
 it("recovers archived active threads through the periodic sweep", async () => {
   await withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps);
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { host } = await seedHostSession(harness.deps);
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       status: "active",
     });
-    seedThreadRuntimeState(harness.deps, {
+    await seedThreadRuntimeState(harness.deps, {
       threadId: thread.id,
       environmentId: environment.id,
       providerThreadId: "sweep-recovery",
     });
-    archiveThread(harness.db, harness.deps.hub, thread.id);
+    await archiveThread(harness.db, harness.deps.hub, thread.id);
     await runThreadLifecycleSweep(harness.deps);
-    expect(getThread(harness.db, thread.id)?.status).toBe("active");
-    expireArchiveUndoGrace(harness.deps, thread.id);
+    expect((await getThread(harness.db, thread.id))?.status).toBe("active");
+    await expireArchiveUndoGrace(harness.deps, thread.id);
     await runThreadLifecycleSweep(harness.deps);
     const command = await waitForQueuedCommand(
       harness,
@@ -379,7 +398,7 @@ it("recovers archived active threads through the periodic sweep", async () => {
     await reportQueuedCommandSuccess(harness, command, {
       providerCheckpointId: null,
     });
-    expect(getThread(harness.db, thread.id)).toMatchObject({
+    expect(await getThread(harness.db, thread.id)).toMatchObject({
       status: "idle",
       archivedAt: expect.any(Number),
     });
@@ -388,32 +407,38 @@ it("recovers archived active threads through the periodic sweep", async () => {
 
 it("keeps an owning project pending while cross-project host cleanup fails and completes after reconnect", async () => {
   await withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps);
-    const remote = seedHostSession(harness.deps).host;
-    const ownerProject = seedProjectWithSource(harness.deps, {
-      hostId: host.id,
-    }).project;
-    const dependentProject = seedProjectWithSource(harness.deps, {
-      hostId: remote.id,
-      path: "/tmp/offline-dependent",
-    }).project;
-    const environment = seedEnvironment(harness.deps, {
+    const { host } = await seedHostSession(harness.deps);
+    const remote = (await seedHostSession(harness.deps)).host;
+    const ownerProject = (
+      await seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      })
+    ).project;
+    const dependentProject = (
+      await seedProjectWithSource(harness.deps, {
+        hostId: remote.id,
+        path: "/tmp/offline-dependent",
+      })
+    ).project;
+    const environment = await seedEnvironment(harness.deps, {
       hostId: remote.id,
       projectId: dependentProject.id,
     });
-    const owner = seedThread(harness.deps, { projectId: ownerProject.id });
-    const child = seedThread(harness.deps, {
+    const owner = await seedThread(harness.deps, {
+      projectId: ownerProject.id,
+    });
+    const child = await seedThread(harness.deps, {
       projectId: dependentProject.id,
       environmentId: environment.id,
       lifecycleOwnerThreadId: owner.id,
       status: "active",
     });
-    seedThreadRuntimeState(harness.deps, {
+    await seedThreadRuntimeState(harness.deps, {
       threadId: child.id,
       environmentId: environment.id,
       providerThreadId: "project-cleanup",
     });
-    beginProjectDeletion(harness.deps, { projectId: ownerProject.id });
+    await beginProjectDeletion(harness.deps, { projectId: ownerProject.id });
     const command = await waitForQueuedCommand(
       harness,
       ({ command }) =>
@@ -424,13 +449,13 @@ it("keeps an owning project pending while cross-project host cleanup fails and c
       errorCode: "temporary_failure",
       errorMessage: "Host disconnected",
     });
-    expect(getProject(harness.db, ownerProject.id)?.deletedAt).toEqual(
+    expect((await getProject(harness.db, ownerProject.id))?.deletedAt).toEqual(
       expect.any(Number),
     );
-    expect(getThread(harness.db, owner.id)?.deletedAt).toEqual(
+    expect((await getThread(harness.db, owner.id))?.deletedAt).toEqual(
       expect.any(Number),
     );
-    expect(getThread(harness.db, child.id)).toMatchObject({
+    expect(await getThread(harness.db, child.id)).toMatchObject({
       lifecycleOwnerThreadId: owner.id,
       deletedAt: expect.any(Number),
       storageDeletedAt: null,
@@ -452,8 +477,10 @@ it("keeps an owning project pending while cross-project host cleanup fails and c
     });
     await runThreadLifecycleSweep(harness.deps);
     await advanceProjectDeletion(harness.deps, { projectId: ownerProject.id });
-    expect(getProject(harness.db, ownerProject.id)).toBeNull();
-    expect(getThread(harness.db, child.id)).toBeNull();
-    expect(getProject(harness.db, dependentProject.id)?.deletedAt).toBeNull();
+    expect(await getProject(harness.db, ownerProject.id)).toBeNull();
+    expect(await getThread(harness.db, child.id)).toBeNull();
+    expect(
+      (await getProject(harness.db, dependentProject.id))?.deletedAt,
+    ).toBeNull();
   });
 });

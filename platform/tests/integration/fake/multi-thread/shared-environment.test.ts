@@ -23,8 +23,8 @@ import {
 } from "./shared.js";
 
 describe.sequential("fake provider shared-environment multi-thread integration", () => {
-  it("runs two threads in the same environment without cross-contaminating events", () =>
-    withHarness(async (harness) => {
+  it("runs two threads in the same environment without cross-contaminating events", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(harness, {
         name: "Shared Environment Same Provider",
       });
@@ -113,8 +113,8 @@ describe.sequential("fake provider shared-environment multi-thread integration",
       expect(outputB).toContain("shared-b");
     }));
 
-  it("supports sequential follow-ups for two sibling threads in one environment", () =>
-    withHarness(async (harness) => {
+  it("supports sequential follow-ups for two sibling threads in one environment", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(harness, {
         name: "Shared Environment Follow Ups",
       });
@@ -210,8 +210,8 @@ describe.sequential("fake provider shared-environment multi-thread integration",
       );
     }));
 
-  it("keeps a shared environment alive while one sibling remains unarchived", () =>
-    withHarness(async (harness) => {
+  it("keeps a shared environment alive while one sibling remains unarchived", async () =>
+    await withHarness(async (harness) => {
       const project = await createProjectFixture(harness, {
         name: "Archive One Sibling",
       });

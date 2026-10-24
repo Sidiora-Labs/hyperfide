@@ -1,5 +1,9 @@
 import type { PromptInput } from "@hyperfide/domain";
-import { getProjectAttachment, projects, type DbConnection } from "@hyperfide/db";
+import {
+  getProjectAttachment,
+  projects,
+  type DbConnection,
+} from "@hyperfide/db";
 import { createMigratedConnection } from "@hyperfide/db/testing";
 import { makeTempDir } from "@hyperfide/test-helpers";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -13,10 +17,11 @@ import {
 } from "./attachments.js";
 
 let db: DbConnection;
-beforeEach(() => {
-  db = createMigratedConnection();
+beforeEach(async () => {
+  db = await createMigratedConnection();
   for (const id of ["proj_test", "proj_source", "proj_target"])
-    db.insert(projects)
+    await db
+      .insert(projects)
       .values({
         id,
         name: id,
@@ -28,8 +33,8 @@ beforeEach(() => {
       .run();
 });
 
-afterEach(() => {
-  db.$client.close();
+afterEach(async () => {
+  await db.close();
 });
 
 describe("project attachments", () => {
@@ -79,7 +84,7 @@ describe("project attachments", () => {
     ]);
 
     expect(
-      getProjectAttachment(db, "proj_target", uploaded.path),
+      await getProjectAttachment(db, "proj_target", uploaded.path),
     ).toMatchObject({ originalName: "screenshot", mimeType: "image/png" });
   });
 
@@ -218,8 +223,8 @@ describe("project attachments", () => {
 
   it("binds host file references to the destination machine", async () => {
     const dataDir = await makeTempDir();
-    const resolve = (input: PromptInput[], hostId: string | null) =>
-      resolvePromptAttachmentReferences({
+    const resolve = async (input: PromptInput[], hostId: string | null) =>
+      await resolvePromptAttachmentReferences({
         db,
         dataDir,
         projectId: "proj_test",

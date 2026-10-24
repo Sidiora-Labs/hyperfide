@@ -71,7 +71,7 @@ function createLegacyTables(db: ReturnType<typeof createConnection>): void {
   `);
 }
 
-function insertLegacyAutomation(
+async function insertLegacyAutomation(
   db: ReturnType<typeof createConnection>,
   args: {
     id: string;
@@ -82,8 +82,8 @@ function insertLegacyAutomation(
     targetThreadId: string | null;
     createdAt: number;
   },
-): void {
-  db.$client
+): Promise<void> {
+  await db.$client
     .prepare(
       `INSERT INTO automations (
          id, project_id, target_thread_id, name, enabled, trigger_type,
@@ -140,7 +140,7 @@ describe("legacy automation export/import round trip", () => {
         "echo migrated\n",
       );
 
-      insertLegacyAutomation(legacyDb, {
+      await insertLegacyAutomation(legacyDb, {
         id: "auto_agent",
         name: "Legacy agent",
         runMode: "agent",
@@ -155,7 +155,7 @@ describe("legacy automation export/import round trip", () => {
         environment: { type: "project-default" },
         createdAt: 100,
       });
-      insertLegacyAutomation(legacyDb, {
+      await insertLegacyAutomation(legacyDb, {
         id: "auto_script",
         name: "Legacy script",
         runMode: "script",
@@ -164,7 +164,7 @@ describe("legacy automation export/import round trip", () => {
         environment: { type: "project-default" },
         createdAt: 200,
       });
-      legacyDb.$client
+      await legacyDb.$client
         .prepare(
           `INSERT INTO automation_runs (
              id, automation_id, run_mode, thread_id, status, trigger,
@@ -254,8 +254,8 @@ describe("legacy automation export/import round trip", () => {
       await expect(access(importPath)).rejects.toThrow();
       await expect(access(`${importPath}.imported`)).resolves.toBeUndefined();
     } finally {
-      legacyDb.$client.close();
-      pluginDb.$client.close();
+      await legacyDb.$client.close();
+      await pluginDb.$client.close();
       await rm(dataDir, { recursive: true, force: true });
     }
   });

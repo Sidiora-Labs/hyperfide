@@ -37,9 +37,19 @@ interface HostOrphanQueue {
 
 const runningHostIds = new Set<string>();
 const orphanQueueByHostId = new Map<string, HostOrphanQueue>();
+const pendingSweeps = new WeakMap<object, Set<Promise<void>>>();
 
-export function runThreadStorageOrphanSweep(deps: LoggedWorkSessionDeps): void {
-  const activity = getDatabaseMaintenanceActivity(deps.db);
+export async function whenThreadStorageOrphanSweepsIdle(
+  db: object,
+): Promise<void> {
+  const pending = pendingSweeps.get(db);
+  while (pending?.size) await Promise.all([...pending]);
+}
+
+export async function runThreadStorageOrphanSweep(
+  deps: LoggedWorkSessionDeps,
+): Promise<void> {
+  const activity = await getDatabaseMaintenanceActivity(deps.db);
   if (!isDatabaseMaintenanceIdle(activity)) {
     deps.logger.debug(
       { activity },
@@ -59,7 +69,9 @@ export function runThreadStorageOrphanSweep(deps: LoggedWorkSessionDeps): void {
       continue;
     }
     runningHostIds.add(hostId);
-    void removeOrphanedThreadStorage(deps, {
+    const pending = pendingSweeps.get(deps.db) ?? new Set<Promise<void>>();
+    pendingSweeps.set(deps.db, pending);
+    const completion = removeOrphanedThreadStorage(deps, {
       hostId,
       limits: THREAD_STORAGE_ORPHAN_PASS_LIMITS,
     })
@@ -71,7 +83,9 @@ export function runThreadStorageOrphanSweep(deps: LoggedWorkSessionDeps): void {
       })
       .finally(() => {
         runningHostIds.delete(hostId);
+        pending.delete(completion);
       });
+    pending.add(completion);
   }
 }
 
@@ -83,11 +97,11 @@ export async function removeOrphanedThreadStorage(
   if (
     isServerMoveFrozen(deps.db) ||
     !deps.hub.hasDaemonForHost(hostId) ||
-    getHost(deps.db, hostId)?.phase !== "active"
+    (await getHost(deps.db, hostId))?.phase !== "active"
   ) {
     return;
   }
-  const session = requireConnectedHostSession(deps, hostId);
+  const session = await requireConnectedHostSession(deps, hostId);
   let queue = orphanQueueByHostId.get(hostId);
   if (queue === undefined || queue.sessionId !== session.id) {
     queue = await listOrphanedThreadStorage(deps, {
@@ -106,7 +120,7 @@ export async function removeOrphanedThreadStorage(
     performance.now() - startedAt < args.limits.elapsedBudgetMs &&
     !isServerMoveFrozen(deps.db) &&
     deps.hub.getDaemonSessionIdForHost(hostId) === session.id &&
-    isDatabaseMaintenanceIdle(getDatabaseMaintenanceActivity(deps.db))
+    isDatabaseMaintenanceIdle(await getDatabaseMaintenanceActivity(deps.db))
   ) {
     const threadId = queue.threadIds.shift();
     if (threadId === undefined) break;
@@ -165,7 +179,7 @@ async function listOrphanedThreadStorage(
     start < storedThreadIds.length;
     start += THREAD_ID_LOOKUP_BATCH_SIZE
   ) {
-    for (const threadId of listExistingThreadIds(
+    for (const threadId of await listExistingThreadIds(
       deps.db,
       storedThreadIds.slice(start, start + THREAD_ID_LOOKUP_BATCH_SIZE),
     )) {

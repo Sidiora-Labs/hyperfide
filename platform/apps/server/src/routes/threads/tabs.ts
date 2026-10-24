@@ -39,8 +39,11 @@ function toWireThreadTabsResponse(
   };
 }
 
-function readThreadTabs(deps: AppDeps, threadId: string): ThreadTabsResponse {
-  const stored = getStoredThreadTabs(deps.db, threadId);
+async function readThreadTabs(
+  deps: AppDeps,
+  threadId: string,
+): Promise<ThreadTabsResponse> {
+  const stored = await getStoredThreadTabs(deps.db, threadId);
   if (!stored) {
     return { revision: 0, tabs: [] };
   }
@@ -59,16 +62,16 @@ export function registerThreadTabRoutes(app: Hono, deps: AppDeps): void {
   });
   const routes = publicApiRoutes.threads;
 
-  get(routes.tabs, (context) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
+  get(routes.tabs, async (context) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
     return context.json(
-      toWireThreadTabsResponse(readThreadTabs(deps, thread.id)),
+      toWireThreadTabsResponse(await readThreadTabs(deps, thread.id)),
     );
   });
 
-  put(routes.updateTabs, (context, payload) => {
-    const thread = requirePublicThread(deps.db, context.req.param("id"));
-    const result = replaceStoredThreadTabs(deps.db, {
+  put(routes.updateTabs, async (context, payload) => {
+    const thread = await requirePublicThread(deps.db, context.req.param("id"));
+    const result = await replaceStoredThreadTabs(deps.db, {
       expectedRevision: payload.expectedRevision,
       tabsJson: JSON.stringify(payload.tabs),
       threadId: thread.id,
@@ -81,7 +84,7 @@ export function registerThreadTabRoutes(app: Hono, deps: AppDeps): void {
         { details: { currentRevision: result.revision } },
       );
     }
-    deps.hub.notifyThread(thread.id, ["tabs-changed"]);
+    await deps.hub.notifyThread(thread.id, ["tabs-changed"]);
     return context.json(
       toWireThreadTabsResponse({
         revision: result.revision,

@@ -1,4 +1,7 @@
-import { getThreadExecutionOverride, setThreadExecutionOverride } from "@hyperfide/db";
+import {
+  getThreadExecutionOverride,
+  setThreadExecutionOverride,
+} from "@hyperfide/db";
 import { describe, expect, it } from "vitest";
 import { recoverThreadModelOverride } from "../../../src/services/threads/thread-execution-override.js";
 import { buildExecutionOptions } from "../../../src/services/threads/thread-commands.js";
@@ -16,31 +19,31 @@ describe("stale model recovery", () => {
   const savedModels = ["claude-mythos-5", "claude-opus-4-8[1m]"];
   it.each(savedModels)("recovers %s", async (savedModel) => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-stale-model-recovery",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/stale-model-recovery",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/stale-model-recovery",
         status: "ready",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         providerId: "claude-code",
         status: "idle",
       });
-      setThreadExecutionOverride(harness.db, {
+      await setThreadExecutionOverride(harness.db, {
         threadId: thread.id,
         modelOverride: savedModel,
         reasoningLevelOverride: "max",
       });
-      registerProviderHostRpcResponder(harness, {
+      await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelsByProviderId: {
@@ -64,7 +67,7 @@ describe("stale model recovery", () => {
         thread,
       });
 
-      expect(getThreadExecutionOverride(harness.db, thread.id)).toEqual({
+      expect(await getThreadExecutionOverride(harness.db, thread.id)).toEqual({
         modelOverride: "claude-opus-4-8[1m]",
         reasoningLevelOverride: "high",
       });
@@ -79,30 +82,30 @@ describe("stale model recovery", () => {
 
   it("distinguishes temporary discovery failure from a missing replacement", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-stale-model-errors",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/stale-model-errors",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/stale-model-errors",
         status: "ready",
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         providerId: "claude-code",
         status: "idle",
       });
-      setThreadExecutionOverride(harness.db, {
+      await setThreadExecutionOverride(harness.db, {
         threadId: thread.id,
         modelOverride: "claude-mythos-5",
       });
-      const temporaryFailure = registerProviderHostRpcResponder(harness, {
+      const temporaryFailure = await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelErrorsByProviderId: {
@@ -127,7 +130,7 @@ describe("stale model recovery", () => {
         body: { code: "model_catalog_unavailable" },
       });
       temporaryFailure.unregister();
-      registerProviderHostRpcResponder(harness, {
+      await registerProviderHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         modelsByProviderId: {
@@ -144,7 +147,7 @@ describe("stale model recovery", () => {
         status: 400,
         body: { code: "invalid_request" },
       });
-      expect(getThreadExecutionOverride(harness.db, thread.id)).toEqual({
+      expect(await getThreadExecutionOverride(harness.db, thread.id)).toEqual({
         modelOverride: "claude-mythos-5",
         reasoningLevelOverride: null,
       });

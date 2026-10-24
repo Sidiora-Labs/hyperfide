@@ -7,11 +7,11 @@ export interface StoredTurnEventRow {
   type: string;
 }
 
-export function readStoredTurnEvents(
+export async function readStoredTurnEvents(
   db: DbConnection,
   threadId: string,
-): StoredTurnEventRow[] {
-  return db
+): Promise<StoredTurnEventRow[]> {
+  return await db
     .select({
       sequence: events.sequence,
       turnId: events.turnId,
@@ -23,15 +23,15 @@ export function readStoredTurnEvents(
     .all();
 }
 
-export function readSessionRow(
+export async function readSessionRow(
   db: DbConnection,
   sessionId: string,
-): typeof hostDaemonSessions.$inferSelect | null {
+): Promise<typeof hostDaemonSessions.$inferSelect | null> {
   return (
-    db
+    (await db
       .select()
       .from(hostDaemonSessions)
       .where(eq(hostDaemonSessions.id, sessionId))
-      .get() ?? null
+      .get()) ?? null
   );
 }

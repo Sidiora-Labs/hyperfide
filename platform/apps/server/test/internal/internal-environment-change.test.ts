@@ -26,24 +26,24 @@ function createTestDaemonSocket(): TestDaemonSocket {
 describe("internal environment change websocket hints", () => {
   it("renews an active session from a late heartbeat after lease expiry", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-late-heartbeat",
       });
       const socket = createTestDaemonSocket();
-      harness.db
+      await harness.db
         .update(hostDaemonSessions)
         .set({ leaseExpiresAt: Date.now() - 1000 })
         .where(eq(hostDaemonSessions.id, session.id))
         .run();
 
-      onDaemonSocketMessage(harness.deps, {
+      await onDaemonSocketMessage(harness.deps, {
         hostId: host.id,
         sessionId: session.id,
         socket,
         raw: JSON.stringify({ type: "heartbeat" }),
       });
 
-      const updatedSession = harness.db
+      const updatedSession = await harness.db
         .select()
         .from(hostDaemonSessions)
         .where(eq(hostDaemonSessions.id, session.id))
@@ -59,10 +59,10 @@ describe("internal environment change websocket hints", () => {
 
   it("does not resolve host RPC waiters from a different daemon session", async () => {
     await withTestHarness(async (harness) => {
-      const hostA = seedHostSession(harness.deps, {
+      const hostA = await seedHostSession(harness.deps, {
         id: "host-rpc-response-a",
       });
-      const hostB = seedHostSession(harness.deps, {
+      const hostB = await seedHostSession(harness.deps, {
         id: "host-rpc-response-b",
       });
       const wait = harness.hub.requestHostOnlineRpc({
@@ -89,7 +89,7 @@ describe("internal environment change websocket hints", () => {
       });
       const socket = createTestDaemonSocket();
 
-      onDaemonSocketMessage(harness.deps, {
+      await onDaemonSocketMessage(harness.deps, {
         hostId: hostB.host.id,
         sessionId: hostB.session.id,
         socket,
@@ -106,7 +106,7 @@ describe("internal environment change websocket hints", () => {
       expect(resolved).toBe(false);
       expect(socket.close).not.toHaveBeenCalled();
 
-      onDaemonSocketMessage(harness.deps, {
+      await onDaemonSocketMessage(harness.deps, {
         hostId: hostA.host.id,
         sessionId: hostA.session.id,
         socket,
@@ -138,23 +138,23 @@ describe("internal environment change websocket hints", () => {
     "notifies clients for %s hints without mutating rows",
     async (change) => {
       await withTestHarness(async (harness) => {
-        const { host, session } = seedHostSession(harness.deps, {
+        const { host, session } = await seedHostSession(harness.deps, {
           id: `host-env-change-${change}`,
         });
-        const { project } = seedProjectWithSource(harness.deps, {
+        const { project } = await seedProjectWithSource(harness.deps, {
           hostId: host.id,
         });
-        const environment = seedEnvironment(harness.deps, {
+        const environment = await seedEnvironment(harness.deps, {
           hostId: host.id,
           projectId: project.id,
           path: `/tmp/env-change-${change}`,
           status: "ready",
         });
-        const before = getEnvironment(harness.db, environment.id);
+        const before = await getEnvironment(harness.db, environment.id);
         const notifyEnvironmentSpy = vi.spyOn(harness.hub, "notifyEnvironment");
         const socket = createTestDaemonSocket();
 
-        onDaemonSocketMessage(harness.deps, {
+        await onDaemonSocketMessage(harness.deps, {
           hostId: host.id,
           sessionId: session.id,
           socket,
@@ -168,7 +168,9 @@ describe("internal environment change websocket hints", () => {
         expect(notifyEnvironmentSpy).toHaveBeenCalledWith(environment.id, [
           change,
         ]);
-        expect(getEnvironment(harness.db, environment.id)).toEqual(before);
+        expect(await getEnvironment(harness.db, environment.id)).toEqual(
+          before,
+        );
         expect(socket.close).not.toHaveBeenCalled();
       });
     },
@@ -176,27 +178,27 @@ describe("internal environment change websocket hints", () => {
 
   it("updates sidebar branch labels from daemon metadata without workspace status reads", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-env-metadata-change",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/env-metadata-change",
         status: "ready",
         isGitRepo: false,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
       });
       const notifyEnvironmentSpy = vi.spyOn(harness.hub, "notifyEnvironment");
       const socket = createTestDaemonSocket();
 
-      onDaemonSocketMessage(harness.deps, {
+      await onDaemonSocketMessage(harness.deps, {
         hostId: host.id,
         sessionId: session.id,
         socket,
@@ -214,7 +216,7 @@ describe("internal environment change websocket hints", () => {
       });
 
       expect(socket.close).not.toHaveBeenCalled();
-      expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
         isGitRepo: true,
         isWorktree: true,
         branchName: "main",
@@ -225,7 +227,7 @@ describe("internal environment change websocket hints", () => {
       ]);
 
       for (const branchName of ["feature/checkout", null]) {
-        onDaemonSocketMessage(harness.deps, {
+        await onDaemonSocketMessage(harness.deps, {
           hostId: host.id,
           sessionId: session.id,
           socket,
@@ -241,7 +243,7 @@ describe("internal environment change websocket hints", () => {
             },
           }),
         });
-        expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+        expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
           branchName,
           defaultBranch: "main",
         });
@@ -263,12 +265,16 @@ describe("internal environment change websocket hints", () => {
 
   it("ignores hints for environments owned by a different host", async () => {
     await withTestHarness(async (harness) => {
-      const hostA = seedHostSession(harness.deps, { id: "host-env-change-a" });
-      const hostB = seedHostSession(harness.deps, { id: "host-env-change-b" });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const hostA = await seedHostSession(harness.deps, {
+        id: "host-env-change-a",
+      });
+      const hostB = await seedHostSession(harness.deps, {
+        id: "host-env-change-b",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: hostB.host.id,
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: hostB.host.id,
         projectId: project.id,
         path: "/tmp/env-change-other-host",
@@ -277,7 +283,7 @@ describe("internal environment change websocket hints", () => {
       const notifyEnvironmentSpy = vi.spyOn(harness.hub, "notifyEnvironment");
       const socket = createTestDaemonSocket();
 
-      onDaemonSocketMessage(harness.deps, {
+      await onDaemonSocketMessage(harness.deps, {
         hostId: hostA.host.id,
         sessionId: hostA.session.id,
         socket,
@@ -295,13 +301,13 @@ describe("internal environment change websocket hints", () => {
 
   it("ignores hints for unknown or destroyed environments", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-env-change-ignored",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const destroyedEnvironment = seedEnvironment(harness.deps, {
+      const destroyedEnvironment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/env-change-destroyed",
@@ -311,7 +317,7 @@ describe("internal environment change websocket hints", () => {
       const socket = createTestDaemonSocket();
 
       for (const environmentId of ["env-missing", destroyedEnvironment.id]) {
-        onDaemonSocketMessage(harness.deps, {
+        await onDaemonSocketMessage(harness.deps, {
           hostId: host.id,
           sessionId: session.id,
           socket,
@@ -330,13 +336,13 @@ describe("internal environment change websocket hints", () => {
 
   it("closes the daemon websocket for invalid environment change kinds", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps, {
+      const { host, session } = await seedHostSession(harness.deps, {
         id: "host-env-change-invalid",
       });
       const notifyEnvironmentSpy = vi.spyOn(harness.hub, "notifyEnvironment");
       const socket = createTestDaemonSocket();
 
-      onDaemonSocketMessage(harness.deps, {
+      await onDaemonSocketMessage(harness.deps, {
         hostId: host.id,
         sessionId: session.id,
         socket,

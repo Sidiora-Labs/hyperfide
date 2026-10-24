@@ -19,53 +19,53 @@ async function running(harness: TestAppHarness) {
 describe("GET /threads/running", () => {
   it("returns every occupying thread as an id and the host it occupies", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps, {
+      const { host } = await seedHostSession(harness.deps, {
         id: "host-thread-running",
       });
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
         path: "/tmp/thread-running-source",
       });
-      const environment = seedEnvironment(harness.deps, {
+      const environment = await seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
         path: "/tmp/thread-running-source",
       });
-      const root = seedThread(harness.deps, {
+      const root = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "active",
       });
-      const child = seedThread(harness.deps, {
+      const child = await seedThread(harness.deps, {
         environmentId: environment.id,
         parentThreadId: root.id,
         projectId: project.id,
         status: "active",
       });
-      const spawned = seedThread(harness.deps, {
+      const spawned = await seedThread(harness.deps, {
         environmentId: environment.id,
         originPluginId: "workflows",
         projectId: project.id,
         status: "active",
       });
       // Admitted but not yet provisioned: on no host, still occupying.
-      const unplaced = seedThread(harness.deps, {
+      const unplaced = await seedThread(harness.deps, {
         environmentId: null,
         projectId: project.id,
         status: "starting",
       });
       // Neither of these occupies anything.
-      seedThread(harness.deps, {
+      await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "idle",
       });
-      const archived = seedThread(harness.deps, {
+      const archived = await seedThread(harness.deps, {
         environmentId: environment.id,
         projectId: project.id,
         status: "active",
       });
-      archiveThread(harness.db, harness.deps.hub, archived.id);
+      await archiveThread(harness.db, harness.deps.hub, archived.id);
 
       const rows = await running(harness);
       // A child and a plugin-spawned thread occupy slots like any other, so

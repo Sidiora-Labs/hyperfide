@@ -59,55 +59,55 @@ const baseKeyArgs: ThreadTimelineCacheKeyArgs = {
 };
 
 describe("createThreadTimelineCache", () => {
-  it("builds once for the same key and serves cached on repeat", () => {
-    const cache = createThreadTimelineCache();
+  it("builds once for the same key and serves cached on repeat", async () => {
+    const cache = await createThreadTimelineCache();
     const build = vi.fn(() => makeResponse(3));
 
-    const first = cache.getOrBuild("thr_x", "k", build);
-    const second = cache.getOrBuild("thr_x", "k", build);
+    const first = await cache.getOrBuild("thr_x", "k", build);
+    const second = await cache.getOrBuild("thr_x", "k", build);
 
     expect(build).toHaveBeenCalledTimes(1);
     expect(second).toBe(first);
     expect(cache.size).toBe(1);
   });
 
-  it("does not cache responses above the row cap (streaming expanded turns)", () => {
-    const cache = createThreadTimelineCache({ maxCacheableRows: 5 });
+  it("does not cache responses above the row cap (streaming expanded turns)", async () => {
+    const cache = await createThreadTimelineCache({ maxCacheableRows: 5 });
     const build = vi.fn(() => makeResponse(50));
 
-    cache.getOrBuild("thr_x", "k", build);
-    cache.getOrBuild("thr_x", "k", build);
+    await cache.getOrBuild("thr_x", "k", build);
+    await cache.getOrBuild("thr_x", "k", build);
 
     expect(build).toHaveBeenCalledTimes(2);
     expect(cache.size).toBe(0);
   });
 
-  it("evicts least-recently-used entries beyond maxEntries", () => {
-    const cache = createThreadTimelineCache({ maxEntries: 2 });
+  it("evicts least-recently-used entries beyond maxEntries", async () => {
+    const cache = await createThreadTimelineCache({ maxEntries: 2 });
     const build = vi.fn(() => makeResponse(1));
 
-    cache.getOrBuild("thr_x", "a", build);
-    cache.getOrBuild("thr_x", "b", build);
-    cache.getOrBuild("thr_x", "a", build);
-    cache.getOrBuild("thr_x", "c", build);
+    await cache.getOrBuild("thr_x", "a", build);
+    await cache.getOrBuild("thr_x", "b", build);
+    await cache.getOrBuild("thr_x", "a", build);
+    await cache.getOrBuild("thr_x", "c", build);
 
     expect(cache.size).toBe(2);
     const buildAgain = vi.fn(() => makeResponse(1));
-    cache.getOrBuild("thr_x", "a", buildAgain);
-    cache.getOrBuild("thr_x", "b", buildAgain);
+    await cache.getOrBuild("thr_x", "a", buildAgain);
+    await cache.getOrBuild("thr_x", "b", buildAgain);
     expect(buildAgain).toHaveBeenCalledTimes(1);
   });
 
-  it("invalidates only entries for the rewritten thread", () => {
-    const cache = createThreadTimelineCache();
+  it("invalidates only entries for the rewritten thread", async () => {
+    const cache = await createThreadTimelineCache();
     const build = vi.fn(() => makeResponse(1));
-    cache.getOrBuild("thr_x", "x", build);
-    cache.getOrBuild("thr_y", "y", build);
+    await cache.getOrBuild("thr_x", "x", build);
+    await cache.getOrBuild("thr_y", "y", build);
 
     cache.invalidateThread("thr_x");
 
-    cache.getOrBuild("thr_x", "x", build);
-    cache.getOrBuild("thr_y", "y", build);
+    await cache.getOrBuild("thr_x", "x", build);
+    await cache.getOrBuild("thr_y", "y", build);
     expect(build).toHaveBeenCalledTimes(3);
     expect(cache.size).toBe(2);
   });

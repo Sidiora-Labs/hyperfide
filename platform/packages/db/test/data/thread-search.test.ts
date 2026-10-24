@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -27,23 +29,25 @@ import { createMigratedConnection } from "../../src/testing.js";
 
 interface SetupResult {
   db: ReturnType<typeof createConnection>;
-  project: ReturnType<typeof createProject>["project"];
+  project: Awaited<ReturnType<typeof createProject>>["project"];
 }
 
-function setup(): SetupResult {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup(): Promise<SetupResult> {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
   return { db, project };
 }
 
-function closeConnection(db: ReturnType<typeof createConnection>): void {
-  db.$client.close();
+async function closeConnection(
+  db: ReturnType<typeof createConnection>,
+): Promise<void> {
+  await db.close();
 }
 
 function runThreadSearchMigrationFiles(
@@ -110,115 +114,122 @@ function turnRequestData(input: PromptInput[]) {
 }
 
 describe("thread search data", () => {
-  it("backfills existing title and conversation segments from the migration", () => {
-    const { db, project } = setup();
-    try {
-      const thread = createThread(db, noopNotifier, {
-        projectId: project.id,
-        providerId: "codex",
-        title: "titlebackfill",
-        titleFallback: "fallbackbackfill",
-      });
-      dropThreadSearchSchema(db);
-      insertEvents(db, noopNotifier, [
-        {
-          threadId: thread.id,
-          sequence: 1,
-          type: "client/turn/requested",
-          scope: threadScope(),
-          itemId: null,
-          itemKind: null,
-          parentToolCallId: null,
-          data: JSON.stringify(
-            turnRequestData([
-              textInput("visiblebackfill"),
-              textInput("secretbackfill", "agent-only"),
-            ]),
-          ),
-        },
-        {
-          threadId: thread.id,
-          sequence: 2,
-          type: "item/completed",
-          scope: turnScope("turn-1"),
-          itemId: "msg-1",
-          itemKind: "agentMessage",
-          parentToolCallId: null,
-          data: JSON.stringify({
-            item: {
-              id: "msg-1",
-              type: "agentMessage",
-              text: "assistantbackfill",
-            },
-          }),
-        },
-        {
-          threadId: thread.id,
-          sequence: 3,
-          type: "system/manager/user_message",
-          scope: threadScope(),
-          itemId: null,
-          itemKind: null,
-          parentToolCallId: null,
-          data: JSON.stringify({ text: "legacybackfill" }),
-        },
-      ]);
-
-      runThreadSearchMigrationFiles(db);
-
-      for (const query of [
-        "titlebackfill",
-        "fallbackbackfill",
-        "visiblebackfill",
-        "assistantbackfill",
-        "legacybackfill",
-      ]) {
-        const results = searchThreadsWithPendingInteractionState(db, {
-          query,
-          limitPerGroup: 20,
+  it.skipIf(isPostgresTest)(
+    "backfills existing title and conversation segments from the migration",
+    async () => {
+      const { db, project } = await setup();
+      try {
+        const thread = await createThread(db, noopNotifier, {
+          projectId: project.id,
+          providerId: "codex",
+          title: "titlebackfill",
+          titleFallback: "fallbackbackfill",
         });
-        expect(results.active.results.map((result) => result.thread.id)).toEqual(
-          [thread.id],
+        dropThreadSearchSchema(db);
+        await insertEvents(db, noopNotifier, [
+          {
+            threadId: thread.id,
+            sequence: 1,
+            type: "client/turn/requested",
+            scope: threadScope(),
+            itemId: null,
+            itemKind: null,
+            parentToolCallId: null,
+            data: JSON.stringify(
+              turnRequestData([
+                textInput("visiblebackfill"),
+                textInput("secretbackfill", "agent-only"),
+              ]),
+            ),
+          },
+          {
+            threadId: thread.id,
+            sequence: 2,
+            type: "item/completed",
+            scope: turnScope("turn-1"),
+            itemId: "msg-1",
+            itemKind: "agentMessage",
+            parentToolCallId: null,
+            data: JSON.stringify({
+              item: {
+                id: "msg-1",
+                type: "agentMessage",
+                text: "assistantbackfill",
+              },
+            }),
+          },
+          {
+            threadId: thread.id,
+            sequence: 3,
+            type: "system/manager/user_message",
+            scope: threadScope(),
+            itemId: null,
+            itemKind: null,
+            parentToolCallId: null,
+            data: JSON.stringify({ text: "legacybackfill" }),
+          },
+        ]);
+
+        runThreadSearchMigrationFiles(db);
+
+        for (const query of [
+          "titlebackfill",
+          "fallbackbackfill",
+          "visiblebackfill",
+          "assistantbackfill",
+          "legacybackfill",
+        ]) {
+          const results = await searchThreadsWithPendingInteractionState(db, {
+            query,
+            limitPerGroup: 20,
+          });
+          expect(
+            results.active.results.map((result) => result.thread.id),
+          ).toEqual([thread.id]);
+        }
+
+        const secretResults = await searchThreadsWithPendingInteractionState(
+          db,
+          {
+            query: "secretbackfill",
+            limitPerGroup: 20,
+          },
         );
+        expect(secretResults.active.total).toBe(0);
+        expect(secretResults.archived.total).toBe(0);
+
+        await updateThread(db, noopNotifier, thread.id, {
+          title: "titleupdatebackfill",
+        });
+        const titleUpdateResults =
+          await searchThreadsWithPendingInteractionState(db, {
+            query: "titleupdatebackfill",
+            limitPerGroup: 20,
+          });
+        expect(
+          titleUpdateResults.active.results.map((result) => result.thread.id),
+        ).toEqual([thread.id]);
+      } finally {
+        await closeConnection(db);
       }
+    },
+  );
 
-      const secretResults = searchThreadsWithPendingInteractionState(db, {
-        query: "secretbackfill",
-        limitPerGroup: 20,
-      });
-      expect(secretResults.active.total).toBe(0);
-      expect(secretResults.archived.total).toBe(0);
-
-      updateThread(db, noopNotifier, thread.id, {
-        title: "titleupdatebackfill",
-      });
-      const titleUpdateResults = searchThreadsWithPendingInteractionState(db, {
-        query: "titleupdatebackfill",
-        limitPerGroup: 20,
-      });
-      expect(
-        titleUpdateResults.active.results.map((result) => result.thread.id),
-      ).toEqual([thread.id]);
-    } finally {
-      closeConnection(db);
-    }
-  });
-
-  it("indexes live writes, groups archived matches, and excludes deleted threads", () => {
-    const { db, project } = setup();
+  it("indexes live writes, groups archived matches, and excludes deleted threads", async () => {
+    const { db, project } = await setup();
     try {
-      const activeThread = createThread(db, noopNotifier, {
+      const activeThread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Active thread",
       });
-      appendStoredThreadEvent(db, noopNotifier, {
+      await appendStoredThreadEvent(db, noopNotifier, {
         threadId: activeThread.id,
         type: "client/turn/requested",
         scope: threadScope(),
         data: turnRequestData([textInput("livewriterneedle")]),
       });
-      appendStoredThreadEvent(db, noopNotifier, {
+      await appendStoredThreadEvent(db, noopNotifier, {
         threadId: activeThread.id,
         type: "item/completed",
         scope: turnScope("turn-1"),
@@ -232,88 +243,92 @@ describe("thread search data", () => {
           },
         },
       });
-      appendStoredThreadEvent(db, noopNotifier, {
+      await appendStoredThreadEvent(db, noopNotifier, {
         threadId: activeThread.id,
         type: "client/turn/requested",
         scope: threadScope(),
         data: turnRequestData([textInput("secretwriterneedle", "agent-only")]),
       });
 
-      const archivedThread = createThread(db, noopNotifier, {
+      const archivedThread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "archivewriterneedle",
       });
-      archiveThread(db, noopNotifier, archivedThread.id);
+      await archiveThread(db, noopNotifier, archivedThread.id);
 
-      const deletedThread = createThread(db, noopNotifier, {
+      const deletedThread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "deletedwriterneedle",
       });
-      deleteThread(db, noopNotifier, deletedThread.id);
+      await deleteThread(db, noopNotifier, deletedThread.id);
 
-      createThread(db, noopNotifier, {
+      await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "hiddenwriterneedle",
         visibility: "hidden",
       });
-      const hiddenArchivedThread = createThread(db, noopNotifier, {
+      const hiddenArchivedThread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "hiddenarchivedwriterneedle",
         visibility: "hidden",
       });
-      archiveThread(db, noopNotifier, hiddenArchivedThread.id);
+      await archiveThread(db, noopNotifier, hiddenArchivedThread.id);
 
-      const activeResults = searchThreadsWithPendingInteractionState(db, {
+      const activeResults = await searchThreadsWithPendingInteractionState(db, {
         query: "livewriterneedle",
         limitPerGroup: 20,
       });
-      expect(activeResults.active.results.map((result) => result.thread.id)).toEqual(
-        [activeThread.id],
-      );
+      expect(
+        activeResults.active.results.map((result) => result.thread.id),
+      ).toEqual([activeThread.id]);
       expect(activeResults.archived.total).toBe(0);
 
-      const assistantResults = searchThreadsWithPendingInteractionState(db, {
-        query: "assistantwriterneedle",
-        limitPerGroup: 20,
-      });
+      const assistantResults = await searchThreadsWithPendingInteractionState(
+        db,
+        {
+          query: "assistantwriterneedle",
+          limitPerGroup: 20,
+        },
+      );
       expect(assistantResults.active.results[0]?.matches[0]).toMatchObject({
         sourceKind: "assistant_message",
         text: "assistantwriterneedle",
         sourceSeq: expect.any(Number),
       });
 
-      const archivedResults = searchThreadsWithPendingInteractionState(db, {
-        query: "archivewriterneedle",
-        limitPerGroup: 20,
-      });
+      const archivedResults = await searchThreadsWithPendingInteractionState(
+        db,
+        {
+          query: "archivewriterneedle",
+          limitPerGroup: 20,
+        },
+      );
       expect(archivedResults.active.total).toBe(0);
       expect(
         archivedResults.archived.results.map((result) => result.thread.id),
       ).toEqual([archivedThread.id]);
 
-      const hiddenResults = searchThreadsWithPendingInteractionState(db, {
+      const hiddenResults = await searchThreadsWithPendingInteractionState(db, {
         query: "hiddenwriterneedle",
         limitPerGroup: 20,
       });
       expect(hiddenResults.active.total).toBe(0);
       expect(hiddenResults.archived.total).toBe(0);
 
-      const hiddenArchivedResults = searchThreadsWithPendingInteractionState(
-        db,
-        {
+      const hiddenArchivedResults =
+        await searchThreadsWithPendingInteractionState(db, {
           query: "hiddenarchivedwriterneedle",
           limitPerGroup: 20,
-        },
-      );
+        });
       expect(hiddenArchivedResults.active.total).toBe(0);
       expect(hiddenArchivedResults.archived.total).toBe(0);
 
       for (const query of ["secretwriterneedle", "deletedwriterneedle"]) {
-        const results = searchThreadsWithPendingInteractionState(db, {
+        const results = await searchThreadsWithPendingInteractionState(db, {
           query,
           limitPerGroup: 20,
         });
@@ -321,22 +336,22 @@ describe("thread search data", () => {
         expect(results.archived.total).toBe(0);
       }
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("keeps one message match per thread for broad matches across limited threads", () => {
-    const { db, project } = setup();
+  it("keeps one message match per thread for broad matches across limited threads", async () => {
+    const { db, project } = await setup();
     try {
       const threadIndexesById = new Map<string, number>();
       for (let threadIndex = 0; threadIndex < 5; threadIndex += 1) {
-        const thread = createThread(db, noopNotifier, {
+        const thread = await createThread(db, noopNotifier, {
           projectId: project.id,
           providerId: "codex",
           title: `Broad match thread ${threadIndex}`,
         });
         threadIndexesById.set(thread.id, threadIndex);
-        upsertThreadSearchSegments(db, {
+        await upsertThreadSearchSegments(db, {
           segments: Array.from({ length: 100 }, (_, segmentIndex) => ({
             threadId: thread.id,
             sourceKind: "user_message",
@@ -347,7 +362,7 @@ describe("thread search data", () => {
         });
       }
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "broadmatchneedle",
         limitPerGroup: 3,
       });
@@ -362,29 +377,29 @@ describe("thread search data", () => {
         ]);
       }
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("ranks title matches first, then the rest by most recent activity", () => {
-    const { db, project } = setup();
+  it("ranks title matches first, then the rest by most recent activity", async () => {
+    const { db, project } = await setup();
     try {
-      const titled = createThread(db, noopNotifier, {
+      const titled = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Moss plugins",
       });
-      const older = createThread(db, noopNotifier, {
+      const older = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Weekly planning",
       });
-      const newer = createThread(db, noopNotifier, {
+      const newer = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Release notes",
       });
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [older, newer].map((thread) => ({
           threadId: thread.id,
           sourceKind: "assistant_message",
@@ -393,14 +408,14 @@ describe("thread search data", () => {
           text: "moss plugins moss plugins moss plugins",
         })),
       });
-      const setUpdatedAt = db.$client.prepare(
+      const setUpdatedAt = await db.$client.prepare(
         "UPDATE threads SET updated_at = ? WHERE id = ?",
       );
-      setUpdatedAt.run(1, titled.id);
-      setUpdatedAt.run(2, older.id);
-      setUpdatedAt.run(3, newer.id);
+      await setUpdatedAt.run(1, titled.id);
+      await setUpdatedAt.run(2, older.id);
+      await setUpdatedAt.run(3, newer.id);
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "moss plugins",
         limitPerGroup: 20,
       });
@@ -411,25 +426,25 @@ describe("thread search data", () => {
         older.id,
       ]);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("does not rank a titled thread's fallback text as a title match", () => {
-    const { db, project } = setup();
+  it("does not rank a titled thread's fallback text as a title match", async () => {
+    const { db, project } = await setup();
     try {
-      const titledWithFallback = createThread(db, noopNotifier, {
+      const titledWithFallback = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Weekly planning",
         titleFallback: "fallbackneedle in the first prompt",
       });
-      const newerMessage = createThread(db, noopNotifier, {
+      const newerMessage = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Release notes",
       });
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: newerMessage.id,
@@ -440,13 +455,13 @@ describe("thread search data", () => {
           },
         ],
       });
-      const setUpdatedAt = db.$client.prepare(
+      const setUpdatedAt = await db.$client.prepare(
         "UPDATE threads SET updated_at = ? WHERE id = ?",
       );
-      setUpdatedAt.run(1, titledWithFallback.id);
-      setUpdatedAt.run(2, newerMessage.id);
+      await setUpdatedAt.run(1, titledWithFallback.id);
+      await setUpdatedAt.run(2, newerMessage.id);
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "fallbackneedle",
         limitPerGroup: 20,
       });
@@ -456,24 +471,24 @@ describe("thread search data", () => {
         titledWithFallback.id,
       ]);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("ranks a title as a title match only when it has every word", () => {
-    const { db, project } = setup();
+  it("ranks a title as a title match only when it has every word", async () => {
+    const { db, project } = await setup();
     try {
-      const fullTitle = createThread(db, noopNotifier, {
+      const fullTitle = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Moss plugins",
       });
-      const partialTitle = createThread(db, noopNotifier, {
+      const partialTitle = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Moss editor",
       });
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: partialTitle.id,
@@ -484,13 +499,13 @@ describe("thread search data", () => {
           },
         ],
       });
-      const setUpdatedAt = db.$client.prepare(
+      const setUpdatedAt = await db.$client.prepare(
         "UPDATE threads SET updated_at = ? WHERE id = ?",
       );
-      setUpdatedAt.run(1, fullTitle.id);
-      setUpdatedAt.run(2, partialTitle.id);
+      await setUpdatedAt.run(1, fullTitle.id);
+      await setUpdatedAt.run(2, partialTitle.id);
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "moss plugins",
         limitPerGroup: 20,
       });
@@ -500,24 +515,24 @@ describe("thread search data", () => {
         partialTitle.id,
       ]);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("splits an underscored query into words like other punctuation", () => {
-    const { db, project } = setup();
+  it("splits an underscored query into words like other punctuation", async () => {
+    const { db, project } = await setup();
     try {
-      const titled = createThread(db, noopNotifier, {
+      const titled = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Search the thread list",
       });
-      const newerMessage = createThread(db, noopNotifier, {
+      const newerMessage = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Weekly planning",
       });
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: newerMessage.id,
@@ -528,13 +543,13 @@ describe("thread search data", () => {
           },
         ],
       });
-      const setUpdatedAt = db.$client.prepare(
+      const setUpdatedAt = await db.$client.prepare(
         "UPDATE threads SET updated_at = ? WHERE id = ?",
       );
-      setUpdatedAt.run(1, titled.id);
-      setUpdatedAt.run(2, newerMessage.id);
+      await setUpdatedAt.run(1, titled.id);
+      await setUpdatedAt.run(2, newerMessage.id);
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "thread_search",
         limitPerGroup: 20,
       });
@@ -543,26 +558,24 @@ describe("thread search data", () => {
         titled.id,
         newerMessage.id,
       ]);
-      expect(
-        results.active.results[1]?.matches[0]?.highlightRanges,
-      ).toEqual([
+      expect(results.active.results[1]?.matches[0]?.highlightRanges).toEqual([
         { start: 7, end: 13 },
         { start: 14, end: 20 },
       ]);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("shows the message that has every word over an earlier partial match", () => {
-    const { db, project } = setup();
+  it("shows the message that has every word over an earlier partial match", async () => {
+    const { db, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Weekly planning",
       });
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: thread.id,
@@ -581,7 +594,7 @@ describe("thread search data", () => {
         ],
       });
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "moss plugins",
         limitPerGroup: 20,
       });
@@ -593,20 +606,20 @@ describe("thread search data", () => {
         })),
       ).toEqual([{ text: "moss plugins", sourceSeq: 2 }]);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("returns title matches alongside the single best message match", () => {
-    const { db, project } = setup();
+  it("returns title matches alongside the single best message match", async () => {
+    const { db, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "pairedneedle title",
         titleFallback: "pairedneedle fallback",
       });
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: thread.id,
@@ -625,7 +638,7 @@ describe("thread search data", () => {
         ],
       });
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "pairedneedle",
         limitPerGroup: 20,
       });
@@ -638,34 +651,36 @@ describe("thread search data", () => {
           .map((match) => match.sourceKind)
           .sort(),
       ).toEqual(["title", "title_fallback"]);
-      expect(matches.filter((match) => match.sourceSeq !== null)).toHaveLength(1);
+      expect(matches.filter((match) => match.sourceSeq !== null)).toHaveLength(
+        1,
+      );
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("limits and counts each group from one partitioned scan", () => {
-    const { db, project } = setup();
+  it("limits and counts each group from one partitioned scan", async () => {
+    const { db, project } = await setup();
     try {
       const activeIds: string[] = [];
       const archivedIds: string[] = [];
       for (let index = 0; index < 4; index += 1) {
-        const activeThread = createThread(db, noopNotifier, {
+        const activeThread = await createThread(db, noopNotifier, {
           projectId: project.id,
           providerId: "codex",
           title: `partitionneedle active ${index}`,
         });
         activeIds.push(activeThread.id);
-        const archivedThread = createThread(db, noopNotifier, {
+        const archivedThread = await createThread(db, noopNotifier, {
           projectId: project.id,
           providerId: "codex",
           title: `partitionneedle archived ${index}`,
         });
-        archiveThread(db, noopNotifier, archivedThread.id);
+        await archiveThread(db, noopNotifier, archivedThread.id);
         archivedIds.push(archivedThread.id);
       }
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "partitionneedle",
         limitPerGroup: 2,
       });
@@ -683,14 +698,14 @@ describe("thread search data", () => {
         expect(result.thread.archivedAt).not.toBeNull();
       }
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("bounds message snippets around the first highlight with rebased ranges", () => {
-    const { db, project } = setup();
+  it("bounds message snippets around the first highlight with rebased ranges", async () => {
+    const { db, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Long message thread",
@@ -700,7 +715,7 @@ describe("thread search data", () => {
         (_, index) => `word${index}`,
       ).join(" ");
       const text = `${filler} snippetneedle here ${filler} snippetneedle again ${filler}`;
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: thread.id,
@@ -712,7 +727,7 @@ describe("thread search data", () => {
         ],
       });
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "SnippetNeedle",
         limitPerGroup: 20,
       });
@@ -734,20 +749,20 @@ describe("thread search data", () => {
       }
       expect(match.text.slice(1)).toMatch(/^word\d+ /u);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("returns short messages whole and cuts unmatched long text from the start", () => {
-    const { db, project } = setup();
+  it("returns short messages whole and cuts unmatched long text from the start", async () => {
+    const { db, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Snippet edge thread",
       });
       const longTail = "x".repeat(400);
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: thread.id,
@@ -766,7 +781,7 @@ describe("thread search data", () => {
         ],
       });
 
-      const wholeResults = searchThreadsWithPendingInteractionState(db, {
+      const wholeResults = await searchThreadsWithPendingInteractionState(db, {
         query: "wholeneedle",
         limitPerGroup: 20,
       });
@@ -775,7 +790,7 @@ describe("thread search data", () => {
         highlightRanges: [{ start: 0, end: 11 }],
       });
 
-      const leadResults = searchThreadsWithPendingInteractionState(db, {
+      const leadResults = await searchThreadsWithPendingInteractionState(db, {
         query: "leadneedle",
         limitPerGroup: 20,
       });
@@ -785,20 +800,20 @@ describe("thread search data", () => {
       expect(leadMatch?.text.length).toBeLessThanOrEqual(161);
       expect(leadMatch?.highlightRanges).toEqual([{ start: 0, end: 10 }]);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("never splits a surrogate pair when cutting a snippet", () => {
-    const { db, project } = setup();
+  it("never splits a surrogate pair when cutting a snippet", async () => {
+    const { db, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "Emoji thread",
       });
       const emoji = "\u{1F600}".repeat(100);
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         segments: [
           {
             threadId: thread.id,
@@ -810,7 +825,7 @@ describe("thread search data", () => {
         ],
       });
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "surrogateneedle",
         limitPerGroup: 20,
       });
@@ -829,40 +844,44 @@ describe("thread search data", () => {
         range === undefined ? null : match.text.slice(range.start, range.end),
       ).toBe("surrogateneedle");
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("creates the FTS index with a prefix index for typeahead queries", () => {
-    const { db } = setup();
-    try {
-      const row = db.$client
-        .prepare<[], { sql: string }>(
-          "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'thread_search_segments_fts'",
-        )
-        .get();
-      expect(row?.sql).toContain("prefix = '2 3'");
-    } finally {
-      closeConnection(db);
-    }
-  });
+  it.skipIf(isPostgresTest)(
+    "creates the FTS index with a prefix index for typeahead queries",
+    async () => {
+      const { db } = await setup();
+      try {
+        const row = await db.$client
+          .prepare<
+            [],
+            { sql: string }
+          >("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'thread_search_segments_fts'")
+          .get();
+        expect(row?.sql).toContain("prefix = '2 3'");
+      } finally {
+        await closeConnection(db);
+      }
+    },
+  );
 
-  it("finds multi-token queries split across thread segments", () => {
-    const { db, project } = setup();
+  it("finds multi-token queries split across thread segments", async () => {
+    const { db, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "alpha split title",
       });
-      appendStoredThreadEvent(db, noopNotifier, {
+      await appendStoredThreadEvent(db, noopNotifier, {
         threadId: thread.id,
         type: "client/turn/requested",
         scope: threadScope(),
         data: turnRequestData([textInput("beta split message")]),
       });
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "alpha beta",
         limitPerGroup: 20,
       });
@@ -870,25 +889,24 @@ describe("thread search data", () => {
       expect(results.active.results.map((result) => result.thread.id)).toEqual([
         thread.id,
       ]);
-      expect(results.active.results[0]?.matches.map((match) => match.text)).toEqual([
-        "alpha split title",
-        "beta split message",
-      ]);
+      expect(
+        results.active.results[0]?.matches.map((match) => match.text),
+      ).toEqual(["alpha split title", "beta split message"]);
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 
-  it("highlights unicode61 accent-folded matches", () => {
-    const { db, project } = setup();
+  it("highlights unicode61 accent-folded matches", async () => {
+    const { db, project } = await setup();
     try {
-      const thread = createThread(db, noopNotifier, {
+      const thread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
         title: "café planning",
       });
 
-      const results = searchThreadsWithPendingInteractionState(db, {
+      const results = await searchThreadsWithPendingInteractionState(db, {
         query: "cafe",
         limitPerGroup: 20,
       });
@@ -902,7 +920,7 @@ describe("thread search data", () => {
         sourceSeq: null,
       });
     } finally {
-      closeConnection(db);
+      await closeConnection(db);
     }
   });
 });

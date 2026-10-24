@@ -46,7 +46,7 @@ interface PostEventBatchArgs {
 async function postEventBatch(args: PostEventBatchArgs): Promise<Response> {
   return args.harness.app.request("/internal/session/events", {
     method: "POST",
-    headers: internalAuthHeaders(args.harness),
+    headers: await internalAuthHeaders(args.harness),
     body: JSON.stringify({
       sessionId: args.sessionId,
       eventGroups: groupHostDaemonEvents(args.events),
@@ -54,17 +54,17 @@ async function postEventBatch(args: PostEventBatchArgs): Promise<Response> {
   });
 }
 
-function setupEventRoute() {
-  return createTestAppHarness().then((harness) => {
-    const { host, session } = seedHostSession(harness.deps);
-    const { project } = seedProjectWithSource(harness.deps, {
+async function setupEventRoute() {
+  return await createTestAppHarness().then(async (harness) => {
+    const { host, session } = await seedHostSession(harness.deps);
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       status: "active",
@@ -84,7 +84,7 @@ describe("internal event append ownership", () => {
   it("skips diffs using the existing batch response while retaining edits and provider identity", async () => {
     const { harness, session, thread } = await setupEventRoute();
     try {
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         threadId: thread.id,
         turnId: "turn-diff",
         sequence: 1,
@@ -187,15 +187,17 @@ describe("internal event append ownership", () => {
         hostDaemonEventBatchResponseSchema.parse(await skipped.json())
           .acceptedEvents,
       ).toEqual([]);
-      const stored = listEvents(harness.db, { threadId: thread.id });
+      const stored = await listEvents(harness.db, { threadId: thread.id });
       expect(stored.some((event) => event.type === "turn/diff/updated")).toBe(
         false,
       );
       expect(
         stored.find((event) => event.type === "item/completed")?.sequence,
       ).toBe(3);
-      expect(getHighWaterMarks(harness.db, [thread.id])[thread.id]).toBe(4);
-      expect(getLastStoredProviderThreadId(harness.db, thread.id)).toBe(
+      expect(
+        (await getHighWaterMarks(harness.db, [thread.id]))[thread.id],
+      ).toBe(4);
+      expect(await getLastStoredProviderThreadId(harness.db, thread.id)).toBe(
         "provider-latest",
       );
     } finally {
@@ -206,7 +208,7 @@ describe("internal event append ownership", () => {
   it("keeps late provisioning output terminal after setup has failed", async () => {
     const { environment, harness, session, thread } = await setupEventRoute();
     try {
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 1,
@@ -247,7 +249,7 @@ describe("internal event append ownership", () => {
 
       expect(response.status).toBe(200);
       expect(
-        listEvents(harness.db, { threadId: thread.id }).map((row) =>
+        (await listEvents(harness.db, { threadId: thread.id })).map((row) =>
           JSON.parse(row.data),
         ),
       ).toMatchObject([
@@ -288,20 +290,22 @@ describe("internal event append ownership", () => {
 
       expect(response.status).toBe(200);
       expect(
-        buildThreadTimelineWithProfile(harness.db, thread, {
-          completedTurnDisplay: "collapse",
-          eventBudget: 1_000_000,
-          includeClearedContextHistory: false,
-          includeDiagnosticOperations: true,
-          compactionOfferEnabled: false,
-          summarizeShellCommands: true,
-          maxInlineOutputChars: null,
-          maxSeq: 1,
-          page: {
-            kind: "latest",
-            segmentLimit: Number.MAX_SAFE_INTEGER,
-          },
-        }).response.contextWindowUsage,
+        (
+          await buildThreadTimelineWithProfile(harness.db, thread, {
+            completedTurnDisplay: "collapse",
+            eventBudget: 1_000_000,
+            includeClearedContextHistory: false,
+            includeDiagnosticOperations: true,
+            compactionOfferEnabled: false,
+            summarizeShellCommands: true,
+            maxInlineOutputChars: null,
+            maxSeq: 1,
+            page: {
+              kind: "latest",
+              segmentLimit: Number.MAX_SAFE_INTEGER,
+            },
+          })
+        ).response.contextWindowUsage,
       ).toEqual({
         usedTokens: 24_000,
         modelContextWindow: 128_000,
@@ -315,7 +319,7 @@ describe("internal event append ownership", () => {
   it("assigns server-owned sequences and returns accepted event indexes", async () => {
     const { environment, harness, session, thread } = await setupEventRoute();
     try {
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId: thread.id,
         environmentId: environment.id,
         sequence: 3,
@@ -366,7 +370,7 @@ describe("internal event append ownership", () => {
         rejectedEvents: [],
       });
       expect(
-        harness.db
+        await harness.db
           .select()
           .from(events)
           .where(eq(events.threadId, thread.id))
@@ -442,7 +446,7 @@ describe("internal event append ownership", () => {
         rejectedEvents: [],
       });
       expect(
-        harness.db
+        await harness.db
           .select()
           .from(events)
           .where(eq(events.threadId, thread.id))
@@ -508,7 +512,7 @@ describe("internal event append ownership", () => {
           .sort((left, right) => left - right),
       ).toEqual([1, 2]);
 
-      const storedRows = harness.db
+      const storedRows = await harness.db
         .select({
           sequence: events.sequence,
         })
@@ -530,13 +534,13 @@ describe("internal event append ownership", () => {
   it("auto-sends a queued message after a zero-work turn completes", async () => {
     const { environment, harness, session, thread } = await setupEventRoute();
     try {
-      seedThreadRuntimeState(harness.deps, {
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: environment.id,
         inputText: "/clear",
         providerThreadId: "provider-zero-work",
         threadId: thread.id,
       });
-      seedQueuedMessage(harness.deps, {
+      await seedQueuedMessage(harness.deps, {
         content: [
           {
             type: "text",
@@ -589,8 +593,8 @@ describe("internal event append ownership", () => {
           },
         ],
       });
-      expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
-      expect(getThread(harness.db, thread.id)?.status).toBe("active");
+      expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+      expect((await getThread(harness.db, thread.id))?.status).toBe("active");
     } finally {
       await harness.cleanup();
     }
@@ -599,7 +603,7 @@ describe("internal event append ownership", () => {
   it("keeps owned event indexes aligned around an unowned middle row", async () => {
     const { environment, harness, project, session, thread } =
       await setupEventRoute();
-    const secondThread = seedThread(harness.deps, {
+    const secondThread = await seedThread(harness.deps, {
       environmentId: environment.id,
       projectId: project.id,
       status: "active",
@@ -665,14 +669,14 @@ describe("internal event append ownership", () => {
           },
         ],
       });
-      expect(getThread(harness.db, thread.id)?.title).not.toBe(
+      expect((await getThread(harness.db, thread.id))?.title).not.toBe(
         "First owned rename",
       );
-      expect(getThread(harness.db, secondThread.id)?.title).toBe(
+      expect((await getThread(harness.db, secondThread.id))?.title).toBe(
         "Second Thread",
       );
       expect(
-        harness.db
+        await harness.db
           .select()
           .from(events)
           .where(eq(events.threadId, "thr_missing"))
@@ -685,19 +689,19 @@ describe("internal event append ownership", () => {
 
   it("notifies a parent when a child provider process exits", async () => {
     const { environment, harness, project, session } = await setupEventRoute();
-    const parentThread = seedThread(harness.deps, {
+    const parentThread = await seedThread(harness.deps, {
       environmentId: environment.id,
       projectId: project.id,
       status: "idle",
       title: "Project coordinator",
     });
-    seedThreadRuntimeState(harness.deps, {
+    await seedThreadRuntimeState(harness.deps, {
       environmentId: environment.id,
       inputText: "Coordinate child work",
       providerThreadId: "provider-parent-provider-exit",
       threadId: parentThread.id,
     });
-    const childThread = seedThread(harness.deps, {
+    const childThread = await seedThread(harness.deps, {
       environmentId: environment.id,
       parentThreadId: parentThread.id,
       projectId: project.id,
@@ -733,7 +737,9 @@ describe("internal event append ownership", () => {
         ],
         rejectedEvents: [],
       });
-      expect(getThread(harness.db, childThread.id)?.status).toBe("error");
+      expect((await getThread(harness.db, childThread.id))?.status).toBe(
+        "error",
+      );
 
       const parentTurnCommand = await waitForQueuedCommand(
         harness,
@@ -779,18 +785,18 @@ describe("internal event append ownership", () => {
 
   it("does not notify a parent when a side-chat child provider process exits", async () => {
     const { environment, harness, project, session } = await setupEventRoute();
-    const parentThread = seedThread(harness.deps, {
+    const parentThread = await seedThread(harness.deps, {
       environmentId: environment.id,
       projectId: project.id,
       status: "idle",
     });
-    seedThreadRuntimeState(harness.deps, {
+    await seedThreadRuntimeState(harness.deps, {
       environmentId: environment.id,
       inputText: "Coordinate side chat child work",
       providerThreadId: "provider-side-chat-parent-provider-exit",
       threadId: parentThread.id,
     });
-    const childThread = seedThread(harness.deps, {
+    const childThread = await seedThread(harness.deps, {
       environmentId: environment.id,
       originKind: "fork",
       originPluginId: "side-chat",
@@ -818,7 +824,9 @@ describe("internal event append ownership", () => {
       });
 
       expect(response.status).toBe(200);
-      expect(getThread(harness.db, childThread.id)?.status).toBe("error");
+      expect((await getThread(harness.db, childThread.id))?.status).toBe(
+        "error",
+      );
       await expect(
         waitForQueuedCommand(
           harness,
@@ -841,7 +849,7 @@ describe("interaction lifecycle records from the daemon", () => {
     threadId: string;
     interactionId: string;
   }): Promise<Response> {
-    return postEventBatch({
+    return await postEventBatch({
       harness: args.harness,
       sessionId: args.sessionId,
       events: [
@@ -880,13 +888,17 @@ describe("interaction lifecycle records from the daemon", () => {
     });
   }
 
-  function storedLifecycleRows(harness: TestAppHarness, threadId: string) {
-    return harness.deps.db
-      .select({ type: events.type })
-      .from(events)
-      .where(eq(events.threadId, threadId))
-      .all()
-      .filter((row) => row.type === "system/interaction/lifecycle");
+  async function storedLifecycleRows(
+    harness: TestAppHarness,
+    threadId: string,
+  ) {
+    return (
+      await harness.deps.db
+        .select({ type: events.type })
+        .from(events)
+        .where(eq(events.threadId, threadId))
+        .all()
+    ).filter((row) => row.type === "system/interaction/lifecycle");
   }
 
   it("drops a lifecycle record that names no interaction on the thread", async () => {
@@ -904,7 +916,7 @@ describe("interaction lifecycle records from the daemon", () => {
       );
       expect(body.acceptedEvents).toEqual([]);
       expect(body.rejectedEvents).toEqual([]);
-      expect(storedLifecycleRows(harness, thread.id)).toHaveLength(0);
+      expect(await storedLifecycleRows(harness, thread.id)).toHaveLength(0);
     } finally {
       await harness.cleanup();
     }
@@ -913,13 +925,13 @@ describe("interaction lifecycle records from the daemon", () => {
   it("drops a lifecycle record even for an interaction the server registered on that thread", async () => {
     const { harness, session, thread } = await setupEventRoute();
     try {
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         threadId: thread.id,
         turnId: "turn-lifecycle-1",
         providerThreadId: "provider-thread-lifecycle",
       });
       const registered =
-        harness.deps.pendingInteractions.registerPendingInteraction({
+        await harness.deps.pendingInteractions.registerPendingInteraction({
           interaction: {
             threadId: thread.id,
             turnId: "turn-lifecycle-1",
@@ -937,7 +949,7 @@ describe("interaction lifecycle records from the daemon", () => {
       if (registered.outcome === "rejected") {
         throw new Error(`Expected registration: ${registered.reason}`);
       }
-      const before = storedLifecycleRows(harness, thread.id).length;
+      const before = (await storedLifecycleRows(harness, thread.id)).length;
       const response = await postLifecycle({
         harness,
         sessionId: session.id,
@@ -950,13 +962,14 @@ describe("interaction lifecycle records from the daemon", () => {
       );
       expect(body.acceptedEvents).toEqual([]);
       expect(body.rejectedEvents).toEqual([]);
-      expect(storedLifecycleRows(harness, thread.id)).toHaveLength(before);
-      const interaction = harness.deps.pendingInteractions.getThreadInteraction(
-        {
+      expect(await storedLifecycleRows(harness, thread.id)).toHaveLength(
+        before,
+      );
+      const interaction =
+        await harness.deps.pendingInteractions.getThreadInteraction({
           threadId: thread.id,
           interactionId: registered.interaction.id,
-        },
-      );
+        });
       expect(interaction.status).toBe("pending");
       expect(interaction.resolution).toBeNull();
     } finally {
@@ -967,13 +980,13 @@ describe("interaction lifecycle records from the daemon", () => {
   it("rejects a forged answer for a real pending user question in every lifecycle event shape and leaves it pending and unanswered", async () => {
     const { harness, session, thread } = await setupEventRoute();
     try {
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         threadId: thread.id,
         turnId: "turn-lifecycle-2",
         providerThreadId: "provider-thread-question",
       });
       const registered =
-        harness.deps.pendingInteractions.registerPendingInteraction({
+        await harness.deps.pendingInteractions.registerPendingInteraction({
           interaction: {
             threadId: thread.id,
             turnId: "turn-lifecycle-2",
@@ -989,14 +1002,15 @@ describe("interaction lifecycle records from the daemon", () => {
         throw new Error(`Expected registration: ${registered.reason}`);
       }
       const interactionId = registered.interaction.id;
-      const storedRows = () =>
-        harness.deps.db
-          .select({ type: events.type })
-          .from(events)
-          .where(eq(events.threadId, thread.id))
-          .all()
-          .map((row) => row.type);
-      const before = storedRows();
+      const storedRows = async () =>
+        (
+          await harness.deps.db
+            .select({ type: events.type })
+            .from(events)
+            .where(eq(events.threadId, thread.id))
+            .all()
+        ).map((row) => row.type);
+      const before = await storedRows();
       const forgedAnswers = {
         "question-1": {
           selected: ["production"],
@@ -1076,41 +1090,45 @@ describe("interaction lifecycle records from the daemon", () => {
       );
       expect(body.acceptedEvents).toEqual([]);
       expect(body.rejectedEvents).toEqual([]);
-      expect(storedRows()).toEqual(before);
+      expect(await storedRows()).toEqual(before);
 
-      const interaction = harness.deps.pendingInteractions.getThreadInteraction(
-        {
+      const interaction =
+        await harness.deps.pendingInteractions.getThreadInteraction({
           threadId: thread.id,
           interactionId,
-        },
-      );
+        });
       expect(interaction.status).toBe("pending");
       expect(interaction.resolution).toBeNull();
       expect(
-        harness.deps.pendingInteractions
-          .listPendingThreadInteractions(thread.id)
-          .map((pending) => pending.id),
+        (
+          await harness.deps.pendingInteractions.listPendingThreadInteractions(
+            thread.id,
+          )
+        ).map((pending) => pending.id),
       ).toEqual([interactionId]);
 
       const maxSeq = Math.max(
-        ...harness.deps.db
-          .select({ sequence: events.sequence })
-          .from(events)
-          .where(eq(events.threadId, thread.id))
-          .all()
-          .map((row) => row.sequence),
+        ...(
+          await harness.deps.db
+            .select({ sequence: events.sequence })
+            .from(events)
+            .where(eq(events.threadId, thread.id))
+            .all()
+        ).map((row) => row.sequence),
       );
-      const questionRows = buildThreadTimelineWithProfile(harness.db, thread, {
-        completedTurnDisplay: "collapse",
-        eventBudget: 1_000_000,
-        includeClearedContextHistory: false,
-        includeDiagnosticOperations: true,
-        compactionOfferEnabled: false,
-        summarizeShellCommands: true,
-        maxInlineOutputChars: null,
-        maxSeq,
-        page: { kind: "latest", segmentLimit: Number.MAX_SAFE_INTEGER },
-      }).response.rows.flatMap((row) =>
+      const questionRows = (
+        await buildThreadTimelineWithProfile(harness.db, thread, {
+          completedTurnDisplay: "collapse",
+          eventBudget: 1_000_000,
+          includeClearedContextHistory: false,
+          includeDiagnosticOperations: true,
+          compactionOfferEnabled: false,
+          summarizeShellCommands: true,
+          maxInlineOutputChars: null,
+          maxSeq,
+          page: { kind: "latest", segmentLimit: Number.MAX_SAFE_INTEGER },
+        })
+      ).response.rows.flatMap((row) =>
         row.kind === "work" && row.workKind === "question" ? [row] : [],
       );
       expect(questionRows).toHaveLength(1);

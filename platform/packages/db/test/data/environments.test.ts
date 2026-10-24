@@ -17,12 +17,12 @@ import { createProject } from "../../src/data/projects.js";
 import { updateHost, upsertHost } from "../../src/data/hosts.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
@@ -40,9 +40,9 @@ function createNotifierSpy(): DbNotifier {
 }
 
 describe("environments", () => {
-  it("notifies a host's environments only when its removal state changes", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("notifies a host's environments only when its removal state changes", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       projectId: project.id,
       hostId: host.id,
       path: "/tmp/removal-notify",
@@ -51,13 +51,13 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    updateHost(db, notifier, host.id, { name: "Renamed" });
+    await updateHost(db, notifier, host.id, { name: "Renamed" });
     expect(notifier.notifyEnvironment).not.toHaveBeenCalled();
 
-    updateHost(db, notifier, host.id, { phase: "removing" });
-    updateHost(db, notifier, host.id, { teardownStatus: "running" });
-    updateHost(db, notifier, host.id, { teardownStatus: "failed" });
-    updateHost(db, notifier, host.id, { destroyedAt: 1 });
+    await updateHost(db, notifier, host.id, { phase: "removing" });
+    await updateHost(db, notifier, host.id, { teardownStatus: "running" });
+    await updateHost(db, notifier, host.id, { teardownStatus: "failed" });
+    await updateHost(db, notifier, host.id, { destroyedAt: 1 });
 
     expect(vi.mocked(notifier.notifyEnvironment).mock.calls).toEqual([
       [environment.id, ["status-changed"]],
@@ -66,28 +66,29 @@ describe("environments", () => {
     ]);
   });
 
-  it("marks every environment on a removed host as destroyed history", () => {
+  it("marks every environment on a removed host as destroyed history", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     onTestFinished(() => {
       vi.useRealTimers();
     });
     vi.setSystemTime(25_000);
-    const { db, host, project } = setup();
-    const first = createEnvironment(db, noopNotifier, {
+    const { db, host, project } = await setup();
+    const first = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: true,
       projectId: project.id,
       hostId: host.id,
       path: "/tmp/removed-host-first",
       status: "ready",
     });
-    const second = createEnvironment(db, noopNotifier, {
+    const second = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
       path: "/tmp/removed-host-second",
       status: "error",
     });
-    db.update(environments)
+    await db
+      .update(environments)
       .set({
         resource: { provider: "state" },
         retireAt: 30_000,
@@ -98,7 +99,7 @@ describe("environments", () => {
       .run();
     const notifier = createNotifierSpy();
 
-    const updated = markHostEnvironmentsDestroyed(db, notifier, host.id);
+    const updated = await markHostEnvironmentsDestroyed(db, notifier, host.id);
 
     expect(updated.map((environment) => environment.id)).toEqual([
       first.id,
@@ -121,34 +122,36 @@ describe("environments", () => {
     }
   });
 
-  it("keeps a path unique while provider teardown is pending", () => {
-    const { db, host, project } = setup();
-    const first = createEnvironment(db, noopNotifier, {
+  it("keeps a path unique while provider teardown is pending", async () => {
+    const { db, host, project } = await setup();
+    const first = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: true,
       projectId: project.id,
       hostId: host.id,
       path: "/tmp/teardown-path",
       status: "ready",
     });
-    db.update(environments)
+    await db
+      .update(environments)
       .set({ teardownStatus: "running" })
       .where(eq(environments.id, first.id))
       .run();
 
-    expect(() =>
-      createEnvironment(db, noopNotifier, {
-        providerOwnsPath: true,
-        projectId: project.id,
-        hostId: host.id,
-        path: "/tmp/teardown-path",
-        status: "provisioning",
-      }),
-    ).toThrow(/unique/iu);
+    await expect(
+      (async () =>
+        await createEnvironment(db, noopNotifier, {
+          providerOwnsPath: true,
+          projectId: project.id,
+          hostId: host.id,
+          path: "/tmp/teardown-path",
+          status: "provisioning",
+        }))(),
+    ).rejects.toThrow(/unique/iu);
   });
 
-  it("emits metadata-changed when merge base branch changes", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("emits metadata-changed when merge base branch changes", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
@@ -156,9 +159,14 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    const updated = updateEnvironmentMetadata(db, notifier, environment.id, {
-      mergeBaseBranch: "release",
-    });
+    const updated = await updateEnvironmentMetadata(
+      db,
+      notifier,
+      environment.id,
+      {
+        mergeBaseBranch: "release",
+      },
+    );
 
     expect(updated?.mergeBaseBranch).toBe("release");
     expect(notifier.notifyEnvironment).toHaveBeenCalledWith(environment.id, [
@@ -166,9 +174,9 @@ describe("environments", () => {
     ]);
   });
 
-  it("emits metadata-changed when environment name changes", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("emits metadata-changed when environment name changes", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
@@ -176,9 +184,14 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    const updated = updateEnvironmentMetadata(db, notifier, environment.id, {
-      name: "Review workspace",
-    });
+    const updated = await updateEnvironmentMetadata(
+      db,
+      notifier,
+      environment.id,
+      {
+        name: "Review workspace",
+      },
+    );
 
     expect(updated?.name).toBe("Review workspace");
     expect(notifier.notifyEnvironment).toHaveBeenCalledWith(environment.id, [
@@ -186,9 +199,9 @@ describe("environments", () => {
     ]);
   });
 
-  it("does not emit metadata-changed when merge base branch is unchanged", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("does not emit metadata-changed when merge base branch is unchanged", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
@@ -197,17 +210,22 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    const updated = updateEnvironmentMetadata(db, notifier, environment.id, {
-      mergeBaseBranch: "main",
-    });
+    const updated = await updateEnvironmentMetadata(
+      db,
+      notifier,
+      environment.id,
+      {
+        mergeBaseBranch: "main",
+      },
+    );
 
     expect(updated?.mergeBaseBranch).toBe("main");
     expect(notifier.notifyEnvironment).not.toHaveBeenCalled();
   });
 
-  it("does not emit metadata-changed when environment name is unchanged", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("does not emit metadata-changed when environment name is unchanged", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
@@ -216,17 +234,22 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    const updated = updateEnvironmentMetadata(db, notifier, environment.id, {
-      name: "Review workspace",
-    });
+    const updated = await updateEnvironmentMetadata(
+      db,
+      notifier,
+      environment.id,
+      {
+        name: "Review workspace",
+      },
+    );
 
     expect(updated?.name).toBe("Review workspace");
     expect(notifier.notifyEnvironment).not.toHaveBeenCalled();
   });
 
-  it("records provisioned workspace metadata without touching status", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("records provisioned workspace metadata without touching status", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
@@ -234,7 +257,7 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    const updated = recordProvisionedEnvironmentWorkspace(
+    const updated = await recordProvisionedEnvironmentWorkspace(
       db,
       notifier,
       environment.id,
@@ -260,9 +283,9 @@ describe("environments", () => {
     ]);
   });
 
-  it("records the current branch observed for an environment", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("records the current branch observed for an environment", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
@@ -272,7 +295,7 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    const updated = recordEnvironmentCurrentBranch(
+    const updated = await recordEnvironmentCurrentBranch(
       db,
       notifier,
       environment.id,
@@ -293,9 +316,9 @@ describe("environments", () => {
     ]);
   });
 
-  it("clears the current branch when a detached checkout is observed", () => {
-    const { db, host, project } = setup();
-    const environment = createEnvironment(db, noopNotifier, {
+  it("clears the current branch when a detached checkout is observed", async () => {
+    const { db, host, project } = await setup();
+    const environment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
@@ -305,7 +328,7 @@ describe("environments", () => {
     });
     const notifier = createNotifierSpy();
 
-    const updated = recordEnvironmentCurrentBranch(
+    const updated = await recordEnvironmentCurrentBranch(
       db,
       notifier,
       environment.id,
@@ -323,12 +346,12 @@ describe("environments", () => {
     ]);
   });
 
-  it("lists loaded environments that no longer belong to the host as live records", () => {
-    const { db, host, project } = setup();
-    const otherHost = upsertHost(db, noopNotifier, {
+  it("lists loaded environments that no longer belong to the host as live records", async () => {
+    const { db, host, project } = await setup();
+    const otherHost = await upsertHost(db, noopNotifier, {
       name: "other-host",
     });
-    const { project: otherProject } = createProject(db, noopNotifier, {
+    const { project: otherProject } = await createProject(db, noopNotifier, {
       name: "other-project",
       source: {
         type: "local_path",
@@ -336,19 +359,19 @@ describe("environments", () => {
         path: "/tmp/other",
       },
     });
-    const retainedEnvironment = createEnvironment(db, noopNotifier, {
+    const retainedEnvironment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
       status: "ready",
     });
-    const destroyedEnvironment = createEnvironment(db, noopNotifier, {
+    const destroyedEnvironment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: project.id,
       hostId: host.id,
       status: "destroyed",
     });
-    const otherHostEnvironment = createEnvironment(db, noopNotifier, {
+    const otherHostEnvironment = await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       projectId: otherProject.id,
       hostId: otherHost.id,
@@ -356,7 +379,7 @@ describe("environments", () => {
     });
 
     expect(
-      listRetiredLoadedEnvironmentIdsOnHost(db, {
+      await listRetiredLoadedEnvironmentIdsOnHost(db, {
         hostId: host.id,
         environmentIds: [
           retainedEnvironment.id,
@@ -374,15 +397,15 @@ describe("environments", () => {
 });
 
 describe("environment path claims", () => {
-  function seedClaim(
-    args: ReturnType<typeof setup>,
+  async function seedClaim(
+    args: Awaited<ReturnType<typeof setup>>,
     input: {
       environmentProviderId: string;
       path: string;
       providerOwnsPath: boolean;
     },
   ) {
-    return createEnvironment(args.db, noopNotifier, {
+    return await createEnvironment(args.db, noopNotifier, {
       projectId: args.project.id,
       hostId: args.host.id,
       path: input.path,
@@ -399,70 +422,90 @@ describe("environment path claims", () => {
     });
   }
 
-  it("claims a path only for a provider that owns the directory", () => {
-    const fixture = setup();
-    seedClaim(fixture, {
+  it("claims a path only for a provider that owns the directory", async () => {
+    const fixture = await setup();
+    await seedClaim(fixture, {
       environmentProviderId: "project-checkout",
       path: "/tmp/attached",
       providerOwnsPath: false,
     });
-    const owned = seedClaim(fixture, {
+    const owned = await seedClaim(fixture, {
       environmentProviderId: "git-worktree",
       path: "/tmp/owned",
       providerOwnsPath: true,
     });
 
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "/tmp/attached"),
+      await findProviderEnvironmentContainingPath(fixture.db, "/tmp/attached"),
     ).toBeNull();
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "/tmp/attached/pkg"),
+      await findProviderEnvironmentContainingPath(
+        fixture.db,
+        "/tmp/attached/pkg",
+      ),
     ).toBeNull();
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "/tmp/owned/pkg")?.id,
+      (
+        await findProviderEnvironmentContainingPath(
+          fixture.db,
+          "/tmp/owned/pkg",
+        )
+      )?.id,
     ).toBe(owned.id);
   });
 
-  it("matches a Windows path without regard to case", () => {
-    const fixture = setup();
-    const owned = seedClaim(fixture, {
+  it("matches a Windows path without regard to case", async () => {
+    const fixture = await setup();
+    const owned = await seedClaim(fixture, {
       environmentProviderId: "git-worktree",
       path: "C:\\src\\Owned",
       providerOwnsPath: true,
     });
 
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "C:\\src\\owned")?.id,
-    ).toBe(owned.id);
-    expect(
-      findProviderEnvironmentContainingPath(
-        fixture.db,
-        "C:\\SRC\\owned\\packages\\app",
+      (
+        await findProviderEnvironmentContainingPath(
+          fixture.db,
+          "C:\\src\\owned",
+        )
       )?.id,
     ).toBe(owned.id);
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "C:\\src\\owned-other"),
+      (
+        await findProviderEnvironmentContainingPath(
+          fixture.db,
+          "C:\\SRC\\owned\\packages\\app",
+        )
+      )?.id,
+    ).toBe(owned.id);
+    expect(
+      await findProviderEnvironmentContainingPath(
+        fixture.db,
+        "C:\\src\\owned-other",
+      ),
     ).toBeNull();
     expect(
-      findProjectEnvironmentByHostPath(
-        fixture.db,
-        fixture.project.id,
-        fixture.host.id,
-        "C:\\SRC\\OWNED",
+      (
+        await findProjectEnvironmentByHostPath(
+          fixture.db,
+          fixture.project.id,
+          fixture.host.id,
+          "C:\\SRC\\OWNED",
+        )
       )?.id,
     ).toBe(owned.id);
   });
 
-  it("keeps POSIX path lookups case-sensitive", () => {
-    const fixture = setup();
-    seedClaim(fixture, {
+  it("keeps POSIX path lookups case-sensitive", async () => {
+    const fixture = await setup();
+    await seedClaim(fixture, {
       environmentProviderId: "git-worktree",
       path: "/tmp/Owned",
       providerOwnsPath: true,
     });
 
     expect(
-      findProjectEnvironmentByHostPath(
+      await findProjectEnvironmentByHostPath(
         fixture.db,
         fixture.project.id,
         fixture.host.id,
@@ -470,68 +513,84 @@ describe("environment path claims", () => {
       ),
     ).toBeNull();
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "/tmp/owned/pkg"),
+      await findProviderEnvironmentContainingPath(fixture.db, "/tmp/owned/pkg"),
     ).toBeNull();
   });
 
-  it("matches a Windows path with non-ASCII letters without regard to case", () => {
-    const fixture = setup();
-    const owned = seedClaim(fixture, {
+  it("matches a Windows path with non-ASCII letters without regard to case", async () => {
+    const fixture = await setup();
+    const owned = await seedClaim(fixture, {
       environmentProviderId: "git-worktree",
       path: "C:\\src\\Équipe",
       providerOwnsPath: true,
     });
 
     expect(
-      findProjectEnvironmentByHostPath(
-        fixture.db,
-        fixture.project.id,
-        fixture.host.id,
-        "C:\\src\\équipe",
+      (
+        await findProjectEnvironmentByHostPath(
+          fixture.db,
+          fixture.project.id,
+          fixture.host.id,
+          "C:\\src\\équipe",
+        )
       )?.id,
     ).toBe(owned.id);
     expect(
-      findProviderEnvironmentContainingPath(
-        fixture.db,
-        "c:\\SRC\\ÉQUIPE\\packages",
+      (
+        await findProviderEnvironmentContainingPath(
+          fixture.db,
+          "c:\\SRC\\ÉQUIPE\\packages",
+        )
       )?.id,
     ).toBe(owned.id);
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "C:\\src\\equipe"),
+      await findProviderEnvironmentContainingPath(
+        fixture.db,
+        "C:\\src\\equipe",
+      ),
     ).toBeNull();
   });
 
-  it("treats underscores and percent signs in an owned path literally", () => {
-    const fixture = setup();
-    const windowsOwned = seedClaim(fixture, {
+  it("treats underscores and percent signs in an owned path literally", async () => {
+    const fixture = await setup();
+    const windowsOwned = await seedClaim(fixture, {
       environmentProviderId: "git-worktree",
       path: "C:\\repos\\foo_bar%",
       providerOwnsPath: true,
     });
-    const posixOwned = seedClaim(fixture, {
+    const posixOwned = await seedClaim(fixture, {
       environmentProviderId: "git-worktree",
       path: "/repos/foo_bar%",
       providerOwnsPath: true,
     });
 
     expect(
-      findProviderEnvironmentContainingPath(
+      await findProviderEnvironmentContainingPath(
         fixture.db,
         "C:\\repos\\fooXbarYZ\\child",
       ),
     ).toBeNull();
     expect(
-      findProviderEnvironmentContainingPath(
-        fixture.db,
-        "C:\\repos\\foo_bar%\\child",
+      (
+        await findProviderEnvironmentContainingPath(
+          fixture.db,
+          "C:\\repos\\foo_bar%\\child",
+        )
       )?.id,
     ).toBe(windowsOwned.id);
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "/repos/fooXbarYZ/child"),
+      await findProviderEnvironmentContainingPath(
+        fixture.db,
+        "/repos/fooXbarYZ/child",
+      ),
     ).toBeNull();
     expect(
-      findProviderEnvironmentContainingPath(fixture.db, "/repos/foo_bar%/child")
-        ?.id,
+      (
+        await findProviderEnvironmentContainingPath(
+          fixture.db,
+          "/repos/foo_bar%/child",
+        )
+      )?.id,
     ).toBe(posixOwned.id);
   });
 });

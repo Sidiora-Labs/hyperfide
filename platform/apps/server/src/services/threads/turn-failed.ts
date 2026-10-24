@@ -58,11 +58,11 @@ export interface FailedTurnRecord {
  * that has never dispatched a turn (a start that failed before any request),
  * where there is nothing to announce and nothing for a retry to re-submit.
  */
-export function loadFailedTurn(
+export async function loadFailedTurn(
   db: DbConnection,
   threadId: string,
-): FailedTurnRecord | null {
-  const row = getLastStoredTurnRequestEvent(db, threadId);
+): Promise<FailedTurnRecord | null> {
+  const row = await getLastStoredTurnRequestEvent(db, threadId);
   if (row === null) return null;
   try {
     return {
@@ -101,16 +101,18 @@ export function retryChain(request: TurnRequestEventData): {
  * partial output) that no provider rolls back, while never-accepted means the
  * request died at the door and the provider has no record of it.
  */
-export function wasFailedTurnInputAccepted(
+export async function wasFailedTurnInputAccepted(
   db: DbConnection,
   args: { threadId: string; failed: FailedTurnRecord },
-): boolean {
+): Promise<boolean> {
   return (
-    listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
-      threadId: args.threadId,
-      clientRequestIds: [args.failed.request.requestId],
-      afterSequence: args.failed.requestSequence,
-    }).length > 0
+    (
+      await listStoredTurnInputAcceptedRowsByClientRequestIds(db, {
+        threadId: args.threadId,
+        clientRequestIds: [args.failed.request.requestId],
+        afterSequence: args.failed.requestSequence,
+      })
+    ).length > 0
   );
 }
 
@@ -124,15 +126,17 @@ export function wasFailedTurnInputAccepted(
  * category a mid-stream one reports; unmapped reasons stay null, exactly as
  * before.
  */
-function doorRejectionErrorInfo(
+async function doorRejectionErrorInfo(
   db: DbConnection,
   args: { threadId: string; failed: FailedTurnRecord },
-): ProviderErrorInfo | null {
-  const row = listStoredTurnRejectedRowsByClientRequestIds(db, {
-    threadId: args.threadId,
-    clientRequestIds: [args.failed.request.requestId],
-    afterSequence: args.failed.requestSequence,
-  })[0];
+): Promise<ProviderErrorInfo | null> {
+  const row = (
+    await listStoredTurnRejectedRowsByClientRequestIds(db, {
+      threadId: args.threadId,
+      clientRequestIds: [args.failed.request.requestId],
+      afterSequence: args.failed.requestSequence,
+    })
+  )[0];
   if (row === undefined) return null;
   const reason = rejectedReasonDataSchema.safeParse(parseRowData(row)).data
     ?.reason;
@@ -166,20 +170,20 @@ function doorRejectionErrorInfo(
  * Returns null when the thread is gone or never dispatched a turn — there is
  * no failed turn to announce.
  */
-export function buildTurnFailedEvent(
+export async function buildTurnFailedEvent(
   db: DbConnection,
   threadId: string,
-): PluginTurnFailedEvent | null {
-  const thread = getThread(db, threadId);
+): Promise<PluginTurnFailedEvent | null> {
+  const thread = await getThread(db, threadId);
   if (!thread || thread.deletedAt !== null || thread.archivedAt !== null) {
     return null;
   }
-  const failed = loadFailedTurn(db, threadId);
+  const failed = await loadFailedTurn(db, threadId);
   if (failed === null) return null;
   // The provider's own account of the failure, when the failure happened
   // inside a provider turn at all: it carries both the turn id and the
   // structured classification, so one row answers two fields.
-  const providerError = getLatestStoredThreadEventOfTypes(db, {
+  const providerError = await getLatestStoredThreadEventOfTypes(db, {
     threadId,
     types: ["provider/error"],
     afterSequence: failed.requestSequence,
@@ -194,18 +198,19 @@ export function buildTurnFailedEvent(
     requestId: failed.request.requestId,
     turnId: providerError?.turnId ?? null,
     errorInfo:
-      providerErrorInfo ?? doorRejectionErrorInfo(db, { threadId, failed }),
-    inputAccepted: wasFailedTurnInputAccepted(db, { threadId, failed }),
-    rateLimits: latestRateLimits(db, thread),
+      providerErrorInfo ??
+      (await doorRejectionErrorInfo(db, { threadId, failed })),
+    inputAccepted: await wasFailedTurnInputAccepted(db, { threadId, failed }),
+    rateLimits: await latestRateLimits(db, thread),
     attemptNumber: retryChain(failed.request).attemptNumber,
   };
 }
 
-function latestRateLimits(
+async function latestRateLimits(
   db: DbConnection,
   thread: Thread,
-): ProviderRateLimitState | null {
-  const row = getLatestStoredRateLimitsEvent(db, {
+): Promise<ProviderRateLimitState | null> {
+  const row = await getLatestStoredRateLimitsEvent(db, {
     threadId: thread.id,
   });
   if (row === null) return null;

@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../../src/testing.js";
 import { turnScope } from "@hyperfide/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -28,12 +30,12 @@ import type {
   SlowDbQueryLogFields,
 } from "../../src/connection.js";
 
-function setup(options: CreateConnectionOptions = {}) {
-  const db = createMigratedConnection(options);
-  const host = upsertHost(db, noopNotifier, {
+async function setup(options: CreateConnectionOptions = {}) {
+  const db = await createMigratedConnection(options);
+  const host = await upsertHost(db, noopNotifier, {
     name: "retained-output-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "retained-output-project",
     source: {
       type: "local_path",
@@ -41,11 +43,11 @@ function setup(options: CreateConnectionOptions = {}) {
       path: "/tmp/retained-output",
     },
   });
-  const source = createThread(db, noopNotifier, {
+  const source = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
-  const target = createThread(db, noopNotifier, {
+  const target = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
@@ -84,11 +86,11 @@ function hasUnpairedSurrogate(value: string): boolean {
   return false;
 }
 
-function insertTurnStartedEvents(
-  db: ReturnType<typeof setup>["db"],
+async function insertTurnStartedEvents(
+  db: Awaited<ReturnType<typeof setup>>["db"],
   args: { count: number; createdAt: number; threadId: string },
-): void {
-  insertEvents(
+): Promise<void> {
+  await insertEvents(
     db,
     noopNotifier,
     Array.from({ length: args.count }, (_, index) => ({
@@ -110,11 +112,11 @@ afterEach(() => {
 });
 
 describe("retained completed-event outputs", () => {
-  it("stores new image generation results in the authoritative sidecar", () => {
+  it("stores new image generation results in the authoritative sidecar", async () => {
     const now = 1_800_000_000_000;
-    const { db, source } = setup();
+    const { db, source } = await setup();
     const result = "encoded-image-" + "i".repeat(4 * 1024 * 1024);
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: now,
         data: JSON.stringify({
@@ -139,28 +141,28 @@ describe("retained completed-event outputs", () => {
       },
     ]);
 
-    const [stored] = listStoredEventRows(db, { threadId: source.id });
+    const [stored] = await listStoredEventRows(db, { threadId: source.id });
     if (!stored) {
       throw new Error("Expected stored image generation event");
     }
     expect(stored.data.length).toBeLessThan(10_000);
     expect(readOutput(stored.data, "result")).not.toBe(result);
-    const [hydrated] = hydrateRetainedEventOutputRows(db, [stored], now);
+    const [hydrated] = await hydrateRetainedEventOutputRows(db, [stored], now);
     expect(hydrated && readOutput(hydrated.data, "result")).toBe(result);
-    db.$client.close();
+    await db.close();
   });
 
-  it("stores a bounded preview and hydrates the full output until expiry", () => {
+  it("stores a bounded preview and hydrates the full output until expiry", async () => {
     const now = 1_800_000_000_000;
     vi.useFakeTimers();
     vi.setSystemTime(now);
-    const { db, source } = setup();
+    const { db, source } = await setup();
     const output =
       "head-" +
       "x".repeat(COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS) +
       "-tail";
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: now,
         data: JSON.stringify({
@@ -185,7 +187,7 @@ describe("retained completed-event outputs", () => {
       },
     ]);
 
-    const [stored] = listStoredEventRows(db, { threadId: source.id });
+    const [stored] = await listStoredEventRows(db, { threadId: source.id });
     if (!stored) {
       throw new Error("Expected stored event");
     }
@@ -199,24 +201,24 @@ describe("retained completed-event outputs", () => {
         77,
     );
 
-    const [hydrated] = hydrateRetainedEventOutputRows(db, [stored], now);
+    const [hydrated] = await hydrateRetainedEventOutputRows(db, [stored], now);
     expect(hydrated && readOutput(hydrated.data, "aggregatedOutput")).toBe(
       output,
     );
     expect(JSON.parse(hydrated?.data ?? "{}").item.truncation).toBeUndefined();
 
-    const [expired] = hydrateRetainedEventOutputRows(
+    const [expired] = await hydrateRetainedEventOutputRows(
       db,
       [stored],
       now + COMPLETED_EVENT_OUTPUT_RETENTION_MS,
     );
     expect(expired?.data).toBe(stored.data);
-    db.$client.close();
+    await db.close();
   });
 
-  it("keeps both preview boundaries on complete Unicode characters", () => {
+  it("keeps both preview boundaries on complete Unicode characters", async () => {
     const now = 1_800_000_000_000;
-    const { db, source } = setup();
+    const { db, source } = await setup();
     const headBoundaryOutput =
       "h".repeat(COMPLETED_EVENT_OUTPUT_RETAINED_HEAD_CHARS - 1) +
       "😀" +
@@ -226,7 +228,7 @@ describe("retained completed-event outputs", () => {
       "😀" +
       "t".repeat(COMPLETED_EVENT_OUTPUT_RETAINED_TAIL_CHARS - 1);
 
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       [headBoundaryOutput, tailBoundaryOutput].map((output, index) => ({
@@ -248,7 +250,7 @@ describe("retained completed-event outputs", () => {
       })),
     );
 
-    const storedRows = listStoredEventRows(db, { threadId: source.id });
+    const storedRows = await listStoredEventRows(db, { threadId: source.id });
     const previews = storedRows.map((row) =>
       readOutput(row.data, "aggregatedOutput"),
     );
@@ -271,16 +273,16 @@ describe("retained completed-event outputs", () => {
             .retainedTailLength,
       ),
     ).toEqual([2_048, COMPLETED_EVENT_OUTPUT_RETAINED_TAIL_CHARS - 1]);
-    db.$client.close();
+    await db.close();
   });
 
-  it("preserves lone high and low surrogates in retained values", () => {
+  it("preserves lone high and low surrogates in retained values", async () => {
     const now = 1_800_000_000_000;
-    const { db, source } = setup();
+    const { db, source } = await setup();
     const output =
       "head-\ud800-middle-\udc00-" +
       "x".repeat(COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS);
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: now,
         data: JSON.stringify({
@@ -300,19 +302,19 @@ describe("retained completed-event outputs", () => {
       },
     ]);
 
-    const stored = listStoredEventRows(db, { threadId: source.id });
-    const [hydrated] = hydrateRetainedEventOutputRows(db, stored, now);
+    const stored = await listStoredEventRows(db, { threadId: source.id });
+    const [hydrated] = await hydrateRetainedEventOutputRows(db, stored, now);
     expect(hydrated && readOutput(hydrated.data, "aggregatedOutput")).toBe(
       output,
     );
-    db.$client.close();
+    await db.close();
   });
 
-  it("hydrates retained outputs only when they fit the data byte budget", () => {
+  it("hydrates retained outputs only when they fit the data byte budget", async () => {
     const now = 1_800_000_000_000;
-    const { db, source } = setup();
+    const { db, source } = await setup();
     const output = "bounded-" + "b".repeat(5 * 1024 * 1024);
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: now,
         data: JSON.stringify({
@@ -331,17 +333,17 @@ describe("retained completed-event outputs", () => {
         type: "item/completed",
       },
     ]);
-    const stored = listStoredEventRows(db, { threadId: source.id });
+    const stored = await listStoredEventRows(db, { threadId: source.id });
 
     expect(
-      hydrateRetainedEventOutputRowsWithinDataByteLimit(
+      await hydrateRetainedEventOutputRowsWithinDataByteLimit(
         db,
         stored,
         4 * 1024 * 1024,
         now,
       ),
     ).toEqual(stored);
-    const [hydrated] = hydrateRetainedEventOutputRowsWithinDataByteLimit(
+    const [hydrated] = await hydrateRetainedEventOutputRowsWithinDataByteLimit(
       db,
       stored,
       8 * 1024 * 1024,
@@ -351,13 +353,17 @@ describe("retained completed-event outputs", () => {
       output,
     );
 
-    const exactHydratedRows = hydrateRetainedEventOutputRows(db, stored, now);
+    const exactHydratedRows = await hydrateRetainedEventOutputRows(
+      db,
+      stored,
+      now,
+    );
     const exactHydratedBytes = exactHydratedRows.reduce(
       (total, row) => total + Buffer.byteLength(row.data),
       0,
     );
     expect(
-      hydrateRetainedEventOutputRowsWithinDataByteLimit(
+      await hydrateRetainedEventOutputRowsWithinDataByteLimit(
         db,
         stored,
         exactHydratedBytes,
@@ -365,21 +371,23 @@ describe("retained completed-event outputs", () => {
       ),
     ).toEqual(exactHydratedRows);
     expect(
-      hydrateRetainedEventOutputRowsWithinDataByteLimit(
+      await hydrateRetainedEventOutputRowsWithinDataByteLimit(
         db,
         stored,
         exactHydratedBytes - 1,
         now,
       ),
     ).toEqual(stored);
-    db.$client.close();
+    await db.close();
   });
 
-  it("rolls back the event when its retained output cannot be inserted", () => {
-    const now = 1_800_000_000_000;
-    const { db, source } = setup();
-    const output = "atomic-" + "a".repeat(50_000);
-    db.$client.exec(`
+  it.skipIf(isPostgresTest)(
+    "rolls back the event when its retained output cannot be inserted",
+    async () => {
+      const now = 1_800_000_000_000;
+      const { db, source } = await setup();
+      const output = "atomic-" + "a".repeat(50_000);
+      await db.$client.exec(`
       CREATE TRIGGER fail_retained_output_insert
       BEFORE INSERT ON retained_event_outputs
       BEGIN
@@ -387,37 +395,41 @@ describe("retained completed-event outputs", () => {
       END
     `);
 
-    expect(() =>
-      insertEvents(db, noopNotifier, [
-        {
-          createdAt: now,
-          data: JSON.stringify({
-            item: {
-              aggregatedOutput: output,
-              id: "atomic-command",
-              type: "commandExecution",
+      await expect(
+        (async () =>
+          await insertEvents(db, noopNotifier, [
+            {
+              createdAt: now,
+              data: JSON.stringify({
+                item: {
+                  aggregatedOutput: output,
+                  id: "atomic-command",
+                  type: "commandExecution",
+                },
+              }),
+              itemId: "atomic-command",
+              itemKind: "commandExecution",
+              parentToolCallId: null,
+              scope: turnScope("turn-atomic"),
+              sequence: 1,
+              threadId: source.id,
+              type: "item/completed",
             },
-          }),
-          itemId: "atomic-command",
-          itemKind: "commandExecution",
-          parentToolCallId: null,
-          scope: turnScope("turn-atomic"),
-          sequence: 1,
-          threadId: source.id,
-          type: "item/completed",
-        },
-      ]),
-    ).toThrow("forced retained output failure");
-    expect(listStoredEventRows(db, { threadId: source.id })).toEqual([]);
-    db.$client.close();
-  });
+          ]))(),
+      ).rejects.toThrow("forced retained output failure");
+      expect(await listStoredEventRows(db, { threadId: source.id })).toEqual(
+        [],
+      );
+      await db.close();
+    },
+  );
 
-  it("copies many retained outputs without selecting their full values", () => {
+  it("copies many retained outputs without selecting their full values", async () => {
     const now = 1_800_000_000_000;
     vi.useFakeTimers();
     vi.setSystemTime(now);
     const queries: SlowDbQueryLogFields[] = [];
-    const { db, source, target } = setup({
+    const { db, source, target } = await setup({
       slowQueryLogger: {
         info(fields) {
           queries.push(fields);
@@ -429,7 +441,7 @@ describe("retained completed-event outputs", () => {
       { length: 6 },
       (_, index) => `copy-${index}-` + "y".repeat(2 * 1024 * 1024),
     );
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       outputs.map((output, index) => ({
@@ -452,12 +464,12 @@ describe("retained completed-event outputs", () => {
         type: "item/completed",
       })),
     );
-    const sourceRows = listStoredEventRows(db, { threadId: source.id });
+    const sourceRows = await listStoredEventRows(db, { threadId: source.id });
     queries.length = 0;
 
-    db.transaction(
-      (tx) =>
-        copyStoredThreadEventsInTransaction(tx, {
+    await db.transaction(
+      async (tx) =>
+        await copyStoredThreadEventsInTransaction(tx, {
           rows: sourceRows,
           targetEnvironmentId: null,
           targetThreadId: target.id,
@@ -473,10 +485,14 @@ describe("retained completed-event outputs", () => {
           query.sql.includes("value"),
       ),
     ).toBe(false);
-    const targetRows = listStoredEventRows(db, { threadId: target.id });
+    const targetRows = await listStoredEventRows(db, { threadId: target.id });
     expect(targetRows).toHaveLength(outputs.length);
     expect(targetRows.every((row) => row.data.length < 10_000)).toBe(true);
-    const hydratedTargets = hydrateRetainedEventOutputRows(db, targetRows, now);
+    const hydratedTargets = await hydrateRetainedEventOutputRows(
+      db,
+      targetRows,
+      now,
+    );
     expect(
       hydratedTargets.map((row) => readOutput(row.data, "result")),
     ).toEqual(outputs);
@@ -485,14 +501,14 @@ describe("retained completed-event outputs", () => {
         (row, index) => !row.data.includes(outputs[index] ?? ""),
       ),
     ).toBe(true);
-    db.$client.close();
+    await db.close();
   });
 
-  it("deletes a bounded number of expired sidecars without deleting previews", () => {
+  it("deletes a bounded number of expired sidecars without deleting previews", async () => {
     const now = 1_800_000_000_000;
     vi.useFakeTimers();
     vi.setSystemTime(now);
-    const { db, source } = setup();
+    const { db, source } = await setup();
     const output = "z".repeat(50_000);
     const eventInputs: InsertEventInput[] = [1, 2].map((sequence) => ({
       createdAt: now,
@@ -511,29 +527,31 @@ describe("retained completed-event outputs", () => {
       threadId: source.id,
       type: "item/completed",
     }));
-    insertEvents(db, noopNotifier, eventInputs);
-    const previews = listStoredEventRows(db, { threadId: source.id });
+    await insertEvents(db, noopNotifier, eventInputs);
+    const previews = await listStoredEventRows(db, { threadId: source.id });
 
     expect(
-      deleteExpiredRetainedEventOutputs(db, {
+      await deleteExpiredRetainedEventOutputs(db, {
         expiredAtOrBefore: now + COMPLETED_EVENT_OUTPUT_RETENTION_MS,
         limit: 1,
       }),
     ).toEqual({ deleted: 1, threadIds: [source.id] });
-    expect(listStoredEventRows(db, { threadId: source.id })).toEqual(previews);
-    const hydrated = hydrateRetainedEventOutputRows(db, previews, now);
+    expect(await listStoredEventRows(db, { threadId: source.id })).toEqual(
+      previews,
+    );
+    const hydrated = await hydrateRetainedEventOutputRows(db, previews, now);
     expect(
       hydrated.filter(
         (row) => readOutput(row.data, "aggregatedOutput") === output,
       ),
     ).toHaveLength(1);
-    db.$client.close();
+    await db.close();
   });
 
-  it("looks up retained outputs for a thousand rows in one query", () => {
+  it("looks up retained outputs for a thousand rows in one query", async () => {
     const now = 1_800_000_000_000;
     let queries = 0;
-    const { db, source } = setup({
+    const { db, source } = await setup({
       slowQueryLogger: {
         info() {
           queries += 1;
@@ -542,12 +560,12 @@ describe("retained completed-event outputs", () => {
       slowQueryThresholdMs: 0,
     });
     const output = `head-${"x".repeat(COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS)}-tail`;
-    insertTurnStartedEvents(db, {
+    await insertTurnStartedEvents(db, {
       count: 1_000,
       createdAt: now,
       threadId: source.id,
     });
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: now,
         data: JSON.stringify({
@@ -566,13 +584,13 @@ describe("retained completed-event outputs", () => {
         type: "item/completed",
       },
     ]);
-    const rows = listStoredEventRows(db, { threadId: source.id });
+    const rows = await listStoredEventRows(db, { threadId: source.id });
     const stored = rows.find((row) => row.itemKind === "commandExecution");
     if (!stored) throw new Error("Expected stored command event");
     expect(readOutput(stored.data, "aggregatedOutput")).not.toBe(output);
 
     queries = 0;
-    const hydrated = hydrateRetainedEventOutputRows(db, rows, now);
+    const hydrated = await hydrateRetainedEventOutputRows(db, rows, now);
     expect(queries).toBe(1);
     expect(
       readOutput(
@@ -583,7 +601,7 @@ describe("retained completed-event outputs", () => {
 
     queries = 0;
     expect(
-      hydrateRetainedEventOutputRowsWithinDataByteLimit(
+      await hydrateRetainedEventOutputRowsWithinDataByteLimit(
         db,
         rows,
         4 * 1024 * 1024,
@@ -593,19 +611,19 @@ describe("retained completed-event outputs", () => {
     expect(queries).toBe(2);
 
     expect(
-      hydrateRetainedEventOutputRows(
+      await hydrateRetainedEventOutputRows(
         db,
         rows,
         now + COMPLETED_EVENT_OUTPUT_RETENTION_MS + 1,
       ),
     ).toEqual(rows);
-    db.$client.close();
+    await db.close();
   });
 
-  it("refuses an over-budget read before looking up retained outputs", () => {
+  it("refuses an over-budget read before looking up retained outputs", async () => {
     const now = 1_800_000_000_000;
     let queries = 0;
-    const { db, source } = setup({
+    const { db, source } = await setup({
       slowQueryLogger: {
         info() {
           queries += 1;
@@ -613,18 +631,18 @@ describe("retained completed-event outputs", () => {
       },
       slowQueryThresholdMs: 0,
     });
-    insertTurnStartedEvents(db, {
+    await insertTurnStartedEvents(db, {
       count: 3,
       createdAt: now,
       threadId: source.id,
     });
-    const rows = listStoredEventRows(db, { threadId: source.id });
+    const rows = await listStoredEventRows(db, { threadId: source.id });
     const storedBytes = rows.reduce(
       (total, row) => total + Buffer.byteLength(row.data),
       0,
     );
     expect(
-      canHydrateRetainedEventOutputRowsWithinDataByteLimit(
+      await canHydrateRetainedEventOutputRowsWithinDataByteLimit(
         db,
         rows,
         storedBytes,
@@ -634,7 +652,7 @@ describe("retained completed-event outputs", () => {
 
     queries = 0;
     expect(
-      hydrateRetainedEventOutputRowsWithinDataByteLimit(
+      await hydrateRetainedEventOutputRowsWithinDataByteLimit(
         db,
         rows,
         storedBytes - 1,
@@ -642,6 +660,6 @@ describe("retained completed-event outputs", () => {
       ),
     ).toEqual(rows);
     expect(queries).toBe(0);
-    db.$client.close();
+    await db.close();
   });
 });

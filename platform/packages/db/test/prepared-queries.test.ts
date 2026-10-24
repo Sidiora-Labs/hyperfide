@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../src/testing.js";
 import { createMigratedConnection } from "../src/testing.js";
 import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import { getHost } from "../src/data/hosts.js";
@@ -8,31 +10,34 @@ import { describe, expect, it, vi } from "vitest";
 import { hosts } from "../src/schema.js";
 
 describe("connection prepared queries", () => {
-  it.each([getHost, getThread, getProject, getEnvironment])(
+  it
+    .skipIf(isPostgresTest)
+    .each([getHost, getThread, getProject, getEnvironment])(
     "does not rebuild SQL for warm %s lookups",
-    (lookup) => {
-      const db = createMigratedConnection();
+    async (lookup) => {
+      const db = await createMigratedConnection();
       const compile = vi.spyOn(SQLiteSyncDialect.prototype, "sqlToQuery");
       try {
-        expect(lookup(db, "missing-first")).toBeNull();
+        expect(await lookup(db, "missing-first")).toBeNull();
         expect(compile).toHaveBeenCalledOnce();
         compile.mockClear();
         for (let i = 0; i < 10; i++) {
-          expect(lookup(db, `missing-${i}`)).toBeNull();
+          expect(await lookup(db, `missing-${i}`)).toBeNull();
         }
         expect(compile).not.toHaveBeenCalled();
       } finally {
         compile.mockRestore();
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("reuses compiled lookups across transactions while seeing writes and rollbacks", () => {
-    const db = createMigratedConnection();
-    const other = createMigratedConnection();
+  it("reuses compiled lookups across transactions while seeing writes and rollbacks", async () => {
+    const db = await createMigratedConnection();
+    const other = await createMigratedConnection();
     try {
-      db.insert(hosts)
+      await db
+        .insert(hosts)
         .values({
           id: "host",
           name: "original",
@@ -41,29 +46,30 @@ describe("connection prepared queries", () => {
           updatedAt: 1,
         })
         .run();
-      expect(getHost(db, "host")?.name).toBe("original");
-      expect(getHost(other, "host")).toBeNull();
+      expect((await getHost(db, "host"))?.name).toBe("original");
+      expect(await getHost(other, "host")).toBeNull();
       const compile = vi.spyOn(SQLiteSyncDialect.prototype, "sqlToQuery");
       try {
         for (let i = 0; i < 3; i++) {
-          expect(() =>
-            db.transaction((tx) => {
-              db.$client
-                .prepare("UPDATE hosts SET name = ? WHERE id = ?")
-                .run(`changed-${i}`, "host");
-              expect(getHost(tx, "host")?.name).toBe(`changed-${i}`);
-              throw new Error("rollback");
-            }),
-          ).toThrow("rollback");
-          expect(getHost(db, "host")?.name).toBe("original");
+          await expect(
+            (async () =>
+              db.transaction(async (tx) => {
+                await db.$client
+                  .prepare("UPDATE hosts SET name = ? WHERE id = ?")
+                  .run(`changed-${i}`, "host");
+                expect((await getHost(tx, "host"))?.name).toBe(`changed-${i}`);
+                throw new Error("rollback");
+              }))(),
+          ).rejects.toThrow("rollback");
+          expect((await getHost(db, "host"))?.name).toBe("original");
         }
         expect(compile).not.toHaveBeenCalled();
       } finally {
         compile.mockRestore();
       }
     } finally {
-      other.$client.close();
-      db.$client.close();
+      await other.close();
+      await db.close();
     }
   });
 });

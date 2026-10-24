@@ -76,11 +76,11 @@ function targetReply(
   }
 }
 
-function seedTopology(harness: TestAppHarness): void {
-  seedHost(harness.deps, { id: OLD, name: "Laptop" });
+async function seedTopology(harness: TestAppHarness): Promise<void> {
+  await seedHost(harness.deps, { id: OLD, name: "Laptop" });
   seedPrimaryHost(harness.deps, OLD);
-  seedHost(harness.deps, { id: NEW, name: "Desktop" });
-  upsertHost(harness.db, harness.hub, { id: WORKER, name: "Worker" });
+  await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+  await upsertHost(harness.db, harness.hub, { id: WORKER, name: "Worker" });
 }
 
 const ALL_THROUGH_SWITCH: Partial<
@@ -162,7 +162,7 @@ async function writeMovedConfig(harness: TestAppHarness): Promise<string> {
 async function reconcile(
   harness: TestAppHarness,
 ): Promise<RestoredServerMoveRun | null> {
-  return reconcileServerMoveRunAtBoot({
+  return await reconcileServerMoveRunAtBoot({
     dataDir: harness.config.dataDir,
     logger: testLogger,
     now: BOOT_NOW,
@@ -183,9 +183,9 @@ function runFileExists(harness: TestAppHarness): boolean {
 }
 
 describe("server move boot reconciliation", () => {
-  it("abandons a run that restarted before the switch, publishes failed at its step, and aborts the target once it connects", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("abandons a run that restarted before the switch, publishes failed at its step, and aborts the target once it connects", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const run = runFile(harness, "preparing", {
         "stop-work": "done",
         "update-target": "skipped",
@@ -204,9 +204,9 @@ describe("server move boot reconciliation", () => {
         harness,
         { timings: BOOT_TIMINGS },
       );
-      const coordinator = createServerMoveCoordinator(environment);
+      const coordinator = await createServerMoveCoordinator(environment);
       try {
-        coordinator.restore(restored);
+        await coordinator.restore(restored);
 
         expect(coordinator.getStatus()).toMatchObject({
           moveId: MOVE_ID,
@@ -228,7 +228,7 @@ describe("server move boot reconciliation", () => {
         expect(coordinator.movedTo()).toBeNull();
         expect(plugins.paused).toBe(false);
 
-        registerFakeDaemon(harness, {
+        await registerFakeDaemon(harness, {
           events,
           hostId: NEW,
           handle: targetReply,
@@ -242,9 +242,9 @@ describe("server move boot reconciliation", () => {
       }
     }));
 
-  it("restores config.json from the recorded backup when a switch-phase run has no lock", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("restores config.json from the recorded backup when a switch-phase run has no lock", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const configPath = await writeMovedConfig(harness);
       await writeServerMoveRunFile(
         harness.config.dataDir,
@@ -267,9 +267,9 @@ describe("server move boot reconciliation", () => {
       );
     }));
 
-  it("brings back an unconfirmed locked run as recovery_required and finishes once the destination is ready", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("brings back an unconfirmed locked run as recovery_required and finishes once the destination is ready", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const configPath = await writeMovedConfig(harness);
       await lockDataDir(harness);
       await writeServerMoveRunFile(
@@ -283,7 +283,7 @@ describe("server move boot reconciliation", () => {
       const destination: { state: "pending" | "ready" } = { state: "pending" };
       const { environment, events, plugins, retired } =
         createTestServerMoveEnvironment(harness, { timings: BOOT_TIMINGS });
-      registerFakeDaemon(harness, {
+      await registerFakeDaemon(harness, {
         events,
         hostId: OLD,
         handle: (request) =>
@@ -291,7 +291,7 @@ describe("server move boot reconciliation", () => {
             ? ok({ reachable: true, message: null, state: destination.state })
             : targetReply(request),
       });
-      registerFakeDaemon(harness, {
+      await registerFakeDaemon(harness, {
         events,
         hostId: WORKER,
         handle: targetReply,
@@ -299,9 +299,9 @@ describe("server move boot reconciliation", () => {
 
       const restored = requireRestored(await reconcile(harness));
       expect(restored.kind).toBe("recovery_required");
-      const coordinator = createServerMoveCoordinator(environment);
+      const coordinator = await createServerMoveCoordinator(environment);
       try {
-        coordinator.restore(restored);
+        await coordinator.restore(restored);
 
         expect(coordinator.getStatus()).toMatchObject({
           state: "recovery_required",
@@ -332,9 +332,9 @@ describe("server move boot reconciliation", () => {
       }
     }));
 
-  it("republishes a confirmed locked run as completed and retires again", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("republishes a confirmed locked run as completed and retires again", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       await lockDataDir(harness);
       await writeServerMoveRunFile(
         harness.config.dataDir,
@@ -348,9 +348,9 @@ describe("server move boot reconciliation", () => {
       const restored = requireRestored(await reconcile(harness));
       expect(restored.kind).toBe("completed");
       const { environment, retired } = createTestServerMoveEnvironment(harness);
-      const coordinator = createServerMoveCoordinator(environment);
+      const coordinator = await createServerMoveCoordinator(environment);
       try {
-        coordinator.restore(restored);
+        await coordinator.restore(restored);
 
         expect(coordinator.getStatus()).toMatchObject({
           state: "completed",
@@ -380,8 +380,8 @@ describe("server move boot reconciliation", () => {
       }
     }));
 
-  it("forgets a committed run whose old copy was unlocked and leaves config.json alone", () =>
-    withTestHarness(async (harness) => {
+  it("forgets a committed run whose old copy was unlocked and leaves config.json alone", async () =>
+    await withTestHarness(async (harness) => {
       const configPath = join(harness.config.dataDir, "config.json");
       await writeFile(configPath, ORIGINAL_CONFIG);
       await writeServerMoveRunFile(
@@ -403,8 +403,8 @@ describe("server move boot reconciliation", () => {
       expect(await readFile(configPath, "utf8")).toBe(ORIGINAL_CONFIG);
     }));
 
-  it("never deletes a recorded work directory outside the data directory's move directory", () =>
-    withTestHarness(async (harness) => {
+  it("never deletes a recorded work directory outside the data directory's move directory", async () =>
+    await withTestHarness(async (harness) => {
       const outside = await mkdtemp(join(tmpdir(), "hyperfide-server-move-outside-"));
       tempDirs.push(outside);
       await writeFile(join(outside, "keep.txt"), "keep");
@@ -424,8 +424,8 @@ describe("server move boot reconciliation", () => {
       expect(existsSync(join(outside, "keep.txt"))).toBe(true);
     }));
 
-  it("ignores an unreadable run file instead of failing boot", () =>
-    withTestHarness(async (harness) => {
+  it("ignores an unreadable run file instead of failing boot", async () =>
+    await withTestHarness(async (harness) => {
       await writeFile(
         join(harness.config.dataDir, SERVER_MOVE_RUN_FILE_NAME),
         "{not json",

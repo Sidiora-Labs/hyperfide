@@ -81,14 +81,14 @@ function moveMarker(
 
 async function openImportedDataDir() {
   const dataDir = await makeDataDir();
-  const db = initDb(join(dataDir, "hyperfide.db"));
-  upsertHost(db, noopNotifier, { id: "host-old", name: "Laptop" });
-  upsertHost(db, noopNotifier, { id: "host-new", name: "Desktop" });
-  updateHost(db, noopNotifier, "host-new", {
+  const db = await initDb(join(dataDir, "hyperfide.db"));
+  await upsertHost(db, noopNotifier, { id: "host-old", name: "Laptop" });
+  await upsertHost(db, noopNotifier, { id: "host-new", name: "Desktop" });
+  await updateHost(db, noopNotifier, "host-new", {
     machineProviderId: "manual",
     resource: { version: 1, hostId: "host-new" },
   });
-  upsertInstalledPlugin(db, {
+  await upsertInstalledPlugin(db, {
     id: "tasks",
     source: "npm:hyperfide-plugin-tasks",
     provenance: { kind: "direct" },
@@ -136,12 +136,17 @@ function manualMarker(): ServerImportFile {
   });
 }
 
-function rootDirOf(db: DbConnection, pluginId: string): string | undefined {
-  return db.$client
-    .prepare<[string], { root_dir: string }>(
-      "SELECT root_dir FROM plugins WHERE id = ?",
-    )
-    .get(pluginId)?.root_dir;
+async function rootDirOf(
+  db: DbConnection,
+  pluginId: string,
+): Promise<string | undefined> {
+  return (
+    await db.$client
+      .prepare<[string], { root_dir: string }>(
+        "SELECT root_dir FROM plugins WHERE id = ?",
+      )
+      .get(pluginId)
+  )?.root_dir;
 }
 
 describe("imported server boot", () => {
@@ -172,44 +177,48 @@ describe("imported server boot", () => {
           targetHostId: "host-new",
         },
       });
-      const pending = boot.pendingMove;
+      const pending = await boot.pendingMove;
       expect(await readServerImportFile(dataDir)).toMatchObject({
         kind: "move",
         fixupsAppliedAt: 5_000,
       });
-      expect(rootDirOf(db, "tasks")).toBe(`${dataDir}/plugins/npm/tasks`);
-      expect(getHost(db, "host-new")).toMatchObject({
+      expect(await rootDirOf(db, "tasks")).toBe(`${dataDir}/plugins/npm/tasks`);
+      expect(await getHost(db, "host-new")).toMatchObject({
         machineProviderId: null,
         resource: null,
       });
-      expect(getHost(db, "host-old")).toMatchObject({
+      expect(await getHost(db, "host-old")).toMatchObject({
         machineProviderId: "manual",
         resource: { version: 1, hostId: "host-old" },
       });
-      expect(getAppSettings(db).machineServerUrl).toBe(DIRECT_URL);
+      expect((await getAppSettings(db)).machineServerUrl).toBe(DIRECT_URL);
       expect(JSON.parse(await readFile(registrationPath, "utf8"))).toEqual({
         id: "tasks",
         rootDir: `${dataDir}/plugins/npm/tasks`,
         sourcePath: "/home/me/code/tasks",
       });
-      expect(verifyPendingServerMove(db, pending!)).toEqual({
+      expect(await verifyPendingServerMove(db, pending!)).toEqual({
         moveId: "move-1",
         verified: true,
         message: null,
       });
 
-      updateHost(db, noopNotifier, "host-new", { machineProviderId: "manual" });
+      await updateHost(db, noopNotifier, "host-new", {
+        machineProviderId: "manual",
+      });
       await applyServerImportAtBoot({
         dataDir,
         db,
         logger: testLogger,
         now: 9_000,
       });
-      expect(getHost(db, "host-new")?.machineProviderId).toBe("manual");
+      expect((await getHost(db, "host-new"))?.machineProviderId).toBe("manual");
       expect(await readServerImportFile(dataDir)).toMatchObject({
         fixupsAppliedAt: 5_000,
       });
-      updateHost(db, noopNotifier, "host-new", { machineProviderId: null });
+      await updateHost(db, noopNotifier, "host-new", {
+        machineProviderId: null,
+      });
 
       const rerun = await applyServerImportFixups({
         dataDir,
@@ -228,14 +237,14 @@ describe("imported server boot", () => {
         },
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
   it("uses the imported direct URL even when retired plugin credentials remain", async () => {
     const { dataDir, db } = await openImportedDataDir();
     try {
-      setPluginKvValue(
+      await setPluginKvValue(
         db,
         "retired-host",
         "credential",
@@ -254,11 +263,11 @@ describe("imported server boot", () => {
         logger: testLogger,
         now: 1,
       });
-      expect(getAppSettings(db).machineServerUrl).toBe(
+      expect((await getAppSettings(db)).machineServerUrl).toBe(
         "https://laptop.hyperfide.example",
       );
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
@@ -288,12 +297,12 @@ describe("imported server boot", () => {
       });
 
       expect(existsSync(join(dataDir, SERVER_IMPORT_FILE_NAME))).toBe(false);
-      expect(rootDirOf(db, "tasks")).toBe(`${dataDir}/plugins/npm/tasks`);
-      expect(getHost(db, "host-new")?.machineProviderId).toBeNull();
-      expect(getHost(db, "host-old")?.machineProviderId).toBe("manual");
-      expect(getAppSettings(db).machineServerUrl).toBeNull();
+      expect(await rootDirOf(db, "tasks")).toBe(`${dataDir}/plugins/npm/tasks`);
+      expect((await getHost(db, "host-new"))?.machineProviderId).toBeNull();
+      expect((await getHost(db, "host-old"))?.machineProviderId).toBe("manual");
+      expect((await getAppSettings(db)).machineServerUrl).toBeNull();
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
@@ -324,9 +333,9 @@ describe("imported server boot", () => {
         kind: "manual",
         fixupsAppliedAt: 1_000,
       });
-      expect(rootDirOf(db, "tasks")).toBe(`${dataDir}/plugins/npm/tasks`);
-      expect(getHost(db, "host-old")?.machineProviderId).toBeNull();
-      expect(getHost(db, "host-new")?.machineProviderId).toBe("manual");
+      expect(await rootDirOf(db, "tasks")).toBe(`${dataDir}/plugins/npm/tasks`);
+      expect((await getHost(db, "host-old"))?.machineProviderId).toBeNull();
+      expect((await getHost(db, "host-new"))?.machineProviderId).toBe("manual");
 
       await writeFile(join(dataDir, "host-id"), "host-new\n");
       expect(
@@ -343,10 +352,10 @@ describe("imported server boot", () => {
       });
 
       expect(existsSync(join(dataDir, SERVER_IMPORT_FILE_NAME))).toBe(false);
-      expect(getHost(db, "host-old")?.machineProviderId).toBe("manual");
-      expect(getHost(db, "host-new")?.machineProviderId).toBeNull();
+      expect((await getHost(db, "host-old"))?.machineProviderId).toBe("manual");
+      expect((await getHost(db, "host-new"))?.machineProviderId).toBeNull();
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
@@ -392,8 +401,8 @@ describe("imported server boot", () => {
         }),
       ).toBe("completed");
       expect(existsSync(join(dataDir, SERVER_IMPORT_FILE_NAME))).toBe(false);
-      expect(getHost(db, "host-old")?.machineProviderId).toBe("manual");
-      expect(getHost(db, "host-new")?.machineProviderId).toBeNull();
+      expect((await getHost(db, "host-old"))?.machineProviderId).toBe("manual");
+      expect((await getHost(db, "host-new"))?.machineProviderId).toBeNull();
       expect(
         await completeManualServerImport({
           dataDir,
@@ -404,15 +413,15 @@ describe("imported server boot", () => {
         }),
       ).toBe("not-pending");
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
   it("points config.json and env.json addresses that used the old server's address at the new one", async () => {
     const { dataDir, db } = await openImportedDataDir();
     try {
-      setAppSettings(db, {
-        ...getAppSettings(db),
+      await setAppSettings(db, {
+        ...(await getAppSettings(db)),
         machineServerUrl: "http://laptop.example.test:38887",
       });
       await writeFile(
@@ -457,9 +466,9 @@ describe("imported server boot", () => {
           OTHER: "kept",
         },
       });
-      expect(getAppSettings(db).machineServerUrl).toBe(DIRECT_URL);
+      expect((await getAppSettings(db)).machineServerUrl).toBe(DIRECT_URL);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
@@ -486,7 +495,7 @@ describe("imported server boot", () => {
         JSON.parse(await readFile(join(dataDir, "env.json"), "utf8")),
       ).toEqual({ env: { HYPERFIDE_EXTERNAL_URL: DIRECT_URL } });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
@@ -505,11 +514,11 @@ describe("imported server boot", () => {
         manualImportPending: false,
         pendingMove: null,
       });
-      expect(rootDirOf(db, "tasks")).toBe(
+      expect(await rootDirOf(db, "tasks")).toBe(
         `${SOURCE_DATA_DIR}/plugins/npm/tasks`,
       );
       expect(
-        verifyPendingServerMove(db, {
+        await verifyPendingServerMove(db, {
           moveId: "move-1",
           sourceServerHostId: "host-missing",
           targetHostId: "host-new",
@@ -520,7 +529,7 @@ describe("imported server boot", () => {
         message: "The imported database has no row for the old server machine",
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });
@@ -644,34 +653,45 @@ describe("last server move repair", () => {
         await repairLastServerMoveHostName({ dataDir, db, logger: testLogger }),
       ).toBe(false);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });
 
 describe("manual import completion", () => {
-  it("swaps machine roles when the local daemon's session opens", () =>
-    withTestHarness(async (harness) => {
-      upsertHost(harness.db, harness.hub, { id: "host-old", name: "Laptop" });
-      upsertHost(harness.db, harness.hub, { id: "host-new", name: "Desktop" });
-      upsertHost(harness.db, harness.hub, { id: "host-other", name: "Other" });
-      updateHost(harness.db, harness.hub, "host-new", {
+  it("swaps machine roles when the local daemon's session opens", async () =>
+    await withTestHarness(async (harness) => {
+      await upsertHost(harness.db, harness.hub, {
+        id: "host-old",
+        name: "Laptop",
+      });
+      await upsertHost(harness.db, harness.hub, {
+        id: "host-new",
+        name: "Desktop",
+      });
+      await upsertHost(harness.db, harness.hub, {
+        id: "host-other",
+        name: "Other",
+      });
+      await updateHost(harness.db, harness.hub, "host-new", {
         machineProviderId: "manual",
       });
       await writeServerImportFile(harness.config.dataDir, {
         ...manualMarker(),
         fixupsAppliedAt: 1,
       });
-      const app = createApp(harness.deps, {
-        serverMove: {
-          appSurface: "web",
-          bindHost: null,
-          manualImportPending: true,
-          pending: null,
-          restoredRun: null,
-          retireProcess() {},
-        },
-      }).app;
+      const app = await (
+        await createApp(harness.deps, {
+          serverMove: {
+            appSurface: "web",
+            bindHost: null,
+            manualImportPending: true,
+            pending: null,
+            restoredRun: null,
+            retireProcess() {},
+          },
+        })
+      ).app;
 
       const other = await app.request(
         "/internal/session/open",
@@ -691,30 +711,42 @@ describe("manual import completion", () => {
       expect(
         existsSync(join(harness.config.dataDir, SERVER_IMPORT_FILE_NAME)),
       ).toBe(false);
-      expect(getHost(harness.db, "host-new")?.machineProviderId).toBeNull();
-      expect(getHost(harness.db, "host-old")?.machineProviderId).toBe("manual");
+      expect(
+        (await getHost(harness.db, "host-new"))?.machineProviderId,
+      ).toBeNull();
+      expect((await getHost(harness.db, "host-old"))?.machineProviderId).toBe(
+        "manual",
+      );
     }));
 });
 
 describe("pending server mode", () => {
-  it("reports pending health, refuses daemon sessions, freezes writes, and answers the pending route on loopback only", () =>
-    withTestHarness(async (harness) => {
-      upsertHost(harness.db, harness.hub, { id: "host-old", name: "Laptop" });
-      upsertHost(harness.db, harness.hub, { id: "host-new", name: "Desktop" });
-      const pendingApp = createApp(harness.deps, {
-        serverMove: {
-          appSurface: "web",
-          bindHost: null,
-          manualImportPending: false,
-          pending: {
-            moveId: "move-1",
-            sourceServerHostId: "host-old",
-            targetHostId: "host-new",
+  it("reports pending health, refuses daemon sessions, freezes writes, and answers the pending route on loopback only", async () =>
+    await withTestHarness(async (harness) => {
+      await upsertHost(harness.db, harness.hub, {
+        id: "host-old",
+        name: "Laptop",
+      });
+      await upsertHost(harness.db, harness.hub, {
+        id: "host-new",
+        name: "Desktop",
+      });
+      const pendingApp = await (
+        await createApp(harness.deps, {
+          serverMove: {
+            appSurface: "web",
+            bindHost: null,
+            manualImportPending: false,
+            pending: {
+              moveId: "move-1",
+              sourceServerHostId: "host-old",
+              targetHostId: "host-new",
+            },
+            restoredRun: null,
+            retireProcess() {},
           },
-          restoredRun: null,
-          retireProcess() {},
-        },
-      }).app;
+        })
+      ).app;
 
       expect(await readJson(await pendingApp.request("/health"))).toEqual({
         ok: true,
@@ -809,22 +841,24 @@ describe("pending server mode", () => {
       }
     }));
 
-  it("reports pending, activating, and ready on /health and lets any origin read only that route", () =>
-    withTestHarness(async (harness) => {
-      const pendingApp = createApp(harness.deps, {
-        serverMove: {
-          appSurface: "web",
-          bindHost: null,
-          manualImportPending: false,
-          pending: {
-            moveId: "move-1",
-            sourceServerHostId: "host-old",
-            targetHostId: "host-new",
+  it("reports pending, activating, and ready on /health and lets any origin read only that route", async () =>
+    await withTestHarness(async (harness) => {
+      const pendingApp = await (
+        await createApp(harness.deps, {
+          serverMove: {
+            appSurface: "web",
+            bindHost: null,
+            manualImportPending: false,
+            pending: {
+              moveId: "move-1",
+              sourceServerHostId: "host-old",
+              targetHostId: "host-new",
+            },
+            restoredRun: null,
+            retireProcess() {},
           },
-          restoredRun: null,
-          retireProcess() {},
-        },
-      }).app;
+        })
+      ).app;
       const foreignOrigin = { origin: "https://desk.example.test" };
 
       expect(await readJson(await pendingApp.request("/health"))).toEqual({

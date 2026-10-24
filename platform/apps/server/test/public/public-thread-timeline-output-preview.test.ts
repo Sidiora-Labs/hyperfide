@@ -106,17 +106,17 @@ function findNestedCommandRow(
   return row;
 }
 
-function seedRunningTurnWithCommands(harness: TestAppHarness): {
+async function seedRunningTurnWithCommands(harness: TestAppHarness): Promise<{
   threadId: string;
-} {
-  const { environment, thread } = seedThreadFixture(harness);
+}> {
+  const { environment, thread } = await seedThreadFixture(harness);
   const turn = {
     threadId: thread.id,
     environmentId: environment.id,
     providerThreadId: "p1",
     scope: turnScope("turn-1"),
   } as const;
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     ...turn,
     sequence: 1,
     type: "turn/started",
@@ -128,7 +128,7 @@ function seedRunningTurnWithCommands(harness: TestAppHarness): {
     ["small", SMALL_OUTPUT],
   ] as const) {
     sequence += 1;
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...turn,
       sequence,
       type: "item/started",
@@ -144,7 +144,7 @@ function seedRunningTurnWithCommands(harness: TestAppHarness): {
       },
     });
     sequence += 1;
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...turn,
       sequence,
       type: "item/completed",
@@ -168,7 +168,7 @@ function seedRunningTurnWithCommands(harness: TestAppHarness): {
 describe("GET /threads/:id/timeline inline output preview", () => {
   it("previews the running turn's large outputs and leaves small ones whole", async () => {
     await withTestHarness(async (harness) => {
-      const { threadId } = seedRunningTurnWithCommands(harness);
+      const { threadId } = await seedRunningTurnWithCommands(harness);
       const timeline = await getTimeline(harness, threadId);
 
       const big = findCommandRow(timeline.rows, "big");
@@ -197,14 +197,14 @@ describe("GET /threads/:id/timeline inline output preview", () => {
 
   it("keeps both timeline preview boundaries on complete Unicode characters", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         environmentId: environment.id,
         providerThreadId: "provider-unicode-preview",
         scope: turnScope("turn-unicode-preview"),
         threadId: thread.id,
       } as const;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {},
         sequence: 1,
@@ -219,7 +219,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
           "t".repeat(TIMELINE_INLINE_OUTPUT_PREVIEW_TAIL_CHARS - 1),
       ];
       for (const [index, output] of outputs.entries()) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           ...turn,
           data: {
             item: {
@@ -249,7 +249,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
 
   it("nested-row consumers still receive the full inline output", async () => {
     await withTestHarness(async (harness) => {
-      const { threadId } = seedRunningTurnWithCommands(harness);
+      const { threadId } = await seedRunningTurnWithCommands(harness);
       const timeline = await getTimeline(
         harness,
         threadId,
@@ -263,7 +263,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
 
   it("annotates and hydrates retained output nested in a completed delegated turn", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const providerThreadId = "provider-nested-retained";
       const turnId = "turn-nested-retained";
       const delegationCallId = "delegation-nested-retained";
@@ -272,7 +272,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
       const output = "nested-" + "n".repeat(50_000);
       const scope = turnScope(turnId);
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: {},
         environmentId: environment.id,
         providerThreadId,
@@ -281,7 +281,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
         threadId: thread.id,
         type: "turn/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: {
           item: {
             arguments: { prompt: "Inspect nested retained output." },
@@ -298,7 +298,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
         threadId: thread.id,
         type: "item/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: {
           item: {
             approvalStatus: null,
@@ -317,7 +317,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
         threadId: thread.id,
         type: "item/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: {
           item: {
             aggregatedOutput: output,
@@ -338,7 +338,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
         threadId: thread.id,
         type: "item/completed",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: {
           item: {
             arguments: { prompt: "Inspect nested retained output." },
@@ -356,7 +356,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
         threadId: thread.id,
         type: "item/completed",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: { status: "completed" },
         environmentId: environment.id,
         providerThreadId,
@@ -405,10 +405,10 @@ describe("GET /threads/:id/timeline inline output preview", () => {
 
   it("row-scoped details still resolve after the turn completes (expand/complete race)", async () => {
     await withTestHarness(async (harness) => {
-      const { threadId } = seedRunningTurnWithCommands(harness);
+      const { threadId } = await seedRunningTurnWithCommands(harness);
       const timeline = await getTimeline(harness, threadId);
       const big = findCommandRow(timeline.rows, "big");
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         threadId,
         providerThreadId: "p1",
         scope: turnScope("turn-1"),
@@ -435,14 +435,14 @@ describe("GET /threads/:id/timeline inline output preview", () => {
   it("invalidates a cached timeline when legacy output storage is rewritten", async () => {
     await withTestHarness(async (harness) => {
       const now = Date.now();
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         environmentId: environment.id,
         providerThreadId: "provider-legacy-cache",
         scope: turnScope("turn-legacy-cache"),
         threadId: thread.id,
       } as const;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         createdAt: now - COMPLETED_EVENT_OUTPUT_RETENTION_MS - 2,
         data: {},
@@ -450,7 +450,7 @@ describe("GET /threads/:id/timeline inline output preview", () => {
         type: "turn/started",
       });
       const output = "cache-" + "k".repeat(40_000);
-      harness.db
+      await harness.db
         .insert(events)
         .values({
           createdAt: now - COMPLETED_EVENT_OUTPUT_RETENTION_MS - 1,
@@ -505,20 +505,20 @@ describe("GET /threads/:id/timeline inline output preview", () => {
 describe("GET /threads/:id/timeline inline output preview (tool rows)", () => {
   it("previews a large tool result and row-scoped details return it whole", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         threadId: thread.id,
         environmentId: environment.id,
         providerThreadId: "p1",
         scope: turnScope("turn-1"),
       } as const;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 1,
         type: "turn/started",
         data: {},
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         sequence: 2,
         type: "item/completed",
@@ -570,12 +570,12 @@ describe("GET /threads/:id/timeline inline output preview (tool rows)", () => {
 describe("GET /threads/:id/events retained output", () => {
   it("hydrates a migrated legacy image envelope in raw and detail responses", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const migratedAt = Date.now();
       const output = "legacy-image-result-" + "i".repeat(50_000);
       const providerThreadId = "provider-legacy-image";
       const turnId = "turn-legacy-image";
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: {},
         environmentId: environment.id,
         providerThreadId,
@@ -584,7 +584,7 @@ describe("GET /threads/:id/events retained output", () => {
         threadId: thread.id,
         type: "turn/started",
       });
-      harness.db
+      await harness.db
         .insert(events)
         .values({
           createdAt: migratedAt - 1,
@@ -624,7 +624,7 @@ describe("GET /threads/:id/events retained output", () => {
         })
         .run();
       expect(
-        migrateNextLegacyImageGenerationOutput(harness.db, {
+        await migrateNextLegacyImageGenerationOutput(harness.db, {
           limit: 10,
           migratedAt,
         }),
@@ -659,9 +659,9 @@ describe("GET /threads/:id/events retained output", () => {
 
   it("hydrates a retained output in the raw event response", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const output = "raw-" + "r".repeat(50_000);
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         data: {
           item: {
             aggregatedOutput: output,
@@ -681,7 +681,7 @@ describe("GET /threads/:id/events retained output", () => {
         threadId: thread.id,
         type: "item/completed",
       });
-      const stored = harness.db
+      const stored = await harness.db
         .select({ data: events.data })
         .from(events)
         .where(eq(events.threadId, thread.id))
@@ -707,10 +707,10 @@ describe("GET /threads/:id/events retained output", () => {
 
   it("rejects a retained-output page above the raw response byte limit", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const output = "r".repeat(1024 * 1024);
       for (let sequence = 1; sequence <= 9; sequence += 1) {
-        seedEvent(harness.deps, {
+        await seedEvent(harness.deps, {
           data: {
             item: {
               aggregatedOutput: output,
@@ -761,7 +761,7 @@ describe("GET /threads/:id/events retained output", () => {
 describe("GET /threads/:id/timeline retained output details", () => {
   it("hydrates a retained output in row-scoped details", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         environmentId: environment.id,
         providerThreadId: "provider-retained-details",
@@ -769,13 +769,13 @@ describe("GET /threads/:id/timeline retained output details", () => {
         threadId: thread.id,
       } as const;
       const output = "details-" + "d".repeat(50_000);
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {},
         sequence: 1,
         type: "turn/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {
           item: {
@@ -814,7 +814,7 @@ describe("GET /threads/:id/timeline retained output details", () => {
 
   it("keeps an oversized retained output as a preview in details", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const turn = {
         environmentId: environment.id,
         providerThreadId: "provider-oversized-retained-details",
@@ -822,13 +822,13 @@ describe("GET /threads/:id/timeline retained output details", () => {
         threadId: thread.id,
       } as const;
       const output = "oversized-" + "o".repeat(5 * 1024 * 1024);
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {},
         sequence: 1,
         type: "turn/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {
           item: {
@@ -873,7 +873,7 @@ describe("GET /threads/:id/timeline retained output details", () => {
 
   it("marks a retained output unavailable after its retention expires", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness);
+      const { environment, thread } = await seedThreadFixture(harness);
       const createdAt = Date.now() - COMPLETED_EVENT_OUTPUT_RETENTION_MS - 1;
       const turn = {
         environmentId: environment.id,
@@ -882,14 +882,14 @@ describe("GET /threads/:id/timeline retained output details", () => {
         threadId: thread.id,
       } as const;
       const output = "expired-" + "e".repeat(50_000);
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         createdAt,
         data: {},
         sequence: 1,
         type: "turn/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         createdAt,
         data: {
@@ -938,7 +938,7 @@ describe("GET /threads/:id/timeline retained output details", () => {
 describe("GET /threads/:id/timeline delegated rows", () => {
   it("defers settled row content when asked and loads each row by item", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
       const turn = {
@@ -951,30 +951,38 @@ describe("GET /threads/:id/timeline delegated rows", () => {
       const output = `output ${"o".repeat(2_000)}`;
       const diff = `@@ -1 +1 @@\n-old\n+${"d".repeat(1_500)}\n`;
       let sequence = 0;
-      const seed = (type: "item/started" | "item/completed", item: object) => {
+      const seed = async (
+        type: "item/started" | "item/completed",
+        item: object,
+      ) => {
         sequence += 1;
-        seedEvent(harness.deps, { ...turn, data: { item }, sequence, type });
+        await seedEvent(harness.deps, {
+          ...turn,
+          data: { item },
+          sequence,
+          type,
+        });
       };
       sequence += 1;
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {},
         sequence,
         type: "turn/started",
       });
-      seed("item/started", {
+      await seed("item/started", {
         type: "reasoning",
         id: "reasoning-1",
         summary: [],
         content: [],
       });
-      seed("item/completed", {
+      await seed("item/completed", {
         type: "reasoning",
         id: "reasoning-1",
         summary: [],
         content: [reasoning],
       });
-      seed("item/completed", {
+      await seed("item/completed", {
         aggregatedOutput: output,
         approvalStatus: null,
         command: "cat big",
@@ -985,7 +993,7 @@ describe("GET /threads/:id/timeline delegated rows", () => {
         type: "commandExecution",
       });
       const script = `python3 - <<'EOF'\n${"print(1)\n".repeat(150)}EOF`;
-      seed("item/completed", {
+      await seed("item/completed", {
         aggregatedOutput: "ok",
         approvalStatus: null,
         command: script,
@@ -995,7 +1003,7 @@ describe("GET /threads/:id/timeline delegated rows", () => {
         status: "completed",
         type: "commandExecution",
       });
-      seed("item/completed", {
+      await seed("item/completed", {
         approvalStatus: null,
         changes: [{ path: "src/big.ts", kind: "update", diff }],
         id: "file-1",
@@ -1103,7 +1111,7 @@ describe("GET /threads/:id/timeline delegated rows", () => {
 
   it("previews nested output inline while a delegation runs and loads its children by call once it settles", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedThreadFixture(harness, {
+      const { environment, thread } = await seedThreadFixture(harness, {
         thread: { status: "active" },
       });
       const scope = turnScope("turn-delegated");
@@ -1115,13 +1123,13 @@ describe("GET /threads/:id/timeline delegated rows", () => {
       } as const;
       const delegationCallId = "delegation-call";
       const commandCallId = "nested-big-command";
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {},
         sequence: 1,
         type: "turn/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {
           item: {
@@ -1135,7 +1143,7 @@ describe("GET /threads/:id/timeline delegated rows", () => {
         sequence: 2,
         type: "item/started",
       });
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {
           item: {
@@ -1164,7 +1172,7 @@ describe("GET /threads/:id/timeline delegated rows", () => {
         totalChars: BIG_OUTPUT.length,
       });
 
-      seedEvent(harness.deps, {
+      await seedEvent(harness.deps, {
         ...turn,
         data: {
           item: {

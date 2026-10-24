@@ -9,7 +9,7 @@ import {
 
 describe("request context", () => {
   it("captures the trusted remote address from node connection metadata", async () => {
-    const app = new Hono();
+    const app = await new Hono();
     app.use("*", async (context, next) => {
       captureTrustedRemoteAddress(context);
       await next();
@@ -34,7 +34,7 @@ describe("request context", () => {
   });
 
   it("stores undefined when connection metadata is unavailable", async () => {
-    const app = new Hono();
+    const app = await new Hono();
     app.get("/", (context) => {
       captureTrustedRemoteAddress(context);
       return context.json({
@@ -50,7 +50,7 @@ describe("request context", () => {
     });
   });
   it("resolves the app surface from the client header and falls back to api", async () => {
-    const app = new Hono();
+    const app = await new Hono();
     app.get("/", (context) =>
       context.json({ surface: resolveRequestAppSurface(context) }),
     );

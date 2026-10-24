@@ -21,13 +21,14 @@
   },
   "types": "./src/index.ts",
   "files": [
-    "drizzle"
+    "drizzle",
+    "drizzle-postgres"
   ],
   "scripts": {
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "typecheck": "tsrs --noEmit",
     "test": "vitest run --config vitest.config.ts",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "drizzle-kit generate --config drizzle-sqlite.config.ts && drizzle-kit generate --config drizzle-postgres.config.ts && node scripts/embed-postgres-migrations.mjs",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
@@ -36,7 +37,8 @@
     "@hyperfide/text-utils": "workspace:*",
     "better-sqlite3": "12.10.0",
     "drizzle-orm": "^0.38.0",
-    "nanoid": "^5.0.9"
+    "nanoid": "^5.0.9",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "@hyperfide/tsconfig": "workspace:*",
@@ -45,6 +47,7 @@
     "drizzle-kit": "^0.30.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "@types/pg": "^8.15.5"
   }
 }

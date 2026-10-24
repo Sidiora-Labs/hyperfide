@@ -435,7 +435,7 @@ function claudeCodeVariant(
     providerId: "claude-code",
     variant,
     env,
-    build: (paths) => buildClaudeCode(paths, claudeDirFor(paths)),
+    build: async (paths) => await buildClaudeCode(paths, claudeDirFor(paths)),
     expected: {
       workspace: {
         present: [
@@ -570,7 +570,7 @@ function codexVariant(
     providerId: "codex",
     variant,
     env,
-    build: (paths) => buildCodex(paths, codexHomeFor(paths)),
+    build: async (paths) => await buildCodex(paths, codexHomeFor(paths)),
     expected: {
       workspace: {
         present: [
@@ -651,7 +651,7 @@ function piVariant(
     providerId: "pi",
     variant,
     env,
-    build: (paths) => buildPi(paths, agentDirFor(paths)),
+    build: async (paths) => await buildPi(paths, agentDirFor(paths)),
     expected: {
       workspace: { present: [...PI_PROJECT_NAMES, ...userNames], absent },
       userOnly: {
@@ -800,7 +800,7 @@ function openCodeVariant(
     providerId: "acp-opencode",
     variant,
     env,
-    build: (paths) => buildOpenCode(paths, dirsFor(paths)),
+    build: async (paths) => await buildOpenCode(paths, dirsFor(paths)),
     expected: {
       workspace: {
         present: [
@@ -911,7 +911,7 @@ function ompVariant(
     providerId: "acp-omp",
     variant,
     env,
-    build: (paths) => buildOmp(paths, dirsFor(paths)),
+    build: async (paths) => await buildOmp(paths, dirsFor(paths)),
     expected: {
       workspace: {
         present: [...OMP_PROJECT_NAMES, ...OMP_USER_NAMES],
@@ -1114,7 +1114,7 @@ function grokVariant(
     providerId: "acp-grok",
     variant,
     env,
-    build: (paths) => buildGrok(paths, optionsFor(paths)),
+    build: async (paths) => await buildGrok(paths, optionsFor(paths)),
     expected: {
       workspace: {
         present: [...projectPresent, ...userPresent],
@@ -1342,8 +1342,8 @@ function hermesVariant(
     providerId: "acp-hermes-agent",
     variant,
     env,
-    build: (paths) =>
-      buildHermes(paths, hermesDirFor(paths), externalDirsYamlFor(paths)),
+    build: async (paths) =>
+      await buildHermes(paths, hermesDirFor(paths), externalDirsYamlFor(paths)),
     expected: { workspace: names, userOnly: names },
   };
 }

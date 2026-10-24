@@ -35,16 +35,16 @@ interface SetupResult {
   project: Project;
 }
 
-type ThrowingCallback = () => void;
+type ThrowingCallback = () => unknown;
 
-function setup(): SetupResult {
-  const db = createMigratedConnection();
-  const hub = new NotificationHub();
-  const hostRow = upsertHost(db, noopNotifier, {
+async function setup(): Promise<SetupResult> {
+  const db = await createMigratedConnection();
+  const hub = await new NotificationHub();
+  const hostRow = await upsertHost(db, noopNotifier, {
     id: "host_entity_lookup",
     name: "Entity Lookup Host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "Entity Lookup Project",
     source: {
       type: "local_path",
@@ -64,8 +64,8 @@ function setup(): SetupResult {
   return { db, host, hub, project };
 }
 
-function openTestSession(db: DbConnection, hostId: string) {
-  return openSession(db, {
+async function openTestSession(db: DbConnection, hostId: string) {
+  return await openSession(db, {
     hostId,
     instanceId: "instance-entity-lookup",
     hostName: "Entity Lookup Host",
@@ -76,24 +76,25 @@ function openTestSession(db: DbConnection, hostId: string) {
   });
 }
 
-function closeTestSession(
+async function closeTestSession(
   db: DbConnection,
   args: {
     closeReason: "daemon-disconnect" | "expired";
     closedAt: number;
     sessionId: string;
   },
-): void {
-  closeSession(db, noopNotifier, args.sessionId, args.closeReason);
-  db.update(hostDaemonSessions)
+): Promise<void> {
+  await closeSession(db, noopNotifier, args.sessionId, args.closeReason);
+  await db
+    .update(hostDaemonSessions)
     .set({ closedAt: args.closedAt })
     .where(eq(hostDaemonSessions.id, args.sessionId))
     .run();
 }
 
-function captureApiError(callback: ThrowingCallback): ApiError {
+async function captureApiError(callback: ThrowingCallback): Promise<ApiError> {
   try {
-    callback();
+    await callback();
   } catch (error) {
     if (error instanceof ApiError) {
       return error;
@@ -104,10 +105,10 @@ function captureApiError(callback: ThrowingCallback): ApiError {
 }
 
 describe("entity lookup lifecycle errors", () => {
-  it("returns structured environment_not_ready details", () => {
-    const { db, host, project } = setup();
+  it("returns structured environment_not_ready details", async () => {
+    const { db, host, project } = await setup();
     try {
-      const environment = createEnvironment(db, noopNotifier, {
+      const environment = await createEnvironment(db, noopNotifier, {
         providerOwnsPath: false,
         hostId: host.id,
         projectId: project.id,
@@ -123,8 +124,8 @@ describe("entity lookup lifecycle errors", () => {
         status: "destroyed",
       });
 
-      const error = captureApiError(() => {
-        requireReadyEnvironment(db, environment.id);
+      const error = await captureApiError(async () => {
+        await requireReadyEnvironment(db, environment.id);
       });
 
       expect(error.status).toBe(409);
@@ -137,19 +138,19 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("returns structured thread_environment_unavailable details", () => {
-    const { db, host, project } = setup();
+  it("returns structured thread_environment_unavailable details", async () => {
+    const { db, host, project } = await setup();
     try {
-      const unattachedThread = createThread(db, noopNotifier, {
+      const unattachedThread = await createThread(db, noopNotifier, {
         projectId: project.id,
         providerId: "codex",
       });
-      const unattachedError = captureApiError(() => {
-        requireThreadEnvironment(db, unattachedThread.id);
+      const unattachedError = await captureApiError(async () => {
+        await requireThreadEnvironment(db, unattachedThread.id);
       });
       expect(unattachedError.body).toEqual({
         code: "thread_environment_unavailable",
@@ -160,7 +161,7 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
 
-      const environment = createEnvironment(db, noopNotifier, {
+      const environment = await createEnvironment(db, noopNotifier, {
         providerOwnsPath: false,
         hostId: host.id,
         projectId: project.id,
@@ -175,13 +176,13 @@ describe("entity lookup lifecycle errors", () => {
         path: null,
         status: "destroyed",
       });
-      const destroyedEnvironmentThread = createThread(db, noopNotifier, {
+      const destroyedEnvironmentThread = await createThread(db, noopNotifier, {
         projectId: project.id,
         environmentId: environment.id,
         providerId: "codex",
       });
-      const destroyedError = captureApiError(() => {
-        requireThreadEnvironment(db, destroyedEnvironmentThread.id);
+      const destroyedError = await captureApiError(async () => {
+        await requireThreadEnvironment(db, destroyedEnvironmentThread.id);
       });
       expect(destroyedError.body).toEqual({
         code: "thread_environment_unavailable",
@@ -192,15 +193,15 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("returns structured host_unavailable details", () => {
-    const { db, host, hub } = setup();
+  it("returns structured host_unavailable details", async () => {
+    const { db, host, hub } = await setup();
     try {
-      const disconnectedError = captureApiError(() => {
-        requireConnectedHostSession({ db, hub }, host.id);
+      const disconnectedError = await captureApiError(async () => {
+        await requireConnectedHostSession({ db, hub }, host.id);
       });
       expect(disconnectedError.status).toBe(502);
       expect(disconnectedError.body).toEqual({
@@ -214,12 +215,12 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
 
-      updateHost(db, noopNotifier, host.id, {
+      await updateHost(db, noopNotifier, host.id, {
         phase: "suspended",
         suspendedAt: 123,
       });
-      const suspendedError = captureApiError(() => {
-        requireConnectedHostSession({ db, hub }, host.id);
+      const suspendedError = await captureApiError(async () => {
+        await requireConnectedHostSession({ db, hub }, host.id);
       });
       expect(suspendedError.status).toBe(502);
       expect(suspendedError.body).toEqual({
@@ -233,18 +234,18 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
 
-      updateHost(db, noopNotifier, host.id, { suspendedAt: null });
-      const legacySuspendedError = captureApiError(() => {
-        requireConnectedHostSession({ db, hub }, host.id);
+      await updateHost(db, noopNotifier, host.id, { suspendedAt: null });
+      const legacySuspendedError = await captureApiError(async () => {
+        await requireConnectedHostSession({ db, hub }, host.id);
       });
       expect(legacySuspendedError.body.details).toMatchObject({
         reason: "suspended",
         suspendedAt: null,
       });
 
-      updateHost(db, noopNotifier, host.id, { destroyedAt: 456 });
-      const destroyedError = captureApiError(() => {
-        requireNonDestroyedHostWithStatus({ db, hub }, host.id);
+      await updateHost(db, noopNotifier, host.id, { destroyedAt: 456 });
+      const destroyedError = await captureApiError(async () => {
+        await requireNonDestroyedHostWithStatus({ db, hub }, host.id);
       });
       expect(destroyedError.status).toBe(404);
       expect(destroyedError.body).toEqual({
@@ -258,20 +259,20 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("returns project_unavailable for pending project deletion", () => {
-    const { db, project } = setup();
+  it("returns project_unavailable for pending project deletion", async () => {
+    const { db, project } = await setup();
     try {
-      markProjectDeleted(db, noopNotifier, {
+      await markProjectDeleted(db, noopNotifier, {
         deletedAt: 123,
         projectId: project.id,
       });
 
-      const error = captureApiError(() => {
-        requirePublicProject(db, project.id);
+      const error = await captureApiError(async () => {
+        await requirePublicProject(db, project.id);
       });
 
       expect(error.status).toBe(404);
@@ -284,25 +285,25 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("returns project_unavailable for repeated project deletion", () => {
-    const { db, project } = setup();
+  it("returns project_unavailable for repeated project deletion", async () => {
+    const { db, project } = await setup();
     try {
-      markProjectDeleted(db, noopNotifier, {
+      await markProjectDeleted(db, noopNotifier, {
         deletedAt: 123,
         projectId: project.id,
       });
-      const repeated = markProjectDeleted(db, noopNotifier, {
+      const repeated = await markProjectDeleted(db, noopNotifier, {
         deletedAt: 456,
         projectId: project.id,
       });
       expect(repeated).toBeNull();
 
-      const error = captureApiError(() => {
-        requirePublicProject(db, project.id);
+      const error = await captureApiError(async () => {
+        await requirePublicProject(db, project.id);
       });
 
       expect(error.status).toBe(404);
@@ -315,7 +316,7 @@ describe("entity lookup lifecycle errors", () => {
         },
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });
@@ -323,50 +324,51 @@ describe("entity lookup lifecycle errors", () => {
 describe("host status after a lost daemon connection", () => {
   it.each(["daemon-disconnect", "expired"] as const)(
     "reports a host whose session closed (%s) as disconnected immediately",
-    (closeReason) => {
-      const { db, host, hub } = setup();
+    async (closeReason) => {
+      const { db, host, hub } = await setup();
       try {
-        const session = openTestSession(db, host.id);
-        closeTestSession(db, {
+        const session = await openTestSession(db, host.id);
+        await closeTestSession(db, {
           closeReason,
           closedAt: Date.now() - 1_000,
           sessionId: session.id,
         });
 
-        expect(listPublicHostsWithStatus({ db, hub })[0]?.status).toBe(
+        expect((await listPublicHostsWithStatus({ db, hub }))[0]?.status).toBe(
           "disconnected",
         );
         expect(
-          requireNonDestroyedHostWithStatus({ db, hub }, host.id).status,
+          (await requireNonDestroyedHostWithStatus({ db, hub }, host.id))
+            .status,
         ).toBe("disconnected");
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("reports a reconnecting host as connected only once its daemon socket registers", () => {
-    const { db, host, hub } = setup();
+  it("reports a reconnecting host as connected only once its daemon socket registers", async () => {
+    const { db, host, hub } = await setup();
     try {
-      const lost = openTestSession(db, host.id);
-      closeTestSession(db, {
+      const lost = await openTestSession(db, host.id);
+      await closeTestSession(db, {
         closeReason: "daemon-disconnect",
         closedAt: Date.now() - 1_000,
         sessionId: lost.id,
       });
-      const reopened = openTestSession(db, host.id);
+      const reopened = await openTestSession(db, host.id);
 
-      expect(listPublicHostsWithStatus({ db, hub })[0]?.status).toBe(
+      expect((await listPublicHostsWithStatus({ db, hub }))[0]?.status).toBe(
         "disconnected",
       );
 
-      hub.registerDaemon(reopened.id, host.id, createMockHubSocket());
+      await hub.registerDaemon(reopened.id, host.id, createMockHubSocket());
 
-      expect(listPublicHostsWithStatus({ db, hub })[0]?.status).toBe(
+      expect((await listPublicHostsWithStatus({ db, hub }))[0]?.status).toBe(
         "connected",
       );
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });

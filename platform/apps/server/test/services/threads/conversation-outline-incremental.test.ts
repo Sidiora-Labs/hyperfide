@@ -16,6 +16,7 @@ import {
 } from "../../../src/services/threads/timeline.js";
 import {
   appendRows,
+  observePostgresQueries,
   withTestThread,
   type RowSpec,
   type TestThread,
@@ -102,8 +103,8 @@ function accepted(requestId: string, turnId: string): RowSpec {
   };
 }
 
-function seed(testThread: TestThread, count = 3): void {
-  appendRows(
+async function seed(testThread: TestThread, count = 3): Promise<void> {
+  await appendRows(
     testThread,
     Array.from({ length: count }, (_, i) => {
       const turnId = `turn-${i}`;
@@ -117,7 +118,7 @@ function seed(testThread: TestThread, count = 3): void {
       ];
     }).flat(),
   );
-  appendRows(testThread, [started("live"), delta("live", "Live")]);
+  await appendRows(testThread, [started("live"), delta("live", "Live")]);
 }
 
 function nestedTurn(index: number, includeParent = true): RowSpec[] {
@@ -153,28 +154,31 @@ function parentCall(turnId: string, itemId: string): RowSpec {
   };
 }
 
-function load(
+async function load(
   testThread: TestThread,
   completedTurnDisplay: CompletedTurnDisplay = "collapse",
 ) {
   const threadId = testThread.thread.id;
-  return loadThreadConversationOutline(testThread.db, testThread.thread, {
+  return await loadThreadConversationOutline(testThread.db, testThread.thread, {
     completedTurnDisplay,
     includeClearedContextHistory: false,
-    maxSeq: getLatestThreadSequence(testThread.db, { threadId }),
-    outlineSequence: getLatestStoredConversationOutlineSequence(testThread.db, {
-      threadId,
-    }),
+    maxSeq: await getLatestThreadSequence(testThread.db, { threadId }),
+    outlineSequence: await getLatestStoredConversationOutlineSequence(
+      testThread.db,
+      {
+        threadId,
+      },
+    ),
   });
 }
 
-function expectMatchesFull(
+async function expectMatchesFull(
   testThread: TestThread,
   completedTurnDisplay: CompletedTurnDisplay = "collapse",
 ) {
-  const result = load(testThread, completedTurnDisplay);
+  const result = await load(testThread, completedTurnDisplay);
   expect(result).toEqual(
-    buildThreadConversationOutline(testThread.coldDb, testThread.thread, {
+    await buildThreadConversationOutline(testThread.coldDb, testThread.thread, {
       completedTurnDisplay,
       includeClearedContextHistory: false,
       maxSeq: result.maxSeq,
@@ -183,10 +187,18 @@ function expectMatchesFull(
   return result;
 }
 
-function countSelectedEventRows(
+async function countSelectedEventRows(
   testThread: TestThread,
-  run: () => void,
-): number {
+  run: () => unknown,
+): Promise<number> {
+  if (testThread.db.dialect === "postgresql") {
+    let selected = 0;
+    await observePostgresQueries(testThread.db, run, (source, rows) => {
+      if (source.includes('from "events"') && source.includes('"created_at"'))
+        selected += rows;
+    });
+    return selected;
+  }
   const raw = testThread.db.$client;
   const originalPrepare = raw.prepare.bind(raw);
   let count = 0;
@@ -207,7 +219,7 @@ function countSelectedEventRows(
     },
   });
   try {
-    run();
+    await run();
   } finally {
     raw.prepare = originalPrepare;
   }
@@ -217,25 +229,26 @@ function countSelectedEventRows(
 describe("incremental conversation outlines", () => {
   it.each(["collapse", "flat"] as const)(
     "retains completed nested history while updating the live tail (%s)",
-    (display) => {
-      withTestThread((testThread) => {
-        appendRows(testThread, [
+    async (display) => {
+      await withTestThread(async (testThread) => {
+        await appendRows(testThread, [
           ...Array.from({ length: 100 }, (_, index) =>
             nestedTurn(index),
           ).flat(),
           started("live"),
           delta("live", "Live"),
         ]);
-        expectMatchesFull(testThread, display);
+        await expectMatchesFull(testThread, display);
         for (const rows of [
           [delta("live", " continued")],
           [message("live", "Finished"), completed("live")],
           nestedTurn(101),
           [started("next"), delta("next", "Next")],
         ]) {
-          appendRows(testThread, rows);
-          const selected = countSelectedEventRows(testThread, () =>
-            expectMatchesFull(testThread, display),
+          await appendRows(testThread, rows);
+          const selected = await countSelectedEventRows(
+            testThread,
+            async () => await expectMatchesFull(testThread, display),
           );
           expect(selected).toBeLessThan(25);
         }
@@ -251,48 +264,49 @@ describe("incremental conversation outlines", () => {
     "incomplete child",
   ] as const)(
     "preserves outlines after nested history changes: %s",
-    (change) => {
-      withTestThread((testThread) => {
-        appendRows(testThread, [
+    async (change) => {
+      await withTestThread(async (testThread) => {
+        await appendRows(testThread, [
           ...Array.from({ length: 30 }, (_, index) =>
             nestedTurn(index, change !== "late parent"),
           ).flat(),
           started("live"),
           delta("live", "Live"),
         ]);
-        const removeCompletion = () =>
-          testThread.coldDb.$client
+        const removeCompletion = async () =>
+          await testThread.coldDb.$client
             .prepare(
               "DELETE FROM events WHERE thread_id = ? AND turn_id = ? AND type = 'turn/completed'",
             )
             .run(testThread.thread.id, "nested-child-0");
-        if (change === "incomplete child") removeCompletion();
-        expectMatchesFull(testThread);
+        if (change === "incomplete child") await removeCompletion();
+        await expectMatchesFull(testThread);
         switch (change) {
           case "new child":
-            appendRows(testThread, [
+            await appendRows(testThread, [
               started("late-child", "nested-call-0"),
               message("late-child", "Late child", "nested-call-0"),
             ]);
             break;
           case "late parent":
-            appendRows(testThread, [parentCall("live", "nested-call-0")]);
+            await appendRows(testThread, [parentCall("live", "nested-call-0")]);
             break;
           case "reopened turn":
-            appendRows(testThread, [
+            await appendRows(testThread, [
               started("nested-child-0", "nested-call-0"),
               message("nested-child-0", "Reopened", "nested-call-0"),
             ]);
             break;
           case "completion rewrite":
-            removeCompletion();
+            await removeCompletion();
             break;
           case "incomplete child":
-            appendRows(testThread, [delta("live", "More")]);
+            await appendRows(testThread, [delta("live", "More")]);
             break;
         }
-        const selected = countSelectedEventRows(testThread, () =>
-          expectMatchesFull(testThread),
+        const selected = await countSelectedEventRows(
+          testThread,
+          async () => await expectMatchesFull(testThread),
         );
         if (change === "completion rewrite")
           expect(selected).toBeGreaterThan(100);
@@ -303,9 +317,9 @@ describe("incremental conversation outlines", () => {
 
   it.each(["collapse", "flat"] as const)(
     "only reads root messages while a nested child is still streaming (%s)",
-    (display) => {
-      withTestThread((testThread) => {
-        appendRows(testThread, [
+    async (display) => {
+      await withTestThread(async (testThread) => {
+        await appendRows(testThread, [
           ...nestedTurn(0).filter(
             (row) =>
               !(
@@ -318,9 +332,9 @@ describe("incremental conversation outlines", () => {
           started("live"),
           delta("live", "Live"),
         ]);
-        expectMatchesFull(testThread, display);
+        await expectMatchesFull(testThread, display);
         for (let index = 0; index < 3; index += 1) {
-          appendRows(testThread, [
+          await appendRows(testThread, [
             {
               ...delta("nested-child-0", "Nested update"),
               parentToolCallId: "nested-call-0",
@@ -332,8 +346,9 @@ describe("incremental conversation outlines", () => {
             },
             delta("live", " Root update"),
           ]);
-          const selected = countSelectedEventRows(testThread, () =>
-            expectMatchesFull(testThread, display),
+          const selected = await countSelectedEventRows(
+            testThread,
+            async () => await expectMatchesFull(testThread, display),
           );
           expect(selected).toBeLessThan(25);
         }
@@ -343,9 +358,9 @@ describe("incremental conversation outlines", () => {
 
   it.each(["immediate", "late"] as const)(
     "keeps accepted root answers with inherited parent metadata (%s acceptance)",
-    (acceptance) => {
-      withTestThread((testThread) => {
-        appendRows(testThread, [
+    async (acceptance) => {
+      await withTestThread(async (testThread) => {
+        await appendRows(testThread, [
           request("creq_abcdefghij"),
           started("inherited-root", "inherited-parent"),
           ...(acceptance !== "late"
@@ -356,13 +371,13 @@ describe("incremental conversation outlines", () => {
           started("live"),
           delta("live", "Live"),
         ]);
-        expectMatchesFull(testThread);
+        await expectMatchesFull(testThread);
         if (acceptance === "late") {
-          appendRows(testThread, [
+          await appendRows(testThread, [
             accepted("creq_abcdefghij", "inherited-root"),
           ]);
         }
-        const result = expectMatchesFull(testThread);
+        const result = await expectMatchesFull(testThread);
         expect(result.items.map((item) => item.preview)).toContain(
           "Actual root answer",
         );
@@ -370,9 +385,9 @@ describe("incremental conversation outlines", () => {
     },
   );
 
-  it("rebuilds root fallback previews when child deltas cross the compaction threshold", () => {
-    withTestThread((testThread) => {
-      appendRows(testThread, [
+  it("rebuilds root fallback previews when child deltas cross the compaction threshold", async () => {
+    await withTestThread(async (testThread) => {
+      await appendRows(testThread, [
         started("root"),
         parentCall("root", "parent"),
         started("child", "parent"),
@@ -383,11 +398,11 @@ describe("incremental conversation outlines", () => {
         started("live"),
         delta("live", "Live"),
       ]);
-      const before = expectMatchesFull(testThread);
+      const before = await expectMatchesFull(testThread);
       expect(before.items.map((item) => item.preview)).toContain(
         "First second",
       );
-      appendRows(
+      await appendRows(
         testThread,
         Array.from({ length: 1_000 }, () => ({
           ...delta("child", "Nested"),
@@ -399,16 +414,16 @@ describe("incremental conversation outlines", () => {
           },
         })),
       );
-      const after = expectMatchesFull(testThread);
+      const after = await expectMatchesFull(testThread);
       expect(after.items.map((item) => item.preview)).toContain("First");
     });
   });
 
   it.each([950, 1050])(
     "preserves previews across delta compaction with %i historical deltas",
-    (deltaCount) => {
-      withTestThread((testThread) => {
-        appendRows(testThread, [
+    async (deltaCount) => {
+      await withTestThread(async (testThread) => {
+        await appendRows(testThread, [
           started("old"),
           ...Array.from({ length: deltaCount }, () => delta("old", "word ")),
           message("old", "Complete"),
@@ -417,35 +432,35 @@ describe("incremental conversation outlines", () => {
           delta("live", "First"),
           delta("live", " second"),
         ]);
-        expectMatchesFull(testThread);
-        appendRows(testThread, [message("live", ""), completed("live")]);
-        expectMatchesFull(testThread);
-        appendRows(testThread, [
+        await expectMatchesFull(testThread);
+        await appendRows(testThread, [message("live", ""), completed("live")]);
+        await expectMatchesFull(testThread);
+        await appendRows(testThread, [
           started("next"),
           ...Array.from({ length: 100 }, () => delta("next", "more ")),
         ]);
-        expectMatchesFull(testThread);
+        await expectMatchesFull(testThread);
       });
     },
   );
 
-  it("rebuilds when a previously unaccepted request joins a later turn", () => {
-    withTestThread((testThread) => {
-      appendRows(testThread, [request("creq_abcdefghij")]);
-      seed(testThread);
-      expectMatchesFull(testThread);
-      appendRows(testThread, [
+  it("rebuilds when a previously unaccepted request joins a later turn", async () => {
+    await withTestThread(async (testThread) => {
+      await appendRows(testThread, [request("creq_abcdefghij")]);
+      await seed(testThread);
+      await expectMatchesFull(testThread);
+      await appendRows(testThread, [
         accepted("creq_abcdefghij", "live"),
         delta("live", " accepted"),
       ]);
-      expectMatchesFull(testThread);
+      await expectMatchesFull(testThread);
     });
   });
 
-  it("only reads the live tail after a long completed history, including across turn boundaries", () => {
-    withTestThread((testThread) => {
-      seed(testThread, 100);
-      expectMatchesFull(testThread);
+  it("only reads the live tail after a long completed history, including across turn boundaries", async () => {
+    await withTestThread(async (testThread) => {
+      await seed(testThread, 100);
+      await expectMatchesFull(testThread);
       for (const rows of [
         [delta("live", " continuation")],
         [message("live", "Final answer"), completed("live")],
@@ -457,13 +472,13 @@ describe("incremental conversation outlines", () => {
         ],
         [delta("next", " update")],
       ]) {
-        appendRows(testThread, rows);
-        const count = countSelectedEventRows(testThread, () => {
-          load(testThread);
+        await appendRows(testThread, rows);
+        const count = await countSelectedEventRows(testThread, async () => {
+          await load(testThread);
         });
         expect(count).toBeGreaterThan(0);
         expect(count).toBeLessThan(20);
-        expectMatchesFull(testThread);
+        await expectMatchesFull(testThread);
       }
     });
   });
@@ -480,41 +495,42 @@ describe("incremental conversation outlines", () => {
     "nested",
   ] as const)(
     "matches a full rebuild after %s invalidates the frozen prefix",
-    (change) =>
-      withTestThread((testThread) => {
-        seed(testThread);
-        appendRows(testThread, [
+    async (change) =>
+      await withTestThread(async (testThread) => {
+        await seed(testThread);
+        await appendRows(testThread, [
           message("live", "Finished prelude"),
           completed("live"),
           ...nestedTurn(900),
           started("next-live"),
           delta("next-live", "Live"),
         ]);
-        expectMatchesFull(testThread);
+        await expectMatchesFull(testThread);
         switch (change) {
           case "rewind": {
-            const maxSeq = getLatestThreadSequence(testThread.db, {
+            const maxSeq = await getLatestThreadSequence(testThread.db, {
               threadId: testThread.thread.id,
             });
-            testThread.db.transaction((tx) =>
-              deleteThreadEventSuffixInTransaction(tx, {
-                threadId: testThread.thread.id,
-                cutoffSequence: 4,
-                oldMaxSequence: maxSeq,
-              }),
+            await testThread.db.transaction(
+              async (tx) =>
+                await deleteThreadEventSuffixInTransaction(tx, {
+                  threadId: testThread.thread.id,
+                  cutoffSequence: 4,
+                  oldMaxSequence: maxSeq,
+                }),
             );
-            appendRows(testThread, [
+            await appendRows(testThread, [
               message("turn-0", "Replacement"),
               completed("turn-0"),
               started("replacement"),
               delta("replacement", "New"),
             ]);
             while (
-              getLatestThreadSequence(testThread.db, {
+              (await getLatestThreadSequence(testThread.db, {
                 threadId: testThread.thread.id,
-              }) < maxSeq
+              })) < maxSeq
             ) {
-              appendRows(testThread, [
+              await appendRows(testThread, [
                 {
                   type: "system/manager/user_message",
                   data: { text: "Refilled history" },
@@ -524,7 +540,7 @@ describe("incremental conversation outlines", () => {
             break;
           }
           case "clear":
-            appendRows(testThread, [
+            await appendRows(testThread, [
               {
                 type: "system/operation",
                 data: {
@@ -539,7 +555,7 @@ describe("incremental conversation outlines", () => {
             ]);
             break;
           case "external rewrite":
-            testThread.coldDb.$client
+            await testThread.coldDb.$client
               .prepare(
                 "UPDATE events SET data = json_set(data, '$.item.text', 'Rewritten') WHERE thread_id = ? AND sequence = 4",
               )
@@ -555,21 +571,23 @@ describe("incremental conversation outlines", () => {
             };
             break;
           case "late event":
-            appendRows(testThread, [message("turn-0", "Late replacement")]);
+            await appendRows(testThread, [
+              message("turn-0", "Late replacement"),
+            ]);
             break;
           case "late steer":
-            appendRows(testThread, [
+            await appendRows(testThread, [
               request("creq_abcdefghij", "turn-0"),
               accepted("creq_abcdefghij", "turn-0"),
             ]);
             break;
           case "thread error":
-            appendRows(testThread, [
+            await appendRows(testThread, [
               { type: "system/error", data: { message: "Failed" } },
             ]);
             break;
           case "nested":
-            appendRows(testThread, [
+            await appendRows(testThread, [
               {
                 ...started("child"),
                 parentToolCallId: "parent",
@@ -590,47 +608,47 @@ describe("incremental conversation outlines", () => {
             ]);
             break;
         }
-        expectMatchesFull(
+        await expectMatchesFull(
           testThread,
           change === "display" ? "flat" : "collapse",
         );
       }),
   );
 
-  it("evicts old checkpoints without changing their rebuilt outlines", () => {
-    withTestThread((testThread) => {
-      seed(testThread, 100);
-      expectMatchesFull(testThread);
+  it("evicts old checkpoints without changing their rebuilt outlines", async () => {
+    await withTestThread(async (testThread) => {
+      await seed(testThread, 100);
+      await expectMatchesFull(testThread);
       const firstThread = testThread.thread;
       for (let index = 0; index < 16; index += 1) {
-        testThread.thread = createThread(testThread.db, noopNotifier, {
+        testThread.thread = await createThread(testThread.db, noopNotifier, {
           projectId: testThread.projectId,
           providerId: "codex",
           status: "active",
         });
-        seed(testThread);
-        load(testThread);
+        await seed(testThread);
+        await load(testThread);
       }
       testThread.thread = firstThread;
-      const count = countSelectedEventRows(testThread, () => {
-        load(testThread);
+      const count = await countSelectedEventRows(testThread, async () => {
+        await load(testThread);
       });
       expect(count).toBeGreaterThan(500);
-      expectMatchesFull(testThread);
-      appendRows(testThread, [delta("live", " after eviction")]);
+      await expectMatchesFull(testThread);
+      await appendRows(testThread, [delta("live", " after eviction")]);
       expect(
-        countSelectedEventRows(testThread, () => {
-          load(testThread);
+        await countSelectedEventRows(testThread, async () => {
+          await load(testThread);
         }),
       ).toBeLessThan(20);
-      expectMatchesFull(testThread);
+      await expectMatchesFull(testThread);
     });
   });
 
-  it("preserves overlapping turns and pending steers as they complete", () => {
-    withTestThread((testThread) => {
-      seed(testThread);
-      expectMatchesFull(testThread);
+  it("preserves overlapping turns and pending steers as they complete", async () => {
+    await withTestThread(async (testThread) => {
+      await seed(testThread);
+      await expectMatchesFull(testThread);
       for (const rows of [
         [
           request("creq_abcdefghij", "live"),
@@ -649,8 +667,8 @@ describe("incremental conversation outlines", () => {
         [message("last", "Last done"), completed("last")],
         [started("final"), delta("final", "Final")],
       ]) {
-        appendRows(testThread, rows);
-        expectMatchesFull(testThread);
+        await appendRows(testThread, rows);
+        await expectMatchesFull(testThread);
       }
     });
   });

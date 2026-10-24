@@ -3,14 +3,14 @@ import { ApiError } from "../../errors.js";
 import type { ProviderRegistration } from "../providers/provider-registry.js";
 import type { AppDeps } from "../../types.js";
 
-export function resolveBridgeLaunchForProviderId(
+export async function resolveBridgeLaunchForProviderId(
   deps: Pick<AppDeps, "providerRegistry" | "pluginHostArtifacts">,
   providerId: string,
-): HostDaemonBridgeLaunch | null {
+): Promise<HostDaemonBridgeLaunch | null> {
   const registration = deps.providerRegistry.get(providerId);
   if (
     registration === null ||
-    deps.providerRegistry.disabledProviderIds().has(providerId)
+    (await deps.providerRegistry.disabledProviderIds()).has(providerId)
   ) {
     return null;
   }
@@ -42,18 +42,18 @@ export function resolveBridgeLaunchForProviderId(
   };
 }
 
-export function requireBridgeLaunchForProviderId(
+export async function requireBridgeLaunchForProviderId(
   deps: Pick<AppDeps, "providerRegistry" | "pluginHostArtifacts">,
   providerId: string,
-): HostDaemonBridgeLaunch {
-  if (deps.providerRegistry.disabledProviderIds().has(providerId)) {
+): Promise<HostDaemonBridgeLaunch> {
+  if ((await deps.providerRegistry.disabledProviderIds()).has(providerId)) {
     throw new ApiError(
       409,
       "provider_disabled",
       `Provider "${providerId}" is disabled. Enable it in Settings → Providers to start a new turn.`,
     );
   }
-  const bridgeLaunch = resolveBridgeLaunchForProviderId(deps, providerId);
+  const bridgeLaunch = await resolveBridgeLaunchForProviderId(deps, providerId);
   if (bridgeLaunch === null) {
     throw new ApiError(
       409,

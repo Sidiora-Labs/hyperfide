@@ -35,11 +35,11 @@ export function registerUiPreferenceRoutes(app: Hono, deps: AppDeps): void {
   });
   const routes = publicApiRoutes.system;
 
-  get(routes.uiPreferences, (context) =>
-    context.json({ preferences: readUiPreferences(deps) }),
+  get(routes.uiPreferences, async (context) =>
+    context.json({ preferences: await readUiPreferences(deps) }),
   );
 
-  put(routes.updateUiPreference, (context, payload) => {
+  put(routes.updateUiPreference, async (context, payload) => {
     const key = requireUiPreferenceKey(context.req.param("key"));
     const parsed = parseUiPreferenceValue(key, payload.value);
     if (!parsed.success) {
@@ -49,7 +49,7 @@ export function registerUiPreferenceRoutes(app: Hono, deps: AppDeps): void {
         `Invalid value for UI preference '${key}': ${parsed.message}`,
       );
     }
-    const result = writeUiPreference(deps, {
+    const result = await writeUiPreference(deps, {
       expectedRevision: payload.expectedRevision,
       key,
       value: parsed.value,
@@ -65,8 +65,8 @@ export function registerUiPreferenceRoutes(app: Hono, deps: AppDeps): void {
     return context.json({ key, ...result.entry });
   });
 
-  del(routes.resetUiPreference, (context) => {
+  del(routes.resetUiPreference, async (context) => {
     const key = requireUiPreferenceKey(context.req.param("key"));
-    return context.json({ key, ...resetUiPreference(deps, key) });
+    return context.json({ key, ...(await resetUiPreference(deps, key)) });
   });
 }

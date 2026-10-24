@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../src/testing.js";
 import { advanceThreadPruning } from "../src/data/thread-pruning.js";
 import {
   findEnvironmentPathClaim,
@@ -147,20 +149,20 @@ class CapturingSlowQueryLogger implements SlowDbQueryLogger {
   }
 }
 
-function setup(): TestDb {
+async function setup(): Promise<TestDb> {
   const logger = new CapturingSlowQueryLogger();
-  const db = createMigratedConnection({
+  const db = await createMigratedConnection({
     slowQueryLogger: logger,
     slowQueryThresholdMs: 0,
   });
-  const host = upsertHost(db, noopNotifier, {
+  const host = await upsertHost(db, noopNotifier, {
     name: "query-plan-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "query-plan-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/query-plan" },
   });
-  const thread = createThread(db, noopNotifier, {
+  const thread = await createThread(db, noopNotifier, {
     projectId: project.id,
     providerId: "codex",
   });
@@ -168,8 +170,8 @@ function setup(): TestDb {
   return { db, host, logger, project, thread };
 }
 
-function closeSessionAt(args: CloseSessionAtArgs): void {
-  args.db.$client
+async function closeSessionAt(args: CloseSessionAtArgs): Promise<void> {
+  await args.db.$client
     .prepare<CloseSessionAtParameters>(
       `
         UPDATE host_daemon_sessions
@@ -197,10 +199,10 @@ interface CapturedStatement {
   sql: string;
 }
 
-function captureStatements(
+async function captureStatements(
   db: DbConnection,
-  run: () => void,
-): CapturedStatement[] {
+  run: () => unknown,
+): Promise<CapturedStatement[]> {
   const captured: CapturedStatement[] = [];
   const raw = db.$client;
   const originalPrepare = raw.prepare.bind(raw);
@@ -223,7 +225,7 @@ function captureStatements(
     },
   });
   try {
-    run();
+    await run();
   } finally {
     Object.defineProperty(raw, "prepare", {
       configurable: true,
@@ -234,18 +236,18 @@ function captureStatements(
   return captured;
 }
 
-function queryPlanDetails(args: QueryPlanDetailsArgs): string {
-  const planRows = args.db.$client
+async function queryPlanDetails(args: QueryPlanDetailsArgs): Promise<string> {
+  const planRows = await args.db.$client
     .prepare<SqliteParameter[], QueryPlanRow>(`EXPLAIN QUERY PLAN ${args.sql}`)
     .all(...args.params);
   return planRows.map((row) => row.detail).join("\n");
 }
 
-function assertEmittedQueryPlanUsesIndex(
+async function assertEmittedQueryPlanUsesIndex(
   args: AssertEmittedQueryPlanUsesIndexArgs,
-): void {
+): Promise<void> {
   expect(args.debugLog.fields.bindingArgumentCount).toBe(args.params.length);
-  const details = queryPlanDetails({
+  const details = await queryPlanDetails({
     db: args.db,
     params: args.params,
     sql: args.debugLog.fields.sql,
@@ -262,21 +264,23 @@ function expectNoThreadOnlyEventSeek(details: string): void {
   );
 }
 
-describe("slow query index plans", () => {
-  it("checks spawn-agent history without reading unrelated event payloads", () => {
-    const { db, thread } = setup();
+describe.skipIf(isPostgresTest)("slow query index plans", () => {
+  it("checks spawn-agent history without reading unrelated event payloads", async () => {
+    const { db, thread } = await setup();
     try {
-      const captured = captureStatements(db, () => {
-        expect(hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
+      const captured = await captureStatements(db, async () => {
+        expect(await hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
       });
       expect(captured).toHaveLength(1);
-      expect(queryPlanDetails({ db, ...captured[0]! })).toContain(
+      expect(await queryPlanDetails({ db, ...captured[0]! })).toContain(
         "USING INDEX events_delegating_item_lookup_idx (thread_id=?)",
       );
-      db.$client
-        .prepare(`INSERT INTO events
+      await db.$client
+        .prepare(
+          `INSERT INTO events
         (id, thread_id, scope_kind, sequence, type, item_kind, data, created_at)
-        VALUES (?, ?, 'thread', ?, 'item/started', ?, ?, 0)`)
+        VALUES (?, ?, 'thread', ?, 'item/started', ?, ?, 0)`,
+        )
         .run(
           "ordinary-tool",
           thread.id,
@@ -284,21 +288,25 @@ describe("slow query index plans", () => {
           "toolCall",
           JSON.stringify({ item: { tool: "exec" } }),
         );
-      expect(hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
-      db.$client
-        .prepare(`INSERT INTO events
+      expect(await hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
+      await db.$client
+        .prepare(
+          `INSERT INTO events
         (id, thread_id, scope_kind, sequence, type, item_kind, data, created_at)
-        VALUES (?, ?, 'thread', 3, 'item/completed', 'delegation', ?, 0)`)
+        VALUES (?, ?, 'thread', 3, 'item/completed', 'delegation', ?, 0)`,
+        )
         .run(
           "delegation",
           thread.id,
           JSON.stringify({ item: { tool: "spawnAgent" } }),
         );
-      expect(hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
-      db.$client
-        .prepare(`INSERT INTO events
+      expect(await hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
+      await db.$client
+        .prepare(
+          `INSERT INTO events
         (id, thread_id, scope_kind, sequence, type, item_kind, data, created_at)
-        VALUES (?, ?, 'thread', ?, 'item/completed', ?, ?, 0)`)
+        VALUES (?, ?, 'thread', ?, 'item/completed', ?, ?, 0)`,
+        )
         .run(
           "spawn-tool",
           thread.id,
@@ -306,19 +314,21 @@ describe("slow query index plans", () => {
           "toolCall",
           JSON.stringify({ item: { tool: "spawnAgent" } }),
         );
-      expect(hasStoredSpawnAgentToolCall(db, thread.id)).toBe(true);
-      expect(hasStoredSpawnAgentToolCall(db, "other-thread")).toBe(false);
-      db.$client.prepare("DELETE FROM events WHERE id = ?").run("spawn-tool");
-      expect(hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
+      expect(await hasStoredSpawnAgentToolCall(db, thread.id)).toBe(true);
+      expect(await hasStoredSpawnAgentToolCall(db, "other-thread")).toBe(false);
+      await db.$client
+        .prepare("DELETE FROM events WHERE id = ?")
+        .run("spawn-tool");
+      expect(await hasStoredSpawnAgentToolCall(db, thread.id)).toBe(false);
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("resolves a provider session with two indexed lookups regardless of history length", () => {
-    const { db, thread } = setup();
+  it("resolves a provider session with two indexed lookups regardless of history length", async () => {
+    const { db, thread } = await setup();
     try {
-      insertEvents(
+      await insertEvents(
         db,
         noopNotifier,
         Array.from({ length: 50 }, (_, index) => ({
@@ -333,54 +343,54 @@ describe("slow query index plans", () => {
           data: JSON.stringify({ providerThreadId: "provider-owner-plan" }),
         })),
       );
-      const captured = captureStatements(db, () => {
-        expect(getLastStoredProviderThreadId(db, thread.id)).toBe(
+      const captured = await captureStatements(db, async () => {
+        expect(await getLastStoredProviderThreadId(db, thread.id)).toBe(
           "provider-owner-plan",
         );
       });
       expect(captured).toHaveLength(2);
       const [identityQuery, ownerQuery] = captured;
-      expect(queryPlanDetails({ db, ...identityQuery! })).toContain(
+      expect(await queryPlanDetails({ db, ...identityQuery! })).toContain(
         "USING INDEX events_thread_type_sequence_idx",
       );
-      expect(queryPlanDetails({ db, ...ownerQuery! })).toContain(
+      expect(await queryPlanDetails({ db, ...ownerQuery! })).toContain(
         "USING INDEX events_provider_identity_idx",
       );
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("seeks accepted inputs past each thread's latest interruption", () => {
-    const { db, thread } = setup();
+  it("seeks accepted inputs past each thread's latest interruption", async () => {
+    const { db, thread } = await setup();
     try {
-      const captured = captureStatements(db, () => {
-        listOpenTurnInputAcceptedRowsByThreadIds(db, {
+      const captured = await captureStatements(db, async () => {
+        await listOpenTurnInputAcceptedRowsByThreadIds(db, {
           threadIds: [thread.id, "missing"],
         });
       });
       expect(captured).toHaveLength(1);
       const query = captured[0]!;
-      expect(queryPlanDetails({ db, ...query })).toContain(
+      expect(await queryPlanDetails({ db, ...query })).toContain(
         "events_thread_type_sequence_idx (thread_id=? AND type=? AND sequence>?)",
       );
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
   it.each([null, "/tmp/claimed"])(
     "indexes active environment claims for path %s",
-    (path) => {
-      const { db } = setup();
-      const captured = captureStatements(db, () => {
+    async (path) => {
+      const { db } = await setup();
+      const captured = await captureStatements(db, async () => {
         expect(
-          findEnvironmentPathClaim(db, "host_test", path, null),
+          await findEnvironmentPathClaim(db, "host_test", path, null),
         ).toBeNull();
       });
       expect(captured).toHaveLength(1);
       const query = captured[0]!;
-      const details = queryPlanDetails({
+      const details = await queryPlanDetails({
         db,
         params: query.params,
         sql: query.sql,
@@ -390,14 +400,14 @@ describe("slow query index plans", () => {
     },
   );
 
-  it("finds due scheduled queued messages through the state due index", () => {
-    const { db } = setup();
+  it("finds due scheduled queued messages through the state due index", async () => {
+    const { db } = await setup();
 
-    const captured = captureStatements(db, () => {
-      expect(listDueScheduledQueuedThreadMessages(db, 1_000)).toEqual([]);
+    const captured = await captureStatements(db, async () => {
+      expect(await listDueScheduledQueuedThreadMessages(db, 1_000)).toEqual([]);
     });
     expect(captured).toHaveLength(1);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: captured[0]!.params,
       sql: captured[0]!.sql,
@@ -405,17 +415,19 @@ describe("slow query index plans", () => {
     expect(details).toMatch(/USING INDEX queued_thread_messages_due_idx/u);
     expect(details).not.toMatch(/SCAN queued_thread_messages/u);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("finds retryable failed queued messages through the state retry index", () => {
-    const { db } = setup();
+  it("finds retryable failed queued messages through the state retry index", async () => {
+    const { db } = await setup();
 
-    const captured = captureStatements(db, () => {
-      expect(listRetryableFailedQueuedThreadMessages(db, 1_000)).toEqual([]);
+    const captured = await captureStatements(db, async () => {
+      expect(await listRetryableFailedQueuedThreadMessages(db, 1_000)).toEqual(
+        [],
+      );
     });
     expect(captured).toHaveLength(1);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: captured[0]!.params,
       sql: captured[0]!.sql,
@@ -423,19 +435,19 @@ describe("slow query index plans", () => {
     expect(details).toMatch(/USING INDEX queued_thread_messages_retry_idx/u);
     expect(details).not.toMatch(/SCAN queued_thread_messages/u);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("finds a plugin's held queued messages through the partial holder index", () => {
-    const { db } = setup();
+  it("finds a plugin's held queued messages through the partial holder index", async () => {
+    const { db } = await setup();
 
-    const captured = captureStatements(db, () => {
+    const captured = await captureStatements(db, async () => {
       expect(
-        listQueuedThreadMessagesByWaitHolder(db, "plugin:limiter"),
+        await listQueuedThreadMessagesByWaitHolder(db, "plugin:limiter"),
       ).toEqual([]);
     });
     expect(captured).toHaveLength(1);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: captured[0]!.params,
       sql: captured[0]!.sql,
@@ -445,15 +457,15 @@ describe("slow query index plans", () => {
     );
     expect(details).not.toMatch(/SCAN queued_thread_messages/u);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("finds a provider's own environment through the provider/instance index", () => {
-    const { db } = setup();
+  it("finds a provider's own environment through the provider/instance index", async () => {
+    const { db } = await setup();
 
-    const captured = captureStatements(db, () => {
+    const captured = await captureStatements(db, async () => {
       expect(
-        listEnvironments(db, {
+        await listEnvironments(db, {
           environmentProviderId: "git-worktree",
           instanceKey: "thr_1",
           statuses: ["provisioning", "ready", "error"],
@@ -461,7 +473,7 @@ describe("slow query index plans", () => {
       ).toEqual([]);
     });
     expect(captured).toHaveLength(1);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: captured[0]!.params,
       sql: captured[0]!.sql,
@@ -469,19 +481,19 @@ describe("slow query index plans", () => {
     expect(details).toMatch(/USING INDEX environments_provider_instance_idx/u);
     expect(details).not.toMatch(/SCAN environments/u);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("finds the occupying threads through the archived/status index", () => {
+  it("finds the occupying threads through the archived/status index", async () => {
     // A dispatch gate calls this on every admission decision, so a plan that
     // degraded to a table scan would put one on every send in the server.
-    const { db } = setup();
+    const { db } = await setup();
 
-    const captured = captureStatements(db, () => {
-      listRunningThreads(db);
+    const captured = await captureStatements(db, async () => {
+      await listRunningThreads(db);
     });
     expect(captured).toHaveLength(1);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: captured[0]!.params,
       sql: captured[0]!.sql,
@@ -489,7 +501,7 @@ describe("slow query index plans", () => {
     expect(details).toMatch(/USING INDEX threads_archived_status_idx/u);
     expect(details).not.toMatch(/SCAN threads/u);
 
-    db.$client.close();
+    await db.close();
   });
 
   it.each([
@@ -498,12 +510,12 @@ describe("slow query index plans", () => {
     { afterSequence: 20, limit: undefined, queryCount: 1 },
   ])(
     "uses the thread/type/sequence index for filtered event pages after $afterSequence with limit $limit",
-    ({ afterSequence, limit, queryCount }) => {
-      const { db, thread } = setup();
+    async ({ afterSequence, limit, queryCount }) => {
+      const { db, thread } = await setup();
 
-      const captured = captureStatements(db, () => {
+      const captured = await captureStatements(db, async () => {
         expect(
-          listStoredEventRows(db, {
+          await listStoredEventRows(db, {
             afterSequence,
             beforeSequence: 100,
             limit,
@@ -515,7 +527,7 @@ describe("slow query index plans", () => {
       });
       expect(captured).toHaveLength(queryCount);
       for (const query of captured) {
-        const details = queryPlanDetails({
+        const details = await queryPlanDetails({
           db,
           params: query.params,
           sql: query.sql,
@@ -524,13 +536,13 @@ describe("slow query index plans", () => {
         expect(details).not.toMatch(/events_thread_sequence_idx/u);
       }
 
-      db.$client.close();
+      await db.close();
     },
   );
 
-  it("looks up completed turns by thread and turn key", () => {
-    const { db, thread } = setup();
-    insertEvents(
+  it("looks up completed turns by thread and turn key", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(
       db,
       noopNotifier,
       ["turn-plan-1", "turn-plan-2", "turn-plan-3"].flatMap((turnId, index) => [
@@ -564,9 +576,9 @@ describe("slow query index plans", () => {
       ]),
     );
 
-    const captured = captureStatements(db, () => {
+    const captured = await captureStatements(db, async () => {
       expect(
-        listStoredTurnCompletedKeys(db, {
+        await listStoredTurnCompletedKeys(db, {
           keys: [
             { threadId: thread.id, turnId: "turn-plan-1" },
             { threadId: thread.id, turnId: "turn-plan-3" },
@@ -578,8 +590,8 @@ describe("slow query index plans", () => {
       ]);
     });
 
-    const fullChunkCaptured = captureStatements(db, () => {
-      listStoredTurnCompletedKeys(db, {
+    const fullChunkCaptured = await captureStatements(db, async () => {
+      await listStoredTurnCompletedKeys(db, {
         keys: Array.from({ length: 250 }, (_, index) => ({
           threadId: thread.id,
           turnId: `turn-plan-${index + 1}`,
@@ -590,7 +602,7 @@ describe("slow query index plans", () => {
     expect(captured).toHaveLength(1);
     expect(fullChunkCaptured).toHaveLength(1);
     for (const query of [captured[0]!, fullChunkCaptured[0]!]) {
-      const details = queryPlanDetails({ db, ...query });
+      const details = await queryPlanDetails({ db, ...query });
       expect(details).toContain("MULTI-INDEX OR");
       expect(details).toContain(
         "events_thread_turn_type_item_sequence_idx (thread_id=? AND turn_id=? AND type=?)",
@@ -599,15 +611,15 @@ describe("slow query index plans", () => {
       expect(details).not.toMatch(/SCAN events/u);
     }
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("loads daemon item lifecycle state through the targeted partial index", () => {
-    const { db, logger, thread } = setup();
+  it("loads daemon item lifecycle state through the targeted partial index", async () => {
+    const { db, logger, thread } = await setup();
     const turnId = "turn-lifecycle-plan";
     const itemId = "item-lifecycle-plan";
 
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -633,9 +645,9 @@ describe("slow query index plans", () => {
       },
     ]);
 
-    db.transaction(
-      (tx) =>
-        appendDaemonEventsInTransaction(tx, [
+    await db.transaction(
+      async (tx) =>
+        await appendDaemonEventsInTransaction(tx, [
           {
             threadId: thread.id,
             environmentId: null,
@@ -666,7 +678,7 @@ describe("slow query index plans", () => {
       "IN ( '?', '?', '?' )",
       lifecycleTypes,
     );
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: [thread.id, itemId],
       sql: planSql,
@@ -675,15 +687,15 @@ describe("slow query index plans", () => {
       details.match(/events_item_lifecycle_thread_item_sequence_idx/gu),
     ).toHaveLength(2);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("resolves root turn starts for the parented boundary through the turn index", () => {
-    const { db, thread } = setup();
+  it("resolves root turn starts for the parented boundary through the turn index", async () => {
+    const { db, thread } = await setup();
 
-    const captured = captureStatements(db, () => {
+    const captured = await captureStatements(db, async () => {
       expect(
-        getFirstParentedTimelineBoundarySequence(db, {
+        await getFirstParentedTimelineBoundarySequence(db, {
           maxSeq: 10,
           sequenceStart: 0,
           threadId: thread.id,
@@ -694,7 +706,7 @@ describe("slow query index plans", () => {
     if (!query) {
       throw new Error("Expected the parented timeline boundary SQL");
     }
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: query.params,
       sql: query.sql,
@@ -713,14 +725,14 @@ describe("slow query index plans", () => {
       /SEARCH events USING (?:COVERING )?INDEX events_delegating_item_lookup_idx/u,
     );
 
-    db.$client.close();
+    await db.close();
   });
 
   it.each([
     {
       name: "probes appended grouping-context rows",
-      run: (db: DbConnection, threadId: string) =>
-        getTimelineGroupingContextChangesInRange(db, {
+      run: async (db: DbConnection, threadId: string) =>
+        await getTimelineGroupingContextChangesInRange(db, {
           afterSequence: 10,
           threadId,
           throughSequence: 30,
@@ -728,8 +740,8 @@ describe("slow query index plans", () => {
     },
     {
       name: "lists rows in a sequence range",
-      run: (db: DbConnection, threadId: string) =>
-        listStoredEventRowsInSequenceRange(db, {
+      run: async (db: DbConnection, threadId: string) =>
+        await listStoredEventRowsInSequenceRange(db, {
           afterSequence: 10,
           limit: 513,
           maxInlineOutputChars: 32_000,
@@ -737,26 +749,29 @@ describe("slow query index plans", () => {
           throughSequence: 30,
         }),
     },
-  ])("$name through the thread sequence index", ({ run }) => {
-    const { db, thread } = setup();
+  ])("$name through the thread sequence index", async ({ run }) => {
+    const { db, thread } = await setup();
 
-    const [query] = captureStatements(db, () => run(db, thread.id));
+    const [query] = await captureStatements(
+      db,
+      async () => await run(db, thread.id),
+    );
     if (!query) {
       throw new Error("Expected the sequence-range SQL");
     }
-    expect(queryPlanDetails({ db, ...query }).split("\n")).toEqual([
+    expect((await queryPlanDetails({ db, ...query })).split("\n")).toEqual([
       "SEARCH events USING INDEX events_thread_sequence_idx (thread_id=? AND sequence>? AND sequence<?)",
     ]);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("loads parented timeline rows through the normalized parent index", () => {
-    const { db, thread } = setup();
+  it("loads parented timeline rows through the normalized parent index", async () => {
+    const { db, thread } = await setup();
 
-    const [query] = captureStatements(db, () => {
+    const [query] = await captureStatements(db, async () => {
       expect(
-        listStoredEventRowsByParentToolCallIds(db, {
+        await listStoredEventRowsByParentToolCallIds(db, {
           maxInlineOutputChars: null,
           parentToolCallIds: ["parent-tool-call"],
           threadId: thread.id,
@@ -767,16 +782,16 @@ describe("slow query index plans", () => {
       throw new Error("Expected the parented timeline row lookup SQL");
     }
     expect(
-      queryPlanDetails({ db, params: query.params, sql: query.sql }),
+      await queryPlanDetails({ db, params: query.params, sql: query.sql }),
     ).toMatch(
       /SEARCH events USING INDEX events_parent_tool_call_thread_parent_sequence_idx/u,
     );
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("seeks each missing delegating parent through the thread-and-item index", () => {
-    const { db, thread } = setup();
+  it("seeks each missing delegating parent through the thread-and-item index", async () => {
+    const { db, thread } = await setup();
     const lifecycle = [
       ["tool-a", "toolCall", "item/started"],
       ["delegation-b", "delegation", "item/started"],
@@ -785,7 +800,7 @@ describe("slow query index plans", () => {
       ["command-c", "commandExecution", "item/completed"],
       ["delegation-b", "delegation", "item/completed"],
     ] as const;
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       lifecycle.map(([itemId, itemKind, type], index) => ({
@@ -799,17 +814,19 @@ describe("slow query index plans", () => {
         data: JSON.stringify({ item: { id: itemId, type: itemKind } }),
       })),
     );
-    const delegatingRows = listStoredEventRowsInSequenceRange(db, {
-      afterSequence: 0,
-      limit: lifecycle.length,
-      maxInlineOutputChars: 32_000,
-      threadId: thread.id,
-      throughSequence: lifecycle.length,
-    }).filter((row) => row.itemKind !== "commandExecution");
+    const delegatingRows = (
+      await listStoredEventRowsInSequenceRange(db, {
+        afterSequence: 0,
+        limit: lifecycle.length,
+        maxInlineOutputChars: 32_000,
+        threadId: thread.id,
+        throughSequence: lifecycle.length,
+      })
+    ).filter((row) => row.itemKind !== "commandExecution");
 
-    const [query] = captureStatements(db, () => {
+    const [query] = await captureStatements(db, async () => {
       expect(
-        listStoredDelegatingItemRowsByItemIds(db, {
+        await listStoredDelegatingItemRowsByItemIds(db, {
           itemIds: ["delegation-b", "command-c", "tool-a"],
           maxInlineOutputChars: 32_000,
           threadId: thread.id,
@@ -819,15 +836,15 @@ describe("slow query index plans", () => {
     if (!query) {
       throw new Error("Expected the delegating item lookup SQL");
     }
-    expect(queryPlanDetails({ db, ...query })).toContain(
+    expect(await queryPlanDetails({ db, ...query })).toContain(
       "SEARCH events USING INDEX events_delegating_item_lookup_idx (thread_id=? AND item_id=?)",
     );
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("seeks latest background-task and delegation state by item", () => {
-    const { db, thread } = setup();
+  it("seeks latest background-task and delegation state by item", async () => {
+    const { db, thread } = await setup();
     const lifecycle = [
       ["bg-a", "backgroundTask", "item/started"],
       ["delegation-b", "delegation", "item/started"],
@@ -837,7 +854,7 @@ describe("slow query index plans", () => {
       ["bg-a", "backgroundTask", "item/backgroundTask/completed"],
       ["delegation-b", "delegation", "item/delegation/completed"],
     ] as const;
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       lifecycle.map(([itemId, itemKind, type], index) => ({
@@ -852,26 +869,28 @@ describe("slow query index plans", () => {
       })),
     );
 
-    const lookup = (beforeSequence?: number) =>
-      listLatestBackgroundTaskStateRowsByItemIds(db, {
-        beforeSequence,
-        itemIds: ["delegation-b", "command-c", "bg-a"],
-        threadId: thread.id,
-      }).map((row) => [row.itemId, row.type]);
-    const [query] = captureStatements(db, () => {
-      expect(lookup()).toEqual([
+    const lookup = async (beforeSequence?: number) =>
+      (
+        await listLatestBackgroundTaskStateRowsByItemIds(db, {
+          beforeSequence,
+          itemIds: ["delegation-b", "command-c", "bg-a"],
+          threadId: thread.id,
+        })
+      ).map((row) => [row.itemId, row.type]);
+    const [query] = await captureStatements(db, async () => {
+      expect(await lookup()).toEqual([
         ["bg-a", "item/backgroundTask/completed"],
         ["delegation-b", "item/delegation/completed"],
       ]);
     });
-    expect(lookup(6)).toEqual([
+    expect(await lookup(6)).toEqual([
       ["bg-a", "item/backgroundTask/progress"],
       ["delegation-b", "item/delegation/progress"],
     ]);
     if (!query) {
       throw new Error("Expected the background-task state lookup SQL");
     }
-    const details = queryPlanDetails({ db, ...query });
+    const details = await queryPlanDetails({ db, ...query });
     expect(details).toContain(
       "SEARCH events USING COVERING INDEX events_background_task_thread_type_item_sequence_idx (thread_id=? AND type=? AND item_id=?)",
     );
@@ -880,18 +899,18 @@ describe("slow query index plans", () => {
     );
     expectNoThreadOnlyEventSeek(details);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("probes settled background tasks by item when listing open tasks", () => {
-    const { db, host, thread } = setup();
+  it("probes settled background tasks by item when listing open tasks", async () => {
+    const { db, host, thread } = await setup();
     const lifecycle = [
       ["bg-open", "item/started"],
       ["bg-done", "item/started"],
       ["bg-open", "item/backgroundTask/progress"],
       ["bg-done", "item/backgroundTask/completed"],
     ] as const;
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       lifecycle.map(([itemId, type], index) => ({
@@ -906,32 +925,34 @@ describe("slow query index plans", () => {
       })),
     );
 
-    const captured = captureStatements(db, () => {
+    const captured = await captureStatements(db, async () => {
       expect(
-        listOpenBackgroundTaskItemRowsForThread(db, {
-          threadId: thread.id,
-        }).map((row) => row.itemId),
+        (
+          await listOpenBackgroundTaskItemRowsForThread(db, {
+            threadId: thread.id,
+          })
+        ).map((row) => row.itemId),
       ).toEqual(["bg-open"]);
-      listOpenBackgroundTaskItemRowsForHost(db, { hostId: host.id });
+      await listOpenBackgroundTaskItemRowsForHost(db, { hostId: host.id });
     });
     expect(captured).toHaveLength(2);
     for (const query of captured) {
-      const details = queryPlanDetails({ db, ...query });
+      const details = await queryPlanDetails({ db, ...query });
       expect(details).toMatch(
         /SEARCH \w+ USING COVERING INDEX events_background_task_thread_type_item_sequence_idx \(thread_id=\? AND type=\? AND item_id=\?\)/u,
       );
       expectNoThreadOnlyEventSeek(details);
     }
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("finds a terminal client turn request event through the type index", () => {
-    const { db, thread } = setup();
+  it("finds a terminal client turn request event through the type index", async () => {
+    const { db, thread } = await setup();
     const acceptedRequestId = encodeClientTurnRequestIdNumber({ value: 1 });
     const rejectedRequestId = encodeClientTurnRequestIdNumber({ value: 2 });
     const pendingRequestId = encodeClientTurnRequestIdNumber({ value: 3 });
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -954,33 +975,33 @@ describe("slow query index plans", () => {
       },
     ]);
 
-    const has = (requestId: ClientTurnRequestId) =>
-      hasStoredTerminalClientTurnRequestEvent(db, {
+    const has = async (requestId: ClientTurnRequestId) =>
+      await hasStoredTerminalClientTurnRequestEvent(db, {
         requestId,
         threadId: thread.id,
       });
-    const [query] = captureStatements(db, () => {
-      expect(has(pendingRequestId)).toBe(false);
+    const [query] = await captureStatements(db, async () => {
+      expect(await has(pendingRequestId)).toBe(false);
     });
-    expect(has(acceptedRequestId)).toBe(true);
-    expect(has(rejectedRequestId)).toBe(true);
+    expect(await has(acceptedRequestId)).toBe(true);
+    expect(await has(rejectedRequestId)).toBe(true);
     if (!query) {
       throw new Error("Expected the terminal client turn request SQL");
     }
-    const details = queryPlanDetails({ db, ...query });
+    const details = await queryPlanDetails({ db, ...query });
     expect(details).toContain(
       "SEARCH events USING INDEX events_thread_type_sequence_idx (thread_id=? AND type=?)",
     );
     expectNoThreadOnlyEventSeek(details);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("scans background-task history once without a completed-set join", () => {
-    const { db, thread } = setup();
+  it("scans background-task history once without a completed-set join", async () => {
+    const { db, thread } = await setup();
 
-    const captured = captureStatements(db, () => {
-      listActiveBackgroundTaskCountsByThreadIds(db, {
+    const captured = await captureStatements(db, async () => {
+      await listActiveBackgroundTaskCountsByThreadIds(db, {
         threadIds: [thread.id],
       });
     });
@@ -991,7 +1012,7 @@ describe("slow query index plans", () => {
       throw new Error("Expected the active background-task count SQL");
     }
     expect(query.params).toHaveLength(15);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: query.params,
       sql: query.sql,
@@ -1001,14 +1022,14 @@ describe("slow query index plans", () => {
     ).toHaveLength(1);
     expect(details).not.toMatch(/CORRELATED|LEFT-JOIN|SCAN completed/u);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses selective indexes for conversation-outline events", () => {
-    const { db, thread } = setup();
+  it("uses selective indexes for conversation-outline events", async () => {
+    const { db, thread } = await setup();
 
-    const captured = captureStatements(db, () => {
-      listStoredConversationOutlineEventRows(db, {
+    const captured = await captureStatements(db, async () => {
+      await listStoredConversationOutlineEventRows(db, {
         sequenceStart: 0,
         threadId: thread.id,
       });
@@ -1046,7 +1067,7 @@ describe("slow query index plans", () => {
       "toolCall",
       "item/started",
     ]);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: query?.params ?? [],
       sql: query?.sql ?? "",
@@ -1065,15 +1086,15 @@ describe("slow query index plans", () => {
     );
     expect(details).not.toMatch(/SCAN events/u);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("loads the newest plan snapshot through the kind-based plan-steps index", () => {
-    const { db, thread } = setup();
+  it("loads the newest plan snapshot through the kind-based plan-steps index", async () => {
+    const { db, thread } = await setup();
 
-    const captured = captureStatements(db, () => {
+    const captured = await captureStatements(db, async () => {
       expect(
-        listTodoSnapshotEventRowsForThread(db, { threadId: thread.id }),
+        await listTodoSnapshotEventRowsForThread(db, { threadId: thread.id }),
       ).toEqual([]);
     });
     const query = captured.find((entry) => entry.sql.includes("planSteps"));
@@ -1084,16 +1105,16 @@ describe("slow query index plans", () => {
     expect(query.sql).not.toContain("tool_name");
     expect(query.params).toEqual([thread.id, 1]);
     expect(
-      queryPlanDetails({ db, params: query.params, sql: query.sql }),
+      await queryPlanDetails({ db, params: query.params, sql: query.sql }),
     ).toContain("events_plan_steps_thread_sequence_idx");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("resolves open background-task state without per-row subqueries", () => {
-    const { db, logger, thread } = setup();
+  it("resolves open background-task state without per-row subqueries", async () => {
+    const { db, logger, thread } = await setup();
 
-    listLatestOpenBackgroundTaskStateRowsForThread(db, {
+    await listLatestOpenBackgroundTaskStateRowsForThread(db, {
       threadId: thread.id,
     });
 
@@ -1112,24 +1133,28 @@ describe("slow query index plans", () => {
       thread.id,
       "item/backgroundTask/completed",
     ];
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog,
       indexName: "events_background_task_thread_type_item_sequence_idx",
       params,
     });
 
-    const details = queryPlanDetails({ db, params, sql: debugLog.fields.sql });
+    const details = await queryPlanDetails({
+      db,
+      params,
+      sql: debugLog.fields.sql,
+    });
     expect(details).not.toMatch(/CORRELATED/);
     expectNoThreadOnlyEventSeek(details);
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses the closed-session prune index for emitted delete SQL", () => {
-    const { db, host, logger } = setup();
+  it("uses the closed-session prune index for emitted delete SQL", async () => {
+    const { db, host, logger } = await setup();
     const now = Date.now();
-    const staleSession = openSession(db, {
+    const staleSession = await openSession(db, {
       hostId: host.id,
       instanceId: "closed-prune-query-plan",
       hostName: "query-plan-host",
@@ -1139,14 +1164,14 @@ describe("slow query index plans", () => {
       leaseTimeoutMs: 30_000,
     });
     const closedBefore = now - 5_000;
-    closeSessionAt({
+    await closeSessionAt({
       closedAt: now - 10_000,
       db,
       sessionId: staleSession.id,
     });
     logger.clear();
 
-    pruneClosedSessions(db, { closedBefore, limit: 100 });
+    await pruneClosedSessions(db, { closedBefore, limit: 100 });
 
     const debugLog = findOnlyDebugLog({
       logger,
@@ -1154,27 +1179,27 @@ describe("slow query index plans", () => {
         fields.operation === "run" &&
         fields.sql.startsWith("DELETE FROM host_daemon_sessions"),
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog,
       indexName: "host_daemon_sessions_closed_prune_idx",
       params: ["closed", closedBefore, 100],
     });
-    db.$client.close();
+    await db.close();
   });
 
-  it("skips removed environments in the provider lifecycle sweep", () => {
-    const { db } = setup();
-    const captured = captureStatements(db, () => {
+  it("skips removed environments in the provider lifecycle sweep", async () => {
+    const { db } = await setup();
+    const captured = await captureStatements(db, async () => {
       expect(
-        listProviderLifecycleEnvironments(db, "git-worktree", {
+        await listProviderLifecycleEnvironments(db, "git-worktree", {
           pluginId: "environment-git-worktree",
           teardownMessage: "blocked",
         }),
       ).toEqual([]);
     });
     expect(captured).toHaveLength(1);
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: captured[0]!.params,
       sql: captured[0]!.sql,
@@ -1183,30 +1208,30 @@ describe("slow query index plans", () => {
       "USING INDEX environments_provider_lifecycle_idx",
     );
     expect(details).not.toContain("SCAN environments");
-    db.$client.close();
+    await db.close();
   });
 
-  it("releases preparation owners through the owner index", () => {
-    const { db, logger } = setup();
-    releaseFinishedEnvironmentPreparationOwners(db);
+  it("releases preparation owners through the owner index", async () => {
+    const { db, logger } = await setup();
+    await releaseFinishedEnvironmentPreparationOwners(db);
     const debugLog = findOnlyDebugLog({
       logger,
       predicate: (fields) =>
         fields.operation === "run" &&
         fields.sql.startsWith('update "environments" set "owner_thread_id"'),
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog,
       indexName: "environments_owner_thread_idx",
       params: [null, "removed"],
     });
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses the provider request index for pending interaction lookups", () => {
-    const { db, logger, thread } = setup();
-    createPendingInteraction(db, {
+  it("uses the provider request index for pending interaction lookups", async () => {
+    const { db, logger, thread } = await setup();
+    await createPendingInteraction(db, {
       threadId: thread.id,
       turnId: "turn-provider-request-query-plan",
       providerId: "codex",
@@ -1217,7 +1242,7 @@ describe("slow query index plans", () => {
     logger.clear();
 
     expect(
-      getPendingInteractionByProviderRequest(db, {
+      await getPendingInteractionByProviderRequest(db, {
         providerId: "codex",
         providerThreadId: "provider-thread-query-plan",
         providerRequestId: "request-query-plan",
@@ -1233,7 +1258,7 @@ describe("slow query index plans", () => {
         fields.sql.includes('from "pending_interactions"') &&
         fields.sql.includes('"provider_request_id" = ?'),
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog,
       indexName: "pending_interactions_provider_request_idx",
@@ -1245,7 +1270,7 @@ describe("slow query index plans", () => {
       ],
     });
 
-    db.$client.close();
+    await db.close();
   });
 
   it.each([
@@ -1253,10 +1278,10 @@ describe("slow query index plans", () => {
     ["reasoning", "item/reasoning/textDelta"],
   ] as const)(
     "does not parse %s completion payloads for retention support",
-    (itemKind, deltaType) => {
-      const { db, thread } = setup();
+    async (itemKind, deltaType) => {
+      const { db, thread } = await setup();
       try {
-        insertEvents(
+        await insertEvents(
           db,
           noopNotifier,
           [1, 2, 3].map((sequence) => ({
@@ -1270,8 +1295,10 @@ describe("slow query index plans", () => {
             type: sequence === 3 ? "item/completed" : deltaType,
           })),
         );
-        const statements = captureStatements(db, () => {
-          expect(advanceThreadPruning(db, "resolved-items").removed).toBe(1);
+        const statements = await captureStatements(db, async () => {
+          expect(
+            (await advanceThreadPruning(db, "resolved-items")).removed,
+          ).toBe(1);
         });
         const supportQueries = statements.filter((statement) =>
           /from events indexed by events_thread_turn_type_item_sequence_idx/i.test(
@@ -1280,7 +1307,7 @@ describe("slow query index plans", () => {
         );
         expect(supportQueries.length).toBeGreaterThan(0);
         for (const statement of supportQueries) {
-          const instructions = db.$client
+          const instructions = await db.$client
             .prepare<SqliteParameter[], { p4: string | null }>(
               `EXPLAIN ${statement.sql}`,
             )
@@ -1290,19 +1317,19 @@ describe("slow query index plans", () => {
           );
         }
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("discovers archived teardown work without walking archived thread history", () => {
-    const { db } = setup();
+  it("discovers archived teardown work without walking archived thread history", async () => {
+    const { db } = await setup();
     try {
-      const captured = captureStatements(db, () => {
-        listArchivedThreadsPendingTeardown(db);
+      const captured = await captureStatements(db, async () => {
+        await listArchivedThreadsPendingTeardown(db);
       });
       const statement = captured[0]!;
-      const details = queryPlanDetails({ db, ...statement });
+      const details = await queryPlanDetails({ db, ...statement });
       expect(details).toMatch(/SEARCH threads USING INDEX \S+ \(status=\?\)/);
       expect(details).toContain(
         "SEARCH threads USING INDEX sqlite_autoindex_threads_1 (id=?)",
@@ -1311,50 +1338,53 @@ describe("slow query index plans", () => {
       expect(details).not.toContain("SCAN threads");
       expect(details).not.toContain("SCAN terminal_sessions");
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("lists live terminals without walking exited session history", () => {
-    const { db } = setup();
+  it("lists live terminals without walking exited session history", async () => {
+    const { db } = await setup();
     try {
-      const statements = captureStatements(db, () => {
-        listTerminalSessions(db, { scope: { kind: "all" }, visible: true });
+      const statements = await captureStatements(db, async () => {
+        await listTerminalSessions(db, {
+          scope: { kind: "all" },
+          visible: true,
+        });
       });
-      const details = queryPlanDetails({ db, ...statements[0]! });
+      const details = await queryPlanDetails({ db, ...statements[0]! });
       expect(details).not.toContain("SCAN terminal_sessions");
       expect(details).toMatch(
         /SEARCH terminal_sessions USING INDEX \S+ \(status=\?\)/,
       );
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("counts standalone terminals by host and live status", () => {
-    const { db, host } = setup();
+  it("counts standalone terminals by host and live status", async () => {
+    const { db, host } = await setup();
     try {
-      const statements = captureStatements(db, () => {
-        countTerminalSessions(db, {
+      const statements = await captureStatements(db, async () => {
+        await countTerminalSessions(db, {
           scope: { kind: "host-path", hostId: host.id, cwd: null },
           visible: true,
         });
       });
-      const details = queryPlanDetails({ db, ...statements[0]! });
+      const details = await queryPlanDetails({ db, ...statements[0]! });
       expect(details).not.toContain("SCAN terminal_sessions");
       expect(details).toMatch(
         /SEARCH terminal_sessions USING INDEX \S+ \(host_id=\? AND status=\?\)/,
       );
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("uses the active-thread maintenance index for emitted idle checks", () => {
-    const { db, logger } = setup();
+  it("uses the active-thread maintenance index for emitted idle checks", async () => {
+    const { db, logger } = await setup();
     logger.clear();
 
-    getDatabaseMaintenanceActivity(db);
+    await getDatabaseMaintenanceActivity(db);
 
     const debugLog = findOnlyDebugLog({
       logger,
@@ -1363,20 +1393,20 @@ describe("slow query index plans", () => {
         fields.sql.includes('from "threads"') &&
         fields.sql.includes('"threads"."deleted_at" is null'),
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog,
       indexName: "threads_active_maintenance_idx",
       params: ["active", "provisioning"],
     });
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses the thread and sequence index for search segment suffix deletes", () => {
-    const { db } = setup();
+  it("uses the thread and sequence index for search segment suffix deletes", async () => {
+    const { db } = await setup();
 
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: ["thread-query-plan", 10, 20],
       sql: `
@@ -1392,17 +1422,17 @@ describe("slow query index plans", () => {
     );
     expect(details).not.toContain("SCAN thread_search_segments");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses selective indexes for completed output migration cursor and event scans", () => {
-    const { db, logger, thread } = setup();
+  it("uses selective indexes for completed output migration cursor and event scans", async () => {
+    const { db, logger, thread } = await setup();
     const createdBefore = Date.now();
     const commandOutput =
       "command-head-" +
       "a".repeat(COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS) +
       "-command-tail";
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: createdBefore - 10_000,
         data: JSON.stringify({
@@ -1421,7 +1451,7 @@ describe("slow query index plans", () => {
         type: "item/completed",
       },
     ]);
-    const insertedEvent = db.$client
+    const insertedEvent = await db.$client
       .prepare<[string, number], IdentifiedRow>(
         "SELECT id FROM events WHERE thread_id = ? AND sequence = ?",
       )
@@ -1431,7 +1461,7 @@ describe("slow query index plans", () => {
     }
     logger.clear();
 
-    migrateNextCompletedEventItemOutput(db, {
+    await migrateNextCompletedEventItemOutput(db, {
       itemKind: "commandExecution",
       limit: 10,
       migratedAt: createdBefore,
@@ -1445,7 +1475,7 @@ describe("slow query index plans", () => {
         fields.sql.includes('from "maintenance_scan_cursors"') &&
         fields.bindingArgumentCount === 2,
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog: cursorDebugLog,
       indexName: "sqlite_autoindex_maintenance_scan_cursors_1",
@@ -1463,7 +1493,7 @@ describe("slow query index plans", () => {
         fields.sql.includes("ORDER BY created_at, id") &&
         fields.bindingArgumentCount === 6,
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog: scanDebugLog,
       indexName: "events_completed_item_truncation_idx",
@@ -1479,7 +1509,7 @@ describe("slow query index plans", () => {
         ) &&
         fields.bindingArgumentCount === 14,
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog: candidateDebugLog,
       indexName: "events_completed_item_truncation_idx",
@@ -1501,13 +1531,13 @@ describe("slow query index plans", () => {
       ],
     });
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("bounds legacy image generation migration with the event primary key", () => {
-    const { db, logger, thread } = setup();
+  it("bounds legacy image generation migration with the event primary key", async () => {
+    const { db, logger, thread } = await setup();
     const migratedAt = Date.now();
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: migratedAt - 10_000,
         data: JSON.stringify({
@@ -1541,7 +1571,7 @@ describe("slow query index plans", () => {
         type: "provider/unhandled",
       },
     ]);
-    const insertedEvent = db.$client
+    const insertedEvent = await db.$client
       .prepare<[string, number], IdentifiedRow>(
         "SELECT id FROM events WHERE thread_id = ? AND sequence = ?",
       )
@@ -1551,7 +1581,7 @@ describe("slow query index plans", () => {
     }
     logger.clear();
 
-    migrateNextLegacyImageGenerationOutput(db, {
+    await migrateNextLegacyImageGenerationOutput(db, {
       limit: 10,
       migratedAt,
     });
@@ -1564,7 +1594,7 @@ describe("slow query index plans", () => {
         fields.sql.includes("ORDER BY id") &&
         fields.bindingArgumentCount === 2,
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog: scanDebugLog,
       indexName: "sqlite_autoindex_events_1",
@@ -1580,7 +1610,7 @@ describe("slow query index plans", () => {
         ) &&
         fields.bindingArgumentCount === 9,
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog: candidateDebugLog,
       indexName: "sqlite_autoindex_events_1",
@@ -1597,13 +1627,13 @@ describe("slow query index plans", () => {
       ],
     });
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses the retained-output primary key for hydration", () => {
-    const { db, logger, thread } = setup();
+  it("uses the retained-output primary key for hydration", async () => {
+    const { db, logger, thread } = await setup();
     const now = 1_800_000_000_000;
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: now,
         data: JSON.stringify({
@@ -1624,13 +1654,13 @@ describe("slow query index plans", () => {
         type: "item/completed",
       },
     ]);
-    const [stored] = listStoredEventRows(db, { threadId: thread.id });
+    const [stored] = await listStoredEventRows(db, { threadId: thread.id });
     if (!stored) {
       throw new Error("Expected retained hydration event");
     }
     logger.clear();
 
-    hydrateRetainedEventOutputRows(db, [stored], now);
+    await hydrateRetainedEventOutputRows(db, [stored], now);
 
     const debugLog = findOnlyDebugLog({
       logger,
@@ -1639,20 +1669,20 @@ describe("slow query index plans", () => {
         fields.sql.includes('from "retained_event_outputs"') &&
         fields.sql.includes('"event_id" in'),
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog,
       indexName: "sqlite_autoindex_retained_event_outputs_1",
       params: [stored.id, now],
     });
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("uses the expiry and primary-key indexes for bounded cleanup", () => {
-    const { db, logger, thread } = setup();
+  it("uses the expiry and primary-key indexes for bounded cleanup", async () => {
+    const { db, logger, thread } = await setup();
     const now = 1_800_000_000_000;
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         createdAt: now,
         data: JSON.stringify({
@@ -1673,14 +1703,14 @@ describe("slow query index plans", () => {
         type: "item/completed",
       },
     ]);
-    const [stored] = listStoredEventRows(db, { threadId: thread.id });
+    const [stored] = await listStoredEventRows(db, { threadId: thread.id });
     if (!stored) {
       throw new Error("Expected retained expiry event");
     }
     const expiredAtOrBefore = Number.MAX_SAFE_INTEGER;
     logger.clear();
 
-    deleteExpiredRetainedEventOutputs(db, {
+    await deleteExpiredRetainedEventOutputs(db, {
       expiredAtOrBefore,
       limit: 1,
     });
@@ -1692,7 +1722,7 @@ describe("slow query index plans", () => {
         fields.sql.includes('from "retained_event_outputs"') &&
         fields.sql.includes('order by "retained_event_outputs"."expires_at"'),
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog: selection,
       indexName: "retained_event_outputs_expiry_idx",
@@ -1704,19 +1734,19 @@ describe("slow query index plans", () => {
         fields.operation === "run" &&
         fields.sql.startsWith('delete from "retained_event_outputs"'),
     });
-    assertEmittedQueryPlanUsesIndex({
+    await assertEmittedQueryPlanUsesIndex({
       db,
       debugLog: deletion,
       indexName: "sqlite_autoindex_retained_event_outputs_1",
       params: [stored.id],
     });
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("pins maintenance discovery to the typed sequence index", () => {
-    const { db, thread } = setup();
-    insertEvents(db, noopNotifier, [
+  it("pins maintenance discovery to the typed sequence index", async () => {
+    const { db, thread } = await setup();
+    await insertEvents(db, noopNotifier, [
       {
         threadId: thread.id,
         sequence: 1,
@@ -1729,8 +1759,8 @@ describe("slow query index plans", () => {
         createdAt: 1,
       },
     ]);
-    const statements = captureStatements(db, () => {
-      advanceThreadPruning(db, "turn-diffs");
+    const statements = await captureStatements(db, async () => {
+      await advanceThreadPruning(db, "turn-diffs");
     });
     const discovery = statements.find((statement) =>
       statement.sql.includes(
@@ -1739,18 +1769,18 @@ describe("slow query index plans", () => {
     );
     expect(discovery).toBeDefined();
     if (!discovery) throw new Error("Missing maintenance discovery query");
-    expect(queryPlanDetails({ db, ...discovery })).toContain(
+    expect(await queryPlanDetails({ db, ...discovery })).toContain(
       "USING INDEX events_thread_type_sequence_idx",
     );
     expect(discovery.sql).toContain("LIMIT ?");
-    db.$client.close();
+    await db.close();
   });
 
-  it("bounds delta support probes with the consolidated scope index", () => {
-    const { db, logger, thread } = setup();
+  it("bounds delta support probes with the consolidated scope index", async () => {
+    const { db, logger, thread } = await setup();
     const turnId = "turn_resolved_delta_query_plan";
     const itemId = "call_resolved_delta_query_plan";
-    insertEvents(db, noopNotifier, [
+    await insertEvents(db, noopNotifier, [
       {
         data: JSON.stringify({ output: "first", parentToolCallId: "parent" }),
         itemId,
@@ -1791,14 +1821,16 @@ describe("slow query index plans", () => {
     ]);
     logger.clear();
 
-    const statements = captureStatements(db, () => {
-      expect(advanceThreadPruning(db, "resolved-items").removed).toBe(1);
+    const statements = await captureStatements(db, async () => {
+      expect((await advanceThreadPruning(db, "resolved-items")).removed).toBe(
+        1,
+      );
     });
     const discovery = statements.find((statement) =>
       statement.sql.includes("WITH candidate_ids AS MATERIALIZED"),
     );
     if (!discovery) throw new Error("Missing typed delta candidate discovery");
-    const discoveryPlan = queryPlanDetails({ db, ...discovery });
+    const discoveryPlan = await queryPlanDetails({ db, ...discovery });
     expect(
       discoveryPlan.match(
         /USING COVERING INDEX events_thread_type_sequence_idx/gu,
@@ -1813,7 +1845,7 @@ describe("slow query index plans", () => {
     );
     expect(supportQueries.length).toBeGreaterThan(0);
     for (const statement of supportQueries) {
-      expect(queryPlanDetails({ db, ...statement })).toContain(
+      expect(await queryPlanDetails({ db, ...statement })).toContain(
         "USING INDEX events_thread_turn_type_item_sequence_idx",
       );
       expect(statement.sql).toMatch(/LIMIT \?/i);
@@ -1828,13 +1860,13 @@ describe("slow query index plans", () => {
     expect(pruneQuery.fields.bindingArgumentCount).toBeLessThanOrEqual(500);
     expect(pruneQuery.fields.sql).not.toContain("json_extract");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("discovers token usage keepers without reading payloads or computing unused byte totals", () => {
-    const { db, thread } = setup();
+  it("discovers token usage keepers without reading payloads or computing unused byte totals", async () => {
+    const { db, thread } = await setup();
     try {
-      insertEvents(
+      await insertEvents(
         db,
         noopNotifier,
         [1, 2].map((sequence) => ({
@@ -1848,17 +1880,17 @@ describe("slow query index plans", () => {
           type: "thread/tokenUsage/updated" as const,
         })),
       );
-      advanceThreadPruning(db, "usage");
-      advanceThreadPruning(db, "usage");
-      const statements = captureStatements(db, () => {
-        const result = advanceThreadPruning(db, "usage");
+      await advanceThreadPruning(db, "usage");
+      await advanceThreadPruning(db, "usage");
+      const statements = await captureStatements(db, async () => {
+        const result = await advanceThreadPruning(db, "usage");
         expect(result.scanned).toBe(2);
         expect(result.removed).toBe(0);
         expect(result.removedBytes).toBe(0);
         expect(result.cursor.latestRootSequence).toBe(2);
       });
       for (const statement of statements) {
-        const instructions = db.$client
+        const instructions = await db.$client
           .prepare<SqliteParameter[], { p4: string | null }>(
             `EXPLAIN ${statement.sql}`,
           )
@@ -1868,17 +1900,17 @@ describe("slow query index plans", () => {
         ).toEqual([]);
       }
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("pins multi-thread latest state lookups to one candidate seek per requested thread", () => {
-    const { db, project, thread } = setup();
-    const otherThread = createThread(db, noopNotifier, {
+  it("pins multi-thread latest state lookups to one candidate seek per requested thread", async () => {
+    const { db, project, thread } = await setup();
+    const otherThread = await createThread(db, noopNotifier, {
       projectId: project.id,
       providerId: "codex",
     });
-    insertEvents(
+    await insertEvents(
       db,
       noopNotifier,
       [thread, otherThread].flatMap((stateThread, threadIndex) =>
@@ -1902,9 +1934,9 @@ describe("slow query index plans", () => {
       ),
     );
 
-    const captured = captureStatements(db, () => {
+    const captured = await captureStatements(db, async () => {
       expect(
-        listLatestThreadStateEventRowsByThreadIds(db, {
+        await listLatestThreadStateEventRowsByThreadIds(db, {
           threadIds: [thread.id, otherThread.id],
           kind: "provider-codex/goal",
         }),
@@ -1918,7 +1950,7 @@ describe("slow query index plans", () => {
     }
 
     expect(statement.sql).toContain("VALUES");
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: statement.params,
       sql: statement.sql,
@@ -1933,14 +1965,16 @@ describe("slow query index plans", () => {
     );
     expect(details).not.toContain("USE TEMP B-TREE");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("serves the thread-list pending probe from its covering index without a GROUP BY sort", () => {
-    const { db } = setup();
+  it("serves the thread-list pending probe from its covering index without a GROUP BY sort", async () => {
+    const { db } = await setup();
 
-    const captured = captureStatements(db, () => {
-      listThreadsWithPendingInteractionState(db, { includeHidden: false });
+    const captured = await captureStatements(db, async () => {
+      await listThreadsWithPendingInteractionState(db, {
+        includeHidden: false,
+      });
     });
     const statement = captured.find(
       (entry) =>
@@ -1951,7 +1985,7 @@ describe("slow query index plans", () => {
       throw new Error("Expected the thread-list SQL");
     }
 
-    const details = queryPlanDetails({
+    const details = await queryPlanDetails({
       db,
       params: statement.params,
       sql: statement.sql,
@@ -1961,12 +1995,12 @@ describe("slow query index plans", () => {
     );
     expect(details).not.toContain("USE TEMP B-TREE FOR GROUP BY");
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("drops redundant events indexes after creating their consolidated replacement", () => {
-    const { db } = setup();
-    const indexRows = db.$client
+  it("drops redundant events indexes after creating their consolidated replacement", async () => {
+    const { db } = await setup();
+    const indexRows = await db.$client
       .prepare<[], IndexNameRow>(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'events'",
       )
@@ -1980,32 +2014,34 @@ describe("slow query index plans", () => {
     expect(indexNames).not.toContain(
       "events_thread_turn_type_item_kind_item_idx",
     );
-    const [statement] = captureStatements(db, () =>
-      listItemEventSpansByItems(db, {
-        threadId: "query-plan-thread",
-        items: ["turn-1", "turn-2"].map((turnId) => ({
-          itemId: turnId,
-          scopeKind: "turn",
-          turnId,
-        })),
-      }),
+    const [statement] = await captureStatements(
+      db,
+      async () =>
+        await listItemEventSpansByItems(db, {
+          threadId: "query-plan-thread",
+          items: ["turn-1", "turn-2"].map((turnId) => ({
+            itemId: turnId,
+            scopeKind: "turn",
+            turnId,
+          })),
+        }),
     );
-    expect(queryPlanDetails({ db, ...statement! })).toContain(
+    expect(await queryPlanDetails({ db, ...statement! })).toContain(
       "events_thread_turn_type_item_sequence_idx",
     );
 
-    db.$client.close();
+    await db.close();
   });
 
-  it("prunes stored provider model catalogs through the primary-key prefix", () => {
-    const { db, host, logger } = setup();
+  it("prunes stored provider model catalogs through the primary-key prefix", async () => {
+    const { db, host, logger } = await setup();
     const pruneWorkspaceRowsFetchedBefore = 10_000;
     const isCatalogDelete = (fields: SlowDbQueryLogFields): boolean =>
       fields.operation === "run" &&
       fields.sql.startsWith('delete from "provider_model_catalogs"');
     logger.clear();
 
-    replaceStoredProviderModelCatalog(db, {
+    await replaceStoredProviderModelCatalog(db, {
       row: {
         hostId: host.id,
         providerId: "acp-pi-acp",
@@ -2026,7 +2062,7 @@ describe("slow query index plans", () => {
       pruneWorkspaceRowsFetchedBefore,
     ];
     expect(prune.fields.bindingArgumentCount).toBe(pruneParams.length);
-    const pruneDetails = queryPlanDetails({
+    const pruneDetails = await queryPlanDetails({
       db,
       params: pruneParams,
       sql: prune.fields.sql,
@@ -2036,6 +2072,6 @@ describe("slow query index plans", () => {
     );
     expect(pruneDetails).not.toMatch(/SCAN provider_model_catalogs/u);
 
-    db.$client.close();
+    await db.close();
   });
 });

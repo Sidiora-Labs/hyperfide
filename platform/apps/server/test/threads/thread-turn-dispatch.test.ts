@@ -16,20 +16,21 @@ afterEach(() => vi.restoreAllMocks());
 
 it("leaves reprovision unstarted when dispatch admission rejects the request", async () => {
   await withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps);
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { host } = await seedHostSession(harness.deps);
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: host.id,
     });
-    const environment = seedEnvironment(harness.deps, {
+    const environment = await seedEnvironment(harness.deps, {
       hostId: host.id,
       projectId: project.id,
       status: "error",
       path: "/tmp/rejected-reprovision",
       environmentProviderId: "personal-workspace",
-      environmentProviderPluginId: "hyperfide-plugin-environment-personal-workspace",
+      environmentProviderPluginId:
+        "hyperfide-plugin-environment-personal-workspace",
       isGitRepo: false,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       status: "idle",
@@ -44,7 +45,7 @@ it("leaves reprovision unstarted when dispatch admission rejects the request", a
       },
       { threadId: thread.id },
     );
-    const eventsBefore = listEvents(harness.db, { threadId: thread.id });
+    const eventsBefore = await listEvents(harness.db, { threadId: thread.id });
     const notifyThread = vi.spyOn(harness.deps.hub, "notifyThread");
     const rejected = new Error("Dispatch admission rejected");
     let admissionStatus: string | undefined;
@@ -58,17 +59,17 @@ it("leaves reprovision unstarted when dispatch admission rejects the request", a
         input: textInput("must remain undelivered"),
         senderThreadId: null,
         thread,
-        beforeRequestAppendInTransaction: ({ tx }) => {
-          admissionStatus = getThread(tx, thread.id)?.status;
+        beforeRequestAppendInTransaction: async ({ tx }) => {
+          admissionStatus = (await getThread(tx, thread.id))?.status;
           throw rejected;
         },
       }),
     ).rejects.toBe(rejected);
 
     expect(admissionStatus).toBe("idle");
-    expect(getThread(harness.db, thread.id)?.status).toBe("idle");
-    expect(readThreadProvisionContext(harness.db, thread.id)).toBeNull();
-    expect(listEvents(harness.db, { threadId: thread.id })).toEqual(
+    expect((await getThread(harness.db, thread.id))?.status).toBe("idle");
+    expect(await readThreadProvisionContext(harness.db, thread.id)).toBeNull();
+    expect(await listEvents(harness.db, { threadId: thread.id })).toEqual(
       eventsBefore,
     );
     expect(notifyThread).not.toHaveBeenCalled();

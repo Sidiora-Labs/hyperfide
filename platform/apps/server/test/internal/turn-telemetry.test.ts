@@ -40,7 +40,7 @@ async function postEventBatch(
 ): Promise<Response> {
   return harness.app.request("/internal/session/events", {
     method: "POST",
-    headers: internalAuthHeaders(harness),
+    headers: await internalAuthHeaders(harness),
     body: JSON.stringify({
       sessionId,
       eventGroups: groupHostDaemonEvents(events),
@@ -64,19 +64,21 @@ async function setup(
       return harness.deps.telemetry;
     },
   });
-  const { host, session } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+  const { host, session } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     providerId: options.providerId ?? "codex",
     status: options.status ?? "active",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: environment.id,
     inputText: "hello",
     providerThreadId: "provider-thread",
@@ -180,7 +182,7 @@ describe("turn_finished telemetry", () => {
     async ({ reason, cause }) => {
       const { harness, host, turnFinished } = await setup();
       try {
-        interruptActiveThreadsForHost(harness.deps, {
+        await interruptActiveThreadsForHost(harness.deps, {
           hostId: host.id,
           includeStopping: false,
           reason,
@@ -202,12 +204,12 @@ describe("turn_finished telemetry", () => {
   it("keeps a command failure after an earlier host interruption as start_failed", async () => {
     const { harness, host, session, thread, turnFinished } = await setup();
     try {
-      interruptActiveThreadsForHost(harness.deps, {
+      await interruptActiveThreadsForHost(harness.deps, {
         hostId: host.id,
         includeStopping: false,
         reason: "host-daemon-restarted",
       });
-      applyLoggedThreadLifecycleEvent(harness.deps, {
+      await applyLoggedThreadLifecycleEvent(harness.deps, {
         event: { type: "run.preparing" },
         threadId: thread.id,
       });
@@ -224,7 +226,7 @@ describe("turn_finished telemetry", () => {
         },
       ]);
       expect(response.status).toBe(200);
-      applyLoggedThreadLifecycleEvent(harness.deps, {
+      await applyLoggedThreadLifecycleEvent(harness.deps, {
         event: { type: "run.failed" },
         threadId: thread.id,
       });
@@ -270,7 +272,7 @@ describe("turn_finished telemetry", () => {
       const { harness, thread, turnFinished } = await setup({ status });
       try {
         for (const event of events) {
-          applyLoggedThreadLifecycleEvent(harness.deps, {
+          await applyLoggedThreadLifecycleEvent(harness.deps, {
             event,
             threadId: thread.id,
           });
@@ -290,38 +292,38 @@ describe("turn_finished telemetry", () => {
   it("numbers concurrent finishes without gaps and pauses while telemetry is off", async () => {
     const { harness, thread, turnFinished } = await setup();
     try {
-      const second = seedThread(harness.deps, {
+      const second = await seedThread(harness.deps, {
         projectId: thread.projectId,
         environmentId: thread.environmentId,
         status: "active",
       });
-      const finish = (threadId: string) =>
-        applyLoggedThreadLifecycleEvent(harness.deps, {
+      const finish = async (threadId: string) =>
+        await applyLoggedThreadLifecycleEvent(harness.deps, {
           threadId,
           event: { type: "run.succeeded" },
         });
       await Promise.all([
-        Promise.resolve().then(() => finish(thread.id)),
-        Promise.resolve().then(() => finish(second.id)),
+        Promise.resolve().then(async () => await finish(thread.id)),
+        Promise.resolve().then(async () => await finish(second.id)),
       ]);
       expect(
         turnFinished().map((event) => event.properties.install_turn_number),
       ).toEqual([1, 2]);
       harness.deps.telemetry.isEnabled = () => false;
-      const optedOut = seedThread(harness.deps, {
+      const optedOut = await seedThread(harness.deps, {
         projectId: thread.projectId,
         environmentId: thread.environmentId,
         status: "active",
       });
-      finish(optedOut.id);
+      await finish(optedOut.id);
       expect(turnFinished()).toHaveLength(2);
       harness.deps.telemetry.isEnabled = () => true;
-      const resumed = seedThread(harness.deps, {
+      const resumed = await seedThread(harness.deps, {
         projectId: thread.projectId,
         environmentId: thread.environmentId,
         status: "active",
       });
-      finish(resumed.id);
+      await finish(resumed.id);
       expect(
         turnFinished().map((event) => event.properties.install_turn_number),
       ).toEqual([1, 2, 3]);
@@ -350,23 +352,24 @@ describe("turn_finished telemetry", () => {
   it("does not count duplicate notifications or rolled-back finishes", async () => {
     const { harness, thread, turnFinished } = await setup();
     try {
-      expect(() =>
-        harness.db.transaction((db) => {
-          applyLoggedThreadLifecycleEventInTransaction(
-            { ...harness.deps, db },
-            {
-              threadId: thread.id,
-              event: { type: "run.succeeded" },
-            },
-          );
-          expect(turnFinished()).toEqual([]);
-          throw new Error("rollback");
-        }),
-      ).toThrow("rollback");
+      await expect(
+        (async () =>
+          harness.db.transaction(async (db) => {
+            await applyLoggedThreadLifecycleEventInTransaction(
+              { ...harness.deps, db },
+              {
+                threadId: thread.id,
+                event: { type: "run.succeeded" },
+              },
+            );
+            expect(turnFinished()).toEqual([]);
+            throw new Error("rollback");
+          }))(),
+      ).rejects.toThrow("rollback");
       expect(turnFinished()).toEqual([]);
-      expect(getThread(harness.db, thread.id)?.status).toBe("active");
+      expect((await getThread(harness.db, thread.id))?.status).toBe("active");
       for (let i = 0; i < 2; i++) {
-        applyLoggedThreadLifecycleEvent(harness.deps, {
+        await applyLoggedThreadLifecycleEvent(harness.deps, {
           threadId: thread.id,
           event: { type: "run.succeeded" },
         });
@@ -383,11 +386,13 @@ describe("turn_finished telemetry", () => {
         },
       ]);
       expect(
-        harness.db
-          .select()
-          .from(appSettingsValues)
-          .where(eq(appSettingsValues.key, "installTurnNumber"))
-          .get()?.value,
+        (
+          await harness.db
+            .select()
+            .from(appSettingsValues)
+            .where(eq(appSettingsValues.key, "installTurnNumber"))
+            .get()
+        )?.value,
       ).toBe("1");
     } finally {
       await harness.cleanup();

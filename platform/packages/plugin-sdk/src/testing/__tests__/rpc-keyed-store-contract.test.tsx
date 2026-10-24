@@ -37,8 +37,8 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-const flush = () =>
-  act(async () => {
+const flush = async () =>
+  await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
@@ -173,8 +173,9 @@ function pluginSubject(): KeyedStoreSubject {
         await flush();
       };
       return {
-        accept: () => finish(() => gate.resolve()),
-        reject: () => finish(() => gate.reject(new Error("rejected"))),
+        accept: async () => await finish(() => gate.resolve()),
+        reject: async () =>
+          await finish(() => gate.reject(new Error("rejected"))),
       };
     },
   };

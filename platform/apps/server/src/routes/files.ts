@@ -133,7 +133,7 @@ async function serveRootedFile(
 ): Promise<Response> {
   const filePath = joinHostPath(root.rootPath, segments);
   if (root.ref === null) {
-    return serveDaemonFileStream(
+    return await serveDaemonFileStream(
       deps,
       { hostId: root.hostId, path: filePath, rootPath: root.rootPath },
       request,
@@ -168,9 +168,9 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
   const projectRoutes = publicApiRoutes.projects;
   const previewLeases = new Map<string, FilePreviewLease>();
 
-  const resolveHostId = (hostId: string | undefined): string => {
-    const resolved = hostId ?? requirePrimaryHostId(deps);
-    assertUsableHostId(deps, { hostId: resolved });
+  const resolveHostId = async (hostId: string | undefined): Promise<string> => {
+    const resolved = hostId ?? (await requirePrimaryHostId(deps));
+    await assertUsableHostId(deps, { hostId: resolved });
     return resolved;
   };
 
@@ -214,23 +214,27 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     }
   };
 
-  const runHostFileMutationCommand = <TCommand extends HostDaemonRpcCommand>(
+  const runHostFileMutationCommand = async <
+    TCommand extends HostDaemonRpcCommand,
+  >(
     hostId: string,
     command: TCommand,
   ) =>
-    runHostFileMutation(hostId, () =>
-      callHostOnlineRpcForWork(deps, {
-        hostId,
-        timeoutMs: COMMAND_TIMEOUT_MS,
-        command,
-      }),
+    await runHostFileMutation(
+      hostId,
+      async () =>
+        await callHostOnlineRpcForWork(deps, {
+          hostId,
+          timeoutMs: COMMAND_TIMEOUT_MS,
+          command,
+        }),
     );
 
   const withHostFileRoute = async <T>(
     hostIdInput: string | undefined,
     run: (hostId: string) => Promise<T>,
   ): Promise<T> => {
-    const hostId = resolveHostId(hostIdInput);
+    const hostId = await resolveHostId(hostIdInput);
     try {
       return await run(hostId);
     } catch (error) {
@@ -238,136 +242,150 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     }
   };
 
-  post(fileRoutes.read, (context, payload) =>
-    withHostFileRoute(payload.hostId, async (hostId) => {
-      const result = await callHostRetryableOnlineRpc(deps, {
-        hostId,
-        timeoutMs: COMMAND_TIMEOUT_MS,
-        command: {
-          type: "host.read_file",
+  post(
+    fileRoutes.read,
+    async (context, payload) =>
+      await withHostFileRoute(payload.hostId, async (hostId) => {
+        const result = await callHostRetryableOnlineRpc(deps, {
+          hostId,
+          timeoutMs: COMMAND_TIMEOUT_MS,
+          command: {
+            type: "host.read_file",
+            path: payload.path,
+            ...(payload.rootPath !== undefined
+              ? { rootPath: payload.rootPath }
+              : {}),
+          },
+        });
+        return context.json(requireDaemonFileContentResult(result));
+      }),
+  );
+
+  post(
+    fileRoutes.write,
+    async (context, payload) =>
+      await withHostFileRoute(payload.hostId, async (hostId) => {
+        const result = await runHostFileMutationCommand(hostId, {
+          type: "host.write_file",
           path: payload.path,
+          content: payload.content,
+          contentEncoding: payload.contentEncoding ?? "utf8",
+          createParents: payload.createParents ?? false,
           ...(payload.rootPath !== undefined
             ? { rootPath: payload.rootPath }
             : {}),
-        },
-      });
-      return context.json(requireDaemonFileContentResult(result));
-    }),
+          ...(payload.expectedSha256 !== undefined
+            ? { expectedSha256: payload.expectedSha256 }
+            : {}),
+          ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
+        });
+        return context.json(result);
+      }),
   );
 
-  post(fileRoutes.write, (context, payload) =>
-    withHostFileRoute(payload.hostId, async (hostId) => {
-      const result = await runHostFileMutationCommand(hostId, {
-        type: "host.write_file",
-        path: payload.path,
-        content: payload.content,
-        contentEncoding: payload.contentEncoding ?? "utf8",
-        createParents: payload.createParents ?? false,
-        ...(payload.rootPath !== undefined
-          ? { rootPath: payload.rootPath }
-          : {}),
-        ...(payload.expectedSha256 !== undefined
-          ? { expectedSha256: payload.expectedSha256 }
-          : {}),
-        ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
-      });
-      return context.json(result);
-    }),
+  post(
+    fileRoutes.list,
+    async (context, payload) =>
+      await withHostFileRoute(payload.hostId, async (hostId) => {
+        const result = await callHostRetryableOnlineRpc(deps, {
+          hostId,
+          signal: context.req.raw.signal,
+          timeoutMs: COMMAND_TIMEOUT_MS,
+          command: {
+            type: "host.list_files",
+            followRootSymlink: false,
+            path: payload.path,
+            limit: payload.limit ?? HOST_FILE_LIST_LIMIT_DEFAULT,
+            includeHidden:
+              payload.includeHidden ?? WORKSPACE_PATH_LIST_INCLUDE_HIDDEN,
+            respectGitIgnore: false,
+            excludeNames: [
+              ...(payload.excludeNames ?? DEFAULT_PATH_LIST_EXCLUDE_NAMES),
+            ],
+            ...(payload.query !== undefined ? { query: payload.query } : {}),
+          },
+        });
+        return context.json(result);
+      }),
   );
 
-  post(fileRoutes.list, (context, payload) =>
-    withHostFileRoute(payload.hostId, async (hostId) => {
-      const result = await callHostRetryableOnlineRpc(deps, {
-        hostId,
-        signal: context.req.raw.signal,
-        timeoutMs: COMMAND_TIMEOUT_MS,
-        command: {
-          type: "host.list_files",
-          followRootSymlink: false,
+  post(
+    fileRoutes.listPaths,
+    async (context, payload) =>
+      await withHostFileRoute(payload.hostId, async (hostId) => {
+        const result = await callHostRetryableOnlineRpc(deps, {
+          hostId,
+          signal: context.req.raw.signal,
+          timeoutMs: COMMAND_TIMEOUT_MS,
+          command: {
+            type: "host.list_paths",
+            path: payload.path,
+            limit: payload.limit ?? HOST_FILE_LIST_LIMIT_DEFAULT,
+            includeFiles: payload.includeFiles,
+            includeDirectories: payload.includeDirectories,
+            includeHidden:
+              payload.includeHidden ?? WORKSPACE_PATH_LIST_INCLUDE_HIDDEN,
+            respectGitIgnore: false,
+            excludeNames: [
+              ...(payload.excludeNames ?? DEFAULT_PATH_LIST_EXCLUDE_NAMES),
+            ],
+            ...(payload.query !== undefined ? { query: payload.query } : {}),
+          },
+        });
+        return context.json(result);
+      }),
+  );
+
+  post(
+    fileRoutes.mkdir,
+    async (context, payload) =>
+      await withHostFileRoute(payload.hostId, async (hostId) => {
+        const result = await runHostFileMutationCommand(hostId, {
+          type: "host.mkdir",
           path: payload.path,
-          limit: payload.limit ?? HOST_FILE_LIST_LIMIT_DEFAULT,
-          includeHidden:
-            payload.includeHidden ?? WORKSPACE_PATH_LIST_INCLUDE_HIDDEN,
-          respectGitIgnore: false,
-          excludeNames: [
-            ...(payload.excludeNames ?? DEFAULT_PATH_LIST_EXCLUDE_NAMES),
-          ],
-          ...(payload.query !== undefined ? { query: payload.query } : {}),
-        },
-      });
-      return context.json(result);
-    }),
+          recursive: payload.recursive ?? false,
+          ...(payload.rootPath !== undefined
+            ? { rootPath: payload.rootPath }
+            : {}),
+        });
+        return context.json(result);
+      }),
   );
 
-  post(fileRoutes.listPaths, (context, payload) =>
-    withHostFileRoute(payload.hostId, async (hostId) => {
-      const result = await callHostRetryableOnlineRpc(deps, {
-        hostId,
-        signal: context.req.raw.signal,
-        timeoutMs: COMMAND_TIMEOUT_MS,
-        command: {
-          type: "host.list_paths",
+  post(
+    fileRoutes.move,
+    async (context, payload) =>
+      await withHostFileRoute(payload.hostId, async (hostId) => {
+        const result = await runHostFileMutationCommand(hostId, {
+          type: "host.move_path",
+          sourcePath: payload.sourcePath,
+          destinationPath: payload.destinationPath,
+          ...(payload.rootPath !== undefined
+            ? { rootPath: payload.rootPath }
+            : {}),
+        });
+        return context.json(result);
+      }),
+  );
+
+  post(
+    fileRoutes.remove,
+    async (context, payload) =>
+      await withHostFileRoute(payload.hostId, async (hostId) => {
+        const result = await runHostFileMutationCommand(hostId, {
+          type: "host.remove_path",
           path: payload.path,
-          limit: payload.limit ?? HOST_FILE_LIST_LIMIT_DEFAULT,
-          includeFiles: payload.includeFiles,
-          includeDirectories: payload.includeDirectories,
-          includeHidden:
-            payload.includeHidden ?? WORKSPACE_PATH_LIST_INCLUDE_HIDDEN,
-          respectGitIgnore: false,
-          excludeNames: [
-            ...(payload.excludeNames ?? DEFAULT_PATH_LIST_EXCLUDE_NAMES),
-          ],
-          ...(payload.query !== undefined ? { query: payload.query } : {}),
-        },
-      });
-      return context.json(result);
-    }),
+          recursive: payload.recursive ?? false,
+          ...(payload.rootPath !== undefined
+            ? { rootPath: payload.rootPath }
+            : {}),
+        });
+        return context.json(result);
+      }),
   );
 
-  post(fileRoutes.mkdir, (context, payload) =>
-    withHostFileRoute(payload.hostId, async (hostId) => {
-      const result = await runHostFileMutationCommand(hostId, {
-        type: "host.mkdir",
-        path: payload.path,
-        recursive: payload.recursive ?? false,
-        ...(payload.rootPath !== undefined
-          ? { rootPath: payload.rootPath }
-          : {}),
-      });
-      return context.json(result);
-    }),
-  );
-
-  post(fileRoutes.move, (context, payload) =>
-    withHostFileRoute(payload.hostId, async (hostId) => {
-      const result = await runHostFileMutationCommand(hostId, {
-        type: "host.move_path",
-        sourcePath: payload.sourcePath,
-        destinationPath: payload.destinationPath,
-        ...(payload.rootPath !== undefined
-          ? { rootPath: payload.rootPath }
-          : {}),
-      });
-      return context.json(result);
-    }),
-  );
-
-  post(fileRoutes.remove, (context, payload) =>
-    withHostFileRoute(payload.hostId, async (hostId) => {
-      const result = await runHostFileMutationCommand(hostId, {
-        type: "host.remove_path",
-        path: payload.path,
-        recursive: payload.recursive ?? false,
-        ...(payload.rootPath !== undefined
-          ? { rootPath: payload.rootPath }
-          : {}),
-      });
-      return context.json(result);
-    }),
-  );
-
-  post(fileRoutes.createPreview, (context, payload) => {
-    const hostId = resolveHostId(payload.hostId);
+  post(fileRoutes.createPreview, async (context, payload) => {
+    const hostId = await resolveHostId(payload.hostId);
     const rootPath = requireAbsoluteHostRoot(payload.rootPath);
     const now = Date.now();
     for (const [id, lease] of previewLeases) {
@@ -389,7 +407,7 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
       previewLeases.delete(id);
       throw new ApiError(404, "not_found", "File preview expired", false);
     }
-    return serveRootedFile(
+    return await serveRootedFile(
       deps,
       context.req.raw,
       { hostId: lease.hostId, rootPath: lease.rootPath, ref: null },
@@ -402,7 +420,7 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
       deps,
       context.req.param("id"),
     );
-    return serveRootedFile(
+    return await serveRootedFile(
       deps,
       context.req.raw,
       { hostId: target.hostId, rootPath: target.storagePath, ref: null },
@@ -411,12 +429,12 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(threadRoutes.hostFile, async (context) => {
-    const hostId = requireThreadEnvironmentHostId(
+    const hostId = await requireThreadEnvironmentHostId(
       deps,
       context.req.param("id"),
     );
     const file = parseAbsoluteHostFile(context.req.param("filePath"));
-    return serveRootedFile(
+    return await serveRootedFile(
       deps,
       context.req.raw,
       { hostId, rootPath: file.rootPath, ref: null },
@@ -426,9 +444,9 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
 
   get(publicApiRoutes.hosts.file, async (context) => {
     const hostId = context.req.param("id");
-    assertUsableHostId(deps, { hostId });
+    await assertUsableHostId(deps, { hostId });
     const file = parseAbsoluteHostFile(context.req.param("filePath"));
-    return serveRootedFile(
+    return await serveRootedFile(
       deps,
       context.req.raw,
       { hostId, rootPath: file.rootPath, ref: null },
@@ -437,11 +455,11 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(environmentRoutes.file, async (context) => {
-    const environment = requireReadyEnvironment(
+    const environment = await requireReadyEnvironment(
       deps.db,
       context.req.param("id"),
     );
-    return serveRootedFile(
+    return await serveRootedFile(
       deps,
       context.req.raw,
       { hostId: environment.hostId, rootPath: environment.path, ref: null },
@@ -450,11 +468,11 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
   });
 
   get(environmentRoutes.revisionFile, async (context) => {
-    const environment = requireReadyEnvironment(
+    const environment = await requireReadyEnvironment(
       deps.db,
       context.req.param("id"),
     );
-    return serveRootedFile(
+    return await serveRootedFile(
       deps,
       context.req.raw,
       {
@@ -466,18 +484,18 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     );
   });
 
-  const serveProjectFile = (
+  const serveProjectFile = async (
     request: Request,
     projectId: string,
     hostId: string | undefined,
     filePath: string,
   ): Promise<Response> => {
-    requirePublicProject(deps.db, projectId);
-    const target = resolveProjectWorkspaceTarget(deps, {
+    await requirePublicProject(deps.db, projectId);
+    const target = await resolveProjectWorkspaceTarget(deps, {
       projectId,
       ...(hostId !== undefined ? { hostId } : {}),
     });
-    return serveRootedFile(
+    return await serveRootedFile(
       deps,
       request,
       { hostId: target.hostId, rootPath: target.path, ref: null },
@@ -485,21 +503,25 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     );
   };
 
-  get(projectRoutes.file, async (context) =>
-    serveProjectFile(
-      context.req.raw,
-      context.req.param("id"),
-      undefined,
-      context.req.param("filePath"),
-    ),
+  get(
+    projectRoutes.file,
+    async (context) =>
+      await serveProjectFile(
+        context.req.raw,
+        context.req.param("id"),
+        undefined,
+        context.req.param("filePath"),
+      ),
   );
 
-  get(projectRoutes.hostFile, async (context) =>
-    serveProjectFile(
-      context.req.raw,
-      context.req.param("id"),
-      context.req.param("hostId"),
-      context.req.param("filePath"),
-    ),
+  get(
+    projectRoutes.hostFile,
+    async (context) =>
+      await serveProjectFile(
+        context.req.raw,
+        context.req.param("id"),
+        context.req.param("hostId"),
+        context.req.param("filePath"),
+      ),
   );
 }

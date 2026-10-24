@@ -15,11 +15,11 @@ export async function startGatedPerformanceDiagnostics(options: {
   let recorder: Awaited<ReturnType<typeof startPerformanceDiagnostics>> | null =
     null;
   let pending = Promise.resolve();
-  const refresh = (): Promise<void> => {
+  const refresh = async (): Promise<void> => {
     enabled =
       !stopped &&
       options.allowed &&
-      getExperiments(options.db).performanceDiagnostics;
+      (await getExperiments(options.db)).performanceDiagnostics;
     pending = pending
       .then(async () => {
         if (enabled && recorder === null) {
@@ -43,21 +43,21 @@ export async function startGatedPerformanceDiagnostics(options: {
     return pending;
   };
   const unsubscribe = options.allowed
-    ? options.hub.onChangedMessage((message) => {
+    ? options.hub.onChangedMessage(async (message) => {
         if (
           message.entity === "system" &&
           message.changes.includes("config-changed")
         )
-          void refresh();
+          await refresh();
       })
     : () => {};
   await refresh();
   return {
     isEnabled: () => enabled,
-    stop: () => {
+    stop: async () => {
       stopped = true;
       unsubscribe();
-      return refresh();
+      return await refresh();
     },
   };
 }

@@ -30,11 +30,11 @@ describe("machine environment settings", () => {
       ]);
     try {
       await withTestHarness(async (harness) => {
-        setAppSettings(harness.db, {
-          ...getAppSettings(harness.db),
+        await setAppSettings(harness.db, {
+          ...(await getAppSettings(harness.db)),
           machineGitCredentialsEnabled: true,
         });
-        const sdk = createHyperfideSdk({
+        const sdk = await createHyperfideSdk({
           transport: createHttpTransport({
             baseUrl: "http://localhost",
             runtime: "node",
@@ -67,7 +67,9 @@ describe("machine environment settings", () => {
           JSON.stringify(await sdk.system.machineEnvironment()),
         ).not.toContain("user-private-token");
         expect(
-          JSON.stringify(harness.db.select().from(environmentVariables).all()),
+          JSON.stringify(
+            await harness.db.select().from(environmentVariables).all(),
+          ),
         ).not.toContain("user-private-token");
         const path = join(
           harness.config.dataDir,
@@ -86,10 +88,15 @@ describe("machine environment settings", () => {
           ).toBe(0o600);
         }
         expect(
-          JSON.stringify(harness.db.select().from(environmentVariables).all()),
+          JSON.stringify(
+            await harness.db.select().from(environmentVariables).all(),
+          ),
         ).not.toContain("test-region");
         expect(JSON.stringify(result)).not.toContain("test-region");
-        upsertHost(harness.db, harness.hub, { id: "local", name: "Local" });
+        await upsertHost(harness.db, harness.hub, {
+          id: "local",
+          name: "Local",
+        });
         seedPrimaryHost(harness.deps, "local");
         const localEnvironment = await resolveHostEnvironment(harness.deps, {
           hostId: "local",
@@ -110,11 +117,11 @@ describe("machine environment settings", () => {
         expect(
           localEnvironment.some((entry) => entry.value === "builtin-token"),
         ).toBe(false);
-        upsertHost(harness.db, harness.hub, {
+        await upsertHost(harness.db, harness.hub, {
           id: "machine",
           name: "Machine",
         });
-        updateHost(harness.db, harness.hub, "machine", {
+        await updateHost(harness.db, harness.hub, "machine", {
           machineProviderId: "manual",
         });
         const env = await resolveHostEnvironment(harness.deps, {
@@ -162,7 +169,7 @@ describe("machine environment settings", () => {
 
 it("isolates projects on a shared machine and restores global values after removal", async () => {
   await withTestHarness(async (harness) => {
-    const sdk = createHyperfideSdk({
+    const sdk = await createHyperfideSdk({
       transport: createHttpTransport({
         baseUrl: "http://localhost",
         runtime: "node",
@@ -170,7 +177,7 @@ it("isolates projects on a shared machine and restores global values after remov
           harness.app.fetch(new Request(input, init)),
       }),
     });
-    harness.db
+    await harness.db
       .insert(projects)
       .values(
         ["project-a", "project-b"].map((id) => ({
@@ -181,11 +188,11 @@ it("isolates projects on a shared machine and restores global values after remov
         })),
       )
       .run();
-    upsertHost(harness.db, harness.hub, { id: "shared", name: "Shared" });
-    updateHost(harness.db, harness.hub, "shared", {
+    await upsertHost(harness.db, harness.hub, { id: "shared", name: "Shared" });
+    await updateHost(harness.db, harness.hub, "shared", {
       machineProviderId: "manual",
     });
-    upsertHost(harness.db, harness.hub, { id: "local", name: "Local" });
+    await upsertHost(harness.db, harness.hub, { id: "local", name: "Local" });
     seedPrimaryHost(harness.deps, "local");
     await sdk.system.setMachineEnvironmentVariable({
       name: "REGION",

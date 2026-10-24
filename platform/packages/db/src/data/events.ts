@@ -202,19 +202,19 @@ function collectTerminalItemLookupKeys(
   );
 }
 
-function listLatestItemLifecycleRows(
+async function listLatestItemLifecycleRows(
   db: DbQueryConnection,
   lookupKeys: readonly ItemLifecycleLookupKey[],
-): LatestItemLifecycleRow[] {
-  return queryInSqliteVariableBatches({
+): Promise<LatestItemLifecycleRow[]> {
+  return await queryInSqliteVariableBatches({
     dedupeKey: buildItemLifecycleKey,
     fixedVariableCount: 0,
-    queryBatch: (keys) => {
+    queryBatch: async (keys) => {
       const requestedValues = sql.join(
         keys.map((key) => sql`(${key.threadId}, ${key.itemId})`),
         sql`, `,
       );
-      return db.all<LatestItemLifecycleRow>(sql`
+      return await db.all<LatestItemLifecycleRow>(sql`
         WITH requested_item(thread_id, item_id) AS (
           VALUES ${requestedValues}
         )
@@ -300,11 +300,12 @@ export interface DeleteThreadEventSuffixResult {
   deletedEventCount: number;
 }
 
-export function deleteThreadEventSuffixInTransaction(
+export async function deleteThreadEventSuffixInTransaction(
   db: DbTransaction,
   args: DeleteThreadEventSuffixArgs,
-): DeleteThreadEventSuffixResult {
-  db.delete(promptHistoryEntries)
+): Promise<DeleteThreadEventSuffixResult> {
+  await db
+    .delete(promptHistoryEntries)
     .where(
       and(
         eq(promptHistoryEntries.threadId, args.threadId),
@@ -313,7 +314,8 @@ export function deleteThreadEventSuffixInTransaction(
       ),
     )
     .run();
-  db.delete(threadSearchSegments)
+  await db
+    .delete(threadSearchSegments)
     .where(
       and(
         eq(threadSearchSegments.threadId, args.threadId),
@@ -322,10 +324,11 @@ export function deleteThreadEventSuffixInTransaction(
       ),
     )
     .run();
-  db.delete(threadDynamicContextFileStates)
+  await db
+    .delete(threadDynamicContextFileStates)
     .where(eq(threadDynamicContextFileStates.threadId, args.threadId))
     .run();
-  const result = db
+  const result = await db
     .delete(events)
     .where(
       and(
@@ -337,15 +340,15 @@ export function deleteThreadEventSuffixInTransaction(
     .run();
   if (result.changes > 0) {
     bumpThreadEventRewriteGeneration(args.threadId);
-    markThreadPruningWork(db, [args.threadId]);
+    await markThreadPruningWork(db, [args.threadId]);
   }
   return { deletedEventCount: result.changes };
 }
 
-export function listThreadEventSuffixBackgroundSettlementRows(
+export async function listThreadEventSuffixBackgroundSettlementRows(
   db: DbQueryConnection,
   args: DeleteThreadEventSuffixArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const settlementTypes = [
     "item/backgroundTask/completed",
     "item/delegation/completed",
@@ -354,7 +357,7 @@ export function listThreadEventSuffixBackgroundSettlementRows(
   const prefix = alias(events, "suffix_settlement_prefix");
   const laterSettlement = alias(events, "suffix_settlement_later");
 
-  return db
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -450,10 +453,10 @@ interface InsertStoredEventRowResult {
   inserted: boolean;
 }
 
-function insertStoredEventRow(
+async function insertStoredEventRow(
   db: DbQueryConnection,
   args: InsertStoredEventRowArgs,
-): InsertStoredEventRowResult {
+): Promise<InsertStoredEventRowResult> {
   const id = createEventId();
   const prepared = prepareCompletedEventOutputData({
     createdAt: args.createdAt,
@@ -462,8 +465,14 @@ function insertStoredEventRow(
     type: args.type,
   });
   const insert =
-    args.conflict === "ignore" ? sql`INSERT OR IGNORE` : sql`INSERT`;
-  const result = db.run(sql`${insert} INTO events
+    args.conflict === "ignore" && db.dialect === "sqlite"
+      ? sql`INSERT OR IGNORE`
+      : sql`INSERT`;
+  const conflict =
+    args.conflict === "ignore" && db.dialect === "postgresql"
+      ? sql`ON CONFLICT DO NOTHING`
+      : sql``;
+  const result = await db.run(sql`${insert} INTO events
     (id, thread_id, environment_id, scope_kind, turn_id, provider_thread_id, sequence, type, item_id, item_kind, parent_tool_call_id, data, created_at)
     VALUES (
       ${id},
@@ -479,12 +488,12 @@ function insertStoredEventRow(
       ${args.parentToolCallId},
       ${prepared.data},
       ${args.createdAt}
-    )`);
+    ) ${conflict}`);
   if (result.changes === 0) {
     return { id, inserted: false };
   }
   if (args.type === "client/turn/requested") {
-    acquireProjectAttachmentOwnership(
+    await acquireProjectAttachmentOwnership(
       db,
       args.threadId,
       storedAttachmentPaths(args.data),
@@ -492,7 +501,7 @@ function insertStoredEventRow(
     );
   }
   if (prepared.retainedOutput !== null) {
-    insertPreparedRetainedEventOutput(db, {
+    await insertPreparedRetainedEventOutput(db, {
       eventId: id,
       output: prepared.retainedOutput,
     });
@@ -500,11 +509,11 @@ function insertStoredEventRow(
   return { id, inserted: true };
 }
 
-export function insertEvents(
+export async function insertEvents(
   db: DbConnection,
   notifier: DbNotifier,
   eventInputs: InsertEventInput[],
-): InsertEventsResult {
+): Promise<InsertEventsResult> {
   if (eventInputs.length === 0) {
     return {
       insertedCount: 0,
@@ -513,17 +522,17 @@ export function insertEvents(
   }
 
   const eventTypesByThreadId = new Map<string, Set<ThreadEventType>>();
-  const result = db.transaction(
-    (tx) => {
+  const result = await db.transaction(
+    async (tx) => {
       let insertedCount = 0;
       const insertedInputIndexes: number[] = [];
-      const highWaterMarks = getHighWaterMarks(tx, [
+      const highWaterMarks = await getHighWaterMarks(tx, [
         ...new Set(eventInputs.map((input) => input.threadId)),
       ]);
       for (const [index, input] of eventInputs.entries()) {
         const createdAt = input.createdAt ?? Date.now();
         const turnId = getThreadEventScopeTurnId(input.scope) ?? null;
-        const insertResult = insertStoredEventRow(tx, {
+        const insertResult = await insertStoredEventRow(tx, {
           attachmentOwnership: "required",
           conflict: "ignore",
           createdAt,
@@ -554,16 +563,16 @@ export function insertEvents(
           }
         }
       }
-      markThreadPruningWork(tx, eventTypesByThreadId.keys());
+      await markThreadPruningWork(tx, eventTypesByThreadId.keys());
       return { insertedCount, insertedInputIndexes };
     },
     { behavior: "immediate" },
   );
 
   for (const [threadId, eventTypes] of eventTypesByThreadId) {
-    notifier.notifyThread(threadId, ["events-appended"], {
+    await notifier.notifyThread(threadId, ["events-appended"], {
       eventTypes: Array.from(eventTypes),
-      timelineSequence: getLatestThreadSequence(db, { threadId }),
+      timelineSequence: await getLatestThreadSequence(db, { threadId }),
     });
   }
 
@@ -608,12 +617,12 @@ function collectDaemonTurnStartLookupKeys(
   return keys;
 }
 
-function listStoredTurnStartedKeySet(
+async function listStoredTurnStartedKeySet(
   db: DbQueryConnection,
   keys: readonly ThreadTurnKey[],
-): Set<string> {
+): Promise<Set<string>> {
   return new Set(
-    listStoredTurnStartedKeys(db, { keys }).map((key) =>
+    (await listStoredTurnStartedKeys(db, { keys })).map((key) =>
       buildThreadTurnKey(key),
     ),
   );
@@ -808,10 +817,10 @@ function parseDaemonThreadEvent(
   }
 }
 
-export function appendDaemonEventsInTransaction(
+export async function appendDaemonEventsInTransaction(
   db: DbTransaction,
   eventInputs: readonly AppendDaemonEventInput[],
-): AppendDaemonEventsResult {
+): Promise<AppendDaemonEventsResult> {
   if (eventInputs.length === 0) {
     return {
       acceptedEvents: [],
@@ -821,7 +830,7 @@ export function appendDaemonEventsInTransaction(
   }
 
   const threadIds = [...new Set(eventInputs.map((input) => input.threadId))];
-  const highWaterMarks = getHighWaterMarks(db, threadIds);
+  const highWaterMarks = await getHighWaterMarks(db, threadIds);
   const nextSequencesByThreadId = new Map(
     threadIds.map((threadId) => [
       threadId,
@@ -832,12 +841,17 @@ export function appendDaemonEventsInTransaction(
   const insertedInputIndexes: number[] = [];
   const skippedTurnUnstartedInputIndexes: number[] = [];
 
-  const startedTurnKeys = listStoredTurnStartedKeySet(
+  const startedTurnKeys = await listStoredTurnStartedKeySet(
     db,
     collectDaemonTurnStartLookupKeys(eventInputs),
   );
   const settledItemKeys = new Set(
-    listLatestItemLifecycleRows(db, collectTerminalItemLookupKeys(eventInputs))
+    (
+      await listLatestItemLifecycleRows(
+        db,
+        collectTerminalItemLookupKeys(eventInputs),
+      )
+    )
       .filter((row) => isTerminalItemEventType(row.type))
       .map(buildItemLifecycleKey),
   );
@@ -880,7 +894,7 @@ export function appendDaemonEventsInTransaction(
     if (sequence === undefined) {
       throw new Error(`Missing event sequence for thread: ${input.threadId}`);
     }
-    insertStoredEventRow(db, {
+    await insertStoredEventRow(db, {
       attachmentOwnership: "required",
       conflict: "error",
       createdAt: now,
@@ -898,7 +912,7 @@ export function appendDaemonEventsInTransaction(
     });
     const event = parseDaemonThreadEvent(input);
     if (event !== null) {
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         updatedAt: now,
         segments: listThreadSearchSegmentsForThreadEvent({
           event,
@@ -924,7 +938,7 @@ export function appendDaemonEventsInTransaction(
     nextSequencesByThreadId.set(input.threadId, sequence + 1);
   }
 
-  markThreadPruningWork(
+  await markThreadPruningWork(
     db,
     acceptedEvents.map((event) => event.threadId),
   );
@@ -941,18 +955,18 @@ export interface CopyStoredThreadEventsArgs {
   targetThreadId: string;
 }
 
-export function copyStoredThreadEventsInTransaction(
+export async function copyStoredThreadEventsInTransaction(
   db: DbTransaction,
   args: CopyStoredThreadEventsArgs,
-): number {
+): Promise<number> {
   if (args.rows.length === 0) {
     return 0;
   }
-  const highWaterMarks = getHighWaterMarks(db, [args.targetThreadId]);
+  const highWaterMarks = await getHighWaterMarks(db, [args.targetThreadId]);
   let sequence = (highWaterMarks[args.targetThreadId] ?? 0) + 1;
   const now = Date.now();
   for (const row of args.rows) {
-    const insertResult = insertStoredEventRow(db, {
+    const insertResult = await insertStoredEventRow(db, {
       attachmentOwnership: "best-effort",
       conflict: "error",
       createdAt: row.createdAt,
@@ -971,7 +985,7 @@ export function copyStoredThreadEventsInTransaction(
     if (!insertResult.inserted) {
       throw new Error("Expected copied event row to be inserted");
     }
-    copyRetainedEventOutput(db, {
+    await copyRetainedEventOutput(db, {
       copiedAt: now,
       sourceEventId: row.id,
       targetEventId: insertResult.id,
@@ -991,7 +1005,7 @@ export function copyStoredThreadEventsInTransaction(
       type: row.type,
     });
     if (event !== null) {
-      upsertThreadSearchSegments(db, {
+      await upsertThreadSearchSegments(db, {
         updatedAt: now,
         segments: listThreadSearchSegmentsForThreadEvent({
           event,
@@ -1001,35 +1015,35 @@ export function copyStoredThreadEventsInTransaction(
     }
     sequence += 1;
   }
-  markThreadPruningWork(db, [args.targetThreadId]);
+  await markThreadPruningWork(db, [args.targetThreadId]);
   return args.rows.length;
 }
 
 export function appendStoredThreadEventInTransaction<
   TType extends ThreadEventType,
->(db: DbTransaction, args: AppendStoredThreadEventArgs<TType>): number;
-export function appendStoredThreadEventInTransaction(
+>(db: DbTransaction, args: AppendStoredThreadEventArgs<TType>): Promise<number>;
+export async function appendStoredThreadEventInTransaction(
   db: DbTransaction,
   args: AppendStoredThreadEventArgs,
-): number {
-  const [sequence] = appendStoredThreadEventsInTransaction(db, [args]);
+): Promise<number> {
+  const [sequence] = await appendStoredThreadEventsInTransaction(db, [args]);
   if (sequence === undefined) {
     throw new Error("Expected one appended thread event sequence");
   }
   return sequence;
 }
 
-export function appendStoredThreadEventsInTransaction(
+export async function appendStoredThreadEventsInTransaction(
   db: DbTransaction,
   eventArgs: readonly AppendStoredThreadEventArgs[],
-): number[] {
+): Promise<number[]> {
   if (eventArgs.length === 0) {
     return [];
   }
 
   const now = Date.now();
   const threadIds = [...new Set(eventArgs.map((args) => args.threadId))];
-  const highWaterMarks = getHighWaterMarks(db, threadIds);
+  const highWaterMarks = await getHighWaterMarks(db, threadIds);
   const nextSequencesByThreadId = new Map(
     threadIds.map((threadId) => [
       threadId,
@@ -1055,7 +1069,7 @@ export function appendStoredThreadEventsInTransaction(
     });
     const turnId = getThreadEventScopeTurnId(args.scope) ?? null;
 
-    insertStoredEventRow(db, {
+    await insertStoredEventRow(db, {
       attachmentOwnership: "required",
       conflict: "error",
       createdAt: now,
@@ -1071,7 +1085,7 @@ export function appendStoredThreadEventsInTransaction(
       turnId,
       type: args.type,
     });
-    upsertThreadSearchSegments(db, {
+    await upsertThreadSearchSegments(db, {
       updatedAt: now,
       segments: listThreadSearchSegmentsForStoredEventArgs({
         eventArgs: args,
@@ -1083,7 +1097,7 @@ export function appendStoredThreadEventsInTransaction(
     nextSequencesByThreadId.set(args.threadId, sequence + 1);
   }
 
-  markThreadPruningWork(db, threadIds);
+  await markThreadPruningWork(db, threadIds);
   return sequences;
 }
 
@@ -1091,33 +1105,33 @@ export function appendStoredThreadEvent<TType extends ThreadEventType>(
   db: DbConnection,
   notifier: DbNotifier,
   args: AppendStoredThreadEventArgs<TType>,
-): number;
-export function appendStoredThreadEvent(
+): Promise<number>;
+export async function appendStoredThreadEvent(
   db: DbConnection,
   notifier: DbNotifier,
   args: AppendStoredThreadEventArgs,
-): number {
-  const sequence = db.transaction(
-    (tx) => appendStoredThreadEventInTransaction(tx, args),
+): Promise<number> {
+  const sequence = await db.transaction(
+    async (tx) => await appendStoredThreadEventInTransaction(tx, args),
     { behavior: "immediate" },
   );
-  notifier.notifyThread(args.threadId, ["events-appended"], {
+  await notifier.notifyThread(args.threadId, ["events-appended"], {
     eventTypes: [args.type],
     timelineSequence: sequence,
   });
   return sequence;
 }
 
-export function getHighWaterMarks(
+export async function getHighWaterMarks(
   db: DbQueryConnection,
   threadIds: string[],
-): Record<string, number> {
+): Promise<Record<string, number>> {
   const result: Record<string, number> = {};
-  const rows = queryInSqliteVariableBatches({
+  const rows = await queryInSqliteVariableBatches({
     dedupeKey: (threadId) => threadId,
     fixedVariableCount: 0,
-    queryBatch: (ids) =>
-      db.all<{ threadId: string; maxSeq: number | null }>(sql`
+    queryBatch: async (ids) =>
+      await db.all<{ threadId: string; maxSeq: number | null }>(sql`
         WITH requested(thread_id) AS (
           VALUES ${sql.join(
             ids.map((id) => sql`(${id})`),
@@ -1173,19 +1187,23 @@ export type InlineOutputCharLimit = number | null;
 
 function storedEventRowFieldsWithInlineOutputLimit(
   maxInlineOutputChars: InlineOutputCharLimit,
+  dialect?: string,
 ) {
   return maxInlineOutputChars === null
     ? storedEventRowFields
     : {
         ...storedEventRowFields,
-        data: truncatedEventDataColumn(maxInlineOutputChars),
+        data: truncatedEventDataColumn(maxInlineOutputChars, dialect),
       };
 }
 
-function storedEventRowSqlFields(maxInlineOutputChars: InlineOutputCharLimit) {
+function storedEventRowSqlFields(
+  maxInlineOutputChars: InlineOutputCharLimit,
+  dialect?: string,
+) {
   return {
     createdAt: sql<number>`${events.createdAt}`,
-    data: sql<string>`${storedEventRowFieldsWithInlineOutputLimit(maxInlineOutputChars).data}`,
+    data: sql<string>`${storedEventRowFieldsWithInlineOutputLimit(maxInlineOutputChars, dialect).data}`,
     id: sql<string>`${events.id}`,
     itemId: sql<string | null>`${events.itemId}`,
     itemKind: sql<StoredEventRow["itemKind"]>`${events.itemKind}`,
@@ -1417,7 +1435,7 @@ export interface OpenBackgroundTaskItemRow {
   threadId: string;
 }
 
-export function listEvents(db: DbConnection, options: ListEventsOptions) {
+export async function listEvents(db: DbConnection, options: ListEventsOptions) {
   const { threadId, afterSequence, limit } = options;
 
   if (afterSequence != null) {
@@ -1428,8 +1446,8 @@ export function listEvents(db: DbConnection, options: ListEventsOptions) {
         sql`${events.threadId} = ${threadId} AND ${events.sequence} > ${afterSequence}`,
       )
       .orderBy(events.sequence);
-    if (limit) return q.limit(limit).all();
-    return q.all();
+    if (limit) return await q.limit(limit).all();
+    return await q.all();
   }
 
   const q = db
@@ -1437,14 +1455,14 @@ export function listEvents(db: DbConnection, options: ListEventsOptions) {
     .from(events)
     .where(eq(events.threadId, threadId))
     .orderBy(events.sequence);
-  if (limit) return q.limit(limit).all();
-  return q.all();
+  if (limit) return await q.limit(limit).all();
+  return await q.all();
 }
 
-export function listStoredEventRows(
+export async function listStoredEventRows(
   db: DbConnection,
   args: ListStoredEventRowsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (args.types?.length === 0) {
     return [];
   }
@@ -1452,10 +1470,10 @@ export function listStoredEventRows(
   const limit = args.limit ?? Number.MAX_SAFE_INTEGER;
   const order = args.order ?? "asc";
   const types = args.types === undefined ? undefined : [...new Set(args.types)];
-  const listPage = (
+  const listPage = async (
     pageTypes: readonly ThreadEventType[] | undefined,
-  ): StoredEventRow[] => {
-    return db
+  ): Promise<StoredEventRow[]> => {
+    return await db
       .select(storedEventRowSqlFields(null))
       .from(
         pageTypes === undefined
@@ -1482,10 +1500,12 @@ export function listStoredEventRows(
   };
 
   if (types === undefined || args.limit === undefined) {
-    return listPage(types);
+    return await listPage(types);
   }
 
-  const rowsByType = types.map((type) => listPage([type]));
+  const rowsByType = await Promise.all(
+    types.map(async (type) => await listPage([type])),
+  );
   const offsets = rowsByType.map(() => 0);
   const merged: StoredEventRow[] = [];
   while (merged.length < limit) {
@@ -1511,14 +1531,14 @@ export function listStoredEventRows(
   return merged;
 }
 
-export function listLatestThreadStateEventRowsByThreadIds(
+export async function listLatestThreadStateEventRowsByThreadIds(
   db: DbQueryConnection,
   args: ListLatestThreadStateEventRowsByThreadIdsArgs,
-): StoredEventRow[] {
-  return queryInSqliteVariableBatches({
+): Promise<StoredEventRow[]> {
+  return await queryInSqliteVariableBatches({
     dedupeKey: (threadId) => threadId,
     fixedVariableCount: 1,
-    queryBatch: (threadIds) => {
+    queryBatch: async (threadIds) => {
       const stateTypes = [
         "thread/goal/updated",
         "thread/goal/cleared",
@@ -1535,7 +1555,7 @@ export function listLatestThreadStateEventRowsByThreadIds(
         threadIds.map((threadId) => sql`(${threadId})`),
         sql`, `,
       );
-      return db
+      return await db
         .select(storedEventRowFields)
         .from(events)
         .where(
@@ -1560,20 +1580,20 @@ export function listLatestThreadStateEventRowsByThreadIds(
   });
 }
 
-export function listOpenTurnInputAcceptedRowsByThreadIds(
+export async function listOpenTurnInputAcceptedRowsByThreadIds(
   db: DbQueryConnection,
   args: ListOpenTurnInputAcceptedRowsByThreadIdsArgs,
-): StoredEventRow[] {
-  const rows = queryInSqliteVariableBatches({
+): Promise<StoredEventRow[]> {
+  const rows = await queryInSqliteVariableBatches({
     dedupeKey: (threadId) => threadId,
     fixedVariableCount: 3,
-    queryBatch: (threadIds) => {
+    queryBatch: async (threadIds) => {
       const acceptedType = "turn/input/accepted" satisfies ThreadEventType;
       const completedType = "turn/completed" satisfies ThreadEventType;
       const interruptedType =
         "system/thread/interrupted" satisfies ThreadEventType;
       const completed = alias(events, "completed_turn_for_accepted_input");
-      return db
+      return await db
         .select(storedEventRowFields)
         .from(
           sql`(VALUES ${sql.join(
@@ -1619,15 +1639,15 @@ export function listOpenTurnInputAcceptedRowsByThreadIds(
   );
 }
 
-export function listStoredClientTurnRequestRowsByKeys(
+export async function listStoredClientTurnRequestRowsByKeys(
   db: DbQueryConnection,
   args: ListStoredClientTurnRequestRowsByKeysArgs,
-): StoredEventRow[] {
-  const rows = queryInSqliteVariableBatches({
+): Promise<StoredEventRow[]> {
+  const rows = await queryInSqliteVariableBatches({
     dedupeKey: (key) => `${key.threadId}\0${key.requestId}`,
     fixedVariableCount: 1,
     maximumValueCount: CLIENT_TURN_REQUEST_KEY_BATCH_SIZE,
-    queryBatch: (keys) => {
+    queryBatch: async (keys) => {
       const requestType = "client/turn/requested" satisfies ThreadEventType;
       const requestIdsByThread = new Map<string, string[]>();
       for (const key of keys) {
@@ -1645,7 +1665,7 @@ export function listStoredClientTurnRequestRowsByKeys(
             ),
           ),
       );
-      return db
+      return await db
         .select(storedEventRowFields)
         .from(events)
         .where(and(eq(events.type, requestType), or(...keyConditions)))
@@ -1662,12 +1682,12 @@ export function listStoredClientTurnRequestRowsByKeys(
   );
 }
 
-export function findStoredEventRow(
+export async function findStoredEventRow(
   db: DbQueryConnection,
   args: FindStoredEventRowArgs,
-): StoredEventRow | null {
+): Promise<StoredEventRow | null> {
   return (
-    db
+    (await db
       .select(storedEventRowFields)
       .from(events)
       .where(
@@ -1681,21 +1701,21 @@ export function findStoredEventRow(
       )
       .orderBy(events.sequence)
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function listStoredEventRowsByParentToolCallIds(
+export async function listStoredEventRowsByParentToolCallIds(
   db: DbConnection,
   args: ListStoredEventRowsByParentToolCallIdsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const conditions = storedEventRowsByParentToolCallIdsConditions(args);
   if (conditions === null) {
     return [];
   }
 
-  return db
-    .select(storedEventRowSqlFields(args.maxInlineOutputChars))
+  return await db
+    .select(storedEventRowSqlFields(args.maxInlineOutputChars, db.dialect))
     .from(
       sql`${events} INDEXED BY events_parent_tool_call_thread_parent_sequence_idx`,
     )
@@ -1733,10 +1753,10 @@ function storedEventRowsByParentToolCallIdsConditions(
   return conditions;
 }
 
-export function listStoredDelegatingItemRowsByItemIds(
+export async function listStoredDelegatingItemRowsByItemIds(
   db: DbConnection,
   args: ListStoredToolCallRowsByItemIdsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const itemIds = [...new Set(args.itemIds)].filter(
     (itemId) => itemId.length > 0,
   );
@@ -1744,8 +1764,8 @@ export function listStoredDelegatingItemRowsByItemIds(
     return [];
   }
 
-  return db
-    .select(storedEventRowSqlFields(args.maxInlineOutputChars))
+  return await db
+    .select(storedEventRowSqlFields(args.maxInlineOutputChars, db.dialect))
     .from(sql`${events} INDEXED BY events_delegating_item_lookup_idx`)
     .where(
       and(
@@ -1759,11 +1779,11 @@ export function listStoredDelegatingItemRowsByItemIds(
     .all();
 }
 
-export function isTimelineCursorSequencePresent(
+export async function isTimelineCursorSequencePresent(
   db: DbConnection,
   args: TimelineCursorSequenceLookupArgs,
-): boolean {
-  const row = db
+): Promise<boolean> {
+  const row = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(
@@ -1852,16 +1872,16 @@ export interface ListItemEventSpansByItemsArgs {
   threadId: string;
 }
 
-export function listItemEventSpansByItems(
+export async function listItemEventSpansByItems(
   db: DbConnection,
   args: ListItemEventSpansByItemsArgs,
-): ItemEventSpanRow[] {
+): Promise<ItemEventSpanRow[]> {
   const items = dedupeScopedItemRefs(args.items);
   if (items.length === 0) {
     return [];
   }
 
-  return db
+  return await db
     .select({
       itemId: sql<string>`${events.itemId}`,
       maxSequence: sql<number>`MAX(${events.sequence})`,
@@ -1886,11 +1906,14 @@ export interface GetStoredItemLifecycleSequenceRangeArgs {
   turnId: string;
 }
 
-export function getStoredItemLifecycleSequenceRange(
+export async function getStoredItemLifecycleSequenceRange(
   db: DbQueryConnection,
   args: GetStoredItemLifecycleSequenceRangeArgs,
-): { first: number; last: number } | null {
-  const [range] = db.all<{ first: number | null; last: number | null }>(sql`
+): Promise<{ first: number; last: number } | null> {
+  const [range] = await db.all<{
+    first: number | null;
+    last: number | null;
+  }>(sql`
     SELECT MIN(lifecycle.sequence) AS first, MAX(lifecycle.sequence) AS last
     FROM ${events} AS lifecycle
       INDEXED BY events_item_lifecycle_thread_item_sequence_idx
@@ -1915,18 +1938,21 @@ export interface ListStoredItemLifecycleRowsByItemsArgs {
   threadId: string;
 }
 
-export function listStoredItemLifecycleRowsByItems(
+export async function listStoredItemLifecycleRowsByItems(
   db: DbConnection,
   args: ListStoredItemLifecycleRowsByItemsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const items = dedupeScopedItemRefs(args.items);
   if (items.length === 0) {
     return [];
   }
 
-  return db
+  return await db
     .select(
-      storedEventRowFieldsWithInlineOutputLimit(args.maxInlineOutputChars),
+      storedEventRowFieldsWithInlineOutputLimit(
+        args.maxInlineOutputChars,
+        db.dialect,
+      ),
     )
     .from(events)
     .where(
@@ -1946,16 +1972,16 @@ export interface ListStoredBufferedTextDeltaRowsByItemsArgs {
   threadId: string;
 }
 
-export function listStoredBufferedTextDeltaRowsByItems(
+export async function listStoredBufferedTextDeltaRowsByItems(
   db: DbConnection,
   args: ListStoredBufferedTextDeltaRowsByItemsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const items = dedupeScopedItemRefs(args.items);
   if (items.length === 0) {
     return [];
   }
 
-  return db
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -1975,11 +2001,11 @@ export function listStoredBufferedTextDeltaRowsByItems(
     .all();
 }
 
-export function listStoredClientTurnRequestIdsInRange(
+export async function listStoredClientTurnRequestIdsInRange(
   db: DbConnection,
   args: ListStoredClientTurnRequestIdsInRangeArgs,
-): ClientTurnRequestId[] {
-  const rows = db
+): Promise<ClientTurnRequestId[]> {
+  const rows = await db
     .select({
       requestId: sql<
         string | null
@@ -2000,12 +2026,12 @@ export function listStoredClientTurnRequestIdsInRange(
   return rows.map((row) => clientTurnRequestIdSchema.parse(row.requestId));
 }
 
-export function getStoredTurnRequestEventForTurn(
+export async function getStoredTurnRequestEventForTurn(
   db: DbQueryConnection,
   args: GetStoredTurnRequestEventForTurnArgs,
-): StoredTurnRequestEventRow | null {
+): Promise<StoredTurnRequestEventRow | null> {
   const acceptedInput =
-    db
+    (await db
       .select({
         clientRequestId: sql<
           string | null
@@ -2021,7 +2047,7 @@ export function getStoredTurnRequestEventForTurn(
       )
       .orderBy(desc(events.sequence))
       .limit(1)
-      .get() ?? null;
+      .get()) ?? null;
   const requestIdResult = clientTurnRequestIdSchema.safeParse(
     acceptedInput?.clientRequestId,
   );
@@ -2030,7 +2056,7 @@ export function getStoredTurnRequestEventForTurn(
   }
 
   return (
-    db
+    (await db
       .select({
         data: events.data,
         sequence: events.sequence,
@@ -2046,7 +2072,7 @@ export function getStoredTurnRequestEventForTurn(
         ),
       )
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
@@ -2057,19 +2083,19 @@ export interface StoredThreadEventDataRow {
   type: ThreadEventType;
 }
 
-export function getLatestStoredThreadEventOfTypes(
+export async function getLatestStoredThreadEventOfTypes(
   db: DbQueryConnection,
   args: {
     threadId: string;
     types: readonly ThreadEventType[];
     afterSequence: number;
   },
-): StoredThreadEventDataRow | null {
+): Promise<StoredThreadEventDataRow | null> {
   if (args.types.length === 0) {
     return null;
   }
   return (
-    db
+    (await db
       .select({
         data: events.data,
         sequence: events.sequence,
@@ -2086,16 +2112,16 @@ export function getLatestStoredThreadEventOfTypes(
       )
       .orderBy(desc(events.sequence))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function getLatestStoredRateLimitsEvent(
+export async function getLatestStoredRateLimitsEvent(
   db: DbQueryConnection,
   args: { threadId: string },
-): StoredThreadEventDataRow | null {
+): Promise<StoredThreadEventDataRow | null> {
   return (
-    db
+    (await db
       .select({
         data: events.data,
         sequence: events.sequence,
@@ -2111,14 +2137,14 @@ export function getLatestStoredRateLimitsEvent(
       )
       .orderBy(desc(events.sequence))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function listStoredTurnInputAcceptedRowsByClientRequestIds(
+export async function listStoredTurnInputAcceptedRowsByClientRequestIds(
   db: DbConnection,
   args: ListStoredTurnInputAcceptedRowsByClientRequestIdsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (args.clientRequestIds.length === 0) {
     return [];
   }
@@ -2128,7 +2154,7 @@ export function listStoredTurnInputAcceptedRowsByClientRequestIds(
       sql`json_extract(${events.data}, '$.clientRequestId') = ${clientRequestId}`,
   );
 
-  return db
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -2143,10 +2169,10 @@ export function listStoredTurnInputAcceptedRowsByClientRequestIds(
     .all();
 }
 
-export function listStoredTurnRejectedRowsByClientRequestIds(
+export async function listStoredTurnRejectedRowsByClientRequestIds(
   db: DbConnection,
   args: ListStoredTurnRejectedRowsByClientRequestIdsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (args.clientRequestIds.length === 0) {
     return [];
   }
@@ -2156,7 +2182,7 @@ export function listStoredTurnRejectedRowsByClientRequestIds(
       sql`json_extract(${events.data}, '$.requestId') = ${clientRequestId}`,
   );
 
-  return db
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -2171,11 +2197,11 @@ export function listStoredTurnRejectedRowsByClientRequestIds(
     .all();
 }
 
-export function getLatestThreadInterruptedReason(
+export async function getLatestThreadInterruptedReason(
   db: DbQueryConnection,
   args: GetLatestThreadInterruptedReasonArgs,
-): SystemThreadInterruptedReason | null {
-  const row = db
+): Promise<SystemThreadInterruptedReason | null> {
+  const row = await db
     .select({
       reason: sql<string>`json_extract(${events.data}, '$.reason')`,
     })
@@ -2195,15 +2221,15 @@ export function getLatestThreadInterruptedReason(
   return systemThreadInterruptedReasonSchema.parse(row.reason);
 }
 
-export function listStoredTurnStartedRowsByTurnIdsUpToSequence(
+export async function listStoredTurnStartedRowsByTurnIdsUpToSequence(
   db: DbConnection,
   args: ListStoredTurnStartedRowsByTurnIdsUpToSequenceArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (args.turnIds.length === 0) {
     return [];
   }
 
-  return db
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -2218,15 +2244,15 @@ export function listStoredTurnStartedRowsByTurnIdsUpToSequence(
     .all();
 }
 
-export function listStoredTurnCompletedRowsByTurnIds(
+export async function listStoredTurnCompletedRowsByTurnIds(
   db: DbConnection,
   args: ListStoredTurnCompletedRowsByTurnIdsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (args.turnIds.length === 0) {
     return [];
   }
 
-  return db
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -2254,11 +2280,11 @@ export interface ListTodoSnapshotEventRowsForThreadArgs {
   threadId: string;
 }
 
-export function listTodoSnapshotEventRowsForThread(
+export async function listTodoSnapshotEventRowsForThread(
   db: DbConnection,
   args: ListTodoSnapshotEventRowsForThreadArgs,
-): StoredEventRow[] {
-  const row = db
+): Promise<StoredEventRow[]> {
+  const row = await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -2284,10 +2310,10 @@ export interface ActiveBackgroundTaskCountRow {
   threadId: string;
 }
 
-export function listLatestBackgroundTaskStateRowsByItemIds(
+export async function listLatestBackgroundTaskStateRowsByItemIds(
   db: DbConnection,
   args: ListLatestBackgroundTaskStateRowsByItemIdsArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (args.itemIds.length === 0) {
     return [];
   }
@@ -2301,7 +2327,7 @@ export function listLatestBackgroundTaskStateRowsByItemIds(
       ? sql``
       : sql`AND sequence < ${args.beforeSequence}`;
 
-  return db
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -2335,10 +2361,10 @@ export function listLatestBackgroundTaskStateRowsByItemIds(
     .all();
 }
 
-export function listLatestOpenBackgroundTaskStateRowsForThread(
+export async function listLatestOpenBackgroundTaskStateRowsForThread(
   db: DbConnection,
   args: ListLatestOpenBackgroundTaskStateRowsForThreadArgs,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const startedType = "item/started" satisfies ThreadEventType;
   const progressType = "item/backgroundTask/progress" satisfies ThreadEventType;
   const completedType =
@@ -2370,7 +2396,7 @@ export function listLatestOpenBackgroundTaskStateRowsForThread(
       ),
     );
 
-  const rows = db
+  const rows = await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -2386,14 +2412,14 @@ export function listLatestOpenBackgroundTaskStateRowsForThread(
   return rows.sort((left, right) => left.sequence - right.sequence);
 }
 
-export function listActiveBackgroundTaskCountsByThreadIds(
+export async function listActiveBackgroundTaskCountsByThreadIds(
   db: DbQueryConnection,
   args: ListActiveBackgroundTaskCountsByThreadIdsArgs,
-): ActiveBackgroundTaskCountRow[] {
-  const rows = queryInSqliteVariableBatches({
+): Promise<ActiveBackgroundTaskCountRow[]> {
+  const rows = await queryInSqliteVariableBatches({
     dedupeKey: (threadId) => threadId,
     fixedVariableCount: 14,
-    queryBatch: (threadIds) => {
+    queryBatch: async (threadIds) => {
       const startedType = "item/started" satisfies ThreadEventType;
       const progressType =
         "item/backgroundTask/progress" satisfies ThreadEventType;
@@ -2404,7 +2430,7 @@ export function listActiveBackgroundTaskCountsByThreadIds(
       const backgroundTaskItemKindPredicate = sql.raw(
         `= '${backgroundTaskItemKind}'`,
       );
-      return db.all<ActiveBackgroundTaskCountRow>(sql`
+      return await db.all<ActiveBackgroundTaskCountRow>(sql`
     WITH latest_background_task_state AS (
       SELECT
         ${events.threadId} AS thread_id,
@@ -2471,13 +2497,13 @@ export function listActiveBackgroundTaskCountsByThreadIds(
         ${LOCAL_BASH_TASK_TYPE}
       )
       AND COALESCE(
-        json_extract(active_event.data, '$.item.skipTranscript'),
-        0
-      ) = 0
+        CAST(json_extract(active_event.data, '$.item.skipTranscript') AS text),
+        '0'
+      ) = '0'
       AND COALESCE(
-        json_extract(active_event.data, '$.item.foreground'),
-        0
-      ) = 0
+        CAST(json_extract(active_event.data, '$.item.foreground') AS text),
+        '0'
+      ) = '0'
     GROUP BY active_event.thread_id
     ORDER BY active_event.thread_id
   `);
@@ -2500,16 +2526,16 @@ type StoredTurnKeyEventType = Extract<
   "turn/completed" | "turn/started"
 >;
 
-function listStoredTurnKeysOfTypeChunk(
+async function listStoredTurnKeysOfTypeChunk(
   db: DbQueryConnection,
   keys: readonly ThreadTurnKey[],
   type: StoredTurnKeyEventType,
-): ThreadTurnKey[] {
+): Promise<ThreadTurnKey[]> {
   const turnConditions = keys.map((key) =>
     and(eq(events.threadId, key.threadId), eq(events.turnId, key.turnId)),
   );
 
-  const rows = db
+  const rows = await db
     .select({ threadId: events.threadId, turnId: events.turnId })
     .from(events)
     .where(and(eq(events.type, type), or(...turnConditions)))
@@ -2520,11 +2546,11 @@ function listStoredTurnKeysOfTypeChunk(
   );
 }
 
-function listStoredTurnKeysOfType(
+async function listStoredTurnKeysOfType(
   db: DbQueryConnection,
   keys: readonly ThreadTurnKey[],
   type: StoredTurnKeyEventType,
-): ThreadTurnKey[] {
+): Promise<ThreadTurnKey[]> {
   if (keys.length === 0) {
     return [];
   }
@@ -2537,39 +2563,39 @@ function listStoredTurnKeysOfType(
     offset += STORED_EVENT_SEQUENCE_LOOKUP_CHUNK_SIZE
   ) {
     rows.push(
-      ...listStoredTurnKeysOfTypeChunk(
+      ...(await listStoredTurnKeysOfTypeChunk(
         db,
         uniqueKeys.slice(
           offset,
           offset + STORED_EVENT_SEQUENCE_LOOKUP_CHUNK_SIZE,
         ),
         type,
-      ),
+      )),
     );
   }
   return rows;
 }
 
-export function listStoredTurnStartedKeys(
+export async function listStoredTurnStartedKeys(
   db: DbQueryConnection,
   args: ListStoredTurnKeysArgs,
-): ThreadTurnKey[] {
-  return listStoredTurnKeysOfType(db, args.keys, "turn/started");
+): Promise<ThreadTurnKey[]> {
+  return await listStoredTurnKeysOfType(db, args.keys, "turn/started");
 }
 
-export function listStoredTurnCompletedKeys(
+export async function listStoredTurnCompletedKeys(
   db: DbQueryConnection,
   args: ListStoredTurnKeysArgs,
-): ThreadTurnKey[] {
-  return listStoredTurnKeysOfType(db, args.keys, "turn/completed");
+): Promise<ThreadTurnKey[]> {
+  return await listStoredTurnKeysOfType(db, args.keys, "turn/completed");
 }
 
-export function hasStoredSpawnAgentToolCall(
+export async function hasStoredSpawnAgentToolCall(
   db: DbQueryConnection,
   threadId: string,
-): boolean {
+): Promise<boolean> {
   return (
-    db
+    (await db
       .select({ found: sql<number>`1` })
       .from(sql`${events} INDEXED BY events_delegating_item_lookup_idx`)
       .where(
@@ -2581,15 +2607,15 @@ export function hasStoredSpawnAgentToolCall(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-export function hasStoredTurnStarted(
+export async function hasStoredTurnStarted(
   db: DbQueryConnection,
   args: HasStoredTurnStartedArgs,
-): boolean {
-  const row = db
+): Promise<boolean> {
+  const row = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(
@@ -2610,12 +2636,12 @@ export interface HasStoredTerminalClientTurnRequestEventArgs {
   threadId: string;
 }
 
-export function hasStoredTerminalClientTurnRequestEvent(
+export async function hasStoredTerminalClientTurnRequestEvent(
   db: DbQueryConnection,
   args: HasStoredTerminalClientTurnRequestEventArgs,
-): boolean {
+): Promise<boolean> {
   return (
-    db
+    (await db
       .select({ id: events.id })
       .from(events)
       .where(
@@ -2635,15 +2661,15 @@ export function hasStoredTerminalClientTurnRequestEvent(
         ),
       )
       .limit(1)
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
-export function hasRootStoredTurnStarted(
+export async function hasRootStoredTurnStarted(
   db: DbQueryConnection,
   args: HasStoredTurnStartedArgs,
-): boolean {
-  const row = db
+): Promise<boolean> {
+  const row = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(
@@ -2660,12 +2686,12 @@ export function hasRootStoredTurnStarted(
   return row !== undefined;
 }
 
-export function findLastCompletedRootStoredTurn(
+export async function findLastCompletedRootStoredTurn(
   db: DbQueryConnection,
   args: { threadId: string },
-): CompletedRootStoredTurn | null {
+): Promise<CompletedRootStoredTurn | null> {
   const completed = alias(events, "completed");
-  const row = db
+  const row = await db
     .select({
       completedSequence: completed.sequence,
       startedSequence: events.sequence,
@@ -2699,11 +2725,11 @@ export function findLastCompletedRootStoredTurn(
     : null;
 }
 
-export function findLastRootStoredTurnStarted(
+export async function findLastRootStoredTurnStarted(
   db: DbQueryConnection,
   args: FindLastRootStoredTurnStartedArgs,
-): StoredTurnStartedKey | null {
-  const row = db
+): Promise<StoredTurnStartedKey | null> {
+  const row = await db
     .select({ sequence: events.sequence, turnId: events.turnId })
     .from(events)
     .where(
@@ -2809,10 +2835,10 @@ function storedConversationOutlineStructuralEventRowFields() {
   };
 }
 
-export function getLatestStoredConversationOutlineSequence(
+export async function getLatestStoredConversationOutlineSequence(
   db: DbConnection,
   args: GetLatestStoredConversationOutlineSequenceArgs,
-): number {
+): Promise<number> {
   const lifecycle = db
     .select({ sequence: max(events.sequence) })
     .from(events)
@@ -2837,33 +2863,38 @@ export function getLatestStoredConversationOutlineSequence(
       ),
     );
 
-  return unionAll(lifecycle, completedConversation, structural, contextClear)
-    .all()
-    .reduce((latest, row) => Math.max(latest, row.sequence ?? 0), 0);
+  return (
+    await unionAll(
+      lifecycle,
+      completedConversation,
+      structural,
+      contextClear,
+    ).all()
+  ).reduce((latest, row) => Math.max(latest, row.sequence ?? 0), 0);
 }
 
-export function listStoredConversationOutlineEventRows(
+export async function listStoredConversationOutlineEventRows(
   db: DbConnection,
   args: ListStoredConversationOutlineEventRowsArgs,
-): StoredEventRow[] {
-  return selectStoredConversationOutlineEventRows(db, args, false);
+): Promise<StoredEventRow[]> {
+  return await selectStoredConversationOutlineEventRows(db, args, false);
 }
 
-export function listStoredRootConversationOutlineEventRows(
+export async function listStoredRootConversationOutlineEventRows(
   db: DbConnection,
   args: ListStoredConversationOutlineEventRowsArgs,
-): StoredEventRow[] {
-  return selectStoredConversationOutlineEventRows(db, args, true);
+): Promise<StoredEventRow[]> {
+  return await selectStoredConversationOutlineEventRows(db, args, true);
 }
 
-export function getStoredConversationOutlineProjectionState(
+export async function getStoredConversationOutlineProjectionState(
   db: DbConnection,
   args: ListStoredConversationOutlineEventRowsArgs & {
     classificationSequenceStart: number;
     summaryCompactionDeltaThreshold: number;
   },
 ) {
-  const crossTurnState = db
+  const crossTurnState = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(
@@ -2883,7 +2914,7 @@ export function getStoredConversationOutlineProjectionState(
     )
     .limit(1)
     .get();
-  const acceptedNestedRoot = db
+  const acceptedNestedRoot = await db
     .select({ found: sql<number>`1` })
     .from(sql`${events} INDEXED BY events_thread_type_sequence_idx`)
     .where(
@@ -2915,7 +2946,7 @@ export function getStoredConversationOutlineProjectionState(
     )
     .limit(1)
     .get();
-  const compactionDelta = db
+  const compactionDelta = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(
@@ -2935,11 +2966,11 @@ export function getStoredConversationOutlineProjectionState(
   };
 }
 
-function selectStoredConversationOutlineEventRows(
+async function selectStoredConversationOutlineEventRows(
   db: DbConnection,
   args: ListStoredConversationOutlineEventRowsArgs,
   rootOnly: boolean,
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   const rootWhere = rootOnly
     ? and(
         isNull(events.parentToolCallId),
@@ -2959,7 +2990,10 @@ function selectStoredConversationOutlineEventRows(
     .where(
       and(
         rootWhere,
-        storedConversationOutlineLifecycleWhere(args.threadId, args.sequenceStart),
+        storedConversationOutlineLifecycleWhere(
+          args.threadId,
+          args.sequenceStart,
+        ),
       ),
     );
   const completedConversationRows = db
@@ -2968,7 +3002,10 @@ function selectStoredConversationOutlineEventRows(
     .where(
       and(
         rootWhere,
-        storedConversationOutlineCompletedWhere(args.threadId, args.sequenceStart),
+        storedConversationOutlineCompletedWhere(
+          args.threadId,
+          args.sequenceStart,
+        ),
       ),
     );
   const structuralRows = db
@@ -3004,7 +3041,7 @@ function selectStoredConversationOutlineEventRows(
       ),
     );
 
-  const rows = unionAll(
+  const rows = await unionAll(
     lifecycleRows,
     completedConversationRows,
     structuralRows,
@@ -3046,10 +3083,10 @@ export interface FindTimelineWindowBudgetFloorSequenceArgs {
   beforeSequence?: number;
 }
 
-export function findTimelineWindowBudgetFloorSequence(
+export async function findTimelineWindowBudgetFloorSequence(
   db: DbConnection,
   args: FindTimelineWindowBudgetFloorSequenceArgs,
-): number | undefined {
+): Promise<number | undefined> {
   const conditions: SQL[] = [
     eq(events.threadId, args.threadId),
     gte(events.sequence, args.sequenceStart),
@@ -3063,7 +3100,7 @@ export function findTimelineWindowBudgetFloorSequence(
     conditions.push(lt(events.sequence, args.beforeSequence));
   }
 
-  const row = db
+  const row = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(and(...conditions))
@@ -3074,11 +3111,11 @@ export function findTimelineWindowBudgetFloorSequence(
   return row?.sequence;
 }
 
-export function listTimelineInterruptionRows(
+export async function listTimelineInterruptionRows(
   db: DbConnection,
   args: { threadId: string; sequenceStart: number; maxSeq: number },
-): StoredEventRow[] {
-  return db
+): Promise<StoredEventRow[]> {
+  return await db
     .select(storedEventRowSqlFields(null))
     .from(sql`${events} INDEXED BY events_thread_type_sequence_idx`)
     .where(
@@ -3100,11 +3137,11 @@ const TIMELINE_ORDERING_CONTEXT_EVENT_TYPES = [
   "turn/completed",
 ] as const satisfies readonly ThreadEventType[];
 
-export function listTimelineOrderingContext(
+export async function listTimelineOrderingContext(
   db: DbConnection,
   args: { threadId: string; sequenceStart: number; maxSeq: number },
 ) {
-  return db
+  return await db
     .select({
       sequence: sql<number>`${events.sequence}`,
       turnId: sql<string | null>`${events.turnId}`,
@@ -3139,11 +3176,11 @@ export function listTimelineOrderingContext(
     .all();
 }
 
-export function getTimelineGroupingContextChangesInRange(
+export async function getTimelineGroupingContextChangesInRange(
   db: DbConnection,
   args: { afterSequence: number; threadId: string; throughSequence: number },
-): { ordering: boolean; parented: boolean } {
-  const row = db
+): Promise<{ ordering: boolean; parented: boolean }> {
+  const row = await db
     .select({
       ordering: sql<number>`COALESCE(MAX(CASE WHEN ${inArray(events.type, [...TIMELINE_ORDERING_CONTEXT_EVENT_TYPES])} THEN 1 ELSE 0 END), 0)`,
       parented: sql<number>`COALESCE(MAX(CASE WHEN ${events.parentToolCallId} is not null THEN 1 ELSE 0 END), 0)`,
@@ -3160,7 +3197,7 @@ export function getTimelineGroupingContextChangesInRange(
   return { ordering: row?.ordering === 1, parented: row?.parented === 1 };
 }
 
-export function listStoredEventRowsInSequenceRange(
+export async function listStoredEventRowsInSequenceRange(
   db: DbConnection,
   args: {
     afterSequence: number;
@@ -3169,9 +3206,9 @@ export function listStoredEventRowsInSequenceRange(
     threadId: string;
     throughSequence: number;
   },
-): StoredEventRow[] {
-  return db
-    .select(storedEventRowSqlFields(args.maxInlineOutputChars))
+): Promise<StoredEventRow[]> {
+  return await db
+    .select(storedEventRowSqlFields(args.maxInlineOutputChars, db.dialect))
     .from(sql`${events} INDEXED BY events_thread_sequence_idx`)
     .where(
       and(
@@ -3185,11 +3222,11 @@ export function listStoredEventRowsInSequenceRange(
     .all();
 }
 
-export function getFirstParentedTimelineBoundarySequence(
+export async function getFirstParentedTimelineBoundarySequence(
   db: DbConnection,
   args: { threadId: string; sequenceStart: number; maxSeq: number },
-): number | null {
-  const result = db.get<{ sequence: number | null }>(sql`
+): Promise<number | null> {
+  const result = await db.get<{ sequence: number | null }>(sql`
     WITH nested_history AS MATERIALIZED (
       SELECT 1
       FROM events INDEXED BY events_parent_tool_call_thread_parent_sequence_idx
@@ -3240,11 +3277,11 @@ export function getFirstParentedTimelineBoundarySequence(
   return result?.sequence ?? null;
 }
 
-export function listTimelineWindowHintsDescending(
+export async function listTimelineWindowHintsDescending(
   db: DbConnection,
   args: ListTimelineWindowHintsDescendingArgs,
-): TimelineWindowHint[] {
-  return db.all<TimelineWindowHint>(sql`
+): Promise<TimelineWindowHint[]> {
+  return await db.all<TimelineWindowHint>(sql`
     SELECT sequence
     FROM events INDEXED BY events_thread_type_sequence_idx
     WHERE thread_id = ${args.threadId}
@@ -3281,21 +3318,28 @@ function storedTimelineWindowConditions(
 
 function storedTimelineWindowDataColumn(
   maxInlineOutputChars: InlineOutputCharLimit,
+  dialect?: string,
 ) {
   return maxInlineOutputChars === null
     ? events.data
-    : truncatedEventDataColumn(maxInlineOutputChars);
+    : truncatedEventDataColumn(maxInlineOutputChars, dialect);
 }
 
-export function findStoredTimelineWindowByteBudgetFloor(
+export async function findStoredTimelineWindowByteBudgetFloor(
   db: DbConnection,
   args: FindStoredTimelineWindowByteBudgetFloorArgs,
-): StoredTimelineWindowByteBudgetFloor {
-  const data = storedTimelineWindowDataColumn(args.maxInlineOutputChars);
+): Promise<StoredTimelineWindowByteBudgetFloor> {
+  const data = storedTimelineWindowDataColumn(
+    args.maxInlineOutputChars,
+    db.dialect,
+  );
   const query = db
     .select({
       createdAt: events.createdAt,
-      dataBytes: sql<number>`length(CAST(${data} AS BLOB))`.as("data_bytes"),
+      dataBytes: (db.dialect === "postgresql"
+        ? sql<number>`octet_length(${data})`
+        : sql<number>`length(CAST(${data} AS BLOB))`
+      ).as("data_bytes"),
       sequence: events.sequence,
       turnId: events.turnId,
     })
@@ -3320,7 +3364,25 @@ export function findStoredTimelineWindowByteBudgetFloor(
     { kind: "single-event-too-large" }
   > | null = null;
 
-  for (const row of statement.iterate(...query.params)) {
+  // PostgreSQL scans the cursor inside one call, retaining the byte boundary
+  // without a network round trip for each event or decoding older payloads.
+  const rows =
+    db.dialect === "postgresql"
+      ? await db.$client
+          .prepare<
+            unknown[],
+            {
+              created_at: number;
+              data_bytes: number;
+              sequence: number;
+              turn_id: string | null;
+            }
+          >(
+            "SELECT * FROM platform.hyperfide_timeline_budget_rows(?, ?::jsonb, ?)",
+          )
+          .all(query.sql, JSON.stringify(query.params), args.maxDataBytes)
+      : statement.iterate(...query.params);
+  for await (const row of rows) {
     if (oversizedEvent !== null) {
       oversizedEvent.hasOlderRows = true;
       result = oversizedEvent;
@@ -3358,62 +3420,70 @@ export function findStoredTimelineWindowByteBudgetFloor(
   return { eventDataBytes: includedDataBytes, kind: "fits" };
 }
 
-export function listStoredTimelineTurnEventRows(
+export async function listStoredTimelineTurnEventRows(
   db: DbConnection,
   args: ListStoredTimelineWindowEventRowsArgs & { turnIds: readonly string[] },
-): StoredEventRow[] {
+): Promise<StoredEventRow[]> {
   if (args.turnIds.length === 0) return [];
-  return queryInSqliteVariableBatches({
-    values: args.turnIds,
-    variableCountPerValue: 1,
-    dedupeKey: (turnId) => turnId,
-    fixedVariableCount: 32,
-    queryBatch: (turnIds) =>
-      db
-        .select(storedEventRowSqlFields(args.maxInlineOutputChars))
-        .from(
-          sql`${events} INDEXED BY events_thread_turn_type_item_sequence_idx`,
-        )
-        .where(
-          and(
-            ...storedTimelineWindowConditions(args),
-            inArray(events.turnId, [...turnIds]),
-          ),
-        )
-        .all(),
-  }).sort((left, right) => left.sequence - right.sequence);
+  return (
+    await queryInSqliteVariableBatches({
+      values: args.turnIds,
+      variableCountPerValue: 1,
+      dedupeKey: (turnId) => turnId,
+      fixedVariableCount: 32,
+      queryBatch: async (turnIds) =>
+        await db
+          .select(
+            storedEventRowSqlFields(args.maxInlineOutputChars, db.dialect),
+          )
+          .from(
+            sql`${events} INDEXED BY events_thread_turn_type_item_sequence_idx`,
+          )
+          .where(
+            and(
+              ...storedTimelineWindowConditions(args),
+              inArray(events.turnId, [...turnIds]),
+            ),
+          )
+          .all(),
+    })
+  ).sort((left, right) => left.sequence - right.sequence);
 }
 
-export function listTimelineRootWindowTurnIds(
+export async function listTimelineRootWindowTurnIds(
   db: DbConnection,
   args: ListStoredTimelineWindowEventRowsArgs,
-): string[] {
-  return db
-    .selectDistinct({ turnId: sql<string>`${events.turnId}` })
-    .from(events)
-    .where(
-      and(
-        ...storedTimelineWindowConditions(args),
-        isNotNull(events.turnId),
-        isNull(events.parentToolCallId),
-        sql`EXISTS (SELECT 1 FROM events AS root_start
+): Promise<string[]> {
+  return (
+    await db
+      .selectDistinct({ turnId: sql<string>`${events.turnId}` })
+      .from(events)
+      .where(
+        and(
+          ...storedTimelineWindowConditions(args),
+          isNotNull(events.turnId),
+          isNull(events.parentToolCallId),
+          sql`EXISTS (SELECT 1 FROM events AS root_start
       WHERE root_start.thread_id = ${events.threadId}
         AND root_start.turn_id = ${events.turnId}
         AND root_start.type = 'turn/started'
         AND root_start.parent_tool_call_id IS NULL)`,
-      ),
-    )
-    .all()
-    .map((row) => row.turnId);
+        ),
+      )
+      .all()
+  ).map((row) => row.turnId);
 }
 
-export function listStoredTimelineThreadWindowEventRows(
+export async function listStoredTimelineThreadWindowEventRows(
   db: DbConnection,
   args: ListStoredTimelineWindowEventRowsArgs,
-): StoredEventRow[] {
-  return db
+): Promise<StoredEventRow[]> {
+  return await db
     .select(
-      storedEventRowFieldsWithInlineOutputLimit(args.maxInlineOutputChars),
+      storedEventRowFieldsWithInlineOutputLimit(
+        args.maxInlineOutputChars,
+        db.dialect,
+      ),
     )
     .from(events)
     .where(and(...storedTimelineWindowConditions(args), isNull(events.turnId)))
@@ -3421,13 +3491,16 @@ export function listStoredTimelineThreadWindowEventRows(
     .all();
 }
 
-export function listStoredTimelineWindowEventRows(
+export async function listStoredTimelineWindowEventRows(
   db: DbConnection,
   args: ListStoredTimelineWindowEventRowsArgs,
-): StoredEventRow[] {
-  return db
+): Promise<StoredEventRow[]> {
+  return await db
     .select(
-      storedEventRowFieldsWithInlineOutputLimit(args.maxInlineOutputChars),
+      storedEventRowFieldsWithInlineOutputLimit(
+        args.maxInlineOutputChars,
+        db.dialect,
+      ),
     )
     .from(events)
     .where(and(...storedTimelineWindowConditions(args)))
@@ -3435,11 +3508,11 @@ export function listStoredTimelineWindowEventRows(
     .all();
 }
 
-function getLatestContextWindowBoundary(
+async function getLatestContextWindowBoundary(
   db: DbQueryConnection,
   args: { threadId: string; sequenceStart: number },
-): StoredEventRow | undefined {
-  return db
+): Promise<StoredEventRow | undefined> {
+  return await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -3451,7 +3524,7 @@ function getLatestContextWindowBoundary(
         sql`(
           json_extract(${events.data}, '$.contextWindowUsage.snapshot') IS NOT NULL
           OR json_extract(${events.data}, '$.contextWindowUsage.usedTokens') IS NULL
-          OR json_extract(${events.data}, '$.contextWindowUsage.estimated') = 0
+          OR CAST(json_extract(${events.data}, '$.contextWindowUsage.estimated') AS text) = '0'
         )`,
       ),
     )
@@ -3460,7 +3533,7 @@ function getLatestContextWindowBoundary(
     .get();
 }
 
-function listLatestRowsForContextWindowUsage(
+async function listLatestRowsForContextWindowUsage(
   db: DbConnection,
   args: {
     contextWindowJsonPath: string;
@@ -3470,8 +3543,8 @@ function listLatestRowsForContextWindowUsage(
     sequenceStart: number;
     threadId: string;
   },
-): StoredEventRow[] {
-  const latestRow = db
+): Promise<StoredEventRow[]> {
+  const latestRow = await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -3490,7 +3563,7 @@ function listLatestRowsForContextWindowUsage(
     return [];
   }
 
-  const latestContextRow = db
+  const latestContextRow = await db
     .select(storedEventRowFields)
     .from(events)
     .where(
@@ -3506,7 +3579,7 @@ function listLatestRowsForContextWindowUsage(
     .limit(1)
     .get();
 
-  const latestWindowBoundary = getLatestContextWindowBoundary(db, args);
+  const latestWindowBoundary = await getLatestContextWindowBoundary(db, args);
 
   return [
     ...new Map(
@@ -3517,11 +3590,11 @@ function listLatestRowsForContextWindowUsage(
   ].sort((left, right) => left.sequence - right.sequence);
 }
 
-export function listContextWindowUsageRows(
+export async function listContextWindowUsageRows(
   db: DbConnection,
   args: ListContextWindowUsageRowsArgs,
-): StoredEventRow[] {
-  return listLatestRowsForContextWindowUsage(db, {
+): Promise<StoredEventRow[]> {
+  return await listLatestRowsForContextWindowUsage(db, {
     threadId: args.threadId,
     sequenceStart: args.sequenceStart,
     eventType: "thread/contextWindowUsage/updated",
@@ -3529,12 +3602,12 @@ export function listContextWindowUsageRows(
   });
 }
 
-export function getLatestTokenUsageRow(
+export async function getLatestTokenUsageRow(
   db: DbConnection,
   args: ListContextWindowUsageRowsArgs,
-): StoredEventRow | null {
+): Promise<StoredEventRow | null> {
   return (
-    db
+    (await db
       .select(storedEventRowFields)
       .from(events)
       .where(
@@ -3547,16 +3620,16 @@ export function getLatestTokenUsageRow(
       )
       .orderBy(desc(events.sequence))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function getLatestThreadOutputEventRow(
+export async function getLatestThreadOutputEventRow(
   db: DbConnection,
   args: GetLatestThreadOutputEventRowArgs,
-): StoredEventRow | null {
+): Promise<StoredEventRow | null> {
   return (
-    db
+    (await db
       .select(storedEventRowFields)
       .from(events)
       .where(
@@ -3574,16 +3647,16 @@ export function getLatestThreadOutputEventRow(
       )
       .orderBy(desc(events.sequence))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function getLatestThreadSystemErrorEventRow(
+export async function getLatestThreadSystemErrorEventRow(
   db: DbConnection,
   args: GetLatestThreadSystemErrorEventRowArgs,
-): StoredEventRow | null {
+): Promise<StoredEventRow | null> {
   return (
-    db
+    (await db
       .select(storedEventRowFields)
       .from(events)
       .where(
@@ -3594,7 +3667,7 @@ export function getLatestThreadSystemErrorEventRow(
       )
       .orderBy(desc(events.sequence))
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
@@ -3610,9 +3683,9 @@ const isNotDiagnosticEvent = sql`(
       AND length(json_extract(${events.data}, '$.rawEvent.params.message.original_model')) > 0
       AND json_type(${events.data}, '$.rawEvent.params.message.fallback_model') = 'text'
       AND length(json_extract(${events.data}, '$.rawEvent.params.message.fallback_model')) > 0
-    ), 0)
+    ), (1 = 0))
     OR CASE
-      WHEN instr(${events.data}, '"imageGeneration"') = 0 THEN 0
+      WHEN instr(${events.data}, '"imageGeneration"') = 0 THEN (1 = 0)
       WHEN json_valid(${events.data}) THEN
         json_extract(${events.data}, '$.rawType') = 'item/completed'
         AND json_extract(${events.data}, '$.rawEvent.method') = 'item/completed'
@@ -3627,23 +3700,23 @@ const isNotDiagnosticEvent = sql`(
               <= ${COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS}
           )
         )
-      ELSE 0
+      ELSE (1 = 0)
     END
   )
 )`;
 
-export function getLatestThreadSequence(
+export async function getLatestThreadSequence(
   db: DbQueryConnection,
   args: GetLatestThreadSequenceArgs,
-): number {
-  return getHighWaterMarks(db, [args.threadId])[args.threadId] ?? 0;
+): Promise<number> {
+  return (await getHighWaterMarks(db, [args.threadId]))[args.threadId] ?? 0;
 }
 
-export function getActiveStoredTurnId(
+export async function getActiveStoredTurnId(
   db: DbQueryConnection,
   threadId: string,
-): string | null {
-  const latestStarted = db
+): Promise<string | null> {
+  const latestStarted = await db
     .select({ turnId: events.turnId })
     .from(events)
     .where(
@@ -3662,7 +3735,7 @@ export function getActiveStoredTurnId(
     return null;
   }
 
-  const completed = db
+  const completed = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(
@@ -3678,11 +3751,11 @@ export function getActiveStoredTurnId(
   return completed ? null : latestStarted.turnId;
 }
 
-export function isStoredTurnMainRunIdle(
+export async function isStoredTurnMainRunIdle(
   db: DbQueryConnection,
   args: IsStoredTurnMainRunIdleArgs,
-): boolean {
-  const latest = db
+): Promise<boolean> {
+  const latest = await db
     .select({
       idle: sql<number>`json_extract(${events.data}, '$.state') = 'idle'`,
     })
@@ -3700,10 +3773,10 @@ export function isStoredTurnMainRunIdle(
   return latest?.idle === 1;
 }
 
-export function getLatestCompletedThreadContextClearSequence(
+export async function getLatestCompletedThreadContextClearSequence(
   db: DbQueryConnection,
   args: GetLatestCompletedThreadContextClearSequenceArgs,
-): number | null {
+): Promise<number | null> {
   const conditions: SQL[] = [
     eq(events.threadId, args.threadId),
     eq(events.type, "system/operation"),
@@ -3713,7 +3786,7 @@ export function getLatestCompletedThreadContextClearSequence(
   if (args.atOrBeforeSequence !== undefined) {
     conditions.push(lte(events.sequence, args.atOrBeforeSequence));
   }
-  const row = db
+  const row = await db
     .select({ sequence: events.sequence })
     .from(events)
     .where(and(...conditions))
@@ -3767,11 +3840,11 @@ export type StoredProviderThreadClaimClass =
   | "foreign"
   | "ambiguous";
 
-function listStoredProviderThreadIdentityScopes(
+async function listStoredProviderThreadIdentityScopes(
   db: DbQueryConnection,
   threadIds: readonly string[],
-): StoredProviderThreadIdentityScope[] {
-  return db
+): Promise<StoredProviderThreadIdentityScope[]> {
+  return await db
     .select({
       hostId: environments.hostId,
       providerId: threads.providerId,
@@ -3783,32 +3856,33 @@ function listStoredProviderThreadIdentityScopes(
     .all();
 }
 
-function readStoredProviderThreadClaim(
+async function readStoredProviderThreadClaim(
   db: DbQueryConnection,
   scope: StoredProviderThreadIdentityScope,
   providerThreadId: string,
-): StoredProviderThreadClaim | undefined {
+): Promise<StoredProviderThreadClaim | undefined> {
   const earliestHostCondition =
     scope.hostId === null
-      ? sql`1`
+      ? sql`(1 = 1)`
       : sql`(earliest_environment.host_id IS NULL OR earliest_environment.host_id = ${scope.hostId})`;
-  const claimantThreadIds = db
-    .selectDistinct({ threadId: events.threadId })
-    .from(events)
-    .innerJoin(threads, eq(threads.id, events.threadId))
-    .leftJoin(environments, eq(environments.id, threads.environmentId))
-    .where(
-      and(
-        eq(events.type, "thread/identity"),
-        eq(events.providerThreadId, providerThreadId),
-        eq(threads.providerId, scope.providerId),
-        scope.hostId === null
-          ? undefined
-          : or(
-              isNull(environments.hostId),
-              eq(environments.hostId, scope.hostId),
-            ),
-        sql`${events.createdAt} = (
+  const claimantThreadIds = (
+    await db
+      .selectDistinct({ threadId: events.threadId })
+      .from(events)
+      .innerJoin(threads, eq(threads.id, events.threadId))
+      .leftJoin(environments, eq(environments.id, threads.environmentId))
+      .where(
+        and(
+          eq(events.type, "thread/identity"),
+          eq(events.providerThreadId, providerThreadId),
+          eq(threads.providerId, scope.providerId),
+          scope.hostId === null
+            ? undefined
+            : or(
+                isNull(environments.hostId),
+                eq(environments.hostId, scope.hostId),
+              ),
+          sql`${events.createdAt} = (
           SELECT earliest.created_at
           FROM events AS earliest
           INNER JOIN threads AS earliest_thread
@@ -3822,11 +3896,11 @@ function readStoredProviderThreadClaim(
           ORDER BY earliest.created_at
           LIMIT 1
         )`,
-      ),
-    )
-    .orderBy(events.threadId)
-    .all()
-    .map((row) => row.threadId);
+        ),
+      )
+      .orderBy(events.threadId)
+      .all()
+  ).map((row) => row.threadId);
   const [owner, ...others] = claimantThreadIds;
   if (owner === undefined) {
     return undefined;
@@ -3860,16 +3934,17 @@ function otherClaimants(
   return claimants.filter((claimant) => claimant !== threadId);
 }
 
-function readNewestStoredProviderThreadIdentity(
+async function readNewestStoredProviderThreadIdentity(
   db: DbQueryConnection,
   args: {
     excludedProviderThreadIds: readonly string[];
     threadId: string;
   },
-):
+): Promise<
   | (StoredProviderThreadIdentityScope & { providerThreadId: string | null })
-  | null {
-  const row = db
+  | null
+> {
+  const row = await db
     .select({
       hostId: environments.hostId,
       providerId: threads.providerId,
@@ -3914,14 +3989,14 @@ function readNewestStoredProviderThreadIdentity(
   };
 }
 
-function resolveThreadProviderSession(
+async function resolveThreadProviderSession(
   db: DbQueryConnection,
   threadId: string,
-): StoredProviderSession {
+): Promise<StoredProviderSession> {
   const visited: string[] = [];
   let firstForeign: StoredProviderSession | null = null;
   for (;;) {
-    const identity = readNewestStoredProviderThreadIdentity(db, {
+    const identity = await readNewestStoredProviderThreadIdentity(db, {
       excludedProviderThreadIds: visited,
       threadId,
     });
@@ -3933,7 +4008,11 @@ function resolveThreadProviderSession(
       return { kind: "invalid", providerThreadId, claimantThreadIds: [] };
     }
     visited.push(providerThreadId);
-    const claim = readStoredProviderThreadClaim(db, identity, providerThreadId);
+    const claim = await readStoredProviderThreadClaim(
+      db,
+      identity,
+      providerThreadId,
+    );
     switch (classifyClaim(claim, threadId)) {
       case "owned":
       case "unannounced":
@@ -3954,42 +4033,46 @@ function resolveThreadProviderSession(
   }
 }
 
-export function resolveStoredProviderSessions(
+export async function resolveStoredProviderSessions(
   db: DbQueryConnection,
   args: ResolveStoredProviderSessionsArgs,
-): Map<string, StoredProviderSession> {
+): Promise<Map<string, StoredProviderSession>> {
   return new Map(
-    [...new Set(args.threadIds)].map(
-      (threadId): [string, StoredProviderSession] => [
-        threadId,
-        resolveThreadProviderSession(db, threadId),
-      ],
+    await Promise.all(
+      [...new Set(args.threadIds)].map(
+        async (threadId): Promise<[string, StoredProviderSession]> => [
+          threadId,
+          await resolveThreadProviderSession(db, threadId),
+        ],
+      ),
     ),
   );
 }
 
-export function getStoredProviderSession(
+export async function getStoredProviderSession(
   db: DbQueryConnection,
   threadId: string,
-): StoredProviderSession {
-  return resolveThreadProviderSession(db, threadId);
+): Promise<StoredProviderSession> {
+  return await resolveThreadProviderSession(db, threadId);
 }
 
-export function getLastStoredProviderThreadId(
+export async function getLastStoredProviderThreadId(
   db: DbQueryConnection,
   threadId: string,
-): string | null {
-  const session = getStoredProviderSession(db, threadId);
+): Promise<string | null> {
+  const session = await getStoredProviderSession(db, threadId);
   return session.kind === "owned" ? session.providerThreadId : null;
 }
 
-export function wouldRemoveSharedProviderSessionClaim(
+export async function wouldRemoveSharedProviderSessionClaim(
   db: DbQueryConnection,
   args: DeleteThreadEventSuffixArgs,
-): boolean {
-  const [scope] = listStoredProviderThreadIdentityScopes(db, [args.threadId]);
+): Promise<boolean> {
+  const [scope] = await listStoredProviderThreadIdentityScopes(db, [
+    args.threadId,
+  ]);
   if (scope === undefined) return false;
-  const removedClaims = db
+  const removedClaims = await db
     .select({
       providerThreadId: events.providerThreadId,
       createdAt: sql<number>`min(${events.createdAt})`,
@@ -4008,13 +4091,13 @@ export function wouldRemoveSharedProviderSessionClaim(
     .all();
   for (const removed of removedClaims) {
     if (removed.providerThreadId === null) continue;
-    const claim = readStoredProviderThreadClaim(
+    const claim = await readStoredProviderThreadClaim(
       db,
       scope,
       removed.providerThreadId,
     );
     if (classifyClaim(claim, args.threadId) === "foreign") continue;
-    const retained = db
+    const retained = await db
       .select({ id: events.id })
       .from(events)
       .where(
@@ -4032,7 +4115,7 @@ export function wouldRemoveSharedProviderSessionClaim(
       .limit(1)
       .get();
     if (retained !== undefined) continue;
-    const other = db
+    const other = await db
       .select({ id: events.id })
       .from(events)
       .innerJoin(threads, eq(threads.id, events.threadId))
@@ -4058,24 +4141,26 @@ export function wouldRemoveSharedProviderSessionClaim(
   return false;
 }
 
-export function classifyStoredProviderThreadClaim(
+export async function classifyStoredProviderThreadClaim(
   db: DbQueryConnection,
   args: ClassifyStoredProviderThreadClaimArgs,
-): StoredProviderThreadClaimClass {
-  const [scope] = listStoredProviderThreadIdentityScopes(db, [args.threadId]);
+): Promise<StoredProviderThreadClaimClass> {
+  const [scope] = await listStoredProviderThreadIdentityScopes(db, [
+    args.threadId,
+  ]);
   if (scope === undefined) {
     return "foreign";
   }
   return classifyClaim(
-    readStoredProviderThreadClaim(db, scope, args.providerThreadId),
+    await readStoredProviderThreadClaim(db, scope, args.providerThreadId),
     args.threadId,
   );
 }
 
-export function listThreadTurnInterruptionEventStates(
+export async function listThreadTurnInterruptionEventStates(
   db: DbQueryConnection,
   args: ListThreadTurnInterruptionEventStatesArgs,
-): ThreadTurnInterruptionEventState[] {
+): Promise<ThreadTurnInterruptionEventState[]> {
   const threadIds = [...new Set(args.threadIds)];
   if (threadIds.length === 0) {
     return [];
@@ -4092,7 +4177,7 @@ export function listThreadTurnInterruptionEventStates(
     ]),
   );
 
-  const latestStartedTurnRows = db
+  const latestStartedTurnRows = await db
     .select({
       threadId: events.threadId,
       turnId: events.turnId,
@@ -4132,7 +4217,7 @@ export function listThreadTurnInterruptionEventStates(
     }
   }
 
-  for (const [threadId, session] of resolveStoredProviderSessions(db, {
+  for (const [threadId, session] of await resolveStoredProviderSessions(db, {
     threadIds,
   })) {
     const state = statesByThreadId.get(threadId);
@@ -4148,67 +4233,69 @@ export function listThreadTurnInterruptionEventStates(
   });
 }
 
-export function listThreadIdsStoppedSinceLastTurnStart(
+export async function listThreadIdsStoppedSinceLastTurnStart(
   db: DbConnection,
   args: ListThreadIdsStoppedSinceLastTurnStartArgs,
-): string[] {
+): Promise<string[]> {
   if (args.threadIds.length === 0) {
     return [];
   }
 
-  return db
-    .select({ threadId: events.threadId })
-    .from(events)
-    .where(
-      and(
-        inArray(events.threadId, [...args.threadIds]),
-        eq(events.type, "system/thread/interrupted"),
-        sql`json_extract(${events.data}, '$.reason') = 'manual-stop'`,
-        sql`${events.sequence} = (
+  return (
+    await db
+      .select({ threadId: events.threadId })
+      .from(events)
+      .where(
+        and(
+          inArray(events.threadId, [...args.threadIds]),
+          eq(events.type, "system/thread/interrupted"),
+          sql`json_extract(${events.data}, '$.reason') = 'manual-stop'`,
+          sql`${events.sequence} = (
           SELECT MAX(latest.sequence)
           FROM events AS latest
           WHERE latest.thread_id = ${events.threadId}
             AND latest.type IN ('turn/started', 'system/thread/interrupted')
         )`,
-      ),
-    )
-    .all()
-    .map((row) => row.threadId);
+        ),
+      )
+      .all()
+  ).map((row) => row.threadId);
 }
 
-export function listThreadIdsWithLatestHostDaemonRestartInterruption(
+export async function listThreadIdsWithLatestHostDaemonRestartInterruption(
   db: DbConnection,
   args: ListThreadIdsWithLatestHostDaemonRestartInterruptionArgs,
-): string[] {
+): Promise<string[]> {
   if (args.threadIds.length === 0) {
     return [];
   }
 
-  return db
-    .select({ threadId: events.threadId })
-    .from(events)
-    .where(
-      and(
-        inArray(events.threadId, [...args.threadIds]),
-        eq(events.type, "system/thread/interrupted"),
-        sql`json_extract(${events.data}, '$.reason') = 'host-daemon-restarted'`,
-        sql`${events.sequence} = (
+  return (
+    await db
+      .select({ threadId: events.threadId })
+      .from(events)
+      .where(
+        and(
+          inArray(events.threadId, [...args.threadIds]),
+          eq(events.type, "system/thread/interrupted"),
+          sql`json_extract(${events.data}, '$.reason') = 'host-daemon-restarted'`,
+          sql`${events.sequence} = (
           SELECT MAX(latest.sequence)
           FROM events AS latest
           WHERE latest.thread_id = ${events.threadId}
         )`,
-      ),
-    )
-    .all()
-    .map((row) => row.threadId);
+        ),
+      )
+      .all()
+  ).map((row) => row.threadId);
 }
 
-export function getLastStoredTurnRequestEvent(
+export async function getLastStoredTurnRequestEvent(
   db: DbQueryConnection,
   threadId: string,
-): StoredTurnRequestEventRow | null {
+): Promise<StoredTurnRequestEventRow | null> {
   return (
-    db
+    (await db
       .select({
         data: events.data,
         sequence: events.sequence,
@@ -4228,11 +4315,11 @@ export function getLastStoredTurnRequestEvent(
       )
       .orderBy(sql`${events.sequence} DESC`)
       .limit(1)
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-function pruneUsageSnapshots(
+async function pruneUsageSnapshots(
   db: DbQueryConnection,
   args: PruningWindow & {
     eventType:
@@ -4240,65 +4327,68 @@ function pruneUsageSnapshots(
       | "thread/tokenUsage/updated";
     threadId: string;
   },
-): number {
+): Promise<number> {
   const keepers = args.usageKeepers;
   const boundarySequence =
     args.eventType === "thread/contextWindowUsage/updated"
-      ? (getLatestContextWindowBoundary(db, {
-          threadId: args.threadId,
-          sequenceStart: 0,
-        })?.sequence ?? 0)
+      ? ((
+          await getLatestContextWindowBoundary(db, {
+            threadId: args.threadId,
+            sequenceStart: 0,
+          })
+        )?.sequence ?? 0)
       : 0;
   const sequences = [
     ...new Set([keepers.latestRootSequence, keepers.latestContextSequence]),
   ].filter((sequence) => sequence > 0);
   for (const sequence of sequences) {
     if (
-      !db.get(
+      !(await db.get(
         sql`SELECT 1 FROM events WHERE thread_id = ${args.threadId} AND type = ${args.eventType} AND sequence = ${sequence}`,
-      )
+      ))
     )
       return 0;
   }
-  return db.run(sql`DELETE FROM events
+  return (
+    await db.run(sql`DELETE FROM events
     WHERE id IN (${pruningCandidates(args)}) AND thread_id = ${args.threadId}
       AND type = ${args.eventType}
       AND ${isBeforeLatestThreadEvent(args.threadId)}
       AND sequence NOT IN (${keepers.latestRootSequence}, ${keepers.latestContextSequence}, ${boundarySequence})`)
-    .changes;
+  ).changes;
 }
 
-export function pruneContextWindowUsageEventsInTransaction(
+export async function pruneContextWindowUsageEventsInTransaction(
   db: DbQueryConnection,
   args: PruneContextWindowUsageEventsArgs,
-): number {
-  return pruneUsageSnapshots(db, {
+): Promise<number> {
+  return await pruneUsageSnapshots(db, {
     ...args,
     eventType: "thread/contextWindowUsage/updated",
   });
 }
 
-export function pruneTokenUsageEventsInTransaction(
+export async function pruneTokenUsageEventsInTransaction(
   db: DbQueryConnection,
   args: PruneTokenUsageEventsArgs,
-): number {
-  return pruneUsageSnapshots(db, {
+): Promise<number> {
+  return await pruneUsageSnapshots(db, {
     ...args,
     eventType: "thread/tokenUsage/updated",
   });
 }
 
-export function listOpenBackgroundTaskItemRowsForHost(
+export async function listOpenBackgroundTaskItemRowsForHost(
   db: DbQueryConnection,
   args: ListOpenBackgroundTaskItemRowsForHostArgs,
-): OpenBackgroundTaskItemRow[] {
+): Promise<OpenBackgroundTaskItemRow[]> {
   const startedType = "item/started" satisfies ThreadEventType;
   const progressType = "item/backgroundTask/progress" satisfies ThreadEventType;
   const completedType =
     "item/backgroundTask/completed" satisfies ThreadEventType;
   const settled = alias(events, "settled_background_task");
 
-  const rows = db
+  const rows = await db
     .select({
       data: events.data,
       environmentId: threads.environmentId,
@@ -4345,17 +4435,17 @@ export function listOpenBackgroundTaskItemRowsForHost(
   );
 }
 
-export function listOpenBackgroundTaskItemRowsForThread(
+export async function listOpenBackgroundTaskItemRowsForThread(
   db: DbQueryConnection,
   args: ListOpenBackgroundTaskItemRowsForThreadArgs,
-): OpenBackgroundTaskItemRow[] {
+): Promise<OpenBackgroundTaskItemRow[]> {
   const startedType = "item/started" satisfies ThreadEventType;
   const progressType = "item/backgroundTask/progress" satisfies ThreadEventType;
   const completedType =
     "item/backgroundTask/completed" satisfies ThreadEventType;
   const settled = alias(events, "settled_thread_background_task");
 
-  const rows = db
+  const rows = await db
     .select({
       data: sql<string>`${events.data}`,
       environmentId: sql<string | null>`${threads.environmentId}`,

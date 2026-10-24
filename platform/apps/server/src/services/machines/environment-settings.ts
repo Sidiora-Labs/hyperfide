@@ -13,7 +13,7 @@ export async function resolveUserMachineEnvironment(
   dataDir: string,
   projectId: string | null = null,
 ): Promise<HostDaemonContributedEnvEntry[]> {
-  const rows = readMachineEnvironment(db, projectId);
+  const rows = await readMachineEnvironment(db, projectId);
   return Promise.all(
     rows.map(async (row) => ({
       name: row.name,
@@ -32,14 +32,14 @@ export async function resolveUserMachineEnvironment(
 }
 
 export async function machineEnvironmentView(db: DbConnection) {
-  const variables = readMachineEnvironment(db).map((row) => ({
+  const variables = (await readMachineEnvironment(db)).map((row) => ({
     name: row.name,
     value: null,
     secret: true as const,
     note: row.note,
   }));
   const overridden = variables.some((row) => row.name === "GH_TOKEN");
-  const enabled = getAppSettings(db).machineGitCredentialsEnabled;
+  const enabled = (await getAppSettings(db)).machineGitCredentialsEnabled;
   const health =
     overridden || !enabled
       ? {
@@ -71,12 +71,14 @@ export async function projectMachineEnvironmentView(
   projectId: string,
 ) {
   const global = await machineEnvironmentView(db);
-  const variables = readMachineEnvironment(db, projectId).map((row) => ({
-    name: row.name,
-    value: null,
-    secret: true as const,
-    note: row.note,
-  }));
+  const variables = (await readMachineEnvironment(db, projectId)).map(
+    (row) => ({
+      name: row.name,
+      value: null,
+      secret: true as const,
+      note: row.note,
+    }),
+  );
   return {
     builtInGit: variables.some((row) => row.name === "GH_TOKEN")
       ? {

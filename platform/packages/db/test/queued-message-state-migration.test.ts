@@ -47,25 +47,28 @@ const limiter = JSON.stringify({
   reason: "4 of 4 running",
 });
 
-function rewoundDatabase(): { db: DbConnection; threadId: string } {
-  const db = createConnection(":memory:");
-  migrate(db);
-  const thread = createThread(db, noopNotifier, {
+async function rewoundDatabase(): Promise<{
+  db: DbConnection;
+  threadId: string;
+}> {
+  const db = await createConnection(":memory:");
+  await migrate(db);
+  const thread = await createThread(db, noopNotifier, {
     projectId: PERSONAL_PROJECT_ID,
     providerId: "test-provider",
     status: "idle",
   });
-  rewindQueuedMessageStateMigration(db);
-  dropThreadParentNotificationsColumn(db);
+  await rewindQueuedMessageStateMigration(db);
+  await dropThreadParentNotificationsColumn(db);
   return { db, threadId: thread.id };
 }
 
-function insertLegacyRow(
+async function insertLegacyRow(
   db: DbConnection,
   threadId: string,
   row: LegacyQueuedRow,
-): void {
-  db.$client
+): Promise<void> {
+  await db.$client
     .prepare(
       `INSERT INTO queued_thread_messages (
         id, thread_id, content, model, reasoning_level, permission_mode,
@@ -93,8 +96,10 @@ function insertLegacyRow(
     });
 }
 
-function readMigratedRows(db: DbConnection): Map<string, MigratedQueuedRow> {
-  const rows = db.$client
+async function readMigratedRows(
+  db: DbConnection,
+): Promise<Map<string, MigratedQueuedRow>> {
+  const rows = await db.$client
     .prepare<[], MigratedQueuedRow>(
       `SELECT
         id, state, send_at AS sendAt, waiting_on AS waitingOn,
@@ -385,16 +390,16 @@ const documentedCombinations: readonly {
 ];
 
 describe("queued message state migration", () => {
-  it("maps every documented column combination onto exactly one state", () => {
-    const { db, threadId } = rewoundDatabase();
+  it("maps every documented column combination onto exactly one state", async () => {
+    const { db, threadId } = await rewoundDatabase();
     try {
       for (const { legacy } of documentedCombinations) {
-        insertLegacyRow(db, threadId, legacy);
+        await insertLegacyRow(db, threadId, legacy);
       }
 
-      migrate(db);
+      await migrate(db);
 
-      const migrated = readMigratedRows(db);
+      const migrated = await readMigratedRows(db);
       expect(migrated.size).toBe(documentedCombinations.length);
       for (const { legacy, migrated: expected } of documentedCombinations) {
         expect({ id: legacy.id, ...migrated.get(legacy.id) }).toEqual({
@@ -403,17 +408,17 @@ describe("queued message state migration", () => {
         });
       }
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 
-  it("migrates an install whose queue table never gained group_with_next", () => {
-    const { db, threadId } = rewoundDatabase();
+  it("migrates an install whose queue table never gained group_with_next", async () => {
+    const { db, threadId } = await rewoundDatabase();
     try {
-      db.$client.exec(
+      await db.$client.exec(
         "ALTER TABLE queued_thread_messages DROP COLUMN group_with_next",
       );
-      db.$client
+      await db.$client
         .prepare(
           `INSERT INTO queued_thread_messages (
             id, thread_id, content, model, reasoning_level, permission_mode,
@@ -422,14 +427,14 @@ describe("queued message state migration", () => {
         )
         .run(threadId, busy);
 
-      migrate(db);
+      await migrate(db);
 
-      expect(readMigratedRows(db).get("old")).toMatchObject({
+      expect((await readMigratedRows(db)).get("old")).toMatchObject({
         state: "waiting",
         groupWithNext: 0,
       });
     } finally {
-      db.$client.close();
+      await db.close();
     }
   });
 });

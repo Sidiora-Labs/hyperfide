@@ -51,11 +51,11 @@ interface ArchiveThreadAndChildrenArgs {
   parentThread: Thread;
 }
 
-function archiveThreadWithLifecycleEffects(
+async function archiveThreadWithLifecycleEffects(
   deps: AppDeps,
   args: ArchiveThreadWithLifecycleEffectsArgs,
-): Thread | null {
-  const archivedThread = archiveThreadAndReleaseChildren(deps, {
+): Promise<Thread | null> {
+  const archivedThread = await archiveThreadAndReleaseChildren(deps, {
     threadId: args.thread.id,
   });
   if (!archivedThread) {
@@ -64,18 +64,22 @@ function archiveThreadWithLifecycleEffects(
 
   const now = Date.now();
   if (!archiveUndoGraceKeepsTerminals(archivedThread, now)) {
-    deps.terminalSessions.closeArchivedThreadTerminals({
+    await deps.terminalSessions.closeArchivedThreadTerminals({
       threadId: archivedThread.id,
     });
   }
   if (!archiveUndoGraceKeepsTurnRunning(archivedThread, now)) {
-    requestThreadStopForCurrentState(deps, archivedThread, args.environment);
+    await requestThreadStopForCurrentState(
+      deps,
+      archivedThread,
+      args.environment,
+    );
   }
-  dispatchSettledArchivedThreadProviderArchiveCommand(deps, {
+  await dispatchSettledArchivedThreadProviderArchiveCommand(deps, {
     threadId: archivedThread.id,
   });
   resetActiveThreadEventPruningState(archivedThread.id);
-  pruneThreadEventHistoryBestEffort(deps, {
+  await pruneThreadEventHistoryBestEffort(deps, {
     mode: "archived",
     threadId: archivedThread.id,
   });
@@ -100,61 +104,66 @@ function archiveThreadWithLifecycleEffects(
   return archivedThread;
 }
 
-export function archiveEnvironmentThreads(
+export async function archiveEnvironmentThreads(
   deps: AppDeps,
   args: ArchiveEnvironmentThreadsArgs,
-): string[] {
-  const roots = listLiveThreadsInEnvironment(deps.db, {
+): Promise<string[]> {
+  const roots = await listLiveThreadsInEnvironment(deps.db, {
     environmentId: args.environment.id,
   });
-  return archiveThreadTrees(deps, roots, (thread) =>
+  return await archiveThreadTrees(deps, roots, async (thread) =>
     thread.environmentId === null
       ? null
-      : getEnvironment(deps.db, thread.environmentId),
+      : await getEnvironment(deps.db, thread.environmentId),
   );
 }
 
-export function archiveThreadAndChildren(
+export async function archiveThreadAndChildren(
   deps: AppDeps,
   args: ArchiveThreadAndChildrenArgs,
-): string[] {
-  const environment = resolveThreadHostCommandEnvironment({
+): Promise<string[]> {
+  const environment = await resolveThreadHostCommandEnvironment({
     db: deps.db,
     thread: args.parentThread,
   });
-  return archiveThreadTrees(deps, [args.parentThread], (thread) =>
+  return await archiveThreadTrees(deps, [args.parentThread], async (thread) =>
     thread.id === args.parentThread.id
       ? environment
       : thread.environmentId === null
         ? null
-        : getEnvironment(deps.db, thread.environmentId),
+        : await getEnvironment(deps.db, thread.environmentId),
   );
 }
 
-function archiveThreadTrees(
+async function archiveThreadTrees(
   deps: AppDeps,
   roots: Thread[],
   resolveEnvironment: (
     thread: ArchiveThreadWithLifecycleEffectsArgs["thread"],
-  ) => ArchiveThreadEnvironment | null,
-): string[] {
-  const threads = listArchiveCandidates(deps.db, roots);
-  for (const root of roots) archiveThread(deps.db, deps.hub, root.id);
+  ) =>
+    | ArchiveThreadEnvironment
+    | null
+    | Promise<ArchiveThreadEnvironment | null>,
+): Promise<string[]> {
+  const threads = await listArchiveCandidates(deps.db, roots);
+  for (const root of roots) await archiveThread(deps.db, deps.hub, root.id);
   const archivedThreadIds: string[] = [];
 
   for (const thread of threads) {
     if (thread.deletedAt !== null) continue;
     if (thread.archivedAt !== null) {
       if (!archiveUndoGraceKeepsTurnRunning(thread, Date.now()))
-        requestThreadStopForCurrentState(
+        await requestThreadStopForCurrentState(
           deps,
           thread,
-          thread.environmentId === null ? null : resolveEnvironment(thread),
+          thread.environmentId === null
+            ? null
+            : await resolveEnvironment(thread),
         );
       continue;
     }
-    const environment = resolveEnvironment(thread);
-    const result = archiveThreadWithLifecycleEffects(deps, {
+    const environment = await resolveEnvironment(thread);
+    const result = await archiveThreadWithLifecycleEffects(deps, {
       environment,
       thread,
     });
@@ -167,11 +176,11 @@ function archiveThreadTrees(
   return archivedThreadIds;
 }
 
-export function countUnarchivedThreadDescendants(
+export async function countUnarchivedThreadDescendants(
   db: AppDeps["db"],
   thread: Thread,
-): number {
-  return listArchiveCandidates(db, [thread]).filter(
+): Promise<number> {
+  return (await listArchiveCandidates(db, [thread])).filter(
     (candidate) =>
       candidate.id !== thread.id &&
       candidate.visibility === "visible" &&
@@ -180,7 +189,7 @@ export function countUnarchivedThreadDescendants(
   ).length;
 }
 
-function listArchiveCandidates(db: AppDeps["db"], roots: Thread[]) {
+async function listArchiveCandidates(db: AppDeps["db"], roots: Thread[]) {
   type ArchiveCandidate = Pick<
     Thread,
     | "id"
@@ -212,13 +221,13 @@ function listArchiveCandidates(db: AppDeps["db"], roots: Thread[]) {
     visited.add(thread.id);
     pending.push({ thread, expanded: true });
     const descendants = [
-      ...listLifecycleThreadDependents(db, thread.id),
-      ...listNonDeletedChildThreads(db, {
+      ...(await listLifecycleThreadDependents(db, thread.id)),
+      ...(await listNonDeletedChildThreads(db, {
         parentThreadId: thread.id,
-      }),
-      ...listNonDeletedHiddenSourceThreads(db, {
+      })),
+      ...(await listNonDeletedHiddenSourceThreads(db, {
         sourceThreadId: thread.id,
-      }),
+      })),
     ];
     for (const descendant of descendants.reverse()) {
       pending.push({ thread: descendant, expanded: false });

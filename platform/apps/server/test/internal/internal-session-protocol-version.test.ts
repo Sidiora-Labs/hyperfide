@@ -27,8 +27,11 @@ describe("internal session protocol version", () => {
       try {
         const hostId = `host-${phase}`;
         const hostKey = createTestDaemonHostKey({ hostId });
-        upsertHost(server.db, server.hub, { id: hostId, name: "Paused Host" });
-        updateHost(server.db, server.hub, hostId, { phase });
+        await upsertHost(server.db, server.hub, {
+          id: hostId,
+          name: "Paused Host",
+        });
+        await updateHost(server.db, server.hub, hostId, { phase });
 
         const response = await fetch(
           `${server.baseUrl}/internal/session/open`,
@@ -71,9 +74,12 @@ describe("internal session protocol version", () => {
     try {
       const hostId = "host-resuming";
       const hostKey = createTestDaemonHostKey({ hostId });
-      upsertHost(server.db, server.hub, { id: hostId, name: "Resuming Host" });
-      updateHost(server.db, server.hub, hostId, { phase: "resuming" });
-      setAppSettings(server.db, {
+      await upsertHost(server.db, server.hub, {
+        id: hostId,
+        name: "Resuming Host",
+      });
+      await updateHost(server.db, server.hub, hostId, { phase: "resuming" });
+      await setAppSettings(server.db, {
         ...defaultAppSettings,
         idleProviderSessionTimeoutMinutes: 5,
       });
@@ -112,11 +118,14 @@ describe("internal session protocol version", () => {
     const server = await startTestServer();
     try {
       const hostKey = createTestDaemonHostKey({ hostId: "host-protocol" });
-      upsertHost(server.db, server.hub, {
+      await upsertHost(server.db, server.hub, {
         id: "host-protocol",
         name: "Protocol Host",
       });
-      const daemonClient = createHostDaemonClient(server.baseUrl, hostKey);
+      const daemonClient = await createHostDaemonClient(
+        server.baseUrl,
+        hostKey,
+      );
       const staleProtocolVersion =
         Math.min(...HOST_DAEMON_COMPATIBLE_PROTOCOL_VERSIONS) - 1;
 
@@ -154,7 +163,8 @@ describe("internal session protocol version", () => {
         message: `Daemon protocol version 188 does not match server protocol version ${HOST_DAEMON_PROTOCOL_VERSION}`,
       });
       expect(
-        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+        (await getHost(server.db, "host-protocol"))
+          ?.lastRejectedProtocolVersion,
       ).toBe(188);
 
       const preLocalApiPortProtocolVersion = 139;
@@ -190,7 +200,8 @@ describe("internal session protocol version", () => {
         message: `Daemon protocol version ${preLocalApiPortProtocolVersion} does not match server protocol version ${HOST_DAEMON_PROTOCOL_VERSION}`,
       });
       expect(
-        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+        (await getHost(server.db, "host-protocol"))
+          ?.lastRejectedProtocolVersion,
       ).toBe(preLocalApiPortProtocolVersion);
 
       const response = await daemonClient.session.open.$post({
@@ -219,7 +230,8 @@ describe("internal session protocol version", () => {
         message: `Daemon protocol version ${staleProtocolVersion} does not match server protocol version ${HOST_DAEMON_PROTOCOL_VERSION}`,
       });
       expect(
-        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+        (await getHost(server.db, "host-protocol"))
+          ?.lastRejectedProtocolVersion,
       ).toBe(staleProtocolVersion);
       await expect(
         fetch(`${server.baseUrl}/api/v1/hosts/host-protocol`).then((result) =>
@@ -285,7 +297,8 @@ describe("internal session protocol version", () => {
       });
       expect(accepted.status).toBe(201);
       expect(
-        getHost(server.db, "host-protocol")?.lastRejectedProtocolVersion,
+        (await getHost(server.db, "host-protocol"))
+          ?.lastRejectedProtocolVersion,
       ).toBeNull();
       await expect(
         fetch(`${server.baseUrl}/api/v1/hosts/host-protocol`).then((result) =>

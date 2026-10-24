@@ -72,19 +72,19 @@ function nearestEntry(
   return nearest;
 }
 
-function findReusableEntry(
+async function findReusableEntry(
   db: DbConnection,
   args: TimelineGroupingContextArgs,
   entries: readonly TimelineGroupingContextEntry[],
-):
-  | { entry: TimelineGroupingContextEntry; parentedChanged: boolean }
-  | undefined {
+): Promise<
+  { entry: TimelineGroupingContextEntry; parentedChanged: boolean } | undefined
+> {
   const exact = entries.find((entry) => entry.maxSeq === args.maxSeq);
   if (exact !== undefined) return { entry: exact, parentedChanged: false };
   for (const side of ["below", "above"] as const) {
     const entry = nearestEntry(entries, args.maxSeq, side);
     if (entry === undefined) continue;
-    const changes = getTimelineGroupingContextChangesInRange(db, {
+    const changes = await getTimelineGroupingContextChangesInRange(db, {
       afterSequence: Math.min(entry.maxSeq, args.maxSeq),
       threadId: args.threadId,
       throughSequence: Math.max(entry.maxSeq, args.maxSeq),
@@ -96,10 +96,10 @@ function findReusableEntry(
   return undefined;
 }
 
-export function getTimelineGroupingContext(
+export async function getTimelineGroupingContext(
   db: DbConnection,
   args: TimelineGroupingContextArgs,
-): TimelineGroupingContext {
+): Promise<TimelineGroupingContext> {
   let cache = orderingContexts.get(db);
   if (cache === undefined) {
     cache = new Map();
@@ -107,13 +107,13 @@ export function getTimelineGroupingContext(
   }
   const key = JSON.stringify([args.threadId, args.sequenceStart]);
   const generation = getThreadEventRewriteGeneration(args.threadId);
-  const dataVersion = getDatabaseDataVersion(db);
+  const dataVersion = await getDatabaseDataVersion(db);
   const entries = (cache.get(key) ?? []).filter(
     (entry) =>
       entry.generation === generation && entry.dataVersion === dataVersion,
   );
   cache.delete(key);
-  const reusable = findReusableEntry(db, args, entries);
+  const reusable = await findReusableEntry(db, args, entries);
   if (reusable !== undefined && !reusable.parentedChanged) {
     cache.set(key, [
       reusable.entry,
@@ -122,8 +122,12 @@ export function getTimelineGroupingContext(
     return reusable.entry.context;
   }
   const orderingContext =
-    reusable?.entry.orderingContext ?? computeTimelineOrderingContext(db, args);
-  const parentedBoundary = getFirstParentedTimelineBoundarySequence(db, args);
+    reusable?.entry.orderingContext ??
+    (await computeTimelineOrderingContext(db, args));
+  const parentedBoundary = await getFirstParentedTimelineBoundarySequence(
+    db,
+    args,
+  );
   const context: TimelineGroupingContext = {
     acceptedTurnIds: orderingContext.acceptedTurnIds,
     orderingBoundarySequence:
@@ -142,11 +146,11 @@ export function getTimelineGroupingContext(
   return context;
 }
 
-function computeTimelineOrderingContext(
+async function computeTimelineOrderingContext(
   db: DbConnection,
   args: TimelineGroupingContextArgs,
-): TimelineOrderingContext {
-  const context = listTimelineOrderingContext(db, args);
+): Promise<TimelineOrderingContext> {
+  const context = await listTimelineOrderingContext(db, args);
   const spans = new Map<string, ExternalUserBoundaryTurnSpan>();
   const accepted = new Map<string, { sequence: number; turnId: string }>();
   for (const row of context) {

@@ -38,10 +38,10 @@ function postJson(path: string, body: unknown): [string, RequestInit] {
 describe("host file routes", () => {
   it("rejects hostile-origin and text/plain privileged mutations before host RPC", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
       const commands: HostDaemonOnlineRpcRequestMessage["command"][] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -88,7 +88,7 @@ describe("host file routes", () => {
 
   it("streams preview files, revalidating media while keeping sandboxed HTML uncached", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
       const revision = "d".repeat(64);
       const files = new Map([
@@ -115,7 +115,7 @@ describe("host file routes", () => {
         ],
       ]);
       const rootPaths: string[] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: ({ command }) => {
@@ -191,10 +191,10 @@ describe("host file routes", () => {
 
   it("routes recursive path listings and confined mutations to the selected daemon", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
       const commands: HostDaemonOnlineRpcRequestMessage["command"][] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -302,10 +302,10 @@ describe("host file routes", () => {
 
   it("fills write defaults and resolves the primary host at the boundary", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       seedPrimaryHost(harness.deps, host.id);
       const requests: HostDaemonOnlineRpcRequestMessage[] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -339,9 +339,9 @@ describe("host file routes", () => {
 
   it("passes the create-only null guard through to the daemon", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
+      const { host, session } = await seedHostSession(harness.deps);
       const commands: unknown[] = [];
-      registerHostRpcResponder(harness, {
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {
@@ -377,8 +377,8 @@ describe("host file routes", () => {
 
   it("serves reads and remaps daemon ENOENT to 404", async () => {
     await withTestHarness(async (harness) => {
-      const { host, session } = seedHostSession(harness.deps);
-      registerHostRpcResponder(harness, {
+      const { host, session } = await seedHostSession(harness.deps);
+      await registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
         handle: (request) => {

@@ -127,7 +127,7 @@ export async function applyThreadExecutionOverride(
     thread,
     typeof patch.model === "string" ? patch.model : null,
   );
-  const existing = getThreadExecutionOverride(deps.db, thread.id) ?? {
+  const existing = (await getThreadExecutionOverride(deps.db, thread.id)) ?? {
     modelOverride: null,
     reasoningLevelOverride: null,
   };
@@ -137,10 +137,10 @@ export async function applyThreadExecutionOverride(
     patch,
     models,
     providerId: thread.providerId,
-    fallbackModel: resolveFallbackModel(deps, thread),
+    fallbackModel: await resolveFallbackModel(deps, thread),
   });
 
-  setThreadExecutionOverride(deps.db, {
+  await setThreadExecutionOverride(deps.db, {
     threadId: thread.id,
     modelOverride: next.modelOverride,
     reasoningLevelOverride: next.reasoningLevelOverride,
@@ -151,7 +151,7 @@ export async function recoverThreadModelOverride(
   deps: LoggedWorkSessionDeps,
   args: RecoverThreadModelOverrideArgs,
 ): Promise<void> {
-  const existing = getThreadExecutionOverride(deps.db, args.thread.id);
+  const existing = await getThreadExecutionOverride(deps.db, args.thread.id);
   const patch: ThreadExecutionOverridePatch = {};
   if (
     args.model !== undefined &&
@@ -202,15 +202,15 @@ async function loadThreadProviderModels(
   return [...result.models, ...result.selectedOnlyModels];
 }
 
-function resolveFallbackModel(
+async function resolveFallbackModel(
   deps: LoggedWorkSessionDeps,
   thread: Thread,
-): string | null {
-  const lastExecution = getLastExecutionOptions(deps, thread.id);
+): Promise<string | null> {
+  const lastExecution = await getLastExecutionOptions(deps, thread.id);
   if (lastExecution?.model) {
     return lastExecution.model;
   }
-  const projectDefaults = getProjectExecutionDefaults(deps.db, {
+  const projectDefaults = await getProjectExecutionDefaults(deps.db, {
     projectId: thread.projectId,
   });
   return projectDefaults?.model ?? null;

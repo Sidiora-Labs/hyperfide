@@ -27,6 +27,8 @@ describe("drizzle config", () => {
   it("respects HYPERFIDE_DATA_DIR in production", () => {
     vi.stubEnv("HYPERFIDE_DATA_DIR", "~/custom-hyperfide");
 
-    expect(resolveDrizzleDataDir("prod")).toBe(join(os.homedir(), "custom-hyperfide"));
+    expect(resolveDrizzleDataDir("prod")).toBe(
+      join(os.homedir(), "custom-hyperfide"),
+    );
   });
 });

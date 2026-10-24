@@ -33,23 +33,25 @@ interface ParentFixture {
   projectId: string;
 }
 
-function seedParentFixture(
+async function seedParentFixture(
   harness: TestHarness,
   hostId: string,
-): ParentFixture {
-  const { host } = seedHostSession(harness.deps, { id: hostId });
-  const { project } = seedProjectWithSource(harness.deps, { hostId: host.id });
-  const environment = seedEnvironment(harness.deps, {
+): Promise<ParentFixture> {
+  const { host } = await seedHostSession(harness.deps, { id: hostId });
+  const { project } = await seedProjectWithSource(harness.deps, {
+    hostId: host.id,
+  });
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: `/tmp/${hostId}-environment`,
   });
-  const parent = seedThread(harness.deps, {
+  const parent = await seedThread(harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     title: "Manager",
   });
-  seedThreadRuntimeState(harness.deps, {
+  await seedThreadRuntimeState(harness.deps, {
     threadId: parent.id,
     environmentId: environment.id,
     providerThreadId: `provider-${hostId}`,
@@ -73,7 +75,7 @@ async function waitForStampedSystemMessage(
   parentThreadId: string,
 ): Promise<StampedSystemMessage> {
   await flushChildThreadNotifications();
-  const rows = harness.db
+  const rows = await harness.db
     .select()
     .from(events)
     .where(
@@ -111,8 +113,11 @@ describe("Family B emit-site discriminator stamping", () => {
   for (const { turnStatus, expectedKind } of childTurnStatuses) {
     it(`stamps a single ${turnStatus} child outcome as ${expectedKind}`, async () => {
       await withChildThreadNotificationClock(async (harness) => {
-        const fixture = seedParentFixture(harness, `host-child-${turnStatus}`);
-        const child = seedThread(harness.deps, {
+        const fixture = await seedParentFixture(
+          harness,
+          `host-child-${turnStatus}`,
+        );
+        const child = await seedThread(harness.deps, {
           projectId: fixture.projectId,
           title: "Worker child",
           parentThreadId: fixture.parentThreadId,
@@ -141,8 +146,8 @@ describe("Family B emit-site discriminator stamping", () => {
 
   it("stamps a needs-attention notification as child-needs-attention", async () => {
     await withChildThreadNotificationClock(async (harness) => {
-      const fixture = seedParentFixture(harness, "host-child-attention");
-      const child = seedThread(harness.deps, {
+      const fixture = await seedParentFixture(harness, "host-child-attention");
+      const child = await seedThread(harness.deps, {
         projectId: fixture.projectId,
         title: "Blocked child",
         parentThreadId: fixture.parentThreadId,
@@ -169,8 +174,8 @@ describe("Family B emit-site discriminator stamping", () => {
 
   it("stamps ownership assignment as ownership-assigned naming the child", async () => {
     await withChildThreadNotificationClock(async (harness) => {
-      const fixture = seedParentFixture(harness, "host-ownership-assign");
-      const child = seedThread(harness.deps, {
+      const fixture = await seedParentFixture(harness, "host-ownership-assign");
+      const child = await seedThread(harness.deps, {
         projectId: fixture.projectId,
         title: "Assigned child",
         parentThreadId: fixture.parentThreadId,
@@ -196,8 +201,8 @@ describe("Family B emit-site discriminator stamping", () => {
 
   it("stamps ownership removal as ownership-removed naming the child", async () => {
     await withChildThreadNotificationClock(async (harness) => {
-      const fixture = seedParentFixture(harness, "host-ownership-remove");
-      const child = seedThread(harness.deps, {
+      const fixture = await seedParentFixture(harness, "host-ownership-remove");
+      const child = await seedThread(harness.deps, {
         projectId: fixture.projectId,
         title: "Released child",
         parentThreadId: null,

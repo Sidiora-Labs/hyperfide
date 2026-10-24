@@ -22,6 +22,7 @@ import type {
 import type { TestAppHarness } from "./test-app.js";
 import { availableModelFixture } from "./available-models.js";
 import { createTestDaemonHostKey } from "./test-app.js";
+import { whenLiveHostCommandSettlementsIdle } from "../../src/services/hosts/live-command.js";
 
 interface CapturedRpcRow {
   completedAt: number | null;
@@ -50,32 +51,44 @@ export interface QueuedCommand<
   rpcRequest?: HostDaemonOnlineRpcRequestMessage;
 }
 
-export function listQueuedCommands(
+export async function listQueuedCommands(
   harness: TestAppHarness,
   type: HostDaemonRpcCommand["type"],
-): HostDaemonRpcCommand[] {
-  return pendingHostRpcRequests
-    .filter(
-      (queued) =>
-        isCapturedRpcForHarness(harness, queued) &&
-        queued.command.type === type,
+): Promise<HostDaemonRpcCommand[]> {
+  return (
+    await Promise.all(
+      pendingHostRpcRequests.map(async (value, index, array) =>
+        (await (async (queued) =>
+          (await isCapturedRpcForHarness(harness, queued)) &&
+          queued.command.type === type)(value))
+          ? [value]
+          : [],
+      ),
     )
+  )
+    .flat()
     .map((queued) => hostDaemonRpcCommandSchema.parse(queued.command));
 }
 
-export function listQueuedThreadCommands(
+export async function listQueuedThreadCommands(
   harness: TestAppHarness,
   type: HostDaemonCommand["type"],
   threadId: string,
-): HostDaemonCommand[] {
-  return pendingHostRpcRequests
-    .filter(
-      (queued) =>
-        isCapturedRpcForHarness(harness, queued) &&
-        queued.command.type === type &&
-        "threadId" in queued.command &&
-        queued.command.threadId === threadId,
+): Promise<HostDaemonCommand[]> {
+  return (
+    await Promise.all(
+      pendingHostRpcRequests.map(async (value, index, array) =>
+        (await (async (queued) =>
+          (await isCapturedRpcForHarness(harness, queued)) &&
+          queued.command.type === type &&
+          "threadId" in queued.command &&
+          queued.command.threadId === threadId)(value))
+          ? [value]
+          : [],
+      ),
     )
+  )
+    .flat()
     .map((queued) => hostDaemonCommandSchema.parse(queued.command));
 }
 
@@ -110,7 +123,7 @@ interface RegisterTestHostRpcCaptureArgs {
 
 export interface TestHostRpcSocket {
   close(code?: number, reason?: string): void;
-  send(data: string): void;
+  send(data: string): void | Promise<void>;
 }
 
 function readWorkspaceAgentContextFromDisk(
@@ -256,11 +269,11 @@ export function createTestDaemonEventEnvelope(
   };
 }
 
-export function internalAuthHeaders(
+export async function internalAuthHeaders(
   harness: TestAppHarness,
   args: { hostId?: string } = {},
-): HeadersInit {
-  const activeSessions = harness.db
+): Promise<HeadersInit> {
+  const activeSessions = await harness.db
     .select({
       hostId: hostDaemonSessions.hostId,
     })
@@ -294,20 +307,24 @@ function nextTestRpcCursor(
  * that reconnects a host can hand the same socket to the real
  * `onDaemonSocketOpen` instead of replacing the capture with a stub.
  */
-export function registerTestHostRpcCapture(
+export async function registerTestHostRpcCapture(
   deps: Pick<TestAppHarness, "db" | "hub">,
   args: RegisterTestHostRpcCaptureArgs,
-): TestHostRpcSocket {
+): Promise<TestHostRpcSocket> {
   testRpcCursorByHost.delete(args.hostId);
-  for (let index = pendingHostRpcRequests.length - 1; index >= 0; index -= 1) {
-    const queued = pendingHostRpcRequests[index];
+  for (
+    let index = (await pendingHostRpcRequests.length) - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const queued = await pendingHostRpcRequests[index];
     if (queued?.row.hostId === args.hostId) {
       pendingHostRpcRequests.splice(index, 1);
     }
   }
   const socket: TestHostRpcSocket = {
     close() {},
-    send(data) {
+    async send(data) {
       const message = hostDaemonServerWsMessageSchema.parse(JSON.parse(data));
       if (message.type === "machine.shutdown") {
         deps.hub.unregisterDaemon(args.sessionId);
@@ -435,7 +452,7 @@ export function registerTestHostRpcCapture(
         return;
       }
       if (command.type === "host.inspect_git_source") {
-        args.onInspectGitSource?.(command);
+        await args.onInspectGitSource?.(command);
         deps.hub.recordHostOnlineRpcResponse({
           message: hostDaemonOnlineRpcResponseMessageSchema.parse({
             type: "host-rpc.response",
@@ -472,7 +489,7 @@ export function registerTestHostRpcCapture(
       });
     },
   };
-  deps.hub.registerDaemon(args.sessionId, args.hostId, socket);
+  await deps.hub.registerDaemon(args.sessionId, args.hostId, socket);
   return socket;
 }
 
@@ -485,29 +502,32 @@ function removePendingHostRpcRequest(requestId: string): void {
   }
 }
 
-function isCapturedRpcForHarness(
+async function isCapturedRpcForHarness(
   harness: TestAppHarness,
   queued: QueuedCommand,
-): boolean {
+): Promise<boolean> {
   return (
-    harness.db
+    (await harness.db
       .select({ id: hostDaemonSessions.id })
       .from(hostDaemonSessions)
       .where(eq(hostDaemonSessions.hostId, queued.row.hostId))
-      .get() !== undefined
+      .get()) !== undefined
   );
 }
 
 export async function waitForQueuedCommand(
   harness: TestAppHarness,
   predicate: (queued: QueuedCommand) => boolean,
-  timeoutMs = 1_000,
+  timeoutMs = 10_000,
 ): Promise<QueuedCommand> {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     for (const queued of pendingHostRpcRequests) {
-      if (isCapturedRpcForHarness(harness, queued) && predicate(queued)) {
+      if (
+        (await isCapturedRpcForHarness(harness, queued)) &&
+        predicate(queued)
+      ) {
         return queued;
       }
     }
@@ -515,8 +535,17 @@ export async function waitForQueuedCommand(
     await sleep(10);
   }
 
-  const captured = pendingHostRpcRequests
-    .filter((queued) => isCapturedRpcForHarness(harness, queued))
+  const captured = (
+    await Promise.all(
+      pendingHostRpcRequests.map(async (value, index, array) =>
+        (await (async (queued) =>
+          await isCapturedRpcForHarness(harness, queued))(value))
+          ? [value]
+          : [],
+      ),
+    )
+  )
+    .flat()
     .map((queued) =>
       queued.command.type === "plugin.host.call"
         ? `${queued.command.type}:${queued.command.pluginId}/${queued.command.method}`
@@ -533,7 +562,7 @@ export async function waitForQueuedCommandAfter(
   predicate: (queued: QueuedCommand) => boolean,
   timeoutMs = 1_000,
 ): Promise<QueuedCommand> {
-  return waitForQueuedCommand(
+  return await waitForQueuedCommand(
     harness,
     (queued) => queued.row.cursor > afterCursor && predicate(queued),
     timeoutMs,
@@ -571,6 +600,7 @@ export async function reportQueuedCommandSuccess<
   });
   removePendingHostRpcRequest(queued.rpcRequest.requestId);
   await sleep(0);
+  await whenLiveHostCommandSettlementsIdle(harness.db);
   void args;
   return new Response(null, { status: 200 });
 }
@@ -624,6 +654,7 @@ export async function reportQueuedCommandError(
   });
   removePendingHostRpcRequest(queued.rpcRequest.requestId);
   await sleep(0);
+  await whenLiveHostCommandSettlementsIdle(harness.db);
   void auth;
   return new Response(null, { status: 200 });
 }

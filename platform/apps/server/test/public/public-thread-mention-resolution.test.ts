@@ -1,5 +1,8 @@
 import { archiveThread, markThreadDeleted } from "@hyperfide/db";
-import { GENERATED_ID_ALPHABET, GENERATED_ID_SUFFIX_LENGTH } from "@hyperfide/domain";
+import {
+  GENERATED_ID_ALPHABET,
+  GENERATED_ID_SUFFIX_LENGTH,
+} from "@hyperfide/domain";
 import { resolveThreadMentionsResponseSchema } from "@hyperfide/server-contract";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
@@ -35,24 +38,24 @@ async function resolveMentionsRequest(
 describe("public thread mention resolution route", () => {
   it("deduplicates exact IDs and omits missing or deleted threads", async () => {
     await withTestHarness(async (harness) => {
-      const { host } = seedHostSession(harness.deps);
-      const { project } = seedProjectWithSource(harness.deps, {
+      const { host } = await seedHostSession(harness.deps);
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: host.id,
       });
-      const known = seedThread(harness.deps, {
+      const known = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Known mention target",
       });
-      const archived = seedThread(harness.deps, {
+      const archived = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Archived mention target",
       });
-      archiveThread(harness.deps.db, harness.deps.hub, archived.id);
-      const deleted = seedThread(harness.deps, {
+      await archiveThread(harness.deps.db, harness.deps.hub, archived.id);
+      const deleted = await seedThread(harness.deps, {
         projectId: project.id,
         title: "Deleted mention target",
       });
-      markThreadDeleted(harness.deps.db, harness.deps.hub, {
+      await markThreadDeleted(harness.deps.db, harness.deps.hub, {
         threadId: deleted.id,
       });
 

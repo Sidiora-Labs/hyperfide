@@ -18,8 +18,8 @@ import {
 describe.sequential("fake provider managed crash recovery integration", () => {
   it(
     "survives a crash with a managed-worktree environment and resumes after restart",
-    () =>
-      withHarness(
+    async () =>
+      await withHarness(
         { builtinPlugins: ["environment-git-worktree"] },
         async (harness) => {
           const { thread } = await createRecoveryThread(

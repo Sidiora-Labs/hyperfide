@@ -4,14 +4,14 @@ interface QueryInSqliteVariableBatchesArgs<TValue, TRow> {
   dedupeKey: (value: TValue) => string;
   fixedVariableCount: number;
   maximumValueCount?: number;
-  queryBatch: (values: readonly TValue[]) => readonly TRow[];
+  queryBatch: (values: readonly TValue[]) => Promise<readonly TRow[]>;
   values: readonly TValue[];
   variableCountPerValue: number;
 }
 
-export function queryInSqliteVariableBatches<TValue, TRow>(
+export async function queryInSqliteVariableBatches<TValue, TRow>(
   args: QueryInSqliteVariableBatchesArgs<TValue, TRow>,
-): TRow[] {
+): Promise<TRow[]> {
   const values = [
     ...new Map(
       args.values.map((value) => [args.dedupeKey(value), value]),
@@ -34,7 +34,9 @@ export function queryInSqliteVariableBatches<TValue, TRow>(
 
   const rows: TRow[] = [];
   for (let offset = 0; offset < values.length; offset += batchSize) {
-    rows.push(...args.queryBatch(values.slice(offset, offset + batchSize)));
+    rows.push(
+      ...(await args.queryBatch(values.slice(offset, offset + batchSize))),
+    );
   }
   return rows;
 }

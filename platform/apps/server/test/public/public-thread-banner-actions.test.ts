@@ -1,4 +1,8 @@
-import { getLastStoredProviderThreadId, getThread, listEvents } from "@hyperfide/db";
+import {
+  getLastStoredProviderThreadId,
+  getThread,
+  listEvents,
+} from "@hyperfide/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
@@ -56,19 +60,19 @@ function clearCommandInput(): PromptInput[] {
   ];
 }
 
-function seedBannerFixture(
+async function seedBannerFixture(
   harness: TestAppHarness,
   args: { status: "active" | "idle" },
-): BannerFixture {
-  const { host, session } = seedHostSession(harness.deps);
-  const { project } = seedProjectWithSource(harness.deps, {
+): Promise<BannerFixture> {
+  const { host, session } = await seedHostSession(harness.deps);
+  const { project } = await seedProjectWithSource(harness.deps, {
     hostId: host.id,
   });
-  const environment = seedEnvironment(harness.deps, {
+  const environment = await seedEnvironment(harness.deps, {
     hostId: host.id,
     projectId: project.id,
   });
-  const thread = seedThread(harness.deps, {
+  const thread = await seedThread(harness.deps, {
     environmentId: environment.id,
     projectId: project.id,
     providerId: "codex",
@@ -83,9 +87,12 @@ function seedBannerFixture(
   };
 }
 
-function seedActivePlan(harness: TestAppHarness, fixture: BannerFixture): void {
+async function seedActivePlan(
+  harness: TestAppHarness,
+  fixture: BannerFixture,
+): Promise<void> {
   const requestId = encodeClientTurnRequestIdNumber({ value: 1 });
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: fixture.threadId,
     environmentId: fixture.environmentId,
     sequence: 1,
@@ -129,7 +136,7 @@ function seedActivePlan(harness: TestAppHarness, fixture: BannerFixture): void {
       source: "tell",
     },
   });
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: fixture.threadId,
     environmentId: fixture.environmentId,
     providerThreadId: "provider-thread-1",
@@ -141,7 +148,7 @@ function seedActivePlan(harness: TestAppHarness, fixture: BannerFixture): void {
       clientRequestId: requestId,
     },
   });
-  seedTurnStarted(harness.deps, {
+  await seedTurnStarted(harness.deps, {
     environmentId: fixture.environmentId,
     providerThreadId: "provider-thread-1",
     sequence: 3,
@@ -150,14 +157,17 @@ function seedActivePlan(harness: TestAppHarness, fixture: BannerFixture): void {
   });
 }
 
-function seedActiveGoal(harness: TestAppHarness, fixture: BannerFixture): void {
-  seedThreadRuntimeState(harness.deps, {
+async function seedActiveGoal(
+  harness: TestAppHarness,
+  fixture: BannerFixture,
+): Promise<void> {
+  await seedThreadRuntimeState(harness.deps, {
     environmentId: fixture.environmentId,
     providerThreadId: "provider-thread-1",
     sequenceStart: 1,
     threadId: fixture.threadId,
   });
-  seedEvent(harness.deps, {
+  await seedEvent(harness.deps, {
     threadId: fixture.threadId,
     environmentId: fixture.environmentId,
     providerThreadId: "provider-thread-1",
@@ -195,13 +205,13 @@ async function readBannerActivity(
 describe("public thread banner actions", () => {
   it("routes standalone built-in /clear to a same-thread context boundary", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "idle" });
-      seedThreadRuntimeState(harness.deps, {
+      const fixture = await seedBannerFixture(harness, { status: "idle" });
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: fixture.environmentId,
         providerThreadId: "provider-thread-1",
         threadId: fixture.threadId,
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
         handle: ({ command }) => {
@@ -228,9 +238,11 @@ describe("public thread banner actions", () => {
       expect(response.status).toBe(200);
       expect(responder.requests).toHaveLength(1);
       expect(
-        getLastStoredProviderThreadId(harness.db, fixture.threadId),
+        await getLastStoredProviderThreadId(harness.db, fixture.threadId),
       ).toBeNull();
-      const events = listEvents(harness.db, { threadId: fixture.threadId });
+      const events = await listEvents(harness.db, {
+        threadId: fixture.threadId,
+      });
       expect(
         events.filter((event) => event.type === "client/turn/requested"),
       ).toHaveLength(1);
@@ -247,7 +259,7 @@ describe("public thread banner actions", () => {
 
   it("rejects /clear while a thread is active", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "active" });
+      const fixture = await seedBannerFixture(harness, { status: "active" });
 
       const response = await harness.app.request(
         `/api/v1/threads/${fixture.threadId}/send`,
@@ -263,15 +275,15 @@ describe("public thread banner actions", () => {
 
       expect(response.status).toBe(409);
       expect(
-        listEvents(harness.db, { threadId: fixture.threadId }),
+        await listEvents(harness.db, { threadId: fixture.threadId }),
       ).toHaveLength(0);
     });
   });
 
   it("rejects a send while an in-place context clear is in flight", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "idle" });
-      seedThreadRuntimeState(harness.deps, {
+      const fixture = await seedBannerFixture(harness, { status: "idle" });
+      await seedThreadRuntimeState(harness.deps, {
         environmentId: fixture.environmentId,
         providerThreadId: "provider-thread-1",
         threadId: fixture.threadId,
@@ -280,7 +292,7 @@ describe("public thread banner actions", () => {
       const stopPending = new Promise<void>((resolve) => {
         finishStop = resolve;
       });
-      const responder = registerHostRpcResponder(harness, {
+      const responder = await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
         handle: async ({ command }) => {
@@ -320,7 +332,7 @@ describe("public thread banner actions", () => {
       finishStop();
       expect((await clearResponsePending).status).toBe(200);
       expect(
-        getLastStoredProviderThreadId(harness.db, fixture.threadId),
+        await getLastStoredProviderThreadId(harness.db, fixture.threadId),
       ).toBeNull();
     });
   });
@@ -329,9 +341,9 @@ describe("public thread banner actions", () => {
     "settles Plan cancellation with an early completion event: %s",
     async (earlyCompletion) => {
       await withTestHarness(async (harness) => {
-        const fixture = seedBannerFixture(harness, { status: "active" });
-        seedActivePlan(harness, fixture);
-        const responder = registerHostRpcResponder(harness, {
+        const fixture = await seedBannerFixture(harness, { status: "active" });
+        await seedActivePlan(harness, fixture);
+        const responder = await registerHostRpcResponder(harness, {
           hostId: fixture.hostId,
           sessionId: fixture.sessionId,
           handle: async ({ command }) => {
@@ -345,7 +357,7 @@ describe("public thread banner actions", () => {
                 "/internal/session/events",
                 {
                   method: "POST",
-                  headers: internalAuthHeaders(harness),
+                  headers: await internalAuthHeaders(harness),
                   body: JSON.stringify({
                     sessionId: fixture.sessionId,
                     eventGroups: groupHostDaemonEvents([
@@ -364,9 +376,9 @@ describe("public thread banner actions", () => {
                 },
               );
               expect(completion.status).toBe(200);
-              expect(getThread(harness.db, fixture.threadId)?.status).toBe(
-                "idle",
-              );
+              expect(
+                (await getThread(harness.db, fixture.threadId))?.status,
+              ).toBe("idle");
             }
             return { ok: true, result: { cancelled: true } };
           },
@@ -382,7 +394,9 @@ describe("public thread banner actions", () => {
           JSON.stringify(await readJson(response.clone())),
         ).toBe(200);
         expect(responder.requests).toHaveLength(1);
-        expect(getThread(harness.db, fixture.threadId)?.status).toBe("idle");
+        expect((await getThread(harness.db, fixture.threadId))?.status).toBe(
+          "idle",
+        );
         await expect(
           readBannerActivity(harness, fixture),
         ).resolves.toMatchObject({
@@ -399,9 +413,9 @@ describe("public thread banner actions", () => {
 
   it("keeps Plan active when provider cancellation fails", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "active" });
-      seedActivePlan(harness, fixture);
-      registerHostRpcResponder(harness, {
+      const fixture = await seedBannerFixture(harness, { status: "active" });
+      await seedActivePlan(harness, fixture);
+      await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
         handle: () => ({
@@ -417,7 +431,9 @@ describe("public thread banner actions", () => {
       );
 
       expect(response.status).not.toBe(200);
-      expect(getThread(harness.db, fixture.threadId)?.status).toBe("active");
+      expect((await getThread(harness.db, fixture.threadId))?.status).toBe(
+        "active",
+      );
       await expect(readBannerActivity(harness, fixture)).resolves.toMatchObject(
         {
           activePlanModeCount: 1,
@@ -428,9 +444,9 @@ describe("public thread banner actions", () => {
 
   it("does not finalize the thread when a stale Plan cancellation finds a newer turn", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "active" });
-      seedActivePlan(harness, fixture);
-      const responder = registerHostRpcResponder(harness, {
+      const fixture = await seedBannerFixture(harness, { status: "active" });
+      await seedActivePlan(harness, fixture);
+      const responder = await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
         handle: ({ command }) => {
@@ -450,9 +466,11 @@ describe("public thread banner actions", () => {
 
       expect(response.status).toBe(409);
       expect(responder.requests).toHaveLength(1);
-      expect(getThread(harness.db, fixture.threadId)?.status).toBe("active");
+      expect((await getThread(harness.db, fixture.threadId))?.status).toBe(
+        "active",
+      );
       expect(
-        listEvents(harness.db, { threadId: fixture.threadId }).some(
+        (await listEvents(harness.db, { threadId: fixture.threadId })).some(
           (event) => event.type === "system/thread/interrupted",
         ),
       ).toBe(false);
@@ -464,17 +482,17 @@ describe("public thread banner actions", () => {
 
   it("does not finalize a newer server turn when the daemon reports the Plan turn cancelled", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "active" });
-      seedActivePlan(harness, fixture);
-      registerHostRpcResponder(harness, {
+      const fixture = await seedBannerFixture(harness, { status: "active" });
+      await seedActivePlan(harness, fixture);
+      await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
-        handle: ({ command }) => {
+        handle: async ({ command }) => {
           expect(command).toMatchObject({
             type: "thread.plan.cancel",
             expectedTurnId: "turn-plan-1",
           });
-          seedTurnStarted(harness.deps, {
+          await seedTurnStarted(harness.deps, {
             environmentId: fixture.environmentId,
             providerThreadId: "provider-thread-1",
             sequence: 4,
@@ -491,9 +509,11 @@ describe("public thread banner actions", () => {
       );
 
       expect(response.status).toBe(409);
-      expect(getThread(harness.db, fixture.threadId)?.status).toBe("active");
+      expect((await getThread(harness.db, fixture.threadId))?.status).toBe(
+        "active",
+      );
       expect(
-        listEvents(harness.db, { threadId: fixture.threadId }).some(
+        (await listEvents(harness.db, { threadId: fixture.threadId })).some(
           (event) => event.type === "system/thread/interrupted",
         ),
       ).toBe(false);
@@ -505,13 +525,13 @@ describe("public thread banner actions", () => {
 
   it("accepts a stale Plan cancellation only after provider events show the Plan turn ended", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "active" });
-      seedActivePlan(harness, fixture);
-      registerHostRpcResponder(harness, {
+      const fixture = await seedBannerFixture(harness, { status: "active" });
+      await seedActivePlan(harness, fixture);
+      await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
-        handle: () => {
-          seedEvent(harness.deps, {
+        handle: async () => {
+          await seedEvent(harness.deps, {
             threadId: fixture.threadId,
             environmentId: fixture.environmentId,
             providerThreadId: "provider-thread-1",
@@ -534,7 +554,7 @@ describe("public thread banner actions", () => {
 
       expect(response.status).toBe(200);
       expect(
-        listEvents(harness.db, { threadId: fixture.threadId }).some(
+        (await listEvents(harness.db, { threadId: fixture.threadId })).some(
           (event) => event.type === "system/thread/interrupted",
         ),
       ).toBe(false);
@@ -546,7 +566,7 @@ describe("public thread banner actions", () => {
 
   it("refuses to clear a Goal on a thread that has none, whatever its provider", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "idle" });
+      const fixture = await seedBannerFixture(harness, { status: "idle" });
       const response = await harness.app.request(
         `/api/v1/threads/${fixture.threadId}/goal/clear`,
         { method: "POST" },
@@ -561,12 +581,12 @@ describe("public thread banner actions", () => {
 
   it("accepts a stale Goal clear result after provider events persist the clear", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "idle" });
-      seedActiveGoal(harness, fixture);
-      registerHostRpcResponder(harness, {
+      const fixture = await seedBannerFixture(harness, { status: "idle" });
+      await seedActiveGoal(harness, fixture);
+      await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
-        handle: ({ command }) => {
+        handle: async ({ command }) => {
           if (command.type === "host.read_workspace_agent_context") {
             return { ok: true, result: EMPTY_WORKSPACE_AGENT_CONTEXT };
           }
@@ -574,7 +594,7 @@ describe("public thread banner actions", () => {
             type: "thread.goal.clear",
             threadId: fixture.threadId,
           });
-          seedEvent(harness.deps, {
+          await seedEvent(harness.deps, {
             threadId: fixture.threadId,
             environmentId: fixture.environmentId,
             providerThreadId: "provider-thread-1",
@@ -606,9 +626,9 @@ describe("public thread banner actions", () => {
 
   it("keeps Goal active when provider cancellation fails", async () => {
     await withTestHarness(async (harness) => {
-      const fixture = seedBannerFixture(harness, { status: "idle" });
-      seedActiveGoal(harness, fixture);
-      const responder = registerHostRpcResponder(harness, {
+      const fixture = await seedBannerFixture(harness, { status: "idle" });
+      await seedActiveGoal(harness, fixture);
+      const responder = await registerHostRpcResponder(harness, {
         hostId: fixture.hostId,
         sessionId: fixture.sessionId,
         handle: ({ command }) => {

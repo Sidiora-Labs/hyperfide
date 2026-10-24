@@ -12,9 +12,9 @@ import {
   toEnvironmentResponses,
 } from "../../../src/services/environments/environment-response.js";
 
-function setupDb() {
-  const db = createMigratedConnection();
-  upsertHost(db, noopNotifier, { id: "host_1", name: "Host" });
+async function setupDb() {
+  const db = await createMigratedConnection();
+  await upsertHost(db, noopNotifier, { id: "host_1", name: "Host" });
   return db;
 }
 
@@ -108,21 +108,32 @@ describe("toEnvironmentResponse", () => {
     ["modal-sandbox", null],
   ] as const)(
     "derives workspaceProvisionType %s as %s",
-    (environmentProviderId, expected) => {
+    async (environmentProviderId, expected) => {
       expect(
-        toEnvironmentResponse(setupDb(), makeRow({ environmentProviderId })),
+        await toEnvironmentResponse(
+          await setupDb(),
+          makeRow({ environmentProviderId }),
+        ),
       ).toMatchObject({ workspaceProvisionType: expected });
     },
   );
 
-  it("publishes the row's ownership fact as the deprecated managed flag", () => {
+  it("publishes the row's ownership fact as the deprecated managed flag", async () => {
     expect(
-      toEnvironmentResponse(setupDb(), makeRow({ providerOwnsPath: true }))
-        .managed,
+      (
+        await toEnvironmentResponse(
+          await setupDb(),
+          makeRow({ providerOwnsPath: true }),
+        )
+      ).managed,
     ).toBe(true);
     expect(
-      toEnvironmentResponse(setupDb(), makeRow({ providerOwnsPath: false }))
-        .managed,
+      (
+        await toEnvironmentResponse(
+          await setupDb(),
+          makeRow({ providerOwnsPath: false }),
+        )
+      ).managed,
     ).toBe(false);
   });
 
@@ -134,19 +145,23 @@ describe("toEnvironmentResponse", () => {
     [{ destroyedAt: 1 }, "removed"],
   ] as const)(
     "reports host %o as hostLifecycle %s in single and batched reads",
-    (hostUpdate, expected) => {
-      const db = setupDb();
-      updateHost(db, noopNotifier, "host_1", hostUpdate);
-      expect(toEnvironmentResponse(db, makeRow()).hostLifecycle).toBe(expected);
+    async (hostUpdate, expected) => {
+      const db = await setupDb();
+      await updateHost(db, noopNotifier, "host_1", hostUpdate);
+      expect((await toEnvironmentResponse(db, makeRow())).hostLifecycle).toBe(
+        expected,
+      );
       expect(
-        toEnvironmentResponses(db, [makeRow()]).map((row) => row.hostLifecycle),
+        (await toEnvironmentResponses(db, [makeRow()])).map(
+          (row) => row.hostLifecycle,
+        ),
       ).toEqual([expected]);
     },
   );
 
-  it("does not leak the row's internal ownership column", () => {
-    expect(toEnvironmentResponse(setupDb(), makeRow())).not.toHaveProperty(
-      "providerOwnsPath",
-    );
+  it("does not leak the row's internal ownership column", async () => {
+    expect(
+      await toEnvironmentResponse(await setupDb(), makeRow()),
+    ).not.toHaveProperty("providerOwnsPath");
   });
 });

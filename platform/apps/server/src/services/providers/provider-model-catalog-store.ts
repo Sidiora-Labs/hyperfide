@@ -82,7 +82,7 @@ export interface ProviderModelCatalogStore {
   ): Promise<void>;
   clearFailure(hostId: string, providerId: string): void;
   markAllStale(): void;
-  forgetHost(deps: WorkSessionDeps, hostId: string): void;
+  forgetHost(deps: WorkSessionDeps, hostId: string): void | Promise<void>;
 }
 
 interface CatalogGood {
@@ -295,11 +295,11 @@ export function createProviderModelCatalogStore(options: {
   const entries = new Map<string, CatalogEntry>();
   const pendingPushByHost = new Map<string, ReturnType<typeof setTimeout>>();
 
-  function loadStoredGood(
+  async function loadStoredGood(
     deps: WorkSessionDeps,
     key: ProviderModelCatalogRowKey,
-  ): CatalogGood | null {
-    const row = getStoredProviderModelCatalog(deps.db, key);
+  ): Promise<CatalogGood | null> {
+    const row = await getStoredProviderModelCatalog(deps.db, key);
     if (row === null) {
       return null;
     }
@@ -318,10 +318,10 @@ export function createProviderModelCatalogStore(options: {
     };
   }
 
-  function loadEntry(
+  async function loadEntry(
     deps: WorkSessionDeps,
     key: ProviderModelCatalogRowKey,
-  ): CatalogEntry {
+  ): Promise<CatalogEntry> {
     const mapKey = JSON.stringify([key.hostId, key.providerId, key.scopeKey]);
     const existing = entries.get(mapKey);
     if (existing !== undefined) {
@@ -329,9 +329,12 @@ export function createProviderModelCatalogStore(options: {
       entries.set(mapKey, existing);
       return existing;
     }
+    const good = await loadStoredGood(deps, key);
+    const raced = entries.get(mapKey);
+    if (raced !== undefined) return raced;
     const entry: CatalogEntry = {
       key,
-      good: loadStoredGood(deps, key),
+      good,
       failure: null,
       unavailableDetail: null,
       refresh: null,
@@ -352,24 +355,24 @@ export function createProviderModelCatalogStore(options: {
     if (pendingPushByHost.has(hostId)) {
       return;
     }
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       pendingPushByHost.delete(hostId);
-      deps.hub.notifyHost(hostId, ["provider-model-catalog-changed"]);
+      await deps.hub.notifyHost(hostId, ["provider-model-catalog-changed"]);
     }, options.pushCoalesceMs);
     timer.unref?.();
     pendingPushByHost.set(hostId, timer);
   }
 
-  function persistGood(
+  async function persistGood(
     deps: WorkSessionDeps,
     key: ProviderModelCatalogRowKey,
     good: CatalogGood,
-  ): void {
+  ): Promise<void> {
     if (isServerMoveFrozen(deps.db)) {
       return;
     }
     try {
-      const host = getHost(deps.db, key.hostId);
+      const host = await getHost(deps.db, key.hostId);
       if (
         host === null ||
         host.destroyedAt !== null ||
@@ -377,7 +380,7 @@ export function createProviderModelCatalogStore(options: {
       ) {
         return;
       }
-      replaceStoredProviderModelCatalog(deps.db, {
+      await replaceStoredProviderModelCatalog(deps.db, {
         row: {
           ...key,
           fingerprint: good.fingerprint,
@@ -402,12 +405,12 @@ export function createProviderModelCatalogStore(options: {
     }
   }
 
-  function settle(
+  async function settle(
     deps: WorkSessionDeps,
     entry: CatalogEntry,
     refresh: CatalogRefresh,
     settlement: RefreshSettlement,
-  ): void {
+  ): Promise<void> {
     const { hostId, providerId, scopeKey } = entry.key;
     const now = options.now();
     const log = (
@@ -444,7 +447,7 @@ export function createProviderModelCatalogStore(options: {
       };
       entry.failure = null;
       entry.unavailableDetail = null;
-      persistGood(deps, entry.key, entry.good);
+      await persistGood(deps, entry.key, entry.good);
       fields = {
         outcome: "success",
         modelCount:
@@ -490,7 +493,7 @@ export function createProviderModelCatalogStore(options: {
     log(level, { ...fields, changed });
   }
 
-  function startRefresh(
+  async function startRefresh(
     deps: WorkSessionDeps,
     entry: CatalogEntry,
     launch: CatalogLaunch,
@@ -515,25 +518,26 @@ export function createProviderModelCatalogStore(options: {
         contributedEnv: launch.contributedEnv,
       },
     }).then(
-      (result) =>
-        settle(deps, entry, refresh, {
+      async (result) =>
+        await settle(deps, entry, refresh, {
           ok: true,
           models: result.models,
           selectedOnlyModels: result.selectedOnlyModels,
         }),
-      (error: unknown) => settle(deps, entry, refresh, { ok: false, error }),
+      async (error: unknown) =>
+        await settle(deps, entry, refresh, { ok: false, error }),
     );
     return refresh.promise;
   }
 
-  function joinOrStartRefresh(
+  async function joinOrStartRefresh(
     deps: WorkSessionDeps,
     entry: CatalogEntry,
     launch: CatalogLaunch,
   ): Promise<void> {
     return entry.refresh?.fingerprint === launch.fingerprint
       ? entry.refresh.promise
-      : startRefresh(deps, entry, launch);
+      : await startRefresh(deps, entry, launch);
   }
 
   return {
@@ -541,10 +545,13 @@ export function createProviderModelCatalogStore(options: {
       const launch = await resolveCatalogLaunch({
         hostId: args.hostId,
         providerId: args.provider.id,
-        bridgeLaunch: requireBridgeLaunchForProviderId(deps, args.provider.id),
+        bridgeLaunch: await requireBridgeLaunchForProviderId(
+          deps,
+          args.provider.id,
+        ),
       });
       const { fingerprint } = launch;
-      const entry = loadEntry(deps, {
+      const entry = await loadEntry(deps, {
         hostId: args.hostId,
         providerId: args.provider.id,
         scopeKey:
@@ -574,7 +581,7 @@ export function createProviderModelCatalogStore(options: {
     },
 
     async refreshForPrewarm(deps, args) {
-      const bridgeLaunch = resolveBridgeLaunchForProviderId(
+      const bridgeLaunch = await resolveBridgeLaunchForProviderId(
         deps,
         args.provider.id,
       );
@@ -587,7 +594,7 @@ export function createProviderModelCatalogStore(options: {
         bridgeLaunch,
       });
       const { fingerprint } = launch;
-      const entry = loadEntry(deps, {
+      const entry = await loadEntry(deps, {
         hostId: args.hostId,
         providerId: args.provider.id,
         scopeKey: "",
@@ -631,7 +638,7 @@ export function createProviderModelCatalogStore(options: {
       }
     },
 
-    forgetHost(deps, hostId) {
+    async forgetHost(deps, hostId) {
       for (const [mapKey, entry] of entries) {
         if (entry.key.hostId === hostId) {
           entry.refresh = null;
@@ -643,7 +650,7 @@ export function createProviderModelCatalogStore(options: {
         clearTimeout(timer);
         pendingPushByHost.delete(hostId);
       }
-      deleteStoredProviderModelCatalogsForHost(deps.db, hostId);
+      await deleteStoredProviderModelCatalogsForHost(deps.db, hostId);
     },
   };
 }

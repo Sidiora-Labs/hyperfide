@@ -1,3 +1,4 @@
+import { asyncPluginDatabase } from "./async-plugin-database.js";
 import { experimental_PluginRpcCallError } from "../rpc-contract.js";
 import { rpcInvalidationTags, rpcResponseTags } from "../internal/rpc-tags.js";
 import type { ContractTagDeclarations } from "@hyperfide/domain";
@@ -13,7 +14,10 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { CronExpressionParser } from "cron-parser";
 import { Hono } from "hono";
-import { deepFreezePluginMetadata, validatePluginMetadata } from "@hyperfide/domain";
+import {
+  deepFreezePluginMetadata,
+  validatePluginMetadata,
+} from "@hyperfide/domain";
 import {
   adoptHttpRouteResponse,
   aiServiceAlreadyRegisteredMessage,
@@ -200,7 +204,7 @@ export interface ExperimentalFakeWebSocketSession {
 export interface FakeScheduleRecord {
   name: string;
   cron: string;
-  fn: () => void | Promise<void>;
+  fn: () => unknown;
 }
 
 export interface FakeServiceRecord {
@@ -567,9 +571,7 @@ export interface CreateFakePluginHostOptions {
    */
   experimental_declaredIconNames?: readonly string[];
   /** Deterministic stand-in for the targeted daemon host entry. */
-  experimental_callHostRpc?: (
-    call: ExperimentalFakeHostRpcCall,
-  ) => unknown | Promise<unknown>;
+  experimental_callHostRpc?: (call: ExperimentalFakeHostRpcCall) => unknown;
 }
 
 export interface FakePluginHost {
@@ -742,6 +744,12 @@ function createFakePluginHostInternal(
   let databaseHandle: Database.Database | undefined;
   const storage: PluginStorage = {
     kv,
+    async asyncDatabase() {
+      return asyncPluginDatabase(
+        storage.database(),
+        runPluginStorageMigrations,
+      );
+    },
     database() {
       assertLive();
       if (!databaseHandle?.open) {
@@ -1194,8 +1202,8 @@ function createFakePluginHostInternal(
     string,
     import("../backend-contract.js").ServerAccessProviderDeclaration
   >();
-  const disposeHooks: Array<() => void | Promise<void>> = [];
-  const installHandlers: Array<() => void | Promise<void>> = [];
+  const disposeHooks: Array<() => unknown> = [];
+  const installHandlers: Array<() => unknown> = [];
   const serviceControllers: AbortController[] = [];
   let nextInteractionId = 1;
   const pendingInteractions = new Map<
@@ -2023,7 +2031,7 @@ function createFakePluginHostInternal(
       let eventQueue = Promise.resolve();
       const invoke = async (
         event: "open" | "message" | "close" | "error",
-        run: () => void | Promise<void>,
+        run: () => unknown,
       ): Promise<void> => {
         eventQueue = eventQueue.then(async () => {
           try {

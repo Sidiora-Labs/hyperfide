@@ -23,7 +23,7 @@ export function registerPromptHistoryRoutes(app: Hono, deps: AppDeps): void {
       new ApiError(400, "invalid_request", message),
   });
 
-  get(publicApiRoutes.promptHistory.list, (context, query) => {
+  get(publicApiRoutes.promptHistory.list, async (context, query) => {
     const limit = parseBoundedPositiveOptionalInteger({
       defaultValue: PROMPT_HISTORY_PAGE_DEFAULT_LIMIT,
       max: PROMPT_HISTORY_PAGE_MAX_LIMIT,
@@ -41,6 +41,6 @@ export function registerPromptHistoryRoutes(app: Hono, deps: AppDeps): void {
         );
       }
     }
-    return context.json(listPromptHistory(deps, { before, limit }));
+    return context.json(await listPromptHistory(deps, { before, limit }));
   });
 }

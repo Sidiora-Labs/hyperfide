@@ -22,18 +22,18 @@ import {
 
 const RESPONSE_BYTE_BUDGET = 6_000;
 
-function seedRunningTurn(harness: TestAppHarness, commands: number) {
-  const { environment, thread } = seedThreadFixture(harness, {
+async function seedRunningTurn(harness: TestAppHarness, commands: number) {
+  const { environment, thread } = await seedThreadFixture(harness, {
     thread: { providerId: "codex" },
   });
   let sequence = 0;
-  const append = (
+  const append = async (
     type: Parameters<typeof seedEvent>[1]["type"],
     scope: ReturnType<typeof turnScope> | ReturnType<typeof threadScope>,
     data: Record<string, unknown>,
   ) => {
     sequence += 1;
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       threadId: thread.id,
       environmentId: environment.id,
       providerThreadId: "p1",
@@ -44,7 +44,7 @@ function seedRunningTurn(harness: TestAppHarness, commands: number) {
     });
   };
   const clientRequestId = encodeClientTurnRequestIdNumber({ value: 1 });
-  append("client/turn/requested", threadScope(), {
+  await append("client/turn/requested", threadScope(), {
     direction: "outbound",
     source: "tell",
     initiator: "user",
@@ -61,10 +61,10 @@ function seedRunningTurn(harness: TestAppHarness, commands: number) {
       source: "client/turn/requested",
     },
   });
-  append("turn/started", turnScope("turn-1"), {});
-  append("turn/input/accepted", turnScope("turn-1"), { clientRequestId });
-  const appendCommand = (index: number) =>
-    append("item/completed", turnScope("turn-1"), {
+  await append("turn/started", turnScope("turn-1"), {});
+  await append("turn/input/accepted", turnScope("turn-1"), { clientRequestId });
+  const appendCommand = async (index: number) =>
+    await append("item/completed", turnScope("turn-1"), {
       item: {
         type: "commandExecution",
         id: `command-${index}`,
@@ -77,38 +77,40 @@ function seedRunningTurn(harness: TestAppHarness, commands: number) {
         durationMs: 1,
       },
     });
-  for (let index = 0; index < commands; index += 1) appendCommand(index);
+  for (let index = 0; index < commands; index += 1) await appendCommand(index);
   return { appendCommand, threadId: thread.id };
 }
 
-function buildPage(
+async function buildPage(
   harness: TestAppHarness,
   thread: Thread,
   cursor: TimelinePaginationCursor | null,
 ) {
-  return buildThreadTimelineWithProfile(harness.db, thread, {
-    completedTurnDisplay: "collapse",
-    deferContent: true,
-    eventBudget: 1_500,
-    includeClearedContextHistory: false,
-    includeDiagnosticOperations: false,
-    maxInlineOutputChars: 32_000,
-    maxSeq: 0,
-    page:
-      cursor === null
-        ? { kind: "latest", segmentLimit: 20 }
-        : { kind: "older", beforeCursor: cursor, segmentLimit: 20 },
-    responseByteBudget: RESPONSE_BYTE_BUDGET,
-    compactionOfferEnabled: false,
-    summarizeShellCommands: true,
-  }).response;
+  return (
+    await buildThreadTimelineWithProfile(harness.db, thread, {
+      completedTurnDisplay: "collapse",
+      deferContent: true,
+      eventBudget: 1_500,
+      includeClearedContextHistory: false,
+      includeDiagnosticOperations: false,
+      maxInlineOutputChars: 32_000,
+      maxSeq: 0,
+      page:
+        cursor === null
+          ? { kind: "latest", segmentLimit: 20 }
+          : { kind: "older", beforeCursor: cursor, segmentLimit: 20 },
+      responseByteBudget: RESPONSE_BYTE_BUDGET,
+      compactionOfferEnabled: false,
+      summarizeShellCommands: true,
+    })
+  ).response;
 }
 
-function scrolledBackState(
+async function scrolledBackState(
   harness: TestAppHarness,
   thread: Thread,
-): LoadedTimelineState {
-  const latest = buildPage(harness, thread, null);
+): Promise<LoadedTimelineState> {
+  const latest = await buildPage(harness, thread, null);
   let loaded: LoadedTimelineState = {
     historySnapshot: latest.timelinePage.historySnapshot,
     latestWindowEndSequence: latest.maxSeq,
@@ -116,7 +118,7 @@ function scrolledBackState(
     rows: latest.rows,
     surfaceKey: resolveLoadedTimelineSurfaceKey(thread.id, latest),
   };
-  const older = buildPage(harness, thread, loaded.olderCursor);
+  const older = await buildPage(harness, thread, loaded.olderCursor);
   loaded = {
     ...loaded,
     olderCursor: older.timelinePage.olderCursor,
@@ -131,9 +133,9 @@ function scrolledBackState(
 describe("scrollback inside a running turn cut by the response byte budget", () => {
   it("reports no older-row updates once the window spends the budget", async () => {
     await withTestHarness(async (harness) => {
-      const { threadId } = seedRunningTurn(harness, 40);
-      const thread = getThread(harness.db, threadId)!;
-      const latest = buildPage(harness, thread, null);
+      const { threadId } = await seedRunningTurn(harness, 40);
+      const thread = (await getThread(harness.db, threadId))!;
+      const latest = await buildPage(harness, thread, null);
 
       expect(latest.timelinePage.olderCursor).not.toBeNull();
       expect(latest.timelinePage.olderRowUpdates).toBeUndefined();
@@ -146,10 +148,10 @@ describe("scrollback inside a running turn cut by the response byte budget", () 
 
   it("keeps the scrolled-back rows of the turn on a refetch with no new events", async () => {
     await withTestHarness(async (harness) => {
-      const { threadId } = seedRunningTurn(harness, 40);
-      const thread = getThread(harness.db, threadId)!;
-      const loaded = scrolledBackState(harness, thread);
-      const refetched = buildPage(harness, thread, null);
+      const { threadId } = await seedRunningTurn(harness, 40);
+      const thread = (await getThread(harness.db, threadId))!;
+      const loaded = await scrolledBackState(harness, thread);
+      const refetched = await buildPage(harness, thread, null);
       expect(refetched.timelinePage.historySnapshot).toBe(
         loaded.historySnapshot,
       );
@@ -167,11 +169,11 @@ describe("scrollback inside a running turn cut by the response byte budget", () 
 
   it("keeps the scrolled-back rows of the turn when a new event arrives", async () => {
     await withTestHarness(async (harness) => {
-      const { appendCommand, threadId } = seedRunningTurn(harness, 40);
-      const thread = getThread(harness.db, threadId)!;
-      const loaded = scrolledBackState(harness, thread);
-      appendCommand(40);
-      const streamed = buildPage(harness, thread, null);
+      const { appendCommand, threadId } = await seedRunningTurn(harness, 40);
+      const thread = (await getThread(harness.db, threadId))!;
+      const loaded = await scrolledBackState(harness, thread);
+      await appendCommand(40);
+      const streamed = await buildPage(harness, thread, null);
       expect(streamed.timelinePage.historySnapshot).not.toBe(
         loaded.historySnapshot,
       );

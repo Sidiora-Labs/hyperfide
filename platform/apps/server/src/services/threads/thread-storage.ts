@@ -21,7 +21,9 @@ export async function requireThreadStoragePath(
   deps: WorkSessionDeps,
   args: RequireThreadStoragePathArgs,
 ): Promise<string> {
-  const session = getLatestSessionForHost(deps.db, { hostId: args.hostId });
+  const session = await getLatestSessionForHost(deps.db, {
+    hostId: args.hostId,
+  });
   if (session === null) {
     throw new ApiError(
       502,
@@ -37,7 +39,7 @@ export async function requireLiveThreadStoragePath(
   deps: WorkSessionDeps,
   args: RequireThreadStoragePathArgs,
 ): Promise<string> {
-  const session = requireConnectedHostSession(deps, args.hostId);
+  const session = await requireConnectedHostSession(deps, args.hostId);
   return joinHostPathSegments(session.dataDir, "thread-storage", args.threadId);
 }
 
@@ -46,24 +48,24 @@ export interface ThreadStorageTarget {
   storagePath: string;
 }
 
-export function requireThreadEnvironmentHostId(
+export async function requireThreadEnvironmentHostId(
   deps: Pick<WorkSessionDeps, "db">,
   threadId: string,
-): string {
-  const thread = requirePublicThread(deps.db, threadId);
+): Promise<string> {
+  const thread = await requirePublicThread(deps.db, threadId);
   if (!thread.environmentId) {
     throwThreadEnvironmentUnavailable(
       threadEnvironmentUnavailableDetails("never_attached", null),
     );
   }
-  return requireEnvironment(deps.db, thread.environmentId).hostId;
+  return (await requireEnvironment(deps.db, thread.environmentId)).hostId;
 }
 
 export async function requireThreadStorageTarget(
   deps: WorkSessionDeps,
   threadId: string,
 ): Promise<ThreadStorageTarget> {
-  const hostId = requireThreadEnvironmentHostId(deps, threadId);
+  const hostId = await requireThreadEnvironmentHostId(deps, threadId);
   return {
     hostId,
     storagePath: await requireThreadStoragePath(deps, { hostId, threadId }),

@@ -15,15 +15,15 @@ import { withTestHarness } from "../helpers/test-app.js";
 
 it("follows keepHistoryAfterContextClear across cached timeline, outline, and message reads", async () => {
   await withTestHarness(async (harness) => {
-    const { thread } = seedThreadFixture(harness);
+    const { thread } = await seedThreadFixture(harness);
     const common = { threadId: thread.id, scope: threadScope() };
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...common,
       sequence: 1,
       type: "system/manager/user_message",
       data: { text: "Earlier task" },
     });
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...common,
       sequence: 2,
       type: "system/operation",
@@ -34,7 +34,7 @@ it("follows keepHistoryAfterContextClear across cached timeline, outline, and me
         message: "Fresh context",
       },
     });
-    seedEvent(harness.deps, {
+    await seedEvent(harness.deps, {
       ...common,
       sequence: 3,
       type: "system/manager/user_message",
@@ -105,7 +105,9 @@ it("follows keepHistoryAfterContextClear across cached timeline, outline, and me
     expect((await put({ ...legacy, showKeyboardHints: false })).status).toBe(
       200,
     );
-    expect(getAppSettings(harness.db).keepHistoryAfterContextClear).toBe(true);
+    expect(
+      (await getAppSettings(harness.db)).keepHistoryAfterContextClear,
+    ).toBe(true);
     expect(await read()).toEqual(kept);
 
     expect((await put(defaultAppSettings)).status).toBe(200);

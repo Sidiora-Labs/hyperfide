@@ -27,7 +27,8 @@ export function installMachineProvider(
     listMachineProviders: () => [record],
     getMachineProvider: (id) =>
       id === record.provider.id ? record : undefined,
-    invokeProvider: (_pluginId, _label, run) => invokePluginInline(run),
+    invokeProvider: async (_pluginId, _label, run) =>
+      await invokePluginInline(run),
     decisionTimeoutMs: 10_000,
   });
   return record;

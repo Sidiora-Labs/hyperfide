@@ -56,12 +56,12 @@ afterEach(() => {
 });
 
 it("can resume after a snapshot fails following daemon shutdown", async () =>
-  withTestHarness(async (harness) => {
-    const target = seedHostSession(harness.deps, {
+  await withTestHarness(async (harness) => {
+    const target = await seedHostSession(harness.deps, {
       id: "review-failed-suspend",
     });
     const resume = vi.fn(async () => {
-      seedSession(harness.deps, target.host.id);
+      await seedSession(harness.deps, target.host.id);
       return { resource: { id: "owned" } };
     });
     installMachineProvider({
@@ -70,11 +70,11 @@ it("can resume after a snapshot fails following daemon shutdown", async () =>
       },
       resume,
     });
-    updateHost(harness.db, harness.hub, target.host.id, {
+    await updateHost(harness.db, harness.hub, target.host.id, {
       machineProviderId: "test-machine",
       resource: { id: "owned" },
     });
-    registerTestHostRpcCapture(harness, {
+    await registerTestHostRpcCapture(harness, {
       hostId: target.host.id,
       sessionId: target.session.id,
     });
@@ -83,17 +83,19 @@ it("can resume after a snapshot fails following daemon shutdown", async () =>
       requestMachineSuspension(harness.deps, target.host.id),
     ).rejects.toThrow("snapshot API unavailable");
     expect(shutdown).toHaveBeenCalledOnce();
-    expect(getHost(harness.db, target.host.id)?.phase).toBe("suspended");
+    expect((await getHost(harness.db, target.host.id))?.phase).toBe(
+      "suspended",
+    );
     expect(harness.hub.hasDaemonForHost(target.host.id)).toBe(false);
     await resumeMachine(harness.deps, target.host.id);
     expect(resume).toHaveBeenCalledOnce();
-    expect(getHost(harness.db, target.host.id)?.phase).toBe("active");
+    expect((await getHost(harness.db, target.host.id))?.phase).toBe("active");
     expect(harness.hub.hasDaemonForHost(target.host.id)).toBe(true);
   }));
 
 it("recovers a persisted resuming machine without queued work", async () =>
-  withTestHarness(async (harness) => {
-    const target = seedHostSession(harness.deps, {
+  await withTestHarness(async (harness) => {
+    const target = await seedHostSession(harness.deps, {
       id: "interrupted-resume",
     });
     const resume = vi.fn(async () => ({ resource: { id: "restored" } }));
@@ -101,7 +103,7 @@ it("recovers a persisted resuming machine without queued work", async () =>
       suspend: async () => ({ resource: { id: "owned" } }),
       resume,
     });
-    updateHost(harness.db, harness.hub, target.host.id, {
+    await updateHost(harness.db, harness.hub, target.host.id, {
       machineProviderId: "test-machine",
       machineOperationId: "test-machine-plugin:interrupted",
       phase: "resuming",
@@ -113,7 +115,7 @@ it("recovers a persisted resuming machine without queued work", async () =>
     await sweepProviderMachine(harness.deps, target.host.id);
 
     expect(resume).toHaveBeenCalledOnce();
-    expect(getHost(harness.db, target.host.id)).toMatchObject({
+    expect(await getHost(harness.db, target.host.id)).toMatchObject({
       machineOperationId: expect.stringMatching(/^test-machine-plugin:/u),
       phase: "active",
       resource: { id: "restored" },
@@ -128,13 +130,15 @@ it.each([
 ] as const)(
   "removes environments on a $phase persistent machine (cleanup fails first: $failCleanup)",
   async ({ phase, failCleanup }) =>
-    withTestHarness(async (harness) => {
-      const target = seedHostSession(harness.deps, { id: "review-removing" });
-      const { project } = seedProjectWithSource(harness.deps, {
+    await withTestHarness(async (harness) => {
+      const target = await seedHostSession(harness.deps, {
+        id: "review-removing",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
         hostId: target.host.id,
       });
       const machineRemove = vi.fn(async () => ({ status: "removed" as const }));
-      const enrollment = createMachineEnrollmentService({
+      const enrollment = await createMachineEnrollmentService({
         db: harness.db,
         machineAuth: harness.deps.machineAuth,
         isConnected: (hostId) => harness.hub.hasDaemonForHost(hostId),
@@ -146,13 +150,13 @@ it.each([
         },
       }).forOwner("test-machine-plugin");
       const cleanupCall = vi.fn(async () => ({ output: {} }));
-      const registerCleanupCapture = (sessionId: string) =>
-        registerTestHostRpcCapture(harness, {
+      const registerCleanupCapture = async (sessionId: string) =>
+        await registerTestHostRpcCapture(harness, {
           hostId: target.host.id,
           sessionId,
           onPluginHostCall: cleanupCall,
         });
-      registerCleanupCapture(target.session.id);
+      await registerCleanupCapture(target.session.id);
       const resume = vi.fn(async () => {
         expect(
           await enrollment.prepare({
@@ -160,8 +164,8 @@ it.each([
             key: "cleanup-machine",
           }),
         ).toMatchObject({ state: "enrolled" });
-        const session = seedSession(harness.deps, target.host.id);
-        registerCleanupCapture(session.id);
+        const session = await seedSession(harness.deps, target.host.id);
+        await registerCleanupCapture(session.id);
         await enrollment.waitForConnection({
           enrollmentId: target.host.id,
           timeoutMs: 100,
@@ -174,21 +178,21 @@ it.each([
         resume,
         suspend: async () => ({ resource: { id: "owned" } }),
       });
-      updateHost(harness.db, harness.hub, target.host.id, {
+      await updateHost(harness.db, harness.hub, target.host.id, {
         machineProviderId: "test-machine",
         resource: { id: "owned" },
         launchKey: "cleanup-machine",
         phase,
         suspendedAt: phase === "suspended" ? Date.now() : null,
       });
-      harness.db
+      await harness.db
         .update(hosts)
         .set({ lastSeenAt: Date.now() })
         .where(eq(hosts.id, target.host.id))
         .run();
       if (phase === "suspended")
         harness.hub.unregisterDaemon(target.session.id);
-      const environment = createEnvironment(harness.db, harness.hub, {
+      const environment = await createEnvironment(harness.db, harness.hub, {
         projectId: project.id,
         hostId: target.host.id,
         path: "/tmp/review-worktree",
@@ -196,7 +200,7 @@ it.each([
         status: "ready",
         environmentProvider: null,
       });
-      harness.db
+      await harness.db
         .update(environments)
         .set({
           environmentProviderId: "review-worktree",
@@ -256,19 +260,23 @@ it.each([
         }),
         decisionTimeoutMs: 1000,
       });
-      const thread = seedThread(harness.deps, {
+      const thread = await seedThread(harness.deps, {
         projectId: project.id,
         environmentId: environment.id,
         status: "idle",
         visibility: "hidden",
       });
-      expect(requestEnvironmentRemoval(harness.deps, environment.id)).toBe(
-        false,
-      );
+      expect(
+        await requestEnvironmentRemoval(harness.deps, environment.id),
+      ).toBe(false);
       await sweepProviderEnvironment(harness.deps, environment.id);
       expect(cleanupCall).not.toHaveBeenCalled();
-      expect(requestMachineRemoval(harness.deps, target.host.id)).toBe(true);
-      expect(getHost(harness.db, target.host.id)?.phase).toBe("removing");
+      expect(await requestMachineRemoval(harness.deps, target.host.id)).toBe(
+        true,
+      );
+      expect((await getHost(harness.db, target.host.id))?.phase).toBe(
+        "removing",
+      );
       await expect(
         callHostOnlineRpcForWork(harness.deps, {
           hostId: target.host.id,
@@ -284,7 +292,7 @@ it.each([
       ).rejects.toThrow("cancelled");
       await sweepProviderMachine(harness.deps, target.host.id);
       if (failCleanup) {
-        expect(getHost(harness.db, target.host.id)).toMatchObject({
+        expect(await getHost(harness.db, target.host.id)).toMatchObject({
           phase: "removing",
           teardownStatus: "failed",
           statusMessage: "Workspace cleanup temporarily failed",
@@ -292,12 +300,14 @@ it.each([
         expect(machineRemove).not.toHaveBeenCalled();
         await retryMachineCleanup(harness.deps, target.host.id);
       }
-      expect(getEnvironment(harness.db, environment.id)).toMatchObject({
+      expect(await getEnvironment(harness.db, environment.id)).toMatchObject({
         status: "destroyed",
         teardownStatus: "removed",
       });
-      expect(getHost(harness.db, target.host.id)?.phase).toBe("destroyed");
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect((await getHost(harness.db, target.host.id))?.phase).toBe(
+        "destroyed",
+      );
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         archivedAt: null,
         deletedAt: null,
         status: "idle",
@@ -309,7 +319,7 @@ it.each([
 );
 
 it("keeps a standalone ephemeral machine available after successful creation", async () =>
-  withTestHarness(async (harness) => {
+  await withTestHarness(async (harness) => {
     const remove = vi.fn(async () => ({ status: "removed" as const }));
     installMachineProvider({
       ephemeral: true,
@@ -332,10 +342,10 @@ it("keeps a standalone ephemeral machine available after successful creation", a
     expect(response.status).toBe(201);
     const result = z.object({ id: z.string() }).parse(await readJson(response));
     await expect
-      .poll(() => getHost(harness.db, result.id)?.phase)
+      .poll(async () => (await getHost(harness.db, result.id))?.phase)
       .not.toBe("creating");
     await sweepProviderMachine(harness.deps, result.id);
-    expect(getHost(harness.db, result.id)).toMatchObject({
+    expect(await getHost(harness.db, result.id)).toMatchObject({
       phase: "active",
       type: "persistent",
       destroyedAt: null,
@@ -344,14 +354,14 @@ it("keeps a standalone ephemeral machine available after successful creation", a
   }));
 
 it("removes a suspended machine when its last thread is archived with an offline follow-up queued", async () =>
-  withTestHarness(async (harness) => {
-    const target = seedHostSession(harness.deps, {
+  await withTestHarness(async (harness) => {
+    const target = await seedHostSession(harness.deps, {
       id: "review-archived-queue",
     });
-    const { project } = seedProjectWithSource(harness.deps, {
+    const { project } = await seedProjectWithSource(harness.deps, {
       hostId: target.host.id,
     });
-    const environment = createEnvironment(harness.db, harness.hub, {
+    const environment = await createEnvironment(harness.db, harness.hub, {
       projectId: project.id,
       hostId: target.host.id,
       path: "/tmp/review-archived-queue",
@@ -359,7 +369,7 @@ it("removes a suspended machine when its last thread is archived with an offline
       status: "ready",
       environmentProvider: null,
     });
-    const thread = seedThread(harness.deps, {
+    const thread = await seedThread(harness.deps, {
       projectId: project.id,
       environmentId: environment.id,
       status: "idle",
@@ -371,7 +381,7 @@ it("removes a suspended machine when its last thread is archived with an offline
       suspend: async () => ({ resource: { id: "owned" } }),
       resume: async () => ({ resource: { id: "owned" } }),
     });
-    updateHost(harness.db, harness.hub, target.host.id, {
+    await updateHost(harness.db, harness.hub, target.host.id, {
       machineProviderId: "test-machine",
       launchKey: thread.id,
       resource: { id: "owned" },
@@ -379,13 +389,13 @@ it("removes a suspended machine when its last thread is archived with an offline
       phase: "suspended",
       suspendedAt: Date.now(),
     });
-    seedQueuedMessage(harness.deps, {
+    await seedQueuedMessage(harness.deps, {
       threadId: thread.id,
       content: [{ type: "text", text: "Follow up", mentions: [] }],
       waitingOn: { kind: "host-offline", hostName: target.host.name },
     });
     expect(
-      listThreadIdsWithHostOfflineQueueWaits(harness.db, target.host.id),
+      await listThreadIdsWithHostOfflineQueueWaits(harness.db, target.host.id),
     ).toEqual([thread.id]);
     const response = await harness.app.request(
       `/api/v1/threads/${thread.id}/archive-all`,
@@ -393,17 +403,19 @@ it("removes a suspended machine when its last thread is archived with an offline
     );
     expect(response.status).toBe(200);
     expect(
-      listThreadIdsWithHostOfflineQueueWaits(harness.db, target.host.id),
+      await listThreadIdsWithHostOfflineQueueWaits(harness.db, target.host.id),
     ).toEqual([]);
     await sweepProviderMachine(harness.deps, target.host.id);
     await sweepProviderMachine(harness.deps, target.host.id);
-    expect(getHost(harness.db, target.host.id)?.phase).toBe("destroyed");
+    expect((await getHost(harness.db, target.host.id))?.phase).toBe(
+      "destroyed",
+    );
     expect(remove).toHaveBeenCalledOnce();
   }));
 
 it("reconciles on request using core's current state and serializes a concurrent resume", async () =>
-  withTestHarness(async (harness) => {
-    const { host, session } = seedHostSession(harness.deps, {
+  await withTestHarness(async (harness) => {
+    const { host, session } = await seedHostSession(harness.deps, {
       id: "plugin-reconcile",
     });
     harness.hub.unregisterDaemon(session.id);
@@ -417,7 +429,7 @@ it("reconciles on request using core's current state and serializes a concurrent
     });
     const resume = vi.fn(async () => ({ resource: { id: "running" } }));
     installMachineProvider({ suspend, resume });
-    updateHost(harness.db, harness.hub, host.id, {
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "test-machine",
       phase: "active",
       resource: { id: "running" },
@@ -425,7 +437,7 @@ it("reconciles on request using core's current state and serializes a concurrent
     await reconcileMachine(harness.deps, host.id);
     expect(suspend).not.toHaveBeenCalled();
     expect(resume).not.toHaveBeenCalled();
-    updateHost(harness.db, harness.hub, host.id, {
+    await updateHost(harness.db, harness.hub, host.id, {
       phase: "suspended",
       suspendedAt: 1,
     });
@@ -439,20 +451,22 @@ it("reconciles on request using core's current state and serializes a concurrent
     await reconciling;
     await waking;
     expect(resume).toHaveBeenCalledOnce();
-    expect(getHost(harness.db, host.id)?.phase).toBe("active");
+    expect((await getHost(harness.db, host.id))?.phase).toBe("active");
     await reconcileMachine(harness.deps, host.id);
     expect(suspend).toHaveBeenCalledOnce();
   }));
 
 it("exposes reconciliation through the host API without changing active intent", async () =>
-  withTestHarness(async (harness) => {
-    const { host } = seedHostSession(harness.deps, { id: "reconcile-api" });
+  await withTestHarness(async (harness) => {
+    const { host } = await seedHostSession(harness.deps, {
+      id: "reconcile-api",
+    });
     const suspend = vi.fn(async () => ({ resource: { id: "saved" } }));
     installMachineProvider({
       suspend,
       resume: async ({ resource }) => ({ resource }),
     });
-    updateHost(harness.db, harness.hub, host.id, {
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "test-machine",
       phase: "active",
       resource: { id: "running" },
@@ -463,12 +477,12 @@ it("exposes reconciliation through the host API without changing active intent",
     );
     expect(response.status).toBe(202);
     expect(suspend).not.toHaveBeenCalled();
-    expect(getHost(harness.db, host.id)?.phase).toBe("active");
+    expect((await getHost(harness.db, host.id))?.phase).toBe("active");
   }));
 
 it("accepts reconciliation before the provider finishes and coalesces repeated requests", async () =>
-  withTestHarness(async (harness) => {
-    const { host, session } = seedHostSession(harness.deps, {
+  await withTestHarness(async (harness) => {
+    const { host, session } = await seedHostSession(harness.deps, {
       id: "reconcile-slow",
     });
     harness.hub.unregisterDaemon(session.id);
@@ -484,7 +498,7 @@ it("accepts reconciliation before the provider finishes and coalesces repeated r
       suspend,
       resume: async ({ resource }) => ({ resource }),
     });
-    updateHost(harness.db, harness.hub, host.id, {
+    await updateHost(harness.db, harness.hub, host.id, {
       machineProviderId: "test-machine",
       phase: "suspended",
       suspendedAt: 1,
@@ -497,7 +511,7 @@ it("accepts reconciliation before the provider finishes and coalesces repeated r
       );
       expect(response.status).toBe(202);
       await expect.poll(() => suspend.mock.calls.length).toBe(1);
-      expect(getHost(harness.db, host.id)?.phase).toBe("suspending");
+      expect((await getHost(harness.db, host.id))?.phase).toBe("suspending");
       const repeated = await harness.app.request(
         `/api/v1/hosts/${host.id}/reconcile`,
         { method: "POST" },
@@ -507,58 +521,68 @@ it("accepts reconciliation before the provider finishes and coalesces repeated r
     } finally {
       finish();
       await expect
-        .poll(() => getHost(harness.db, host.id)?.phase)
+        .poll(async () => (await getHost(harness.db, host.id))?.phase)
         .toBe("suspended");
     }
   }));
 
 it("holds the machine drain deadline while the server is moving", async () =>
-  withTestHarness({ terminalCloseTimeoutMs: 60 * 60_000 }, async (harness) => {
-    const target = seedHostSession(harness.deps, {
-      id: "review-frozen-drain",
-    });
-    createTerminalSession(harness.db, {
-      cols: 80,
-      daemonSessionId: target.session.id,
-      environmentId: null,
-      hostId: target.host.id,
-      initialCwd: "~",
-      rows: 24,
-      status: "running",
-      threadId: null,
-      title: "zsh",
-    });
-    const save = vi.fn(async () => {});
-    vi.useFakeTimers();
-    const outcome = maintainMachine(
-      harness.deps,
-      target.host.id,
-      "operation-frozen-drain",
-      save,
-    ).then(
-      () => null,
-      (error: unknown) => error,
-    );
-
-    setServerMoveFrozen(harness.db, true);
-    try {
-      await vi.advanceTimersByTimeAsync(
-        5 * 60_000 + SERVER_MOVE_FROZEN_RETRY_MS,
-      );
-      expect(getHost(harness.db, target.host.id)).toMatchObject({
-        phase: "suspending",
-        suspendRetryAt: null,
+  await withTestHarness(
+    { terminalCloseTimeoutMs: 60 * 60_000 },
+    async (harness) => {
+      const target = await seedHostSession(harness.deps, {
+        id: "review-frozen-drain",
       });
-    } finally {
-      setServerMoveFrozen(harness.db, false);
-    }
+      await createTerminalSession(harness.db, {
+        cols: 80,
+        daemonSessionId: target.session.id,
+        environmentId: null,
+        hostId: target.host.id,
+        initialCwd: "~",
+        rows: 24,
+        status: "running",
+        threadId: null,
+        title: "zsh",
+      });
+      const save = vi.fn(async () => {});
+      vi.useFakeTimers();
+      const outcome = maintainMachine(
+        harness.deps,
+        target.host.id,
+        "operation-frozen-drain",
+        save,
+      ).then(
+        () => null,
+        (error: unknown) => error,
+      );
 
-    expect(
-      await advanceUntilSettled(outcome, SERVER_MOVE_FROZEN_RETRY_MS),
-    ).toMatchObject({
-      message: "Machine drain exceeded its deadline; old compute is retained",
-    });
-    expect(save).not.toHaveBeenCalled();
-    expect(getHost(harness.db, target.host.id)?.phase).toBe("active");
-    expect(getHost(harness.db, target.host.id)?.suspendRetryAt).not.toBeNull();
-  }));
+      await vi.waitFor(async () =>
+        expect(await getHost(harness.db, target.host.id)).toMatchObject({
+          phase: "suspending",
+        }),
+      );
+      setServerMoveFrozen(harness.db, true);
+      try {
+        await vi.advanceTimersByTimeAsync(
+          5 * 60_000 + SERVER_MOVE_FROZEN_RETRY_MS,
+        );
+        expect(await getHost(harness.db, target.host.id)).toMatchObject({
+          phase: "suspending",
+          suspendRetryAt: null,
+        });
+      } finally {
+        setServerMoveFrozen(harness.db, false);
+      }
+
+      expect(
+        await advanceUntilSettled(outcome, SERVER_MOVE_FROZEN_RETRY_MS),
+      ).toMatchObject({
+        message: "Machine drain exceeded its deadline; old compute is retained",
+      });
+      expect(save).not.toHaveBeenCalled();
+      expect((await getHost(harness.db, target.host.id))?.phase).toBe("active");
+      expect(
+        (await getHost(harness.db, target.host.id))?.suspendRetryAt,
+      ).not.toBeNull();
+    },
+  ));

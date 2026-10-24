@@ -1,3 +1,4 @@
+import { isPostgresTest } from "@hyperfide/db/testing";
 import { createHash } from "node:crypto";
 import { readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -33,8 +34,8 @@ import {
   type TestAppHarness,
 } from "../helpers/test-app.js";
 
-const API = "/api/v1";
-const OLD = "host-old";
+const API = await "/api/v1";
+const OLD = await "host-old";
 const NEW = "host-new";
 const WORKER = "host-worker";
 const DIRECT_URL = "https://desktop.example.test";
@@ -82,19 +83,19 @@ function probeReply(
     : { ok: true, result: inspectResult() };
 }
 
-function seedTopology(harness: TestAppHarness): void {
-  seedHost(harness.deps, { id: OLD, name: "Laptop" });
+async function seedTopology(harness: TestAppHarness): Promise<void> {
+  await seedHost(harness.deps, { id: OLD, name: "Laptop" });
   seedPrimaryHost(harness.deps, OLD);
-  seedHost(harness.deps, { id: NEW, name: "Desktop" });
-  seedHost(harness.deps, { id: WORKER, name: "Worker" });
-  setExperiments(harness.db, { ...defaultExperiments, serverMove: true });
+  await seedHost(harness.deps, { id: NEW, name: "Desktop" });
+  await seedHost(harness.deps, { id: WORKER, name: "Worker" });
+  await setExperiments(harness.db, { ...defaultExperiments, serverMove: true });
 }
 
 describe("server move routes", () => {
-  it("refuses to check, start, export, or delete old copies while the serverMove experiment is off", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      setExperiments(harness.db, defaultExperiments);
+  it("refuses to check, start, export, or delete old copies while the serverMove experiment is off", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
+      await setExperiments(harness.db, defaultExperiments);
       const gated = await Promise.all([
         postJson(harness, `${API}/server/move/check`, {
           targetHostId: NEW,
@@ -124,245 +125,260 @@ describe("server move routes", () => {
       ).toEqual({ move: null, lastMove: null });
     }));
 
-  it("runs a move through the public routes, freezes writes, and serves the archive only to the target", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const events: string[] = [];
-      const releasePrepare = createDeferredPromise<void>();
-      const received: { prepare: PrepareCommand | null } = { prepare: null };
-      registerFakeDaemon(harness, { events, hostId: OLD, handle: probeReply });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: WORKER,
-        handle: probeReply,
-      });
-      registerFakeDaemon(harness, {
-        events,
-        hostId: NEW,
-        handle: async (request): Promise<FakeDaemonReply> => {
-          switch (request.command.type) {
-            case "server_move.inspect":
-              return {
-                ok: true,
-                result: inspectResult({
-                  hyperfideAppVersion: harness.config.appVersion,
-                }),
-              };
-            case "server_move.prepare":
-              received.prepare = request.command;
-              await releasePrepare.promise;
-              return {
-                ok: true,
-                result: { localServerUrl: "http://127.0.0.1:3334", pid: 42 },
-              };
-            case "server_move.activate":
-            case "server_move.abort":
-              return { ok: true, result: { ok: true } };
-            default:
-              throw new Error(`Unexpected ${request.command.type}`);
-          }
-        },
-      });
-
-      const check = await postJson(harness, `${API}/server/move/check`, {
-        targetHostId: NEW,
-        serverUrl: DIRECT_URL,
-      });
-      expect(check.status).toBe(200);
-      expect(await readJson(check)).toMatchObject({
-        mode: "direct",
-        requiresServerUrl: true,
-        canMove: true,
-      });
-
-      const start = await postJson(harness, `${API}/server/move`, {
-        targetHostId: NEW,
-        serverUrl: DIRECT_URL,
-        stopRunningWork: true,
-        archiveExistingTargetServerData: false,
-      });
-      expect(start.status).toBe(200);
-      const started = serverMoveStatusSchema.parse(await readJson(start));
-      await expect.poll(() => received.prepare !== null).toBe(true);
-      const prepareCommand = received.prepare;
-      if (prepareCommand === null) {
-        throw new Error("The target never received prepare");
-      }
-
-      const during = await harness.app.request(`${API}/server/move`);
-      expect(await readJson(during)).toMatchObject({
-        move: { moveId: started.moveId, state: "preparing", cancellable: true },
-        lastMove: null,
-      });
-      const frozenWrite = await postJson(harness, `${API}/projects`, {
-        name: "Blocked while moving",
-      });
-      expect(frozenWrite.status).toBe(503);
-      expect(await readJson(frozenWrite)).toMatchObject({
-        code: "server_moving",
-        retryable: false,
-      });
-      expect((await harness.app.request(`${API}/hosts`)).status).toBe(200);
-      for (const [path, body] of [
-        ["/internal/hosts/enroll-key", {}],
-        ["/internal/hosts/enroll", { hostId: "host-late", hostName: "Late" }],
-      ] as const) {
-        const enrollment = await postJson(harness, path, body, {
-          authorization: "Bearer enroll-token",
+  // Physical archive export uses SQLite backups.
+  it.skipIf(isPostgresTest)(
+    "runs a move through the public routes, freezes writes, and serves the archive only to the target",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const events: string[] = [];
+        const releasePrepare = await createDeferredPromise<void>();
+        const received: { prepare: PrepareCommand | null } = { prepare: null };
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: OLD,
+          handle: probeReply,
         });
-        expect(enrollment.status, path).toBe(503);
-        expect(await readJson(enrollment)).toMatchObject({
-          code: "server_moving",
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: WORKER,
+          handle: probeReply,
         });
-      }
-      const checkDuringMove = await postJson(
-        harness,
-        `${API}/server/move/check`,
-        {
+        await registerFakeDaemon(harness, {
+          events,
+          hostId: NEW,
+          handle: async (request): Promise<FakeDaemonReply> => {
+            switch (request.command.type) {
+              case "server_move.inspect":
+                return {
+                  ok: true,
+                  result: inspectResult({
+                    hyperfideAppVersion: harness.config.appVersion,
+                  }),
+                };
+              case "server_move.prepare":
+                received.prepare = request.command;
+                await releasePrepare.promise;
+                return {
+                  ok: true,
+                  result: { localServerUrl: "http://127.0.0.1:3334", pid: 42 },
+                };
+              case "server_move.activate":
+              case "server_move.abort":
+                return { ok: true, result: { ok: true } };
+              default:
+                throw new Error(`Unexpected ${request.command.type}`);
+            }
+          },
+        });
+
+        const check = await postJson(harness, `${API}/server/move/check`, {
           targetHostId: NEW,
           serverUrl: DIRECT_URL,
-        },
-      );
-      expect(checkDuringMove.status).toBe(200);
-      expect(await readJson(checkDuringMove)).toMatchObject({
-        canMove: false,
-        items: expect.arrayContaining([
-          expect.objectContaining({ id: "move-in-progress" }),
-        ]),
-      });
+        });
+        expect(check.status).toBe(200);
+        expect(await readJson(check)).toMatchObject({
+          mode: "direct",
+          requiresServerUrl: true,
+          canMove: true,
+        });
 
-      const archivePath = prepareCommand.archive.downloadPath;
-      expect(archivePath).toBe(
-        `/internal/server-move/${started.moveId}/archive`,
-      );
-      expect((await harness.app.request(archivePath)).status).toBe(401);
-      const forbidden = await harness.app.request(archivePath, {
-        headers: daemonHeaders(WORKER),
-      });
-      expect(forbidden.status).toBe(403);
-      expect(await readJson(forbidden)).toMatchObject({
-        code: "server_move_download_forbidden",
-      });
-      expect(
-        (
-          await harness.app.request(
-            "/internal/server-move/other-move/archive",
-            {
-              headers: daemonHeaders(NEW),
-            },
-          )
-        ).status,
-      ).toBe(404);
-      expect(
-        (
-          await harness.app.request(
-            `/internal/server-move/${started.moveId}/hyperfide-app.tgz`,
-            { headers: daemonHeaders(NEW) },
-          )
-        ).status,
-      ).toBe(404);
-      const download = await harness.app.request(archivePath, {
-        headers: daemonHeaders(NEW),
-      });
-      expect(download.status).toBe(200);
-      expect(download.headers.get("content-length")).toBe(
-        String(prepareCommand.archive.sizeBytes),
-      );
-      const archiveBytes = Buffer.from(await download.arrayBuffer());
-      expect(archiveBytes.byteLength).toBe(prepareCommand.archive.sizeBytes);
-      expect(createHash("sha256").update(archiveBytes).digest("hex")).toBe(
-        prepareCommand.archive.sha256,
-      );
-      const downloaded = join(await makeTempDir(), "server.tar.gz");
-      await writeFile(downloaded, archiveBytes);
-      const manifest = await extractServerArchive({
-        archivePath: downloaded,
-        destinationDir: await makeTempDir(),
-      });
-      expect(manifest.entries.map((entry) => entry.path)).toContain("hyperfide.db");
-
-      releasePrepare.resolve();
-      await expect
-        .poll(async () => {
-          const response = await harness.app.request(`${API}/server/move`);
-          return serverMoveStatusResponseSchema.parse(await readJson(response))
-            .move?.state;
-        })
-        .toBe("completed");
-
-      expect(
-        (
-          await harness.app.request(archivePath, {
-            headers: daemonHeaders(NEW),
-          })
-        ).status,
-      ).toBe(404);
-      const cancel = await harness.app.request(`${API}/server/move/cancel`, {
-        method: "POST",
-      });
-      expect(cancel.status).toBe(409);
-      expect(await readJson(cancel)).toMatchObject({
-        code: "server_move_not_cancellable",
-      });
-      const retry = await postJson(harness, `${API}/server/move`, {
-        targetHostId: NEW,
-        serverUrl: DIRECT_URL,
-        stopRunningWork: true,
-        archiveExistingTargetServerData: false,
-      });
-      expect(retry.status).toBe(200);
-      expect(await readJson(retry)).toMatchObject({
-        moveId: started.moveId,
-        state: "completed",
-      });
-      const otherTarget = await postJson(harness, `${API}/server/move`, {
-        targetHostId: WORKER,
-        serverUrl: DIRECT_URL,
-        stopRunningWork: true,
-        archiveExistingTargetServerData: false,
-      });
-      expect(otherTarget.status).toBe(409);
-      expect(await readJson(otherTarget)).toMatchObject({
-        code: "server_move_in_progress",
-      });
-      const moved = await readServerMovedFile(harness.config.dataDir);
-      expect(moved).toMatchObject({
-        moveId: started.moveId,
-        toHostId: NEW,
-        serverUrl: DIRECT_URL,
-      });
-      const sessionOpen = await postJson(
-        harness,
-        "/internal/session/open",
-        {
-          hostId: WORKER,
-          instanceId: "instance-worker",
-          hostName: "Worker",
-          hasMachineCredential: false,
-          platform: "linux",
-          dataDir: "/home/me/.hyperfide-machines/laptop",
-          localApiPort: 38_888,
-          protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
-          activeThreads: [],
-          loadedEnvironments: [],
-        },
-        daemonHeaders(WORKER),
-      );
-      expect(sessionOpen.status).toBe(410);
-      expect(await readJson(sessionOpen)).toMatchObject({
-        code: "server_moved",
-        details: {
+        const start = await postJson(harness, `${API}/server/move`, {
+          targetHostId: NEW,
           serverUrl: DIRECT_URL,
-          toHostName: "Desktop",
-          movedAt: moved?.movedAt,
-        },
-      });
-      expect(events).toContain(`server.moved:${WORKER}`);
-    }));
+          stopRunningWork: true,
+          archiveExistingTargetServerData: false,
+        });
+        expect(start.status).toBe(200);
+        const started = serverMoveStatusSchema.parse(await readJson(start));
+        await expect.poll(() => received.prepare !== null).toBe(true);
+        const prepareCommand = received.prepare;
+        if (prepareCommand === null) {
+          throw new Error("The target never received prepare");
+        }
 
-  it("refuses machine credentials on every server move route", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+        const during = await harness.app.request(`${API}/server/move`);
+        expect(await readJson(during)).toMatchObject({
+          move: {
+            moveId: started.moveId,
+            state: "preparing",
+            cancellable: true,
+          },
+          lastMove: null,
+        });
+        const frozenWrite = await postJson(harness, `${API}/projects`, {
+          name: "Blocked while moving",
+        });
+        expect(frozenWrite.status).toBe(503);
+        expect(await readJson(frozenWrite)).toMatchObject({
+          code: "server_moving",
+          retryable: false,
+        });
+        expect((await harness.app.request(`${API}/hosts`)).status).toBe(200);
+        for (const [path, body] of [
+          ["/internal/hosts/enroll-key", {}],
+          ["/internal/hosts/enroll", { hostId: "host-late", hostName: "Late" }],
+        ] as const) {
+          const enrollment = await postJson(harness, path, body, {
+            authorization: "Bearer enroll-token",
+          });
+          expect(enrollment.status, path).toBe(503);
+          expect(await readJson(enrollment)).toMatchObject({
+            code: "server_moving",
+          });
+        }
+        const checkDuringMove = await postJson(
+          harness,
+          `${API}/server/move/check`,
+          {
+            targetHostId: NEW,
+            serverUrl: DIRECT_URL,
+          },
+        );
+        expect(checkDuringMove.status).toBe(200);
+        expect(await readJson(checkDuringMove)).toMatchObject({
+          canMove: false,
+          items: expect.arrayContaining([
+            expect.objectContaining({ id: "move-in-progress" }),
+          ]),
+        });
+
+        const archivePath = prepareCommand.archive.downloadPath;
+        expect(archivePath).toBe(
+          `/internal/server-move/${started.moveId}/archive`,
+        );
+        expect((await harness.app.request(archivePath)).status).toBe(401);
+        const forbidden = await harness.app.request(archivePath, {
+          headers: daemonHeaders(WORKER),
+        });
+        expect(forbidden.status).toBe(403);
+        expect(await readJson(forbidden)).toMatchObject({
+          code: "server_move_download_forbidden",
+        });
+        expect(
+          (
+            await harness.app.request(
+              "/internal/server-move/other-move/archive",
+              {
+                headers: daemonHeaders(NEW),
+              },
+            )
+          ).status,
+        ).toBe(404);
+        expect(
+          (
+            await harness.app.request(
+              `/internal/server-move/${started.moveId}/hyperfide-app.tgz`,
+              { headers: daemonHeaders(NEW) },
+            )
+          ).status,
+        ).toBe(404);
+        const download = await harness.app.request(archivePath, {
+          headers: daemonHeaders(NEW),
+        });
+        expect(download.status).toBe(200);
+        expect(download.headers.get("content-length")).toBe(
+          String(prepareCommand.archive.sizeBytes),
+        );
+        const archiveBytes = Buffer.from(await download.arrayBuffer());
+        expect(archiveBytes.byteLength).toBe(prepareCommand.archive.sizeBytes);
+        expect(createHash("sha256").update(archiveBytes).digest("hex")).toBe(
+          prepareCommand.archive.sha256,
+        );
+        const downloaded = join(await makeTempDir(), "server.tar.gz");
+        await writeFile(downloaded, archiveBytes);
+        const manifest = await extractServerArchive({
+          archivePath: downloaded,
+          destinationDir: await makeTempDir(),
+        });
+        expect(manifest.entries.map((entry) => entry.path)).toContain(
+          "hyperfide.db",
+        );
+
+        releasePrepare.resolve();
+        await expect
+          .poll(async () => {
+            const response = await harness.app.request(`${API}/server/move`);
+            return serverMoveStatusResponseSchema.parse(
+              await readJson(response),
+            ).move?.state;
+          })
+          .toBe("completed");
+
+        expect(
+          (
+            await harness.app.request(archivePath, {
+              headers: daemonHeaders(NEW),
+            })
+          ).status,
+        ).toBe(404);
+        const cancel = await harness.app.request(`${API}/server/move/cancel`, {
+          method: "POST",
+        });
+        expect(cancel.status).toBe(409);
+        expect(await readJson(cancel)).toMatchObject({
+          code: "server_move_not_cancellable",
+        });
+        const retry = await postJson(harness, `${API}/server/move`, {
+          targetHostId: NEW,
+          serverUrl: DIRECT_URL,
+          stopRunningWork: true,
+          archiveExistingTargetServerData: false,
+        });
+        expect(retry.status).toBe(200);
+        expect(await readJson(retry)).toMatchObject({
+          moveId: started.moveId,
+          state: "completed",
+        });
+        const otherTarget = await postJson(harness, `${API}/server/move`, {
+          targetHostId: WORKER,
+          serverUrl: DIRECT_URL,
+          stopRunningWork: true,
+          archiveExistingTargetServerData: false,
+        });
+        expect(otherTarget.status).toBe(409);
+        expect(await readJson(otherTarget)).toMatchObject({
+          code: "server_move_in_progress",
+        });
+        const moved = await readServerMovedFile(harness.config.dataDir);
+        expect(moved).toMatchObject({
+          moveId: started.moveId,
+          toHostId: NEW,
+          serverUrl: DIRECT_URL,
+        });
+        const sessionOpen = await postJson(
+          harness,
+          "/internal/session/open",
+          {
+            hostId: WORKER,
+            instanceId: "instance-worker",
+            hostName: "Worker",
+            hasMachineCredential: false,
+            platform: "linux",
+            dataDir: "/home/me/.hyperfide-machines/laptop",
+            localApiPort: 38_888,
+            protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
+            activeThreads: [],
+            loadedEnvironments: [],
+          },
+          daemonHeaders(WORKER),
+        );
+        expect(sessionOpen.status).toBe(410);
+        expect(await readJson(sessionOpen)).toMatchObject({
+          code: "server_moved",
+          details: {
+            serverUrl: DIRECT_URL,
+            toHostName: "Desktop",
+            movedAt: moved?.movedAt,
+          },
+        });
+        expect(events).toContain(`server.moved:${WORKER}`);
+      }),
+  );
+
+  it("refuses machine credentials on every server move route", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const machine = { "x-hyperfide-gate-auth": "machine" };
       const responses = await Promise.all([
         postJson(
@@ -401,9 +417,9 @@ describe("server move routes", () => {
       }
     }));
 
-  it("reports the last move and records old copy deletion even when the machine already removed it", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
+  it("reports the last move and records old copy deletion even when the machine already removed it", async () =>
+    await withTestHarness(async (harness) => {
+      await seedTopology(harness);
       const lastMove = {
         moveId: "move-1",
         fromHostId: OLD,
@@ -440,7 +456,7 @@ describe("server move routes", () => {
         code: "old_server_copy_not_found",
       });
 
-      const daemon = registerFakeDaemon(harness, {
+      const daemon = await registerFakeDaemon(harness, {
         events: [],
         hostId: OLD,
         handle: () => ({ ok: true, result: { deleted: false } }),
@@ -460,39 +476,44 @@ describe("server move routes", () => {
       ).toEqual(expect.any(Number));
     }));
 
-  it("streams a gzip export with a dated file name and its SHA-256 digest", () =>
-    withTestHarness(async (harness) => {
-      seedTopology(harness);
-      const response = await postExport(harness);
-      expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toBe("application/gzip");
-      expect(response.headers.get("content-disposition")).toMatch(
-        /^attachment; filename="hyperfide-server-\d{4}-\d{2}-\d{2}\.tar\.gz"$/u,
-      );
-      const bytes = Buffer.from(await response.arrayBuffer());
-      expect(response.headers.get("x-hyperfide-archive-sha256")).toBe(
-        createHash("sha256").update(bytes).digest("hex"),
-      );
-      const exportPath = join(await makeTempDir(), "export.tar.gz");
-      await writeFile(exportPath, bytes);
-      const manifest = await extractServerArchive({
-        archivePath: exportPath,
-        destinationDir: await makeTempDir(),
-      });
-      expect(manifest).toMatchObject({
-        sourceDataDir: harness.config.dataDir,
-        sourceServerHostId: OLD,
-      });
-      expect(manifest.entries.map((entry) => entry.path)).toContain("hyperfide.db");
-      await expect
-        .poll(
-          async () =>
-            (
-              await readdir(
-                join(harness.config.dataDir, "server-export"),
-              ).catch(() => [])
-            ).length,
-        )
-        .toBe(0);
-    }));
+  it.skipIf(isPostgresTest)(
+    "streams a gzip export with a dated file name and its SHA-256 digest",
+    async () =>
+      await withTestHarness(async (harness) => {
+        await seedTopology(harness);
+        const response = await postExport(harness);
+        expect(response.status).toBe(200);
+        expect(response.headers.get("content-type")).toBe("application/gzip");
+        expect(response.headers.get("content-disposition")).toMatch(
+          /^attachment; filename="hyperfide-server-\d{4}-\d{2}-\d{2}\.tar\.gz"$/u,
+        );
+        const bytes = Buffer.from(await response.arrayBuffer());
+        expect(response.headers.get("x-hyperfide-archive-sha256")).toBe(
+          createHash("sha256").update(bytes).digest("hex"),
+        );
+        const exportPath = join(await makeTempDir(), "export.tar.gz");
+        await writeFile(exportPath, bytes);
+        const manifest = await extractServerArchive({
+          archivePath: exportPath,
+          destinationDir: await makeTempDir(),
+        });
+        expect(manifest).toMatchObject({
+          sourceDataDir: harness.config.dataDir,
+          sourceServerHostId: OLD,
+        });
+        expect(manifest.entries.map((entry) => entry.path)).toContain(
+          "hyperfide.db",
+        );
+        await expect
+          .poll(
+            async () =>
+              (
+                await readdir(
+                  join(harness.config.dataDir, "server-export"),
+                ).catch(() => [])
+              ).length,
+          )
+          .toBe(0);
+      }),
+  );
 });

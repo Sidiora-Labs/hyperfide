@@ -7,27 +7,28 @@ export interface ThreadConversationOutlineRecord {
   projectionKey: string;
 }
 
-export function getThreadConversationOutlineRecord(
+export async function getThreadConversationOutlineRecord(
   db: DbConnection,
   threadId: string,
-): ThreadConversationOutlineRecord | null {
+): Promise<ThreadConversationOutlineRecord | null> {
   return (
-    db
+    (await db
       .select({
         itemsJson: threadConversationOutlines.itemsJson,
         projectionKey: threadConversationOutlines.projectionKey,
       })
       .from(threadConversationOutlines)
       .where(eq(threadConversationOutlines.threadId, threadId))
-      .get() ?? null
+      .get()) ?? null
   );
 }
 
-export function upsertThreadConversationOutlineRecord(
+export async function upsertThreadConversationOutlineRecord(
   db: DbConnection,
   args: ThreadConversationOutlineRecord & { threadId: string },
-): void {
-  db.insert(threadConversationOutlines)
+): Promise<void> {
+  await db
+    .insert(threadConversationOutlines)
     .values(args)
     .onConflictDoUpdate({
       target: threadConversationOutlines.threadId,

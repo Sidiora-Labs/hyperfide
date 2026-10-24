@@ -241,17 +241,17 @@ describe("host control plane", () => {
       label: "sawyer-air",
       baseDomain: "hyperfide.example",
     });
-    hyperfide.hosts.declareSharedPorts("host-1", [8080, 3000, 8080]);
-    hyperfide.hosts.declareSharedPorts("host-2", [4173]);
-    hyperfide.hosts.declareSharedPorts("host-1", [3000]);
+    await hyperfide.hosts.declareSharedPorts("host-1", [8080, 3000, 8080]);
+    await hyperfide.hosts.declareSharedPorts("host-2", [4173]);
+    await hyperfide.hosts.declareSharedPorts("host-1", [3000]);
 
     expect(harness.sharedPortDeclarations).toEqual([
       { hostId: "host-1", ports: [3000] },
       { hostId: "host-2", ports: [4173] },
     ]);
-    expect(() => hyperfide.hosts.declareSharedPorts("host-3", [0])).toThrow(
-      /between 1 and 65535/,
-    );
+    await expect(
+      (async () => await hyperfide.hosts.declareSharedPorts("host-3", [0]))(),
+    ).rejects.toThrow(/between 1 and 65535/);
 
     await harness.dispose();
     expect(harness.sharedPortDeclarations).toEqual([]);
@@ -284,13 +284,13 @@ describe("storage", () => {
     ).rejects.toThrow(/limit is 262144 \(256KB\)/);
   });
 
-  it("database() returns one shared database and migrate() is append-only by index", () => {
+  it("database() returns one shared database and migrate() is append-only by index", async () => {
     const { hyperfide } = createFakePluginHost();
     const db = hyperfide.storage.database();
     hyperfide.storage.migrate(db, [
       "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)",
     ]);
-    db.prepare("INSERT INTO notes (body) VALUES (?)").run("hello");
+    await db.prepare("INSERT INTO notes (body) VALUES (?)").run("hello");
 
     const again = hyperfide.storage.database();
     expect(again).toBe(db);
@@ -298,7 +298,7 @@ describe("storage", () => {
       "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)",
       "ALTER TABLE notes ADD COLUMN starred INTEGER NOT NULL DEFAULT 0",
     ]);
-    const rows = again.prepare("SELECT body, starred FROM notes").all();
+    const rows = await again.prepare("SELECT body, starred FROM notes").all();
     expect(rows).toEqual([{ body: "hello", starred: 0 }]);
     expect(() =>
       hyperfide.storage.migrate(again, [
@@ -307,7 +307,7 @@ describe("storage", () => {
     ).toThrow(/migration 0 does not match the recorded statement/);
   });
 
-  it("reserves unknown legacy migration indexes", () => {
+  it("reserves unknown legacy migration indexes", async () => {
     const { hyperfide } = createFakePluginHost();
     const db = hyperfide.storage.database();
     db.exec(
@@ -319,10 +319,8 @@ describe("storage", () => {
     ]);
 
     expect(
-      db
-        .prepare(
-          "SELECT id, statement_hash FROM _hyperfide_migrations ORDER BY id",
-        )
+      await db
+        .prepare("SELECT id, statement_hash FROM _hyperfide_migrations ORDER BY id")
         .all(),
     ).toEqual([
       { id: 0, statement_hash: expect.stringMatching(/^[a-f0-9]{64}$/) },
@@ -337,17 +335,17 @@ describe("storage", () => {
     ).toThrow(/migration 2 does not match the recorded statement/);
   });
 
-  it("database() replaces a handle the plugin closed itself, like the host", () => {
+  it("database() replaces a handle the plugin closed itself, like the host", async () => {
     const { hyperfide } = createFakePluginHost();
     const db = hyperfide.storage.database();
     db.exec("CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)");
-    db.prepare("INSERT INTO notes (body) VALUES (?)").run("hello");
-    db.close();
+    await db.prepare("INSERT INTO notes (body) VALUES (?)").run("hello");
+    await db.close();
 
     const reopened = hyperfide.storage.database();
     expect(reopened).not.toBe(db);
     expect(reopened.open).toBe(true);
-    expect(reopened.prepare("SELECT body FROM notes").all()).toEqual([
+    expect(await reopened.prepare("SELECT body FROM notes").all()).toEqual([
       { body: "hello" },
     ]);
     expect(hyperfide.storage.database()).toBe(reopened);
@@ -960,7 +958,7 @@ describe("background", () => {
         });
       },
     });
-    const { controller, done } = harness.runService("watcher");
+    const { controller, done } = await harness.runService("watcher");
     controller.abort();
     await done;
     expect(sawAbort).toBe(true);
@@ -975,7 +973,9 @@ describe("background", () => {
         });
       },
     });
-    await harness.runService("socket").done;
+    await (
+      await harness.runService("socket")
+    ).done;
     expect(harness.needsConfigurationMessages).toEqual(["set the token first"]);
   });
 
@@ -1639,7 +1639,9 @@ describe("dispose", () => {
     await host.hyperfide.storage.kv.set("cursor", { page: 2 });
     const oldDatabase = host.hyperfide.storage.database();
     oldDatabase.exec("CREATE TABLE state (value TEXT NOT NULL)");
-    oldDatabase.prepare("INSERT INTO state (value) VALUES (?)").run("kept");
+    await oldDatabase
+      .prepare("INSERT INTO state (value) VALUES (?)")
+      .run("kept");
 
     expect(host.harness.behavior.callRpc).toBe(host.harness.callRpc);
     expect(host.harness.inspection.registrations).toBe(
@@ -1662,17 +1664,13 @@ describe("dispose", () => {
     const nextContract = defineRpcContract({
       version: { input: z.null(), output: z.literal("new") },
     });
-    const replacement = await host.harness.lifecycle.reload(
-      async (hyperfide) => {
-        await expect(hyperfide.storage.kv.get("cursor")).resolves.toEqual({
-          page: 2,
-        });
-        expect(
-          hyperfide.storage.database().prepare("SELECT value FROM state").get(),
-        ).toEqual({ value: "kept" });
-        hyperfide.rpc.register(nextContract, { version: () => "new" as const });
-      },
-    );
+    const replacement = await host.harness.lifecycle.reload(async (hyperfide) => {
+      await expect(hyperfide.storage.kv.get("cursor")).resolves.toEqual({ page: 2 });
+      expect(
+        await hyperfide.storage.database().prepare("SELECT value FROM state").get(),
+      ).toEqual({ value: "kept" });
+      hyperfide.rpc.register(nextContract, { version: () => "new" as const });
+    });
 
     await expect(replacement.harness.callRpc("version")).resolves.toBe("new");
     await expect(host.hyperfide.storage.kv.get("cursor")).rejects.toThrow(
@@ -1726,7 +1724,7 @@ describe("dispose", () => {
       },
     });
     const db = hyperfide.storage.database();
-    const { done } = harness.runService("svc");
+    const { done } = await harness.runService("svc");
 
     await harness.dispose();
     await done;

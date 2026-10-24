@@ -40,23 +40,23 @@ interface WaitForStopRpcIdleArgs {
   threadId: string;
 }
 
-function seedActiveThreadStopFixture(
+async function seedActiveThreadStopFixture(
   args: SeedActiveThreadStopFixtureArgs,
-): ActiveThreadStopFixture {
-  const { host } = seedHostSession(args.harness.deps, {
+): Promise<ActiveThreadStopFixture> {
+  const { host } = await seedHostSession(args.harness.deps, {
     id: `host-thread-stop-retry-${args.value}`,
   });
-  const { project } = seedProjectWithSource(args.harness.deps, {
+  const { project } = await seedProjectWithSource(args.harness.deps, {
     hostId: host.id,
     path: `/tmp/thread-stop-retry-${args.value}`,
   });
-  const environment = seedEnvironment(args.harness.deps, {
+  const environment = await seedEnvironment(args.harness.deps, {
     hostId: host.id,
     projectId: project.id,
     path: `/tmp/thread-stop-retry-${args.value}`,
     status: "ready",
   });
-  const thread = seedThread(args.harness.deps, {
+  const thread = await seedThread(args.harness.deps, {
     projectId: project.id,
     environmentId: environment.id,
     status: "active",
@@ -80,20 +80,20 @@ async function waitForStopRpcIdle(args: WaitForStopRpcIdleArgs): Promise<void> {
 describe("thread stop dispatch", () => {
   it("keeps a deleted thread tombstone until storage deletion succeeds", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedActiveThreadStopFixture({
+      const { environment, thread } = await seedActiveThreadStopFixture({
         harness,
         value: 5,
       });
-      markThreadDeleted(harness.db, harness.hub, { threadId: thread.id });
+      await markThreadDeleted(harness.db, harness.hub, { threadId: thread.id });
 
-      requestThreadStorageDeletion(harness.deps, thread, environment);
+      await requestThreadStorageDeletion(harness.deps, thread, environment);
       const failedDelete = await waitForQueuedCommand(
         harness,
         ({ command }) =>
           command.type === "thread.storage.delete" &&
           command.threadId === thread.id,
       );
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         deletedAt: expect.any(Number),
         storageDeletedAt: null,
       });
@@ -103,11 +103,11 @@ describe("thread stop dispatch", () => {
         errorMessage: "Test storage delete failure",
       });
       await sleep(10);
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         storageDeletedAt: null,
       });
 
-      requestThreadStorageDeletion(harness.deps, thread, environment);
+      await requestThreadStorageDeletion(harness.deps, thread, environment);
       const successfulDelete = await waitForQueuedCommand(
         harness,
         ({ command }) =>
@@ -118,35 +118,42 @@ describe("thread stop dispatch", () => {
         providerCheckpointId: null,
       });
 
-      expect(getThread(harness.db, thread.id)).toBeNull();
+      expect(await getThread(harness.db, thread.id)).toBeNull();
     });
   });
 
   it("keeps attached storage pending when its environment is unavailable", async () => {
     await withTestHarness(async (harness) => {
-      const { thread } = seedActiveThreadStopFixture({ harness, value: 6 });
-      markThreadDeleted(harness.db, harness.hub, { threadId: thread.id });
+      const { thread } = await seedActiveThreadStopFixture({
+        harness,
+        value: 6,
+      });
+      await markThreadDeleted(harness.db, harness.hub, { threadId: thread.id });
 
-      requestThreadStorageDeletion(harness.deps, thread, null);
+      await requestThreadStorageDeletion(harness.deps, thread, null);
 
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         deletedAt: expect.any(Number),
         storageDeletedAt: null,
       });
       expect(
-        listQueuedThreadCommands(harness, "thread.storage.delete", thread.id),
+        await listQueuedThreadCommands(
+          harness,
+          "thread.storage.delete",
+          thread.id,
+        ),
       ).toHaveLength(0);
     });
   });
 
   it("does not re-dispatch the stop after a live stop RPC failure", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedActiveThreadStopFixture({
+      const { environment, thread } = await seedActiveThreadStopFixture({
         harness,
         value: 1,
       });
 
-      requestThreadStopForCurrentState(harness.deps, thread, environment);
+      await requestThreadStopForCurrentState(harness.deps, thread, environment);
 
       const stopCommand = await waitForQueuedCommand(
         harness,
@@ -154,7 +161,7 @@ describe("thread stop dispatch", () => {
           command.type === "thread.stop" && command.threadId === thread.id,
       );
       expect(hasLiveThreadStopInFlight(thread.id)).toBe(true);
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         status: "stopping",
       });
 
@@ -165,30 +172,30 @@ describe("thread stop dispatch", () => {
       await waitForStopRpcIdle({ threadId: thread.id });
 
       expect(hasLiveThreadStopInFlight(thread.id)).toBe(false);
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         status: "stopping",
       });
       expect(
-        listQueuedThreadCommands(harness, "thread.stop", thread.id),
+        await listQueuedThreadCommands(harness, "thread.stop", thread.id),
       ).toHaveLength(0);
     });
   });
 
   it("settles a stopped thread when the host reports no runtime exists", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedActiveThreadStopFixture({
+      const { environment, thread } = await seedActiveThreadStopFixture({
         harness,
         value: 4,
       });
 
-      requestThreadStopForCurrentState(harness.deps, thread, environment);
+      await requestThreadStopForCurrentState(harness.deps, thread, environment);
 
       const stopCommand = await waitForQueuedCommand(
         harness,
         ({ command }) =>
           command.type === "thread.stop" && command.threadId === thread.id,
       );
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         status: "stopping",
       });
 
@@ -198,10 +205,12 @@ describe("thread stop dispatch", () => {
       });
       await waitForStopRpcIdle({ threadId: thread.id });
 
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         status: "idle",
       });
-      const threadEvents = listEvents(harness.db, { threadId: thread.id });
+      const threadEvents = await listEvents(harness.db, {
+        threadId: thread.id,
+      });
       expect(
         threadEvents.filter(
           (event) => event.type === "system/thread/interrupted",
@@ -215,11 +224,11 @@ describe("thread stop dispatch", () => {
 
   it("settles a thread whose host never answers the stop", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedActiveThreadStopFixture({
+      const { environment, thread } = await seedActiveThreadStopFixture({
         harness,
         value: 7,
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         environmentId: environment.id,
         threadId: thread.id,
         turnId: "turn-stop-unanswered",
@@ -230,11 +239,13 @@ describe("thread stop dispatch", () => {
 
       await stopThreadForCurrentState(harness.deps, thread, environment);
 
-      expect(getThread(harness.db, thread.id)).toMatchObject({
+      expect(await getThread(harness.db, thread.id)).toMatchObject({
         status: "idle",
       });
       expect(rpc).toHaveBeenCalledOnce();
-      const threadEvents = listEvents(harness.db, { threadId: thread.id });
+      const threadEvents = await listEvents(harness.db, {
+        threadId: thread.id,
+      });
       expect(
         threadEvents.filter(
           (event) => event.type === "system/thread/interrupted",
@@ -248,17 +259,17 @@ describe("thread stop dispatch", () => {
 
   it("treats a second stop completion as a no-op after the stop already settled", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedActiveThreadStopFixture({
+      const { environment, thread } = await seedActiveThreadStopFixture({
         harness,
         value: 3,
       });
-      seedTurnStarted(harness.deps, {
+      await seedTurnStarted(harness.deps, {
         environmentId: environment.id,
         threadId: thread.id,
         turnId: "turn-stop-settles-twice",
       });
 
-      requestThreadStopForCurrentState(harness.deps, thread, environment);
+      await requestThreadStopForCurrentState(harness.deps, thread, environment);
       const stopCommand = await waitForQueuedCommand(
         harness,
         ({ command }) =>
@@ -267,17 +278,19 @@ describe("thread stop dispatch", () => {
       await reportQueuedCommandSuccess(harness, stopCommand, {
         providerCheckpointId: "pi-entry-at-stop",
       });
-      const settled = getThread(harness.db, thread.id);
+      const settled = await getThread(harness.db, thread.id);
       expect(settled).toMatchObject({
         status: "idle",
       });
 
-      finalizeStoppedThread(harness.deps, {
+      await finalizeStoppedThread(harness.deps, {
         threadId: thread.id,
       });
 
-      expect(getThread(harness.db, thread.id)).toEqual(settled);
-      const threadEvents = listEvents(harness.db, { threadId: thread.id });
+      expect(await getThread(harness.db, thread.id)).toEqual(settled);
+      const threadEvents = await listEvents(harness.db, {
+        threadId: thread.id,
+      });
       expect(
         threadEvents.filter((event) => event.type === "turn/completed"),
       ).toHaveLength(1);
@@ -299,12 +312,12 @@ describe("thread stop dispatch", () => {
 
   it("does not queue duplicate stop commands while a stop RPC is in flight", async () => {
     await withTestHarness(async (harness) => {
-      const { environment, thread } = seedActiveThreadStopFixture({
+      const { environment, thread } = await seedActiveThreadStopFixture({
         harness,
         value: 2,
       });
 
-      requestThreadStopForCurrentState(harness.deps, thread, environment);
+      await requestThreadStopForCurrentState(harness.deps, thread, environment);
 
       const firstStopCommand = await waitForQueuedCommand(
         harness,
@@ -313,10 +326,10 @@ describe("thread stop dispatch", () => {
       );
       expect(hasLiveThreadStopInFlight(thread.id)).toBe(true);
 
-      requestThreadStopForCurrentState(harness.deps, thread, environment);
+      await requestThreadStopForCurrentState(harness.deps, thread, environment);
 
       expect(
-        listQueuedThreadCommands(harness, "thread.stop", thread.id),
+        await listQueuedThreadCommands(harness, "thread.stop", thread.id),
       ).toHaveLength(1);
 
       await reportQueuedCommandSuccess(harness, firstStopCommand, {

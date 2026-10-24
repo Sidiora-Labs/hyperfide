@@ -21,35 +21,35 @@ const FOREIGN_PROJECT_REFUSAL =
 const UNRECORDED_MANAGED_REFUSAL =
   "Workspace path is inside hyperfide-managed storage but is not a workspace of this project";
 
-export function foreignProjectOwnedPathRefusal(
+export async function foreignProjectOwnedPathRefusal(
   db: DbConnection,
   args: ForeignProjectPathCheckArgs,
-): string | null {
-  return findForeignManagedEnvironmentAtHostPath(db, {
+): Promise<string | null> {
+  return (await findForeignManagedEnvironmentAtHostPath(db, {
     hostId: args.hostId,
     path: args.path,
     projectId: args.projectId,
-  })
+  }))
     ? FOREIGN_PROJECT_REFUSAL
     : null;
 }
 
-export function suppliedWorkspacePathRefusal(
+export async function suppliedWorkspacePathRefusal(
   db: DbConnection,
   args: SuppliedWorkspacePathCheckArgs,
-): string | null {
-  const foreign = foreignProjectOwnedPathRefusal(db, args);
+): Promise<string | null> {
+  const foreign = await foreignProjectOwnedPathRefusal(db, args);
   if (foreign !== null) return foreign;
 
   if (
     args.dataDir !== null &&
     isHyperfideManagedWorkspacePath({ dataDir: args.dataDir, path: args.path }) &&
-    findProjectEnvironmentByHostPath(
+    (await findProjectEnvironmentByHostPath(
       db,
       args.projectId,
       args.hostId,
       args.path,
-    ) === null
+    )) === null
   ) {
     return UNRECORDED_MANAGED_REFUSAL;
   }

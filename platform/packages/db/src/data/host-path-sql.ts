@@ -44,7 +44,7 @@ export function registerHostPathSqlFunctions(sqlite: Database.Database): void {
 
 export function hostPathEquals(column: SQLiteColumn, path: string): SQL {
   return isWindowsHostPath(path)
-    ? sql`hyperfide_host_path_key(${column}) = ${getHostPathComparisonKey(path) ?? path}`
+    ? sql`hyperfide_host_path_key(${column}) = hyperfide_host_path_key(${path})`
     : eq(column, path);
 }
 

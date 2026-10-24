@@ -114,46 +114,52 @@ export async function decryptMachineEnvironment(
   }
 }
 
-function save(db: DbQueryConnection, row: EncryptedVariable) {
-  db.delete(environmentVariables)
+async function save(db: DbQueryConnection, row: EncryptedVariable) {
+  await db
+    .delete(environmentVariables)
     .where(and(scope(row.projectId), eq(environmentVariables.name, row.name)))
     .run();
-  db.insert(environmentVariables)
+  await db
+    .insert(environmentVariables)
     .values({ ...row, updatedAt: Date.now() })
     .run();
 }
 
-export function readMachineEnvironment(
+export async function readMachineEnvironment(
   db: DbConnection,
   projectId: string | null = null,
-): EncryptedVariable[] {
-  return db
-    .select()
-    .from(environmentVariables)
-    .where(scope(projectId))
-    .orderBy(environmentVariables.name)
-    .all()
-    .map((row) => encryptedSchema.parse(row));
+): Promise<EncryptedVariable[]> {
+  return (
+    await db
+      .select()
+      .from(environmentVariables)
+      .where(scope(projectId))
+      .orderBy(environmentVariables.name)
+      .all()
+  ).map((row) => encryptedSchema.parse(row));
 }
 
 async function keyForWrite(db: DbConnection, dataDir: string) {
-  const existing = db
+  const existing = await db
     .select({ id: environmentVariables.id })
     .from(environmentVariables)
     .limit(1)
     .get();
-  return encryptionKey(dataDir, existing === undefined);
+  return await encryptionKey(dataDir, existing === undefined);
 }
 
-export function replaceMachineEnvironment(
+export async function replaceMachineEnvironment(
   db: DbConnection,
   dataDir: string,
   input: MachineEnvironmentReplace,
   projectId: string | null = null,
 ): Promise<void> {
-  return runSerialized(locks, db, async () => {
+  return await runSerialized(locks, db, async () => {
     const currentByName = new Map(
-      readMachineEnvironment(db, projectId).map((row) => [row.name, row]),
+      (await readMachineEnvironment(db, projectId)).map((row) => [
+        row.name,
+        row,
+      ]),
     );
     const key = input.variables.some((variable) => variable.value !== null)
       ? await keyForWrite(db, dataDir)
@@ -172,32 +178,33 @@ export function replaceMachineEnvironment(
         );
       return { ...existing, note: variable.note };
     });
-    db.transaction((tx) => {
-      tx.delete(environmentVariables).where(scope(projectId)).run();
-      for (const row of replacements) save(tx, row);
+    await db.transaction(async (tx) => {
+      await tx.delete(environmentVariables).where(scope(projectId)).run();
+      for (const row of replacements) await save(tx, row);
     });
   });
 }
 
-export function setMachineEnvironmentVariable(
+export async function setMachineEnvironmentVariable(
   db: DbConnection,
   dataDir: string,
   input: MachineEnvironmentSet,
   projectId: string | null,
 ): Promise<void> {
-  return runSerialized(locks, db, async () => {
+  return await runSerialized(locks, db, async () => {
     const row = encrypt(await keyForWrite(db, dataDir), input, projectId);
-    db.transaction((tx) => save(tx, row));
+    await db.transaction(async (tx) => await save(tx, row));
   });
 }
 
-export function deleteMachineEnvironmentVariable(
+export async function deleteMachineEnvironmentVariable(
   db: DbConnection,
   name: string,
   projectId: string | null,
 ): Promise<void> {
-  return runSerialized(locks, db, async () => {
-    db.delete(environmentVariables)
+  return await runSerialized(locks, db, async () => {
+    await db
+      .delete(environmentVariables)
       .where(and(scope(projectId), eq(environmentVariables.name, name)))
       .run();
   });

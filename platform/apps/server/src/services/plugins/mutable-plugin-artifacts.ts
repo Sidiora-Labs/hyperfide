@@ -1,3 +1,4 @@
+import { buildPluginHost } from "@hyperfide/plugin-build";
 import { createHash, randomUUID } from "node:crypto";
 import {
   mkdir,
@@ -11,7 +12,6 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 import { PLUGIN_SDK_VERSION } from "@hyperfide/domain";
 import {
-  buildPluginHost,
   isIgnoredPluginDevPath,
   type PluginBuildToolchain,
 } from "@hyperfide/plugin-build";

@@ -23,22 +23,22 @@ import { upsertHost } from "../../src/data/hosts.js";
 import { withWriteAfterFirstRead } from "../helpers/interleave.js";
 import { createMigratedConnection } from "../../src/testing.js";
 
-function setup() {
-  const db = createMigratedConnection();
-  const host = upsertHost(db, noopNotifier, {
+async function setup() {
+  const db = await createMigratedConnection();
+  const host = await upsertHost(db, noopNotifier, {
     name: "test-host",
   });
-  const { project } = createProject(db, noopNotifier, {
+  const { project } = await createProject(db, noopNotifier, {
     name: "test-project",
     source: { type: "local_path", hostId: host.id, path: "/tmp/test" },
   });
-  const seedEnvironment = (
+  const seedEnvironment = async (
     input: Omit<
       CreateEnvironmentInput,
       "projectId" | "hostId" | "providerOwnsPath"
     >,
   ) =>
-    createEnvironment(db, noopNotifier, {
+    await createEnvironment(db, noopNotifier, {
       providerOwnsPath: false,
       hostId: host.id,
       projectId: project.id,
@@ -58,12 +58,12 @@ function spyNotifier(): DbNotifier {
 }
 
 describe("applyEnvironmentLifecycleEvent", () => {
-  it("applies a legal event, persists the row, and notifies", () => {
-    const { db, seedEnvironment } = setup();
+  it("applies a legal event, persists the row, and notifies", async () => {
+    const { db, seedEnvironment } = await setup();
     const spy = spyNotifier();
-    const environment = seedEnvironment({ status: "ready" });
+    const environment = await seedEnvironment({ status: "ready" });
 
-    const outcome = applyEnvironmentLifecycleEvent(db, spy, {
+    const outcome = await applyEnvironmentLifecycleEvent(db, spy, {
       environmentId: environment.id,
       event: { type: "provision.requested" },
     });
@@ -73,38 +73,41 @@ describe("applyEnvironmentLifecycleEvent", () => {
       expect(outcome.environment.status).toBe("provisioning");
       expect(outcome.changes).toEqual(["status-changed"]);
     }
-    expect(getEnvironment(db, environment.id)?.status).toBe("provisioning");
+    expect((await getEnvironment(db, environment.id))?.status).toBe(
+      "provisioning",
+    );
     expect(spy.notifyEnvironment).toHaveBeenCalledExactlyOnceWith(
       environment.id,
       ["status-changed"],
     );
   });
 
-  it("applies events inside an existing transaction", () => {
-    const { db, seedEnvironment } = setup();
-    const environment = seedEnvironment({ status: "provisioning" });
+  it("applies events inside an existing transaction", async () => {
+    const { db, seedEnvironment } = await setup();
+    const environment = await seedEnvironment({ status: "provisioning" });
 
-    const outcome = db.transaction((tx) =>
-      applyEnvironmentLifecycleEventInTransaction(tx, {
-        environmentId: environment.id,
-        event: { type: "provision.succeeded" },
-      }),
+    const outcome = await db.transaction(
+      async (tx) =>
+        await applyEnvironmentLifecycleEventInTransaction(tx, {
+          environmentId: environment.id,
+          event: { type: "provision.succeeded" },
+        }),
     );
 
     expect(outcome.applied).toBe(true);
-    expect(getEnvironment(db, environment.id)?.status).toBe("ready");
+    expect((await getEnvironment(db, environment.id))?.status).toBe("ready");
   });
 
-  it("no-ops as illegal-transition and leaves the row untouched", () => {
+  it("no-ops as illegal-transition and leaves the row untouched", async () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(1_000);
-      const { db, seedEnvironment } = setup();
+      const { db, seedEnvironment } = await setup();
       const spy = spyNotifier();
-      const environment = seedEnvironment({ status: "ready" });
+      const environment = await seedEnvironment({ status: "ready" });
 
       vi.setSystemTime(2_000);
-      const outcome = applyEnvironmentLifecycleEvent(db, spy, {
+      const outcome = await applyEnvironmentLifecycleEvent(db, spy, {
         environmentId: environment.id,
         event: { type: "provision.succeeded" },
       });
@@ -114,16 +117,16 @@ describe("applyEnvironmentLifecycleEvent", () => {
         detail: "no transition for provision.succeeded from status ready",
         reason: "illegal-transition",
       });
-      expect(getEnvironment(db, environment.id)).toEqual(environment);
+      expect(await getEnvironment(db, environment.id)).toEqual(environment);
       expect(spy.notifyEnvironment).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("no-ops as not-found for a missing environment", () => {
-    const { db } = setup();
-    const outcome = applyEnvironmentLifecycleEvent(db, noopNotifier, {
+  it("no-ops as not-found for a missing environment", async () => {
+    const { db } = await setup();
+    const outcome = await applyEnvironmentLifecycleEvent(db, noopNotifier, {
       environmentId: "env_nonexistent",
       event: { type: "provision.requested" },
     });
@@ -134,18 +137,18 @@ describe("applyEnvironmentLifecycleEvent", () => {
     });
   });
 
-  it("no-ops the second of two sequential destroy records once the first applied", () => {
-    const { db, seedEnvironment } = setup();
-    const environment = seedEnvironment({
+  it("no-ops the second of two sequential destroy records once the first applied", async () => {
+    const { db, seedEnvironment } = await setup();
+    const environment = await seedEnvironment({
       path: "/tmp/double-destroy",
       status: "ready",
     });
 
-    const first = applyEnvironmentLifecycleEvent(db, noopNotifier, {
+    const first = await applyEnvironmentLifecycleEvent(db, noopNotifier, {
       environmentId: environment.id,
       event: { type: "destroy.recorded" },
     });
-    const second = applyEnvironmentLifecycleEvent(db, noopNotifier, {
+    const second = await applyEnvironmentLifecycleEvent(db, noopNotifier, {
       environmentId: environment.id,
       event: { type: "destroy.recorded" },
     });
@@ -156,21 +159,24 @@ describe("applyEnvironmentLifecycleEvent", () => {
       detail: "no transition for destroy.recorded from status destroyed",
       reason: "illegal-transition",
     });
-    expect(getEnvironment(db, environment.id)?.status).toBe("destroyed");
+    expect((await getEnvironment(db, environment.id))?.status).toBe(
+      "destroyed",
+    );
   });
 
-  it("no-ops as cas-conflict when the status changes between load and update", () => {
-    const { db, seedEnvironment } = setup();
-    const environment = seedEnvironment({ status: "ready" });
+  it("no-ops as cas-conflict when the status changes between load and update", async () => {
+    const { db, seedEnvironment } = await setup();
+    const environment = await seedEnvironment({ status: "ready" });
 
-    const outcome = db.transaction((tx: DbTransaction) => {
-      const interleaved = withWriteAfterFirstRead(tx, () => {
-        tx.update(environments)
+    const outcome = await db.transaction(async (tx: DbTransaction) => {
+      const interleaved = withWriteAfterFirstRead(tx, async () => {
+        await tx
+          .update(environments)
           .set({ status: "error" })
           .where(eq(environments.id, environment.id))
           .run();
       });
-      return applyEnvironmentLifecycleEventInTransaction(interleaved, {
+      return await applyEnvironmentLifecycleEventInTransaction(interleaved, {
         environmentId: environment.id,
         event: { type: "provision.requested" },
       });
@@ -178,26 +184,27 @@ describe("applyEnvironmentLifecycleEvent", () => {
 
     expect(outcome).toEqual({
       applied: false,
-      detail: "state changed while applying provision.requested from status ready",
+      detail:
+        "state changed while applying provision.requested from status ready",
       reason: "cas-conflict",
     });
-    expect(getEnvironment(db, environment.id)?.status).toBe("error");
+    expect((await getEnvironment(db, environment.id))?.status).toBe("error");
   });
 
-  it("refuses a destroy record while a live or stopping thread holds the environment, then clears the path", () => {
-    const { db, project, seedEnvironment } = setup();
+  it("refuses a destroy record while a live or stopping thread holds the environment, then clears the path", async () => {
+    const { db, project, seedEnvironment } = await setup();
     const spy = spyNotifier();
-    const environment = seedEnvironment({
+    const environment = await seedEnvironment({
       path: "/tmp/destroy-claim",
       status: "ready",
     });
-    const thread = createThread(db, noopNotifier, {
+    const thread = await createThread(db, noopNotifier, {
       environmentId: environment.id,
       projectId: project.id,
       providerId: "codex",
     });
 
-    const blocked = applyEnvironmentLifecycleEvent(db, spy, {
+    const blocked = await applyEnvironmentLifecycleEvent(db, spy, {
       environmentId: environment.id,
       event: { type: "destroy.recorded" },
     });
@@ -206,29 +213,29 @@ describe("applyEnvironmentLifecycleEvent", () => {
       detail: "state changed while applying destroy.recorded from status ready",
       reason: "cas-conflict",
     });
-    expect(getEnvironment(db, environment.id)?.status).toBe("ready");
+    expect((await getEnvironment(db, environment.id))?.status).toBe("ready");
 
     requireThreadLifecycleEventApplied(
-      applyThreadLifecycleEvent(db, {
+      await applyThreadLifecycleEvent(db, {
         event: { type: "stop.requested" },
         threadId: thread.id,
       }),
     );
-    expect(getThread(db, thread.id)?.status).toBe("stopping");
-    markThreadDeleted(db, noopNotifier, { threadId: thread.id });
-    const blockedByStop = applyEnvironmentLifecycleEvent(db, spy, {
+    expect((await getThread(db, thread.id))?.status).toBe("stopping");
+    await markThreadDeleted(db, noopNotifier, { threadId: thread.id });
+    const blockedByStop = await applyEnvironmentLifecycleEvent(db, spy, {
       environmentId: environment.id,
       event: { type: "destroy.recorded" },
     });
     expect(blockedByStop.applied).toBe(false);
 
-    db.delete(threads).where(eq(threads.id, thread.id)).run();
-    const recorded = applyEnvironmentLifecycleEvent(db, spy, {
+    await db.delete(threads).where(eq(threads.id, thread.id)).run();
+    const recorded = await applyEnvironmentLifecycleEvent(db, spy, {
       environmentId: environment.id,
       event: { type: "destroy.recorded" },
     });
     expect(recorded.applied).toBe(true);
-    expect(getEnvironment(db, environment.id)).toMatchObject({
+    expect(await getEnvironment(db, environment.id)).toMatchObject({
       path: null,
       status: "destroyed",
     });

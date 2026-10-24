@@ -1,3 +1,5 @@
+// These checks exercise native SQLite metadata, locks, triggers or query plans.
+import { isPostgresTest } from "../src/testing.js";
 import { describe, expect, it } from "vitest";
 import type { AppKeybindingOverrides } from "@hyperfide/domain";
 import {
@@ -45,19 +47,19 @@ const custom: AppKeybindingOverrides = [
   { command: "thread.new", shortcut: null },
 ];
 
-function upgradeDatabase(overrides: AppKeybindingOverrides | undefined) {
-  const db = createConnection(":memory:");
-  migrate(db);
+async function upgradeDatabase(overrides: AppKeybindingOverrides | undefined) {
+  const db = await createConnection(":memory:");
+  await migrate(db);
   dropIdleLifecycleIndexes(db);
-  rewindThreadPruningWork(db);
-  dropPluginEnabledFollowsDefaultColumn(db);
-  dropQueuedMessageEditHeldUntilColumn(db);
-  dropMarketplaceSourceGitSubdirectoryColumn(db);
-  dropThreadParentNotificationsColumn(db);
-  db.$client
+  await rewindThreadPruningWork(db);
+  await dropPluginEnabledFollowsDefaultColumn(db);
+  await dropQueuedMessageEditHeldUntilColumn(db);
+  await dropMarketplaceSourceGitSubdirectoryColumn(db);
+  await dropThreadParentNotificationsColumn(db);
+  await db.$client
     .prepare("DELETE FROM __drizzle_migrations WHERE created_at >= ?")
     .run(migrationTimestamp);
-  if (overrides !== undefined) setAppKeybindingOverrides(db, overrides);
+  if (overrides !== undefined) await setAppKeybindingOverrides(db, overrides);
   return db;
 }
 
@@ -75,10 +77,10 @@ describe("pane focus compatibility migration", () => {
     },
   ])(
     "preserves effective defaults and explicit overrides on upgrade ($name)",
-    ({ overrides }) => {
-      const db = upgradeDatabase(overrides);
+    async ({ overrides }) => {
+      const db = await upgradeDatabase(overrides);
       try {
-        migrate(db);
+        await migrate(db);
         const expected = [
           ...(overrides ?? []),
           ...legacyOverrides.filter(
@@ -88,70 +90,78 @@ describe("pane focus compatibility migration", () => {
               ),
           ),
         ];
-        expect(getAppKeybindingOverrides(db)).toEqual(expected);
-        migrate(db);
-        expect(getAppKeybindingOverrides(db)).toEqual(expected);
-        setAppKeybindingOverrides(
+        expect(await getAppKeybindingOverrides(db)).toEqual(expected);
+        await migrate(db);
+        expect(await getAppKeybindingOverrides(db)).toEqual(expected);
+        await setAppKeybindingOverrides(
           db,
           expected.filter((binding) => binding.command !== "pane.focus.up"),
         );
-        const restarted = createConnection(db.$client.serialize());
+        const restarted = await createConnection(db.$client.serialize());
         try {
-          migrate(restarted);
-          expect(getAppKeybindingOverrides(restarted)).toEqual(
+          await migrate(restarted);
+          expect(await getAppKeybindingOverrides(restarted)).toEqual(
             expected.filter((binding) => binding.command !== "pane.focus.up"),
           );
-          setAppKeybindingOverrides(restarted, []);
-          migrate(restarted);
-          expect(getAppKeybindingOverrides(restarted)).toEqual([]);
+          await setAppKeybindingOverrides(restarted, []);
+          await migrate(restarted);
+          expect(await getAppKeybindingOverrides(restarted)).toEqual([]);
         } finally {
-          restarted.$client.close();
+          await restarted.close();
         }
       } finally {
-        db.$client.close();
+        await db.close();
       }
     },
   );
 
-  it("keeps fresh installations on live defaults across restart", () => {
-    const db = createConnection(":memory:");
-    try {
-      migrate(db);
-      expect(getAppKeybindingOverrides(db)).toEqual([]);
-      const restarted = createConnection(db.$client.serialize());
+  it.skipIf(isPostgresTest)(
+    "keeps fresh installations on live defaults across restart",
+    async () => {
+      const db = await createConnection(":memory:");
       try {
-        migrate(restarted);
-        expect(getAppKeybindingOverrides(restarted)).toEqual([]);
+        await migrate(db);
+        expect(await getAppKeybindingOverrides(db)).toEqual([]);
+        const restarted = await createConnection(db.$client.serialize());
+        try {
+          await migrate(restarted);
+          expect(await getAppKeybindingOverrides(restarted)).toEqual([]);
+        } finally {
+          await restarted.close();
+        }
       } finally {
-        restarted.$client.close();
+        await db.close();
       }
-    } finally {
-      db.$client.close();
-    }
-  });
+    },
+  );
 
-  it("rolls back settings and the ledger together, then retries safely", () => {
-    const db = upgradeDatabase(custom);
-    try {
-      db.$client
-        .exec(`CREATE TRIGGER reject_pane_migration BEFORE INSERT ON __drizzle_migrations
+  it.skipIf(isPostgresTest)(
+    "rolls back settings and the ledger together, then retries safely",
+    async () => {
+      const db = await upgradeDatabase(custom);
+      try {
+        db.$client
+          .exec(`CREATE TRIGGER reject_pane_migration BEFORE INSERT ON __drizzle_migrations
         WHEN NEW.created_at = ${migrationTimestamp}
         BEGIN SELECT RAISE(ABORT, 'migration interrupted'); END`);
-      expect(() => migrate(db)).toThrow("Failed to run the query");
-      expect(getAppKeybindingOverrides(db)).toEqual(custom);
-      expect(
-        db.$client
-          .prepare("SELECT 1 FROM __drizzle_migrations WHERE created_at = ?")
-          .get(migrationTimestamp),
-      ).toBeUndefined();
-      db.$client.exec("DROP TRIGGER reject_pane_migration");
-      migrate(db);
-      expect(getAppKeybindingOverrides(db)).toEqual([
-        ...custom,
-        ...legacyOverrides.slice(2),
-      ]);
-    } finally {
-      db.$client.close();
-    }
-  });
+        await expect((async () => await migrate(db))()).rejects.toThrow(
+          "Failed to run the query",
+        );
+        expect(await getAppKeybindingOverrides(db)).toEqual(custom);
+        expect(
+          await db.$client
+            .prepare("SELECT 1 FROM __drizzle_migrations WHERE created_at = ?")
+            .get(migrationTimestamp),
+        ).toBeUndefined();
+        await db.$client.exec("DROP TRIGGER reject_pane_migration");
+        await migrate(db);
+        expect(await getAppKeybindingOverrides(db)).toEqual([
+          ...custom,
+          ...legacyOverrides.slice(2),
+        ]);
+      } finally {
+        await db.close();
+      }
+    },
+  );
 });
