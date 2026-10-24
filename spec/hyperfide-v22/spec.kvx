@@ -945,7 +945,7 @@ owner = "machines"
 
 [task.7.21]
 title = "Import prior Claude Code and Codex sessions from the host into threads the app lists, shows and resumes"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.9"]
 touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/apps/server/src/routes/threads/**", "platform/packages/server-contract/src/api/**", "platform/apps/cli/src/commands/thread/**", "platform/plugins/provider-claude-code/src/**", "platform/plugins/provider-codex/src/**", "platform/apps/app/src/components/settings/**", "platform/packages/server-contract/src/public-api.ts", "platform/apps/app/src/views/SettingsView.tsx", "platform/plugins/hyperfide-guide/skills/hyperfide-cli/references/command-index.md", "tests/hyperfide/cases/v22/7_21.sh"]
