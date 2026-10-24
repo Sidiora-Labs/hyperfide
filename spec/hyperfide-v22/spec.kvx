@@ -787,7 +787,7 @@ owner = "source"
 
 [task.7.9]
 title = "Fix: dispatch plugin wired into the server as a bundled builtin"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "platform/turbo.json", "platform/pnpm-lock.yaml", "tests/hyperfide/cases/v22/7_9.sh"]
