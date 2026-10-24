@@ -20,33 +20,53 @@ type Verification = Pick<
   | "sandboxCount"
   | "lastError"
 >;
-export async function railwayIdentity(credentials: Credentials) {
-  const response = await fetch("https://backboard.railway.com/graphql/v2", {
+const RAILWAY_GRAPHQL = "https://backboard.railway.com/graphql/v2";
+async function railwayQuery<T, K extends keyof T>(
+  credentials: Credentials,
+  query: string,
+  variables: Record<string, string>,
+  field: K,
+): Promise<NonNullable<T[K]>> {
+  const response = await fetch(RAILWAY_GRAPHQL, {
     method: "POST",
     signal: AbortSignal.timeout(15000),
     headers: {
       Authorization: `Bearer ${credentials.token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      query:
-        "query($id: String!) { environment(id: $id) { name project { name } } }",
-      variables: { id: credentials.environmentId },
-    }),
+    body: JSON.stringify({ query, variables }),
   });
   const body = (await response.json()) as {
     errors?: { message: string }[];
-    data?: { environment?: { name: string; project: { name: string } } };
+    data?: T;
   };
-  if (!response.ok || body.errors?.length || !body.data?.environment)
+  const value = body.data?.[field];
+  if (!response.ok || body.errors?.length || value === null || value === undefined)
     throw new Error(
       body.errors?.map((e) => e.message).join("; ") ||
         `Railway identity request failed (${response.status})`,
     );
-  return {
-    projectName: body.data.environment.project.name,
-    environmentName: body.data.environment.name,
-  };
+  return value as NonNullable<T[K]>;
+}
+// Railway's public schema exposes Environment.projectId, not Environment.project:
+// the project name takes a second query by that id.
+export async function railwayIdentity(credentials: Credentials) {
+  const environment = await railwayQuery<
+    { environment?: { name: string; projectId: string } },
+    "environment"
+  >(
+    credentials,
+    "query($id: String!) { environment(id: $id) { name projectId } }",
+    { id: credentials.environmentId },
+    "environment",
+  );
+  const project = await railwayQuery<{ project?: { name: string } }, "project">(
+    credentials,
+    "query($id: String!) { project(id: $id) { name } }",
+    { id: environment.projectId },
+    "project",
+  );
+  return { projectName: project.name, environmentName: environment.name };
 }
 export function createStatus(
   resolve: CredentialsResolver,
