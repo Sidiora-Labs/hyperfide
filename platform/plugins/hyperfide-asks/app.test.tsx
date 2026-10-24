@@ -7,9 +7,21 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { installTestPluginRuntime } from "@hyperfide/plugin-sdk/testing/app";
 import { InboxView } from "./app.js";
 import type { Ask } from "./src/inbox-adapter.js";
-const ask = (kind: Ask["kind"], id = 1): Ask => ({
+
+installTestPluginRuntime();
+
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
+const ask =(kind: Ask["kind"], id = 1): Ask => ({
   id,
   kind,
   repository: "repo",
@@ -20,8 +32,37 @@ const ask = (kind: Ask["kind"], id = 1): Ask => ({
   status: "open",
   deadline: Date.now() / 1000 + 120,
 });
+
+const openFilters = () =>
+  fireEvent.pointerDown(screen.getByRole("button", { name: /^Filters/ }));
+const toggleFilter = (name: RegExp | string) =>
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name }));
+const openAnswer = () =>
+  fireEvent.click(screen.getByRole("button", { name: "Answer" }));
+
 afterEach(cleanup);
-it("shows kind, task, deadline, recommendation and filters across repositories", () => {
+
+it("shows kind, scope, deadline and recommendation for open asks only", () => {
+  render(
+    <InboxView
+      asks={[
+        { ...ask("decision"), options: ["a", "b"], recommendation: "a" },
+        { ...ask("secret", 2), repository: "other", task: "3.1" },
+        { ...ask("question", 3), status: "answered" },
+      ]}
+      answer={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("Recommended: a").className).toContain(
+    "font-medium",
+  );
+  expect(screen.getAllByText(/m remaining/)).toHaveLength(2);
+  expect(screen.getByText("other / 3.1")).toBeTruthy();
+  expect(screen.getByText("2 options")).toBeTruthy();
+  expect(screen.queryByText("Need question")).toBeNull();
+});
+
+it("filters by kind and task through the filter menu", () => {
   render(
     <InboxView
       asks={[
@@ -31,18 +72,97 @@ it("shows kind, task, deadline, recommendation and filters across repositories",
       answer={vi.fn()}
     />,
   );
-  expect(screen.getByText("Recommended: a").className).toContain(
-    "font-semibold",
-  );
-  expect(screen.getAllByText(/m remaining/)).toHaveLength(2);
-  fireEvent.change(screen.getByLabelText("Kind"), {
-    target: { value: "secret" },
-  });
+  openFilters();
+  toggleFilter(/^Secret/);
   expect(screen.queryByText("Need decision")).toBeNull();
-  expect(screen.getByText("other / 3.1")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("Task"), { target: { value: "3.3" } });
+  expect(screen.getByText("Need secret")).toBeTruthy();
+  toggleFilter("3.3");
   expect(screen.queryByText("Need secret")).toBeNull();
+  expect(screen.getByText("No asks match these filters.")).toBeTruthy();
 });
+
+it("searches across question, scope and options", () => {
+  render(
+    <InboxView
+      asks={[
+        { ...ask("decision"), options: ["alpha", "beta"], recommendation: "" },
+        { ...ask("secret", 2), repository: "other", task: "3.1" },
+      ]}
+      answer={vi.fn()}
+    />,
+  );
+  const search = screen.getByPlaceholderText("Search asks");
+  fireEvent.change(search, { target: { value: "beta" } });
+  expect(screen.getByText("Need decision")).toBeTruthy();
+  expect(screen.queryByText("Need secret")).toBeNull();
+  fireEvent.change(search, { target: { value: "other" } });
+  expect(screen.queryByText("Need decision")).toBeNull();
+  expect(screen.getByText("Need secret")).toBeTruthy();
+  fireEvent.change(search, { target: { value: "nothing" } });
+  expect(screen.getByText('No asks match "nothing"')).toBeTruthy();
+});
+
+it("renders error, retry, empty and refresh-failure states", () => {
+  const retry = vi.fn();
+  const { rerender } = render(
+    <InboxView asks={null} error="boom" onRetry={retry} answer={vi.fn()} />,
+  );
+  expect(screen.getByText("Inbox could not be loaded.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(retry).toHaveBeenCalledOnce();
+  rerender(<InboxView asks={[]} answer={vi.fn()} />);
+  expect(screen.getByText(/No open asks/)).toBeTruthy();
+  rerender(
+    <InboxView asks={[ask("question")]} error="boom" answer={vi.fn()} />,
+  );
+  expect(screen.getByRole("alert").textContent).toContain(
+    "Inbox could not be refreshed",
+  );
+  expect(screen.getByText("Need question")).toBeTruthy();
+});
+
+it("masks secret answers until revealed and keeps no note", () => {
+  render(<InboxView asks={[ask("secret")]} answer={vi.fn()} />);
+  openAnswer();
+  const input = screen.getByLabelText("Answer value");
+  expect(input.getAttribute("type")).toBe("password");
+  fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+  expect(input.getAttribute("type")).toBe("text");
+  expect(screen.queryByLabelText("Note")).toBeNull();
+});
+
+it("requires a choice and an operator identity before granting a permission", () => {
+  const answer = vi.fn().mockResolvedValue({});
+  render(<InboxView asks={[ask("permission")]} answer={answer} />);
+  openAnswer();
+  fireEvent.click(screen.getByText("Submit answer"));
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Choose whether to grant or refuse.",
+  );
+  fireEvent.click(screen.getByLabelText("Grant"));
+  fireEvent.click(screen.getByText("Submit answer"));
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Your operator identity is required to answer a permission.",
+  );
+  expect(answer).not.toHaveBeenCalled();
+});
+
+it("reports a failed answer and keeps the dialog open", async () => {
+  const answer = vi.fn().mockRejectedValue(new Error("nope"));
+  render(<InboxView asks={[ask("question")]} answer={answer} />);
+  openAnswer();
+  fireEvent.change(screen.getByLabelText("Answer value"), {
+    target: { value: "response" },
+  });
+  fireEvent.click(screen.getByText("Submit answer"));
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Answer could not be saved. Please retry.",
+    ),
+  );
+  expect(screen.getByRole("dialog")).toBeTruthy();
+});
+
 for (const kind of [
   "secret",
   "variable",
@@ -59,18 +179,16 @@ for (const kind of [
         : {}),
     };
     render(<InboxView asks={[row]} answer={answer} />);
-    fireEvent.click(screen.getByText("Answer"));
+    openAnswer();
     if (kind === "permission") {
-      fireEvent.change(screen.getByLabelText("Permission"), {
-        target: { value: "reject" },
-      });
+      fireEvent.click(screen.getByLabelText("Refuse"));
       fireEvent.change(screen.getByLabelText("Operator identity"), {
         target: { value: "operator" },
       });
     } else if (kind === "decision") {
       expect(
-        (screen.getByLabelText("a (recommended)") as HTMLInputElement).checked,
-      ).toBe(true);
+        screen.getByLabelText("a (recommended)").getAttribute("aria-checked"),
+      ).toBe("true");
       fireEvent.click(screen.getByLabelText("b"));
     } else {
       if (kind === "variable")
@@ -85,6 +203,7 @@ for (const kind of [
     expect(answer.mock.calls[0]![0]).toMatchObject({
       repository: "repo",
       id: 1,
+      sensitive: kind === "variable",
       value:
         kind === "permission"
           ? "reject"
