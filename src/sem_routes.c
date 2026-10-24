@@ -17,6 +17,9 @@ static const char *SCHEMA =
     "registration_line INTEGER NOT NULL,registration_column INTEGER NOT NULL DEFAULT 0);"
     "CREATE INDEX IF NOT EXISTS idx_sem_route_match ON "
     "semantic_route_facts(branch_id,method,pattern);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_route_registration ON semantic_route_facts(registration_file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_route_handler ON semantic_route_facts(handler_file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_route_symbol ON semantic_route_facts(route_symbol_id);"
     "CREATE TABLE IF NOT EXISTS semantic_route_compositions("
     "mount_route_id INTEGER NOT NULL,child_route_id INTEGER NOT NULL,"
     "branch_id INTEGER NOT NULL,method TEXT NOT NULL,pattern TEXT NOT NULL,"
@@ -25,6 +28,8 @@ static const char *SCHEMA =
     "PRIMARY KEY(mount_route_id,child_route_id));"
     "CREATE INDEX IF NOT EXISTS idx_sem_route_composed_match ON "
     "semantic_route_compositions(branch_id,method,pattern);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_route_child ON semantic_route_compositions(child_route_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_route_registration_composed ON semantic_route_compositions(registration_file_id);"
     "CREATE TABLE IF NOT EXISTS semantic_route_dirty("
     "branch_id INTEGER PRIMARY KEY);";
 
@@ -52,6 +57,27 @@ static int step_done(sqlite3_stmt *q) {
  * The dirty branch key survives deletion of the final route in a file. */
 int sem_routes_purge_file(Cg *cg,long file_id) {
     ensure_route_schema(cg);
+    sqlite3_stmt *facts=cg_prep(cg,"SELECT 1 FROM semantic_route_facts "
+        "WHERE registration_file_id=?1 OR handler_file_id=?1 LIMIT 1");
+    sqlite3_bind_int64(facts,1,file_id);
+    int found=sqlite3_step(facts);
+    sqlite3_finalize(facts);
+    if(found==SQLITE_DONE)return 0;
+    if(found!=SQLITE_ROW)return -1;
+
+    /* FTS5 uses a rowid lookup only for scalar equality, not IN subqueries. */
+    sqlite3_stmt *ids=cg_prep(cg,"SELECT s.id FROM semantic_route_facts r "
+        "JOIN symbols s ON s.id=r.route_symbol_id WHERE r.registration_file_id=?1 "
+        "AND s.file_id=?1 AND s.kind='route'");
+    sqlite3_stmt *fts=cg_prep(cg,"DELETE FROM symbol_fts WHERE rowid=?1");
+    sqlite3_bind_int64(ids,1,file_id);
+    int rc;
+    while((rc=sqlite3_step(ids))==SQLITE_ROW) {
+        sqlite3_bind_int64(fts,1,sqlite3_column_int64(ids,0));
+        if(step_done(fts)) { rc=SQLITE_ERROR; break; }
+    }
+    sqlite3_finalize(fts);sqlite3_finalize(ids);
+    if(rc!=SQLITE_DONE)return -1;
     const char *sql[] = {
         "INSERT OR IGNORE INTO semantic_route_dirty(branch_id) "
         "SELECT branch_id FROM files WHERE id=?1 AND EXISTS("
@@ -65,9 +91,6 @@ int sem_routes_purge_file(Cg *cg,long file_id) {
         "SELECT route_id FROM semantic_route_facts WHERE registration_file_id=?1) "
         "OR child_route_id IN (SELECT route_id FROM semantic_route_facts "
         "WHERE registration_file_id=?1) OR registration_file_id=?1",
-        "DELETE FROM symbol_fts WHERE rowid IN (SELECT s.id FROM symbols s "
-        "JOIN semantic_route_facts r ON r.route_symbol_id=s.id "
-        "WHERE r.registration_file_id=?1 AND s.file_id=?1 AND s.kind='route')",
         "DELETE FROM symbols WHERE id IN (SELECT s.id FROM symbols s "
         "JOIN semantic_route_facts r ON r.route_symbol_id=s.id "
         "WHERE r.registration_file_id=?1 AND s.file_id=?1 AND s.kind='route')",

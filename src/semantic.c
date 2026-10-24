@@ -138,6 +138,11 @@ static const char *SEM_SCHEMA =
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_target ON semantic_edges(branch_id,target_id,kind);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_file ON semantic_edges(branch_id,source_file_id);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_target_file ON semantic_edges(branch_id,target_file_id);"
+    /* File replacement can invalidate incoming edges across branches. */
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_source_id ON semantic_edges(source_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_target_id ON semantic_edges(target_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_source_file_id ON semantic_edges(source_file_id);"
+    "CREATE INDEX IF NOT EXISTS idx_sem_edge_target_file_id ON semantic_edges(target_file_id);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_channel ON semantic_edges(branch_id,channel,kind);"
     "CREATE INDEX IF NOT EXISTS idx_sem_edge_ref ON semantic_edges(branch_id,source_ref_id,provenance);"
     "CREATE TABLE IF NOT EXISTS semantic_dependencies("
