@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { useIsCompactViewport } from '@/components/ui/hooks/use-compact-viewport';
 import { Icon } from '@/components/ui/icon';
 import {
   ResourceActivitySection,
@@ -65,10 +66,45 @@ export function TaskDetail({
   pending: boolean;
   onAction: (action: BoardAction) => void;
 }) {
+  const compact = useIsCompactViewport();
   const blocks = tasks.filter(candidate => candidate.requires.includes(task.id));
   const presentation = statusPresentation(task.status);
   const receipts = task.receipts ?? [];
   const decisions = task.recalledDecisions ?? [];
+  const actions = (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={pending || task.status !== 'pending'}
+        onClick={() => onAction('start')}
+      >
+        Start
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={pending || task.status !== 'in_progress'}
+        onClick={() => onAction('implemented')}
+      >
+        Implemented
+      </Button>
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex cursor-not-allowed" tabIndex={0}>
+              <Button type="button" size="sm" variant="outline" disabled>
+                Done
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Qualification sets done</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </>
+  );
   return (
     <div className="space-y-4" aria-busy={pending || undefined}>
       <ResourceDetailPage
@@ -85,41 +121,13 @@ export function TaskDetail({
             ]}
           />
         }
-        actions={
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={pending || task.status !== 'pending'}
-              onClick={() => onAction('start')}
-            >
-              Start
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={pending || task.status !== 'in_progress'}
-              onClick={() => onAction('implemented')}
-            >
-              Implemented
-            </Button>
-            <TooltipProvider delayDuration={250}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex cursor-not-allowed" tabIndex={0}>
-                    <Button type="button" size="sm" variant="outline" disabled>
-                      Done
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Qualification sets done</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </>
-        }
+        actions={compact ? undefined : actions}
       >
+        {compact ? (
+          <div data-task-actions className="flex flex-wrap items-center gap-2">
+            {actions}
+          </div>
+        ) : null}
         <ResourceDetailStack>
           <ResourceDefinitionSection label="Criteria">
             <Rows

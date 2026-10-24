@@ -152,13 +152,13 @@ test('Board panel shows the routed task with breadcrumbs and sends actions while
     breadcrumbs: [{ label: 'Tasks', to: '/plugins/hyperfide-spec/hyperfide-spec' }, { label: '1' }],
   });
   setScope();
-  await screen.findByText('pnpm test');
+  await screen.findByText('Keep the legacy renderer for hosts.');
   expect(slot.rpcCalls).toContainEqual({ method: 'boardTask', input: { repository: '/repo', feature: 'demo', id: '1' } });
   expect(slot.rpcCalls.filter(call => call.method === 'boardTask')).toHaveLength(1);
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Board fixture');
+  expect(screen.getByText('pnpm test')).toBeTruthy();
   expect(screen.getByText('The board lists every task')).toBeTruthy();
   expect(screen.getByText('Render the board')).toBeTruthy();
-  expect(screen.getByText('Keep the legacy renderer for hosts.')).toBeTruthy();
   expect(screen.getByText('Verify command skipped')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'Latest receipt' }).getAttribute('href')).toBe('./receipts/1.md');
   expect(screen.getByRole('link', { name: 'Open log' }).getAttribute('href')).toBe('./receipts/1.log');
