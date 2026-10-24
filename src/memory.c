@@ -238,6 +238,31 @@ int memory_query(Cg *cg, const char *query, const char *task,
     return n;
 }
 
+/* Partition before limiting: each task keeps the same ten rows and ordering
+ * as memory_query, without repeating the branch ancestry and memory scan. */
+int memory_query_feature(Cg *cg, const char *feature, Memory **out) {
+    char scope[256];
+    const char *branch = mem_scope(cg, scope, sizeof scope);
+    sqlite3_stmt *st = cg_prep(cg, MEM_BRANCH_CTE
+        ", ranked AS (SELECT m.*, row_number() OVER (PARTITION BY m.task"
+        " ORDER BY" SUPERSEDED_RANK ", m.created DESC, m.id DESC) AS rank"
+        " FROM memories m WHERE substr(m.task,1,length(?1)+1)=?1||'/'"
+        MEM_BRANCH_WHERE ")"
+        " SELECT id,created,type,task,body,symbols,files,source,class,confidence,branch"
+        " FROM ranked WHERE rank<=10 ORDER BY task,rank");
+    sqlite3_bind_text(st, 1, feature, -1, SQLITE_STATIC);
+    bind_opt(st, 5, branch);
+    int n = 0, cap = 16;
+    Memory *v = xmalloc(sizeof(*v) * (size_t)cap);
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        if (n == cap) { cap *= 2; v = xrealloc(v, sizeof(*v) * (size_t)cap); }
+        mem_row(st, &v[n++]);
+    }
+    sqlite3_finalize(st);
+    *out = v;
+    return n;
+}
+
 void memory_clear(Memory *m) {
     free(m->type); free(m->task); free(m->body);
     free(m->symbols); free(m->files); free(m->source);

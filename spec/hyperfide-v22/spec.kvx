@@ -823,7 +823,7 @@ owner = "spec"
 
 [task.7.12]
 title = "Fix: spec trace costs tens of seconds per feature"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.4"]
 touches = ["src/spec.c", "src/graph.c", "src/vcs.c", "src/memory.c", "tests/hyperfide/cases/v22/7_12.sh"]

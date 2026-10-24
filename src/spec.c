@@ -3605,7 +3605,7 @@ int spec_journal_apply(Cg *g, const char *op, const char *args, char *err,
  * a lock. sync=false skips the refresh altogether: a report polled every
  * few seconds (the editor board) answers from the last completed index,
  * which hooks, the watcher, and the language server keep current. */
-static bool spec_graph_open(Cg *g, bool sync) {
+static bool spec_graph_open_opts(Cg *g, bool sync, bool reuse_fresh) {
     char root[4096];
     if (cg_find_root(root, sizeof root) != 0) return false;
     if (cg_open(g, false) != 0) return false;
@@ -3614,6 +3614,15 @@ static bool spec_graph_open(Cg *g, bool sync) {
     sysinfo_detect(&si);
     IndexOpts o = {0};
     o.lock_wait_ms = -1;
+    if (reuse_fresh) {
+        /* A default trace still joins an index pass already in flight. */
+        int gate = syncgate_acquire(g, 0);
+        if (gate >= 0) {
+            bool fresh = graph_trace_is_fresh(g);
+            syncgate_release(gate);
+            if (fresh) return true;
+        }
+    }
     o.quiet = true;
     IndexStats st;
     if (cg_index_ex(g, &si, &o, &st) != 0 && st.busy)
@@ -3625,6 +3634,13 @@ static bool spec_graph_open(Cg *g, bool sync) {
                         "the last completed index\n");
     return true;
 }
+
+static bool spec_graph_open(Cg *g, bool sync) {
+    return spec_graph_open_opts(g, sync, false);
+}
+
+/* Only trace owns this statement; qualification still prepares independently. */
+static sqlite3_stmt *trace_symbol_stmt;
 
 static void graph_symbol_row(sqlite3_stmt *st, char *path, size_t pcap,
                              int *line, char *kind, size_t kcap, int *refs) {
@@ -3684,13 +3700,9 @@ static int graph_symbol_named(Cg *g, const char *lookup,
      * worktree, and a qualification must judge the tree it is standing in.
      * ?2<=0 (no registry write got through) falls back to unfiltered — a
      * gate must never refuse a done because the branch row is missing. */
-    sqlite3_stmt *st = cg_prep(g,
-        "SELECT s.kind, f.path, s.line,"
-        " (SELECT COUNT(*) FROM refs r JOIN files rf ON rf.id=r.file_id"
-        "   WHERE r.name = s.name AND (?2<=0 OR rf.branch_id = ?2))"
-        " FROM symbols s JOIN files f ON f.id = s.file_id"
-        " WHERE s.name = ?1 AND (?2<=0 OR f.branch_id = ?2)"
-        " ORDER BY s.decl, s.id");          /* the definition, then its prototype */
+    sqlite3_stmt *st = trace_symbol_stmt ? trace_symbol_stmt
+                                        : graph_trace_symbols_prepare(g);
+    if (st) sqlite3_reset(st);
     if (!st) return 0;
     sqlite3_bind_text(st, 1, lookup, -1, SQLITE_STATIC);
     sqlite3_bind_int64(st, 2, g->branch_id);
@@ -3713,7 +3725,8 @@ static int graph_symbol_named(Cg *g, const char *lookup,
             best_count++;
         }
     }
-    sqlite3_finalize(st);
+    if (!trace_symbol_stmt) sqlite3_finalize(st);
+    else sqlite3_reset(st);
     return found && (!qualified || best_count == 1);
 }
 
@@ -3821,23 +3834,17 @@ static int spec_verify_task(Spec *s, const char *id) {
 
 /* one task's trace: declared checks resolved against graph + history */
 static void trace_task(Spec *s, Cg *g, bool have_graph, const char *id,
-                       bool json, StrBuf *jb) {
+                       bool json, StrBuf *jb, const VcsTrace *evidence,
+                       char **workpaths, int nworkpaths, Memory *memories, int nmemories) {
     char sec[300];
     task_sec(sec, sizeof sec, id);
     char **syms; int nsym = kvx_list(s->f, sec, "symbols", &syms);
     char **tchs; int ntch = kvx_list(s->f, sec, "touches", &tchs);
-    char tag[600];
-    task_tag(s, id, tag, sizeof tag);
-
-    char **paths = NULL;
-    int np = 0;
-    char **cids = NULL, **cmsgs = NULL;
-    long *cdates = NULL;
-    int nc = 0;
-    if (have_graph) {
-        if (ntch) np = vcs_changed_paths(g, tag, &paths);
-        nc = vcs_find_commits(g, tag, &cids, &cmsgs, &cdates);
-    }
+    char **paths = evidence->paths;
+    int np = evidence->npaths;
+    char **cids = evidence->ids, **cmsgs = evidence->messages;
+    long *cdates = evidence->dates;
+    int nc = evidence->ncommits;
 
     char *title = S(s->f, sec, "title");
     char *status = task_status(s, id);
@@ -3887,7 +3894,8 @@ static void trace_task(Spec *s, Cg *g, bool have_graph, const char *id,
     }
     if (json) sb_puts(jb, "],\"touches\":[");
     for (int i = 0; i < ntch; i++) {
-        bool hit = have_graph && pattern_hit(tchs[i], paths, np);
+        bool hit = have_graph && (pattern_hit(tchs[i], workpaths, nworkpaths) ||
+                                  pattern_hit(tchs[i], paths, np));
         if (json) {
             if (i) sb_putc(jb, ',');
             sb_puts(jb, "{\"pattern\":");
@@ -3917,15 +3925,16 @@ static void trace_task(Spec *s, Cg *g, bool have_graph, const char *id,
                 strftime(when, sizeof when, "%Y-%m-%d %H:%M", &tmv);
             printf("    %.12s  %s  %s\n", cids[i], when, cmsgs[i]);
         }
-        free(cids[i]);
-        free(cmsgs[i]);
     }
     Memory *mv = NULL;
     int nm = 0;
-    if (have_graph) {
-        char mtask[700];
-        snprintf(mtask, sizeof mtask, "%s/%s", s->feature, id);
-        nm = memory_query(g, NULL, mtask, NULL, 10, &mv);
+    char mtask[700];
+    snprintf(mtask, sizeof mtask, "%s/%s", s->feature, id);
+    for (int i = 0; i < nmemories; i++) {
+        if (memories[i].task && strcmp(memories[i].task, mtask) == 0) {
+            if (!mv) mv = &memories[i];
+            nm++;
+        }
     }
     if (json) {
         sb_puts(jb, "],\"memories\":[");
@@ -3945,10 +3954,6 @@ static void trace_task(Spec *s, Cg *g, bool have_graph, const char *id,
         if (!have_graph)
             printf("  (no .codegraph project — graph columns unavailable)\n");
     }
-    memory_free(mv, nm);
-    for (int i = 0; i < np; i++) free(paths[i]);
-    free(paths);
-    free(cids); free(cmsgs); free(cdates);
     free(syms); free(tchs);
     free(title); free(status);
 }
@@ -3959,18 +3964,40 @@ static int spec_trace_cmd(Spec *s, const char *id, bool sync, bool json) {
         return 1;
     }
     Cg g;
-    bool have = spec_graph_open(&g, sync);
+    /* Reports reuse an unchanged, completed index. Qualification above
+     * always requests an immediate incremental refresh. */
+    bool have = spec_graph_open_opts(&g, sync, true);
+    VcsTrace *rows = xmalloc(sizeof(*rows) * (size_t)s->nids);
+    memset(rows, 0, sizeof(*rows) * (size_t)s->nids);
+    const char **tags = xmalloc(sizeof(*tags) * (size_t)s->nids);
+    int count = 0;
+    for (int i = 0; i < s->nids; i++) {
+        if (id ? strcmp(id, s->ids[i]) != 0 : !task_is_leaf(s, s->ids[i])) continue;
+        char tag[600];
+        task_tag(s, s->ids[i], tag, sizeof tag);
+        tags[count++] = xstrdup(tag);
+    }
+    char **workpaths = NULL;
+    int nworkpaths = 0;
+    Memory *memories = NULL;
+    int nmemories = 0;
+    if (have) {
+        vcs_trace_batch(&g, tags, count, rows, &workpaths, &nworkpaths);
+        nmemories = memory_query_feature(&g, s->feature, &memories);
+        trace_symbol_stmt = graph_trace_symbols_prepare(&g);
+    }
+    int row = 0;
 
     if (id) {
         if (json) {
             StrBuf b; sb_init(&b);
             sb_puts(&b, "{\"task\":");
-            trace_task(s, &g, have, id, true, &b);
+            trace_task(s, &g, have, id, true, &b, &rows[0], workpaths, nworkpaths, memories, nmemories);
             sb_puts(&b, "}\n");
             fputs(b.p, stdout);
             sb_free(&b);
         } else {
-            trace_task(s, &g, have, id, false, NULL);
+            trace_task(s, &g, have, id, false, NULL, &rows[0], workpaths, nworkpaths, memories, nmemories);
         }
     } else {
         if (json) {
@@ -3982,7 +4009,7 @@ static int spec_trace_cmd(Spec *s, const char *id, bool sync, bool json) {
             for (int i = 0; i < s->nids; i++) {
                 if (!task_is_leaf(s, s->ids[i])) continue;
                 if (!first) sb_putc(&b, ',');
-                trace_task(s, &g, have, s->ids[i], true, &b);
+                trace_task(s, &g, have, s->ids[i], true, &b, &rows[row++], workpaths, nworkpaths, memories, nmemories);
                 first = false;
             }
             sb_puts(&b, "]}\n");
@@ -3996,11 +4023,18 @@ static int spec_trace_cmd(Spec *s, const char *id, bool sync, bool json) {
             for (int i = 0; i < s->nids; i++) {
                 if (!task_is_leaf(s, s->ids[i])) continue;
                 if (!first) printf("\n");
-                trace_task(s, &g, have, s->ids[i], false, NULL);
+                trace_task(s, &g, have, s->ids[i], false, NULL, &rows[row++], workpaths, nworkpaths, memories, nmemories);
                 first = false;
             }
         }
     }
+    sqlite3_finalize(trace_symbol_stmt);
+    trace_symbol_stmt = NULL;
+    memory_free(memories, nmemories);
+    vcs_trace_free(rows, count);
+    for (int i = 0; i < count; i++) free((char *)tags[i]);
+    for (int i = 0; i < nworkpaths; i++) free(workpaths[i]);
+    free(workpaths); free(tags); free(rows);
     if (have) cg_close(&g);
     return 0;
 }
