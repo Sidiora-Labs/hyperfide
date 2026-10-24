@@ -722,7 +722,7 @@ owner = "docs"
 
 [task.7.4]
 title = "Release 2.2.0"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.3", "0.9"]
 touches = ["Makefile", "scripts/release.sh", "src/version.h", "services/hyperfide/package.json", "platform/package.json", "platform/apps/*/package.json", "editors/vscode/package.json", "tests/integration/78_v16_release.sh", "tests/hyperfide/cases/v22/7_4.sh"]
