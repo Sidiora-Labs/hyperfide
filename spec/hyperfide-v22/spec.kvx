@@ -871,7 +871,7 @@ owner = "source"
 
 [task.7.16]
 title = "Fix: the qualification plugin's frontend bundle is emitted in a layout the server never loads"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.7"]
 touches = ["platform/plugins/hyperfide-qualify/prepare.mjs", "platform/plugins/hyperfide-qualify/package.json", "platform/plugins/hyperfide-qualify/bundle.test.ts", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/7_16.sh"]
