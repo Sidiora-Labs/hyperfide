@@ -1,4 +1,5 @@
 #include "cg.h"
+#include "index_chunks.h"
 
 static char *dup(const char *s) { return s ? xstrdup(s) : NULL; }
 static void *grow(void *p, int *cap, int n, size_t size) {
@@ -475,6 +476,8 @@ int sem_pass_run(Cg *cg, const long *changed_files, int nfiles) {
     register_available();
     if (changed_files && nfiles==0) return 0;
     for (int i=0;i<npasses;i++)
-        if (passes[i].fn(cg,changed_files,nfiles)!=0) return -1;
+        if (index_chunks_checkpoint(cg) ||
+            passes[i].fn(cg,changed_files,nfiles)!=0 ||
+            index_chunks_failed()) return -1;
     return 0;
 }

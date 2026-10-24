@@ -2,6 +2,7 @@
  * after a changed source file, so changing only registration wiring is enough
  * to remove an obsolete link. Unknown and competing targets stay unresolved. */
 #include "cg.h"
+#include "index_chunks.h"
 #include "sem_routes.h"
 #include <ctype.h>
 
@@ -313,7 +314,7 @@ static int compose_mounts(Cg *cg) {
         "registration_line,synthesized) VALUES(?1,?2,?3,?4,?5,'route_mount',"
         "?6,'route-registration','resolved',?7,?8,?9,?10,?10,0)");
     int rc=0;
-    while(sqlite3_step(mounts)==SQLITE_ROW){
+    while(index_chunks_step(cg, &mounts)==SQLITE_ROW){
         long mid=sqlite3_column_int64(mounts,0),msym=sqlite3_column_int64(mounts,1);
         long mfid=sqlite3_column_int64(mounts,2);
         const char *prefix=(const char*)sqlite3_column_text(mounts,3);
@@ -385,7 +386,7 @@ static int link_navigation(Cg *cg) {
         "registration_line,synthesized) VALUES(?1,?2,?3,?4,?5,'route_navigation',"
         "?6,'literal-navigation','resolved',?7,?8,?9,?10,?10,0)");
     int rc=0;
-    while(sqlite3_step(nav)==SQLITE_ROW){
+    while(index_chunks_step(cg, &nav)==SQLITE_ROW){
         long source=sqlite3_column_int64(nav,0),sf=sqlite3_column_int64(nav,1);
         int line=sqlite3_column_int(nav,2);
         const char *path=(const char*)sqlite3_column_text(nav,3);
@@ -433,7 +434,7 @@ int sem_routes_pass(Cg *cg,const long *changed_files,int nfiles) {
     sqlite3_bind_int64(old,1,cg->branch_id);
     sqlite3_stmt *del_fts=cg_prep(cg,"DELETE FROM symbol_fts WHERE rowid=?1");
     sqlite3_stmt *del_sym=cg_prep(cg,"DELETE FROM symbols WHERE id=?1");
-    while (sqlite3_step(old)==SQLITE_ROW) {
+    while (index_chunks_step(cg, &old)==SQLITE_ROW) {
         long id=sqlite3_column_int64(old,0);
         sqlite3_bind_int64(del_fts,1,id);sqlite3_bind_int64(del_sym,1,id);
         if (step_done(del_fts)||step_done(del_sym)) {
@@ -479,7 +480,7 @@ int sem_routes_pass(Cg *cg,const long *changed_files,int nfiles) {
         "?6,?7,?8,?9,?10,?11,?12,?13,?12,?13,0)");
     sqlite3_stmt *target_file=cg_prep(cg,"SELECT file_id FROM symbols WHERE id=?1");
     int rc=0;
-    while (sqlite3_step(routes)==SQLITE_ROW) {
+    while (index_chunks_step(cg, &routes)==SQLITE_ROW) {
         long rid=sqlite3_column_int64(routes,0),fid=sqlite3_column_int64(routes,1);
         const char *fw=(const char *)sqlite3_column_text(routes,2);
         const char *method=(const char *)sqlite3_column_text(routes,3);

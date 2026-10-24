@@ -4,6 +4,7 @@
  * Bounded ring buffer keeps memory flat on huge repos.
  */
 #include "cg.h"
+#include "index_chunks.h"
 #include "sem_incremental.h"
 #include "index_health.h"
 #include <dirent.h>
@@ -969,7 +970,7 @@ static void anchor_edges_run(Cg *cg, IndexStats *st, bool scoped) {
     sqlite3_bind_int64(is_path, 2, cg->branch_id);   /* survives reset */
     sqlite3_stmt *is_route = cg_prep(cg,
         "SELECT pattern FROM routes WHERE pattern=?1 LIMIT 1");
-    while (sqlite3_step(sel) == SQLITE_ROW) {
+    while (index_chunks_step(cg, &sel) == SQLITE_ROW) {
         long fid    = sqlite3_column_int64(sel, 0);
         int  line   = sqlite3_column_int  (sel, 1);
         long sym    = sqlite3_column_int64(sel, 2);
@@ -1983,6 +1984,7 @@ int cg_index_ex(Cg *cg, const SysInfo *si, const IndexOpts *o, IndexStats *st) {
         if (progress_begin_write(cg) != 0) {
             stalled = true;
         } else {
+            index_chunks_begin(cg);
             long ts = now_ms();
             if (o->full || recover || !index_scope_bounded(cg)) {
                 anchor_edges(cg, st);
@@ -2004,17 +2006,20 @@ int cg_index_ex(Cg *cg, const SysInfo *si, const IndexOpts *o, IndexStats *st) {
             }
             index_phase_ms(st, IDX_PH_RESOLVE, ts);
             progress_tick(3, 3, NULL);
-            if (sem_incremental_run(cg, o->full || recover) == 0) {
+            if (!index_chunks_failed() &&
+                sem_incremental_run(cg, o->full || recover) == 0 &&
+                !index_chunks_failed()) {
                 index_health_finish(cg);
                 cg_meta_set(cg, pkey, "0");
                 cg_exec(cg, "COMMIT");
             } else {
-                cg_exec(cg, "ROLLBACK");
+                if (!sqlite3_get_autocommit(cg->db)) cg_exec(cg, "ROLLBACK");
                 st->semantic_failed = true;
                 stalled = true;
             }
         }
     }
+    index_chunks_end();
     index_scope_end(cg);
     st->busy = stalled;
     st->ms = now_ms() - t0;

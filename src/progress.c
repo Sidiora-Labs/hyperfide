@@ -249,3 +249,109 @@ int progress_begin_write(Cg *cg) {
     progress_wait(NULL, 0);
     return rc;
 }
+
+/* Resolution reads a stable work list, then writes bounded, retryable chunks.
+ * A live SELECT on the graph would retain its WAL snapshot across COMMIT and
+ * prevent upgrading after another writer lands, so copy driving rows first. */
+#include "index_chunks.h"
+static Cg *chunk_owner;
+static long chunk_started;
+static int chunk_failed;
+
+void index_chunks_begin_impl(Cg *cg) {
+    chunk_owner = cg;
+    chunk_started = now_ms();
+    chunk_failed = 0;
+}
+void index_chunks_end_impl(void) { chunk_owner = NULL; }
+int index_chunks_failed_impl(void) { return chunk_owner && chunk_failed; }
+int index_chunks_active_impl(Cg *cg) { return chunk_owner == cg; }
+
+static bool chunk_readers(Cg *cg) {
+    for (sqlite3_stmt *s = sqlite3_next_stmt(cg->db, NULL); s;
+         s = sqlite3_next_stmt(cg->db, s))
+        if (sqlite3_stmt_busy(s)) return true;
+    return false;
+}
+
+static int chunk_release(Cg *cg) {
+    if (sqlite3_exec(cg->db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK) {
+        chunk_failed = 1;
+        return -1;
+    }
+    /* SQLite's busy handler backs off to 100 ms. Leave a full retry
+     * interval so a waiting writer cannot repeatedly miss shorter gaps. */
+    sqlite3_sleep(125);
+    return 0;
+}
+static int chunk_acquire(Cg *cg) {
+    if (progress_begin_write(cg) != 0) {
+        chunk_failed = 1;
+        return -1;
+    }
+    chunk_started = now_ms();
+    return 0;
+}
+int index_chunks_checkpoint_impl(Cg *cg) {
+    if (chunk_owner != cg) return 0;
+    if (chunk_failed) return -1;
+    if (now_ms() - chunk_started < 1000 || chunk_readers(cg)) return 0;
+    if (chunk_release(cg)) return -1;
+    return chunk_acquire(cg);
+}
+
+int index_chunks_step_impl(Cg *cg, sqlite3_stmt **cursor) {
+    if (chunk_owner != cg) return sqlite3_step(*cursor);
+    if (chunk_failed) return SQLITE_ABORT;
+    sqlite3_stmt *q = *cursor;
+    if (sqlite3_db_handle(q) == cg->db && !chunk_readers(cg)) {
+        if (chunk_release(cg)) return SQLITE_ABORT;
+        sqlite3 *rows = NULL;
+        sqlite3_stmt *put = NULL, *read = NULL;
+        StrBuf sql; sb_init(&sql);
+        int n = sqlite3_column_count(q), rc = sqlite3_open("", &rows);
+        sb_puts(&sql, "CREATE TABLE work(");
+        for (int i = 0; i < n; i++) sb_printf(&sql, "%sc%d", i ? "," : "", i);
+        sb_puts(&sql, ")");
+        if (rc == SQLITE_OK) rc = sqlite3_exec(rows, sql.p, NULL, NULL, NULL);
+        if (rc == SQLITE_OK) rc = sqlite3_exec(rows,
+            "PRAGMA cache_size=-2048; PRAGMA journal_mode=OFF; BEGIN", NULL, NULL, NULL);
+        sb_free(&sql); sb_init(&sql);
+        sb_puts(&sql, "INSERT INTO work VALUES(");
+        for (int i = 0; i < n; i++) sb_printf(&sql, "%s?", i ? "," : "");
+        sb_puts(&sql, ")");
+        if (rc == SQLITE_OK) rc = sqlite3_prepare_v2(rows, sql.p, -1, &put, NULL);
+        sb_free(&sql);
+        if (rc == SQLITE_OK) {
+            while ((rc = sqlite3_step(q)) == SQLITE_ROW) {
+                for (int i = 0; i < n; i++)
+                    sqlite3_bind_value(put, i + 1, sqlite3_column_value(q, i));
+                rc = sqlite3_step(put);
+                sqlite3_reset(put);
+                if (rc != SQLITE_DONE) break;
+            }
+            if (rc == SQLITE_DONE) rc = SQLITE_OK;
+        }
+        sqlite3_finalize(put);
+        if (rc == SQLITE_OK) rc = sqlite3_exec(rows, "COMMIT", NULL, NULL, NULL);
+        sqlite3_finalize(q);
+        *cursor = NULL;
+        if (rc == SQLITE_OK)
+            rc = sqlite3_prepare_v2(rows, "SELECT * FROM work ORDER BY rowid", -1, &read, NULL);
+        if (rows) sqlite3_close_v2(rows); /* cursor owns the deferred close */
+        *cursor = read;
+        if (chunk_acquire(cg) || rc != SQLITE_OK) {
+            chunk_failed = 1;
+            return SQLITE_ABORT;
+        }
+    }
+    /* At this outer-loop boundary all graph probes have been consumed;
+     * single-row probes may still be positioned on SQLITE_ROW. */
+    if (sqlite3_db_handle(*cursor) != cg->db) {
+        for (sqlite3_stmt *s = sqlite3_next_stmt(cg->db, NULL); s;
+             s = sqlite3_next_stmt(cg->db, s))
+            if (sqlite3_stmt_busy(s) && sqlite3_stmt_readonly(s)) sqlite3_reset(s);
+    }
+    if (index_chunks_checkpoint(cg)) return SQLITE_ABORT;
+    return sqlite3_step(*cursor);
+}

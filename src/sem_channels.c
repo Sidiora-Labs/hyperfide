@@ -1,4 +1,5 @@
 #include "sem_channels.h"
+#include "index_chunks.h"
 #include "semantic.h"
 #include "sem_routes.h"
 #include <inttypes.h>
@@ -318,6 +319,7 @@ static int synthesize(Cg *cg, ChannelFacts *facts) {
         "?6,?10,?11,?12,?13,?14,?15,?16,?17,?18,1)");
     int result=0;
     for (int lo=0;lo<facts->n && result==0;) {
+        if (index_chunks_checkpoint(cg)) { result=-1; break; }
         int hi=lo+1;
         while (hi<facts->n && fact_key_cmp(&facts->v[lo],&facts->v[hi])==0)
             hi++;
@@ -390,9 +392,9 @@ int sem_channels_pass(Cg *cg, const long *changed_files, int nfiles) {
     bool edges_intact=prior_state && !strcmp(prior_state,state);
     free(prior_state);
     if (unchanged && edges_intact) { facts_free(&facts); return 0; }
-    /* The caller's indexing transaction includes this savepoint.  A failed
-     * synthesis leaves the former edge set and retryable digest intact. */
-    cg_exec(cg,"SAVEPOINT sem_channels");
+    /* Standalone callers retain an atomic synthesis. During indexing the
+     * pending marker makes committed work retryable after a later failure. */
+    if (!index_chunks_active(cg)) cg_exec(cg,"SAVEPOINT sem_channels");
     sqlite3_stmt *del=cg_prep(cg,"DELETE FROM semantic_edges WHERE branch_id=?1 "
         "AND strategy IN ('literal_http_unique_route','literal_named_channel') "
         "AND synthesized=1");
@@ -401,12 +403,12 @@ int sem_channels_pass(Cg *cg, const long *changed_files, int nfiles) {
     sqlite3_finalize(del);
     if (!rc) rc=synthesize(cg,&facts);
     if (!rc) rc=edge_marker(cg,state);
-    if (rc) cg_exec(cg,"ROLLBACK TO sem_channels");
-    else {
+    if (rc && !index_chunks_active(cg)) cg_exec(cg,"ROLLBACK TO sem_channels");
+    if (!rc) {
         cg_meta_set(cg,key,hex);
         cg_meta_set(cg,state_key,state);
     }
-    cg_exec(cg,"RELEASE sem_channels");
+    if (!index_chunks_active(cg)) cg_exec(cg,"RELEASE sem_channels");
     facts_free(&facts);
     return rc;
 }

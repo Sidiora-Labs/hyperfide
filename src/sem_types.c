@@ -1,4 +1,5 @@
 #include "cg.h"
+#include "index_chunks.h"
 #include "sem_types.h"
 
 #include <ctype.h>
@@ -245,7 +246,7 @@ int sem_types_run(Cg *cg, const long *changed_files, int nfiles) {
         "SELECT 1 FROM semantic_edges WHERE branch_id=?1 AND source_id=?2 "
         "AND target_id=?3 AND kind='contains' LIMIT 1");
     sqlite3_bind_int64(parents,1,cg->branch_id);
-    while (!rc && sqlite3_step(parents)==SQLITE_ROW) {
+    while (!rc && index_chunks_step(cg, &parents)==SQLITE_ROW) {
         long child=sqlite3_column_int64(parents,0), file=sqlite3_column_int64(parents,1);
         long parent=sqlite3_column_int64(parents,2);
         sqlite3_reset(already); sqlite3_clear_bindings(already);
@@ -273,7 +274,7 @@ int sem_types_run(Cg *cg, const long *changed_files, int nfiles) {
         "AND tf.owner_id IS NOT NULL");
     sqlite3_bind_int64(facts,1,cg->branch_id);
     sqlite3_stmt *target_file=cg_prep(cg,"SELECT file_id FROM symbols WHERE id=?1");
-    while (!rc && sqlite3_step(facts)==SQLITE_ROW) {
+    while (!rc && index_chunks_step(cg, &facts)==SQLITE_ROW) {
         long owner=sqlite3_column_int64(facts,0), file=sqlite3_column_int64(facts,1);
         const char *kind=(const char *)sqlite3_column_text(facts,2);
         const char *value=(const char *)sqlite3_column_text(facts,3);
@@ -318,7 +319,7 @@ int sem_types_run(Cg *cg, const long *changed_files, int nfiles) {
             "AND tf.kind='overrides' AND tf.owner_id IS NOT NULL");
         sqlite3_bind_int64(overrides,1,cg->branch_id);
         sqlite3_stmt *fileq=cg_prep(cg,"SELECT file_id FROM symbols WHERE id=?1");
-        while (!rc && sqlite3_step(overrides)==SQLITE_ROW) {
+        while (!rc && index_chunks_step(cg, &overrides)==SQLITE_ROW) {
             long source=sqlite3_column_int64(overrides,0);
             long file=sqlite3_column_int64(overrides,1);
             const char *value=(const char *)sqlite3_column_text(overrides,2);

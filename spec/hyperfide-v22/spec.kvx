@@ -898,13 +898,14 @@ owner = "app"
 
 [task.7.18]
 title = "Fix: the index pass's resolve phase holds the graph write lock in one transaction for the whole pass"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.15"]
-touches = ["src/scan.c", "src/semantic.c", "src/sem_routes.c", "src/progress.c", "tests/hyperfide/cases/v22/7_18.sh"]
+touches = ["src/scan.c", "src/semantic.c", "src/sem_routes.c", "src/progress.c", "src/index_chunks.h", "src/resolve.c", "src/sem_channels.c", "src/sem_dispatch.c", "src/sem_imports.c", "src/sem_incremental.c", "src/sem_resolve.c", "src/sem_types.c", "tests/hyperfide/cases/v22/7_18.sh"]
 verify_cmd = "bash tests/hyperfide/cases/v22/7_18.sh"
 do_1 = "Defect found at the 7.6 owner test on 2026-10-24: while the owner's IDE language server (`hyperfide lsp` 2.2.0) ran its index pass over the 2.7 GB graph, `hyperfide ask raise` failed four times in a row with `could not record the Ask: database is locked` (default CG_BUSY_TIMEOUT_MS 30000) and a probe `BEGIN IMMEDIATE` with a 20 s timeout failed as well: the write lock was held continuously for more than two minutes. The write phase in src/scan.c chunks its commits exactly as its design note says (the lock is the scarce resource; waiting writers land in the gaps), but the resolve phase (progress_begin_write at src/scan.c:1983, then anchor_edges, resolve_imports, resolve_refs and sem_incremental_run, COMMIT at src/scan.c:2010) is one transaction for the whole tree, so every other writer (asks, spec status, leases) fails instead of landing in a gap."
 do_2 = "Bound the hold: the resolve and semantic phases commit in chunks the way the write phase does (per bounded unit of work, or after at most about two seconds of lock time), releasing and re-acquiring the write lock between chunks; chunks already committed stay valid when a later one is abandoned, and the pass bookkeeping (index_health_finish and the pkey meta) is written only when the last chunk commits, so a stalled run stays recoverable exactly as today. A full pass over a fixture produces the same rows, edges and route facts as before."
 do_3 = "7_18.sh indexes a synthetic fixture large enough that the resolve plus semantic phase takes more than 20 s in the sandbox while a prober loop runs `BEGIN IMMEDIATE; ROLLBACK;` against the graph with a 5 s busy timeout once a second; it asserts that no probe fails during the pass and that the longest observed lock wait is under 5 s, and that the resulting graph matches an unchunked reference pass on the counts of files, symbols, semantic_edges and semantic_route_facts; it prints each step's seconds and exit code and ends with `ok: 7.18`."
+do_4 = "Decision recorded on 2026-10-24 by the feature manager (the worker's decision Ask, proceed-on-recommendation): the resolve and semantic write passes materialize driving cursors into disk-backed work lists and commit at cooperative checkpoints, which touches the resolver and every semantic loop file; those files are now in touches. The alternative, keyset pagination in every pass, was not taken."
 reqs = ["2.1"]
 owner = "source"

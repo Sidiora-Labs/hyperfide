@@ -1,4 +1,5 @@
 #include "cg.h"
+#include "index_chunks.h"
 #include "sem_incremental.h"
 
 extern int sem_pass_run(Cg *, const long *, int) __attribute__((weak));
@@ -108,7 +109,7 @@ int sem_incremental_needs_run(Cg *cg) {
 static void add_ids(Cg *cg, const char *sql, long **ids, int *n, int *cap) {
     sqlite3_stmt *q = cg_prep(cg, sql);
     sqlite3_bind_int64(q, 1, cg->branch_id);
-    while (sqlite3_step(q) == SQLITE_ROW) {
+    while (index_chunks_step(cg, &q) == SQLITE_ROW) {
         long id = sqlite3_column_int64(q, 0);
         if (*n == *cap) {
             *cap = *cap ? *cap * 2 : 64;
@@ -161,7 +162,7 @@ static void collect_new(Cg *cg) {
         "SELECT file_id FROM semantic_change_debt WHERE branch_id=?1 "
         "AND file_id IN (SELECT id FROM files WHERE branch_id=?1)");
     sqlite3_bind_int64(q,1,cg->branch_id);
-    while (sqlite3_step(q)==SQLITE_ROW) {
+    while (index_chunks_step(cg, &q)==SQLITE_ROW) {
         long id=sqlite3_column_int64(q,0);
         collect(cg,id,"symbol","SELECT name FROM symbols WHERE file_id=?1");
         collect(cg,id,"dependency",
@@ -198,6 +199,7 @@ int sem_incremental_run(Cg *cg, int force_full) {
     int pending = sem_incremental_pending(cg);
     if (!pending && !config_changed && !force_full) return 0;
     if (pending) collect_new(cg);
+    if (index_chunks_failed()) return -1;
     long *ids = NULL;
     int n = 0;
     if (!force_full && !config_changed) {
@@ -210,6 +212,7 @@ int sem_incremental_run(Cg *cg, int force_full) {
     /* A deletion may leave no live changed file. A NULL request still asks
      * all passes to clear incoming links and retry unresolved references. */
     int full = force_full || config_changed || (pending && n==0);
+    if (index_chunks_failed()) { free(ids); return -1; }
     int rc = sem_pass_run ? sem_pass_run(cg, full ? NULL : ids, n) : -1;
     free(ids);
     if (rc != 0) return rc;
