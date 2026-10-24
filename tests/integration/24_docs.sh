@@ -311,14 +311,16 @@ PY
 
 connector() {
     root="$repo_root"
+    # The task board, agents and ACP views left the extension for the platform app (hyperfide-v22 2.5);
+    # the extension is a language client now, so only its entry point is checked and the removed
+    # modules must stay removed. The closure surfaces through the platform, exercised below via cg.
     node --check "$root/editors/vscode/extension.js"
-    node --check "$root/editors/vscode/tasks.js"
-    node --check "$root/editors/vscode/agents.js"
-    node --check "$root/editors/vscode/acp.js"
-    # the board (extension.js + its task tree in tasks.js) surfaces the closure
-    has "$(cat "$root/editors/vscode/extension.js" "$root/editors/vscode/tasks.js")" "id: '@docs'"
-    has "$(cat "$root/editors/vscode/agents.js")" "['docs', 'packet']"
-    has "$(cat "$root/editors/vscode/acp.js")" "['docs', 'close']"
+    for file in tasks.js agents.js acp.js; do
+        test -z "$(git -C "$root" ls-files -- "editors/vscode/$file")" || {
+            echo "Removed extension module still tracked: $file" >&2
+            exit 1
+        }
+    done
 
     mkdir -p "$TMP/connector/docs"
     cd "$TMP/connector"
