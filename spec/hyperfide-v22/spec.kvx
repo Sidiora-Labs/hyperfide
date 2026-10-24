@@ -847,7 +847,7 @@ owner = "app"
 
 [task.7.14]
 title = "Fix: the spec read model broadcasts its whole snapshot on every spec edit"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/plugins/hyperfide-spec/src/read-model-server.ts", "platform/plugins/hyperfide-spec/src/reader.ts", "platform/plugins/hyperfide-spec/src/shared/**", "platform/plugins/hyperfide-spec/src/*.test.ts", "tests/hyperfide/cases/v22/7_14.sh"]
