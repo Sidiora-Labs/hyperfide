@@ -6,6 +6,11 @@ repo=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$repo"
 # Fixtures claim their own tasks; the release worker identity must not leak in.
 unset CG_TASK HYPERFIDE_TASK
+# Fixtures set their own per-command busy timeouts (23_dblock, 25_syncgate,
+# 41_progress). A supervising host exports a long CG_BUSY_TIMEOUT_MS for
+# qualification and the aliasing copies it into HYPERFIDE_BUSY_TIMEOUT_MS, so
+# a fixture's own value would conflict with the inherited alias (exit 78).
+unset CG_BUSY_TIMEOUT_MS HYPERFIDE_BUSY_TIMEOUT_MS
 
 mkdir -p build
 scratch=$(mktemp -d build/release-check.XXXXXX)
