@@ -1,17 +1,14 @@
 import type { HyperfidePluginApi } from '@hyperfide/plugin-sdk';
 import { resolve } from 'node:path';
 import { SpecReader, binaryCommand } from './reader.js';
-import type { SpecSnapshot } from './shared/model.js';
+import { snapshotStorage } from './snapshot-storage.js';
 import { specContract } from './shared/contract.js';
 import registerBoard from './board/plugin-server.js';
 
-export async function registerSpecReadModel(api: HyperfidePluginApi, repositories: string[], binary = 'hyperfide') {
+export async function registerSpecReadModel(api: HyperfidePluginApi, repositories: string[], binary = process.env.HYPERFIDE_BIN || 'hyperfide') {
   const readers = new Map<string, SpecReader>();
   for (const repository of new Set(repositories.map(path => resolve(path)))) {
-    const reader = new SpecReader(repository, {
-      get: key => api.storage.kv.get<SpecSnapshot>(key),
-      set: (key, value) => api.storage.kv.set(key, value),
-    }, async snapshot => {
+    const reader = new SpecReader(repository, snapshotStorage(api.storage.kv), async snapshot => {
       api.realtime.publish('hyperfide-spec:changed', snapshot);
       api.rpc.experimental_invalidateAll();
     }, binaryCommand(binary));

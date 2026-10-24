@@ -1360,6 +1360,79 @@ int vcs_find_commits(Cg *cg, const char *needle, char ***ids, char ***msgs,
     return n;
 }
 
+/* Walk the snapshot chain once, diffing only commits used by this trace.
+ * Worktree evidence is shared; keeping it out of each row also avoids
+ * duplicating a large dirty tree for every task. */
+void vcs_trace_batch(Cg *cg, const char **tags, int n, VcsTrace *rows,
+                     char ***workpaths, int *nworkpaths) {
+    *nworkpaths = vcs_changed_paths(cg, NULL, workpaths);
+    PathSet *paths = xmalloc((size_t)n * sizeof(*paths));
+    memset(paths, 0, (size_t)n * sizeof(*paths));
+    char hash[65];
+    if (head_read(cg, hash) != 0) hash[0] = 0;
+    while (hash[0]) {
+        Commit c;
+        if (commit_load(cg, hash, &c) != 0) break;
+        PathSet diff = {0};
+        bool loaded = false;
+        for (int i = 0; i < n; i++) {
+            if (!c.message || !strstr(c.message, tags[i])) continue;
+            if (!loaded) {
+                Manifest tree = {0}, parent = {0};
+                man_load(cg, c.tree, &tree);
+                Commit pc;
+                if (c.parent[0] && commit_load(cg, c.parent, &pc) == 0) {
+                    man_load(cg, pc.tree, &parent);
+                    free(pc.message);
+                }
+                man_diff_paths(&tree, &parent, &diff);
+                man_free(&tree); man_free(&parent);
+                loaded = true;
+            }
+            VcsTrace *r = &rows[i];
+            int k = r->ncommits++;
+            r->ids = xrealloc(r->ids, sizeof(char *) * (size_t)(k + 1));
+            r->messages = xrealloc(r->messages, sizeof(char *) * (size_t)(k + 1));
+            r->dates = xrealloc(r->dates, sizeof(long) * (size_t)(k + 1));
+            r->ids[k] = xstrdup(hash);
+            r->messages[k] = xstrdup(c.message);
+            r->dates[k] = c.date;
+            for (int j = 0; j < diff.n; j++) ps_add(&paths[i], diff.v[j]);
+        }
+        for (int j = 0; j < diff.n; j++) free(diff.v[j]);
+        free(diff.v);
+        snprintf(hash, sizeof hash, "%s", c.parent);
+        free(c.message);
+    }
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT g.subject,c.path FROM git_commits g"
+        " JOIN git_churn c ON c.hash=g.hash WHERE instr(g.subject,'[spec:')>0");
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        const char *subject = (const char *)sqlite3_column_text(st, 0);
+        const char *path = (const char *)sqlite3_column_text(st, 1);
+        if (!path || !path[0]) continue;
+        for (int i = 0; i < n; i++)
+            if (strstr(subject, tags[i])) ps_add(&paths[i], path);
+    }
+    sqlite3_finalize(st);
+    for (int i = 0; i < n; i++) {
+        rows[i].paths = paths[i].v;
+        rows[i].npaths = paths[i].n;
+    }
+    free(paths);
+}
+
+void vcs_trace_free(VcsTrace *rows, int n) {
+    for (int i = 0; i < n; i++) {
+        VcsTrace *r = &rows[i];
+        for (int j = 0; j < r->npaths; j++) free(r->paths[j]);
+        for (int j = 0; j < r->ncommits; j++) {
+            free(r->ids[j]); free(r->messages[j]);
+        }
+        free(r->paths); free(r->ids); free(r->messages); free(r->dates);
+    }
+}
+
 int vcs_changed_paths(Cg *cg, const char *needle, char ***out) {
     PathSet p = {0};
 

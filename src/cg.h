@@ -675,6 +675,16 @@ int vcs_find_commits(Cg *cg, const char *needle, char ***ids, char ***msgs,
 /* unique repo-relative paths changed in worktree-vs-HEAD, plus by commits
  * whose message contains needle (needle may be NULL); returns count */
 int vcs_changed_paths(Cg *cg, const char *needle, char ***out);
+typedef struct {
+    char **paths, **ids, **messages;
+    long *dates;
+    int npaths, ncommits;
+} VcsTrace;
+void vcs_trace_batch(Cg *cg, const char **tags, int n, VcsTrace *rows,
+                     char ***workpaths, int *nworkpaths);
+void vcs_trace_free(VcsTrace *rows, int n);
+sqlite3_stmt *graph_trace_symbols_prepare(Cg *cg);
+bool graph_trace_is_fresh(Cg *cg);
 /* commits whose snapshot changed <path>, newest first — provenance for why.
  * ids and msgs, their strings, and dates are all malloc'd for the caller. */
 int vcs_commits_for_path(Cg *cg, const char *path, int limit, char ***ids,
@@ -716,6 +726,7 @@ long memory_add(Cg *cg, const char *type, const char *task, const char *body,
  * filters (NULL = any); fills a malloc'd array, returns count */
 int  memory_query(Cg *cg, const char *query, const char *task,
                   const char *type, int limit, Memory **out);
+int memory_query_feature(Cg *cg, const char *feature, Memory **out);
 void memory_clear(Memory *m);            /* free one entry's fields */
 void memory_free(Memory *v, int n);
 void memory_json(const Memory *m, StrBuf *b);

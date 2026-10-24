@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsrs --noEmit"
+    "typecheck": "tsrs --noEmit",
+    "prepare:bundled": "node ../../packages/plugin-build/dist/cli.js prepare-bundled"
   },
   "dependencies": {
     "@hyperfide/plugin-sdk": "workspace:*",
@@ -23,6 +24,16 @@
     "react-dom": "^19.0.0",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.1",
+    "@hyperfide/plugin-build": "workspace:*"
+  },
+  "hyperfide": {
+    "name": "Dispatch",
+    "description": "Fleet dispatch and image builds",
+    "branding": {
+      "icon": "Server"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
   }
 }

@@ -12,10 +12,12 @@ export interface SpecStorage {
   set(key: string, value: SpecSnapshot): Promise<void>;
 }
 export type SpecCommand = (args: string[], repository: string) => Promise<Record<string, unknown>>;
-export function binaryCommand(binary = process.env.HYPERFIDE_BIN || 'hyperfide', timeout = 600_000): SpecCommand {
+// Loading no longer waits for enrichment, so the per-call budget only bounds a background refresh;
+// `spec trace` without graph sync still measures tens of seconds on a large repository.
+export function binaryCommand(binary = process.env.HYPERFIDE_BIN || 'hyperfide', timeout = 120_000): SpecCommand {
   return (args, repository) => new Promise((accept, reject) => {
     execFile(binary, args, { cwd: repository, timeout, maxBuffer: 32 * 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error) { reject(new Error(stderr.trim() || error.message)); return; }
+      if (error) { reject(new Error(error.killed ? `Spec command exceeded ${timeout}ms budget` : stderr.trim() || error.message)); return; }
       try {
         const value: unknown = JSON.parse(stdout);
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid spec JSON');
@@ -47,33 +49,44 @@ export class SpecReader implements SpecRpc {
   private async read(): Promise<SpecRead> {
     try {
       const entries = await readdir(join(this.repository, 'spec'), { withFileTypes: true });
-      const features = [];
+      const features: SpecSnapshot['features'] = [];
+      const errors: string[] = [];
       const status: Record<string, unknown> = {}, trace: Record<string, unknown> = {};
-      for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-        if (!entry.isDirectory()) continue;
+      const queue = entries.filter(entry => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
+      const readFeature = async (entry: typeof queue[number]) => {
         let source: string;
         try { source = await readFile(join(this.repository, 'spec', entry.name, 'spec.kvx'), 'utf8'); }
-        catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+        catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error; }
         const args = ['-f', entry.name, '--json'];
-        status[entry.name] = await this.command(['spec', 'status', ...args], this.repository);
-        trace[entry.name] = await this.command(['spec', 'trace', ...args], this.repository);
-        // The CLI exposes counts/next and trace evidence, not the complete task fields.
         const feature = featureFromKvx(entry.name, source);
-        const evidence = (trace[entry.name] as { tasks?: { id: string; title: string; status: string; wave: number }[] }).tasks;
-        for (const item of evidence ?? []) {
-          const task = feature.tasks.find(task => task.id === item.id);
-          if (task) Object.assign(task, { title: item.title, status: item.status, wave: item.wave });
-        }
-        const next = (status[entry.name] as { next?: { id: string; status?: string } }).next;
-        if (next?.status) {
-          const task = feature.tasks.find(task => task.id === next.id);
-          if (task) task.status = next.status as typeof task.status;
+        try {
+          status[entry.name] = await this.command(['spec', 'status', ...args], this.repository);
+          trace[entry.name] = await this.command(['spec', 'trace', ...args, '--no-sync'], this.repository);
+          // The CLI exposes counts/next and trace evidence, not the complete task fields.
+          const evidence = (trace[entry.name] as { tasks?: { id: string; title: string; status: string; wave: number }[] }).tasks;
+          for (const item of evidence ?? []) {
+            const task = feature.tasks.find(task => task.id === item.id);
+            if (task) Object.assign(task, { title: item.title, status: item.status, wave: item.wave });
+          }
+          const next = (status[entry.name] as { next?: { id: string; status?: string } }).next;
+          if (next?.status) {
+            const task = feature.tasks.find(task => task.id === next.id);
+            if (task) task.status = next.status as typeof task.status;
+          }
+        } catch (error) {
+          feature.stale = true;
+          feature.error = String(error);
+          errors.push(`${entry.name}: ${error}`);
         }
         features.push(feature);
-      }
+      };
+      await Promise.all(Array.from({ length: 4 }, async () => {
+        for (let entry; (entry = queue.shift());) await readFeature(entry);
+      }));
+      features.sort((a, b) => a.id.localeCompare(b.id));
       const snapshot: SpecSnapshot = { repository: this.repository, readAt: new Date().toISOString(), features, status, trace };
+      this.current = { ...snapshot, stale: errors.length > 0, ...(errors.length ? { error: errors.join('; ') } : {}) };
       await this.storage.set(this.key, snapshot);
-      this.current = { ...snapshot, stale: false };
     } catch (error) {
       const cached = this.current ?? await this.storage.get(this.key);
       if (!cached || cached.repository !== this.repository) throw error;
@@ -118,7 +131,14 @@ export class SpecReader implements SpecRpc {
         this.timer = setTimeout(() => { void this.republish(); }, 50);
       });
     }
-    return this.refresh();
+    const cached = await this.storage.get(this.key);
+    this.current = { ...(cached?.repository === this.repository ? cached : {
+      repository: this.repository, readAt: '', features: [], status: {}, trace: {},
+    }), stale: true, error: 'Refreshing spec snapshot' };
+    void this.refresh().then(snapshot => {
+      if (!this.closed) return this.publish(snapshot);
+    }).catch(() => {});
+    return this.current;
   }
   private async republish() {
     if (this.closed) return;

@@ -50,7 +50,7 @@ export class ImageBuilder {
   >();
   constructor(
     private options: {
-      machines: SandboxMachineOps;
+      machines: Pick<SandboxMachineOps, "capabilities" | "create">;
       storage: BuildStorage;
       fleetPath: string;
       repository: string;

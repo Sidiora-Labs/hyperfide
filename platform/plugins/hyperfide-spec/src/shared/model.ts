@@ -19,7 +19,7 @@ export interface Task {
   receipts?: import('../../receipt-detail.js').TaskReceipt[];
   [field: `do_${number}`]: string;
 }
-export interface Feature { id: string; name: string; status: string; tasks: Task[] }
+export interface Feature { stale?: boolean; error?: string; id: string; name: string; status: string; tasks: Task[] }
 export interface Wave { wave: number; tasks: Task[] }
 export interface SpecSnapshot {
   repository: string;

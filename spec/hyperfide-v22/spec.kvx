@@ -762,7 +762,7 @@ owner = "human"
 
 [task.7.7]
 title = "Fix: qualify plugin server entry imports a host-only module"
-status = "pending"
+status = "done"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/environment-git-worktree/**", "platform/packages/environment-provider-host/**", "tests/hyperfide/cases/v22/7_7.sh"]
@@ -775,7 +775,7 @@ owner = "qualification"
 
 [task.7.8]
 title = "Fix: environment-slices host entry rejected by the private-import guard"
-status = "pending"
+status = "done"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/packages/plugin-build/src/build-plugin-host.ts", "platform/packages/plugin-build/src/build-plugin-host.test.ts", "platform/plugins/environment-slices/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "tests/hyperfide/cases/v22/7_8.sh"]
@@ -787,7 +787,7 @@ owner = "source"
 
 [task.7.9]
 title = "Fix: dispatch plugin wired into the server as a bundled builtin"
-status = "pending"
+status = "done"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/plugins/hyperfide-dispatch/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "platform/turbo.json", "platform/pnpm-lock.yaml", "tests/hyperfide/cases/v22/7_9.sh"]
@@ -796,3 +796,39 @@ do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): the runni
 do_2 = "7_9.sh boots the built server as 7_7.sh does and asserts with `hyperfide-platform plugin list --json` that hyperfide-dispatch is running without an error and that `hyperfide-platform plugin rpc list hyperfide-dispatch` lists the fleet RPC methods; `bash tests/hyperfide/cases/v22/5_4.sh` still passes."
 reqs = ["6.4"]
 owner = "fleet"
+
+[task.7.10]
+title = "UI parity: Hyperfide plugin pages match the native app's structure and feel"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-graph/**", "platform/plugins/hyperfide-spec/src/board/**", "platform/plugins/hyperfide-guide/**", "tests/hyperfide/cases/v22/7_10.sh", "platform/plugins/hyperfide-spec/package.json", "platform/plugins/hyperfide-spec/tsconfig.json", "platform/plugins/hyperfide-spec/vitest.config.ts", "platform/pnpm-lock.yaml"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_10.sh"
+do_1 = "Owner finding at the 7.6 launch on 2026-10-24: the Hyperfide-added app surfaces (asks inbox, graph index and survey panels, spec board, guide) read as bolted on: raw h1/dl/pre/select elements, ad-hoc spacing, no empty, loading or error states, no theme tokens, no compact layout. Each surface is rebuilt on the patterns native plugin apps use (tasks, automations, memory, secrets, provider-usage): the same page-header and list/detail composition, the same SDK-exported and shared-ui controls instead of bare elements, the same empty/loading/error states, spacing and type scale, theme tokens in light and dark, lucide icon vocabulary and compact behaviour. Plugin server and host code, RPC contracts and behaviour (filters, answering an Ask, secret handling, deadlines, index and survey calls) are unchanged; hyperfide-dispatch is excluded (7.9 owns it)."
+do_2 = "Before and after screenshots of every surface beside its native reference are kept as evidence; the changed plugins' app tests pass or are updated deliberately; 7_10.sh runs the vitest suites of hyperfide-asks, hyperfide-graph, hyperfide-spec and hyperfide-guide and builds @hyperfide/bundled-plugins, exiting non-zero on any failure."
+reqs = ["2.2", "3.2", "4.3"]
+owner = "app"
+
+[task.7.11]
+title = "Fix: spec plugin load blocks on tracing every feature and times out"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/7_11.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_11.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2) after the rebuild with 7.7-7.9: the running 2.2.0 server reports `plugin hyperfide-spec failed to load: load timed out after 30000ms`. Cause: platform/plugins/hyperfide-spec/src/read-model-server.ts awaits SpecReader.start() for every repository before the plugin's default export resolves, and SpecReader.read() (src/reader.ts) runs `hyperfide spec status` and `hyperfide spec trace` sequentially for every feature directory under spec/ (18 features in this repository, 36 CLI runs; one `spec trace -f codify-v03 --json` ran over two minutes under load), so the load exceeds the server's loadTimeoutMs and the board, and the dispatch backend that reads features from this plugin, are gone. Fix: plugin load returns as soon as RPC is registered and the spec/ watcher is armed; the first read runs in the background and serves the cached snapshot (storage key hyperfide-spec:<repository>) or an empty snapshot flagged stale/refreshing until it lands, then publishes hyperfide-spec:changed; per-feature status/trace calls run with a bounded concurrency (4) instead of strictly sequentially; a feature whose trace fails or exceeds a per-feature budget is recorded as stale with its error instead of failing the whole read. No change to the RPC contract shape beyond the existing stale/error fields. The reader passes `--no-sync` to `spec trace` (graph sync belongs to the host daemon, not the board; measured on the owner's host: `spec trace -f codify-v04 --json` 50-86 s with sync, 17 s with --no-sync)."
+do_2 = "7_11.sh boots the built server as 7_7.sh does with a project whose source is this repository and HYPERFIDE_BIN pointing at a wrapper script that delays every `spec trace` call by 3 seconds before delegating to the real binary; it asserts with `hyperfide-platform plugin list --json` that hyperfide-spec reaches running within 30 seconds with no error, that `plugin rpc call hyperfide-spec features` answers within 5 seconds (stale or empty allowed), and that within 240 seconds it returns all 18 features with hyperfide-v22 among them; the plugin's vitest suite covers the background first read, the bounded concurrency and the per-feature failure isolation."
+reqs = ["3.1"]
+owner = "spec"
+
+[task.7.12]
+title = "Fix: spec trace costs tens of seconds per feature"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["src/spec.c", "src/graph.c", "src/vcs.c", "src/memory.c", "tests/hyperfide/cases/v22/7_12.sh", "src/cg.h"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_12.sh"
+do_1 = "Defect found at the 7.6 relaunch on 2026-10-24 (task 7.6, do_2) while diagnosing 7.11: on the owner's host (16 cores, 7589 commits, .codegraph 2.7 GB, artifacts/hyperfide/tasks 91762 files) `hyperfide spec trace -f codify-v04 --json` (285-line feature) takes 50-86 s with the default graph sync and 17 s with --no-sync; `-f hyperfide-v22` 86 s; `-f codify-v03` over 10 minutes; `spec status` takes under 200 ms. The whole run is in-process CPU (strace shows no child processes). spec_trace_cmd (src/spec.c) opens the graph per call and trace_task resolves every task's symbols, touches (vcs_changed_paths over tagged commits) and memories (memory_query) one task at a time. Fix: profile trace on this repository, remove the per-task repeated work (one history scan per feature, one memory query per feature, symbol lookups by prepared statement or batch), make the default sync incremental or skip it when the graph is fresh, and bring `spec trace -f hyperfide-v22 --json --no-sync` under 2 s and with sync under 5 s on a warm graph without changing the JSON shape."
+do_2 = "7_12.sh runs `hyperfide spec trace -f hyperfide-v22 --json --no-sync` and `--json` (default sync) on the repository with a warm graph, asserts both exit 0 with the same task set as before, and asserts the wall time is under 2 s and 5 s respectively (printing the timings); tests/hyperfide/cases for spec trace still pass."
+reqs = ["3.1"]
+owner = "source"

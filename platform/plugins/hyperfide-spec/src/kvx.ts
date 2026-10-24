@@ -44,6 +44,8 @@ export function featureFromKvx(id: string, source: string): Feature {
   const tasks: Task[] = [];
   for (const [section, fields] of blocks) {
     if (!section.startsWith('task.')) continue;
+    // Older specs use title-only task sections as group headings.
+    if (Object.keys(fields).every(key => key === 'title')) continue;
     const reqs = list(fields.reqs);
     const criteria = reqs.flatMap(req => {
       const [requirement, clause] = req.split('.');

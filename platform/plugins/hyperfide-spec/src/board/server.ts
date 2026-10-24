@@ -33,11 +33,12 @@ const run: CommandRunner = (binary, args, cwd) => new Promise((resolve, reject) 
 // Repository and binary are server configuration, never client supplied paths.
 export function createBoardServer(repository: string, readTasks: BoardRpc['tasks'],
   binary: string | undefined = undefined, execute: CommandRunner = run, suppliedStorage?: PluginStorage): BoardRpc {
+  // One malformed artifact directory (an entry without receipt.json) must not take the whole board down.
   const tasks = async (feature: string) => {
     const storage = suppliedStorage ?? await openSpecStorage(repository);
     try {
       const rows = await Promise.all((await readTasks(feature)).map(async task => ({
-        ...task, receipts: await taskReceipts(repository, task.id, `spec/${feature}/spec.kvx`), latestReceipt: await latestReceipt(repository, task.id),
+        ...task, receipts: await taskReceipts(repository, task.id, `spec/${feature}/spec.kvx`).catch(() => []), latestReceipt: (await latestReceipt(repository, task.id)) ?? null,
       })));
       await storage.put('board:' + feature, rows);
       return rows;
@@ -49,7 +50,7 @@ export function createBoardServer(repository: string, readTasks: BoardRpc['tasks
       const found = (await readTasks(feature)).find(task => task.id === id);
       if (!found) throw new Error(`Unknown task ${id}`);
       const memory = new DurableMemoryBridge({ ...process.env, ...(binary ? { HYPERFIDE_BIN: binary } : {}) });
-      return { ...found, latestReceipt: await latestReceipt(repository, id), recalledDecisions: await memory.recall({ repository, task: `${feature}/${id}` }) };
+      return { ...found, latestReceipt: (await latestReceipt(repository, id)) ?? null, recalledDecisions: await recalledDecisions(memory, repository, `${feature}/${id}`) };
     },
     async action(feature: string, id: string, action: BoardAction) {
       if (action !== 'start' && action !== 'implemented') throw new Error('Unsupported board action');
@@ -61,4 +62,13 @@ export function createBoardServer(repository: string, readTasks: BoardRpc['tasks
       await execute(binary ?? 'hyperfide', ['spec', action, id, '-f', feature], repository);
     },
   };
+}
+
+// A repository without a graph (or without `hyperfide recall`) still gets a task page: decisions are optional evidence.
+async function recalledDecisions(memory: { recall: (input: { repository: string; task: string }) => Promise<Task['recalledDecisions']> }, repository: string, task: string) {
+  try {
+    return (await memory.recall({ repository, task })) ?? [];
+  } catch {
+    return [];
+  }
 }

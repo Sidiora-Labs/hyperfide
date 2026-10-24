@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../../../.."
 fail() { echo "FAIL $*" >&2; exit 1; }
 
-grep -Eq '^## \[?2\.2\.0\]?( |$)' CHANGELOG.md || fail "CHANGELOG.md has no 2.2.0 section"
+grep -Eq '^## \[?v?2\.2\.0\]?( |$)' CHANGELOG.md || fail "CHANGELOG.md has no 2.2.0 section"
 echo "changelog: 2.2.0 section present"
 
 code_at=$(git log -1 --format=%ct -- platform src)

@@ -5,9 +5,95 @@
  */
 #include "cg.h"
 #include "sem_search.h"
+#include "sem_incremental.h"
+#include "index_health.h"
 #include <ctype.h>
 #include <strings.h>
 
+/* A metadata-only walk detects additions as well as edits and removals.
+ * Binary files have no graph rows; only those unmatched candidates need a
+ * content read, to detect when a formerly binary file becomes indexable. */
+static bool trace_candidate_binary(Cg *cg, const char *rel) {
+    char path[8192];
+    snprintf(path, sizeof path, "%s/%s", cg->root, rel);
+    size_t len;
+    char *data = read_entire_file(path, &len);
+    bool binary = data && looks_binary(data, len);
+    free(data);
+    return binary;
+}
+
+static bool trace_files_unchanged(Cg *cg) {
+    Ignore ig;
+    ignore_load(&ig, cg->root);
+    WalkSet walk = {0};
+    walk_parallel(cg->root, "", &ig, 2, 8L * 1024 * 1024, &walk);
+    ignore_free(&ig);
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT path,size,mtime_ns FROM files WHERE branch_id=?1 ORDER BY path");
+    sqlite3_bind_int64(st, 1, cg->branch_id);
+    bool same = true;
+    int wi = 0, rc;
+    while ((rc = sqlite3_step(st)) == SQLITE_ROW) {
+        const char *path = (const char *)sqlite3_column_text(st, 0);
+        while (wi < walk.n && strcmp(walk.v[wi].rel, path) < 0) {
+            if (!trace_candidate_binary(cg, walk.v[wi++].rel)) { same = false; break; }
+        }
+        if (!same || wi == walk.n || strcmp(walk.v[wi].rel, path) != 0 ||
+            sqlite3_column_type(st, 2) == SQLITE_NULL ||
+            walk.v[wi].size != sqlite3_column_int64(st, 1) ||
+            walk.v[wi].mtime_ns != sqlite3_column_int64(st, 2)) {
+            same = false;
+            break;
+        }
+        wi++;
+    }
+    if (rc != SQLITE_DONE && rc != SQLITE_ROW) same = false;
+    while (same && wi < walk.n)
+        if (!trace_candidate_binary(cg, walk.v[wi++].rel)) same = false;
+    sqlite3_finalize(st);
+    walkset_free(&walk);
+    return same;
+}
+
+/* Unchanged parser diagnostics do not make a completed read model stale.
+ * Qualification retries extraction; reports only refresh changed inputs or
+ * pending work, so even an older warm graph avoids another semantic pass. */
+bool graph_trace_is_fresh(Cg *cg) {
+    if (syncgate_is_dirty(cg) || sem_incremental_needs_run(cg)) return false;
+    char key[64];
+    cg_bkey(cg, "index_pending_resolve", key, sizeof key);
+    char *pending = cg_meta_get(cg, key);
+    bool dirty = pending && pending[0] == '1';
+    free(pending);
+    if (dirty) return false;
+    cg_bkey(cg, "last_index_at", key, sizeof key);
+    char *value = cg_meta_get(cg, key);
+    long at = value ? atol(value) : 0;
+    free(value);
+    if (at <= 0 || index_health_init(cg) != 0) return false;
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT 1 FROM files f LEFT JOIN extraction_health h"
+        " ON h.branch_id=f.branch_id AND h.path=f.path WHERE f.branch_id=?1"
+        " AND (h.status IS NULL OR h.status='failed' OR"
+        " (h.status<>'partial' AND coalesce(h.extraction_version,0)<>?2)) LIMIT 1");
+    sqlite3_bind_int64(st, 1, cg->branch_id);
+    sqlite3_bind_int(st, 2, CG_EXTRACTION_VERSION);
+    bool current = sqlite3_step(st) == SQLITE_DONE;
+    sqlite3_finalize(st);
+    return current && trace_files_unchanged(cg);
+}
+
+/* Reused for every symbol in a trace, including qualified-name fallbacks. */
+sqlite3_stmt *graph_trace_symbols_prepare(Cg *cg) {
+    return cg_prep(cg,
+        "SELECT s.kind, f.path, s.line,"
+        " (SELECT COUNT(*) FROM refs r JOIN files rf ON rf.id=r.file_id"
+        "   WHERE r.name = s.name AND (?2<=0 OR rf.branch_id = ?2))"
+        " FROM symbols s JOIN files f ON f.id = s.file_id"
+        " WHERE s.name = ?1 AND (?2<=0 OR f.branch_id = ?2)"
+        " ORDER BY s.decl, s.id");
+}
 /* ---------------- helpers ---------------- */
 
 static char *fts_quote(const char *q) {          /* "..." literal, "" escaped */

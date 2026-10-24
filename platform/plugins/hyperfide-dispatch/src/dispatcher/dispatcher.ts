@@ -13,6 +13,7 @@ export interface JobLedger {
   keyId: string;
   commits: string[];
   error?: string;
+  cancelled?: boolean;
 }
 export class Dispatcher {
   readonly jobs = new Map<string, JobLedger>();
@@ -67,6 +68,12 @@ export class Dispatcher {
       await this.options.spec.release(job.task, job.id);
     }
     this.initialized = true;
+    const control = await this.storage.get("fleet.control") as { cap?: number; paused?: boolean } | undefined;
+    await this.storage.put("fleet.control", {
+      cap: control?.cap ?? this.options.cap,
+      maximum: this.options.cap,
+      paused: control?.paused ?? false,
+    });
   }
   tick(): Promise<void> {
     const next = this.serial.then(() => this.schedule());
@@ -76,11 +83,14 @@ export class Dispatcher {
   private async schedule() {
     if (!this.initialized) throw new Error("Call start before tick");
     if (this.now() < this.backoffUntil) return;
+    const control = await this.storage.get("fleet.control") as { cap: number; paused: boolean } | undefined;
+    if (control?.paused) return;
     const limits = await this.options.limits();
     const cap = Math.max(
       0,
       Math.min(
         this.options.cap,
+        control?.cap ?? this.options.cap,
         limits.host,
         limits.global - limits.otherRunning,
       ),
@@ -149,6 +159,8 @@ export class Dispatcher {
         let machine: SandboxMachine | undefined;
         let retry = false;
         try {
+          if ((await this.storage.get("job:" + job.id) as JobLedger | undefined)?.cancelled)
+            throw new Error("Cancelled by operator");
           job.attempt = attempt;
           machine = await this.options.machines.create({
             fromCheckpoint: await this.options.checkpoint(),
@@ -172,6 +184,8 @@ export class Dispatcher {
             machine,
             key,
           );
+          if ((await this.storage.get("job:" + job.id) as JobLedger | undefined)?.cancelled)
+            throw new Error("Cancelled by operator");
           if (
             result.exitCode ||
             /\b429\b/.test((result.stdout ?? "") + (result.stderr ?? ""))
@@ -195,7 +209,8 @@ export class Dispatcher {
             });
           }
           job.state = "failed";
-          retry = attempt < 2;
+          job.cancelled = (await this.storage.get("job:" + job.id) as JobLedger | undefined)?.cancelled;
+          retry = attempt < 2 && !job.cancelled;
         } finally {
           if (machine) {
             try {

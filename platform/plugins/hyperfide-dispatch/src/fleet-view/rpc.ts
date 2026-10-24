@@ -71,5 +71,8 @@ export function registerFleetRpc(
   api: Pick<HyperfidePluginApi, "rpc">,
   backend: FleetBackend,
 ) {
-  api.rpc.register(fleetRpcContract, createFleetHandlers(backend));
+  api.rpc.register(fleetRpcContract, createFleetHandlers(backend), {
+    experimental_discoverable: true,
+    experimental_description: "Read and control the dispatch fleet",
+  });
 }

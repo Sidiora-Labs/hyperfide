@@ -76,6 +76,41 @@ async function fixture() {
   };
 }
 describe("dispatcher", () => {
+  it("honors fleet pause and cap controls from the shared persistent store", async () => {
+    const f = await fixture();
+    const storage = await openDispatchStorage(f.options.directory);
+    f.options.storage = storage;
+    const d = new Dispatcher(f.options);
+    try {
+      await d.start();
+      await storage.put("fleet.control", { cap: 1, maximum: 2, paused: true });
+      await d.tick();
+      expect(d.jobs.size).toBe(0);
+      await storage.put("fleet.control", { cap: 1, maximum: 2, paused: false });
+      await d.tick();
+      await d.drain();
+      expect(d.jobs.size).toBe(1);
+    } finally { d.close(); }
+  });
+  it("does not retry a running job cancelled through the shared store", async () => {
+    const f = await fixture();
+    f.tasks.splice(1);
+    const storage = await openDispatchStorage(f.options.directory);
+    f.options.storage = storage;
+    const d = new Dispatcher(f.options);
+    f.options.runner = { run: async () => {
+      const job = [...d.jobs.values()][0];
+      await storage.put("job:" + job.id, { ...job, cancelled: true });
+      return { exitCode: 0, commits: [] };
+    } };
+    try {
+      await d.start();
+      await d.tick();
+      await d.drain();
+      expect([...d.jobs.values()][0]).toMatchObject({ state: "failed", attempt: 1, cancelled: true });
+      expect(f.claimed.size).toBe(0);
+    } finally { d.close(); }
+  });
   it("does not claim without an available gateway key", async () => {
     const f = await fixture();
     f.options.keys = [];
