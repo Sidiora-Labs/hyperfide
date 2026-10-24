@@ -56,10 +56,12 @@ const safePath = (path: string) => {
   return path.replace(/\/$/, "");
 };
 export class SlicesProvider {
-  constructor(
-    readonly binary: string,
-    readonly dataDir: string,
-  ) {
+  readonly binary: string;
+  readonly dataDir: string;
+
+  constructor(binary: string, dataDir: string) {
+    this.binary = binary;
+    this.dataDir = dataDir;
     if (!binary.startsWith("/"))
       throw new Error("The Hyperfide binary path must be absolute");
   }

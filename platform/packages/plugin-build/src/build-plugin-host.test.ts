@@ -32,14 +32,19 @@ describe("plugin host build", () => {
     );
   });
 
-  it("builds a self-contained Node artifact with identity and digest metadata", async () => {
+  it.each([
+    "hyperfide-plugin-host-build-fixture",
+    "@hyperfide/hyperfide-host-build-fixture",
+  ])("builds a self-contained Node artifact for %s", async (packageName) => {
     const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-build-test-"));
     tempDirs.push(dir);
     await mkdir(join(dir, "dist"), { recursive: true });
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "hyperfide-plugin-host-build-fixture",
+        name: packageName,
+        type: "module",
+        exports: { "./helper": "./helper.ts" },
         version: "1.2.3",
         engines: { hyperfide: ">=0.0" },
         hyperfide: {
@@ -56,10 +61,20 @@ describe("plugin host build", () => {
       "export default function plugin() {}\n",
     );
     await writeFile(
+      join(dir, "helper.ts"),
+      'export { marker } from "./marker.js";',
+    );
+    await writeFile(
+      join(dir, "marker.ts"),
+      'export const marker = "from-artifact";',
+    );
+    await writeFile(
       join(dir, "host.ts"),
       [
         'import { experimental_defineHostEntry, type ExperimentalHostEntry } from "@hyperfide/plugin-sdk/host";',
         'import { defineRpcContract } from "@hyperfide/plugin-sdk";',
+        `import { marker } from "${packageName}/helper";`,
+        "export { marker };",
         'const schema = { "~standard": { validate(value: unknown) { return { value }; } } };',
         "const contract = defineRpcContract({ echo: {",
         "  input: schema,",
@@ -91,7 +106,10 @@ describe("plugin host build", () => {
 
     expect(bundle).not.toMatch(/from\s+["']@hyperfide\/plugin-sdk/u);
     expect(metadata).toMatchObject({
-      pluginId: "host-build-fixture",
+      pluginId:
+        packageName === "hyperfide-plugin-host-build-fixture"
+          ? "host-build-fixture"
+          : "hyperfide-host-build-fixture",
       pluginVersion: "1.2.3",
       builtWith: { hyperfideVersion: "0.9.0-test" },
       artifactDigest: result.artifactDigest,
@@ -107,6 +125,9 @@ describe("plugin host build", () => {
         handlers: { echo: (input: string) => string };
       };
     };
+    expect((builtEntry as unknown as { marker: string }).marker).toBe(
+      "from-artifact",
+    );
     expect(builtEntry.default.experimental_apiVersion).toBe(1);
     expect(builtEntry.default.experimental_signals).toHaveProperty("changed");
     expect(builtEntry.default.handlers.echo("from-artifact")).toBe(
@@ -115,7 +136,9 @@ describe("plugin host build", () => {
   });
 
   it("removes old host staging directories without deleting an active concurrent build", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-stage-cleanup-test-"));
+    const dir = await mkdtemp(
+      join(tmpdir(), "hyperfide-host-stage-cleanup-test-"),
+    );
     tempDirs.push(dir);
     const distDir = join(dir, "dist");
     await mkdir(join(distDir, ".host-stage-abandoned"), { recursive: true });
@@ -340,7 +363,9 @@ describe("plugin host build", () => {
     });
 
     it("names the unbuilt SDK dist when the package is installed without it", async () => {
-      const dir = await mkdtemp(join(tmpdir(), "hyperfide-host-unbuilt-sdk-test-"));
+      const dir = await mkdtemp(
+        join(tmpdir(), "hyperfide-host-unbuilt-sdk-test-"),
+      );
       tempDirs.push(dir);
       await writeFixture(dir);
       const sdkDir = join(dir, "node_modules", "@hyperfide", "plugin-sdk");
@@ -379,6 +404,10 @@ describe("plugin host build", () => {
       'if (false) require("../private-package/index.js"); export default 1;',
     ],
     [
+      "same package name outside root",
+      'import { value } from "../private-package/index.js"; export default value;',
+    ],
+    [
       "relative value",
       'import { value } from "../private-package/index.js"; export default value;',
     ],
@@ -410,7 +439,9 @@ describe("plugin host build", () => {
     ["alias", 'import { value } from "private-alias"; export default value;'],
     ["transitive", 'export { default } from "./helper.js";'],
   ])("rejects private packages reached by %s", async (_name, source) => {
-    const parent = await mkdtemp(join(tmpdir(), "hyperfide-host-private-graph-"));
+    const parent = await mkdtemp(
+      join(tmpdir(), "hyperfide-host-private-graph-"),
+    );
     tempDirs.push(parent);
     const dir = join(parent, "plugin");
     const privatePackage = join(parent, "private-package");
@@ -418,7 +449,13 @@ describe("plugin host build", () => {
     await mkdir(privatePackage);
     await writeFile(
       join(privatePackage, "package.json"),
-      JSON.stringify({ name: "@hyperfide/private-fixture", type: "module" }),
+      JSON.stringify({
+        name:
+          _name === "same package name outside root"
+            ? "@hyperfide/hyperfide-private-graph"
+            : "@hyperfide/private-fixture",
+        type: "module",
+      }),
     );
     await writeFile(
       join(privatePackage, "index.ts"),
@@ -437,7 +474,7 @@ describe("plugin host build", () => {
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "hyperfide-plugin-private-graph",
+        name: "@hyperfide/hyperfide-private-graph",
         version: "1.0.0",
         engines: { hyperfide: ">=0.0" },
         hyperfide: {
@@ -462,7 +499,11 @@ describe("plugin host build", () => {
     );
     await expect(
       buildPluginHost(dir, "0.9.0-test", await testToolchain()),
-    ).rejects.toThrow(/@hyperfide\/private-fixture/u);
+    ).rejects.toThrow(
+      _name === "same package name outside root"
+        ? /@hyperfide\/hyperfide-private-graph/u
+        : /@hyperfide\/private-fixture/u,
+    );
     expect(await readFile(join(dir, "dist", "host.js"), "utf8")).toBe(
       "previous validated artifact",
     );

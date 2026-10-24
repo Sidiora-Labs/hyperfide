@@ -775,7 +775,7 @@ owner = "qualification"
 
 [task.7.8]
 title = "Fix: environment-slices host entry rejected by the private-import guard"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.4"]
 touches = ["platform/packages/plugin-build/src/build-plugin-host.ts", "platform/packages/plugin-build/src/build-plugin-host.test.ts", "platform/plugins/environment-slices/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "tests/hyperfide/cases/v22/7_8.sh"]

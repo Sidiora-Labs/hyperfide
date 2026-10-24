@@ -9,7 +9,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { renameIntoPlace } from "./rename-into-place.js";
 import { createPluginArtifactMeta } from "./plugin-artifact-meta.js";
 import { zodLocaleStubPlugin } from "./zod-locale-stub.mjs";
@@ -296,7 +296,11 @@ async function readPluginHostConfig(rootDir: string): Promise<{
   } catch {
     throw new Error(`no readable valid package.json at ${packageJsonPath}`);
   }
-  if (!isRecord(json) || !isRecord(json.hyperfide) || json.hyperfide.host === undefined) {
+  if (
+    !isRecord(json) ||
+    !isRecord(json.hyperfide) ||
+    json.hyperfide.host === undefined
+  ) {
     throw new Error(
       `no host entry: ${packageJsonPath} has no "hyperfide": { "host": "./host.ts" } field`,
     );
@@ -310,7 +314,11 @@ async function readPluginHostConfig(rootDir: string): Promise<{
   if (host === undefined) {
     throw new Error(`no host entry in ${packageJsonPath}`);
   }
-  const hostEntry = await resolveManifestEntryFile(rootDir, host, "hyperfide.host");
+  const hostEntry = await resolveManifestEntryFile(
+    rootDir,
+    host,
+    "hyperfide.host",
+  );
   return {
     hostEntry,
     packageName: manifest.name,
@@ -354,6 +362,21 @@ export async function buildPluginHost(
   const { hostEntry, packageName, pluginVersion } =
     await readPluginHostConfig(rootDir);
   const workingDir = await realpath(rootDir);
+  const isOwnSpecifier = (specifier: string) =>
+    specifier === packageName || specifier.startsWith(`${packageName}/`);
+  const isForbiddenOwner = (
+    owner: string | null,
+    file: string,
+  ): owner is string => {
+    const pathFromRoot = relative(workingDir, file);
+    const withinRoot =
+      pathFromRoot !== ".." &&
+      !pathFromRoot.startsWith(`..${sep}`) &&
+      !isAbsolute(pathFromRoot);
+    return (
+      isPrivateWorkspacePackage(owner) && !(owner === packageName && withinRoot)
+    );
+  };
   const distDir = join(rootDir, "dist");
   await mkdir(distDir, { recursive: true });
   const jsPath = join(distDir, "host.js");
@@ -453,7 +476,7 @@ export async function buildPluginHost(
           name: "reject-private-hyperfide-host-imports",
           setup(build) {
             build.onResolve({ filter: /^@hyperfide(?:\/|$)/ }, (args) =>
-              isPrivateWorkspacePackage(args.path)
+              isPrivateWorkspacePackage(args.path) && !isOwnSpecifier(args.path)
                 ? { errors: [{ text: privateHyperfideImportError(args.path) }] }
                 : undefined,
             );
@@ -462,7 +485,7 @@ export async function buildPluginHost(
                 args.path,
                 packageNameByDirectory,
               );
-              if (isPrivateWorkspacePackage(owner)) {
+              if (isForbiddenOwner(owner, args.path)) {
                 return {
                   errors: [{ text: privateHyperfideImportError(owner) }],
                 };
@@ -470,7 +493,10 @@ export async function buildPluginHost(
               const source = await readFile(args.path, "utf8");
               const specifiers = sourceImportSpecifiers(source);
               for (const specifier of specifiers) {
-                if (isPrivateWorkspacePackage(specifier)) {
+                if (
+                  isPrivateWorkspacePackage(specifier) &&
+                  !isOwnSpecifier(specifier)
+                ) {
                   return {
                     errors: [{ text: privateHyperfideImportError(specifier) }],
                   };
@@ -497,7 +523,7 @@ export async function buildPluginHost(
     for (const [input, metadata] of Object.entries(bundle.metafile.inputs)) {
       const importer = resolve(workingDir, input);
       const owner = await owningPackageName(importer, packageNameByDirectory);
-      if (isPrivateWorkspacePackage(owner))
+      if (isForbiddenOwner(owner, importer))
         throw new Error(privateHyperfideImportError(owner));
       const bundledImports = new Set(
         metadata.imports
@@ -541,10 +567,13 @@ export async function buildPluginHost(
                     : resolved;
                 },
               );
-              build.onResolve({ filter: /^hyperfide-host-imports:/ }, (args) => ({
-                path: args.path,
-                namespace: "hyperfide-host-imports",
-              }));
+              build.onResolve(
+                { filter: /^hyperfide-host-imports:/ },
+                (args) => ({
+                  path: args.path,
+                  namespace: "hyperfide-host-imports",
+                }),
+              );
               build.onLoad(
                 { filter: /.*/, namespace: "hyperfide-host-imports" },
                 (args) => {
@@ -571,8 +600,10 @@ export async function buildPluginHost(
                     args.path,
                     packageNameByDirectory,
                   );
-                  if (isPrivateWorkspacePackage(owner))
-                    return { errors: [{ text: privateHyperfideImportError(owner) }] };
+                  if (isForbiddenOwner(owner, args.path))
+                    return {
+                      errors: [{ text: privateHyperfideImportError(owner) }],
+                    };
                   return { contents: "", loader: "js" };
                 },
               );
