@@ -10,7 +10,6 @@
 
 **The agent workflow tool that scales from small, simple projects to large, complex codebases.**
 
-The local CLI is pure C11: one binary, one SQLite database, no telemetry.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 [![Language: C11](https://img.shields.io/badge/Language-C11-lightgrey?style=for-the-badge)](#)
