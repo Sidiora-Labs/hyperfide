@@ -12,7 +12,7 @@ cd "$repo"
 # only together with the task list in spec/hyperfide/spec.kvx.
 expect_manifests=125
 expect_registrations=125
-expect_full_registrations=2
+expect_full_registrations=58   # V-001..V-069 after the 7.11 area registrations; variants (V-NNN.<variant>.json) are not counted
 
 fail=0
 bad() { echo "FAIL $*"; fail=1; }
