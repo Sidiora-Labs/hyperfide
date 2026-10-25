@@ -7,6 +7,7 @@ export default defineWorkspaceTestConfig({
   test: {
     silent: "passed-only",
     testTimeout: 30_000,
+    hookTimeout: 30_000,
     expect: { poll: { timeout: 10_000, interval: 25 } },
     globalSetup: [
       "test/setup/migrated-db-template.ts",
