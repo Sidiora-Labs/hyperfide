@@ -1010,7 +1010,7 @@ owner = "platform"
 
 [task.7.25]
 title = "Sidebar bootstrap refetches coalesce under realtime churn instead of cancelling each other"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.23"]
 touches = ["platform/apps/app/src/hooks/cache-owners/realtime-cache-registry.ts", "platform/apps/app/src/hooks/realtime-cache-effects.ts", "platform/apps/app/src/hooks/realtime-cache-effects.test.ts", "platform/apps/app/src/hooks/queries/sidebar-navigation-query.ts", "platform/apps/app/src/hooks/queries/sidebar-navigation-query.test.tsx", "tests/hyperfide/cases/v22/7_25.sh"]
@@ -1020,3 +1020,4 @@ do_2 = "Design: keys returned by the thread dirty handlers that back large list 
 do_3 = "7_25.sh runs the @hyperfide/app typecheck, realtime-cache-effects.test.ts, realtime-cache-effects.coarse-pointer.test.ts and sidebar-navigation-query.test.tsx; realtime-cache-effects.test.ts gains a regression test in which a sidebar-bootstrap fetch is in flight while twenty debounced thread changes arrive over two seconds, asserting the in-flight fetch is never aborted (its AbortSignal stays un-aborted), at most two fetches run in total, and the sidebar data is fresh after the last change."
 reqs = ["1.1"]
 owner = "platform"
+do_4 = "Implemented debounced sidebar/search invalidation with the existing non-cancelling trailing-refetch helper; immediate paths and debounce cadence stay unchanged. Regression proves twenty changes preserve AbortSignals, coalesce to two fetches and refresh the final data. 7_25.sh passes app typecheck and all 94 tests."

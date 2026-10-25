@@ -217,6 +217,7 @@ function flushThreadInvalidations(
   const flushOnce = createFlushOncePredicate();
   for (const changeKind of state.globalChangeKinds) {
     executeRealtimeDirtyHandlers({
+      coalesceListRefetches: true,
       context: {
         backgroundActivityChanged: undefined,
         eventTypes: undefined,
@@ -236,6 +237,7 @@ function flushThreadInvalidations(
     const metadata = state.metadataByThreadId.get(threadId);
     for (const changeKind of changeKinds) {
       executeRealtimeDirtyHandlers({
+        coalesceListRefetches: true,
         context: {
           backgroundActivityChanged: metadata?.backgroundActivityChanged,
           eventTypes: metadata?.eventTypes,

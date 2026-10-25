@@ -623,6 +623,7 @@ interface ExecuteRealtimeDirtyHandlersArgs<
 > {
   context: Context;
   handlers: readonly RealtimeDirtyHandler<Context>[];
+  coalesceListRefetches?: boolean;
 }
 
 interface ThreadRealtimePatchContext {
@@ -669,14 +670,30 @@ type SystemChangeRegistry = Partial<Record<SystemChangeKind, SystemChangeRule>>;
 
 export function executeRealtimeDirtyHandlers<
   Context extends RealtimeDirtyContext,
->({ context, handlers }: ExecuteRealtimeDirtyHandlersArgs<Context>): void {
+>({
+  context,
+  handlers,
+  coalesceListRefetches = false,
+}: ExecuteRealtimeDirtyHandlersArgs<Context>): void {
   for (const handler of handlers) {
     const queryKeys = handler(context);
     if (!queryKeys) {
       continue;
     }
     for (const queryKey of queryKeys) {
-      context.queryClient.invalidateQueries({ queryKey });
+      if (
+        coalesceListRefetches &&
+        (queryKey[0] === sidebarNavigationQueryKey()[0] ||
+          queryKey[0] === threadSearchQueryKeyPrefix()[0])
+      ) {
+        // Large list reads must finish before one trailing refresh catches up.
+        invalidateQueryKeysWithoutCancelingActiveFetches({
+          queryClient: context.queryClient,
+          queryKeys: [queryKey],
+        });
+      } else {
+        context.queryClient.invalidateQueries({ queryKey });
+      }
     }
   }
 }
