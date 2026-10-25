@@ -11,6 +11,7 @@ interface RemoteServerStartupError {
 
 export interface LoadRemoteServerPageArgs {
   isCurrent(): boolean;
+  wasAuthCancelled?(): boolean;
   loadStartupError(args: RemoteServerStartupError): Promise<void>;
   loadUrl(args: { url: string }): Promise<void>;
   logWarning(message: string): void;
@@ -40,6 +41,11 @@ export async function loadRemoteServerPage(
     return true;
   } catch (error) {
     if (!args.isCurrent()) {
+      return false;
+    }
+    if (args.wasAuthCancelled?.()) {
+      await args.loadStartupError({ actions: [{ id: "choose-server", label: "Choose server…" }],
+        title: "This server asks for a username and password", details: "Choose a server to continue.", logs: "" });
       return false;
     }
     const label = describeServerUrl(args.serverUrl);
