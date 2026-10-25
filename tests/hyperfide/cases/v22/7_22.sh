@@ -1,19 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-step() {
-  local name="$1"; shift
-  local start=$SECONDS rc=0
-  "$@" || rc=$?
-  echo "7.22: $name $((SECONDS-start))s exit=$rc"
-  return "$rc"
-}
-step typecheck pnpm -C platform --filter @hyperfide/desktop typecheck
-step tests pnpm -C platform --filter @hyperfide/desktop test
-step build pnpm -C platform exec turbo run build --filter=@hyperfide/desktop
-step 'login handler registered' grep -rqE 'on\(\s*"login"' platform/apps/desktop/src
-step 'probe reports auth-required' grep -qE '"auth-required"' platform/apps/desktop/src/server-probe.ts
-step 'credentials stored with safeStorage' grep -rqE 'safeStorage' platform/apps/desktop/src
-step 'basic credentials dialog exists' bash -c 'ls platform/apps/desktop/src/*credential*.ts >/dev/null 2>&1 || ls platform/apps/desktop/src/*basic-auth*.ts >/dev/null 2>&1'
-step 'no password reaches a log call' bash -c '! grep -rnE "(log|warn|error|info)[A-Za-z]*\([^)]*\bpassword\b" platform/apps/desktop/src --include=*.ts | grep -v "\.test\.ts"'
-step 'readme documents basic auth' grep -qiE 'basic auth' platform/apps/desktop/README.md
+pnpm -C platform --filter @hyperfide/desktop-contract typecheck
+pnpm -C platform --filter @hyperfide/desktop-contract test
+pnpm -C platform --filter @hyperfide/desktop typecheck
+pnpm -C platform --filter @hyperfide/desktop test
+pnpm -C platform --filter @hyperfide/desktop build
+python3 - <<'PY'
+from pathlib import Path
+import re
+root = Path('platform/apps/desktop/src')
+main = (root / 'main.ts').read_text()
+assert 'app.on("login"' in main
+assert 'event.preventDefault()' in main
+assert 'safeStorage' in main
+assert '"auth-required"' in (root / 'server-probe.ts').read_text()
+store = (root / 'server-credentials.ts').read_text()
+assert 'encryptString' in store and 'decryptString' in store
+assert 'isEncryptionAvailable' in store
+for path in root.rglob('*.ts'):
+    source = path.read_text()
+    # Capture complete log argument expressions, including multiline calls.
+    for call in re.finditer(r'(?:\bconsole|\b\w*[Ll]ogger)\.(?:log|debug|info|warn|error)\s*\(', source):
+        start = call.end()
+        depth, end = 1, start
+        while depth and end < len(source):
+            depth += (source[end] == '(') - (source[end] == ')')
+            end += 1
+        assert not re.search(r'password', source[start:end], re.I), f'password in log call: {path}'
+assert 'Servers behind HTTP basic auth' in Path('platform/apps/desktop/README.md').read_text()
+assert Path('platform/apps/desktop/dist/main.js').is_file()
+assert 'data-credentials' in Path('platform/apps/desktop/dist/server-url-dialog-preload.cjs').read_text()
+PY

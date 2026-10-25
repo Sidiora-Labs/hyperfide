@@ -963,7 +963,7 @@ owner = "app"
 
 [task.7.22]
 title = "Desktop shell signs in to a hyperfide-platform server behind HTTP basic authentication"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = []
 touches = ["platform/apps/desktop/src/**", "platform/apps/desktop/test/**", "platform/apps/desktop/README.md", "platform/packages/desktop-contract/src/**", "tests/hyperfide/cases/v22/7_22.sh"]
