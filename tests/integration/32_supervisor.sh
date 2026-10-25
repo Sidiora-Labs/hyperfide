@@ -281,9 +281,12 @@ retries = 1' setup_repo
     [ "$(run_state)" = blocked ] || fail "run state $(run_state)"
     [ "$(run_field reason)" = "blocked: 2.1" ] || fail "reason $(run_field reason)"
     [ "$(spawns 2.1)" = 2 ] || fail "2.1 should run exactly twice (1 retry), ran $(spawns 2.1)"
-    nudges=$(count supervisor.stall 'json.loads(l)["payload"]["action"] == "nudge"')
+    # only the stalled worker's own events: under load the wave manager can
+    # idle past the 1s window while it handles the escalation and be nudged too
+    nudges=$(count supervisor.stall 'json.loads(l)["payload"]["task"] == "2.1" and json.loads(l)["payload"]["action"] == "nudge"')
     [ "$nudges" = 2 ] || fail "one nudge per attempt (expected 2 nudges across 2 attempts, saw $nudges)"
-    [ "$(count supervisor.stall 'json.loads(l)["payload"]["action"] == "stop"')" = 2 ] || fail "one stop per attempt"
+    stops=$(count supervisor.stall 'json.loads(l)["payload"]["task"] == "2.1" and json.loads(l)["payload"]["action"] == "stop"')
+    [ "$stops" = 2 ] || fail "one stop per attempt (expected 2 stops across 2 attempts, saw $stops)"
     [ "$(count supervisor.escalate 'json.loads(l)["payload"]["agent"] == "wm-fleet-1"')" = 1 ] || fail "escalation to the wave's manager"
     [ "$(count supervisor.blocked 'json.loads(l)["payload"]["to"] == "main"')" = 1 ] || fail "escalation to main"
     steer="$(evk agent.steer)"
