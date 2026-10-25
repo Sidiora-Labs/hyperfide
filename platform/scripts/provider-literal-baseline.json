@@ -1,13 +1,18 @@
 {
   "_comment": "Provider-literal ratchet (G1). Per-file occurrence count of provider-ID references in core. May only go DOWN. Regenerate: node scripts/check-provider-literal-ratchet.mjs --write. Every counted file must have an `allowlist` entry (count, reason, owner, diesAt); the entries are authored by hand and survive --write. Delete this file and the guard when empty.",
-  "total": 14,
+  "total": 34,
   "files": {
+    "apps/app/src/components/settings/ImportSessionsSettingsSection.tsx": 3,
+    "apps/app/src/components/settings/settings-search.ts": 1,
     "apps/demo-server/src/fixtures/providers.ts": 3,
     "apps/demo-server/src/fixtures/world.ts": 2,
     "apps/server/src/services/threads/thread-edit-message.ts": 1,
+    "apps/server/src/services/threads/thread-import/service.ts": 13,
     "packages/config/src/hyperfide-app-managed-config.ts": 4,
     "packages/scripts/src/commands/archive-codex-tmp-hyperfide-sessions.ts": 1,
-    "packages/scripts/src/lib/seed-perf-fixture.ts": 3
+    "packages/scripts/src/lib/seed-perf-fixture.ts": 3,
+    "packages/server-contract/src/api/threads.ts": 2,
+    "plugins/hyperfide-dispatch/src/server-runtime.ts": 1
   },
   "allowlist": {
     "apps/demo-server/src/fixtures/providers.ts": {
@@ -45,6 +50,36 @@
       "reason": "perf fixture generator: seeds threads for two providers so the timeline benchmark covers both shapes.",
       "owner": "owner-accepted (fixture)",
       "diesAt": "never (fixture)"
+    },
+    "apps/server/src/services/threads/thread-import/service.ts": {
+      "count": 13,
+      "reason": "session import (hyperfide-v22 7.21): the on-disk transcript formats it can read are named after the tools that wrote them; the names select a parser, not a provider.",
+      "owner": "hyperfide-v22 (task 7.23 removes them)",
+      "diesAt": "hyperfide-v22 7.23: import source kinds and fleet runner kinds move behind registries, after which these entries are deleted"
+    },
+    "packages/server-contract/src/api/threads.ts": {
+      "count": 2,
+      "reason": "session import (hyperfide-v22 7.21): the threadImportSourceKind wire enum names the transcript formats the server can import.",
+      "owner": "hyperfide-v22 (task 7.23 removes them)",
+      "diesAt": "hyperfide-v22 7.23: import source kinds and fleet runner kinds move behind registries, after which these entries are deleted"
+    },
+    "apps/app/src/components/settings/ImportSessionsSettingsSection.tsx": {
+      "count": 3,
+      "reason": "session import (hyperfide-v22 7.21): the settings section labels each discovered transcript source by its format.",
+      "owner": "hyperfide-v22 (task 7.23 removes them)",
+      "diesAt": "hyperfide-v22 7.23: import source kinds and fleet runner kinds move behind registries, after which these entries are deleted"
+    },
+    "apps/app/src/components/settings/settings-search.ts": {
+      "count": 1,
+      "reason": "session import (hyperfide-v22 7.21): a search keyword so the import section is found by the tool name.",
+      "owner": "hyperfide-v22 (task 7.23 removes them)",
+      "diesAt": "hyperfide-v22 7.23: import source kinds and fleet runner kinds move behind registries, after which these entries are deleted"
+    },
+    "plugins/hyperfide-dispatch/src/server-runtime.ts": {
+      "count": 1,
+      "reason": "fleet dispatch (hyperfide-v22 7.19): the runner enum names the sandbox agent CLIs a fleet image can carry.",
+      "owner": "hyperfide-v22 (task 7.23 removes them)",
+      "diesAt": "hyperfide-v22 7.23: import source kinds and fleet runner kinds move behind registries, after which these entries are deleted"
     }
   }
 }
