@@ -132,6 +132,7 @@ do_1 = "Apply the identifier rules of the rename map for the package scope and p
 do_2 = "Reinstall with pnpm (no frozen lockfile) so platform/pnpm-lock.yaml follows the new names, then install again with --frozen-lockfile to prove it is settled. Fix every typecheck error the rename surfaces without changing behaviour."
 do_3 = "0_2.sh asserts: no file under platform/ outside node_modules contains the former scope; `pnpm -C platform install --frozen-lockfile` succeeds; `pnpm -C platform typecheck` succeeds; `pnpm -C platform exec turbo run test --filter=./packages/plugin-sdk --filter=./packages/config --filter=./apps/server` passes."
 do_4 = "Baseline repair 2026-10-25: identity_gate.py flagged the base64 raster bytes embedded in platform/assets/hyperfide-logo-*.svg and the CHANGELOG line naming the sole permitted attribution directory; both are unrelated to the former identity and are now listed in identity_allowlist.txt with an exception regex (gate: 9742 tracked files, 0 hits)."
+do_5 = "Baseline repair 2026-10-25 (4534fbfab): the environment-personal-workspace, environment-git-worktree and account-pool test files returned numbers from progress and dispose hooks typed void; fixed so the plugin typechecks pass with the current SDK types."
 reqs = ["1.1"]
 owner = "identity"
 
@@ -171,6 +172,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/0_5.sh"
 do_1 = "Remove the analytics clients (the segment and posthog integrations), their event calls, write keys, consent prompts, launcher flags and documentation; keep local logging. Leave dependency pruning from the manifests to 0.7 unless a package is used nowhere else, in which case remove it and reinstall."
 do_2 = "Every place that reported an event becomes either nothing or a local logger call at debug level; no environment flag for telemetry remains."
 do_3 = "0_5.sh asserts no tracked file under platform/ outside node_modules references segment, posthog, analytics write keys or a telemetry flag, and the launcher, scripts and server unit tests pass (`pnpm -C platform exec turbo run test --filter=./packages/scripts --filter=./apps/server`)."
+do_4 = "Baseline repair 2026-10-25 (b4b85e02d): hyperfide-dispatch and hyperfide-qualify build with the plugin-build CLI; the bundled-plugin test recognises both and turbo.json declares qualify's dependency on @hyperfide/plugin-build#build. The provider-literal ratchet baseline was raised through HYPERFIDE_RATCHET_ALLOW_INCREASE=1 for the five files that 7.19 and 7.21 touched, each allowlisted with a reason; task 7.23 removes them."
 reqs = ["1.3"]
 owner = "port"
 
@@ -398,6 +400,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/3_1.sh"
 do_1 = "Create platform/plugins/hyperfide-asks: the server part mirrors `hyperfide ask list --json` (id, task, kind, question, options, recommendation, status, deadline, raised_at) per repository with a watch on the ask store and realtime updates; RPCs list, get, answer (calls `hyperfide ask answer`), and the journal of answers."
 do_2 = "Kinds and their policy are data: secret, variable and permission block; decision and question proceed on the recommendation and are flagged; the policy is readable over RPC so other plugins never hard-code it."
 do_3 = "3_1.sh runs the plugin tests against a fixture ask store (shape, watch, answer round trip, policy table) plus typecheck and identity_gate.py --changed."
+do_4 = "Baseline repair 2026-10-25 (22a5873e3): the inbox test that answers every ask kind through the real binary exceeded the 15 s default on loaded workers; it now has a 60 s budget."
 reqs = ["4.1"]
 owner = "ask"
 
@@ -610,6 +613,7 @@ verify_cmd = "python3 tests/hyperfide/cases/v22/5_7.py"
 do_1 = "5_7.py runs a three-task spec (A, B requires A, C requires A) through image builder, dispatcher, echo runner, collect and integrate in the fixture platform with the fake machine provider: A first, then B and C in parallel, all merged with tags."
 do_2 = "The case asserts the ledgers, the merge commits, the spec statuses and the dashboard RPC output."
 do_3 = "SKIP 77 with a reason when the platform build is absent."
+do_4 = "Baseline repair 2026-10-25 (563fc6dfe): since 7.19 the dispatcher starts paused with cap 0 until an operator writes fleet.control; the fixture now resumes it the way the fleet view does, otherwise no job is ever claimed."
 reqs = ["6.4"]
 owner = "qualification"
 
@@ -974,3 +978,17 @@ do_3 = "Tests: vitest units for the probe (401 without credentials gives auth-re
 reqs = ["1.1"]
 owner = "app"
 
+
+
+[task.7.23]
+title = "Import source kinds and fleet runner kinds leave core's provider-id surface"
+status = "pending"
+wave = 7
+requires = ["7.19", "7.21"]
+touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/packages/server-contract/src/api/threads.ts", "platform/apps/app/src/components/settings/ImportSessionsSettingsSection.tsx", "platform/apps/app/src/components/settings/settings-search.ts", "platform/plugins/hyperfide-dispatch/src/**", "platform/plugins/codex/**", "platform/plugins/claude-code/**", "platform/packages/plugin-sdk/src/**", "platform/scripts/provider-literal-baseline.json", "tests/hyperfide/cases/v22/7_23.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_23.sh"
+do_1 = "Gap: 7.19 and 7.21 added provider-id literals to five core files (session import source kinds, fleet runner enum); guardrail G1 (platform/scripts/check-provider-literal-ratchet.mjs) was raised with its override and the files allowlisted, which the guard permits only with a follow-up task that removes them."
+do_2 = "Design: import sources become a registry the provider plugins fill (kind, label, keywords, discover, parse); the wire enum becomes a string validated against the registered kinds; the settings section reads labels and keywords from the server; the dispatch runner enum reads the runner kinds the registered fleet images carry. The scanner is not weakened and no literal is renamed to dodge it."
+do_3 = "7_23.sh runs the ratchet (must pass without override), asserts the five allowlist entries are gone and the total is back at or below 14, and runs the scripts suite and the thread-import tests."
+reqs = ["1.1"]
+owner = "platform"
