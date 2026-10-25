@@ -91,6 +91,7 @@ import Refresh01Icon from "@hugeicons/core-free-icons/Refresh01Icon";
 import RepeatIcon from "@hugeicons/core-free-icons/RepeatIcon";
 import SecurityCheckIcon from "@hugeicons/core-free-icons/SecurityCheckIcon";
 import SentIcon from "@hugeicons/core-free-icons/SentIcon";
+import ServerStack01Icon from "@hugeicons/core-free-icons/ServerStack01Icon";
 import SidebarBottomIcon from "@hugeicons/core-free-icons/SidebarBottomIcon";
 import SidebarRightIcon from "@hugeicons/core-free-icons/SidebarRightIcon";
 import SmartPhone01Icon from "@hugeicons/core-free-icons/SmartPhone01Icon";
@@ -332,6 +333,7 @@ export const EXTENDED_ICON_MAP: ExtendedIconMap = {
   RotateCcw: Refresh01Icon,
   Rows2: LayoutTwoRowIcon,
   Sent: SentIcon,
+  Server: ServerStack01Icon,
   SideChat: MessageAdd02Icon,
   Smartphone: SmartPhone01Icon,
   Sort: Sorting01Icon,
