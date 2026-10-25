@@ -370,6 +370,9 @@ Read the installed declarations for exact current signatures.
 - `ThreadChatMessageAction`
 - `ThreadChatMessageReference`
 - `ThreadChatProps`
+- `ThreadImportSourceDefinition`
+- `ThreadImportIO`
+- `ImportedSession`
 - `UrlLinkProps`
 
 ## `@hyperfide/plugin-sdk/environment-provider`
