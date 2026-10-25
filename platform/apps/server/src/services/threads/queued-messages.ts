@@ -807,6 +807,28 @@ export async function sendQueuedMessage(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: SendQueuedMessageArgs,
 ): Promise<ThreadQueuedMessage> {
+  // Hold admission before claiming: a clear must never hide a retained row
+  // behind a claim belonging to a dispatch it cannot accept.
+  try {
+    return await withThreadSendGuard(args.threadId, () =>
+      sendQueuedMessageWithContextGuard(deps, args),
+    );
+  } catch (error) {
+    if (!(error instanceof ThreadContextClearInProgressError)) throw error;
+    const existing = await getQueuedThreadMessage(
+      deps.db,
+      args.queuedMessageId,
+    );
+    if (!existing || existing.threadId !== args.threadId)
+      throw new ApiError(404, "invalid_request", "Queued message not found");
+    return toThreadQueuedMessage(existing);
+  }
+}
+
+async function sendQueuedMessageWithContextGuard(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  args: SendQueuedMessageArgs,
+): Promise<ThreadQueuedMessage> {
   const sendNow = args.claimPolicy.kind === "explicit-send";
   const queuedMessages = await claimQueuedThreadMessageForSend(deps, args);
   if (queuedMessages.length === 0) {
@@ -883,6 +905,22 @@ export async function sendQueuedMessageNow(
 }
 
 export async function sendNextQueuedMessageIfPresent(
+  deps: LoggedPendingInteractionWorkSessionDeps,
+  args: { threadId: string },
+): Promise<boolean> {
+  // Hold admission before claiming: a clear must never hide a retained row
+  // behind a claim belonging to a dispatch it cannot accept.
+  try {
+    return await withThreadSendGuard(args.threadId, () =>
+      sendNextQueuedMessageIfPresentWithContextGuard(deps, args),
+    );
+  } catch (error) {
+    if (!(error instanceof ThreadContextClearInProgressError)) throw error;
+    return false;
+  }
+}
+
+async function sendNextQueuedMessageIfPresentWithContextGuard(
   deps: LoggedPendingInteractionWorkSessionDeps,
   args: { threadId: string },
 ): Promise<boolean> {

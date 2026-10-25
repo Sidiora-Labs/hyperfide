@@ -207,11 +207,16 @@ describe("context clear dispatch races", () => {
               }),
             ).resolves.toBe(true);
           }
+          // Competing drains must be rejected before they claim the retained row.
           await expect(
-            sendNextQueuedMessageIfPresent(harness.deps, {
-              threadId: thread.id,
-            }),
-          ).resolves.toBe(false);
+            Promise.all(
+              Array.from({ length: 4 }, () =>
+                sendNextQueuedMessageIfPresent(harness.deps, {
+                  threadId: thread.id,
+                }),
+              ),
+            ),
+          ).resolves.toEqual([false, false, false, false]);
           expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual(
             [expect.objectContaining({ claimedAt: null, failureReason: null })],
           );

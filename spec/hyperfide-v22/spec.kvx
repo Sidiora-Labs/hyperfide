@@ -996,7 +996,7 @@ owner = "platform"
 
 [task.7.24]
 title = "Queued notices and desktop tab owners survive concurrent writes on PostgreSQL"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.23"]
 touches = ["platform/apps/server/src/services/threads/queued-messages.ts", "platform/apps/server/src/services/threads/parent-system-messages.ts", "platform/apps/server/src/services/threads/thread-context-clear.ts", "platform/apps/server/src/services/threads/thread-send.ts", "platform/apps/server/src/services/desktop-browsers.ts", "platform/apps/server/test/desktop-browsers.test.ts", "platform/apps/server/test/public/public-thread-context-clear-dispatch.test.ts", "tests/hyperfide/cases/v22/7_24.sh"]
@@ -1004,5 +1004,6 @@ verify_cmd = "bash tests/hyperfide/cases/v22/7_24.sh"
 do_1 = "Gap: the 6.1 server suites on PostgreSQL under sandbox load lost (a) a parent system notice queued while a context clear was in flight (public-thread-context-clear-dispatch.test.ts:215 saw [] where the retained notice was expected) and (b) the desktop tab owner after two windows restored the same orphan concurrently (desktop-browsers.test.ts:1113 saw environmentId null instead of the winning desktopTarget). Both passed on SQLite in the same run."
 do_2 = "Design: reproduce on PostgreSQL under load first (run the two files repeatedly with another vitest suite running). Where the product violates the contract (a notice queued during a clear must survive the clear; exactly one restore wins and its owner is stored), fix the ordering in the server (transaction or claim before delete, compare-and-set on the owner) rather than the test. Only where the state is correct once writes settle may the test wait for it, and then with vi.waitFor and an explicit budget, never by dropping the assertion."
 do_3 = "7_24.sh runs both files once on SQLite and five consecutive times on PostgreSQL through tests/hyperfide/support/withpg.py; every run must pass."
+do_4 = "Implemented: queue dispatch acquires the context-send guard before claiming rows, so concurrent drains cannot hide notices retained during clear. Desktop writes compare revisions atomically and orphan adoption retries conflicts before closing a duplicate. Tests exercise four concurrent drains and both restore completion orders. The first two unchanged PostgreSQL runs under a companion suite passed (0 failures); the companion thread-send-dispatch suite exposed a separate timing assertion. Verification passed 30 cases on SQLite and five consecutive PostgreSQL runs; server typecheck, Prettier and the 65-task workspace build passed. Full server suite: 3640 passed, 2 failed in shipped-skills-quality because unchanged backend-api-index.md has 503 lines (500 limit), 2 skipped. cg review timed out after 300 seconds; guard ran and anchors reported zero stale. No prerequisite adapter was needed."
 reqs = ["1.1"]
 owner = "platform"
