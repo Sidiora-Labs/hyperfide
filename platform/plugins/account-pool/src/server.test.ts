@@ -7024,7 +7024,7 @@ it("drains a streamed response before disposing the owned transport", async () =
     response.end("last");
   });
   cleanups.push(upstream.close);
-  const hooks: Array<() => void | Promise<void>> = [];
+  const hooks: Array<() => unknown> = [];
   const fixture = await createFixture({
     upstreamUrl: upstream.url,
     beforePlugin(host) {

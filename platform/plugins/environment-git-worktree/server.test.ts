@@ -59,8 +59,12 @@ async function setup(
   const steps: string[] = [];
   const logs: string[] = [];
   const report: PluginEnvironmentProviderProgress = {
-    step: (text) => steps.push(text),
-    log: (text) => logs.push(text),
+    step: (text) => {
+      steps.push(text);
+    },
+    log: (text) => {
+      logs.push(text);
+    },
   };
   const signal = new AbortController().signal;
   const context: PluginEnvironmentProviderCreateContext = {
