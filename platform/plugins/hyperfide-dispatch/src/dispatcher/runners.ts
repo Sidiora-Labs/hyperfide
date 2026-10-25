@@ -1,3 +1,7 @@
+import {
+  CLAUDE_RUNNER_KIND,
+  claudeDispatchCommand,
+} from "../../../provider-claude-code/src/dispatch-command.js";
 import type { TaskRunner } from "./contracts";
 import {
   CODEX_RUNNER_KIND,
@@ -23,7 +27,7 @@ function toml(value: unknown): string {
   throw new Error("Unsupported MCP configuration value");
 }
 export function commandRunner(
-  kind: typeof CODEX_RUNNER_KIND | "claude",
+  kind: string,
   mcp: Record<string, unknown>,
 ): TaskRunner {
   return {
@@ -43,10 +47,9 @@ export function commandRunner(
         Buffer.from(JSON.stringify({ mcpServers: { codify: mcp } })),
         { mode: 0o600 },
       );
-      const command =
-        kind === CODEX_RUNNER_KIND
-          ? codexDispatchCommand(quote("mcp_servers.codify=" + toml(mcp)))
-          : "claude --print --permission-mode bypassPermissions --mcp-config /tmp/hyperfide-mcp.json < /tmp/hyperfide-task.txt";
+      const runner = fleetRunners.find((runner) => runner.kind === kind);
+      if (!runner) throw new Error("Unknown fleet runner kind");
+      const command = runner.command(quote("mcp_servers.codify=" + toml(mcp)));
       const result = await machine.exec(command, {
         cwd: "/workspace",
         env: { HYPERFIDE_GATEWAY_KEY: key },
@@ -69,4 +72,38 @@ export function commandRunner(
       };
     },
   };
+}
+
+/** Image builders and dispatch share the provider-owned runner catalog. */
+export const fleetRunners = [
+  {
+    kind: CODEX_RUNNER_KIND,
+    command: codexDispatchCommand,
+    probe: `${CODEX_RUNNER_KIND} --version`,
+  },
+  {
+    kind: CLAUDE_RUNNER_KIND,
+    command: claudeDispatchCommand,
+    probe: `${CLAUDE_RUNNER_KIND} --version`,
+  },
+];
+export function isFleetRunnerKind(kind: string): boolean {
+  return fleetRunners.some((runner) => runner.kind === kind);
+}
+
+/** Older fleet documents advertise installed CLIs in their image tool probes. */
+export function imageRunnerKinds(fleet: {
+  runnerKinds?: string[];
+  base?: { steps: [string, string, number][] };
+}): string[] {
+  const kinds =
+    fleet.runnerKinds ??
+    fleetRunners
+      .filter((runner) =>
+        fleet.base?.steps.some(([, command]) => command.includes(runner.probe)),
+      )
+      .map((runner) => runner.kind);
+  if (kinds.some((kind) => !isFleetRunnerKind(kind)))
+    throw new Error("Unknown image runner kind");
+  return kinds;
 }

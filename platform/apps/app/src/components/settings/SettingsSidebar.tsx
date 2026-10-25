@@ -1,3 +1,4 @@
+import { useSessionImportSources, type SessionImportSource } from "./ImportSessionsSettingsSection";
 import {
   useEffect,
   useId,
@@ -70,6 +71,7 @@ export interface SettingsSidebarPluginSettingSearch {
 }
 
 interface SettingsSidebarContentProps extends SettingsSidebarProps {
+  importSources?: readonly SessionImportSource[];
   navigation: SettingsSidebarNavigation;
   pluginSettingSearch: SettingsSidebarPluginSettingSearch;
   searchConditions: ReadonlySet<SettingsSearchCondition>;
@@ -296,6 +298,7 @@ export function SettingsSidebarContent({
   navigation,
   pluginSettingSearch,
   searchConditions,
+  importSources = [],
   testIdPrefix = "settings",
 }: SettingsSidebarContentProps) {
   const { activePluginId, activeSection, pluginEntries, sections } = navigation;
@@ -310,12 +313,19 @@ export function SettingsSidebarContent({
   const searchItems = useMemo(
     () =>
       buildSettingsSearchItems({
+        importSources,
         conditions: searchConditions,
         pluginEntries,
         pluginSettings: pluginSettingSearch.entries,
         sections,
       }),
-    [pluginEntries, pluginSettingSearch.entries, searchConditions, sections],
+    [
+      importSources,
+      pluginEntries,
+      pluginSettingSearch.entries,
+      searchConditions,
+      sections,
+    ],
   );
   const results = useMemo(
     () => searchSettings(query, searchItems),
@@ -498,6 +508,7 @@ export function SettingsSidebar({
   onResizeMouseDown,
   isResizing,
 }: SettingsSidebarProps) {
+  const importSources = useSessionImportSources();
   const navigation = useSettingsNavState();
   const searchConditions = useSettingsSearchConditions();
   const [searchActivated, setSearchActivated] = useState(false);
@@ -511,6 +522,7 @@ export function SettingsSidebar({
       backTo={backTo}
       isResizing={isResizing}
       navigation={navigation}
+      importSources={importSources.data?.sources}
       onResizeMouseDown={onResizeMouseDown}
       pluginSettingSearch={{
         entries: pluginSettings.entries,

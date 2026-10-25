@@ -265,7 +265,7 @@ it("ticks after an operator resumes and applies registered compute, spec tasks a
   await git("git", ["init", "-b", "main"], { cwd: directory });
   await git("git", ["-c", "user.name=Hyperfide", "-c", "user.email=tests@localhost", "commit", "--allow-empty", "-m", "base"], { cwd: directory });
   const fleetPath = join(directory, "fleet.json");
-  await writeFile(fleetPath, JSON.stringify({ checkpoint: "base", dispatcher: {
+  await writeFile(fleetPath, JSON.stringify({ checkpoint: "base", runnerKinds: ["codex"], dispatcher: {
     feature: "feature", integrationRef: "main", prepare: "true", runner: "codex", mcp: {},
   } }));
   const machines = new FakeMachineProvider();

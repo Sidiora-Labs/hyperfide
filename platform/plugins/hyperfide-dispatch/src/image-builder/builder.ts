@@ -1,3 +1,4 @@
+import { imageRunnerKinds } from "../dispatcher/runners.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, readFile, writeFile, rename, rm } from "node:fs/promises";
@@ -23,6 +24,7 @@ export interface BuildRecord {
 export interface FleetConfig {
   checkpoint: string | null;
   checkpointCommit: string | null;
+  runnerKinds?: string[];
   workspace: string;
   shellPrefix: string;
   base: { steps: [string, string, number][] };
@@ -232,6 +234,7 @@ export class ImageBuilder {
         if (r.status === "succeeded") {
           fleet.checkpoint = r.checkpoint;
           fleet.checkpointCommit = r.commit;
+          fleet.runnerKinds = imageRunnerKinds(fleet);
         }
         const path = `${this.options.fleetPath}.${r.id}.tmp`;
         await writeFile(path, JSON.stringify(fleet, null, 2) + "\n");

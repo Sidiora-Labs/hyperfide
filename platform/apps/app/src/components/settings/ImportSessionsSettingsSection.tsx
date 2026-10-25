@@ -6,7 +6,9 @@ import { fetchWithAppSurface } from "@/lib/app-surface";
 import { invalidateThreadListQueries } from "@/hooks/cache-owners/mutation-cache-effects";
 
 export interface SessionImportSource {
-  source: "claude-code" | "codex";
+  source: string;
+  label?: string;
+  keywords?: string[];
   root: string;
   count: number;
 }
@@ -40,7 +42,7 @@ export function ImportSessionsSettingsContent({
   return (
     <SettingsSection
       title="Import sessions"
-      description="Continue prior Claude Code and Codex sessions from this machine in Hyperfide. Import again to pick up new messages."
+      description="Continue prior agent sessions from this machine in Hyperfide. Import again to pick up new messages."
       bodyClassName="overflow-hidden p-0"
       actionPlacement="inline"
       action={
@@ -76,9 +78,7 @@ export function ImportSessionsSettingsContent({
               aria-hidden
             />
             <div className="min-w-0 flex-1">
-              <p className="font-medium">
-                {source.source === "claude-code" ? "Claude Code" : "Codex"}
-              </p>
+              <p className="font-medium">{source.label ?? source.source}</p>
               <p className="break-all text-xs text-subtle-foreground">
                 {source.root}
               </p>
@@ -147,13 +147,7 @@ async function importRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function ImportSessionsSettingsSection() {
   const queryClient = useQueryClient();
-  const sources = useQuery({
-    queryKey: ["session-import-sources"],
-    queryFn: () =>
-      importRequest<{ sources: SessionImportSource[] }>(
-        "/api/v1/threads/import/sources",
-      ),
-  });
+  const sources = useSessionImportSources();
   const importer = useMutation({
     mutationFn: () =>
       importRequest<SessionImportResult>("/api/v1/threads/import", {
@@ -179,4 +173,14 @@ export function ImportSessionsSettingsSection() {
       }}
     />
   );
+}
+
+export function useSessionImportSources() {
+  return useQuery({
+    queryKey: ["session-import-sources"],
+    queryFn: () =>
+      importRequest<{ sources: SessionImportSource[] }>(
+        "/api/v1/threads/import/sources",
+      ),
+  });
 }

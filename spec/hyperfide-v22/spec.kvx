@@ -982,7 +982,7 @@ owner = "app"
 
 [task.7.23]
 title = "Import source kinds and fleet runner kinds leave core's provider-id surface"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["7.19", "7.21"]
 touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/packages/server-contract/src/api/threads.ts", "platform/apps/app/src/components/settings/ImportSessionsSettingsSection.tsx", "platform/apps/app/src/components/settings/settings-search.ts", "platform/plugins/hyperfide-dispatch/src/**", "platform/plugins/codex/**", "platform/plugins/claude-code/**", "platform/packages/plugin-sdk/src/**", "platform/scripts/provider-literal-baseline.json", "tests/hyperfide/cases/v22/7_23.sh"]

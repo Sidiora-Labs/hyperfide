@@ -458,3 +458,15 @@ describe("host session import service", () => {
     ).toMatchObject({ imported: 0, updated: 0, records: 0, errors: [] });
   });
 });
+
+
+describe("import source registry", () => {
+  it("returns provider labels and keywords and rejects unregistered source kinds", async () => {
+    const { root } = await setup();
+    const discovery = await discoverImportSources({ source: "codex", root });
+    expect(discovery.sources[0]).toMatchObject({
+      source: "codex", label: "Codex", keywords: expect.arrayContaining(["codex"]),
+    });
+    await expect(discoverImportSources({ source: "unregistered-source", root })).rejects.toMatchObject({ status: 400 });
+  });
+});
