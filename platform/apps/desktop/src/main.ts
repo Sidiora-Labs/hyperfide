@@ -1,3 +1,6 @@
+import { ServerAuthentication } from "./server-auth.js";
+import { ServerCredentialStore, ServerLoginDecision } from "./server-credentials.js";
+import { openServerCredentialsDialog } from "./server-credentials-dialog.js";
 import { createDesktopLogger } from "./desktop-logger.js";
 import { spawn } from "node:child_process";
 import { attachServerUpdateControl } from "./server-update-control.js";
@@ -18,6 +21,7 @@ import {
   nativeTheme,
   net,
   session,
+  safeStorage,
   shell,
   webContents as electronWebContents,
   type Event,
@@ -397,6 +401,33 @@ let stoppingForQuit = false;
 let appImageRelaunchPath: string | null = null;
 let quitting = false;
 let serverTargetStore: ServerTargetStore | null = null;
+let serverCredentials: ServerCredentialStore | null = null;
+let serverAuthentication: ServerAuthentication | null = null;
+const authCancelledOrigins = new Set<string>();
+const serverLogin = new ServerLoginDecision(
+  origin => serverCredentials?.get(origin),
+  async origin => serverAuthentication?.request(origin) ?? null,
+);
+const authenticatedFetch: typeof fetch = (input, init) =>
+  serverAuthentication ? serverAuthentication.fetch(input, init) : fetch(input, init);
+const authenticatedNetFetch: typeof fetch = (input, init) => {
+  const transport: typeof fetch = (url, options) => net.fetch(url instanceof URL ? url.toString() : url, options);
+  return serverAuthentication ? serverAuthentication.fetchUsing(transport, input, init) : transport(input, init);
+};
+async function probeServer(args: { serverUrl: string; timeoutMs: number }) {
+  const origin = new URL(args.serverUrl).origin;
+  authCancelledOrigins.delete(origin);
+  const result = await (serverAuthentication ? serverAuthentication.probe(args) : probeHyperfideServer(args));
+  if (result.kind === "auth-required") authCancelledOrigins.add(origin);
+  return result;
+}
+async function showAuthCancelled(): Promise<void> {
+  await loadStartupError({ title: "This server asks for a username and password",
+    details: "Sign in to connect, or choose another server.", logs: "",
+    actions: [{ id: "retry", label: "Sign in" }, { id: "choose-server", label: "Choose server…" }] });
+  popupServerMenu(getFocusedApplicationWindow());
+}
+
 let serverTargetGeneration = 0;
 let builtinServerUrl: string = DEFAULT_HYPERFIDE_SERVER_URL;
 let desktopBridgePath: string | null = null;
@@ -942,7 +973,7 @@ function createSystemConfigSync(serverUrl: string): SystemConfigSync {
         parsed.data.entity === "system" &&
         parsed.data.changes.includes("config-changed")
       ) {
-        void refreshSystemConfig({ fetchImpl: fetch, serverUrl });
+        void refreshSystemConfig({ fetchImpl: authenticatedFetch, serverUrl });
       }
     } catch {
       return;
@@ -956,7 +987,7 @@ function createSystemConfigSync(serverUrl: string): SystemConfigSync {
     socket = new WebSocket(realtimeUrl);
     socket.addEventListener("open", () => {
       socket?.send(JSON.stringify(subscribeMessage));
-      void refreshSystemConfig({ fetchImpl: fetch, serverUrl });
+      void refreshSystemConfig({ fetchImpl: authenticatedFetch, serverUrl });
     });
     socket.addEventListener("message", handleMessage);
     socket.addEventListener("close", scheduleReconnect);
@@ -1005,7 +1036,7 @@ function createRemoteSystemConfigSync(serverUrl: string): SystemConfigSync {
   function refresh(): void {
     void refreshSystemConfig({
       fetchImpl: (input, init) =>
-        net.fetch(input as string | Request, {
+        authenticatedNetFetch(input, {
           ...init,
           credentials: "include",
         }),
@@ -1034,7 +1065,7 @@ function stopSystemConfigSync(): void {
 function startSystemConfigSync(serverUrl: string): void {
   systemConfigSync?.stop();
   systemConfigSync = createSystemConfigSync(serverUrl);
-  void refreshSystemConfig({ fetchImpl: fetch, serverUrl });
+  void refreshSystemConfig({ fetchImpl: authenticatedFetch, serverUrl });
 }
 
 function startRemoteSystemConfigSync(serverUrl: string): void {
@@ -1095,7 +1126,7 @@ async function ensureBuiltinRuntimeAttached(): Promise<boolean> {
     return false;
   }
 
-  const existingProbe = await probeHyperfideServer({
+  const existingProbe = await probeServer({
     serverUrl: builtinServerUrl,
     timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
   });
@@ -1109,6 +1140,8 @@ async function ensureBuiltinRuntimeAttached(): Promise<boolean> {
     });
     return true;
   }
+
+  if (existingProbe.kind === "auth-required") { await showAuthCancelled(); return false; }
 
   if (existingProbe.kind === "incompatible") {
     return false;
@@ -1220,7 +1253,7 @@ function connectMovedMachine(args: {
     await ensureServerMovedRuntime({
       hasLocalRuntime: () => currentRuntime !== null,
       async isLocalAddressFree() {
-        const probe = await probeHyperfideServer({
+        const probe = await probeServer({
           serverUrl: builtinServerUrl,
           timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
         });
@@ -1365,7 +1398,7 @@ async function handleWatchedServerMove(move: DesktopServerMove): Promise<void> {
   const generation = serverTargetGeneration;
   if (move.target.kind === "custom") {
     await waitForServerMoveDestination({
-      fetchImpl: (input, init) => net.fetch(input, init),
+      fetchImpl: (input, init) => authenticatedNetFetch(input, init),
       intervalMs: SERVER_MOVE_DESTINATION_INTERVAL_MS,
       isCancelled: () => quitting || serverTargetGeneration !== generation,
       serverUrl: move.target.url,
@@ -1484,6 +1517,7 @@ async function applyServerTarget(): Promise<void> {
       return;
     }
     if (!attached) {
+      if (authCancelledOrigins.has(new URL(builtinServerUrl).origin)) return;
       await loadStartupError({
         actions: [
           { id: "retry", label: "Try again" },
@@ -1528,7 +1562,12 @@ async function loadRemoteServerTarget(
   serverUrl: string,
   isCurrent: () => boolean,
 ): Promise<boolean> {
+  authCancelledOrigins.delete(new URL(serverUrl).origin);
+  const probe = await probeServer({ serverUrl, timeoutMs: ATTACH_PROBE_TIMEOUT_MS });
+  if (!isCurrent()) return false;
+  if (probe.kind === "auth-required") { await showAuthCancelled(); return false; }
   const loaded = await loadRemoteServerPage({
+    wasAuthCancelled: () => authCancelledOrigins.has(new URL(serverUrl).origin),
     isCurrent,
     loadStartupError,
     loadUrl: loadWindowUrl,
@@ -1620,6 +1659,10 @@ async function openSetServerUrlDialog(add = false): Promise<void> {
   });
   if (result.kind === "cancelled") {
     return;
+  }
+  if (result.kind === "set") {
+    const probe = await probeServer({ serverUrl: result.url, timeoutMs: ATTACH_PROBE_TIMEOUT_MS });
+    if (probe.kind === "auth-required") { await showAuthCancelled(); return; }
   }
   if (
     result.kind === "clear" &&
@@ -2261,7 +2304,7 @@ function shouldAskBeforeAttaching(): boolean {
 async function waitForServerToStop(serverUrl: string): Promise<boolean> {
   const deadline = Date.now() + FOREIGN_RUNTIME_STOP_TIMEOUT_MS;
   while (Date.now() <= deadline) {
-    const probe = await probeHyperfideServer({
+    const probe = await probeServer({
       serverUrl,
       timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
     });
@@ -2356,10 +2399,12 @@ async function decideOnExistingServer(
 }
 
 async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
-  const existingProbe = await probeHyperfideServer({
+  const existingProbe = await probeServer({
     serverUrl: args.serverUrl,
     timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
   });
+
+  if (existingProbe.kind === "auth-required") { await showAuthCancelled(); return; }
 
   if (existingProbe.kind === "compatible") {
     const decision = await decideOnExistingServer(existingProbe);
@@ -2439,6 +2484,30 @@ async function runDesktopApp(): Promise<void> {
     app.quit();
     return;
   }
+
+  app.on("login", (event, contents, request, authInfo, callback) => {
+    event.preventDefault();
+    let origin: string;
+    try {
+      const url = new URL(request.url);
+      origin = url.origin;
+      const port = Number(url.port || (url.protocol === "https:" ? 443 : 80));
+      const target = serverTargetStore?.getTarget();
+      const currentUrl = target?.kind === "custom" ? target.url : target?.kind === "connect" ? target.server.url : currentRuntime?.serverUrl ?? builtinServerUrl;
+      const allowed = serverCredentials?.get(origin) !== undefined || new URL(currentUrl).origin === origin;
+      if (authInfo.isProxy || authInfo.scheme.toLowerCase() !== "basic" || authInfo.host !== url.hostname || authInfo.port !== port || !allowed) {
+        callback();
+        return;
+      }
+    } catch { callback(); return; }
+    void serverLogin.answer(origin).catch(() => null).then(async credentials => {
+      if (credentials) { callback(credentials.username, credentials.password); return; }
+      authCancelledOrigins.add(origin);
+      callback();
+      if (contents && !contents.isDestroyed()) contents.stop();
+      await showAuthCancelled();
+    }).catch(() => { /* The cancelled load has already been answered. */ });
+  });
 
   app.on("second-instance", () => {
     if (desktopWindowFactory?.focusFirstWindow() === true) {
@@ -2581,6 +2650,12 @@ async function runDesktopApp(): Promise<void> {
     storagePath: join(userDataPath, SERVER_TARGET_FILE_NAME),
   });
   await serverTargetStore.load();
+  serverCredentials = new ServerCredentialStore(join(userDataPath, "server-credentials.json"), safeStorage);
+  await serverCredentials.load();
+  serverAuthentication = new ServerAuthentication(serverCredentials, origin => openServerCredentialsDialog({
+    origin, parentWindow: getFocusedApplicationWindow(), preloadPath: serverUrlDialogPreloadPath!,
+    canRemember: safeStorage.isEncryptionAvailable(),
+  }));
   await serverTargetStore.adoptConnectServers(listMenuConnectServers());
   const dataDir = resolveDataDirFromEnv({
     env: process.env,
@@ -2599,6 +2674,7 @@ async function runDesktopApp(): Promise<void> {
     platform: desktopPlatform,
   });
   desktopUpdateService = createDesktopUpdateService({
+    fetchImpl: authenticatedFetch,
     channel: DESKTOP_RELEASE_CHANNEL,
     currentVersion: desktopVersion,
     enabled:
@@ -2801,7 +2877,7 @@ async function runDesktopApp(): Promise<void> {
   desktopBrowserBrokerClient = createDesktopBrowserBrokerClient({
     broker: desktopBrowserBroker,
     fetchImpl: (input, init) =>
-      net.fetch(input instanceof URL ? input.toString() : input, init),
+      authenticatedNetFetch(input, init),
     dataDir,
     homeDir: homedir(),
     getServerUrl() {

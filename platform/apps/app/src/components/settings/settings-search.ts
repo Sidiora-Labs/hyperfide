@@ -36,7 +36,7 @@ export const SETTINGS_SEARCH_INDEX: Record<
   SettingsSearchSection
 > = {
   "import-sessions": {
-    keywords: ["history", "claude code", "codex", "sessions", "resume"],
+    keywords: ["history", "sessions", "resume"],
     settings: [{ title: "Import sessions", keywords: ["transcripts", "host"] }],
   },
   general: {
@@ -287,6 +287,7 @@ export interface PluginSettingSearchEntry {
 }
 
 interface BuildSettingsSearchItemsArgs {
+  importSources?: readonly { label?: string; keywords?: readonly string[] }[];
   conditions: ReadonlySet<SettingsSearchCondition>;
   pluginEntries: readonly PluginSettingsEntry[];
   pluginSettings: readonly PluginSettingSearchEntry[];
@@ -307,7 +308,16 @@ export function buildSettingsSearchItems(
           context: null,
           icon,
           id: `section:${section.id}`,
-          keywords: indexed.keywords,
+          keywords:
+            section.id === "import-sessions"
+              ? [
+                  ...indexed.keywords,
+                  ...(args.importSources ?? []).flatMap((source) => [
+                    source.label ?? "",
+                    ...(source.keywords ?? []),
+                  ]),
+                ]
+              : indexed.keywords,
           title: section.label,
           to,
         },

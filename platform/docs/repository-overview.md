@@ -12,6 +12,6 @@ with directory filters, for example:
 pnpm -C platform exec turbo run typecheck test --filter=./apps/app
 ```
 
-See [system overview](system-overview.md), [configuration](configuration.md),
-and [contributing](../CONTRIBUTING.md). Support and bug reports belong in
+See [system overview](system-overview.md) and [configuration](configuration.md).
+Support and bug reports belong in
 https://github.com/Sidiora-Labs/hyperfide/issues.

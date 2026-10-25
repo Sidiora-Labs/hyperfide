@@ -94,24 +94,32 @@ describe("Railway status RPC", () => {
     });
   });
   it("requests the environment identity from Railway", async () => {
+    // Railway's schema has Environment.projectId, not Environment.project: the identity takes two queries.
     const fetcher = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            data: {
-              environment: { name: "Production", project: { name: "Project" } },
-            },
+            data: { environment: { name: "Production", projectId: "project-id" } },
           }),
         ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { project: { name: "Project" } } })),
       );
     try {
       expect(
         await railwayIdentity({ token: "token", environmentId: "environment" }),
       ).toEqual({ projectName: "Project", environmentName: "Production" });
-      expect(
-        JSON.parse(String(fetcher.mock.calls[0][1]?.body)).variables,
-      ).toEqual({ id: "environment" });
+      const bodies = fetcher.mock.calls.map((call) =>
+        JSON.parse(String(call[1]?.body)),
+      );
+      expect(bodies.map((body) => body.variables)).toEqual([
+        { id: "environment" },
+        { id: "project-id" },
+      ]);
+      expect(bodies[0].query).not.toContain("project {");
+      expect(bodies[1].query).toContain("project(id: $id)");
     } finally {
       fetcher.mockRestore();
     }

@@ -8,3 +8,5 @@ src/vcs.c	aa/\x62\x62\.	Content-addressed object path example, unrelated to plat
 tests/integration/39_memory_port.sh	\b\x62\x62\b	Local memory-record dictionary variable, unrelated to platform identity.
 platform/plugins/provider-codex/src/computer-use-icon.ts	iVBOR[A-Za-z0-9+/=]+	Immutable PNG bytes encoded as base64, unrelated to platform identity.
 platform/packages/provider-bridge-protocol/recordings/codex/web-search/*	gAAAAA[A-Za-z0-9_+/=-]+	Opaque encrypted provider reasoning payload, unrelated to platform identity.
+platform/assets/hyperfide-logo-*.svg	data:image/[a-z]+;base64,[A-Za-z0-9+/=]+	Embedded raster bytes of the logo artwork encoded as base64, unrelated to platform identity.
+CHANGELOG.md	licenses/\x62\x62\b	The changelog names the sole permitted attribution directory.

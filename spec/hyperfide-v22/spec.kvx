@@ -131,6 +131,8 @@ verify_cmd = "bash tests/hyperfide/cases/v22/0_2.sh"
 do_1 = "Apply the identifier rules of the rename map for the package scope and package names to every manifest, tsconfig path, import, turbo filter, vitest config, script and document under platform/ (directory renames stay for 0.7). Update root package.json scripts and filters accordingly."
 do_2 = "Reinstall with pnpm (no frozen lockfile) so platform/pnpm-lock.yaml follows the new names, then install again with --frozen-lockfile to prove it is settled. Fix every typecheck error the rename surfaces without changing behaviour."
 do_3 = "0_2.sh asserts: no file under platform/ outside node_modules contains the former scope; `pnpm -C platform install --frozen-lockfile` succeeds; `pnpm -C platform typecheck` succeeds; `pnpm -C platform exec turbo run test --filter=./packages/plugin-sdk --filter=./packages/config --filter=./apps/server` passes."
+do_4 = "Baseline repair 2026-10-25: identity_gate.py flagged the base64 raster bytes embedded in platform/assets/hyperfide-logo-*.svg and the CHANGELOG line naming the sole permitted attribution directory; both are unrelated to the former identity and are now listed in identity_allowlist.txt with an exception regex (gate: 9742 tracked files, 0 hits)."
+do_5 = "Baseline repair 2026-10-25 (4534fbfab): the environment-personal-workspace, environment-git-worktree and account-pool test files returned numbers from progress and dispose hooks typed void; fixed so the plugin typechecks pass with the current SDK types."
 reqs = ["1.1"]
 owner = "identity"
 
@@ -170,6 +172,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/0_5.sh"
 do_1 = "Remove the analytics clients (the segment and posthog integrations), their event calls, write keys, consent prompts, launcher flags and documentation; keep local logging. Leave dependency pruning from the manifests to 0.7 unless a package is used nowhere else, in which case remove it and reinstall."
 do_2 = "Every place that reported an event becomes either nothing or a local logger call at debug level; no environment flag for telemetry remains."
 do_3 = "0_5.sh asserts no tracked file under platform/ outside node_modules references segment, posthog, analytics write keys or a telemetry flag, and the launcher, scripts and server unit tests pass (`pnpm -C platform exec turbo run test --filter=./packages/scripts --filter=./apps/server`)."
+do_4 = "Baseline repair 2026-10-25 (b4b85e02d): hyperfide-dispatch and hyperfide-qualify build with the plugin-build CLI; the bundled-plugin test recognises both and turbo.json declares qualify's dependency on @hyperfide/plugin-build#build. The provider-literal ratchet baseline was raised through HYPERFIDE_RATCHET_ALLOW_INCREASE=1 for the five files that 7.19 and 7.21 touched, each allowlisted with a reason; task 7.23 removes them."
 reqs = ["1.3"]
 owner = "port"
 
@@ -397,6 +400,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/3_1.sh"
 do_1 = "Create platform/plugins/hyperfide-asks: the server part mirrors `hyperfide ask list --json` (id, task, kind, question, options, recommendation, status, deadline, raised_at) per repository with a watch on the ask store and realtime updates; RPCs list, get, answer (calls `hyperfide ask answer`), and the journal of answers."
 do_2 = "Kinds and their policy are data: secret, variable and permission block; decision and question proceed on the recommendation and are flagged; the policy is readable over RPC so other plugins never hard-code it."
 do_3 = "3_1.sh runs the plugin tests against a fixture ask store (shape, watch, answer round trip, policy table) plus typecheck and identity_gate.py --changed."
+do_4 = "Baseline repair 2026-10-25 (22a5873e3): the inbox test that answers every ask kind through the real binary exceeded the 15 s default on loaded workers; it now has a 60 s budget."
 reqs = ["4.1"]
 owner = "ask"
 
@@ -609,6 +613,7 @@ verify_cmd = "python3 tests/hyperfide/cases/v22/5_7.py"
 do_1 = "5_7.py runs a three-task spec (A, B requires A, C requires A) through image builder, dispatcher, echo runner, collect and integrate in the fixture platform with the fake machine provider: A first, then B and C in parallel, all merged with tags."
 do_2 = "The case asserts the ledgers, the merge commits, the spec statuses and the dashboard RPC output."
 do_3 = "SKIP 77 with a reason when the platform build is absent."
+do_4 = "Baseline repair 2026-10-25 (563fc6dfe): since 7.19 the dispatcher starts paused with cap 0 until an operator writes fleet.control; the fixture now resumes it the way the fleet view does, otherwise no job is ever claimed."
 reqs = ["6.4"]
 owner = "qualification"
 
@@ -663,6 +668,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/6_4.sh"
 do_1 = "Several host daemons register with one server with operator-issued enrollment tokens recorded on the authority; the machine bootstrap enrolls a sandbox as a host so its threads run there; the dispatcher schedules across hosts by capacity."
 do_2 = "Host loss is detected and its jobs are retried elsewhere once; the app shows hosts with capacity and jobs."
 do_3 = "6_4.sh runs the multi-host tests with two daemons in-process and the fake machine provider (enrollment, scheduling, loss and retry) plus identity_gate.py --changed."
+do_4 = "Baseline repair recorded on 2026-10-25 by the feature manager: the machine-railway verify call (railwayVerify, the plugin page Verify button) failed against the live Railway API with a schema error because the identity query asked for the project under Environment, which the public schema exposes only as projectId; railwayIdentity now reads the environment name and projectId and resolves the project name with a second query by id, status.test.ts covers both requests, and the live call on the host reports the project and environment names."
 reqs = ["7.4"]
 owner = "authority"
 
@@ -717,6 +723,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/7_3.sh"
 do_1 = "docs/hyperfide/platform.md describes the four layers, every hyperfide-* plugin, the front door, the fleet, the authority and the slices provider with the commands that prove each; ARCHITECTURE.md and the README gain the platform sections; platform/docs stops describing removed features."
 do_2 = "operations.md carries the image build, index and fleet timings measured in this feature."
 do_3 = "7_3.sh runs `./cg docs check` on the touched documents and identity_gate.py on the whole repository."
+do_4 = "Baseline repair 2026-10-25: platform/README.md, platform/docs/repository-overview.md and platform/docs/filing-issues.md linked a CONTRIBUTING.md that no longer exists; the dead links are removed and 7_3.sh passes again (286 checks, 0 errors)."
 reqs = ["8.3"]
 owner = "docs"
 
@@ -945,7 +952,7 @@ owner = "machines"
 
 [task.7.21]
 title = "Import prior Claude Code and Codex sessions from the host into threads the app lists, shows and resumes"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.9"]
 touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/apps/server/src/routes/threads/**", "platform/packages/server-contract/src/api/**", "platform/apps/cli/src/commands/thread/**", "platform/plugins/provider-claude-code/src/**", "platform/plugins/provider-codex/src/**", "platform/apps/app/src/components/settings/**", "platform/packages/server-contract/src/public-api.ts", "platform/apps/app/src/views/SettingsView.tsx", "platform/plugins/hyperfide-guide/skills/hyperfide-cli/references/command-index.md", "tests/hyperfide/cases/v22/7_21.sh"]
@@ -954,5 +961,35 @@ do_1 = "Gap found at the 7.6 owner test on 2026-10-24: the platform database hol
 do_2 = "A session import service discovers sources on the host daemon's machine (default roots ~/.claude/projects and ~/.codex/sessions, overridable), maps each session to a project by its cwd (falling back to the personal project), creates one thread per session with the title from ai-title or the first user prompt, created and updated times from the transcript, the provider id of provider-claude-code or provider-codex, and the provider thread id set to the Claude session id or Codex thread id so that a later message resumes the provider session through the bridges' existing thread/resume path. Records are translated through the provider's existing translator so imported threads render exactly like live ones (tool calls, results, reasoning, subagent sidechains as child threads linked by parentThreadId). Import is idempotent per (provider, session id): a rerun imports only new sessions and appends only new records to sessions already imported, so a session still being written can be re-imported later. Files stream line by line, insert in batches and yield between sessions so a thousand rollouts never block the server. Transcript contents are never logged. Surfaces: `hyperfide-platform thread import [--source claude-code|codex] [--root P] [--dry-run] --json`, REST POST /api/v1/threads/import and GET /api/v1/threads/import/sources in the server contract, and a Settings section `Import sessions` listing the discovered sources with counts, an Import button, progress and the result, styled like UpdatesSettingsSection with a story."
 do_3 = "Tests use the existing __fixtures__/transcripts streams plus small redacted synthetic fixtures (one Claude session file with a subagent sidechain, one Codex rollout, together under 200 KB) and assert the thread, title, project mapping, event sequence, child thread and idempotency. 7_21.sh runs the server, cli and both provider typechecks and tests, boots the built server the way 7_7.sh does with HOME pointing at a temporary directory holding the fixtures, runs `thread import --json` twice and asserts the first run lists the expected titles and provider ids and the second imports 0; it prints each step's seconds and exit code and ends with `ok: 7.21`."
 do_4 = "Permission answered on 2026-10-24 by the feature manager (the worker ASK, option 1): the two unrelated server-suite failures were repaired on the lane as baseline repairs tagged to 7.17 (stale npm-era version test removed) and 7.19 (ExperimentalSandboxOperations and ExperimentalSandboxMachine added to the backend API index), so this task did not edit them; its three integration files (server-contract public-api.ts, SettingsView.tsx, the CLI command index) are now in touches. The worker commit landed with status implemented and qualifies in a sandbox at the repaired tip."
+do_5 = "Baseline repair recorded on 2026-10-25 by the feature manager: the live import of 1,638 host sessions left one Claude Code session and its seven subagents unimported because a single torn transcript line (two records written over each other by the provider) made records() throw Invalid JSON and abort the whole session; records() now yields an empty record for an unparsable interior line, the unterminated-last-line deferral is unchanged, and service.test.ts covers the torn-record case."
 reqs = ["8.5"]
 owner = "app"
+
+[task.7.22]
+title = "Desktop shell signs in to a hyperfide-platform server behind HTTP basic authentication"
+status = "done"
+wave = 7
+requires = []
+touches = ["platform/apps/desktop/src/**", "platform/apps/desktop/test/**", "platform/apps/desktop/README.md", "platform/packages/desktop-contract/src/**", "tests/hyperfide/cases/v22/7_22.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_22.sh"
+do_1 = "Gap found on 2026-10-24 at the owner's first desktop install: the published server sits behind an nginx HTTP basic-authentication gate, the shell probes /health and /api/v1/system/config with a bare fetch, so a 401 is reported as an incompatible or unreachable server and the window never gets past the startup error; Electron's app login event is not handled anywhere in platform/apps/desktop, so the renderer cannot answer the browser challenge either."
+do_2 = "The shell answers HTTP basic challenges: when the app login event fires for a server origin, saved credentials for that origin are answered once; with none saved, or after a failed attempt, a small modal credentials window (the server-url-dialog pattern: BrowserWindow, preload, typed IPC) collects username and password with a remember option; remembered credentials are stored per origin encrypted with Electron safeStorage under the user data directory, never in plain text and never logged or shown in error text; every shell-side fetch to that origin (server probe, system config, update feed) carries the Authorization header; the probe reports the kind auth-required on a 401 so the server-url and existing-server dialogs ask for credentials before the server is saved; cancel returns to the server chooser."
+do_3 = "Tests: vitest units for the probe (401 without credentials gives auth-required, with credentials the header is sent and the probe succeeds), for the login decision (saved credentials answered once, a repeated challenge for the same origin prompts, cancel aborts the load) and for the credential store round trip with a fake safeStorage; the verify script typechecks, tests and builds the desktop package and asserts that the login handler, the auth-required kind and the safeStorage use exist and that no log call carries a password."
+reqs = ["1.1"]
+owner = "app"
+
+
+
+[task.7.23]
+title = "Import source kinds and fleet runner kinds leave core's provider-id surface"
+status = "done"
+wave = 7
+requires = ["7.19", "7.21"]
+touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/packages/server-contract/src/api/threads.ts", "platform/apps/app/src/components/settings/ImportSessionsSettingsSection.tsx", "platform/apps/app/src/components/settings/settings-search.ts", "platform/plugins/hyperfide-dispatch/src/**", "platform/plugins/provider-codex/**", "platform/plugins/provider-claude-code/**", "platform/apps/app/src/components/settings/SettingsSidebar.tsx", "platform/packages/plugin-sdk/src/**", "platform/scripts/provider-literal-baseline.json", "tests/hyperfide/cases/v22/7_23.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_23.sh"
+do_1 = "Gap: 7.19 and 7.21 added provider-id literals to five core files (session import source kinds, fleet runner enum); guardrail G1 (platform/scripts/check-provider-literal-ratchet.mjs) was raised with its override and the files allowlisted, which the guard permits only with a follow-up task that removes them."
+do_2 = "Design: import sources become a registry the provider plugins fill (kind, label, keywords, discover, parse); the wire enum becomes a string validated against the registered kinds; the settings section reads labels and keywords from the server; the dispatch runner enum reads the runner kinds the registered fleet images carry. The scanner is not weakened and no literal is renamed to dodge it."
+do_3 = "7_23.sh runs the ratchet (must pass without override), asserts the five allowlist entries are gone and the total is back at or below 14, and runs the scripts suite and the thread-import tests."
+do_4 = "Implemented in sandbox v22-7.23 (cefba73b8): provider-owned ThreadImportSourceDefinition in the plugin SDK, adapters in provider-codex and provider-claude-code, the server catalogues them in thread-import/provider-translators.mjs; the fleet runner catalog lives with the provider dispatch commands and the image build records runnerKinds. Ratchet back at 14, five allowlist entries gone. Touches corrected: the provider plugins live under platform/plugins/provider-*; the settings sidebar supplies the search metadata."
+reqs = ["1.1"]
+owner = "platform"

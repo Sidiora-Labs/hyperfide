@@ -1,3 +1,4 @@
+import { basicAuthorization, type ServerCredentials } from "./server-credentials.js";
 import { z } from "zod";
 
 const healthResponseSchema = z
@@ -17,7 +18,8 @@ const systemConfigResponseSchema = z
 export type ServerProbeResult =
   | CompatibleServerProbeResult
   | IncompatibleServerProbeResult
-  | UnavailableServerProbeResult;
+  | UnavailableServerProbeResult
+  | { kind: "auth-required"; reason: string; serverUrl: string };
 
 export type ServerProbeFetch = (
   input: string,
@@ -43,6 +45,7 @@ interface UnavailableServerProbeResult {
 }
 
 interface ProbeHyperfideServerArgs {
+  credentials?: ServerCredentials;
   fetchImpl?: ServerProbeFetch;
   serverUrl: string;
   timeoutMs: number;
@@ -56,6 +59,7 @@ interface WaitForCompatibleServerArgs {
 }
 
 interface FetchJsonArgs<TValue> {
+  credentials?: ServerCredentials;
   fetchImpl: ServerProbeFetch;
   schema: z.ZodType<TValue>;
   timeoutMs: number;
@@ -118,6 +122,8 @@ async function fetchJson<TValue>(
   try {
     const response = await args.fetchImpl(args.url, {
       signal: controller.signal,
+      headers: args.credentials ? { Authorization: basicAuthorization(args.credentials) } : {},
+      redirect: "error",
     });
     if (!response.ok) {
       return {
@@ -138,8 +144,8 @@ async function fetchJson<TValue>(
       kind: "success",
       value: parsed.data,
     };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch {
+    const message = "Server request failed";
     return {
       kind: "network-error",
       message,
@@ -162,10 +168,15 @@ export async function probeHyperfideServer(
   const fetchImpl = args.fetchImpl ?? globalThis.fetch;
   const healthResult = await fetchJson({
     fetchImpl,
+    ...(args.credentials ? { credentials: args.credentials } : {}),
     schema: healthResponseSchema,
     timeoutMs: args.timeoutMs,
     url: endpointUrl(args.serverUrl, "/health"),
   });
+
+  if (healthResult.kind === "http-error" && healthResult.status === 401) {
+    return { kind: "auth-required", reason: "This server asks for a username and password", serverUrl: args.serverUrl };
+  }
 
   if (healthResult.kind === "network-error") {
     return {
@@ -193,10 +204,15 @@ export async function probeHyperfideServer(
 
   const configResult = await fetchJson({
     fetchImpl,
+    ...(args.credentials ? { credentials: args.credentials } : {}),
     schema: systemConfigResponseSchema,
     timeoutMs: args.timeoutMs,
     url: endpointUrl(args.serverUrl, "/api/v1/system/config"),
   });
+
+  if (configResult.kind === "http-error" && configResult.status === 401) {
+    return { kind: "auth-required", reason: "This server asks for a username and password", serverUrl: args.serverUrl };
+  }
 
   if (configResult.kind === "network-error") {
     return {
@@ -242,7 +258,7 @@ export async function waitForCompatibleServer(
       return lastResult;
     }
 
-    if (lastResult.kind === "incompatible") {
+    if (lastResult.kind === "incompatible" || lastResult.kind === "auth-required") {
       return lastResult;
     }
 

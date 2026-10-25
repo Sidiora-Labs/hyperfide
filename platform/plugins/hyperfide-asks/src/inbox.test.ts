@@ -190,7 +190,7 @@ describe("Inbox RPC", () => {
       );
       expect(all).toContain(`secret-ref:${name}`);
     }
-  });
+  }, 60_000);
   it("validates options and permission identity before writing", async () => {
     const answer = vi.fn();
     const store = vi.fn();

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import { Dispatcher } from "./dispatcher/dispatcher.js";
-import { commandRunner } from "./dispatcher/runners.js";
+import { commandRunner, isFleetRunnerKind, imageRunnerKinds } from "./dispatcher/runners.js";
 import type { SandboxMachineOps } from "./machine-ops.js";
 import { openDispatchStorage } from "./storage.js";
 import { taskSchema } from "../../hyperfide-spec/src/shared/contract.js";
@@ -34,7 +34,7 @@ const configSchema = z.object({
   checkpoint: z.string().nullable(),
   dispatcher: z.object({
     feature: z.string().min(1), integrationRef: z.string().min(1),
-    prepare: z.string().min(1), runner: z.enum(["codex", "claude"]),
+    prepare: z.string().min(1), runner: z.string().refine(isFleetRunnerKind, "Unknown fleet runner kind"),
     mcp: z.record(z.string(), z.unknown()),
   }),
 });
@@ -140,7 +140,10 @@ export function registerDispatcher(api: HyperfidePluginApi, settings: DispatchSe
             const control = await storage.get("fleet.control") as { paused: boolean; cap: number };
             if (!control.paused && control.cap > 0 && current.dispatch_repository && current.dispatch_fleetPath && await registeredMachines(api)) {
               repository = current.dispatch_repository;
-              options = configSchema.parse(JSON.parse(await readFile(current.dispatch_fleetPath, "utf8")));
+              const fleet = JSON.parse(await readFile(current.dispatch_fleetPath, "utf8"));
+              options = configSchema.parse(fleet);
+              if (!imageRunnerKinds(fleet).includes(options.dispatcher.runner))
+                throw new Error("Runner is unavailable in the configured fleet image");
               dispatcher.setPrepare(options.dispatcher.prepare);
               await dispatcher.tick();
             }

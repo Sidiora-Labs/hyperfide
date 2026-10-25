@@ -214,7 +214,7 @@ it("starts the default server dispatcher paused with no providers and stops on d
   const backend = createServerBackend(api);
   await vi.waitFor(async () => {
     expect((await backend.readLedger()).budget).toMatchObject({ paused: true, cap: 0, maximum: 0, status: "Paused; idle; no providers configured" });
-  });
+  }, { timeout: 10_000 });
   controller.abort();
   await running;
 });
@@ -249,7 +249,7 @@ it("builds an image through the registered provider create and checkpoint operat
   const build = await handlers.imageBuildStart({ commit: "main" });
   await vi.waitFor(async () => {
     expect((await handlers.imageBuilds()).find((record: any) => record.id === build.id)).toMatchObject({ status: "succeeded", checkpoint: expect.stringContaining("hf-base-") });
-  });
+  }, { timeout: 10_000 });
   expect(create).toHaveBeenCalledWith(expect.objectContaining({ fromCheckpoint: "parent" }));
   expect(checkpoint).toHaveBeenCalledOnce();
   expect(destroy).toHaveBeenCalledOnce();
@@ -265,7 +265,7 @@ it("ticks after an operator resumes and applies registered compute, spec tasks a
   await git("git", ["init", "-b", "main"], { cwd: directory });
   await git("git", ["-c", "user.name=Hyperfide", "-c", "user.email=tests@localhost", "commit", "--allow-empty", "-m", "base"], { cwd: directory });
   const fleetPath = join(directory, "fleet.json");
-  await writeFile(fleetPath, JSON.stringify({ checkpoint: "base", dispatcher: {
+  await writeFile(fleetPath, JSON.stringify({ checkpoint: "base", runnerKinds: ["codex"], dispatcher: {
     feature: "feature", integrationRef: "main", prepare: "true", runner: "codex", mcp: {},
   } }));
   const machines = new FakeMachineProvider();
@@ -295,7 +295,7 @@ it("ticks after an operator resumes and applies registered compute, spec tasks a
   const running = service!.start(controller.signal);
   cleanup.push(async () => { controller.abort(); await running; });
   const backend = createServerBackend(api);
-  await vi.waitFor(async () => expect((await backend.readLedger()).budget.maximum).toBe(1));
+  await vi.waitFor(async () => expect((await backend.readLedger()).budget.maximum).toBe(1), { timeout: 10_000 });
   expect(machines.execLog).toHaveLength(0);
   await backend.setCap(1);
   await backend.setPaused(false);

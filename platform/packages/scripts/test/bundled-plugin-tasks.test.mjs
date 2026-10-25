@@ -15,10 +15,11 @@ describe("bundled plugin task graph", () => {
       );
       // Plugins that bundle themselves with esbuild, and plugins that run the plugin-build CLI from its
       // workspace build output instead of the linked bin (their turbo task waits for that build).
-      const esbuildBuilders = ["hyperfide-qualify", "environment-slices"];
-      const cliBuilders = ["hyperfide-asks", "hyperfide-spec", "machine-railway"];
+      const esbuildBuilders = ["environment-slices"];
+      const cliBuilders = ["hyperfide-asks", "hyperfide-dispatch", "hyperfide-qualify", "hyperfide-spec", "machine-railway"];
       const customBuilders = {
-        "hyperfide-qualify": "node prepare.mjs",
+        "hyperfide-qualify": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
+        "hyperfide-dispatch": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",
         "environment-slices": "node prepare.mjs",
         "hyperfide-graph": "node --conditions=source --import tsx build-runtime.ts",
         "hyperfide-asks": "node ../../packages/plugin-build/dist/cli.js prepare-bundled",

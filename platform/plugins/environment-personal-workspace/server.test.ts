@@ -82,8 +82,12 @@ async function setup() {
   const steps: string[] = [];
   const logs: string[] = [];
   const report: PluginEnvironmentProviderProgress = {
-    step: (text) => steps.push(text),
-    log: (text) => logs.push(text),
+    step: (text) => {
+      steps.push(text);
+    },
+    log: (text) => {
+      logs.push(text);
+    },
   };
   const context: PluginEnvironmentProviderCreateContext = {
     thread: makeThreadResponse({ id: THREAD_ID, projectId: PROJECT_ID }),

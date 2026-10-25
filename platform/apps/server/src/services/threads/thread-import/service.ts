@@ -1,15 +1,7 @@
+import { ApiError } from "../../../errors.js";
 import { createReadStream } from "node:fs";
-import { open, readdir, stat } from "node:fs/promises";
-import { homedir } from "node:os";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { open, readdir } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { setImmediate } from "node:timers/promises";
 import { and, eq, inArray } from "drizzle-orm";
@@ -41,24 +33,16 @@ import type {
 } from "@hyperfide/server-contract";
 import type { AppDeps } from "../../../types.js";
 import { requirePrimaryHostId } from "../../hosts/primary-host.js";
-import {
-  createClaudeTranscriptTranslator,
-  createCodexTranscriptTranslator,
-} from "./provider-translators.mjs";
-
-type Source = "claude-code" | "codex";
-type Deps = Pick<AppDeps, "db" | "hub" | "config">;
-interface Session {
-  source: Source;
-  path: string;
-  sessionId: string;
-  key: string;
-  parentKey?: string;
-  cwd: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
+import { importSources } from "./provider-translators.mjs";
+import type { ImportedSession as Session } from "@hyperfide/plugin-sdk";
+type Source = string;
+function sourceDefinition(kind: string) {
+  const source = importSources.find((source) => source.kind === kind);
+  if (!source)
+    throw new ApiError(400, "invalid_request", "Unknown session import source");
+  return source;
 }
+type Deps = Pick<AppDeps, "db" | "hub" | "config">;
 interface Cursor {
   source: Source;
   key: string;
@@ -72,17 +56,9 @@ function object(value: unknown): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : {};
 }
-function textContent(value: unknown): string {
-  if (typeof value === "string") return value;
-  return Array.isArray(value)
-    ? value
-        .map((part) => object(part).text)
-        .filter((part) => typeof part === "string")
-        .join("\n")
-    : "";
-}
-
 // Snapshot the file and defer its last line until we know it was fully written.
+// A torn interior line (two records written over each other by the provider) is
+// skipped as an empty record so one bad write cannot sink the whole session.
 async function* records(path: string) {
   const file = await open(path, "r");
   let stream: ReturnType<typeof createReadStream> | undefined;
@@ -106,7 +82,7 @@ async function* records(path: string) {
       try {
         return { line, record: object(JSON.parse(value)) };
       } catch {
-        throw new Error(`Invalid JSON at line ${line}`);
+        return { line, record: {} };
       }
     }
     for await (const value of lines) {
@@ -145,17 +121,12 @@ async function* files(root: string): AsyncGenerator<string> {
 function roots(
   request: ThreadImportRequest,
 ): Array<{ source: Source; root: string }> {
-  return (
-    request.source ? [request.source] : (["claude-code", "codex"] as Source[])
-  ).map((source) => ({
-    source,
-    root: resolve(
-      request.root ??
-        join(
-          homedir(),
-          source === "codex" ? ".codex/sessions" : ".claude/projects",
-        ),
-    ),
+  const selected = request.source
+    ? [sourceDefinition(request.source)]
+    : importSources;
+  return selected.map((source) => ({
+    source: source.kind,
+    root: resolve(request.root ?? source.root()),
   }));
 }
 
@@ -165,85 +136,27 @@ export async function discoverImportSources(
   const sources: ThreadImportSource[] = [];
   for (const root of roots(request)) {
     let count = 0;
-    for await (const _path of files(root.root)) count++;
-    sources.push({ ...root, count });
+    for await (const _path of sourceDefinition(root.source).discover(
+      root.root,
+      { files, records },
+    ))
+      count++;
+    const definition = sourceDefinition(root.source);
+    sources.push({
+      ...root,
+      count,
+      label: definition.label,
+      keywords: [...definition.keywords],
+    });
   }
   return { sources };
-}
-
-async function describeSession(
-  source: Source,
-  path: string,
-): Promise<Session | null> {
-  let sessionId = "",
-    cwd = "",
-    title = "",
-    prompt = "";
-  let codexParentKey: string | undefined;
-  let createdAt = Infinity,
-    updatedAt = 0;
-  for await (const { record } of records(path)) {
-    const payload = object(record.payload);
-    const message = object(record.message);
-    if (source === "claude-code") {
-      sessionId ||=
-        typeof record.sessionId === "string" ? record.sessionId : "";
-      cwd ||= typeof record.cwd === "string" ? record.cwd : "";
-      if (record.type === "ai-title") {
-        const value = record.aiTitle ?? record.title;
-        if (typeof value === "string") title = value;
-      }
-      if (!prompt && record.type === "user" && record.isMeta !== true)
-        prompt = textContent(message.content);
-    } else {
-      if (record.type === "session_meta") {
-        sessionId ||= typeof payload.id === "string" ? payload.id : "";
-        cwd ||= typeof payload.cwd === "string" ? payload.cwd : "";
-        const spawn = object(
-          object(object(payload.source).subagent).thread_spawn,
-        );
-        if (typeof spawn.parent_thread_id === "string")
-          codexParentKey = spawn.parent_thread_id;
-      }
-      if (record.type === "turn_context")
-        cwd ||= typeof payload.cwd === "string" ? payload.cwd : "";
-      if (!prompt && record.type === "response_item" && payload.role === "user")
-        prompt = textContent(payload.content);
-    }
-    const time = Date.parse(String(record.timestamp ?? ""));
-    if (Number.isFinite(time)) {
-      createdAt = Math.min(createdAt, time);
-      updatedAt = Math.max(updatedAt, time);
-    }
-  }
-  if (!sessionId) return null;
-  const parentKey =
-    source === "claude-code" && basename(dirname(path)) === "subagents"
-      ? basename(dirname(dirname(path)))
-      : codexParentKey;
-  const key =
-    parentKey && source === "claude-code"
-      ? `${parentKey}/${basename(path, ".jsonl")}`
-      : sessionId;
-  const fallback = (await stat(path)).mtimeMs;
-  return {
-    source,
-    path,
-    sessionId,
-    key,
-    parentKey,
-    cwd,
-    title: (title || prompt || sessionId).trim().slice(0, 240),
-    createdAt: Number.isFinite(createdAt) ? createdAt : fallback,
-    updatedAt: updatedAt || fallback,
-  };
 }
 
 function cursorFromMetadata(metadata: string): Cursor | null {
   try {
     const cursor = object(JSON.parse(metadata))[IMPORT_METADATA];
     const value = object(cursor);
-    return (value.source === "claude-code" || value.source === "codex") &&
+    return importSources.some((source) => source.kind === value.source) &&
       typeof value.key === "string" &&
       typeof value.lines === "number"
       ? (value as unknown as Cursor)
@@ -262,7 +175,8 @@ async function importSession(
 ) {
   if (!session.cwd || !isAbsolute(session.cwd))
     throw new Error("Session has no absolute working directory");
-  const providerId = `provider-${session.source}`;
+  const definition = sourceDefinition(session.source);
+  const providerId = definition.providerId;
   const lookupKey = `${session.source}:${session.key}`;
   const existing = known.get(lookupKey);
   const parentThreadId = session.parentKey
@@ -333,13 +247,10 @@ async function importSession(
   }
   const saved = existing?.cursor ?? initialCursor;
   known.set(lookupKey, { threadId: thread.id, cursor: saved });
-  const translator =
-    session.source === "claude-code"
-      ? createClaudeTranscriptTranslator({
-          cwd: session.cwd,
-          threadId: thread.id,
-        })
-      : createCodexTranscriptTranslator({ threadId: thread.id });
+  const translator = definition.createTranslator({
+    cwd: session.cwd,
+    threadId: thread.id,
+  });
   let timestamp = session.createdAt;
   const assembler = createDeltaAssembler({
     providerId,
@@ -366,7 +277,7 @@ async function importSession(
     batch = [];
     saved.lines = line;
   }
-  if (!existing && !(session.source === "claude-code" && session.parentKey))
+  if (!existing && !(definition.suppressChildIdentity && session.parentKey))
     batch.push({
       event: {
         type: "thread/identity",
@@ -389,7 +300,7 @@ async function importSession(
         ...translated
           .filter(
             (event) =>
-              !(session.source === "claude-code" && session.parentKey) ||
+              !(definition.suppressChildIdentity && session.parentKey) ||
               event.type !== "thread/identity",
           )
           .map((event) => ({ event, timestamp })),
@@ -528,10 +439,10 @@ async function runImport(
     .select()
     .from(threadPluginMetadata)
     .where(
-      inArray(threadPluginMetadata.pluginId, [
-        "provider-claude-code",
-        "provider-codex",
-      ]),
+      inArray(
+        threadPluginMetadata.pluginId,
+        importSources.map((source) => source.providerId),
+      ),
     )
     .all()) {
     const cursor = cursorFromMetadata(row.metadataJson);
@@ -544,9 +455,15 @@ async function runImport(
   const hostId = request.dryRun ? null : await requirePrimaryHostId(deps);
   const children: Session[] = [];
   for (const root of roots(request))
-    for await (const path of files(root.root)) {
+    for await (const path of sourceDefinition(root.source).discover(root.root, {
+      files,
+      records,
+    })) {
       try {
-        const session = await describeSession(root.source, path);
+        const session = await sourceDefinition(root.source).parse(path, {
+          files,
+          records,
+        });
         if (!session) continue;
         if (session.parentKey) children.push(session);
         if (request.dryRun) {
@@ -554,7 +471,7 @@ async function runImport(
           result.threads.push({
             id: `dry-run:${session.source}:${session.key}`,
             title: session.title,
-            providerId: `provider-${session.source}`,
+            providerId: sourceDefinition(session.source).providerId,
             providerThreadId: session.sessionId,
           });
         } else await importSession(deps, session, known, hostId, result);

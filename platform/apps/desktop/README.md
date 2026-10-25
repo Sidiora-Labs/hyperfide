@@ -591,3 +591,16 @@ desktop session when a machine credential is rejected. Closing the sign-in
 window leaves the error screen available. Fatal errors have no buttons. The renderer sends the chosen
 action on `hyperfide-desktop:startup-action`. The main process accepts only actions
 from the error page that is currently loaded in an app window's main frame.
+
+## Servers behind HTTP basic auth
+
+When a server asks for HTTP basic authentication, the desktop app opens a small
+sign-in window before saving or loading the server. Enter its username and
+password, or cancel and choose another server. A rejected sign-in asks again.
+The same credentials authenticate server probes, system configuration and update
+feed requests for that origin only.
+
+“Remember on this computer” stores credentials separately from server choices,
+encrypted with Electron safeStorage in the desktop user data directory. If secure
+storage is unavailable, credentials remain in memory for this session only and
+the remember option is disabled. Passwords are never included in logs or errors.

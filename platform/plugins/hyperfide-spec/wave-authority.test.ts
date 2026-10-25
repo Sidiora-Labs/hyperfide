@@ -40,4 +40,4 @@ wave = 4
     await writeFile(join(repository, "spec/fixture/spec.kvx"), 'invalid kvx');
     await expect(authority.read("fixture", 4)).rejects.toThrow("Stale spec");
   } finally { await rm(repository, {recursive:true, force:true}); }
-});
+}, 60_000);

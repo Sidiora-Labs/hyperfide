@@ -1,3 +1,4 @@
+import "./server-credentials-dialog-preload.js";
 import { ipcRenderer } from "electron";
 import {
   HYPERFIDE_DESKTOP_SERVER_URL_DIALOG_CANCEL_CHANNEL,
