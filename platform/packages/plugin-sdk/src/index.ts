@@ -27,3 +27,5 @@ export type {
 } from "@hyperfide/sdk";
 
 export type * from "./machine-bootstrap.js";
+
+export type * from "./thread-import.js";

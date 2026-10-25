@@ -480,7 +480,7 @@ export type SendQueuedMessageResponse = z.infer<
 export const threadListResponseSchema = z.array(threadListEntrySchema);
 export type ThreadListResponse = z.infer<typeof threadListResponseSchema>;
 
-export const threadImportSourceKindSchema = z.enum(["claude-code", "codex"]);
+export const threadImportSourceKindSchema = z.string().min(1);
 export const threadImportSourcesQuerySchema = z
   .object({
     source: threadImportSourceKindSchema.optional(),
@@ -496,6 +496,8 @@ export const threadImportRequestSchema = threadImportSourcesQuerySchema.extend({
 export type ThreadImportRequest = z.infer<typeof threadImportRequestSchema>;
 export const threadImportSourceSchema = z.object({
   source: threadImportSourceKindSchema,
+  label: z.string().min(1),
+  keywords: z.array(z.string()),
   root: z.string().min(1),
   count: z.number().int().nonnegative(),
 });
