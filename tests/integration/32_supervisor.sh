@@ -281,7 +281,8 @@ retries = 1' setup_repo
     [ "$(run_state)" = blocked ] || fail "run state $(run_state)"
     [ "$(run_field reason)" = "blocked: 2.1" ] || fail "reason $(run_field reason)"
     [ "$(spawns 2.1)" = 2 ] || fail "2.1 should run exactly twice (1 retry), ran $(spawns 2.1)"
-    [ "$(count supervisor.stall 'json.loads(l)["payload"]["action"] == "nudge"')" = 2 ] || fail "one nudge per attempt"
+    nudges=$(count supervisor.stall 'json.loads(l)["payload"]["action"] == "nudge"')
+    [ "$nudges" = 2 ] || fail "one nudge per attempt (expected 2 nudges across 2 attempts, saw $nudges)"
     [ "$(count supervisor.stall 'json.loads(l)["payload"]["action"] == "stop"')" = 2 ] || fail "one stop per attempt"
     [ "$(count supervisor.escalate 'json.loads(l)["payload"]["agent"] == "wm-fleet-1"')" = 1 ] || fail "escalation to the wave's manager"
     [ "$(count supervisor.blocked 'json.loads(l)["payload"]["to"] == "main"')" = 1 ] || fail "escalation to main"
