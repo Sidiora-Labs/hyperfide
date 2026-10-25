@@ -9,7 +9,15 @@ describe("host session import", () => {
       imported: 1,
       updated: 0,
       records: 2,
-      sources: [{ source: "codex", root: "/sessions", count: 1 }],
+      sources: [
+        {
+          source: "codex",
+          label: "Codex",
+          keywords: ["codex"],
+          root: "/sessions",
+          count: 1,
+        },
+      ],
       threads: [
         {
           id: "thr_import",
