@@ -170,7 +170,10 @@ async function collect(){
   job.merge=merged.commit;event(job,'merged');
  }
 }
-await dispatcher.start();await dispatch(1);
+await dispatcher.start();
+// The dispatcher starts paused with cap 0 until an operator resumes it (fleet.control); the scenario resumes it as the fleet view does.
+await dispatcher.storage.put('fleet.control',{cap:2,maximum:2,paused:false});
+await dispatch(1);
 const first=ledgers.map(j=>j.task);
 await dispatcher.tick();await dispatcher.drain();
 const beforeCollect=ledgers.filter(j=>!first.includes(j.task)).map(j=>j.task);
