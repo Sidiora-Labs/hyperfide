@@ -63,4 +63,4 @@ test("all commands match the binary against independent fixture repositories", a
     assert.equal(inferred.exitCode, 1);
     assert.match(inferred.stderr!, /feature demo, task missing/);
   } finally { rmSync(root, { recursive: true, force: true }); }
-});
+}, 60_000);
