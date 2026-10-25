@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
-import {
-  getSessionById,
-  getStoredThreadTabs,
-  replaceStoredThreadTabs,
-} from "@hyperfide/db";
+import { and, eq } from "drizzle-orm";
+import { getSessionById, getStoredThreadTabs, threadTabs } from "@hyperfide/db";
 import {
   hostDaemonSupportsDesktopBrokerProof,
   type DesktopBrowserTab,
@@ -108,6 +105,38 @@ async function readStoredTabs(db: WorkSessionDeps["db"], threadId: string) {
   };
 }
 
+/** Compare the revision in the write itself, including the first insert. */
+async function replaceDesktopThreadTabs(
+  db: WorkSessionDeps["db"],
+  args: { threadId: string; expectedRevision: number; tabsJson: string },
+): Promise<boolean> {
+  const values = {
+    tabsJson: args.tabsJson,
+    revision: args.expectedRevision + 1,
+    updatedAt: Date.now(),
+  };
+  const row =
+    args.expectedRevision === 0
+      ? await db
+          .insert(threadTabs)
+          .values({ ...values, threadId: args.threadId })
+          .onConflictDoNothing()
+          .returning({ revision: threadTabs.revision })
+          .get()
+      : await db
+          .update(threadTabs)
+          .set(values)
+          .where(
+            and(
+              eq(threadTabs.threadId, args.threadId),
+              eq(threadTabs.revision, args.expectedRevision),
+            ),
+          )
+          .returning({ revision: threadTabs.revision })
+          .get();
+  return row !== undefined;
+}
+
 function toStoredBrowserTab(
   scope: ExperimentalDesktopBrowserScope,
   tab: DesktopBrowserTab,
@@ -181,7 +210,7 @@ export async function persistDesktopBrowserTab(
   if (index < 0) tabs.push(next);
   else tabs[index] = next;
   const parsed = threadTabsSchema.parse(tabs);
-  await replaceStoredThreadTabs(deps.db, {
+  await replaceDesktopThreadTabs(deps.db, {
     threadId: scope.threadId,
     expectedRevision: stored?.revision ?? 0,
     tabsJson: JSON.stringify(parsed),
@@ -200,7 +229,7 @@ export async function removeDesktopBrowserTab(
     (tab) => !(tab.id === tabId && sameDesktopTarget(tab, scope)),
   );
   if (filtered.length === tabs.length) return;
-  await replaceStoredThreadTabs(deps.db, {
+  await replaceDesktopThreadTabs(deps.db, {
     threadId: scope.threadId,
     expectedRevision: stored.revision,
     tabsJson: JSON.stringify(filtered),
@@ -577,7 +606,7 @@ export async function syncDesktopBrowserTabs(
   }
   const tabsJson = JSON.stringify(threadTabsSchema.parse(next));
   if (tabsJson !== JSON.stringify(tabs)) {
-    await replaceStoredThreadTabs(deps.db, {
+    await replaceDesktopThreadTabs(deps.db, {
       threadId: scope.threadId,
       expectedRevision: stored?.revision ?? 0,
       tabsJson,
@@ -601,43 +630,47 @@ export async function syncDesktopBrowserTabs(
       return;
     await withTabAdoptionLock(deps.hub, scope.threadId, async () => {
       await requirePublicThread(deps.db, scope.threadId);
-      const { stored, tabs } = await readStoredTabs(deps.db, scope.threadId);
-      if (!stored) return;
-      let adopted = false;
-      const duplicates: string[] = [];
-      const next = tabs.map((previous) => {
-        const tab = nativeTabs.find((value) => value.tabId === previous.id);
-        if (
-          tab === undefined ||
-          tab.threadId !== scope.threadId ||
-          tab.url.length > 4096 ||
-          previous.kind !== "browser" ||
-          previous.desktopTarget?.hostId !== scope.hostId
-        )
-          return previous;
-        if (previous.desktopTarget.instanceId === scope.instanceId)
-          return previous;
-        if (live.has(previous.desktopTarget.instanceId)) {
-          duplicates.push(tab.tabId);
-          return previous;
-        }
-        adopted = true;
-        return toStoredBrowserTab(scope, tab);
-      });
-      if (adopted) {
-        await replaceStoredThreadTabs(deps.db, {
-          threadId: scope.threadId,
-          expectedRevision: stored.revision,
-          tabsJson: JSON.stringify(threadTabsSchema.parse(next)),
+      for (;;) {
+        const { stored, tabs } = await readStoredTabs(deps.db, scope.threadId);
+        if (!stored) return;
+        let adopted = false;
+        const duplicates: string[] = [];
+        const next = tabs.map((previous) => {
+          const tab = nativeTabs.find((value) => value.tabId === previous.id);
+          if (
+            tab === undefined ||
+            tab.threadId !== scope.threadId ||
+            tab.url.length > 4096 ||
+            previous.kind !== "browser" ||
+            previous.desktopTarget?.hostId !== scope.hostId
+          )
+            return previous;
+          if (previous.desktopTarget.instanceId === scope.instanceId)
+            return previous;
+          if (live.has(previous.desktopTarget.instanceId)) {
+            duplicates.push(tab.tabId);
+            return previous;
+          }
+          adopted = true;
+          return toStoredBrowserTab(scope, tab);
         });
-        await deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
+        if (adopted) {
+          const applied = await replaceDesktopThreadTabs(deps.db, {
+            threadId: scope.threadId,
+            expectedRevision: stored.revision,
+            tabsJson: JSON.stringify(threadTabsSchema.parse(next)),
+          });
+          if (!applied) continue;
+          await deps.hub.notifyThread(scope.threadId, ["tabs-changed"]);
+        }
+        await Promise.all(
+          duplicates.map(
+            async (tabId) =>
+              await desktopBrowserTabAction(deps, { ...scope, tabId }, "close"),
+          ),
+        );
+        return;
       }
-      await Promise.all(
-        duplicates.map(
-          async (tabId) =>
-            await desktopBrowserTabAction(deps, { ...scope, tabId }, "close"),
-        ),
-      );
     });
   } finally {
     if (pending.get(key) === adoption) pending.delete(key);
