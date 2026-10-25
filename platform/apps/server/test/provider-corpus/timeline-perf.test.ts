@@ -526,7 +526,7 @@ describe("timeline build micro-benchmark", () => {
       expect(synthetic.eventCount).toBeGreaterThanOrEqual(
         SYNTHETIC_EVENT_COUNT,
       );
-      const samples = await sample(async () => {
+      const takeSample = async () => {
         const calibrationMs = runCalibrationWorkload();
         clearCrossBuildTimelineCaches(synthetic.db);
         return {
@@ -538,7 +538,19 @@ describe("timeline build micro-benchmark", () => {
             variant: "default",
           }),
         };
-      });
+      };
+      let samples = await sample(takeSample);
+      const ceilingMissed = (entries: typeof samples): boolean =>
+        entries.every(
+          (entry) =>
+            sumProfileDurations(entry.pages) / entry.calibrationMs >=
+            SYNTHETIC_CEILING_RATIO,
+        );
+      if (ceilingMissed(samples)) {
+        // A loaded host can inflate every build of one batch; a second batch
+        // separates a scheduling transient from a real regression.
+        samples = [...samples, ...(await sample(takeSample))];
+      }
       const durations = samples.map((entry) =>
         sumProfileDurations(entry.pages),
       );
