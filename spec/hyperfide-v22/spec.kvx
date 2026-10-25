@@ -1010,7 +1010,7 @@ owner = "platform"
 
 [task.7.25]
 title = "Sidebar bootstrap refetches coalesce under realtime churn instead of cancelling each other"
-status = "implemented"
+status = "done"
 wave = 7
 requires = ["7.23"]
 touches = ["platform/apps/app/src/hooks/cache-owners/realtime-cache-registry.ts", "platform/apps/app/src/hooks/realtime-cache-effects.ts", "platform/apps/app/src/hooks/realtime-cache-effects.test.ts", "platform/apps/app/src/hooks/queries/sidebar-navigation-query.ts", "platform/apps/app/src/hooks/queries/sidebar-navigation-query.test.tsx", "tests/hyperfide/cases/v22/7_25.sh"]
