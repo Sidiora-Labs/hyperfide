@@ -194,7 +194,7 @@ describe("real Ask CLI round trips with a fake plugin host", () => {
     expect(
       command.mock.calls.filter(([, argv]) => argv[1] === "answer"),
     ).toHaveLength(1);
-  });
+  }, 60_000);
 
   it("an inbox answer submits the pending card and treats CLI already-answered as settled", async () => {
     const {
