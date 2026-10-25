@@ -131,6 +131,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/0_2.sh"
 do_1 = "Apply the identifier rules of the rename map for the package scope and package names to every manifest, tsconfig path, import, turbo filter, vitest config, script and document under platform/ (directory renames stay for 0.7). Update root package.json scripts and filters accordingly."
 do_2 = "Reinstall with pnpm (no frozen lockfile) so platform/pnpm-lock.yaml follows the new names, then install again with --frozen-lockfile to prove it is settled. Fix every typecheck error the rename surfaces without changing behaviour."
 do_3 = "0_2.sh asserts: no file under platform/ outside node_modules contains the former scope; `pnpm -C platform install --frozen-lockfile` succeeds; `pnpm -C platform typecheck` succeeds; `pnpm -C platform exec turbo run test --filter=./packages/plugin-sdk --filter=./packages/config --filter=./apps/server` passes."
+do_4 = "Baseline repair 2026-10-25: identity_gate.py flagged the base64 raster bytes embedded in platform/assets/hyperfide-logo-*.svg and the CHANGELOG line naming the sole permitted attribution directory; both are unrelated to the former identity and are now listed in identity_allowlist.txt with an exception regex (gate: 9742 tracked files, 0 hits)."
 reqs = ["1.1"]
 owner = "identity"
 
@@ -718,6 +719,7 @@ verify_cmd = "bash tests/hyperfide/cases/v22/7_3.sh"
 do_1 = "docs/hyperfide/platform.md describes the four layers, every hyperfide-* plugin, the front door, the fleet, the authority and the slices provider with the commands that prove each; ARCHITECTURE.md and the README gain the platform sections; platform/docs stops describing removed features."
 do_2 = "operations.md carries the image build, index and fleet timings measured in this feature."
 do_3 = "7_3.sh runs `./cg docs check` on the touched documents and identity_gate.py on the whole repository."
+do_4 = "Baseline repair 2026-10-25: platform/README.md, platform/docs/repository-overview.md and platform/docs/filing-issues.md linked a CONTRIBUTING.md that no longer exists; the dead links are removed and 7_3.sh passes again (286 checks, 0 errors)."
 reqs = ["8.3"]
 owner = "docs"
 

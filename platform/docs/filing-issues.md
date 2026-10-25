@@ -50,7 +50,7 @@ Optional but useful. One line: how many users it hits, whether there is a workar
 
 ## Feature requests and tasks
 
-Feature requests describe the workflow you could not complete, why the current behavior falls short, and what you would expect. Prototype links from a fork are welcome. Per [CONTRIBUTING.md](../CONTRIBUTING.md), open the issue before a PR for features and UI changes.
+Feature requests describe the workflow you could not complete, why the current behavior falls short, and what you would expect. Prototype links from a fork are welcome. Open the issue before a PR for features and UI changes.
 
 Tasks (refactors, docs, chores) state the concrete work and its acceptance criteria.
 

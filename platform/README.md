@@ -21,8 +21,8 @@ Use `hyperfide platform <command>` for platform operations. Read command help
 before changing server or host configuration. Runtime data belongs in
 `~/.hyperfide`; configuration environment variables use `HYPERFIDE_`.
 
-See [repository overview](docs/repository-overview.md),
-[configuration](docs/configuration.md), and [contributing](CONTRIBUTING.md).
+See [repository overview](docs/repository-overview.md) and
+[configuration](docs/configuration.md).
 
 Source: https://github.com/Sidiora-Labs/hyperfide
 
