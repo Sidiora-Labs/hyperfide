@@ -459,9 +459,20 @@ static void extract_node(AstContext *ctx, TSNode n, int owner, int depth) {
             const char *kind=is(ty,"interface_type")?"interface":is(ty,"struct_type")?"struct":"type";
             next_owner=symbol(ctx,n,name,kind,owner,false,ty);
             if (next_owner>=0) type_fact(ctx,n,"type",next_owner,"underlying",ty);
-        } else if (!strcmp(t,"method_spec")) {
+        } else if (!strcmp(t,"method_spec") || !strcmp(t,"method_elem")) {
             name=field(n,"name");
             next_owner=symbol(ctx,n,name,"method",owner,true,(TSNode){0});
+        } else if (!strcmp(t,"field_declaration")) {
+            /* a struct's named fields (`a, b T` names two); an embedded
+             * field has no name and stays a type reference */
+            if (owner>=0 && !strcmp(ctx->result->sem.symbols[owner].kind,"struct")) {
+                unsigned count=ts_node_named_child_count(n);
+                for (unsigned i=0;i<count;i++) {
+                    TSNode c=named(n,i);
+                    if (is(c,"field_identifier"))
+                        symbol(ctx,n,c,"field",owner,false,field(n,"type"));
+                }
+            }
         } else if (!strcmp(t,"import_spec")) {
             binding(ctx,n,"module_import",field(n,"path"),field(n,"name"),false);
         } else if (!strcmp(t,"var_spec") || !strcmp(t,"const_spec")) {
@@ -513,6 +524,10 @@ static void extract_node(AstContext *ctx, TSNode n, int owner, int depth) {
             name=field(n,"name");
             if (owner>=0 && !strcmp(ctx->result->sem.symbols[owner].kind,"enum"))
                 symbol(ctx,n,name,"variant",owner,false,(TSNode){0});
+        } else if (!strcmp(t,"field_declaration")) {
+            name=field(n,"name");
+            if (owner>=0 && !strcmp(ctx->result->sem.symbols[owner].kind,"struct"))
+                symbol(ctx,n,name,"field",owner,false,field(n,"type"));
         } else if (!strcmp(t,"use_declaration")) {
             rust_use(ctx,n);
         } else if (!strcmp(t,"extern_crate_declaration")) {

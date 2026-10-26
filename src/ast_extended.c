@@ -190,6 +190,13 @@ static bool visit(AstContext *c, TSNode n, void *unused) {
         else if(!strcmp(t,"event_definition")){id=ast_field(n,"name");kind="event";}
         else if(!strcmp(t,"modifier_definition")){id=ast_field(n,"name");kind="modifier";}
         else if(!strcmp(t,"state_variable_declaration")){id=ast_field(n,"name");kind="variable";}
+        else if(!strcmp(t,"interface_declaration")){id=ast_field(n,"name");kind="interface";}
+        else if(!strcmp(t,"library_declaration")){id=ast_field(n,"name");kind="library";}
+        else if(!strcmp(t,"struct_declaration")){id=ast_field(n,"name");kind="struct";}
+        else if(!strcmp(t,"enum_declaration")){id=ast_field(n,"name");kind="enum";}
+        else if(!strcmp(t,"error_declaration")){id=ast_field(n,"name");kind="error";}
+        else if(!strcmp(t,"constant_variable_declaration")){id=ast_field(n,"name");kind="constant";}
+        else if(!strcmp(t,"user_defined_type_definition")){id=ast_field(n,"name");kind="type";}
         else if(!strcmp(t,"call_expression"))add_ref(c,n,simple_id(ast_field(n,"function")),"call",owner);
     } else if(!strcmp(lang,"terraform")) {
         if(!strcmp(t,"block")) {

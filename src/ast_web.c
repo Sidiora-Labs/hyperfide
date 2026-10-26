@@ -465,6 +465,25 @@ static int call_arity(TSNode args) {
     }
     return count;
 }
+/* a key of an object literal that a module-level binding holds, directly or
+ * through call arguments and nested objects (`const Env = z.object({ URL: … })`):
+ * part of the module's declared shape, unlike an object built in a body */
+static bool module_literal_key(TSNode pair) {
+    TSNode p=ts_node_parent(pair);
+    for (int depth=0; !ts_node_is_null(p) && depth<64; depth++, p=ts_node_parent(p)) {
+        if (is(p,"object") || is(p,"pair") || is(p,"arguments") || is(p,"call_expression") ||
+            is(p,"member_expression") || is(p,"array") || is(p,"as_expression") ||
+            is(p,"satisfies_expression") || is(p,"parenthesized_expression") ||
+            is(p,"type_assertion") || is(p,"non_null_expression"))
+            continue;
+        if (!is(p,"variable_declarator")) return false;
+        TSNode decl=ts_node_parent(p), scope=ts_node_parent(decl);
+        if (is(scope,"export_statement")) scope=ts_node_parent(scope);
+        return (is(decl,"lexical_declaration") || is(decl,"variable_declaration")) &&
+               is(scope,"program");
+    }
+    return false;
+}
 static void visit(AstContext *c, TSNode n, int owner, int depth) {
     if (c->cancelled || c->truncated) return;
     if (c->cancel_flag && *c->cancel_flag) { c->cancelled=true; return; }
@@ -499,6 +518,12 @@ static void visit(AstContext *c, TSNode n, int owner, int depth) {
     else if (is(n,"function_declaration") || is(n,"generator_function_declaration") ||
              is(n,"function_signature"))
         child_owner=symbol(c,n,name,"function",owner,exported,body);
+    else if ((is(n,"function_expression") || is(n,"function")) && !ts_node_is_null(name) &&
+             !is(ts_node_parent(n),"variable_declarator") && !is(ts_node_parent(n),"pair") &&
+             !is(ts_node_parent(n),"assignment_expression"))
+        /* a named function expression handed to a call or returned:
+         * `it('case', function caseName() {…})` defines caseName */
+        child_owner=symbol(c,n,name,"function",owner,false,body);
     else if (is(n,"method_definition") || is(n,"method_signature") ||
              is(n,"abstract_method_signature"))
         child_owner=symbol(c,n,name,"method",owner,exported,body);
@@ -557,6 +582,8 @@ static void visit(AstContext *c, TSNode n, int owner, int depth) {
         TSNode key=ast_field(n,"key"),val=ast_field(n,"value");
         if (is(val,"arrow_function") || is(val,"function_expression") || is(val,"function"))
             child_owner=symbol(c,n,key,"action",owner,false,val);
+        else if (is(key,"property_identifier") && module_literal_key(n))
+            symbol(c,n,key,"property",owner,false,val);
     } else if (is(n,"import_statement")) imports(c,n);
     else if (is(n,"export_statement")) exports(c,n);
     else if (is(n,"call_expression")) {

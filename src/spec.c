@@ -3829,8 +3829,15 @@ static int graph_symbol_named(Cg *g, const char *lookup,
             found = 1;
             break;
         }
+        /* an impl block repeats its type's name in the same module and is
+         * not a definition of it: `frame::Limits` must find the struct once,
+         * not tie with `impl Limits`. A field is reachable only through the
+         * struct that holds it, never through the module path it sits in. */
+        const char *rk = (const char *)sqlite3_column_text(st, 0);
+        if (rk && !strcmp(rk, "impl")) continue;
+        bool field_row = rk && !strcmp(rk, "field");
         if (!graph_symbol_in_container(g, (long)sqlite3_column_int64(st, 4),
-                                       candidate,
+                                       field_row ? NULL : candidate,
                                        (const char *)sqlite3_column_text(st, 5),
                                        qual, rust))
             continue;
