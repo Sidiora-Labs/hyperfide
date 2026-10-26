@@ -797,6 +797,11 @@ typedef struct {
     KvxEntry *v; int n, cap;
     char **secs; int nsec, csec;
     char *path;
+    /* parse-time indexes: open-addressed hash slots (index+1, 0 = empty) */
+    int *sec_slot, sec_slots;          /* section name -> secs[] index */
+    int *ent_slot, ent_slots;          /* (section,key) -> v[] index */
+    int *sec_first, *sec_last;         /* per section: first/last v[] index */
+    int *ent_next;                     /* per entry: next v[] in its section */
 } Kvx;
 
 Kvx  *kvx_parse(const char *path);                /* NULL on open/parse error */

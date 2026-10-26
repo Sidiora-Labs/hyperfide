@@ -34,14 +34,88 @@ static char *trim(char *s) {
     return s;
 }
 
-static void kvx_add_section(Kvx *k, const char *sec) {
-    for (int i = 0; i < k->nsec; i++)
-        if (strcmp(k->secs[i], sec) == 0) return;
+static uint64_t kvx_hash(const char *a, const char *b) {
+    uint64_t h = 1469598103934665603ULL;
+    for (const unsigned char *p = (const unsigned char *)a; *p; p++)
+        h = (h ^ *p) * 1099511628211ULL;
+    if (b) {
+        h = (h ^ 0xffu) * 1099511628211ULL;
+        for (const unsigned char *p = (const unsigned char *)b; *p; p++)
+            h = (h ^ *p) * 1099511628211ULL;
+    }
+    return h;
+}
+
+static int kvx_find_section(const Kvx *k, const char *sec) {
+    if (!k->sec_slots) return -1;
+    size_t mask = (size_t)k->sec_slots - 1;
+    for (size_t h = (size_t)kvx_hash(sec, NULL) & mask;; h = (h + 1) & mask) {
+        int at = k->sec_slot[h];
+        if (!at) return -1;
+        if (strcmp(k->secs[at - 1], sec) == 0) return at - 1;
+    }
+}
+
+static int kvx_find_entry(const Kvx *k, const char *sec, const char *key) {
+    if (!k->ent_slots) return -1;
+    size_t mask = (size_t)k->ent_slots - 1;
+    for (size_t h = (size_t)kvx_hash(sec, key) & mask;; h = (h + 1) & mask) {
+        int at = k->ent_slot[h];
+        if (!at) return -1;
+        const KvxEntry *e = &k->v[at - 1];
+        if (strcmp(e->section, sec) == 0 && strcmp(e->key, key) == 0)
+            return at - 1;
+    }
+}
+
+static void kvx_rehash_sections(Kvx *k, int slots) {
+    free(k->sec_slot);
+    k->sec_slot = xmalloc(sizeof(int) * (size_t)slots);
+    memset(k->sec_slot, 0, sizeof(int) * (size_t)slots);
+    k->sec_slots = slots;
+    size_t mask = (size_t)slots - 1;
+    for (int i = 0; i < k->nsec; i++) {
+        size_t h = (size_t)kvx_hash(k->secs[i], NULL) & mask;
+        while (k->sec_slot[h]) h = (h + 1) & mask;
+        k->sec_slot[h] = i + 1;
+    }
+}
+
+static void kvx_rehash_entries(Kvx *k, int slots) {
+    free(k->ent_slot);
+    k->ent_slot = xmalloc(sizeof(int) * (size_t)slots);
+    memset(k->ent_slot, 0, sizeof(int) * (size_t)slots);
+    k->ent_slots = slots;
+    size_t mask = (size_t)slots - 1;
+    for (int i = 0; i < k->n; i++) {
+        size_t h = (size_t)kvx_hash(k->v[i].section, k->v[i].key) & mask;
+        while (k->ent_slot[h]) h = (h + 1) & mask;
+        k->ent_slot[h] = i + 1;
+    }
+}
+
+/* index of section `sec`, appending it in file order when new */
+static int kvx_add_section(Kvx *k, const char *sec) {
+    int found = kvx_find_section(k, sec);
+    if (found >= 0) return found;
     if (k->nsec == k->csec) {
         k->csec = k->csec ? k->csec * 2 : 32;
         k->secs = xrealloc(k->secs, sizeof(char *) * (size_t)k->csec);
+        k->sec_first = xrealloc(k->sec_first, sizeof(int) * (size_t)k->csec);
+        k->sec_last = xrealloc(k->sec_last, sizeof(int) * (size_t)k->csec);
     }
+    int idx = k->nsec;
     k->secs[k->nsec++] = xstrdup(sec);
+    k->sec_first[idx] = k->sec_last[idx] = -1;
+    if ((k->nsec + 1) * 2 > k->sec_slots)
+        kvx_rehash_sections(k, k->sec_slots ? k->sec_slots * 2 : 64);
+    else {
+        size_t mask = (size_t)k->sec_slots - 1;
+        size_t h = (size_t)kvx_hash(sec, NULL) & mask;
+        while (k->sec_slot[h]) h = (h + 1) & mask;
+        k->sec_slot[h] = idx + 1;
+    }
+    return idx;
 }
 
 Kvx *kvx_parse(const char *path) {
@@ -71,26 +145,35 @@ Kvx *kvx_parse(const char *path) {
         char *key = trim(line);
         char *val = trim(eq + 1);
         if (!key[0]) { kvx_free(k); free(body); return NULL; }
-        kvx_add_section(k, section);
+        int si = kvx_add_section(k, section);
         /* duplicate key: keep position, overwrite value (Go semantics) */
-        bool dup = false;
-        for (int i = 0; i < k->n; i++)
-            if (strcmp(k->v[i].section, section) == 0 &&
-                strcmp(k->v[i].key, key) == 0) {
-                free(k->v[i].raw);
-                k->v[i].raw = xstrdup(val);
-                dup = true;
-                break;
-            }
-        if (!dup) {
+        int at = kvx_find_entry(k, section, key);
+        if (at >= 0) {
+            free(k->v[at].raw);
+            k->v[at].raw = xstrdup(val);
+        } else {
             if (k->n == k->cap) {
                 k->cap = k->cap ? k->cap * 2 : 128;
                 k->v = xrealloc(k->v, sizeof(KvxEntry) * (size_t)k->cap);
+                k->ent_next = xrealloc(k->ent_next, sizeof(int) * (size_t)k->cap);
             }
-            k->v[k->n].section = xstrdup(section);
-            k->v[k->n].key = xstrdup(key);
-            k->v[k->n].raw = xstrdup(val);
+            int idx = k->n;
+            k->v[idx].section = xstrdup(section);
+            k->v[idx].key = xstrdup(key);
+            k->v[idx].raw = xstrdup(val);
+            k->ent_next[idx] = -1;
+            if (k->sec_last[si] >= 0) k->ent_next[k->sec_last[si]] = idx;
+            else k->sec_first[si] = idx;
+            k->sec_last[si] = idx;
             k->n++;
+            if ((k->n + 1) * 2 > k->ent_slots)
+                kvx_rehash_entries(k, k->ent_slots ? k->ent_slots * 2 : 256);
+            else {
+                size_t mask = (size_t)k->ent_slots - 1;
+                size_t h = (size_t)kvx_hash(section, key) & mask;
+                while (k->ent_slot[h]) h = (h + 1) & mask;
+                k->ent_slot[h] = idx + 1;
+            }
         }
     }
     free(body);
@@ -106,20 +189,19 @@ void kvx_free(Kvx *k) {
     for (int i = 0; i < k->nsec; i++) free(k->secs[i]);
     free(k->secs);
     free(k->path);
+    free(k->sec_slot); free(k->ent_slot);
+    free(k->sec_first); free(k->sec_last);
+    free(k->ent_next);
     free(k);
 }
 
 bool kvx_has(const Kvx *k, const char *sec) {
-    for (int i = 0; i < k->nsec; i++)
-        if (strcmp(k->secs[i], sec) == 0) return true;
-    return false;
+    return kvx_find_section(k, sec) >= 0;
 }
 
 const char *kvx_raw(const Kvx *k, const char *sec, const char *key) {
-    for (int i = 0; i < k->n; i++)
-        if (strcmp(k->v[i].section, sec) == 0 && strcmp(k->v[i].key, key) == 0)
-            return k->v[i].raw;
-    return NULL;
+    int at = kvx_find_entry(k, sec, key);
+    return at >= 0 ? k->v[at].raw : NULL;
 }
 
 /* ${NAME} where NAME is [A-Za-z_][A-Za-z0-9_]* — anything else stays literal */
@@ -224,13 +306,13 @@ int kvx_list(const Kvx *k, const char *sec, const char *key, char ***out) {
 }
 
 int kvx_keys(const Kvx *k, const char *sec, const char ***out) {
-    int cnt = 0;
-    for (int i = 0; i < k->n; i++)
-        if (strcmp(k->v[i].section, sec) == 0) cnt++;
+    int cnt = 0, si = kvx_find_section(k, sec);
+    for (int i = si >= 0 ? k->sec_first[si] : -1; i >= 0; i = k->ent_next[i])
+        cnt++;
     const char **v = xmalloc(sizeof(char *) * (size_t)(cnt ? cnt : 1));
     int j = 0;
-    for (int i = 0; i < k->n; i++)
-        if (strcmp(k->v[i].section, sec) == 0) v[j++] = k->v[i].key;
+    for (int i = si >= 0 ? k->sec_first[si] : -1; i >= 0; i = k->ent_next[i])
+        v[j++] = k->v[i].key;
     *out = v;
     return cnt;
 }
