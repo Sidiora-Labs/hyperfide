@@ -2753,6 +2753,110 @@ static int spec_claim_cmd(Spec *s, const char *id, const char *agent,
     return 0;
 }
 
+/* `spec ready` checks every eligible task against the same live work, so
+ * the in_progress tasks' touches and the live lease rows are read once
+ * instead of once per candidate (spec_touches_conflict rescans every task's
+ * status on each call). Same verdict and the same first clash, in the same
+ * order: in_progress tasks in dotted order, then leases ordered by task. */
+typedef struct {
+    char **ids; char ***touch; int *nt; int n;   /* in_progress tasks */
+    char **ltask; char **ltouch; int nl;         /* live lease rows */
+} ReadyLive;
+
+static void ready_live_load(Spec *s, Cg *db, ReadyLive *rl) {
+    memset(rl, 0, sizeof *rl);
+    int cap = s->nids > 0 ? s->nids : 1;
+    rl->ids = xmalloc(sizeof(char *) * (size_t)cap);
+    rl->touch = xmalloc(sizeof(char **) * (size_t)cap);
+    rl->nt = xmalloc(sizeof(int) * (size_t)cap);
+    for (int i = 0; i < s->nids; i++) {
+        char *st = task_status(s, s->ids[i]);
+        bool live = strcmp(st, "in_progress") == 0;
+        free(st);
+        if (!live) continue;
+        char osec[300];
+        task_sec(osec, sizeof osec, s->ids[i]);
+        rl->ids[rl->n] = s->ids[i];
+        rl->nt[rl->n] = kvx_list(s->f, osec, "touches", &rl->touch[rl->n]);
+        rl->n++;
+    }
+    Cg local;
+    Cg *g = db;
+    if (!g && memory_open_quiet(&local)) g = &local;
+    if (!g) return;
+    int lcap = 16;
+    rl->ltask = xmalloc(sizeof(char *) * (size_t)lcap);
+    rl->ltouch = xmalloc(sizeof(char *) * (size_t)lcap);
+    sqlite3_stmt *st = cg_prep(g,
+        "SELECT task,ifnull(touches,'') FROM leases "
+        "WHERE expires > strftime('%s','now') ORDER BY task");
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        if (rl->nl == lcap) {
+            lcap *= 2;
+            rl->ltask = xrealloc(rl->ltask, sizeof(char *) * (size_t)lcap);
+            rl->ltouch = xrealloc(rl->ltouch, sizeof(char *) * (size_t)lcap);
+        }
+        rl->ltask[rl->nl] = xstrdup((const char *)sqlite3_column_text(st, 0));
+        rl->ltouch[rl->nl] = xstrdup((const char *)sqlite3_column_text(st, 1));
+        rl->nl++;
+    }
+    sqlite3_finalize(st);
+    if (g == &local) cg_close(&local);
+}
+
+static void ready_live_free(ReadyLive *rl) {
+    for (int i = 0; i < rl->n; i++) {
+        for (int b = 0; b < rl->nt[i]; b++) free(rl->touch[i][b]);
+        free(rl->touch[i]);
+    }
+    free(rl->ids); free(rl->touch); free(rl->nt);
+    for (int i = 0; i < rl->nl; i++) { free(rl->ltask[i]); free(rl->ltouch[i]); }
+    free(rl->ltask); free(rl->ltouch);
+}
+
+static bool ready_conflict(Spec *s, const ReadyLive *rl, const char *id,
+                           char *other, size_t ocap, char *pat, size_t pcap) {
+    char sec[300];
+    task_sec(sec, sizeof sec, id);
+    char **mine; int nm = kvx_list(s->f, sec, "touches", &mine);
+    if (nm == 0) { free(mine); return false; }
+    bool clash = false;
+    for (int i = 0; i < rl->n && !clash; i++) {
+        if (strcmp(rl->ids[i], id) == 0) continue;
+        for (int a = 0; a < nm && !clash; a++)
+            for (int b = 0; b < rl->nt[i] && !clash; b++)
+                if (spec_globs_overlap(mine[a], rl->touch[i][b])) {
+                    clash = true;
+                    snprintf(other, ocap, "%s", rl->ids[i]);
+                    snprintf(pat, pcap, "%s", mine[a]);
+                }
+    }
+    char tag[700];
+    snprintf(tag, sizeof tag, "%s/%s", s->feature, id);
+    for (int r = 0; r < rl->nl && !clash; r++) {
+        if (strcmp(rl->ltask[r], tag) == 0) continue;
+        const char *oid = strrchr(rl->ltask[r], '/');
+        oid = oid ? oid + 1 : rl->ltask[r];
+        for (const char *p = rl->ltouch[r]; *p && !clash; ) {   /* space-joined */
+            while (*p == ' ') p++;
+            if (!*p) break;
+            size_t n = strcspn(p, " ");
+            char theirs[512];
+            snprintf(theirs, sizeof theirs, "%.*s", (int)n, p);
+            for (int a = 0; a < nm && !clash; a++)
+                if (spec_globs_overlap(mine[a], theirs)) {
+                    clash = true;
+                    snprintf(other, ocap, "%s", oid);
+                    snprintf(pat, pcap, "%s", mine[a]);
+                }
+            p += n;
+        }
+    }
+    for (int a = 0; a < nm; a++) free(mine[a]);
+    free(mine);
+    return clash;
+}
+
 /* Every eligible task across every wave, not just the frontier. `spec wave`
  * answers "what runs now"; an orchestrator fanning agents out needs the
  * whole claimable backlog, and whether a live claim already blocks each. */
@@ -2764,23 +2868,29 @@ static int spec_ready_cmd(Spec *s, bool json) {
 
     /* eligible task indices, sorted by wave (stable: dotted order within) */
     int *el = xmalloc(sizeof(int) * (size_t)(s->nids > 0 ? s->nids : 1));
+    unsigned long *ew = xmalloc(sizeof *ew * (size_t)(s->nids > 0 ? s->nids : 1));
     int ne = 0;
     for (int i = 0; i < s->nids; i++)
-        if (task_eligible(s, s->ids[i])) el[ne++] = i;
+        if (task_eligible(s, s->ids[i])) {
+            char sec[300];
+            task_sec(sec, sizeof sec, s->ids[i]);
+            ew[ne] = uint_or(s->f, sec, "wave", 0);
+            el[ne++] = i;
+        }
     for (int i = 1; i < ne; i++) {
         int v = el[i];
-        char sec[300];
-        task_sec(sec, sizeof sec, s->ids[v]);
-        unsigned long w = uint_or(s->f, sec, "wave", 0);
+        unsigned long w = ew[i];
         int j = i;
-        while (j > 0) {
-            task_sec(sec, sizeof sec, s->ids[el[j - 1]]);
-            if (uint_or(s->f, sec, "wave", 0) <= w) break;
+        while (j > 0 && ew[j - 1] > w) {
             el[j] = el[j - 1];
+            ew[j] = ew[j - 1];
             j--;
         }
         el[j] = v;
+        ew[j] = w;
     }
+    ReadyLive rl;
+    ready_live_load(s, have_db ? &g : NULL, &rl);
 
     StrBuf b; sb_init(&b);
     if (json)
@@ -2793,11 +2903,10 @@ static int spec_ready_cmd(Spec *s, bool json) {
         const char *id = s->ids[el[e]];
         char sec[300];
         task_sec(sec, sizeof sec, id);
-        unsigned long w = uint_or(s->f, sec, "wave", 0);
+        unsigned long w = ew[e];
         char other[64] = "", pat[256] = "";
-        bool conflict = spec_touches_conflict(s, id, other, sizeof other,
-                                              pat, sizeof pat,
-                                              have_db ? &g : NULL);
+        bool conflict = ready_conflict(s, &rl, id, other, sizeof other,
+                                       pat, sizeof pat);
         if (json) {
             if (e) sb_putc(&b, ',');
             StrBuf t; sb_init(&t);
@@ -2829,6 +2938,8 @@ static int spec_ready_cmd(Spec *s, bool json) {
         havew = true;
     }
     free(el);
+    free(ew);
+    ready_live_free(&rl);
     if (have_db) cg_close(&g);
     if (json) {
         sb_puts(&b, "],\"held_by_superseded\":");
