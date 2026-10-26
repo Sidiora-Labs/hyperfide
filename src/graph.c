@@ -89,7 +89,8 @@ sqlite3_stmt *graph_trace_symbols_prepare(Cg *cg) {
     return cg_prep(cg,
         "SELECT s.kind, f.path, s.line,"
         " (SELECT COUNT(*) FROM refs r JOIN files rf ON rf.id=r.file_id"
-        "   WHERE r.name = s.name AND (?2<=0 OR rf.branch_id = ?2))"
+        "   WHERE r.name = s.name AND (?2<=0 OR rf.branch_id = ?2)),"
+        " s.id, s.sig"
         " FROM symbols s JOIN files f ON f.id = s.file_id"
         " WHERE s.name = ?1 AND (?2<=0 OR f.branch_id = ?2)"
         " ORDER BY s.decl, s.id");
@@ -511,11 +512,147 @@ static int defs_named(Cg *cg, const char *name, SymRow *out, int cap) {
     return n;
 }
 
+/* ---------------- qualified names ---------------- */
+
+/* Split `Type.Method`, `module::Item` or `Enum::Variant` at the last
+ * separator. *final is the symbol's own name; qual receives the innermost
+ * qualifier segment that names a container (crate/self/super name none and
+ * are skipped; qual is left empty when nothing else remains). */
+bool graph_qualified_split(const char *name, const char **final, char *qual,
+                           size_t cap, bool *rust) {
+    const char *sep = NULL;
+    for (const char *p = strstr(name, "::"); p; p = strstr(p + 2, "::"))
+        sep = p;
+    size_t slen = 2;
+    *rust = sep != NULL;
+    if (!sep) { sep = strrchr(name, '.'); slen = 1; }
+    if (!sep || sep == name || !sep[slen]) return false;
+    *final = sep + slen;
+    const char *end = sep;
+    for (;;) {
+        const char *start = name, *p;
+        if (*rust) {
+            for (p = name; p < end; p++)
+                if (p + 1 < end && p[0] == ':' && p[1] == ':') start = p + 2;
+        } else {
+            for (p = name; p < end; p++)
+                if (*p == '.') start = p + 1;
+        }
+        size_t len = (size_t)(end - start);
+        if (len == 0 || len >= cap) return false;
+        bool skip = *rust && ((len == 5 && !strncmp(start, "crate", 5)) ||
+                              (len == 4 && !strncmp(start, "self", 4)) ||
+                              (len == 5 && !strncmp(start, "super", 5)));
+        if (!skip) {
+            memcpy(qual, start, len);
+            qual[len] = 0;
+            return true;
+        }
+        if (start == name) { qual[0] = 0; return true; }
+        end = start - slen;
+    }
+}
+
+/* equal up to the crate-name spelling difference (`_` in code, `-` on disk) */
+static bool qual_eq(const char *a, size_t alen, const char *b) {
+    if (strlen(b) != alen) return false;
+    for (size_t i = 0; i < alen; i++) {
+        char x = a[i] == '-' ? '_' : a[i], y = b[i] == '-' ? '_' : b[i];
+        if (x != y) return false;
+    }
+    return true;
+}
+
+/* A directory component of path, or for Rust the defining file's module
+ * (file stem; the directory of a mod.rs). lib.rs/main.rs are crate roots
+ * and are matched through their crate directory component instead. */
+static bool qual_names_path(const char *path, const char *qual, bool rust) {
+    const char *p = path;
+    for (;;) {
+        const char *slash = strchr(p, '/');
+        if (!slash) break;
+        if (qual_eq(p, (size_t)(slash - p), qual)) return true;
+        p = slash + 1;
+    }
+    if (!rust) return false;
+    size_t len = strlen(p);
+    if (len <= 3 || strcmp(p + len - 3, ".rs")) return false;
+    len -= 3;
+    if ((len == 3 && !strncmp(p, "lib", 3)) || (len == 4 && !strncmp(p, "main", 4)) ||
+        (len == 3 && !strncmp(p, "mod", 3)))
+        return false;
+    return qual_eq(p, len, qual);
+}
+
+/* the receiver type of a Go method signature `func (p *T[K]) Name(...)` */
+static bool go_receiver_is(const char *sig, const char *qual) {
+    if (!sig || strncmp(sig, "func", 4)) return false;
+    const char *p = sig + 4;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p != '(') return false;
+    const char *close = strchr(p, ')');
+    if (!close) return false;
+    const char *e = close;
+    const char *bracket = memchr(p, '[', (size_t)(close - p));
+    if (bracket) e = bracket;
+    while (e > p && (e[-1] == ' ' || e[-1] == '\t')) e--;
+    const char *b = e;
+    while (b > p && b[-1] != ' ' && b[-1] != '*' && b[-1] != '(' && b[-1] != '\t')
+        b--;
+    return e > b && qual_eq(b, (size_t)(e - b), qual);
+}
+
+/* Does the indexed symbol live in the container its qualifier names? The
+ * enclosing type, enum, impl or module recorded as its semantic parent, a
+ * Go method's receiver type, or the package directory / Rust module file
+ * that defines it. An empty qualifier (only crate::/self::) constrains
+ * nothing. */
+bool graph_symbol_in_container(Cg *cg, long sym_id, const char *path,
+                               const char *sig, const char *qual, bool rust) {
+    if (!qual[0]) return true;
+    if (path && qual_names_path(path, qual, rust)) return true;
+    if (!rust && go_receiver_is(sig, qual)) return true;
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT p.id, p.name, p.kind FROM semantic_symbols ss"
+        " JOIN symbols p ON p.id = ss.parent_id WHERE ss.symbol_id = ?1");
+    bool hit = false;
+    long id = sym_id;
+    for (int depth = 0; depth < 32; depth++) {
+        sqlite3_reset(st);
+        sqlite3_bind_int64(st, 1, id);
+        if (sqlite3_step(st) != SQLITE_ROW) break;
+        const char *pn = (const char *)sqlite3_column_text(st, 1);
+        const char *pk = (const char *)sqlite3_column_text(st, 2);
+        if (pn && strcmp(pn, qual) == 0) { hit = true; break; }
+        /* only an enclosing Rust module carries the name further out:
+         * `a::f` reaches f's module, never past a type around it */
+        if (!rust || !pk || strcmp(pk, "module")) break;
+        id = sqlite3_column_int64(st, 0);
+    }
+    sqlite3_finalize(st);
+    return hit;
+}
+
 /* name -> symbols in tiers: an exact definition short-circuits the rest,
  * else trigram FTS, or LIKE for a query too short to trigram */
 static int find_symbols(Cg *cg, const char *q, SymRow *out, int cap) {
     int n = defs_named(cg, q, out, cap);
     if (n > 0) return n;
+    /* a qualified name is exact: its final segment's definitions, kept
+     * only when they live in the named container — never a fuzzy match */
+    const char *final;
+    char qual[256];
+    bool rust;
+    if (graph_qualified_split(q, &final, qual, sizeof qual, &rust)) {
+        SymRow *all = xmalloc(sizeof(SymRow) * 256);
+        int na = defs_named(cg, final, all, 256);
+        for (int i = 0; i < na && n < cap; i++)
+            if (graph_symbol_in_container(cg, all[i].id, all[i].path,
+                                          all[i].sig, qual, rust))
+                out[n++] = all[i];
+        free(all);
+        return n;
+    }
     sqlite3_stmt *st;
 
     if (strlen(q) >= 3) {

@@ -521,6 +521,15 @@ static void visit(AstContext *c, TSNode n, int owner, int depth) {
             child_owner=symbol(c,n,name,"object",owner,export_context(ts_node_parent(n)),v);
         else if (is(v,"new_expression"))
             child_owner=symbol(c,n,name,"variable",owner,export_context(ts_node_parent(n)),v);
+        else if (owner<0 && is(name,"identifier")) {
+            /* a module-level binding with any other initializer (a literal,
+             * a call, a template) or none is still a named definition */
+            TSNode decl=ts_node_parent(n), scope=ts_node_parent(decl);
+            if (is(scope,"export_statement")) scope=ts_node_parent(scope);
+            if ((is(decl,"lexical_declaration") || is(decl,"variable_declaration")) &&
+                is(scope,"program"))
+                symbol(c,n,name,"variable",owner,export_context(decl),v);
+        }
         TSNode type=ast_field(n,"type");
         if (!ts_node_is_null(type)) {
             char *value=text(c,type);
