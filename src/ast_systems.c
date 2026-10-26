@@ -467,6 +467,18 @@ static void extract_node(AstContext *ctx, TSNode n, int owner, int depth) {
         } else if (!strcmp(t,"var_spec") || !strcmp(t,"const_spec")) {
             TSNode value=field(n,"value"), n0=field(n,"name");
             if (ts_node_is_null(n0)) n0=first_named(n);
+            /* package-level names only: a function body's locals are not
+             * graph symbols. Every identifier child of the spec is a name
+             * (`const A, B = 1, 2`); the type and values are other nodes. */
+            if (owner<0) {
+                const char *kind=!strcmp(t,"const_spec")?"constant":"variable";
+                unsigned count=ts_node_named_child_count(n);
+                for (unsigned i=0;i<count;i++) {
+                    TSNode c=named(n,i);
+                    if (is(c,"identifier"))
+                        symbol(ctx,n,c,kind,owner,false,(TSNode){0});
+                }
+            }
             if (is(value,"identifier") || is(value,"selector_expression")) {
                 char *v=copy_text(ctx,n0);
                 type_fact(ctx,n,"function_value",owner,v,value); free(v);
@@ -493,6 +505,14 @@ static void extract_node(AstContext *ctx, TSNode n, int owner, int depth) {
             next_owner=symbol(ctx,n,name,kind,owner,false,body);
             if (next_owner>=0 && !strcmp(t,"trait_item"))
                 type_fact(ctx,n,"inherits",next_owner,"bounds",field(n,"bounds"));
+        } else if (!strcmp(t,"const_item") || !strcmp(t,"static_item")) {
+            name=field(n,"name");
+            symbol(ctx,n,name,!strcmp(t,"const_item")?"constant":"static",
+                   owner,false,field(n,"value"));
+        } else if (!strcmp(t,"enum_variant")) {
+            name=field(n,"name");
+            if (owner>=0 && !strcmp(ctx->result->sem.symbols[owner].kind,"enum"))
+                symbol(ctx,n,name,"variant",owner,false,(TSNode){0});
         } else if (!strcmp(t,"use_declaration")) {
             rust_use(ctx,n);
         } else if (!strcmp(t,"extern_crate_declaration")) {

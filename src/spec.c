@@ -3802,10 +3802,14 @@ static int qualified_path_score(const char *qualified, const char *path) {
 }
 
 /* Resolve one graph name on the branch being qualified. A qualified name
- * refuses an unresolved tie instead of silently attributing the task to an
- * arbitrary definition; an unqualified one takes the first row. */
+ * keeps only definitions inside the container its qualifier names (receiver
+ * or parent type, enclosing enum, defining module); a Rust path then ranks
+ * them by module path and refuses an unresolved tie instead of silently
+ * attributing the task to an arbitrary definition. An unqualified name
+ * takes the first row. */
 static int graph_symbol_named(Cg *g, const char *lookup,
-                              const char *qualified, char *path, size_t pcap,
+                              const char *qualified, const char *qual,
+                              bool rust, char *path, size_t pcap,
                               int *line, char *kind, size_t kcap, int *refs) {
     /* one branch only: the shared graph holds this symbol once per indexed
      * worktree, and a qualification must judge the tree it is standing in.
@@ -3820,13 +3824,23 @@ static int graph_symbol_named(Cg *g, const char *lookup,
     int found = 0, best = -1, best_count = 0;
     while (sqlite3_step(st) == SQLITE_ROW) {
         const char *candidate = (const char *)sqlite3_column_text(st, 1);
-        int score = qualified && candidate
-            ? qualified_path_score(qualified, candidate) : 0;
         if (!qualified) {
             graph_symbol_row(st, path, pcap, line, kind, kcap, refs);
             found = 1;
             break;
         }
+        if (!graph_symbol_in_container(g, (long)sqlite3_column_int64(st, 4),
+                                       candidate,
+                                       (const char *)sqlite3_column_text(st, 5),
+                                       qual, rust))
+            continue;
+        if (!rust) {
+            graph_symbol_row(st, path, pcap, line, kind, kcap, refs);
+            found = 1;
+            best_count = 1;
+            break;
+        }
+        int score = candidate ? qualified_path_score(qualified, candidate) : 0;
         if (score > best) {
             best = score;
             best_count = 1;
@@ -3841,19 +3855,23 @@ static int graph_symbol_named(Cg *g, const char *lookup,
     return found && (!qualified || best_count == 1);
 }
 
-/* First definition of a symbol + its ref count. Rust-style qualified names
- * fall back to the graph's short names and use their crate/module path to
- * disambiguate definitions such as ed25519::verify vs secp256k1::verify. */
+/* First definition of a symbol + its ref count. Qualified names — Go
+ * `Type.Method`, Rust `module::Item` and `Enum::Variant` — fall back to the
+ * graph's short names and must resolve inside the container they name;
+ * a Rust path also uses its crate/module path to disambiguate definitions
+ * such as ed25519::verify vs secp256k1::verify. */
 static int graph_symbol(Cg *g, const char *name, char *path, size_t pcap,
                         int *line, char *kind, size_t kcap, int *refs) {
-    if (graph_symbol_named(g, name, NULL, path, pcap, line, kind, kcap, refs))
+    if (graph_symbol_named(g, name, NULL, NULL, false, path, pcap, line,
+                           kind, kcap, refs))
         return 1;
-    const char *sep = NULL;
-    for (const char *p = strstr(name, "::"); p; p = strstr(p + 2, "::"))
-        sep = p;
-    if (!sep || !sep[2]) return 0;
-    return graph_symbol_named(g, sep + 2, name, path, pcap, line, kind,
-                              kcap, refs);
+    const char *final;
+    char qual[256];
+    bool rust;
+    if (!graph_qualified_split(name, &final, qual, sizeof qual, &rust))
+        return 0;
+    return graph_symbol_named(g, final, name, qual, rust, path, pcap, line,
+                              kind, kcap, refs);
 }
 
 static void task_tag(const Spec *s, const char *id, char *out, size_t cap) {
