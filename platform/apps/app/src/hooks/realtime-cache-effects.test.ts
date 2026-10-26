@@ -339,6 +339,62 @@ describe("core tag reconnect refresh", () => {
 describe("createRealtimeCacheEffects", () => {
   it.each(
     [
+      sidebarNavigationQueryKey(),
+      threadSearchQueryKey({ limitPerGroup: 20, query: "needle" }),
+    ].map((key) => ({ key })),
+  )(
+    "coalesces debounced list churn for $key without aborting bootstrap",
+    async ({ key }) => {
+      vi.useFakeTimers();
+      const { effects, queryClient } = createRealtimeEffectsTestContext();
+      let revision = 0;
+      let resolveFetch: (value: number) => void = () => {};
+      const signals: AbortSignal[] = [];
+      const queryFn = vi.fn(({ signal }: { signal: AbortSignal }) => {
+        signals.push(signal);
+        return new Promise<number>((resolve) => {
+          resolveFetch = resolve;
+        });
+      });
+      queryClient.setQueryData(key, -1);
+      const observer = new QueryObserver(queryClient, {
+        queryKey: key,
+        queryFn,
+        staleTime: Infinity,
+      });
+      const unsubscribe = observer.subscribe(() => {});
+      try {
+        void observer.refetch();
+        for (let i = 0; i < 20; i++) {
+          revision++;
+          effects.handleChanged({
+            type: "changed",
+            entity: "thread",
+            id: "thr_1",
+            changes: ["title-changed"],
+          });
+          await vi.advanceTimersByTimeAsync(100);
+          expect(signals.every((signal) => !signal.aborted)).toBe(true);
+          expect(queryFn).toHaveBeenCalledTimes(1);
+        }
+        resolveFetch(0);
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(queryFn).toHaveBeenCalledTimes(2);
+        resolveFetch(revision);
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(queryClient.getQueryData(key)).toBe(20);
+        expect(signals.every((signal) => !signal.aborted)).toBe(true);
+        expect(queryFn).toHaveBeenCalledTimes(2);
+      } finally {
+        effects.dispose();
+        unsubscribe();
+        queryClient.clear();
+      }
+    },
+  );
+
+  it.each(
+    [
       threadStorageFilesQueryKey("thread-1"),
       threadStorageLocationQueryKey("thread-1"),
       threadStoragePathsQueryKey("thread-1"),

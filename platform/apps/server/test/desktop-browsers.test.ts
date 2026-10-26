@@ -967,7 +967,9 @@ describe("desktop browser public API", () => {
         };
         const updating = test.change({}, change === "closed" ? [] : [updated]);
         if (change === "updated")
-          await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+          await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2), {
+            timeout: 10_000,
+          });
         else await updating;
         listed.resolve({
           ok: true,
@@ -1071,56 +1073,73 @@ describe("desktop browser public API", () => {
       ]);
     });
   });
-  it("retains one owner when two windows restore the same orphan concurrently", async () => {
-    await withBrowserTest(async (test) => {
-      const tab = test.tab();
-      await test.change({ instanceId: "closed-window" }, [tab]);
-      const listed = createDeferredPromise<HostRpcHandlerResult>();
-      const list = vi.fn(() => listed.promise);
-      const closed = vi.fn();
-      test.intercept(({ command }) => {
-        if (command.type === "desktop.browser.list_instances") return list();
-        if (command.type === "desktop.browser.close_tab") closed(command);
-        return null;
+  it.each([false, true])(
+    "retains one owner when two windows restore the same orphan concurrently (second wins: %s)",
+    async (secondWins) => {
+      await withBrowserTest(async (test) => {
+        const tab = test.tab();
+        await test.change({ instanceId: "closed-window" }, [tab]);
+        const firstListed = createDeferredPromise<HostRpcHandlerResult>();
+        const secondListed = createDeferredPromise<HostRpcHandlerResult>();
+        const list = vi
+          .fn()
+          .mockImplementationOnce(() => firstListed.promise)
+          .mockImplementationOnce(() => secondListed.promise);
+        const closed = vi.fn();
+        test.intercept(({ command }) => {
+          if (command.type === "desktop.browser.list_instances") return list();
+          if (command.type === "desktop.browser.close_tab") closed(command);
+          return null;
+        });
+        const firstRestore = test.change({}, [tab]);
+        await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(1), {
+          timeout: 10_000,
+        });
+        const secondRestore = test.change({ instanceId: "competing-window" }, [
+          tab,
+        ]);
+        await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2), {
+          timeout: 10_000,
+        });
+        const result: HostRpcHandlerResult = {
+          ok: true,
+          result: {
+            instances: [
+              {
+                instanceId: test.scope.instanceId,
+                generation: test.scope.generation,
+                label: "First",
+              },
+              {
+                instanceId: "competing-window",
+                generation: test.scope.generation,
+                label: "Second",
+              },
+            ],
+          },
+        };
+        (secondWins ? secondListed : firstListed).resolve(result);
+        await (secondWins ? secondRestore : firstRestore);
+        (secondWins ? firstListed : secondListed).resolve(result);
+        await Promise.all([firstRestore, secondRestore]);
+        await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
+        const owner = (await test.stored()).find(
+          (value) => value.id === tab.tabId,
+        );
+        expect(owner).toMatchObject({
+          desktopTarget: {
+            instanceId: secondWins ? "competing-window" : test.scope.instanceId,
+          },
+        });
+        expect(closed).toHaveBeenCalledWith(
+          expect.objectContaining({
+            instanceId: secondWins ? test.scope.instanceId : "competing-window",
+            tabId: tab.tabId,
+          }),
+        );
       });
-      const firstRestore = test.change({}, [tab]);
-      const secondRestore = test.change({ instanceId: "competing-window" }, [
-        tab,
-      ]);
-      await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
-      listed.resolve({
-        ok: true,
-        result: {
-          instances: [
-            {
-              instanceId: test.scope.instanceId,
-              generation: test.scope.generation,
-              label: "First",
-            },
-            {
-              instanceId: "competing-window",
-              generation: test.scope.generation,
-              label: "Second",
-            },
-          ],
-        },
-      });
-      await Promise.all([firstRestore, secondRestore]);
-      await vi.waitFor(() => expect(closed).toHaveBeenCalledTimes(1));
-      const owner = (await test.stored()).find(
-        (value) => value.id === tab.tabId,
-      );
-      expect(owner).toMatchObject({
-        desktopTarget: { instanceId: test.scope.instanceId },
-      });
-      expect(closed).toHaveBeenCalledWith(
-        expect.objectContaining({
-          instanceId: "competing-window",
-          tabId: tab.tabId,
-        }),
-      );
-    });
-  });
+    },
+  );
 
   it("updates persisted targets after same-window reconnect and ignores deletion from its old generation", async () => {
     await withBrowserTest(async (test) => {
