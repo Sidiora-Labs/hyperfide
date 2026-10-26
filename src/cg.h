@@ -684,6 +684,10 @@ void vcs_trace_batch(Cg *cg, const char **tags, int n, VcsTrace *rows,
                      char ***workpaths, int *nworkpaths);
 void vcs_trace_free(VcsTrace *rows, int n);
 sqlite3_stmt *graph_trace_symbols_prepare(Cg *cg);
+bool graph_qualified_split(const char *name, const char **final, char *qual,
+                           size_t cap, bool *rust);
+bool graph_symbol_in_container(Cg *cg, long sym_id, const char *path,
+                               const char *sig, const char *qual, bool rust);
 bool graph_trace_is_fresh(Cg *cg);
 /* commits whose snapshot changed <path>, newest first — provenance for why.
  * ids and msgs, their strings, and dates are all malloc'd for the caller. */
