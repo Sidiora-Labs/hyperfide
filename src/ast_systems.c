@@ -22,11 +22,17 @@ static SemSpan span(TSNode n) {
         .start_byte=ts_node_start_byte(n), .end_byte=ts_node_end_byte(n)};
 }
 
+/* tree-sitter dereferences the node's subtree for both lookups, so a null node
+ * (an absent field, an empty declarator) must answer null instead of faulting. */
 static TSNode field(TSNode n, const char *name) {
+    if (ts_node_is_null(n)) return n;
     return ts_node_child_by_field_name(n, name, (uint32_t)strlen(name));
 }
 
-static TSNode named(TSNode n, unsigned i) { return ts_node_named_child(n, i); }
+static TSNode named(TSNode n, unsigned i) {
+    if (ts_node_is_null(n)) return n;
+    return ts_node_named_child(n, i);
+}
 
 static char *copy_text(AstContext *ctx, TSNode n) {
     return ts_node_is_null(n) ? NULL : ast_text(ctx, n);
@@ -164,6 +170,7 @@ static bool is_c_parameter(AstContext *ctx, TSNode call, const char *name) {
     while (!ts_node_is_null(d) && !is(d,"function_declarator"))
         d=field(d,"declarator");
     TSNode params=field(d,"parameters");
+    if (ts_node_is_null(params)) return false;
     unsigned count=ts_node_named_child_count(params);
     for (unsigned i=0;i<count;i++) {
         TSNode p=named(params,i);
