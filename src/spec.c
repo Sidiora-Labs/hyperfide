@@ -4324,33 +4324,103 @@ static void lint_say(Lint *l, bool error, const char *id, const char *fmt, ...) 
     if (error) l->errors++; else l->warnings++;
 }
 
-/* depth-first cycle detection over `requires`; colour 1 = on stack, 2 = done */
-static bool lint_cycle(Spec *s, const char *id, char **stack, int depth,
-                       char (*colour)[2][256], int ncol, Lint *l) {
-    (void)colour; (void)ncol;
-    if (depth > 64) return false;
-    for (int i = 0; i < depth; i++) {
-        if (strcmp(stack[i], id) == 0) {
-            StrBuf c; sb_init(&c);
-            for (int j = i; j < depth; j++) sb_printf(&c, "%s -> ", stack[j]);
-            sb_printf(&c, "%s", id);
-            lint_say(l, true, id, "requires cycle: %s", c.p);
-            sb_free(&c);
-            return true;
+/* Cycle detection over `requires`, linear in tasks plus edges: an iterative
+ * depth-first search with colours (0 = unvisited, 1 = on stack, 2 = done)
+ * shared across every start task, so each task and edge is walked once. A
+ * back edge to a task on the stack reports the cycle members from that task
+ * to the top of the stack. */
+typedef struct {
+    int n, cap;             /* hash capacity, power of two */
+    int *slot;              /* hash slot -> task index, -1 empty */
+    int **adj; int *nadj;   /* resolved requires, by task index */
+    char *colour;
+    int *stk, *edge;        /* DFS stack: task index, next edge */
+} LintCyc;
+
+static unsigned lint_cyc_hash(const char *k) {
+    unsigned h = 2166136261u;
+    for (; *k; k++) h = (h ^ (unsigned char)*k) * 16777619u;
+    return h;
+}
+
+static int lint_cyc_find(const Spec *s, const LintCyc *c, const char *id) {
+    for (unsigned h = lint_cyc_hash(id) & (unsigned)(c->cap - 1);;
+         h = (h + 1) & (unsigned)(c->cap - 1)) {
+        int v = c->slot[h];
+        if (v < 0) return -1;
+        if (strcmp(s->ids[v], id) == 0) return v;
+    }
+}
+
+static void lint_cyc_init(Spec *s, LintCyc *c) {
+    c->n = s->nids;
+    c->cap = 16;
+    while (c->cap < 2 * c->n + 1) c->cap <<= 1;
+    c->slot = xmalloc(sizeof(int) * (size_t)c->cap);
+    for (int i = 0; i < c->cap; i++) c->slot[i] = -1;
+    for (int i = 0; i < c->n; i++) {
+        if (lint_cyc_find(s, c, s->ids[i]) >= 0) continue;
+        unsigned h = lint_cyc_hash(s->ids[i]) & (unsigned)(c->cap - 1);
+        while (c->slot[h] >= 0) h = (h + 1) & (unsigned)(c->cap - 1);
+        c->slot[h] = i;
+    }
+    size_t m = c->n ? (size_t)c->n : 1;
+    c->adj = xmalloc(sizeof(int *) * m);
+    c->nadj = xmalloc(sizeof(int) * m);
+    c->colour = xmalloc(m);
+    c->stk = xmalloc(sizeof(int) * m);
+    c->edge = xmalloc(sizeof(int) * m);
+    for (int i = 0; i < c->n; i++) {
+        char sec[300];
+        task_sec(sec, sizeof sec, s->ids[i]);
+        char **reqs; int nr = kvx_list(s->f, sec, "requires", &reqs);
+        c->adj[i] = xmalloc(sizeof(int) * (size_t)(nr ? nr : 1));
+        c->nadj[i] = 0;
+        for (int j = 0; j < nr; j++) {
+            int v = lint_cyc_find(s, c, reqs[j]);
+            if (v >= 0) c->adj[i][c->nadj[i]++] = v;
+            free(reqs[j]);
+        }
+        free(reqs);
+        c->colour[i] = 0;
+    }
+}
+
+static void lint_cyc_free(LintCyc *c) {
+    if (!c->slot) return;
+    for (int i = 0; i < c->n; i++) free(c->adj[i]);
+    free(c->adj); free(c->nadj); free(c->colour);
+    free(c->stk); free(c->edge); free(c->slot);
+}
+
+static void lint_cycle(Spec *s, const char *id, LintCyc *c, Lint *l) {
+    if (!c->slot) lint_cyc_init(s, c);
+    int start = lint_cyc_find(s, c, id);
+    if (start < 0 || c->colour[start]) return;
+    int top = 0;
+    c->stk[0] = start; c->edge[0] = 0; c->colour[start] = 1;
+    while (top >= 0) {
+        int u = c->stk[top];
+        if (c->edge[top] >= c->nadj[u]) {
+            c->colour[u] = 2;
+            top--;
+            continue;
+        }
+        int v = c->adj[u][c->edge[top]++];
+        if (c->colour[v] == 0) {
+            top++;
+            c->stk[top] = v; c->edge[top] = 0; c->colour[v] = 1;
+        } else if (c->colour[v] == 1) {
+            int at = top;
+            while (c->stk[at] != v) at--;
+            StrBuf b; sb_init(&b);
+            for (int j = at; j <= top; j++)
+                sb_printf(&b, "%s -> ", s->ids[c->stk[j]]);
+            sb_printf(&b, "%s", s->ids[v]);
+            lint_say(l, true, s->ids[v], "requires cycle: %s", b.p);
+            sb_free(&b);
         }
     }
-    char sec[300];
-    task_sec(sec, sizeof sec, id);
-    char **reqs; int nr = kvx_list(s->f, sec, "requires", &reqs);
-    stack[depth] = (char *)id;
-    bool found = false;
-    for (int i = 0; i < nr; i++) {
-        if (!found && task_exists(s, reqs[i]))
-            found = lint_cycle(s, reqs[i], stack, depth + 1, colour, ncol, l);
-        free(reqs[i]);
-    }
-    free(reqs);
-    return found;
 }
 
 /* A plan that cannot be executed is worse than no plan. Lint catches the
@@ -4410,6 +4480,8 @@ static int spec_lint_cmd(Spec *s, bool json) {
     sb_init(&l.b);
     Cg asks;
     int asks_open = 0;      /* 0 untried, 1 open, -1 unavailable */
+    LintCyc cyc;
+    memset(&cyc, 0, sizeof cyc);
 
     /* every acceptance criterion id declared by [req.*] */
     char **reqsecs; int nreq = kvx_subsections(s->f, "req", &reqsecs);
@@ -4476,8 +4548,7 @@ static int spec_lint_cmd(Spec *s, bool json) {
 
         if (!task_is_leaf(s, id)) continue;    /* headings need nothing more */
 
-        char *stack[80];
-        lint_cycle(s, id, stack, 0, NULL, 0, &l);
+        lint_cycle(s, id, &cyc, &l);
 
         char **rs; int nrs = kvx_list(s->f, sec, "reqs", &rs);
         if (nrs == 0)
@@ -4517,6 +4588,7 @@ static int spec_lint_cmd(Spec *s, bool json) {
         free(tp);
     }
 
+    lint_cyc_free(&cyc);
     for (int i = 0; i < nreq; i++) free(reqsecs[i]);
     free(reqsecs);
 
