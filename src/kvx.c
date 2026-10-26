@@ -94,11 +94,13 @@ Kvx *kvx_parse(const char *path) {
         }
     }
     free(body);
+    kvx_index_build(k);
     return k;
 }
 
 void kvx_free(Kvx *k) {
     if (!k) return;
+    kvx_index_free(k);
     for (int i = 0; i < k->n; i++) {
         free(k->v[i].section); free(k->v[i].key); free(k->v[i].raw);
     }
@@ -116,6 +118,10 @@ bool kvx_has(const Kvx *k, const char *sec) {
 }
 
 const char *kvx_raw(const Kvx *k, const char *sec, const char *key) {
+    if (k->idx) {
+        int e = kvx_index_find(k, sec, key);
+        return e < 0 ? NULL : k->v[e].raw;
+    }
     for (int i = 0; i < k->n; i++)
         if (strcmp(k->v[i].section, sec) == 0 && strcmp(k->v[i].key, key) == 0)
             return k->v[i].raw;

@@ -797,7 +797,11 @@ typedef struct {
     KvxEntry *v; int n, cap;
     char **secs; int nsec, csec;
     char *path;
+    void *idx;                 /* (section,key) hash index; kvx_index.c */
 } Kvx;
+void  kvx_index_build(Kvx *k);
+int   kvx_index_find(const Kvx *k, const char *sec, const char *key); /* -1 absent */
+void  kvx_index_free(Kvx *k);
 
 Kvx  *kvx_parse(const char *path);                /* NULL on open/parse error */
 void  kvx_free(Kvx *k);
