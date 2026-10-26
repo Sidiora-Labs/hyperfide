@@ -5,15 +5,18 @@
 <img src="https://supabase.paxeer.app/storage/v1/object/public/paxeer/img_centra_10.svg">
 <a
   href="https://trendshift.io/repositories/267432?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-267432" target="_blank" rel="noopener noreferrer">
-<img src="https://trendshift.io/api/badge/trendshift/repositories/267432/daily?language=C" alt="Sidiora-Labs%2Fcodify | Trendshift" width="250" height="55"/>
+<img src="https://supabase.paxeer.app/storage/v1/object/public/badge/h1k7oizpxntmvp7n8ik.svg" alt="Sidiora-Labs%2Fcodify | Trendshift" width="250" height="55"/>
 </a>
 
 **The agent workflow tool that scales from small, simple projects to large, complex codebases.**
 
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-[![Language: C11](https://img.shields.io/badge/Language-C11-lightgrey?style=for-the-badge)](#)
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=for-the-badge)](.github/workflows/ci.yml)
+[![badge](https://shieldcn.dev/github/Sidiora-Labs/hyperfide/license.svg?variant=outline&size=lg&font=geist&logo=github&logoColor=dadee6&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/Sidiora-Labs/hyperfide)
+[![badge](https://shieldcn.dev/badge/TYPESCRIPT.svg?variant=outline&size=lg&font=geist&logo=typescript&logoColor=1363e6&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
+[![badge](https://shieldcn.dev/badge/PYTHON.svg?variant=outline&size=lg&font=geist&logo=python&logoColor=f6d63b&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
+[![badge](https://shieldcn.dev/badge/LANGUAGE%20C11.svg?variant=outline&size=lg&font=geist&logo=lu%3ACpu&logoColor=f4f4f2&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
+[![badge](https://shieldcn.dev/badge/SIDIORA%20LABS.svg?variant=outline&size=lg&font=geist&logo=lu%3AGlobe&logoColor=0043e6&labelTextColor=1c3e76&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/org/Sidiora-Labs)
+[![badge](https://shieldcn.dev/github/Sidiora-Labs/hyperfide/ci.svg?variant=outline&size=lg&font=geist&logo=github&logoColor=dadee6&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/Sidiora-Labs/hyperfide/actions)
 </div>
 <div align="center">
 
