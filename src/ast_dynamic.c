@@ -469,6 +469,14 @@ static void walk(DynWalk *w, TSNode n, unsigned depth) {
         php_import(w, n);
     } else if (py && is(n, "assignment")) {
         TSNode left = ast_field(n, "left"), type = ast_field(n, "type");
+        /* a name bound at module level, annotated or not, is a definition;
+         * the locals of a function or class body are not. The grammar hangs
+         * the assignment under the module directly or under an expression
+         * statement, depending on its version. */
+        TSNode stmt = ts_node_parent(n);
+        if (is(stmt, "expression_statement")) stmt = ts_node_parent(stmt);
+        if (w->owner < 0 && is(left, "identifier") && is(stmt, "module"))
+            add_symbol(w, n, left, "variable", (TSNode){0}, type, (TSNode){0});
         if (is(left, "identifier") && !ts_node_is_null(type))
             add_type(w, n, left, type, "variable_type");
         TSNode right = ast_field(n, "right");

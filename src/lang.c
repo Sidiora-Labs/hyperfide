@@ -132,6 +132,10 @@ static LangSpec LANGS[] = {
         {"contract", NW "(contract|interface|library)[ \t]+(" ID ")", 3},
         {"event",    NW "(event|modifier|error)[ \t]+(" ID ")", 3},
     }},
+    { .name = "shell", .line_comment = "#", .quotes = "\"'", .pats = {
+        {"function", "^[ \t]*(function[ \t]+)?(" ID ")[ \t]*\\([ \t]*\\)", 2},
+        {"function", "^[ \t]*function[ \t]+(" ID ")[ \t]*(\\{|$)", 1},
+    }},
     { .name = "vbnet", .line_comment = "'", .quotes = "\"", .icase = true, .pats = {
         {"function", "(^|[ \t])(sub|function)[ \t]+(" ID ")", 3},
         {"class",    "(^|[ \t])(class|module|structure|interface)[ \t]+(" ID ")", 3},
@@ -160,6 +164,7 @@ static const struct { const char *ext, *lang, *spec; } EXTMAP[] = {
     {".kt","kotlin","kotlin"},{".kts","kotlin","kotlin"},
     {".erl","erlang","erlang"},{".hrl","erlang","erlang"},
     {".sol","solidity","solidity"},
+    {".sh","shell","shell"},   {".bash","shell","shell"},
     {".lua","lua",NULL},       {".luau","luau",NULL},
     {".r","r",NULL},           {".R","r",NULL},
     {".tf","terraform",NULL}, {".tfvars","terraform",NULL},
