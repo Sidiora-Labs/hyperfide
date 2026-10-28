@@ -906,4 +906,4 @@ The database lock decides who *writes*. A separate gate decides who *walks*: `.c
 
 ## License
 
-MIT © [Sidiora Labs](https://sidiora.com)
+Apache 2.0 © [Sidiora Labs](https://sidiora.com)
