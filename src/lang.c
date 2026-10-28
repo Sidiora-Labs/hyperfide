@@ -141,6 +141,10 @@ static LangSpec LANGS[] = {
         {"class",    "(^|[ \t])(class|module|structure|interface)[ \t]+(" ID ")", 3},
         {"property", "(^|[ \t])property[ \t]+(" ID ")", 2},
     }},
+    { .name = "elixir", .line_comment = "#", .quotes = "\"", .pats = {
+        {"module",   "^[ \t]*defmodule[ \t]+([A-Z][A-Za-z0-9_.]*)", 1},
+        {"function", "^[ \t]*defp?[ \t]+([a-z_][A-Za-z0-9_?!]*)", 1},
+    }},
 };
 #define NLANGS ((int)(sizeof LANGS / sizeof LANGS[0]))
 
@@ -164,6 +168,7 @@ static const struct { const char *ext, *lang, *spec; } EXTMAP[] = {
     {".kt","kotlin","kotlin"},{".kts","kotlin","kotlin"},
     {".erl","erlang","erlang"},{".hrl","erlang","erlang"},
     {".sol","solidity","solidity"},
+    {".ex","elixir","elixir"}, {".exs","elixir","elixir"},
     {".sh","shell","shell"},   {".bash","shell","shell"},
     {".lua","lua",NULL},       {".luau","luau",NULL},
     {".r","r",NULL},           {".R","r",NULL},

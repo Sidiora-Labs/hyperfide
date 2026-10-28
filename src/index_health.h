@@ -4,7 +4,7 @@
 #include "cg.h"
 
 /* Changes only when extracted facts may differ for identical source bytes. */
-#define CG_EXTRACTION_VERSION 5
+#define CG_EXTRACTION_VERSION 6
 
 typedef struct {
     const char *status;       /* complete, partial, skipped, failed */

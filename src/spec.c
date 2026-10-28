@@ -3801,6 +3801,20 @@ static int qualified_path_score(const char *qualified, const char *path) {
     return score;
 }
 
+static bool pattern_hit(const char *pat, char **paths, int np);
+
+/* A Rust tie the resolver refused: how many definitions shared the best
+ * score and (up to SYM_TIE_PATHS of) the files they live in. */
+#define SYM_TIE_PATHS 4
+typedef struct {
+    int count;
+    char paths[SYM_TIE_PATHS][512];
+} SymTie;
+
+/* A definition inside a file the task declares it touches outranks every
+ * module-path score: the task names where its symbol lives. */
+#define TOUCH_BONUS (1 << 20)
+
 /* Resolve one graph name on the branch being qualified. A qualified name
  * keeps only definitions inside the container its qualifier names (receiver
  * or parent type, enclosing enum, defining module); a Rust path then ranks
@@ -3809,8 +3823,10 @@ static int qualified_path_score(const char *qualified, const char *path) {
  * takes the first row. */
 static int graph_symbol_named(Cg *g, const char *lookup,
                               const char *qualified, const char *qual,
-                              bool rust, char *path, size_t pcap,
-                              int *line, char *kind, size_t kcap, int *refs) {
+                              bool rust, char **touches, int ntouch,
+                              char *path, size_t pcap,
+                              int *line, char *kind, size_t kcap, int *refs,
+                              SymTie *tie) {
     /* one branch only: the shared graph holds this symbol once per indexed
      * worktree, and a qualification must judge the tree it is standing in.
      * ?2<=0 (no registry write got through) falls back to unfiltered — a
@@ -3848,17 +3864,34 @@ static int graph_symbol_named(Cg *g, const char *lookup,
             break;
         }
         int score = candidate ? qualified_path_score(qualified, candidate) : 0;
+        if (candidate) {
+            char *one[1] = { (char *)candidate };
+            for (int t = 0; t < ntouch; t++)
+                if (pattern_hit(touches[t], one, 1)) {
+                    score += TOUCH_BONUS;
+                    break;
+                }
+        }
         if (score > best) {
             best = score;
             best_count = 1;
             graph_symbol_row(st, path, pcap, line, kind, kcap, refs);
             found = 1;
+            if (tie) {
+                tie->count = 0;
+                snprintf(tie->paths[0], sizeof tie->paths[0], "%s",
+                         candidate ? candidate : "?");
+            }
         } else if (score == best) {
+            if (tie && best_count < SYM_TIE_PATHS)
+                snprintf(tie->paths[best_count], sizeof tie->paths[0], "%s",
+                         candidate ? candidate : "?");
             best_count++;
         }
     }
     if (!trace_symbol_stmt) sqlite3_finalize(st);
     else sqlite3_reset(st);
+    if (tie && found && qualified && best_count > 1) tie->count = best_count;
     return found && (!qualified || best_count == 1);
 }
 
@@ -3867,18 +3900,40 @@ static int graph_symbol_named(Cg *g, const char *lookup,
  * graph's short names and must resolve inside the container they name;
  * a Rust path also uses its crate/module path to disambiguate definitions
  * such as ed25519::verify vs secp256k1::verify. */
-static int graph_symbol(Cg *g, const char *name, char *path, size_t pcap,
-                        int *line, char *kind, size_t kcap, int *refs) {
-    if (graph_symbol_named(g, name, NULL, NULL, false, path, pcap, line,
-                           kind, kcap, refs))
+static int graph_symbol(Cg *g, const char *name, char **touches, int ntouch,
+                        char *path, size_t pcap, int *line, char *kind,
+                        size_t kcap, int *refs, SymTie *tie) {
+    if (tie) tie->count = 0;
+    /* an Elixir `name/2` names the function with its arity; the graph
+     * stores the bare name */
+    char bare[256];
+    const char *slash = strrchr(name, '/');
+    if (slash && slash > name && slash[1] &&
+        strspn(slash + 1, "0123456789") == strlen(slash + 1) &&
+        (size_t)(slash - name) < sizeof bare) {
+        memcpy(bare, name, (size_t)(slash - name));
+        bare[slash - name] = 0;
+        name = bare;
+    }
+    if (graph_symbol_named(g, name, NULL, NULL, false, NULL, 0, path, pcap,
+                           line, kind, kcap, refs, NULL))
         return 1;
     const char *final;
     char qual[256];
     bool rust;
     if (!graph_qualified_split(name, &final, qual, sizeof qual, &rust))
         return 0;
-    return graph_symbol_named(g, final, name, qual, rust, path, pcap, line,
-                              kind, kcap, refs);
+    return graph_symbol_named(g, final, name, qual, rust, touches, ntouch,
+                              path, pcap, line, kind, kcap, refs, tie);
+}
+
+static void print_symbol_tie(const SymTie *tie) {
+    printf(" — ambiguous: %d definitions (", tie->count);
+    int shown = tie->count < SYM_TIE_PATHS ? tie->count : SYM_TIE_PATHS;
+    for (int i = 0; i < shown; i++)
+        printf("%s%s", i ? ", " : "", tie->paths[i]);
+    if (tie->count > shown) printf(", …");
+    printf(")\n");
 }
 
 static void task_tag(const Spec *s, const char *id, char *out, size_t cap) {
@@ -3933,9 +3988,14 @@ static int spec_verify_task(Spec *s, const char *id) {
     for (int i = 0; i < nsym; i++) {
         char path[4096], kind[64];
         int line = 0, refs = 0;
-        if (graph_symbol(&g, syms[i], path, sizeof path, &line, kind,
-                         sizeof kind, &refs)) {
+        SymTie tie;
+        if (graph_symbol(&g, syms[i], tchs, ntch, path, sizeof path, &line,
+                         kind, sizeof kind, &refs, &tie)) {
             printf("  ✓ symbol %s  %s  %s:%d\n", syms[i], kind, path, line);
+        } else if (tie.count > 1) {
+            printf("  ✗ symbol %s", syms[i]);
+            print_symbol_tie(&tie);
+            failed++;
         } else {
             printf("  ✗ symbol %s — not defined in the graph\n", syms[i]);
             failed++;
@@ -4001,9 +4061,10 @@ static void trace_task(Spec *s, Cg *g, bool have_graph, const char *id,
     for (int i = 0; i < nsym; i++) {
         char path[4096], kind[64];
         int line = 0, refs = 0;
+        SymTie tie = {0};
         int found = have_graph &&
-            graph_symbol(g, syms[i], path, sizeof path, &line, kind,
-                         sizeof kind, &refs);
+            graph_symbol(g, syms[i], tchs, ntch, path, sizeof path, &line,
+                         kind, sizeof kind, &refs, &tie);
         if (json) {
             if (i) sb_putc(jb, ',');
             sb_puts(jb, "{\"name\":");
@@ -4022,7 +4083,10 @@ static void trace_task(Spec *s, Cg *g, bool have_graph, const char *id,
             if (found)
                 printf("    ✓ %s  %s  %s:%d  (%d refs)\n", syms[i], kind,
                        path, line, refs);
-            else
+            else if (tie.count > 1) {
+                printf("    ✗ %s", syms[i]);
+                print_symbol_tie(&tie);
+            } else
                 printf("    ✗ %s — not in graph%s\n", syms[i],
                        have_graph ? "" : " (no .codegraph)");
         }

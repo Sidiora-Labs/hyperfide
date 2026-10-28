@@ -638,6 +638,18 @@ bool graph_symbol_in_container(Cg *cg, long sym_id, const char *path,
 static int find_symbols(Cg *cg, const char *q, SymRow *out, int cap) {
     int n = defs_named(cg, q, out, cap);
     if (n > 0) return n;
+    /* an Elixir `name/2` names the function with its arity; the graph
+     * stores the bare name */
+    const char *slash = strrchr(q, '/');
+    if (slash && slash > q && slash[1] &&
+        strspn(slash + 1, "0123456789") == strlen(slash + 1) &&
+        (size_t)(slash - q) < 256) {
+        char bare[256];
+        memcpy(bare, q, (size_t)(slash - q));
+        bare[slash - q] = 0;
+        n = defs_named(cg, bare, out, cap);
+        if (n > 0) return n;
+    }
     /* a qualified name is exact: its final segment's definitions, kept
      * only when they live in the named container — never a fuzzy match */
     const char *final;
