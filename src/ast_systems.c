@@ -508,7 +508,14 @@ static void extract_node(AstContext *ctx, TSNode n, int owner, int depth) {
                 owner,!strcmp(t,"function_signature_item"),body);
             if (next_owner>=0) type_fact(ctx,n,"returns",next_owner,"return",field(n,"return_type"));
         } else if (!strcmp(t,"impl_item")) {
-            TSNode ty=field(n,"type"); name=name_leaf(ty);
+            TSNode ty=field(n,"type"), base=ty;
+            /* `impl Foo<'_>` / `impl Foo<T>`: the generic_type carries no
+             * name field, and name_leaf would answer its last type argument */
+            while (is(base,"generic_type") || is(base,"reference_type") ||
+                   is(base,"pointer_type"))
+                base=field(base,"type");
+            if (is(base,"scoped_type_identifier")) base=field(base,"name");
+            name=name_leaf(base);
             next_owner=symbol(ctx,n,name,"impl",owner,false,body);
             if (next_owner>=0) {
                 type_fact(ctx,n,"implements",next_owner,"trait",field(n,"trait"));
