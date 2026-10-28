@@ -2,7 +2,7 @@
 
 # Hyperfide
 
-<img src="https://supabase.paxeer.app/storage/v1/object/public/paxeer/img_centra_10.svg">
+<img src="https://supabase.paxeer.app/storage/v1/object/public/json/hfide.png">
 <a
   href="https://trendshift.io/repositories/267432?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-267432" target="_blank" rel="noopener noreferrer">
 <img src="https://supabase.paxeer.app/storage/v1/object/public/badge/h1k7oizpxntmvp7n8ik.svg" alt="Sidiora-Labs%2Fcodify | Trendshift" width="250" height="55"/>
