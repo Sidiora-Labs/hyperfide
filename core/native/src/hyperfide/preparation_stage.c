@@ -332,6 +332,20 @@ static int isolation_root(const char *value,uid_t preparer){
  free(copy);return fd;
 bad:free(copy);close(fd);return -1;
 }
+static int isolation_workspace_parent(const HfPreparationStage *stage,const char *root){
+ if(strcmp(root,stage->workspace_path))return 0;
+ char parent[4096];if(strlen(root)>=sizeof parent)return 0;strcpy(parent,root);
+ char *leaf=strrchr(parent,'/');if(!leaf||leaf==parent||!leaf[1])return 0;*leaf++=0;
+ if(strcmp(parent,stage->workspace_parent))return 0;
+ int fd=isolation_root(parent,stage->uid);if(fd<0)return 0;
+ struct stat before,workspace;int ok=!fstat(fd,&before)&&
+  ((before.st_uid==stage->uid&&before.st_gid==stage->gid&&(before.st_mode&0777)==0700)||
+   (before.st_uid==0&&before.st_gid==0&&((before.st_mode&0777)==0700||(before.st_mode&0777)==0711)));
+ int child=ok?openat(fd,leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC):-1;
+ if(child<0||fstat(child,&workspace)||workspace.st_uid!=stage->uid||(workspace.st_mode&077))ok=0;
+ if(ok&&(fchown(fd,0,0)||fchmod(fd,0711)))ok=0;
+ if(child>=0)close(child);close(fd);return ok;
+}
 static int isolation_child(int root,const char *relative,uid_t preparer){
  if(!relative||!relative[0]||relative[0]=='/')return -1;
  char *copy=strdup(relative),*save=NULL;int fd=dup(root);if(!copy||fd<0){free(copy);if(fd>=0)close(fd);return -1;}
@@ -434,6 +448,7 @@ int hf_runner_finalize_fleet_install(const HfJson *claim,int result,const HfPrep
  const char *same_keys[]={"admission_digest","package_digest","source_config_digest","plan_digest","source_revision","source_manifest_digest","sandbox_id","boot_id","boot_generation","authority_epoch"};char check[4096];
  for(size_t n=0;n<sizeof same_keys/sizeof same_keys[0];n++)if(!string(m,admission,same_keys[n],check,sizeof check)||!equals(r,receipt,same_keys[n],check))goto done;
  snprintf(envgen,sizeof envgen,"%lld",(long long)generation);
+ if(!isolation_workspace_parent(stage,root))goto done;
  rootfd=isolation_root(root,stage->uid);struct stat root_stat;if(rootfd<0||fstat(rootfd,&root_stat)||root_stat.st_uid!=stage->uid||(root_stat.st_mode&077)||fchown(rootfd,0,0)||fchmod(rootfd,0711))goto done;
  out=open_memstream(&json,&json_size);if(!out)goto done;
  fprintf(out,"{\"schema_version\":1,\"operation_id\":\"%s\",\"prepared_receipt_digest\":\"%s\",\"environment_id\":",operation,receipt_digest);hf_json_write_string(out,environment);fprintf(out,",\"environment_generation\":%s,\"input_digest\":\"%s\",\"method\":\"UNIX_UID_GID\",\"status\":\"ENFORCED\",\"slots\":[",envgen,input_digest);
