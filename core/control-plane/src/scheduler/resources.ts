@@ -297,7 +297,7 @@ async function markWaiting(tx:PrimaryTransaction,scope:SchedulerScope,waiter:str
 export class ResourceScheduler {
   private readonly readers=new Map<string,ProofReader>();
   registerProofReader(source:string,reader:ProofReader):()=>void{
-    if(!['provider.absence','provider.never-submitted','runner.quiescence'].includes(source)||typeof reader!=='function')
+    if(!['provider.absence','provider.never-submitted','provider.rejection','runner.quiescence'].includes(source)||typeof reader!=='function')
       fail('INVALID_PROOF_READER','A trusted provider or runner observation reader is required');
     if(this.readers.has(source))fail('DUPLICATE_PROOF_READER','A proof reader is already installed for '+source);
     this.readers.set(source,reader);
@@ -327,7 +327,7 @@ export class ResourceScheduler {
       let proof:QuiescenceReceipt|null=null,source='';
       for(const [name,reader] of this.readers){
         const account=await tx.query<{capacity_class:string;dimension:string}>('SELECT capacity_class,dimension FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND id=$2',[input.organisation_id,reservation.capacity_account_id]);
-        if((account.rows[0]?.capacity_class==='PHYSICAL'||account.rows[0]?.dimension==='WARM_SPARE')&&!['provider.absence','provider.never-submitted'].includes(name))continue;
+        if((account.rows[0]?.capacity_class==='PHYSICAL'||account.rows[0]?.dimension==='WARM_SPARE')&&!['provider.absence','provider.never-submitted','provider.rejection'].includes(name))continue;
         proof=await reader(tx,{organisation_id:input.organisation_id,run_id:input.run_id,reservation_id:reservation.id});
         if(proof){source=name;break;}
       }
@@ -341,7 +341,7 @@ export class ResourceScheduler {
       if(changed.rows.length!==1)fail('ACCOUNTING_INCONSISTENT','Capacity counters cannot explain the reservation');
       await tx.query('UPDATE hyperfide.reservations SET state=\'RELEASED\',released_at=clock_timestamp(),release_reason=$4,'+
         'state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3',
-        [input.organisation_id,input.run_id,reservation.id,source==='provider.never-submitted'?'NEVER_SUBMITTED_EXPIRED':'OBSERVED_QUIESCENT']);
+        [input.organisation_id,input.run_id,reservation.id,source==='provider.never-submitted'?'NEVER_SUBMITTED_EXPIRED':source==='provider.rejection'?'PROVIDER_CREATE_REJECTED':'OBSERVED_QUIESCENT']);
       await recordOutcome(tx,input,'scheduler-resources','scheduler.reservation.release',reservation.id,
         {reservation_id:reservation.id},{released:true,proof_source:source,proof_id:proof.id,proof_digest:proof.digest,
           observed_at:proof.observed_at});

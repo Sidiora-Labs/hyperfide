@@ -69,13 +69,23 @@ export async function poolAdapterReadiness(database:ProviderDatabase,config:Depl
 //  SUBMITTING / ID_KNOWN without outcome only after the submitter's deadline (it can no longer be in flight);
 //  ID_KNOWN with a create outcome, UNKNOWN and acknowledged DESTROY after the retry interval;
 //  RECONCILING only once its lease lapsed (a crashed reconciler).
-const CLAIM=`SELECT id,state,(operation->>'deadline_at')::timestamptz<=clock_timestamp() AS deadline_expired FROM hyperfide.provisioning_intents
- WHERE organisation_id=$1 AND run_id=$2 AND NOT (id=ANY($3::uuid[])) AND (operation->'scope'->>'provider'=ANY($4::text[]) OR (state='RECORDED' AND kind='CREATE' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp())) AND (
+const REJECTED_CREATE_HOLD=`(i.state='REJECTED' AND i.kind='CREATE' AND i.native_sandbox_id IS NULL
+ AND (i.failure_code IS NULL OR i.failure_code='PROVIDER_CREATE_REJECTED')
+ AND EXISTS(SELECT 1 FROM hyperfide.provisioning_intent_reservations l JOIN hyperfide.reservations r ON r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id WHERE l.organisation_id=i.organisation_id AND l.run_id=i.run_id AND l.intent_id=i.id AND r.state IN ('PROVISIONING','RELEASE_PENDING'))
+ AND EXISTS(SELECT 1 FROM hyperfide.provider_observations o WHERE o.organisation_id=i.organisation_id AND o.intent_id=i.id AND o.observation->'operation'=i.operation
+ AND o.observation->'outcome'->'resource'='null'::jsonb
+ AND ((o.observation->'outcome'->>'status'='UNKNOWN' AND o.observation->'outcome'->'error'->>'provider_code'='BLAXEL_CREATE_HTTP_400')
+ OR (o.observation->'outcome'->>'status'='FAILED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_REJECTED'
+ AND o.observation->'outcome'->'error'->>'provider_code' ~ '^BLAXEL_CREATE_HTTP_4[0-9]{2}$'
+ AND o.observation->'outcome'->'error'->>'provider_code' NOT IN ('BLAXEL_CREATE_HTTP_408','BLAXEL_CREATE_HTTP_409','BLAXEL_CREATE_HTTP_425','BLAXEL_CREATE_HTTP_429')))))`;
+const CLAIM=`SELECT id,state,(operation->>'deadline_at')::timestamptz<=clock_timestamp() AS deadline_expired FROM hyperfide.provisioning_intents i
+ WHERE organisation_id=$1 AND run_id=$2 AND NOT (id=ANY($3::uuid[])) AND (operation->'scope'->>'provider'=ANY($4::text[]) OR (state='RECORDED' AND kind='CREATE' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp()) OR ${REJECTED_CREATE_HOLD}) AND (
   (state='RECORDED' AND (kind='CREATE' OR (operation->>'deadline_at')::timestamptz>clock_timestamp()))
   OR (state='SUBMITTING' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp())
   OR (state='ID_KNOWN' AND (last_outcome IS NOT NULL OR (operation->>'deadline_at')::timestamptz<=clock_timestamp()) AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='UNKNOWN' AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='ACKNOWLEDGED' AND kind='DESTROY' AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
+  OR (${REJECTED_CREATE_HOLD} AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='RECONCILING' AND updated_at<=clock_timestamp()-make_interval(secs=>$6::double precision/1000)))
  ORDER BY updated_at,id LIMIT $7 FOR UPDATE SKIP LOCKED`;
 const START_MIGRATION='0707-provisioner-worker-starts';
@@ -247,7 +257,7 @@ export class ProvisionerWorker {
    const rows=(await c.query<{id:string;state:string;deadline_expired:boolean}>(CLAIM,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys()],providers,settings.retry_ms,settings.lease_ms,free])).rows;
    const reconcile=rows.filter(r=>r.state!=='RECORDED').map(r=>r.id);
    // RECONCILING plus updated_at is the reconciliation lease; an acknowledged destroy keeps its state.
-   if(reconcile.length)await c.query("UPDATE hyperfide.provisioning_intents SET state=CASE WHEN state='ACKNOWLEDGED' THEN state ELSE 'RECONCILING' END,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[])",[config.organisation_id,run,reconcile]);
+   if(reconcile.length)await c.query("UPDATE hyperfide.provisioning_intents SET state=CASE WHEN state IN ('ACKNOWLEDGED','REJECTED') THEN state ELSE 'RECONCILING' END,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[])",[config.organisation_id,run,reconcile]);
    return rows;
   });
   for(const row of claimed){

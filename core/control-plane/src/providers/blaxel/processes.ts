@@ -33,6 +33,7 @@ function equal(a:unknown,b:unknown):boolean{return canonical(a)===canonical(b);}
 function nativeName(v:unknown):string{const n=text(v,49);if(!/^[a-z0-9][a-z0-9-]*$/.test(n))fail('BLAXEL_PROCESS_INVALID','Invalid native sandbox name');return n;}
 function shell(v:string):string{return "'"+v.replaceAll("'","'\\''")+"'";}
 function statusCode(e:unknown):number|null{if(e&&typeof e==='object'){const o=e as Obj;for(const v of [o.status,o.statusCode,(o.response as Obj|undefined)?.status])if(typeof v==='number')return v;}return null;}
+export function definitiveBlaxelCreateRejection(status:number):boolean{return status>=400&&status<500&&![408,409,425,429].includes(status);}
 function processName(operation:ProviderOperation<'execute'>):string{return 'hf-'+digest({operation_id:operation.identity.operation_id,payload_digest:operation.identity.payload_digest,resource:operation.resource}).slice(7,47);}
 function scopeDigest(scope:ProviderScope):string{return digest(scope);}
 function requireOperation<T extends ProviderMethod>(raw:unknown,kind:T,scope:ProviderScope):ProviderOperation<T>{
@@ -305,6 +306,7 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
      // H2 warmup before returning. Use one official raw control-plane POST.
      const response=await read(signal=>api.createSandbox({body:model,throwOnError:false,signal}),op,parent);
      if(response.error!==undefined){
+      if(definitiveBlaxelCreateRejection(response.response.status))return save(op,outcome(op,'FAILED',null,null,'BLAXEL_CREATE_HTTP_'+response.response.status));
       if(response.response.status!==409)throw{status:response.response.status};
       phase='CONFLICT_LOOKUP';actual=await lookup();
       if(!actual)throw{status:409};
