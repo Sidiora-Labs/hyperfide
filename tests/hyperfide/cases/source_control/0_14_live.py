@@ -154,6 +154,7 @@ class Journey:
     def upload(self, role, filename):
         data = Path(filename).read_bytes()
         content = digest(data)
+        caller = read(self.credential)['credential_id']
         scope = {k:self.bindings[k] for k in ['organisation_id','run_id']}
         retention = {'retention_class':'RUN','retention_until':None,'retention_hold':False}
         chunks = []
@@ -162,7 +163,7 @@ class Journey:
             raise Blocked('ARTIFACT_CHUNK_BOUND_EXCEEDED:' + role)
         offset = 0
         for index, piece in enumerate(pieces):
-            result = self.invoke('artifact:' + role + ':' + content + ':' + str(index), 'artifact.object.put',
+            result = self.invoke('artifact:' + caller + ':' + role + ':' + content + ':' + str(index), 'artifact.object.put',
                 {**scope,**retention,'digest':digest(piece),'size_bytes':str(len(piece)),
                  'data_base64':base64.b64encode(piece).decode()})
             if result.get('outcome') != 'SUCCEEDED' or result.get('availability') != 'VERIFIED' or result.get('artifact',{}).get('status') != 'COMPLETE':
@@ -175,7 +176,7 @@ class Journey:
             reference = {'role':role,'artifact_id':chunks[0]['artifact_id'],'storage_kind':'object',
                 'digest':content,'size_bytes':str(len(data))}
         else:
-            result = self.invoke('manifest:' + role + ':' + content,'artifact.manifest.commit',
+            result = self.invoke('manifest:' + caller + ':' + role + ':' + content,'artifact.manifest.commit',
                 {**scope,**retention,'expected_chunks':len(chunks),'total_size_bytes':str(len(data)),
                  'content_digest':content,'complete':True,'truncated':False,'missing_ranges':[],'chunks':chunks})
             if result.get('outcome') != 'SUCCEEDED' or result.get('availability') != 'VERIFIED':
