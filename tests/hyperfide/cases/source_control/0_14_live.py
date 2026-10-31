@@ -211,6 +211,13 @@ class Journey:
         write(AREA / '0_14-staging-references.json',refs)
         return {'status':'UPLOADED_VERIFIED','count':len(refs)}
 
+    def environment_register(self):
+        payload = read(self.config['registration_input_file'])
+        registered = self.invoke('environment-register','fleet.install.register',payload)
+        write(AREA / '0_14-environment-registration.json',registered)
+        return {'status':'ACTUAL_ENVIRONMENT_INPUT_REGISTERED','result':registered,
+                'runtime_ready':False}
+
     def registration(self):
         payload = read(self.config['registration_input_file'])
         registered = self.invoke('environment-register','fleet.install.register',payload)
@@ -288,7 +295,7 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
         actions=['hierarchy.leader.acquire','hierarchy.package.configure','fleet.cohort.bind',
             'fleet.session.bind','fleet.observe','fleet.session.reason','fleet.decision.inspect',
             'fleet.decision.apply','spec.amendment.admit']
-        granted=self.invoke('bootstrap-primary','fleet.identity.bootstrap',{
+        granted=self.invoke('bootstrap-primary-running','fleet.identity.bootstrap',{
             'session_id':ids['primary_session_id'],'public_key_b64':public('primary'),
             'allowed_actions':actions,'ttl_seconds':900,'authority_epoch':operator['authority_epoch'],
             'leader_generation':'0','delegation_id':None,'manager_generation':None,
@@ -384,6 +391,202 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
         write(self.journal_path,self.journal)
         return identity
 
+    def renew_operator(self):
+        described = self.invoke('operator-renew-describe:' + uuid.uuid4().hex,
+            'identity.describe', {})
+        principal = described['principal']
+        credential = read(self.credential)
+        if principal['credential_id'] != credential['credential_id'] or principal['role'] != 'OPERATOR':
+            raise Blocked('ACTUAL_OPERATOR_IDENTITY_REQUIRED')
+        version = str(principal['credential_version'])
+        result = self.invoke('operator-renew:' + credential['credential_id'] + ':' + version,
+            'identity.principal.renew', {'ttl_seconds':3600})
+        write(AREA / '0_14-operator-renewal.json', {'before':described,'renewed':result})
+        return {'status':'ACTUAL_OPERATOR_RENEWED','credential_version':result['credential_version'],
+                'expires_at':result['expires_at'],'source_allowance_extended':False}
+
+    def capacity_renew(self):
+        described = self.invoke('capacity-renew-identity:' + uuid.uuid4().hex, 'identity.describe', {})
+        principal = described['principal']
+        if principal['role'] != 'OPERATOR':
+            raise Blocked('ACTUAL_OPERATOR_IDENTITY_REQUIRED')
+        version = str(principal['credential_version'])
+        previous = read(AREA / 'capacity-attestations.json')
+        previous_bytes = canonical(previous)
+        provenance = {'schema_version':1,'kind':'hyperfide.operator-capacity-allowance-renewal',
+            'basis':'OPERATOR_DECLARED_CAPACITY','previous_declaration_digest':digest(previous_bytes),
+            'pool_configuration':read(self.config['pool_config_file']),
+            'operator_identity':described,'vendor_quota_claimed':False,
+            'physical_availability_claimed':False}
+        provenance_file = AREA / ('capacity-renewal-provenance-' + version + '.json')
+        write(provenance_file,provenance)
+        retained = self.upload('operator-capacity-renewal:' + version,provenance_file)
+        if retained['storage_kind'] != 'object':
+            raise Blocked('BOUNDED_CAPACITY_PROVENANCE_OBJECT_REQUIRED')
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
+        updated = json.loads(json.dumps(previous))
+        for declaration in updated['attestations']:
+            declaration['id'] = str(uuid.uuid5(uuid.UUID(self.bindings['run_id']),
+                'capacity-renew:' + principal['credential_id'] + ':' + version + ':' +
+                declaration['configuration_digest'] + ':' + declaration['scope_kind'] + ':' + declaration['dimension']))
+            declaration.update(declared_at=now,expires_at=principal['expires_at'],
+                provenance={'run_id':self.bindings['run_id'],'artifact_id':retained['artifact_id'],
+                            'digest':retained['digest']})
+        saved = AREA / ('capacity-attestations-before-renewal-' + digest(previous_bytes)[7:23] + '.json')
+        if not saved.exists():
+            write(saved,previous)
+        write(AREA / 'capacity-attestations.json',updated)
+        local = Journey(AREA / '0_14-live-local-operator-config.json')
+        result = local.invoke('operator-capacity-renew:' + version,'provider.pools.attest-capacity',{})
+        configured = local.invoke('operator-capacity-renew-configure:' + version,'provider.pools.configure',{})
+        observed = local.invoke('operator-capacity-renew-inspect:' + version,
+            'provider.pools.capacity',{'pool_id':updated['attestations'][0]['pool_id']})
+        write(AREA / ('0_14-capacity-renewal-' + version + '.json'),
+            {'operator':described,'retained_provenance':retained,'result':result,
+             'configured':configured,'capacity':observed})
+        return {'status':'ACTUAL_OPERATOR_CAPACITY_RENEWED','expires_at':principal['expires_at'],
+                'limits_changed':False,'vendor_quota_claimed':False}
+
+    def capacity_prepare(self):
+        pool_config = read(self.config['pool_config_file'])
+        pool = pool_config['pools'][0]
+        local_config = read(AREA / '0_14-live-provisioner-config.json')
+        local = Journey(AREA / '0_14-live-provisioner-config.json')
+        observed = local.invoke('capacity-declaration-scope:' + uuid.uuid4().hex,
+            'provider.pools.capacity', {'pool_id':pool['id']})
+        scope = observed['scope']
+        provenance = {'schema_version':1,'kind':'hyperfide.operator-capacity-allowance',
+            'basis':'OPERATOR_DECLARED_CAPACITY','pool_configuration':pool_config,
+            'configuration_digest':scope['configuration_digest'],
+            'physical_availability_claimed':False,'vendor_quota_claimed':False}
+        filename = AREA / 'capacity-allowance-provenance.json'
+        write(filename,provenance)
+        retained = self.upload('operator-capacity-allowance',filename)
+        if retained['storage_kind'] != 'object':
+            raise Blocked('BOUNDED_CAPACITY_PROVENANCE_OBJECT_REQUIRED')
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
+        expires = self.config['native_credential_source']['expires_at']
+        attestations = []
+        account = next(a for a in pool_config['accounts']
+            if a['provider']==pool['provider'] and a['account_key']==pool['account_key'])
+        for kind,key,limits in [('ACCOUNT',scope['provider_account_id'],account['approved_limits']),
+                                ('POOL',scope['pool_id'],pool['approved_limits'])]:
+            for dimension,limit in sorted(limits.items()):
+                identity = scope['configuration_digest'] + ':' + kind + ':' + dimension
+                attestations.append({'id':str(uuid.uuid5(uuid.UUID(self.bindings['run_id']),identity)),
+                    'pool_id':scope['pool_id'],'configuration_digest':scope['configuration_digest'],
+                    'scope_kind':kind,'scope_key':key,'dimension':dimension,'limit':limit,
+                    'declared_at':now,'expires_at':expires,
+                    'provenance':{'run_id':self.bindings['run_id'],
+                        'artifact_id':retained['artifact_id'],'digest':retained['digest']}})
+        declaration = AREA / 'capacity-attestations.json'
+        if declaration.exists():
+            raise Blocked('RETAINED_CAPACITY_DECLARATION_RECONCILIATION_REQUIRED')
+        write(declaration,{'schema_version':1,'organisation_id':self.bindings['organisation_id'],
+            'attestations':attestations})
+        write(AREA / '0_14-capacity-provenance-artifact.json',retained)
+        write(AREA / '0_14-live-local-operator-config.json',
+            {**self.config,'origin':local_config['origin'],'ca_file':local_config['ca_file']})
+        return {'status':'RETAINED_OPERATOR_ALLOWANCE_PREPARED','declarations':len(attestations),
+                'protected_declaration_file':str(declaration),'vendor_quota_claimed':False}
+
+    def capacity_attest(self):
+        local = Journey(AREA / '0_14-live-local-operator-config.json')
+        result = local.invoke('operator-capacity-attest','provider.pools.attest-capacity',{})
+        configured = local.invoke('operator-capacity-configure','provider.pools.configure',{})
+        pool = read(self.config['pool_config_file'])['pools'][0]['id']
+        observed = local.invoke('operator-capacity-inspect:' + uuid.uuid4().hex,
+            'provider.pools.capacity',{'pool_id':pool})
+        write(AREA / '0_14-operator-capacity-observation.json',{'result':result,'configured':configured,'capacity':observed})
+        return {'status':'OPERATOR_DECLARED_CAPACITY_RECORDED','vendor_quota_claimed':False}
+
+    def provider_progress(self):
+        config = read(self.config['supervisor_config_file'])
+        state = read(Path(config['state_directory']) / 'state.json')
+        actor = config['primary']['session_id']
+        binding = state['actors'][actor]['binding']
+        observation = self.invoke('provider-progress-observe:' + uuid.uuid4().hex,
+            'fleet.observe', {'binding':binding,'after':None,'limit':100},
+            config['primary']['credential_file'])
+        write(AREA / '0_14-fleet-current-observation.json',observation)
+        local = Journey(AREA / '0_14-live-provisioner-config.json')
+        results = []
+        for receipt in observation.get('effect_receipts', []):
+            effect = receipt.get('result', {})
+            if effect.get('kind') != 'PROVISION_SANDBOX':
+                continue
+            intent = effect.get('provider_intent_id')
+            if not intent:
+                raise Blocked('ACTUAL_MODEL_PROVISION_INTENT_REQUIRED')
+            executed = local.invoke('provider-create-execute:' + intent,
+                'provider.intents.execute', {'intent_id':intent})
+            inspected = local.invoke('provider-create-inspect:' + intent + ':' + uuid.uuid4().hex,
+                'provider.intents.get', {'intent_id':intent})
+            results.append({'effect':effect,'executed':executed,'inspected':inspected})
+        write(AREA / '0_14-provider-executions.json',results)
+        if not results:
+            raise Blocked('ACTUAL_MANAGER_PROVISION_DECISION_REQUIRED')
+        if any(item['inspected'].get('state') not in ['ACKNOWLEDGED','TERMINAL'] or not item['inspected'].get('native_sandbox_id') for item in results):
+            raise Blocked('ACTUAL_PROVIDER_OUTCOME_RECONCILIATION_REQUIRED')
+        return {'status':'ACTUAL_SELECTED_PROVIDER_INTENTS_EXECUTED','count':len(results),
+                'runner_boot_readiness':'REQUIRES_ACTUAL_OBSERVATION'}
+
+    def provisioner_setup(self):
+        ids = read(AREA / '0_14-principals.json')
+        process = read(AREA / 'local-provisioner/process.json')
+        raw = subprocess.check_output(['openssl','pkey','-in',str(AREA / 'provisioner.pem'),
+            '-pubout','-outform','DER'],stderr=subprocess.DEVNULL)
+        actions = ['identity.describe','identity.principal.renew','credentials.inspect',
+            'provider.pools.configure','provider.pools.observe','provider.pools.attest-capacity',
+            'provider.pools.list','provider.pools.capacity','provider.pools.readiness',
+            'provider.intents.get','provider.intents.execute','provider.intents.reconcile',
+            'provider.inventory.observe-known','provider.remote.execute-bound',
+            'provider.worker.start','provider.worker.status','provider.worker.stop',
+            'artifact.object.put','artifact.object.read','artifact.object.inspect',
+            'artifact.object.locate','artifact.object.reconcile',
+            'artifact.manifest.commit','artifact.manifest.read']
+        issued = self.invoke('issue-provisioner','identity.service.issue', {
+            'credential_id':ids['provisioner_credential_id'],'actor_id':ids['provisioner_actor_id'],
+            'role':'PROVISIONER','public_key_b64':base64.urlsafe_b64encode(raw[-32:]).decode().rstrip('='),
+            'allowed_actions':actions,'ttl_seconds':1800})
+        operator = read(self.credential)
+        credential_file = AREA / 'provisioner.json'
+        write(credential_file, {'schema_version':1,'credential_id':issued['credential_id'],
+            'actor_id':ids['provisioner_actor_id'],'organisation_id':self.bindings['organisation_id'],
+            'run_id':self.bindings['run_id'],'role':'PROVISIONER',
+            'authority_epoch':operator['authority_epoch'],'key_file':str(AREA / 'provisioner.pem')})
+        local_config = {**self.config,'origin':process['origin'],
+            'ca_file':str(AREA / 'local-provisioner-tls/tls-ca.crt'),
+            'operator_credential_file':str(credential_file)}
+        local_path = AREA / '0_14-live-provisioner-config.json'
+        write(local_path,local_config)
+        local = Journey(local_path)
+        configured = local.invoke('provisioner-pool-configure','provider.pools.configure',{})
+        pool = read(self.config['pool_config_file'])['pools'][0]['id']
+        observed = local.invoke('provisioner-pool-observe','provider.pools.observe',{'pool_id':pool})
+        attested = local.invoke('provisioner-pool-attest','provider.pools.attest-capacity',{})
+        write(AREA / '0_14-provisioner-pool-observation.json',
+            {'configured':configured,'observed':observed,'attested':attested})
+        return {'status':'ACTUAL_PROVISIONER_POOL_CONFIGURED','credential_file':str(credential_file)}
+
+    def model_cycle(self):
+        config = self.config.get('supervisor_config_file')
+        if not config:
+            raise Blocked('ACTUAL_SUPERVISOR_CONFIG_REQUIRED')
+        log = AREA / '0_14-model-cycle.log'
+        with log.open('ab') as stream:
+            log.chmod(0o600)
+            try:
+                result = subprocess.run([str(NODE),str(ROOT / 'core/control-plane/dist/fleet-supervisor.js'),
+                    '--config',config,'--once'],cwd=AREA,env=self.env,
+                    stdin=subprocess.DEVNULL,stdout=stream,stderr=stream,timeout=360)
+            except subprocess.TimeoutExpired:
+                raise Blocked('MODEL_CYCLE_OUTCOME_RECONCILIATION_REQUIRED')
+        if result.returncode:
+            raise Blocked('ACTUAL_MODEL_CYCLE_FAILED:' + str(result.returncode))
+        return {'status':'ACTUAL_SUPERVISOR_CYCLE_COMPLETED',
+                'decisions':'REQUIRE_PERSISTED_SERVER_RECEIPTS','log_file':str(log)}
+
     def run(self):
         # Role processes consume production durable work; no test handlers or synthetic receipts.
         supervisor=self.config.get('supervisor_config_file')
@@ -440,7 +643,19 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
             generation = str(uuid.UUID(generation))
         except (ValueError, TypeError, AttributeError):
             raise Blocked('ACTUAL_NATIVE_AUTHORITY_GENERATION_REQUIRED')
-        return name + '-' + generation
+        name = name + '-' + generation
+        lease = self.config.get('native_credential_lease_digest')
+        if lease and not name.startswith('native-qualification-'):
+            if not isinstance(lease, str) or len(lease) != 71 or not lease.startswith('sha256:') or any(c not in '0123456789abcdef' for c in lease[7:]):
+                raise Blocked('ACTUAL_CREDENTIAL_SOURCE_LEASE_DIGEST_REQUIRED')
+            name += '-' + lease[7:23]
+        deployment = self.config.get('native_qualification_deployment_id')
+        if deployment and name.startswith('native-qualification-'):
+            try:
+                name += '-' + str(uuid.UUID(deployment))
+            except (ValueError, TypeError, AttributeError):
+                raise Blocked('ACTUAL_QUALIFICATION_DEPLOYMENT_REQUIRED')
+        return name
 
     def native_qualification(self):
         filename = self.config.get('native_qualification_input_file')
@@ -496,14 +711,14 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('phase',choices=['native-qualification','native-credential','native-auth','trust','readiness-artifact','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
+    parser.add_argument('phase',choices=['capacity-renew','renew-operator','environment-register','capacity-prepare','capacity-attest','provider-progress','provisioner-setup','model-cycle','native-qualification','native-credential','native-auth','trust','readiness-artifact','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
     parser.add_argument('--config',default=str(AREA / '0_14-live-config.json'))
     args = parser.parse_args()
     receipt = {'schema_version':1,'phase':args.phase,'status':'BLOCKED','proof_scope':'actual production APIs only',
                'future_provider_assertions':FUTURE_PROVIDER_ASSERTIONS}
     try:
         journey = Journey(args.config)
-        method = {'native-qualification':journey.native_qualification,'native-credential':journey.native_credential,'native-auth':journey.native_auth,'trust':journey.trust,'readiness-artifact':journey.readiness_artifact,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
+        method = {'capacity-renew':journey.capacity_renew,'renew-operator':journey.renew_operator,'environment-register':journey.environment_register,'capacity-prepare':journey.capacity_prepare,'capacity-attest':journey.capacity_attest,'provider-progress':journey.provider_progress,'provisioner-setup':journey.provisioner_setup,'model-cycle':journey.model_cycle,'native-qualification':journey.native_qualification,'native-credential':journey.native_credential,'native-auth':journey.native_auth,'trust':journey.trust,'readiness-artifact':journey.readiness_artifact,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
                   'artifacts':journey.artifacts,'registration':journey.registration,'run':journey.run,
                   'cleanup':journey.cleanup,'inspect':journey.inspect}.get(args.phase)
         result = method() if method else journey.steps(args.phase)
