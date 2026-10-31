@@ -10,7 +10,6 @@ import {isProviderIntentCapability} from '../providers/reconcile.js';
 import {reserveDynamic} from './resources.js';
 import {fields,object,uuid,decimal,dimensions,dispatchRecipients,applyExecutionControl,fail} from './claim.js';
 import {assignFleetWorker,controlFleetWorker,type FleetManagerBinding} from '../runner/fleet.js';
-import {enqueue} from '../events/outbox.js';
 import {issue} from '../events/instructions.js';
 import type {WorkerRegistrationAuthority} from '../hierarchy/adoption.js';
 
@@ -123,8 +122,8 @@ export function createFleetEffectsComponent(ctx:ComponentContext):Component{
      const target=(await tx.query("SELECT h.state FROM hyperfide.hierarchy_packages h WHERE h.organisation_id=$1 AND h.run_id=$2 AND h.package_id=$3 FOR SHARE",[b.organisation_id,b.run_id,uuid(v.recipient_package_id,'recipient_package_id')])).rows[0];
      if(!target||['CLOSED','CANCELLED'].includes(String(target.state)))fail('FLEET_COORDINATION_TARGET','Coordination target is not a current package');
      if(!Array.isArray(v.consumer_ids)||v.consumer_ids.length!==0)fail('FLEET_COORDINATION_TARGET','Coordination is delivered through scoped manager observations; consumer_ids must be empty');
-     const event=await enqueue(tx,{...scope,id:b.operation_id,aggregate_type:'fleet-manager-coordination',aggregate_id:b.operation_id,aggregate_version:'1',event_type:'fleet.manager.coordination',payload:{sender_package_id:b.delegation_id,sender_generation:b.manager_generation,recipient_package_id:v.recipient_package_id,decision_id:b.decision_id,message:object(v.message)}},{consumer_ids:[]});
-     return {kind:d.action,delegation_id:b.delegation_id,event,dependency_released:false};
+     const message=object(v.message);if(Buffer.byteLength(JSON.stringify(message))>32768)fail('FLEET_COORDINATION_TARGET','Coordination message exceeds its bounded observation size');
+     return {kind:d.action,delegation_id:b.delegation_id,event_type:'fleet.manager.coordination',delivery:'SCOPED_OBSERVATION',sender_role:'WAVE_MANAGER',sender_actor_id:b.actor_id,sender_package_id:b.delegation_id,sender_generation:b.manager_generation,recipient_package_id:v.recipient_package_id,decision_id:b.decision_id,message,dependency_released:false,task_definitions_changed:false,new_work_dispatched:false};
     }
     return {kind:'REPLAN',delegation_id:b.delegation_id,proposal:object(actionInput(String(d.action),d.input).proposal),task_definitions_changed:false,new_work_dispatched:false};
    });
