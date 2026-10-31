@@ -12,7 +12,9 @@
     "fleet.install.delivery.register",
     "fleet.install.delivery.pending",
     "fleet.install.delivery.schedule",
-    "fleet.install.delivery.collect"
+    "fleet.install.delivery.collect",
+    "fleet.install.delivery.prepare.allocate",
+    "fleet.install.delivery.verify.allocate"
   ],
   "requires": [
     "fleet-install",
@@ -20,6 +22,7 @@
     "12.4",
     "5.1",
     "15.2",
-    "14.2"
+    "14.2",
+    "5.4"
   ]
 }

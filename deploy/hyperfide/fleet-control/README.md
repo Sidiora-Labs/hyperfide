@@ -1,6 +1,6 @@
 # Fleet control on Railway
 
-Deploy this profile as one control-service replica with an allowlisted build context and `deploy/hyperfide/fleet-control/railway.json` as its config path. The Dockerfile builds the pinned independent control-plane package. Its Ubuntu 24.04 runtime matches the native artifacts' glibc ABI and includes the verified public Claude 2.1.300 runtime. Keep provider executors and engineering workers in their own services/sandboxes.
+Deploy this profile as one control-service replica with an allowlisted build context. Set the service Dockerfile path to the byte-identical root `Dockerfile` copy and configure the health check as `/healthz` with a 120-second timeout. The Dockerfile builds the pinned independent control-plane package. Its Ubuntu 24.04 runtime matches the native artifacts' glibc ABI and includes the verified public Claude 2.1.300 runtime. Keep provider executors and engineering workers in their own services/sandboxes.
 
 Railway terminates public TLS at its edge. The container accepts the edge's HTTP traffic on `PORT`, then forwards the signed request bytes to the existing TLS 1.3 control listener on loopback port 9443. It preserves duplicate proof headers so the normal authentication layer can reject them. The control listener verifies signatures against the fixed external HTTPS origin in its identity configuration. Clients use that same origin and the public certificate trust chain.
 
@@ -18,7 +18,7 @@ Set these on the control service through sealed variables or its approved secret
 | `HYPERFIDE_CAUSAL_BARRIER_KEY` | Existing causal-barrier secret. |
 | `HYPERFIDE_REQUIRE_SYNC_REPLICA` | Explicit `0` or `1` durability policy. |
 | `HF_SERVICE_REQUEST_DEADLINE_MS` | `120000` for fleet reasoning calls. |
-| `HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64` | Canonical base64 of the trusted bootstrap JSON described below. |
+| `HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64` | Canonical base64 of the trusted bootstrap JSON or its gzip transport described below. |
 | `HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_SHA256` | `sha256:<hex>` digest of the decoded JSON bytes. |
 | `RAILWAY_RUN_UID` | `0` for the fixed volume initializer; backend identity becomes 22001 before startup. |
 | `HYPERFIDE_FLEET_CONTROL_SERVICE_ID` | Exact dedicated control-service UUID. |
@@ -33,6 +33,8 @@ Use the dedicated persistent volume at `/app/state`. The controller and native a
 The initializer preserves a valid existing OS machine ID. If needed, it initializes the ID from the actual validated `RAILWAY_REPLICA_ID` and records that origin. `/app/state/container-startup.json` contains the observed post-drop identity and mount ownership. The backend repeats the UID/ownership checks before startup. The service process rejects migration credentials and migration-job mode.
 
 ## Bootstrap JSON
+
+The transport may gzip the JSON to fit the platform variable limit. The wrapper bounds decompression to 1 MiB and verifies the decoded JSON digest before use.
 
 The bundle contains:
 

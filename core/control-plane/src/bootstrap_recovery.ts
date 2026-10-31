@@ -53,7 +53,10 @@ export async function recoverBootstrapOperator(resources:ServiceResources,value:
   await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['bootstrap-operator:'+scope.organisation_id+':'+scope.run_id]);
   const issuance=(await tx.query<{credential_id:string;accepted_revision_digest:string}>('SELECT credential_id,accepted_revision_digest FROM hyperfide.identity_bootstrap_issuances WHERE organisation_id=$1 AND run_id=$2 FOR SHARE',[scope.organisation_id,scope.run_id])).rows[0];
   if(!issuance)fail('BOOTSTRAP_RECOVERY_UNAVAILABLE','Only a run with a durable initial bootstrap issuance can recover its operator');
-  const accepted=await assertAcceptedBootstrap(tx,{organisation_id:scope.organisation_id,run_id:scope.run_id,authority_epoch:scope.authority_epoch,accepted_revision_digest:issuance.accepted_revision_digest});
+  const currentAccepted=(await tx.query<{revision_digest:string}>('SELECT s.revision_digest FROM hyperfide.runs r JOIN hyperfide.spec_revisions s ON s.organisation_id=r.organisation_id AND s.id=r.spec_revision_id JOIN hyperfide.run_spec_revisions h ON h.organisation_id=r.organisation_id AND h.run_id=r.id AND h.spec_generation=r.spec_generation AND h.spec_revision_id=r.spec_revision_id AND h.accepted WHERE r.organisation_id=$1 AND r.id=$2 FOR SHARE OF r,s,h',[scope.organisation_id,scope.run_id])).rows[0];
+  if(!currentAccepted)fail('BOOTSTRAP_ACCEPTANCE_MISMATCH','Verified current accepted run history required');
+  const acceptedRevision=currentAccepted.revision_digest;
+  const accepted=await assertAcceptedBootstrap(tx,{organisation_id:scope.organisation_id,run_id:scope.run_id,authority_epoch:scope.authority_epoch,accepted_revision_digest:acceptedRevision});
   if(actions.some(action=>!accepted.allowed_actions.includes(action)))fail('AUTH_SCOPE_DENIED','Recovered operator grant cannot exceed accepted intent capabilities');
   const prior=(await tx.query('SELECT * FROM hyperfide.identity_bootstrap_recoveries WHERE recovery_id=$1',[value.recovery_id])).rows[0];
   let generation:string,previousState:string;
@@ -79,7 +82,7 @@ export async function recoverBootstrapOperator(resources:ServiceResources,value:
    await tx.query("INSERT INTO hyperfide.identity_principals(credential_id,organisation_id,run_id,actor_id,role,public_key_b64,deployment_epoch,allowed_actions,expires_at) VALUES($1,$2,$3,$4,'OPERATOR',$5,$6,$7,$8)",
     [value.credential_id,scope.organisation_id,scope.run_id,value.actor_id,value.public_key_b64,scope.authority_epoch,actions,value.expires_at]);
    await tx.query('INSERT INTO hyperfide.identity_bootstrap_recoveries(organisation_id,run_id,generation,recovery_id,previous_credential_id,credential_id,accepted_revision_digest,authority_epoch,reason,request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-    [scope.organisation_id,scope.run_id,generation,value.recovery_id,value.previous_credential_id,value.credential_id,issuance.accepted_revision_digest,scope.authority_epoch,value.reason,requestDigest]);
+    [scope.organisation_id,scope.run_id,generation,value.recovery_id,value.previous_credential_id,value.credential_id,acceptedRevision,scope.authority_epoch,value.reason,requestDigest]);
   }
   const row=(await tx.query('SELECT * FROM hyperfide.identity_principals WHERE credential_id=$1 FOR SHARE',[value.credential_id])).rows[0];
   if(!row||row.state!=='ACTIVE'||row.organisation_id!==scope.organisation_id||row.run_id!==scope.run_id||row.actor_id!==value.actor_id||
@@ -95,6 +98,6 @@ export async function recoverBootstrapOperator(resources:ServiceResources,value:
   return frozen({recovery_id:String(value.recovery_id),generation,previous_credential_id:String(value.previous_credential_id),previous_state:previousState,
    credential_id:principal.credential_id,organisation_id:principal.organisation_id,run_id:principal.run_id,actor_id:principal.actor_id,role:'OPERATOR' as const,
    credential_version:principal.credential_version,deployment_epoch:principal.deployment_epoch,expires_at:principal.expires_at,
-   accepted_revision_digest:issuance.accepted_revision_digest,reason:String(value.reason),replayed:Boolean(prior)});
+   accepted_revision_digest:prior?.accepted_revision_digest??acceptedRevision,reason:String(value.reason),replayed:Boolean(prior)});
  });
 }

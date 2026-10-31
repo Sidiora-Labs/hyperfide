@@ -8,6 +8,8 @@ remains BLOCKED until signed installation and real remote worker proof complete.
 """
 from pathlib import Path
 import json
+import hashlib
+import shutil
 import os
 import subprocess
 import sys
@@ -39,6 +41,31 @@ def run():
         with tempfile.TemporaryDirectory(prefix='hyperfide-014-') as owned:
             owned = Path(owned)
             environment = model_environment(owned)
+            # A genuine declared native profile satisfies the transitive runtime factory.
+            # It is not exercised or qualified by this gateway actor campaign.
+            native_document=json.loads((ROOT/'build/fleet/worker/private/native-profile.json').read_text())
+            native_profile=native_document['profiles'][0]
+            owned.chmod(0o711)
+            native_home=owned/'native-home';native_home.mkdir(mode=0o700)
+            os.chown(native_home,int(native_profile['target_uid']),int(native_profile['target_uid']))
+            vendor=ROOT/'build/fleet/worker/private/claude-2.1.300'
+            native_binary=owned/'claude'
+            shutil.copyfile(vendor,native_binary);native_binary.chmod(0o555)
+            measured='sha256:'+hashlib.sha256(native_binary.read_bytes()).hexdigest()
+            if measured!=native_profile['binary']['digest']:
+                raise RuntimeError('NATIVE_FIXTURE_BINARY_DRIFT')
+            version=subprocess.check_output([str(native_binary),'--version'],text=True,timeout=15,
+                env={'PATH':'/usr/bin:/bin','HOME':str(native_home),'LANG':'C.UTF-8'}).strip()
+            if version!=native_profile['binary']['version']+' (Claude Code)':
+                raise RuntimeError('NATIVE_FIXTURE_VERSION_DRIFT')
+            native_profile['binary']['path']=str(native_binary)
+            native_profile['runtime_home']=str(native_home)
+            native_inventory=owned/'native-profiles.json'
+            native_inventory.write_text(json.dumps(native_document));native_inventory.chmod(0o600)
+            environment['HF_NATIVE_AUTH_PROFILES_FILE']=str(native_inventory)
+            report['native_factory_input']={'state':'DECLARED_UNQUALIFIED','binary_digest':measured,
+                'version_output':version,'target_uid':int(native_profile['target_uid']),
+                'home_private':True,'credential_sources':0,'native_probes':'UNRUN'}
             source = owned / 'source'
             source.mkdir()
             (source / 'worker.mjs').write_text("console.log('fleet prerequisite worker');\n")

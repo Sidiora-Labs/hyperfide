@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
+import {gunzipSync} from 'node:zlib';
 import https from 'node:https';
 import {spawn} from 'node:child_process';
 import {createHash,randomUUID,X509Certificate,createPrivateKey,createPublicKey} from 'node:crypto';
@@ -17,6 +18,12 @@ async function immutableFile(filename,bytes){
  try{await fs.link(temporary,filename);}catch(error){if(error.code!=='EEXIST')throw error;const old=await fs.open(filename,constants.O_RDONLY|constants.O_NOFOLLOW);try{const stat=await old.stat();if(!stat.isFile()||stat.uid!==process.getuid?.()||(stat.mode&0o077)!==0||stat.size!==bytes.length||hash(await old.readFile())!==hash(bytes))refuse('CONTROL_BOOTSTRAP_GENERATION_CONFLICT');}finally{await old.close();}}finally{await fs.unlink(temporary);}
  const directory=await fs.open(path.dirname(filename),'r');try{await directory.sync();}finally{await directory.close();}
 }
+async function preserveStartupError(event){
+ const bytes=Buffer.from(JSON.stringify({schema_version:1,observed_at:new Date().toISOString(),error:event.error,...(typeof event.component_id==='string'?{component_id:event.component_id}:{})}));
+ if(bytes.length>65536)return;
+ const file=await fs.open(path.join(root,'state/control-startup-error.json'),constants.O_WRONLY|constants.O_CREAT|constants.O_TRUNC|constants.O_NOFOLLOW,0o600);
+ try{const stat=await file.stat();if(!stat.isFile()||stat.uid!==process.getuid?.()||stat.nlink!==1||(stat.mode&0o077)!==0)refuse('CONTROL_DIAGNOSTIC_PATH');await file.writeFile(bytes);await file.sync();}finally{await file.close();}
+}
 async function configureNativePlanner(){
  const directory='/opt/hyperfide/bin',metadata=await fs.open(path.join(directory,'manifest.json'),constants.O_RDONLY|constants.O_NOFOLLOW);let manifest;
  try{const stat=await metadata.stat();if(!stat.isFile()||stat.uid!==0||(stat.mode&0o022)!==0||stat.size>65536)refuse('CONTROL_NATIVE_RUNTIME_MANIFEST');manifest=JSON.parse(await metadata.readFile('utf8'));}finally{await metadata.close();}
@@ -30,7 +37,8 @@ async function configureNativePlanner(){
 async function prepare(){
  const encoded=process.env.HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64,expected=process.env.HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_SHA256;
  if(!encoded||!expected||encoded.length>1398104)refuse('CONTROL_BOOTSTRAP_REQUIRED');
- const bytes=Buffer.from(encoded,'base64');if(bytes.toString('base64')!==encoded||hash(bytes)!==expected)refuse('CONTROL_BOOTSTRAP_DIGEST');
+ const transport=Buffer.from(encoded,'base64');if(transport.toString('base64')!==encoded)refuse('CONTROL_BOOTSTRAP_DIGEST');
+ const bytes=transport[0]===0x1f&&transport[1]===0x8b?gunzipSync(transport,{maxOutputLength:1048576}):transport;if(bytes.length>1048576||hash(bytes)!==expected)refuse('CONTROL_BOOTSTRAP_DIGEST');
  const bundle=JSON.parse(bytes.toString('utf8'));
  if(!bundle||bundle.schema_version!==1||typeof bundle.generation!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(bundle.generation)||Object.keys(bundle).sort().join(',')!==(bundle.authority_adoption===undefined?'component_ids,files,generation,schema_version,spec_revision':'authority_adoption,component_ids,files,generation,schema_version,spec_revision')||typeof bundle.spec_revision!=='string'||!bundle.spec_revision||!Array.isArray(bundle.component_ids)||!bundle.component_ids.length||bundle.component_ids.length>256||new Set(bundle.component_ids).size!==bundle.component_ids.length||typeof bundle.files!=='object'||!bundle.files||Array.isArray(bundle.files))refuse('CONTROL_BOOTSTRAP_SCHEMA');
  const adoption=bundle.authority_adoption;
@@ -85,13 +93,13 @@ async function main(){
  const state=path.join(root,'state'),owner=await fs.lstat(state);if(process.getuid?.()!==22001||process.geteuid?.()!==22001||process.getgid?.()!==22001||!owner.isDirectory()||owner.isSymbolicLink()||owner.uid!==22001||owner.gid!==22001||(owner.mode&0o077)!==0)refuse('CONTROL_RUNTIME_IDENTITY');
  const config=await prepare();await adoptAuthority(config);let ready=false,stopping=false;
  const child=spawn(process.execPath,['--import',path.join(root,'deploy/hyperfide/fleet-env.mjs'),path.join(root,'core/control-plane/dist/control.js'),'--mode','https','--host','127.0.0.1','--port','9443','--tls-cert',path.join(config.directory,'control.crt'),'--tls-key',path.join(config.directory,'control.key'),'--policy',path.join(config.directory,'control-policy.json'),'--spec-revision',config.specRevision,'--components',config.components],{env:process.env,stdio:['ignore','ignore','pipe']});
- let pending='';child.stderr.on('data',part=>{pending+=part.toString('utf8');if(pending.length>65536)pending='';let split;while((split=pending.indexOf('\n'))>=0){const line=pending.slice(0,split);pending=pending.slice(split+1);try{const event=JSON.parse(line);if(event.event==='ready'&&event.role==='control'&&event.mode==='https'){ready=true;emit('control_ready');}else if(event.error?.code)emit('control_error',String(event.error.code));}catch{}}});
+ let pending='';child.stderr.on('data',part=>{pending+=part.toString('utf8');if(pending.length>65536)pending='';let split;while((split=pending.indexOf('\n'))>=0){const line=pending.slice(0,split);pending=pending.slice(split+1);try{const event=JSON.parse(line);if(event.event==='ready'&&event.role==='control'&&event.mode==='https'){ready=true;emit('control_ready');}else if(event.error?.code){emit('control_error',String(event.error.code));void preserveStartupError(event).catch(()=>emit('control_error','CONTROL_DIAGNOSTIC_WRITE_FAILED'));}}catch{}}});
  const allowed=new Set(['content-type','content-length','content-encoding','hf-credential-id','hf-request-time','hf-request-nonce','hf-request-signature']);
  const server=http.createServer({maxHeaderSize:16384,requestTimeout:130000,headersTimeout:5000},(request,response)=>{
   if(request.method==='GET'&&request.url==='/healthz'){response.writeHead(ready?200:503,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify({ready}));return;}
   if(!ready){response.writeHead(503);response.end();return;}
   if(request.method!=='POST'||!['/v1/invoke','/v1/enroll'].includes(request.url??'')){response.writeHead(404);response.end();return;}
-  const headers=[];for(let index=0;index<request.rawHeaders.length;index+=2)if(allowed.has(request.rawHeaders[index].toLowerCase()))headers.push(request.rawHeaders[index],request.rawHeaders[index+1]);
+  const headers=['Host','control.local'];for(let index=0;index<request.rawHeaders.length;index+=2)if(allowed.has(request.rawHeaders[index].toLowerCase()))headers.push(request.rawHeaders[index],request.rawHeaders[index+1]);
   const upstream=https.request({hostname:'127.0.0.1',port:9443,servername:'control.local',path:request.url,method:'POST',headers,ca:config.ca,rejectUnauthorized:true,minVersion:'TLSv1.3',agent:false,timeout:125000},incoming=>{response.writeHead(incoming.statusCode??502,{'Content-Type':'application/json','Cache-Control':'no-store'});incoming.pipe(response);incoming.once('aborted',()=>response.destroy());incoming.once('error',()=>response.destroy());});
   upstream.once('timeout',()=>upstream.destroy());upstream.once('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});request.once('aborted',()=>upstream.destroy());response.once('close',()=>{if(!response.writableEnded)upstream.destroy();});request.pipe(upstream);
  });

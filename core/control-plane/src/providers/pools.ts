@@ -35,7 +35,7 @@ export interface ProviderPersistenceHooks {
   recordObservation(operation:ProviderOperation,outcome:ProviderOutcome):Promise<void>;
 }
 export type ProviderAdapterFactory=(scope:ProviderScope,hooks:ProviderPersistenceHooks)=>ProviderAdapter;
-export const QUOTA_DIMENSIONS=['SANDBOX','PROVISIONING','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES','AGENT','BUILD','TEST','INDEX'] as const;
+export const QUOTA_DIMENSIONS=['SANDBOX','PROVISIONING','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES','AGENT','BUILD','TEST','INDEX','PREPARATION'] as const;
 export type QuotaDimension=typeof QUOTA_DIMENSIONS[number];
 export interface QuotaObservation {
   scope_kind:'ACCOUNT'|'ENVIRONMENT'|'POOL';scope_key:string;dimension:QuotaDimension;limit:string;

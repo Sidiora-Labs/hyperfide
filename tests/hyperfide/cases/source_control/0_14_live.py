@@ -184,6 +184,25 @@ class Journey:
                 'manifest_digest':result['manifest_digest'],'digest':content,'size_bytes':str(len(data))}
         return reference
 
+    def readiness_artifact(self):
+        filename=AREA/'readiness-context-input.json'
+        declaration=read(filename)
+        if declaration.get('authority')!='RELEASE_PINS_ONLY' or declaration.get('runtime_ready') is not False:
+            raise Blocked('RELEASE_PINS_ONLY_INPUT_REQUIRED')
+        reference=self.upload('readiness-context',filename)
+        if reference['storage_kind']!='object':
+            raise Blocked('COMPACT_READINESS_CONTEXT_REQUIRED')
+        inspected=self.invoke('readiness-context-inspect','artifact.object.inspect',{
+            'organisation_id':self.bindings['organisation_id'],'run_id':self.bindings['run_id'],
+            'artifact_id':reference['artifact_id']})
+        artifact=inspected.get('artifact',{})
+        if inspected.get('availability')!='VERIFIED' or artifact.get('status')!='COMPLETE' or artifact.get('digest')!=reference['digest']:
+            raise Blocked('ACTUAL_READINESS_INPUT_ARTIFACT_NOT_VERIFIED')
+        result={key:artifact[key] for key in ['artifact_id','digest','size_bytes','status']}
+        result['availability']=inspected['availability']
+        write(AREA/'readiness-context-artifact.json',result)
+        return {'status':'ARTIFACT_VERIFIED','runtime_ready':False,'artifact_file':str(AREA/'readiness-context-artifact.json')}
+
     def artifacts(self):
         inputs = self.config.get('artifacts')
         if not isinstance(inputs, dict) or not inputs:
@@ -413,20 +432,78 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
         return {'status':'CLEANUP_REQUESTED','local_processes':stopped,'remote':remote,
                 'absence_proof':'REQUIRES_ACTUAL_PROVIDER_OBSERVATION'}
 
+    def native_step(self, name):
+        generation = self.config.get('native_authority_generation')
+        if generation is None:
+            return name
+        try:
+            generation = str(uuid.UUID(generation))
+        except (ValueError, TypeError, AttributeError):
+            raise Blocked('ACTUAL_NATIVE_AUTHORITY_GENERATION_REQUIRED')
+        return name + '-' + generation
+
+    def native_qualification(self):
+        filename = self.config.get('native_qualification_input_file')
+        if not filename:
+            raise Blocked('ACTUAL_NATIVE_CAPABILITY_OBSERVATIONS_REQUIRED')
+        payload = read(filename)
+        if payload.get('profile_id') != self.config.get('native_auth_profile_id'):
+            raise Blocked('NATIVE_QUALIFICATION_PROFILE_MISMATCH')
+        result = self.invoke(self.native_step('native-qualification-record'), 'connector.qualification.record', payload)
+        observed = self.invoke(self.native_step('native-qualification-inspect'), 'connector.qualification.inspect',
+            {'profile_id':payload['profile_id']})
+        write(AREA / '0_14-native-qualification-observation.json', {'record':result,'inspect':observed})
+        if result.get('state') != 'QUALIFIED':
+            raise Blocked('NATIVE_CONNECTOR_QUALIFICATION_REFUSED:' + str(result.get('reasons')))
+        return {'status':'OFFICIAL_QUALIFICATION_RECORDED','receipt_digest':result['receipt_digest'],
+                'capabilities':result['capabilities']}
+
+    def native_credential(self):
+        source = self.config.get('native_credential_source')
+        if not isinstance(source, dict):
+            raise Blocked('DEPLOYED_NATIVE_CREDENTIAL_SOURCE_REQUIRED')
+        profile_id = self.config.get('native_auth_profile_id')
+        snapshot = self.invoke(self.native_step('native-auth-snapshot'), 'native.auth.snapshot', {'profile_id':profile_id})
+        reference = snapshot['credential_reference']
+        observed = self.invoke(self.native_step('native-credential-inspect'), 'credentials.inspect', {'reference_id':reference})
+        principal = read(self.credential)
+        return self.invoke(self.native_step('native-credential-register'), 'credentials.reference.rotate', {
+            'reference_id':reference,'source_name':source['name'],
+            'expected_version':observed.get('credential_version') or '0',
+            'expires_at':source['expires_at'],'allowed_layers':['process'],
+            'allowed_roles':self.config.get('native_credential_roles',['OPERATOR']),
+            'refresh_owner':principal['actor_id'],
+            'purposes':['WORKER_PROCESS']})
+
+    def native_auth(self):
+        profile_id = self.config.get('native_auth_profile_id')
+        if not isinstance(profile_id, str) or not profile_id:
+            raise Blocked('DEPLOYED_NATIVE_AUTH_PROFILE_REQUIRED')
+        snapshot = self.invoke(self.native_step('native-auth-snapshot'), 'native.auth.snapshot', {'profile_id':profile_id})
+        probe_name = 'native-auth-probe-after-registration' if self.journal['steps'].get(self.native_step('native-credential-register'), {}).get('state') == 'SUCCEEDED' else 'native-auth-probe'
+        probe = self.invoke(self.native_step(probe_name), 'native.auth.probe', {'profile_id':profile_id})
+        if probe.get('snapshot', {}).get('profile_id') != profile_id or probe.get('runtime_version_verified') is not True:
+            raise Blocked('NATIVE_AUTH_PROFILE_OR_VERSION_UNCONFIRMED')
+        if probe.get('native_authentication') != 'AUTHENTICATED':
+            raise Blocked('NATIVE_AUTHENTICATION_BLOCKED')
+        write(AREA / '0_14-native-auth-observation.json', {'snapshot':snapshot,'probe':probe})
+        return {'status':'AUTH_STATUS_OBSERVED','inference_qualified':False,
+                'connector_capabilities_qualified':False}
+
     def inspect(self):
         return {'status':'OBSERVATION_ONLY','steps':{k:v['state'] for k,v in self.journal['steps'].items()},
                 'production_success_claimed':False,'future_provider_assertions':FUTURE_PROVIDER_ASSERTIONS}
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('phase',choices=['trust','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
+    parser.add_argument('phase',choices=['native-qualification','native-credential','native-auth','trust','readiness-artifact','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
     parser.add_argument('--config',default=str(AREA / '0_14-live-config.json'))
     args = parser.parse_args()
     receipt = {'schema_version':1,'phase':args.phase,'status':'BLOCKED','proof_scope':'actual production APIs only',
                'future_provider_assertions':FUTURE_PROVIDER_ASSERTIONS}
     try:
         journey = Journey(args.config)
-        method = {'trust':journey.trust,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
+        method = {'native-qualification':journey.native_qualification,'native-credential':journey.native_credential,'native-auth':journey.native_auth,'trust':journey.trust,'readiness-artifact':journey.readiness_artifact,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
                   'artifacts':journey.artifacts,'registration':journey.registration,'run':journey.run,
                   'cleanup':journey.cleanup,'inspect':journey.inspect}.get(args.phase)
         result = method() if method else journey.steps(args.phase)

@@ -1,4 +1,4 @@
-import type {AuthorityTransaction,InvocationContext} from '../transport/protocol.js';
+import type {AuthorityTransaction,InvocationContext,Principal} from '../transport/protocol.js';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import {assertFleetBootstrapIdentity} from '../agents/fleet_bootstrap.js';
@@ -199,7 +199,7 @@ async function scopeOf(tx:Tx,context:ComponentContext,invocation:InvocationConte
  if(!row||!context.env.HF_SPEC_ALLOWED_ROOT)fail('SPEC_CONFIG_INVALID','Trusted source root and current accepted run are required');
  return {organisation_id:p.organisation_id,project_id:row.project_id,run_id:p.run_id,authority_epoch:row.authority_epoch,root:context.env.HF_SPEC_ALLOWED_ROOT,allowed_actions:p.allowed_actions};
 }
-function actorOf(invocation:InvocationContext):{actor_id:string;role:string;credential_id:string}{
+function actorOf(invocation:Pick<InvocationContext,'principal'>):{actor_id:string;role:string;credential_id:string}{
  const p=invocation.principal;return {actor_id:p.actor_id,role:p.role,credential_id:p.credential_id};
 }
 async function decide(tx:Tx,scope:SpecScope,amendment_id:string,record:Record<string,unknown>):Promise<Record<string,unknown>>{
@@ -209,7 +209,7 @@ async function decide(tx:Tx,scope:SpecScope,amendment_id:string,record:Record<st
  if(inserted.rows.length!==1)fail('AMENDMENT_ALREADY_DECIDED','Amendment decision is immutable once recorded');
  return {...record,decision_digest,replayed:false};
 }
-async function record(tx:Tx,scope:SpecScope,invocation:InvocationContext,analysis:InternalAnalysis):Promise<unknown>{
+async function record(tx:Tx,scope:SpecScope,invocation:Pick<InvocationContext,'principal'>,analysis:InternalAnalysis):Promise<unknown>{
  const actor=actorOf(invocation);
  const session=(await tx.query('SELECT id FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[scope.organisation_id,scope.run_id,actor.actor_id])).rows[0]?.id??null;
  const proposal={schema_version:1,request:analysis.request,source_content:analysis.prepared.source.text,revision_digest:analysis.prepared.revision_digest,
@@ -241,7 +241,7 @@ function admitRequestOf(input:unknown,scope:SpecScope):AdmitRequest{
 }
 interface ValidityCapability {invalidateAcceptedSpec(db:Tx,scope:{organisation_id:string;run_id:string},taskIds:string[],reason:string):Promise<number>}
 const isValidity=(value:unknown):value is ValidityCapability=>object(value)&&typeof value.invalidateAcceptedSpec==='function';
-function proofDeadline(context:ComponentContext):number{
+function proofDeadline(context:Pick<ComponentContext,'env'>):number{
  const raw=context.env.HF_PROOF_MAX_CHECK_MS??'3600000';
  if(!/^[1-9][0-9]{0,8}$/.test(raw)||Number(raw)<100||Number(raw)>259200000)fail('PROOF_CONFIG_INVALID','Trusted check deadline must be bounded between100ms and72hours');
  return Number(raw);
@@ -250,7 +250,7 @@ function proofDeadline(context:ComponentContext):number{
 // opens a fenced PENDING_VALIDATION window, installs the next accepted
 // generation, re-registers proof policy, invalidates affected evidence,
 // re-admits the dependency graph and restores the prior run state.
-async function admit(tx:Tx,context:ComponentContext,invocation:InvocationContext,scope:SpecScope,input:unknown):Promise<unknown>{
+async function admit(tx:Tx,context:Pick<ComponentContext,'env'|'dependencies'>,invocation:Pick<InvocationContext,'principal'>,scope:SpecScope,input:unknown):Promise<unknown>{
  assertPrimaryTransaction(tx);
  const request=admitRequestOf(input,scope),actor=actorOf(invocation);
  const run=(await tx.query('SELECT state,state_version::text,spec_generation::text,spec_revision_id FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 AND project_id=$3 FOR UPDATE',
@@ -375,4 +375,22 @@ export function createComponent(_startup:ComponentContext):Component{
    if(!['OPERATOR','LEADER','COORDINATOR'].includes(invocation.principal.role))fail('ACTION_DENIED','Role cannot admit accepted-plan amendments');
    return admit(tx,context,invocation,await scopeOf(tx,context,invocation),input);
   })}};
+}
+
+// Trusted offline operator capability approval reuses the same immutable proposal,
+// revalidation and admission path. No transport action exposes an expanded ceiling.
+export async function admitOfflineCapabilities(tx:Tx,scope:SpecScope,principal:Principal,input:{amendment:unknown;revalidate_task_ids:string[];proof_policies:{task_key:string;policy:unknown}[];justification:string},env:Readonly<NodeJS.ProcessEnv>):Promise<Record<string,any>>{
+ if(principal.role!=='OPERATOR'||principal.organisation_id!==scope.organisation_id||principal.run_id!==scope.run_id)fail('ACTION_DENIED','Authenticated current operator required');
+ const analysis=await analyse(tx,scope,input.amendment);
+ if(analysis.request.purpose!=='INTENT_CHANGE')fail('AMENDMENT_INPUT_INVALID','Offline capability approval requires INTENT_CHANGE');
+ const identity={principal},proposal=await record(tx,scope,identity,analysis) as Record<string,any>;
+ const {invalidateAcceptedSpec}=await import('../assurance/validity.js');
+ const dependencies={require<T>(_component:string,_capability:string,validate:(value:unknown)=>value is T):T{const value={invalidateAcceptedSpec};if(!validate(value))fail('RESOURCE_REQUIRED','Actual accepted-spec validity capability required');return value;}};
+ return await admit(tx,{env,dependencies},identity,scope,{run_id:scope.run_id,amendment_id:proposal.amendment_id,proposal_digest:analysis.result.proposal_digest,revalidate_task_ids:input.revalidate_task_ids,proof_policies:input.proof_policies,justification:input.justification}) as Record<string,any>;
+}
+
+/** Trusted offline preview shares exact admission analysis; it grants no action. */
+export async function previewOfflineIntent(tx:Tx,scope:SpecScope,input:unknown):Promise<unknown>{
+ const analysis=await analyse(tx,scope,input);
+ return {analysis:analysis.result,spec_revision_id:analysis.specId,spec_generation:analysis.next,tasks:analysis.tasks.map(task=>({task_id:task.id,task_key:task.task_key,criteria_digest:task.criteria_digest,spec_revision_id:task.spec_revision_id,spec_generation:task.spec_generation}))};
 }
