@@ -1,0 +1,22 @@
+# Illustrative proposed contracts, not extracted or qualified runtime declarations.
+# Canonical publication provenance is carried by the versioned catalogue envelope.
+
+[interface.fleet.install]
+kind = "cli_command"
+path = "core/native/src/install.c"
+line = 1
+signature = "hyperfide install [--frozen]"
+callers = ["core/host-daemon/src/fleet-worker.ts"]
+status = "proposed"
+contract = "../../sandbox-contracts.md"
+notes = "Future command: assemble and verify the sandbox environment described by package.kvx and .neron before worker readiness. Paths are proposed implementation destinations."
+
+[interface.fleet.source-config]
+kind = "config_file"
+path = ".neron"
+line = 1
+signature = "Versioned nonsecret sandbox source configuration with an explicit backend and immutable source identity"
+callers = ["core/native/src/install.c"]
+status = "proposed"
+contract = "../../sandbox-contracts.md"
+notes = "Every sandbox carries this configuration; access authority comes from authenticated scoped capabilities, never from fields in this file alone."

@@ -1,0 +1,109 @@
+# PROPOSED sandbox-environment package format v1. This is not a task assignment.
+# Illustrative only: all-zero hashes, example identities, source layout and tool artifacts
+# must be resolved into a verified plan before hyperfide install can publish readiness.
+# The all-zero source pin and category paths describe a prospective layout, not an existing commit.
+
+[meta]
+format = "hyperfide.sandbox-package"
+schema_version = 1
+name = "fleet-host-runtime-environment"
+version = "0.1.0-proposed"
+example = true
+
+[environment]
+environment_id = "example-fleet-sandbox"
+environment_generation = 1
+platform = "linux-amd64"
+image_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+root = "/sandbox"
+
+[bootstrap]
+installer_path = "/opt/hyperfide/bin/hyperfide"
+installer_version = "prerequisite-v1-proposed"
+installer_sha256 = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+delivery = "image"
+
+[source]
+config = ".neron"
+config_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+adapter_contract = "source-manifest-v1"
+
+[mount.code]
+kind = "source"
+source = "primary"
+paths = ["core/host-daemon/**", "sdk/client/**", "contracts/**", "lib/**", "tools/tsconfig/**", "package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml"]
+target = "/sandbox/source"
+access = "read_only"
+mode = "sparse"
+
+[toolchain.node]
+kind = "node"
+version = "24.0.0"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/node/bin/node"
+
+[toolchain.pnpm]
+kind = "pnpm"
+version = "9.15.0"
+delivery = "image"
+artifact_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+executable = "/opt/pnpm/bin/pnpm"
+
+[dependency.node]
+manager = "pnpm"
+version = "9.15.0"
+mount = "code"
+lockfile = "pnpm-lock.yaml"
+lockfile_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+include = ["@hyperfide/host-daemon..."]
+argv = ["/opt/pnpm/bin/pnpm", "install", "--frozen-lockfile", "--filter", "@hyperfide/host-daemon..."]
+script_policy = "approved-plan"
+
+[configuration.runtime]
+kind = "config-ref"
+reference = "config-ref:fleet-host-runtime"
+target = "/sandbox/config/runtime.json"
+mode = "0600"
+required = true
+
+[interfaces]
+catalogue = "interfaces.kvx"
+catalogue_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+source_revision = "git:0000000000000000000000000000000000000000"
+selected_ids = ["interface.fleet.install", "interface.fleet.source-config"]
+output = "/sandbox/context/interfaces.kvx"
+max_blocks = 16
+max_bytes = 65536
+
+[install]
+scope = "environment_generation"
+stages = ["bootstrap-preflight", "authority-resolution", "plan-resolution", "source-preparation", "toolchain-preparation", "dependency-preparation", "configuration-preparation", "interface-preparation", "readiness-probes", "ready-publication"]
+reuse_policy = "exact-input-clean"
+dirty_policy = "refuse-overwrite"
+
+[probe.node]
+argv = ["/opt/node/bin/node", "--version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[probe.pnpm]
+argv = ["/opt/pnpm/bin/pnpm", "--version"]
+cwd = "/sandbox/source"
+timeout_seconds = 30
+expected_exit = 0
+
+[workers]
+slots = 2
+source_template = "/sandbox/workers/{slot}/source"
+home_template = "/sandbox/workers/{slot}/home"
+build_template = "/sandbox/workers/{slot}/build"
+temporary_template = "/sandbox/workers/{slot}/tmp"
+dirty_template = "/sandbox/workers/{slot}/dirty"
+isolation = "private-overlay"
+
+[readiness]
+require_stages = ["bootstrap-preflight", "authority-resolution", "plan-resolution", "source-preparation", "toolchain-preparation", "dependency-preparation", "configuration-preparation", "interface-preparation", "readiness-probes"]
+require_probes = ["node", "pnpm"]
+receipt = "/sandbox/state/install-receipt.kvx"

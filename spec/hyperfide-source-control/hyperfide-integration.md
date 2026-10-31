@@ -85,3 +85,9 @@ The operator view distinguishes repository size, active workspaces, dirty/upload
 ## 8. Proposed implementation ownership
 
 Task 2.2 adds the host materializer, immutable cache and watcher journal. Task 3.2 adds a pinned virtual adapter and explicit fallback capability. Task 3.3 extends native source identity through graph ingestion/publication and context APIs. Task 4.2 connects fleet dispatch, workspace capability, submission custody and native qualification. Task 4.3 ships the shared SDK, CLI facade and app journeys. New host modules are proposed under `core/host-daemon/src/source-control/`, client modules under `sdk/source-control/src/`, and source service adapters under `core/control-plane/src/source_control/`; existing environment/graph/dispatch/qualify files are adapted rather than duplicated as competing authority implementations.
+
+## Fleet prerequisite ownership
+
+[Agent-led orchestration](fleet-orchestration.md) qualifies before native source work. Primary and Wave Managers choose wave dispatch, task assignment, provider placement and recovery through scoped tools; Hyperfide's engine validates and records those actions. Existing wording that Hyperfide owns scheduling refers to this complete system, not an engine-owned fixed planner.
+
+The [sandbox environment contract](sandbox-contracts.md) survives native adoption. Every sandbox keeps `.neron` source configuration and `package.kvx`; `hyperfide install` calls the configured source adapter, pins exact inputs and returns a readiness receipt before workload launch. Native integration supplies snapshot/object reads and workspace/capture operations behind that contract. Change backend only through an explicit generation transition; retain legacy receipt provenance and requalify real install/worker paths. Source revisions and fleet environment package versions remain distinct.

@@ -4,7 +4,9 @@ Status: design draft. The [native specification](spec.kvx) is normative; all pro
 
 ## 0. Repository-layout prerequisite
 
-The [category-layout contract](repository-layout.md) and [path mapping](repository-layout.json) precede native implementation. Tasks 0.3–0.9 reorganize the existing product; task 0.1 requires the final layout receipt. New source-control paths below are post-layout destinations. Inspected legacy source links remain baseline references.
+The [category-layout contract](repository-layout.md) and [path mapping](repository-layout.json) precede native implementation. Tasks 0.3–0.9 reorganize the existing product; fleet tasks 0.10–0.14 follow its qualification, then task 0.1 requires the final fleet receipt. New source-control paths below are post-layout destinations. Inspected legacy source links remain baseline references.
+
+The [fleet contract](fleet-orchestration.md) gives the Primary and same-box Wave Managers planning authority through scoped tools. Deterministic enforcement belongs to the engine. The [sandbox manifest contract](sandbox-contracts.md) makes `.neron` source configuration and `package.kvx` environment installation prerequisites of worker execution, with selected [interface contracts](interface-contracts.md). An explicit existing-source adapter supports qualification before native SCM exists.
 
 ## 1. Product and responsibility boundaries
 

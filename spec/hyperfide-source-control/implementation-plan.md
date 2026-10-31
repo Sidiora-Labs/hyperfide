@@ -6,7 +6,7 @@ All implementation tasks are pending. This catalogue describes future work; the 
 
 Dependencies determine eligibility. Wave numbers group integration and release obligations. Each package couples its implementation with a direct consumer and positive/negative checks. Component success does not qualify a complete product case or elapsed-time campaign.
 
-The repository-layout prerequisite runs first: **0.3 → 0.4 → 0.5 → 0.6 → 0.7 → 0.8 → 0.9**. Only then do native source-control tasks **0.1 → 0.2** become eligible. Existing task IDs are preserved; the list below follows dependencies.
+The repository-layout prerequisite runs first: **0.3 → 0.4 → 0.5 → 0.6 → 0.7 → 0.8 → 0.9**. The final fleet prerequisite follows: **0.10 → 0.11 → 0.12 → 0.13 → 0.14**. Only then do native source-control tasks **0.1 → 0.2** become eligible. Existing task IDs are preserved; the list below follows dependencies.
 
 | Task | Wave | Scope | Requires | Owner |
 |---|---:|---|---|---|
@@ -16,8 +16,13 @@ The repository-layout prerequisite runs first: **0.3 → 0.4 → 0.5 → 0.6 →
 | 0.6 | 0 | Relocate SDKs contracts libraries and packaged tooling | 0.5 | repository-layout |
 | 0.7 | 0 | Relocate applications plugins extensions examples and assets | 0.6 | repository-layout |
 | 0.8 | 0 | Complete tooling CI preparation and release path migration | 0.7 | repository-layout |
-| 0.9 | 0 | Qualify the category layout and release the source-control prerequisite | 0.8 | repository-layout |
-| 0.1 | 0 | Version the native source contract and compatibility boundary | 0.9 | contracts |
+| 0.9 | 0 | Qualify the category layout and release the layout prerequisite | 0.8 | repository-layout |
+| 0.10 | 0 | Version the fleet interfaces and sandbox manifest contracts | 0.9 | fleet-prerequisite |
+| 0.11 | 0 | Assemble sandbox environments through hyperfide install | 0.10 | fleet-prerequisite |
+| 0.12 | 0 | Run the Primary agent and co-located Wave Managers | 0.11 | fleet-prerequisite |
+| 0.13 | 0 | Let Wave Managers provision sandboxes and assign workers | 0.12 | fleet-prerequisite |
+| 0.14 | 0 | Qualify the final fleet prerequisite and native-source handoff | 0.13 | fleet-prerequisite |
+| 0.1 | 0 | Version the native source contract and compatibility boundary | 0.14 | contracts |
 | 0.2 | 0 | Add native-source qualification profiles and evidence capture | 0.1 | qualification |
 | 1.1 | 1 | Build the immutable S3 object and persistent-tree vertical slice | 0.1, 0.2 | source-storage |
 | 1.2 | 1 | Durable revision metadata, scoped idempotency and source outbox | 1.1 | source-protocol |
@@ -344,7 +349,7 @@ Implementation and qualification obligations:
 3. Adapt release assembly and checkout fallback paths while preserving installed services/dist and other artifact-format contracts. Exercise source-stamp guards, package manifests, licenses, nonpublishing release construction and service startup/preflight on the configured disposable executor.
 4. Remove transitional old workspace roots and source facades. Scan executable/current references with typed exceptions for installed artifacts, historical evidence, fixtures and CLI command names; retain exactly one source owner for each unit. Implement the task driver to test CI triggering, cold/warm preparation, ignore/privacy boundaries, packaged startup and qualified exceptions.
 
-## 0.9: Qualify the category layout and release the source-control prerequisite
+## 0.9: Qualify the category layout and release the layout prerequisite
 
 Status: **pending**. Owner: `repository-layout`. Dependencies: 0.8.
 
@@ -368,11 +373,134 @@ Implementation and qualification obligations:
 1. Compare the completed repository against the frozen mapping and original tracked content/type/mode inventory, accounting for every permitted path/configuration change. Validate exact package/extension/CLI identities, dependencies and test/workspace membership and require no old platform/ or services/ source container or facade.
 2. Execute the combined existing-system layout regression and nonpublishing release/startup checks at the actual final revision, including root/nested/installed CLI discovery, native/core/control runtime, SDK/plugin consumers, app assets/packaging, prepared-image generation, CI routing and build-cache invalidation. Record baseline failures and new regressions distinctly.
 3. Emit the SCM-025 layout receipt using existing Git-based evidence and actual assertion/command inventories; this driver is independent of future task 0.2 and the native source service. Bind source revisions, mapping digest, scope, toolchain, artifact/image identities, exclusions and rollback contract, refusing missing or stale mandatory evidence.
-4. Update future native task targets and current layout documentation to the qualified mapping while retaining source-baseline history. Gate task 0.1 on this receipt and current layout generation; reject an attempt to start native implementation before closure or to roll back layout after new work without preserving that work.
+4. Update future native task targets and current layout documentation to the qualified mapping while retaining source-baseline history. Gate fleet task 0.10 on this receipt and current layout generation; reject an attempt to start native implementation before closure or to roll back layout after new work without preserving that work.
+
+## 0.10: Version the fleet interfaces and sandbox manifest contracts
+
+Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.9.
+
+Proposed implementation scope:
+
+- `contracts/fleet/`
+- `core/control-plane/src/hierarchy/`
+- `sdk/client/`
+- `spec/hyperfide-source-control/examples/fleet/`
+- `tests/hyperfide/cases/source_control/0_10.py`
+
+Future focused gate: `python3 tests/hyperfide/cases/source_control/0_10.py`.
+
+Acceptance clauses: 16.1, 16.2, 16.3, 16.7, 17.1, 17.2, 17.3, 17.6, 17.7, 17.8, 17.9, 17.10.
+Canonical cases: SCM-026 (UNRUN).
+
+Implementation and qualification obligations:
+
+1. Freeze versioned schemas for interfaces.kvx, package.kvx and .neron, including interface IDs, source bindings, environment generation and separate task assignment envelopes. Preserve sampled catalogue fields and mark new fields as explicit extensions.
+2. Implement parser/resolver and indexed interface subset consumer with source provenance and deterministic invalid-input diagnostics; prevent whole-catalogue hydration as the default and keep generated fragments authoritative for derived inventories.
+3. Expose Primary and manager tool contracts over existing hierarchy ownership and supervisory placement with explicit adaptive-decision versus deterministic-enforcement boundaries and no hidden planner fallback.
+4. Create the prerequisite-local verification driver using current Git evidence independently of native task 0.2; exercise malformed schemas, paths, stale interface consumers and forged scope/identity changes against real parsers and consumers.
+
+## 0.11: Assemble sandbox environments through hyperfide install
+
+Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.10.
+
+Proposed implementation scope:
+
+- `core/native/src/`
+- `core/control-plane/src/preparation/`
+- `core/host-daemon/src/`
+- `sdk/client/`
+- `deploy/hyperfide/sandbox/`
+- `tests/hyperfide/cases/source_control/0_11.py`
+
+Future focused gate: `python3 tests/hyperfide/cases/source_control/0_11.py`.
+
+Acceptance clauses: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9, 17.10.
+Canonical cases: SCM-026, SCM-027 (UNRUN).
+
+Implementation and qualification obligations:
+
+1. Provide the bootstrap installer in qualified images or a verified bootstrap artifact; deliver .neron and package.kvx with authenticated source/assignment bindings before starting worker workload execution.
+2. Implement the explicit existing-source adapter and install stages for source scopes, locked dependencies, toolchain/config refs and indexed interface subsets. Record exact resolved identities and actual readiness checks, and expose status and typed failures through CLI and API.
+3. Implement generation-safe staging, verified bounded caches, crash reconciliation and isolated worker overlays; keep secrets out of manifests and receipts, preserve dirty files, and refuse implicit backend fallback or full-history clones.
+4. Qualify real fresh and repeated installs, interrupted stages, missing code/dependencies/configs, stale inputs, path escapes and concurrent worker isolation on a provider sandbox; capture fetch volume and immutable ready receipts.
+
+## 0.12: Run the Primary agent and co-located Wave Managers
+
+Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.11.
+
+Proposed implementation scope:
+
+- `core/control-plane/src/agents/`
+- `core/control-plane/src/hierarchy/`
+- `core/control-plane/src/decisions/`
+- `core/control-plane/src/policy/`
+- `core/host-daemon/src/`
+- `tests/hyperfide/cases/source_control/0_12.py`
+
+Future focused gate: `python3 tests/hyperfide/cases/source_control/0_12.py`.
+
+Acceptance clauses: 16.1, 16.2, 16.3, 16.4, 16.5, 16.7.
+Canonical cases: SCM-028, SCM-029 (UNRUN).
+
+Implementation and qualification obligations:
+
+1. Launch Primary and Wave Manager reasoning sessions on the same configured supervisory host, with distinct scoped identities and durable context/version bindings; reuse existing hierarchy ownership and qualify WAVE delegation.
+2. Give the Primary tools to inspect contracts/state, delegate waves and budgets, coordinate cross-wave dependencies and accept versioned replans; persist chosen action intents and receipts instead of relying on reproducible model output.
+3. Remove automatic planning ownership from the migrated fleet path; keep engine contract checks and mechanical intent delivery. On model unavailability expose waiting or recovery to the authorized supervisor rather than silently selecting tasks.
+4. Qualify actual model sessions producing distinct admitted decisions from changed observations, refused constraint violations, same-host placement and durable restoration after process loss; require action/effect evidence without private reasoning logs.
+
+## 0.13: Let Wave Managers provision sandboxes and assign workers
+
+Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.12.
+
+Proposed implementation scope:
+
+- `core/control-plane/src/scheduler/`
+- `core/control-plane/src/provision/`
+- `core/control-plane/src/runner/`
+- `plugins/hyperfide-dispatch/`
+- `core/host-daemon/src/fleet-worker.ts`
+- `tests/hyperfide/cases/source_control/0_13.py`
+
+Future focused gate: `python3 tests/hyperfide/cases/source_control/0_13.py`.
+
+Acceptance clauses: 16.2, 16.3, 16.4, 16.5, 16.6, 16.7, 16.8, 17.4, 17.5, 17.8.
+Canonical cases: SCM-027, SCM-028, SCM-029 (UNRUN).
+
+Implementation and qualification obligations:
+
+1. Implement manager tools for provider/profile selection, sandbox create/reuse/stop, worker assignment and adaptive retry/replan within delegated authority and budgets; retain idempotent provider operation reconciliation and capacity enforcement.
+2. Bind task assignment packages to ready package.kvx environment generations and individually attributed task attempts; support scoped multiple workers with isolated writable state and reference-based credentials.
+3. Route worker progress, findings, checkpoints and failures to the owning manager, and unresolved cross-wave changes to the Primary. Persist decisions and reconcile uncertain creation/dispatch before issuing replacements or cleanup.
+4. Qualify real provider creation, install, worker execution and changed manager decisions; reject stale or cross-wave actions, demonstrate limits and cancellation, and preserve worker results across manager replacement.
+
+## 0.14: Qualify the final fleet prerequisite and native-source handoff
+
+Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.13.
+
+Proposed implementation scope:
+
+- `tests/hyperfide/cases/source_control/`
+- `docs/hyperfide/fleet.md`
+- `docs/hyperfide/operations.md`
+- `deploy/hyperfide/sandbox/`
+- `tests/hyperfide/cases/source_control/0_14.py`
+
+Future focused gate: `python3 tests/hyperfide/cases/source_control/0_14.py`.
+
+Acceptance clauses: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 16.7, 16.8, 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9, 17.10, 14.4.
+Canonical cases: SCM-026, SCM-027, SCM-028, SCM-029 (UNRUN).
+
+Implementation and qualification obligations:
+
+1. Execute the complete existing-source journey: co-located Primary and managers, wave delegation, manager-selected provider sandboxes, installed environments, worker task execution and independently checked completion.
+2. Exercise shared supervisory-box loss, stale generation replay, ambiguous provider outcomes, interrupted installation, failed workers and model unavailability; prove accepted-intent recovery and refusal of unauthorized conflicting effects.
+3. Close an exact contract/source/toolchain/manifest/interface/provider assertion inventory with actual execution evidence. Classify baseline defects and missing backend/provider coverage explicitly; a parser-only or scripted planner run cannot qualify agent-led orchestration.
+4. Publish the local prerequisite handoff contract and source-adapter migration boundary, preserve receipts and recovery instructions, and release native task 0.1 only after complete 0.14 qualification; native task 0.2 later imports these historical receipts without rewriting them.
 
 ## 0.1: Version the native source contract and compatibility boundary
 
-Status: **pending**. Owner: `contracts`. Dependencies: 0.9.
+Status: **pending**. Owner: `contracts`. Dependencies: 0.14.
 
 Proposed implementation scope:
 
@@ -726,7 +854,7 @@ Proposed implementation scope:
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/4_2.py`.
 
-Acceptance clauses: 1.1, 1.7, 1.8, 6.5, 8.1, 8.2, 8.3, 8.5, 8.6.
+Acceptance clauses: 1.1, 1.7, 1.8, 6.5, 8.1, 8.2, 8.3, 8.5, 8.6, 17.9.
 Canonical cases: SCM-004, SCM-014 (UNRUN).
 
 Implementation and qualification obligations:
@@ -737,6 +865,7 @@ Implementation and qualification obligations:
 4. Run native qualification against exact candidate and closure/toolchain manifests, emit native revision receipts and route native merge/acceptance through the durable candidate service; retain Hyperfide policy as the sole task qualification and dependency-release authority.
 5. Implement 4_2.py through the real dispatch, host, source, qualification and integration adapters: execute a dependent task flow, replace a worker and reject its delayed write, lose submission acknowledgment and retain source after cleanup, with no internal Git invocation.
 6. Assert that process exit, object upload, checkpoint, source acceptance and remote publication remain distinguishable; exercise source/authority outage and replay without duplicate task completion or acceptance, and demonstrate a manager completing integration without a full checkout.
+7. Implement the native source adapter for hyperfide install and .neron using the already qualified package.kvx contract. Requalify co-located agent-led orchestration, selected interface publication pins, exact environment readiness and isolated worker writes with native source IDs; preserve original existing-source prerequisite receipts and refuse implicit backend fallback.
 
 ## 4.3: Ship source API clients and native workspace-to-publication product journeys
 

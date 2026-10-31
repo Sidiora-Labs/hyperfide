@@ -91,7 +91,7 @@ Generated from [spec.kvx](spec.kvx). A clause `N.M` is `[req.N] ac_M`. Mappings 
 | 14.1 | Versioned adoption, documentation and release evidence | 0.1, 0.2, 7.1, 7.2 | SCM-024 | [README.md](README.md) |
 | 14.2 | Versioned adoption, documentation and release evidence | 7.1, 7.2 | SCM-023 | [README.md](README.md) |
 | 14.3 | Versioned adoption, documentation and release evidence | 0.2, 7.1, 7.2 | SCM-023 | [README.md](README.md) |
-| 14.4 | Versioned adoption, documentation and release evidence | 0.1, 0.2, 0.9, 5.3, 7.1, 7.2 | SCM-017, SCM-024, SCM-025 | [README.md](README.md) |
+| 14.4 | Versioned adoption, documentation and release evidence | 0.1, 0.2, 0.9, 0.14, 5.3, 7.1, 7.2 | SCM-017, SCM-024, SCM-025, SCM-029 | [README.md](README.md) |
 | 14.5 | Versioned adoption, documentation and release evidence | 7.2 | SCM-023, SCM-024 | [README.md](README.md) |
 | 15.1 | Category-based repository layout before native source-control implementation | 0.3, 0.5, 0.6, 0.7, 0.9 | SCM-025 | [repository-layout.md](repository-layout.md) |
 | 15.2 | Category-based repository layout before native source-control implementation | 0.3, 0.5, 0.6, 0.7, 0.9 | SCM-025 | [repository-layout.md](repository-layout.md) |
@@ -101,6 +101,24 @@ Generated from [spec.kvx](spec.kvx). A clause `N.M` is `[req.N] ac_M`. Mappings 
 | 15.6 | Category-based repository layout before native source-control implementation | 0.3, 0.5, 0.6, 0.7, 0.9 | SCM-025 | [repository-layout.md](repository-layout.md) |
 | 15.7 | Category-based repository layout before native source-control implementation | 0.9 | SCM-025 | [repository-layout.md](repository-layout.md) |
 | 15.8 | Category-based repository layout before native source-control implementation | 0.3, 0.8, 0.9 | SCM-025 | [repository-layout.md](repository-layout.md) |
+| 16.1 | Agent-led Primary and Wave Manager orchestration | 0.10, 0.12, 0.14 | SCM-026, SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 16.2 | Agent-led Primary and Wave Manager orchestration | 0.10, 0.12, 0.13, 0.14 | SCM-026, SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 16.3 | Agent-led Primary and Wave Manager orchestration | 0.10, 0.12, 0.13, 0.14 | SCM-026, SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 16.4 | Agent-led Primary and Wave Manager orchestration | 0.12, 0.13, 0.14 | SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 16.5 | Agent-led Primary and Wave Manager orchestration | 0.12, 0.13, 0.14 | SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 16.6 | Agent-led Primary and Wave Manager orchestration | 0.13, 0.14 | SCM-027, SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 16.7 | Agent-led Primary and Wave Manager orchestration | 0.10, 0.12, 0.13, 0.14 | SCM-026, SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 16.8 | Agent-led Primary and Wave Manager orchestration | 0.13, 0.14 | SCM-027, SCM-028, SCM-029 | [fleet-orchestration.md](fleet-orchestration.md) |
+| 17.1 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.14 | SCM-026, SCM-027 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.2 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.14 | SCM-026, SCM-027 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.3 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.14 | SCM-026, SCM-027 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.4 | Sandbox source configuration environment manifest and interface contracts | 0.11, 0.13, 0.14 | SCM-026, SCM-027 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.5 | Sandbox source configuration environment manifest and interface contracts | 0.11, 0.13, 0.14 | SCM-026, SCM-027 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.6 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.14 | SCM-026, SCM-027 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.7 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.14 | SCM-026, SCM-027 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.8 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.13, 0.14 | SCM-026, SCM-027, SCM-029 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.9 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.14, 4.2 | SCM-014, SCM-026, SCM-027, SCM-029 | [sandbox-contracts.md](sandbox-contracts.md) |
+| 17.10 | Sandbox source configuration environment manifest and interface contracts | 0.10, 0.11, 0.14 | SCM-026, SCM-027, SCM-029 | [sandbox-contracts.md](sandbox-contracts.md) |
 
 ## Canonical case ownership
 
@@ -133,3 +151,7 @@ A case's tasks are the implementation packages responsible for its driver, behav
 | SCM-023 | End-to-end native Hyperfide source-control journey (live-fleet) | 6.3, 7.1, 7.2 | A second client and durable records confirm the actual user journey including conflict, recovery, acceptance and remote status. |
 | SCM-024 | Strict harness and independent evidence closure (closure) | 0.2, 6.3, 7.2 | False-success and tampering probes fail and a full current assertion/variant inventory is required for closure. |
 | SCM-025 | Category layout and existing-system behavior preservation (prerequisite) | 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 | Complete path/content/mode and identity accounting plus actual existing-system build/runtime/package/cache/CI/preparation checks prove the new category layout; no native SCM dependency or old source facade is required. |
+| SCM-026 | Manifest and interface schema with source-bound subset resolution (prerequisite) | 0.10, 0.11, 0.14 | Real parser/resolver rejects malformed or stale contracts; independent inventory proves selected interface scope and source pins without assuming callers are exhaustive. |
+| SCM-027 | Provider sandbox install and worker isolation (prerequisite) | 0.11, 0.13, 0.14 | Fresh sandbox runs installer and real consumers with exact source/dependency/config identity; crash/retry and concurrent workers preserve isolated dirty data and truthful ready receipts. |
+| SCM-028 | Primary and Wave Manager adaptive orchestration (prerequisite) | 0.12, 0.13, 0.14 | Actual co-located model sessions choose and revise admitted actions; provider/worker effects match persisted decisions and out-of-scope actions fail without a hidden deterministic planner. |
+| SCM-029 | Supervisor loss and final prerequisite evidence closure (prerequisite) | 0.12, 0.13, 0.14 | Independent receipts reconcile supervisor-box loss, stale owners and uncertain external effects; complete existing-source evidence gates native entry without native-harness dependencies. |

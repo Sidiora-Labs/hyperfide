@@ -8,7 +8,9 @@ The subsystem has its own versioned contracts and independently scalable service
 
 ## First prerequisite
 
-[Repository layout](repository-layout.md) is the first work: move nested codebases into category roots while preserving behavior and public identities. The [explicit mapping](repository-layout.json) covers current source inputs. Tasks 0.3–0.9 must qualify before native task 0.1; no code has moved as part of this draft.
+[Repository layout](repository-layout.md) is the first work: move nested codebases into category roots while preserving behavior and public identities. The [explicit mapping](repository-layout.json) covers current source inputs. Tasks 0.3–0.9 qualify the layout first; no code has moved as part of this draft.
+
+The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the Primary and co-located Wave Managers responsible for adaptive orchestration. Every sandbox carries `.neron` source configuration and a `package.kvx` environment manifest; proposed `hyperfide install` assembles code, dependencies, configs and selected interface contracts before worker readiness. See [sandbox contracts](sandbox-contracts.md) and [interface schema](interface-contracts.md). Native task 0.1 waits for the final fleet qualification receipt. All of this remains specification work.
 
 ## Read in this order
 

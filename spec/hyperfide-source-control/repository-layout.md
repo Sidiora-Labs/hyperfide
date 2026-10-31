@@ -1,6 +1,6 @@
 # Prerequisite: organize the repository by category
 
-Status: **specified, not executed**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Task 0.1 cannot start until task 0.9 qualifies. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
+Status: **specified, not executed**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Fleet task 0.10 cannot start until task 0.9 qualifies; native task 0.1 also waits for final fleet gate 0.14. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
 
 ## 1. Objective and boundaries
 
@@ -106,7 +106,7 @@ These are source-grounded obligations. The referenced baseline files remain read
 | 0.6 | Move SDKs, contracts, libraries and packaged tooling | Consumer imports, exports, generation, package tests and cache invalidation |
 | 0.7 | Move apps, plugins, extensions, examples and assets | Product launches, plugin discovery, scaffold consumers, extension/package contents |
 | 0.8 | Complete CI, preparation, release, docs and configuration migration | No live old-root dependence; packaged/deployment contracts and ignore boundaries preserved |
-| 0.9 | Qualify the relocated repository and record the handoff | Current complete layout receipt; then source-control task 0.1 becomes eligible |
+| 0.9 | Qualify the relocated repository and record the handoff | Current complete layout receipt; then fleet prerequisite task 0.10 becomes eligible |
 
 Each move includes the producer's direct callers and relevant configuration so the task's resulting candidate is runnable. Final cleanup is not permission to leave prior tasks falsely green with broken imports or discovery. The integration branch changes to the new layout only with the qualified revision and compatible prepared-image/build manifests; partial moves stay in isolated candidates.
 

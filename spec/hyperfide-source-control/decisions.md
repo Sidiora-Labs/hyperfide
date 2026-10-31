@@ -54,4 +54,8 @@ These replacements are scoped to this feature's migration. This draft does not e
 
 ## Repository-layout prerequisite
 
-D12: organize existing source by category before native source-control implementation, with SDKs under `sdk/`, core packages under `core/`, and explicit application/plugin/contract/library/tool categories. Preserve package units, public identities and runtime behavior. [repository-layout.json](repository-layout.json) defines the proposed mapping. Tasks 0.3–0.9 precede task 0.1; subsequent unspecified prerequisites are not invented by this draft. Package-manager/toolchain consolidation remains outside the path-only work.
+D12: organize existing source by category before native source-control implementation, with SDKs under `sdk/`, core packages under `core/`, and explicit application/plugin/contract/library/tool categories. Preserve package units, public identities and runtime behavior. [repository-layout.json](repository-layout.json) defines the proposed mapping. Tasks 0.3–0.9 precede the final fleet prerequisite 0.10–0.14, which gates native task 0.1. Package-manager/toolchain consolidation remains outside the path-only work.
+
+D13: the Primary and Wave Managers on one supervisory box own adaptive orchestration. The engine validates contracts and durably executes admitted actions. Model unavailability does not activate an implicit deterministic planner. See [fleet orchestration](fleet-orchestration.md).
+
+D14: `package.kvx` describes a sandbox environment; `.neron` configures its source access; `interfaces.kvx` identifies declarations and associated compatibility contracts. Task assignments retain separate identities. Proposed `hyperfide install` prepares pinned code, dependencies, configs and interface subsets through an explicit existing-source adapter first, then a separately qualified native adapter. The example schemas are proposed, not existing command support.

@@ -1,0 +1,35 @@
+# PROPOSED KVX source configuration v1. Illustrative example; not an existing grammar.
+# Example endpoint, workspace, authority and zero digests must be resolved before readiness.
+# This file configures source access; it grants no permissions and contains no secret values.
+
+[meta]
+format = "neron.source-config"
+schema_version = 1
+example = true
+
+[source]
+endpoint = "https://source.example.invalid/api/v1/source-control"
+repository = "example-paxeer-monorepo"
+source_backend = "git"
+revision = "git:0000000000000000000000000000000000000000"
+auth_profile = "profile-ref:fleet-source"
+
+[workspace]
+workspace_id = "example-environment-source-view"
+workspace_generation = 1
+environment_id = "example-fleet-sandbox"
+environment_generation = 1
+authority_epoch = "example-authority-epoch"
+read_scope = ["core/host-daemon/**", "sdk/client/**", "contracts/**", "lib/**", "tools/tsconfig/**", "package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml"]
+write_scope = ["core/host-daemon/**"]
+
+[cache]
+directory = "/sandbox/cache/source"
+max_bytes = 2147483648
+max_entries = 100000
+security_domain = "example-fleet-domain"
+
+[client]
+mode = "sparse"
+dirty_directory = "/sandbox/private/base-dirty"
+network_policy = "online-required"

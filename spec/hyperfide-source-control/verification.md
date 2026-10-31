@@ -1,6 +1,6 @@
 # Native source control: verification and qualification
 
-Status: **design draft; all product cases SCM-001 through SCM-025 are UNRUN.** No latency, throughput, S3, fleet, recovery, migration, or publication result is asserted by this document. Structural validation of the specification establishes authoring consistency only.
+Status: **design draft; all product cases SCM-001 through SCM-029 are UNRUN.** No latency, throughput, S3, fleet, recovery, migration, or publication result is asserted by this document. Structural validation of the specification establishes authoring consistency only.
 
 ## 1. Existing qualification seams and required changes
 
@@ -126,4 +126,17 @@ The gate order controls qualification; implementation tasks still follow their d
 
 ## 7. Repository-layout prerequisite
 
-SCM-025 covers requirement 15 and tasks 0.3 through 0.9. [repository-layout.md](repository-layout.md) and [repository-layout.json](repository-layout.json) define the move and preservation oracle. Layout drivers use the current build/runtime stack and Git source evidence; they do not require the future native source-control harness, S3 or task 0.2. The final layout receipt gates task 0.1. Task 0.2 subsequently registers this case with its original evidence identities. All layout behavior checks remain UNRUN.
+SCM-025 covers requirement 15 and tasks 0.3 through 0.9. [repository-layout.md](repository-layout.md) and [repository-layout.json](repository-layout.json) define the move and preservation oracle. Layout drivers use the current build/runtime stack and Git source evidence; they do not require the future native source-control harness, S3 or task 0.2. The final layout receipt gates fleet task 0.10; fleet receipt 0.14 subsequently gates native task 0.1. Task 0.2 subsequently registers this case with its original evidence identities. All layout behavior checks remain UNRUN.
+
+## 8. Final fleet and sandbox prerequisite
+
+Tasks 0.10–0.14 qualify independently of future native source services and task 0.2, using current Git source evidence and an explicit existing-source adapter. Case IDs describe planned coverage; all remain UNRUN. Task 0.2 later imports original evidence identities into the native case registry.
+
+| Case | Required exercise | Independent oracle |
+|---|---|---|
+| SCM-026 | Parse and resolve `.neron`, `package.kvx` and selected `interfaces.kvx` blocks; reject ambiguous versions, malformed paths, stale source bindings, missing consumers and forged catalogue inclusion. | Exact source/manifest/interface identities and actual parser/consumer outcomes; bounded subset lookup without complete catalogue transfer. |
+| SCM-027 | Fresh and repeated provider sandbox installation, interrupted preparation, missing dependencies/configs and multiple isolated workers. | Actual source/dependency/config bytes, toolchain and readiness checks match the receipt; incomplete installs never launch workloads and dirty overlays survive retry. |
+| SCM-028 | Actual Primary and two Wave Managers on the same box delegate waves, choose provider sandboxes and revise a plan after changed observations. | Persisted agent-selected actions and observed provider/worker effects agree; policy violations are rejected without a hidden deterministic planner. |
+| SCM-029 | Manager and whole supervisory-box interruption, stale-owner commands, unknown provider outcomes, model unavailability and final receipt closure. | Current ownership is unique, persisted effects reconcile, active resource accounting is complete, and no missing required assertion is labeled successful. |
+
+Scripted planners or parser-only checks do not qualify agent-led fleet execution. Record actual model/provider profiles, host/process/sandbox boot identities, environment generations, exact contract versions, action receipts and runtime outcomes. Do not record private model reasoning as required evidence. The complete existing-source journey releases task 0.1 only after 0.14; native source adoption later repeats relevant installation and worker journeys with native source identities.

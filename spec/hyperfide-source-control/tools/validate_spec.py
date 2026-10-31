@@ -29,6 +29,7 @@ CONTRACTS = {
     7: "protocol.md", 8: "hyperfide-integration.md", 9: "git-interop.md",
     10: "migration.md", 11: "identity-security.md", 12: "verification.md",
     13: "hyperfide-integration.md", 14: "README.md", 15: "repository-layout.md",
+    16: "fleet-orchestration.md", 17: "sandbox-contracts.md",
 }
 DERIVED = {"implementation-plan.md", "traceability.md"}
 
@@ -61,7 +62,7 @@ def task_plan(tasks: dict) -> str:
         "Each package couples its implementation with a direct consumer and positive/negative checks. "
         "Component success does not qualify a complete product case or elapsed-time campaign.", "",
         "The repository-layout prerequisite runs first: **0.3 → 0.4 → 0.5 → 0.6 → 0.7 → 0.8 → 0.9**. "
-        "Only then do native source-control tasks **0.1 → 0.2** become eligible. "
+        "The final fleet prerequisite follows: **0.10 → 0.11 → 0.12 → 0.13 → 0.14**. Only then do native source-control tasks **0.1 → 0.2** become eligible. "
         "Existing task IDs are preserved; the list below follows dependencies.", "",
         "| Task | Wave | Scope | Requires | Owner |",
         "|---|---:|---|---|---|",
@@ -128,10 +129,10 @@ def validate(sections: dict) -> tuple[list[str], dict, dict, dict]:
     meta = sections.get('meta', {})
     if meta.get('feature') != 'hyperfide-source-control' or meta.get('status') != 'pending' or meta.get('stage') != 'design':
         errors.append('This draft requires feature=hyperfide-source-control, status=pending, stage=design')
-    if set(requirements) != {str(n) for n in range(1, 16)}:
-        errors.append('Expected exactly requirement sections 1 through 15')
-    if set(cases) != {f'SCM-{n:03d}' for n in range(1, 26)}:
-        errors.append('Expected exactly canonical cases SCM-001 through SCM-025')
+    if set(requirements) != {str(n) for n in range(1, 18)}:
+        errors.append('Expected exactly requirement sections 1 through 17')
+    if set(cases) != {f'SCM-{n:03d}' for n in range(1, 30)}:
+        errors.append('Expected exactly canonical cases SCM-001 through SCM-029')
     clauses = set()
     for ident, req in requirements.items():
         for field in ('title', 'story'):
@@ -279,8 +280,18 @@ def layout_errors(sections: dict, tasks: dict) -> tuple[list[str], dict]:
     layout_tasks = {f'0.{n}' for n in range(3, 10)}
     if set(prerequisite.get('tasks', [])) != layout_tasks or prerequisite.get('gate_task') != '0.9':
         errors.append('Layout prerequisite task set or gate is invalid')
-    if tasks.get('0.1', {}).get('requires') != ['0.9']:
-        errors.append('Native task 0.1 must require the qualified layout gate 0.9')
+    if tasks.get('0.10', {}).get('requires') != ['0.9']:
+        errors.append('Fleet entry 0.10 must require qualified layout gate 0.9')
+    if prerequisite.get('blocks') != ['0.10']:
+        errors.append('Layout must block fleet entry 0.10')
+    fleet = sections.get('prerequisite.fleet_model', {})
+    fleet_tasks = {f'0.{n}' for n in range(10, 15)}
+    if set(fleet.get('tasks', [])) != fleet_tasks or fleet.get('gate_task') != '0.14':
+        errors.append('Final fleet prerequisite task set or gate is invalid')
+    if fleet.get('requires') != ['0.9'] or fleet.get('blocks') != ['0.1']:
+        errors.append('Fleet prerequisite must connect layout to native entry')
+    if tasks.get('0.1', {}).get('requires') != ['0.14']:
+        errors.append('Native entry 0.1 must require qualified fleet gate 0.14')
 
     def ancestors(ident, seen=None):
         seen = set() if seen is None else seen
@@ -295,6 +306,10 @@ def layout_errors(sections: dict, tasks: dict) -> tuple[list[str], dict]:
             if ancestors(ident) - layout_tasks:
                 errors.append(f'Layout task {ident} depends on native implementation')
             continue
+        if ident in fleet_tasks and ancestors(ident) - layout_tasks - fleet_tasks:
+            errors.append(f'Fleet task {ident} depends on native implementation')
+        if ident not in fleet_tasks and '0.14' not in ancestors(ident):
+            errors.append(f'Native task {ident} bypasses fleet qualification')
         if '0.9' not in ancestors(ident):
             errors.append(f'Native task {ident} bypasses layout qualification')
         for path in task.get('touches', []):
@@ -302,13 +317,61 @@ def layout_errors(sections: dict, tasks: dict) -> tuple[list[str], dict]:
                 errors.append(f'Native task {ident} retains pre-layout destination {path}')
     return errors, {'mapping_rules': len(rules), 'classified_app_package_units': len(units),
                     'covered_platform_service_files': covered, 'explicit_merges': intentional_merges,
-                    'prerequisite_gate': '0.9', 'runtime_qualification': 'UNRUN'}
+                    'prerequisite_gate': '0.9', 'fleet_gate': '0.14', 'runtime_qualification': 'UNRUN'}
+
+
+def example_errors(parse_kvx) -> tuple[list[str], dict]:
+    """Check illustrative file relationships, not the future installer schema."""
+    errors = []
+    directory = PACK / 'examples/fleet'
+    package = parse_kvx((directory / 'package.kvx').read_text())
+    source = parse_kvx((directory / '.neron').read_text())
+    interfaces = parse_kvx((directory / 'interfaces.kvx').read_text())
+    for label, document, format_name in [
+            ('package', package, 'hyperfide.sandbox-package'),
+            ('source', source, 'neron.source-config')]:
+        meta = document.get('meta', {})
+        if meta.get('format') != format_name or meta.get('schema_version') != 1 or meta.get('example') is not True:
+            errors.append(f'{label}: proposed example must identify its format/version and non-runnable example status')
+    if package.get('source', {}).get('config') != '.neron':
+        errors.append('Sandbox package must reference paired .neron')
+    for field in ('environment_id', 'environment_generation'):
+        if package.get('environment', {}).get(field) != source.get('workspace', {}).get(field):
+            errors.append(f'Package/source example {field} mismatch')
+    if package.get('interfaces', {}).get('source_revision') != source.get('source', {}).get('revision'):
+        errors.append('Interface/source example revision mismatch')
+    if source.get('source', {}).get('source_backend') != 'git':
+        errors.append('Prerequisite example must explicitly identify the existing-source adapter')
+    selected = package.get('interfaces', {}).get('selected_ids', [])
+    if not string_list(selected) or not selected or len(selected) != len(set(selected)) or set(selected) != set(interfaces):
+        errors.append('Selected interface IDs must match complete illustrative blocks')
+    for ident, block in interfaces.items():
+        if not ident.startswith('interface.') or set(block) != {'kind', 'path', 'line', 'signature', 'callers', 'status', 'contract', 'notes'}:
+            errors.append(f'{ident}: example must preserve the sampled interface block shape')
+        if type(block.get('line')) is not int or block['line'] < 1 or not isinstance(block.get('callers'), list):
+            errors.append(f'{ident}: invalid source locations')
+        if block.get('status') != 'proposed':
+            errors.append(f'{ident}: illustrative future interfaces must remain proposed')
+        if not (directory / block.get('contract', '')).is_file():
+            errors.append(f'{ident}: missing supporting contract')
+    mount = package.get('mount.code', {})
+    if mount.get('paths') != source.get('workspace', {}).get('read_scope'):
+        errors.append('Illustrative mount/source read scopes disagree')
+    for probe in package.get('readiness', {}).get('require_probes', []):
+        if 'probe.' + probe not in package:
+            errors.append(f'Missing illustrative readiness probe {probe}')
+    for stage in package.get('readiness', {}).get('require_stages', []):
+        if stage not in package.get('install', {}).get('stages', []):
+            errors.append(f'Missing illustrative readiness stage {stage}')
+    return errors, {'files': 3, 'selected_interfaces': len(selected),
+                    'scope': 'illustrative syntax and cross-file consistency',
+                    'installer_schema_implementation': 'pending', 'runtime_readiness': 'NOT_ESTABLISHED'}
 
 
 def document_errors(rendering: bool) -> list[str]:
     errors = []
     for path in sorted(PACK.rglob('*')):
-        if not path.is_file() or '__pycache__' in path.parts or path.suffix not in {'.md', '.kvx', '.mmd', '.py'}:
+        if not path.is_file() or '__pycache__' in path.parts or (path.suffix not in {'.md', '.kvx', '.mmd', '.py'} and path.name != '.neron'):
             continue
         text = path.read_text()
         for number, line in enumerate(text.splitlines(), 1):
@@ -338,6 +401,8 @@ def main() -> int:
         errors, requirements, tasks, cases = validate(sections)
         layout_problems, layout_summary = layout_errors(sections, tasks)
         errors += layout_problems
+        example_problems, example_summary = example_errors(parse_kvx)
+        errors += example_problems
         errors += document_errors(args.render)
         if errors:
             print(json.dumps({'status': 'FAIL', 'scope': 'specification-authoring', 'errors': errors}, indent=2))
@@ -361,10 +426,11 @@ def main() -> int:
             'cases': len(cases), 'implementation': 'pending', 'product_qualification': 'UNRUN',
             'rendered': args.render, 'errors': errors,
             'layout': layout_summary,
+            'examples': example_summary,
             'inputs_sha256': {
                 str(path.relative_to(PACK)): hashlib.sha256(path.read_bytes()).hexdigest()
                 for path in sorted(PACK.rglob('*'))
-                if path.is_file() and path.suffix in {'.md', '.kvx', '.mmd', '.py', '.json'}
+                if path.is_file() and (path.suffix in {'.md', '.kvx', '.mmd', '.py', '.json'} or path.name == '.neron')
                 and '__pycache__' not in path.parts
                 and path.name != 'authoring-validation.json'
             },
