@@ -522,6 +522,8 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
                 raise Blocked('ACTUAL_MODEL_PROVISION_INTENT_REQUIRED')
             before = local.invoke('provider-create-before:' + intent + ':' + uuid.uuid4().hex,
                 'provider.intents.get', {'intent_id':intent})
+            if before.get('state') == 'REJECTED':
+                continue
             if before.get('state') == 'RECORDED':
                 credential = read(local.credential)
                 executed = local.invoke('provider-create-execute:' + intent + ':' + credential['credential_id'],
