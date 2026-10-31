@@ -265,8 +265,8 @@ async function applyConfig(pool:ProviderDatabase,config:DeploymentConfig):Promis
       for(const d of report.dimensions.filter(d=>d.name!=='PROVISIONING')){
         const approved=BigInt(p.approved_limits[d.name]??'0');
         const bounds=d.budgets.flatMap(b=>[BigInt(b.approved_limit),...(b.capacity_limit===null?[]:[BigInt(b.capacity_limit)])]);
-        if(d.qualified&&bounds.some(n=>approved>n))fail('CAPACITY_SEED_LIMIT_EXCEEDED','Approved scheduler limit exceeds qualified pool capacity');
-        const limit=d.qualified?approved.toString():'0',qualification=d.qualified?'QUALIFIED':'UNQUALIFIED';
+        const effective=bounds.reduce((limit,bound)=>bound<limit?bound:limit,approved);
+        const limit=d.qualified?effective.toString():'0',qualification=d.qualified?'QUALIFIED':'UNQUALIFIED';
         const capacityClass=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?'PHYSICAL':'EXECUTION';
         const provenance=digestDocument({configuration_digest:scope.configuration_digest,dimension:d.name,budgets:d.budgets,evidence:evidence.rows});
         for(const kind of ['CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?[capacityClass,'EXECUTION']:[capacityClass]){
