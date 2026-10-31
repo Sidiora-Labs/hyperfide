@@ -19,6 +19,8 @@ export interface ProvisionerWorkerSettings {concurrency:number;poll_ms:number;re
 export interface ProvisionerWorkerDriver {
  execute(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
  reconcile(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
+ bootstrap?(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
+ activate?(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
  /** provider.resolutions.escalate (D15): one decision Ask per overdue orphan or quarantined
   * intent, idempotent per open subject; refuses RESOLUTION_WINDOW_REQUIRED without the window. */
  escalate?(database:ProviderDatabase,config:DeploymentConfig,env:Readonly<NodeJS.ProcessEnv>):Promise<{raised:string[]}>;
@@ -78,7 +80,7 @@ const REJECTED_CREATE_HOLD=`(i.state='REJECTED' AND i.kind='CREATE' AND i.native
  OR (o.observation->'outcome'->>'status'='FAILED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_REJECTED'
  AND o.observation->'outcome'->'error'->>'provider_code' ~ '^BLAXEL_CREATE_HTTP_4[0-9]{2}$'
  AND o.observation->'outcome'->'error'->>'provider_code' NOT IN ('BLAXEL_CREATE_HTTP_408','BLAXEL_CREATE_HTTP_409','BLAXEL_CREATE_HTTP_425','BLAXEL_CREATE_HTTP_429')))))`;
-const CLAIM=`SELECT id,state,(operation->>'deadline_at')::timestamptz<=clock_timestamp() AS deadline_expired FROM hyperfide.provisioning_intents i
+const CLAIM=`SELECT id,state,kind,(operation->>'deadline_at')::timestamptz<=clock_timestamp() AS deadline_expired FROM hyperfide.provisioning_intents i
  WHERE organisation_id=$1 AND run_id=$2 AND NOT (id=ANY($3::uuid[])) AND (operation->'scope'->>'provider'=ANY($4::text[]) OR (state='RECORDED' AND kind='CREATE' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp()) OR ${REJECTED_CREATE_HOLD}) AND (
   (state='RECORDED' AND (kind='CREATE' OR (operation->>'deadline_at')::timestamptz>clock_timestamp()))
   OR (state='SUBMITTING' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp())
@@ -254,7 +256,15 @@ export class ProvisionerWorker {
   const config=await readDeployment(this.env),db=bindProviderInvocation(this.database,config,this.invocation!,['PROVISIONER']),run=this.invocation!.principal.run_id;
   const claimed=await transaction(db,async c=>{
    const now=Date.now();for(const [id,until] of this.backoff)if(until<=now)this.backoff.delete(id);
-   const rows=(await c.query<{id:string;state:string;deadline_expired:boolean}>(CLAIM,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys()],providers,settings.retry_ms,settings.lease_ms,free])).rows;
+   const rows=(await c.query<{id:string;state:string;kind:string;deadline_expired:boolean;activation?:boolean}>(CLAIM,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys()],providers,settings.retry_ms,settings.lease_ms,free])).rows;
+   if(this.driver.bootstrap&&this.env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE&&rows.length<free){
+    const bootstrap=(await c.query<{id:string;state:string;kind:string;deadline_expired:boolean;activation?:boolean}>(`SELECT i.id,i.state,i.kind,false AS deadline_expired FROM hyperfide.provisioning_intents i WHERE i.organisation_id=$1 AND i.run_id=$2 AND i.kind='CREATE' AND i.state='ACKNOWLEDGED' AND i.native_sandbox_id IS NOT NULL AND i.operation->'scope'->>'provider'=ANY($4::text[]) AND NOT(i.id=ANY($3::uuid[])) AND i.updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000) AND NOT EXISTS(SELECT 1 FROM hyperfide.provider_native_bootstraps b WHERE b.organisation_id=i.organisation_id AND b.run_id=i.run_id AND b.intent_id=i.id AND b.state='READY') ORDER BY i.updated_at,i.id LIMIT $6 FOR UPDATE OF i SKIP LOCKED`,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys(),...rows.map(r=>r.id)],providers,settings.retry_ms,free-rows.length])).rows;
+    rows.push(...bootstrap);
+   }
+   if(this.driver.activate&&this.env.HF_PROVIDER_ACTIVATION_CONFIG_FILE&&rows.length<free){
+    const activation=(await c.query<{id:string;state:string;kind:string;deadline_expired:boolean;activation?:boolean}>(`SELECT i.id,i.state,i.kind,false AS deadline_expired,true AS activation FROM hyperfide.provisioning_intents i JOIN hyperfide.provider_native_bootstraps b ON b.organisation_id=i.organisation_id AND b.run_id=i.run_id AND b.intent_id=i.id WHERE i.organisation_id=$1 AND i.run_id=$2 AND i.kind='CREATE' AND i.state='ACKNOWLEDGED' AND b.state='READY' AND i.operation->'scope'->>'provider'=ANY($4::text[]) AND NOT(i.id=ANY($3::uuid[])) AND i.updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000) AND EXISTS(SELECT 1 FROM hyperfide.fleet_environment_installs e WHERE e.organisation_id=i.organisation_id AND e.run_id=i.run_id AND e.sandbox_id=i.sandbox_id AND e.boot_generation=i.boot_generation AND e.state='READY') AND NOT EXISTS(SELECT 1 FROM hyperfide.provider_worker_activations a WHERE a.organisation_id=i.organisation_id AND a.run_id=i.run_id AND a.intent_id=i.id AND a.state='ACTIVE') ORDER BY i.updated_at,i.id LIMIT $6 FOR UPDATE OF i SKIP LOCKED`,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys(),...rows.map(r=>r.id)],providers,settings.retry_ms,free-rows.length])).rows;
+    rows.push(...activation);
+   }
    const reconcile=rows.filter(r=>r.state!=='RECORDED').map(r=>r.id);
    // RECONCILING plus updated_at is the reconciliation lease; an acknowledged destroy keeps its state.
    if(reconcile.length)await c.query("UPDATE hyperfide.provisioning_intents SET state=CASE WHEN state IN ('ACKNOWLEDGED','REJECTED') THEN state ELSE 'RECONCILING' END,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[])",[config.organisation_id,run,reconcile]);
@@ -267,10 +277,12 @@ export class ProvisionerWorker {
    this.active.set(row.id,task);
   }
  }
- private async process(db:ProviderDatabase,config:DeploymentConfig,row:{id:string;state:string;deadline_expired:boolean},settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
+ private async process(db:ProviderDatabase,config:DeploymentConfig,row:{id:string;state:string;kind:string;deadline_expired:boolean;activation?:boolean},settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
   let heartbeat:ReturnType<typeof setInterval>|undefined;
   try{
-   if(row.state==='RECORDED'&&!row.deadline_expired){await this.driver.execute(db,config,row.id,signal);this.counters.executed++;}
+   if(row.activation&&this.driver.activate){await this.driver.activate(db,config,row.id,signal);this.counters.reconciled++;}
+   else if(row.state==='ACKNOWLEDGED'&&row.kind==='CREATE'&&this.driver.bootstrap){await this.driver.bootstrap(db,config,row.id,signal);this.counters.reconciled++;}
+   else if(row.state==='RECORDED'&&!row.deadline_expired){await this.driver.execute(db,config,row.id,signal);this.counters.executed++;}
    else{
     heartbeat=setInterval(()=>{void db.query("UPDATE hyperfide.provisioning_intents SET updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND state='RECONCILING'",[config.organisation_id,row.id]).catch(()=>{});},Math.max(250,Math.floor(settings.lease_ms/3)));
     await this.driver.reconcile(db,config,row.id,signal);this.counters.reconciled++;

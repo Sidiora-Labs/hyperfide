@@ -9,6 +9,7 @@ import type {PrimaryTransaction} from '../storage/transactions.js';
 import {isIdentityAuthority,gatewayOf,identityTransaction,invocationOf} from '../identity/enrollment.js';
 import {assertInvocation,DIGEST,decimal,exact,fail,hash,uuid,strictJSON} from '../transport/protocol.js';
 import type {InvocationContext,Principal} from '../transport/protocol.js';
+import {registerObservedBootstrapSlot} from './bootstrap_slots.js';
 import {readRuntimeReadiness} from '../providers/pools.js';
 import {readFleetRuntimeReadiness} from '../preparation/fleet_readiness.js';
 import {isArtifactStoreCapability} from '../artifacts/objects.js';
@@ -365,6 +366,7 @@ verifyBinding:async(tx:PrimaryTransaction,v:Record<string,unknown>)=>{try{const 
    const policy=await approvedRecipePolicy(ctx,tx as PrimaryTransaction,i);if(runnerCanonical(policy.recipes)!==runnerCanonical(v.preparation_recipes))fail('RUNNER_RECIPE_POLICY_INVALID','RUNNER inventory cannot approve its own executable recipes');
    const p=i.principal,inventory=(await tx.query('SELECT inventory FROM hyperfide.identity_runner_status WHERE credential_id=$1 FOR SHARE',[p.credential_id])).rows[0]?.inventory;
    if(!Array.isArray(inventory)||!inventory.some(item=>runnerCanonical(item)===runnerCanonical(v)))fail('RUNNER_OBSERVATION_UNREGISTERED','Exact authenticated boot inventory required');
+   await registerObservedBootstrapSlot(tx as PrimaryTransaction,i,v,inventory);
    const base=(await tx.query(`SELECT s.preparation_digest,ep.content_digest FROM hyperfide.sandboxes s JOIN hyperfide.provider_pools p ON p.organisation_id=s.organisation_id AND p.id=s.pool_id JOIN hyperfide.environment_profiles ep ON ep.organisation_id=p.organisation_id AND ep.id=p.profile_id JOIN hyperfide.worker_slots w ON w.organisation_id=s.organisation_id AND w.sandbox_id=s.id AND w.boot_generation=s.boot_generation WHERE s.organisation_id=$1 AND s.id=$2 AND s.boot_generation=$3 AND w.id=$4 FOR SHARE OF s,p,ep,w`,[p.organisation_id,p.sandbox_id,p.boot_generation,v.slot_id])).rows[0];
    if(!base||base.preparation_digest!==v.preparation_digest||base.content_digest!==v.preparation_digest)fail('RUNNER_PREPARATION_UNAVAILABLE','Current accepted parent profile required');
    const result=await tx.query(`INSERT INTO hyperfide.runner_registry(organisation_id,run_id,session_id,credential_id,sandbox_id,boot_generation,boot_id,slot_id,repository_id,state_dir,runner_binary,workspace_path,runner_binary_digest,boot_preparation_digest,preparation_digest,slot_generation,uid,gid,preparation_recipes,preparation_policy_digest,observation_digest,home_path,tmp_path,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14,$15,$16,$17,$18,$19,$20,$21,$22,'PREPARING') ON CONFLICT(organisation_id,run_id,session_id) DO NOTHING`,[p.organisation_id,p.run_id,v.session_id,p.credential_id,p.sandbox_id,p.boot_generation,p.boot_id,v.slot_id,v.repository_id,v.state_dir,v.runner_binary,v.workspace_path,v.runner_binary_digest,v.preparation_digest,v.slot_generation,v.uid,v.gid,JSON.stringify(v.preparation_recipes),policy.digest,hash(runnerCanonical(v)),v.home_path,v.tmp_path]);

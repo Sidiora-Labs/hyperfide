@@ -20,6 +20,9 @@ def sha(data):return "sha256:"+hashlib.sha256(data).hexdigest()
 class ProvisionerFixture(identity.IdentityFixture):
  def __init__(self,*args,**kwargs):
   extra_setup=kwargs.pop("extra_setup",None)
+  selected=list(kwargs.get("components") or ())+list(kwargs.get("extra_components") or ())
+  if "8.3" in selected and "15.2" not in selected:
+   kwargs["extra_components"]=[*(kwargs.get("extra_components") or ()),"15.2"]
   def setup(f):
    f.env.update(HYPERFIDE_PROVISIONER_POLL_MS="200",HYPERFIDE_PROVISIONER_RETRY_MS="500",HYPERFIDE_PROVISIONER_LEASE_MS="3000")
    # Task-specific setup retains authority over executor and credential configuration.

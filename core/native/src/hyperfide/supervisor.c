@@ -73,8 +73,9 @@ static int private_root(const char *path,int *fd) {
     char *copy=strdup(path),*save=NULL;if (!copy) {close(current);return 0;}
     for (char *part=strtok_r(copy,"/",&save);part;part=strtok_r(NULL,"/",&save)) {
         if (!strcmp(part,".")||!strcmp(part,"..")) {close(current);free(copy);return 0;}
-        int next=openat(current,part,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);close(current);current=next;
-        if (current<0) {free(copy);return 0;}
+        int next=openat(current,part,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);struct stat ancestor;
+        if(next<0||fstat(next,&ancestor)||ancestor.st_uid!=0||((ancestor.st_mode&022)&&!(ancestor.st_mode&S_ISVTX))){if(next>=0)close(next);close(current);free(copy);return 0;}
+        close(current);current=next;
     }
     free(copy);struct stat st;
     if (fstat(current,&st)||st.st_uid!=geteuid()||(st.st_mode&022)) {close(current);return 0;}
@@ -176,6 +177,45 @@ static int uid_has_processes(uid_t uid) {
         struct stat st;if (!fstatat(dirfd(proc),entry->d_name,&st,0)&&st.st_uid==uid) found=1;
     }
     closedir(proc);return found;
+}
+/* Credential delivery is a fresh kernel/ledger check, never a plan assertion. */
+static int credential_processes(uid_t permitted,int require_idle){
+ DIR *proc=opendir("/proc");if(!proc)return 0;struct dirent *entry;int ok=1;
+ while(ok&&(entry=readdir(proc))){char *end=NULL;long pid=strtol(entry->d_name,&end,10);if(pid<=0||*end)continue;HfProcessIdentity process={0};
+  if(!hf_process_identity((pid_t)pid,&process)){struct stat st;if(fstatat(dirfd(proc),entry->d_name,&st,0)==0)ok=0;continue;}
+  if(process.uid&&((require_idle&&process.uid==permitted)||process.uid!=permitted))ok=0;
+ }
+ closedir(proc);return ok;
+}
+static int credential_ledger(const char *root,sqlite3 **db){
+ int fd=-1;if(geteuid()!=0||!private_root(root,&fd))return 0;close(fd);char path[4200];int n=snprintf(path,sizeof path,"%s/.supervisor-slots.db",root);struct stat st;
+ if(n<0||n>=(int)sizeof path||lstat(path,&st)||!S_ISREG(st.st_mode)||st.st_uid||st.st_nlink!=1||(st.st_mode&077))return 0;
+ if(sqlite3_open_v2(path,db,SQLITE_OPEN_READONLY|SQLITE_OPEN_FULLMUTEX,NULL)!=SQLITE_OK){sqlite3_close(*db);*db=NULL;return 0;}sqlite3_busy_timeout(*db,5000);return 1;
+}
+int hf_credentials_declared(const HfJson *j,int object){
+ int refs=hf_json_field(j,object,"env_refs");if(refs>=0&&j->tokens[refs].count>0)return 1;
+ int ready=hf_json_field(j,object,"readiness"),input=hf_json_field(j,ready,"readiness_input"),configs=hf_json_field(j,input,"configurations");
+ if(configs>=0&&j->tokens[configs].type=='[')for(int k=configs+1;k<j->tokens[configs].next;k=j->tokens[k].next){char kind[32];if(hf_json_string(j,hf_json_field(j,k,"kind"),kind,sizeof kind)&&!strcmp(kind,"secret-ref"))return 1;}
+ return 0;
+}
+int hf_slot_credentials_allowed(const char *root,const char *slot,const char *boot,uid_t uid,gid_t gid){
+ if(!hf_uuid_valid(slot)||!hf_uuid_valid(boot)||!uid||!gid)return 0;
+ char kernel[37];sqlite3 *db=NULL;sqlite3_stmt *q=NULL;if(!kernel_boot(kernel)||!credential_ledger(root,&db))return 0;
+ int ok=sqlite3_prepare_v2(db,"SELECT uid,gid,boot_id,kernel_boot_id,state,profile,credential_sensitive,(SELECT count(*) FROM slots WHERE id<>? AND state<>'RELEASED') FROM slots WHERE id=?",-1,&q,NULL)==SQLITE_OK;
+ if(ok){sqlite3_bind_text(q,1,slot,-1,SQLITE_STATIC);sqlite3_bind_text(q,2,slot,-1,SQLITE_STATIC);ok=sqlite3_step(q)==SQLITE_ROW&&sqlite3_column_int64(q,0)==uid&&sqlite3_column_int64(q,1)==gid&&!strcmp((const char*)sqlite3_column_text(q,2),boot)&&!strcmp((const char*)sqlite3_column_text(q,3),kernel)&&!strcmp((const char*)sqlite3_column_text(q,4),"READY")&&!strcmp((const char*)sqlite3_column_text(q,5),"vm_dedicated")&&sqlite3_column_int(q,6)==1&&sqlite3_column_int(q,7)==0;}
+ sqlite3_finalize(q);sqlite3_close(db);return ok&&credential_processes(uid,0);
+}
+int hf_slot_promote_credentials(const char *root,const char *preparer,const char *worker,const char *boot,const char *preparation,uid_t uid,gid_t gid){
+ char kernel[37];int rootfd=-1;if(geteuid()!=0||!hf_uuid_valid(preparer)||!hf_uuid_valid(worker)||!strcmp(preparer,worker)||!hf_uuid_valid(boot)||!digest_valid(preparation)||!uid||!gid||!kernel_boot(kernel)||!private_root(root,&rootfd))return 0;close(rootfd);
+ sqlite3 *db=NULL;sqlite3_stmt *q=NULL;if(slot_db_open(root,0,&db)!=1)return 0;int ok=sqlite3_exec(db,"BEGIN IMMEDIATE",NULL,NULL,NULL)==SQLITE_OK;
+ if(ok)ok=sqlite3_prepare_v2(db,"SELECT count(*) FROM slots WHERE id=? AND state='RELEASED' AND boot_id=? AND preparation=? AND kernel_boot_id=?",-1,&q,NULL)==SQLITE_OK;
+ if(ok){sqlite3_bind_text(q,1,preparer,-1,SQLITE_STATIC);sqlite3_bind_text(q,2,boot,-1,SQLITE_STATIC);sqlite3_bind_text(q,3,preparation,-1,SQLITE_STATIC);sqlite3_bind_text(q,4,kernel,-1,SQLITE_STATIC);ok=sqlite3_step(q)==SQLITE_ROW&&sqlite3_column_int(q,0)==1;}sqlite3_finalize(q);q=NULL;
+ if(ok)ok=sqlite3_prepare_v2(db,"SELECT uid,gid,boot_id,preparation,kernel_boot_id,state,profile,credential_sensitive,(SELECT count(*) FROM slots WHERE id<>? AND state<>'RELEASED') FROM slots WHERE id=?",-1,&q,NULL)==SQLITE_OK;
+ int replay=0;if(ok){sqlite3_bind_text(q,1,worker,-1,SQLITE_STATIC);sqlite3_bind_text(q,2,worker,-1,SQLITE_STATIC);ok=sqlite3_step(q)==SQLITE_ROW&&sqlite3_column_int64(q,0)==uid&&sqlite3_column_int64(q,1)==gid&&!strcmp((const char*)sqlite3_column_text(q,2),boot)&&!strcmp((const char*)sqlite3_column_text(q,3),preparation)&&!strcmp((const char*)sqlite3_column_text(q,4),kernel)&&!strcmp((const char*)sqlite3_column_text(q,5),"READY")&&sqlite3_column_int(q,8)==0;if(ok){const char *profile=(const char*)sqlite3_column_text(q,6);replay=!strcmp(profile,"vm_dedicated")&&sqlite3_column_int(q,7)==1;ok=replay||(!strcmp(profile,"distinct_uid")&&sqlite3_column_int(q,7)==0);}}sqlite3_finalize(q);q=NULL;
+ if(ok)ok=credential_processes(uid,1);
+ if(ok&&!replay){ok=sqlite3_prepare_v2(db,"UPDATE slots SET profile='vm_dedicated',credential_sensitive=1 WHERE id=? AND state='READY' AND profile='distinct_uid' AND credential_sensitive=0",-1,&q,NULL)==SQLITE_OK;if(ok){sqlite3_bind_text(q,1,worker,-1,SQLITE_STATIC);ok=sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==1;}sqlite3_finalize(q);}
+ if(ok)ok=credential_processes(uid,1);
+ if(ok)ok=sqlite3_exec(db,"COMMIT",NULL,NULL,NULL)==SQLITE_OK;else sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);return ok;
 }
 static void slot_result(FILE *out,const char *root,const char *slot,const char *boot,const char *kernel,long long uid,long long gid,int port,const SlotProfile *profile,int sensitive,long long storage,int replayed) {
     fputs("{\"slot_id\":",out);hf_json_write_string(out,slot);
@@ -538,6 +578,8 @@ int hf_component_12_1(const char *action,const char *request,FILE *out) {
     HfJson *json=malloc(sizeof *json);if (!json) return hf_native_error(out,"RESOURCE_LIMIT");
     if (!hf_json_parse(json,request)) {free(json);return hf_native_error(out,"INVALID_JSON");}
     int result=1;
+    if (!strcmp(action,"supervisor.bootstrap.activate")) {free(json);return hf_supervisor_bootstrap_activate(request,out);}
+    if (!strcmp(action,"supervisor.bootstrap")||!strcmp(action,"supervisor.bootstrap.stage")) {free(json);return !strcmp(action,"supervisor.bootstrap")?hf_supervisor_bootstrap(request,out):hf_supervisor_bootstrap_stage(request,out);}
     if (!strcmp(action,"supervisor.serve")) {free(json);return hf_supervisor_daemon(request,out);}
     if (!strcmp(action,"supervisor.describe")) {
         const char *keys[]={NULL};

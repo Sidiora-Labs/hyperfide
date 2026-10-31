@@ -119,9 +119,9 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
   catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;state={schema_version:1,config_digest:configDigest,cohort_generation:config.expected_cohort_generation,leader_generation:config.leader_generation,pending:null,grants:{},actors:{}};}
   state.grants??={};state.leader_generation??=config.leader_generation;config.leader_generation=state.leader_generation;
   const persist=()=>writeState(stateFile,state);
-  const call=async(actor:Actor,action:string,input:RecordValue,component='fleet-orchestration'):Promise<RecordValue>=>{
+  const call=async(actor:Actor,action:string,input:RecordValue,component='fleet-orchestration',operation_id?:string):Promise<RecordValue>=>{
    if(state.pending&&(state.pending.actor_id!==actor.session_id||state.pending.action!==action||(state.pending.component??'fleet-orchestration')!==component||JSON.stringify(state.pending.input)!==JSON.stringify(input)))throw new SupervisorRpcError('FLEET_RECONCILIATION_REQUIRED',true);
-   state.pending??={actor_id:actor.session_id,operation_id:randomUUID(),component,action,input};await persist();
+   if(operation_id!==undefined&&!uuid(operation_id))fail('FLEET_DELIVERY_RESPONSE','Stable bootstrap command identity required');if(operation_id&&state.pending&&state.pending.operation_id!==operation_id)throw new SupervisorRpcError('FLEET_RECONCILIATION_REQUIRED',true);state.pending??={actor_id:actor.session_id,operation_id:operation_id??randomUUID(),component,action,input};await persist();
    try{const result=await invoke(config,ca,actor,state.pending,signal);if(action==='fleet.cohort.bind'){if(!decimal(result.cohort_generation,true))fail('FLEET_SUPERVISOR_IDENTITY','Cohort binding did not return current authority');state.cohort_generation=result.cohort_generation;}if(action==='hierarchy.leader.acquire'){if(!decimal(result.leader_generation,true))fail('FLEET_SUPERVISOR_IDENTITY','Leader acquisition did not return current authority');state.leader_generation=result.leader_generation;config.leader_generation=result.leader_generation;}if(action==='fleet.identity.bootstrap')state.grants[String(input.session_id)]={input,grant:result};state.pending=null;await persist();return result;}
    catch(error){if(error instanceof SupervisorRpcError&&!error.uncertain){state.pending=null;await persist();}throw error;}
   };
@@ -176,10 +176,12 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
    await call(actor,'fleet.session.bind',{binding:currentBinding});const current={binding:currentBinding,reasoning:null,observed_state:null};state.actors[actor.session_id]=current;await persist();return current;
   };
   const drainInstallDeliveries=async():Promise<void>=>{
-   if(!operator)return;let after:string|null=null;
+   if(!operator)return;let after:string|null=null,bootstrapAfter:string|null=null;
    for(let page=0;page<64;page++){
-    const pending=await call(operator,'fleet.install.delivery.pending',{after,limit:100},'fleet-install-delivery');
+    const pending=await call(operator,'fleet.install.delivery.pending',{after,limit:100,bootstrap_after:bootstrapAfter},'fleet-install-delivery');
     if(!Array.isArray(pending.items))fail('FLEET_DELIVERY_RESPONSE','Versioned install delivery observation required');
+    if(!Array.isArray(pending.bootstrap_commands)||pending.bootstrap_commands.length>200)fail('FLEET_DELIVERY_RESPONSE','Bounded explicit bootstrap commands required');
+    for(const command of pending.bootstrap_commands){if(!object(command)||!uuid(command.operation_id)||!['fleet.install.delivery.prepare.allocate','fleet.install.delivery.verify.allocate','fleet.install.delivery.register'].includes(String(command.action))||!object(command.input))fail('FLEET_DELIVERY_RESPONSE','Only exact install registration commands are permitted');await call(operator,String(command.action),command.input,'fleet-install-delivery',String(command.operation_id));event('bootstrap_install',null,{operation_id:command.operation_id,action:command.action});}
     for(const item of pending.items){
      if(!object(item)||!uuid(item.operation_id))fail('FLEET_DELIVERY_RESPONSE','Exact admitted install operation identity required');
      if(item.delivery_state==='UNKNOWN'||item.runner_state==='UNKNOWN')continue;
@@ -187,7 +189,9 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
      if(['REGISTERED','QUEUED'].includes(String(item.delivery_state))){const scheduled=await call(operator,'fleet.install.delivery.schedule',{operation_id:item.operation_id},'fleet-install-delivery');state=String(scheduled.state);event('install_delivery',null,{operation_id:item.operation_id,state});}
      if(state==='COMPLETED'||item.runner_state==='COMPLETED'){const collected=await call(operator,'fleet.install.delivery.collect',{operation_id:item.operation_id},'fleet-install-delivery');event('install_delivery',null,{operation_id:item.operation_id,state:collected.state});}
     }
-    if(pending.next_cursor===null)return;
+    if(pending.next_cursor===null&&pending.bootstrap_next_cursor===null)return;
+    if(pending.bootstrap_next_cursor!==null){if(!uuid(pending.bootstrap_next_cursor)||pending.bootstrap_next_cursor===bootstrapAfter)fail('FLEET_DELIVERY_RESPONSE','Bootstrap pagination did not advance');bootstrapAfter=String(pending.bootstrap_next_cursor);}
+    if(pending.next_cursor===null){after=pending.items.at(-1)?.operation_id??after;continue;}
     if(typeof pending.next_cursor!=='string'||pending.next_cursor===after)fail('FLEET_DELIVERY_RESPONSE','Install delivery pagination did not advance');after=pending.next_cursor;
    }
    fail('FLEET_DELIVERY_TOO_LARGE','Install delivery observation exceeds the bounded wake budget');

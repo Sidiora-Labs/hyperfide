@@ -27,6 +27,7 @@
     "provider.worker.stop"
   ],
   "requires": [
-    "8.2"
+    "8.2",
+    "15.2"
   ]
 }

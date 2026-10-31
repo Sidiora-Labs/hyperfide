@@ -83,7 +83,14 @@ int hf_budget_attach(HfBudgetHandle *,const HfProcessIdentity *);
 int hf_budget_observe(const HfBudgetHandle *,FILE *);
 int hf_budget_release(HfBudgetHandle *);
 int hf_supervisor_daemon(const char *request,FILE *out);
+int hf_supervisor_bootstrap(const char *request,FILE *out);
+int hf_supervisor_bootstrap_stage(const char *request,FILE *out);
+int hf_supervisor_bootstrap_activate(const char *request,FILE *out);
 /* Registered inventory derived from the root-private slot ledger (JSON array). */
+int hf_credentials_declared(const HfJson *j,int object);
+int hf_slot_credentials_allowed(const char *root,const char *slot,const char *boot,uid_t uid,gid_t gid);
+int hf_slot_promote_credentials(const char *root,const char *preparer,const char *worker,const char *boot,const char *preparation,uid_t uid,gid_t gid);
+int hf_runner_slot_credentials_allowed(const char *config,const char *slot,uid_t uid,gid_t gid);
 int hf_slot_inventory(const char *root,const char *boot_id,const char *preparation,char **json,size_t *length);
 
 typedef struct {

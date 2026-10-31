@@ -240,6 +240,7 @@ static int job_execute(const char *request,FILE *out){
  string_at(job,plan,"cwd",relative_cwd,sizeof relative_cwd)&&(!strcmp(relative_cwd,".")||relative(relative_cwd))&&string_at(job,plan,"executable_digest",expected_executable,sizeof expected_executable)&&strlen(expected_executable)==71&&string_at(job,plan,"environment_digest",expected_environment,sizeof expected_environment)&&strlen(expected_environment)==71;
  const char *tool=preparing?"runner.preparation.execute":!strcmp(kind,"TEST")?"runner.test.execute":!strcmp(kind,"REVIEW")?"runner.review.execute":!strcmp(kind,"INTEGRATION")?"runner.integration.execute":!strcmp(kind,"INDEX")?"runner.index.execute":!strcmp(kind,"BUILD")?"runner.build.execute":NULL;
  if(!ok||!tool||!(preparing?preparation_placement(config):hf_runner_job_placement(config,tool))){hf_http_response_free(&response);free(job);return hf_native_error(out,"JOB_SCOPE_OR_PLACEMENT_DENIED");}
+ if((hf_credentials_declared(job,plan)||hf_credentials_declared(job,result))&&!hf_runner_slot_credentials_allowed(config,slot,(uid_t)uid,(gid_t)gid)){hf_http_response_free(&response);free(job);return hf_native_error(out,"CREDENTIAL_ISOLATION_REQUIRED");}
  {JobSecretsStatus secrets=job_secrets_capture(job,plan,&job_secrets);
   if(secrets!=JOB_SECRETS_OK){hf_http_response_free(&response);free(job);return hf_native_error(out,secrets==JOB_SECRETS_INVALID?"SECRET_REFERENCES_INVALID":"SECRET_REFERENCE_UNAVAILABLE");}}
  /* Pause/drain/cancel/stop close admission durably before any new job may start on the slot UID. */

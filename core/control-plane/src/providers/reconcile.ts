@@ -17,6 +17,10 @@ import {operationPayloadDigest,validateProviderOperation,validateProviderOutcome
 import type {ProviderMethod,ProviderOperation,ProviderOutcome,ResourceRef} from './contract.js';
 import {providerDatabase,readSelectedEnvironmentProfile,resolveSandboxBinding,providerDeployment,providerInvocation,bindProviderInvocation,assertInvocationRun,obj,str,uuid,dec,dg,utc,fail,readDeployment,currentPool,transaction,assertPoolCapacity,poolCapacity,digestDocument,providerAdapter,hasProviderAdapter,providerOwnershipProbe} from './pools.js';
 import {createProvisionerWorker} from './worker.js';
+import {assertRunnerCredentialIsolation} from './credential_isolation.js';
+import {createProviderBootstrap} from './bootstrap.js';
+import {createProviderBootstrapActivation} from './bootstrap_activation.js';
+import {createBlaxelBootstrapActivationTransport,createBlaxelBootstrapTransport} from './blaxel/bootstrap.js';
 import {ResourceScheduler} from '../scheduler/resources.js';
 import {lockRun} from '../events/outbox.js';
 import type {ProvisionerWorker} from './worker.js';
@@ -656,6 +660,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
   const current=rows.rows[0];
   if(!current||current.desired_state!=='RUNNING'||current.native_sandbox_id!==b.external_sandbox_id||String(current.boot_generation)!==b.boot_generation||current.preparation_digest!==b.preparation_digest)
    fail('RUNNER_BINDING_STALE','Remote execution requires the exact registered runner/resource boot');
+  await assertRunnerCredentialIsolation(c,{organisation_id:config.organisation_id,run_id:run,session_id:session,sandbox_id:sandbox,boot_generation:String(current.boot_generation)},i.env_refs);
   const operationValue=operation('execute',scope,id,new Date(Date.now()+(i.timeout_ms as number)).toISOString(),
    {native_sandbox_id:current.native_sandbox_id,sandbox_boot_generation:String(current.boot_generation)},current.preparation_digest,
    {argv:i.argv,cwd:i.cwd,env_refs:i.env_refs,...(i.env_ref_versions!==undefined?{env_ref_versions:i.env_ref_versions}:{}),stdin:false,durable:true,process_timeout_ms:i.timeout_ms,wait_timeout_ms:i.timeout_ms});
@@ -947,7 +952,8 @@ export function createComponent(context:ComponentContext):Component {
     const config=await readDeployment(context.env);return fn(input,config,bindProviderInvocation(database,config,invocationOf(requestContext)));
   };
   // Only the provisioner process holds adapters and runs the durable-intent worker.
-  const worker=context.role==='provisioner'?createProvisionerWorker(database,context.env,context.signal,{execute:executeIntent,reconcile:reconcileIntent,escalate:async(db,c,env)=>escalateUnresolved(db,c,{},env) as Promise<{raised:string[]}>}):null;
+  const bootstrap=createProviderBootstrap(context),activation=createProviderBootstrapActivation(context);
+  const worker=context.role==='provisioner'?createProvisionerWorker(database,context.env,context.signal,{execute:executeIntent,reconcile:reconcileIntent,bootstrap:async(db,c,id,signal)=>{const selected=await intent(db,c.organisation_id,id);if(selected.operation.scope.provider!=='blaxel')fail('PROVIDER_BOOTSTRAP_UNSUPPORTED','No trusted native bootstrap transport registered for selected provider');return bootstrap(db,c,id,signal,createBlaxelBootstrapTransport(context));},activate:async(db,c,id,signal)=>{const selected=await intent(db,c.organisation_id,id);if(selected.operation.scope.provider!=='blaxel')fail('WORKER_ACTIVATION_UNSUPPORTED','No trusted activation transport registered for selected provider');return activation(db,c,id,signal,createBlaxelBootstrapActivationTransport(context));},escalate:async(db,c,env)=>escalateUnresolved(db,c,{},env) as Promise<{raised:string[]}>}):null;
   const workerAction=(fn:(worker:ProvisionerWorker,invocation:InvocationContext)=>Promise<unknown>)=>async(input:unknown,requestContext:ComponentContext)=>{
     provisioner();obj(input,[]);if(context.signal.aborted)fail('PROVIDER_CLOSED','Provider coordinator is shutting down');return fn(worker!,invocationOf(requestContext));
   };

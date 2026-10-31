@@ -43,6 +43,18 @@ export async function allocateFleetJob(tx:PrimaryTransaction,i:InvocationContext
  const reservations=(await tx.query('SELECT r.id,a.dimension FROM hyperfide.reservations r JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.request_id=$3 ORDER BY r.id',[scope.organisation_id,scope.run_id,v.request_id])).rows;
  await allocateReservations(tx,{...scope,reservation_ids:reservations.map(row=>row.id)});
  const selected=reservations.find(row=>row.dimension===purpose);if(!selected)fail('FLEET_JOB_RESERVATION','Dedicated purpose reservation is absent');
+ if(purpose==='PREPARATION'){
+  // This is the observed native preparation executor, not a coding attempt or model session.
+  const existing=(await tx.query('SELECT * FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[scope.organisation_id,scope.run_id,runner.session_id])).rows[0];
+  if(existing&&runner.capacity_kind!=='PREPARATION'){
+   if(existing.parent_session_id!==v.manager_session_id||existing.slot_id!==runner.slot_id||existing.sandbox_id!==runner.sandbox_id||String(existing.sandbox_boot_generation)!==runner.boot_generation||!['REGISTERED','RUNNING'].includes(existing.state))fail('FLEET_JOB_EXECUTOR_CONFLICT','Existing fallback executor differs from the selected manager and physical binding');
+  }else if(existing){
+   if(existing.role!=='WORKER'||existing.parent_session_id!==v.manager_session_id||existing.connector!=='hyperfide-native'||existing.account_key!==runner.credential_id||existing.native_session_id!==runner.session_id||existing.slot_id!==runner.slot_id||existing.sandbox_id!==runner.sandbox_id||String(existing.sandbox_boot_generation)!==runner.boot_generation||existing.attempt_id!==null||!['REGISTERED','RUNNING'].includes(existing.state))fail('FLEET_JOB_EXECUTOR_CONFLICT','Existing preparation executor differs from the observed native identity');
+  }else{
+   if(runner.capacity_kind!=='PREPARATION')fail('FLEET_JOB_EXECUTOR_MISSING','Only an observed PREPARATION slot may create its mechanical executor registration');
+   await tx.query("INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,parent_session_id,connector,account_key,native_session_id,slot_id,sandbox_id,sandbox_boot_generation,state) VALUES($1,$2,$3,'WORKER',$4,'hyperfide-native',$5,$9,$6,$7,$8,'REGISTERED')",[scope.organisation_id,scope.run_id,runner.session_id,v.manager_session_id,runner.credential_id,runner.slot_id,runner.sandbox_id,runner.boot_generation,runner.session_id]);
+  }
+ }
  const allocation=await bindJobReservation(tx,{...scope,task_id:v.task_id,job_kind:purpose,reservation_id:selected.id,slot_id:v.slot_id,sandbox_id:v.sandbox_id,sandbox_boot_generation:v.boot_generation,assignee_session_id:v.session_id});
  const result={allocation,reservation_ids:reservations.map(row=>row.id),waiter_id:waiter,target_binding_id:allocation.allocation_id,runner_session_id:runner.session_id,boot_id:runner.boot_id,authority:'ACCEPTED_TASK_RESOURCE_BINDING',runtime_ready:false};
  await recordOutcome(tx,scope,i.principal.actor_id,operation,v.request_id,v,result);return result;

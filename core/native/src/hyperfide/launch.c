@@ -224,7 +224,11 @@ static int fetch_connector_plan(RunnerConfig *c,const Instruction *i){
 static int slot_identity(const RunnerConfig *c,Instruction *i) {
  char *manifest=NULL;size_t manifest_size=0;HfJson *planned=calloc(1,sizeof *planned);int fleet=0,valid=0;
  if(planned&&hf_private_read(c->plan,HF_BODY_LIMIT,&manifest,&manifest_size)&&hf_json_parse(planned,manifest))fleet=hf_json_field(planned,0,"fleet_binding")>=0;
- if(fleet)valid=hf_fleet_launch_identity(planned,c->organisation,c->run,c->sandbox,c->boot,c->generation,i->slot,i->attempt,i->attempt_generation,i->deadline_ns,i->command,&i->uid,&i->gid);
+ if(fleet){
+  HfJson *instruction=malloc(sizeof *instruction);int requires=hf_credentials_declared(planned,0);if(instruction&&hf_json_parse(instruction,i->body))requires=requires||hf_credentials_declared(instruction,0);else requires=1;free(instruction);
+  int physical=1;if(requires){int b=hf_json_field(planned,0,"fleet_binding");int64_t uid=0,gid=0;physical=hf_json_i64(planned,hf_json_field(planned,b,"uid"),&uid)&&uid>0&&uid<=2147483647&&hf_json_i64(planned,hf_json_field(planned,b,"gid"),&gid)&&gid>0&&gid<=2147483647&&hf_slot_credentials_allowed(c->slots,i->slot,c->boot,(uid_t)uid,(gid_t)gid);}
+  valid=physical&&hf_fleet_launch_identity(planned,c->organisation,c->run,c->sandbox,c->boot,c->generation,i->slot,i->attempt,i->attempt_generation,i->deadline_ns,i->command,&i->uid,&i->gid);
+ }
  free(manifest);free(planned);if(fleet){HfProcessIdentity active[1024];return valid&&uid_processes(i->uid,active,1024)==0;}
 
  char path[4200];snprintf(path,sizeof path,"%s/.supervisor-slots.db",c->slots);struct stat st;if(lstat(path,&st)||!S_ISREG(st.st_mode)||st.st_uid!=0||(st.st_mode&077))return 0;
@@ -329,9 +333,10 @@ static int env_refs_resolve_exec(EnvRefs *r){
 static void env_refs_names(FILE *out,const EnvRefs *r,int present){int first=1;fputc('[',out);for(int k=0;k<r->n;++k)if(!!r->value[k]==present){if(!first)fputc(',',out);hf_json_write_string(out,r->name[k]);first=0;}fputc(']',out);}
 /* 0: resolved; 1: invalid declaration; 2: serve-mode reference unavailable. A direct
  * launch.start keeps launching with missing names reported (relaunch supplies them). */
-static int start_env_refs(const Instruction *i,EnvRefs *r){
+static int start_env_refs(const RunnerConfig *c,const Instruction *i,EnvRefs *r){
  HfJson *b=malloc(sizeof *b);int ok=b&&hf_json_parse(b,i->body)&&env_refs_declared(b,hf_json_field(b,0,"env_refs"),r);free(b);
  if(!ok)return 1;
+ if(r->n&&!hf_slot_credentials_allowed(c->slots,i->slot,c->boot,i->uid,i->gid))return 3;
  if(!serving_refs){env_refs_resolve(r);return 0;}
  if(env_refs_resolve_exec(r)){env_refs_clear(r);return 2;}
  return 0;
@@ -596,6 +601,7 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
   const char *ids[]={"attempt_id","attempt_generation","sandbox_id","boot_id","boot_generation"};const char *values[]={i->attempt,i->attempt_generation,c->sandbox,c->boot,c->generation};
   for(unsigned k=0;valid&&k<5;++k){char value[128];valid=atstring(j,payload,ids[k],value,sizeof value)&&!strcmp(value,values[k]);}
   if(!valid||watch_write<0||!hf_slot_owner(i->uid,i->launch)){if(out)hf_native_error(out,"IDENTITY_MISMATCH");}
+  else if(!strcmp(action,"launch.credentials.authorize")){if(!strcmp(state,"RUNNING")&&hf_slot_credentials_allowed(c->slots,i->slot,c->boot,i->uid,i->gid))fputs("{\"authorized\":true}",out);else hf_native_error(out,"CREDENTIAL_ISOLATION_REQUIRED");}
   else if(!strcmp(action,"runner.observe")||!strcmp(action,"launch.status")){char *obs=broker_observation(c,i,&bp,&live,state,exit_code,stopped_by,!stdin_open);if(obs){fputs(obs,out);free(obs);}else hf_native_error(out,"OBSERVATION_FAILED");}
   else if(!strcmp(action,"runner.stop")||!strcmp(action,"launch.cancel")){
    char command[37];if(!atstring(j,payload,"command_id",command,sizeof command)||!hf_uuid_valid(command))hf_native_error(out,"INVALID_COMMAND");
@@ -613,7 +619,7 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
    /* Same launch, attempt and slot: stop the agent, then start it again with the
     * supplied references merged over the current ones. */
    char command[37];EnvRefs next={0};char *value=malloc(HF_ENV_VALUE+1);
-   int ok=value&&atstring(j,payload,"command_id",command,sizeof command)&&hf_uuid_valid(command)&&!strcmp(state,"RUNNING")&&stdin_open;
+   int ok=hf_slot_credentials_allowed(c->slots,i->slot,c->boot,i->uid,i->gid)&&value&&atstring(j,payload,"command_id",command,sizeof command)&&hf_uuid_valid(command)&&!strcmp(state,"RUNNING")&&stdin_open;
    for(int k=0;ok&&k<refs->n;++k){snprintf(next.name[k],sizeof next.name[0],"%s",refs->name[k]);next.value[k]=refs->value[k]?strdup(refs->value[k]):NULL;next.n=k+1;ok=!refs->value[k]||next.value[k];}
    int list=ok?hf_json_field(j,payload,"env"):-1;ok=ok&&list>=0&&j->tokens[list].type=='['&&j->tokens[list].count>=1&&j->tokens[list].count<=HF_ENV_REFS;
    for(int t=ok?list+1:0;ok&&t<j->tokens[list].next;t=j->tokens[t].next){char name[129];const char *keys[]={"name","value"};
@@ -677,7 +683,7 @@ static int launch_start(const RunnerConfig *original,Instruction *i,FILE *out) {
  HfJson *plan=NULL;char *plan_source=NULL,**argv=NULL,*identity=NULL,*accepted_data=NULL;int binary=-1,accepted=0,refs_status=0;EnvRefs refs={0};const char *code="DURABLE_ACCEPTANCE_FAILED";size_t n=0;
  if(!fetch_connector_plan(&local,i)||!placement(c,"runner.agent.launch","implementation","native.spawn")||!slot_identity(c,i))code="SLOT_OR_PLACEMENT_NOT_CURRENT";
  else if(!(plan=malloc(sizeof *plan))||!read_plan(c,i,plan,&plan_source,&argv,&binary))code="CONNECTOR_PLAN_NOT_QUALIFIED";
- else if((refs_status=start_env_refs(i,&refs)))code=refs_status==1?"SECRET_REFERENCES_INVALID":"SECRET_REFERENCE_UNAVAILABLE";
+ else if((refs_status=start_env_refs(c,i,&refs)))code=refs_status==1?"SECRET_REFERENCES_INVALID":refs_status==3?"CREDENTIAL_ISOLATION_REQUIRED":"SECRET_REFERENCE_UNAVAILABLE";
  else {
   FILE *writer=open_memstream(&identity,&n);
   if(writer){fprintf(writer,"{\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"sandbox_id\":\"%s\",\"boot_id\":\"%s\",\"boot_generation\":\"%s\",\"attempt_id\":\"%s\",\"attempt_generation\":\"%s\",\"authority_epoch\":\"%s\",\"agent_session_id\":\"%s\"}",c->organisation,c->run,c->sandbox,c->boot,c->generation,i->attempt,i->attempt_generation,i->epoch,i->session);if(fclose(writer)){free(identity);identity=NULL;}}
@@ -907,6 +913,10 @@ int hf_component_12_2(const char *action,const char *request,FILE *out) {
   int ok=j&&hf_json_parse(j,request)&&hf_json_only(j,0,keys,9)&&hf_json_get(j,"state_dir",state,sizeof state)&&env_refs_declared(j,hf_json_field(j,0,"env_refs"),&refs)&&refs.n>0;
   for(unsigned k=0;ok&&k<7;++k)ok=hf_json_get(j,ids[k],values[k],sizeof values[k])&&(k==2||k==5?decimal(values[k]):hf_uuid_valid(values[k]));
   free(j);if(!ok)return hf_native_error(out,"INVALID_RELAUNCH");
+  char *authorization=NULL,*answer=NULL;size_t authorization_n=0,answer_n=0;FILE *authorization_out=open_memstream(&authorization,&authorization_n);
+  if(authorization_out){fputc('{',authorization_out);for(unsigned k=0;k<7;k++){fprintf(authorization_out,"%s\"%s\":",k?",":"",ids[k]);hf_json_write_string(authorization_out,values[k]);}fputc('}',authorization_out);if(fclose(authorization_out)){free(authorization);authorization=NULL;}}
+  FILE *answer_out=authorization?open_memstream(&answer,&answer_n):NULL;int authorized=0;if(answer_out){int rc=hf_launch_rpc(state,"launch.credentials.authorize",authorization,answer_out);if(fclose(answer_out))rc=1;HfJson *proof=malloc(sizeof *proof);if(!rc&&proof&&answer&&hf_json_parse(proof,answer))hf_json_bool(proof,hf_json_field(proof,0,"authorized"),&authorized);free(proof);}free(authorization);free(answer);
+  if(!authorized){env_refs_clear(&refs);return hf_native_error(out,"CREDENTIAL_ISOLATION_REQUIRED");}
   if(env_refs_resolve(&refs)){env_refs_clear(&refs);return hf_native_error(out,"SECRET_REFERENCE_UNAVAILABLE");}
   char *payload=NULL;size_t n=0;FILE *w=open_memstream(&payload,&n);if(!w){env_refs_clear(&refs);return hf_native_error(out,"RESOURCE_LIMIT");}
   fputc('{',w);for(unsigned k=0;k<7;++k){fprintf(w,"%s\"%s\":",k?",":"",ids[k]);hf_json_write_string(w,values[k]);}
@@ -951,3 +961,5 @@ int hf_runner_job_placement(const char *config_path,const char *action) {
  const char *job=!strcmp(action,"runner.test.execute")?"test":!strcmp(action,"runner.review.execute")?"review_execution":!strcmp(action,"runner.integration.execute")?"integration":!strcmp(action,"runner.index.execute")?"indexing":!strcmp(action,"runner.build.execute")?"build":NULL;
  return job&&placement(&c,action,job,"native.spawn");
 }
+
+int hf_runner_slot_credentials_allowed(const char *config,const char *slot,uid_t uid,gid_t gid){RunnerConfig c;return load_config(config,&c)&&hf_slot_credentials_allowed(c.slots,slot,c.boot,uid,gid);}

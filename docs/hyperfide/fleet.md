@@ -14,6 +14,8 @@ The implementation lives in [fleet orchestration](../../core/control-plane/src/a
 
 The supervisor polls state and resumes persisted operations. It does not select the next package, sandbox or task on behalf of the model. Task pages are collected completely within explicit page and byte bounds; oversized or incomplete context is refused. This interface currently bounds whole-programme context, so large programmes require appropriately scoped accepted work rather than assuming unlimited model context.
 
+An acknowledged manager-selected CREATE can start native bootstrap through the provisioner's protected `HF_PROVIDER_BOOTSTRAP_CONFIG_FILE`. Each pool recipe pins the provider configuration, artifacts, native executable, enrollment actions, OS identities and install inputs. Bootstrap retains its enrollment grant, manifest and provider process identity across retries. It checks the actual provider ownership labels and delivered bytes before execution, then requires consumed enrollment and observed runner slots before reporting READY.
+
 ## API surface
 
 Requests use authenticated `POST /v1/invoke` with the existing signed operation envelope and an explicit component. The native source-control design has a separate API namespace; it is not the fleet invocation endpoint.
@@ -41,6 +43,10 @@ A manager selects `fleet.install.admit` for a registered input digest, environme
 Secret configuration values stay in the native runner's protected credential channel. After preparation exits, the native finalizer writes each slot's private configuration and measures readiness under that worker's UID. Measurements cover source, dependencies, selected interfaces, toolchains, configuration versions and declared probes. Immutable `FLEET_MANIFEST_V1` publications bind those measurements to the physical slot and sandbox boot.
 
 READY is a server-accepted receipt bound to the admission, source, plan, probes, sandbox boot and slot mapping. The retained native execution receipt and captured installer output must reconcile with the committed runner job. Neither a local marker nor a command's zero exit code independently authorizes worker launch. Assignment and runner launch recheck current install authority and slot bindings.
+
+Preparation allocation registers the authenticated native PREPARATION executor under the selected manager and physical boot. This registration creates no coding attempt. The operator delivery pump projects the configured task and slot into allocation and delivery requests; the manager still chooses installation through its admitted decision.
+
+For credential-bearing work, the bootstrap activation path requires a successful install, signed preparation cleanup and released preparation allocation. A separately pinned native helper releases the preparation slot and promotes the existing worker slot to the sole credential-sensitive slot on a dedicated VM. `HF_PROVIDER_ACTIVATION_CONFIG_FILE` supplies the helper artifact and exact source/profile pins. Credential delivery checks the resulting activation receipt and fresh authenticated inventory before resolving secrets.
 
 An accepted START binds the qualified connector profile, private worker paths and initial task packet into an immutable launch plan. The native runner fetches that plan through its authenticated identity and retains the public profile snapshot in a protected per-launch file. A foreground owner keeps the provider execution alive through worker termination and evidence delivery. Durable launch claims prevent automatic replay of `CLAIMED` or `UNKNOWN` executions; stale unstarted commands receive a recorded refusal so later valid work can proceed.
 

@@ -1,0 +1,31 @@
+import path from 'node:path';
+import type {PrimaryTransaction} from '../storage/transactions.js';
+import type {InvocationContext} from '../transport/protocol.js';
+import {fail,hash} from '../transport/protocol.js';
+import {object} from '../policy/programme.js';
+import {fleetReadinessCanonical,fleetReadinessDigest} from '../preparation/fleet_readiness_contract.js';
+type Data=Record<string,any>;
+export async function registerObservedBootstrapSlot(tx:PrimaryTransaction,i:InvocationContext,observation:Data,inventory:unknown[]):Promise<void>{
+ const p=i.principal;
+ const rows=(await tx.query(`SELECT j.* FROM hyperfide.provider_native_bootstraps j JOIN hyperfide.identity_enrollment_grants g ON g.organisation_id=j.organisation_id AND g.run_id=j.run_id AND g.id=j.grant_id JOIN hyperfide.sandboxes s ON s.organisation_id=j.organisation_id AND s.id=j.sandbox_id JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.sandbox_id=$3 AND j.boot_id=$4 AND j.boot_generation=$5 AND g.credential_id=$6 AND g.state='CONSUMED' AND g.verifier=j.verifier AND g.provisioning_intent_id=j.intent_id AND g.boot_id=j.boot_id AND g.sandbox_id=j.sandbox_id AND s.native_sandbox_id=j.native_sandbox_id AND s.boot_generation=j.boot_generation AND b.boot_id=j.boot_id AND s.observed_state='RUNNING' AND s.desired_state='RUNNING' FOR SHARE OF j,g,s,b`,[p.organisation_id,p.run_id,p.sandbox_id,p.boot_id,p.boot_generation,p.credential_id])).rows;
+ if(!rows.length)return;
+ if(rows.length!==1)fail('RUNNER_BOOTSTRAP_CONFLICT','Unique current consumed bootstrap binding required');
+ const journal=rows[0]!;
+ if(!object(journal.manifest)||hash(fleetReadinessCanonical(journal.manifest))!==journal.manifest_digest||fleetReadinessDigest(journal.descriptor)!==journal.descriptor_digest)fail('RUNNER_BOOTSTRAP_CONFLICT','Immutable bootstrap manifest and descriptor required');
+ const manifest=journal.manifest as Data;
+ if(!Array.isArray(manifest.template?.slots))fail('RUNNER_BOOTSTRAP_CONFLICT','Pinned native slot vector required');
+ const slots=manifest.template.slots as Data[],selected=slots.filter(slot=>slot.slot_id===observation.slot_id);
+ if(selected.length!==1)fail('RUNNER_BOOTSTRAP_SCOPE','Observed slot is not selected by the pinned bootstrap');
+ const slot=selected[0]!;
+ if(slot.session_id!==observation.session_id||slot.uid!==observation.uid||slot.gid!==observation.gid||String(observation.slot_generation)!=='1'||!['PREPARATION','AGENT'].includes(slot.kind))fail('RUNNER_BOOTSTRAP_SCOPE','Observed slot differs from pinned OS identity');
+ const template=manifest.template as Data,stateRoot=path.join(template.state_root,p.sandbox_id!,p.boot_id!),physicalRoot=path.join(template.slot_root,p.sandbox_id!,p.boot_id!,slot.slot_id);
+ const expectedPaths=slot.kind==='PREPARATION'?{workspace_path:template.environment_root,home_path:path.join(physicalRoot,'home'),tmp_path:path.join(physicalRoot,'tmp')}:{workspace_path:slot.worker_paths?.source,home_path:slot.worker_paths?.home,tmp_path:slot.worker_paths?.temporary};
+ if(observation.repository_id!==template.repository_id||observation.state_dir!==path.join(stateRoot,slot.session_id)||observation.runner_binary!==template.runner_binary||observation.runner_binary_digest!==template.runner_binary_digest||observation.preparation_digest!==journal.preparation_digest||fleetReadinessDigest(observation.preparation_recipes)!==fleetReadinessDigest(template.preparation_recipes)||Object.entries(expectedPaths).some(([key,value])=>observation[key]!==value))fail('RUNNER_BOOTSTRAP_SCOPE','Observed paths and executable policy differ from pinned native template');
+ const physical=inventory.filter(item=>object(item)&&item.slot_id===slot.slot_id&&item.state==='READY'&&item.uid===slot.uid&&item.gid===slot.gid&&item.isolation_profile===slot.isolation_profile&&item.credential_sensitive===slot.credential_sensitive&&item.storage_quota_bytes===slot.storage_bytes&&typeof item.os_boot_id==='string');
+ if(physical.length!==1)fail('RUNNER_BOOTSTRAP_PHYSICAL','Actual authenticated physical slot ledger inventory required');
+ const state=journal.state;if(!['DELIVERING','OBSERVING','READY'].includes(state))fail('RUNNER_BOOTSTRAP_UNSUBMITTED','Bootstrap must cross its retained native submission fence');
+ await tx.query(`INSERT INTO hyperfide.worker_slots(organisation_id,id,sandbox_id,slot_key,boot_generation,capacity_kind) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(organisation_id,id) DO NOTHING`,[p.organisation_id,slot.slot_id,p.sandbox_id,'bootstrap-'+slot.name,p.boot_generation,slot.kind]);
+ const current=(await tx.query('SELECT * FROM hyperfide.worker_slots WHERE organisation_id=$1 AND id=$2 FOR SHARE',[p.organisation_id,slot.slot_id])).rows[0];
+ if(!current||current.sandbox_id!==p.sandbox_id||String(current.boot_generation)!==p.boot_generation||current.capacity_kind!==slot.kind||current.state==='RETIRED')fail('RUNNER_BOOTSTRAP_CONFLICT','Retained physical slot cannot change identity');
+ await tx.query(`UPDATE hyperfide.worker_slots w SET state='RETIRED',state_version=state_version+1 WHERE w.organisation_id=$1 AND w.sandbox_id=$2 AND w.boot_generation=$3 AND w.slot_key='agent' AND w.state='READY' AND NOT(w.id=ANY($4::uuid[])) AND NOT EXISTS(SELECT 1 FROM hyperfide.runner_registry r WHERE r.organisation_id=w.organisation_id AND r.sandbox_id=w.sandbox_id AND r.boot_generation=w.boot_generation AND r.slot_id=w.id) AND NOT EXISTS(SELECT 1 FROM hyperfide.slot_allocations a WHERE a.organisation_id=w.organisation_id AND a.slot_id=w.id AND a.state IN('ACTIVE','RELEASE_PENDING')) AND NOT EXISTS(SELECT 1 FROM hyperfide.resource_job_allocations a WHERE a.organisation_id=w.organisation_id AND a.slot_id=w.id AND a.state IN('ACTIVE','RELEASE_PENDING'))`,[p.organisation_id,p.sandbox_id,p.boot_generation,slots.map(item=>item.slot_id)]);
+}
