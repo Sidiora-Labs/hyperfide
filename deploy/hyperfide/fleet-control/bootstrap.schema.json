@@ -44,7 +44,7 @@
         "tls-ca.crt"
       ],
       "propertyNames": {
-        "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}\\.(json|crt|key|pem)$"
+        "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}\\.(json|crt|key|pem|kvx)$"
       },
       "additionalProperties": {
         "type": "string",

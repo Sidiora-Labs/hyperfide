@@ -341,15 +341,25 @@ verifyBinding:async(tx:PrimaryTransaction,v:Record<string,unknown>)=>{try{const 
    if(!uuid(v.session_id)||!uuid(v.slot_id)||!uuid(v.repository_id)||![v.state_dir,v.runner_binary,v.workspace_path,v.home_path,v.tmp_path].every(absolute)||![v.runner_binary_digest,v.preparation_digest].every(digest)||!decimal(v.slot_generation,true)||!Number.isSafeInteger(v.uid)||Number(v.uid)<=0||!Number.isSafeInteger(v.gid)||Number(v.gid)<=0||!object(v.preparation_recipes)||!Object.keys(v.preparation_recipes).length)fail('INVALID_REQUEST','Bound preparation registry identity required');
    for(const [name,item] of Object.entries(v.preparation_recipes)){
     if(!['environment.prepare.v1','checkpoint.restore.v1'].includes(name)||!object(item))fail('INVALID_REQUEST','Only release-owned preparation recipes are accepted');
-    exact(item,['node_path','node_digest','recipe_path','recipe_digest','native_path','native_digest','base_root','max_stage_bytes','readiness_context','sealing']);
+    const fleetRecipe=item.readiness_kind==='FLEET_MANIFEST_V1';
+    exact(item,['node_path','node_digest','recipe_path','recipe_digest','native_path','native_digest','base_root','max_stage_bytes','readiness_context',...(fleetRecipe?['readiness_kind','readiness_verifier']:['sealing'])]);
     if(!decimal(item.max_stage_bytes,true)||BigInt(item.max_stage_bytes)>68719476736n||![item.node_path,item.recipe_path,item.native_path,item.base_root].every(absolute)||![item.node_digest,item.recipe_digest,item.native_digest].every(digest))fail('INVALID_REQUEST','Pinned trusted recipe files required');
     if(!object(item.readiness_context)||!uuid(item.readiness_context.artifact_id)||!digest(item.readiness_context.digest)||!decimal(item.readiness_context.size_bytes,true)||BigInt(item.readiness_context.size_bytes)>262144n)fail('INVALID_REQUEST','Independently approved readiness context artifact required');
     exact(item.readiness_context,['artifact_id','digest','size_bytes']);
+    if(fleetRecipe){
+     const verifier=item.readiness_verifier;if(!object(verifier))fail('INVALID_REQUEST','Fleet manifest verifier descriptor required');exact(verifier,['node_path','node_digest','module_path','module_digest','module_closure']);
+     const sibling=path.join(path.dirname(String(item.recipe_path)),'fleet_readiness_probe.js');
+     if(verifier.node_path!==item.node_path||verifier.node_digest!==item.node_digest||verifier.module_path!==sibling||!digest(verifier.module_digest)||!Array.isArray(verifier.module_closure))fail('INVALID_REQUEST','Fleet readiness verifier must bind the qualified Node and fixed recipe sibling');
+     const required=['fleet_readiness_probe.js','fleet_readiness_contract.js','fleet_install_inventory.js','fleet_toolchains.js','fleet_configurations.js','fleet_client.js','../transport/protocol.js','../policy/programme.js','../contracts/fleet/index.mjs'].map(name=>path.resolve(path.dirname(String(item.recipe_path)),name));
+     if(verifier.module_closure.length!==required.length)fail('INVALID_REQUEST','Complete fixed fleet verifier import closure required');
+     const seen=new Set<string>();for(const module of verifier.module_closure){if(!object(module))fail('INVALID_REQUEST','Pinned fleet verifier module required');exact(module,['path','digest']);if(!absolute(module.path)||!digest(module.digest)||!required.includes(module.path)||seen.has(module.path)||module.path===sibling&&module.digest!==verifier.module_digest)fail('INVALID_REQUEST','Exact fleet verifier release pins required');seen.add(module.path);}
+    }else{
     if(!object(item.sealing)||![item.sealing.node_path,item.sealing.script_path].every(absolute)||![item.sealing.node_digest,item.sealing.script_digest].every(digest)||item.sealing.node_path!==item.node_path||item.sealing.node_digest!==item.node_digest||!Array.isArray(item.sealing.module_closure)||!item.sealing.module_closure.length||item.sealing.module_closure.length>32)fail('INVALID_REQUEST','Protected byte-only seal code closure required');
     exact(item.sealing,['node_path','node_digest','script_path','script_digest','module_closure']);
     const closure=new Set<string>();for(const module of item.sealing.module_closure){if(!object(module)||!absolute(module.path)||!digest(module.digest)||closure.has(module.path))fail('INVALID_REQUEST','Exact independent seal module pins required');exact(module,['path','digest']);closure.add(module.path);}
     const sealing=item.sealing;
     if(!(sealing.module_closure as unknown[]).some((module:unknown)=>object(module)&&module.path===sealing.script_path&&module.digest===sealing.script_digest))fail('INVALID_REQUEST','Seal entry must belong to the approved complete code closure');
+    }
 
    }
    const policy=await approvedRecipePolicy(ctx,tx as PrimaryTransaction,i);if(runnerCanonical(policy.recipes)!==runnerCanonical(v.preparation_recipes))fail('RUNNER_RECIPE_POLICY_INVALID','RUNNER inventory cannot approve its own executable recipes');
@@ -608,7 +618,7 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    const r=await readRunnerPreparationBinding(tx,{organisation_id:p.organisation_id,run_id:p.run_id,session_id:request.session_id});
    if(r.repository_id!==request.repository_id)fail('REMOTE_SOURCE_MISMATCH','Preparation repository differs from trusted slot');
    const approved=await approvedRecipePolicy(ctx,tx,i,r);if(approved.digest!==r.preparation_policy_digest||runnerCanonical(approved.recipes)!==runnerCanonical(r.preparation_recipes))fail('RUNNER_RECIPE_POLICY_INVALID','Current independently approved policy differs from registered inventory');
-   const recipe=r.preparation_recipes[request.recipe_id];if(!object(recipe)||!digest(r.preparation_policy_digest)||recipe.native_path!==r.runner_binary||recipe.native_digest!==r.runner_binary_digest)fail('RUNNER_RECIPE_POLICY_REQUIRED','Independently approved native recipe binding required');
+   const recipe=r.preparation_recipes[request.recipe_id];if(object(recipe)&&(request.job_binding.namespace==='FLEET_INSTALL'?recipe.readiness_kind!=='FLEET_MANIFEST_V1':recipe.readiness_kind==='FLEET_MANIFEST_V1'))fail('RUNNER_RECIPE_POLICY_INVALID','Fleet manifest verifier recipes are restricted to FLEET_INSTALL jobs');if(!object(recipe)||!digest(r.preparation_policy_digest)||recipe.native_path!==r.runner_binary||recipe.native_digest!==r.runner_binary_digest)fail('RUNNER_RECIPE_POLICY_REQUIRED','Independently approved native recipe binding required');
    const targetReader=resources as unknown as {readPreparationTarget?:(tx:PrimaryTransaction,input:Record<string,unknown>)=>Promise<Record<string,any>|null>;readCheckpointPreparationTarget?:(tx:PrimaryTransaction,input:Record<string,unknown>)=>Promise<Record<string,any>|null>};
    const readTarget=request.recipe_id==='checkpoint.restore.v1'?targetReader.readCheckpointPreparationTarget:targetReader.readPreparationTarget;
    if(typeof readTarget!=='function')fail('PREPARATION_TARGET_UNAVAILABLE','Actual scheduler target binding reader is required');

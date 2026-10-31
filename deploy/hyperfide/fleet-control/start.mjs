@@ -46,7 +46,7 @@ async function prepare(){
  const state=path.join(root,'state'),directory=path.join(state,'bootstrap',bundle.generation);await fs.mkdir(directory,{recursive:true,mode:0o700});if(await fs.realpath(directory)!==directory)refuse('CONTROL_BOOTSTRAP_PATH');const stat=await fs.lstat(directory);if(stat.uid!==process.getuid?.()||(stat.mode&0o077)!==0)refuse('CONTROL_BOOTSTRAP_PATH');
  await immutableFile(path.join(directory,'.digest'),Buffer.from(expected));
  for(const [name,contents] of Object.entries(bundle.files)){
-  if(!/^[A-Za-z][A-Za-z0-9._-]{0,127}\.(json|crt|key|pem)$/.test(name)||typeof contents!=='string'||contents.length>1048576)refuse('CONTROL_BOOTSTRAP_PATH');
+  if(!/^[A-Za-z][A-Za-z0-9._-]{0,127}\.(json|crt|key|pem|kvx)$/.test(name)||typeof contents!=='string'||contents.length>1048576)refuse('CONTROL_BOOTSTRAP_PATH');
   const decoded=Buffer.from(contents,'base64');if(decoded.toString('base64')!==contents)refuse('CONTROL_BOOTSTRAP_ENCODING');
   await immutableFile(path.join(directory,name),decoded);decoded.fill(0);
  }
