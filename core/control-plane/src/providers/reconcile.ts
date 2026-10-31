@@ -17,6 +17,8 @@ import {operationPayloadDigest,validateProviderOperation,validateProviderOutcome
 import type {ProviderMethod,ProviderOperation,ProviderOutcome,ResourceRef} from './contract.js';
 import {providerDatabase,readSelectedEnvironmentProfile,resolveSandboxBinding,providerDeployment,providerInvocation,bindProviderInvocation,assertInvocationRun,obj,str,uuid,dec,dg,utc,fail,readDeployment,currentPool,transaction,assertPoolCapacity,poolCapacity,digestDocument,providerAdapter,hasProviderAdapter,providerOwnershipProbe} from './pools.js';
 import {createProvisionerWorker} from './worker.js';
+import {ResourceScheduler} from '../scheduler/resources.js';
+import {lockRun} from '../events/outbox.js';
 import type {ProvisionerWorker} from './worker.js';
 import type {ProviderDatabase,DeploymentConfig,ProviderPersistenceHooks,ProviderRunnerBindingVerifier,ProviderRunnerBinding,ProviderProcessRecord,ProviderDestructionRequest,ProviderDestructionProof,ProviderDestructionPreflight,ProviderOutputArchive,ProviderArtifactReference} from './pools.js';
 
@@ -24,7 +26,7 @@ export interface Intent {
   organisation_id:string;run_id:string;id:string;pool_id:string;sandbox_id:string;configuration_digest:string;
   profile_id:string|null;kind:'CREATE'|'DESTROY';preparation_purpose:'PREPARATION'|'EXECUTION'|null;request_key:string;request_digest:string;payload_digest:string;operation:ProviderOperation;
   state:string;native_sandbox_id:string|null;boot_generation:string;provider_request_id:string|null;
-  last_outcome:ProviderOutcome|null;state_version:string;new_submission?:boolean;
+  last_outcome:ProviderOutcome|null;failure_code:string|null;state_version:string;new_submission?:boolean;
 }
 function deadline(value:unknown,maximum:number):string {
   const result=utc(value),remaining=Date.parse(result)-Date.now();
@@ -306,6 +308,62 @@ export async function boundedProvider<T>(effect:Promise<T>,signal:AbortSignal,de
   if(signal.aborted)stop();
  })]);}finally{if(timer)clearTimeout(timer);if(abort)signal.removeEventListener('abort',abort);}
 }
+async function neverSubmittedSnapshot(tx:PrimaryTransaction,scope:{organisation_id:string;run_id:string;intent_id:string}):Promise<Record<string,any>|null>{
+ const row=(await tx.query(`SELECT i.*,s.native_sandbox_id AS sandbox_native_id,s.boot_generation::text AS current_boot_generation,s.work_admitted,
+  (i.operation->>'deadline_at')::timestamptz<=clock_timestamp() AS expired,
+  EXISTS(SELECT 1 FROM hyperfide.provider_observations o WHERE o.organisation_id=i.organisation_id AND o.intent_id=i.id)
+  OR EXISTS(SELECT 1 FROM hyperfide.provider_orphans o WHERE o.organisation_id=i.organisation_id AND o.suspected_intent_id=i.id)
+  OR EXISTS(SELECT 1 FROM hyperfide.provisioning_intents other WHERE other.organisation_id=i.organisation_id AND other.sandbox_id=i.sandbox_id AND other.boot_generation=i.boot_generation AND other.id<>i.id)
+  OR EXISTS(SELECT 1 FROM hyperfide.provider_remote_operations r WHERE r.organisation_id=i.organisation_id AND r.sandbox_id=i.sandbox_id AND r.boot_generation=i.boot_generation)
+  OR EXISTS(SELECT 1 FROM hyperfide.attempts a WHERE a.organisation_id=i.organisation_id AND a.sandbox_id=i.sandbox_id AND a.sandbox_boot_generation=i.boot_generation)
+  OR EXISTS(SELECT 1 FROM hyperfide.agent_sessions a WHERE a.organisation_id=i.organisation_id AND a.sandbox_id=i.sandbox_id AND a.sandbox_boot_generation=i.boot_generation)
+  OR EXISTS(SELECT 1 FROM hyperfide.worker_slots w WHERE w.organisation_id=i.organisation_id AND w.sandbox_id=i.sandbox_id AND w.boot_generation=i.boot_generation)
+  OR EXISTS(SELECT 1 FROM hyperfide.workspaces w WHERE w.organisation_id=i.organisation_id AND w.sandbox_id=i.sandbox_id AND w.sandbox_boot_generation=i.boot_generation) AS submission_evidence
+  FROM hyperfide.provisioning_intents i JOIN hyperfide.sandboxes s ON s.organisation_id=i.organisation_id AND s.id=i.sandbox_id
+  WHERE i.organisation_id=$1 AND i.run_id=$2 AND i.id=$3 FOR SHARE OF i,s`,[scope.organisation_id,scope.run_id,scope.intent_id])).rows[0];
+ if(!row)return null;
+ const operation=validateProviderOperation(row.operation);
+ if(row.kind!=='CREATE'||operation.kind!=='create'||operation.identity.operation_id!==row.id||operation.identity.payload_digest!==row.payload_digest||row.native_sandbox_id!==null||row.provider_request_id!==null||row.last_outcome!==null||row.sandbox_native_id!==null||row.current_boot_generation!==String(row.boot_generation)||row.work_admitted||row.submission_evidence||!row.expired)return null;
+ return row;
+}
+
+/** Database delivery history proves this intent never crossed the submission fence. */
+export async function readNeverSubmittedExpiry(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;reservation_id:string}):Promise<{id:string;digest:string;observed_at:string}|null>{
+ assertPrimaryTransaction(tx);uuid(input.organisation_id);uuid(input.run_id);uuid(input.reservation_id);
+ const linked=(await tx.query(`SELECT l.intent_id::text,r.capacity_account_id::text,r.quantity::text,r.attempt_id,a.capacity_class,r.state FROM hyperfide.provisioning_intent_reservations l JOIN hyperfide.reservations r ON r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id WHERE l.organisation_id=$1 AND l.run_id=$2 AND l.reservation_id=$3 FOR SHARE OF l,r,a`,[input.organisation_id,input.run_id,input.reservation_id])).rows;
+ if(linked.length!==1)return null;const reservation=linked[0]!;
+ if(reservation.attempt_id!==null||reservation.capacity_class!=='PHYSICAL'||!['RELEASE_PENDING','RELEASED'].includes(reservation.state))return null;
+ const row=await neverSubmittedSnapshot(tx,{organisation_id:input.organisation_id,run_id:input.run_id,intent_id:reservation.intent_id});
+ if(!row||row.state!=='REJECTED'||row.failure_code!=='NEVER_SUBMITTED_EXPIRED')return null;
+ const evidence={kind:'NEVER_SUBMITTED_EXPIRED',organisation_id:input.organisation_id,run_id:input.run_id,intent_id:row.id,payload_digest:row.payload_digest,request_digest:row.request_digest,sandbox_id:row.sandbox_id,boot_generation:String(row.boot_generation),deadline_at:row.operation.deadline_at,reservation_id:input.reservation_id,capacity_account_id:reservation.capacity_account_id,quantity:reservation.quantity};
+ return {id:row.id,digest:digestDocument(evidence),observed_at:new Date(row.updated_at).toISOString()};
+}
+
+async function expireNeverSubmittedIntent(pool:ProviderDatabase,config:DeploymentConfig,observed:Intent):Promise<unknown|null>{
+ if(observed.kind!=='CREATE')return null;
+ return transaction(pool,async tx=>{
+  assertInvocationRun(pool,observed.run_id);await lockRun(tx,{organisation_id:config.organisation_id,run_id:observed.run_id});
+  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[config.organisation_id+':'+observed.pool_id+':resource-admission']);
+  const current=await intent(tx,config.organisation_id,observed.id,true);
+  if(current.run_id!==observed.run_id)fail('AUTH_SCOPE_DENIED','Intent scope changed');
+  if(current.state!=='RECORDED')return null;
+  const clock=(await tx.query('SELECT $1::timestamptz<=clock_timestamp() AS expired',[current.operation.deadline_at])).rows[0];if(!clock?.expired)return null;
+  const clean=await neverSubmittedSnapshot(tx,{organisation_id:config.organisation_id,run_id:current.run_id,intent_id:current.id});
+  if(!clean)fail('PROVIDER_SUBMISSION_UNPROVEN','Expired recorded intent has possible submission or execution evidence; capacity remains held');
+  const reservations=(await tx.query(`SELECT r.id::text,r.state,r.attempt_id,a.capacity_class FROM hyperfide.provisioning_intent_reservations l JOIN hyperfide.reservations r ON r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id WHERE l.organisation_id=$1 AND l.run_id=$2 AND l.intent_id=$3 ORDER BY r.id FOR UPDATE OF r`,[config.organisation_id,current.run_id,current.id])).rows;
+  if(!reservations.length||reservations.some(r=>r.state!=='PROVISIONING'||r.attempt_id!==null||r.capacity_class!=='PHYSICAL'))fail('PROVIDER_RESERVATION_UNPROVEN','Never-submitted expiry requires its exact unused physical reservation vector');
+  await tx.query("UPDATE hyperfide.provisioning_intents SET state='REJECTED',failure_code='NEVER_SUBMITTED_EXPIRED',updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='RECORDED'",[config.organisation_id,current.run_id,current.id]);
+  // Dispose the uncreated logical placeholder without inventing a provider observation.
+  await tx.query("UPDATE hyperfide.sandboxes SET desired_state='DESTROYED',observed_state='DESTROYED',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND boot_generation=$3 AND native_sandbox_id IS NULL",[config.organisation_id,current.sandbox_id,current.boot_generation]);
+  const ids=reservations.map(r=>r.id);
+  await tx.query("UPDATE hyperfide.reservations SET state='RELEASE_PENDING',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[]) AND state='PROVISIONING'",[config.organisation_id,current.run_id,ids]);
+  const scheduler=new ResourceScheduler(),unregister=scheduler.registerProofReader('provider.never-submitted',readNeverSubmittedExpiry);
+  try{
+   const release=await scheduler.release(tx,{organisation_id:config.organisation_id,run_id:current.run_id,reservation_ids:ids});
+   return {intent:await intent(tx,config.organisation_id,current.id),external_call_performed:false,never_submitted_expired:true,absence_authorized:false,release};
+  }finally{unregister();scheduler.close();}
+ });
+}
 export async function executeIntent(pool:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
   const row=await transaction(pool,async c=>{
     const current=await intent(c,config.organisation_id,id,true);assertInvocationRun(pool,current.run_id);
@@ -335,6 +393,11 @@ export async function executeIntent(pool:ProviderDatabase,config:DeploymentConfi
 }
 export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
   let row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
+  if(row.state==='RECORDED'){
+    const expired=await expireNeverSubmittedIntent(pool,config,row);
+    if(expired)return expired;
+    row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
+  }
   const reconciliationDeadline=new Date(Date.now()+config.maximum_operation_ms).toISOString();
   if(['TERMINAL','REJECTED','RECORDED'].includes(row.state))return{intent:row,external_call_performed:false};
   const original=validateProviderOperation(row.operation),hooks=persistenceHooks(pool,config.organisation_id,id),adapter=providerAdapter(original.scope,hooks,pool.runtime);

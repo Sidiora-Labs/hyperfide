@@ -65,13 +65,13 @@ export async function poolAdapterReadiness(database:ProviderDatabase,config:Depl
  return result;
 }
 // Claimable work, all scoped to the authenticated run:
-//  RECORDED with a live deadline -> execute (its own FOR UPDATE transition is the submission claim);
+//  RECORDED -> execute while live, reconcile an expired never-submitted intent;
 //  SUBMITTING / ID_KNOWN without outcome only after the submitter's deadline (it can no longer be in flight);
 //  ID_KNOWN with a create outcome, UNKNOWN and acknowledged DESTROY after the retry interval;
 //  RECONCILING only once its lease lapsed (a crashed reconciler).
-const CLAIM=`SELECT id,state FROM hyperfide.provisioning_intents
- WHERE organisation_id=$1 AND run_id=$2 AND NOT (id=ANY($3::uuid[])) AND operation->'scope'->>'provider'=ANY($4::text[]) AND (
-  (state='RECORDED' AND (operation->>'deadline_at')::timestamptz>clock_timestamp())
+const CLAIM=`SELECT id,state,(operation->>'deadline_at')::timestamptz<=clock_timestamp() AS deadline_expired FROM hyperfide.provisioning_intents
+ WHERE organisation_id=$1 AND run_id=$2 AND NOT (id=ANY($3::uuid[])) AND (operation->'scope'->>'provider'=ANY($4::text[]) OR (state='RECORDED' AND kind='CREATE' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp())) AND (
+  (state='RECORDED' AND (kind='CREATE' OR (operation->>'deadline_at')::timestamptz>clock_timestamp()))
   OR (state='SUBMITTING' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp())
   OR (state='ID_KNOWN' AND (last_outcome IS NOT NULL OR (operation->>'deadline_at')::timestamptz<=clock_timestamp()) AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='UNKNOWN' AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
@@ -240,11 +240,11 @@ export class ProvisionerWorker {
  private async tick(settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
   this.lastTick=new Date().toISOString();
   const free=settings.concurrency-this.active.size;if(free<=0)return;
-  const providers=[...this.database.runtime.adapters.keys()];if(!providers.length)return;
+  const providers=[...this.database.runtime.adapters.keys()];
   const config=await readDeployment(this.env),db=bindProviderInvocation(this.database,config,this.invocation!,['PROVISIONER']),run=this.invocation!.principal.run_id;
   const claimed=await transaction(db,async c=>{
    const now=Date.now();for(const [id,until] of this.backoff)if(until<=now)this.backoff.delete(id);
-   const rows=(await c.query<{id:string;state:string}>(CLAIM,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys()],providers,settings.retry_ms,settings.lease_ms,free])).rows;
+   const rows=(await c.query<{id:string;state:string;deadline_expired:boolean}>(CLAIM,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys()],providers,settings.retry_ms,settings.lease_ms,free])).rows;
    const reconcile=rows.filter(r=>r.state!=='RECORDED').map(r=>r.id);
    // RECONCILING plus updated_at is the reconciliation lease; an acknowledged destroy keeps its state.
    if(reconcile.length)await c.query("UPDATE hyperfide.provisioning_intents SET state=CASE WHEN state='ACKNOWLEDGED' THEN state ELSE 'RECONCILING' END,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[])",[config.organisation_id,run,reconcile]);
@@ -257,10 +257,10 @@ export class ProvisionerWorker {
    this.active.set(row.id,task);
   }
  }
- private async process(db:ProviderDatabase,config:DeploymentConfig,row:{id:string;state:string},settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
+ private async process(db:ProviderDatabase,config:DeploymentConfig,row:{id:string;state:string;deadline_expired:boolean},settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
   let heartbeat:ReturnType<typeof setInterval>|undefined;
   try{
-   if(row.state==='RECORDED'){await this.driver.execute(db,config,row.id,signal);this.counters.executed++;}
+   if(row.state==='RECORDED'&&!row.deadline_expired){await this.driver.execute(db,config,row.id,signal);this.counters.executed++;}
    else{
     heartbeat=setInterval(()=>{void db.query("UPDATE hyperfide.provisioning_intents SET updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND state='RECONCILING'",[config.organisation_id,row.id]).catch(()=>{});},Math.max(250,Math.floor(settings.lease_ms/3)));
     await this.driver.reconcile(db,config,row.id,signal);this.counters.reconciled++;

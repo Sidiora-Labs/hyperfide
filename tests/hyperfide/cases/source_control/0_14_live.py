@@ -520,8 +520,16 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
             intent = effect.get('provider_intent_id')
             if not intent:
                 raise Blocked('ACTUAL_MODEL_PROVISION_INTENT_REQUIRED')
-            executed = local.invoke('provider-create-execute:' + intent,
-                'provider.intents.execute', {'intent_id':intent})
+            before = local.invoke('provider-create-before:' + intent + ':' + uuid.uuid4().hex,
+                'provider.intents.get', {'intent_id':intent})
+            if before.get('state') == 'RECORDED':
+                credential = read(local.credential)
+                executed = local.invoke('provider-create-execute:' + intent + ':' + credential['credential_id'],
+                    'provider.intents.execute', {'intent_id':intent})
+            elif before.get('state') in ['ACKNOWLEDGED','TERMINAL']:
+                executed = {'executed':False,'already_observed':True}
+            else:
+                raise Blocked('ACTUAL_PROVIDER_OUTCOME_RECONCILIATION_REQUIRED')
             inspected = local.invoke('provider-create-inspect:' + intent + ':' + uuid.uuid4().hex,
                 'provider.intents.get', {'intent_id':intent})
             results.append({'effect':effect,'executed':executed,'inspected':inspected})
