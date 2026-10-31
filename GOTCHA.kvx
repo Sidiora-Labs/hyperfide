@@ -1,0 +1,6 @@
+[gotcha.source_spec_bootstrap]
+symptom = "The installed hyperfide brief command refuses a fresh source checkout without initialized project state."
+cause = "Repository source and spec files do not themselves initialize the local graph database."
+resolution = "Specification authoring can use the strict KVX parser and structural validation without initializing or indexing the repository. Runtime commands require a separately initialized project."
+evidence = "hyperfide 2.0.0-dev: brief exits 1 with not inside a Codify project; spec/hyperfide/tools/validate_pack.py exposes parse_kvx."
+status = "documented"

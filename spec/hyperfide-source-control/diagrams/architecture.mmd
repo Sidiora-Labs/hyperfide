@@ -1,0 +1,15 @@
+flowchart TB
+    H[Hyperfide task and qualification authority] --> A[Versioned source API]
+    C[CLI SDK CI clients] --> A
+    W[Host workspace runtime] --> A
+    A --> M[Partitioned revision and operation metadata]
+    A --> Q[Query merge integration workers]
+    Q --> S[Immutable S3 content and trees]
+    A --> G[Scoped object grants]
+    G --> W
+    W --> S
+    W --> L[Bounded cache and isolated writable overlay]
+    M --> E[Durable committed events]
+    E --> H
+    E --> X[Remote Git adapters]
+    X --> R[GitHub and GitLab]

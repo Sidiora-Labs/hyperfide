@@ -1,0 +1,868 @@
+# Hyperfide native source control with category-layout prerequisite. Design only.
+# Tasks 0.3-0.9 precede 0.1; all implementation pending and product cases UNRUN.
+
+[meta]
+feature = "hyperfide-source-control"
+name = "Hyperfide native source control for large monorepos and agent fleets"
+version = "0.2.0-design"
+status = "pending"
+stage = "design"
+review_date = "2026-10-31"
+source_baseline = "2f7331ef2085f6f374adf2d1e2ee01405fecb72d"
+intro = "First reorganize the repository into category-based top-level source packages, preserving runtime behavior and public identities; qualify that prerequisite before implementing the online server-authoritative source-control subsystem. An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 content and bounded trees, thin clients, complete APIs, server-side history and source operations, optional sparse and virtualized working copies, within-monorepo sharding, exact-evidence acceptance, and GitHub/GitLab compatibility at the remote boundary. This is a design and implementation plan; all product work and qualification remain pending."
+
+[decisions]
+d_1 = "Native online source control is a Hyperfide subsystem with a versioned service boundary; Hyperfide keeps task, attempt, scheduling and qualification-policy authority. Basic source operations also support authorized taskless principals."
+d_2 = "S3 holds immutable source objects. Native storage and clients do not use Git packs or require repository history clones. The remote compatibility adapter may generate bounded transient Git pack streams."
+d_3 = "The primary workload is one growing monorepo containing many large projects. Physical partitions and service workers must scale within a single repository and project."
+d_4 = "No service requires full source materialization. Explicit sparse, virtual or full client working copies are reproducible scoped snapshot materializations; whole-source materialization never implies a history clone."
+d_5 = "Revision creation has no repository-wide lock or mandatory shared ref update. A globally ordered accepted trunk has a short explicit ordering transaction; no claim of coordination-free acceptance is made."
+d_6 = "Protocol, namespace, storage schema, implementation language extensions and numerical service objectives are proposed choices recorded in decisions.md and verification.md. Their presence is not a benchmark or deployed capability claim."
+d_7 = "Earlier specifications and spec/workflow.kvx are historical/current inputs unchanged by this draft. Migration makes scoped authority changes and preserves old source/evidence identities through explicit adapters."
+d_8 = "Repository reorganization is the first prerequisite: all SDKs under sdk/, core implementations under core/, and apps, plugins, contracts, libraries and tooling in their declared categories. Tasks 0.3 through 0.9 precede native task 0.1; task IDs remain stable. No subsequent unspecified prerequisite or native implementation is included in the layout work."
+
+[prerequisite.repository_layout]
+title = "Organize source by category before native source-control implementation"
+status = "pending"
+tasks = ["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"]
+entry_task = "0.3"
+gate_task = "0.9"
+blocks = ["0.1"]
+mapping = "repository-layout.json"
+contract = "repository-layout.md"
+
+[req.1]
+title = "Online asymmetric native source control inside Hyperfide"
+story = "As an operator of thousands of agents sharing one growing monorepo, I need source operations whose baseline cost does not grow with unrelated projects or full repository history."
+ac_1 = "Native source clients SHALL require online server authority for durable mutations, preserve explicit unavailable or pending states on disconnection, and never infer committed source or ownership from a local save or stale cache."
+ac_2 = "All source reads, ancestry, history, blame, diffs, commits, merge, rebase, revert and acceptance SHALL have versioned programmatic interfaces usable without a local repository; clients SHALL limit work to source presentation, change monitoring, content transfer and bounded caches."
+ac_3 = "Content, tree metadata, revision metadata, indexes, queries and source-operation workers SHALL support partitioning or independent worker scaling within one repository; no infrastructure service SHALL require a complete checkout or full local history replica."
+ac_4 = "Independent immutable revision creation SHALL avoid repository-wide locks, full-tree scans, pack maintenance and mandatory mutation of global names; changed content and affected metadata SHALL determine ordinary update work, with separate budgets for necessary ancestry and validation scope."
+ac_5 = "Working copies SHALL be optional and SHALL support sparse, virtual and explicitly requested materialized source including a whole snapshot where necessary; cached content and dirty writes SHALL have separate lifetimes and no mode SHALL require cloning history."
+ac_6 = "Git compatibility SHALL exist at the external import/export boundary for GitHub and GitLab; native source identity, operations and accepted history SHALL not depend on a Git repository, Git executable or remote availability."
+ac_7 = "Hyperfide SHALL remain the task, attempt and qualification-policy authority while source control owns valid source transactions; source operations SHALL accept explicitly authorized taskless principals without manufacturing task assignments."
+ac_8 = "Saved local edits, uploaded objects, durable checkpoints, submitted revisions, qualified candidates, native acceptance and external publication SHALL be separate observable states with explicit receipts; one SHALL NOT imply another."
+
+[req.2]
+title = "Immutable source identities and bounded persistent trees"
+story = "As a source client, I need a complete logical snapshot identified without downloading or rewriting unrelated source."
+ac_1 = "Native objects SHALL use versioned type-separated canonical encodings with SHA-256 identities; cross-language golden vectors SHALL cover empty content, Unicode, binary data, integer bounds, escaping and rejected alternate encodings. S3 ETags, physical keys and legacy Git OIDs SHALL remain distinct identities."
+ac_2 = "Source snapshots SHALL be persistent bounded radix trees whose updates share unchanged nodes; a change in a huge directory SHALL NOT serialize that directory's entire entry set or enumerate the whole repository. Format limits and split/merge rules SHALL be explicit and deterministic."
+ac_3 = "File objects SHALL preserve exact bytes, executable mode, file kind and explicit symlink content, and support versioned large-file chunk descriptors with verified full length and digest. Repository paths SHALL have a canonical validation/comparison policy and unsupported client/import names SHALL be reported without silent rewriting."
+ac_4 = "A new verified tree SHALL establish transitive source availability by canonical validation of changed nodes and durable direct-child protection receipts; reused verified subtree roots SHALL NOT require a whole-repository closure walk per commit. Missing, corrupt, cross-domain or non-referenceable children SHALL prevent publication."
+ac_5 = "Content/catalog routing SHALL partition within a single repository by versioned object/security-domain routing; project roots SHALL NOT be mandatory physical shards. Routing changes SHALL preserve immutable IDs, fence obsolete owners and retain bounded client retry behaviour."
+ac_6 = "The online engine SHALL store no required Git packfiles, perform no Git repacking and require no service to materialize a complete checkout/history. Complete source materialization MAY be requested explicitly by a client; its bytes and cost SHALL be accounted separately."
+
+[req.3]
+title = "S3 persistence, acknowledgment and safe incremental reclamation"
+story = "As an operator, I need durable source objects with cheap incremental updates, unambiguous acknowledgments and collection that cannot erase referenced code."
+ac_1 = "The source store SHALL write immutable objects through idempotent bounded upload sessions and conditional creation into a dedicated security-scoped namespace. Verification SHALL check native type, encoding, byte length and content identity; multipart completion, lost responses and existing objects SHALL have explicit reconciliation outcomes."
+ac_2 = "Revision acknowledgment SHALL follow verified object readiness and committed metadata/idempotency state under a declared durability profile. Upload success alone SHALL NOT acknowledge a revision; required replica availability SHALL be observed rather than inferred from asynchronous replication or cached metadata. No metadata transaction SHALL span backend network calls."
+ac_3 = "A pinned tree/manifest SHALL drive source reads and materialization; ordinary operations SHALL NOT enumerate bucket contents for repository membership. Transfer grants, range reads, bounded parallelism and regional caches SHALL preserve snapshot identity and authorization while exposing unavailable placements explicitly."
+ac_4 = "Durable roots and direct-child pins SHALL protect retained revisions/history, active workspaces, uploads, submitted custody, candidates, evidence, imports/exports, backups and holds. Parent readiness and pin acquisition SHALL synchronize with per-object lifecycle fences; cached reference counts and age alone SHALL NOT authorize collection."
+ac_5 = "Collection SHALL be partitioned, bounded and resumable through quarantine, recheck, exact-incarnation deletion intent and reconciliation. References racing quarantine SHALL rescue before deletion authorization or retry a fresh incarnation; delayed deletion SHALL NOT erase re-uploaded content, and outgoing child pins SHALL release only after parent absence is reconciled."
+ac_6 = "Backup, metadata failover and restore SHALL bind source roots, retained object placements, routing/codec/policy versions and authority epochs. Restore SHALL fence former writers, reconcile uncertain upload/delete/export outcomes and prove retained closure availability before opening writes; missing referenced objects SHALL fail the restoration completeness gate."
+
+[req.4]
+title = "Immutable changes and incremental server-side transformations"
+story = "As an online agent or automation client, I need durable source revisions and server transformations whose work follows my changes while preserving every earlier source identity."
+ac_1 = "The SCM SHALL distinguish stable repository-scoped change identities from immutable revision/root identities; concurrent successors SHALL remain addressable as divergence rather than being silently overwritten by a preferred revision."
+ac_2 = "Revision creation SHALL accept explicit parents and verified patch/root inputs, reuse unchanged subtrees and register only new metadata/content; it SHALL NOT require a shared repository head, global sequence, repository-wide lock, complete checkout or full-tree walk. Sparse omissions SHALL NOT imply deletions."
+ac_3 = "Merge, rebase and revert SHALL execute on server-held immutable objects with pinned revisions and algorithm versions; add/delete, text, binary, mode, symlink, directory/file and multiple-base cases SHALL have deterministic results or typed conflicts. Revert of a merge SHALL require an explicit mainline."
+ac_4 = "Rebase, dependency replacement and conflict resolution SHALL create new revisions with explicit predecessor mappings and pinned dependency revisions; they SHALL preserve original history and SHALL NOT silently mutate descendants or substitute a newer revision by change identity alone."
+ac_5 = "Mutation retries SHALL have scoped canonical request digests and durable idempotent results; acknowledged source SHALL survive the declared durability model, ambiguous outcomes SHALL reconcile by operation identity, and stale workspace/attempt generations SHALL NOT authorize new effects."
+ac_6 = "Transformation workers SHALL expose visited objects, changed bytes, history scope, conflicts and queued/executing time, enforce bounded admission/cancellation and resume interrupted work; no latency claim SHALL omit content size, ancestry or necessary conflict work."
+
+[req.5]
+title = "Complete versioned source API and committed event replay"
+story = "As a tool or CI controller, I need metadata and source operations without maintaining a local repository, with exact source inputs and recoverable delivery."
+ac_1 = "A versioned authenticated API and typed contract SHALL expose content/tree reads, upload completion, revision/change history, ancestry, merge bases, diff, blame, line mapping, merge/rebase/revert, workspace checkpoints, candidates, acceptance and operation status/cancellation without requiring a filesystem checkout or local history."
+ac_2 = "Queries SHALL pin immutable source inputs and authorization scope; pagination SHALL bind query/snapshot/index identity and ordering, expose coverage and partial/redacted results, and reject altered or expired cursors without silently mixing source generations."
+ac_3 = "Mutations and long operations SHALL validate bounded schemas, expected versions and idempotency keys; version/capability discovery, stable error codes, retry/outcome classification, streaming/pagination, cancellation and durable continuation SHALL be available through the same protocol used by CLI/SDK clients."
+ac_4 = "Every authoritative source state transition SHALL persist its outbox obligation transactionally; committed pending delivery discovery, per-aggregate ordering, consumer deduplication and snapshot bootstrap SHALL survive reordered commits, reconnects and retention gaps without relying on a bare global sequence high-water mark."
+ac_5 = "A mutation receipt SHALL provide a causal read token whose dependent queries use sufficiently current metadata/object availability or explicit bounded failure; failover, restored database and partition epochs SHALL invalidate incompatible tokens rather than allowing stale reads to imply current authority."
+ac_6 = "Query and event services SHALL partition and admit work within a repository independently of content uploads and acceptance; batched reads and bounded index/ancestry workers SHALL avoid mandatory full-history replicas and network-per-symbol traversal. Slow subscriptions SHALL expose bounded retention debt and resnapshot obligations."
+
+[req.6]
+title = "Online workspaces with bounded sparse and virtual materialization"
+story = "As an agent or automated tool, I need exact source files when my work requires them without cloning the monorepo or its history."
+ac_1 = "The service SHALL support API_ONLY, SPARSE, VIRTUAL and explicit MATERIALIZED modes by immutable repository/revision identity without a seed checkout; admission, filesystem readiness and physical downloads SHALL be reported separately."
+ac_2 = "Each workspace SHALL pin a base revision, versioned read/write scope and dependency-closure manifest; scope widening and base advancement SHALL be explicit generation-checked operations that preserve dirty overlays and never silently materialize the full monorepo."
+ac_3 = "Host caches SHALL have bounded bytes/entries, security-domain-scoped authorization and verified immutable objects, with partial transfers hidden and private writable copies or copy-on-write overlays; cache pressure SHALL NOT evict unacknowledged dirty source or create mutable hardlinks into shared cached content."
+ac_4 = "Materialization and capture SHALL preserve exact UTF-8 names, regular-file bytes, executable state and supported symlink semantics; incompatible host paths and unsupported types SHALL be explicit, and sparse absence, hydration state or scope removal SHALL never imply source deletion."
+ac_5 = "Watch notifications SHALL be hints backed by dirty-path journals and bounded reconciliation; a checkpoint SHALL capture a stable overlay generation, submit explicit mutations and receive acknowledgment only after server-held object and revision durability, with lost acknowledgment retries resolving to the same result."
+ac_6 = "The virtual adapter SHALL advertise its pinned host capabilities, support declared build-tool I/O semantics, bound metadata/content fetching and map network or authorization failures to explicit I/O errors; unsupported virtualization SHALL require an explicit sparse/materialized fallback, never silent full checkout."
+
+[req.7]
+title = "Exact-evidence candidates and atomic source acceptance"
+story = "As the integrator, I need source acceptance that preserves one coherent monorepo view while independent agents checkpoint continuously and Hyperfide retains qualification authority."
+ac_1 = "Hyperfide SHALL own task/attempt scheduling, custody and qualification policy; SCM SHALL own valid source transactions. Source creation/acceptance SHALL NOT independently mark a task done, and source-only clients SHALL be supported through repository capabilities without fabricated tasks."
+ac_2 = "An immutable candidate SHALL bind expected acceptance-domain state, ordered contributor/dependency revisions, resulting source root, transformation version, policy/spec/criteria, current custody/revocation and toolchain/configuration/graph/contract inputs; evidence applicability SHALL require those exact inputs and authenticated checker receipts."
+ac_3 = "Acceptance SHALL be linearizable within its explicit domain through a bounded compare-and-swap metadata transaction that rechecks expected state, current authority, evidence applicability and retained object availability, then records acceptance, domain advancement, roots, idempotent result and outbox together. Upload/merge/build/test/remote publication SHALL execute outside it."
+ac_4 = "An advancing accepted source or changed policy/input/custody SHALL invalidate conflicting candidate preconditions; reuse of evidence SHALL require a qualified applicability verifier and complete captured inputs, otherwise affected checks SHALL run on a new candidate. Disjoint paths or declared read sets alone SHALL NOT prove semantic independence."
+ac_5 = "Speculative batches SHALL identify their exact contributor set and have bounded size, fairness and retry budgets; failure isolation SHALL preserve original proposals and create newly qualified candidates rather than transfer receipts between different candidate sources."
+ac_6 = "The SCM SHALL retain distinct durable revision-created, candidate-qualified, native-accepted and remote-publication outcomes. Single-trunk ordering cost SHALL be explicit; independent domains SHALL require explicit policy and coherent manifests, and neither remote failure nor task-state projection SHALL silently rewrite accepted history."
+
+[req.8]
+title = "Hyperfide task authority integrated with native source transactions"
+story = "As a fleet operator, I need Hyperfide to orchestrate work while the source engine preserves immutable source, valid transactions and exact evidence across worker replacement."
+ac_1 = "Hyperfide SHALL retain task/attempt scheduling, budgets and qualification policy while the source service owns source identities, workspace mutation and acceptance; a source acceptance SHALL NOT itself mark a task done or create a second task authority."
+ac_2 = "Assignments SHALL carry principal, repository, base revision, scope, authority epoch and task/attempt/workspace generations, enforced by the source service; taskless authenticated users and jobs SHALL also be supported, and stale workers SHALL be unable to mutate a replacement workspace."
+ac_3 = "Submission SHALL atomically establish durable coordinator-owned result custody and source retention roots; compute lease expiry or worker cleanup SHALL NOT revoke accepted submission custody, and duplicate or ambiguous submissions SHALL be reconciled idempotently."
+ac_4 = "Graph/context responses SHALL identify exact source, extraction/schema/configuration versions, overlay identity and coverage; incremental extraction SHALL reuse valid immutable facts and invalidate affected cross-project consumers, with stale or partial graph coverage unable to narrow required qualification silently."
+ac_5 = "Qualification SHALL execute against an exact native candidate revision and environment/closure identities; integration SHALL retain the evidence binding, and task progress, durable checkpoint, native acceptance and external publication SHALL remain distinct states."
+ac_6 = "Managers, integration services, query clients and ordinary workers SHALL operate without mandatory full checkouts or local Git history; image preparation, environment registration, collection and qualification SHALL consume native manifests and revisions, with legacy Git adapters explicitly identified during migration."
+
+[req.9]
+title = "GitHub and GitLab compatibility exists only at the remote boundary"
+story = "As a project maintainer, I publish selected accepted native source to public Git remotes and may ingest external contributions without giving native agents full Git repositories."
+ac_1 = "Git interoperability SHALL be implemented by independently budgeted remote adapters; native revision creation, queries, merging, rebasing and workspaces SHALL require no Git objects, refs, packfiles, worktrees, subprocesses or full local clones. Initial export MAY traverse all authorized projected objects with bounded streaming memory and spool."
+ac_2 = "Each projection SHALL pin native repository, authorized root/path mappings, provider repository identity, target ref, policy version/digest, dependency treatment, public metadata schema, Git object format and history/grouping policy. Projection changes SHALL create an explicit new policy version and never silently rewrite published history."
+ac_3 = "Export SHALL deterministically construct Git blobs, trees and commits including exact bytes, entry modes/symlinks, ordered projected parents, persisted author/committer timestamps and message encoding; mappings SHALL distinguish native sha256 IDs from namespaced Git SHA-1/SHA-256 IDs and survive worker retry/restart."
+ac_4 = "Filtered no-change revisions, duplicate/collapsed merge parents and annotated tag targets SHALL follow a declared deterministic policy with retained provenance. Unsupported path encodings/types, gitlinks, signatures and missing dependency payloads SHALL produce explicit blocked results rather than lossy or silently incomplete exports."
+ac_5 = "An export SHALL persist immutable intent and required retention roots before sending; validate current authorization and expected destination/ref; stream transient Git transport packs without native repacking; and retain remote mutation state, credential cleanup and acknowledged readback evidence. An uncertain issued push SHALL remain fenced and reconciled before a conflicting target operation proceeds."
+ac_6 = "Native acceptance SHALL remain separate from remote publication and pull/merge request creation. Provider outage or remote divergence SHALL expose durable backlog/reconciliation state without overwriting remote work, weakening native qualification or reporting an unknown outcome as success; GitHub and GitLab SHALL have separately qualified capability/credential/protection profiles."
+ac_7 = "Public projection access SHALL enforce source/history authorization and an allowlisted public metadata schema, excluding private task/session/memory payloads; dependencies outside the projection SHALL be explicitly included with permission, externally pinned or reported unavailable. Exported parents SHALL not expose excluded native history."
+ac_8 = "When inbound contribution ingestion is enabled, it SHALL pin source repository/commit/object format and native base mapping, verify and quarantine bounded object streams without executing repository code, then create an idempotent native proposal subject to ordinary scope, qualification and acceptance. A remote force-push SHALL never mutate an existing native revision."
+
+[req.10]
+title = "Existing projects and history consolidate into one authoritative monorepo"
+story = "As a monorepo operator, I consolidate large existing projects into a shared native repository while retaining provenance, valid evidence and acknowledged work across the authority transition."
+ac_1 = "A versioned consolidation manifest SHALL pin every selected input repository identity, immutable tips/history policy, format, target project identity/path, dependency policy and public projection mapping. Project roots SHALL remain logical boundaries and SHALL NOT determine a single physical storage/query partition."
+ac_2 = "Import SHALL detect target path/type/case/encoding collisions and explicitly resolve or reject symlinks, gitlinks/submodules, LFS payloads, signatures, tags and unsupported entries before selected roots become complete. It SHALL never silently replace, dereference or omit incompatible input."
+ac_3 = "Streaming import SHALL retain original repository/commit or legacy snapshot identities, parent order and metadata provenance in a durable source map, deduplicate only within authorized storage boundaries, resume bounded batches idempotently, and distinguish imported history from newly authored revisions in metrics. No importer SHALL require a full checkout or complete local history."
+ac_4 = "Shadow parity SHALL compare exact selected tree contents, entry types/modes, ancestry/source mappings and source-access decisions without granting a second writer. Initial ingestion and live source operations SHALL have independent resource budgets, and partial imports SHALL not appear as complete accepted snapshots."
+ac_5 = "Pilot and cutover SHALL inventory and fence all legacy source writers, preserve/drain active dirty work and custody, reconcile external effects, pin final legacy source inputs, prove parity and atomically record the native authority epoch before opening native mutation admission. Dual authoritative writers SHALL be prohibited."
+ac_6 = "Versioned source/evidence interfaces SHALL preserve historical Git/local snapshot receipts and migrate assignment, graph, finding, qualification and publication references explicitly. Activation SHALL supersede only the named legacy source-engine/worktree contracts and SHALL not rewrite historical specs or imply that unrelated offline functionality grants native online authority."
+ac_7 = "Rollback before new native writes SHALL prove closed native admission and absence of new acknowledged/external effects; recovery after native writes SHALL reconcile/export every acknowledged revision and external effect before any successor authority opens. Reopening a stale writable source store SHALL be rejected."
+ac_8 = "Cutover/recovery SHALL be idempotent, resumable and epoch-fenced with crash evidence at each boundary; retained imports, workspaces, evidence, source maps and uncertain exports SHALL remain valid garbage-collection roots until their declared obligations end. Final qualification SHALL exercise the actual Hyperfide pilot and source-authority transition."
+
+[req.11]
+title = "Scoped source access, integrity and recovery authority"
+story = "As a project owner, I need source visibility, mutation and retention to follow explicit authority across workers, caches, APIs and recovery."
+ac_1 = "Authenticated source capabilities SHALL bind security domain, repository, action, scope, policy/authority epoch and expiry; managed mutations SHALL also validate current workspace/task attempt generation or submission custody. Authorized human, import and automation principals SHALL use the same protocol without fabricated agent tasks."
+ac_2 = "Authorization SHALL apply to content, listings, history, ancestry, blame, diff, symbols/search, object existence, exports and event streams. Shared caches, deduplication and pagination SHALL preserve security scope; object hashes and cache hits SHALL NOT grant read access or reveal another security domain's object existence."
+ac_3 = "Direct object-transfer grants SHALL be bounded, short-lived and method/object/incarnation scoped; durable bucket administration credentials SHALL remain outside agent workspaces. Revocation SHALL prevent new authoritative mutations immediately while documenting the tested residual validity of already issued read grants."
+ac_4 = "The server and materializer SHALL reject forged/mismatched object receipts, malformed tree ranges, decompression/size violations and path or symlink escape. Native content verification SHALL remain independent of backend ETags, transport success, worker exit and claimed model correctness."
+ac_5 = "Public export metadata SHALL use an explicit allowed schema separate from private task conversation, memory, credentials and control-plane records. Audit records SHALL preserve attributable operation/request/source identities and generations without exposing transfer secrets or source outside the reader's scope."
+ac_6 = "Collection, recovery, routing transfer and authority failover SHALL require current scoped service authority and persisted generation-fenced intents. Negative cases SHALL prove stale workers, delayed deletes, revoked principals, old primaries and stale backup credentials cannot mutate or destroy a successor's accepted source."
+
+[req.12]
+title = "Within-monorepo scale, measured growth and honest qualification"
+story = "As an operator of a growing monorepo and connected agent fleet, I need measured source throughput, bounded clients and demonstrable recovery without equating imports, admission counters or component checks with completed engineering work."
+ac_1 = "Qualification SHALL identify immutable native inputs, backend/configuration and toolchain, exact assertions, fault schedules, offered and completed work, independent oracles and cleanup; all cases SHALL remain UNRUN until actual execution and component evidence SHALL NOT imply full-case qualification."
+ac_2 = "The proposed capacity campaign SHALL sustain at least 5,000 active native workspaces in one repository, at least 100,000 newly authored durable revisions per 24 hours for 72 elapsed hours, and 100 distinct revision submissions per second for five minutes; imported history, duplicate retries, task acceptance and external publication SHALL be counted separately."
+ac_3 = "A separately declared admission profile SHALL exercise at least 20,000,000 logical workspace opens per 24 hours without claiming physical materialization or actual coding-agent concurrency; cold/warm sparse, virtual and explicit full-source materialization SHALL report actual paths, bytes, storage requests and host resource use."
+ac_4 = "Growth campaigns SHALL hold a fixed change set constant while logical file count, unique content, directory fan-out and history vary independently within one repository; they SHALL establish relevant-scope work bounds, expose any global ordering contention, and measure independent tier scaling without a full-repository checkout or scan prerequisite."
+ac_5 = "Mixed-load campaigns SHALL record per-operation p50/p95/p99/max, offered-load schedules, failures/timeouts, cache state, query result size, queue/lock/connection pressure, storage requests/bytes and publication lag; provisional budgets in verification.md SHALL be evaluated on explicitly identified resources rather than presented as achieved guarantees."
+ac_6 = "Real S3, remote-provider and Hyperfide worker variants SHALL use actual resources and operations; absent credentials/capacity SHALL produce BLOCKED, and replay, local backend tests or load clients SHALL NOT substitute for live backend, elapsed-time endurance or actual agent qualification."
+ac_7 = "Failover, restore, garbage-collection races, stale authority and ambiguous external effects SHALL be checked against a declared durability/fault model; release closure SHALL reject missing/tampered/stale evidence and report any loss against the configured recovery point."
+
+[req.13]
+title = "Usable native source journeys and bounded operational visibility"
+story = "As an operator, developer or agent integrator, I need one coherent Hyperfide source-control interface and evidence of where time, bandwidth and integration capacity are spent."
+ac_1 = "The CLI under hyperfide and the versioned SDK SHALL expose the shared source API with authentication, typed errors, pagination, cancellation and operation reconciliation; metadata/source queries SHALL work without a local repository or task."
+ac_2 = "Workspace, checkpoint, submission, qualification, acceptance and remote publication views SHALL show durable identities, freshness, current owner and actionable failure states; local edits or uploads SHALL never be presented as acknowledged source history."
+ac_3 = "Metrics SHALL distinguish logical opens from sparse/virtual/full materializations, source ingestion from new revisions, bytes/files from commit counts, and graph work from source acceptance; bounded metric labels and access-controlled exact-identity traces SHALL preserve observability without exposing unauthorized source."
+ac_4 = "Host and service budgets SHALL bound cache/dirty bytes, transfer concurrency, queued operations and graph work while retaining heartbeat/cancellation capacity; refused work SHALL name the limiting budget and retry policy rather than appearing stalled."
+ac_5 = "Native app journeys SHALL use existing headers, forms, navigation and human-readable project/task/revision pickers, with copy/detail access to IDs, paginated large views and demonstrated desktop/tablet/mobile interaction and reconnect continuity."
+
+[req.14]
+title = "Versioned adoption, documentation and release evidence"
+story = "As an operator adopting native source control, I need a complete migration and recovery contract, truthful documentation, and release evidence that describes the running system rather than a design claim."
+ac_1 = "The specification SHALL maintain complete acceptance-to-task-to-case traceability, pending implementation status before execution and UNRUN case status before qualified evidence; authoring checks SHALL never satisfy product acceptance."
+ac_2 = "Documentation SHALL describe implemented API, workspace, authority, remote publication, retention and recovery behavior with source/evidence links; proposed or unsupported modes SHALL be distinguished from shipped behavior in CLI, SDK and product surfaces."
+ac_3 = "A release profile SHALL identify storage endpoints, capability references, supported filesystem and remote profiles, metadata durability topology, retention and recovery objectives; missing mandatory deployment inputs SHALL produce named diagnostics without silent fallback to unsafe authority."
+ac_4 = "Native format, protocol, identity and evidence schema versions SHALL have compatibility and rollback rules preserving historical Git and legacy snapshot evidence; active workflow changes SHALL occur only through the migration task and never as a side effect of importing this specification."
+ac_5 = "Release closure SHALL require qualified canonical cases, exact release inputs and artifacts, real-backend and real-fleet evidence, restore and publication reconciliation, and recorded operator acceptance of the running source-control journey; unresolved required failures SHALL remain visible and block a qualified release claim."
+
+[req.15]
+title = "Category-based repository layout before native source-control implementation"
+story = "As a maintainer, I need one coherent repository organized by package purpose so SDKs, core implementations, apps, plugins and tools are discoverable without navigating separate nested system codebases."
+ac_1 = "The repository SHALL organize source by category using repository-layout.json: core implementations under core/, supported SDKs under sdk/, and explicit apps/, plugins/, contracts/, lib/, tools/ and other declared categories. Every current platform/ and services/ tracked input SHALL have an explicit move, merge, regenerate or archive rule, with collisions and drift resolved before mutation."
+ac_2 = "Relocation SHALL preserve public package names, module identities, exports, executable commands, plugin/extension IDs, protocol behavior, license obligations and dependency resolutions. Existing package units and runtime storage boundaries SHALL remain intact; directory movement SHALL NOT silently activate, remove or rewrite functionality."
+ac_3 = "The relocated pnpm workspace SHALL have its authoritative root configuration, lockfile and build/test discovery at repository root while preserving separately managed npm and language-module boundaries. Importer, patch, alias, filter and cache paths SHALL be regenerated and verified without unplanned dependency or toolchain upgrades."
+ac_4 = "Each producer move SHALL update direct consumers, native registry/include rules, CLI/root discovery, environment hooks, SDK/plugin generators, runtime loaders and package assets in the same runnable candidate; final checkout operation SHALL require no old platform/ or services/ source facade or duplicate source tree."
+ac_5 = "CI triggers, cache invalidation, sandbox preparation, current docs, ignore rules, release assembly and deployment checkout fallbacks SHALL recognize the target categories. Installed artifact paths and historical source/evidence paths SHALL remain explicitly versioned and SHALL NOT be indiscriminately rewritten as checkout paths."
+ac_6 = "Move qualification SHALL compare the complete tracked content/type/mode inventory, package/extension identities, dependency graph, workspace/test membership and actual affected runtime/build/package behavior, with baseline failures distinguished from introduced regressions and prepared images bound to a layout generation."
+ac_7 = "A current layout qualification receipt SHALL gate native source-control task 0.1. Layout tasks SHALL have no dependency on the native SCM implementation or its future case registry; all later native tasks SHALL depend transitively on the qualified layout and target the new category paths."
+ac_8 = "The migration SHALL retain the original layout revision, path mapping, evidence lineage and rollback/image compatibility contract. Active future task scopes SHALL use target paths while historical receipts/specifications remain pinned to their original source; rollback SHALL preserve subsequent work rather than reopen stale source or maintain parallel authoritative trees."
+
+[design]
+overview = "The normative contract is spec.kvx, refined by design.body.md, storage.md, protocol.md, workspaces.md, hyperfide-integration.md, identity-security.md, git-interop.md, migration.md and verification.md. README.md indexes the pack; implementation-plan.md and traceability.md are derived views."
+authority = "Hyperfide task/attempt authority and source transaction authority have explicit ownership. Uploads precede revision metadata publication; root pins coordinate retention. Candidate acceptance validates exact evidence, expected source predecessor and current authority in a short transaction."
+source = "Native object IDs use a proposed versioned type-tagged SHA-256 envelope; immutable bounded trees identify full logical snapshots without materialization. Project scopes are independent of physical partitions. External Git hashes are a separate typed namespace."
+implementation = "After layout qualification, the native service modules live in core/control-plane/src/source_control/, host modules in core/host-daemon/src/source-control/, and the client package in sdk/source-control/. Existing inspected paths remain baseline references; repository-layout.json maps old paths to target categories."
+verification = "Future per-task drivers live at tests/hyperfide/cases/source_control/W_N.py and are created by their tasks. Task 0.2 versions the existing qualification registry/schema for SCM case IDs and native source evidence. Structural validation uses tools/validate_spec.py and does not execute product drivers."
+layout = "Requirement 15 and repository-layout.md specify the prerequisite. A complete versioned mapping, runnable producer/consumer moves and layout qualification receipt gate task 0.1; source architecture implementation cannot run in parallel with an unqualified directory move."
+
+[documentation]
+mode = "manual"
+status = "pending"
+audiences = ["user", "developer", "operator"]
+targets = ["spec/hyperfide-source-control/**", "docs/hyperfide/source-control.md", "docs/hyperfide/platform.md", "docs/hyperfide/operations.md", "docs/runtime/source-control.md"]
+
+[tasks]
+heading = "Category-based repository layout first, followed by native source-control implementation and qualification"
+
+[task.0.3]
+title = "Freeze the category layout inventory and executable baseline"
+status = "pending"
+wave = 0
+requires = []
+touches = ["spec/hyperfide-source-control/repository-layout.json", "spec/hyperfide-source-control/repository-layout.md", "tools/repository/layout-inventory.py", "tests/hyperfide/cases/source_control/0_3.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_3.py"
+do_1 = "Inventory every tracked input under platform/ and services/, classified app/package/plugin units, root native/KVX/editor sources, hidden configuration, file types/modes, package identities and declared toolchains against the actual implementation baseline. Refresh the versioned mapping with explicit merge/regeneration exceptions and reject unmapped inputs or target/case collisions."
+do_2 = "Capture existing dependency resolution/integrity, public exports and bins, workspace/test membership, native component discovery, current runtime paths and relevant baseline check outcomes. Preserve absent/failed prerequisite evidence explicitly instead of treating it as a successful baseline."
+do_3 = "Implement the inventory/dry-run consumer to produce old-to-new path and content/mode manifests, direct-consumer rewrite obligations, installed-artifact versus source-path classifications, historical path exceptions and a reversible move plan. Do not move files in this task."
+do_4 = "Implement the task driver against actual tracked manifests and source rules; prove detection of missing mapping, duplicate destinations, unexpected identity/dependency changes and source/artifact path confusion. Record approved target layout generation and baseline inputs for subsequent moves."
+reqs = ["15.1", "15.2", "15.6", "15.8"]
+owner = "repository-layout"
+cases = ["SCM-025"]
+
+[task.0.4]
+title = "Establish the root workspace and relocation front door"
+status = "pending"
+wave = 0
+requires = ["0.3"]
+touches = ["package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "vitest.config.ts", "vitest.shared.ts", "vitest.global-tmpdir.ts", ".oxlintrc.json", ".oxfmtrc.json", ".env.example", ".nvmrc", ".gitignore", ".gitattributes", ".hyperfide-env-setup.sh", "platform/package.json", "platform/pnpm-workspace.yaml", "platform/pnpm-lock.yaml", "platform/turbo.json", "platform/vitest.config.ts", "platform/vitest.shared.ts", "platform/vitest.global-tmpdir.ts", "platform/.oxlintrc.json", "platform/.oxfmtrc.json", "platform/.env.example", "platform/.nvmrc", "platform/.gitignore", "platform/.gitattributes", "platform/.hyperfide-env-setup.sh", "tools/workspace/env-setup.sh", "tools/repository/repository-root.py", "tests/hyperfide/cases/source_control/0_4.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_4.py"
+do_1 = "Promote the pnpm workspace configuration and authoritative lockfile to root with explicit staged membership for units not yet moved. Keep the independent control-plane npm package and standalone module boundaries excluded. Preserve pnpm versions, patch integrity and dependency resolutions while regenerating importer/link paths."
+do_2 = "Rewire root commands, Vitest discovery, Turbo inputs/outputs, lint rules and environment examples to the staged layout; merge ignore/attribute rules while preserving tracked authored assets and exclusions. Transitional launchers must delegate to the single root configuration, not maintain a second lockfile."
+do_3 = "Provide qualified root discovery for moved tools and a conventional root environment-hook delegator to tools/workspace/env-setup.sh. Preserve package/setup input hashing, installed invocation, nested cwd and explicit path overrides. Record the observed Node22 development/Node24 CI/control profiles without silently upgrading or claiming a unified profile."
+do_4 = "Implement the gate to compare actual workspace identities and dependency resolutions, run pinned install/frozen validation for the chosen existing profiles, exercise root/transitional commands and hook discovery, and prove a moved build input invalidates its cache. No native source-control modules are introduced."
+reqs = ["15.3", "15.4", "15.5"]
+owner = "repository-layout"
+cases = ["SCM-025"]
+
+[task.0.5]
+title = "Relocate native engines and core executables with their consumers"
+status = "pending"
+wave = 0
+requires = ["0.4"]
+touches = ["kvx", "platform/apps/ai-gateway", "platform/apps/host-daemon", "platform/apps/server", "platform/packages/agent-runtime", "platform/packages/db", "platform/packages/environment-provider-host", "platform/packages/host-watcher", "platform/packages/host-workspace", "platform/packages/hyperfide-authority", "platform/packages/local-open-targets", "platform/packages/provider-bridge-acp", "platform/packages/provider-bridge-protocol", "platform/packages/secret-storage", "platform/packages/server-archive", "services/hyperfide", "src", "core/kvx", "core/ai-gateway", "core/host-daemon", "core/server", "core/agent-runtime", "core/runtime-db", "core/environment-provider-host", "core/host-watcher", "core/host-workspace", "core/authority-client", "core/local-open-targets", "core/provider-bridge-acp", "core/provider-bridge-protocol", "core/secret-storage", "core/server-archive", "core/control-plane", "core/native/src", "Makefile", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "tools/repository/hyperfide-native-components.py", "scripts/hyperfide-native-components.py", "deploy/hyperfide/dist-stamp.mjs", "tests/integration", "tests/hyperfide/cases/source_control/0_5.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_5.py"
+do_1 = "Move the current C tree to core/native/src, KVX implementation/spec/fixtures to core/kvx with its editor extension reserved for the extension step, the service to core/control-plane, and classified core packages/apps to their explicit destinations. Keep vendor/ and the KVX Go module/public identity unchanged."
+do_2 = "Update root native compilation, include/object rules, native component source/header/support manifests and component-registry generation. Adapt every direct runtime caller and package path at the same time, using the manifest to preserve currently unmoved SDK/app dependencies."
+do_3 = "Preserve service src/dist/migrations/components adjacency, storage schema loading, component discovery, npm lock/toolchain boundaries and source-stamp behavior. Update CLI discovery and core root resolution without changing public command spelling, exit codes or installed artifact layout."
+do_4 = "Implement the driver to compile and exercise native front-door/component dispatch, control-plane schema/component bootstrap, relocated core package consumers and nested/installed path probes with real code paths. Compare exported identities and content/mode inventory; identify any allowed path rewrites explicitly."
+reqs = ["15.1", "15.2", "15.4", "15.6"]
+owner = "repository-layout"
+cases = ["SCM-025"]
+
+[task.0.6]
+title = "Relocate SDKs contracts libraries and packaged tooling"
+status = "pending"
+wave = 0
+requires = ["0.5"]
+touches = ["platform/packages/bundled-plugins", "platform/packages/client-core", "platform/packages/config", "platform/packages/core-ui", "platform/packages/desktop-contract", "platform/packages/domain", "platform/packages/fuzzy-match", "platform/packages/hono-typed-routes", "platform/packages/host-daemon-contract", "platform/packages/logger", "platform/packages/mobile-bridge", "platform/packages/plugin-build", "platform/packages/plugin-registry", "platform/packages/plugin-sdk", "platform/packages/process-utils", "platform/packages/provider-parity", "platform/packages/query-tags", "platform/packages/scripts", "platform/packages/sdk", "platform/packages/server-contract", "platform/packages/shared-ui", "platform/packages/templates", "platform/packages/test-helpers", "platform/packages/text-utils", "platform/packages/thread-view", "platform/packages/tsconfig", "tools/bundled-plugins", "lib/client-core", "lib/config", "lib/core-ui", "contracts/desktop", "lib/domain", "lib/fuzzy-match", "lib/hono-typed-routes", "contracts/host-daemon", "lib/logger", "contracts/mobile-bridge", "tools/plugin-build", "tools/plugin-registry", "sdk/plugins", "lib/process-utils", "tools/provider-parity", "lib/query-tags", "tools/scripts", "sdk/client", "contracts/server", "lib/shared-ui", "lib/templates", "tools/test-helpers", "lib/text-utils", "lib/thread-view", "tools/tsconfig", "platform/changelog-parser.ts", "platform/changelog-metadata.ts", "lib/changelog/parser.ts", "lib/changelog/metadata.ts", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "vitest.config.ts", "tests/hyperfide/cases/source_control/0_6.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_6.py"
+do_1 = "Move every SDK, wire contract, shared library and packaged build/test tool according to the explicit package map. Keep mixed-responsibility packages intact and public package identities unchanged; move shared changelog helpers into lib/changelog without changing behavior."
+do_2 = "Rewrite package-relative imports, project references, generator/scaffold inputs, shared test config references and workspace importer keys. Preserve public export subpaths, package bins, dependency integrity and generated module semantics."
+do_3 = "Run actual SDK/plugin consumer examples and relevant package checks against the new paths. Compare discovered tests/generators before and after and verify generated outputs and bundle inputs remain part of the build graph."
+do_4 = "Implement the gate to reject resolution from an old-source duplicate, missing exports, lost test membership, accidental dependency upgrades and warm-cache reuse after changing a moved library or generator input. Report exact runtime/consumer evidence, not just successful TypeScript parsing."
+reqs = ["15.1", "15.2", "15.3", "15.4", "15.6"]
+owner = "repository-layout"
+cases = ["SCM-025"]
+
+[task.0.7]
+title = "Relocate applications plugins extensions examples and assets"
+status = "pending"
+wave = 0
+requires = ["0.6"]
+touches = ["platform/apps/app", "platform/apps/cli", "platform/apps/desktop", "platform/apps/mobile", "platform/apps/demo-server", "platform/packages/hyperfide-app", "platform/plugins", "platform/examples", "platform/assets", "platform/patches", "editors/vscode", "kvx/editors/vscode", "core/kvx/editors/vscode", "apps", "plugins", "extensions", "examples", "assets", "patches", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "tests/hyperfide/cases/source_control/0_7.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_7.py"
+do_1 = "Move the remaining user apps, CLI/launcher, runtime plugins, separately distributed editor extensions, demonstrations, shared assets and authored patches into their categories. Preserve installed identities, package names, plugin IDs, extension IDs, licenses and archive member conventions."
+do_2 = "Update app/plugin manifests, bundled registry inputs, SDK/scaffold imports, asset loading, release package source roots and the C platform front door together. Keep the demo runtime and disabled gateway behavior unchanged rather than using relocation to change product capabilities."
+do_3 = "Exercise actual web/server/host and CLI startup, affected desktop/mobile build and asset paths on supported executors, plugin discovery and a generated plugin consumer, launcher bins and VSIX packaging. Record missing supported-executor evidence as unqualified rather than substitute source checks."
+do_4 = "Implement the driver to compare packaged assets, bins and plugin/extension inventories, reject any dependence on old platform/services source facades, and verify relative paths from root and nested working directories. Preserve authored patch bytes and declared dependency targets."
+reqs = ["15.1", "15.2", "15.4", "15.6"]
+owner = "repository-layout"
+cases = ["SCM-025"]
+
+[task.0.8]
+title = "Complete tooling CI preparation and release path migration"
+status = "pending"
+wave = 0
+requires = ["0.7"]
+touches = ["scripts", "platform/scripts", "tools/repository", "tools/workspace", "platform/tests", "tests/runtime-integration", "tests/qa", "tests/fixtures/plugins/scripted-echo-provider", "platform/qa", "platform/docs", "docs/runtime", "docs/verification", "docs/history/runtime-port.md", "platform/README.md", "platform/CHANGELOG.md", "platform/AGENTS.md", "AGENTS.md", "platform/.hyperfide", "spec/workflow.kvx", ".agents/skills", ".github/workflows", "deploy/hyperfide", "Makefile", ".gitignore", ".gitattributes", ".cgignore", "README.md", "tests/hyperfide/cases/source_control/0_8.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_8.py"
+do_1 = "Move un-packaged tools, runtime test packages, runbooks/docs and history into their mapped categories. Reconcile discovery-specific skill/instruction sources through the owning workflow without changing policy or broadening instruction scope. Preserve historical specs/receipts and maintain explicit old-path exceptions."
+do_2 = "Rewire CI path filters, cache keys, working directories and their asserting tests; update sandbox prepare/probe/build and changed-input detection with a layout generation that invalidates incompatible prepared images. Retain heartbeat, worker setup and runtime discovery behavior."
+do_3 = "Adapt release assembly and checkout fallback paths while preserving installed services/dist and other artifact-format contracts. Exercise source-stamp guards, package manifests, licenses, nonpublishing release construction and service startup/preflight on the configured disposable executor."
+do_4 = "Remove transitional old workspace roots and source facades. Scan executable/current references with typed exceptions for installed artifacts, historical evidence, fixtures and CLI command names; retain exactly one source owner for each unit. Implement the task driver to test CI triggering, cold/warm preparation, ignore/privacy boundaries, packaged startup and qualified exceptions."
+reqs = ["15.3", "15.4", "15.5", "15.8"]
+owner = "repository-layout"
+cases = ["SCM-025"]
+
+[task.0.9]
+title = "Qualify the category layout and release the source-control prerequisite"
+status = "pending"
+wave = 0
+requires = ["0.8"]
+touches = ["spec/hyperfide-source-control/repository-layout.json", "spec/hyperfide-source-control/repository-layout.md", "spec/hyperfide-source-control/spec.kvx", "spec/hyperfide-source-control/verification.md", "tools/repository/layout-inventory.py", "tests/hyperfide/cases/source_control/0_9.py", "tests/hyperfide/source-control/layout-receipt.schema.json"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_9.py"
+do_1 = "Compare the completed repository against the frozen mapping and original tracked content/type/mode inventory, accounting for every permitted path/configuration change. Validate exact package/extension/CLI identities, dependencies and test/workspace membership and require no old platform/ or services/ source container or facade."
+do_2 = "Execute the combined existing-system layout regression and nonpublishing release/startup checks at the actual final revision, including root/nested/installed CLI discovery, native/core/control runtime, SDK/plugin consumers, app assets/packaging, prepared-image generation, CI routing and build-cache invalidation. Record baseline failures and new regressions distinctly."
+do_3 = "Emit the SCM-025 layout receipt using existing Git-based evidence and actual assertion/command inventories; this driver is independent of future task 0.2 and the native source service. Bind source revisions, mapping digest, scope, toolchain, artifact/image identities, exclusions and rollback contract, refusing missing or stale mandatory evidence."
+do_4 = "Update future native task targets and current layout documentation to the qualified mapping while retaining source-baseline history. Gate task 0.1 on this receipt and current layout generation; reject an attempt to start native implementation before closure or to roll back layout after new work without preserving that work."
+reqs = ["15.1", "15.2", "15.3", "15.4", "15.5", "15.6", "15.7", "15.8", "14.4"]
+owner = "repository-layout"
+cases = ["SCM-025"]
+
+[task.0.1]
+title = "Version the native source contract and compatibility boundary"
+status = "pending"
+wave = 0
+requires = ["0.9"]
+touches = ["core/control-plane/src/source_control/contracts.ts", "sdk/source-control/package.json", "sdk/source-control/src/contracts.ts", "sdk/source-control/src/index.ts", "tests/hyperfide/cases/source_control/0_1.py", "spec/hyperfide-source-control/decisions.md"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_1.py"
+do_1 = "Implement versioned request/response/error envelopes and explicit SourceRevision, TreeId, ChangeId, WorkspaceId, OperationId, authority generation and GitIdentity types; encode their repository/security-domain scopes and canonical bytes without collapsing legacy raw hashes into native identities."
+do_2 = "Expose the shared contract through the source client package and exercise real server/client codec interoperability, capability/version negotiation and lossless supported path/type/mode fields; reject unknown versions and ambiguous identities."
+do_3 = "Specify complete consumer-visible lifecycle states, pagination, operation replay, source scope and no-local-repository use. Freeze contract vectors and compatibility policy in the tracked schema and decision record."
+do_4 = "Create the task driver to execute the actual codecs and consumer imports, with supported round trips and negative version/identity/path/state cases. It must not assert deployment, source durability or fleet scale from schema validity."
+reqs = ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "14.1", "14.4"]
+owner = "contracts"
+cases = ["SCM-001"]
+
+[task.0.2]
+title = "Add native-source qualification profiles and evidence capture"
+status = "pending"
+wave = 0
+requires = ["0.1"]
+touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/manifest.schema.json", "tests/hyperfide/check-evidence.py", "tests/hyperfide/source-control/registry.json", "tests/hyperfide/source-control/manifests/", "tests/hyperfide/source-control/registrations/", "tests/hyperfide/cases/source_control/0_2.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/0_2.py"
+do_1 = "Version the qualification registry and manifest schema to admit the SCM-NNN namespace alongside legacy V-NNN cases without changing their original meaning or breaking old registrations. Keep feature/task namespaces separate when task numbers overlap."
+do_2 = "Add native source capture to the evidence path: exact revision/root manifest, authority epoch, source scope, toolchain/environment, test inventory, policy version, object readiness, command exit and complete evidence object references. Preserve legacy Git evidence readers."
+do_3 = "Register the canonical source-control cases and workload profiles from verification.md as future cases with explicit prerequisites and missing-environment diagnostics; absence of a real backend or required live fleet must remain UNRUN or blocked rather than pass."
+do_4 = "Implement and run a driver against the actual registry, evidence loader and schema validation for valid legacy/native records, mixed source identity refusal, missing/forged receipts, unsupported versions and case registration collisions. Preserve original assertion inventories and checker boundaries."
+reqs = ["14.1", "14.3", "14.4"]
+owner = "qualification"
+cases = ["SCM-024"]
+
+[task.1.1]
+title = "Build the immutable S3 object and persistent-tree vertical slice"
+status = "pending"
+wave = 1
+requires = ["0.1", "0.2"]
+touches = ["core/control-plane/src/source_control/objects.ts", "core/control-plane/src/source_control/trees.ts", "core/control-plane/src/source_control/s3.ts", "core/control-plane/src/source_control/storage_contract.ts", "core/control-plane/src/source_control/object_catalog.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/migrations/*-source-control-storage.sql", "tests/hyperfide/cases/source_control/1_1.py", "tests/hyperfide/cases/source_control/fixtures/objects/**"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/1_1.py"
+do_1 = "Implement the frozen type-separated canonical codecs and golden vectors for blobs/chunks/file descriptors, bounded radix tree nodes and empty roots. Exercise exact bytes/mode/symlink metadata, deterministic split/merge behaviour, unsupported paths, binary/large-file descriptors and malformed input rejection through the real storage interface."
+do_2 = "Create the minimal native object catalog, placement incarnation, upload-session, direct-child reservation and routing interfaces needed by the object service; allocate a free migration sequence during preflight. Keep logical object identity separate from physical S3 placement and legacy OIDs, and expose a real registered put/read/inspect consumer used by the case driver."
+do_3 = "Implement conditional immutable uploads, multipart tracking, streaming digest/length/type verification and idempotent reconciliation against the selected S3 backend. Persist upload/verification outcomes outside long metadata transactions; conflicting bytes, incomplete parts, lost PUT responses and backend UNKNOWN outcomes must prevent false revision readiness."
+do_4 = "Verify new tree closure inductively using direct-child protection receipts, including cross-owner reservations that remain protective after unknown parent outcomes. Update a fixed small change set inside increasing tree/directory fixtures and assert object/node work is bounded by affected paths rather than full-tree serialization."
+do_5 = "1_1.py runs the real service/object catalog and codec paths, records backend identity and separately labels deterministic backend-fault cases and an actual S3 integration result. Assert independent reads reconstruct the exact pinned files without checkout, bucket LIST, Git invocation or native packs; do not represent a skipped live backend as PASS."
+reqs = ["1.3", "1.4", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "3.1", "3.2", "3.3", "11.4"]
+owner = "source-storage"
+cases = ["SCM-001", "SCM-002"]
+
+[task.1.2]
+title = "Durable revision metadata, scoped idempotency and source outbox"
+wave = 1
+requires = ["1.1"]
+touches = ["core/control-plane/src/source_control/metadata.ts", "core/control-plane/src/source_control/revisions.ts", "core/control-plane/src/source_control/operations.ts", "core/control-plane/src/source_control/events.ts", "core/control-plane/migrations/0718-source-control-metadata.sql", "core/control-plane/src/storage/schema.ts", "tests/hyperfide/cases/source_control/1_2.py"]
+do_1 = "Add versioned metadata tables for immutable revisions, change membership/predecessor divergence, operation requests/results, pending source deliveries and explicit retained roots. Register migration 0718 after checking the implementation baseline for number conflicts; all authoritative keys include organization/repository and applicable security domain."
+do_2 = "Implement source registration from a verified tree root/explicit parents and generation-bound source capability, with scoped idempotency uniqueness and canonical request digest; reference/root pins and available object incarnations must be validated atomically with registration according to storage.md."
+do_3 = "Separate immutable revision creation from optional preferred-change references and acceptance domain state. Expose concurrent revisions as divergence and preserve earlier objects; revision creation must not acquire an existing run-wide assurance/advisory lock or increment a repository-wide counter."
+do_4 = "Persist the committed result and source outbox in the same transaction. Implement pending delivery claims, durable acknowledgments and per-aggregate/inbox deduplication without relying on insertion-sequence order; bootstrap binds an authorized immutable source manifest and replay boundary."
+do_5 = "Implement operation lookup and cancellation dispositions for lost responses, COMMIT_AMBIGUOUS, completed replay after compute-lease release and reassigned incomplete work. Retained read capability can retrieve a previous receipt but cannot revive stale mutation authority."
+do_6 = "Create the future 1_2.py driver using real metadata transactions and object service: race identical/different idempotent requests, concurrent same-change successors, stale generations, upload/registration/GC interleavings, and event transaction A committing after B. Assert one effect per request and no lost pending delivery."
+reqs = ["1.4", "4.1", "4.2", "4.5", "5.3", "5.4", "5.5", "7.1"]
+owner = "source-protocol"
+status = "pending"
+verify_cmd = "python3 tests/hyperfide/cases/source_control/1_2.py"
+cases = ["SCM-002", "SCM-003", "SCM-007"]
+
+[task.1.3]
+title = "Enforce source capabilities across transfer, caches and metadata consumers"
+status = "pending"
+wave = 1
+requires = ["1.1", "1.2"]
+touches = ["core/control-plane/src/source_control/capabilities.ts", "core/control-plane/src/source_control/transfer_grants.ts", "core/control-plane/src/source_control/audit.ts", "core/control-plane/src/source_control/storage_contract.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/src/transport/protocol.ts", "core/control-plane/migrations/*-source-control-capabilities.sql", "tests/hyperfide/cases/source_control/1_3.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/1_3.py"
+do_1 = "Add explicit source principal/action/scope capabilities carrying security domain, repository, policy version, authority epoch and service-clock expiry, and managed task/workspace generations where applicable. Adapt the existing authenticated invocation seam and provide equivalent scoped entry for human/import/automation operations without inventing tasks."
+do_2 = "Issue bounded object/incarnation/method transfer grants only after authorized source resolution and readiness/pin acquisition; qualify trusted endpoint handling and expiry/revocation behaviour. Keep durable S3 credentials and signed transfer URLs outside source objects, public metadata, prompts and ordinary audit bodies."
+do_3 = "Apply a reusable authorization decision to listings/content/history/search/event/cache lookup and dedup results; key caches by permitted security domain, snapshot and scope. Define explicit denied/partial responses and negative fixtures proving object guessing or a warm cache does not reveal another scope's source or existence."
+do_4 = "Define public provenance/export metadata and private fleet context as separate typed schemas with an explicit public allowlist, and implement bounded audit records carrying request/source/generation/result identities. Check stale attempt, revoked credential, changed request digest and cross-domain receipt attempts against real transaction boundaries."
+do_5 = "1_3.py exercises registered service actions, actual authorization/pin decisions and signed-grant validation, including revoked credentials with cached bytes, method/key tampering, malicious paths/symlinks and expired epochs. Record the residual validity of an already issued grant separately from immediate server mutation revocation."
+reqs = ["3.3", "11.1", "11.2", "11.3", "11.4", "11.5", "11.6"]
+owner = "source-security"
+cases = ["SCM-004", "SCM-013"]
+
+[task.2.1]
+title = "Online revision, history and query API vertical slice"
+wave = 2
+requires = ["1.2", "1.3"]
+touches = ["core/control-plane/src/source_control/api.ts", "core/control-plane/src/source_control/queries.ts", "core/control-plane/src/source_control/cursors.ts", "core/control-plane/src/source_control/operations.ts", "core/control-plane/src/source_control/events.ts", "core/control-plane/src/transport/protocol.ts", "core/control-plane/src/components/registry.ts", "tests/hyperfide/cases/source_control/2_1.py"]
+do_1 = "Expose the proposed /api/v1/source-control contract through authenticated service registration: capability discovery, object/tree access, upload completion, native revision creation/read, changes, operation lookup/cancel and subscriptions. Keep managed task bindings optional for source-only actors while enforcing repository capabilities."
+do_2 = "Implement pinned ancestry/merge-base/history/diff/blame/line-map queries with deterministic bounded pagination, binary/encoding semantics, redacted or incomplete coverage and cancellation/continuation. Build reusable ancestry/index workers without a mandatory local history clone or checkout."
+do_3 = "Apply exact schema, payload and result limits, opaque authenticated query cursors, per-action stable errors and typed SDK contracts. Batch object/metadata reads with per-item authorization and expose index freshness rather than treating index omission as absence."
+do_4 = "Route causal dependent reads using the receipt and metadata/object profile; implement changed-epoch rejection and bounded writer fallback. Apply separate upload/query/event/acceptance admission classes so a broad blame or slow consumer cannot starve mutations."
+do_5 = "Create future 2_1.py with a real source service and transactional metadata, making source operations from an API-only client without .git or a checkout. Cover altered cursor scope, access denial without existence leaks, stale replica/epoch, cancellation, late event commit and paginated directory/history correctness."
+reqs = ["1.1", "1.2", "1.8", "4.2", "4.5", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "7.1"]
+owner = "source-api"
+status = "pending"
+verify_cmd = "python3 tests/hyperfide/cases/source_control/2_1.py"
+cases = ["SCM-003", "SCM-006", "SCM-007"]
+
+[task.2.2]
+title = "Materialize pinned source scopes with immutable host cache and durable capture"
+status = "pending"
+wave = 2
+requires = ["2.1"]
+touches = ["core/host-daemon/src/source-control/client.ts", "core/host-daemon/src/source-control/materializer.ts", "core/host-daemon/src/source-control/cache.ts", "core/host-daemon/src/source-control/journal.ts", "core/host-daemon/src/source-control/checkpoint.ts", "plugins/environment-slices/contract.ts", "plugins/environment-slices/provider.ts", "plugins/environment-slices/host.ts", "tests/hyperfide/cases/source_control/2_2.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/2_2.py"
+do_1 = "Implement online workspace open/detail and manifest traversal by native repository/revision IDs without copying .codegraph/objects, running Git or enumerating the bucket; return separate admission and filesystem readiness receipts with scope and closure identities."
+do_2 = "Implement bounded domain-scoped object caching, digest/length verification, atomic cache admission, safe path installation and private writable copies or copy-on-write overlays; pin in-use objects and protect dirty bytes under cache pressure."
+do_3 = "Implement explicit sparse and selected materialized modes with native file types/modes and safe symlink handling, exact-name compatibility checks, generation-checked scope widening and separately authorized read/write scopes; maintain explicit delete records rather than inferring deletion from absent files."
+do_4 = "Implement dirty-path journaling, atomic-save handling and watcher-overflow reconciliation limited to installed scope; freeze or stage a stable overlay generation, upload its missing objects and resolve checkpoint acknowledgment by idempotent operation identity."
+do_5 = "Implement 2_2.py against the real source API and host modules: create two writable workspaces sharing cache, round-trip executable/symlink and mode transitions, prove cached data cannot be mutated through an alias, and prove omitted sparse paths survive checkpoint."
+do_6 = "The case SHALL interrupt and corrupt downloads, race an edit with checkpoint, overflow the watcher journal, revoke scope and lose a checkpoint response; assert typed failures, retained dirty bytes, safe replay, exact snapshot contents and bounded traversal as unrelated source grows."
+reqs = ["1.5", "6.1", "6.2", "6.3", "6.4", "6.5"]
+owner = "workspaces"
+cases = ["SCM-010"]
+
+[task.2.3]
+title = "Connect durable source roots to race-safe incremental collection"
+status = "pending"
+wave = 2
+requires = ["1.1", "1.2", "1.3"]
+touches = ["core/control-plane/src/source_control/gc.ts", "core/control-plane/src/source_control/pins.ts", "core/control-plane/src/source_control/object_catalog.ts", "core/control-plane/src/source_control/retention.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/migrations/*-source-control-retention.sql", "tests/hyperfide/cases/source_control/2_3.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/2_3.py"
+do_1 = "Implement durable root and direct-child pin ledgers covering native revisions/history, active uploads/workspaces, custody/candidates/evidence, import/export operations, backup horizons and holds. Make root acquisition and object lifecycle transitions share the generation fence; indexed counts may accelerate discovery but cannot alone authorize deletion."
+do_2 = "Add bounded partition work queues with quarantine/rescue and DELETE_PENDING states, current policy binding and idempotent per-incarnation deletion intents. Perform S3 deletion outside SQL transactions, reconcile lost responses, preserve unknown cleanup as debt and release outgoing child pins only after verified parent absence."
+do_3 = "Implement cross-owner reservation adoption/release reconciliation using durable parent outcomes, preserving pins on unknown outcomes. Re-upload reclaimed content into a new physical incarnation; stale collector retries must remain bound to the old key even when the native digest is identical."
+do_4 = "Expose collection inspect/debt/rescue results through the registered service and bind read/export grant lifetime to pin retention. Reject backend lifecycle policies that can independently expire retained source, and preserve object versions needed by the declared backup horizon."
+do_5 = "2_3.py runs real catalog/collector/pin paths with controlled scheduling of reference-versus-quarantine, delayed deletion versus re-upload, read-grant expiry, parent crash and partial cross-shard reservation cases. Assert live source remains readable, leaks are explicit debt, cleanup converges after safe release and no bucket-wide scan is required for a bounded pass."
+reqs = ["3.4", "3.5", "3.6", "11.3", "11.6"]
+owner = "source-retention"
+cases = ["SCM-005"]
+
+[task.3.1]
+title = "Object-level merge, rebase and revert with typed conflicts"
+wave = 3
+requires = ["2.1"]
+touches = ["core/control-plane/src/source_control/merge.ts", "core/control-plane/src/source_control/rebase.ts", "core/control-plane/src/source_control/revert.ts", "core/control-plane/src/source_control/conflicts.ts", "core/control-plane/src/source_control/api.ts", "tests/hyperfide/cases/source_control/3_1.py"]
+do_1 = "Implement server-side tree identity comparison and deterministic three-way merge over retained object reads, reusing identical subtrees and bounded radix/directory paths; record algorithm and multiple-merge-base strategy and never materialize a whole repository to calculate a merge."
+do_2 = "Return typed immutable conflicts for text/binary add/add, modify/delete, directory/file, symlink and executable-mode cases. Make rename/copy detection explicitly bounded and report unperformed/unknown detection rather than assuming absent renames. Store large sides as authorized content references."
+do_3 = "Implement rebase of a pinned revision/ordered stack onto a pinned base, persisting operation continuations and original-to-successor mapping under the stable change identity. Retain original descendants/dependencies until explicitly updated and expose partial stacks on conflict."
+do_4 = "Implement revert onto a pinned target with explicit parent/mainline selection for merge revisions. Conflict resolutions create new revisions and fresh evidence obligations; no transformation marks a source result semantically correct or inherits checks from the old tree."
+do_5 = "Create future 3_1.py running real object/metadata services and the production transformation engine: deterministic replay, divergent ancestry/multiple bases, all entry/conflict types, large untouched subtrees, cancellation/resume and revert-of-merge input rejection. Assert visited-object metrics for a fixed patch as untouched tree size grows."
+reqs = ["4.3", "4.4", "4.6", "5.1", "5.3", "5.6", "7.4"]
+owner = "source-transformations"
+status = "pending"
+verify_cmd = "python3 tests/hyperfide/cases/source_control/3_1.py"
+cases = ["SCM-008"]
+
+[task.3.2]
+title = "Serve demand-driven virtual workspaces with explicit host capabilities"
+status = "pending"
+wave = 3
+requires = ["2.2"]
+touches = ["core/host-daemon/src/source-control/virtual-filesystem.ts", "core/host-daemon/src/source-control/capabilities.ts", "core/host-daemon/src/source-control/materializer.ts", "core/host-daemon/src/source-control/journal.ts", "plugins/environment-slices/contract.ts", "plugins/environment-slices/host.ts", "tests/hyperfide/cases/source_control/3_2.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/3_2.py"
+do_1 = "Select and pin the initial virtual adapter through the implementation profile and register its actual host/kernel requirements; add capability discovery and explicit fallback negotiation rather than reporting an unsupported mount as ready."
+do_2 = "Implement paginated directory metadata, snapshot/overlay lookup, demand reads, coalesced hydration and bounded prefetch with stable base bytes for open handles; never hydrate unrelated subtrees to satisfy mount admission."
+do_3 = "Implement declared rename, truncate, atomic-save, symlink, executable, mmap and file-lock semantics or explicit unsupported errors, preserving dirty data across cancellation and network loss; no failed fetch may become a successful empty read."
+do_4 = "Reconcile mount/daemon restart and journal state against workspace generation before readiness, and refuse writes or checkpoint under an expired attempt while leaving the last acknowledged source intact."
+do_5 = "Implement 3_2.py using the real selected filesystem adapter and representative compiler/editor operations; measure objects/bytes fetched before and after first read and assert pinned contents while upstream acceptance advances."
+do_6 = "Exercise unavailable object/network, canceled hydration, permission expiry, case collision, dirty-cache pressure and daemon restart; assert exact I/O diagnostics, no cache corruption and explicit sparse fallback. An adapter mock cannot qualify this case."
+reqs = ["1.5", "6.1", "6.2", "6.3", "6.4", "6.6"]
+owner = "workspaces"
+cases = ["SCM-011"]
+
+[task.3.3]
+title = "Pin graph and context to native revisions with incremental cross-project invalidation"
+status = "pending"
+wave = 3
+requires = ["2.2"]
+touches = ["core/control-plane/src/graph/extraction.ts", "core/control-plane/src/graph/ingestion.ts", "core/control-plane/src/graph/publication.ts", "core/control-plane/src/graph/query.ts", "core/control-plane/src/source_control/graph-adapter.ts", "plugins/hyperfide-graph/contract.ts", "plugins/hyperfide-graph/host.ts", "plugins/hyperfide-graph/server.ts", "tests/hyperfide/cases/source_control/3_3.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/3_3.py"
+do_1 = "Version graph source identity to admit native repository/revision/tree IDs and immutable overlay identity without coercing sha256-prefixed IDs into raw Git hashes; retain imported Git provenance as a separate field."
+do_2 = "Expose source-pinned graph/context queries over the source service with parser/schema/resolver/configuration versions, coverage/freshness and bounded pagination; remove local checkout as a requirement for remote survey/context."
+do_3 = "Cache extraction by immutable content plus language/build/path context, reuse unchanged facts and invalidate changed interfaces/imports/generated inputs plus affected cross-project consumers; stage new generations without displacing a complete published graph prematurely."
+do_4 = "Preserve authorization on snippets, references and derived graph artifacts and independent graph admission budgets; return incomplete/degraded coverage explicitly so it cannot silently narrow qualification."
+do_5 = "Implement 3_3.py using real extraction, ingestion, publication and query paths over a multi-project source snapshot; assert exact source mismatch refusal, stale overlay isolation, cross-project consumer invalidation and unchanged-fact reuse."
+do_6 = "Interrupt extraction/publication, deny one source region and grow unrelated subtrees; prove the old complete generation survives, private edges do not leak, pagination stays bounded and graph work does not starve source authority traffic."
+reqs = ["8.4", "13.3", "13.4"]
+owner = "graph"
+cases = ["SCM-012"]
+
+[task.4.1]
+title = "Native candidate qualification and atomic domain acceptance"
+wave = 4
+requires = ["3.1", "3.3"]
+touches = ["core/control-plane/src/source_control/candidates.ts", "core/control-plane/src/source_control/acceptance.ts", "core/control-plane/src/source_control/evidence.ts", "core/control-plane/src/integration/queue.ts", "core/control-plane/src/integration/candidates.ts", "core/control-plane/src/assurance/submission.ts", "core/control-plane/src/assurance/validity.ts", "core/control-plane/migrations/0719-source-control-acceptance.sql", "tests/hyperfide/cases/source_control/4_1.py"]
+do_1 = "Create immutable candidate/contributor/input manifests for native root/revision IDs and versioned source bindings in assurance submission/validity. Preserve existing current custody, spec/policy/checker and disposition semantics while isolating native candidates from Git-backed legacy ones."
+do_2 = "Implement bounded fair candidate scheduling and optional speculative batches outside metadata transactions, with exact contributor order, explicit dependency versions, transformation version, captured source/config/toolchain/graph coverage and current custody references."
+do_3 = "Implement the initial same-authority PostgreSQL acceptance transaction with expected-domain CAS, current assurance/revocation verification, object/root retention pins, immutable acceptance receipt, idempotent result and source outbox. Document migration 0719 collision handling; no network upload, merge worker, build/test or Git call may hold the domain transaction open."
+do_4 = "Return changed-state conflicts when trunk advances, invalidate applicability on source/policy/custody changes and require a new candidate. Evidence reuse requires a qualified completeness/applicability verifier; path disjointness alone never waives checks. Batch isolation generates new candidate receipts and preserves original proposals."
+do_5 = "Expose separate native-created, candidate-qualified, native-accepted and remote-publication projections and acceptance receipts for Hyperfide. Source-only acceptance cannot mark a task done; define one explicit domain ordering point and no implicit cross-domain latest snapshot."
+do_6 = "Create future 4_1.py using the real candidate engine, metadata and assurance modules: race two candidates at one generation, policy/custody revocation versus acceptance, lost acknowledgment, changed tree receipt, malformed contributor set, GC race, batch isolation and hot-domain fairness. Verify no accepted tree lacks exact current evidence or retained content."
+reqs = ["4.5", "5.3", "5.4", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6"]
+owner = "source-integration"
+status = "pending"
+verify_cmd = "python3 tests/hyperfide/cases/source_control/4_1.py"
+cases = ["SCM-009"]
+
+[task.4.2]
+title = "Run Hyperfide fleet attempts and qualification through native source custody"
+status = "pending"
+wave = 4
+requires = ["4.1", "3.2"]
+touches = ["core/host-daemon/src/fleet-worker.ts", "contracts/host-daemon/src/workspace.ts", "plugins/environment-slices/server.ts", "plugins/environment-slices/contract.ts", "plugins/hyperfide-dispatch/src/dispatcher/contracts.ts", "plugins/hyperfide-dispatch/src/dispatcher/runners.ts", "plugins/hyperfide-dispatch/src/dispatcher/dispatcher.ts", "plugins/hyperfide-dispatch/src/integrate/queue.ts", "plugins/hyperfide-qualify/adapter.ts", "plugins/hyperfide-qualify/receipts.ts", "core/control-plane/src/source_control/fleet-adapter.ts", "tests/hyperfide/cases/source_control/4_2.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/4_2.py"
+do_1 = "Replace native-mode bundle/tip/check-out assumptions with versioned assignment descriptors carrying source/scope/closure/environment identities and current task/attempt/workspace generations; preserve explicit compatibility routing for still-legacy environments."
+do_2 = "Bind server-enforced source capabilities to current Hyperfide authority, fence stale workers at mutation/submission and support taskless principals; manager and integration operations SHALL request APIs or scoped workspaces without mandatory full source trees."
+do_3 = "Transfer immutable submitted revisions and retention roots into coordinator-owned custody before releasing worker compute; retain current submission state through worker cleanup or lease expiry and reconcile duplicated/ambiguous result acknowledgment."
+do_4 = "Run native qualification against exact candidate and closure/toolchain manifests, emit native revision receipts and route native merge/acceptance through the durable candidate service; retain Hyperfide policy as the sole task qualification and dependency-release authority."
+do_5 = "Implement 4_2.py through the real dispatch, host, source, qualification and integration adapters: execute a dependent task flow, replace a worker and reject its delayed write, lose submission acknowledgment and retain source after cleanup, with no internal Git invocation."
+do_6 = "Assert that process exit, object upload, checkpoint, source acceptance and remote publication remain distinguishable; exercise source/authority outage and replay without duplicate task completion or acceptance, and demonstrate a manager completing integration without a full checkout."
+reqs = ["1.1", "1.7", "1.8", "6.5", "8.1", "8.2", "8.3", "8.5", "8.6"]
+owner = "fleet"
+cases = ["SCM-004", "SCM-014"]
+
+[task.4.3]
+title = "Ship source API clients and native workspace-to-publication product journeys"
+status = "pending"
+wave = 4
+requires = ["4.2"]
+touches = ["core/native/src/main.c", "sdk/source-control/package.json", "sdk/source-control/src/client.ts", "sdk/source-control/src/contracts.ts", "pnpm-lock.yaml", "apps/cli/src/source-control.ts", "apps/cli/src/index.ts", "tools/bundled-plugins/package.json", "tools/bundled-plugins/build.ts", "plugins/hyperfide-source-control/package.json", "plugins/hyperfide-source-control/contract.ts", "plugins/hyperfide-source-control/server.ts", "plugins/hyperfide-source-control/app.tsx", "plugins/hyperfide-source-control/views/workspace-detail.tsx", "plugins/hyperfide-source-control/views/change-detail.tsx", "plugins/hyperfide-source-control/views/publication-status.tsx", "core/host-daemon/src/source-control/metrics.ts", "tests/hyperfide/cases/source_control/4_3.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/4_3.py"
+do_1 = "Freeze proposed source verb names in the versioned contract and expose one shared TypeScript client with authentication, typed errors, resumable operation lookup, pagination, cancellation and idempotent mutations; route the hyperfide front door and API-only automation through that contract without repository discovery."
+do_2 = "Register native source product views using existing app headers/forms/navigation and human-readable project/task/revision pickers; implement open/readiness, checkpoint, submit/conflict/qualification/acceptance, transfer and independent remote-publication status with paginated large data."
+do_3 = "Display durable receipts, exact source identity and freshness in detail controls while preserving dirty/uploading/acknowledged/submitted/accepted/export states; reconnect and repeated UI actions SHALL reconcile operation outcomes rather than manufacture success."
+do_4 = "Instrument bounded operation/mode/status/partition metrics for logical opens, materialization bytes/files, cache hit/eviction/dirty pressure, transfer queues, graph work, checkpoint latency, integration retries and remote lag; reserve heartbeat/cancellation capacity and return typed limiting-budget diagnostics."
+do_5 = "Implement 4_3.py through real API/SDK/CLI adapters and browser journeys at desktop, tablet and mobile sizes; record screenshots and receipts for open, checkpoint, conflict, retry, transfer and publication inspection, with a taskless metadata query performed without checkout."
+do_6 = "Exercise incomplete dependency closure, unavailable virtualization, stale ownership, oversized paginated diff/history and reconnect after an ambiguous action; verify actionable messages, no unauthorized source disclosure, bounded metric label cardinality and no local edit reported as durable history."
+reqs = ["13.1", "13.2", "13.3", "13.4", "13.5", "8.5", "8.6"]
+owner = "surfaces"
+cases = ["SCM-014"]
+
+[task.5.1]
+title = "Publish accepted native changes through bounded Git remote adapters"
+status = "pending"
+wave = 5
+requires = ["4.1", "4.2"]
+touches = ["core/control-plane/src/source_control/git/objects.ts", "core/control-plane/src/source_control/git/export.ts", "core/control-plane/src/source_control/git/transport.ts", "core/control-plane/src/source_control/git/github.ts", "core/control-plane/src/source_control/git/gitlab.ts", "core/control-plane/src/integration/publication.ts", "core/control-plane/src/integration/github.ts", "plugins/hyperfide-qualify/publication.ts", "plugins/github/wave-publication.ts", "tests/hyperfide/cases/source_control/5_1.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/5_1.py"
+do_1 = "Implement a bounded native-to-Git object encoder with explicit Git format namespace, byte/mode/path handling, ordered parent mapping and persisted public metadata. Generate identical Git IDs on retry and reuse unchanged projected trees; never create a full worktree/clone or require native pack storage."
+do_2 = "Implement durable export intent/checkpoint/mapping and one unresolved mutation per destination/ref, retaining current qualification/authorization bindings and source roots. Replace the platform publisher local-bare/worktree assumption behind a versioned native export interface while keeping historical receipts readable."
+do_3 = "Implement GitHub and GitLab transport capability boundaries, destination identity/protection observation, exact expected-old ref update, bounded transient pack streaming, restricted credential custody and remote readback. Remote divergence and unsupported capability remain explicit; cancellation after dispatch enters reconciliation."
+do_4 = "Persist and reconcile response loss, remote acceptance followed by server crash, old-head observations with in-flight transport, stale export generations and credential cleanup debt. Keep native accepted state independent from remote published/PR state; never retry an uncertain effect under a new intent."
+do_5 = "Create the future focused driver using actual native object conversion, Git parsing/protocol behavior and persistent source-service state. Assert deterministic bytes/parents/modes, denied private metadata/source, large streaming bounds, remote rejection/divergence and injected response loss. Record hosted GitHub/GitLab qualification as UNRUN until actual disposable destinations execute in the later campaign; no mocked transport result proves hosted support."
+reqs = ["1.6", "9.1", "9.2", "9.3", "9.5", "9.6", "9.7"]
+owner = "remote"
+cases = ["SCM-015"]
+
+[task.5.2]
+title = "Version project projections and import external source provenance"
+status = "pending"
+wave = 5
+requires = ["5.1"]
+touches = ["core/control-plane/src/source_control/git/projection.ts", "core/control-plane/src/source_control/git/import.ts", "core/control-plane/src/source_control/git/provenance.ts", "core/control-plane/src/source_control/git/export.ts", "core/control-plane/src/preparation/object_store.ts", "core/control-plane/src/assurance/submission.ts", "tests/hyperfide/cases/source_control/5_2.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/5_2.py"
+do_1 = "Implement immutable projection policy versions for project root/path mapping, explicit outside-project dependencies, grouping and public metadata. Map original/native/projected identities separately; use recorded no-visible-change and ordered merge-parent collapse policies rather than deriving public ancestry from excluded native parents."
+do_2 = "Implement annotated release/tag conversion and replay using exact target mapping, tagger/time/message and explicit signing policy. Report missing or unsupported encodings, entry types, gitlinks, LFS payloads and signatures without silent conversion; preserve original Git object provenance in authorized archives."
+do_3 = "Implement streaming, resumable import for selected reachable Git history and legacy source maps with quarantined objects, fixed native base, ordered parents and independent import budgets. Preserve exact source identity, target paths and author/signature observations; metrics separate historical ingestion from new authored revisions."
+do_4 = "Implement optional PR/MR intake that pins provider source identity and commit, creates an idempotent native proposal and routes it through existing scope/qualification/acceptance. Disable hooks, filters and implicit submodule execution; a changed remote contribution becomes a new revision rather than overwriting accepted history."
+do_5 = "Create the future focused driver with actual Git histories and native source services covering two independent repositories sharing bytes, empty filtered commits, merges collapsing to one/two parents, annotated tags, executable/symlink modes, policy version changes, unsupported names and repeat/resumed imports. Assert source maps and dependency/access failures; no history conversion claims that imported commits were new fleet work."
+reqs = ["9.2", "9.3", "9.4", "9.7", "9.8", "10.1", "10.2", "10.3"]
+owner = "remote"
+cases = ["SCM-016"]
+
+[task.5.3]
+title = "Consolidate projects and cut over to one native source authority"
+status = "pending"
+wave = 5
+requires = ["5.2", "4.3"]
+touches = ["core/control-plane/src/source_control/migration/inventory.ts", "core/control-plane/src/source_control/migration/consolidation.ts", "core/control-plane/src/source_control/migration/parity.ts", "core/control-plane/src/source_control/migration/cutover.ts", "core/control-plane/src/migration/cutover.ts", "core/control-plane/src/migration/parity.ts", "core/control-plane/src/assurance/submission.ts", "core/control-plane/src/assurance/validity.ts", "core/control-plane/src/preparation/object_store.ts", "spec/workflow.kvx", "docs/hyperfide/source-control-migration.md", "tests/hyperfide/cases/source_control/5_3.py"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/5_3.py"
+do_1 = "Inventory source writers, source/evidence schemas, active dirty work/custody, selected history and external publication effects. Implement a versioned consolidation manifest, bounded project subtree composition and collision diagnostics; retain stable original-to-native provenance without assuming project roots fit a physical shard."
+do_2 = "Implement read-only shadow parity with complete selected source-content/type/mode checks and ancestry/access/evidence comparisons. Execute a pilot through actual Hyperfide assignment, scoped materialization, checkpoint, qualification, native acceptance and queued remote export under separate ingestion/live-operation budgets."
+do_3 = "Implement quiesce/drain, independently verified legacy writer isolation, final delta import, parity receipt, idempotent epoch-fenced activation and route switching. Unknown legacy writers or unresolved issued pushes block cutover; permit only one authoritative writer before and after transition."
+do_4 = "Version source bindings through graph, qualification, findings, publication and retained historical receipts. Prepare explicit workflow/source-mode transition naming only superseded v21 source engine/local-only and v22 Git worktree mechanics; activation is a later authorized operation, never performed by drafting or schema installation."
+do_5 = "Implement abort-before-writes proof and post-write forward recovery that preserves every acknowledged native revision, checkpoint, source map and remote effect. Restored metadata uses a fresh authority epoch and reconciles external outcomes before admission; prohibit reopening stale legacy writers."
+do_6 = "Create the future focused driver exercising actual source services and at least two real input histories, interruption/resume, collision rejection, dirty workspace preservation, denied stale writers, complete selected tree parity and crashes before/after each activation boundary. Verify recovery after an acknowledged native write; persist explicit UNRUN for actual deployment migration until separately executed."
+reqs = ["10.1", "10.2", "10.3", "10.4", "10.5", "10.6", "10.7", "10.8", "14.4"]
+owner = "migration"
+cases = ["SCM-017"]
+
+[task.6.1]
+title = "Qualify source durability, authority failover and complete restore"
+status = "pending"
+wave = 6
+requires = ["4.1", "4.2", "5.1", "5.3", "2.3"]
+touches = ["core/control-plane/src/source_control/recovery.ts", "core/control-plane/src/source_control/backup.ts", "core/control-plane/src/source_control/routing.ts", "core/control-plane/src/source_control/registration.ts", "deploy/hyperfide/source-control/recovery-profile.schema.json", "tests/hyperfide/cases/source_control/6_1.py", "docs/hyperfide/source-control-recovery.md"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/6_1.py"
+do_1 = "Define and validate a deployment durability profile naming metadata failure domain, required object placements, backup retention, RPO/RTO and tested backend capabilities. Reject readiness for absent mandatory profile inputs; do not infer cross-region replication or failover fencing from endpoint syntax."
+do_2 = "Implement consistent metadata/root manifests and object retention barriers for backups, restore into a fresh authority epoch, and verify retained source closure before mutation readiness. Fence prior metadata/routing writers and reconcile persisted upload, pin, collection and Git-export intents without replaying completed external effects."
+do_3 = "Exercise worker/API death before upload completion, after verification, after metadata commit and before response, verifying acknowledgment/retry identities and preservation of every acknowledged revision under the declared failure model. Rebalance a live object partition while reads and commits continue and test obsolete-owner rejection."
+do_4 = "Run real metadata failover and restore with live selected object storage, including a deliberately missing referenced object, stale backup credentials, delayed old DELETE and an old writer attempting acceptance. The missing-object restore must fail its completeness gate; fresh content incarnations and successor authority must remain safe."
+do_5 = "6_1.py records exact source/profile/backend versions, fault schedule, acknowledged revision inventory, roots/object verification, recovery times and unresolved debt. Distinguish deterministic fault coverage from real infrastructure results; publish a recovery runbook and truthful PASS/FAIL/UNRUN statuses for every declared failure domain."
+reqs = ["2.5", "3.1", "3.2", "3.4", "3.5", "3.6", "11.1", "11.3", "11.6"]
+owner = "source-recovery"
+cases = ["SCM-018", "SCM-019"]
+
+[task.6.2]
+title = "Measure within-monorepo growth, mixed load and real-storage endurance"
+status = "pending"
+wave = 6
+requires = ["6.1", "4.3", "5.3"]
+touches = ["tests/hyperfide/cases/source_control/6_2.py", "tests/hyperfide/source-control/workloads/**", "tests/hyperfide/source-control/manifests/campaigns/**", "tests/hyperfide/source-control/registrations/6.2.json", "core/control-plane/src/source_control/metrics.ts"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/6_2.py"
+do_1 = "Implement seeded corpus and arrival-schedule drivers through the actual native API, separating logical files, unique content, hot directories and history depth; pin unchanged hardware and fixed 10-file/1 MiB edits across 10,000, 1,000,000 and 10,000,000-file corpora and register the SCM-020 component and full variants."
+do_2 = "Implement mixed-load ramps and offered-load measurements for SCM-021: 5,000 active workspace clients, 100 new revision submissions/s for five minutes, the sustained daily target and a separate twenty-million-open admission profile. Record actual persisted revisions, hydrate bytes/cache/storage requests, latency histograms, timeout/refusal samples and independently observed accepted state."
+do_3 = "Implement an explicit approved-campaign variant for SCM-022 using actual S3 and 72 elapsed hours with at least 100,000 new durable revisions per 24 hours. Inject supported throttling, credential rotation, GC and recovery drills; include a separately counted real Hyperfide worker canary and fail BLOCKED on missing required capacity rather than substituting a replay."
+do_4 = "Test negative campaign manifests, zero offered work, imported-history inflation, replay counted as new commits, missing samples, missing real-backend capability, a dirty cache mislabeled cold and logical opens mislabeled materialization. Independently compare client operation ledgers and reachable objects to every acknowledged revision."
+do_5 = "Keep the direct task gate a bounded implemented driver/harness check; full growth, 72-hour and scale variants require the separate registered campaign manifests. Persist exact machine-readable outcomes and cleanup inventory, and do not mark parent SCM-020/021/022 PASS from the bounded gate."
+reqs = ["1.3", "1.4", "12.1", "12.2", "12.3", "12.4", "12.5", "12.6"]
+owner = "source-control-qualification"
+cases = ["SCM-020", "SCM-021", "SCM-022"]
+
+[task.6.3]
+title = "Qualify integrated native source control and independently close evidence"
+status = "pending"
+wave = 6
+requires = ["6.2"]
+touches = ["tests/hyperfide/cases/source_control/6_3.py", "tests/hyperfide/source-control/closure.py", "tests/hyperfide/source-control/manifests/full/**", "tests/hyperfide/source-control/registrations/6.3.json", "tests/hyperfide/source-control/claims.json"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/6_3.py"
+do_1 = "Implement SCM-023 through the actual Hyperfide native environment and CLI/API surfaces: real assignment, sparse edit, source diff, checkpoint, worker replacement, submission custody, conflict repair, exact-candidate qualification, atomic acceptance and external publication observation. Identify source snapshot and provider for every step."
+do_2 = "Implement SCM-024 evidence closure over the feature-local registry and immutable receipts, checking exact requirement-clause/assertion inventories and required backend/provider variants; independently reconstruct source roots, accepted revisions, custody and remote effects without trusting handler success alone."
+do_3 = "Reject unknown/empty case selection, missing drivers, zero assertions, fake exits, fabricated/tampered hashes, missing native input identities, stale receipts, duplicate assertions used to fill gaps, omitted live variants and incomplete cleanup with nonzero status and named unmet obligations."
+do_4 = "Compare all required current SCM cases against the same release-candidate source and policy inputs, recording explicitly justified reuse for unaffected evidence and invalidating affected results. Preserve historical receipts and retain UNRUN/BLOCKED for anything not exercised."
+do_5 = "Keep the focused task gate bounded to the real integration harness and closure failure probes; run the complete real-fleet/backend acceptance variants through their registered manifests. Produce a release qualification packet for task 7.1 without treating source acceptance, a task status or an authoring validator as full product qualification."
+reqs = ["12.1", "12.6", "12.7"]
+owner = "source-control-qualification"
+cases = ["SCM-023", "SCM-024"]
+
+[task.7.1]
+title = "Ship native source documentation and reproducible release artifacts"
+status = "pending"
+wave = 7
+requires = ["6.3"]
+touches = ["docs/hyperfide/source-control.md", "docs/hyperfide/platform.md", "docs/hyperfide/operations.md", "docs/runtime/source-control.md", "README.md", "core/control-plane/package.json", "sdk/source-control/package.json", "tests/hyperfide/cases/source_control/7_1.py", "spec/hyperfide-source-control/spec.kvx"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/7_1.py"
+do_1 = "Document the actual native CLI/API/SDK and user journeys, source scope/materialization modes, graph freshness, compatibility limits, authorization, retention, operator inputs and restore procedures with current evidence links. Mark unqualified profiles explicitly."
+do_2 = "Package the service, host integration, CLI façade, SDK and required native filesystem component as reproducible release artifacts with pinned dependencies, manifests, checksums, supported format/protocol versions and upgrade compatibility. Do not require a source build on every agent host."
+do_3 = "Exercise the packaged artifacts through API-only and materialized client journeys, source acceptance and remote status display. Validate installation and upgrade from the declared legacy profile against the qualified source/evidence adapters."
+do_4 = "Create the task driver to verify artifact identities and executable documented commands against the packaged runtime, reject stale source/evidence references and incomplete release profiles, and run the specification/claim documentation checks. Prepare the changelog and release manifest without treating packaging as full release qualification."
+reqs = ["14.1", "14.2", "14.3", "14.4"]
+owner = "release"
+cases = ["SCM-023"]
+
+[task.7.2]
+title = "Close the native source release with running-system evidence"
+status = "pending"
+wave = 7
+requires = ["7.1"]
+touches = ["tests/hyperfide/cases/source_control/7_2.py", "tests/hyperfide/source-control/manifests/release.json", "docs/hyperfide/source-control.md", "docs/hyperfide/operations.md", "spec/hyperfide-source-control/spec.kvx"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/7_2.py"
+do_1 = "Run the released source-control system with the qualified deployment profile and current source format; demonstrate assignment, sparse/virtual workspace, native durable checkpoint, worker replacement, qualification, acceptance and Git remote publication through Hyperfide."
+do_2 = "Verify all required canonical case assertions and campaign variants against exact release inputs. Retain component evidence separately from live S3, actual fleet, GitHub/GitLab, consolidation, growth and disaster-recovery evidence. Required missing cases must fail closure."
+do_3 = "Exercise a restore or failover and an ambiguous external publication outcome using release artifacts, reconcile source and remote state, and record operator acceptance of the running product journey and supported limitations."
+do_4 = "Create the release driver to validate current evidence/custody/source applicability and operator acceptance, refuse stale or partial receipts, and emit a complete closure report. Only qualified product evidence may move tasks/cases to done/pass; no generated authoring report can substitute."
+reqs = ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "14.1", "14.2", "14.3", "14.4", "14.5"]
+owner = "release"
+cases = ["SCM-023", "SCM-024"]
+
+[case.SCM-001]
+title = "Canonical immutable object and tree identity"
+status = "UNRUN"
+tier = "component"
+reqs = ["2.1", "2.2", "2.3", "2.4", "4.2", "12.1"]
+tasks = ["0.1", "1.1"]
+oracle = "Canonical tree reconstruction and explicit rejection of noncanonical or escaping entries."
+
+[case.SCM-002]
+title = "S3 uploads and durable revision boundaries"
+status = "UNRUN"
+tier = "backend"
+reqs = ["3.1", "3.2", "4.5", "12.1"]
+tasks = ["1.1", "1.2"]
+oracle = "Every acknowledged revision reconstructs from verified durable objects after each supported interrupted write."
+
+[case.SCM-003]
+title = "Idempotent native operations and divergence"
+status = "UNRUN"
+tier = "component"
+reqs = ["4.1", "4.4", "4.5", "5.3", "12.1"]
+tasks = ["1.2", "2.1"]
+oracle = "Request ledgers and immutable histories show one result per identical operation and explicit divergent revisions."
+
+[case.SCM-004]
+title = "Attempt fencing and online authority"
+status = "UNRUN"
+tier = "integration"
+reqs = ["1.1", "8.2", "11.1", "11.3", "11.6", "12.1"]
+tasks = ["1.3", "4.2"]
+oracle = "Obsolete/disconnected attempts cannot mutate or accept source under stale authority."
+
+[case.SCM-005]
+title = "Retention and garbage-collection races"
+status = "UNRUN"
+tier = "backend"
+reqs = ["3.4", "3.5", "11.6", "12.1", "12.7"]
+tasks = ["2.3"]
+oracle = "Independent reachability and object retrieval prove no rooted content is swept during concurrent writes or pinning."
+
+[case.SCM-006]
+title = "API-only history queries and pinned pagination"
+status = "UNRUN"
+tier = "component"
+reqs = ["1.2", "5.1", "5.2", "5.5", "5.6", "12.1", "13.1"]
+tasks = ["2.1"]
+oracle = "Results match immutable reference trees/history without client checkout or substituted index coverage."
+
+[case.SCM-007]
+title = "Committed event replay and resynchronization"
+status = "UNRUN"
+tier = "component"
+reqs = ["5.4", "5.5", "5.6", "12.1"]
+tasks = ["1.2", "2.1"]
+oracle = "Client state converges to every committed effect despite delayed commits and cursor retention gaps."
+
+[case.SCM-008]
+title = "Server merge rebase and revert"
+status = "UNRUN"
+tier = "component"
+reqs = ["4.3", "4.4", "4.6", "7.4", "12.1"]
+tasks = ["3.1"]
+oracle = "Result trees match independent three-way vectors or expose structured conflicts while inputs stay immutable."
+
+[case.SCM-009]
+title = "Atomic acceptance of exactly qualified candidates"
+status = "UNRUN"
+tier = "integration"
+reqs = ["7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "8.5", "12.1"]
+tasks = ["4.1"]
+oracle = "Acceptance history contains only current authorized candidates and exact matching evidence."
+
+[case.SCM-010]
+title = "Sparse materialization and writable-cache isolation"
+status = "UNRUN"
+tier = "integration"
+reqs = ["1.5", "3.3", "6.1", "6.2", "6.3", "6.4", "6.5", "12.1"]
+tasks = ["2.2"]
+oracle = "Manifest-selected files match pinned bytes/types and absent paths do not become deletions."
+
+[case.SCM-011]
+title = "Virtual workspace coherence and bounded cache"
+status = "UNRUN"
+tier = "integration"
+reqs = ["1.5", "6.1", "6.3", "6.4", "6.5", "6.6", "12.1", "13.4"]
+tasks = ["3.2"]
+oracle = "Snapshot-consistent filesystem behavior and change reconciliation preserve dirty data across eviction and outages."
+
+[case.SCM-012]
+title = "Incremental source-pinned graph coverage"
+status = "UNRUN"
+tier = "integration"
+reqs = ["5.2", "7.4", "8.4", "12.1"]
+tasks = ["3.3"]
+oracle = "Graph observations identify exact source/extractor/coverage and detect affected consumers and incomplete generations."
+
+[case.SCM-013]
+title = "Scoped source authorization and export privacy"
+status = "UNRUN"
+tier = "integration"
+reqs = ["9.7", "11.1", "11.2", "11.3", "11.4", "11.5", "12.1"]
+tasks = ["1.3"]
+oracle = "All source/query/cache paths reject unauthorized scope and public projection contains only allowed data."
+
+[case.SCM-014]
+title = "Hyperfide task source custody and taskless clients"
+status = "UNRUN"
+tier = "live-fleet"
+reqs = ["1.7", "1.8", "7.1", "8.1", "8.2", "8.3", "8.5", "8.6", "12.1", "12.6", "13.1", "13.2"]
+tasks = ["4.2", "4.3"]
+oracle = "Actual assignments preserve attempt/source lineage and submitted custody while taskless callers use independent authorization."
+
+[case.SCM-015]
+title = "GitHub and GitLab remote export reconciliation"
+status = "UNRUN"
+tier = "live-remote"
+reqs = ["1.6", "7.6", "9.1", "9.2", "9.3", "9.4", "9.5", "9.6", "9.7", "12.1", "12.6"]
+tasks = ["5.1"]
+oracle = "Independently retrieved remote Git trees/parents match selected native source and ambiguous pushes reconcile."
+
+[case.SCM-016]
+title = "Contribution and history import provenance"
+status = "UNRUN"
+tier = "integration"
+reqs = ["9.8", "10.1", "10.2", "10.3", "10.4", "12.1"]
+tasks = ["5.2"]
+oracle = "Imported proposals preserve tree and ancestry provenance with idempotent replay and separate import counters."
+
+[case.SCM-017]
+title = "Monorepo migration cutover and writable rollback"
+status = "UNRUN"
+tier = "integration"
+reqs = ["10.1", "10.2", "10.3", "10.4", "10.5", "10.6", "10.7", "10.8", "12.1", "14.4"]
+tasks = ["5.3"]
+oracle = "One writer authority survives cutover and rollback reconciles every acknowledged post-cutover revision."
+
+[case.SCM-018]
+title = "Supported service and metadata failure recovery"
+status = "UNRUN"
+tier = "backend"
+reqs = ["3.2", "3.6", "5.5", "11.6", "12.1", "12.7"]
+tasks = ["6.1"]
+oracle = "Independent acknowledgment/acceptance histories survive the declared faults and stale epochs remain fenced."
+
+[case.SCM-019]
+title = "Backup restore and external-effect reconciliation"
+status = "UNRUN"
+tier = "backend"
+reqs = ["3.4", "3.5", "3.6", "10.7", "11.6", "12.1", "12.7"]
+tasks = ["6.1"]
+oracle = "All required reachable objects and configured recovery points reconcile before fresh authority reopens writes."
+
+[case.SCM-020]
+title = "Growth invariance and within-repository sharding"
+status = "UNRUN"
+tier = "scale"
+reqs = ["1.3", "1.4", "2.2", "2.4", "2.5", "2.6", "4.2", "5.6", "8.4", "12.1", "12.4", "12.5"]
+tasks = ["6.2"]
+oracle = "Fixed-change latency/work measurements meet declared growth budgets without unrelated full-tree enumeration."
+
+[case.SCM-021]
+title = "Concurrent mixed-load and admission profiles"
+status = "UNRUN"
+tier = "scale"
+reqs = ["4.6", "7.5", "12.1", "12.2", "12.3", "12.5", "13.3", "13.4"]
+tasks = ["6.2"]
+oracle = "Actual offered/completed workload, bounded resources and correctness satisfy separate active/burst/open profiles."
+
+[case.SCM-022]
+title = "Real S3 and elapsed-time endurance"
+status = "UNRUN"
+tier = "live-storage"
+reqs = ["3.1", "3.2", "3.3", "12.1", "12.2", "12.5", "12.6", "12.7"]
+tasks = ["6.2"]
+oracle = "Actual S3 traffic and 72 elapsed hours establish sustained new revisions while client and real-worker counts stay separate."
+
+[case.SCM-023]
+title = "End-to-end native Hyperfide source-control journey"
+status = "UNRUN"
+tier = "live-fleet"
+reqs = ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "8.1", "8.2", "8.3", "8.4", "8.5", "8.6", "12.1", "12.6", "13.1", "13.2", "13.3", "13.4", "13.5", "14.2", "14.3", "14.5"]
+tasks = ["6.3", "7.1", "7.2"]
+oracle = "A second client and durable records confirm the actual user journey including conflict, recovery, acceptance and remote status."
+
+[case.SCM-024]
+title = "Strict harness and independent evidence closure"
+status = "UNRUN"
+tier = "closure"
+reqs = ["12.1", "12.6", "12.7", "14.1", "14.4", "14.5"]
+tasks = ["0.2", "6.3", "7.2"]
+oracle = "False-success and tampering probes fail and a full current assertion/variant inventory is required for closure."
+
+[case.SCM-025]
+title = "Category layout and existing-system behavior preservation"
+status = "UNRUN"
+tier = "prerequisite"
+reqs = ["15.1", "15.2", "15.3", "15.4", "15.5", "15.6", "15.7", "15.8", "14.4"]
+tasks = ["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"]
+oracle = "Complete path/content/mode and identity accounting plus actual existing-system build/runtime/package/cache/CI/preparation checks prove the new category layout; no native SCM dependency or old source facade is required."
+

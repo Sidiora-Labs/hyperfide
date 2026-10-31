@@ -1,0 +1,837 @@
+{
+  "schema_version": 1,
+  "status": "proposed",
+  "source_baseline": "2f7331ef2085f6f374adf2d1e2ee01405fecb72d",
+  "mapping_rule": "Exact path or longest directory-prefix match; preserve the remaining suffix. Unmapped files outside platform/ and services/ remain at their existing path.",
+  "scope": [
+    "platform/",
+    "services/",
+    "src/",
+    "kvx/",
+    "editors/vscode/",
+    "scripts/"
+  ],
+  "category_roots": {
+    "core": "Executables, engine and runtime implementations",
+    "sdk": "Supported client and plugin-authoring SDK packages",
+    "contracts": "Wire schemas and cross-process contract packages",
+    "lib": "Shared internal libraries including UI helpers",
+    "apps": "User applications, CLI and distribution launcher",
+    "plugins": "Product plugins and provider integrations",
+    "extensions": "Separately distributed editor extensions",
+    "tools": "Build, development, test-support and repository tooling",
+    "examples": "Demonstrations and example plugins",
+    "tests": "Verification suites and fixtures",
+    "docs": "Current documentation, runbooks and explicitly archived history",
+    "assets": "Shared application assets",
+    "patches": "Authored dependency patches",
+    "runtime": "Supervisory runtime entrypoints",
+    "deploy": "Deployment templates and artifact assembly",
+    "vendor": "Pinned third-party native code",
+    "spec": "Specifications and their authoring tools",
+    "licenses": "Third-party attribution"
+  },
+  "invariants": [
+    "Preserve public package names, exports, executable names, module identities and protocol behavior.",
+    "Preserve pinned package-manager boundaries and dependency resolutions; importer/path regeneration is not a dependency upgrade.",
+    "Keep source categories separate from installed artifact paths; packaged services/ layouts are not checkout services/.",
+    "Preserve historical source/evidence paths at their original revisions and retain this mapping for successor consumers.",
+    "Do not implement native source control until the layout qualification receipt is current."
+  ],
+  "mappings": [
+    {
+      "source": ".agents",
+      "destination": ".agents",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Keep existing root skill category and merge moved developer skills without overwriting names."
+    },
+    {
+      "source": ".cgignore",
+      "destination": ".cgignore",
+      "action": "keep-rewrite",
+      "category": "root-configuration",
+      "rationale": "Retarget index exclusions and preserve behavior after native/vendor/runtime paths move."
+    },
+    {
+      "source": ".github",
+      "destination": ".github",
+      "action": "keep-rewrite",
+      "category": "root-configuration",
+      "rationale": "CI integration location is service-defined; rewrite path filters, command roots, lockfile cache keys and asserted job contracts."
+    },
+    {
+      "source": "CHANGELOG.md",
+      "destination": "CHANGELOG.md",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Retain product history and historical release references; active release generation uses mapped tools."
+    },
+    {
+      "source": "LICENSE",
+      "destination": "LICENSE",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Keep root product licence identity and full contents."
+    },
+    {
+      "source": "Makefile",
+      "destination": "Makefile",
+      "action": "keep-rewrite",
+      "category": "root-configuration",
+      "rationale": "Retain one root native and workspace build front door with explicit new source/tool paths."
+    },
+    {
+      "source": "README.md",
+      "destination": "README.md",
+      "action": "keep-rewrite",
+      "category": "root-configuration",
+      "rationale": "Keep one root product overview and replace active development commands with root workspace commands."
+    },
+    {
+      "source": "deploy",
+      "destination": "deploy",
+      "action": "keep-rewrite",
+      "category": "root-configuration",
+      "rationale": "Deployment inputs remain their existing top-level category; repository checkout lookup paths change while installed artifact layout remains versioned."
+    },
+    {
+      "source": "docs",
+      "destination": "docs",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Existing product docs remain, accepting docs/runtime and docs/verification with checked links."
+    },
+    {
+      "source": "editors/vscode",
+      "destination": "extensions/vscode",
+      "action": "move",
+      "category": "extensions",
+      "rationale": "Editor language client is a shipped extension rather than a server runtime plugin; preserve extension identity/version and VSIX manifest."
+    },
+    {
+      "source": "hyperfide.kvx",
+      "destination": "hyperfide.kvx",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Preserve feature activation/configuration policy, remap owned tooling paths only when specified by layout implementation."
+    },
+    {
+      "source": "kvx",
+      "destination": "core/kvx",
+      "action": "move",
+      "category": "core",
+      "rationale": "Keep KVX source/spec/Go module/fixtures together; the longer editor mapping extracts its separately packaged extension."
+    },
+    {
+      "source": "kvx/editors/vscode",
+      "destination": "extensions/kvx-vscode",
+      "action": "move",
+      "category": "extensions",
+      "rationale": "Separate KVX syntax extension from the KVX core while preserving its package identity and grammar bytes."
+    },
+    {
+      "source": "licenses",
+      "destination": "licenses",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Retain existing attribution paths and licence text; source relocation does not authorize licence deletion."
+    },
+    {
+      "source": "platform/.env.example",
+      "destination": ".env.example",
+      "action": "promote",
+      "category": "root-configuration",
+      "rationale": "Keep only sample variables, use one root runtime workspace environment example; do not merge secret deployment profiles into it."
+    },
+    {
+      "source": "platform/.gitattributes",
+      "destination": ".gitattributes",
+      "action": "merge",
+      "category": "root-configuration",
+      "rationale": "Preserve LF normalization at new workspace root; validate against tracked binary assets."
+    },
+    {
+      "source": "platform/.gitignore",
+      "destination": ".gitignore",
+      "action": "merge",
+      "category": "root-configuration",
+      "rationale": "Merge nested ignore scope into root with mapped build/generated/private paths; preserve desktop tracked build assets exception."
+    },
+    {
+      "source": "platform/.hyperfide-env-setup.sh",
+      "destination": "tools/workspace/env-setup.sh",
+      "action": "move-with-root-delegator",
+      "category": "tools",
+      "rationale": "Host lifecycle discovers this exact conventional root filename; keep hook discovery contract and adapt commands/install-input hash to root workspace."
+    },
+    {
+      "source": "platform/.hyperfide/skills",
+      "destination": ".agents/skills",
+      "action": "merge",
+      "category": ".agents",
+      "rationale": "Merge non-colliding repository developer skills into existing skill category; preserve fixture/validation records and remap inventory root assumptions."
+    },
+    {
+      "source": "platform/.nvmrc",
+      "destination": ".nvmrc",
+      "action": "promote-reconcile",
+      "category": "root-configuration",
+      "rationale": "Existing 22.19.0 pin conflicts with Node 24 CI/docs and control-service exact 24.22.0; declare and qualify the root runtime pin instead of silently preserving drift."
+    },
+    {
+      "source": "platform/.oxfmtrc.json",
+      "destination": ".oxfmtrc.json",
+      "action": "promote-rewrite",
+      "category": "root-configuration",
+      "rationale": "Root formatter config retains generated/native/mobile exclusions with classified paths; do not format historical evidence en masse."
+    },
+    {
+      "source": "platform/.oxlintrc.json",
+      "destination": ".oxlintrc.json",
+      "action": "promote-rewrite",
+      "category": "root-configuration",
+      "rationale": "Root lint config must resolve tools/workspace/oxlint-plugin.mjs and remap package source/ignore patterns."
+    },
+    {
+      "source": "platform/AGENTS.md",
+      "destination": "AGENTS.md",
+      "action": "regenerate",
+      "category": "root-configuration",
+      "rationale": "Merge applicable workspace conventions into workflow source and regenerate ignored root pointers; do not retain a stale nested instruction boundary."
+    },
+    {
+      "source": "platform/CHANGELOG.md",
+      "destination": "docs/history/runtime-port.md",
+      "action": "archive",
+      "category": "docs",
+      "rationale": "Preserve the short runtime-port provenance record without creating a competing current product changelog."
+    },
+    {
+      "source": "platform/README.md",
+      "destination": "docs/runtime/README.md",
+      "action": "move",
+      "category": "docs",
+      "rationale": "Preserve runtime overview as the documentation index; root README remains the one product entrypoint and incorporates current commands."
+    },
+    {
+      "source": "platform/apps/ai-gateway",
+      "destination": "core/ai-gateway",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/ai-gateway",
+      "rationale": "Cloudflare Worker entry retained for hosted-account compatibility; current worker always responds HTTP 503.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/apps/app",
+      "destination": "apps/web",
+      "action": "move",
+      "category": "apps",
+      "package_name": "@hyperfide/app",
+      "rationale": "Browser/PWA application built with Vite and shared product UI.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/apps/cli",
+      "destination": "apps/cli",
+      "action": "move",
+      "category": "apps",
+      "package_name": "@hyperfide/cli",
+      "rationale": "Executable hyperfide-platform command-line frontend and title utility.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/apps/demo-server",
+      "destination": "examples/demo-server",
+      "action": "move",
+      "category": "examples",
+      "package_name": "@hyperfide/demo-server",
+      "rationale": "Reviewer-only Cloudflare Worker serving the app and fixed sample state for mobile store review.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/apps/desktop",
+      "destination": "apps/desktop",
+      "action": "move",
+      "category": "apps",
+      "package_name": "@hyperfide/desktop",
+      "rationale": "Electron shell and packaging for macOS, Linux and Windows.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/apps/host-daemon",
+      "destination": "core/host-daemon",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/host-daemon",
+      "rationale": "Enrolled host runtime executing workspaces, provider processes, watches and host RPC.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/apps/mobile",
+      "destination": "apps/mobile",
+      "action": "move",
+      "category": "apps",
+      "package_name": "@hyperfide/mobile",
+      "rationale": "Expo/React Native mobile shell and native bridge application.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/apps/server",
+      "destination": "core/server",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/server",
+      "rationale": "Platform HTTP/WebSocket/plugin runtime server; distinct from the PostgreSQL control plane.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/assets",
+      "destination": "assets",
+      "action": "move",
+      "category": "root-configuration",
+      "rationale": "Shared product branding assets become root assets with app/plugin/release references updated; docs/runtime/assets remains the separate documentation illustration collection."
+    },
+    {
+      "source": "platform/changelog-metadata.ts",
+      "destination": "lib/changelog/metadata.ts",
+      "action": "move",
+      "category": "lib",
+      "rationale": "Keep runtime release metadata adjacent to parser and preserve visible version behavior; no version bump follows from relocation."
+    },
+    {
+      "source": "platform/changelog-parser.ts",
+      "destination": "lib/changelog/parser.ts",
+      "action": "move",
+      "category": "lib",
+      "rationale": "App-consumed release parser is runtime code, not a repository root config; remap direct app imports and turbo input dependency."
+    },
+    {
+      "source": "platform/docs",
+      "destination": "docs/runtime",
+      "action": "move",
+      "category": "docs",
+      "rationale": "Consolidate runtime developer documentation under the existing documentation category, with all relative links and assets mapped."
+    },
+    {
+      "source": "platform/examples",
+      "destination": "examples",
+      "action": "move",
+      "category": "root-configuration",
+      "rationale": "Keep example plugin workspaces separate from bundled production plugins and explicitly enumerate their new workspace glob."
+    },
+    {
+      "source": "platform/package.json",
+      "destination": "package.json",
+      "action": "promote",
+      "category": "root-configuration",
+      "rationale": "Root becomes pnpm workspace front door while core/control-plane retains its separate npm package manager and lockfile."
+    },
+    {
+      "source": "platform/packages/agent-runtime",
+      "destination": "core/agent-runtime",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/agent-runtime",
+      "rationale": "Provider-process session runtime: launch, stdio/RPC dispatch, event assembly and shutdown.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/bundled-plugins",
+      "destination": "tools/bundled-plugins",
+      "action": "move",
+      "category": "tools",
+      "package_name": "@hyperfide/bundled-plugins",
+      "rationale": "Workspace dependency manifest and builder assembling the shipped plugin set.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/client-core",
+      "destination": "lib/client-core",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/client-core",
+      "rationale": "Shared client presentation, sidebar, prompt and resource state logic.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/config",
+      "destination": "lib/config",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/config",
+      "rationale": "Runtime configuration and environment parsing shared by executable consumers.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/core-ui",
+      "destination": "lib/core-ui",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/core-ui",
+      "rationale": "Pure UI-facing display/formatting and state helper logic shared across clients/server.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/db",
+      "destination": "core/runtime-db",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/db",
+      "rationale": "Platform runtime database access and Drizzle SQLite/PostgreSQL schemas/migrations.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/desktop-contract",
+      "destination": "contracts/desktop",
+      "action": "move",
+      "category": "contracts",
+      "package_name": "@hyperfide/desktop-contract",
+      "rationale": "Shared desktop-shell types and runtime-validated IPC payloads.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/domain",
+      "destination": "lib/domain",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/domain",
+      "rationale": "Shared product domain types, Zod models and lifecycle/business helper functions.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/environment-provider-host",
+      "destination": "core/environment-provider-host",
+      "action": "move",
+      "category": "core",
+      "package_name": "hyperfide-environment-provider-host",
+      "rationale": "Host-side resource helpers for environment plugins: Git/process/locking/progress/transcript operations.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/fuzzy-match",
+      "destination": "lib/fuzzy-match",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/fuzzy-match",
+      "rationale": "Shared fuzzy matching wrapper and ranking helpers.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/hono-typed-routes",
+      "destination": "lib/hono-typed-routes",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/hono-typed-routes",
+      "rationale": "Typed Hono routing/schema helpers used by RPC contracts and consumers.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/host-daemon-contract",
+      "destination": "contracts/host-daemon",
+      "action": "move",
+      "category": "contracts",
+      "package_name": "@hyperfide/host-daemon-contract",
+      "rationale": "Host daemon protocol, local/workspace/session and RPC schemas.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/host-watcher",
+      "destination": "core/host-watcher",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/host-watcher",
+      "rationale": "Filesystem/workspace event observation with native watcher integration.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/host-workspace",
+      "destination": "core/host-workspace",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/host-workspace",
+      "rationale": "Workspace provisioning, discovery and source status operations on enrolled hosts.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/hyperfide-app",
+      "destination": "apps/launcher",
+      "action": "move",
+      "category": "apps",
+      "package_name": "hyperfide-app",
+      "rationale": "Published npm launcher/distribution bundling app, server and host runtime artifacts; several executable bins.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/hyperfide-authority",
+      "destination": "core/authority-client",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/authority",
+      "rationale": "Private signed authority transport client plus plugin-state storage bridge/local fallback and migration utility.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/local-open-targets",
+      "destination": "core/local-open-targets",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/local-open-targets",
+      "rationale": "Host OS application/terminal/file-manager target discovery and opening capabilities.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/logger",
+      "destination": "lib/logger",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/logger",
+      "rationale": "Shared structured logging, rolling output and logging configuration.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/mobile-bridge",
+      "destination": "contracts/mobile-bridge",
+      "action": "move",
+      "category": "contracts",
+      "package_name": "@hyperfide/mobile-bridge",
+      "rationale": "Versioned native mobile/web-shell handshake, message and response schemas with parsing helpers.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/plugin-build",
+      "destination": "tools/plugin-build",
+      "action": "move",
+      "category": "tools",
+      "package_name": "@hyperfide/plugin-build",
+      "rationale": "Executable plugin builder and declaration/bundle generation tools.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/plugin-registry",
+      "destination": "tools/plugin-registry",
+      "action": "move",
+      "category": "tools",
+      "package_name": "@hyperfide/plugin-registry",
+      "rationale": "Generated shadcn-style plugin UI component registry and its builder/checker.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/plugin-sdk",
+      "destination": "sdk/plugins",
+      "action": "move",
+      "category": "sdk",
+      "package_name": "@hyperfide/plugin-sdk",
+      "rationale": "Published plugin-authoring SDK including app/host/environment/machine/provider entry points and bundled declarations.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/process-utils",
+      "destination": "lib/process-utils",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/process-utils",
+      "rationale": "Portable process execution, sanitization and VCS process-admission helpers.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/provider-bridge-acp",
+      "destination": "core/provider-bridge-acp",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/provider-bridge-acp",
+      "rationale": "ACP provider adapter/launch implementation used by runtime and plugin SDK bundles.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/provider-bridge-protocol",
+      "destination": "core/provider-bridge-protocol",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/provider-bridge-protocol",
+      "rationale": "Provider wire protocol plus bridge kit, assembler, worker entry and conformance/replay helpers.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/provider-parity",
+      "destination": "tools/provider-parity",
+      "action": "move",
+      "category": "tools",
+      "package_name": "@hyperfide/provider-parity",
+      "rationale": "Recording/replay and parity comparison harness for provider event semantics.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/query-tags",
+      "destination": "lib/query-tags",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/query-tags",
+      "rationale": "Shared React Query tagging, invalidation and optimistic-state helpers.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/scripts",
+      "destination": "tools/scripts",
+      "action": "move",
+      "category": "tools",
+      "package_name": "@hyperfide/scripts",
+      "rationale": "Packaged developer/maintenance commands and exported development supervisor helper.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/sdk",
+      "destination": "sdk/client",
+      "action": "move",
+      "category": "sdk",
+      "package_name": "@hyperfide/sdk",
+      "rationale": "Typed browser/Node API client SDK with HTTP/WebSocket transport and product resource areas.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/secret-storage",
+      "destination": "core/secret-storage",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/secret-storage",
+      "rationale": "Runtime secret-file creation/read/write/delete primitives.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/server-archive",
+      "destination": "core/server-archive",
+      "action": "move",
+      "category": "core",
+      "package_name": "@hyperfide/server-archive",
+      "rationale": "Runtime server-state archive/import inventory, extraction, backup and rollback helpers.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/server-contract",
+      "destination": "contracts/server",
+      "action": "move",
+      "category": "contracts",
+      "package_name": "@hyperfide/server-contract",
+      "rationale": "Server API/WebSocket resource and typed route schemas shared with clients.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/shared-ui",
+      "destination": "lib/shared-ui",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/shared-ui",
+      "rationale": "Reusable React UI primitives, styles and interaction hooks exported by component subpath.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/templates",
+      "destination": "lib/templates",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/templates",
+      "rationale": "Runtime template rendering, generated templates and plugin scaffolding resources.",
+      "classification": "recommendation_with_mixed_role"
+    },
+    {
+      "source": "platform/packages/test-helpers",
+      "destination": "tools/test-helpers",
+      "action": "move",
+      "category": "tools",
+      "package_name": "@hyperfide/test-helpers",
+      "rationale": "Reusable test fixtures and helpers for product packages.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/text-utils",
+      "destination": "lib/text-utils",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/text-utils",
+      "rationale": "Shared pure text/string processing helpers.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/thread-view",
+      "destination": "lib/thread-view",
+      "action": "move",
+      "category": "lib",
+      "package_name": "@hyperfide/thread-view",
+      "rationale": "Shared timeline formatting, message envelope and thread presentation logic.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/packages/tsconfig",
+      "destination": "tools/tsconfig",
+      "action": "move",
+      "category": "tools",
+      "package_name": "@hyperfide/tsconfig",
+      "rationale": "Shared TypeScript base configuration and typecheck overrides.",
+      "classification": "recommendation"
+    },
+    {
+      "source": "platform/patches",
+      "destination": "patches",
+      "action": "move",
+      "category": "root-configuration",
+      "rationale": "Pnpm patch payload bytes stay identical; patchedDependencies paths resolve relative to new root package metadata."
+    },
+    {
+      "source": "platform/plugins",
+      "destination": "plugins",
+      "action": "move",
+      "category": "root-configuration",
+      "rationale": "Runtime plugin registry is a top-level product category; preserve plugin IDs, package names, manifests, bundled build contracts and examples distinction."
+    },
+    {
+      "source": "platform/pnpm-lock.yaml",
+      "destination": "pnpm-lock.yaml",
+      "action": "promote-regenerate",
+      "category": "root-configuration",
+      "rationale": "Regenerate importer/link paths with pinned pnpm 9.15.0 without dependency upgrades; frozen install must then succeed."
+    },
+    {
+      "source": "platform/pnpm-workspace.yaml",
+      "destination": "pnpm-workspace.yaml",
+      "action": "promote",
+      "category": "root-configuration",
+      "rationale": "Enumerate classified top-level package directories, examples/plugins and deeper test fixture; explicitly exclude core/control-plane and transient plugin stage dirs."
+    },
+    {
+      "source": "platform/qa/manual-runbook.md",
+      "destination": "docs/verification/manual-runbook.md",
+      "action": "move",
+      "category": "docs",
+      "rationale": "Manual verification runbook is documentation, separate from executable tests/qa package."
+    },
+    {
+      "source": "platform/qa/provider-permission-mode-runbook.md",
+      "destination": "docs/verification/provider-permission-mode-runbook.md",
+      "action": "move",
+      "category": "docs",
+      "rationale": "Provider permission test runbook remains documentation with remapped source and fixture links."
+    },
+    {
+      "source": "platform/scripts",
+      "destination": "tools/workspace",
+      "action": "move",
+      "category": "tools",
+      "rationale": "Build, launch, release-version, plugin and provider corpus tooling leave origin-named platform nesting; rewrite relative imports and repository-root discovery."
+    },
+    {
+      "source": "platform/tests/integration",
+      "destination": "tests/runtime-integration",
+      "action": "move",
+      "category": "tests",
+      "rationale": "Keep runtime integration test package distinct from existing native/shell tests/integration; preserve package identity and real-provider evidence boundaries."
+    },
+    {
+      "source": "platform/tests/qa",
+      "destination": "tests/qa",
+      "action": "move",
+      "category": "tests",
+      "rationale": "Keep the existing QA package as a discoverable workspace at the top-level test category; no root tests/qa collision was found."
+    },
+    {
+      "source": "platform/tests/scripted-echo-provider",
+      "destination": "tests/fixtures/plugins/scripted-echo-provider",
+      "action": "move",
+      "category": "tests",
+      "rationale": "Classify the declared scripted provider as a test fixture, not a product plugin; explicitly register this deeper workspace package."
+    },
+    {
+      "source": "platform/turbo.json",
+      "destination": "turbo.json",
+      "action": "promote-rewrite",
+      "category": "root-configuration",
+      "rationale": "Rewrite directory filters and TURBO_ROOT inputs while preserving package/task identities and invalidation behavior."
+    },
+    {
+      "source": "platform/vitest.config.ts",
+      "destination": "vitest.config.ts",
+      "action": "promote-rewrite",
+      "category": "root-configuration",
+      "rationale": "Replace old apps/packages/tests discovery roots with explicit classified package discovery; include runtime plugins only through intended suite contracts."
+    },
+    {
+      "source": "platform/vitest.global-tmpdir.ts",
+      "destination": "vitest.global-tmpdir.ts",
+      "action": "promote-rewrite",
+      "category": "root-configuration",
+      "rationale": "Keep shared global temporary-root setup discoverable by relocated package configs."
+    },
+    {
+      "source": "platform/vitest.shared.ts",
+      "destination": "vitest.shared.ts",
+      "action": "promote-rewrite",
+      "category": "root-configuration",
+      "rationale": "Shared test partitioning and source/test support import resolution move with callers updated; preserve test isolation semantics."
+    },
+    {
+      "source": "runtime",
+      "destination": "runtime",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Supervisory Python process is a runtime component; source and deployed runtime paths must remain distinct contracts."
+    },
+    {
+      "source": "scripts",
+      "destination": "tools/repository",
+      "action": "move",
+      "category": "tools",
+      "rationale": "Repository C build/release/install/CI/benchmark tooling has a distinct explicit group; rewrite dirname-based root detection and all external command references."
+    },
+    {
+      "source": "services/hyperfide",
+      "destination": "core/control-plane",
+      "action": "move",
+      "category": "core",
+      "rationale": "Keep control, provisioning and dispatch authority code, migrations, component declarations, npm lockfile and compiler config together as an independent npm package excluded from pnpm ingestion."
+    },
+    {
+      "source": "spec",
+      "destination": "spec",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Historical specifications and source/evidence references stay immutable; add versioned path mapping and successor task lineage for current execution."
+    },
+    {
+      "source": "src",
+      "destination": "core/native/src",
+      "action": "move",
+      "category": "core",
+      "rationale": "Native C source and task-owned C component registry remain one build domain; update Makefile, generator and registry source paths."
+    },
+    {
+      "source": "tests",
+      "destination": "tests",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Existing native/integration/qualification fixtures stay in root tests; add classified moved suites without flattening collisions."
+    },
+    {
+      "source": "vendor",
+      "destination": "vendor",
+      "action": "keep",
+      "category": "root-configuration",
+      "rationale": "Keep pinned tree-sitter runtime/parser sources and licences adjacent to native build inputs; change include/object rules without repinning dependencies."
+    }
+  ],
+  "planned_paths": [
+    {
+      "source": "platform/packages/source-control-client",
+      "destination": "sdk/source-control"
+    },
+    {
+      "source": "platform/plugins/hyperfide-source-control",
+      "destination": "plugins/hyperfide-source-control"
+    }
+  ],
+  "package_inventory": {
+    "apps": 8,
+    "packages": 38,
+    "units": 46
+  },
+  "qualification": "UNRUN"
+}
