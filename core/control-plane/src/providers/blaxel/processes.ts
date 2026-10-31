@@ -74,13 +74,14 @@ interface BlaxelProcess{
 }
 interface BlaxelSandbox{metadata:Obj;spec:Obj;status?:string;process:BlaxelProcess;fs:{readBinary(path:string):Promise<Blob>}}
 interface BlaxelSDK{
+ getSandbox(request:{path:{sandboxName:string};throwOnError:false;signal:AbortSignal}):Promise<{data?:unknown;error?:unknown;response:Response}>;
  createSandbox(request:{body:Obj;throwOnError:false;signal:AbortSignal}):Promise<{data?:unknown;error?:unknown;response:Response}>;
  SandboxInstance:{get(name:string):Promise<BlaxelSandbox>;create(model:Obj,options:{safe:false;timeout:number}):Promise<BlaxelSandbox>;
  list(query:Obj):Promise<{data:BlaxelSandbox[];hasMore:boolean;nextCursor?:string}>;delete(name:string):Promise<unknown>};
 }
 function runtimeSDK(v:unknown):BlaxelSDK{
  if(!v||typeof v!=='object')fail('BLAXEL_PROCESS_UNAVAILABLE','Pinned SDK unavailable');const s=(v as Obj).SandboxInstance as Obj|undefined;
- if(typeof(v as Obj).createSandbox!=='function'||!s||!['get','list','delete'].every(k=>typeof s[k]==='function'))fail('BLAXEL_PROCESS_UNAVAILABLE','Pinned SDK runtime methods differ');
+ if(typeof(v as Obj).createSandbox!=='function'||typeof(v as Obj).getSandbox!=='function'||!s||!['get','list','delete'].every(k=>typeof s[k]==='function'))fail('BLAXEL_PROCESS_UNAVAILABLE','Pinned SDK runtime methods differ');
  return v as BlaxelSDK;
 }
 export async function boundedBlaxelOperation<T>(fn:(signal:AbortSignal)=>Promise<T>,parent:AbortSignal,deadline:number):Promise<T>{
@@ -223,12 +224,12 @@ function noOutput(ref:string,raw:Obj):ProcessResult{
  if(!['completed','failed','killed','stopped'].includes(String(raw.status))||!Number.isSafeInteger(raw.exitCode))fail('BLAXEL_PROCESS_UNAVAILABLE','Unknown process phase or exit');
  return{process_ref:ref,phase:'EXITED',exit_code:raw.exitCode as number,timed_out:false,termination_confirmed:true,output:{complete:false,truncated:false,byte_count:'0',sha256:null}};
 }
-function outcome<K extends ProviderMethod>(op:ProviderOperation<K>,status:'SUCCEEDED'|'FAILED'|'UNKNOWN'|'UNSUPPORTED',result:ProviderResults[K]|null,resource:ResourceRef|null=op.resource):ProviderOutcome<K>{
+function outcome<K extends ProviderMethod>(op:ProviderOperation<K>,status:'SUCCEEDED'|'FAILED'|'UNKNOWN'|'UNSUPPORTED',result:ProviderResults[K]|null,resource:ResourceRef|null=op.resource,diagnostic:string|null=null):ProviderOutcome<K>{
  const common={schema_version:1 as const,operation_id:op.identity.operation_id,payload_digest:op.identity.payload_digest,scope:op.scope,
  observed_at:new Date().toISOString(),provider_request_id:null,resource};
  const o=status==='SUCCEEDED'?{...common,status,acceptance:'CONFIRMED_ACCEPTED',result,error:null,reconcile_required:false,retry:'NEVER'}:
- status==='UNKNOWN'?{...common,status,acceptance:'UNKNOWN',result:null,error:{code:'UNAVAILABLE',provider_code:null,message:'Provider acceptance or complete output requires reconciliation',retry_after_ms:null},reconcile_required:true,retry:'AFTER_RECONCILIATION'}:
- {...common,status,acceptance:'CONFIRMED_REJECTED',result:null,error:{code:status==='UNSUPPORTED'?'UNSUPPORTED':'CONFLICT',provider_code:null,message:status==='UNSUPPORTED'?'Required trusted capability is unavailable':'Provider configuration or operation was rejected',retry_after_ms:null},reconcile_required:false,retry:'NEVER'};
+ status==='UNKNOWN'?{...common,status,acceptance:'UNKNOWN',result:null,error:{code:'UNAVAILABLE',provider_code:diagnostic,message:'Provider acceptance or complete output requires reconciliation',retry_after_ms:null},reconcile_required:true,retry:'AFTER_RECONCILIATION'}:
+ {...common,status,acceptance:'CONFIRMED_REJECTED',result:null,error:{code:status==='UNSUPPORTED'?'UNSUPPORTED':'CONFLICT',provider_code:diagnostic,message:status==='UNSUPPORTED'?'Required trusted capability is unavailable':'Provider configuration or operation was rejected',retry_after_ms:null},reconcile_required:false,retry:'NEVER'};
  validateProviderOutcome({operation:op,outcome:o});return o as ProviderOutcome<K>;
 }
 export interface BlaxelAdapter extends ProviderAdapter{
@@ -279,25 +280,34 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
  };
  const adapter:Partial<BlaxelAdapter>={provider:'blaxel',readCapturedOutput:capture};
  for(const kind of PROVIDER_METHODS)(adapter as Obj)[kind]=async(raw:unknown,parent=ctx.signal)=>{
-  const op=requireOperation(raw,kind,scope);activeOperation=op;activeSignal=parent;let attempted=false,known:ResourceRef|null=op.resource;
+  const op=requireOperation(raw,kind,scope);activeOperation=op;activeSignal=parent;let attempted=false,known:ResourceRef|null=op.resource,phase='PREFLIGHT';
   if(parent.aborted||Date.parse(op.deadline_at)<=Date.now())return outcome(op,'UNKNOWN',null);
   try{
    if(kind==='create'){
     const create=op as ProviderOperation<'create'>;
     if(!deps.resolvePreparedBase)return outcome(op,'UNSUPPORTED',null);
     await hooks.assertResourceBinding(op);
-    const generation=await hooks.assignedBootGeneration(create),base=await deps.resolvePreparedBase(create),model=planBlaxelCreate(create,generation,base),name=String((model.metadata as Obj).name),api=await sdk();
-    let existing:BlaxelSandbox|null=null;
-    try{existing=await read(()=>api.SandboxInstance.get(name),op,parent);}catch(e){if(statusCode(e)!==404)throw e;}
-    let actual=existing;
+    const generation=await hooks.assignedBootGeneration(create),base=await deps.resolvePreparedBase(create),model=planBlaxelCreate(create,generation,base),name=String((model.metadata as Obj).name);
+    phase='SDK';const api=await sdk();phase='LOOKUP';
+    // High-level get throws decoded API bodies without their HTTP status and
+    // attaches a runtime transport. Creation needs only authoritative metadata.
+    const lookup=async()=>{
+     const response=await read(signal=>api.getSandbox({path:{sandboxName:name},throwOnError:false,signal}),op,parent);
+     if(response.response.status===404)return null;
+     if(!response.response.ok||response.error!==undefined)throw{status:response.response.status};
+     const value=object(response.data);
+     return{metadata:object(value.metadata),spec:object(value.spec),status:typeof value.status==='string'?value.status:undefined} as BlaxelSandbox;
+    };
+    let actual=await lookup();
     if(!actual){
-     await hooks.assertResourceBinding(op);attempted=true;
+     await hooks.assertResourceBinding(op);attempted=true;phase='CREATE';
      // The high-level helper can poll after a gateway timeout and perform
      // H2 warmup before returning. Use one official raw control-plane POST.
      const response=await read(signal=>api.createSandbox({body:model,throwOnError:false,signal}),op,parent);
      if(response.error!==undefined){
       if(response.response.status!==409)throw{status:response.response.status};
-      actual=await read(()=>api.SandboxInstance.get(name),op,parent);
+      phase='CONFLICT_LOOKUP';actual=await lookup();
+      if(!actual)throw{status:409};
      }else{
       const value=object(response.data);
       actual={metadata:object(value.metadata),spec:object(value.spec),status:typeof value.status==='string'?value.status:undefined} as BlaxelSandbox;
@@ -305,7 +315,7 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
     }
     // Persist the actual returned candidate before placement/runtime validation.
     // A mismatch never grants ownership/readiness, but cannot erase an orphan.
-    known=await retainBlaxelCreateCandidate({metadata:actual.metadata,spec:actual.spec,status:actual.status},model,scope,generation,
+    phase='VERIFY';known=await retainBlaxelCreateCandidate({metadata:actual.metadata,spec:actual.spec,status:actual.status},model,scope,generation,
      candidate=>{known=candidate;},returnedName=>hooks.persistEarlyResource(create,returnedName));
     if(parent.aborted||Date.now()>Date.parse(op.deadline_at))return save(op,outcome(op,'UNKNOWN',null,known));
     return save(op,outcome(create,'SUCCEEDED',{provider_state:state(actual.status)==='RUNNING'?'RUNNING':'CREATING'},known));
@@ -397,9 +407,12 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
    return outcome(op,'UNSUPPORTED',null);
   }catch(e){
    const code=(e as {code?:string})?.code??'';
-   if(!attempted&&['BLAXEL_RUNTIME_ENV_UNSUPPORTED','BLAXEL_PERSISTENT_STORAGE_UNSUPPORTED','BLAXEL_POLICY_UNAVAILABLE','BLAXEL_RESOURCE_UNSUPPORTED'].includes(code))return save(op,outcome(op,'UNSUPPORTED',null));
+   // Never retain vendor messages, response bodies or request/credential values.
+   const http=statusCode(e),reason=typeof code==='string'&&/^BLAXEL_[A-Z_]{1,80}$/.test(code)?code:http!==null&&Number.isInteger(http)&&http>=100&&http<=599?'HTTP_'+http:'UNCLASSIFIED';
+   const diagnostic=kind==='create'?'BLAXEL_'+phase+'_'+reason:null;
+   if(!attempted&&['BLAXEL_RUNTIME_ENV_UNSUPPORTED','BLAXEL_PERSISTENT_STORAGE_UNSUPPORTED','BLAXEL_POLICY_UNAVAILABLE','BLAXEL_RESOURCE_UNSUPPORTED'].includes(code))return save(op,outcome(op,'UNSUPPORTED',null,op.resource,diagnostic));
    const unknown=attempted||known!==null||!['BLAXEL_PROCESS_INVALID','BLAXEL_PREPARATION_MISMATCH','BLAXEL_RESOURCE_UNSUPPORTED','BLAXEL_CREATE_CONFLICT'].includes((e as {code?:string})?.code??'');
-   return save(op,outcome(op,unknown?'UNKNOWN':'FAILED',null,unknown?known:op.resource));
+   return save(op,outcome(op,unknown?'UNKNOWN':'FAILED',null,unknown?known:op.resource,diagnostic));
   }
  };
  return adapter as BlaxelAdapter;
