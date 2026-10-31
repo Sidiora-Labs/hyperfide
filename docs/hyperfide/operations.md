@@ -34,6 +34,10 @@ The configuration pins HTTPS origin and CA, organisation/run, cohort and host, e
 
 For a new accepted run, `recovery.control.start` activates its exact specification revision, generation and state version after checking dependencies and recovery holds. Register gateway supervisors through `hierarchy.supervisor.register` with the configured gateway profile identity. The Primary then configures and delegates accepted waves through model-selected actions. Register immutable environment manifests through `provider.profiles.register` before pool selection; registration records the declared profile, while installation supplies measured slot readiness.
 
+For automatic native bootstrap, configure the provisioner's protected `HF_PROVIDER_BOOTSTRAP_CONFIG_FILE` with explicit pool recipes and a persistent private state directory. Preserve that directory across restarts: it contains the enrollment secrets referenced by the durable bootstrap journal. The recipe's enrollment lifetime must fit the remote identity authority's configured limit. A retained excessive-lifetime refusal can be corrected only by an explicit downward TTL amendment with the original descriptor digest; `HF_PROVIDER_BOOTSTRAP_AUTHORITY_POLICY_FILE` and `HF_PROVIDER_BOOTSTRAP_AUTHORITY_POLICY_DIGEST` pin the protected remote policy used to validate that correction. The local provisioner's own identity origin may differ from the remote authority origin.
+
+Bootstrap rejection and correction tables are append-only. The provisioner needs SELECT and INSERT on those tables; it does not need UPDATE or DELETE. A terminal native process failure retains its process identity and reports a typed failure for reconciliation. Preserve the original journal and process evidence when diagnosing it.
+
 After installing the release and applying its trusted migrations, validate the protected configuration with the release's supervisor entrypoint:
 
 ```sh

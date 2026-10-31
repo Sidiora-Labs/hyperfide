@@ -162,6 +162,7 @@ async function configuration(env:Readonly<NodeJS.ProcessEnv>):Promise<{signers:S
 export class ProvisionerWorker {
  private booting:Promise<unknown>|null=null;
  private starting:Promise<unknown>|null=null;
+ private ownerAuthority:IdentityAuthority|null=null;private ownerPublicKey:string|null=null;
  boot(authority:IdentityAuthority):Promise<unknown>{
   return this.booting??=(async()=>{
    let config:Awaited<ReturnType<typeof configuration>>;
@@ -179,6 +180,7 @@ export class ProvisionerWorker {
    const invocation=await authority.authenticate(body,['hf-credential-id',proof.id,'hf-request-time',proof.time,'hf-request-nonce',proof.nonce,'hf-request-signature',signature],this.signal);
    await authority.authorize(invocation);assertInvocation(invocation);
    if(invocation.principal.role!=='PROVISIONER'||invocation.principal.credential_id!==signer.credential_id||invocation.principal.run_id!==row.run_id||invocation.principal.deployment_epoch!==row.authority_epoch)fail('PROVISIONER_EXECUTOR_IDENTITY_MISMATCH','Authenticated worker owner differs');
+   this.ownerAuthority=authority;this.ownerPublicKey=signer.public_key_b64;
    return this.start(invocation);
   })();
  }
@@ -229,13 +231,32 @@ export class ProvisionerWorker {
    await new Promise<void>(resolve=>{const timer=setTimeout(done,settings.poll_ms);function done(){clearTimeout(timer);signal.removeEventListener('abort',done);resolve();}signal.addEventListener('abort',done,{once:true});});
   }
  }
+ /** Refresh authentication after renewal, never the durable worker or an uncertain provider effect. */
+ private async refreshRenewedOwner():Promise<boolean>{
+  const previous=this.invocation,authority=this.ownerAuthority;
+  if(!previous||!authority||!this.ownerPublicKey||this.signal.aborted||this.controller?.signal.aborted)return false;
+  const config=await configuration(this.env),signer=config.signers[0];
+  if(config.signers.length!==1||!signer||signer.credential_id!==previous.principal.credential_id||signer.public_key_b64!==this.ownerPublicKey)fail('AUTH_RENEWAL_SCOPE_CHANGED','Worker signer identity changed');
+  const current=(await this.database.query('SELECT p.public_key_b64,p.state,p.credential_version,p.expires_at,r.authority_epoch FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1',[signer.credential_id])).rows[0];
+  if(!current||current.state!=='ACTIVE'||current.public_key_b64!==this.ownerPublicKey||current.authority_epoch!==previous.principal.deployment_epoch||BigInt(String(current.credential_version))<=BigInt(previous.principal.credential_version)||new Date(current.expires_at).getTime()<=Date.parse(previous.principal.expires_at))return false;
+  const payload=Buffer.from(JSON.stringify({run_id:previous.principal.run_id,component:'8.3',action:'provider.worker.start',input:{},expected_version:null,authority:null})),operation=randomUUID();
+  const body=Buffer.from(JSON.stringify({protocol_version:1,operation_id:operation,idempotency_key:operation,payload_digest:hash(payload),correlation_id:operation,causation_id:null,payload_b64:payload.toString('base64url')}));
+  const proof={id:signer.credential_id,time:String(Math.floor(Date.now()/1000)),nonce:randomUUID()},signature=sign(null,signingBytes(authority.origin,'/v1/invoke',proof,body),signer.key).toString('base64url');
+  const next=await authority.authenticate(body,['hf-credential-id',proof.id,'hf-request-time',proof.time,'hf-request-nonce',proof.nonce,'hf-request-signature',signature],this.signal);await authority.authorize(next);assertInvocation(next);
+  const before=previous.principal,after=next.principal;
+  const fixed=['credential_id','actor_id','organisation_id','run_id','role','deployment_epoch','sandbox_id','boot_id','boot_generation','attempt_id','attempt_generation'] as const;
+  if(fixed.some(key=>before[key]!==after[key])||after.role!=='PROVISIONER'||JSON.stringify([...before.allowed_actions].sort())!==JSON.stringify([...after.allowed_actions].sort())||BigInt(after.credential_version)<=BigInt(before.credential_version)||Date.parse(after.expires_at)<=Date.parse(before.expires_at))fail('AUTH_RENEWAL_SCOPE_CHANGED','Renewal changed the worker authority scope');
+  await this.database.gateway.withPrimaryTransaction({timeoutMs:5000,signal:this.signal,guard:next.guard},async tx=>{await next.guard(tx);const key=(await tx.query('SELECT public_key_b64 FROM hyperfide.identity_principals WHERE credential_id=$1 FOR SHARE',[after.credential_id])).rows[0];if(key?.public_key_b64!==this.ownerPublicKey)fail('AUTH_RENEWAL_SCOPE_CHANGED','Renewal changed the worker signing key');});
+  if(this.invocation!==previous)return false;this.invocation=next;return true;
+ }
  /** Records a failed loop step under its name; false once the credential lost authority. */
  private async step(name:string,fallback:string,body:()=>Promise<void>):Promise<boolean>{
-  try{await body();return true;}
+  try{await body();this.errors.delete(name);return true;}
   catch(error){
-   const code=error instanceof FoundationError?error.code:fallback;this.errors.set(name,code);
+   let code=error instanceof FoundationError?error.code:fallback;const authorityLost=code.startsWith('AUTH_');this.errors.set(name,code);
+   if(code==='AUTH_REVOKED'){try{if(await this.refreshRenewedOwner()){this.errors.delete(name);this.errors.delete('renewal');return true;}}catch(renewalError){code=renewalError instanceof FoundationError?renewalError.code:'AUTH_RENEWAL_FAILED';this.errors.set('renewal',code);}}
    // A revoked or expired credential ends provider authority; never continue under it.
-   if(code.startsWith('AUTH_')){this.stoppedReason=code;this.controller?.abort();return false;}
+   if(authorityLost){this.stoppedReason=code;this.controller?.abort();return false;}
    return true;
   }
  }
