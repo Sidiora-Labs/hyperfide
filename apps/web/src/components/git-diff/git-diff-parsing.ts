@@ -225,7 +225,7 @@ export function isSvgGitDiffFile(file: ParsedGitDiffFile): boolean {
 function getGitDiffPathAliases(path: string | undefined): string[] {
   const cleanPath = normalizeGitDiffPath(path);
   if (!cleanPath || cleanPath === "/dev/null") return [];
-  const normalizedPath = cleanPath.startsWith(".")
+  const normalizedPath = cleanPath.startsWith("./")
     ? cleanPath.slice(2)
     : cleanPath;
   if (normalizedPath.length === 0) return [];

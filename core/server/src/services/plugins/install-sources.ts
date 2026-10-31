@@ -284,7 +284,7 @@ export function normalizePluginSubdirectory(
   value: string,
   label = "plugin subdirectory",
 ): string {
-  const trimmed = value.startsWith(".") ? value.slice(2) : value;
+  const trimmed = value.startsWith("./") ? value.slice(2) : value;
   if (
     trimmed.length === 0 ||
     trimmed.startsWith("/") ||

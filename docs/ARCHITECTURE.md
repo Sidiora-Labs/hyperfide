@@ -17,13 +17,13 @@ codes, and it stays for the compatibility window of the approved release
 `src/hyperfide/branding.c` is the source of truth). Every example below uses
 `hyperfide`. The tree-sitter runtime (`vendor/tree-sitter`) and the grammar
 sources (`vendor/parsers/<family>`) are vendored and linked into that binary.
-C11 with GNU extensions (`-std=gnu11`) + POSIX. `src/cg.h` remains the shared
+C11 with GNU extensions (`-std=gnu11`) + POSIX. `core/native/src/cg.h` remains the shared
 core header; semantic, parser and inspection modules also have focused
 headers.
 
 ## Platform layers
 
-The workspace under `platform/` adds four layers to the local graph and control
+The root workspace adds four layers to the local graph and control
 plane. Surfaces are the web app, desktop, mobile and CLI. Execution comprises
 the server, host daemons, provider bridges, environments and machines. Authority
 comprises spec, Asks, qualification and dispatch integrations. Proof comprises

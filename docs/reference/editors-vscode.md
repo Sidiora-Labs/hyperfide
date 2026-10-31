@@ -1,10 +1,10 @@
 # Source reference: VS Code extension
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the editor extension under `extensions/vscode/`: 424 declarations in 11 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the editor extension under `editors/vscode/`: 424 declarations in 11 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
 
-## extensions/vscode/acp.js
+## editors/vscode/acp.js
 
-[Open source](../../extensions/vscode/acp.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/acp.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -93,9 +93,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `registerAcpCommands` | function | 1900 | <code>function registerAcpCommands(ctx) {</code> |
 | `register` | function | 1911 | <code>function register(ctx, d) {</code> |
 
-## extensions/vscode/agents.js
+## editors/vscode/agents.js
 
-[Open source](../../extensions/vscode/agents.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/agents.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -158,9 +158,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `hiddenCount` | method | 811 | <code>get hiddenCount() { return this.hidden.length; }</code> |
 | `size` | method | 812 | <code>get size() { return this.shown.length + this.hidden.length; }</code> |
 
-## extensions/vscode/client.js
+## editors/vscode/client.js
 
-[Open source](../../extensions/vscode/client.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/client.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -177,9 +177,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `_dispatch` | method | 149 | <code>_dispatch(msg) {</code> |
 | `uriOf` | function | 169 | <code>function uriOf(fsPath) {</code> |
 
-## extensions/vscode/extension.js
+## editors/vscode/extension.js
 
-[Open source](../../extensions/vscode/extension.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/extension.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -239,9 +239,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `activate` | function | 635 | <code>async function activate(ctx) {</code> |
 | `deactivate` | function | 822 | <code>function deactivate() {</code> |
 
-## extensions/vscode/fleet.js
+## editors/vscode/fleet.js
 
-[Open source](../../extensions/vscode/fleet.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/fleet.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -314,9 +314,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `register` | function | 1891 | <code>function register(ctx, d) {</code> |
 | `visible` | method | 1940 | <code>get visible() { return view.visible; },</code> |
 
-## extensions/vscode/kvx.js
+## editors/vscode/kvx.js
 
-[Open source](../../extensions/vscode/kvx.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/kvx.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -332,9 +332,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `provideHover` | method | 160 | <code>provideHover(doc, pos) {</code> |
 | `provideDocumentSymbols` | method | 176 | <code>provideDocumentSymbols(doc) {</code> |
 
-## extensions/vscode/language.js
+## editors/vscode/language.js
 
-[Open source](../../extensions/vscode/language.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/language.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -349,9 +349,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `provideWorkspaceSymbols` | method | 78 | <code>async provideWorkspaceSymbols(query) {</code> |
 | `provideCodeLenses` | method | 88 | <code>async provideCodeLenses(doc) {</code> |
 
-## extensions/vscode/memories.js
+## editors/vscode/memories.js
 
-[Open source](../../extensions/vscode/memories.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/memories.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -396,9 +396,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `supersedeFrom` | method | 541 | <code>async supersedeFrom(arg) {</code> |
 | `register` | function | 555 | <code>function register(ctx, deps) {</code> |
 
-## extensions/vscode/refresh.js
+## editors/vscode/refresh.js
 
-[Open source](../../extensions/vscode/refresh.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/refresh.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -406,9 +406,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `inFlight` | method | 86 | <code>get inFlight() { return running !== null; },</code> |
 | `runs` | method | 87 | <code>get runs() { return runs; },</code> |
 
-## extensions/vscode/serve.js
+## editors/vscode/serve.js
 
-[Open source](../../extensions/vscode/serve.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/serve.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -435,9 +435,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `applyNative` | function | 328 | <code>function applyNative(model, ev) {</code> |
 | `applySnapshot` | function | 366 | <code>function applySnapshot(model, snap) {</code> |
 
-## extensions/vscode/tasks.js
+## editors/vscode/tasks.js
 
-[Open source](../../extensions/vscode/tasks.js)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/editors/vscode/tasks.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -502,3 +502,5 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `cmdOpenBranch` | function | 1386 | <code>async function cmdOpenBranch(arg) {</code> |
 | `cmdCopyPrompt` | function | 1425 | <code>async function cmdCopyPrompt(arg) {</code> |
 | `register` | function | 1440 | <code>function register(ctx, d) {</code> |
+
+Historical source paths and declaration locations above remain pinned to `a2a367f9388e9686deb52194ca45b05d008e84a3`; category relocation does not re-date this indexed baseline. Current counterparts are listed in [the repository layout mapping](../../spec/hyperfide-source-control/repository-layout.json).

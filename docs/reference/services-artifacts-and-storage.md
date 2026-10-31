@@ -1,10 +1,10 @@
 # Source reference: Control services: artifacts and storage
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the `artifacts/`, `contracts/`, `deployment/`, `migration/`, `release/` and `storage/` subtrees of `core/control-plane/src/`: 614 declarations in 25 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the `artifacts/`, `contracts/`, `deployment/`, `migration/`, `release/` and `storage/` subtrees of `services/hyperfide/src/`: 614 declarations in 25 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
 
-## core/control-plane/src/artifacts/adoption.ts
+## services/hyperfide/src/artifacts/adoption.ts
 
-[Open source](../../core/control-plane/src/artifacts/adoption.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/artifacts/adoption.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -43,9 +43,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `isArtifactAdoptionCapability` | function | 260 | <code>export function isArtifactAdoptionCapability(value:unknown):value is ArtifactAdoptionCapability{</code> |
 | `createComponent` | function | 264 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## core/control-plane/src/artifacts/checkpoint-recipes.ts
+## services/hyperfide/src/artifacts/checkpoint-recipes.ts
 
-[Open source](../../core/control-plane/src/artifacts/checkpoint-recipes.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/artifacts/checkpoint-recipes.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -63,9 +63,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `sessionRecipe` | function | 52 | <code>export function sessionRecipe(source:CheckpointLineage,mode:AdoptionMode,resume:Record&lt;string,unknown&gt;&#124;null):RecipeOutcome{</code> |
 | `environmentRecipe` | function | 58 | <code>export function environmentRecipe(source:CheckpointLineage,mode:AdoptionMode,target:TargetExecution,expected:TargetExecution):RecipeOutcome{</code> |
 
-## core/control-plane/src/artifacts/continuation.ts
+## services/hyperfide/src/artifacts/continuation.ts
 
-[Open source](../../core/control-plane/src/artifacts/continuation.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/artifacts/continuation.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -74,9 +74,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `fail` | function | 20 | <code>function fail():never{throw new FoundationError('CHECKPOINT_CONTINUATION_UNAVAILABLE','Registered immutable checkpoint context is unavailable');}</code> |
 | `readCheckpointContinuation` | function | 24 | <code>export async function readCheckpointContinuation(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;checkpoint_id:string},invocation:InvocationContext):Promise&lt;CheckpointContinuation&gt;{</code> |
 
-## core/control-plane/src/artifacts/destruction.ts
+## services/hyperfide/src/artifacts/destruction.ts
 
-[Open source](../../core/control-plane/src/artifacts/destruction.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/artifacts/destruction.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -84,9 +84,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `readArtifactDestructionPreflight` | function | 11 | <code>export const readArtifactDestructionPreflight:ProviderDestructionPreflight=async(tx,input)=&gt;{</code> |
 | `registerArtifactDestructionPreflight` | function | 29 | <code>export function registerArtifactDestructionPreflight(context:ComponentContext):void{</code> |
 
-## core/control-plane/src/artifacts/objects.ts
+## services/hyperfide/src/artifacts/objects.ts
 
-[Open source](../../core/control-plane/src/artifacts/objects.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/artifacts/objects.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -151,9 +151,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `createArtifactStore` | function | 390 | <code>export function createArtifactStore(context:ComponentContext):ArtifactStore{return new ArtifactStore(context);}</code> |
 | `createComponent` | function | 391 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## core/control-plane/src/artifacts/retention.ts
+## services/hyperfide/src/artifacts/retention.ts
 
-[Open source](../../core/control-plane/src/artifacts/retention.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/artifacts/retention.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -197,9 +197,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `invoke` | method | 188 | <code>async invoke(action:string,input:unknown):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 195 | <code>export function createComponent(_context:ComponentContext):Component{registerArtifactDestructionPreflight(_context);return {apiVersion:1,actions:Object.fromEntries(ACTIONS.map(action=&gt;&#91;action,(input:u…</code> |
 
-## core/control-plane/src/contracts/records.ts
+## services/hyperfide/src/contracts/records.ts
 
-[Open source](../../core/control-plane/src/contracts/records.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/contracts/records.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -249,9 +249,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `GraphManifestRecord` | interface | 241 | <code>export interface GraphManifestRecord extends Scope {</code> |
 | `FindingRecord` | interface | 245 | <code>export interface FindingRecord extends SourceReference {</code> |
 
-## core/control-plane/src/deployment/releases.ts
+## services/hyperfide/src/deployment/releases.ts
 
-[Open source](../../core/control-plane/src/deployment/releases.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/deployment/releases.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -268,9 +268,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `inspectPrebuiltRelease` | function | 92 | <code>export async function inspectPrebuiltRelease(env:Readonly&lt;NodeJS.ProcessEnv&gt;,relativeManifest:unknown):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 140 | <code>export function createComponent(_startup:ComponentContext):Component{return {apiVersion:1,actions:Object.fromEntries(actions.map(action=&gt;&#91;action,async(raw:unknown,ctx:ComponentContext)=&gt;{</code> |
 
-## core/control-plane/src/migration/cutover.ts
+## services/hyperfide/src/migration/cutover.ts
 
-[Open source](../../core/control-plane/src/migration/cutover.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/migration/cutover.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -294,9 +294,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `legacyInput` | function | 102 | <code>function legacyInput(ctx:ComponentContext,operation:string,epoch:unknown,signal:AbortSignal):LegacyWriterInput{</code> |
 | `createComponent` | function | 112 | <code>export function createComponent(_startup:ComponentContext):Component{return {apiVersion:1,actions:Object.fromEntries(names.map(action=&gt;&#91;action,async(raw:unknown,ctx:ComponentContext)=&gt;{</code> |
 
-## core/control-plane/src/migration/generated.ts
+## services/hyperfide/src/migration/generated.ts
 
-[Open source](../../core/control-plane/src/migration/generated.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/migration/generated.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -307,9 +307,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `executable` | function | 46 | <code>async function executable(context:ComponentContext):Promise&lt;FileHandle&gt;{</code> |
 | `createComponent` | function | 57 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## core/control-plane/src/migration/legacy.ts
+## services/hyperfide/src/migration/legacy.ts
 
-[Open source](../../core/control-plane/src/migration/legacy.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/migration/legacy.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -351,9 +351,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `createLegacyWriterAdmission` | function | 196 | <code>export function createLegacyWriterAdmission(env:Readonly&lt;NodeJS.ProcessEnv&gt;):LegacyWriterAdmission{return new LegacyWriterAdmission(env);}</code> |
 | `createLegacyComponent` | function | 198 | <code>export function createLegacyComponent(ctx:ComponentContext):Component {</code> |
 
-## core/control-plane/src/migration/names.ts
+## services/hyperfide/src/migration/names.ts
 
-[Open source](../../core/control-plane/src/migration/names.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/migration/names.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -380,9 +380,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `rollback` | function | 472 | <code>async function rollback(root:FileHandle,m:NamesManifest):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 514 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## core/control-plane/src/migration/parity.ts
+## services/hyperfide/src/migration/parity.ts
 
-[Open source](../../core/control-plane/src/migration/parity.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/migration/parity.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -399,9 +399,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `compareParity` | function | 38 | <code>export async function compareParity(tx:ParityReader,ctx:ComponentContext,i:InvocationContext,scope:Scope,importId:string):Promise&lt;ParityReport&gt;{</code> |
 | `shadowCompare` | function | 107 | <code>export async function shadowCompare(ctx:ComponentContext,i:InvocationContext,scope:Scope,importId:string):Promise&lt;ParityReport&gt;{</code> |
 
-## core/control-plane/src/migration/sqlite.ts
+## services/hyperfide/src/migration/sqlite.ts
 
-[Open source](../../core/control-plane/src/migration/sqlite.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/migration/sqlite.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -441,9 +441,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `scoped` | function | 335 | <code>async function scoped(tx:IdentityTransaction,p:Profile,ctx:ComponentContext):Promise&lt;void&gt;{</code> |
 | `createComponent` | function | 341 | <code>export function createComponent(_startup:ComponentContext):Component{return {apiVersion:1,capabilities:{'migration.legacy-writers.v1':createLegacyWriterAdmission(_startup.env)},actions:Object.fromEntr…</code> |
 
-## core/control-plane/src/migration/workflow.ts
+## services/hyperfide/src/migration/workflow.ts
 
-[Open source](../../core/control-plane/src/migration/workflow.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/migration/workflow.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -462,9 +462,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `isHandoff` | function | 67 | <code>function isHandoff(value:unknown):value is Handoff{return object(value)&amp;&amp;typeof value.propose==='function'&amp;&amp;typeof value.acknowledge==='function';}</code> |
 | `createComponent` | function | 70 | <code>export function createComponent(context:ComponentContext):Component {</code> |
 
-## core/control-plane/src/release/readiness.ts
+## services/hyperfide/src/release/readiness.ts
 
-[Open source](../../core/control-plane/src/release/readiness.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/release/readiness.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -484,9 +484,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `createComponent` | function | 240 | <code>export function createComponent(_context:ComponentContext):Component{</code> |
 | `pinnedCampaignManifest` | function | 244 | <code>export function pinnedCampaignManifest(receipt:unknown,bytes:Uint8Array):RecordValue{</code> |
 
-## core/control-plane/src/release/traceability.ts
+## services/hyperfide/src/release/traceability.ts
 
-[Open source](../../core/control-plane/src/release/traceability.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/release/traceability.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -519,9 +519,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `checkReleasePack` | function | 194 | <code>export async function checkReleasePack(input:unknown):Promise&lt;RecordValue&gt;{</code> |
 | `createComponent` | function | 203 | <code>export function createComponent(_context:ComponentContext):Component{</code> |
 
-## core/control-plane/src/storage/authority_journal.ts
+## services/hyperfide/src/storage/authority_journal.ts
 
-[Open source](../../core/control-plane/src/storage/authority_journal.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/authority_journal.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -560,9 +560,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `prepareActivation` | method | 139 | <code>async prepareActivation(input:AuthorityJournalPreparation):Promise&lt;PreparedAuthorityActivation&gt;{</code> |
 | `publishCommitted` | method | 163 | <code>async publishCommitted(input:AuthorityJournalPublication):Promise&lt;ExternalAuthorityAttestation&gt;{</code> |
 
-## core/control-plane/src/storage/dispositions.ts
+## services/hyperfide/src/storage/dispositions.ts
 
-[Open source](../../core/control-plane/src/storage/dispositions.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/dispositions.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -573,9 +573,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `readSemanticDisposition` | function | 43 | <code>export function readSemanticDisposition(tx:PrimaryTransaction,scope:SemanticDispositionScope):Promise&lt;SemanticDispositionReceipt&gt;{return fence(tx,scope,'READ');}</code> |
 | `writeSemanticDisposition` | function | 44 | <code>export function writeSemanticDisposition(tx:PrimaryTransaction,scope:SemanticDispositionScope):Promise&lt;SemanticDispositionReceipt&gt;{return fence(tx,scope,'WRITE');}</code> |
 
-## core/control-plane/src/storage/durability.ts
+## services/hyperfide/src/storage/durability.ts
 
-[Open source](../../core/control-plane/src/storage/durability.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/durability.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -609,9 +609,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `assertRuntimePrivileges` | function | 256 | <code>export async function assertRuntimePrivileges(resources:ServiceResources):Promise&lt;void&gt;{</code> |
 | `createComponent` | function | 264 | <code>export async function createComponent(context:ComponentContext):Promise&lt;Component&gt;{</code> |
 
-## core/control-plane/src/storage/recovery_probes.ts
+## services/hyperfide/src/storage/recovery_probes.ts
 
-[Open source](../../core/control-plane/src/storage/recovery_probes.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/recovery_probes.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -654,9 +654,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `runLocalDrill` | function | 407 | <code>async function runLocalDrill(profile:Profile,input:ProbeInput,scenario:LocalScenario):Promise&lt;DrillProbeResult&gt;{</code> |
 | `createRecoveryProbe` | function | 440 | <code>export function createRecoveryProbe(resources:ServiceResources,env:Readonly&lt;NodeJS.ProcessEnv&gt;){</code> |
 
-## core/control-plane/src/storage/replicas.ts
+## services/hyperfide/src/storage/replicas.ts
 
-[Open source](../../core/control-plane/src/storage/replicas.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/replicas.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -684,9 +684,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `read` | method | 126 | <code>async read(options:PacketReadOptions,invocation:InvocationContext):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 186 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## core/control-plane/src/storage/runtime.ts
+## services/hyperfide/src/storage/runtime.ts
 
-[Open source](../../core/control-plane/src/storage/runtime.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/runtime.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -732,9 +732,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `createResourceContainer` | function | 248 | <code>export function createResourceContainer(context:{role:ServiceRole;env:Readonly&lt;NodeJS.ProcessEnv&gt;;signal:AbortSignal}):ResourceContainer{</code> |
 | `createComponent` | function | 251 | <code>export function createComponent(context:{resources:ServiceResources}){</code> |
 
-## core/control-plane/src/storage/schema.ts
+## services/hyperfide/src/storage/schema.ts
 
-[Open source](../../core/control-plane/src/storage/schema.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/schema.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -755,9 +755,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `empty` | function | 159 | <code>function empty(input:unknown):void{</code> |
 | `createComponent` | function | 162 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## core/control-plane/src/storage/transactions.ts
+## services/hyperfide/src/storage/transactions.ts
 
-[Open source](../../core/control-plane/src/storage/transactions.ts)
+[Open source](https://github.com/Sidiora-Labs/hyperfide/blob/a2a367f9388e9686deb52194ca45b05d008e84a3/services/hyperfide/src/storage/transactions.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -790,3 +790,5 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `TransactionGateway` | class | 95 | <code>export class TransactionGateway {</code> |
 | `constructor` | method | 96 | <code>constructor(private readonly source:PrimaryConnectionSource){}</code> |
 | `withPrimaryTransaction` | method | 97 | <code>async withPrimaryTransaction&lt;T&gt;(options:TransactionOptions,operation:(tx:PrimaryTransaction)=&gt;Promise&lt;T&gt;&#124;T):Promise&lt;T&gt;{</code> |
+
+Historical source paths and declaration locations above remain pinned to `a2a367f9388e9686deb52194ca45b05d008e84a3`; category relocation does not re-date this indexed baseline. Current counterparts are listed in [the repository layout mapping](../../spec/hyperfide-source-control/repository-layout.json).

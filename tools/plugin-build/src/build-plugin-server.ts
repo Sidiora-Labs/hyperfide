@@ -119,7 +119,7 @@ async function transformSourceModuleLocation(
   for (const entry of [...imports].reverse()) {
     if (entry.d < 0 || entry.n !== undefined) continue;
     const expression = code.slice(entry.s, entry.e);
-    const resolved = `((specifier) => typeof specifier === "string" && (specifier.startsWith(".") || specifier.startsWith("..")) ? new URL(specifier, ${JSON.stringify(sourceUrl)}).href : specifier)(${expression})`;
+    const resolved = `((specifier) => typeof specifier === "string" && (specifier.startsWith("./") || specifier.startsWith("../")) ? new URL(specifier, ${JSON.stringify(sourceUrl)}).href : specifier)(${expression})`;
     code = `${code.slice(0, entry.s)}${resolved}${code.slice(entry.e)}`;
   }
   return code;

@@ -15,8 +15,8 @@ export const COLLECTION_SCHEMA_URL =
 const COLLECTION_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 function subdirectoryFromCollectionSource(source: string): string {
-  if (!source.startsWith(".")) {
-    throw new Error(`source "${source}" must start with "."`);
+  if (!source.startsWith("./")) {
+    throw new Error(`source "${source}" must start with "./"`);
   }
   return normalizePluginSubdirectory(source);
 }

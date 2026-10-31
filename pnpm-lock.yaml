@@ -2313,8 +2313,6 @@ importers:
         specifier: npm:@typescript/typescript6@^6.0.2
         version: '@typescript/typescript6@6.0.2'
 
-  packages/tsconfig: {}
-
   plugins/account-pool:
     dependencies:
       '@dnd-kit/core':

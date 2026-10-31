@@ -1,5 +1,5 @@
 export function isPluginOwnedIconPath(icon: string): boolean {
-  return icon.startsWith(".");
+  return icon.startsWith("./");
 }
 
 export const PLUGIN_ICON_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;

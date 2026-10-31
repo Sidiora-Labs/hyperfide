@@ -1397,7 +1397,7 @@ export function validatePluginProviderDeclaration(
         `provider "${id}" icon must be a non-blank string — a named host glyph ("Zap"), a plugin-relative path ("./icons/agent.svg"), or a declared icon ("<pluginId>/<name>")`,
       );
     }
-    // The `hyperfide.branding.icon` forms plus one: a leading "." means a
+    // The `hyperfide.branding.icon` forms plus one: a leading "./" means a
     // plugin-owned file and gets the escape rules; "<pluginId>/<name>" names
     // an entry of the plugin's `hyperfide.branding.experimental_icons` map (the host
     // checks the plugin id and the name at registration, since only it holds
@@ -1410,7 +1410,7 @@ export function validatePluginProviderDeclaration(
       icon = declaration.icon;
     } else if (/[/\\]/u.test(declaration.icon)) {
       throw new Error(
-        `provider "${id}" icon looks like a path but does not start with "." — use "./icons/agent.svg" for a plugin file, "<pluginId>/<name>" for a declared icon, or a bare host glyph name like "Zap"`,
+        `provider "${id}" icon looks like a path but does not start with "./" — use "./icons/agent.svg" for a plugin file, "<pluginId>/<name>" for a declared icon, or a bare host glyph name like "Zap"`,
       );
     } else {
       icon = declaration.icon;

@@ -29,7 +29,7 @@ int main(int argc,char **argv) {
     return rc;
 }
 EOF
-cc -std=c11 -Wall -Wextra -Werror -I"$repo/src" \
+cc -std=c11 -Wall -Wextra -Werror -I"$repo/core/native/src" \
     "$repo/core/native/src/sem_resolve.c" "$tmp/runner.c" -lsqlite3 -o "$tmp/runner"
 python3 - "$tmp/test.db" "$tmp/runner" <<'PY'
 import sqlite3, subprocess, sys

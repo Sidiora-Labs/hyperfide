@@ -55,7 +55,7 @@ export function requireRelativePreviewFile(value: unknown): string {
   const normalized = path.posix.normalize(slashNormalized);
   if (
     normalized === ".." ||
-    normalized.startsWith("..") ||
+    normalized.startsWith("../") ||
     normalized.includes("/../") ||
     normalized === "." ||
     normalized.startsWith("/")

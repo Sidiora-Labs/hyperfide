@@ -43,7 +43,7 @@ function fileWithTsExtension(base) {
 function splitScopedSpecifier(moduleName) {
   const parts = moduleName.split("/");
   const packageName = parts.slice(0, 2).join("/");
-  const subpath = parts.length > 2 ? "." + parts.slice(2).join("/") : ".";
+  const subpath = parts.length > 2 ? "./" + parts.slice(2).join("/") : ".";
   return { packageName, subpath };
 }
 

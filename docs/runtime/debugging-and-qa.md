@@ -606,7 +606,7 @@ streaming starts aborts the body. Revision routes ignore Range and keep the
 daemon's 25 MB non-image limit.
 
 Working-tree, host, thread-storage, leased-preview, and uploaded-attachment
-responses share `services/files/file-stream-response.ts`. It owns ranges,
+responses share `core/server/src/services/files/file-stream-response.ts`. It owns ranges,
 conditional requests, HEAD, bounded streaming, backpressure, and cancellation.
 The local reader opens a file handle only when bytes are needed and closes it
 on completion, cancellation, or failure. The daemon reader uses the existing

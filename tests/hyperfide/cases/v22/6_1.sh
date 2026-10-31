@@ -14,7 +14,7 @@ if [[ ${1:-} == --postgres ]]; then
 fi
 unset HYPERFIDE_DATABASE_URL
 pnpm -C sdk/plugins run build:runtime
-pnpm exec turbo run typecheck --filter=./packages/db --filter=./apps/server --filter=./packages/config --filter=./packages/scripts --filter=./packages/plugin-sdk
+pnpm exec turbo run typecheck --filter=./core/runtime-db --filter=./core/server --filter=./lib/config --filter=./tools/scripts --filter=./sdk/plugins
 sqlite_status=0
 postgres_status=0
 (run_suites) || sqlite_status=$?

@@ -139,7 +139,7 @@ it("resolves every named branding.icon the shipped plugins declare", async () =>
       await readFile(join(pluginsDir, manifestPath), "utf8"),
     );
     const icon = manifest.hyperfide?.branding?.icon;
-    if (icon === undefined || icon.startsWith(".")) continue;
+    if (icon === undefined || icon.startsWith("./")) continue;
     declared.push([manifestPath.split("/")[0], icon]);
   }
 

@@ -21,7 +21,7 @@ export async function latestReceipt(repository: string, id: string): Promise<str
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
   }));
   const latest = receipts.filter(receipt => receipt !== undefined).sort((a, b) => b.time - a.time)[0];
-  return latest ? '.' + latest.path.split('/').map(encodeURIComponent).join('/') : undefined;
+  return latest ? './' + latest.path.split('/').map(encodeURIComponent).join('/') : undefined;
 }
 const run: CommandRunner = (binary, args, cwd) => new Promise((resolve, reject) => {
   execFile(binary, args, { cwd }, (error, stdout, stderr) => {

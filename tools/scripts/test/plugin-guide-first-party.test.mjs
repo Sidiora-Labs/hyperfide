@@ -23,7 +23,7 @@ function manifestRows() {
     rows.set(id, {
       id,
       name: manifest.hyperfide.name,
-      icon: icon === null || icon.startsWith(".") ? null : icon,
+      icon: icon === null || icon.startsWith("./") ? null : icon,
     });
   }
   return rows;

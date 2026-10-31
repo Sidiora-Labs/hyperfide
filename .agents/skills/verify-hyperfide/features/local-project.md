@@ -6,7 +6,7 @@ Status: **2026-09-05: 1 passed**. See [the audit](../MAINTENANCE.md) and [per-re
 
 Select a folder on a connected machine and use it as a project.
 
-- `apps/app/src/views/RootComposeEmptyWelcome.tsx`: initial New project entry.
+- `plugins/tasks/views/manage/new-project-dialog.tsx`: project creation dialog.
 - `apps/web/src/hooks/useQuickCreateProject.tsx`: name derived from the path,
   local source creation, and selecting the project in root compose.
 - `apps/web/src/components/dialogs/ProjectPathDialog.tsx`: folder navigation
@@ -56,3 +56,5 @@ Do not use **Automatically import my projects**: it reads real recent repos.
 The folder picker can initially display the host's home directory; do not
 commit a screenshot of unrelated folders. Do not press Add while it still
 shows the previous path. An empty folder listing is valid for this fixture.
+
+Source pointers name current navigation targets. The dated audit status above remains historical; path reconciliation does not renew its behavioral qualification.

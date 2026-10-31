@@ -25,6 +25,6 @@ for name in paths:
         violations.append(name)
 assert not violations, 'Stale identity in: ' + ', '.join(violations)
 PY
-pnpm exec turbo run test --filter=./packages/config --filter=./apps/host-daemon --filter=./apps/cli
+pnpm exec turbo run test --filter=./lib/config --filter=./core/host-daemon --filter=./apps/cli
 pnpm exec turbo run build --filter=./apps/cli
 node apps/cli/bin/hyperfide-platform --help

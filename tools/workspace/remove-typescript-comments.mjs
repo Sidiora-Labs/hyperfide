@@ -6,7 +6,12 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const requestedPaths = process.argv.slice(2).filter((value) => value !== "--");
+const sourceScope = JSON.parse(readFileSync(new URL("./source-roots.json", import.meta.url), "utf8"));
+if (sourceScope.schema_version !== 1 || !Array.isArray(sourceScope.roots) || sourceScope.roots.some((root) => typeof root !== "string" || !root || root.startsWith("/") || root.split("/").includes(".."))) {
+  throw new Error("Explicit workspace source roots are required.");
+}
+const listOnly = process.argv.includes("--list");
+const requestedPaths = process.argv.slice(2).filter((value) => value !== "--" && value !== "--list");
 const trackedFiles = execFileSync(
   "git",
   ["ls-files", "-z", "--", "*.ts", "*.tsx", "*.mts", "*.cts"],
@@ -14,6 +19,7 @@ const trackedFiles = execFileSync(
 )
   .split("\0")
   .filter(Boolean)
+  .filter((file) => sourceScope.roots.some((root) => file === root || file.startsWith(`${root}/`)))
   .filter(
     (file) =>
       file !== "lib/domain/src/native-roots.ts" &&
@@ -44,6 +50,11 @@ const selectedFiles =
 
 if (selectedFiles.length === 0) {
   throw new Error("No tracked TypeScript files matched the requested paths.");
+}
+
+if (listOnly) {
+  await new Promise((resolve, reject) => process.stdout.write(JSON.stringify({ schema_version: 1, files: selectedFiles }) + "\n", (error) => error ? reject(error) : resolve()));
+  process.exit(0);
 }
 
 function findCommentRanges(sourceFile, sourceText) {

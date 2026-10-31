@@ -311,6 +311,7 @@ export default () => [z.string().parse("full"), mini.string().parse("mini")];
       `const literal = "import.meta.url";
 const pattern = /import\\.meta\\.url/;
 const target = "./helper.mjs";
+const bareTarget = ".hidden-package";
 export default async function plugin() {
   return {
     literal,
@@ -319,6 +320,7 @@ export default async function plugin() {
     dirname: import.meta.dirname,
     filename: import.meta.filename,
     dynamic: (await import(target)).value,
+    bareFailure: await import(bareTarget).then(() => "unexpected-success", (error) => error.code),
   };
 }
 `,
@@ -354,6 +356,7 @@ export default async function plugin() {
       dirname: dirname(canonicalServerEntry),
       filename: canonicalServerEntry,
       dynamic: "helper",
+      bareFailure: "ERR_INVALID_MODULE_SPECIFIER",
     });
   });
 

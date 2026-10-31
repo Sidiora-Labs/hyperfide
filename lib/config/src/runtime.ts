@@ -117,7 +117,7 @@ function resolveRepoRootLabel(args: ResolveDevInstanceConfigArgs): string {
   const homeRelativePath = relative(args.homeDir, args.repoRoot);
   if (
     homeRelativePath.length > 0 &&
-    !homeRelativePath.startsWith("..") &&
+    !homeRelativePath.startsWith("../") &&
     !homeRelativePath.startsWith("..\\") &&
     homeRelativePath !== ".." &&
     !isAbsolute(homeRelativePath)

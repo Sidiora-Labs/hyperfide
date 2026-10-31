@@ -99,7 +99,7 @@ function resolveLocalImport(
   scan: IsolationScan,
 ): string | null {
   let base: string | null = null;
-  if (specifier.startsWith(".") || specifier.startsWith(".")) {
+  if (specifier.startsWith("./") || specifier.startsWith("../")) {
     base = path.resolve(path.dirname(fromFile), specifier);
   } else {
     for (const [alias, target] of Object.entries(scan.aliases)) {

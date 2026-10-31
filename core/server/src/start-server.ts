@@ -162,8 +162,11 @@ export async function runServer(serverConfig: ServerConfig): Promise<void> {
   const appUrl = toOptionalString(serverConfig.HYPERFIDE_APP_URL);
 
   const selfDir = dirname(fileURLToPath(import.meta.url));
-  const appDir = resolve(selfDir, "../../../apps/web");
-  const appDistDir = join(appDir, "dist");
+  const packagedAppDistDir = resolve(selfDir, "../../app/dist");
+  const sourceAppDistDir = resolve(selfDir, "../../../apps/web/dist");
+  const appDistDir = existsSync(join(packagedAppDistDir, "index.html"))
+    ? packagedAppDistDir
+    : sourceAppDistDir;
   const isProduction = process.env.NODE_ENV === "production";
   const staticDir =
     isProduction && existsSync(appDistDir) ? appDistDir : undefined;

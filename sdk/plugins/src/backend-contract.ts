@@ -1513,7 +1513,7 @@ export interface PluginProviderDeclaration {
   family?: string;
   /**
    * Optional picker icon: a named host glyph (`"Zap"`) or a plugin-relative
-   * path starting with `"."` (`"./icons/agent.svg"`) — the two forms
+   * path starting with `"./"` (`"./icons/agent.svg"`) — the two forms
    * `hyperfide.branding.icon` takes — or, unlike `hyperfide.branding.icon`, one of this
    * plugin's declared icons by its namespaced glyph (`"<pluginId>/<name>"`,
    * an entry of the manifest's `hyperfide.branding.experimental_icons` map; the

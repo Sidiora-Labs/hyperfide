@@ -33,6 +33,6 @@ function isPathLikeTerminalTitlePath(path: string): boolean {
     path === "." ||
     path.startsWith("~/") ||
     path.startsWith("/") ||
-    path.startsWith(".")
+    path.startsWith("./")
   );
 }

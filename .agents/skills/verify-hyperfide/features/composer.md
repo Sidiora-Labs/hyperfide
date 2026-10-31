@@ -14,8 +14,8 @@ command’s `--help` before mutation. Use fresh browser snapshots for controls.
 ## Source
 
 - `apps/web/src/views/RootComposeView.tsx`
-- `apps/app/src/components/promptbox/PromptBoxActionsMenu.tsx`
-- `apps/app/src/components/promptbox/mentions/MentionMenu.tsx`
+- `plugins/composer/src/PromptBoxActionsMenu.tsx`
+- `plugins/composer/src/mentions/MentionMenu.tsx`
 - `apps/cli/src/commands/thread/spawn.ts`
 - `apps/cli/src/commands/voice.ts`
 
@@ -52,7 +52,7 @@ recipe. External writes require a disposable test target and task authorization.
 - Composer cycles use Alt+M (model), Alt+P (provider), and Alt+T (reasoning); add Shift for backward. Service tiers follow the selected model: one tier shows as a `<Label> mode` switch (Fast mode), several as a Speed choice with Default, and a model with none hides the control. Read execution from accepted turn events to prove the sent combination. Source: `core/server/src/services/system/app-keybindings.ts:240`.
 - Use a distinct workspace filename with no same-named prior attachment for the send-time-content test. Verify the provider tool path as well as response text so an older attachment choice cannot be mistaken for stale workspace resolution. Source: `apps/web/src/hooks/pathMentionSuggestions.ts:15`.
 - For synthetic project fixtures use skill list --project <id> --environment <id>; environment alone defaults project to personal and can return Environment not found. project commands also requires --provider <id>. Source: `apps/cli/src/commands/skill.ts:173`.
-- For headless clipboard setup grant clipboard-read, clipboard-write and clipboard-sanitized-write, then write to clipboard and use real Ctrl+V. Distinguish whole-message Add to chat from selected-text quote coverage. Source: `apps/app/src/components/promptbox/PromptBoxInternal.tsx:1690`.
+- For headless clipboard setup grant clipboard-read, clipboard-write and clipboard-sanitized-write, then write to clipboard and use real Ctrl+V. Distinguish whole-message Add to chat from selected-text quote coverage. Source: `plugins/composer/src/PromptBoxInternal.tsx`.
 
 ## Attachment accounting verification
 
@@ -70,3 +70,5 @@ upload disappears from the table and from `attachments/<project>/` on disk. Hard
 the synthetic thread and let the sweep run again; that file and row should then be gone
 too. Never age or delete rows in a real user's store. This recipe verifies storage
 ownership without requiring an actual provider turn.
+
+Source pointers name current navigation targets. The dated audit status above remains historical; path reconciliation does not renew its behavioral qualification.

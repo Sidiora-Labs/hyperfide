@@ -9,7 +9,7 @@ export async function taskReceipts(cwd: string, task: string, spec: string): Pro
   if (!/^\d+\.\d+$/.test(task)) return [];
   const details = await receiptDetail(cwd, task, spec, async () => {});
   return details.map(({ receipt, warnings }) => ({ digest: receipt.digest, warnings,
-    log: '.' + receipt.evidence[0], bundle: '.' + receipt.evidence[1] }));
+    log: './' + receipt.evidence[0], bundle: './' + receipt.evidence[1] }));
 }
 
 export async function receiptDetail(cwd: string, task: string, spec: string, open: (path: string) => Promise<void>, runner: Runner = runBinary,

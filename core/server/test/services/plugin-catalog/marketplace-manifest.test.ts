@@ -443,7 +443,7 @@ describe("marketplace manifest schema", () => {
     });
 
     it("rejects a git subdir that escapes the repository", () => {
-      for (const subdir of ["../evil/", "/abs/path", "plugins/../../evil"]) {
+      for (const subdir of ["../evil", "/abs/path", "plugins/../../evil"]) {
         expect(() =>
           parse([
             entry({

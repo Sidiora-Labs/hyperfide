@@ -27,7 +27,7 @@ const pluginBrandingIconsSchema = z
         isPluginOwnedIconPath(path) && path.toLowerCase().endsWith(".svg"),
       {
         message:
-          'icon paths are plugin-relative .svg files starting with "." (for example "./icons/receipt.svg")',
+          'icon paths are plugin-relative .svg files starting with "./" (for example "./icons/receipt.svg")',
       },
     ),
   )

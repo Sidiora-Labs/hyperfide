@@ -33,7 +33,7 @@ describe("collection manifest schema", () => {
         schemaVersion: 1,
         name: "acme-plugins",
         plugins: [
-          { name: "sidebar", source: "./plugins/sidebar/" },
+          { name: "sidebar", source: "./plugins/sidebar" },
           { name: "status", source: "./apps/status" },
         ],
       }),
@@ -48,16 +48,16 @@ describe("collection manifest schema", () => {
 
   it("rejects sources that escape or select the repository root", () => {
     for (const source of [
-      "../evil",
-      "../evil",
+      "./../evil",
+      "./plugins/../../evil",
       "/etc/passwd",
       "plugins/sidebar",
       ".",
-      ".",
+      "./",
+      "./plugins//sidebar",
       "./plugins/sidebar/",
-      "./plugins/sidebar/",
-      "./plugins/sidebar/",
-      ".git",
+      "./plugins/./sidebar",
+      "./.git",
       "./plugins/.git/hooks",
       "./plugins\\sidebar",
     ]) {
@@ -175,7 +175,7 @@ describe("collection manifest in a checkout", () => {
 
   it("lists the entries when a collection repository has no root plugin", async () => {
     await writeCollection([
-      { name: "sidebar", source: "./plugins/sidebar/" },
+      { name: "sidebar", source: "./plugins/sidebar" },
       { name: "status", source: "./plugins/status" },
     ]);
 
@@ -189,7 +189,7 @@ describe("collection manifest in a checkout", () => {
   });
 
   it("keeps the root install when the repository is itself a plugin", async () => {
-    await writeCollection([{ name: "sidebar", source: "./plugins/sidebar/" }]);
+    await writeCollection([{ name: "sidebar", source: "./plugins/sidebar" }]);
     await writeRootPackage();
 
     expect(
@@ -202,7 +202,7 @@ describe("collection manifest in a checkout", () => {
   });
 
   it("resolves an entry name and rejects an entry without a manifest", async () => {
-    await writeCollection([{ name: "sidebar", source: "./plugins/sidebar/" }]);
+    await writeCollection([{ name: "sidebar", source: "./plugins/sidebar" }]);
     expect(
       await resolveSelectedSubdirectory({
         checkoutDir: repoDir,

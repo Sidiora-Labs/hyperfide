@@ -323,7 +323,7 @@ export function createHyperfideAppProcessLaunch(
     bridgeRelativePath.length === 0 ||
     posixPath.isAbsolute(bridgeRelativePath) ||
     bridgeRelativePath === ".." ||
-    bridgeRelativePath.startsWith("..")
+    bridgeRelativePath.startsWith("../")
   ) {
     throw new Error("hyperfide-app bridge path must be inside the AppImage mount");
   }

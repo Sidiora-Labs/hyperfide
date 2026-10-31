@@ -518,14 +518,14 @@ reports extracted symbols and therefore has a lower symbol count.
 
 The post-0.7 rerun used the real merged modules and passed
 `tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
-9,993 symbols under `core/server/`. An audit of task 1.6's changes
+9,993 symbols under `platform/apps/server/`. An audit of task 1.6's changes
 found no stand-ins, projection modules, copied identity gates or SDK accessor
 call sites requiring replacement.
 
 The fixed snapshot preserves the initial r2 source inventory and ignore rules
 for comparison; the qualification copy additionally excludes its pnpm lockfile.
 The three earlier completed runs include 765 files and 9,988 symbols under
-`core/server/` and finish below the 2,700-second limit. The paired
+`platform/apps/server/` and finish below the 2,700-second limit. The paired
 nested measurement includes SQL profiling overhead. Init with `--nested` uses
 the same indexing pipeline as plain init; it changes project-root selection.
 
@@ -561,14 +561,15 @@ and branch reuse.
 
 ## Sandbox toolkit image steps and measured base build
 
-Platform CI runs `bash scripts/platform-ci.sh` on Node 24. It uses Corepack's
+Platform CI runs `bash tools/repository/platform-ci.sh` on Node 24. It uses Corepack's
 pnpm version from `package.json`, installs with `--frozen-lockfile`,
 then runs typecheck, build, unit tests, and the repository identity gate. Each
 failure stops the run. `--quick` uses existing dependencies and runs only
 typecheck and the identity gate; it is the task 0.9 qualification command.
-The GitHub workflow runs on push and pull request changes under `platform/`
-and `tests/hyperfide/cases/v22/`, as well as changes to the CI script or workflow.
-It caches the pnpm store using the platform lockfile hash and has read-only
+The GitHub workflow runs on push and pull request changes under the runtime
+category directories, tests, assets and patches, as well as changes to root
+workspace configuration, the CI script or workflow.
+It caches the pnpm store using the root `pnpm-lock.yaml` hash and has read-only
 repository permission. It does not publish artifacts or update remote branches.
 The measured sandbox build timings below describe the base image, not a CI run.
 
@@ -602,7 +603,7 @@ on 4 vCPU / 8 GB:
 | total (approximately) | 457 (7 min 37 s) |
 
 `make platform-install`, `make platform-build`, and `make platform-test` run pnpm
-under platform/. `gen-jobs.py --codex hyperfide-v22 0.8` generates a packet;
+at the repository root. `gen-jobs.py --codex hyperfide-v22 0.8` generates a packet;
 `--v21` remains an alias for v21 tasks. `HF_PACKET_PREAMBLE` appends a file to
 each packet. `node dispatch.mjs --watch` rescans jobs every tick and writes
 queued, running, settled and backoff state to `state/dispatch-loop.json`.

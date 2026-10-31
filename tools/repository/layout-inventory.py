@@ -458,7 +458,7 @@ def generate_inventory(repo: Path, mapping: dict, revision: str = "HEAD") -> dic
     }
 
 
-def compare_inventories(before: dict, after: dict) -> list[str]:
+def compare_inventories(before: dict, after: dict, *, pinned_only: bool = False) -> list[str]:
     """Compare a proposed input inventory with a resulting pinned inventory.
 
     Every changed blob requires an explicit rewrite disposition, including
@@ -470,7 +470,7 @@ def compare_inventories(before: dict, after: dict) -> list[str]:
     for name, inventory in (("before", before), ("after", after)):
         if not isinstance(inventory, dict) or inventory.get("schema_version") != 1:
             return [f"{name}: unsupported inventory schema"]
-        if inventory.get("worktree_drift"):
+        if inventory.get("worktree_drift") and not pinned_only:
             errors.append(f"{name}: runtime worktree drift remains")
     after_files = {entry["source"]: entry for entry in after.get("files", [])}
     if len(after_files) != len(after.get("files", [])):

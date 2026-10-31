@@ -29,11 +29,9 @@ class InventoryTest(unittest.TestCase):
             'sdk/plugins/src/index.ts': 'export {};',
             'apps/desktop/src/main.ts': 'export {};',
             'apps/mobile/app/index.tsx': 'export {};',
-            'apps/web/src/routes/index.tsx': 'createFileRoute("/");',
-            'apps/connect/src/worker.ts': 'export {};',
             'examples/demo-server/src/index.ts': 'export {};',
             'core/server/src/index.ts': 'export {};',
-            'scripts/hyperfide-cloud-dev.mjs': 'export {};',
+            'tools/workspace/hyperfide-cloud-dev.mjs': 'export {};',
             'plugins/automations/package.json': json.dumps({'hyperfide-platform': {'server': './server.ts'}}),
             'plugins/automations/server.ts': 'hyperfide-platform.cli.register({name: "automation"});',
         }

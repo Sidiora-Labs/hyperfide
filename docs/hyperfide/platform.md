@@ -1,6 +1,6 @@
 # Hyperfide platform
 
-The platform runtime is the Node 24, pnpm 9.15 workspace in `platform/`.
+The platform runtime is the Node 24, pnpm 9.15 workspace at the repository root.
 The C binary is the public front door. Runtime threads execute work; the spec,
 Asks, independent checks and qualification receipts govern task completion.
 
@@ -8,8 +8,8 @@ Asks, independent checks and qualification receipts govern task completion.
 
 | Layer | Responsibility | Proof from the repository root |
 | --- | --- | --- |
-| Surfaces | Web app, desktop, mobile, CLI and editor language client. | `pnpm exec turbo run typecheck test --filter=./apps/app`; `bash tests/integration/14_vscode.sh` |
-| Execution | Server, host daemons, providers, environments and machines run work where the workspace lives. | `pnpm exec turbo run typecheck test --filter=./apps/server --filter=./apps/host-daemon` |
+| Surfaces | Web app, desktop, mobile, CLI and editor language client. | `pnpm exec turbo run typecheck test --filter=./apps/web`; `bash tests/integration/14_vscode.sh` |
+| Execution | Server, host daemons, providers, environments and machines run work where the workspace lives. | `pnpm exec turbo run typecheck test --filter=./core/server --filter=./core/host-daemon` |
 | Authority | Spec, Asks, qualification and dispatch use the binary and PostgreSQL control plane. | `python3 tests/hyperfide/cases/v22/6_5.py` |
 | Proof | Graph, lane receipts, independent checker and wave closure establish results. | `python3 tests/hyperfide/cases/v22/4_5.py` |
 

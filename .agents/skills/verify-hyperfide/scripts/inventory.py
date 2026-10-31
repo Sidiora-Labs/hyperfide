@@ -19,6 +19,12 @@ CLI_OWNERS = {
     'status': 'compatibility-api',
     'helpers': 'compatibility-api', 'environment-helpers': 'projects-environments',
     'browser': 'desktop',
+    'diagnostics': 'compatibility-api',
+    'machine-enrollment': 'hosts-updates', 'machine-environment': 'hosts-updates',
+    'prompt-history': 'composer',
+    'server': 'hosts-updates', 'server-local': 'hosts-updates',
+    'server-machine-service': 'hosts-updates', 'server-move': 'hosts-updates',
+    'spec': 'extensions',
     'thread': 'execution-controls',
 }
 CORE_PAGES = [
@@ -120,8 +126,6 @@ def collect(repo):
     for app, source_root, owner in [
         ('desktop', 'apps/desktop/', 'desktop'),
         ('mobile', 'apps/mobile/', 'mobile'),
-        ('web', 'apps/web/', 'hosted-web'),
-        ('connect', 'apps/connect/', 'cloud-gateway'),
         ('demo-server', 'examples/demo-server/', 'developer-fixtures'),
     ]:
         add(f'app:{app}', under(source_root), [owner], True)
