@@ -1,6 +1,6 @@
 # Prerequisite: organize the repository by category
 
-Status: **specified, not executed**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Fleet task 0.10 cannot start until task 0.9 qualifies; native task 0.1 also waits for final fleet gate 0.14. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
+Status: **task 0.3 implementation in progress; no files relocated**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Fleet task 0.10 cannot start until task 0.9 qualifies; native task 0.1 also waits for final fleet gate 0.14. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
 
 ## 1. Objective and boundaries
 
@@ -121,3 +121,18 @@ Validate actual core/server/host/CLI operation, app startup and affected desktop
 Old specifications and signed evidence remain attached to their original source revision. The new source-control plan's future paths use the target categories now, but its source-inspection links continue to document the old baseline until the corresponding code moves. Historical paths must not be mass-rewritten to imply past tests ran against the new layout.
 
 Before native implementation begins, rollback can select the retained pre-layout revision and its compatible images/configuration, while preserving any uncommitted work. Once new source work exists, rollback requires a reviewed reverse mapping/cherry-pick or forward repair; it cannot discard later changes. No permanent duplicate source trees are maintained.
+
+## 7. Executable inventory and baseline capture
+
+Task 0.3 provides [layout-inventory.py](../../tools/repository/layout-inventory.py), a read-only consumer of the mapping. `source_baseline` retains the original design inspection; `implementation_baseline` pins the refreshed tracked-source inventory. `category-layout-v1` identifies the target layout. Later tasks must reject unexplained drift before moving files.
+
+```sh
+python3 tools/repository/layout-inventory.py --mapping spec/hyperfide-source-control/repository-layout.json --revision HEAD --output build/layout/inventory.json
+python3 tests/hyperfide/cases/source_control/0_3.py
+```
+
+The inventory records original and target paths, Git object identities, types/modes, package declarations, dependency and configuration inputs, rewrite obligations and an inverse plan. Intentional merges retain every original input and are never declared automatically reversible. Historical references and installed artifact paths are classified separately from checkout references; unresolved references need explicit disposition during their owning move task.
+
+The focused driver writes `build/layout/0.3/inventory.json`, `baseline.json` and `receipt.json`, with command logs and input digests. It exercises rejection of incomplete mappings, collisions including case-folded destinations, path escapes, source/artifact confusion, package identity drift, dependency drift and mode changes. These are inventory/validator checks, not evidence of a relocated runtime.
+
+Baseline probes observe native component discovery and available tool versions without installing dependencies or running full product builds. Missing dependency trees, unavailable tools and absent binaries remain recorded. Workspace package membership, package test scripts and root Vitest project discovery are separate inventories. Installed global tools do not prove this checkout builds. Final layout qualification still belongs to task 0.9.

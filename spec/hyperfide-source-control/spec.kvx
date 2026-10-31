@@ -1,15 +1,15 @@
-# Hyperfide native source control with layout and agent-led fleet prerequisites. Design only.
-# Layout 0.3-0.9, fleet 0.10-0.14, then native 0.1; implementation pending, product UNRUN.
+# Hyperfide native source control with layout and agent-led fleet prerequisites. Layout implementation started.
+# Layout 0.3-0.9, fleet 0.10-0.14, then native 0.1; layout 0.3 in progress; product cases UNRUN.
 
 [meta]
 feature = "hyperfide-source-control"
 name = "Hyperfide native source control for large monorepos and agent fleets"
-version = "0.3.0-design"
-status = "pending"
-stage = "design"
+version = "0.3.1-layout"
+status = "in_progress"
+stage = "implementation"
 review_date = "2026-10-31"
 source_baseline = "2f7331ef2085f6f374adf2d1e2ee01405fecb72d"
-intro = "First qualify category-based repository reorganization, then the final prerequisite: agent-led fleet orchestration with interfaces.kvx, sandbox package.kvx and .neron source configuration. Only then implement the online server-authoritative source-control subsystem. An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 content and bounded trees, thin clients, complete APIs, server-side history and source operations, optional sparse and virtualized working copies, within-monorepo sharding, exact-evidence acceptance, and GitHub/GitLab compatibility at the remote boundary. This is a design and implementation plan; all product work and qualification remain pending."
+intro = "First qualify category-based repository reorganization, then the final prerequisite: agent-led fleet orchestration with interfaces.kvx, sandbox package.kvx and .neron source configuration. Only then implement the online server-authoritative source-control subsystem. An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 content and bounded trees, thin clients, complete APIs, server-side history and source operations, optional sparse and virtualized working copies, within-monorepo sharding, exact-evidence acceptance, and GitHub/GitLab compatibility at the remote boundary. Layout implementation begins with inventory task 0.3; later product implementation and full qualification remain pending."
 
 [decisions]
 d_1 = "Native online source control is a Hyperfide subsystem with a versioned service boundary; Hyperfide keeps task, attempt, scheduling and qualification-policy authority. Basic source operations also support authorized taskless principals."
@@ -247,10 +247,10 @@ heading = "Category layout, then agent-led fleet and sandbox contracts, then nat
 
 [task.0.3]
 title = "Freeze the category layout inventory and executable baseline"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = []
-touches = ["spec/hyperfide-source-control/repository-layout.json", "spec/hyperfide-source-control/repository-layout.md", "tools/repository/layout-inventory.py", "tests/hyperfide/cases/source_control/0_3.py"]
+touches = ["spec/hyperfide-source-control/repository-layout.json", "spec/hyperfide-source-control/repository-layout.md", "tools/repository/layout-inventory.py", "tests/hyperfide/cases/source_control/0_3.py", "spec/hyperfide-source-control/README.md", "spec/hyperfide-source-control/repository-baseline.md", "spec/hyperfide-source-control/tools/validate_spec.py"]
 verify_cmd = "python3 tests/hyperfide/cases/source_control/0_3.py"
 do_1 = "Inventory every tracked input under platform/ and services/, classified app/package/plugin units, root native/KVX/editor sources, hidden configuration, file types/modes, package identities and declared toolchains against the actual implementation baseline. Refresh the versioned mapping with explicit merge/regeneration exceptions and reject unmapped inputs or target/case collisions."
 do_2 = "Capture existing dependency resolution/integrity, public exports and bins, workspace/test membership, native component discovery, current runtime paths and relevant baseline check outcomes. Preserve absent/failed prerequisite evidence explicitly instead of treating it as a successful baseline."

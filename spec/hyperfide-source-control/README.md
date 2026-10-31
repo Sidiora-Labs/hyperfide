@@ -1,6 +1,6 @@
 # Hyperfide native source control
 
-Status: **design draft; implementation pending; product qualification UNRUN**.
+Status: **layout task 0.3 in progress; fleet/native implementation pending; product qualification UNRUN**.
 
 This feature specifies an online source-control subsystem inside Hyperfide. It serves one growing monorepo containing many large projects, thousands of concurrent agent workspaces, and high rates of independent changes. Immutable source objects live in S3; thin clients use versioned APIs, bounded caches, and optional sparse, virtual, or explicitly materialized working copies. Git is an import/export protocol at the remote boundary.
 
@@ -10,7 +10,7 @@ The subsystem has its own versioned contracts and independently scalable service
 
 [Repository layout](repository-layout.md) is the first work: move nested codebases into category roots while preserving behavior and public identities. The [explicit mapping](repository-layout.json) covers current source inputs. Tasks 0.3–0.9 qualify the layout first; no code has moved as part of this draft.
 
-The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the Primary and co-located Wave Managers responsible for adaptive orchestration. Every sandbox carries `.neron` source configuration and a `package.kvx` environment manifest; proposed `hyperfide install` assembles code, dependencies, configs and selected interface contracts before worker readiness. See [sandbox contracts](sandbox-contracts.md) and [interface schema](interface-contracts.md). Native task 0.1 waits for the final fleet qualification receipt. All of this remains specification work.
+The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the Primary and co-located Wave Managers responsible for adaptive orchestration. Every sandbox carries `.neron` source configuration and a `package.kvx` environment manifest; proposed `hyperfide install` assembles code, dependencies, configs and selected interface contracts before worker readiness. See [sandbox contracts](sandbox-contracts.md) and [interface schema](interface-contracts.md). Native task 0.1 waits for the final fleet qualification receipt. Task 0.3 is now implementing the inventory and baseline; fleet and native source-control implementation remain pending.
 
 ## Read in this order
 
@@ -52,3 +52,5 @@ python3 spec/hyperfide-source-control/tools/validate_spec.py --render
 The check parses KVX, validates references and dependency order, checks clause coverage and local document links, and detects stale derived views. It does not execute future test drivers or qualify source-control behavior. All product cases remain UNRUN.
 
 The capacity profiles are proposed acceptance targets, not measurements. Repository line counts, historical commit imports, newly authored revisions, workspace opens, concurrent agent processes, and downloaded bytes are separate dimensions. A successful API load generator does not prove an equivalent fleet of live engineering agents.
+
+Current execution: layout task 0.3 is in progress. Its focused evidence is separate from full layout case SCM-025, which remains UNRUN until task 0.9.

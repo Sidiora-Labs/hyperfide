@@ -833,5 +833,8 @@
     "packages": 38,
     "units": 46
   },
-  "qualification": "UNRUN"
+  "qualification": "UNRUN",
+  "implementation_baseline": "5958bcb02cef0e5fa75d7b0239a6cd2191278bd1",
+  "layout_generation": "category-layout-v1",
+  "baseline_contract": "Original source_baseline preserves design inspection provenance; implementation_baseline pins task 0.3 source inventory. Qualification remains UNRUN until layout task 0.9."
 }

@@ -56,8 +56,8 @@ def task_plan(tasks: dict) -> str:
         "# Native source-control implementation plan", "",
         "Generated from [spec.kvx](spec.kvx); regenerate with "
         "`python3 spec/hyperfide-source-control/tools/validate_spec.py --render`.", "",
-        "All implementation tasks are pending. This catalogue describes future work; "
-        "the listed verification drivers are deliverables of those tasks, not existing passing gates.", "",
+        "Task statuses below record current implementation progress. "
+        "Verification drivers are task deliverables; a command being listed is not evidence that it exists or passes.", "",
         "Dependencies determine eligibility. Wave numbers group integration and release obligations. "
         "Each package couples its implementation with a direct consumer and positive/negative checks. "
         "Component success does not qualify a complete product case or elapsed-time campaign.", "",
@@ -92,7 +92,7 @@ def traceability(requirements: dict, tasks: dict, cases: dict) -> str:
     lines = [
         "# Native source-control traceability", "",
         "Generated from [spec.kvx](spec.kvx). A clause `N.M` is `[req.N] ac_M`. "
-        "Mappings describe planned coverage, not execution evidence. All product cases are UNRUN.", "",
+        "Mappings describe coverage ownership, not execution evidence. All product cases are UNRUN; focused prerequisite receipts do not close the complete layout case.", "",
         "| Clause | Requirement | Implementation tasks | Product cases | Contract |",
         "|---|---|---|---|---|",
     ]
@@ -127,8 +127,8 @@ def validate(sections: dict) -> tuple[list[str], dict, dict, dict]:
     tasks = {key[5:]: value for key, value in sections.items() if key.startswith('task.')}
     cases = {key[5:]: value for key, value in sections.items() if key.startswith('case.')}
     meta = sections.get('meta', {})
-    if meta.get('feature') != 'hyperfide-source-control' or meta.get('status') != 'pending' or meta.get('stage') != 'design':
-        errors.append('This draft requires feature=hyperfide-source-control, status=pending, stage=design')
+    if meta.get('feature') != 'hyperfide-source-control' or (meta.get('status'), meta.get('stage')) not in {('pending', 'design'), ('in_progress', 'implementation')}:
+        errors.append('Expected design/pending or implementation/in_progress feature state')
     if set(requirements) != {str(n) for n in range(1, 18)}:
         errors.append('Expected exactly requirement sections 1 through 17')
     if set(cases) != {f'SCM-{n:03d}' for n in range(1, 30)}:
@@ -150,8 +150,14 @@ def validate(sections: dict) -> tuple[list[str], dict, dict, dict]:
         if not re.fullmatch(r'\d+\.\d+', ident):
             errors.append(f'invalid task ID {ident}')
             continue
-        if task.get('status') != 'pending':
-            errors.append(f'task {ident}: draft implementation must be pending')
+        if task.get('status') not in {'pending', 'in_progress', 'implemented', 'done', 'blocked'}:
+            errors.append(f'task {ident}: unknown implementation status')
+        if meta.get('stage') == 'design' and task.get('status') != 'pending':
+            errors.append(f'task {ident}: design-only tasks must remain pending')
+        if task.get('status') in {'implemented', 'done'}:
+            driver = REPO / ('tests/hyperfide/cases/source_control/' + ident.replace('.', '_') + '.py')
+            if not driver.is_file():
+                errors.append(f'task {ident}: implemented task lacks verification driver')
         if type(task.get('wave')) is not int or task['wave'] != int(ident.split('.')[0]):
             errors.append(f'task {ident}: wave must match ID prefix')
         for field in ('title', 'owner'):
@@ -423,7 +429,9 @@ def main() -> int:
             'requirements': len(requirements),
             'acceptance_clauses': sum(len([key for key in req if re.fullmatch(r'ac_\d+', key)]) for req in requirements.values()),
             'tasks': len(tasks), 'waves': sorted({task['wave'] for task in tasks.values()}),
-            'cases': len(cases), 'implementation': 'pending', 'product_qualification': 'UNRUN',
+            'cases': len(cases), 'implementation': sections['meta']['stage'], 'product_qualification': 'UNRUN',
+            'task_statuses': {status: sum(task['status'] == status for task in tasks.values())
+                              for status in sorted({task['status'] for task in tasks.values()})},
             'rendered': args.render, 'errors': errors,
             'layout': layout_summary,
             'examples': example_summary,

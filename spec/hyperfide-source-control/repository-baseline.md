@@ -6,7 +6,7 @@ Source baseline: `2f7331ef2085f6f374adf2d1e2ee01405fecb72d`. This is a source in
 
 The feature follows [hyperfide/spec.kvx](../hyperfide/spec.kvx), [hyperfide-v21/spec.kvx](../hyperfide-v21/spec.kvx), and [hyperfide-v22/spec.kvx](../hyperfide-v22/spec.kvx): metadata; numbered requirements with stories and acceptance clauses; design/decisions; documentation obligations; and tasks with wave, dependencies, touches, verify command, steps, requirement references and owner. The expanded contract pack follows the `spec/hyperfide` document layout.
 
-The owning [workflow](../workflow.kvx) currently selects `hyperfide-v22`. Its selection is unchanged. New source-control tasks are pending and their future drivers are not existing verification commands.
+The owning [workflow](../workflow.kvx) currently selects `hyperfide-v22`. Its selection is unchanged. The explicit feature scope `-f hyperfide-source-control` selects layout task 0.3 without changing the shared workflow default. Its inventory driver is being implemented; later drivers remain future deliverables.
 
 ## Current source seams
 
@@ -31,4 +31,4 @@ Statistics from public dashboards are not a capacity baseline. Future inventory 
 
 ## Layout successor
 
-The paths above identify the inspected source revision. [repository-layout.json](repository-layout.json) maps them to proposed category destinations; new implementation task scopes already target that layout but cannot execute before task 0.9 qualifies. The authoring check validates mapping coverage and collisions against the pinned baseline, not runtime behavior after a move.
+The paths above identify the inspected source revision. [repository-layout.json](repository-layout.json) maps them to proposed category destinations; new implementation task scopes already target that layout with layout tasks 0.3–0.9 followed by fleet prerequisite 0.10–0.14 before native implementation. The authoring check validates mapping coverage and collisions against the pinned baseline, not runtime behavior after a move.
