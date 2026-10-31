@@ -213,15 +213,17 @@ class Journey:
 
     def environment_register(self):
         payload = read(self.config['registration_input_file'])
-        registered = self.invoke('environment-register','fleet.install.register',payload)
+        registered = self.invoke('environment-register:' + digest(payload),'fleet.install.register',payload)
         write(AREA / '0_14-environment-registration.json',registered)
+        write(AREA / ('0_14-environment-registration-' + digest(payload)[7:23] + '.json'),registered)
         return {'status':'ACTUAL_ENVIRONMENT_INPUT_REGISTERED','result':registered,
                 'runtime_ready':False}
 
     def registration(self):
         payload = read(self.config['registration_input_file'])
-        registered = self.invoke('environment-register','fleet.install.register',payload)
+        registered = self.invoke('environment-register:' + digest(payload),'fleet.install.register',payload)
         write(AREA / '0_14-environment-registration.json',registered)
+        write(AREA / ('0_14-environment-registration-' + digest(payload)[7:23] + '.json'),registered)
         delivery = read(self.config['delivery_input_file'])
         delivery['input_digest'] = registered['input_digest']
         delivery['staging'] = read(AREA / '0_14-staging-references.json')
