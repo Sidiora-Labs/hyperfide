@@ -380,7 +380,7 @@ Implementation and qualification obligations:
 
 ## 0.10: Version the fleet interfaces and sandbox manifest contracts
 
-Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.9.
+Status: **in_progress**. Owner: `fleet-prerequisite`. Dependencies: 0.9.
 
 Proposed implementation scope:
 
@@ -404,7 +404,7 @@ Implementation and qualification obligations:
 
 ## 0.11: Assemble sandbox environments through hyperfide install
 
-Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.10.
+Status: **in_progress**. Owner: `fleet-prerequisite`. Dependencies: 0.10.
 
 Proposed implementation scope:
 
@@ -429,7 +429,7 @@ Implementation and qualification obligations:
 
 ## 0.12: Run the Primary agent and co-located Wave Managers
 
-Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.11.
+Status: **in_progress**. Owner: `fleet-prerequisite`. Dependencies: 0.11.
 
 Proposed implementation scope:
 
@@ -454,7 +454,7 @@ Implementation and qualification obligations:
 
 ## 0.13: Let Wave Managers provision sandboxes and assign workers
 
-Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.12.
+Status: **in_progress**. Owner: `fleet-prerequisite`. Dependencies: 0.12.
 
 Proposed implementation scope:
 
@@ -479,7 +479,7 @@ Implementation and qualification obligations:
 
 ## 0.14: Qualify the final fleet prerequisite and native-source handoff
 
-Status: **pending**. Owner: `fleet-prerequisite`. Dependencies: 0.13.
+Status: **in_progress**. Owner: `fleet-prerequisite`. Dependencies: 0.13.
 
 Proposed implementation scope:
 

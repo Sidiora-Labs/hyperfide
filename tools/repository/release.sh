@@ -196,6 +196,8 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-release-build-') as temporary
  stamp_tool=temp/'deploy/hyperfide/dist-stamp.mjs';copy_file(root/'deploy/hyperfide/dist-stamp.mjs',stamp_tool)
  for name in ['package.json','package-lock.json','tsconfig.json']:copy_file(root/'core/control-plane'/name,build/name)
  shutil.copytree(root/'core/control-plane/src',build/'src')
+ shutil.copytree(root/'core/control-plane/scripts',build/'scripts')
+ shutil.copytree(root/'contracts/fleet',temp/'contracts/fleet')
  subprocess.run(['npm','ci','--ignore-scripts'],cwd=build,check=True)
  subprocess.run(['npm','run','check'],cwd=build,check=True)
  subprocess.run(['npm','run','build'],cwd=build,check=True)

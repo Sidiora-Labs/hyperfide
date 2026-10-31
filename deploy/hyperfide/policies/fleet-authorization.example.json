@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "role": "OPERATOR",
+      "actions": [
+        "fleet.cohort.bind",
+        "fleet.decision.apply",
+        "fleet.decision.inspect",
+        "fleet.identity.bootstrap",
+        "fleet.install.admit",
+        "fleet.install.adopt",
+        "fleet.install.complete",
+        "fleet.install.delivery.collect",
+        "fleet.install.delivery.pending",
+        "fleet.install.delivery.register",
+        "fleet.install.delivery.schedule",
+        "fleet.install.register",
+        "fleet.install.status",
+        "fleet.manager.execute",
+        "fleet.observe",
+        "fleet.session.bind",
+        "fleet.session.reason",
+        "hierarchy.leader.acquire",
+        "hierarchy.package.configure",
+        "identity.main.issue",
+        "provider.profiles.register",
+        "recovery.control.start",
+        "spec.amendment.admit"
+      ],
+      "repositories": [],
+      "artifact_prefixes": [],
+      "git_refs": [],
+      "model_destinations": [],
+      "model_profiles": []
+    },
+    {
+      "role": "LEADER",
+      "actions": [
+        "fleet.cohort.bind",
+        "fleet.decision.apply",
+        "fleet.decision.inspect",
+        "fleet.observe",
+        "fleet.session.bind",
+        "fleet.session.reason",
+        "hierarchy.leader.acquire",
+        "hierarchy.package.configure",
+        "spec.amendment.admit"
+      ],
+      "repositories": [],
+      "artifact_prefixes": [],
+      "git_refs": [],
+      "model_destinations": [],
+      "model_profiles": []
+    },
+    {
+      "role": "FEATURE_MANAGER",
+      "actions": [
+        "fleet.decision.apply",
+        "fleet.decision.inspect",
+        "fleet.install.admit",
+        "fleet.install.adopt",
+        "fleet.manager.execute",
+        "fleet.observe",
+        "fleet.session.bind",
+        "fleet.session.reason"
+      ],
+      "repositories": [],
+      "artifact_prefixes": [],
+      "git_refs": [],
+      "model_destinations": [],
+      "model_profiles": []
+    },
+    {
+      "role": "RUNNER",
+      "actions": [
+        "fleet.install.complete",
+        "fleet.install.status"
+      ],
+      "repositories": [],
+      "artifact_prefixes": [],
+      "git_refs": [],
+      "model_destinations": [],
+      "model_profiles": []
+    },
+    {
+      "role": "COORDINATOR",
+      "actions": [
+        "fleet.install.delivery.collect",
+        "fleet.install.delivery.pending",
+        "fleet.install.delivery.register",
+        "fleet.install.delivery.schedule",
+        "recovery.control.start"
+      ],
+      "repositories": [],
+      "artifact_prefixes": [],
+      "git_refs": [],
+      "model_destinations": [],
+      "model_profiles": []
+    }
+  ]
+}

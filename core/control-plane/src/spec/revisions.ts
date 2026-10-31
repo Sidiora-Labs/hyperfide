@@ -1,6 +1,7 @@
 import type {AuthorityTransaction,InvocationContext} from '../transport/protocol.js';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
+import {assertFleetBootstrapIdentity} from '../agents/fleet_bootstrap.js';
 import {readSemanticDisposition} from '../storage/dispositions.js';
 import {FoundationError,object} from '../policy/programme.js';
 import {prepareAcceptedIntent,canonical,digest,derivedId,specTransaction} from './import.js';
@@ -250,6 +251,7 @@ function proofDeadline(context:ComponentContext):number{
 // generation, re-registers proof policy, invalidates affected evidence,
 // re-admits the dependency graph and restores the prior run state.
 async function admit(tx:Tx,context:ComponentContext,invocation:InvocationContext,scope:SpecScope,input:unknown):Promise<unknown>{
+ assertPrimaryTransaction(tx);
  const request=admitRequestOf(input,scope),actor=actorOf(invocation);
  const run=(await tx.query('SELECT state,state_version::text,spec_generation::text,spec_revision_id FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 AND project_id=$3 FOR UPDATE',
   [scope.organisation_id,scope.run_id,scope.project_id])).rows[0];
@@ -257,6 +259,7 @@ async function admit(tx:Tx,context:ComponentContext,invocation:InvocationContext
  const stored=(await tx.query('SELECT id,proposal_digest,proposal FROM hyperfide.spec_amendments WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',
   [scope.organisation_id,scope.run_id,request.amendment_id])).rows[0];
  if(!stored||stored.proposal_digest!==request.proposal_digest)fail('AMENDMENT_NOT_FOUND','Exact immutable amendment proposal is required');
+ if(await assertFleetBootstrapIdentity(tx,invocation.principal)&&stored.proposal?.request?.purpose!=='REPLAN')fail('ACTION_DENIED','Fleet bootstrap authority may admit only a persisted REPLAN proposal');
  const prior=(await tx.query('SELECT decision_digest,decision_record FROM hyperfide.spec_amendment_decisions WHERE organisation_id=$1 AND run_id=$2 AND amendment_id=$3',
   [scope.organisation_id,scope.run_id,request.amendment_id])).rows[0];
  if(prior)return {...prior.decision_record,decision_digest:prior.decision_digest,replayed:true};
@@ -355,7 +358,19 @@ export function createComponent(_startup:ComponentContext):Component{
   if(analysis.request.purpose==='INTENT_CHANGE'&&invocation.principal.role!=='OPERATOR')fail('ACTION_DENIED','Intent changes require an explicit operator');
   return persist?record(tx,scope,invocation,analysis):bounded(analysis.result);
  });
- return {apiVersion:1,actions:{'spec.amendment.check':action(false),'spec.amendment.propose':action(true),
+ const admitFleetReplan=async(tx:Tx,invocation:InvocationContext,input:unknown):Promise<unknown>=>{
+  assertPrimaryTransaction(tx);await invocation.guard(tx);
+  if(invocation.principal.role!=='LEADER'||!invocation.principal.allowed_actions.includes('spec.amendment.admit'))fail('ACTION_DENIED','Primary requires an explicit spec.amendment.admit grant');
+  const scope=await scopeOf(tx,_startup,invocation),request=admitRequestOf(input,scope);
+  const proposal=(await tx.query('SELECT proposal FROM hyperfide.spec_amendments WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND proposal_digest=$4 FOR SHARE',[scope.organisation_id,scope.run_id,request.amendment_id,request.proposal_digest])).rows[0];
+  if(!proposal||proposal.proposal?.request?.purpose!=='REPLAN')fail('AMENDMENT_REPLAN_REQUIRED','Fleet admission requires an existing immutable REPLAN proposal');
+  const accepted=(await tx.query('SELECT s.document FROM hyperfide.runs r JOIN hyperfide.spec_revisions s ON s.organisation_id=r.organisation_id AND s.id=r.spec_revision_id WHERE r.organisation_id=$1 AND r.id=$2 FOR SHARE OF r',[scope.organisation_id,scope.run_id])).rows[0];
+  if(!accepted||!Array.isArray(accepted.document?.allowed_actions))fail('SPEC_CONFIG_INVALID','Current accepted action scope required');
+  // This scope validates the preserved specification; it grants no invocation
+  // actions. REPLAN analysis separately refuses every global-intent change.
+  return admit(tx,_startup,invocation,{...scope,allowed_actions:accepted.document.allowed_actions},input);
+ };
+ return {apiVersion:1,capabilities:{'spec.replans.v1':Object.freeze({admit:admitFleetReplan})},actions:{'spec.amendment.check':action(false),'spec.amendment.propose':action(true),
   'spec.amendment.admit':async(input:unknown,context:ComponentContext)=>specTransaction(context,'WRITE',async(tx,invocation)=>{
    if(!['OPERATOR','LEADER','COORDINATOR'].includes(invocation.principal.role))fail('ACTION_DENIED','Role cannot admit accepted-plan amendments');
    return admit(tx,context,invocation,await scopeOf(tx,context,invocation),input);

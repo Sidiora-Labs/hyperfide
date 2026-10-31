@@ -101,16 +101,22 @@ export function blaxelCreateName(operation:ProviderOperation<'create'>,generatio
  if(!/^[1-9][0-9]{0,18}$/.test(generation))fail('BLAXEL_PROCESS_INVALID','Assigned boot generation required');
  return 'hf-'+digest({scope:operation.scope,operation_id:operation.identity.operation_id,generation}).slice(7,47);
 }
+function imageDigestMatches(reference:string,preparedDigest:string):boolean{
+ if(!/^sha256:[a-f0-9]{64}$/.test(preparedDigest))return false;
+ const immutable=/(?:@sha256:|:)([a-f0-9]{64})$/.exec(reference);
+ if(immutable)return preparedDigest==='sha256:'+immutable[1];
+ const catalog=/^sandbox\/[a-z0-9-]+:([a-f0-9]{32})$/.exec(reference);
+ return catalog!==null&&preparedDigest.slice(7,39)===catalog[1];
+}
 export function planBlaxelCreate(operation:ProviderOperation<'create'>,generation:string,base:QualifiedBlaxelBase):Obj{
  validateProviderOperation(operation);const lifecycle=validateBlaxelLifetimePolicy(JSON.parse(canonical(base.lifecycle)));
  if(operation.kind!=='create'||operation.scope.provider!=='blaxel'||!['QUALIFIED','TRUSTED_PREPARATION_SEED'].includes(base.qualification_status)||!equal(operation.scope,base.scope)||
  base.preparation_digest!==operation.preparation_digest||base.preparation_reference!==operation.parameters.preparation_reference||
  !/^sha256:[a-f0-9]{64}$/.test(base.provider_prepared_digest)||!equal(base.resources,operation.parameters.resources)||
- base.network_mode!==operation.parameters.network||!(base.qualification_status==='QUALIFIED'?/^sandbox\/[a-z0-9-]+:[a-f0-9]{64}$/:/(?:@sha256:|:)[a-f0-9]{64}$/).test(base.preparation_reference)||
+ base.network_mode!==operation.parameters.network||!(base.qualification_status==='QUALIFIED'?/^sandbox\/[a-z0-9-]+:(?:[a-f0-9]{32}|[a-f0-9]{64})$/:/(?:@sha256:|:)(?:[a-f0-9]{32}|[a-f0-9]{64})$/).test(base.preparation_reference)||
  base.qualification_status==='TRUSTED_PREPARATION_SEED'&&base.purpose!=='PREPARATION')
  fail('BLAXEL_PREPARATION_MISMATCH','Actual qualified base does not match the durable pool operation');
- const immutable=/(?:@sha256:|:)([a-f0-9]{64})$/.exec(base.preparation_reference);
- if(!immutable||base.provider_prepared_digest!=='sha256:'+immutable[1])fail('BLAXEL_PREPARATION_MISMATCH','Prepared artifact digest differs from immutable provider image reference');
+ if(!imageDigestMatches(base.preparation_reference,base.provider_prepared_digest))fail('BLAXEL_PREPARATION_MISMATCH','Full prepared input digest differs from the immutable provider image reference');
  const memory=BigInt(base.resources.memory_bytes);
  // Blaxel couples CPU allocation to memory. Do not silently provision a different vector.
  if(memory%1048576n!==0n||memory/1048576n>BigInt(Number.MAX_SAFE_INTEGER)||
@@ -417,11 +423,11 @@ type RegistryCapability={registerProviderAdapter(provider:'blaxel',factory:(scop
 type DependencyContext=ComponentContext&{dependencies?:{require<T>(id:string,name:string,guard:(v:unknown)=>v is T):T}};
 
 interface BlaxelCredentialAuthority{
- resolveCredentialReferences(invocation:InvocationContext,request:{references:Array<{name:string;reference_id:string}>;purpose:'WORKER_PROCESS';sandbox_id:string;boot_id:string;boot_generation:string},signal?:AbortSignal):Promise<Readonly<Record<string,string>>>;
+ resolveCredentialReferences(invocation:InvocationContext,request:{references:Array<{name:string;reference_id:string}>;purpose:'WORKER_PROCESS';sandbox_id:string;boot_id:string;boot_generation:string;expected_versions?:Readonly<Record<string,string>>},signal?:AbortSignal):Promise<Readonly<Record<string,string>>>;
 }
 interface BlaxelPrivatePolicy{
- schema_version:1;lifecycle:BlaxelLifetimePolicy;network_mode:'ISOLATED'|'PRIVATE';network:Obj;
- volumes:Obj[];runtime_extra_args:Record<string,string>;runtime_env_refs:Record<string,string>;preparation_seed_reference:string;
+ schema_version:1|2;lifecycle:BlaxelLifetimePolicy;network_mode:'ISOLATED'|'PRIVATE';network:Obj;
+ volumes:Obj[];runtime_extra_args:Record<string,string>;runtime_env_refs:Record<string,string>;preparation_seed_reference:string;preparation_seed_digest?:string;
 }
 async function readPrivateBlaxelPolicy(ctx:ComponentContext,scope:ProviderScope,expectedDigest:string):Promise<BlaxelPrivatePolicy>{
  const filename=ctx.env.HF_BLAXEL_ADAPTER_CONFIG;
@@ -435,8 +441,8 @@ async function readPrivateBlaxelPolicy(ctx:ComponentContext,scope:ProviderScope,
   return Object.keys(routing).every(k=>routing[k]===scope[k as keyof ProviderScope]);
  });
  if(matches.length!==1)fail('BLAXEL_POLICY_UNAVAILABLE','Exactly one provider policy must match this pool');
- const body=shape(object(matches[0]).body,['schema_version','lifecycle','network_mode','network','volumes','runtime_extra_args','runtime_env_refs','preparation_seed_reference']);
- if(digest(body)!==expectedDigest||body.schema_version!==1||!['ISOLATED','PRIVATE'].includes(String(body.network_mode)))
+ const rawBody=object(object(matches[0]).body),body=shape(rawBody,['schema_version','lifecycle','network_mode','network','volumes','runtime_extra_args','runtime_env_refs','preparation_seed_reference',...(rawBody.schema_version===2?['preparation_seed_digest']:[])]);
+ if(digest(body)!==expectedDigest||(body.schema_version!==1&&body.schema_version!==2)||!['ISOLATED','PRIVATE'].includes(String(body.network_mode)))
   fail('BLAXEL_POLICY_UNAVAILABLE','Provider policy body differs from durable configuration digest');
  validateBlaxelLifetimePolicy(body.lifecycle);object(body.network);object(body.runtime_extra_args);
  const refs=object(body.runtime_env_refs);
@@ -445,6 +451,8 @@ async function readPrivateBlaxelPolicy(ctx:ComponentContext,scope:ProviderScope,
  if(Object.keys(refs).length)fail('BLAXEL_RUNTIME_ENV_UNSUPPORTED','Preboot worker credentials and unqualified runtime updates are disabled; use post-enrollment process references');
  if(!Array.isArray(body.volumes)||body.volumes.length>16)fail('BLAXEL_POLICY_UNAVAILABLE','Bounded volume policy required');
  text(body.preparation_seed_reference,2048);
+ if(body.schema_version===2&&(typeof body.preparation_seed_digest!=='string'||!imageDigestMatches(String(body.preparation_seed_reference),body.preparation_seed_digest)))
+  fail('BLAXEL_POLICY_UNAVAILABLE','Version 2 seed policy requires the full prepared input digest and matching immutable image tag');
  return body as unknown as BlaxelPrivatePolicy;
 }
 function trustedBlaxelDependencies(ctx:ComponentContext,hooks:BlaxelPersistenceHooks,credentials:BlaxelCredentialAuthority):BlaxelTrustedDependencies{
@@ -462,16 +470,19 @@ function trustedBlaxelDependencies(ctx:ComponentContext,hooks:BlaxelPersistenceH
     if(resolved.prepared_base!==null||op.parameters.preparation_reference!==policy.preparation_seed_reference)
      fail('BLAXEL_PREPARATION_MISMATCH','Preparation seed differs from trusted private policy');
     const pinned=/(?:@sha256:|:)([a-f0-9]{64})$/.exec(policy.preparation_seed_reference);
-    if(!pinned)fail('BLAXEL_POLICY_UNAVAILABLE','Preparation seed must be an immutable pinned image');
-    artifactDigest='sha256:'+pinned[1];qualification='TRUSTED_PREPARATION_SEED';
+    if(policy.schema_version===2&&policy.preparation_seed_digest)artifactDigest=policy.preparation_seed_digest;
+    else if(pinned)artifactDigest='sha256:'+pinned[1];
+    else fail('BLAXEL_POLICY_UNAVAILABLE','Short catalog tags require a version 2 policy with the full prepared input digest');
+    if(!imageDigestMatches(policy.preparation_seed_reference,artifactDigest))fail('BLAXEL_POLICY_UNAVAILABLE','Preparation seed must be an immutable pinned image');
+    qualification='TRUSTED_PREPARATION_SEED';
    }else{
     const row=object(resolved.prepared_base),reference=object(row.provider_reference);
     if(row.state!=='QUALIFIED'||row.preparation_digest!==op.preparation_digest||row.configuration_digest!==op.scope.configuration_digest||
       reference.preparation_reference!==op.parameters.preparation_reference||typeof row.expires_at!=='string'&&!(row.expires_at instanceof Date)||
       Date.parse(String(row.expires_at))<=Date.now())fail('BLAXEL_PREPARATION_MISMATCH','Actual qualified provider base is expired or mismatched');
-    const pinned=/^sandbox\/[a-z0-9-]+:([a-f0-9]{64})$/.exec(op.parameters.preparation_reference);
-    if(!pinned)fail('BLAXEL_PREPARATION_MISMATCH','Published provider image must bind an immutable full plan');
-    artifactDigest='sha256:'+pinned[1];if(row.provider_prepared_digest!==artifactDigest)fail('BLAXEL_PREPARATION_MISMATCH','Qualified registry artifact digest differs from immutable provider image');qualification='QUALIFIED';
+    if(!/^sandbox\/[a-z0-9-]+:(?:[a-f0-9]{32}|[a-f0-9]{64})$/.test(op.parameters.preparation_reference)||typeof row.provider_prepared_digest!=='string'||!imageDigestMatches(op.parameters.preparation_reference,row.provider_prepared_digest))
+     fail('BLAXEL_PREPARATION_MISMATCH','Published provider image must retain its full prepared input digest alongside the immutable catalog tag');
+    artifactDigest=row.provider_prepared_digest;qualification='QUALIFIED';
    }
    return{qualification_status:qualification,purpose:resolved.purpose,scope:op.scope,
     preparation_digest:resolved.preparation_digest,preparation_reference:op.parameters.preparation_reference,
@@ -486,7 +497,7 @@ function trustedBlaxelDependencies(ctx:ComponentContext,hooks:BlaxelPersistenceH
      target.boot_generation!==op.resource?.sandbox_boot_generation)fail('BLAXEL_PROCESS_INVALID','Secret target differs from current authenticated operation');
    const values=await credentials.resolveCredentialReferences(hooks.invocation,{
     references:Object.entries(refs).map(([name,reference])=>({name,reference_id:reference.slice('secret-ref:'.length)})),
-    purpose:'WORKER_PROCESS',sandbox_id:target.sandbox_id,boot_id:target.boot_id,boot_generation:target.boot_generation},signal);
+    purpose:'WORKER_PROCESS',sandbox_id:target.sandbox_id,boot_id:target.boot_id,boot_generation:target.boot_generation,...(op.parameters.env_ref_versions!==undefined?{expected_versions:op.parameters.env_ref_versions}:{})},signal);
    await hooks.assertResourceBinding(op);return{...values};
   },
  };

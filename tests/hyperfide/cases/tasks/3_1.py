@@ -22,7 +22,7 @@ def apply_migration(f,name):
  # Actual14 already applied the complete trusted release; verify exact bytes only.
  f.apply_migration(name)
 class HierarchyFixture(IdentityFixture):
- def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,extra_env=None,seed_historical_runtime=True,source_object_id=None):
+ def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,extra_env=None,seed_historical_runtime=True,source_object_id=None,parent_managers=False,native_session_placeholders=True):
   def setup(f):
    apply_migration(f,"0003-hierarchy")
    i=f.ids
@@ -34,10 +34,11 @@ class HierarchyFixture(IdentityFixture):
     subprocess.run(["openssl","genpkey","-algorithm","Ed25519","-out",str(path)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);path.chmod(0o600)
     public=subprocess.check_output(["openssl","pkey","-in",str(path),"-pubout","-outform","DER"],stderr=subprocess.DEVNULL)
     f.keys[key]={"path":path,"public_key_b64":b64(public[-32:])}
-    f.sql("INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,connector,account_key,native_session_id) VALUES($1,$2,$3,$4,'fixture','fixture',$5)",[i["organisation"],i["run"],ident,role,"native-"+key])
+    f.sql("INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,connector,account_key,native_session_id,parent_session_id) VALUES($1,$2,$3,$4,'fixture','fixture',$5,$6)",[i["organisation"],i["run"],ident,role,"native-"+key if native_session_placeholders else None,i.get("leader") if parent_managers and role=="FEATURE_MANAGER" else None])
     principal=dict(identity["principals"][0],credential_id=ident,actor_id=ident,role=role,public_key_b64=f.keys[key]["public_key_b64"])
-    identity["principals"].append(principal)
-    f.seed_fixture_principal(principal)
+    if native_session_placeholders:
+     identity["principals"].append(principal)
+     f.seed_fixture_principal(principal)
    f.identity_config.write_text(json.dumps(identity))
    f.sql("INSERT INTO hyperfide.repositories(organisation_id,id,project_id,name,url) VALUES($1,$2,$3,'fixture','https://example.invalid/fixture.git')",[i["organisation"],i["repository"],i["project"]])
    f.sql("INSERT INTO hyperfide.source_objects(organisation_id,repository_id,object_id) VALUES($1,$2,$3)",[i["organisation"],i["repository"],source])

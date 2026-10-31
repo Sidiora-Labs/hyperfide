@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "fleet-install-delivery",
+  "task": "0.11",
+  "roles": [
+    "control"
+  ],
+  "module": "preparation/fleet_delivery.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "fleet.install.delivery.register",
+    "fleet.install.delivery.pending",
+    "fleet.install.delivery.schedule",
+    "fleet.install.delivery.collect"
+  ],
+  "requires": [
+    "fleet-install",
+    "12.1",
+    "12.4",
+    "5.1",
+    "15.2",
+    "14.2"
+  ]
+}

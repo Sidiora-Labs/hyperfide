@@ -2,6 +2,7 @@
 #include "supervisor.h"
 #include <openssl/evp.h>
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdint.h>
@@ -10,6 +11,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <time.h>
 
 #define HF_STAGE_MAX (64ULL*1024*1024*1024)
 #define HF_STAGE_FILES 64
@@ -214,7 +216,7 @@ int hf_runner_stage_preparation(const char *config_path,const HfJson *claim,int 
  char job_namespace[32],job_id[37],job_lease[32],reservation[37],plan_reservation[37],input_packet[72],job_manifest[72];
  const char *job_keys[]={"namespace","job_id","lease_generation","reservation_id","input_packet_digest","input_manifest_digest"};
  if(!hf_json_only(claim,job,job_keys,6)||!string(claim,job,"namespace",job_namespace,sizeof job_namespace)||!string(claim,job,"job_id",job_id,sizeof job_id)||!hf_uuid_valid(job_id)||!string(claim,job,"reservation_id",reservation,sizeof reservation)||!hf_uuid_valid(reservation)||!string(claim,plan,"reservation_id",plan_reservation,sizeof plan_reservation)||strcmp(reservation,plan_reservation)||!string(claim,job,"lease_generation",job_lease,sizeof job_lease)||!string(claim,job,"input_packet_digest",input_packet,sizeof input_packet)||!sha_valid(input_packet)||!string(claim,job,"input_manifest_digest",job_manifest,sizeof job_manifest)||!sha_valid(job_manifest))goto done;
- if(strcmp(job_namespace,"QUALIFICATION")&&strcmp(job_namespace,"REPRODUCTION")&&strcmp(job_namespace,"CANDIDATE")&&strcmp(job_namespace,"CHECKPOINT")&&strcmp(job_namespace,"PREWARM"))goto done;
+ if(strcmp(job_namespace,"QUALIFICATION")&&strcmp(job_namespace,"REPRODUCTION")&&strcmp(job_namespace,"CANDIDATE")&&strcmp(job_namespace,"CHECKPOINT")&&strcmp(job_namespace,"PREWARM")&&strcmp(job_namespace,"FLEET_INSTALL"))goto done;
  if((!strcmp(recipe,"checkpoint.restore.v1"))!=(!strcmp(job_namespace,"CHECKPOINT")))goto done;
  /* Qualification preparation precedes the first verifier lease claim. Zero
   * binds that unclaimed job snapshot; staging grants no execution authority. */
@@ -305,4 +307,156 @@ done:
  if(base>=0)close(base);
  if(!ok)memset(stage,0,sizeof *stage);
  return ok;
+}
+
+static _Thread_local long long isolation_deadline;
+static _Thread_local unsigned long isolation_entries;
+static int isolation_bound(void){struct timespec now;if(clock_gettime(CLOCK_MONOTONIC,&now)||++isolation_entries>1000000UL)return 0;return (long long)now.tv_sec*1000000000LL+now.tv_nsec<isolation_deadline;}
+static int isolation_idle_uid(uid_t uid){
+ DIR *d=opendir("/proc");if(!d)return 0;struct dirent *e;int ok=1;
+ while((e=readdir(d))){if(!isolation_bound()){ok=0;break;}char *end=NULL;long pid=strtol(e->d_name,&end,10);if(*end||pid<=0||pid>INT_MAX)continue;HfProcessIdentity p;if(hf_process_identity((pid_t)pid,&p)&&p.uid==uid&&p.state!='Z'&&p.state!='X'){ok=0;break;}}
+ closedir(d);return ok;
+}
+static int isolation_relative(const char *root,const char *value){
+ size_t n=strlen(root);return n>1&&value[0]=='/'&&!strncmp(root,value,n)&&value[n]=='/'&&value[n+1]&&!strstr(value,"//")&&!strstr(value,"/../")&&!strstr(value,"/./")&&strcmp(value+strlen(value)-2,"/.")&&strcmp(value+strlen(value)-3,"/..");
+}
+static int isolation_root(const char *value,uid_t preparer){
+ if(!value||value[0]!='/'||strlen(value)>4095||strstr(value,"//"))return -1;
+ char *copy=strdup(value),*save=NULL;int fd=open("/",O_RDONLY|O_DIRECTORY|O_CLOEXEC);if(!copy||fd<0){free(copy);if(fd>=0)close(fd);return -1;}
+ for(char *p=strtok_r(copy,"/",&save);p;p=strtok_r(NULL,"/",&save)){
+  int last=save&&!*save;if(!strcmp(p,".")||!strcmp(p,".."))goto bad;
+  int next=openat(fd,p,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);if(next<0)goto bad;struct stat st;
+  if(fstat(next,&st)||(st.st_uid!=0&&st.st_uid!=preparer)||((st.st_mode&022)&&!(st.st_uid==0&&(st.st_mode&S_ISVTX)))||(!last&&!(st.st_mode&0001))){close(next);goto bad;}
+  close(fd);fd=next;
+ }
+ free(copy);return fd;
+bad:free(copy);close(fd);return -1;
+}
+static int isolation_child(int root,const char *relative,uid_t preparer){
+ if(!relative||!relative[0]||relative[0]=='/')return -1;
+ char *copy=strdup(relative),*save=NULL;int fd=dup(root);if(!copy||fd<0){free(copy);if(fd>=0)close(fd);return -1;}
+ for(char *p=strtok_r(copy,"/",&save);p;p=strtok_r(NULL,"/",&save)){
+  int last=save&&!*save;if(!strcmp(p,".")||!strcmp(p,".."))goto bad;
+  int next=openat(fd,p,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);if(next<0)goto bad;struct stat st;
+  if(fstat(next,&st)||(st.st_uid!=0&&st.st_uid!=preparer)||(st.st_mode&022)){close(next);goto bad;}
+  if(!last&&(fchown(next,0,0)||fchmod(next,0711))){close(next);goto bad;}close(fd);fd=next;
+ }
+ free(copy);return fd;
+bad:free(copy);close(fd);return -1;
+}
+static int isolation_symlink(int parent,const char *name,const char *relative){
+ char target[4096];ssize_t n=readlinkat(parent,name,target,sizeof target-1);if(n<=0||n>=(ssize_t)sizeof target-1||target[0]=='/')return 0;target[n]=0;
+ int depth=0;for(const char *p=relative;*p;p++)if(*p=='/')depth++;
+ char *copy=strdup(target),*save=NULL;if(!copy)return 0;int ok=1;
+ for(char *p=strtok_r(copy,"/",&save);p;p=strtok_r(NULL,"/",&save)){if(!strcmp(p,"..")){if(--depth<0){ok=0;break;}}else if(strcmp(p,"."))depth++;}
+ free(copy);return ok;
+}
+static int isolation_tree(int parent,const char *name,const char *relative,uid_t preparer,uid_t uid,gid_t gid,unsigned depth){
+ if(depth>128||!isolation_bound())return 0;struct stat st;if(fstatat(parent,name,&st,AT_SYMLINK_NOFOLLOW))return 0;
+ if(st.st_uid!=0&&st.st_uid!=preparer&&st.st_uid!=uid)return 0;
+ if(S_ISLNK(st.st_mode))return isolation_symlink(parent,name,relative)&&fchownat(parent,name,uid,gid,AT_SYMLINK_NOFOLLOW)==0;
+ if(!S_ISDIR(st.st_mode)&&(!S_ISREG(st.st_mode)||st.st_nlink!=1))return 0;
+ int fd=openat(parent,name,O_RDONLY|O_NOFOLLOW|O_CLOEXEC|(S_ISDIR(st.st_mode)?O_DIRECTORY:0));if(fd<0)return 0;int ok=1;
+ if(S_ISDIR(st.st_mode)){
+  DIR *d=fdopendir(dup(fd));if(!d){close(fd);return 0;}struct dirent *e;
+  while((e=readdir(d))){if(!strcmp(e->d_name,".")||!strcmp(e->d_name,".."))continue;char next[4096];if(snprintf(next,sizeof next,"%s/%s",relative,e->d_name)>=(int)sizeof next||!isolation_tree(fd,e->d_name,next,preparer,uid,gid,depth+1)){ok=0;break;}}closedir(d);
+ }
+ mode_t mode=S_ISDIR(st.st_mode)?0700:(st.st_mode&0700);
+ if(ok&&(fchown(fd,uid,gid)||fchmod(fd,mode)||fsync(fd)))ok=0;close(fd);return ok;
+}
+static int isolation_read_manifest(const HfPreparationStage *stage,const char *expected,char **text,size_t *length){
+ char name[4096];if(snprintf(name,sizeof name,"%s/artifact-%03d",stage->stage_root,HF_STAGE_FILES)>=(int)sizeof name)return 0;
+ int fd=open(name,O_RDONLY|O_NOFOLLOW|O_CLOEXEC);if(fd<0)return 0;struct stat st;int ok=!fstat(fd,&st)&&S_ISREG(st.st_mode)&&st.st_uid==0&&st.st_gid==stage->gid&&st.st_nlink==1&&!(st.st_mode&022)&&st.st_size>0&&st.st_size<=262144;
+ char *bytes=ok?malloc((size_t)st.st_size+1):NULL;size_t used=0;if(!bytes)ok=0;
+ while(ok&&used<(size_t)st.st_size){ssize_t n=read(fd,bytes+used,(size_t)st.st_size-used);if(n<0&&errno==EINTR)continue;if(n<=0){ok=0;break;}used+=(size_t)n;}close(fd);char hex[65];if(ok&&(memchr(bytes,0,used)||!hf_sha256_bytes(bytes,used,hex)||strcmp(hex,expected+7)))ok=0;
+ if(!ok){free(bytes);return 0;}bytes[used]=0;*text=bytes;*length=used;return 1;
+}
+static int isolation_secret_file(int home,const char *relative,const char *value,mode_t mode){
+ char *copy=strdup(relative),*save=NULL;int fd=dup(home),ok=copy&&fd>=0;
+ for(char *part=ok?strtok_r(copy,"/",&save):NULL;part&&ok;part=strtok_r(NULL,"/",&save)){
+  if(!strcmp(part,".")||!strcmp(part,"..")||!isolation_bound()){ok=0;break;}
+  int last=save&&!*save;if(last){int out=openat(fd,part,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);if(out<0){ok=0;break;}ok=write_all(out,value,strlen(value))&&fchmod(out,mode)==0&&fsync(out)==0;close(out);break;}
+  if(mkdirat(fd,part,0700)&&errno!=EEXIST){ok=0;break;}int next=openat(fd,part,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);struct stat st;
+  if(next<0||fstat(next,&st)||(st.st_mode&077)){if(next>=0)close(next);ok=0;break;}close(fd);fd=next;
+ }
+ if(fd>=0)close(fd);free(copy);return ok;
+}
+static int isolation_secrets(const HfJson *manifest,const HfJson *prepared,int receipt,int admission_slot,int ordinal,const char *slot_id,const char *barrier,int barrierfd,const HfFleetSecret *secrets,size_t secret_count){
+ int list=hf_json_field(manifest,0,"secret_configurations");if(list<0)return secret_count==0;
+ if(manifest->tokens[list].type!='['||manifest->tokens[list].count>128||(size_t)manifest->tokens[list].count!=secret_count)return 0;
+ char home[4096];if(!string(manifest,admission_slot,"home",home,sizeof home)||!isolation_relative(barrier,home)||strchr(home+strlen(barrier)+1,'/'))return 0;
+ int homefd=openat(barrierfd,home+strlen(barrier)+1,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);if(homefd<0)return 0;
+ int configurations=hf_json_field(prepared,receipt,"configurations"),entry=list+1,ok=configurations>=0&&prepared->tokens[configurations].type=='[';
+ for(int index=0;ok&&index<manifest->tokens[list].count;index++){
+  const char *keys[]={"name","environment_name","reference","version","mode","targets"};char name[129],environment[129],reference[512],version[256],mode_text[8],target[4096];
+  int targets=hf_json_field(manifest,entry,"targets"),found=-1;
+  ok=hf_json_only(manifest,entry,keys,6)&&string(manifest,entry,"name",name,sizeof name)&&name[0]&&string(manifest,entry,"environment_name",environment,sizeof environment)&&!strncmp(environment,"FLEET_CONFIG_",13)&&string(manifest,entry,"reference",reference,sizeof reference)&&!strncmp(reference,"secret-ref:",11)&&string(manifest,entry,"version",version,sizeof version)&&version[0]&&string(manifest,entry,"mode",mode_text,sizeof mode_text)&&(!strcmp(mode_text,"0400")||!strcmp(mode_text,"0600"))&&targets>=0&&manifest->tokens[targets].type=='[';
+  for(const char *q=name;ok&&*q;q++)if(!((*q>='a'&&*q<='z')||(*q>='A'&&*q<='Z')||(*q>='0'&&*q<='9')||strchr("._-",*q)))ok=0;
+  const HfFleetSecret *held=NULL;for(size_t k=0;ok&&k<secret_count;k++)if(!strcmp(secrets[k].name,environment)){if(held){ok=0;break;}held=&secrets[k];}
+  if(!held||!held->value||!held->value[0]||strlen(held->value)>65536||strcmp(held->reference,reference)||strcmp(held->version,version))ok=0;
+  int actual=configurations+1;for(int k=0;ok&&k<prepared->tokens[configurations].count;k++){if(equals(prepared,actual,"name",name)){if(found>=0){ok=0;break;}found=actual;}actual=prepared->tokens[actual].next;}
+  if(found<0||!equals(prepared,found,"reference",reference)||!equals(prepared,found,"version",version)||!equals(prepared,found,"mode",mode_text))ok=0;
+  int expected_target=-1,t=targets+1;for(int k=0;ok&&k<manifest->tokens[targets].count;k++){int64_t number=-1;if(hf_json_i64(manifest,hf_json_field(manifest,t,"slot"),&number)&&number==ordinal){if(expected_target>=0||!equals(manifest,t,"worker_slot_id",slot_id)){ok=0;break;}expected_target=t;}t=manifest->tokens[t].next;}
+  if(expected_target<0||!string(manifest,expected_target,"target",target,sizeof target)||!isolation_relative(home,target))ok=0;
+  int actual_targets=found>=0?hf_json_field(prepared,found,"slots"):-1,actual_target=-1;t=actual_targets+1;
+  if(actual_targets<0||prepared->tokens[actual_targets].type!='[')ok=0;
+  for(int k=0;ok&&k<prepared->tokens[actual_targets].count;k++){int64_t number=-1;if(hf_json_i64(prepared,hf_json_field(prepared,t,"slot"),&number)&&number==ordinal){if(actual_target>=0||!equals(prepared,t,"worker_slot_id",slot_id)){ok=0;break;}actual_target=t;}t=prepared->tokens[t].next;}
+  if(actual_target<0||!equals(prepared,actual_target,"target",target))ok=0;
+  if(ok)ok=isolation_secret_file(homefd,target+strlen(home)+1,held->value,!strcmp(mode_text,"0400")?0400:0600);
+  if(ok){
+   if(mkdirat(barrierfd,".hyperfide-seals",0700)&&errno!=EEXIST)ok=0;
+   int seal_dir=ok?openat(barrierfd,".hyperfide-seals",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC):-1;struct stat st;
+   if(seal_dir<0||fstat(seal_dir,&st)||st.st_uid!=0||(st.st_mode&077))ok=0;
+   char filename[256];snprintf(filename,sizeof filename,"configuration-%s.json",name);int file=ok?openat(seal_dir,filename,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0400):-1;
+   char hex[65],*seal=NULL;size_t length=0;FILE *out=file>=0?open_memstream(&seal,&length):NULL;
+   if(!out||!hf_sha256_bytes(held->value,strlen(held->value),hex))ok=0;
+   if(ok){fputs("{\"schema_version\":1,\"reference\":",out);hf_json_write_string(out,reference);fputs(",\"version\":",out);hf_json_write_string(out,version);fputs(",\"target\":",out);hf_json_write_string(out,target);fprintf(out,",\"digest\":\"sha256:%s\"}",hex);}
+   if(out&&fclose(out))ok=0;if(ok&&(!write_all(file,seal,length)||fsync(file)||fsync(seal_dir)))ok=0;free(seal);if(file>=0)close(file);if(seal_dir>=0)close(seal_dir);
+  }
+  entry=manifest->tokens[entry].next;
+ }
+ close(homefd);return ok;
+}
+int hf_runner_finalize_fleet_install(const HfJson *claim,int result,const HfPreparationStage *stage,const unsigned char *prepared,size_t prepared_size,const HfFleetSecret *secrets,size_t secret_count,long long deadline_ns,char **isolation_json){
+ if(!claim||!stage||!isolation_json||geteuid()!=0)return 0;*isolation_json=NULL;isolation_deadline=deadline_ns;isolation_entries=0;if(!isolation_bound())return 0;
+ int plan=hf_json_field(claim,result,"plan"),p=hf_json_field(claim,plan,"preparation"),job=hf_json_field(claim,p,"job_binding");
+ if(!equals(claim,job,"namespace","FLEET_INSTALL"))return 1;
+ if(!prepared||!prepared_size||prepared_size>HF_BODY_LIMIT||memchr(prepared,0,prepared_size)||!isolation_idle_uid(stage->uid))return 0;
+ char expected[72],*manifest=NULL,*body=malloc(prepared_size+1);size_t manifest_size=0;
+ HfJson *m=calloc(1,sizeof *m),*r=calloc(1,sizeof *r);int ok=0,rootfd=-1;FILE *out=NULL;char *json=NULL;size_t json_size=0;
+ if(!m||!r||!body||!string(claim,p,"input_manifest_digest",expected,sizeof expected)||!sha_valid(expected)||!isolation_read_manifest(stage,expected,&manifest,&manifest_size))goto done;
+ memcpy(body,prepared,prepared_size);body[prepared_size]=0;
+ if(!hf_json_parse(m,manifest)||!hf_json_parse(r,body)||!equals(m,0,"kind","hyperfide.fleet-install-bootstrap")||!equals(r,0,"state","PREPARED"))goto done;
+ int admission=hf_json_field(m,0,"admission"),receipt=hf_json_field(r,0,"receipt"),slots=hf_json_field(m,admission,"slot_bindings"),actual=hf_json_field(r,receipt,"slots");
+ char root[4096],operation[37],receipt_digest[72],environment[256],input_digest[72],envgen[32];int64_t generation=0;
+ if(!equals(r,receipt,"kind","hyperfide.fleet-install-receipt")||!string(m,admission,"operation_id",operation,sizeof operation)||!hf_uuid_valid(operation)||!equals(claim,result,"operation_id",operation)||!equals(claim,job,"job_id",operation)||!equals(r,receipt,"operation_id",operation)||!string(r,receipt,"receipt_digest",receipt_digest,sizeof receipt_digest)||!sha_valid(receipt_digest)||!string(m,admission,"environment_root",root,sizeof root)||!equals(r,receipt,"prepared_root",root)||!string(m,admission,"environment_id",environment,sizeof environment)||!equals(r,receipt,"environment_id",environment)||!hf_json_i64(m,hf_json_field(m,admission,"environment_generation"),&generation)||generation<1||!string(m,admission,"input_digest",input_digest,sizeof input_digest)||!sha_valid(input_digest)||slots<0||m->tokens[slots].type!='['||m->tokens[slots].count<1||m->tokens[slots].count>128||actual<0||r->tokens[actual].type!='['||r->tokens[actual].count!=m->tokens[slots].count)goto done;
+ int64_t actual_generation=0;if(!hf_json_i64(r,hf_json_field(r,receipt,"environment_generation"),&actual_generation)||actual_generation!=generation)goto done;
+ const char *same_keys[]={"admission_digest","package_digest","source_config_digest","plan_digest","source_revision","source_manifest_digest","sandbox_id","boot_id","boot_generation","authority_epoch"};char check[4096];
+ for(size_t n=0;n<sizeof same_keys/sizeof same_keys[0];n++)if(!string(m,admission,same_keys[n],check,sizeof check)||!equals(r,receipt,same_keys[n],check))goto done;
+ snprintf(envgen,sizeof envgen,"%lld",(long long)generation);
+ rootfd=isolation_root(root,stage->uid);struct stat root_stat;if(rootfd<0||fstat(rootfd,&root_stat)||root_stat.st_uid!=stage->uid||(root_stat.st_mode&077)||fchown(rootfd,0,0)||fchmod(rootfd,0711))goto done;
+ out=open_memstream(&json,&json_size);if(!out)goto done;
+ fprintf(out,"{\"schema_version\":1,\"operation_id\":\"%s\",\"prepared_receipt_digest\":\"%s\",\"environment_id\":",operation,receipt_digest);hf_json_write_string(out,environment);fprintf(out,",\"environment_generation\":%s,\"input_digest\":\"%s\",\"method\":\"UNIX_UID_GID\",\"status\":\"ENFORCED\",\"slots\":[",envgen,input_digest);
+ int entry=slots+1;uid_t ids[128];gid_t groups[128];char previous[128][4096];
+ for(int index=0;index<m->tokens[slots].count;index++){
+  const char *keys[]={"slot","worker_slot_id","slot_generation","uid","gid","worker_root","source","home","build","temporary","dirty"};
+  int64_t ordinal=-1,uid=0,gid=0;char slot[37],slotgen[32],barrier[4096];
+  if(!hf_json_only(m,entry,keys,11)||!hf_json_i64(m,hf_json_field(m,entry,"slot"),&ordinal)||ordinal!=index||!string(m,entry,"worker_slot_id",slot,sizeof slot)||!hf_uuid_valid(slot)||!string(m,entry,"slot_generation",slotgen,sizeof slotgen)||!slotgen[0]||!hf_json_i64(m,hf_json_field(m,entry,"uid"),&uid)||uid<1||uid>INT_MAX||uid==stage->uid||!hf_json_i64(m,hf_json_field(m,entry,"gid"),&gid)||gid<1||gid>INT_MAX||gid==stage->gid||!string(m,entry,"worker_root",barrier,sizeof barrier)||!isolation_relative(root,barrier)||!isolation_idle_uid((uid_t)uid))goto done;
+  ids[index]=(uid_t)uid;groups[index]=(gid_t)gid;for(int n=0;n<index;n++)if(ids[n]==ids[index]||groups[n]==groups[index]||!strcmp(previous[n],barrier)||isolation_relative(previous[n],barrier)||isolation_relative(barrier,previous[n]))goto done;strcpy(previous[index],barrier);
+  int matching=-1,t=actual+1;for(int n=0;n<r->tokens[actual].count;n++){int64_t candidate=-1;if(hf_json_i64(r,hf_json_field(r,t,"slot"),&candidate)&&candidate==ordinal){if(matching>=0)goto done;matching=t;}t=r->tokens[t].next;}
+  if(matching<0||!equals(r,matching,"worker_slot_id",slot))goto done;
+  int barrierfd=isolation_child(rootfd,barrier+strlen(root)+1,stage->uid);if(barrierfd<0)goto done;
+  const char *paths[]={"source","home","build","temporary","dirty"};int private_ok=isolation_secrets(m,r,receipt,entry,index,slot,barrier,barrierfd,secrets,secret_count);
+  for(int n=0;n<5&&private_ok;n++){char value[4096];if(!string(m,entry,paths[n],value,sizeof value)||!isolation_relative(barrier,value)||!equals(r,matching,paths[n],value)){private_ok=0;break;}const char *relative=value+strlen(barrier)+1;if(strchr(relative,'/')){private_ok=0;break;}private_ok=isolation_tree(barrierfd,relative,relative,stage->uid,(uid_t)uid,(gid_t)gid,0);}
+  if(private_ok&&(fchown(barrierfd,0,(gid_t)gid)||fchmod(barrierfd,0710)||fsync(barrierfd)))private_ok=0;close(barrierfd);if(!private_ok)goto done;
+  if(index)fputc(',',out);char *raw=hf_json_raw(m,entry);if(!raw)goto done;fputs(raw,out);free(raw);entry=m->tokens[entry].next;
+ }
+ fputs("]}",out);if(fclose(out)){out=NULL;goto done;}out=NULL;*isolation_json=json;json=NULL;ok=1;
+done:if(out)fclose(out);if(rootfd>=0)close(rootfd);free(m);free(r);free(manifest);free(body);free(json);return ok;
+}
+
+int hf_runner_finalize_fleet_readiness(const HfJson *claim,int result,const HfPreparationStage *stage,const unsigned char *prepared,size_t prepared_size,long long deadline_ns,char **readiness_json){
+ int plan=hf_json_field(claim,result,"plan"),p=hf_json_field(claim,plan,"preparation");char expected[72],*manifest=NULL;size_t size=0;HfJson *parsed=calloc(1,sizeof *parsed);int ok=0;
+ if(parsed&&string(claim,p,"input_manifest_digest",expected,sizeof expected)&&sha_valid(expected)&&isolation_read_manifest(stage,expected,&manifest,&size)&&hf_json_parse(parsed,manifest))ok=hf_fleet_readiness_finalize(parsed,stage,prepared,prepared_size,deadline_ns,readiness_json);
+ free(parsed);free(manifest);return ok;
 }

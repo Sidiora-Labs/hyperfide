@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "fleet-install",
+  "task": "0.11",
+  "roles": [
+    "control"
+  ],
+  "module": "preparation/fleet_authority.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "fleet.install.register",
+    "fleet.install.admit",
+    "fleet.install.status",
+    "fleet.install.complete",
+    "fleet.install.adopt"
+  ],
+  "requires": [
+    "14.1"
+  ]
+}

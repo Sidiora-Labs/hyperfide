@@ -19,7 +19,7 @@ type ProbeResult='ACCEPTED'|'REFUSED'|'NOT_OFFERED';
 export interface CapabilityObservation {result:ProbeResult;evidence_digest:string;context_restored:boolean}
 export interface ConnectorObservationInput {
  profile_id:string;cli_version_output:string;binary_digest:string;
- resolution:{configured_model_alias:string;resolved_model_id:string;resolved_provider_id:string|null;source:'cli-config'|'auth-profile';config_digest:string|null};
+ resolution:{configured_model_alias:string;resolved_model_id:string;resolved_provider_id:string|null;source:'cli-config'|'auth-profile';config_digest:string|null;provider_provenance?:'PINNED_GATEWAY_CONFIG';gateway_endpoint_digest?:string};
  observation:{native_session_id:string;observed_model_id:string;observed_provider_id:string|null;observation_digest:string};
  probes:Record<ConnectorCapability,CapabilityObservation>;
 }
@@ -27,6 +27,7 @@ export interface ConnectorQualificationPayload {
  schema_version:1;receipt_id:string;connector:'codex'|'claude';cli_version:string;binary_digest:string;auth_mode:string;
  profile_id:string;profile_digest:string;configured_model_alias:string;requested_model_id:string;
  observed_model_id:string;observed_provider_id:string;capabilities:Record<ConnectorCapability,CapabilityOutcome>;
+ provider_identity_source?:'PINNED_GATEWAY_CONFIG';native_observed_provider_id?:string|null;gateway_endpoint_digest?:string;
  issued_at:number;expires_at:number;evidence_digest:string;auth_qualification_digest:string;
 }
 export interface SignedConnectorReceipt {schema_version:1;payload:string;signature:string}
@@ -51,6 +52,7 @@ export interface RegistryOptions {
  authenticate:(i:InvocationContext,profileId:string)=>Promise<unknown>;
 }
 const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const MODEL=/^[A-Za-z0-9][A-Za-z0-9._:/()-]{0,253}$/;
 function canonical(v:unknown):string{
  if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';
  if(object(v))return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';
@@ -61,7 +63,7 @@ function digestOf(v:unknown):string{return text(v,DIGEST);}
 function nullable(v:unknown,re=ID):string|null{return v===null?null:text(v,re);}
 export function parseObservation(v:unknown):ConnectorObservationInput{
  exact(v,['profile_id','cli_version_output','binary_digest','resolution','observation','probes']);
- exact(v.resolution,['configured_model_alias','resolved_model_id','resolved_provider_id','source','config_digest']);
+ exact(v.resolution,['configured_model_alias','resolved_model_id','resolved_provider_id','source','config_digest',...(object(v.resolution)&&Object.hasOwn(v.resolution,'provider_provenance')?['provider_provenance','gateway_endpoint_digest']:[])]);
  exact(v.observation,['native_session_id','observed_model_id','observed_provider_id','observation_digest']);
  exact(v.probes,[...CONNECTOR_CAPABILITIES]);
  const r=v.resolution,o=v.observation,p=v.probes;
@@ -73,8 +75,8 @@ export function parseObservation(v:unknown):ConnectorObservationInput{
   probes[name]={result:x.result as ProbeResult,evidence_digest:digestOf(x.evidence_digest),context_restored:x.context_restored};
  }
  return {profile_id:text(v.profile_id),cli_version_output:v.cli_version_output,binary_digest:digestOf(v.binary_digest),
-  resolution:{configured_model_alias:text(r.configured_model_alias),resolved_model_id:text(r.resolved_model_id),resolved_provider_id:nullable(r.resolved_provider_id),source:r.source,config_digest:r.config_digest===null?null:digestOf(r.config_digest)},
-  observation:{native_session_id:text(o.native_session_id),observed_model_id:text(o.observed_model_id),observed_provider_id:nullable(o.observed_provider_id),observation_digest:digestOf(o.observation_digest)},probes};
+  resolution:{configured_model_alias:text(r.configured_model_alias,MODEL),resolved_model_id:text(r.resolved_model_id,MODEL),resolved_provider_id:nullable(r.resolved_provider_id),source:r.source,config_digest:r.config_digest===null?null:digestOf(r.config_digest),...(r.provider_provenance!==undefined?{provider_provenance:text(r.provider_provenance,/^PINNED_GATEWAY_CONFIG$/) as 'PINNED_GATEWAY_CONFIG',gateway_endpoint_digest:digestOf(r.gateway_endpoint_digest)}:{})},
+  observation:{native_session_id:text(o.native_session_id),observed_model_id:text(o.observed_model_id,MODEL),observed_provider_id:nullable(o.observed_provider_id),observation_digest:digestOf(o.observation_digest)},probes};
 }
 export function versionLine(connector:'codex'|'claude',version:string):string{return connector==='codex'?`codex-cli ${version}`:`${version} (Claude Code)`;}
 /* Pure derivation: identical observations always produce identical outcomes. */
@@ -112,6 +114,9 @@ export function createConnectorQualificationRegistry(options:RegistryOptions):Co
   if(r.configured_model_alias!==s.configured_model_alias||r.resolved_model_id!==s.requested_model_id||(r.resolved_provider_id!==null&&r.resolved_provider_id!==s.configured_provider_id))fail('CONNECTOR_PROFILE_UNRESOLVED','Alias resolution differs from the configured frontier profile');
   if(ob.observed_model_id!==s.requested_model_id)fail('CONNECTOR_MODEL_MISMATCH','Native session reported a different model than configured');
   // Claude Code does not report its provider natively; only a provider resolved from the CLI configuration is accepted.
+  if(s.gateway){
+   if(s.connector!=='claude'||s.auth_mode!=='api_credential'||s.gateway.provider_id!==s.configured_provider_id||r.source!=='cli-config'||r.config_digest===null||r.provider_provenance!=='PINNED_GATEWAY_CONFIG'||r.gateway_endpoint_digest!==hash(s.gateway.messages_endpoint)||r.resolved_provider_id!==s.gateway.provider_id)fail('CONNECTOR_GATEWAY_UNRESOLVED','Gateway provider evidence must bind the trusted exact Messages endpoint and measured protected CLI settings');
+  }else if(r.provider_provenance!==undefined||r.gateway_endpoint_digest!==undefined)fail('CONNECTOR_GATEWAY_UNRESOLVED','Gateway provenance requires a trusted endpoint profile pin');
   const provider=ob.observed_provider_id??(r.source==='cli-config'?r.resolved_provider_id:null);
   if(provider!==null&&provider!==s.configured_provider_id)fail('CONNECTOR_PROVIDER_MISMATCH','Native session reported a different provider than configured');
   const derived=deriveOutcomes(s,o);
@@ -123,7 +128,7 @@ export function createConnectorQualificationRegistry(options:RegistryOptions):Co
   const issued=now(),evidence=hash(canonical({observation:ob,probes:o.probes,resolution:r}));
   const payload:ConnectorQualificationPayload={schema_version:1,receipt_id:evidence.slice(7,39),connector:s.connector,cli_version:s.binary.version,binary_digest:s.binary.digest,auth_mode:s.auth_mode,
    profile_id:s.profile_id,profile_digest:s.profile_digest,configured_model_alias:s.configured_model_alias,requested_model_id:s.requested_model_id,
-   observed_model_id:ob.observed_model_id,observed_provider_id:provider??'',capabilities:derived.capabilities,issued_at:issued,expires_at:issued+options.ttlSeconds,
+   observed_model_id:ob.observed_model_id,observed_provider_id:provider??'',...(s.gateway?{provider_identity_source:'PINNED_GATEWAY_CONFIG' as const,native_observed_provider_id:ob.observed_provider_id,gateway_endpoint_digest:hash(s.gateway.messages_endpoint)}:{}),capabilities:derived.capabilities,issued_at:issued,expires_at:issued+options.ttlSeconds,
    evidence_digest:evidence,auth_qualification_digest:hash(canonical(auth??null))};
   const state=derived.reasons.length?'UNQUALIFIED':'QUALIFIED';
   const receipt=state==='QUALIFIED'&&options.signingKey?signReceipt(options.signingKey,payload):null;

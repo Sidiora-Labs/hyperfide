@@ -39,7 +39,8 @@ export class Dispatcher {
     this.stopped = true;
     this.shutdown.abort();
     await this.serial;
-    await Promise.allSettled([...this.activeMachines.values()].map(machine => machine.destroy()));
+    if (this.options.planning === "legacy-nonadaptive")
+      await Promise.allSettled([...this.activeMachines.values()].map(machine => machine.destroy()));
     await this.drain();
   }
   private storage!: PluginStorage;
@@ -75,6 +76,11 @@ export class Dispatcher {
         const data = value as JobLedger;
         this.jobs.set(data.id, data);
       }
+    }
+    if (this.options.planning !== "legacy-nonadaptive") {
+      this.initialized = true;
+      await this.storage.put("fleet.planning", { mode: "manager", state: "WAITING_FOR_MANAGER", authority: "CONTROL_PLANE" });
+      return;
     }
     // This directory is a single dispatcher lease. A restart interrupts its live jobs.
     const ownedJobs = [...this.jobs.values()].filter(
@@ -117,6 +123,7 @@ export class Dispatcher {
   private async schedule() {
     if (this.stopped) return;
     if (!this.initialized) throw new Error("Call start before tick");
+    if (this.options.planning !== "legacy-nonadaptive") return;
     if (this.now() < this.backoffUntil) return;
     const control = (await this.storage.get("fleet.control")) as
       | { cap: number; paused: boolean }

@@ -1,3 +1,4 @@
+import {fleetGatewayProfile} from '../decisions/fleet_gateway.js';
 import {assertInvocation} from '../transport/protocol.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import type {ComputeToken} from '../scheduler/claim.js';
@@ -159,7 +160,9 @@ export function createComponent(context:ComponentContext):Component{
   const v=record(input,['idempotency_key','expected_leader_generation','session_id','role','connector','account_key']),a=trustedActor(current),expected=decimal(v.expected_leader_generation,true),sessionId=uuid(v.session_id);
   const role=v.role;if(role!=='LEADER'&&role!=='FEATURE_MANAGER')return refuse('ROLE_DENIED','Only supervisors may be registered on main');
   const connector=name(v.connector),account=name(v.account_key);
-  if(!['codex','claude','claude-code'].includes(connector))return refuse('ROLE_DENIED','Supervisors require an approved frontier connector family');
+  if(!['codex','claude','claude-code','gateway'].includes(connector))return refuse('ROLE_DENIED','Supervisors require an approved frontier connector family');
+  const gatewayProfile=connector==='gateway'?fleetGatewayProfile(current.env):null;
+  if(connector==='gateway'&&(!gatewayProfile||account!==gatewayProfile.profile_id))return refuse('SUPERVISOR_GATEWAY_PROFILE','Gateway supervisor account must name the configured explicit model profile');
   return operation(g,a,'hierarchy.supervisor.register',v,async tx=>{
    await schema(tx);
    const rows=await tx.query('SELECT leader_session_id,generation::text,authority_epoch FROM hyperfide.hierarchy_leaders WHERE organisation_id=$1 AND run_id=$2 FOR SHARE',[a.organisation_id,a.run_id]);
@@ -173,10 +176,11 @@ export function createComponent(context:ComponentContext):Component{
    else if(principal.role!=='COORDINATOR'&&!recoveryBootstrap)return refuse('ROLE_DENIED','Only the current primary/coordinator may register supervisors');
    await tx.query("INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,parent_session_id,connector,account_key,native_session_id,state) VALUES($1,$2,$3,$4,$5,$6,$7,NULL,'REGISTERED')",
     [a.organisation_id,a.run_id,sessionId,role,role==='FEATURE_MANAGER'?old?.leader_session_id??null:null,connector,account]);
-   await tx.query('INSERT INTO hyperfide.hierarchy_supervisor_registrations(organisation_id,run_id,session_id,registered_by_credential_id,registered_by_actor_id,leader_generation) VALUES($1,$2,$3,$4,$5,$6)',
-    [a.organisation_id,a.run_id,sessionId,principal.credential_id,principal.actor_id,expected]);
+   await tx.query('INSERT INTO hyperfide.hierarchy_supervisor_registrations(organisation_id,run_id,session_id,registered_by_credential_id,registered_by_actor_id,leader_generation,gateway_profile) VALUES($1,$2,$3,$4,$5,$6,$7)',
+    [a.organisation_id,a.run_id,sessionId,principal.credential_id,principal.actor_id,expected,gatewayProfile]);
    return {session_id:sessionId,role,state:'REGISTERED',native_session_id:null,native_ready:false,execution_authority:false,
-    next_required:role==='LEADER'?['SELECT_LOGICAL_LEADER','RESTRICTED_NATIVE_LAUNCH','OBSERVED_NATIVE_BINDING','AGENT_CREDENTIAL']:['PACKAGE_ASSIGNMENT','RESTRICTED_NATIVE_LAUNCH','OBSERVED_NATIVE_BINDING','AGENT_CREDENTIAL']};
+    ...(gatewayProfile?{session_kind:'LOGICAL_GATEWAY',gateway_profile:gatewayProfile,model_observed:false}:{}),
+    next_required:gatewayProfile?(role==='LEADER'?['SELECT_LOGICAL_LEADER','SCOPED_BOOTSTRAP_CREDENTIAL','OBSERVED_GATEWAY_RESPONSE']:['PACKAGE_ASSIGNMENT','SCOPED_BOOTSTRAP_CREDENTIAL','OBSERVED_GATEWAY_RESPONSE']):role==='LEADER'?['SELECT_LOGICAL_LEADER','RESTRICTED_NATIVE_LAUNCH','OBSERVED_NATIVE_BINDING','AGENT_CREDENTIAL']:['PACKAGE_ASSIGNMENT','RESTRICTED_NATIVE_LAUNCH','OBSERVED_NATIVE_BINDING','AGENT_CREDENTIAL']};
   });
  },
  'hierarchy.supervisor.select':async(input,current)=>{
@@ -396,6 +400,7 @@ export interface WorkerRegistrationReceipt {
 }
 export interface WorkerRegistrationAuthority {
  registerWorker:(tx:PrimaryTransaction,input:WorkerRegistrationInput,invocation:InvocationContext)=>Promise<WorkerRegistrationReceipt>;
+ registerAssignedWorker:(tx:PrimaryTransaction,input:{token:ComputeToken;packet_digest:string;session_id:string;leader_generation:string;package_generation:string},invocation:InvocationContext)=>Promise<WorkerRegistrationReceipt>;
 }
 async function workerSchema(tx:PrimaryTransaction){
  await schema(tx);
@@ -403,7 +408,7 @@ async function workerSchema(tx:PrimaryTransaction){
  if(!table.rows[0]?.ready)return refuse('WORKER_REGISTRATION_SCHEMA_REQUIRED','Apply trusted normal-worker registration migration first');
 }
 /** An observed native identity is attached later by the actual runner/native binder. */
-async function workerSeat(tx:PrimaryTransaction,token:ComputeToken,packetDigest:string,native:NativeAuthAuthority,i:InvocationContext):Promise<WorkerRegistrationReceipt>{
+async function workerSeat(tx:PrimaryTransaction,token:ComputeToken,packetDigest:string,native:NativeAuthAuthority,i:InvocationContext,requestedSessionId?:string):Promise<WorkerRegistrationReceipt>{
  assertPrimaryTransaction(tx);assertInvocation(i);await readSemanticDisposition(tx,token);await i.guard(tx);await workerSchema(tx);
  if(token.organisation_id!==i.principal.organisation_id||token.run_id!==i.principal.run_id||token.authority_epoch!==i.principal.deployment_epoch)return refuse('ACTOR_SCOPE_MISMATCH','Worker registration targets another authenticated scope');
  const compute=await assertCurrentCompute(tx,token,{operation:'ADMISSION'});
@@ -417,14 +422,19 @@ async function workerSeat(tx:PrimaryTransaction,token:ComputeToken,packetDigest:
  const connector=execution.connector==='claude-code'?'claude':execution.connector;
  if(connector!==snapshot.connector||execution.credential_profile_ref!==snapshot.credential_reference)return refuse('WORKER_NATIVE_PROFILE_MISMATCH','Protected native profile connector or credential differs from accepted intent');
  const account=name(resolved.configured_account_key),parentId=uuid(identity.parent_session_id),packageId=uuid(identity.package_id);
+ if(requestedSessionId!==undefined){
+  const assignedTask=(await tx.query('SELECT feature_package_id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[token.organisation_id,token.run_id,token.task_id])).rows[0];
+  if(parentId!==i.principal.actor_id||assignedTask?.feature_package_id!==packageId)return refuse('WORKER_PACKET_MISMATCH','Assigned worker must bind the current manager and delegated package');
+ }
  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[token.organisation_id+':'+token.run_id+':worker-seat:'+token.attempt_id]);
  const old=await tx.query('SELECT w.*,w.attempt_generation::text,w.sandbox_boot_generation::text,s.native_session_id,s.state FROM hyperfide.hierarchy_worker_registrations w JOIN hyperfide.agent_sessions s ON s.organisation_id=w.organisation_id AND s.run_id=w.run_id AND s.id=w.session_id WHERE w.organisation_id=$1 AND w.run_id=$2 AND w.attempt_id=$3 FOR SHARE OF s',[token.organisation_id,token.run_id,token.attempt_id]);
  if(old.rows[0]){
   const row=old.rows[0];
+  if(requestedSessionId!==undefined&&row.session_id!==requestedSessionId)return refuse('WORKER_REGISTRATION_CONFLICT','Attempt belongs to another immutable worker identity');
   if(row.attempt_generation!==token.attempt_generation||row.packet_digest!==packetDigest||row.slot_id!==token.slot_id||row.sandbox_id!==token.sandbox_id||row.sandbox_boot_generation!==token.sandbox_boot_generation||row.native_profile_id!==profileId||row.native_profile_digest!==snapshot.profile_digest||row.account_key!==account||row.connector!==connector)return refuse('WORKER_REGISTRATION_CONFLICT','An attempt already has a different immutable worker seat');
   return {session_id:uuid(row.session_id),registration_receipt_digest:digest(row.registration_receipt_digest),native_session_id:row.native_session_id,state:String(row.state),execution_authority:false};
  }
- const id=randomUUID(),receipt=hash({schema_version:1,organisation_id:token.organisation_id,run_id:token.run_id,session_id:id,token,packet_digest:packetDigest,parent_session_id:parentId,package_id:packageId,native_profile_id:profileId,native_profile_digest:snapshot.profile_digest,connector,configured_account_key:account});
+ const id=requestedSessionId===undefined?randomUUID():uuid(requestedSessionId),receipt=hash({schema_version:1,organisation_id:token.organisation_id,run_id:token.run_id,session_id:id,token,packet_digest:packetDigest,parent_session_id:parentId,package_id:packageId,native_profile_id:profileId,native_profile_digest:snapshot.profile_digest,connector,configured_account_key:account});
  await tx.query("INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,parent_session_id,connector,account_key,native_session_id,slot_id,sandbox_id,sandbox_boot_generation,attempt_id,state) VALUES($1,$2,$3,'WORKER',$4,$5,$6,NULL,$7,$8,$9,$10,'REGISTERED')",[token.organisation_id,token.run_id,id,parentId,connector,account,token.slot_id,token.sandbox_id,token.sandbox_boot_generation,token.attempt_id]);
  await tx.query('INSERT INTO hyperfide.hierarchy_worker_registrations(organisation_id,run_id,session_id,task_id,attempt_id,attempt_generation,authority_epoch,sandbox_id,slot_id,sandbox_boot_generation,packet_digest,parent_session_id,package_id,native_profile_id,native_profile_digest,connector,account_key,registration_receipt_digest,registered_by_credential_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)',[token.organisation_id,token.run_id,id,token.task_id,token.attempt_id,token.attempt_generation,token.authority_epoch,token.sandbox_id,token.slot_id,token.sandbox_boot_generation,packetDigest,parentId,packageId,profileId,snapshot.profile_digest,connector,account,receipt,i.principal.credential_id]);
  return {session_id:id,registration_receipt_digest:receipt,native_session_id:null,state:'REGISTERED',execution_authority:false};
@@ -443,7 +453,14 @@ export function createWorkerComponent(context:ComponentContext):Component{
   for(const key of ['task_id','attempt_id','attempt_generation','authority_epoch','sandbox_id','slot_id','sandbox_boot_generation'])if(String(row[key])!==String(token[key as keyof ComputeToken]))return refuse('WORKER_DISPATCH_MISMATCH','Dispatch journal differs from current worker tuple');
   return workerSeat(tx,token,packet,native,i);
  };
- return {apiVersion:1,capabilities:{'hierarchy.worker-registration.v1':Object.freeze({registerWorker})},actions:{
+ const registerAssignedWorker:WorkerRegistrationAuthority['registerAssignedWorker']=async(tx,input,i)=>{
+  assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
+  const token=parseComputeToken(input.token);
+  const task=(await tx.query('SELECT feature_package_id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[token.organisation_id,token.run_id,token.task_id])).rows[0];
+  await requireAuthority(tx,{organisation_id:token.organisation_id,run_id:token.run_id,session_id:i.principal.actor_id,authority_epoch:token.authority_epoch,leader_generation:decimal(input.leader_generation),package_id:uuid(task?.feature_package_id),package_generation:decimal(input.package_generation),roles:['FEATURE_MANAGER']});
+  return workerSeat(tx,token,digest(input.packet_digest),native,i,uuid(input.session_id));
+ };
+ return {apiVersion:1,capabilities:{'hierarchy.worker-registration.v1':Object.freeze({registerWorker,registerAssignedWorker})},actions:{
   'hierarchy.worker.register':async(input,current)=>{
    const v=record(input,['idempotency_key','leader_generation','package_generation','token']),a=trustedActor(current),token=parseComputeToken(v.token);
    const guarded={...a,guard:async(tx:PrimaryTransaction)=>{

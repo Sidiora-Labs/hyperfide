@@ -17,6 +17,7 @@ export interface AuthProfileSnapshot {
  auth_mode:'account_session'|'api_credential';binary:{path:string;digest:string;version:string};
  credential_reference:string;configured_provider_id:string;observed_provider_id:string|null;configured_model_alias:string;requested_model_id:string;observed_model_id:string|null;
  permission_profile_id:string;capabilities:{unattended:boolean;refresh:boolean;concurrent_account:boolean;portable_session:boolean;explicit_resume:boolean};
+ gateway?:{messages_endpoint:string;provider_id:string};
  qualification:{state:'UNQUALIFIED'|'QUALIFIED'|'STALE';live_qualified:boolean;receipt_digest:string|null};
 }
 interface Profile {snapshot:AuthProfileSnapshot;runtime_home:string;target_uid:number;configured_account_key:string}
@@ -39,24 +40,31 @@ async function profiles(ctx:ComponentContext):Promise<Map<string,Profile>>{
  const raw=strictJSON(await fs.readFile(file));exact(raw,['schema_version','profiles']);if(raw.schema_version!==1||!Array.isArray(raw.profiles)||!raw.profiles.length||raw.profiles.length>128)fail('NATIVE_AUTH_CONFIG','Invalid profiles inventory');
  const result=new Map<string,Profile>(),homes=new Set<string>(),uids=new Set<number>();
  for(const v of raw.profiles){
-  exact(v,['schema_version','profile_id','profile_revision','connector','auth_mode','binary','credential_reference','configured_provider_id','configured_model_alias','requested_model_id','permission_profile_id','capabilities','runtime_home','target_uid','configured_account_key']);
+  exact(v,['schema_version','profile_id','profile_revision','connector','auth_mode','binary','credential_reference','configured_provider_id','configured_model_alias','requested_model_id','permission_profile_id','capabilities','runtime_home','target_uid','configured_account_key',...(Object.hasOwn(v,'gateway')?['gateway']:[])]);
   if(v.schema_version!==1||typeof v.profile_id!=='string'||!NAME.test(v.profile_id)||result.has(v.profile_id)||!nonempty(v.profile_revision)||typeof v.connector!=='string'||!['codex','claude'].includes(v.connector)||typeof v.auth_mode!=='string'||!['account_session','api_credential'].includes(v.auth_mode)||!nonempty(v.credential_reference)||!nonempty(v.configured_provider_id)||!nonempty(v.configured_model_alias)||!nonempty(v.requested_model_id)||!nonempty(v.permission_profile_id)||!nonempty(v.configured_account_key)||typeof v.runtime_home!=='string'||!path.isAbsolute(v.runtime_home)||!Number.isInteger(v.target_uid)||Number(v.target_uid)<1000||Number(v.target_uid)>2147483647||homes.has(v.runtime_home)||uids.has(Number(v.target_uid)))fail('NATIVE_AUTH_CONFIG','Invalid connector/auth profile or shared native home');
+  if(v.gateway!==undefined){
+   if(v.connector!=='claude'||v.auth_mode!=='api_credential')fail('NATIVE_AUTH_CONFIG','Pinned Messages gateways require a Claude API credential profile');
+   exact(v.gateway,['messages_endpoint','provider_id']);
+   if(typeof v.gateway.messages_endpoint!=='string'||v.gateway.messages_endpoint.length>4000||v.gateway.provider_id!==v.configured_provider_id)fail('NATIVE_AUTH_CONFIG','Gateway endpoint and provider must bind the trusted profile');
+   let endpoint:URL;try{endpoint=new URL(v.gateway.messages_endpoint);}catch{fail('NATIVE_AUTH_CONFIG','Canonical HTTPS Messages endpoint required');}
+   if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||!endpoint.pathname.endsWith('/v1/messages')||endpoint.href!==v.gateway.messages_endpoint)fail('NATIVE_AUTH_CONFIG','Canonical HTTPS Messages endpoint required');
+  }
   exact(v.binary,['path','digest','version']);if(typeof v.binary.path!=='string'||!path.isAbsolute(v.binary.path)||typeof v.binary.digest!=='string'||!/^sha256:[0-9a-f]{64}$/.test(v.binary.digest)||!nonempty(v.binary.version))fail('NATIVE_AUTH_CONFIG','Pinned binary identity required');
   exact(v.capabilities,['unattended','refresh','concurrent_account','portable_session','explicit_resume']);if(Object.values(v.capabilities).some(x=>typeof x!=='boolean'))fail('NATIVE_AUTH_CONFIG','Explicit capability booleans required');
   const real=await fs.realpath(v.binary.path),identity=await binaryIdentity(real);if(identity.digest!==v.binary.digest)fail('NATIVE_BINARY_DRIFT','Configured binary bytes differ from pinned digest');
   const home=await fs.lstat(v.runtime_home);if(!home.isDirectory()||home.isSymbolicLink()||home.uid!==Number(v.target_uid)||(home.mode&0o077)!==0)fail('NATIVE_AUTH_CONFIG','Native home requires private per-UID ownership');
   homes.add(v.runtime_home);uids.add(Number(v.target_uid));
-  const snapshot:AuthProfileSnapshot=frozen({schema_version:1,profile_id:v.profile_id,profile_revision:v.profile_revision,profile_digest:hash(JSON.stringify(sorted(v))),connector:v.connector as 'codex'|'claude',auth_mode:v.auth_mode as 'account_session'|'api_credential',binary:{path:real,digest:v.binary.digest,version:v.binary.version},credential_reference:v.credential_reference,configured_provider_id:v.configured_provider_id,observed_provider_id:null,configured_model_alias:v.configured_model_alias,requested_model_id:v.requested_model_id,observed_model_id:null,permission_profile_id:v.permission_profile_id,capabilities:v.capabilities as unknown as AuthProfileSnapshot['capabilities'],qualification:{state:'UNQUALIFIED',live_qualified:false,receipt_digest:null}});
+  const snapshot:AuthProfileSnapshot=frozen({schema_version:1,profile_id:v.profile_id,profile_revision:v.profile_revision,profile_digest:hash(JSON.stringify(sorted(v))),connector:v.connector as 'codex'|'claude',auth_mode:v.auth_mode as 'account_session'|'api_credential',binary:{path:real,digest:v.binary.digest,version:v.binary.version},credential_reference:v.credential_reference,configured_provider_id:v.configured_provider_id,observed_provider_id:null,configured_model_alias:v.configured_model_alias,requested_model_id:v.requested_model_id,observed_model_id:null,permission_profile_id:v.permission_profile_id,capabilities:v.capabilities as unknown as AuthProfileSnapshot['capabilities'],...(v.gateway!==undefined?{gateway:v.gateway as unknown as {messages_endpoint:string;provider_id:string}}:{}),qualification:{state:'UNQUALIFIED',live_qualified:false,receipt_digest:null}});
   result.set(v.profile_id,{snapshot,runtime_home:v.runtime_home,target_uid:Number(v.target_uid),configured_account_key:v.configured_account_key as string});
  }
  return result;
 }
-async function run(profile:Profile,args:string[],signal:AbortSignal):Promise<{exit_code:number|null;stdout:string;stderr:string}>{
+async function run(profile:Profile,args:string[],signal:AbortSignal,credentialEnv:Readonly<Record<string,string>>={}):Promise<{exit_code:number|null;stdout:string;stderr:string}>{
  signal.throwIfAborted();const s=profile.snapshot,identity=await binaryIdentity(s.binary.path);signal.throwIfAborted();
  if(identity.digest!==s.binary.digest)fail('NATIVE_BINARY_DRIFT','Pinned runtime changed before execution');
  return new Promise((resolve,reject)=>{
   const child=spawn(s.binary.path,args,{shell:false,stdio:['ignore','pipe','pipe'],uid:profile.target_uid,gid:profile.target_uid,
-   env:{PATH:path.dirname(process.execPath)+':/usr/bin:/bin',HOME:profile.runtime_home,XDG_CONFIG_HOME:path.join(profile.runtime_home,'.config'),LANG:'C.UTF-8'}});
+   env:{PATH:path.dirname(process.execPath)+':/usr/bin:/bin',HOME:profile.runtime_home,XDG_CONFIG_HOME:path.join(profile.runtime_home,'.config'),LANG:'C.UTF-8',...credentialEnv}});
   const out:Buffer[]=[],err:Buffer[]=[];let size=0,failed=false,spawnError=false;
   const terminate=():void=>{failed=true;child.kill('SIGKILL');};
   const timer=setTimeout(terminate,10000);
@@ -90,13 +98,35 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
   const availability=await credentials.inspect(i,profile.snapshot.credential_reference);
   const version=await run(profile,['--version'],i.signal),text=version.stdout.trim();
   if(version.exit_code!==0||!text.includes(profile.snapshot.binary.version))fail('NATIVE_VERSION_DRIFT','Pinned runtime reports an unexpected version');
-  const status=await run(profile,profile.snapshot.connector==='codex'?['login','status']:['auth','status'],i.signal);
+  const credentialEnv:Record<string,string>={};
+  try{
+   if(profile.snapshot.auth_mode==='api_credential'){
+    await gateway.withPrimaryTransaction({timeoutMs:5000,signal:i.signal,guard:i.guard},async tx=>{
+     const row=(await tx.query('SELECT purposes FROM hyperfide.identity_credential_references WHERE organisation_id=$1 AND run_id=$2 AND reference_id=$3 FOR SHARE',[i.principal.organisation_id,i.principal.run_id,profile.snapshot.credential_reference])).rows[0];
+     if(!row||!Array.isArray(row.purposes)||!row.purposes.includes('WORKER_PROCESS'))fail('AUTH_SCOPE_DENIED','API authentication probe requires a worker-process credential purpose');
+    });
+    const attached=await credentials.attach(i,profile.snapshot.credential_reference,'process');
+    if(attached.status!=='AVAILABLE'||!attached.attachment_id)fail('AUTH_BLOCKED','API credential attachment is unavailable');
+    const attachment=await credentials.privateAttachment(i,attached.attachment_id);
+    if(attachment.uid!==profile.target_uid||Date.parse(attachment.expires_at)<=Date.now())fail('ISOLATION_REQUIRED','Authentication probe attachment must belong to the selected private runtime UID');
+    const fd=await fs.open(attachment.path,constants.O_RDONLY|constants.O_NOFOLLOW);
+    try{
+     const st=await fd.stat();if(!st.isFile()||st.uid!==profile.target_uid||(st.mode&0o077)!==0||st.size<1||st.size>65536)fail('CREDENTIAL_CONFIG','API authentication attachment must be bounded and private');
+     const bytes=await fd.readFile();try{
+      const value=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(!value||value.includes('\0'))fail('CREDENTIAL_CONFIG','API credential must be bounded UTF8');
+      credentialEnv[profile.snapshot.connector==='claude'?'ANTHROPIC_AUTH_TOKEN':'CODEX_API_KEY']=value;
+     }finally{bytes.fill(0);}
+    }finally{await fd.close();}
+   }
+   const status=await run(profile,profile.snapshot.connector==='codex'?['login','status']:['auth','status'],i.signal,credentialEnv);
+
   // No raw auth stdout/stderr or account identifier enters ordinary evidence.
   const loggedIn=status.exit_code===0;
   await gateway.withPrimaryTransaction({timeoutMs:5000,signal:i.signal,guard:i.guard},async()=>{});
   return {snapshot:profile.snapshot,runtime_version_verified:true,credential:availability,native_authentication:loggedIn?'AUTHENTICATED':'AUTH_BLOCKED',
     auth_mode:profile.snapshot.auth_mode,refresh_qualified:false,portability_qualified:false,endurance_72h_qualified:false,live_qualified:false,
     reason:'Version/auth-status probes do not qualify inference, model identity, permission behaviour, refresh or endurance'};
+  }finally{for(const key of Object.keys(credentialEnv))delete credentialEnv[key];}
  };
  const authority:NativeAuthAuthority=Object.freeze({resolve,probe,privateRuntime,privateRuntimeInTransaction});
  const input=(v:unknown):string=>{exact(v,['profile_id']);if(typeof v.profile_id!=='string')fail('INVALID_REQUEST','Configured profile identity required');return v.profile_id;};

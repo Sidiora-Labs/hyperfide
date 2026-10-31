@@ -10,7 +10,7 @@ WorkingDirectory=/opt/hyperfide/current
 EnvironmentFile=/etc/hyperfide/provisioner.env
 Environment=HF_PROVISIONER_EXECUTOR_CONFIG_FILE=/etc/hyperfide/provisioner-worker.json
 Environment=HF_IDENTITY_CONFIG_FILE=/etc/hyperfide/provisioner-identity.json
-ExecStart=/opt/hyperfide/current/runtime/node /opt/hyperfide/current/services/dist/provisioner.js --mode https --host ${HYPERFIDE_PROVISIONER_LISTEN_HOST} --port ${HYPERFIDE_PROVISIONER_LISTEN_PORT} --tls-cert /etc/hyperfide/provisioner.crt --tls-key /etc/hyperfide/provisioner.key --policy /etc/hyperfide/provisioner-policy.json --spec-revision ${HYPERFIDE_SPEC_REVISION}
+ExecStart=/opt/hyperfide/current/runtime/node --import /opt/hyperfide/current/deploy/hyperfide/fleet-env.mjs /opt/hyperfide/current/services/dist/provisioner.js --mode https --host ${HYPERFIDE_PROVISIONER_LISTEN_HOST} --port ${HYPERFIDE_PROVISIONER_LISTEN_PORT} --tls-cert /etc/hyperfide/provisioner.crt --tls-key /etc/hyperfide/provisioner.key --policy /etc/hyperfide/provisioner-policy.json --spec-revision ${HYPERFIDE_SPEC_REVISION}
 Restart=on-failure
 KillMode=control-group
 TimeoutStopSec=30

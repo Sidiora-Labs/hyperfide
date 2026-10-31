@@ -6,7 +6,7 @@ import type {PrimaryTransaction,TransactionGateway} from '../storage/transaction
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
 import {databaseError} from '../storage/schema.js';
-import {validateProfile} from '../preparation/manifests.js';
+import {validateProfile,validateManifestMetadata} from '../preparation/manifests.js';
 import {assertInvocation} from '../transport/protocol.js';
 import {invocationOf} from '../identity/enrollment.js';
 import type {InvocationContext} from '../transport/protocol.js';
@@ -160,11 +160,12 @@ export async function transaction<T>(pool:ProviderDatabase,body:(client:PrimaryT
  return pool.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:2},body);
 }
 type Limits=Partial<Record<QuotaDimension,string>>;
+export interface BlaxelInventoryNamespace {schema_version:1;kind:'HYPERFIDE_SCOPE_LABEL';name_prefix:'hf-'}
 export interface PoolConfig {
   id:string;provider:'railway'|'blaxel';account_key:string;environment_key:string;region:string;
   profile_id:string|null;preparation_digest:string;approved_limits:Limits;planning_limits:Limits;
   scheduling_policy?:{aging_seconds:number;max_bypass_seconds:number;rate_window_ms:number;max_waiters:number};
-  create_policy:{seed_reference:string;network:'ISOLATED'|'PRIVATE';stdin_required:boolean;adapter_policy_digest?:string};
+  create_policy:{seed_reference:string;network:'ISOLATED'|'PRIVATE';stdin_required:boolean;adapter_policy_digest?:string;inventory_namespace?:BlaxelInventoryNamespace};
 }
 export interface DeploymentConfig {
   schema_version:1;organisation_id:string;revision:string;
@@ -201,7 +202,12 @@ export function validateDeployment(value:unknown):DeploymentConfig {
     const id=uuid(p.id);if(ids.has(id))fail('POOL_CONFIG_INVALID','Duplicate pool');ids.add(id);
     const key=provider(p.provider)+':'+str(p.account_key,256);if(!accounts.has(key))fail('POOL_CONFIG_INVALID','Pool account is not configured');
     str(p.environment_key,256);str(p.region,256);if(p.profile_id!==null)uuid(p.profile_id);dg(p.preparation_digest);
-    const cp=obj(p.create_policy);if(Object.keys(cp).some(k=>!['seed_reference','network','stdin_required','adapter_policy_digest'].includes(k))||['seed_reference','network','stdin_required'].some(k=>!Object.hasOwn(cp,k)))fail('POOL_CONFIG_INVALID','Invalid create policy fields');if(cp.adapter_policy_digest!==undefined)dg(cp.adapter_policy_digest);str(cp.seed_reference);if(!['ISOLATED','PRIVATE'].includes(String(cp.network))||typeof cp.stdin_required!=='boolean')fail('POOL_CONFIG_INVALID','Invalid trusted create policy');
+    const cp=obj(p.create_policy);if(Object.keys(cp).some(k=>!['seed_reference','network','stdin_required','adapter_policy_digest','inventory_namespace'].includes(k))||['seed_reference','network','stdin_required'].some(k=>!Object.hasOwn(cp,k)))fail('POOL_CONFIG_INVALID','Invalid create policy fields');if(cp.adapter_policy_digest!==undefined)dg(cp.adapter_policy_digest);str(cp.seed_reference);if(!['ISOLATED','PRIVATE'].includes(String(cp.network))||typeof cp.stdin_required!=='boolean')fail('POOL_CONFIG_INVALID','Invalid trusted create policy');
+    if(cp.inventory_namespace!==undefined){
+      const namespace=obj(cp.inventory_namespace,['schema_version','kind','name_prefix']);
+      if(p.provider!=='blaxel'||namespace.schema_version!==1||namespace.kind!=='HYPERFIDE_SCOPE_LABEL'||namespace.name_prefix!=='hf-')
+        fail('POOL_CONFIG_INVALID','Blaxel inventory namespace must match the generated native names and exact scope labels');
+    }
     const budget=limits(p.approved_limits);limits(p.planning_limits);
     if(budget.SANDBOX===undefined||budget.PROVISIONING===undefined)fail('POOL_CONFIG_INVALID','Sandbox and provisioning budgets must be separate');
   }
@@ -673,6 +679,36 @@ export async function publishVerifiedRuntimeReadiness(tx:PrimaryTransaction,invo
  return{created:true,id:String(o.id),readiness_digest:String(row.readiness_digest),state:String(o.state),authority:'OBSERVATION_ONLY'};
 }
 
+async function registerDeclaredProfile(database:ProviderDatabase,input:unknown):Promise<Record<string,unknown>>{
+ const invocation=providerInvocation(database),principal=invocation.principal;
+ if(principal.role!=='OPERATOR')fail('AUTH_SCOPE_DENIED','Only an authenticated operator may register a declared environment profile');
+ const request=obj(input,['profile_id','runtime_platform','manifest']),id=uuid(request.profile_id),platform=str(request.runtime_platform,128);
+ const manifest=validateManifestMetadata(request.manifest),profile=validateProfile(manifest.profile),config=providerDeployment(database);
+ if(platform!==(profile.os.architecture==='x86_64'?'linux-amd64':'linux-arm64'))fail('PROFILE_PLATFORM_MISMATCH','The declared platform must match the manifest architecture');
+ if(Buffer.byteLength(canonical(manifest))>4*1024*1024)fail('PROFILE_DECLARATION_INVALID','Environment manifest exceeds the durable metadata bound');
+ const pools=config.pools.filter(pool=>pool.profile_id===id);
+ if(!pools.length||pools.some(pool=>pool.provider!==profile.image.provider||pool.preparation_digest!==manifest.digest))
+  fail('PROFILE_CONFIGURATION_MISMATCH','Profile identity, provider and full preparation digest must match the trusted pool declaration');
+ return transaction(database,async tx=>{
+  const accepted=(await tx.query('SELECT r.state,r.authority_epoch,clock_timestamp() AS observed_at FROM hyperfide.runs r JOIN hyperfide.run_spec_revisions a ON a.organisation_id=r.organisation_id AND a.run_id=r.id AND a.spec_generation=r.spec_generation AND a.spec_revision_id=r.spec_revision_id AND a.accepted WHERE r.organisation_id=$1 AND r.id=$2 FOR SHARE OF r,a',[principal.organisation_id,principal.run_id])).rows[0];
+  if(!accepted||accepted.authority_epoch!==principal.deployment_epoch||['STOPPED','SUCCEEDED','FAILED','CANCELLED'].includes(String(accepted.state)))
+   fail('PROFILE_SCOPE_DENIED','A current accepted programme and authority epoch are required');
+  if(Date.parse(profile.policy.expires_at)<=new Date(accepted.observed_at).getTime())fail('PROFILE_DECLARATION_EXPIRED','The declared environment policy has expired');
+  for(const repository of profile.repositories){
+   const matches=await tx.query('SELECT r.repository_id FROM hyperfide.run_repositories r JOIN hyperfide.repositories p ON p.organisation_id=r.organisation_id AND p.id=r.repository_id WHERE r.organisation_id=$1 AND r.run_id=$2 AND p.url=$3 AND r.source_object_id=$4 FOR SHARE OF r,p',[principal.organisation_id,principal.run_id,repository.url,repository.commit]);
+   if(matches.rows.length!==1)fail('PROFILE_SOURCE_MISMATCH','Every declared repository must match an exact accepted run source pin');
+  }
+  const existing=(await tx.query('SELECT id,content_digest,provider,runtime_platform,manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND (id=$2 OR content_digest=$3) FOR SHARE',[principal.organisation_id,id,manifest.digest])).rows;
+  const matches=(row:Record<string,unknown>)=>row.id===id&&row.content_digest===manifest.digest&&row.provider===profile.image.provider&&row.runtime_platform===platform&&digestDocument(row.manifest)===digestDocument(manifest);
+  if(existing.length){if(existing.length!==1||!matches(existing[0]!))fail('PROFILE_IDENTITY_CONFLICT','An environment profile identity or content digest already names different declared inputs');return {profile_id:id,content_digest:manifest.digest,provider:profile.image.provider,runtime_platform:platform,state:'DECLARED',created:false,qualified:false,ready:false};}
+  const inserted=await tx.query('INSERT INTO hyperfide.environment_profiles(organisation_id,id,provider,runtime_platform,content_digest,manifest) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING id',[principal.organisation_id,id,profile.image.provider,platform,manifest.digest,manifest]);
+  const stored=(await tx.query('SELECT id,content_digest,provider,runtime_platform,manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND id=$2 FOR SHARE',[principal.organisation_id,id])).rows[0];
+  if(!stored||!matches(stored))fail('PROFILE_IDENTITY_CONFLICT','The environment profile was concurrently registered with different inputs');
+  await invocation.guard(tx);
+  return {profile_id:id,content_digest:manifest.digest,provider:profile.image.provider,runtime_platform:platform,state:'DECLARED',created:inserted.rows.length===1,qualified:false,ready:false};
+ });
+}
+
 export function createComponent(context:ComponentContext):Component {
   const database=createProviderDatabase(context);
   const provisioner=()=>{if(context.role!=='provisioner')fail('ROLE_FORBIDDEN','Provider administration requires the provisioner role');};
@@ -688,6 +724,7 @@ export function createComponent(context:ComponentContext):Component {
  registerProviderQuotaObserver:(provider:'railway'|'blaxel',observer:ProviderQuotaObserver)=>registerProviderQuotaObserver(database.runtime,provider,observer),
  registerProviderOwnershipProbe:(provider:'railway'|'blaxel',probe:ProviderOwnershipProbe)=>registerProviderOwnershipProbe(database.runtime,provider,probe)
  }}:{})},actions:{
+    'provider.profiles.register':guarded((input,database)=>registerDeclaredProfile(database,input)),
     'provider.pools.describe':input=>{obj(input,[]);return{schema_version:1,dimensions:[...QUOTA_DIMENSIONS],configuration_source:'TRUSTED_PRIVATE_FILE',planning_grants_capacity:false,connectivity_probe_available:!!database.runtime.connectivityProbe,physical_readiness_granted:false};},
     'provider.pools.readiness':guarded(async(input,database)=>{obj(input,[]);return{...obj(await inspectProviderSchema(database)),connectivity_probe_available:!!database.runtime.connectivityProbe,physical_readiness_granted:false};}),
     'provider.pools.configure':guarded(async(input,database)=>{provisioner();if(!['OPERATOR','PROVISIONER'].includes(providerInvocation(database).principal.role))fail('AUTH_SCOPE_DENIED','Pool configuration requires operator/provisioner authority');obj(input,[]);return applyConfig(database,await config());}),

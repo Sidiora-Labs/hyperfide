@@ -63,7 +63,7 @@ script_policy = "approved-plan"
 [configuration.runtime]
 kind = "config-ref"
 reference = "config-ref:fleet-host-runtime"
-target = "/sandbox/config/runtime.json"
+target = "/sandbox/workers/{slot}/home/.config/hyperfide/runtime.json"
 mode = "0600"
 required = true
 

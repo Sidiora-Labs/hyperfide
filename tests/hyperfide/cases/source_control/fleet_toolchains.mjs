@@ -1,0 +1,73 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {prepareFleetToolchains,fleetToolchainArgv,runFleetInstallProcess} from '../../../../core/control-plane/dist/preparation/fleet_toolchains.js';
+
+const results=[];
+const check=(name,value)=>{if(!value)throw new Error(name);results.push(name);};
+const refused=async(name,code,action)=>{try{await action();}catch(error){check(name,error.code===code);return;}throw new Error(name+' was accepted');};
+const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'hyperfide-toolchains-'));
+try{
+ const source=await fs.realpath(process.execPath),bytes=await fs.readFile(source),digest='sha256:'+createHash('sha256').update(bytes).digest('hex');
+ const version=execFileSync(source,['--version'],{encoding:'utf8'}).trim().replace(/^v/,'');
+ const artifact=path.join(temporary,'node-artifact');await fs.writeFile(artifact,bytes,{mode:0o400});
+ const request=async(name,delivery='coordinator-artifact')=>{
+  const environmentRoot=path.join(temporary,name+'-final'),stagingRoot=path.join(temporary,name+'-staging'),home=path.join(stagingRoot,'.installer-home');await fs.mkdir(home,{recursive:true,mode:0o700});
+  const executable=delivery==='image'?source:path.join(environmentRoot,'toolchains/node');
+  return {manifest:{'toolchain.node':{kind:'node',version,delivery,artifact_digest:digest,executable},'mount.source':{target:path.join(environmentRoot,'source')},interfaces:{output:path.join(environmentRoot,'metadata/interfaces.kvx')},readiness:{receipt:path.join(environmentRoot,'metadata/ready.json')}},environmentRoot,stagingRoot,artifactPaths:{node:artifact},home};
+ };
+ const image=await request('image','image'),imageResult=await prepareFleetToolchains(image);
+ check('image-executable-is-actually-probed',imageResult.executables[source]===source&&imageResult.receipts[0].digest===digest&&imageResult.receipts[0].version===version);
+ const fresh=await request('fresh'),finalExecutable=fresh.manifest['toolchain.node'].executable,actualExecutable=path.join(fresh.stagingRoot,'toolchains/node'),prepared=await prepareFleetToolchains(fresh);
+ check('authenticated-artifact-copies-real-executable',execFileSync(actualExecutable,['--version'],{encoding:'utf8'}).trim()==='v'+version);
+ check('receipt-keeps-final-path-and-staging-mapping',prepared.receipts[0].executable===finalExecutable&&prepared.executables[finalExecutable]===actualExecutable);
+ check('shared-tool-files-are-read-only-executable',((await fs.stat(actualExecutable)).mode&0o777)===0o555&&((await fs.stat(path.dirname(actualExecutable))).mode&0o777)===0o755);
+ check('copy-uses-independent-inode',(await fs.stat(artifact)).ino!==(await fs.stat(actualExecutable)).ino);
+ const replay=await prepareFleetToolchains(fresh);check('identical-retry-revalidates-real-executable',replay.receipts[0].digest===digest);
+ await fs.chmod(actualExecutable,0o600);await fs.writeFile(actualExecutable,'preserved dirty tool');
+ await refused('dirty-executable-is-refused','FLEET_INSTALL_TOOLCHAIN_PIN',()=>prepareFleetToolchains(fresh));
+ check('dirty-executable-is-preserved',await fs.readFile(actualExecutable,'utf8')==='preserved dirty tool');
+ const badPin=await request('pin');badPin.manifest['toolchain.node'].artifact_digest='sha256:'+'0'.repeat(64);
+ await refused('artifact-byte-mismatch-is-refused','FLEET_INSTALL_TOOLCHAIN_PIN',()=>prepareFleetToolchains(badPin));
+ check('bad-artifact-is-never-published',await fs.lstat(path.join(badPin.stagingRoot,'toolchains/node')).then(()=>false,error=>error.code==='ENOENT'));
+ const badVersion=await request('version');badVersion.manifest['toolchain.node'].version='0.0.0';
+ await refused('real-version-mismatch-is-refused','FLEET_INSTALL_TOOLCHAIN_VERSION',()=>prepareFleetToolchains(badVersion));
+ const missing=await request('missing');missing.artifactPaths={};await refused('missing-authenticated-artifact-is-refused','FLEET_INSTALL_TOOLCHAIN_MISSING',()=>prepareFleetToolchains(missing));
+ const escaped=await request('escape');escaped.manifest['toolchain.node'].executable=path.join(temporary,'outside-node');
+ await refused('generation-escape-is-refused','FLEET_INSTALL_TOOLCHAIN_PATH',()=>prepareFleetToolchains(escaped));
+ const overlap=await request('overlap');overlap.manifest['toolchain.node'].executable=path.join(overlap.environmentRoot,'source/node');
+ await refused('source-output-overlap-is-refused','FLEET_INSTALL_TOOLCHAIN_PATH',()=>prepareFleetToolchains(overlap));
+ const escapedParent=await request('parent'),outside=path.join(temporary,'outside');await fs.mkdir(outside);await fs.symlink(outside,path.join(escapedParent.stagingRoot,'toolchains'),'dir');
+ await refused('symlink-output-parent-is-refused','FLEET_INSTALL_TOOLCHAIN_PATH',()=>prepareFleetToolchains(escapedParent));
+ check('escape-destination-remains-empty',(await fs.readdir(outside)).length===0);
+ const linkedArtifact=await request('artifact-link'),link=path.join(temporary,'artifact-link');await fs.symlink(artifact,link);linkedArtifact.artifactPaths.node=link;
+ await refused('symlink-input-artifact-is-refused','FLEET_INSTALL_TOOLCHAIN_PATH',()=>prepareFleetToolchains(linkedArtifact));
+ const hardlinked=await request('hardlink');await fs.mkdir(path.join(hardlinked.stagingRoot,'toolchains'),{mode:0o755});await fs.chmod(artifact,0o555);await fs.link(artifact,path.join(hardlinked.stagingRoot,'toolchains/node'));
+ await refused('mutable-hardlinked-output-is-refused','FLEET_INSTALL_TOOLCHAIN_PIN',()=>prepareFleetToolchains(hardlinked));
+ const npm=await fs.realpath(path.join(path.dirname(source),'npm')),npmVersion=execFileSync(source,[npm,'--version'],{encoding:'utf8'}).trim(),npmDigest='sha256:'+createHash('sha256').update(await fs.readFile(npm)).digest('hex');
+ const npmDefinition={kind:'npm',version:npmVersion,delivery:'image',artifact_digest:npmDigest,executable:npm};
+ const npmProbe=await request('npm');npmProbe.manifest={'toolchain.npm':npmDefinition,...npmProbe.manifest};
+ const inheritedPath=process.env.PATH,hostPath='/usr/local/bin:/usr/bin:/bin',hostNode=execFileSync('/usr/bin/env',['node','-p','process.execPath'],{encoding:'utf8',env:{PATH:hostPath}}).trim();
+ let hostVersion;
+ try{
+  process.env.PATH=hostPath;hostVersion=execFileSync(hostNode,['--version'],{encoding:'utf8'}).trim();
+  const npmPrepared=await prepareFleetToolchains(npmProbe),declaredNode=npmPrepared.executables[npmProbe.manifest['toolchain.node'].executable];
+  await fs.writeFile(path.join(npmProbe.stagingRoot,'package.json'),JSON.stringify({private:true,scripts:{probe:'node probe.cjs'}}));
+  await fs.writeFile(path.join(npmProbe.stagingRoot,'probe.cjs'),"console.log(JSON.stringify({version:process.version,executable:process.execPath,npm_node:process.env.npm_node_execpath,child:JSON.parse(require('node:child_process').execFileSync('node',['-p','JSON.stringify({version:process.version,executable:process.execPath})'],{encoding:'utf8'}))}));\n");
+  const result=await runFleetInstallProcess(fleetToolchainArgv(npmPrepared,[npm,'run','--silent','probe']),npmProbe.stagingRoot,30000,npmProbe.home,npmPrepared.processEnvironment),observed=JSON.parse(result.output.toString());
+  check('npm-version-probe-selects-declared-node',npmPrepared.commands[npm][0]===declaredNode&&npmPrepared.receipts.find(receipt=>receipt.name==='npm').version===npmVersion);
+  check('npm-script-selects-declared-node',result.exit_code===0&&observed.version==='v'+version&&observed.executable===declaredNode);
+  check('npm-itself-uses-declared-node',observed.npm_node===declaredNode);
+  check('nested-node-child-selects-declared-node',observed.child.version==='v'+version&&observed.child.executable===declaredNode);
+  check('tool-path-precedes-host-node',npmPrepared.processEnvironment.PATH.split(':')[0]===path.dirname(declaredNode)&&declaredNode!==hostNode);
+ }finally{if(inheritedPath===undefined)delete process.env.PATH;else process.env.PATH=inheritedPath;}
+ const ambiguous=await request('ambiguous');ambiguous.manifest['toolchain.other_node']={...ambiguous.manifest['toolchain.node'],delivery:'image',executable:source};
+ await refused('ambiguous-node-bindings-are-refused','FLEET_INSTALL_TOOLCHAIN_INTERPRETER',()=>prepareFleetToolchains(ambiguous));
+ const undeclared=await request('undeclared');undeclared.manifest={'toolchain.npm':npmDefinition};
+ await refused('package-manager-without-declared-node-is-refused','FLEET_INSTALL_TOOLCHAIN_INTERPRETER',()=>prepareFleetToolchains(undeclared));
+ const unnamed=await request('unnamed');unnamed.manifest['toolchain.node'].executable=path.join(unnamed.environmentRoot,'toolchains/node-other');
+ await refused('noncanonical-node-child-name-is-refused','FLEET_INSTALL_TOOLCHAIN_INTERPRETER',()=>prepareFleetToolchains(unnamed));
+ process.stdout.write(JSON.stringify({status:'PASS',assertions:results,runtime_version:version,host_node_version:hostVersion,toolchain_digest:digest,execution:'REAL_PINNED_NODE_BINARY_AND_NPM'})+'\n');
+}finally{await fs.rm(temporary,{recursive:true,force:true});}

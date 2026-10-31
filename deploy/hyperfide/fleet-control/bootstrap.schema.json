@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hyperfide fleet control bootstrap v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generation",
+    "spec_revision",
+    "component_ids",
+    "files"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "generation": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "spec_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "component_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "files": {
+      "type": "object",
+      "required": [
+        "control-policy.json",
+        "control-identity.json",
+        "control.crt",
+        "control.key",
+        "tls-ca.crt"
+      ],
+      "propertyNames": {
+        "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}\\.(json|crt|key|pem)$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 1048576,
+        "contentEncoding": "base64"
+      }
+    },
+    "authority_adoption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployment_id",
+        "document_file"
+      ],
+      "properties": {
+        "deployment_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "document_file": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}\\.json$"
+        }
+      }
+    }
+  }
+}

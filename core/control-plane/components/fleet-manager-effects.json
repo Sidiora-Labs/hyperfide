@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "fleet-manager-effects",
+  "task": "0.13",
+  "roles": [
+    "control"
+  ],
+  "module": "scheduler/fleet.js",
+  "entry": "createFleetEffectsComponent",
+  "api_version": 1,
+  "actions": [
+    "fleet.manager.execute"
+  ],
+  "requires": [
+    "8.3",
+    "fleet-install",
+    "hierarchy-worker-registration"
+  ]
+}

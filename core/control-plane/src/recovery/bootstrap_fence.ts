@@ -14,6 +14,7 @@ import {importVerifiedIntentInTransaction,verifyGreenfieldMetadata,type Bootstra
 import type {SpecScope} from '../spec/import.js';
 import type {GreenfieldBootstrapArguments} from '../storage/durability.js';
 import {createBlaxelIsolationTransport} from '../providers/blaxel/processes.js';
+import {completeBlaxelGreenfieldInventory} from '../providers/blaxel/inventory.js';
 import {readArtifactDestructionPreflight} from '../artifacts/destruction.js';
 import {createLegacyWriterAdmission,legacyWriterTopology} from '../migration/legacy.js';
 import {bindProviderIsolation,createExternalWriterFence,createGreenfieldWriterFence,externalFenceTopologyDigest,greenfieldTopologyDigest,FileExternalFenceJournal,type ExternalFenceTopology,type GreenfieldDatabaseObservation,type GreenfieldInventory,type GreenfieldTopology} from './fencing.js';
@@ -158,9 +159,14 @@ async function greenfieldCounts(session:QuerySession,deployment:string,organisat
  if(!row)fail('GREENFIELD_EMPTINESS_UNPROVEN','The primary returned no greenfield counts');
  return {authority_history:Number(row.authority_history),counts:{sandboxes:Number(row.sandboxes),sandbox_boots:Number(row.sandbox_boots),provider_pools:Number(row.provider_pools),runs:Number(row.runs)}};
 }
-/** Read-only Railway admin inventory; any provider without one, or any failed page, leaves emptiness unproven. */
+/** Read-only complete provider inventory, bound to the configured pool namespace. */
 async function greenfieldInventory(env:Readonly<NodeJS.ProcessEnv>,scope:ProviderScope,signal:AbortSignal):Promise<GreenfieldInventory>{
  const unavailable={scope,transport:'UNAVAILABLE' as const,enumeration_complete:false,items:[],observed_at:new Date().toISOString()};
+ if(scope.provider==='blaxel'){
+  const deployment=await readDeployment(env),pool=deployment.pools.find(p=>p.id===scope.pool_id);
+  if(!pool||canonical(configuredScope(deployment,pool))!==canonical(scope)||!pool.create_policy.inventory_namespace)return unavailable;
+  return completeBlaxelGreenfieldInventory(env,scope,pool.create_policy.inventory_namespace,signal);
+ }
  if(scope.provider!=='railway')return unavailable;
  let client;
  try{client=configuredClient({env});}catch{return unavailable;}

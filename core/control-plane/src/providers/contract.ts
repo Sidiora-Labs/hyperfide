@@ -45,7 +45,7 @@ export interface ProviderParameters {
   list: { cursor: string|null; page_size: number };
   observe: Record<string, never>;
   attach: { process_ref: string; resume_cursor: string|null };
-  execute: { argv: string[]; cwd: string; env_refs: Record<string,string>; stdin: boolean; durable: boolean;
+  execute: { argv: string[]; cwd: string; env_refs: Record<string,string>; env_ref_versions?:Record<string,string>; stdin: boolean; durable: boolean;
     process_timeout_ms: number|null; wait_timeout_ms: number };
   inspect: { process_ref: string };
   stop: { process_ref: string; signal: 'TERM'|'KILL' };
@@ -288,7 +288,7 @@ function parameters(kind: ProviderMethod, input: unknown): Obj {
     case 'attach':
       p=shape(input,['process_ref','resume_cursor']); opaque(p.process_ref); nullableOpaque(p.resume_cursor); break;
     case 'execute': {
-      p=shape(input,['argv','cwd','env_refs','stdin','durable','process_timeout_ms','wait_timeout_ms']);
+      p=shape(input,['argv','cwd','env_refs','stdin','durable','process_timeout_ms','wait_timeout_ms',...(Object.hasOwn(object(input),'env_ref_versions')?['env_ref_versions']:[])]);
       const argv=list(p.argv,256); if (!argv.length) invalid();
       for (let i=0;i<argv.length;i++) {
         const arg=argv[i];
@@ -300,6 +300,7 @@ function parameters(kind: ProviderMethod, input: unknown): Obj {
         if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(key) || typeof ref !== 'string' ||
             !/^secret-ref:[A-Za-z0-9][A-Za-z0-9._:/-]{0,239}$/.test(ref)) invalid();
       }
+      if(Object.hasOwn(p,'env_ref_versions')){const versions=object(p.env_ref_versions);if(Object.keys(versions).length!==Object.keys(env).length||Object.entries(versions).some(([name,version])=>!Object.hasOwn(env,name)||typeof version!=='string'||!/^[1-9][0-9]{0,18}$/.test(version)||BigInt(version)>9223372036854775807n))invalid();}
       boolean(p.stdin); boolean(p.durable);
       if (p.process_timeout_ms !== null) integer(p.process_timeout_ms,1);
       integer(p.wait_timeout_ms,1); break;

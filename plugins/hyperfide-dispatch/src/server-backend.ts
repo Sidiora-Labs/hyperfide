@@ -40,7 +40,12 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
     (await (await store()).entries())
       .filter((entry) => entry.key.startsWith("job:"))
       .map((entry) => entry.value as JobLedger);
+  const requireLegacy = async () => {
+    const planning = await (await store()).get("fleet.planning") as { mode?: string } | undefined;
+    if (planning?.mode !== "legacy-nonadaptive") throw new Error("MANAGER_DECISION_REQUIRED: use the authenticated managerDecision tool");
+  };
   const destroyMachine = async (id: string) => {
+    await requireLegacy();
     const owner = await (await store()).get(`machine:${id}`);
     if (typeof owner === "string") {
       const operations = api.experimental_machines?.getSandboxProvider?.(owner);
@@ -66,6 +71,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
   };
   return {
     async readLedger() {
+      const planning = await (await store()).get("fleet.planning") as { mode?: string; state?: string } | undefined;
       const [hosts, providers, records, projects] = await Promise.all([
         api.sdk.hosts.list(),
         api.sdk.hosts.experimental_listProviders(),
@@ -157,7 +163,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
           ...budget,
           inFlight: records.filter((job) => job.state === "running").length,
           keys: (await (await store()).get("fleet.keys")) as number | undefined ?? new Set(records.map((job) => job.keyId)).size,
-          status: `${budget.paused ? "Paused" : "Active"}; ${records.some((job) => job.state === "running") ? "running" : "idle"}; ${providers.length ? `${providers.length} providers registered${capable ? "" : "; no checkpoint-capable provider"}${unavailable ? "; provider unavailable: check configuration" : ""}` : "no providers configured"}`,
+          status: planning?.mode !== "legacy-nonadaptive" ? "Manager directed; authority decisions required" : `${budget.paused ? "Paused" : "Active"}; ${records.some((job) => job.state === "running") ? "running" : "idle"}; ${providers.length ? `${providers.length} providers registered${capable ? "" : "; no checkpoint-capable provider"}${unavailable ? "; provider unavailable: check configuration" : ""}` : "no providers configured"}`,
           backoffUntil: backoff?.until
             ? new Date(backoff.until).toISOString()
             : null,
@@ -172,6 +178,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
       };
     },
     async cancelJob(id) {
+      await requireLegacy();
       const job = (await jobs()).find((job) => job.id === id);
       if (!job) throw new Error("Unknown job");
       if (job.state !== "running" && job.state !== "claimed") return;
@@ -199,12 +206,14 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
       }
     },
     async setPaused(paused) {
+      await requireLegacy();
       const budget = ((await (await store()).get("fleet.control")) as
         | object
         | undefined) ?? { cap: 0, maximum: 0 };
       await (await store()).put("fleet.control", { ...budget, paused });
     },
     async setCap(cap) {
+      await requireLegacy();
       const budget = ((await (await store()).get("fleet.control")) as
         | { cap: number; maximum: number; paused: boolean }
         | undefined) ?? { cap: 0, maximum: 0, paused: true };

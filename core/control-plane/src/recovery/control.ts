@@ -7,6 +7,7 @@ import {databaseError} from '../storage/schema.js';
 import {assertPrimaryTransaction,type PrimaryTransaction} from '../storage/transactions.js';
 import {lockRun as lockEventRun} from '../events/outbox.js';
 import {readSemanticDisposition,writeSemanticDisposition} from '../storage/dispositions.js';
+import {validateDependencies} from '../spec/dependencies.js';
 import {invocationOf} from '../identity/enrollment.js';
 
 export interface RecoveryScope {organisation_id:string;run_id:string;authority_epoch:string}
@@ -271,6 +272,30 @@ export function createComponent(startup:ComponentContext):Component{
     if(current.rows.length!==1)fail('RECOVERY_ADOPTION_REFUSED','Compute token changed while observing the supervisor');
     await tx.query("UPDATE hyperfide.agent_sessions SET state='RUNNING',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='DISCONNECTED'",[scope.organisation_id,scope.run_id,sessionId]);
     const result={scope,session_id:sessionId,adopted_existing:true,new_attempt_created:false,lease_extended:false,evidence_digest:observed.evidence_digest,observed_at:observed.observed_at};
+    await finishOperation(tx,scope,id,result);return result;
+   },true);
+  },
+  'recovery.control.start':async(input,context)=>{
+   const value=record(input,['scope','operation_id','spec_revision_id','spec_generation','expected_state_version','reason']),scope=scopeOf(value.scope),id=uuid(value.operation_id),revision=uuid(value.spec_revision_id),generation=positive(value.spec_generation),version=positive(value.expected_state_version);
+   const invocation=invocationOf(context);
+   if(!['OPERATOR','COORDINATOR'].includes(invocation.principal.role))fail('ROLE_DENIED','Initial run start requires operator or coordinator authority');
+   if(typeof value.reason!=='string'||!value.reason.trim()||value.reason.length>4096||value.reason.includes('\0'))fail('RECOVERY_INPUT_INVALID','Bounded explicit start reason required');
+   return recoveryTransaction(context,scope,async tx=>{
+    assertPrimaryTransaction(tx);
+    const replay=await operationReplay(tx,scope,id,'START',value);if(replay)return replay;
+    const run=(await tx.query('SELECT state,spec_revision_id::text,spec_generation::text,state_version::text FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2',[scope.organisation_id,scope.run_id])).rows[0]!;
+    if(run.state!=='READY')fail('RECOVERY_INITIAL_START_STATE','Only an initially admitted READY run may start; recovery uses resume');
+    if(run.spec_revision_id!==revision||run.spec_generation!==generation||run.state_version!==version)fail('RECOVERY_START_STALE','Accepted start pins changed');
+    const accepted=(await tx.query('SELECT 1 FROM hyperfide.run_spec_revisions WHERE organisation_id=$1 AND run_id=$2 AND spec_revision_id=$3 AND spec_generation=$4 AND accepted FOR SHARE',[scope.organisation_id,scope.run_id,revision,generation])).rows[0];
+    if(!accepted)fail('RECOVERY_START_NOT_ACCEPTED','Current specification generation must be accepted');
+    if((await inspectRecoveryHold(tx,scope)).length)fail('RECOVERY_START_HELD','Initial start cannot clear recovery holds');
+    const blocked=(await tx.query("SELECT EXISTS(SELECT 1 FROM hyperfide.execution_controls WHERE organisation_id=$1 AND run_id=$2 AND mode<>'ACTIVE') OR EXISTS(SELECT 1 FROM hyperfide.recovery_resource_debts WHERE organisation_id=$1 AND run_id=$2 AND status<>'RESOLVED') AS blocked",[scope.organisation_id,scope.run_id])).rows[0];
+    if(blocked?.blocked)fail('RECOVERY_START_HELD','Execution controls or unresolved resource debt block initial start');
+    const dependencies=await validateDependencies(tx,scope,{run_id:scope.run_id,spec_revision_id:revision,spec_generation:generation,state_version:version});
+    if(dependencies.status!=='STRUCTURALLY_VALID')fail('RECOVERY_START_DEPENDENCIES','Accepted dependency constraints must remain valid');
+    const changed=await tx.query("UPDATE hyperfide.runs SET state='RUNNING',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND state='READY' AND spec_revision_id=$3 AND spec_generation=$4 AND state_version=$5 RETURNING state,state_version::text",[scope.organisation_id,scope.run_id,revision,generation,version]);
+    if(changed.rowCount!==1)fail('RECOVERY_START_STALE','Run changed before initial start');
+    const result={started:true,scope,spec_revision_id:revision,spec_generation:generation,state:changed.rows[0]!.state,state_version:changed.rows[0]!.state_version,dependencies:'STRUCTURALLY_VALID',proof_obligations:'ENFORCED_AT_DISPATCH_ADMISSION'};
     await finishOperation(tx,scope,id,result);return result;
    },true);
   },

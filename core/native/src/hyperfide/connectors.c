@@ -45,27 +45,35 @@ static void quoted(FILE *o,const char *s){fputc('"',o);for(const unsigned char *
 static int keys(Field *fs,int n,const char *allowed){for(int i=0;i<n;i++){char match[72];snprintf(match,sizeof match,"|%.63s|",fs[i].key);if(!strstr(allowed,match))return 0;}return 1;}
 static int error(FILE *o,const char *code){fprintf(o,"{\"error\":{\"code\":\"%s\"}}",code);return 1;}
 static int safe_id(const char *s){if(!*s||strlen(s)>128)return 0;for(;*s;s++)if(!isalnum((unsigned char)*s)&&!strchr("._:-",*s))return 0;return 1;}
+/* Models are bounded argv values, not filesystem/session identities. */
+static int safe_model(const char *s){if(!*s||strlen(s)>254)return 0;for(;*s;s++)if(!isalnum((unsigned char)*s)&&!strchr("._:-/()",*s))return 0;return 1;}
+static int plan_path(const char *s){
+ if(!s||s[0]!='/'||!s[1]||strlen(s)>=4096||s[strlen(s)-1]=='/'||strstr(s,"//"))return 0;
+ for(const unsigned char *p=(const unsigned char *)s;*p;p++)if(*p<32||*p==127)return 0;
+ const char *p=s+1;while(*p){const char *e=strchr(p,'/');size_t n=e?(size_t)(e-p):strlen(p);if((n==1&&p[0]=='.')||(n==2&&p[0]=='.'&&p[1]=='.'))return 0;if(!e)break;p=e+1;}return 1;
+}
 static int absdir(const char *s){struct stat st;return *s=='/'&&!strstr(s,"/../")&&!strstr(s,"/./")&&stat(s,&st)==0&&S_ISDIR(st.st_mode);}
 static long millis(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec*1000+t.tv_nsec/1000000;}
 /* Bounded native capture: own process group, no stdin, stderr discarded; optional CODEX_HOME for the slot home. */
 static int capture(const char *exe,char *const argv[],const char *codex_home,char *buf,size_t cap){int pipefd[2];if(*exe!='/'||pipe2(pipefd,O_CLOEXEC|O_NONBLOCK))return 0;pid_t pid=fork();if(pid<0){close(pipefd[0]);close(pipefd[1]);return 0;}if(pid==0){setpgid(0,0);dup2(pipefd[1],STDOUT_FILENO);int null=open("/dev/null",O_RDWR);dup2(null,STDERR_FILENO);dup2(null,STDIN_FILENO);close(pipefd[0]);close(pipefd[1]);if(codex_home&&setenv("CODEX_HOME",codex_home,1))_exit(127);execv(exe,argv);_exit(127);}close(pipefd[1]);setpgid(pid,pid);size_t n=0;int status=0,exited=0;long deadline=millis()+10000;while(millis()<deadline){ssize_t got=read(pipefd[0],buf+n,cap-1-n);if(got>0){n+=(size_t)got;if(n==cap-1)break;}if(waitpid(pid,&status,WNOHANG)==pid){exited=1;while((got=read(pipefd[0],buf+n,cap-1-n))>0){n+=(size_t)got;if(n==cap-1)break;}break;}struct pollfd fd={pipefd[0],POLLIN,0};poll(&fd,1,20);}close(pipefd[0]);kill(-pid,SIGKILL);if(!exited)waitpid(pid,&status,0);buf[n]=0;return exited&&WIFEXITED(status)&&WEXITSTATUS(status)==0&&n>0&&n<cap-1;}
 static int version(const char *exe,char *buf,size_t cap){char *const argv[]={(char*)exe,"--version",NULL};return capture(exe,argv,NULL,buf,cap);}
 typedef struct {
- char connector[16],auth_mode[32],path[4096],version[64],digest[80],profile_digest[80],profile_id[129],alias[129],model[255],provider[255],observed_model[255],observed_provider[255],permission[129],receipt_digest[80];
+ char connector[16],auth_mode[32],path[4096],version[64],digest[80],profile_digest[80],profile_id[129],alias[129],model[255],provider[255],observed_model[255],observed_provider[255],permission[129],receipt_digest[80],gateway_endpoint[4096],gateway_base[4096],credential_reference[256];
  int unattended,explicit_resume,live_qualified;
 } AuthProfile;
 static int raw(Field *f,const char *value){return f&&f->len==strlen(value)&&!memcmp(f->start,value,f->len);}
 static int sha(const char *value){if(strlen(value)!=71||strncmp(value,"sha256:",7))return 0;for(value+=7;*value;value++)if(!strchr("0123456789abcdef",*value))return 0;return 1;}
+static char *field_text(Field *f);
 static int snapshot(AuthProfile *a){
  const char *filename=getenv("HF_NATIVE_AUTH_SNAPSHOT_FILE");if(!filename||*filename!='/')return 0;
  int fd=open(filename,O_RDONLY|O_CLOEXEC|O_NOFOLLOW);if(fd<0)return 0;struct stat st;
- if(fstat(fd,&st)||!S_ISREG(st.st_mode)||st.st_size<2||st.st_size>65536){close(fd);return 0;}
+ if(fstat(fd,&st)||!S_ISREG(st.st_mode)||st.st_size<2||st.st_size>65536||(st.st_mode&022)||(st.st_uid!=geteuid()&&st.st_uid!=0)){close(fd);return 0;}
  char *json=calloc((size_t)st.st_size+1,1);if(!json){close(fd);return 0;}
  size_t count=0;while(count<(size_t)st.st_size){ssize_t got=read(fd,json+count,(size_t)st.st_size-count);if(got<=0){free(json);close(fd);return 0;}count+=(size_t)got;}close(fd);
- Field f[20];int n=fields(json,f,20,"|schema_version||profile_id||profile_revision||profile_digest||connector||auth_mode||binary||credential_reference||configured_model_alias||requested_model_id||observed_model_id||configured_provider_id||observed_provider_id||permission_profile_id||capabilities||qualification|");
+ Field f[20];int n=fields(json,f,20,"|schema_version||profile_id||profile_revision||profile_digest||connector||auth_mode||binary||credential_reference||configured_model_alias||requested_model_id||observed_model_id||configured_provider_id||observed_provider_id||permission_profile_id||capabilities||qualification||gateway|");
  Field b[3],c[5],q[3];char *bs=NULL,*cs=NULL,*qs=NULL;
  int good=0;
- if(n!=16||!raw(field(f,n,"schema_version"),"1"))goto done;
+ if((n!=16&&n!=17)||!raw(field(f,n,"schema_version"),"1"))goto done;
  Field *bf=field(f,n,"binary"),*cf=field(f,n,"capabilities"),*qf=field(f,n,"qualification");
  if(!bf||!cf||!qf)goto done;
  bs=strndup(bf->start,bf->len);cs=strndup(cf->start,cf->len);qs=strndup(qf->start,qf->len);if(!bs||!cs||!qs)goto done;
@@ -74,11 +82,19 @@ static int snapshot(AuthProfile *a){
  if(!string(field(f,n,"connector"),a->connector,sizeof a->connector)||!string(field(f,n,"auth_mode"),a->auth_mode,sizeof a->auth_mode)||!safe_id(a->auth_mode)||!string(field(b,bn,"path"),a->path,sizeof a->path)||*a->path!='/'||
  !string(field(b,bn,"version"),a->version,sizeof a->version)||!string(field(b,bn,"digest"),a->digest,sizeof a->digest)||!sha(a->digest)||
  !string(field(f,n,"profile_id"),a->profile_id,sizeof a->profile_id)||!safe_id(a->profile_id)||
+ !string(field(f,n,"credential_reference"),a->credential_reference,sizeof a->credential_reference)||!a->credential_reference[0]||
  !string(field(f,n,"profile_digest"),a->profile_digest,sizeof a->profile_digest)||!sha(a->profile_digest)||
- !string(field(f,n,"configured_model_alias"),a->alias,sizeof a->alias)||!safe_id(a->alias)||
- !string(field(f,n,"requested_model_id"),a->model,sizeof a->model)||!safe_id(a->model)||
+ !string(field(f,n,"configured_model_alias"),a->alias,sizeof a->alias)||!safe_model(a->alias)||
+ !string(field(f,n,"requested_model_id"),a->model,sizeof a->model)||!safe_model(a->model)||
  !string(field(f,n,"configured_provider_id"),a->provider,sizeof a->provider)||!safe_id(a->provider)||
  !string(field(f,n,"permission_profile_id"),a->permission,sizeof a->permission)||!safe_id(a->permission))goto done;
+ Field *gateway=field(f,n,"gateway");if(gateway){
+  char *g=field_text(gateway),provider[255];Field gf[2];int gn=g?fields(g,gf,2,"|messages_endpoint||provider_id|"):0;
+  int ok=gn==2&&!strcmp(a->connector,"claude")&&!strcmp(a->auth_mode,"api_credential")&&string(field(gf,gn,"messages_endpoint"),a->gateway_endpoint,sizeof a->gateway_endpoint)&&string(field(gf,gn,"provider_id"),provider,sizeof provider)&&!strcmp(provider,a->provider);
+  free(g);size_t length=strlen(a->gateway_endpoint);if(!ok||length<20||strncmp(a->gateway_endpoint,"https://",8)||strcmp(a->gateway_endpoint+length-12,"/v1/messages")||strpbrk(a->gateway_endpoint,"?#@\\"))goto done;
+  for(const unsigned char *x=(const unsigned char *)a->gateway_endpoint;*x;x++)if(*x<=32||*x>=127)goto done;
+  memcpy(a->gateway_base,a->gateway_endpoint,length-12);a->gateway_base[length-12]=0;
+ }
  a->unattended=raw(field(c,cn,"unattended"),"true");a->explicit_resume=raw(field(c,cn,"explicit_resume"),"true");
  char state[32],receipt[80];a->live_qualified=string(field(q,qn,"state"),state,sizeof state)&&!strcmp(state,"QUALIFIED")&&raw(field(q,qn,"live_qualified"),"true")&&string(field(q,qn,"receipt_digest"),receipt,sizeof receipt)&&sha(receipt);
  if(!raw(field(f,n,"observed_model_id"),"null")&&!string(field(f,n,"observed_model_id"),a->observed_model,sizeof a->observed_model))goto done;
@@ -110,34 +126,53 @@ static int toml_get(const char *text,const char *key,char *out,size_t cap){size_
  for(const char *line=text;line&&*line;line=strchr(line,'\n')?strchr(line,'\n')+1:NULL){const char *p=line;while(*p==' '||*p=='\t'){p++;}if(*p=='[')return 0;
  if(strncmp(p,key,k)){continue;}p+=k;while(*p==' '||*p=='\t')p++;if(*p++!='='){continue;}while(*p==' '||*p=='\t')p++;if(*p++!='"')return -1;const char *e=p;while(*e&&*e!='"'&&*e!='\\'&&*e!='\n')e++;
  if(*e!='"'||(size_t)(e-p)>=cap){return -1;}memcpy(out,p,(size_t)(e-p));out[e-p]=0;e++;while(*e==' '||*e=='\t'||*e=='\r')e++;if(*e&&*e!='\n'&&*e!='#')return -1;return 1;}return 0;}
-typedef struct {int found;char model[255],provider[255],path[4096],config_digest[80];} Resolution;
+typedef struct {int found;char model[255],provider[255],path[4096],config_digest[80],gateway_endpoint_digest[80];} Resolution;
 /* Resolve the user's frontier alias from the CLI's own configuration in the slot home:
  * Codex: profile layer $CODEX_HOME/<alias>.config.toml over config.toml; Claude Code: settings.json env ANTHROPIC_DEFAULT_<ALIAS>_MODEL.
  * Returns 0 with found=0 when the CLI configuration does not declare the alias, -1 when it is malformed. */
-static int resolve_alias(const char *name,const char *alias,const char *home,Resolution *r){
- memset(r,0,sizeof *r);if(!safe_id(alias)||strchr(alias,':')||!absdir(home))return -1;
+static int resolve_alias(const char *name,const char *alias,const char *home,Resolution *r,const AuthProfile *profile){
+ memset(r,0,sizeof *r);if(!safe_model(alias)||!absdir(home))return -1;
  static char text[65536];char other[65536];long len;
  if(!strcmp(name,"codex")){
+  /* Only opaque aliases may name optional local configuration files. */
+  if(!safe_id(alias)||strchr(alias,':'))return 0;
   snprintf(r->path,sizeof r->path,"%s/%s.config.toml",home,alias);if(access(r->path,F_OK))return 0;
-  if((len=slurp(r->path,text,sizeof text,1))<0||toml_get(text,"model",r->model,sizeof r->model)!=1||!safe_id(r->model))return -1;
+  if((len=slurp(r->path,text,sizeof text,1))<0||toml_get(text,"model",r->model,sizeof r->model)!=1||!safe_model(r->model))return -1;
   int pv=toml_get(text,"model_provider",r->provider,sizeof r->provider);if(pv<0)return -1;
   if(!pv){char base[4096];snprintf(base,sizeof base,"%s/config.toml",home);if(!access(base,F_OK)){if(slurp(base,other,sizeof other,1)<0||toml_get(other,"model_provider",r->provider,sizeof r->provider)<0)return -1;}}
   if(r->provider[0]&&!safe_id(r->provider))return -1;
   r->found=1;return bytes_sha(text,(size_t)len,r->config_digest)?0:-1;
+ }
+ if(profile->gateway_endpoint[0]){
+  snprintf(r->path,sizeof r->path,"%s/.claude/settings.json",home);if((len=slurp(r->path,text,sizeof text,1))<0||!skip(text,0)||*space(skip(text,0)))return -1;
+  Field env;char base[4096];if(!member(text,"env",&env))return -1;char *e=field_text(&env);if(!e)return -1;
+  int ok=member_string(e,"ANTHROPIC_BASE_URL",base,sizeof base)&&!strcmp(base,profile->gateway_base)&&member_string(e,"ANTHROPIC_MODEL",r->model,sizeof r->model)&&!strcmp(r->model,profile->model);free(e);if(!ok)return -1;
+  snprintf(r->provider,sizeof r->provider,"%s",profile->provider);r->found=1;
+  return bytes_sha(text,(size_t)len,r->config_digest)&&bytes_sha(profile->gateway_endpoint,strlen(profile->gateway_endpoint),r->gateway_endpoint_digest)?0:-1;
  }
  char upper[32];size_t i=0;if(strcmp(alias,"opus")&&strcmp(alias,"sonnet")&&strcmp(alias,"haiku"))return 0;for(;alias[i];i++)upper[i]=(char)toupper((unsigned char)alias[i]);upper[i]=0;
  snprintf(r->path,sizeof r->path,"%s/.claude/settings.json",home);if(access(r->path,F_OK))return 0;
  if((len=slurp(r->path,text,sizeof text,1))<0||!skip(text,0)||*space(skip(text,0)))return -1;
  Field env;if(!member(text,"env",&env))return 0;char *e=field_text(&env);if(!e)return -1;
  char key[64],flag[16];snprintf(key,sizeof key,"ANTHROPIC_DEFAULT_%s_MODEL",upper);int ok=member_string(e,key,r->model,sizeof r->model);
- if(ok&&!safe_id(r->model)){free(e);return -1;}
+ if(ok&&!safe_model(r->model)){free(e);return -1;}
  const char *flags[][2]={{"CLAUDE_CODE_USE_BEDROCK","bedrock"},{"CLAUDE_CODE_USE_VERTEX","vertex"},{"CLAUDE_CODE_USE_FOUNDRY","foundry"}};
  for(int f=0;f<3;f++)if(member_string(e,flags[f][0],flag,sizeof flag)&&!strcmp(flag,"1")){if(r->provider[0]){free(e);return -1;}snprintf(r->provider,sizeof r->provider,"%s",flags[f][1]);}
  free(e);if(!ok)return 0;r->found=1;return bytes_sha(text,(size_t)len,r->config_digest)?0:-1;
 }
+/* START may restore only the endpoint/model bound by the current protected native profile. */
+int hf_connector_gateway_policy(const char *auth,const char *digest){
+ if(!getenv("HF_NATIVE_AUTH_SNAPSHOT_FILE"))return 0;
+ AuthProfile p={0};if(!snapshot(&p)||strcmp(auth,p.profile_id)||strcmp(digest,p.profile_digest))return -1;
+ return p.gateway_endpoint[0]?1:0;
+}
+int hf_connector_gateway_matches(const char *auth,const char *digest,const char *endpoint,const char *provider,const char *reference,const char *home,const char *base,const char *model){
+ AuthProfile p={0};Resolution resolved;
+ return snapshot(&p)&&p.gateway_endpoint[0]&&!strcmp(auth,p.profile_id)&&!strcmp(digest,p.profile_digest)&&!strcmp(endpoint,p.gateway_endpoint)&&!strcmp(provider,p.provider)&&!strcmp(reference,p.credential_reference)&&!strcmp(base,p.gateway_base)&&!strcmp(model,p.model)&&resolve_alias(p.connector,p.alias,home,&resolved,&p)==0&&resolved.gateway_endpoint_digest[0];
+}
 static void resolution_json(FILE *o,const Resolution *r){fputs("{\"source\":",o);quoted(o,r->found?"cli-config":"auth-profile");fputs(",\"config_path\":",o);if(r->found)quoted(o,r->path);else fputs("null",o);
  fputs(",\"config_digest\":",o);if(r->found)quoted(o,r->config_digest);else fputs("null",o);fputs(",\"resolved_model_id\":",o);if(r->found)quoted(o,r->model);else fputs("null",o);
- fputs(",\"resolved_provider_id\":",o);if(r->found&&r->provider[0])quoted(o,r->provider);else fputs("null",o);fputc('}',o);}
+ fputs(",\"resolved_provider_id\":",o);if(r->found&&r->provider[0])quoted(o,r->provider);else fputs("null",o);if(r->gateway_endpoint_digest[0]){fputs(",\"provider_provenance\":\"PINNED_GATEWAY_CONFIG\",\"gateway_endpoint_digest\":",o);quoted(o,r->gateway_endpoint_digest);}fputc('}',o);}
 /* Server qualification receipt (agents/qualification.ts): Ed25519 over the exact payload bytes, public key pinned by the host.
  * Snapshot flags never qualify; only a verified, unexpired receipt bound to this measured binary and profile does. */
 enum {CAP_LAUNCH,CAP_INPUT,CAP_OUTPUT,CAP_STEER,CAP_CANCEL,CAP_CHILD,CAP_RESUME,CAP_COUNT};
@@ -157,8 +192,10 @@ static int receipt(const AuthProfile *a,Receipt *r){
  if(n!=3||!raw(field(f,n,"schema_version"),"1")||!string(field(f,n,"payload"),payload,16384)||!string(field(f,n,"signature"),sigtext,sizeof sigtext)||!unhex(sigtext,sig,64))goto done;
  size_t plen=strlen(payload);
  if(!(pk=EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519,NULL,key,32))||!(c=EVP_MD_CTX_new())||EVP_DigestVerifyInit(c,NULL,NULL,NULL,pk)!=1||EVP_DigestVerify(c,sig,64,(const unsigned char*)payload,plen)!=1)goto done;
- Field p[20],cf[CAP_COUNT];n=fields(payload,p,20,"|schema_version||receipt_id||connector||cli_version||binary_digest||auth_mode||profile_id||profile_digest||configured_model_alias||requested_model_id||observed_model_id||observed_provider_id||capabilities||issued_at||expires_at||evidence_digest||auth_qualification_digest|");
- if(n!=17||!raw(field(p,n,"schema_version"),"1"))goto done;
+ Field p[20],cf[CAP_COUNT];n=fields(payload,p,20,"|schema_version||receipt_id||connector||cli_version||binary_digest||auth_mode||profile_id||profile_digest||configured_model_alias||requested_model_id||observed_model_id||observed_provider_id||capabilities||issued_at||expires_at||evidence_digest||auth_qualification_digest||provider_identity_source||native_observed_provider_id||gateway_endpoint_digest|");
+ if((n!=17&&n!=20)||!raw(field(p,n,"schema_version"),"1"))goto done;
+ if(a->gateway_endpoint[0]){char endpoint_digest[80];if(n!=20||!same(field(p,n,"provider_identity_source"),"PINNED_GATEWAY_CONFIG")||!bytes_sha(a->gateway_endpoint,strlen(a->gateway_endpoint),endpoint_digest)||!same(field(p,n,"gateway_endpoint_digest"),endpoint_digest)||(!raw(field(p,n,"native_observed_provider_id"),"null")&&!same(field(p,n,"native_observed_provider_id"),a->provider)))goto done;}
+ else if(n!=17)goto done;
  char measured[80];long issued,expires,now=(long)time(NULL);
  if(!file_sha(a->path,measured)||strcmp(measured,a->digest)||!same(field(p,n,"binary_digest"),measured)||!same(field(p,n,"connector"),a->connector)||!same(field(p,n,"cli_version"),a->version)||
  !same(field(p,n,"auth_mode"),a->auth_mode)||!same(field(p,n,"profile_id"),a->profile_id)||!same(field(p,n,"profile_digest"),a->profile_digest)||
@@ -241,8 +278,8 @@ if(!strcmp(action,"connector.initialize")){
 }
 if(!strcmp(action,"connector.resolve")){
  char alias[129],home[4096];Resolution res;
- if(!keys(fs,n,"|connector||alias||home|")||n!=3||!string(field(fs,n,"alias"),alias,sizeof alias)||!safe_id(alias)||!string(field(fs,n,"home"),home,sizeof home)||!absdir(home))return error(out,"CONNECTOR_INVALID");
- if(resolve_alias(name,alias,home,&res))return error(out,"CONNECTOR_CONFIG_INVALID");
+ if(!keys(fs,n,"|connector||alias||home|")||n!=3||!string(field(fs,n,"alias"),alias,sizeof alias)||!safe_model(alias)||!string(field(fs,n,"home"),home,sizeof home)||!absdir(home))return error(out,"CONNECTOR_INVALID");
+ if(resolve_alias(name,alias,home,&res,&profile))return error(out,"CONNECTOR_CONFIG_INVALID");
  if(!res.found)return error(out,"CONNECTOR_ALIAS_UNRESOLVED");
  fputs("{\"connector\":",out);quoted(out,name);fputs(",\"version\":",out);quoted(out,pin);fputs(",\"alias\":",out);quoted(out,alias);fputs(",\"resolution\":",out);resolution_json(out,&res);
  fputs(",\"matches_auth_profile\":",out);fputs(!strcmp(alias,profile.alias)&&!strcmp(res.model,profile.model)&&(!res.provider[0]||!strcmp(res.provider,profile.provider))?"true":"false",out);fputs(",\"observed\":false,\"live_qualified\":false}",out);return 0;
@@ -251,9 +288,9 @@ if(!strcmp(action,"connector.observe")){
  /* Interpret one native handshake frame: the identity, model and provider the CLI itself reported. */
  char alias[129],home[4096],*frame=malloc(65536);Resolution res;int rc=0;
  if(!frame)return error(out,"CONNECTOR_INVALID");
- if(!keys(fs,n,"|connector||alias||home||frame|")||n!=4||!string(field(fs,n,"alias"),alias,sizeof alias)||!safe_id(alias)||!string(field(fs,n,"home"),home,sizeof home)||!absdir(home)||
+ if(!keys(fs,n,"|connector||alias||home||frame|")||n!=4||!string(field(fs,n,"alias"),alias,sizeof alias)||!safe_model(alias)||!string(field(fs,n,"home"),home,sizeof home)||!absdir(home)||
  !string(field(fs,n,"frame"),frame,65536)||!skip(frame,0)||*space(skip(frame,0))){free(frame);return error(out,"CONNECTOR_INVALID");}
- if(resolve_alias(name,alias,home,&res)){free(frame);return error(out,"CONNECTOR_CONFIG_INVALID");}
+ if(resolve_alias(name,alias,home,&res,&profile)){free(frame);return error(out,"CONNECTOR_CONFIG_INVALID");}
  char session[256]="",model[255]="",provider_id[255]="",kind[32],digest_text[80];int child=-1;
  if(!strcmp(name,"codex")){Field result;char *r=member(frame,"result",&result)?field_text(&result):NULL;Field thread;char *t=r&&member(r,"thread",&thread)?field_text(&thread):NULL;
   int ok=r&&t&&member_string(r,"model",model,sizeof model)&&member_string(r,"modelProvider",provider_id,sizeof provider_id)&&member_string(t,"id",session,sizeof session);free(r);free(t);if(!ok)rc=error(out,"CONNECTOR_FRAME_INVALID");}
@@ -262,7 +299,7 @@ if(!strcmp(action,"connector.observe")){
   !member_string(frame,"model",model,sizeof model)||!member_string(frame,"claude_code_version",cv,sizeof cv)||!member(frame,"tools",&tools)||*tools.start!='[')rc=error(out,"CONNECTOR_FRAME_INVALID");
   else if(strcmp(cv,pin))rc=error(out,"CONNECTOR_VERSION_MISMATCH");
   else child=array_has(&tools,delegation);}
- if(!rc&&(!safe_id(session)||!safe_id(model)||(provider_id[0]&&!safe_id(provider_id))))rc=error(out,"CONNECTOR_FRAME_INVALID");
+ if(!rc&&(!safe_id(session)||!safe_model(model)||(provider_id[0]&&!safe_id(provider_id))))rc=error(out,"CONNECTOR_FRAME_INVALID");
  if(rc){free(frame);return rc;}
  bytes_sha(frame,strlen(frame),digest_text);free(frame);
  const int matches=!strcmp(model,profile.model)&&(!provider_id[0]||!strcmp(provider_id,profile.provider))&&(!res.found||(!strcmp(model,res.model)&&(!res.provider[0]||!provider_id[0]||!strcmp(provider_id,res.provider))));
@@ -285,12 +322,13 @@ if(!strcmp(action,"connector.children")){
  char evidence[80];bytes_sha(listing,strlen(listing),evidence);
  fputs("{\"connector\":\"codex\",\"version\":",out);quoted(out,pin);fputs(",\"child_registration\":\"REFUSED\",\"mechanism\":\"features-disabled\",\"features\":{\"multi_agent\":false,\"multi_agent_v2\":false,\"multi_agent_v2_dynamic_tools\":false},\"evidence_digest\":",out);quoted(out,evidence);fputs(",\"live_qualified\":false}",out);return 0;
 }
-if(!strcmp(action,"connector.launch")){
+if(!strcmp(action,"connector.launch")||!strcmp(action,"connector.plan")){
+const int planned=!strcmp(action,"connector.plan");
 if(!keys(fs,n,"|connector||expected_version||alias||auth_profile||workspace||home||temp||permission_mode||native_session_id|"))return error(out,"CONNECTOR_INVALID");
 char alias[129],auth[129],workspace[4096],home[4096],temp[4096],permission[32],session[129]="",ev[64];
-if(!string(field(fs,n,"expected_version"),ev,sizeof ev)||strcmp(ev,pin)||!string(field(fs,n,"alias"),alias,sizeof alias)||!safe_id(alias)||
-!string(field(fs,n,"auth_profile"),auth,sizeof auth)||!safe_id(auth)||!string(field(fs,n,"workspace"),workspace,sizeof workspace)||!absdir(workspace)||
-!string(field(fs,n,"home"),home,sizeof home)||!absdir(home)||!string(field(fs,n,"temp"),temp,sizeof temp)||!absdir(temp)||
+if(!string(field(fs,n,"expected_version"),ev,sizeof ev)||strcmp(ev,pin)||!string(field(fs,n,"alias"),alias,sizeof alias)||!safe_model(alias)||
+!string(field(fs,n,"auth_profile"),auth,sizeof auth)||!safe_id(auth)||!string(field(fs,n,"workspace"),workspace,sizeof workspace)||!(planned?plan_path(workspace):absdir(workspace))||
+!string(field(fs,n,"home"),home,sizeof home)||!(planned?plan_path(home):absdir(home))||!string(field(fs,n,"temp"),temp,sizeof temp)||!(planned?plan_path(temp):absdir(temp))||
 !string(field(fs,n,"permission_mode"),permission,sizeof permission)||(strcmp(permission,"workspace-write")&&strcmp(permission,"supervision"))||n<8||n>9||
 (field(fs,n,"native_session_id")&&!string(field(fs,n,"native_session_id"),session,sizeof session))||(session[0]&&!safe_id(session))||
 !strcmp(workspace,home)||!strcmp(workspace,temp)||!strcmp(home,temp))return error(out,"CONNECTOR_INVALID");
@@ -299,17 +337,20 @@ const char *mcp_config=getenv("HF_SUPERVISOR_MCP_CONFIG_FILE");
 if(supervisory&& (strcmp(name,"claude")||session[0]||!mcp_config||mcp_config[0]!='/'))return error(out,"CONNECTOR_UNSUPPORTED");
 const char *resolved=profile.model,*configured_alias=profile.alias,*provider_name=profile.provider,*auth_ref=profile.profile_id;
 if(!profile.unattended||(session[0]&&!profile.explicit_resume))return error(out,"CONNECTOR_UNSUPPORTED");
-if(!resolved||!safe_id(resolved)||!configured_alias||strcmp(alias,configured_alias)||!provider_name||!safe_id(provider_name)||!auth_ref||strcmp(auth,auth_ref))return error(out,"CONNECTOR_PROFILE_UNRESOLVED");
-Resolution res;if(resolve_alias(name,alias,home,&res))return error(out,"CONNECTOR_CONFIG_INVALID");
+if(!resolved||!safe_model(resolved)||!configured_alias||strcmp(alias,configured_alias)||!provider_name||!safe_id(provider_name)||!auth_ref||strcmp(auth,auth_ref))return error(out,"CONNECTOR_PROFILE_UNRESOLVED");
+Resolution res;memset(&res,0,sizeof res);if(!planned&&resolve_alias(name,alias,home,&res,&profile))return error(out,"CONNECTOR_CONFIG_INVALID");
 if(res.found&&(strcmp(res.model,resolved)||(res.provider[0]&&strcmp(res.provider,provider_name))))return error(out,"CONNECTOR_PROFILE_DRIFT");
 Receipt granted;const int eligible=receipt(&profile,&granted)&&dispatch_qualified(&granted,session[0]!=0)&&!supervisory;
-if(session[0]&&!eligible)return error(out,"CONNECTOR_UNSUPPORTED");
+if((session[0]||planned)&&!eligible)return error(out,"CONNECTOR_UNSUPPORTED");
 char self[4096];if(!supervisory&&!codify_binary(self,sizeof self))return error(out,"CONNECTOR_UNSUPPORTED");
 fputs("{\"connector\":",out);quoted(out,name);fputs(",\"version\":",out);quoted(out,pin);fputs(",\"requested_model_id\":",out);quoted(out,resolved);fputs(",\"configured_provider_id\":",out);quoted(out,provider_name);fputs(",\"observed_model_id\":",out);if(eligible)quoted(out,granted.observed_model);else fputs("null",out);fputs(",\"observed_provider_id\":",out);if(eligible)quoted(out,granted.observed_provider);else fputs("null",out);fputs(",\"alias_resolution\":",out);resolution_json(out,&res);fputs(",\"auth_profile\":",out);quoted(out,auth);fputs(",\"argv\":[",out);quoted(out,exe);
 if(!strcmp(name,"codex")){fputs(",\"app-server\",\"--listen\",\"stdio://\",\"--disable\",\"multi_agent\",\"--disable\",\"multi_agent_v2\",\"--disable\",\"multi_agent_v2_dynamic_tools\",\"-c\",\"agents.enabled=false\"",out);ask_channel(out,name,self);}
 else if(supervisory){fputs(",\"--print\",\"--restricted\",\"--tools\",\"\",\"--strict-mcp-config\",\"--mcp-config\",",out);quoted(out,mcp_config);fputs(",\"--input-format\",\"stream-json\",\"--output-format\",\"stream-json\",\"--verbose\",\"--permission-mode\",\"dontAsk\",\"--permission-prompts\",\"none\",\"--setting-sources\",\"\",\"--model\",",out);quoted(out,resolved);}
 else {fputs(",\"--print\",\"--input-format\",\"stream-json\",\"--output-format\",\"stream-json\",\"--verbose\",\"--permission-mode\",\"dontAsk\",\"--permission-prompts\",\"none\",\"--strict-mcp-config\",\"--setting-sources\",\"\",\"--disallowedTools\",\"Agent,Task,Workflow\"",out);ask_channel(out,name,self);fputs(",\"--model\",",out);quoted(out,resolved);if(session[0]){fputs(",\"--resume\",",out);quoted(out,session);}}
-fputs("],\"permission_mode\":",out);quoted(out,permission);fputs(",\"binary_digest\":",out);quoted(out,profile.digest);fputs(",\"profile_digest\":",out);quoted(out,profile.profile_digest);fputs(",\"permission_profile_id\":",out);quoted(out,profile.permission);fputs(eligible?",\"dispatch_eligible\":true,\"qualification_receipt_digest\":":",\"dispatch_eligible\":false,\"qualification_receipt_digest\":null",out);if(eligible)quoted(out,granted.digest);fputs(",\"cwd\":",out);quoted(out,workspace);fputs(",\"home\":",out);quoted(out,home);fputs(",\"temp\":",out);quoted(out,temp);fputs(",\"native_session_id\":",out);if(session[0])quoted(out,session);else fputs("null",out);fputs(eligible?",\"delegation_enabled\":false,\"requires_supervisor\":true,\"live_qualified\":true}":",\"delegation_enabled\":false,\"requires_supervisor\":true,\"live_qualified\":false}",out);return 0;}
+fputc(']',out);
+if(profile.gateway_endpoint[0]){fputs(",\"environment\":{\"ANTHROPIC_BASE_URL\":",out);quoted(out,profile.gateway_base);fputs(",\"ANTHROPIC_MODEL\":",out);quoted(out,profile.model);fputs("},\"gateway\":{\"messages_endpoint\":",out);quoted(out,profile.gateway_endpoint);fputs(",\"provider_id\":",out);quoted(out,profile.provider);fputs(",\"credential_reference\":",out);quoted(out,profile.credential_reference);fputc('}',out);}
+if(planned)fputs(",\"runtime_observed\":false,\"planning_mode\":\"QUALIFIED_PROFILE\"",out);
+fputs(",\"permission_mode\":",out);quoted(out,permission);fputs(",\"binary_digest\":",out);quoted(out,profile.digest);fputs(",\"profile_digest\":",out);quoted(out,profile.profile_digest);fputs(",\"permission_profile_id\":",out);quoted(out,profile.permission);fputs(eligible?",\"dispatch_eligible\":true,\"qualification_receipt_digest\":":",\"dispatch_eligible\":false,\"qualification_receipt_digest\":null",out);if(eligible)quoted(out,granted.digest);fputs(",\"cwd\":",out);quoted(out,workspace);fputs(",\"home\":",out);quoted(out,home);fputs(",\"temp\":",out);quoted(out,temp);fputs(",\"native_session_id\":",out);if(session[0])quoted(out,session);else fputs("null",out);fputs(eligible?",\"delegation_enabled\":false,\"requires_supervisor\":true,\"live_qualified\":true}":",\"delegation_enabled\":false,\"requires_supervisor\":true,\"live_qualified\":false}",out);return 0;}
 if(!strcmp(action,"connector.encode")){
 if(!keys(fs,n,"|connector||operation||native_session_id||turn_id||text||request_id|"))return error(out,"CONNECTOR_INVALID");
 char op[32],session[129],turn[129]="",text[65536]="",request_id[129];

@@ -8,11 +8,12 @@
   },
   "packageManager": "npm@11.19.1",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node ../../deploy/hyperfide/dist-stamp.mjs write .",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "node scripts/sync-fleet-contracts.mjs source && tsc -p tsconfig.json && node scripts/sync-fleet-contracts.mjs dist && node ../../deploy/hyperfide/dist-stamp.mjs write .",
+    "check": "node scripts/sync-fleet-contracts.mjs source && tsc -p tsconfig.json --noEmit",
     "control": "node dist/control.js",
     "provisioner": "node dist/provisioner.js",
-    "dispatch": "node dist/dispatch.js"
+    "dispatch": "node dist/dispatch.js",
+    "fleet:supervise": "node dist/fleet-supervisor.js"
   },
   "dependencies": {
     "@blaxel/core": "0.3.30",

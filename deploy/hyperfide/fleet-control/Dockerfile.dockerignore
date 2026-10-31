@@ -1,0 +1,12 @@
+.git
+.codegraph
+.env
+.env.*
+root.env
+**/.env
+**/.env.*
+build
+**/node_modules
+**/dist
+**/private
+**/__pycache__

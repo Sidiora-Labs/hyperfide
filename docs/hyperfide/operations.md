@@ -22,7 +22,36 @@ flowchart TD
 
 The main server hosts leadership, feature management and supervision. Builds, implementation and checker execution belong in sandboxes. A sandbox is not an agent: fixed resource capacity must be reserved before admitting worker slots, tests or builds. Hundreds of agents and 100 sandboxes are planning requirements, not measured throughput or availability guarantees.
 
-The human interacts with the leader. Feature managers own their assigned packages and request work through Hyperfide; workers cannot acquire publication authority by naming a branch, posting a successful exit code or editing a task status. Claude Code and Codex remain frontier execution connectors. Auxiliary decision models may narrow, rank or flag; qualified evidence and deterministic gates decide acceptance.
+The human interacts with the leader. Feature managers own their assigned packages and request work through Hyperfide; workers cannot acquire publication authority by naming a branch, posting a successful exit code or editing a task status. Claude Code and Codex remain frontier execution connectors. Primary and Wave Manager models choose typed orchestration actions within authenticated authority; qualified evidence and deterministic gates decide acceptance.
+
+## Fleet supervisor operations
+
+The [fleet guide](fleet.md) describes the Primary/Wave lifecycle and install contract. The fleet service uses existing accepted run state and authenticated control APIs; it does not activate an unapproved programme.
+
+Use [fleet-supervisor.privateconfig.example.json](../../deploy/hyperfide/fleet-supervisor.privateconfig.example.json) as the configuration shape and [fleet-supervisor.service](../../deploy/hyperfide/fleet-supervisor.service) as the service template. Replace example IDs, host and absolute paths with registered deployment values. Keep configuration, actor signing keys, credential references and the state directory private. Each supervisory identity requires its own Ed25519 key and credential; managers must be registered children of the current Primary.
+
+The configuration pins HTTPS origin and CA, organisation/run, cohort and host, expected leadership/cohort generations, Primary and manager credential paths, private state directory, polling interval and request timeout. An optional `bootstrap` block references an already enrolled operator credential and a bounded lifetime. Actor `key_file` references allow the supervisor to request narrowly scoped bootstrap credentials through `fleet.identity.bootstrap`; bootstrap enrollment records control authority without claiming a native model process has already run. Credentials cannot exceed issuer permissions. With no bootstrap block, supply valid enrolled actor credential files before startup.
+
+For a new accepted run, `recovery.control.start` activates its exact specification revision, generation and state version after checking dependencies and recovery holds. Register gateway supervisors through `hierarchy.supervisor.register` with the configured gateway profile identity. The Primary then configures and delegates accepted waves through model-selected actions. Register immutable environment manifests through `provider.profiles.register` before pool selection; registration records the declared profile, while installation supplies measured slot readiness.
+
+After installing the release and applying its trusted migrations, validate the protected configuration with the release's supervisor entrypoint:
+
+```sh
+node core/control-plane/dist/fleet-supervisor.js --config /absolute/private/fleet-supervisor.json --check-config
+node core/control-plane/dist/fleet-supervisor.js --config /absolute/private/fleet-supervisor.json --once
+```
+
+These paths describe a source checkout build; the supplied service template uses the installed release layout. `--check-config` reads configuration, credentials and CA; it does not authorize a deployment or prove provider/model readiness. `--once` performs one live supervision cycle and can submit admitted effects. Run the service without `--once` for its persistent polling loop.
+
+Configure reasoning in the control-service environment. `HYPERFIDE_FLEET_MODEL_BACKEND=gateway` selects the HTTPS chat-completions adapter. It uses `CHAT_COMPLETIONS_URL` and `MODEL`, with optional explicit `HYPERFIDE_FLEET_GATEWAY_ENDPOINT`, `HYPERFIDE_FLEET_GATEWAY_PROFILE` and `HYPERFIDE_FLEET_GATEWAY_KEY_ENV`. The key reference defaults to `CLUSTER_1_GATEWAY_API_KEY` and accepts the supported cluster key names. Supply secrets through the deployment's protected environment mechanism. Gateway requests prohibit redirects and executable tools, and persist the chosen profile and actual upstream response identity. Gateway actor sessions are logical sessions, distinct from native CLI sessions.
+
+`HYPERFIDE_FLEET_MODEL_BACKEND=codex` explicitly selects the pinned Codex runtime. Use `HYPERFIDE_FLEET_CODEX_CONFIG` for its protected profile, including binary path, version and digest, model, private home/spool, host and output/time bounds. The runtime disables shell execution features and ignores user configuration. Backend failure never switches to another model, gateway or connector automatically. Set `HYPERFIDE_FLEET_HOST_ID` consistently with the supervisor's host binding. Set the control service's `HF_SERVICE_REQUEST_DEADLINE_MS` to cover reasoning; the supplied control service uses `120000` ms for the gateway's bounded `90000` ms request. The validated service deadline cannot exceed `120000` ms.
+
+Before admitting installations, register the exact package/source configuration and install plan with `fleet.install.register`, and register delivery inputs with `fleet.install.delivery.register`. The supervisor can schedule and collect registered deliveries using its explicit operator capability. It cannot manufacture missing plans, source inventories, provider credentials or READY evidence. Operator authorization policy must allow only the required operations; see [fleet-authorization.example.json](../../deploy/hyperfide/policies/fleet-authorization.example.json).
+
+For a routine restart, retain the state directory and configuration identity. The supervisor's host lock prevents concurrent ownership, and its journal preserves pending operation IDs and credential grants. A changed configuration digest is rejected against retained state. Investigate `UNKNOWN`, `FLEET_RECONCILIATION_REQUIRED` or uncertain provider/runner operations before changing that journal. Reconcile the existing operation instead of deleting state or inventing a new execution ID.
+
+A process/cohort replacement requires explicit current operator bootstrap authority and matching expected generations. Rebind the current hierarchy and manager identities through the supported bootstrap path; old model observations and credentials cannot authorize replacement-generation effects. Existing installation recovery uses model-selected `fleet.install.adopt` and immutable receipts, with an acknowledged hierarchy handoff when ownership changes. See [recovery and adoption](fleet.md#recovery-and-adoption). Missing models, incomplete bounded observations and uncertain installation results remain waiting or refused states; they do not grant task or publication readiness.
 
 ## Source and qualification states
 

@@ -369,7 +369,7 @@ export async function lookupNativeLaunch(tx:PrimaryTransaction,input:unknown,inv
   const r=rows.rows[0]!,e=event({...s,id:r.id,aggregate_type:r.aggregate_type,aggregate_id:r.aggregate_id,
     aggregate_version:r.aggregate_version,event_type:r.event_type,payload:r.payload}),
     p=fields(e.payload,['instruction_id','attempt_id','attempt_generation','authority_epoch','sandbox_boot_generation','kind','body','sandbox_id','boot_id']),
-    body=fields(p.body,['launch_id','slot_id','agent_session_id','connector_plan_digest']),
+    body=fields(p.body,['launch_id','slot_id','agent_session_id','connector_plan_digest'],['env_refs']),
     attempt=uuid(p.attempt_id),generation=integer(p.attempt_generation),epoch=uuid(p.authority_epoch),
     bootGeneration=integer(p.sandbox_boot_generation),sandbox=uuid(p.sandbox_id),boot=uuid(p.boot_id);
   if(p.instruction_id!==e.id||p.kind!=='START'||attempt!==e.aggregate_id||body.launch_id!==launch||

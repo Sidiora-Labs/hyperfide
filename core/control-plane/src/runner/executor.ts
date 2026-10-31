@@ -1,4 +1,5 @@
 import {verifyPreparationReceipt} from './preparation_receipts.js';
+import {claimFleetLaunch,fleetForegroundRequest,type FleetLaunchDelivery} from './fleet_launch_delivery.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {constants} from 'node:fs';
@@ -19,6 +20,7 @@ import type {RunnerRemotePlan} from './bridge.js';
 import {readJobAllocation} from '../scheduler/claim.js';
 import {lookupNativeLaunch} from '../events/outbox.js';
 import {currentPool,digestDocument,readDeployment} from '../providers/pools.js';
+import {resolveFleetManifestWorkspace,assertFleetManifestDeclaration,fleetManifestDeclaration,type FleetManifestWorkspace} from './fleet_workspace.js';
 import {resolveWorkerWorkspace,sliceWorkspacePath,sliceWorkspaceRoot,workspaceDeclaration} from '../preparation/slices.js';
 import type {WorkerWorkspace} from '../preparation/slices.js';
 import type {QuerySession} from '../storage/transactions.js';
@@ -29,7 +31,7 @@ interface ProviderExecution {
  executeBound(input:BoundProviderRequest,signal:AbortSignal,invocation:InvocationContext):Promise<ProviderResult>;
  registerRunnerBindingVerifier(reader:(tx:PrimaryTransaction,binding:BoundProviderRequest['binding'],request:unknown)=>Promise<{evidence_digest:string;observed_at:string}|null>):void|(()=>void);
 }
-interface Packet {source_state_digest:string;workspace_digest:string;request:RunnerRemotePlan;binding:Record<string,any>;allocation:Record<string,any>;reservations:unknown;env_refs?:unknown}
+interface Packet {source_state_digest:string;workspace_digest:string;request:RunnerRemotePlan;binding:Record<string,any>;allocation:Record<string,any>;reservations:unknown;env_refs?:unknown;env_ref_versions?:Record<string,string>}
 interface Job {organisation_id:string;run_id:string;operation_id:string;session_id:string;plan:Packet;plan_digest:string;principal:Principal;authority_epoch:string;reservation_id:string;expires_at:Date|string;state:string;claim_id:string|null;executor_credential_id:string|null;[name:string]:any}
 interface ObjectReference {storage_kind:'manifest';artifact_id:string;digest:string;manifest_digest:string;size_bytes:string;complete:boolean}
 export type NativeControlAction='runner.observe'|'runner.stop'|'runner.pause'|'runner.drain'|'runner.cancel'|'runner.resume';
@@ -101,15 +103,18 @@ function boundRequest(binding:Record<string,any>,operation_id:string,argv:string
  * declares it with a reason like any other. Only preparation jobs, which build the boot seed, are exempt. A refusal
  * carries a WORKER_SLICE_* code and settles the admission as UNKNOWN.
  */
-export async function workerWorkspaceGate(tx:Pick<QuerySession,'query'>,row:{organisation_id:string;run_id:string;job_class?:string;plan:{request?:unknown;allocation?:unknown}}):Promise<WorkerWorkspace|null>{
+export async function workerWorkspaceGate(tx:PrimaryTransaction,row:{organisation_id:string;run_id:string;job_class?:string;plan:{request?:unknown;allocation?:unknown;binding?:unknown}}):Promise<WorkerWorkspace|FleetManifestWorkspace|null>{
  const a=object(row.plan.allocation)?row.plan.allocation:{},request=object(row.plan.request)?row.plan.request:{};
  if(row.job_class==='PREPARATION')return null;
  const slot={sandbox_id:String(a.sandbox_id),slot_id:String(a.slot_id),sandbox_boot_generation:String(a.sandbox_boot_generation)};
  if(!uuid(slot.sandbox_id)||!uuid(slot.slot_id)||!decimal(slot.sandbox_boot_generation,true))fail('WORKER_SLICE_SLOT_UNBOUND','A worker job needs its allocated slot to resolve its slice');
+ const fleet=await resolveFleetManifestWorkspace(tx,{organisation_id:row.organisation_id,run_id:row.run_id},slot);
+ if(fleet){assertFleetManifestDeclaration(request.workspace,fleet);return fleet;}
  return resolveWorkerWorkspace(tx,{organisation_id:row.organisation_id,run_id:row.run_id},slot,workspaceDeclaration(request.workspace));
 }
 /** v21 3.20: a job on a materialised slot launches in the slot's slice workspace; a declared full tree in the runner workspace. */
-export function launchWorkspacePath(env:Readonly<Record<string,string|undefined>>,row:{plan:{binding:Record<string,any>;allocation?:unknown}},workspace:WorkerWorkspace|null):string{
+export function launchWorkspacePath(env:Readonly<Record<string,string|undefined>>,row:{plan:{binding:Record<string,any>;allocation?:unknown}},workspace:WorkerWorkspace|FleetManifestWorkspace|null):string{
+ if(workspace?.mode==='FLEET_MANIFEST')return workspace.workspace_path;
  if(!workspace?.materialisation_id)return row.plan.binding.workspace_path;
  const root=sliceWorkspaceRoot(env);if(!root)fail('WORKER_WORKSPACE_ROOT_UNSET','A materialised slice needs HF_PREPARATION_WORKSPACE_ROOT to locate its workspace');
  const a=object(row.plan.allocation)?row.plan.allocation:{};
@@ -119,6 +124,7 @@ function jobRequest(row:Job,env_refs:Readonly<Record<string,string>>,cwd:string)
  const b=row.plan.binding;
  const encoded=Buffer.from(JSON.stringify({config_path:b.state_dir+'/runner.json',operation_id:row.operation_id})).toString('base64url');
  const request=boundRequest(b,row.operation_id,[b.runner_binary,'--component','12.4','--action','runner.job.execute','--request-base64',encoded],Math.min(3600000,row.plan.request.timeout_ms+60000),env_refs);
+ if(row.plan.env_ref_versions!==undefined)request.env_ref_versions={...row.plan.env_ref_versions};
  if(row.job_class==='PREPARATION')request.cwd=path.dirname(b.workspace_path);
  else request.cwd=cwd;
  return request;
@@ -252,7 +258,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const retainedRequests=new WeakMap<object,{invocation:InvocationContext;session_id:string;launch_id:string;build:(r:Record<string,any>)=>BoundProviderRequest}>();
  let unregister:void|(()=>void);
  let active=0,completed=0,unknown=0,last_error:string|null=null;
- const workspaces={slice:0,full_tree:0,refused:0};
+ const workspaces={slice:0,full_tree:0,fleet_manifest:0,refused:0};
  async function next(s:Signer):Promise<Job|null>{return g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},async tx=>{
  const p=(await tx.query('SELECT p.*,r.authority_epoch,r.state AS run_state,clock_timestamp() AS db_now FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1 FOR SHARE OF p,r',[s.credential_id])).rows[0];
  if(!currentSigner(p,s))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Configured credential must be a live current provisioner with the matching public key');
@@ -262,7 +268,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);});
  unknown++;last_error=code;
  }
- async function claim(row:Job,s:Signer,i:InvocationContext,launch:WorkerWorkspace|null):Promise<string|null>{
+ async function claim(row:Job,s:Signer,i:InvocationContext,launch:WorkerWorkspace|FleetManifestWorkspace|null):Promise<string|null>{
  return g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal,guard:tx=>i.guard(tx)},async tx=>{
  const current=(await tx.query('SELECT *,clock_timestamp() AS db_now FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[row.organisation_id,row.run_id,row.operation_id])).rows[0] as Job|undefined;
  if(!current||current.state!=='ADMITTED')return null;
@@ -279,7 +285,8 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const workspace=await workerWorkspaceGate(tx as PrimaryTransaction,current);
  // The launch request was built for the workspace seen before claim; the slot must still hold exactly that one.
  if((workspace?.materialisation_id??null)!==(launch?.materialisation_id??null)||(workspace?.mode??null)!==(launch?.mode??null))fail('WORKER_SLICE_MISMATCH','The slot workspace changed between launch planning and claim');
- if(workspace)workspaces[workspace.mode==='SLICE'?'slice':'full_tree']++;
+ if(workspace?.mode==='FLEET_MANIFEST'){if(launch?.mode!=='FLEET_MANIFEST')fail('WORKER_FLEET_MANIFEST_MISMATCH','Manifest workspace dialect changed before claim');assertFleetManifestDeclaration(fleetManifestDeclaration(launch),workspace);}
+ if(workspace)workspaces[workspace.mode==='FLEET_MANIFEST'?'fleet_manifest':workspace.mode==='SLICE'?'slice':'full_tree']++;
  } catch(error) {
  const code=object(error)&&typeof error.code==='string'?error.code:'';
  if(!/^(AUTH_|RUNNER_|REMOTE_|JOB_|RESOURCE_|RESERVATION_|WORKER_SLICE_|WORKER_WORKSPACE_|SLICE_)/.test(code))throw error;
@@ -297,7 +304,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
   await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);});
   unknown++;last_error=code;return;}
  // v21 3.20: resolve the slot's workspace first so the process starts in the slice; claim re-checks it under lock.
- let launch:WorkerWorkspace|null,cwd:string;
+ let launch:WorkerWorkspace|FleetManifestWorkspace|null,cwd:string;
  try{launch=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},tx=>workerWorkspaceGate(tx as PrimaryTransaction,row));cwd=launchWorkspacePath(ctx.env,row,launch);}
  catch(error){const code=object(error)&&typeof error.code==='string'?error.code:'';if(!/^(WORKER_|SLICE_)/.test(code))throw error;
   workspaces.refused++;await settle(row,code);return;}
@@ -322,8 +329,35 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  try{await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND state='CLAIMED'",[row.organisation_id,row.run_id,row.operation_id,claim_id,s.credential_id]);});}catch{/* Durable CLAIMED also forbids replay. */}
  }finally{active--;}
  }
+ async function fleetLaunch(s:Signer):Promise<boolean>{
+ const delivery=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},async tx=>{
+  const p=(await tx.query('SELECT p.*,r.authority_epoch,r.state AS run_state,clock_timestamp() AS db_now FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1 FOR SHARE OF p,r',[s.credential_id])).rows[0];
+  if(!currentSigner(p,s))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Current provisioner identity required');
+  return claimFleetLaunch(tx as PrimaryTransaction,p);
+ });
+ if(!delivery)return false;
+ let proof:InvocationContext|undefined;const request=delivery.request;
+ try{
+  proof=await authenticate(authority,s,delivery.run_id,delivery.authority_epoch,request,signal);
+  retainedRequests.set(request,{invocation:proof,session_id:delivery.runner_session_id,launch_id:delivery.launch_id,build:r=>fleetForegroundRequest(r,delivery.command_id,request.env_refs??{})});
+  const observed=await provider.executeBound(request,signal,proof),capture=observed.captured;
+  if(!capture||capture.complete!==true||capture.exit_code!==0||observed.provider_process_termination_confirmed!==true)fail('FLEET_LAUNCH_UNKNOWN','Actual complete foreground owner termination required');
+  const output=strictJSON(Buffer.from(capture.stdout));
+  if(!object(output)||output.ok!==true||!object(output.result)||output.result.launch_id!==delivery.launch_id||output.result.foreground_owner!==true||output.result.terminal_observed!==true)fail('FLEET_LAUNCH_UNKNOWN','Captured terminal foreground launch receipt required');
+  const stdout=await storeBytes(store,proof,Buffer.from(capture.stdout)),stderr=await storeBytes(store,proof,Buffer.from(capture.stderr));
+  const result={launch_id:delivery.launch_id,command_id:delivery.command_id,request_digest:delivery.request_digest,native:output.result,stdout,stderr,process_ref:observed.process_ref,evidence_digest:observed.evidence_digest,task_qualified:false};
+  const digest=hash(runnerCanonical(result)),signature=sign(null,Buffer.from(runnerCanonical(result)),s.key).toString('base64url');
+  await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0,signal},async tx=>{
+   await proof!.guard(tx);const updated=await tx.query("UPDATE hyperfide.fleet_worker_launches SET state='COMPLETED',result=$4,result_digest=$5,result_signature=$6,completed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND command_id=$3 AND state='CLAIMED' AND executor_credential_id=$7",[delivery.organisation_id,delivery.run_id,delivery.command_id,JSON.stringify(result),digest,signature,s.credential_id]);if(updated.rowCount!==1)fail('FLEET_LAUNCH_CLAIM_CHANGED','Foreground launch claim changed');
+  });completed++;
+ }catch(error){
+  last_error=object(error)&&typeof error.code==='string'?error.code:'FLEET_LAUNCH_UNKNOWN';unknown++;
+  await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.fleet_worker_launches SET state='UNKNOWN',completed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND command_id=$3 AND state='CLAIMED' AND executor_credential_id=$4",[delivery.organisation_id,delivery.run_id,delivery.command_id,s.credential_id]);}).catch(()=>{});
+ }finally{retainedRequests.delete(request);}
+ return true;
+ }
  async function worker(index:number):Promise<void>{let cursor=index;while(!signal.aborted){let found=false;
- try{for(let count=0;count<config.signers.length&&!signal.aborted;count++){const s=config.signers[cursor++%config.signers.length]!;const row=await next(s);if(row){found=true;await execute(row,s);break;}}}catch(error){last_error=object(error)&&typeof error.code==='string'?error.code:'RUNNER_EXECUTOR_UNAVAILABLE';}
+ try{for(let count=0;count<config.signers.length&&!signal.aborted;count++){const s=config.signers[cursor++%config.signers.length]!;const row=await next(s);if(row){found=true;await execute(row,s);break;}if(await fleetLaunch(s)){found=true;break;}}}catch(error){last_error=object(error)&&typeof error.code==='string'?error.code:'RUNNER_EXECUTOR_UNAVAILABLE';}
  await wait(found?50:500,signal);
  }}
  // Control operations use the same actual provider journal and request proof.
@@ -420,5 +454,5 @@ const job=(await tx.query("SELECT job_class FROM hyperfide.runner_remote_jobs WH
  const preparing=job?.job_class==='PREPARATION';
  const r=await (preparing?readRunnerPreparationBinding:readRunnerBinding)(tx,b);for(const key of Object.keys(b))if(String(key==='preparation_digest'?r.boot_preparation_digest:r[key])!==String(b[key as keyof typeof b]))return null;if(!preparing)await readRunnerReadiness(tx,r);return {evidence_digest:r.observation_digest,observed_at:new Date(r.db_now).toISOString()};}catch{return null;}});
  const workers=Array.from({length:config.concurrency},(_,index)=>worker(index));
- return {apiVersion:1,capabilities:{'runner.native.v1':native},actions:{'runner.executor.describe':async(_input,context)=>{assertInvocation(context.invocation);await authority.authorize(context.invocation);if(context.invocation.principal.role!=='PROVISIONER'||!config.signers.some(s=>s.credential_id===context.invocation!.principal.credential_id))fail('ROLE_DENIED','Configured provisioner status required');return {active,completed,unknown,last_error,workspaces:{...workspaces,policy:'SLICE_UNLESS_FULL_TREE_REASON_RECORDED'},concurrency:config.concurrency,replay_policy:'NEVER_RELAUNCH_CLAIMED_OR_UNKNOWN',authority:'NONE'};}},close:async()=>{controller.abort();await Promise.all(workers);if(typeof unregister==='function')unregister();}};
+ return {apiVersion:1,capabilities:{'runner.native.v1':native},actions:{'runner.executor.describe':async(_input,context)=>{assertInvocation(context.invocation);await authority.authorize(context.invocation);if(context.invocation.principal.role!=='PROVISIONER'||!config.signers.some(s=>s.credential_id===context.invocation!.principal.credential_id))fail('ROLE_DENIED','Configured provisioner status required');return {active,completed,unknown,last_error,workspaces:{...workspaces,policy:'VERIFIED_FLEET_MANIFEST_OR_LEGACY_SLICE_WITH_DECLARED_FULL_TREE'},concurrency:config.concurrency,replay_policy:'NEVER_RELAUNCH_CLAIMED_OR_UNKNOWN',authority:'NONE'};}},close:async()=>{controller.abort();await Promise.all(workers);if(typeof unregister==='function')unregister();}};
 }

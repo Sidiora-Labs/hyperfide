@@ -10,6 +10,7 @@ import {isIdentityAuthority,gatewayOf,identityTransaction,invocationOf} from '..
 import {assertInvocation,DIGEST,decimal,exact,fail,hash,uuid,strictJSON} from '../transport/protocol.js';
 import type {InvocationContext,Principal} from '../transport/protocol.js';
 import {readRuntimeReadiness} from '../providers/pools.js';
+import {readFleetRuntimeReadiness} from '../preparation/fleet_readiness.js';
 import {isArtifactStoreCapability} from '../artifacts/objects.js';
 import type {ArtifactStoreCapability} from '../artifacts/objects.js';
 import {assertSandboxReservation} from '../scheduler/claim.js';
@@ -19,6 +20,7 @@ import type {PreparationReceiptPlan,VerifiedPreparationReceipt} from './preparat
 import {lockRun,scopeOf} from '../recovery/control.js';
 import {readReproductionJobInputs} from '../review/reproductions.js';
 import {reproductionJobRequest,bindReproductionInputs} from './reproduction_jobs.js';
+import {resolveFleetManifestWorkspace,fleetManifestDeclaration,assertFleetManifestDeclaration,type FleetManifestDeclaration} from './fleet_workspace.js';
 import {currentWorkerWorkspace,workspaceDeclaration} from '../preparation/slices.js';
 import type {WorkspaceDeclaration} from '../preparation/slices.js';
 
@@ -30,15 +32,16 @@ export interface RunnerRemotePlan {
  source_digest:string;source_provenance_digest?:string;policy_digest:string;executable_digest:string;
  environment_digest:string;artifact_paths:string[];
  /** The task's secret references, NAME to 'secret-ref:ID' (D17); admission checks them against the pool profile. */
- env_refs?:Record<string,string>;
+ env_refs?:Record<string,string>;env_ref_versions?:Record<string,string>;
  /** v21 3.20: the job's workspace. A producer that needs the full tree declares {mode:'FULL_TREE',fallback_reason};
   * admission otherwise writes the slot's materialised slice here, and the executor refuses a job with neither. */
- workspace?:WorkspaceDeclaration;
+ workspace?:WorkspaceDeclaration|FleetManifestDeclaration;
 }
 export interface RunnerStagingReference {
  role:string;artifact_id:string;storage_kind:'object'|'manifest';digest:string;manifest_digest?:string;size_bytes:string;
 }
 export interface RunnerPreparationInput {
+ env_refs?:Record<string,string>;env_ref_versions?:Record<string,string>;
  recipe_id:'environment.prepare.v1'|'checkpoint.restore.v1';
  input_manifest_artifact_id:string;input_manifest_digest:string;
  source:{repository_key:string;source_object_id:string;source_tree_id:string|null;source_manifest_digest:string};
@@ -142,7 +145,7 @@ export async function taskEnvReferences(tx:Pick<PrimaryTransaction,'query'>,orga
  * packet bytes as before. */
 export async function runnerAdmissionPacket(tx:Pick<PrimaryTransaction,'query'>,plan:RunnerRemotePlan,binding:Record<string,unknown>,allocation:Record<string,unknown>,readiness:Record<string,unknown>):Promise<{packet:Record<string,unknown>;digest:string}>{
  const env_refs=await taskEnvReferences(tx,String(binding.organisation_id),String(binding.pool_id),plan.env_refs);
- const request=plan.workspace===undefined?await admittedWorkspace(tx,plan,binding,allocation):plan;
+ const request=await admittedWorkspace(tx,plan,binding,allocation);
  const packet=JSON.parse(JSON.stringify({request,binding,allocation,source_state_digest:readiness.source_state_digest,workspace_digest:readiness.workspace_digest,...(Object.keys(env_refs).length?{env_refs}:{})})) as Record<string,unknown>;
  return {packet,digest:hash(runnerCanonical(packet))};
 }
@@ -151,6 +154,12 @@ export async function runnerAdmissionPacket(tx:Pick<PrimaryTransaction,'query'>,
 async function admittedWorkspace(tx:Pick<PrimaryTransaction,'query'>,plan:RunnerRemotePlan,binding:Record<string,unknown>,allocation:Record<string,unknown>):Promise<RunnerRemotePlan>{
  const slot={sandbox_id:String(allocation.sandbox_id),slot_id:String(allocation.slot_id),sandbox_boot_generation:String(allocation.sandbox_boot_generation)};
  if(!uuid(slot.sandbox_id)||!uuid(slot.slot_id)||!decimal(slot.sandbox_boot_generation,true)||!uuid(String(binding.organisation_id))||!uuid(String(binding.run_id)))return plan;
+ const fleet=await resolveFleetManifestWorkspace(tx as PrimaryTransaction,{organisation_id:String(binding.organisation_id),run_id:String(binding.run_id)},slot);
+ if(fleet){
+  if(plan.workspace!==undefined)assertFleetManifestDeclaration(plan.workspace,fleet);
+  return {...plan,workspace:fleetManifestDeclaration(fleet)};
+ }
+ if(plan.workspace!==undefined){workspaceDeclaration(plan.workspace);return plan;}
  const current=await currentWorkerWorkspace(tx,{organisation_id:String(binding.organisation_id),run_id:String(binding.run_id)},slot);
  if(!current)return plan;
  const workspace:WorkspaceDeclaration=current.mode==='SLICE'?{mode:'SLICE',slice_digest:current.slice_digest}:{mode:'FULL_TREE',fallback_reason:String(current.fallback_reason)};
@@ -204,6 +213,7 @@ export async function readRunnerPreparationBinding(tx:PrimaryTransaction,scope:{
  row.boot_generation=String(row.boot_generation);row.slot_generation=String(row.slot_generation);row.registration_version=String(row.registration_version);return row as Binding;
 }
 export async function readRunnerReadiness(tx:PrimaryTransaction,r:Binding):Promise<Record<string,any>> {
+ const fleet=await readFleetRuntimeReadiness(tx,r);if(fleet)return fleet;
  const request={organisation_id:r.organisation_id,run_id:r.run_id,sandbox_id:r.sandbox_id,boot_generation:r.boot_generation,slot_id:r.slot_id,boot_preparation_digest:String(r.boot_preparation_digest),preparation_digest:r.preparation_digest,source_digest:r.source_digest};const result=await readRuntimeReadiness(tx,request);
  if(!result||result.readiness_digest!==r.readiness_digest||result.source_object_id!==r.source_object_id||result.source_tree_id!==r.source_tree_id)fail('RUNNER_READINESS_STALE','Actual current source-specific runtime readiness required');
  return result;
@@ -229,12 +239,12 @@ async function observe(tx:PrimaryTransaction,v:Record<string,unknown>,i:Invocati
  return {registered:true,runner_session_id:v.session_id,registration_version:String(r.registration_version),observed_at:new Date(r.observed_at).toISOString(),authority:'OBSERVATION_ONLY',task_qualified:false};
 }
 
-export type RunnerJobNamespace='QUALIFICATION'|'REPRODUCTION'|'CANDIDATE'|'CHECKPOINT'|'PREWARM';
+export type RunnerJobNamespace='QUALIFICATION'|'REPRODUCTION'|'CANDIDATE'|'CHECKPOINT'|'PREWARM'|'FLEET_INSTALL';
 export interface RunnerPreparationJobBinding {
  namespace:RunnerJobNamespace;job_id:string;lease_generation:string;reservation_id:string;input_packet_digest:string;input_manifest_digest:string;
 }
 export interface RunnerPreparationAdmission {
- authority:'EXPECTED_JOB_AUTHORITY';job_binding:RunnerPreparationJobBinding;source:RunnerPreparationInput['source'];repository_id:string;job_kind:'PREPARATION'|'CHECKPOINT';
+ authority:'EXPECTED_JOB_AUTHORITY';job_binding:RunnerPreparationJobBinding;source:RunnerPreparationInput['source'];repository_id:string;job_kind:'PREPARATION'|'CHECKPOINT';target_binding?:Record<string,unknown>;
 }
 export type RunnerPreparationAdmissionReader=(tx:PrimaryTransaction,i:InvocationContext,request:RunnerPreparationPlan)=>Promise<RunnerPreparationAdmission|null>;
 export interface RunnerEnvironmentRequest {
@@ -256,7 +266,7 @@ async function verifyEnvironment(tx:PrimaryTransaction,i:InvocationContext,v:Run
  readers:ReadonlyMap<RunnerJobNamespace,RunnerInputReader>):Promise<unknown>{
  assertPrimaryTransaction(tx);assertInvocation(i);
  const namespace=v.job_namespace??'QUALIFICATION';
- if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM'].includes(namespace)||!uuid(v.job_id)||!uuid(v.reservation_id)||!digest(v.environment_digest)||
+ if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM','FLEET_INSTALL'].includes(namespace)||!uuid(v.job_id)||!uuid(v.reservation_id)||!digest(v.environment_digest)||
     v.lease_generation!==undefined&&!decimal(v.lease_generation,true)||v.input_manifest_digest!==undefined&&!digest(v.input_manifest_digest))
   fail('QUALIFICATION_ENVIRONMENT_DENIED','Exact namespace-bound immutable job inputs required');
  const reader=readers.get(namespace);if(!reader)fail('QUALIFICATION_ENVIRONMENT_UNAVAILABLE','Trusted job input reader is not registered for this namespace');
@@ -298,7 +308,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component> {
  const admissionReaders=new Map<RunnerJobNamespace,RunnerPreparationAdmissionReader>();
  const environment=Object.freeze({
  registerPreparationAdmissionReader:(namespace:RunnerJobNamespace,reader:RunnerPreparationAdmissionReader)=>{
-  if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM'].includes(namespace)||typeof reader!=='function'||admissionReaders.has(namespace))fail('RUNNER_INPUT_READER_CONFLICT','One trusted semantic preparation admission reader owns each namespace');
+  if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM','FLEET_INSTALL'].includes(namespace)||typeof reader!=='function'||admissionReaders.has(namespace))fail('RUNNER_INPUT_READER_CONFLICT','One trusted semantic preparation admission reader owns each namespace');
   admissionReaders.set(namespace,reader);return()=>{if(admissionReaders.get(namespace)===reader)admissionReaders.delete(namespace);};
  },
  admitPreparation:async(tx:PrimaryTransaction,i:InvocationContext,request:RunnerPreparationPlan)=>{
@@ -309,7 +319,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component> {
   return admitted;
  },verify:(tx:PrimaryTransaction,i:InvocationContext,v:RunnerEnvironmentRequest)=>verifyEnvironment(tx,i,v,readers),
  registerInputReader:(namespace:RunnerJobNamespace,reader:RunnerInputReader)=>{
-  if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM'].includes(namespace)||typeof reader!=='function'||readers.has(namespace))fail('RUNNER_INPUT_READER_CONFLICT','One trusted input reader owns each job namespace');
+  if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM','FLEET_INSTALL'].includes(namespace)||typeof reader!=='function'||readers.has(namespace))fail('RUNNER_INPUT_READER_CONFLICT','One trusted input reader owns each job namespace');
   readers.set(namespace,reader);return()=>{if(readers.get(namespace)===reader)readers.delete(namespace);};
  }});
  const registry=Object.freeze({lookup:readRunnerBinding,lookupSlot:async(tx:PrimaryTransaction,v:{organisation_id:string;run_id:string;sandbox_id:string;slot_id:string;boot_generation:string;preparation_digest:string})=>{
@@ -359,7 +369,7 @@ async function approvedRecipePolicy(ctx:ComponentContext,tx:PrimaryTransaction,i
  const file=ctx.env.HF_RUNNER_PREPARATION_RECIPES_FILE,pin=ctx.env.HF_RUNNER_PREPARATION_RECIPES_DIGEST;
  if(!absolute(file)||!digest(pin))fail('RUNNER_RECIPE_POLICY_REQUIRED','Independently pinned deployment recipe policy required');
  let ancestor=path.dirname(file);
- for(;;){const st=await fs.lstat(ancestor);if(!st.isDirectory()||st.isSymbolicLink()||st.uid!==(process.getuid?.()??0)||(st.mode&0o022)!==0)fail('RUNNER_RECIPE_POLICY_INVALID','Deployment policy ancestry must be protected');if(ancestor==='/')break;ancestor=path.dirname(ancestor);}
+ for(;;){const st=await fs.lstat(ancestor);if(!st.isDirectory()||st.isSymbolicLink()||(st.uid!==0&&st.uid!==(process.getuid?.()??0))||(st.mode&0o022)!==0)fail('RUNNER_RECIPE_POLICY_INVALID','Deployment policy ancestry must be protected');if(ancestor==='/')break;ancestor=path.dirname(ancestor);}
  const fd=await fs.open(file,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes:Buffer;
  try{const before=await fd.stat();if(!before.isFile()||before.uid!==(process.getuid?.()??0)||(before.mode&0o077)!==0||before.nlink!==1||before.size>1048576)fail('RUNNER_RECIPE_POLICY_INVALID','Protected bounded policy descriptor required');bytes=await fd.readFile();const after=await fd.stat();if(before.dev!==after.dev||before.ino!==after.ino||before.size!==after.size||before.mtimeMs!==after.mtimeMs||hash(bytes)!==pin)fail('RUNNER_RECIPE_POLICY_INVALID','Policy bytes differ from trusted deployment pin');}finally{await fd.close();}
  const parsed=strictJSON(bytes!);if(!object(parsed)||parsed.schema_version!==1||!Array.isArray(parsed.policies))fail('RUNNER_RECIPE_POLICY_INVALID','Deployment recipe policy required');
@@ -373,8 +383,12 @@ const permits=new WeakMap<object,{context:ComponentContext;plan:RunnerRemotePlan
 function validatePlan(plan:RunnerRemotePlan):void {
  if(!object(plan)||![plan.session_id,plan.operation_id,plan.repository_id,plan.reservation_id].every(uuid)||plan.job_id!==undefined&&!uuid(plan.job_id)||!Array.isArray(plan.argv)||!plan.argv.length||plan.argv.length>256||typeof plan.argv[0]!=='string'||!plan.argv[0]||plan.argv.some(x=>typeof x!=='string'||x.length>4096||x.includes('\0'))||plan.cwd!=='.'&&!safeRelative(plan.cwd)||!object(plan.environment)||Object.entries(plan.environment).some(([k,v])=>!/^[A-Z][A-Z0-9_]{0,63}$/.test(k)||/^(LD_|DYLD_|HF_|HOME$|TMPDIR$|PATH$)/.test(k)||typeof v!=='string'||v.includes('\0'))||plan.stdin!==undefined&&(typeof plan.stdin!=='string'||Buffer.byteLength(plan.stdin)>65536)||!Number.isInteger(plan.timeout_ms)||plan.timeout_ms<1||plan.timeout_ms>259200000||![plan.source_digest,plan.policy_digest,plan.executable_digest,plan.environment_digest].every(digest)||!Array.isArray(plan.artifact_paths)||plan.artifact_paths.length>64||plan.artifact_paths.some(x=>typeof x!=='string'||!safeRelative(x))||new Set(plan.artifact_paths).size!==plan.artifact_paths.length)fail('INVALID_REMOTE_PLAN','Bounded immutable registered command/source/environment plan required');
  if(hash(runnerCanonical(plan.environment))!==plan.environment_digest)fail('REMOTE_ENVIRONMENT_MISMATCH','Explicit environment bytes differ from the registered digest');
- if(plan.workspace!==undefined)workspaceDeclaration(plan.workspace);
+ if(plan.workspace!==undefined){
+  const workspace:unknown=plan.workspace;
+  if(!object(workspace)||workspace.mode!=='FLEET_MANIFEST')workspaceDeclaration(workspace);
+ }
  if(plan.env_refs!==undefined){envReferenceShape(plan.env_refs);if(Object.keys(plan.env_refs).some(name=>Object.hasOwn(plan.environment,name)))fail('RUNNER_SECRET_REFERENCE_INVALID','A variable is either explicit or a secret reference, never both');}
+ if(plan.env_ref_versions!==undefined){if(!object(plan.env_ref_versions)||!plan.env_refs||Object.keys(plan.env_ref_versions).length!==Object.keys(plan.env_refs).length||Object.entries(plan.env_ref_versions).some(([name,version])=>!Object.hasOwn(plan.env_refs!,name)||!decimal(version,true)))fail('RUNNER_SECRET_REFERENCE_INVALID','Credential versions must exactly cover admitted environment reference names');}
 }
 export {validatePlan as validateRunnerPlan};
 export function runnerResultSigningBytes(org:string,run:string,op:string,plan:string,result:string):Buffer{return Buffer.from(`HYPERFIDE-RUNNER-RESULT-V1\n${org}\n${run}\n${op}\n${plan}\n${result}\n`);}
@@ -567,30 +581,30 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    }
   }
  });
- const assertPreparationJobAdmission=async(tx:PrimaryTransaction,i:InvocationContext,request:RunnerPreparationPlan):Promise<void>=>{
+ const assertPreparationJobAdmission=async(tx:PrimaryTransaction,i:InvocationContext,request:RunnerPreparationPlan):Promise<RunnerPreparationAdmission>=>{
   assertPrimaryTransaction(tx);assertInvocation(i);
   const authority=ctx.dependencies.require('12.1','qualification.environment.v1',(value):value is {admitPreparation:(tx:PrimaryTransaction,i:InvocationContext,request:RunnerPreparationPlan)=>Promise<RunnerPreparationAdmission>}=>object(value)&&typeof value.admitPreparation==='function');
-  await authority.admitPreparation(tx,i,request);
+  return await authority.admitPreparation(tx,i,request);
  };
  const preparation:RunnerPreparation=Object.freeze({
-  assertJobAdmission:assertPreparationJobAdmission,
+  assertJobAdmission:async(tx:PrimaryTransaction,i:InvocationContext,request:RunnerPreparationPlan)=>{await assertPreparationJobAdmission(tx,i,request);},
   prepare:async(tx:PrimaryTransaction,i:InvocationContext,request:RunnerPreparationPlan)=>{
    assertPrimaryTransaction(tx);assertInvocation(i);
    if(!object(request))fail('INVALID_PREPARATION_PLAN','Bound preparation object required');
-   exact(request,['operation_id','session_id','reservation_id','repository_id','timeout_ms','recipe_id','input_manifest_artifact_id','input_manifest_digest','source','staging','job_binding','target_binding_id']);
+   exact(request,['operation_id','session_id','reservation_id','repository_id','timeout_ms','recipe_id','input_manifest_artifact_id','input_manifest_digest','source','staging','job_binding','target_binding_id',...(request.env_refs===undefined?[]:['env_refs']),...(request.env_ref_versions===undefined?[]:['env_ref_versions'])]);
    if(![request.operation_id,request.session_id,request.reservation_id,request.repository_id,request.input_manifest_artifact_id,request.target_binding_id].every(uuid)||!digest(request.input_manifest_digest)||!['environment.prepare.v1','checkpoint.restore.v1'].includes(request.recipe_id)||!Number.isSafeInteger(request.timeout_ms)||request.timeout_ms<1||request.timeout_ms>259200000||!object(request.source)||!Array.isArray(request.staging)||request.staging.length>64)fail('INVALID_PREPARATION_PLAN','Exact bounded preparation identities required');
    if(!object(request.job_binding))fail('INVALID_PREPARATION_PLAN','Logical job binding required');
    exact(request.job_binding,['namespace','job_id','lease_generation','reservation_id','input_packet_digest','input_manifest_digest']);
    // Lease generation 0 binds a job snapshot that has no claim yet: reproductions, and qualification before its first verifier
    // claim (matching src/hyperfide/preparation_stage.c). Staging at generation 0 grants no execution authority.
-   if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM'].includes(request.job_binding.namespace)||!uuid(request.job_binding.job_id)||(!decimal(request.job_binding.lease_generation,true)&&!(['REPRODUCTION','QUALIFICATION'].includes(request.job_binding.namespace)&&request.job_binding.lease_generation==='0'))||request.job_binding.reservation_id!==request.reservation_id||![request.job_binding.input_packet_digest,request.job_binding.input_manifest_digest].every(digest))fail('INVALID_PREPARATION_PLAN','Exact semantic job/lease/input binding required');
+   if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM','FLEET_INSTALL'].includes(request.job_binding.namespace)||!uuid(request.job_binding.job_id)||(!decimal(request.job_binding.lease_generation,true)&&!(['REPRODUCTION','QUALIFICATION'].includes(request.job_binding.namespace)&&request.job_binding.lease_generation==='0'))||request.job_binding.reservation_id!==request.reservation_id||![request.job_binding.input_packet_digest,request.job_binding.input_manifest_digest].every(digest))fail('INVALID_PREPARATION_PLAN','Exact semantic job/lease/input binding required');
    exact(request.source,['repository_key','source_object_id','source_tree_id','source_manifest_digest']);
    if(typeof request.source.repository_key!=='string'||!request.source.repository_key.trim()||request.source.repository_key.length>128||!([request.source.source_object_id].every(x=>typeof x==='string'&&/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(x))&&(request.source.source_tree_id===null?request.recipe_id==='checkpoint.restore.v1':typeof request.source.source_tree_id==='string'&&/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(request.source.source_tree_id)))||!digest(request.source.source_manifest_digest))fail('INVALID_PREPARATION_PLAN','Accepted source envelope and exact Git facts required');
    const roles=new Set<string>();for(const ref of request.staging){if(!object(ref)||typeof ref.role!=='string'||!ref.role||ref.role.length>128||roles.has(ref.role)||!uuid(ref.artifact_id)||!['object','manifest'].includes(ref.storage_kind)||!digest(ref.digest)||!decimal(ref.size_bytes)||BigInt(ref.size_bytes)>536870912n||ref.storage_kind==='manifest'&&!digest(ref.manifest_digest))fail('INVALID_PREPARATION_PLAN','Exact bounded immutable staging refs required');roles.add(ref.role);}
    const p=i.principal;
    const previous=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[p.organisation_id,p.run_id,request.operation_id])).rows[0];
    if(previous){await i.guard(tx);if(previous.job_class!=='PREPARATION'||runnerCanonical(previous.plan.preparation_request)!==runnerCanonical(request)||previous.principal.actor_id!==p.actor_id||previous.authority_epoch!==p.deployment_epoch)fail('REMOTE_OPERATION_CONFLICT','Recorded preparation operation differs');const permit=Object.freeze({}) as RunnerRemotePermit;permits.set(permit,{context:ctx,plan:previous.plan.request as RunnerRemotePlan,binding:previous.plan.binding as Binding,principal:p,invocation:i,digest:previous.plan_digest});return permit;}
-   await assertPreparationJobAdmission(tx,i,request);
+   const semanticAdmission=await assertPreparationJobAdmission(tx,i,request);
    const r=await readRunnerPreparationBinding(tx,{organisation_id:p.organisation_id,run_id:p.run_id,session_id:request.session_id});
    if(r.repository_id!==request.repository_id)fail('REMOTE_SOURCE_MISMATCH','Preparation repository differs from trusted slot');
    const approved=await approvedRecipePolicy(ctx,tx,i,r);if(approved.digest!==r.preparation_policy_digest||runnerCanonical(approved.recipes)!==runnerCanonical(r.preparation_recipes))fail('RUNNER_RECIPE_POLICY_INVALID','Current independently approved policy differs from registered inventory');
@@ -598,7 +612,7 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    const targetReader=resources as unknown as {readPreparationTarget?:(tx:PrimaryTransaction,input:Record<string,unknown>)=>Promise<Record<string,any>|null>;readCheckpointPreparationTarget?:(tx:PrimaryTransaction,input:Record<string,unknown>)=>Promise<Record<string,any>|null>};
    const readTarget=request.recipe_id==='checkpoint.restore.v1'?targetReader.readCheckpointPreparationTarget:targetReader.readPreparationTarget;
    if(typeof readTarget!=='function')fail('PREPARATION_TARGET_UNAVAILABLE','Actual scheduler target binding reader is required');
-   const target=await readTarget(tx,{organisation_id:p.organisation_id,run_id:p.run_id,target_binding_id:request.target_binding_id,preparation_operation_id:request.operation_id,reservation_id:request.reservation_id});
+   const target=request.job_binding.namespace==='FLEET_INSTALL'?semanticAdmission.target_binding:await readTarget(tx,{organisation_id:p.organisation_id,run_id:p.run_id,target_binding_id:request.target_binding_id,preparation_operation_id:request.operation_id,reservation_id:request.reservation_id});
    if(!target||target.target_runner_session_id!==r.session_id||target.target_slot_id!==r.slot_id||String(target.target_slot_generation)!==String(r.slot_generation)||String(target.target_uid)!==String(r.uid)||String(target.target_gid)!==String(r.gid)||target.sandbox_id!==r.sandbox_id||String(target.sandbox_boot_generation)!==r.boot_generation||target.boot_id!==r.boot_id||target.workspace_path!==r.workspace_path||target.home_path!==r.home_path||target.tmp_path!==r.tmp_path||target.repository_id!==request.repository_id||target.source_digest!==request.source.source_manifest_digest||target.source_object_id!==request.source.source_object_id||target.source_tree_id!==request.source.source_tree_id)fail('PREPARATION_TARGET_MISMATCH','Preparation must preserve the actual reserved target and immutable source intent');
    if(!object(recipe.readiness_context)||!uuid(recipe.readiness_context.artifact_id)||!digest(recipe.readiness_context.digest)||!decimal(recipe.readiness_context.size_bytes,true))fail('RUNNER_RECIPE_POLICY_REQUIRED','Approved readiness context is missing');
    const trustedContext:RunnerStagingReference={role:'readiness-context',artifact_id:recipe.readiness_context.artifact_id,storage_kind:'object',digest:recipe.readiness_context.digest,size_bytes:recipe.readiness_context.size_bytes};
@@ -610,13 +624,14 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    const allocation=await resources.readJobAllocation(tx,{organisation_id:p.organisation_id,run_id:p.run_id,reservation_id:request.reservation_id});
    if(!allocation||allocation.slot_id!==r.slot_id||allocation.sandbox_id!==r.sandbox_id||String(allocation.sandbox_boot_generation)!==r.boot_generation||(!['OPERATOR','COORDINATOR'].includes(p.role)&&allocation.assignee_session_id!==p.actor_id)||allocation.job_kind!==(request.recipe_id==='checkpoint.restore.v1'?'CHECKPOINT':'PREPARATION'))fail('REMOTE_JOB_ASSIGNMENT_MISMATCH','Actual dedicated preparation reservation/slot/assignee required');
    await resources.assertJobReservation(tx,{organisation_id:p.organisation_id,run_id:p.run_id,task_id:allocation.task_id,job_kind:request.recipe_id==='checkpoint.restore.v1'?'CHECKPOINT':'PREPARATION',reservation_id:request.reservation_id});
-   const environment={LANG:'C.UTF-8',LC_ALL:'C.UTF-8'},plan:RunnerRemotePlan={operation_id:request.operation_id,session_id:request.session_id,repository_id:request.repository_id,reservation_id:request.reservation_id,argv:[String(recipe.node_path),String(recipe.recipe_path),'--job-context','/run/hyperfide-stage/'+request.operation_id+'/context.json'],cwd:'.',environment,timeout_ms:request.timeout_ms,source_digest:request.source.source_manifest_digest,policy_digest:request.input_manifest_digest,executable_digest:String(recipe.node_digest),environment_digest:hash(runnerCanonical(environment)),artifact_paths:[],preparation:{target_binding:structuredClone(target),job_binding:structuredClone(request.job_binding),recipe_id:request.recipe_id,input_manifest_artifact_id:request.input_manifest_artifact_id,input_manifest_digest:request.input_manifest_digest,source:structuredClone(request.source),staging:structuredClone(staged)}};
+   const env_refs=await taskEnvReferences(tx,p.organisation_id,r.pool_id,request.env_refs);
+   const environment={LANG:'C.UTF-8',LC_ALL:'C.UTF-8'},plan:RunnerRemotePlan={operation_id:request.operation_id,session_id:request.session_id,repository_id:request.repository_id,reservation_id:request.reservation_id,argv:[String(recipe.node_path),String(recipe.recipe_path),'--job-context','/run/hyperfide-stage/'+request.operation_id+'/context.json'],cwd:'.',environment,...(Object.keys(env_refs).length?{env_refs:{...env_refs},...(request.env_ref_versions?{env_ref_versions:{...request.env_ref_versions}}:{})}:{}),timeout_ms:request.timeout_ms,source_digest:request.source.source_manifest_digest,policy_digest:request.input_manifest_digest,executable_digest:String(recipe.node_digest),environment_digest:hash(runnerCanonical(environment)),artifact_paths:[],preparation:{target_binding:structuredClone(target),job_binding:structuredClone(request.job_binding),recipe_id:request.recipe_id,input_manifest_artifact_id:request.input_manifest_artifact_id,input_manifest_digest:request.input_manifest_digest,source:structuredClone(request.source),staging:structuredClone(staged)}};
    validatePlan(plan);
    const prior=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[p.organisation_id,p.run_id,plan.operation_id])).rows[0];
    if(prior){if(prior.job_class!=='PREPARATION'||runnerCanonical(prior.plan.request)!==runnerCanonical(plan)||prior.principal.actor_id!==p.actor_id||prior.authority_epoch!==p.deployment_epoch)fail('REMOTE_OPERATION_CONFLICT','Preparation identity or exact inputs changed');const permit=Object.freeze({}) as RunnerRemotePermit;permits.set(permit,{context:ctx,plan,binding:prior.plan.binding as Binding,principal:p,invocation:i,digest:prior.plan_digest});return permit;}
    const reservation=(await tx.query("SELECT expires_at,clock_timestamp() AS db_now FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='ALLOCATED' FOR SHARE",[p.organisation_id,p.run_id,request.reservation_id])).rows[0];if(!reservation||new Date(reservation.expires_at).getTime()<=new Date(reservation.db_now).getTime())fail('REMOTE_RESERVATION_EXPIRED','Current preparation reservation required');
    const binding=Object.fromEntries(['organisation_id','run_id','session_id','credential_id','sandbox_id','boot_id','boot_generation','slot_id','slot_generation','repository_id','launch_id','state_dir','runner_binary','runner_binary_digest','workspace_path','home_path','tmp_path','boot_preparation_digest','preparation_digest','preparation_recipes','preparation_policy_digest','uid','gid','provider','pool_id','external_sandbox_id'].map(k=>[k,r[k]])),pins=Object.fromEntries(['allocation_id','request_id','task_id','job_kind','reservation_id','slot_id','sandbox_id','sandbox_boot_generation','assignee_session_id','generation'].map(k=>[k,allocation[k]]));
-   const packet={job_class:'PREPARATION',preparation_request:structuredClone(request),request:plan,binding,allocation:pins},pin=hash(runnerCanonical(packet));
+   const packet={job_class:'PREPARATION',preparation_request:structuredClone(request),request:plan,binding,allocation:pins,...(Object.keys(env_refs).length?{env_refs:{...env_refs},...(request.env_ref_versions?{env_ref_versions:{...request.env_ref_versions}}:{})}:{})},pin=hash(runnerCanonical(packet));
    await tx.query("INSERT INTO hyperfide.runner_remote_jobs(organisation_id,run_id,operation_id,session_id,job_class,plan,plan_digest,principal,admission_digest,authority_epoch,reservation_id,expires_at) VALUES($1,$2,$3,$4,'PREPARATION',$5,$6,$7,$8,$9,$10,LEAST($11::timestamptz,$12::timestamptz))",[p.organisation_id,p.run_id,plan.operation_id,plan.session_id,JSON.stringify(packet),pin,JSON.stringify(p),hash(runnerCanonical(pins)),p.deployment_epoch,plan.reservation_id,reservation.expires_at,p.expires_at]);
    if(plan.preparation!.staging.some(ref=>ref.role==='input-manifest'))
     fail('PREPARATION_ARTIFACT_UNAVAILABLE','The native stager owns the declared input-manifest role');

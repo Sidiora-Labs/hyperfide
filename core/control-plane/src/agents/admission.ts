@@ -9,6 +9,7 @@ import {object} from '../policy/programme.js';
 import {nativeAskRequests,raiseNativeAsks} from './native_asks.js';
 import {admissionEnvReferences} from './env_refs.js';
 import {assertScopeNotHeld} from '../recovery/scope_hold.js';
+import {declaredFleetAgentBinding,qualifiedFleetProfile} from '../runner/fleet_connector_plan.js';
 
 type Policy={organisation_id:string;run_id:string;run_policy_digest:string;quota_key:string;connector:string;connector_version:string;provider:string;model:string;auth_profile:string;permission_profile:string;qualification_digest:string;max_concurrent:number;max_attempts:number;retry_base_ms:number;retry_max_ms:number;unattended:true;native_delegation:false};
 async function policies(ctx:ComponentContext):Promise<Policy[]>{
@@ -141,6 +142,8 @@ export interface AdmissionPlanSelection {
  provider:string;model:string;auth_profile:string;permission_profile:string;qualification_digest:string;native_delegation:false;
  /** 3.15: the task's declared secret references (NAME -> secret-ref:ID) the pool profile allows. */
  env_refs:Readonly<Record<string,string>>;
+ environment?:Readonly<{ANTHROPIC_BASE_URL:string;ANTHROPIC_MODEL:string}>;
+ gateway?:Readonly<{messages_endpoint:string;provider_id:string;credential_reference:string}>;
 }
 export function createComponent(ctx:ComponentContext):Component{
  // Frozen once per component startup. Requests cannot replace approved permission or quota policy.
@@ -170,6 +173,7 @@ export function createComponent(ctx:ComponentContext):Component{
  const dbNow=async()=>new Date((await client.query('SELECT clock_timestamp() AS now')).rows[0]!.now).getTime();
  const execute=async(reason?:string,classification?:NativeSignalClassification)=>{
  const admitted=await client.query('SELECT s.connector,s.state,s.attempt_id,s.sandbox_id,s.sandbox_boot_generation,b.boot_id,b.auth_profile,b.connector_version,b.process_exited,b.configuration_digest FROM hyperfide.agent_sessions s JOIN hyperfide.native_session_bindings b ON b.organisation_id=s.organisation_id AND b.run_id=s.run_id AND b.session_id=s.id WHERE s.organisation_id=$1 AND s.run_id=$2 AND s.id=$3 FOR UPDATE OF s',[s.organisation_id,s.run_id,s.session_id]);
+ if(!admitted.rows.length&&name==='reserve'){const declared=await declaredFleetAgentBinding(client,s);if(declared){const p=qualifiedFleetProfile(ctx,String(declared.auth_profile));declared.connector_version=p.binary.version;admitted.rows.push(declared);}}
  if(admitted.rows.length!==1)agentError('AGENT_BINDING_NOT_FOUND');
  assertNativeRunnerScope(invocation,admitted.rows[0]!,admitted.rows[0]!);
  if(name==='reserve'){
@@ -182,7 +186,7 @@ export function createComponent(ctx:ComponentContext):Component{
  await assertScopeNotHeld(client,{organisation_id:s.organisation_id,run_id:s.run_id,sandbox_id:admitted.rows[0]!.sandbox_id as string|null});
  const session=admitted.rows[0] as Record<string,unknown>;
  if(session.connector!==p.connector||session.auth_profile!==p.auth_profile||session.connector_version!==p.connector_version||!['REGISTERED','RUNNING','DISCONNECTED'].includes(String(session.state)))agentError('ADMISSION_PROFILE_MISMATCH');
- const native=await getNativeSessionProfile(ctx,p.auth_profile),q=native.qualification as Record<string,unknown>;
+ const native=await qualifiedFleetProfile(ctx,p.auth_profile),q=native.qualification as Record<string,unknown>;
  if(!nativeEligible(native,p,session.configuration_digest)||q.state!=='QUALIFIED'||q.live_qualified!==true||q.receipt_digest!==p.qualification_digest||
  typeof native.observed_model_id!=='string'||!native.observed_model_id||typeof native.observed_provider_id!=='string'||!native.observed_provider_id)agentError('ADMISSION_NATIVE_UNQUALIFIED');
  const policyDigest=agentDigest(p),payloadDigest=agentDigest(v);
@@ -214,7 +218,7 @@ export function createComponent(ctx:ComponentContext):Component{
  if(!p||agentDigest(p)!==row.policy_digest)agentError('ADMISSION_POLICY_CHANGED');
  if(name==='context'){
  const now=await dbNow();
- const native=await getNativeSessionProfile(ctx,p.auth_profile),q=native.qualification as Record<string,unknown>;
+ const native=await qualifiedFleetProfile(ctx,p.auth_profile),q=native.qualification as Record<string,unknown>;
  const eligible=nativeEligible(native,p,admitted.rows[0]?.configuration_digest)&&q.state==='QUALIFIED'&&q.live_qualified===true&&q.receipt_digest===p.qualification_digest&&typeof native.observed_model_id==='string'&&typeof native.observed_provider_id==='string';
  const events=await client.query("SELECT result FROM hyperfide.native_session_events WHERE organisation_id=$1 AND run_id=$2 AND session_id=$3 AND result->>'kind'='ADMISSION_REPORT' AND result->>'reservation_id'=$4 ORDER BY created_at DESC,operation_id DESC LIMIT 1",[s.organisation_id,s.run_id,s.session_id,id]);
  const observation=events.rows[0]?.result as Record<string,unknown>|undefined;
@@ -326,7 +330,8 @@ export function createComponent(ctx:ComponentContext):Component{
  assertInvocation(invocation);assertPrimaryTransaction(tx);await invocation.guard(tx);
  const selected=await trusted;
  const refuse=(reason:string)=>({selection:null,reason});
- const bound=(await tx.query('SELECT s.connector,s.state,b.auth_profile,b.connector_version,b.configuration_digest,b.process_exited FROM hyperfide.agent_sessions s JOIN hyperfide.native_session_bindings b ON b.organisation_id=s.organisation_id AND b.run_id=s.run_id AND b.session_id=s.id WHERE s.organisation_id=$1 AND s.run_id=$2 AND s.id=$3 FOR SHARE OF s',[scope.organisation_id,scope.run_id,scope.session_id])).rows[0] as Record<string,unknown>|undefined;
+ let bound=(await tx.query('SELECT s.connector,s.state,b.auth_profile,b.connector_version,b.configuration_digest,b.process_exited FROM hyperfide.agent_sessions s JOIN hyperfide.native_session_bindings b ON b.organisation_id=s.organisation_id AND b.run_id=s.run_id AND b.session_id=s.id WHERE s.organisation_id=$1 AND s.run_id=$2 AND s.id=$3 FOR SHARE OF s',[scope.organisation_id,scope.run_id,scope.session_id])).rows[0] as Record<string,unknown>|undefined;
+ if(!bound){const declared=await declaredFleetAgentBinding(tx,scope);if(declared){const p=qualifiedFleetProfile(ctx,String(declared.auth_profile));declared.connector_version=p.binary.version;bound=declared;}}
  if(!bound)return refuse('AGENT_BINDING_NOT_FOUND');
  // Native child agents under a worker would bypass admission accounting.
  const children=await tx.query('SELECT id FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND parent_session_id=$3 LIMIT 1',[scope.organisation_id,scope.run_id,scope.session_id]);
@@ -341,10 +346,18 @@ export function createComponent(ctx:ComponentContext):Component{
  const runPolicy=await assertRunPolicy(tx,scope,p);
  // The reservation is the live-qualification witness (reserve admits only QUALIFIED profiles);
  // the frozen native configuration must still be the one that was qualified.
- const native=await getNativeSessionProfile(ctx,p.auth_profile);
+ const native=await qualifiedFleetProfile(ctx,p.auth_profile);
  if(bound.connector!==p.connector||bound.auth_profile!==p.auth_profile||bound.connector_version!==p.connector_version||!nativeEligible(native,p,bound.configuration_digest))return refuse('ADMISSION_PROFILE_DRIFT');
  const env_refs=await admissionEnvReferences(tx,scope);
- return {selection:Object.freeze({reservation_id:String(row.id),reservation_attempt:Number(row.attempt_count),policy_digest:String(row.policy_digest),run_policy_digest:runPolicy,connector:p.connector as 'codex'|'claude',connector_version:p.connector_version,provider:p.provider,model:p.model,auth_profile:p.auth_profile,permission_profile:p.permission_profile,qualification_digest:p.qualification_digest,native_delegation:false as const,env_refs}),reason:null};
+ let gatewayBinding:Pick<AdmissionPlanSelection,'environment'|'gateway'>={};
+ if(native.gateway!==undefined){
+  if(!object(native.gateway)||native.connector!=='claude'||native.auth_mode!=='api_credential'||typeof native.gateway.messages_endpoint!=='string'||native.gateway.provider_id!==native.configured_provider_id||typeof native.credential_reference!=='string'||typeof native.requested_model_id!=='string')return refuse('ADMISSION_GATEWAY_PROFILE_INVALID');
+  const endpoint=new URL(native.gateway.messages_endpoint);
+  if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||!endpoint.pathname.endsWith('/v1/messages')||endpoint.href!==native.gateway.messages_endpoint)return refuse('ADMISSION_GATEWAY_PROFILE_INVALID');
+  if(env_refs.ANTHROPIC_AUTH_TOKEN!=='secret-ref:'+native.credential_reference||env_refs.ANTHROPIC_API_KEY!==undefined||env_refs.CLAUDE_CODE_OAUTH_TOKEN!==undefined||env_refs.ANTHROPIC_BASE_URL!==undefined||env_refs.ANTHROPIC_MODEL!==undefined)return refuse('ADMISSION_GATEWAY_CREDENTIAL_REQUIRED');
+  gatewayBinding={environment:Object.freeze({ANTHROPIC_BASE_URL:endpoint.href.slice(0,-12),ANTHROPIC_MODEL:native.requested_model_id}),gateway:Object.freeze({messages_endpoint:endpoint.href,provider_id:String(native.gateway.provider_id),credential_reference:native.credential_reference})};
+ }
+ return {selection:Object.freeze({reservation_id:String(row.id),reservation_attempt:Number(row.attempt_count),policy_digest:String(row.policy_digest),run_policy_digest:runPolicy,connector:p.connector as 'codex'|'claude',connector_version:p.connector_version,provider:p.provider,model:p.model,auth_profile:p.auth_profile,permission_profile:p.permission_profile,qualification_digest:p.qualification_digest,native_delegation:false as const,env_refs,...gatewayBinding}),reason:null};
  };
  const component:Component={apiVersion:1,actions:{'agent.admission.reserve':action('reserve'),'agent.admission.inspect':action('inspect'),'agent.admission.report':action('report'),'agent.admission.recovery-context':action('context'),'agent.admission.observe':action('observe'),'agent.admission.escalations':action('escalations')}};
  const capability:AgentAdmissionCapability=Object.freeze({schema_version:1 as const,launchSelection,recoveryContextInTransaction:async(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext)=>{assertInvocation(invocation);assertPrimaryTransaction(tx);return action('context',tx)(input,Object.freeze({...ctx,invocation}));},recoveryContext:async(input:unknown,invocation:InvocationContext)=>{

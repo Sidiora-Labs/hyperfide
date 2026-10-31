@@ -72,6 +72,9 @@ def main():
         expect(f.bind()[1].get("ok") is True,"trusted provider binding failed")
         resolution={"references":[{"name":"TOKEN","reference_id":"inference/account"}],"purpose":"WORKER_PROCESS","sandbox_id":f.ids["sandbox"],"boot_id":f.ids["boot"],"boot_generation":"1"}
         check("credentials.resolver.actual-private-purpose",lambda:expect(private_resolve(resolution)=={"ok":True,"matched":True,"count":1},"actual resolver failed"))
+        check("credentials.resolver.pinned-current-version",lambda:expect(private_resolve({**resolution,"expected_versions":{"TOKEN":"2"}})=={"ok":True,"matched":True,"count":1},"current pinned secret version did not resolve"))
+        check("credentials.resolver.pinned-old-version-denied",lambda:expect(private_resolve({**resolution,"expected_versions":{"TOKEN":"1"}}).get("code")=="VERSION_CONFLICT","rotated reference substituted bytes for an admitted old version"))
+        check("credentials.resolver.pinned-incomplete-map-denied",lambda:expect(private_resolve({**resolution,"expected_versions":{}}).get("code")=="INVALID_REQUEST","partial version map silently downgraded to unpinned resolution"))
         check("credentials.resolver.wrong-boot-denied",lambda:expect(private_resolve({**resolution,"boot_id":uid()}).get("code")=="AUTH_STALE_BOOT","wrong target boot resolved secret"))
         check("credentials.resolver.wrong-purpose-denied",lambda:expect(private_resolve({**resolution,"purpose":"WORKER_BUILD"}).get("ok") is False,"build purpose received process secret"))
         check("credentials.resolver.provider-only-denied",lambda:expect(private_resolve({**resolution,"purpose":"PROVIDER_API"}).get("ok") is False,"operator resolver received provider administration key"))

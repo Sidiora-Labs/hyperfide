@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "origin": "https://coordinator.example.invalid",
+  "ca_file": "/etc/hyperfide/coordinator-ca.pem",
+  "organisation_id": "00000000-0000-0000-0000-000000000001",
+  "run_id": "00000000-0000-0000-0000-000000000002",
+  "cohort_id": "00000000-0000-0000-0000-000000000003",
+  "host_id": "supervisory-box",
+  "leader_generation": "0",
+  "expected_cohort_generation": "0",
+  "primary": {
+    "session_id": "00000000-0000-0000-0000-000000000004",
+    "credential_file": "/var/lib/hyperfide/fleet-supervisor/primary.identity.json",
+    "key_file": "/etc/hyperfide/fleet-primary.key.pem"
+  },
+  "managers": [
+    {
+      "session_id": "00000000-0000-0000-0000-000000000005",
+      "credential_file": "/var/lib/hyperfide/fleet-supervisor/manager-1.identity.json",
+      "key_file": "/etc/hyperfide/fleet-manager-1.key.pem"
+    },
+    {
+      "session_id": "00000000-0000-0000-0000-000000000006",
+      "credential_file": "/var/lib/hyperfide/fleet-supervisor/manager-2.identity.json",
+      "key_file": "/etc/hyperfide/fleet-manager-2.key.pem"
+    }
+  ],
+  "state_directory": "/var/lib/hyperfide/fleet-supervisor",
+  "poll_interval_ms": 5000,
+  "request_timeout_ms": 120000,
+  "bootstrap": {
+    "operator_credential_file": "/etc/hyperfide/fleet-operator.identity.json",
+    "ttl_seconds": 900
+  }
+}

@@ -169,3 +169,6 @@ provider-recordings/raw/
 !.env.example
 !.env.sample
 !.env.template
+
+# Generated from the shared fleet contract source before control-plane compilation.
+/core/control-plane/src/contracts/fleet/

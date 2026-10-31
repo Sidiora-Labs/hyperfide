@@ -14,6 +14,8 @@ import {currentClaim,acknowledge,gateway} from '../events/outbox.js';
 import {resolveLaunchWorkspace} from '../preparation/slices.js';
 import {taskEnvReferences} from './bridge.js';
 import {recordLaunchEvent} from '../events/api.js';
+import {guardFleetLaunch} from './fleet.js';
+import {resolveFleetManifestWorkspace} from './fleet_workspace.js';
 
 export interface RunnerSpawnInput {
  organisation_id:string;run_id:string;command_id:string;token:ComputeToken;
@@ -84,10 +86,12 @@ export function createComponent(ctx:ComponentContext):Component {
     const current=await assertCurrentCompute(t,token,{operation:'ADVANCE'});
     if(current.input_packet_digest!==v.packet_digest)fail('RUNNER_DISPATCH_PACKET_STALE','Current authority requires a different immutable execution packet');
     // v21 3.20: an agent launches only into its slot's slice, or with a full-tree reason its packet records.
-    await resolveLaunchWorkspace(t,scope,{sandbox_id:String(token.sandbox_id),slot_id:String(token.slot_id),sandbox_boot_generation:String(token.sandbox_boot_generation)},v.packet_digest);
+    const launchSlot={sandbox_id:String(token.sandbox_id),slot_id:String(token.slot_id),sandbox_boot_generation:String(token.sandbox_boot_generation)};
+    if(!await resolveFleetManifestWorkspace(t,scope,launchSlot))await resolveLaunchWorkspace(t,scope,launchSlot,v.packet_digest);
     const selected=await reader!(t,{...scope,command_id:v.command_id,token,packet_digest:v.packet_digest,payload_digest:v.payload_digest},i);
     if(!selected)fail('RUNNER_PLAN_NOT_READY','Actual connector/model/workspace qualification is unavailable; delivery stays pending');
     if(!uuid(selected.launch_id)||!uuid(selected.agent_session_id)||selected.slot_id!==token.slot_id||typeof selected.connector_plan_digest!=='string'||!DIGEST.test(selected.connector_plan_digest))fail('RUNNER_PLAN_INVALID','Trusted plan must preserve exact slot and immutable launch identity');
+    await guardFleetLaunch(t,i,token,selected);
     const env_refs=await launchEnvReferences(t,scope.organisation_id,token.sandbox_id,selected.env_refs);
     const result=await issue(t,{...scope,id:v.command_id,attempt_id:token.attempt_id,attempt_generation:token.attempt_generation,
      authority_epoch:token.authority_epoch,sandbox_boot_generation:token.sandbox_boot_generation,kind:'START',

@@ -1,0 +1,134 @@
+import {randomUUID} from 'node:crypto';
+import type {Component,ComponentContext} from '../components/registry.js';
+import type {InvocationContext} from '../transport/protocol.js';
+import {assertInvocation} from '../transport/protocol.js';
+import type {PrimaryTransaction} from '../storage/transactions.js';
+import {identityTransaction} from '../identity/enrollment.js';
+import {withAdmittedDecision,getFleetDelegation} from '../agents/fleet_authority.js';
+import {validateDecision} from '../contracts/fleet/index.mjs';
+import {isProviderIntentCapability} from '../providers/reconcile.js';
+import {reserveDynamic} from './resources.js';
+import {fields,object,uuid,decimal,dimensions,dispatchRecipients,applyExecutionControl,fail} from './claim.js';
+import {assignFleetWorker,controlFleetWorker,type FleetManagerBinding} from '../runner/fleet.js';
+import {enqueue} from '../events/outbox.js';
+import {issue} from '../events/instructions.js';
+import type {WorkerRegistrationAuthority} from '../hierarchy/adoption.js';
+
+export const MANAGER_ACTION_CONTRACTS={
+ 'fleet.install.adopt':{required:['install_operation_id','previous_adoption_id','admission_digest','receipt_digest','input_digest','handoff_id','runner_operation_id','runner_result_digest'],description:'Adopt an existing pinned install after manager or cohort recovery through the shared installer authority. Pin the exact predecessor and immutable admission/receipt or completed runner evidence; this never starts replacement execution.'},
+ 'fleet.install.admit':{required:['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','ttl_seconds','slot_bindings'],description:'Admit a registered pinned environment to its exact current boot through the shared installer authority; worker execution waits for verified completion.'},
+ PROVISION_SANDBOX:{required:['pool_id','provider_id','profile_id','sandbox_id','preparation_digest','deadline_at','capacity','purpose'],description:'Select an approved provider/profile; reserve exact capacity and persist an existing provider create intent before network effects.'},
+ REUSE_SANDBOX:{required:['sandbox_id','boot_generation','pool_id','provider_id','profile_id'],description:'Reuse an owned exact boot; a separate actual install receipt still gates worker assignment.'},
+ ASSIGN_WORKER:{required:['assignment','install_binding','claims'],description:'Bind one isolated task attempt to its canonical assignment, installed slot UUID and existing scheduler claim; use separate decisions for concurrent workers.'},
+ STEER_WORKER:{required:['task_id','attempt_id','attempt_generation','launch_id','request_id','frame_b64'],description:'Send a bounded native instruction to the exact currently owned task attempt and launch.'},
+ CANCEL_ASSIGNMENT:{required:['task_id','attempt_id','attempt_generation','launch_id'],description:'Persist exact native cancellation; result custody and unconfirmed cleanup remain retained.'},
+ STOP_SANDBOX:{required:['sandbox_id','boot_generation','reason'],description:'Hold admission and issue cancellation for owned active launches; no physical disappearance is inferred.'},
+ DESTROY_SANDBOX:{required:['sandbox_id','boot_generation','pool_id','deadline_at','reason'],description:'Request existing provider destruction only after actual work/custody preflight.'},
+ REPLAN:{required:['proposal'],description:'Record proposed changes for current manager; source/task definitions and criteria are unchanged until separately accepted.'},
+ COORDINATE_DEPENDENCY:{required:['recipient_package_id','consumer_ids','message'],description:'Persist coordination toward a current package; notification never grants a dependency milestone.'},
+} as const;
+export const MANAGER_ACTIONS=Object.keys(MANAGER_ACTION_CONTRACTS);
+export interface FleetEffects {
+ execute(decision:unknown,invocation:InvocationContext):Promise<Record<string,unknown>>;
+ describe():{actions:typeof MANAGER_ACTION_CONTRACTS};
+}
+function actionInput(action:string,value:unknown):Record<string,unknown>{
+ const contract=MANAGER_ACTION_CONTRACTS[action as keyof typeof MANAGER_ACTION_CONTRACTS];
+ if(!contract)fail('FLEET_ACTION_DENIED','Unsupported manager effect');
+ return fields(value,contract.required);
+}
+
+async function binding(tx:PrimaryTransaction,i:InvocationContext,d:Record<string,unknown>):Promise<{owner:FleetManagerBinding;budget:Record<string,unknown>}>{
+ if(d.actor_role!=='WAVE_MANAGER'||typeof d.delegation_id!=='string'||typeof d.manager_generation!=='string')fail('FLEET_MANAGER_REQUIRED','Provider and worker choices require a current Wave Manager');
+ const delegation=await getFleetDelegation(tx,i,d as never);
+ const owner:FleetManagerBinding={organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,actor_id:String(d.actor_id),delegation_id:String(d.delegation_id),manager_generation:String(d.manager_generation),leader_generation:String(d.leader_generation),authority_epoch:String(d.authority_epoch),operation_id:String(d.operation_id),decision_id:String(d.decision_id),source_revision:String(d.source_revision)};
+ await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['fleet-budget:'+owner.organisation_id+':'+owner.run_id+':'+owner.delegation_id]);
+ const budget=delegation.budget;
+ if(!Array.isArray(budget.allowed_actions)||!budget.allowed_actions.includes(d.action))fail('FLEET_ACTION_DENIED','Action is outside the manager budget envelope');
+ return {owner,budget};
+}
+function selected(budget:Record<string,unknown>,key:string,value:unknown):void{
+ if(typeof value!=='string'||!Array.isArray(budget[key])||!budget[key].includes(value))fail('FLEET_SELECTION_DENIED','Manager selected an ungranted '+key);
+}
+async function ownedSandbox(tx:PrimaryTransaction,b:FleetManagerBinding,sandbox:string):Promise<Record<string,unknown>>{
+ const row=(await tx.query(`SELECT s.*,s.boot_generation::text AS boot_generation FROM hyperfide.sandboxes s
+ WHERE s.organisation_id=$1 AND s.id=$2 AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e WHERE e.organisation_id=$1 AND e.run_id=$3
+ AND e.result->>'delegation_id'=$4 AND e.result->>'sandbox_id'=s.id::text) FOR SHARE`,[b.organisation_id,uuid(sandbox,'sandbox_id'),b.run_id,b.delegation_id])).rows[0];
+ if(!row)fail('FLEET_SANDBOX_SCOPE_DENIED','Sandbox has no admitted effect in this delegation');return row;
+}
+export function createFleetEffectsComponent(ctx:ComponentContext):Component{
+ const installer=ctx.dependencies.require('fleet-install','fleet.install.v1',(v:unknown):v is {admit(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>;adopt(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>}=>!!v&&typeof (v as {admit?:unknown}).admit==='function'&&typeof (v as {adopt?:unknown}).adopt==='function');
+ const workers=ctx.dependencies.require('hierarchy-worker-registration','hierarchy.worker-registration.v1',(v:unknown):v is WorkerRegistrationAuthority=>!!v&&typeof (v as WorkerRegistrationAuthority).registerAssignedWorker==='function');
+ const providers=ctx.dependencies.require('8.3','provider.intents.v1',isProviderIntentCapability);
+ const execute: FleetEffects['execute']=async(value,i)=>{
+  assertInvocation(i);
+  const decision=validateDecision(value,{actions:MANAGER_ACTIONS});
+  if(decision.action==='fleet.install.admit')return installer.admit(decision,i);
+  if(decision.action==='fleet.install.adopt')return installer.adopt(decision,i);
+  return identityTransaction({...ctx,invocation:i},async(raw)=>{
+   const tx=raw as PrimaryTransaction;
+   return withAdmittedDecision(tx,i,decision,decision.action,async admitted=>{
+    const d=admitted as unknown as Record<string,unknown>,{owner:b,budget}=await binding(tx,i,d),scope={organisation_id:b.organisation_id,run_id:b.run_id};
+    if(d.action==='PROVISION_SANDBOX'){
+     const v=actionInput(String(d.action),d.input);
+     selected(budget,'provider_ids',v.provider_id);selected(budget,'profile_ids',v.profile_id);
+     const pool=(await tx.query('SELECT provider FROM hyperfide.provider_pools WHERE organisation_id=$1 AND id=$2 FOR SHARE',[b.organisation_id,uuid(v.pool_id,'pool_id')])).rows[0];
+     if(!pool||pool.provider!==v.provider_id)fail('FLEET_PROVIDER_MISMATCH','Selected provider must own the selected pool');
+     const occupied=(await tx.query(`SELECT count(DISTINCT s.id)::int AS n FROM hyperfide.sandboxes s JOIN hyperfide.fleet_effect_receipts e ON e.organisation_id=s.organisation_id AND e.result->>'sandbox_id'=s.id::text WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'delegation_id'=$3 AND s.observed_state<>'DESTROYED'`,[b.organisation_id,b.run_id,b.delegation_id])).rows[0];
+     if(!Number.isSafeInteger(budget.max_sandboxes)||Number(occupied?.n??0)>=Number(budget.max_sandboxes))fail('FLEET_SANDBOX_BUDGET','Manager sandbox budget is occupied, including uncertain effects');
+     const reserved=object(await reserveDynamic(tx,{...scope,pool_id:uuid(v.pool_id,'pool_id'),request_id:b.operation_id,dimensions:dimensions(v.capacity),expires_at:String(v.deadline_at)}));
+     const reservations=reserved.reservations as Record<string,unknown>[];
+     const prepared=object(await providers.prepareCreateTx(tx,{run_id:b.run_id,pool_id:v.pool_id,sandbox_id:v.sandbox_id,request_key:b.operation_id,deadline_at:v.deadline_at,reservation_ids:reservations.map(r=>r.id),profile_id:v.profile_id,preparation_digest:v.preparation_digest,purpose:v.purpose},i));
+     const intent=object(prepared.intent);
+     return {kind:d.action,delegation_id:b.delegation_id,sandbox_id:v.sandbox_id,provider_intent_id:intent.id,state:intent.state,external_call_performed:false};
+    }
+    if(d.action==='REUSE_SANDBOX'){
+     const v=actionInput(String(d.action),d.input);
+     selected(budget,'provider_ids',v.provider_id);selected(budget,'profile_ids',v.profile_id);
+     const s=await ownedSandbox(tx,b,String(v.sandbox_id));
+     if(s.pool_id!==v.pool_id||s.boot_generation!==decimal(v.boot_generation,'boot_generation')||s.observed_state!=='RUNNING'||s.desired_state!=='RUNNING')fail('FLEET_SANDBOX_UNAVAILABLE','Reuse requires an owned current running boot');
+     return {kind:d.action,delegation_id:b.delegation_id,sandbox_id:v.sandbox_id,boot_generation:v.boot_generation,ready:false,installation_required:true};
+    }
+    if(d.action==='ASSIGN_WORKER'){
+     const v=actionInput(String(d.action),d.input),a=object(v.assignment);
+     const tasks=a.tasks as Record<string,unknown>[];
+     if(!Array.isArray(tasks)||tasks.some(t=>!Array.isArray(budget.task_ids)||!budget.task_ids.includes(t.task_id)))fail('FLEET_TASK_SCOPE_DENIED','Assignment tasks must be explicitly delegated');
+     const install=object(v.install_binding);await ownedSandbox(tx,b,String(install.sandbox_id));
+     const current=(await tx.query(`SELECT count(*)::int AS n FROM hyperfide.attempts a JOIN hyperfide.tasks t ON t.organisation_id=a.organisation_id AND t.run_id=a.run_id AND t.id=a.task_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND t.feature_package_id=$3 AND a.compute_authority='CURRENT'`,[b.organisation_id,b.run_id,b.delegation_id])).rows[0];
+     if(!Number.isSafeInteger(budget.max_concurrent_workers)||Number(current?.n??0)+tasks.length>Number(budget.max_concurrent_workers))fail('FLEET_WORKER_BUDGET','Manager concurrent worker budget is occupied');
+     return assignFleetWorker(tx,i,b,d.input,dispatchRecipients(ctx),workers);
+    }
+    if(d.action==='STEER_WORKER'||d.action==='CANCEL_ASSIGNMENT')return controlFleetWorker(tx,b,d.action,d.input);
+    if(d.action==='STOP_SANDBOX'){
+     const v=actionInput(String(d.action),d.input);const s=await ownedSandbox(tx,b,String(v.sandbox_id));
+     if(s.boot_generation!==v.boot_generation)fail('FLEET_SANDBOX_STALE','Stop targets a stale boot');
+     const active=(await tx.query(`SELECT a.id,a.task_id,a.generation::text,a.sandbox_boot_generation::text,t.feature_package_id FROM hyperfide.attempts a JOIN hyperfide.tasks t ON t.organisation_id=a.organisation_id AND t.run_id=a.run_id AND t.id=a.task_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.sandbox_id=$3 AND a.compute_authority='CURRENT' FOR SHARE OF a,t`,[b.organisation_id,b.run_id,v.sandbox_id])).rows;
+     if(active.some(a=>a.feature_package_id!==b.delegation_id))fail('FLEET_SANDBOX_SCOPE_DENIED','Stop cannot interrupt another delegated package');
+     const commands:unknown[]=[];
+     for(const attempt of active){
+      const start=(await tx.query("SELECT payload FROM hyperfide.outbox_events WHERE organisation_id=$1 AND run_id=$2 AND aggregate_id=$3 AND event_type='instruction.start'",[b.organisation_id,b.run_id,attempt.id])).rows[0];
+      if(start)commands.push(await issue(tx,{...scope,id:randomUUID(),attempt_id:attempt.id,attempt_generation:attempt.generation,authority_epoch:b.authority_epoch,sandbox_boot_generation:attempt.sandbox_boot_generation,kind:'CANCEL',body:{launch_id:start.payload.body.launch_id}}));
+     }
+     const hold=await applyExecutionControl(tx,scope,{scope_kind:'SANDBOX',scope_id:String(v.sandbox_id),mode:'STOP',operation_id:b.operation_id,reason:String(v.reason)});
+     return {kind:d.action,delegation_id:b.delegation_id,sandbox_id:v.sandbox_id,hold,commands,quiescence_confirmed:false};
+    }
+    if(d.action==='DESTROY_SANDBOX'){
+     const v=actionInput(String(d.action),d.input);const s=await ownedSandbox(tx,b,String(v.sandbox_id));
+     if(s.boot_generation!==v.boot_generation||s.pool_id!==v.pool_id)fail('FLEET_SANDBOX_STALE','Destroy targets a stale boot or pool');
+     const prepared=object(await providers.prepareDestroyTx(tx,{run_id:b.run_id,pool_id:v.pool_id,sandbox_id:v.sandbox_id,request_key:b.operation_id,deadline_at:v.deadline_at,reason:v.reason},i));
+     const intent=object(prepared.intent);return {kind:d.action,delegation_id:b.delegation_id,sandbox_id:v.sandbox_id,provider_intent_id:intent.id,state:intent.state,external_call_performed:false};
+    }
+    if(d.action==='COORDINATE_DEPENDENCY'){
+     const v=actionInput(String(d.action),d.input);
+     const target=(await tx.query("SELECT h.state FROM hyperfide.hierarchy_packages h WHERE h.organisation_id=$1 AND h.run_id=$2 AND h.package_id=$3 FOR SHARE",[b.organisation_id,b.run_id,uuid(v.recipient_package_id,'recipient_package_id')])).rows[0];
+     if(!target||['CLOSED','CANCELLED'].includes(String(target.state)))fail('FLEET_COORDINATION_TARGET','Coordination target is not a current package');
+     if(!Array.isArray(v.consumer_ids)||v.consumer_ids.length!==0)fail('FLEET_COORDINATION_TARGET','Coordination is delivered through scoped manager observations; consumer_ids must be empty');
+     const event=await enqueue(tx,{...scope,id:b.operation_id,aggregate_type:'fleet-manager-coordination',aggregate_id:b.operation_id,aggregate_version:'1',event_type:'fleet.manager.coordination',payload:{sender_package_id:b.delegation_id,sender_generation:b.manager_generation,recipient_package_id:v.recipient_package_id,decision_id:b.decision_id,message:object(v.message)}},{consumer_ids:[]});
+     return {kind:d.action,delegation_id:b.delegation_id,event,dependency_released:false};
+    }
+    return {kind:'REPLAN',delegation_id:b.delegation_id,proposal:object(actionInput(String(d.action),d.input).proposal),task_definitions_changed:false,new_work_dispatched:false};
+   });
+  });
+ };
+ return {apiVersion:1,capabilities:{'fleet.effects.v1':Object.freeze({execute,describe:()=>({actions:MANAGER_ACTION_CONTRACTS})})},actions:{'fleet.manager.execute':async(value,context)=>{const v=fields(value,['decision']);const i=context.invocation;if(!i)fail('AUTH_INVOCATION_REQUIRED','Authenticated manager decision required');return execute(v.decision,i);}}};
+}

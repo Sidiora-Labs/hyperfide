@@ -263,6 +263,28 @@ function limitOf(value:unknown):number {
  if(typeof limit!=='number'||!Number.isSafeInteger(limit)||limit<1||limit>256)return refuse('INVALID_REQUEST','History limit must be from 1 to 256');
  return limit;
 }
+export async function configureHierarchyPackage(tx:PrimaryTransaction,context:ComponentContext,input:unknown):Promise<Record<string,unknown>>{
+ assertPrimaryTransaction(tx);const v=record(input,['idempotency_key','leader_generation','package_id','feature_key','allocation_policy']),a=trustedActor(context),id=uuid(v.package_id),feature=text(v.feature_key);
+ if(!['FEATURE_STABLE','WAVE'].includes(String(v.allocation_policy)))return refuse('INVALID_REQUEST','Unknown manager allocation policy');
+ await writeSemanticDisposition(tx,a);await a.guard(tx);
+   const generation=decimal(v.leader_generation);
+   await requireAuthority(tx,{...a,leader_generation:generation,roles:['LEADER']});
+   const found=await tx.query('SELECT package_key FROM hyperfide.feature_packages WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[a.organisation_id,a.run_id,id]);
+   if(!found.rowCount)return refuse('PACKAGE_UNAVAILABLE','Imported wave package does not exist');
+   const configured=await tx.query('SELECT 1 FROM hyperfide.hierarchy_packages WHERE organisation_id=$1 AND run_id=$2 AND package_id=$3',[a.organisation_id,a.run_id,id]);
+   if(configured.rowCount)return refuse('PACKAGE_ALREADY_CONFIGURED','Package feature and allocation policy are immutable once configured');
+   const tasks=await tx.query('SELECT definition FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND feature_package_id=$3',[a.organisation_id,a.run_id,id]);
+   if(tasks.rows.some(row=>object(row.definition)&&typeof row.definition.feature_key==='string'&&row.definition.feature_key!==feature))
+    return refuse('PACKAGE_FEATURE_MISMATCH','Feature key conflicts with immutable imported task definition');
+   // FEATURE_STABLE and WAVE live packages of one feature would name contradictory accountable owners.
+   const mixed=await tx.query("SELECT package_id FROM hyperfide.hierarchy_packages WHERE organisation_id=$1 AND run_id=$2 AND feature_key=$3 AND allocation_policy<>$4 AND state NOT IN ('CLOSED','CANCELLED') ORDER BY package_id LIMIT 1 FOR SHARE",[a.organisation_id,a.run_id,feature,v.allocation_policy]);
+   if(mixed.rowCount)return refuse('OWNERSHIP_POLICY_CONFLICT','Feature already has live packages under another allocation policy; close or cancel them first');
+   await tx.query('INSERT INTO hyperfide.hierarchy_packages(organisation_id,run_id,package_id,feature_key,allocation_policy) VALUES($1,$2,$3,$4,$5)',[a.organisation_id,a.run_id,id,feature,v.allocation_policy]);
+   await transition(tx,a,generation,id,null,'PLANNED','1','CONFIGURED','Package configured',{feature_key:feature,allocation_policy:String(v.allocation_policy)});
+   await event(tx,a,generation,'PACKAGE_CONFIGURED',{package_id:id,feature_key:feature,allocation_policy:v.allocation_policy});
+   return {package_id:id,owner_generation:'1',state:'PLANNED',dispatch_authority:false};
+}
+
 export async function createComponent(context:ComponentContext):Promise<Component> {
  const g=gateway(context);
  // Service readiness is refused until the trusted hierarchy migration is present. Handlers never run DDL;
@@ -289,29 +311,7 @@ export async function createComponent(context:ComponentContext):Promise<Componen
    return {organisation_id:a.organisation_id,run_id:a.run_id,authority_epoch:a.authority_epoch,leader_session_id:a.session_id,leader_generation:next};
   });
  },
- 'hierarchy.package.configure':async (input,invocation)=>{
-  const v=record(input,['idempotency_key','leader_generation','package_id','feature_key','allocation_policy']);
-  const a=trustedActor(invocation),id=uuid(v.package_id),feature=text(v.feature_key);
-  if(!['FEATURE_STABLE','WAVE'].includes(String(v.allocation_policy)))return refuse('INVALID_REQUEST','Unknown manager allocation policy');
-  return operation(g,a,'hierarchy.package.configure',v,async tx=>{
-   const generation=decimal(v.leader_generation);
-   await requireAuthority(tx,{...a,leader_generation:generation,roles:['LEADER']});
-   const found=await tx.query('SELECT package_key FROM hyperfide.feature_packages WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[a.organisation_id,a.run_id,id]);
-   if(!found.rowCount)return refuse('PACKAGE_UNAVAILABLE','Imported wave package does not exist');
-   const configured=await tx.query('SELECT 1 FROM hyperfide.hierarchy_packages WHERE organisation_id=$1 AND run_id=$2 AND package_id=$3',[a.organisation_id,a.run_id,id]);
-   if(configured.rowCount)return refuse('PACKAGE_ALREADY_CONFIGURED','Package feature and allocation policy are immutable once configured');
-   const tasks=await tx.query('SELECT definition FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND feature_package_id=$3',[a.organisation_id,a.run_id,id]);
-   if(tasks.rows.some(row=>object(row.definition)&&typeof row.definition.feature_key==='string'&&row.definition.feature_key!==feature))
-    return refuse('PACKAGE_FEATURE_MISMATCH','Feature key conflicts with immutable imported task definition');
-   // FEATURE_STABLE and WAVE live packages of one feature would name contradictory accountable owners.
-   const mixed=await tx.query("SELECT package_id FROM hyperfide.hierarchy_packages WHERE organisation_id=$1 AND run_id=$2 AND feature_key=$3 AND allocation_policy<>$4 AND state NOT IN ('CLOSED','CANCELLED') ORDER BY package_id LIMIT 1 FOR SHARE",[a.organisation_id,a.run_id,feature,v.allocation_policy]);
-   if(mixed.rowCount)return refuse('OWNERSHIP_POLICY_CONFLICT','Feature already has live packages under another allocation policy; close or cancel them first');
-   await tx.query('INSERT INTO hyperfide.hierarchy_packages(organisation_id,run_id,package_id,feature_key,allocation_policy) VALUES($1,$2,$3,$4,$5)',[a.organisation_id,a.run_id,id,feature,v.allocation_policy]);
-   await transition(tx,a,generation,id,null,'PLANNED','1','CONFIGURED','Package configured',{feature_key:feature,allocation_policy:String(v.allocation_policy)});
-   await event(tx,a,generation,'PACKAGE_CONFIGURED',{package_id:id,feature_key:feature,allocation_policy:v.allocation_policy});
-   return {package_id:id,owner_generation:'1',state:'PLANNED',dispatch_authority:false};
-  });
- },
+ 'hierarchy.package.configure':async(input,invocation)=>{const v=record(input,['idempotency_key','leader_generation','package_id','feature_key','allocation_policy']),a=trustedActor(invocation);return operation(g,a,'hierarchy.package.configure',v,tx=>configureHierarchyPackage(tx,invocation,v));},
  'hierarchy.package.assign':async (input,invocation)=>{
   const v=record(input,['idempotency_key','leader_generation','package_id','expected_generation','manager_session_id']);
   const a=trustedActor(invocation),id=uuid(v.package_id),owner=uuid(v.manager_session_id),expected=decimal(v.expected_generation);

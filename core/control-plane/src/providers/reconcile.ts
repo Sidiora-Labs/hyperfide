@@ -130,9 +130,13 @@ export async function destructionPreflight(tx:PrimaryTransaction,pool:ProviderDa
  return proof;
 }
 export async function prepareDestroy(pool:ProviderDatabase,config:DeploymentConfig,value:unknown):Promise<unknown>{
+  return transaction(pool,c=>prepareDestroyTx(c,pool,config,value));
+}
+export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabase,config:DeploymentConfig,value:unknown):Promise<unknown>{
+  assertPrimaryTransaction(c);await providerInvocation(pool).guard(c);
   const input=obj(value,['run_id','pool_id','sandbox_id','request_key','deadline_at','reason']);
   const run=uuid(input.run_id),poolId=uuid(input.pool_id),sandbox=uuid(input.sandbox_id),key=str(input.request_key,256),requestDigest=digestDocument(input);assertInvocationRun(pool,run);
-  return transaction(pool,async c=>{
+  return (async()=>{
     const prior=await c.query('SELECT * FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 AND request_key=$3 FOR UPDATE',[config.organisation_id,run,key]);
     if(prior.rows.length){if(prior.rows[0]!.request_digest!==requestDigest)fail('IDEMPOTENCY_CONFLICT','Provisioning key was reused');return{created:false,intent:prior.rows[0]};}
     const {scope}=await currentPool(c,config,poolId);
@@ -146,7 +150,7 @@ export async function prepareDestroy(pool:ProviderDatabase,config:DeploymentConf
       [config.organisation_id,run,id,poolId,sandbox,scope.configuration_digest,key,requestDigest,op.identity.payload_digest,op,s.boot_generation,s.native_sandbox_id]);
     await c.query("UPDATE hyperfide.sandboxes SET desired_state='DESTROYED',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[config.organisation_id,sandbox]);
     return{created:true,intent:await intent(c,config.organisation_id,id),external_call_performed:false};
-  });
+  })();
 }
 export function persistenceHooks(pool:ProviderDatabase,organisation:string,id:string):ProviderPersistenceHooks{
   return {
@@ -437,7 +441,7 @@ export function processObservationDisposition(previous:ProviderOutcome|null,next
 }
 export interface BoundProviderRequest {
  binding:{organisation_id:string;run_id:string;session_id:string;pool_id:string;sandbox_id:string;external_sandbox_id:string;boot_generation:string;preparation_digest:string};
- operation_id:string;argv:string[];cwd:string;env_refs:Record<string,string>;timeout_ms:number;
+ operation_id:string;argv:string[];cwd:string;env_refs:Record<string,string>;env_ref_versions?:Record<string,string>;timeout_ms:number;
 }
 function processRecord(value:unknown,op:ProviderOperation<'execute'>):ProviderProcessRecord{
  const r=obj(value);if(Object.keys(r).some(k=>!['process_ref','payload_digest','resource','state','provider_metadata','native_process_ref'].includes(k))||['process_ref','payload_digest','resource','state','provider_metadata'].some(k=>!Object.hasOwn(r,k))||r.native_process_ref!==undefined&&r.native_process_ref!==null)fail('PROCESS_BINDING_INVALID','Native process ID must be observed after submission');str(r.process_ref);dg(r.payload_digest);obj(r.provider_metadata);
@@ -503,7 +507,7 @@ export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run
 }
 export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig,value:unknown,signal:AbortSignal):Promise<unknown>{
  const invocation=providerInvocation(pool);if(invocation.payload.component!=='8.3'||invocation.payload.action!=='provider.remote.execute-bound'||digestDocument(invocation.payload.input)!==digestDocument(value))fail('AUTH_SCOPE_DENIED','Private execution requires its exact authenticated request');
- const i=obj(value,['binding','operation_id','argv','cwd','env_refs','timeout_ms']),b=obj(i.binding,['organisation_id','run_id','session_id','pool_id','sandbox_id','external_sandbox_id','boot_generation','preparation_digest']);
+ const i=obj(value,['binding','operation_id','argv','cwd','env_refs','timeout_ms',...(Object.hasOwn(obj(value),'env_ref_versions')?['env_ref_versions']:[])]),b=obj(i.binding,['organisation_id','run_id','session_id','pool_id','sandbox_id','external_sandbox_id','boot_generation','preparation_digest']);
  if(b.organisation_id!==config.organisation_id)fail('PROVIDER_SCOPE_MISMATCH','Runner belongs to another organisation');
  const run=uuid(b.run_id),session=uuid(b.session_id),sandbox=uuid(b.sandbox_id),poolId=uuid(b.pool_id),id=uuid(i.operation_id);assertInvocationRun(pool,run);
  if(!Number.isSafeInteger(i.timeout_ms)||(i.timeout_ms as number)<1||(i.timeout_ms as number)>config.maximum_operation_ms)fail('PROVIDER_DEADLINE_INVALID','Remote command timeout exceeds approved bound');
@@ -519,7 +523,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
    fail('RUNNER_BINDING_STALE','Remote execution requires the exact registered runner/resource boot');
   const operationValue=operation('execute',scope,id,new Date(Date.now()+(i.timeout_ms as number)).toISOString(),
    {native_sandbox_id:current.native_sandbox_id,sandbox_boot_generation:String(current.boot_generation)},current.preparation_digest,
-   {argv:i.argv,cwd:i.cwd,env_refs:i.env_refs,stdin:false,durable:true,process_timeout_ms:i.timeout_ms,wait_timeout_ms:i.timeout_ms});
+   {argv:i.argv,cwd:i.cwd,env_refs:i.env_refs,...(i.env_ref_versions!==undefined?{env_ref_versions:i.env_ref_versions}:{}),stdin:false,durable:true,process_timeout_ms:i.timeout_ms,wait_timeout_ms:i.timeout_ms});
   if(!hasProviderAdapter(scope.provider,pool.runtime))fail('PROVIDER_UNAVAILABLE','No actual trusted adapter is registered');
   const prior=await c.query('SELECT request_digest,state FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2',[config.organisation_id,id]);
   if(prior.rows.length){if(prior.rows[0]!.request_digest!==digestDocument(i))fail('IDEMPOTENCY_CONFLICT','Remote operation identity was reused');fail('REMOTE_OPERATION_RECONCILIATION_REQUIRED','A submitted remote command cannot be blindly replayed');}
@@ -780,6 +784,7 @@ export interface ProviderIntentCapability {
  registerDestructionPreflight(reader:ProviderDestructionPreflight):()=>void;
  preparationParameters(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext):Promise<ProviderOperation<'create'>['parameters']>;
  prepareCreateTx(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext):Promise<unknown>;
+ prepareDestroyTx(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext):Promise<unknown>;
  getIntent(id:string,invocation:InvocationContext):Promise<Intent>;
  readConfirmedAbsence:typeof readConfirmedAbsence;
 }
@@ -797,7 +802,7 @@ export function isProviderExecutionCapability(value:unknown):value is ProviderEx
 }
 export function isProviderIntentCapability(value:unknown):value is ProviderIntentCapability{
  if(!value||typeof value!=='object')return false;const v=value as Record<string,unknown>;
- return ['registerDestructionPreflight','preparationParameters','prepareCreateTx','getIntent','readConfirmedAbsence'].every(k=>typeof v[k]==='function');
+ return ['registerDestructionPreflight','preparationParameters','prepareCreateTx','prepareDestroyTx','getIntent','readConfirmedAbsence'].every(k=>typeof v[k]==='function');
 }
 export function createComponent(context:ComponentContext):Component {
   const database=providerDatabase(context);
@@ -815,6 +820,7 @@ export function createComponent(context:ComponentContext):Component {
  registerDestructionPreflight:(reader:ProviderDestructionPreflight)=>{if(typeof reader!=='function'||database.runtime.destructionPreflight)fail('PROVIDER_REGISTRATION_CONFLICT','Destruction custody reader must be installed once');database.runtime.destructionPreflight=reader;return()=>{if(database.runtime.destructionPreflight===reader)delete database.runtime.destructionPreflight;};},
  preparationParameters:async(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext)=>preparationParameters(tx,await readDeployment(context.env),input,invocation),
  prepareCreateTx:async(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext)=>prepareCreateTx(tx,await readDeployment(context.env),input,invocation),
+ prepareDestroyTx:async(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext)=>{const config=await readDeployment(context.env);return prepareDestroyTx(tx,bindProviderInvocation(database,config,invocation),config,input);},
  getIntent:async(id:string,invocation:InvocationContext)=>{const c=await readDeployment(context.env),db=bindProviderInvocation(database,c,invocation);const row=await intent(db,c.organisation_id,id);assertInvocationRun(db,row.run_id);return row;},readConfirmedAbsence
  },...(context.role==='provisioner'?{'provider.execution.v1':{
  registerDestructionPreflight:(reader:ProviderDestructionPreflight)=>{if(typeof reader!=='function'||database.runtime.destructionPreflight)fail('PROVIDER_REGISTRATION_CONFLICT','Destruction custody reader must be installed once');database.runtime.destructionPreflight=reader;return()=>{if(database.runtime.destructionPreflight===reader)delete database.runtime.destructionPreflight;};},

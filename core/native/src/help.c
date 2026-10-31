@@ -50,6 +50,20 @@ static const HelpGroup GROUPS[] = {
 #define NGROUPS (int)(sizeof GROUPS / sizeof GROUPS[0])
 
 static const HelpCmd HELP[] = {
+{ .group = "fleet", .name = "install", .args = "--job-context PATH | --package PATH --source-config PATH --envelope PATH",
+  .usage = "install --job-context PATH | --package PATH --source-config PATH --envelope PATH [--status] [--json]",
+  .summary = "prepare an admitted sandbox environment",
+  .detail = "Runs the prebuilt sandbox installer from the installed release "
+    "or source checkout. The authenticated envelope binds the package and "
+    "source configuration to its admitted environment generation. The "
+    "installed release uses its packaged Node runtime. Missing artifacts exit 69.",
+  .flags = "--job-context PATH\tauthenticated provider preparation-job context\n"
+    "--package PATH\tpackage.kvx environment manifest\n"
+    "--source-config PATH\t.neron source configuration\n"
+    "--envelope PATH\tauthenticated installation admission\n"
+    "--status\tread the installation operation status\n"
+    "--json\temit machine-readable output\n",
+  .examples = "hyperfide install --package package.kvx --source-config .neron --envelope admission.json" },
 { .group = "platform", .name = "platform", .args = "<args...>",
   .usage = "platform <args...>",
   .summary = "run the Hyperfide platform CLI",

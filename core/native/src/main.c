@@ -7,6 +7,7 @@ extern int hf_client_authority_guard_args(const char *operation,int argc,char **
 /* Codify CLI — see README.md */
 #include "cg.h"
 #include "platform_cmd.h"
+#include "install_cmd.h"
 #include "sem_flow.h"
 #include "sem_search.h"
 #include "sem_inspect.h"
@@ -178,6 +179,11 @@ static void index_fresh(Cg *cg, const SysInfo *si) {
 int main(int argc, char **argv) {
     const char *cmd = argc > 1 ? argv[1] : "";
     if (!strcmp(cmd, "platform")) return cmd_platform(argv + 1);
+    if (!strcmp(cmd, "install")) {
+        int hrc = help_route(argc, argv);
+        if (hrc >= 0) return hrc;
+        return cmd_install(argc - 1, argv + 1, argv[0]);
+    }
     bool canonical_workers = getenv("HYPERFIDE_INDEX_WORKERS") &&
                              getenv("HYPERFIDE_INDEX_WORKERS")[0];
     bool host_hook = argc >= 3 && !strcmp(cmd, "hook") &&

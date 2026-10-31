@@ -60,9 +60,11 @@ static int trusted_environment(const char *config_path){
  free(raw);free(env_raw);free(config);free(env);return ok;
 }
 typedef struct {char commit[65],tree[65],state[72],workspace[72];} MeasuredSource;
-static int readiness_unprivileged(const HfJson *job,int result,MeasuredSource *measured){
+static int readiness_unprivileged(const HfJson *job,int result,MeasuredSource *measured,long long deadline){
  if(geteuid()==0)return 0;
  int ready=hf_json_field(job,result,"readiness"),binding=hf_json_field(job,result,"binding");
+ int dialect=hf_json_field(job,ready,"kind");
+ if(dialect>=0){char kind[64];if(!hf_json_string(job,dialect,kind,sizeof kind)||strcmp(kind,"FLEET_MANIFEST_V1"))return 0;return hf_fleet_readiness_measure(job,result,deadline,measured->commit,measured->tree,measured->state,measured->workspace);}
  char boot[37],profile[72],preparation[72],expected_state[72],expected_workspace[72];
  if(!hf_component_11_3||ready<0||binding<0||!string_at(job,binding,"boot_id",boot,sizeof boot)||!string_at(job,ready,"profile_digest",profile,sizeof profile)||!string_at(job,ready,"preparation_digest",preparation,sizeof preparation)||!string_at(job,ready,"source_state_digest",expected_state,sizeof expected_state)||!string_at(job,ready,"workspace_digest",expected_workspace,sizeof expected_workspace))return 0;
  if(setenv("HF_EXECUTION_HOST_CLASS","remote",1)||setenv("HF_SANDBOX_BOOT_ID",boot,1)||setenv("HF_RUNNER_PROFILE_DIGEST",profile,1)||setenv("HF_RUNNER_PREPARATION_DIGEST",preparation,1))return 0;
@@ -87,7 +89,9 @@ static int readiness_unprivileged(const HfJson *job,int result,MeasuredSource *m
  * UID-generation lock as work and must leave that UID quiescent before return. */
 static int readiness(const HfJson *job,int result,const char *config_path,MeasuredSource *measured,
                      uid_t uid,gid_t gid,long long deadline,const char *operation){
- if(!trusted_environment(config_path)||mono()>=deadline)return 0;
+ int readiness_value=hf_json_field(job,result,"readiness");char readiness_kind[64]="";
+ string_at(job,readiness_value,"kind",readiness_kind,sizeof readiness_kind);int fleet_manifest=!strcmp(readiness_kind,"FLEET_MANIFEST_V1");
+ if(mono()>=deadline||(fleet_manifest?!hf_fleet_readiness_seals(job,result,deadline):!trusted_environment(config_path)))return 0;
  int descriptor[2],watch_writer=-1;if(pipe2(descriptor,O_CLOEXEC))return 0;
  pid_t watchdog=hf_slot_watchdog(uid,deadline,&watch_writer,operation);
  if(watchdog<0){close(descriptor[0]);close(descriptor[1]);return 0;}
@@ -104,7 +108,7 @@ static int readiness(const HfJson *job,int result,const char *config_path,Measur
   if(close_range(4,~0U,0)||setgroups(0,NULL)||setgid(gid)||setuid(uid)||
      prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0)||prctl(PR_SET_PDEATHSIG,SIGKILL)||getppid()!=supervisor||
      setenv("HOME",home,1)||setenv("TMPDIR",tmp,1))_exit(125);
-  MeasuredSource actual={0};int good=readiness_unprivileged(job,result,&actual);
+  MeasuredSource actual={0};int good=readiness_unprivileged(job,result,&actual,deadline);
   if(good&&write(3,&actual,sizeof actual)!=(ssize_t)sizeof actual)good=0;
   _exit(good?0:1);
  }
@@ -123,7 +127,15 @@ static int readiness(const HfJson *job,int result,const char *config_path,Measur
  close(descriptor[0]);int absent=terminate_uid(uid);
  int stopped=hf_slot_watchdog_finish(watchdog,&watch_writer);
  while(waitpid(-1,NULL,WNOHANG)>0){}
- return ok&&finished&&WIFEXITED(status)&&WEXITSTATUS(status)==0&&used==sizeof *measured&&absent&&stopped;
+ return ok&&finished&&WIFEXITED(status)&&WEXITSTATUS(status)==0&&used==sizeof *measured&&absent&&stopped&&(!fleet_manifest||hf_fleet_readiness_seals(job,result,deadline));
+}
+
+
+int hf_runner_measure_fleet_launch(const HfJson *plan,int result,uid_t uid,gid_t gid,long long deadline,const char *operation){
+ if(geteuid()!=0||!plan||!uid||!gid||!operation||!hf_uuid_valid(operation)||mono()>=deadline)return 0;
+ int ready=hf_json_field(plan,result,"readiness"),binding=hf_json_field(plan,result,"binding");char kind[64];int64_t actual_uid=0,actual_gid=0;
+ if(!string_at(plan,ready,"kind",kind,sizeof kind)||strcmp(kind,"FLEET_MANIFEST_V1")||!hf_json_i64(plan,hf_json_field(plan,binding,"uid"),&actual_uid)||actual_uid!=uid||!hf_json_i64(plan,hf_json_field(plan,binding,"gid"),&actual_gid)||actual_gid!=gid)return 0;
+ MeasuredSource measured={0};return readiness(plan,result,NULL,&measured,uid,gid,deadline,operation);
 }
 
 typedef struct {char *key,*value;} EnvEntry;
@@ -167,7 +179,7 @@ static int preparation_placement(const char *config){
  * name rules mirror env_name_ok and env_ref_ok in launch.c. */
 #define JOB_SECRETS 128
 #define JOB_SECRET_VALUE 65536
-typedef struct {int n;char name[JOB_SECRETS][129];char *value[JOB_SECRETS];} JobSecrets;
+typedef struct {int n;char name[JOB_SECRETS][129],reference[JOB_SECRETS][512],version[JOB_SECRETS][256];char *value[JOB_SECRETS];} JobSecrets;
 static JobSecrets job_secrets;
 static void job_secrets_clear(JobSecrets *s){for(int k=0;k<s->n;++k)if(s->value[k]){explicit_bzero(s->value[k],strlen(s->value[k]));free(s->value[k]);s->value[k]=NULL;}s->n=0;}
 static int job_env_word(char ch,int first){return (ch>='A'&&ch<='Z')||(ch>='a'&&ch<='z')||ch=='_'||(!first&&ch>='0'&&ch<='9');}
@@ -189,13 +201,16 @@ typedef enum {JOB_SECRETS_OK=0,JOB_SECRETS_INVALID,JOB_SECRETS_UNAVAILABLE} JobS
  * explicit plan.environment variable is invalid, as validatePlan refuses it. */
 static JobSecretsStatus job_secrets_capture(const HfJson *j,int plan,JobSecrets *s){
  job_secrets_clear(s);int object=hf_json_field(j,plan,"env_refs");if(object<0)return JOB_SECRETS_OK;
+ int preparation=hf_json_field(j,plan,"preparation"),binding=hf_json_field(j,preparation,"job_binding");char namespace[32]="";string_at(j,binding,"namespace",namespace,sizeof namespace);int fleet_install=!strcmp(namespace,"FLEET_INSTALL");
  if(j->tokens[object].type!='{'||j->tokens[object].count>2*JOB_SECRETS)return JOB_SECRETS_INVALID;
  int explicit=hf_json_field(j,plan,"environment");
  for(int key=object+1;key<j->tokens[object].next;key=j->tokens[key+1].next){char name[129],ref[512];
   if(s->n>=JOB_SECRETS||!hf_json_string(j,key,name,sizeof name)||!job_secret_name_ok(name)||!hf_json_string(j,key+1,ref,sizeof ref)||!job_secret_ref_ok(ref))return JOB_SECRETS_INVALID;
   for(int k=0;k<s->n;++k)if(!strcmp(s->name[k],name))return JOB_SECRETS_INVALID;
   if(explicit>=0&&hf_json_field(j,explicit,name)>=0)return JOB_SECRETS_INVALID;
-  snprintf(s->name[s->n],sizeof s->name[0],"%s",name);s->value[s->n]=NULL;
+  snprintf(s->name[s->n],sizeof s->name[0],"%s",name);snprintf(s->reference[s->n],sizeof s->reference[0],"%s",ref);s->version[s->n][0]=0;
+  if(fleet_install&&!strncmp(name,"FLEET_CONFIG_",13)&&(!hf_json_string(j,hf_json_field(j,hf_json_field(j,plan,"env_ref_versions"),name),s->version[s->n],sizeof s->version[0])||!s->version[s->n][0]))return JOB_SECRETS_INVALID;
+  s->value[s->n]=NULL;
   const char *v=getenv(name);++s->n;
   if(!v||!*v||strlen(v)>JOB_SECRET_VALUE||!(s->value[s->n-1]=strdup(v)))return JOB_SECRETS_UNAVAILABLE;
  }
@@ -203,10 +218,10 @@ static JobSecretsStatus job_secrets_capture(const HfJson *j,int plan,JobSecrets 
 }
 /* The job child's whole environment: base variables, the plan's explicit
  * environment, then the resolved secret variables. Runs in the child only. */
-static int job_child_environment(const char *home,const char *tmp,const EnvEntry *env,int env_count,const JobSecrets *secrets){
+static int job_child_environment(const char *home,const char *tmp,const EnvEntry *env,int env_count,const JobSecrets *secrets,int fleet_install){
  if(clearenv()||setenv("PATH","/usr/local/bin:/usr/bin:/bin",1)||setenv("HOME",home,1)||setenv("TMPDIR",tmp,1))return 0;
  for(int k=0;k<env_count;++k)if(setenv(env[k].key,env[k].value,1))return 0;
- for(int k=0;k<secrets->n;++k)if(!secrets->value[k]||setenv(secrets->name[k],secrets->value[k],1))return 0;
+ for(int k=0;k<secrets->n;++k){if(fleet_install&&!strncmp(secrets->name[k],"FLEET_CONFIG_",13))continue;if(!secrets->value[k]||setenv(secrets->name[k],secrets->value[k],1))return 0;}
  return 1;
 }
 static int job_execute(const char *request,FILE *out);
@@ -264,7 +279,8 @@ static int job_execute(const char *request,FILE *out){
   if(read(gate[0],&release,1)!=1||release!='G')_exit(125);
   if(dup2(pipes_in[0],0)<0||dup2(pipes_out[1],1)<0||dup2(pipes_err[1],2)<0||fchdir(cwd))_exit(125);
   char home[4096],tmp[4096];if(!string_at(job,binding,"home_path",home,sizeof home)||!string_at(job,binding,"tmp_path",tmp,sizeof tmp))_exit(125);
-  if(!job_child_environment(home,tmp,env,env_count,&job_secrets))_exit(125);
+  int preparation=hf_json_field(job,plan,"preparation"),job_binding=hf_json_field(job,preparation,"job_binding");char namespace[32]="";string_at(job,job_binding,"namespace",namespace,sizeof namespace);
+  if(!job_child_environment(home,tmp,env,env_count,&job_secrets,preparing&&!strcmp(namespace,"FLEET_INSTALL")))_exit(125);
   if(setgroups(0,NULL)||setgid((gid_t)gid)||setuid((uid_t)uid)||prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0))_exit(125);
   struct rlimit process_limit={512,512},file_limit={512,512};if(setrlimit(RLIMIT_NPROC,&process_limit)||setrlimit(RLIMIT_NOFILE,&file_limit))_exit(125);
   umask(077);if(prctl(PR_SET_PDEATHSIG,SIGKILL)||getppid()!=parent)_exit(125);
@@ -303,6 +319,14 @@ static int job_execute(const char *request,FILE *out){
  }
  if(input_open)close(pipes_in[1]);
  free(stdin_bytes);int absent=terminate_uid((uid_t)uid);hf_slot_watchdog_finish(watchdog,&watch_writer);long long measured_end=mono();if(!utc_now(ended_at)){sqlite3_close(db);return hf_native_error(out,"CLOCK_UNAVAILABLE");}while(waitpid(-1,NULL,WNOHANG)>0){}if(!eof[0])close(pipes_out[0]);if(!eof[1])close(pipes_err[0]);
+ char *fleet_isolation=NULL,*fleet_readiness=NULL;
+ HfFleetSecret fleet_secrets[JOB_SECRETS];size_t fleet_secret_count=0;
+ for(int k=0;k<job_secrets.n;k++)if(!strncmp(job_secrets.name[k],"FLEET_CONFIG_",13))fleet_secrets[fleet_secret_count++]=(HfFleetSecret){job_secrets.name[k],job_secrets.reference[k],job_secrets.version[k],job_secrets.value[k]};
+ if(preparing&&exit_code==0&&!timed_out&&!interrupted&&!truncated&&absent){
+  if(!hf_runner_finalize_fleet_install(job,result,&stage,stdout_bytes,sizes[0],fleet_secrets,fleet_secret_count,deadline,&fleet_isolation)||fleet_isolation&&!hf_runner_finalize_fleet_readiness(job,result,&stage,stdout_bytes,sizes[0],deadline,&fleet_readiness)){interrupted=1;exit_code=125;}
+ }
+ if(mono()>=deadline){interrupted=1;timed_out=1;}
+ measured_end=mono();if(!utc_now(ended_at)){sqlite3_close(db);return hf_native_error(out,"CLOCK_UNAVAILABLE");}
  char *receipt=NULL;size_t receipt_length=0;FILE *writer=open_memstream(&receipt,&receipt_length);char *raw_argv=hf_json_raw(job,array),*raw_cwd=hf_json_raw(job,hf_json_field(job,plan,"cwd"));
  if(!writer||!raw_argv||!raw_cwd){sqlite3_close(db);return hf_native_error(out,"RECEIPT_UNAVAILABLE");}
  fprintf(writer,"{\"execution_plane\":\"REMOTE\",\"operation_id\":\"%s\",\"argv\":%s,\"cwd\":",operation,raw_argv);fputs(raw_cwd,writer);fputs(",\"requested_cwd\":",writer);fputs(raw_cwd,writer);fputs(",\"workspace_path\":",writer);hf_json_write_string(writer,workspace);
@@ -328,12 +352,14 @@ static int job_execute(const char *request,FILE *out){
   fputc('{',writer);for(unsigned k=0;k<7;++k){if(k)fputc(',',writer);hf_json_write_string(writer,names[k]);fputc(':',writer);hf_json_write_string(writer,values[k]);}
   fprintf(writer,",\"context_digest\":\"sha256:%s\",\"node_digest\":\"%s\",\"recipe_digest\":\"%s\",\"uid\":%lu,\"gid\":%lu}",context_digest,stage.node_digest,stage.recipe_digest,(unsigned long)stage.uid,(unsigned long)stage.gid);}
  else fputs("null",writer);
+ if(fleet_isolation){fputs(",\"fleet_isolation\":",writer);fputs(fleet_isolation,writer);}
+ if(fleet_readiness){fputs(",\"fleet_readiness\":",writer);fputs(fleet_readiness,writer);}
  fputc('}',writer);int closed=fclose(writer)==0;
  char receipt_digest[65],*encoded=closed&&hf_sha256_bytes(receipt,receipt_length,receipt_digest)?hf_base64url((const unsigned char*)receipt,receipt_length):NULL;
  int persisted=encoded&&hf_private_write(receipt_path,receipt,receipt_length,0);
  if(persisted&&sqlite3_prepare_v2(db,"UPDATE jobs SET state='TERMINAL' WHERE id=?",-1,&q,NULL)==SQLITE_OK){sqlite3_bind_text(q,1,operation,-1,SQLITE_STATIC);sqlite3_step(q);}sqlite3_finalize(q);sqlite3_close(db);
  for(int k=0;k<argc;++k)free(argv[k]);
- free(argv);for(int k=0;k<64;++k){free(env[k].key);free(env[k].value);}close(root);close(cwd);free(raw_argv);free(raw_cwd);free(stdout_bytes);free(stderr_bytes);free(receipt);hf_http_response_free(&response);free(job);
+ free(argv);for(int k=0;k<64;++k){free(env[k].key);free(env[k].value);}close(root);close(cwd);free(raw_argv);free(raw_cwd);free(stdout_bytes);free(stderr_bytes);free(fleet_isolation);free(fleet_readiness);free(receipt);hf_http_response_free(&response);free(job);
  if(!persisted){free(encoded);return hf_native_error(out,"DURABLE_RECEIPT_UNAVAILABLE");}
  fprintf(out,"{\"schema_version\":1,\"receipt_json_b64\":\"%s\",\"receipt_digest\":\"sha256:%s\",\"qualification\":\"INCOMPLETE\"}",encoded,receipt_digest);free(encoded);return 0;
 }

@@ -26,6 +26,7 @@ export interface TaskRunner {
   ): Promise<RunnerResult>;
 }
 export interface DispatcherOptions {
+  planning?: "manager" | "legacy-nonadaptive";
   directory: string;
   storage?: import("@hyperfide/authority").PluginStorage;
   machines: SandboxMachineOps;

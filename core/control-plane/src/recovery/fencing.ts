@@ -284,6 +284,7 @@ export interface GreenfieldTopology {
 export interface GreenfieldInventory {
  scope:ProviderScope;transport:'AVAILABLE'|'UNAVAILABLE';enumeration_complete:boolean;
  items:{native_sandbox_id:string;provider_state:string}[];observed_at:string;
+ provenance?:{schema_version:1;scope_kind:'OWNED_POOL_NAMESPACE';namespace_digest:string;scope_digest:string;api_version:string;account_items:number;excluded_items:number;pages:number;consistency:'BEST_EFFORT'};
 }
 export interface GreenfieldDatabaseObservation {
  authority_history:number;counts:{sandboxes:number;sandbox_boots:number;provider_pools:number;runs:number};observed_at:string;
@@ -339,6 +340,13 @@ export function createGreenfieldWriterFence(config:GreenfieldTopology,probe:Gree
     const observed=await probe.inventory(structuredClone(s),signal);
     if(!object(observed)||canonical(observed.scope)!==canonical(s)||!['AVAILABLE','UNAVAILABLE'].includes(observed.transport)||typeof observed.enumeration_complete!=='boolean'||!Array.isArray(observed.items)||observed.items.some(i=>!object(i)||typeof i.native_sandbox_id!=='string'||typeof i.provider_state!=='string'))
      fail('GREENFIELD_EMPTINESS_UNPROVEN','Provider inventory is not bound to the configured pool');
+    if(s.provider==='blaxel'){
+     const provenance=observed.provenance;
+     if(!object(provenance)||Object.keys(provenance).sort().join()!==['schema_version','scope_kind','namespace_digest','scope_digest','api_version','account_items','excluded_items','pages','consistency'].sort().join()||
+      provenance.schema_version!==1||provenance.scope_kind!=='OWNED_POOL_NAMESPACE'||!digest(provenance.namespace_digest)||provenance.scope_digest!==hash(s)||provenance.api_version!=='2026-04-28'||
+      !count(provenance.account_items)||!count(provenance.excluded_items)||!count(provenance.pages)||provenance.pages<1||provenance.pages>500||provenance.account_items!==provenance.excluded_items+observed.items.length||provenance.consistency!=='BEST_EFFORT')
+      fail('GREENFIELD_EMPTINESS_UNPROVEN','Blaxel inventory must distinguish the signed owned namespace from the fully enumerated account');
+    }
     time(observed.observed_at);inventories.push(structuredClone(observed));
    }
    if(inventories.some(v=>v.items.some(i=>i.provider_state!=='DESTROYED')))fail('GREENFIELD_NOT_EMPTY','A configured provider pool still holds a sandbox');

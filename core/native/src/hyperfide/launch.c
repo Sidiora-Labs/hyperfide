@@ -209,7 +209,24 @@ static int uid_processes(uid_t uid,HfProcessIdentity *list,size_t capacity) {
  while((entry=readdir(dir))){char *end;long pid=strtol(entry->d_name,&end,10);if(*end||pid<=0||pid>INT_MAX)continue;HfProcessIdentity p;if(hf_process_identity((pid_t)pid,&p)&&p.uid==uid&&p.state!='Z'&&p.state!='X'){if(count>=capacity){closedir(dir);return -1;}list[count++]=p;}}
  closedir(dir);return (int)count;
 }
+static int fetch_connector_plan(RunnerConfig *c,const Instruction *i){
+ char *existing=NULL;size_t existing_size=0;char digest[65];HfJson *j=calloc(1,sizeof *j);
+ if(!j)return 0;
+ int legacy=hf_private_read(c->plan,HF_BODY_LIMIT,&existing,&existing_size)&&hf_sha256_bytes(existing,existing_size,digest)&&!strcmp(digest,i->plan_digest+7)&&hf_json_parse(j,existing)&&hf_json_field(j,0,"fleet_binding")<0;
+ free(existing);if(legacy){free(j);return 1;}
+ char request[128];snprintf(request,sizeof request,"{\"command_id\":\"%s\",\"launch_id\":\"%s\"}",i->command,i->launch);HfHttpResponse response={0};int ok=api(c,"13.4.dispatch","agent.launch-plan.fetch",request,&response)&&result_json(&response,j),r=ok?hf_json_field(j,0,"result"):-1;char actual[80];
+ ok=ok&&hf_json_string(j,hf_json_field(j,r,"command_id"),actual,sizeof actual)&&!strcmp(actual,i->command)&&hf_json_string(j,hf_json_field(j,r,"launch_id"),actual,sizeof actual)&&!strcmp(actual,i->launch)&&hf_json_string(j,hf_json_field(j,r,"connector_plan_digest"),actual,sizeof actual)&&!strcmp(actual,i->plan_digest);
+ int token=ok?hf_json_field(j,r,"plan_base64"):-1;char *encoded=token>=0?malloc((size_t)(j->tokens[token].end-j->tokens[token].start)+1):NULL;
+ ok=ok&&encoded&&hf_json_string(j,token,encoded,(size_t)(j->tokens[token].end-j->tokens[token].start)+1)&&hf_fleet_launch_store(c->state,i->launch,encoded,i->plan_digest,c->plan,sizeof c->plan);
+ char snapshot[4200];if(ok)ok=snprintf(snapshot,sizeof snapshot,"%s/connector-profile-%s.json",c->state,i->launch)<(int)sizeof snapshot&&setenv("HF_NATIVE_AUTH_SNAPSHOT_FILE",snapshot,1)==0;
+ free(encoded);free(j);hf_http_response_free(&response);return ok;
+}
 static int slot_identity(const RunnerConfig *c,Instruction *i) {
+ char *manifest=NULL;size_t manifest_size=0;HfJson *planned=calloc(1,sizeof *planned);int fleet=0,valid=0;
+ if(planned&&hf_private_read(c->plan,HF_BODY_LIMIT,&manifest,&manifest_size)&&hf_json_parse(planned,manifest))fleet=hf_json_field(planned,0,"fleet_binding")>=0;
+ if(fleet)valid=hf_fleet_launch_identity(planned,c->organisation,c->run,c->sandbox,c->boot,c->generation,i->slot,i->attempt,i->attempt_generation,i->deadline_ns,i->command,&i->uid,&i->gid);
+ free(manifest);free(planned);if(fleet){HfProcessIdentity active[1024];return valid&&uid_processes(i->uid,active,1024)==0;}
+
  char path[4200];snprintf(path,sizeof path,"%s/.supervisor-slots.db",c->slots);struct stat st;if(lstat(path,&st)||!S_ISREG(st.st_mode)||st.st_uid!=0||(st.st_mode&077))return 0;
  sqlite3 *db=NULL;sqlite3_stmt *q=NULL;int ok=sqlite3_open_v2(path,&db,SQLITE_OPEN_READONLY,NULL)==SQLITE_OK&&sqlite3_prepare_v2(db,"SELECT uid,gid,boot_id,state FROM slots WHERE id=?",-1,&q,NULL)==SQLITE_OK;
  if(ok){sqlite3_bind_text(q,1,i->slot,-1,SQLITE_STATIC);ok=sqlite3_step(q)==SQLITE_ROW&&sqlite3_column_int64(q,0)>0&&sqlite3_column_int64(q,1)>0&&!strcmp((const char*)sqlite3_column_text(q,2),c->boot)&&!strcmp((const char*)sqlite3_column_text(q,3),"READY");if(ok){i->uid=(uid_t)sqlite3_column_int64(q,0);i->gid=(gid_t)sqlite3_column_int64(q,1);}}
@@ -224,12 +241,29 @@ static int hash_fd(int fd,char digest[65]) {
  ok=ok&&n==0&&EVP_DigestFinal_ex(ctx,hash,&size)==1&&size==32;EVP_MD_CTX_free(ctx);
  if(ok){for(unsigned k=0;k<32;++k)snprintf(digest+k*2,3,"%02x",hash[k]);ok=lseek(fd,0,SEEK_SET)==0;}return ok;
 }
+int hf_connector_gateway_policy(const char *auth,const char *digest);
+int hf_connector_gateway_matches(const char *auth,const char *digest,const char *endpoint,const char *provider,const char *reference,const char *home,const char *base,const char *model);
+static int gateway_plan_environment(const Instruction *i,const HfJson *plan,const char *home){
+ char auth[129]="",profile_digest[72]="";int gateway=hf_json_field(plan,0,"gateway"),env=hf_json_field(plan,0,"environment");
+ hf_json_get(plan,"auth_profile",auth,sizeof auth);hf_json_get(plan,"profile_digest",profile_digest,sizeof profile_digest);
+ int required=hf_connector_gateway_policy(auth,profile_digest);
+ int base_field=env>=0?hf_json_field(plan,env,"ANTHROPIC_BASE_URL"):-1,model_field=env>=0?hf_json_field(plan,env,"ANTHROPIC_MODEL"):-1;
+ if(required<0)return 0;if(gateway<0)return required==0&&base_field<0&&model_field<0;
+ const char *keys[]={"messages_endpoint","provider_id","credential_reference"};char endpoint[4096],provider[255],reference[256],base[4096],model[255];
+ if(!hf_json_only(plan,gateway,keys,3)||!hf_json_string(plan,hf_json_field(plan,gateway,"messages_endpoint"),endpoint,sizeof endpoint)||!hf_json_string(plan,hf_json_field(plan,gateway,"provider_id"),provider,sizeof provider)||!hf_json_string(plan,hf_json_field(plan,gateway,"credential_reference"),reference,sizeof reference)||!hf_json_string(plan,base_field,base,sizeof base)||!hf_json_string(plan,model_field,model,sizeof model)||!hf_connector_gateway_matches(auth,profile_digest,endpoint,provider,reference,home,base,model))return 0;
+ HfJson *body=malloc(sizeof *body);char actual_ref[512],expected_ref[512];snprintf(expected_ref,sizeof expected_ref,"secret-ref:%s",reference);
+ int ok=body&&hf_json_parse(body,i->body),refs=ok?hf_json_field(body,0,"env_refs"):-1;
+ ok=ok&&refs>=0&&hf_json_string(body,hf_json_field(body,refs,"ANTHROPIC_AUTH_TOKEN"),actual_ref,sizeof actual_ref)&&!strcmp(actual_ref,expected_ref)&&hf_json_field(body,refs,"ANTHROPIC_API_KEY")<0&&hf_json_field(body,refs,"CLAUDE_CODE_OAUTH_TOKEN")<0;free(body);return ok;
+}
 static int read_plan(const RunnerConfig *c,const Instruction *i,HfJson *j,char **source,char ***argv,int *binary) {
  size_t n=0;char hash[65],expected[72],cwd[4096],home[4096],tmp[4096],path[4200];int dispatch=0,supervised=0;
  if(!hf_private_read(c->plan,HF_BODY_LIMIT,source,&n)||!hf_sha256_bytes(*source,n,hash)||strcmp(hash,i->plan_digest+7)||!hf_json_parse(j,*source)||
  !hf_json_bool(j,hf_json_field(j,0,"dispatch_eligible"),&dispatch)||!dispatch||!hf_json_bool(j,hf_json_field(j,0,"requires_supervisor"),&supervised)||!supervised||
  !hf_json_get(j,"binary_digest",expected,sizeof expected)||strlen(expected)!=71||strncmp(expected,"sha256:",7)||!hf_json_get(j,"cwd",cwd,sizeof cwd)||!hf_json_get(j,"home",home,sizeof home)||!hf_json_get(j,"temp",tmp,sizeof tmp))return 0;
- snprintf(path,sizeof path,"%s/%s/worktree",c->slots,i->slot);if(strcmp(cwd,path))return 0;snprintf(path,sizeof path,"%s/%s/home",c->slots,i->slot);if(strcmp(home,path))return 0;snprintf(path,sizeof path,"%s/%s/tmp",c->slots,i->slot);if(strcmp(tmp,path))return 0;
+ if(hf_json_field(j,0,"fleet_binding")>=0){
+ int b=hf_json_field(j,0,"binding");if(!hf_json_string(j,hf_json_field(j,b,"workspace_path"),path,sizeof path)||strcmp(cwd,path)||!hf_json_string(j,hf_json_field(j,b,"home_path"),path,sizeof path)||strcmp(home,path)||!hf_json_string(j,hf_json_field(j,b,"tmp_path"),path,sizeof path)||strcmp(tmp,path))return 0;
+ }else{snprintf(path,sizeof path,"%s/%s/worktree",c->slots,i->slot);if(strcmp(cwd,path))return 0;snprintf(path,sizeof path,"%s/%s/home",c->slots,i->slot);if(strcmp(home,path))return 0;snprintf(path,sizeof path,"%s/%s/tmp",c->slots,i->slot);if(strcmp(tmp,path))return 0;}
+ if(!gateway_plan_environment(i,j,home))return 0;
  int array=hf_json_field(j,0,"argv");if(array<0||j->tokens[array].type!='['||j->tokens[array].count<1||j->tokens[array].count>256)return 0;
  *argv=calloc((size_t)j->tokens[array].count+1,sizeof(char*));if(!*argv)return 0;int k=0;
  for(int t=array+1;t<j->tokens[array].next;t=j->tokens[t].next){(*argv)[k]=malloc(4096);if(!(*argv)[k]||!hf_json_string(j,t,(*argv)[k],4096))return 0;++k;}
@@ -250,7 +284,7 @@ static void env_refs_clear(EnvRefs *r){for(int k=0;k<r->n;++k)if(r->value[k]){ex
 static int env_word(char ch,int first){return (ch>='A'&&ch<='Z')||(ch>='a'&&ch<='z')||ch=='_'||(!first&&ch>='0'&&ch<='9');}
 static int env_name_ok(const char *s){
  size_t n=strlen(s);if(!n||n>128)return 0;for(size_t k=0;k<n;++k)if(!env_word(s[k],k==0))return 0;
- static const char *const reserved[]={"PATH","HOME","TMPDIR","CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS"};
+ static const char *const reserved[]={"PATH","HOME","TMPDIR","CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS","ANTHROPIC_BASE_URL","ANTHROPIC_MODEL"};
  for(unsigned k=0;k<sizeof reserved/sizeof *reserved;++k)if(!strcmp(s,reserved[k]))return 0;
  return strncmp(s,"HF_",3)&&strncmp(s,"LD_",3)&&strncmp(s,"DYLD_",5);
 }
@@ -316,8 +350,9 @@ static pid_t spawn_agent(const Instruction *i,HfJson *plan,char **argv,int binar
   if(dup2(input[0],0)<0||dup2(output[1],1)<0||dup2(error[1],2)<0)_exit(125);
   char cwd[4096],home[4096],tmp[4096];if(!hf_json_get(plan,"cwd",cwd,sizeof cwd)||!hf_json_get(plan,"home",home,sizeof home)||!hf_json_get(plan,"temp",tmp,sizeof tmp))_exit(125);
   if(clearenv()||setenv("PATH","/usr/local/bin:/usr/bin:/bin",1)||setenv("HOME",home,1)||setenv("TMPDIR",tmp,1)||setenv("HF_JOB_HOME",home,1)||setenv("HF_JOB_TMPDIR",tmp,1))_exit(125);
-  int env=hf_json_field(plan,0,"environment");const char *allowed[]={"CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS"};
-  if(env>=0){if(!hf_json_only(plan,env,allowed,4))_exit(125);for(unsigned k=0;k<4;++k){char value[4096];int t=hf_json_field(plan,env,allowed[k]);if(t>=0&&(!hf_json_string(plan,t,value,sizeof value)||setenv(allowed[k],value,1)))_exit(125);}}
+  int env=hf_json_field(plan,0,"environment");const char *allowed[]={"CODEX_HOME","CLAUDE_CONFIG_DIR","SSL_CERT_FILE","NODE_EXTRA_CA_CERTS","ANTHROPIC_BASE_URL","ANTHROPIC_MODEL"};
+  if(env>=0){if(!hf_json_only(plan,env,allowed,6))_exit(125);for(unsigned k=0;k<6;++k){char value[4096];int t=hf_json_field(plan,env,allowed[k]);if(t>=0&&(!hf_json_string(plan,t,value,sizeof value)||setenv(allowed[k],value,1)))_exit(125);}}
+  if(hf_json_field(plan,0,"gateway")>=0){int token=-1;for(int k=0;refs&&k<refs->n;++k)if(!strcmp(refs->name[k],"ANTHROPIC_AUTH_TOKEN"))token=k;if(token<0||!refs->value[token])_exit(125);}
   for(int k=0;refs&&k<refs->n;++k)if(refs->value[k]&&setenv(refs->name[k],refs->value[k],1))_exit(125);
   if(setgroups(0,NULL)||setgid(i->gid)||setuid(i->uid)||chdir(cwd)||prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0))_exit(125);
   umask(0077);if(prctl(PR_SET_PDEATHSIG,SIGKILL)||getppid()!=parent)_exit(125);if(binary!=3&&dup3(binary,3,O_CLOEXEC)<0)_exit(125);
@@ -490,6 +525,18 @@ static int native_scan(sqlite3 *db,const RunnerConfig *c,const Instruction *i,Na
 static int native_scan_end(sqlite3 *db,const RunnerConfig *c,const Instruction *i,NativeScan *scan,HfJson *j){
  int queued=scan->line&&j&&scan->n?native_line(db,c,i,scan,j):0;scan->n=0;scan->overflow=0;return queued;
 }
+static int deliver_initial_input(sqlite3 *db,const HfJson *plan,const Instruction *i,int fd,int *eof){
+ int token=hf_json_field(plan,0,"initial_input_base64");if(token<0)return 1;
+ char expected[72],packet[72],declared[72],actual[65];char *encoded=malloc((size_t)(plan->tokens[token].end-plan->tokens[token].start)+1);size_t size=0;
+ int ok=encoded&&hf_json_string(plan,token,encoded,(size_t)(plan->tokens[token].end-plan->tokens[token].start)+1)&&hf_json_get(plan,"initial_input_digest",expected,sizeof expected)&&hf_json_get(plan,"initial_packet_digest",packet,sizeof packet)&&hf_json_get(plan,"packet_digest",declared,sizeof declared)&&!strcmp(packet,declared);
+ unsigned char *bytes=ok?hf_base64url_decode(encoded,&size):NULL;free(encoded);
+ ok=ok&&bytes&&size&&size<=262144&&!memchr(bytes,0,size)&&hf_sha256_bytes(bytes,size,actual)&&strlen(expected)==71&&!strncmp(expected,"sha256:",7)&&!strcmp(actual,expected+7)&&frame_reserve(db,i->command,i->launch,expected)==1;
+ size_t sent=0;long long end=monotonic_ns()+30000000000LL;if(end>i->deadline_ns)end=i->deadline_ns;
+ while(ok&&sent<size&&monotonic_ns()<end){ssize_t n=write(fd,bytes+sent,size-sent);if(n>0)sent+=(size_t)n;else if(n<0&&(errno==EINTR||errno==EAGAIN)){struct pollfd p={fd,POLLOUT,0};(void)poll(&p,1,10);}else ok=0;}
+ sqlite3_stmt *q=NULL;const char *state=ok&&sent==size?"WRITTEN_UNACKNOWLEDGED":"UNCERTAIN";
+ int saved=sqlite3_prepare_v2(db,"UPDATE frames SET state=? WHERE id=? AND launch=?",-1,&q,NULL)==SQLITE_OK;if(saved){sqlite3_bind_text(q,1,state,-1,SQLITE_STATIC);sqlite3_bind_text(q,2,i->command,-1,SQLITE_STATIC);sqlite3_bind_text(q,3,i->launch,-1,SQLITE_STATIC);saved=sqlite3_step(q)==SQLITE_DONE&&sqlite3_changes(db)==1;}sqlite3_finalize(q);free(bytes);
+ if(ok&&sent==size&&saved){close(fd);*eof=1;return 1;}return 0;
+}
 static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char **argv,int binary,int ready,EnvRefs *refs) {
  signal(SIGPIPE,SIG_IGN);signal(SIGTERM,SIG_DFL);prctl(PR_SET_CHILD_SUBREAPER,1);setsid();
  int nullfd=open("/dev/null",O_RDWR|O_CLOEXEC);if(nullfd<0)_exit(125);
@@ -514,11 +561,12 @@ static void broker(const RunnerConfig *c,const Instruction *i,HfJson *plan,char 
  identity=identity&&running&&queue_event(db,c,i->launch,i->command,"launch.running",running);free(running);
  if(!identity||!queue_ack(db,c,i,2,"EXECUTING",&ap)||monotonic_ns()>=i->deadline_ns||write(gate[1],"G",1)!=1){kill(agent,SIGKILL);close(gate[1]);waitpid(agent,NULL,0);goto failed;}close(gate[1]);
  fcntl(input[1],F_SETFL,O_NONBLOCK);fcntl(output[0],F_SETFL,O_NONBLOCK);fcntl(error[0],F_SETFL,O_NONBLOCK);
+ int initial_eof=0;if(!deliver_initial_input(db,plan,i,input[1],&initial_eof)){stop_uid(i->uid);goto failed;}
  /* ACKs keep the EXECUTING identity the coordinator pinned; observations follow the live agent. */
  HfProcessIdentity live=ap;
  if(write(ready,"R",1)!=1){/* Controller loss is not cancellation. */}close(ready);ready=-1;
  long long deadline=i->deadline_ns,next_refresh=0,terminal_at=0;
- const char *state="RUNNING";int exit_code=-1,stdin_open=1;unsigned long long bytes_out=0,bytes_err=0;char stopped_by[37]="";
+ const char *state="RUNNING";int exit_code=-1,stdin_open=!initial_eof;unsigned long long bytes_out=0,bytes_err=0;char stopped_by[37]="";
  for(;;){
   long long now=monotonic_ns();
   if(!strcmp(state,"RUNNING")&&now>=deadline){if(stdin_open){close(input[1]);stdin_open=0;}stop_uid(i->uid);hf_slot_watchdog_finish(watchdog,&watch_write);state="LEASE_EXPIRED";state_update(db,i->launch,state,exit_code);if(!queue_ack(db,c,i,3,"TERMINAL",&ap)){stop_uid(i->uid);state="UNCERTAIN";state_update(db,i->launch,state,exit_code);}}
@@ -610,7 +658,8 @@ static int fenced(sqlite3 *db,const char *launch) {
  sqlite3_stmt *q=NULL;int found=sqlite3_prepare_v2(db,"SELECT 1 FROM fences WHERE launch=?",-1,&q,NULL)==SQLITE_OK;
  if(found){sqlite3_bind_text(q,1,launch,-1,SQLITE_STATIC);found=sqlite3_step(q)==SQLITE_ROW;}sqlite3_finalize(q);return found;
 }
-static int launch_start(const RunnerConfig *c,Instruction *i,FILE *out) {
+static int launch_start(const RunnerConfig *original,Instruction *i,FILE *out) {
+ RunnerConfig local=*original;const RunnerConfig *c=&local;
  last_refusal="";
  if(strcmp(i->kind,"START"))return refuse(out,"NOT_A_START_INSTRUCTION");
  sqlite3 *db=ledger(c);if(!db)return refuse(out,"LEDGER_UNAVAILABLE");sqlite3_stmt *q=NULL;
@@ -626,7 +675,7 @@ static int launch_start(const RunnerConfig *c,Instruction *i,FILE *out) {
  int lock=launch_lock(c->state,i->launch,1,NULL);
  if(lock<0){sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);return refuse(out,"LAUNCH_OWNER_ACTIVE");}
  HfJson *plan=NULL;char *plan_source=NULL,**argv=NULL,*identity=NULL,*accepted_data=NULL;int binary=-1,accepted=0,refs_status=0;EnvRefs refs={0};const char *code="DURABLE_ACCEPTANCE_FAILED";size_t n=0;
- if(!slot_identity(c,i)||!placement(c,"runner.agent.launch","implementation","native.spawn"))code="SLOT_OR_PLACEMENT_NOT_CURRENT";
+ if(!fetch_connector_plan(&local,i)||!placement(c,"runner.agent.launch","implementation","native.spawn")||!slot_identity(c,i))code="SLOT_OR_PLACEMENT_NOT_CURRENT";
  else if(!(plan=malloc(sizeof *plan))||!read_plan(c,i,plan,&plan_source,&argv,&binary))code="CONNECTOR_PLAN_NOT_QUALIFIED";
  else if((refs_status=start_env_refs(i,&refs)))code=refs_status==1?"SECRET_REFERENCES_INVALID":"SECRET_REFERENCE_UNAVAILABLE";
  else {
@@ -788,7 +837,7 @@ static void process_instruction(const RunnerConfig *c,Instruction *i,ServeStats 
  sqlite3_close(db);free(result);
 }
 /* One bounded poll of the 6.3 runner command route over the 12.1 transport. */
-static int poll_once(const RunnerConfig *c,ServeStats *st) {
+static int poll_once(const RunnerConfig *c,ServeStats *st,const char *only_launch) {
  char input[256];snprintf(input,sizeof input,"{\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"limit\":8,\"lease_ms\":5000}",c->organisation,c->run);
  long long started=monotonic_ns();HfHttpResponse response={0};HfJson *j=malloc(sizeof *j);int ok=j&&api(c,"6.3","instructions.runner.poll",input,&response)&&result_json(&response,j);
  int r=ok?hf_json_field(j,0,"result"):-1;char value[128];
@@ -800,7 +849,7 @@ static int poll_once(const RunnerConfig *c,ServeStats *st) {
   for(int t=commands+1;t<j->tokens[commands].next;t=j->tokens[t].next){Instruction i;memset(&i,0,sizeof i);++st->commands;
    if(!atstring(j,t,"event_id",i.event,sizeof i.event)||!hf_uuid_valid(i.event)||!atstring(j,t,"consumer_id",value,sizeof value)||strcmp(value,c->consumer)||
     !parse_packet(c,j,hf_json_field(j,t,"packet"),&i,started)||strcmp(i.command,i.event)){++st->invalid;free(i.body);continue;}
-   process_instruction(c,&i,st);free(i.body);
+   if(!only_launch||!strcmp(i.launch,only_launch))process_instruction(c,&i,st);free(i.body);
   }
  }
  free(j);hf_http_response_free(&response);return ok;
@@ -819,7 +868,7 @@ static int serve(const RunnerConfig *c,long long run_seconds,long long interval_
  long long end=monotonic_ns()+run_seconds*1000000000LL,backoff=0;
  while(!serve_stop&&monotonic_ns()<end){
   ++st.rounds;while(waitpid(-1,NULL,WNOHANG)>0){}
-  int ok=poll_once(c,&st);if(ok)++st.polls_ok;
+  int ok=poll_once(c,&st,NULL);if(ok)++st.polls_ok;
   sqlite3 *db=ledger(c);if(db){if(!flush_outbox(db,c,NULL,NULL,8,&st.acks,&st.events))ok=0;sqlite3_close(db);}
   if(ok){backoff=0;pause_ms(interval_ms,end);}
   else {++st.poll_failures;backoff=backoff?(backoff*2>8000?8000:backoff*2):250;if(backoff>st.max_backoff_ms)st.max_backoff_ms=backoff;pause_ms(backoff,end);}
@@ -828,6 +877,24 @@ static int serve(const RunnerConfig *c,long long run_seconds,long long interval_
  fprintf(out,"{\"rounds\":%d,\"polls_ok\":%d,\"poll_failures\":%d,\"max_backoff_ms\":%lld,\"commands_received\":%d,\"observations\":%d,\"invalid_packets\":%d,\"starts\":%d,\"start_replays\":%d,\"start_refusals\":%d,\"steers\":%d,\"cancels\":%d,\"redelivered_skipped\":%d,\"identity_conflicts\":%d,\"acks_delivered\":%d,\"events_delivered\":%d,\"stopped_by_signal\":%s,\"reconciled\":{\"adopted\":%d,\"orphaned\":%d,\"lost\":%d,\"not_spawned\":%d,\"uncertain\":%d,\"launches\":%s}}",
   st.rounds,st.polls_ok,st.poll_failures,st.max_backoff_ms,st.commands,st.observations,st.invalid,st.starts,st.replays,st.refusals,st.steers,st.cancels,st.redelivered,st.conflicts,st.acks,st.events,serve_stop?"true":"false",rs.adopted,rs.orphaned,rs.lost,rs.not_spawned,rs.uncertain,recon);
  free(recon);return 0;
+}
+static int run_foreground(const RunnerConfig *c,Instruction *i,FILE *out){
+ if(strcmp(i->kind,"START"))return refuse(out,"NOT_A_START_INSTRUCTION");
+ char *started=NULL;size_t started_size=0;FILE *sink=open_memstream(&started,&started_size);if(!sink)return refuse(out,"RESOURCE_LIMIT");
+ int rc=launch_start(c,i,sink);fclose(sink);if(rc){if(started)fputs(started,out);free(started);return rc;}
+ struct sigaction action={0};action.sa_handler=serve_signal;sigemptyset(&action.sa_mask);sigaction(SIGTERM,&action,NULL);sigaction(SIGINT,&action,NULL);
+ ServeStats stats={0};char state[32]="UNCERTAIN";int code=-1,terminal=0;long long end=monotonic_ns()+3600000000000LL;
+ while(!serve_stop&&monotonic_ns()<end){
+  (void)poll_once(c,&stats,i->launch);sqlite3 *db=ledger(c);sqlite3_stmt *q=NULL;
+  int found=db&&sqlite3_prepare_v2(db,"SELECT state,exit_code,uid FROM launches WHERE id=?",-1,&q,NULL)==SQLITE_OK;
+  if(found){sqlite3_bind_text(q,1,i->launch,-1,SQLITE_STATIC);found=sqlite3_step(q)==SQLITE_ROW;if(found){snprintf(state,sizeof state,"%s",sqlite3_column_text(q,0));code=sqlite3_column_int(q,1);i->uid=(uid_t)sqlite3_column_int64(q,2);}}
+  sqlite3_finalize(q);if(db){(void)flush_outbox(db,c,i->command,i->launch,8,NULL,NULL);sqlite3_close(db);}
+  while(waitpid(-1,NULL,WNOHANG)>0){}
+  if(found&&(!strcmp(state,"EXITED")||!strcmp(state,"STOPPED")||!strcmp(state,"LEASE_EXPIRED"))&&broker_owner(c->state,i->launch)==0){terminal=1;break;}
+  if(!found)break;if(broker_owner(c->state,i->launch)==0){snprintf(state,sizeof state,"UNCERTAIN");break;}struct timespec delay={0,250000000};nanosleep(&delay,NULL);
+ }
+ if(!terminal&&i->uid)stop_uid(i->uid);
+ fprintf(out,"{\"launch_id\":\"%s\",\"start\":%s,\"state\":\"%s\",\"exit_code\":%d,\"terminal_observed\":%s,\"foreground_owner\":true}",i->launch,started?started:"null",state,code,terminal?"true":"false");free(started);return terminal?0:1;
 }
 static int bounded_i64(const HfJson *j,const char *key,long long min,long long max,long long *value){int64_t v=0;if(!hf_json_i64(j,hf_json_field(j,0,key),&v)||v<min||v>max)return 0;*value=v;return 1;}
 int hf_component_12_2(const char *action,const char *request,FILE *out) {
@@ -862,7 +929,7 @@ int hf_component_12_2(const char *action,const char *request,FILE *out) {
  int ok=j&&hf_json_parse(j,request)&&hf_json_only(j,0,keys,2)&&hf_json_get(j,"config_path",config_path,sizeof config_path)&&hf_json_get(j,"event_id",event,sizeof event)&&load_config(config_path,&c);free(j);
  if(!ok)return hf_native_error(out,"UNTRUSTED_RUNNER_CONFIG");
  if(!fetch_instruction(&c,event,&instruction))return hf_native_error(out,"CURRENT_INSTRUCTION_UNAVAILABLE");
- int result=1;if(!strcmp(action,"launch.start"))result=launch_start(&c,&instruction,out);
+ int result=1;if(!strcmp(action,"launch.run"))result=run_foreground(&c,&instruction,out);else if(!strcmp(action,"launch.start"))result=launch_start(&c,&instruction,out);
  else if(!strcmp(action,"launch.instruction")){
   if(!strcmp(instruction.kind,"START"))result=launch_start(&c,&instruction,out);
   else {char *payload=control_payload(&c,&instruction);

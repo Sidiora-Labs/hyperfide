@@ -8,7 +8,8 @@ User=hyperfide
 Group=hyperfide
 WorkingDirectory=/opt/hyperfide/current
 EnvironmentFile=/etc/hyperfide/control.env
-ExecStart=/opt/hyperfide/current/runtime/node /opt/hyperfide/current/services/dist/control.js --mode https --host ${HYPERFIDE_LISTEN_HOST} --port ${HYPERFIDE_LISTEN_PORT} --tls-cert /etc/hyperfide/control.crt --tls-key /etc/hyperfide/control.key --policy /etc/hyperfide/control-policy.json --spec-revision ${HYPERFIDE_SPEC_REVISION}
+Environment=HF_SERVICE_REQUEST_DEADLINE_MS=120000
+ExecStart=/opt/hyperfide/current/runtime/node --import /opt/hyperfide/current/deploy/hyperfide/fleet-env.mjs /opt/hyperfide/current/services/dist/control.js --mode https --host ${HYPERFIDE_LISTEN_HOST} --port ${HYPERFIDE_LISTEN_PORT} --tls-cert /etc/hyperfide/control.crt --tls-key /etc/hyperfide/control.key --policy /etc/hyperfide/control-policy.json --spec-revision ${HYPERFIDE_SPEC_REVISION}
 Restart=on-failure
 RestartSec=3
 KillMode=control-group

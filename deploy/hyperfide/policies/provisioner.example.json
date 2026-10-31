@@ -127,6 +127,7 @@
     "provider.pools.list",
     "provider.pools.observe",
     "provider.pools.readiness",
+    "provider.profiles.register",
     "provider.relocation.confirm-enrollment",
     "provider.relocation.plan",
     "provider.remote.execute-bound",

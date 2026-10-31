@@ -144,8 +144,12 @@ export async function runService(role: ServiceRole, args = process.argv.slice(2)
     if(mode==='https') {
       if(!identity)throw new FoundationError('AUTH_REQUIRED','HTTPS mode requires initialized identity authority');
       const port=Number(config['--port']);
+      const configuredDeadline=process.env.HF_SERVICE_REQUEST_DEADLINE_MS;
+      if(configuredDeadline!==undefined&&!/^[1-9][0-9]*$/.test(configuredDeadline))
+        throw new FoundationError('TRANSPORT_CONFIG','Invalid trusted request deadline');
       transport=await startHttpTransport({origin:identity.origin,host:config['--host']??'127.0.0.1',port,
         certificate:config['--tls-cert']??'',privateKey:config['--tls-key']??'',signal:controller.signal,identity,
+        ...(configuredDeadline===undefined?{}:{deadlineMs:Number(configuredDeadline)}),
         requestLimit:Math.min(limits.request,1024*1024),responseLimit:Math.min(limits.response,1024*1024),
         dispatch:invocation=>handleRequest(registry!,{id:invocation.operation.operation_id,component:invocation.payload.component,action:invocation.payload.action,input:invocation.payload.input},limits.response,invocation)});
     }

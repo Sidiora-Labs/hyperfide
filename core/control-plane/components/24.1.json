@@ -13,7 +13,8 @@
     "recovery.control.reconstruct",
     "recovery.offline.evaluate",
     "recovery.control.resume",
-    "recovery.control.adopt"
+    "recovery.control.adopt",
+    "recovery.control.start"
   ],
   "requires": [
     "4.2",
@@ -22,6 +23,7 @@
     "5.1",
     "6.1",
     "6.4",
-    "12.4"
+    "12.4",
+    "spec-dependencies"
   ]
 }

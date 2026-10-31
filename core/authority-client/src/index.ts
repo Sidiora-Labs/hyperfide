@@ -78,11 +78,11 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
   keyBytes.fill(0);
   if (key.asymmetricKeyType !== "ed25519") throw new AuthorityError("AUTHORITY_CONFIG", "Ed25519 key required");
   let active = 0;
-  async function invoke<T>(action: string, input: unknown, identity?: TransactionIdentity, signal?: AbortSignal): Promise<T> {
+  async function invoke<T>(action: string, input: unknown, identity?: TransactionIdentity, signal?: AbortSignal, component = "platform-authority"): Promise<T> {
     const operationId = identity?.operationId ?? randomUUID();
     const idempotencyKey = identity?.idempotencyKey ?? randomUUID();
     if (!uuid.test(operationId) || !uuid.test(idempotencyKey)) throw new AuthorityError("INVALID_REQUEST", "UUID operation identities required");
-    const payload = Buffer.from(JSON.stringify({ run_id: config.runId, component: "platform-authority", action,
+    const payload = Buffer.from(JSON.stringify({ run_id: config.runId, component, action,
       input, expected_version: null, authority: null }));
     if (payload.length > 768 * 1024) throw new AuthorityError("REQUEST_TOO_LARGE", "Payload exceeds service limit");
     const body = Buffer.from(JSON.stringify({protocol_version: 1, operation_id: operationId,
@@ -134,6 +134,11 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
     } finally { active--; }
   }
   return Object.freeze({
+    fleetDecision: (decision: unknown, identity: TransactionIdentity, signal?: AbortSignal) => {
+      if (!record(decision) || decision.operation_id !== identity.operationId)
+        throw new AuthorityError("INVALID_REQUEST", "Decision and transport operation identities must match");
+      return invoke<Record<string, unknown>>("fleet.manager.execute", {decision}, identity, signal, "fleet-manager-effects");
+    },
     pluginState: (input: PluginStateRequest, identity?: TransactionIdentity) =>
       invoke<PluginStateEntry[]>("authority.plugin-state", input, identity),
     operator: (signal?: AbortSignal) => invoke<Operator>("authority.operator", {}, undefined, signal),

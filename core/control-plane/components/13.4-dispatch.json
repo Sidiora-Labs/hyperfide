@@ -11,10 +11,13 @@
   "actions": [
     "agent.launch-plan.describe",
     "agent.launch-plan.prepare",
-    "agent.launch-plan.inspect"
+    "agent.launch-plan.inspect",
+    "agent.launch-plan.fetch"
   ],
   "requires": [
     "12.2",
-    "13.4"
+    "13.4",
+    "13.2",
+    "14.3"
   ]
 }

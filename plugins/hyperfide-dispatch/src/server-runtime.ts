@@ -14,6 +14,7 @@ import { taskPacket } from "../../hyperfide-spec/src/shared/packet.js";
 
 export function dispatchSettings(api: HyperfidePluginApi) {
   return api.settings.define({
+    dispatch_mode: { type: "string", label: "Planning mode (manager or legacy-nonadaptive)", default: "manager" },
     dispatch_repository: { type: "string", label: "Repository path (dispatch.repository)" },
     dispatch_fleetPath: { type: "string", label: "Fleet configuration path (dispatch.fleetPath)" },
     dispatch_gatewayKeys: { type: "string", secret: true, label: "Gateway keys JSON (id, value, concurrency)" },
@@ -49,6 +50,13 @@ export function registerDispatcher(api: HyperfidePluginApi, settings: DispatchSe
       const directory = join(api.server.experimental_dataDir, "plugins", api.pluginId);
       await mkdir(directory, { recursive: true });
       const storage = await openDispatchStorage(directory);
+      const selectedMode = (await settings.get()).dispatch_mode ?? "manager";
+      if (selectedMode !== "legacy-nonadaptive") {
+        await storage.put("fleet.planning", { mode: "manager", state: "WAITING_FOR_MANAGER", authority: "CONTROL_PLANE" });
+        storage.close();
+        return;
+      }
+      await storage.put("fleet.planning", { mode: "legacy-nonadaptive", state: "ACTIVE" });
       let dispatcher: Dispatcher | undefined;
       let options: z.infer<typeof configSchema> | undefined;
       let repository = "";
@@ -87,7 +95,7 @@ export function registerDispatcher(api: HyperfidePluginApi, settings: DispatchSe
         const keys = keysSchema.parse(JSON.parse(values.dispatch_gatewayKeys || "[]"));
         await storage.put("fleet.keys", keys.length);
         dispatcher = new Dispatcher({
-          directory, storage, machines, keys, cap: keys.reduce((sum, key) => sum + key.concurrency, 0),
+          planning: "legacy-nonadaptive", directory, storage, machines, keys, cap: keys.reduce((sum, key) => sum + key.concurrency, 0),
           prepare: "", runner: { async run(packet, machine, key) {
             return commandRunner(options!.dispatcher.runner, options!.dispatcher.mcp).run(packet, machine, key);
           } },
@@ -137,6 +145,7 @@ export function registerDispatcher(api: HyperfidePluginApi, settings: DispatchSe
         while (!signal.aborted) {
           try {
             const current = await settings.get();
+            if (current.dispatch_mode !== "legacy-nonadaptive") break;
             const control = await storage.get("fleet.control") as { paused: boolean; cap: number };
             if (!control.paused && control.cap > 0 && current.dispatch_repository && current.dispatch_fleetPath && await registeredMachines(api)) {
               repository = current.dispatch_repository;

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "fleet-orchestration",
+  "task": "0.12",
+  "roles": [
+    "control"
+  ],
+  "module": "agents/fleet_orchestration.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "fleet.cohort.bind",
+    "fleet.session.bind",
+    "fleet.observe",
+    "fleet.session.reason",
+    "fleet.decision.inspect",
+    "fleet.decision.apply",
+    "fleet.identity.bootstrap"
+  ],
+  "requires": [
+    "14.1",
+    "fleet-manager-effects",
+    "spec-revisions"
+  ]
+}

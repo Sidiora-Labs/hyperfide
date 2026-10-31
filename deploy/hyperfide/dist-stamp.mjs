@@ -15,7 +15,7 @@ import {fileURLToPath} from 'node:url';
 
 export const STAMP_FILE='.source-digest.json';
 // Every input that changes what tsc emits or how node loads it.
-const ROOT_INPUTS=['package.json','package-lock.json','tsconfig.json'];
+const ROOT_INPUTS=['package.json','package-lock.json','tsconfig.json','scripts/sync-fleet-contracts.mjs'];
 
 function walk(directory,base,out){
  for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
@@ -26,10 +26,10 @@ function walk(directory,base,out){
  return out;
 }
 
-function treeDigest(root,names,base){
+function treeDigest(root,names,base,overrides={}){
  const hash=createHash('sha256');
  for(const name of names){
-  const bytes=fs.readFileSync(path.join(base,name));
+  const bytes=fs.readFileSync(overrides[name]??path.join(base,name));
   hash.update(name+'\0'+bytes.length+'\0');hash.update(bytes);
  }
  return {digest:'sha256:'+hash.digest('hex'),files:names.length};
@@ -37,7 +37,16 @@ function treeDigest(root,names,base){
 
 export function sourceDigest(serviceRoot){
  const files=[...ROOT_INPUTS.filter(name=>fs.existsSync(path.join(serviceRoot,name))),...walk(path.join(serviceRoot,'src'),serviceRoot,[])].sort();
- return treeDigest(serviceRoot,files,serviceRoot);
+ const overrides={};
+ for(const name of ['index.mjs','index.d.mts']){
+  const canonical=path.resolve(serviceRoot,'../../contracts/fleet',name);
+  const generated='src/contracts/fleet/'+name;
+  if(fs.existsSync(canonical)){
+   overrides[generated]=canonical;
+   if(!files.includes(generated))files.push(generated);
+  }
+ }
+ return treeDigest(serviceRoot,files.sort(),serviceRoot,overrides);
 }
 
 /** Digest of everything tsc emitted, excluding the stamp itself; null when dist is absent. */
