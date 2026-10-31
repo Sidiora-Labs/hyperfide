@@ -1,12 +1,28 @@
-# codify.kvx — project configuration for Codify. Every key is optional.
+# hyperfide.kvx — project configuration for Hyperfide. Every key is optional.
 [sync]
 auto = true                 # implicit syncs: hooks, read-command freshness, MCP/LSP/serve/watch
 
 [paths]
 spec    = "spec"            # workflow.kvx, feature specs, rendered mirrors
-context = ".codify"         # agent-context.md, recap.md
+context = ".hyperfide/context"         # agent-context.md, recap.md
 skills  = ".agents/skills"  # generated SKILL.md files
-codemap = "CODEMAP.md"      # written by cg codemap
+codemap = "CODEMAP.md"      # written by hyperfide codemap
 
 [index]
-workers = 64                # parse workers for the 8 CPU execution sandbox
+# workers = auto            # parse workers per index pass: 1-64; auto sizes from the machine
+# walk = auto               # how sync finds changes: git (status + diff since the last pass), full (walk the tree), auto (git above 20000 files)
+
+[projection]
+# base    = "main"          # branch the projection folds onto; default [hierarchy] main, else main
+# stale   = "24h"           # a branch without a live agent stays active this long after its last index
+# exclude = []              # branch-name globs never folded in
+# index   = false           # check the projection out and index it as branch codify/projection
+# steer   = true            # steer the agents on both branches when a build finds a new conflict
+# auto    = true            # hooks, watch, serve and the supervisor start a background build when work happens
+# min_interval = "15s"     # an automatic build waits this long after the last one
+
+[fleet]
+# discover = true           # fleet status/tree, serve and watch --fleet run hyperfide fleet discover first (once per 10s)
+
+[hooks]
+# shell_advice = true       # hyperfide hook pre-bash points a shell grep/find at hyperfide grep and hyperfide files
