@@ -1,6 +1,6 @@
 # Prerequisite: organize the repository by category
 
-Status: **task 0.3 implementation in progress; no files relocated**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Fleet task 0.10 cannot start until task 0.9 qualifies; native task 0.1 also waits for final fleet gate 0.14. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
+Status: **task 0.3 implemented; graph qualification pending; no files relocated**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Fleet task 0.10 cannot start until task 0.9 qualifies; native task 0.1 also waits for final fleet gate 0.14. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
 
 ## 1. Objective and boundaries
 
@@ -136,3 +136,13 @@ The inventory records original and target paths, Git object identities, types/mo
 The focused driver writes `build/layout/0.3/inventory.json`, `baseline.json` and `receipt.json`, with command logs and input digests. It exercises rejection of incomplete mappings, collisions including case-folded destinations, path escapes, source/artifact confusion, package identity drift, dependency drift and mode changes. These are inventory/validator checks, not evidence of a relocated runtime.
 
 Baseline probes observe native component discovery and available tool versions without installing dependencies or running full product builds. Missing dependency trees, unavailable tools and absent binaries remain recorded. Workspace package membership, package test scripts and root Vitest project discovery are separate inventories. Installed global tools do not prove this checkout builds. Final layout qualification still belongs to task 0.9.
+
+### Task 0.3 focused result
+
+The inventory driver passed 22 assertions against implementation baseline `5958bcb02cef0e5fa75d7b0239a6cd2191278bd1`. It recorded 9,786 tracked inputs, 117 package manifests, 108 workspace packages, 47 root Vitest projects, 13 native component fragments and one explicit merge target. No source files moved. The receipt and complete inventory are local build artifacts identified above; the driver recreates them from the pinned revision.
+
+Observed host tools were Python 3.12.3, Node 22.22.2, npm 10.9.7 and pnpm 12.8.1. These differ from some declared workspace/control/release profiles. Dependency trees and checkout-built executables were absent; product builds and runtime checks remain UNRUN. Task 0.4 must provision/use the existing pinned profiles, not substitute these host defaults or silently upgrade project dependencies.
+
+A full initial Hyperfide graph scan was interrupted; complete graph indexing is not part of this result. The inventory uses pinned Git objects and explicit runtime drift detection. Full relocated behavior remains the obligation of later tasks and SCM-025.
+
+The full `hyperfide spec done 0.3 -f hyperfide-source-control --no-sync` command was terminated with exit 143 after the focused gate passed: its graph refresh remained unfinished. [qualification.kvx](qualification.kvx) records the distinction. Task 0.3 is **implemented**, not **done**, and 0.4 is not eligible. The passing focused gate has not been rerun.

@@ -2,7 +2,7 @@
 
 Generated from [spec.kvx](spec.kvx); regenerate with `python3 spec/hyperfide-source-control/tools/validate_spec.py --render`.
 
-All implementation tasks are pending. This catalogue describes future work; the listed verification drivers are deliverables of those tasks, not existing passing gates.
+Task statuses below record current implementation progress. Verification drivers are task deliverables; a command being listed is not evidence that it exists or passes.
 
 Dependencies determine eligibility. Wave numbers group integration and release obligations. Each package couples its implementation with a direct consumer and positive/negative checks. Component success does not qualify a complete product case or elapsed-time campaign.
 
@@ -47,7 +47,7 @@ The repository-layout prerequisite runs first: **0.3 → 0.4 → 0.5 → 0.6 →
 
 ## 0.3: Freeze the category layout inventory and executable baseline
 
-Status: **pending**. Owner: `repository-layout`. Dependencies: none.
+Status: **implemented**. Owner: `repository-layout`. Dependencies: none.
 
 Proposed implementation scope:
 
@@ -55,6 +55,9 @@ Proposed implementation scope:
 - `spec/hyperfide-source-control/repository-layout.md`
 - `tools/repository/layout-inventory.py`
 - `tests/hyperfide/cases/source_control/0_3.py`
+- `spec/hyperfide-source-control/README.md`
+- `spec/hyperfide-source-control/repository-baseline.md`
+- `spec/hyperfide-source-control/tools/validate_spec.py`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/0_3.py`.
 

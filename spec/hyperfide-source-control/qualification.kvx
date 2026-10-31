@@ -1,0 +1,7 @@
+[finding.layout_0_3_graph_refresh]
+revision = "e20e19071"
+command = "hyperfide spec done 0.3 -f hyperfide-source-control --no-sync"
+exit_code = 143
+log = "build/layout/0.3/qualification.log"
+observed = "The inventory verify command passed 22 checks; the subsequent repository graph refresh did not complete within the qualification window and was terminated."
+assumption = "Task 0.3 is implemented, not done. Preserve its focused receipt; task 0.4 requires completion of the outstanding graph/evidence qualification."

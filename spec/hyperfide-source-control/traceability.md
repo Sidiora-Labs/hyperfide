@@ -1,6 +1,6 @@
 # Native source-control traceability
 
-Generated from [spec.kvx](spec.kvx). A clause `N.M` is `[req.N] ac_M`. Mappings describe planned coverage, not execution evidence. All product cases are UNRUN.
+Generated from [spec.kvx](spec.kvx). A clause `N.M` is `[req.N] ac_M`. Mappings describe coverage ownership, not execution evidence. All product cases are UNRUN; focused prerequisite receipts do not close the complete layout case.
 
 | Clause | Requirement | Implementation tasks | Product cases | Contract |
 |---|---|---|---|---|

@@ -4,3 +4,10 @@ cause = "Repository source and spec files do not themselves initialize the local
 resolution = "Specification authoring can use the strict KVX parser and structural validation without initializing or indexing the repository. Runtime commands require a separately initialized project."
 evidence = "hyperfide 2.0.0-dev: brief exits 1 with not inside a Codify project; spec/hyperfide/tools/validate_pack.py exposes parse_kvx."
 status = "documented"
+
+[gotcha.spec_done_graph_refresh]
+symptom = "hyperfide spec done with --no-sync still performs a repository-wide graph refresh after verify_cmd passes."
+cause = "src/spec.c applies no_sync to spec trace; spec_verify_task calls spec_graph_open with sync=true."
+resolution = "Keep focused test receipts distinct from full task qualification. An unfinished graph/evidence stage leaves the task implemented; --no-sync does not bypass that stage."
+evidence = "Layout task 0.3 verify_cmd passed 22 checks; spec done was terminated with exit 143 during graph refresh. See spec/hyperfide-source-control/qualification.kvx."
+status = "documented"

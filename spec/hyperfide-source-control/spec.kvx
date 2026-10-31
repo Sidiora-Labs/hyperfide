@@ -1,5 +1,5 @@
 # Hyperfide native source control with layout and agent-led fleet prerequisites. Layout implementation started.
-# Layout 0.3-0.9, fleet 0.10-0.14, then native 0.1; layout 0.3 in progress; product cases UNRUN.
+# Layout 0.3-0.9, fleet 0.10-0.14, then native 0.1; layout 0.3 implemented, graph qualification pending; product cases UNRUN.
 
 [meta]
 feature = "hyperfide-source-control"
@@ -247,7 +247,7 @@ heading = "Category layout, then agent-led fleet and sandbox contracts, then nat
 
 [task.0.3]
 title = "Freeze the category layout inventory and executable baseline"
-status = "in_progress"
+status = "implemented"
 wave = 0
 requires = []
 touches = ["spec/hyperfide-source-control/repository-layout.json", "spec/hyperfide-source-control/repository-layout.md", "tools/repository/layout-inventory.py", "tests/hyperfide/cases/source_control/0_3.py", "spec/hyperfide-source-control/README.md", "spec/hyperfide-source-control/repository-baseline.md", "spec/hyperfide-source-control/tools/validate_spec.py"]
@@ -259,6 +259,8 @@ do_4 = "Implement the task driver against actual tracked manifests and source ru
 reqs = ["15.1", "15.2", "15.6", "15.8"]
 owner = "repository-layout"
 cases = ["SCM-025"]
+qualification_status = "focused_pass_graph_pending"
+qualification_receipt = "build/layout/0.3/receipt.json"
 
 [task.0.4]
 title = "Establish the root workspace and relocation front door"

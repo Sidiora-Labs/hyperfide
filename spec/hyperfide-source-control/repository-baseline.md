@@ -32,3 +32,7 @@ Statistics from public dashboards are not a capacity baseline. Future inventory 
 ## Layout successor
 
 The paths above identify the inspected source revision. [repository-layout.json](repository-layout.json) maps them to proposed category destinations; new implementation task scopes already target that layout with layout tasks 0.3–0.9 followed by fleet prerequisite 0.10–0.14 before native implementation. The authoring check validates mapping coverage and collisions against the pinned baseline, not runtime behavior after a move.
+
+## Task 0.3 inventory baseline
+
+Layout inventory now has an independently pinned `implementation_baseline` in [repository-layout.json](repository-layout.json), preserving the original design revision above. Its focused driver passed 22 checks and recorded actual discovery/toolchain observations; see [layout results](repository-layout.md). The environment lacks installed project dependencies and checkout-built executables. This establishes the inventory baseline, not a successful product build, relocation or complete graph index.
