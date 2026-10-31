@@ -144,11 +144,16 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
    const actor=await loadActor(reference,role,config);actors.set(actor.session_id,actor);delete state.grants[reference.session_id];await persist();return actor;
   };
   if(state.pending){const pending=state.pending,owner=actors.get(pending.actor_id);if(!owner)fail('FLEET_SUPERVISOR_IDENTITY','Pending actor credentials are unavailable');const recovered=await call(owner,pending.action,pending.input,pending.component??'fleet-orchestration');if(pending.action==='fleet.cohort.bind')state.cohort_generation=String(recovered.cohort_generation);await persist();event('reconciled',owner.session_id,{operation_id:pending.operation_id});}
-  let primary=await enrolled(config.primary,'PRIMARY',null);
+  const staleSupervisor=(error:unknown):error is SupervisorRpcError=>error instanceof SupervisorRpcError&&!error.uncertain&&['FLEET_COHORT_STALE','FLEET_SUPERVISOR_STALE','FLEET_SUPERVISOR_UNAVAILABLE','FLEET_BOOTSTRAP_CONTROLLER_STALE','FLEET_BOOTSTRAP_HOST_STALE','FLEET_BOOTSTRAP_COHORT_STALE'].includes(error.code);
+  let primary=actors.get(config.primary.session_id),restore=Boolean(primary&&state.actors[config.primary.session_id]);
+  // Retained authority is observed before renewal: a new control host requires
+  // the operator's explicit replacement phase before ordinary cohort issuance.
+  if(primary&&restore)try{await call(primary,'fleet.observe',{binding:state.actors[primary.session_id]!.binding,after:null,limit:100});}
+  catch(error){if(staleSupervisor(error)){primary=await enrolled(config.primary,'PRIMARY',null,true);restore=false;}else if(!(error instanceof SupervisorRpcError&&!error.uncertain&&error.code==='AUTH_EXPIRED'))throw error;}
+  try{primary=await enrolled(config.primary,'PRIMARY',null);}
+  catch(error){if(staleSupervisor(error)&&operator){primary=await enrolled(config.primary,'PRIMARY',null,true);restore=false;}else throw error;}
+  if(!primary)fail('FLEET_SUPERVISOR_IDENTITY','Current Primary credential is required after startup reconciliation');
   if(state.leader_generation==='0')await call(primary,'hierarchy.leader.acquire',{idempotency_key:randomUUID(),expected_generation:'0',reason:'Acquire the explicitly configured Primary supervisory identity'},'3.1');
-  let restore=Boolean(state.actors[primary.session_id]);
-  if(restore)try{await call(primary,'fleet.observe',{binding:state.actors[primary.session_id]!.binding,after:null,limit:100});}
-  catch(error){if(error instanceof SupervisorRpcError&&!error.uncertain&&['FLEET_COHORT_STALE','FLEET_SUPERVISOR_STALE','FLEET_SUPERVISOR_UNAVAILABLE','FLEET_BOOTSTRAP_CONTROLLER_STALE','FLEET_BOOTSTRAP_HOST_STALE','FLEET_BOOTSTRAP_COHORT_STALE'].includes(error.code)){if(operator)primary=await enrolled(config.primary,'PRIMARY',null,true);restore=false;}else throw error;}
   if(!restore){const cohort=await call(primary,'fleet.cohort.bind',{cohort_id:config.cohort_id,host_id:config.host_id,leader_generation:config.leader_generation,expected_generation:state.cohort_generation});state.cohort_generation=String(cohort.cohort_generation);state.actors={};await persist();}
   const observe=async(actor:Actor,session:ActorState):Promise<{view:RecordValue;ids:string[]}>=>{
    const ids:string[]=[],pages:RecordValue[]=[];let after:string|null=null;
