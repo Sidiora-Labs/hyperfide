@@ -11,7 +11,8 @@ import type {BootstrapDelivery,BootstrapTransport} from '../bootstrap.js';
 type Data=Record<string,any>;
 function quoted(value:string):string{return "'"+value.replaceAll("'","'\\''")+"'";}
 function nativeCode(process:Data):string{
- for(const text of [process.stdout,process.logs]){if(typeof text!=='string'||text.length>16384)continue;try{const value=strictJSON(Buffer.from(text));if(object(value)&&object(value.error)&&typeof value.error.code==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(value.error.code))return value.error.code;}catch{}}
+ if(typeof process.stderr==='string'&&process.stderr.length<=16384){const matches=[...process.stderr.matchAll(/^hyperfide native: ([A-Z][A-Z0-9_]{0,63})\r?$/gm)];if(matches.length)return matches.at(-1)![1]!;}
+ for(const text of [process.stderr,process.stdout,process.logs]){if(typeof text!=='string'||text.length>16384)continue;try{const value=strictJSON(Buffer.from(text));if(object(value)&&object(value.error)&&typeof value.error.code==='string'&&/^[A-Z][A-Z0-9_]{0,63}$/.test(value.error.code))return value.error.code;}catch{}}
  return 'FAILED';
 }
 function processOutcome(process:Data,receipt:unknown,prefix:string):{state:'RUNNING'|'COMPLETED'|'UNKNOWN';receipt:unknown|null}{

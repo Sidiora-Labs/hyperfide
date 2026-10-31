@@ -11,3 +11,10 @@ cause = "core/native/src/spec.c applies no_sync to spec trace; spec_verify_task 
 resolution = "Keep focused test receipts distinct from full task qualification. An unfinished graph/evidence stage leaves the task implemented; --no-sync does not bypass that stage."
 evidence = "Layout task 0.3 verify_cmd passed 22 checks; spec done was terminated with exit 143 during graph refresh. See spec/hyperfide-source-control/qualification.kvx."
 status = "documented"
+
+[gotcha.control_dist_stamp_concurrent_edits]
+symptom = "A successful control-plane build stamp can describe source changes absent from emitted JavaScript when another writer edits during compilation."
+cause = "The build invokes TypeScript before dist-stamp.mjs captures the source digest; a file can change between the compiler read and stamp creation."
+resolution = "Freeze control-plane source writers before compilation and artifact capture. Discard a build produced across a source edit and rebuild the frozen tree."
+evidence = "A concurrent processes.ts change added knownBlaxelMetadata to source while the stamped dist/providers/blaxel/processes.js lacked it."
+status = "documented"

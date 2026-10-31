@@ -99,7 +99,7 @@ async function main(){
   if(request.method==='GET'&&request.url==='/healthz'){response.writeHead(ready?200:503,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify({ready}));return;}
   if(!ready){response.writeHead(503);response.end();return;}
   if(request.method!=='POST'||!['/v1/invoke','/v1/enroll'].includes(request.url??'')){response.writeHead(404);response.end();return;}
-  const headers=['Host','control.local'];for(let index=0;index<request.rawHeaders.length;index+=2)if(allowed.has(request.rawHeaders[index].toLowerCase()))headers.push(request.rawHeaders[index],request.rawHeaders[index+1]);
+  const headers=['Host','control.local'];for(let index=0;index<request.rawHeaders.length;index+=2)if(allowed.has(request.rawHeaders[index].toLowerCase())||(request.url==='/v1/enroll'&&request.rawHeaders[index].toLowerCase()==='authorization'))headers.push(request.rawHeaders[index],request.rawHeaders[index+1]);
   const upstream=https.request({hostname:'127.0.0.1',port:9443,servername:'control.local',path:request.url,method:'POST',headers,ca:config.ca,rejectUnauthorized:true,minVersion:'TLSv1.3',agent:false,timeout:125000},incoming=>{response.writeHead(incoming.statusCode??502,{'Content-Type':'application/json','Cache-Control':'no-store'});incoming.pipe(response);incoming.once('aborted',()=>response.destroy());incoming.once('error',()=>response.destroy());});
   upstream.once('timeout',()=>upstream.destroy());upstream.once('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});request.once('aborted',()=>upstream.destroy());response.once('close',()=>{if(!response.writableEnded)upstream.destroy();});request.pipe(upstream);
  });
