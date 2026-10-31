@@ -52,12 +52,12 @@ def consumers_sql():
 
 
 PROBE = r"""
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {createComponent} from './services/hyperfide/dist/recovery/stop.js';
-import {assertScopeNotHeld} from './services/hyperfide/dist/recovery/scope_hold.js';
-import {enqueue} from './services/hyperfide/dist/events/outbox.js';
-import {createComponent as createScheduler} from './services/hyperfide/dist/scheduler/claim.js';
-import {authenticatedInvocation} from './services/hyperfide/dist/transport/protocol.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {createComponent} from './core/control-plane/dist/recovery/stop.js';
+import {assertScopeNotHeld} from './core/control-plane/dist/recovery/scope_hold.js';
+import {enqueue} from './core/control-plane/dist/events/outbox.js';
+import {createComponent as createScheduler} from './core/control-plane/dist/scheduler/claim.js';
+import {authenticatedInvocation} from './core/control-plane/dist/transport/protocol.js';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 const ids=JSON.parse(process.env.HF_HOLD_IDS);

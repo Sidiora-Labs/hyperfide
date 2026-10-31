@@ -3,14 +3,14 @@
 
 Applies every release migration to an owned throwaway PostgreSQL cluster (pattern of v21/3_1.py), seeds one run
 with findings, routes, external issues and repairs, then drives the three FindingReader objects exported from
-services/hyperfide/dist/findings (routing.js, github.js, remediation.js) inside real primary transactions:
+core/control-plane/dist/findings (routing.js, github.js, remediation.js) inside real primary transactions:
 each reader lists, acknowledges and routes, and a repair that exhausts its budget raises a decision Ask in
 hyperfide.asks. Prints SKIP and exits 77 when no PostgreSQL server or root is available (task 1.7 contract).
 """
 import importlib.util, json, os, pathlib, signal, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 ASSERTIONS = [
     "migration.applied",
     "leader.list",
@@ -134,10 +134,10 @@ def seed(cluster, superuser, o):
 
 
 PROBE = r"""
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {leaderQueueReader,LEADER_QUEUE_ACKNOWLEDGED} from './services/hyperfide/dist/findings/routing.js';
-import {externalIntakeReader,INTAKE_LINKED} from './services/hyperfide/dist/findings/github.js';
-import {escalatedRepairReader,failRepair,escalationAskId,ESCALATION_OPTIONS} from './services/hyperfide/dist/findings/remediation.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {leaderQueueReader,LEADER_QUEUE_ACKNOWLEDGED} from './core/control-plane/dist/findings/routing.js';
+import {externalIntakeReader,INTAKE_LINKED} from './core/control-plane/dist/findings/github.js';
+import {escalatedRepairReader,failRepair,escalationAskId,ESCALATION_OPTIONS} from './core/control-plane/dist/findings/remediation.js';
 import {randomUUID} from 'node:crypto';
 const o=JSON.parse(process.env.HF_IDS);
 const scope={organisation_id:o.org,run_id:o.run};
@@ -322,7 +322,7 @@ def main():
         print("SKIP: the owned cluster runs initdb through runuser postgres, which needs root", flush=True)
         return 77
     if not (SERVICE / "node_modules").exists():
-        print("SKIP: services/hyperfide/node_modules is not installed", flush=True)
+        print("SKIP: core/control-plane/node_modules is not installed", flush=True)
         return 77
     t295 = load("hf_case_29_5", "tests/hyperfide/cases/tasks/29_5.py")
     t295.postgres_bin = lambda: servers[-1]

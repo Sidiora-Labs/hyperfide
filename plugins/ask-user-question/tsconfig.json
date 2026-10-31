@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM"],
+    "esModuleInterop": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@/components/ui/icon": [
+        "../../tools/plugin-registry/flavors/components/ui/icon.tsx"
+      ],
+      "@/*": ["../../lib/shared-ui/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "app.tsx",
+    "app.test.tsx",
+    "vitest.config.ts"
+  ]
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """hyperfide-v21 4.2: native events leave the sandbox and become Ask rows.
 
-The launch broker (src/hyperfide/launch.c, proven by tests/integration/101_launch_events.sh) forwards each native
+The launch broker (core/native/src/hyperfide/launch.c, proven by tests/integration/101_launch_events.sh) forwards each native
 question or approval prompt line out of the sandbox as a native.question / native.approval launch event and posts it
 to 12.2 runner.launch.event.record. This case drives that handler through the real HTTPS control service, as the
 enrolled RUNNER of the sandbox boot, with payloads in exactly the broker's shape, on an owned throwaway PostgreSQL
@@ -17,7 +17,7 @@ Codex app-server JSON-RPC). Prints SKIP and exits 77 when no PostgreSQL server o
 import hashlib, importlib.util, json, os, re, pathlib, pwd, shutil, socket, subprocess, sys, threading, traceback, uuid, base64
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 COMPONENTS = ('2.1', '2.4', '3.1', '3.2', '5.1', '5.2', '6.1', '6.2', '6.3', '7.2', '7.3', '1.2-asks', '12.2', '1.1', '14.2', '14.3', '13.4-supervision')
@@ -298,7 +298,7 @@ def scenario(f):
     check('native.oversize-recorded-by-digest', oversize)
 
     def broker_shape():
-        source = (ROOT / 'src/hyperfide/launch.c').read_text()
+        source = (ROOT / 'core/native/src/hyperfide/launch.c').read_text()
         start = source.index(r'{\"schema_version\":1')
         written = source[start:source.index(r'\"data\":%s}', start) + 12]
         keys = set(re.findall(r'\\"([a-z_]+)\\":', written))

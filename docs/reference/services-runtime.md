@@ -1,10 +1,10 @@
 # Source reference: Control services: runtime
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the top-level modules of `services/hyperfide/src/` (bootstrap, issue watcher, supervisory host) and the `agents/`, `components/`, `events/`, `runner/`, `scheduler/` and `transport/` subtrees: 635 declarations in 34 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the top-level modules of `core/control-plane/src/` (bootstrap, issue watcher, supervisory host) and the `agents/`, `components/`, `events/`, `runner/`, `scheduler/` and `transport/` subtrees: 635 declarations in 34 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
 
-## services/hyperfide/src/agents/admission.ts
+## core/control-plane/src/agents/admission.ts
 
-[Open source](../../services/hyperfide/src/agents/admission.ts)
+[Open source](../../core/control-plane/src/agents/admission.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -25,9 +25,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `AdmissionPlanSelection` | interface | 132 | <code>export interface AdmissionPlanSelection {</code> |
 | `createComponent` | function | 136 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/agents/dispatch.ts
+## core/control-plane/src/agents/dispatch.ts
 
-[Open source](../../services/hyperfide/src/agents/dispatch.ts)
+[Open source](../../core/control-plane/src/agents/dispatch.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -36,9 +36,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `select` | function | 22 | <code>async function select(tx:PrimaryTransaction,admission:AgentAdmissionCapability,input:RunnerSpawnInput,invocation:InvocationContext):Promise&lt;Selection&gt;{</code> |
 | `createComponent` | function | 54 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/agents/qualification.ts
+## core/control-plane/src/agents/qualification.ts
 
-[Open source](../../services/hyperfide/src/agents/qualification.ts)
+[Open source](../../core/control-plane/src/agents/qualification.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -76,9 +76,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `signingKey` | function | 145 | <code>async function signingKey(file:string&#124;undefined):Promise&lt;KeyObject&#124;null&gt;{</code> |
 | `createComponent` | function | 153 | <code>export async function createComponent(ctx:ComponentContext):Promise&lt;Component&gt;{</code> |
 
-## services/hyperfide/src/agents/sessions.ts
+## core/control-plane/src/agents/sessions.ts
 
-[Open source](../../services/hyperfide/src/agents/sessions.ts)
+[Open source](../../core/control-plane/src/agents/sessions.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -107,9 +107,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `isAgentSessionsCapability` | function | 143 | <code>export function isAgentSessionsCapability(value:unknown):value is AgentSessionsCapability{</code> |
 | `createComponent` | function | 146 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/agents/supervision.ts
+## core/control-plane/src/agents/supervision.ts
 
-[Open source](../../services/hyperfide/src/agents/supervision.ts)
+[Open source](../../core/control-plane/src/agents/supervision.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -145,9 +145,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `sealPlan` | function | 138 | <code>async function sealPlan(ctx:ComponentContext,body:MapValue):Promise&lt;{plan_path:string;plan_digest:string}&gt;{</code> |
 | `createComponent` | function | 151 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/bootstrap.ts
+## core/control-plane/src/bootstrap.ts
 
-[Open source](../../services/hyperfide/src/bootstrap.ts)
+[Open source](../../core/control-plane/src/bootstrap.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -155,9 +155,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `recoverCommand` | function | 29 | <code>async function recoverCommand(input:unknown,policy:{deployment_id:string;max_ttl_ms:number;journal_dir:string},env:Readonly&lt;NodeJS.ProcessEnv&gt;,signal?:AbortSignal):Promise&lt;unknown&gt;{</code> |
 | `bootstrapCommand` | function | 42 | <code>export async function bootstrapCommand(args:readonly string&#91;&#93;,env:Readonly&lt;NodeJS.ProcessEnv&gt;=Object.freeze({...process.env}),signal?:AbortSignal):Promise&lt;unknown&gt;{</code> |
 
-## services/hyperfide/src/bootstrap_identity.ts
+## core/control-plane/src/bootstrap_identity.ts
 
-[Open source](../../services/hyperfide/src/bootstrap_identity.ts)
+[Open source](../../core/control-plane/src/bootstrap_identity.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -168,18 +168,18 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `binding` | function | 30 | <code>function binding(p:Principal,digest:string,replayed:boolean):OperatorBinding{</code> |
 | `issueOfflineOperator` | function | 36 | <code>export async function issueOfflineOperator(resources:ServiceResources,value:unknown,policy:BootstrapPolicy,signal?:AbortSignal):Promise&lt;OperatorBinding&gt;{</code> |
 
-## services/hyperfide/src/bootstrap_recovery.ts
+## core/control-plane/src/bootstrap_recovery.ts
 
-[Open source](../../services/hyperfide/src/bootstrap_recovery.ts)
+[Open source](../../core/control-plane/src/bootstrap_recovery.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
 | `RecoveryReceipt` | interface | 17 | <code>export interface RecoveryReceipt {</code> |
 | `recoverBootstrapOperator` | function | 23 | <code>export async function recoverBootstrapOperator(resources:ServiceResources,value:unknown,policy:BootstrapPolicy,signal?:AbortSignal):Promise&lt;RecoveryReceipt&gt;{</code> |
 
-## services/hyperfide/src/components/registry.ts
+## core/control-plane/src/components/registry.ts
 
-[Open source](../../services/hyperfide/src/components/registry.ts)
+[Open source](../../core/control-plane/src/components/registry.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -204,9 +204,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `invoke` | method | 176 | <code>async invoke(id: string, action: string, input: unknown, invocation?:InvocationContext): Promise&lt;unknown&gt; {</code> |
 | `close` | method | 192 | <code>async close(): Promise&lt;void&gt; {</code> |
 
-## services/hyperfide/src/components/service.ts
+## core/control-plane/src/components/service.ts
 
-[Open source](../../services/hyperfide/src/components/service.ts)
+[Open source](../../core/control-plane/src/components/service.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -217,9 +217,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `handleRequest` | function | 47 | <code>export async function handleRequest(registry: ComponentRegistry, request: unknown, responseLimit = MAX_BYTES, invocation?:InvocationContext): Promise&lt;ProtocolResponse&gt; {</code> |
 | `runService` | function | 76 | <code>export async function runService(role: ServiceRole, args = process.argv.slice(2)): Promise&lt;void&gt; {</code> |
 
-## services/hyperfide/src/events/api.ts
+## core/control-plane/src/events/api.ts
 
-[Open source](../../services/hyperfide/src/events/api.ts)
+[Open source](../../core/control-plane/src/events/api.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -230,9 +230,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `receipt` | function | 121 | <code>function receipt(value:unknown,status:'ADMITTED'&#124;'DUPLICATE'):Record&lt;string,unknown&gt; {</code> |
 | `runnerApi` | function | 127 | <code>export function runnerApi(g:TransactionGateway):Record&lt;string,Action&gt; {</code> |
 
-## services/hyperfide/src/events/dispatcher.ts
+## core/control-plane/src/events/dispatcher.ts
 
-[Open source](../../services/hyperfide/src/events/dispatcher.ts)
+[Open source](../../core/control-plane/src/events/dispatcher.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -245,9 +245,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `configuration` | function | 28 | <code>function configuration(value:unknown):WorkerConfig {</code> |
 | `startContinuousDispatch` | function | 51 | <code>export async function startContinuousDispatch(context:ComponentContext):Promise&lt;ContinuousDispatch&#124;undefined&gt; {</code> |
 
-## services/hyperfide/src/events/inbox.ts
+## core/control-plane/src/events/inbox.ts
 
-[Open source](../../services/hyperfide/src/events/inbox.ts)
+[Open source](../../core/control-plane/src/events/inbox.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -264,9 +264,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `isEventInboxCapability` | function | 222 | <code>export function isEventInboxCapability(value:unknown):value is EventInboxCapability {</code> |
 | `createComponent` | function | 226 | <code>export function createComponent(context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/events/instructions.ts
+## core/control-plane/src/events/instructions.ts
 
-[Open source](../../services/hyperfide/src/events/instructions.ts)
+[Open source](../../core/control-plane/src/events/instructions.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -289,9 +289,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `issueAuthority` | function | 342 | <code>async function issueAuthority(tx:PrimaryTransaction,input:unknown,invocation:InvocationContext):Promise&lt;void&gt; {</code> |
 | `createComponent` | function | 359 | <code>export function createComponent(context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/events/outbox.ts
+## core/control-plane/src/events/outbox.ts
 
-[Open source](../../services/hyperfide/src/events/outbox.ts)
+[Open source](../../core/control-plane/src/events/outbox.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -335,9 +335,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `EventOutboxCapability` | interface | 405 | <code>export interface EventOutboxCapability {</code> |
 | `isEventOutboxCapability` | function | 410 | <code>export function isEventOutboxCapability(value:unknown):value is EventOutboxCapability {</code> |
 
-## services/hyperfide/src/events/recovery.ts
+## core/control-plane/src/events/recovery.ts
 
-[Open source](../../services/hyperfide/src/events/recovery.ts)
+[Open source](../../core/control-plane/src/events/recovery.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -356,9 +356,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `close` | method | 143 | <code>async close():Promise&lt;void&gt; {</code> |
 | `createComponent` | function | 149 | <code>export async function createComponent(context:ComponentContext):Promise&lt;Component&gt; {</code> |
 
-## services/hyperfide/src/events/runner_commands.ts
+## core/control-plane/src/events/runner_commands.ts
 
-[Open source](../../services/hyperfide/src/events/runner_commands.ts)
+[Open source](../../core/control-plane/src/events/runner_commands.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -368,9 +368,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `nativeObservation` | function | 30 | <code>async function nativeObservation(tx:PrimaryTransaction,row:Record&lt;string,any&gt;,invocation:InvocationContext):Promise&lt;boolean&gt; {</code> |
 | `pollRunnerCommands` | function | 41 | <code>export async function pollRunnerCommands(context:ComponentContext,input:unknown):Promise&lt;unknown&gt; {</code> |
 
-## services/hyperfide/src/issue-watcher.ts
+## core/control-plane/src/issue-watcher.ts
 
-[Open source](../../services/hyperfide/src/issue-watcher.ts)
+[Open source](../../core/control-plane/src/issue-watcher.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -394,9 +394,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `issueWatcherCommand` | function | 170 | <code>export async function issueWatcherCommand(args:readonly string&#91;&#93;,env:Readonly&lt;NodeJS.ProcessEnv&gt;,signal:AbortSignal,emit:(line:Record&lt;string,unknown&gt;)=&gt;void):Promise&lt;number&gt;{</code> |
 | `createComponent` | function | 189 | <code>export function createComponent(_context:ComponentContext):Component{return {apiVersion:1,actions:{</code> |
 
-## services/hyperfide/src/runner/bridge.ts
+## core/control-plane/src/runner/bridge.ts
 
-[Open source](../../services/hyperfide/src/runner/bridge.ts)
+[Open source](../../core/control-plane/src/runner/bridge.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -458,9 +458,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `done` | function | 420 | <code>await new Promise&lt;void&gt;((resolve,reject)=&gt;{const timer=setTimeout(done,250);function done(){signal.removeEventListener('abort',cancel);resolve();}function cancel(){clearTimeout(timer);reject(new Error…</code> |
 | `cancel` | function | 420 | <code>await new Promise&lt;void&gt;((resolve,reject)=&gt;{const timer=setTimeout(done,250);function done(){signal.removeEventListener('abort',cancel);resolve();}function cancel(){clearTimeout(timer);reject(new Error…</code> |
 
-## services/hyperfide/src/runner/capture.ts
+## core/control-plane/src/runner/capture.ts
 
-[Open source](../../services/hyperfide/src/runner/capture.ts)
+[Open source](../../core/control-plane/src/runner/capture.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -470,9 +470,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `stored` | function | 24 | <code>async function stored(store:ArtifactStoreCapability,i:InvocationContext,part:Buffer):Promise&lt;{artifact_id:string;digest:string}&gt;{</code> |
 | `createComponent` | function | 31 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/runner/dispatch.ts
+## core/control-plane/src/runner/dispatch.ts
 
-[Open source](../../services/hyperfide/src/runner/dispatch.ts)
+[Open source](../../core/control-plane/src/runner/dispatch.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -487,9 +487,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `requireRunnerDispatch` | function | 33 | <code>export function requireRunnerDispatch(ctx:ComponentContext):RunnerDispatch {</code> |
 | `createComponent` | function | 37 | <code>export function createComponent(ctx:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/runner/executor.ts
+## core/control-plane/src/runner/executor.ts
 
-[Open source](../../services/hyperfide/src/runner/executor.ts)
+[Open source](../../core/control-plane/src/runner/executor.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -532,9 +532,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `validateNativeControlReceipt` | function | 171 | <code>export function validateNativeControlReceipt(value:unknown,target:NativeControlTarget,command_id?:string,action?:NativeControlAction):Record&lt;string,unknown&gt;{</code> |
 | `createComponent` | function | 188 | <code>export async function createComponent(ctx:ComponentContext):Promise&lt;Component&gt;{</code> |
 
-## services/hyperfide/src/runner/preparation_receipts.ts
+## core/control-plane/src/runner/preparation_receipts.ts
 
-[Open source](../../services/hyperfide/src/runner/preparation_receipts.ts)
+[Open source](../../core/control-plane/src/runner/preparation_receipts.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -547,9 +547,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `recordPreparationReceipt` | function | 40 | <code>export async function recordPreparationReceipt(tx:PrimaryTransaction,i:InvocationContext,v:unknown):Promise&lt;Record&lt;string,unknown&gt;&gt;{</code> |
 | `readPreparationReceipt` | function | 57 | <code>export async function readPreparationReceipt(tx:PrimaryTransaction,scope:{organisation_id:string;run_id:string;operation_id:string}):Promise&lt;Record&lt;string,unknown&gt;&#124;null&gt;{</code> |
 
-## services/hyperfide/src/runner/reproduction_jobs.ts
+## core/control-plane/src/runner/reproduction_jobs.ts
 
-[Open source](../../services/hyperfide/src/runner/reproduction_jobs.ts)
+[Open source](../../core/control-plane/src/runner/reproduction_jobs.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -570,9 +570,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `createReproductionJobInputReader` | function | 74 | <code>export function createReproductionJobInputReader(readAuthority:ReproductionAuthorityReader,readPreparation:ReproductionPreparationReader):RunnerInputReader {</code> |
 | `registerReproductionJobInputs` | function | 87 | <code>export function registerReproductionJobInputs(ctx:ComponentContext,readAuthority:ReproductionAuthorityReader,</code> |
 
-## services/hyperfide/src/runner/workspaces.ts
+## core/control-plane/src/runner/workspaces.ts
 
-[Open source](../../services/hyperfide/src/runner/workspaces.ts)
+[Open source](../../core/control-plane/src/runner/workspaces.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -598,9 +598,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `releaseRunnerWorkspace` | function | 160 | <code>export async function releaseRunnerWorkspace(tx:PrimaryTransaction,i:InvocationContext,v:unknown):Promise&lt;Record&lt;string,unknown&gt;&gt;{</code> |
 | `inspectRunnerWorkspace` | function | 178 | <code>export async function inspectRunnerWorkspace(tx:PrimaryTransaction,i:InvocationContext,v:unknown):Promise&lt;Record&lt;string,unknown&gt;&gt;{</code> |
 
-## services/hyperfide/src/scheduler/claim.ts
+## core/control-plane/src/scheduler/claim.ts
 
-[Open source](../../services/hyperfide/src/scheduler/claim.ts)
+[Open source](../../core/control-plane/src/scheduler/claim.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -673,9 +673,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `inspectSandboxCharge` | function | 864 | <code>export async function inspectSandboxCharge(tx:PrimaryTransaction,input:SchedulerScope&amp;{request_id:string}):Promise&lt;Record&lt;string,unknown&gt;&#124;null&gt;{</code> |
 | `createComponent` | function | 869 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/scheduler/dispatch.ts
+## core/control-plane/src/scheduler/dispatch.ts
 
-[Open source](../../services/hyperfide/src/scheduler/dispatch.ts)
+[Open source](../../core/control-plane/src/scheduler/dispatch.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -692,9 +692,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `consumeDispatchEvent` | function | 125 | <code>export async function consumeDispatchEvent(tx:PrimaryTransaction,input:SchedulerScope&amp;{event_id:string;consumer_id:string;native_recipients:{consumer_ids:string&#91;&#93;}}):Promise&lt;Awaited&lt;ReturnType&lt;typeof…</code> |
 | `createComponent` | function | 140 | <code>export function createComponent(_startup:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/scheduler/leases.ts
+## core/control-plane/src/scheduler/leases.ts
 
-[Open source](../../services/hyperfide/src/scheduler/leases.ts)
+[Open source](../../core/control-plane/src/scheduler/leases.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -711,9 +711,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `revokeRunForRecovery` | function | 228 | <code>export async function revokeRunForRecovery(tx:PrimaryTransaction,input:SchedulerScope&amp;{</code> |
 | `createComponent` | function | 253 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/scheduler/resources.ts
+## core/control-plane/src/scheduler/resources.ts
 
-[Open source](../../services/hyperfide/src/scheduler/resources.ts)
+[Open source](../../core/control-plane/src/scheduler/resources.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -741,9 +741,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `requireQueueActor` | function | 364 | <code>async function requireQueueActor(tx:PrimaryTransaction,scope:SchedulerScope,actor:SchedulerActor,</code> |
 | `createComponent` | function | 375 | <code>export function createComponent(_startup:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/supervisory-host.ts
+## core/control-plane/src/supervisory-host.ts
 
-[Open source](../../services/hyperfide/src/supervisory-host.ts)
+[Open source](../../core/control-plane/src/supervisory-host.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -755,9 +755,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `prepareSupervisoryHost` | function | 54 | <code>export async function prepareSupervisoryHost(args:readonly string&#91;&#93;,env:Readonly&lt;NodeJS.ProcessEnv&gt;):Promise&lt;SupervisoryLaunch&gt;{</code> |
 | `supervisoryHostCommand` | function | 72 | <code>export async function supervisoryHostCommand(args:readonly string&#91;&#93;,env:Readonly&lt;NodeJS.ProcessEnv&gt;,signal:AbortSignal):Promise&lt;number&gt;{</code> |
 
-## services/hyperfide/src/transport/http.ts
+## core/control-plane/src/transport/http.ts
 
-[Open source](../../services/hyperfide/src/transport/http.ts)
+[Open source](../../core/control-plane/src/transport/http.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -779,9 +779,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `invoke` | method | 47 | <code>export interface ServiceClient {invoke(invocation:InvocationContext,command:ServiceCommand):Promise&lt;ServiceResponse&gt;}</code> |
 | `createServiceClient` | function | 48 | <code>export async function createServiceClient(config:ServiceClientConfiguration,gateway:import('../identity/enrollment.js').IdentityGateway):Promise&lt;ServiceClient&gt;{</code> |
 
-## services/hyperfide/src/transport/isolation.ts
+## core/control-plane/src/transport/isolation.ts
 
-[Open source](../../services/hyperfide/src/transport/isolation.ts)
+[Open source](../../core/control-plane/src/transport/isolation.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -810,9 +810,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `requestedBindings` | function | 184 | <code>function requestedBindings(serialized:string):{deployment_id:string;operation_id:string;source_epoch:string&#124;null}{</code> |
 | `createIsolationHttpClient` | function | 193 | <code>export async function createIsolationHttpClient(options:IsolationHttpClientOptions):Promise&lt;IsolationHttpClient&gt;{</code> |
 
-## services/hyperfide/src/transport/protocol.ts
+## core/control-plane/src/transport/protocol.ts
 
-[Open source](../../services/hyperfide/src/transport/protocol.ts)
+[Open source](../../core/control-plane/src/transport/protocol.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -845,9 +845,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `authenticatedInvocation` | function | 215 | <code>export function authenticatedInvocation(value:InvocationContext):InvocationContext {</code> |
 | `assertInvocation` | function | 218 | <code>export function assertInvocation(value:unknown):asserts value is InvocationContext {</code> |
 
-## services/hyperfide/src/transport/writer_observation.ts
+## core/control-plane/src/transport/writer_observation.ts
 
-[Open source](../../services/hyperfide/src/transport/writer_observation.ts)
+[Open source](../../core/control-plane/src/transport/writer_observation.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |

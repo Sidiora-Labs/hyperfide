@@ -51,7 +51,7 @@ def accepted_intent(f,criteria):
     rubric=prior['rubric_digest'];reviewers=prior['clauses'][0]['reviewers']
     check=f.repair_check
     source=SOURCE.replace('RUBRIC',json.dumps(rubric)).replace('REVIEWERS',json.dumps(reviewers))+''.join(key+' = '+json.dumps(check[key])+'\n' for key in ('argv','executable_digest','timeout_ms','required_artifacts','input_keys'))
-    parsed=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=c.ROOT))
+    parsed=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=c.ROOT))
     spec=uid();document={'schema_version':1,'revision_digest':c.sha(b'finding-repair-accepted-envelope'),'source_digest':c.sha(source.encode()),'repositories':[{'repository_id':i['repository'],'source_object_id':c.OID,'integration_ref':'refs/heads/main'}],'allowed_actions':[],'closure_policy':{'required_evidence':['finding-repaired'],'required_review_roles':[],'publication':'AFTER_QUALIFICATION'},'provenance':None,'parsed':parsed,'runtime_wave_offset':0}
     sections={item['name']:item for item in parsed['sections']}
     f.sql('INSERT INTO hyperfide.spec_revisions(organisation_id,project_id,id,source_digest,source_content,document,schema_version,revision_digest) VALUES($1,$2,$3,$4,$5,$6,1,$7)',[i['organisation'],i['project'],spec,c.sha(source.encode()),source,json.dumps(document),document['revision_digest']])
@@ -71,7 +71,7 @@ def setup(f):
     f.env['HF_FINDING_REPAIR_MAX_ATTEMPTS']='2';f.env.update(HF_GITHUB_MARKER_SECRET=MARKER_SECRET,HF_GITHUB_WEBHOOK_SECRET=WEBHOOK_SECRET)
     for filename in ('0004-durability.sql','0017-review.sql','0018-findings.sql'):
         if callable(getattr(f,'apply_migration',None)):f.apply_migration(filename.removesuffix('.sql'))
-        else:f.sql('BEGIN;\n'+(c.ROOT/'services/hyperfide/migrations'/filename).read_text()+'\nCOMMIT;')
+        else:f.sql('BEGIN;\n'+(c.ROOT/'core/control-plane/migrations'/filename).read_text()+'\nCOMMIT;')
     i=f.ids
     criteria=f.sql('SELECT criteria_digest FROM hyperfide.tasks WHERE id=$1',[i['task_a']])[0]['criteria_digest']
     spec,definition,policy,state=accepted_intent(f,criteria);f.accepted_spec=spec

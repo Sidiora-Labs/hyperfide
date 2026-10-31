@@ -48,7 +48,7 @@ def seed(f,task):
     for filename in ('0004-durability.sql','0002-spec.sql','0003-hierarchy.sql','0017-review.sql','0018-findings.sql'):
         if callable(getattr(f,'apply_migration',None)):f.apply_migration(filename.removesuffix('.sql'))
         else:
-            sql=(ROOT/'services/hyperfide/migrations'/filename).read_text();f.sql('BEGIN;\n'+sql+'\nCOMMIT;')
+            sql=(ROOT/'core/control-plane/migrations'/filename).read_text();f.sql('BEGIN;\n'+sql+'\nCOMMIT;')
     f.x={key:uid() for key in ('repository','package','collaborator','task','attempt','watcher','manager','successor','peer','artifact','evidence','policy','obligation','receipt')}
     x=f.x;i=f.ids
     insert(f,'repositories',{'organisation_id':i['organisation'],'id':x['repository'],'project_id':i['project'],'name':'synthetic-findings','url':'https://example.invalid/synthetic-findings.git'})
@@ -81,7 +81,7 @@ def accept_spec(f,proof_check):
     checks=[proof_check,dict(proof_check,id='finding.other')]
     source='[req.18]\ntitle = "Finding lifecycle"\nac_1 = "Canonical findings retain provenance"\n[acceptance.V-032]\nreqs = ["18.1"]\nchecks = ["finding.repaired", "finding.other"]\n[task.18.1]\nreqs = ["18.1"]\nacceptance_ids = ["V-032"]\n[proof]\nrubric_digest = '+json.dumps(RUBRIC)+'\n'
     for item in checks:source+='[proof.check.'+item['id']+']\n'+''.join(key+' = '+json.dumps(item[key])+'\n' for key in ('argv','executable_digest','timeout_ms','required_artifacts','input_keys'))
-    parsed=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
+    parsed=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
     accepted=uid();i=f.ids
     document={'schema_version':1,'revision_digest':sha(b'finding-accepted-envelope-'+accepted.encode()),'source_digest':sha(source.encode()),'repositories':[{'repository_id':f.x['repository'],'source_object_id':OID,'integration_ref':'refs/heads/main'}],'allowed_actions':[],'closure_policy':{'required_evidence':['finding.repaired','finding.other'],'required_review_roles':[],'publication':'AFTER_QUALIFICATION'},'provenance':None,'parsed':parsed,'runtime_wave_offset':0}
     insert(f,'spec_revisions',{'organisation_id':i['organisation'],'project_id':i['project'],'id':accepted,'source_digest':sha(source.encode()),'source_content':source,'document':document,'schema_version':1,'revision_digest':document['revision_digest']})

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {bindReproductionInputs,createReproductionJobInputReader,reproductionJobRequest} from '../../../services/hyperfide/dist/runner/reproduction_jobs.js';
-import {createResourceContainer} from '../../../services/hyperfide/dist/storage/runtime.js';
+import {bindReproductionInputs,createReproductionJobInputReader,reproductionJobRequest} from '../../../core/control-plane/dist/runner/reproduction_jobs.js';
+import {createResourceContainer} from '../../../core/control-plane/dist/storage/runtime.js';
 const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const digest=n=>'sha256:'+createHash('sha256').update(String(n)).digest('hex');
 const denied=e=>e?.code==='REPRODUCTION_INPUT_AUTHORITY_DENIED';

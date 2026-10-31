@@ -2,7 +2,7 @@
 """Task 2.17: admission writes env_refs into the runner packet (D17).
 
 A task names every secret variable as NAME -> secret-ref:ID on its
-RunnerRemotePlan. Admission (remote.prepare in services/hyperfide
+RunnerRemotePlan. Admission (remote.prepare in core/control-plane
 runner/bridge.ts) builds the immutable packet through runnerAdmissionPacket,
 which checks each reference against the bound pool's environment profile (an
 allowlist of IDs only) and writes the checked map as packet.env_refs. The
@@ -15,7 +15,7 @@ contacted and no secret value exists in this case.
 import importlib.util, json, os, pathlib, signal, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-BRIDGE = ROOT / "services/hyperfide/dist/runner/bridge.js"
+BRIDGE = ROOT / "core/control-plane/dist/runner/bridge.js"
 ASSERTIONS = [
     "plan.references-accepted",
     "plan.malformed-reference-refused",
@@ -47,10 +47,10 @@ def check(name, ok, detail=None):
 
 TS = r"""
 import fs from 'node:fs';
-import pg from './services/hyperfide/node_modules/pg/lib/index.js';
-import {runnerAdmissionPacket,validateRunnerPlan,runnerCanonical} from './services/hyperfide/dist/runner/bridge.js';
-import {taskEnvReferences} from './services/hyperfide/dist/runner/executor.js';
-import {hash} from './services/hyperfide/dist/transport/protocol.js';
+import pg from './core/control-plane/node_modules/pg/lib/index.js';
+import {runnerAdmissionPacket,validateRunnerPlan,runnerCanonical} from './core/control-plane/dist/runner/bridge.js';
+import {taskEnvReferences} from './core/control-plane/dist/runner/executor.js';
+import {hash} from './core/control-plane/dist/transport/protocol.js';
 const input=JSON.parse(fs.readFileSync(0,'utf8'));
 const settle=async f=>{try{return {ok:true,value:await f()};}catch(e){return {ok:false,code:e.code??String(e)};}};
 const plan=input.plan?{...input.plan,environment_digest:hash(runnerCanonical(input.plan.environment))}:null;
@@ -156,7 +156,7 @@ def admission_scenario(t295, base):
 
 def source_scenario():
     """remote.prepare must persist the packet runnerAdmissionPacket returns, not a parallel construction."""
-    text = (ROOT / "services/hyperfide/src/runner/bridge.ts").read_text()
+    text = (ROOT / "core/control-plane/src/runner/bridge.ts").read_text()
     body = text[text.index("prepare:async(tx:PrimaryTransaction,i:InvocationContext,request:RunnerRemotePlan)"):text.index("recover:async(")]
     check("admission.prepare-uses-packet-builder", "const {packet,digest:pin}=await runnerAdmissionPacket(tx,plan,stableBinding,stableAllocation,checkedReadiness);" in body and
           body.count("JSON.stringify(packet)") == 1 and "packet=JSON.parse" not in body)
@@ -164,7 +164,7 @@ def source_scenario():
 
 def main():
     if not BRIDGE.exists():
-        print("assertion failed: build services/hyperfide (npm run build) first", file=sys.stderr)
+        print("assertion failed: build core/control-plane (npm run build) first", file=sys.stderr)
         return 1
     t295 = load("hf_case_29_5", "tests/hyperfide/cases/tasks/29_5.py")
     configured = os.environ.get("HYPERFIDE_PG_BIN")

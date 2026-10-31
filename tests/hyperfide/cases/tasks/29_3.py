@@ -11,12 +11,12 @@ SCRIPT=r"""
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
-import {ComponentRegistry} from './services/hyperfide/dist/components/registry.js';
-import {digestDocument} from './services/hyperfide/dist/providers/pools.js';
-import {issueIsolationPermit,loadIsolationPermitVerifier,issueWriterObservationPermit,loadWriterObservationPermitVerifier} from './services/hyperfide/dist/identity/credentials.js';
-import {externalFenceTopologyDigest,createExternalWriterFence,createExternalWriterObserver,FileExternalFenceJournal,bindProviderIsolation} from './services/hyperfide/dist/recovery/fencing.js';
-import {startExternalFencingService} from './services/hyperfide/dist/recovery/fencing_service.js';
-import {createIsolationHttpClient} from './services/hyperfide/dist/transport/isolation.js';
+import {ComponentRegistry} from './core/control-plane/dist/components/registry.js';
+import {digestDocument} from './core/control-plane/dist/providers/pools.js';
+import {issueIsolationPermit,loadIsolationPermitVerifier,issueWriterObservationPermit,loadWriterObservationPermitVerifier} from './core/control-plane/dist/identity/credentials.js';
+import {externalFenceTopologyDigest,createExternalWriterFence,createExternalWriterObserver,FileExternalFenceJournal,bindProviderIsolation} from './core/control-plane/dist/recovery/fencing.js';
+import {startExternalFencingService} from './core/control-plane/dist/recovery/fencing_service.js';
+import {createIsolationHttpClient} from './core/control-plane/dist/transport/isolation.js';
 const c=JSON.parse(process.env.HF_BINDING_CONTEXT),controller=new AbortController(),signal=controller.signal;
 const registry=new ComponentRegistry({role:'provisioner',policy:c.policy,env:process.env,signal});
 const results={},check=async(name,body)=>{try{await body();results[name]=true}catch(e){results[name]=String(e.stack??e)}};
@@ -81,7 +81,7 @@ try{
  await check('preflight-unregistered',async()=>{const p=verifier.verifySigned(await issueIsolationPermit({...claims,operation_id:randomUUID(),nonce:randomUUID()},issuer));await reject(()=>fence(topology,p).isolate({...input,operation_id:p.operation_id}),'DESTRUCTION_PREFLIGHT_UNAVAILABLE');assert.equal(destroyCalls,1)});
  console.log(JSON.stringify(results));
 }finally{unregister?.();await service?.close();controller.abort();await registry.close()}
-function ROOT_DIST(){return new URL('./services/hyperfide/dist/',import.meta.url).pathname}
+function ROOT_DIST(){return new URL('./core/control-plane/dist/',import.meta.url).pathname}
 """
 def setup(f):
  executor=f.path/'worker.json'

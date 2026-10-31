@@ -53,7 +53,7 @@ Hyperfide एक ही बाइनरी, `hyperfide`, में समाय�
 
 **और documentation आख़िरी सत्यापित टास्क है।** नए फ़ीचर spec में `@docs` closure stage डिफ़ॉल्ट रूप से चालू रहता है। सारे सामान्य टास्क qualify होने के बाद Hyperfide spec, टास्क-attributed स्नैपशॉट, कोड ग्राफ़, रूट, मेमोरी, जाँचों और मौजूदा docs से एक सीमित evidence पैकेट बनाता है। वही कॉन्फ़िगर किया गया एजेंट connector user और developer documentation अपडेट करता है, जबकि `hyperfide docs check` घोषित claim रेफ़रेंस, लोकल inline links, ज़रूरी ग्राफ़-सतह कवरेज और कॉन्फ़िगर किया गया target दायरा जाँचता है। `hyperfide docs close` एक अलग `[spec:<feature>/@docs]` स्नैपशॉट और अगले spec flow के लिए incremental baseline दर्ज करता है। ये संरचनात्मक जाँचें समीक्षा में मदद करती हैं; हर वाक्य के अर्थ को प्रमाणित नहीं करतीं।
 
-CLI ऐसी कोई बैकग्राउंड सर्विस नहीं चलाता जो आपने शुरू न की हो और कोई टेलीमेट्री नहीं भेजता — fleet supervisor केवल `hyperfide fleet up` के बाद चलता है और `hyperfide fleet down` से रुकता है। ग्राफ़, मेमोरी, स्नैपशॉट और पूरा टास्क चक्र आपकी मशीन पर चलते हैं और वहीं रहते हैं। अपवाद नामित और opt-in हैं: Jev decisions को `OPENROUTER_API_KEY` चाहिए, और केवल उन पर बनी कमांड ही वह कॉल करती हैं; `hyperfide changelog` रिलीज़ highlights के लिए मॉडल से पूछता है, और `hyperfide recap` में Solar Decide पिछले सेशनों से कथन चुनता है और एक मॉडल brief लिखता है — दोनों केवल तब जब `CENTRA_API_KEY` (या `HYPERFIDE_CHANGELOG_KEY`) सेट हो; और `hyperfide fleet pr` और `checkpoint` `gh` को कॉल करते हैं। `services/hyperfide` के अंतर्गत वितरित control services अलग प्रोसेस हैं जिन्हें आप स्पष्ट रूप से शुरू करते हैं ([Hyperfide कंट्रोल प्लेन](#hyperfide-कंट्रोल-प्लेन))।
+CLI ऐसी कोई बैकग्राउंड सर्विस नहीं चलाता जो आपने शुरू न की हो और कोई टेलीमेट्री नहीं भेजता — fleet supervisor केवल `hyperfide fleet up` के बाद चलता है और `hyperfide fleet down` से रुकता है। ग्राफ़, मेमोरी, स्नैपशॉट और पूरा टास्क चक्र आपकी मशीन पर चलते हैं और वहीं रहते हैं। अपवाद नामित और opt-in हैं: Jev decisions को `OPENROUTER_API_KEY` चाहिए, और केवल उन पर बनी कमांड ही वह कॉल करती हैं; `hyperfide changelog` रिलीज़ highlights के लिए मॉडल से पूछता है, और `hyperfide recap` में Solar Decide पिछले सेशनों से कथन चुनता है और एक मॉडल brief लिखता है — दोनों केवल तब जब `CENTRA_API_KEY` (या `HYPERFIDE_CHANGELOG_KEY`) सेट हो; और `hyperfide fleet pr` और `checkpoint` `gh` को कॉल करते हैं। `core/control-plane` के अंतर्गत वितरित control services अलग प्रोसेस हैं जिन्हें आप स्पष्ट रूप से शुरू करते हैं ([Hyperfide कंट्रोल प्लेन](#hyperfide-कंट्रोल-प्लेन))।
 
 ## Hyperfide क्यों
 
@@ -672,7 +672,7 @@ Chat ख़ुद एक असली chat है: headings, tables और ए�
 
 **Start Agent Session on Task** उसी chat को बोर्ड के अनुशासन के साथ चलाता है: यह टास्क claim करता है, शुरुआती prompt `hyperfide resume --task <id> --prompt` से तैयार करता है, और सेशन view में चलाता है (या, view व्यस्त हो तो, उसके बगल में एक editor पैनल में — एक साथ चलने वाले हर task सेशन को अपना पैनल मिलता है)। इसके बजाय क्लासिक seeded टर्मिनल के लिए `codify.agent.interface: "terminal"` सेट करें — adapter शुरू न हो पाने पर वह रास्ता अपने आप भी पेश किया जाता है।
 
-**Run Agent Headless on Task** claim + prompt को बैकग्राउंड VS Code task (`codex exec --sandbox workspace-write` या `claude -p`) के रूप में चलाता है और exit को एक notification के रूप में बताता है। **Run Wave with Agents** टर्मिनल में `hyperfide spec run -n <codify.agent.parallelism>` चलाता है। **Hand Off Task** और **Resume Task in Agent Session** `hyperfide handoff` और `hyperfide resume` को लपेटते हैं, और **Stop Agent Session** एक सेशन समाप्त करता है — टास्क अधूरा रहते पैनल या टर्मिनल बंद हो तो handoff पेश किया जाता है और claim release होता है। हर view एक `hyperfide serve` connection पर pushed events से अपडेट होता है, इसलिए कोई polling नहीं; पुरानी बाइनरी के साथ, सेशन चलते समय बोर्ड हर 10 सेकंड पर polling पर लौट आता है। हर टास्क पर उसका lease रखने वाले एजेंट का निशान होता है। देखें [editors/vscode/README.md](../../editors/vscode/README.md)।
+**Run Agent Headless on Task** claim + prompt को बैकग्राउंड VS Code task (`codex exec --sandbox workspace-write` या `claude -p`) के रूप में चलाता है और exit को एक notification के रूप में बताता है। **Run Wave with Agents** टर्मिनल में `hyperfide spec run -n <codify.agent.parallelism>` चलाता है। **Hand Off Task** और **Resume Task in Agent Session** `hyperfide handoff` और `hyperfide resume` को लपेटते हैं, और **Stop Agent Session** एक सेशन समाप्त करता है — टास्क अधूरा रहते पैनल या टर्मिनल बंद हो तो handoff पेश किया जाता है और claim release होता है। हर view एक `hyperfide serve` connection पर pushed events से अपडेट होता है, इसलिए कोई polling नहीं; पुरानी बाइनरी के साथ, सेशन चलते समय बोर्ड हर 10 सेकंड पर polling पर लौट आता है। हर टास्क पर उसका lease रखने वाले एजेंट का निशान होता है। देखें [extensions/vscode/README.md](../../extensions/vscode/README.md)।
 
 ## Hyperfide कंट्रोल प्लेन
 
@@ -699,20 +699,20 @@ flowchart TD
 - **Providers स्पष्ट कमियों वाले adapters हैं।** Railway और Blaxel adapters sandboxes बनाते हैं। जो क्षमताएँ किसी provider में नहीं हैं, वे `UNSUPPORTED` के रूप में बताई जाती हैं, कभी emulate नहीं की जातीं; capability टेबल operations गाइड में है।
 - **एजेंट ख़ुद को प्रमाणित नहीं कर सकते।** Claude Code और Codex frontier execution connectors बने रहते हैं। कोई worker किसी branch का नाम लेकर, zero exit code बताकर, या task status edit करके publication authority नहीं पा सकता: स्वतंत्र verifiers और commit reviewers सटीक submission जाँचते हैं, और केवल publication gateway protected integration branches पर लिखता है। Decision मॉडल (Jev और दूसरे मूल्यांकित routes) सीमित कर सकते हैं, रैंक कर सकते हैं या चिह्नित कर सकते हैं; फ़ैसला deterministic gates करते हैं।
 
-सेवाएँ `services/hyperfide` के नीचे TypeScript में हैं (Node 24.22.0, उसकी lockfile से pinned)। इन्हें execution sandbox में बिल्ड करें:
+सेवाएँ `core/control-plane` के नीचे TypeScript में हैं (Node 24.22.0, उसकी lockfile से pinned)। इन्हें execution sandbox में बिल्ड करें:
 
 ```sh
-make hyperfide-deps       # npm --prefix services/hyperfide ci --ignore-scripts
-make hyperfide-services   # npm --prefix services/hyperfide run build
+make hyperfide-deps       # npm --prefix core/control-plane ci --ignore-scripts
+make hyperfide-services   # npm --prefix core/control-plane run build
 make hyperfide-check      # type-check only
 ```
 
-`services/hyperfide/dist/control.js`, `provisioner.js` और `dispatch.js` entrypoints हैं। हर एक को एक स्पष्ट रूप से स्वीकृत policy फ़ाइल और वह सटीक specification revision चाहिए जिसे वह स्वीकृत करती है (`--policy FILE --spec-revision REV`, साथ में वैकल्पिक `--components`, `--module-root`, `--mode stdio|https|daemon`, `--host`, `--port`, `--tls-cert`, `--tls-key`), और बाकी सब कुछ अस्वीकार करता है:
+`core/control-plane/dist/control.js`, `provisioner.js` और `dispatch.js` entrypoints हैं। हर एक को एक स्पष्ट रूप से स्वीकृत policy फ़ाइल और वह सटीक specification revision चाहिए जिसे वह स्वीकृत करती है (`--policy FILE --spec-revision REV`, साथ में वैकल्पिक `--components`, `--module-root`, `--mode stdio|https|daemon`, `--host`, `--port`, `--tls-cert`, `--tls-key`), और बाकी सब कुछ अस्वीकार करता है:
 
 ```text
-$ node services/hyperfide/dist/control.js
+$ node core/control-plane/dist/control.js
 {"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision X
+$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
 {"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
 ```
 
@@ -749,7 +749,7 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 
 ### VS Code एक्सटेंशन
 
-`editors/vscode/` में Hyperfide एक्सटेंशन है — पूरा वर्कफ़्लो एडिटर में:
+`extensions/vscode/` में Hyperfide एक्सटेंशन है — पूरा वर्कफ़्लो एडिटर में:
 
 - **ग्राफ़ से कोड नेविगेशन।** यह `hyperfide lsp` चलाता है और उससे LSP में बात करता है, इसलिए go-to-definition, find-references, workspace symbols और code lens हर इंडेक्स की गई भाषा में बिना कंपाइलर और बिना कॉन्फ़िगरेशन के काम करते हैं। Hover दिखाता है कि सिंबल क्या है, उसके कितने रेफ़रेंस हैं, और उसके बारे में दर्ज निर्णय।
 - **Scope drift एक squiggle के रूप में।** चालू टास्क के घोषित `touches` से बाहर की फ़ाइल edit करने पर Problems पैनल में edit के क्षण ही चेतावनी आती है। सलाहकारी, कभी त्रुटि नहीं।
@@ -765,12 +765,12 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 एक्सटेंशन की कोई निर्भरता और कोई बिल्ड स्टेप नहीं — इसके Language Server client सहित, जो ठीक इसी वजह से हाथ से लिखा गया है।
 
 ```sh
-cd editors/vscode
+cd extensions/vscode
 npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
 code --install-extension codify-workflow-2.0.0-dev.vsix --force
 ```
 
-एक्सटेंशन Hyperfide Workflow के रूप में दिखता है; उसका package और Marketplace पहचान अपने ऐतिहासिक नाम रखते हैं (`codify-workflow`, `SidioraLabs.codify-workflow`), और वैसे ही उसकी `codify.*` settings और command ids भी। हर कमांड एक `hyperfide.*` id के नीचे भी दर्ज है, और बाइनरी `hyperfide.binaryPath` (या पुराने `codify.binaryPath`; दोनों का मेल होना चाहिए) से मिलती है, डिफ़ॉल्ट रूप से `PATH` पर `hyperfide`। देखें [editors/vscode/README.md](../../editors/vscode/README.md)। कोई भी दूसरा एडिटर अपने LSP client को `hyperfide lsp` की ओर इंगित करके वही नेविगेशन पाता है।
+एक्सटेंशन Hyperfide Workflow के रूप में दिखता है; उसका package और Marketplace पहचान अपने ऐतिहासिक नाम रखते हैं (`codify-workflow`, `SidioraLabs.codify-workflow`), और वैसे ही उसकी `codify.*` settings और command ids भी। हर कमांड एक `hyperfide.*` id के नीचे भी दर्ज है, और बाइनरी `hyperfide.binaryPath` (या पुराने `codify.binaryPath`; दोनों का मेल होना चाहिए) से मिलती है, डिफ़ॉल्ट रूप से `PATH` पर `hyperfide`। देखें [extensions/vscode/README.md](../../extensions/vscode/README.md)। कोई भी दूसरा एडिटर अपने LSP client को `hyperfide lsp` की ओर इंगित करके वही नेविगेशन पाता है।
 
 ## डेवलपमेंट
 
@@ -807,7 +807,7 @@ src/jev.c            typed decisions over curl
 src/skills.c         memories classed as skills, rendered as .agents/skills
 src/lsp.c            language server over the graph
 src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
-services/hyperfide/  TypeScript control, provisioner and dispatch services
+core/control-plane/  TypeScript control, provisioner and dispatch services
 tests/unit/          kvx grammar, SHA-256 vectors, JSON scanner, StrBuf/IO
 tests/integration/   graph, vcs, agentic, MCP protocol, spec engine, watcher,
                      sync gate, fleet, branches, jev, changelog, events, serve,
@@ -819,7 +819,7 @@ tests/fixtures/      sample polyglot project, a spec repo with golden outputs,
                      an explore project with gold queries,
                      stand-ins for curl, gh, and an OpenAI endpoint, and a
                      scripted fleet driver
-editors/vscode/      VS Code extension (plain JS): kvx language, task tree,
+extensions/vscode/      VS Code extension (plain JS): kvx language, task tree,
                      agent panel, memory browser, live fleet view, serve client
 scripts/             install/uninstall scripts (not advertised for 2.0 yet),
                      release construction, native component discovery

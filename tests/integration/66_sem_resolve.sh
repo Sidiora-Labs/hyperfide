@@ -30,7 +30,7 @@ int main(int argc,char **argv) {
 }
 EOF
 cc -std=c11 -Wall -Wextra -Werror -I"$repo/src" \
-    "$repo/src/sem_resolve.c" "$tmp/runner.c" -lsqlite3 -o "$tmp/runner"
+    "$repo/core/native/src/sem_resolve.c" "$tmp/runner.c" -lsqlite3 -o "$tmp/runner"
 python3 - "$tmp/test.db" "$tmp/runner" <<'PY'
 import sqlite3, subprocess, sys
 db, runner = sys.argv[1:]

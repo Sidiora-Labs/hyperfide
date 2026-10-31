@@ -15,7 +15,7 @@ source-object parents are irrelevant to the join.
 import importlib.util, json, os, pathlib, signal, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 RUNTIME = "hf_runtime"
 ASSERTIONS = [
     "migration.applied",
@@ -76,9 +76,9 @@ def ensure_build(base):
 
 PROBE = r"""
 import fs from 'node:fs';
-import pg from './services/hyperfide/node_modules/pg/lib/index.js';
-const {sandboxInventory,createComponent}=await import('./services/hyperfide/dist/observability/console.js');
-const {classifySandbox,RUNNER_HEARTBEAT_MAX_AGE_SECONDS}=await import('./services/hyperfide/dist/providers/placement.js');
+import pg from './core/control-plane/node_modules/pg/lib/index.js';
+const {sandboxInventory,createComponent}=await import('./core/control-plane/dist/observability/console.js');
+const {classifySandbox,RUNNER_HEARTBEAT_MAX_AGE_SECONDS}=await import('./core/control-plane/dist/providers/placement.js');
 const i=JSON.parse(fs.readFileSync(0,'utf8')),out={};
 const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();
 const counts=async()=>(await c.query('SELECT (SELECT sum(n_tup_ins+n_tup_upd+n_tup_del) FROM pg_stat_xact_user_tables) AS w')).rows[0].w;

@@ -338,7 +338,7 @@ descriptor, everything above applies. With a distributed descriptor
 
 The distributed graph is the control service's: remote extraction,
 bounded batch ingestion and atomically published graph generations live in
-`services/hyperfide/src/graph/` (`extraction.ts`, `ingestion.ts`,
+`core/control-plane/src/graph/` (`extraction.ts`, `ingestion.ts`,
 `publication.ts`, `projection.ts`), and graph reads route there through
 `hyperfide graph status|search|context|traverse` in distributed mode. Tasks
 7.1 to 7.4 and 25.3 are `pending` in `spec/hyperfide/spec.kvx`, so that

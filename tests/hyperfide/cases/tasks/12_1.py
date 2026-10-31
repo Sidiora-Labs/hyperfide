@@ -61,7 +61,7 @@ def run(argv, **kw):
 
 # ---------------------------------------------------------------- build/link contract
 def build_contract_checks():
-    script = ROOT / 'scripts/hyperfide-native-components.py'
+    script = ROOT / 'tools/repository/hyperfide-native-components.py'
     contract = {}
     def qualified():
         result = run(['python3', str(script), '--link-contract'])
@@ -77,12 +77,12 @@ def build_contract_checks():
     def sources():
         listed = run(['python3', str(script), '--sources']).stdout.split()
         expect(listed == contract['sources'], 'source contract differs between outputs')
-        expect('src/hyperfide/component_main.c' not in listed and not any(Path(p).name == 'component_main.c' for p in listed), 'standalone main leaked into contract')
-        expect({'src/hyperfide/supervisor.c', 'src/hyperfide/transport.c', 'src/hyperfide/supervisor_daemon.c'} <= set(listed), '12.1 sources missing')
+        expect('core/native/src/hyperfide/component_main.c' not in listed and not any(Path(p).name == 'component_main.c' for p in listed), 'standalone main leaked into contract')
+        expect({'core/native/src/hyperfide/supervisor.c', 'core/native/src/hyperfide/transport.c', 'core/native/src/hyperfide/supervisor_daemon.c'} <= set(listed), '12.1 sources missing')
         expect({'-lcurl', '-lcrypto'} <= set(run(['python3', str(script), '--libraries']).stdout.split()), 'libcurl/libcrypto not exported')
     check('runner12.sources-exclude-standalone-main', sources)
     def registry():
-        fragment = (ROOT / 'src/hyperfide/components/12.1.kvx').read_text()
+        fragment = (ROOT / 'core/native/src/hyperfide/components/12.1.kvx').read_text()
         declared = json.loads(re.search(r'^actions = (\[.*\])$', fragment, re.M)[1])
         generated = (ROOT / 'build/hyperfide-native-registry.inc').read_text()
         linked = re.findall(r'\{"12\.1", "([^"]+)", hf_component_12_1\}', generated)
@@ -95,7 +95,7 @@ def build_contract_checks():
         dry = run(['make', '-n', '-B', 'hyperfide'], timeout=180)
         expect(dry.returncode == 0, 'main CLI dry-run failed: ' + dry.stderr[:300])
         for source in contract['sources']:
-            expect(('-c -o build/' + source[len('src/'):-2] + '.o ' + source) in dry.stdout, 'main CLI omits ' + source)
+            expect(('-c -o build/' + source[len('core/native/src/'):-2] + '.o ' + source) in dry.stdout, 'main CLI omits ' + source)
         link = [line for line in dry.stdout.splitlines() if ' -o hyperfide ' in line]
         expect(len(link) == 1 and all(lib in link[0].split() for lib in contract['libraries']), 'main CLI link omits native libraries')
         expect('component_main' not in link[0], 'main CLI links standalone component main')

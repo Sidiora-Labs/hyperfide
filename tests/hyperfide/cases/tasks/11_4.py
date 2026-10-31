@@ -115,7 +115,7 @@ class PrewarmFixture(scheduler.SchedulerFixture):
  def start_provisioner(f):
   with socket.socket() as sock:sock.bind(("127.0.0.1",0));port=sock.getsockname()[1]
   components=f.work/"provisioner-components";components.mkdir()
-  for name in ("1.4","4.2","4.4","14.1","8.2","8.3","11.4-provisioner"):shutil.copyfile(ROOT/("services/hyperfide/components/"+name+".json"),components/(name+".json"))
+  for name in ("1.4","4.2","4.4","14.1","8.2","8.3","11.4-provisioner"):shutil.copyfile(ROOT/("core/control-plane/components/"+name+".json"),components/(name+".json"))
   origin="https://localhost:"+str(port);identity=json.loads(f.identity_config.read_text());identity["origin"]=origin
   config=f.work/"provisioner-identity.json";config.write_text(json.dumps(identity));config.chmod(0o600)
   env=dict(f.env,HF_IDENTITY_CONFIG_FILE=str(config))
@@ -126,7 +126,7 @@ class PrewarmFixture(scheduler.SchedulerFixture):
   credentials=f.work/"credential-store.json"
   credentials.write_text(json.dumps({"schema_version":1,"secret_root":str(secrets),"attachment_root":str(attachments),"sources":[],"targets":[]}));credentials.chmod(0o600)
   env.update(HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(executor),HF_CREDENTIAL_CONFIG_FILE=str(credentials))
-  argv=["node",str(ROOT/"services/hyperfide/dist/provisioner.js"),"--policy",str(f.policy),"--spec-revision","fixture-identity-v1","--components",str(components),"--module-root",str(ROOT/"services/hyperfide/dist"),"--mode","https","--host","127.0.0.1","--port",str(port),"--tls-cert",str(f.ca),"--tls-key",str(f.tlskey)]
+  argv=["node",str(ROOT/"core/control-plane/dist/provisioner.js"),"--policy",str(f.policy),"--spec-revision","fixture-identity-v1","--components",str(components),"--module-root",str(ROOT/"core/control-plane/dist"),"--mode","https","--host","127.0.0.1","--port",str(port),"--tls-cert",str(f.ca),"--tls-key",str(f.tlskey)]
   f.provisioner=subprocess.Popen(argv,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
   deadline=time.monotonic()+20;lines=[]
   while time.monotonic()<deadline:

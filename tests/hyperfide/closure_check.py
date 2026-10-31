@@ -254,13 +254,13 @@ def _fixture(base, defect):
     """Build a synthetic repository holding one closure of task 1.1, with one defect."""
     root = base / defect
     (root / "spec/hyperfide").mkdir(parents=True)
-    (root / "src").mkdir()
+    (root / "core/native/src").mkdir()
     (root / "m").mkdir()
     env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
     def run(*argv):
         subprocess.run(["git", "-C", str(root), *argv], check=True, capture_output=True, env=env, timeout=30)
     run("init", "-q")
-    (root / "src/a.c").write_text("int a;\n")
+    (root / "core/native/src/a.c").write_text("int a;\n")
     manifest = {"inputs": [{"path": "src/a.c", "sha256": sha(b"int a;\n"), "size": 7}]}
     (root / "m/1.1.json").write_text(json.dumps(manifest))
     status = "pending" if defect == "status" or defect.startswith("pending") else "done"
@@ -305,7 +305,7 @@ def _fixture(base, defect):
     (root / "artifacts/hyperfide/tasks/1.1/evidence-index.json").write_text(
         json.dumps({"task": "1.1", "commit": index_commit, "requalified_on": index_commit, "exit_code": 0}))
     if defect == "drift":
-        (root / "src/a.c").write_text("int b;\n")
+        (root / "core/native/src/a.c").write_text("int b;\n")
     return root
 
 

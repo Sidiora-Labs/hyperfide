@@ -36,12 +36,12 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/integration/candidates.js",
-    "services/hyperfide/dist/integration/publication.js",
-    "services/hyperfide/dist/integration/github.js",
-    "services/hyperfide/dist/integration/closure.js",
-    "services/hyperfide/dist/integration/release_barrier.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/integration/candidates.js",
+    "core/control-plane/dist/integration/publication.js",
+    "core/control-plane/dist/integration/github.js",
+    "core/control-plane/dist/integration/closure.js",
+    "core/control-plane/dist/integration/release_barrier.js"
   ],
   "resources": [
     {
@@ -66,9 +66,9 @@
     "integration/identity-database-absence.json"
   ],
   "source_files": [
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/cases/tasks/19_1.py",
     "tests/hyperfide/cases/tasks/19_4.py",
     "tests/hyperfide/cases/tasks/4_1.py",
@@ -78,10 +78,10 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "actions": [
     "postgresql.fixture.create",

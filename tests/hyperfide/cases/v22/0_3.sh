@@ -4,11 +4,11 @@ cd "$(dirname "$0")/../../../.."
 python3 - <<'PY'
 import re, subprocess
 from pathlib import Path
-roots = ['platform/packages/config', 'platform/apps/cli', 'platform/apps/server/src',
-         'platform/apps/host-daemon/src', 'platform/packages/scripts',
-         'platform/packages/host-daemon-contract', 'platform/packages/server-contract',
-         'platform/apps/app/src', 'platform/apps/desktop/src', 'platform/apps/mobile',
-         'platform/package.json', 'platform/.env.example']
+roots = ['lib/config', 'apps/cli', 'core/server/src',
+         'core/host-daemon/src', 'tools/scripts',
+         'contracts/host-daemon', 'contracts/server',
+         'apps/web/src', 'apps/desktop/src', 'apps/mobile',
+         'package.json', '.env.example']
 paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', *roots], text=True).splitlines()
 old_prefix = ''.join(map(chr, [66, 66, 95]))
 old_directory = ''.join(map(chr, [46, 98, 98]))
@@ -25,6 +25,6 @@ for name in paths:
         violations.append(name)
 assert not violations, 'Stale identity in: ' + ', '.join(violations)
 PY
-pnpm -C platform exec turbo run test --filter=./packages/config --filter=./apps/host-daemon --filter=./apps/cli
-pnpm -C platform exec turbo run build --filter=./apps/cli
-node platform/apps/cli/bin/hyperfide-platform --help
+pnpm exec turbo run test --filter=./packages/config --filter=./apps/host-daemon --filter=./apps/cli
+pnpm exec turbo run build --filter=./apps/cli
+node apps/cli/bin/hyperfide-platform --help

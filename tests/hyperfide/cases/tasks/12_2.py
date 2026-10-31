@@ -2,7 +2,7 @@
 """Task 12.2 component probe: durable local start ledger and supervisor-owned
 agent IPC across reconnects, driven through the linked native binary.
 
-The coordinator-side 12.2 dispatch route (services/hyperfide/src/runner/dispatch.ts)
+The coordinator-side 12.2 dispatch route (core/control-plane/src/runner/dispatch.ts)
 is exercised through the real HTTPS control service on a disposable PostgreSQL
 database: without a trusted 13.4 plan reader it stays NOT_READY, never issues a
 START and never claims launch authority.
@@ -69,7 +69,7 @@ ASSERTIONS = [
     "dispatch.consume-rejects-unknown-field",
 ]
 RESOURCE = "runner-dispatch-database"
-# Dependency closure of services/hyperfide/components/12.2.json (fragment files by id).
+# Dependency closure of core/control-plane/components/12.2.json (fragment files by id).
 DISPATCH_COMPONENTS = ["2.1", "2.4", "3.1", "3.2", "5.1", "5.2", "6.1", "6.2", "6.3", "7.2", "7.3", "1.2-asks", "12.2"]
 RESULTS = {}
 

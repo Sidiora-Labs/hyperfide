@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {createComponent as createProviderComponent} from '../../../../services/hyperfide/dist/providers/reconcile.js';
+import {createComponent as createProviderComponent} from '../../../../core/control-plane/dist/providers/reconcile.js';
 const digest=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
 // Controlled provider transport only. Commands and receipts are the real native
 // product; the executor authenticates, claims, verifies and signs every result.

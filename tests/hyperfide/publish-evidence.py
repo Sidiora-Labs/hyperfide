@@ -7,7 +7,7 @@
     python3 tests/hyperfide/publish-evidence.py --all --dry-run
 
 For each task it bundles the local evidence directory (evidence_store.bundle), passes the
-bytes to publishEvidenceBundle (services/hyperfide/dist/artifacts/objects.js), whose
+bytes to publishEvidenceBundle (core/control-plane/dist/artifacts/objects.js), whose
 artifact.object.put, artifact.manifest.commit and artifact.manifest.read calls go to the
 control service's component 15.2 through `hyperfide authority invoke` (the store's write
 credentials stay in the control service), reads the receipted bundle back from the store
@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import evidence_store  # noqa: E402
 
 COMPONENT = "15.2"
-MODULE = "services/hyperfide/dist/artifacts/objects.js"
+MODULE = "core/control-plane/dist/artifacts/objects.js"
 
 # Each store call is one authenticated envelope; a refused or UNKNOWN outcome throws, so
 # publishEvidenceBundle stops before a manifest names a chunk the store did not verify.
@@ -175,7 +175,7 @@ def main(argv=None):
         print(json.dumps({"status": "REFUSED", "error": "no hyperfide executable for authority invoke (make, or --cg)"}))
         return 2
     if not module.is_file():
-        print(json.dumps({"status": "REFUSED", "error": "compiled " + MODULE + " is absent (npm --prefix services/hyperfide run build, or --module)"}))
+        print(json.dumps({"status": "REFUSED", "error": "compiled " + MODULE + " is absent (npm --prefix core/control-plane run build, or --module)"}))
         return 2
     organisation, run = os.environ["HF_ARTIFACT_ORGANISATION_ID"], run_id()
     results = [{"task": r["task"], "status": "CURRENT", "content_digest": r["content_digest"]} for r in rows if r["task"] not in summary["to_publish"]]

@@ -30,7 +30,7 @@ def main():
    def invoke(value,recover=True,extra=None):
     path=root/('input-'+uid()+'.json');path.write_text(json.dumps(value));path.chmod(0o600)
     e=dict(env);e.update(extra or {})
-    p=subprocess.run(['node',str(ROOT/'services/hyperfide/dist/bootstrap.js'),*(['--recover'] if recover else []),'--input',str(path)],cwd=ROOT,env=e,text=True,capture_output=True,timeout=45)
+    p=subprocess.run(['node',str(ROOT/'core/control-plane/dist/bootstrap.js'),*(['--recover'] if recover else []),'--input',str(path)],cwd=ROOT,env=e,text=True,capture_output=True,timeout=45)
     lines=(p.stdout if p.returncode==0 else p.stderr).splitlines()
     return p.returncode,(json.loads(lines[-1]) if lines else {})
    code,initial=invoke(body,recover=False)
@@ -40,7 +40,7 @@ def main():
     return {'schema_version':1,'scope':{'organisation_id':ids['org'],'run_id':ids['run'],'authority_epoch':f.ids['epoch']},'recovery':value}
    count=lambda:f.sql('SELECT count(*)::text AS n FROM hyperfide.identity_bootstrap_recoveries WHERE organisation_id=$1 AND run_id=$2',[ids['org'],ids['run']])[0]['n']
    migration=f.sql('SELECT name,checksum FROM hyperfide.schema_migrations WHERE version=41')
-   check('exact-migration-applied',lambda:expect(migration==[{'name':'0041-bootstrap-recovery','checksum':'sha256:'+hashlib.sha256((ROOT/'services/hyperfide/migrations/0041-bootstrap-recovery.sql').read_bytes()).hexdigest()}]))
+   check('exact-migration-applied',lambda:expect(migration==[{'name':'0041-bootstrap-recovery','checksum':'sha256:'+hashlib.sha256((ROOT/'core/control-plane/migrations/0041-bootstrap-recovery.sql').read_bytes()).hexdigest()}]))
    code,denied=invoke(recovery(allowed_actions=actions+['finding.github.due']))
    check('widened-grant-refused-without-writes',lambda:expect(code==78 and denied['error']['code']=='AUTH_SCOPE_DENIED' and count()=='0'))
    code,offline=invoke(recovery(),extra={'HYPERFIDE_MODE':'offline'})

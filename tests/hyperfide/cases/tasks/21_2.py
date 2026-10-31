@@ -32,10 +32,10 @@ def native_admission_probe():
   except Exception as error:failed.append(name);actual=type(error).__name__+": "+str(error)
   print(json.dumps({"type":"assertion","id":name,"expected":"observed","actual":actual}),flush=True)
  with tempfile.TemporaryDirectory(prefix="hf-domain21-native-") as folder:
-  fixture_root=Path(folder);service=fixture_root/"services/hyperfide";service.mkdir(parents=True)
-  for name in ["dist","migrations","components"]:shutil.copytree(root/"services/hyperfide"/name,service/name)
-  shutil.copyfile(root/"services/hyperfide/package.json",service/"package.json")
-  (service/"node_modules").symlink_to(root/"services/hyperfide/node_modules",target_is_directory=True)
+  fixture_root=Path(folder);service=fixture_root/"core/control-plane";service.mkdir(parents=True)
+  for name in ["dist","migrations","components"]:shutil.copytree(root/"core/control-plane"/name,service/name)
+  shutil.copyfile(root/"core/control-plane/package.json",service/"package.json")
+  (service/"node_modules").symlink_to(root/"core/control-plane/node_modules",target_is_directory=True)
   jobs="""import {readSemanticDisposition} from './storage/dispositions.js';const loaders=new Map();export function createComponent(){return {apiVersion:1,capabilities:{'decision.jobs.v1':{registerPurpose(p,l){loaders.set(p,l)},completedAudit(){return {available:false,reason:'missing'}}}},actions:{'fixture.jobs.current':async(input,ctx)=>ctx.resources.gateway.withPrimaryTransaction({guard:async tx=>{await readSemanticDisposition(tx,ctx.invocation.principal);await ctx.invocation.guard(tx)}},async tx=>{const p=await loaders.get('recovery').load(tx,ctx.invocation,{packet_id:input.packet_id});await loaders.get('recovery').current(tx,{organisation_id:ctx.invocation.principal.organisation_id,run_id:ctx.invocation.principal.run_id},p.packet,ctx.invocation);return {authority:'NONE',fresh:true,packet_id:p.packet.id}})}}}"""
   (service/"dist/fixture-recovery-jobs.js").write_text(jobs)
   (service/"dist/fixture-no-assurance.js").write_text("export function createComponent(){return {apiVersion:1,capabilities:{'assurance.execution.v1':{inspectExecutionReceipt(){throw Error('No assurance producer qualification in native metadata fixture')}}},actions:{'fixture.assurance.describe':()=>({authority:'NONE'})}}}")
@@ -124,7 +124,7 @@ def emit(name,ok,detail):
 
 def repeat_receipt_probe():
  """Pure repeat contract for a preserved 16.2 receipt; the receipt fixture grants no assurance proof."""
- script="import {recoveryRepeat} from "+json.dumps((ROOT/"services/hyperfide/dist/decisions/recovery.js").as_uri())+";const id=n=>'40000000-0000-0000-0000-'+String(n).padStart(12,'0'),h='sha256:'+'b'.repeat(64);const receipt={receipt_digest:h,current_job_generation:'1',state:'COMPLETED',outcome:'FAILED',source_origin:'SUBMITTED_RESULT'};const prior={id:id(1),packet_hash:h,created_at:new Date(0).toISOString(),state:{attempt:{id:id(2),task_id:id(3),generation:'1',state_version:'4'},checkpoints:[{id:id(5)}],assurance_reference:{job_id:id(6),lease_generation:'1'},assurance_context:receipt,failure_evidence_origin:'SUBMITTED_ATTEMPT_RESULT',capacity_wait:{status:'NONE'}}};const next={attempt:{id:id(7),task_id:id(3),generation:'2',state_version:'1'},checkpoints:[{id:id(5)}],capacity_wait:{status:'NONE'}};const r=recoveryRepeat(prior,next),same=recoveryRepeat(prior,prior.state);process.stdout.write(JSON.stringify({r,same,none:recoveryRepeat(null,next)}));"
+ script="import {recoveryRepeat} from "+json.dumps((ROOT/"core/control-plane/dist/decisions/recovery.js").as_uri())+";const id=n=>'40000000-0000-0000-0000-'+String(n).padStart(12,'0'),h='sha256:'+'b'.repeat(64);const receipt={receipt_digest:h,current_job_generation:'1',state:'COMPLETED',outcome:'FAILED',source_origin:'SUBMITTED_RESULT'};const prior={id:id(1),packet_hash:h,created_at:new Date(0).toISOString(),state:{attempt:{id:id(2),task_id:id(3),generation:'1',state_version:'4'},checkpoints:[{id:id(5)}],assurance_reference:{job_id:id(6),lease_generation:'1'},assurance_context:receipt,failure_evidence_origin:'SUBMITTED_ATTEMPT_RESULT',capacity_wait:{status:'NONE'}}};const next={attempt:{id:id(7),task_id:id(3),generation:'2',state_version:'1'},checkpoints:[{id:id(5)}],capacity_wait:{status:'NONE'}};const r=recoveryRepeat(prior,next),same=recoveryRepeat(prior,prior.state);process.stdout.write(JSON.stringify({r,same,none:recoveryRepeat(null,next)}));"
  run=subprocess.run(["node","--input-type=module","-e",script],cwd=ROOT,text=True,capture_output=True,timeout=30)
  try:
   data=json.loads(run.stdout);r=data["r"];e=r["prior_failure_evidence"]
@@ -136,7 +136,7 @@ def repeat_receipt_probe():
 def triage_probe():
  """Legacy triage in distributed authority: explicit purpose route, no local Jev fallback (21.4 producer still absent)."""
  cg=ROOT/"cg";status=0
- if not cg.is_file() or cg.stat().st_mtime<(ROOT/"src/spec.c").stat().st_mtime:
+ if not cg.is_file() or cg.stat().st_mtime<(ROOT/"core/native/src/spec.c").stat().st_mtime:
   return emit("recovery.triage-distributed-explicit",False,"cg binary absent or older than src/spec.c")|emit("recovery.triage-legacy-local-refused",False,"cg binary absent or stale")
  with tempfile.TemporaryDirectory(prefix="hf-domain21-triage-") as folder:
   base=Path(folder);(base/".hyperfide").mkdir(mode=0o700)

@@ -1,0 +1,43 @@
+{
+  "name": "@hyperfide/scripts",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "hyperfide-script-archive-codex-tmp-hyperfide-sessions": "./dist/commands/archive-codex-tmp-hyperfide-sessions.js",
+    "hyperfide-script-reset-hyperfide-data": "./dist/commands/reset-hyperfide-data.js",
+    "hyperfide-script-run-cli": "./dist/commands/run-cli.js"
+  },
+  "exports": {
+    "./lib/run-dev-supervisor": {
+      "source": "./src/lib/run-dev-supervisor.ts",
+      "types": "./src/lib/run-dev-supervisor.ts",
+      "import": "./dist/lib/run-dev-supervisor.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ../../tools/workspace/build-package.mjs",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/db": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
+    "@hyperfide/process-utils": "workspace:*",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

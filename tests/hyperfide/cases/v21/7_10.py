@@ -20,11 +20,11 @@ import sys
 from urllib.parse import urlsplit, urlunsplit
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 DROPPED = ['resource_cleanup_receipts', 'runner_command_receipts', 'preparation_references',
            'branch_observations', 'review_coverage_inputs']
 KEPT = ['candidate_evidence']
-REMOVED = ['services/hyperfide/src/preparation/checkpoint.ts', 'services/hyperfide/src/transport/writer_observation.ts',
+REMOVED = ['core/control-plane/src/preparation/checkpoint.ts', 'core/control-plane/src/transport/writer_observation.ts',
            'tests/hyperfide/cases/tasks/14_writer_observation_transport.py', 'tests/hyperfide/cases/support/checkpoint_source.py']
 GUARDS = ['isConnectorQualificationAuthority', 'isAgentSessionsCapability', 'isEventInboxCapability', 'isEventOutboxCapability',
           'isHierarchyAuthority', 'isFrontierRouteAuthority', 'isPlacementAuthority', 'isWorkerRegistrationAuthority',
@@ -61,7 +61,7 @@ def node(script, env_extra=None, fails=False):
 
 SQL_JS = r"""
 import {createRequire} from 'node:module';
-const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
 const c=new pg.Client({connectionString:process.env.HF_PG_URL});await c.connect();
 try{let rows=[];for(const s of JSON.parse(process.env.HF_SQL))rows=(await c.query(s)).rows;process.stdout.write(JSON.stringify(rows));}
 catch(e){process.stderr.write(String(e.code)+': '+e.message);process.exitCode=1;}
@@ -69,8 +69,8 @@ finally{await c.end();}
 """
 
 MIGRATE_JS = r"""
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {MigrationCoordinator} from './services/hyperfide/dist/storage/durability.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {MigrationCoordinator} from './core/control-plane/dist/storage/durability.js';
 const signal=new AbortController().signal,env={...process.env,DATABASE_URL:process.env.HF_PG_URL,HYPERFIDE_MIGRATION_DATABASE_URL:process.env.HF_PG_URL};
 const r=createResourceContainer({role:'control',env,signal});
 try{process.stdout.write(JSON.stringify(await new MigrationCoordinator(r).apply({timeoutMs:30000,signal})));}
@@ -79,8 +79,8 @@ finally{await r.close();}
 
 BOOTSTRAP_JS = r"""
 import {createRequire} from 'node:module';
-import {AUTHORITY_TABLES,bootstrapAuthoritySchema} from './services/hyperfide/dist/storage/schema.js';
-const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+import {AUTHORITY_TABLES,bootstrapAuthoritySchema} from './core/control-plane/dist/storage/schema.js';
+const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
 const pool=new pg.Pool({connectionString:process.env.HF_PG_URL,max:1});
 try{const receipt=await bootstrapAuthoritySchema(pool);process.stdout.write(JSON.stringify({declared:[...AUTHORITY_TABLES],tables:receipt.tables,applied:receipt.applied}));}
 finally{await pool.end();}
@@ -104,7 +104,7 @@ def source_checks():
 
     def no_import():
         hits = subprocess.run(['git', 'grep', '-n', '-E', r'writer_observation\.js|preparation/checkpoint\.js|from .\./checkpoint\.js', '--',
-                               'services/hyperfide/src', 'tests/hyperfide/cases', 'tests/hyperfide/support'],
+                               'core/control-plane/src', 'tests/hyperfide/cases', 'tests/hyperfide/support'],
                               cwd=ROOT, text=True, capture_output=True).stdout
         expect(hits == '', ('a removed module is still imported', hits[:800]))
     check('v21.7.10.no-importer', no_import)
@@ -112,12 +112,12 @@ def source_checks():
     def dist_import_fails():
         # A stale dist keeps the old outputs: rebuild from a clean dist before qualifying.
         for module in ['transport/writer_observation.js', 'preparation/checkpoint.js']:
-            err = node("await import('./services/hyperfide/dist/" + module + "');", fails=True)
+            err = node("await import('./core/control-plane/dist/" + module + "');", fails=True)
             expect('ERR_MODULE_NOT_FOUND' in err, ('import of a removed module did not fail as absent', module, err[-300:]))
     check('v21.7.10.dist-import-fails', dist_import_fails)
 
     def guards_removed():
-        hits = subprocess.run(['git', 'grep', '-n', '-w', '-E', '|'.join(GUARDS), '--', 'services/hyperfide/src'],
+        hits = subprocess.run(['git', 'grep', '-n', '-w', '-E', '|'.join(GUARDS), '--', 'core/control-plane/src'],
                               cwd=ROOT, text=True, capture_output=True).stdout
         expect(hits == '', ('an unused type guard is back', hits[:800]))
     check('v21.7.10.type-guards-removed', guards_removed)

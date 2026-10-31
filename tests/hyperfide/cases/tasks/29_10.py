@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {serviceUnitStatus} from './services/hyperfide/dist/deployment/releases.js';
+import {serviceUnitStatus} from './core/control-plane/dist/deployment/releases.js';
 const root=await fs.mkdtemp(path.join(os.tmpdir(),'hf-unit-receipt-'));
 const units=['issue-watcher.service','supervisory-host.service'];
 const results={};
@@ -55,7 +55,7 @@ console.log(JSON.stringify(results));
             unit = (ROOT / f'deploy/hyperfide/{name}.service').read_text().splitlines()
             release.expect([x for x in unit if x.startswith('ExecStart=')] == [f'ExecStart=/opt/hyperfide/current/bin/hyperfide {name} --config /etc/hyperfide/{name}.json'], 'unit command/config differs')
             for suffix in ['src/' + name + '.ts', 'dist/' + name + '.js']:
-                release.expect((ROOT / 'services/hyperfide' / suffix).is_file(), '26.4 entrypoint absent')
+                release.expect((ROOT / 'core/control-plane' / suffix).is_file(), '26.4 entrypoint absent')
     release.check('units.shipped-entrypoints', entrypoints)
     # Exercise the registered service API with a byte-inventory fixture. These
     # placeholders test release inspection only, not deployment or runtime gates.

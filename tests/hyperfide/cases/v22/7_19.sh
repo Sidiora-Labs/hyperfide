@@ -9,12 +9,12 @@ step() {
   echo "$label: $((SECONDS-start))s exit=$code"
   return "$code"
 }
-step platform-build pnpm -C platform build
-step server-typecheck pnpm -C platform/apps/server typecheck
-step provider-bridge-tests pnpm -C platform/apps/server exec vitest run src/services/hosts/sandbox-provider.test.ts
-step dispatch-typecheck pnpm -C platform/plugins/hyperfide-dispatch typecheck
-step dispatch-tests pnpm -C platform/plugins/hyperfide-dispatch test
-step bundled-plugins pnpm -C platform --filter @hyperfide/bundled-plugins build
+step platform-build pnpm build
+step server-typecheck pnpm -C core/server typecheck
+step provider-bridge-tests pnpm -C core/server exec vitest run src/services/hosts/sandbox-provider.test.ts
+step dispatch-typecheck pnpm -C plugins/hyperfide-dispatch typecheck
+step dispatch-tests pnpm -C plugins/hyperfide-dispatch test
+step bundled-plugins pnpm --filter @hyperfide/bundled-plugins build
 step production-server python3 - <<'PY'
 import json, os, signal, socket, subprocess, tempfile, time, urllib.request
 from pathlib import Path
@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-19-') as tmp:
                HYPERFIDE_SERVER_BIND_HOST='127.0.0.1', HYPERFIDE_SERVER_PORT=str(port),
                HYPERFIDE_DATA_DIR=str(data), HYPERFIDE_SERVER_URL=url)
     with (data / 'server.log').open('w+') as log:
-        server = subprocess.Popen(['node', str(repo / 'platform/apps/server/dist/index.js')],
+        server = subprocess.Popen(['node', str(repo / 'core/server/dist/index.js')],
                                   cwd=repo / 'platform', env=env, stdout=log,
                                   stderr=log, start_new_session=True)
         try:
@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-19-') as tmp:
             for _ in range(90):
                 assert server.poll() is None, 'server exited during plugin startup'
                 result = subprocess.check_output(
-                    [str(repo / 'platform/apps/cli/bin/hyperfide-platform'), 'plugin', 'list', '--json'],
+                    [str(repo / 'apps/cli/bin/hyperfide-platform'), 'plugin', 'list', '--json'],
                     env=env, text=True, timeout=30)
                 plugins = json.loads(result)['plugins']
                 plugin = next((p for p in plugins if p['id'] == 'hyperfide-dispatch'), None)

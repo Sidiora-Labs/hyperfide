@@ -5,7 +5,7 @@
 
 [meta]
 name            = "Hyperfide Workflow"
-active_feature  = "hyperfide-v22"
+active_feature  = "hyperfide-source-control"
 source_of_truth = "spec/ (kvx). Generated files are pointers — regenerate, never hand-edit."
 
 [mode]
@@ -143,3 +143,9 @@ generated_owners = "hyperfide spec render owns AGENTS.md and CLAUDE.md; hyperfid
 [adapters]
 claude = "CLAUDE.md"
 agents = "AGENTS.md"
+
+[workspace]
+root = "."
+package_manager = "pnpm@9.15.0"
+control_service = "core/control-plane retains its independent npm lockfile and declared toolchain."
+commands = "Run pnpm workspace commands from the repository root. Public CLI remains hyperfide platform."

@@ -213,7 +213,7 @@ def run_behaviour():
     sys.path.insert(0,str(module.ROOT/"tests/hyperfide/support"))
     from identity_fixture import IdentityFixture
     fragments={}
-    for path in (module.ROOT/"services/hyperfide/components").glob("*.json"):
+    for path in (module.ROOT/"core/control-plane/components").glob("*.json"):
         value=json.loads(path.read_text())
         if "id" in value:fragments[value["id"]]=(path.stem,value)
     selected=set()

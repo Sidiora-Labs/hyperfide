@@ -93,10 +93,10 @@ The platform step runs between service and index: Corepack activates pnpm 9.15.0
 `pnpm install --frozen-lockfile` must succeed, and `pnpm build` is best effort.
 Logs remain in `/work/logs/pnpm-install.log` and `/work/logs/pnpm-build.log`.
 The pool probe reports the pnpm version. Job preparation reinstalls platform
-packages when `platform/pnpm-lock.yaml` or `platform/pnpm-workspace.yaml` differs
+packages when `pnpm-lock.yaml` or `pnpm-workspace.yaml` differs
 from the checkpoint commit, trying a frozen install before `--no-frozen-lockfile`.
 `make platform-install`, `make platform-build`, and `make platform-test` run pnpm
-in `platform/`.
+from the repository root.
 
 `--codex <feature> <task...>` generates Codex jobs with ids such as `v22-0.8`.
 `--v21 <task...>` remains an alias for `--codex hyperfide-v21 <task...>`.

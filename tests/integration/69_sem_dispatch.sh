@@ -6,7 +6,7 @@ project="$(mktemp -d)"
 trap 'rm -f "$out"; rm -rf "$project"' EXIT
 cc -std=gnu11 -Wall -Wextra -Werror -I"$root/src" \
   "$root/tests/fixtures/semantic/dispatch/harness.c" \
-  "$root/src/sem_dispatch.c" -lsqlite3 -o "$out"
+  "$root/core/native/src/sem_dispatch.c" -lsqlite3 -o "$out"
 "$out"
 
 mkdir -p "$project/src"

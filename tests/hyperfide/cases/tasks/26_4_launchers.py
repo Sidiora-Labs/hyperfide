@@ -3,7 +3,7 @@
 from pathlib import Path
 import hashlib,json,os,shutil,signal,subprocess,sys,tempfile,time,uuid
 ROOT=Path(__file__).resolve().parents[4]
-DIST=ROOT/'services/hyperfide/dist'
+DIST=ROOT/'core/control-plane/dist'
 FAIL=[]
 def uid():return str(uuid.uuid4())
 def expect(value,message='Actual launcher contract differs'):
@@ -26,8 +26,8 @@ class Release:
   self.root=base/'release';(self.root/'runtime').mkdir(parents=True);services=self.root/'services';services.mkdir()
   node=shutil.which('node');self.node=Path(subprocess.check_output([node,'-p','process.execPath'],text=True).strip())
   wrapper=self.root/'runtime/node';wrapper.write_text('#!/bin/sh\nexec '+json.dumps(str(self.node))+' "$@"\n');wrapper.chmod(0o755)
-  shutil.copytree(DIST,services/'dist');shutil.copyfile(ROOT/'services/hyperfide/package.json',services/'package.json')
-  (services/'node_modules').symlink_to(ROOT/'services/hyperfide/node_modules')
+  shutil.copytree(DIST,services/'dist');shutil.copyfile(ROOT/'core/control-plane/package.json',services/'package.json')
+  (services/'node_modules').symlink_to(ROOT/'core/control-plane/node_modules')
   (services/'runtime').mkdir();shutil.copyfile(ROOT/'runtime/supervisory_host.py',services/'runtime/supervisory_host.py');(services/'runtime/supervisory_host.py').chmod(0o644)
  def run(self,args,env,binary='hyperfide',timeout=60,cwd=None):
   e=dict(env,HYPERFIDE_RELEASE_ROOT=str(self.root))

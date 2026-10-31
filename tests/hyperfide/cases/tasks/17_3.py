@@ -38,7 +38,7 @@ def seed_inputs(f):
 def lock_order_probe(f):
  """Real signed reader waits on the actual14/17 run-row fence and sees committed generation."""
  import subprocess,threading,time
- js=r"""const {createRequire}=require('module'),pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+ js=r"""const {createRequire}=require('module'),pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
  const readline=require('readline');
  (async()=>{const c=new pg.Client({connectionString:process.env.DATABASE_URL,statement_timeout:1500,lock_timeout:1000});await c.connect();
  try{await c.query('BEGIN');const held=await c.query('UPDATE hyperfide.runs SET semantic_generation=semantic_generation+1 WHERE organisation_id=$1 AND id=$2 RETURNING semantic_generation::text AS generation',[process.argv[1],process.argv[2]]);process.stdout.write('LOCKED:'+held.rows[0].generation+'\n');
@@ -83,8 +83,8 @@ def graph_custody_probe(f,seed):
  d.sql("INSERT INTO hyperfide.graph_manifests(organisation_id,run_id,id,build_id,manifest_digest,source_manifest_digest,file_count,symbol_count,reference_count,edge_count) VALUES($1,$2,$3,$4,$5,$5,0,0,0,0)",[m.ORG,m.RUN,graph,build,graph_digest])
  # This is a storage freshness unit using actual PG metadata, not a graph
  # publication or authentication proof. Signed component assertions are separate.
- js="""import{createRequire}from'node:module';import{reviewGraphCustodyCurrent}from'./services/hyperfide/dist/review/coverage.js';
- const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg'),c=new pg.Client({connectionString:process.env.DATABASE_URL});
+ js="""import{createRequire}from'node:module';import{reviewGraphCustodyCurrent}from'./core/control-plane/dist/review/coverage.js';
+ const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg'),c=new pg.Client({connectionString:process.env.DATABASE_URL});
  await c.connect();try{await c.query('BEGIN');const value=await reviewGraphCustodyCurrent(c,{organisation_id:process.argv[1],run_id:process.argv[2]},process.argv[3]);await c.query('COMMIT');process.stdout.write(JSON.stringify(value));}finally{await c.end();}"""
  def inspect(run):
   return json.loads(subprocess.check_output(["node","--input-type=module","-e",js,m.ORG,run,graph],cwd=ROOT,env=d.env))

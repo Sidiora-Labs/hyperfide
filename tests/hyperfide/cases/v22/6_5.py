@@ -14,7 +14,7 @@ from withpg import postgres_bin
 
 def main():
     if not BUILD.is_file() or not BUILD.with_name("start-server.js").is_file() or not shutil.which("node"):
-        print("SKIP: platform server build or Node is absent; build platform/apps/server", file=sys.stderr)
+        print("SKIP: platform server build or Node is absent; build core/server", file=sys.stderr)
         return 77
     binary = postgres_bin()
     missing = [name for name in ("postgres", "initdb", "pg_ctl", "psql", "pg_isready")

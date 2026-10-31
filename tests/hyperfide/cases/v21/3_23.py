@@ -21,7 +21,7 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[4]
-MIGRATIONS = ROOT / 'services/hyperfide/migrations'
+MIGRATIONS = ROOT / 'core/control-plane/migrations'
 FAILED = []
 OBSERVED = []
 
@@ -56,7 +56,7 @@ def skip(reason):
 # Runs statements in one SERIALIZABLE transaction as the cluster superuser and returns the last result's rows.
 # replica=True seeds rows without their foreign-key chains (session_replication_role disables FK and row triggers).
 PG_JS = r"""
-const fs=require('fs'),{createRequire}=require('module'),pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+const fs=require('fs'),{createRequire}=require('module'),pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
 (async()=>{const q=JSON.parse(fs.readFileSync(0,'utf8')),c=new pg.Client({connectionString:process.env.HF_PG_URL});await c.connect();
  try{await c.query(q.autocommit?'SELECT 1':'BEGIN ISOLATION LEVEL SERIALIZABLE');if(q.replica)await c.query('SET LOCAL session_replication_role=replica');
   let rows=[];try{for(const [sql,values] of q.statements)rows=(await c.query(sql,values)).rows;if(!q.autocommit)await c.query('COMMIT');}catch(e){if(!q.autocommit)await c.query('ROLLBACK');throw e;}
@@ -65,8 +65,8 @@ const fs=require('fs'),{createRequire}=require('module'),pg=createRequire(proces
 """
 
 MIGRATE_JS = r"""
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {MigrationCoordinator} from './services/hyperfide/dist/storage/durability.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {MigrationCoordinator} from './core/control-plane/dist/storage/durability.js';
 const signal=new AbortController().signal,env={...process.env,DATABASE_URL:process.env.HF_PG_URL,HYPERFIDE_MIGRATION_DATABASE_URL:process.env.HF_PG_URL};
 const r=createResourceContainer({role:'control',env,signal});
 try{process.stdout.write(JSON.stringify(await new MigrationCoordinator(r,process.env.HF_MIGRATIONS_DIR||undefined).apply({timeoutMs:30000,signal})));}
@@ -75,8 +75,8 @@ finally{await r.close();}
 
 IMPORT_JS = r"""
 import {createRequire} from 'node:module';
-import {importRunTransaction} from './services/hyperfide/dist/spec/import.js';
-const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+import {importRunTransaction} from './core/control-plane/dist/spec/import.js';
+const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
 const c=JSON.parse(process.env.HF_IMPORT),client=new pg.Client({connectionString:process.env.HF_PG_URL});await client.connect();
 try{await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');const out=await importRunTransaction(client,c.scope,c.envelope);await client.query('COMMIT');process.stdout.write(JSON.stringify(out));}
 catch(e){await client.query('ROLLBACK').catch(()=>{});process.stderr.write(String(e.code)+': '+e.message);process.exitCode=1;}

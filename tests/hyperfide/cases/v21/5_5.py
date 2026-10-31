@@ -16,7 +16,7 @@ snapshots and snapshots still inside the window; N comes from control.example.js
 import datetime, hashlib, json, os, pathlib, shutil, subprocess, sys, tempfile, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 DIST = SERVICE / 'dist'
 FAILED = []
 FEATURE = 'hyperfide-v21'
@@ -372,7 +372,7 @@ def main():
         if shutil.which(tool) is None:
             skip(tool + ' is required')
     if not (SERVICE / 'node_modules').exists():
-        skip('services/hyperfide/node_modules is not installed')
+        skip('core/control-plane/node_modules is not installed')
     stamp = subprocess.run(['node', str(ROOT / 'deploy/hyperfide/dist-stamp.mjs'), 'check', str(SERVICE)], cwd=ROOT, capture_output=True, text=True)
     if stamp.returncode:
         build_run = subprocess.run(['npm', '--prefix', str(SERVICE), 'run', 'build'], cwd=ROOT, capture_output=True, text=True, timeout=900)

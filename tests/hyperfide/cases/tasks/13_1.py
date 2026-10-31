@@ -330,7 +330,7 @@ def main():
               "expired":{"snapshot":p,"observation":obs,"now":int(time.time())-7200,"ttl":3600}}
             script=r"""
 import fs from 'node:fs';import {generateKeyPairSync} from 'node:crypto';
-import {createConnectorQualificationRegistry,rawPublicKey} from './services/hyperfide/dist/agents/qualification.js';
+import {createConnectorQualificationRegistry,rawPublicKey} from './core/control-plane/dist/agents/qualification.js';
 const cases=JSON.parse(fs.readFileSync(0,'utf8')),{privateKey}=generateKeyPairSync('ed25519'),out={public_key:rawPublicKey(privateKey),results:{}};
 for(const [name,c] of Object.entries(cases)){
  const options={signingKey:privateKey,ttlSeconds:c.ttl??3600,resolve:id=>{if(id!==c.snapshot.profile_id)throw new Error('unknown profile');return c.snapshot;},

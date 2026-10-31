@@ -40,7 +40,7 @@ def api():
     f=Service();base.ACTIVE=f;base.S={"organisation_id":f.ids["organisation"],"run_id":f.ids["run"]}
     try:
         base.seed_native_attempt(f);f.enroll_runner();commands.register(f)
-        check("registered-module-binds-api",lambda:expect("from './api.js'" in (ROOT/"services/hyperfide/dist/events/instructions.js").read_text() and
+        check("registered-module-binds-api",lambda:expect("from './api.js'" in (ROOT/"core/control-plane/dist/events/instructions.js").read_text() and
             f.ok("instructions.describe")["bounds"]["runner_event_bytes"]==16384,"Registered instructions module does not bind the runner API"))
         first=structured(f,9301,1);admitted=ingest(f,first)
         check("ingest-admitted",lambda:expect(admitted["status"]=="ADMITTED" and admitted["receipt_cursor"]=="1" and admitted["execution_authority"] is False and

@@ -49,7 +49,7 @@ def cleanup_owned(task):
    if pid and process_start(pid)==start:
     expect(Path("/proc/sys/kernel/random/boot_id").read_text().strip()==row["kernel_boot_id"],"Kernel boot changed")
     command=Path("/proc/"+str(pid)+"/cmdline").read_bytes()
-    expect(str(path).encode() in command and b"/services/hyperfide/dist/" in command,"Owned process command identity mismatch")
+    expect(str(path).encode() in command and b"/core/control-plane/dist/" in command,"Owned process command identity mismatch")
     os.kill(pid,signal.SIGTERM);deadline=time.monotonic()+8
     while process_start(pid)==start and time.monotonic()<deadline:time.sleep(.05)
     if process_start(pid)==start:
@@ -87,7 +87,7 @@ def check(name,callback):
  print(json.dumps(record),flush=True)
  if TEST_TASK is not None:
   path=campaign_root()/"scheduler"/"observations.json";rows=json.loads(path.read_text()) if path.exists() else [];rows.append(record);write_json(path,rows)
-PARSE_JS="import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"
+PARSE_JS="import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"
 def next_spec_generation(f):
  current=f.sql("SELECT spec_generation::text AS generation FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2",[f.ids["organisation"],f.ids["run"]])[0]["generation"]
  return str(int(current)+1)
@@ -164,10 +164,10 @@ class SchedulerFixture(PacketFixture):
  def primary(self,body,data=None):
   """Exercise actual trusted lower APIs with a real primary brand; not a public auth substitute."""
   script="""import fs from 'node:fs';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import * as claims from './services/hyperfide/dist/scheduler/claim.js';
-import * as leases from './services/hyperfide/dist/scheduler/leases.js';
-import {ResourceScheduler} from './services/hyperfide/dist/scheduler/resources.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import * as claims from './core/control-plane/dist/scheduler/claim.js';
+import * as leases from './core/control-plane/dist/scheduler/leases.js';
+import {ResourceScheduler} from './core/control-plane/dist/scheduler/resources.js';
 const data=JSON.parse(fs.readFileSync(0,'utf8'));
 const resources=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
 try{const result=await resources.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:3,guard:async tx=>{
@@ -254,7 +254,7 @@ def main():
    status,response=f.invoke("system.describe",{},component="system",key="operator")
    expect(status==200 and response.get("ok") is True,"Registry describe failed: "+json.dumps(response))
    entries=[c for c in response["result"]["components"] if c["id"]=="5.1"]
-   declared=json.loads((ROOT/"services/hyperfide/components/5.1.json").read_text())
+   declared=json.loads((ROOT/"core/control-plane/components/5.1.json").read_text())
    expect(len(entries)==1 and entries[0]["actions"]==declared["actions"]==["scheduler.claim"],"Loaded registry does not expose component 5.1 with exactly its declared actions: "+json.dumps(entries))
   check("claim.component.registered",wired)
   b=f.prepare_claim("b")
@@ -320,7 +320,7 @@ def main():
  try:
   e=edge.ids;agent=edge.accounts["AGENT"]
   def reserve(request,dimensions,dynamic=False):
-   body=("const r=await import('./services/hyperfide/dist/scheduler/resources.js');return r.reserveDynamic(tx,{...data.scope,pool_id:data.pool,request_id:data.request,dimensions:data.dimensions,expires_at:data.expires});" if dynamic else
+   body=("const r=await import('./core/control-plane/dist/scheduler/resources.js');return r.reserveDynamic(tx,{...data.scope,pool_id:data.pool,request_id:data.request,dimensions:data.dimensions,expires_at:data.expires});" if dynamic else
     "return claims.reserveCapacity(tx,{...data.scope,request_id:data.request,dimensions:data.dimensions,expires_at:data.expires});")
    return edge.primary(body,{"pool":e["pool"],"request":request,"dimensions":dimensions,"expires":"2099-01-01T00:00:00.000Z"})
   creating=reserve(uid(),[{"capacity_account_id":agent,"quantity":"1"}])

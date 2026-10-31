@@ -10,5 +10,5 @@ in Platform** or **Hyperfide: Open Current File in Platform** from the command
 palette. Links carry the workspace repository path and the current task and
 feature, or relative file path and one-based line, as query parameters.
 
-See [the extension README](../../editors/vscode/README.md) for settings and VSIX
+See [the extension README](../../extensions/vscode/README.md) for settings and VSIX
 build and installation commands.

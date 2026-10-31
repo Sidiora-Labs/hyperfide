@@ -10,7 +10,7 @@ from pathlib import Path
 import importlib.machinery,importlib.util,json,os,shutil,subprocess,sys,tempfile
 spec=importlib.util.spec_from_file_location("domain21_tests",Path(__file__).with_name("21_4.py"))
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-ROOT=module.ROOT;COMPONENTS=ROOT/"services/hyperfide/components"
+ROOT=module.ROOT;COMPONENTS=ROOT/"core/control-plane/components"
 IDENTITY=(ROOT/"tests/hyperfide/support/identity_fixture.py").resolve()
 TEMP_PREFIXES=("hyperfide-identity-","hf-domain21-","hf-task21-1-")
 OWNED_DATABASES="datname LIKE 'hf\\_identity\\_%'";OWNED_ROLES="rolname LIKE 'hf\\_ir\\_%'"
@@ -38,10 +38,10 @@ def linkage_probe():
  identity=importlib.util.module_from_spec(identity_spec);identity_spec.loader.exec_module(identity)
  closure,table=spec_closure();names=tuple(table[ident].stem for ident in closure)
  with tempfile.TemporaryDirectory(prefix="hf-task21-1-link-") as folder:
-  fixture_root=Path(folder);service=fixture_root/"services/hyperfide";service.mkdir(parents=True)
-  shutil.copytree(ROOT/"services/hyperfide/dist",service/"dist");shutil.copytree(ROOT/"services/hyperfide/migrations",service/"migrations")
-  shutil.copytree(COMPONENTS,service/"components");shutil.copyfile(ROOT/"services/hyperfide/package.json",service/"package.json")
-  (service/"node_modules").symlink_to(ROOT/"services/hyperfide/node_modules",target_is_directory=True)
+  fixture_root=Path(folder);service=fixture_root/"core/control-plane";service.mkdir(parents=True)
+  shutil.copytree(ROOT/"core/control-plane/dist",service/"dist");shutil.copytree(ROOT/"core/control-plane/migrations",service/"migrations")
+  shutil.copytree(COMPONENTS,service/"components");shutil.copyfile(ROOT/"core/control-plane/package.json",service/"package.json")
+  (service/"node_modules").symlink_to(ROOT/"core/control-plane/node_modules",target_is_directory=True)
   (service/"dist/fixture-unavailable-jobs.js").write_text("export function createComponent(){return {apiVersion:1,capabilities:{'decision.jobs.v1':{registerPurpose(){},completedAudit(){return {available:false,reason:'missing'}}}},actions:{'fixture.jobs.describe':()=>({authority:'NONE',qualification:'UNAVAILABLE_PRODUCER_FIXTURE'})}}}")
   (service/"components/20.4.json").write_text(json.dumps({"schema_version":1,"id":"20.4","task":"20.4","roles":["control"],"module":"fixture-unavailable-jobs.js","entry":"createComponent","api_version":1,"actions":["fixture.jobs.describe"],"requires":[]}))
   identity.ROOT=fixture_root

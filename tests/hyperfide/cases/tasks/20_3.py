@@ -31,7 +31,7 @@ def main():
  failed=[]
  with tempfile.TemporaryDirectory(prefix="hf20-capabilities-")as temp:
   f=shared.Fixture(temp,"20.3",ACTIONS)
-  (f.components/"20.1.json").write_bytes((ROOT/"services/hyperfide/components/20.1.json").read_bytes())
+  (f.components/"20.1.json").write_bytes((ROOT/"core/control-plane/components/20.1.json").read_bytes())
   def check(i,fn):
    try:fn();actual="observed"
    except Exception as e:actual=f"{type(e).__name__}: {e}";failed.append(i)

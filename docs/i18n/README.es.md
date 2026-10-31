@@ -53,7 +53,7 @@ Las capas se refuerzan entre sí: los commits se etiquetan automáticamente con 
 
 **Y la documentación es la última tarea verificada.** Las specs de funcionalidad nuevas activan por defecto una etapa de cierre `@docs`. Cuando todas las tareas ordinarias están cualificadas, Hyperfide construye un paquete de evidencia acotado a partir de la spec, las instantáneas atribuidas a tareas, el grafo de código, las rutas, las memorias, las comprobaciones y la documentación existente. El mismo conector de agente configurado actualiza la documentación de usuario y de desarrollador, mientras `hyperfide docs check` comprueba las referencias de afirmaciones declaradas, los enlaces locales en línea, la cobertura exigida de la superficie del grafo y el alcance de destino configurado. `hyperfide docs close` registra una instantánea dedicada `[spec:<feature>/@docs]` y una línea base incremental para el siguiente flujo de spec. Estas comprobaciones estructurales apoyan la revisión; no certifican el significado de cada frase.
 
-La CLI no ejecuta servicios en segundo plano que no hayas iniciado ni envía telemetría — el supervisor de la flota solo corre tras `hyperfide fleet up` y se detiene con `hyperfide fleet down`. El grafo, la memoria, las instantáneas y todo el ciclo de tareas se ejecutan en tu máquina y se quedan ahí. Las excepciones están nombradas y son opcionales: las decisiones de Jev necesitan `OPENROUTER_API_KEY`, y solo los comandos construidos sobre ellas hacen esa llamada; `hyperfide changelog` pide a un modelo los highlights de cada versión, y `hyperfide recap` hace que Solar Decide elija afirmaciones de sesiones pasadas y que un modelo escriba el resumen, solo cuando `CENTRA_API_KEY` (o `HYPERFIDE_CHANGELOG_KEY`) está definida; y `hyperfide fleet pr` y `checkpoint` llaman a `gh`. Los servicios de control distribuido bajo `services/hyperfide` son procesos aparte que inicias explícitamente ([El plano de control de Hyperfide](#el-plano-de-control-de-hyperfide)).
+La CLI no ejecuta servicios en segundo plano que no hayas iniciado ni envía telemetría — el supervisor de la flota solo corre tras `hyperfide fleet up` y se detiene con `hyperfide fleet down`. El grafo, la memoria, las instantáneas y todo el ciclo de tareas se ejecutan en tu máquina y se quedan ahí. Las excepciones están nombradas y son opcionales: las decisiones de Jev necesitan `OPENROUTER_API_KEY`, y solo los comandos construidos sobre ellas hacen esa llamada; `hyperfide changelog` pide a un modelo los highlights de cada versión, y `hyperfide recap` hace que Solar Decide elija afirmaciones de sesiones pasadas y que un modelo escriba el resumen, solo cuando `CENTRA_API_KEY` (o `HYPERFIDE_CHANGELOG_KEY`) está definida; y `hyperfide fleet pr` y `checkpoint` llaman a `gh`. Los servicios de control distribuido bajo `core/control-plane` son procesos aparte que inicias explícitamente ([El plano de control de Hyperfide](#el-plano-de-control-de-hyperfide)).
 
 ## Por qué Hyperfide
 
@@ -672,7 +672,7 @@ El chat en sí es un chat de verdad: respuestas en markdown con encabezados, tab
 
 **Start Agent Session on Task** dirige el mismo chat con la disciplina del tablero: reclama la tarea, siembra el prompt inicial a partir de `hyperfide resume --task <id> --prompt` y ejecuta la sesión en la vista (o, cuando la vista está ocupada, en un panel del editor a su lado — cada sesión de tarea concurrente recibe el suyo). Fija `codify.agent.interface: "terminal"` para usar en su lugar la clásica terminal sembrada — esa vía también se ofrece automáticamente cuando el adaptador no consigue arrancar.
 
-**Run Agent Headless on Task** ejecuta el claim + prompt como tarea de VS Code en segundo plano (`codex exec --sandbox workspace-write` o `claude -p`) e informa de la salida mediante una notificación. **Run Wave with Agents** lanza `hyperfide spec run -n <codify.agent.parallelism>` en una terminal. **Hand Off Task** y **Resume Task in Agent Session** envuelven `hyperfide handoff` y `hyperfide resume`, y **Stop Agent Session** termina una sesión — un panel o una terminal que se cierra con la tarea sin terminar ofrece un handoff y libera el claim. Cada vista se actualiza con eventos enviados por una sola conexión `hyperfide serve`, así que no hay polling; contra un binario más antiguo, el tablero vuelve al polling cada 10 segundos mientras haya sesiones en marcha. Cada tarea se decora con el agente que tiene su lease. Ver [editors/vscode/README.md](../../editors/vscode/README.md).
+**Run Agent Headless on Task** ejecuta el claim + prompt como tarea de VS Code en segundo plano (`codex exec --sandbox workspace-write` o `claude -p`) e informa de la salida mediante una notificación. **Run Wave with Agents** lanza `hyperfide spec run -n <codify.agent.parallelism>` en una terminal. **Hand Off Task** y **Resume Task in Agent Session** envuelven `hyperfide handoff` y `hyperfide resume`, y **Stop Agent Session** termina una sesión — un panel o una terminal que se cierra con la tarea sin terminar ofrece un handoff y libera el claim. Cada vista se actualiza con eventos enviados por una sola conexión `hyperfide serve`, así que no hay polling; contra un binario más antiguo, el tablero vuelve al polling cada 10 segundos mientras haya sesiones en marcha. Cada tarea se decora con el agente que tiene su lease. Ver [extensions/vscode/README.md](../../extensions/vscode/README.md).
 
 ## El plano de control de Hyperfide
 
@@ -699,20 +699,20 @@ flowchart TD
 - **Los proveedores son adaptadores con carencias explícitas.** Los adaptadores de Railway y Blaxel crean sandboxes. Las capacidades que le faltan a un proveedor se informan como `UNSUPPORTED`, nunca se emulan; la tabla de capacidades está en la guía de operaciones.
 - **Los agentes no pueden certificarse a sí mismos.** Claude Code y Codex siguen siendo los conectores de ejecución de frontera. Un trabajador no puede obtener autoridad de publicación nombrando una rama, informando de un código de salida cero o editando el estado de una tarea: verificadores independientes y revisores de commits comprueban el envío exacto, y solo una pasarela de publicación escribe en las ramas de integración protegidas. Los modelos de decisión (Jev y las demás rutas evaluadas) pueden acotar, ordenar o señalar; las puertas deterministas deciden.
 
-Los servicios son TypeScript bajo `services/hyperfide` (Node 24.22.0, fijado por su lockfile). Compílalos en un sandbox de ejecución:
+Los servicios son TypeScript bajo `core/control-plane` (Node 24.22.0, fijado por su lockfile). Compílalos en un sandbox de ejecución:
 
 ```sh
-make hyperfide-deps       # npm --prefix services/hyperfide ci --ignore-scripts
-make hyperfide-services   # npm --prefix services/hyperfide run build
+make hyperfide-deps       # npm --prefix core/control-plane ci --ignore-scripts
+make hyperfide-services   # npm --prefix core/control-plane run build
 make hyperfide-check      # type-check only
 ```
 
-`services/hyperfide/dist/control.js`, `provisioner.js` y `dispatch.js` son los puntos de entrada. Cada uno necesita un archivo de política aprobado explícitamente y la revisión exacta de la especificación que aprueba (`--policy FILE --spec-revision REV`, más los opcionales `--components`, `--module-root`, `--mode stdio|https|daemon`, `--host`, `--port`, `--tls-cert`, `--tls-key`), y rechaza cualquier otra cosa:
+`core/control-plane/dist/control.js`, `provisioner.js` y `dispatch.js` son los puntos de entrada. Cada uno necesita un archivo de política aprobado explícitamente y la revisión exacta de la especificación que aprueba (`--policy FILE --spec-revision REV`, más los opcionales `--components`, `--module-root`, `--mode stdio|https|daemon`, `--host`, `--port`, `--tls-cert`, `--tls-key`), y rechaza cualquier otra cosa:
 
 ```text
-$ node services/hyperfide/dist/control.js
+$ node core/control-plane/dist/control.js
 {"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision X
+$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
 {"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
 ```
 
@@ -749,7 +749,7 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 
 ### Extensión para VS Code
 
-`editors/vscode/` incluye la extensión de Hyperfide — todo el flujo de trabajo en el editor:
+`extensions/vscode/` incluye la extensión de Hyperfide — todo el flujo de trabajo en el editor:
 
 - **Navegación de código desde el grafo.** Ejecuta `hyperfide lsp` y habla LSP con él, así que ir a la definición, buscar referencias, los símbolos del espacio de trabajo y code lens funcionan en todos los lenguajes indexados sin compilador ni configuración. Hover muestra qué es un símbolo, cuántas referencias tiene y las decisiones registradas sobre él.
 - **La deriva de alcance como subrayado.** Editar un archivo fuera de los `touches` declarados por la tarea en curso genera un aviso en el panel Problems, en el momento de la edición. Consultivo, nunca un error.
@@ -765,12 +765,12 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 La extensión no tiene dependencias ni paso de compilación — incluido su cliente de Language Server, escrito a mano precisamente por ese motivo.
 
 ```sh
-cd editors/vscode
+cd extensions/vscode
 npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
 code --install-extension codify-workflow-2.0.0-dev.vsix --force
 ```
 
-La extensión se muestra como Hyperfide Workflow; su paquete y su identidad en el Marketplace conservan sus nombres históricos (`codify-workflow`, `SidioraLabs.codify-workflow`), igual que sus ajustes `codify.*` y sus ids de comando. Cada comando también se registra bajo un id `hyperfide.*`, y el binario se encuentra mediante `hyperfide.binaryPath` (o el heredado `codify.binaryPath`; ambos deben coincidir), con `hyperfide` en el `PATH` como valor por defecto. Ver [editors/vscode/README.md](../../editors/vscode/README.md). Cualquier otro editor obtiene la misma navegación apuntando su cliente LSP a `hyperfide lsp`.
+La extensión se muestra como Hyperfide Workflow; su paquete y su identidad en el Marketplace conservan sus nombres históricos (`codify-workflow`, `SidioraLabs.codify-workflow`), igual que sus ajustes `codify.*` y sus ids de comando. Cada comando también se registra bajo un id `hyperfide.*`, y el binario se encuentra mediante `hyperfide.binaryPath` (o el heredado `codify.binaryPath`; ambos deben coincidir), con `hyperfide` en el `PATH` como valor por defecto. Ver [extensions/vscode/README.md](../../extensions/vscode/README.md). Cualquier otro editor obtiene la misma navegación apuntando su cliente LSP a `hyperfide lsp`.
 
 ## Desarrollo
 
@@ -807,7 +807,7 @@ src/jev.c            typed decisions over curl
 src/skills.c         memories classed as skills, rendered as .agents/skills
 src/lsp.c            language server over the graph
 src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
-services/hyperfide/  TypeScript control, provisioner and dispatch services
+core/control-plane/  TypeScript control, provisioner and dispatch services
 tests/unit/          kvx grammar, SHA-256 vectors, JSON scanner, StrBuf/IO
 tests/integration/   graph, vcs, agentic, MCP protocol, spec engine, watcher,
                      sync gate, fleet, branches, jev, changelog, events, serve,
@@ -819,7 +819,7 @@ tests/fixtures/      sample polyglot project, a spec repo with golden outputs,
                      an explore project with gold queries,
                      stand-ins for curl, gh, and an OpenAI endpoint, and a
                      scripted fleet driver
-editors/vscode/      VS Code extension (plain JS): kvx language, task tree,
+extensions/vscode/      VS Code extension (plain JS): kvx language, task tree,
                      agent panel, memory browser, live fleet view, serve client
 scripts/             install/uninstall scripts (not advertised for 2.0 yet),
                      release construction, native component discovery

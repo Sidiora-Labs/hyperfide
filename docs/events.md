@@ -226,7 +226,7 @@ reads it locally. In distributed authority mode (a
 the local tables.
 
 The service keeps its own durable events in PostgreSQL: a transactional
-outbox and committed delivery (`services/hyperfide/src/events/outbox.ts`),
+outbox and committed delivery (`core/control-plane/src/events/outbox.ts`),
 inbox deduplication and replay-gap recovery (`events/inbox.ts`,
 `events/recovery.ts`), and generation-bound start, steering and cancellation
 instructions (`events/instructions.ts`). Historical SQLite sequence numbers

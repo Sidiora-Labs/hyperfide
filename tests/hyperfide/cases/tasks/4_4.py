@@ -88,20 +88,20 @@ def main():
    folder=Path(tmp);modules=folder/'modules';registry=folder/'components';modules.mkdir();registry.mkdir()
    (modules/'package.json').write_text('{"type":"module"}')
    for id,name,actions,requires in [('4.2','runtime',['storage.runtime.describe'],[]),('4.4','durability',['storage.migrations.inspect','storage.migrations.apply','storage.durability.inspect'],['4.2']),('fixture','fixture',['fixture44.execute'],['4.2','4.4'])]:
-    if id!='fixture':(modules/(name+'.js')).write_text("export {createComponent} from '"+(ROOT/('services/hyperfide/dist/storage/'+name+'.js')).as_uri()+"';\n")
+    if id!='fixture':(modules/(name+'.js')).write_text("export {createComponent} from '"+(ROOT/('core/control-plane/dist/storage/'+name+'.js')).as_uri()+"';\n")
     (registry/(id+'.json')).write_text(json.dumps({'schema_version':1,'id':id,'task':'4.4','roles':['control'],'module':name+'.js','entry':'createComponent','api_version':1,'actions':actions,'requires':requires}))
-   (modules/'fixture.js').write_text(FIXTURE.replace('DURABILITY_URL',(ROOT/'services/hyperfide/dist/storage/durability.js').as_uri()).replace('SCHEMA_URL',(ROOT/'services/hyperfide/dist/storage/schema.js').as_uri()).replace('JOURNAL_URL',(ROOT/'services/hyperfide/dist/storage/authority_journal.js').as_uri()).replace('DISPOSITIONS_URL',(ROOT/'services/hyperfide/dist/storage/dispositions.js').as_uri()))
+   (modules/'fixture.js').write_text(FIXTURE.replace('DURABILITY_URL',(ROOT/'core/control-plane/dist/storage/durability.js').as_uri()).replace('SCHEMA_URL',(ROOT/'core/control-plane/dist/storage/schema.js').as_uri()).replace('JOURNAL_URL',(ROOT/'core/control-plane/dist/storage/authority_journal.js').as_uri()).replace('DISPOSITIONS_URL',(ROOT/'core/control-plane/dist/storage/dispositions.js').as_uri()))
    actions=['programme.activate','storage.runtime.describe','storage.migrations.inspect','storage.migrations.apply','storage.durability.inspect','fixture44.execute']
    policy={'schema_version':1,'programme_id':'fixture44','repository':'fixture/repo','spec_revision':'fixture44','policy_revision':1,'status':'ACTIVE','approval':{'decision':'APPROVED','record_id':'approved-fixture','spec_revision':'fixture44','policy_revision':1},'allowed_roles':['control'],'allowed_actions':actions}
    policyfile=folder/'policy.json';policyfile.write_text(json.dumps(policy))
    journal_dir=c.root/'external-authority';journal_dir.mkdir(mode=0o700)
-   deployment=uid();baseenv=os.environ.copy();baseenv.update(DATABASE_URL=c.url(),HYPERFIDE_MIGRATION_DATABASE_URL=c.url(),HYPERFIDE_DEPLOYMENT_ID=deployment,HYPERFIDE_AUTHORITY_JOURNAL_DIR=str(journal_dir),HYPERFIDE_MIGRATION_JOB='1',HF44_MIGRATIONS=str(ROOT/'services/hyperfide/migrations'),HF44_PARAMETERS=json.dumps({'root':str(c.root),'oldPrimary':str(c.primary),'oldSocket':str(c.socket/('.s.PGSQL.'+str(c.port)))}))
+   deployment=uid();baseenv=os.environ.copy();baseenv.update(DATABASE_URL=c.url(),HYPERFIDE_MIGRATION_DATABASE_URL=c.url(),HYPERFIDE_DEPLOYMENT_ID=deployment,HYPERFIDE_AUTHORITY_JOURNAL_DIR=str(journal_dir),HYPERFIDE_MIGRATION_JOB='1',HF44_MIGRATIONS=str(ROOT/'core/control-plane/migrations'),HF44_PARAMETERS=json.dumps({'root':str(c.root),'oldPrimary':str(c.primary),'oldSocket':str(c.socket/('.s.PGSQL.'+str(c.port)))}))
    sequence=0
    def call(input,env=None,action='fixture44.execute',timeout=45):
     nonlocal sequence
     sequence+=1
     request={'id':sequence,'component':'fixture' if action=='fixture44.execute' else '4.4','action':action,'input':input}
-    p=subprocess.run(['node','services/hyperfide/dist/control.js','--policy',str(policyfile),'--spec-revision','fixture44','--components',str(registry),'--module-root',str(modules)],input=json.dumps(request)+'\n',text=True,capture_output=True,cwd=ROOT,env=env or baseenv,timeout=timeout)
+    p=subprocess.run(['node','core/control-plane/dist/control.js','--policy',str(policyfile),'--spec-revision','fixture44','--components',str(registry),'--module-root',str(modules)],input=json.dumps(request)+'\n',text=True,capture_output=True,cwd=ROOT,env=env or baseenv,timeout=timeout)
     (BASE/('service-'+str(sequence)+'.json')).write_text(json.dumps({'exit_code':p.returncode,'stdout':p.stdout,'stderr':p.stderr})+'\n')
     return json.loads(p.stdout.strip() or p.stderr.strip()) if (p.stdout.strip() or p.stderr.strip()) else {'ok':False,'error':{'code':'NO_REPLY'}}
    operation=uid();initial=call({'mode':'migration','operation_id':operation})

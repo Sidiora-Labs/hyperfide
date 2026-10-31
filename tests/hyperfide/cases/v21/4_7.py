@@ -11,7 +11,7 @@ exits 77 when no PostgreSQL server or root is available.
 import importlib.util, json, os, pathlib, pwd, re, shutil, subprocess, sys, time, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 COMPONENT = '1.2-asks'
@@ -80,7 +80,7 @@ def setup(f):
 
 
 def issue_permit(f, ttl):
-    script = ("import {issueIsolationPermit} from './services/hyperfide/dist/identity/credentials.js';"
+    script = ("import {issueIsolationPermit} from './core/control-plane/dist/identity/credentials.js';"
               "const [deployment,organisation,run,key,ttl]=process.argv.slice(1);const now=Date.now();"
               "const claims={schema_version:1,purpose:'EXTERNAL_WRITER_ISOLATION_ONLY',deployment_id:deployment,operation_id:crypto.randomUUID(),"
               "organisation_id:organisation,run_id:run,source_epoch:null,topology_digest:'sha256:'+'c'.repeat(64),resources:[],"

@@ -11,7 +11,7 @@ refusals that keep the head and its append-only history honest.
 import importlib.util, json, os, pathlib, signal, subprocess, sys, time, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 RUNTIME = "hf_runtime"
 KINDS = ["secret", "variable", "permission", "decision", "question"]
 ASSERTIONS = [

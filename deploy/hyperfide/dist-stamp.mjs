@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-/* Stale-dist guard. services/hyperfide/dist is gitignored build output, so
+/* Stale-dist guard. core/control-plane/dist is gitignored build output, so
  * nothing else stops a checkout from running JavaScript older than its
  * TypeScript (a missing recovery/bootstrap_fence.js broke the bootstrap fence
  * this way). The build records a content digest of every compiler input and
  * of the emitted dist tree in dist/.source-digest.json; install-service.mjs and
- * scripts/release.sh refuse when either no longer matches, so a source edit, a
+ * tools/repository/release.sh refuse when either no longer matches, so a source edit, a
  * missing dist file and a hand-edited dist file all read stale.
  *   node dist-stamp.mjs write <service-root>   (run by `npm run build`)
  *   node dist-stamp.mjs check <service-root>   (exit 1 with DIST_STALE / DIST_UNSTAMPED) */

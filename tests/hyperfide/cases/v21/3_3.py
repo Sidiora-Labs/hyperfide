@@ -18,7 +18,7 @@ Component scope only: the operator invocation is constructed in-process.
 import importlib.util, json, os, pathlib, signal, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 RUNTIME = "hf_runtime"
 ASSERTIONS = [
     "migration.applied",
@@ -143,11 +143,11 @@ def answer(db, o, ask, value="b"):
 
 
 PROBE = r"""
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {createComponent} from './services/hyperfide/dist/recovery/stop.js';
-import {createComponent as createScheduler} from './services/hyperfide/dist/scheduler/claim.js';
-import {requireNoAskWait} from './services/hyperfide/dist/scheduler/resources.js';
-import {authenticatedInvocation} from './services/hyperfide/dist/transport/protocol.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {createComponent} from './core/control-plane/dist/recovery/stop.js';
+import {createComponent as createScheduler} from './core/control-plane/dist/scheduler/claim.js';
+import {requireNoAskWait} from './core/control-plane/dist/scheduler/resources.js';
+import {authenticatedInvocation} from './core/control-plane/dist/transport/protocol.js';
 import {randomUUID} from 'node:crypto';
 const ids=JSON.parse(process.env.HF_BLOCKED_IDS);
 const controller=new AbortController();

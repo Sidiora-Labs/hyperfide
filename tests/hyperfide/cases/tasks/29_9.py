@@ -193,7 +193,7 @@ def main():
             # Every variable a role's startup path reads must be named by its template; database URLs only as db.env lines.
             reads = {}
             for source in ['storage/durability', 'storage/replicas', 'recovery/fencing_service', 'providers/railway/preparation', 'identity/enrollment', 'events/dispatcher', 'providers/worker']:
-                reads[source] = set(re.findall(r'env\.(HYPERFIDE_[A-Z_]+|HF_[A-Z_]+)', (ROOT/'services/hyperfide/src'/f'{source}.ts').read_text()))
+                reads[source] = set(re.findall(r'env\.(HYPERFIDE_[A-Z_]+|HF_[A-Z_]+)', (ROOT/'core/control-plane/src'/f'{source}.ts').read_text()))
             common = {key for key in reads['storage/durability'] if not key.startswith('HYPERFIDE_MIGRATION_')} | reads['identity/enrollment'] | {'HYPERFIDE_SPEC_REVISION'}
             for role in ROLES:
                 text = (DEPLOY/'env'/f'{role}.env.example').read_text()

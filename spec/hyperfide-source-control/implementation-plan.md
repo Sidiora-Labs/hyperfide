@@ -73,7 +73,7 @@ Implementation and qualification obligations:
 
 ## 0.4: Establish the root workspace and relocation front door
 
-Status: **pending**. Owner: `repository-layout`. Dependencies: 0.3.
+Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.3.
 
 Proposed implementation scope:
 
@@ -123,7 +123,7 @@ Implementation and qualification obligations:
 
 ## 0.5: Relocate native engines and core executables with their consumers
 
-Status: **pending**. Owner: `repository-layout`. Dependencies: 0.4.
+Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.4.
 
 Proposed implementation scope:
 
@@ -185,7 +185,7 @@ Implementation and qualification obligations:
 
 ## 0.6: Relocate SDKs contracts libraries and packaged tooling
 
-Status: **pending**. Owner: `repository-layout`. Dependencies: 0.5.
+Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.5.
 
 Proposed implementation scope:
 
@@ -265,7 +265,7 @@ Implementation and qualification obligations:
 
 ## 0.7: Relocate applications plugins extensions examples and assets
 
-Status: **pending**. Owner: `repository-layout`. Dependencies: 0.6.
+Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.6.
 
 Proposed implementation scope:
 
@@ -307,7 +307,7 @@ Implementation and qualification obligations:
 
 ## 0.8: Complete tooling CI preparation and release path migration
 
-Status: **pending**. Owner: `repository-layout`. Dependencies: 0.7.
+Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.7.
 
 Proposed implementation scope:
 

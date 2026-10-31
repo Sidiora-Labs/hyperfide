@@ -164,7 +164,7 @@ class Probe:
         p.origin = "https://localhost:" + str(p.port)
         p.components = f.path / "components-provisioner"; p.components.mkdir()
         for name in ("1.4", "4.2", "4.4", "14.1", "11.5"):
-            shutil.copyfile(ROOT / "services/hyperfide/components" / (name + ".json"), p.components / (name + ".json"))
+            shutil.copyfile(ROOT / "core/control-plane/components" / (name + ".json"), p.components / (name + ".json"))
         config = json.loads(f.identity_config.read_text()); config["origin"] = p.origin
         p.identity_config = f.path / "identity-provisioner.json"; p.identity_config.write_text(json.dumps(config))
         p.env = dict(f.env, HF_IDENTITY_CONFIG_FILE=str(p.identity_config), **env)
@@ -637,7 +637,7 @@ def main():
             seen = probe.ok("preparation.slice.inspect", probe.scoped(slice_digest=slices["py3"]["digest"], full_tree_paths=[outside_read, "services/python/m03/src/u0.py", "services/common.mk"]), key="manager")
             expect(seen["omitted_inputs"] == sorted([outside_read, "services/common.mk"]) and seen["qualification"] == "SLICE_ONLY_NOT_FULL_TREE", "full-tree comparison did not report omitted inputs")
             expect(sorted(seen["widened_children"]) == sorted([widened["build"]["digest"], widened["write"]["digest"]]) and len(seen["receipts"]) >= 2, "inspect lacks history")
-            script = "import fs from 'node:fs';import {assertNotFullTreeQualification} from './services/hyperfide/dist/preparation/slices.js';const r=JSON.parse(fs.readFileSync(0,'utf8'));try{process.stdout.write(JSON.stringify({ok:assertNotFullTreeQualification(r)}));}catch(e){process.stdout.write(JSON.stringify({error:e.code}));}"
+            script = "import fs from 'node:fs';import {assertNotFullTreeQualification} from './core/control-plane/dist/preparation/slices.js';const r=JSON.parse(fs.readFileSync(0,'utf8'));try{process.stdout.write(JSON.stringify({ok:assertNotFullTreeQualification(r)}));}catch(e){process.stdout.write(JSON.stringify({error:e.code}));}"
             def assess(receipt):
                 return json.loads(subprocess.run(["node", "--input-type=module", "-e", script], input=json.dumps(receipt), cwd=ROOT, stdout=subprocess.PIPE, text=True, check=True).stdout)
             good = assess(receipts["r1"]); bad = assess(dict(receipts["r1"], full_tree_equivalent=True, qualification_scope="FULL_TREE"))
@@ -706,7 +706,7 @@ def cleanup():
     folder = campaign(); file = folder / "resources.json"
     recorded = json.loads(file.read_text()) if file.exists() else {"databases": [], "roles": [], "paths": [], "ports": []}
     def admin(statement, values=()):
-        script = "const {createRequire}=require('module'),pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');(async()=>{const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{const q=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(JSON.stringify((await c.query(q.sql,q.values)).rows));}finally{await c.end();}})().catch(e=>{process.stderr.write(String(e.message));process.exitCode=1;});"
+        script = "const {createRequire}=require('module'),pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');(async()=>{const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{const q=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(JSON.stringify((await c.query(q.sql,q.values)).rows));}finally{await c.end();}})().catch(e=>{process.stderr.write(String(e.message));process.exitCode=1;});"
         result = subprocess.run(["node", "-e", script], cwd=ROOT, input=json.dumps({"sql": statement, "values": list(values)}), text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
         if result.returncode: raise RuntimeError("cleanup query failed: " + result.stderr[:300])
         return json.loads(result.stdout)

@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[4]
-SRC = ROOT / 'services/hyperfide/src'
+SRC = ROOT / 'core/control-plane/src'
 CG = ROOT / 'cg'
 EXAMPLE = ROOT / 'deploy/hyperfide/env/control.env.example'
 OPS = ROOT / 'docs/hyperfide/operations.md'
@@ -58,9 +58,9 @@ def expect(ok, message):
 
 def control_modules(root):
     """service.ts plus every module a control-role component registers, closed over relative imports."""
-    src = root / 'services/hyperfide/src'
+    src = root / 'core/control-plane/src'
     todo = [src / 'components/service.ts']
-    for f in (root / 'services/hyperfide/components').glob('*.json'):
+    for f in (root / 'core/control-plane/components').glob('*.json'):
         v = json.loads(f.read_text())
         if 'control' in v.get('roles', []) and v.get('module'):
             todo.append((src / v['module']).with_suffix('.ts'))
@@ -78,7 +78,7 @@ def control_modules(root):
 
 def control_env_names(root):
     """Every environment name the control service reads, mapped to the modules that read it."""
-    src = (root / 'services/hyperfide/src').resolve()
+    src = (root / 'core/control-plane/src').resolve()
     names = {}
     for f in control_modules(root):
         rel = str(f.resolve().relative_to(src))
@@ -156,7 +156,7 @@ def env_checks():
     def ops_names_real():
         corpus = []
         for base, pattern in ((SRC, '**/*.ts'), (ROOT / 'deploy/hyperfide', '**/*'), (ROOT / 'tests/hyperfide', '*.py'),
-                              (ROOT / 'src', '**/*.[ch]'), (ROOT / 'scripts', '*')):
+                              (ROOT / 'core/native/src', '**/*.[ch]'), (ROOT / 'tools/repository', '*')):
             corpus += [p.read_text(errors='replace') for p in base.glob(pattern)
                        if p.is_file() and 'node_modules' not in p.relative_to(ROOT).parts]
         text = '\n'.join(corpus)
@@ -351,7 +351,7 @@ def code_checks():
         expect(not re.search(r"interval '\d+ seconds'|getTime\(\)\+\d{4,}", bridge), 'bridge.ts repeats a literal heartbeat bound')
 
     def runtime_uses_stat_cache():
-        text = (ROOT / 'src/runtime.c').read_text()
+        text = (ROOT / 'core/native/src/runtime.c').read_text()
         body = text[text.index('void runtime_workspace_revision('):]
         body = body[:body.index('\n}\n')]
         expect('vcs_worktree_files(' in body, 'runtime_workspace_revision does not read the store manifest')
@@ -394,10 +394,10 @@ def code_checks():
             shutil.rmtree(project, ignore_errors=True)
 
     def serve_methods():
-        serve = (ROOT / 'editors/vscode/serve.js').read_text()
+        serve = (ROOT / 'extensions/vscode/serve.js').read_text()
         expect(not re.search(r'^\s*async cancel\(', serve, re.M), 'serve.js keeps an unused cancel()')
         if re.search(r'^\s*async tool\(', serve, re.M):
-            users = [p for p in list((ROOT / 'editors/vscode').glob('*.js')) + [ROOT / 'tests/integration/14_vscode.sh']
+            users = [p for p in list((ROOT / 'extensions/vscode').glob('*.js')) + [ROOT / 'tests/integration/14_vscode.sh']
                      if p.name != 'serve.js' and re.search(r'\.tool\(', p.read_text())]
             expect(users, 'serve.js keeps tool() with no caller')
 

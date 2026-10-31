@@ -67,7 +67,7 @@ def main():
    p.expect(result=="before"and newer.stdout=="after"and child.returncode==0 and newer.returncode==0)
   check("environment.actual-existing-process-not-mutated",actual_environment)
   def memory_guard():
-   script="import{createBlaxelRecoveryController}from"+json.dumps(str(ROOT/"services/hyperfide/dist/providers/blaxel/recovery.js"))+";let queried=0;const c=createBlaxelRecoveryController("+json.dumps(p.scope())+",{assertScope:async()=>{},readQualification:async()=>{queried++;throw Error('memory path touched qualification')},assertFreshEnrollment:async()=>{throw Error('enrollment must not run')}});for(const feature of['memory_snapshot','memory_fork']){try{await c.negotiate(feature);throw Error('clone enabled')}catch(e){if(e.code!=='BLAXEL_AUTHENTICATED_CLONE_DISABLED')throw e}}if(queried)throw Error('unsafe memory lookup');"
+   script="import{createBlaxelRecoveryController}from"+json.dumps(str(ROOT/"core/control-plane/dist/providers/blaxel/recovery.js"))+";let queried=0;const c=createBlaxelRecoveryController("+json.dumps(p.scope())+",{assertScope:async()=>{},readQualification:async()=>{queried++;throw Error('memory path touched qualification')},assertFreshEnrollment:async()=>{throw Error('enrollment must not run')}});for(const feature of['memory_snapshot','memory_fork']){try{await c.negotiate(feature);throw Error('clone enabled')}catch(e){if(e.code!=='BLAXEL_AUTHENTICATED_CLONE_DISABLED')throw e}}if(queried)throw Error('unsafe memory lookup');"
    r=subprocess.run(["node","--input-type=module","-e",script],capture_output=True,text=True,timeout=5);p.expect(r.returncode==0,r.stderr)
   check("controller.memory-path-disabled-before-evidence-lookup",memory_guard)
 
@@ -81,7 +81,7 @@ def main():
   selected={};added=set()
   def add(name):
    if name in added:return
-   for dep in json.loads((ROOT/f"services/hyperfide/components/{name}.json").read_text())["requires"]:add(dep)
+   for dep in json.loads((ROOT/f"core/control-plane/components/{name}.json").read_text())["requires"]:add(dep)
    added.add(name)
   add("10.4")
   def setup(auth):

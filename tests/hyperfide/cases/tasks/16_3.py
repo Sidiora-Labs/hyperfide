@@ -68,7 +68,7 @@ def behaviour_cases():
     save()
     # Closure of the task-owned fragment through the established registry requires graph.
     fragments = {}
-    for path in (ROOT / "services/hyperfide/components").glob("*.json"):
+    for path in (ROOT / "core/control-plane/components").glob("*.json"):
         value = json.loads(path.read_text())
         if "id" in value: fragments[value["id"]] = (path.stem, value)
     selected = set()

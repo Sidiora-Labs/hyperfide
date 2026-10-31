@@ -65,11 +65,11 @@
   ],
   "fixtures": [
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/graph/extraction.js",
-    "services/hyperfide/dist/hierarchy/packets.js",
-    "services/hyperfide/dist/preparation/slices.js",
-    "services/hyperfide/dist/provisioner.js",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/graph/extraction.js",
+    "core/control-plane/dist/hierarchy/packets.js",
+    "core/control-plane/dist/preparation/slices.js",
+    "core/control-plane/dist/provisioner.js",
     "tests/hyperfide/cases/support/large_repo_fixture.py",
     "tests/hyperfide/support/identity_fixture.py"
   ],
@@ -97,18 +97,18 @@
     "components/11.5/slices/resource-absence.json"
   ],
   "source_files": [
-    "services/hyperfide/components/11.5.json",
-    "services/hyperfide/migrations/0045-workspace-slices.sql",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/src/components/registry.ts",
-    "services/hyperfide/src/graph/extraction.ts",
-    "services/hyperfide/src/graph/ingestion.ts",
-    "services/hyperfide/src/graph/publication.ts",
-    "services/hyperfide/src/hierarchy/packets.ts",
-    "services/hyperfide/src/preparation/manifests.ts",
-    "services/hyperfide/src/preparation/slices.ts",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/components/11.5.json",
+    "core/control-plane/migrations/0045-workspace-slices.sql",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/components/registry.ts",
+    "core/control-plane/src/graph/extraction.ts",
+    "core/control-plane/src/graph/ingestion.ts",
+    "core/control-plane/src/graph/publication.ts",
+    "core/control-plane/src/hierarchy/packets.ts",
+    "core/control-plane/src/preparation/manifests.ts",
+    "core/control-plane/src/preparation/slices.ts",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/cases/full/compose.py",
     "tests/hyperfide/cases/full/register.py",
     "tests/hyperfide/cases/tasks/11_5.py",
@@ -121,10 +121,10 @@
     "tests/hyperfide/registry.json"
   ],
   "source_roots": [
-    "services/hyperfide/components",
-    "services/hyperfide/dist",
-    "services/hyperfide/migrations",
-    "services/hyperfide/src"
+    "core/control-plane/components",
+    "core/control-plane/dist",
+    "core/control-plane/migrations",
+    "core/control-plane/src"
   ],
   "cleanup_argv": [
     "python3",

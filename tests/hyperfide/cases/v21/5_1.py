@@ -13,7 +13,7 @@ server, root or the service's node_modules (task 1.7 contract).
 import hashlib, importlib.util, json, os, pathlib, signal, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 RUNTIME = "hf_runtime"
 ASSERTIONS = [
     "migration.applied",
@@ -95,8 +95,8 @@ def ensure_build(base):
 
 PROBE = r"""
 import fs from 'node:fs';
-import pg from './services/hyperfide/node_modules/pg/lib/index.js';
-const {needsPanel,issuesPanel,leadersPanel,createComponent,OBSERVATION_MAX_AGE_SECONDS}=await import('./services/hyperfide/dist/observability/console.js');
+import pg from './core/control-plane/node_modules/pg/lib/index.js';
+const {needsPanel,issuesPanel,leadersPanel,createComponent,OBSERVATION_MAX_AGE_SECONDS}=await import('./core/control-plane/dist/observability/console.js');
 const i=JSON.parse(fs.readFileSync(0,'utf8')),out={};
 const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();
 const writes=async()=>(await c.query('SELECT coalesce(sum(n_tup_ins+n_tup_upd+n_tup_del),0)::text AS w FROM pg_stat_xact_user_tables')).rows[0].w;
@@ -411,7 +411,7 @@ def main():
         print("SKIP: the owned cluster runs initdb through runuser postgres, which needs root", flush=True)
         return 77
     if not (SERVICE / "node_modules").exists():
-        print("SKIP: services/hyperfide/node_modules is not installed", flush=True)
+        print("SKIP: core/control-plane/node_modules is not installed", flush=True)
         return 77
     t295 = load("hf_case_29_5", "tests/hyperfide/cases/tasks/29_5.py")
     t295.postgres_bin = lambda: servers[-1]

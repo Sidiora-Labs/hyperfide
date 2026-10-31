@@ -57,7 +57,7 @@ def check(ident,body):
     except Exception as error:actual=type(error).__name__+': '+str(error);FAILED.append(ident)
     print(json.dumps({'type':'assertion','id':ident,'expected':'observed','actual':actual}),flush=True)
 def parse(source):
-    return json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
+    return json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
 def executable():return str(Path(sys.executable).resolve())
 def proof_source(base):
     check_fields={'argv':[executable(),'-c','raise SystemExit(1)',''],'executable_digest':sha(Path(executable()).read_bytes()),'timeout_ms':600000,'required_artifacts':['proof.json'],'input_keys':['source']}
@@ -282,7 +282,7 @@ def derived(value):
     return v[:8]+'-'+v[8:12]+'-'+v[12:16]+'-'+v[16:20]+'-'+v[20:]
 def components():
     fragments={}
-    for path in (ROOT/'services/hyperfide/components').glob('*.json'):
+    for path in (ROOT/'core/control-plane/components').glob('*.json'):
         value=json.loads(path.read_text())
         if 'id' in value:fragments[value['id']]=(path.stem,value)
     selected=set()

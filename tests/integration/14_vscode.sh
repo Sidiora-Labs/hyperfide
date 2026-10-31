@@ -3,16 +3,16 @@
 . "$(dirname "$0")/../lib.sh"
 section="${1:-all}"
 want() { [ "$section" = all ] || [ "$section" = "$1" ]; }
-EXT="$(cd "$(dirname "$0")/../../editors/vscode" && pwd)"
+EXT="$(cd "$(dirname "$0")/../../extensions/vscode" && pwd)"
 ROOT="$(cd "$EXT/../.." && pwd)"
 for f in "$EXT"/*.js; do node --check "$f"; done
 if want commands; then
     node --test "$EXT"/test/*.test.js
 fi
 if want manifest; then
-    python3 -I "$ROOT/scripts/package-vsix.py" --source "$EXT" --out "$TMP/vsix"
+    python3 -I "$ROOT/tools/repository/package-vsix.py" --source "$EXT" --out "$TMP/vsix"
     name="$(node -p 'const p=require(process.argv[1]); p.name+"-"+p.version' "$EXT/package.json")"
-    python3 -I "$ROOT/scripts/package-vsix.py" --source "$EXT" --check "$TMP/vsix/$name.vsix"
+    python3 -I "$ROOT/tools/repository/package-vsix.py" --source "$EXT" --check "$TMP/vsix/$name.vsix"
 fi
 if want lsp; then
 # ---- the LSP client speaks to the real server

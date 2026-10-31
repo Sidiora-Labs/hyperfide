@@ -16,7 +16,7 @@ import time
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 POLICIES = ROOT / 'deploy/hyperfide/policies'
 ROLES = ('control', 'provisioner', 'dispatch')
 FAILED = []
@@ -91,7 +91,7 @@ def node(script, env=None, data=None):
 POLICY = r"""
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import {validatePolicy,assertAdmission} from './services/hyperfide/dist/policy/programme.js';
+import {validatePolicy,assertAdmission} from './core/control-plane/dist/policy/programme.js';
 const {role,mode,required}=JSON.parse(fs.readFileSync(0,'utf8'));
 const policy=JSON.parse(fs.readFileSync(`deploy/hyperfide/policies/${role}.example.json`));
 const boot={control:'programme.activate',provisioner:'programme.provision',dispatch:'programme.dispatch'}[role];
@@ -118,17 +118,17 @@ if(mode==='validate'){
 """
 
 MIGRATE = """
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {MigrationCoordinator} from './services/hyperfide/dist/storage/durability.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {MigrationCoordinator} from './core/control-plane/dist/storage/durability.js';
 const signal=new AbortController().signal;
 const r=createResourceContainer({role:'control',env:{...process.env,HYPERFIDE_MIGRATION_DATABASE_URL:process.env.DATABASE_URL},signal});
 try{await new MigrationCoordinator(r).apply({timeoutMs:30000,signal});}finally{await r.close();}
 """
 RUNTIME = r"""
 import assert from 'node:assert/strict';
-import pg from './services/hyperfide/node_modules/pg/lib/index.js';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {assertRuntimePrivileges} from './services/hyperfide/dist/storage/durability.js';
+import pg from './core/control-plane/node_modules/pg/lib/index.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {assertRuntimePrivileges} from './core/control-plane/dist/storage/durability.js';
 const role=process.env.HF_RUNTIME_ROLE,mode=process.env.HF_RUNTIME_MODE;
 const r=createResourceContainer({role,env:process.env,signal:new AbortController().signal});
 try{

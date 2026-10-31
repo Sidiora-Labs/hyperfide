@@ -80,8 +80,8 @@ class Fixture(identity.IdentityFixture):
    f.sql("CREATE TABLE public.fixture_decision_delay(seconds double precision,after_response boolean NOT NULL DEFAULT false); INSERT INTO public.fixture_decision_delay(seconds) VALUES(0)")
    f.sql("CREATE TABLE public.fixture_decision_source(data_version bigint NOT NULL); INSERT INTO public.fixture_decision_source VALUES(1)")
    f.sql("CREATE TABLE public.fixture_decision_packets(organisation_id uuid,run_id uuid,id uuid,packet jsonb,PRIMARY KEY(organisation_id,run_id,id))")
-   f.runtime=f.path/"runtime";shutil.copytree(ROOT/"services/hyperfide/dist",f.runtime/"dist");shutil.copytree(ROOT/"services/hyperfide/migrations",f.runtime/"migrations")
-   (f.runtime/"package.json").write_text('{"type":"module"}');(f.runtime/"node_modules").symlink_to(ROOT/"services/hyperfide/node_modules",target_is_directory=True)
+   f.runtime=f.path/"runtime";shutil.copytree(ROOT/"core/control-plane/dist",f.runtime/"dist");shutil.copytree(ROOT/"core/control-plane/migrations",f.runtime/"migrations")
+   (f.runtime/"package.json").write_text('{"type":"module"}');(f.runtime/"node_modules").symlink_to(ROOT/"core/control-plane/node_modules",target_is_directory=True)
    (f.runtime/"dist/fixture-purpose.js").write_text(LOADER)
    fragment={"schema_version":1,"id":"99.20","task":"99.20","roles":["control"],"module":"fixture-purpose.js","entry":"createComponent","api_version":1,"actions":["decision.fixture.audit","decision.fixture.submit"],"requires":["4.2","20.4"]}
    (f.components/"99.20.json").write_text(json.dumps(fragment))
@@ -215,7 +215,7 @@ def main():
     expect(rows[0]["n"]==1,"admission lacked actual durable6.2 receipt")
    check(IDS[5],admission)
    def isolation_guard():
-    script="const {createRequire}=require('node:module'),pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');const c=new pg.Client({connectionString:process.env.DATABASE_URL});(async()=>{await c.connect();try{await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try{await c.query('UPDATE hyperfide.decision_jobs SET state_version=state_version+1 WHERE id=$1',[process.argv[1]]);throw Error('unsupported isolation accepted')}catch(e){if(e.code!=='25001')throw e;}finally{await c.query('ROLLBACK')}}finally{await c.end()}})().catch(e=>{console.error(e.code??e.message);process.exitCode=1})"
+    script="const {createRequire}=require('node:module'),pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');const c=new pg.Client({connectionString:process.env.DATABASE_URL});(async()=>{await c.connect();try{await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try{await c.query('UPDATE hyperfide.decision_jobs SET state_version=state_version+1 WHERE id=$1',[process.argv[1]]);throw Error('unsupported isolation accepted')}catch(e){if(e.code!=='25001')throw e;}finally{await c.query('ROLLBACK')}}finally{await c.end()}})().catch(e=>{console.error(e.code??e.message);process.exitCode=1})"
     cp=subprocess.run(["node","--input-type=commonjs","-e",script,id],cwd=ROOT,env=f.env,capture_output=True,text=True,timeout=10)
     expect(cp.returncode==0,"actual repeatable-read mutation guard failed: "+cp.stderr)
    check(IDS[43],isolation_guard)
@@ -365,8 +365,8 @@ def main():
   until=time.monotonic()+5
   while time.monotonic()<until and not(f.gate/"ready").exists():time.sleep(.02)
   expect((f.gate/"ready").exists(),"real HTTPS authentication did not reach trusted fixture gate")
-  script="""import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {writeSemanticDisposition} from './services/hyperfide/dist/storage/dispositions.js';
+  script="""import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {writeSemanticDisposition} from './core/control-plane/dist/storage/dispositions.js';
 const s=JSON.parse(process.argv[1]),r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
 try{await r.gateway.withPrimaryTransaction({timeoutMs:10000},async tx=>{
 await writeSemanticDisposition(tx,{organisation_id:s.organisation,run_id:s.run});console.log('locked');

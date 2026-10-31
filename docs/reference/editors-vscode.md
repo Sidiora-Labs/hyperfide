@@ -1,10 +1,10 @@
 # Source reference: VS Code extension
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the editor extension under `editors/vscode/`: 424 declarations in 11 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the editor extension under `extensions/vscode/`: 424 declarations in 11 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
 
-## editors/vscode/acp.js
+## extensions/vscode/acp.js
 
-[Open source](../../editors/vscode/acp.js)
+[Open source](../../extensions/vscode/acp.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -93,9 +93,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `registerAcpCommands` | function | 1900 | <code>function registerAcpCommands(ctx) {</code> |
 | `register` | function | 1911 | <code>function register(ctx, d) {</code> |
 
-## editors/vscode/agents.js
+## extensions/vscode/agents.js
 
-[Open source](../../editors/vscode/agents.js)
+[Open source](../../extensions/vscode/agents.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -158,9 +158,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `hiddenCount` | method | 811 | <code>get hiddenCount() { return this.hidden.length; }</code> |
 | `size` | method | 812 | <code>get size() { return this.shown.length + this.hidden.length; }</code> |
 
-## editors/vscode/client.js
+## extensions/vscode/client.js
 
-[Open source](../../editors/vscode/client.js)
+[Open source](../../extensions/vscode/client.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -177,9 +177,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `_dispatch` | method | 149 | <code>_dispatch(msg) {</code> |
 | `uriOf` | function | 169 | <code>function uriOf(fsPath) {</code> |
 
-## editors/vscode/extension.js
+## extensions/vscode/extension.js
 
-[Open source](../../editors/vscode/extension.js)
+[Open source](../../extensions/vscode/extension.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -239,9 +239,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `activate` | function | 635 | <code>async function activate(ctx) {</code> |
 | `deactivate` | function | 822 | <code>function deactivate() {</code> |
 
-## editors/vscode/fleet.js
+## extensions/vscode/fleet.js
 
-[Open source](../../editors/vscode/fleet.js)
+[Open source](../../extensions/vscode/fleet.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -314,9 +314,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `register` | function | 1891 | <code>function register(ctx, d) {</code> |
 | `visible` | method | 1940 | <code>get visible() { return view.visible; },</code> |
 
-## editors/vscode/kvx.js
+## extensions/vscode/kvx.js
 
-[Open source](../../editors/vscode/kvx.js)
+[Open source](../../extensions/vscode/kvx.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -332,9 +332,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `provideHover` | method | 160 | <code>provideHover(doc, pos) {</code> |
 | `provideDocumentSymbols` | method | 176 | <code>provideDocumentSymbols(doc) {</code> |
 
-## editors/vscode/language.js
+## extensions/vscode/language.js
 
-[Open source](../../editors/vscode/language.js)
+[Open source](../../extensions/vscode/language.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -349,9 +349,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `provideWorkspaceSymbols` | method | 78 | <code>async provideWorkspaceSymbols(query) {</code> |
 | `provideCodeLenses` | method | 88 | <code>async provideCodeLenses(doc) {</code> |
 
-## editors/vscode/memories.js
+## extensions/vscode/memories.js
 
-[Open source](../../editors/vscode/memories.js)
+[Open source](../../extensions/vscode/memories.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -396,9 +396,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `supersedeFrom` | method | 541 | <code>async supersedeFrom(arg) {</code> |
 | `register` | function | 555 | <code>function register(ctx, deps) {</code> |
 
-## editors/vscode/refresh.js
+## extensions/vscode/refresh.js
 
-[Open source](../../editors/vscode/refresh.js)
+[Open source](../../extensions/vscode/refresh.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -406,9 +406,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `inFlight` | method | 86 | <code>get inFlight() { return running !== null; },</code> |
 | `runs` | method | 87 | <code>get runs() { return runs; },</code> |
 
-## editors/vscode/serve.js
+## extensions/vscode/serve.js
 
-[Open source](../../editors/vscode/serve.js)
+[Open source](../../extensions/vscode/serve.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -435,9 +435,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `applyNative` | function | 328 | <code>function applyNative(model, ev) {</code> |
 | `applySnapshot` | function | 366 | <code>function applySnapshot(model, snap) {</code> |
 
-## editors/vscode/tasks.js
+## extensions/vscode/tasks.js
 
-[Open source](../../editors/vscode/tasks.js)
+[Open source](../../extensions/vscode/tasks.js)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |

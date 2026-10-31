@@ -1,0 +1,71 @@
+{
+  "name": "hyperfide-plugin-github",
+  "version": "0.2.1",
+  "description": "Browse GitHub issues and pull requests in HYPERFIDE, then send them to agents.",
+  "private": true,
+  "license": "MIT",
+  "homepage": "https://github.com/hyperfide/hyperfide#readme",
+  "bugs": {
+    "url": "https://github.com/hyperfide/hyperfide/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyperfide/hyperfide.git",
+    "directory": "plugins/github"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "server.ts",
+    "app.tsx",
+    "components",
+    "README.md"
+  ],
+  "engines": {
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.73"
+  },
+  "hyperfide": {
+    "name": "GitHub",
+    "description": "Browse GitHub issues and pull requests in HYPERFIDE, then send them to agents.",
+    "branding": {
+      "icon": "Github"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "build": "node --conditions=source --import tsx ../../tools/workspace/build-official-plugins.mjs github",
+    "typecheck": "tsrs --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "test": "vitest run --config vitest.config.ts",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "hono": "4.11.9",
+    "jsdom": "^29.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^1.7.4",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  },
+  "dependencies": {
+    "@hyperfide/shared-ui": "workspace:*",
+    "zod": "^4.3.6"
+  }
+}

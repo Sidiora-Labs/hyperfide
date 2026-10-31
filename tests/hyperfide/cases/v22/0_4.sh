@@ -17,8 +17,8 @@ removed_dirs = ['apps/web', 'apps/connect', 'apps/connect-next', 'packages/conne
 for directory in removed_dirs:
     prefix = (root / directory).as_posix()
     assert not any(name == prefix or name.startswith(prefix + "/") for name in tracked_files), f"Removed directory remains: {directory}"
-assert not any(name.startswith("platform/plugins/") and Path(name).parts[2].endswith("-account") for name in tracked_files), "Hosted account plugin remains"
-assert not any(Path(name).match("platform/plugins/*-official.json") for name in tracked_files), "Official manifest remains"
+assert not any(name.startswith("plugins/") and Path(name).parts[2].endswith("-account") for name in tracked_files), "Hosted account plugin remains"
+assert not any(Path(name).match("plugins/*-official.json") for name in tracked_files), "Official manifest remains"
 removed_names = json.loads(base64.b64decode("WyJAYmIvd2ViIiwgIkBiYi9jb25uZWN0IiwgIkBiYi9jb25uZWN0LW5leHQiLCAiQGJiL2Nvbm5lY3QtY2xpZW50IiwgIkBiYi9jb25uZWN0LWRiIiwgIkBiYi90dW5uZWwtY2xpZW50IiwgIkBiYi90dW5uZWwtY29udHJhY3QiLCAiQGJiL2ZycC1jbGllbnQiLCAiYmItcGx1Z2luLWNvbm5lY3QiLCAiYmItcGx1Z2luLWJiLS1jb25uZWN0LW5leHQiLCAiYmItcGx1Z2luLWJiLWFjY291bnQiXQ=="))
 removed_names += ["@hyperfide/" + name.split("/", 1)[1] for name in removed_names if name.startswith("@")]
 removed_names += ["@hyperfide/plugin-connect", "@hyperfide/plugin-connect-next", "@hyperfide/plugin-account"]
@@ -38,7 +38,7 @@ for filename in tracked_files:
         if re.search(re.escape(name) + r"(?![A-Za-z0-9_-])", source):
             failures.append(f"{filename}: removed package reference")
     # The wave 0 identity sweep (0.7) owns this owner-maintained changelog.
-    if filename != "platform/CHANGELOG.md":
+    if filename != "docs/history/runtime-port.md":
         for domain in former_domains:
             if domain in source.replace("\\", "").casefold():
                 failures.append(f"{filename}: former hosted domain reference")
@@ -46,10 +46,10 @@ assert not failures, "\n".join(failures)
 print("Hosted component removal checks passed")
 PY_CHECK
 # Sandbox preparation may already have installed the frozen workspace.
-if [[ ! -f platform/node_modules/.modules.yaml ]]; then
-  pnpm -C platform install --frozen-lockfile
+if [[ ! -f node_modules/.modules.yaml ]]; then
+  pnpm install --frozen-lockfile
 fi
-pnpm -C platform --filter @hyperfide/server build
+pnpm --filter @hyperfide/server build
 python3 - <<'PY_SMOKE'
 import os
 from pathlib import Path
@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix="hyperfide-empty-marketplace-") as data_
     log_path = Path(data_dir) / "startup.log"
     with log_path.open("w+") as log:
         process = subprocess.Popen(
-            ["node", "platform/apps/server/dist/index.js"], env=env,
+            ["node", "core/server/dist/index.js"], env=env,
             stdout=log, stderr=subprocess.STDOUT,
         )
         try:
@@ -107,4 +107,4 @@ with tempfile.TemporaryDirectory(prefix="hyperfide-empty-marketplace-") as data_
                     process.kill()
                     process.wait(timeout=5)
 PY_SMOKE
-pnpm -C platform typecheck
+pnpm typecheck

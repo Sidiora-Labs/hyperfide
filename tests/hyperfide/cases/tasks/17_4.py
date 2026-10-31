@@ -88,7 +88,7 @@ def setup(f,d):
  for name in CHECKS:
   fields={key:value for key,value in check_definition(name).items() if key!="id"}
   source+='[proof.check.'+name+']\n'+"".join(key+" = "+json.dumps(value)+"\n" for key,value in fields.items())
- parsed=json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
+ parsed=json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
  accepted=m.xid(0xa00)
  document={"schema_version":1,"revision_digest":sha(b"review17-accepted-envelope"),"source_digest":sha(source.encode()),"repositories":[{"repository_id":m.REPOSITORY,"source_object_id":f.pinned,"integration_ref":"refs/heads/main"}],"allowed_actions":d.actions,"closure_policy":{"required_evidence":list(CHECKS),"required_review_roles":[],"publication":"AFTER_QUALIFICATION"},"provenance":None,"parsed":parsed,"runtime_wave_offset":0}
  d.sql("INSERT INTO hyperfide.spec_revisions(organisation_id,project_id,id,source_digest,source_content,document,schema_version,revision_digest) VALUES($1,$2,$3,$4,$5,$6,1,$7)",[m.ORG,d.ids["project"],accepted,sha(source.encode()),source,document,document["revision_digest"]])
@@ -113,8 +113,8 @@ def seed(f):
 def reader_boundaries(f):
  # Actual PG plus actual gateway branding; deliberately invalid invocation is a
  # refusal test, never a substituted positive authentication context.
- js=r'''import{createRequire}from'node:module';import{TransactionGateway}from'./services/hyperfide/dist/storage/transactions.js';import{readReproductionJobInputs}from'./services/hyperfide/dist/review/reproductions.js';
- const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg'),pool=new pg.Pool({connectionString:process.env.DATABASE_URL,max:2});
+ js=r'''import{createRequire}from'node:module';import{TransactionGateway}from'./core/control-plane/dist/storage/transactions.js';import{readReproductionJobInputs}from'./core/control-plane/dist/review/reproductions.js';
+ const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg'),pool=new pg.Pool({connectionString:process.env.DATABASE_URL,max:2});
  const request={job_id:process.argv[1],lease_generation:'1',reservation_id:process.argv[2],input_manifest_digest:process.argv[3]},out={};
  const refusal=async fn=>{try{await fn();return 'ACCEPTED';}catch(e){return e.code??'UNKNOWN';}};
  const raw=await pool.connect();try{out.raw=await refusal(()=>readReproductionJobInputs(raw,{},request));}finally{raw.release();}
@@ -128,7 +128,7 @@ def reader_boundaries(f):
 def generation_storage_boundary(f,job):
  # This is an isolated, always-rolled-back SQL guard unit. It does not admit a
  # physical dispatch, runner observation or execution receipt.
- js=r'''import{createRequire}from'node:module';const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg'),c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();const out={};
+ js=r'''import{createRequire}from'node:module';const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg'),c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();const out={};
  try{await c.query('BEGIN ISOLATION LEVEL SERIALIZABLE');await c.query("UPDATE hyperfide.review_reproduction_jobs SET allocation_id=$2,allocation_generation=3,runner_session_id=$3,runner_boot_id=$4,runner_slot_generation=7,workspace_path='/fixture/sql-unit' WHERE id=$1",process.argv.slice(1,5));
  const row=(await c.query('SELECT allocation_generation::text,runner_slot_generation::text FROM hyperfide.review_reproduction_jobs WHERE id=$1',[process.argv[1]])).rows[0];out.independent=row?.allocation_generation==='3'&&row?.runner_slot_generation==='7';
  await c.query('SAVEPOINT immutable');try{await c.query('UPDATE hyperfide.review_reproduction_jobs SET runner_slot_generation=8 WHERE id=$1',[process.argv[1]]);out.refusal='ACCEPTED';}catch(e){out.refusal=e.code;}await c.query('ROLLBACK TO SAVEPOINT immutable');
@@ -304,13 +304,13 @@ class RemoteExecutor:
 def remote_runtime(f,folder,executor,objects):
  """Restart the actual control service from a copied module root carrying the test-only double."""
  identity=f.identity;support=sys.modules[type(identity).__module__]
- runtime=Path(folder)/"runtime";service=runtime/"services/hyperfide";service.mkdir(parents=True)
- shutil.copytree(ROOT/"services/hyperfide/dist",service/"dist");shutil.copytree(ROOT/"services/hyperfide/migrations",service/"migrations")
- shutil.copyfile(ROOT/"services/hyperfide/package.json",service/"package.json");(service/"node_modules").symlink_to(ROOT/"services/hyperfide/node_modules")
+ runtime=Path(folder)/"runtime";service=runtime/"core/control-plane";service.mkdir(parents=True)
+ shutil.copytree(ROOT/"core/control-plane/dist",service/"dist");shutil.copytree(ROOT/"core/control-plane/migrations",service/"migrations")
+ shutil.copyfile(ROOT/"core/control-plane/package.json",service/"package.json");(service/"node_modules").symlink_to(ROOT/"core/control-plane/node_modules")
  (service/"dist/fixture").mkdir();(service/"dist/fixture/review17_remote_double.js").write_text(DOUBLE_JS)
  identity.stop()
  for component,entry in DOUBLE_ENTRIES.items():
-  fragment=json.loads((ROOT/"services/hyperfide/components"/(component+".json")).read_text())
+  fragment=json.loads((ROOT/"core/control-plane/components"/(component+".json")).read_text())
   fragment.update({"module":"fixture/review17_remote_double.js","entry":entry});(identity.components/(component+".json")).write_text(json.dumps(fragment))
  o=sys.modules["review17_objects"]
  identity.env.update({"HF_REVIEW17_REMOTE_DOUBLE_SOCKET":executor.socket,"HF_ARTIFACT_S3_ENDPOINT":objects.endpoint,"HF_ARTIFACT_ALLOW_LOOPBACK_HTTP":"1","HF_ARTIFACT_S3_REGION":o.REGION,"HF_ARTIFACT_S3_BUCKET":o.BUCKET,"HF_ARTIFACT_S3_ACCESS_KEY_ID":o.KEY,"HF_ARTIFACT_S3_SECRET_ACCESS_KEY":o.SECRET,"HF_ARTIFACT_S3_SESSION_TOKEN":o.TOKEN,"HF_ARTIFACT_ORGANISATION_ID":m.ORG,"HF_ARTIFACT_ALLOWED_RUN_IDS":json.dumps([m.RUN])})

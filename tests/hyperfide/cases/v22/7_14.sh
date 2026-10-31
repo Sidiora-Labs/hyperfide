@@ -11,7 +11,7 @@ run_check() {
   return "$code"
 }
 result=0
-run_check typecheck pnpm -C platform/plugins/hyperfide-spec typecheck || result=1
-run_check tests pnpm -C platform/plugins/hyperfide-spec test || result=1
-run_check bundled-plugins pnpm -C platform exec turbo run build --filter=@hyperfide/bundled-plugins... || result=1
+run_check typecheck pnpm -C plugins/hyperfide-spec typecheck || result=1
+run_check tests pnpm -C plugins/hyperfide-spec test || result=1
+run_check bundled-plugins pnpm exec turbo run build --filter=@hyperfide/bundled-plugins... || result=1
 exit "$result"

@@ -79,7 +79,7 @@ def setup(f):
     i=f.ids
     executable=str(Path(sys.executable).resolve())
     source=SOURCE+'\n[proof]\nrubric_digest = '+json.dumps(sha(b'rubric'))+'\n[proof.check.actual-check]\n'+''.join(key+' = '+json.dumps(value)+'\n' for key,value in {'argv':[executable,'-c','raise SystemExit(1)',''],'executable_digest':sha(Path(executable).read_bytes()),'timeout_ms':600000,'required_artifacts':['proof.json'],'input_keys':['source']}.items())+'[proof.review.1.1]\nreviewers = '+json.dumps([i['operator']])+'\nrubric_digest = '+json.dumps(sha(b'review-rubric'))+'\n'
-    parsed=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
+    parsed=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
     intent={'schema_version':1,'revision_digest':sha(b'accepted-envelope'),'source_digest':sha(source.encode()),'repositories':[{'repository_id':i['repository'],'source_object_id':'a'*40,'integration_ref':'refs/heads/main'}],'allowed_actions':f.actions,'closure_policy':{'required_evidence':['actual-check'],'required_review_roles':[],'publication':'AFTER_QUALIFICATION'},'provenance':None,'parsed':parsed,'runtime_wave_offset':0}
     f.sql("INSERT INTO hyperfide.repositories(organisation_id,project_id,id,name,url,object_format) VALUES($1,$2,$3,'fixture','https://example.invalid/fixture.git','sha1')",[i['organisation'],i['project'],i['repository']])
     f.sql("INSERT INTO hyperfide.source_objects(organisation_id,repository_id,object_id,object_type) VALUES($1,$2,$3,'commit')",[i['organisation'],i['repository'],'a'*40])
@@ -117,7 +117,7 @@ def advance_run_snapshot(f):
     current=f.sql("SELECT r.spec_generation::text,r.state_version::text,s.source_content,s.document FROM hyperfide.runs r JOIN hyperfide.spec_revisions s ON s.organisation_id=r.organisation_id AND s.id=r.spec_revision_id WHERE r.organisation_id=$1 AND r.id=$2",[f.ids['organisation'],f.ids['run']])[0]
     source=current['source_content']+'\n# An unrelated accepted run revision\n'
     document=copy.deepcopy(current['document']);document['source_digest']=sha(source.encode())
-    document['parsed']=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
+    document['parsed']=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
     accepted={key:document[key] for key in ['schema_version','source_digest','repositories','allowed_actions','closure_policy','provenance']}
     document['revision_digest']=sha(json.dumps(accepted,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode())
     spec=str(uuid.uuid4());generation=str(int(current['spec_generation'])+1)
@@ -217,7 +217,7 @@ def probe(f):
         candidate=copy.deepcopy(review);mutation(candidate['policy'])
         check('proof.review.'+name,lambda candidate=candidate:refused(f,'spec.proof.review.register',candidate,'PROOF_MAPPING_INVALID'))
     def existing_tx():
-        script="import{createResourceContainer}from'./services/hyperfide/dist/storage/runtime.js';import{loadProofObligations}from'./services/hyperfide/dist/spec/obligations.js';const c=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});try{await c.gateway.withPrimaryTransaction({timeoutMs:5000},async tx=>{const r=await loadProofObligations(tx,JSON.parse(process.env.HF_PROOF_PINS));if(r.registry_digest!==process.env.HF_PROOF_EXPECTED)throw Error('mismatch');});}finally{await c.close();}"
+        script="import{createResourceContainer}from'./core/control-plane/dist/storage/runtime.js';import{loadProofObligations}from'./core/control-plane/dist/spec/obligations.js';const c=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});try{await c.gateway.withPrimaryTransaction({timeoutMs:5000},async tx=>{const r=await loadProofObligations(tx,JSON.parse(process.env.HF_PROOF_PINS));if(r.registry_digest!==process.env.HF_PROOF_EXPECTED)throw Error('mismatch');});}finally{await c.close();}"
         env=f.env.copy();env.update(HF_PROOF_PINS=json.dumps(dict(inspection(value),organisation_id=f.ids['organisation'])),HF_PROOF_EXPECTED=saved['registry_digest'])
         result=subprocess.run(['node','--input-type=module','-e',script],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20)
         expect(result.returncode==0,'Existing primary transaction loader failed')

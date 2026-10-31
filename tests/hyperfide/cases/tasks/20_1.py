@@ -35,7 +35,7 @@ def request():
 class Fixture:
  def __init__(self,base,component="20.1",actions=None):
   self.path=Path(base);self.components=self.path/"components";self.components.mkdir()
-  shutil_copy=ROOT/"services/hyperfide/components"/(component+".json")
+  shutil_copy=ROOT/"core/control-plane/components"/(component+".json")
   (self.components/shutil_copy.name).write_bytes(shutil_copy.read_bytes())
   self.actions=actions or ACTIONS
   self.policy={"schema_version":1,"programme_id":"decision-component-fixture","repository":"synthetic/repository",
@@ -49,8 +49,8 @@ class Fixture:
   for key in list(environment):
    if key.startswith("HYPERFIDE_DECISION_"):environment.pop(key)
   if env:environment.update(env)
-  result=subprocess.run(["node",str(ROOT/"services/hyperfide/dist/control.js"),"--policy",str(self.policy_path),
-   "--spec-revision","fixture-spec","--components",str(self.components),"--module-root",str(ROOT/"services/hyperfide/dist")],
+  result=subprocess.run(["node",str(ROOT/"core/control-plane/dist/control.js"),"--policy",str(self.policy_path),
+   "--spec-revision","fixture-spec","--components",str(self.components),"--module-root",str(ROOT/"core/control-plane/dist")],
    input=json.dumps({"id":"decision-test","component":self.component,"action":action,"input":input or {}})+"\n",
    text=True,capture_output=True,env=environment,timeout=timeout,cwd=ROOT)
   rows=[json.loads(l) for l in result.stdout.splitlines() if l.strip()]
@@ -179,7 +179,7 @@ def run_checks(fixture,emit=True):
  check(IDS[27],legacy)
  check(IDS[28],lambda:negative("escaped-credential","DECISION_RESPONSE"))
  def reserved():
-  script="""import {prepare} from './services/hyperfide/dist/decisions/adapters.js';
+  script="""import {prepare} from './core/control-plane/dist/decisions/adapters.js';
 const request={state:'synthetic',questions:{q:{type:'noul',instructions:'question'}}};
 for(const extensions of [{body:{model:'forged-model'}},{body:{state:'forged-state'}},{body:{questions:{}}},{headers:{Authorization:'forged'}}]){
 let rejected=false;try{prepare('span-native',request,extensions);}catch(e){rejected=e.code==='DECISION_SCHEMA';}

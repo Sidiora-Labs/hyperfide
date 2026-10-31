@@ -33,7 +33,7 @@ def main():
   clock_module=f.path/'quota-clock.cjs'
   clock_module.write_text("""const fs=require('node:fs');
 const {createRequire}=require('node:module');
-const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
 const original=pg.Client.prototype.query;
 pg.Client.prototype.query=function(sql,...args){
  if(typeof sql==='string' && sql.startsWith('SELECT q.* FROM hyperfide.provider_quota_observations ')){
@@ -101,7 +101,7 @@ pg.Client.prototype.query=function(sql,...args){
    refused('provider.intents.prepare-create','QUOTA_UNQUALIFIED',request(),component='8.3')
   check(IDS[7],expired)
   def observer():
-   node="""import assert from 'node:assert/strict';import {observeRailwayQuota} from './services/hyperfide/dist/providers/railway/reconciliation.js';let calls=0;const client={config:{mode:'live'},assertScope(){},request(){calls++;throw Error('network forbidden')}};await assert.rejects(()=>observeRailwayQuota(client,{}),/QUOTA_UNQUALIFIED/);assert.equal(calls,0);"""
+   node="""import assert from 'node:assert/strict';import {observeRailwayQuota} from './core/control-plane/dist/providers/railway/reconciliation.js';let calls=0;const client={config:{mode:'live'},assertScope(){},request(){calls++;throw Error('network forbidden')}};await assert.rejects(()=>observeRailwayQuota(client,{}),/QUOTA_UNQUALIFIED/);assert.equal(calls,0);"""
    p=subprocess.run(['node','--input-type=module','-e',node],cwd=ROOT,text=True,capture_output=True,timeout=20);expect(p.returncode==0,p.stderr)
    refused('provider.pools.observe','QUOTA_UNQUALIFIED',{'pool_id':f.pool},key='provisioner')
   check(IDS[8],observer)

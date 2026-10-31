@@ -9,10 +9,10 @@ step() {
   printf '7.21: %s seconds=%s exit=%s\n' "$name" "$((SECONDS-start))" "$rc"
   return "$rc"
 }
-step build pnpm -C platform build
+step build pnpm build
 for package in @hyperfide/server @hyperfide/cli hyperfide-plugin-provider-claude-code hyperfide-plugin-provider-codex; do
-  step "$package typecheck" pnpm -C platform --filter "$package" typecheck
-  step "$package tests" pnpm -C platform --filter "$package" test
+  step "$package typecheck" pnpm --filter "$package" typecheck
+  step "$package tests" pnpm --filter "$package" test
 done
 step 'production import and reimport' python3 - <<'PY'
 import json, os, signal, socket, subprocess, tempfile, time, urllib.error, urllib.request
@@ -77,12 +77,12 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-21-') as tmp:
     def api(path):
         return request('/api/v1' + path)
     def cli(*args):
-        result = subprocess.run([str(repo / 'platform/apps/cli/bin/hyperfide-platform'), *args],
+        result = subprocess.run([str(repo / 'apps/cli/bin/hyperfide-platform'), *args],
                                 env=env, text=True, capture_output=True, timeout=120)
         assert result.returncode == 0, result.stderr
         return json.loads(result.stdout)
     with (data / 'server.log').open('w+') as log:
-        server = subprocess.Popen(['node', str(repo / 'platform/apps/server/dist/index.js')],
+        server = subprocess.Popen(['node', str(repo / 'core/server/dist/index.js')],
                                   cwd=repo / 'platform', env=env, stdout=log, stderr=log,
                                   start_new_session=True)
         daemon = None
@@ -100,7 +100,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-21-') as tmp:
             enrollment = request('/internal/hosts/enroll-key', {})
             daemon_env = dict(env, HYPERFIDE_HOST_ENROLL_KEY=enrollment['enrollKey'],
                               HYPERFIDE_HOST_ID=enrollment['hostId'])
-            daemon = subprocess.Popen(['node', str(repo / 'platform/apps/host-daemon/dist/index.js')],
+            daemon = subprocess.Popen(['node', str(repo / 'core/host-daemon/dist/index.js')],
                                       cwd=repo / 'platform', env=daemon_env, stdout=log,
                                       stderr=log, start_new_session=True)
             for _ in range(120):

@@ -3,7 +3,7 @@
 
 Names and references travel; values are resolved at the edge and never logged.
 
-1. The 6.3 START schema (services/hyperfide events/instructions.ts) admits the
+1. The 6.3 START schema (core/control-plane events/instructions.ts) admits the
    body runner/dispatch.ts now issues with env_refs, still admits the body
    without them, and refuses a value, a reserved name or an empty map.
 2. runner/dispatch.ts checks a plan's references against the environment
@@ -15,7 +15,7 @@ Names and references travel; values are resolved at the edge and never logged.
    into the invocation as a provider does; the agent sees them, a START without
    references still launches, and no ledger, event, coordinator or reply byte
    carries a value.
-4. src/hyperfide/job.c: a harness compiled from the native sources includes
+4. core/native/src/hyperfide/job.c: a harness compiled from the native sources includes
    job.c and runs its own capture and child-environment functions in the
    production order (capture, environment cleared as readiness does, fork,
    clearenv in the child, exec); the job child observes the resolved variable
@@ -27,7 +27,7 @@ import importlib.util, json, os, pathlib, shlex, signal, sqlite3, subprocess, sy
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 NATIVE = ROOT / "build/hyperfide-native"
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 ASSERTIONS = [
     "fixture.root",
     "schema.start-with-references-admitted",
@@ -79,9 +79,9 @@ def leaked(data):
 
 TS = r"""
 import fs from 'node:fs';
-import pg from './services/hyperfide/node_modules/pg/lib/index.js';
-import {instruction} from './services/hyperfide/dist/events/instructions.js';
-import {startInstructionBody,launchEnvReferences} from './services/hyperfide/dist/runner/dispatch.js';
+import pg from './core/control-plane/node_modules/pg/lib/index.js';
+import {instruction} from './core/control-plane/dist/events/instructions.js';
+import {startInstructionBody,launchEnvReferences} from './core/control-plane/dist/runner/dispatch.js';
 const input=JSON.parse(fs.readFileSync(0,'utf8'));
 const settle=async f=>{try{return {ok:true,value:await f()};}catch(e){return {ok:false,code:e.code??String(e)};}};
 let out;
@@ -322,12 +322,12 @@ int main(int argc,char **argv){
 
 
 def job_scenario(base, work):
-    sources = subprocess.run(["python3", "scripts/hyperfide-native-components.py", "--sources"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.split()
-    libraries = subprocess.run(["python3", "scripts/hyperfide-native-components.py", "--libraries"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.split()
-    sources = [s for s in sources if s != "src/hyperfide/job.c"]
+    sources = subprocess.run(["python3", "tools/repository/hyperfide-native-components.py", "--sources"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.split()
+    libraries = subprocess.run(["python3", "tools/repository/hyperfide-native-components.py", "--libraries"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.split()
+    sources = [s for s in sources if s != "core/native/src/hyperfide/job.c"]
     (work / "harness.c").write_text(HARNESS)
     binary = work / "job-harness"
-    built = subprocess.run(["cc", "-std=gnu11", "-O0", "-w", "-pthread", "-Isrc/hyperfide", "-Ibuild", "-o", str(binary), str(work / "harness.c"), "src/sha256.c", *sources,
+    built = subprocess.run(["cc", "-std=gnu11", "-O0", "-w", "-pthread", "-Icore/native/src/hyperfide", "-Ibuild", "-o", str(binary), str(work / "harness.c"), "core/native/src/sha256.c", *sources,
                             "-lsqlite3", "-lpthread", "-lm", "-lcurl", "-lcrypto", *libraries], cwd=ROOT, text=True, capture_output=True, timeout=600)
     if built.returncode:
         raise AssertionError("job harness build failed: " + built.stderr[-3000:])

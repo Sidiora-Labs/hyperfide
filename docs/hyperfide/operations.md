@@ -42,7 +42,7 @@ Support state at the documented source revision. Task status comes from spec/hyp
 | Approval policy and dependency-enabled build boundaries | done | 1.4 |
 | Main-host placement, human programme interface, frontier assignment policy | implemented (component evidence) | 1.1–1.3 |
 | Control/provisioner/dispatch service entrypoints, policy-gated startup | done (policy, schema and gateway); implemented (component evidence) for the authenticated service | 1.4, 4.1, 4.2, 14.1 |
-| Pinned run specification import | pending: source in services/hyperfide/src/spec, no task-component evidence index in this tree | 2.1 |
+| Pinned run specification import | pending: source in core/control-plane/src/spec, no task-component evidence index in this tree | 2.1 |
 | Dependency graphs, versioned decomposition, proof obligations | implemented (component evidence) | 2.2–2.4 |
 | Agent hierarchy, scoped packets and views | implemented (component evidence) | 3.1–3.4 |
 | PostgreSQL authority schema, primary transaction gateway, migrations and old-primary fencing | done | 4.1, 4.2, 4.4 |
@@ -85,28 +85,28 @@ Support state at the documented source revision. Task status comes from spec/hyp
 Run preparation and builds in an allocated execution sandbox, never on the leadership server:
 
 ```sh
-npm --prefix services/hyperfide ci --ignore-scripts
-npm --prefix services/hyperfide run build
+npm --prefix core/control-plane ci --ignore-scripts
+npm --prefix core/control-plane run build
 ```
 
 The lockfile pins dependencies and the package declares Node 24.22.0. Start the appropriate entrypoint with an explicitly approved policy file, its exact specification revision, registered fragments and built module root:
 
 ```sh
-node services/hyperfide/dist/control.js --policy /run/hyperfide/policy.json --spec-revision APPROVED_REVISION --components services/hyperfide/components --module-root services/hyperfide/dist
+node core/control-plane/dist/control.js --policy /run/hyperfide/policy.json --spec-revision APPROVED_REVISION --components core/control-plane/components --module-root core/control-plane/dist
 ```
 
 The corresponding source entrypoints are provisioner.js and dispatch.js. A missing approval, denied role/action, mismatched revision, absent linked module or invalid dependency graph refuses startup. The stdio protocol is bounded JSONL; its presence does not grant remote authority.
 
 The authenticated network service uses the explicit HTTPS mode, trusted TLS certificate/key and identity configuration. Identity enrolment, request signatures, origin, nonce, credential version, deployment epoch and current run/boot/lease are enforced by the actual task 14.1 protocol. Never copy fixture credentials into an operational environment.
 
-Every entrypoint (control.js, provisioner.js, dispatch.js) accepts exactly these flags, parsed by services/hyperfide/src/components/service.ts; any other flag refuses startup with INVALID_ARGS:
+Every entrypoint (control.js, provisioner.js, dispatch.js) accepts exactly these flags, parsed by core/control-plane/src/components/service.ts; any other flag refuses startup with INVALID_ARGS:
 
 | Flag | Meaning |
 | --- | --- |
 | --policy FILE | Required. Trusted approved policy JSON, regular file of at most 1 MiB. |
 | --spec-revision REV | Required. Must equal the revision approved in the policy. |
-| --components DIR | Component fragment directory (default services/hyperfide/components). |
-| --module-root DIR | Built module root (default services/hyperfide/dist). |
+| --components DIR | Component fragment directory (default core/control-plane/components). |
+| --module-root DIR | Built module root (default core/control-plane/dist). |
 | --mode stdio\|https\|daemon | Default stdio (bounded JSONL on stdin/stdout). https and daemon print a ready event on stderr and run until SIGTERM/SIGINT. The provisioner refuses daemon with TRANSPORT_CONFIG. |
 | --host, --port | HTTPS listener address (host default 127.0.0.1). |
 | --tls-cert, --tls-key | HTTPS certificate and private key. |
@@ -122,9 +122,9 @@ Worker starts are durable per run in hyperfide.provisioner_worker_starts. A rest
 Observed refusals from the built entrypoint in a task sandbox (exit code 1):
 
 ```text
-$ node services/hyperfide/dist/control.js
+$ node core/control-plane/dist/control.js
 {"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision X
+$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
 {"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
 ```
 
@@ -205,7 +205,7 @@ The configuration file is hyperfide.kvx (src/config.c); a tree that has only the
 
 ## PostgreSQL and migrations
 
-Connection settings are read by services/hyperfide/src/storage/runtime.ts. Each role uses HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL (for example HYPERFIDE_CONTROL_PRIMARY_DATABASE_URL), falling back to the DATABASE_URL compatibility setting; HYPERFIDE_<ROLE>_REPLICA_DATABASE_URL is optional; migrations require HYPERFIDE_MIGRATION_DATABASE_URL and run with one connection. Bounded settings: HYPERFIDE_PG_LISTENER_MAX (default 1, maximum 4), HYPERFIDE_PG_MAX_QUEUED (default 32, maximum 1024), HYPERFIDE_PG_SYNCHRONOUS_COMMIT (on or remote_apply) and HYPERFIDE_REQUIRE_SYNC_REPLICA (0 or 1). A process that already owns a different PostgreSQL configuration refuses with DATABASE_CONFIG_CONFLICT. Replicas serve observation and discovery; ownership changes, leases, qualification and publication must revalidate on the primary. A replica is not a second writable authority.
+Connection settings are read by core/control-plane/src/storage/runtime.ts. Each role uses HYPERFIDE_<ROLE>_PRIMARY_DATABASE_URL (for example HYPERFIDE_CONTROL_PRIMARY_DATABASE_URL), falling back to the DATABASE_URL compatibility setting; HYPERFIDE_<ROLE>_REPLICA_DATABASE_URL is optional; migrations require HYPERFIDE_MIGRATION_DATABASE_URL and run with one connection. Bounded settings: HYPERFIDE_PG_LISTENER_MAX (default 1, maximum 4), HYPERFIDE_PG_MAX_QUEUED (default 32, maximum 1024), HYPERFIDE_PG_SYNCHRONOUS_COMMIT (on or remote_apply) and HYPERFIDE_REQUIRE_SYNC_REPLICA (0 or 1). A process that already owns a different PostgreSQL configuration refuses with DATABASE_CONFIG_CONFLICT. Replicas serve observation and discovery; ownership changes, leases, qualification and publication must revalidate on the primary. A replica is not a second writable authority.
 
 Migration credentials are dedicated to the migration operator. Task 4.4 owns ascending, checksummed migrations; request handlers never create their own tables. Missing schema is a readiness refusal. Preserve already applied SQL bytes and their checksums. The 28.2 documentation migration adds immutable packet, checker, baseline and closure records with the authority transaction-isolation guard.
 
@@ -278,7 +278,7 @@ A preparation receipt binds an exact repository commit/tree, prerequisites, mani
 
 Provider acceptance, a sandbox ID and runner readiness are separate states. Reconcile provider state using the actual native account/environment/resource identity, then enrol the exact sandbox boot. The advertised Railway/Blaxel account capacity is an input to planning; live provider limits, image publication and process execution need their own qualification.
 
-Provider capability differences implemented by the adapters (services/hyperfide/src/providers). An UNSUPPORTED outcome is explicit; there is no emulated support:
+Provider capability differences implemented by the adapters (core/control-plane/src/providers). An UNSUPPORTED outcome is explicit; there is no emulated support:
 
 | Capability | Railway (providers/railway) | Blaxel (providers/blaxel) |
 | --- | --- | --- |
@@ -353,7 +353,7 @@ Dismissing or linking an external issue records `triaged_by`, `triage_reason` an
 
 ### Evidence in the artifact store
 
-The S3 artifact store (services/hyperfide/src/artifacts/objects.ts, backend s3-v1) is the authority for task evidence. artifacts/hyperfide/tasks/<id> is a local cache and is gitignored.
+The S3 artifact store (core/control-plane/src/artifacts/objects.ts, backend s3-v1) is the authority for task evidence. artifacts/hyperfide/tasks/<id> is a local cache and is gitignored.
 
 Publishing. Bundle the task directory with `python3 tests/hyperfide/qualify.py --bundle-evidence <id> --bundle-output <file>`. This writes a deterministic tar with sorted members and zeroed times and owners. A control-side caller passes the bytes to `publishEvidenceBundle`. It stores 256 KiB chunks with artifact.object.put and commits them with artifact.manifest.commit. It then reads the manifest back with artifact.manifest.read and returns a receipt record. Commit that record as tests/hyperfide/evidence-receipts/<id>.json. The record holds the manifest receipt (receipt_id binds organisation, run, artifact, digest, size, backend, key and completion time) and the bundle content digest. Every chunk and the manifest use retention class RELEASE (`EVIDENCE_RETENTION`: no deadline, no hold). artifact.retention.collect treats them by the active retention policy's minimum_age_ms.RELEASE. A null value means indefinite retention (INDEFINITE_RETENTION blocker), which evidence needs while a tracked receipt record names the manifest. Chunks also stay while their parent manifest is retained.
 
@@ -370,7 +370,7 @@ Variables the store reads (the control service and both qualification scripts):
 
 Reading needs only s3:GetObject on the evidence prefix. Publishing runs in the control service with its own write credentials.
 
-Publishing from the host. One command publishes every local task directory: `python3 tests/hyperfide/publish-evidence.py --all`. For a single task run `qualify.py --publish <id>`, or give publish-evidence.py `--task <id>` (repeatable); publish-evidence.py `--dry-run` prints the plan without publishing. For each task the command bundles the directory and calls the compiled publishEvidenceBundle (services/hyperfide/dist/artifacts/objects.js, so build first). The store calls (artifact.object.put, artifact.manifest.commit, artifact.manifest.read) go to component 15.2 of the control service through `hyperfide authority invoke`. The command then reads the receipted bundle back from the store with signed GETs. Only after that does it write tests/hyperfide/evidence-receipts/<id>.json, which you commit. The record also carries the bundle's evidence-index commits (`evidence_commits`), and resolution refuses a record whose commits differ from the bundle. A task whose tracked receipt already names the current bundle is reported CURRENT and skipped unless you pass `--force`. Required variables: the five HF_ARTIFACT_S3_* read variables above, HF_ARTIFACT_ORGANISATION_ID, and HYPERFIDE_TRANSPORT_CONFIG. The transport configuration must be an operator credential whose run is in the control service's HF_ARTIFACT_ALLOWED_RUN_IDS. If the configuration has no run_id, set HF_EVIDENCE_RUN_ID. When any of these is missing, the command refuses with exit 2, lists every missing name and states what it would publish. It never skips silently.
+Publishing from the host. One command publishes every local task directory: `python3 tests/hyperfide/publish-evidence.py --all`. For a single task run `qualify.py --publish <id>`, or give publish-evidence.py `--task <id>` (repeatable); publish-evidence.py `--dry-run` prints the plan without publishing. For each task the command bundles the directory and calls the compiled publishEvidenceBundle (core/control-plane/dist/artifacts/objects.js, so build first). The store calls (artifact.object.put, artifact.manifest.commit, artifact.manifest.read) go to component 15.2 of the control service through `hyperfide authority invoke`. The command then reads the receipted bundle back from the store with signed GETs. Only after that does it write tests/hyperfide/evidence-receipts/<id>.json, which you commit. The record also carries the bundle's evidence-index commits (`evidence_commits`), and resolution refuses a record whose commits differ from the bundle. A task whose tracked receipt already names the current bundle is reported CURRENT and skipped unless you pass `--force`. Required variables: the five HF_ARTIFACT_S3_* read variables above, HF_ARTIFACT_ORGANISATION_ID, and HYPERFIDE_TRANSPORT_CONFIG. The transport configuration must be an operator credential whose run is in the control service's HF_ARTIFACT_ALLOWED_RUN_IDS. If the configuration has no run_id, set HF_EVIDENCE_RUN_ID. When any of these is missing, the command refuses with exit 2, lists every missing name and states what it would publish. It never skips silently.
 
 Release marker. scripts/release.sh takes the 26.4 unit receipt from the first of these that exists:
 
@@ -472,7 +472,7 @@ Run `bash tests/hyperfide/cases/v22/1_6.sh` to copy the current tracked source
 tree (without environment files or installed dependencies) into a temporary
 directory and execute `hyperfide init --nested`. The test enforces a wall-time
 limit below 2,700 seconds and checks `hyperfide index-status --json` for nonzero
-symbol counts under `platform/apps/server/`. That command reports total file
+symbol counts under `core/server/`. That command reports total file
 and symbol counts plus per-file symbol counts for the current graph branch.
 
 Measurements on 2026-10-23 used 8 effective CPUs, approximately 15 GB RAM
@@ -489,14 +489,14 @@ reports extracted symbols and therefore has a lower symbol count.
 
 The post-0.7 rerun used the real merged modules and passed
 `tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
-9,993 symbols under `platform/apps/server/`. An audit of task 1.6's changes
+9,993 symbols under `core/server/`. An audit of task 1.6's changes
 found no stand-ins, projection modules, copied identity gates or SDK accessor
 call sites requiring replacement.
 
 The fixed snapshot preserves the initial r2 source inventory and ignore rules
 for comparison; the qualification copy additionally excludes its pnpm lockfile.
 The three earlier completed runs include 765 files and 9,988 symbols under
-`platform/apps/server/` and finish below the 2,700-second limit. The paired
+`core/server/` and finish below the 2,700-second limit. The paired
 nested measurement includes SQL profiling overhead. Init with `--nested` uses
 the same indexing pipeline as plain init; it changes project-root selection.
 
@@ -533,7 +533,7 @@ and branch reuse.
 ## Sandbox toolkit image steps and measured base build
 
 Platform CI runs `bash scripts/platform-ci.sh` on Node 24. It uses Corepack's
-pnpm version from `platform/package.json`, installs with `--frozen-lockfile`,
+pnpm version from `package.json`, installs with `--frozen-lockfile`,
 then runs typecheck, build, unit tests, and the repository identity gate. Each
 failure stops the run. `--quick` uses existing dependencies and runs only
 typecheck and the identity gate; it is the task 0.9 qualification command.
@@ -550,8 +550,8 @@ npm install fallback. Platform requires `pnpm install --frozen-lockfile`; the
 separate `platform-build` step runs `pnpm build` best effort. Logs remain in
 `/work/logs/pnpm-g.log`, `/work/logs/pnpm-install.log`, and
 `/work/logs/pnpm-build.log`. Tools print pnpm and disk space; pool probes print
-pnpm. Preparation reinstalls when `platform/pnpm-lock.yaml` or
-`platform/pnpm-workspace.yaml` differs from the checkpoint commit, frozen first,
+pnpm. Preparation reinstalls when `pnpm-lock.yaml` or
+`pnpm-workspace.yaml` differs from the checkpoint commit, frozen first,
 falling back to `--no-frozen-lockfile`.
 
 The real Railway ledger `state/ledger/base-ce200df474.json` records checkpoint

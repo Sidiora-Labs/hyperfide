@@ -258,7 +258,7 @@ def main():
    def raw_send(body,stamp=None,nonce=None,role="OPERATOR"):
     private,credential=f.keys[role];stamp=stamp or str(int(time.time()));nonce=nonce or str(uuidlib.uuid4())
     script="import fs from 'node:fs';import crypto from 'node:crypto';import {pathToFileURL} from 'node:url';const [file,origin,id,time,nonce,protocol]=process.argv.slice(1);const {signingBytes}=await import(pathToFileURL(protocol).href);const chunks=[];for await(const c of process.stdin)chunks.push(c);process.stdout.write(crypto.sign(null,signingBytes(origin,'/v1/invoke',{id,time,nonce},Buffer.concat(chunks)),fs.readFileSync(file)).toString('base64url'));"
-    signature=subprocess.run(["node","--input-type=module","-e",script,str(private),f.origin,credential,stamp,nonce,str(h.ROOT/"services/hyperfide/dist/transport/protocol.js")],input=body,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True,timeout=15).stdout.decode()
+    signature=subprocess.run(["node","--input-type=module","-e",script,str(private),f.origin,credential,stamp,nonce,str(h.ROOT/"core/control-plane/dist/transport/protocol.js")],input=body,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True,timeout=15).stdout.decode()
     headers={"Content-Type":"application/json","hf-credential-id":credential,"hf-request-time":stamp,"hf-request-nonce":nonce,"hf-request-signature":signature}
     client=http.client.HTTPSConnection("127.0.0.1",f.port,context=f.tls,timeout=15)
     try:
@@ -319,7 +319,7 @@ def main():
       identifier=str(uuidlib.uuid4());payload={"run_id":RUN,"component":"23.4","action":"fleet.notifications.enqueue","input":first,"expected_version":None,"authority":None};raw=json.dumps(payload,separators=(",",":")).encode()
       body=json.dumps({"protocol_version":1,"operation_id":identifier,"idempotency_key":identifier,"payload_digest":"sha256:"+hashlib.sha256(raw).hexdigest(),"correlation_id":identifier,"causation_id":None,"payload_b64":base64.urlsafe_b64encode(raw).decode().rstrip("=")},separators=(",",":"))
       packets.append({"body":body,"id":credential,"time":str(int(time.time())),"nonce":str(uuidlib.uuid4())})
-     signatures=json.loads(subprocess.run(["node","--input-type=module","-e",signing,str(private),f.origin,str(h.ROOT/"services/hyperfide/dist/transport/protocol.js")],input=json.dumps(packets),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True,timeout=15).stdout)
+     signatures=json.loads(subprocess.run(["node","--input-type=module","-e",signing,str(private),f.origin,str(h.ROOT/"core/control-plane/dist/transport/protocol.js")],input=json.dumps(packets),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True,timeout=15).stdout)
      h.expect(len(signatures)==len(packets))
      for packet,signature in zip(packets,signatures):
       client=http.client.HTTPSConnection("127.0.0.1",f.port,context=f.tls,timeout=15)

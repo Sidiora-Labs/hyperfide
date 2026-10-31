@@ -75,10 +75,10 @@ class Fixture:
   self.first=self.commit("[spec:fixture/1.1] change units","price=100; units=cents")
   self.second=self.commit("[spec:fixture/1.1] change error order","price=100; units=cents; errors=auth-first")
   self.component_ids=components or ["17.1"]
-  catalog={v["id"]:path.stem for path in (ROOT/"services/hyperfide/components").glob("*.json") if "id" in (v:=json.loads(path.read_text()))}
+  catalog={v["id"]:path.stem for path in (ROOT/"core/control-plane/components").glob("*.json") if "id" in (v:=json.loads(path.read_text()))}
   linked=set(self.component_ids)
   def add_dependencies(name):
-   for dep in json.loads((ROOT/f"services/hyperfide/components/{name}.json").read_text())["requires"]:
+   for dep in json.loads((ROOT/f"core/control-plane/components/{name}.json").read_text())["requires"]:
     filename=catalog[dep]
     if filename not in linked:linked.add(filename);add_dependencies(filename)
   for name in self.component_ids:add_dependencies(name)
@@ -101,7 +101,7 @@ class Fixture:
   # The real14 fixture already ran the complete04 migration coordinator. Check
   # exact admission evidence here; never replay DDL or replace its guards.
   for name in migrations:
-   raw=(ROOT/("services/hyperfide/migrations/"+name+".sql")).read_bytes();version=int(name[:4])
+   raw=(ROOT/("core/control-plane/migrations/"+name+".sql")).read_bytes();version=int(name[:4])
    applied=f.sql('SELECT name,checksum FROM hyperfide.schema_migrations WHERE version=$1',[version])
    expect(len(applied)==1 and applied[0]['name']==name and applied[0]['checksum']=='sha256:'+hashlib.sha256(raw).hexdigest(),'trusted complete migration admission is missing or differs from exact source: '+name)
   f.sql("INSERT INTO hyperfide.repositories(organisation_id,project_id,id,name,url) VALUES($1,$2,$3,'review-fixture','https://example.invalid/review.git')",[ORG,f.ids["project"],REPOSITORY])

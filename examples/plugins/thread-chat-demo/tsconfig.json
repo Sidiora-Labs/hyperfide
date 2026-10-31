@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "esModuleInterop": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@hyperfide/plugin-sdk": [
+        "../../../sdk/plugins/bundled-types/hyperfide-plugin-sdk.d.ts"
+      ],
+      "@hyperfide/plugin-sdk/app": [
+        "../../../sdk/plugins/bundled-types/hyperfide-plugin-sdk-app.d.ts"
+      ]
+    }
+  },
+  "include": ["app.tsx", "server.ts"]
+}

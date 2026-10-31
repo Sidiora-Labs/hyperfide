@@ -46,8 +46,8 @@ def main():
    config=Path(folder)/"input.json";config.write_text(json.dumps({"profile":c.profile(),"config":fixture.config}))
    js=r"""
 import fs from 'node:fs';
-import {RailwayClient} from './services/hyperfide/dist/providers/railway/preparation.js';
-import {validateRuntimeProfile,runtimeOptions,runtimeGraphQLInput} from './services/hyperfide/dist/providers/railway/profile.js';
+import {RailwayClient} from './core/control-plane/dist/providers/railway/preparation.js';
+import {validateRuntimeProfile,runtimeOptions,runtimeGraphQLInput} from './core/control-plane/dist/providers/railway/profile.js';
 const data=JSON.parse(fs.readFileSync(process.argv[1]));
 const profile=validateRuntimeProfile(data.profile),client=new RailwayClient(data.config,{HF_RAILWAY_FIXTURE_TOKEN:'fake'});
 const refs=[];

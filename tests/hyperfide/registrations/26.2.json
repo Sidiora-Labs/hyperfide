@@ -59,7 +59,7 @@
   "resources": [],
   "source_files": [
     "Makefile",
-    "src/help.c",
+    "core/native/src/help.c",
     "scripts/install.sh",
     "scripts/uninstall.sh",
     "scripts/release.sh",
@@ -71,6 +71,6 @@
     "build/hyperfide-native"
   ],
   "source_roots": [
-    "src/hyperfide/components"
+    "core/native/src/hyperfide/components"
   ]
 }

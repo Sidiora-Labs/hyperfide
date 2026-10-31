@@ -18,7 +18,7 @@ import uuid
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 SUPERUSER, OPERATOR, DATABASE = 'hf_superuser', 'hf_operator', 'hyperfide'
 FAILED = []
 
@@ -93,8 +93,8 @@ class Cluster:
 
 
 MIGRATE = """
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {MigrationCoordinator} from './services/hyperfide/dist/storage/durability.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {MigrationCoordinator} from './core/control-plane/dist/storage/durability.js';
 const signal=new AbortController().signal;
 // The migrator caps one call at 30s; on a loaded host resume it, since applied migrations are skipped.
 for(let attempt=1;;attempt++){
@@ -108,11 +108,11 @@ for(let attempt=1;;attempt++){
 PROBE = r"""
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {emit,FINDING_CONSUMER_KEYS} from './services/hyperfide/dist/findings/registry.js';
-import {FINDING_ROUTE,routeFor} from './services/hyperfide/dist/events/dispatcher.js';
-import {claimPending,acknowledge} from './services/hyperfide/dist/events/outbox.js';
-import {receive} from './services/hyperfide/dist/events/inbox.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {emit,FINDING_CONSUMER_KEYS} from './core/control-plane/dist/findings/registry.js';
+import {FINDING_ROUTE,routeFor} from './core/control-plane/dist/events/dispatcher.js';
+import {claimPending,acknowledge} from './core/control-plane/dist/events/outbox.js';
+import {receive} from './core/control-plane/dist/events/inbox.js';
 const scope={organisation_id:process.env.HF_ORG,run_id:process.env.HF_RUN};
 const r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
 const tx=fn=>r.gateway.withPrimaryTransaction({timeoutMs:10000},fn);

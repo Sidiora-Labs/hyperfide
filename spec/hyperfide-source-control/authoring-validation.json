@@ -1,9 +1,9 @@
 {
   "status": "PASS",
   "scope": "specification-authoring",
-  "checked_at": "2026-10-31T16:00:27.498432+00:00",
+  "checked_at": "2026-10-31T17:22:44.133445+00:00",
   "feature": "hyperfide-source-control",
-  "spec_sha256": "76b82ecd8dacd8ca79a7cf174879bed6b14e7ee6a567420d1215b6a53547e18d",
+  "spec_sha256": "662b53195c6be32e37c15b0ad83a5c45b104e038cbda309f2c1e419078ad45e8",
   "requirements": 17,
   "acceptance_clauses": 115,
   "tasks": 34,
@@ -22,7 +22,8 @@
   "product_qualification": "UNRUN",
   "task_statuses": {
     "implemented": 1,
-    "pending": 33
+    "in_progress": 5,
+    "pending": 28
   },
   "rendered": true,
   "errors": [],
@@ -43,31 +44,31 @@
     "runtime_readiness": "NOT_ESTABLISHED"
   },
   "inputs_sha256": {
-    "README.md": "2287f898bf59f996bf69ddde7de192fe4e88a4f94d05f5b1ff5039b251eadc35",
-    "decisions.md": "2c6807d7e349a44824989c42a1bdc25cc7f60b5dd09e73f57764c36d33923ab4",
+    "README.md": "e52c2c3b2ba4e36214dbb74cd46251a2f95ac97686b2b72d959ee1ebe8bf2b3c",
+    "decisions.md": "a03d845114efc154dc54c24eca0e36ba55bed2e8b3e9e19eafb650cf0b761b59",
     "design.body.md": "d1ef6bb04db4b8c471d3d52f0c93cc60f6df022a28b1157f28bebaef6336dd2a",
     "diagrams/architecture.mmd": "31c4d8166535178a52aef8307a3ceaf334610334509ffe125edc56472bbe1e2d",
     "examples/fleet/.neron": "ddb80e741bd709deb143912b146216f23bcf5bce27d898707d9ddd755456619a",
     "examples/fleet/interfaces.kvx": "8cfcde0bb32fdb2dab9d312842164843ac9139a8513a23e33c303e19864fec84",
     "examples/fleet/package.kvx": "e7ddd08702a076da9a9d085bab9f4c0b745ddf7540b1c0d969639dba0a375501",
-    "fleet-orchestration.md": "e762290027ddbcb80c1bac2d49c587fb52fd5edaeb245f063cf9f325ae90c17a",
-    "git-interop.md": "6fa4b846b4d91a3653147c2dc27766593617a3ad9e3f103a5f282b0fbf01514e",
-    "hyperfide-integration.md": "16cc648d309c5c0e719fe3bff3c4fa3a778bc290fe476465928748b45f3007d9",
-    "identity-security.md": "a23609ea7266862ac0ca0f0f8c8082c251040e3fa3098fefc466a52933d174af",
-    "implementation-plan.md": "620e7f403b24c006cf3de986fb5a0b016b5fe0aa4db26000773a27ee5eeb4eef",
+    "fleet-orchestration.md": "99995ceea3e9f14802c4877cbcbc557531b15d60aa01c005342f3a700cbe6390",
+    "git-interop.md": "36e21a49b48edcfb87b96b9b31f5f2f4f5b56f5c2ee04d5d216888703ef439bd",
+    "hyperfide-integration.md": "b6f9ab580cf88f0431bc0e9ef51fd100a02edcdc4eea03291a1f70a26b017bec",
+    "identity-security.md": "fb28c168db493edddf0e475a018d8e45f51dda9241f2ef9dfaaa95988f16ac16",
+    "implementation-plan.md": "e887f52be36d9aeafe581f6273e4c5819c436d05b9da4106e3a78cabf37e9acf",
     "interface-contracts.md": "caadb794f28a796165fabdfe6966019cc45c8c46dec8c8b49319dd6ee916a851",
-    "migration.md": "587fe06981241660f7044eba792a70b5fc8aada4ec00560ff38b4abf2d56f3af",
-    "protocol.md": "a16d321de56cc514609505fbd47785cded95bb0d3ba7b651d896bdab552e2124",
-    "qualification.kvx": "6fcc0b969bbd64f6fa66a4894aa9401339604ec319d7a81ff1e8e7ce09f86669",
-    "repository-baseline.md": "fa3f8feabd980e0a0d6a8b467fe45ab17ab5a07c3b8c1e3f2e3ffb541a339efa",
+    "migration.md": "8c1886e02868d95dfaa6d3ac9bb6b68eeb8f5dcdb80aad51dd80716c6071935f",
+    "protocol.md": "044e35768096a68c40dc086b829b31e20340078c2718832c48c100ddbf61231f",
+    "qualification.kvx": "9e7cb78e2ca08b506de2927678c9b162e5248106dcade04ab426eaa6b4e4293b",
+    "repository-baseline.md": "ff0bcd5272979daad953a6d941025413e33f8befac477b712de0b1428bbf35a1",
     "repository-layout.json": "37add7bf9699dbdcf07f7471b4ad28da2629e6c0fc5dadccc110ee08e048e287",
-    "repository-layout.md": "05a29e97568dc917ce97c4b7538651325561a72cee36d3b842255f15585ed5a5",
+    "repository-layout.md": "4af0f5e69c73953e168fedab4dd8b1aa7db903dd707f75824c3161bc7643029d",
     "sandbox-contracts.md": "a6ba25aae211672759cd3e7bdb48556c47f883a24dc3b672cfdc23499f33316e",
-    "spec.kvx": "76b82ecd8dacd8ca79a7cf174879bed6b14e7ee6a567420d1215b6a53547e18d",
-    "storage.md": "64214d0e34dd783b004eccda161fb48dbb6efcf3e73330d6ecdefd8e5b86a235",
+    "spec.kvx": "662b53195c6be32e37c15b0ad83a5c45b104e038cbda309f2c1e419078ad45e8",
+    "storage.md": "f5faefaa050f004b5b5507a90081a06bb20758e339612b19282b854d7bdd69f3",
     "tools/validate_spec.py": "a4e77e8321e83f5f97f1b286f724b345e7133614ce6c3844e9d33a2b601ad780",
     "traceability.md": "5c0bfde437c74167a4f0b2110fa1a463a6b286e4a47ae8d1a05b3f91bf4a5d11",
     "verification.md": "68b78992e84e5886d7c982d12cd549a1d9425cddfb9349510e09389bbaf735fb",
-    "workspaces.md": "45804ec3f76fba6db85adb987d3e01e9120e867e0656a857ea47c64a7408296a"
+    "workspaces.md": "e4a94d0025392f1b5e93b64bdcc643f7241bf4e6c1aee6dcc0ef8d9dd492d9e2"
   }
 }

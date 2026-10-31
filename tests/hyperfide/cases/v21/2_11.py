@@ -13,7 +13,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 FAILED = []
 GIT_ENV = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'HOME': '/nonexistent', 'LC_ALL': 'C.UTF-8', 'GIT_CONFIG_NOSYSTEM': '1',
            'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_TERMINAL_PROMPT': '0', 'GIT_AUTHOR_NAME': 'fixture', 'GIT_AUTHOR_EMAIL': 'fixture@invalid',
@@ -68,8 +68,8 @@ def commit(work, name, text):
 
 
 def build(base):
-    """Compile the checkout source into base/services/hyperfide/dist and place bootstrap-host.mjs beside it."""
-    service = base / 'services/hyperfide'
+    """Compile the checkout source into base/core/control-plane/dist and place bootstrap-host.mjs beside it."""
+    service = base / 'core/control-plane'
     service.mkdir(parents=True)
     for name in ['package.json', 'tsconfig.json']:
         shutil.copyfile(SERVICE / name, service / name)
@@ -87,7 +87,7 @@ def main():
         print('SKIP: node and git are required')
         return 77
     if not (SERVICE / 'node_modules/.bin/tsc').exists():
-        print('SKIP: services/hyperfide/node_modules is not installed')
+        print('SKIP: core/control-plane/node_modules is not installed')
         return 77
     with tempfile.TemporaryDirectory(prefix='hf-v21-2-11-') as tmp:
         base = Path(tmp)

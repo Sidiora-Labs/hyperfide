@@ -21,7 +21,7 @@ import uuid
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 SUPERUSER = 'hf_superuser'
 FAILED = []
 OBSERVED = []
@@ -122,7 +122,7 @@ def ensure_build():
 
 SETTINGS_PROBE = r"""
 import assert from 'node:assert/strict';
-import {workerSettings} from './services/hyperfide/dist/providers/worker.js';
+import {workerSettings} from './core/control-plane/dist/providers/worker.js';
 assert.equal(workerSettings({}).escalate_ms,60000);
 assert.equal(workerSettings({HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS:'0'}).escalate_ms,0);
 assert.equal(workerSettings({HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS:'250'}).escalate_ms,250);

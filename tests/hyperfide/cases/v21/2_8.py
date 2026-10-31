@@ -2,7 +2,7 @@
 """Task 2.8: secret references reach running sandboxes.
 
 A START declares two secret references; only one value is available when the
-agent launches. The executor's relaunch request (services/hyperfide dist)
+agent launches. The executor's relaunch request (core/control-plane dist)
 supplies the second, the native supervisor replaces the agent process inside
 the same launch and attempt, and the new process sees both variables.
 
@@ -17,7 +17,7 @@ import importlib.util, json, os, pathlib, signal, sqlite3, subprocess, sys, trac
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 NATIVE = ROOT / "build/hyperfide-native"
-EXECUTOR = ROOT / "services/hyperfide/dist/runner/executor.js"
+EXECUTOR = ROOT / "core/control-plane/dist/runner/executor.js"
 ASSERTIONS = [
     "fixture.root",
     "profile.declared-references-allowed",
@@ -59,8 +59,8 @@ def check(name, ok, detail=None):
 
 TS = r"""
 import fs from 'node:fs';
-import pg from './services/hyperfide/node_modules/pg/lib/index.js';
-import {taskEnvReferences,declaredEnvReferences,relaunchRequest,validateRelaunchReceipt} from './services/hyperfide/dist/runner/executor.js';
+import pg from './core/control-plane/node_modules/pg/lib/index.js';
+import {taskEnvReferences,declaredEnvReferences,relaunchRequest,validateRelaunchReceipt} from './core/control-plane/dist/runner/executor.js';
 const input=JSON.parse(fs.readFileSync(0,'utf8'));
 const settle=async f=>{try{return {ok:true,value:await f()};}catch(e){return {ok:false,code:e.code??String(e)};}};
 let out;
@@ -299,7 +299,7 @@ def main():
         print("SKIP: task 2.8 sandbox probe needs root for slot uids and the native supervisor", flush=True)
         return 77
     if not EXECUTOR.exists() or not NATIVE.exists():
-        print("assertion failed: build services/hyperfide (npm run build) and build/hyperfide-native first", file=sys.stderr)
+        print("assertion failed: build core/control-plane (npm run build) and build/hyperfide-native first", file=sys.stderr)
         return 1
     t122 = load("hf_case_12_2", "tests/hyperfide/cases/tasks/12_2.py")
     t295 = load("hf_case_29_5", "tests/hyperfide/cases/tasks/29_5.py")

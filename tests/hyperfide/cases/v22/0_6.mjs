@@ -27,7 +27,7 @@ for (const path of manifests) {
     assert.match(manifest.name, /^@hyperfide\//, path);
     scopedPackages++;
   }
-  if (path.startsWith('platform/plugins/') && manifest.hyperfide) {
+  if (path.startsWith('plugins/') && manifest.hyperfide) {
     assert.match(manifest.name, /^(?:hyperfide-plugin-|@hyperfide\/hyperfide-)/, path);
     plugins++;
   }

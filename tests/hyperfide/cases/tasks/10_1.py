@@ -22,7 +22,7 @@ class Fixture(up.Fixture):
   super().__init__(base)
   self.tools=tools;self.port=port;self.runtime=base/"runtime";self.runtime.mkdir()
   for d in ["work/one","work/two","opt/hyperfide/prepared"]:(self.runtime/d).mkdir(parents=True,exist_ok=True)
-  for x in ["8.1","10.1"]:shutil.copyfile(ROOT/f"services/hyperfide/components/{x}.json",self.components/f"{x}.json")
+  for x in ["8.1","10.1"]:shutil.copyfile(ROOT/f"core/control-plane/components/{x}.json",self.components/f"{x}.json")
   self.profile["image"]={"provider":"blaxel","reference":"ubuntu@sha256:"+"b"*64,"digest":"sha256:"+"b"*64}
   self.profile["toolchains"]=[{"name":"node","version":"24.22.0"},{"name":"cc","version":"15.2.0"}]
   self.profile["native_agents"]=[{"name":"codex","version":"0.162.1"}]
@@ -40,7 +40,7 @@ class Fixture(up.Fixture):
   e=os.environ.copy();e.update(HF_PREPARATION_ALLOWED_ROOT=str(self.allowed),HF_BLAXEL_PROBE_ROOT=str(self.runtime),HF_BLAXEL_PROBE_TRANSPORT="local-component",HF_BLAXEL_PROBE_PATH=str(self.tools)+":/root/.local/share/mise/installs/node/24.22.0/bin:/usr/local/bin:/usr/bin:/bin",HF_BLAXEL_PROBE_API_PORT=str(self.port))
   for k in ["HF_BLAXEL_API_KEY","HF_BLAXEL_WORKSPACE","HF_BLAXEL_LIVE_ENABLED"]:e.pop(k,None)
   if env:e.update(env)
-  argv=["node",str(ROOT/"services/hyperfide/dist/provisioner.js"),"--policy",str(self.policy_file),"--spec-revision","fixture-revision","--components",str(self.components),"--module-root",str(ROOT/"services/hyperfide/dist")]
+  argv=["node",str(ROOT/"core/control-plane/dist/provisioner.js"),"--policy",str(self.policy_file),"--spec-revision","fixture-revision","--components",str(self.components),"--module-root",str(ROOT/"core/control-plane/dist")]
   req={"id":1,"component":"10.1","action":"blaxel.image."+action,"input":payload}
   r=subprocess.run(argv,input=json.dumps(req)+"\n",text=True,capture_output=True,cwd=self.base,env=e,timeout=80)
   rows=[json.loads(s)for s in (r.stdout+"\n"+r.stderr).splitlines()if s.strip()]
@@ -188,7 +188,7 @@ def main():
     marker=f.base/"escaped-pid"
     child="setTimeout(()=>{},60000)"
     launcher="const{spawn}=require('node:child_process');const fs=require('node:fs');const c=spawn(process.execPath,['-e',"+json.dumps(child)+"],{detached:true,stdio:'ignore'});fs.writeFileSync("+json.dumps(str(marker))+",String(c.pid));c.unref()"
-    script="import{runBlaxelCommand}from"+json.dumps(str(ROOT/"services/hyperfide/dist/providers/blaxel/images.js"))+";const r=await runBlaxelCommand([process.execPath,'-e',"+json.dumps(launcher)+"],'/tmp',{PATH:'/usr/bin:/bin'},5000,new AbortController().signal);console.log(JSON.stringify(r))"
+    script="import{runBlaxelCommand}from"+json.dumps(str(ROOT/"core/control-plane/dist/providers/blaxel/images.js"))+";const r=await runBlaxelCommand([process.execPath,'-e',"+json.dumps(launcher)+"],'/tmp',{PATH:'/usr/bin:/bin'},5000,new AbortController().signal);console.log(JSON.stringify(r))"
     r=subprocess.run(["node","--input-type=module","-e",script],text=True,capture_output=True,timeout=15,cwd=ROOT)
     expect(r.returncode==0,r.stderr);result=json.loads(r.stdout);expect(result["exit_code"]!=0,"accepted leaked background execution")
     pid=int(marker.read_text())
@@ -197,21 +197,21 @@ def main():
     else:os.kill(pid,9);raise AssertionError("escaped descendant survived bounded command")
    case("process.detached-descendant-reaped",escaped_descendant)
    def supervisor_error(f):
-    script="import{runBlaxelCommand}from"+json.dumps(str(ROOT/"services/hyperfide/dist/providers/blaxel/images.js"))+";try{await runBlaxelCommand([process.execPath,'--version'],"+json.dumps(str(f.base/"absent-working-directory"))+",{PATH:'/usr/bin:/bin'},1000,new AbortController().signal);throw Error('unexpected supervisor success')}catch(e){if(e.code!=='BLAXEL_SUPERVISOR_UNAVAILABLE'||e.message.includes('UNRELATED-CANARY'))throw e}"
+    script="import{runBlaxelCommand}from"+json.dumps(str(ROOT/"core/control-plane/dist/providers/blaxel/images.js"))+";try{await runBlaxelCommand([process.execPath,'--version'],"+json.dumps(str(f.base/"absent-working-directory"))+",{PATH:'/usr/bin:/bin'},1000,new AbortController().signal);throw Error('unexpected supervisor success')}catch(e){if(e.code!=='BLAXEL_SUPERVISOR_UNAVAILABLE'||e.message.includes('UNRELATED-CANARY'))throw e}"
     r=subprocess.run(["node","--input-type=module","-e",script],text=True,capture_output=True,timeout=5,cwd=ROOT);expect(r.returncode==0,r.stderr)
    case("process.supervisor-spawn-error-structured",supervisor_error)
    def supervisor_override(f,kind):
     marker=f.base/("override-"+kind)
     executable=subprocess.check_output(["python3","-c","import sys;print(sys.executable)"],text=True).strip()
     configured=executable if kind=="valid"else "relative-python"if kind=="relative"else str(f.base/"absent-supervisor")
-    script="import{runBlaxelCommand,BLAXEL_SUPERVISOR_PYTHON}from"+json.dumps(str(ROOT/"services/hyperfide/dist/providers/blaxel/images.js"))+";if(BLAXEL_SUPERVISOR_PYTHON!=="+json.dumps(configured)+")throw Error('wrong configured supervisor');try{const r=await runBlaxelCommand([process.execPath,'-e',"+json.dumps("require('node:fs').writeFileSync("+json.dumps(str(marker))+",'executed')")+"],'/tmp',{PATH:'/usr/bin:/bin'},2000,new AbortController().signal);"+("if(r.exit_code!==0)throw Error('configured supervisor failed');"if kind=="valid"else "throw Error('unexpected fallback');")+"}catch(e){"+("throw e;"if kind=="valid"else "if(e.code!=='BLAXEL_SUPERVISOR_UNAVAILABLE')throw e;")+"}"
+    script="import{runBlaxelCommand,BLAXEL_SUPERVISOR_PYTHON}from"+json.dumps(str(ROOT/"core/control-plane/dist/providers/blaxel/images.js"))+";if(BLAXEL_SUPERVISOR_PYTHON!=="+json.dumps(configured)+")throw Error('wrong configured supervisor');try{const r=await runBlaxelCommand([process.execPath,'-e',"+json.dumps("require('node:fs').writeFileSync("+json.dumps(str(marker))+",'executed')")+"],'/tmp',{PATH:'/usr/bin:/bin'},2000,new AbortController().signal);"+("if(r.exit_code!==0)throw Error('configured supervisor failed');"if kind=="valid"else "throw Error('unexpected fallback');")+"}catch(e){"+("throw e;"if kind=="valid"else "if(e.code!=='BLAXEL_SUPERVISOR_UNAVAILABLE')throw e;")+"}"
     env=os.environ.copy();env["HYPERFIDE_SUPERVISOR_PYTHON"]=configured;r=subprocess.run(["node","--input-type=module","-e",script],env=env,text=True,capture_output=True,timeout=7,cwd=ROOT);expect(r.returncode==0,r.stderr);expect(marker.exists()==(kind=="valid"))
    case("process.trusted-packaged-supervisor-used",lambda f:supervisor_override(f,"valid"))
    case("process.missing-supervisor-never-falls-back",lambda f:supervisor_override(f,"missing"))
    case("process.relative-supervisor-denied",lambda f:supervisor_override(f,"relative"))
    def isolated_python(f):
     directory=f.base/"pythonpath-canary";directory.mkdir();marker=directory/"executed";(directory/"sitecustomize.py").write_text("from pathlib import Path;Path("+repr(str(marker))+").write_text('unsafe startup hook')")
-    script="import{runBlaxelCommand}from"+json.dumps(str(ROOT/"services/hyperfide/dist/providers/blaxel/images.js"))+";const r=await runBlaxelCommand([process.execPath,'--version'],'/tmp',{PATH:'/usr/bin:/bin',PYTHONPATH:"+json.dumps(str(directory))+"},2000,new AbortController().signal);if(r.exit_code!==0)throw Error('isolated Python failed')"
+    script="import{runBlaxelCommand}from"+json.dumps(str(ROOT/"core/control-plane/dist/providers/blaxel/images.js"))+";const r=await runBlaxelCommand([process.execPath,'--version'],'/tmp',{PATH:'/usr/bin:/bin',PYTHONPATH:"+json.dumps(str(directory))+"},2000,new AbortController().signal);if(r.exit_code!==0)throw Error('isolated Python failed')"
     r=subprocess.run(["node","--input-type=module","-e",script],text=True,capture_output=True,timeout=7,cwd=ROOT);expect(r.returncode==0,r.stderr);expect(not marker.exists(),'untrusted Python startup hook executed')
    case("process.supervisor-ignores-pythonpath-startup-hook",isolated_python)
    def sdk_config(f):

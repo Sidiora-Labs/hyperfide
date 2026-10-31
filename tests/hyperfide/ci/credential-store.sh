@@ -3,7 +3,7 @@
 # (9.1 to 9.4) and print its configuration path. The store has no sources and no
 # targets: those cases seed their own references and never read a real secret,
 # so nothing here comes from a repository secret (D13).
-# The layout must satisfy services/hyperfide/src/identity/credentials.ts:
+# The layout must satisfy core/control-plane/src/identity/credentials.ts:
 # absolute non-symlinked roots owned by this uid and not group/other writable,
 # and a 0600 configuration file with exactly the five keys.
 # Usage: credential-store.sh <root>   (in CI: append the printed path to GITHUB_ENV)

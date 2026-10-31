@@ -59,15 +59,15 @@
   "resources": [],
   "source_files": [
     "Makefile",
-    "src/cg.h",
-    "src/sha256.c",
-    "scripts/hyperfide-native-components.py",
-    "src/hyperfide/bootstrap.c",
-    "src/hyperfide/preparation_support.h",
-    "src/hyperfide/component_main.c",
-    "src/hyperfide/components.h",
-    "src/hyperfide/components/schema.kvx",
-    "src/hyperfide/components/11.2.kvx",
+    "core/native/src/cg.h",
+    "core/native/src/sha256.c",
+    "tools/repository/hyperfide-native-components.py",
+    "core/native/src/hyperfide/bootstrap.c",
+    "core/native/src/hyperfide/preparation_support.h",
+    "core/native/src/hyperfide/component_main.c",
+    "core/native/src/hyperfide/components.h",
+    "core/native/src/hyperfide/components/schema.kvx",
+    "core/native/src/hyperfide/components/11.2.kvx",
     "build/hyperfide-native",
     "build/hyperfide-native-registry.inc",
     "tests/hyperfide/cases/tasks/11_2.py",
@@ -76,6 +76,6 @@
     "tests/hyperfide/qualify.py"
   ],
   "source_roots": [
-    "src/hyperfide"
+    "core/native/src/hyperfide"
   ]
 }

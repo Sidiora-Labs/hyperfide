@@ -15,7 +15,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 const args=JSON.parse(await new Promise(resolve=>{let s='';process.stdin.on('data',b=>s+=b);process.stdin.on('end',()=>resolve(s));}));
-const mod=p=>pathToFileURL(path.join(args.repo,'services/hyperfide/dist/storage',p)).href;
+const mod=p=>pathToFileURL(path.join(args.repo,'core/control-plane/dist/storage',p)).href;
 const {createResourceContainer}=await import(mod('runtime.js'));
 const {MigrationCoordinator,AuthorityStore,lookupAuthorityActivation,assertExternalAuthorityCurrent}=await import(mod('durability.js'));
 const {FileExternalAuthorityJournal}=await import(mod('authority_journal.js'));
@@ -32,7 +32,7 @@ async function journalDocument(){
  return null;
 }
 let pendingObserved=null,commitObserved=null,publishedObserved=null,admissionClock=null,pending=null,before=null,after=null,receiptRaw=null;
-const {default:pg}=await import(pathToFileURL(path.join(args.repo,'services/hyperfide/node_modules/pg/lib/index.js')).href);
+const {default:pg}=await import(pathToFileURL(path.join(args.repo,'core/control-plane/node_modules/pg/lib/index.js')).href);
 const originalQuery=pg.Client.prototype.query;
 pg.Client.prototype.query=function(...parameters){
  const result=originalQuery.apply(this,parameters);
@@ -165,7 +165,7 @@ def main():
   deployment=str(uuid.uuid4())
   helper=evidence/'authority-helper.mjs';helper.write_text(JS);helper.chmod(0o600)
   migrations=cluster.root/'trusted-migrations';migrations.mkdir(mode=0o700)
-  for name in ['0001-authority.sql','0004-durability.sql']:shutil.copyfile(ROOT/'services/hyperfide/migrations'/name,migrations/name)
+  for name in ['0001-authority.sql','0004-durability.sql']:shutil.copyfile(ROOT/'core/control-plane/migrations'/name,migrations/name)
   (migrations/'9000-drill.sql').write_text("""CREATE TABLE hyperfide.drill_records(organisation_id uuid NOT NULL,run_id uuid NOT NULL,id uuid PRIMARY KEY,payload text NOT NULL,payload_sha256 bytea NOT NULL CHECK(octet_length(payload_sha256)=32),acknowledged_at timestamptz NOT NULL DEFAULT clock_timestamp());
 CREATE TRIGGER aaa_supported_isolation BEFORE INSERT OR UPDATE OR DELETE ON hyperfide.drill_records FOR EACH STATEMENT EXECUTE FUNCTION hyperfide.require_authority_isolation();
 CREATE TABLE hyperfide.drill_effects(id uuid PRIMARY KEY,kind text NOT NULL,state text NOT NULL CHECK(state IN ('PENDING','RECONCILED')),provider_ref text);

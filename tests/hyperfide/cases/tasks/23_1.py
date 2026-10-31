@@ -85,7 +85,7 @@ class Fixture:
   self.fragments={}
   def add(identity):
    if identity in self.fragments:return
-   p=ROOT/"services/hyperfide/components"/(identity+".json");expect(p.is_file(),"Actual component dependency absent: "+identity)
+   p=ROOT/"core/control-plane/components"/(identity+".json");expect(p.is_file(),"Actual component dependency absent: "+identity)
    declaration=json.loads(p.read_text());self.fragments[identity]=declaration
    for dependency in declaration["requires"]:add(dependency)
   for identity in list(self.components_ids)+["1.4","4.1","4.2","4.4","14.1"]:add(identity)
@@ -122,7 +122,7 @@ class Fixture:
   private,credential=self.keys[role];stamp=str(int(time.time()));nonce=str(uuidlib.uuid4())
   headers={"Content-Type":"application/json"}
   if not unsigned:
-   script="import fs from 'node:fs';import crypto from 'node:crypto';import {pathToFileURL} from 'node:url';const [file,origin,id,time,nonce]=process.argv.slice(1);const {signingBytes}=await import(pathToFileURL("+json.dumps(str(ROOT/"services/hyperfide/dist/transport/protocol.js"))+").href);const chunks=[];for await(const c of process.stdin)chunks.push(c);const body=Buffer.concat(chunks);process.stdout.write(crypto.sign(null,signingBytes(origin,'/v1/invoke',{id,time,nonce},body),fs.readFileSync(file)).toString('base64url'));"
+   script="import fs from 'node:fs';import crypto from 'node:crypto';import {pathToFileURL} from 'node:url';const [file,origin,id,time,nonce]=process.argv.slice(1);const {signingBytes}=await import(pathToFileURL("+json.dumps(str(ROOT/"core/control-plane/dist/transport/protocol.js"))+").href);const chunks=[];for await(const c of process.stdin)chunks.push(c);const body=Buffer.concat(chunks);process.stdout.write(crypto.sign(null,signingBytes(origin,'/v1/invoke',{id,time,nonce},body),fs.readFileSync(file)).toString('base64url'));"
    signature=subprocess.run(["node","--input-type=module","-e",script,str(private),self.origin,credential,stamp,nonce],input=body,stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True,timeout=10).stdout.decode()
    headers.update({"hf-credential-id":credential,"hf-request-time":stamp,"hf-request-nonce":nonce,"hf-request-signature":signature})
   client=http.client.HTTPSConnection(urlsplit(self.origin).hostname,self.port,context=self.tls,timeout=15)

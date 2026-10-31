@@ -30,7 +30,7 @@ def main():
    env=dict(f.env,HYPERFIDE_MODE='distributed',HYPERFIDE_BOOTSTRAP_SOURCE_ROOT=str(root),HYPERFIDE_BOOTSTRAP_MAX_TTL_MS='3600000')
    def invoke(extra=None):
     e=dict(env);e.update(extra or {})
-    p=subprocess.run(['node',str(ROOT/'services/hyperfide/dist/bootstrap.js'),'--input',str(input_file)],cwd=ROOT,env=e,text=True,capture_output=True,timeout=45)
+    p=subprocess.run(['node',str(ROOT/'core/control-plane/dist/bootstrap.js'),'--input',str(input_file)],cwd=ROOT,env=e,text=True,capture_output=True,timeout=45)
     lines=(p.stdout if p.returncode==0 else p.stderr).splitlines()
     result=json.loads(lines[-1]) if lines else {}
     return p,result

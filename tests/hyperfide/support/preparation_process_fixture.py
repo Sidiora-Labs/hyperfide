@@ -18,7 +18,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 UID = 62126
 DRIVER = r'''
 #define _GNU_SOURCE
-#include "src/hyperfide/preparation_process.c"
+#include "core/native/src/hyperfide/preparation_process.c"
 static int admitted=0,deny=0;
 static int admit(void *context,const HfProcessIdentity *p){
  (void)context;HfProcessIdentity actual;
@@ -191,9 +191,9 @@ def main():
         files = ["supervisor.c", "launch.c", "transport.c", "readiness.c"]
         flags = ["cc", "-std=gnu11", "-O1", "-Wall", "-Wextra", "-Werror",
                  "-ffunction-sections", "-fdata-sections", "-I", str(ROOT),
-                 "-I", str(ROOT / "src/hyperfide")]
+                 "-I", str(ROOT / "core/native/src/hyperfide")]
         compile_driver = subprocess.run(
-            [*flags, str(driver_source), *[str(ROOT / "src/hyperfide" / p) for p in files],
+            [*flags, str(driver_source), *[str(ROOT / "core/native/src/hyperfide" / p) for p in files],
              "-Wl,--gc-sections", "-lsqlite3", "-lcurl", "-lcrypto", "-o", str(driver)],
             cwd=ROOT, capture_output=True, text=True)
         if compile_driver.returncode:

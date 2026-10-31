@@ -1,0 +1,30 @@
+{
+  "name": "@hyperfide/hyperfide-qualify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsrs --noEmit",
+    "prepare:bundled": "node ../../tools/plugin-build/dist/cli.js prepare-bundled"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:^",
+    "@types/node": "^22.0.0",
+    "vitest": "^4.1.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "esbuild": "^0.28.0"
+  },
+  "dependencies": {
+    "@hyperfide/authority": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "hyperfide": {
+    "name": "Qualification",
+    "description": "Run and review task qualification",
+    "branding": { "icon": "Check" },
+    "server": "./server.ts",
+    "app": "./app.ts"
+  }
+}

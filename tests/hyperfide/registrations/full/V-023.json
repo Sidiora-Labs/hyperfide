@@ -123,18 +123,18 @@
   "required_env": [],
   "fixtures": [
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/graph/contract_query.js",
-    "services/hyperfide/dist/graph/extraction.js",
-    "services/hyperfide/dist/graph/projection.js",
-    "services/hyperfide/dist/graph/projection_extract.js",
-    "services/hyperfide/dist/graph/query.js",
-    "services/hyperfide/dist/graph/replica_query.js",
-    "services/hyperfide/dist/hierarchy/packets.js",
-    "services/hyperfide/dist/identity/enrollment.js",
-    "services/hyperfide/dist/storage/dispositions.js",
-    "services/hyperfide/dist/storage/replicas.js",
-    "services/hyperfide/dist/storage/runtime.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/graph/contract_query.js",
+    "core/control-plane/dist/graph/extraction.js",
+    "core/control-plane/dist/graph/projection.js",
+    "core/control-plane/dist/graph/projection_extract.js",
+    "core/control-plane/dist/graph/query.js",
+    "core/control-plane/dist/graph/replica_query.js",
+    "core/control-plane/dist/hierarchy/packets.js",
+    "core/control-plane/dist/identity/enrollment.js",
+    "core/control-plane/dist/storage/dispositions.js",
+    "core/control-plane/dist/storage/replicas.js",
+    "core/control-plane/dist/storage/runtime.js"
   ],
   "actions": [
     "graph.component.invoke",
@@ -173,13 +173,13 @@
   ],
   "source_files": [
     "cg",
-    "services/hyperfide/components/4.3.json",
-    "services/hyperfide/migrations/0704-graph-query-parity.sql",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/src/storage/replicas.ts",
-    "services/hyperfide/tsconfig.json",
-    "src/scan.c",
+    "core/control-plane/components/4.3.json",
+    "core/control-plane/migrations/0704-graph-query-parity.sql",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/storage/replicas.ts",
+    "core/control-plane/tsconfig.json",
+    "core/native/src/scan.c",
     "tests/hyperfide/cases/full/compose.py",
     "tests/hyperfide/cases/full/register.py",
     "tests/hyperfide/cases/support/graph_contracts.py",
@@ -201,10 +201,10 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/components",
-    "services/hyperfide/dist",
-    "services/hyperfide/migrations",
-    "services/hyperfide/src"
+    "core/control-plane/components",
+    "core/control-plane/dist",
+    "core/control-plane/migrations",
+    "core/control-plane/src"
   ],
   "cleanup_argv": [
     "python3",

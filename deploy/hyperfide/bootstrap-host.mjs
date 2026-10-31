@@ -50,7 +50,7 @@ const fail=(code,missing,warned)=>{throw Object.assign(new Error(code),{code},mi
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const record=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 async function runtime(name){
- for(const base of ['../../services/dist/','../../services/hyperfide/dist/']){
+ for(const base of ['../../services/dist/','../../core/control-plane/dist/']){
   const file=path.join(directory,base,name+'.js');
   try{await fs.access(file);}catch(error){if(error.code==='ENOENT')continue;throw error;}
   return import(pathToFileURL(file));

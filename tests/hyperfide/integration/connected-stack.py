@@ -52,12 +52,12 @@ class Service:
     def __init__(self,stack,role,fragments):
         self.stack,self.role,self.fragments=stack,role,fragments;self.child=None;self.port=free_port()
         f=stack.fixture;self.folder=f.path/("components-"+role);self.folder.mkdir(exist_ok=True)
-        for name in fragments:shutil.copyfile(ROOT/("services/hyperfide/components/"+name+".json"),self.folder/(name+".json"))
+        for name in fragments:shutil.copyfile(ROOT/("core/control-plane/components/"+name+".json"),self.folder/(name+".json"))
         self.log=f.path/(role+".log")
     def start(self):
         f=self.stack.fixture
-        argv=["node",str(ROOT/("services/hyperfide/dist/"+self.role+".js")),"--policy",str(f.policy),"--spec-revision","fixture-identity-v1","--components",str(self.folder),
-              "--module-root",str(ROOT/"services/hyperfide/dist"),"--mode","https","--host","127.0.0.1","--port",str(self.port),"--tls-cert",str(f.ca),"--tls-key",str(f.tlskey)]
+        argv=["node",str(ROOT/("core/control-plane/dist/"+self.role+".js")),"--policy",str(f.policy),"--spec-revision","fixture-identity-v1","--components",str(self.folder),
+              "--module-root",str(ROOT/"core/control-plane/dist"),"--mode","https","--host","127.0.0.1","--port",str(self.port),"--tls-cert",str(f.ca),"--tls-key",str(f.tlskey)]
         self.starts=getattr(self,"starts",0)+1;self.log=f.path/(self.role+"-"+str(self.starts)+".log")
         log=open(self.log,"w")
         try:self.child=subprocess.Popen(argv,cwd=ROOT,env=f.env,stdin=subprocess.DEVNULL,stdout=log,stderr=log)

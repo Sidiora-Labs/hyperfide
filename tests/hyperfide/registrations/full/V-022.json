@@ -83,9 +83,9 @@
   ],
   "fixtures": [
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/graph/extraction.js",
-    "services/hyperfide/dist/identity/enrollment.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/graph/extraction.js",
+    "core/control-plane/dist/identity/enrollment.js"
   ],
   "actions": [
     "graph.component.invoke",
@@ -115,10 +115,10 @@
   ],
   "source_files": [
     "cg",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/tsconfig.json",
-    "src/scan.c",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/tsconfig.json",
+    "core/native/src/scan.c",
     "tests/hyperfide/cases/full/compose.py",
     "tests/hyperfide/cases/full/register.py",
     "tests/hyperfide/cases/tasks/7_1.py",
@@ -133,10 +133,10 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/components",
-    "services/hyperfide/dist",
-    "services/hyperfide/migrations",
-    "services/hyperfide/src"
+    "core/control-plane/components",
+    "core/control-plane/dist",
+    "core/control-plane/migrations",
+    "core/control-plane/src"
   ],
   "cleanup_argv": [
     "python3",

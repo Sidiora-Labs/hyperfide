@@ -109,8 +109,8 @@ def authenticated_checks():
  try:
   def forged_invocation():
    program="""import fs from 'node:fs';
-import {createComponent} from './services/hyperfide/dist/policy/placement.js';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
+import {createComponent} from './core/control-plane/dist/policy/placement.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
 const signal=new AbortController().signal;
 const ctx={role:'control',policy:JSON.parse(fs.readFileSync(process.env.HF_NEGATIVE_POLICY_FILE,'utf8')),signal,env:process.env};
 const resources=createResourceContainer(ctx);let guardCalls=0;

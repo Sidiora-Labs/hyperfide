@@ -16,14 +16,14 @@ class Fixture:
  def __init__(self,p):
   self.base=p;self.w=p/"allowed/repo";self.w.mkdir(parents=True)
   self.policy=p/"policy.json";self.policy.write_text(json.dumps(POLICY));self.components=p/"components";self.components.mkdir()
-  (self.components/"26.3.json").write_bytes((ROOT/"services/hyperfide/components/26.3.json").read_bytes())
+  (self.components/"26.3.json").write_bytes((ROOT/"core/control-plane/components/26.3.json").read_bytes())
   (self.w/"codify.kvx").write_text("# user customisation\n[sync]\nauto = false\n");(self.w/".codify").mkdir();(self.w/".codify/agent-context.md").write_text("User-owned context.\n")
   for n in [".codex",".claude",".codegraph"]:
    (self.w/n).mkdir();(self.w/n/"native-state").write_bytes(b"PRIVATE-NATIVE-STATE")
   self.id="12345678-1234-1234-1234-123456789abc"
  def call(self,a,v,env=None):
   e=dict(os.environ,HF_MIGRATION_ALLOWED_ROOT=str(self.w.parent));e.update(env or {})
-  p=subprocess.run(["node",str(ROOT/"services/hyperfide/dist/control.js"),"--policy",str(self.policy),"--spec-revision","fixture-r1","--components",str(self.components),"--module-root",str(ROOT/"services/hyperfide/dist")],input=json.dumps({"id":"probe","component":"26.3","action":"migration.names."+a,"input":v})+"\n",text=True,capture_output=True,cwd=ROOT,env=e,timeout=15)
+  p=subprocess.run(["node",str(ROOT/"core/control-plane/dist/control.js"),"--policy",str(self.policy),"--spec-revision","fixture-r1","--components",str(self.components),"--module-root",str(ROOT/"core/control-plane/dist")],input=json.dumps({"id":"probe","component":"26.3","action":"migration.names."+a,"input":v})+"\n",text=True,capture_output=True,cwd=ROOT,env=e,timeout=15)
   expect(len(p.stdout.splitlines())==1);r=json.loads(p.stdout);expect(r["id"]=="probe");return p,r
  def ok(self,a,v,env=None):
   p,r=self.call(a,v,env);expect(p.returncode==0 and r["ok"]);return r["result"]

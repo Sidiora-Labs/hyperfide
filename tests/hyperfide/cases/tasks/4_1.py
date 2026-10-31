@@ -78,7 +78,7 @@ def observation_dir():
 
 def install_schema():
     # Task 4.4 owns production migration orchestration; this gate installs only the task 4.1 schema.
-    source=(ROOT/"services/hyperfide/migrations/0001-authority.sql").read_bytes()
+    source=(ROOT/"core/control-plane/migrations/0001-authority.sql").read_bytes()
     checksum="sha256:"+hashlib.sha256(source).hexdigest()
     sql("BEGIN;\n"+source.decode()+"\nINSERT INTO hyperfide.schema_migrations(version,name,checksum) "
         "VALUES(1,'0001-authority','"+checksum+"');\nCOMMIT;")
@@ -108,15 +108,15 @@ class Service:
         self.policy.write_text(json.dumps(POLICY))
         self.components=base/"components";self.components.mkdir()
         for name in ["1.4.json","4.1.json"]:
-            source=ROOT/"services/hyperfide/components"/name
+            source=ROOT/"core/control-plane/components"/name
             if source.exists(): (self.components/name).write_bytes(source.read_bytes())
     def request(self, action, value=None, *, policy=None, env=None):
         if policy is not None: self.policy.write_text(json.dumps(policy))
         else: self.policy.write_text(json.dumps(POLICY))
         request={"id":"task-4.1-probe","component":"4.1","action":action,"input":{} if value is None else value}
-        process=subprocess.run(["node",str(ROOT/"services/hyperfide/dist/control.js"),
+        process=subprocess.run(["node",str(ROOT/"core/control-plane/dist/control.js"),
             "--policy",str(self.policy),"--spec-revision",POLICY["spec_revision"],
-            "--components",str(self.components),"--module-root",str(ROOT/"services/hyperfide/dist")],
+            "--components",str(self.components),"--module-root",str(ROOT/"core/control-plane/dist")],
             cwd=ROOT,input=json.dumps(request)+"\n",text=True,
             stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env or database_env(),timeout=30)
         lines=[line for line in process.stdout.splitlines() if line.strip()]
@@ -210,7 +210,7 @@ graph_builds graph_manifests graph_channels parse_blobs graph_files graph_symbol
 command_inbox event_consumers outbox_events event_deliveries""".split())
     # 0001 still creates these; migration 0716 (v21 7.10) drops them, and this gate installs 0001 alone.
     retired={"preparation_references","branch_observations","review_coverage_inputs"}
-    checksum="sha256:"+hashlib.sha256((ROOT/"services/hyperfide/migrations/0001-authority.sql").read_bytes()).hexdigest()
+    checksum="sha256:"+hashlib.sha256((ROOT/"core/control-plane/migrations/0001-authority.sql").read_bytes()).hexdigest()
     def describe():
         result=service.ok("authority.schema.describe")
         expect(result["schema"]=="hyperfide" and result["schema_version"]==1,"schema identity/version differs")
@@ -430,7 +430,7 @@ def main():
         "failed_ids":FAILED,"service_operations":OBSERVATIONS,"sql_diagnostics":SQL_DIAGNOSTICS,
         "runtime":{"node_version":subprocess.run(["node","--version"],capture_output=True,text=True,timeout=5).stdout.strip(),
                    "postgresql_version":sql("SHOW server_version;").stdout.strip(),
-                   "package_lock_sha256":hashlib.sha256((ROOT/"services/hyperfide/package-lock.json").read_bytes()).hexdigest()}},sort_keys=True)+"\n")
+                   "package_lock_sha256":hashlib.sha256((ROOT/"core/control-plane/package-lock.json").read_bytes()).hexdigest()}},sort_keys=True)+"\n")
     return 1 if FAILED else 0
 
 if __name__=="__main__":

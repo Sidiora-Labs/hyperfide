@@ -111,7 +111,7 @@ def simulated_module_root(folder):
  # Byte-identical copy of the built runtime plus the simulated fixture module; the
  # registry refuses modules outside --module-root, so the fixture cannot live in dist.
  import shutil
- service=ROOT/"services/hyperfide";root=Path(folder)
+ service=ROOT/"core/control-plane";root=Path(folder)
  shutil.copytree(service/"dist",root/"dist",symlinks=False);shutil.copyfile(service/"package.json",root/"package.json")
  (root/"node_modules").symlink_to(service/"node_modules");(root/"migrations").symlink_to(service/"migrations")
  (root/"dist/fixtures").mkdir();(root/"dist/fixtures/simulated-provider.js").write_text(SIMULATED_ADAPTER)
@@ -158,9 +158,9 @@ def worker_composition(check):
   status,response=f.invoke("provider.pools.configure",{},component="8.2",key="operator");expect(status==200 and response.get("ok"),response)
   # Separate control-role service process over the same PostgreSQL authority and identity origin.
   controls=Path(folder)/"control-components";controls.mkdir()
-  for name in ("1.4","4.2","4.4","14.1","8.2","8.3"):shutil.copyfile(ROOT/("services/hyperfide/components/"+name+".json"),controls/(name+".json"))
+  for name in ("1.4","4.2","4.4","14.1","8.2","8.3"):shutil.copyfile(ROOT/("core/control-plane/components/"+name+".json"),controls/(name+".json"))
   with socket.socket() as sock:sock.bind(("127.0.0.1",0));control_port=sock.getsockname()[1]
-  control=spawn_service(f,"control",control_port,controls,ROOT/"services/hyperfide/dist")
+  control=spawn_service(f,"control",control_port,controls,ROOT/"core/control-plane/dist")
   via=copy.copy(f);via.port=control_port
   def call(target,action,input,key,component="8.3"):
    status,response=target.invoke(action,input,component=component,key=key,timeout_seconds=30);return status,response
@@ -343,7 +343,7 @@ def main():
    raise AssertionError("boot work admission was reversible")
   check(IDS[24],irreversible)
   check(IDS[25],lambda:expect(result("provider.orphans.list",{"pool_id":f.pool})==[],"orphan reader fabricated live resources"))
-  script="import{readConfirmedAbsence}from'./services/hyperfide/dist/providers/reconcile.js';try{await readConfirmedAbsence({},{});throw Error('forged transaction accepted')}catch(e){if(e.code!=='TX_CLOSED')throw e}"
+  script="import{readConfirmedAbsence}from'./core/control-plane/dist/providers/reconcile.js';try{await readConfirmedAbsence({},{});throw Error('forged transaction accepted')}catch(e){if(e.code!=='TX_CLOSED')throw e}"
   def branded():
    p=subprocess.run(["node","--input-type=module","-e",script],cwd=ROOT,env=f.env,capture_output=True,text=True,timeout=10);expect(p.returncode==0,p.stderr)
   check(IDS[26],branded)
@@ -351,7 +351,7 @@ def main():
   check(IDS[28],lambda:reject("provider.intents.prepare-create",changed(request_key=str(uuid.uuid4()),sandbox_id=str(uuid.uuid4()),deadline_at=utc()),"RESERVATION_ALREADY_BOUND"))
   parent=f.sql("SELECT manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND id=$2",[org,f.profile])[0]["manifest"]
   canonical=lambda value:json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()
-  policy_script="import fs from 'node:fs';import{approvedProfilePolicyDigest}from'./services/hyperfide/dist/providers/pools.js';process.stdout.write(approvedProfilePolicyDigest(JSON.parse(fs.readFileSync(0,'utf8'))));"
+  policy_script="import fs from 'node:fs';import{approvedProfilePolicyDigest}from'./core/control-plane/dist/providers/pools.js';process.stdout.write(approvedProfilePolicyDigest(JSON.parse(fs.readFileSync(0,'utf8'))));"
   policy=subprocess.run(["node","--input-type=module","-e",policy_script],input=json.dumps(parent["profile"]),cwd=ROOT,env=f.env,text=True,capture_output=True,timeout=10)
   expect(policy.returncode==0,policy.stderr);parent_policy=policy.stdout
   config_digest=f.sql("SELECT configuration_digest FROM hyperfide.provider_pool_configurations WHERE organisation_id=$1 AND pool_id=$2 AND active",[org,f.pool])[0]["configuration_digest"]
@@ -414,8 +414,8 @@ def main():
   capture_ids=["provider.capture.stream-pair-framing","provider.capture.actual-ordered-framing","provider.capture.exact-byte-count","provider.capture.exact-output-hash","provider.capture.exact-spool-hash","provider.capture.contiguous-coverage","provider.capture.actual-range-hash","provider.capture.explicit-scheme","provider.process.terminal-absorbing","provider.process.terminal-conflict","provider.process.terminal-identical","provider.capture.immutable-byte-copy"]
   capture_script=r"""
 import{createHash}from'node:crypto';
-import{verifyCapturedProviderOutput,processObservationDisposition}from'./services/hyperfide/dist/providers/reconcile.js';
-import{digestDocument}from'./services/hyperfide/dist/providers/pools.js';
+import{verifyCapturedProviderOutput,processObservationDisposition}from'./core/control-plane/dist/providers/reconcile.js';
+import{digestDocument}from'./core/control-plane/dist/providers/pools.js';
 const ids=JSON.parse(process.env.HF_CAPTURE_ASSERTIONS),stdout=Buffer.from('abCD'),stderr=Buffer.from('!');
 const sha=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
 let failed=false;const assert=(v,m)=>{if(!v)throw Error(m)},clone=v=>structuredClone(v);
@@ -453,10 +453,10 @@ process.exitCode=failed?1:0;
   f.sql("UPDATE hyperfide.reservations SET state='RELEASE_PENDING',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[org,run,f.reservations[0]])
   accounting_script=r"""
 import assert from 'node:assert/strict';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {createProviderDatabase} from './services/hyperfide/dist/providers/pools.js';
-import {createComponent as providerComponent,createAccountingComponent} from './services/hyperfide/dist/providers/reconcile.js';
-import {createComponent as schedulerComponent} from './services/hyperfide/dist/scheduler/resources.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {createProviderDatabase} from './core/control-plane/dist/providers/pools.js';
+import {createComponent as providerComponent,createAccountingComponent} from './core/control-plane/dist/providers/reconcile.js';
+import {createComponent as schedulerComponent} from './core/control-plane/dist/scheduler/resources.js';
 const c=JSON.parse(process.env.HF_ACCOUNTING_CONTEXT),controller=new AbortController();
 const startup={role:'control',policy:c.policy,env:process.env,signal:controller.signal},resources=createResourceContainer(startup),instances=new Map();
 const context={...startup,resources,dependencies:{require(id,name,validate){const v=instances.get(id)?.capabilities?.[name];assert(validate(v),'actual dependency unavailable');return v}}};

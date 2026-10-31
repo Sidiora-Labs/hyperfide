@@ -9,8 +9,8 @@
 . "$(dirname "$0")/../lib.sh"
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-CLIENT="$REPO/src/hyperfide/client.c"
-COMPONENTS="$REPO/services/hyperfide/components"
+CLIENT="$REPO/core/native/src/hyperfide/client.c"
+COMPONENTS="$REPO/core/control-plane/components"
 SERVER_ONLY="$FIXTURES/route_contract/server_only.txt"
 
 # contract <client.c> <components dir> <server-only file> [routes out]

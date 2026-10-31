@@ -15,15 +15,15 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[4]
 DOCUMENTS = [
     'README.md', 'docs/ARCHITECTURE.md', 'docs/hyperfide/platform.md',
-    'docs/hyperfide/operations.md', 'platform/README.md',
+    'docs/hyperfide/operations.md', 'docs/runtime/README.md',
     'deploy/hyperfide/sandbox/README.md',
 ]
 
 
 def main():
     tracked = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
-    documents = DOCUMENTS + [p for p in tracked if p.startswith('platform/docs/') and p.endswith('.md')]
-    evidence = 'platform/plugins/memory/durable-memory.ts'
+    documents = DOCUMENTS + [p for p in tracked if p.startswith('docs/runtime/') and p.endswith('.md')]
+    evidence = 'plugins/memory/durable-memory.ts'
     with tempfile.TemporaryDirectory(prefix='hyperfide-docs-') as directory:
         work = Path(directory)
 
@@ -43,8 +43,8 @@ def main():
         spec.parent.mkdir(parents=True)
         spec.write_text('[feature]\nname = "docs-review"\n[documentation]\n'
                         'mode = "manual"\nstatus = "pending"\n'
-                        'targets = ["README.md", "docs/**", "platform/docs/**", '
-                        '"platform/README.md", "deploy/hyperfide/sandbox/README.md"]\n'
+                        'targets = ["README.md", "docs/**", "docs/runtime/**", '
+                        '"docs/runtime/README.md", "deploy/hyperfide/sandbox/README.md"]\n'
                         '[task.baseline]\nwave = 0\nstatus = "done"\n'
                         'title = "Synthetic documentation lifecycle baseline"\n')
         (work / 'spec/workflow.kvx').write_text('[meta]\nactive_feature = "docs-review"\n')

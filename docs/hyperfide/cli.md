@@ -7,7 +7,7 @@ describes the front door.
 The executable lookup order is:
 
 1. An executable file named by `HYPERFIDE_PLATFORM_BIN`.
-2. `platform/apps/cli/bin/hyperfide-platform` under the repository root.
+2. `apps/cli/bin/hyperfide-platform` under the repository root.
 3. `hyperfide-platform` on `PATH`.
 
 The root is the nearest ancestor with `.git` or `.codegraph`, including git

@@ -11,7 +11,7 @@ def check(name,fn):
  print(json.dumps({"type":"assertion","id":name,"expected":"observed","actual":actual}),flush=True)
 def expect(v,message):
  if not v:raise AssertionError(message)
-NODE="""import fs from 'node:fs';import {LegacyWriterAdmission} from './services/hyperfide/dist/migration/legacy.js';
+NODE="""import fs from 'node:fs';import {LegacyWriterAdmission} from './core/control-plane/dist/migration/legacy.js';
 const value=JSON.parse(fs.readFileSync(0,'utf8'));try{const result=await new LegacyWriterAdmission(process.env)[value.action](value.input);process.stdout.write(JSON.stringify({ok:true,result}));}catch(e){process.stdout.write(JSON.stringify({ok:false,error:{code:e.code??'ERROR'}}));}"""
 def main():
  with tempfile.TemporaryDirectory(prefix="hyperfide-legacy-",dir="/dev/shm") as directory:
@@ -233,7 +233,7 @@ INSERT INTO git_commits VALUES('aaaa',NULL),('bbbb','aaaa');""");c.commit();c.cl
    fixture.sql("INSERT INTO hyperfide.source_objects(organisation_id,repository_id,object_id) VALUES($1,$2,$3)",[i['organisation'],repository,'2'*40])
    fixture.sql("INSERT INTO hyperfide.run_repositories(organisation_id,run_id,repository_id,source_object_id,integration_ref) VALUES($1,$2,$3,$4,'refs/heads/main')",[i['organisation'],i['run'],repository,'2'*40])
   fragments={}
-  for file in (ROOT/"services/hyperfide/components").glob("*.json"):
+  for file in (ROOT/"core/control-plane/components").glob("*.json"):
    value=json.loads(file.read_text())
    if "id" in value:fragments[value["id"]]=(file.stem,value)
   closure=[];visited=set()
@@ -267,7 +267,7 @@ INSERT INTO git_commits VALUES('aaaa',NULL),('bbbb','aaaa');""");c.commit();c.cl
    def schema_gate():
     F.sql("UPDATE hyperfide.schema_migrations SET checksum=$1 WHERE version=252",['sha256:'+'0'*64])
     try:rejected("cutover.inspect",{"scope_id":run},"CUTOVER_SCHEMA_REQUIRED")
-    finally:F.sql("UPDATE hyperfide.schema_migrations SET checksum=$1 WHERE version=252",[sha((ROOT/'services/hyperfide/migrations/0252-migration-proof.sql').read_bytes())])
+    finally:F.sql("UPDATE hyperfide.schema_migrations SET checksum=$1 WHERE version=252",[sha((ROOT/'core/control-plane/migrations/0252-migration-proof.sql').read_bytes())])
     inspect()
    check("cutover.service.schema-checksum-gate",schema_gate)
    def running():

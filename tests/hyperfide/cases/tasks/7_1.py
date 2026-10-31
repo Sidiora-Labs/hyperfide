@@ -52,7 +52,7 @@ class Service:
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         self.database=database;self.resource_id="hf-graph-7.1-database" if database=="hf_graph_7_1_qualification" else "hf-domain07-database"
         def setup(f):
-            if graph_schema:f.sql((ROOT/"services/hyperfide/migrations/0007-graph.sql").read_text())
+            if graph_schema:f.sql((ROOT/"core/control-plane/migrations/0007-graph.sql").read_text())
             org=f.ids["organisation"];run=f.ids["run"];repo=UUIDS["repository_id"]
             f.sql("INSERT INTO hyperfide.repositories(organisation_id,project_id,id,name,url) VALUES($1,$2,$3,'graph-fixture','https://example.invalid/repository')",[org,f.ids["project"],repo])
             f.sql("INSERT INTO hyperfide.source_objects(organisation_id,repository_id,object_id) VALUES($1,$2,$3)",[org,repo,self.commit])
@@ -186,7 +186,7 @@ def main():
             check("graph.extraction.reject-wrong-role",role_denied)
             def dispatch_native():
                 f=service.fixture;argv=list(f.child.args);f.stop()
-                argv[1]=str(ROOT/"services/hyperfide/dist/dispatch.js")
+                argv[1]=str(ROOT/"core/control-plane/dist/dispatch.js")
                 try:
                     f.child=subprocess.Popen(argv,cwd=ROOT,env=f.env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
                     deadline=time.monotonic()+15;ready=False;diagnostic=[]
@@ -200,7 +200,7 @@ def main():
                     result=service.ok("graph.extract.create",dict(service.input,generation="11"))
                     expect(result["identity"]["generation"]=="11" and result["identity"]["commit"]==service.commit and result["complete"],"actual dispatch native extraction did not preserve source")
                     expect(service.ok("graph.extract.inspect",{"bundle_digest":result["bundle_digest"]})==result,"actual dispatch could not read its immutable transfer")
-                    OBSERVATIONS.append({"observation":"genuine-dispatch-entrypoint","entrypoint":"services/hyperfide/dist/dispatch.js","native_scanner_executed":True})
+                    OBSERVATIONS.append({"observation":"genuine-dispatch-entrypoint","entrypoint":"core/control-plane/dist/dispatch.js","native_scanner_executed":True})
                 finally:
                     f.stop();f.start()
             check("graph.extraction.authenticated-dispatch-native",dispatch_native)

@@ -105,10 +105,10 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/migration/sqlite.js",
-    "services/hyperfide/dist/provisioner.js",
-    "services/hyperfide/dist/migration/legacy.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/migration/sqlite.js",
+    "core/control-plane/dist/provisioner.js",
+    "core/control-plane/dist/migration/legacy.js"
   ],
   "resources": [
     {
@@ -129,22 +129,22 @@
     "migration/source-variants.json"
   ],
   "source_files": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/migration/legacy.js",
-    "services/hyperfide/dist/migration/sqlite.js",
-    "services/hyperfide/dist/provisioner.js",
-    "services/hyperfide/dist/spec/import.js",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/src/migration/legacy.ts",
-    "services/hyperfide/src/migration/sqlite.ts",
-    "services/hyperfide/src/spec/import.ts",
-    "services/hyperfide/tsconfig.json",
-    "src/db.c",
-    "src/index_health.c",
-    "src/journal.c",
-    "src/sem_routes.c",
-    "src/semantic.c",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/migration/legacy.js",
+    "core/control-plane/dist/migration/sqlite.js",
+    "core/control-plane/dist/provisioner.js",
+    "core/control-plane/dist/spec/import.js",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/migration/legacy.ts",
+    "core/control-plane/src/migration/sqlite.ts",
+    "core/control-plane/src/spec/import.ts",
+    "core/control-plane/tsconfig.json",
+    "core/native/src/db.c",
+    "core/native/src/index_health.c",
+    "core/native/src/journal.c",
+    "core/native/src/sem_routes.c",
+    "core/native/src/semantic.c",
     "tests/hyperfide/cases/tasks/15_2.py",
     "tests/hyperfide/cases/tasks/25_1.py",
     "tests/hyperfide/cases/tasks/4_2.py",
@@ -157,11 +157,11 @@
     "tests/hyperfide/support/sqlite_schema_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations",
-    "src/hyperfide",
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations",
+    "core/native/src/hyperfide",
     "tests/hyperfide/support"
   ],
   "actions": [

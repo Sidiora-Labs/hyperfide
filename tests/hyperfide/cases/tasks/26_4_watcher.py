@@ -4,7 +4,7 @@ from pathlib import Path
 import base64,json,os,socket,ssl,subprocess,sys,tempfile,threading,uuid
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 ROOT=Path(__file__).resolve().parents[4]
-DIST=ROOT/'services/hyperfide/dist'
+DIST=ROOT/'core/control-plane/dist'
 FAIL=[]
 ACTIONS=['issue.watcher.describe','issue.watcher.plan','supervisory.host.validate']
 WATCHER_ACTIONS=['identity.describe','finding.github.reconcile','finding.github.due','finding.github.dispatch','finding.github.process-delivery']
@@ -43,7 +43,7 @@ def main():
  with tempfile.TemporaryDirectory(prefix='hf-watcher-') as directory:
   base=Path(directory);os.chmod(base,0o700)
   components=base/'components';components.mkdir()
-  (components/'26.4-watcher.json').write_bytes((ROOT/'services/hyperfide/components/26.4-watcher.json').read_bytes())
+  (components/'26.4-watcher.json').write_bytes((ROOT/'core/control-plane/components/26.4-watcher.json').read_bytes())
   policy=base/'policy.json';policy.write_text(json.dumps({'schema_version':1,'programme_id':'watcher-fixture','repository':'fixture/repo','spec_revision':'fixture-r1','policy_revision':1,'status':'ACTIVE','approval':{'decision':'APPROVED','record_id':'fixture','spec_revision':'fixture-r1','policy_revision':1},'allowed_roles':['control'],'allowed_actions':['programme.activate']+ACTIONS+WATCHER_ACTIONS}))
   env=dict(os.environ,HOME=str(base));[env.pop(k,None) for k in ('HYPERFIDE_MODE','CG_MODE','CODIFY_MODE')]
   def call(action,value):

@@ -17,16 +17,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID,createPrivateKey,sign} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {ComponentRegistry} from './services/hyperfide/dist/components/registry.js';
-import {validatePolicy} from './services/hyperfide/dist/policy/programme.js';
-import {isIdentityAuthority} from './services/hyperfide/dist/identity/enrollment.js';
-import {hash,signingBytes} from './services/hyperfide/dist/transport/protocol.js';
-import {RailwayClient,RailwayRequestError} from './services/hyperfide/dist/providers/railway/preparation.js';
-import {RailwaySessionSpool,createComponent} from './services/hyperfide/dist/providers/railway/processes.js';
-import {createRailwayAdapter,registerRailwayProvider} from './services/hyperfide/dist/providers/railway/reconciliation.js';
-import {validateDeployment,configuredScope,digestDocument} from './services/hyperfide/dist/providers/pools.js';
-import {validateProviderOutcome} from './services/hyperfide/dist/providers/contract.js';
-const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+import {ComponentRegistry} from './core/control-plane/dist/components/registry.js';
+import {validatePolicy} from './core/control-plane/dist/policy/programme.js';
+import {isIdentityAuthority} from './core/control-plane/dist/identity/enrollment.js';
+import {hash,signingBytes} from './core/control-plane/dist/transport/protocol.js';
+import {RailwayClient,RailwayRequestError} from './core/control-plane/dist/providers/railway/preparation.js';
+import {RailwaySessionSpool,createComponent} from './core/control-plane/dist/providers/railway/processes.js';
+import {createRailwayAdapter,registerRailwayProvider} from './core/control-plane/dist/providers/railway/reconciliation.js';
+import {validateDeployment,configuredScope,digestDocument} from './core/control-plane/dist/providers/pools.js';
+import {validateProviderOutcome} from './core/control-plane/dist/providers/contract.js';
+const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
 const data=JSON.parse(fs.readFileSync(process.argv[1])),org=data.ids.organisation,run=data.ids.run,controller=new AbortController();
 // Fixture rows are seeded through the owner connection; every exercised read and write runs on the runtime role.
 const admin=async(sql,values=[])=>{const c=new pg.Client({connectionString:data.admin_url});await c.connect();
@@ -48,7 +48,7 @@ const registry=new ComponentRegistry({role:'provisioner',policy:validatePolicy(J
 const spool=new RailwaySessionSpool(data.spool);
 let output;
 try{
- await registry.load(data.components,path.join(process.cwd(),'services/hyperfide/dist'));
+ await registry.load(data.components,path.join(process.cwd(),'core/control-plane/dist'));
  const authority=registry.resolveCapability('14.1','identity.authority',isIdentityAuthority);
  registry.installInvocationAuthorizer(i=>authority.authorize(i));
  const execution=registry.resolveCapability('8.3','provider.execution.v1',v=>!!v&&typeof v.executeBound==='function'&&typeof v.registerRunnerBindingVerifier==='function');
@@ -121,7 +121,7 @@ class Service:
   def include(name):
    if name in names:return
    names.add(name)
-   for dep in json.loads((c.ROOT/('services/hyperfide/components/'+name+'.json')).read_text())['requires']:include(dep)
+   for dep in json.loads((c.ROOT/('core/control-plane/components/'+name+'.json')).read_text())['requires']:include(dep)
   for name in ('9.4','14.1'):include(name)
   def setup(f):
    secrets=f.path/'secrets';secrets.mkdir(mode=0o700)
@@ -139,7 +139,7 @@ class Service:
   a=self.actual;folder=Path(folder);components=folder/'bound-components';components.mkdir()
   actions=list(a.actions)
   for name in ('4.2','4.4','14.1','8.2','8.3'):
-   source=c.ROOT/'services/hyperfide/components'/(name+'.json');shutil.copyfile(source,components/source.name)
+   source=c.ROOT/'core/control-plane/components'/(name+'.json');shutil.copyfile(source,components/source.name)
    actions+=json.loads(source.read_text())['actions']
   policy=json.loads(a.policy.read_text());policy['allowed_actions']=list(dict.fromkeys(actions))
   policy_path=folder/'bound-policy.json';policy_path.write_text(json.dumps(policy))

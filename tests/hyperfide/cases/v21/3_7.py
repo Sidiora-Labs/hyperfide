@@ -9,7 +9,7 @@ transport configuration. Prints SKIP and exits 77 when no PostgreSQL server or r
 import importlib.util, json, os, pathlib, pwd, shutil, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 CG = pathlib.Path(os.environ.get('CG') or ROOT / 'cg')
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []

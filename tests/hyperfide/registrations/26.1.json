@@ -38,20 +38,20 @@
   ],
   "resources": [],
   "source_files": [
-    "src/hyperfide/branding.c",
-    "src/hyperfide/components/26.1.kvx",
-    "src/cg.h",
+    "core/native/src/hyperfide/branding.c",
+    "core/native/src/hyperfide/components/26.1.kvx",
+    "core/native/src/cg.h",
     "scripts/install.sh",
     "scripts/release.sh",
-    "editors/vscode/package.json",
-    "src/hyperfide/component_main.c",
-    "src/hyperfide/components.h",
-    "scripts/hyperfide-native-components.py",
+    "extensions/vscode/package.json",
+    "core/native/src/hyperfide/component_main.c",
+    "core/native/src/hyperfide/components.h",
+    "tools/repository/hyperfide-native-components.py",
     "build/hyperfide-native",
     "build/hyperfide-native-registry.inc",
     "tests/hyperfide/cases/tasks/26_1.py"
   ],
   "source_roots": [
-    "src/hyperfide/components"
+    "core/native/src/hyperfide/components"
   ]
 }

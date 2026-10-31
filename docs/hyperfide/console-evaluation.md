@@ -14,7 +14,7 @@ Four humans watch hundreds of agents through four panels, each over a Hyperfide 
 There are two candidate bases:
 
 - **A. Fork OpenHands.** Bring the four panels up in a fork under `console/`.
-- **B. Expand the VS Code extension.** Grow `editors/vscode` into the console.
+- **B. Expand the VS Code extension.** Grow `extensions/vscode` into the console.
 
 Req 5.4 already obliges the editor to get pushed cards, a global Ask registry with badge and notification, the Needs, Issues, Sandboxes and Leaders views, reconnect snapshots, unique agent names and a current VSIX. **Option B's work is therefore required in every case. Option A is a second console surface added on top of it, not an alternative to it.** This frames every cost line below.
 
@@ -39,9 +39,9 @@ Sources: the GitHub API and the repository files of the `OpenHands` organisation
 
 ## Hyperfide facts that decide fit
 
-- The control service accepts only `POST /v1/invoke` and `POST /v1/enroll` over TLS 1.3. Every invocation carries an Ed25519 proof from an enrolled credential and is authorised by role (`services/hyperfide/src/transport/http.ts:25-29`; the client is `createServiceClient` in the same file). A browser cannot safely hold that private key. A web console therefore needs a backend-for-frontend that holds a credential, and that adds a new principal, role and policy grant.
+- The control service accepts only `POST /v1/invoke` and `POST /v1/enroll` over TLS 1.3. Every invocation carries an Ed25519 proof from an enrolled credential and is authorised by role (`core/control-plane/src/transport/http.ts:25-29`; the client is `createServiceClient` in the same file). A browser cannot safely hold that private key. A web console therefore needs a backend-for-frontend that holds a credential, and that adds a new principal, role and policy grant.
 - The `cg` client already holds a credential and is where req 5.2 puts the `console` and `needs` verbs. The extension runs on each human's machine as that human, with their own identity, and reaches Hyperfide through `cg`.
-- The extension already has a tested ACP client (`editors/vscode/acp.js`, 19_acp.sh PASS), a single event fold point (`serve.js applyEvent`), a refresh chain (`extension.js runRefresh`), a Fleet tree that serves as the template for Sandboxes, and attach/steer webview code for Leaders. The panel placements are worked out in the editors inventory, section 8.
+- The extension already has a tested ACP client (`extensions/vscode/acp.js`, 19_acp.sh PASS), a single event fold point (`serve.js applyEvent`), a refresh chain (`extension.js runRefresh`), a Fleet tree that serves as the template for Sandboxes, and attach/steer webview code for Leaders. The panel placements are worked out in the editors inventory, section 8.
 
 ## Criteria
 
@@ -87,7 +87,7 @@ In that case, build a read-only web view over the same read models first. Separa
 
 - **Who and when:** the programme owner (the user) answered the 1.10 decision Ask on 2026-10-22. The answer is recorded as decision D6 in `spec/hyperfide-v21/spec.kvx` (`d_6`), and task 6.10 records it here.
 - **`console/` stays absent.** No fork is created, no OpenHands code is vendored, and no second console surface is started (task 6.10, do_2). The `console` path in task 6.10's touches is intentionally unused.
-- **Where the four surfaces live:** all four are in `editors/vscode`:
+- **Where the four surfaces live:** all four are in `extensions/vscode`:
   - **Needs:** task 6.2
   - **Issues:** task 6.3
   - **Sandboxes:** task 6.4
@@ -105,4 +105,4 @@ In that case, build a read-only web view over the same read models first. Separa
 - https://raw.githubusercontent.com/OpenHands/OpenHands/main/docs/CANVAS_EXTENSIONS_TESTING.md
 - https://github.com/OpenHands/enterprise (PolyForm Free Trial License)
 - https://docs.openhands.dev/sdk/arch/overview.md
-- Internal: services/hyperfide/src/transport/http.ts, and the 2026-10-22 inventory reports editors.md (sections 2, 3, 4, 8, 9) and INVENTORY.md.
+- Internal: core/control-plane/src/transport/http.ts, and the 2026-10-22 inventory reports editors.md (sections 2, 3, 4, 8, 9) and INVENTORY.md.

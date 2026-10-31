@@ -314,9 +314,9 @@ connector() {
     # The task board, agents and ACP views left the extension for the platform app (hyperfide-v22 2.5);
     # the extension is a language client now, so only its entry point is checked and the removed
     # modules must stay removed. The closure surfaces through the platform, exercised below via cg.
-    node --check "$root/editors/vscode/extension.js"
+    node --check "$root/extensions/vscode/extension.js"
     for file in tasks.js agents.js acp.js; do
-        test -z "$(git -C "$root" ls-files -- "editors/vscode/$file")" || {
+        test -z "$(git -C "$root" ls-files -- "extensions/vscode/$file")" || {
             echo "Removed extension module still tracked: $file" >&2
             exit 1
         }

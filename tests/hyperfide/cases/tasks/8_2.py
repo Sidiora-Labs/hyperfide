@@ -80,9 +80,9 @@ def main():
   node=r"""
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {TransactionGateway} from './services/hyperfide/dist/storage/transactions.js';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {createProviderDatabase,registerProviderAdapter,hasProviderAdapter,readRuntimeReadiness} from './services/hyperfide/dist/providers/pools.js';
+import {TransactionGateway} from './core/control-plane/dist/storage/transactions.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {createProviderDatabase,registerProviderAdapter,hasProviderAdapter,readRuntimeReadiness} from './core/control-plane/dist/providers/pools.js';
 const c=JSON.parse(process.env.HF_TEST_CONTEXT),controller=new AbortController();
 const startup={role:'provisioner',policy:c.policy,env:process.env,signal:controller.signal};
 const resources=createResourceContainer(startup),context={...startup,resources,dependencies:{require(){throw Error('not needed')}}};

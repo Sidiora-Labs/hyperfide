@@ -4,19 +4,20 @@
 CC       ?= cc
 CFLAGS   ?= -O2
 CFLAGS   += -std=gnu11 -Wall -Wextra -pthread
-CFLAGS   += -Ivendor/tree-sitter/lib/include -Ivendor/tree-sitter/lib/src
+CPPFLAGS += -Ivendor/tree-sitter/lib/include -Ivendor/tree-sitter/lib/src
 LDLIBS    = -lsqlite3 -lpthread -lm -lcurl -lcrypto
 PREFIX   ?= /usr/local
 BUILD     = build
+NATIVE_ROOT = core/native/src
 
 BIN       = hyperfide
 COMPAT_BIN = cg
-NATIVE_SRCS = $(shell python3 scripts/hyperfide-native-components.py --sources)
-NATIVE_HEADERS = $(shell python3 scripts/hyperfide-native-components.py --headers)
-NATIVE_LIBRARIES = $(shell python3 scripts/hyperfide-native-components.py --libraries)
-SRCS      = $(sort $(wildcard src/*.c) $(NATIVE_SRCS))
-SRC_HEADERS = $(wildcard src/*.h) $(NATIVE_HEADERS)
-OBJS      = $(patsubst src/%.c,$(BUILD)/%.o,$(SRCS))
+NATIVE_SRCS = $(shell python3 tools/repository/hyperfide-native-components.py --sources)
+NATIVE_HEADERS = $(shell python3 tools/repository/hyperfide-native-components.py --headers)
+NATIVE_LIBRARIES = $(shell python3 tools/repository/hyperfide-native-components.py --libraries)
+SRCS      = $(sort $(wildcard $(NATIVE_ROOT)/*.c) $(NATIVE_SRCS))
+SRC_HEADERS = $(wildcard $(NATIVE_ROOT)/*.h) $(NATIVE_HEADERS)
+OBJS      = $(patsubst $(NATIVE_ROOT)/%.c,$(BUILD)/%.o,$(SRCS))
 TS_RUNTIME = $(BUILD)/vendor/tree-sitter-lib.o
 # Family-owned grammar directories are discovered without a shared manifest
 # edit. Generated parser and C scanner source must remain in the checkout.
@@ -31,24 +32,24 @@ UNIT_BINS = $(patsubst tests/unit/%.c,$(BUILD)/%,$(UNIT_SRCS))
 all: $(BIN) $(COMPAT_BIN)
 
 $(BIN): $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,--disable-new-dtags,-rpath,'$$ORIGIN/../lib/hyperfide' -o $@ $(OBJS) $(LDLIBS) $(NATIVE_LIBRARIES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -Wl,--disable-new-dtags,-rpath,'$$ORIGIN/../lib/hyperfide' -o $@ $(OBJS) $(LDLIBS) $(NATIVE_LIBRARIES)
 
 $(COMPAT_BIN): $(BIN)
 	# Rename into place: a running cg keeps its inode, so a rebuild during
 	# `cg spec done` (whose verify_cmd may run make) cannot hit ETXTBSY.
 	cp $(BIN) $(COMPAT_BIN).tmp && mv -f $(COMPAT_BIN).tmp $(COMPAT_BIN)
 
-$(BUILD)/%.o: src/%.c $(SRC_HEADERS) | $(BUILD)
+$(BUILD)/%.o: $(NATIVE_ROOT)/%.c $(SRC_HEADERS) Makefile | $(BUILD)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(BUILD)/vendor/tree-sitter-lib.o: vendor/tree-sitter/lib/src/lib.c | $(BUILD)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -Wno-unused-parameter -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-unused-parameter -c -o $@ $<
 
 $(BUILD)/vendor/%.o: vendor/%.c | $(BUILD)
 	@mkdir -p $(dir $@)
-	$(CC) -I$(dir $<) $(CFLAGS) -Wno-unused-parameter -Wno-unused-function \
+	$(CC) $(CPPFLAGS) -I$(dir $<) $(CFLAGS) -Wno-unused-parameter -Wno-unused-function \
 		-Wno-unused-value -Wno-unused-const-variable -Wno-implicit-fallthrough \
 		-Wno-sign-compare \
 		-Wno-unused-variable \
@@ -58,7 +59,7 @@ $(LIB): $(filter-out $(BUILD)/main.o,$(OBJS))
 	ar rcs $@ $^
 
 $(BUILD)/test_%: tests/unit/test_%.c $(LIB)
-	$(CC) $(CFLAGS) -Isrc -o $@ $< $(filter-out $(BUILD)/main.o,$(OBJS)) $(LDLIBS) $(NATIVE_LIBRARIES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -I$(NATIVE_ROOT) -o $@ $< $(filter-out $(BUILD)/main.o,$(OBJS)) $(LDLIBS) $(NATIVE_LIBRARIES)
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -88,36 +89,36 @@ clean:
 .PHONY: all unit integration test install uninstall clean release
 
 # nonpublishing release construction; destinations are operator configuration
-# (see scripts/release.sh). The bundle lands in RELEASE_DIR, default
+# (see tools/repository/release.sh). The bundle lands in RELEASE_DIR, default
 # build/release (ignored, so the clean-checkout check still holds):
 #   make release RELEASE_DIR=/path/to/out
 RELEASE_DIR ?= $(BUILD)/release
 # --dry-run constructs and checks real artifacts without signing or publication.
 RELEASE_ARGS ?=
 release:
-	scripts/release.sh --output "$(RELEASE_DIR)" $(RELEASE_ARGS)
+	tools/repository/release.sh --output "$(RELEASE_DIR)" $(RELEASE_ARGS)
 
 # Hyperfide approved split runtime: explicit dependency setup and service builds.
 # Build-time Python validates native fragments; native execution remains a C binary.
 .PHONY: hyperfide-deps hyperfide-services hyperfide-check hyperfide-native
 hyperfide-deps:
-	npm --prefix services/hyperfide ci --ignore-scripts
+	npm --prefix core/control-plane ci --ignore-scripts
 
 hyperfide-services:
-	npm --prefix services/hyperfide run build
+	npm --prefix core/control-plane run build
 
 hyperfide-check:
-	npm --prefix services/hyperfide run check
+	npm --prefix core/control-plane run check
 
 # Always rediscover fragments, including removals. A failed validation/build
 # removes the old executable so a normal build cannot expose stale dispatch.
 hyperfide-native:
 	@mkdir -p $(BUILD)
 	@rm -f $(BUILD)/hyperfide-native $(BUILD)/hyperfide-native.tmp
-	python3 scripts/hyperfide-native-components.py --generate $(BUILD)/hyperfide-native-registry.inc
-	python3 scripts/hyperfide-native-components.py --link-contract > $(BUILD)/hyperfide-native-link-contract.tmp
+	python3 tools/repository/hyperfide-native-components.py --generate $(BUILD)/hyperfide-native-registry.inc
+	python3 tools/repository/hyperfide-native-components.py --link-contract > $(BUILD)/hyperfide-native-link-contract.tmp
 	mv $(BUILD)/hyperfide-native-link-contract.tmp $(BUILD)/hyperfide-native-link-contract.json
-	$(CC) $(CFLAGS) -Isrc/hyperfide -I$(BUILD) $(LDFLAGS) -Wl,--disable-new-dtags,-rpath,'$$ORIGIN/../lib/hyperfide' -o $(BUILD)/hyperfide-native.tmp src/hyperfide/component_main.c src/sha256.c $$(python3 scripts/hyperfide-native-components.py --sources) $(LDLIBS) $$(python3 scripts/hyperfide-native-components.py --libraries)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -I$(NATIVE_ROOT)/hyperfide -I$(BUILD) $(LDFLAGS) -Wl,--disable-new-dtags,-rpath,'$$ORIGIN/../lib/hyperfide' -o $(BUILD)/hyperfide-native.tmp $(NATIVE_ROOT)/hyperfide/component_main.c $(NATIVE_ROOT)/sha256.c $$(python3 tools/repository/hyperfide-native-components.py --sources) $(LDLIBS) $$(python3 tools/repository/hyperfide-native-components.py --libraries)
 	mv $(BUILD)/hyperfide-native.tmp $(BUILD)/hyperfide-native
 
 .PHONY: print-link-libs
@@ -126,10 +127,10 @@ print-link-libs:
 
 .PHONY: platform-install platform-build platform-test
 platform-install:
-	pnpm -C platform install --frozen-lockfile
+	pnpm install --frozen-lockfile
 
 platform-build:
-	pnpm -C platform run build
+	pnpm run build
 
 platform-test:
-	pnpm -C platform run test
+	pnpm run test

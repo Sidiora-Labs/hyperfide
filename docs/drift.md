@@ -137,11 +137,11 @@ drift and coverage gates.
 
 The control service carries the distributed counterparts: producer-consumer
 contracts and behavioural impact analysis
-(`services/hyperfide/src/review/contracts.ts`), criterion-level
-qualification coverage (`services/hyperfide/src/assurance/coverage.ts`),
+(`core/control-plane/src/review/contracts.ts`), criterion-level
+qualification coverage (`core/control-plane/src/assurance/coverage.ts`),
 assurance invalidation when an input changes
-(`services/hyperfide/src/assurance/validity.ts`), and task, wave and
-programme closure (`services/hyperfide/src/integration/closure.ts`). Tasks
+(`core/control-plane/src/assurance/validity.ts`), and task, wave and
+programme closure (`core/control-plane/src/integration/closure.ts`). Tasks
 16.3, 16.4, 17.2 and 19.3 are `pending` in `spec/hyperfide/spec.kvx`, so
 that path is not qualified in this revision.
 

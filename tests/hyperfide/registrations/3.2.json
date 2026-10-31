@@ -64,13 +64,13 @@
   ],
   "cleanup_timeout_seconds": 60,
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/hierarchy/packets.js",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/hierarchy/packets.js",
     "cg",
-    "services/hyperfide/dist/graph/extraction.js",
-    "services/hyperfide/dist/graph/ingestion.js",
-    "services/hyperfide/dist/graph/publication.js",
-    "services/hyperfide/dist/spec/import.js"
+    "core/control-plane/dist/graph/extraction.js",
+    "core/control-plane/dist/graph/ingestion.js",
+    "core/control-plane/dist/graph/publication.js",
+    "core/control-plane/dist/spec/import.js"
   ],
   "required_artifacts": [],
   "required_env": [
@@ -80,9 +80,9 @@
   "schema_version": 1,
   "scope": "task-component",
   "source_files": [
-    "services/hyperfide/src/hierarchy/packets.ts",
-    "services/hyperfide/migrations/0032-execution-packets.sql",
-    "services/hyperfide/components/3.2.json",
+    "core/control-plane/src/hierarchy/packets.ts",
+    "core/control-plane/migrations/0032-execution-packets.sql",
+    "core/control-plane/components/3.2.json",
     "tests/hyperfide/cases/tasks/3_2.py",
     "tests/hyperfide/cases/tasks/3_1.py",
     "tests/hyperfide/support/identity_fixture.py",
@@ -90,19 +90,19 @@
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
     "tests/hyperfide/qualify.py",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json",
-    "services/hyperfide/components/2.4.json",
-    "services/hyperfide/components/7.1.json",
-    "services/hyperfide/components/7.2.json",
-    "services/hyperfide/components/7.3.json"
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
+    "core/control-plane/components/2.4.json",
+    "core/control-plane/components/7.1.json",
+    "core/control-plane/components/7.2.json",
+    "core/control-plane/components/7.3.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "task": "3.2",
   "timeout_seconds": 300,

@@ -1,0 +1,48 @@
+{
+  "name": "@hyperfide/cli",
+  "version": "2.2.0",
+  "type": "module",
+  "bin": {
+    "hyperfide-platform": "./bin/hyperfide-platform",
+    "title": "./bin/title"
+  },
+  "scripts": {
+    "build": "node ../../tools/workspace/build-node-entry.mjs src/index.ts dist/index.js --clean-dist --split",
+    "start": "node dist/index.js",
+    "clean": "rimraf dist",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hyperfide/client-core": "workspace:*",
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/core-ui": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/host-daemon-contract": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/sdk": "workspace:*",
+    "@hyperfide/server-archive": "workspace:*",
+    "@hyperfide/server-contract": "workspace:*",
+    "@hyperfide/templates": "workspace:*",
+    "@hyperfide/text-utils": "workspace:*",
+    "@hyperfide/thread-view": "workspace:*",
+    "hyperfide-plugin-hyperfide--github-pr-status": "workspace:*",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.0.0",
+    "mime-types": "^3.0.2",
+    "undici": "^7.28.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@hyperfide/test-helpers": "workspace:*",
+    "@hyperfide/tsconfig": "workspace:*",
+    "@tailwindcss/node": "^4.3.0",
+    "@tailwindcss/oxide": "^4.3.0",
+    "@types/mime-types": "^3.0.1",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.0",
+    "tailwindcss": "^4.3.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
+  }
+}

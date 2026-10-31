@@ -5,8 +5,8 @@ from pathlib import Path
 H=runpy.run_path(str(Path(__file__).with_name("28_2.py")))
 fixture=H["fixture"];call=H["call"];check=H["check"];require=H["require"];node=H["node"];FAILED=H["FAILED"]
 NODE_BASE="""
-import{validateReadinessInventory,RELEASE_GATES}from'./services/hyperfide/dist/release/readiness.js';
-import{contentDigest}from'./services/hyperfide/dist/docs/closure.js';
+import{validateReadinessInventory,RELEASE_GATES}from'./core/control-plane/dist/release/readiness.js';
+import{contentDigest}from'./core/control-plane/dist/docs/closure.js';
 // Controlled pack: a self-consistent fixture contract, independent of live spec drift.
 const c={clauses:['1.1','2.1','2.2'],
  tasks:[{id:'1.1',reqs:['1.1'],acceptance_ids:['V-901'],requires:[],wave:1},{id:'2.1',reqs:['2.1','2.2'],acceptance_ids:['V-902','V-903'],requires:['1.1'],wave:2}],
@@ -101,7 +101,7 @@ def portable_cases():
         receipt=proof.request["receipt_id"]
         def inspect(expected=True,proof_assets=None):
             request={"root":str(root),"campaign":str(root/"campaign"),"receipt":receipt,"assets":str(proof_assets or qualified)}
-            script="import{checkReleaseCampaign}from'./services/hyperfide/dist/release/readiness.js';const p="+json.dumps(request)+";try{const r=await checkReleaseCampaign(p.root,p.campaign,p.receipt,{env:{HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT:p.assets},signal:new AbortController().signal});if(!"+str(expected).lower()+"||r.scope!=='task-component'||r.full_case_status!=='INCOMPLETE')throw Error('scope or expected refusal mismatch')}catch(e){if("+str(expected).lower()+"||!e.code)throw e}"
+            script="import{checkReleaseCampaign}from'./core/control-plane/dist/release/readiness.js';const p="+json.dumps(request)+";try{const r=await checkReleaseCampaign(p.root,p.campaign,p.receipt,{env:{HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT:p.assets},signal:new AbortController().signal});if(!"+str(expected).lower()+"||r.scope!=='task-component'||r.full_case_status!=='INCOMPLETE')throw Error('scope or expected refusal mismatch')}catch(e){if("+str(expected).lower()+"||!e.code)throw e}"
             result=node(script)
             require(result.returncode==0,"portable readiness check failed: "+result.stderr)
         check("readiness.portable-actual-canonical-component-only",inspect)
@@ -123,7 +123,7 @@ def portable_cases():
                 os.environ.update(PATH="/nonexistent-release-probe",PYTHONHOME="/nonexistent-release-python",PYTHONPATH="/nonexistent-release-imports",
                                   GIT_CONFIG_COUNT="1",GIT_CONFIG_KEY_0="core.fsmonitor",GIT_CONFIG_VALUE_0="/nonexistent-release-helper")
                 # node() resolves its trusted runtime before these overrides below.
-                script="import{checkReleaseCampaign}from'./services/hyperfide/dist/release/readiness.js';const r=await checkReleaseCampaign("+json.dumps(str(root))+","+json.dumps(str(root/"campaign"))+","+json.dumps(receipt)+",{env:{HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT:"+json.dumps(str(qualified))+"},signal:new AbortController().signal});if(r.scope!=='task-component')throw Error('unexpected scope');"
+                script="import{checkReleaseCampaign}from'./core/control-plane/dist/release/readiness.js';const r=await checkReleaseCampaign("+json.dumps(str(root))+","+json.dumps(str(root/"campaign"))+","+json.dumps(receipt)+",{env:{HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT:"+json.dumps(str(qualified))+"},signal:new AbortController().signal});if(r.scope!=='task-component')throw Error('unexpected scope');"
                 import subprocess,shutil
                 result=subprocess.run([node_runtime,"--input-type=module","-e",script],cwd=Path.cwd(),text=True,capture_output=True,timeout=160)
                 require(result.returncode==0,"inherited environment affected checker: "+result.stderr)
@@ -181,7 +181,7 @@ def portable_cases():
         body={"schema_version":2,**scope,"entries":[{"reference":"controlled","evidence_root":str(root),"campaign":str(root/"campaign"),"receipt_id":"30000000-0000-4000-8000-000000000003","receipt_digest":"sha256:"+"a"*64,"gate_kinds":["checker_selftest"]}]}
         index.write_text(json.dumps(body));index.chmod(0o600)
         def read(expected=True):
-            script="import{loadReleaseAdmissionIndex}from'./services/hyperfide/dist/release/readiness.js';try{const r=await loadReleaseAdmissionIndex({env:{HYPERFIDE_RELEASE_EVIDENCE_INDEX:"+json.dumps(str(index))+"}},"+json.dumps(scope)+");if(!"+str(expected).lower()+"||r.length!==1||r[0].evidence_root!=="+json.dumps(str(root))+")throw Error('unexpected admission read')}catch(e){if("+str(expected).lower()+"||!e.code)throw e}"
+            script="import{loadReleaseAdmissionIndex}from'./core/control-plane/dist/release/readiness.js';try{const r=await loadReleaseAdmissionIndex({env:{HYPERFIDE_RELEASE_EVIDENCE_INDEX:"+json.dumps(str(index))+"}},"+json.dumps(scope)+");if(!"+str(expected).lower()+"||r.length!==1||r[0].evidence_root!=="+json.dumps(str(root))+")throw Error('unexpected admission read')}catch(e){if("+str(expected).lower()+"||!e.code)throw e}"
             result=node(script);require(result.returncode==0,result.stderr)
         check("readiness.protected-scoped-index-v2",read)
         def unsafe_index():
@@ -228,7 +228,7 @@ def main():
     check("readiness.explicit-current-retention",lambda:controlled("Object.assign(e.get(names[0]).resources[0],{state:'RETAINED',owner:'fixture-owner',expires_at:new Date(Date.now()+60000).toISOString(),retention_authorised:true})",True))
     check("readiness.observed-later-cleanup",lambda:controlled("Object.assign(e.get(names[0]).resources[0],{state:'RETAINED',owner:'fixture-owner',expires_at:new Date(Date.now()+60000).toISOString(),retention_authorised:true});e.get(names[1]).resources=[{id:'fixture-resource',state:'CLEANED',owner:null,expires_at:null,retention_authorised:false,observed_at:new Date().toISOString()}]",True))
     def manifest_binding(tampered):
-        script="import{pinnedCampaignManifest}from'./services/hyperfide/dist/release/readiness.js';import{sha256}from'./services/hyperfide/dist/docs/closure.js';const original=Buffer.from(JSON.stringify({policy:{source_manifest_digest:'sha256:'+('a'.repeat(64))}}));const receipt={manifest_sha256:sha256(original).slice(7)};const bytes="+("Buffer.from(JSON.stringify({policy:{source_manifest_digest:'sha256:'+('b'.repeat(64))}}))"if tampered else"original")+";try{const result=pinnedCampaignManifest(receipt,bytes);if("+str(tampered).lower()+")throw Error('tampered manifest accepted')}catch(e){if(!"+str(tampered).lower()+"||e.code!=='RELEASE_EVIDENCE_INVALID')throw e}"
+        script="import{pinnedCampaignManifest}from'./core/control-plane/dist/release/readiness.js';import{sha256}from'./core/control-plane/dist/docs/closure.js';const original=Buffer.from(JSON.stringify({policy:{source_manifest_digest:'sha256:'+('a'.repeat(64))}}));const receipt={manifest_sha256:sha256(original).slice(7)};const bytes="+("Buffer.from(JSON.stringify({policy:{source_manifest_digest:'sha256:'+('b'.repeat(64))}}))"if tampered else"original")+";try{const result=pinnedCampaignManifest(receipt,bytes);if("+str(tampered).lower()+")throw Error('tampered manifest accepted')}catch(e){if(!"+str(tampered).lower()+"||e.code!=='RELEASE_EVIDENCE_INVALID')throw e}"
         result=node(script);require(result.returncode==0,"manifest byte binding violated: "+result.stderr)
     check("readiness.exact-manifest-byte-binding",lambda:manifest_binding(False))
     check("readiness.reject-manifest-changed-after-checker",lambda:manifest_binding(True))

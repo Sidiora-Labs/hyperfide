@@ -21,12 +21,12 @@ def observed():
 class Fixture:
  def __init__(self,base):
   self.base=base;self.components=base/"components";self.components.mkdir()
-  for name in ["8.1","11.1","10.1","10.2"]:shutil.copyfile(ROOT/f"services/hyperfide/components/{name}.json",self.components/f"{name}.json")
+  for name in ["8.1","11.1","10.1","10.2"]:shutil.copyfile(ROOT/f"core/control-plane/components/{name}.json",self.components/f"{name}.json")
   p=copy.deepcopy(image.up.POLICY);p["allowed_actions"]+=ACTIONS;self.policy=base/"policy.json";self.policy.write_text(json.dumps(p))
  def call(self,action,data):
   env=os.environ.copy()
   for k in ["HF_BLAXEL_LIVE_ENABLED","HF_BLAXEL_API_KEY","HF_BLAXEL_WORKSPACE"]:env.pop(k,None)
-  argv=["node",str(ROOT/"services/hyperfide/dist/provisioner.js"),"--policy",str(self.policy),"--spec-revision","fixture-revision","--components",str(self.components),"--module-root",str(ROOT/"services/hyperfide/dist")]
+  argv=["node",str(ROOT/"core/control-plane/dist/provisioner.js"),"--policy",str(self.policy),"--spec-revision","fixture-revision","--components",str(self.components),"--module-root",str(ROOT/"core/control-plane/dist")]
   r=subprocess.run(argv,cwd=self.base,env=env,text=True,input=json.dumps({"id":1,"component":"10.2","action":"blaxel.lifetime."+action,"input":data})+"\n",capture_output=True,timeout=20)
   rows=[json.loads(x)for x in (r.stdout+"\n"+r.stderr).splitlines()if x.strip()];expect(len(rows)==1,r.stderr);return rows[0]
  def assess(self,p=None,o=None,now=NOW):
@@ -90,7 +90,7 @@ def main():
   check("live.no-credential-fallback",missing_live)
   def read_budget(cancel=False):
    action="const ctl=new AbortController();let cancelled=false;"+("setTimeout(()=>ctl.abort(),15);"if cancel else "")+"try{await boundedBlaxelRead(async signal=>{signal.addEventListener('abort',()=>cancelled=true);return await new Promise(()=>{})},ctl.signal,Date.now()+50);throw Error('unbounded read accepted')}catch(e){if(e.code!=='BLAXEL_LIFETIME_UNAVAILABLE'||!cancelled)throw e}"
-   script="import{boundedBlaxelRead}from"+json.dumps(str(ROOT/"services/hyperfide/dist/providers/blaxel/lifetime.js"))+";"+action
+   script="import{boundedBlaxelRead}from"+json.dumps(str(ROOT/"core/control-plane/dist/providers/blaxel/lifetime.js"))+";"+action
    r=subprocess.run(["node","--input-type=module","-e",script],cwd=ROOT,text=True,capture_output=True,timeout=3);expect(r.returncode==0,r.stderr)
   check("read.actual-deadline-race",read_budget)
   check("read.actual-cancellation-race",lambda:read_budget(True))
@@ -127,7 +127,7 @@ def main():
     started=request("POST","/process",{"name":name,"command":"sleep 10","keepAlive":True,"timeout":0,"waitForCompletion":False})
     expect(started["status"]=="running",json.dumps(started))
     # POST timeout also arms execution termination; SDK maxWait only bounds observation.
-    script="import{SandboxProcess}from"+json.dumps(str(ROOT/"services/hyperfide/node_modules/@blaxel/core/dist/esm/sandbox/process/process.js"))+";"+"""
+    script="import{SandboxProcess}from"+json.dumps(str(ROOT/"core/control-plane/node_modules/@blaxel/core/dist/esm/sandbox/process/process.js"))+";"+"""
 import assert from 'node:assert/strict';
 const [url,pid]=process.argv.slice(1);
 const api=new SandboxProcess({metadata:{name:'lifetime-fixture'},spec:{},forceUrl:url,headers:{}});

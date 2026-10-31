@@ -42,9 +42,9 @@ class PlatformBuildAbsent(Exception):
 
 
 def run_fleet():
-    tsx = ROOT / 'platform/node_modules/.bin/tsx'
+    tsx = ROOT / 'node_modules/.bin/tsx'
     if not tsx.is_file():
-        raise PlatformBuildAbsent('platform dependencies absent; run pnpm -C platform install')
+        raise PlatformBuildAbsent('platform dependencies absent; run pnpm install')
     with tempfile.TemporaryDirectory(prefix='hyperfide-fleet-') as directory:
         entry = Path(directory) / 'fleet-scenario.mts'
         entry.write_text(FLEET_SCENARIO)
@@ -60,7 +60,7 @@ import {execFileSync} from 'node:child_process';
 import {mkdirSync, writeFileSync, readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-const source = join(process.cwd(), 'platform/plugins/hyperfide-dispatch/src');
+const source = join(process.cwd(), 'plugins/hyperfide-dispatch/src');
 const load = path => import(pathToFileURL(join(source, path)).href);
 const {ImageBuilder} = await load('image-builder/builder.ts');
 const {Dispatcher} = await load('dispatcher/dispatcher.ts');
@@ -405,7 +405,7 @@ class PlatformFixture:
 
 
 # ── Task 6.5: authority / multi-host projection ──────────────────────────────
-BUILD = ROOT / "platform/apps/server/dist/index.js"
+BUILD = ROOT / "core/server/dist/index.js"
 
 
 def request(url, token, data=None, *, ca=None):
@@ -922,8 +922,8 @@ class SpecFixture:
 # ---- Qualification end-to-end fixture (task 4.5).
 import urllib.request
 
-QUALIFICATION_BUILD = [ROOT / 'platform/apps' / app / 'dist/index.js'
-         for app in ('server', 'host-daemon')]
+QUALIFICATION_BUILD = [ROOT / 'core/server/dist/index.js',
+                       ROOT / 'core/host-daemon/dist/index.js']
 
 
 def require_qualification_build():

@@ -22,10 +22,10 @@ def step(label, args, **kwargs):
     return p
 # Build an actual unchunked reference from the same implementation, disabling
 # only the checkpoint owner. No environment switch can disable production bounds.
-source=(root/'src/progress.c').read_text()
+source=(root/'core/native/src/progress.c').read_text()
 assert source.count('chunk_owner = cg;') == 1
 (work/'reference.c').write_text(source.replace('chunk_owner = cg;', 'chunk_owner = NULL;'))
-step('reference-object', ['cc','-O2','-std=gnu11','-pthread','-I'+str(root/'src'),
+step('reference-object', ['cc','-O2','-std=gnu11','-pthread','-I'+str(root/'core/native/src'),
      '-I'+str(root/'vendor/tree-sitter/lib/include'),'-c',str(work/'reference.c'),'-o',str(work/'reference.o')])
 commands=subprocess.check_output(['make','-n','-W','build/progress.o','hyperfide'],text=True)
 link=next(shlex.split(line) for line in commands.splitlines() if ' -o hyperfide ' in line)

@@ -140,6 +140,6 @@ print("ok")
 PY
 
 # ---- the reason is documented where a reader meets the flags
-grep -q 'nobody is at its terminal' "$ROOT/src/hyperfide/connectors.c" || fail "connectors.c lost the sandbox prompt rationale"
+grep -q 'nobody is at its terminal' "$ROOT/core/native/src/hyperfide/connectors.c" || fail "connectors.c lost the sandbox prompt rationale"
 grep -q 'native prompt in a sandbox is invisible' "$ROOT/README.md" || fail "README lost the sandbox prompt rationale"
 echo "PASS: 91_connector_flags"

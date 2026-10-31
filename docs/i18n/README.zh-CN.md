@@ -53,7 +53,7 @@ Hyperfide 是一个装在单个二进制文件 `hyperfide` 里的智能体工作
 
 **文档是最后一个经过验证的任务。** 新的特性 spec 默认启用 `@docs` 收尾阶段。所有普通任务通过资格确认后,Hyperfide 从 spec、按任务归属的快照、代码图、路由、记忆、检查结果和现有文档中构建一个有界的证据包。同一个已配置的智能体连接器负责更新用户与开发者文档,而 `hyperfide docs check` 检查声明的引用、本地内联链接、必需的图表面覆盖以及已配置的目标范围。`hyperfide docs close` 记录一个专门的 `[spec:<feature>/@docs]` 快照和供下一轮 spec 流程使用的增量基线。这些结构性检查辅助评审,但并不担保每句话的含义。
 
-CLI 不运行任何你未曾启动的后台服务,也不发送遥测——fleet 监督进程只在 `hyperfide fleet up` 之后运行,并随 `hyperfide fleet down` 停止。图、记忆、快照以及整个任务循环都在你的机器上运行,并且只留在你的机器上。例外都明确列出且需主动启用:Jev 决策需要 `OPENROUTER_API_KEY`,且只有构建于其上的命令才会发起这一调用;`hyperfide changelog` 请求模型生成发布亮点,`hyperfide recap` 让 Solar Decide 从过往会话中挑选陈述、再由模型撰写简报,两者都只在设置了 `CENTRA_API_KEY`(或 `HYPERFIDE_CHANGELOG_KEY`)时发生;`hyperfide fleet pr` 和 `checkpoint` 会调用 `gh`。`services/hyperfide` 下的分布式控制服务是需要你显式启动的独立进程([Hyperfide 控制面](#hyperfide-控制面))。
+CLI 不运行任何你未曾启动的后台服务,也不发送遥测——fleet 监督进程只在 `hyperfide fleet up` 之后运行,并随 `hyperfide fleet down` 停止。图、记忆、快照以及整个任务循环都在你的机器上运行,并且只留在你的机器上。例外都明确列出且需主动启用:Jev 决策需要 `OPENROUTER_API_KEY`,且只有构建于其上的命令才会发起这一调用;`hyperfide changelog` 请求模型生成发布亮点,`hyperfide recap` 让 Solar Decide 从过往会话中挑选陈述、再由模型撰写简报,两者都只在设置了 `CENTRA_API_KEY`(或 `HYPERFIDE_CHANGELOG_KEY`)时发生;`hyperfide fleet pr` 和 `checkpoint` 会调用 `gh`。`core/control-plane` 下的分布式控制服务是需要你显式启动的独立进程([Hyperfide 控制面](#hyperfide-控制面))。
 
 ## 为什么选择 Hyperfide
 
@@ -662,7 +662,7 @@ Hyperfide 侧边栏带有一个常驻的 **Agent** 聊天视图:扩展是一个 
 
 **Start Agent Session on Task** 以任务面板的纪律驱动同一个聊天:它认领任务,用 `hyperfide resume --task <id> --prompt` 生成开场提示词,并在视图中运行会话(或者在视图繁忙时,在其旁边的编辑器面板中运行——并发的任务会话各有自己的面板)。设置 `codify.agent.interface: "terminal"` 可改用传统的预填充终端——当适配器启动失败时,也会自动提供这条路径。
 
-**Run Agent Headless on Task** 以后台 VS Code 任务的形式运行认领 + 提示词(`codex exec --sandbox workspace-write` 或 `claude -p`),并以通知报告退出情况。**Run Wave with Agents** 在终端中启动 `hyperfide spec run -n <codify.agent.parallelism>`。**Hand Off Task** 和 **Resume Task in Agent Session** 封装了 `hyperfide handoff` 和 `hyperfide resume`,**Stop Agent Session** 结束一个会话——任务未完成时关闭面板或终端,会提示进行 handoff 并释放认领。每个视图都通过一条 `hyperfide serve` 连接推送的事件更新,因此没有轮询;面对较旧的二进制时,会话运行期间任务面板会退回到每 10 秒轮询一次。每个任务都会标注持有其租约的智能体。见 [editors/vscode/README.md](../../editors/vscode/README.md)。
+**Run Agent Headless on Task** 以后台 VS Code 任务的形式运行认领 + 提示词(`codex exec --sandbox workspace-write` 或 `claude -p`),并以通知报告退出情况。**Run Wave with Agents** 在终端中启动 `hyperfide spec run -n <codify.agent.parallelism>`。**Hand Off Task** 和 **Resume Task in Agent Session** 封装了 `hyperfide handoff` 和 `hyperfide resume`,**Stop Agent Session** 结束一个会话——任务未完成时关闭面板或终端,会提示进行 handoff 并释放认领。每个视图都通过一条 `hyperfide serve` 连接推送的事件更新,因此没有轮询;面对较旧的二进制时,会话运行期间任务面板会退回到每 10 秒轮询一次。每个任务都会标注持有其租约的智能体。见 [extensions/vscode/README.md](../../extensions/vscode/README.md)。
 
 ## Hyperfide 控制面
 
@@ -689,20 +689,20 @@ flowchart TD
 - **提供方是带有明确缺口的适配器。** Railway 和 Blaxel 适配器负责创建沙箱。提供方缺少的能力会被报告为 `UNSUPPORTED`,绝不模拟;能力表见运维指南。
 - **智能体无法为自己作证。** Claude Code 和 Codex 依然是前沿的执行连接器。工作者无法通过指定一个分支名、报告零退出码或编辑任务状态来获得发布权限:独立的验证者和提交评审者会检查确切的提交内容,只有发布网关才能写入受保护的集成分支。决策模型(Jev 以及其他经过评估的路由)可以缩小范围、排序或标记;由确定性的关卡做决定。
 
-这些服务是 `services/hyperfide` 下的 TypeScript 代码(Node 24.22.0,由其 lockfile 锁定)。请在执行沙箱中构建它们:
+这些服务是 `core/control-plane` 下的 TypeScript 代码(Node 24.22.0,由其 lockfile 锁定)。请在执行沙箱中构建它们:
 
 ```sh
-make hyperfide-deps       # npm --prefix services/hyperfide ci --ignore-scripts
-make hyperfide-services   # npm --prefix services/hyperfide run build
+make hyperfide-deps       # npm --prefix core/control-plane ci --ignore-scripts
+make hyperfide-services   # npm --prefix core/control-plane run build
 make hyperfide-check      # type-check only
 ```
 
-`services/hyperfide/dist/control.js`、`provisioner.js` 和 `dispatch.js` 是入口点。每个入口都需要一个经过显式批准的策略文件,以及它所批准的确切规格修订版(`--policy FILE --spec-revision REV`,外加可选的 `--components`、`--module-root`、`--mode stdio|https|daemon`、`--host`、`--port`、`--tls-cert`、`--tls-key`),其他任何情况都会被拒绝:
+`core/control-plane/dist/control.js`、`provisioner.js` 和 `dispatch.js` 是入口点。每个入口都需要一个经过显式批准的策略文件,以及它所批准的确切规格修订版(`--policy FILE --spec-revision REV`,外加可选的 `--components`、`--module-root`、`--mode stdio|https|daemon`、`--host`、`--port`、`--tls-cert`、`--tls-key`),其他任何情况都会被拒绝:
 
 ```text
-$ node services/hyperfide/dist/control.js
+$ node core/control-plane/dist/control.js
 {"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision X
+$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
 {"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
 ```
 
@@ -739,7 +739,7 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 
 ### VS Code 扩展
 
-`editors/vscode/` 提供 Hyperfide 扩展——把整个工作流带进编辑器:
+`extensions/vscode/` 提供 Hyperfide 扩展——把整个工作流带进编辑器:
 
 - **来自图的代码导航。** 它运行 `hyperfide lsp` 并与之用 LSP 通信,因此跳转到定义、查找引用、工作区符号和 code lens 在每一种已索引的语言中都能使用,无需编译器,也无需配置。悬停会显示符号是什么、有多少引用,以及关于它记录下的决策。
 - **范围漂移显示为波浪线。** 在进行中任务声明的 `touches` 之外编辑文件,会在编辑的那一刻在 Problems 面板中给出警告。仅作建议,从不报错。
@@ -755,12 +755,12 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 扩展没有任何依赖,也没有构建步骤——包括它的语言服务器客户端,正是出于这个原因而手写的。
 
 ```sh
-cd editors/vscode
+cd extensions/vscode
 npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
 code --install-extension codify-workflow-2.0.0-dev.vsix --force
 ```
 
-扩展显示名称为 Hyperfide Workflow;它的包和 Marketplace 标识保留历史名称(`codify-workflow`、`SidioraLabs.codify-workflow`),它的 `codify.*` 设置和命令 id 也是如此。每个命令同时以 `hyperfide.*` id 注册,二进制通过 `hyperfide.binaryPath`(或旧的 `codify.binaryPath`;两者必须一致)查找,默认是 `PATH` 上的 `hyperfide`。见 [editors/vscode/README.md](../../editors/vscode/README.md)。其他任何编辑器只要把 LSP 客户端指向 `hyperfide lsp`,就能获得同样的导航能力。
+扩展显示名称为 Hyperfide Workflow;它的包和 Marketplace 标识保留历史名称(`codify-workflow`、`SidioraLabs.codify-workflow`),它的 `codify.*` 设置和命令 id 也是如此。每个命令同时以 `hyperfide.*` id 注册,二进制通过 `hyperfide.binaryPath`(或旧的 `codify.binaryPath`;两者必须一致)查找,默认是 `PATH` 上的 `hyperfide`。见 [extensions/vscode/README.md](../../extensions/vscode/README.md)。其他任何编辑器只要把 LSP 客户端指向 `hyperfide lsp`,就能获得同样的导航能力。
 
 ## 开发
 
@@ -797,7 +797,7 @@ src/jev.c            typed decisions over curl
 src/skills.c         memories classed as skills, rendered as .agents/skills
 src/lsp.c            language server over the graph
 src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
-services/hyperfide/  TypeScript control, provisioner and dispatch services
+core/control-plane/  TypeScript control, provisioner and dispatch services
 tests/unit/          kvx grammar, SHA-256 vectors, JSON scanner, StrBuf/IO
 tests/integration/   graph, vcs, agentic, MCP protocol, spec engine, watcher,
                      sync gate, fleet, branches, jev, changelog, events, serve,
@@ -809,7 +809,7 @@ tests/fixtures/      sample polyglot project, a spec repo with golden outputs,
                      an explore project with gold queries,
                      stand-ins for curl, gh, and an OpenAI endpoint, and a
                      scripted fleet driver
-editors/vscode/      VS Code extension (plain JS): kvx language, task tree,
+extensions/vscode/      VS Code extension (plain JS): kvx language, task tree,
                      agent panel, memory browser, live fleet view, serve client
 scripts/             install/uninstall scripts (not advertised for 2.0 yet),
                      release construction, native component discovery

@@ -16,7 +16,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
 DEPLOY = ROOT / 'deploy/hyperfide'
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 MARKER = 'share/hyperfide/qualified/26.4.json'
 RECEIPT_DIGEST = 'c6acb6ed761cd7cbb0663969ac302859875426e83e7068bff63f9571effb3869'
 UNITS = ['supervisory-host', 'issue-watcher']
@@ -91,14 +91,14 @@ def ensure_dist():
 
 
 def release_tree(scratch, name, marker=None):
-    """A release layout: deploy/hyperfide as shipped, the service dist reached as services/hyperfide, and optionally the marker."""
+    """A release layout: deploy/hyperfide as shipped, the service dist reached as core/control-plane, and optionally the marker."""
     rel = scratch / name
     shutil.copytree(DEPLOY, rel / 'deploy/hyperfide', ignore=shutil.ignore_patterns('identity'))
     (rel / 'deploy/hyperfide/identity').mkdir()
     for item in (DEPLOY / 'identity').glob('*.example.json'):
         shutil.copyfile(item, rel / 'deploy/hyperfide/identity' / item.name)
     (rel / 'services').mkdir()
-    (rel / 'services/hyperfide').symlink_to(SERVICE)
+    (rel / 'core/control-plane').symlink_to(SERVICE)
     if marker:
         r = releases_call('m.stageUnitReceipt(a[0],a[1])', rel, marker)
         expect(r['ok'] and r['value']['staged'], r)
@@ -236,8 +236,8 @@ def main():
             # The full release needs the pinned remote toolchain, so the staging program release.sh carries is
             # lifted out and executed exactly as release.sh invokes it (node -e, the built releases.js bound
             # through HYPERFIDE_RELEASES_MODULE); the assertions read its printed result and the staged tree.
-            text = (ROOT / 'scripts/release.sh').read_text()
-            expect(subprocess.run(['bash', '-n', str(ROOT / 'scripts/release.sh')]).returncode == 0, 'release.sh syntax')
+            text = (ROOT / 'tools/repository/release.sh').read_text()
+            expect(subprocess.run(['bash', '-n', str(ROOT / 'tools/repository/release.sh')]).returncode == 0, 'release.sh syntax')
             program = re.search(r'^ stage_code="(.+)"$', text, re.M)
             expect(program, 'release.sh carries no marker staging program')
 

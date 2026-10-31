@@ -50,10 +50,10 @@
   ],
   "fixtures": [
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/graph/extraction.js",
-    "services/hyperfide/dist/identity/enrollment.js",
-    "services/hyperfide/dist/dispatch.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/graph/extraction.js",
+    "core/control-plane/dist/identity/enrollment.js",
+    "core/control-plane/dist/dispatch.js"
   ],
   "resources": [
     {
@@ -75,10 +75,10 @@
   ],
   "source_files": [
     "cg",
-    "src/scan.c",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json",
+    "core/native/src/scan.c",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/support/identity_fixture.py",
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
@@ -87,10 +87,10 @@
     "tests/hyperfide/registrations/7.1.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "actions": [
     "postgresql.fixture.create",

@@ -26,7 +26,7 @@ def main():
   expect(run("/usr/bin/openssl","genpkey","-algorithm","Ed25519","-out",str(signing)).returncode==0);signing.chmod(0o600)
   expect(run("/usr/bin/openssl","pkey","-in",str(signing),"-pubout","-out",str(trusted)).returncode==0);trusted.chmod(0o644)
   e=dict(os.environ,PATH=str(NODE.parent)+":"+os.environ["PATH"],HOME=str(home),HYPERFIDE_BUILD_PLACEMENT="remote",HYPERFIDE_RELEASE_SIGNING_KEY_FILE=str(signing))
-  constructed=run("bash",str(ROOT/"scripts/release.sh"),"--output",str(release),"--skip-tests",cwd=ROOT,env=e,timeout=600)
+  constructed=run("bash",str(ROOT/"tools/repository/release.sh"),"--output",str(release),"--skip-tests",cwd=ROOT,env=e,timeout=600)
   if constructed.returncode:
    sys.stderr.write(constructed.stdout[-2000:]+constructed.stderr[-2000:]);raise RuntimeError("actual nonpublishing construction failed")
   index=json.loads((release/"release.json").read_text());manifest=json.loads((release/"manifest.json").read_text())
@@ -38,7 +38,7 @@ def main():
   directory=base/"prefix/bin"
   install_env=dict(e,HYPERFIDE_BASE_URL=release.as_uri(),HYPERFIDE_MANIFEST_SHA256=index["manifest_digest"],HYPERFIDE_INSTALL_DIR=str(directory),HYPERFIDE_TRUSTED_RELEASE_KEY_FILE=str(trusted))
   def install(env=None):
-   v=dict(install_env);v.update(env or {});return run("bash",str(ROOT/"scripts/install.sh"),env=v)
+   v=dict(install_env);v.update(env or {});return run("bash",str(ROOT/"tools/repository/install.sh"),env=v)
   first=install()
   check("actual-install-custom-prefix",lambda:expect(first.returncode==0 and json.loads(first.stdout)["commands"]==["hyperfide","cg"]))
   check("actual-ed25519-manifest-proof",lambda:expect(first.returncode==0 and json.loads(first.stdout)["authentication"]=={"mode":"ED25519","key_fingerprint":index["signature"]["key_fingerprint"]}))
@@ -89,14 +89,14 @@ def main():
   migrated=install({"HYPERFIDE_INSTALL_DIR":str(legacy),"HYPERFIDE_LEGACY_CG_SHA256":legacy_hash})
   legacy_backup=legacy.parent/"lib/hyperfide/backups"/legacy_hash/"cg"
   check("explicit-legacy-adoption-byte-backup",lambda:expect(migrated.returncode==0 and legacy_backup.read_bytes()==(ROOT/"cg").read_bytes()))
-  removed_legacy=run("bash",str(ROOT/"scripts/uninstall.sh"),env=dict(install_env,HYPERFIDE_INSTALL_DIR=str(legacy)))
+  removed_legacy=run("bash",str(ROOT/"tools/repository/uninstall.sh"),env=dict(install_env,HYPERFIDE_INSTALL_DIR=str(legacy)))
   check("legacy-backup-survives-owned-uninstall",lambda:expect(removed_legacy.returncode==0 and legacy_backup.exists()))
   conflict=install({"CODIFY_INSTALL_DIR":"PRIVATE-CONFLICT-PREFIX"})
   check("refuses-conflicting-prefix-alias",lambda:expect(conflict.returncode!=0 and "PRIVATE-CONFLICT-PREFIX" not in conflict.stdout+conflict.stderr))
   check("refuses-wrong-manifest-pin",lambda:expect(install({"HYPERFIDE_MANIFEST_SHA256":"sha256:"+"0"*64}).returncode!=0))
   hostile=base/"hostile/bin";hostile.mkdir(parents=True);(hostile.parent/"lib").symlink_to(base/"unowned-state",target_is_directory=True)
   check("refuses-state-directory-symlink",lambda:expect(install({"HYPERFIDE_INSTALL_DIR":str(hostile)}).returncode!=0 and not(base/"unowned-state").exists()))
-  shimdir=base/"shim";shimdir.mkdir();shutil.copy2(ROOT/"scripts/hyperfide-entrypoint.sh",shimdir/"cg");(shimdir/"cg").chmod(0o755);shutil.copy2(ROOT/"hyperfide",shimdir/"hyperfide")
+  shimdir=base/"shim";shimdir.mkdir();shutil.copy2(ROOT/"tools/repository/hyperfide-entrypoint.sh",shimdir/"cg");(shimdir/"cg").chmod(0o755);shutil.copy2(ROOT/"hyperfide",shimdir/"hyperfide")
   check("compat-shim-actual-sibling-only",lambda:expect(run(str(shimdir/"cg"),"--version",env=e).stdout.strip()=="2.0.0-dev"))
   (shimdir/"hyperfide").unlink()
   check("compat-shim-refuses-path-fallback",lambda:expect(run(str(shimdir/"cg"),"--version",env=dict(e,PATH=str(ROOT)+":"+e["PATH"])).returncode!=0))
@@ -105,10 +105,10 @@ def main():
   sentinel=home/".codex";sentinel.mkdir();(sentinel/"native-state").write_bytes(b"NATIVE-AUTH-PRESERVED")
   # An owner edit makes uninstall refuse the whole removal before touching the peer command.
   saved=os.readlink(directory/"cg");(directory/"cg").unlink();(directory/"cg").write_bytes(b"USER-REPLACEMENT")
-  denied=run("bash",str(ROOT/"scripts/uninstall.sh"),env=install_env)
+  denied=run("bash",str(ROOT/"tools/repository/uninstall.sh"),env=install_env)
   check("uninstall-refuses-owner-edited-command",lambda:expect(denied.returncode!=0 and(directory/"hyperfide").is_symlink() and(directory/"cg").read_bytes()==b"USER-REPLACEMENT"))
   (directory/"cg").unlink();(directory/"cg").symlink_to(saved)
-  removed=run("bash",str(ROOT/"scripts/uninstall.sh"),env=install_env)
+  removed=run("bash",str(ROOT/"tools/repository/uninstall.sh"),env=install_env)
   check("actual-owned-uninstall-both-names",lambda:expect(removed.returncode==0 and not(directory/"hyperfide").exists() and not(directory/"cg").exists() and not current.exists()))
   check("uninstall-native-auth-preserved",lambda:expect((sentinel/"native-state").read_bytes()==b"NATIVE-AUTH-PRESERVED"))
  print(json.dumps({"type":"cleanup","complete":True,"resources":[]}))

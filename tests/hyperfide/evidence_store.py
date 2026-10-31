@@ -3,7 +3,7 @@
 The artifact store is the authority for qualification evidence; the local
 artifacts/hyperfide/tasks/<id> directory is only a cache. A tracked receipt record
 (tests/hyperfide/evidence-receipts/<id>.json, written by publishEvidenceBundle in
-services/hyperfide/src/artifacts/objects.ts) names the committed chunk manifest.
+core/control-plane/src/artifacts/objects.ts) names the committed chunk manifest.
 Resolution verifies the receipt binding, then performs the byte checks that
 artifact.manifest.read and artifact.object.read perform: manifest digest and size,
 canonical chunk sequence, each chunk digest and size, and the concatenated

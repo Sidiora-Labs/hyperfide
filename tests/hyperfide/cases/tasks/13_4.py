@@ -40,7 +40,7 @@ def _release_sql(self,sql,values=None,**kwargs):
     # The 13.2 fixture replays 0012/0013 by hand; the complete-release migration engine
     # already applied them, so the replay becomes an exact checksum-pin observation.
     for name in ("0012-runner-registry","0013-agents"):
-        body=(ROOT/("services/hyperfide/migrations/"+name+".sql")).read_bytes()
+        body=(ROOT/("core/control-plane/migrations/"+name+".sql")).read_bytes()
         if values is None and sql.startswith("BEGIN;\n"+body.decode()+"\nINSERT INTO hyperfide.schema_migrations"):
             return self.apply_migration(name)
     return _raw_sql(self,sql,values,**kwargs)
@@ -94,7 +94,7 @@ def check(identity,fn):
 def startup_budget():
     script=r"""
 import fs from 'node:fs';import os from 'node:os';
-import {validateSupervisorStartupBudget as validate} from './services/hyperfide/dist/agents/supervision.js';
+import {validateSupervisorStartupBudget as validate} from './core/control-plane/dist/agents/supervision.js';
 const max=9223372036854775807n;
 let cpu=BigInt(os.availableParallelism())*1000n;
 let memory=BigInt(/^MemAvailable:\s+(\d+)/m.exec(fs.readFileSync('/proc/meminfo','utf8'))[1])*1024n;
@@ -123,7 +123,7 @@ console.log(JSON.stringify({sizing_only:true,measured_source:o.source,negative_c
     expect(json.loads(result.stdout)["negative_cases"]==5,"sizing negatives not exercised")
 
 CLASSIFIER=r"""
-import {classifyNativeEvent as c} from './services/hyperfide/dist/agents/admission.js';
+import {classifyNativeEvent as c} from './core/control-plane/dist/agents/admission.js';
 const cases=JSON.parse(process.argv[1]),out=[];
 for(const [connector,event,reason,signal] of cases){const r=c(connector,event);out.push(r.reason===reason&&r.signal===signal&&r.useful_progress===false&&!JSON.stringify(r).includes('secret-native-text'));}
 let invalid=false;try{c('codex',{params:{}})}catch(e){invalid=e.code==='ADMISSION_SIGNAL_INVALID'}

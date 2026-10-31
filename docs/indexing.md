@@ -130,7 +130,7 @@ Branch-specific files and graph endpoints stay isolated even when worktrees
 share storage. Resolution and synthesized relations are retried when their
 definitions, bindings or registrations change. A no-op sync skips those passes.
 
-The Hyperfide control plane (`services/hyperfide`, see
+The Hyperfide control plane (`core/control-plane`, see
 [the operations guide](hyperfide/operations.md)) does not change this
 pipeline: each checkout or sandbox still builds and queries its own local
 index with the commands above.

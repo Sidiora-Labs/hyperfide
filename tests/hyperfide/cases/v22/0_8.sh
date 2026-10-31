@@ -24,8 +24,8 @@ assert 'pnpm install --frozen-lockfile' in commands['platform'][0]
 assert commands['platform'][1] == commands['platform-build'][1] == 5400
 assert 'build_failed' in commands['platform-build'][0] and '/work/logs/pnpm-build.log' in commands['platform-build'][0]
 assert 'pnpm --version' in c['probe']
-assert 'platform/pnpm-lock.yaml' in c['prepare']
-assert 'platform/pnpm-workspace.yaml' in c['prepare']
+assert 'pnpm-lock.yaml' in c['prepare']
+assert 'pnpm-workspace.yaml' in c['prepare']
 assert c['prepare'].index('pnpm install --frozen-lockfile') < c['prepare'].index('pnpm install --no-frozen-lockfile')
 PY
 HF_FLEET_CONFIG="$tmp/fleet.json" HF_PACKET_PREAMBLE="$tmp/preamble.md" \

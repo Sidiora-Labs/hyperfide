@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-if [[ ! -f platform/apps/server/dist/index.js || ! -f platform/packages/bundled-plugins/dist/hyperfide-dispatch/dist/server.js ]]; then
-  pnpm -C platform build
+if [[ ! -f core/server/dist/index.js || ! -f tools/bundled-plugins/dist/hyperfide-dispatch/dist/server.js ]]; then
+  pnpm build
 fi
 python3 - <<'PY'
 import json
@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-dispatch-') as temporary:
                HYPERFIDE_DATA_DIR=str(data), HYPERFIDE_SERVER_URL=url)
     log_path = data / 'server.log'
     with log_path.open('w') as log:
-        server = subprocess.Popen(['node', 'platform/apps/server/dist/index.js'],
+        server = subprocess.Popen(['node', 'core/server/dist/index.js'],
                                   cwd=root, env=env, stdout=log, stderr=log)
         try:
             for _ in range(240):
@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-dispatch-') as temporary:
                 raise AssertionError('Server health timed out: ' + log_path.read_text())
 
             def cli(*args):
-                result = subprocess.run(['node', 'platform/apps/cli/dist/index.js', *args],
+                result = subprocess.run(['node', 'apps/cli/dist/index.js', *args],
                                         env=env, text=True, capture_output=True, timeout=60)
                 assert result.returncode == 0, result.stdout + result.stderr + log_path.read_text()
                 return json.loads(result.stdout)

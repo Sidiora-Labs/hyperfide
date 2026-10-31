@@ -13,7 +13,7 @@ count. Prints SKIP and exits 77 when no PostgreSQL server or root is available.
 import importlib.util, json, os, pathlib, pwd, shutil, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 METRICS = '23.3'

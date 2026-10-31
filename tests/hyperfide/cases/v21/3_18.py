@@ -61,7 +61,7 @@ class Load:
 
 
 def mirror(suites):
-    """A copy of the suites, tests/lib.sh and editors/vscode laid out as in the
+    """A copy of the suites, tests/lib.sh and extensions/vscode laid out as in the
     repository, so a mutation never touches the real tree."""
     top = Path(tempfile.mkdtemp(prefix='hf-3-18-'))
     (top / 'tests/integration').mkdir(parents=True)
@@ -69,7 +69,7 @@ def mirror(suites):
     (top / 'tests/fixtures').symlink_to(ROOT / 'tests/fixtures')
     for s in suites:
         shutil.copy(ROOT / 'tests/integration' / s, top / 'tests/integration' / s)
-    shutil.copytree(ROOT / 'editors/vscode', top / 'editors/vscode', ignore=shutil.ignore_patterns('node_modules'))
+    shutil.copytree(ROOT / 'extensions/vscode', top / 'extensions/vscode', ignore=shutil.ignore_patterns('node_modules'))
     return top
 
 
@@ -124,7 +124,7 @@ def under_load():
 
 def broken_inputs():
     top = mirror(['14_vscode.sh', '42_journal.sh', '48_plugin.sh'])
-    ext = top / 'editors/vscode'
+    ext = top / 'extensions/vscode'
     pristine = {f: (ext / f).read_text() for f in ['agents.js', 'fleet.js', 'serve.js']}
     try:
         # the mirror itself passes, so a failure below is the mutation's
@@ -202,7 +202,7 @@ def broken_inputs():
         ok, detail = case.fixture_root(ctypes.CDLL(None, use_errno=True))
         check('fixture-root.holds-as-root', ok, detail)
 
-    ext = (ROOT / 'editors/vscode/extension.js').read_text()
+    ext = (ROOT / 'extensions/vscode/extension.js').read_text()
     handler = re.search(r"serveClient\.on\('reconnect', \(\) => \{(.*?)\}\);", ext, re.S)
     check('reconnect.no-dead-watch-call', handler and 'watchEvents' not in handler.group(1), handler and handler.group(0))
 

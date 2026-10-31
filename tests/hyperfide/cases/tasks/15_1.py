@@ -446,9 +446,9 @@ def durable_suite(f):
 def pin_manifest():
     """Pin only real integrated inputs; missing authentication/source fails."""
     for relative in ("tests/hyperfide/support/identity_fixture.py","tests/hyperfide/cases/tasks/15_2.py",
-                     "services/hyperfide/src/identity/enrollment.ts",
-                     "services/hyperfide/src/artifacts/objects.ts",
-                     "services/hyperfide/dist/control.js","build/hyperfide-native"):
+                     "core/control-plane/src/identity/enrollment.ts",
+                     "core/control-plane/src/artifacts/objects.ts",
+                     "core/control-plane/dist/control.js","build/hyperfide-native"):
         expect((ROOT/relative).is_file(),"cannot pin missing integrated prerequisite: "+relative)
     registration=json.loads((ROOT/"tests/hyperfide/registrations/15.1.json").read_text())
     paths={ROOT/path for path in registration["source_files"]}

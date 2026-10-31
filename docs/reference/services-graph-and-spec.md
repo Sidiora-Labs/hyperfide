@@ -1,10 +1,10 @@
 # Source reference: Control services: graph and spec
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the `docs/`, `graph/`, `hierarchy/` and `spec/` subtrees of `services/hyperfide/src/`: 422 declarations in 18 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the `docs/`, `graph/`, `hierarchy/` and `spec/` subtrees of `core/control-plane/src/`: 422 declarations in 18 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
 
-## services/hyperfide/src/docs/closure.ts
+## core/control-plane/src/docs/closure.ts
 
-[Open source](../../services/hyperfide/src/docs/closure.ts)
+[Open source](../../core/control-plane/src/docs/closure.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -62,18 +62,18 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `validatedDocumentationChecks` | function | 338 | <code>async function validatedDocumentationChecks(db:Pick&lt;PrimaryTransaction,'query'&gt;,scope:Scope,packetID:string,ids:string&#91;&#93;,packet:DocumentationPacket):Promise&lt;DocumentationCheckReference&#91;&#93;&gt;{</code> |
 | `requireDocumentationCleanup` | function | 355 | <code>export function requireDocumentationCleanup(value:unknown):void{</code> |
 
-## services/hyperfide/src/graph/contract_query.ts
+## core/control-plane/src/graph/contract_query.ts
 
-[Open source](../../services/hyperfide/src/graph/contract_query.ts)
+[Open source](../../core/control-plane/src/graph/contract_query.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
 | `optional` | function | 28 | <code>function optional(value:unknown,kind:string,limit=256):string&#124;null{return value===undefined?null:text(value,kind,limit);}</code> |
 | `contracts` | function | 29 | <code>export async function contracts(input:unknown,ctx:ComponentContext,executor:GraphQueryExecutor=primaryGraphQueryExecutor):Promise&lt;unknown&gt;{</code> |
 
-## services/hyperfide/src/graph/extraction.ts
+## core/control-plane/src/graph/extraction.ts
 
-[Open source](../../services/hyperfide/src/graph/extraction.ts)
+[Open source](../../core/control-plane/src/graph/extraction.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -104,9 +104,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `create` | function | 155 | <code>async function create(input:unknown,ctx:ComponentContext,cfg:Config):Promise&lt;BundleManifest&gt; {</code> |
 | `createComponent` | function | 235 | <code>export async function createComponent(ctx:ComponentContext):Promise&lt;Component&gt; {</code> |
 
-## services/hyperfide/src/graph/ingestion.ts
+## core/control-plane/src/graph/ingestion.ts
 
-[Open source](../../services/hyperfide/src/graph/ingestion.ts)
+[Open source](../../core/control-plane/src/graph/ingestion.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -148,9 +148,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `resolve` | function | 211 | <code>async function resolve(input:unknown,ctx:ComponentContext):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 259 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/graph/projection.ts
+## core/control-plane/src/graph/projection.ts
 
-[Open source](../../services/hyperfide/src/graph/projection.ts)
+[Open source](../../core/control-plane/src/graph/projection.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -168,9 +168,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `projectionDelta` | function | 69 | <code>export async function projectionDelta(input:unknown,ctx:ComponentContext,executor:GraphQueryExecutor=primaryGraphQueryExecutor):Promise&lt;unknown&gt;{</code> |
 | `projectionView` | function | 83 | <code>export async function projectionView(input:unknown,ctx:ComponentContext,executor:GraphQueryExecutor=primaryGraphQueryExecutor):Promise&lt;unknown&gt;{</code> |
 
-## services/hyperfide/src/graph/projection_extract.ts
+## core/control-plane/src/graph/projection_extract.ts
 
-[Open source](../../services/hyperfide/src/graph/projection_extract.ts)
+[Open source](../../core/control-plane/src/graph/projection_extract.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -185,9 +185,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `sortedFiles` | function | 67 | <code>export function sortedFiles(files:Iterable&lt;NormalisedFile&gt;):NormalisedFile&#91;&#93;{return &#91;...files&#93;.sort((a,b)=&gt;Buffer.compare(Buffer.from(a.path),Buffer.from(b.path)));}</code> |
 | `factsDigest` | function | 68 | <code>export function factsDigest(files:Iterable&lt;NormalisedFile&gt;):string{return digest(canonical(sortedFiles(files)));}</code> |
 
-## services/hyperfide/src/graph/publication.ts
+## core/control-plane/src/graph/publication.ts
 
-[Open source](../../services/hyperfide/src/graph/publication.ts)
+[Open source](../../core/control-plane/src/graph/publication.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -197,9 +197,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `publish` | function | 44 | <code>async function publish(input:unknown,ctx:ComponentContext):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 87 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/graph/query.ts
+## core/control-plane/src/graph/query.ts
 
-[Open source](../../services/hyperfide/src/graph/query.ts)
+[Open source](../../core/control-plane/src/graph/query.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -222,9 +222,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `traverse` | function | 122 | <code>export async function traverse(input:unknown,ctx:ComponentContext,executor:GraphQueryExecutor=primaryGraphQueryExecutor):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 147 | <code>export function createComponent(ctx:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/graph/replica_query.ts
+## core/control-plane/src/graph/replica_query.ts
 
-[Open source](../../services/hyperfide/src/graph/replica_query.ts)
+[Open source](../../core/control-plane/src/graph/replica_query.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -246,9 +246,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `replicaRead` | function | 71 | <code>async function replicaRead&lt;T extends JsonObject&gt;(ctx:ComponentContext,s:GraphScope,manifestId:string,admitted:Admission,options:GraphReadOptions,operation:(session:QuerySession,manifest:JsonObject)=&gt;P…</code> |
 | `routedGraphQueryExecutor` | function | 106 | <code>export function routedGraphQueryExecutor(primary:GraphQueryExecutor,cache:GraphQueryCache):GraphQueryExecutor{</code> |
 
-## services/hyperfide/src/hierarchy/adoption.ts
+## core/control-plane/src/hierarchy/adoption.ts
 
-[Open source](../../services/hyperfide/src/hierarchy/adoption.ts)
+[Open source](../../core/control-plane/src/hierarchy/adoption.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -277,9 +277,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `workerSeat` | function | 409 | <code>async function workerSeat(tx:PrimaryTransaction,token:ComputeToken,packetDigest:string,native:NativeAuthAuthority,i:InvocationContext):Promise&lt;WorkerRegistrationReceipt&gt;{</code> |
 | `createWorkerComponent` | function | 435 | <code>export function createWorkerComponent(context:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/hierarchy/packages.ts
+## core/control-plane/src/hierarchy/packages.ts
 
-[Open source](../../services/hyperfide/src/hierarchy/packages.ts)
+[Open source](../../core/control-plane/src/hierarchy/packages.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -327,9 +327,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `limitOf` | function | 264 | <code>function limitOf(value:unknown):number {</code> |
 | `createComponent` | function | 269 | <code>export async function createComponent(context:ComponentContext):Promise&lt;Component&gt; {</code> |
 
-## services/hyperfide/src/hierarchy/packets.ts
+## core/control-plane/src/hierarchy/packets.ts
 
-[Open source](../../services/hyperfide/src/hierarchy/packets.ts)
+[Open source](../../core/control-plane/src/hierarchy/packets.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -369,9 +369,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `deriveQualificationInputs` | function | 292 | <code>export function deriveQualificationInputs(packet:unknown):{</code> |
 | `createComponent` | function | 313 | <code>export function createComponent(context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/hierarchy/views.ts
+## core/control-plane/src/hierarchy/views.ts
 
-[Open source](../../services/hyperfide/src/hierarchy/views.ts)
+[Open source](../../core/control-plane/src/hierarchy/views.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -382,9 +382,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `freshness` | function | 32 | <code>function freshness(e:Row):'CURRENT'&#124;'PENDING'&#124;'STALE'&#124;'MISSING'{</code> |
 | `createComponent` | function | 37 | <code>export function createComponent(context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/spec/bootstrap.ts
+## core/control-plane/src/spec/bootstrap.ts
 
-[Open source](../../services/hyperfide/src/spec/bootstrap.ts)
+[Open source](../../core/control-plane/src/spec/bootstrap.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -403,9 +403,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `assertAcceptedBootstrap` | function | 140 | <code>export async function assertAcceptedBootstrap(tx:BootstrapQuery,pins:AcceptedBootstrapPins):Promise&lt;{</code> |
 | `bootstrapAcceptedIntentWithGateway` | function | 187 | <code>export async function bootstrapAcceptedIntentWithGateway(</code> |
 
-## services/hyperfide/src/spec/dependencies.ts
+## core/control-plane/src/spec/dependencies.ts
 
-[Open source](../../services/hyperfide/src/spec/dependencies.ts)
+[Open source](../../core/control-plane/src/spec/dependencies.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -443,9 +443,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `structuralFrontier` | function | 350 | <code>export async function structuralFrontier(tx:Tx,scope:DependencyScope,input:unknown):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 363 | <code>export function createComponent(_startup:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/spec/import.ts
+## core/control-plane/src/spec/import.ts
 
-[Open source](../../services/hyperfide/src/spec/import.ts)
+[Open source](../../core/control-plane/src/spec/import.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -489,9 +489,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `authenticatedScope` | function | 332 | <code>async function authenticatedScope(tx:AuthorityTransaction,context:ComponentContext,i:InvocationContext):Promise&lt;SpecScope&gt;{</code> |
 | `createComponent` | function | 338 | <code>export function createComponent(_startup:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/spec/obligations.ts
+## core/control-plane/src/spec/obligations.ts
 
-[Open source](../../services/hyperfide/src/spec/obligations.ts)
+[Open source](../../core/control-plane/src/spec/obligations.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -515,9 +515,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `registerProofPolicy` | function | 212 | <code>export async function registerProofPolicy(client:PrimaryClient,scope:{organisation_id:string;run_id:string},input:unknown,allowReview=false,maximumMs=259200000):Promise&lt;ProofObligations&gt;{</code> |
 | `createComponent` | function | 251 | <code>export function createComponent(_startup:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/spec/revisions.ts
+## core/control-plane/src/spec/revisions.ts
 
-[Open source](../../services/hyperfide/src/spec/revisions.ts)
+[Open source](../../core/control-plane/src/spec/revisions.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |

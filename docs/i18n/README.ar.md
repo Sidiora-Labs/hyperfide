@@ -53,7 +53,7 @@ Hyperfide محرك لسير عمل الوكلاء في ملف تنفيذي وا�
 
 **والتوثيق هو آخر مهمة مُتحقَّق منها.** تفعّل مواصفات الميزات الجديدة مرحلة إغلاق `@docs` افتراضيًا. بعد تأهيل كل المهام العادية، يبني Hyperfide حزمة أدلة محدودة من المواصفة، واللقطات المنسوبة إلى المهام، والرسم البياني للشيفرة، والمسارات، والذكريات، والفحوص، والتوثيق القائم. ويحدّث موصّل الوكيل المُعدّ نفسه توثيق المستخدم والمطوّر، بينما يفحص `hyperfide docs check` مراجع الادعاءات المعلنة، والروابط المحلية المضمّنة، وتغطية أسطح الرسم البياني المطلوبة، ونطاق الأهداف المُعدّ. ويسجّل `hyperfide docs close` لقطة `[spec:<feature>/@docs]` مخصصة وخط أساس تدريجيًا لتدفق المواصفة التالي. هذه الفحوص البنيوية تدعم المراجعة؛ ولا تشهد بمعنى كل جملة.
 
-لا تشغّل واجهة سطر الأوامر أي خدمات خلفية لم تبدأها بنفسك ولا ترسل أي قياس عن بُعد — مشرف الأسطول لا يعمل إلا بعد `hyperfide fleet up`، ويتوقف بـ `hyperfide fleet down`. الرسم البياني والذاكرة واللقطات وحلقة المهام كلها تعمل على جهازك وتبقى فيه. والاستثناءات مسمّاة واختيارية: قرارات Jev تحتاج إلى `OPENROUTER_API_KEY`، ولا تجري ذلك الاستدعاء إلا الأوامر المبنية عليها؛ ويطلب `hyperfide changelog` أبرز نقاط الإصدار من نموذج، ويجعل `hyperfide recap` نموذج Solar Decide يختار عبارات من الجلسات السابقة ونموذجًا يكتب الموجز، وذلك فقط عند ضبط `CENTRA_API_KEY` (أو `HYPERFIDE_CHANGELOG_KEY`)؛ ويستدعي `hyperfide fleet pr` و`checkpoint` الأداة `gh`. وخدمات التحكم الموزّعة تحت `services/hyperfide` عمليات منفصلة تبدؤها صراحة ([مستوى التحكم في Hyperfide](#مستوى-التحكم-في-hyperfide)).
+لا تشغّل واجهة سطر الأوامر أي خدمات خلفية لم تبدأها بنفسك ولا ترسل أي قياس عن بُعد — مشرف الأسطول لا يعمل إلا بعد `hyperfide fleet up`، ويتوقف بـ `hyperfide fleet down`. الرسم البياني والذاكرة واللقطات وحلقة المهام كلها تعمل على جهازك وتبقى فيه. والاستثناءات مسمّاة واختيارية: قرارات Jev تحتاج إلى `OPENROUTER_API_KEY`، ولا تجري ذلك الاستدعاء إلا الأوامر المبنية عليها؛ ويطلب `hyperfide changelog` أبرز نقاط الإصدار من نموذج، ويجعل `hyperfide recap` نموذج Solar Decide يختار عبارات من الجلسات السابقة ونموذجًا يكتب الموجز، وذلك فقط عند ضبط `CENTRA_API_KEY` (أو `HYPERFIDE_CHANGELOG_KEY`)؛ ويستدعي `hyperfide fleet pr` و`checkpoint` الأداة `gh`. وخدمات التحكم الموزّعة تحت `core/control-plane` عمليات منفصلة تبدؤها صراحة ([مستوى التحكم في Hyperfide](#مستوى-التحكم-في-hyperfide)).
 
 ## لماذا Hyperfide
 
@@ -671,7 +671,7 @@ model       = ""             # optional model passed to the driver
 
 يقود **Start Agent Session on Task** الدردشة نفسها بانضباط لوحة المهام: يحجز المهمة، ويبذر الموجّه الافتتاحي من `hyperfide resume --task <id> --prompt`، ويشغّل الجلسة في العرض (أو، حين يكون العرض مشغولًا، في لوحة محرر إلى جانبه — وجلسات المهام المتزامنة يحصل كلٌّ منها على لوحته). اضبط `codify.agent.interface: "terminal"` للحصول على الطرفية المبذورة الكلاسيكية بدلًا من ذلك — وذلك المسار يُعرض أيضًا تلقائيًا حين يفشل المحوّل في البدء.
 
-يشغّل **Run Agent Headless on Task** الحجز + الموجّه كمهمة VS Code خلفية (`codex exec --sandbox workspace-write` أو `claude -p`) ويبلّغ عن الخروج بإشعار. ويطلق **Run Wave with Agents** الأمر `hyperfide spec run -n <codify.agent.parallelism>` في طرفية. ويغلّف **Hand Off Task** و**Resume Task in Agent Session** الأمرين `hyperfide handoff` و`hyperfide resume`، وينهي **Stop Agent Session** جلسة — واللوحة أو الطرفية التي تُغلق والمهمة غير منتهية تعرض تسليمًا وتحرر الحجز. وكل عرض يتحدث من أحداث مدفوعة عبر اتصال `hyperfide serve` واحد، فلا استطلاع؛ ومع ملف تنفيذي أقدم تعود اللوحة إلى الاستطلاع كل 10 ثوانٍ أثناء عمل الجلسات. وكل مهمة مزيّنة بالوكيل الذي يمسك عقدها. انظر [editors/vscode/README.md](../../editors/vscode/README.md).
+يشغّل **Run Agent Headless on Task** الحجز + الموجّه كمهمة VS Code خلفية (`codex exec --sandbox workspace-write` أو `claude -p`) ويبلّغ عن الخروج بإشعار. ويطلق **Run Wave with Agents** الأمر `hyperfide spec run -n <codify.agent.parallelism>` في طرفية. ويغلّف **Hand Off Task** و**Resume Task in Agent Session** الأمرين `hyperfide handoff` و`hyperfide resume`، وينهي **Stop Agent Session** جلسة — واللوحة أو الطرفية التي تُغلق والمهمة غير منتهية تعرض تسليمًا وتحرر الحجز. وكل عرض يتحدث من أحداث مدفوعة عبر اتصال `hyperfide serve` واحد، فلا استطلاع؛ ومع ملف تنفيذي أقدم تعود اللوحة إلى الاستطلاع كل 10 ثوانٍ أثناء عمل الجلسات. وكل مهمة مزيّنة بالوكيل الذي يمسك عقدها. انظر [extensions/vscode/README.md](../../extensions/vscode/README.md).
 
 ## مستوى التحكم في Hyperfide
 
@@ -698,20 +698,20 @@ flowchart TD
 - **المزوّدون محوّلات بفجوات صريحة.** ينشئ محوّلا Railway وBlaxel صناديق العزل. والقدرات التي يفتقر إليها مزوّد يُبلَّغ عنها بوصفها `UNSUPPORTED`، ولا تُحاكى أبدًا؛ وجدول القدرات في دليل التشغيل.
 - **الوكلاء لا يستطيعون الشهادة لأنفسهم.** يبقى Claude Code وCodex موصّلَي التنفيذ الطليعيين. ولا يستطيع العامل اكتساب سلطة النشر بتسمية فرع، أو الإبلاغ عن رمز خروج صفري، أو تحرير حالة مهمة: يفحص المتحققون المستقلون ومراجعو الالتزامات التقديم الدقيق، وبوابة النشر وحدها تكتب فروع التكامل المحمية. ونماذج القرار (Jev والمسارات المُقيَّمة الأخرى) قد تضيّق أو ترتّب أو تنبّه؛ والبوابات الحتمية تحسم.
 
-الخدمات مكتوبة بـ TypeScript تحت `services/hyperfide` (Node 24.22.0، مثبّتة بملف القفل الخاص بها). ابنِها في صندوق عزل للتنفيذ:
+الخدمات مكتوبة بـ TypeScript تحت `core/control-plane` (Node 24.22.0، مثبّتة بملف القفل الخاص بها). ابنِها في صندوق عزل للتنفيذ:
 
 ```sh
-make hyperfide-deps       # npm --prefix services/hyperfide ci --ignore-scripts
-make hyperfide-services   # npm --prefix services/hyperfide run build
+make hyperfide-deps       # npm --prefix core/control-plane ci --ignore-scripts
+make hyperfide-services   # npm --prefix core/control-plane run build
 make hyperfide-check      # type-check only
 ```
 
-نقاط الدخول هي `services/hyperfide/dist/control.js` و`provisioner.js` و`dispatch.js`. وكلٌّ منها يحتاج إلى ملف سياسة معتمد صراحةً وإلى مراجعة المواصفة الدقيقة التي يعتمدها (`--policy FILE --spec-revision REV`، إضافة إلى `--components` و`--module-root` و`--mode stdio|https|daemon` و`--host` و`--port` و`--tls-cert` و`--tls-key` الاختيارية)، ويرفض أي شيء آخر:
+نقاط الدخول هي `core/control-plane/dist/control.js` و`provisioner.js` و`dispatch.js`. وكلٌّ منها يحتاج إلى ملف سياسة معتمد صراحةً وإلى مراجعة المواصفة الدقيقة التي يعتمدها (`--policy FILE --spec-revision REV`، إضافة إلى `--components` و`--module-root` و`--mode stdio|https|daemon` و`--host` و`--port` و`--tls-cert` و`--tls-key` الاختيارية)، ويرفض أي شيء آخر:
 
 ```text
-$ node services/hyperfide/dist/control.js
+$ node core/control-plane/dist/control.js
 {"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision X
+$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
 {"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
 ```
 
@@ -748,7 +748,7 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 
 ### امتداد VS Code
 
-يحتوي `editors/vscode/` على امتداد Hyperfide — سير العمل كله في المحرر:
+يحتوي `extensions/vscode/` على امتداد Hyperfide — سير العمل كله في المحرر:
 
 - **تنقّل في الشيفرة من الرسم البياني.** يشغّل `hyperfide lsp` ويتحدث إليه بـ LSP، فيعمل الانتقال إلى التعريف وإيجاد المراجع ورموز مساحة العمل وعدسة الشيفرة في كل لغة مفهرسة بلا مترجم وبلا إعداد. ويعرض التمرير ما هو الرمز، وكم مرجعًا له، والقرارات المسجلة عنه.
 - **انجراف النطاق خطًّا متعرجًا.** تحرير ملف خارج `touches` المعلنة للمهمة الجارية يرفع تحذيرًا في لوحة Problems، لحظة التعديل. استشاري، وليس خطأً أبدًا.
@@ -764,12 +764,12 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 لا اعتماديات للامتداد ولا خطوة بناء — بما في ذلك عميل خادم اللغة الخاص به، المكتوب يدويًا لهذا السبب تحديدًا.
 
 ```sh
-cd editors/vscode
+cd extensions/vscode
 npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
 code --install-extension codify-workflow-2.0.0-dev.vsix --force
 ```
 
-يظهر الامتداد باسم Hyperfide Workflow؛ وتحتفظ حزمته وهويته في Marketplace بأسمائهما التاريخية (`codify-workflow` و`SidioraLabs.codify-workflow`)، وكذلك إعداداته `codify.*` ومعرّفات أوامره. وكل أمر مسجّل أيضًا تحت معرّف `hyperfide.*`، ويُعثر على الملف التنفيذي عبر `hyperfide.binaryPath` (أو `codify.binaryPath` القديم؛ ويجب أن يتفق الاثنان)، والافتراضي `hyperfide` على `PATH`. انظر [editors/vscode/README.md](../../editors/vscode/README.md). وأي محرر آخر يحصل على التنقل نفسه بتوجيه عميل LSP الخاص به إلى `hyperfide lsp`.
+يظهر الامتداد باسم Hyperfide Workflow؛ وتحتفظ حزمته وهويته في Marketplace بأسمائهما التاريخية (`codify-workflow` و`SidioraLabs.codify-workflow`)، وكذلك إعداداته `codify.*` ومعرّفات أوامره. وكل أمر مسجّل أيضًا تحت معرّف `hyperfide.*`، ويُعثر على الملف التنفيذي عبر `hyperfide.binaryPath` (أو `codify.binaryPath` القديم؛ ويجب أن يتفق الاثنان)، والافتراضي `hyperfide` على `PATH`. انظر [extensions/vscode/README.md](../../extensions/vscode/README.md). وأي محرر آخر يحصل على التنقل نفسه بتوجيه عميل LSP الخاص به إلى `hyperfide lsp`.
 
 ## التطوير
 
@@ -806,7 +806,7 @@ src/jev.c            typed decisions over curl
 src/skills.c         memories classed as skills, rendered as .agents/skills
 src/lsp.c            language server over the graph
 src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
-services/hyperfide/  TypeScript control, provisioner and dispatch services
+core/control-plane/  TypeScript control, provisioner and dispatch services
 tests/unit/          kvx grammar, SHA-256 vectors, JSON scanner, StrBuf/IO
 tests/integration/   graph, vcs, agentic, MCP protocol, spec engine, watcher,
                      sync gate, fleet, branches, jev, changelog, events, serve,
@@ -818,7 +818,7 @@ tests/fixtures/      sample polyglot project, a spec repo with golden outputs,
                      an explore project with gold queries,
                      stand-ins for curl, gh, and an OpenAI endpoint, and a
                      scripted fleet driver
-editors/vscode/      VS Code extension (plain JS): kvx language, task tree,
+extensions/vscode/      VS Code extension (plain JS): kvx language, task tree,
                      agent panel, memory browser, live fleet view, serve client
 scripts/             install/uninstall scripts (not advertised for 2.0 yet),
                      release construction, native component discovery

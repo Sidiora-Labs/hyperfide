@@ -110,7 +110,7 @@ set_status 2.1 implemented
 # The 5.7 section of candidates.ts runs as written (type-stripped) with the
 # module's fail/values stood in; the candidate tree is read from directories
 # in place of the imported Git objects (candidateFile in production).
-src="$repo/services/hyperfide/src/integration/candidates.ts"
+src="$repo/core/control-plane/src/integration/candidates.ts"
 grep -q 'requireSpecStatusMatchesQualification(db,s,candidateFile(p.r.path,p.head),contributors.map(c=>c.task_id))' "$src" ||
     fail "candidate build does not call the spec status check"
 command -v node >/dev/null || { echo "SKIP: node is not installed"; exit 77; }

@@ -45,8 +45,8 @@ def main():
   # Release-layout copy: root-owned files without group or world write, traversable by the follower uids.
   release=folder/'release';(release/'runtime').mkdir(parents=True);(release/'deploy/hyperfide').mkdir(parents=True);(release/'services').mkdir()
   shutil.copyfile(shutil.which('node'),release/'runtime/node');(release/'runtime/node').chmod(0o755)
-  for name in ['dist','components','migrations','node_modules']:shutil.copytree(ROOT/'services/hyperfide'/name,release/'services'/name,symlinks=True)
-  shutil.copyfile(ROOT/'services/hyperfide/package.json',release/'services/package.json')
+  for name in ['dist','components','migrations','node_modules']:shutil.copytree(ROOT/'core/control-plane'/name,release/'services'/name,symlinks=True)
+  shutil.copyfile(ROOT/'core/control-plane/package.json',release/'services/package.json')
   for name in ['migrate.mjs','bootstrap-fence.mjs']:shutil.copyfile(ROOT/'deploy/hyperfide'/name,release/'deploy/hyperfide'/name);(release/'deploy/hyperfide'/name).chmod(0o644)
   node=str(release/'runtime/node');fence=[node,str(release/'deploy/hyperfide/bootstrap-fence.mjs')]
   control=folder/'control';control.mkdir(mode=0o700)
@@ -183,7 +183,7 @@ def main():
   credential={'credential_id':str(uuid.uuid4()),'actor_id':str(uuid.uuid4()),'public_key_b64':f.keys['operator']['public_key_b64'],'allowed_actions':ACTIONS,'expires_at':(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=30)).isoformat(timespec='milliseconds').replace('+00:00','Z')}
   issue=control/'first-operator.json';private(issue,json.dumps({'schema_version':1,'scope':{'organisation_id':g['org'],'project_id':g['project'],'run_id':g['run'],'authority_epoch':epoch,'allowed_actions':ACTIONS},'metadata':g['metadata'],'accepted_intent':g['accepted'],'credential':credential}))
   issue_env={k:v for k,v in f.env.items()};issue_env.update(HYPERFIDE_MODE='distributed',HYPERFIDE_BOOTSTRAP_SOURCE_ROOT=str(control/'source'),HYPERFIDE_BOOTSTRAP_MAX_TTL_MS='3600000')
-  p=run(['node',ROOT/'services/hyperfide/dist/bootstrap.js','--input',issue],issue_env,cwd=ROOT)
+  p=run(['node',ROOT/'core/control-plane/dist/bootstrap.js','--input',issue],issue_env,cwd=ROOT)
   lines=(p.stdout if p.returncode==0 else p.stderr).splitlines()
   try:answer=json.loads(lines[-1]) if lines else {}
   except ValueError:answer={}

@@ -13,7 +13,7 @@ rerun. Prerequisite rows are seeded with FK triggers suspended. Prints SKIP and 
 import hashlib, importlib.util, json, os, pathlib, pwd, shutil, struct, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 GIT_ENV = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'HOME': '/nonexistent', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null',
@@ -34,7 +34,7 @@ export async function requalify(input){
 }
 """
 SEED = r"""
-const fs=require('fs'),{createRequire}=require('module'),pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg');
+const fs=require('fs'),{createRequire}=require('module'),pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg');
 (async()=>{const rows=JSON.parse(fs.readFileSync(0,'utf8')),c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();
  try{await c.query('BEGIN');await c.query("SET LOCAL session_replication_role=replica");for(const [sql,values] of rows)await c.query(sql,values);await c.query('COMMIT');}
  catch(e){await c.query('ROLLBACK');throw e;}finally{await c.end();}})().catch(e=>{process.stderr.write(String(e.message));process.exitCode=1;});
@@ -327,7 +327,7 @@ def main():
         if shutil.which(tool) is None:
             skip(tool + ' is required')
     if not (SERVICE / 'node_modules').exists():
-        skip('services/hyperfide/node_modules is not installed')
+        skip('core/control-plane/node_modules is not installed')
     stamp = subprocess.run(['node', str(ROOT / 'deploy/hyperfide/dist-stamp.mjs'), 'check', str(SERVICE)], cwd=ROOT, capture_output=True, text=True)
     if stamp.returncode:
         build = subprocess.run(['npm', '--prefix', str(SERVICE), 'run', 'build'], cwd=ROOT, capture_output=True, text=True, timeout=900)

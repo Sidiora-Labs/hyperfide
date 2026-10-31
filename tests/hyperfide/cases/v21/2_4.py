@@ -21,7 +21,7 @@ import time
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 FAILED = []
 SUPERUSER, OPERATOR, RUNTIME, DATABASE = 'hf_superuser', 'hf_operator', 'hf_runtime_control', 'hyperfide'
 
@@ -135,8 +135,8 @@ class Cluster:
 
 
 MIGRATE = """
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {MigrationCoordinator} from './services/hyperfide/dist/storage/durability.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {MigrationCoordinator} from './core/control-plane/dist/storage/durability.js';
 const signal=new AbortController().signal;
 const r=createResourceContainer({role:'control',env:{...process.env,HYPERFIDE_MIGRATION_DATABASE_URL:process.env.DATABASE_URL},signal});
 try{await new MigrationCoordinator(r).apply({timeoutMs:30000,signal});}finally{await r.close();}
@@ -174,10 +174,10 @@ def seed_sql():
 
 
 PROBE = r"""
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {createComponent} from './services/hyperfide/dist/recovery/stop.js';
-import {createComponent as createScheduler} from './services/hyperfide/dist/scheduler/claim.js';
-import {authenticatedInvocation} from './services/hyperfide/dist/transport/protocol.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {createComponent} from './core/control-plane/dist/recovery/stop.js';
+import {createComponent as createScheduler} from './core/control-plane/dist/scheduler/claim.js';
+import {authenticatedInvocation} from './core/control-plane/dist/transport/protocol.js';
 import {createHash,randomUUID} from 'node:crypto';
 const ids=JSON.parse(process.env.HF_STOP_IDS);
 const out={};const controller=new AbortController();

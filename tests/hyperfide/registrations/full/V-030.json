@@ -104,14 +104,14 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/integration/candidates.js",
-    "services/hyperfide/dist/integration/cleanup.js",
-    "services/hyperfide/dist/integration/closure.js",
-    "services/hyperfide/dist/integration/github.js",
-    "services/hyperfide/dist/integration/publication.js",
-    "services/hyperfide/dist/integration/release_barrier.js",
-    "services/hyperfide/dist/review/reproductions.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/integration/candidates.js",
+    "core/control-plane/dist/integration/cleanup.js",
+    "core/control-plane/dist/integration/closure.js",
+    "core/control-plane/dist/integration/github.js",
+    "core/control-plane/dist/integration/publication.js",
+    "core/control-plane/dist/integration/release_barrier.js",
+    "core/control-plane/dist/review/reproductions.js"
   ],
   "actions": [
     "git.fixture.create",
@@ -160,13 +160,13 @@
     "components/19.4/integration/identity-database-absence.json"
   ],
   "source_files": [
-    "services/hyperfide/components/17.4.json",
-    "services/hyperfide/migrations/0017-review.sql",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/src/review/coverage.ts",
-    "services/hyperfide/src/review/reproductions.ts",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/components/17.4.json",
+    "core/control-plane/migrations/0017-review.sql",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/review/coverage.ts",
+    "core/control-plane/src/review/reproductions.ts",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/cases/full/compose.py",
     "tests/hyperfide/cases/full/register.py",
     "tests/hyperfide/cases/tasks/15_2.py",
@@ -185,10 +185,10 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/components",
-    "services/hyperfide/dist",
-    "services/hyperfide/migrations",
-    "services/hyperfide/src"
+    "core/control-plane/components",
+    "core/control-plane/dist",
+    "core/control-plane/migrations",
+    "core/control-plane/src"
   ],
   "cleanup_argv": [
     "python3",

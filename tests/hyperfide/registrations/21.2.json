@@ -52,9 +52,9 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/decisions/audit.js",
-    "services/hyperfide/dist/decisions/recovery.js",
-    "services/hyperfide/dist/control.js",
+    "core/control-plane/dist/decisions/audit.js",
+    "core/control-plane/dist/decisions/recovery.js",
+    "core/control-plane/dist/control.js",
     "tests/hyperfide/cases/tasks/13_2.py",
     "tests/hyperfide/support/identity_fixture.py"
   ],
@@ -67,9 +67,9 @@
   ],
   "required_artifacts": [],
   "source_files": [
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/qualify.py",
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
@@ -77,15 +77,15 @@
     "tests/hyperfide/cases/tasks/21_4.py",
     "tests/hyperfide/cases/tasks/21_2.py",
     "tests/hyperfide/registrations/21.2.json",
-    "src/spec.c",
-    "src/hyperfide/client.c",
-    "src/hyperfide/client.h"
+    "core/native/src/spec.c",
+    "core/native/src/hyperfide/client.c",
+    "core/native/src/hyperfide/client.h"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "actions": []
 }

@@ -249,11 +249,11 @@ def main() -> int:
         execute(cg, root, "sync")
         reports["edit"] = compare(cg, root, work, "edit", "main")
 
-        (root / "src/zeta.ts").rename(root / "src/renamed.ts")
+        (root / "core/native/src/zeta.ts").rename(root / "core/native/src/renamed.ts")
         execute(cg, root, "sync")
         reports["rename"] = compare(cg, root, work, "rename", "main")
 
-        (root / "src/renamed.ts").unlink()
+        (root / "core/native/src/renamed.ts").unlink()
         execute(cg, root, "sync")
         reports["delete"] = compare(cg, root, work, "delete", "main")
 

@@ -1,10 +1,10 @@
 # Source reference: Control services: providers and preparation
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the `providers/` subtree (including `providers/blaxel/` and `providers/railway/`) and the `preparation/` and `recovery/` subtrees of `services/hyperfide/src/`: 864 declarations in 25 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed declarations of the `providers/` subtree (including `providers/blaxel/` and `providers/railway/`) and the `preparation/` and `recovery/` subtrees of `core/control-plane/src/`: 864 declarations in 25 files at revision `a2a367f9` of the Hyperfide 2.0 development tree (`hyperfide version` 2.0.0-dev, not a release). Method, column meanings and caveats are described in the entry point; source links resolve from this directory and line numbers refer to revision `a2a367f9`.
 
-## services/hyperfide/src/preparation/checkpoint.ts
+## core/control-plane/src/preparation/checkpoint.ts
 
-[Open source](../../services/hyperfide/src/preparation/checkpoint.ts)
+[Open source](../../core/control-plane/src/preparation/checkpoint.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -32,9 +32,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `roles` | function | 132 | <code>function roles(manifest:PreparationManifest,key:string,entries:Entry&#91;&#93;):Row{</code> |
 | `validateRestoredCheckpoint` | function | 147 | <code>export async function validateRestoredCheckpoint(input:RestoredCheckpointInput):Promise&lt;Row&gt;{</code> |
 
-## services/hyperfide/src/preparation/effective.ts
+## core/control-plane/src/preparation/effective.ts
 
-[Open source](../../services/hyperfide/src/preparation/effective.ts)
+[Open source](../../core/control-plane/src/preparation/effective.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -60,9 +60,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `policyKeys` | function | 149 | <code>function policyKeys(source:string):void{</code> |
 | `readPreparationRecipePolicy` | function | 164 | <code>export function readPreparationRecipePolicy(parent:PreparationManifest,recipeBytes:Uint8Array):PreparationRecipePolicy {</code> |
 
-## services/hyperfide/src/preparation/manifests.ts
+## core/control-plane/src/preparation/manifests.ts
 
-[Open source](../../services/hyperfide/src/preparation/manifests.ts)
+[Open source](../../core/control-plane/src/preparation/manifests.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -129,9 +129,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `compatibilitySoftware` | function | 605 | <code>function compatibilitySoftware(profile:EnvironmentProfile):unknown {</code> |
 | `compareEnvironmentCompatibility` | function | 616 | <code>export async function compareEnvironmentCompatibility(source:unknown,target:unknown):Promise&lt;{</code> |
 
-## services/hyperfide/src/preparation/prewarm.ts
+## core/control-plane/src/preparation/prewarm.ts
 
-[Open source](../../services/hyperfide/src/preparation/prewarm.ts)
+[Open source](../../core/control-plane/src/preparation/prewarm.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -156,9 +156,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `providerFailure` | function | 193 | <code>function providerFailure(error:unknown):{failure_class:FailureClass;code:string;message:string}{</code> |
 | `createProvisionerComponent` | function | 199 | <code>export function createProvisionerComponent(context:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/preparation/recipe.ts
+## core/control-plane/src/preparation/recipe.ts
 
-[Open source](../../services/hyperfide/src/preparation/recipe.ts)
+[Open source](../../core/control-plane/src/preparation/recipe.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -171,9 +171,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `readTrustedRecipe` | function | 27 | <code>export async function readTrustedRecipe(env:Readonly&lt;NodeJS.ProcessEnv&gt;,digest:string):Promise&lt;Uint8Array&gt;{</code> |
 | `resolvePreparationPlan` | function | 45 | <code>export function resolvePreparationPlan(input:{manifest:unknown;recipe:Uint8Array;configuration_digest:string;job_class:PreparationJobClass}):ResolvedPreparation{</code> |
 
-## services/hyperfide/src/preparation/seal.ts
+## core/control-plane/src/preparation/seal.ts
 
-[Open source](../../services/hyperfide/src/preparation/seal.ts)
+[Open source](../../core/control-plane/src/preparation/seal.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -195,9 +195,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `requireCompleteArtifacts` | function | 105 | <code>export async function requireCompleteArtifacts(tx:PrimaryTransaction,job:PreparationJobRow,digests:readonly string&#91;&#93;):Promise&lt;void&gt;{</code> |
 | `sealPreparedBase` | function | 118 | <code>export async function sealPreparedBase(tx:PrimaryTransaction,job:PreparationJobRow,report:RemoteReport,target:PreparationTarget,</code> |
 
-## services/hyperfide/src/providers/blaxel/images.ts
+## core/control-plane/src/providers/blaxel/images.ts
 
-[Open source](../../services/hyperfide/src/providers/blaxel/images.ts)
+[Open source](../../core/control-plane/src/providers/blaxel/images.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -245,9 +245,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `publishBlaxelImage` | function | 238 | <code>export async function publishBlaxelImage(value:unknown,ctx:ComponentContext):Promise&lt;ProviderOutcome&lt;'prepare'&gt;&gt;{</code> |
 | `createComponent` | function | 256 | <code>export function createComponent(_ctx:ComponentContext):Component{return{apiVersion:1,actions:{</code> |
 
-## services/hyperfide/src/providers/blaxel/lifetime.ts
+## core/control-plane/src/providers/blaxel/lifetime.ts
 
-[Open source](../../services/hyperfide/src/providers/blaxel/lifetime.ts)
+[Open source](../../core/control-plane/src/providers/blaxel/lifetime.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -269,9 +269,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `get` | method | 131 | <code>const actual=sandbox as unknown as {metadata:unknown;spec:unknown;expiresIn:unknown;lastUsedAt:unknown;process:{get(id:string,options:{signal:AbortSignal;retry:boolean}):Promise&lt;unknown&gt;}};</code> |
 | `createComponent` | function | 147 | <code>export function createComponent(_ctx:ComponentContext):Component{return{apiVersion:1,actions:{</code> |
 
-## services/hyperfide/src/providers/blaxel/processes.ts
+## core/control-plane/src/providers/blaxel/processes.ts
 
-[Open source](../../services/hyperfide/src/providers/blaxel/processes.ts)
+[Open source](../../core/control-plane/src/providers/blaxel/processes.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -358,9 +358,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `observe` | method | 524 | <code>async observe(raw:ProviderOperation&lt;'observe'&gt;,signal=ctx.signal):Promise&lt;ProviderOutcome&lt;'observe'&gt;&gt;{</code> |
 | `createComponent` | function | 537 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/providers/blaxel/recovery.ts
+## core/control-plane/src/providers/blaxel/recovery.ts
 
-[Open source](../../services/hyperfide/src/providers/blaxel/recovery.ts)
+[Open source](../../core/control-plane/src/providers/blaxel/recovery.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -385,9 +385,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `authenticatedRecoveryController` | function | 115 | <code>function authenticatedRecoveryController(ctx:ComponentContext,invocation:InvocationContext,scope:ProviderScope){</code> |
 | `createComponent` | function | 157 | <code>export function createComponent(ctx:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/providers/contract.ts
+## core/control-plane/src/providers/contract.ts
 
-[Open source](../../services/hyperfide/src/providers/contract.ts)
+[Open source](../../core/control-plane/src/providers/contract.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -448,9 +448,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `validateProviderOutcome` | function | 421 | <code>export function validateProviderOutcome(value: unknown): unknown {</code> |
 | `createComponent` | function | 466 | <code>export function createComponent(_context: ComponentContext): Component {</code> |
 
-## services/hyperfide/src/providers/placement.ts
+## core/control-plane/src/providers/placement.ts
 
-[Open source](../../services/hyperfide/src/providers/placement.ts)
+[Open source](../../core/control-plane/src/providers/placement.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -497,9 +497,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `createComponent` | function | 470 | <code>export function createComponent(context:ComponentContext):Component{</code> |
 | `createProbeComponent` | function | 500 | <code>export function createProbeComponent(context:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/providers/pools.ts
+## core/control-plane/src/providers/pools.ts
 
-[Open source](../../services/hyperfide/src/providers/pools.ts)
+[Open source](../../core/control-plane/src/providers/pools.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -602,9 +602,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `publishVerifiedRuntimeReadiness` | function | 501 | <code>export async function publishVerifiedRuntimeReadiness(tx:PrimaryTransaction,invocation:InvocationContext,</code> |
 | `createComponent` | function | 586 | <code>export function createComponent(context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/providers/railway/preparation.ts
+## core/control-plane/src/providers/railway/preparation.ts
 
-[Open source](../../services/hyperfide/src/providers/railway/preparation.ts)
+[Open source](../../core/control-plane/src/providers/railway/preparation.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -656,9 +656,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `preparationInput` | function | 345 | <code>function preparationInput(value:unknown,keys:string&#91;&#93;):JsonObject {</code> |
 | `createComponent` | function | 352 | <code>export function createComponent(_context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/providers/railway/processes.ts
+## core/control-plane/src/providers/railway/processes.ts
 
-[Open source](../../services/hyperfide/src/providers/railway/processes.ts)
+[Open source](../../core/control-plane/src/providers/railway/processes.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -714,9 +714,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `verifyRailwayStreamArchive` | function | 709 | <code>export async function verifyRailwayStreamArchive(invoke:RailwayArtifactInvoke,reference:RailwayArchiveReference,</code> |
 | `createComponent` | function | 769 | <code>export function createComponent(_context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/providers/railway/profile.ts
+## core/control-plane/src/providers/railway/profile.ts
 
-[Open source](../../services/hyperfide/src/providers/railway/profile.ts)
+[Open source](../../core/control-plane/src/providers/railway/profile.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -729,9 +729,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `observeRuntimeProfile` | function | 104 | <code>export function observeRuntimeProfile(profile:RailwayRuntimeProfile,observed:unknown):{</code> |
 | `createComponent` | function | 121 | <code>export function createComponent(_context:ComponentContext):Component {</code> |
 
-## services/hyperfide/src/providers/railway/reconciliation.ts
+## core/control-plane/src/providers/railway/reconciliation.ts
 
-[Open source](../../services/hyperfide/src/providers/railway/reconciliation.ts)
+[Open source](../../core/control-plane/src/providers/railway/reconciliation.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -779,9 +779,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `railwayCredentialResolver` | function | 553 | <code>function railwayCredentialResolver(authority:CredentialAuthority,hooks:ProviderPersistenceHooks):CredentialResolver {</code> |
 | `installRailwayRuntime` | function | 575 | <code>function installRailwayRuntime(context:ComponentContext):{close:()=&gt;Promise&lt;void&gt;;policies:RailwayPoolPolicy&#91;&#93;} {</code> |
 
-## services/hyperfide/src/providers/reconcile.ts
+## core/control-plane/src/providers/reconcile.ts
 
-[Open source](../../services/hyperfide/src/providers/reconcile.ts)
+[Open source](../../core/control-plane/src/providers/reconcile.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -830,9 +830,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `SchedulerProofRegistry` | type | 654 | <code>type SchedulerProofRegistry={registerProofReader(source:'provider.absence',reader:typeof readConfirmedAbsence):()=&gt;void};</code> |
 | `registerProofReader` | method | 654 | <code>type SchedulerProofRegistry={registerProofReader(source:'provider.absence',reader:typeof readConfirmedAbsence):()=&gt;void};</code> |
 
-## services/hyperfide/src/providers/worker.ts
+## core/control-plane/src/providers/worker.ts
 
-[Open source](../../services/hyperfide/src/providers/worker.ts)
+[Open source](../../core/control-plane/src/providers/worker.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -856,9 +856,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `stop` | method | 148 | <code>async stop(timeoutMs=5000):Promise&lt;void&gt;{</code> |
 | `createProvisionerWorker` | function | 156 | <code>export function createProvisionerWorker(database:ProviderDatabase,env:Readonly&lt;NodeJS.ProcessEnv&gt;,signal:AbortSignal,driver:ProvisionerWorkerDriver):ProvisionerWorker{</code> |
 
-## services/hyperfide/src/recovery/control.ts
+## core/control-plane/src/recovery/control.ts
 
-[Open source](../../services/hyperfide/src/recovery/control.ts)
+[Open source](../../core/control-plane/src/recovery/control.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -917,9 +917,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `AcceptedRunRecoveryIntent` | interface | 314 | <code>export interface AcceptedRunRecoveryIntent extends AcceptedRunRebindInput {intent_digest:string}</code> |
 | `createAcceptedRunRecoveryVerifier` | function | 318 | <code>export function createAcceptedRunRecoveryVerifier(options:{</code> |
 
-## services/hyperfide/src/recovery/drills.ts
+## core/control-plane/src/recovery/drills.ts
 
-[Open source](../../services/hyperfide/src/recovery/drills.ts)
+[Open source](../../core/control-plane/src/recovery/drills.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -933,9 +933,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `completeDrill` | function | 27 | <code>async function completeDrill(gateway:RecoveryGateway,scope:RecoveryScope,id:string,observed:Observed&#124;undefined):Promise&lt;void&gt;{</code> |
 | `createComponent` | function | 47 | <code>export function createComponent(startup:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/recovery/fencing.ts
+## core/control-plane/src/recovery/fencing.ts
 
-[Open source](../../services/hyperfide/src/recovery/fencing.ts)
+[Open source](../../core/control-plane/src/recovery/fencing.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -993,9 +993,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `observeConfiguredResource` | method | 274 | <code>observeConfiguredResource(referenceKey:string,operationId:string,authority:VerifiedWriterObservationPermit,signal:AbortSignal,journal:WriterObservationJournal):Promise&lt;WriterObservationReceipt&gt;;</code> |
 | `createExternalWriterObserver` | function | 277 | <code>export function createExternalWriterObserver(config:ExternalFenceTopology,providers:ProviderWriterObservationCapability,legacy:Pick&lt;LegacyWriterBackend,'observeIsolation'&gt;,journal:FileExternalFenceJou…</code> |
 
-## services/hyperfide/src/recovery/fencing_service.ts
+## core/control-plane/src/recovery/fencing_service.ts
 
-[Open source](../../services/hyperfide/src/recovery/fencing_service.ts)
+[Open source](../../core/control-plane/src/recovery/fencing_service.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -1014,9 +1014,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `legacy` | function | 73 | <code>function legacy(value:unknown):value is LegacyWriterBackend{return object(value)&amp;&amp;typeof value.disableAdmission==='function'&amp;&amp;typeof value.observeIsolation==='function'}</code> |
 | `createComponent` | function | 75 | <code>export async function createComponent(context:ComponentContext):Promise&lt;Component&gt;{</code> |
 
-## services/hyperfide/src/recovery/stop.ts
+## core/control-plane/src/recovery/stop.ts
 
-[Open source](../../services/hyperfide/src/recovery/stop.ts)
+[Open source](../../core/control-plane/src/recovery/stop.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |
@@ -1025,9 +1025,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists the indexed de
 | `requestScopedControl` | function | 12 | <code>async function requestScopedControl(input:unknown,context:ComponentContext):Promise&lt;unknown&gt;{</code> |
 | `createComponent` | function | 91 | <code>export function createComponent(_context:ComponentContext):Component{</code> |
 
-## services/hyperfide/src/recovery/workers.ts
+## core/control-plane/src/recovery/workers.ts
 
-[Open source](../../services/hyperfide/src/recovery/workers.ts)
+[Open source](../../core/control-plane/src/recovery/workers.ts)
 
 | Indexed name | Kind | Line | Source declaration |
 | --- | --- | ---: | --- |

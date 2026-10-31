@@ -473,12 +473,12 @@ def scenarios(fx):
     kill_slot()
 
 def build(work):
-    for name, source, extra in (("helper", HELPER, []), ("cancel", CANCEL, [str(ROOT / "src/hyperfide" / p) for p in
+    for name, source, extra in (("helper", HELPER, []), ("cancel", CANCEL, [str(ROOT / "core/native/src/hyperfide" / p) for p in
             ("process_tree.c", "launch.c", "job.c", "supervisor.c", "supervisor_daemon.c", "transport.c")] + ["-lsqlite3", "-lcurl", "-lcrypto"])):
         path = work / (name + ".c")
         path.write_text(source)
         # Keep the cancellation probe independent of unused job-launch integrations.
-        compiled = subprocess.run(["cc", "-std=gnu11", "-O1", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-I", str(ROOT / "src/hyperfide"), str(path), *extra, "-o", str(work / name)],
+        compiled = subprocess.run(["cc", "-std=gnu11", "-O1", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-I", str(ROOT / "core/native/src/hyperfide"), str(path), *extra, "-o", str(work / name)],
                                   capture_output=True, text=True)
         if compiled.returncode:
             raise RuntimeError(compiled.stderr)

@@ -3,7 +3,7 @@
 Hyperfide 2.0 (`hyperfide version` prints `2.0.0-dev`; this tree is a
 development revision, not a release) has three parts: one local C binary with
 its SQLite graph, a registry of native C components linked into it, and a Node
-control plane under `services/hyperfide` that keeps distributed authority in
+control plane under `core/control-plane` that keeps distributed authority in
 PostgreSQL. The local binary is described first and at length, because every
 command a reader runs today goes through it; [Hyperfide 2.0 layout](#hyperfide-20-layout)
 covers the other two parts and what the specification records as implemented.
@@ -31,14 +31,14 @@ the graph, receipts, independent checking and closure.
 
 The C front door delegates `hyperfide platform <args>` to the runtime CLI.
 Host daemons own filesystem and provider execution; server and daemon contracts
-preserve that boundary. The distributed authority remains `services/hyperfide`
+preserve that boundary. The distributed authority remains `core/control-plane`
 on PostgreSQL; local runtime storage alone grants no authority. The feature's
 authority client selects its endpoint separately from SQLite runtime storage;
 the planned runtime PostgreSQL dialect remains task 6.1.
 
 See [the platform guide](hyperfide/platform.md) for the actual plugin inventory,
 adapter boundaries, slices and memory contracts, and executable proof commands.
-See [runtime contracts](../platform/docs/system-overview.md) for thread,
+See [runtime contracts](../docs/runtime/system-overview.md) for thread,
 environment, host and transport relationships.
 
 ## Data flow
@@ -1298,10 +1298,10 @@ feature's plan incremental; per-feature baselines remain available for trace.
 The effective state remains
 `legacy` for old specs and `off` when project policy disables the stage.
 
-## VS Code agent sessions (`editors/vscode/agents.js`)
+## VS Code agent sessions (`extensions/vscode/agents.js`)
 
 The extension's counterpart to the orchestrator, in the same
-zero-dependency plain JS as the rest of `editors/vscode/`. It claims a
+zero-dependency plain JS as the rest of `extensions/vscode/`. It claims a
 task (`spec claim` + `spec start`), writes a prompt file from
 `hyperfide resume --task <id> --prompt`, and launches the configured driver in
 a named terminal or as a headless VS Code task; closing a terminal whose
@@ -1309,7 +1309,7 @@ task is unfinished offers to release the claim. A 10-second poll —
 active only while sessions exist — keeps the task board fresh,
 decorating tasks with the lease-holding agent and a terminal marker.
 Every refresh in the extension, this poll included, goes through one
-scheduler (`editors/vscode/refresh.js`): a single chain of `hyperfide` calls at
+scheduler (`extensions/vscode/refresh.js`): a single chain of `hyperfide` calls at
 a time (`sync --max-age --background --wait 0`, `spec status`,
 `spec trace --no-sync`, `recall`, `guard`), bursts debounced into one
 run, a floor between runs, and at most one trailing run queued. The
@@ -1320,7 +1320,7 @@ a hang; the manifest-coherence test keeps declared and registered
 commands in lockstep.
 
 Against a `hyperfide` that has `serve`, the polling above is off.
-`editors/vscode/serve.js` holds one `hyperfide serve` child for the whole
+`extensions/vscode/serve.js` holds one `hyperfide serve` child for the whole
 extension: every `hyperfide` call goes down it as an `exec`, events come back as
 pushed notifications, and `applyEvent` folds each into a small live model
 the task, memory, and fleet views patch themselves from. It reconnects
@@ -1472,7 +1472,7 @@ Fragments 12.1 and 25.3 are the components that need libcurl and libcrypto.
    `authority` has no row in the help table in this revision. Task 25.3, which
    owns this routing, is pending.
 
-### Control plane (`services/hyperfide`)
+### Control plane (`core/control-plane`)
 
 The control plane is a TypeScript package, `@hyperfide/control-services`
 (version 2.0.0-dev). Its `engines` field pins Node 24.22.0, and it depends
@@ -1489,11 +1489,11 @@ role entrypoints. Each calls `runService(role)` in
 `--port`, `--tls-cert` and `--tls-key`, and refuses any other flag:
 
 ```text
-$ node services/hyperfide/dist/control.js
+$ node core/control-plane/dist/control.js
 {"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
 ```
 
-Service components are JSON fragments in `services/hyperfide/components/`,
+Service components are JSON fragments in `core/control-plane/components/`,
 112 in this tree. Each fragment names its `id`, owning `task`, `roles`,
 `module`, `entry`, `api_version`, `actions` and `requires`.
 `ComponentRegistry` (`src/components/registry.ts`) loads only the fragments
@@ -1524,7 +1524,7 @@ The domain modules sit under `src/`:
 behind the binary's packaged launchers.
 
 PostgreSQL is the distributed authority, and everything lives in schema
-`hyperfide`. The migrations are `services/hyperfide/migrations/NNNN-name.sql`:
+`hyperfide`. The migrations are `core/control-plane/migrations/NNNN-name.sql`:
 35 files, from `0001-authority.sql` to `0704-graph-query-parity.sql`.
 `src/storage/durability.ts` applies them in ascending order and records each
 one's checksum in `hyperfide.schema_migrations`. An applied migration whose

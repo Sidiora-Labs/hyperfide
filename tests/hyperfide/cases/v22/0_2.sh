@@ -46,6 +46,6 @@ runtime = (root / 'packages/config/src/runtime.ts').read_text()
 assert re.search(r'HYPERFIDE_PROD_DATA_DIR_NAME\s*=\s*"\.hyperfide"', runtime)
 PY
 
-pnpm -C platform install --frozen-lockfile
-pnpm -C platform typecheck
-pnpm -C platform exec turbo run test --filter=./packages/plugin-sdk --filter=./packages/config --filter=./apps/server
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm exec turbo run test --filter=./packages/plugin-sdk --filter=./packages/config --filter=./apps/server

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Native events leave the sandbox (hyperfide-v21 4.2, req 4 ac_1, D21). The real
-# launch broker (build/hyperfide-native, src/hyperfide/launch.c) reads the
+# launch broker (build/hyperfide-native, core/native/src/hyperfide/launch.c) reads the
 # launched agent's stdout; every question or approval prompt line is spooled as
 # a native.question / native.approval launch event carrying the line verbatim
 # and posted promptly to runner.launch.event.record, where the 4.1 classifier

@@ -27,14 +27,17 @@
 
 ## Platform runtime
 
-The runtime under `platform/` adds browser, desktop and mobile surfaces, a
-server, host daemons and provider plugins to the C binary and control plane.
-Use Node 24 and pnpm 9.15: `pnpm -C platform install --frozen-lockfile`, then
-`pnpm -C platform dev`. The public command is `hyperfide platform --help`.
+Applications under `apps/`, runtime components under `core/`, and provider
+plugins under `plugins/` extend the C binary and control plane.
+Use the root `.nvmrc` (Node 22.19.0) and pnpm 9.15: `pnpm install --frozen-lockfile`, then
+`pnpm dev`. The public command is `hyperfide platform --help`.
+
+The independent `core/control-plane` package uses Node 24.22.0 and npm 11.19.1;
+install its dependencies with `npm --prefix core/control-plane ci --ignore-scripts`.
 
 | Command | Description |
 | --- | --- |
-| `hyperfide platform <args...>` | Front door to the platform runtime CLI: runs `HYPERFIDE_PLATFORM_BIN`, the repository's `platform/apps/cli/bin/hyperfide-platform`, or `hyperfide-platform` on PATH, in that order, passing arguments, streams and exit status through untouched |
+| `hyperfide platform <args...>` | Front door to the platform runtime CLI: runs `HYPERFIDE_PLATFORM_BIN`, the repository's `apps/cli/bin/hyperfide-platform`, or `hyperfide-platform` on PATH, in that order, passing arguments, streams and exit status through untouched |
 
 The [platform guide](docs/hyperfide/platform.md) describes runtime
 capabilities, authority plugins, fleet, slices and memory integration boundaries,
@@ -75,7 +78,7 @@ The layers reinforce each other: commits are auto-tagged with the task they impl
 
 **And documentation is the last verified task.** New feature specs enable an `@docs` closure stage by default. Once every ordinary task qualifies, Hyperfide builds a bounded evidence packet from the spec, task-attributed snapshots, code graph, routes, memories, checks, and existing docs. The same configured agent connector updates user and developer documentation, while `hyperfide docs check` checks declared claim references, local inline links, required graph-surface coverage, and configured target scope. `hyperfide docs close` records a dedicated `[spec:<feature>/@docs]` snapshot and an incremental baseline for the next spec flow. These structural checks support review; they do not certify every sentence's meaning.
 
-The CLI runs no background services you did not start and sends no telemetry — the fleet supervisor runs only after `hyperfide fleet up`, and stops with `hyperfide fleet down`. The graph, memory, snapshots, and the whole task loop run on your machine and stay there. The exceptions are named and opt-in: Jev decisions need `OPENROUTER_API_KEY`, and only the commands built on them ever make that call; `hyperfide changelog` asks a model for release highlights, and `hyperfide recap` has Solar Decide pick statements from past sessions and a model write the brief, only when `CENTRA_API_KEY` (or `HYPERFIDE_CHANGELOG_KEY`) is set; and `hyperfide fleet pr` and `checkpoint` call `gh`. The distributed control services under `services/hyperfide` are separate processes you start explicitly ([The Hyperfide control plane](#the-hyperfide-control-plane)).
+The CLI runs no background services you did not start and sends no telemetry — the fleet supervisor runs only after `hyperfide fleet up`, and stops with `hyperfide fleet down`. The graph, memory, snapshots, and the whole task loop run on your machine and stay there. The exceptions are named and opt-in: Jev decisions need `OPENROUTER_API_KEY`, and only the commands built on them ever make that call; `hyperfide changelog` asks a model for release highlights, and `hyperfide recap` has Solar Decide pick statements from past sessions and a model write the brief, only when `CENTRA_API_KEY` (or `HYPERFIDE_CHANGELOG_KEY`) is set; and `hyperfide fleet pr` and `checkpoint` call `gh`. The distributed control services under `core/control-plane` are separate processes you start explicitly ([The Hyperfide control plane](#the-hyperfide-control-plane)).
 
 ## Why Hyperfide
 
@@ -170,7 +173,7 @@ Framework-aware routing records supported literal registrations and links a uniq
 
 ## Installation
 
-Hyperfide 2.0 is built from source in this revision. The one-line installer in `scripts/install.sh` is not advertised as a Hyperfide release until the distribution and rename tasks (25.4 and 26.2 in `spec/hyperfide/spec.kvx`) close.
+Hyperfide 2.0 is built from source in this revision. The one-line installer in `tools/repository/install.sh` is not advertised as a Hyperfide release until the distribution and rename tasks (25.4 and 26.2 in `spec/hyperfide/spec.kvx`) close.
 
 Dependencies: a C compiler, `python3` (the build discovers native components with it), and the development packages for SQLite, libcurl and OpenSSL's libcrypto (`libsqlite3-dev`, `libcurl4-openssl-dev`, `libssl-dev` on Debian and Ubuntu). The tree-sitter runtime and grammars are vendored.
 
@@ -702,7 +705,7 @@ The chat itself is a real chat: markdown replies with headings, tables and fence
 
 **Start Agent Session on Task** drives the same chat with the board discipline: it claims the task, seeds the opening prompt from `hyperfide resume --task <id> --prompt`, and runs the session in the view (or, when the view is busy, in an editor panel beside it — concurrent task sessions each get their own). Set `codify.agent.interface: "terminal"` for the classic seeded terminal instead — that path is also offered automatically when the adapter fails to start.
 
-**Run Agent Headless on Task** runs the claim + prompt as a background VS Code task (`codex exec --sandbox workspace-write` or `claude -p`) and reports the exit as a notification. **Run Wave with Agents** launches `hyperfide spec run -n <codify.agent.parallelism>` in a terminal. **Hand Off Task** and **Resume Task in Agent Session** wrap `hyperfide handoff` and `hyperfide resume`, and **Stop Agent Session** ends a session — a panel or terminal closing with the task unfinished offers a handoff and releases the claim. Every view updates from events pushed over one `hyperfide serve` connection, so there is no polling; against an older binary the board falls back to polling every 10 seconds while sessions run. Each task is decorated with the agent holding its lease. See [editors/vscode/README.md](editors/vscode/README.md).
+**Run Agent Headless on Task** runs the claim + prompt as a background VS Code task (`codex exec --sandbox workspace-write` or `claude -p`) and reports the exit as a notification. **Run Wave with Agents** launches `hyperfide spec run -n <codify.agent.parallelism>` in a terminal. **Hand Off Task** and **Resume Task in Agent Session** wrap `hyperfide handoff` and `hyperfide resume`, and **Stop Agent Session** ends a session — a panel or terminal closing with the task unfinished offers a handoff and releases the claim. Every view updates from events pushed over one `hyperfide serve` connection, so there is no polling; against an older binary the board falls back to polling every 10 seconds while sessions run. Each task is decorated with the agent holding its lease. See [extensions/vscode/README.md](extensions/vscode/README.md).
 
 ## The Hyperfide control plane
 
@@ -730,20 +733,20 @@ flowchart TD
 - **Agents cannot certify themselves.** Claude Code and Codex remain the frontier execution connectors. A worker cannot gain publication authority by naming a branch, reporting a zero exit code, or editing a task status: independent verifiers and commit reviewers check the exact submission, and a publication gateway alone writes protected integration branches. Decision models (Jev and the other evaluated routes) may narrow, rank or flag; deterministic gates decide.
 - **Workers never prompt; they raise Asks.** A native prompt in a sandbox is invisible: nobody is at the worker's terminal, so a Claude Code permission dialog or a Codex approval request would hang the attempt until its lease expired without any person ever seeing it. Every worker launch therefore keeps native prompts disabled (Claude Code `--permission-mode dontAsk --permission-prompts none`; Codex `approvalPolicy` `never`) and carries the `codify` MCP server (`hyperfide mcp`, located by `HF_CODIFY_MCP_BINARY` or beside `hyperfide-native`) with `ask_raise`, `ask_status`, `ask_list` and `approvals_list` allowed, plus the workflow's rule for when to raise each kind. The Ask is the only path by which a worker's question reaches a person; with no codify binary to serve it, the connector refuses the launch.
 
-The services are TypeScript under `services/hyperfide` (Node 24.22.0, pinned by its lockfile). Build them in an execution sandbox:
+The services are TypeScript under `core/control-plane` (Node 24.22.0, pinned by its lockfile). Build them in an execution sandbox:
 
 ```sh
-make hyperfide-deps       # npm --prefix services/hyperfide ci --ignore-scripts
-make hyperfide-services   # npm --prefix services/hyperfide run build
+make hyperfide-deps       # npm --prefix core/control-plane ci --ignore-scripts
+make hyperfide-services   # npm --prefix core/control-plane run build
 make hyperfide-check      # type-check only
 ```
 
-`services/hyperfide/dist/control.js`, `provisioner.js` and `dispatch.js` are the entrypoints. Each needs an explicitly approved policy file and the exact specification revision it approves (`--policy FILE --spec-revision REV`, plus optional `--components`, `--module-root`, `--mode stdio|https|daemon`, `--host`, `--port`, `--tls-cert`, `--tls-key`), and refuses anything else:
+`core/control-plane/dist/control.js`, `provisioner.js` and `dispatch.js` are the entrypoints. Each needs an explicitly approved policy file and the exact specification revision it approves (`--policy FILE --spec-revision REV`, plus optional `--components`, `--module-root`, `--mode stdio|https|daemon`, `--host`, `--port`, `--tls-cert`, `--tls-key`), and refuses anything else:
 
 ```text
-$ node services/hyperfide/dist/control.js
+$ node core/control-plane/dist/control.js
 {"ok":false,"error":{"code":"INVALID_ARGS","message":"Explicit trusted policy and pinned specification revision required"}}
-$ node services/hyperfide/dist/control.js --policy /nonexistent --spec-revision X
+$ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision X
 {"ok":false,"error":{"code":"POLICY_INVALID","message":"Trusted policy file is unavailable"}}
 ```
 
@@ -780,7 +783,7 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 
 ### VS Code extension
 
-`editors/vscode/` ships the Hyperfide extension — the whole workflow in the editor:
+`extensions/vscode/` ships the Hyperfide extension — the whole workflow in the editor:
 
 - **Code navigation from the graph.** It runs `hyperfide lsp` and speaks LSP to it, so go-to-definition, find-references, workspace symbols, and code lens work in every indexed language with no compiler and no configuration. Hover shows what a symbol is, how many references it has, and the decisions recorded about it.
 - **Scope drift as a squiggle.** Editing a file outside the in-progress task's declared `touches` raises a warning in the Problems panel, at the moment of the edit. Advisory, never an error.
@@ -796,12 +799,12 @@ vim.lsp.start({ name = "hyperfide", cmd = { "hyperfide", "lsp" },
 The extension has no dependencies and no build step — including its Language Server client, which is written by hand for exactly that reason.
 
 ```sh
-cd editors/vscode
+cd extensions/vscode
 npx @vscode/vsce package        # produces codify-workflow-2.0.0-dev.vsix
 code --install-extension codify-workflow-2.0.0-dev.vsix --force
 ```
 
-The extension displays as Hyperfide Workflow; its package and Marketplace identity keep their historical names (`codify-workflow`, `SidioraLabs.codify-workflow`), and so do its `codify.*` settings and command ids. Every command is also registered under a `hyperfide.*` id, and the binary is found through `hyperfide.binaryPath` (or the legacy `codify.binaryPath`; the two must agree), defaulting to `hyperfide` on `PATH`. See [editors/vscode/README.md](editors/vscode/README.md). Any other editor gets the same navigation by pointing its LSP client at `hyperfide lsp`.
+The extension displays as Hyperfide Workflow; its package and Marketplace identity keep their historical names (`codify-workflow`, `SidioraLabs.codify-workflow`), and so do its `codify.*` settings and command ids. Every command is also registered under a `hyperfide.*` id, and the binary is found through `hyperfide.binaryPath` (or the legacy `codify.binaryPath`; the two must agree), defaulting to `hyperfide` on `PATH`. See [extensions/vscode/README.md](extensions/vscode/README.md). Any other editor gets the same navigation by pointing its LSP client at `hyperfide lsp`.
 
 ## Development
 
@@ -814,31 +817,37 @@ make hyperfide-services  # build the TypeScript control services (after make hyp
 make hyperfide-check     # type-check them
 ```
 
-`make release` runs `scripts/release.sh`, which constructs a checksummed release on a remote executor and never publishes it. It needs `scripts/release.sh --output DIR` and `HYPERFIDE_BUILD_PLACEMENT=remote`, plus the pinned Node, npm and Python toolchain it checks for; plain `make release` passes no `--output` and stops with `hyperfide release: --output is required`.
+`make release` runs `tools/repository/release.sh`, which constructs a checksummed release on a remote executor and never publishes it. It needs `tools/repository/release.sh --output DIR` and `HYPERFIDE_BUILD_PLACEMENT=remote`, plus the pinned Node, npm and Python toolchain it checks for; plain `make release` passes no `--output` and stops with `hyperfide release: --output is required`.
 
 Repository layout:
 
 ```
-src/                 C modules and focused headers; src/cg.h is the shared core header
-src/hyperfide/       native Hyperfide components: branding, sandbox supervisor,
+apps/                web, desktop, mobile, CLI and distribution launcher
+sdk/                 public client and plugin-authoring SDKs
+contracts/           shared protocol contracts
+lib/                 internal libraries and UI helpers
+plugins/             runtime integrations and providers
+tools/workspace/     workspace development, build and maintenance commands
+core/native/src/                 C modules and focused headers; core/native/src/cg.h is the shared core header
+core/native/src/hyperfide/       native Hyperfide components: branding, sandbox supervisor,
                      launch, readiness, preparation, transport, control client
-src/govern.c         brief, review, guard, check, handoff, resume — the governance layer
-src/orchestrate.c    hyperfide spec run and the fleet supervisor (hyperfide fleet up):
+core/native/src/govern.c         brief, review, guard, check, handoff, resume — the governance layer
+core/native/src/orchestrate.c    hyperfide spec run and the fleet supervisor (hyperfide fleet up):
                      durable runs, three levels at once, stalls, budgets, retries, escalation
-src/syncgate.c       the single-writer index gate and machine-wide parse slots
-src/fleet.c          roles and capabilities, the branch lifecycle, merge lock,
+core/native/src/syncgate.c       the single-writer index gate and machine-wide parse slots
+core/native/src/fleet.c          roles and capabilities, the branch lifecycle, merge lock,
                      approval gates, fleet tree
-src/events.c         the append-only event log and hyperfide events
-src/serve.c          hyperfide serve — one JSON-RPC connection with pushed events
-src/drivers.c        agent launch argv, structured output read into events, steering
-src/drift.c          spec drift, collision prediction, interface drift, coverage
-src/changelog.c      release notes from git history, optional model highlights
-src/recap.c          resume brief from agent transcripts: System One picks, chat model writes
-src/jev.c            typed decisions over curl
-src/skills.c         memories classed as skills, rendered as .agents/skills
-src/lsp.c            language server over the graph
-src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
-services/hyperfide/  TypeScript control, provisioner and dispatch services
+core/native/src/events.c         the append-only event log and hyperfide events
+core/native/src/serve.c          hyperfide serve — one JSON-RPC connection with pushed events
+core/native/src/drivers.c        agent launch argv, structured output read into events, steering
+core/native/src/drift.c          spec drift, collision prediction, interface drift, coverage
+core/native/src/changelog.c      release notes from git history, optional model highlights
+core/native/src/recap.c          resume brief from agent transcripts: System One picks, chat model writes
+core/native/src/jev.c            typed decisions over curl
+core/native/src/skills.c         memories classed as skills, rendered as .agents/skills
+core/native/src/lsp.c            language server over the graph
+core/native/src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
+core/control-plane/  TypeScript control, provisioner and dispatch services
 tests/unit/          kvx grammar, SHA-256 vectors, JSON scanner, StrBuf/IO
 tests/integration/   graph, vcs, agentic, MCP protocol, spec engine, watcher,
                      sync gate, fleet, branches, jev, changelog, events, serve,
@@ -850,9 +859,9 @@ tests/fixtures/      sample polyglot project, a spec repo with golden outputs,
                      an explore project with gold queries,
                      stand-ins for curl, gh, and an OpenAI endpoint, and a
                      scripted fleet driver
-editors/vscode/      VS Code extension (plain JS): kvx language, task tree,
+extensions/vscode/      VS Code extension (plain JS): kvx language, task tree,
                      agent panel, memory browser, live fleet view, serve client
-scripts/             install/uninstall scripts (not advertised for 2.0 yet),
+tools/repository/    install/uninstall scripts (not advertised for 2.0 yet),
                      release construction, native component discovery
 spec/hyperfide/      the Hyperfide 2.0 specification, design and contracts
 artifacts/hyperfide/ per-task evidence indexes

@@ -66,16 +66,16 @@
   "DATABASE_URL"
  ],
  "fixtures": [
-  "services/hyperfide/dist/decisions/audit.js",
+  "core/control-plane/dist/decisions/audit.js",
   "tests/hyperfide/support/identity_fixture.py",
   "tests/hyperfide/cases/tasks/20_4.py"
  ],
  "resources": [],
  "required_artifacts": [],
  "source_files": [
-  "services/hyperfide/package.json",
-  "services/hyperfide/package-lock.json",
-  "services/hyperfide/tsconfig.json",
+  "core/control-plane/package.json",
+  "core/control-plane/package-lock.json",
+  "core/control-plane/tsconfig.json",
   "tests/hyperfide/qualify.py",
   "tests/hyperfide/check-evidence.py",
   "tests/hyperfide/manifest.schema.json",
@@ -85,10 +85,10 @@
   "tests/hyperfide/registrations/21.1.json"
  ],
  "source_roots": [
-  "services/hyperfide/src",
-  "services/hyperfide/dist",
-  "services/hyperfide/components",
-  "services/hyperfide/migrations"
+  "core/control-plane/src",
+  "core/control-plane/dist",
+  "core/control-plane/components",
+  "core/control-plane/migrations"
  ],
  "actions": []
 }

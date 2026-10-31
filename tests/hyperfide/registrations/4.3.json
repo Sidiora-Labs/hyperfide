@@ -47,12 +47,12 @@
   "required_env": [],
   "fixtures": [
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/storage/replicas.js",
-    "services/hyperfide/dist/storage/runtime.js",
-    "services/hyperfide/dist/storage/dispositions.js",
-    "services/hyperfide/dist/hierarchy/packets.js",
-    "services/hyperfide/dist/identity/enrollment.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/storage/replicas.js",
+    "core/control-plane/dist/storage/runtime.js",
+    "core/control-plane/dist/storage/dispositions.js",
+    "core/control-plane/dist/hierarchy/packets.js",
+    "core/control-plane/dist/identity/enrollment.js"
   ],
   "resources": [
     {
@@ -75,10 +75,10 @@
   ],
   "source_files": [
     "cg",
-    "src/scan.c",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json",
+    "core/native/src/scan.c",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/support/identity_fixture.py",
     "tests/hyperfide/cases/tasks/3_1.py",
     "tests/hyperfide/cases/tasks/3_2.py",
@@ -86,16 +86,16 @@
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
     "tests/hyperfide/qualify.py",
-    "services/hyperfide/src/storage/replicas.ts",
-    "services/hyperfide/components/4.3.json",
+    "core/control-plane/src/storage/replicas.ts",
+    "core/control-plane/components/4.3.json",
     "tests/hyperfide/cases/tasks/4_3.py",
     "tests/hyperfide/registrations/4.3.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "actions": [
     "postgresql.fixture.create",

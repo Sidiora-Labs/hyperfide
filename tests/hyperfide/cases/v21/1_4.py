@@ -5,7 +5,7 @@ its source. The build runs in a temporary copy laid out like the checkout (and
 like release.sh's build tree), so tampering never touches the real source."""
 import json,os,pathlib,shutil,subprocess,sys,tempfile
 ROOT=pathlib.Path(__file__).resolve().parents[4]
-SERVICE=ROOT/"services/hyperfide"
+SERVICE=ROOT/"core/control-plane"
 IDS=[];FAILED=[];SKIPPED=[]
 
 def expect(v,m="assertion failed"):
@@ -31,7 +31,7 @@ def install(base,inputs):
 def main():
  with tempfile.TemporaryDirectory(prefix="hf-v21-1-4-") as tmp:
   base=pathlib.Path(tmp);base.chmod(0o755)
-  service=base/"services/hyperfide";service.mkdir(parents=True)
+  service=base/"core/control-plane";service.mkdir(parents=True)
   for name in ["package.json","package-lock.json","tsconfig.json"]:shutil.copyfile(SERVICE/name,service/name)
   shutil.copytree(SERVICE/"src",service/"src")
   (service/"node_modules").symlink_to(SERVICE/"node_modules",target_is_directory=True)
@@ -96,12 +96,12 @@ def main():
   check("unstamped-dist-refused",unstamped_refused)
 
   def release_gates_build():
-   text=(ROOT/"scripts/release.sh").read_text()
+   text=(ROOT/"tools/repository/release.sh").read_text()
    build_at=text.index("subprocess.run(['npm','run','build'],cwd=build,check=True)")
    gate_at=text.index("str(stamp_tool),'check',str(build)")
    stage_at=text.index("shutil.copytree(build/'dist',stage/'services/dist')")
    expect(build_at<gate_at<stage_at,"release.sh does not gate the shipped dist between build and staging")
-   expect("build=temp/'services/hyperfide'" in text and "temp/'deploy/hyperfide/dist-stamp.mjs'" in text,"release build tree does not mirror the checkout layout this case exercises")
+   expect("build=temp/'core/control-plane'" in text and "temp/'deploy/hyperfide/dist-stamp.mjs'" in text,"release build tree does not mirror the checkout layout this case exercises")
   check("release-gates-shipped-dist",release_gates_build)
 
  print(json.dumps({"type":"summary","assertions":len(IDS),"failed":FAILED,"skipped":SKIPPED}),flush=True)

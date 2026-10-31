@@ -3,7 +3,7 @@
 
 On an owned throwaway PostgreSQL cluster with every release migration applied (pattern of v21/4_6.py, whose seed this
 case reuses), the probe invokes the nine reader actions through the createComponent action maps of
-services/hyperfide/dist/findings (routing.js, github.js, remediation.js) with authenticated invocations:
+core/control-plane/dist/findings (routing.js, github.js, remediation.js) with authenticated invocations:
 each is declared in its component manifest and admitted by the control policy, runs for an operator granted it, and
 is refused without the grant, without the operator/coordinator/leader role, or by a policy that omits it. A dismissal
 and a link record who triaged the issue, why and when (migration 0714), and the database refuses unattributed or
@@ -13,7 +13,7 @@ shape as one raised by human.ask.raise (3.2). Prints SKIP and exits 77 when no P
 import importlib.util, json, os, pathlib, signal, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 READERS = {
     "18.3.json": ("findings/routing.js", ["finding.leader-queue.list", "finding.leader-queue.acknowledge", "finding.leader-queue.route"]),
     "18.2.json": ("findings/github.js", ["finding.intake.list", "finding.intake.dismiss", "finding.intake.link"]),
@@ -83,14 +83,14 @@ def static_checks():
 
 PROBE = r"""
 import fs from 'node:fs';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {createComponent as routing} from './services/hyperfide/dist/findings/routing.js';
-import {createComponent as github} from './services/hyperfide/dist/findings/github.js';
-import {createComponent as remediation,escalationAskId} from './services/hyperfide/dist/findings/remediation.js';
-import {createAskComponent} from './services/hyperfide/dist/policy/human_interface.js';
-import {enqueue,resolveOperatorConsumer} from './services/hyperfide/dist/events/outbox.js';
-import {authenticatedInvocation} from './services/hyperfide/dist/transport/protocol.js';
-import {validatePolicy,assertAdmission} from './services/hyperfide/dist/policy/programme.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {createComponent as routing} from './core/control-plane/dist/findings/routing.js';
+import {createComponent as github} from './core/control-plane/dist/findings/github.js';
+import {createComponent as remediation,escalationAskId} from './core/control-plane/dist/findings/remediation.js';
+import {createAskComponent} from './core/control-plane/dist/policy/human_interface.js';
+import {enqueue,resolveOperatorConsumer} from './core/control-plane/dist/events/outbox.js';
+import {authenticatedInvocation} from './core/control-plane/dist/transport/protocol.js';
+import {validatePolicy,assertAdmission} from './core/control-plane/dist/policy/programme.js';
 import {randomUUID} from 'node:crypto';
 const o=JSON.parse(process.env.HF_IDS),ACTIONS=JSON.parse(process.env.HF_ACTIONS);
 const controller=new AbortController();
@@ -245,7 +245,7 @@ def main():
         print("SKIP: the owned cluster runs initdb through runuser postgres, which needs root", flush=True)
         return 77
     if not (SERVICE / "node_modules").exists():
-        print("SKIP: services/hyperfide/node_modules is not installed", flush=True)
+        print("SKIP: core/control-plane/node_modules is not installed", flush=True)
         return 77
     t295 = load("hf_case_29_5", "tests/hyperfide/cases/tasks/29_5.py")
     t46 = load("hf_case_4_6", "tests/hyperfide/cases/v21/4_6.py")

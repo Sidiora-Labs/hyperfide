@@ -298,11 +298,11 @@ no distributed mapping — `branches`, `sync`, `fleet begin`,
 and exit 78 rather than fall back to the local graph.
 
 In that model the control service owns distributed claims, leases and
-ownership generations (`services/hyperfide/src/scheduler/claim.ts`,
+ownership generations (`core/control-plane/src/scheduler/claim.ts`,
 `scheduler/leases.ts`) and the central versioned graph
-(`services/hyperfide/src/graph/`). Import of an existing SQLite graph,
+(`core/control-plane/src/graph/`). Import of an existing SQLite graph,
 including the branch registry and attempts, is
-`services/hyperfide/src/migration/sqlite.ts`. The corresponding tasks
+`core/control-plane/src/migration/sqlite.ts`. The corresponding tasks
 (5.1, 7.1 to 7.4, 25.1, 25.3) are `pending` in `spec/hyperfide/spec.kvx`,
 so distributed operation is not qualified in this revision; see
 [docs/hyperfide/operations.md](hyperfide/operations.md).

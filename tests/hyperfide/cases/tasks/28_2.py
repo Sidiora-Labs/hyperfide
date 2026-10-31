@@ -92,7 +92,7 @@ def check(name,callback):
 def component_files(*ids):
     """Real registered fragments for ids plus their transitive requires, keyed by declared id."""
     by_id={}
-    for fragment in sorted((ROOT/"services/hyperfide/components").glob("*.json")):
+    for fragment in sorted((ROOT/"core/control-plane/components").glob("*.json")):
         if fragment.name=="schema.json":continue
         declaration=json.loads(fragment.read_text())
         if "id"in declaration:by_id[declaration["id"]]=(fragment.stem,declaration)
@@ -188,9 +188,9 @@ def positive_persistence_probes():
     f=IdentityFixture(extra_components=component_files("28.2"),extra_setup=positive_fixture_setup)
     try:
         def real_fragment():
-            declared=(ROOT/"services/hyperfide/components/28.2.json").read_bytes()
+            declared=(ROOT/"core/control-plane/components/28.2.json").read_bytes()
             require((f.components/"28.2.json").read_bytes()==declared,"service loaded a rewritten 28.2 fragment")
-            for name in component_files("28.2"):require((f.components/(name+".json")).read_bytes()==(ROOT/"services/hyperfide/components"/(name+".json")).read_bytes(),"dependency fragment missing or rewritten: "+name)
+            for name in component_files("28.2"):require((f.components/(name+".json")).read_bytes()==(ROOT/"core/control-plane/components"/(name+".json")).read_bytes(),"dependency fragment missing or rewritten: "+name)
             require(json.loads(declared)["entry"]=="createComponent"and"docs.check"in json.loads(declared)["actions"],"registered entry does not expose docs.check")
         check("docs.component.real-fragment-closure",real_fragment)
         before=counts(f)
@@ -318,7 +318,7 @@ def main():
         check("docs.authority.connector-exit-not-closure",no_connector_success)
         check("docs.authority.absent-checker-refused",lambda:call(f,"docs.close",{"packet_id":str(uuid.uuid4()),"check_id":str(uuid.uuid4())},ok=False))
         def no_plain_transaction():
-            result=node("import{inspectDocumentationClosure}from'./services/hyperfide/dist/docs/closure.js';try{await inspectDocumentationClosure({query:async()=>({rows:[]})},{},{});process.exit(1)}catch(e){if(e.code!=='TX_CLOSED')throw e}")
+            result=node("import{inspectDocumentationClosure}from'./core/control-plane/dist/docs/closure.js';try{await inspectDocumentationClosure({query:async()=>({rows:[]})},{},{});process.exit(1)}catch(e){if(e.code!=='TX_CLOSED')throw e}")
             require(result.returncode==0,"unbranded transaction was accepted: "+result.stderr)
         check("docs.authority.requires-branded-primary",no_plain_transaction)
         def isolation_guards():
@@ -336,7 +336,7 @@ def main():
         check("docs.authority.packet-immutable",immutable)
         def isolation_refusal():
             values=args.copy();values[2]=str(uuid.uuid4());values[3]=str(uuid.uuid4())
-            script="import pg from'./services/hyperfide/node_modules/pg/lib/index.js';import fs from'node:fs';const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try{await c.query('INSERT INTO hyperfide.documentation_packets(organisation_id,run_id,id,request_id,spec_revision_id,spec_generation,authority_epoch,source_manifest_digest,programme_manifest_digest,packet_digest,canonical_content,payload)VALUES($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10::text,$10::text::jsonb)',JSON.parse(fs.readFileSync(0,'utf8')));process.exitCode=1}catch(e){if(e.code!=='25001')throw e}}finally{await c.query('ROLLBACK');await c.end()}"
+            script="import pg from'./core/control-plane/node_modules/pg/lib/index.js';import fs from'node:fs';const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try{await c.query('INSERT INTO hyperfide.documentation_packets(organisation_id,run_id,id,request_id,spec_revision_id,spec_generation,authority_epoch,source_manifest_digest,programme_manifest_digest,packet_digest,canonical_content,payload)VALUES($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10::text,$10::text::jsonb)',JSON.parse(fs.readFileSync(0,'utf8')));process.exitCode=1}catch(e){if(e.code!=='25001')throw e}}finally{await c.query('ROLLBACK');await c.end()}"
             result=node(script,values,env=f.env)
             require(result.returncode==0,"unsupported isolation was not rejected by its actual guard: "+result.stderr)
         check("docs.authority.repeatable-write-refused",isolation_refusal)

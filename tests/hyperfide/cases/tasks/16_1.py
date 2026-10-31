@@ -68,7 +68,7 @@ def authority_cases():
     }
     module, selected = actions[TASK]
     program = """
-const module = await import('./services/hyperfide/dist/assurance/%s.js');
+const module = await import('./core/control-plane/dist/assurance/%s.js');
 const inputs = %s;
 const component = module.createComponent({});
 for (const [action,input] of Object.entries(inputs)) {
@@ -96,8 +96,8 @@ def primary_cases():
         "16.4": ("validity", "module.inspectValidity(db,scope,id)"),
     }[TASK]
     results = node("""
-const module=await import('./services/hyperfide/dist/assurance/%s.js');
-const storage=await import('./services/hyperfide/dist/storage/transactions.js');
+const module=await import('./core/control-plane/dist/assurance/%s.js');
+const storage=await import('./core/control-plane/dist/storage/transactions.js');
 if(typeof storage.assertPrimaryTransaction!=='function')throw new Error('Actual primary capability is missing');
 let queries=0,code=null,accepted=false;
 const db={query(){queries++;throw new Error('Unbranded client must never query');}};
@@ -109,7 +109,7 @@ console.log(JSON.stringify({code,accepted,queries}));
          results == [{"code":"QUALIFICATION_PRIMARY_REQUIRED","accepted":False,"queries":0}])
     if TASK=="16.2":
         results=node("""
-const m=await import('./services/hyperfide/dist/assurance/preparation.js');
+const m=await import('./core/control-plane/dist/assurance/preparation.js');
 const scope=%s,id=%s;
 for(const [key,call,expected] of [
  ['context',db=>m.loadResultPreparationContext(db,scope,{job_id:id}),'QUALIFICATION_PRIMARY_REQUIRED'],
@@ -139,8 +139,8 @@ def sql(text, database=None, accept_error=False):
 def semantic_cases():
     row=json.loads(sql("SELECT json_build_object('organisation_id',organisation_id,'run_id',run_id,'task_id',id) FROM hyperfide.tasks LIMIT 1;").stdout)
     program="""
-import {ResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {assuranceBarrier} from './services/hyperfide/dist/assurance/submission.js';
+import {ResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {assuranceBarrier} from './core/control-plane/dist/assurance/submission.js';
 const scope=%s;
 const url=new URL(process.env.DATABASE_URL);url.pathname='/'+%s;
 const resources=new ResourceContainer('control',{...process.env,DATABASE_URL:url.href,HYPERFIDE_CONTROL_DATABASE_URL:url.href},new AbortController().signal);
@@ -178,7 +178,7 @@ def signed_cases():
     from identity_fixture import IdentityFixture
     import hashlib
     fragments={}
-    for path in (ROOT/"services/hyperfide/components").glob("*.json"):
+    for path in (ROOT/"core/control-plane/components").glob("*.json"):
         value=json.loads(path.read_text())
         if "id" in value:fragments[value["id"]]=(path.stem,value)
     selected=set()
@@ -199,7 +199,7 @@ def signed_cases():
                "0008-provider-coordination.sql","0012-runner-registry.sql","0016-qualification.sql",
                "0032-execution-packets.sql","0034-child-sessions.sql","0202-spec-dependencies.sql")
         for name in names:
-            path=ROOT/"services/hyperfide/migrations"/name
+            path=ROOT/"core/control-plane/migrations"/name
             version=int(path.name.split("-")[0])
             fixture.apply_migration(path.stem)
     class OwnedFixture(IdentityFixture):
@@ -264,7 +264,7 @@ def cleanup_signed():
             if not process.name.isdigit():continue
             try:
                 command=(process/"cmdline").read_bytes().split(b"\x00")
-                expected=str(ROOT/"services/hyperfide/dist/control.js").encode()
+                expected=str(ROOT/"core/control-plane/dist/control.js").encode()
                 if expected not in command:continue
                 environment=dict(item.split(b"=",1) for item in (process/"environ").read_bytes().split(b"\x00") if b"=" in item)
                 if urlsplit(environment.get(b"DATABASE_URL",b"").decode()).path!="/"+state["database"]:continue
@@ -399,7 +399,7 @@ def git_cases():
             git("update-ref",branch,baseline if key=="postsubmit-head-amendment" else head)
             prepared.append(dict(key=key,head=head,base=base,scope=scope,expected=expected,branch=branch))
         program="""
-const m=await import('./services/hyperfide/dist/assurance/submission.js');
+const m=await import('./core/control-plane/dist/assurance/submission.js');
 const cases=%s,repository=%s,repo=%s;
 const ctx={env:{HF_QUALIFICATION_REPOSITORIES:JSON.stringify({[repo]:repository})}};
 for(const c of cases){
@@ -465,7 +465,7 @@ def preparation_cases():
                 "repository_id":repo,"source_object_id":result,"source_tree_id":measurement["source_tree_id"]},
             "repository_binding":{"repository_id":repo,"repository_key":"fixture","repository_url":profile["repositories"][0]["url"]}}
         program="""
-const m=await import('./services/hyperfide/dist/assurance/preparation.js');
+const m=await import('./core/control-plane/dist/assurance/preparation.js');
 const context=%s,measured=%s,bytes=Buffer.from(%s,'base64'),derived=%s;
 const positive=m.rederiveResultProfile(context,measured,derived,bytes);
 console.log(JSON.stringify({key:'exact-retained-bytes',valid:positive.requires_preparation===true&&positive.readiness_granted===false&&
@@ -672,7 +672,7 @@ def schema_cases():
     (directory()/("resource-"+TASK+".json")).write_text(json.dumps({"database":DATABASE,"resource":RESOURCE})+"\n")
     subprocess.run(["createdb",DATABASE],cwd=ROOT,check=True,capture_output=True,timeout=30)
     for name in ["0001-authority.sql","0004-durability.sql","0016-qualification.sql"]:
-        sql((ROOT/"services/hyperfide/migrations"/name).read_text())
+        sql((ROOT/"core/control-plane/migrations"/name).read_text())
     emit("assurance.16.1.schema.applied", sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='hyperfide' AND table_name LIKE 'assurance_%';").stdout.strip()=="13")
     ids=[str(uuid.uuid4()) for _ in range(7)]
     org,project,spec,run,epoch,package,task=ids

@@ -60,8 +60,8 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/review/reproductions.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/review/reproductions.js"
   ],
   "resources": [
     {
@@ -94,19 +94,19 @@
     "tests/hyperfide/cases/tasks/17_1.py",
     "tests/hyperfide/cases/tasks/15_2.py",
     "tests/hyperfide/support/identity_fixture.py",
-    "services/hyperfide/src/review/reproductions.ts",
-    "services/hyperfide/src/review/coverage.ts",
-    "services/hyperfide/migrations/0017-review.sql",
-    "services/hyperfide/components/17.4.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
+    "core/control-plane/src/review/reproductions.ts",
+    "core/control-plane/src/review/coverage.ts",
+    "core/control-plane/migrations/0017-review.sql",
+    "core/control-plane/components/17.4.json",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
     "tests/hyperfide/qualify.py",
     "tests/hyperfide/check-evidence.py"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ]
 }

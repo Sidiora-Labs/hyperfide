@@ -15,7 +15,7 @@ for event in ('push', 'pull_request'):
         assert path in block[1], f'{event} path filter missing: {path}'
 assert 'permissions:\n  contents: read\n' in workflow
 assert 'uses: actions/cache@' in workflow
-assert "hashFiles('platform/pnpm-lock.yaml')" in workflow
+assert "hashFiles('pnpm-lock.yaml')" in workflow
 assert 'steps.pnpm-store.outputs.path' in workflow
 assert 'run: bash scripts/platform-ci.sh\n' in workflow
 assert not re.search(r'publish|deploy|git\s+push|contents:\s*write|packages:\s*write', workflow, re.I), 'publication step or permission found'

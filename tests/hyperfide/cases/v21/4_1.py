@@ -13,7 +13,7 @@ exits 77 when no PostgreSQL server or root is available.
 import hashlib, importlib.util, json, os, pathlib, pwd, shutil, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 COMPONENTS = ('6.1', '1.2-asks', '14.2', '14.3', '13.2', '13.4')
@@ -42,13 +42,13 @@ CLAUDE_APPROVAL = {'type': 'control_request', 'request_id': 'req-8', 'request': 
                                                                                 'input': {'command': 'rm -rf build/ && make release', 'description': 'Rebuild the release'}}}
 
 CLASSIFIER = r"""
-import {classifyNativeEvent as c} from './services/hyperfide/dist/agents/admission.js';
-import {nativeAskRequests as a} from './services/hyperfide/dist/agents/native_asks.js';
+import {classifyNativeEvent as c} from './core/control-plane/dist/agents/admission.js';
+import {nativeAskRequests as a} from './core/control-plane/dist/agents/native_asks.js';
 const cases=JSON.parse(process.argv[1]);
 console.log(JSON.stringify(cases.map(([connector,event])=>({classification:c(connector,event),asks:a(connector,event)}))));
 """
 POLICY_PROBE = r"""
-import {ASK_POLICY as p} from './services/hyperfide/dist/agents/admission.js';
+import {ASK_POLICY as p} from './core/control-plane/dist/agents/admission.js';
 console.log(JSON.stringify(p));
 """
 POLICY = {}

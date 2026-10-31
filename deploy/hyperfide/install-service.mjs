@@ -70,10 +70,10 @@ async function run(){
  if(Object.keys(options).length!==7||!/^sha256:[0-9a-f]{64}$/.test(options.digest)||!/^([1-9][0-9]{3,9})$/.test(options.uid)||!/^([1-9][0-9]{3,9})$/.test(options.gid)||Number(options.uid)>4294967294||Number(options.gid)>4294967294)refuse('INSTALL_ARGUMENTS');
  const ownRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
  let module=path.join(ownRoot,'services/dist/deployment/releases.js');
- try{await fs.access(module);}catch{module=path.join(ownRoot,'services/hyperfide/dist/deployment/releases.js');}
+ try{await fs.access(module);}catch{module=path.join(ownRoot,'core/control-plane/dist/deployment/releases.js');}
  // A checkout runs its gitignored dist, which can lag its source; a release dist is pinned by the signed manifest instead.
- if(module.startsWith(path.join(ownRoot,'services/hyperfide/dist')+path.sep)){
-  const stamp=checkStamp(path.join(ownRoot,'services/hyperfide'));
+ if(module.startsWith(path.join(ownRoot,'core/control-plane/dist')+path.sep)){
+  const stamp=checkStamp(path.join(ownRoot,'core/control-plane'));
   if(!stamp.fresh)refuse(stamp.code==='DIST_UNSTAMPED'?'INSTALL_UNSTAMPED_DIST':'INSTALL_STALE_DIST');
  }
  for(const name of ['source','key','signature'])await protectedPath(options[name],name==='source');

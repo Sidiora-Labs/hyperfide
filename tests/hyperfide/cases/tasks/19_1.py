@@ -80,8 +80,8 @@ def cleanup(emit=True):
     return absent and authabsent
 def bootstrap():
     sql('CREATE DATABASE "'+DATABASE+'";',database="postgres")
-    sql((ROOT/"services/hyperfide/migrations/0001-authority.sql").read_text())
-    sql((ROOT/"services/hyperfide/migrations/0019-integration.sql").read_text())
+    sql((ROOT/"core/control-plane/migrations/0001-authority.sql").read_text())
+    sql((ROOT/"core/control-plane/migrations/0019-integration.sql").read_text())
     spec=importlib.util.spec_from_file_location("storage_fixture",ROOT/"tests/hyperfide/cases/tasks/4_1.py")
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     sql(module.SEED)
@@ -111,16 +111,16 @@ class Fixture:
         try:
             identity_spec=importlib.util.spec_from_file_location("real_identity_fixture",ROOT/"tests/hyperfide/support/identity_fixture.py")
             identity_module=importlib.util.module_from_spec(identity_spec);identity_spec.loader.exec_module(identity_module);IdentityFixture=identity_module.IdentityFixture
-            needed=set();fragment_paths={json.loads(p.read_text()).get('id'):p for p in (ROOT/'services/hyperfide/components').glob('*.json') if p.name!='schema.json'}
+            needed=set();fragment_paths={json.loads(p.read_text()).get('id'):p for p in (ROOT/'core/control-plane/components').glob('*.json') if p.name!='schema.json'}
             def dependency(name):
                 if name in needed:return
                 needed.add(name)
-                fragment=fragment_paths.get(name,ROOT/"services/hyperfide/components"/(name+".json"))
+                fragment=fragment_paths.get(name,ROOT/"core/control-plane/components"/(name+".json"))
                 if not fragment.is_file():raise RuntimeError("Actual peer component dependency unavailable: "+name)
                 for parent in json.loads(fragment.read_text())["requires"]:dependency(parent)
             for name in ["1.4","4.1","4.2","14.1"]+["19."+str(n) for n in range(1,int(TASK.split(".")[1])+1)]:dependency(name)
             def setup(real):
-                for migration in sorted((ROOT/"services/hyperfide/migrations").glob("*.sql")):
+                for migration in sorted((ROOT/"core/control-plane/migrations").glob("*.sql")):
                     version=int(migration.name.split("-")[0])
                     present=real.sql("SELECT checksum FROM hyperfide.schema_migrations WHERE version=$1",[version])
                     content=migration.read_bytes();checksum="sha256:"+hashlib.sha256(content).hexdigest()
@@ -207,7 +207,7 @@ def candidate_cases(f):
     check(IDS[TASK][0],f.wire)
     check(IDS[TASK][1],lambda:f.reject(TASK,"integration.candidate.create",{**SCOPE,"claim_pass":True},"INTEGRATION_INVALID"))
     check(IDS[TASK][2],lambda:f.reject(TASK,"integration.candidate.inspect",{**SCOPE,"organisation_id":U(999),"candidate_id":U(81)},"INTEGRATION_SCOPE_DENIED"))
-    module=(ROOT/"services/hyperfide/dist/integration/candidates.js").as_uri()
+    module=(ROOT/"core/control-plane/dist/integration/candidates.js").as_uri()
     merge="import {git} from "+json.dumps(module)+";const [repo,base,next]=process.argv.slice(1);const tree=await git(repo,['merge-tree','--write-tree',base,next]);console.log(tree)"
     tree=node(merge,[f.repository,f.base_oid,f.feature_oid]).stdout.strip()
     check(IDS[TASK][3],lambda:expect(tree==f.g(["rev-parse",f.feature_oid+"^{tree}"]).stdout.strip(),"Actual merged tree differs"))
@@ -281,7 +281,7 @@ def integration_cases(f):
         prepare()
         report=status(U(700))
         expect(report["successors_released"] is False and report["integrated"] is False and report["candidate_qualified"] is False and all(c["integrated"] is False and c["task_state"]=="QUALIFIED" for c in report["contributors"]),"Isolated qualification implied integration")
-        program="""import {ResourceContainer} from './services/hyperfide/dist/storage/runtime.js';import {requireMilestone} from './services/hyperfide/dist/scheduler/claim.js';
+        program="""import {ResourceContainer} from './core/control-plane/dist/storage/runtime.js';import {requireMilestone} from './core/control-plane/dist/scheduler/claim.js';
 const [organisation_id,run_id,task]=process.argv.slice(1),r=new ResourceContainer('control',process.env,new AbortController().signal),out={};
 try{for(const milestone of ['QUALIFIED','INTEGRATED']){try{await r.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:0},tx=>requireMilestone(tx,{organisation_id,run_id},task,milestone));out[milestone]='RELEASED'}catch(e){out[milestone]=e.code??String(e.message)}}}finally{await r.close?.()}
 console.log(JSON.stringify(out));"""
@@ -380,7 +380,7 @@ def publication_checks(f):
     check(IDS[TASK][1],lambda:f.reject(TASK,"integration.publication.execute",{**SCOPE,"operation_id":U(1),"new_head":f.feature_oid},"INTEGRATION_INVALID"))
     check(IDS[TASK][2],lambda:f.reject(TASK,"integration.publication.execute",{**SCOPE,"operation_id":U(1)},"PUBLICATION_ROLE_DENIED"))
     server=f.base/"server.json";server.write_text(json.dumps(f.env));server.chmod(0o600)
-    module=(ROOT/"services/hyperfide/dist/integration/publication.js").as_uri()
+    module=(ROOT/"core/control-plane/dist/integration/publication.js").as_uri()
     custom=f.base/"untrusted-hooks";custom.mkdir()
     run(["git","--git-dir="+str(f.receive),"config","core.hooksPath",custom])
     node("import {installGatewayHook} from "+json.dumps(module)+";await installGatewayHook(process.argv[1],process.argv[2]);",[f.receive,server])
@@ -404,12 +404,12 @@ def publication_checks(f):
         result=row.get("result",row.get("output",{}))
         expect(row.get("ok") is True and result["github"]["live_qualified"] is False and result["github"]["adapter_implemented"] is True and result["github"]["status"]=="NOT_CONFIGURED","Local hook fixture implied hosted GitHub publication authority")
     check(IDS[TASK][8],unsupported_github)
-    github=(ROOT/"services/hyperfide/dist/integration/github.js").as_uri()
+    github=(ROOT/"core/control-plane/dist/integration/github.js").as_uri()
     source="import {validateGitHubProtection} from "+json.dumps(github)+";const p={owner:'fixture',repository:'repo',repository_numeric_id:1,app_id:9};const r={id:1,full_name:'fixture/repo'},rules=[{type:'update',ruleset_id:1},{type:'non_fast_forward',ruleset_id:2}],sets=[{id:1,enforcement:'active',target:'branch',bypass_actors:[{actor_type:'Integration',actor_id:9,bypass_mode:'always'}],rules:[{type:'update'}]},{id:2,enforcement:'active',target:'branch',bypass_actors:[],rules:[{type:'non_fast_forward'}]}];"
     check(IDS[TASK][9],lambda:node(source+"if(!validateGitHubProtection(p,r,rules,sets,null).startsWith('sha256:'))throw Error('missing policy digest')"))
     for index,mutation in [(10,"sets[0].bypass_actors.push({actor_type:'Team',actor_id:22,bypass_mode:'always'});"),(11,"sets[1].bypass_actors.push({actor_type:'Integration',actor_id:9,bypass_mode:'always'});"),(12,"delete sets[0].bypass_actors;")]:
         check(IDS[TASK][index],lambda mutation=mutation:node(source+mutation+"let denied=false;try{validateGitHubProtection(p,r,rules,sets,null)}catch{denied=true}if(!denied)throw Error('unsafe hosted policy accepted')"))
-    candidates=(ROOT/"services/hyperfide/dist/integration/candidates.js").as_uri()
+    candidates=(ROOT/"core/control-plane/dist/integration/candidates.js").as_uri()
     fault_source="import {GitHubPublicationAdapter,validateGitHubProtection} from "+json.dumps(github)+";import {canonical,hash} from "+json.dumps(candidates)+";"+r'''
 import fs from 'node:fs/promises';import path from 'node:path';import {generateKeyPairSync,sign,randomUUID} from 'node:crypto';
 const [repo,base,next,folder,mode]=process.argv.slice(1);await fs.mkdir(folder,{mode:0o700});const privateFile=async(name,data)=>{const p=path.join(folder,name);await fs.writeFile(p,data,{mode:0o600});return p;};
@@ -669,7 +669,7 @@ def closure_cases(f):
     check(IDS[TASK][1],lambda:f.reject(TASK,"integration.closure.evaluate",SCOPE,"INTEGRATION_INVALID"))
     check(IDS[TASK][2],lambda:f.reject(TASK,"integration.closure.evaluate",{**SCOPE,"level":"WAVE"},"CLOSURE_INVALID"))
     check(IDS[TASK][3],lambda:f.reject(TASK,"integration.closure.evaluate",{**SCOPE,"level":"PROGRAMME","task_id":U(7)},"CLOSURE_INVALID"))
-    module=(ROOT/"services/hyperfide/dist/integration/closure.js").as_uri()
+    module=(ROOT/"core/control-plane/dist/integration/closure.js").as_uri()
     def policy_refuse(field):
         policy=json.loads(json.dumps(f.cfg));policy["closure"][field]=[]
         node("import {closurePolicy} from "+json.dumps(module)+";let refused=false;try{closurePolicy(JSON.parse(process.argv[1]))}catch{refused=true}if(!refused)throw Error('empty scope obligation accepted');",[json.dumps(policy)])

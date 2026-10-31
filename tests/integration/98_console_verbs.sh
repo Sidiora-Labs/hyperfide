@@ -43,12 +43,12 @@ PY
 
 # ---- route contract: the four console actions are client sends, and the
 #      server-only line 5.1 added for 23.1-console is gone
-client="$(cat "$REPO/src/hyperfide/client.c")"
+client="$(cat "$REPO/core/native/src/hyperfide/client.c")"
 for action in needs issues sandboxes leaders; do
     has "$client" "{\"$action\",\"\\\"component\\\":\\\"23.1-console\\\",\\\"action\\\":\\\"console.$action\\\"\""
 done
 grep -q '^23.1-console' "$FIXTURES/route_contract/server_only.txt" && fail "23.1-console is still declared server-only"
-python3 -I - "$REPO/services/hyperfide/components/23.1-console.json" <<'PY'
+python3 -I - "$REPO/core/control-plane/components/23.1-console.json" <<'PY'
 import json, sys
 m = json.load(open(sys.argv[1]))
 assert sorted(m["actions"]) == ["console.issues", "console.leaders", "console.needs", "console.sandboxes"], m["actions"]
@@ -190,7 +190,7 @@ ids = {e["operation_id"], e["idempotency_key"], e["correlation_id"]}
 assert len(ids) == 3 and all(str(uuid.UUID(i)) == i for i in ids), e
 PY
 done
-# the shape editors/vscode/sandboxes.js (6.4) reads: view, rows, as_of
+# the shape extensions/vscode/sandboxes.js (6.4) reads: view, rows, as_of
 run "$CG" console sandboxes --json
 python3 -I -c 'import json,sys; o=json.loads(sys.argv[1]); assert o["view"]=="console.sandboxes" and o["rows"][0]["liveness"]=="LIVE" and o["heartbeat_max_age_seconds"]==90' "$OUT"
 

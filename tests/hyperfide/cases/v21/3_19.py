@@ -14,7 +14,7 @@ import hashlib, hmac, http.server, json, os, pathlib, shutil, subprocess, sys, t
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 TESTS = ROOT / "tests/hyperfide"
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 PUBLISH, QUALIFY = TESTS / "publish-evidence.py", TESTS / "qualify.py"
 ORG, RUN = "7d0f9a52-6c0e-4b8e-9a51-3f1c2d4e5a60", "1b2c3d4e-5f60-4a71-8b92-a3b4c5d6e7f8"
 ACCESS, SECRET, REGION, BUCKET = "AKIASTUBONLY", "stub-secret-not-a-credential", "stub-region-1", "stub-evidence"
@@ -296,7 +296,7 @@ def main():
         marker = "import json,sys;sys.path.insert(0,sys.argv[1]);import evidence_store as e\ntry:\n p,s=e.unit_receipt_input(sys.argv[2],sys.argv[3]);print(json.dumps({'path':str(p) if p else None,'source':s}))\nexcept Exception as x:print(json.dumps({'error':str(x)}))"
 
         def release_marker_from_store():
-            expect("evidence_store.unit_receipt_input(root,temp,override)" in (ROOT / "scripts/release.sh").read_text(), "release.sh does not take the marker input from unit_receipt_input")
+            expect("evidence_store.unit_receipt_input(root,temp,override)" in (ROOT / "tools/repository/release.sh").read_text(), "release.sh does not take the marker input from unit_receipt_input")
             expect(not (clean_root / "artifacts").exists(), "clean tree has artifacts/")
             scratch = tmp / "release-scratch"
             _, out, text = run([sys.executable, "-I", "-c", marker, str(TESTS), str(clean_root), str(scratch)], env)

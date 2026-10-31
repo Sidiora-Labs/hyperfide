@@ -29,22 +29,22 @@ check() {
 }
 export HYPERFIDE_PLATFORM_BIN="$TMP/bin/hyperfide-platform"
 check
-mkdir -p "$TMP/repo/platform/apps/cli/bin"
-printf '#!/bin/sh\nexit 91\n' > "$TMP/repo/platform/apps/cli/bin/hyperfide-platform"
-chmod +x "$TMP/repo/platform/apps/cli/bin/hyperfide-platform"
+mkdir -p "$TMP/repo/apps/cli/bin"
+printf '#!/bin/sh\nexit 91\n' > "$TMP/repo/apps/cli/bin/hyperfide-platform"
+chmod +x "$TMP/repo/apps/cli/bin/hyperfide-platform"
 check
-cp "$HYPERFIDE_PLATFORM_BIN" "$TMP/repo/platform/apps/cli/bin/hyperfide-platform"
+cp "$HYPERFIDE_PLATFORM_BIN" "$TMP/repo/apps/cli/bin/hyperfide-platform"
 HYPERFIDE_PLATFORM_BIN="$TMP/missing" check
 unset HYPERFIDE_PLATFORM_BIN
 check
-rm "$TMP/repo/platform/apps/cli/bin/hyperfide-platform"
+rm "$TMP/repo/apps/cli/bin/hyperfide-platform"
 TEST_PATH="$TMP/bin" check
 rc=0
 PATH="$TMP/empty" "$CG" platform --help > "$TMP/out" 2> "$TMP/err" || rc=$?
 test "$rc" = 69
 test ! -s "$TMP/out"
 grep -F 'CLI unavailable: checked HYPERFIDE_PLATFORM_BIN (unset)' "$TMP/err"
-grep -F "$TMP/repo/platform/apps/cli/bin/hyperfide-platform" "$TMP/err"
+grep -F "$TMP/repo/apps/cli/bin/hyperfide-platform" "$TMP/err"
 grep -F 'hyperfide-platform on PATH' "$TMP/err"
 "$CG" --help | grep -F 'platform'
 echo 'platform front door: passed'

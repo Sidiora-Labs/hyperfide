@@ -64,8 +64,8 @@
     "DATABASE_URL"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/docs/closure.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/docs/closure.js"
   ],
   "actions": [
     "git.fixture.create",
@@ -93,9 +93,9 @@
   ],
   "source_files": [
     "docs/hyperfide/operations.md",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/tsconfig.json",
     "spec/hyperfide/assurance.md",
     "spec/hyperfide/decision-models.md",
     "spec/hyperfide/decisions.md",
@@ -129,10 +129,10 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/components",
-    "services/hyperfide/dist",
-    "services/hyperfide/migrations",
-    "services/hyperfide/src"
+    "core/control-plane/components",
+    "core/control-plane/dist",
+    "core/control-plane/migrations",
+    "core/control-plane/src"
   ],
   "cleanup_argv": [
     "python3",

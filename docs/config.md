@@ -28,7 +28,7 @@ The binary looks for two names at the root of the tree:
 A completed migration is a `.hyperfide/names.json` with `schema_version` 1,
 `state` `APPLIED`, a `migration_id` and `manifest_digest`, and a mapping from
 `codify.kvx` to `hyperfide.kvx` whose `digest` matches the current bytes of
-`codify.kvx`. The names migration in `services/hyperfide/src/migration/names.ts`
+`codify.kvx`. The names migration in `core/control-plane/src/migration/names.ts`
 writes that record; the rename task (26.3 in `spec/hyperfide/spec.kvx`) is
 still pending there, so treat the migration as not qualified in this revision.
 

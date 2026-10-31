@@ -14,7 +14,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 FAILED = []
 PROBE = r"""
 import fs from 'node:fs';
@@ -70,7 +70,7 @@ def check(name, operation):
 
 
 def build(base):
-    service = base / 'services/hyperfide'
+    service = base / 'core/control-plane'
     service.mkdir(parents=True)
     for name in ['package.json', 'tsconfig.json']:
         shutil.copyfile(SERVICE / name, service / name)
@@ -86,7 +86,7 @@ def main():
         print('SKIP: node is required')
         return 77
     if not (SERVICE / 'node_modules/.bin/tsc').exists():
-        print('SKIP: services/hyperfide/node_modules is not installed')
+        print('SKIP: core/control-plane/node_modules is not installed')
         return 77
     with tempfile.TemporaryDirectory(prefix='hf-v21-3-21-') as tmp:
         dist = build(Path(tmp))

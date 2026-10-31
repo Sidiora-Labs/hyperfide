@@ -50,7 +50,7 @@ The first campaign freezes its workload and service objectives before measuremen
 | workflow hierarchy: full manager worktrees and branch-based roles | Source scopes and integration APIs replace mandatory full manager checkouts after explicit workflow migration. Role authority remains with Hyperfide. |
 | workflow local-first graph/source assumptions | Online source is mandatory in native mode; local non-authoritative caches and legacy modes remain explicitly identified. |
 
-These replacements are scoped to this feature's migration. This draft does not edit historical specifications, change active feature selection, or claim earlier tasks failed their original contracts.
+These replacements are scoped to this feature's migration. Historical specifications retain their original contracts and statuses. The owning workflow now selects this feature for layout implementation; that selection does not claim earlier tasks failed their original contracts or release later fleet/native prerequisite gates.
 
 ## Repository-layout prerequisite
 

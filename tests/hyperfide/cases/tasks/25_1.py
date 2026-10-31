@@ -405,7 +405,7 @@ INSERT INTO symbol_fts VALUES('name_test');
   def wrong_schema():
    FIXTURE.sql("UPDATE hyperfide.schema_migrations SET checksum=$1 WHERE version=25",['sha256:'+'0'*64])
    try:reject('describe',{},'MIGRATION_SCHEMA_REQUIRED')
-   finally:FIXTURE.sql("UPDATE hyperfide.schema_migrations SET checksum=$1 WHERE version=25",[sha((ROOT/'services/hyperfide/migrations/0025-sqlite-history.sql').read_bytes())])
+   finally:FIXTURE.sql("UPDATE hyperfide.schema_migrations SET checksum=$1 WHERE version=25",[sha((ROOT/'core/control-plane/migrations/0025-sqlite-history.sql').read_bytes())])
   check("migration.schema.checksum-refused",wrong_schema)
   c.close();frozen.close();database=FIXTURE.database;FIXTURE.close();backend_absent=backend.stop();proxy.close();proxy_absent=not Path(proxy.path).exists()
   import socket

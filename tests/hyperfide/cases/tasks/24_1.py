@@ -65,7 +65,7 @@ COMMIT;
 """.replace(uid(99),EPOCH)%(ORG,ORG,uid(2),ORG,uid(3),uid(2),ORG,uid(3),ORG,uid(4),uid(2),ORG,RUN,uid(2),uid(4),D,EPOCH,ORG,RUN,uid(3),ORG,RUN,uid(6),ORG,RUN,uid(7),uid(6),uid(4),D,ORG,uid(8),ORG,uid(9),uid(8),ORG,uid(10),uid(9),ORG,RUN,ATTEMPT,uid(7),EPOCH,D,uid(9),uid(10),ATTEMPT,ORG,RUN,ORG,RUN,uid(21),ATTEMPT,EPOCH,ORG,RUN,uid(22),ATTEMPT,uid(9),uid(10),ORG,RUN,uid(23),ORG,RUN,uid(24),uid(27),uid(28),EPOCH,uid(3),D,D,D,ORG,RUN,uid(25),uid(24),D,uid(26)))
 def component_dependencies(names):
  fragments={}
- for file in (ROOT/"services/hyperfide/components").glob("*.json"):
+ for file in (ROOT/"core/control-plane/components").glob("*.json"):
   value=json.loads(file.read_text())
   if "id" in value:fragments[value["id"]]=(file.stem,value)
  result=[];visited=set()
@@ -139,11 +139,11 @@ def cleanup(emit=True):
  return complete
 
 ACCEPTED_REBIND_PROBE=r'''
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {FileExternalAuthorityJournal} from './services/hyperfide/dist/storage/authority_journal.js';
-import {lookupAuthorityActivation} from './services/hyperfide/dist/storage/durability.js';
-import {FileExternalFenceJournal} from './services/hyperfide/dist/recovery/fencing.js';
-import {createAcceptedRunRecoveryVerifier} from './services/hyperfide/dist/recovery/control.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {FileExternalAuthorityJournal} from './core/control-plane/dist/storage/authority_journal.js';
+import {lookupAuthorityActivation} from './core/control-plane/dist/storage/durability.js';
+import {FileExternalFenceJournal} from './core/control-plane/dist/recovery/fencing.js';
+import {createAcceptedRunRecoveryVerifier} from './core/control-plane/dist/recovery/control.js';
 import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {randomUUID} from 'node:crypto';
 const signal=new AbortController().signal,r=createResourceContainer({role:'control',env:process.env,signal});
 const D='sha256:'+'a'.repeat(64),org=process.env.HF_RECOVERY_ORG,run=process.env.HF_RECOVERY_RUN,deployment=process.env.HYPERFIDE_DEPLOYMENT_ID;
@@ -170,11 +170,11 @@ def tests(f):
  def present_supervisor():
   expect(describe["supervisor_capability"]=="PRESENT" and describe["offline_policy"]=="BOUNDED_LOCAL",str(describe))
   probe=r'''
-import {ComponentRegistry} from './services/hyperfide/dist/components/registry.js';
+import {ComponentRegistry} from './core/control-plane/dist/components/registry.js';
 import fs from 'node:fs/promises';
 const registry=new ComponentRegistry({role:'control',policy:JSON.parse(await fs.readFile(process.argv[1],'utf8')),signal:new AbortController().signal,env:process.env});
 try{
- await registry.load(process.argv[2],'./services/hyperfide/dist');
+ await registry.load(process.argv[2],'./core/control-plane/dist');
  const providers=registry.describe().components.filter(({id})=>{
   try{return !!registry.resolveCapability(id,'runner.supervisors.v1',v=>['observe','stop','verifyStop'].every(k=>typeof v?.[k]==='function'));}catch{return false;}
  }).map(({id})=>id);

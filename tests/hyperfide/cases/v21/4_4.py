@@ -18,7 +18,7 @@ Prints SKIP and exits 77 when no PostgreSQL server or root is available.
 import base64, importlib.util, json, os, pathlib, pwd, shutil, subprocess, sys, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 COMPONENTS = ('2.1', '2.4', '3.1', '3.2', '5.1', '5.2', '6.1', '6.2', '6.3', '7.2', '7.3', '1.2-asks', '12.2', '1.1', '14.2', '14.3', '13.4-supervision')

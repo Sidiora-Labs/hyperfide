@@ -92,7 +92,7 @@ class SubmissionStack:
             "".join(key+" = "+json.dumps(check[key])+"\n" for key in ("argv","executable_digest","timeout_ms","required_artifacts","input_keys")))
         for name in self.tasks:
             source+='[task.'+name+']\nwave = 1\nreqs = ["16.1"]\nacceptance_ids = ["V-013"]\nrequires = []\ntouches = ["src/'+name+'.ts"]\n'
-        parsed=json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT,timeout=30))
+        parsed=json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT,timeout=30))
         spec=uid();i["submission_spec"]=spec
         self.spec_generation=self.scheduler.next_spec_generation(f)
         intent={"schema_version":1,"revision_digest":sha(b"submission-envelope-"+spec.encode()),"source_digest":sha(source.encode()),
@@ -183,7 +183,7 @@ def cleanup_stack(record,prefix,run_sql,resource_prefix,artifact,write_absence):
     for row in processes:
         if alive(row):
             command=Path("/proc/"+str(row["pid"])+"/cmdline").read_bytes()
-            if not any(marker in command for marker in (b"/services/hyperfide/dist/",b"hyperfide-native",b"tests/hyperfide/integration/")):raise ValueError("Unowned stack process")
+            if not any(marker in command for marker in (b"/core/control-plane/dist/",b"hyperfide-native",b"tests/hyperfide/integration/")):raise ValueError("Unowned stack process")
             os.kill(row["pid"],signal.SIGTERM)
             for _ in range(80):
                 if not alive(row):break

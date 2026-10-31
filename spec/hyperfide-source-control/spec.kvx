@@ -1,5 +1,5 @@
 # Hyperfide native source control with layout and agent-led fleet prerequisites. Layout implementation started.
-# Layout 0.3-0.9, fleet 0.10-0.14, then native 0.1; layout 0.3 implemented, graph qualification pending; product cases UNRUN.
+# Layout 0.3 implemented with graph qualification pending; 0.4-0.8 relocation in progress ahead of open prerequisites. Product cases UNRUN.
 
 [meta]
 feature = "hyperfide-source-control"
@@ -9,7 +9,7 @@ status = "in_progress"
 stage = "implementation"
 review_date = "2026-10-31"
 source_baseline = "2f7331ef2085f6f374adf2d1e2ee01405fecb72d"
-intro = "First qualify category-based repository reorganization, then the final prerequisite: agent-led fleet orchestration with interfaces.kvx, sandbox package.kvx and .neron source configuration. Only then implement the online server-authoritative source-control subsystem. An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 content and bounded trees, thin clients, complete APIs, server-side history and source operations, optional sparse and virtualized working copies, within-monorepo sharding, exact-evidence acceptance, and GitHub/GitLab compatibility at the remote boundary. Layout implementation begins with inventory task 0.3; later product implementation and full qualification remain pending."
+intro = "First qualify category-based repository reorganization, then the final prerequisite: agent-led fleet orchestration with interfaces.kvx, sandbox package.kvx and .neron source configuration. Only then implement the online server-authoritative source-control subsystem. An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 content and bounded trees, thin clients, complete APIs, server-side history and source operations, optional sparse and virtualized working copies, within-monorepo sharding, exact-evidence acceptance, and GitHub/GitLab compatibility at the remote boundary. Layout inventory task 0.3 is implemented with graph qualification pending; 8,339 mapped paths have been relocated and tasks 0.4 through 0.8 are in progress ahead of open prerequisites. Focused checks and pinned dependency setup do not establish full layout qualification; fleet and native source-control implementation remain pending."
 
 [decisions]
 d_1 = "Native online source control is a Hyperfide subsystem with a versioned service boundary; Hyperfide keeps task, attempt, scheduling and qualification-policy authority. Basic source operations also support authorized taskless principals."
@@ -264,7 +264,7 @@ qualification_receipt = "build/layout/0.3/receipt.json"
 
 [task.0.4]
 title = "Establish the root workspace and relocation front door"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = ["0.3"]
 touches = ["package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "vitest.config.ts", "vitest.shared.ts", "vitest.global-tmpdir.ts", ".oxlintrc.json", ".oxfmtrc.json", ".env.example", ".nvmrc", ".gitignore", ".gitattributes", ".hyperfide-env-setup.sh", "platform/package.json", "platform/pnpm-workspace.yaml", "platform/pnpm-lock.yaml", "platform/turbo.json", "platform/vitest.config.ts", "platform/vitest.shared.ts", "platform/vitest.global-tmpdir.ts", "platform/.oxlintrc.json", "platform/.oxfmtrc.json", "platform/.env.example", "platform/.nvmrc", "platform/.gitignore", "platform/.gitattributes", "platform/.hyperfide-env-setup.sh", "tools/workspace/env-setup.sh", "tools/repository/repository-root.py", "tests/hyperfide/cases/source_control/0_4.py"]
@@ -276,10 +276,13 @@ do_4 = "Implement the gate to compare actual workspace identities and dependency
 reqs = ["15.3", "15.4", "15.5"]
 owner = "repository-layout"
 cases = ["SCM-025"]
+execution_mode = "ahead"
+ahead_of = ["0.3"]
+qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.5]
 title = "Relocate native engines and core executables with their consumers"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = ["0.4"]
 touches = ["kvx", "platform/apps/ai-gateway", "platform/apps/host-daemon", "platform/apps/server", "platform/packages/agent-runtime", "platform/packages/db", "platform/packages/environment-provider-host", "platform/packages/host-watcher", "platform/packages/host-workspace", "platform/packages/hyperfide-authority", "platform/packages/local-open-targets", "platform/packages/provider-bridge-acp", "platform/packages/provider-bridge-protocol", "platform/packages/secret-storage", "platform/packages/server-archive", "services/hyperfide", "src", "core/kvx", "core/ai-gateway", "core/host-daemon", "core/server", "core/agent-runtime", "core/runtime-db", "core/environment-provider-host", "core/host-watcher", "core/host-workspace", "core/authority-client", "core/local-open-targets", "core/provider-bridge-acp", "core/provider-bridge-protocol", "core/secret-storage", "core/server-archive", "core/control-plane", "core/native/src", "Makefile", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "tools/repository/hyperfide-native-components.py", "scripts/hyperfide-native-components.py", "deploy/hyperfide/dist-stamp.mjs", "tests/integration", "tests/hyperfide/cases/source_control/0_5.py"]
@@ -291,10 +294,13 @@ do_4 = "Implement the driver to compile and exercise native front-door/component
 reqs = ["15.1", "15.2", "15.4", "15.6"]
 owner = "repository-layout"
 cases = ["SCM-025"]
+execution_mode = "ahead"
+ahead_of = ["0.4"]
+qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.6]
 title = "Relocate SDKs contracts libraries and packaged tooling"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = ["0.5"]
 touches = ["platform/packages/bundled-plugins", "platform/packages/client-core", "platform/packages/config", "platform/packages/core-ui", "platform/packages/desktop-contract", "platform/packages/domain", "platform/packages/fuzzy-match", "platform/packages/hono-typed-routes", "platform/packages/host-daemon-contract", "platform/packages/logger", "platform/packages/mobile-bridge", "platform/packages/plugin-build", "platform/packages/plugin-registry", "platform/packages/plugin-sdk", "platform/packages/process-utils", "platform/packages/provider-parity", "platform/packages/query-tags", "platform/packages/scripts", "platform/packages/sdk", "platform/packages/server-contract", "platform/packages/shared-ui", "platform/packages/templates", "platform/packages/test-helpers", "platform/packages/text-utils", "platform/packages/thread-view", "platform/packages/tsconfig", "tools/bundled-plugins", "lib/client-core", "lib/config", "lib/core-ui", "contracts/desktop", "lib/domain", "lib/fuzzy-match", "lib/hono-typed-routes", "contracts/host-daemon", "lib/logger", "contracts/mobile-bridge", "tools/plugin-build", "tools/plugin-registry", "sdk/plugins", "lib/process-utils", "tools/provider-parity", "lib/query-tags", "tools/scripts", "sdk/client", "contracts/server", "lib/shared-ui", "lib/templates", "tools/test-helpers", "lib/text-utils", "lib/thread-view", "tools/tsconfig", "platform/changelog-parser.ts", "platform/changelog-metadata.ts", "lib/changelog/parser.ts", "lib/changelog/metadata.ts", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "vitest.config.ts", "tests/hyperfide/cases/source_control/0_6.py"]
@@ -306,10 +312,13 @@ do_4 = "Implement the gate to reject resolution from an old-source duplicate, mi
 reqs = ["15.1", "15.2", "15.3", "15.4", "15.6"]
 owner = "repository-layout"
 cases = ["SCM-025"]
+execution_mode = "ahead"
+ahead_of = ["0.5"]
+qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.7]
 title = "Relocate applications plugins extensions examples and assets"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = ["0.6"]
 touches = ["platform/apps/app", "platform/apps/cli", "platform/apps/desktop", "platform/apps/mobile", "platform/apps/demo-server", "platform/packages/hyperfide-app", "platform/plugins", "platform/examples", "platform/assets", "platform/patches", "editors/vscode", "kvx/editors/vscode", "core/kvx/editors/vscode", "apps", "plugins", "extensions", "examples", "assets", "patches", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "tests/hyperfide/cases/source_control/0_7.py"]
@@ -321,10 +330,13 @@ do_4 = "Implement the driver to compare packaged assets, bins and plugin/extensi
 reqs = ["15.1", "15.2", "15.4", "15.6"]
 owner = "repository-layout"
 cases = ["SCM-025"]
+execution_mode = "ahead"
+ahead_of = ["0.6"]
+qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.8]
 title = "Complete tooling CI preparation and release path migration"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = ["0.7"]
 touches = ["scripts", "platform/scripts", "tools/repository", "tools/workspace", "platform/tests", "tests/runtime-integration", "tests/qa", "tests/fixtures/plugins/scripted-echo-provider", "platform/qa", "platform/docs", "docs/runtime", "docs/verification", "docs/history/runtime-port.md", "platform/README.md", "platform/CHANGELOG.md", "platform/AGENTS.md", "AGENTS.md", "platform/.hyperfide", "spec/workflow.kvx", ".agents/skills", ".github/workflows", "deploy/hyperfide", "Makefile", ".gitignore", ".gitattributes", ".cgignore", "README.md", "tests/hyperfide/cases/source_control/0_8.py"]
@@ -336,6 +348,9 @@ do_4 = "Remove transitional old workspace roots and source facades. Scan executa
 reqs = ["15.3", "15.4", "15.5", "15.8"]
 owner = "repository-layout"
 cases = ["SCM-025"]
+execution_mode = "ahead"
+ahead_of = ["0.7"]
+qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.9]
 title = "Qualify the category layout and release the layout prerequisite"

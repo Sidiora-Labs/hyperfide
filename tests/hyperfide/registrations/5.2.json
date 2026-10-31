@@ -80,11 +80,11 @@
   ],
   "cleanup_timeout_seconds": 60,
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/scheduler/leases.js",
-    "services/hyperfide/dist/scheduler/claim.js",
-    "services/hyperfide/dist/scheduler/resources.js",
-    "services/hyperfide/dist/storage/runtime.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/scheduler/leases.js",
+    "core/control-plane/dist/scheduler/claim.js",
+    "core/control-plane/dist/scheduler/resources.js",
+    "core/control-plane/dist/storage/runtime.js"
   ],
   "required_artifacts": [
     "scheduler/observations.json",
@@ -103,27 +103,27 @@
   "schema_version": 1,
   "scope": "task-component",
   "source_files": [
-    "services/hyperfide/src/scheduler/leases.ts",
-    "services/hyperfide/components/5.2.json",
+    "core/control-plane/src/scheduler/leases.ts",
+    "core/control-plane/components/5.2.json",
     "tests/hyperfide/cases/tasks/5_2.py",
     "tests/hyperfide/registrations/5.2.json",
     "tests/hyperfide/cases/tasks/5_1.py",
     "tests/hyperfide/cases/tasks/3_2.py",
     "tests/hyperfide/cases/tasks/3_1.py",
     "tests/hyperfide/support/identity_fixture.py",
-    "services/hyperfide/migrations/0005-scheduling.sql",
+    "core/control-plane/migrations/0005-scheduling.sql",
     "tests/hyperfide/qualify.py",
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json"
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "task": "5.2",
   "timeout_seconds": 600,

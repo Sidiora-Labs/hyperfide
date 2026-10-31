@@ -94,8 +94,8 @@
   ],
   "cleanup_timeout_seconds": 60,
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/hierarchy/packages.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/hierarchy/packages.js"
   ],
   "required_artifacts": [],
   "required_env": [
@@ -105,24 +105,24 @@
   "schema_version": 1,
   "scope": "task-component",
   "source_files": [
-    "services/hyperfide/src/hierarchy/packages.ts",
-    "services/hyperfide/migrations/0003-hierarchy.sql",
-    "services/hyperfide/components/3.1.json",
+    "core/control-plane/src/hierarchy/packages.ts",
+    "core/control-plane/migrations/0003-hierarchy.sql",
+    "core/control-plane/components/3.1.json",
     "tests/hyperfide/cases/tasks/3_1.py",
     "tests/hyperfide/support/identity_fixture.py",
     "tests/hyperfide/registrations/3.1.json",
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
     "tests/hyperfide/qualify.py",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json"
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "task": "3.1",
   "timeout_seconds": 300,

@@ -2,11 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
 unset HYPERFIDE_RATCHET_ALLOW_INCREASE
-node platform/scripts/check-provider-literal-ratchet.mjs
+node tools/workspace/check-provider-literal-ratchet.mjs
 node --input-type=module <<'JS'
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-const baseline = JSON.parse(readFileSync('platform/scripts/provider-literal-baseline.json', 'utf8'));
+const baseline = JSON.parse(readFileSync('tools/workspace/provider-literal-baseline.json', 'utf8'));
 assert.ok(baseline.total <= 14);
 for (const path of [
   'apps/server/src/services/threads/thread-import/service.ts',
@@ -19,6 +19,6 @@ for (const path of [
   assert.equal(baseline.files[path], undefined, path);
 }
 JS
-pnpm -C platform --filter @hyperfide/scripts test
-pnpm -C platform --filter @hyperfide/server exec vitest run src/services/threads/thread-import
-pnpm -C platform --filter @hyperfide/hyperfide-dispatch test
+pnpm --filter @hyperfide/scripts test
+pnpm --filter @hyperfide/server exec vitest run src/services/threads/thread-import
+pnpm --filter @hyperfide/hyperfide-dispatch test

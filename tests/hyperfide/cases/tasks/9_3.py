@@ -66,7 +66,7 @@ def main():
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {RailwaySessionSpool,createRailwayArtifactChunkSink,RailwayArtifactUploadUnknown,verifyRailwayStreamArchive} from './services/hyperfide/dist/providers/railway/processes.js';
+import {RailwaySessionSpool,createRailwayArtifactChunkSink,RailwayArtifactUploadUnknown,verifyRailwayStreamArchive} from './core/control-plane/dist/providers/railway/processes.js';
 const root=process.argv[1],folder=process.argv[2],session=process.argv[3],size=Number(process.argv[4]);
 const spool=new RailwaySessionSpool(root),resource={native_sandbox_id:'sandbox-1',sandbox_boot_generation:'7'};
 const output=spool.readCapturedOutput(resource,session,16*1024*1024);

@@ -65,11 +65,11 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/migration/cutover.js",
-    "services/hyperfide/dist/migration/legacy.js",
-    "services/hyperfide/dist/migration/parity.js",
-    "services/hyperfide/dist/migration/sqlite.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/migration/cutover.js",
+    "core/control-plane/dist/migration/legacy.js",
+    "core/control-plane/dist/migration/parity.js",
+    "core/control-plane/dist/migration/sqlite.js"
   ],
   "resources": [
     {
@@ -90,21 +90,21 @@
     "cutover/service-observations.json"
   ],
   "source_files": [
-    "services/hyperfide/components/25.2.json",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/migration/cutover.js",
-    "services/hyperfide/dist/migration/legacy.js",
-    "services/hyperfide/dist/migration/parity.js",
-    "services/hyperfide/dist/migration/sqlite.js",
-    "services/hyperfide/migrations/0025-sqlite-history.sql",
-    "services/hyperfide/migrations/0252-migration-proof.sql",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/src/migration/cutover.ts",
-    "services/hyperfide/src/migration/legacy.ts",
-    "services/hyperfide/src/migration/parity.ts",
-    "services/hyperfide/src/migration/sqlite.ts",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/components/25.2.json",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/migration/cutover.js",
+    "core/control-plane/dist/migration/legacy.js",
+    "core/control-plane/dist/migration/parity.js",
+    "core/control-plane/dist/migration/sqlite.js",
+    "core/control-plane/migrations/0025-sqlite-history.sql",
+    "core/control-plane/migrations/0252-migration-proof.sql",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/migration/cutover.ts",
+    "core/control-plane/src/migration/legacy.ts",
+    "core/control-plane/src/migration/parity.ts",
+    "core/control-plane/src/migration/sqlite.ts",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/cases/tasks/15_2.py",
     "tests/hyperfide/cases/tasks/25_2.py",
     "tests/hyperfide/check-evidence.py",
@@ -115,11 +115,11 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations",
-    "src/hyperfide",
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations",
+    "core/native/src/hyperfide",
     "tests/hyperfide/support"
   ],
   "actions": [

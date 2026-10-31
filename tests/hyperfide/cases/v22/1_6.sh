@@ -40,10 +40,10 @@ test "$elapsed" -lt 2700
 python3 - "$tmp/status.json" "$elapsed" <<'PY'
 import json, sys
 s = json.load(open(sys.argv[1]))
-server = [f for f in s['files'] if f['path'].startswith('platform/apps/server/')]
-assert server, 'platform/apps/server is absent from the index'
+server = [f for f in s['files'] if f['path'].startswith('core/server/')]
+assert server, 'core/server is absent from the index'
 symbols = sum(f['symbols'] for f in server)
-assert symbols > 0, 'platform/apps/server has no indexed symbols'
+assert symbols > 0, 'core/server has no indexed symbols'
 assert s['file_count'] == len(s['files'])
 assert s['symbol_count'] == sum(f['symbols'] for f in s['files'])
 assert not any('/dist/' in '/' + f['path'] or '/.turbo/' in '/' + f['path']

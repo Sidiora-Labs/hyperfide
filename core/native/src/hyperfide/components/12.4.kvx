@@ -1,0 +1,10 @@
+[component]
+schema_version = 1
+id = "12.4"
+source = "core/native/src/hyperfide/control.c"
+entry = "hf_component_12_4"
+actions = ["runner.observe", "runner.stop", "runner.pause", "runner.drain", "runner.cancel", "runner.resume", "runner.slot.release", "runner.reconcile", "runner.preparation.stage", "runner.job.execute"]
+requires = ["12.3"]
+support_sources = ["core/native/src/hyperfide/job.c", "core/native/src/hyperfide/preparation_stage.c", "core/native/src/hyperfide/budget.c"]
+headers = ["core/native/src/hyperfide/supervisor.h"]
+libraries = ["crypto"]

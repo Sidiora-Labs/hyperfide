@@ -38,7 +38,7 @@ def main():
  failed=[]
  with tempfile.TemporaryDirectory(prefix="hf20-results-")as temporary:
   fixture=shared.Fixture(temporary,"20.2",ACTIONS)
-  (fixture.components/"20.1.json").write_bytes((ROOT/"services/hyperfide/components/20.1.json").read_bytes())
+  (fixture.components/"20.1.json").write_bytes((ROOT/"core/control-plane/components/20.1.json").read_bytes())
   def check(i,fn):
    try:fn();actual="observed"
    except Exception as error:actual=f"{type(error).__name__}: {error}";failed.append(i)
@@ -93,7 +93,7 @@ def main():
    finally:http.close()
   check(IDS[17],lambda:evaluate(False));check(IDS[18],lambda:evaluate(True))
   def attestation():
-   script="""import {assertValidatedDecision} from './services/hyperfide/dist/decisions/results.js';
+   script="""import {assertValidatedDecision} from './core/control-plane/dist/decisions/results.js';
 let rejected=false;try{assertValidatedDecision({identity:{decision_id:'x',packet_hash:'sha256:x'},status:'accepted_advice'},{decision_id:'x',packet_hash:'sha256:x'});}catch(e){rejected=e.code==='DECISION_UNTRUSTED';}
 if(!rejected)process.exit(1);
 console.log('untrusted record rejected');
@@ -109,8 +109,8 @@ console.log('untrusted record rejected');
   def prepared_transport(forged=False):
    http=shared.HTTPFixture()
    try:
-    script="""import {prepare} from './services/hyperfide/dist/decisions/adapters.js';
-import {evaluatePreparedDecision,assertValidatedDecision} from './services/hyperfide/dist/decisions/results.js';
+    script="""import {prepare} from './core/control-plane/dist/decisions/adapters.js';
+import {evaluatePreparedDecision,assertValidatedDecision} from './core/control-plane/dist/decisions/results.js';
 const source=JSON.parse(process.env.TEST_REQUEST),identity=JSON.parse(process.env.TEST_IDENTITY);
 let prepared=prepare('span-native',source,{body:{reasoning:{mode:'on',budget_ms:100},images:['synthetic-internal-preservation-sentinel']}});
 if(process.env.TEST_FORGED==='true')prepared=JSON.parse(JSON.stringify(prepared));

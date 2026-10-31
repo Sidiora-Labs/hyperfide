@@ -135,8 +135,8 @@
   ],
   "fixtures": [
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/observability/views.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/observability/views.js"
   ],
   "resources": [
     {
@@ -179,17 +179,17 @@
   "source_files": [
     "Makefile",
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/observability/views.js",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/tsconfig.json",
-    "src/govern.c",
-    "src/integrate.c",
-    "src/main.c",
-    "src/mcp.c",
-    "src/orchestrate.c",
-    "src/spec.c",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/observability/views.js",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/tsconfig.json",
+    "core/native/src/govern.c",
+    "core/native/src/integrate.c",
+    "core/native/src/main.c",
+    "core/native/src/mcp.c",
+    "core/native/src/orchestrate.c",
+    "core/native/src/spec.c",
     "tests/hyperfide/cases/tasks/15_2.py",
     "tests/hyperfide/cases/tasks/25_3.py",
     "tests/hyperfide/cases/tasks/25_3_workflow.py",
@@ -202,11 +202,11 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations",
-    "src/hyperfide",
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations",
+    "core/native/src/hyperfide",
     "tests/hyperfide/support"
   ],
   "actions": [

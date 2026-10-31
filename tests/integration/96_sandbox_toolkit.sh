@@ -94,7 +94,7 @@ mkdir -p "$PROJ"; cd "$PROJ"
 git init -q -b main . 2>/dev/null || git init -q .
 git config user.email t@t; git config user.name t
 printf 'export function alpha(): number {\n  return 1;\n}\n' > a.ts
-printf '/cg\n/services/hyperfide/dist/\n.codegraph/\n' > .gitignore
+printf '/cg\n/core/control-plane/dist/\n.codegraph/\n' > .gitignore
 "$CG" spec new hyperfide >/dev/null
 "$CG" spec docs off >/dev/null
 "$CG" spec start 1.1 >/dev/null
@@ -127,9 +127,9 @@ c = json.load(open(p))
 c['repo'] = proj
 steps = {s[0]: s for s in c['base']['steps']}
 c['base']['steps'] = [steps['clone'], ['cg', f'cd {{W}} && cp {cg} ./cg && ./cg --version', 120],
-                      ['service', 'mkdir -p {W}/services/hyperfide/dist && echo index.js > {W}/services/hyperfide/dist/index.js && ls {W}/services/hyperfide/dist | head -1', 60],
+                      ['service', 'mkdir -p {W}/core/control-plane/dist && echo index.js > {W}/core/control-plane/dist/index.js && ls {W}/core/control-plane/dist | head -1', 60],
                       ['index', 'cd {W} && ./cg init >/work/logs/init.log 2>&1', 300], ['tools', 'codex --version && git --version', 60]]
-c['probe'] = 'cd {W} && ./cg --version && ls services/hyperfide/dist | head -1'
+c['probe'] = 'cd {W} && ./cg --version && ls core/control-plane/dist | head -1'
 c['prepare'] = 'true'
 c['qualify']['cmd'] = '(./cg spec start -f {feature} {task} >/dev/null 2>&1 || true); ./cg spec done -f {feature} {task}'
 c['staggerMs'] = 0

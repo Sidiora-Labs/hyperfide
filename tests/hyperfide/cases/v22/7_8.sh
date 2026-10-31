@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-if [[ ! -f platform/apps/server/dist/index.js || ! -f platform/apps/cli/dist/index.js ]]; then
-  pnpm -C platform build
+if [[ ! -f core/server/dist/index.js || ! -f apps/cli/dist/index.js ]]; then
+  pnpm build
 fi
 python3 - <<'PY'
 import json
@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-8-') as temporary:
                HYPERFIDE_DATA_DIR=str(data), HYPERFIDE_SERVER_URL=url)
     log_path = data / 'server.log'
     with log_path.open('w') as log:
-        server = subprocess.Popen(['node', str(root / 'platform/apps/server/dist/index.js')],
+        server = subprocess.Popen(['node', str(root / 'core/server/dist/index.js')],
                                   env=env, stdout=log, stderr=log)
         try:
             deadline = time.monotonic() + 120
@@ -44,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-8-') as temporary:
                 time.sleep(0.25)
             while True:
                 result = subprocess.run(
-                    [str(root / 'platform/apps/cli/bin/hyperfide-platform'), 'plugin', 'list', '--json'],
+                    [str(root / 'apps/cli/bin/hyperfide-platform'), 'plugin', 'list', '--json'],
                     env=env, text=True, capture_output=True, timeout=30, check=True)
                 plugins = json.loads(result.stdout)['plugins']
                 plugin = next((p for p in plugins if p['id'] == 'hyperfide-environment-slices'), None)

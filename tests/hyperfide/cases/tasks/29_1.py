@@ -35,10 +35,10 @@ export async function createBootstrapFenceArguments(){
 """
 PROBE=r"""
 import fs from 'node:fs/promises';import {randomUUID} from 'node:crypto';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {AuthorityStore,activateBootstrapAuthority,lookupAuthorityActivation,assertExternalAuthorityCurrent,readAuthorityActivated,createComponent} from './services/hyperfide/dist/storage/durability.js';
-import {FileExternalAuthorityJournal} from './services/hyperfide/dist/storage/authority_journal.js';
-import {createExternalWriterFence} from './services/hyperfide/dist/recovery/fencing.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {AuthorityStore,activateBootstrapAuthority,lookupAuthorityActivation,assertExternalAuthorityCurrent,readAuthorityActivated,createComponent} from './core/control-plane/dist/storage/durability.js';
+import {FileExternalAuthorityJournal} from './core/control-plane/dist/storage/authority_journal.js';
+import {createExternalWriterFence} from './core/control-plane/dist/recovery/fencing.js';
 const r=createResourceContainer({role:process.env.HF29_ROLE??'control',env:process.env,signal:new AbortController().signal}),deployment=process.env.HYPERFIDE_DEPLOYMENT_ID,root=process.env.HF29_ROOT;
 const journal=new FileExternalAuthorityJournal(process.env.HYPERFIDE_AUTHORITY_JOURNAL_DIR,i=>lookupAuthorityActivation(r,i));
 const out={},refused=async(fn,code)=>{try{await fn();return false}catch(e){return e.code===code}};
@@ -93,7 +93,7 @@ def main():
   f=identity.IdentityFixture(extra_actions=['storage.durability.inspect','storage.migrations.inspect']+SHIPPED_AUTHORITY)
   status,response=f.invoke('storage.durability.inspect',{},component='4.4');observed['component-wired']=status==200 and response.get('ok') is True
   folder.chmod(0o755);shutil.copyfile(shutil.which('node'),folder/'node');(folder/'node').chmod(0o755);(folder/'leader').mkdir(mode=0o700);(folder/'fences').mkdir(mode=0o700)
-  driver=folder/'driver.mjs';driver.write_text(DRIVER.replace('FENCE',(ROOT/'services/hyperfide/dist/recovery/fencing.js').as_uri()).replace('CREDENTIALS',(ROOT/'services/hyperfide/dist/identity/credentials.js').as_uri()));driver.chmod(0o600)
+  driver=folder/'driver.mjs';driver.write_text(DRIVER.replace('FENCE',(ROOT/'core/control-plane/dist/recovery/fencing.js').as_uri()).replace('CREDENTIALS',(ROOT/'core/control-plane/dist/identity/credentials.js').as_uri()));driver.chmod(0o600)
   env={**f.env,'HYPERFIDE_DEPLOYMENT_ID':str(uuid.uuid4()),'HYPERFIDE_AUTHORITY_JOURNAL_DIR':str(folder/'leader'),'HF29_ROOT':str(folder),'HF29_DRIVER':driver.as_uri(),'HF29_OPERATION':str(uuid.uuid4()),'HF29_ORG':f.ids['organisation'],'HF29_RUN':f.ids['run']}
   def run(js,environment,**kw):
    p=subprocess.run([str(folder/'node'),'--input-type=module'],input=js,text=True,capture_output=True,cwd=ROOT,env=environment,timeout=60,**kw)
@@ -102,14 +102,14 @@ def main():
    return json.loads(p.stdout)
   result=run(PROBE,env);observed.update(result['out'])
   # Role uids get a byte-identical copy of the runtime they can traverse; the checkout may sit under a private home.
-  stage=folder/'stage';hf=stage/'services/hyperfide'
-  for name in ['dist','components','migrations','node_modules']:shutil.copytree(ROOT/'services/hyperfide'/name,hf/name,symlinks=True)
-  shutil.copyfile(ROOT/'services/hyperfide/package.json',hf/'package.json')
+  stage=folder/'stage';hf=stage/'core/control-plane'
+  for name in ['dist','components','migrations','node_modules']:shutil.copytree(ROOT/'core/control-plane'/name,hf/name,symlinks=True)
+  shutil.copyfile(ROOT/'core/control-plane/package.json',hf/'package.json')
   units=folder/'units';units.mkdir()
-  for name in ['4.2','4.4']:shutil.copyfile(ROOT/('services/hyperfide/components/'+name+'.json'),units/(name+'.json'))
+  for name in ['4.2','4.4']:shutil.copyfile(ROOT/('core/control-plane/components/'+name+'.json'),units/(name+'.json'))
   # The provisioner is served only over the authenticated HTTPS transport, so it also loads the identity authority.
   https_units=folder/'https-units';https_units.mkdir()
-  for name in ['4.2','4.4','14.1']:shutil.copyfile(ROOT/('services/hyperfide/components/'+name+'.json'),https_units/(name+'.json'))
+  for name in ['4.2','4.4','14.1']:shutil.copyfile(ROOT/('core/control-plane/components/'+name+'.json'),https_units/(name+'.json'))
   transport={}
   def provisioner_transport(n):
    directory=folder/'provisioner-transport';directory.mkdir(mode=0o700)
@@ -159,7 +159,7 @@ def main():
   observed['followers-no-mint']=f.sql('SELECT count(*)::int AS count FROM hyperfide.authority_epochs WHERE deployment_id=$1',[env['HYPERFIDE_DEPLOYMENT_ID']])[0]['count']==1
   # Exercise the real operator wrapper against a release-layout fixture.
   release=folder/'release';(release/'runtime').mkdir(parents=True);(release/'services').mkdir();shutil.copyfile(shutil.which('node'),release/'runtime/node');(release/'runtime/node').chmod(0o755)
-  (release/'services/dist').symlink_to(ROOT/'services/hyperfide/dist');(release/'services/components').symlink_to(ROOT/'services/hyperfide/components')
+  (release/'services/dist').symlink_to(ROOT/'core/control-plane/dist');(release/'services/components').symlink_to(ROOT/'core/control-plane/components')
   f.policy.chmod(0o600)
   common=['node','deploy/hyperfide/migrate.mjs','--release-root',str(release),'--policy-file',str(f.policy),'--spec-revision','fixture-identity-v1','--operation-id',env['HF29_OPERATION']]
   cli_env={**env,'HYPERFIDE_MIGRATION_DATABASE_URL':f.url}

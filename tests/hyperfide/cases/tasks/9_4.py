@@ -186,9 +186,9 @@ def main():
            "destroy":c.operation("destroy","destroy-op"),"spool":str(Path(folder)/"adapter-spool"),"fail_persist":False}
    js=r"""
 import fs from 'node:fs';
-import {RailwayClient} from './services/hyperfide/dist/providers/railway/preparation.js';
-import {createRailwayAdapter,createRailwayIsolationTransport} from './services/hyperfide/dist/providers/railway/reconciliation.js';
-import {RailwaySessionSpool} from './services/hyperfide/dist/providers/railway/processes.js';
+import {RailwayClient} from './core/control-plane/dist/providers/railway/preparation.js';
+import {createRailwayAdapter,createRailwayIsolationTransport} from './core/control-plane/dist/providers/railway/reconciliation.js';
+import {RailwaySessionSpool} from './core/control-plane/dist/providers/railway/processes.js';
 const data=JSON.parse(fs.readFileSync(process.argv[1])),events=[];
 const client=new RailwayClient(data.config,{HF_RAILWAY_FIXTURE_TOKEN:'not-real'});
 const adapter=data.isolation?createRailwayIsolationTransport(client,data.create.scope):createRailwayAdapter(client,{
@@ -273,7 +273,7 @@ process.stdout.write(JSON.stringify({outcome:result,events}));
    pure_config=c.clone(fixture.config);pure_config.update(mode="live",endpoint="https://backboard.railway.com/graphql/v2",exec_ws_endpoint=None)
    pure_path=Path(folder)/"pure-live-config.json";pure_path.write_text(json.dumps(pure_config));pure_path.chmod(0o600)
    pure_js=r"""
-import {configuredRailwayIsolationTransport} from './services/hyperfide/dist/providers/railway/reconciliation.js';
+import {configuredRailwayIsolationTransport} from './core/control-plane/dist/providers/railway/reconciliation.js';
 delete process.env.DATABASE_URL;
 const scope=JSON.parse(process.argv[2]);
 const transport=configuredRailwayIsolationTransport({env:{HF_RAILWAY_CONFIG:process.argv[1],HF_RAILWAY_FIXTURE_TOKEN:'not-real'}},scope);
@@ -287,8 +287,8 @@ process.stdout.write(JSON.stringify({constructed:typeof transport.destroy==='fun
    c.check(IDS[30],lambda:c.expect(pure.returncode==0 and json.loads(pure.stdout)=={"constructed":True,"denied":True} and
       len(fixture.requests)==before,"pure live construction usedPG/provider effects or accepted another scope: "+pure.stderr))
    live_quota_js=r"""
-import {configuredClient} from './services/hyperfide/dist/providers/railway/preparation.js';
-import {observeRailwayQuota} from './services/hyperfide/dist/providers/railway/reconciliation.js';
+import {configuredClient} from './core/control-plane/dist/providers/railway/preparation.js';
+import {observeRailwayQuota} from './core/control-plane/dist/providers/railway/reconciliation.js';
 const client=configuredClient({env:{HF_RAILWAY_CONFIG:process.argv[1],HF_RAILWAY_FIXTURE_TOKEN:'not-real'}});
 let message='accepted';try{await observeRailwayQuota(client,JSON.parse(process.argv[2]));}catch(error){message=String(error.message);}
 process.stdout.write(JSON.stringify({message}));

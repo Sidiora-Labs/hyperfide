@@ -61,7 +61,7 @@ class Fixture:
         keys=json.loads(subprocess.check_output([self.node,"-e",NODE_KEYGEN,str(self.base)],text=True))
         self.components=self.base/"components";self.components.mkdir()
         for task in ACTIONS:
-            shutil.copyfile(ROOT/f"services/hyperfide/components/{task}.json",self.components/f"{task}.json")
+            shutil.copyfile(ROOT/f"core/control-plane/components/{task}.json",self.components/f"{task}.json")
         actions=[value for values in ACTIONS.values()for value in values]
         policy={"schema_version":1,"programme_id":"evaluation-fixture","repository":"fixture/repo",
           "spec_revision":"evaluation-fixture-v1","policy_revision":1,"status":"ACTIVE",
@@ -70,9 +70,9 @@ class Fixture:
         self.policy=self.base/"policy.json";self.policy.write_text(json.dumps(policy))
         env=dict(os.environ,HYPERFIDE_EVAL_STORE=str(self.store),HYPERFIDE_EVAL_TRUSTED_KEYS=json.dumps(keys))
         self.stderr=(self.base/"service.stderr").open("w+")
-        self.service=subprocess.Popen([self.node,str(ROOT/"services/hyperfide/dist/control.js"),"--policy",str(self.policy),
+        self.service=subprocess.Popen([self.node,str(ROOT/"core/control-plane/dist/control.js"),"--policy",str(self.policy),
           "--spec-revision","evaluation-fixture-v1","--components",str(self.components),
-          "--module-root",str(ROOT/"services/hyperfide/dist")],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=self.stderr,text=True,env=env)
+          "--module-root",str(ROOT/"core/control-plane/dist")],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=self.stderr,text=True,env=env)
         self.sequence=0;self.now=datetime.now(timezone.utc)
         self.cases=[self.make_case(i)for i in range(15)]
     def close(self):

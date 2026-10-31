@@ -21,22 +21,22 @@ def main():
   base=Path(tmp);payload=base/"payload";payload.mkdir()
   native=next((p for p in [ROOT/"build/hyperfide-native",ROOT/"hyperfide-native"] if p.is_file()),None);expect(native is not None,"actual built native helper absent")
   copies={"bin/hyperfide-native":native,"bin/hyperfide":ROOT/"cg","bin/cg":ROOT/"cg","runtime/node":Path(subprocess.check_output(["node","-p","process.execPath"],text=True).strip()).resolve(),"runtime/python/bin/python3":Path(sys.executable).resolve(),"runtime/python/bin/python3.bin":Path(sys.executable).resolve(),"runtime/python/lib/python3.14/ctypes/__init__.py":Path(__import__("ctypes").__file__).resolve(),
-   "services/package.json":ROOT/"services/hyperfide/package.json","services/package-lock.json":ROOT/"services/hyperfide/package-lock.json",
-   "services/node_modules/pg/package.json":ROOT/"services/hyperfide/node_modules/pg/package.json"}
-  for role in ["control","provisioner","dispatch"]:copies["services/dist/"+role+".js"]=ROOT/("services/hyperfide/dist/"+role+".js")
+   "services/package.json":ROOT/"core/control-plane/package.json","services/package-lock.json":ROOT/"core/control-plane/package-lock.json",
+   "services/node_modules/pg/package.json":ROOT/"core/control-plane/node_modules/pg/package.json"}
+  for role in ["control","provisioner","dispatch"]:copies["services/dist/"+role+".js"]=ROOT/("core/control-plane/dist/"+role+".js")
   libraries=subprocess.run(["ldd",str(ROOT/"cg")],capture_output=True,text=True,check=True).stdout
   library=next(Path(line.split("=>",1)[1].strip().split()[0]).resolve() for line in libraries.splitlines() if "libsqlite3" in line)
   copies["lib/hyperfide/"+library.name]=library
   for dest,source in copies.items():
    p=payload/dest;p.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,p);p.chmod(0o755 if dest.startswith(("bin/","runtime/node","runtime/python/bin/")) else 0o644)
-  shutil.copytree(ROOT/"services/hyperfide/dist",payload/"services/dist",dirs_exist_ok=True,symlinks=False)
+  shutil.copytree(ROOT/"core/control-plane/dist",payload/"services/dist",dirs_exist_ok=True,symlinks=False)
   # Bounded dependency subset: the production closure of pg, the only package the exercised
   # control/migration paths load. A real release ships the full npm ci --omit=dev closure.
-  services=ROOT/"services/hyperfide"
+  services=ROOT/"core/control-plane"
   for item in json.loads(subprocess.check_output(["npm","query","#pg, #pg *"],cwd=services,text=True)):
    shutil.copytree(services/item["location"],payload/"services"/item["location"],dirs_exist_ok=True,symlinks=False,ignore=lambda d,names,top=services/item["location"]:["node_modules"] if Path(d)==top else [])
-  shutil.copytree(ROOT/"services/hyperfide/migrations",payload/"services/migrations",dirs_exist_ok=True,symlinks=False)
-  shutil.copytree(ROOT/"services/hyperfide/components",payload/"services/components",dirs_exist_ok=True,symlinks=False)
+  shutil.copytree(ROOT/"core/control-plane/migrations",payload/"services/migrations",dirs_exist_ok=True,symlinks=False)
+  shutil.copytree(ROOT/"core/control-plane/components",payload/"services/components",dirs_exist_ok=True,symlinks=False)
   migration=payload/"deploy/hyperfide/migrate.mjs";migration.parent.mkdir(parents=True);shutil.copytree(ROOT/"deploy/hyperfide",payload/"deploy/hyperfide",dirs_exist_ok=True,symlinks=False)
   for item in payload.rglob("*"):
    if item.is_file():item.chmod(0o755 if item.relative_to(payload).as_posix().startswith(("bin/","runtime/node","runtime/python/bin/")) else 0o644)

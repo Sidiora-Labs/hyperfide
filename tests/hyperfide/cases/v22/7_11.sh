@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-if [[ ! -f platform/apps/server/dist/index.js || ! -f platform/apps/cli/dist/index.js ]]; then
-  pnpm -C platform build
+if [[ ! -f core/server/dist/index.js || ! -f apps/cli/dist/index.js ]]; then
+  pnpm build
 fi
 python3 - <<'PY'
 import json, os, shlex, signal, socket, subprocess, tempfile, time, urllib.request
@@ -25,11 +25,11 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-11-') as tmp:
     wrapper.write_text('#!/bin/bash\nif [[ "$1" == spec && "$2" == trace ]]; then echo trace >> ' + shlex.quote(str(trace_log)) + '; sleep 3; fi\nexec ' + shlex.quote(str(repo / 'cg')) + ' "$@"\n')
     wrapper.chmod(0o755)
     env['HYPERFIDE_BIN'] = str(wrapper)
-    cli_path = str(repo / 'platform/apps/cli/bin/hyperfide-platform')
+    cli_path = str(repo / 'apps/cli/bin/hyperfide-platform')
     def cli(*args, timeout=5):
         return json.loads(subprocess.check_output([cli_path, *args], env=env, text=True, timeout=timeout))
     with (data / 'server.log').open('w+') as log:
-        server = subprocess.Popen(['node', str(repo / 'platform/apps/server/dist/index.js')],
+        server = subprocess.Popen(['node', str(repo / 'core/server/dist/index.js')],
                                   cwd=repo / 'platform', env=env, stdout=log,
                                   stderr=log, start_new_session=True)
         daemon = None
@@ -54,7 +54,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-11-') as tmp:
             enrollment = request('/internal/hosts/enroll-key', {})
             daemon_env = dict(env, HYPERFIDE_HOST_ENROLL_KEY=enrollment['enrollKey'],
                               HYPERFIDE_HOST_ID=enrollment['hostId'])
-            daemon = subprocess.Popen(['node', str(repo / 'platform/apps/host-daemon/dist/index.js')],
+            daemon = subprocess.Popen(['node', str(repo / 'core/host-daemon/dist/index.js')],
                                       cwd=repo / 'platform', env=daemon_env, stdout=log,
                                       stderr=log, start_new_session=True)
             for _ in range(120):
@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-11-') as tmp:
             os.killpg(server.pid, signal.SIGTERM)
             server.wait(timeout=20)
             started = time.monotonic()
-            server = subprocess.Popen(['node', str(repo / 'platform/apps/server/dist/index.js')],
+            server = subprocess.Popen(['node', str(repo / 'core/server/dist/index.js')],
                                       cwd=repo / 'platform', env=env, stdout=log,
                                       stderr=log, start_new_session=True)
             plugin = None

@@ -242,7 +242,7 @@ def main():
   check('retention.scope.authenticated',lambda:rejected('artifact.retention.inspect',dict(ref(run),run_id=identity.uid()),['RETENTION_SCOPE_DENIED']))
   def auth_required():
    import subprocess
-   script="import {ArtifactRetention} from './services/hyperfide/dist/artifacts/retention.js';try{await new ArtifactRetention({}).invoke('artifact.retention.inspect',{});process.exitCode=2;}catch(e){console.log(e.code);if(e.code!=='AUTH_REQUIRED')process.exitCode=3;}"
+   script="import {ArtifactRetention} from './core/control-plane/dist/artifacts/retention.js';try{await new ArtifactRetention({}).invoke('artifact.retention.inspect',{});process.exitCode=2;}catch(e){console.log(e.code);if(e.code!=='AUTH_REQUIRED')process.exitCode=3;}"
    result=subprocess.run(['node','--input-type=module','-e',script],cwd=ROOT,text=True,capture_output=True,timeout=10)
    expect(result.returncode==0 and result.stdout.strip()=='AUTH_REQUIRED','unverified retention invocation accepted')
   check('retention.auth.required',auth_required)

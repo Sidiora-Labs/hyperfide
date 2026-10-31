@@ -358,13 +358,13 @@ with `DISTRIBUTED_COMMAND_UNSUPPORTED`, exit 78 (`src/hyperfide/client.c`).
 service answers with its hierarchy view and
 `folded_branch_projection: {available: false, reason:
 "NO_EQUIVALENT_REMOTE_BRANCH_FOLDING_AUTHORITY"}`
-(`services/hyperfide/src/migration/workflow.ts`).
+(`core/control-plane/src/migration/workflow.ts`).
 
 What the service does own is different in kind: remote graph generations,
 whose `projection.*` actions compute graph deltas between source revisions
-rather than branch folds (`services/hyperfide/src/graph/projection.ts`),
-immutable integration candidates (`services/hyperfide/src/integration/candidates.ts`),
+rather than branch folds (`core/control-plane/src/graph/projection.ts`),
+immutable integration candidates (`core/control-plane/src/integration/candidates.ts`),
 and the sole publication gateway to protected targets
-(`services/hyperfide/src/integration/publication.ts`). Tasks 7.3, 19.1, 19.2
+(`core/control-plane/src/integration/publication.ts`). Tasks 7.3, 19.1, 19.2
 and 25.3 are `pending` in `spec/hyperfide/spec.kvx`, so that path is not
 qualified in this revision.

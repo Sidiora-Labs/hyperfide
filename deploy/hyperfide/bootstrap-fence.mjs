@@ -13,7 +13,7 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function refuse(code){throw Object.assign(new Error(code),{code});}
 async function driver(){
  let module=path.join(ownRoot,'services/dist/recovery/bootstrap_fence.js');
- try{await fs.access(module);}catch{module=path.join(ownRoot,'services/hyperfide/dist/recovery/bootstrap_fence.js');}
+ try{await fs.access(module);}catch{module=path.join(ownRoot,'core/control-plane/dist/recovery/bootstrap_fence.js');}
  return import(pathToFileURL(module).href);
 }
 /** Called by migrate.mjs --activate-authority with the control resources and the activation request. */

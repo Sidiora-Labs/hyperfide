@@ -153,8 +153,8 @@ def main():
   # Release-layout copy: root-owned files without group or world write, traversable by the follower uids.
   release=folder/'release';(release/'runtime').mkdir(parents=True);(release/'deploy/hyperfide').mkdir(parents=True);(release/'services').mkdir()
   shutil.copyfile(shutil.which('node'),release/'runtime/node');(release/'runtime/node').chmod(0o755)
-  for name in ['dist','components','node_modules']:shutil.copytree(ROOT/'services/hyperfide'/name,release/'services'/name,symlinks=True)
-  shutil.copyfile(ROOT/'services/hyperfide/package.json',release/'services/package.json')
+  for name in ['dist','components','node_modules']:shutil.copytree(ROOT/'core/control-plane'/name,release/'services'/name,symlinks=True)
+  shutil.copyfile(ROOT/'core/control-plane/package.json',release/'services/package.json')
   for name in ['migrate.mjs','bootstrap-fence.mjs']:shutil.copyfile(ROOT/'deploy/hyperfide'/name,release/'deploy/hyperfide'/name);(release/'deploy/hyperfide'/name).chmod(0o644)
   control=folder/'control';control.mkdir(mode=0o700)
   for name in ['leader','fences','workspace','preparation']:(control/name).mkdir(mode=0o700)

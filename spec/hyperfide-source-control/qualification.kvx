@@ -5,3 +5,11 @@ exit_code = 143
 log = "build/layout/0.3/qualification.log"
 observed = "The inventory verify command passed 22 checks; the subsequent repository graph refresh did not complete within the qualification window and was terminated."
 assumption = "Task 0.3 is implemented, not done. Preserve its focused receipt; task 0.4 requires completion of the outstanding graph/evidence qualification."
+
+[progress.layout_relocation]
+revision = "working-tree category-layout-v1"
+command = "focused relocation checks; pinned root install; independent control-plane install/build; pnpm build"
+exit_code = 0
+log = "build/layout/workspace/structure-receipt.json; build/layout/workspace/dependencies/; focused local logs catalogued in repository-layout.md section 8"
+observed = "8,339 mapped paths relocated; focused native/source/tooling guards and pinned installs/control build passed; integrated workspace build passed (65/65 tasks)."
+assumption = "Tasks 0.4-0.8 are in_progress ahead of open prerequisites; 0.3 graph qualification remains pending and SCM-025 remains UNRUN."

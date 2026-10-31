@@ -22,7 +22,7 @@ def result(action):
  return r["result"]
 def main():
  identity=result("branding.identity.describe");inventory=result("branding.compatibility.inventory")
- editor=json.loads((ROOT/"editors/vscode/package.json").read_text())
+ editor=json.loads((ROOT/"extensions/vscode/package.json").read_text())
  check("branding.native.product",lambda:identity["product"]=="Hyperfide")
  check("branding.native.development-version",lambda:identity["version"]=="2.0.0-dev" and identity["release_status"]=="development")
  check("branding.native.canonical-command",lambda:identity["canonical_command"]=="hyperfide")
@@ -40,7 +40,7 @@ def main():
  check("branding.editor.preserve-package",lambda:editor["name"]=="codify-workflow" and editor["publisher"]=="SidioraLabs")
  check("branding.editor.preserve-command-identities",lambda:all(x["command"].startswith("codify.") for x in editor["contributes"]["commands"]))
  check("branding.editor.display-command-titles",lambda:all(x["title"].startswith("Hyperfide:") for x in editor["contributes"]["commands"]))
- check("branding.installer.display",lambda:(lambda p:p.returncode==0 and p.stdout.startswith("Hyperfide installer:") and "hyperfide (canonical)" in p.stdout)(subprocess.run(["bash",str(ROOT/"scripts/install.sh"),"--help"],text=True,capture_output=True,timeout=10,stdin=subprocess.DEVNULL)))
+ check("branding.installer.display",lambda:(lambda p:p.returncode==0 and p.stdout.startswith("Hyperfide installer:") and "hyperfide (canonical)" in p.stdout)(subprocess.run(["bash",str(ROOT/"tools/repository/install.sh"),"--help"],text=True,capture_output=True,timeout=10,stdin=subprocess.DEVNULL)))
  print(json.dumps({"type":"cleanup","complete":True,"resources":[]}),flush=True)
  return bool(FAILED)
 if __name__=="__main__":

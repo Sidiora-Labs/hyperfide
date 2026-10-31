@@ -1,0 +1,36 @@
+{
+  "name": "@hyperfide/hyperfide-asks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "hyperfide": {
+    "name": "Inbox",
+    "description": "Review and answer repository asks",
+    "branding": { "icon": "Mail" },
+    "server": "./src/server.ts",
+    "app": "./app.tsx"
+  },
+  "scripts": {
+    "prepare:bundled": "node ../../tools/plugin-build/dist/cli.js prepare-bundled",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@hyperfide/shared-ui": "workspace:*",
+    "zod": "^4.3.6",
+    "react": "^19.0.0",
+    "@hyperfide/authority": "workspace:*"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^29.0.1",
+    "react-dom": "^19.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "vitest": "^4.1.1"
+  }
+}

@@ -76,13 +76,13 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/artifacts/objects.js",
-    "services/hyperfide/dist/storage/schema.js",
-    "services/hyperfide/dist/identity/enrollment.js",
-    "services/hyperfide/dist/transport/http.js",
-    "services/hyperfide/dist/transport/protocol.js",
-    "services/hyperfide/dist/storage/transactions.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/artifacts/objects.js",
+    "core/control-plane/dist/storage/schema.js",
+    "core/control-plane/dist/identity/enrollment.js",
+    "core/control-plane/dist/transport/http.js",
+    "core/control-plane/dist/transport/protocol.js",
+    "core/control-plane/dist/storage/transactions.js"
   ],
   "resources": [
     {
@@ -102,33 +102,33 @@
     "objects/observations.json"
   ],
   "source_files": [
-    "services/hyperfide/components/1.4.json",
-    "services/hyperfide/components/4.1.json",
-    "services/hyperfide/components/schema.json",
-    "services/hyperfide/migrations/0001-authority.sql",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json",
-    "services/hyperfide/src/storage/schema.ts",
-    "services/hyperfide/src/contracts/records.ts",
-    "services/hyperfide/src/components/registry.ts",
-    "services/hyperfide/src/components/service.ts",
-    "services/hyperfide/src/policy/programme.ts",
-    "services/hyperfide/src/control.ts",
+    "core/control-plane/components/1.4.json",
+    "core/control-plane/components/4.1.json",
+    "core/control-plane/components/schema.json",
+    "core/control-plane/migrations/0001-authority.sql",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
+    "core/control-plane/src/storage/schema.ts",
+    "core/control-plane/src/contracts/records.ts",
+    "core/control-plane/src/components/registry.ts",
+    "core/control-plane/src/components/service.ts",
+    "core/control-plane/src/policy/programme.ts",
+    "core/control-plane/src/control.ts",
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
     "tests/hyperfide/qualify.py",
-    "services/hyperfide/src/artifacts/objects.ts",
-    "services/hyperfide/components/15.2.json",
+    "core/control-plane/src/artifacts/objects.ts",
+    "core/control-plane/components/15.2.json",
     "tests/hyperfide/cases/tasks/15_2.py",
     "tests/hyperfide/support/identity_fixture.py",
     "tests/hyperfide/registry.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "actions": [
     "postgresql.fixture.create",

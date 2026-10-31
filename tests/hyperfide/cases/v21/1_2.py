@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Evidence through the S3 artifact store (task 1.2, decision D1).
 
-A loopback stub speaks the s3-v1 object contract that services/hyperfide/src/artifacts/objects.ts
+A loopback stub speaks the s3-v1 object contract that core/control-plane/src/artifacts/objects.ts
 uses (path-style bucket/key, SigV4 with a test-only key, If-None-Match PUT, 404 for absence) and
 verifies every signature. No real bucket or credential is involved.
 
@@ -13,7 +13,7 @@ with a registered one-assertion variant."""
 import base64, hashlib, hmac, http.server, json, os, pathlib, shutil, subprocess, sys, tempfile, threading
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / "services/hyperfide"
+SERVICE = ROOT / "core/control-plane"
 QUALIFY, CHECKER = ROOT / "tests/hyperfide/qualify.py", ROOT / "tests/hyperfide/check-evidence.py"
 TASK, ORG, RUN = "9.1", "7d0f9a52-6c0e-4b8e-9a51-3f1c2d4e5a60", "1b2c3d4e-5f60-4a71-8b92-a3b4c5d6e7f8"
 ACCESS, SECRET, REGION, BUCKET = "AKIASTUBONLY", "stub-secret-not-a-credential", "stub-region-1", "stub-evidence"

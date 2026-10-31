@@ -26,8 +26,8 @@ emit=module.emit
 def gate_cases():
     """Actual compiled executor decisions with a controlled runner.remote.v1 double behind 12.4."""
     results=module.node("""
-const m=await import('./services/hyperfide/dist/assurance/executor.js');
-const p=await import('./services/hyperfide/dist/transport/protocol.js');
+const m=await import('./core/control-plane/dist/assurance/executor.js');
+const p=await import('./core/control-plane/dist/transport/protocol.js');
 const id=()=>crypto.randomUUID(),sha=c=>'sha256:'+c.repeat(64),out=(...a)=>console.log(JSON.stringify(a.length>1?{key:a[0],valid:a[1]}:a[0]));
 const org=id(),run=id(),verifier=id(),sandbox=id();
 let remoteCalls=0;
@@ -126,10 +126,10 @@ def history_cases(fixture):
     scope={"organisation_id":org,"project_id":project,"run_id":legacy_run,"authority_epoch":fixture.ids["epoch"],"root":str(folder),"allowed_actions":["programme.activate"]}
     env=dict(os.environ,DATABASE_URL=fixture.url)
     program="""
-import {ResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {importRunTransaction} from './services/hyperfide/dist/spec/import.js';
-import {createComponent} from './services/hyperfide/dist/assurance/executor.js';
-import {authenticatedInvocation} from './services/hyperfide/dist/transport/protocol.js';
+import {ResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {importRunTransaction} from './core/control-plane/dist/spec/import.js';
+import {createComponent} from './core/control-plane/dist/assurance/executor.js';
+import {authenticatedInvocation} from './core/control-plane/dist/transport/protocol.js';
 const scope=%s,envelope=%s;
 const resources=new ResourceContainer('control',{...process.env,HYPERFIDE_CONTROL_DATABASE_URL:process.env.DATABASE_URL},new AbortController().signal);
 try{
@@ -211,7 +211,7 @@ def history_authority_cases():
     """The task-owned history view refuses absent and forged invocations like every other 16.2 action."""
     value={"organisation_id":str(uuid.uuid4()),"run_id":str(uuid.uuid4()),"task_id":str(uuid.uuid4())}
     results=module.node("""
-const module=await import('./services/hyperfide/dist/assurance/executor.js');
+const module=await import('./core/control-plane/dist/assurance/executor.js');
 const input=%s,component=module.createComponent({});
 for(const [kind,context] of [['absent',{}],['forged',{invocation:{principal:{...input,role:'OPERATOR',actor_id:input.task_id},guard:async()=>{},identityGuard:async()=>{},operation:{idempotency_key:input.task_id},signal:new AbortController().signal}}]]){
  let code=null,accepted=false;

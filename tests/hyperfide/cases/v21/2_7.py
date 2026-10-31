@@ -17,7 +17,7 @@ import time
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 SUPERUSER = 'hf_superuser'
@@ -96,8 +96,8 @@ class Cluster:
         # 30 s deadline, which a loaded fleet host can exceed. Applying the same migrations to template1 first
         # (each committed migration persists, so a deadline-cut run resumes on retry) leaves the fixture's own
         # apply a real checksum verification of an already-current schema.
-        script = ("import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';"
-                  "import {MigrationCoordinator} from './services/hyperfide/dist/storage/durability.js';"
+        script = ("import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';"
+                  "import {MigrationCoordinator} from './core/control-plane/dist/storage/durability.js';"
                   "const signal=new AbortController().signal;"
                   "const r=createResourceContainer({role:'control',env:{...process.env,HYPERFIDE_MIGRATION_DATABASE_URL:process.env.DATABASE_URL},signal});"
                   "try{await new MigrationCoordinator(r).apply({timeoutMs:30000,signal});}finally{await r.close();}")
@@ -146,7 +146,7 @@ def main():
                            text=True, capture_output=True, timeout=120)
     if stamp.returncode:
         print(json.dumps({'type': 'assertion', 'id': 'stdio.identity.dist-current', 'expected': 'observed',
-                          'actual': 'dist does not match source; run npm --prefix services/hyperfide run build: ' + (stamp.stdout + stamp.stderr)[:400]}))
+                          'actual': 'dist does not match source; run npm --prefix core/control-plane run build: ' + (stamp.stdout + stamp.stderr)[:400]}))
         return 1
     binaries = postgres_bin()
     if binaries is None or not (binaries / 'initdb').exists():

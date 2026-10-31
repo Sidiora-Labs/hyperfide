@@ -16,7 +16,7 @@ import tempfile
 import threading
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 DIGEST = 'sha256:' + '1' * 64
 SCOPE = {'organisation_id': 'org-1', 'pool_id': 'pool-1', 'provider': 'railway', 'provider_account_id': 'account-1',
          'environment_id': 'environment-1', 'region': 'region-1', 'configuration_digest': DIGEST}

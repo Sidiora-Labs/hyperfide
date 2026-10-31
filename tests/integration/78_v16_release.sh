@@ -66,7 +66,7 @@ expected_version=$(printf '#include "src/version.h"\nHYPERFIDE_VERSION\n' | "${C
     echo "release gate: binary version is not $expected_version" >&2
     exit 1
 }
-[ "$(node -p "require('./editors/vscode/package.json').version")" = "$expected_version" ] || {
+[ "$(node -p "require('./extensions/vscode/package.json').version")" = "$expected_version" ] || {
     echo "release gate: extension package version is not $expected_version" >&2
     exit 1
 }

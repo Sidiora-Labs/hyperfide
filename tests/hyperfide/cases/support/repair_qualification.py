@@ -32,7 +32,7 @@ class RepairQualification:
         profile['preparation_evidence'] = [dict(path='scan.json', digest=c.sha((self.submission.repository/'scan.json').read_bytes()))]
         profile['package_managers'] = [dict(name='git', version=version, locks=profile['preparation_evidence'])]
         self.scan = dict(secret_canaries=['repair-secret-canary'], identity_canaries=['repair-identity-canary'], lease_canaries=['repair-lease-canary'])
-        program = """import fs from 'node:fs';import {createManifest} from './services/hyperfide/dist/preparation/manifests.js';
+        program = """import fs from 'node:fs';import {createManifest} from './core/control-plane/dist/preparation/manifests.js';
 const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await createManifest(v.input,{env:{HF_PREPARATION_ALLOWED_ROOT:v.root},signal:new AbortController().signal})));"""
         manifest = json.loads(subprocess.check_output(['node', '--input-type=module', '-e', program], cwd=c.ROOT,
             input=json.dumps(dict(root=str(self.submission.repository.parent), input=dict(candidate_path=self.submission.repository.name, profile=profile, scan_policy=self.scan))).encode()))
@@ -107,7 +107,7 @@ const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await c
         node=Path(subprocess.check_output(['node','-p','process.execPath'],text=True).strip()).resolve()
         released_node=release/'node';shutil.copyfile(node,released_node);released_node.chmod(0o755);node=released_node
         for name in ('result_recipe.js','manifests.js','effective.js'):
-            shutil.copyfile(c.ROOT/'services/hyperfide/dist/preparation'/name,release/name)
+            shutil.copyfile(c.ROOT/'core/control-plane/dist/preparation'/name,release/name)
         recipe=release/'result_recipe.js'
         git_output=subprocess.check_output(['/usr/bin/git','--version'])
         trusted=dict(native_path=str(native),scan=self.scan,credentials=dict(schema_version=1,records=[]),
@@ -141,11 +141,11 @@ const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await c
         c=self.c;root=self.root
         components=root/'components';components.mkdir()
         for name in ('1.4','4.2','4.4','8.2','14.1','15.2','12.4-executor'):
-            shutil.copyfile(c.ROOT/'services/hyperfide/components'/ (name+'.json'),components/(name+'.json'))
+            shutil.copyfile(c.ROOT/'core/control-plane/components'/ (name+'.json'),components/(name+'.json'))
         provider=dict(schema_version=1,id='8.3',task='8.3',roles=['provisioner'],module='tests/hyperfide/cases/support/repair_provider.js',entry='createComponent',api_version=1,actions=['provider.remote.execute-bound'],requires=['8.2','4.2','14.1'])
         # All production fragments use their built modules under the repository root.
         for fragment in components.glob('*.json'):
-            body=json.loads(fragment.read_text());body['module']='services/hyperfide/dist/'+body['module'];fragment.write_text(json.dumps(body))
+            body=json.loads(fragment.read_text());body['module']='core/control-plane/dist/'+body['module'];fragment.write_text(json.dumps(body))
         (components/'8.3.json').write_text(json.dumps(provider))
         config=root/'executor.json';config.write_text(json.dumps(dict(schema_version=1,principals=[dict(credential_id=f.ids['provisioner'],key_path=str(f.keys['provisioner']['path']))],concurrency=1)));config.chmod(0o600)
         secrets=root/'credential-secrets';attachments=root/'credential-attachments'
@@ -161,7 +161,7 @@ const v=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(await c
                 preparation_digest=f.preparation,approved_limits=limits,planning_limits=limits,create_policy=dict(seed_reference='repair-qualification',network='ISOLATED',stdin_required=False))])));pools.chmod(0o600)
         env=dict(f.env,HF_RUNNER_EXECUTOR_CONFIG_FILE=str(config),HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(config),HF_CREDENTIAL_CONFIG_FILE=str(credentials),HYPERFIDE_POOL_CONFIG=str(pools));port=socket.socket();port.bind(('127.0.0.1',0));self.port=port.getsockname()[1];port.close()
         self.log=root/'executor.log';log=open(self.log,'w')
-        try:self.child=subprocess.Popen(['node',str(c.ROOT/'services/hyperfide/dist/provisioner.js'),'--policy',str(f.policy),'--spec-revision','fixture-identity-v1','--components',str(components),'--module-root',str(c.ROOT),
+        try:self.child=subprocess.Popen(['node',str(c.ROOT/'core/control-plane/dist/provisioner.js'),'--policy',str(f.policy),'--spec-revision','fixture-identity-v1','--components',str(components),'--module-root',str(c.ROOT),
             '--mode','https','--host','127.0.0.1','--port',str(self.port),'--tls-cert',str(f.ca),'--tls-key',str(f.tlskey)],cwd=c.ROOT,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log)
         finally:log.close()
         deadline=time.monotonic()+20

@@ -30,14 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: services/hyperfide
+        working-directory: core/control-plane
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24.22.0
           cache: npm
-          cache-dependency-path: services/hyperfide/package-lock.json
+          cache-dependency-path: core/control-plane/package-lock.json
       - name: npm ci
         run: npm ci
       - name: typecheck
@@ -78,13 +78,13 @@ jobs:
         with:
           node-version: 24.22.0
           cache: npm
-          cache-dependency-path: services/hyperfide/package-lock.json
+          cache-dependency-path: core/control-plane/package-lock.json
       - name: install dependencies
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev libcurl4-openssl-dev libssl-dev postgresql-client
       - name: build cg
         run: make
       - name: build service
-        working-directory: services/hyperfide
+        working-directory: core/control-plane
         run: npm ci && npm run build
       # Registrations 9.1 to 9.4 require HF_CREDENTIAL_CONFIG_FILE. A fixture store
       # (no sources, no targets) satisfies them; it holds no repository secret.

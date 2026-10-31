@@ -5,7 +5,7 @@
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 for file in acp.js agents.js agentpanel.html; do
-    test -z "$(git -C "$ROOT" ls-files -- "editors/vscode/$file")" \
+    test -z "$(git -C "$ROOT" ls-files -- "extensions/vscode/$file")" \
         || fail "Removed extension ACP module still tracked: $file"
 done
 

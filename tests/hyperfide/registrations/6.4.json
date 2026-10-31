@@ -43,11 +43,11 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/events/outbox.js",
-    "services/hyperfide/dist/events/inbox.js",
-    "services/hyperfide/dist/events/instructions.js",
-    "services/hyperfide/dist/events/recovery.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/events/outbox.js",
+    "core/control-plane/dist/events/inbox.js",
+    "core/control-plane/dist/events/instructions.js",
+    "core/control-plane/dist/events/recovery.js"
   ],
   "resources": [
     {
@@ -88,9 +88,9 @@
     "events/daemon-observations.json"
   ],
   "source_files": [
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/cases/tasks/6_1.py",
     "tests/hyperfide/cases/tasks/6_4.py",
     "tests/hyperfide/support/identity_fixture.py",
@@ -99,10 +99,10 @@
     "tests/hyperfide/qualify.py"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "actions": [
     "postgresql.fixture.create",

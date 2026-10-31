@@ -16,7 +16,7 @@ def load(name,path):
  spec=importlib.util.spec_from_file_location(name,ROOT/path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 def closure(names):
  fragments={}
- for file in (ROOT/'services/hyperfide/components').glob('*.json'):
+ for file in (ROOT/'core/control-plane/components').glob('*.json'):
   fragment=json.loads(file.read_text())
   if 'id' in fragment:fragments[fragment['id']]=(file.stem,fragment)
  result=[];seen=set()
@@ -30,17 +30,17 @@ def closure(names):
 PROBE=r"""
 import fs from 'node:fs/promises';
 import {randomUUID,createPrivateKey,sign} from 'node:crypto';
-import {ComponentRegistry} from './services/hyperfide/dist/components/registry.js';
-import {isSupervisor,supervisorCapability} from './services/hyperfide/dist/recovery/control.js';
-import {registerReproductionJobInputs} from './services/hyperfide/dist/runner/reproduction_jobs.js';
-import {verifyPreparationReceipt,recordPreparationReceipt,readPreparationReceipt} from './services/hyperfide/dist/runner/preparation_receipts.js';
-import {hash,signingBytes} from './services/hyperfide/dist/transport/protocol.js';
+import {ComponentRegistry} from './core/control-plane/dist/components/registry.js';
+import {isSupervisor,supervisorCapability} from './core/control-plane/dist/recovery/control.js';
+import {registerReproductionJobInputs} from './core/control-plane/dist/runner/reproduction_jobs.js';
+import {verifyPreparationReceipt,recordPreparationReceipt,readPreparationReceipt} from './core/control-plane/dist/runner/preparation_receipts.js';
+import {hash,signingBytes} from './core/control-plane/dist/transport/protocol.js';
 const data=JSON.parse(process.env.HF_RUNNER_EXPORT_FIXTURE),controller=new AbortController();
 const registry=new ComponentRegistry({role:'control',policy:JSON.parse(await fs.readFile(data.policy,'utf8')),signal:controller.signal,env:process.env});
 const out={};const digest='sha256:'+'a'.repeat(64);
 const refused=async(fn,code)=>{try{await fn();return false}catch(e){return e.code===code}};
 try{
- await registry.load(data.components,process.cwd()+'/services/hyperfide/dist');
+ await registry.load(data.components,process.cwd()+'/core/control-plane/dist');
  out.registered=['12.4','24.1','24.3'].every(id=>registry.hasComponent(id));
  const dependencies={require:(id,name,guard)=>registry.resolveCapability(id,name,guard)};
  const supervisors=supervisorCapability({dependencies});

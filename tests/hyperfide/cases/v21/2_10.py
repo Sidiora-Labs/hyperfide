@@ -6,7 +6,7 @@ ephemeral PostgreSQL cluster (the tasks/29_5.py pattern); nothing is published."
 import hashlib,importlib.util,json,os,shutil,subprocess,sys,tempfile,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
-SERVICE=ROOT/"services/hyperfide"
+SERVICE=ROOT/"core/control-plane"
 IDS=[];FAILED=[]
 
 def load(name,relative):
@@ -33,7 +33,7 @@ def clean_env():
 
 # ---- release signing -------------------------------------------------------------
 def release_checks(tmp):
- sign=ROOT/"scripts/release-sign.sh";key=tmp/"signing.pem";ed25519_key(key);public=tmp/"public.pem";public_pem(key,public)
+ sign=ROOT/"tools/repository/release-sign.sh";key=tmp/"signing.pem";ed25519_key(key);public=tmp/"public.pem";public_pem(key,public)
  index=tmp/"release.json";index.write_text(json.dumps({"schema_version":1,"manifest_digest":"sha256:"+"a"*64})+"\n")
  def signs():
   r=subprocess.run([str(sign),str(key),str(index)],capture_output=True,text=True,timeout=60)
@@ -72,8 +72,8 @@ def shim_release(tmp,label,key):
  """Runs scripts/release.sh itself in a clean scratch checkout. The full build needs the pinned remote
  toolchain, so make and the Python stage are shims that log each call; the stage shim writes release.json
  as the real stage does. Returns the process, the logged calls and the output directory."""
- repo=tmp/("repo-"+label);(repo/"scripts").mkdir(parents=True)
- for name in ["release.sh","release-sign.sh"]:shutil.copy2(ROOT/"scripts"/name,repo/"scripts"/name)
+ repo=tmp/("repo-"+label);(repo/"tools/repository").mkdir(parents=True)
+ for name in ["release.sh","release-sign.sh"]:shutil.copy2(ROOT/"tools/repository"/name,repo/"tools/repository"/name)
  vcs=["git","-c","user.name=fixture","-c","user.email=fixture@example.invalid","-C",str(repo)]
  for argv in [["init","-q"],["add","-A"],["commit","-qm","fixture"]]:subprocess.run(vcs+argv,check=True,capture_output=True)
  shims=tmp/("shims-"+label);shims.mkdir();log=tmp/("calls-"+label)
@@ -83,15 +83,15 @@ def shim_release(tmp,label,key):
  out=tmp/("release-out-"+label);env=clean_env()
  env.update(PATH=str(shims)+os.pathsep+env.get("PATH",""),RELEASE_SHIM_LOG=str(log),HYPERFIDE_BUILD_PLACEMENT="remote",RELEASE_SHIM_INDEX=json.dumps({"schema_version":1,"manifest_digest":"sha256:"+"b"*64}))
  if key is not None:env["HYPERFIDE_RELEASE_SIGNING_KEY_FILE"]=key
- p=subprocess.run(["bash",str(repo/"scripts/release.sh"),"--output",str(out),"--skip-tests"],cwd=tmp,env=env,capture_output=True,text=True,timeout=120)
+ p=subprocess.run(["bash",str(repo/"tools/repository/release.sh"),"--output",str(out),"--skip-tests"],cwd=tmp,env=env,capture_output=True,text=True,timeout=120)
  return p,(log.read_text().splitlines() if log.exists() else []),out
 
 def sign_index(auth,key,manifest_digest,release_version="2.0.0-dev"):
  """release.json beside manifest.sig, shaped as scripts/release.sh writes it and signed by scripts/release-sign.sh."""
- fingerprint=subprocess.run([str(ROOT/"scripts/release-sign.sh"),"--check-key",str(key)],capture_output=True,text=True,check=True).stdout.strip()
+ fingerprint=subprocess.run([str(ROOT/"tools/repository/release-sign.sh"),"--check-key",str(key)],capture_output=True,text=True,check=True).stdout.strip()
  index={"schema_version":1,"release_version":release_version,"manifest_digest":manifest_digest,"archive":"hyperfide-"+release_version+"-linux-x64-"+manifest_digest[7:23]+".tar.gz","archive_digest":"sha256:"+"0"*64,"signature":{"algorithm":"ED25519","file":"manifest.sig","key_fingerprint":fingerprint}}
  target=auth/"release.json";target.write_text(json.dumps(index,sort_keys=True)+"\n");target.chmod(0o644)
- subprocess.run([str(ROOT/"scripts/release-sign.sh"),str(key),str(target)],capture_output=True,text=True,check=True)
+ subprocess.run([str(ROOT/"tools/repository/release-sign.sh"),str(key),str(target)],capture_output=True,text=True,check=True)
  return target
 
 # ---- install-service -------------------------------------------------------------
@@ -231,7 +231,7 @@ def main():
  try:cases.postgres_bin()
  except AssertionError as e:print("SKIP: "+str(e));return 77
  stamp=subprocess.run(["node",str(ROOT/"deploy/hyperfide/dist-stamp.mjs"),"check",str(SERVICE)],capture_output=True,text=True)
- if stamp.returncode:print(json.dumps({"type":"error","detail":"services/hyperfide/dist is stale; run npm run build: "+stamp.stdout+stamp.stderr}));return 1
+ if stamp.returncode:print(json.dumps({"type":"error","detail":"core/control-plane/dist is stale; run npm run build: "+stamp.stdout+stamp.stderr}));return 1
  Path("/tmp/hyperfide").mkdir(parents=True,exist_ok=True)
  with tempfile.TemporaryDirectory(prefix="hf-v21-2-10-",dir="/tmp/hyperfide") as tmp:
   tmp=Path(tmp);tmp.chmod(0o755)

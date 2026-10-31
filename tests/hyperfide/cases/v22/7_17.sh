@@ -8,9 +8,9 @@ step() {
   echo "7.17: $label seconds=$((SECONDS-started)) exit=$result"
   return "$result"
 }
-step server-typecheck pnpm -C platform --filter @hyperfide/server typecheck
-step version-tests pnpm -C platform --filter @hyperfide/server test src/services/system/app-version.test.ts
-step server-build pnpm -C platform --filter @hyperfide/server build
+step server-typecheck pnpm --filter @hyperfide/server typecheck
+step version-tests pnpm --filter @hyperfide/server test src/services/system/app-version.test.ts
+step server-build pnpm --filter @hyperfide/server build
 step endpoint python3 - <<'PYTHON'
 import json, os, signal, socket, subprocess, tempfile, time, urllib.request
 from pathlib import Path
@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-17-') as tmp:
                HYPERFIDE_SERVER_BIND_HOST='127.0.0.1', HYPERFIDE_SERVER_PORT=str(port),
                HYPERFIDE_DATA_DIR=str(data), HYPERFIDE_SERVER_URL=url)
     with (data / 'server.log').open('w+') as log:
-        server = subprocess.Popen(['node', str(repo / 'platform/apps/server/dist/index.js')],
+        server = subprocess.Popen(['node', str(repo / 'core/server/dist/index.js')],
                                   cwd=repo / 'platform', env=env, stdout=log,
                                   stderr=log, start_new_session=True)
         try:

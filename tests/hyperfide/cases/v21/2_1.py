@@ -21,7 +21,7 @@ import uuid
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 SUPERUSER = 'hf_superuser'
 FAILED = []
 OBSERVED = []
@@ -122,7 +122,7 @@ def ensure_build():
 
 WINDOW_PROBE = r"""
 import assert from 'node:assert/strict';
-import {resolutionWindowSeconds} from './services/hyperfide/dist/providers/reconcile.js';
+import {resolutionWindowSeconds} from './core/control-plane/dist/providers/reconcile.js';
 assert.throws(()=>resolutionWindowSeconds({}),e=>e.code==='RESOLUTION_WINDOW_REQUIRED');
 assert.throws(()=>resolutionWindowSeconds({HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS:'0'}),e=>e.code==='RESOLUTION_WINDOW_INVALID');
 assert.throws(()=>resolutionWindowSeconds({HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS:'1h'}),e=>e.code==='RESOLUTION_WINDOW_INVALID');

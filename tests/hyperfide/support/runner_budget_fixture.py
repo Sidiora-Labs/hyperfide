@@ -126,7 +126,7 @@ class BudgetFixture:
         self.path=Path(self.temp.name);self.delegated=None
         source=self.path/"driver.c";source.write_text(DRIVER)
         self.binary=self.path/"budget-probe"
-        command=["cc","-std=c11","-O1","-ffunction-sections","-fdata-sections","-I",str(ROOT/"src/hyperfide"),str(source),str(ROOT/"src/hyperfide/budget.c"),str(ROOT/"src/hyperfide/supervisor.c"),str(ROOT/"src/hyperfide/transport.c"),"-Wl,--gc-sections","-lcurl","-lcrypto","-lsqlite3","-o",str(self.binary)]
+        command=["cc","-std=c11","-O1","-ffunction-sections","-fdata-sections","-I",str(ROOT/"core/native/src/hyperfide"),str(source),str(ROOT/"core/native/src/hyperfide/budget.c"),str(ROOT/"core/native/src/hyperfide/supervisor.c"),str(ROOT/"core/native/src/hyperfide/transport.c"),"-Wl,--gc-sections","-lcurl","-lcrypto","-lsqlite3","-o",str(self.binary)]
         built=subprocess.run(command,cwd=ROOT,capture_output=True,text=True)
         check(built.returncode==0,"Actual budget helper build failed: "+built.stderr[:3000])
         self.scope={"organisation_id":uid(),"run_id":uid(),"sandbox_id":uid(),"boot_id":uid(),"boot_generation":"1"}

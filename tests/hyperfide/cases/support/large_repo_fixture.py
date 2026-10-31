@@ -249,7 +249,7 @@ def build(root: Path, seed: int = 115, modules: int = MODULES, units: int = UNIT
 # probe proves byte equality (bundle digest) against the live 7.1 service on a small control commit.
 EXTRACT_JS = r"""
 import fs from 'node:fs/promises';import path from 'node:path';import {spawnSync} from 'node:child_process';import {DatabaseSync} from 'node:sqlite';
-import {GRAPH_TABLES,canonical,digest,validateManifest,validateChunk} from './services/hyperfide/dist/graph/extraction.js';
+import {GRAPH_TABLES,canonical,digest,validateManifest,validateChunk} from './core/control-plane/dist/graph/extraction.js';
 const a=JSON.parse(process.argv[1]);
 const env={PATH:process.env.PATH??'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_COUNT:'3',GIT_CONFIG_KEY_0:'maintenance.auto',GIT_CONFIG_VALUE_0:'false',
  GIT_CONFIG_KEY_1:'gc.auto',GIT_CONFIG_VALUE_1:'0',GIT_CONFIG_KEY_2:'gc.autoDetach',GIT_CONFIG_VALUE_2:'false',GIT_TERMINAL_PROMPT:'0',LC_ALL:'C.UTF-8',CG_BUSY_TIMEOUT_MS:'1000'};

@@ -84,11 +84,11 @@ def sha(text):
 
 TS = r"""
 import fs from 'node:fs';
-import pg from './services/hyperfide/node_modules/pg/lib/index.js';
-import {instruction} from './services/hyperfide/dist/events/instructions.js';
-import {startInstructionBody,launchEnvReferences} from './services/hyperfide/dist/runner/dispatch.js';
-import {admissionEnvReferences} from './services/hyperfide/dist/agents/env_refs.js';
-import {insertLaunchPlan,launchPlan} from './services/hyperfide/dist/agents/dispatch.js';
+import pg from './core/control-plane/node_modules/pg/lib/index.js';
+import {instruction} from './core/control-plane/dist/events/instructions.js';
+import {startInstructionBody,launchEnvReferences} from './core/control-plane/dist/runner/dispatch.js';
+import {admissionEnvReferences} from './core/control-plane/dist/agents/env_refs.js';
+import {insertLaunchPlan,launchPlan} from './core/control-plane/dist/agents/dispatch.js';
 const input=JSON.parse(fs.readFileSync(0,'utf8'));
 const settle=async f=>{try{return {ok:true,value:await f()};}catch(e){return {ok:false,code:e.code??String(e)};}};
 const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();

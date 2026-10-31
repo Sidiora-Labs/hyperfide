@@ -86,11 +86,11 @@
   ],
   "cleanup_timeout_seconds": 60,
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/hierarchy/adoption.js",
-    "services/hyperfide/dist/hierarchy/packets.js",
-    "services/hyperfide/dist/scheduler/claim.js",
-    "services/hyperfide/dist/scheduler/leases.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/hierarchy/adoption.js",
+    "core/control-plane/dist/hierarchy/packets.js",
+    "core/control-plane/dist/scheduler/claim.js",
+    "core/control-plane/dist/scheduler/leases.js"
   ],
   "required_artifacts": [],
   "required_env": [
@@ -100,11 +100,11 @@
   "schema_version": 1,
   "scope": "task-component",
   "source_files": [
-    "services/hyperfide/src/hierarchy/adoption.ts",
-    "services/hyperfide/migrations/0034-child-sessions.sql",
-    "services/hyperfide/migrations/0012-runner-registry.sql",
-    "services/hyperfide/components/3.4.json",
-    "services/hyperfide/components/3.4-workers.json",
+    "core/control-plane/src/hierarchy/adoption.ts",
+    "core/control-plane/migrations/0034-child-sessions.sql",
+    "core/control-plane/migrations/0012-runner-registry.sql",
+    "core/control-plane/components/3.4.json",
+    "core/control-plane/components/3.4-workers.json",
     "tests/hyperfide/cases/tasks/3_4.py",
     "tests/hyperfide/cases/tasks/5_1.py",
     "tests/hyperfide/cases/tasks/3_2.py",
@@ -114,15 +114,15 @@
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
     "tests/hyperfide/qualify.py",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json"
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "task": "3.4",
   "timeout_seconds": 300,

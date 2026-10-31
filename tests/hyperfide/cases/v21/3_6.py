@@ -11,7 +11,7 @@ default taken and who would have answered. Prints SKIP and exits 77 when no Post
 import importlib.util, json, os, pathlib, pwd, shutil, subprocess, sys, time, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 FAILED = []
 COMPONENT = '1.2-asks'

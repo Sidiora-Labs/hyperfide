@@ -28,7 +28,7 @@ def check(identity,callback):
  print(json.dumps({"type":"assertion","id":identity,"expected":"observed","actual":actual}),flush=True)
 def outdir():
  p=Path(os.environ.get("HYPERFIDE_CAMPAIGN_DIR","/tmp/hyperfide/task-2.1-standalone"))/"spec";p.mkdir(parents=True,exist_ok=True);return p
-BOOTSTRAP_NODE="import{createResourceContainer}from'./services/hyperfide/dist/storage/runtime.js';import{bootstrapAcceptedIntentWithGateway}from'./services/hyperfide/dist/spec/bootstrap.js';let text='';for await(const c of process.stdin)text+=c;const v=JSON.parse(text),r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});try{const result=await bootstrapAcceptedIntentWithGateway(r.gateway,v.scope,v.metadata,v.input,v.deployment_id);process.stdout.write(JSON.stringify({ok:true,result}));}catch(error){process.stdout.write(JSON.stringify({ok:false,error:{code:typeof error.code==='string'?error.code:'BOOTSTRAP_FAILED',message:String(error&&error.message||'').slice(0,300)}}));}finally{await r.close();}"
+BOOTSTRAP_NODE="import{createResourceContainer}from'./core/control-plane/dist/storage/runtime.js';import{bootstrapAcceptedIntentWithGateway}from'./core/control-plane/dist/spec/bootstrap.js';let text='';for await(const c of process.stdin)text+=c;const v=JSON.parse(text),r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});try{const result=await bootstrapAcceptedIntentWithGateway(r.gateway,v.scope,v.metadata,v.input,v.deployment_id);process.stdout.write(JSON.stringify({ok:true,result}));}catch(error){process.stdout.write(JSON.stringify({ok:false,error:{code:typeof error.code==='string'?error.code:'BOOTSTRAP_FAILED',message:String(error&&error.message||'').slice(0,300)}}));}finally{await r.close();}"
 class Service:
  def __init__(self,base):
   from identity_fixture import IdentityFixture,sha
@@ -111,7 +111,7 @@ def probe(s):
  run=str(uuid.uuid4());value=s.envelope(run);saved={}
  check("spec.service.linked",lambda:expect(any(x["id"]=="spec-import" for x in s.ok("system.describe",{},run,component="system")["components"]),"Disconnected module"))
  check("spec.schema.applied",lambda:expect(sql("SELECT name FROM hyperfide.schema_migrations WHERE version=2;")=="0002-spec","Pinned migration missing"))
- check("spec.schema.checksum",lambda:expect(sql("SELECT checksum FROM hyperfide.schema_migrations WHERE version=2;")=="sha256:"+hashlib.sha256((ROOT/"services/hyperfide/migrations/0002-spec.sql").read_bytes()).hexdigest(),"Migration checksum drift"))
+ check("spec.schema.checksum",lambda:expect(sql("SELECT checksum FROM hyperfide.schema_migrations WHERE version=2;")=="sha256:"+hashlib.sha256((ROOT/"core/control-plane/migrations/0002-spec.sql").read_bytes()).hexdigest(),"Migration checksum drift"))
  def imported():
   saved.update(s.ok("spec.import",value,run));expect(saved["state"]=="PENDING_VALIDATION" and saved["counts"]["tasks"]==1,"Import granted readiness")
  check("spec.import.actual",imported)
@@ -225,7 +225,7 @@ def probe(s):
   expect(after[0]==before[0] and int(after[1])==int(before[1])+1,"Replay disposition changed business CAS or omitted write fence")
  check("spec.auth.semantic-write",replay_fence)
  def raw_refused():
-  argv=["node",str(ROOT/"services/hyperfide/dist/control.js"),"--policy",str(s.f.policy),"--spec-revision","fixture-identity-v1","--components",str(s.f.components),"--module-root",str(ROOT/"services/hyperfide/dist")]
+  argv=["node",str(ROOT/"core/control-plane/dist/control.js"),"--policy",str(s.f.policy),"--spec-revision","fixture-identity-v1","--components",str(s.f.components),"--module-root",str(ROOT/"core/control-plane/dist")]
   result=subprocess.run(argv,input=json.dumps({"id":1,"component":"spec-import","action":"spec.inspect","input":{"run_id":run}})+"\n",text=True,capture_output=True,cwd=ROOT,env=s.f.env,timeout=30)
   rows=[json.loads(line) for line in result.stdout.splitlines() if line.strip()]
   # Either fail-closed outcome holds: the JSONL request is refused AUTH_REQUIRED, or (since the

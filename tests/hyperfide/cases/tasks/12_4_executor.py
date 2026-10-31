@@ -28,7 +28,7 @@ import {pathToFileURL} from 'node:url';
 import readline from 'node:readline';
 import {createPrivateKey,createPublicKey,sign,verify} from 'node:crypto';
 const root=process.cwd(),[policyPath,components,keyPath]=process.argv.slice(1);
-const mod=async p=>import(pathToFileURL(path.join(root,'services/hyperfide/dist',p)).href);
+const mod=async p=>import(pathToFileURL(path.join(root,'core/control-plane/dist',p)).href);
 const {ComponentRegistry}=await mod('components/registry.js');
 const {validatePolicy}=await mod('policy/programme.js');
 const {isIdentityAuthority}=await mod('identity/enrollment.js');
@@ -39,7 +39,7 @@ const {validateNativeControlReceipt}=await mod('runner/executor.js');
 const controller=new AbortController();
 const registry=new ComponentRegistry({role:'provisioner',policy:validatePolicy(JSON.parse(await fs.readFile(policyPath,'utf8')),'fixture-identity-v1','provisioner'),signal:controller.signal,env:process.env});
 try{
- await registry.load(components,path.join(root,'services/hyperfide/dist'));
+ await registry.load(components,path.join(root,'core/control-plane/dist'));
  const authority=registry.resolveCapability('14.1','identity.authority',isIdentityAuthority);
  registry.installInvocationAuthorizer(i=>authority.authorize(i));
  const native=registry.resolveCapability('12.4-executor','runner.native.v1',v=>v&&typeof v.invokeNativeRunner==='function');
@@ -106,14 +106,14 @@ class Fixture:
             m=self.objects_module
             f.env.update({"HF_ARTIFACT_S3_ENDPOINT":self.objects.endpoint,"HF_ARTIFACT_ALLOW_LOOPBACK_HTTP":"1","HF_ARTIFACT_S3_REGION":m.REGION,"HF_ARTIFACT_S3_BUCKET":m.BUCKET,"HF_ARTIFACT_S3_ACCESS_KEY_ID":m.KEY,"HF_ARTIFACT_S3_SECRET_ACCESS_KEY":m.SECRET,"HF_ARTIFACT_S3_SESSION_TOKEN":m.TOKEN,"HF_ARTIFACT_ORGANISATION_ID":f.ids["organisation"],"HF_ARTIFACT_ALLOWED_RUN_IDS":json.dumps([f.ids["run"]])})
             for filename,version,name in (("0008-provider-coordination.sql",8,"0008-provider-coordination"),("0012-runner-registry.sql",12,"0012-runner-registry")):
-                data=(ROOT/"services/hyperfide/migrations"/filename).read_bytes()
+                data=(ROOT/"core/control-plane/migrations"/filename).read_bytes()
                 applied=f.sql("SELECT name,checksum FROM hyperfide.schema_migrations WHERE version=$1",[version])
                 expect(len(applied)==1 and applied[0]["name"]==name and applied[0]["checksum"]==digest(data),"Actual migration authority did not apply exact runner/provider schema")
             self.components=f.path/"executor-components";self.components.mkdir()
             names=("4.2","4.4","14.1","8.2","8.3","15.2","12.4-executor")
             actions=list(f.actions)+["provider.remote.execute-bound"]
             for name in names:
-                source=ROOT/"services/hyperfide/components"/(name+".json")
+                source=ROOT/"core/control-plane/components"/(name+".json")
                 shutil.copyfile(source,self.components/source.name)
                 actions+=json.loads(source.read_text())["actions"]
             actions=list(dict.fromkeys(actions))

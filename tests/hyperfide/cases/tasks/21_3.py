@@ -21,7 +21,7 @@ def check(identity,fn):
 
 def admin(sql,values=()):
  # Superuser fixture connection; only reads catalogue state for the cleanup proof.
- script="const {createRequire}=require('module'),pg=createRequire(process.argv[1]+'/services/hyperfide/package.json')('pg');(async()=>{const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{const r=await c.query(process.argv[2],JSON.parse(process.argv[3]));process.stdout.write(JSON.stringify(r.rows))}finally{await c.end()}})().catch(e=>{process.stderr.write(String(e.message));process.exitCode=1})"
+ script="const {createRequire}=require('module'),pg=createRequire(process.argv[1]+'/core/control-plane/package.json')('pg');(async()=>{const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{const r=await c.query(process.argv[2],JSON.parse(process.argv[3]));process.stdout.write(JSON.stringify(r.rows))}finally{await c.end()}})().catch(e=>{process.stderr.write(String(e.message));process.exitCode=1})"
  r=subprocess.run(["node","-e",script,str(ROOT),sql,json.dumps(list(values))],cwd=ROOT,env={**os.environ,**module.environment()},capture_output=True,text=True,timeout=20)
  if r.returncode:raise RuntimeError("catalogue query failed: "+r.stderr[:400])
  return json.loads(r.stdout)
@@ -37,7 +37,7 @@ def component_probe():
   def purposes():
    # Same linked service and approved policy; the consumer purpose policy is observable through describe.
    d=Path(directory);request={"id":"domain21-purposes","component":"21.3","action":"decision.ranking.describe","input":{}}
-   r=subprocess.run(["node",str(ROOT/"services/hyperfide/dist/control.js"),"--policy",str(d/"policy.json"),"--spec-revision","domain21-reviewed-spec","--components",str(d/"components"),"--module-root",str(d/"modules")],input=json.dumps(request)+"\n",cwd=ROOT,env=env,text=True,capture_output=True,timeout=30)
+   r=subprocess.run(["node",str(ROOT/"core/control-plane/dist/control.js"),"--policy",str(d/"policy.json"),"--spec-revision","domain21-reviewed-spec","--components",str(d/"components"),"--module-root",str(d/"modules")],input=json.dumps(request)+"\n",cwd=ROOT,env=env,text=True,capture_output=True,timeout=30)
    rows=[json.loads(line) for line in r.stdout.splitlines() if line.strip()]
    result=rows[0].get("result",{}) if len(rows)==1 and rows[0].get("ok") is True else {}
    expected={name:{"actions":["decision.legacy."+name+".submit","decision.legacy."+name+".result"],"fallback":fallback,"authority":"NONE"} for name,fallback in (("guard","COLLECTED_ORDER"),("readiness","OMITTED"),("memory","UNCLASSIFIED"),("recap","UNDECIDED"))}
@@ -111,7 +111,7 @@ def native_probe():
  failed=0
  with tempfile.TemporaryDirectory(prefix="hf-native21-") as folder:
   folder=Path(folder);(folder/"driver.c").write_text(DRIVER);driver=folder/"driver"
-  libraries=subprocess.run(["python3","scripts/hyperfide-native-components.py","--libraries"],cwd=ROOT,capture_output=True,text=True,check=True).stdout.split()
+  libraries=subprocess.run(["python3","tools/repository/hyperfide-native-components.py","--libraries"],cwd=ROOT,capture_output=True,text=True,check=True).stdout.split()
   subprocess.run(["cc","-std=gnu11","-o",str(driver),str(folder/"driver.c"),str(ROOT/"build/libcg.a"),"-lsqlite3","-lpthread","-lm","-lcurl","-lcrypto",*libraries],cwd=ROOT,check=True,capture_output=True,timeout=180)
   base={k:v for k,v in os.environ.items() if not k.startswith(("HYPERFIDE_","CG_","CODIFY_","OPENROUTER"))}
   def ask(purpose,env,observation='{"fixture":true}'):

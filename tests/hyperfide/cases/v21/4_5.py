@@ -12,7 +12,7 @@ credential-shaped text. Prints SKIP and exits 77 when no PostgreSQL server or ro
 import http.server, importlib.util, json, os, pathlib, pwd, shutil, subprocess, sys, threading, time, traceback, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 OPERATOR = '4.5-operator'
 ASKS = '1.2-asks'

@@ -161,7 +161,7 @@ SYMBOLS=400
 def retry_capacity():
     script=r"""
 import assert from 'node:assert/strict';
-import {TransactionGateway} from './services/hyperfide/dist/storage/transactions.js';
+import {TransactionGateway} from './core/control-plane/dist/storage/transactions.js';
 let active=0,attempts=0,guards=0,available=false;
 const source={async acquirePrimary(){
     active++;return {signal:new AbortController().signal,release(){active--;},client:{

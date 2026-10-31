@@ -1,6 +1,6 @@
 # Prerequisite: organize the repository by category
 
-Status: **task 0.3 implemented; graph qualification pending; no files relocated**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Fleet task 0.10 cannot start until task 0.9 qualifies; native task 0.1 also waits for final fleet gate 0.14. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
+Status: **8,339 mapped paths physically relocated; tasks 0.4–0.8 in progress ahead of open prerequisites; task 0.3 graph qualification pending; full layout qualification UNRUN**. This is the first prerequisite to native source-control implementation. Requirement 15 and tasks 0.3 through 0.9 in [spec.kvx](spec.kvx) own the work. Fleet task 0.10 cannot start until task 0.9 qualifies; native task 0.1 also waits for final fleet gate 0.14. Existing task identities are preserved; dependency order, not numeric sorting, puts this prerequisite first.
 
 ## 1. Objective and boundaries
 
@@ -8,7 +8,7 @@ Replace the nested `platform/` and `services/` source containers with category-b
 
 The move preserves behavior, published package names, imports by package identity, exports, CLI commands, plugin/extension IDs, module identities, licenses and source history. Existing package units remain intact, including units with mixed responsibilities. Splitting those packages, changing their architecture, upgrading dependencies, merging databases or implementing native source control is outside this prerequisite.
 
-The [machine-readable mapping](repository-layout.json) is the complete proposed path contract at baseline `2f7331ef2085f6f374adf2d1e2ee01405fecb72d`. It includes all 8 direct application units and all 38 direct package units currently under `platform/`, the control-plane service, plugins and supporting assets/configuration. Implementation first refreshes the inventory against its actual starting revision and resolves drift before any move.
+The [machine-readable mapping](repository-layout.json) is the complete proposed path contract at baseline `2f7331ef2085f6f374adf2d1e2ee01405fecb72d`. It identifies the original 8 direct application units and 38 direct package units under `platform/`, the control-plane service, plugins and supporting assets/configuration. Task 0.3 separately pinned the implementation baseline before relocation; the original design mapping and both historical revisions remain fixed.
 
 ## 2. Target categories
 
@@ -94,7 +94,7 @@ Temporary migration launchers may route an old development command to the new ro
 | Ignore and attributes | Re-anchor nested rules, preserve tracked desktop assets and authored patches, and preserve exclusions for generated/private files. Detect newly exposed files before staging. |
 | Documentation and history | Update current executable examples and links. Preserve historical source paths, fixture transcripts, signed receipts and old specs at their original revision. Maintain an explicit exception catalogue. |
 
-These are source-grounded obligations. The referenced baseline files remain readable through [repository-baseline.md](repository-baseline.md) and the mapping; none of these runtime checks has run as part of specification authoring.
+These are source-grounded obligations. The referenced baseline files remain readable through [repository-baseline.md](repository-baseline.md) and the mapping; specification authoring itself establishes none of these runtime checks. Current implementation evidence is scoped in section 8.
 
 ## 5. Prerequisite sequence
 
@@ -139,10 +139,28 @@ Baseline probes observe native component discovery and available tool versions w
 
 ### Task 0.3 focused result
 
-The inventory driver passed 22 assertions against implementation baseline `5958bcb02cef0e5fa75d7b0239a6cd2191278bd1`. It recorded 9,786 tracked inputs, 117 package manifests, 108 workspace packages, 47 root Vitest projects, 13 native component fragments and one explicit merge target. No source files moved. The receipt and complete inventory are local build artifacts identified above; the driver recreates them from the pinned revision.
+The inventory driver passed 22 assertions against implementation baseline `5958bcb02cef0e5fa75d7b0239a6cd2191278bd1`. It recorded 9,786 tracked inputs, 117 package manifests, 108 workspace packages, 47 root Vitest projects, 13 native component fragments and one explicit merge target. At that inventory stage, no source files moved. The receipt and complete inventory are local build artifacts identified above; the driver recreates them from the pinned revision.
 
 Observed host tools were Python 3.12.3, Node 22.22.2, npm 10.9.7 and pnpm 12.8.1. These differ from some declared workspace/control/release profiles. Dependency trees and checkout-built executables were absent; product builds and runtime checks remain UNRUN. Task 0.4 must provision/use the existing pinned profiles, not substitute these host defaults or silently upgrade project dependencies.
 
 A full initial Hyperfide graph scan was interrupted; complete graph indexing is not part of this result. The inventory uses pinned Git objects and explicit runtime drift detection. Full relocated behavior remains the obligation of later tasks and SCM-025.
 
-The full `hyperfide spec done 0.3 -f hyperfide-source-control --no-sync` command was terminated with exit 143 after the focused gate passed: its graph refresh remained unfinished. [qualification.kvx](qualification.kvx) records the distinction. Task 0.3 is **implemented**, not **done**, and 0.4 is not eligible. The passing focused gate has not been rerun.
+The full `hyperfide spec done 0.3 -f hyperfide-source-control --no-sync` command was terminated with exit 143 after the focused gate passed: its graph refresh remained unfinished. [qualification.kvx](qualification.kvx) records the distinction. Task 0.3 remains **implemented**, not **done**. Later relocation tasks now record in-progress work ahead of their open dependencies; this does not release the missing graph/evidence gate. The passing inventory gate has not been rerun.
+
+
+## 8. Current relocation progress
+
+The working tree now contains 8,339 mapped file relocations into `core/`, `sdk/`, `contracts/`, `lib/`, `apps/`, `plugins/`, `extensions/`, `tools/`, `examples/` and the supporting category roots. The root pnpm workspace excludes the independent `core/control-plane` npm package, KVX module and separately packaged extensions. Original package/public identities and the pinned source and implementation baselines remain the comparison inputs; the mapping is not rewritten to erase the original paths.
+
+Tasks 0.4–0.8 are **in progress**. Their `execution_mode = "ahead"` annotations record that relocation work has occurred while direct prerequisites remain open. They are progress annotations, not qualification receipts or substitutes for the engine's ownership/lease records. Task 0.3's graph gate remains outstanding. Task 0.9 and full layout case SCM-025 remain pending/UNRUN; fleet and native source-control implementation remain pending.
+
+| Observed check | Result and evidence scope | Recorded log or receipt |
+|---|---|---|
+| Current file/mode structure | PASS for 9,786 inventoried files, 8,811 unchanged contents, with no missing mapped files or mode errors at that check. This checks paths/modes, not executable behavior. | `build/layout/workspace/structure-receipt.json` |
+| Native/core relocation | Native compilation passed; the focused gate reports 1,325 checks covering native/component and control-source closure, module URLs, retained migration bytes and source/installed path distinctions. PostgreSQL bootstrap, platform CLI execution, packaged supervisor and KVX runtime tests are outside that result. | `/tmp/neron-native-relocation-build.log`, `/tmp/neron-native-relocation-gate.log` |
+| SDK/registry/extension paths | PASS: registry generation matches 106 items, 22 real SDK runtime source/copy entries resolve, eight changed JavaScript modules parse and two extension manifests validate. No full app/SDK typecheck or packaging campaign is implied. | `/tmp/neron-layout-owned-gate.log` |
+| Tools/deployment/CI paths | PASS: syntax of 8 Python, 14 shell, 36 MJS and 17 JSON files; 18 native source/support paths discovered; source-stamp checks over 165 control inputs and temporary fresh/stale states; root-based workspace tooling imports. No release construction, provider operation or service startup was run by this gate. | `/tmp/neron-layout-tools-gate.log` |
+| Root workspace dependencies | Frozen install passed using Node 22.19.0 and pnpm 9.15.0, including preparation after the relocated generator fallback was repaired. Dependency setup is not workspace build/test qualification. | `build/layout/workspace/dependencies/workspace-install.log` |
+| Independent control-plane dependencies/build | `npm ci --ignore-scripts` and `npm run build` passed using Node 24.22.0/npm 11.19.1. Runtime startup, PostgreSQL integration and source-control qualification are outside this result. | `build/layout/workspace/dependencies/control-install.log`, `build/layout/workspace/dependencies/control-build.log` |
+
+The focused gate logs under `/tmp` are local working evidence and are not release receipts. Combined layout closure must retain the required artifacts under its declared evidence policy and rerun only checks invalidated by subsequent relevant edits. Integrated workspace build passed under Node 22.19.0/pnpm 9.15.0 (65/65 Turbo tasks; `build/layout/workspace/dependencies/workspace-build.log`) after repairing the profile-worker generator directory URL and restoring its input source. Broader runtime, cache invalidation, prepared-image, packaged startup and combined layout evidence remain unestablished. No passing component gate changes SCM-025 from UNRUN.

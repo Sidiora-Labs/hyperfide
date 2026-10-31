@@ -1,0 +1,390 @@
+{
+  "$comment": "Shared UI-anatomy contract between the Plugin Guide surface fixtures (wireframes.tsx) and the real app. Ordered regions are rendered by both sides. surfaceFixtures records authoritative source anchors plus the minimum deterministic fidelity and states for interaction-heavy fixtures.",
+  "appSidebar": [
+    "top-reserve",
+    "thread-list",
+    "footer"
+  ],
+  "sidebarFooter": [
+    "plugin-footer-items",
+    "bug-report"
+  ],
+  "messageActionBar": [
+    "copy",
+    "edit",
+    "plugin-actions",
+    "message-menu"
+  ],
+  "mobileLayout": {
+    "sources": [
+      {
+        "path": "lib/shared-ui/src/components/ui/hooks/use-compact-viewport.tsx",
+        "anchors": [
+          "(max-width: 767px)"
+        ]
+      },
+      {
+        "path": "apps/web/src/views/RootComposeSecondaryContent.tsx",
+        "anchors": [
+          "RootComposeCompactHome composer={children}",
+          "PluginHomepageSections"
+        ]
+      },
+      {
+        "path": "apps/web/src/components/secondary-panel/CompactSecondaryPanelShelf.tsx",
+        "anchors": [
+          "CompactSecondaryPanelShelf"
+        ]
+      },
+      {
+        "path": "apps/web/src/components/ui/sidebar.tsx",
+        "anchors": [
+          "SIDEBAR_WIDTH_MOBILE",
+          "SIDEBAR_MOBILE_VIEWPORT_FRACTION"
+        ]
+      }
+    ]
+  },
+  "surfaceFixtures": {
+    "composer-actions": {
+      "groupId": "composer",
+      "fidelity": "flow",
+      "responsiveStrategy": "scale-together",
+      "requiredStates": [
+        "anchor",
+        "triggered"
+      ],
+      "labels": {
+        "anchor": [],
+        "triggered": [
+          "Search saved prompts",
+          "Review this change"
+        ]
+      },
+      "fixtureClassAnchors": [
+        "bottom-full",
+        "bg-popover"
+      ],
+      "sources": [
+        {
+          "path": "plugins/composer/src/ComposerPopupHost.tsx",
+          "anchors": [
+            "data-promptbox-typeahead-menu",
+            "bottom-full mb-2",
+            "top-full mt-2",
+            "ResponsiveDrawerShell"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/plugin/PluginComposerPopup.tsx",
+          "anchors": [
+            "slotKind=\"composerPopup\"",
+            "<popup.component />"
+          ]
+        }
+      ]
+    },
+    "command-palette-actions": {
+      "groupId": "command-palette",
+      "fidelity": "flow",
+      "responsiveStrategy": "scale-together",
+      "requiredStates": [
+        "anchor",
+        "triggered",
+        "outcome"
+      ],
+      "labels": {
+        "anchor": [
+          "Quick palette",
+          "⇧⌘P"
+        ],
+        "triggered": [
+          "Search commands",
+          "Plugins",
+          "Run release checklist"
+        ],
+        "outcome": [
+          "Release checklist"
+        ]
+      },
+      "fixtureClassAnchors": [
+        "top-[12%]",
+        "max-w-xl",
+        "bg-black/40",
+        "bg-background",
+        "shadow-sm",
+        "h-11",
+        "rounded",
+        "px-2",
+        "py-1.5",
+        "bg-state-hover",
+        "text-foreground"
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/components/commands/CommandPalette.tsx",
+          "anchors": [
+            "top-[12%] max-w-[640px] translate-y-0 gap-0 p-0"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/commands/CommandPaletteBody.tsx",
+          "anchors": [
+            "aria-selected={isActive}",
+            "flex min-h-8 w-full min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm outline-none",
+            "bg-state-hover text-foreground"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/commands/PaletteShell.tsx",
+          "anchors": [
+            "aria-label={inputLabel}",
+            "role=\"listbox\""
+          ]
+        },
+        {
+          "path": "apps/web/src/lib/command-palette/palette-plugin-actions.ts",
+          "anchors": [
+            "bucket: \"Plugins\"",
+            "run: () =>"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/commands/CommandPalette.test.tsx",
+          "anchors": [
+            "lists a plugin's registered command and runs it",
+            "expect(testState.calls).toEqual([\"plugin-ran\"])",
+            "expect(screen.queryByRole(\"combobox\")).toBeNull()"
+          ]
+        },
+        {
+          "path": "lib/shared-ui/src/components/ui/dialog.tsx",
+          "anchors": [
+            "fixed inset-0 z-50 bg-black/40",
+            "bg-background p-6 shadow-sm",
+            "sm:rounded-lg"
+          ]
+        }
+      ]
+    },
+    "app-overlay": {
+      "groupId": "app-shell",
+      "fidelity": "anchor",
+      "responsiveStrategy": "scale-together",
+      "requiredStates": [
+        "anchor"
+      ],
+      "labels": {
+        "anchor": [
+          "Floating widget",
+          "2 agents active"
+        ]
+      },
+      "fixtureClassAnchors": [
+        "absolute bottom-24 right-12",
+        "bg-popover",
+        "shadow-md"
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/components/plugin/PluginAppOverlays.tsx",
+          "anchors": [
+            "data-hyperfide-plugin-app-overlays=\"\"",
+            "slotKind=\"appOverlay\"",
+            "crashFallback={null}"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/layout/AppLayout.tsx",
+          "anchors": [
+            "<PluginAppOverlays />"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/plugin/PluginAppOverlays.test.tsx",
+          "anchors": [
+            "keeps sidebar thread actions available through a portal and route change",
+            "hides a crashing overlay without unmounting additive siblings"
+          ]
+        }
+      ]
+    },
+    "sidebar-footer": {
+      "groupId": "app-shell",
+      "fidelity": "state",
+      "responsiveStrategy": "scale-together",
+      "requiredStates": [
+        "action",
+        "disclosure"
+      ],
+      "labels": {
+        "action": [
+          "Plugin action"
+        ],
+        "disclosure": [
+          "5-hour limit",
+          "18% left"
+        ]
+      },
+      "fixtureClassAnchors": [
+        "rounded-md border border-border",
+        "rounded-full bg-warning"
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/components/plugin/PluginSidebarFooterItems.tsx",
+          "anchors": [
+            "\"aria-expanded\": active",
+            "onDisclosureCommand(footerItemKey(slot), \"toggle\")",
+            "<Component dismiss={onDismiss} />"
+          ]
+        },
+        {
+          "path": "sdk/plugins/src/internal/plugin-app-registration-collector.ts",
+          "anchors": [
+            "adaptSidebarFooterAction",
+            "experimental_sidebarFooter.register",
+            "registration.kind === \"action\"",
+            "registration.kind === \"disclosure\""
+          ]
+        },
+        {
+          "path": "apps/web/src/components/plugin/PluginSidebarFooterItems.test.tsx",
+          "anchors": [
+            "toggles and dismisses a disclosure accessibly",
+            "lets the host coordinate disclosures from multiple plugins"
+          ]
+        }
+      ]
+    },
+    "declarative-settings": {
+      "groupId": "settings",
+      "fidelity": "anchor",
+      "responsiveStrategy": "scale-together",
+      "requiredStates": [
+        "anchor"
+      ],
+      "labels": {
+        "anchor": [
+          "Configuration",
+          "[set]",
+          "Case-sensitive search"
+        ]
+      },
+      "fixtureClassAnchors": [
+        "bg-surface-recessed-solid p-3"
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/components/plugin/PluginSettings.tsx",
+          "anchors": [
+            "<Switch",
+            "placeholder={isSecret ? (secretIsSet ? \"[set]\" : \"[not set]\") : undefined}",
+            "<ResourceDetailConfigurationSection label=\"Configuration\">"
+          ]
+        }
+      ]
+    },
+    "plugin-status": {
+      "groupId": "extensions",
+      "fidelity": "anchor",
+      "responsiveStrategy": "scale-together",
+      "requiredStates": [
+        "anchor"
+      ],
+      "labels": {
+        "anchor": [
+          "Needs configuration",
+          "Open settings",
+          "Details",
+          "Capabilities"
+        ]
+      },
+      "fixtureClassAnchors": [
+        "bg-surface-recessed/55"
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/components/tools/PluginCapabilities.tsx",
+          "anchors": [
+            "plugin.status === \"needs-configuration\" && hasSettingsPage",
+            "Open settings",
+            "name=\"ChevronRight\""
+          ]
+        },
+        {
+          "path": "apps/web/src/components/plugin/management/plugin-status.ts",
+          "anchors": [
+            "Complete the required settings."
+          ]
+        },
+        {
+          "path": "apps/web/src/components/tools/PluginDetail.tsx",
+          "anchors": [
+            "label=\"Details\"",
+            "label={updatesWithHyperfide ? \"Delivery\" : \"Installed\"}",
+            "<PluginIncludes plugin={plugin} configurationPath={configurationPath} />"
+          ]
+        }
+      ]
+    },
+    "thread-info": {
+      "groupId": "app-shell",
+      "fidelity": "anchor",
+      "responsiveStrategy": "scale-together",
+      "requiredStates": [
+        "anchor"
+      ],
+      "labels": {
+        "anchor": [
+          "Project",
+          "Branch",
+          "Deploy",
+          "Automations",
+          "Commits"
+        ]
+      },
+      "fixtureClassAnchors": [
+        "grid-cols-[96px_minmax(0,1fr)]",
+        "mt-3",
+        "border-t",
+        "pt-3"
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/components/secondary-panel/ThreadMetadataContent.tsx",
+          "anchors": [
+            "CORE_THREAD_INFO_ROWS",
+            "CORE_THREAD_INFO_SECTIONS",
+            "<ThreadInfoRows",
+            "<ThreadInfoSections",
+            "[&_[data-info-section]]:mt-3"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/secondary-panel/info/ThreadInfoSlots.tsx",
+          "anchors": [
+            "slotKind=\"threadInfoRow\"",
+            "slotKind=\"threadInfoSection\"",
+            "crashFallback={null}",
+            "value={`${pluginId}/${id}`}"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/ui/detail-card.tsx",
+          "anchors": [
+            "grid grid-cols-[var(--detail-label-width,96px)_minmax(0,1fr)] gap-x-3"
+          ]
+        },
+        {
+          "path": "apps/web/src/components/secondary-panel/info/ThreadInfoSlots.test.tsx",
+          "anchors": [
+            "places plugin rows and sections by group, then order, after core on a tie",
+            "drops only a crashing plugin row or section",
+            "collapses each section on its own, keyed by registration"
+          ]
+        }
+      ]
+    }
+  }
+}

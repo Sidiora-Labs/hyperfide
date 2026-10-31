@@ -8,8 +8,8 @@ Asks, independent checks and qualification receipts govern task completion.
 
 | Layer | Responsibility | Proof from the repository root |
 | --- | --- | --- |
-| Surfaces | Web app, desktop, mobile, CLI and editor language client. | `pnpm -C platform exec turbo run typecheck test --filter=./apps/app`; `bash tests/integration/14_vscode.sh` |
-| Execution | Server, host daemons, providers, environments and machines run work where the workspace lives. | `pnpm -C platform exec turbo run typecheck test --filter=./apps/server --filter=./apps/host-daemon` |
+| Surfaces | Web app, desktop, mobile, CLI and editor language client. | `pnpm exec turbo run typecheck test --filter=./apps/app`; `bash tests/integration/14_vscode.sh` |
+| Execution | Server, host daemons, providers, environments and machines run work where the workspace lives. | `pnpm exec turbo run typecheck test --filter=./apps/server --filter=./apps/host-daemon` |
 | Authority | Spec, Asks, qualification and dispatch use the binary and PostgreSQL control plane. | `python3 tests/hyperfide/cases/v22/6_5.py` |
 | Proof | Graph, lane receipts, independent checker and wave closure establish results. | `python3 tests/hyperfide/cases/v22/4_5.py` |
 
@@ -22,10 +22,10 @@ those adapter contracts rather than deployment of every plugin together.
 
 ```sh
 make cg
-pnpm -C platform install --frozen-lockfile
-pnpm -C platform build
+pnpm install --frozen-lockfile
+pnpm build
 hyperfide platform --help
-pnpm -C platform dev
+pnpm dev
 bash tests/integration/99_platform_frontdoor.sh
 ```
 
@@ -42,15 +42,15 @@ These are the seven `hyperfide-*` source directories at this revision. Directory
 presence does not imply every capability is automatically installed or wired.
 Inspect the running registry with `hyperfide platform plugin list`.
 
-| Directory under platform/plugins | Capability and boundary | Proof command |
+| Directory under plugins | Capability and boundary | Proof command |
 | --- | --- | --- |
 | hyperfide-spec | Spec board, task packets, managed workers, binary status transitions and task details. Some host integrations retain projection adapters. | `bash tests/hyperfide/cases/v22/2_4.sh`; `bash tests/hyperfide/cases/v22/2_3.sh` |
 | hyperfide-asks | Ask mirroring, blocking pause/resume, inbox and secret references. Secrets stay in the secrets store. | `python3 tests/hyperfide/cases/v22/3_5.py` |
 | hyperfide-qualify | Streaming verify lanes, receipts, independent checker, wave closure and permission-bound publication. | `python3 tests/hyperfide/cases/v22/4_5.py` |
 | hyperfide-dispatch | Checkpoint builder, dependency scheduling, budgets, collection and fleet dashboard. | `python3 tests/hyperfide/cases/v22/5_7.py` |
-| hyperfide-graph | Host-scoped survey, context, index status and why queries; Index panel. | `pnpm -C platform exec turbo run typecheck test --filter=./plugins/hyperfide-graph` |
-| hyperfide-guide | Settings-controlled CLI introduction and bundled agent skills. | `pnpm -C platform exec turbo run typecheck test --filter=./plugins/hyperfide-guide` |
-| hyperfide-ai | Retained AI service surface; hosted account access is unavailable. Configure a local provider. | `pnpm -C platform exec turbo run typecheck test --filter=./plugins/hyperfide-ai` |
+| hyperfide-graph | Host-scoped survey, context, index status and why queries; Index panel. | `pnpm exec turbo run typecheck test --filter=./plugins/hyperfide-graph` |
+| hyperfide-guide | Settings-controlled CLI introduction and bundled agent skills. | `pnpm exec turbo run typecheck test --filter=./plugins/hyperfide-guide` |
+| hyperfide-ai | Retained AI service surface; hosted account access is unavailable. Configure a local provider. | `pnpm exec turbo run typecheck test --filter=./plugins/hyperfide-ai` |
 
 Machine providers live in `machine-railway` and `machine-blaxel`. Their
 create/exec/files/checkpoint/destroy contracts and redaction checks run with
@@ -81,7 +81,7 @@ Neither establishes live fleet throughput. See [operations](operations.md) and
 
 ## Authority and storage
 
-`services/hyperfide` is the PostgreSQL control plane. The platform runtime
+`core/control-plane` is the PostgreSQL control plane. The platform runtime
 database remains SQLite at this revision: task 6.1 is pending, its
 `HYPERFIDE_DATABASE_URL` dialect selection and verification case are absent.
 `HYPERFIDE_AUTHORITY_URL` selects the authority endpoint separately.
@@ -91,7 +91,7 @@ are observations, not task claims, leases or permission grants. Plugin migration
 and an opt-in embedded PostgreSQL fallback have separate checks.
 
 ```sh
-npm --prefix services/hyperfide run check
+npm --prefix core/control-plane run check
 bash tests/hyperfide/cases/v22/6_2.sh
 bash tests/hyperfide/cases/v22/6_3.sh
 bash tests/hyperfide/cases/v22/6_4.sh
@@ -105,14 +105,14 @@ credentials. This is a fixture proof, not a deployed multi-host campaign.
 
 ## Slices and memory
 
-`platform/plugins/environment-slices` provides repository-selectable snapshot
+`plugins/environment-slices` provides repository-selectable snapshot
 and slice environments. It invokes `hyperfide snapshot` and `hyperfide slice`,
 records the base and subsequent snapshot chain, and exposes slice detail.
 Edits stay in the slice; Git is used for publication through the supplied wave
 publication interface. Proof: `bash tests/hyperfide/cases/v22/7_1.sh` exercises
 create, edit, snapshot, discard and publish with the real binary.
 
-`platform/plugins/memory` retains private versioned memories and adds durable
+`plugins/memory` retains private versioned memories and adds durable
 repository/task decisions through the binary store:
 
 ```sh
@@ -140,5 +140,5 @@ because feature-wide packet generation waits for all ordinary tasks to qualify.
 It copies the actual documents and link targets and indexes the real memory
 packet adapter for the claim ledger. It does not qualify this feature or replace
 its final documentation closure. The checker validates scope, links and evidence
-references; semantic review remains necessary. See [platform testing](../../platform/docs/testing.md) for runtime
+references; semantic review remains necessary. See [platform testing](../../docs/runtime/testing.md) for runtime
 checks and capability-dependent suites.

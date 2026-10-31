@@ -15,7 +15,7 @@
 # usage: never a test or fixture path; in a C/C++ header its functions and
 # types (not macros); elsewhere what the parser marks exported or "public";
 # Go's capitalised names. On the same clone the required surface is 2,734
-# (all symbols: about 1,900 services/hyperfide TypeScript exports, about 700
+# (all symbols: about 1,900 core/control-plane TypeScript exports, about 700
 # src/*.h functions and types, the rest Python, .mjs and Go exports; all 55
 # routes live under tests/fixtures and are excluded), 15% of before.
 #

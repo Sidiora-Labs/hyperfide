@@ -28,7 +28,7 @@ def build(folder):
     driver=folder/"daemon-main.c"
     driver.write_text('#define _GNU_SOURCE\n#include "supervisor.h"\n#include <stdlib.h>\nint hf_supervisor_daemon(const char*,FILE*);\nint main(int argc,char **argv){if(argc!=2)return 2;char *r=NULL;size_t n=0;FILE*s=open_memstream(&r,&n);if(!s)return 2;fputs("{\\"config_path\\":",s);hf_json_write_string(s,argv[1]);fputc(\'}\',s);if(fclose(s))return 2;int rc=hf_supervisor_daemon(r,stdout);free(r);return rc;}\n')
     binary=folder/"supervisor-daemon"
-    result=subprocess.run(["cc","-std=c11","-O2","-g","-Wall","-Wextra","-ffunction-sections","-fdata-sections","-I"+str(ROOT/"src/hyperfide"),str(driver),str(ROOT/"src/hyperfide/supervisor_daemon.c"),str(ROOT/"src/hyperfide/supervisor.c"),str(ROOT/"src/hyperfide/transport.c"),"-Wl,--gc-sections","-o",str(binary),"-lcurl","-lssl","-lcrypto","-lsqlite3","-pthread"],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=60)
+    result=subprocess.run(["cc","-std=c11","-O2","-g","-Wall","-Wextra","-ffunction-sections","-fdata-sections","-I"+str(ROOT/"core/native/src/hyperfide"),str(driver),str(ROOT/"core/native/src/hyperfide/supervisor_daemon.c"),str(ROOT/"core/native/src/hyperfide/supervisor.c"),str(ROOT/"core/native/src/hyperfide/transport.c"),"-Wl,--gc-sections","-o",str(binary),"-lcurl","-lssl","-lcrypto","-lsqlite3","-pthread"],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=60)
     expect(result.returncode==0,"actual native daemon build failed: "+result.stderr[:3000])
     own_warnings=[line for line in result.stderr.splitlines() if "supervisor_daemon.c:" in line]
     expect(not own_warnings,"daemon compiler diagnostic: "+";".join(own_warnings))

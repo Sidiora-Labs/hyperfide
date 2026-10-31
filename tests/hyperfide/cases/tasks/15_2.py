@@ -342,10 +342,10 @@ class Service:
         self.env = self.auth.env
         self.policy = self.auth.policy
         self.components = self.auth.components
-        self.argv = ["node", str(ROOT / "services/hyperfide/dist/control.js"),
+        self.argv = ["node", str(ROOT / "core/control-plane/dist/control.js"),
                      "--policy", str(self.policy), "--spec-revision", "fixture-identity-v1",
                      "--components", str(self.components), "--module-root",
-                     str(ROOT / "services/hyperfide/dist"), "--mode", "stdio"]
+                     str(ROOT / "core/control-plane/dist"), "--mode", "stdio"]
 
     def request(self, action, value, *, component="15.2", env=None, principal_run=None, **obsolete):
         # The default signed principal remains run A even if nested input claims run B.
@@ -813,7 +813,7 @@ def main():
             check("artifacts.auth.stdio-required", raw_stdio_denied)
 
             def forged_context_denied():
-                script = """import {createArtifactStore} from './services/hyperfide/dist/artifacts/objects.js';
+                script = """import {createArtifactStore} from './core/control-plane/dist/artifacts/objects.js';
 const context={env:{},signal:new AbortController().signal,invocation:{principal:{organisation_id:'fixture'},guard:async()=>{},signal:new AbortController().signal}};
 try{await createArtifactStore(context).invoke('artifact.pending.list',{});process.exitCode=2;}catch(e){console.log(e.code);if(e.code!=='AUTH_REQUIRED')process.exitCode=3;}"""
                 child = subprocess.run(["node", "--input-type=module", "-e", script],
@@ -859,7 +859,7 @@ try{await createArtifactStore(context).invoke('artifact.pending.list',{});proces
             "http_operations": fixture.events, "independently_rejected_signatures": fixture.bad_signatures,
             "redirect_target_requests": len(fixture.redirect_hits), "http_fixture_observed_absent": closed,
             "postgresql_version": sql("SHOW server_version;", database=urlsplit(os.environ["DATABASE_URL"]).path.lstrip("/")).stdout.strip(),
-            "package_lock_sha256": hashlib.sha256((ROOT / "services/hyperfide/package-lock.json").read_bytes()).hexdigest()
+            "package_lock_sha256": hashlib.sha256((ROOT / "core/control-plane/package-lock.json").read_bytes()).hexdigest()
         }, sort_keys=True) + "\n")
         if service is not None:service.close()
     return 1 if FAILED else 0

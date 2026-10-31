@@ -27,7 +27,7 @@ done
 c=$(job build-and-test)
 has "$c" "run: make"; has "$c" "make unit"; has "$c" "make integration"
 s=$(job hyperfide-service)
-has "$s" "working-directory: services/hyperfide"
+has "$s" "working-directory: core/control-plane"
 has "$s" "npm ci"; has "$s" "--noEmit"; has "$s" "npm run build"
 has "$s" "working-directory: deploy/hyperfide"; has "$s" 'node --check "$f"'
 q=$(job hyperfide-qualify)

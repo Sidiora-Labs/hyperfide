@@ -3,7 +3,7 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../../../.." && pwd)
 cd "$root"
 run_suites() {
-  pnpm -C platform/apps/server run test \
+  pnpm -C core/server run test \
     test/desktop-browsers.test.ts \
     test/public/public-thread-context-clear-dispatch.test.ts \
     --maxWorkers=2

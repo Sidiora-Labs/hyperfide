@@ -162,8 +162,8 @@ before any SQLite open or journal replay (`src/hyperfide/client.c`), and
 
 What the journal does for one machine, the service does with PostgreSQL:
 a transactional outbox with committed delivery obligations
-(`services/hyperfide/src/events/outbox.ts`) and inbox deduplication
-(`services/hyperfide/src/events/inbox.ts`). The design keeps the same rule
+(`core/control-plane/src/events/outbox.ts`) and inbox deduplication
+(`core/control-plane/src/events/inbox.ts`). The design keeps the same rule
 the journal keeps for claims: disconnected progress is a pending submission
 that the current primary must validate, never an offline claim, completion
 or integration ([migration.md](../spec/hyperfide/migration.md)). Tasks 6.1,

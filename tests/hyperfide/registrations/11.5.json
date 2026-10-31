@@ -61,11 +61,11 @@
   ],
   "fixtures": [
     "cg",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/provisioner.js",
-    "services/hyperfide/dist/preparation/slices.js",
-    "services/hyperfide/dist/graph/extraction.js",
-    "services/hyperfide/dist/hierarchy/packets.js",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/provisioner.js",
+    "core/control-plane/dist/preparation/slices.js",
+    "core/control-plane/dist/graph/extraction.js",
+    "core/control-plane/dist/hierarchy/packets.js",
     "tests/hyperfide/support/identity_fixture.py",
     "tests/hyperfide/cases/support/large_repo_fixture.py"
   ],
@@ -99,31 +99,31 @@
     "slice.remote.materialize"
   ],
   "source_files": [
-    "services/hyperfide/src/preparation/slices.ts",
-    "services/hyperfide/migrations/0045-workspace-slices.sql",
-    "services/hyperfide/components/11.5.json",
+    "core/control-plane/src/preparation/slices.ts",
+    "core/control-plane/migrations/0045-workspace-slices.sql",
+    "core/control-plane/components/11.5.json",
     "tests/hyperfide/cases/tasks/11_5.py",
     "tests/hyperfide/registrations/11.5.json",
-    "services/hyperfide/src/preparation/manifests.ts",
-    "services/hyperfide/src/hierarchy/packets.ts",
-    "services/hyperfide/src/graph/publication.ts",
-    "services/hyperfide/src/graph/extraction.ts",
-    "services/hyperfide/src/graph/ingestion.ts",
-    "services/hyperfide/src/components/registry.ts",
+    "core/control-plane/src/preparation/manifests.ts",
+    "core/control-plane/src/hierarchy/packets.ts",
+    "core/control-plane/src/graph/publication.ts",
+    "core/control-plane/src/graph/extraction.ts",
+    "core/control-plane/src/graph/ingestion.ts",
+    "core/control-plane/src/components/registry.ts",
     "tests/hyperfide/cases/tasks/3_2.py",
     "tests/hyperfide/cases/tasks/3_1.py",
     "tests/hyperfide/registry.json",
     "tests/hyperfide/check-evidence.py",
     "tests/hyperfide/manifest.schema.json",
     "tests/hyperfide/qualify.py",
-    "services/hyperfide/package.json",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/tsconfig.json"
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ]
 }

@@ -26,7 +26,7 @@ import uuid
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 TEMPLATE = ROOT / 'deploy/hyperfide/config/dispatch-worker.example.json'
 SUPERUSER, OPERATOR, OUTBOX_DB = 'hf_superuser', 'hf_operator', 'hf_outbox'
 FAILED = []
@@ -65,9 +65,9 @@ def run(argv, env=None, timeout=900):
 
 RAILWAY_DRIVER = r"""
 import fs from 'node:fs';
-import {RailwayClient,RAILWAY_BACKOFF} from './services/hyperfide/dist/providers/railway/preparation.js';
-import {createRailwayAdapter} from './services/hyperfide/dist/providers/railway/reconciliation.js';
-import {RailwaySessionSpool} from './services/hyperfide/dist/providers/railway/processes.js';
+import {RailwayClient,RAILWAY_BACKOFF} from './core/control-plane/dist/providers/railway/preparation.js';
+import {createRailwayAdapter} from './core/control-plane/dist/providers/railway/reconciliation.js';
+import {RailwaySessionSpool} from './core/control-plane/dist/providers/railway/processes.js';
 const data=JSON.parse(fs.readFileSync(process.argv[1])),events=[];
 const client=new RailwayClient(data.config,{HF_RAILWAY_FIXTURE_TOKEN:'not-real'});
 const adapter=createRailwayAdapter(client,{
@@ -227,8 +227,8 @@ class Cluster:
 
 
 MIGRATE = """
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {MigrationCoordinator} from './services/hyperfide/dist/storage/durability.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {MigrationCoordinator} from './core/control-plane/dist/storage/durability.js';
 const signal=new AbortController().signal;
 for(let attempt=1;;attempt++){
  const r=createResourceContainer({role:'control',env:{...process.env,HYPERFIDE_MIGRATION_DATABASE_URL:process.env.DATABASE_URL},signal});
@@ -244,10 +244,10 @@ OUTBOX_PROBE = r"""
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {randomUUID} from 'node:crypto';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {registerConsumer,enqueue,claimPending} from './services/hyperfide/dist/events/outbox.js';
-import {emit,findingConsumerIds,FINDING_CONSUMER_KEYS} from './services/hyperfide/dist/findings/registry.js';
-import {dispatchConfiguration} from './services/hyperfide/dist/events/dispatcher.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {registerConsumer,enqueue,claimPending} from './core/control-plane/dist/events/outbox.js';
+import {emit,findingConsumerIds,FINDING_CONSUMER_KEYS} from './core/control-plane/dist/findings/registry.js';
+import {dispatchConfiguration} from './core/control-plane/dist/events/dispatcher.js';
 const scope={organisation_id:process.env.HF_ORG,run_id:process.env.HF_RUN};
 const r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
 const tx=fn=>r.gateway.withPrimaryTransaction({timeoutMs:10000},fn);

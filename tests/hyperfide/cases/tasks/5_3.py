@@ -19,7 +19,7 @@ def fixture(describe=False,**kwargs):
   if describe:describe_access(f)
  return m.SchedulerFixture(extra_setup=setup,**kwargs)
 def registered(f):
- declared=json.loads((ROOT/"services/hyperfide/components/5.3.json").read_text())
+ declared=json.loads((ROOT/"core/control-plane/components/5.3.json").read_text())
  described=f.ok("system.describe",{},key="operator",component="system")
  entries=[c for c in described["components"] if c["id"]=="5.3"]
  expect(declared["id"]=="5.3" and len(entries)==1 and sorted(entries[0]["actions"])==sorted(declared["actions"]),"Loaded service does not expose component 5.3 with exactly its declared actions: "+json.dumps(entries))
@@ -27,7 +27,7 @@ def registered(f):
 # primary transaction. It reports an observation bound to the persisted operation; the
 # reconciler still independently checks the command/payload/token tuple and requires a
 # COMPLETED central command_inbox receipt. No provider or process is contacted.
-RECONCILE_JS="""const {DispatchReconciler}=await import('./services/hyperfide/dist/scheduler/dispatch.js');
+RECONCILE_JS="""const {DispatchReconciler}=await import('./core/control-plane/dist/scheduler/dispatch.js');
 const reconciler=new DispatchReconciler(),seen=[];
 reconciler.registerReceiptReader(async(_tx,input)=>{seen.push(input.operation_id);
  return data.observation===null?null:{command_id:input.operation_id,token:input.token,payload_digest:input.payload_digest,...data.observation};});
@@ -47,7 +47,7 @@ def dispatch(f,request_id):
 def attempt(f,attempt_id):
  return f.sql("SELECT compute_authority,execution_state FROM hyperfide.attempts WHERE id=$1",[attempt_id])[0]
 LOCK_JS="""import fs from 'node:fs';import {createRequire} from 'node:module';
-const pg=createRequire(process.cwd()+'/services/hyperfide/package.json')('pg'),q=JSON.parse(fs.readFileSync(0,'utf8'));
+const pg=createRequire(process.cwd()+'/core/control-plane/package.json')('pg'),q=JSON.parse(fs.readFileSync(0,'utf8'));
 const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();
 try{await c.query('BEGIN');await c.query('SELECT id FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR NO KEY UPDATE',[q.organisation_id,q.run_id]);
  process.stdout.write('locked\\n');await new Promise(resolve=>setTimeout(resolve,q.hold_ms));await c.query('COMMIT');}finally{await c.end();}"""
@@ -65,8 +65,8 @@ def lost_response(f,action,payload,key,component):
  expect(locker.returncode==0,"Run lock holder failed")
  return lost
 CRASH_JS="""import fs from 'node:fs';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import {ensureDispatch} from './services/hyperfide/dist/scheduler/dispatch.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {ensureDispatch} from './core/control-plane/dist/scheduler/dispatch.js';
 const data=JSON.parse(fs.readFileSync(0,'utf8'));
 const resources=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
 await resources.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:3},tx=>ensureDispatch(tx,data.token,data.request_id,{consumer_ids:[data.native_consumer]}));
@@ -126,7 +126,7 @@ def main():
   f.ok("scheduler.dispatch.ensure",other_request,key="manager2",component="5.3")
   check("dispatch.reconcile.package-spoof-denied",lambda:f.reject("scheduler.dispatch.reconcile",dict(reconcile,request_id=other_request["request_id"]),"PACKAGE_SCOPE_DENIED",key="manager",component="5.3"))
   check("dispatch.reconcile.target-owner-required",lambda:f.reject("scheduler.dispatch.reconcile",dict(reconcile,request_id=other_request["request_id"],package_id=i["wave_package"]),"PACKAGE_OWNER_MISMATCH",key="manager",component="5.3"))
-  unbound=f.primary("const {DispatchReconciler}=await import('./services/hyperfide/dist/scheduler/dispatch.js');return new DispatchReconciler().reconcile(tx,data.scope,data.request_id);",{"request_id":request["request_id"]})
+  unbound=f.primary("const {DispatchReconciler}=await import('./core/control-plane/dist/scheduler/dispatch.js');return new DispatchReconciler().reconcile(tx,data.scope,data.request_id);",{"request_id":request["request_id"]})
   check("dispatch.unbound-reader.refusal",lambda:refused(unbound,"DEPENDENCY_UNAVAILABLE"))
   check("dispatch.native-reader.missing-is-unknown",lambda:expect(f.ok("scheduler.dispatch.reconcile",reconcile,key="manager",component="5.3")["state"]=="UNKNOWN","Missing native receipt must remain uncertain"))
   check("dispatch.unknown.keeps-owner",lambda:expect(f.sql("SELECT compute_authority,execution_state FROM hyperfide.attempts WHERE id=$1",[token["attempt_id"]])[0]=={"compute_authority":"CURRENT","execution_state":"RESERVED"},"Missing external receipt changed execution authority"))

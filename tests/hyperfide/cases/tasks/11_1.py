@@ -75,7 +75,7 @@ class Fixture:
         self.policy_file.write_text(json.dumps(POLICY))
         self.components=base/"components"
         self.components.mkdir()
-        shutil.copyfile(ROOT/"services/hyperfide/components/11.1.json",self.components/"11.1.json")
+        shutil.copyfile(ROOT/"core/control-plane/components/11.1.json",self.components/"11.1.json")
         self.profile=self.make_profile()
 
     def pin(self,path):
@@ -120,10 +120,10 @@ class Fixture:
         env.pop("HF_SERVICE_MAX_RESPONSE_BYTES",None)
         if extra_env:
             env.update(extra_env)
-        argv=["node",str(ROOT/f"services/hyperfide/dist/{role}.js"),
+        argv=["node",str(ROOT/f"core/control-plane/dist/{role}.js"),
               "--policy",str(self.policy_file),"--spec-revision","fixture-revision",
               "--components",str(self.components),
-              "--module-root",str(ROOT/"services/hyperfide/dist")]
+              "--module-root",str(ROOT/"core/control-plane/dist")]
         request={"id":"preparation-check","component":"11.1",
                  "action":"preparation.manifest."+action,"input":payload}
         result=subprocess.run(argv,cwd=ROOT,input=json.dumps(request)+"\n",
@@ -525,9 +525,9 @@ def main():
                 expect(libc.inotify_add_watch(fd,os.fsencode(target),0x20)>=0,"inotify watch failed")
                 env=os.environ.copy();env["HF_PREPARATION_ALLOWED_ROOT"]=str(f.allowed)
                 env.pop("HF_SERVICE_MAX_REQUEST_BYTES",None);env.pop("HF_SERVICE_MAX_RESPONSE_BYTES",None)
-                argv=["node",str(ROOT/"services/hyperfide/dist/provisioner.js"),
+                argv=["node",str(ROOT/"core/control-plane/dist/provisioner.js"),
                       "--policy",str(f.policy_file),"--spec-revision","fixture-revision",
-                      "--components",str(f.components),"--module-root",str(ROOT/"services/hyperfide/dist")]
+                      "--components",str(f.components),"--module-root",str(ROOT/"core/control-plane/dist")]
                 child=subprocess.Popen(argv,cwd=ROOT,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE,text=True,env=env)
                 def interrupt():

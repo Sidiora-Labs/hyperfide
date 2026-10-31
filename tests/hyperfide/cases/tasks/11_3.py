@@ -80,7 +80,7 @@ class Fixture:
         self.bindings={"bindings":[{"name":name,"version":version,"executable":self.gitbin,"argv":["--version"],"output_digest":digest(version_bytes)} for name in ["git","hyperfide"]]}
         for path,value in [(self.scopefile,self.scope),(self.credentialfile,self.records),(self.scanfile,prep.SCAN),(self.bindingsfile,self.bindings)]:
             path.write_text(json.dumps(value));path.chmod(0o600)
-        node=Path(shutil.which("node")).resolve();module=ROOT/"services/hyperfide/dist/preparation/manifests.js"
+        node=Path(shutil.which("node")).resolve();module=ROOT/"core/control-plane/dist/preparation/manifests.js"
         self.env=os.environ.copy();self.env.update(HF_EXECUTION_HOST_CLASS="remote",
           HF_PREPARATION_WORKSPACE_ROOT=str(self.workspaces),HF_PREPARATION_BASE_ROOT=str(self.prep.allowed),
           HF_PREPARATION_MANIFEST_ROOT=str(self.manifests),HF_READINESS_DIAGNOSTICS_ROOT=str(self.diagnostics),

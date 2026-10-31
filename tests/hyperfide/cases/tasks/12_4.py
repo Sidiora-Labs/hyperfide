@@ -82,7 +82,7 @@ def respawner(user,seconds):
 
 VALIDATE=r"""
 import path from 'node:path';import {pathToFileURL} from 'node:url';
-const {validateNativeControlReceipt}=await import(pathToFileURL(path.join(process.cwd(),'services/hyperfide/dist/runner/executor.js')).href);
+const {validateNativeControlReceipt}=await import(pathToFileURL(path.join(process.cwd(),'core/control-plane/dist/runner/executor.js')).href);
 let input='';for await(const chunk of process.stdin)input+=chunk;
 const out=JSON.parse(input).map(({receipt,target,command_id,action})=>{try{validateNativeControlReceipt(receipt,target,command_id,action);return 'ACCEPTED';}catch(e){return e.code||String(e);}});
 process.stdout.write(JSON.stringify(out));

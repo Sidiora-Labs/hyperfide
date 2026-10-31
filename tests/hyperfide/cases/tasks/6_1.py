@@ -191,13 +191,13 @@ class Service(identity.IdentityFixture):
         self.env['HF_SCHEDULER_DISPATCH_CONSUMER_ID']=CONSUMER
         if TASK=='6.4':self.env['HF_TEST_DAEMON_CRASH_FILE']=str(self.path/'worker-after-commit-crash')
         self.env['HF_TEST_EXECUTION_CONTROLS']='1' if self.include_instructions else '0'
-        self.runtime_root=self.path/"runtime";module=self.runtime_root/"services/hyperfide/dist"
+        self.runtime_root=self.path/"runtime";module=self.runtime_root/"core/control-plane/dist"
         module.parent.mkdir(parents=True)
-        shutil.copytree(ROOT/"services/hyperfide/dist",module)
-        shutil.copytree(ROOT/"services/hyperfide/migrations",module.parent/"migrations")
-        (module.parent/"node_modules").symlink_to(ROOT/"services/hyperfide/node_modules",target_is_directory=True)
-        self.module_equal=all(hashlib.sha256(p.read_bytes()).digest()==hashlib.sha256((module/p.relative_to(ROOT/"services/hyperfide/dist")).read_bytes()).digest()
-            for p in (ROOT/"services/hyperfide/dist").rglob("*") if p.is_file())
+        shutil.copytree(ROOT/"core/control-plane/dist",module)
+        shutil.copytree(ROOT/"core/control-plane/migrations",module.parent/"migrations")
+        (module.parent/"node_modules").symlink_to(ROOT/"core/control-plane/node_modules",target_is_directory=True)
+        self.module_equal=all(hashlib.sha256(p.read_bytes()).digest()==hashlib.sha256((module/p.relative_to(ROOT/"core/control-plane/dist")).read_bytes()).digest()
+            for p in (ROOT/"core/control-plane/dist").rglob("*") if p.is_file())
         (module/"fixture.js").write_text(FIXTURE)
         syntax=subprocess.run(["node","--check",str(module/"fixture.js")],capture_output=True,text=True)
         expect(syntax.returncode==0,"Trusted fixture module syntax failed: "+syntax.stderr[:1000])
@@ -694,8 +694,8 @@ def daemon_lifecycle(s):
     def start_dispatch():
         nonlocal process
         env=s.env.copy();env["HF_IDENTITY_CONFIG_FILE"]=str(identity_config);env["HF_EVENT_DISPATCH_CONFIG"]=str(config)
-        process=subprocess.Popen(["node",str(s.runtime_root/"services/hyperfide/dist/dispatch.js"),"--policy",str(s.policy),"--spec-revision","fixture-identity-v1","--components",str(s.components),
-            "--module-root",str(s.runtime_root/"services/hyperfide/dist"),"--mode","https","--host","127.0.0.1","--port",str(port),"--tls-cert",str(s.ca),"--tls-key",str(s.tlskey)],
+        process=subprocess.Popen(["node",str(s.runtime_root/"core/control-plane/dist/dispatch.js"),"--policy",str(s.policy),"--spec-revision","fixture-identity-v1","--components",str(s.components),
+            "--module-root",str(s.runtime_root/"core/control-plane/dist"),"--mode","https","--host","127.0.0.1","--port",str(port),"--tls-cert",str(s.ca),"--tls-key",str(s.tlskey)],
             cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
         descriptor=target()/"resource.json";record=json.loads(descriptor.read_text());record["dispatcher_process"]={"pid":process.pid,
             "start_time":Path("/proc/"+str(process.pid)+"/stat").read_text().split()[21],"boot_id":Path("/proc/sys/kernel/random/boot_id").read_text().strip()};descriptor.write_text(json.dumps(record)+"\n")

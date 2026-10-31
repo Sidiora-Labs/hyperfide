@@ -125,17 +125,17 @@
     "PGUSER"
   ],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/provisioner.js",
-    "services/hyperfide/dist/transport/protocol.js",
-    "services/hyperfide/dist/transport/isolation.js",
-    "services/hyperfide/dist/recovery/control.js",
-    "services/hyperfide/dist/recovery/stop.js",
-    "services/hyperfide/dist/recovery/fencing.js",
-    "services/hyperfide/dist/recovery/fencing_service.js",
-    "services/hyperfide/dist/identity/credentials.js",
-    "services/hyperfide/dist/providers/placement.js",
-    "services/hyperfide/dist/migration/legacy.js"
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/provisioner.js",
+    "core/control-plane/dist/transport/protocol.js",
+    "core/control-plane/dist/transport/isolation.js",
+    "core/control-plane/dist/recovery/control.js",
+    "core/control-plane/dist/recovery/stop.js",
+    "core/control-plane/dist/recovery/fencing.js",
+    "core/control-plane/dist/recovery/fencing_service.js",
+    "core/control-plane/dist/identity/credentials.js",
+    "core/control-plane/dist/providers/placement.js",
+    "core/control-plane/dist/migration/legacy.js"
   ],
   "resources": [
     {
@@ -161,15 +161,15 @@
     "recovery/stop-inventory.json"
   ],
   "source_files": [
-    "services/hyperfide/components/24.3.json",
-    "services/hyperfide/components/external-fencing.json",
-    "services/hyperfide/migrations/0024-recovery.sql",
-    "services/hyperfide/package-lock.json",
-    "services/hyperfide/package.json",
-    "services/hyperfide/src/recovery/fencing.ts",
-    "services/hyperfide/src/recovery/fencing_service.ts",
-    "services/hyperfide/src/recovery/stop.ts",
-    "services/hyperfide/tsconfig.json",
+    "core/control-plane/components/24.3.json",
+    "core/control-plane/components/external-fencing.json",
+    "core/control-plane/migrations/0024-recovery.sql",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/recovery/fencing.ts",
+    "core/control-plane/src/recovery/fencing_service.ts",
+    "core/control-plane/src/recovery/stop.ts",
+    "core/control-plane/tsconfig.json",
     "tests/hyperfide/cases/tasks/24_1.py",
     "tests/hyperfide/cases/tasks/24_3.py",
     "tests/hyperfide/check-evidence.py",
@@ -179,10 +179,10 @@
     "tests/hyperfide/support/identity_fixture.py"
   ],
   "source_roots": [
-    "services/hyperfide/src",
-    "services/hyperfide/dist",
-    "services/hyperfide/components",
-    "services/hyperfide/migrations"
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
   ],
   "actions": [
     "postgresql.fixture.create",

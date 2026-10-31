@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[4]
 s=importlib.util.spec_from_file_location("hf_scheduler_fixture",ROOT/"tests/hyperfide/cases/tasks/5_1.py");m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 expect=m.expect;check=m.check;uid=m.uid
 SchedulerFixture=m.SchedulerFixture
-FRAGMENT=json.loads((ROOT/"services/hyperfide/components/5.2.json").read_text())
+FRAGMENT=json.loads((ROOT/"core/control-plane/components/5.2.json").read_text())
 SPARE_SLOTS=12
 def lease_setup(f):
  # Registry proof (as 15.2/19.1): the reserved system.describe action is granted to fixture principals only.

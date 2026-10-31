@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
 s=importlib.util.spec_from_file_location("hf_scheduler_fixture",ROOT/"tests/hyperfide/cases/tasks/5_1.py");m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 expect=m.expect;check=m.check;uid=m.uid;sha=m.sha;identity=m.identity
-FRAGMENT=json.loads((ROOT/"services/hyperfide/components/5.4.json").read_text())
+FRAGMENT=json.loads((ROOT/"core/control-plane/components/5.4.json").read_text())
 RUBRIC=sha(b"explicit-review-rubric")
 SPEC2='''[meta]
 slug = "task5.4-fixture"
@@ -36,7 +36,7 @@ def accept_resource_spec(f):
  f.spec_generation=m.next_spec_generation(f)
  i=f.ids
  source=SPEC2.replace("RUBRIC",json.dumps(RUBRIC)).replace("REVIEWERS",json.dumps([i["watcher"]]))
- parsed=json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
+ parsed=json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
  revision=uid();i["spec2"]=revision
  document={"schema_version":1,"revision_digest":sha(b"task5.4-generation-two"),"source_digest":sha(source.encode()),"repositories":[{"repository_id":i["repository"],"source_object_id":"a"*40,"integration_ref":"refs/heads/main"}],"allowed_actions":f.actions,"closure_policy":{"required_evidence":[],"required_review_roles":[],"publication":"AFTER_QUALIFICATION"},"provenance":None,"parsed":parsed,"runtime_wave_offset":0}
  f.sql("INSERT INTO hyperfide.spec_revisions(organisation_id,project_id,id,source_digest,source_content,document,schema_version,revision_digest) VALUES($1,$2,$3,$4,$5,$6,1,$7)",[i["organisation"],i["project"],revision,sha(source.encode()),source,json.dumps(document),document["revision_digest"]])
@@ -84,9 +84,9 @@ class ResourceFixture(m.SchedulerFixture):
  def lower(self,body,data=None,timeout=60):
   """Trusted lower scheduler APIs inside real branded primary transactions; never a public auth substitute."""
   script="""import fs from 'node:fs';import crypto from 'node:crypto';
-import {createResourceContainer} from './services/hyperfide/dist/storage/runtime.js';
-import * as claims from './services/hyperfide/dist/scheduler/claim.js';
-import * as resources from './services/hyperfide/dist/scheduler/resources.js';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import * as claims from './core/control-plane/dist/scheduler/claim.js';
+import * as resources from './core/control-plane/dist/scheduler/resources.js';
 const data=JSON.parse(fs.readFileSync(0,'utf8'));
 const container=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
 const guard=async tx=>{const r=await tx.query('SELECT authority_epoch FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[data.scope.organisation_id,data.scope.run_id]);if(r.rows[0]?.authority_epoch!==data.epoch)throw Error('Test primary epoch changed');};

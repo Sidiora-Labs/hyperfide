@@ -19,12 +19,12 @@ def canonical(value):return json.dumps(value,sort_keys=True,separators=(",",":")
 def identity(value):return sha(canonical(value).encode())
 def dependencies(stems):
  fragments={}
- for p in (ROOT/"services/hyperfide/components").glob("*.json"):
+ for p in (ROOT/"core/control-plane/components").glob("*.json"):
   f=json.loads(p.read_text())
   if "id" in f:fragments[f["id"]]=(p.stem,f.get("requires",[]))
  result=[];seen=set()
  def visit(stem):
-  f=json.loads((ROOT/"services/hyperfide/components"/(stem+".json")).read_text())
+  f=json.loads((ROOT/"core/control-plane/components"/(stem+".json")).read_text())
   if f["id"] in seen:return
   seen.add(f["id"])
   for dep in f.get("requires",[]):visit(fragments[dep][0])
@@ -33,7 +33,7 @@ def dependencies(stems):
  return tuple(result)
 RUBRIC=sha(b"explicit-review-rubric")
 def parse_kvx(source):
- return json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./services/hyperfide/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
+ return json.loads(subprocess.check_output(["node","--input-type=module","-e","import{parseKvx}from'./core/control-plane/dist/spec/import.js';let s='';for await(const c of process.stdin)s+=c;process.stdout.write(JSON.stringify(parseKvx(s)));"],input=source.encode(),cwd=ROOT))
 def accept_spec(f,generation,criterion="A task packet SHALL identify exact inputs. Mandatory intent and constraints SHALL not be removed by context ranking."):
  """Accepted immutable spec revision whose proof/review intent the 2.4 obligation loader verifies."""
  i=f.ids;spec=uid()

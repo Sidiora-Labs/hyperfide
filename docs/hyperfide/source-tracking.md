@@ -5,7 +5,7 @@
 The `hyperfide-environment-slices` provider lets a repository select snapshot
 slices alongside its worktree provider. The repository's `environmentProviderId`
 selects the provider; an unset value retains the worktree default. The bundled
-entry is `platform/packages/bundled-plugins/environment-slices.ts`.
+entry is `tools/bundled-plugins/environment-slices.ts`.
 
 Record the repository baseline with `hyperfide commit -m <message>` and obtain
 the task manifest with `hyperfide slice <task> -f <feature> --json` before launching

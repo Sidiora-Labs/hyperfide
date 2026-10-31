@@ -1,0 +1,294 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [],
+  "jsPlugins": [
+    "./tools/workspace/oxlint-plugin.mjs"
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "env": {
+    "builtin": true
+  },
+  "rules": {
+    "hyperfide/no-comments": "error"
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/routeTree.gen.ts",
+    "apps/mobile/ios/**",
+    "apps/mobile/android/**",
+    "apps/mobile/.expo/**",
+    "lib/templates/src/generated/**",
+    "tools/plugin-build/src/generated/**",
+    "sdk/plugins/bundled-types/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "lib/domain/src/native-roots.ts",
+        "sdk/plugins/src/*.{ts,tsx}",
+        "sdk/plugins/src/internal/*.{ts,tsx}",
+        "sdk/plugins/src/testing/*.{ts,tsx}"
+      ],
+      "rules": {
+        "hyperfide/no-comments": "off"
+      }
+    },
+    {
+      "files": [
+        "**/*.{ts,tsx}"
+      ],
+      "plugins": [
+        "react"
+      ],
+      "rules": {
+        "react/rules-of-hooks": "error",
+        "react/exhaustive-deps": "error",
+        "react/static-components": "error",
+        "react/use-memo": "error",
+        "react/void-use-memo": "error",
+        "react/preserve-manual-memoization": "warn",
+        "react/incompatible-library": "warn",
+        "react/immutability": "warn",
+        "react/globals": "error",
+        "react/refs": "warn",
+        "react/set-state-in-effect": "warn",
+        "react/error-boundaries": "error",
+        "react/purity": "warn",
+        "react/set-state-in-render": "error",
+        "react/unsupported-syntax": "warn"
+      }
+    },
+    {
+      "files": [
+        "apps/cli/*.{ts,tsx}",
+        "apps/desktop/*.{ts,tsx}",
+        "apps/mobile/*.{ts,tsx}",
+        "apps/web/*.{ts,tsx}",
+        "core/ai-gateway/*.{ts,tsx}",
+        "core/host-daemon/*.{ts,tsx}",
+        "core/server/*.{ts,tsx}",
+        "examples/demo-server/*.{ts,tsx}",
+        "apps/launcher/*.{ts,tsx}",
+        "contracts/desktop/*.{ts,tsx}",
+        "contracts/host-daemon/*.{ts,tsx}",
+        "contracts/mobile-bridge/*.{ts,tsx}",
+        "contracts/server/*.{ts,tsx}",
+        "core/agent-runtime/*.{ts,tsx}",
+        "core/authority-client/*.{ts,tsx}",
+        "core/environment-provider-host/*.{ts,tsx}",
+        "core/host-watcher/*.{ts,tsx}",
+        "core/host-workspace/*.{ts,tsx}",
+        "core/local-open-targets/*.{ts,tsx}",
+        "core/provider-bridge-acp/*.{ts,tsx}",
+        "core/provider-bridge-protocol/*.{ts,tsx}",
+        "core/runtime-db/*.{ts,tsx}",
+        "core/secret-storage/*.{ts,tsx}",
+        "core/server-archive/*.{ts,tsx}",
+        "lib/client-core/*.{ts,tsx}",
+        "lib/config/*.{ts,tsx}",
+        "lib/core-ui/*.{ts,tsx}",
+        "lib/domain/*.{ts,tsx}",
+        "lib/fuzzy-match/*.{ts,tsx}",
+        "lib/hono-typed-routes/*.{ts,tsx}",
+        "lib/logger/*.{ts,tsx}",
+        "lib/process-utils/*.{ts,tsx}",
+        "lib/query-tags/*.{ts,tsx}",
+        "lib/shared-ui/*.{ts,tsx}",
+        "lib/templates/*.{ts,tsx}",
+        "lib/text-utils/*.{ts,tsx}",
+        "lib/thread-view/*.{ts,tsx}",
+        "sdk/client/*.{ts,tsx}",
+        "sdk/plugins/*.{ts,tsx}",
+        "tools/bundled-plugins/*.{ts,tsx}",
+        "tools/plugin-build/*.{ts,tsx}",
+        "tools/plugin-registry/*.{ts,tsx}",
+        "tools/provider-parity/*.{ts,tsx}",
+        "tools/scripts/*.{ts,tsx}",
+        "tools/test-helpers/*.{ts,tsx}",
+        "tools/tsconfig/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:child_process",
+                "importNames": [
+                  "spawnSync",
+                  "execSync",
+                  "execFileSync"
+                ],
+                "message": "Use async child_process APIs instead of blocking sync variants."
+              },
+              {
+                "name": "child_process",
+                "importNames": [
+                  "spawnSync",
+                  "execSync",
+                  "execFileSync"
+                ],
+                "message": "Use async child_process APIs instead of blocking sync variants."
+              }
+            ]
+          }
+        ],
+        "hyperfide/no-blocking-child-process-call": "error"
+      }
+    },
+    {
+      "files": [
+        "core/agent-runtime/src/**/*.ts",
+        "core/provider-bridge-acp/src/bridge/agent-connection.ts",
+        "lib/config/src/verified-process-stop.ts",
+        "core/host-workspace/src/git-host.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:child_process",
+                "allowTypeImports": true,
+                "message": "Use @hyperfide/process-utils managed processes or buffered commands so launch and termination share one owner."
+              },
+              {
+                "name": "child_process",
+                "allowTypeImports": true,
+                "message": "Use @hyperfide/process-utils managed processes or buffered commands so launch and termination share one owner."
+              },
+              {
+                "name": "cross-spawn",
+                "allowTypeImports": true,
+                "message": "Use @hyperfide/process-utils managed processes or buffered commands so launch and termination share one owner."
+              },
+              {
+                "name": "@hyperfide/process-utils",
+                "importNames": [
+                  "spawnPortableProcess",
+                  "spawnPortablePipedProcess",
+                  "spawnPortableOutputProcess",
+                  "supportsProcessGroups",
+                  "killProcessGroup",
+                  "stopProcessGroupLeaderFirst"
+                ],
+                "message": "Use spawnManagedProcess for owned subprocesses; it owns process-group setup and awaited termination."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "**/__tests__/**",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/scripts/**"
+      ],
+      "rules": {
+        "no-restricted-imports": "off",
+        "hyperfide/no-blocking-child-process-call": "off"
+      }
+    },
+    {
+      "files": [
+        "core/server/src/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@hyperfide/host-workspace",
+                "message": "Server must not access workspaces directly. Use daemon commands instead."
+              },
+              {
+                "name": "@hyperfide/host-watcher",
+                "message": "Server must not access host watchers directly. Use daemon commands instead."
+              },
+              {
+                "name": "node:fs",
+                "message": "Server must not use node:fs. Use daemon commands for workspace access. (attachments.ts is the only exception \u2014 it manages server-local storage.)"
+              },
+              {
+                "name": "node:fs/promises",
+                "message": "Server must not use node:fs/promises. Use daemon commands for workspace access. (attachments.ts is the only exception \u2014 it manages server-local storage.)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "core/server/src/**/__tests__/**",
+        "core/server/src/**/*.test.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/mobile/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@hyperfide/sdk",
+                "message": "Import @hyperfide/sdk/browser: the root entry resolves to the Node SDK under Metro's source condition."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "@hyperfide/shared-ui",
+                  "@hyperfide/shared-ui/*"
+                ],
+                "message": "@hyperfide/shared-ui is React DOM + Radix. Use the mobile primitives instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "hyperfide/no-native-title-with-aria-label": "error",
+        "hyperfide/no-native-title-on-button": "error"
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/**/*.test.ts",
+        "apps/web/src/**/*.test.tsx",
+        "apps/web/src/**/*.stories.tsx"
+      ],
+      "rules": {
+        "hyperfide/no-native-title-with-aria-label": "off",
+        "hyperfide/no-native-title-on-button": "off"
+      }
+    },
+    {
+      "files": [
+        "plugins/**/*.{ts,tsx,mts,cts,js,mjs,cjs}"
+      ],
+      "rules": {
+        "hyperfide/forkable-plugin-imports": "error"
+      }
+    }
+  ]
+}

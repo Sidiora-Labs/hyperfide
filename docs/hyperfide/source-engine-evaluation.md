@@ -16,7 +16,7 @@ path. Nothing in this report is estimated any more.
 
 ## What is being compared
 
-- **Git (the 4.8 path).** `runQueue` in `services/hyperfide/src/integration/queue.ts`,
+- **Git (the 4.8 path).** `runQueue` in `core/control-plane/src/integration/queue.ts`,
   built from this branch and called in-process with a requalifier that always passes,
   so the timings hold no gate time. Snapshots (base commit, result tree) are folded onto
   `refs/hyperfide/trunk/<run>` in touch-disjoint batches. Each fold is one
@@ -288,15 +288,15 @@ speed gain does not pay for the operating cost.
 ## Reproduce
 
 The harness is not tracked; it is in the task scratchpad: `bench.mjs` imports
-`services/hyperfide/dist/integration/queue.js` and calls `runQueue`, `planBatches` and
+`core/control-plane/dist/integration/queue.js` and calls `runQueue`, `planBatches` and
 `git`. `run.sh` and `norenames.sh` drive it, with one JSON row per run in
 `results.jsonl`.
 
 ```sh
-npm --prefix services/hyperfide ci --ignore-scripts && npm --prefix services/hyperfide run build
+npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build
 git clone --bare --shared <1.11 monorepo clone> bench/repo.git
 git -C bench/repo.git rev-list --first-parent --reverse --since=2026-10-15T10:35:21Z 666469ff1868 > bench/c7d.txt
-node bench.mjs services/hyperfide/dist/integration/queue.js bench/repo.git bench/c7d.txt week-serial 1 serial
+node bench.mjs core/control-plane/dist/integration/queue.js bench/repo.git bench/c7d.txt week-serial 1 serial
 # other modes: <label> 1 (batched), <label> K resolved, <label> K (cascading), <label> 1 floor;
 # renames off: the same on a clone with merge.renames=false and merge.directoryRenames=false
 ```
@@ -308,7 +308,7 @@ auto-tracking. Every call passes `--ignore-working-copy`.
 
 ```sh
 # jj 0.46.0, x86_64-unknown-linux-musl release tarball, sha256 fce02711...45fc08, at /opt/jj/0.46.0/jj
-JJ_CONFIG=jjconfig.toml node jjbench.mjs services/hyperfide/dist/integration/queue.js bench/c7d.txt jj2-week-strict 1 strict contract
+JJ_CONFIG=jjconfig.toml node jjbench.mjs core/control-plane/dist/integration/queue.js bench/c7d.txt jj2-week-strict 1 strict contract
 # orders: strict | batched | reverse (K-window arrival); policies: contract (abandon a conflicted fold) | native (advance onto it);
 # a trailing `resolved` resets the trunk to each window's history base (the primary-conflict count)
 ```

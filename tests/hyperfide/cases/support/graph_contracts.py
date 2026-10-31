@@ -36,8 +36,8 @@ DELIBERATE_DIFFERENCES=[
     {"id":"fts-unicode-case-c-ctype","legacy":"unicode61 folds non-ASCII case","central":"refused on C/POSIX lc_ctype; trigram modes fold with pg_c_utf8",
      "query":{"mode":"body","q":"école"},"golden_central_error":"GRAPH_QUERY_UNSUPPORTED"},
 ]
-CORPUS_PATHS=["src/json.c","src/kvx.c","src/progress.c","src/hyperfide/control.c","src/hyperfide/entrypoint.c","src/hyperfide/process_tree.c",
-    "src/hyperfide/transport.h","src/hyperfide/supervisor.h","services/hyperfide/src/graph/publication.ts","tests/hyperfide/cases/support/postgres_cluster.py"]
+CORPUS_PATHS=["core/native/src/json.c","core/native/src/kvx.c","core/native/src/progress.c","core/native/src/hyperfide/control.c","core/native/src/hyperfide/entrypoint.c","core/native/src/hyperfide/process_tree.c",
+    "core/native/src/hyperfide/transport.h","core/native/src/hyperfide/supervisor.h","core/control-plane/src/graph/publication.ts","tests/hyperfide/cases/support/postgres_cluster.py"]
 CORPUS_BODY_WORDS=["json","parse","progress","supervisor","publication","standby","stderr"]
 CORPUS_COMMENT_WORDS=["parse","stderr","immutable"]
 CORPUS_SUBSTRINGS=["kvx_","json_","publish","STDERR","reading — just","sync —","—","Größe","naïve","ÉCOLE","école"]
@@ -169,7 +169,7 @@ def corpus(h):
         state["pins"]={p:"sha256:"+hashlib.sha256(b).hexdigest() for p,b in files.items()}
         repo=projection.Repo(h,"corpus");state["repo"]=repo
         v1=repo.commit(files,"pinned real corpus "+base)
-        v2=repo.commit({"src/hyperfide/process_tree.c":None,"docs/unicode.md":"Größe — ÉCOLE naïve café\n"},"delete and Unicode change")
+        v2=repo.commit({"core/native/src/hyperfide/process_tree.c":None,"docs/unicode.md":"Größe — ÉCOLE naïve café\n"},"delete and Unicode change")
         v3=repo.commit({"codify.kvx":"[index]\nwalk = \"full\"\n"},"configuration change")
         state["versions"]=[]
         for name,rev in (("v1",v1),("v2",v2),("v3",v3)):
@@ -232,10 +232,10 @@ def corpus(h):
     def changes():
         v1,v2,v3=state["versions"]
         d=h.ok("graph.query.projection.delta",repository_id=repo.id,base_manifest_id=v1["manifest"],manifest_id=v2["manifest"])
-        expect(d["deleted"]==["src/hyperfide/process_tree.c"] and d["added"]==["docs/unicode.md"],"real-corpus deletion/addition misclassified")
+        expect(d["deleted"]==["core/native/src/hyperfide/process_tree.c"] and d["added"]==["docs/unicode.md"],"real-corpus deletion/addition misclassified")
         expect(d["incremental_facts_digest"]==projection.facts_digest(v2["facts"]),"real-corpus incremental projection differs from legacy full rebuild")
         gone=h.ok("graph.query.search",manifest_id=v2["manifest"],mode="body-trigram",q="process_tree",limit=200)
-        expect(not any(r["path"]=="src/hyperfide/process_tree.c" for r in gone["rows"]),"deleted real source remained searchable")
+        expect(not any(r["path"]=="core/native/src/hyperfide/process_tree.c" for r in gone["rows"]),"deleted real source remained searchable")
         c=h.ok("graph.query.projection.delta",repository_id=repo.id,base_manifest_id=v2["manifest"],manifest_id=v3["manifest"])
         expect(c["invalidation"]=="FULL_PARSER_CONFIGURATION_CHANGE" and c["incremental_facts_digest"]==projection.facts_digest(v3["facts"]),"real-corpus configuration change not fully invalidated")
     check("graph.query.real-corpus-deletion-config-change",changes)
@@ -243,7 +243,7 @@ def corpus(h):
 def migration(h):
     """V-025: migration exactness, resumable re-application and precise diagnostics."""
     check=h.check;expect=h.expect
-    source=(ROOT/"services/hyperfide/migrations/0704-graph-query-parity.sql").read_text()
+    source=(ROOT/"core/control-plane/migrations/0704-graph-query-parity.sql").read_text()
     checksum="sha256:"+hashlib.sha256(source.encode()).hexdigest()
     manifest=h.sql("SELECT manifest_id::text FROM hyperfide.graph_channels WHERE name='contracts'")
     def applied():

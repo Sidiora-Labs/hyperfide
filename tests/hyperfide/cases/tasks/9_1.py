@@ -182,7 +182,7 @@ class Service:
   def include(name):
    if name in names:return
    names.add(name)
-   fragment=json.loads((ROOT/("services/hyperfide/components/"+name+".json")).read_text())
+   fragment=json.loads((ROOT/("core/control-plane/components/"+name+".json")).read_text())
    for dependency in fragment["requires"]:include(dependency)
   for name in ("9.1","9.2","9.3","9.4","14.1"):include(name)
   environment={"HF_RAILWAY_CONFIG":str(fixture.config_path),"HF_RAILWAY_FIXTURE_TOKEN":"not-a-real-credential",
@@ -201,7 +201,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
-const require=createRequire(process.argv[2]+'/services/hyperfide/package.json');
+const require=createRequire(process.argv[2]+'/core/control-plane/package.json');
 const {WebSocketServer}=require('ws');
 const statePath=process.argv[3],readyPath=process.argv[4],modePath=process.argv[5];
 const server=http.createServer(),wss=new WebSocketServer({server});
@@ -351,7 +351,7 @@ def main():
       "recipe":pinned_recipe}))
    script=r"""
 import fs from 'node:fs';
-import {RailwayClient,capturePreparedBase,buildRailwayTemplate} from './services/hyperfide/dist/providers/railway/preparation.js';
+import {RailwayClient,capturePreparedBase,buildRailwayTemplate} from './core/control-plane/dist/providers/railway/preparation.js';
 const data=JSON.parse(fs.readFileSync(process.argv[1])),events=[];
 const ctx={role:'provisioner',policy:data.policy,signal:new AbortController().signal,
  env:{...process.env,HF_PREPARATION_ALLOWED_ROOT:data.allowed_root}};

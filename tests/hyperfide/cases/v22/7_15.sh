@@ -33,7 +33,7 @@ DROP INDEX idx_sem_edge_target_id;
 DROP INDEX idx_sem_edge_source_file_id;
 DROP INDEX idx_sem_edge_target_file_id;'
 run migrate "$root/cg" index --full
-run fixture python3 - "$db" "$root/src/sem_routes.c" <<'PY'
+run fixture python3 - "$db" "$root/core/native/src/sem_routes.c" <<'PY'
 import ast, pathlib, re, sqlite3, subprocess, sys
 p=pathlib.Path('.')
 d=sqlite3.connect(sys.argv[1])

@@ -7,7 +7,7 @@ release inspector; release.sh with a missing key file fails before make runs. No
 import importlib.util,json,os,shutil,subprocess,sys,tempfile,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
-SERVICE=ROOT/"services/hyperfide"
+SERVICE=ROOT/"core/control-plane"
 IDS=[];FAILED=[]
 
 def load(name,relative):

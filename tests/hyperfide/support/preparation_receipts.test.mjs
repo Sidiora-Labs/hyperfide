@@ -6,7 +6,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..');
-const {verifyPreparationReceipt,PREPARATION_STAGE_ROOT}=await import(pathToFileURL(path.join(root,'services/hyperfide/dist/runner/preparation_receipts.js')).href);
+const {verifyPreparationReceipt,PREPARATION_STAGE_ROOT}=await import(pathToFileURL(path.join(root,'core/control-plane/dist/runner/preparation_receipts.js')).href);
 const sha=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
 function fixture(){
  const operation_id=randomUUID(),stage_root=PREPARATION_STAGE_ROOT+operation_id,node=sha('node'),recipe=sha('recipe');

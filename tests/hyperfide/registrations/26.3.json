@@ -60,31 +60,31 @@
   "timeout_seconds": 120,
   "required_env": [],
   "fixtures": [
-    "services/hyperfide/dist/control.js",
+    "core/control-plane/dist/control.js",
     "/usr/bin/flock",
     "hyperfide",
     "cg"
   ],
   "resources": [],
   "source_files": [
-    "services/hyperfide/src/migration/names.ts",
-    "services/hyperfide/components/26.3.json",
-    "services/hyperfide/dist/migration/names.js",
-    "services/hyperfide/src/components/registry.ts",
-    "services/hyperfide/src/components/service.ts",
-    "services/hyperfide/src/policy/programme.ts",
-    "services/hyperfide/dist/control.js",
-    "services/hyperfide/dist/components/registry.js",
-    "services/hyperfide/dist/components/service.js",
-    "services/hyperfide/dist/policy/programme.js",
+    "core/control-plane/src/migration/names.ts",
+    "core/control-plane/components/26.3.json",
+    "core/control-plane/dist/migration/names.js",
+    "core/control-plane/src/components/registry.ts",
+    "core/control-plane/src/components/service.ts",
+    "core/control-plane/src/policy/programme.ts",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/components/registry.js",
+    "core/control-plane/dist/components/service.js",
+    "core/control-plane/dist/policy/programme.js",
     "tests/hyperfide/cases/tasks/26_3.py",
-    "src/config.c",
-    "src/cg.h",
-    "src/main.c",
+    "core/native/src/config.c",
+    "core/native/src/cg.h",
+    "core/native/src/main.c",
     "hyperfide",
     "cg"
   ],
   "source_roots": [
-    "services/hyperfide/src/migration"
+    "core/control-plane/src/migration"
   ]
 }

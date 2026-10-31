@@ -9,8 +9,8 @@ step() {
   printf '7.25: %s seconds=%s exit=%s\n' "$name" "$((SECONDS-start))" "$rc"
   return "$rc"
 }
-step "app typecheck" pnpm -C platform --filter @hyperfide/app typecheck
-step "realtime cache tests" pnpm -C platform/apps/app exec vitest run \
+step "app typecheck" pnpm --filter @hyperfide/app typecheck
+step "realtime cache tests" pnpm -C apps/web exec vitest run \
   src/hooks/realtime-cache-effects.test.ts \
   src/hooks/realtime-cache-effects.coarse-pointer.test.ts \
   src/hooks/queries/sidebar-navigation-query.test.tsx \

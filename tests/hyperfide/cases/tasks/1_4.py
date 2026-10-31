@@ -151,7 +151,7 @@ export function createComponent(ctx) {{
             self.policy_file.write_text(json.dumps(self.policy))
         elif self.policy_file.exists():
             self.policy_file.unlink()
-        argv = ["node", ROOT / f"services/hyperfide/dist/{role}.js",
+        argv = ["node", ROOT / f"core/control-plane/dist/{role}.js",
                 "--policy", self.policy_file, "--spec-revision", revision,
                 "--components", self.components, "--module-root", self.modules]
         request = request or {"id": "fixture-1", "component": "fixture", "action": "fixture.echo", "input": {"x": 7}}
@@ -192,21 +192,21 @@ def mutate_fragment(fixture, mutation):
 
 def native_fixture(base):
     directory = base / "native"
-    (directory / "src/hyperfide/components").mkdir(parents=True)
-    (directory / "scripts").mkdir()
-    for relative in ["Makefile", "scripts/hyperfide-native-components.py",
-                     "src/hyperfide/components.h", "src/hyperfide/component_main.c",
-                     "src/sha256.c", "src/cg.h", "src/semantic.h",
-                     "src/hyperfide/components/schema.kvx"]:
+    (directory / "core/native/src/hyperfide/components").mkdir(parents=True)
+    (directory / "tools/repository").mkdir(parents=True)
+    for relative in ["Makefile", "tools/repository/hyperfide-native-components.py",
+                     "core/native/src/hyperfide/components.h", "core/native/src/hyperfide/component_main.c",
+                     "core/native/src/sha256.c", "core/native/src/cg.h", "core/native/src/semantic.h",
+                     "core/native/src/hyperfide/components/schema.kvx"]:
         destination = directory / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / relative, destination)
-    (directory / "src/hyperfide/fixture.c").write_text(
+    (directory / "core/native/src/hyperfide/fixture.c").write_text(
         '#include "components.h"\n'
         'int hf_component_99_1(const char *action,const char *request_json,FILE *output) {\n'
         '(void)action; (void)request_json; fputs("{\\"executed\\":true,\\"component\\":\\"99.1\\"}",output); return 0;\n}\n')
-    fragment = '[component]\nschema_version = 1\nid = "99.1"\nsource = "src/hyperfide/fixture.c"\nentry = "hf_component_99_1"\nactions = ["fixture.echo"]\n'
-    (directory / "src/hyperfide/components/99.1.kvx").write_text(fragment)
+    fragment = '[component]\nschema_version = 1\nid = "99.1"\nsource = "core/native/src/hyperfide/fixture.c"\nentry = "hf_component_99_1"\nactions = ["fixture.echo"]\n'
+    (directory / "core/native/src/hyperfide/components/99.1.kvx").write_text(fragment)
     return directory, fragment
 
 
@@ -276,9 +276,9 @@ def main():
             policy = base / "real-policy.json"
             policy.write_text(json.dumps(BASE_POLICY))
             components=base/"policy-components";components.mkdir()
-            shutil.copyfile(ROOT/"services/hyperfide/components/1.4.json",components/"1.4.json")
-            result=run(["node",ROOT/"services/hyperfide/dist/control.js","--policy",policy,
-                        "--components",components,"--module-root",ROOT/"services/hyperfide/dist",
+            shutil.copyfile(ROOT/"core/control-plane/components/1.4.json",components/"1.4.json")
+            result=run(["node",ROOT/"core/control-plane/dist/control.js","--policy",policy,
+                        "--components",components,"--module-root",ROOT/"core/control-plane/dist",
                         "--spec-revision","fixture-revision"],text=json.dumps({"id":"auth","component":"1.4",
                         "action":"programme.authorize","input":{"action":"fixture.echo","spec_revision":"fixture-revision","policy_revision":1}})+"\n")
             expect(result.returncode==0 and response(result)["ok"] is True,f"real policy component failed: {result}")
@@ -328,7 +328,7 @@ export async function createComponent(ctx){{
 }}
 """)
                 f.policy_file.write_text(json.dumps(f.policy))
-                argv=["node",ROOT/"services/hyperfide/dist/control.js","--policy",f.policy_file,
+                argv=["node",ROOT/"core/control-plane/dist/control.js","--policy",f.policy_file,
                       "--spec-revision","fixture-revision","--components",f.components,"--module-root",f.modules]
                 child=subprocess.Popen([str(x) for x in argv],cwd=ROOT,stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
@@ -360,7 +360,7 @@ log('import-complete');
 export function createComponent(ctx){{log('factory');return {{apiVersion:1,actions:{{'fixture.echo':()=>true}}}};}}
 """)
                 f.policy_file.write_text(json.dumps(f.policy))
-                argv=["node",ROOT/"services/hyperfide/dist/control.js","--policy",f.policy_file,
+                argv=["node",ROOT/"core/control-plane/dist/control.js","--policy",f.policy_file,
                       "--spec-revision","fixture-revision","--components",f.components,"--module-root",f.modules]
                 child=subprocess.Popen([str(x) for x in argv],cwd=ROOT,stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
@@ -415,7 +415,7 @@ export function createComponent(ctx){{log('factory');return {{apiVersion:1,actio
         def linked():
             nonlocal native
             native, fragment=native_fixture(base)
-            checked=run([sys.executable,native/"scripts/hyperfide-native-components.py","--root",native,"--check"],cwd=native)
+            checked=run([sys.executable,native/"tools/repository/hyperfide-native-components.py","--root",native,"--check"],cwd=native)
             expect(checked.returncode==0,f"positive native helper unavailable: {checked}")
             result=run(["make","hyperfide-native"],cwd=native,timeout=80)
             expect(result.returncode==0,f"native build failed: {result.stdout} {result.stderr}")
@@ -435,7 +435,7 @@ export function createComponent(ctx){{log('factory');return {{apiVersion:1,actio
                 with tempfile.TemporaryDirectory(prefix="native-negative-",dir=base) as tmp:
                     isolated=Path(tmp)/"repo"
                     shutil.copytree(native,isolated,ignore=shutil.ignore_patterns("build"))
-                    path=isolated/"src/hyperfide/components/99.1.kvx"
+                    path=isolated/"core/native/src/hyperfide/components/99.1.kvx"
                     content=path.read_text()
                     if name=="duplicate-id":
                         (path.parent/"duplicate.kvx").write_text(content)
@@ -444,24 +444,24 @@ export function createComponent(ctx){{log('factory');return {{apiVersion:1,actio
                     elif name=="missing-source":
                         path.write_text(content.replace("fixture.c","absent.c"))
                     elif name=="escaping-source":
-                        path.write_text(content.replace("src/hyperfide/fixture.c","../escape.c"))
+                        path.write_text(content.replace("core/native/src/hyperfide/fixture.c","../escape.c"))
                     elif name=="boolean-schema":
                         path.write_text(content.replace("schema_version = 1","schema_version = true"))
                     elif name=="make-injection":
-                        path.write_text(content.replace("src/hyperfide/fixture.c","src/hyperfide/$(touch injected).c"))
+                        path.write_text(content.replace("core/native/src/hyperfide/fixture.c","core/native/src/hyperfide/$(touch injected).c"))
                     else:
                         path.write_text(content.replace("hf_component_99_1","hf_component_missing"))
                     result=run(["make","hyperfide-native"],cwd=isolated,timeout=80)
                     expect(result.returncode!=0,f"invalid native fragment/link unexpectedly built: {name}")
                     expect(not (isolated/"injected").exists(),"native source path executed make substitution")
                     if name != "missing-symbol":
-                        checked=run([sys.executable,isolated/"scripts/hyperfide-native-components.py","--root",isolated,"--check"],cwd=isolated)
+                        checked=run([sys.executable,isolated/"tools/repository/hyperfide-native-components.py","--root",isolated,"--check"],cwd=isolated)
                         expect(checked.returncode!=0,
                                f"native helper failed to diagnose {name}: {checked}")
             check("foundation.native."+name,native_fragment_test)
         def pinned_build():
-            package=json.loads((ROOT/"services/hyperfide/package.json").read_text())
-            lock=json.loads((ROOT/"services/hyperfide/package-lock.json").read_text())
+            package=json.loads((ROOT/"core/control-plane/package.json").read_text())
+            lock=json.loads((ROOT/"core/control-plane/package-lock.json").read_text())
             expect(package["engines"]["node"] in {"24.22.0","=24.22.0"},f"Node version not exact: {package['engines']}")
             expect(lock.get("lockfileVersion")==3 and bool(lock.get("packages")),"lockfile not complete")
             node=run(["node","--version"])
@@ -469,7 +469,7 @@ export function createComponent(ctx){{log('factory');return {{apiVersion:1,actio
             expect(node.returncode==0 and node.stdout.strip()=="v24.22.0","observed Node differs from pinned build input")
             expect(npm.returncode==0 and "npm@"+npm.stdout.strip()==package["packageManager"],"observed npm differs from pinned package manager")
             for command in [["npm","run","build"],["npm","run","check"]]:
-                result=run(command,cwd=ROOT/"services/hyperfide",timeout=100)
+                result=run(command,cwd=ROOT/"core/control-plane",timeout=100)
                 expect(result.returncode==0,f"pinned service build failed: {result.stderr}")
             result=run(["make","hyperfide-native"],timeout=80)
             expect(result.returncode==0,f"production native build failed: {result.stderr}")

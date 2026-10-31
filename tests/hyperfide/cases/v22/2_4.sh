@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-pnpm -C platform exec tsc6 --noEmit --allowJs --checkJs --module nodenext --target es2022 --skipLibCheck --types node --typeRoots apps/cli/node_modules/@types plugins/hyperfide-spec/src/cli/index.mjs
-pnpm -C platform exec turbo run typecheck test --filter=./plugins/hyperfide-spec
-pnpm -C platform exec turbo run typecheck test --filter=./apps/cli
-pnpm -C platform exec turbo run build --filter=./apps/cli
+pnpm exec tsc6 --noEmit --allowJs --checkJs --module nodenext --target es2022 --skipLibCheck --types node --typeRoots apps/cli/node_modules/@types plugins/hyperfide-spec/src/cli/index.mjs
+pnpm exec turbo run typecheck test --filter=./plugins/hyperfide-spec
+pnpm exec turbo run typecheck test --filter=./apps/cli
+pnpm exec turbo run build --filter=./apps/cli
 if [ -x ./cg ]; then
   export HYPERFIDE_BIN="$PWD/cg"
   fixture="$(mktemp -d)"

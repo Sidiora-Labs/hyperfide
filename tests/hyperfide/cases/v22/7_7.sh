@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../../../.."
-if [[ ! -f platform/apps/server/dist/index.js || ! -f platform/apps/cli/dist/index.js ]]; then
-  pnpm -C platform build
+if [[ ! -f core/server/dist/index.js || ! -f apps/cli/dist/index.js ]]; then
+  pnpm build
 fi
 python3 - <<'PY'
 import json, os, signal, socket, subprocess, tempfile, time, urllib.request
@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-7-') as tmp:
                HYPERFIDE_SERVER_BIND_HOST='127.0.0.1', HYPERFIDE_SERVER_PORT=str(port),
                HYPERFIDE_DATA_DIR=str(data), HYPERFIDE_SERVER_URL=url)
     with (data / 'server.log').open('w+') as log:
-        server = subprocess.Popen(['node', str(repo / 'platform/apps/server/dist/index.js')],
+        server = subprocess.Popen(['node', str(repo / 'core/server/dist/index.js')],
                                   cwd=repo / 'platform', env=env, stdout=log,
                                   stderr=log, start_new_session=True)
         try:
@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-7-') as tmp:
             for _ in range(90):
                 assert server.poll() is None, 'server exited during plugin startup'
                 result = subprocess.check_output(
-                    [str(repo / 'platform/apps/cli/bin/hyperfide-platform'), 'plugin', 'list', '--json'],
+                    [str(repo / 'apps/cli/bin/hyperfide-platform'), 'plugin', 'list', '--json'],
                     env=env, text=True, timeout=30)
                 plugins = json.loads(result)['plugins']
                 plugin = next((p for p in plugins if p['id'] == 'hyperfide-qualify'), None)

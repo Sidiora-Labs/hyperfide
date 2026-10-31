@@ -1,6 +1,6 @@
 # Hyperfide native source control
 
-Status: **layout task 0.3 implemented; full task qualification pending; fleet/native implementation pending; product qualification UNRUN**.
+Status: **category relocation in progress (8,339 mapped paths moved); tasks 0.4–0.8 in progress; task 0.3 graph qualification pending; full product qualification UNRUN**.
 
 This feature specifies an online source-control subsystem inside Hyperfide. It serves one growing monorepo containing many large projects, thousands of concurrent agent workspaces, and high rates of independent changes. Immutable source objects live in S3; thin clients use versioned APIs, bounded caches, and optional sparse, virtual, or explicitly materialized working copies. Git is an import/export protocol at the remote boundary.
 
@@ -8,7 +8,7 @@ The subsystem has its own versioned contracts and independently scalable service
 
 ## First prerequisite
 
-[Repository layout](repository-layout.md) is the first work: move nested codebases into category roots while preserving behavior and public identities. The [explicit mapping](repository-layout.json) covers current source inputs. Tasks 0.3–0.9 qualify the layout first; no code has moved as part of this draft.
+[Repository layout](repository-layout.md) is the first work: move nested codebases into category roots while preserving behavior and public identities. The [explicit mapping](repository-layout.json) covers current source inputs. The category roots now contain 8,339 relocated paths. Tasks 0.4–0.8 are in progress; task 0.9 still owns combined layout qualification before fleet or native source-control implementation.
 
 The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the Primary and co-located Wave Managers responsible for adaptive orchestration. Every sandbox carries `.neron` source configuration and a `package.kvx` environment manifest; proposed `hyperfide install` assembles code, dependencies, configs and selected interface contracts before worker readiness. See [sandbox contracts](sandbox-contracts.md) and [interface schema](interface-contracts.md). Native task 0.1 waits for the final fleet qualification receipt. Task 0.3 implements the inventory and baseline, with 22 focused checks passing and graph qualification pending; fleet and native source-control implementation remain pending.
 
@@ -35,7 +35,7 @@ The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the P
 
 `spec.kvx` is the normative requirements and task catalogue. Detailed contracts refine it; a contradiction is a defect to resolve, not an invitation to choose the easier requirement. The task plan and traceability are generated views. Earlier specifications remain historical inputs and their recorded statuses are unchanged.
 
-This feature is not selected by `spec/workflow.kvx`. Adding this pack does not activate implementation, select deployment resources, authorize a migration, or establish a capacity claim. New test drivers, packages, migrations, API routes, and commands named in tasks are proposed deliverables unless the baseline explicitly identifies them as existing.
+The owning `spec/workflow.kvx` selects `hyperfide-source-control`. Layout implementation is active; fleet and native source-control implementation remain pending behind their prerequisite gates. New test drivers, packages, migrations, API routes, and commands named in later tasks remain proposed deliverables unless the baseline explicitly identifies them as existing. Feature selection and physical relocation do not establish runtime or capacity qualification.
 
 Run the authoring check from the repository root:
 
@@ -53,4 +53,4 @@ The check parses KVX, validates references and dependency order, checks clause c
 
 The capacity profiles are proposed acceptance targets, not measurements. Repository line counts, historical commit imports, newly authored revisions, workspace opens, concurrent agent processes, and downloaded bytes are separate dimensions. A successful API load generator does not prove an equivalent fleet of live engineering agents.
 
-Current execution: layout task 0.3 is implemented, not done; the full qualification command exited 143 after its graph refresh was terminated. See [qualification record](qualification.kvx). Task 0.4 remains pending. Its focused evidence is separate from full layout case SCM-025, which remains UNRUN until task 0.9.
+Current execution: layout task 0.3 is implemented, not done; its full qualification command exited 143 with graph refresh unfinished. Tasks 0.4–0.8 record work ahead of open prerequisites, rather than declaring those prerequisites complete. Focused native, SDK/registry, tooling and source-path checks have passed. Pinned root dependency installation and the independent control-plane install/build have passed; integrated workspace build and combined layout qualification remain outstanding. See [current relocation evidence](repository-layout.md#8-current-relocation-progress) and [qualification record](qualification.kvx). Full layout case SCM-025 remains UNRUN until task 0.9.

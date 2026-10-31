@@ -24,9 +24,9 @@ import os from 'node:os';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {generateKeyPairSync,randomUUID} from 'node:crypto';
-import * as permits from './services/hyperfide/dist/identity/credentials.js';
-import {createProviderIsolation,createProviderIsolationObserver} from './services/hyperfide/dist/providers/placement.js';
-import {digestDocument} from './services/hyperfide/dist/providers/pools.js';
+import * as permits from './core/control-plane/dist/identity/credentials.js';
+import {createProviderIsolation,createProviderIsolationObserver} from './core/control-plane/dist/providers/placement.js';
+import {digestDocument} from './core/control-plane/dist/providers/pools.js';
 const ids=JSON.parse(process.env.HYPERFIDE_ISOLATION_ASSERTIONS);
 let failures=0,child=null,root=null,cleanup=false;
 const assert=(v,m)=>{if(!v)throw Error(m)};
@@ -208,7 +208,7 @@ def main():
   checkpoint_digest=m.sha(b"relocation-checkpoint")
   f.sql("INSERT INTO hyperfide.artifacts(organisation_id,run_id,id,digest,size_bytes,storage_backend,storage_key,status) VALUES($1,$2,$3,$4,21,'fixture','relocation-checkpoint','COMPLETE')",[org,run,rel["artifact"],checkpoint_digest])
   f.sql("INSERT INTO hyperfide.checkpoints(organisation_id,run_id,id,attempt_id,attempt_generation,artifact_id,repository_id,source_object_id,input_packet_digest,support_level) VALUES($1,$2,$3,$4,1,$5,$6,repeat('b',40),$7,'SOURCE_ONLY')",[org,run,rel["checkpoint"],rel["attempt"],rel["artifact"],rel["repository"],packet])
-  digest_script="import fs from 'node:fs';import{digestDocument}from'./services/hyperfide/dist/providers/pools.js';process.stdout.write(digestDocument(JSON.parse(fs.readFileSync(0,'utf8'))));"
+  digest_script="import fs from 'node:fs';import{digestDocument}from'./core/control-plane/dist/providers/pools.js';process.stdout.write(digestDocument(JSON.parse(fs.readFileSync(0,'utf8'))));"
   endpoints=subprocess.run(["node","--input-type=module","-e",digest_script],input=json.dumps(f.connectivity_policy["targets"]),cwd=ROOT,env=f.env,text=True,capture_output=True,timeout=10)
   m.expect(endpoints.returncode==0,endpoints.stderr)
   saved=f.pool;saved_reservations=list(f.reservations)

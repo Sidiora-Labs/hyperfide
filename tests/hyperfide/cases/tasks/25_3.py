@@ -98,7 +98,7 @@ def protected_reader_checks():
   base=Path(temporary);base.chmod(0o755);auth=base/"auth";auth.mkdir(mode=0o750);os.chown(auth,0,33025)
   source=base/"probe.c";binary=base/"probe"
   source.write_text('#include "transport.h"\n#include "client.h"\n#include <stdlib.h>\n#include <string.h>\nint main(int n,char **v){if(n!=3)return 2;if(!strcmp(v[1],"decision-invalid"))return hf_client_decision_invoke(HF_DECISION_GUARD,HF_DECISION_SUBMIT,"{}",NULL,NULL,NULL,2000,stdout,stderr)==78?0:1;char *b=0;size_t z=0;int ok=0;if(!strcmp(v[1],"read"))ok=hf_protected_read(v[2],32768,&b,&z);else if(!strcmp(v[1],"private"))ok=hf_private_read(v[2],32768,&b,&z);else if(!strcmp(v[1],"config")){HfTransportConfig c;ok=hf_transport_config(v[2],&c);}else if(!strcmp(v[1],"sign")){char sig[87];ok=hf_transport_sign(v[2],"HYPERFIDE-REQUEST-V1","/v1/invoke","https://localhost","10000000-0000-0000-0000-000000000001","1","10000000-0000-0000-0000-000000000002","{}",sig);}free(b);return ok?0:1;}\n')
-  subprocess.run(["cc","-Wall","-Wextra","-Werror","-O2","-I",str(ROOT/"src/hyperfide"),str(source),str(ROOT/"src/hyperfide/transport.c"),str(ROOT/"src/hyperfide/client.c"),"-lcurl","-lcrypto","-lpthread","-o",str(binary)],check=True,capture_output=True);binary.chmod(0o755)
+  subprocess.run(["cc","-Wall","-Wextra","-Werror","-O2","-I",str(ROOT/"core/native/src/hyperfide"),str(source),str(ROOT/"core/native/src/hyperfide/transport.c"),str(ROOT/"core/native/src/hyperfide/client.c"),"-lcurl","-lcrypto","-lpthread","-o",str(binary)],check=True,capture_output=True);binary.chmod(0o755)
   def drop(gid=33025):
    os.setgroups([]);os.setresgid(gid,gid,gid);os.setresuid(33025,33025,33025)
   def run(mode,p,gid=33025):

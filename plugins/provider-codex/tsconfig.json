@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@/components/ui/icon": [
+        "../../tools/plugin-registry/flavors/components/ui/icon.tsx"
+      ],
+      "@/components/ui/question-form-host": [
+        "../../tools/plugin-registry/flavors/components/ui/question-form-host.tsx"
+      ],
+      "@/*": ["../../lib/shared-ui/src/*"]
+    },
+    "types": ["node"],
+    "jsx": "react-jsx"
+  },
+  "include": ["server.ts", "app.tsx", "src", "vitest.config.ts"]
+}

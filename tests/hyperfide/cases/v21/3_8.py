@@ -23,7 +23,7 @@ import uuid
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[4]
-SERVICE = ROOT / 'services/hyperfide'
+SERVICE = ROOT / 'core/control-plane'
 SUPERUSER = 'hf_superuser'
 FAILED = []
 GIT_ENV = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'HOME': '/nonexistent', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_OPTIONAL_LOCKS': '0',
@@ -156,12 +156,12 @@ class Cluster:
 def build(base):
     # The native generator only writes beneath its own root, so the component build runs in a source copy.
     tree = base / 'native-src'
-    (tree / 'scripts').mkdir(parents=True)
+    (tree / 'tools/repository').mkdir(parents=True)
     shutil.copyfile(ROOT / 'Makefile', tree / 'Makefile')
-    shutil.copyfile(ROOT / 'scripts/hyperfide-native-components.py', tree / 'scripts/hyperfide-native-components.py')
-    shutil.copytree(ROOT / 'src', tree / 'src')
+    shutil.copyfile(ROOT / 'tools/repository/hyperfide-native-components.py', tree / 'tools/repository/hyperfide-native-components.py')
+    shutil.copytree(ROOT / 'core/native/src', tree / 'core/native/src')
     run(['make', '-s', 'hyperfide-native'], cwd=tree)
-    service = base / 'services/hyperfide'
+    service = base / 'core/control-plane'
     service.mkdir(parents=True)
     for name in ['package.json', 'tsconfig.json']:
         shutil.copyfile(SERVICE / name, service / name)
@@ -197,7 +197,7 @@ def main():
             print('SKIP: ' + tool + ' is required')
             return 77
     if not (SERVICE / 'node_modules/.bin/tsc').exists():
-        print('SKIP: services/hyperfide/node_modules is not installed')
+        print('SKIP: core/control-plane/node_modules is not installed')
         return 77
     binaries = postgres_bin()
     if binaries is None:
@@ -408,7 +408,7 @@ def main():
                 expect(0 <= bound < admitted and '...snapshot' in body, 'submit does not bind the snapshot before admitting custody')
                 component = json.loads((SERVICE / 'components/16.1.json').read_text())
                 expect('submission.snapshot' in component['actions'], component)
-                native_kvx = (ROOT / 'src/hyperfide/components/15.1.kvx').read_text()
+                native_kvx = (ROOT / 'core/native/src/hyperfide/components/15.1.kvx').read_text()
                 expect(re.search(r'actions = \[[^]]*"checkpoint\.snapshot"', native_kvx), native_kvx)
             check('wiring.worker-result-and-actions', wired)
         finally:

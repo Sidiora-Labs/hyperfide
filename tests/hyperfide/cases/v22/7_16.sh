@@ -8,14 +8,14 @@ step() {
   printf '%s: seconds=%s exit=%s\n' "$label" "$((SECONDS-start))" "$code"
   return "$code"
 }
-step prepare pnpm -C platform --filter @hyperfide/hyperfide-qualify prepare:bundled
+step prepare pnpm --filter @hyperfide/hyperfide-qualify prepare:bundled
 step artifacts node --input-type=module -e '
 import { readFileSync } from "node:fs";
-const root = "platform/plugins/hyperfide-qualify/.bundled-runtime/dist/";
+const root = "plugins/hyperfide-qualify/.bundled-runtime/dist/";
 if (!readFileSync(root + "app.js", "utf8").trim()) throw Error("empty app bundle");
 if (JSON.parse(readFileSync(root + "app.meta.json", "utf8")).pluginId !== "hyperfide-qualify") throw Error("wrong pluginId");
 '
-step bundled-build pnpm -C platform exec turbo run build --filter=@hyperfide/bundled-plugins...
+step bundled-build pnpm exec turbo run build --filter=@hyperfide/bundled-plugins...
 step server-assets python3 - <<'PY'
 import json, os, signal, socket, subprocess, tempfile, time, urllib.request
 from pathlib import Path
@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='hyperfide-7-16-') as tmp:
                HYPERFIDE_SERVER_BIND_HOST='127.0.0.1', HYPERFIDE_SERVER_PORT=str(port),
                HYPERFIDE_DATA_DIR=str(data), HYPERFIDE_SERVER_URL=url)
     with (data / 'server.log').open('w+') as log:
-        server = subprocess.Popen(['node', str(repo / 'platform/apps/server/dist/index.js')],
+        server = subprocess.Popen(['node', str(repo / 'core/server/dist/index.js')],
                                   cwd=repo / 'platform', env=env, stdout=log,
                                   stderr=log, start_new_session=True)
         try:
