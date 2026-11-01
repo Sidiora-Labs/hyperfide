@@ -15,6 +15,7 @@ SCRIPT = str((DEPLOY / 'bootstrap-host.mjs').resolve())
 ROLES = {'control': ('hyperfide', 1900), 'provisioner': ('hyperfide-provisioner', 1901), 'dispatch': ('hyperfide-dispatch', 1902)}
 IDENTITY = {'control': ['control-identity'], 'provisioner': ['provisioner-identity', 'provisioner-worker', 'runner-executor'], 'dispatch': ['dispatch-identity']}
 GID = 1900
+OPTIONAL_WORKER_INPUTS = {'HF_PROVIDER_BOOTSTRAP_CONFIG_FILE', 'HF_PROVIDER_ACTIVATION_CONFIG_FILE'}
 FAILED = []
 
 
@@ -129,6 +130,9 @@ def main():
         journal.mkdir(mode=0o700)
         # Preflight requires the identity configuration file itself, not only its variable (hyperfide-v21 1.6).
         (scratch/'identity.json').write_text('{}')
+        worker = scratch/'provisioner-worker.json'
+        shutil.copyfile(DEPLOY/'identity/provisioner-worker.example.json', worker)
+        worker.chmod(0o600)
         loose = scratch/'loose-journal'
         loose.mkdir()
         loose.chmod(0o755)
@@ -162,7 +166,20 @@ def main():
             refusal(f'preflight.{role}.identity', role, {'HF_IDENTITY_CONFIG_FILE': None}, 'IDENTITY_CONFIG_REQUIRED')
         refusal('preflight.control.barrier', 'control', {'HYPERFIDE_CAUSAL_BARRIER_KEY': None}, 'BARRIER_CONFIG_INVALID')
         refusal('preflight.dispatch.worker-config', 'dispatch', {'HF_EVENT_DISPATCH_CONFIG': None}, 'DISPATCH_CONFIG_REQUIRED')
-        refusal('preflight.provisioner.executor-config', 'provisioner', {'HF_PROVISIONER_EXECUTOR_CONFIG_FILE': None}, 'PROVISIONER_EXECUTOR_CONFIG_INVALID')
+        def executor_inputs():
+            for value in [None, 'relative-worker.json', str(scratch/'missing-worker.json')]:
+                altered = dict(env)
+                if value is None:
+                    altered.pop('HF_PROVISIONER_EXECUTOR_CONFIG_FILE', None)
+                else:
+                    altered['HF_PROVISIONER_EXECUTOR_CONFIG_FILE'] = value
+                invoke(['--preflight', 'provisioner'], altered, 'PROVISIONER_EXECUTOR_CONFIG_INVALID')
+            for value in [None, 'relative-runner.json', str(scratch/'missing-runner.json')]:
+                altered = dict(env, HF_PROVIDER_BOOTSTRAP_CONFIG_FILE=str(scratch/'bootstrap.json'))
+                if value is not None:
+                    altered['HF_RUNNER_EXECUTOR_CONFIG_FILE'] = value
+                invoke(['--preflight', 'provisioner'], altered, 'RUNNER_EXECUTOR_CONFIG_REQUIRED')
+        check('preflight.provisioner.executor-config', executor_inputs)
         refusal('preflight.provisioner.fence-required', 'provisioner', {}, 'EXTERNAL_FENCE_CONFIG_REQUIRED')
         fence = scratch/'fence.json'
         fence.write_text('{}')
@@ -205,7 +222,7 @@ def main():
                 if role == 'control':
                     required |= reads['storage/replicas']
                 if role == 'provisioner':
-                    required |= reads['recovery/fencing_service'] | reads['providers/railway/preparation'] | reads['providers/worker'] | {'HYPERFIDE_POOL_CONFIG', 'HF_RAILWAY_TOKEN'}
+                    required |= reads['recovery/fencing_service'] | reads['providers/railway/preparation'] | (reads['providers/worker'] - OPTIONAL_WORKER_INPUTS) | {'HYPERFIDE_POOL_CONFIG', 'HF_RAILWAY_TOKEN'}
                 if role == 'dispatch':
                     required |= reads['events/dispatcher']
                 expect(required <= keys, (role, sorted(required - keys)))
