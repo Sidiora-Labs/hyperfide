@@ -196,6 +196,10 @@ def main():
         check('source.frozen-baseline', valid_baseline, reference(baseline_path))
         if not valid_baseline:
             raise ValueError('Frozen baseline receipt is missing or changed')
+        history_spec = importlib.util.spec_from_file_location('layout_historical_verification', Path(__file__).with_name('0_3_history.py'))
+        history = importlib.util.module_from_spec(history_spec)
+        history_spec.loader.exec_module(history)
+        check('source.historical-baseline-verified', True, history.validate_verification())
         spec = importlib.util.spec_from_file_location('layout_final_inventory', ROOT / 'tools/repository/layout-inventory.py')
         module = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = module

@@ -4,6 +4,8 @@
 Mutations below challenge the inventory validator using the actual repository
 mapping and manifests. They do not simulate successful file moves or qualify
 product runtimes. Absent dependencies are recorded, not treated as build passes.
+After relocation, the same command verifies preserved historical evidence and
+writes a separate receipt; it never recaptures or overwrites the old baseline.
 """
 from __future__ import annotations
 
@@ -105,7 +107,88 @@ def baseline() -> dict:
             'toolchain_note': 'Scoped development, control service and release pins remain distinct. Installed versions are observations, not proof of pinned qualification.'}
 
 
+def verify_inventory(module, mapping, revision, inventory):
+    tracked = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', '-z', revision], cwd=ROOT).decode().split('\0')
+    tracked = {p for p in tracked if p}
+    files = inventory['files']
+    check('inventory.exact-tracked-coverage', {p['source'] for p in files} == tracked)
+    check('inventory.content-type-mode', all(p.get('blob_id') and p.get('mode') and isinstance(p.get('size'), int) for p in files))
+    check('inventory.no-runtime-drift', not inventory['worktree_drift'], inventory['worktree_drift'])
+    check('inventory.valid', inventory['valid'])
+    kinds = {row['classification'] for row in inventory['rewrite_obligations']}
+    check('references.distinct-source-artifact-history', {'source', 'installed-artifact', 'historical'} <= kinds, sorted(kinds))
+    mapped = {p['source']: p for p in files}
+    check('mapping.sdk-category', mapped['platform/packages/sdk/package.json']['target'] == 'sdk/client/package.json')
+    check('mapping.control-category', mapped['services/hyperfide/package.json']['target'] == 'core/control-plane/package.json')
+    check('mapping.extension-longest-prefix', mapped['kvx/editors/vscode/package.json']['target'] == 'extensions/kvx-vscode/package.json')
+    inputs = [item['source'] for move in inventory['inverse_plan'] for item in move['inputs']]
+    check('inverse.retains-every-original', len(inputs) == len(files) and set(inputs) == tracked)
+    merges = [move for move in inventory['inverse_plan'] if len(move['inputs']) > 1]
+    check('inverse.merge-is-not-automatic', bool(merges) and all(not move['automatic'] for move in merges))
+
+    def refused(name, transform):
+        bad = copy.deepcopy(mapping)
+        transform(bad)
+        try:
+            module.generate_inventory(ROOT, bad, revision)
+        except module.InventoryError as error:
+            check(name, True, str(error))
+        else:
+            check(name, False)
+
+    refused('reject.unmapped-source', lambda m: m.update(mappings=[r for r in m['mappings'] if r['source'] != 'platform/apps/app']))
+    refused('reject.duplicate-rule', lambda m: m['mappings'].append(copy.deepcopy(m['mappings'][0])))
+    def duplicate_target(m, folded=False):
+        for rule in m['mappings']:
+            if rule['source'] == 'platform/packages/sdk':
+                rule['destination'] = 'SDK/PLUGINS' if folded else 'sdk/plugins'
+    refused('reject.destination-collision', duplicate_target)
+    refused('reject.casefold-collision', lambda m: duplicate_target(m, True))
+    def escape(m):
+        m['mappings'][0]['destination'] = '../escape'
+    refused('reject.path-escape', escape)
+    def artifact(m):
+        for rule in m['mappings']:
+            if rule['source'] == 'services/hyperfide':
+                rule['destination'] = 'services/dist'
+    refused('reject.source-artifact-confusion', artifact)
+
+    # Comparator mutations use real inventories as data, never a fake runtime.
+    # A hypothetical path-transformed report tests comparison logic only.
+    relocated = copy.deepcopy(inventory)
+    relocated['files'] = []
+    for move in inventory['inverse_plan']:
+        row = copy.deepcopy(mapped[move['inputs'][0]['source']])
+        row['source'] = row['target'] = move['target']
+        relocated['files'].append(row)
+    for package in relocated['packages']:
+        package['source'] = package['target']
+    # Check negative drift detection independently of rewrite/merge obligations.
+    changed = copy.deepcopy(relocated)
+    chosen = next(p for p in changed['packages'] if p.get('name') == '@hyperfide/sdk')
+    chosen['name'] = '@unexpected/renamed-sdk'
+    issues = module.compare_inventories(inventory, changed)
+    check('compare.reject-package-identity-drift', any('package' in str(i).lower() and ('identity' in str(i).lower() or 'name' in str(i).lower()) for i in issues), issues[:12])
+    changed = copy.deepcopy(relocated)
+    chosen = next(p for p in changed['packages'] if p.get('name') == '@hyperfide/control-services')
+    chosen.setdefault('dependencies', {})['pg'] = '0.0.0-invalid'
+    issues = module.compare_inventories(inventory, changed)
+    check('compare.reject-dependency-drift', any('depend' in str(i).lower() for i in issues), issues[:12])
+    changed = copy.deepcopy(relocated)
+    chosen = next(p for p in changed['files'] if p['source'] == 'core/native/src/main.c')
+    chosen['mode'] = '100755' if chosen['mode'] != '100755' else '100644'
+    issues = module.compare_inventories(inventory, changed)
+    check('compare.reject-mode-drift', any('mode' in str(i).lower() for i in issues), issues[:12])
+
+
+
 def main() -> int:
+    if not (ROOT / 'platform/package.json').is_file():
+        from importlib.util import spec_from_file_location, module_from_spec
+        spec = spec_from_file_location('layout_historical_verifier', Path(__file__).with_name('0_3_history.py'))
+        history = module_from_spec(spec)
+        spec.loader.exec_module(history)
+        return history.main()
     OUT.mkdir(parents=True, exist_ok=True)
     report = {'schema_version': 1, 'task': '0.3', 'case': 'SCM-025',
               'scope': 'inventory and baseline capture only; no relocation',
@@ -121,77 +204,7 @@ def main() -> int:
         (OUT / 'inventory.json').write_text(json.dumps(inventory, indent=2) + '\n')
         report.update({'revision': inventory['revision'], 'mapping_sha256': digest(PACK / 'repository-layout.json'),
                        'inventory': 'build/layout/0.3/inventory.json', 'inventory_sha256': digest(OUT / 'inventory.json')})
-        tracked = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', '-z', revision], cwd=ROOT).decode().split('\0')
-        tracked = {p for p in tracked if p}
-        files = inventory['files']
-        check('inventory.exact-tracked-coverage', {p['source'] for p in files} == tracked)
-        check('inventory.content-type-mode', all(p.get('blob_id') and p.get('mode') and isinstance(p.get('size'), int) for p in files))
-        check('inventory.no-runtime-drift', not inventory['worktree_drift'], inventory['worktree_drift'])
-        check('inventory.valid', inventory['valid'])
-        kinds = {row['classification'] for row in inventory['rewrite_obligations']}
-        check('references.distinct-source-artifact-history', {'source', 'installed-artifact', 'historical'} <= kinds, sorted(kinds))
-        mapped = {p['source']: p for p in files}
-        check('mapping.sdk-category', mapped['platform/packages/sdk/package.json']['target'] == 'sdk/client/package.json')
-        check('mapping.control-category', mapped['services/hyperfide/package.json']['target'] == 'core/control-plane/package.json')
-        check('mapping.extension-longest-prefix', mapped['kvx/editors/vscode/package.json']['target'] == 'extensions/kvx-vscode/package.json')
-        inputs = [item['source'] for move in inventory['inverse_plan'] for item in move['inputs']]
-        check('inverse.retains-every-original', len(inputs) == len(files) and set(inputs) == tracked)
-        merges = [move for move in inventory['inverse_plan'] if len(move['inputs']) > 1]
-        check('inverse.merge-is-not-automatic', bool(merges) and all(not move['automatic'] for move in merges))
-
-        def refused(name, transform):
-            bad = copy.deepcopy(mapping)
-            transform(bad)
-            try:
-                module.generate_inventory(ROOT, bad, revision)
-            except module.InventoryError as error:
-                check(name, True, str(error))
-            else:
-                check(name, False)
-
-        refused('reject.unmapped-source', lambda m: m.update(mappings=[r for r in m['mappings'] if r['source'] != 'platform/apps/app']))
-        refused('reject.duplicate-rule', lambda m: m['mappings'].append(copy.deepcopy(m['mappings'][0])))
-        def duplicate_target(m, folded=False):
-            for rule in m['mappings']:
-                if rule['source'] == 'platform/packages/sdk':
-                    rule['destination'] = 'SDK/PLUGINS' if folded else 'sdk/plugins'
-        refused('reject.destination-collision', duplicate_target)
-        refused('reject.casefold-collision', lambda m: duplicate_target(m, True))
-        def escape(m):
-            m['mappings'][0]['destination'] = '../escape'
-        refused('reject.path-escape', escape)
-        def artifact(m):
-            for rule in m['mappings']:
-                if rule['source'] == 'services/hyperfide':
-                    rule['destination'] = 'services/dist'
-        refused('reject.source-artifact-confusion', artifact)
-
-        # Comparator mutations use real inventories as data, never a fake runtime.
-        # A hypothetical path-transformed report tests comparison logic only.
-        relocated = copy.deepcopy(inventory)
-        relocated['files'] = []
-        for move in inventory['inverse_plan']:
-            row = copy.deepcopy(mapped[move['inputs'][0]['source']])
-            row['source'] = row['target'] = move['target']
-            relocated['files'].append(row)
-        for package in relocated['packages']:
-            package['source'] = package['target']
-        # Check negative drift detection independently of rewrite/merge obligations.
-        changed = copy.deepcopy(relocated)
-        chosen = next(p for p in changed['packages'] if p.get('name') == '@hyperfide/sdk')
-        chosen['name'] = '@unexpected/renamed-sdk'
-        issues = module.compare_inventories(inventory, changed)
-        check('compare.reject-package-identity-drift', any('package' in str(i).lower() and ('identity' in str(i).lower() or 'name' in str(i).lower()) for i in issues), issues[:12])
-        changed = copy.deepcopy(relocated)
-        chosen = next(p for p in changed['packages'] if p.get('name') == '@hyperfide/control-services')
-        chosen.setdefault('dependencies', {})['pg'] = '0.0.0-invalid'
-        issues = module.compare_inventories(inventory, changed)
-        check('compare.reject-dependency-drift', any('depend' in str(i).lower() for i in issues), issues[:12])
-        changed = copy.deepcopy(relocated)
-        chosen = next(p for p in changed['files'] if p['source'] == 'core/native/src/main.c')
-        chosen['mode'] = '100755' if chosen['mode'] != '100755' else '100644'
-        issues = module.compare_inventories(inventory, changed)
-        check('compare.reject-mode-drift', any('mode' in str(i).lower() for i in issues), issues[:12])
+        verify_inventory(module, mapping, revision, inventory)
 
         observations = baseline()
         (OUT / 'baseline.json').write_text(json.dumps(observations, indent=2) + '\n')

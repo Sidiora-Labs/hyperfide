@@ -25,7 +25,6 @@ d_10 = "Every sandbox carries .neron source configuration and package.kvx enviro
 
 [prerequisite.repository_layout]
 title = "Organize source by category before native source-control implementation"
-status = "pending"
 tasks = ["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"]
 entry_task = "0.3"
 gate_task = "0.9"
@@ -35,7 +34,6 @@ contract = "repository-layout.md"
 
 [prerequisite.fleet_model]
 title = "Agent-led fleet and reproducible sandbox contracts"
-status = "pending"
 tasks = ["0.10", "0.11", "0.12", "0.13", "0.14"]
 entry_task = "0.10"
 gate_task = "0.14"
