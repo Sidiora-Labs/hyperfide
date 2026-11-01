@@ -43,8 +43,8 @@ export function resolveFleetMounts(input:{manifest:Document;sourceConfig:Documen
  return {apiOnly:false,environmentRoot,mounts,sourceFiles,unionEntries:[...union.values()].sort((a,b)=>a.path.localeCompare(b.path))};
 }
 export function fleetMountPath(layout:FleetMountLayout,actualRoot:string,mount:FleetSourceMount):string{return path.join(actualRoot,relative(layout.environmentRoot,mount.target));}
-export async function materializeFleetMounts(layout:FleetMountLayout,source:GitSourceManifest,actualRoot:string):Promise<void>{
- for(const mount of layout.mounts){const target=fleetMountPath(layout,actualRoot,mount);await directory(actualRoot,target);const selected=await materializeGitSource(source,target,mount.paths);if(selected.length!==mount.entries.length||selected.some((entry,index)=>entry.path!==mount.entries[index]?.path||entry.digest!==mount.entries[index]?.digest||entry.mode!==mount.entries[index]?.mode))fail('FLEET_INSTALL_SOURCE_PLAN','Materialized mount differs from the resolved source inventory');}
+export async function materializeFleetMounts(layout:FleetMountLayout,source:GitSourceManifest,actualRoot:string,readBytes?:(entry:GitSourceEntry)=>Promise<Buffer>):Promise<void>{
+ for(const mount of layout.mounts){const target=fleetMountPath(layout,actualRoot,mount);await directory(actualRoot,target);const selected=await materializeGitSource(source,target,mount.paths,readBytes);if(selected.length!==mount.entries.length||selected.some((entry,index)=>entry.path!==mount.entries[index]?.path||entry.digest!==mount.entries[index]?.digest||entry.mode!==mount.entries[index]?.mode))fail('FLEET_INSTALL_SOURCE_PLAN','Materialized mount differs from the resolved source inventory');}
 }
 async function mergeTree(sourceRoot:string,source:string,destination:string):Promise<void>{
  for(const item of await fs.readdir(source,{withFileTypes:true})){

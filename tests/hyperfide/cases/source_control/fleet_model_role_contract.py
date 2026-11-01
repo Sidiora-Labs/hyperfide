@@ -56,10 +56,11 @@ def main():
     if binding['actor_role']=='PRIMARY':assert 'REPLACE_MANAGER' in allowed,allowed
     else:assert 'REPLACE_MANAGER' not in allowed,allowed
     history=observed['action_contracts']['REPLAN']['history_request'];assert {'collection','cursor','limit'}<=set(history.get('required',[])),history
+    selector=observed['action_contracts']['fleet.install.admit']['slot_bindings'];items=selector['items'];assert set(items['required'])=={'slot','worker_slot_id'} and set(items['properties'])=={'slot','worker_slot_id'} and items['additional_properties'] is False,selector
     replay=f.ok('fleet.session.reason',request,key=key,component='fleet-orchestration');assert replay['replayed'] is True and len(captured)==len(results)+1,replay
-    results.append({'actor_role':binding['actor_role'],'allowed_actions':allowed,'history_contract_present':True,'state':answer['state'],'reason':answer['reason']})
+    results.append({'actor_role':binding['actor_role'],'allowed_actions':allowed,'history_contract_present':True,'install_selector_only':True,'state':answer['state'],'reason':answer['reason']})
    assert effects()==before,'Unavailable model reasoning created execution/model effects'
-   capture=ROOT/'build/fleet/integration/private/fleet-model-role-gateway-capture.json';capture.parent.mkdir(parents=True,exist_ok=True);capture.write_text(json.dumps({'schema_version':1,'scope':'OWNED_HTTPS_503_ONLY_NO_SUCCESSFUL_MODEL_OUTPUT','requests':captured},indent=2)+'\n');capture.chmod(0o600)
+   capture=(ROOT/'build/fleet/integration/private'/('fleet-model-role-gateway-capture-'+uid()+'.json')).resolve();capture.parent.mkdir(parents=True,exist_ok=True);capture.write_text(json.dumps({'schema_version':1,'scope':'OWNED_HTTPS_503_ONLY_NO_SUCCESSFUL_MODEL_OUTPUT','requests':captured},indent=2)+'\n');capture.chmod(0o600)
    print(json.dumps({'capture':{'path':str(capture),'sha256':'sha256:'+hashlib.sha256(capture.read_bytes()).hexdigest()},'status':'PASS','scope':'actual role-authenticated PostgreSQL/TLS reasoning and captured real reasonWithGateway request; owned HTTPS503 only, no successful model output','results':results,'gateway_requests':len(captured),'model_decisions_created':0,'provider_live':'UNRUN'}));return 0
   finally:
    if f:f.close()

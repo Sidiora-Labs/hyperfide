@@ -57,6 +57,7 @@ typedef struct {
  char context_path[4096],workspace_path[4096],workspace_parent[4096];
  char node_path[4096],recipe_path[4096],node_digest[72],recipe_digest[72];
  char stage_root[4096],out_root[4096],diagnostics_root[4096];
+ char artifact_transfer[2048];
  uid_t uid;gid_t gid;
 } HfPreparationStage;
 int hf_runner_stage_preparation(const char *config_path,const HfJson *claim,int result,HfPreparationStage *stage);

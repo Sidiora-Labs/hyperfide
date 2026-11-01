@@ -174,3 +174,38 @@ log = "build/fleet/integration/fleet-install-recovery-lineage-retry1.log; build/
 observed = "Actual recipe SIGKILL produced a signed FAILED result and confirmed quiescence. Production recovery admission issued a distinct execution under the retained logical operation and advanced the environment head. The successor reached READY while preserving source lock bytes and original stage evidence. The repaired acceptance oracle validated that retained chain and refused six altered closures: head, predecessor, signed result, logical root, source pins and quiescence digest. The shared final-case capture tail also validated the actual execution IDs and retained stage ledger, refusing three altered captures. Fault-driver authentication remains separately enforced by the full case oracle."
 scope = "Isolated PostgreSQL, controlled SDK HTTP transport and actual pinned native execution. Initial graph, authority and identity records are declared fixture inputs; no new failure, recovery, readiness or archive outcome is seeded. No live-provider or model qualification is claimed."
 limitation = "The first attempt stopped before oracle evaluation on a transient heartbeat transaction retry exhaustion; the unchanged bounded retry passed."
+
+[progress.fleet_worker_feedback_and_install_selectors]
+revision = "control-source sha256:2e79787a415bec54c6b9f185f39d1c9319125364a642b904349ed1b2fec3968e"
+dist_digest = "sha256:0fef04adaf6762680d8609a719944245e48596232880ab638535b5efb40920b3"
+final_source = "sha256:46c7e0c1c593a7d672432f859f580c189bcade5ce2e702a77b6d268679320a11"
+final_dist = "sha256:c49088f83499ac9ed774d5704624455a1802b5bde104df4f701b3a7762d6905a"
+migration_catalog_count = 69
+command = "fleet_worker_feedback.py; fleet_model_role_contract.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-worker-feedback.log; build/fleet/integration/fleet-model-role-selector-contract.log"
+observed = "Three grouped signed PostgreSQL/TLS checks passed for current UNKNOWN launch/request digests and authenticated current-plan signals; stale-plan, attempt, run, boot and principal records were excluded. Cross-manager scope, bounded cursor pages, packet-bound checkpoint references and inaccessible-attempt refusals passed. Two captured role-authenticated gateway requests exposed the selector-only install schema; controlled HTTPS 503 responses inserted no model decision."
+scope = "Declared historical plan, event and checkpoint inputs; production observation and advisory-read APIs. Original tested source/dist pins are preserved independently of the final full build."
+
+[progress.fleet_bounded_source_cache]
+revision = "selected source files pinned by build/fleet/cache-owner-receipt.json"
+final_source = "sha256:46c7e0c1c593a7d672432f859f580c189bcade5ce2e702a77b6d268679320a11"
+final_dist = "sha256:c49088f83499ac9ed774d5704624455a1802b5bde104df4f701b3a7762d6905a"
+command = "node tests/hyperfide/cases/source_control/fleet_source_cache.mjs build/fleet/cache-owner-check"
+exit_code = 0
+log = "build/fleet/cache-owner-receipt.json"
+observed = "Fourteen actual cache assertions passed with independent source review. The prior source materializer failed the first cache-admission assertion. Final selected-source strict checks reported no diagnostics."
+scope = "Isolated selected-source transpilation over the existing compiled runtime; shared dist was unchanged and no network-transfer measurement was claimed."
+
+[progress.fleet_measured_transfer_closure]
+revision = "isolated control-source sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd plus cache/transfer closure recorded in build/fleet/transfer-gate-receipt.json"
+final_source = "sha256:46c7e0c1c593a7d672432f859f580c189bcade5ce2e702a77b6d268679320a11"
+final_dist = "sha256:c49088f83499ac9ed774d5704624455a1802b5bde104df4f701b3a7762d6905a"
+native_digest = "sha256:c9aa8ff6f450b8f70e2d39f7882d5a5ab2742db82705ad60f1dffb54c1efadd2"
+migration_catalog_count = 69
+command = "fleet_transfer.mjs; fleet_install_interrupted.py; native transfer gate"
+exit_code = 0
+log = "build/fleet/transfer-gate-receipt.json; build/fleet/transfer-native-gate.log; build/fleet/transfer-contract-gate.log; build/fleet/transfer-interrupted-gate.log"
+observed = "Seventy-four native assertions and 15 transfer-contract assertions passed. Actual recipe SIGKILL produced signed FAILED/quiescence evidence; normal recovery issued a distinct execution and completed native readiness. Operation-bound measured transfer matched the signed native/install chain and refused five altered transfer closures. The same run checked retained stage evidence and predecessor/recovery lineage."
+compatibility = "Checksum verification found all eight transfer modules byte-identical between the isolated tested closure and the final full build. The original receipt retains its overlay inputs and native binary pin; other component gates retain their own tested snapshots."
+scope = "Controlled SDK with actual native execution and signed installation recovery. Transfer counters distinguish measured application-layer responses from inline/cache/local writes; dependency-network transfer remains unmeasured."

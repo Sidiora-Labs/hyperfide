@@ -8,14 +8,16 @@ LOCK={'name':PACKAGE['name'],'version':'1.0.0','lockfileVersion':3,'requires':Tr
 POSTINSTALL=b"import fs from 'node:fs';\nimport path from 'node:path';\nconst marker=path.join(process.env.TMPDIR,'interrupted-install-ready');\nif(!fs.existsSync(marker)){fs.writeFileSync(marker,'actual dependency lifecycle reached\\n');setInterval(()=>{},1000);}else{console.log('actual dependency lifecycle resumed');}\n"
 BASELINE_FILES={'README.md':b'Authored isolated installation input.\n','package.json':(json.dumps(PACKAGE,sort_keys=True)+'\n').encode(),'package-lock.json':(json.dumps(LOCK,sort_keys=True)+'\n').encode(),'postinstall.mjs':POSTINSTALL}
 def pin(file):return 'sha256:'+hashlib.sha256(Path(file).read_bytes()).hexdigest()
-def prepare_runtime(base,control_dist=None):
+def prepare_runtime(base,control_dist=None,*,native_source=None,native_digest=None):
  base=Path(base);base.mkdir(mode=0o755,parents=True,exist_ok=True);base.chmod(0o755)
  source_node=Path(shutil.which('node')).resolve();source_npm=source_node.parents[1]/'lib/node_modules/npm'
  if not (source_npm/'bin/npm-cli.js').is_file():raise RuntimeError('Actual pinned Node distribution npm is required')
- shutil.copytree(Path(control_dist) if control_dist else ROOT/'core/control-plane/dist',base/'control');shutil.copytree(ROOT/'core/control-plane/node_modules',base/'control/node_modules');shutil.copytree(source_npm,base/'npm')
+ shutil.copytree(Path(control_dist) if control_dist else ROOT/'core/control-plane/dist',base/'control',ignore=shutil.ignore_patterns('node_modules'));shutil.copytree(ROOT/'core/control-plane/node_modules',base/'control/node_modules');shutil.copytree(source_npm,base/'npm')
  node=base/'node';shutil.copyfile(source_node,node)
- native_source=ROOT/'build/fleet/integration/private/retained-hyperfide-native-695cbd2b'
- if pin(native_source)!='sha256:695cbd2b781da4d81575b27d9b6016d2d1410189b7244bbe4d14b8c87154c6d8':raise RuntimeError('Authoritative immutable695c native input required')
+ if native_source is None:
+  native_source=ROOT/'build/fleet/integration/private/retained-hyperfide-native-695cbd2b'
+  native_digest='sha256:695cbd2b781da4d81575b27d9b6016d2d1410189b7244bbe4d14b8c87154c6d8'
+ if not native_digest or pin(native_source)!=native_digest:raise RuntimeError('Explicit immutable native digest required')
  native=base/'hyperfide-native';shutil.copyfile(native_source,native)
  (base/'control/package.json').write_text('{"type":"module"}\n')
  for directory,_,files in os.walk(base):
@@ -24,7 +26,7 @@ def prepare_runtime(base,control_dist=None):
  for file in [node,native,base/'npm/bin/npm-cli.js']:file.chmod(0o555)
  closure=['preparation/fleet_readiness_probe.js','preparation/fleet_readiness_contract.js','preparation/fleet_install_inventory.js','preparation/fleet_toolchains.js','preparation/fleet_configurations.js','preparation/fleet_client.js','transport/protocol.js','policy/programme.js','contracts/fleet/index.mjs']
  module_closure=[{'path':str(base/'control'/name),'digest':pin(base/'control'/name)} for name in closure]
- pending=[base/'control'/name for name in closure+['preparation/fleet_install.js','preparation/fleet_source.js','preparation/fleet_interfaces.js','preparation/fleet_isolation.js','preparation/fleet_mounts.js']];modules=set()
+ pending=[base/'control'/name for name in closure+['preparation/fleet_install.js','preparation/fleet_source.js','preparation/fleet_source_cache.js','preparation/fleet_interfaces.js','preparation/fleet_isolation.js','preparation/fleet_mounts.js']];modules=set()
  while pending:
   file=pending.pop().resolve()
   if file in modules:continue

@@ -1,3 +1,4 @@
+import {verifyNativeArtifactTransfer} from '../preparation/fleet_transfer.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {InvocationContext} from '../transport/protocol.js';
@@ -12,7 +13,7 @@ export const PREPARATION_STAGE_ROOT='/run/hyperfide-stage/';
 const STAGE_KEYS=['stage_root','context_path','context_digest','out_root','diagnostics_root','workspace_path','node_path','node_digest','recipe_path','recipe_digest','uid','gid'] as const;
 export interface PreparationStageReceipt {
  stage_root:string;context_path:string;context_digest:string;out_root:string;diagnostics_root:string;workspace_path:string;
- node_path:string;node_digest:string;recipe_path:string;recipe_digest:string;uid:number;gid:number;
+ node_path:string;node_digest:string;recipe_path:string;recipe_digest:string;uid:number;gid:number;artifact_transfer?:Record<string,unknown>;
 }
 export interface PreparationReceiptPlan {operation_id:string;plan_digest:string;argv:readonly string[];executable_digest:string;workspace_path?:string;uid?:number;gid?:number}
 export interface VerifiedPreparationReceipt {receipt:Record<string,unknown>;stage:PreparationStageReceipt;receipt_digest:string}
@@ -27,7 +28,8 @@ export function verifyPreparationReceipt(bytes:Buffer,plan:PreparationReceiptPla
  if(receipt.execution_plane!=='REMOTE'||receipt.operation_id!==plan.operation_id||receipt.plan_digest!==plan.plan_digest||receipt.executable_digest!==plan.executable_digest)fail('PREPARATION_RECEIPT_MISMATCH','Receipt is not bound to the committed preparation operation');
  const stage=receipt.preparation_stage;
  if(!object(stage))fail('PREPARATION_RECEIPT_INVALID','Native preparation stage evidence required');
- exact(stage,STAGE_KEYS);
+ exact(stage,'artifact_transfer' in stage?[...STAGE_KEYS,'artifact_transfer']:STAGE_KEYS);
+ if('artifact_transfer' in stage)verifyNativeArtifactTransfer(stage.artifact_transfer,plan.operation_id);
  const root=PREPARATION_STAGE_ROOT+plan.operation_id;
  if(stage.stage_root!==root||stage.context_path!==root+'/context.json'||stage.out_root!==root+'/out'||stage.diagnostics_root!==root+'/diagnostics')fail('PREPARATION_RECEIPT_MISMATCH','Stage layout differs from the operation-scoped root');
  if(!absolute(stage.workspace_path)||!absolute(stage.node_path)||!absolute(stage.recipe_path)||![stage.context_digest,stage.node_digest,stage.recipe_digest].every(digest)||!Number.isSafeInteger(stage.uid)||Number(stage.uid)<1||!Number.isSafeInteger(stage.gid)||Number(stage.gid)<1)fail('PREPARATION_RECEIPT_INVALID','Exact stage paths, digests and slot identity required');

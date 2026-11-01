@@ -88,3 +88,24 @@ cause = "A detached native observer does not itself keep the provider SDK proces
 resolution = "Run a bounded keeper for the exact existing manifest, daemon identity and boot, limited by actual VM and runner expiry. Persist submission before execution, reconcile the same process after uncertainty, and retain terminal failures without resubmission."
 evidence = "bootstrap-observer-keeper-rerun.log passes eight checks using signed PostgreSQL coordination, the pinned SDK boundary and a real Node/proc identity probe; original READY metadata and receipt bytes remain unchanged. A separate live idle receipt records signed heartbeat advancement over 91,627 ms with the same original daemon and one ACTIVE keeper, using database SELECTs only and no install jobs or guest probes."
 status = "resolved"
+
+[gotcha.fleet_worker_feedback_projection]
+symptom = "Managers lack bounded worker progress and checkpoint information needed for subsequent decisions."
+cause = "Task assignment receipts do not expose current launch journals, checkpoint references or unresolved findings."
+resolution = "Project the exact current task attempt and package-scoped recorded feedback, with explicit UNKNOWN, omission and cursor metadata. Use authorized REPLAN detail pages; recorded output and checkpoint references do not grant qualification or resume authority."
+evidence = "fleet-worker-feedback-component-receipt.json passes three grouped signed PostgreSQL/TLS checks for current-plan provenance, isolation and bounded retrieval. fleet-model-role-install-selector-component-receipt.json captures the role-specific INSTALL selector contract through controlled HTTPS 503 responses."
+status = "resolved"
+
+[gotcha.fleet_source_cache_admission]
+symptom = "Configured source-cache limits are not exercised by actual source materialization."
+cause = "A materializer can verify payloads yet bypass cache admission and reuse accounting."
+resolution = "Use the bounded verified cache in the source path, retaining content, security-scope and mount identity checks. Count misses and reuse from actual filesystem operations."
+evidence = "cache-owner-receipt.json records 14 assertions over an isolated selected-source runtime and independent source review; the prior materializer fails the first cache-admission assertion."
+status = "resolved"
+
+[gotcha.fleet_transfer_measurement_provenance]
+symptom = "Source inventory sizes can be mistaken for measured network transfer."
+cause = "Inline payload bytes, cache activity, local writes and provider response bytes represent different operations."
+resolution = "Bind actual application-layer response counters to the native execution and install receipt; record source/cache/local activity separately and leave unmeasured dependency-network transfer explicit."
+evidence = "transfer-gate-receipt.json records 74 native assertions, 15 transfer-contract assertions and actual signed interrupted-install execution with five altered transfer closures refused."
+status = "resolved"

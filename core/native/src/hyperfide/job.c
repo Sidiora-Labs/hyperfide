@@ -351,7 +351,7 @@ static int job_execute(const char *request,FILE *out){
  if(preparing){char context_digest[65]="";int fd=open(stage.context_path,O_RDONLY|O_CLOEXEC|O_NOFOLLOW);if(fd<0||!fd_hash(fd,context_digest))context_digest[0]=0;if(fd>=0)close(fd);
   const char *names[]={"stage_root","context_path","out_root","diagnostics_root","workspace_path","node_path","recipe_path"};const char *values[]={stage.stage_root,stage.context_path,stage.out_root,stage.diagnostics_root,stage.workspace_path,stage.node_path,stage.recipe_path};
   fputc('{',writer);for(unsigned k=0;k<7;++k){if(k)fputc(',',writer);hf_json_write_string(writer,names[k]);fputc(':',writer);hf_json_write_string(writer,values[k]);}
-  fprintf(writer,",\"context_digest\":\"sha256:%s\",\"node_digest\":\"%s\",\"recipe_digest\":\"%s\",\"uid\":%lu,\"gid\":%lu}",context_digest,stage.node_digest,stage.recipe_digest,(unsigned long)stage.uid,(unsigned long)stage.gid);}
+  fprintf(writer,",\"context_digest\":\"sha256:%s\",\"node_digest\":\"%s\",\"recipe_digest\":\"%s\",\"uid\":%lu,\"gid\":%lu,\"artifact_transfer\":%s}",context_digest,stage.node_digest,stage.recipe_digest,(unsigned long)stage.uid,(unsigned long)stage.gid,stage.artifact_transfer[0]?stage.artifact_transfer:"null");}
  else fputs("null",writer);
  if(fleet_isolation){fputs(",\"fleet_isolation\":",writer);fputs(fleet_isolation,writer);}
  if(fleet_readiness){fputs(",\"fleet_readiness\":",writer);fputs(fleet_readiness,writer);}

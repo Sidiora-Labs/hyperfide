@@ -112,6 +112,13 @@ def run_probe(binary, service_root):
         check("native-staging-real-https-manifest",result.returncode==0 and reply["ok"])
         context_path=Path(reply["context_path"]);context=json.loads(context_path.read_text())
         staged={entry["role"]:entry for entry in context["staging"]}
+        measured=context.get("artifact_transfer",{})
+        check("native-transfer-operation-bound",measured.get("operation_id")==value["result"]["operation_id"] and measured.get("measurement")=="NATIVE_ARTIFACT_RPC_HTTP_BODY")
+        check("native-transfer-actual-object-reads",measured.get("verified_object_reads")==len(pieces)+1 and measured.get("verified_object_bytes")==len(raw)+len(input_bytes))
+        check("native-transfer-actual-rpc-count",measured.get("rpc_calls")==len(pieces)+3 and measured.get("http_responses")==len(pieces)+3)
+        check("native-transfer-http-body-not-payload-estimate",measured.get("http_response_body_bytes",0)>measured["verified_object_bytes"])
+        check("native-transfer-successful-staged-files",measured.get("staged_artifacts")==2 and measured.get("staged_payload_bytes")==len(raw)+len(input_bytes))
+        check("native-transfer-explicit-uncached",measured.get("cache_mode")=="UNCACHED" and measured.get("cache_hits")==0)
         check("native-staging-full-raw-content",Path(staged["source:fixture"]["path"]).read_bytes()==raw)
         check("native-staging-input-manifest",Path(staged["input-manifest"]["path"]).read_bytes()==input_bytes)
         check("native-staging-secret-free-context",all(term not in context_path.read_text() for term in ("key_path","transport_config",objects.SECRET,str(auth.keys["operator"]["path"]))))
@@ -194,7 +201,7 @@ def run_probe(binary, service_root):
             if target.exists():shutil.rmtree(target)
         shutil.rmtree(owned)
     check("native-staging-owned-cleanup",not owned.exists() and all(not (Path("/run/hyperfide-stage")/op).exists() for op in operations))
-    return {"schema_version":1,"scope":"ACTUAL_NATIVE_STAGING_HTTPS_PG_S3_FIXTURE","checks":checks,"assertions":len(checks),"full_case_status":"INCOMPLETE","live_provider_qualification":"NOT_EVALUATED"}
+    return {"schema_version":1,"scope":"ACTUAL_NATIVE_STAGING_HTTPS_PG_S3_FIXTURE","native_transfer":measured,"checks":checks,"assertions":len(checks),"full_case_status":"INCOMPLETE","live_provider_qualification":"NOT_EVALUATED"}
 
 if __name__=="__main__":
     import sys

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Controlled SDK HTTP, actual native recipe interruption, signed result and recovery application."""
-import base64,copy,datetime,hashlib,importlib.util,json,os,select,shutil,signal,sqlite3,subprocess,sys,tempfile,time,uuid
+import argparse,base64,copy,datetime,hashlib,importlib.util,json,os,select,shutil,signal,sqlite3,subprocess,sys,tempfile,time,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4];SUPPORT=ROOT/'tests/hyperfide/support'
 def load(name,file):
@@ -25,12 +25,14 @@ def uid_pids(uid):
   if str(uid) in ids:found.append(int(entry.name))
  return found
 def main():
- if not os.environ.get('DATABASE_URL'):return subprocess.run([sys.executable,str(SUPPORT/'withpg.py'),'--',sys.executable,str(Path(__file__).resolve())],cwd=ROOT).returncode
+ parser=argparse.ArgumentParser();parser.add_argument('--native-path');parser.add_argument('--native-digest');args=parser.parse_args()
+ if bool(args.native_path)!=bool(args.native_digest):parser.error('native path and digest must be provided together')
+ if not os.environ.get('DATABASE_URL'):return subprocess.run([sys.executable,str(SUPPORT/'withpg.py'),'--',sys.executable,str(Path(__file__).resolve()),*sys.argv[1:]],cwd=ROOT).returncode
  if uid_pids(62181) or uid_pids(62182):raise RuntimeError('Dedicated interruption fixture UIDs are occupied')
  protected=Path('/var/lib/hyperfide/component-fixtures');protected.mkdir(mode=0o755,parents=True,exist_ok=True)
  if protected.is_symlink() or protected.stat().st_uid!=0 or protected.stat().st_mode&0o022:raise RuntimeError('Protected fixture runtime parent required')
  owned=Path(tempfile.mkdtemp(prefix='hf-install-interrupted-',dir=protected));owned.chmod(0o755);stack=None;backend=None;executor=None;handlers=None;checks=[];policy=None
- runtime=runtime_module.prepare_runtime(owned/'runtime',ROOT/'core/control-plane/dist')
+ runtime=runtime_module.prepare_runtime(owned/'runtime',ROOT/'core/control-plane/dist',native_source=args.native_path,native_digest=args.native_digest)
  holder={}
  backend=cloud.BlaxelHttpFixture({'metadata':{'name':'pending-controlled-input'}},lambda p:holder['handlers'].resolve_path(p),lambda m,i,b:holder['handlers'].process_handler(m,i,b))
  def setup(f):
@@ -134,6 +136,22 @@ def main():
    else:os.environ['HF_INTERRUPTED_ORACLE_DATABASE_URL']=previous_database
   final_install=qualification.one(retained['fleet_environment_installs'],'operation_id',newop)
   qualification.signed_install(retained,final_install)
+  if args.native_path:
+   native_file=state/('job-'+newop+'.receipt.json');native_bytes=native_file.read_bytes();capture=owned/'measured-native-receipt.json';capture.write_bytes(native_bytes);capture.chmod(0o600)
+   native_case={'native_receipts':[{'operation_id':newop,'path':capture.name,'digest':sha(native_bytes)}]}
+   measured_target={'fetch_limits':{'max_stage_response_body_bytes':16*1024*1024,'max_stage_rpc_calls':1024,'max_stage_verified_object_bytes':16*1024*1024}}
+   actual_transfer=qualification.verified_install_transfer(retained,final_install,native_case,measured_target,owned)
+   for label in ['counter','operation','capture','budget','dependency-network']:
+    changed=copy.deepcopy(retained);changed_case=copy.deepcopy(native_case);changed_target=copy.deepcopy(measured_target);install=qualification.one(changed['fleet_environment_installs'],'operation_id',newop)
+    if label=='counter':install['receipt']['transfer']['native_stage']['http_response_body_bytes']+=1
+    elif label=='operation':install['receipt']['transfer']['operation_id']=logical
+    elif label=='capture':changed_case['native_receipts'][0]['digest']=sha(b'changed native capture')
+    elif label=='budget':changed_target['fetch_limits']['max_stage_rpc_calls']=actual_transfer['rpc_calls']-1
+    else:install['receipt']['transfer']['dependency_io']['network_bytes']=0
+    try:qualification.verified_install_transfer(changed,install,changed_case,changed_target,owned)
+    except qualification.Refused:pass
+    else:raise AssertionError('Transfer oracle admitted altered '+label)
+   checks.append('actual signed native/install transfer matches operation-bound measured counters and rejects five altered closures')
   if qualification.verified_install_recovery(retained,final_install,logical)!=logical:raise AssertionError('Actual recovery logical lineage changed')
   negatives=[('head',lambda rows:rows['fleet_install_heads'][0].update(current_operation_id=logical)),('recovery predecessor',lambda rows:rows['fleet_install_recoveries'][0].update(predecessor_install_operation_id=newop)),('signed failed result',lambda rows:qualification.one(rows['runner_remote_jobs'],'operation_id',logical)['result'].update(outcome='SUCCEEDED')),('logical root',lambda rows:qualification.one(rows['fleet_environment_installs'],'operation_id',newop)['admission'].update(logical_operation_id=newop)),('source pins',lambda rows:qualification.one(rows['fleet_environment_installs'],'operation_id',newop)['admission'].update(source_manifest_digest=sha(b'wrong source'))),('quiescence',lambda rows:rows['fleet_install_recoveries'][0].update(quiescence_receipt_digest=sha(b'wrong cleanup')))]
   for label,mutate in negatives:

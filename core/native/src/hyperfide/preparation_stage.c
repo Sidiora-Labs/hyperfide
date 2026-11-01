@@ -135,32 +135,34 @@ static unsigned char *decode(const char *encoded,size_t *size) {
  if(bytes&&4*((*size+2)/3)!=n){free(bytes);bytes=NULL;}
  free(url);return bytes;
 }
-typedef struct {char org[37],run[37],operation[37],transport[4096];} Fetch;
-static HfJson *rpc(const Fetch *f,const char *action,const char *id,HfHttpResponse *response) {
+typedef struct {char org[37],run[37],operation[37],transport[4096]; uint64_t rpc_calls,http_responses,http_response_body_bytes,verified_object_reads,verified_object_bytes,staged_artifacts,staged_payload_bytes;} Fetch;
+static HfJson *rpc(Fetch *f,const char *action,const char *id,HfHttpResponse *response) {
  if(!hf_uuid_valid(id))return NULL;
  char *payload=NULL;size_t size=0;FILE *out=open_memstream(&payload,&size);if(!out)return NULL;
  fprintf(out,"{\"run_id\":\"%s\",\"component\":\"15.2\",\"action\":\"%s\",\"input\":{\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"artifact_id\":\"%s\"},\"expected_version\":null,\"authority\":null}",f->run,action,f->org,f->run,id);
  if(fclose(out)){free(payload);return NULL;}
  char operation[37],idem[37];if(!hf_uuid_generate(operation)||!hf_uuid_generate(idem)){free(payload);return NULL;}
- int sent=hf_supervisor_call(f->transport,0,payload,operation,idem,f->operation,f->operation,NULL,NULL,response);free(payload);
+ f->rpc_calls++;int sent=hf_supervisor_call(f->transport,0,payload,operation,idem,f->operation,f->operation,NULL,NULL,response);free(payload);
+ if(response->status>0)f->http_responses++;f->http_response_body_bytes+=response->length;
  HfJson *j=calloc(1,sizeof *j);int accepted=0;
  if(!sent||response->uncertain||response->status!=200||!response->body||!j||!hf_json_parse(j,response->body)||!hf_json_bool(j,hf_json_field(j,0,"ok"),&accepted)||!accepted){free(j);return NULL;}
  int r=hf_json_field(j,0,"result"),a=hf_json_field(j,r,"artifact"),receipt=hf_json_field(j,r,"receipt");
  if(!equals(j,r,"outcome","SUCCEEDED")||!equals(j,r,"availability","VERIFIED")||!equals(j,a,"organisation_id",f->org)||!equals(j,a,"run_id",f->run)||!equals(j,a,"artifact_id",id)||!equals(j,a,"status","COMPLETE")||!equals(j,receipt,"organisation_id",f->org)||!equals(j,receipt,"run_id",f->run)||!equals(j,receipt,"artifact_id",id)){free(j);return NULL;}
  return j;
 }
-static int fetch_object(const Fetch *f,const char *id,const char *digest,uint64_t size,int fd,EVP_MD_CTX *whole) {
+static int fetch_object(Fetch *f,const char *id,const char *digest,uint64_t size,int fd,EVP_MD_CTX *whole) {
  if(size>262144||!sha_valid(digest))return 0;
  HfHttpResponse response={0};HfJson *j=rpc(f,"artifact.object.read",id,&response);int ok=0;
  if(j){
   int r=hf_json_field(j,0,"result"),a=hf_json_field(j,r,"artifact"),receipt=hf_json_field(j,r,"receipt");
   uint64_t declared=0;char *encoded=malloc(349529);unsigned char *bytes=NULL;size_t n=0;char hex[65];
   if(encoded&&equals(j,a,"digest",digest)&&equals(j,receipt,"digest",digest)&&quantity(j,a,"size_bytes",&declared)&&declared==size&&quantity(j,receipt,"size_bytes",&declared)&&declared==size&&string(j,r,"data_base64",encoded,349529)&&(bytes=decode(encoded,&n))&&n==size&&hf_sha256_bytes(bytes,n,hex)&&!strcmp(hex,digest+7)&&write_all(fd,bytes,n)&&EVP_DigestUpdate(whole,bytes,n)==1)ok=1;
+  if(ok){f->verified_object_reads++;f->verified_object_bytes+=n;}
   free(encoded);free(bytes);free(j);
  }
  hf_http_response_free(&response);return ok;
 }
-static int fetch_content(const Fetch *f,const char *id,const char *kind,const char *digest,const char *parent_digest,uint64_t size,int fd) {
+static int fetch_content(Fetch *f,const char *id,const char *kind,const char *digest,const char *parent_digest,uint64_t size,int fd) {
  EVP_MD_CTX *whole=EVP_MD_CTX_new();int ok=whole&&EVP_DigestInit_ex(whole,EVP_sha256(),NULL)==1;
  if(ok&&!strcmp(kind,"object"))ok=fetch_object(f,id,digest,size,fd,whole);
  else if(ok&&!strcmp(kind,"manifest")){
@@ -192,12 +194,13 @@ static int mkdir_owned(int parent,const char *name,uid_t uid,gid_t gid,mode_t mo
  if(fd<0)return -1;
  if(fchown(fd,uid,gid)||fchmod(fd,mode)||fsync(fd)){close(fd);return -1;}return fd;
 }
-static int stage_file(const Fetch *f,int dir,int context,const char *root,const char *role,const char *id,const char *kind,const char *digest,const char *parent,uint64_t bytes,int sequence,gid_t gid,FILE *json) {
+static int stage_file(Fetch *f,int dir,int context,const char *root,const char *role,const char *id,const char *kind,const char *digest,const char *parent,uint64_t bytes,int sequence,gid_t gid,FILE *json) {
  char name[40],path[4096];snprintf(name,sizeof name,"artifact-%03d",sequence);
  if(snprintf(path,sizeof path,"%s/%s",root,name)>=(int)sizeof path)return 0;
  int fd=openat(dir,name,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);if(fd<0)return 0;
  int ok=fetch_content(f,id,kind,digest,parent,bytes,fd)&&fchown(fd,0,gid)==0&&fchmod(fd,0440)==0&&fsync(fd)==0;
  close(fd);if(!ok)return 0;
+ f->staged_artifacts++;f->staged_payload_bytes+=bytes;
  if(context)fputc(',',json);
  fputs("{\"role\":",json);hf_json_write_string(json,role);fputs(",\"path\":",json);hf_json_write_string(json,path);
  fprintf(json,",\"digest\":\"%s\",\"size_bytes\":\"%llu\"}",digest,(unsigned long long)bytes);return 1;
@@ -291,7 +294,8 @@ int hf_runner_stage_preparation(const char *config_path,const HfJson *claim,int 
  int input_ok=equals(manifest,ma,"digest",input_digest)&&quantity(manifest,ma,"size_bytes",&input_size)&&input_size<=262144&&input_size<=budget-total;
  free(manifest);hf_http_response_free(&response);if(!input_ok)goto done;
  if(!stage_file(&fetch,dir,claim->tokens[entries].count,stage->stage_root,"input-manifest",input_id,"object",input_digest,"",input_size,HF_STAGE_FILES,stage->gid,json))goto done;
- fprintf(json,"],\"max_stage_bytes\":\"%llu\",\"native\":{\"path\":",(unsigned long long)budget);hf_json_write_string(json,values[5]);fprintf(json,",\"digest\":\"%s\"},\"base_root\":",values[6]);hf_json_write_string(json,values[4]);fputs(",\"diagnostics_root\":",json);hf_json_write_string(json,stage->diagnostics_root);fputs(",\"out_root\":",json);hf_json_write_string(json,stage->out_root);fputc('}',json);
+ snprintf(stage->artifact_transfer,sizeof stage->artifact_transfer,"{\"schema_version\":1,\"kind\":\"hyperfide.artifact-stage-transfer\",\"operation_id\":\"%s\",\"measurement\":\"NATIVE_ARTIFACT_RPC_HTTP_BODY\",\"cache_mode\":\"UNCACHED\",\"rpc_calls\":%llu,\"http_responses\":%llu,\"http_response_body_bytes\":%llu,\"verified_object_reads\":%llu,\"verified_object_bytes\":%llu,\"staged_artifacts\":%llu,\"staged_payload_bytes\":%llu,\"cache_hits\":0}",fetch.operation,(unsigned long long)fetch.rpc_calls,(unsigned long long)fetch.http_responses,(unsigned long long)fetch.http_response_body_bytes,(unsigned long long)fetch.verified_object_reads,(unsigned long long)fetch.verified_object_bytes,(unsigned long long)fetch.staged_artifacts,(unsigned long long)fetch.staged_payload_bytes);
+ fprintf(json,"],\"max_stage_bytes\":\"%llu\",\"native\":{\"path\":",(unsigned long long)budget);hf_json_write_string(json,values[5]);fprintf(json,",\"digest\":\"%s\"},\"base_root\":",values[6]);hf_json_write_string(json,values[4]);fputs(",\"diagnostics_root\":",json);hf_json_write_string(json,stage->diagnostics_root);fputs(",\"out_root\":",json);hf_json_write_string(json,stage->out_root);fputs(",\"artifact_transfer\":",json);fputs(stage->artifact_transfer,json);fputc('}',json);
  if(fclose(json)){json=NULL;goto done;}json=NULL;
  if(!workspace_parent(stage->workspace_parent,workspace_name,stage->uid,stage->gid))goto done;
  context=openat(dir,"context.json",O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);

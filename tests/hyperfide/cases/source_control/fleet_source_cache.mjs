@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {pathToFileURL} from 'node:url';
+const dist=path.resolve(process.argv[2]??'core/control-plane/dist');
+const {withFleetSourceCache}=await import(pathToFileURL(path.join(dist,'preparation/fleet_source_cache.js')));
+const {materializeGitSource}=await import(pathToFileURL(path.join(dist,'preparation/fleet_source.js')));
+const hash=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
+const root=await fs.mkdtemp(path.join(os.tmpdir(),'hf-source-cache-')),directory=path.join(root,'cache'),namespace=hash('generation1');let assertions=0;
+const pass=id=>{assertions++;console.log(JSON.stringify({id,status:'PASS'}));};
+const entry=(name,body)=>({path:name,mode:'100644',git_oid:'0'.repeat(40),size:Buffer.byteLength(body),digest:hash(body),content_base64:Buffer.from(body).toString('base64')});
+const a=entry('a.txt','first'),b=entry('b.txt','second'),large=entry('large.txt','x'.repeat(100));
+const config={directory,maxBytes:12,maxEntries:1,namespace};
+const use=(input,body)=>withFleetSourceCache({...config,...input},body);
+try{
+ const first=path.join(root,'first');await fs.mkdir(first);await use({},async cache=>{await materializeGitSource({entries:[a]},first,['**'],e=>cache.read(e));assert.equal(cache.stats.misses,1);});assert.equal(await fs.readFile(path.join(first,'a.txt'),'utf8'),'first');pass('actual-source-materialization-populates-cache');
+ const second=path.join(root,'second');await fs.mkdir(second);await use({},async cache=>{await materializeGitSource({entries:[{...a,content_base64:'unused-on-verified-hit'}]},second,['**'],e=>cache.read(e));assert.equal(cache.stats.hits,1);assert.equal(cache.stats.source_bytes,0);});pass('warm-materialization-uses-digest-verified-cache-bytes');
+ await use({},async cache=>{await cache.read(b);assert.equal(cache.stats.evicted_entries,1);});const objects=()=>fs.readdir(directory);assert.equal((await objects()).length,1);pass('entry-and-byte-budget-evicts-only-immutable-objects');
+ await use({maxBytes:7,maxEntries:3},async cache=>{await cache.read(a);await cache.read(b);assert.ok(cache.stats.evicted_entries>=1);});assert.ok((await Promise.all((await objects()).map(async name=>(await fs.stat(path.join(directory,name))).size))).reduce((a,b)=>a+b,0)<=7);pass('byte-limit-applies-even-below-entry-limit');
+ await use({},async cache=>{assert.equal((await cache.read(large)).length,100);});assert.equal((await objects()).length,1);pass('oversized-verified-object-materializes-without-cache-admission');
+ const cached=(await objects())[0];await fs.writeFile(path.join(directory,cached),'corrupt');await use({},async cache=>{assert.equal((await cache.read(b)).toString(),'second');assert.equal(cache.stats.misses,1);});pass('corrupted-cache-cannot-change-materialized-bytes');
+ await use({namespace:hash('generation2')},async cache=>{await cache.read(b);assert.equal(cache.stats.hits,0);assert.equal(cache.stats.misses,1);});pass('different-generation-cannot-reuse-prior-namespace');
+ await fs.writeFile(path.join(second,'a.txt'),'dirty');await assert.rejects(use({},cache=>materializeGitSource({entries:[a]},second,['**'],e=>cache.read(e))),e=>e.code==='FLEET_SOURCE_DIRTY');assert.equal(await fs.readFile(path.join(second,'a.txt'),'utf8'),'dirty');pass('dirty-workspace-preserved-during-cache-read');
+ await fs.writeFile(path.join(directory,'.partial-00000000-0000-4000-8000-000000000001'),'crashed',{mode:0o600});await use({},async()=>{});assert.ok(!(await objects()).some(n=>n.startsWith('.partial-')));pass('abandoned-unpublished-object-cleaned-after-exclusive-recovery');
+ await fs.symlink(path.join(second,'a.txt'),path.join(directory,'unexpected'));await assert.rejects(use({},async()=>{}),e=>e.code==='FLEET_CACHE_PATH');assert.equal(await fs.readFile(path.join(second,'a.txt'),'utf8'),'dirty');pass('cache-link-cannot-evict-or-read-dirty-state');await fs.unlink(path.join(directory,'unexpected'));
+ await use({},async()=>{await assert.rejects(use({},async()=>{}),e=>e.code==='FLEET_CACHE_BUSY');});pass('concurrent-cache-writer-refused-without-stealing-live-lock');
+ await use({maxBytes:8,maxEntries:1},async cache=>{await Promise.all([cache.read(entry('c','12345678')),cache.read(entry('d','abcdefgh'))]);});assert.equal((await objects()).length,1);assert.equal((await fs.stat(path.join(directory,(await objects())[0]))).size,8);pass('concurrent-read-api-cannot-exceed-entry-or-byte-bounds');
+ const moved=path.join(root,'anchored-cache'),victim=path.join(root,'victim');await fs.mkdir(victim,{mode:0o700});await fs.writeFile(path.join(victim,'dirty'),'preserved');
+ await use({},async cache=>{await fs.rename(directory,moved);await fs.symlink(victim,directory);try{await cache.read(a);assert.equal(await fs.readFile(path.join(victim,'dirty'),'utf8'),'preserved');assert.deepEqual(await fs.readdir(victim),['dirty']);}finally{await fs.unlink(directory);await fs.rename(moved,directory);}});pass('renamed-cache-ancestor-cannot-redirect-anchored-writes-or-eviction');
+ await fs.writeFile(path.join(directory,'.lock-2147483647-1-00000000-0000-4000-8000-000000000001'),JSON.stringify({choosing:false,number:1}),{mode:0o600});
+ const child=`import fs from 'node:fs/promises';import {withFleetSourceCache} from ${JSON.stringify(pathToFileURL(path.join(dist,'preparation/fleet_source_cache.js')).href)};await withFleetSourceCache(${JSON.stringify(config)},async()=>{const guard=${JSON.stringify(path.join(root,'exclusive-writer'))};await fs.writeFile(guard,'owned',{flag:'wx'});await new Promise(resolve=>setTimeout(resolve,80));await fs.unlink(guard);});`;
+ await Promise.all([1,2].map(()=>promisify(execFile)(process.execPath,['--input-type=module','-e',child])));assert.ok(!(await objects()).some(n=>n.startsWith('.lock-')));pass('two-real-processes-recover-dead-owner-without-unlinking-fresh-lock');
+ console.log(JSON.stringify({status:'PASS',assertions,boundary:'actual Unix cache/source materialization; no network-transfer claim'}));
+}finally{await fs.rm(root,{recursive:true,force:true});}

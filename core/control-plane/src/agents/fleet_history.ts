@@ -1,3 +1,4 @@
+import {feedbackDetails} from './fleet_worker_feedback.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
@@ -25,10 +26,11 @@ export function coordinationSummary(row:Record<string,any>):Record<string,unknow
  return out;
 }
 export async function readFleetHistory(tx:PrimaryTransaction,i:InvocationContext,b:FleetActorBinding,raw:unknown):Promise<Record<string,unknown>>{
- const request=record(raw,['collection','cursor','limit','entry_id','offset'],['collection','cursor','limit']);
- if(!['effect_receipts','coordination'].includes(String(request.collection))||!Number.isSafeInteger(request.limit)||Number(request.limit)<1||Number(request.limit)>8)fleetError('FLEET_HISTORY_REQUEST_INVALID');
+ const request=record(raw,['collection','cursor','limit','entry_id','offset','attempt_id'],['collection','cursor','limit']);
+ if(!['effect_receipts','coordination','worker_feedback','worker_events','worker_checkpoints','findings'].includes(String(request.collection))||!Number.isSafeInteger(request.limit)||Number(request.limit)<1||Number(request.limit)>8)fleetError('FLEET_HISTORY_REQUEST_INVALID');
  let at:string|null=null,id:string|null=null;
  if(request.cursor!==null){const cursor=record(request.cursor,['created_at','id']);if(typeof cursor.created_at!=='string'||cursor.created_at.length>64||!Number.isFinite(Date.parse(cursor.created_at)))fleetError('FLEET_HISTORY_REQUEST_INVALID');at=cursor.created_at;id=uuid(cursor.id);}
+ if(['worker_feedback','worker_events','worker_checkpoints','findings'].includes(String(request.collection))){if(request.entry_id!==undefined||request.offset!==undefined)fleetError('FLEET_HISTORY_REQUEST_INVALID');return {kind:'FLEET_HISTORY_PAGE',collection:request.collection,...await feedbackDetails(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,package_id:b.delegation_id},String(request.collection),{...request,cursor:at===null?null:{created_at:at,id:id!}})};}
  const entry=request.entry_id===undefined?null:uuid(request.entry_id),offset=request.offset===undefined?0:request.offset;
  if(!Number.isSafeInteger(offset)||Number(offset)<0||Number(offset)>1048576||!entry&&offset!==0)fleetError('FLEET_HISTORY_REQUEST_INVALID');
  const scope=[i.principal.organisation_id,i.principal.run_id,b.actor_role==='PRIMARY'?null:b.actor_id,b.delegation_id,at,id,entry,Number(request.limit)+1];

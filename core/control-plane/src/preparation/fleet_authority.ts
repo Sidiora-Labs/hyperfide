@@ -1,3 +1,4 @@
+import {verifyFleetTransfer} from './fleet_transfer.js';
 import path from 'node:path';
 import {createPublicKey, verify} from 'node:crypto';
 import {runnerCanonical, runnerResultSigningBytes} from '../runner/bridge.js';
@@ -147,8 +148,9 @@ function validatePlan(value:unknown,p:RecordValue,n:RecordValue,identity:RecordV
  validateSourceFiles(plan.source_files,p,n);return plan;
 }
 function verifyReceipt(receipt: unknown, row: RecordValue, now:number): RecordValue {
- exact(receipt,receiptKeys);
+ exact(receipt,object(receipt)&&'transfer' in receipt?[...receiptKeys,'transfer']:receiptKeys);
  const r = receipt as RecordValue, a = row.admission as RecordValue, p = row.package_spec as RecordValue, plan=row.install_plan as RecordValue;
+ if('transfer' in r)verifyFleetTransfer(r.transfer,r.operation_id);
  const {receipt_digest: supplied, ...body} = r;
  if (r.schema_version !== 1 || r.kind !== 'hyperfide.fleet-install-receipt' || supplied !== digest(body)||Buffer.byteLength(canonicalJSON(r))>2*1024*1024) invalid('Receipt digest, size or schema differs');
  for (const key of ['operation_id','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','authority_epoch','admission_digest','package_digest','source_config_digest','plan_digest','source_revision','source_manifest_digest']) if (r[key] !== a[key]) invalid('Receipt differs from admitted inputs');
@@ -230,6 +232,7 @@ export async function completeVerifiedFleetInstallExecution(tx:PrimaryTransactio
  if(nativeReceipt.exit_code!==0||nativeReceipt.stdout?.digest!==hash(stdout)||nativeReceipt.stdout?.base64!==proof.stdout_base64||nativeReceipt.stdout?.complete!==true)invalid('Native capture chain differs from installer stdout');
  const output=strictJSON(stdout,2097152);if(!object(output)||output.state!=='PREPARED'||!object(output.receipt))invalid('Installer PREPARED output required');
  exact(output,['state','receipt']);const receipt=verifyReceipt(output.receipt,row,await databaseNow(tx));
+ if(receipt.transfer&&canonicalJSON(receipt.transfer.native_stage)!==canonicalJSON(verified.stage.artifact_transfer??null))invalid('Installer transfer differs from authenticated native capture');
  verifyIsolationEvidence(nativeReceipt.fleet_isolation,row,receipt);
  await publishVerifiedFleetReadiness(tx,i,{install:row,receipt,nativeReceipt,job});
  await currentSlots(tx,i,row.admission,row.package_spec.workers.slots,false);

@@ -158,6 +158,22 @@ def native_capture(rows,operation,reference,evidence_root,kind):
  require(digest(filename.read_bytes())==reference['digest']==job['result'].get(kind,{}).get('digest'),'SIGNED_CAPTURE_DIGEST_MISMATCH')
  return private_json(filename)
 
+def verified_install_transfer(rows,install,case,target,evidence_root):
+ job=signed_install(rows,install)
+ native=native_capture(rows,job['operation_id'],one(case.get('native_receipts',[]),'operation_id',job['operation_id']),evidence_root,'native_receipt')
+ transfer=install['receipt'].get('transfer',{});stage=transfer.get('native_stage')
+ require(transfer.get('schema_version')==1 and transfer.get('kind')=='hyperfide.fleet-install-transfer' and transfer.get('operation_id')==job['operation_id'] and isinstance(stage,dict) and stage==native.get('preparation_stage',{}).get('artifact_transfer'),'MEASURED_TRANSFER_CAPTURE_REQUIRED')
+ counters=('rpc_calls','http_responses','http_response_body_bytes','verified_object_reads','verified_object_bytes','staged_artifacts','staged_payload_bytes','cache_hits')
+ require(set(stage)==set(('schema_version','kind','operation_id','measurement','cache_mode',*counters)) and stage['schema_version']==1 and stage['kind']=='hyperfide.artifact-stage-transfer' and stage['operation_id']==job['operation_id'] and stage['measurement']=='NATIVE_ARTIFACT_RPC_HTTP_BODY' and stage['cache_mode']=='UNCACHED','TRANSFER_MEASUREMENT_DOMAIN_MISMATCH')
+ require(all(type(stage[k]) is int and 0<=stage[k]<=9007199254740991 for k in counters) and stage['cache_hits']==0 and 0<stage['http_responses']<=stage['rpc_calls'] and 0<stage['verified_object_reads']<=stage['rpc_calls'] and stage['staged_artifacts']>0 and stage['staged_payload_bytes']==stage['verified_object_bytes']>0,'ACTUAL_STAGE_TRANSFER_REQUIRED')
+ limits=target.get('fetch_limits',{})
+ for field,budget in [('http_response_body_bytes','max_stage_response_body_bytes'),('rpc_calls','max_stage_rpc_calls'),('verified_object_bytes','max_stage_verified_object_bytes')]:
+  require(type(limits.get(budget)) is int and limits[budget]>0,'TRANSFER_BUDGET_PINS_REQUIRED')
+  require(stage[field]<=limits[budget],'NATIVE_STAGE_TRANSFER_BUDGET_EXCEEDED')
+ dependency=transfer.get('dependency_io',{})
+ require(dependency.get('network_bytes') is None and dependency.get('network_requests') is None and dependency.get('observation')=='UNOBSERVED_SUBPROCESS_NETWORK','DEPENDENCY_NETWORK_SCOPE_REQUIRED')
+ return stage
+
 def fault_driver(name,case,rows,target,evidence_root,capture):
  pin=target.get('fault_drivers',{}).get(name);require(isinstance(pin,dict),'AUTHENTICATED_FAULT_DRIVER_REQUIRED')
  if capture.get('kind')=='hyperfide.authenticated-fault-step':
@@ -267,9 +283,7 @@ def case_oracle(name,case,rows,target,evidence_root,index):
    for i in installs:
     spec=one(rows['fleet_environment_specs'],'input_digest',i['input_digest']);require(i['receipt'].get('interfaces',{}).get('selected_ids')==spec['package_spec']['interfaces']['selected_ids'] and i['receipt']['interfaces']['fragment_digest']==target['interface_digest'],'EXACT_INTERFACE_SUBSET_REQUIRED')
   if name=='fetch_volume':
-   limits=target.get('fetch_limits',{});require(isinstance(limits.get('max_files'),int) and isinstance(limits.get('max_bytes'),int),'FETCH_LIMIT_PINS_REQUIRED')
-   for i in installs:
-    files=i['receipt'].get('source_files');require(isinstance(files,list) and files and len(files)<=limits['max_files'] and sum(f['size'] for f in files)<=limits['max_bytes'],'BOUNDED_SOURCE_FETCH_REQUIRED')
+   for i in installs:verified_install_transfer(rows,i,case,target,evidence_root)
  elif name in ('missing_code','missing_dependencies','missing_configuration','stale_install','path_escape','constraint_refusal','stale_generation_replay'):
   fault_driver(name,case,rows,target,evidence_root,capture)
   body=capture.get('response',{}).get('body',{});operation=case.get('operation_id')
