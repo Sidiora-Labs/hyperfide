@@ -1,3 +1,4 @@
+import {readFleetSandboxOccupancy} from './fleet_sandbox_budget.js';
 import {isArtifactStoreCapability} from '../artifacts/objects.js';
 import {assuranceBarrier} from '../assurance/submission.js';
 import {prepareManagerTestJob,retainManagerTestJob,validateManagerTestArtifacts} from '../providers/test_job_binding.js';
@@ -93,8 +94,8 @@ export function createFleetEffectsComponent(ctx:ComponentContext):Component{
      if(!recipe)fail('FLEET_BOOTSTRAP_UNSUPPORTED','Selected pool lacks a protected bootstrap recipe');
      if(!verifiedTestArtifacts)fail('FLEET_TEST_ARTIFACT_POLICY','Protected recipe must be validated before admission');
      const testJob=await prepareManagerTestJob(tx,i,b,budget,v,recipe,verifiedTestArtifacts);
-     const occupied=(await tx.query(`SELECT count(DISTINCT s.id)::int AS n FROM hyperfide.sandboxes s JOIN hyperfide.fleet_effect_receipts e ON e.organisation_id=s.organisation_id AND e.result->>'sandbox_id'=s.id::text WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'delegation_id'=$3 AND s.observed_state<>'DESTROYED'`,[b.organisation_id,b.run_id,b.delegation_id])).rows[0];
-     if(!Number.isSafeInteger(budget.max_sandboxes)||Number(occupied?.n??0)>=Number(budget.max_sandboxes))fail('FLEET_SANDBOX_BUDGET','Manager sandbox budget is occupied, including uncertain effects');
+     const occupied=(await readFleetSandboxOccupancy(tx,scope,[b.delegation_id])).get(b.delegation_id)!;
+     if(!Number.isSafeInteger(budget.max_sandboxes)||occupied.occupied>=Number(budget.max_sandboxes))fail('FLEET_SANDBOX_BUDGET','Manager sandbox budget is occupied, including uncertain effects');
      const reserved=object(await reserveDynamic(tx,{...scope,pool_id:uuid(v.pool_id,'pool_id'),request_id:b.operation_id,dimensions:dimensions(v.capacity),expires_at:String(v.deadline_at)}));
      const reservations=reserved.reservations as Record<string,unknown>[];
      const prepared=object(await providers.prepareCreateTx(tx,{run_id:b.run_id,pool_id:v.pool_id,sandbox_id:v.sandbox_id,request_key:b.operation_id,deadline_at:v.deadline_at,reservation_ids:reservations.map(r=>r.id),profile_id:v.profile_id,preparation_digest:v.preparation_digest,purpose:v.purpose},i));
