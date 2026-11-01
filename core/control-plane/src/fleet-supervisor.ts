@@ -196,6 +196,17 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
    }
    fail('FLEET_DELIVERY_TOO_LARGE','Install delivery observation exceeds the bounded wake budget');
   };
+  const drainTestCommands=async():Promise<void>=>{
+   if(!operator)return;let after:string|null=null;
+   const allowed:Record<string,string[]>={'fleet-install-delivery':['fleet.install.delivery.prepare.allocate','fleet.install.delivery.verify.allocate'],'16.2':['qualification.preparation.plan','qualification.job.assign'],'fleet-test-executor':['fleet.test.executor.retire']};
+   for(let page=0;page<64;page++){
+    const pending=await call(operator,'fleet.test.pending',{after,limit:100},'fleet-test-executor');
+    if(!Array.isArray(pending.commands)||pending.commands.length>100)fail('FLEET_TEST_RESPONSE','Bounded accepted TEST commands required');
+    for(const command of pending.commands){if(!object(command)||!uuid(command.operation_id)||typeof command.component!=='string'||typeof command.action!=='string'||!allowed[command.component]?.includes(command.action)||!object(command.input))fail('FLEET_TEST_RESPONSE','Only scoped TEST resource and qualification commands are permitted');await call(operator,command.action,command.input,command.component,command.operation_id);event('independent_verification',null,{operation_id:command.operation_id,action:command.action});}
+    if(pending.next_cursor===null)return;if(!uuid(pending.next_cursor)||pending.next_cursor===after)fail('FLEET_TEST_RESPONSE','TEST pagination did not advance');after=String(pending.next_cursor);
+   }
+   fail('FLEET_TEST_TOO_LARGE','TEST command observation exceeds the bounded wake budget');
+  };
   await bind(primary,null);event('started',primary.session_id,{cohort_id:config.cohort_id,cohort_generation:state.cohort_generation});
   do{
    try{
@@ -224,6 +235,7 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
     }
    }catch(error){if(signal.aborted)break;const code=error instanceof SupervisorRpcError?error.code:'FLEET_SUPERVISOR_FAILED';event('waiting',null,{code});if(state.pending)break;}
    if(!signal.aborted)try{await drainInstallDeliveries();}catch(error){const code=error instanceof SupervisorRpcError?error.code:'FLEET_DELIVERY_FAILED';event('waiting',null,{code});if(state.pending)break;}
+   if(!signal.aborted)try{await drainTestCommands();}catch(error){const code=error instanceof SupervisorRpcError?error.code:'FLEET_TEST_DELIVERY_FAILED';event('waiting',null,{code});if(state.pending)break;}
    if(once||signal.aborted)break;
    await new Promise<void>(resolve=>{const timer=setTimeout(done,config.poll_interval_ms);function done(){clearTimeout(timer);signal.removeEventListener('abort',done);resolve();}signal.addEventListener('abort',done,{once:true});});
   }while(!signal.aborted);

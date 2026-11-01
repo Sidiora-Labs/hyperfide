@@ -25,6 +25,7 @@ Requests use authenticated `POST /v1/invoke` with the existing signed operation 
 | `fleet-orchestration` | `fleet.identity.bootstrap`, `fleet.cohort.bind`, `fleet.session.bind`, `fleet.observe`, `fleet.session.reason`, `fleet.decision.inspect`, `fleet.decision.apply` |
 | `fleet-install` | `fleet.install.register`, `fleet.install.admit`, `fleet.install.status`, `fleet.install.complete`, `fleet.install.adopt` |
 | `fleet-install-delivery` | `fleet.install.delivery.register`, `fleet.install.delivery.pending`, `fleet.install.delivery.schedule`, `fleet.install.delivery.collect` |
+| `fleet-test-executor` | `fleet.test.pending`, `fleet.test.executor.pending`, `fleet.test.executor.retire` |
 
 The authoritative action registrations are the [orchestration component](../../core/control-plane/components/fleet-orchestration.json), [install component](../../core/control-plane/components/fleet-install.json) and [delivery component](../../core/control-plane/components/fleet-install-delivery.json). Manager observations include the effect API's current input contracts; callers should use these contracts rather than infer fields from prose.
 
@@ -51,6 +52,12 @@ Preparation allocation registers the authenticated native PREPARATION executor u
 For credential-bearing work, the bootstrap activation path requires a successful install, signed preparation cleanup and released preparation allocation. A separately pinned native helper releases the preparation slot and promotes the existing worker slot to the sole credential-sensitive slot on a dedicated VM. `HF_PROVIDER_ACTIVATION_CONFIG_FILE` supplies the helper artifact and exact source/profile pins. Credential delivery checks the resulting activation receipt and fresh authenticated inventory before resolving secrets.
 
 An accepted START binds the qualified connector profile, private worker paths and initial task packet into an immutable launch plan. The native runner fetches that plan through its authenticated identity and retains the public profile snapshot in a protected per-launch file. A foreground owner keeps the provider execution alive through worker termination and evidence delivery. Durable launch claims prevent automatic replay of `CLAIMED` or `UNKNOWN` executions; stale unstarted commands receive a recorded refusal so later valid work can proceed.
+
+## Independent verification
+
+A TEST bootstrap uses a distinct manifest and one native TEST slot on a sandbox separate from the coding attempt. Its pinned root controller obtains a scoped VERIFIER credential for the selected qualification job. The supervisor delivers the job’s existing preparation, allocation and assignment commands; the verifier executes them through authenticated qualification APIs. Accepted source bundles and the submitted result custody bind the inputs.
+
+A terminal verification retains each signed check result and cleanup receipt. The TEST controller releases the native slot and refreshes its authenticated absence observation until retirement completes. Release replay checks the slot UID for live processes again. Retirement validates the current boot, original allocation, complete check inventory and fresh cleanup evidence, releases reservations through the scheduler, stops the verifier session and revokes its child credential. A delayed or disconnected supervisor can use a new observation without rerunning the checks.
 
 ## Recovery and adoption
 

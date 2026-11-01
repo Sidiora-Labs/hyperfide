@@ -8,6 +8,7 @@ import {object} from '../policy/programme.js';
 import {readRunnerPreparationBinding} from '../runner/bridge.js';
 import {requireSchedulerAuthority,operationReplay,recordOutcome,jobPolicy,approvedDimensions,requestDigest,allocateReservations,bindJobReservation,readJobAllocation,assertNoExecutionHold} from '../scheduler/claim.js';
 import {reserveDynamic} from '../scheduler/resources.js';
+import {ensureFleetTestExecutor} from './fleet_test_executor.js';
 type Data=Record<string,any>;
 /** The caller selects an exact accepted task and executor; this function never searches for work. */
 export async function allocateFleetJob(tx:PrimaryTransaction,i:InvocationContext,value:unknown,purpose:'PREPARATION'|'TEST'):Promise<Data>{
@@ -30,6 +31,7 @@ export async function allocateFleetJob(tx:PrimaryTransaction,i:InvocationContext
  const operation='fleet-job-allocation:'+purpose,prior=await operationReplay(tx,scope,i.principal.actor_id,operation,v.request_id,v);
  const runner=await readRunnerPreparationBinding(tx,{...scope,session_id:v.session_id});
  if(runner.slot_id!==v.slot_id||runner.sandbox_id!==v.sandbox_id||runner.boot_id!==v.boot_id||runner.boot_generation!==v.boot_generation||runner.slot_generation!==v.slot_generation||!(purpose==='PREPARATION'?['PREPARATION','TEST'].includes(runner.capacity_kind):runner.capacity_kind==='TEST'))fail('FLEET_JOB_RUNNER','Selected runner must match the exact current purpose slot and boot');
+ if(runner.capacity_kind==='TEST')await ensureFleetTestExecutor(tx,i,{runner,manager_session_id:v.manager_session_id,task_id:v.task_id,package_id:v.package_id});
  if(prior!==undefined){const previous=prior as Data;const current=await readJobAllocation(tx,{...scope,reservation_id:previous.allocation.reservation_id});if(current.allocation_id!==previous.allocation.allocation_id)fail('FLEET_JOB_REPLAY_STALE','Retained executor allocation differs');return previous;}
  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[scope.organisation_id+':'+runner.pool_id+':resource-admission']);
  const policy=await jobPolicy(tx,scope,v.task_id,'ADMISSION'),dimensions=await approvedDimensions(tx,scope,runner.pool_id,policy,purpose);

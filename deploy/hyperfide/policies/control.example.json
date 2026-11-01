@@ -25,6 +25,7 @@
     "agent.admission.report",
     "agent.admission.reserve",
     "agent.launch-plan.describe",
+    "agent.launch-plan.fetch",
     "agent.launch-plan.inspect",
     "agent.launch-plan.prepare",
     "agent.session.bind",
@@ -203,6 +204,9 @@
     "fleet.resources.snapshot",
     "fleet.session.bind",
     "fleet.session.reason",
+    "fleet.test.executor.pending",
+    "fleet.test.executor.retire",
+    "fleet.test.pending",
     "fleet.views.describe",
     "fleet.views.entities",
     "fleet.views.observe",
@@ -536,7 +540,6 @@
     "work.handoff",
     "work.open",
     "work.projection",
-    "work.update",
-    "agent.launch-plan.fetch"
+    "work.update"
   ]
 }

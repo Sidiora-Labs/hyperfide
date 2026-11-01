@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "fleet-test-executor",
+  "task": "0.14",
+  "roles": [
+    "control"
+  ],
+  "module": "providers/bootstrap_test.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "fleet.test.pending",
+    "fleet.test.executor.pending",
+    "fleet.test.executor.retire"
+  ],
+  "requires": [
+    "14.1",
+    "5.1",
+    "12.1",
+    "16.2",
+    "fleet-install-delivery"
+  ]
+}
