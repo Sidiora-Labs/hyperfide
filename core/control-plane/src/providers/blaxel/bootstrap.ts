@@ -7,6 +7,7 @@ import {validateProviderOperation} from '../contract.js';
 import {configuredBlaxelSDK} from './images.js';
 import {boundedBlaxelOperation,blaxelCreateName} from './processes.js';
 import type {ProviderActivationDelivery,ProviderActivationTransport} from '../bootstrap_activation.js';
+import {createBlaxelBootstrapBudgetTransport} from './bootstrap_budget.js';
 import type {BootstrapDelivery,BootstrapTransport} from '../bootstrap.js';
 type Data=Record<string,any>;
 function quoted(value:string):string{return "'"+value.replaceAll("'","'\\''")+"'";}
@@ -30,10 +31,10 @@ export async function verifiedSandbox(context:ComponentContext,input:Pick<Bootst
   const observed=actual.data as Data,labels=observed.metadata?.labels;
   if(observed.metadata?.name!==input.binding.native_sandbox_id||observed.metadata?.workspace!==op.scope.environment_id||observed.spec?.region!==op.scope.region||labels?.['hyperfide-operation']!==op.identity.operation_id||labels?.['hyperfide-payload']!==op.identity.payload_digest||labels?.['hyperfide-scope']!==digestDocument(op.scope)||labels?.['hyperfide-boot']!==input.binding.boot_generation||labels?.['hyperfide-preparation']!==op.preparation_digest)fail('PROVIDER_BOOTSTRAP_IDENTITY','Observed resource ownership differs from admitted CREATE');
   const sandbox=await call<Data>(()=>api.SandboxInstance.get(input.binding.native_sandbox_id));
- return {sandbox,call};
+ return {sandbox,call,observed};
 }
 export function createBlaxelBootstrapTransport(context:ComponentContext):BootstrapTransport{
- return {async deliverBootstrap(input:BootstrapDelivery,signal:AbortSignal){
+ return {...createBlaxelBootstrapBudgetTransport(context),async deliverBootstrap(input:BootstrapDelivery,signal:AbortSignal){
   const {sandbox,call}=await verifiedSandbox(context,input,signal);
   const manifest=strictJSON(input.manifest);if(!object(manifest)||!object(manifest.template))fail('PROVIDER_BOOTSTRAP_MANIFEST','Exact native bootstrap manifest required');
   const receiptPath=path.join(String(manifest.template.state_root),input.binding.sandbox_id,input.binding.boot_id,'bootstrap-receipt.json');

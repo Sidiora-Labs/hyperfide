@@ -8,7 +8,7 @@ import {spawn} from 'node:child_process';
 import {parseEnv} from 'node:util';
 import {pathToFileURL} from 'node:url';
 const digest=b=>'sha256:'+createHash('sha256').update(b).digest('hex');
-const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(v);
+const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(v);
 function demand(v,code){if(!v)throw Error(code);}
 async function bytes(file,max=1048576,privateFile=true){
  demand(typeof file==='string'&&path.resolve(file)===file&&await fs.realpath(file)===file,'PROTECTED_FILE_REQUIRED');

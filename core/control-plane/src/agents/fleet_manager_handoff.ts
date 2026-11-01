@@ -16,6 +16,8 @@ export async function readFleetManagerHandoff(tx:PrimaryTransaction,scope:{organ
  LEFT JOIN hyperfide.hierarchy_handoff_resolutions r ON r.organisation_id=h.organisation_id AND r.run_id=h.run_id AND r.handoff_id=h.id
  WHERE h.organisation_id=$1 AND h.run_id=$2 AND h.id=$3 FOR SHARE OF h,p,g`,[scope.organisation_id,scope.run_id,handoffId])).rows[0];
  if(!row||row.resolution||!Array.isArray(row.package_snapshot)||row.package_snapshot.length!==1||!object(row.package_snapshot[0]))fail('FLEET_HANDOFF_STALE','Exact admitted single-package replacement required');
+ const occupied=await tx.query("SELECT p.id FROM hyperfide.feature_packages p JOIN hyperfide.hierarchy_packages h ON h.organisation_id=p.organisation_id AND h.run_id=p.run_id AND h.package_id=p.id WHERE p.organisation_id=$1 AND p.run_id=$2 AND p.manager_session_id=$3 AND p.id<>(($4::jsonb)->0->>'package_id')::uuid AND h.state NOT IN ('CLOSED','CANCELLED') ORDER BY p.id FOR SHARE OF p,h",[scope.organisation_id,scope.run_id,row.successor_id,JSON.stringify(row.package_snapshot)]);
+ if(occupied.rowCount)fail('FLEET_MANAGER_ALREADY_ASSIGNED','Replacement successor already owns another nonterminal package');
  const snapshot=row.package_snapshot[0],packageId=String(snapshot.package_id),prior=String(snapshot.owner_generation),future=(BigInt(prior)+1n).toString();
  const acknowledged=row.acknowledged_by===row.successor_id;
  if(acknowledged?row.current_manager!==row.successor_id||row.owner_generation!==future:row.current_manager!==row.predecessor_id||row.owner_generation!==prior||row.package_state!=='HANDOFF_PENDING')fail('FLEET_HANDOFF_STALE','Replacement ownership changed');

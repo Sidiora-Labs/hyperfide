@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {configuredBootstrapBudgetPools} from './bootstrap_budget.js';
 import path from 'node:path';
 import {constants} from 'node:fs';
 import {createPrivateKey,createPublicKey,randomUUID,sign} from 'node:crypto';
@@ -282,11 +283,12 @@ export class ProvisionerWorker {
   const free=settings.concurrency-this.active.size;if(free<=0)return;
   const providers=[...this.database.runtime.adapters.keys()];
   const config=await readDeployment(this.env),db=bindProviderInvocation(this.database,config,this.invocation!,['PROVISIONER']),run=this.invocation!.principal.run_id;
+  const budgetPools=this.driver.bootstrap&&this.env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE?await configuredBootstrapBudgetPools(this.env):[];
   const claimed=await transaction(db,async c=>{
    const now=Date.now();for(const [id,until] of this.backoff)if(until<=now)this.backoff.delete(id);
    const rows=(await c.query<{id:string;state:string;kind:string;deadline_expired:boolean;activation?:boolean}>(CLAIM,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys()],providers,settings.retry_ms,settings.lease_ms,free])).rows;
    if(this.driver.bootstrap&&this.env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE&&rows.length<free){
-    const bootstrap=(await c.query<{id:string;state:string;kind:string;deadline_expired:boolean;activation?:boolean}>(`SELECT i.id,i.state,i.kind,false AS deadline_expired FROM hyperfide.provisioning_intents i WHERE i.organisation_id=$1 AND i.run_id=$2 AND i.kind='CREATE' AND i.state='ACKNOWLEDGED' AND i.native_sandbox_id IS NOT NULL AND i.operation->'scope'->>'provider'=ANY($4::text[]) AND NOT(i.id=ANY($3::uuid[])) AND i.updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000) AND NOT EXISTS(SELECT 1 FROM hyperfide.provider_native_bootstraps b WHERE b.organisation_id=i.organisation_id AND b.run_id=i.run_id AND b.intent_id=i.id AND b.state='READY') ORDER BY i.updated_at,i.id LIMIT $6 FOR UPDATE OF i SKIP LOCKED`,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys(),...rows.map(r=>r.id)],providers,settings.retry_ms,free-rows.length])).rows;
+    const bootstrap=(await c.query<{id:string;state:string;kind:string;deadline_expired:boolean;activation?:boolean}>(`SELECT i.id,i.state,i.kind,false AS deadline_expired FROM hyperfide.provisioning_intents i WHERE i.organisation_id=$1 AND i.run_id=$2 AND i.kind='CREATE' AND i.state='ACKNOWLEDGED' AND i.native_sandbox_id IS NOT NULL AND i.operation->'scope'->>'provider'=ANY($4::text[]) AND NOT(i.id=ANY($3::uuid[])) AND i.updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000) AND (NOT EXISTS(SELECT 1 FROM hyperfide.provider_native_bootstraps b WHERE b.organisation_id=i.organisation_id AND b.run_id=i.run_id AND b.intent_id=i.id AND b.state='READY') OR (i.pool_id=ANY($7::uuid[]) AND NOT EXISTS(SELECT 1 FROM hyperfide.sandbox_execution_budgets e WHERE e.organisation_id=i.organisation_id AND e.sandbox_id=i.sandbox_id AND e.sandbox_boot_generation=i.boot_generation))) ORDER BY i.updated_at,i.id LIMIT $6 FOR UPDATE OF i SKIP LOCKED`,[config.organisation_id,run,[...this.active.keys(),...this.backoff.keys(),...rows.map(r=>r.id)],providers,settings.retry_ms,free-rows.length,budgetPools])).rows;
     rows.push(...bootstrap);
    }
    if(this.driver.activate&&this.env.HF_PROVIDER_ACTIVATION_CONFIG_FILE&&rows.length<free){

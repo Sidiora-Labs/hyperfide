@@ -18,6 +18,10 @@ The control service and provisioner receive the same protected `HF_PROVIDER_BOOT
 
 An acknowledged manager-selected CREATE starts native bootstrap through the provisioner. Bootstrap retains its enrollment grant, manifest and provider process identity across retries. It checks the actual provider ownership labels and delivered bytes before execution, then requires consumed enrollment and observed runner slots before reporting READY. An acknowledged CREATE without a bootstrap record exposes its dispatch status to the model, including an unavailable recipe, so recovery can retain the original resource identity.
 
+The provisioner measures execution capacity after bootstrap, including READY boots that have no qualified budget yet. `HF_PROVIDER_BOOTSTRAP_BUDGET_POLICY_FILE` and its `HF_PROVIDER_BOOTSTRAP_BUDGET_POLICY_DIGEST` pin each pool's measurement mode, resource ceilings and headroom. The ROOT probe checks the current native instance and kernel, then measures CPU, memory and available filesystem space. A durable submission record prevents an uncertain probe from being launched again. Resource ceilings only reduce measured capacity; disk capacity is reserved from measured RAM before applying memory headroom.
+
+`CGROUP_V2` requires finite cgroup limits. Explicit `BLAXEL_MICROVM_V1` policy combines authenticated provider ownership with guest CPU, memory, kernel and PID 1 measurements. This mode relies on Blaxel's documented [microVM isolation boundary and root sandbox API](https://docs.blaxel.ai/Sandboxes/Non-root-user#why-the-sandbox-api-stays-root). Unresolved overlay backing stays recorded as unknown and receives conservative RAM reservation.
+
 ## API surface
 
 Requests use authenticated `POST /v1/invoke` with the existing signed operation envelope and an explicit component. The native source-control design has a separate API namespace; it is not the fleet invocation endpoint.
@@ -83,6 +87,8 @@ A terminal verification retains each signed check result and cleanup receipt. Th
 ## Recovery and adoption
 
 An unchanged supervisor configuration resumes its private journal and pending operation IDs. Ambiguous requests and unknown runner outcomes require reconciliation of those original operations. Reissuing work under a fresh ID can duplicate external effects and is not a recovery mechanism.
+
+To add standby managers, supply a protected `previous_config_file` whose parsed configuration matches the retained journal digest. Existing manager references and all other settings must remain unchanged; new references are appended. The supervisor reconciles pending operations before recording the configuration transition. A manager can own one active package: delegation and replacement refuse an occupied successor, while completed package ownership remains in history.
 
 Cohort replacement or an acknowledged manager handoff does not mutate an old install admission. A current manager can choose `fleet.install.adopt` using the eight exact fields described by the action contract: `install_operation_id`, `previous_adoption_id`, `admission_digest`, `receipt_digest`, `input_digest`, `handoff_id`, `runner_operation_id` and `runner_result_digest`. Nullable fields must be explicit.
 

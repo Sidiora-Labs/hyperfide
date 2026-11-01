@@ -1,3 +1,4 @@
+import {blaxelCreateName,type BlaxelAdapter} from './blaxel/processes.js';
 import {randomUUID,createHash} from 'node:crypto';
 import type pg from 'pg';
 import type {Component,ComponentContext} from '../components/registry.js';
@@ -507,10 +508,56 @@ async function releaseConfirmedDestroyedCapacity(pool:ProviderDatabase,config:De
   finally{unregister();scheduler.close();}
  });
 }
+async function rejectedCreateQuiescence(tx:PrimaryTransaction,row:Intent):Promise<{id:string;digest:string}> {
+ const rows=(await tx.query(`SELECT id,evidence_digest,observation FROM hyperfide.provider_observations WHERE organisation_id=$1 AND intent_id=$2 AND operation_id=$2::text AND observation->'operation'->>'kind'='create' AND observation->'outcome'->'error'->>'provider_code' ~ '^BLAXEL_(PREFLIGHT|SDK|LOOKUP)_[A-Z0-9_]+$' ORDER BY observed_at DESC LIMIT 32`,[row.organisation_id,row.id])).rows;
+ for(const evidence of rows){try{const proof=evidence.observation,op=validateProviderOperation(proof.operation);const outcome:ProviderOutcome=proof.outcome;validateProviderOutcome({operation:op,outcome});
+  if(digestDocument(op)!==digestDocument(row.operation)||op.identity.operation_id!==row.id||op.identity.payload_digest!==row.payload_digest||outcome.status!=='UNKNOWN'||outcome.resource!==null||digestDocument(proof)!==evidence.evidence_digest)continue;
+  // This actual adapter return precedes its sole POST site; expiry or generic UNKNOWN cannot substitute.
+  return{id:evidence.id,digest:evidence.evidence_digest};
+ }catch{continue;}}
+ fail('PROVIDER_CREATE_QUIESCENCE_UNPROVEN','Original CREATE must have a durable verified pre-submit adapter return before absence can release capacity');
+}
+async function rejectedCreateReservations(tx:PrimaryTransaction,row:Intent):Promise<Array<Record<string,any>>>{
+ await rejectedCreateQuiescence(tx,row);
+ const sandbox=(await tx.query('SELECT boot_generation::text,native_sandbox_id FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 FOR SHARE',[row.organisation_id,row.sandbox_id])).rows[0];
+ if(!sandbox||sandbox.boot_generation!==String(row.boot_generation)||sandbox.native_sandbox_id!==null)fail('PROVIDER_ABSENCE_SCOPE_CHANGED','Original unidentified sandbox boot changed');
+ await noActiveWork(tx,row.organisation_id,row.sandbox_id);
+ const allocations=(await tx.query("SELECT 1 FROM hyperfide.resource_job_allocations WHERE organisation_id=$1 AND run_id=$2 AND sandbox_id=$3 AND state IN('ACTIVE','RELEASE_PENDING') LIMIT 1",[row.organisation_id,row.run_id,row.sandbox_id])).rows;
+ if(allocations.length)fail('PROVIDER_ABSENCE_SCOPE_CHANGED','Unsettled job allocation prevents original-create recovery');
+ const reservations=(await tx.query(`SELECT r.id,r.state,r.quantity::text,r.capacity_account_id,r.attempt_id,a.capacity_class,a.pool_id FROM hyperfide.provisioning_intent_reservations l JOIN hyperfide.reservations r ON r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id WHERE l.organisation_id=$1 AND l.run_id=$2 AND l.intent_id=$3 ORDER BY r.id FOR UPDATE OF r`,[row.organisation_id,row.run_id,row.id])).rows;
+ if(!reservations.length||reservations.some(r=>!['RELEASE_PENDING','RELEASED'].includes(r.state)||r.attempt_id!==null||r.capacity_class!=='PHYSICAL'||r.pool_id!==row.pool_id))fail('PROVIDER_RESERVATION_UNPROVEN','Original exact linked physical vector must remain release-pending or released');
+ return reservations;
+}
+function rejectedCreateAbsenceBinding(row:Intent):Record<string,unknown>{return{kind:'REJECTED_CREATE_ABSENCE_V1',intent_id:row.id,request_digest:row.request_digest,original_payload_digest:row.payload_digest,configuration_digest:row.configuration_digest,sandbox_id:row.sandbox_id,boot_generation:String(row.boot_generation)};}
+async function readRejectedCreateAbsence(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;reservation_id:string}):Promise<{id:string;digest:string;observed_at:string}|null>{
+ const rows=(await tx.query(`SELECT c.*,o.id AS observation_id,o.evidence_digest,o.observed_at,o.observation FROM hyperfide.provisioning_intent_reservations l JOIN hyperfide.provisioning_intents c ON c.organisation_id=l.organisation_id AND c.run_id=l.run_id AND c.id=l.intent_id JOIN hyperfide.provider_observations o ON o.organisation_id=c.organisation_id AND o.intent_id=c.id WHERE l.organisation_id=$1 AND l.run_id=$2 AND l.reservation_id=$3 AND c.kind='CREATE' AND c.state='REJECTED' AND c.failure_code='OPERATOR_RELEASED' AND c.native_sandbox_id IS NULL AND o.observation->'recovery'->>'kind'='REJECTED_CREATE_ABSENCE_V1' AND o.observation->'operation'->>'kind'='observe' AND o.observation->'outcome'->>'status'='SUCCEEDED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_ACCEPTED' ORDER BY o.observed_at DESC LIMIT 32`,[input.organisation_id,input.run_id,input.reservation_id])).rows;
+ for(const row of rows){try{const quiescence=await rejectedCreateQuiescence(tx,row as Intent);const original=validateProviderOperation(row.operation),proof=row.observation,op=validateProviderOperation(proof.operation);const outcome:ProviderOutcome=proof.outcome;validateProviderOutcome({operation:op,outcome});
+  if(original.kind!=='create'||original.scope.provider!=='blaxel'||original.identity.operation_id!==row.id||original.identity.payload_digest!==row.payload_digest||original.scope.configuration_digest!==row.configuration_digest||digestDocument(proof.recovery)!==digestDocument({...rejectedCreateAbsenceBinding(row as Intent),quiescence})||op.kind!=='observe'||op.identity.correlation_id!==row.id||digestDocument(op.scope)!==digestDocument(original.scope)||op.preparation_digest!==original.preparation_digest||op.resource?.native_sandbox_id!==blaxelCreateName(original,String(row.boot_generation))||op.resource.sandbox_boot_generation!==String(row.boot_generation)||outcome.status!=='SUCCEEDED'||outcome.acceptance!=='CONFIRMED_ACCEPTED'||(outcome.result as {provider_state?:string;health?:string}).provider_state!=='DESTROYED'||(outcome.result as {health?:string}).health!=='ABSENT'||digestDocument(proof)!==row.evidence_digest)continue;
+  return{id:row.observation_id,digest:row.evidence_digest,observed_at:new Date(row.observed_at).toISOString()};
+ }catch{continue;}}
+ return null;
+}
+async function recoverRejectedCreateAbsence(database:ProviderDatabase,config:DeploymentConfig,observed:Intent,signal:AbortSignal):Promise<unknown|null>{
+ if(observed.kind!=='CREATE'||observed.state!=='REJECTED'||observed.failure_code!=='OPERATOR_RELEASED'||observed.native_sandbox_id!==null||observed.operation.scope.provider!=='blaxel')return null;
+ const original=validateProviderOperation(observed.operation) as ProviderOperation<'create'>;
+ if(original.kind!=='create'||original.identity.operation_id!==observed.id||original.identity.payload_digest!==observed.payload_digest||original.scope.configuration_digest!==observed.configuration_digest||original.scope.organisation_id!==config.organisation_id||original.scope.pool_id!==observed.pool_id)fail('PROVIDER_ABSENCE_SCOPE_CHANGED','Recovery requires immutable original CREATE scope');
+ const inspect=async(tx:PrimaryTransaction)=>{assertInvocationRun(database,observed.run_id);await lockRun(tx,{organisation_id:observed.organisation_id,run_id:observed.run_id});await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[observed.organisation_id+':'+observed.pool_id+':resource-admission']);const current=await intent(tx,observed.organisation_id,observed.id,true);if(current.state!=='REJECTED'||current.failure_code!=='OPERATOR_RELEASED'||current.native_sandbox_id!==null||current.request_digest!==observed.request_digest||digestDocument(current.operation)!==digestDocument(original))fail('PROVIDER_ABSENCE_SCOPE_CHANGED','Original rejected CREATE changed');return{current,reservations:await rejectedCreateReservations(tx,current)};};
+ const retained=await transaction(database,async tx=>{const state=await inspect(tx),proof=await readRejectedCreateAbsence(tx,{organisation_id:observed.organisation_id,run_id:observed.run_id,reservation_id:state.reservations[0]!.id});return{...state,proof};});
+ let capture:{operation:ProviderOperation<'observe'>;outcome:ProviderOutcome<'observe'>}|null=null;
+ if(!retained.proof){const op=operation('observe',original.scope,randomUUID(),new Date(Date.now()+config.maximum_operation_ms).toISOString(),{native_sandbox_id:blaxelCreateName(original,String(observed.boot_generation)),sandbox_boot_generation:String(observed.boot_generation)},original.preparation_digest,{},observed.id),adapter=providerAdapter(original.scope,persistenceHooks(database,observed.organisation_id,observed.id),database.runtime) as Partial<BlaxelAdapter>;
+  if(typeof adapter.observeOriginalCreateAbsence!=='function')fail('PROVIDER_ABSENCE_UNSUPPORTED','Trusted original-create absence observation is unavailable');
+  const outcome=await boundedProvider(adapter.observeOriginalCreateAbsence(original,op,signal),signal,op.deadline_at);validateProviderOutcome({operation:op,outcome});capture={operation:op,outcome};
+ }
+ return transaction(database,async tx=>{const {current,reservations}=await inspect(tx);if(capture){const quiescence=await rejectedCreateQuiescence(tx,current),observation={...capture,recovery:{...rejectedCreateAbsenceBinding(current),quiescence}},evidence=digestDocument(observation);await tx.query('INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(organisation_id,intent_id,operation_id,evidence_digest) DO NOTHING',[current.organisation_id,randomUUID(),current.id,capture.operation.identity.operation_id,capture.operation.identity.payload_digest,observation,capture.outcome.observed_at,evidence]);}
+  const proof=await readRejectedCreateAbsence(tx,{organisation_id:current.organisation_id,run_id:current.run_id,reservation_id:reservations[0]!.id});if(!proof)return{intent:current,reconciled:false,external_call_performed:capture!==null,absence_authorized:false};
+  const scheduler=new ResourceScheduler(),unregister=scheduler.registerProofReader('provider.absence',readConfirmedAbsence);try{return{intent:current,reconciled:true,external_call_performed:capture!==null,confirmed_absence_released:true,release:await scheduler.release(tx,{organisation_id:current.organisation_id,run_id:current.run_id,reservation_ids:reservations.map(r=>r.id)})};}finally{unregister();scheduler.close();}
+ });
+}
 export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
   let row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
   const confirmedRelease=await releaseConfirmedDestroyedCapacity(pool,config,row);if(confirmedRelease)return confirmedRelease;
   const rejection=await releaseRejectedCreate(pool,config,row);if(rejection)return rejection;
+  const recovered=await recoverRejectedCreateAbsence(pool,config,row,signal);if(recovered)return recovered;
   if(row.state==='RECORDED'){
     const expired=await expireNeverSubmittedIntent(pool,config,row);
     if(expired)return expired;
@@ -794,7 +841,7 @@ export async function readConfirmedAbsence(tx:PrimaryTransaction,input:{organisa
  assertPrimaryTransaction(tx);uuid(input.organisation_id);uuid(input.run_id);uuid(input.reservation_id);
  const rows=await tx.query("SELECT o.id,o.evidence_digest AS digest,o.observed_at FROM hyperfide.provisioning_intent_reservations l JOIN hyperfide.provisioning_intents c ON c.organisation_id=l.organisation_id AND c.run_id=l.run_id AND c.id=l.intent_id JOIN hyperfide.provisioning_intents oi ON oi.organisation_id=c.organisation_id AND oi.sandbox_id=c.sandbox_id AND oi.boot_generation=c.boot_generation AND oi.native_sandbox_id=c.native_sandbox_id JOIN hyperfide.provider_observations o ON o.organisation_id=oi.organisation_id AND o.intent_id=oi.id WHERE l.organisation_id=$1 AND l.run_id=$2 AND l.reservation_id=$3 AND c.kind='CREATE' AND c.state='TERMINAL' AND oi.state='TERMINAL' AND o.observation->'operation'->>'kind'='observe' AND o.observation->'outcome'->>'status'='SUCCEEDED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_ACCEPTED' AND o.observation->'outcome'->'result'->>'provider_state'='DESTROYED' AND o.observation->'outcome'->'result'->>'health'='ABSENT' AND o.observation->'outcome'->'resource'->>'native_sandbox_id'=c.native_sandbox_id AND o.observation->'outcome'->'resource'->>'sandbox_boot_generation'=c.boot_generation::text ORDER BY o.observed_at DESC LIMIT 1",
   [input.organisation_id,input.run_id,input.reservation_id]);
- const row=rows.rows[0];return row?{id:row.id,digest:row.digest,observed_at:new Date(row.observed_at).toISOString()}:null;
+ const row=rows.rows[0];return row?{id:row.id,digest:row.digest,observed_at:new Date(row.observed_at).toISOString()}:await readRejectedCreateAbsence(tx,input);
 }
 // Operator exits from provider uncertainty (hyperfide-v21 2.1). Orphans and
 // QUARANTINED intents otherwise hold capacity as unknown forever (pools.ts

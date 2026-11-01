@@ -61,14 +61,14 @@ def main():
         f.sql("INSERT INTO hyperfide.provider_pools(organisation_id,id,provider,account_key,environment_key,region,profile_id) VALUES($1,$2,'railway','component-fixture','component-fixture','component-fixture',$3)", [i['organisation'], pool, profile])
         f.sql("INSERT INTO hyperfide.provider_pool_configurations(organisation_id,pool_id,configuration_digest,document) VALUES($1,$2,$3,'{}')", [i['organisation'], pool, config])
 
-        def seed(known, kind='CREATE'):
+        def seed(known, kind='CREATE', create_unknown=False):
             sandbox, intent, observation, reasoning, decision, operation = [uid() for _ in range(6)]
-            native = 'component-known-native-' + kind.lower() if known else None
+            native = 'component-known-native-' + kind.lower() + '-' + sandbox if known else None
             state, failure = ('ACKNOWLEDGED', None) if known else ('REJECTED', 'OPERATOR_RELEASED')
             f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,desired_state,observed_state) VALUES($1,$2,$3,$4,'DESTROYED','DESTROYED')", [i['organisation'], sandbox, pool, native])
             latest = {'status': 'SUCCEEDED', 'acceptance': 'CONFIRMED_ACCEPTED', 'result': {'items': [], 'completeness': 'BEST_EFFORT'}}
             f.sql("INSERT INTO hyperfide.provisioning_intents(organisation_id,run_id,id,pool_id,sandbox_id,configuration_digest,kind,preparation_purpose,profile_id,request_key,request_digest,payload_digest,operation,state,native_sandbox_id,boot_generation,last_outcome,failure_code) VALUES($1,$2,$3,$4,$5,$6,$14,$15,$7,$8,$9,$9,'{}',$10,$11,1,$12,$13)", common + [intent, pool, sandbox, config, profile if kind == 'CREATE' else None, 'component-' + intent, sha(intent.encode()), state, native, json.dumps(latest), failure, kind, 'PREPARATION' if kind == 'CREATE' else None])
-            original = {'operation': {'kind': kind.lower()}, 'outcome': {'status': 'SUCCEEDED' if known else 'UNKNOWN', 'acceptance': 'CONFIRMED_ACCEPTED' if known else 'UNKNOWN'}}
+            original = {'operation': {'kind': kind.lower()}, 'outcome': {'status': 'SUCCEEDED' if known and not create_unknown else 'UNKNOWN', 'acceptance': 'CONFIRMED_ACCEPTED' if known and not create_unknown else 'UNKNOWN'}}
             if known:
                 original['outcome']['resource'] = {'native_sandbox_id': native, 'sandbox_boot_generation': '1'}
             create_id, list_id = uid(), uid()
@@ -91,6 +91,13 @@ def main():
             return {'intent': intent, 'sandbox': sandbox, 'create_id': create_id, 'list_id': list_id, 'reservations': reservations, 'operation_digest': sha(json.dumps(original, sort_keys=True).encode())}
 
         unknown, known, destroyed = seed(False), seed(True), seed(True, 'DESTROY')
+        matched_get, wrong_native_get, wrong_boot_get = [seed(True, create_unknown=True) for _ in range(3)]
+        for entry, mismatch in [(matched_get, None), (wrong_native_get, 'native'), (wrong_boot_get, 'boot')]:
+            physical = f.sql('SELECT native_sandbox_id,boot_generation::text FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 AND id=$3', common + [entry['intent']])[0]
+            body = {'operation': {'kind': 'observe'}, 'outcome': {'status': 'SUCCEEDED', 'acceptance': 'CONFIRMED_ACCEPTED', 'resource': {'native_sandbox_id': physical['native_sandbox_id'] + ('-other' if mismatch == 'native' else ''), 'sandbox_boot_generation': '2' if mismatch == 'boot' else physical['boot_generation']}, 'result': {'provider_state': 'RUNNING'}}}
+            entry['get_id'], entry['get_digest'] = uid(), sha(json.dumps(body, sort_keys=True).encode())
+            f.sql("INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()-interval '90 seconds',$5)", [i['organisation'], entry['get_id'], entry['intent'], uid(), entry['get_digest'], json.dumps(body)])
+
 
         def observe(key):
             return api('fleet.observe', {'binding': bindings[key], 'after': None, 'limit': 100}, key)
@@ -118,9 +125,19 @@ def main():
         assert destroy_row['intent_operation_observation_kind'] == 'destroy' and destroy_row['intent_operation_observation_id'] == destroyed['create_id'] and destroy_row['intent_operation_observation_digest'] == destroyed['operation_digest'], destroy_row
         assert destroy_row['create_observation_id'] is None and destroy_row['create_observation_digest'] is None, destroy_row
         assert destroy_row['latest_observation_kind'] == 'list' and destroy_row['latest_observation_id'] == destroyed['list_id'], destroy_row
+        reconciled = rows[matched_get['intent']]
+        assert reconciled['provider_outcome'] == 'SUCCEEDED' and reconciled['provider_acceptance'] == 'CONFIRMED_ACCEPTED', reconciled
+        assert reconciled['provider_outcome_observation_kind'] == 'observe' and reconciled['provider_outcome_observation_id'] == matched_get['get_id'] and reconciled['provider_outcome_observation_digest'] == matched_get['get_digest'], reconciled
+        assert reconciled['create_observation_id'] == matched_get['create_id'] and reconciled['create_observation_digest'] == matched_get['operation_digest'], reconciled
+        assert reconciled['latest_observation_kind'] == 'list' and reconciled['latest_observation_id'] == matched_get['list_id'], reconciled
+        for rejected_get in [wrong_native_get, wrong_boot_get]:
+            refused = rows[rejected_get['intent']]
+            assert refused['provider_outcome'] == 'UNKNOWN' and refused['provider_acceptance'] == 'UNKNOWN', refused
+            assert refused['provider_outcome_observation_id'] == rejected_get['create_id'] and refused['provider_outcome_observation_kind'] == 'create', refused
+            assert refused['latest_observation_kind'] == 'list' and refused['latest_observation_id'] == rejected_get['list_id'], refused
         assert not {unknown['intent'], known['intent'], destroyed['intent']} & {item['provider_intent_id'] for item in other['provider_intents']}, other['provider_intents']
         assert {unknown['intent'], known['intent'], destroyed['intent']} <= {item['provider_intent_id'] for item in primary['provider_intents']}, primary['provider_intents']
-        print(json.dumps({'status': 'PASS', 'scope': 'isolated PostgreSQL prerequisites and production signed HTTPS fleet.observe projection', 'provider_calls': 0, 'model_inference': 'NOT_CLAIMED', 'native_auth_qualification': 'NOT_CLAIMED', 'observed_unknown': row, 'observed_known': positive, 'observed_destroy': destroy_row, 'checks': ['CREATE uncertainty survives newer accepted empty LIST', 'administrative release preserves actual held capacity', 'unknown native excluded from sandbox candidates', 'manager scope excludes other package while Primary sees both', 'known native CREATE evidence remains ownership positive', 'DESTROY outcome retains original operation provenance beneath newer LIST']}))
+        print(json.dumps({'status': 'PASS', 'scope': 'isolated PostgreSQL prerequisites and production signed HTTPS fleet.observe projection', 'provider_calls': 0, 'model_inference': 'NOT_CLAIMED', 'native_auth_qualification': 'NOT_CLAIMED', 'observed_unknown': row, 'observed_known': positive, 'observed_destroy': destroy_row, 'checks': ['CREATE uncertainty survives newer accepted empty LIST', 'administrative release preserves actual held capacity', 'unknown native excluded from sandbox candidates', 'manager scope excludes other package while Primary sees both', 'known native CREATE evidence remains ownership positive', 'DESTROY outcome retains original operation provenance beneath newer LIST', 'matched accepted healthy GET reconciles original CREATE uncertainty with exact effective provenance', 'wrong-native and wrong-boot GET cannot replace original CREATE uncertainty']}))
     finally:
         f.close()
 

@@ -14,16 +14,16 @@ import {readTrustedAgentFile} from './agents/sessions.js';
 
 type RecordValue=Record<string,any>;
 type ActorReference={session_id:string;credential_file:string;key_file?:string};
-interface Configuration {bootstrap?:{operator_credential_file:string;ttl_seconds:number};schema_version:1;origin:string;ca_file:string;organisation_id:string;run_id:string;cohort_id:string;host_id:string;leader_generation:string;expected_cohort_generation:string;primary:ActorReference;managers:ActorReference[];state_directory:string;poll_interval_ms:number;request_timeout_ms:number}
+interface Configuration {previous_config_file?:string;bootstrap?:{operator_credential_file:string;ttl_seconds:number};schema_version:1;origin:string;ca_file:string;organisation_id:string;run_id:string;cohort_id:string;host_id:string;leader_generation:string;expected_cohort_generation:string;primary:ActorReference;managers:ActorReference[];state_directory:string;poll_interval_ms:number;request_timeout_ms:number}
 interface Actor {session_id:string;role:'PRIMARY'|'WAVE_MANAGER'|'OPERATOR';credential_id:string;authority_epoch:string;key:KeyObject;key_file:string;cohort_generation?:string;expires_at?:string;enrollment_scope?:RecordValue}
 interface Command {actor_id:string;operation_id:string;component?:string;action:string;input:RecordValue}
 interface ActorState {binding:RecordValue;reasoning:RecordValue|null;observed_state:string|null}
-interface SupervisorState {schema_version:1;config_digest:string;cohort_generation:string;leader_generation:string;pending:Command|null;grants:Record<string,{input:RecordValue;grant:RecordValue}>;actors:Record<string,ActorState>}
+interface SupervisorState {schema_version:1;config_digest:string;cohort_generation:string;leader_generation:string;pending:Command|null;configuration_history?:Array<{previous_digest:string;config_digest:string;added_manager_ids:string[];adopted_at:string}>;grants:Record<string,{input:RecordValue;grant:RecordValue}>;actors:Record<string,ActorState>}
 const CONFIG_KEYS=['schema_version','origin','ca_file','organisation_id','run_id','cohort_id','host_id','leader_generation','expected_cohort_generation','primary','managers','state_directory','poll_interval_ms','request_timeout_ms'];
 function absolute(value:unknown):value is string{return typeof value==='string'&&path.isAbsolute(value)&&value!=='/'&&path.resolve(value)===value&&!value.includes('\0');}
 function actorReference(value:unknown):ActorReference{if(!object(value))fail('FLEET_SUPERVISOR_CONFIG','Actor reference required');exact(value,value.key_file===undefined?['session_id','credential_file']:['session_id','credential_file','key_file']);if(!uuid(value.session_id)||!absolute(value.credential_file)||value.key_file!==undefined&&!absolute(value.key_file))fail('FLEET_SUPERVISOR_CONFIG','Current actor identity and private credential reference required');return value as unknown as ActorReference;}
 export async function readFleetSupervisorConfig(filename:string):Promise<Configuration>{
- const value=strictJSON(await readProtectedFile(filename,65536,true));if(!object(value))fail('FLEET_SUPERVISOR_CONFIG','Versioned supervisor configuration required');exact(value,value.bootstrap===undefined?CONFIG_KEYS:[...CONFIG_KEYS,'bootstrap']);
+ const value=strictJSON(await readProtectedFile(filename,65536,true));if(!object(value))fail('FLEET_SUPERVISOR_CONFIG','Versioned supervisor configuration required');exact(value,[...CONFIG_KEYS,...(value.bootstrap===undefined?[]:['bootstrap']),...(value.previous_config_file===undefined?[]:['previous_config_file'])]);if(value.previous_config_file!==undefined&&!absolute(value.previous_config_file))fail('FLEET_SUPERVISOR_CONFIG','Protected absolute previous configuration reference required');
  if(value.schema_version!==1||!uuid(value.organisation_id)||!uuid(value.run_id)||!uuid(value.cohort_id)||!decimal(value.leader_generation)||!decimal(value.expected_cohort_generation)||typeof value.host_id!=='string'||!value.host_id||value.host_id.length>256||!absolute(value.ca_file)||!absolute(value.state_directory))fail('FLEET_SUPERVISOR_CONFIG','Versioned run/cohort identity and absolute private paths required');
  if(typeof value.origin!=='string')fail('FLEET_SUPERVISOR_CONFIG','Fixed HTTPS coordinator origin required');canonicalOrigin(value.origin);
  if(!Number.isSafeInteger(value.poll_interval_ms)||Number(value.poll_interval_ms)<1000||Number(value.poll_interval_ms)>60000||!Number.isSafeInteger(value.request_timeout_ms)||Number(value.request_timeout_ms)<1000||Number(value.request_timeout_ms)>120000)fail('FLEET_SUPERVISOR_CONFIG','Bounded observation and request deadlines required');
@@ -116,8 +116,17 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
  const ca=await readTrustedAgentFile(config.ca_file,65536),release=await acquireLock(config.state_directory),stateFile=path.join(config.state_directory,'state.json'),configDigest=hash(canonical(config));
  try{
   let state:SupervisorState;
-  try{state=strictJSON(await readProtectedFile(stateFile,1048576,true)) as SupervisorState;if(!object(state)||state.schema_version!==1||state.config_digest!==configDigest||!decimal(state.cohort_generation)||!object(state.actors))fail('FLEET_SUPERVISOR_STATE','Retained state belongs to a different configured cohort');}
+  try{state=strictJSON(await readProtectedFile(stateFile,1048576,true)) as SupervisorState;if(!object(state)||state.schema_version!==1||!decimal(state.cohort_generation)||!object(state.actors))fail('FLEET_SUPERVISOR_STATE','Retained state belongs to a different configured cohort');}
   catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;state={schema_version:1,config_digest:configDigest,cohort_generation:config.expected_cohort_generation,leader_generation:config.leader_generation,pending:null,grants:{},actors:{}};}
+  let rosterTransition:{previous_digest:string;config_digest:string;added_manager_ids:string[]}|null=null;
+  if(state.config_digest!==configDigest){
+   if(!config.previous_config_file)fail('FLEET_SUPERVISOR_STATE','Changed manager roster requires its protected previous configuration');
+   const previous=await readFleetSupervisorConfig(config.previous_config_file);
+   const previousBase:RecordValue={...previous,managers:[]},nextBase:RecordValue={...config,managers:[]};delete previousBase.previous_config_file;delete nextBase.previous_config_file;
+   if(hash(canonical(previous))!==state.config_digest||canonical(previousBase)!==canonical(nextBase)||config.managers.length<=previous.managers.length||previous.managers.some((manager,index)=>canonical(manager)!==canonical(config.managers[index])))fail('FLEET_SUPERVISOR_STATE','Only additive manager references may extend the retained exact configuration');
+   if(state.configuration_history!==undefined&&!Array.isArray(state.configuration_history))fail('FLEET_SUPERVISOR_STATE','Retained configuration history is invalid');
+   rosterTransition={previous_digest:state.config_digest,config_digest:configDigest,added_manager_ids:config.managers.slice(previous.managers.length).map(manager=>manager.session_id)};
+  }
   state.grants??={};state.leader_generation??=config.leader_generation;config.leader_generation=state.leader_generation;
   const persist=()=>writeState(stateFile,state);
   const call=async(actor:Actor,action:string,input:RecordValue,component='fleet-orchestration',operation_id?:string):Promise<RecordValue>=>{
@@ -147,6 +156,7 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
    const actor=await loadActor(reference,role,config);actors.set(actor.session_id,actor);delete state.grants[reference.session_id];await persist();return actor;
   };
   if(state.pending){const pending=state.pending,owner=actors.get(pending.actor_id);if(!owner)fail('FLEET_SUPERVISOR_IDENTITY','Pending actor credentials are unavailable');const recovered=await call(owner,pending.action,pending.input,pending.component??'fleet-orchestration');if(pending.action==='fleet.cohort.bind')state.cohort_generation=String(recovered.cohort_generation);await persist();event('reconciled',owner.session_id,{operation_id:pending.operation_id});}
+  if(rosterTransition){state.configuration_history??=[];state.configuration_history.push({...rosterTransition,adopted_at:new Date().toISOString()});state.config_digest=configDigest;await persist();event('manager_roster_extended',null,rosterTransition);}
   const staleSupervisor=(error:unknown):error is SupervisorRpcError=>error instanceof SupervisorRpcError&&!error.uncertain&&['FLEET_COHORT_STALE','FLEET_SUPERVISOR_STALE','FLEET_SUPERVISOR_UNAVAILABLE','FLEET_BOOTSTRAP_CONTROLLER_STALE','FLEET_BOOTSTRAP_HOST_STALE','FLEET_BOOTSTRAP_COHORT_STALE'].includes(error.code);
   let primary=actors.get(config.primary.session_id),restore=Boolean(primary&&state.actors[config.primary.session_id]);
   // Retained authority is observed before renewal: a new control host requires

@@ -253,6 +253,7 @@ function outcome<K extends ProviderMethod>(op:ProviderOperation<K>,status:'SUCCE
  validateProviderOutcome({operation:op,outcome:o});return o as ProviderOutcome<K>;
 }
 export interface BlaxelAdapter extends ProviderAdapter{
+ observeOriginalCreateAbsence(original:ProviderOperation<'create'>,observation:ProviderOperation<'observe'>,signal:AbortSignal):Promise<ProviderOutcome<'observe'>>;
  readCapturedOutput(scope:ProviderScope,resource:ResourceRef,processRef:string,maxBytes:number):Promise<CapturedBlaxelOutput>;
 }
 export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceHooks,deps:Partial<BlaxelTrustedDependencies>,ctx:ComponentContext):BlaxelAdapter{
@@ -298,7 +299,16 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
   if(control.signal.aborted||Date.now()>=control.deadline)fail('BLAXEL_CAPTURE_UNAVAILABLE','Capture deadline expired before verified evidence was released');
   return verified;
  };
- const adapter:Partial<BlaxelAdapter>={provider:'blaxel',readCapturedOutput:capture};
+ const adapter:Partial<BlaxelAdapter>={provider:'blaxel',readCapturedOutput:capture,
+  async observeOriginalCreateAbsence(raw,observation,signal){
+   const original=requireOperation(raw,'create',scope) as ProviderOperation<'create'>,op=requireOperation(observation,'observe',scope) as ProviderOperation<'observe'>;
+   if(op.identity.correlation_id!==original.identity.operation_id||op.preparation_digest!==original.preparation_digest||!op.resource||op.resource.native_sandbox_id!==blaxelCreateName(original,op.resource.sandbox_boot_generation))fail('BLAXEL_CREATE_CONFLICT','Absence recovery must bind the original deterministic create identity');
+   try{const actual=await knownBlaxelMetadata(await sdk(),op.resource.native_sandbox_id,signal,Date.parse(op.deadline_at));
+    if(!actual)return outcome(op,'SUCCEEDED',{provider_state:'DESTROYED',health:'ABSENT'});
+    // A present resource never releases an unidentified CREATE hold or grants ownership.
+    return outcome(op,'UNKNOWN',null);
+   }catch{return outcome(op,'UNKNOWN',null);}
+  }};
  for(const kind of PROVIDER_METHODS)(adapter as Obj)[kind]=async(raw:unknown,parent=ctx.signal)=>{
   const op=requireOperation(raw,kind,scope);activeOperation=op;activeSignal=parent;let attempted=false,known:ResourceRef|null=op.resource,phase='PREFLIGHT';
   if(parent.aborted||Date.parse(op.deadline_at)<=Date.now())return outcome(op,'UNKNOWN',null);
