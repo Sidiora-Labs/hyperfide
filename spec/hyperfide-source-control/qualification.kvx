@@ -209,3 +209,13 @@ log = "build/fleet/transfer-gate-receipt.json; build/fleet/transfer-native-gate.
 observed = "Seventy-four native assertions and 15 transfer-contract assertions passed. Actual recipe SIGKILL produced signed FAILED/quiescence evidence; normal recovery issued a distinct execution and completed native readiness. Operation-bound measured transfer matched the signed native/install chain and refused five altered transfer closures. The same run checked retained stage evidence and predecessor/recovery lineage."
 compatibility = "Checksum verification found all eight transfer modules byte-identical between the isolated tested closure and the final full build. The original receipt retains its overlay inputs and native binary pin; other component gates retain their own tested snapshots."
 scope = "Controlled SDK with actual native execution and signed installation recovery. Transfer counters distinguish measured application-layer responses from inline/cache/local writes; dependency-network transfer remains unmeasured."
+
+[progress.fleet_expired_preinstall_cleanup]
+revision = "control-source sha256:a520c04fb6ccbe7b1866adde242cdb5e71e4a925579762cb88b2ba48621b849a"
+dist_digest = "sha256:0c0006ad0945e1f439f71b0292450cd669895403b852cf4cb8d59acf6e70f812"
+migration_catalog_count = 69
+command = "fleet_expired_preinstall_cleanup.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-expired-preinstall-cleanup-owned-full-vector.log"
+observed = "The signed manager DESTROY gate passed five exact negative refusals and four grouped cleanup checks. SDK 503 and present-resource responses retained all counters. Actual provider 404 released four physical dimensions and the exact logical PREPARATION/CPU/MEMORY/DISK vector once, retired the actual worker slot and advanced session versions. Immutable delivery/audit lineage and replay remained stable."
+scope = "Actual PostgreSQL, signed manager API and controlled SDK HTTP boundary with declared prior READY and mechanical preparation metadata."

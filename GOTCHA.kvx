@@ -109,3 +109,10 @@ cause = "Inline payload bytes, cache activity, local writes and provider respons
 resolution = "Bind actual application-layer response counters to the native execution and install receipt; record source/cache/local activity separately and leave unmeasured dependency-network transfer explicit."
 evidence = "transfer-gate-receipt.json records 74 native assertions, 15 transfer-contract assertions and actual signed interrupted-install execution with five altered transfer closures refused."
 status = "resolved"
+
+[gotcha.fleet_expired_preinstall_cleanup]
+symptom = "Expired unbound preparation allocations can retain sessions, worker slots and capacity after a manager selects sandbox destruction."
+cause = "Preinstall allocation cleanup and provider absence release cover distinct logical and physical capacity vectors."
+resolution = "Admit exact scoped cleanup, retain immutable delivery and audit lineage, and hold both capacity vectors until trusted provider absence. Retire the actual slot and advance session state once; replay preserves the existing result."
+evidence = "fleet-expired-preinstall-cleanup-owned-full-vector.log passes five negative refusals and signed DESTROY application. SDK 503 and present-resource observations preserve counters; actual 404 releases four physical and four logical dimensions once."
+status = "resolved"

@@ -1,3 +1,4 @@
+import {abandonExpiredPreinstall,readAbandonedPreinstallProof} from '../preparation/preinstall_cleanup.js';
 import {foreignInventoryPolicy} from './foreign_inventory.js';
 import {createProviderDaemonRecovery} from './bootstrap_daemon_recovery.js';
 import {createBlaxelDaemonRecoveryTransport} from './blaxel/bootstrap_daemon_recovery.js';
@@ -130,6 +131,8 @@ export async function destructionPreflight(tx:PrimaryTransaction,pool:ProviderDa
  let proof:ProviderDestructionProof|null;
  if(pool.runtime.destructionPreflight)proof=await pool.runtime.destructionPreflight(tx,input);
  else{
+  const abandoned=await readAbandonedPreinstallProof(tx,input);
+  if(abandoned)return {evidence_digest:digestDocument(abandoned),observed_at:new Date().toISOString()};
   const rows=await tx.query("SELECT s.state_version,s.work_admitted,EXISTS(SELECT 1 FROM hyperfide.workspaces w WHERE w.organisation_id=s.organisation_id AND w.sandbox_id=s.id AND w.sandbox_boot_generation=$3) OR EXISTS(SELECT 1 FROM hyperfide.attempts a WHERE a.organisation_id=s.organisation_id AND a.sandbox_id=s.id AND a.sandbox_boot_generation=$3) OR EXISTS(SELECT 1 FROM hyperfide.agent_sessions a WHERE a.organisation_id=s.organisation_id AND a.sandbox_id=s.id AND a.sandbox_boot_generation=$3) OR EXISTS(SELECT 1 FROM hyperfide.provider_remote_operations p WHERE p.organisation_id=s.organisation_id AND p.sandbox_id=s.id AND p.boot_generation=$3) AS worked FROM hyperfide.sandboxes s WHERE s.organisation_id=$1 AND s.id=$2 AND s.boot_generation=$3 FOR UPDATE OF s",[input.organisation_id,input.sandbox_id,input.boot_generation]);
   const row=rows.rows[0];
   proof=row&&!row.work_admitted&&!row.worked?{evidence_digest:digestDocument({kind:'NEVER_ADMITTED_BOOT',input,state_version:String(row.state_version)}),observed_at:new Date().toISOString()}:null;
@@ -147,6 +150,7 @@ export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabas
   const input=obj(value,['run_id','pool_id','sandbox_id','request_key','deadline_at','reason']);
   const run=uuid(input.run_id),poolId=uuid(input.pool_id),sandbox=uuid(input.sandbox_id),key=str(input.request_key,256),requestDigest=digestDocument(input);assertInvocationRun(pool,run);
   return (async()=>{
+    await lockRun(c,{organisation_id:config.organisation_id,run_id:run},'exclusive');
     const prior=await c.query('SELECT * FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2 AND request_key=$3 FOR UPDATE',[config.organisation_id,run,key]);
     if(prior.rows.length){if(prior.rows[0]!.request_digest!==requestDigest)fail('IDEMPOTENCY_CONFLICT','Provisioning key was reused');return{created:false,intent:prior.rows[0]};}
     const {scope}=await currentPool(c,config,poolId);
@@ -160,6 +164,7 @@ export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabas
        AND o.observation->'outcome'->'resource'->>'native_sandbox_id'=$5 AND o.observation->'outcome'->'resource'->>'sandbox_boot_generation'=($4::bigint)::text LIMIT 1`,[config.organisation_id,run,sandbox,s.boot_generation,s.native_sandbox_id])).rows[0];
       if(absent)fail('RESOURCE_OWNERSHIP_UNKNOWN','Resource absence is already confirmed for this boot');
     }
+    await abandonExpiredPreinstall(c,{organisation_id:config.organisation_id,run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation)});
     await noActiveWork(c,config.organisation_id,sandbox);
     const id=randomUUID();await destructionPreflight(c,pool,{organisation_id:config.organisation_id,run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation),operation_id:id});
     const op=operation('destroy',scope,id,deadline(input.deadline_at,config.maximum_operation_ms),
@@ -506,8 +511,10 @@ async function releaseConfirmedDestroyedCapacity(pool:ProviderDatabase,config:De
    WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.sandbox_id=$3 AND c.boot_generation=$4 AND c.native_sandbox_id=$5 AND c.kind='CREATE' AND c.state='TERMINAL' ORDER BY r.id FOR UPDATE OF r`,[config.organisation_id,current.run_id,current.sandbox_id,current.boot_generation,current.native_sandbox_id])).rows;
   if(!reservations.length)return null;
   if(new Set(reservations.map(r=>r.create_intent_id)).size!==1||reservations.some(r=>!['RELEASE_PENDING','RELEASED'].includes(r.state)||r.attempt_id!==null||r.capacity_class!=='PHYSICAL'||r.pool_id!==current.pool_id))fail('PROVIDER_RESERVATION_UNPROVEN','Confirmed destroy must bind the exact original physical reservation vector');
-  const scheduler=new ResourceScheduler(),unregister=scheduler.registerProofReader('provider.absence',readConfirmedAbsence);
-  try{return {intent:current,external_call_performed:false,confirmed_absence_released:true,release:await scheduler.release(tx,{organisation_id:config.organisation_id,run_id:current.run_id,reservation_ids:reservations.map(r=>r.id)})};}
+  const abandoned=await readAbandonedPreinstallProof(tx,{organisation_id:config.organisation_id,run_id:current.run_id,sandbox_id:current.sandbox_id,boot_generation:String(current.boot_generation)});
+  const abandonedIds=new Set<string>(abandoned?abandoned.reservations.map((r:Record<string,any>)=>r.id):[]),ids=[...new Set([...reservations.map(r=>String(r.id)),...abandonedIds])];
+  const scheduler=new ResourceScheduler(),unregister=scheduler.registerProofReader('provider.absence',async(t,request)=>abandonedIds.has(request.reservation_id)?readConfirmedAbsence(t,{...request,reservation_id:reservations[0]!.id}):readConfirmedAbsence(t,request));
+  try{return {intent:current,external_call_performed:false,confirmed_absence_released:true,release:await scheduler.release(tx,{organisation_id:config.organisation_id,run_id:current.run_id,reservation_ids:ids})};}
   finally{unregister();scheduler.close();}
  });
 }
