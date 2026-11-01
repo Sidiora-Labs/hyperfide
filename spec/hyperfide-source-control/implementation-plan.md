@@ -459,7 +459,7 @@ Status: **in_progress**. Owner: `fleet-prerequisite`. Dependencies: 0.12.
 Proposed implementation scope:
 
 - `core/control-plane/src/scheduler/`
-- `core/control-plane/src/provision/`
+- `core/control-plane/src/providers/`
 - `core/control-plane/src/runner/`
 - `plugins/hyperfide-dispatch/`
 - `core/host-daemon/src/fleet-worker.ts`
