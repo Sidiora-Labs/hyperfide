@@ -579,6 +579,7 @@ int hf_component_12_1(const char *action,const char *request,FILE *out) {
     if (!hf_json_parse(json,request)) {free(json);return hf_native_error(out,"INVALID_JSON");}
     int result=1;
     if (!strcmp(action,"supervisor.bootstrap.test")||!strcmp(action,"supervisor.bootstrap.test.stage")) {free(json);return !strcmp(action,"supervisor.bootstrap.test")?hf_supervisor_bootstrap_test(request,out):hf_supervisor_bootstrap_test_stage(request,out);}
+    if (!strcmp(action,"supervisor.daemon.recover")) {free(json);return hf_supervisor_daemon_recover(request,out);}
     if (!strcmp(action,"supervisor.bootstrap.activate")) {free(json);return hf_supervisor_bootstrap_activate(request,out);}
     if (!strcmp(action,"supervisor.bootstrap")||!strcmp(action,"supervisor.bootstrap.stage")) {free(json);return !strcmp(action,"supervisor.bootstrap")?hf_supervisor_bootstrap(request,out):hf_supervisor_bootstrap_stage(request,out);}
     if (!strcmp(action,"supervisor.serve")) {free(json);return hf_supervisor_daemon(request,out);}

@@ -75,6 +75,11 @@ async function admissionTimes(tx:PrimaryTransaction,scope:SchedulerScope,target:
  }
  return result;
 }
+export async function assertNoDaemonRecovery(tx:PrimaryTransaction,scope:SchedulerScope,sandboxId:string):Promise<void>{
+ assertPrimaryTransaction(tx);uuid(sandboxId,'sandbox_id');await lockRun(tx,scope);
+ const pending=await tx.query("SELECT c.id FROM hyperfide.command_inbox c JOIN hyperfide.sandboxes s ON s.organisation_id=c.organisation_id AND s.id=$3::uuid JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.operation='provider.bootstrap.daemon-recovery' AND c.state='PENDING' AND c.result->'request'->'binding'->>'sandbox_id'=s.id::text AND c.result->'request'->'binding'->>'boot_id'=b.boot_id::text AND c.result->'request'->'binding'->>'boot_generation'=s.boot_generation::text LIMIT 1",[scope.organisation_id,scope.run_id,sandboxId]);
+ if(pending.rows.length)fail('SANDBOX_DAEMON_RECOVERY_PENDING','New sandbox work is fenced until the retained daemon recovery reconciles');
+}
 export async function assertNoExecutionHold(tx:PrimaryTransaction,scope:SchedulerScope,target:ExecutionTarget):Promise<void>{
  assertPrimaryTransaction(tx);
  fields(target,['operation'],['package_id','attempt_id','sandbox_id','resource_allocation_id','qualification_job_id','publication_operation_id']);
@@ -82,6 +87,7 @@ export async function assertNoExecutionHold(tx:PrimaryTransaction,scope:Schedule
  for(const key of ['package_id','attempt_id','sandbox_id','resource_allocation_id','qualification_job_id','publication_operation_id'] as const)if(target[key]!==undefined)uuid(target[key],key);
  if(target.operation==='CLEANUP')return;
  await lockRun(tx,scope);
+ if(target.operation==='ADMISSION'&&target.sandbox_id)await assertNoDaemonRecovery(tx,scope,target.sandbox_id);
  const currentRun=await tx.query<{state:string}>('SELECT state FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[scope.organisation_id,scope.run_id]);
  const rows=await tx.query<{scope_kind:string;declared_mode:ExecutionMode;mode:ExecutionMode;effective_at:string|null}>(
   "SELECT c.scope_kind,c.mode AS declared_mode,CASE WHEN c.mode='DRAIN' AND c.deadline_at<=clock_timestamp() THEN c.fallback_mode ELSE c.mode END AS mode,h.created_at::text AS effective_at FROM hyperfide.execution_controls c LEFT JOIN hyperfide.execution_control_history h ON h.organisation_id=c.organisation_id AND h.run_id=c.run_id AND h.control_id=c.id AND h.generation=c.generation WHERE c.organisation_id=$1 AND c.run_id=$2 AND "+
@@ -597,6 +603,7 @@ export async function bindJobReservation(tx:PrimaryTransaction,input:SchedulerSc
    fail('IDEMPOTENCY_CONFLICT','Job resource request already has a different executor binding');
   return readJobAllocation(tx,input);
  }
+ await assertNoDaemonRecovery(tx,input,input.sandbox_id);
  const slot=await tx.query<{state:string;capacity_kind:string;pool_id:string;observed_state:string;boot_generation:string}>(
  'SELECT w.state,w.capacity_kind,s.pool_id,s.observed_state,s.boot_generation FROM hyperfide.worker_slots w JOIN hyperfide.sandboxes s ON s.organisation_id=w.organisation_id AND s.id=w.sandbox_id WHERE w.organisation_id=$1 AND w.id=$2 AND w.sandbox_id=$3 AND w.boot_generation=$4 FOR UPDATE OF w',
  [input.organisation_id,input.slot_id,input.sandbox_id,input.sandbox_boot_generation]);

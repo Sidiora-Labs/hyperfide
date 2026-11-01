@@ -14,7 +14,7 @@ import {readRuntimeReadiness} from '../providers/pools.js';
 import {readFleetRuntimeReadiness} from '../preparation/fleet_readiness.js';
 import {isArtifactStoreCapability} from '../artifacts/objects.js';
 import type {ArtifactStoreCapability} from '../artifacts/objects.js';
-import {assertSandboxReservation} from '../scheduler/claim.js';
+import {assertSandboxReservation,assertNoDaemonRecovery} from '../scheduler/claim.js';
 import {RUNNER_HEARTBEAT_MAX_AGE_SECONDS} from '../providers/placement.js';
 import {readPreparationReceipt,recordPreparationReceipt,verifyPreparationReceipt} from './preparation_receipts.js';
 import type {PreparationReceiptPlan,VerifiedPreparationReceipt} from './preparation_receipts.js';
@@ -558,6 +558,7 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
     const permit=Object.freeze({}) as RunnerRemotePermit;permits.set(permit,{context:ctx,plan,binding:prior.plan.binding as Binding,principal:p,invocation:i,digest:prior.plan_digest});return permit;
    }
    const r=await readRunnerBinding(tx,{organisation_id:p.organisation_id,run_id:p.run_id,session_id:plan.session_id});await readRunnerReadiness(tx,r);
+   await assertNoDaemonRecovery(tx,{organisation_id:p.organisation_id,run_id:p.run_id},r.sandbox_id);
    if(r.repository_id!==plan.repository_id||r.source_digest!==plan.source_digest)fail('REMOTE_SOURCE_MISMATCH','Registered actual source/repository differs');
    const allocation=await resources.readJobAllocation(tx,{organisation_id:p.organisation_id,run_id:p.run_id,reservation_id:plan.reservation_id});
    if(!allocation||allocation.slot_id!==r.slot_id||allocation.sandbox_id!==r.sandbox_id||String(allocation.sandbox_boot_generation)!==r.boot_generation||allocation.assignee_session_id!==p.actor_id)fail('REMOTE_JOB_ASSIGNMENT_MISMATCH','Actual dedicated reservation/slot/assignee binding required');
@@ -644,6 +645,7 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    validatePlan(plan);
    const prior=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[p.organisation_id,p.run_id,plan.operation_id])).rows[0];
    if(prior){if(prior.job_class!=='PREPARATION'||runnerCanonical(prior.plan.request)!==runnerCanonical(plan)||prior.principal.actor_id!==p.actor_id||prior.authority_epoch!==p.deployment_epoch)fail('REMOTE_OPERATION_CONFLICT','Preparation identity or exact inputs changed');const permit=Object.freeze({}) as RunnerRemotePermit;permits.set(permit,{context:ctx,plan,binding:prior.plan.binding as Binding,principal:p,invocation:i,digest:prior.plan_digest});return permit;}
+   await assertNoDaemonRecovery(tx,{organisation_id:p.organisation_id,run_id:p.run_id},r.sandbox_id);
    const reservation=(await tx.query("SELECT expires_at,clock_timestamp() AS db_now FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='ALLOCATED' FOR SHARE",[p.organisation_id,p.run_id,request.reservation_id])).rows[0];if(!reservation||new Date(reservation.expires_at).getTime()<=new Date(reservation.db_now).getTime())fail('REMOTE_RESERVATION_EXPIRED','Current preparation reservation required');
    const binding=Object.fromEntries(['organisation_id','run_id','session_id','credential_id','sandbox_id','boot_id','boot_generation','slot_id','slot_generation','repository_id','launch_id','state_dir','runner_binary','runner_binary_digest','workspace_path','home_path','tmp_path','boot_preparation_digest','preparation_digest','preparation_recipes','preparation_policy_digest','uid','gid','provider','pool_id','external_sandbox_id'].map(k=>[k,r[k]])),pins=Object.fromEntries(['allocation_id','request_id','task_id','job_kind','reservation_id','slot_id','sandbox_id','sandbox_boot_generation','assignee_session_id','generation'].map(k=>[k,allocation[k]]));
    const packet={job_class:'PREPARATION',preparation_request:structuredClone(request),request:plan,binding,allocation:pins,...(Object.keys(env_refs).length?{env_refs:{...env_refs},...(request.env_ref_versions?{env_ref_versions:{...request.env_ref_versions}}:{})}:{})},pin=hash(runnerCanonical(packet));

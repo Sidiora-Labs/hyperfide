@@ -33,6 +33,13 @@ resolution = "Request and reject error diagnostics before using isolated emitted
 evidence = "The manager replacement fixture emitted a working supervisor despite an extra closing parenthesis rejected by the project compiler as TS1005. The fixture now rejects transpile diagnostics."
 status = "resolved"
 
+[gotcha.fleet_transient_http_status]
+symptom = "The native heartbeat observer exits on a temporary database failure while retaining its pending operation."
+cause = "Thrown database errors were mapped to HTTP 400, while component errors wrapped by handleRequest were returned with HTTP 200. Both paths bypass the observer's retry handling for temporary failures."
+resolution = "Map temporary database failures to HTTP 503 for both thrown and returned error envelopes, preserving the original operation and error code."
+evidence = "The signed TLS/PostgreSQL transport_http_status.py regression reproduces both failures on the prior checkpoint and passes 16 cases on control source c95244c1461b24341c759c81a2326d00171ea96e31c98884e3267d51ca4cafb3."
+status = "resolved"
+
 [gotcha.bootstrap_registration_row_lock]
 symptom = "Native enrollment and runner inventory succeed, but preparation registration fails with SQLSTATE 42501."
 cause = "The control role can read provider_native_bootstraps but lacks the UPDATE privilege PostgreSQL requires for SELECT FOR SHARE."

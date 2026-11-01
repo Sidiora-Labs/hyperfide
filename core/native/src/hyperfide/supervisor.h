@@ -84,6 +84,7 @@ int hf_budget_observe(const HfBudgetHandle *,FILE *);
 int hf_budget_release(HfBudgetHandle *);
 int hf_supervisor_daemon(const char *request,FILE *out);
 const char *hf_supervisor_daemon_failure_code(void);
+int hf_supervisor_daemon_recover(const char *request,FILE *out);
 int hf_supervisor_bootstrap(const char *request,FILE *out);
 int hf_supervisor_bootstrap_stage(const char *request,FILE *out);
 int hf_supervisor_bootstrap_activate(const char *request,FILE *out);
