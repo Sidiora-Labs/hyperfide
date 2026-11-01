@@ -26,6 +26,35 @@ def closed(f,path,database):
  absent=f.sql('SELECT count(*)::int AS n FROM pg_database WHERE datname=$1',[database],admin=True)[0]['n']==0
  CLEANED.append(absent and not path.exists() and f.child is None);expect(CLEANED[-1],'fixture cleanup incomplete')
 
+def runner_wrapper_checks():
+ def setup(f):
+  path=f.path/'placement.json';path.write_text(json.dumps(profile_for(f)));f.env['HF_PLACEMENT_POLICY_FILE']=str(path)
+  f.env['HF_EXECUTION_HOST_BINDING']=binding('main','3')
+ f=IdentityFixture(extra_components=('6.1','1.1'),extra_setup=setup)
+ path=f.path;database=f.database
+ try:
+  expect(f.bind()[1].get('ok') is True,'Actual provider binding refused')
+  issued=f.issue(actions=['placement.runner.authorize'])[1];expect(issued.get('ok') is True,str(issued))
+  enrolled=f.request(f.enrollment(),key='runner',endpoint='/v1/enroll',credential=f.grant)[1];expect(enrolled.get('ok') is True,str(enrolled));credential=enrolled['result']['credential_id']
+  principal=f.sql('SELECT allowed_actions,sandbox_id,boot_id,run_id FROM hyperfide.identity_principals WHERE credential_id=$1',[credential])[0]
+  expect(principal['allowed_actions']==['placement.runner.authorize'] and principal['sandbox_id']==f.ids['sandbox'] and principal['boot_id']==f.ids['boot'] and principal['run_id']==f.ids['run'],'Actual enrolled scope differs')
+  def call(action,value):return f.invoke(action,value,component='1.1',key='runner',credential=credential)[1]
+  answer=call('placement.runner.authorize',{'runner_action':'runner.agent.launch'});expect(answer.get('ok') is True,'Wrapper-only grant refused: '+str(answer))
+  result=answer['result'];expect(result['runner_action']=='runner.agent.launch' and result['job_class']=='implementation' and result['tool']=='native.spawn' and result['location']=='REMOTE_EXECUTION' and result['host_id']==f.ids['sandbox'] and result['boot_generation']=='1','Registered placement or sandbox binding differs')
+  expect(result['authority']=='PLACEMENT_ONLY' and result['execution_started'] is False and result['capacity_reserved'] is False,'Placement invented execution or capacity')
+  generic=call('placement.authorize',{'job_class':'implementation','tool':'native.spawn'});expect(generic.get('ok') is False and generic['error']['code']=='AUTH_SCOPE_DENIED','Wrapper grant expanded to generic action')
+  unknown=call('placement.runner.authorize',{'runner_action':'runner.unregistered'});expect(unknown.get('ok') is False and unknown['error']['code']=='PLACEMENT_DENIED','Unregistered tool admitted')
+  spoof=call('placement.runner.authorize',{'runner_action':'runner.agent.launch','sandbox_id':fresh_uuid()});expect(spoof.get('ok') is False,'Caller overrode authenticated sandbox')
+  f.sql("UPDATE hyperfide.runs SET state='PAUSED',state_version=state_version+1 WHERE id=$1",[f.ids['run']])
+  paused=call('placement.runner.authorize',{'runner_action':'runner.agent.launch'});expect(paused.get('ok') is False and paused['error']['code']=='AUTH_RUN_CLOSED','Closed run admitted placement')
+  f.sql("UPDATE hyperfide.runs SET state='RUNNING',state_version=state_version+1 WHERE id=$1",[f.ids['run']])
+  f.sql('UPDATE hyperfide.sandboxes SET boot_generation=boot_generation+1,state_version=state_version+1 WHERE id=$1',[f.ids['sandbox']])
+  stale=call('placement.runner.authorize',{'runner_action':'runner.agent.launch'});expect(stale.get('ok') is False,'Obsolete runner boot admitted placement')
+ finally:f.close();closed(f,path,database)
+check('placement.runner-wrapper.scoped-grant',runner_wrapper_checks)
+if sys.argv[1:]==['--runner-wrapper']:
+ print(json.dumps({'type':'cleanup','complete':len(CLEANED)==1 and all(CLEANED),'resources':[]}));raise SystemExit(bool(FAILED))
+
 # Dry-run placement decisions through the registered component behind production signed HTTPS (14.1 is loaded, so
 # stdio dispatch would be AUTH_REQUIRED). Host bindings are trusted startup configuration: each variant restarts the service.
 def static_checks():
@@ -321,5 +350,5 @@ def supervisor_checks():
   f.close();closed(f,path,database)
 check('placement.supervisor.integration',supervisor_checks)
 
-print(json.dumps({'type':'cleanup','complete':len(CLEANED)==3 and all(CLEANED),'resources':[]}),flush=True)
+print(json.dumps({'type':'cleanup','complete':len(CLEANED)==4 and all(CLEANED),'resources':[]}),flush=True)
 raise SystemExit(bool(FAILED))

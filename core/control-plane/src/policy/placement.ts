@@ -143,6 +143,7 @@ export interface SupervisorAuthorization extends PlacementAuthorization {supervi
 export interface PlacementAuthority {
   authorizeSupervisor(tx:PrimaryTransaction,invocation:PlacementInvocation,input:SupervisorSessionInput):Promise<SupervisorAuthorization>;
   authorize(tx:PrimaryTransaction,invocation:PlacementInvocation,input:{job_class:JobClass;tool:MainTool}):Promise<PlacementAuthorization>;
+  authorizeRunner(tx:PrimaryTransaction,invocation:PlacementInvocation,action:unknown):Promise<PlacementAuthorization>;
   admitRemote(tx:PrimaryTransaction,invocation:PlacementInvocation,input:RemoteDestinationInput):Promise<PlacementAuthorization>;
 }
 function scopedUUID(value:unknown):string {
@@ -219,11 +220,10 @@ function placementAuthority(context:ComponentContext):PlacementAuthority {
     ...enforcePlacement(profile,host,input.job_class,input.tool),authorized:true,authority:'PLACEMENT_ONLY',tool:input.tool,
     boot_generation:host.boot_generation,execution_started:false,capacity_reserved:false
   });
-  return Object.freeze({
-    authorize:async(tx:PrimaryTransaction,invocation:PlacementInvocation,input:{job_class:JobClass;tool:MainTool})=>{
+  const authorize=async(tx:PrimaryTransaction,invocation:PlacementInvocation,input:{job_class:JobClass;tool:MainTool},action:'placement.authorize'|'placement.runner.authorize'):Promise<PlacementAuthorization>=>{
       exact(input,['job_class','tool']);
       if(input.tool==='supervisor.session.launch')invalid('Supervisor launch requires a bound registered session');
-      const principal=await checkPrincipal(context,tx,invocation,'placement.authorize',REMOTE_JOB_CLASSES.includes(input.job_class as RemoteJobClass)||['native.shell','native.file.write','native.spawn'].includes(input.tool));
+      const principal=await checkPrincipal(context,tx,invocation,action,REMOTE_JOB_CLASSES.includes(input.job_class as RemoteJobClass)||['native.shell','native.file.write','native.spawn'].includes(input.tool));
       const profile=await trustedProfile(context);
       let host:HostBinding;
       if(['LEADER','FEATURE_MANAGER'].includes(principal.role)&&principal.sandbox_id!==null)invalid('Supervisory agents must remain on the supervisory host');
@@ -236,7 +236,10 @@ function placementAuthority(context:ComponentContext):PlacementAuthority {
         host=await supervisoryHost(context,tx,principal,profile);
       }
       return finish(profile,host,input);
-    },
+    };
+  return Object.freeze({
+    authorize:(tx:PrimaryTransaction,invocation:PlacementInvocation,input:{job_class:JobClass;tool:MainTool})=>authorize(tx,invocation,input,'placement.authorize'),
+    authorizeRunner:(tx:PrimaryTransaction,invocation:PlacementInvocation,action:unknown)=>authorize(tx,invocation,registeredRunnerTool(action),'placement.runner.authorize'),
     authorizeSupervisor:async(tx:PrimaryTransaction,invocation:PlacementInvocation,input:SupervisorSessionInput)=>{
       exact(input,['session_id','leader_generation','package_id','package_generation']);
       if(context.role!=='control')invalid('Supervisor placement belongs to the main control service');
@@ -399,9 +402,8 @@ export function createComponent(context:ComponentContext):Component {
     },
     'placement.runner.authorize':async(input,current)=>{
       const value=exact(input,['runner_action']);
-      const registration=registeredRunnerTool(value.runner_action);
       const invocation=currentInvocation(current);
-      const decision=await transaction(current,invocation,tx=>authority.authorize(tx,invocation,registration));
+      const decision=await transaction(current,invocation,tx=>authority.authorizeRunner(tx,invocation,value.runner_action));
       return {...decision,runner_action:value.runner_action};
     },
     'placement.authorize':async(input,current)=>{

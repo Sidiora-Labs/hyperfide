@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real signed worker lifecycle under same-key renewal, narrowing and revocation."""
+"""Real signed worker lifecycle across durable stop, restart, renewal and revocation."""
 import importlib.util,json,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[4]
@@ -23,7 +23,17 @@ def main():
   raise AssertionError(json.dumps(last))
  f=fixture()
  try:
-  before=wait(f,lambda row:row['running'] and row['last_tick_at'] is not None);durable=before['durable']
+  wait(f,lambda row:row['running'])
+  halted=invoke(f,'provider.worker.stop',key='provisioner');assert halted['running'] is False and halted['durable']['state']=='STOPPED',halted
+  stopped_durable=halted['durable'];f.stop();f.start();time.sleep(.5)
+  boot_stopped=status(f);assert boot_stopped['running'] is False and boot_stopped['durable']==stopped_durable and boot_stopped['last_tick_at'] is None and boot_stopped['counters']=={'claimed':0,'executed':0,'reconciled':0,'failed':0},boot_stopped
+  results.append('actual service boot preserves durable STOPPED state and counters without starting provider work')
+  restarted=invoke(f,'provider.worker.start',key='provisioner');assert restarted['running'] is True and restarted['durable']['state']=='STARTED' and restarted['durable']['owner_credential_id']==stopped_durable['owner_credential_id'] and int(restarted['durable']['start_count'])==int(stopped_durable['start_count'])+1 and restarted['durable']['resume_count']==stopped_durable['resume_count'],restarted
+  results.append('explicit signed start restarts a durably stopped worker exactly once')
+  started_durable=restarted['durable'];f.stop();f.start()
+  resumed=wait(f,lambda row:row['running'] and row['last_tick_at'] is not None);assert resumed['durable']['state']=='STARTED' and resumed['durable']['owner_credential_id']==started_durable['owner_credential_id'] and resumed['durable']['start_count']==started_durable['start_count'] and resumed['durable']['started_at']==started_durable['started_at'] and int(resumed['durable']['resume_count'])==int(started_durable['resume_count'])+1,resumed
+  results.append('actual service restart resumes STARTED ownership without recording another start')
+  before=resumed;durable=before['durable']
   renewed=invoke(f,'identity.principal.renew',{'ttl_seconds':300},key='provisioner',component='14.1');assert renewed['credential_id']==f.ids['provisioner'] and renewed['credential_version']=='2',renewed
   time.sleep(.7)
   after=wait(f,lambda row:row['running'] and row['last_tick_at']!=before['last_tick_at'] and row['stopped_reason'] is None and not any(str(code).startswith('AUTH_') for code in row['errors'].values()))

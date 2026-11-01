@@ -107,9 +107,9 @@ function durableStart(row:Record<string,unknown>|undefined):DurableWorkerStart|n
   started_at:new Date(row.started_at as string).toISOString(),updated_at:new Date(row.updated_at as string).toISOString()}:null;
 }
 /** Records the start for the authenticated run. A live local loop changes nothing; a
- * process boot resumes its own STARTED record (resume_count only); a STOPPED record, or
- * one owned by a credential that is no longer current, is a new start. */
-async function claimDurableStart(database:ProviderDatabase,organisation:string,invocation:InvocationContext,local:boolean):Promise<{started:boolean;durable:DurableWorkerStart}>{
+ * process boot resumes its own STARTED record (resume_count only) and preserves STOPPED.
+ * An explicit start can restart STOPPED or replace an owner that is no longer current. */
+async function claimDurableStart(database:ProviderDatabase,organisation:string,invocation:InvocationContext,local:boolean,automatic=false):Promise<{started:boolean;durable:DurableWorkerStart}>{
  const run=invocation.principal.run_id,owner=invocation.principal.credential_id;
  return transaction(database,async c=>{
   const row=(await c.query(`SELECT s.state,s.owner_credential_id,p.state='ACTIVE' AND p.expires_at>clock_timestamp() AND p.deployment_epoch=r.authority_epoch AS owner_current
@@ -120,6 +120,8 @@ async function claimDurableStart(database:ProviderDatabase,organisation:string,i
    started=true;
    result=await c.query(`INSERT INTO hyperfide.provisioner_worker_starts(organisation_id,run_id,owner_credential_id,state,start_count,resume_count,started_at)
     VALUES($1,$2,$3,'STARTED',1,0,clock_timestamp()) RETURNING ${START_COLUMNS}`,[organisation,run,owner]);
+  }else if(automatic&&row.state==='STOPPED'){
+   result=await c.query(`SELECT ${START_COLUMNS} FROM hyperfide.provisioner_worker_starts WHERE organisation_id=$1 AND run_id=$2`,[organisation,run]);
   }else if(row.state==='STARTED'&&row.owner_credential_id===owner){
    result=local?await c.query(`SELECT ${START_COLUMNS} FROM hyperfide.provisioner_worker_starts WHERE organisation_id=$1 AND run_id=$2`,[organisation,run]):
     await c.query(`UPDATE hyperfide.provisioner_worker_starts SET resume_count=resume_count+1,updated_at=clock_timestamp(),state_version=state_version+1
@@ -185,7 +187,7 @@ export class ProvisionerWorker {
    await authority.authorize(invocation);assertInvocation(invocation);
    if(invocation.principal.role!=='PROVISIONER'||invocation.principal.credential_id!==signer.credential_id||invocation.principal.run_id!==row.run_id||invocation.principal.deployment_epoch!==row.authority_epoch)fail('PROVISIONER_EXECUTOR_IDENTITY_MISMATCH','Authenticated worker owner differs');
    this.ownerAuthority=authority;this.ownerPublicKey=signer.public_key_b64;
-   return this.start(invocation);
+   return this.start(invocation,true);
   })();
  }
 
@@ -195,24 +197,25 @@ export class ProvisionerWorker {
  private escalation={passes:0,raised:0,last_at:null as string|null,last_raised:[] as string[]};private nextEscalation=0;
  constructor(private readonly database:ProviderDatabase,private readonly env:Readonly<NodeJS.ProcessEnv>,private readonly signal:AbortSignal,private readonly driver:ProvisionerWorkerDriver){}
  get running():boolean{return !!this.loop&&!!this.controller&&!this.controller.signal.aborted;}
- async start(invocation:InvocationContext):Promise<unknown>{
+ async start(invocation:InvocationContext,automatic=false):Promise<unknown>{
   // Serialize starts before any asynchronous configuration read can create a second loop.
   while(this.starting)await this.starting;
-  const pending=this.startOnce(invocation);this.starting=pending;
+  const pending=this.startOnce(invocation,automatic);this.starting=pending;
   try{return await pending;}finally{if(this.starting===pending)this.starting=null;}
  }
- private async startOnce(invocation:InvocationContext):Promise<unknown>{
+ private async startOnce(invocation:InvocationContext,automatic:boolean):Promise<unknown>{
   assertInvocation(invocation);if(invocation.principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Only the provisioner principal can own provider effects');
   if(this.signal.aborted)fail('PROVIDER_CLOSED','Provisioner is shutting down');
   const settings=workerSettings(this.env),config=await readDeployment(this.env);
   const db=bindProviderInvocation(this.database,config,invocation,['PROVISIONER']);
   if(this.running){
    if(this.invocation!.principal.credential_id!==invocation.principal.credential_id||this.invocation!.principal.run_id!==invocation.principal.run_id)fail('WORKER_ALREADY_RUNNING','Another provisioner credential owns this worker');
-   const claim=await claimDurableStart(db,config.organisation_id,invocation,true);
+   const claim=await claimDurableStart(db,config.organisation_id,invocation,true,automatic);
    return{started:claim.started,resumed:false,...await this.status(invocation)};
   }
   // The durable record decides whether this is a new start or a restart resuming one.
-  const claim=await claimDurableStart(db,config.organisation_id,invocation,false);
+  const claim=await claimDurableStart(db,config.organisation_id,invocation,false,automatic);
+  if(claim.durable.state==='STOPPED')return{started:false,resumed:false,...await this.status(invocation)};
   await this.stop();
   this.invocation=invocation;this.controller=new AbortController();this.stoppedReason=null;this.errors.clear();this.nextEscalation=0;
   const signal=AbortSignal.any([this.signal,this.controller.signal]);
@@ -220,7 +223,7 @@ export class ProvisionerWorker {
   return{started:claim.started,resumed:!claim.started,...await this.status(invocation)};
  }
  /** Explicit operator/provisioner stop: the durable record becomes STOPPED so the next
-  * boot is a new start rather than a resume. Process shutdown uses stop() only. */
+  * boot remains stopped until an explicit start. Process shutdown uses stop() only. */
  async halt(invocation:InvocationContext):Promise<Record<string,unknown>>{
   assertInvocation(invocation);
   const config=await readDeployment(this.env),db=bindProviderInvocation(this.database,config,invocation,['OPERATOR','PROVISIONER']);
