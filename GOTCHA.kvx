@@ -130,3 +130,10 @@ cause = "The final READY query requested a row lock on frequently updated identi
 resolution = "Retain grant and principal authority locks while reading identity-status freshness through the serializable snapshot. Preserve consumed-grant, credential, heartbeat, boot and registered-slot checks."
 evidence = "provider-bootstrap-ready-contention-component-receipt.json reproduces TX_RETRY_EXHAUSTED on the prior checkpoint and passes one real signed heartbeat interleave with one delivery and READY on the corrected checkpoint."
 status = "resolved"
+
+[gotcha.fleet_preparation_runner_pump]
+symptom = "Preparation jobs remain queued while the provider worker and service readiness are healthy."
+cause = "The provisioner composition can omit the separate runner executor pump or confuse its configuration with provider-worker credentials."
+resolution = "Load component 12.4-executor and configure HF_RUNNER_EXECUTOR_CONFIG_FILE separately from HF_PROVISIONER_EXECUTOR_CONFIG_FILE. Fleet-bootstrap provisioner startup rejects a missing pump or absent/relative runner configuration before component imports."
+evidence = "provider-preparation-composition-component-receipt.json records three typed startup refusals and preserved legacy startup. Five installed-host assertions passed; the full host driver retained exit 1. A separate signed readiness receipt confirms the deployed local composition includes the runner pump."
+status = "resolved"

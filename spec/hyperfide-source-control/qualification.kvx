@@ -259,3 +259,24 @@ exit_code = 0
 log = "build/fleet/integration/private/provider-bootstrap-ready-contention-component-receipt.json; build/fleet/integration/bootstrap-ready-contention-before.log; build/fleet/integration/bootstrap-ready-contention-after.log"
 observed = "On Node.js 24.22.0, the prior full bootstrap coordinator exhausted three attempts with TX_RETRY_EXHAUSTED when a genuine signed heartbeat committed after its transaction snapshot. The corrected catalog-69 snapshot admitted READY after one controlled interleave, with one native delivery and no duplicate submission. Exact consumed grant, principal, fresh heartbeat and registered-slot receipt checks remained active."
 scope = "Actual PostgreSQL production bootstrap continuation and signed TLS enrollment/register/heartbeat requests. The fixture supplies historical native slot-receipt metadata; this component receipt does not measure physical native enrollment."
+
+[progress.fleet_preparation_executor_composition]
+revision = "17ee5c6af"
+source_digest = "sha256:3182382655feaef38abd5c9e0119730fa06885addce622865844f631469e2a3d"
+dist_digest = "sha256:e0582365a2b0f759d452c7d21ebd99316e702c252c35b5d0e649fd47e3cf8062"
+migration_catalog_count = 69
+command = "provider_preparation_composition.py"
+exit_code = 0
+log = "build/fleet/integration/private/provider-preparation-composition-component-receipt.json; build/fleet/integration/provider-preparation-composition-after.log; build/fleet/integration/provider-preparation-host-template.log"
+observed = "Actual provisioner startup refused a missing runner pump, missing runner configuration and relative runner configuration with exact typed errors; legacy startup remained available. Five installed-host assertions passed for accounts, deployment trees/units/policies/grants, secret-preserving reruns, symlink refusal and identity-conflict refusal. The baseline accepted missing-pump startup instead of refusing it."
+full_host_driver_command = "tasks/29_9.py"
+full_host_driver_exit_code = 1
+full_host_driver_findings = "The full 29_9 driver retained failures for a missing scratch preflight provisioner-worker input and an example scanner treating optional provider bootstrap/activation configurations as unconditional. Its five component assertions do not change that exit result."
+scope = "Actual provisioner process, ComponentRegistry pre-import checks and installed-host component assertions. Provider, native and installation execution were not exercised by this composition gate."
+live_log = "build/fleet/integration/private/v5-renewal-runner-pump-rollout-readiness.json"
+live_observed = "Signed local and public identity requests returned HTTP 200. The deployed local composition includes 13 components and 12.4-executor under catalog 69; its original runner-job lifetime was unchanged."
+live_local_source = "sha256:c01f3832778f8d5ff4e52ead97f50540b08fffff349aff1e39eaa3463c61c350"
+live_local_dist = "sha256:164bee6ba726e61f8f4c2c5956475cda527568fbfdcf4e978f6ecc7041c3adf0"
+live_public_source = "sha256:7b1f36c6a79e00322ec1abc7ff3a6d4ccf251b6d6191cbf222040190d9bc197f"
+live_public_dist = "sha256:6cb5e5868190dc408bd6bd4768ec7ac742cb6030615fc4f8000cb81d049ed69f"
+live_scope = "Existing component wiring and service readiness; this receipt does not establish an INSTALL execution."
