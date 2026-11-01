@@ -21,13 +21,34 @@ extern int hf_component_12_1(const char *,const char *,FILE *);
 typedef struct {
  char name[65],kind[32],id[37],session[37],profile[32];
  char source[4096],home[4096],temporary[4096],build[4096],dirty[4096];
- uid_t uid;gid_t gid;long long storage;int sensitive,ordinal;char *registry;
+ uid_t uid;gid_t gid;long long storage;int sensitive,ordinal;char *registry;char runner_config[4096],runner_config_digest[72];
 } BootstrapSlot;
 static int text(const HfJson *j,int o,const char *key,char *out,size_t n){return hf_json_string(j,hf_json_field(j,o,key),out,n);}
 static int pin(const char *s){if(strlen(s)!=71||strncmp(s,"sha256:",7))return 0;for(size_t i=7;i<71;i++)if(!strchr("0123456789abcdef",s[i]))return 0;return 1;}
 static int absolute(const char *s){size_t n=s?strlen(s):0;return n>1&&n<4000&&s[0]=='/'&&s[n-1]!='/'&&!strstr(s,"//")&&!strstr(s,"/../")&&!strstr(s,"/./")&&(n<2||strcmp(s+n-2,"/."))&&(n<3||strcmp(s+n-3,"/.."));}
 static int below(const char *root,const char *s){size_t n=strlen(root);return absolute(root)&&absolute(s)&&!strncmp(root,s,n)&&s[n]=='/';}
 static int join(char out[4096],const char *a,const char *b){size_t n=strlen(a),m=strlen(b);if(n+m+2>=4096)return 0;memcpy(out,a,n);out[n]='/';memcpy(out+n+1,b,m+1);return 1;}
+static int runner_config(BootstrapSlot *slot,const char *state,const char *transport,const char *slots,const char *org,const char *run,const char *sandbox,const char *boot,const char *generation,const char *consumer,const char *recipes){
+ char plan[4096],*raw=NULL;size_t n=0;if(!join(slot->runner_config,state,"runner.json")||!join(plan,state,"connector-plan.json"))return 0;
+ FILE *s=open_memstream(&raw,&n);if(!s)return 0;
+ fputs("{\"transport_config\":",s);hf_json_write_string(s,transport);fputs(",\"state_dir\":",s);hf_json_write_string(s,state);fputs(",\"slot_root\":",s);hf_json_write_string(s,slots);fputs(",\"connector_plan_path\":",s);hf_json_write_string(s,plan);
+ fprintf(s,",\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"sandbox_id\":\"%s\",\"boot_id\":\"%s\",\"boot_generation\":\"%s\",\"consumer_id\":\"%s\",\"preparation_recipes\":%s}",org,run,sandbox,boot,generation,consumer,recipes);
+ int ok=fclose(s)==0;struct stat st;
+ if(ok&&lstat(slot->runner_config,&st)==0){char *old=NULL;size_t size=0;ok=st.st_uid==0&&st.st_gid==0&&(st.st_mode&0777)==0600&&hf_private_read(slot->runner_config,65536,&old,&size)&&size==n&&!memcmp(old,raw,n);free(old);}
+ else if(ok){ok=errno==ENOENT&&hf_private_write(slot->runner_config,raw,n,0);}
+ char hash[65];if(ok)ok=hf_sha256_bytes(raw,n,hash);if(ok)snprintf(slot->runner_config_digest,sizeof slot->runner_config_digest,"sha256:%s",hash);free(raw);return ok;
+}
+static int cached_runner_configs(HfJson *receipt,const HfJson *manifest,int template,const char *state,const char *consumer){
+ int64_t version=0;char value[4096];int slots=hf_json_field(receipt,0,"slots"),expected=hf_json_field(manifest,template,"slots");
+ if(!hf_json_i64(receipt,hf_json_field(receipt,0,"runner_config_schema_version"),&version)||version!=1||!text(receipt,0,"native_consumer_id",value,sizeof value)||strcmp(value,consumer)||slots<0||expected<0||receipt->tokens[slots].type!='['||manifest->tokens[expected].type!='['||receipt->tokens[slots].count!=manifest->tokens[expected].count)return 0;
+ int actual=slots+1;
+ for(int item=expected+1;item<manifest->tokens[expected].next;item=manifest->tokens[item].next){
+  char session[37],directory[4096],path[4096],pin_value[72],hash[65],*bytes=NULL;size_t size=0;struct stat st;
+  if(actual>=receipt->tokens[slots].next||!text(manifest,item,"session_id",session,sizeof session)||!hf_uuid_valid(session)||!text(receipt,actual,"session_id",value,sizeof value)||strcmp(value,session)||!join(directory,state,session)||!join(path,directory,"runner.json")||!text(receipt,actual,"runner_config_path",value,sizeof value)||strcmp(value,path)||!text(receipt,actual,"runner_config_digest",pin_value,sizeof pin_value)||!pin(pin_value)||lstat(path,&st)||st.st_uid||st.st_gid||(st.st_mode&0777)!=0600||!hf_private_read(path,65536,&bytes,&size)){free(bytes);return 0;}
+  int valid=hf_sha256_bytes(bytes,size,hash)&&!strcmp(hash,pin_value+7);free(bytes);if(!valid)return 0;actual=receipt->tokens[actual].next;
+ }
+ return actual==receipt->tokens[slots].next;
+}
 static int directory(const char *path,uid_t uid,gid_t gid,mode_t mode){
  if(!absolute(path))return 0;
  char *copy=strdup(path),*save=NULL;if(!copy)return 0;
@@ -124,7 +145,7 @@ static int read_daemon_failure(const char *state,const char *bootstrap,const HfP
  ok=ok&&hf_json_i64(j,hf_json_field(j,process,"pid"),&pid)&&pid==expected->pid&&text(j,process,"start_time",start,sizeof start)&&strtoull(start,NULL,10)==expected->start_time&&text(j,process,"os_boot_id",value,sizeof value)&&!strcmp(value,expected->os_boot_id);free(j);free(raw);return ok;
 }
 static int bootstrap(const char *request,FILE *out,int stage){
- HfJson *q=malloc(sizeof *q),*m=malloc(sizeof *m),*parsed=malloc(sizeof *parsed);char manifest[4096],expected[72],*raw=NULL;size_t raw_n=0;int lock=-1,result=1;BootstrapSlot slots[65]={0};size_t count=0;char *inventory=NULL,*receipt=NULL,*recipes=NULL,*binding_raw=NULL;const char *error="BOOTSTRAP_MANIFEST_REFUSED";char failure_code[97]="";const int is_test=stage==3||stage==4;
+ HfJson *q=malloc(sizeof *q),*m=malloc(sizeof *m),*parsed=malloc(sizeof *parsed);char manifest[4096],expected[72],*raw=NULL;size_t raw_n=0;int lock=-1,result=1;BootstrapSlot slots[65]={0};size_t count=0;char *inventory=NULL,*receipt=NULL,*recipes=NULL,*binding_raw=NULL,*consumer_registration=NULL;const char *error="BOOTSTRAP_MANIFEST_REFUSED";char failure_code[97]="";const int is_test=stage==3||stage==4;
  const char *request_keys[]={"manifest_path","manifest_digest","activation_path","activation_digest"};
  if(geteuid()!=0||!q||!m||!parsed||!hf_json_parse(q,request)||!hf_json_only(q,0,request_keys,stage==2?4:2)||!hf_json_get(q,"manifest_path",manifest,sizeof manifest)||!hf_json_get(q,"manifest_digest",expected,sizeof expected)||!pin(expected)||!hf_protected_read(manifest,HF_BODY_LIMIT,&raw,&raw_n))goto done;
  struct stat manifest_stat;if(lstat(manifest,&manifest_stat)||manifest_stat.st_uid||(manifest_stat.st_mode&077))goto done;
@@ -137,7 +158,7 @@ static int bootstrap(const char *request,FILE *out,int stage){
  char org[37],run[37],intent[37],sandbox[37],boot[37],generation[32],preparation[72],value[4096];
  if(!hf_json_only(m,b,binding_keys,10)||!text(m,b,"organisation_id",org,37)||!hf_uuid_valid(org)||!text(m,b,"run_id",run,37)||!hf_uuid_valid(run)||!text(m,b,"provisioning_intent_id",intent,37)||strcmp(intent,bootstrap)||!text(m,b,"sandbox_id",sandbox,37)||!hf_uuid_valid(sandbox)||!text(m,b,"boot_id",boot,37)||!hf_uuid_valid(boot)||!text(m,b,"boot_generation",generation,sizeof generation)||!generation[0]||strspn(generation,"0123456789")!=strlen(generation)||generation[0]=='0'||!text(m,b,"preparation_digest",preparation,sizeof preparation)||!pin(preparation)||!text(m,b,"configuration_digest",value,sizeof value)||!pin(value)||!text(m,b,"profile_id",value,sizeof value)||!hf_uuid_valid(value)||!text(m,b,"native_sandbox_id",value,sizeof value)||!value[0])goto done;
  error="BOOTSTRAP_TEMPLATE_REFUSED";
- const char *template_keys[14]={"origin","ca_file","state_root","slot_root","workspace_root","environment_root","runner_binary","runner_binary_digest","repository_id","files","preparation_recipes","slots"};size_t template_count=12;if(is_test)template_keys[template_count++]="controller";if(hf_json_field(m,t,"account_tools")>=0)template_keys[template_count++]="account_tools";
+ const char *template_keys[15]={"origin","ca_file","state_root","slot_root","workspace_root","environment_root","runner_binary","runner_binary_digest","repository_id","files","preparation_recipes","slots"};size_t template_count=12;if(is_test)template_keys[template_count++]="controller";if(hf_json_field(m,t,"account_tools")>=0)template_keys[template_count++]="account_tools";int runner_contract=hf_json_field(m,t,"runner_config");if(runner_contract>=0)template_keys[template_count++]="runner_config";
  char origin[512],ca[4096],state_base[4096],slot_base[4096],workspace[4096],environment[4096],binary[4096],binary_digest[72],repository[37],state[4096],slot_root[4096],temp[4096];
  if(!hf_json_only(m,t,template_keys,template_count)||!text(m,t,"origin",origin,sizeof origin)||strncmp(origin,"https://",8)||!text(m,t,"ca_file",ca,sizeof ca)||!text(m,t,"state_root",state_base,sizeof state_base)||!text(m,t,"slot_root",slot_base,sizeof slot_base)||!text(m,t,"workspace_root",workspace,sizeof workspace)||!text(m,t,"environment_root",environment,sizeof environment)||!text(m,t,"runner_binary",binary,sizeof binary)||!text(m,t,"runner_binary_digest",binary_digest,sizeof binary_digest)||!text(m,t,"repository_id",repository,37)||!hf_uuid_valid(repository)||!absolute(ca)||!absolute(state_base)||!absolute(slot_base)||!absolute(workspace)||!below(workspace,environment)||!file_pin(binary,binary_digest))goto done;
  if(!strcmp(state_base,slot_base)||below(state_base,slot_base)||below(slot_base,state_base)||below(state_base,workspace)||below(slot_base,workspace)||!strcmp(workspace,state_base)||!strcmp(workspace,slot_base))goto done;
@@ -148,6 +169,7 @@ static int bootstrap(const char *request,FILE *out,int stage){
  error="BOOTSTRAP_RECIPE_FILES_REFUSED";
  int recipe_map=hf_json_field(m,t,"preparation_recipes");if(recipe_map<0||m->tokens[recipe_map].type!='{')goto done;
  for(int k=recipe_map+1;k<m->tokens[recipe_map].next;){int r=k+1;const char *paths[]={"node_path","recipe_path","native_path"},*digests[]={"node_digest","recipe_digest","native_digest"};for(size_t x=0;x<3;x++){char path[4096],hash[72];if(!text(m,r,paths[x],path,sizeof path)||!text(m,r,digests[x],hash,sizeof hash)||!file_pin(path,hash))goto done;}int verifier=hf_json_field(m,r,"readiness_verifier");if(verifier<0&&is_test)verifier=hf_json_field(m,r,"sealing");int closure=hf_json_field(m,verifier,"module_closure");if(closure<0||m->tokens[closure].type!='[')goto done;for(int c=closure+1;c<m->tokens[closure].next;c=m->tokens[c].next){char path[4096],hash[72];if(!text(m,c,"path",path,sizeof path)||!text(m,c,"digest",hash,sizeof hash)||!file_pin(path,hash))goto done;}k=m->tokens[r].next;}
+ char consumer[37]="";if(runner_contract>=0){const char *keys[]={"schema_version","consumer_id"};int64_t version=0;if(!hf_json_only(m,runner_contract,keys,2)||!hf_json_i64(m,hf_json_field(m,runner_contract,"schema_version"),&version)||version!=1||!text(m,runner_contract,"consumer_id",consumer,sizeof consumer)||!hf_uuid_valid(consumer))goto done;}
  char controller_node[4096]="",controller_module[4096]="",controller_node_digest[72]="",controller_digest[72]="";
  if(is_test){int controller=hf_json_field(m,t,"controller");const char *keys[]={"node_path","node_digest","module_path","module_digest"};if(!hf_json_only(m,controller,keys,4)||!text(m,controller,"node_path",controller_node,sizeof controller_node)||!text(m,controller,"node_digest",controller_node_digest,sizeof controller_node_digest)||!text(m,controller,"module_path",controller_module,sizeof controller_module)||!text(m,controller,"module_digest",controller_digest,sizeof controller_digest)||!file_pin(controller_node,controller_node_digest)||!file_pin(controller_module,controller_digest))goto done;}
  error="BOOTSTRAP_STATE_ROOT_REFUSED";
@@ -160,6 +182,7 @@ static int bootstrap(const char *request,FILE *out,int stage){
  char grant[4096],grant_id[37],enroll_op[37],enroll_key[37];const char *enrollment_keys[]={"grant_id","secret_file","operation_id","idempotency_key","allowed_actions"};
  if(!hf_json_only(m,e,enrollment_keys,5)||!text(m,e,"grant_id",grant_id,37)||!hf_uuid_valid(grant_id)||!text(m,e,"secret_file",grant,sizeof grant)||!absolute(grant)||!text(m,e,"operation_id",enroll_op,37)||!hf_uuid_valid(enroll_op)||!text(m,e,"idempotency_key",enroll_key,37)||!hf_uuid_valid(enroll_key))goto done;
  int granted=hf_json_field(m,e,"allowed_actions"),granted_count=0;if(granted<0||m->tokens[granted].type!='[')goto done;for(int a=granted+1;a<m->tokens[granted].next;a=m->tokens[a].next){if(++granted_count>256||!hf_json_string(m,a,value,sizeof value)||!value[0])goto done;}if(!granted_count)goto done;
+ if(runner_contract>=0){int allowed=0;for(int a=granted+1;a<m->tokens[granted].next;a=m->tokens[a].next)if(hf_json_string(m,a,value,sizeof value)&&!strcmp(value,"instructions.consumer.register"))allowed=1;if(!allowed){error="BOOTSTRAP_RUNNER_CONSUMER_SCOPE";goto done;}}
  char exact_grant[4096];if(!join(exact_grant,state,"enrollment-grant.json")||strcmp(grant,exact_grant))goto done;
  if(stage==1||stage==3){fprintf(out,"{\"schema_version\":1,\"kind\":\"%s\",\"bootstrap_id\":\"%s\",\"manifest_digest\":\"%s\",\"secret_parent_mode\":\"0700\",\"secret_file\":",is_test?"FLEET_NATIVE_TEST_BOOTSTRAP_STAGE_V1":"FLEET_NATIVE_BOOTSTRAP_STAGE_V1",bootstrap,expected);hf_json_write_string(out,grant);fputs("}",out);result=0;goto done;}
  if(stage==2){result=activation(q,m,b,t,state,slot_root,self,expected,bootstrap,boot,preparation,out);if(result)error=NULL;goto done;}
@@ -167,6 +190,7 @@ static int bootstrap(const char *request,FILE *out,int stage){
  if(hf_private_read(receipt_path,HF_BODY_LIMIT,&cached,&cached_n)){
   int64_t pid=0,pgid=0;char hash[72],start[32],os_boot[37];HfProcessIdentity observed={0};int valid=hf_json_parse(parsed,cached)&&hf_json_get(parsed,"manifest_digest",hash,sizeof hash)&&!strcmp(hash,expected);int d=valid?hf_json_field(parsed,0,"daemon"):-1;
   valid=valid&&hf_json_i64(parsed,hf_json_field(parsed,d,"pid"),&pid)&&pid>0&&pid<=2147483647&&hf_json_i64(parsed,hf_json_field(parsed,d,"pgid"),&pgid)&&text(parsed,d,"start_time",start,sizeof start)&&text(parsed,d,"os_boot_id",os_boot,sizeof os_boot)&&hf_process_identity((pid_t)pid,&observed)&&observed.uid==0&&observed.pgid==pgid&&observed.start_time==strtoull(start,NULL,10)&&!strcmp(observed.os_boot_id,os_boot)&&observed.state!='Z';
+  if(valid&&runner_contract>=0)valid=cached_runner_configs(parsed,m,t,state,consumer);
   if(valid&&is_test){int c=hf_json_field(parsed,0,"controller");valid=hf_json_i64(parsed,hf_json_field(parsed,c,"pid"),&pid)&&pid>0&&pid<=2147483647&&hf_json_i64(parsed,hf_json_field(parsed,c,"pgid"),&pgid)&&text(parsed,c,"start_time",start,sizeof start)&&text(parsed,c,"os_boot_id",os_boot,sizeof os_boot)&&hf_process_identity((pid_t)pid,&observed)&&observed.uid==0&&observed.pgid==pgid&&observed.start_time==strtoull(start,NULL,10)&&!strcmp(observed.os_boot_id,os_boot)&&observed.state!='Z';}
   if(valid){fputs(cached,out);result=0;}else error="BOOTSTRAP_SUPERVISOR_RECONCILIATION_REQUIRED";free(cached);goto done;
  }
@@ -187,6 +211,13 @@ static int bootstrap(const char *request,FILE *out,int stage){
  free(identity);if(actual_count!=granted_count){error="BOOTSTRAP_IDENTITY_SCOPE_UNCONFIRMED";goto done;}
  if(unlink(grant)&&errno!=ENOENT){error="BOOTSTRAP_GRANT_CLEANUP_REQUIRED";goto done;}
  int list=hf_json_field(m,t,"slots"),preparer=-1;if(list<0||m->tokens[list].type!='[')goto done;
+ if(runner_contract>=0){
+  char input[200];snprintf(input,sizeof input,"{\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"consumer_id\":\"%s\"}",org,run,consumer);
+  consumer_registration=invoke(config,run,bootstrap,"6.3","instructions.consumer.register",input);
+  char current[256],expected_key[128];int registered=0,recovery=1,execution=1;snprintf(expected_key,sizeof expected_key,"runner:%s:%s",sandbox,boot);
+  int ok=consumer_registration&&hf_json_parse(parsed,consumer_registration)&&text(parsed,0,"consumer_id",current,sizeof current)&&!strcmp(current,consumer)&&text(parsed,0,"organisation_id",current,sizeof current)&&!strcmp(current,org)&&text(parsed,0,"run_id",current,sizeof current)&&!strcmp(current,run)&&text(parsed,0,"sandbox_id",current,sizeof current)&&!strcmp(current,sandbox)&&text(parsed,0,"boot_id",current,sizeof current)&&!strcmp(current,boot)&&text(parsed,0,"boot_generation",current,sizeof current)&&!strcmp(current,generation)&&text(parsed,0,"consumer_key",current,sizeof current)&&!strcmp(current,expected_key)&&text(parsed,0,"consumer_state",current,sizeof current)&&!strcmp(current,"ACTIVE")&&text(parsed,0,"registered_credential_id",current,sizeof current)&&!strcmp(current,credential)&&text(parsed,0,"bootstrap_receipt_id",current,sizeof current)&&hf_uuid_valid(current)&&hf_json_bool(parsed,hf_json_field(parsed,0,"registered"),&registered)&&registered&&hf_json_bool(parsed,hf_json_field(parsed,0,"needs_recovery"),&recovery)&&!recovery&&hf_json_bool(parsed,hf_json_field(parsed,0,"execution_authority"),&execution)&&!execution;
+  if(!ok){error="BOOTSTRAP_RUNNER_CONSUMER_UNCONFIRMED";goto done;}
+ }
  recipes=hf_json_raw(m,hf_json_field(m,t,"preparation_recipes"));if(!recipes||m->tokens[hf_json_field(m,t,"preparation_recipes")].type!='{')goto done;
  for(int i=list+1;i<m->tokens[list].next;i=m->tokens[i].next){
   if(count>=65)goto done;
@@ -209,6 +240,7 @@ static int bootstrap(const char *request,FILE *out,int stage){
  for(size_t k=0;k<count;k++){
   BootstrapSlot *slot=&slots[k];char state_dir[4096],slot_dir[4096];if(!join(slot_dir,slot_root,slot->id)||!join(state_dir,state,slot->session)||!directory(state_dir,0,0,0700))goto done;
   if(!strcmp(slot->kind,"PREPARATION")||!strcmp(slot->kind,"TEST")){if(!join(slot->home,slot_dir,"home")||!join(slot->temporary,slot_dir,"tmp"))goto done;}
+  if(runner_contract>=0&&!runner_config(slot,state_dir,config,slot_root,org,run,sandbox,boot,generation,consumer,recipes)){error="BOOTSTRAP_RUNNER_CONFIG_REFUSED";goto done;}
   char *descriptor=NULL;size_t n=0;FILE *s=open_memstream(&descriptor,&n);if(!s)goto done;
   fprintf(s,"{\"session_id\":\"%s\",\"slot_id\":\"%s\",\"repository_id\":\"%s\",\"state_dir\":",slot->session,slot->id,repository);hf_json_write_string(s,state_dir);fputs(",\"runner_binary\":",s);hf_json_write_string(s,binary);fputs(",\"workspace_path\":",s);hf_json_write_string(s,slot->source);fputs(",\"home_path\":",s);hf_json_write_string(s,slot->home);fputs(",\"tmp_path\":",s);hf_json_write_string(s,slot->temporary);fprintf(s,",\"runner_binary_digest\":\"%s\",\"preparation_digest\":\"%s\",\"slot_generation\":\"1\",\"uid\":%u,\"gid\":%u,\"preparation_recipes\":%s}",binary_digest,preparation,slot->uid,slot->gid,recipes);if(fclose(s)){free(descriptor);goto done;}slot->registry=descriptor;
  }
@@ -230,9 +262,9 @@ static int bootstrap(const char *request,FILE *out,int stage){
   if(!controller_ready){if(!controller_reaped){HfProcessIdentity live={0};if(hf_process_identity(controller,&live)&&live.start_time==controller_spawned.start_time&&!strcmp(live.os_boot_id,controller_spawned.os_boot_id))kill(controller,SIGTERM);}error="TEST_CONTROLLER_NOT_RUNNING";goto done;}
  }
  binding_raw=hf_json_raw(m,b);size_t receipt_n=0;s=open_memstream(&receipt,&receipt_n);if(!s)goto done;fprintf(s,"{\"schema_version\":1,\"kind\":\"%s\",\"state\":\"REGISTERED\",\"bootstrap_id\":\"%s\",\"manifest_digest\":\"%s\",\"binding\":%s,\"credential_id\":\"%s\",\"inventory\":%s,\"slots\":[",is_test?"FLEET_NATIVE_TEST_BOOTSTRAP_RECEIPT_V1":"FLEET_NATIVE_BOOTSTRAP_RECEIPT_V1",bootstrap,expected,binding_raw,credential,inventory);
- for(size_t k=0;k<count;k++){BootstrapSlot *slot=&slots[k];if(k)fputc(',',s);fprintf(s,"{\"slot\":%d,\"name\":\"%s\",\"slot_id\":\"%s\",\"worker_slot_id\":\"%s\",\"session_id\":\"%s\",\"slot_generation\":\"1\",\"kind\":\"%s\",\"uid\":%u,\"gid\":%u,\"source\":",slot->ordinal,slot->name,slot->id,slot->id,slot->session,slot->kind,slot->uid,slot->gid);hf_json_write_string(s,slot->source);fputs(",\"home\":",s);hf_json_write_string(s,slot->home);fputs(",\"temporary\":",s);hf_json_write_string(s,slot->temporary);fputs(",\"build\":",s);hf_json_write_string(s,slot->build);fputs(",\"dirty\":",s);hf_json_write_string(s,slot->dirty);fputc('}',s);}
- fputs("],\"daemon\":",s);hf_process_json(s,&process);if(is_test){fputs(",\"controller\":",s);hf_process_json(s,&controller_process);}fputs(",\"workspaces_materialized\":false}",s);if(fclose(s)||!hf_private_write(receipt_path,receipt,receipt_n,0)){error="BOOTSTRAP_RECEIPT_RECONCILE_REQUIRED";goto done;}fputs(receipt,out);result=0;
- done:if(result&&error)hf_native_error(out,error);if(lock>=0)close(lock);for(size_t k=0;k<65;k++)free(slots[k].registry);free(inventory);free(receipt);free(recipes);free(binding_raw);free(raw);free(q);free(m);free(parsed);return result;
+ for(size_t k=0;k<count;k++){BootstrapSlot *slot=&slots[k];if(k)fputc(',',s);fprintf(s,"{\"slot\":%d,\"name\":\"%s\",\"slot_id\":\"%s\",\"worker_slot_id\":\"%s\",\"session_id\":\"%s\",\"slot_generation\":\"1\",\"kind\":\"%s\",\"uid\":%u,\"gid\":%u,\"source\":",slot->ordinal,slot->name,slot->id,slot->id,slot->session,slot->kind,slot->uid,slot->gid);hf_json_write_string(s,slot->source);fputs(",\"home\":",s);hf_json_write_string(s,slot->home);fputs(",\"temporary\":",s);hf_json_write_string(s,slot->temporary);fputs(",\"build\":",s);hf_json_write_string(s,slot->build);fputs(",\"dirty\":",s);hf_json_write_string(s,slot->dirty);if(runner_contract>=0){fputs(",\"runner_config_path\":",s);hf_json_write_string(s,slot->runner_config);fprintf(s,",\"runner_config_digest\":\"%s\"",slot->runner_config_digest);}fputc('}',s);}
+ fputs("]",s);if(runner_contract>=0)fprintf(s,",\"runner_config_schema_version\":1,\"native_consumer_id\":\"%s\",\"consumer_registration\":%s",consumer,consumer_registration);fputs(",\"daemon\":",s);hf_process_json(s,&process);if(is_test){fputs(",\"controller\":",s);hf_process_json(s,&controller_process);}fputs(",\"workspaces_materialized\":false}",s);if(fclose(s)||!hf_private_write(receipt_path,receipt,receipt_n,0)){error="BOOTSTRAP_RECEIPT_RECONCILE_REQUIRED";goto done;}fputs(receipt,out);result=0;
+ done:if(result&&error)hf_native_error(out,error);if(lock>=0)close(lock);for(size_t k=0;k<65;k++)free(slots[k].registry);free(inventory);free(receipt);free(recipes);free(binding_raw);free(consumer_registration);free(raw);free(q);free(m);free(parsed);return result;
 }
 
 int hf_supervisor_bootstrap(const char *request,FILE *out){return bootstrap(request,out,0);}

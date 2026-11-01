@@ -94,6 +94,9 @@ def main():
    checks.append('test-root-controller-byte-tamper-refused')
 
 
+  from fleet_bootstrap_runner_configs import run as runner_config_boundary
+  checks.extend(runner_config_boundary(ROOT,BIN))
+  checks.extend(runner_config_boundary(ROOT,BIN,test_mode=True))
   report={'status':'PASS','scope':'native-bootstrap-stage-and-enrollment-boundary','checks':checks};(OUT/'receipt.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report));return 0
  finally:
   if f:f.close()

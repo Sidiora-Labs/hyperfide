@@ -113,7 +113,7 @@ def main():
             for dimension, limit in pool['approved_limits'].items():
                 for kind, key in [('ACCOUNT', pool['account_key']), ('ENVIRONMENT', pool['environment_key'])]:
                     f.sql("INSERT INTO hyperfide.provider_quota_observations(organisation_id,id,pool_id,configuration_digest,provider,account_key,scope_kind,scope_key,dimension,quota_limit,observed_at,expires_at,evidence_digest,basis,evidence_reference) VALUES($1,$2,$3,$4,'railway',$5,$6,$7,$8,$9,clock_timestamp(),clock_timestamp()+interval '1 hour',$10,'VERIFIED_OPERATOR_ATTESTATION','ISOLATED_COMPONENT_PREREQUISITE')", [i['organisation'], uid(), pool['id'], scope['configuration_digest'], pool['account_key'], kind, key, dimension, limit, sha(b'controlled-quota-prerequisite')])
-        recipe = {'pool_id': f.pool_ids['coding'], 'configuration_digest': scopes[f.pool_ids['coding']]['configuration_digest'], 'profile_id': f.profile_id, 'preparation_digest': f.manifest['digest'], 'native_path': '/opt/component/native', 'native_digest': sha(b'declared-native-metadata-only'), 'manifest_path': '/run/component/manifest', 'secret_path': '/run/component/secret', 'files': [{'artifact_id': uid(), 'storage_kind': 'object', 'digest': sha(b'declared-artifact-only'), 'size_bytes': '0', 'target': '/opt/component/input', 'mode': '0444'}], 'allowed_actions': ['identity.principal.delegate'], 'grant_ttl_seconds': 600, 'native_template': {'slots': [{'kind': 'PREPARATION'}, {'kind': 'AGENT'}]}, 'install_template': {}}
+        recipe = {'pool_id': f.pool_ids['coding'], 'configuration_digest': scopes[f.pool_ids['coding']]['configuration_digest'], 'profile_id': f.profile_id, 'preparation_digest': f.manifest['digest'], 'native_path': '/opt/component/native', 'native_digest': sha(b'declared-native-metadata-only'), 'manifest_path': '/run/component/manifest', 'secret_path': '/run/component/secret', 'files': [{'artifact_id': uid(), 'storage_kind': 'object', 'digest': sha(b'declared-artifact-only'), 'size_bytes': '0', 'target': '/opt/component/input', 'mode': '0444'}], 'allowed_actions': ['identity.principal.delegate', 'instructions.consumer.register'], 'grant_ttl_seconds': 600, 'native_template': {'runner_config': {'schema_version': 1}, 'slots': [{'kind': 'PREPARATION'}, {'kind': 'AGENT'}]}, 'install_template': {}}
         descriptor = {'schema_version': 1, 'origin': 'https://component.invalid', 'ca_file': '/etc/component/ca.pem', 'state_root': '/remote-component-state-not-on-control-host', 'pools': [recipe]}
 
         def write_descriptor(value):
@@ -133,7 +133,7 @@ def main():
             return {'pool_id': f.pool_ids['coding'], 'provider_id': 'railway', 'profile_id': f.profile_id, 'preparation_digest': f.manifest['digest'], 'sandbox_id': uid(), 'purpose': 'PREPARATION', 'deadline_at': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time() + 60)), 'capacity': accounts}
 
         def snapshot():
-            return {table: f.sql('SELECT to_jsonb(t) AS row FROM hyperfide.' + table + ' t ORDER BY id') for table in ['reservations', 'provisioning_intents', 'capacity_accounts', 'sandboxes']}
+            return {**{table: f.sql('SELECT to_jsonb(t) AS row FROM hyperfide.' + table + ' t ORDER BY id') for table in ['reservations', 'provisioning_intents', 'capacity_accounts', 'sandboxes', 'provider_remote_operations']}, 'fleet_effect_receipts': f.sql('SELECT to_jsonb(e) AS row FROM hyperfide.fleet_effect_receipts e ORDER BY operation_id')}
 
         checks = []
         if anchor_only:
@@ -182,13 +182,25 @@ def main():
             out.parent.mkdir(parents=True, exist_ok=True); out.write_text(json.dumps(report, indent=2)+'\n'); out.chmod(0o600)
             print(json.dumps(report))
             return
-        for name, mutate in [('missing-recipe', lambda d: d['pools'][0].update(pool_id=uid())), ('mismatched-configuration', lambda d: d['pools'][0].update(configuration_digest=sha(b'wrong-configuration'))), ('mismatched-profile', lambda d: d['pools'][0].update(profile_id=uid())), ('null-slots', lambda d: d['pools'][0]['native_template'].update(slots=[None]))]:
+        cases = [
+            ('missing-recipe', lambda d: d['pools'][0].update(pool_id=uid()), 'UNCONFIGURED', None),
+            ('mismatched-configuration', lambda d: d['pools'][0].update(configuration_digest=sha(b'wrong-configuration')), 'MISMATCH', None),
+            ('mismatched-profile', lambda d: d['pools'][0].update(profile_id=uid()), 'MISMATCH', None),
+            ('null-slots', lambda d: d['pools'][0]['native_template'].update(slots=[None]), 'MISMATCH', None),
+            ('missing-runner-config', lambda d: d['pools'][0]['native_template'].pop('runner_config'), 'UNCONFIGURED', 'RUNNER_CONFIG_PRODUCER_UNCONFIGURED'),
+            ('wrong-runner-config-schema', lambda d: d['pools'][0]['native_template'].update(runner_config={'schema_version': 2}), 'UNCONFIGURED', 'RUNNER_CONFIG_PRODUCER_UNCONFIGURED'),
+            ('caller-selected-consumer-id', lambda d: d['pools'][0]['native_template'].update(runner_config={'schema_version': 1, 'consumer_id': uid()}), 'UNCONFIGURED', 'RUNNER_CONFIG_PRODUCER_UNCONFIGURED'),
+            ('missing-consumer-registration-grant', lambda d: d['pools'][0].update(allowed_actions=['identity.principal.delegate']), 'UNCONFIGURED', 'RUNNER_CONSUMER_REGISTRATION_REQUIRED'),
+        ]
+        for name, mutate, status, reason in cases:
             changed = copy.deepcopy(descriptor)
             mutate(changed)
             write_descriptor(changed)
             support_observation = ok('fleet.observe', {'binding': binding, 'after': None, 'limit': 100}, manager_key)
             support = next(pool['native_bootstrap'] for pool in support_observation['provider_pools'] if pool['id'] == f.pool_ids['coding'])
-            assert support['status'] == ('UNCONFIGURED' if name == 'missing-recipe' else 'MISMATCH'), (name, support)
+            assert support['status'] == status, (name, support)
+            if reason:
+                assert support['reason'] == reason, (name, support)
             before = snapshot()
             response = api('fleet.decision.apply', {'decision': decision(provision())}, manager_key)
             assert response.get('error', {}).get('code') == 'FLEET_BOOTSTRAP_UNSUPPORTED', (name, response)
@@ -199,7 +211,7 @@ def main():
         accepted = ok('fleet.decision.apply', {'decision': decision(value)}, manager_key)
         assert accepted['kind'] == 'PROVISION_SANDBOX' and accepted['external_call_performed'] is False, accepted
         assert f.sql('SELECT state FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND id=$2', [i['organisation'], accepted['provider_intent_id']])[0]['state'] == 'RECORDED'
-        checks.append('matching protected CODING recipe admits existing CREATE intent path without provider call')
+        checks.append('exact runner_config schema1 marker and consumer registration grant admit existing CREATE intent path without provider call')
         test_intent, sandbox = uid(), uid()
         f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id) VALUES($1,$2,$3,'component-retained-ACK-TEST')", [i['organisation'], sandbox, f.pool_ids['test']])
         f.sql("INSERT INTO hyperfide.provisioning_intents(organisation_id,run_id,id,pool_id,sandbox_id,configuration_digest,kind,preparation_purpose,profile_id,request_key,request_digest,payload_digest,operation,state,native_sandbox_id,boot_generation) VALUES($1,$2,$3,$4,$5,$6,'CREATE','PREPARATION',$7,$8,$9,$9,'{}','ACKNOWLEDGED','component-retained-ACK-TEST',1)", common + [test_intent, f.pool_ids['test'], sandbox, scopes[f.pool_ids['test']]['configuration_digest'], f.profile_id, 'component-' + test_intent, sha(test_intent.encode())])
