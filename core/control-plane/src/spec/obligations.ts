@@ -107,7 +107,9 @@ export async function loadProofObligations(db:PrimaryClient,scope:ProofPins):Pro
  'AND t.spec_generation=p.spec_generation AND t.spec_revision_id=p.spec_revision_id AND h.accepted',
  [scope.organisation_id,scope.run_id,scope.task_id,scope.spec_generation,scope.spec_revision_id]);
  if(result.rows.length!==1)fail('PROOF_REGISTRY_MISSING','An exact current accepted proof registry is required');
- const row=result.rows[0]!;
+ return validateProofRow(result.rows[0]!,scope);
+}
+async function validateProofRow(row:Record<string,any>,scope:ProofPins):Promise<ProofObligations>{
  if(row.replica)fail('PRIMARY_REQUIRED','Proof authority requires the primary');
  const policy=validateProofPolicy(row.policy);
  if(row.criteria_digest!==row.current_criteria||policy.criteria_digest!==row.criteria_digest||
@@ -117,6 +119,31 @@ export async function loadProofObligations(db:PrimaryClient,scope:ProofPins):Pro
  await acceptedProofAuthority(policy,row.definition,row.accepted_document as StoredIntent);
  return obligations(policy,row.registry_digest);
 }
+export interface ProofObligationResult {task_id:string;proof?:ProofObligations;error_code?:string}
+export async function loadProofObligationsBatch(db:PrimaryClient,scopes:ProofPins[]):Promise<ProofObligationResult[]>{
+ assertPrimaryTransaction(db);
+ if(!Array.isArray(scopes)||scopes.length>100)fail('PROOF_REGISTRY_MISMATCH','At most100 exact task proof pins may be loaded together');
+ if(!scopes.length)return [];
+ for(const scope of scopes)pins(scope);
+ const first=scopes[0]!;
+ if(scopes.some(scope=>scope.organisation_id!==first.organisation_id||scope.run_id!==first.run_id)||new Set(scopes.map(scope=>scope.task_id)).size!==scopes.length)fail('PROOF_REGISTRY_MISMATCH','Proof batch requires unique same-run tasks');
+ await readSemanticDisposition(db,first);
+ const result=await db.query(
+ 'SELECT pg_is_in_recovery() AS replica,p.task_id::text,p.registry_digest,p.criteria_digest,p.policy,t.criteria_digest AS current_criteria,t.definition,s.document AS accepted_document FROM hyperfide.proof_registries p '+
+ 'JOIN jsonb_to_recordset($3::jsonb) AS requested(task_id uuid,spec_revision_id uuid,spec_generation bigint) ON requested.task_id=p.task_id AND requested.spec_revision_id=p.spec_revision_id AND requested.spec_generation=p.spec_generation '+
+ 'JOIN hyperfide.tasks t ON t.organisation_id=p.organisation_id AND t.run_id=p.run_id AND t.id=p.task_id '+
+ 'JOIN hyperfide.run_spec_revisions h ON h.organisation_id=t.organisation_id AND h.run_id=t.run_id AND h.spec_generation=t.spec_generation AND h.spec_revision_id=t.spec_revision_id '+
+ 'JOIN hyperfide.spec_revisions s ON s.organisation_id=t.organisation_id AND s.id=t.spec_revision_id '+
+ 'WHERE p.organisation_id=$1 AND p.run_id=$2 AND t.spec_generation=p.spec_generation AND t.spec_revision_id=p.spec_revision_id AND h.accepted',
+ [first.organisation_id,first.run_id,JSON.stringify(scopes.map(({task_id,spec_revision_id,spec_generation})=>({task_id,spec_revision_id,spec_generation})))]);
+ const out:ProofObligationResult[]=[];
+ for(const scope of scopes){
+  try{const rows=result.rows.filter(row=>row.task_id===scope.task_id);if(rows.length!==1)fail('PROOF_REGISTRY_MISSING','An exact current accepted proof registry is required');out.push({task_id:scope.task_id,proof:await validateProofRow(rows[0]!,scope)});}
+  catch(error){out.push({task_id:scope.task_id,error_code:error instanceof FoundationError?error.code:'PREPARATION_INTENT_UNAVAILABLE'});}
+ }
+ return out;
+}
+
 function clauseCoverage(policy:ProofPolicy,definition:unknown,intent:StoredIntent):void{
  if(!object(definition)||!object(definition.section)||!object(definition.section.fields))fail('PROOF_MAPPING_INVALID','Task definition is absent');
  const fields=definition.section.fields,reqs=object(fields.reqs)?fields.reqs.value:undefined;

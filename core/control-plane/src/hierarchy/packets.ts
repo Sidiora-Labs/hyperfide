@@ -8,7 +8,7 @@ import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {PrimaryTransaction,QuerySession} from '../storage/transactions.js';
 import {FoundationError,object} from '../policy/programme.js';
 import {validateProfile} from '../preparation/manifests.js';
-import {loadProofObligations} from '../spec/obligations.js';
+import {loadProofObligations,loadProofObligationsBatch} from '../spec/obligations.js';
 import type {PrimaryClient} from '../spec/obligations.js';
 
 import {gateway,trustedActor,requireAuthority,record,uuid,decimal,digest,text,strings,canonical,hash,refuse,operation,ready,hierarchyReadGuard} from './packages.js';
@@ -97,38 +97,73 @@ function manifestMetadata(value:unknown){
  return manifest;
 }
 
-async function preparationManifest(tx:QuerySession,organisationId:string,profileId:string){
- const profiles=await tx.query('SELECT content_digest,manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND id=$2',[organisationId,profileId]);
- const row=profiles.rows[0];if(!row||!object(row.manifest))return refuse('ENVIRONMENT_PROFILE_REQUIRED','An immutable preparation manifest is required');
+function validatedPreparationManifest(row:Record<string,any>|undefined,now:Date){
+ if(!row||!object(row.manifest))return refuse('ENVIRONMENT_PROFILE_REQUIRED','An immutable preparation manifest is required');
  const manifest=manifestMetadata(row.manifest),profile=validateProfile(manifest.profile);
- const clock=await tx.query('SELECT clock_timestamp() AS now');
- if(Date.parse(profile.policy.expires_at)<=new Date(clock.rows[0]!.now).getTime())return refuse('ENVIRONMENT_PROFILE_EXPIRED','Preparation profile expired before planning');
+ if(Date.parse(profile.policy.expires_at)<=new Date(now).getTime())return refuse('ENVIRONMENT_PROFILE_EXPIRED','Preparation profile expired before planning');
  if(manifest.digest!==row.content_digest)return refuse('ENVIRONMENT_PROFILE_INVALID','Stored preparation manifest identity is invalid');
  const {digest:manifestDigest,...body}=manifest;
  if(hash(body)!==manifestDigest)return refuse('ENVIRONMENT_PROFILE_INVALID','Stored preparation manifest bytes do not match its identity');
  return {preparation_digest:digest(row.content_digest),preparation_manifest:freeze(manifest),declared_profile:profile};
 }
+async function preparationManifest(tx:QuerySession,organisationId:string,profileId:string){
+ const profiles=await tx.query('SELECT content_digest,manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND id=$2',[organisationId,profileId]);
+ const row=profiles.rows[0];if(!row||!object(row.manifest))return refuse('ENVIRONMENT_PROFILE_REQUIRED','An immutable preparation manifest is required');
+ const clock=await tx.query('SELECT clock_timestamp() AS now');
+ return validatedPreparationManifest(row,clock.rows[0]!.now as Date);
+}
+interface PreparationIntentRows {
+ task:Record<string,any>|undefined;accepted:boolean;policy:Record<string,any>|undefined;
+ proof:Awaited<ReturnType<typeof loadProofObligationsBatch>>[number]|undefined;profiles:Map<string,Record<string,any>>;now:Date;
+}
 /** Accepted physical preparation demand, independent of a not-yet-created executor. */
 export async function loadPreparationIntent(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_id:string;profile_id?:string}){
+ return resolvePreparationIntent(tx,input);
+}
+async function resolvePreparationIntent(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_id:string;profile_id?:string},loaded?:PreparationIntentRows){
  assertPrimaryTransaction(tx);await readSemanticDisposition(tx,input);await ready(tx);
  const org=uuid(input.organisation_id),run=uuid(input.run_id),taskId=uuid(input.task_id);
- const tasks=await tx.query('SELECT id,spec_revision_id,spec_generation::text,criteria_digest,definition FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[org,run,taskId]);
+ const tasks=loaded?{rows:loaded.task?[loaded.task]:[]}:await tx.query('SELECT id,spec_revision_id,spec_generation::text,criteria_digest,definition FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[org,run,taskId]);
  const task=tasks.rows[0];if(!task)return refuse('TASK_UNAVAILABLE','Preparation intent requires an accepted same-run task');
- const accepted=await tx.query('SELECT 1 FROM hyperfide.run_spec_revisions WHERE organisation_id=$1 AND run_id=$2 AND spec_generation=$3 AND spec_revision_id=$4',[org,run,task.spec_generation,task.spec_revision_id]);
+ const accepted=loaded?{rowCount:loaded.accepted?1:0}:await tx.query('SELECT 1 FROM hyperfide.run_spec_revisions WHERE organisation_id=$1 AND run_id=$2 AND spec_generation=$3 AND spec_revision_id=$4',[org,run,task.spec_generation,task.spec_revision_id]);
  if(!accepted.rowCount)return refuse('SPEC_REVISION_UNACCEPTED','Task is not pinned to accepted immutable run history');
- const policyRows=await tx.query('SELECT policy_digest FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[org,run]);
+ const policyRows=loaded?{rows:loaded.policy?[loaded.policy]:[]}:await tx.query('SELECT policy_digest FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[org,run]);
  if(!policyRows.rows[0])return refuse('RUN_UNAVAILABLE','Accepted preparation intent requires a current run');
  const policyDigest=digest(policyRows.rows[0].policy_digest);
  const profileId=uuid(definitionField(task.definition,'environment_profile_id'));
  if(input.profile_id!==undefined&&uuid(input.profile_id)!==profileId)return refuse('ENVIRONMENT_PROFILE_MISMATCH','Requested profile differs from accepted task intent');
- const proof:unknown=await proofObligations(tx,{organisation_id:org,run_id:run,task_id:taskId,spec_generation:task.spec_generation,spec_revision_id:task.spec_revision_id});
+ if(loaded?.proof?.error_code)return refuse(loaded.proof.error_code,'Exact accepted proof validation refused the task');
+ const proof:unknown=loaded?loaded.proof?.proof:await proofObligations(tx,{organisation_id:org,run_id:run,task_id:taskId,spec_generation:task.spec_generation,spec_revision_id:task.spec_revision_id});
  if(!object(proof)||!Array.isArray(proof.obligations)||!proof.obligations.length)return refuse('PROOF_REGISTRY_MISSING','Accepted preparation demand requires actual proof obligations');
  if(proof.criteria_digest!==task.criteria_digest||proof.spec_revision_id!==task.spec_revision_id||String(proof.spec_generation)!==task.spec_generation)return refuse('PROOF_REGISTRY_MISMATCH','Preparation proof policy differs from accepted task');
- const prepared=await preparationManifest(tx,org,profileId),requirements=resourceRequirements(definitionField(task.definition,'resource_requirements'));
+ const prepared=loaded?validatedPreparationManifest(loaded.profiles.get(profileId),loaded.now):await preparationManifest(tx,org,profileId),requirements=resourceRequirements(definitionField(task.definition,'resource_requirements'));
  if(Number(requirements.cpu_millis)>prepared.declared_profile.resources.cpu_millis||BigInt(String(requirements.memory_bytes))>BigInt(prepared.declared_profile.resources.memory_bytes)||BigInt(String(requirements.disk_bytes))>BigInt(prepared.declared_profile.resources.disk_bytes))return refuse('RESOURCE_POLICY_INVALID','Declared agent resources exceed the accepted environment profile');
  return freeze({task_id:taskId,spec_revision_id:task.spec_revision_id,spec_generation:task.spec_generation,criteria_digest:task.criteria_digest,
   profile_id:profileId,profile_version:prepared.declared_profile.profile_version,...prepared,resource_requirements:requirements,
   registry_digest:digest(proof.registry_digest),proof_policy:proof.policy,execution_profile:acceptedExecutionProfile(task.definition,prepared.declared_profile),policy_digest:policyDigest,execution_authority:false as const});
+}
+
+export interface PreparationIntentResult {task_id:string;intent?:Awaited<ReturnType<typeof loadPreparationIntent>>;error_code?:string}
+/** Bounded same-run reads retain the single-task validators and per-task refusal semantics. */
+export async function loadPreparationIntents(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_ids:string[]}):Promise<PreparationIntentResult[]>{
+ assertPrimaryTransaction(tx);await readSemanticDisposition(tx,input);await ready(tx);
+ const org=uuid(input.organisation_id),run=uuid(input.run_id);
+ if(!Array.isArray(input.task_ids)||input.task_ids.length>100||new Set(input.task_ids).size!==input.task_ids.length)return refuse('INVALID_REQUEST','At most100 unique same-run task intents may be loaded together');
+ const ids=input.task_ids.map(uuid);if(!ids.length)return [];
+ const tasks=(await tx.query(`SELECT t.id,t.spec_revision_id,t.spec_generation::text,t.criteria_digest,t.definition,
+ EXISTS(SELECT 1 FROM hyperfide.run_spec_revisions r WHERE r.organisation_id=t.organisation_id AND r.run_id=t.run_id AND r.spec_generation=t.spec_generation AND r.spec_revision_id=t.spec_revision_id) AS accepted_revision
+ FROM hyperfide.tasks t WHERE t.organisation_id=$1 AND t.run_id=$2 AND t.id=ANY($3::uuid[]) ORDER BY t.id FOR SHARE OF t`,[org,run,ids])).rows;
+ const policy=(await tx.query('SELECT policy_digest,clock_timestamp() AS now FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[org,run])).rows[0];
+ const profileIds=new Set<string>();
+ for(const task of tasks){try{profileIds.add(uuid(definitionField(task.definition,'environment_profile_id')));}catch{/* The shared resolver reports this task's exact error in its original validation order. */}}
+ const profiles=new Map((await tx.query('SELECT id,content_digest,manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND id=ANY($2::uuid[])',[org,[...profileIds]])).rows.map(row=>[row.id,row]));
+ const proofs=await loadProofObligationsBatch(tx as unknown as PrimaryClient,tasks.map(task=>({organisation_id:org,run_id:run,task_id:task.id as string,spec_revision_id:task.spec_revision_id as string,spec_generation:task.spec_generation as string})));
+ const out:PreparationIntentResult[]=[];
+ for(const task_id of ids){const task=tasks.find(row=>row.id===task_id);
+  try{out.push({task_id,intent:await resolvePreparationIntent(tx,{organisation_id:org,run_id:run,task_id},{task,accepted:task?.accepted_revision===true,policy,proof:proofs.find(row=>row.task_id===task_id),profiles,now:policy?.now as Date})});}
+  catch(error){out.push({task_id,error_code:error instanceof FoundationError?error.code:'PREPARATION_INTENT_UNAVAILABLE'});}
+ }
+ return out;
 }
 
 /** Declared 7.3 capability; its graphGuard binds the authenticated role, scope and epoch to the read. */

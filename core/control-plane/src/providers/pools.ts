@@ -252,6 +252,17 @@ async function applyConfig(pool:ProviderDatabase,config:DeploymentConfig):Promis
       const existing=await c.query('SELECT * FROM hyperfide.provider_pools WHERE organisation_id=$1 AND id=$2 FOR UPDATE',[config.organisation_id,p.id]);
       if(existing.rows.length&&['provider','account_key','environment_key','region'].some(k=>existing.rows[0]![k]!==p[k as keyof PoolConfig]))
         fail('POOL_IDENTITY_CONFLICT','A pool identity cannot be reassigned');
+      const profileChanged=existing.rows.length>0&&existing.rows[0]!.profile_id!==p.profile_id;
+      let previousProfile:Record<string,any>|undefined;
+      if(profileChanged){
+        const invocation=providerInvocation(pool);await invocation.guard(c);
+        if(!['OPERATOR','PROVISIONER'].includes(invocation.principal.role)||existing.rows[0]!.state!=='ACTIVE'||!p.profile_id)fail('POOL_PROFILE_TRANSITION_DENIED','Current authenticated authority and active versioned profile required');
+        const approved=(await c.query('SELECT id FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND id=$2 AND provider=$3 AND content_digest=$4 FOR SHARE',[config.organisation_id,p.profile_id,p.provider,p.preparation_digest])).rows[0];
+        if(!approved)fail('POOL_PROFILE_TRANSITION_DENIED','New profile must match the approved provider and preparation digest');
+        previousProfile=(await c.query('SELECT pc.configuration_digest,e.content_digest FROM hyperfide.provider_pool_configurations pc LEFT JOIN hyperfide.environment_profiles e ON e.organisation_id=pc.organisation_id AND e.id=$3 WHERE pc.organisation_id=$1 AND pc.pool_id=$2 AND pc.active FOR UPDATE OF pc',[config.organisation_id,p.id,existing.rows[0]!.profile_id])).rows[0];
+        if(!previousProfile)fail('POOL_PROFILE_TRANSITION_DENIED','Retained current pool configuration required');
+        try{await c.query('SELECT hyperfide.assert_pool_profile_quiescent($1,$2)',[config.organisation_id,p.id]);}catch(error){if((error as {code?:string}).code==='23514')fail('POOL_PROFILE_BUSY','Pool profile changes require released resources and confirmed absence');throw error;}
+      }
       await c.query('INSERT INTO hyperfide.provider_pools(organisation_id,id,provider,account_key,environment_key,region,profile_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(organisation_id,id) DO NOTHING',
         [config.organisation_id,p.id,p.provider,p.account_key,p.environment_key,p.region,p.profile_id]);
       await c.query('UPDATE hyperfide.provider_pool_configurations SET active=false WHERE organisation_id=$1 AND pool_id=$2 AND configuration_digest<>$3',
@@ -259,6 +270,11 @@ async function applyConfig(pool:ProviderDatabase,config:DeploymentConfig):Promis
       const account=config.accounts.find(a=>a.provider===p.provider&&a.account_key===p.account_key)!;
       await c.query('INSERT INTO hyperfide.provider_pool_configurations(organisation_id,pool_id,configuration_digest,document,active) VALUES($1,$2,$3,$4,true) ON CONFLICT(organisation_id,pool_id,configuration_digest) DO UPDATE SET active=true',
         [config.organisation_id,p.id,scope.configuration_digest,{scope,pool:p,account}]);
+      if(profileChanged){const invocation=providerInvocation(pool);await invocation.guard(c);
+        await c.query(`INSERT INTO hyperfide.provider_pool_profile_transitions(organisation_id,pool_id,id,run_id,previous_state_version,old_profile_id,old_profile_digest,new_profile_id,new_profile_digest,old_configuration_digest,new_configuration_digest,actor_credential_id,actor_role,operation_id,payload_digest)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,[config.organisation_id,p.id,randomUUID(),invocation.principal.run_id,existing.rows[0]!.state_version,existing.rows[0]!.profile_id,previousProfile!.content_digest??null,p.profile_id,p.preparation_digest,previousProfile!.configuration_digest,scope.configuration_digest,invocation.principal.credential_id,invocation.principal.role,invocation.operation.operation_id,invocation.operation.payload_digest]);
+        await c.query('UPDATE hyperfide.provider_pools SET profile_id=$3,state_version=state_version+1 WHERE organisation_id=$1 AND id=$2 AND state_version=$4',[config.organisation_id,p.id,p.profile_id,existing.rows[0]!.state_version]);
+      }
       const report=await poolCapacity(c,config,p.id) as {dimensions:Array<{name:QuotaDimension;qualified:boolean;budgets:Array<{approved_limit:string;capacity_limit:string|null}>}>};
       const evidence=await c.query(`SELECT q.id,q.evidence_digest,q.configuration_digest FROM hyperfide.provider_quota_observations q
         JOIN hyperfide.provider_pool_configurations pc USING(organisation_id,pool_id,configuration_digest)

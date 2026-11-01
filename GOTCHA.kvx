@@ -18,3 +18,10 @@ cause = "The build invokes TypeScript before dist-stamp.mjs captures the source 
 resolution = "Freeze control-plane source writers before compilation and artifact capture. Discard a build produced across a source edit and rebuild the frozen tree."
 evidence = "A concurrent processes.ts change added knownBlaxelMetadata to source while the stamped dist/providers/blaxel/processes.js lacked it."
 status = "documented"
+
+[gotcha.control_migration_checkpoint]
+symptom = "Two release snapshots can have identical compiler source and output stamps but different migration SQL."
+cause = "deploy/hyperfide/dist-stamp.mjs hashes root build inputs and src; migrations have their own release checksum catalog."
+resolution = "Capture migration files and verify their checksums with the immutable runtime snapshot. A SQL correction requires a new snapshot even when the compiler stamp is unchanged."
+evidence = "The 0727 review changed SQL while the compiler source stamp remained 2217d1238bd729e7640c20ba824827c4ca590b3bb096f5e63324ded8f9c73f1f. MigrationCoordinator verifies the independent SQL checksum history."
+status = "documented"

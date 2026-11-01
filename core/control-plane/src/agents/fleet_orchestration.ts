@@ -1,4 +1,4 @@
-import {loadPreparationIntent} from '../hierarchy/packets.js';
+import {loadPreparationIntents} from '../hierarchy/packets.js';
 import {replanFleetDelegationBudget} from './fleet_budget_replan.js';
 import {randomUUID} from 'node:crypto';
 import {hostname} from 'node:os';
@@ -147,23 +147,32 @@ export function createComponent(ctx:ComponentContext):Component{
      LEFT JOIN LATERAL(SELECT c.command_id,c.action,c.state,c.outcome,c.termination,c.cleanup_complete,c.report_digest,c.report FROM hyperfide.runner_control_commands c WHERE c.organisation_id=a.organisation_id AND c.run_id=a.run_id AND c.launch_id=n.launch_id ORDER BY c.fence_sequence DESC LIMIT 1)cc ON true
      LEFT JOIN hyperfide.runner_workspaces rw ON rw.organisation_id=a.organisation_id AND rw.run_id=a.run_id AND rw.sandbox_id=a.sandbox_id AND rw.boot_generation=a.sandbox_boot_generation AND rw.slot_id=a.slot_id
      WHERE j.organisation_id=$1 AND j.run_id=$2 AND ($3::uuid IS NULL OR t.feature_package_id=$3) ORDER BY j.created_at DESC,j.id LIMIT 101`,[...p,b.delegation_id])).rows;
-    const qualificationJobs=[];
-    for(const row of qualificationRows.slice(0,100)){
-     let acceptedPreparation:Record<string,unknown>;
-     try{const intent=await loadPreparationIntent(tx,{organisation_id:p[0]!,run_id:p[1]!,task_id:row.task_id});acceptedPreparation={state:'ACCEPTED',profile_id:intent.profile_id,profile_version:intent.profile_version,preparation_digest:intent.preparation_digest,profile_digest:hash(intent.declared_profile),spec_revision_id:intent.spec_revision_id,spec_generation:intent.spec_generation,criteria_digest:intent.criteria_digest,resource_requirements:intent.resource_requirements};}
-     catch(error){acceptedPreparation={state:'UNAVAILABLE',error_code:error instanceof FoundationError?error.code:'PREPARATION_INTENT_UNAVAILABLE'};}
-     const allocations=(await tx.query(`SELECT a.id::text AS allocation_id,a.generation::text,a.state,a.state_version::text,a.job_kind,a.request_id::text,a.reservation_id::text,a.assignee_session_id::text AS verifier_session_id,
-      a.sandbox_id::text,a.sandbox_boot_generation::text AS boot_generation,b.boot_id::text,a.slot_id::text,w.capacity_kind,
-      r.state AS reservation_state,r.state_version::text AS reservation_state_version
-      FROM hyperfide.resource_job_allocations a JOIN hyperfide.worker_slots w ON w.organisation_id=a.organisation_id AND w.sandbox_id=a.sandbox_id AND w.boot_generation=a.sandbox_boot_generation AND w.id=a.slot_id
+    const visibleQualifications=qualificationRows.slice(0,100),jobIds=visibleQualifications.map(row=>row.job_id);
+    const preparationIntents=new Map((visibleQualifications.length?await loadPreparationIntents(tx,{organisation_id:p[0]!,run_id:p[1]!,task_ids:[...new Set<string>(visibleQualifications.map(row=>row.task_id))]}):[]).map(result=>[result.task_id,result]));
+    const allocationRows=jobIds.length?(await tx.query(`WITH links AS(
+      SELECT x.job_id,x.allocation_id,x.allocation_generation FROM hyperfide.assurance_job_assignments x WHERE x.organisation_id=$1 AND x.run_id=$2 AND x.job_id=ANY($3::uuid[])
+      UNION SELECT x.job_id,x.allocation_id,x.allocation_generation FROM hyperfide.assurance_preparation_intents x WHERE x.organisation_id=$1 AND x.run_id=$2 AND x.job_id=ANY($3::uuid[])
+     ),ranked AS(
+      SELECT l.job_id::text,a.id::text AS allocation_id,a.generation::text,a.state,a.state_version::text,a.job_kind,a.request_id::text,a.reservation_id::text,a.assignee_session_id::text AS verifier_session_id,
+       a.sandbox_id::text,a.sandbox_boot_generation::text AS boot_generation,b.boot_id::text,a.slot_id::text,w.capacity_kind,
+       r.state AS reservation_state,r.state_version::text AS reservation_state_version,
+       row_number() OVER(PARTITION BY l.job_id ORDER BY a.created_at,a.id) AS allocation_rank
+      FROM links l JOIN hyperfide.resource_job_allocations a ON a.organisation_id=$1 AND a.run_id=$2 AND a.id=l.allocation_id AND a.generation=l.allocation_generation
+      JOIN hyperfide.qualification_jobs j ON j.organisation_id=a.organisation_id AND j.run_id=a.run_id AND j.id=l.job_id
+      JOIN hyperfide.submission_custodies c ON c.organisation_id=j.organisation_id AND c.run_id=j.run_id AND c.id=j.custody_id AND c.task_id=a.task_id
+      JOIN hyperfide.worker_slots w ON w.organisation_id=a.organisation_id AND w.sandbox_id=a.sandbox_id AND w.boot_generation=a.sandbox_boot_generation AND w.id=a.slot_id
       JOIN hyperfide.sandbox_boots b ON b.organisation_id=a.organisation_id AND b.sandbox_id=a.sandbox_id AND b.boot_generation=a.sandbox_boot_generation
       JOIN hyperfide.reservations r ON r.organisation_id=a.organisation_id AND r.run_id=a.run_id AND r.id=a.reservation_id
-      WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.task_id=$3 AND w.capacity_kind='TEST' AND a.state IN('ACTIVE','RELEASE_PENDING')
-      AND (EXISTS(SELECT 1 FROM hyperfide.assurance_job_assignments x WHERE x.organisation_id=a.organisation_id AND x.run_id=a.run_id AND x.job_id=$4 AND x.allocation_id=a.id AND x.allocation_generation=a.generation)
-       OR EXISTS(SELECT 1 FROM hyperfide.assurance_preparation_intents x WHERE x.organisation_id=a.organisation_id AND x.run_id=a.run_id AND x.job_id=$4 AND x.allocation_id=a.id AND x.allocation_generation=a.generation))
-      ORDER BY a.created_at,a.id LIMIT 101`,[...p,row.task_id,row.job_id])).rows;
-     qualificationJobs.push({...row,accepted_preparation:acceptedPreparation,independence:{required:true,capacity_kind:'TEST',separate_sandbox_from:row.coding_sandbox_id,separate_session_from:row.coding_session_id},test_allocations:allocations.slice(0,100),test_allocations_omitted:allocations.length>100});
-    }
+      WHERE w.capacity_kind='TEST' AND a.state IN('ACTIVE','RELEASE_PENDING')
+     )SELECT * FROM ranked WHERE allocation_rank<=101 ORDER BY job_id,allocation_rank`,[...p,jobIds])).rows:[];
+    const allocationsByJob=new Map<string,Record<string,unknown>[]>();
+    for(const {job_id,allocation_rank:_rank,...allocation}of allocationRows){const selected=allocationsByJob.get(job_id)??[];selected.push(allocation);allocationsByJob.set(job_id,selected);}
+    const qualificationJobs=visibleQualifications.map(row=>{
+     const result=preparationIntents.get(row.task_id),intent=result?.intent;
+     const acceptedPreparation=intent?{state:'ACCEPTED',profile_id:intent.profile_id,profile_version:intent.profile_version,preparation_digest:intent.preparation_digest,profile_digest:hash(intent.declared_profile),spec_revision_id:intent.spec_revision_id,spec_generation:intent.spec_generation,criteria_digest:intent.criteria_digest,resource_requirements:intent.resource_requirements}:{state:'UNAVAILABLE',error_code:result?.error_code??'PREPARATION_INTENT_UNAVAILABLE'};
+     const allocations=allocationsByJob.get(row.job_id)??[];
+     return {...row,accepted_preparation:acceptedPreparation,independence:{required:true,capacity_kind:'TEST',separate_sandbox_from:row.coding_sandbox_id,separate_session_from:row.coding_session_id},test_allocations:allocations.slice(0,100),test_allocations_omitted:allocations.length>100};
+    });
     const managerRoster=(await tx.query("SELECT id::text,parent_session_id::text,state,connector FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND role='FEATURE_MANAGER' AND parent_session_id=$3 AND state IN ('REGISTERED','RUNNING','DISCONNECTED') ORDER BY id LIMIT 100",[...p,a.package_id===null?b.actor_id:(await tx.query('SELECT leader_session_id FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2',p)).rows[0]!.leader_session_id])).rows;
     const delegationRows=(await tx.query('SELECT package_id::text,manager_session_id::text,manager_generation::text,leader_generation::text,budget FROM hyperfide.fleet_delegations WHERE organisation_id=$1 AND run_id=$2 AND ($3::uuid IS NULL OR package_id=$3) ORDER BY package_id LIMIT 100',[...p,b.delegation_id])).rows;
     const delegations=delegationRows.map(row=>({...row,budget_digest:hash(row.budget)}));
@@ -173,7 +182,7 @@ export function createComponent(ctx:ComponentContext):Component{
     const receipts=(await tx.query('SELECT e.decision_id::text,e.operation_id::text,e.result FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=$1 AND e.run_id=$2 AND ($3::uuid IS NULL OR d.actor_id=$3) ORDER BY e.created_at DESC,e.operation_id LIMIT 100',[...p,b.actor_role==='PRIMARY'?null:b.actor_id])).rows;
     const providerIntents=(await tx.query(`SELECT pi.id::text AS provider_intent_id,pi.sandbox_id::text,pi.pool_id::text,pi.kind,pi.state,pi.failure_code,pi.created_at,pi.updated_at,pi.operation->>'deadline_at' AS deadline_at,pi.native_sandbox_id,pi.boot_generation::text,
      COALESCE(co.observation->'outcome'->>'status','UNKNOWN') AS provider_outcome,COALESCE(co.observation->'outcome'->>'acceptance','UNKNOWN') AS provider_acceptance,
-     co.id::text AS create_observation_id,co.evidence_digest AS create_observation_digest,
+     co.id::text AS intent_operation_observation_id,co.evidence_digest AS intent_operation_observation_digest,co.observation->'operation'->>'kind' AS intent_operation_observation_kind,CASE WHEN pi.kind='CREATE' THEN co.id::text ELSE NULL END AS create_observation_id,CASE WHEN pi.kind='CREATE' THEN co.evidence_digest ELSE NULL END AS create_observation_digest,
      (pi.native_sandbox_id IS NOT NULL) AS native_identity_known,(oo.id IS NOT NULL) AS native_ownership_confirmed,oo.id::text AS ownership_observation_id,oo.evidence_digest AS ownership_observation_digest,
      CASE WHEN pi.native_sandbox_id IS NULL THEN false WHEN pi.failure_code='OPERATOR_RELEASED' THEN false ELSE NULL END AS destroy_eligible,
      CASE WHEN pi.native_sandbox_id IS NULL THEN 'NATIVE_IDENTITY_UNPROVEN' WHEN pi.failure_code='OPERATOR_RELEASED' THEN 'ADMINISTRATIVELY_RELEASED_REQUIRES_OPERATOR_RECONCILIATION' ELSE 'DESTRUCTION_PREFLIGHT_REQUIRED' END AS destroy_eligibility_reason,
@@ -202,7 +211,7 @@ export function createComponent(ctx:ComponentContext):Component{
       AND o.observation->'outcome'->'result'->>'provider_state'='DESTROYED' AND o.observation->'outcome'->'result'->>'health'='ABSENT'
       AND o.observation->'outcome'->'resource'->>'native_sandbox_id'=pi.native_sandbox_id AND o.observation->'outcome'->'resource'->>'sandbox_boot_generation'=pi.boot_generation::text ORDER BY o.observed_at DESC,o.id LIMIT 1) AS confirmed_absence
      FROM hyperfide.provisioning_intents pi JOIN hyperfide.sandboxes s ON s.organisation_id=pi.organisation_id AND s.id=pi.sandbox_id
-     LEFT JOIN LATERAL(SELECT o.id,o.evidence_digest,o.observation FROM hyperfide.provider_observations o WHERE o.organisation_id=pi.organisation_id AND o.intent_id=pi.id AND o.observation->'operation'->>'kind'='create' ORDER BY o.observed_at DESC,o.id LIMIT 1)co ON true
+     LEFT JOIN LATERAL(SELECT o.id,o.evidence_digest,o.observation FROM hyperfide.provider_observations o WHERE o.organisation_id=pi.organisation_id AND o.intent_id=pi.id AND o.observation->'operation'->>'kind'=lower(pi.kind) ORDER BY o.observed_at DESC,o.id LIMIT 1)co ON true
      LEFT JOIN LATERAL(SELECT o.id,o.evidence_digest FROM hyperfide.provider_observations o WHERE o.organisation_id=pi.organisation_id AND o.intent_id=pi.id AND o.observation->'operation'->>'kind' IN('create','observe') AND o.observation->'outcome'->>'status'='SUCCEEDED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_ACCEPTED' AND pi.native_sandbox_id IS NOT NULL AND o.observation->'outcome'->'resource'->>'native_sandbox_id'=pi.native_sandbox_id AND o.observation->'outcome'->'resource'->>'sandbox_boot_generation'=pi.boot_generation::text ORDER BY o.observed_at DESC,o.id LIMIT 1)oo ON true
      LEFT JOIN LATERAL(SELECT o.id,o.evidence_digest,o.observation FROM hyperfide.provider_observations o WHERE o.organisation_id=pi.organisation_id AND o.intent_id=pi.id ORDER BY o.observed_at DESC,o.id LIMIT 1)lo ON true
      LEFT JOIN hyperfide.provider_native_bootstraps j ON j.organisation_id=pi.organisation_id AND j.run_id=pi.run_id AND j.intent_id=pi.id
