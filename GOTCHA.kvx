@@ -123,3 +123,10 @@ cause = "The bounded scan did not use exact fresh attribution to advance through
 resolution = "Skip fresh exact-policy/scope evidence, expose completed partial continuation separately from transport uncertainty, and refresh retained observations automatically under the current approved scope. Keep UNKNOWN presence and accounting conservative."
 evidence = "inventory-maintenance-component-receipt.json records the repeated baseline failure, bounded progress across all 24 retained candidates, zero-GET fresh repeats and automatic maintenance without provisioning intents. Catalog 70 adds indexed append-only history and requires coordinated runtime/database deployment; ordinary index creation blocks table writes."
 status = "documented"
+
+[gotcha.bootstrap_ready_heartbeat_contention]
+symptom = "A concurrent signed heartbeat causes final bootstrap READY admission to exhaust all three transaction attempts."
+cause = "The final READY query requested a row lock on frequently updated identity status after its serializable snapshot, although that row was used only for freshness validation."
+resolution = "Retain grant and principal authority locks while reading identity-status freshness through the serializable snapshot. Preserve consumed-grant, credential, heartbeat, boot and registered-slot checks."
+evidence = "provider-bootstrap-ready-contention-component-receipt.json reproduces TX_RETRY_EXHAUSTED on the prior checkpoint and passes one real signed heartbeat interleave with one delivery and READY on the corrected checkpoint."
+status = "resolved"

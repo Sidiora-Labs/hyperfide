@@ -246,3 +246,16 @@ log = "build/fleet/integration/inventory-maintenance-component-receipt.json; bui
 observed = "The normal signed provisioner worker refreshed retained attribution without provisioning intents or provider mutations. Fresh exact-scope evidence avoided repeated reads; a configuration change refused reuse of old attribution. Typed journals retained request/evidence digests, while UNKNOWN and stale shared presence stayed charged and previous observations remained unchanged."
 scope = "Actual PostgreSQL and pinned-SDK HTTP component execution on an immutable catalog-70 snapshot. Automatic maintenance has not been qualified as a live deployment."
 deployment_requirement = "Coordinate catalog-70 runtime artifacts with migration 0730 and a safe write window: catalog-69 runtimes reject the additional migration, and the six ordinary CREATE INDEX statements block table DML while building."
+
+[progress.fleet_bootstrap_ready_contention]
+revision = "0a1b601fc"
+source_digest = "sha256:daf9abb7b1fb94b3113c457f8b7c647fc7f5ad2c361a06c3d88f0c4ff6de33b4"
+dist_digest = "sha256:e0ce210976fe3defa15acc64598ce5b5ef716fc1dbb030b94a8ec4a32e135c70"
+migration_catalog_count = 69
+baseline_source = "sha256:7b1f36c6a79e00322ec1abc7ff3a6d4ccf251b6d6191cbf222040190d9bc197f"
+baseline_dist = "sha256:6cb5e5868190dc408bd6bd4768ec7ac742cb6030615fc4f8000cb81d049ed69f"
+command = "provider_bootstrap_ready_contention.py"
+exit_code = 0
+log = "build/fleet/integration/private/provider-bootstrap-ready-contention-component-receipt.json; build/fleet/integration/bootstrap-ready-contention-before.log; build/fleet/integration/bootstrap-ready-contention-after.log"
+observed = "On Node.js 24.22.0, the prior full bootstrap coordinator exhausted three attempts with TX_RETRY_EXHAUSTED when a genuine signed heartbeat committed after its transaction snapshot. The corrected catalog-69 snapshot admitted READY after one controlled interleave, with one native delivery and no duplicate submission. Exact consumed grant, principal, fresh heartbeat and registered-slot receipt checks remained active."
+scope = "Actual PostgreSQL production bootstrap continuation and signed TLS enrollment/register/heartbeat requests. The fixture supplies historical native slot-receipt metadata; this component receipt does not measure physical native enrollment."
