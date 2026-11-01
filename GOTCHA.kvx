@@ -137,3 +137,17 @@ cause = "The provisioner composition can omit the separate runner executor pump 
 resolution = "Load component 12.4-executor and configure HF_RUNNER_EXECUTOR_CONFIG_FILE separately from HF_PROVISIONER_EXECUTOR_CONFIG_FILE. Fleet-bootstrap provisioner startup rejects a missing pump or absent/relative runner configuration before component imports."
 evidence = "provider-preparation-composition-component-receipt.json records three typed startup refusals and preserved legacy startup. Five installed-host assertions passed; the full host driver retained exit 1. A separate signed readiness receipt confirms the deployed local composition includes the runner pump."
 status = "resolved"
+
+[gotcha.fleet_bound_never_started_install]
+symptom = "An expired install bound to an admitted runner job cannot safely be treated as either a completed native failure or an unbound allocation."
+cause = "Expiry alone proves neither absence of a worker claim nor absence of possible provider execution."
+resolution = "Use append-only NOT_STARTED proof under exact job locks, permanently fence old claims, retain execution/allocation lineage and admit fresh recovery explicitly. Destruction releases proven logical capacity separately from physical provider-absence release."
+evidence = "NOT_STARTED signed PostgreSQL component receipts cover claim/proof races, fresh allocation, target persistence and repeated/mixed lineage. fleet-bound-not-started-cleanup-component-receipt.json passes eight grouped checks including unsafe-shape refusals, held physical capacity and stable replay."
+status = "documented"
+
+[gotcha.bound_cleanup_head_row_lock]
+symptom = "Provisioner bound-cleanup reconciliation fails with SQLSTATE 42501 after control has recorded the proof and released logical reservations."
+cause = "The scoped provisioner role can read fleet_install_heads but lacks the update privilege PostgreSQL requires for SELECT FOR SHARE."
+resolution = "Grant UPDATE(logical_operation_id) for the scoped head reader. The immutable binding trigger prevents root changes; leave current_operation_id update, head deletion and proof insertion ungranted."
+evidence = "The read-only head-lock reproduction returned 42501. bound-cleanup-head-lock-grant.json records one successful exact production head lock and confirms current-head update, deletion and proof insertion remain false."
+status = "resolved"

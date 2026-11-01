@@ -280,3 +280,25 @@ live_local_dist = "sha256:164bee6ba726e61f8f4c2c5956475cda527568fbfdcf4e978f6ecc
 live_public_source = "sha256:7b1f36c6a79e00322ec1abc7ff3a6d4ccf251b6d6191cbf222040190d9bc197f"
 live_public_dist = "sha256:6cb5e5868190dc408bd6bd4768ec7ac742cb6030615fc4f8000cb81d049ed69f"
 live_scope = "Existing component wiring and service readiness; this receipt does not establish an INSTALL execution."
+
+[progress.fleet_not_started_install_recovery]
+revision = "7f7f41335"
+source_digest = "sha256:b50befdb0ced21b5e77c39ef412ef939be7183e05d3a74d4c019e3fdcad03f74"
+dist_digest = "sha256:99a7096fbcbfe51feb8800e7264cd607df41a408dd197b410f6b28ed9ca9d4c5"
+migration_catalog_count = 71
+command = "NOT_STARTED core, target, repeated and mixed-lineage component gates"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-install-not-started-core-component-receipt.json; build/fleet/integration/private/fleet-install-not-started-target-component-receipt.json; build/fleet/integration/private/fleet-install-not-started-repeated-component-receipt.json; build/fleet/integration/private/fleet-install-not-started-mixed-component-receipt.json"
+observed = "Actual signed recovery admission and PostgreSQL proof guards passed. UNKNOWN, possible provider execution, live expiry and wrong-plan cases refused atomically; proof-first fenced late controlled claims and claim-first preserved held capacity. Fresh PREPARATION allocation and target-binding replay preserved original delivery. Repeated/mixed recovery chains retained the global logical root and correct allocation epoch, while the acceptance oracle rejected altered proof/claim/release closures."
+scope = "Actual production PostgreSQL and signed API component paths with declared historical bootstrap, identity and FAILED metadata and controlled SQL claim contenders. These receipts do not include new native execution or live provider recovery."
+
+[progress.fleet_bound_not_started_cleanup]
+revision = "9c1090e96"
+source_digest = "sha256:e8832cc0aed19e4f681ed124f21203ed357fde3781ca522fd36985b82ff6493c"
+dist_digest = "sha256:0710fd6823dbea5098c32b60d9df8a529ba5d3b6c29a06626df37b157b29f934"
+migration_catalog_count = 71
+command = "fleet_expired_preinstall_cleanup.py bound NOT_STARTED component variant"
+exit_code = 0
+log = "build/fleet/integration/fleet-bound-not-started-cleanup-component-receipt.json; build/fleet/integration/fleet-bound-not-started-cleanup-v1.log"
+observed = "Eight grouped receipt checks passed. Six unsafe shapes refused without cleanup audit or state/counter changes. Signed manager DESTROY created the actual NOT_STARTED proof and permanent job fence, released four exact logical reservations and advanced the stopped mechanical session version. SDK UNKNOWN/present held four physical reservations until confirmed absence. Original install/head/delivery/job history, scoped reads, minimal proof privileges and accounting replay remained intact."
+scope = "Actual signed manager API, PostgreSQL and pinned-SDK HTTP component boundary with controlled prior READY/mechanical preparation metadata. This receipt establishes neither new native install execution nor a completed live cleanup cycle."
