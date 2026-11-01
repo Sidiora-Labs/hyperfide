@@ -52,3 +52,11 @@ exit_code = 0
 log = "build/fleet/integration/fleet-bootstrap-capability-build.log; build/fleet/integration/blaxel-empty-optional-after.log"
 observed = "Build passed with migration catalog 67. Seven signed API/PostgreSQL checks passed for bootstrap capability admission, unchanged capacity on refusal and retained TEST resource observations. Twenty-one pinned SDK cases passed for optional empty-map semantics and strict configured-setting mismatches. Seven actual startup-entry checks passed for bounded chunked configuration transport."
 assumption = "These gates cover admission, provider serialization/verification and deployment configuration transport; cloud execution and native bootstrap retain their own receipts."
+
+[progress.fleet_archive_registration]
+revision = "control-source sha256:4aecaf032c116decc46f9c826594a9b781082a6980452ffa5bf452d5729e40c2; native sha256:695cbd2b781da4d81575b27d9b6016d2d1410189b7244bbe4d14b8c87154c6d8"
+command = "withpg.py -- python3 tests/hyperfide/cases/source_control/archive_registration.py"
+exit_code = 0
+log = "build/fleet/integration/private/archive-registration-component-receipt.json"
+observed = "Actual Unix worker execution, signed completion and native STOP passed through production APIs. Archive registration retried a pre-execution failure and reconciled a lost response without duplicate producer execution. Independent artifact reads verified the archive digest and changed file bytes. Exact signed worker and STOP output references were retained in both archive custody and assurance semantics, and active custody prevented collection."
+assumption = "The fixture uses isolated PostgreSQL and a pinned SDK HTTP transport backed by actual Unix processes. Prior registration and installation records are declared inputs. It does not establish live provider execution or model-selected work."

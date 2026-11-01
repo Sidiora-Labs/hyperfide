@@ -46,12 +46,13 @@ def accept_spec(f,generation,criterion="A task packet SHALL identify exact input
  return spec,section,identity({"reqs":["3.2"],"accepted_text":criterion})
 def move_run(f,generation,spec,state):
  f.sql("UPDATE hyperfide.runs SET spec_generation=$3,spec_revision_id=$4,state=$5,state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[f.ids["organisation"],f.ids["run"],generation,spec,state])
-def prepared_slot(f,key,commit):
+def prepared_slot(f,key,commit,provider_config=None):
  """Immutable preparation manifest + pool/sandbox/READY slot for one declared profile."""
+ config=provider_config or {"provider":"fixture","account":"fixture","workspace":key+"-fixture","region":"fixture"}
  i=f.ids;i[key+"_profile"]=uid();i[key+"_pool"]=uid();i[key+"_sandbox"]=uid();i[key+"_slot"]=uid()
  profile={"schema_version":1,"profile_id":i[key+"_profile"],"profile_version":"1.0.0",
   "os":{"distribution":"debian","version":"12","architecture":"x86_64"},
-  "image":{"provider":"fixture","reference":"fixture:1.0","digest":None},
+  "image":{"provider":config["provider"],"reference":"fixture:1.0","digest":config.get("image_digest")},
   "resources":{"cpu_millis":4000,"memory_bytes":"8589934592","disk_bytes":"21474836480","persistent_volume_bytes":"0"},
   "toolchains":[{"name":"node","version":"24.0.0"}],
   "package_managers":[{"name":"npm","version":"11.0.0","locks":[{"path":"package-lock.json","digest":sha(b"lock")}]}],
@@ -64,17 +65,17 @@ def prepared_slot(f,key,commit):
   "preparation_evidence":[{"path":"scan.json","digest":sha(("declarative-fixture-scan:"+key).encode())}]}
  body={"schema_version":1,"profile":profile,"files":[],"directories":[],"scan":{"policy_version":1,"canary_counts":{"secret":0,"identity":0,"lease":0},"checks":["sensitive_paths","private_key_markers","authority_json","designated_canaries"]}}
  preparation=identity(body);manifest=dict(body,digest=preparation)
- f.sql("INSERT INTO hyperfide.environment_profiles(organisation_id,id,content_digest,provider,runtime_platform,manifest) VALUES($1,$2,$3,'fixture','linux',$4)",[i["organisation"],i[key+"_profile"],preparation,json.dumps(manifest)])
- f.sql("INSERT INTO hyperfide.provider_pools(organisation_id,id,provider,account_key,environment_key,region,profile_id) VALUES($1,$2,'fixture','fixture',$3,'fixture',$4)",[i["organisation"],i[key+"_pool"],key+"-fixture",i[key+"_profile"]])
+ f.sql("INSERT INTO hyperfide.environment_profiles(organisation_id,id,content_digest,provider,runtime_platform,manifest) VALUES($1,$2,$3,$4,$5,$6)",[i["organisation"],i[key+"_profile"],preparation,config["provider"],config.get("runtime_platform","linux"),json.dumps(manifest)])
+ f.sql("INSERT INTO hyperfide.provider_pools(organisation_id,id,provider,account_key,environment_key,region,profile_id) VALUES($1,$2,$3,$4,$5,$6,$7)",[i["organisation"],i[key+"_pool"],config["provider"],config["account"],config["workspace"],config["region"],i[key+"_profile"]])
  f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state,preparation_digest) VALUES($1,$2,$3,$4,'RUNNING',$5)",[i["organisation"],i[key+"_sandbox"],i[key+"_pool"],key+"-fixture-resource",preparation])
  f.sql("INSERT INTO hyperfide.worker_slots(organisation_id,id,sandbox_id,slot_key,boot_generation,capacity_kind,state) VALUES($1,$2,$3,$4,1,'AGENT','READY')",[i["organisation"],i[key+"_slot"],i[key+"_sandbox"],key+"-slot"])
  return preparation
 class PacketFixture(HierarchyFixture):
- def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,seed_historical_runtime=True,extra_env=None,source_object_id=None):
+ def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,seed_historical_runtime=True,extra_env=None,source_object_id=None,provider_config=None):
   def setup(f):
    apply_migration(f,"0002-spec");apply_migration(f,"0007-graph");apply_migration(f,"0032-execution-packets")
    i=f.ids;f.source=source_object_id or "a"*40
-   f.preparation=prepared_slot(f,"packet",f.source)
+   f.preparation=prepared_slot(f,"packet",f.source,provider_config)
    i["profile"]=i["packet_profile"];i["pool"]=i["packet_pool"];i["sandbox"]=i["packet_sandbox"];i["packet_slot"]=i["packet_slot"]
    i["boot"]=f.sql("SELECT boot_id FROM hyperfide.sandbox_boots WHERE organisation_id=$1 AND sandbox_id=$2",[i["organisation"],i["sandbox"]])[0]["boot_id"]
    spec,f.packet_section,f.packet_criteria=accept_spec(f,2)

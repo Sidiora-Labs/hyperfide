@@ -22,7 +22,7 @@ def process_start(pid):
 
 class SubmissionStack:
     """Owns one disposable database, signed control service, S3 object double and Git repository."""
-    def __init__(self,record,tasks,extra_components=(),agent_limit=6,prefix="hyperfide-assurance-submit-",before_start=None):
+    def __init__(self,record,tasks,extra_components=(),agent_limit=6,prefix="hyperfide-assurance-submit-",before_start=None,baseline_files=None,provider_config=None):
         self.record=Path(record);self.tasks=tuple(tasks);self.attempts={};self.fixture=None;self.store=None
         self.scheduler=load("hf16_scheduler_fixture","tests/hyperfide/cases/tasks/5_1.py")
         self.objects=load("hf16_object_fixture","tests/hyperfide/cases/tasks/15_2.py")
@@ -31,7 +31,12 @@ class SubmissionStack:
         self.save()
         try:
             self.git("init","-q");self.git("config","user.name","Bounded submission test");self.git("config","user.email","fixture@example.invalid")
-            (self.repository/"README").write_text("accepted baseline\n");self.git("add","--all");self.git("commit","-qm","accepted baseline")
+            (self.repository/"README").write_text("accepted baseline\n")
+            for name,data in (baseline_files or {}).items():
+                relative=Path(name)
+                if relative.is_absolute() or any(part in ('','.','..','.git') for part in relative.parts) or not isinstance(data,bytes):raise ValueError("Explicit relative baseline file bytes required")
+                target=self.repository/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+            self.git("add","--all");self.git("commit","-qm","accepted baseline")
             self.baseline=self.git("rev-parse","HEAD");self.heads={}
             for name in self.tasks:
                 self.git("checkout","-q","--detach",self.baseline);(self.repository/"src").mkdir(exist_ok=True)
@@ -49,7 +54,7 @@ class SubmissionStack:
                 self.setup(f)
                 if before_start:before_start(f)
             try:
-                self.fixture=OwnedScheduler(extra_components=("16.1","16.2")+tuple(extra_components),extra_setup=setup,source_object_id=self.baseline,agent_limit=agent_limit)
+                self.fixture=OwnedScheduler(extra_components=("16.1","16.2")+tuple(extra_components),extra_setup=setup,source_object_id=self.baseline,agent_limit=agent_limit,provider_config=provider_config)
             finally:
                 if self.fixture is None:self.state["closed"]=True;self.save()
             f=self.fixture;i=f.ids
