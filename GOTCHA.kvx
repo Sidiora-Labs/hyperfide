@@ -116,3 +116,10 @@ cause = "Preinstall allocation cleanup and provider absence release cover distin
 resolution = "Admit exact scoped cleanup, retain immutable delivery and audit lineage, and hold both capacity vectors until trusted provider absence. Retire the actual slot and advance session state once; replay preserves the existing result."
 evidence = "fleet-expired-preinstall-cleanup-owned-full-vector.log passes five negative refusals and signed DESTROY application. SDK 503 and present-resource observations preserve counters; actual 404 releases four physical and four logical dimensions once. The separate live cleanup receipt records guarded operator disposition after manager escalation, terminal DESTROY, exact expired-boot release and unchanged unrelated uncertain holds."
 status = "resolved"
+
+[gotcha.provider_inventory_bounded_progress]
+symptom = "Repeated bounded inventory refreshes inspect the same early resources while later retained candidates remain stale."
+cause = "The bounded scan did not use exact fresh attribution to advance through remaining candidates."
+resolution = "Skip fresh exact-policy/scope evidence, expose completed partial continuation separately from transport uncertainty, and refresh retained observations automatically under the current approved scope. Keep UNKNOWN presence and accounting conservative."
+evidence = "inventory-maintenance-component-receipt.json records the repeated baseline failure, bounded progress across all 24 retained candidates, zero-GET fresh repeats and automatic maintenance without provisioning intents. Catalog 70 adds indexed append-only history and requires coordinated runtime/database deployment; ordinary index creation blocks table writes."
+status = "documented"

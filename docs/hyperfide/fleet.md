@@ -102,6 +102,12 @@ Observations expose package-scoped recovery candidates, including previous owner
 
 When an operator destroys a manager-owned sandbox, that manager's original CREATE observation includes the audited administrative disposition and confirmed provider-absence evidence for the same native sandbox and boot. The evidence preserves operator provenance and lets the manager reason about replacement capacity.
 
+## Retained provider inventory
+
+Admission inventory refresh is bounded to 32 stale candidates, four concurrent provider reads and a ten-second observation window. A completed partial pass returns `SAME_SCOPE_NEW_RPC`: another call under the same scope continues through stale candidates while skipping fresh exact-policy/scope evidence. Transport uncertainty still reconciles the original operation. A completed pass does not establish complete provider inventory or release uncertain physical presence.
+
+Catalog 70 adds automatic provisioner maintenance over retained inventory and unresolved orphan identities, even without a provisioning intent. It rotates approved account/environment/region scopes, records typed append-only observations and refreshes stale attribution before expiry. UNKNOWN reads preserve prior positive presence and its charges. Maintenance selects no compute, creates no provisioning intent and changes no declared budget.
+
 ## Source adapter boundary
 
 The executable prerequisite uses [Git source manifests](../../core/control-plane/src/preparation/fleet_source.ts): immutable Git revisions, selected paths, file modes, content digests and bounded inventories. The current adapter supports regular files with Git modes `100644` and `100755`; unsupported source kinds are refused. It does not implement the proposed virtual native SCM working copy.

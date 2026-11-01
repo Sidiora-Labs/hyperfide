@@ -224,3 +224,25 @@ live_observed = "A genuine manager escalation led to guarded operator dispositio
 compatible_full_source = "sha256:7b1f36c6a79e00322ec1abc7ff3a6d4ccf251b6d6191cbf222040190d9bc197f"
 compatible_full_dist = "sha256:6cb5e5868190dc408bd6bd4768ec7ac742cb6030615fc4f8000cb81d049ed69f"
 full_build_compatibility = "Checksum comparison confirms all eight transfer modules and seven control modules are byte-identical to their respective gated snapshots. Original receipt build pins and isolated scopes remain authoritative."
+
+[progress.fleet_inventory_refresh_progress]
+revision = "ba88de4a410f8072901cb8ea3d0ab12ef5b53111"
+source_digest = "sha256:c01f3832778f8d5ff4e52ead97f50540b08fffff349aff1e39eaa3463c61c350"
+dist_digest = "sha256:164bee6ba726e61f8f4c2c5956475cda527568fbfdcf4e978f6ecc7041c3adf0"
+migration_catalog_count = 69
+command = "foreign_inventory_capacity.py --refresh-progress-only; default inventory regression"
+exit_code = 0
+log = "build/fleet/integration/inventory-maintenance-component-receipt.json; build/fleet/integration/inventory-refresh-progress-v1.log"
+observed = "The baseline repeatedly classified only two of 24 retained candidates. Four bounded calls on the corrected path covered all 24; a fresh repeat attempted no reads and skipped all 24. Completed partial continuation preserved the same scope without claiming complete provider inventory. TTL expiry, UNKNOWN presence and separate managed budgets retained their regression behavior."
+scope = "Actual signed PostgreSQL and pinned-SDK HTTP component boundary; urgent catalog-69 refresh path."
+
+[progress.fleet_automatic_inventory_maintenance]
+revision = "control-source sha256:e0db75b9c03141998d3ac1918fcfb0ba189223139772cc1bb810facb86cfaa97"
+dist_digest = "sha256:c7bdcaee16f04dcd4ba786f3ac7f4d4bce6f2b2efa60bbf51907aacf7975fc24"
+migration_catalog_count = 70
+command = "foreign_inventory_capacity.py --inventory-background-only"
+exit_code = 0
+log = "build/fleet/integration/inventory-maintenance-component-receipt.json; build/fleet/integration/inventory-maintenance-background-v1.log"
+observed = "The normal signed provisioner worker refreshed retained attribution without provisioning intents or provider mutations. Fresh exact-scope evidence avoided repeated reads; a configuration change refused reuse of old attribution. Typed journals retained request/evidence digests, while UNKNOWN and stale shared presence stayed charged and previous observations remained unchanged."
+scope = "Actual PostgreSQL and pinned-SDK HTTP component execution on an immutable catalog-70 snapshot. Automatic maintenance has not been qualified as a live deployment."
+deployment_requirement = "Coordinate catalog-70 runtime artifacts with migration 0730 and a safe write window: catalog-69 runtimes reject the additional migration, and the six ordinary CREATE INDEX statements block table DML while building."
