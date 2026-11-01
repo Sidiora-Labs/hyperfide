@@ -5,6 +5,8 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
+import {revisionLayout, validateCheckpointLayout, layoutCommand} from './layout.mjs';
+export {layoutCommand};
 process.umask(0o077);
 
 export const here = path.dirname(fileURLToPath(import.meta.url));
@@ -91,6 +93,7 @@ export async function readBytes(sb, p) { return Buffer.from(await sb.files.read(
 // What a worker lacks above the checkpoint: refs/heads/main ^<checkpointCommit>, built once per main tip. The file appears
 // by rename, so concurrent runners never see a half-written bundle and never wait on a lock.
 export function baseBundle(baseCommit) {
+  checkpointLayout();
   const cp = cfg.checkpointCommit;
   if (!cp) throw new Error('fleet.json has no checkpointCommit: run `provision.mjs base` or `provision.mjs use` first');
   if (isAncestor(baseCommit, cp)) return null;
@@ -106,8 +109,20 @@ export function baseBundle(baseCommit) {
 }
 // Record the checkpoint in fleet.json (the one place the toolkit reads it from).
 export function recordCheckpoint(name, commit) {
-  const c = JSON.parse(fs.readFileSync(cfgFile, 'utf8')); c.checkpoint = name; c.checkpointCommit = commit;
+  const layout = revisionLayout(repoRoot, commit);
+  const c = JSON.parse(fs.readFileSync(cfgFile, 'utf8')); c.checkpoint = name; c.checkpointCommit = commit; c.checkpointLayout = layout;
   const t = `${cfgFile}.${randomUUID()}`; fs.writeFileSync(t, JSON.stringify(c, null, 2) + '\n'); fs.chmodSync(t, 0o644); fs.renameSync(t, cfgFile);
+}
+export function checkpointLayout() {
+  if (!cfg.checkpoint) throw new Error('LAYOUT_IMAGE_INCOMPATIBLE: no recorded checkpoint');
+  return validateCheckpointLayout(repoRoot, cfg.checkpointCommit, cfg.checkpointLayout);
+}
+export function workerLayout(worker, targetCommit) {
+  const layout = checkpointLayout();
+  if (worker.checkpoint !== cfg.checkpoint) throw new Error('LAYOUT_IMAGE_INCOMPATIBLE: worker belongs to another checkpoint');
+  validateCheckpointLayout(repoRoot, cfg.checkpointCommit, worker.checkpointLayout);
+  revisionLayout(repoRoot, targetCommit);
+  return layout;
 }
 export function opts(argv, flags = []) {
   const o = {_: []};

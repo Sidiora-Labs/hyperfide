@@ -6,10 +6,9 @@
 //            with the ask tools, one gateway key per sandbox handed over through the exec environment) and commit what the agent left.
 // Ledger state/ledger/jobs/<id>.json: done | review (codex exited 0 without commits) | failed. Exit 0 on done or review.
 import {cfg, P, W, sdk, requireEnv, save, load, now, run, must, redact, sq, safe, fill, git, repoRoot, baseBundle, keyFor, gatewayModel,
-  ledgerPath, updateWorker, readBytes, writePrivate} from './lib.mjs';
+  ledgerPath, updateWorker, readBytes, writePrivate, workerLayout, layoutCommand} from './lib.mjs';
 import fs from 'node:fs'; import path from 'node:path';
 
-requireEnv();
 const [workerFile, jobFile] = process.argv.slice(2);
 if (!workerFile || !jobFile) throw new Error('usage: run-job.mjs <worker-ledger.json> <job.json>');
 const job = load(jobFile); const id = job.id, S = safe(id), kind = job.kind;
@@ -18,6 +17,8 @@ const branch = `${kind === 'qualify' ? 'job' : 'task'}/${id}`;
 const L = ledgerPath(id);
 const worker = load(workerFile);
 const baseCommit = git(repoRoot, 'rev-parse', '--verify', `${job.base}^{commit}`);
+const preparedLayout = workerLayout(worker, baseCommit);
+requireEnv();
 const prev = fs.existsSync(L) ? load(L) : null;
 const rec = {id, kind, feature: job.feature, task: job.task, branch, worker: worker.name, sandboxId: worker.sandboxId, baseCommit,
   attempt: (prev?.attempt || 0) + 1, previous: prev ? {worker: prev.worker, state: prev.state, error: prev.error} : undefined,
@@ -54,7 +55,7 @@ try {
   rec.phases.push({name: 'upload', at: now(), ms: Date.now() - t0, bundles: bundles.length}); save(L, rec);
   const fetches = bundles.map((b, i) => `git fetch -q ${b} '+refs/heads/*:refs/remotes/in${i}/*' && `).join('');
   phase('checkout', await must(sb, `git config --global user.name ${sq(cfg.git.name)} && git config --global user.email ${sq(cfg.git.email)} && ${fetches}git checkout -q -f -B ${sq(branch)} ${start} && git clean -fdq && touch /work/out/${S}.start && git rev-parse HEAD`, {cwd: W, timeoutSec: 1200, label: 'checkout'}));
-  phase('prepare', await must(sb, fill(cfg.prepare, vars), {cwd: W, timeoutSec: 2400, label: 'prepare'}));
+  phase('prepare', await must(sb, layoutCommand('probe', preparedLayout) + ' && ' + fill(cfg.prepare, vars), {cwd: W, timeoutSec: 2400, label: 'prepare'}));
 
   if (kind === 'qualify') {
     const r = await run(sb, `(${fill(cfg.qualify.cmd, vars)}) > /work/out/${S}.log 2>&1; echo job_exit=$?`, {cwd: W, timeoutSec: job.timeoutSec || cfg.qualify.timeoutSec, label: 'qualify'});

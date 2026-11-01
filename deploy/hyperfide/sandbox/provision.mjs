@@ -9,7 +9,8 @@
 //        node provision.mjs teardown [--force]                      -> destroy every pool worker (busy ones only with --force)
 // A Railway sandbox carries no name: a pool name is the state/ledger/pool/<name>.json record that owns the sandbox id.
 import {cfg, P, W, sdk, requireEnv, save, now, run, must, redact, git, repoRoot, mainTip, isAncestor, poolWorkers, fill, sleep, opts,
-  recordCheckpoint} from './lib.mjs';
+  recordCheckpoint, checkpointLayout, layoutCommand} from './lib.mjs';
+import {revisionLayout} from './layout.mjs';
 import path from 'node:path'; import fs from 'node:fs'; import {randomUUID} from 'node:crypto';
 
 const o = opts(process.argv.slice(2), ['force']);
@@ -20,6 +21,8 @@ if (mode === 'use') {
   recordCheckpoint(name, commit); console.log(JSON.stringify({checkpoint: name, checkpointCommit: commit}));
   process.exit(0);
 }
+const selectedLayout = mode === 'pool' ? checkpointLayout() : mode === 'base'
+  ? revisionLayout(repoRoot, git(repoRoot, 'rev-parse', '--verify', `${args[0] || cfg.mainBranch}^{commit}`)) : null;
 requireEnv([cfg.env.token, cfg.env.environmentId]);
 const {Sandbox, SandboxNotFoundError, config} = await sdk();
 const create = {resources: cfg.resources, idleTimeoutMinutes: cfg.idleTimeoutMinutes};
@@ -51,6 +54,9 @@ if (mode === 'base') {
       rec.steps.push({label, exit: r.exitCode, ms: r.ms, tail: r.stdout.slice(-400)}); save(recFile, rec);
       console.log(`[${Math.round(r.ms / 1000)}s] ${label} ok`);
     }
+    await must(sb, fill(cfg.probe, {W}), {timeoutSec: 180, label: 'runtime-probe'});
+    await must(sb, layoutCommand('stamp', selectedLayout), {cwd: W, timeoutSec: 60, label: 'layout-stamp'});
+    await must(sb, layoutCommand('probe', selectedLayout), {cwd: W, timeoutSec: 60, label: 'layout-probe'});
     const t2 = Date.now(); rec.checkpointInfo = await sb.checkpoint(name);
     rec.steps.push({label: 'checkpoint', ms: Date.now() - t2}); rec.state = 'checkpointed';
     recordCheckpoint(name, commit);
@@ -72,10 +78,12 @@ if (mode === 'base') {
     pending.push((async () => {
       try {
         const t0 = Date.now();
+        checkpointLayout();
         // No credential enters the sandbox environment; each job hands its gateway key over in a root-only file.
         const sb = await Sandbox.create(cfg.checkpoint, {...config, ...create, env: {FLEET_WORKER: name}});
-        const probe = await run(sb, fill(cfg.probe, {W}), {timeoutSec: 180, label: 'probe'});
+        const probe = await run(sb, layoutCommand('probe', selectedLayout) + ' && ' + fill(cfg.probe, {W}), {cwd: W, timeoutSec: 180, label: 'probe'});
         const rec = {name, sandboxId: sb.id, createdAt: now(), bootMs: Date.now() - t0, checkpoint: cfg.checkpoint, resources: cfg.resources,
+          checkpointLayout: selectedLayout,
           state: probe.exitCode === 0 ? 'ready' : 'probe_failed', probe: probe.stdout.trim().split('\n'), probeErr: probe.stderr.slice(-500), job: null};
         save(path.join(P.ledger, 'pool', `${name}.json`), rec); results.push(rec);
         console.log(JSON.stringify({worker: name, state: rec.state, bootMs: rec.bootMs}));
