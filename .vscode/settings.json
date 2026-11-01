@@ -36,7 +36,7 @@
         "statusBar.noFolderForeground": "#FEFBFF"
     },
     "explorer.compactFolders": false,
-    "breadcrumbs.enabled": false,
+    "breadcrumbs.enabled": true,
     "workbench.editor.limit.enabled": true,
     "workbench.editor.limit.value": 5,
     "terminal.integrated.fontSize": 14,
