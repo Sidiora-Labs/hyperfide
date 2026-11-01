@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { mkdir, readFile, writeFile, rename, lstat } from 'node:fs/promises';
+import { mkdir, writeFile, rename, open, realpath, unlink, lstat } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
 export class ContractError extends Error {
@@ -346,24 +347,77 @@ export function createInterfaceIndex({ catalogue, sourceRevision: source, proven
 export async function createDirectoryInterfaceStore(directory) {
   absolutePath(directory, 'index.directory');
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const stat = await lstat(directory);
-  if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) || typeof process.getuid === 'function' && stat.uid !== process.getuid()) fail('PATH_ESCAPE', 'index.directory', 'ordinary owned directory required');
-  const filename = id => path.join(directory, digest(interfaceId(id, 'interface.id')).slice(7) + '.json');
+  const owned = stat => !(stat.mode & 0o077) && (typeof process.getuid !== 'function' || stat.uid === process.getuid());
+  const initial = await lstat(directory), canonicalRoot = await realpath(directory);
+  if (!initial.isDirectory() || initial.isSymbolicLink() || !owned(initial)) fail('PATH_ESCAPE', 'index.directory', 'ordinary owned private directory required');
+  const sameDirectory = stat => stat.isDirectory() && !stat.isSymbolicLink() && owned(stat) && stat.dev === initial.dev && stat.ino === initial.ino;
+  const anchored = async body => {
+    let handle;
+    try {
+      if (!sameDirectory(await lstat(canonicalRoot))) fail('PATH_ESCAPE', 'index.directory', 'private index directory identity changed');
+      let root = canonicalRoot;
+      if (process.platform === 'linux') {
+        handle = await open(canonicalRoot, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+        if (!sameDirectory(await handle.stat())) fail('PATH_ESCAPE', 'index.directory', 'private index directory identity changed');
+        const descriptorRoot = '/proc/self/fd/' + handle.fd;
+        try {
+          if (await realpath(descriptorRoot) !== canonicalRoot) fail('PATH_ESCAPE', 'index.directory', 'private index directory identity changed');
+          root = descriptorRoot;
+        } catch (error) {
+          if (!['ENOENT','EACCES','EPERM','ERR_ACCESS_DENIED'].includes(error?.code)) throw error;
+          await handle.close(); handle = undefined;
+        }
+      }
+      const result = await body(root);
+      if (!sameDirectory(await lstat(canonicalRoot)) || await realpath(canonicalRoot) !== canonicalRoot) fail('PATH_ESCAPE', 'index.directory', 'private index directory identity changed');
+      return result;
+    } catch (error) {
+      if (error instanceof ContractError) throw error;
+      if (['ELOOP','ENOTDIR'].includes(error?.code)) fail('PATH_ESCAPE', 'index.directory', 'index directory cannot be a link');
+      fail('INTERFACE_INVALID', 'index.directory', 'protected index storage unavailable');
+    } finally { await handle?.close(); }
+  };
+  await anchored(async () => {});
+  const filename = id => digest(interfaceId(id, 'interface.id')).slice(7) + '.json';
   return {
     async get(id) {
-      try {
-        const file = filename(id), info = await lstat(file);
-        if (!info.isFile() || info.isSymbolicLink() || info.size > 2 * 1024 * 1024) fail('INTERFACE_INVALID', id, 'bounded ordinary index record required');
-        return JSON.parse(await readFile(file, 'utf8'));
-      } catch (error) { if (error?.code === 'ENOENT') return null; throw error; }
+      const name = filename(id);
+      return anchored(async root => {
+        let file;
+        try {
+          const target = path.join(root, name), before = await lstat(target);
+          if (!before.isFile() || before.isSymbolicLink()) fail('INTERFACE_INVALID', id, 'ordinary index record required');
+          file = await open(target, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+          const stat = await file.stat();
+          if (stat.dev !== before.dev || stat.ino !== before.ino) fail('INTERFACE_INVALID', id, 'index record identity changed');
+          if (!stat.isFile() || stat.size > 2 * 1024 * 1024) fail('INTERFACE_INVALID', id, 'bounded ordinary index record required');
+          const buffer = Buffer.alloc(stat.size + 1); let length = 0;
+          while (length < buffer.length) { const {bytesRead} = await file.read(buffer, length, buffer.length - length, length); if (!bytesRead) break; length += bytesRead; }
+          const after = await file.stat();
+          if (length !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs || after.ctimeMs !== stat.ctimeMs) fail('INTERFACE_INVALID', id, 'index record changed during read');
+          try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, length))); }
+          catch { fail('INTERFACE_INVALID', id, 'invalid indexed JSON record'); }
+        } catch (error) {
+          if (error?.code === 'ENOENT') return null;
+          if (error instanceof ContractError) throw error;
+          fail('INTERFACE_INVALID', id, 'protected index record unavailable');
+        } finally { await file?.close(); }
+      });
     },
     async put(id, entry) {
-      const target = filename(id), temporary = target + '.' + randomUUID() + '.tmp';
-      await writeFile(temporary, canonical(entry), { mode: 0o600, flag: 'wx' });
-      await rename(temporary, target);
+      const name = filename(id), bytes = canonical(entry);
+      if (Buffer.byteLength(bytes) > 2 * 1024 * 1024) fail('LIMIT_EXCEEDED', id, 'index record exceeds byte bound');
+      await anchored(async root => {
+        const target = path.join(root, name), temporary = target + '.' + randomUUID() + '.tmp';
+        try {
+          await writeFile(temporary, bytes, { mode: 0o600, flag: 'wx' });
+          await rename(temporary, target);
+        } finally { await unlink(temporary).catch(error => { if (error?.code !== 'ENOENT') throw error; }); }
+      });
     },
   };
 }
+
 export async function buildInterfaceIndex({ chunks, sourceRevision: source, provenance: origin, references = {}, maxBlockBytes = 1024 * 1024, store }) {
   sourceRevision(source, 'sourceRevision'); provenance(origin, source); integer(maxBlockBytes, 'maxBlockBytes', 1, 1024 * 1024);
   const memory = new Map(), external = Boolean(store);

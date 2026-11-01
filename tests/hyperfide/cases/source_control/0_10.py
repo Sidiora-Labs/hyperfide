@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -8,9 +9,10 @@ import sys
 ROOT = Path(__file__).resolve().parents[4]
 PROGRAM = r'''
 import assert from 'node:assert/strict';
-import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdtemp, rm, readdir, chmod, rename, link, symlink, unlink } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -166,6 +168,34 @@ await check('interfaces.streaming-index-external-storage', async () => {
     await refusedAsync('INTERFACE_TAMPERED',()=>c.selectInterfaces(streamed,{...request,ids:[staged.id]}));
   } finally { await rm(directory,{recursive:true,force:true}); }
 });
+await check('interfaces.persistent-store-malformed-and-shared-records', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'fleet-interface-store-'));
+  try {
+    const location = path.join(directory, 'index'), store = await c.createDirectoryInterfaceStore(location);
+    const entry = await index.fetchEntry('interface.fleet.install');
+    await store.put(entry.id, entry);
+    const [name] = await readdir(location), record = path.join(location, name), shared = path.join(directory, 'shared.json');
+    await rename(record, shared); await link(shared, record); await chmod(shared, 0o444);
+    assert.equal(c.canonical(await store.get(entry.id)), c.canonical(entry));
+    await chmod(shared, 0o600); await writeFile(shared, '{truncated');
+    await refusedAsync('INTERFACE_INVALID', () => store.get(entry.id));
+    await unlink(record); await symlink(shared, record);
+    await refusedAsync('INTERFACE_INVALID', () => store.get(entry.id));
+    await unlink(record);
+    await refusedAsync('LIMIT_EXCEEDED', () => store.put(entry.id, {payload:'x'.repeat(2 * 1024 * 1024)}));
+    assert.deepEqual(await readdir(location), []);
+    const moved = path.join(directory, 'moved'); await rename(location, moved); await symlink(moved, location);
+    await refusedAsync('PATH_ESCAPE', () => store.get(entry.id));
+  } finally { await rm(directory, {recursive:true,force:true}); }
+});
+await check('interfaces.store-without-linux-descriptor-filesystem', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'fleet-interface-portable-'));
+  try {
+    const entry = await index.fetchEntry('interface.fleet.install');
+    const code = 'import {createDirectoryInterfaceStore} from ' + JSON.stringify(pathToFileURL(path.join(root,'contracts/fleet/index.mjs')).href) + ';const s=await createDirectoryInterfaceStore(' + JSON.stringify(path.join(directory,'index')) + ');const e=' + JSON.stringify(entry) + ';await s.put(e.id,e);if((await s.get(e.id)).block_digest!==e.block_digest)throw Error("Stored public block changed");';
+    execFileSync(process.execPath, ['--permission', '--allow-fs-read=' + path.join(root,'contracts/fleet/index.mjs'), '--allow-fs-read=' + directory, '--allow-fs-write=' + directory, '--input-type=module', '-e', code], {stdio:['ignore','pipe','pipe']});
+  } finally { await rm(directory, {recursive:true,force:true}); }
+});
 await check('interfaces.invalid-stream-and-index-version', async () => {
   await refusedAsync('INTERFACE_INVALID',()=>c.buildInterfaceIndex({chunks:[new Uint8Array([0xff])],sourceRevision:source,provenance:origin}));
   await refusedAsync('UNSUPPORTED_SCHEMA',()=>c.selectInterfaces({...index,publication:{...index.publication,schema_version:2}},request));
@@ -203,9 +233,24 @@ def main():
     node = os.environ.get('HYPERFIDE_NODE_BINARY', 'node')
     result = subprocess.run([node, '--input-type=module', '-e', PROGRAM, str(ROOT)], cwd=ROOT,
                             text=True, capture_output=True, timeout=90)
-    sys.stdout.write(result.stdout)
+    if result.returncode:
+        sys.stdout.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        return result.returncode
+    evidence = json.loads(result.stdout)
+    revision = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{commit}'], cwd=ROOT, text=True).strip()
+    tree = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{tree}'], cwd=ROOT, text=True).strip()
+    inputs = ['contracts/fleet/index.mjs', 'contracts/fleet/index.d.mts',
+              'spec/hyperfide-source-control/examples/fleet/.neron',
+              'spec/hyperfide-source-control/examples/fleet/package.kvx',
+              'spec/hyperfide-source-control/examples/fleet/interfaces.kvx',
+              'tests/hyperfide/cases/source_control/0_10.py']
+    evidence['source_binding'] = {'baseline_revision': 'git:' + revision, 'baseline_tree': tree,
+                                  'working_inputs': {name: 'sha256:' + hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in inputs},
+                                  'fixture_authority': 'CONTROLLED_PARSER_AND_INDEX_INPUTS'}
+    sys.stdout.write(json.dumps(evidence, indent=2) + '\n')
     sys.stderr.write(result.stderr)
-    return result.returncode
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main())
