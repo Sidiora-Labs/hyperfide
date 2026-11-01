@@ -474,8 +474,28 @@ export async function executeIntent(pool:ProviderDatabase,config:DeploymentConfi
   const rejection=await releaseRejectedCreate(pool,config,current);
   return{executed:true,intent:await intent(pool,config.organisation_id,id),readiness_granted:false,...(rejection?{rejection_disposition:rejection}:{})};
 }
+async function releaseConfirmedDestroyedCapacity(pool:ProviderDatabase,config:DeploymentConfig,observed:Intent):Promise<unknown|null>{
+ if(observed.kind!=='DESTROY'||observed.state!=='TERMINAL'||!observed.native_sandbox_id)return null;
+ return transaction(pool,async tx=>{
+  assertInvocationRun(pool,observed.run_id);await lockRun(tx,{organisation_id:config.organisation_id,run_id:observed.run_id});
+  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[config.organisation_id+':'+observed.pool_id+':resource-admission']);
+  const current=await intent(tx,config.organisation_id,observed.id,true);
+  if(current.run_id!==observed.run_id||current.kind!=='DESTROY'||current.state!=='TERMINAL'||!current.native_sandbox_id)return null;
+  const admitted=(await tx.query(`SELECT e.operation_id FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id
+   WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'kind'='DESTROY_SANDBOX' AND e.result->>'provider_intent_id'=$3 AND e.result->>'sandbox_id'=$4 AND d.action='DESTROY_SANDBOX' AND e.operation_id::text=$5 LIMIT 1`,[config.organisation_id,current.run_id,current.id,current.sandbox_id,current.request_key])).rows[0];
+  if(!admitted)return null;
+  const reservations=(await tx.query(`SELECT c.id::text AS create_intent_id,r.id::text,r.state,r.attempt_id,a.capacity_class,a.pool_id FROM hyperfide.provisioning_intents c JOIN hyperfide.provisioning_intent_reservations l ON l.organisation_id=c.organisation_id AND l.run_id=c.run_id AND l.intent_id=c.id JOIN hyperfide.reservations r ON r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id
+   WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.sandbox_id=$3 AND c.boot_generation=$4 AND c.native_sandbox_id=$5 AND c.kind='CREATE' AND c.state='TERMINAL' ORDER BY r.id FOR UPDATE OF r`,[config.organisation_id,current.run_id,current.sandbox_id,current.boot_generation,current.native_sandbox_id])).rows;
+  if(!reservations.length)return null;
+  if(new Set(reservations.map(r=>r.create_intent_id)).size!==1||reservations.some(r=>!['RELEASE_PENDING','RELEASED'].includes(r.state)||r.attempt_id!==null||r.capacity_class!=='PHYSICAL'||r.pool_id!==current.pool_id))fail('PROVIDER_RESERVATION_UNPROVEN','Confirmed destroy must bind the exact original physical reservation vector');
+  const scheduler=new ResourceScheduler(),unregister=scheduler.registerProofReader('provider.absence',readConfirmedAbsence);
+  try{return {intent:current,external_call_performed:false,confirmed_absence_released:true,release:await scheduler.release(tx,{organisation_id:config.organisation_id,run_id:current.run_id,reservation_ids:reservations.map(r=>r.id)})};}
+  finally{unregister();scheduler.close();}
+ });
+}
 export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
   let row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
+  const confirmedRelease=await releaseConfirmedDestroyedCapacity(pool,config,row);if(confirmedRelease)return confirmedRelease;
   const rejection=await releaseRejectedCreate(pool,config,row);if(rejection)return rejection;
   if(row.state==='RECORDED'){
     const expired=await expireNeverSubmittedIntent(pool,config,row);
@@ -537,7 +557,8 @@ export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentCon
   if(!row.native_sandbox_id)fail('RESOURCE_OWNERSHIP_UNKNOWN','Reconciliation did not establish a resource identity');
   const ref={native_sandbox_id:row.native_sandbox_id,sandbox_boot_generation:String(row.boot_generation)};
   const op=next('observe',{},ref),outcome=await boundedProvider(adapter.observe(op,signal),signal,op.deadline_at);await hooks.recordObservation(op,outcome);
-  return{intent:await intent(pool,config.organisation_id,id),reconciled:true,absence_authorized:false};
+  const current=await intent(pool,config.organisation_id,id),released=await releaseConfirmedDestroyedCapacity(pool,config,current);
+  return{intent:current,reconciled:true,absence_authorized:false,...(released?{capacity_release:released}:{})};
 }
 
 export type ProviderCaptureProof=

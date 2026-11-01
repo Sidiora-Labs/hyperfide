@@ -80,13 +80,17 @@ const REJECTED_CREATE_HOLD=`(i.state='REJECTED' AND i.kind='CREATE' AND i.native
  OR (o.observation->'outcome'->>'status'='FAILED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_REJECTED'
  AND o.observation->'outcome'->'error'->>'provider_code' ~ '^BLAXEL_CREATE_HTTP_4[0-9]{2}$'
  AND o.observation->'outcome'->'error'->>'provider_code' NOT IN ('BLAXEL_CREATE_HTTP_408','BLAXEL_CREATE_HTTP_409','BLAXEL_CREATE_HTTP_425','BLAXEL_CREATE_HTTP_429')))))`;
+const TERMINAL_DESTROY_HOLD=`(i.state='TERMINAL' AND i.kind='DESTROY' AND i.native_sandbox_id IS NOT NULL
+ AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e WHERE e.organisation_id=i.organisation_id AND e.run_id=i.run_id AND e.result->>'kind'='DESTROY_SANDBOX' AND e.result->>'provider_intent_id'=i.id::text AND e.result->>'sandbox_id'=i.sandbox_id::text)
+ AND EXISTS(SELECT 1 FROM hyperfide.provisioning_intents c JOIN hyperfide.provisioning_intent_reservations l ON l.organisation_id=c.organisation_id AND l.run_id=c.run_id AND l.intent_id=c.id JOIN hyperfide.reservations r ON r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id WHERE c.organisation_id=i.organisation_id AND c.run_id=i.run_id AND c.sandbox_id=i.sandbox_id AND c.boot_generation=i.boot_generation AND c.native_sandbox_id=i.native_sandbox_id AND c.kind='CREATE' AND c.state='TERMINAL' AND r.state='RELEASE_PENDING'))`;
 const CLAIM=`SELECT id,state,kind,(operation->>'deadline_at')::timestamptz<=clock_timestamp() AS deadline_expired FROM hyperfide.provisioning_intents i
- WHERE organisation_id=$1 AND run_id=$2 AND NOT (id=ANY($3::uuid[])) AND (operation->'scope'->>'provider'=ANY($4::text[]) OR (state='RECORDED' AND kind='CREATE' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp()) OR ${REJECTED_CREATE_HOLD}) AND (
+ WHERE organisation_id=$1 AND run_id=$2 AND NOT (id=ANY($3::uuid[])) AND (operation->'scope'->>'provider'=ANY($4::text[]) OR (state='RECORDED' AND kind='CREATE' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp()) OR ${REJECTED_CREATE_HOLD} OR ${TERMINAL_DESTROY_HOLD}) AND (
   (state='RECORDED' AND (kind='CREATE' OR (operation->>'deadline_at')::timestamptz>clock_timestamp()))
   OR (state='SUBMITTING' AND (operation->>'deadline_at')::timestamptz<=clock_timestamp())
   OR (state='ID_KNOWN' AND (last_outcome IS NOT NULL OR (operation->>'deadline_at')::timestamptz<=clock_timestamp()) AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='UNKNOWN' AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='ACKNOWLEDGED' AND kind='DESTROY' AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
+  OR (${TERMINAL_DESTROY_HOLD} AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (${REJECTED_CREATE_HOLD} AND updated_at<=clock_timestamp()-make_interval(secs=>$5::double precision/1000))
   OR (state='RECONCILING' AND updated_at<=clock_timestamp()-make_interval(secs=>$6::double precision/1000)))
  ORDER BY updated_at,id LIMIT $7 FOR UPDATE SKIP LOCKED`;
@@ -288,7 +292,7 @@ export class ProvisionerWorker {
    }
    const reconcile=rows.filter(r=>r.state!=='RECORDED').map(r=>r.id);
    // RECONCILING plus updated_at is the reconciliation lease; an acknowledged destroy keeps its state.
-   if(reconcile.length)await c.query("UPDATE hyperfide.provisioning_intents SET state=CASE WHEN state IN ('ACKNOWLEDGED','REJECTED') THEN state ELSE 'RECONCILING' END,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[])",[config.organisation_id,run,reconcile]);
+   if(reconcile.length)await c.query("UPDATE hyperfide.provisioning_intents SET state=CASE WHEN state IN ('ACKNOWLEDGED','REJECTED','TERMINAL') THEN state ELSE 'RECONCILING' END,updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=ANY($3::uuid[])",[config.organisation_id,run,reconcile]);
    return rows;
   });
   for(const row of claimed){

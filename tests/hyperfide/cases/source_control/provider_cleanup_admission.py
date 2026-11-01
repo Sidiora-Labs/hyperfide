@@ -18,8 +18,8 @@ def main():
   create=ok('provider.intents.prepare-create',dict(run_id=run,pool_id=f.pool,sandbox_id=sandbox,request_key=uid(),deadline_at=m.utc(120000),reservation_ids=f.reservations,profile_id=f.profile,preparation_digest=f.preparation,purpose='PREPARATION'))['intent']
   f.sql("UPDATE hyperfide.provisioning_intents SET state='ACKNOWLEDGED',native_sandbox_id=$2,state_version=state_version+1 WHERE id=$1",[create['id'],native])
   f.sql("UPDATE hyperfide.sandboxes SET native_sandbox_id=$2,observed_state='DESTROYED',state_version=state_version+1 WHERE id=$1",[sandbox,native])
-  def observe(health):
-   evidence={'operation':{'kind':'observe'},'outcome':{'status':'SUCCEEDED','acceptance':'CONFIRMED_ACCEPTED','resource':{'native_sandbox_id':native,'sandbox_boot_generation':'1'},'result':{'provider_state':'DESTROYED','health':health}}}
+  def observe(health,native_ref=native,boot='1'):
+   evidence={'operation':{'kind':'observe'},'outcome':{'status':'SUCCEEDED','acceptance':'CONFIRMED_ACCEPTED','resource':{'native_sandbox_id':native_ref,'sandbox_boot_generation':boot},'result':{'provider_state':'DESTROYED','health':health}}}
    f.sql("INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$3::uuid::text,$4,$5,clock_timestamp(),$6)",[org,uid(),create['id'],create['payload_digest'],json.dumps(evidence),m.sha(json.dumps(evidence).encode())])
   observe('UNKNOWN')
   def accounting():
@@ -35,8 +35,34 @@ def main():
    answer=invoke('provider.intents.prepare-destroy',dict(request,request_key=uid()));assert answer.get('ok') is False and answer['error']['code']=='RESOURCE_OWNERSHIP_UNKNOWN',answer;assert accounting()==held,'Refused cleanup changed capacity'
   f.sql('UPDATE hyperfide.sandboxes SET native_sandbox_id=NULL,state_version=state_version+1 WHERE id=$1',[sandbox]);refused()
   f.sql('UPDATE hyperfide.sandboxes SET native_sandbox_id=$2,state_version=state_version+1 WHERE id=$1',[sandbox,native])
-  observe('ABSENT');f.sql("UPDATE hyperfide.provisioning_intents SET state='TERMINAL',state_version=state_version+1 WHERE id=$1",[create['id']]);refused()
+  f.sql("UPDATE hyperfide.provisioning_intents SET state='TERMINAL',state_version=state_version+1 WHERE id=ANY($1::uuid[])",[[create['id'],admitted['intent']['id']]])
+  f.sql("UPDATE hyperfide.reservations SET state='RELEASE_PENDING',state_version=state_version+1 WHERE id=ANY($1::uuid[])",[f.reservations]);held=accounting()
+  no_admission=ok('provider.intents.reconcile',{'intent_id':admitted['intent']['id']},key='provisioner');assert no_admission.get('confirmed_absence_released') is not True and accounting()==held,no_admission
+  manager,observation,reason,decision=[uid() for _ in range(4)];pin=m.sha(b'controlled model cleanup admission')
+  f.sql("INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,connector,account_key,native_session_id) VALUES($1,$2,$3,'FEATURE_MANAGER','fixture','fixture',$3::uuid::text)",[org,run,manager])
+  f.sql("INSERT INTO hyperfide.fleet_observations(organisation_id,run_id,id,actor_id,cohort_generation,context_digest,body) VALUES($1,$2,$3,$4,1,$5,'{}')",[org,run,observation,manager,pin])
+  f.sql("INSERT INTO hyperfide.fleet_reasoning(organisation_id,run_id,id,actor_id,request_digest,observation_id,state) VALUES($1,$2,$3,$4,$5,$6,'COMPLETED')",[org,run,reason,manager,pin,observation])
+  f.sql("INSERT INTO hyperfide.fleet_decisions(organisation_id,run_id,id,operation_id,actor_id,action,context_digest,payload_digest,reasoning_id,body) VALUES($1,$2,$3,$4,$5,'DESTROY_SANDBOX',$6,$6,$7,'{}')",[org,run,decision,request['request_key'],manager,pin,reason])
+  f.sql("INSERT INTO hyperfide.fleet_effect_receipts(organisation_id,run_id,operation_id,decision_id,payload_digest,result) VALUES($1,$2,$3,$4,$5,$6)",[org,run,request['request_key'],decision,pin,json.dumps(dict(kind='DESTROY_SANDBOX',provider_intent_id=admitted['intent']['id'],sandbox_id=sandbox))])
+  def unproven():
+   answer=invoke('provider.intents.reconcile',{'intent_id':admitted['intent']['id']},key='provisioner');assert answer.get('ok') is False and answer['error']['code']=='QUIESCENCE_UNCONFIRMED',answer;assert accounting()==held,'Unproven absence changed held accounting'
+  unproven();observe('ABSENT',native_ref='wrong-native');unproven();observe('ABSENT',boot='2');unproven()
+  original_reservations=list(f.reservations);f.reservations=[];m.seed_provider_capacity(f)
+  for row in held:f.sql('UPDATE hyperfide.capacity_accounts SET reserved=reserved+$2::bigint,state_version=state_version+1 WHERE id=$1',[row['account_id'],row['quantity']])
+  unrelated_reservations=list(f.reservations)
+  unrelated=ok('provider.intents.prepare-create',dict(run_id=run,pool_id=f.pool,sandbox_id=uid(),request_key=uid(),deadline_at=m.utc(120000),reservation_ids=unrelated_reservations,profile_id=f.profile,preparation_digest=f.preparation,purpose='PREPARATION'))['intent']
+  f.sql("UPDATE hyperfide.provisioning_intents SET state='REJECTED',state_version=state_version+1 WHERE id=$1",[unrelated['id']])
+  def unrelated_rows():return f.sql('SELECT id,state,release_reason,quantity::text FROM hyperfide.reservations WHERE id=ANY($1::uuid[]) ORDER BY id',[unrelated_reservations])
+  unrelated_before=unrelated_rows();f.reservations=original_reservations;held=accounting()
+  observe('ABSENT');refused()
+  released=ok('provider.intents.reconcile',{'intent_id':admitted['intent']['id']},key='provisioner');assert released.get('confirmed_absence_released') is True and released['external_call_performed'] is False,released
+  assert set(released['release']['released_reservation_ids'])==set(original_reservations) and len(original_reservations)==4,released
+  after=accounting();assert all(r['state']=='RELEASED' and r['release_reason']=='OBSERVED_QUIESCENT' for r in after),after
+  before_by_id={r['id']:r for r in held}
+  assert all(int(before_by_id[r['id']]['reserved'])-int(r['reserved'])==int(r['quantity']) and r['allocated']==before_by_id[r['id']]['allocated'] for r in after),(held,after)
+  assert unrelated_rows()==unrelated_before,'Other rejected/null-native CREATE holds were released'
+  replay_release=ok('provider.intents.reconcile',{'intent_id':admitted['intent']['id']},key='provisioner');assert replay_release.get('confirmed_absence_released') is True and accounting()==after and unrelated_rows()==unrelated_before,replay_release
   destroys=f.sql("SELECT id FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND sandbox_id=$2 AND kind='DESTROY'",[org,sandbox]);assert len(destroys)==1 and destroys[0]['id']==admitted['intent']['id'],destroys
-  print(json.dumps({'status':'PASS','scope':'actual PostgreSQL and signed cleanup admission; owned boot/provider observation prerequisite metadata controlled','assertions':['DESTROYED with UNKNOWN health admits cleanup under normal empty-boot preflight','cleanup intent exact boot/native identity and idempotent replay','all physical capacity retained without absence release','missing native identity refused without effects','controlled normalized ABSENT same-boot fixture refuses redundant cleanup'],'provider_live':'UNRUN','absence_release':'UNRUN'}));return 0
+  print(json.dumps({'status':'PASS','scope':'actual PostgreSQL and signed cleanup admission; owned boot/provider observation prerequisite metadata controlled','assertions':['DESTROYED with UNKNOWN health admits cleanup under normal empty-boot preflight','cleanup intent exact boot/native identity and idempotent replay','all physical capacity retained without absence release','missing native identity refused without effects','controlled normalized ABSENT same-boot fixture refuses redundant cleanup','missing model admission, unknown health and wrong native/boot retain capacity','production scheduler releases exact four linked physical reservations from controlled proof prerequisites','replay preserves counters and unrelated rejected/null-native resource holds'],'provider_live':'UNRUN','absence_release':'COMPONENT_ONLY_CONTROLLED_PROOF_PRECONDITIONS'}));return 0
  finally:f.close()
 if __name__=='__main__':raise SystemExit(main())
