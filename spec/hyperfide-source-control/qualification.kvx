@@ -160,3 +160,17 @@ exit_code = 0
 log = "build/fleet/integration/bootstrap-observer-keeper-rerun.log"
 observed = "Eight checks passed through signed PostgreSQL coordination, the pinned SDK filesystem/process boundary and an actual Node/proc probe. Expired lifetime and invalid Node pins refused before effects; concurrent reconciliation and a lost execution reply retained one submitted keeper. Missing processes stayed UNKNOWN without resubmission; wrong start identity produced no proof, terminal keeper failure stayed terminal, and original READY metadata and receipt bytes were unchanged."
 scope = "Declared initial bootstrap and READY records; actual keeper process and journal behavior. A keeper without a signed heartbeat remains WAKING."
+live_idle_log = "build/fleet/integration/private/quota500-f97-live-keeper-idle-proof.json"
+live_idle_observed = "Seven database-only samples over 91,627 ms retained the same original daemon and one ACTIVE keeper while the signed heartbeat advanced. The observation used primary database SELECTs only, with no install jobs or guest probes."
+
+[progress.fleet_install_recovery_acceptance_lineage]
+revision = "control-source sha256:d79ff54d931e9701c961051e9bade20ea8aa0b20408d5d584edf853762be529f"
+dist_digest = "sha256:2c84fdb7b3588edaa1ce5153931bc68785c50aff244c827c30e55858419e4fea"
+native_digest = "sha256:695cbd2b781da4d81575b27d9b6016d2d1410189b7244bbe4d14b8c87154c6d8"
+migration_catalog_count = 69
+command = "fleet_install_interrupted.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-recovery-lineage-retry1.log; build/fleet/integration/fleet-install-recovery-capture-tail.log"
+observed = "Actual recipe SIGKILL produced a signed FAILED result and confirmed quiescence. Production recovery admission issued a distinct execution under the retained logical operation and advanced the environment head. The successor reached READY while preserving source lock bytes and original stage evidence. The repaired acceptance oracle validated that retained chain and refused six altered closures: head, predecessor, signed result, logical root, source pins and quiescence digest. The shared final-case capture tail also validated the actual execution IDs and retained stage ledger, refusing three altered captures. Fault-driver authentication remains separately enforced by the full case oracle."
+scope = "Isolated PostgreSQL, controlled SDK HTTP transport and actual pinned native execution. Initial graph, authority and identity records are declared fixture inputs; no new failure, recovery, readiness or archive outcome is seeded. No live-provider or model qualification is claimed."
+limitation = "The first attempt stopped before oracle evaluation on a transient heartbeat transaction retry exhaustion; the unchanged bounded retry passed."

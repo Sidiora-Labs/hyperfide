@@ -46,6 +46,8 @@ COLUMNS={
  'provider_worker_activations':'intent_id,sandbox_id,boot_id,boot_generation,worker_slot_id,state,permit,permit_digest,receipt,receipt_digest',
  'fleet_environment_specs':'input_digest,package_digest,source_config_digest,source_manifest_digest,plan_digest,package_spec,source_config,install_plan',
  'fleet_environment_installs':'operation_id,input_digest,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,admission,admission_digest,state,receipt,receipt_digest,completed_at',
+ 'fleet_install_heads':'environment_id,environment_generation,logical_operation_id,current_operation_id',
+ 'fleet_install_recoveries':'operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id',
  'fleet_runtime_readiness':'id,install_operation_id,runner_operation_id,runner_result_digest,slot_id,runner_session_id,readiness_digest,publication',
  'runner_registry':'session_id,credential_id,sandbox_id,boot_id,boot_generation,slot_id,uid,gid,runner_binary_digest,readiness_digest,source_object_id,source_tree_id,state',
  'runner_remote_jobs':'operation_id,session_id,job_class,plan,plan_digest,state,executor_credential_id,result,result_digest,result_signature,created_at,completed_at',
@@ -82,6 +84,42 @@ def one(rows,key,value):
 def signed_job(rows,operation):
  job=one(rows['runner_remote_jobs'],'operation_id',operation);require(job['state']=='COMPLETED' and job.get('signature_verified') is True and digest(job['result'])==job['result_digest'] and digest(job['plan'])==job['plan_digest'],'SIGNED_NATIVE_RESULT_REQUIRED')
  result=job['result'];require(result.get('outcome')=='SUCCEEDED' and result.get('cleanup_status')=='CONFIRMED' and result.get('cleanup',{}).get('complete') is True and result.get('cleanup',{}).get('observed_process_absent') is True,'NATIVE_CLEANUP_REQUIRED');return job
+
+def verified_install_recovery(rows,install,interrupted_operation_id):
+ require(install['operation_id']!=interrupted_operation_id,'DISTINCT_INSTALL_RECOVERY_EXECUTION_REQUIRED')
+ admission=install['admission'];logical=admission.get('logical_operation_id')
+ require(isinstance(logical,str) and logical,'INSTALL_LOGICAL_ID_REQUIRED')
+ heads=[h for h in rows['fleet_install_heads'] if h['environment_id']==admission['environment_id'] and str(h['environment_generation'])==str(admission['environment_generation'])]
+ require(len(heads)==1 and heads[0]['current_operation_id']==install['operation_id'] and heads[0]['logical_operation_id']==logical,'INSTALL_RECOVERY_HEAD_MISMATCH')
+ current=install;seen=set()
+ while current['operation_id']!=interrupted_operation_id:
+  require(current['operation_id'] not in seen,'INSTALL_RECOVERY_CYCLE');seen.add(current['operation_id'])
+  recovery=one(rows['fleet_install_recoveries'],'operation_id',current['operation_id'])
+  previous=one(rows['fleet_environment_installs'],'operation_id',recovery['predecessor_install_operation_id'])
+  a=current['admission'];old=previous['admission'];binding=a.get('recovery_of')
+  expected={'install_operation_id':previous['operation_id'],'admission_digest':previous['admission_digest'],'runner_operation_id':recovery['runner_operation_id'],'runner_plan_digest':recovery['runner_plan_digest'],'quiescence_operation_id':recovery['quiescence_operation_id'],'quiescence_receipt_digest':recovery['quiescence_receipt_digest']}
+  require(binding==expected and recovery['logical_operation_id']==logical and recovery['predecessor_admission_digest']==previous['admission_digest'] and a.get('logical_operation_id')==old.get('logical_operation_id',previous['operation_id'])==logical,'INSTALL_RECOVERY_LINEAGE_MISMATCH')
+  require(current['operation_id']!=previous['operation_id'] and recovery['runner_operation_id']==recovery['quiescence_operation_id']==previous['operation_id'],'INSTALL_RECOVERY_PREDECESSOR_MISMATCH')
+  require(all(a.get(k)==old.get(k) for k in ['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','package_digest','source_config_digest','plan_digest','source_revision','source_manifest_digest','slot_bindings']),'INSTALL_RECOVERY_PIN_MISMATCH')
+  failed=one(rows['runner_remote_jobs'],'operation_id',previous['operation_id'])
+  require(failed['state']=='COMPLETED' and failed.get('signature_verified') is True and digest(failed['plan'])==failed['plan_digest']==recovery['runner_plan_digest'] and digest(failed['result'])==failed['result_digest']==recovery['runner_result_digest'],'SIGNED_INTERRUPTED_INSTALL_REQUIRED')
+  result=failed['result'];cleanup=result.get('cleanup',{})
+  require(result.get('outcome')=='FAILED' and result.get('cleanup_status')=='CONFIRMED' and cleanup.get('complete') is True and cleanup.get('observed_process_absent') is True and cleanup.get('receipt_digest')==recovery['quiescence_receipt_digest'],'INSTALL_RECOVERY_QUIESCENCE_MISMATCH')
+  successor=one(rows['runner_remote_jobs'],'operation_id',current['operation_id'])
+  old_request=failed['plan'].get('preparation_request',{});new_request=successor['plan'].get('preparation_request',{})
+  require(failed['job_class']==successor['job_class']=='PREPARATION' and old_request.get('source')==new_request.get('source') and result['ended_at']<successor['result']['started_at'],'INTERRUPTED_INSTALL_PIN_RESTART_REQUIRED')
+  for job,request,owner in [(failed,old_request,previous),(successor,new_request,current)]:
+   job_binding=request.get('job_binding',{})
+   require(job_binding.get('namespace')=='FLEET_INSTALL' and job_binding.get('job_id')==owner['operation_id'] and job_binding.get('input_packet_digest')==owner['admission_digest'] and request.get('input_manifest_digest')==job_binding.get('input_manifest_digest'),'INSTALL_RECOVERY_NATIVE_BINDING_MISMATCH')
+  current=previous
+ return logical
+
+def verified_interrupted_install_capture(rows,install,case,capture):
+ interrupted=one(rows['runner_remote_jobs'],'operation_id',case.get('interrupted_operation_id'))
+ restarted=signed_install(rows,install)
+ verified_install_recovery(rows,install,interrupted['operation_id'])
+ require(capture.get('interrupted_operation_id')==interrupted['operation_id'] and capture.get('restarted_operation_id')==restarted['operation_id'] and capture.get('retained_stage_digests')==case.get('retained_stage_digests') and isinstance(capture.get('retained_stage_digests'),dict) and capture['retained_stage_digests'],'INTERRUPTED_STAGE_REUSE_REQUIRED')
+ return restarted
 
 def verified_qualification(rows,job_id,target,checks=None):
  job=one(rows['qualification_jobs'],'id',job_id);require(job['state']=='SUCCEEDED' and job['outcome']=='PASS','ACTUAL_QUALIFICATION_REQUIRED')
@@ -222,10 +260,8 @@ def case_oracle(name,case,rows,target,evidence_root,index):
     require(isolation.get('status')=='ENFORCED' and isolation.get('method')=='UNIX_UID_GID' and isolation.get('operation_id')==i['operation_id'] and isolation.get('prepared_receipt_digest')==i['receipt_digest'] and isolation.get('slots')==i['admission'].get('slot_bindings'),'NATIVE_WRITABLE_ISOLATION_REQUIRED')
   if name=='interrupted_install':
    interrupted=one(rows['runner_remote_jobs'],'operation_id',case.get('interrupted_operation_id'));require(interrupted.get('signature_verified') is True and interrupted['state']=='COMPLETED' and interrupted['result'].get('outcome')=='FAILED' and digest(interrupted['result'])==interrupted['result_digest'] and digest(interrupted['plan'])==interrupted['plan_digest'],'SIGNED_INTERRUPTED_INSTALL_REQUIRED')
-   restarted=signed_install(rows,installs[-1]);old=interrupted['plan'].get('preparation_request',{});new=restarted['plan'].get('preparation_request',{})
-   require(interrupted['job_class']=='PREPARATION' and old.get('job_binding',{}).get('namespace')=='FLEET_INSTALL' and old.get('job_binding',{}).get('job_id')==new.get('job_binding',{}).get('job_id')==installs[-1]['operation_id'] and old.get('source')==new.get('source') and old.get('input_manifest_digest')==new.get('input_manifest_digest') and interrupted['result']['ended_at']<restarted['result']['started_at'],'INTERRUPTED_INSTALL_PIN_RESTART_REQUIRED')
    fault_driver(name,case,rows,target,evidence_root,capture)
-   require(capture.get('interrupted_operation_id')==interrupted['operation_id'] and capture.get('restarted_operation_id')==restarted['operation_id'] and capture.get('retained_stage_digests')==case.get('retained_stage_digests') and isinstance(capture.get('retained_stage_digests'),dict) and capture['retained_stage_digests'],'INTERRUPTED_STAGE_REUSE_REQUIRED')
+   verified_interrupted_install_capture(rows,installs[-1],case,capture)
   require(isinstance(capture,dict) and (name=='interrupted_install' or any(capture==i['receipt'] and capture.get('operation_id')==i['operation_id'] for i in installs)),'INSTALL_CAPTURE_OPERATION_MISMATCH')
   if name=='interface_subset':
    for i in installs:

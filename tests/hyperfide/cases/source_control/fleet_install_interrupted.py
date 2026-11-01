@@ -124,6 +124,35 @@ def main():
   if not success or success['state']!='COMPLETED' or success['result']['outcome']!='SUCCEEDED':raise AssertionError('Replacement execution failed '+json.dumps(success))
   collected=ok('fleet.install.delivery.collect',{'operation_id':newop})
   if collected.get('state')!='READY' or (environment/'source/package-lock.json').read_bytes()!=baseline_lock:raise AssertionError('Resumed source pins or readiness differ')
+  qualification=load('interrupted_live_lineage_oracle',SUPPORT/'fleet_live_qualification.py')
+  database=f.sql('SELECT current_database() AS database_name,(pg_control_system()).system_identifier::text')[0]
+  target={**database,'database_url_env':'HF_INTERRUPTED_ORACLE_DATABASE_URL','organisation_id':i['organisation'],'run_id':i['run']}
+  previous_database=os.environ.get('HF_INTERRUPTED_ORACLE_DATABASE_URL');os.environ['HF_INTERRUPTED_ORACLE_DATABASE_URL']=f.url
+  try:retained=qualification.snapshot(target)['rows']
+  finally:
+   if previous_database is None:os.environ.pop('HF_INTERRUPTED_ORACLE_DATABASE_URL',None)
+   else:os.environ['HF_INTERRUPTED_ORACLE_DATABASE_URL']=previous_database
+  final_install=qualification.one(retained['fleet_environment_installs'],'operation_id',newop)
+  qualification.signed_install(retained,final_install)
+  if qualification.verified_install_recovery(retained,final_install,logical)!=logical:raise AssertionError('Actual recovery logical lineage changed')
+  negatives=[('head',lambda rows:rows['fleet_install_heads'][0].update(current_operation_id=logical)),('recovery predecessor',lambda rows:rows['fleet_install_recoveries'][0].update(predecessor_install_operation_id=newop)),('signed failed result',lambda rows:qualification.one(rows['runner_remote_jobs'],'operation_id',logical)['result'].update(outcome='SUCCEEDED')),('logical root',lambda rows:qualification.one(rows['fleet_environment_installs'],'operation_id',newop)['admission'].update(logical_operation_id=newop)),('source pins',lambda rows:qualification.one(rows['fleet_environment_installs'],'operation_id',newop)['admission'].update(source_manifest_digest=sha(b'wrong source'))),('quiescence',lambda rows:rows['fleet_install_recoveries'][0].update(quiescence_receipt_digest=sha(b'wrong cleanup')))]
+  for label,mutate in negatives:
+   changed=copy.deepcopy(retained);mutate(changed)
+   try:qualification.verified_install_recovery(changed,qualification.one(changed['fleet_environment_installs'],'operation_id',newop),logical)
+   except qualification.Refused:pass
+   else:raise AssertionError('Recovery oracle admitted altered '+label)
+  retained_stages={'interrupted_stage_ledger':sha(prior_ledger)}
+  actual_case={'interrupted_operation_id':logical,'retained_stage_digests':retained_stages}
+  actual_capture={'interrupted_operation_id':logical,'restarted_operation_id':newop,'retained_stage_digests':retained_stages}
+  restarted_job=qualification.verified_interrupted_install_capture(retained,final_install,actual_case,actual_capture)
+  if restarted_job['operation_id']!=newop:raise AssertionError('Acceptance capture returned wrong actual successor')
+  for field,value in [('interrupted_operation_id',newop),('restarted_operation_id',logical),('retained_stage_digests',{'interrupted_stage_ledger':sha(b'wrong ledger')})]:
+   altered=copy.deepcopy(actual_capture);altered[field]=value
+   try:qualification.verified_interrupted_install_capture(retained,final_install,actual_case,altered)
+   except qualification.Refused:pass
+   else:raise AssertionError('Acceptance capture admitted altered '+field)
+  checks.append('final acceptance validates actual signed distinct execution/recovery/head lineage and refuses six altered closures')
+  checks.append('shared final-case capture tail validates actual predecessor/successor/stage ledger and refuses three altered captures; fault-driver authentication remains separately required')
   histories=list(parent.glob(staging.name+'.recovery-*.json'))
   if not any(p.read_bytes()==prior_ledger for p in histories):raise AssertionError('Original stage evidence was overwritten')
   checks.extend(['actual replacement recipe reused retained stage and completed native readiness','original source lock bytes and interrupted stage evidence retained'])
