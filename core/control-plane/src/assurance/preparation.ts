@@ -9,6 +9,9 @@ import type {RunnerEnvironmentRequest,RunnerExpectedInputs,RunnerPreparationPlan
 import {derivePreparedEnvironmentRoles,loadPreparationIntent} from '../hierarchy/packets.js';
 import {deriveEffectiveProfile} from '../preparation/effective.js';
 import {preparationPinInputs} from '../preparation/profile_pin_inputs.js';
+import {loadResultRootScanPolicy,scanResultRootInputs} from '../preparation/result_root_scan.js';
+import type {ArtifactStoreCapability} from '../artifacts/objects.js';
+import {resolveRunnerCapturedReference,readRunnerPreparationBinding} from '../runner/bridge.js';
 import type {EffectiveResultSource,EffectiveProfileInput} from '../preparation/effective.js';
 import {assuranceBarrier,canonical,digest,fail,hash,inspectSubmittedResult,submittedResultSourceDigest,uuid,rawDigest,retainArtifactBytes,artifact,fields,roles,scope as invocationScope,transaction,executionGate,invocation} from './submission.js';
 import type {Data,PrimaryClient} from './submission.js';
@@ -362,6 +365,30 @@ export async function planResultPreparation(ctx:ComponentContext,raw:unknown):Pr
  for(const rawPin of profileRefs??[]){const ref=fields(rawPin,['path','artifact_id','storage_kind']);const selected=external.find(pin=>pin.path===ref.path);if(!selected||externalSeen.has(selected.path)||!['object','manifest'].includes(ref.storage_kind))fail('QUALIFICATION_PROFILE_PIN_SCOPE','Only accepted PROFILE_ARTIFACT pins may be supplied');externalSeen.add(selected.path);uuid(ref.artifact_id);const checked=await artifact(ctx,ref.storage_kind==='object'?'artifact.object.inspect':'artifact.manifest.read',{organisation_id:s[0],run_id:s[1],artifact_id:ref.artifact_id});const actual=ref.storage_kind==='object'?checked.artifact.digest:checked.manifest?.content_digest;if(actual!==selected.digest)fail('QUALIFICATION_PROFILE_PIN_CHANGED','Retained profile bytes differ from exact accepted manifest FilePin');sources.push({role:selected.role,artifact_id:ref.artifact_id,storage_kind:ref.storage_kind,digest:actual,size_bytes:String(ref.storage_kind==='object'?checked.artifact.size_bytes:checked.manifest.total_size_bytes),...(ref.storage_kind==='manifest'?{manifest_digest:checked.artifact.digest}:{})});}
  if(externalSeen.size!==external.length)fail('QUALIFICATION_PROFILE_PINS_REQUIRED','Every accepted external parent pin requires retained exact bytes');
  if(archive){const ref=archive.artifact;if(!object(ref)||typeof ref.storage_kind!=='string'||!['object','manifest'].includes(ref.storage_kind)||ref.digest!==archive.archive_digest)fail('QUALIFICATION_SOURCE_UNAVAILABLE','Exact admitted captured source archive required');sources.push({role:'result-source-archive',artifact_id:ref.artifact_id,storage_kind:ref.storage_kind,digest:ref.digest,size_bytes:ref.size_bytes,...(ref.storage_kind==='manifest'?{manifest_digest:ref.manifest_digest}:{})});}
+ const bootstrapRows=await transaction(ctx,tx=>tx.query(`SELECT n.descriptor,n.descriptor_digest FROM hyperfide.agent_sessions a JOIN hyperfide.sandboxes s ON s.organisation_id=a.organisation_id AND s.id=a.sandbox_id AND s.boot_generation=a.sandbox_boot_generation JOIN hyperfide.provider_native_bootstraps n ON n.organisation_id=a.organisation_id AND n.run_id=a.run_id AND n.sandbox_id=s.id AND n.boot_generation=s.boot_generation WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.id=$3 AND n.state='READY'`,[...s,v.session_id]),false,'READ');
+ let genericRootRequired=false;for(const row of bootstrapRows.rows){if(object(row.descriptor)&&row.descriptor.executor_kind==='TEST'&&(row.descriptor.schema_version===3||object(row.descriptor.test_job_binding))){if(hash(row.descriptor)!==row.descriptor_digest)fail('RESULT_ROOT_SCAN_CONTEXT','Immutable generic TEST descriptor changed');genericRootRequired=true;}}
+ let rootScanReference:Data|null=null;
+ if(genericRootRequired||archive&&(ctx.env.HF_RESULT_ROOT_SCAN_POLICY_FILE||ctx.env.HF_RESULT_ROOT_SCAN_POLICY_DIGEST)){
+  if(!archive)fail('RESULT_ROOT_SCAN_ARCHIVE_REQUIRED','Generic TEST requires its exact admitted captured archive for ROOT input scan');
+  const target=await transaction(ctx,async tx=>{assertPrimaryTransaction(tx);return readRunnerPreparationBinding(tx,{organisation_id:s[0],run_id:s[1],session_id:v.session_id});},false,'READ');
+  const recipe=target.preparation_recipes['environment.prepare.v1'],trustedRef=recipe?.readiness_context;
+  if(!object(trustedRef)||!uuid(trustedRef.artifact_id))fail('RESULT_ROOT_SCAN_CONTEXT','Actual registered RESULT context required');
+  const checked=await artifact(ctx,'artifact.object.read',{organisation_id:s[0],run_id:s[1],artifact_id:trustedRef.artifact_id});
+  if(typeof checked.data_base64!=='string'||checked.artifact.digest!==trustedRef.digest||String(checked.artifact.size_bytes)!==trustedRef.size_bytes)fail('RESULT_ROOT_SCAN_CONTEXT','Protected RESULT context bytes changed');
+  const trustedBytes=Buffer.from(checked.data_base64,'base64');if(rawDigest(trustedBytes)!==trustedRef.digest)fail('RESULT_ROOT_SCAN_CONTEXT','Protected RESULT context digest differs');
+  const trustedContext=JSON.parse(trustedBytes.toString('utf8'));if(!object(trustedContext)||genericRootRequired&&(trustedContext.kind!=='FLEET_RESULT_INPUTS_CONTEXT_V1'||trustedContext.require_root_scan!==true)||trustedContext.kind==='FLEET_RESULT_INPUTS_CONTEXT_V1'&&trustedContext.require_root_scan!==true)fail('RESULT_ROOT_SCAN_CONTEXT','New RESULT context must explicitly require ROOT scan');
+  const rootPolicy=await loadResultRootScanPolicy(ctx.env,genericRootRequired||trustedContext.require_root_scan===true);
+  if(rootPolicy){
+   try{rootPolicy.scan('readiness-context.json',trustedBytes);}catch{fail('RESULT_ROOT_SCAN_PRIVATE_CONTEXT','TEST context contains ROOT-sensitive content');}
+   const store=ctx.dependencies.require('15.2','artifact.store.v1',(value:unknown):value is ArtifactStoreCapability=>object(value)&&typeof value.invoke==='function'),i=ctx.invocation;assertInvocation(i);
+   const bytes=async(ref:Data,maximum:number)=>Buffer.from((await resolveRunnerCapturedReference(store,i,{...ref,complete:true},maximum)).bytes);
+   const archiveBytes=await bytes(archive.artifact,rootPolicy.max_archive_bytes),profileFiles=[];
+   for(const pin of external){const ref=sources.find(source=>source.role===pin.role)!;profileFiles.push({path:pin.path,bytes:await bytes(ref,rootPolicy.max_total_bytes),artifact_id:ref.artifact_id,artifact_digest:ref.storage_kind==='manifest'?ref.manifest_digest:ref.digest});}
+   const receipt=await scanResultRootInputs(rootPolicy,{organisation_id:s[0],run_id:s[1],job_id:v.job_id,operation_id:v.request_id,session_id:v.session_id,context_digest:context.context_digest,result:context.result,parent_profile_id:context.parent_profile_id,parent_preparation_digest:context.parent_preparation_digest,parent_manifest:context.parent_preparation_manifest,repository_key:context.repository_binding.repository_key,archive_bytes:archiveBytes,profile_files:profileFiles});
+   receipt.plan_binding_digest=hash({operation_id:v.request_id,job_id:v.job_id,session_id:v.session_id,reservation_id:v.reservation_id,context_digest:context.context_digest,raw_control_digest:controls.input_manifest_digest,staging:sources});
+   const stored=await retainArtifactBytes(ctx,s,Buffer.from(canonical(receipt)+'\n'));if(stored.storage_kind!=='OBJECT')fail('RESULT_ROOT_SCAN_RECEIPT_LIMIT','Sanitized scan receipt must fit its bounded object');rootScanReference={role:'root-scan-receipt',artifact_id:stored.artifact_id,storage_kind:stored.storage_kind==='OBJECT'?'object':'manifest',digest:stored.storage_kind==='OBJECT'?stored.digest:stored.content_digest,size_bytes:stored.size_bytes,...(stored.storage_kind==='OBJECT'?{}:{manifest_digest:stored.digest})};
+  }
+ }
  return transaction(ctx,async tx=>{
   assertPrimaryTransaction(tx);
   await executionGate(ctx,tx,s,'ADMISSION');
@@ -396,7 +423,7 @@ export async function planResultPreparation(ctx:ComponentContext,raw:unknown):Pr
     input_packet_digest:context.baseline_packet_digest,input_manifest_digest:context.context_digest},
    source:{repository_key:context.repository_binding.repository_key,source_object_id:context.result.source_object_id,
     source_tree_id:context.result.source_tree_id,source_manifest_digest:context.result.source_manifest_digest},
-   staging:[...controls.staging,...sources]};
+   staging:[...controls.staging,...sources,...(rootScanReference?[rootScanReference]:[])]};
   // Readiness/scanner context is injected by the protected recipe map. There
   // is no wire field through which this caller can choose that authority.
   const inserted=await tx.query("INSERT INTO hyperfide.assurance_preparation_intents(organisation_id,run_id,operation_id,job_id,job_lease_generation,custody_id,custody_generation,request_digest,context_digest,session_id,reservation_id,allocation_id,allocation_generation,derived_profile_id,plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *",

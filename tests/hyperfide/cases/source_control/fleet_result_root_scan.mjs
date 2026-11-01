@@ -1,0 +1,40 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {randomUUID,createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+if(process.argv.length!==6)throw new Error('Explicit immutable module root, profile manifest, candidate and artifact references required');
+const [runtime,manifestFile,candidate,referenceFile]=process.argv.slice(2).map(p=>path.resolve(p));
+const {loadResultRootScanPolicy,scanResultRootInputs}=await import(pathToFileURL(path.join(runtime,'dist/preparation/result_root_scan.js')));
+const {captureFleetSourceArchive,sourceArchiveCanonical,sourceArchiveDigest}=await import(pathToFileURL(path.join(runtime,'dist/artifacts/fleet_source_archive.js')));
+const {deriveArchiveGitIdentity}=await import(pathToFileURL(path.join(runtime,'dist/preparation/result_source_archive.js')));
+const {preparationPinInputs}=await import(pathToFileURL(path.join(runtime,'dist/preparation/profile_pin_inputs.js')));
+const parent=JSON.parse(await fs.readFile(manifestFile)),refs=JSON.parse(await fs.readFile(referenceFile)),work=await fs.mkdtemp(path.join(os.tmpdir(),'hf-root-input-scan-'));
+const hash=b=>'sha256:'+createHash('sha256').update(b).digest('hex');let count=0;
+const check=async(id,run)=>{await run();count++;console.log(JSON.stringify({type:'assertion',id,actual:'PASS'}));};
+try{
+ const seal=path.join(work,'sealed'),source=path.join(seal,'source');await fs.mkdir(source,{recursive:true});await fs.mkdir(path.join(source,'src'));await fs.writeFile(path.join(source,'src/value.js'),'export const value=1;\n');
+ for(const pin of preparationPinInputs(parent.profile).filter(pin=>pin.origin==='SOURCE')){const to=path.join(source,pin.path);await fs.mkdir(path.dirname(to),{recursive:true});await fs.copyFile(path.join(candidate,pin.path),to);}
+ const binding=Object.fromEntries(['organisation_id','run_id','custody_id','task_id','attempt_id','sandbox_id','boot_id','slot_id','session_id','workspace_id','launch_id','command_id','quiescence_operation_id'].map(k=>[k,randomUUID()]));
+ Object.assign(binding,{os_boot_id:(await fs.readFile('/proc/sys/kernel/random/boot_id','utf8')).trim(),custody_generation:'1',attempt_generation:'1',boot_generation:'1',slot_generation:'1',uid:2000000000,gid:2000000000},Object.fromEntries(['quiescence_receipt_digest','native_launch_plan_digest','captured_result_digest','report_digest'].map(k=>[k,hash(k)])));
+ const baseline={source_revision:'git:'+parent.profile.repositories[0].commit,source_manifest_digest:hash('controlled installed baseline')},archiveFile=path.join(work,'archive.json'),captureFile=path.join(work,'capture.json');
+ await fs.writeFile(captureFile,JSON.stringify({schema_version:1,kind:'FLEET_SOURCE_ARCHIVE_CAPTURE_V1',binding,baseline,policy:{max_files:100,max_bytes:1048576,excluded_paths:[]},source_root:source,seal_root:seal,archive_path:archiveFile}),{mode:0o600});await captureFleetSourceArchive(captureFile);const archive=JSON.parse(await fs.readFile(archiveFile));
+ const secret='actual-root-fixture-canary-'+randomUUID(),policyFile=path.join(work,'policy.json'),definition={schema_version:1,kind:'hyperfide.result-root-scan-policy',policy_id:'controlled-root-byte-scan-v1',secret_env_refs:['SCAN_CANARY_VALUE'],identity_canaries:[],lease_canaries:[],max_files:100,max_archive_bytes:8388608,max_total_bytes:16777216};
+ await fs.writeFile(policyFile,JSON.stringify(definition),{mode:0o600});const env={HF_RESULT_ROOT_SCAN_POLICY_FILE:policyFile,HF_RESULT_ROOT_SCAN_POLICY_DIGEST:hash(await fs.readFile(policyFile)),SCAN_CANARY_VALUE:secret},policy=await loadResultRootScanPolicy(env,true);
+ const profile_files=[];for(const pin of preparationPinInputs(parent.profile).filter(pin=>pin.origin==='PROFILE_ARTIFACT')){const ref=refs.artifacts.find(ref=>ref.path===pin.path);profile_files.push({path:pin.path,bytes:await fs.readFile(path.join(candidate,pin.path)),artifact_id:ref.artifact_id,artifact_digest:ref.manifest_digest??ref.digest});}
+ function input(value){const derived=deriveArchiveGitIdentity(value);return {organisation_id:binding.organisation_id,run_id:binding.run_id,job_id:randomUUID(),operation_id:randomUUID(),session_id:randomUUID(),context_digest:hash('controlled metadata-only scope'),result:{custody_id:binding.custody_id,custody_generation:binding.custody_generation,source_object_id:derived.source_object_id,source_tree_id:derived.source_tree_id,archive_source:{kind:'FLEET_SOURCE_ARCHIVE_V1',binding:value.binding,baseline:value.baseline,archive_digest:derived.archive_digest,inventory_digest:derived.inventory_digest}},parent_profile_id:parent.profile.profile_id,parent_preparation_digest:parent.digest,parent_manifest:parent,repository_key:parent.profile.repositories[0].id,archive_bytes:Buffer.from(sourceArchiveCanonical(value)),profile_files};}
+ await check('root-scan.actual-captured-source-and-profile-bytes',async()=>{const receipt=await scanResultRootInputs(policy,input(archive));assert.equal(receipt.status,'PASSED');assert.equal(receipt.archive_digest,sourceArchiveDigest(Buffer.from(sourceArchiveCanonical(archive))));assert.equal(receipt.profile_input_references.length,profile_files.length);assert.ok(!JSON.stringify(receipt).includes(secret));assert.ok(!JSON.stringify(policy).includes(secret));});
+ const changed=(name,content)=>{const value=structuredClone(archive),bytes=Buffer.from(content),file={path:name,mode:'100644',size:bytes.length,digest:hash(bytes),content_base64:bytes.toString('base64')};value.files=value.files.filter(f=>f.path!==name);value.files.push(file);value.files.sort((a,b)=>a.path<b.path?-1:1);return value;};
+ await check('root-scan.real-value-in-source-refused',async()=>assert.rejects(scanResultRootInputs(policy,input(changed('src/value.js','export const leaked='+JSON.stringify(secret)+';'))),e=>e.code==='RESULT_ROOT_SCAN_REJECTED'));
+ await check('root-scan.real-value-in-filename-refused',async()=>assert.rejects(scanResultRootInputs(policy,input(changed(secret+'.txt','ordinary'))),e=>e.code==='RESULT_ROOT_SCAN_REJECTED'));
+ await check('root-scan.standard-authority-json-refused',async()=>assert.rejects(scanResultRootInputs(policy,input(changed('data.json','{"api_key":"not-empty"}'))),e=>e.code==='RESULT_ROOT_SCAN_REJECTED'));
+ await check('root-scan-external-pin-byte-substitution-refused',async()=>{const value=input(archive);value.profile_files=value.profile_files.map((file,index)=>index?file:{...file,bytes:Buffer.from('different metadata')});await assert.rejects(scanResultRootInputs(policy,value),e=>e.code==='RESULT_ROOT_SCAN_PROFILE_INPUTS');});
+ await check('root-scan.wrong-custody-binding-refused',async()=>{const value=input(archive);value.result.custody_id=randomUUID();await assert.rejects(scanResultRootInputs(policy,value),e=>e.code==='RESULT_ROOT_SCAN_SCOPE');});
+ await check('root-scan.protected-policy-pin-required',async()=>assert.rejects(loadResultRootScanPolicy({...env,HF_RESULT_ROOT_SCAN_POLICY_DIGEST:hash('wrong')},true),e=>e.code==='RESULT_ROOT_SCAN_POLICY_CHANGED'));
+ await check('root-scan.required-missing-policy-refused',async()=>assert.rejects(loadResultRootScanPolicy({},true),e=>e.code==='RESULT_ROOT_SCAN_POLICY_REQUIRED'));
+ await check('root-scan.explicit-legacy-policy-absence-preserved',async()=>assert.equal(await loadResultRootScanPolicy({},false),null));
+ await check('root-scan.byte-budget-enforced',async()=>{const limited={...policy,max_total_bytes:1};await assert.rejects(scanResultRootInputs(limited,input(archive)),e=>e.code==='RESULT_ROOT_SCAN_LIMIT');});
+ await check('root-scan.runtime-context-cannot-carry-real-canary',async()=>assert.throws(()=>policy.scan('readiness-context.json',Buffer.from(JSON.stringify({scan:{secret_canaries:[secret]}})))));
+ console.log(JSON.stringify({status:'PASS',assertions:count,boundary:'actual Unix capture and production ROOT byte scanner; controlled scope, no job/custody/readiness authority claim'}));
+}finally{for(const name of ['sealed','sealed/source','sealed/source/src'])await fs.chmod(path.join(work,name),0o700).catch(()=>{});await fs.rm(work,{recursive:true,force:true});}

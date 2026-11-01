@@ -53,6 +53,8 @@ export function resultInputProducer(ctx:ComponentContext){
   let output:Data;
   try{output=JSON.parse(Buffer.from(result.stdout.bytes).toString('utf8'));}catch{fail('QUALIFICATION_MEASUREMENT_INTEGRITY','Preparation did not return complete measured JSON');}
   const intent=admitted.intent!,context=intent.context as ResultPreparationContext,binding=admitted.binding!;
+  const rootScanRef=(intent.plan.staging as Data[]).find(ref=>ref.role==='root-scan-receipt');
+  if(rootScanRef){const checked=await artifact(requestContext,'artifact.object.read',{organisation_id:s[0],run_id:s[1],artifact_id:rootScanRef.artifact_id});if(typeof checked.data_base64!=='string'||checked.artifact.digest!==rootScanRef.digest||String(checked.artifact.size_bytes)!==rootScanRef.size_bytes)fail('QUALIFICATION_ROOT_SCAN_INTEGRITY','Actual retained ROOT scan receipt required');const scan=JSON.parse(Buffer.from(checked.data_base64,'base64').toString('utf8'));if(canonical(output.root_scan)!==canonical(scan)||scan.operation_id!==operation||scan.job_id!==intent.job_id||scan.context_digest!==context.context_digest||scan.session_id!==intent.session_id||scan.archive_digest!==context.result.archive_source?.archive_digest||scan.inventory_digest!==context.result.archive_source?.inventory_digest||scan.parent_profile_id!==context.parent_profile_id||scan.parent_preparation_digest!==context.parent_preparation_digest)fail('QUALIFICATION_ROOT_SCAN_INTEGRITY','ROOT scan receipt must bind exact current result inputs');}else if(output.root_scan!==undefined)fail('QUALIFICATION_ROOT_SCAN_INTEGRITY','Unrecorded ROOT scan output cannot grant provenance');
   const counterfactual=output.counterfactual,checks=context.accepted_context.registered_checks.filter((check:Data)=>context.accepted_context.counterfactual_check_ids.includes(check.id));
   if(!Array.isArray(counterfactual)||!Array.isArray(checks)||counterfactual.length!==checks.length)
    fail('QUALIFICATION_COUNTERFACTUAL_INCOMPLETE','Every accepted original check needs complete native output');
@@ -121,6 +123,7 @@ export function resultInputProducer(ctx:ComponentContext){
   const proof={};proofs.set(proof,{credential:actor.principal.credential_id,digest:hash(publication)});
   const receipt={schema_version:1,kind:'EFFECTIVE_RESULT_INPUTS',organisation_id:s[0],run_id:s[1],job_id:intent.job_id,
    ...(context.result.archive_source?{source_origin:'FLEET_SOURCE_ARCHIVE_V1',archive_source:context.result.archive_source,source_origin_digest:submittedResultSourceDigest(context.result)}:{}),
+   ...(rootScanRef?{root_scan_receipt:{artifact_id:rootScanRef.artifact_id,digest:rootScanRef.digest,size_bytes:rootScanRef.size_bytes}}:{}),
    custody_id:context.custody_id,custody_generation:context.result.custody_generation,result_binding_digest:context.result.binding_digest,
    repository_id:context.result.repository_id,source_object_id:context.result.source_object_id,source_tree_id:context.result.source_tree_id,source_manifest_digest:context.result.source_manifest_digest,
    profile_id:intent.derived_profile_id,profile_digest:derived.profile_digest,preparation_digest:manifest.digest,preparation_context_digest:context.context_digest,
@@ -129,7 +132,7 @@ export function resultInputProducer(ctx:ComponentContext){
    registry_digest:context.accepted_context.registry_digest,spec_revision_id:context.accepted_context.spec_revision_id,spec_generation:context.accepted_context.spec_generation,
    runner_session_id:intent.session_id,source_state_digest:observed.source_state_digest,workspace_digest:workspace.digest,
    environment_digest:hash({operation_id:operation,profile_digest:derived.profile_digest,workspace_digest:workspace.digest,source_state_digest:observed.source_state_digest}),
-   retained_artifacts:[storedManifest,stdout,measuredRef,verification,execution,sourceRef,nativeArtifact].map(ref=>({artifact_id:ref.artifact_id,artifact_digest:ref.digest,artifact_size_bytes:ref.size_bytes}))};
+   retained_artifacts:[storedManifest,stdout,measuredRef,verification,execution,sourceRef,nativeArtifact,...(rootScanRef?[rootScanRef]:[])].map(ref=>({artifact_id:ref.artifact_id,artifact_digest:ref.digest,artifact_size_bytes:ref.size_bytes}))};
   const receiptDigest=hash(receipt),receiptRef=await keep(Buffer.from(canonical(receipt)));
   try{return await transaction(requestContext,async tx=>{
    assertPrimaryTransaction(tx);await executionGate(requestContext,tx,s,'ADMISSION');

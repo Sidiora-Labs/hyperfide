@@ -264,6 +264,10 @@ function scanBytes(bytes: Buffer, policy: ScanPolicy, json: boolean): void {
     lexicalAuthority(value);
   }
 }
+/** Shared byte scanner for privileged archive admission; it never returns policy values. */
+export function scanPreparationBytes(filename:string,bytes:Uint8Array,rawPolicy:unknown):ScanDeclaration{
+ const name=relative(filename),policy=scanPolicy(rawPolicy);if(sensitivePath(name))fail('sensitive path');scanBytes(Buffer.from(bytes),policy,name.endsWith('.json'));return declaration(policy);
+}
 type Stat = fs.BigIntStats;
 function same(before: Stat, after: Stat): boolean {
   return before.dev === after.dev && before.ino === after.ino && before.mode === after.mode && before.uid === after.uid && before.gid === after.gid &&

@@ -32,3 +32,10 @@ cause = "TypeScript transpileModule can recover malformed syntax and emit JavaSc
 resolution = "Request and reject error diagnostics before using isolated emitted code, and run the normal project compiler before capturing a release."
 evidence = "The manager replacement fixture emitted a working supervisor despite an extra closing parenthesis rejected by the project compiler as TS1005. The fixture now rejects transpile diagnostics."
 status = "resolved"
+
+[gotcha.bootstrap_registration_row_lock]
+symptom = "Native enrollment and runner inventory succeed, but preparation registration fails with SQLSTATE 42501."
+cause = "The control role can read provider_native_bootstraps but lacks the UPDATE privilege PostgreSQL requires for SELECT FOR SHARE."
+resolution = "For a scoped control role, grant UPDATE(id) on provider_native_bootstraps. Its immutable binding trigger prevents identity changes; bootstrap state and receipt columns remain outside that grant."
+evidence = "The exact registration row lock failed before the grant and succeeded under the same control role afterwards; state and receipt UPDATE privileges remained false."
+status = "resolved"

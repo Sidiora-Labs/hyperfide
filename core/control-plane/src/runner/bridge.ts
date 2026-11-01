@@ -410,9 +410,9 @@ export function runnerResultSigningBytes(org:string,run:string,op:string,plan:st
 
 /** Read immutable payloads only after the SQL observation transaction closes.
  * Every child and concatenated content digest is checked again at this boundary. */
-export async function resolveRunnerCapturedReference(store:ArtifactStoreCapability,i:InvocationContext,ref:unknown):Promise<CapturedBytes> {
- assertInvocation(i);
- if(!object(ref)||!['object','manifest'].includes(String(ref.storage_kind))||!uuid(ref.artifact_id)||!digest(ref.digest)||!decimal(ref.size_bytes)||typeof ref.complete!=='boolean'||BigInt(ref.size_bytes)>16777216n)fail('REMOTE_RESULT_INVALID','Bounded immutable captured-object reference required');
+export async function resolveRunnerCapturedReference(store:ArtifactStoreCapability,i:InvocationContext,ref:unknown,maximumBytes=16777216):Promise<CapturedBytes> {
+ assertInvocation(i);if(!Number.isSafeInteger(maximumBytes)||maximumBytes<1||maximumBytes>67108864)fail('REMOTE_RESULT_INVALID','Trusted bounded capture size required');
+ if(!object(ref)||!['object','manifest'].includes(String(ref.storage_kind))||!uuid(ref.artifact_id)||!digest(ref.digest)||!decimal(ref.size_bytes)||typeof ref.complete!=='boolean'||BigInt(ref.size_bytes)>BigInt(maximumBytes))fail('REMOTE_RESULT_INVALID','Bounded immutable captured-object reference required');
  const scope={organisation_id:i.principal.organisation_id,run_id:i.principal.run_id};
  const observe=async(action:string,id:string,expectedDigest:string,expectedSize?:string):Promise<Record<string,any>>=>{
   const result=await store.invoke(action,{...scope,artifact_id:id},i);

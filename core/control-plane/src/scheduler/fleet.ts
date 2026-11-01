@@ -1,4 +1,7 @@
-import {fleetBootstrapSupport} from '../providers/bootstrap.js';
+import {isArtifactStoreCapability} from '../artifacts/objects.js';
+import {assuranceBarrier} from '../assurance/submission.js';
+import {prepareManagerTestJob,retainManagerTestJob,validateManagerTestArtifacts} from '../providers/test_job_binding.js';
+import {fleetBootstrapSupport,readFleetBootstrapRecipe} from '../providers/bootstrap.js';
 import {readDeployment,currentPool} from '../providers/pools.js';
 import {randomUUID} from 'node:crypto';
 import type {Component,ComponentContext} from '../components/registry.js';
@@ -18,7 +21,7 @@ import type {WorkerRegistrationAuthority} from '../hierarchy/adoption.js';
 export const MANAGER_ACTION_CONTRACTS={
  'fleet.install.adopt':{required:['install_operation_id','previous_adoption_id','admission_digest','receipt_digest','input_digest','handoff_id','runner_operation_id','runner_result_digest'],description:'Adopt an existing pinned install after manager or cohort recovery through the shared installer authority. Pin the exact predecessor and immutable admission/receipt or completed runner evidence; this never starts replacement execution.'},
  'fleet.install.admit':{required:['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','ttl_seconds','slot_bindings'],optional:['recovery_of'],recovery_of:{type:'object',additional_properties:false,required:['install_operation_id','admission_digest','runner_operation_id','runner_plan_digest','quiescence_operation_id','quiescence_receipt_digest'],install_operation_id:'current failed install_recovery[].install_operation_id; is_current_head must be true',admission_digest:'exact predecessor install_recovery[].admission_digest',runner_operation_id:'exact corresponding install_recovery_jobs[].runner_operation_id',runner_plan_digest:'exact corresponding install_recovery_jobs[].runner_plan_digest',quiescence_operation_id:'exact nonnull install_recovery_jobs[].quiescence_operation_id; must equal runner_operation_id',quiescence_receipt_digest:'exact nonnull install_recovery_jobs[].quiescence_receipt_digest',authority:'Only a signed COMPLETED/FAILED predecessor with confirmed native cleanup and retained capture may recover. Observation fields do not grant eligibility; the authority verifies signatures, current allocation, same boot/inputs and current head. UNKNOWN or CLAIMED outcomes are reconcile-only.'},execution_identity:'Use a fresh decision.operation_id for recovery; admission.logical_operation_id retains the original install identity. Preserve failed job, staging and dirty files; never replay the old execution.',description:'Admit a registered pinned environment to its exact current boot. Optional recovery_of renews authority for a new execution of the same environment only after known failed native quiescence; verified completion still gates workers.'},
- PROVISION_SANDBOX:{required:['pool_id','provider_id','profile_id','sandbox_id','preparation_digest','deadline_at','capacity','purpose'],description:'Select an approved provider/profile with a configured protected bootstrap recipe matching its declared role and requested purpose; reserve exact capacity before provider effects.'},
+ PROVISION_SANDBOX:{required:['pool_id','provider_id','profile_id','sandbox_id','preparation_digest','deadline_at','capacity','purpose'],optional:['qualification_job'],qualification_job:{required:['job_id','expected_state_version','custody_id','custody_generation'],description:'Required for a generic TEST pool. Select an observed current PENDING qualification job and custody explicitly; the engine resolves its accepted TEST profile and retained source policy. CODING does not accept this selector.'},description:'Select an approved provider/profile with a configured protected bootstrap recipe matching its declared role and requested purpose; reserve exact capacity before provider effects.'},
  REUSE_SANDBOX:{required:['sandbox_id','boot_generation','pool_id','provider_id','profile_id'],description:'Reuse an owned exact boot; a separate actual install receipt still gates worker assignment.'},
  ASSIGN_WORKER:{required:['assignment','install_binding','claims'],slot_capacity_kind:'AGENT',capacity_class:'EXECUTION',test_slots_select_worker_kind:false,build_and_test_admission:'SEPARATE_JOB',description:'Bind one isolated coding-agent task attempt to its canonical assignment, installed AGENT slot UUID and existing scheduler claim. This claim reserves AGENT, CPU, memory and disk execution capacity; build_slots/test_slots permit separate jobs and do not select a TEST slot or reserve BUILD/TEST capacity here. Independent qualification uses its own TEST allocation and sandbox. Use separate decisions for concurrent workers.'},
  STEER_WORKER:{required:['task_id','attempt_id','attempt_generation','launch_id','request_id','frame_b64'],description:'Send a bounded native instruction to the exact currently owned task attempt and launch.'},
@@ -36,7 +39,7 @@ export interface FleetEffects {
 function actionInput(action:string,value:unknown):Record<string,unknown>{
  const contract=MANAGER_ACTION_CONTRACTS[action as keyof typeof MANAGER_ACTION_CONTRACTS];
  if(!contract)fail('FLEET_ACTION_DENIED','Unsupported manager effect');
- return fields(value,contract.required);
+ return fields(value,contract.required,'optional' in contract?contract.optional:[]);
 }
 
 async function binding(tx:PrimaryTransaction,i:InvocationContext,d:Record<string,unknown>):Promise<{owner:FleetManagerBinding;budget:Record<string,unknown>}>{
@@ -66,8 +69,14 @@ export function createFleetEffectsComponent(ctx:ComponentContext):Component{
   const decision=validateDecision(value,{actions:MANAGER_ACTIONS});
   if(decision.action==='fleet.install.admit')return installer.admit(decision,i);
   if(decision.action==='fleet.install.adopt')return installer.adopt(decision,i);
+  let verifiedTestArtifacts:Awaited<ReturnType<typeof validateManagerTestArtifacts>>|null=null;
+  if(decision.action==='PROVISION_SANDBOX'){
+   const retained=await identityTransaction({...ctx,invocation:i},async tx=>(await tx.query('SELECT 1 FROM hyperfide.fleet_effect_receipts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[i.principal.organisation_id,i.principal.run_id,decision.operation_id])).rows.length>0);
+   if(!retained){const input=actionInput(decision.action,decision.input);const recipe=await readFleetBootstrapRecipe(ctx.env,String(input.pool_id));if(recipe)verifiedTestArtifacts=await validateManagerTestArtifacts(i,recipe,ctx.dependencies.require('15.2','artifact.store.v1',isArtifactStoreCapability));}
+  }
   return identityTransaction({...ctx,invocation:i},async(raw)=>{
    const tx=raw as PrimaryTransaction;
+   if(decision.action==='PROVISION_SANDBOX')await assuranceBarrier(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id},'SHARED');
    return withAdmittedDecision(tx,i,decision,decision.action,async admitted=>{
     const d=admitted as unknown as Record<string,unknown>,{owner:b,budget}=await binding(tx,i,d),scope={organisation_id:b.organisation_id,run_id:b.run_id};
     if(d.action==='PROVISION_SANDBOX'){
@@ -78,13 +87,18 @@ export function createFleetEffectsComponent(ctx:ComponentContext):Component{
      const deployment=await readDeployment(ctx.env);await currentPool(tx,deployment,String(v.pool_id));
      const support=await fleetBootstrapSupport(ctx.env,deployment,String(v.pool_id));
      if(support.status!=='CONFIGURED'||!support.supported_purposes.includes(String(v.purpose))||deployment.pools.find(p=>p.id===v.pool_id)?.profile_id!==v.profile_id||deployment.pools.find(p=>p.id===v.pool_id)?.preparation_digest!==v.preparation_digest)fail('FLEET_BOOTSTRAP_UNSUPPORTED','Selected pool lacks a matching configured native bootstrap recipe for its declared role and purpose');
+     const recipe=await readFleetBootstrapRecipe(ctx.env,String(v.pool_id));
+     if(!recipe)fail('FLEET_BOOTSTRAP_UNSUPPORTED','Selected pool lacks a protected bootstrap recipe');
+     if(!verifiedTestArtifacts)fail('FLEET_TEST_ARTIFACT_POLICY','Protected recipe must be validated before admission');
+     const testJob=await prepareManagerTestJob(tx,i,b,budget,v,recipe,verifiedTestArtifacts);
      const occupied=(await tx.query(`SELECT count(DISTINCT s.id)::int AS n FROM hyperfide.sandboxes s JOIN hyperfide.fleet_effect_receipts e ON e.organisation_id=s.organisation_id AND e.result->>'sandbox_id'=s.id::text WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'delegation_id'=$3 AND s.observed_state<>'DESTROYED'`,[b.organisation_id,b.run_id,b.delegation_id])).rows[0];
      if(!Number.isSafeInteger(budget.max_sandboxes)||Number(occupied?.n??0)>=Number(budget.max_sandboxes))fail('FLEET_SANDBOX_BUDGET','Manager sandbox budget is occupied, including uncertain effects');
      const reserved=object(await reserveDynamic(tx,{...scope,pool_id:uuid(v.pool_id,'pool_id'),request_id:b.operation_id,dimensions:dimensions(v.capacity),expires_at:String(v.deadline_at)}));
      const reservations=reserved.reservations as Record<string,unknown>[];
      const prepared=object(await providers.prepareCreateTx(tx,{run_id:b.run_id,pool_id:v.pool_id,sandbox_id:v.sandbox_id,request_key:b.operation_id,deadline_at:v.deadline_at,reservation_ids:reservations.map(r=>r.id),profile_id:v.profile_id,preparation_digest:v.preparation_digest,purpose:v.purpose},i));
      const intent=object(prepared.intent);
-     return {kind:d.action,delegation_id:b.delegation_id,sandbox_id:v.sandbox_id,provider_intent_id:intent.id,state:intent.state,external_call_performed:false};
+     const qualificationJob=testJob?await retainManagerTestJob(tx,testJob,intent):null;
+     return {...(qualificationJob?{qualification_job:qualificationJob}:{}),kind:d.action,delegation_id:b.delegation_id,sandbox_id:v.sandbox_id,provider_intent_id:intent.id,state:intent.state,external_call_performed:false};
     }
     if(d.action==='REUSE_SANDBOX'){
      const v=actionInput(String(d.action),d.input);

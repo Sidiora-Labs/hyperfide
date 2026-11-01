@@ -18,6 +18,12 @@ async function prepare(filename:string):Promise<void>{
  const read=async(role:string)=>JSON.parse(await fs.readFile(refs.get(role)!,'utf8'));
  const control=await read('input-manifest'),parent=await read('parent-manifest'),trusted=await read('readiness-context');
  const target=context.target_binding,workspace=target.workspace_path;
+ let rootScan:Data|null=null;
+ if(trusted.require_root_scan===true||refs.has('root-scan-receipt')){
+  rootScan=await read('root-scan-receipt');const origin=control.archive_source;
+  if(!origin||!rootScan||rootScan.kind!=='FLEET_TEST_ROOT_SCAN_V1'||rootScan.status!=='PASSED'||rootScan.operation_id!==context.operation_id||rootScan.job_id!==context.job_binding.job_id||rootScan.context_digest!==context.job_binding.input_manifest_digest||rootScan.session_id!==target.target_runner_session_id||rootScan.organisation_id!==target.organisation_id||rootScan.run_id!==target.run_id||rootScan.custody_id!==control.result.custody_id||rootScan.custody_generation!==control.result.custody_generation||rootScan.archive_digest!==origin.archive_digest||rootScan.inventory_digest!==origin.inventory_digest||rootScan.parent_profile_id!==control.parent_profile_id||rootScan.parent_preparation_digest!==parent.digest)throw new Error('Actual ROOT input scan differs from immutable preparation');
+ }
+
  const pins=preparationPinInputs(parent.profile);
  const pinSource=async(repositoryRoot:string,pin:typeof pins[number])=>{const source=pin.origin==='PROFILE_ARTIFACT'?refs.get(pin.role):path.resolve(repositoryRoot,pin.path);if(!source)throw new Error('Retained parent pin missing');if(pin.origin==='SOURCE'&&(!source.startsWith(repositoryRoot+'/')||!(await fs.realpath(source)).startsWith(repositoryRoot+'/'))||(await fs.lstat(source)).isSymbolicLink()||!(await fs.lstat(source)).isFile())throw new Error('Unsafe preparation pin');const bytes=await fs.readFile(source);if(pin.origin==='PROFILE_ARTIFACT'&&hash(bytes)!==pin.digest)throw new Error('Retained parent pin changed');return bytes;};
  await fs.mkdir(workspace,{mode:0o700});
@@ -116,7 +122,7 @@ async function prepare(filename:string):Promise<void>{
  const stdout=execFileSync(trusted.native_path,['--component','11.3','--action','environment.readiness'],
   {input:JSON.stringify(request),env,timeout:30000,encoding:'utf8'});
  const observed=JSON.parse(stdout);if(!observed.ok||observed.result.state!=='READY')throw new Error('Native result readiness refused: '+JSON.stringify(observed.error??{state:observed.result.state,reason:observed.result.reason}));
- process.stdout.write(canonicalJSON({schema_version:1,counterfactual,measurement_base64:measurement.toString('base64'),manifest:baseManifest,
+ process.stdout.write(canonicalJSON({schema_version:1,...(rootScan?{root_scan:rootScan}:{}),counterfactual,measurement_base64:measurement.toString('base64'),manifest:baseManifest,
   workspace_manifest:manifest,readiness_input:request,readiness:observed.result,readiness_environment:env})+'\n');
 }
 if(process.argv[2]==='--job-context')prepare(process.argv[3]!).catch(error=>{process.stderr.write(String(error)+'\n');process.exitCode=1;});
