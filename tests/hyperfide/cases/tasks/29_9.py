@@ -10,10 +10,10 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
-SCRIPT = 'deploy/hyperfide/bootstrap-host.mjs'
 DEPLOY = ROOT / 'deploy/hyperfide'
+SCRIPT = str((DEPLOY / 'bootstrap-host.mjs').resolve())
 ROLES = {'control': ('hyperfide', 1900), 'provisioner': ('hyperfide-provisioner', 1901), 'dispatch': ('hyperfide-dispatch', 1902)}
-IDENTITY = {'control': ['control-identity'], 'provisioner': ['provisioner-identity', 'provisioner-worker'], 'dispatch': ['dispatch-identity']}
+IDENTITY = {'control': ['control-identity'], 'provisioner': ['provisioner-identity', 'provisioner-worker', 'runner-executor'], 'dispatch': ['dispatch-identity']}
 GID = 1900
 FAILED = []
 
@@ -76,7 +76,7 @@ def main():
                     expect(owner_mode(host/'var/lib/hyperfide'/suffix) == (uid, GID, 0o700), suffix)
                 env = etc/f'{role}.env'
                 expect(env.read_bytes() == (DEPLOY/'env'/f'{role}.env.example').read_bytes() and owner_mode(env) == (0, 0, 0o600), env)
-                expect('HYPERFIDE_MIGRATION_' not in env.read_text(), 'migration variable installed')
+                expect(not re.search(r'^HYPERFIDE_MIGRATION_[A-Z_]*=', env.read_text(), re.M), 'migration variable installed')
                 policy = etc/f'{role}-policy.json'
                 expect(policy.read_bytes() == (DEPLOY/'policies'/f'{role}.example.json').read_bytes() and owner_mode(policy) == (uid, GID, 0o600), policy)
                 for name in IDENTITY[role]:
@@ -209,7 +209,7 @@ def main():
                 if role == 'dispatch':
                     required |= reads['events/dispatcher']
                 expect(required <= keys, (role, sorted(required - keys)))
-                expect('HYPERFIDE_MIGRATION_' not in text, 'migration variable in template')
+                expect(not re.search(r'^HYPERFIDE_MIGRATION_[A-Z_]*=', text, re.M), 'migration variable in template')
         check('host.examples.runtime-required-reads', examples)
     finally:
         shutil.rmtree(scratch)

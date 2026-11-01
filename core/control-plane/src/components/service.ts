@@ -117,6 +117,10 @@ export async function runService(role: ServiceRole, args = process.argv.slice(2)
     // synthesising a loopback operator would hand full authority to anything that can write to stdin
     // (tests/hyperfide/cases/tasks/15_2.py artifacts.auth.stdio-required holds that property).
     await registry.load(componentDirectory, config['--module-root'] ?? path.join(packageRoot, 'dist'), loading => {
+      if(role==='provisioner'&&process.env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE){
+        if(!loading.has('12.4-executor'))throw new FoundationError('FLEET_PREPARATION_EXECUTOR_REQUIRED','Fleet preparation requires the provisioner runner executor component 12.4-executor');
+        if(!path.isAbsolute(process.env.HF_RUNNER_EXECUTOR_CONFIG_FILE??''))throw new FoundationError('RUNNER_EXECUTOR_CONFIG_REQUIRED','Fleet preparation requires an explicit absolute HF_RUNNER_EXECUTOR_CONFIG_FILE');
+      }
       if(mode==='stdio'&&loading.has('14.1'))throw new FoundationError('TRANSPORT_CONFIG',
         'stdio mode cannot serve the '+role+' role because its component registrations in '+componentDirectory+
         ' load the identity component 14.1, which authenticates only signed HTTPS invocations; start with --mode https'+

@@ -11,7 +11,7 @@ const RELEASE='/opt/hyperfide/current';
 const GROUP={name:'hyperfide',gid:1900};
 const ROLES={control:{user:'hyperfide',uid:1900},provisioner:{user:'hyperfide-provisioner',uid:1901},dispatch:{user:'hyperfide-dispatch',uid:1902},
  'supervisory-host':{user:'root',uid:0},'issue-watcher':{user:'hyperfide',uid:1900}};
-const IDENTITY={control:{'control-identity.json':'control-identity.example.json'},provisioner:{'provisioner-identity.json':'provisioner-identity.example.json','provisioner-worker.json':'provisioner-worker.example.json'},dispatch:{'dispatch-identity.json':'dispatch-identity.example.json'}};
+const IDENTITY={control:{'control-identity.json':'control-identity.example.json'},provisioner:{'provisioner-identity.json':'provisioner-identity.example.json','provisioner-worker.json':'provisioner-worker.example.json','runner-executor.json':'runner-executor.example.json'},dispatch:{'dispatch-identity.json':'dispatch-identity.example.json'}};
 const OPERATOR={control:[],provisioner:['external-fence.json','pools.json','railway.json','provisioner-worker.key'],dispatch:['dispatch-worker.json','dispatch-worker.key']};
 // ---- Supervision roles (hyperfide-v21 2.9) ----
 // The MAIN supervisory host runs as root and must never hold a database URL, an authority journal or a provider
@@ -93,9 +93,10 @@ async function absent(role,env){
   let mode=null;try{mode=JSON.parse(await fs.readFile(env.HF_RAILWAY_CONFIG,'utf8')).mode;}catch{}
   if(mode==='live'||env.HF_RAILWAY_RUNTIME_POLICY)names.push('HF_RAILWAY_RUNTIME_POLICY','HF_RAILWAY_RUNTIME_POLICY_DIGEST','HF_RAILWAY_PROCESS_ROOT','HF_CREDENTIAL_CONFIG_FILE');
  }
+ if(role==='provisioner'&&env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE)names.push('HF_RUNNER_EXECUTOR_CONFIG_FILE');
  const missing=names.filter(name=>!env[name]);
  // A file variable that is set but names no regular file is as absent as an unset one; its path is listed.
- const files=['HF_IDENTITY_CONFIG_FILE',...(role==='provisioner'?['HF_PROVISIONER_EXECUTOR_CONFIG_FILE','HF_CREDENTIAL_CONFIG_FILE']:[])];
+ const files=['HF_IDENTITY_CONFIG_FILE',...(role==='provisioner'?['HF_PROVISIONER_EXECUTOR_CONFIG_FILE','HF_RUNNER_EXECUTOR_CONFIG_FILE','HF_CREDENTIAL_CONFIG_FILE']:[])];
  for(const name of files)if(env[name]&&!(await regularFile(env[name])))missing.push(env[name]);
  return missing;
 }
@@ -131,6 +132,7 @@ async function checks(role,env){
  if(role==='dispatch'&&!env.HF_EVENT_DISPATCH_CONFIG)fail('DISPATCH_CONFIG_REQUIRED');
  if(role==='provisioner'){
   if(!path.isAbsolute(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE??'')||!(await regularFile(env.HF_PROVISIONER_EXECUTOR_CONFIG_FILE)))fail('PROVISIONER_EXECUTOR_CONFIG_INVALID');
+  if(env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE&&(!path.isAbsolute(env.HF_RUNNER_EXECUTOR_CONFIG_FILE??'')||!(await regularFile(env.HF_RUNNER_EXECUTOR_CONFIG_FILE))))fail('RUNNER_EXECUTOR_CONFIG_REQUIRED');
   // Required only for live Railway (absent() lists it); when set it must name an absolute regular file.
   if(env.HF_CREDENTIAL_CONFIG_FILE&&(!path.isAbsolute(env.HF_CREDENTIAL_CONFIG_FILE)||!(await regularFile(env.HF_CREDENTIAL_CONFIG_FILE))))fail('CREDENTIAL_CONFIG_REQUIRED');
   const fence=await fenceConfiguration(env.HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE);
