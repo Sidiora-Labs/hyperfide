@@ -1,0 +1,50 @@
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import type {PrimaryTransaction} from '../storage/transactions.js';
+import {assertPrimaryTransaction} from '../storage/transactions.js';
+import type {InvocationContext} from '../transport/protocol.js';
+import {hash} from '../transport/protocol.js';
+import {runnerCanonical} from './bridge.js';
+import {currentPool,digestDocument,fail,obj,providerInvocation,transaction} from '../providers/pools.js';
+import type {ProviderDatabase,DeploymentConfig} from '../providers/pools.js';
+import type {BoundProviderRequest} from '../providers/reconcile.js';
+type Data=Record<string,any>;
+const same=(a:unknown,b:unknown)=>runnerCanonical(a)===runnerCanonical(b);
+function requestMatches(job:Data,request:Data):boolean{
+ const p=job.plan,b=p?.binding;if(!b||hash(runnerCanonical(p))!==job.plan_digest||request.operation_id!==job.operation_id)return false;
+ const binding={organisation_id:b.organisation_id,run_id:b.run_id,session_id:b.session_id,pool_id:b.pool_id,sandbox_id:b.sandbox_id,external_sandbox_id:b.external_sandbox_id,boot_generation:String(b.boot_generation),preparation_digest:b.boot_preparation_digest};
+ const encoded=Buffer.from(JSON.stringify({config_path:b.state_dir+'/runner.json',operation_id:job.operation_id})).toString('base64url');
+ return same(request.binding,binding)&&same(request.argv,[b.runner_binary,'--component','12.4','--action','runner.job.execute','--request-base64',encoded])&&Number.isSafeInteger(p.request?.timeout_ms)&&p.request.timeout_ms>0&&request.timeout_ms===Math.min(3600000,p.request.timeout_ms+60000)&&same(request.env_refs,p.env_refs??{})&&same(request.env_ref_versions??null,p.env_ref_versions??null)&&typeof request.cwd==='string'&&path.isAbsolute(request.cwd)&&(job.job_class!=='PREPARATION'||request.cwd===path.dirname(b.workspace_path));
+}
+async function vector(tx:PrimaryTransaction,job:Data):Promise<{allocation:Data;reservations:Data[]}|null>{
+ const a=(await tx.query('SELECT *,generation::text,sandbox_boot_generation::text FROM hyperfide.resource_job_allocations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[job.organisation_id,job.run_id,job.plan.allocation?.allocation_id])).rows[0];
+ if(!a||a.reservation_id!==job.reservation_id||a.assignee_session_id!==job.session_id||a.generation!==String(job.plan.allocation.generation)||a.request_id!==job.plan.allocation.request_id||a.sandbox_id!==job.plan.binding.sandbox_id||a.sandbox_boot_generation!==String(job.plan.binding.boot_generation)||a.slot_id!==job.plan.binding.slot_id)return null;
+ const rows=(await tx.query(`SELECT r.id,r.capacity_account_id,r.quantity::text,r.expires_at::text,r.state,c.dimension,c.capacity_class FROM hyperfide.reservations r JOIN hyperfide.capacity_accounts c ON c.organisation_id=r.organisation_id AND c.id=r.capacity_account_id WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.request_id=$3 ORDER BY r.id FOR SHARE OF r`,[job.organisation_id,job.run_id,a.request_id])).rows;
+ if(!rows.length||rows.length>16||rows.some(r=>r.capacity_class==='PHYSICAL'||!['ALLOCATED','RELEASE_PENDING','RELEASED'].includes(r.state)))return null;
+ return{allocation:{id:a.id,generation:a.generation,request_id:a.request_id,reservation_id:a.reservation_id,session_id:job.session_id},reservations:rows.map(r=>({id:r.id,capacity_account_id:r.capacity_account_id,quantity:r.quantity,dimension:r.dimension,expires_at:r.expires_at}))};
+}
+export async function readPreProviderRefusal(tx:PrimaryTransaction,s:{organisation_id:string;run_id:string;operation_id:string}):Promise<{job:Data;proof:Data}|null>{
+ assertPrimaryTransaction(tx);const job=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[s.organisation_id,s.run_id,s.operation_id])).rows[0];
+ if(!job||job.native_claim_coverage!==true||job.native_claimed_at!==null||job.native_claim_operation_id!==null||!job.pre_provider_refusal_id||!['CLAIMED','UNKNOWN'].includes(job.state)||!job.claim_id||!job.executor_credential_id||!job.claimed_at||job.result!==null||job.result_digest!==null||job.result_signature!==null||job.completed_at!==null||job.not_started_proof_id!==null)return null;
+ const proof=(await tx.query('SELECT * FROM hyperfide.runner_pre_provider_refusals WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[s.organisation_id,s.run_id,job.pre_provider_refusal_id])).rows[0],body=proof?.proof;
+ if(!proof||proof.runner_operation_id!==job.operation_id||proof.claim_id!==job.claim_id||proof.executor_credential_id!==job.executor_credential_id||proof.runner_plan_digest!==job.plan_digest||!body||body.kind!=='PRE_PROVIDER_REFUSAL'||hash(runnerCanonical(body))!==proof.proof_digest||body.organisation_id!==s.organisation_id||body.run_id!==s.run_id||body.runner_operation_id!==job.operation_id||body.claim_id!==job.claim_id||body.executor_credential_id!==job.executor_credential_id||body.runner_plan_digest!==job.plan_digest||body.authority_epoch!==job.authority_epoch||body.provider_dispatch_present!==false||body.native_execution_observed!==false||body.native_claim_coverage!==true||body.native_claimed_at!==null||body.native_claim_operation_id!==null||!requestMatches(job,body.bound_request)||digestDocument(body.bound_request)!==proof.request_digest||body.request_digest!==proof.request_digest||body.condition?.code!=='PROVIDER_DEADLINE_INVALID'||!Number.isSafeInteger(body.condition.maximum_operation_ms)||body.condition.maximum_operation_ms<100||body.bound_request.timeout_ms<=body.condition.maximum_operation_ms)return null;
+ if((await tx.query('SELECT id FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2',[s.organisation_id,s.operation_id])).rows.length)return null;
+ const actual=await vector(tx,job);if(!actual||!same(actual.allocation,body.allocation)||actual.reservations.length!==body.reservations?.length||actual.reservations.some(r=>!body.reservations.some((p:Data)=>p.id===r.id&&p.capacity_account_id===r.capacity_account_id&&p.quantity===r.quantity&&p.dimension===r.dimension&&Date.parse(p.expires_at)===Date.parse(r.expires_at))))return null;
+ return{job,proof};
+}
+/** This producer can only certify an impossible approved timeout and permanently close provider admission. */
+export async function recordPreProviderRefusal(database:ProviderDatabase,config:DeploymentConfig,value:unknown):Promise<Data|null>{
+ const i=providerInvocation(database),request=obj(value,['binding','operation_id','argv','cwd','env_refs','timeout_ms',...(Object.hasOwn(obj(value),'env_ref_versions')?['env_ref_versions']:[])]) as Data;
+ if(i.principal.role!=='PROVISIONER'||i.payload.component!=='8.3'||i.payload.action!=='provider.remote.execute-bound'||digestDocument(i.payload.input)!==digestDocument(value))fail('AUTH_SCOPE_DENIED','Exact authenticated provisioner request required');
+ if(!Number.isSafeInteger(request.timeout_ms)||request.timeout_ms<=config.maximum_operation_ms)return null;
+ const b=obj(request.binding),org=String(b.organisation_id),run=String(b.run_id);if(org!==config.organisation_id||org!==i.principal.organisation_id||run!==i.principal.run_id)fail('AUTH_SCOPE_DENIED','Refusal belongs to another scope');
+ return transaction(database,async tx=>{await i.guard(tx);const job=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[org,run,request.operation_id])).rows[0];
+  if(job&&job.native_claim_coverage!==true)fail('PRE_PROVIDER_REFUSAL_LEGACY_UNPROVEN','Legacy admission has no complete native claim coverage');
+  if(!job||job.native_claimed_at!==null||job.native_claim_operation_id!==null||!['CLAIMED','UNKNOWN'].includes(job.state)||!job.claim_id||job.executor_credential_id!==i.principal.credential_id||!job.claimed_at||job.authority_epoch!==i.principal.deployment_epoch||job.result!==null||job.result_digest!==null||job.result_signature!==null||job.completed_at!==null||job.not_started_proof_id!==null||!requestMatches(job,request))fail('PRE_PROVIDER_REFUSAL_UNPROVEN','Exact claimed immutable native request required');
+  if(job.pre_provider_refusal_id){const retained=await readPreProviderRefusal(tx,{organisation_id:org,run_id:run,operation_id:job.operation_id});if(!retained)fail('PRE_PROVIDER_REFUSAL_UNPROVEN','Retained refusal differs');return retained.proof;}
+  if((await tx.query('SELECT id FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2',[org,job.operation_id])).rows.length)fail('PRE_PROVIDER_REFUSAL_UNPROVEN','Possible provider submission forbids refusal certification');
+  const actual=await vector(tx,job);if(!actual)fail('PRE_PROVIDER_REFUSAL_UNPROVEN','Exact held logical vector required');const {scope}=await currentPool(tx,config,String(b.pool_id));
+  const requestDigest=digestDocument(request),body={schema_version:1,kind:'PRE_PROVIDER_REFUSAL',organisation_id:org,run_id:run,runner_operation_id:job.operation_id,claim_id:job.claim_id,executor_credential_id:job.executor_credential_id,runner_plan_digest:job.plan_digest,request_digest:requestDigest,authority_epoch:job.authority_epoch,bound_request:request,condition:{code:'PROVIDER_DEADLINE_INVALID',maximum_operation_ms:config.maximum_operation_ms,configuration_digest:digestDocument({scope,maximum_operation_ms:config.maximum_operation_ms})},original_state:job.state,allocation:actual.allocation,reservations:actual.reservations,provider_dispatch_present:false,native_execution_observed:false,native_claim_coverage:true,native_claimed_at:null,native_claim_operation_id:null};
+  return(await tx.query('INSERT INTO hyperfide.runner_pre_provider_refusals(organisation_id,run_id,id,runner_operation_id,claim_id,executor_credential_id,runner_plan_digest,request_digest,error_code,proof_digest,proof) VALUES($1,$2,$3,$4,$5,$6,$7,$8,\'PROVIDER_DEADLINE_INVALID\',$9,$10) RETURNING *',[org,run,randomUUID(),job.operation_id,job.claim_id,job.executor_credential_id,job.plan_digest,requestDigest,hash(runnerCanonical(body)),body])).rows[0]!;
+ });
+}

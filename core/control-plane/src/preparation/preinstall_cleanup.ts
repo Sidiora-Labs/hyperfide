@@ -45,6 +45,6 @@ export async function abandonExpiredPreinstall(tx:PrimaryTransaction,input:Prein
 }
 export async function readAbandonedPreinstallProof(tx:PrimaryTransaction,input:PreinstallScope):Promise<Data|null>{
  assertPrimaryTransaction(tx);const retained=(await tx.query("SELECT result FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope='preinstall-cleanup' AND operation='fleet.preinstall.abandon' AND idempotency_key=$3 AND state='COMPLETED'",[input.organisation_id,input.run_id,input.sandbox_id+':'+input.boot_generation])).rows[0]?.result;
- if(!object(retained))return null;if(retained.kind==='ABANDONED_NOT_STARTED_INSTALL_V1')return readBoundNotStartedInstallProof(tx,input,retained);if(retained.kind!=='ABANDONED_PREINSTALL_V1')return null;const fresh=await inspect(tx,input,true);if(!fresh)return null;
+ if(!object(retained))return null;if(retained.kind==='ABANDONED_NOT_STARTED_INSTALL_V1'||retained.kind==='ABANDONED_PRE_PROVIDER_INSTALL_V1')return readBoundNotStartedInstallProof(tx,input,retained);if(retained.kind!=='ABANDONED_PREINSTALL_V1')return null;const fresh=await inspect(tx,input,true);if(!fresh)return null;
  const {schema_version,kind,physical_resources_released,...pins}=retained;if(digestDocument(pins)!==digestDocument(fresh))return null;return retained;
 }

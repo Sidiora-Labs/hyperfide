@@ -266,7 +266,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const row=(await tx.query("SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND state='ADMITTED' AND authority_epoch=$3 AND expires_at>clock_timestamp() ORDER BY created_at,operation_id LIMIT 1",[p.organisation_id,p.run_id,p.deployment_epoch])).rows[0];return row?row as Job:null;
  });}
  async function settle(row:Job,code:string):Promise<void>{
- await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);});
+ await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN',failure_code=$4 WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id,code]);});
  unknown++;last_error=code;
  }
  async function claim(row:Job,s:Signer,i:InvocationContext,launch:WorkerWorkspace|FleetManifestWorkspace|null):Promise<string|null>{
@@ -291,8 +291,8 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  } catch(error) {
  const code=object(error)&&typeof error.code==='string'?error.code:'';
  if(!/^(AUTH_|RUNNER_|REMOTE_|JOB_|RESOURCE_|RESERVATION_|WORKER_SLICE_|WORKER_WORKSPACE_|SLICE_)/.test(code))throw error;
- if(/^(WORKER_|SLICE_)/.test(code)){workspaces.refused++;last_error=code;}
- await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);
+ if(/^(WORKER_|SLICE_)/.test(code))workspaces.refused++;last_error=code;
+ await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN',failure_code=$4 WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id,code]);
  unknown++;return null;
  }
  const id=randomUUID();await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='CLAIMED',claim_id=$4,executor_credential_id=$5,claimed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id,id,s.credential_id]);return id;
@@ -302,7 +302,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  try{refs=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},tx=>taskEnvReferences(tx as PrimaryTransaction,row.organisation_id,row.plan.binding.pool_id,row.plan.env_refs));}
  catch(error){const code=object(error)&&typeof error.code==='string'?error.code:'';if(!code.startsWith('RUNNER_SECRET_'))throw error;
   // An undeclared or malformed reference never launches; the admission is settled.
-  await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id]);});
+  await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN',failure_code=$4 WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id,code]);});
   unknown++;last_error=code;return;}
  // v21 3.20: resolve the slot's workspace first so the process starts in the slice; claim re-checks it under lock.
  let launch:WorkerWorkspace|FleetManifestWorkspace|null,cwd:string;
@@ -327,7 +327,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  }catch(error){unknown++;last_error=object(error)&&typeof error.code==='string'?error.code:'RUNNER_EXECUTION_UNKNOWN';
  // A crash or ambiguous commit may leave CLAIMED. Neither this loop nor a
  // replacement process ever executes it again; reconciliation owns it.
- try{await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND state='CLAIMED'",[row.organisation_id,row.run_id,row.operation_id,claim_id,s.credential_id]);});}catch{/* Durable CLAIMED also forbids replay. */}
+ try{await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN',failure_code=CASE WHEN pre_provider_refusal_id IS NULL THEN $6 ELSE failure_code END WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND state='CLAIMED'",[row.organisation_id,row.run_id,row.operation_id,claim_id,s.credential_id,last_error]);});}catch{/* Durable CLAIMED also forbids replay. */}
  }finally{active--;}
  }
  async function fleetLaunch(s:Signer):Promise<boolean>{
