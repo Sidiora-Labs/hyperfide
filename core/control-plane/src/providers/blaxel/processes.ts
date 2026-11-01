@@ -30,6 +30,8 @@ function canonical(v:unknown):string{
 function digest(v:unknown):string{return 'sha256:'+createHash('sha256').update(typeof v==='string'?v:canonical(v)).digest('hex');}
 function bytesDigest(v:Uint8Array):string{return 'sha256:'+createHash('sha256').update(v).digest('hex');}
 function equal(a:unknown,b:unknown):boolean{return a===undefined||b===undefined?a===b:canonical(a)===canonical(b);}
+// Optional API maps with no entries request no network settings or kernel features.
+function optionalSettings(v:unknown):unknown{return v!==null&&typeof v==='object'&&!Array.isArray(v)&&(Object.getPrototypeOf(v)===Object.prototype||Object.getPrototypeOf(v)===null)&&Object.keys(v).length===0?undefined:v;}
 function nativeName(v:unknown):string{const n=text(v,49);if(!/^[a-z0-9][a-z0-9-]*$/.test(n))fail('BLAXEL_PROCESS_INVALID','Invalid native sandbox name');return n;}
 function shell(v:string):string{return "'"+v.replaceAll("'","'\\''")+"'";}
 function statusCode(e:unknown):number|null{if(e&&typeof e==='object'){const o=e as Obj;for(const v of [o.status,o.statusCode,(o.response as Obj|undefined)?.status])if(typeof v==='number')return v;}return null;}
@@ -142,21 +144,23 @@ export function planBlaxelCreate(operation:ProviderOperation<'create'>,generatio
  if(!Array.isArray(base.volumes)||base.volumes.length>16)fail('BLAXEL_PROCESS_INVALID','Trusted volume configuration required');
  if(base.volumes.length||base.resources.persistent_volume_bytes!=='0')fail('BLAXEL_PERSISTENT_STORAGE_UNSUPPORTED','Per-boot qualified volume allocation is required before persistent storage can be enabled');
  if(BigInt(base.resources.disk_bytes)>memory)fail('BLAXEL_RESOURCE_UNSUPPORTED','Requested writable overlay exceeds allocated memory');
- const lifetime=blaxelSandboxLifetimeOptions(lifecycle);
+ const lifetime=blaxelSandboxLifetimeOptions(lifecycle),network=optionalSettings(base.network),extraArgs=optionalSettings(base.runtime_extra_args);
  return {metadata:{name:blaxelCreateName(operation,generation),labels:{
  'hyperfide-operation':operation.identity.operation_id,'hyperfide-payload':operation.identity.payload_digest,
  'hyperfide-scope':scopeDigest(operation.scope),'hyperfide-boot':generation,
  'hyperfide-preparation':base.preparation_digest,'hyperfide-provider-base':base.provider_prepared_digest,
- }},spec:{enabled:true,region:operation.scope.region,network:base.network,volumes:base.volumes,
+ }},spec:{enabled:true,region:operation.scope.region,...(network===undefined?{}:{network}),volumes:base.volumes,
  lifecycle:lifetime.lifecycle,runtime:{...lifetime.runtime,image:base.preparation_reference,memory:Number(memory/1048576n),
- envs:[],ports:[],extraArgs:base.runtime_extra_args}}};
+ envs:[],ports:[],...(extraArgs===undefined?{}:{extraArgs})}}};
 }
 export function verifyBlaxelCreate(observation:unknown,expected:Obj,scope:ProviderScope):{matches:true;native_sandbox_id:string}{
  const o=object(observation),m=object(o.metadata),s=object(o.spec),want=object(expected.metadata),spec=object(expected.spec);
  if(m.name!==want.name||m.workspace!==scope.environment_id||!equal(m.labels,want.labels))fail('BLAXEL_CREATE_CONFLICT','Named sandbox identity does not match durable ownership');
- for(const key of ['enabled','region','network','volumes','lifecycle'])if(!equal(s[key],spec[key]))fail('BLAXEL_CREATE_CONFLICT','Existing sandbox actual configuration differs');
+ if(!equal(optionalSettings(s.network),optionalSettings(spec.network)))fail('BLAXEL_CREATE_CONFLICT','Existing sandbox network configuration differs');
+ for(const key of ['enabled','region','volumes','lifecycle'])if(!equal(s[key],spec[key]))fail('BLAXEL_CREATE_CONFLICT','Existing sandbox actual configuration differs');
  const runtime=object(s.runtime),desired=object(spec.runtime);
- for(const key of Object.keys(desired))if(!equal(runtime[key],desired[key]))fail('BLAXEL_CREATE_CONFLICT','Existing sandbox runtime configuration differs');
+ if(!equal(optionalSettings(runtime.extraArgs),optionalSettings(desired.extraArgs)))fail('BLAXEL_CREATE_CONFLICT','Existing sandbox kernel configuration differs');
+ for(const key of Object.keys(desired).filter(key=>key!=='extraArgs'))if(!equal(runtime[key],desired[key]))fail('BLAXEL_CREATE_CONFLICT','Existing sandbox runtime configuration differs');
  if(['FAILED','TERMINATED','DELETING','ARCHIVED','ARCHIVING','UNARCHIVING'].includes(String(o.status)))fail('BLAXEL_CREATE_CONFLICT','Named sandbox cannot be silently replaced or restored');
  return{matches:true,native_sandbox_id:nativeName(m.name)};
 }

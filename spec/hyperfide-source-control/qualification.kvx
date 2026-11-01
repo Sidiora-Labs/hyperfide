@@ -44,3 +44,11 @@ exit_code = 0
 log = "build/fleet/integration/fleet-completion-liveness-build.log"
 observed = "Build passed with migration catalog 66. PostgreSQL accepted 149 production queries. Five signed HTTPS/PostgreSQL checks passed for CREATE versus LIST observations, retained capacity, unknown native identity, manager isolation and known ownership evidence."
 assumption = "The observation gate uses explicitly declared prerequisite records. Worker execution, interrupted-install recovery and result custody have separate execution gates."
+
+[progress.fleet_bootstrap_capability]
+revision = "control-source sha256:9a88f99953f85f06d1998eec79a208a2df81ce36efe592e5ef46e6ae9a258a2e"
+command = "npm --prefix core/control-plane run build; fleet_bootstrap_capability_preflight.py; blaxel_optional_runtime.py; fleet_control_bootstrap_transport.mjs"
+exit_code = 0
+log = "build/fleet/integration/fleet-bootstrap-capability-build.log; build/fleet/integration/blaxel-empty-optional-after.log"
+observed = "Build passed with migration catalog 67. Seven signed API/PostgreSQL checks passed for bootstrap capability admission, unchanged capacity on refusal and retained TEST resource observations. Twenty-one pinned SDK cases passed for optional empty-map semantics and strict configured-setting mismatches. Seven actual startup-entry checks passed for bounded chunked configuration transport."
+assumption = "These gates cover admission, provider serialization/verification and deployment configuration transport; cloud execution and native bootstrap retain their own receipts."

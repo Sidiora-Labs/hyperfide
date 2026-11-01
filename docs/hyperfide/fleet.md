@@ -14,7 +14,9 @@ The implementation lives in [fleet orchestration](../../core/control-plane/src/a
 
 The supervisor polls state and resumes persisted operations. It does not select the next package, sandbox or task on behalf of the model. Task pages are collected completely within explicit page and byte bounds; oversized or incomplete context is refused. This interface currently bounds whole-programme context, so large programmes require appropriately scoped accepted work rather than assuming unlimited model context.
 
-An acknowledged manager-selected CREATE can start native bootstrap through the provisioner's protected `HF_PROVIDER_BOOTSTRAP_CONFIG_FILE`. Each pool recipe pins the provider configuration, artifacts, native executable, enrollment actions, OS identities and install inputs. Bootstrap retains its enrollment grant, manifest and provider process identity across retries. It checks the actual provider ownership labels and delivered bytes before execution, then requires consumed enrollment and observed runner slots before reporting READY.
+The control service and provisioner receive the same protected `HF_PROVIDER_BOOTSTRAP_CONFIG_FILE`. Each pool recipe pins the provider configuration, execution role, artifacts, native executable, enrollment actions, OS identities and install inputs. Observations expose the matching recipe's availability and supported purposes. `PROVISION_SANDBOX` validates that capability before reserving capacity or creating a provider intent; a missing or mismatched recipe returns `FLEET_BOOTSTRAP_UNSUPPORTED`. The model still chooses which supported pool and purpose to use.
+
+An acknowledged manager-selected CREATE starts native bootstrap through the provisioner. Bootstrap retains its enrollment grant, manifest and provider process identity across retries. It checks the actual provider ownership labels and delivered bytes before execution, then requires consumed enrollment and observed runner slots before reporting READY. An acknowledged CREATE without a bootstrap record exposes its dispatch status to the model, including an unavailable recipe, so recovery can retain the original resource identity.
 
 ## API surface
 

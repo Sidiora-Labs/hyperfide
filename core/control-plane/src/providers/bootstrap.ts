@@ -8,7 +8,7 @@ import {resolveRunnerCapturedReference} from '../runner/bridge.js';
 import type {ProviderOperation} from './contract.js';
 import {validateProviderOperation} from './contract.js';
 import type {ProviderDatabase,DeploymentConfig} from './pools.js';
-import {assertInvocationRun,currentPool,digestDocument,fail,providerInvocation,transaction} from './pools.js';
+import {assertInvocationRun,currentPool,configuredScope,digestDocument,fail,providerInvocation,transaction} from './pools.js';
 import {exact,hash,strictJSON,uuid} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
 import {readProtectedFile} from '../preparation/fleet_client.js';
@@ -30,12 +30,12 @@ function resolveTemplate(value:any,binding:Data):any{
  return value;
 }
 function stableUuid(seed:string):string{const value=createHash('sha256').update(seed).digest();value[6]=(value[6]!&15)|64;value[8]=(value[8]!&63)|128;const h=value.subarray(0,16).toString('hex');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;}
-async function descriptor(env:Readonly<NodeJS.ProcessEnv>):Promise<Descriptor|null>{
+async function descriptor(env:Readonly<NodeJS.ProcessEnv>,validateStateRoot=true):Promise<Descriptor|null>{
  if(!env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE)return null;
  const d=strictJSON(await readProtectedFile(env.HF_PROVIDER_BOOTSTRAP_CONFIG_FILE,4*1024*1024,true));
  if(!object(d))fail('PROVIDER_BOOTSTRAP_CONFIG','Protected bootstrap descriptor required');exact(d,['schema_version','origin','ca_file','state_root','pools']);
  if(d.schema_version!==1||typeof d.origin!=='string'||new URL(d.origin).origin!==d.origin||!d.origin.startsWith('https://')||!absolute(d.ca_file)||!absolute(d.state_root)||!Array.isArray(d.pools)||!d.pools.length||d.pools.length>3000)fail('PROVIDER_BOOTSTRAP_CONFIG','Bounded explicit trusted bootstrap configuration required');
- const stat=await fs.lstat(d.state_root);if(!stat.isDirectory()||stat.isSymbolicLink()||stat.uid!==process.getuid?.()||(stat.mode&0o077)!==0||await fs.realpath(d.state_root)!==d.state_root)fail('PROVIDER_BOOTSTRAP_CONFIG','Private persistent bootstrap state root required');
+ if(validateStateRoot){const stat=await fs.lstat(d.state_root);if(!stat.isDirectory()||stat.isSymbolicLink()||stat.uid!==process.getuid?.()||(stat.mode&0o077)!==0||await fs.realpath(d.state_root)!==d.state_root)fail('PROVIDER_BOOTSTRAP_CONFIG','Private persistent bootstrap state root required');}
  const seen=new Set<string>();for(const p of d.pools){if(!object(p))fail('PROVIDER_BOOTSTRAP_CONFIG','Pool recipe required');const test=p.schema_version===2&&p.executor_kind==='TEST';exact(p,['pool_id','configuration_digest','profile_id','preparation_digest','native_path','native_digest','manifest_path','secret_path','files','allowed_actions','grant_ttl_seconds','native_template',...(test?['schema_version','executor_kind','test_template']:['install_template']),...(Object.hasOwn(p,'amends_descriptor_digest')?['amends_descriptor_digest']:[])]);
  if(p.amends_descriptor_digest!==undefined&&(typeof p.amends_descriptor_digest!=='string'||!DIGEST.test(p.amends_descriptor_digest)))fail('PROVIDER_BOOTSTRAP_CONFIG','Exact prior descriptor amendment digest required');
  if(!uuid(p.pool_id)||seen.has(p.pool_id)||!uuid(p.profile_id)||![p.configuration_digest,p.preparation_digest,p.native_digest].every(v=>typeof v==='string'&&DIGEST.test(v))||![p.native_path,p.manifest_path,p.secret_path].every(absolute)||!Array.isArray(p.files)||!p.files.length||p.files.length>256||!Array.isArray(p.allowed_actions)||!p.allowed_actions.length||p.allowed_actions.some(a=>typeof a!=='string')||new Set(p.allowed_actions).size!==p.allowed_actions.length||!Number.isSafeInteger(p.grant_ttl_seconds)||Number(p.grant_ttl_seconds)<1||Number(p.grant_ttl_seconds)>3600||!object(p.native_template)||!object(test?p.test_template:p.install_template))fail('PROVIDER_BOOTSTRAP_CONFIG','Exact pinned pool bootstrap recipe required');seen.add(p.pool_id);
@@ -43,6 +43,24 @@ async function descriptor(env:Readonly<NodeJS.ProcessEnv>):Promise<Descriptor|nu
  for(const f of p.files){if(!object(f)||!uuid(f.artifact_id)||!['object','manifest'].includes(String(f.storage_kind))||!DIGEST.test(String(f.digest))||!/^\d+$/.test(String(f.size_bytes))||BigInt(String(f.size_bytes))>16n*1024n*1024n||!absolute(f.target)||!['0400','0444','0500','0555','0600','0700'].includes(String(f.mode)))fail('PROVIDER_BOOTSTRAP_CONFIG','Only pinned bounded artifact bootstrap files allowed');}
  }
  return d as unknown as Descriptor;
+}
+export interface FleetBootstrapSupport{status:'CONFIGURED'|'UNCONFIGURED'|'MISMATCH'|'INVALID';execution_role:'CODING'|'TEST'|'UNKNOWN';supported_purposes:string[];descriptor_digest:string|null;configuration_digest:string|null;profile_id:string|null;preparation_digest:string|null;reason:string|null}
+/** Control validates the same protected recipe bytes; native paths are exercised only by the provisioner. */
+async function bootstrapSupportWithLoader(env:Readonly<NodeJS.ProcessEnv>,config:DeploymentConfig,poolId:string,load?:()=>Promise<Descriptor|null>):Promise<FleetBootstrapSupport>{
+ const pool=config.pools.find(p=>p.id===poolId),role=pool?.execution_role?.kind??'UNKNOWN';
+ const unavailable=(status:FleetBootstrapSupport['status'],reason:string):FleetBootstrapSupport=>({status,execution_role:role,supported_purposes:[],descriptor_digest:null,configuration_digest:pool?configuredScope(config,pool).configuration_digest:null,profile_id:pool?.profile_id??null,preparation_digest:pool?.preparation_digest??null,reason});
+ if(!pool)return unavailable('UNCONFIGURED','POOL_UNCONFIGURED');
+ let configured:Descriptor|null;try{configured=await (load?load():descriptor(env,false));}catch{return unavailable('INVALID','PROTECTED_BOOTSTRAP_CONFIG_INVALID');}
+ if(!configured)return unavailable('UNCONFIGURED','PROTECTED_BOOTSTRAP_CONFIG_UNCONFIGURED');
+ const recipe=configured.pools.find(p=>p.pool_id===poolId);if(!recipe)return unavailable('UNCONFIGURED','POOL_BOOTSTRAP_RECIPE_UNCONFIGURED');
+ const slots=recipe.native_template.slots,test=recipe.schema_version===2&&recipe.executor_kind==='TEST',recipeRole=test?'TEST':'CODING';
+ const scopeDigest=configuredScope(config,pool).configuration_digest;
+ if(recipe.configuration_digest!==scopeDigest||recipe.profile_id!==pool.profile_id||recipe.preparation_digest!==pool.preparation_digest||role!=='UNKNOWN'&&role!==recipeRole||!Array.isArray(slots)||slots.some((slot:unknown)=>!object(slot))||test&&(slots.length!==1||slots[0]?.kind!=='TEST')||!test&&(slots.filter((slot:Data)=>slot.kind==='PREPARATION').length!==1||!slots.some((slot:Data)=>slot.kind==='AGENT')||slots.some((slot:Data)=>!['PREPARATION','AGENT'].includes(slot.kind))))return unavailable('MISMATCH','POOL_BOOTSTRAP_RECIPE_MISMATCH');
+ return {status:'CONFIGURED',execution_role:recipeRole,supported_purposes:['PREPARATION','EXECUTION'],descriptor_digest:digestDocument({...recipe,origin:configured.origin,ca_file:configured.ca_file}),configuration_digest:scopeDigest,profile_id:pool.profile_id,preparation_digest:pool.preparation_digest,reason:null};
+}
+export function fleetBootstrapSupport(env:Readonly<NodeJS.ProcessEnv>,config:DeploymentConfig,poolId:string):Promise<FleetBootstrapSupport>{return bootstrapSupportWithLoader(env,config,poolId);}
+export async function fleetBootstrapSupportInventory(env:Readonly<NodeJS.ProcessEnv>,config:DeploymentConfig,poolIds:string[]):Promise<Record<string,FleetBootstrapSupport>>{
+ if(!poolIds.length)return {};let pending:Promise<Descriptor|null>|null=null;const load=()=>pending??=descriptor(env,false);return Object.fromEntries(await Promise.all(poolIds.map(async id=>[id,await bootstrapSupportWithLoader(env,config,id,load)] as const)));
 }
 async function secretFile(root:string,id:string,grant:string):Promise<{reference:string;verifier:string;bytes:Buffer}>{
  const reference=path.join(root,id+'.enrollment.json');let bytes:Buffer;
@@ -60,7 +78,7 @@ export function createProviderBootstrap(context:ComponentContext){
   const approved=await currentPool(database,config,original.pool_id),executionRole=(approved.pool as unknown as Data).execution_role;
   if(executionRole!==undefined){
    const test=recipe.schema_version===2&&recipe.executor_kind==='TEST',slots=recipe.native_template.slots;
-   if(executionRole.kind==='TEST'&&(!test||!Array.isArray(slots)||slots.length!==1||slots[0]?.kind!=='TEST')||executionRole.kind==='CODING'&&(test||!Array.isArray(slots)||slots.filter((slot:Data)=>slot.kind==='PREPARATION').length!==1||!slots.some((slot:Data)=>slot.kind==='AGENT')||slots.some((slot:Data)=>!['PREPARATION','AGENT'].includes(slot.kind))))fail('PROVIDER_BOOTSTRAP_EXECUTION_ROLE','Protected bootstrap template differs from the approved pool execution role');
+   if(!Array.isArray(slots)||slots.some((slot:unknown)=>!object(slot))||executionRole.kind==='TEST'&&(!test||!Array.isArray(slots)||slots.length!==1||slots[0]?.kind!=='TEST')||executionRole.kind==='CODING'&&(test||!Array.isArray(slots)||slots.filter((slot:Data)=>slot.kind==='PREPARATION').length!==1||!slots.some((slot:Data)=>slot.kind==='AGENT')||slots.some((slot:Data)=>!['PREPARATION','AGENT'].includes(slot.kind))))fail('PROVIDER_BOOTSTRAP_EXECUTION_ROLE','Protected bootstrap template differs from the approved pool execution role');
   }
   const recipeDigest=digestDocument({...recipe,origin:configured.origin,ca_file:configured.ca_file});
   const grantId=stableUuid('grant:'+id),secret=await secretFile(configured.state_root,id,grantId);

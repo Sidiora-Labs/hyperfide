@@ -1,6 +1,6 @@
 # Prerequisite: adaptive fleet orchestration and reproducible sandbox installation
 
-Status: **proposed, not implemented or qualified**. This prerequisite follows the qualified repository layout in task `0.9` and precedes native source-control task `0.1`. Tasks `0.10` through `0.14` implement and qualify it. Every case remains **UNRUN** until its actual implementation gate executes.
+Status: **implementation in progress**. Tasks `0.10` through `0.14` implement and qualify this prerequisite before native source-control task `0.1`. Their current dependencies and execution status are recorded in `spec.kvx`; execution receipts are recorded in `qualification.kvx`.
 
 The Primary agent and Wave Managers run on the **same supervisory box**. The Primary delegates waves. Wave Managers decide how to provision provider sandboxes, assign task packages to workers, supervise results and adapt execution as conditions change. Model agents own those planning decisions; the engine enforces accepted contracts, current authority, resource budgets, durable effects and evidence.
 

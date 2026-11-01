@@ -35,7 +35,12 @@ async function configureNativePlanner(){
  process.env.HF_NATIVE_CONNECTOR_PLANNER_BINARY=binary;process.env.HF_NATIVE_CONNECTOR_PLANNER_DIGEST=actual;
 }
 async function prepare(){
- const encoded=process.env.HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64,expected=process.env.HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_SHA256;
+ const prefix='HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64_',legacy=process.env.HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64,count=process.env[prefix+'CHUNK_COUNT'],parts=Object.keys(process.env).filter(key=>key.startsWith(prefix)&&key!==prefix+'CHUNK_COUNT'&&process.env[key]);let encoded=legacy;
+ if(count||parts.length){
+  if(legacy||!count||!/^([1-9]|[1-3][0-9]|4[0-3])$/.test(count)||parts.length!==Number(count))refuse('CONTROL_BOOTSTRAP_CHUNKS');
+  encoded='';for(let index=0;index<Number(count);index++){const key=prefix+'CHUNK_'+String(index).padStart(3,'0'),part=process.env[key];if(!part||part.length>32768||!parts.includes(key))refuse('CONTROL_BOOTSTRAP_CHUNKS');encoded+=part;if(encoded.length>1398104)refuse('CONTROL_BOOTSTRAP_CHUNKS');}
+ }
+ const expected=process.env.HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_SHA256;
  if(!encoded||!expected||encoded.length>1398104)refuse('CONTROL_BOOTSTRAP_REQUIRED');
  const transport=Buffer.from(encoded,'base64');if(transport.toString('base64')!==encoded)refuse('CONTROL_BOOTSTRAP_DIGEST');
  const bytes=transport[0]===0x1f&&transport[1]===0x8b?gunzipSync(transport,{maxOutputLength:1048576}):transport;if(bytes.length>1048576||hash(bytes)!==expected)refuse('CONTROL_BOOTSTRAP_DIGEST');
@@ -71,6 +76,7 @@ async function prepare(){
  await configureNativePlanner();
  process.env.HF_IDENTITY_CONFIG_FILE=path.join(directory,'control-identity.json');
  delete process.env.HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64;
+ for(const key of Object.keys(process.env))if(key.startsWith('HYPERFIDE_FLEET_CONTROL_BOOTSTRAP_B64_'))delete process.env[key];
  return {port,directory,components,adoption,origin:identity.origin,specRevision:bundle.spec_revision,ca:await fs.readFile(path.join(directory,'tls-ca.crt'))};
 }
 async function adoptAuthority(config){
