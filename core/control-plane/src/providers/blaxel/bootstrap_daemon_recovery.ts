@@ -16,6 +16,12 @@ export function createBlaxelDaemonRecoveryTransport(context:ComponentContext):Da
   const root=path.join(String(manifest.template.state_root),input.binding.sandbox_id,input.binding.boot_id);return{sandbox,call,read,root,manifest,template:manifest.template};
  };
  return{
+  async readBootstrapReceipt(input,processId,signal){
+   const {sandbox,call,read,root,template}=await files(input,signal),process=await call<Data>(s=>sandbox.process.get(processId,{signal:s,retry:false}));
+   const command=quoted(String(template.runner_binary))+' --component 12.1 --action supervisor.bootstrap --request-base64 '+quoted(Buffer.from(JSON.stringify({manifest_path:input.manifest_path,manifest_digest:input.manifest_digest})).toString('base64url'));
+   if(process.name!==processId||process.command!==command||process.status!=='completed'||process.exitCode!==0)fail('DAEMON_RECOVERY_BOOTSTRAP','Actual completed original bootstrap process required');
+   const receipt=strictJSON(await read(path.join(root,'bootstrap-receipt.json')));if(!object(receipt)||receipt.state!=='REGISTERED')fail('DAEMON_RECOVERY_BOOTSTRAP','Actual durable completed bootstrap receipt required');return receipt;
+  },
   async observeDaemon(input,signal){
    const {read,root,template}=await files(input,signal),receiptBytes=await read(path.join(root,'bootstrap-receipt.json')),configBytes=await read(path.join(root,'daemon.json')),transportBytes=await read(path.join(root,'transport.json')),stateBytes=await read(path.join(root,'daemon','daemon-state.json'));
    const receipt=strictJSON(receiptBytes),config=strictJSON(configBytes),transport=strictJSON(transportBytes),state=strictJSON(stateBytes);
