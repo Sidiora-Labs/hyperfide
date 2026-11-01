@@ -73,14 +73,25 @@ const DEFAULT_POWERSHELL_EXECUTION_POLICY = "RemoteSigned";
 const WINDOWS_ENVIRONMENT_REFERENCE_PATTERN = /%([^%;\\/]+)%/gu;
 const USER_SHELL_ENV_FORCE_KILL_AFTER_MS = 1_000;
 
-function getDefaultCliExecutablePath(): string {
-  return fileURLToPath(
-    new URL("../../../apps/cli/bin/hyperfide-platform", import.meta.url),
-  );
-}
-
-function getDefaultCliRuntimePath(): string {
-  return fileURLToPath(new URL("../../../apps/cli/dist/index.js", import.meta.url));
+async function getDefaultCliPaths(): Promise<{
+  executable: string;
+  runtime: string;
+}> {
+  const installedRoot = new URL("../../cli/", import.meta.url);
+  let cliRoot = new URL("../../../apps/cli/", import.meta.url);
+  try {
+    if ((await fs.stat(installedRoot)).isDirectory()) {
+      cliRoot = installedRoot;
+    }
+  } catch (error) {
+    if (getErrorCode(error) !== "ENOENT") {
+      throw error;
+    }
+  }
+  return {
+    executable: fileURLToPath(new URL("bin/hyperfide-platform", cliRoot)),
+    runtime: fileURLToPath(new URL("dist/index.js", cliRoot)),
+  };
 }
 
 function getErrorCode(error: unknown): string | undefined {
@@ -595,14 +606,12 @@ export function createUserShellPathResolver(
 export async function resolveLocalHyperfideExecutablePath(
   options: ResolveLocalHyperfideExecutablePathOptions = {},
 ): Promise<string> {
-  const resolvedCliExecutablePath =
-    options.cliExecutablePath ?? getDefaultCliExecutablePath();
-  const cliEntryPath = await resolveCliEntryPath(resolvedCliExecutablePath);
-  const cliRuntimePath =
-    options.cliRuntimePath ??
-    (options.cliExecutablePath === undefined
-      ? getDefaultCliRuntimePath()
-      : undefined);
+  const defaults =
+    options.cliExecutablePath === undefined
+      ? await getDefaultCliPaths()
+      : { executable: options.cliExecutablePath, runtime: undefined };
+  const cliEntryPath = await resolveCliEntryPath(defaults.executable);
+  const cliRuntimePath = options.cliRuntimePath ?? defaults.runtime;
   if (cliRuntimePath !== undefined) {
     await requireCliRuntimePath(cliRuntimePath);
   }
