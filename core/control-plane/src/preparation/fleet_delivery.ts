@@ -1,7 +1,7 @@
 import {readBootstrapInstallAllocationEpoch} from './fleet_install_lineage.js';
 import {observeArtifactCapability} from './fleet_transfer.js';
 import {projectFleetCompletionCommands} from './fleet_completion.js';
-import {projectBootstrapInstallCommands,bootstrapInstallAllocationRequestId,validateBootstrapInstallTemplate} from '../providers/bootstrap_install.js';
+import {projectBootstrapInstallCommands,bootstrapInstallAllocationRequestId,validateBootstrapInstallTemplate,resolveBootstrapInstallTask} from '../providers/bootstrap_install.js';
 import {writeSemanticDisposition} from '../storage/dispositions.js';
 import {allocateFleetJob} from './fleet_job_allocation.js';
 import path from 'node:path';
@@ -61,9 +61,8 @@ export function createComponent(ctx:ComponentContext):Component{
   if(bootstrap.length!==1)fail('FLEET_INSTALL_DELIVERY_TARGET','Exact retained bootstrap required for never-started recovery');
   const b=bootstrap[0]!,template=validateBootstrapInstallTemplate(b.descriptor.install_template);
   if(template.input_digest!==a.input_digest||documentDigest(b.descriptor)!==b.descriptor_digest)fail('FLEET_INSTALL_DELIVERY_CONFLICT','Recovery bootstrap pins differ');
-  const task=(await t.query('SELECT id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND task_key=$3',[i.principal.organisation_id,i.principal.run_id,template.preparation.task_key])).rows[0];
-  if(!task)fail('FLEET_INSTALL_DELIVERY_TARGET','Accepted preparation task required');
-  const request_id=bootstrapInstallAllocationRequestId({bootstrap_id:b.id,descriptor_digest:b.descriptor_digest,input_digest:a.input_digest,purpose:'preparation',task_id:task.id,execution_operation_id:allocation_epoch});
+  const anchor=await resolveBootstrapInstallTask(t,i,b,template,'preparation');
+  const request_id=bootstrapInstallAllocationRequestId({bootstrap_id:b.id,descriptor_digest:b.descriptor_digest,input_digest:a.input_digest,purpose:'preparation',task_id:anchor.task_id,execution_operation_id:allocation_epoch});
   const allocation=(await t.query("SELECT * FROM hyperfide.resource_job_allocations WHERE organisation_id=$1 AND run_id=$2 AND request_id=$3 AND state='ACTIVE' AND job_kind='PREPARATION' FOR SHARE",[i.principal.organisation_id,i.principal.run_id,request_id])).rows[0];
   if(!allocation)fail('FLEET_INSTALL_DELIVERY_TARGET','Fresh active preparation allocation required for never-started recovery');
   const r=await readRunnerPreparationBinding(t,{...scope(i),session_id:allocation.assignee_session_id});

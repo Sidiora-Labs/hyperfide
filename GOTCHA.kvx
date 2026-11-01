@@ -179,3 +179,24 @@ cause = "Claimed or UNKNOWN state alone does not prove whether native or provide
 resolution = "Migration 0732 tracks prospective claim coverage and actual typed pre-provider refusal evidence. Use only its exact immutable proof for recovery or logical cleanup; never infer coverage for legacy UNKNOWN records."
 evidence = "The first cleanup gate passed exact proof, logical release and physical hold/absence checks. fleet-install-pre-provider-refusal-v5-receipt.json subsequently passed actual executor refusal, signed producer/consumer, native-claim and provider-admission races, permanent fences and fresh-allocation checks under declared historical inputs; native/provider execution remains outside this component scope."
 status = "resolved"
+
+[gotcha.fleet_install_head_physical_scope]
+symptom = "Reusing a registered package generation on a different physical boot conflicts with another boot\u2019s install head."
+cause = "The current-head identity omitted sandbox and boot dimensions."
+resolution = "Partition heads by environment generation and physical sandbox/boot; retain immutable shared package inputs, exact predecessor fences and per-boot recovery history."
+evidence = "fleet-install-parallel-heads-v6-receipt.json passes seven grouped admission/recovery checks. The separate backfill receipt applies migration 0733 and replays it without changing original install rows."
+status = "resolved"
+
+[gotcha.fleet_registration_contract_diagnostics]
+symptom = "Malformed environment registration reports HANDLER_FAILED instead of the parser\u2019s actionable contract error."
+cause = "The contract parser error was not translated at the registration authority boundary."
+resolution = "Translate ContractError to FoundationError with its original code and path-prefixed message before any registration writes."
+evidence = "gen12-registration-translation-component-receipt.json passes six signed PostgreSQL/TLS cases; four baseline handler errors become exact typed/path diagnostics, with authority rows unchanged."
+status = "resolved"
+
+[gotcha.runtime_database_role_validity]
+symptom = "A service retains healthy pooled database traffic while a fresh connection fails with SQLSTATE 28P01."
+cause = "Existing authenticated pooled connections can outlive the database login role\u2019s validity window."
+resolution = "Inspect role validity and use bounded renewal for authorized runtime roles. Validate fresh connections for both control and provisioner roles rather than relying on reused pool health."
+evidence = "Read-only role-validity inspection identified the expired-login condition; fresh connection checks passed for both runtime roles after bounded validity renewal."
+status = "resolved"

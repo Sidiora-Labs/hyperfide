@@ -417,3 +417,34 @@ log = "build/fleet/integration/fleet-install-pre-provider-refusal-v5-receipt.jso
 observed = "Nine grouped checks passed. Actual executor timeout refusal produced the immutable proof and permanent request marker; signed replay preserved the original UNKNOWN claim and null result. The seven-pin recovery consumer released exactly four logical reservations while holding physical capacity, retained the coordinator root and issued fresh native/allocation identities. Actual signed native-claim versus proof and PostgreSQL provider-admission contenders produced mutually exclusive authority. Legacy uncovered claims, wrong request/proof/boot, late dispatch and proof mutation refused."
 fixture_corrections = "The receipt retains earlier fixture failures and corrections for immutable plan/principal insertion, per-boot RUNNER identity, controlled current configuration, production branded job policy/dimensions, dependency loading and contender barrier cleanup."
 scope = "Actual executor, signed producer/consumer APIs and PostgreSQL authority races with controlled prior registration metadata. No physical native execution or cloud qualification; mixed FAILED descendant lineage was not exercised by this receipt."
+
+[progress.fleet_physical_install_heads]
+revision = "frozen migration 0733 component"
+source_digest = "sha256:9676bc24a51c3e48bdb6bd3d98994bfe84176dc9dfe67e5ee1ab165f9fb5773c"
+dist_digest = "sha256:8d349cc225c5c3c185ef969186f0bca5ac141fe0ea1128d75bd0f310891771af"
+migration_catalog_count = 73
+migration_digest = "sha256:555714656a838d3d02fe08070718a6c01ee2a58b9a1a695fc73a602f9700f1f0"
+command = "parallel-head admission/recovery and MigrationCoordinator backfill component drivers"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-parallel-heads-v6-receipt.json; build/fleet/integration/fleet-install-heads-backfill-v6-receipt.json"
+observed = "Seven grouped signed admission/recovery checks passed for independent heads on two physical boots sharing an environment generation, same-boot duplicate/branch refusals, boot-local recovery, stable decision replay and unchanged old UNKNOWN debt. Observations declared EXACT_OPERATION_AND_PHYSICAL_BOOT uncertainty, and the shared oracle refused swapped boot/head metadata. Actual migration backfill preserved original install rows and a repeated apply performed no migrations."
+scope = "Actual PostgreSQL and signed APIs with controlled registered plan, enrollment and job inputs; no model, native or provider qualification. The 0733 migration and head source bytes match the later v7 snapshot."
+
+[progress.fleet_registration_typed_diagnostics]
+revision = "registration authority source sha256:4ed620493a14f8da6f6582b90ae156e377259bd37012a3e3b1cffa817b69c0e9"
+command = "registration translation component driver"
+exit_code = 0
+log = "build/fleet/integration/private/gen12-registration-translation-component-receipt.json"
+observed = "Six signed isolated PostgreSQL/TLS cases passed. Four malformed-manifest cases that returned HANDLER_FAILED on the baseline retained exact contract codes and path-prefixed messages after inline error translation. Registration authority rows remained unchanged."
+scope = "Isolated owner-fixed runtime and supplied invalid manifests; the authority source hash matches current and immutable v7 source. This receipt retains its original overlay scope."
+
+[progress.fleet_bootstrap_delegation_accounting_anchor]
+revision = "frozen protected template-v2 and manager selector contracts"
+source_digest = "sha256:14d45834dea8c5db0acfa389ef90b8253072fd83cb4a212d2601b9201bbfc79d"
+dist_digest = "sha256:3f7fcec8e55e5a1c60234cef552dae15ed8fb70dd214a1ea003d591ce6d2d339"
+migration_catalog_count = 73
+command = "fleet preparation anchor and signed PROVISION component drivers"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-preparation-anchor-component-receipt.json; build/fleet/integration/private/fleet-provision-anchor-component-receipt.json"
+observed = "Seventeen REUSE/owner/accounting assertions and nine signed PROVISION checks passed. Current owner/package/task acceptance, explicit and sole-task selection, stale/cross-wave/unaccepted refusals and exact replay were exercised. Explicit anchors refused legacy templates before effects, while legacy omission retained its behavior. No coding attempt, packet or allocation was created by accounting resolution."
+scope = "Node 24.22.0, PostgreSQL 18 and actual signed APIs with controlled accepted profile, recipe, owner and decision prerequisites. No model inference, native execution or provider operation was performed by these gates."

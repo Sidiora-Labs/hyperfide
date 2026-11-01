@@ -45,15 +45,18 @@ COLUMNS={
  'provider_native_bootstraps':'intent_id,pool_id,configuration_digest,native_sandbox_id,sandbox_id,boot_id,boot_generation,state,manifest_digest,manifest,receipt,receipt_digest',
  'provider_worker_activations':'intent_id,sandbox_id,boot_id,boot_generation,worker_slot_id,state,permit,permit_digest,receipt,receipt_digest',
  'fleet_environment_specs':'input_digest,package_digest,source_config_digest,source_manifest_digest,plan_digest,package_spec,source_config,install_plan',
- 'fleet_environment_installs':'operation_id,input_digest,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,admission,admission_digest,state,receipt,receipt_digest,completed_at',
- 'fleet_install_heads':'environment_id,environment_generation,logical_operation_id,current_operation_id',
+ 'fleet_environment_installs':'operation_id,input_digest,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,admission,admission_digest,state,receipt,receipt_digest,completed_at,created_at::text AS created_at',
+ 'fleet_install_heads':'environment_id,environment_generation,sandbox_id,boot_id,boot_generation::text AS boot_generation,logical_operation_id,current_operation_id',
  'fleet_install_recoveries':'operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id',
  'runner_not_started_proofs':'id,runner_operation_id,install_operation_id,runner_plan_digest,admission_digest,expires_at::text AS expires_at,proof_digest,proof,created_at::text AS created_at',
  'fleet_install_not_started_recoveries':'operation_id,predecessor_install_operation_id,logical_operation_id,proof_id,decision_id,created_at::text AS created_at',
+ 'runner_pre_provider_refusals':'id,runner_operation_id,claim_id,executor_credential_id,runner_plan_digest,request_digest,error_code,proof_digest,proof,created_at::text AS created_at',
+ 'fleet_install_pre_provider_recoveries':'operation_id,predecessor_install_operation_id,logical_operation_id,proof_id,decision_id',
+ 'resource_job_allocations':'id,generation::text AS generation,request_id,reservation_id,assignee_session_id,sandbox_id,sandbox_boot_generation::text AS sandbox_boot_generation,slot_id,job_kind,state',
  'provider_remote_operations':'id,session_id,state,created_at::text AS created_at',
  'fleet_runtime_readiness':'id,install_operation_id,runner_operation_id,runner_result_digest,slot_id,runner_session_id,readiness_digest,publication',
  'runner_registry':'session_id,credential_id,sandbox_id,boot_id,boot_generation,slot_id,uid,gid,runner_binary_digest,readiness_digest,source_object_id,source_tree_id,state',
- 'runner_remote_jobs':'operation_id,session_id,job_class,plan,plan_digest,state,claim_id,not_started_proof_id,executor_credential_id,claimed_at,reservation_id,authority_epoch,expires_at::text AS expires_at,result,result_digest,result_signature,created_at,completed_at',
+ 'runner_remote_jobs':'operation_id,session_id,job_class,plan,plan_digest,state,claim_id,not_started_proof_id,pre_provider_refusal_id,native_claim_coverage,native_claimed_at::text AS native_claimed_at,native_claim_operation_id,failure_code,executor_credential_id,claimed_at,reservation_id,authority_epoch,expires_at::text AS expires_at,result,result_digest,result_signature,created_at,completed_at',
  'native_launch_plans':'command_id,launch_id,agent_session_id,slot_id,attempt_id,attempt_generation,qualification_receipt_digest,connector_plan_digest,plan',
  'fleet_worker_launches':'command_id,launch_id,runner_session_id,executor_credential_id,request,request_digest,state,result,result_digest,result_signature,created_at,completed_at',
  'submission_custodies':'id,task_id,source_attempt_id,source_generation,repository_id,source_object_id,source_manifest_digest,criteria_digest,qualification_outcome',
@@ -75,7 +78,24 @@ if(rows.provider_observations.length>100000)throw Error('SNAPSHOT_ROW_BUDGET');r
 if(rows.environment_profiles.length>100000)throw Error('SNAPSHOT_ROW_BUDGET');rows.capacity_accounts=(await c.query('SELECT id,capacity_class,dimension FROM hyperfide.capacity_accounts WHERE organisation_id=$1 LIMIT 100001',[a.target.organisation_id])).rows;if(rows.capacity_accounts.length>100000)throw Error('SNAPSHOT_ROW_BUDGET');const keys=new Map(rows.identity_principals.map(p=>[p.credential_id,p.public_key_b64]));const canonical=v=>JSON.stringify(v&&typeof v==='object'?Array.isArray(v)?v.map(x=>JSON.parse(canonical(x))):Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canonical(v[k]))])):v);
 for(const table of ['runner_remote_jobs','fleet_worker_launches'])for(const row of rows[table])if(row.result){const pub=keys.get(row.executor_credential_id);if(!pub||!row.result_signature){row.signature_verified=false;continue;}const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(pub,'base64url')]),format:'der',type:'spki'}),message=table==='runner_remote_jobs'?`HYPERFIDE-RUNNER-RESULT-V1\n${a.target.organisation_id}\n${a.target.run_id}\n${row.operation_id}\n${row.plan_digest}\n${row.result_digest}\n`:canonical(row.result);row.signature_verified=verify(null,Buffer.from(message),key,Buffer.from(row.result_signature,'base64url'));}
 const protocol=await import('./core/control-plane/dist/transport/protocol.js');rows.authenticated_fault_operations=[];
-for(const entry of a.journals??[]){const journal=entry.capture,raw=Buffer.from(journal.body_base64,'base64'),decoded=protocol.decodeInvoke(raw),item=protocol.proof(Object.entries(journal.headers).flat()),principal=rows.identity_principals.find(p=>p.credential_id===item.id);if(!principal||principal.role!=='OPERATOR'||item.id!==a.target.fault_operator_credential_id||journal.origin!==a.target.origin||decoded.payload.run_id!==a.target.run_id||decoded.operation.operation_id!==journal.operation_id||journal.case!==entry.case||journal.organisation_id!==a.target.organisation_id||journal.run_id!==a.target.run_id)throw Error('FAULT_JOURNAL_SCOPE_MISMATCH');protocol.verifyProof(principal.public_key_b64,item,journal.origin,'/v1/invoke',raw);const nonce=(await c.query('SELECT received_at FROM hyperfide.identity_request_nonces WHERE credential_id=$1 AND nonce=$2',[item.id,item.nonce])).rows[0];if(!nonce||Math.abs(new Date(nonce.received_at).getTime()/1000-Number(item.time))>a.target.auth_clock_skew_seconds)throw Error('FAULT_REQUEST_NOT_AUTHENTICATED');const pin=journal.kind==='hyperfide.authenticated-operator-step'&&entry.case==='repeated_install'?a.target.repeat_driver?.journal:a.target.fault_drivers?.[entry.case];if(!pin||journal.driver_digest!==pin.driver_digest||decoded.operation.payload_digest!==pin.payload_digest||decoded.payload.action!==pin.action||decoded.payload.component!==pin.component||protocol.hash(raw)!==journal.request_digest)throw Error('FAULT_DRIVER_PIN_MISMATCH');const response=journal.response,responseBytes=Buffer.from(response.body_base64,'base64');if(protocol.hash(responseBytes)!==response.body_digest||JSON.stringify(protocol.strictJSON(responseBytes))!==JSON.stringify(response.body)||response.body.operation_id!==journal.operation_id)throw Error('FAULT_RESPONSE_CUSTODY_MISMATCH');rows.authenticated_fault_operations.push(journal.operation_id);}
+for(const entry of a.journals??[]){
+ const journal=entry.capture,raw=Buffer.from(journal.body_base64,'base64'),decoded=protocol.decodeInvoke(raw),item=protocol.proof(Object.entries(journal.headers).flat()),principal=rows.identity_principals.find(p=>p.credential_id===item.id),stale=entry.case==='stale_generation_replay';
+ const pin=journal.kind==='hyperfide.authenticated-operator-step'&&entry.case==='repeated_install'?a.target.repeat_driver?.journal:a.target.fault_drivers?.[entry.case];
+ if(!principal||!pin||journal.origin!==a.target.origin||decoded.payload.run_id!==a.target.run_id||decoded.operation.operation_id!==journal.operation_id||journal.case!==entry.case||journal.organisation_id!==a.target.organisation_id||journal.run_id!==a.target.run_id)throw Error('FAULT_JOURNAL_SCOPE_MISMATCH');
+ if(stale){
+  const decision=decoded.payload.input?.decision,retained=rows.fleet_decisions.find(d=>d.id===pin.decision_id),reasoning=retained&&rows.fleet_reasoning.find(r=>r.id===retained.reasoning_id),actor=rows.fleet_actor_sessions.find(r=>r.session_id===pin.actor_id),receipt=reasoning?.result?.model_receipt;
+  const fleet=await import('./contracts/fleet/index.mjs');
+  if(!['LEADER','FEATURE_MANAGER'].includes(principal.role)||pin.credential_id!==item.id||principal.actor_id!==pin.actor_id||!decision||(principal.role==='LEADER'?decision.actor_role!=='PRIMARY':decision.actor_role!=='WAVE_MANAGER')||decoded.payload.action!=='fleet.decision.apply'||decoded.payload.component!=='fleet-orchestration'||!decision||decision.decision_id!==pin.decision_id||decision.operation_id!==pin.original_operation_id||decision.actor_id!==pin.actor_id||String(decision.expected_version)!==String(pin.replayed_plan_generation)||!retained||retained.actor_id!==pin.actor_id||retained.operation_id!==pin.original_operation_id||fleet.digest(decision)!==retained.payload_digest||canonical(retained.body)!==canonical(decision)||!reasoning||reasoning.state!=='COMPLETED'||reasoning.actor_id!==pin.actor_id||canonical(reasoning.result.decision)!==canonical(decision)||!receipt||!(receipt.session_kind==='LOGICAL_GATEWAY'?receipt.upstream_response_id:receipt.native_session_id&&receipt.binary_digest)||!actor||BigInt(actor.plan_generation)<=BigInt(decision.expected_version)||rows.fleet_effect_receipts.some(e=>e.operation_id===decision.operation_id||e.operation_id===journal.operation_id)||rows.runner_remote_jobs.some(j=>j.operation_id===decision.operation_id))throw Error('STALE_REPLAY_ACTOR_DECISION_REQUIRED');
+ }else if(principal.role!=='OPERATOR'||item.id!==a.target.fault_operator_credential_id)throw Error('FAULT_JOURNAL_SCOPE_MISMATCH');
+ protocol.verifyProof(principal.public_key_b64,item,journal.origin,'/v1/invoke',raw);
+ const nonce=(await c.query('SELECT received_at FROM hyperfide.identity_request_nonces WHERE credential_id=$1 AND nonce=$2',[item.id,item.nonce])).rows[0];
+ if(!nonce||Math.abs(new Date(nonce.received_at).getTime()/1000-Number(item.time))>a.target.auth_clock_skew_seconds)throw Error('FAULT_REQUEST_NOT_AUTHENTICATED');
+ if(journal.driver_digest!==pin.driver_digest||decoded.operation.payload_digest!==pin.payload_digest||decoded.payload.action!==pin.action||decoded.payload.component!==pin.component||protocol.hash(raw)!==journal.request_digest)throw Error('FAULT_DRIVER_PIN_MISMATCH');
+ const response=journal.response,responseBytes=Buffer.from(response.body_base64,'base64');
+ if(protocol.hash(responseBytes)!==response.body_digest||JSON.stringify(protocol.strictJSON(responseBytes))!==JSON.stringify(response.body)||response.body.operation_id!==journal.operation_id)throw Error('FAULT_RESPONSE_CUSTODY_MISMATCH');
+ if(stale&&(response.body.ok!==false||response.body.error?.code!=='FLEET_PLAN_STALE'))throw Error('ACTUAL_STALE_GENERATION_REFUSAL_REQUIRED');
+ rows.authenticated_fault_operations.push(journal.operation_id);
+}
 let connector_verified=false;if(a.connector){const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(a.target.connector_public_key_hex,'hex')]),format:'der',type:'spki'});connector_verified=verify(null,Buffer.from(a.connector.payload,'utf8'),key,Buffer.from(a.connector.signature,'hex'));}await c.query('COMMIT');process.stdout.write(JSON.stringify({identity,rows,connector_verified}));}catch(e){await c.query('ROLLBACK').catch(()=>{});process.stdout.write(JSON.stringify({error:typeof e.code==='string'?e.code:/^[A-Z_]+$/.test(e.message)?e.message:'READONLY_SNAPSHOT_FAILED'}));process.exitCode=1;}finally{await c.end();}
 """
 def snapshot(target,connector=None,journals=None):
@@ -117,29 +137,70 @@ def verified_not_started_edge(rows,current,previous,edge):
  require(dimensions=={'PREPARATION','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'},'NOT_STARTED_VECTOR_REQUIRED')
  require(not any(r['operation_id']!=operation and r.get('reservation_id')==job['reservation_id'] for r in rows['runner_remote_jobs']),'NOT_STARTED_RESERVATION_REQUIRED')
 
+def verified_pre_provider_edge(rows,current,previous,edge):
+ a=current['admission'];old=previous['admission'];operation=previous['operation_id']
+ require(a.get('logical_operation_id')==current['operation_id'] and 'recovery_of' not in a,'PRE_PROVIDER_NATIVE_EPOCH_REQUIRED')
+ proof=one(rows.get('runner_pre_provider_refusals',[]),'id',edge['proof_id']);body=proof.get('proof',{})
+ fields={'schema_version','kind','organisation_id','run_id','runner_operation_id','claim_id','executor_credential_id','runner_plan_digest','request_digest','authority_epoch','bound_request','condition','original_state','allocation','reservations','provider_dispatch_present','native_execution_observed','native_claim_coverage','native_claimed_at','native_claim_operation_id'}
+ require(isinstance(body,dict) and set(body)==fields and body['schema_version']==1 and body['kind']=='PRE_PROVIDER_REFUSAL' and digest(body)==proof['proof_digest'],'PRE_PROVIDER_PROOF_DIGEST_REQUIRED')
+ job=one(rows['runner_remote_jobs'],'operation_id',operation);plan=job['plan'];binding=plan.get('binding',{});request=body['bound_request'];decision=one(rows['fleet_decisions'],'id',edge['decision_id'])
+ require(proof['runner_operation_id']==body['runner_operation_id']==operation and proof['runner_plan_digest']==body['runner_plan_digest']==job['plan_digest']==digest(plan) and body['organisation_id']==old['organisation_id'] and body['run_id']==old['run_id'] and body['authority_epoch']==job['authority_epoch']==previous['authority_epoch'],'PRE_PROVIDER_PROOF_BINDING_REQUIRED')
+ require(decision.get('body',{}).get('input',{}).get('recovery_of')=={'kind':'PRE_PROVIDER_REFUSAL','install_operation_id':operation,'admission_digest':previous['admission_digest'],'runner_operation_id':operation,'runner_plan_digest':job['plan_digest'],'proof_id':proof['id'],'proof_digest':proof['proof_digest']},'PRE_PROVIDER_DECISION_BINDING_REQUIRED')
+ require(job.get('pre_provider_refusal_id')==proof['id'] and job.get('native_claim_coverage') is True and body['native_claim_coverage'] is True and all(job.get(k) is None and body[k] is None for k in ['native_claimed_at','native_claim_operation_id']) and job.get('not_started_proof_id') is None,'PRE_PROVIDER_NATIVE_FENCE_REQUIRED')
+ require(job['state'] in ('CLAIMED','UNKNOWN') and body['original_state'] in ('CLAIMED','UNKNOWN') and job['job_class']=='PREPARATION' and job['claim_id']==proof['claim_id']==body['claim_id'] and job['executor_credential_id']==proof['executor_credential_id']==body['executor_credential_id'] and job['claim_id'] and job['executor_credential_id'] and job['claimed_at'] and all(k in job and job[k] is None for k in ['completed_at','result','result_digest','result_signature']) and body['provider_dispatch_present'] is False and body['native_execution_observed'] is False,'PRE_PROVIDER_UNEXECUTED_REQUIRED')
+ producer=one(rows['identity_principals'],'credential_id',job['executor_credential_id']);require(producer['role']=='PROVISIONER' and producer['deployment_epoch']==job['authority_epoch'],'PRE_PROVIDER_PRODUCER_AUTHORITY_REQUIRED')
+ require(evidence_time(job['claimed_at'])<=evidence_time(proof['created_at'])<=evidence_time(decision['created_at'])<=evidence_time(current['created_at']) and decision['operation_id']==current['operation_id'],'PRE_PROVIDER_PROOF_ORDER_REQUIRED')
+ require(not any(r['id']==operation or r['session_id']==job['session_id'] and evidence_time(r['created_at'])<=evidence_time(current['created_at']) for r in rows['provider_remote_operations']),'PRE_PROVIDER_DISPATCH_ABSENCE_REQUIRED')
+ expected_binding={k:binding.get(k) for k in ['organisation_id','run_id','session_id','pool_id','sandbox_id','external_sandbox_id']};expected_binding.update(boot_generation=str(binding.get('boot_generation')),preparation_digest=binding.get('boot_preparation_digest'))
+ encoded=base64.urlsafe_b64encode(json.dumps({'config_path':binding['state_dir']+'/runner.json','operation_id':operation},separators=(',',':')).encode()).decode().rstrip('=')
+ expected_request={'operation_id':operation,'binding':expected_binding,'argv':[binding['runner_binary'],'--component','12.4','--action','runner.job.execute','--request-base64',encoded],'cwd':str(Path(binding['workspace_path']).parent),'env_refs':plan.get('env_refs',{}),'timeout_ms':min(3600000,plan['request']['timeout_ms']+60000)}
+ if 'env_ref_versions' in request or plan.get('env_ref_versions') is not None:expected_request['env_ref_versions']=plan.get('env_ref_versions')
+ condition=body['condition'];maximum=condition.get('maximum_operation_ms')
+ require(request==expected_request and digest(request)==proof['request_digest']==body['request_digest'] and condition.get('code')==proof['error_code']==job['failure_code']=='PROVIDER_DEADLINE_INVALID' and set(condition)=={'code','maximum_operation_ms','configuration_digest'} and isinstance(maximum,int) and not isinstance(maximum,bool) and maximum>=100 and request['timeout_ms']>maximum and DIGEST.fullmatch(condition.get('configuration_digest','')) is not None,'PRE_PROVIDER_REQUEST_REQUIRED')
+ native=plan.get('preparation_request',{}).get('job_binding',{})
+ require(native.get('namespace')=='FLEET_INSTALL' and native.get('job_id')==operation and native.get('input_packet_digest')==previous['admission_digest'] and binding.get('session_id')==job['session_id'] and binding.get('sandbox_id')==previous['sandbox_id'] and binding.get('boot_id')==previous['boot_id'] and str(binding.get('boot_generation'))==str(previous['boot_generation']),'PRE_PROVIDER_INSTALL_BINDING_REQUIRED')
+ allocation=one(rows['resource_job_allocations'],'id',plan['allocation']['allocation_id']);expected={'id':allocation['id'],'generation':str(allocation['generation']),'request_id':allocation['request_id'],'reservation_id':job['reservation_id'],'session_id':job['session_id']}
+ require(body['allocation']==expected and allocation['request_id']==plan['allocation']['request_id'] and str(allocation['generation'])==str(plan['allocation']['generation']) and allocation['reservation_id']==job['reservation_id'] and allocation['assignee_session_id']==job['session_id'] and allocation['sandbox_id']==previous['sandbox_id'] and str(allocation['sandbox_boot_generation'])==str(previous['boot_generation']) and allocation['slot_id']==binding['slot_id'] and allocation['job_kind']=='PREPARATION' and allocation['state']=='RELEASED','PRE_PROVIDER_ALLOCATION_REQUIRED')
+ vector=[r for r in rows['reservations'] if r['request_id']==allocation['request_id']];retained=body['reservations'];dimensions=set()
+ require(isinstance(retained,list) and len(retained)==len(vector)==4 and len({r.get('id') for r in retained})==4 and {r.get('id') for r in retained}=={r['id'] for r in vector} and job['reservation_id'] in {r['id'] for r in vector},'PRE_PROVIDER_VECTOR_REQUIRED')
+ for item in retained:
+  require(set(item)=={'id','capacity_account_id','quantity','dimension','expires_at'},'PRE_PROVIDER_VECTOR_REQUIRED')
+  actual=one(vector,'id',item['id']);account=one(rows['capacity_accounts'],'id',actual['capacity_account_id']);dimensions.add(item['dimension'])
+  require(item['capacity_account_id']==actual['capacity_account_id'] and item['quantity']==str(actual['quantity']) and isinstance(item['quantity'],str) and item['quantity'].isdigit() and int(item['quantity'])>0 and item['dimension']==account['dimension'] and account['capacity_class']=='EXECUTION' and evidence_time(item['expires_at'])==evidence_time(actual['expires_at']) and actual['state']=='RELEASED' and actual['release_reason']=='RUNNER_PRE_PROVIDER_REFUSAL' and evidence_time(proof['created_at'])<=evidence_time(actual['released_at']),'PRE_PROVIDER_VECTOR_REQUIRED')
+ require(dimensions=={'PREPARATION','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'} and not any(r['operation_id']!=operation and r.get('reservation_id')==job['reservation_id'] for r in rows['runner_remote_jobs']),'PRE_PROVIDER_VECTOR_REQUIRED')
+
+def verified_install_head(rows,install):
+ admission=install['admission']
+ require(all(str(admission.get(k))==str(install.get(k)) for k in ['sandbox_id','boot_id','boot_generation']),'INSTALL_HEAD_PHYSICAL_BINDING_REQUIRED')
+ heads=[h for h in rows['fleet_install_heads'] if h['environment_id']==admission['environment_id'] and str(h['environment_generation'])==str(admission['environment_generation']) and all(str(h.get(k))==str(install[k]) for k in ['sandbox_id','boot_id','boot_generation'])]
+ require(len(heads)==1 and heads[0]['current_operation_id']==install['operation_id'],'INSTALL_RECOVERY_HEAD_MISMATCH')
+ return heads[0]
+
 def verified_install_recovery(rows,install,interrupted_operation_id):
  require(install['operation_id']!=interrupted_operation_id,'DISTINCT_INSTALL_RECOVERY_EXECUTION_REQUIRED')
  admission=install['admission']
- heads=[h for h in rows['fleet_install_heads'] if h['environment_id']==admission['environment_id'] and str(h['environment_generation'])==str(admission['environment_generation'])]
- require(len(heads)==1,'INSTALL_RECOVERY_HEAD_MISMATCH');logical=heads[0]['logical_operation_id']
+ head=verified_install_head(rows,install);logical=head['logical_operation_id']
  require(isinstance(logical,str) and logical,'INSTALL_LOGICAL_ID_REQUIRED')
- require(len(heads)==1 and heads[0]['current_operation_id']==install['operation_id'] and heads[0]['logical_operation_id']==logical,'INSTALL_RECOVERY_HEAD_MISMATCH')
  current=install;seen=set();found_interrupted=False
  while True:
   require(current['operation_id'] not in seen,'INSTALL_RECOVERY_CYCLE');seen.add(current['operation_id'])
   require(len(seen)<64,'INSTALL_RECOVERY_DEPTH')
   failed_edges=[r for r in rows['fleet_install_recoveries'] if r['operation_id']==current['operation_id']]
   fresh_edges=[r for r in rows.get('fleet_install_not_started_recoveries',[]) if r['operation_id']==current['operation_id']]
+  refused_edges=[r for r in rows.get('fleet_install_pre_provider_recoveries',[]) if r['operation_id']==current['operation_id']]
   if current['operation_id']==logical:
-   require(not failed_edges and not fresh_edges and current['admission'].get('logical_operation_id',logical)==logical and 'recovery_of' not in current['admission'],'INSTALL_RECOVERY_ROOT_MISMATCH');break
-  require(len(failed_edges)+len(fresh_edges)==1,'INSTALL_RECOVERY_EDGE_REQUIRED')
-  recovery=(failed_edges or fresh_edges)[0]
+   require(not failed_edges and not fresh_edges and not refused_edges and current['admission'].get('logical_operation_id',logical)==logical and 'recovery_of' not in current['admission'],'INSTALL_RECOVERY_ROOT_MISMATCH');break
+  require(len(failed_edges)+len(fresh_edges)+len(refused_edges)==1,'INSTALL_RECOVERY_EDGE_REQUIRED')
+  recovery=(failed_edges or fresh_edges or refused_edges)[0]
   require(recovery['logical_operation_id']==logical,'INSTALL_RECOVERY_LINEAGE_MISMATCH')
   previous=one(rows['fleet_environment_installs'],'operation_id',recovery['predecessor_install_operation_id'])
   a=current['admission'];old=previous['admission'];binding=a.get('recovery_of')
-  all_edges=rows['fleet_install_recoveries']+rows.get('fleet_install_not_started_recoveries',[])
+  all_edges=rows['fleet_install_recoveries']+rows.get('fleet_install_not_started_recoveries',[])+rows.get('fleet_install_pre_provider_recoveries',[])
   require(len([r for r in all_edges if r['predecessor_install_operation_id']==previous['operation_id']])==1,'INSTALL_RECOVERY_BRANCH')
   require(all(a.get(k)==old.get(k) for k in ['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','package_digest','source_config_digest','plan_digest','source_revision','source_manifest_digest','slot_bindings']),'INSTALL_RECOVERY_PIN_MISMATCH')
+  if refused_edges:
+   verified_pre_provider_edge(rows,current,previous,recovery)
+   current=previous;continue
   if fresh_edges:
    verified_not_started_edge(rows,current,previous,recovery)
    current=previous;continue
@@ -221,15 +282,69 @@ def verified_install_transfer(rows,install,case,target,evidence_root):
  require(dependency.get('network_bytes') is None and dependency.get('network_requests') is None and dependency.get('observation')=='UNOBSERVED_SUBPROCESS_NETWORK','DEPENDENCY_NETWORK_SCOPE_REQUIRED')
  return stage
 
+def verified_operator_artifact(rows,install,capture,case_name):
+ require(capture.get('kind')=='hyperfide.authenticated-operator-step' and capture.get('operation_id') in rows.get('authenticated_fault_operations',[]) and capture.get('case')==case_name,'AUTHENTICATED_OPERATOR_ARTIFACT_REQUIRED')
+ try:envelope=json.loads(base64.b64decode(capture['body_base64'],validate=True));payload=json.loads(base64.urlsafe_b64decode(envelope['payload_b64']+'='*((-len(envelope['payload_b64']))%4)));upload=payload['input'];raw=base64.b64decode(upload['data_base64'],validate=True);core=json.loads(raw)
+ except (ValueError,TypeError,KeyError):raise Refused('OPERATOR_CAPTURE_ARTIFACT_REQUIRED')
+ require(payload.get('component')=='15.2' and payload.get('action')=='artifact.object.put' and upload.get('organisation_id')==install['admission']['organisation_id'] and upload.get('run_id')==install['admission']['run_id'] and upload.get('digest')==digest(raw) and upload.get('size_bytes')==str(len(raw)) and raw==canonical(core),'OPERATOR_CAPTURE_ARTIFACT_REQUIRED')
+ published=capture.get('response',{}).get('body',{}).get('result',{});artifact=one(rows['artifacts'],'id',published.get('artifact',{}).get('artifact_id'))
+ require(published.get('outcome')=='SUCCEEDED' and published.get('availability')=='VERIFIED' and artifact['status']=='COMPLETE' and artifact['completed_at'] and artifact['digest']==digest(raw) and str(artifact['size_bytes'])==str(len(raw)),'OPERATOR_CAPTURE_ARTIFACT_REQUIRED')
+ return core,artifact
+
+def verified_install_interruption(rows,install,case,target,capture,evidence_root):
+ require(case.get('producer_mode')=='OPERATOR_PROVIDER_EXEC','INSTALL_INTERRUPTION_PRODUCER_REQUIRED')
+ previous=one(rows['fleet_environment_installs'],'operation_id',case.get('interrupted_operation_id'));job=one(rows['runner_remote_jobs'],'operation_id',previous['operation_id']);pin=target.get('fault_drivers',{}).get('interrupted_install',{})
+ core,_artifact=verified_operator_artifact(rows,previous,capture,'interrupted_install')
+ require(core.get('schema_version')==1 and core.get('kind')=='hyperfide.operator-provider-install-interruption' and core.get('install_operation_id')==core.get('interrupted_operation_id')==previous['operation_id'] and core.get('restarted_operation_id')==install['operation_id'] and core.get('admission_digest')==previous['admission_digest'] and core.get('plan_digest')==previous['admission']['plan_digest'] and core.get('organisation_id')==previous['admission']['organisation_id'] and core.get('run_id')==previous['admission']['run_id'],'OPERATOR_INTERRUPTION_SCOPE_REQUIRED')
+ boot=one([r for r in rows['provider_native_bootstraps'] if r['sandbox_id']==previous['sandbox_id'] and r['boot_id']==previous['boot_id'] and str(r['boot_generation'])==str(previous['boot_generation'])],'state','READY');scope=core.get('provider_scope',{})
+ require(scope==pin.get('provider_scope') and scope.get('sandbox_id')==previous['sandbox_id'] and scope.get('boot_id')==previous['boot_id'] and str(scope.get('boot_generation'))==str(previous['boot_generation']) and scope.get('native_sandbox_id')==boot['native_sandbox_id'] and scope.get('pool_id')==boot['pool_id'] and scope.get('configuration_digest')==boot['configuration_digest'],'OPERATOR_INTERRUPTION_PROVIDER_SCOPE_REQUIRED')
+ for key in ['helper_path','request_path','cwd']:
+  value=pin.get(key);require(isinstance(value,str) and Path(value).is_absolute() and str(Path(value))==value and '..' not in Path(value).parts,'INTERRUPTION_PROTECTED_PATH_REQUIRED')
+ require(pin['helper_path']!=pin['request_path'],'INTERRUPTION_PROTECTED_PATH_REQUIRED')
+ records=core.get('sdk_records',{});require(isinstance(records,dict) and set(records)=={'upload','readback_before','execute','process','readback_after','request_upload','request_readback_before','request_readback_after'},'ACTUAL_INTERRUPTION_SDK_RECORDS_REQUIRED')
+ for record in records.values():require(isinstance(record,dict) and 'request' in record and 'response' in record and record.get('response_digest')==digest(record['response']),'INTERRUPTION_SDK_CUSTODY_REQUIRED')
+ request_bytes=None
+ for name in ['upload','readback_before','readback_after','request_upload','request_readback_before','request_readback_after']:
+  is_request=name.startswith('request_');record=records[name];require(record['request'].get('path')==pin.get('request_path' if is_request else 'helper_path'),'INTERRUPTION_SDK_PATH_REQUIRED')
+  encoded=record['request'].get('content_base64') if name in ('upload','request_upload') else record['response'].get('content_base64')
+  try:data=base64.b64decode(encoded,validate=True)
+  except (ValueError,TypeError):raise Refused('INTERRUPTION_SDK_BYTES_REQUIRED')
+  require(len(data)<=(16384 if is_request else 65536) and DIGEST.fullmatch(pin.get('request_digest' if is_request else 'helper_digest','')) and digest(data)==pin['request_digest' if is_request else 'helper_digest'],'INTERRUPTION_SDK_BYTES_REQUIRED')
+  if is_request:request_bytes=data
+ try:request=json.loads(request_bytes)
+ except (ValueError,TypeError):raise Refused('INTERRUPTION_REQUEST_REQUIRED')
+ execution=records['execute']['request'];process=records['process']['response'];observed=core.get('capture',{})
+ require(isinstance(process,dict) and process.get('name')==execution.get('name')==records['process']['request'].get('identifier') and isinstance(process.get('pid'),str) and process['pid'] and process.get('command')==execution.get('command') and digest(process.get('command','').encode())==pin.get('command_digest') and process.get('workingDir')==execution.get('workingDir')==pin.get('cwd') and process.get('status')=='completed' and process.get('exitCode')==0 and process.get('completedAt'),'ACTUAL_INTERRUPTION_PROCESS_REQUIRED')
+ require(isinstance(process.get('stdout'),str) and len(process['stdout'].encode())<=65536 and isinstance(process.get('stderr'),str) and len(process['stderr'].encode())<=65536,'BOUNDED_INTERRUPTION_OUTPUT_REQUIRED')
+ try:actual=json.loads(process['stdout'])
+ except (ValueError,TypeError):raise Refused('ACTUAL_INTERRUPTION_STDOUT_REQUIRED')
+ require(actual==observed,'ACTUAL_INTERRUPTION_STDOUT_REQUIRED')
+ require(set(observed.get('retained_stage_digests',{}))=={'bootstrap-preflight','authority-resolution','plan-resolution','source-preparation','toolchain-preparation'},'INTERRUPTION_STAGE_PREFIX_REQUIRED')
+ verified_install_interruption_observation(previous,job,request,observed,core,install)
+ native_role(rows,job,'install',target)
+ native=native_capture(rows,job['operation_id'],one(case.get('native_receipts',[]),'operation_id',job['operation_id']),evidence_root,'native_receipt');identity=native.get('start_identity',{});measured=observed['process']
+ require(native.get('operation_id')==job['operation_id'] and native.get('plan_digest')==job['plan_digest'] and identity.get('pid')==measured['pid'] and str(identity.get('start_time'))==measured['process_start'] and identity.get('os_boot_id')==measured['os_boot_id'] and identity.get('uid')==measured['uid'] and native.get('signal')==9 and native.get('exit_code')==137 and native.get('cleanup_status')=='CONFIRMED' and native.get('observed_process_absent') is True,'SIGNED_INTERRUPTION_PROCESS_REQUIRED')
+ started=int(evidence_time(native['started_at']).timestamp()*1000000000);ended=int(evidence_time(native['ended_at']).timestamp()*1000000000)
+ require(started<=observed['observed_at_ns']<=observed['signal_sent_at_ns']<=ended,'INTERRUPTION_NATIVE_TIME_REQUIRED')
+ verified_interrupted_install_capture(rows,install,case,core)
+ return core
+
+def verified_install_interruption_observation(previous,job,request,observed,core,install):
+ fields={'schema_version','request_id','mode','sandbox_id','boot_id','boot_generation','os_boot_id','state_dir','uid','environment_id','environment_generation','environment_root','install_plan_digest','deadline_seconds','target'}
+ require(isinstance(request,dict) and set(request)==fields and request.get('schema_version')==1 and request.get('mode')=='interrupt' and type(request.get('deadline_seconds')) is int and 1<=request['deadline_seconds']<=600,'INTERRUPTION_REQUEST_REQUIRED')
+ binding=job['plan']['binding'];a=previous['admission'];live=observed.get('process',{});expected_target={'operation_id':previous['operation_id'],'runner_plan_digest':job['plan_digest'],'pid':live.get('pid'),'process_start':live.get('process_start'),'os_boot_id':live.get('os_boot_id')}
+ require(request['target']==expected_target and all(str(request.get(k))==str(a.get(k)) for k in ['sandbox_id','boot_id','boot_generation','environment_id','environment_generation','environment_root']) and request['install_plan_digest']==a['plan_digest'] and request['state_dir']==binding['state_dir'] and request['uid']==binding['uid']==live.get('uid') and request['os_boot_id']==live.get('os_boot_id'),'INTERRUPTION_REQUEST_BINDING_REQUIRED')
+ require(observed.get('schema_version')==1 and observed.get('kind')=='FLEET_INSTALL_FAULT_OBSERVATION_V1' and observed.get('authority')=='FAULT_CAPTURE_ONLY' and observed.get('request_id')==request['request_id'] and all(str(observed.get(k))==str(a.get(k)) for k in ['sandbox_id','boot_id','boot_generation']) and observed.get('operation_id')==previous['operation_id'] and observed.get('runner_plan_digest')==job['plan_digest'] and observed.get('install_plan_digest')==a['plan_digest'] and observed.get('native_job_state')=='START_RECORDED' and observed.get('signal')=='SIGKILL' and observed.get('outcome')=='FAULT_INJECTED_AWAIT_NATIVE_RESULT','ACTUAL_PIDFD_INTERRUPTION_REQUIRED')
+ require(type(live.get('pid')) is int and live['pid']>0 and isinstance(live.get('process_start'),str) and live['process_start'].isdigit() and int(live['process_start'])>0 and live.get('state') not in (None,'Z','X','x') and DIGEST.fullmatch(live.get('cmdline_digest','')) and DIGEST.fullmatch(observed.get('stage_ledger_digest','')) and type(observed.get('observed_at_ns')) is int and type(observed.get('signal_sent_at_ns')) is int and 0<observed['observed_at_ns']<=observed['signal_sent_at_ns'],'EXACT_INTERRUPTION_PROCESS_REQUIRED')
+ retained=observed.get('retained_stage_digests');require(isinstance(retained,dict) and retained and observed.get('stages')==sorted(retained) and 'toolchain-preparation' in retained and 'dependency-preparation' not in retained and all(DIGEST.fullmatch(v) for v in retained.values()) and core.get('retained_stage_digests')==retained,'INTERRUPTION_STAGE_WINDOW_REQUIRED')
+ final={s['name']:s['evidence_digest'] for s in install['receipt']['stages'] if s['status']=='PASS'};require(all(final.get(k)==v for k,v in retained.items() if k!='authority-resolution'),'INTERRUPTION_RETAINED_STAGE_MISMATCH')
+ if 'authority-resolution' in retained:require(retained['authority-resolution']==digest({'admission_digest':previous['admission_digest']}) and final.get('authority-resolution')==digest({'admission_digest':install['admission_digest']}),'INTERRUPTION_AUTHORITY_STAGE_REQUIRED')
+
 def verified_install_replay(rows,install,case,target,capture):
  require(case.get('producer_mode')=='OPERATOR_PROVIDER_EXEC','INSTALL_REPLAY_PRODUCER_MODE_REQUIRED')
  pin=target.get('repeat_driver',{});expected_probe=digest((ROOT/'tests/hyperfide/support/fleet_install_replay_probe.mjs').read_bytes())
  require(pin.get('probe_digest')==expected_probe and capture.get('kind')=='hyperfide.authenticated-operator-step' and capture.get('operation_id') in rows.get('authenticated_fault_operations',[]) and capture.get('case')=='repeated_install','AUTHENTICATED_OPERATOR_REPLAY_REQUIRED')
- try:envelope=json.loads(base64.b64decode(capture['body_base64'],validate=True));payload=json.loads(base64.urlsafe_b64decode(envelope['payload_b64']+'='*((-len(envelope['payload_b64']))%4)));upload=payload['input'];raw=base64.b64decode(upload['data_base64'],validate=True);core=json.loads(raw)
- except (ValueError,TypeError,KeyError):raise Refused('OPERATOR_REPLAY_ARTIFACT_REQUIRED')
- require(payload.get('component')=='15.2' and payload.get('action')=='artifact.object.put' and upload.get('organisation_id')==install['admission']['organisation_id'] and upload.get('run_id')==install['admission']['run_id'] and upload.get('digest')==digest(raw) and upload.get('size_bytes')==str(len(raw)) and raw==canonical(core),'OPERATOR_REPLAY_ARTIFACT_REQUIRED')
- published=capture.get('response',{}).get('body',{}).get('result',{});artifact=one(rows['artifacts'],'id',published.get('artifact',{}).get('artifact_id'))
- require(published.get('outcome')=='SUCCEEDED' and published.get('availability')=='VERIFIED' and artifact['status']=='COMPLETE' and artifact['completed_at'] and artifact['digest']==digest(raw) and str(artifact['size_bytes'])==str(len(raw)),'OPERATOR_REPLAY_ARTIFACT_REQUIRED')
+ core,artifact=verified_operator_artifact(rows,install,capture,'repeated_install')
  require(core.get('schema_version')==1 and core.get('kind')=='hyperfide.operator-provider-install-replay' and core.get('install_operation_id')==install['operation_id'] and core.get('admission_digest')==install['admission_digest'] and core.get('plan_digest')==install['admission']['plan_digest'] and core.get('organisation_id')==install['admission']['organisation_id'] and core.get('run_id')==install['admission']['run_id'],'OPERATOR_REPLAY_SCOPE_REQUIRED')
  boot=one([r for r in rows['provider_native_bootstraps'] if r['sandbox_id']==install['sandbox_id'] and r['boot_id']==install['boot_id'] and str(r['boot_generation'])==str(install['boot_generation'])],'state','READY')
  scope=core.get('provider_scope',{});require(scope==pin.get('provider_scope') and scope.get('sandbox_id')==install['sandbox_id'] and scope.get('boot_id')==install['boot_id'] and str(scope.get('boot_generation'))==str(install['boot_generation']) and scope.get('native_sandbox_id')==boot['native_sandbox_id'] and scope.get('pool_id')==boot['pool_id'] and scope.get('configuration_digest')==boot['configuration_digest'],'OPERATOR_REPLAY_PROVIDER_SCOPE_REQUIRED')
@@ -249,8 +364,7 @@ def verified_install_replay(rows,install,case,target,capture):
  except (ValueError,TypeError):raise Refused('ACTUAL_REPLAY_STDOUT_REQUIRED')
  require(actual==probe,'ACTUAL_REPLAY_STDOUT_REQUIRED')
  require(probe.get('node_digest')==pin.get('node_digest'),'INSTALL_REPLAY_NODE_PIN_REQUIRED')
- heads=[h for h in rows['fleet_install_heads'] if h['environment_id']==install['admission']['environment_id'] and str(h['environment_generation'])==str(install['admission']['environment_generation'])]
- require(len(heads)==1 and heads[0]['current_operation_id']==install['operation_id'],'INSTALL_REPLAY_HEAD_CHANGED')
+ verified_install_head(rows,install)
  verified_install_replay_capture(install,probe)
  return artifact
 
@@ -400,8 +514,10 @@ def case_oracle(name,case,rows,target,evidence_root,index):
     require(isolation.get('status')=='ENFORCED' and isolation.get('method')=='UNIX_UID_GID' and isolation.get('operation_id')==i['operation_id'] and isolation.get('prepared_receipt_digest')==i['receipt_digest'] and isolation.get('slots')==i['admission'].get('slot_bindings'),'NATIVE_WRITABLE_ISOLATION_REQUIRED')
   if name=='interrupted_install':
    interrupted=one(rows['runner_remote_jobs'],'operation_id',case.get('interrupted_operation_id'));require(interrupted.get('signature_verified') is True and interrupted['state']=='COMPLETED' and interrupted['result'].get('outcome')=='FAILED' and digest(interrupted['result'])==interrupted['result_digest'] and digest(interrupted['plan'])==interrupted['plan_digest'],'SIGNED_INTERRUPTED_INSTALL_REQUIRED')
-   fault_driver(name,case,rows,target,evidence_root,capture)
-   verified_interrupted_install_capture(rows,installs[-1],case,capture)
+   if case.get('producer_mode')=='OPERATOR_PROVIDER_EXEC':verified_install_interruption(rows,installs[-1],case,target,capture,evidence_root)
+   else:
+    fault_driver(name,case,rows,target,evidence_root,capture)
+    verified_interrupted_install_capture(rows,installs[-1],case,capture)
   require(isinstance(capture,dict) and (name in ('interrupted_install','repeated_install') or any(capture==i['receipt'] and capture.get('operation_id')==i['operation_id'] for i in installs)),'INSTALL_CAPTURE_OPERATION_MISMATCH')
   if name=='interface_subset':
    for i in installs:
@@ -414,7 +530,7 @@ def case_oracle(name,case,rows,target,evidence_root,index):
   require(body.get('operation_id')==operation and body.get('ok') is False and body.get('error',{}).get('code') in target.get('case_error_codes',{}).get(name,[]),'ACTUAL_EXPECTED_REFUSAL_REQUIRED')
   require(not any(e['operation_id']==operation for e in rows['fleet_effect_receipts']) and not any(j['operation_id']==operation for j in rows['runner_remote_jobs']),'REFUSED_OPERATION_EFFECT_PRESENT')
   if name=='stale_generation_replay':
-   actor=one(rows['fleet_actor_sessions'],'session_id',case.get('actor_id'));require(int(actor['plan_generation'])>int(case['replayed_plan_generation']),'STALE_PLAN_PROOF_REQUIRED')
+   pin=target.get('fault_drivers',{}).get(name,{});actor=one(rows['fleet_actor_sessions'],'session_id',case.get('actor_id'));require(body.get('error',{}).get('code')=='FLEET_PLAN_STALE' and case.get('actor_id')==pin.get('actor_id') and str(case.get('replayed_plan_generation'))==str(pin.get('replayed_plan_generation')) and int(actor['plan_generation'])>int(case['replayed_plan_generation']),'STALE_PLAN_PROOF_REQUIRED')
  elif name in ('supervisor_box_loss','manager_replacement'):
   fault_driver(name,case,rows,target,evidence_root,capture)
   before=one(rows['fleet_observations'],'id',case.get('before_observation_id'));after=one(rows['fleet_observations'],'id',case.get('after_observation_id'))

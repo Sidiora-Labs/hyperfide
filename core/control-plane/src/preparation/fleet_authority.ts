@@ -11,11 +11,11 @@ import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {assertInvocation, DIGEST, exact, fail, hash, strictJSON, uuid, decimal} from '../transport/protocol.js';
-import {object} from '../policy/programme.js';
+import {object,FoundationError} from '../policy/programme.js';
 import {publishVerifiedFleetReadiness} from './fleet_readiness.js';
 import {fleetConfigurationTargets,type FleetConfiguration} from './fleet_configurations.js';
 import {canonicalJSON} from './manifests.js';
-import {parseNeron, parsePackage, scopeContains} from '../contracts/fleet/index.mjs';
+import {ContractError,parseNeron, parsePackage, scopeContains} from '../contracts/fleet/index.mjs';
 import {assertFleetActor, localProcessIdentity, withAdmittedDecision} from '../agents/fleet_authority.js';
 
 type RecordValue = Record<string, any>;
@@ -112,7 +112,7 @@ async function load(tx: PrimaryTransaction, i: InvocationContext, operation: unk
  JOIN hyperfide.fleet_environment_specs s USING(organisation_id,run_id,input_digest)
  WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.operation_id=$3 FOR UPDATE OF e`, [...scoped(i),operation])).rows[0];
  if (!row) fail('FLEET_INSTALL_NOT_FOUND','Install operation is not admitted');
- const head=(await tx.query('SELECT current_operation_id FROM hyperfide.fleet_install_heads WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 FOR SHARE',[...scoped(i),row.environment_id,row.environment_generation])).rows[0];
+ const head=(await tx.query('SELECT current_operation_id FROM hyperfide.fleet_install_heads WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 AND sandbox_id=$5 AND boot_id=$6 AND boot_generation=$7 FOR SHARE',[...scoped(i),row.environment_id,row.environment_generation,row.sandbox_id,row.boot_id,row.boot_generation])).rows[0];
  if(!head||head.current_operation_id!==row.operation_id)fail('FLEET_INSTALL_SUPERSEDED','Install execution is not the current admitted environment head');
  const adoption=(await tx.query('SELECT * FROM hyperfide.fleet_install_adoptions WHERE organisation_id=$1 AND run_id=$2 AND install_operation_id=$3 ORDER BY adoption_sequence DESC LIMIT 1',[...scoped(i),operation])).rows[0];
  row.adoption_id=adoption?.adoption_id??null;
@@ -280,7 +280,9 @@ export function createComponent(ctx:ComponentContext):Component {
    if (!['OPERATOR','COORDINATOR'].includes(i.principal.role)) fail('FLEET_INSTALL_SCOPE','Only programme authority registers executable environment plans');
    exact(input,['package_kvx','source_config_kvx','source_manifest_digest','plan_digest','install_plan']);
    if (typeof input.package_kvx !== 'string' || typeof input.source_config_kvx !== 'string' || Buffer.byteLength(input.package_kvx)+Buffer.byteLength(input.source_config_kvx)>524288 || !validDigest(input.source_manifest_digest) || !validDigest(input.plan_digest)) invalid('Bounded pinned environment inputs required');
-   const n = parseNeron(input.source_config_kvx), p = parsePackage(input.package_kvx,{neron:n});
+   let n:ReturnType<typeof parseNeron>,p:ReturnType<typeof parsePackage>;
+   try { n=parseNeron(input.source_config_kvx);p=parsePackage(input.package_kvx,{neron:n}); }
+   catch(error){if(error instanceof ContractError)throw new FoundationError(error.code,error.message);throw error;}
    const package_digest = digest(p), source_config_digest = digest(n);
    if (p.source.config_digest !== source_config_digest || n.source.source_backend !== 'git' || !uuid(n.source.repository)) invalid('Pinned registered Git repository and source configuration required');
    const identity = {package_digest,source_config_digest,source_manifest_digest:input.source_manifest_digest,plan_digest:input.plan_digest}, input_digest = digest(identity);
@@ -310,7 +312,7 @@ export function createComponent(ctx:ComponentContext):Component {
     const cohort=(await tx.query('SELECT cohort_generation::text FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[...scoped(i),owner.cohort_id])).rows[0];if(!cohort)fail('FLEET_INSTALL_STALE_OWNER','Supervisory cohort unavailable');
     const recovery=Object.hasOwn(v,'recovery_of')?await recoveryPredecessor(tx,i,v.recovery_of,v,owner.package_id):null;
     if(recovery&&(!same(recovery.install.admission.slot_bindings,slot_bindings)||recovery.install.operation_id===decision.operation_id||recovery.binding.runner_operation_id===decision.operation_id))fail('FLEET_INSTALL_RECOVERY_DENIED','Recovery requires a new execution identity and the exact previous enrolled worker mapping');
-    const prior = (await tx.query('SELECT current_operation_id FROM hyperfide.fleet_install_heads WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 FOR UPDATE',[...scoped(i),v.environment_id,v.environment_generation])).rows[0];
+    const prior = (await tx.query('SELECT current_operation_id FROM hyperfide.fleet_install_heads WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 AND sandbox_id=$5 AND boot_id=$6 AND boot_generation=$7 FOR UPDATE',[...scoped(i),v.environment_id,v.environment_generation,v.sandbox_id,v.boot_id,v.boot_generation])).rows[0];
     if(recovery?prior?.current_operation_id!==recovery.install.operation_id:!!prior)fail('FLEET_INSTALL_CONFLICT','Environment head changed or already exists');
     const now=await databaseNow(tx);
     const admission:RecordValue={schema_version:1,kind:'hyperfide.fleet-install-admission',environment_root:p.environment.root,operation_id:decision.operation_id,logical_operation_id:recovery&&!recovery.proof?recovery.native_logical_operation_id:decision.operation_id,...(recovery&&!recovery.proof?{recovery_of:recovery.binding}:{}),organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,environment_id:v.environment_id,environment_generation:v.environment_generation,sandbox_id:v.sandbox_id,boot_id:v.boot_id,boot_generation:v.boot_generation,authority_epoch:decision.authority_epoch,input_digest:v.input_digest,package_digest:spec.package_digest,source_config_digest:spec.source_config_digest,plan_digest:spec.plan_digest,source_revision:n.source.revision,source_manifest_digest:spec.source_manifest_digest,read_scope:n.workspace.read_scope,write_scope:n.workspace.write_scope,slot_bindings,expires_at:new Date(now+v.ttl_seconds*1000).toISOString()};
@@ -322,9 +324,9 @@ export function createComponent(ctx:ComponentContext):Component {
       else await tx.query('INSERT INTO hyperfide.fleet_install_not_started_recoveries(organisation_id,run_id,operation_id,predecessor_install_operation_id,logical_operation_id,proof_id,decision_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[...scoped(i),decision.operation_id,recovery.install.operation_id,recovery.logical_operation_id,recovery.proof.id,decision.decision_id]);
      }
      else await tx.query('INSERT INTO hyperfide.fleet_install_recoveries(organisation_id,run_id,operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[...scoped(i),decision.operation_id,recovery.install.operation_id,recovery.logical_operation_id,recovery.binding.admission_digest,recovery.binding.runner_operation_id,recovery.binding.runner_plan_digest,recovery.job.result_digest,recovery.binding.quiescence_operation_id,recovery.binding.quiescence_receipt_digest,decision.decision_id]);
-     const advanced=await tx.query('UPDATE hyperfide.fleet_install_heads SET current_operation_id=$5,updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 AND current_operation_id=$6 RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id,recovery.install.operation_id]);if(advanced.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Recovery predecessor was superseded');
+     const advanced=await tx.query('UPDATE hyperfide.fleet_install_heads SET current_operation_id=$5,updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 AND current_operation_id=$6 AND sandbox_id=$7 AND boot_id=$8 AND boot_generation=$9 RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id,recovery.install.operation_id,v.sandbox_id,v.boot_id,v.boot_generation]);if(advanced.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Recovery predecessor was superseded');
     }else{
-     const created=await tx.query('INSERT INTO hyperfide.fleet_install_heads(organisation_id,run_id,environment_id,environment_generation,logical_operation_id,current_operation_id) VALUES($1,$2,$3,$4,$5,$5) ON CONFLICT DO NOTHING RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id]);if(created.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Environment head already admitted');
+     const created=await tx.query('INSERT INTO hyperfide.fleet_install_heads(organisation_id,run_id,environment_id,environment_generation,logical_operation_id,current_operation_id,sandbox_id,boot_id,boot_generation) VALUES($1,$2,$3,$4,$5,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id,v.sandbox_id,v.boot_id,v.boot_generation]);if(created.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Environment head already admitted');
     }
     return {admission,state:'ADMITTED'};
    }));
