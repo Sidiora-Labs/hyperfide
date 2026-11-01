@@ -85,7 +85,14 @@ for(const entry of a.journals??[]){
  if(stale){
   const decision=decoded.payload.input?.decision,retained=rows.fleet_decisions.find(d=>d.id===pin.decision_id),reasoning=retained&&rows.fleet_reasoning.find(r=>r.id===retained.reasoning_id),actor=rows.fleet_actor_sessions.find(r=>r.session_id===pin.actor_id),receipt=reasoning?.result?.model_receipt;
   const fleet=await import('./contracts/fleet/index.mjs');
-  if(!['LEADER','FEATURE_MANAGER'].includes(principal.role)||pin.credential_id!==item.id||principal.actor_id!==pin.actor_id||!decision||(principal.role==='LEADER'?decision.actor_role!=='PRIMARY':decision.actor_role!=='WAVE_MANAGER')||decoded.payload.action!=='fleet.decision.apply'||decoded.payload.component!=='fleet-orchestration'||!decision||decision.decision_id!==pin.decision_id||decision.operation_id!==pin.original_operation_id||decision.actor_id!==pin.actor_id||String(decision.expected_version)!==String(pin.replayed_plan_generation)||!retained||retained.actor_id!==pin.actor_id||retained.operation_id!==pin.original_operation_id||fleet.digest(decision)!==retained.payload_digest||canonical(retained.body)!==canonical(decision)||!reasoning||reasoning.state!=='COMPLETED'||reasoning.actor_id!==pin.actor_id||canonical(reasoning.result.decision)!==canonical(decision)||!receipt||!(receipt.session_kind==='LOGICAL_GATEWAY'?receipt.upstream_response_id:receipt.native_session_id&&receipt.binary_digest)||!actor||BigInt(actor.plan_generation)<=BigInt(decision.expected_version)||rows.fleet_effect_receipts.some(e=>e.operation_id===decision.operation_id||e.operation_id===journal.operation_id)||rows.runner_remote_jobs.some(j=>j.operation_id===decision.operation_id))throw Error('STALE_REPLAY_ACTOR_DECISION_REQUIRED');
+  if(!['LEADER','FEATURE_MANAGER'].includes(principal.role)||pin.credential_id!==item.id||principal.actor_id!==pin.actor_id||!decision||(principal.role==='LEADER'?decision.actor_role!=='PRIMARY':decision.actor_role!=='WAVE_MANAGER')||decoded.payload.action!=='fleet.decision.apply'||decoded.payload.component!=='fleet-orchestration'||!decision||decision.decision_id!==pin.decision_id||decision.operation_id!==pin.original_operation_id||decision.actor_id!==pin.actor_id||String(decision.expected_version)!==String(pin.replayed_plan_generation)||!retained||retained.actor_id!==pin.actor_id||retained.operation_id!==pin.original_operation_id||fleet.digest(decision)!==retained.payload_digest||canonical(retained.body)!==canonical(decision)||!reasoning||reasoning.state!=='COMPLETED'||reasoning.actor_id!==pin.actor_id||canonical(reasoning.result.decision)!==canonical(decision)||!receipt||!(receipt.session_kind==='LOGICAL_GATEWAY'?receipt.upstream_response_id:receipt.native_session_id&&receipt.binary_digest)||!actor||rows.fleet_effect_receipts.some(e=>e.operation_id===decision.operation_id||e.operation_id===journal.operation_id)||rows.runner_remote_jobs.some(j=>j.operation_id===decision.operation_id))throw Error('STALE_REPLAY_ACTOR_DECISION_REQUIRED');
+  const generationKind=pin.generation_kind??'PLAN';
+  if(generationKind==='PLAN'){
+   if(BigInt(actor.plan_generation)<=BigInt(decision.expected_version))throw Error('STALE_PLAN_PROOF_REQUIRED');
+  }else if(generationKind==='COHORT'){
+   const observation=rows.fleet_observations.find(o=>o.id===pin.original_observation_id),cohort=rows.fleet_cohorts.find(c=>c.id===actor.cohort_id);
+   if(!observation||reasoning.observation_id!==observation.id||observation.actor_id!==pin.actor_id||observation.context_digest!==decision.context_digest||protocol.hash(canonical(observation.body))!==observation.context_digest||String(observation.cohort_generation)!==String(pin.replayed_cohort_generation)||!cohort||BigInt(cohort.cohort_generation)<=BigInt(observation.cohort_generation)||BigInt(cohort.cohort_generation)<BigInt(pin.minimum_current_cohort_generation)||String(actor.cohort_generation)!==String(cohort.cohort_generation))throw Error('STALE_COHORT_PROOF_REQUIRED');
+  }else throw Error('STALE_GENERATION_KIND_REQUIRED');
  }else if(principal.role!=='OPERATOR'||item.id!==a.target.fault_operator_credential_id)throw Error('FAULT_JOURNAL_SCOPE_MISMATCH');
  protocol.verifyProof(principal.public_key_b64,item,journal.origin,'/v1/invoke',raw);
  const nonce=(await c.query('SELECT received_at FROM hyperfide.identity_request_nonces WHERE credential_id=$1 AND nonce=$2',[item.id,item.nonce])).rows[0];
@@ -93,7 +100,7 @@ for(const entry of a.journals??[]){
  if(journal.driver_digest!==pin.driver_digest||decoded.operation.payload_digest!==pin.payload_digest||decoded.payload.action!==pin.action||decoded.payload.component!==pin.component||protocol.hash(raw)!==journal.request_digest)throw Error('FAULT_DRIVER_PIN_MISMATCH');
  const response=journal.response,responseBytes=Buffer.from(response.body_base64,'base64');
  if(protocol.hash(responseBytes)!==response.body_digest||JSON.stringify(protocol.strictJSON(responseBytes))!==JSON.stringify(response.body)||response.body.operation_id!==journal.operation_id)throw Error('FAULT_RESPONSE_CUSTODY_MISMATCH');
- if(stale&&(response.body.ok!==false||response.body.error?.code!=='FLEET_PLAN_STALE'))throw Error('ACTUAL_STALE_GENERATION_REFUSAL_REQUIRED');
+ if(stale&&(response.body.ok!==false||response.body.error?.code!==(pin.generation_kind==='COHORT'?'FLEET_OBSERVATION_STALE':'FLEET_PLAN_STALE')))throw Error('ACTUAL_STALE_GENERATION_REFUSAL_REQUIRED');
  rows.authenticated_fault_operations.push(journal.operation_id);
 }
 let connector_verified=false;if(a.connector){const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(a.target.connector_public_key_hex,'hex')]),format:'der',type:'spki'});connector_verified=verify(null,Buffer.from(a.connector.payload,'utf8'),key,Buffer.from(a.connector.signature,'hex'));}await c.query('COMMIT');process.stdout.write(JSON.stringify({identity,rows,connector_verified}));}catch(e){await c.query('ROLLBACK').catch(()=>{});process.stdout.write(JSON.stringify({error:typeof e.code==='string'?e.code:/^[A-Z_]+$/.test(e.message)?e.message:'READONLY_SNAPSHOT_FAILED'}));process.exitCode=1;}finally{await c.end();}
@@ -495,6 +502,15 @@ def railway_instance_absence(physical,capture,target,evidence_root,name='supervi
  require(clock(old['observed_at'])<=before<requested<=removed and requested<=clock(new['observed_at'])<=replacement and clock(capture.get('fault_observed_at'))==removed,'PROVIDER_TERMINATION_ORDER_REQUIRED')
  return {'old_measurement':clock(old['observed_at']),'removed':removed,'new_measurement':clock(new['observed_at']),'replacement':replacement}
 
+def verified_stale_generation(rows,case,target,response):
+ pin=target.get('fault_drivers',{}).get('stale_generation_replay',{});kind=pin.get('generation_kind','PLAN');actor=one(rows['fleet_actor_sessions'],'session_id',case.get('actor_id'))
+ require(kind in ('PLAN','COHORT') and case.get('generation_kind','PLAN')==kind and case.get('actor_id')==pin.get('actor_id') and str(case.get('replayed_plan_generation'))==str(pin.get('replayed_plan_generation')),'STALE_GENERATION_SCOPE_REQUIRED')
+ if kind=='PLAN':
+  require(response.get('error',{}).get('code')=='FLEET_PLAN_STALE' and int(actor['plan_generation'])>int(case['replayed_plan_generation']),'STALE_PLAN_PROOF_REQUIRED')
+ else:
+  decision=one(rows['fleet_decisions'],'id',pin.get('decision_id'));reasoning=one(rows['fleet_reasoning'],'id',decision['reasoning_id']);observation=one(rows['fleet_observations'],'id',pin.get('original_observation_id'));cohort=one(rows['fleet_cohorts'],'id',actor['cohort_id'])
+  require(response.get('error',{}).get('code')=='FLEET_OBSERVATION_STALE' and reasoning['observation_id']==observation['id'] and observation['actor_id']==actor['session_id']==pin['actor_id'] and digest(observation['body'])==observation['context_digest']==decision['body']['context_digest'] and str(observation['cohort_generation'])==str(pin.get('replayed_cohort_generation')) and int(cohort['cohort_generation'])>int(observation['cohort_generation']) and int(cohort['cohort_generation'])>=int(pin['minimum_current_cohort_generation']) and str(actor['cohort_generation'])==str(cohort['cohort_generation']),'STALE_COHORT_PROOF_REQUIRED')
+
 def case_oracle(name,case,rows,target,evidence_root,index):
  capture=captured_case(name,case,target,evidence_root)
  # Captures retain fault provenance; authoritative effects and native outcomes come from PostgreSQL.
@@ -530,7 +546,7 @@ def case_oracle(name,case,rows,target,evidence_root,index):
   require(body.get('operation_id')==operation and body.get('ok') is False and body.get('error',{}).get('code') in target.get('case_error_codes',{}).get(name,[]),'ACTUAL_EXPECTED_REFUSAL_REQUIRED')
   require(not any(e['operation_id']==operation for e in rows['fleet_effect_receipts']) and not any(j['operation_id']==operation for j in rows['runner_remote_jobs']),'REFUSED_OPERATION_EFFECT_PRESENT')
   if name=='stale_generation_replay':
-   pin=target.get('fault_drivers',{}).get(name,{});actor=one(rows['fleet_actor_sessions'],'session_id',case.get('actor_id'));require(body.get('error',{}).get('code')=='FLEET_PLAN_STALE' and case.get('actor_id')==pin.get('actor_id') and str(case.get('replayed_plan_generation'))==str(pin.get('replayed_plan_generation')) and int(actor['plan_generation'])>int(case['replayed_plan_generation']),'STALE_PLAN_PROOF_REQUIRED')
+   verified_stale_generation(rows,case,target,body)
  elif name in ('supervisor_box_loss','manager_replacement'):
   fault_driver(name,case,rows,target,evidence_root,capture)
   before=one(rows['fleet_observations'],'id',case.get('before_observation_id'));after=one(rows['fleet_observations'],'id',case.get('after_observation_id'))
