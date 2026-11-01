@@ -1,3 +1,5 @@
+import {abandonBoundNotStartedInstall,readBoundNotStartedInstallProof} from './preinstall_bound_cleanup.js';
+import type {InvocationContext} from '../transport/protocol.js';
 import {randomUUID} from 'node:crypto';
 import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
@@ -34,8 +36,8 @@ async function inspect(tx:PrimaryTransaction,input:PreinstallScope,closed:boolea
  if(!reservations.length||reservations.some(v=>v.expired!==true||!(closed?['RELEASE_PENDING','RELEASED']:['ALLOCATED']).includes(v.state)))return null;
  return {binding:{organisation_id:input.organisation_id,run_id:input.run_id,sandbox_id:input.sandbox_id,boot_generation:input.boot_generation,boot_id:b.boot_id,native_sandbox_id:b.native_sandbox_id,pool_id:b.pool_id,bootstrap_id:b.bootstrap_id,manifest_digest:b.manifest_digest},allocation:{id:a.id,request_id:a.request_id,reservation_id:a.reservation_id,generation:a.generation,session_id:r.session_id,slot_id:r.slot_id},delivery:{id:d.id,registration_digest:d.registration_digest,input_digest:d.input_digest},reservations:reservations.map(v=>({id:v.id,expires_at:v.expires_at}))};
 }
-export async function abandonExpiredPreinstall(tx:PrimaryTransaction,input:PreinstallScope):Promise<Data|null>{
- assertPrimaryTransaction(tx);await lockRun(tx,input,'exclusive');const proof=await inspect(tx,input,false);if(!proof)return null;
+export async function abandonExpiredPreinstall(tx:PrimaryTransaction,input:PreinstallScope,invocation?:InvocationContext):Promise<Data|null>{
+ assertPrimaryTransaction(tx);await lockRun(tx,input,'exclusive');const retained=await readAbandonedPreinstallProof(tx,input);if(retained)return retained;const proof=await inspect(tx,input,false);if(!proof)return invocation?abandonBoundNotStartedInstall(tx,input,invocation):null;
  const a=proof.allocation;await releaseJobAllocation(tx,{organisation_id:input.organisation_id,run_id:input.run_id,allocation_id:a.id,allocation_generation:a.generation,reservation_id:a.reservation_id,assignee_session_id:a.session_id});
  await tx.query("UPDATE hyperfide.agent_sessions SET state='STOPPED',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='REGISTERED' AND attempt_id IS NULL",[input.organisation_id,input.run_id,a.session_id]);
  const result={schema_version:1,kind:'ABANDONED_PREINSTALL_V1',...proof,physical_resources_released:false};
@@ -43,6 +45,6 @@ export async function abandonExpiredPreinstall(tx:PrimaryTransaction,input:Prein
 }
 export async function readAbandonedPreinstallProof(tx:PrimaryTransaction,input:PreinstallScope):Promise<Data|null>{
  assertPrimaryTransaction(tx);const retained=(await tx.query("SELECT result FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope='preinstall-cleanup' AND operation='fleet.preinstall.abandon' AND idempotency_key=$3 AND state='COMPLETED'",[input.organisation_id,input.run_id,input.sandbox_id+':'+input.boot_generation])).rows[0]?.result;
- if(!object(retained)||retained.kind!=='ABANDONED_PREINSTALL_V1')return null;const fresh=await inspect(tx,input,true);if(!fresh)return null;
+ if(!object(retained))return null;if(retained.kind==='ABANDONED_NOT_STARTED_INSTALL_V1')return readBoundNotStartedInstallProof(tx,input,retained);if(retained.kind!=='ABANDONED_PREINSTALL_V1')return null;const fresh=await inspect(tx,input,true);if(!fresh)return null;
  const {schema_version,kind,physical_resources_released,...pins}=retained;if(digestDocument(pins)!==digestDocument(fresh))return null;return retained;
 }

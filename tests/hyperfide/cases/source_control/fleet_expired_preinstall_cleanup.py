@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import subprocess
 import sys
 import time
 import uuid
@@ -28,6 +29,7 @@ def digest(value):
 
 def main():
     http = sdk.ReadOnlyHTTP()
+    bound_not_started = '--bound-not-started' in sys.argv
 
     def setup(f):
         secrets, attachments = f.path / 'secrets', f.path / 'attachments'
@@ -74,6 +76,13 @@ def main():
         f = hierarchy_type()(extra_components=component_closure(['fleet-orchestration', '10.3']), extra_setup=setup, bootstrap=False, seed_historical_runtime=False, parent_managers=True)
         i = f.ids
         common = [i['organisation'], i['run']]
+        proof_privileges = None
+        if bound_not_started:
+            role = '"' + f.runtime_role.replace('"', '""') + '"'
+            f.sql('REVOKE UPDATE,DELETE ON hyperfide.runner_not_started_proofs FROM ' + role)
+            proof_privileges = f.sql("SELECT has_table_privilege($1,'hyperfide.runner_not_started_proofs','SELECT') AS can_select,has_table_privilege($1,'hyperfide.runner_not_started_proofs','INSERT') AS can_insert,has_table_privilege($1,'hyperfide.runner_not_started_proofs','UPDATE') AS can_update,has_table_privilege($1,'hyperfide.runner_not_started_proofs','DELETE') AS can_delete", [f.runtime_role])[0]
+            assert proof_privileges == {'can_select': True, 'can_insert': True, 'can_update': False, 'can_delete': False}, proof_privileges
+
 
         def api(action, value, key='leader', component='fleet-orchestration'):
             return f.invoke(action, value, component=component, key=key, timeout_seconds=60)[1]
@@ -163,8 +172,54 @@ def main():
             http.models[native] = (200, {'metadata': {'name': native, 'workspace': scope['environment_id'], 'labels': {'hyperfide-scope': digest(scope), 'hyperfide-boot': '1', 'hyperfide-preparation': f.preparation}}, 'spec': {'region': scope['region']}, 'status': 'DEPLOYED'})
             return locals()
 
+        def bind_install(c, variant='expired'):
+            operation = uid()
+            expires = '2000-01-01T00:00:00Z'
+            admission = {'organisation_id': i['organisation'], 'run_id': i['run'], 'operation_id': operation, 'logical_operation_id': operation, 'sandbox_id': c['sandbox'], 'boot_id': c['boot'], 'boot_generation': '1', 'authority_epoch': i['epoch'], 'input_digest': c['inp'], 'environment_id': c['label'], 'environment_generation': 1, 'slot_bindings': [], 'expires_at': expires}
+            admission_digest = digest(admission)
+            admission['admission_digest'] = admission_digest
+            f.sql("INSERT INTO hyperfide.fleet_environment_installs(organisation_id,run_id,operation_id,input_digest,environment_id,environment_generation,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,manager_generation,leader_generation,cohort_id,cohort_generation,admission,admission_digest,expires_at) VALUES($1,$2,$3,$4,$5,1,$6,$7,1,$8,$9,$10,2,1,$11,1,$12,$13,$14)", common + [operation, c['inp'], c['label'], c['sandbox'], c['boot'], i['epoch'], i['package'], i['manager2'], cohort, admission, admission_digest, expires])
+            f.sql('INSERT INTO hyperfide.fleet_install_heads(organisation_id,run_id,environment_id,environment_generation,logical_operation_id,current_operation_id) VALUES($1,$2,$3,1,$4,$4)', common + [c['label'], operation])
+            preparation_request = {'operation_id': operation, 'session_id': c['session'], 'reservation_id': c['reservation'], 'repository_id': i['repository'], 'timeout_ms': 1000, 'target_binding_id': c['allocation'], 'recipe_id': 'environment.prepare.v1', 'input_manifest_artifact_id': uid(), 'input_manifest_digest': digest({'controlled_historical_input': operation}), 'source': {}, 'staging': [], 'job_binding': {'namespace': 'FLEET_INSTALL', 'job_id': operation, 'lease_generation': '1', 'reservation_id': c['reservation'], 'input_packet_digest': admission_digest, 'input_manifest_digest': digest({'controlled_historical_input': operation})}}
+            plan = {'operation_id': operation, 'binding': {'sandbox_id': c['sandbox'], 'boot_id': c['boot'], 'boot_generation': '1', 'session_id': c['session'], 'slot_id': c['slot']}, 'allocation': {'allocation_id': c['allocation'], 'generation': '1', 'request_id': c['request']}, 'preparation_request': preparation_request}
+            if variant == 'wrong-plan':
+                plan['binding']['sandbox_id'] = uid()
+            plan_digest = digest(plan)
+            f.sql("UPDATE hyperfide.fleet_install_deliveries SET operation_id=$2,request=$3,request_digest=$4,state='QUEUED' WHERE id=$1", [c['delivery'], operation, preparation_request, digest(preparation_request)])
+            target = {'allocation_id': c['allocation'], 'request_id': c['request'], 'reservation_id': c['reservation'], 'session_id': c['session'], 'slot_id': c['slot'], 'boot_id': c['boot'], 'boot_generation': '1'}
+            f.sql("INSERT INTO hyperfide.fleet_install_delivery_executions(organisation_id,run_id,operation_id,delivery_id,logical_operation_id,target_binding,request,request_digest,state) VALUES($1,$2,$3,$4,$3,$5,$6,$7,'QUEUED')", common + [operation, c['delivery'], target, preparation_request, digest(preparation_request)])
+            f.sql("INSERT INTO hyperfide.runner_remote_jobs(organisation_id,run_id,operation_id,session_id,job_class,plan,plan_digest,principal,admission_digest,authority_epoch,reservation_id,expires_at) VALUES($1,$2,$3,$4,'PREPARATION',$5,$6,$7,$8,$9,$10,$11)", common + [operation, c['session'], plan, plan_digest, {'controlled_historical_admission': True}, admission_digest, i['epoch'], c['reservation'], '2099-01-01T00:00:00Z' if variant == 'unexpired-job' else expires])
+            if variant == 'claimed-job':
+                f.sql("UPDATE hyperfide.runner_remote_jobs SET state='CLAIMED',claim_id=$2,executor_credential_id=$3,claimed_at=clock_timestamp() WHERE operation_id=$1", [operation, uid(), i['operator']])
+            elif variant == 'unknown-job':
+                f.sql("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN' WHERE operation_id=$1", [operation])
+            elif variant == 'provider-possible':
+                f.sql("INSERT INTO hyperfide.provider_remote_operations(organisation_id,run_id,id,session_id,sandbox_id,boot_generation,request_digest,runner_binding_evidence_digest,operation,state) VALUES($1,$2,$3,$4,$5,1,$6,$6,$7,'UNKNOWN')", common + [operation, c['session'], c['sandbox'], plan_digest, {'controlled_possible_provider_execution': True}])
+            elif variant == 'extra-install':
+                f.sql("INSERT INTO hyperfide.fleet_environment_installs(organisation_id,run_id,operation_id,input_digest,environment_id,environment_generation,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,manager_generation,leader_generation,cohort_id,cohort_generation,admission,admission_digest,expires_at) SELECT organisation_id,run_id,$2,input_digest,environment_id,environment_generation,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,manager_generation,leader_generation,cohort_id,cohort_generation,admission,admission_digest,expires_at FROM hyperfide.fleet_environment_installs WHERE operation_id=$1", [operation, uid()])
+            c.update(install_operation=operation, runner_plan_digest=plan_digest)
+            return c
+
+        def scoped_reader(c):
+            script = """
+import fs from 'node:fs';
+import {createResourceContainer} from './core/control-plane/dist/storage/runtime.js';
+import {readAbandonedPreinstallProof} from './core/control-plane/dist/preparation/preinstall_cleanup.js';
+const d=JSON.parse(fs.readFileSync(0,'utf8')),r=createResourceContainer({role:'control',env:process.env,signal:new AbortController().signal});
+try{const observations=await r.gateway.withPrimaryTransaction({timeoutMs:10000,guard:async t=>{const v=(await t.query('SELECT authority_epoch FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2',[d.scope.organisation_id,d.scope.run_id])).rows[0];if(v?.authority_epoch!==d.epoch)throw Error('Actual run authority required');}},async t=>{const out=[];for(const scope of d.scopes)out.push(await readAbandonedPreinstallProof(t,scope));return out;});if(!observations[0]||observations[0].kind!=='ABANDONED_NOT_STARTED_INSTALL_V1'||observations.slice(1).some(v=>v!==null))throw Error('Scoped retained proof mismatch:'+JSON.stringify(observations));process.stdout.write(JSON.stringify(observations));}finally{await r.close();}
+"""
+            scope = {'organisation_id': i['organisation'], 'run_id': i['run'], 'sandbox_id': c['sandbox'], 'boot_generation': '1'}
+            scopes = [{**scope, 'operation_id': uid()}, {**scope, 'run_id': uid()}, {**scope, 'sandbox_id': uid()}, {**scope, 'boot_generation': '2'}, {**scope, 'organisation_id': uid()}]
+            observed = subprocess.run(['node', '--input-type=module', '-e', script], cwd=ROOT, env=f.env, text=True, input=json.dumps({'scope': scope, 'epoch': i['epoch'], 'scopes': scopes}), capture_output=True, timeout=20)
+            assert observed.returncode == 0, observed.stderr
+            return json.loads(observed.stdout)
+
         def state(c):
-            return {'reservation': f.sql('SELECT id::text,state FROM hyperfide.reservations WHERE organisation_id=$1 AND id=ANY($2::uuid[]) ORDER BY id', [i['organisation'], [*c['physical'], *c['logical']]]), 'allocation': f.sql('SELECT state FROM hyperfide.resource_job_allocations WHERE id=$1', [c['allocation']]), 'session': f.sql('SELECT state,state_version::text FROM hyperfide.agent_sessions WHERE id=$1', [c['session']]), 'slot': f.sql('SELECT state FROM hyperfide.worker_slots WHERE id=$1', [c['slot']]), 'delivery': f.sql('SELECT to_jsonb(d) AS row FROM hyperfide.fleet_install_deliveries d WHERE id=$1', [c['delivery']]), 'accounts': f.sql('SELECT id::text,reserved::text,allocated::text FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 ORDER BY id', [i['organisation'], f.pool])}
+            out = {'reservation': f.sql('SELECT id::text,state FROM hyperfide.reservations WHERE organisation_id=$1 AND id=ANY($2::uuid[]) ORDER BY id', [i['organisation'], [*c['physical'], *c['logical']]]), 'allocation': f.sql('SELECT state FROM hyperfide.resource_job_allocations WHERE id=$1', [c['allocation']]), 'session': f.sql('SELECT state,state_version::text FROM hyperfide.agent_sessions WHERE id=$1', [c['session']]), 'slot': f.sql('SELECT state FROM hyperfide.worker_slots WHERE id=$1', [c['slot']]), 'delivery': f.sql('SELECT to_jsonb(d) AS row FROM hyperfide.fleet_install_deliveries d WHERE id=$1', [c['delivery']]), 'accounts': f.sql('SELECT id::text,reserved::text,allocated::text FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 ORDER BY id', [i['organisation'], f.pool])}
+            if 'install_operation' in c:
+                out['originals'] = {'install': f.sql('SELECT to_jsonb(e) AS row FROM hyperfide.fleet_environment_installs e WHERE operation_id=$1', [c['install_operation']]), 'job': f.sql('SELECT to_jsonb(j) AS row FROM hyperfide.runner_remote_jobs j WHERE operation_id=$1', [c['install_operation']]), 'head': f.sql('SELECT to_jsonb(h) AS row FROM hyperfide.fleet_install_heads h WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3', common + [c['label']]), 'execution': f.sql('SELECT to_jsonb(x) AS row FROM hyperfide.fleet_install_delivery_executions x WHERE operation_id=$1', [c['install_operation']])}
+                out['not_started_proofs'] = f.sql('SELECT id::text,proof_digest,proof FROM hyperfide.runner_not_started_proofs WHERE runner_operation_id=$1', [c['install_operation']])
+            return out
 
         def destroy(c):
             value = {'sandbox_id': c['sandbox'], 'boot_generation': '1', 'pool_id': f.pool, 'deadline_at': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time()+50)), 'reason': 'Controlled expired preinstall cleanup'}
@@ -172,9 +227,11 @@ def main():
             return api('fleet.decision.apply', {'decision': decision}, key='manager2'), decision
 
         negatives = []
-        for label in ([] if sys.argv[1:] == ['--positive-only'] else ['unexpired', 'running', 'disconnected', 'install', 'ambiguous']):
+        for label in ([] if '--positive-only' in sys.argv else (['unexpired-job', 'claimed-job', 'unknown-job', 'provider-possible', 'wrong-plan', 'extra-install'] if bound_not_started else ['unexpired', 'running', 'disconnected', 'install', 'ambiguous'])):
             c = seed(label)
-            if label == 'unexpired':
+            if bound_not_started:
+                bind_install(c, label)
+            elif label == 'unexpired':
                 f.sql("UPDATE hyperfide.reservations SET expires_at=clock_timestamp()+interval '1 hour',state_version=state_version+1 WHERE id=$1", [c['reservation']])
             elif label in ['running', 'disconnected']:
                 f.sql('UPDATE hyperfide.agent_sessions SET state=$2,state_version=state_version+1 WHERE id=$1', [c['session'], label.upper()])
@@ -188,18 +245,35 @@ def main():
             assert f.sql("SELECT id FROM hyperfide.command_inbox WHERE organisation_id=$1 AND operation='fleet.preinstall.abandon' AND idempotency_key=$2", [i['organisation'], c['sandbox'] + ':1']) == []
             negatives.append({'case': label, 'error': answer['error']})
         c = seed('expired-positive')
+        if bound_not_started:
+            bind_install(c)
         f.sql("UPDATE hyperfide.worker_slots SET state='RETIRED',state_version=state_version+1 WHERE id=$1", [c['slot']])
         before = state(c)
         answer, decision = destroy(c)
         assert answer.get('ok'), answer
         destroy_id = answer['result']['provider_intent_id']
         pending = state(c)
-        assert pending['accounts'] == before['accounts'] and pending['delivery'] == before['delivery']
-        assert pending['allocation'][0]['state'] == 'RELEASE_PENDING' and pending['slot'][0]['state'] == 'RETIRED' and pending['session'][0]['state'] == 'STOPPED', pending
+        held_counters = before['accounts']
+        if bound_not_started:
+            expected = {row['id']: {**row} for row in held_counters}
+            for key, quantity in {'PREPARATION': 1, 'EXEC_CPU_MILLIS': 1000, 'EXEC_MEMORY_BYTES': 2147483648, 'EXEC_DISK_BYTES': 4294967296}.items():
+                expected[accounts[key]]['allocated'] = str(int(expected[accounts[key]]['allocated']) - quantity)
+            held_counters = [expected[row['id']] for row in held_counters]
+        assert pending['accounts'] == held_counters and pending['delivery'] == before['delivery']
+        assert pending['allocation'][0]['state'] == ('RELEASED' if bound_not_started else 'RELEASE_PENDING') and pending['slot'][0]['state'] == 'RETIRED' and pending['session'][0]['state'] == 'STOPPED', pending
         assert int(pending['session'][0]['state_version']) == int(before['session'][0]['state_version']) + 1
-        assert next(row for row in pending['reservation'] if row['id'] == c['reservation'])['state'] == 'RELEASE_PENDING'
+        assert next(row for row in pending['reservation'] if row['id'] == c['reservation'])['state'] == ('RELEASED' if bound_not_started else 'RELEASE_PENDING')
         audit = f.sql("SELECT result FROM hyperfide.command_inbox WHERE organisation_id=$1 AND operation='fleet.preinstall.abandon' AND idempotency_key=$2", [i['organisation'], c['sandbox'] + ':1'])
         assert len(audit) == 1 and audit[0]['result']['physical_resources_released'] is False, audit
+        scoped_proofs = None
+        if bound_not_started:
+            assert len(pending['not_started_proofs']) == 1 and digest(pending['not_started_proofs'][0]['proof']) == pending['not_started_proofs'][0]['proof_digest']
+            assert pending['originals']['install'] == before['originals']['install'] and pending['originals']['head'] == before['originals']['head'] and pending['originals']['execution'] == before['originals']['execution']
+            old_job = dict(before['originals']['job'][0]['row'])
+            new_job = dict(pending['originals']['job'][0]['row'])
+            assert old_job.pop('not_started_proof_id') is None
+            assert new_job.pop('not_started_proof_id') == pending['not_started_proofs'][0]['id'] and old_job == new_job
+            scoped_proofs = scoped_reader(c)
         f.stop()
         f.service_role = 'provisioner'
         f.start()
@@ -207,10 +281,10 @@ def main():
         owned_present = http.models[c['native']]
         http.models[c['native']] = (503, {'message': 'Controlled actual SDK pre-delete lookup unavailable'})
         execution = ok('provider.intents.execute', {'intent_id': destroy_id}, key='provisioner', component='8.3')
-        assert execution['executed'] is True and execution['intent']['state'] == 'UNKNOWN' and state(c)['accounts'] == before['accounts'], execution
+        assert execution['executed'] is True and execution['intent']['state'] == 'UNKNOWN' and state(c)['accounts'] == held_counters, execution
         http.models[c['native']] = owned_present
         present = ok('provider.intents.reconcile', {'intent_id': destroy_id}, key='provisioner', component='8.3')
-        assert state(c)['accounts'] == before['accounts'], present
+        assert state(c)['accounts'] == held_counters, present
         http.models[c['native']] = (404, {'message': 'Controlled actual provider resource absent'})
         absent = ok('provider.intents.reconcile', {'intent_id': destroy_id}, key='provisioner', component='8.3')
         after = state(c)
@@ -222,12 +296,14 @@ def main():
         for name, quantity in {'CPU_MILLIS': 1000, 'MEMORY_BYTES': 2147483648, 'DISK_BYTES': 4294967296}.items():
             expected_counters[accounts['EXEC_' + name]]['allocated'] -= quantity
         assert {row['id']: {'reserved': int(row['reserved']), 'allocated': int(row['allocated'])} for row in after['accounts']} == expected_counters, after['accounts']
+        if bound_not_started:
+            assert after['originals'] == pending['originals'] and after['not_started_proofs'] == pending['not_started_proofs']
         assert after['session'] == pending['session']
         assert after['allocation'][0]['state'] == 'RELEASED' and after['slot'][0]['state'] == 'RETIRED' and after['session'][0]['state'] == 'STOPPED' and after['delivery'] == before['delivery'], after
         replay = ok('provider.intents.reconcile', {'intent_id': destroy_id}, key='provisioner', component='8.3')
         assert state(c) == after and len(f.sql("SELECT id FROM hyperfide.command_inbox WHERE organisation_id=$1 AND operation='fleet.preinstall.abandon' AND idempotency_key=$2", [i['organisation'], c['sandbox'] + ':1'])) == 1, replay
         assert all(event['method'] == 'GET' for event in http.events), http.events
-        print(json.dumps({'status': 'PASS', 'scope': 'signed manager fleet DESTROY application and real PostgreSQL/SDK absence; controlled prior READY/mechanical PREP metadata only', 'model_and_bootstrap_qualification': 'NOT_CLAIMED', 'provider_mutations': 0, 'negatives': negatives, 'checks': ['exact expired unbound preinstall closes allocation/session with immutable audit', 'all capacity counters held during cleanup and actual provider-present reconciliation', 'actual provider404 releases physical4 plus exact logical PREP/CPU/MEMORY/DISK vector once and retires slot', 'delivery lineage preserved and replay stable'], 'audit': audit, 'admission': answer, 'actual_predelete_lookup_uncertainty': execution, 'absence': absent}))
+        print(json.dumps({'status': 'PASS', 'scope': 'signed manager fleet DESTROY application and real PostgreSQL/SDK absence; controlled prior READY/mechanical PREP metadata only', 'model_and_bootstrap_qualification': 'NOT_CLAIMED', 'provider_mutations': 0, 'bound_not_started': bound_not_started, 'proof_table_privileges': proof_privileges, 'scoped_proof_reader': scoped_proofs, 'negatives': negatives, 'checks': (['exact bound expired job produces real NOT_STARTED proof and stops only its mechanical session', 'logical4 release under actual NOT_STARTED proof while physical4 stay held through SDK uncertainty and presence', 'actual provider404 releases physical4 exactly once; retained job/install/head/proof stay unchanged', 'scoped reader rejects wrong organisation/run/sandbox/boot and preserves original delivery'] if bound_not_started else ['exact expired unbound preinstall closes allocation/session with immutable audit', 'all capacity counters held during cleanup and actual provider-present reconciliation', 'actual provider404 releases physical4 plus exact logical PREP/CPU/MEMORY/DISK vector once and retires slot', 'delivery lineage preserved and replay stable']), 'audit': audit, 'admission': answer, 'actual_predelete_lookup_uncertainty': execution, 'absence': absent}))
     finally:
         if f:
             f.close()

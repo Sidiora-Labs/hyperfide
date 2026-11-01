@@ -165,7 +165,7 @@ export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabas
        AND o.observation->'outcome'->'resource'->>'native_sandbox_id'=$5 AND o.observation->'outcome'->'resource'->>'sandbox_boot_generation'=($4::bigint)::text LIMIT 1`,[config.organisation_id,run,sandbox,s.boot_generation,s.native_sandbox_id])).rows[0];
       if(absent)fail('RESOURCE_OWNERSHIP_UNKNOWN','Resource absence is already confirmed for this boot');
     }
-    await abandonExpiredPreinstall(c,{organisation_id:config.organisation_id,run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation)});
+    await abandonExpiredPreinstall(c,{organisation_id:config.organisation_id,run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation)},providerInvocation(pool));
     await noActiveWork(c,config.organisation_id,sandbox);
     const id=randomUUID();await destructionPreflight(c,pool,{organisation_id:config.organisation_id,run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation),operation_id:id});
     const op=operation('destroy',scope,id,deadline(input.deadline_at,config.maximum_operation_ms),
