@@ -595,6 +595,40 @@ def case_oracle(name,case,rows,target,evidence_root,index):
   require(case.get('job_id')==index['independent_test_job_id'],'CASE_TEST_STAGE_MISMATCH');job=one(rows['qualification_jobs'],'id',case['job_id']);receipt=one([r for r in rows['assurance_job_receipts'] if str(r['lease_generation'])==str(job['lease_generation'])],'job_id',job['id']);require(capture==receipt['receipt'] and digest(capture)==receipt['receipt_digest'],'CASE_TEST_CAPTURE_MISMATCH')
  else:raise Refused('CASE_ORACLE_UNSUPPORTED')
 
+def verified_contract_status_derivation(declaration,pin,current,evidence_root):
+ path='spec/hyperfide-source-control/spec.kvx';order=['0.10','0.11','0.12','0.13','0.14']
+ require(isinstance(current,bytes) and 0<len(current)<=4*1024*1024,'STATUS_CURRENT_BUDGET')
+ require(isinstance(declaration,dict) and set(declaration)=={'schema_version','path','baseline','allowed_transitions'} and type(declaration['schema_version']) is int and declaration['schema_version']==1 and declaration['path']==pin.get('path')==path,'STATUS_DERIVATION_SCOPE_REQUIRED')
+ archive=declaration['baseline'];allowed=declaration['allowed_transitions']
+ require(isinstance(archive,dict) and set(archive)=={'path','digest'} and archive['digest']==pin['digest'] and DIGEST.fullmatch(archive['digest']) and isinstance(allowed,list) and 1<=len(allowed)<=5 and allowed==[{'task':t,'from':'in_progress','to':'done'} for t in order[:len(allowed)]],'STATUS_DERIVATION_DECLARATION_REQUIRED')
+ relative=Path(archive['path']);require(evidence_root is not None and not relative.is_absolute() and '..' not in relative.parts and str(relative)==archive['path'],'STATUS_BASELINE_PATH_REQUIRED')
+ filename=Path(evidence_root)/relative;require(filename.resolve()==filename.absolute() and filename.resolve().is_relative_to(Path(evidence_root).resolve()) and filename.resolve()!=(ROOT/path).resolve(),'STATUS_BASELINE_PATH_REQUIRED')
+ fd=os.open(filename,os.O_RDONLY|os.O_NOFOLLOW)
+ try:
+  before=os.fstat(fd);require(stat.S_ISREG(before.st_mode) and before.st_uid==os.getuid() and before.st_mode&0o077==0 and before.st_nlink==1 and 0<before.st_size<=4*1024*1024,'PRIVATE_STATUS_BASELINE_REQUIRED')
+  parts=[];total=0
+  while True:
+   chunk=os.read(fd,min(65536,4*1024*1024+1-total))
+   if not chunk:break
+   total+=len(chunk);require(total<=4*1024*1024,'STATUS_BASELINE_BUDGET');parts.append(chunk)
+  baseline=b''.join(parts);after=os.fstat(fd)
+  require((before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns)==(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) and len(baseline)==before.st_size and digest(baseline)==pin['digest'],'STATUS_BASELINE_PIN_MISMATCH')
+ finally:os.close(fd)
+ lines=baseline.splitlines(keepends=True);positions=[]
+ for transition in allowed:
+  heading=('[task.'+transition['task']+']').encode();starts=[n for n,line in enumerate(lines) if line.removesuffix(b'\n')==heading];require(len(starts)==1,'STATUS_BASELINE_SECTION_REQUIRED')
+  candidates=[]
+  for n in range(starts[0]+1,len(lines)):
+   if lines[n].startswith(b'['):break
+   if re.match(br'^status[ \t]*=',lines[n]):candidates.append(n)
+  require(len(candidates)==1,'STATUS_BASELINE_SECTION_REQUIRED');n=candidates[0];require(lines[n] in (b'status = "in_progress"\n',b'status = "in_progress"'),'STATUS_BASELINE_CANONICAL_REQUIRED');positions.append(n)
+ for count in range(len(allowed)+1):
+  derived=list(lines)
+  for n in positions[:count]:derived[n]=b'status = "done"'+(b'\n' if lines[n].endswith(b'\n') else b'')
+  if b''.join(derived)==current:
+   return {'schema_version':1,'kind':'SPEC_STATUS_ONLY_DERIVATION_V1','path':path,'baseline':archive,'baseline_digest':pin['digest'],'current_digest':digest(current),'allowed_transitions_digest':digest(allowed),'transitions':[{**t,'line':n+1} for t,n in zip(allowed[:count],positions[:count])]}
+ raise Refused('STATUS_ONLY_CONTRACT_DERIVATION_MISMATCH')
+
 def verify(task,index,target,evidence_root=None):
  require(isinstance(index,dict) and isinstance(target,dict),'LIVE_EVIDENCE_OBJECT_REQUIRED')
  require(index.get('schema_version')==1 and index.get('kind')=='hyperfide.fleet-live-evidence' and index.get('target_digest')==digest(target),'EVIDENCE_TARGET_MISMATCH')
@@ -604,8 +638,13 @@ def verify(task,index,target,evidence_root=None):
  for key in ('accepted_source_object_id','installed_source_tree_id'):require(OID.fullmatch(target.get(key,'')) is not None,'SOURCE_PINS_REQUIRED')
  require(DIGEST.fullmatch(target.get('input_digest','')) is not None and DIGEST.fullmatch(target.get('interface_digest','')) is not None,'INSTALL_PINS_REQUIRED')
  pins=target.get('contract_files');require(isinstance(pins,list) and {'contracts/fleet/index.mjs','spec/hyperfide-source-control/spec.kvx'}.issubset({p.get('path') for p in pins if isinstance(p,dict)}),'CONTRACT_PINS_REQUIRED')
+ require(len({p.get('path') for p in pins})==len(pins),'CONTRACT_PINS_REQUIRED')
+ derivations=[];declaration=target.get('contract_status_derivation')
+ if declaration is not None:require(isinstance(declaration,dict) and declaration.get('path')=='spec/hyperfide-source-control/spec.kvx','STATUS_DERIVATION_SCOPE_REQUIRED')
  for pin in pins:
-  relative=Path(pin['path']);require(not relative.is_absolute() and '..' not in relative.parts,'CONTRACT_PATH_REFUSED');file=ROOT/relative;require(file.resolve().is_relative_to(ROOT) and digest(file.read_bytes())==pin['digest'],'CONTRACT_PIN_MISMATCH')
+  relative=Path(pin['path']);require(not relative.is_absolute() and '..' not in relative.parts,'CONTRACT_PATH_REFUSED');file=ROOT/relative;require(file.resolve().is_relative_to(ROOT),'CONTRACT_PATH_REFUSED');current=file.read_bytes()
+  if declaration is not None and pin['path']==declaration['path']:derivations.append(verified_contract_status_derivation(declaration,pin,current,evidence_root))
+  else:require(digest(current)==pin['digest'],'CONTRACT_PIN_MISMATCH')
  require(isinstance(target.get('toolchains'),list) and target['toolchains'],'TOOLCHAIN_PINS_REQUIRED')
  role_pins=target.get('native_binary_pins');require(isinstance(role_pins,dict) and all(DIGEST.fullmatch(role_pins.get(role,'')) for role in ('install','coding','test')),'ROLE_NATIVE_PINS_REQUIRED')
  connector=None
@@ -649,7 +688,7 @@ def verify(task,index,target,evidence_root=None):
   assigned=[e for e in rows['fleet_effect_receipts'] if e['result'].get('kind')=='ASSIGN_WORKER' and e['result'].get('assignment',{}).get('worker_id')==plan['agent_session_id'] and any(t.get('attempt_id')==plan['attempt_id'] for t in e['result'].get('tasks',[]))];require(len(assigned)==1,'MODEL_WORKER_ASSIGNMENT_REQUIRED');choice=one(rows['fleet_decisions'],'id',assigned[0]['decision_id']);require(choice['actor_id'] in index['actors']['managers'] and choice['body'].get('actor_role')=='WAVE_MANAGER' and assigned[0]['result'].get('install_binding',{}).get('operation_id')==index['install_operation_id'],'MODEL_INSTALLED_WORKER_BINDING_REQUIRED')
   require(launch['result'].get('request_digest')==launch['request_digest'] and launch['launch_id']==plan['launch_id'],'CODING_INPUT_CHAIN_MISMATCH')
   test,custody=verified_qualification(rows,index['independent_test_job_id'],target);require(custody['source_attempt_id']==plan['attempt_id'] and custody['repository_id']==target['repository_id'] and custody['source_object_id']==target.get('result_source_object_id') and test['source_object_id']==custody['source_object_id'],'INDEPENDENT_TEST_OF_CODING_RESULT_REQUIRED')
- return {'schema_version':1,'task':task,'status':'PASS','qualified':True,'scope':'actual read-only PostgreSQL, signed native execution and pinned scenario captures','assertions':list(required),'target_digest':digest(target),'evidence_digest':digest(index),'observed_at':observed['identity']['observed_at']}
+ return {'schema_version':1,'task':task,'status':'PASS','qualified':True,'scope':'actual read-only PostgreSQL, signed native execution and pinned scenario captures','assertions':list(required),'target_digest':digest(target),'evidence_digest':digest(index),'contract_derivations':derivations,'observed_at':observed['identity']['observed_at']}
 
 def main(task,component,output):
  parser=argparse.ArgumentParser();parser.add_argument('--component',action='store_true');parser.add_argument('--live-evidence',default=os.environ.get('HF_FLEET_QUALIFICATION_EVIDENCE'));parser.add_argument('--target',default=os.environ.get('HF_FLEET_QUALIFICATION_TARGET'));parser.add_argument('--receipt');parser.add_argument('--inventory',action='store_true');args=parser.parse_args()
