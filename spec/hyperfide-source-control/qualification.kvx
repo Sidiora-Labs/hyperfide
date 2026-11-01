@@ -302,3 +302,15 @@ exit_code = 0
 log = "build/fleet/integration/fleet-bound-not-started-cleanup-component-receipt.json; build/fleet/integration/fleet-bound-not-started-cleanup-v1.log"
 observed = "Eight grouped receipt checks passed. Six unsafe shapes refused without cleanup audit or state/counter changes. Signed manager DESTROY created the actual NOT_STARTED proof and permanent job fence, released four exact logical reservations and advanced the stopped mechanical session version. SDK UNKNOWN/present held four physical reservations until confirmed absence. Original install/head/delivery/job history, scoped reads, minimal proof privileges and accounting replay remained intact."
 scope = "Actual signed manager API, PostgreSQL and pinned-SDK HTTP component boundary with controlled prior READY/mechanical preparation metadata. This receipt establishes neither new native install execution nor a completed live cleanup cycle."
+
+[progress.fleet_expired_destroy_observation_and_queue]
+revision = "worker source 101677ca"
+source_digest = "sha256:0dd6eb3303ff7a5c952437c6470a39e61b51bce222695ee895958c56dc1bc9d7"
+dist_digest = "sha256:8d7251f02902335329cb4e81d2a8fa3dd1251679c690ef1516321b9f6fd71e8b"
+migration_catalog_count = 71
+command = "fleet_expired_preinstall_cleanup.py --expired-destroy-observation"
+exit_code = 0
+log = "build/fleet/integration/fleet-expired-destroy-observation-v2-receipt.json; build/fleet/integration/fleet-expired-destroy-observation-v2-final-repaired.log"
+observed = "The adverse baseline recorded 116 claims and 115 failures without reconciling a later valid request. The corrected original-order gate passed with six claims, three reconciliations, three refusals and zero DELETE execution. Actual PostgreSQL ACL denial/minimal grant, execute/reconcile row-lock race, SDK GET 503/present/404, possible SUBMITTING/UNKNOWN delivery and wrong boot/configuration cases preserved the required authority and holds. Exact 404 alone released physical counters; replay created no additional intent or expiry proof."
+fixture_corrections = "Two fixture corrections are retained in the receipt: test possible submission through actual public reconciliation while the SDK request is SUBMITTING, and compare configuration-rotation counters against their post-configuration baseline. These corrections did not change production source."
+scope = "Actual signed API, PostgreSQL role/worker/race behavior and controlled pinned-SDK HTTP responses. This gate proves observation-only continuation and queue progress; it does not establish a model-selected DELETE or a complete fleet journey."

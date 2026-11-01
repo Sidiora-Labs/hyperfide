@@ -102,6 +102,10 @@ Observations expose package-scoped recovery candidates, including previous owner
 
 When an operator destroys a manager-owned sandbox, that manager's original CREATE observation includes the audited administrative disposition and confirmed provider-absence evidence for the same native sandbox and boot. The evidence preserves operator provenance and lets the manager reason about replacement capacity.
 
+An expired DESTROY that is still untouched `RECORDED` can enter observation-only reconciliation. The worker locks the original intent, verifies its unchanged scope and boot, proves there is no provider-delivery evidence, and repeats ownership, active-work and custody checks. It appends `EXPIRED_DESTROY_OBSERVATION_ONLY_V1` evidence and moves the same intent to `RECONCILING` without changing its deadline. Subsequent provider reads do not replay the expired DELETE. Physical holds remain until actual confirmed absence; a present or UNKNOWN resource may require a new manager-authenticated destroy through the existing API.
+
+Provider-worker queue claims record a durable attempt time for selected `RECORDED` intents by advancing `updated_at` and `state_version` in the claim transaction. A failed request observes `retry_ms` from that attempt before becoming eligible again, allowing later requests to progress past older invalid entries. This bookkeeping changes neither intent state, original deadline nor payload and grants no additional provider-delivery authority.
+
 ## Retained provider inventory
 
 Admission inventory refresh is bounded to 32 stale candidates, four concurrent provider reads and a ten-second observation window. A completed partial pass returns `SAME_SCOPE_NEW_RPC`: another call under the same scope continues through stale candidates while skipping fresh exact-policy/scope evidence. Transport uncertainty still reconciles the original operation. A completed pass does not establish complete provider inventory or release uncertain physical presence.
