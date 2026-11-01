@@ -1,3 +1,4 @@
+import {createBlaxelBootstrapKeepaliveTransport} from './bootstrap_keepalive.js';
 import path from 'node:path';
 import type {ComponentContext} from '../../components/registry.js';
 import {hash,strictJSON} from '../../transport/protocol.js';
@@ -34,7 +35,7 @@ export async function verifiedSandbox(context:ComponentContext,input:Pick<Bootst
  return {sandbox,call,observed};
 }
 export function createBlaxelBootstrapTransport(context:ComponentContext):BootstrapTransport{
- return {...createBlaxelBootstrapBudgetTransport(context),async deliverBootstrap(input:BootstrapDelivery,signal:AbortSignal){
+ return {...createBlaxelBootstrapBudgetTransport(context),...createBlaxelBootstrapKeepaliveTransport(context),async deliverBootstrap(input:BootstrapDelivery,signal:AbortSignal){
   const {sandbox,call}=await verifiedSandbox(context,input,signal);
   const manifest=strictJSON(input.manifest);if(!object(manifest)||!object(manifest.template))fail('PROVIDER_BOOTSTRAP_MANIFEST','Exact native bootstrap manifest required');
   const receiptPath=path.join(String(manifest.template.state_root),input.binding.sandbox_id,input.binding.boot_id,'bootstrap-receipt.json');

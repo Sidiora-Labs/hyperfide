@@ -67,3 +67,24 @@ cause = "Provider quota and managed operating budget comparisons used the same s
 resolution = "An explicitly protected accounting policy separates managed allocations from shared provider quota. Retained declarations identify their domain; foreign ownership and physical presence remain observable."
 evidence = "foreign_inventory_capacity.py exercises signed CREATE preparation with shared inventory, distinct quota declarations, expiry and unchanged managed budget ceilings."
 status = "resolved"
+
+[gotcha.fleet_observation_history_budget]
+symptom = "Accumulated effect results and advisory messages exhaust the bounded model observation before another decision can run."
+cause = "Repeated observations included complete historical payloads alongside current admission state; the Primary model action allowlist also omitted manager replacement."
+resolution = "Project historical payloads to digest-bound summaries and expose authorized REPLAN history pages or UTF-8 entry chunks. Preserve current ownership, dependencies, uncertain effects and holds. Permit REPLACE_MANAGER for the Primary and exclude it from Wave Managers."
+evidence = "fleet-provider-history.log passes ten named projection/history checks; fleet-model-role-contract.log captures two authenticated role-specific gateway requests through an HTTPS 503 response, with no model decision inserted."
+status = "resolved"
+
+[gotcha.fleet_http_failure_diagnostics]
+symptom = "An HTTP failure can lose its useful typed diagnostic when forwarded by a runtime worker."
+cause = "Error reporting paths differed between authentication, component dispatch and process-level stderr forwarding."
+resolution = "Emit bounded typed failure events with validated operation/correlation identities; forward only sanitized diagnostic fields and preserve tested retry status mapping."
+evidence = "http-diagnostics-after.log passes 18 signed TLS/PostgreSQL status cases and records 23 bounded events; invalid identities, poisoned codes and canary values are omitted or sanitized, and duplicate timer reports are suppressed. history-keeper-rollout-readiness.json records the deployed loader forwarding the matching strict HTTP 400 readiness diagnostic."
+status = "resolved"
+
+[gotcha.blaxel_bootstrap_observer_keeper]
+symptom = "An idle provider sandbox can suspend its native observer while bootstrap metadata remains READY."
+cause = "A detached native observer does not itself keep the provider SDK process boundary active."
+resolution = "Run a bounded keeper for the exact existing manifest, daemon identity and boot, limited by actual VM and runner expiry. Persist submission before execution, reconcile the same process after uncertainty, and retain terminal failures without resubmission."
+evidence = "bootstrap-observer-keeper-rerun.log passes eight checks using signed PostgreSQL coordination, the pinned SDK boundary and a real Node/proc identity probe; original READY metadata and receipt bytes remain unchanged."
+status = "resolved"

@@ -124,3 +124,39 @@ exit_code = 0
 log = "build/fleet/integration/fleet-separated-accounting.log; build/fleet/integration/fleet-separated-accounting-final.log"
 observed = "The legacy inventory checks passed unchanged. The separate-domain gate admitted a signed CREATE preparation under managed account and pool budgets while accounting for foreign presence against a distinct provider quota. Missing, insufficient and expired quota evidence refused admission. Unknown foreign CPU and disk remained visible without being invented as account-wide limits; a third managed sandbox was refused. Existing declarations, reservations and numeric budgets were preserved."
 assumption = "The isolated fixture supplies explicit quota declarations and controlled provider metadata. CREATE preparation recorded intent without making an external provider mutation. The final separate-domain run corrected the fixture's environment topology; production source and numeric caps were unchanged."
+
+[progress.fleet_bounded_history_and_model_roles]
+revision = "control-source sha256:d79ff54d931e9701c961051e9bade20ea8aa0b20408d5d584edf853762be529f"
+dist_digest = "sha256:2c84fdb7b3588edaa1ce5153931bc68785c50aff244c827c30e55858419e4fea"
+compatible_source = "sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd"
+compatible_dist = "sha256:7b92e60e786d3c3d04ccee3e482cc7dc9c3c21b800f25dba1042d9fa5908489f"
+migration_catalog_count = 69
+command = "fleet_provider_observation.py; fleet_model_role_contract.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-provider-history.log; build/fleet/integration/fleet-model-role-contract.log"
+observed = "Ten named signed HTTPS/PostgreSQL projection/history checks passed. Large retained results remained bounded and exactly retrievable through scoped pages and entry chunks, while uncertain CREATE evidence and physical holds remained visible. Two authenticated reasoning requests captured the Primary replacement action and its exclusion from manager choices; the controlled gateway returned HTTP 503 and no model decision was inserted."
+compatibility = "The history gate used the prior assignment checkpoint with the exact frozen history and orchestration modules overlaid. The role contract gate used the recorded revision. Those modules and the tested HTTP modules are byte-identical in the final checkpoint; original receipt pins are retained."
+
+[progress.fleet_sanitized_http_diagnostics]
+revision = "control-source sha256:d79ff54d931e9701c961051e9bade20ea8aa0b20408d5d584edf853762be529f"
+dist_digest = "sha256:2c84fdb7b3588edaa1ce5153931bc68785c50aff244c827c30e55858419e4fea"
+compatible_source = "sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd"
+compatible_dist = "sha256:7b92e60e786d3c3d04ccee3e482cc7dc9c3c21b800f25dba1042d9fa5908489f"
+command = "transport_http_status.py"
+exit_code = 0
+log = "build/fleet/integration/http-diagnostics-after.log; build/fleet/integration/http-diagnostic-types.log"
+observed = "All 18 signed TLS/PostgreSQL HTTP cases passed. The diagnostic receipt records 23 bounded events, 22 correlated requests and a maximum event size of 204 bytes. Invalid UUIDs and canary content were excluded; poisoned codes were sanitized and the timer event was emitted once. Typed transient and terminal status mapping remained intact."
+scope = "HTTP authentication/component fault boundaries and sanitized diagnostic forwarding; original receipt build pins remain unchanged."
+
+deployment_log = "build/fleet/integration/private/history-keeper-rollout-readiness.json"
+deployment_observed = "The deployed final checkpoint reached signed readiness. Its actual loader forwarded the matching strict HTTP 400 readiness diagnostic with fixed safe fields and correlated validated request identity."
+
+[progress.fleet_bounded_observer_keeper]
+revision = "control-source sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd"
+dist_digest = "sha256:7b92e60e786d3c3d04ccee3e482cc7dc9c3c21b800f25dba1042d9fa5908489f"
+migration_catalog_count = 69
+command = "bootstrap_observer_keeper.py"
+exit_code = 0
+log = "build/fleet/integration/bootstrap-observer-keeper-rerun.log"
+observed = "Eight checks passed through signed PostgreSQL coordination, the pinned SDK filesystem/process boundary and an actual Node/proc probe. Expired lifetime and invalid Node pins refused before effects; concurrent reconciliation and a lost execution reply retained one submitted keeper. Missing processes stayed UNKNOWN without resubmission; wrong start identity produced no proof, terminal keeper failure stayed terminal, and original READY metadata and receipt bytes were unchanged."
+scope = "Declared initial bootstrap and READY records; actual keeper process and journal behavior. A keeper without a signed heartbeat remains WAKING."

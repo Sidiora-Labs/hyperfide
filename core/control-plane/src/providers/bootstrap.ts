@@ -1,3 +1,4 @@
+import {ensureBootstrapKeepalive,type BootstrapKeepaliveTransport} from './bootstrap_keepalive.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {constants} from 'node:fs';
@@ -23,7 +24,7 @@ import {loadResultRootScanPolicy} from '../preparation/result_root_scan.js';
 type Data=Record<string,any>;
 export interface BootstrapFile {artifact_id:string;storage_kind:'object'|'manifest';digest:string;size_bytes:string;manifest_digest?:string;target:string;mode:'0400'|'0444'|'0500'|'0555'|'0600'|'0700'}
 export interface BootstrapDelivery {operation:ProviderOperation<'create'>;binding:Data;process_id:string;native_path:string;native_digest:string;manifest_path:string;manifest_digest:string;manifest:Buffer;secret_path:string;secret:Buffer;files:Array<{path:string;digest:string;mode:string;bytes:Buffer}>;deadline_at:string;resume_only:boolean;markSubmitting:()=>Promise<void>;assertCurrent:()=>Promise<void>}
-export interface BootstrapTransport extends Partial<BootstrapBudgetTransport> {deliverBootstrap(input:BootstrapDelivery,signal:AbortSignal):Promise<{state:'RUNNING'|'COMPLETED'|'UNKNOWN';receipt:unknown|null}>}
+export interface BootstrapTransport extends Partial<BootstrapBudgetTransport>,Partial<BootstrapKeepaliveTransport> {deliverBootstrap(input:BootstrapDelivery,signal:AbortSignal):Promise<{state:'RUNNING'|'COMPLETED'|'UNKNOWN';receipt:unknown|null}>}
 interface Descriptor {schema_version:1;origin:string;ca_file:string;state_root:string;pools:Data[]}
 const DIGEST=/^sha256:[a-f0-9]{64}$/;
 function absolute(value:unknown):value is string{return typeof value==='string'&&path.isAbsolute(value)&&path.normalize(value)===value&&!value.includes('\0');}
@@ -82,7 +83,7 @@ export function createProviderBootstrap(context:ComponentContext){
   const configured=await descriptor(context.env);if(!configured)return {bootstrap:'UNCONFIGURED'};
   const invocation=providerInvocation(database),p=invocation.principal;
   const original=(await database.query('SELECT * FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND id=$2',[config.organisation_id,id])).rows[0];if(!original)fail('PROVIDER_BOOTSTRAP_INTENT','Original admitted CREATE required');assertInvocationRun(database,original.run_id);
-  const readyResult=async(receipt:unknown)=>{const boot=(await database.query("SELECT * FROM hyperfide.provider_native_bootstraps WHERE organisation_id=$1 AND run_id=$2 AND intent_id=$3 AND state='READY'",[p.organisation_id,p.run_id,id])).rows[0];if(!boot)fail('BOOTSTRAP_BUDGET_STALE','READY bootstrap required');return {bootstrap:'READY',receipt,...await qualifyBootstrapBudget(context,database,original,boot,transport,signal)};};
+  const readyResult=async(receipt:unknown)=>{const boot=(await database.query("SELECT * FROM hyperfide.provider_native_bootstraps WHERE organisation_id=$1 AND run_id=$2 AND intent_id=$3 AND state='READY'",[p.organisation_id,p.run_id,id])).rows[0];if(!boot)fail('BOOTSTRAP_BUDGET_STALE','READY bootstrap required');return {bootstrap:'READY',receipt,...(original.operation.scope.provider==='blaxel'?await ensureBootstrapKeepalive(context,database,{...boot,operation:original.operation},transport,signal):{}),...await qualifyBootstrapBudget(context,database,original,boot,transport,signal)};};
   let recipe=configured.pools.find(item=>item.pool_id===original.pool_id);if(!recipe)return {bootstrap:'UNCONFIGURED'};
   const approved=await currentPool(database,config,original.pool_id),executionRole=(approved.pool as unknown as Data).execution_role;
   if(executionRole!==undefined){

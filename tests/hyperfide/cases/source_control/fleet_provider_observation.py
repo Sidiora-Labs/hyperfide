@@ -113,10 +113,70 @@ def main():
                 metadata_ids.add(observation_id)
                 f.sql("INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),$5)", [i['organisation'], observation_id, entry['intent'], uid(), evidence, json.dumps(body)])
 
+        historical = {}
+        for n in range(48):
+            observation, reasoning, decision, operation = [uid() for _ in range(4)]
+            result = {'kind': 'REPLAN', 'proposal': {'purpose': 'declared historical projection prerequisite', 'text': str(n) + ':' + 'p' * 16384}, 'advisory_only': True}
+            digest = sha(json.dumps(result, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode())
+            f.sql("INSERT INTO hyperfide.fleet_observations(organisation_id,run_id,id,actor_id,cohort_generation,context_digest,body) VALUES($1,$2,$3,$4,1,$5,'{}')", common + [observation, i['manager'], digest])
+            f.sql("INSERT INTO hyperfide.fleet_reasoning(organisation_id,run_id,id,actor_id,request_digest,observation_id,state,result) VALUES($1,$2,$3,$4,$5,$6,'COMPLETED','{}')", common + [reasoning, i['manager'], digest, observation])
+            f.sql("INSERT INTO hyperfide.fleet_decisions(organisation_id,run_id,id,operation_id,actor_id,action,context_digest,payload_digest,reasoning_id,body) VALUES($1,$2,$3,$4,$5,'REPLAN',$6,$6,$7,'{}')", common + [decision, operation, i['manager'], digest, reasoning])
+            f.sql("INSERT INTO hyperfide.fleet_effect_receipts(organisation_id,run_id,operation_id,decision_id,payload_digest,result) VALUES($1,$2,$3,$4,$5,$6)", common + [operation, decision, digest, json.dumps(result)])
+            historical[operation] = {'decision': decision, 'result': result, 'digest': digest, 'bytes': len(json.dumps(result, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode())}
+        assert sum(item['bytes'] for item in historical.values()) > 262144
+
         def observe(key):
             return api('fleet.observe', {'binding': bindings[key], 'after': None, 'limit': 100}, key)
 
         own, other, primary = observe('manager'), observe('manager2'), observe('leader')
+        assert len(json.dumps(own, separators=(',', ':'), ensure_ascii=False).encode()) <= 262144
+        projected = {item['operation_id']: item for item in own['effect_receipts'] if item['operation_id'] in historical}
+        assert set(projected) == set(historical)
+        for operation, item in projected.items():
+            original = historical[operation]
+            assert item['projection'] == 'TYPED_SUMMARY_V1' and item['result_digest'] == original['digest'] and item['result_bytes'] == original['bytes'], item
+            assert len(json.dumps(item, separators=(',', ':'), ensure_ascii=False).encode()) <= 512, item
+        original = next(iter(historical.values()))
+        inspected = api('fleet.decision.inspect', {'decision_id': original['decision'], 'include_effect': True}, 'manager')['effect_receipt']
+        assert inspected['result'] == original['result'] and inspected['result_digest'] == original['digest'] and inspected['result_bytes'] == original['bytes'], inspected
+        f.reject('fleet.decision.inspect', {'decision_id': original['decision'], 'include_effect': True}, 'FLEET_DECISION_MISSING', key='manager2', component='fleet-orchestration')
+        def history_read(request):
+            observation = observe('leader')
+            decision, operation, reasoning = uid(), uid(), uid()
+            value = {'schema_version': 1, 'kind': 'hyperfide.fleet-decision', 'decision_id': decision, 'operation_id': operation, 'run_id': i['run'], **bindings['leader'], 'source_revision': observation['source_revision'], 'spec_revision': observation['spec_revision'], 'context_digest': observation['context_digest'], 'action': 'REPLAN', 'input': {'history_request': request}, 'expected_version': observation['plan_generation'], 'rationale_summary': 'Read retained historical evidence without execution authority'}
+            canonical = lambda value: json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+            value['input_digest'] = sha(canonical(value['input']))
+            digest = sha(canonical(value))
+            f.sql("INSERT INTO hyperfide.fleet_reasoning(organisation_id,run_id,id,actor_id,request_digest,observation_id,state,result) VALUES($1,$2,$3,$4,$5,$6,'COMPLETED','{}')", common + [reasoning, i['leader'], digest, observation['observation_id']])
+            f.sql("INSERT INTO hyperfide.fleet_decisions(organisation_id,run_id,id,operation_id,actor_id,action,context_digest,payload_digest,reasoning_id,body) VALUES($1,$2,$3,$4,$5,'REPLAN',$6,$7,$8,$9)", common + [decision, operation, i['leader'], observation['context_digest'], digest, reasoning, json.dumps(value)])
+            result = api('fleet.decision.apply', {'decision': value}, 'leader')
+            next_observation = observe('leader')
+            retained = next_observation['history']['last_read']
+            assert retained['operation_id'] == operation
+            assert {k: v for k, v in result.items() if k != 'replayed'} == retained['result']
+            return result
+
+        coordination = {'recipient_package_id': i['wave_package'], 'message': 'retained advisory coordination ' + 'c' * 8192, 'execution_authority': False}
+        coordination_id = uid()
+        f.sql("INSERT INTO hyperfide.outbox_events(organisation_id,run_id,id,aggregate_type,aggregate_id,aggregate_version,event_type,payload) VALUES($1,$2,$3,'fleet',$4,1,'fleet.manager.coordination',$5)", common + [coordination_id, i['wave_package'], json.dumps(coordination)])
+        coordination_page = history_read({'collection': 'coordination', 'cursor': None, 'limit': 8})
+        assert coordination_page['advisory_only'] is True and coordination_page['execution_authority'] is False
+        assert any(item['id'] == coordination_id and item['content'] == coordination for item in coordination_page['items']), coordination_page
+        page = history_read({'collection': 'effect_receipts', 'cursor': None, 'limit': 8})
+        assert page['kind'] == 'FLEET_HISTORY_PAGE' and page['advisory_only'] is True and page['execution_authority'] is False
+        assert len(json.dumps(page, separators=(',', ':'), ensure_ascii=False).encode()) <= 49152 and page['has_more'] is True
+        assert any(item.get('content') in [entry['result'] for entry in historical.values()] for item in page['items'])
+        selected_operation, selected = next(iter(historical.items()))
+        pieces, offset = [], 0
+        while True:
+            chunk = history_read({'collection': 'effect_receipts', 'cursor': None, 'limit': 1, 'entry_id': selected_operation, 'offset': offset})
+            assert chunk['content_digest'] == selected['digest'] and chunk['content_bytes'] == selected['bytes']
+            pieces.append(chunk['content'])
+            if chunk['next_offset'] is None:
+                break
+            assert chunk['next_offset'] > offset
+            offset = chunk['next_offset']
+        assert json.loads(''.join(pieces)) == selected['result']
         rows = {row['provider_intent_id']: row for row in own['provider_intents']}
         row = rows[unknown['intent']]
         assert row['provider_outcome'] == 'UNKNOWN' and row['provider_acceptance'] == 'UNKNOWN', row
@@ -152,7 +212,7 @@ def main():
         assert all(rows[entry['intent']]['latest_observation_id'] not in metadata_ids for entry in [known, matched_get]), rows
         assert not {unknown['intent'], known['intent'], destroyed['intent']} & {item['provider_intent_id'] for item in other['provider_intents']}, other['provider_intents']
         assert {unknown['intent'], known['intent'], destroyed['intent']} <= {item['provider_intent_id'] for item in primary['provider_intents']}, primary['provider_intents']
-        print(json.dumps({'status': 'PASS', 'scope': 'isolated PostgreSQL prerequisites and production signed HTTPS fleet.observe projection', 'provider_calls': 0, 'model_inference': 'NOT_CLAIMED', 'native_auth_qualification': 'NOT_CLAIMED', 'observed_unknown': row, 'observed_known': positive, 'observed_destroy': destroy_row, 'checks': ['CREATE uncertainty survives newer accepted empty LIST', 'administrative release preserves actual held capacity', 'unknown native excluded from sandbox candidates', 'manager scope excludes other package while Primary sees both', 'known native CREATE evidence remains ownership positive', 'DESTROY outcome retains original operation provenance beneath newer LIST', 'matched accepted healthy GET reconciles original CREATE uncertainty with exact effective provenance', 'wrong-native and wrong-boot GET cannot replace original CREATE uncertainty', 'newer inventory and daemon metadata cannot mask latest lifecycle provenance']}))
+        print(json.dumps({'status': 'PASS', 'scope': 'isolated PostgreSQL prerequisites and production signed HTTPS fleet.observe projection', 'provider_calls': 0, 'model_inference': 'NOT_CLAIMED', 'native_auth_qualification': 'NOT_CLAIMED', 'observed_unknown': row, 'observed_known': positive, 'observed_destroy': destroy_row, 'checks': ['CREATE uncertainty survives newer accepted empty LIST', 'administrative release preserves actual held capacity', 'unknown native excluded from sandbox candidates', 'manager scope excludes other package while Primary sees both', 'known native CREATE evidence remains ownership positive', 'DESTROY outcome retains original operation provenance beneath newer LIST', 'matched accepted healthy GET reconciles original CREATE uncertainty with exact effective provenance', 'wrong-native and wrong-boot GET cannot replace original CREATE uncertainty', 'newer inventory and daemon metadata cannot mask latest lifecycle provenance', 'large historical effect results stay bounded and exactly retrievable only within actor scope']}))
     finally:
         f.close()
 
