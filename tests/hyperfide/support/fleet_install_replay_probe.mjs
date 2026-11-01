@@ -1,0 +1,44 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {constants} from 'node:fs';
+import {promisify} from 'node:util';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+const execute=promisify(execFile),options=new Map();
+for(let i=2;i<process.argv.length;i+=2){const key=process.argv[i],value=process.argv[i+1];if(!['--runtime','--package','--source-config','--envelope','--dirty-path'].includes(key)||!value||options.has(key))throw Error('Explicit runtime, package, source-config, envelope and existing dirty-path required');options.set(key,path.resolve(value));}
+if(options.size!==5)throw Error('All five replay probe paths required');
+const hash=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');
+const canonical=v=>JSON.stringify(v&&typeof v==='object'?Array.isArray(v)?v.map(x=>JSON.parse(canonical(x))):Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(canonical(v[k]))])):v);
+if(process.getuid?.()!==0||process.geteuid?.()!==0)throw Error('Protected root mechanical replay required');
+const readOwned=async(filename,limit,privateFile=false)=>{if(await fs.realpath(filename)!==filename)throw Error('Protected replay file cannot traverse links');const fd=await fs.open(filename,constants.O_RDONLY|constants.O_NOFOLLOW);try{const a=await fd.stat();if(!a.isFile()||a.uid!==0||a.nlink!==1||(a.mode&0o022)||privateFile&&(a.mode&0o077)||a.size>limit)throw Error('Protected bounded root-owned replay input required');const chunks=[];let size=0;for(;;){const chunk=Buffer.alloc(Math.min(65536,limit+1-size)),{bytesRead}=await fd.read(chunk,0,chunk.length,null);if(!bytesRead)break;size+=bytesRead;if(size>limit)throw Error('Replay input exceeds bounded size');chunks.push(chunk.subarray(0,bytesRead));}const bytes=Buffer.concat(chunks),b=await fd.stat();if(a.ino!==b.ino||a.size!==b.size||a.mtimeMs!==b.mtimeMs||a.ctimeMs!==b.ctimeMs)throw Error('Replay input changed during read');return bytes;}finally{await fd.close();}};
+const probePath=fileURLToPath(import.meta.url);
+const measureSelf=async()=>{const bytes=await readOwned(probePath,65536),s=await fs.lstat(probePath);return {path:probePath,digest:hash(bytes),uid:s.uid,gid:s.gid,mode:s.mode&0o777,size_bytes:bytes.length};};
+const selfBefore=await measureSelf(),probeDigest=selfBefore.digest;
+const runtime=options.get('--runtime'),envelope=JSON.parse(await readOwned(options.get('--envelope'),4*1024*1024,true)),operation=envelope.admission.operation_id;
+const {admission_digest,...admissionBody}=envelope.admission;
+if(hash(Buffer.from(canonical(admissionBody)))!==admission_digest||hash(Buffer.from(canonical(envelope.plan)))!==envelope.admission.plan_digest||!Array.isArray(envelope.plan.runtime_files))throw Error('Immutable replay admission/plan pins required');
+for(const pin of envelope.plan.runtime_files)if(hash(await readOwned(pin.path,256*1024*1024))!==pin.digest)throw Error('Admitted runtime closure changed');
+for(const filename of [runtime,path.join(path.dirname(runtime),'fleet_client.js')])if(!envelope.plan.runtime_files.some(p=>p.path===filename))throw Error('Replay imported module is not admitted');
+const nodeDigest=hash(await readOwned(process.execPath,256*1024*1024));
+if(!envelope.plan.runtime_files.some(p=>p.path===process.execPath&&p.digest===nodeDigest))throw Error('Replay Node is not the admitted interpreter');
+const {createInstallAuthorityClient}=await import(pathToFileURL(path.join(path.dirname(runtime),'fleet_client.js')));
+const client=await createInstallAuthorityClient(envelope.authority_config_path),before=await client.status(operation);
+if(before.state!=='READY'||canonical(before.admission)!==canonical(envelope.admission)||!before.receipt)throw Error('Existing authenticated same-operation READY install required');
+const dirtyPath=options.get('--dirty-path'),slot=before.receipt.slots.find(s=>{const relative=path.relative(s.source,dirtyPath);return relative!==''&&relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);});
+if(!slot)throw Error('Existing dirty file must belong to an installed worker source');
+const measure=async()=>{if(await fs.realpath(dirtyPath)!==dirtyPath)throw Error('Dirty overlay must not traverse a symlink');const fd=await fs.open(dirtyPath,'r');try{const a=await fd.stat();if(!a.isFile()||a.size>16*1024*1024)throw Error('Bounded ordinary dirty file required');const bytes=await fd.readFile(),b=await fd.stat();if(a.ino!==b.ino||a.size!==b.size||a.mtimeMs!==b.mtimeMs||a.ctimeMs!==b.ctimeMs)throw Error('Dirty file changed while measured');return {slot:slot.slot,path:dirtyPath,digest:hash(bytes),size_bytes:bytes.length,mode:a.mode&0o777,uid:a.uid,gid:a.gid};}finally{await fd.close();}};
+const dirtyBefore=await measure(),invocations=[];
+const relativeDirty=path.relative(slot.source,dirtyPath).split(path.sep).join('/'),tracked=before.receipt.source_files.filter(entry=>entry.path===relativeDirty),owner=envelope.admission.slot_bindings.find(b=>b.slot===slot.slot);
+if(!owner||dirtyBefore.uid!==owner.uid||dirtyBefore.gid!==owner.gid||tracked.some(entry=>entry.digest===dirtyBefore.digest))throw Error('Probe needs actual worker-owned changed or untracked bytes');
+for(let i=0;i<2;i++){
+ const argv=[runtime,'--package',options.get('--package'),'--source-config',options.get('--source-config'),'--envelope',options.get('--envelope'),'--json'];
+ const result=await execute(process.execPath,argv,{timeout:120000,maxBuffer:4*1024*1024,encoding:'utf8'}),receipt=JSON.parse(result.stdout);
+ const {reused,...retained}=receipt;if(reused!==true||canonical(retained)!==canonical(before.receipt))throw Error('CLI replay did not retain the immutable READY receipt');invocations.push({receipt});
+}
+const after=await client.status(operation),dirtyAfter=await measure();
+const selfAfter=await measureSelf();
+if(canonical(selfAfter)!==canonical(selfBefore))throw Error('Probe bytes changed during execution');
+if(canonical(after)!==canonical(before)||canonical(dirtyAfter)!==canonical(dirtyBefore))throw Error('Replay changed authority or dirty bytes/metadata');
+const status=v=>({state:v.state,operation_id:v.admission.operation_id,admission_digest:v.admission.admission_digest,receipt_digest:v.receipt_digest});
+process.stdout.write(JSON.stringify({schema_version:1,kind:'hyperfide.install-replay-capture',probe_digest:probeDigest,node_digest:nodeDigest,probe_before:selfBefore,probe_after:selfAfter,plan_digest:envelope.admission.plan_digest,install_operation_id:operation,authority_before:status(before),authority_after:status(after),invocations,dirty_before:dirtyBefore,dirty_after:dirtyAfter})+'\n');

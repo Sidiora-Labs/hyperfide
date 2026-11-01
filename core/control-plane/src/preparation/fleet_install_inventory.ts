@@ -6,7 +6,7 @@ import {fleetReadinessDigest as documentDigest} from './fleet_readiness_contract
 import {fail,hash} from '../transport/protocol.js';
 import {fleetConfigurationTargets} from './fleet_configurations.js';
 import type {FleetConfiguration,FleetConfigurationSlot} from './fleet_configurations.js';
-import {readProtectedFile} from './fleet_client.js';
+import {readProtectedFile,readVerifiedInstalledFile} from './fleet_client.js';
 type Data=Record<string,any>;
 export interface DependencyInventoryEntry{path:string;kind:'file'|'symlink'|'directory';digest:string;executable?:boolean;target?:string;size?:number}
 export interface DependencyInventory{schema_version:1;kind:'hyperfide.installed-dependency-inventory';entries:DependencyInventoryEntry[];digest:string}
@@ -38,7 +38,7 @@ export async function captureDependencyInventory(root:string,options:{normalizeL
  await walk(normalized,false);const body={schema_version:1 as const,kind:'hyperfide.installed-dependency-inventory' as const,entries};return {...body,digest:documentDigest(body)};
 }
 export function dependencyClosureDigest(inventory:DependencyInventory,pins:{lockfile_digest:string;selection:unknown}):string{return documentDigest({inventory_digest:inventory.digest,lockfile_digest:pins.lockfile_digest,selection:pins.selection});}
-export async function verifyConfigurationSnapshot(input:{manifest:Data;plan:Data;receiptConfigurations:Data[];sourcePaths:Record<string,string>;slots?:readonly FleetConfigurationSlot[];secretValues?:Map<string,Buffer>;skipPrivate?:boolean;deferSecrets?:boolean;rootOverride?:{expected:string;actual:string}}):Promise<void>{
+export async function verifyConfigurationSnapshot(input:{manifest:Data;plan:Data;receiptConfigurations:Data[];sourcePaths:Record<string,string>;slots?:readonly FleetConfigurationSlot[];secretValues?:Map<string,Buffer>;skipPrivate?:boolean;verifiedReadyReplay?:boolean;deferSecrets?:boolean;rootOverride?:{expected:string;actual:string}}):Promise<void>{
  for(const [section,configuration]of Object.entries(input.manifest)as Array<[string,Data]>){
   if(!section.startsWith('configuration.'))continue;const name=section.slice(14),record=input.receiptConfigurations.find(row=>row.name===name),pin=(input.plan.configuration_versions as Data[]).find(row=>row.name===name);
   if(!record){if(configuration.required)fail('FLEET_INSTALL_CONFIGURATION_MISSING','Required installed configuration is absent');continue;}
@@ -47,7 +47,7 @@ export async function verifyConfigurationSnapshot(input:{manifest:Data;plan:Data
   if(privateConfig&&documentDigest(record.slots)!==documentDigest(targets))fail('FLEET_INSTALL_CONFIGURATION_PIN','Private configuration targets differ from signed workers');
   if(privateConfig&&input.skipPrivate||configuration.kind==='secret-ref'&&input.deferSecrets)continue;
   for(const destination of privateConfig?targets.map(item=>item.target):[configuration.target]){
-   const filename=input.rootOverride?path.join(input.rootOverride.actual,path.relative(input.rootOverride.expected,destination)):destination;const actual=await readProtectedFile(filename,1024*1024,configuration.kind==='secret-ref');
+   const filename=input.rootOverride?path.join(input.rootOverride.actual,path.relative(input.rootOverride.expected,destination)):destination;const actual=input.verifiedReadyReplay&&!privateConfig?await readVerifiedInstalledFile(filename,1024*1024,pin.digest):await readProtectedFile(filename,1024*1024,configuration.kind==='secret-ref');
    if(configuration.kind==='secret-ref'){
     const original=input.sourcePaths[name],expected=input.secretValues?.get(name)??(original?await readProtectedFile(original,1024*1024,true):null);if(!expected)fail('FLEET_INSTALL_CONFIGURATION_MISSING','Secret reuse requires its protected reference channel');if(!actual.equals(expected))fail('FLEET_INSTALL_CONFIGURATION_PIN','Installed secret differs from protected resolved reference');
    }else if(hash(actual)!==pin.digest)fail('FLEET_INSTALL_CONFIGURATION_PIN','Installed configuration bytes differ from immutable reference');

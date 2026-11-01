@@ -83,8 +83,11 @@ def main():
   write(owned/'transport.json',{'origin':f.origin,'ca_file':str(f.ca),'key_path':str(f.keys['runner']['path']),'credential_id':i['runner'],'timeout_ms':10000});write(state/'runner.json',config);(owned/'slots').mkdir(mode=0o711)
   handlers=worker.NativeArchiveWorkerHandlers([owned,f.path,Path('/tmp/hyperfide-output/1')],[Path('/usr/bin/python3').resolve(),Path(shutil.which('node')).resolve(),Path(runtime['native_path'])],{'PATH':str(Path(shutil.which('node')).parent)+':/usr/bin:/bin','LANG':'C.UTF-8'},owned/'process-output');holder['handlers']=handlers
   ok('fleet.install.delivery.schedule',{'operation_id':logical})
+  last_heartbeat=0.0
   def heartbeat():
-   version=f.sql('SELECT state_version::text FROM hyperfide.identity_runner_status WHERE credential_id=$1',[i['runner']])[0]['state_version'];ok('identity.runner.heartbeat',{'expected_version':version},component='14.1',key='runner')
+   nonlocal last_heartbeat
+   if time.monotonic()-last_heartbeat<1:return
+   version=f.sql('SELECT state_version::text FROM hyperfide.identity_runner_status WHERE credential_id=$1',[i['runner']])[0]['state_version'];ok('identity.runner.heartbeat',{'expected_version':version},component='14.1',key='runner');last_heartbeat=time.monotonic()
   heartbeat()
   stderr=(owned/'executor.stderr').open('w+');executor=subprocess.Popen(['node',str(SUPPORT/'archive_executor_process.mjs'),str(ROOT/'core/control-plane/dist'),str(f.components),str(f.policy)],cwd=f.path,env=f.env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=stderr,text=True,bufsize=1)
   staging=parent/('.hyperfide-install-'+sha(env_id+':1:'+inputs['plan_digest'])[7:31]);marker=staging/'.installer-home/interrupted-install-ready';deadline=time.monotonic()+60;pid=None

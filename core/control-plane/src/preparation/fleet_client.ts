@@ -1,9 +1,10 @@
+import {canonicalJSON} from './manifests.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import https from 'node:https';
 import {createPrivateKey,randomUUID,sign} from 'node:crypto';
 import {constants} from 'node:fs';
-import {canonicalOrigin,fail,hash,signingBytes,strictJSON,uuid} from '../transport/protocol.js';
+import {canonicalOrigin,fail,hash,signingBytes,strictJSON,uuid,DIGEST} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
 export interface FleetInstallRecoveryOf{install_operation_id:string;admission_digest:string;runner_operation_id:string;runner_plan_digest:string;quiescence_operation_id:string;quiescence_receipt_digest:string}
 export interface InstallAdmission{schema_version:1;kind:'hyperfide.fleet-install-admission';operation_id:string;logical_operation_id:string;recovery_of?:FleetInstallRecoveryOf;organisation_id:string;run_id:string;environment_id:string;environment_generation:number;sandbox_id:string;boot_id:string;boot_generation:string;authority_epoch:string;input_digest:string;environment_root:string;slot_bindings:Array<{slot:number;worker_slot_id:string;uid:number;gid:number;slot_generation:string;worker_root:string;source:string;home:string;build:string;temporary:string;dirty:string}>;package_digest:string;source_config_digest:string;plan_digest:string;source_revision:string;source_manifest_digest:string;read_scope:string[];write_scope:string[];expires_at:string;admission_digest:string}
@@ -12,6 +13,15 @@ export async function readProtectedFile(filename:string,maximum=4*1024*1024,priv
  if(!path.isAbsolute(filename)||path.resolve(filename)!==filename||await fs.realpath(filename)!==filename)fail('FLEET_BOOTSTRAP_PATH','Absolute non-symlink bootstrap path required');
  const handle=await fs.open(filename,constants.O_RDONLY|constants.O_NOFOLLOW);
  try{const before=await handle.stat();if(!before.isFile()||before.uid!==process.getuid?.()||(before.mode&0o022)!==0||privateFile&&(before.mode&0o077)!==0||before.size>maximum)fail('FLEET_BOOTSTRAP_PERMISSIONS','Bounded owned bootstrap file without untrusted writes required');const bytes=await handle.readFile(),after=await handle.stat();if(before.ino!==after.ino||before.size!==after.size||before.mtimeMs!==after.mtimeMs||before.ctimeMs!==after.ctimeMs||bytes.length!==before.size)fail('FLEET_BOOTSTRAP_CHANGED','Bootstrap input changed while read');return bytes;}finally{await handle.close();}
+}
+export async function readVerifiedInstalledFile(filename:string,maximum:number,expectedDigest:string,encoding:'bytes'|'canonical-json'='bytes'):Promise<Buffer>{
+ if(process.getuid?.()!==0||!DIGEST.test(expectedDigest)||!Number.isSafeInteger(maximum)||maximum<1)fail('FLEET_INSTALL_ARTIFACT_PIN','Privileged digest-bound installed artifact read required');
+ if(!path.isAbsolute(filename)||path.resolve(filename)!==filename||await fs.realpath(filename)!==filename)fail('FLEET_BOOTSTRAP_PATH','Installed artifact cannot traverse links');
+ const handle=await fs.open(filename,constants.O_RDONLY|constants.O_NOFOLLOW);
+ try{const before=await handle.stat();if(!before.isFile()||before.nlink!==1||(before.mode&0o022)!==0||before.size>maximum)fail('FLEET_BOOTSTRAP_PERMISSIONS','Bounded ordinary installed artifact without untrusted writes required');
+  const buffer=Buffer.alloc(before.size+1);let received=0;while(received<buffer.length){const part=await handle.read(buffer,received,buffer.length-received,received);if(!part.bytesRead)break;received+=part.bytesRead;}const bytes=buffer.subarray(0,received),after=await handle.stat();if(before.dev!==after.dev||before.ino!==after.ino||before.uid!==after.uid||before.gid!==after.gid||before.mode!==after.mode||before.nlink!==after.nlink||before.size!==after.size||before.mtimeMs!==after.mtimeMs||before.ctimeMs!==after.ctimeMs||bytes.length!==before.size)fail('FLEET_BOOTSTRAP_CHANGED','Installed artifact changed while read');
+  const actual=encoding==='canonical-json'?hash(Buffer.from(canonicalJSON(strictJSON(bytes,maximum)))):hash(bytes);if(actual!==expectedDigest)fail('FLEET_INSTALL_ARTIFACT_PIN','Installed artifact differs from authenticated READY pins');return bytes;
+ }finally{await handle.close();}
 }
 export async function createInstallAuthorityClient(filename:string):Promise<InstallAuthorityClient>{
  const parsed=strictJSON(await readProtectedFile(filename,65536,true));
