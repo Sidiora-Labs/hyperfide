@@ -507,6 +507,19 @@ def main():
                 st = os.stat(slot_root / slots[name]['slot_id']); expect(st.st_uid == 0 and st.st_mode & 0o777 == 0o700, 'released slot not quarantined')
         check('runner12.release-quarantines-slot', release)
 
+        def released_observation():
+            a=slots['a'];request={'root':str(slot_root),'slot_id':a['slot_id']}
+            holder=subprocess.Popen([SLOT_PYTHON,'-I','-c','import sys; print("ready",flush=True); sys.stdin.read()'],cwd='/',env={'PATH':'/usr/bin:/bin'},user=a['uid'],group=a['gid'],extra_groups=[],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            children.append(holder)
+            try:
+                expect(holder.stdout.readline().strip()=='ready','released UID process did not start')
+                refused('supervisor.slot.release',request,'SLOT_PROCESSES_ACTIVE')
+            finally:
+                holder.stdin.close();holder.wait(timeout=10)
+            result=ok('supervisor.slot.release',request)
+            expect(result['released'] is True and result['replayed'] is True and result['observed_process_absent'] is True,'released replay lacks fresh UID absence')
+        check('runner12.released-replay-requires-fresh-quiescence',released_observation)
+
         def exclusive():
             sensitive = ok('supervisor.slot.allocate', slot_request(2, 'vm_dedicated', True))
             expect(sensitive['vm_level_isolation'] is True and sensitive['credential_sensitive'] is True and sensitive['isolation_boundary'] == 'dedicated-vm-boot', 'VM-level profile not recorded')

@@ -322,9 +322,9 @@ static int slot_release(const HfJson *json,FILE *out) {
     if (sqlite3_step(statement)!=SQLITE_ROW) {sqlite3_finalize(statement);sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);close(rootfd);return hf_native_error(out,"UNKNOWN_SLOT");}
     uid_t uid=(uid_t)sqlite3_column_int64(statement,0);long long storage=sqlite3_column_int64(statement,2);char state[32];
     snprintf(state,sizeof state,"%s",(const char *)sqlite3_column_text(statement,1));sqlite3_finalize(statement);statement=NULL;
-    if (!strcmp(state,"RELEASED")) {sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);close(rootfd);fputs("{\"slot_id\":",out);hf_json_write_string(out,slot);fputs(",\"released\":true,\"replayed\":true}",out);return 0;}
-    if (strcmp(state,"READY")&&strcmp(state,"CLEANUP_REQUIRED")&&strcmp(state,"STALE_BOOT")) {sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);close(rootfd);return hf_native_error(out,"SLOT_NOT_RELEASABLE");}
     if (uid_has_processes(uid)) {sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);close(rootfd);return hf_native_error(out,"SLOT_PROCESSES_ACTIVE");}
+    if (!strcmp(state,"RELEASED")) {sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);close(rootfd);fputs("{\"slot_id\":",out);hf_json_write_string(out,slot);fputs(",\"released\":true,\"replayed\":true,\"observed_process_absent\":true}",out);return 0;}
+    if (strcmp(state,"READY")&&strcmp(state,"CLEANUP_REQUIRED")&&strcmp(state,"STALE_BOOT")) {sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);close(rootfd);return hf_native_error(out,"SLOT_NOT_RELEASABLE");}
     int valid=1;char path[4200];snprintf(path,sizeof path,"%s/%s",root,slot);
     if (storage>0&&strcmp(state,"STALE_BOOT")&&umount2(path,MNT_DETACH|UMOUNT_NOFOLLOW)&&errno!=EINVAL) valid=0;
     int dir=valid?openat(rootfd,slot,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC):-1;
@@ -342,7 +342,7 @@ static int slot_release(const HfJson *json,FILE *out) {
     sqlite3_close(db);
     if (!valid) return hf_native_error(out,"SLOT_RELEASE_CLEANUP_REQUIRED");
     fputs("{\"slot_id\":",out);hf_json_write_string(out,slot);
-    fprintf(out,",\"released\":true,\"replayed\":false,\"storage_discarded\":%s,\"residual_contents\":\"%s\"}",storage>0?"true":"false",storage>0?"none":"root-quarantined");
+    fprintf(out,",\"released\":true,\"replayed\":false,\"observed_process_absent\":true,\"storage_discarded\":%s,\"residual_contents\":\"%s\"}",storage>0?"true":"false",storage>0?"none":"root-quarantined");
     return 0;
 }
 static int slot_inventory_action(const HfJson *json,FILE *out) {
@@ -578,6 +578,7 @@ int hf_component_12_1(const char *action,const char *request,FILE *out) {
     HfJson *json=malloc(sizeof *json);if (!json) return hf_native_error(out,"RESOURCE_LIMIT");
     if (!hf_json_parse(json,request)) {free(json);return hf_native_error(out,"INVALID_JSON");}
     int result=1;
+    if (!strcmp(action,"supervisor.bootstrap.test")||!strcmp(action,"supervisor.bootstrap.test.stage")) {free(json);return !strcmp(action,"supervisor.bootstrap.test")?hf_supervisor_bootstrap_test(request,out):hf_supervisor_bootstrap_test_stage(request,out);}
     if (!strcmp(action,"supervisor.bootstrap.activate")) {free(json);return hf_supervisor_bootstrap_activate(request,out);}
     if (!strcmp(action,"supervisor.bootstrap")||!strcmp(action,"supervisor.bootstrap.stage")) {free(json);return !strcmp(action,"supervisor.bootstrap")?hf_supervisor_bootstrap(request,out):hf_supervisor_bootstrap_stage(request,out);}
     if (!strcmp(action,"supervisor.serve")) {free(json);return hf_supervisor_daemon(request,out);}

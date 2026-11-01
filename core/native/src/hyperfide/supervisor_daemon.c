@@ -317,7 +317,10 @@ static void pause_ms(long ms) {
  struct timespec wait={.tv_sec=ms/1000,.tv_nsec=(ms%1000)*1000000};
  while(!stopping&&nanosleep(&wait,&wait)&&errno==EINTR){}
 }
+static char daemon_failure_code[97]="";
+const char *hf_supervisor_daemon_failure_code(void){return daemon_failure_code;}
 int hf_supervisor_daemon(const char *request,FILE *out) {
+ snprintf(daemon_failure_code,sizeof daemon_failure_code,"DAEMON_OBSERVER_SETUP_FAILED");
  Daemon d={0};int dir=-1,lock=-1,result=1;const char *error="DAEMON_CONFIGURATION_INVALID";
  struct sigaction previous_term,previous_int,previous_pipe,action={0};int installed=0;
  int output_fd=fileno(out),output_flags=-1,error_fd=fileno(stderr),error_flags=-1;
@@ -372,7 +375,7 @@ done:
  if(lock>=0)close(lock);
  if(dir>=0)close(dir);
  free(d.registration_json);free(d.payload);free(d.pending_registration);
- if(result)result=hf_native_error(out,error);
+ if(result){snprintf(daemon_failure_code,sizeof daemon_failure_code,"%s",error);result=hf_native_error(out,error);}else daemon_failure_code[0]=0;
  /* Keep both descriptors nonblocking until all final diagnostics are attempted.
   * Drop advisory buffered bytes before restoring flags for the caller/stdio exit. */
  (void)fflush(out);__fpurge(out);clearerr(out);

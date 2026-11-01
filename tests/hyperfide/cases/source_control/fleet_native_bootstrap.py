@@ -80,6 +80,18 @@ def main():
    refused=subprocess.run([str(binary),'--component','12.2','--action','launch.relaunch'],input=json.dumps(relaunch),text=True,capture_output=True,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'},timeout=10)
    if refused.returncode==0 or 'CREDENTIAL_ISOLATION_REQUIRED' not in refused.stderr:raise AssertionError('Relaunch read missing secret before authorization '+refused.stderr)
    checks.append('direct-relaunch-authorization-before-secret-resolution')
+   test_manifest=copy.deepcopy(manifest);test_manifest['kind']='FLEET_NATIVE_TEST_BOOTSTRAP_V1'
+   test_manifest['template']['controller']={'node_path':str(node),'node_digest':pin(node),'module_path':str(recipe),'module_digest':pin(recipe)}
+   test_manifest['template']['slots']=[dict(manifest['template']['slots'][0],name='verifier',kind='TEST')]
+   test_manifest['template']['state_root']=str(base/'test-state');test_manifest['template']['slot_root']=str(base/'test-slots');test_manifest['enrollment']['secret_file']=str(base/'test-state'/ids['sandbox']/ids['boot']/'enrollment-grant.json')
+   test_file=Path(directory)/'test-manifest.json';write(test_file,test_manifest)
+   p,r=run('supervisor.bootstrap.test.stage',test_file)
+   if p.returncode or r.get('result',{}).get('kind')!='FLEET_NATIVE_TEST_BOOTSTRAP_STAGE_V1':raise AssertionError('Pinned TEST stage refused '+p.stderr)
+   checks.append('distinct-test-manifest-stage-with-pinned-controller')
+   test_manifest['template']['controller']['module_digest']='sha256:'+'0'*64;write(test_file,test_manifest)
+   p,r=run('supervisor.bootstrap.test.stage',test_file)
+   if p.returncode==0:raise AssertionError('Unpinned ROOT TEST controller accepted')
+   checks.append('test-root-controller-byte-tamper-refused')
 
 
   report={'status':'PASS','scope':'native-bootstrap-stage-and-enrollment-boundary','checks':checks};(OUT/'receipt.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report));return 0
