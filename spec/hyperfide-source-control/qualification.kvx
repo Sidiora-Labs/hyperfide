@@ -314,3 +314,48 @@ log = "build/fleet/integration/fleet-expired-destroy-observation-v2-receipt.json
 observed = "The adverse baseline recorded 116 claims and 115 failures without reconciling a later valid request. The corrected original-order gate passed with six claims, three reconciliations, three refusals and zero DELETE execution. Actual PostgreSQL ACL denial/minimal grant, execute/reconcile row-lock race, SDK GET 503/present/404, possible SUBMITTING/UNKNOWN delivery and wrong boot/configuration cases preserved the required authority and holds. Exact 404 alone released physical counters; replay created no additional intent or expiry proof."
 fixture_corrections = "Two fixture corrections are retained in the receipt: test possible submission through actual public reconciliation while the SDK request is SUBMITTING, and compare configuration-rotation counters against their post-configuration baseline. These corrections did not change production source."
 scope = "Actual signed API, PostgreSQL role/worker/race behavior and controlled pinned-SDK HTTP responses. This gate proves observation-only continuation and queue progress; it does not establish a model-selected DELETE or a complete fleet journey."
+
+[progress.fleet_persistent_interface_store]
+revision = "e38b9a835"
+command = "python3 tests/hyperfide/cases/source_control/0_10.py"
+exit_code = 0
+log = "build/fleet/task-0_10-fixed-gate.log; build/fleet/task-0_10-portable-gate.log"
+observed = "The fixed parser/index gate passed 22 checks; the portable store gate passed 23. Persisted reads retain private-root and inode checks, bounded descriptors, symlink refusal and deterministic malformed-record diagnostics while supporting hosts without the Linux descriptor filesystem."
+scope = "Controlled parser, index and filesystem inputs with per-input hashes in the receipts; no installation or fleet execution claim."
+
+[progress.fleet_installer_process_lock_liveness]
+revision = "7d7e95649"
+command = "fleet_installer_lock_liveness.py"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-installer-lock-liveness-component-receipt.json; build/fleet/integration/fleet-installer-lock-after.log"
+observed = "The public --job-context installer refused live, missing-start and malformed-start owners with FLEET_INSTALL_BUSY. An actual unreaped zombie owner allowed progress to the independent downstream FLEET_CACHE_PATH refusal. Dirty sentinel bytes were preserved and no ready receipt was created."
+scope = "Node 24.22.0, private copied immutable runtime with a source installer overlay; public installer entrypoint and actual process identity, without completed installation or native qualification."
+
+[progress.fleet_definitive_reasoning_refusal_isolation]
+revision = "1b5de7f81"
+command = "fleet_manager_replacement.py definitive-refusal variant"
+exit_code = 0
+log = "build/fleet/manager-replacement/receipt.json; build/fleet/manager-replacement/refusal-baseline/supervisor.log; build/fleet/manager-replacement/refusal-fixed/supervisor.log"
+observed = "The baseline starved a delegated manager after a definitive Primary refusal. Actual signed TLS/PostgreSQL supervision on the corrected overlay isolated that refusal, cleared its completed pending RPC and persisted the healthy manager reasoning request without inventing a decision."
+scope = "Isolated runtime artifacts pinned by the receipt; authenticated role behavior and actual supervisor loop, with no model-inference claim."
+
+[progress.fleet_delegation_sandbox_occupancy]
+revision = "20e1634c0"
+source_digest = "sha256:2633dfab3c2b47e6b45cf438cf85fd5b30d8229f52652b03a4ae0b88a0534b7e"
+dist_digest = "sha256:fc917d43708aa8fa8e326aa4e32dae1b8b426ceee22d192069084eabf233ce44"
+command = "fleet_sandbox_budget.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-sandbox-budget-receipt.json; build/fleet/integration/fleet-sandbox-budget.log"
+observed = "Four signed PostgreSQL/TLS assertions passed: one current owned sandbox counts once; DESTROYED history restores the logical slot; four physical RELEASE_PENDING allocations remain unchanged; bounded samples declare the separate capacity gate without granting authority."
+scope = "Actual delegation logical-occupancy projection and held physical capacity; no provider mutation or worker execution."
+
+[progress.fleet_expired_destroy_supersession]
+revision = "5d1b91702"
+source_digest = "sha256:6991afe507d0ad143726894c8d7119ed1ecb75cffffbdf55980088b54fbc5a09"
+dist_digest = "sha256:03e19c6a8573811450322d94f06446e2e5c8a97ce3f313eea0b139f97d9b530a"
+migration_catalog_count = 71
+command = "fleet_expired_destroy_replacement.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-expired-destroy-replacement-v3-receipt.json; build/fleet/integration/fleet-expired-destroy-replacement-v3-final.log"
+observed = "Four grouped checks passed for signed two-intent replacement: clean expired RECORDED and verified GET-only UNKNOWN predecessors retire atomically; old operation/deadline and physical charges remain unchanged; replay retains one replacement and immutable retirement audit. Actual SDK DELETE 503 with a present resource and UNKNOWN result refuses supersession."
+scope = "Isolated PostgreSQL and pinned-SDK HTTP with controlled original prerequisites. One owned HTTP DELETE request and zero cloud mutations were recorded; simultaneous distinct replacement decisions and live/native qualification were not exercised."

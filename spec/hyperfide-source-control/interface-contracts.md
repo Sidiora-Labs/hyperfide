@@ -37,3 +37,5 @@ An interface change becomes a versioned proposal identifying affected IDs and co
 ## Qualification
 
 SCM-026 must prove syntax/type rejection, stable-ID lookup, exact publication membership, unknown-version refusal, missing and stale consumers, tampered blocks, bounded selection and declared compatibility checks. SCM-027 binds those selected contracts to the installed environment and real consumer execution. A schema parse alone proves neither complete catalogue coverage nor fleet readiness.
+
+Persistent interface stores keep a private canonical root and verify its identity on reads. Where available, Linux directory descriptors anchor access; other Node hosts use canonical-path and inode checks without requiring `/proc`. Bounded record descriptors reject symlink entries, verify persisted data and report malformed records as `INTERFACE_INVALID`. Shared read-only regular records remain supported.

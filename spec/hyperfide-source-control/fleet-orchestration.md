@@ -112,6 +112,10 @@ The admitted page appears in the next observation as `history.last_read`, bound 
 
 A manager may explicitly select never-started recovery through `fleet.install.admit` with the closed `NOT_STARTED` predecessor binding described in [the sandbox contract](sandbox-contracts.md#6-idempotency-dirty-safety-and-multiple-workers). Admission proves expiry and absence of claims/provider execution, permanently fences the old job and retains a fresh execution mapping. This choice does not assert native failure, extend old authority or erase uncertain history. Manager-selected destruction uses the same proof before logical preinstall cleanup and still requires independent provider absence for physical release.
 
+A definitive reasoning RPC refusal clears only that actor’s pending reasoning record and lets the same supervisory cycle continue to the next active actor. An uncertain RPC retains its original operation and stops conflicting dispatch; no substitute decision is generated.
+
+Delegation observations expose exact logical sandbox occupancy and remaining `max_sandboxes` slots, with bounded samples marked when incomplete. Admission uses the same distinct-sandbox count. DESTROYED history no longer occupies a logical delegation slot; physical reservations awaiting absence remain a separate capacity gate and are not released by that count.
+
 A decision record contains no executable arbitrary SQL or shell admitted solely because it came from a model. It selects typed actions within the current contract. Provider executors perform network effects outside metadata transactions after durable intent is committed.
 
 Decision replay is separate from reasoning again. A repeated request with the same identity and canonical inputs returns its original decision/effect record. Changed observations or a new choice require a new decision linked to its predecessor. The system must not call the model again during a transport retry and treat a different answer as the same command.
