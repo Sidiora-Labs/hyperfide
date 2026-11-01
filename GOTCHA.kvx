@@ -71,8 +71,8 @@ status = "resolved"
 [gotcha.fleet_observation_history_budget]
 symptom = "Accumulated effect results and advisory messages exhaust the bounded model observation before another decision can run."
 cause = "Repeated observations included complete historical payloads alongside current admission state; the Primary model action allowlist also omitted manager replacement."
-resolution = "Project historical payloads to digest-bound summaries and expose authorized REPLAN history pages or UTF-8 entry chunks. Preserve current ownership, dependencies, uncertain effects and holds. Permit REPLACE_MANAGER for the Primary and exclude it from Wave Managers."
-evidence = "fleet-provider-history.log passes ten named projection/history checks; fleet-model-role-contract.log captures two authenticated role-specific gateway requests through an HTTPS 503 response, with no model decision inserted."
+resolution = "Budget historical summaries against the complete observation, including cursor timestamps within each summary limit. Expose exact REPLAN pages or UTF-8 chunks with omission counts and continuation cursors. Preserve current ownership, dependencies, uncertain effects, holds and requested pages. Permit REPLACE_MANAGER for the Primary and exclude it from Wave Managers."
+evidence = "fleet-provider-observation-entry-v16-receipt.json records fourteen PostgreSQL and signed HTTPS checks under history pressure, with prior-build observation and entry-size failures. Both byte limits remain unchanged; exact history retrieval, uncertainty and held reservations are preserved. fleet-model-role-contract.log retains the separate role-specific gateway checks."
 status = "resolved"
 
 [gotcha.fleet_http_failure_diagnostics]

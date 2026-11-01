@@ -16,12 +16,12 @@ function boundedSummary(value:unknown):Record<string,unknown>{
  return result;
 }
 export function effectSummary(row:Record<string,any>):Record<string,unknown>{
- const result=boundedSummary(row.result),out:Record<string,any>={decision_id:row.decision_id,operation_id:row.operation_id,action:row.action,result,result_digest:hash(row.result),result_bytes:Buffer.byteLength(canonical(row.result)),projection:'TYPED_SUMMARY_V1'};
+ const result=boundedSummary(row.result),out:Record<string,any>={decision_id:row.decision_id,operation_id:row.operation_id,action:row.action,result,result_digest:hash(row.result),result_bytes:Buffer.byteLength(canonical(row.result)),projection:'TYPED_SUMMARY_V1',...(typeof row.created_at==='string'?{created_at:row.created_at}:{})};
  for(const key of Object.keys(result).reverse()){if(Buffer.byteLength(canonical(out))<=512)break;delete result[key];}
  return out;
 }
 export function coordinationSummary(row:Record<string,any>):Record<string,unknown>{
- const payload=boundedSummary(row.payload),out:Record<string,any>={id:row.id,event_type:row.event_type,payload,payload_digest:hash(row.payload),payload_bytes:Buffer.byteLength(canonical(row.payload)),projection:'TYPED_SUMMARY_V1'};
+ const payload=boundedSummary(row.payload),out:Record<string,any>={id:row.id,event_type:row.event_type,payload,payload_digest:hash(row.payload),payload_bytes:Buffer.byteLength(canonical(row.payload)),projection:'TYPED_SUMMARY_V1',...(typeof row.created_at==='string'?{created_at:row.created_at}:{})};
  for(const key of Object.keys(payload).reverse()){if(Buffer.byteLength(canonical(out))<=512)break;delete payload[key];}
  return out;
 }
