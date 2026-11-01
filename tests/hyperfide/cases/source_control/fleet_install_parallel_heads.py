@@ -77,6 +77,20 @@ def main():
   assert f.sql('SELECT to_jsonb(j) AS row FROM hyperfide.runner_remote_jobs j WHERE operation_id=$1',[admissions[0]['operation_id']])[0]['row']==uncertain_job
   assert f.sql('SELECT id::text,reserved::text,allocated::text FROM hyperfide.capacity_accounts WHERE organisation_id=$1 ORDER BY id',[i['organisation']])==held_accounts
   observed=f.ok('fleet.observe',{'binding':binding,'after':None,'limit':100},key='manager',component='fleet-orchestration')
+  install_contract=observed['action_contracts']['fleet.install.admit']
+  scalar_expected={'environment_generation':{'type':'integer','minimum':1,'maximum':9007199254740991},'ttl_seconds':{'type':'integer','minimum':1,'maximum':3600},'boot_generation':{'type':'string','format':'decimal','pattern':'^[1-9][0-9]{0,18}$','maximum_decimal':'9223372036854775807'},'input_digest':{'type':'string','format':'sha256'},'environment_id':{'type':'string'},'sandbox_id':{'type':'string','format':'uuid'},'boot_id':{'type':'string','format':'uuid'}}
+  for field,expected in scalar_expected.items():
+   published=install_contract.get(field)
+   assert isinstance(published,dict) and all(published.get(key)==value for key,value in expected.items()),{'published_scalar':field,'expected':expected,'observed':published}
+  registered=next(row for row in observed['install_specs'] if row['input_digest']==input_digest)
+  assert type(registered['environment']['environment_generation']) is int and registered['environment']['environment_generation']==1,registered
+  assert all(type(admission['environment_generation']) is int and isinstance(admission['boot_generation'],str) for admission in admissions)
+  invalid_before={'heads':heads(),'installs':f.sql('SELECT to_jsonb(e) AS row FROM hyperfide.fleet_environment_installs e ORDER BY operation_id'),'plans':f.sql('SELECT session_id::text,plan_generation::text FROM hyperfide.fleet_actor_sessions ORDER BY session_id')}
+  invalid_value={**value(guests[0]),'environment_generation':'1'}
+  string_generation=apply(record(invalid_value))
+  assert string_generation.get('error',{}).get('code')=='FLEET_INSTALL_INVALID',string_generation
+  assert {'heads':heads(),'installs':f.sql('SELECT to_jsonb(e) AS row FROM hyperfide.fleet_environment_installs e ORDER BY operation_id'),'plans':f.sql('SELECT session_id::text,plan_generation::text FROM hyperfide.fleet_actor_sessions ORDER BY session_id')}==invalid_before
+  print(json.dumps({'phase':'published_install_scalar_contract','fields':{field:install_contract[field] for field in scalar_expected},'string_generation_refusal':string_generation['error']}),flush=True)
   assert observed['uncertainty_contract']['retry_scope']=='EXACT_OPERATION_AND_PHYSICAL_BOOT' and observed['uncertainty_contract']['independent_intent']
   retained=next(row for row in observed['install_recovery_jobs'] if row['runner_operation_id']==admissions[0]['operation_id'])
   assert retained['state']=='UNKNOWN' and retained['claim_id']==uncertain_job['claim_id'] and retained['result_absent'] is True,retained
@@ -106,6 +120,6 @@ def main():
   branch=apply(record({**value(guest),'recovery_of':recovery}));assert branch.get('error',{}).get('code')=='FLEET_INSTALL_SUPERSEDED' and heads()==advanced,branch
   assert f.sql('SELECT to_jsonb(j) AS row FROM hyperfide.runner_remote_jobs j WHERE operation_id=$1',[admissions[0]['operation_id']])[0]['row']==uncertain_job
   assert f.sql('SELECT id::text,reserved::text,allocated::text FROM hyperfide.capacity_accounts WHERE organisation_id=$1 ORDER BY id',[i['organisation']])==held_accounts
-  print(json.dumps({'status':'PASS','scope':'actual signed admission and recovery over isolated PostgreSQL; controlled registered plan/enrollment/job inputs, no model/native/provider qualification','initial_heads':initial,'advanced_heads':advanced,'duplicate':duplicate['error'],'cross_boot':cross_response['error'],'branch':branch['error'],'uncertainty_retry_scope':observed['uncertainty_contract']['retry_scope'],'old_unknown_retained':True,'checks':['same environment generation admits independent heads on two native boots','same boot duplicate and old-predecessor branch refuse','recovery advances only its exact boot and preserves global root','original and recovery decisions replay without extra heads or proofs']}));return 0
+  print(json.dumps({'status':'PASS','scope':'actual signed admission and recovery over isolated PostgreSQL; controlled registered plan/enrollment/job inputs, no model/native/provider qualification','initial_heads':initial,'advanced_heads':advanced,'duplicate':duplicate['error'],'cross_boot':cross_response['error'],'branch':branch['error'],'uncertainty_retry_scope':observed['uncertainty_contract']['retry_scope'],'install_scalar_contract':{field:install_contract[field] for field in scalar_expected},'string_generation_refusal':string_generation['error'],'old_unknown_retained':True,'checks':['same environment generation admits independent heads on two native boots','same boot duplicate and old-predecessor branch refuse','recovery advances only its exact boot and preserves global root','original and recovery decisions replay without extra heads or proofs','published scalar types match numeric registered generation and actual string generation refusal']}));return 0
  finally:f.close()
 if __name__=='__main__':raise SystemExit(main())
