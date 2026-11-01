@@ -48,6 +48,8 @@ Required files are `control-policy.json`, `control-identity.json`, `control.crt`
 
 The identity configuration's `origin` is the assigned fixed public HTTPS origin. The internal certificate covers `control.local`; its private key must match, and `tls-ca.crt` trusts that internal listener. The public domain uses Railway's certificate independently. Materialized bootstrap files are mode `0600` in a private generation directory. Reusing a generation verifies its exact bundle digest and existing file bytes. Component selection resolves logical IDs from their actual registration files.
 
+Choose a new bootstrap generation when an image changes any selected component registration, even if configuration and credentials stay the same. Startup also retains the selected registration files in that generation directory and rejects conflicting bytes.
+
 Build the bundle from the actual accepted policy, enrollment configuration and operator-owned certificates. Select component IDs from their registrations and include their dependency closure. Bootstrap and later provider-runner enrollment use the existing authenticated protocols.
 
 ## Authority-journal adoption
