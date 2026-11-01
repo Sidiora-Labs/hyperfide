@@ -158,3 +158,24 @@ cause = "Failed RECORDED claims lacked durable attempt timing for queue ordering
 resolution = "Stamp updated_at and state_version for selected RECORDED intents in the claim transaction and enforce retry_ms from that durable attempt. Preserve state, deadline and payload."
 evidence = "The adverse-order baseline observed three older invalid requests, 116 claims, 115 failures and no reconciled later request. fleet-expired-destroy-observation-v2-receipt.json passes the original adverse order with six claims, three reconciled requests and three exact refusals; state, deadline and payload remain unchanged."
 status = "resolved"
+
+[gotcha.fleet_ready_privileged_replay]
+symptom = "Privileged CLI reuse can encounter worker-owned paths after a valid environment has reached READY."
+cause = "Generic bootstrap file-owner checks do not distinguish a current authenticated READY replay from a new installation."
+resolution = "Permit the narrow privileged replay only after current operation and receipt pins match the retained READY receipt; preserve dirty worker state and retain strict ordinary bootstrap-owner checks."
+evidence = "fleet-install-replay-after-receipt.json records actual native READY followed by two public CLI reuse calls, signed TLS status, dirty-state preservation and seven altered identity/receipt/path refusals."
+status = "resolved"
+
+[gotcha.fleet_definitive_delivery_refusal]
+symptom = "A stale queued installation refusal aborts delivery before later current admitted work is reached."
+cause = "The mechanical drain treats a definitive RPC refusal like uncertain transport state."
+resolution = "After the normal RPC journal clears a definitive refusal, record it and continue later admitted items. Retain exact pending identity and stop on uncertainty; keep command allowlists outside that catch."
+evidence = "fleet-supervisor-delivery-starvation-component-receipt.json reproduces starvation and passes the compiled supervisor stale-item and lost-reply gate; STOP routing and component dependencies have separate source/registry checks."
+status = "resolved"
+
+[gotcha.fleet_pre_provider_refusal_scope]
+symptom = "A claimed job refused before provider admission cannot use the never-claimed NOT_STARTED contract."
+cause = "Claimed or UNKNOWN state alone does not prove whether native or provider execution occurred."
+resolution = "Migration 0732 tracks prospective claim coverage and actual typed pre-provider refusal evidence. Use only its exact immutable proof for recovery or logical cleanup; never infer coverage for legacy UNKNOWN records."
+evidence = "The first cleanup gate passed exact proof, logical release and physical hold/absence checks. fleet-install-pre-provider-refusal-v5-receipt.json subsequently passed actual executor refusal, signed producer/consumer, native-claim and provider-admission races, permanent fences and fresh-allocation checks under declared historical inputs; native/provider execution remains outside this component scope."
+status = "resolved"

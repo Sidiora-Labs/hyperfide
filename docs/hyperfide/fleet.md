@@ -106,6 +106,8 @@ An expired DESTROY that is still untouched `RECORDED` can enter observation-only
 
 Provider-worker queue claims record a durable attempt time for selected `RECORDED` intents by advancing `updated_at` and `state_version` in the claim transaction. A failed request observes `retry_ms` from that attempt before becoming eligible again, allowing later requests to progress past older invalid entries. This bookkeeping changes neither intent state, original deadline nor payload and grants no additional provider-delivery authority.
 
+Mechanical install, completion and TEST delivery isolates definitive RPC refusals: the supervisor records the refusal and continues later admitted items. An uncertain reply retains the exact pending operation and stops conflicting delivery until reconciliation. Command allowlists and schema checks remain mandatory. Completion STOP commands use `runner.control.issue` through the declared `12.4-capture` dependency.
+
 ## Retained provider inventory
 
 Admission inventory refresh is bounded to 32 stale candidates, four concurrent provider reads and a ten-second observation window. A completed partial pass returns `SAME_SCOPE_NEW_RPC`: another call under the same scope continues through stale candidates while skipping fresh exact-policy/scope evidence. Transport uncertainty still reconciles the original operation. A completed pass does not establish complete provider inventory or release uncertain physical presence.

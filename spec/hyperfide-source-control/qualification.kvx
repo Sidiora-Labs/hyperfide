@@ -366,3 +366,54 @@ exit_code = 0
 log = "build/fleet/integration/fleet-expired-destroy-replacement-v3-receipt.json; build/fleet/integration/fleet-expired-destroy-replacement-v3-final.log"
 observed = "Four grouped checks passed for signed two-intent replacement: clean expired RECORDED and verified GET-only UNKNOWN predecessors retire atomically; old operation/deadline and physical charges remain unchanged; replay retains one replacement and immutable retirement audit. Actual SDK DELETE 503 with a present resource and UNKNOWN result refuses supersession."
 scope = "Isolated PostgreSQL and pinned-SDK HTTP with controlled original prerequisites. One owned HTTP DELETE request and zero cloud mutations were recorded; simultaneous distinct replacement decisions and live/native qualification were not exercised."
+
+[progress.fleet_ready_privileged_replay]
+revision = "d443f85b2"
+command = "fleet_install_replay.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-replay-after-receipt.json"
+runtime_base_source = "sha256:2633dfab3c2b47e6b45cf438cf85fd5b30d8229f52652b03a4ae0b88a0534b7e"
+runtime_base_dist = "sha256:fc917d43708aa8fa8e326aa4e32dae1b8b426ceee22d192069084eabf233ce44"
+native_digest = "sha256:c9aa8ff6f450b8f70e2d39f7882d5a5ab2742db82705ad60f1dffb54c1efadd2"
+observed = "Actual interrupted native execution recovered to READY, then two public CLI reuse calls validated signed TLS status and retained the existing receipt. Seven negative cases covered changed operation, receipt or dirty-state identity, status-only substitution, receipt tamper/symlink and ordinary bootstrap-owner strictness. No new install head, job or decision was created."
+scope = "Isolated immutable runtime with three frozen preparation source overlays stripped using Node 24. Actual native execution and worker-UID dirty filesystem; no live-provider or separately authenticated replay-driver qualification."
+current_revision = "9a80f8dac"
+current_replay_log = "build/fleet/integration/fleet-install-replay-closure-safe-receipt.json"
+current_replay_observed = "The callback-safe closure rerun passed actual interrupted native recovery and the same two public READY CLI reuse calls plus seven negative cases. Runtime file closure is explicit; an optional transfer callback is runtime data rather than a file path. Original failed logs and the earlier receipt remain retained."
+current_replay_scope = "The same isolated base2633/fc91 runtime with three separately hashed preparation overlays and native c9aa executable. This rerun does not establish a live provider or a separately authenticated replay driver."
+
+[progress.fleet_definitive_delivery_refusal_isolation]
+revision = "168bae2ae"
+source_digest = "sha256:d3a4ed2440f3d9c2fe4b01478272bfb9e2a4a7f00149423c3b86e450292c58df"
+dist_digest = "sha256:d5d5efe90721a8af007ae960fb5943365dc33fc0b02f60f68940732e76b7e580"
+migration_catalog_count = 71
+command = "fleet_supervisor_delivery_starvation.py"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-supervisor-delivery-starvation-component-receipt.json"
+observed = "The baseline stopped after a definitive stale-item refusal. The compiled supervisor gate reached later current queued work and recorded the refusal; transparent TLS reply loss retained the exact pending operation, prevented later work and reconciled using the same operation ID."
+scope = "Actual signed PostgreSQL/TLS APIs and supervisor with controlled queued history. The fixed compiled checkpoint changes only the supervisor. STOP routing and the 12.4-capture component dependency were independently source/registry checked; this gate does not establish native STOP execution."
+
+[progress.fleet_pre_provider_refusal_cleanup]
+revision = "frozen migration 0732 contract and cleanup component"
+source_digest = "sha256:72b765b26735514d59eecfaedc01d89f450ef477c9878525075d70aa497647a5"
+dist_digest = "sha256:bb84c08ded51991b3ac3150afda2c186e1c626e0d429366db764f346de72fef2"
+migration_catalog_count = 72
+migration_digest = "sha256:d8974da78c98f3840c66eed25424f8a361b0518dea19cd1682eeb27c0cd36526"
+command = "pre-provider refusal cleanup component variant"
+exit_code = 0
+log = "build/fleet/integration/fleet-pre-provider-refusal-cleanup-v1-receipt.json"
+observed = "The first component run passed four grouped checks: an actual signed producer proof authorized exact covered CLAIMED/UNKNOWN cleanup while legacy uncovered claims refused; four logical reservations released once with session-version progression; original UNKNOWN/null-result/install/head/delivery/proof history remained; SDK 503/present held physical charges until 404 released them once with stable replay."
+scope = "Actual signed producer/manager APIs, PostgreSQL and controlled pinned-SDK HTTP with prior READY/claim/registration metadata. This remains cleanup-path evidence; the later core receipt is recorded separately below. No native/model/live execution is qualified by this cleanup receipt."
+historical_core_gate_status = "Core recovery evidence was pending at the first cleanup receipt; the later v5 component gate passed at its separate snapshot."
+
+[progress.fleet_pre_provider_refusal_core]
+revision = "41686994d"
+source_digest = "sha256:15babe06cd08b7fd0eeae7f1754ed725783fa8c36a976f45997214df9adcc910"
+dist_digest = "sha256:851b460e38e6f9d2a37016b34cd39e97599261e5ee684af2f9d9621a05f90951"
+migration_catalog_count = 72
+command = "fleet_install_pre_provider_refusal.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-pre-provider-refusal-v5-receipt.json"
+observed = "Nine grouped checks passed. Actual executor timeout refusal produced the immutable proof and permanent request marker; signed replay preserved the original UNKNOWN claim and null result. The seven-pin recovery consumer released exactly four logical reservations while holding physical capacity, retained the coordinator root and issued fresh native/allocation identities. Actual signed native-claim versus proof and PostgreSQL provider-admission contenders produced mutually exclusive authority. Legacy uncovered claims, wrong request/proof/boot, late dispatch and proof mutation refused."
+fixture_corrections = "The receipt retains earlier fixture failures and corrections for immutable plan/principal insertion, per-boot RUNNER identity, controlled current configuration, production branded job policy/dimensions, dependency loading and contender barrier cleanup."
+scope = "Actual executor, signed producer/consumer APIs and PostgreSQL authority races with controlled prior registration metadata. No physical native execution or cloud qualification; mixed FAILED descendant lineage was not exercised by this receipt."
