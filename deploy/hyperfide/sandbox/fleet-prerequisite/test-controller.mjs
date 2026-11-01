@@ -35,6 +35,7 @@ async function main(){
  let state;try{state=JSON.parse(await protectedFile(stateFile,true));if(state.schema_version!==1||JSON.stringify(state.binding)!==JSON.stringify(identity))fail('TEST_CONTROLLER_STATE_BINDING');}catch(error){if(error.code!=='ENOENT')throw error;state={schema_version:1,binding:identity,pending:null,delegated:null,terminal:null};await atomic(stateFile,state);}
  const abort=new AbortController();process.on('SIGTERM',()=>abort.abort());process.on('SIGINT',()=>abort.abort());
  const save=()=>atomic(stateFile,state);
+ const wait=ms=>new Promise(resolve=>{if(abort.signal.aborted){resolve();return;}const done=()=>{clearTimeout(timer);abort.signal.removeEventListener('abort',done);resolve();};const timer=setTimeout(done,ms);abort.signal.addEventListener('abort',done,{once:true});});
  const invoke=async command=>{
   if(hash(await protectedFile(native,false,16777216))!==manifest.template.runner_binary_digest)fail('TEST_CONTROLLER_NATIVE_PIN');
   const payload=JSON.stringify({run_id:binding.run_id,component:command.component,action:command.action,input:command.input,expected_version:null,authority:null});
@@ -45,7 +46,9 @@ async function main(){
   if(exit!==0||size>2097152)fail('TEST_CONTROLLER_RPC_UNKNOWN',true);
   let response;try{const envelope=JSON.parse(Buffer.concat(chunks));response=envelope.ok===true?envelope.result:null;}catch{fail('TEST_CONTROLLER_RPC_UNKNOWN',true);}
   if(!response||!response.completed||response.uncertain||!response.response)fail('TEST_CONTROLLER_RPC_UNKNOWN',true);
-  const body=response.response;if(body.operation_id!==command.operation_id)fail('TEST_CONTROLLER_RPC_UNKNOWN',true);
+  const body=response.response;if(!body||typeof body!=='object'||Array.isArray(body))fail('TEST_CONTROLLER_RPC_UNKNOWN',true);
+  if(Object.hasOwn(body,'operation_id')){if(body.operation_id!==command.operation_id)fail('TEST_CONTROLLER_RPC_UNKNOWN',true);}
+  else{const code=body.error?.code;if(body.protocol_version===1&&body.ok===false&&response.accepted===false&&[401,403].includes(response.http_status)&&['AUTH_REVOKED','AUTH_EXPIRED','AUTH_STALE_SESSION'].includes(code))fail(code);fail('TEST_CONTROLLER_RPC_UNKNOWN',true);}
   if(response.accepted!==true||body.ok!==true){const code=typeof body.error?.code==='string'?body.error.code:'TEST_CONTROLLER_RPC_REFUSED';fail(code,['OUTCOME_UNKNOWN','HANDLER_FAILED','RESPONSE_TOO_LARGE'].includes(code));}
   if(!body.result||typeof body.result!=='object')fail('TEST_CONTROLLER_RPC_UNKNOWN',true);
   return body.result;
@@ -61,14 +64,14 @@ async function main(){
   if(receipt.slot_id!==slot.slot_id||receipt.released!==true||receipt.observed_process_absent!==true)fail('TEST_CONTROLLER_CLEANUP_UNCONFIRMED');
   return {request_nonce:randomUUID(),observed_at:new Date().toISOString(),manifest_digest:manifestDigest,slot_id:slot.slot_id,slot_generation:selected.slot_generation,session_id:slot.session_id,sandbox_id:binding.sandbox_id,boot_id:binding.boot_id,boot_generation:String(binding.boot_generation),native_receipt:receipt};
  };
- const complete=async command=>{const result=await invoke(command);if(command.action==='identity.principal.delegate'){if(result.role!=='VERIFIER'||result.actor_id!==slot.session_id||result.run_id!==binding.run_id||result.sandbox_id!==binding.sandbox_id||result.boot_id!==binding.boot_id||String(result.boot_generation)!==String(binding.boot_generation)||!uuid(result.credential_id)||typeof result.expires_at!=='string')fail('TEST_CONTROLLER_DELEGATION_BINDING',true);state.delegated={...result,public_key_b64:command.input.public_key_b64};}state.pending=null;await save();return result;};
- const call=async(actor,component,action,input,operation=randomUUID())=>{const command={actor,component,action,input,operation_id:operation};if(state.pending&&JSON.stringify(state.pending)!==JSON.stringify(command))fail('TEST_CONTROLLER_RECONCILIATION_REQUIRED',true);state.pending??=command;await save();try{return await complete(state.pending);}catch(error){if(!error.uncertain){state.pending=null;await save();}throw error;}};
+ const complete=async command=>{const result=await invoke(command);if(command.action==='identity.principal.delegate'){if(result.role!=='VERIFIER'||result.actor_id!==slot.session_id||result.run_id!==binding.run_id||result.sandbox_id!==binding.sandbox_id||result.boot_id!==binding.boot_id||String(result.boot_generation)!==String(binding.boot_generation)||!uuid(result.credential_id)||typeof result.expires_at!=='string')fail('TEST_CONTROLLER_DELEGATION_BINDING',true);state.delegated={...result,public_key_b64:command.input.public_key_b64};}state.pending=null;state.uncertain_operation=null;await save();return result;};
+ const call=async(actor,component,action,input,operation=randomUUID())=>{const command={actor,component,action,input,operation_id:operation};if(state.pending&&JSON.stringify(state.pending)!==JSON.stringify(command))fail('TEST_CONTROLLER_RECONCILIATION_REQUIRED',true);state.pending??=command;await save();let backoff=500;while(!abort.signal.aborted){try{return await complete(state.pending);}catch(error){if(!error.uncertain&&state.uncertain_operation!==command.operation_id){state.pending=null;await save();throw error;}state.uncertain_operation=command.operation_id;await save();event('reconcile_wait',{operation_id:state.pending.operation_id,action:state.pending.action,code:typeof error.code==='string'?error.code:'TEST_CONTROLLER_RPC_UNKNOWN'});await wait(backoff);backoff=Math.min(backoff*2,30000);}}fail('TEST_CONTROLLER_RPC_UNKNOWN',true);};
  const childConfig=async()=>{if(!state.delegated)return;const key=createPrivateKey(await protectedFile(keyFile,true,16384));if(createPublicKey(key).export({format:'jwk'}).x!==state.delegated.public_key_b64)fail('TEST_CONTROLLER_KEY_BINDING');await atomic(verifierConfig,{origin:transport.origin,ca_file:transport.ca_file,key_path:keyFile,credential_id:state.delegated.credential_id,timeout_ms:60000,run_id:binding.run_id});};
  try{
-  await childConfig();if(state.pending){event('reconcile',{operation_id:state.pending.operation_id,action:state.pending.action});const command=state.pending;await call(command.actor,command.component,command.action,command.input,command.operation_id);await childConfig();}
+  await childConfig();if(state.pending){state.uncertain_operation=state.pending.operation_id;await save();event('reconcile',{operation_id:state.pending.operation_id,action:state.pending.action});const command=state.pending;await call(command.actor,command.component,command.action,command.input,command.operation_id);await childConfig();}
   while(!abort.signal.aborted&&!state.terminal){
    const actor=!state.forceRunner&&state.delegated&&Date.parse(state.delegated.expires_at)>Date.now()+90000?'VERIFIER':'RUNNER';
-   let pending;try{pending=await call(actor,'fleet-test-executor','fleet.test.executor.pending',{bootstrap_id:manifest.bootstrap_id,session_id:slot.session_id});}catch(error){if(actor==='VERIFIER'&&!error.uncertain&&['AUTH_STALE_SESSION','AUTH_REVOKED','AUTH_EXPIRED'].includes(error.code)){state.forceRunner=true;await save();continue;}if(!error.uncertain&&['BOOTSTRAP_TEST_NOT_READY','BOOTSTRAP_TEST_SLOT','RUNNER_PREPARATION_REQUIRED'].includes(error.code)){await new Promise(resolve=>setTimeout(resolve,1000));continue;}throw error;}
+   let pending;try{pending=await call(actor,'fleet-test-executor','fleet.test.executor.pending',{bootstrap_id:manifest.bootstrap_id,session_id:slot.session_id});}catch(error){if(actor==='VERIFIER'&&!error.uncertain&&['AUTH_STALE_SESSION','AUTH_REVOKED','AUTH_EXPIRED'].includes(error.code)){state.forceRunner=true;await save();continue;}if(!error.uncertain&&['BOOTSTRAP_TEST_NOT_READY','BOOTSTRAP_TEST_SLOT','RUNNER_PREPARATION_REQUIRED'].includes(error.code)){await wait(1000);continue;}throw error;}
    if(pending.state==='DELEGATE_VERIFIER'){
     if(pending.session_id!==slot.session_id||!Array.isArray(pending.allowed_actions)||JSON.stringify([...pending.allowed_actions].sort())!==JSON.stringify([...VERIFIER_ACTIONS].sort())||!Number.isSafeInteger(pending.ttl_seconds)||pending.ttl_seconds<60||pending.ttl_seconds>3600||!Number.isSafeInteger(pending.required_lifetime_ms)||pending.required_lifetime_ms<1000||pending.required_lifetime_ms>pending.ttl_seconds*1000-60000)fail('TEST_CONTROLLER_DELEGATION_SCOPE');
     const renewed=await call('RUNNER','14.1','identity.principal.renew',{ttl_seconds:pending.ttl_seconds});
@@ -79,12 +82,12 @@ async function main(){
    }
    if(['SUCCEEDED','FAILED','CANCELLED'].includes(pending.state)){
     if(pending.state==='CANCELLED')fail('TEST_CONTROLLER_CANCELLED_RECONCILIATION');
-    if(pending.retired!==true){state.forceRunner=true;await save();if(actor!=='RUNNER')continue;const cleanup_observation=await observeCleanup(pending.cleanup_binding);const observed=await call('RUNNER','fleet-test-executor','fleet.test.executor.pending',{bootstrap_id:manifest.bootstrap_id,session_id:slot.session_id,cleanup_observation});if(observed.retired!==true){await new Promise(resolve=>setTimeout(resolve,5000));continue;}}
+    if(pending.retired!==true){state.forceRunner=true;await save();if(actor!=='RUNNER')continue;const cleanup_observation=await observeCleanup(pending.cleanup_binding);const observed=await call('RUNNER','fleet-test-executor','fleet.test.executor.pending',{bootstrap_id:manifest.bootstrap_id,session_id:slot.session_id,cleanup_observation});if(observed.retired!==true){await wait(5000);continue;}}
     state.terminal={state:pending.state,job_id:pending.job_id,outcome:pending.outcome};await save();event('terminal',state.terminal);break;
    }
    if(!Array.isArray(pending.commands)||pending.commands.length>1)fail('TEST_CONTROLLER_COMMAND_SCOPE');
    for(const command of pending.commands){if(actor!=='VERIFIER'||!command||!uuid(command.operation_id)||command.component!=='16.2'||!['qualification.preparation.execute','qualification.job.claim','qualification.execute'].includes(command.action)||!command.input||typeof command.input!=='object')fail('TEST_CONTROLLER_COMMAND_SCOPE');event('execute',{operation_id:command.operation_id,action:command.action});await call('VERIFIER',command.component,command.action,command.input,command.operation_id);}
-   if(!pending.commands.length)await new Promise(resolve=>setTimeout(resolve,1000));
+   if(!pending.commands.length)await wait(1000);
   }
  }finally{await new Promise(resolve=>lock.close(resolve));}
 }
