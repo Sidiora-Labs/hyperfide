@@ -32,19 +32,26 @@ def transpile(source,target):
  script="const fs=require('fs'),ts=require(process.argv[1]);const r=ts.transpileModule(fs.readFileSync(process.argv[2],'utf8'),{reportDiagnostics:true,compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}});if(r.diagnostics.some(d=>d.category===ts.DiagnosticCategory.Error)){console.error(ts.formatDiagnosticsWithColorAndContext(r.diagnostics,{getCurrentDirectory:()=>process.cwd(),getCanonicalFileName:f=>f,getNewLine:()=>String.fromCharCode(10)}));process.exit(1)}fs.writeFileSync(process.argv[3],r.outputText)"
  subprocess.run(['node','-e',script,str(ROOT/'node_modules/typescript'),str(source),str(target)],check=True,capture_output=True)
 
-def campaign(folder,baseline=False,product=False):
+def campaign(folder,baseline=False,product=False,refusal=False):
  runtime=folder/'runtime';shutil.copytree(Path(os.environ.get('HF_MANAGER_REPLACEMENT_RUNTIME_ROOT',str(ROOT/'build/fleet/local-runtime-manager-qualification-install'))),runtime,symlinks=True)
  identity_fixture.ROOT=runtime
  dist=runtime/'core/control-plane/dist'
- transpile(ROOT/'core/control-plane/src/hierarchy/packages.ts',dist/'hierarchy/packages.js')
- for module in ['agents/fleet_orchestration','agents/fleet_bootstrap','agents/fleet_manager_handoff','scheduler/claim']:
-  transpile(ROOT/('core/control-plane/src/'+module+'.ts'),dist/(module+'.js'))
- shutil.copyfile(ROOT/'contracts/fleet/index.mjs',dist/'contracts/fleet/index.mjs')
- shutil.copyfile(ROOT/'core/control-plane/migrations/0728-fleet-manager-handoff.sql',runtime/'core/control-plane/migrations/0728-fleet-manager-handoff.sql')
+ if not refusal:
+  transpile(ROOT/'core/control-plane/src/hierarchy/packages.ts',dist/'hierarchy/packages.js')
+  for module in ['agents/fleet_orchestration','agents/fleet_bootstrap','agents/fleet_manager_handoff','scheduler/claim']:
+   transpile(ROOT/('core/control-plane/src/'+module+'.ts'),dist/(module+'.js'))
+  shutil.copyfile(ROOT/'contracts/fleet/index.mjs',dist/'contracts/fleet/index.mjs')
+  shutil.copyfile(ROOT/'core/control-plane/migrations/0728-fleet-manager-handoff.sql',runtime/'core/control-plane/migrations/0728-fleet-manager-handoff.sql')
  source=ROOT/'core/control-plane/src/fleet-supervisor.ts'
- if baseline:
+ if refusal and baseline:source=Path(os.environ['HF_SUPERVISOR_REFUSAL_BASELINE'])
+ if baseline and not refusal:
   source=folder/'baseline.ts';source.write_bytes(subprocess.check_output(['git','show','519de0fec2865fac3bd641e38af3880b831077b4:core/control-plane/src/fleet-supervisor.ts'],cwd=ROOT))
- transpile(source,dist/'fleet-supervisor.js')
+ if refusal:
+  shutil.copyfile(source,runtime/'core/control-plane/src/fleet-supervisor.ts')
+  built=subprocess.run(['npm','run','build'],cwd=runtime/'core/control-plane',capture_output=True,text=True)
+  (folder/'build.log').write_text(built.stdout+built.stderr)
+  assert built.returncode==0,built.stderr[-1600:]+built.stdout[-1600:]
+ else:transpile(source,dist/'fleet-supervisor.js')
  f=None;child=None
  try:
   def setup(f):
@@ -69,10 +76,33 @@ def campaign(folder,baseline=False,product=False):
    primarykey=f.path/'bootstrap-primary.pem';subprocess.run(['openssl','genpkey','-algorithm','Ed25519','-out',str(primarykey)],check=True,capture_output=True);primarykey.chmod(0o600)
    config['primary']={'session_id':i['leader'],'credential_file':str(f.path/'actual-primary.json'),'key_file':str(primarykey)}
   cfg=f.path/'replacement.json';cfg.write_text(json.dumps(config));cfg.chmod(0o600)
+  if refusal:
+   import base64
+   key=f.path/'scope-limited-primary.pem';subprocess.run(['openssl','genpkey','-algorithm','Ed25519','-out',str(key)],check=True,capture_output=True);key.chmod(0o600)
+   public=subprocess.check_output(['openssl','pkey','-in',str(key),'-pubout','-outform','DER'],stderr=subprocess.DEVNULL)
+   credential=str(uuid.uuid4())
+   f.seed_fixture_principal({'credential_id':credential,'organisation_id':i['organisation'],'run_id':i['run'],'actor_id':i['leader'],'role':'LEADER','public_key_b64':base64.urlsafe_b64encode(public[-32:]).decode().rstrip('='),'deployment_epoch':i['epoch'],'allowed_actions':[action for action in f.actions if action!='fleet.session.reason'],'expires_at':time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime(time.time()+600))})
+   primary=Path(refs[0]['credential_file']);record=json.loads(primary.read_text());record.update(credential_id=credential,key_file=str(key));primary.write_text(json.dumps(record));primary.chmod(0o600)
   log=folder/'supervisor.log'
   with log.open('w') as stream:
    child=subprocess.Popen(['node',str(dist/'fleet-supervisor.js'),'--config',str(cfg)],env=f.env,cwd=runtime,stdout=stream,stderr=stream)
   def reasoned(actor):return f.sql('SELECT id FROM hyperfide.fleet_reasoning WHERE organisation_id=$1 AND run_id=$2 AND actor_id=$3',[i['organisation'],i['run'],actor])
+  if refusal:
+   wait(lambda:'decision_refused' in log.read_text())
+   try:wait(lambda:reasoned(i['manager']),5 if baseline else 15)
+   except AssertionError:
+    if baseline:
+     assert 'AUTH_SCOPE_DENIED' in log.read_text() and not reasoned(i['manager'])
+     return {'baseline':'EXPECTED_FAILURE','manager_starved':True}
+    raise
+   assert not baseline,'Pre-fix supervisor unexpectedly isolated Primary refusal'
+   saved=json.loads((f.path/'supervisor-state/state.json').read_text())
+   wait(lambda:json.loads((f.path/'supervisor-state/state.json').read_text())['pending'] is None)
+   saved=json.loads((f.path/'supervisor-state/state.json').read_text())
+   assert saved['actors'][i['leader']]['reasoning'] is None
+   assert not reasoned(i['leader']) and child.poll() is None
+   assert not f.sql('SELECT id FROM hyperfide.fleet_decisions WHERE organisation_id=$1 AND run_id=$2',[i['organisation'],i['run']])
+   return {'definitive_primary_refusal_isolated':True,'manager_reasoning_persisted':True,'no_invented_decision':True,'pending_clear':True,'scope':'ACTUAL_SIGNED_TLS_POSTGRESQL_NO_MODEL_INFERENCE'}
   wait(lambda:reasoned(i['manager']))
   if product:
    retained_decisions=[]
@@ -201,16 +231,18 @@ def main():
  out=ROOT/'build/fleet/manager-replacement';out.mkdir(parents=True,exist_ok=True)
  report={'status':'FAIL','scope':'signed-TLS-PostgreSQL-handoff-and-actual-supervisor','runtime_qualification':False}
  try:
-  campaigns=[('product',False)] if os.environ.get('HF_MANAGER_REPLACEMENT_PRODUCT_ONLY')=='1' else [('baseline',True),('fixed',False),('product',False)]
+  refusal=os.environ.get('HF_SUPERVISOR_REFUSAL_ONLY')=='1'
+  campaigns=[('refusal-baseline',True),('refusal-fixed',False)] if refusal else [('product',False)] if os.environ.get('HF_MANAGER_REPLACEMENT_PRODUCT_ONLY')=='1' else [('baseline',True),('fixed',False),('product',False)]
   for name,old in campaigns:
    folder=out/name
    if folder.exists():shutil.rmtree(folder)
-   folder.mkdir();report[name]=campaign(folder,old,name=='product')
+   folder.mkdir();report[name]=campaign(folder,old,name=='product',refusal)
   report['status']='PASS'
   report['inputs']={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__).resolve(),ROOT/'core/control-plane/src/fleet-supervisor.ts',ROOT/'core/control-plane/src/hierarchy/packages.ts']}
   report['logs']={name:hashlib.sha256((out/name/'supervisor.log').read_bytes()).hexdigest() for name,_ in campaigns}
   report['runtime_artifacts']={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for name,_ in campaigns for p in (out/name/'runtime/core/control-plane').rglob('*') if p.is_file() and (p.name in ['fleet-supervisor.js','fleet_bootstrap.js','fleet_orchestration.js','fleet_manager_handoff.js','packages.js','0728-fleet-manager-handoff.sql'])}
-  report['baseline_revision']='519de0fec2865fac3bd641e38af3880b831077b4'
+  if refusal:report['baseline_source_digest']=hashlib.sha256(Path(os.environ['HF_SUPERVISOR_REFUSAL_BASELINE']).read_bytes()).hexdigest()
+  else:report['baseline_revision']='519de0fec2865fac3bd641e38af3880b831077b4'
  except Exception as exc:report['error']=traceback.format_exc()[-1800:]
  (out/'receipt.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report));return int(report['status']!='PASS')
 if __name__=='__main__':raise SystemExit(main())

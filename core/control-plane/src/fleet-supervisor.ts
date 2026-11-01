@@ -248,7 +248,7 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
      session.reasoning??={binding:session.binding,operation_id:randomUUID(),observation_id:observation.ids[0],context_observation_ids:observation.ids};await persist();
      let result:RecordValue;
      try{result=await call(current,'fleet.session.reason',session.reasoning);}
-     catch(error){if(error instanceof SupervisorRpcError&&!error.uncertain){event('decision_refused',current.session_id,{operation_id:session.reasoning.operation_id,code:error.code});session.reasoning=null;session.observed_state=null;await persist();}throw error;}
+     catch(error){if(error instanceof SupervisorRpcError&&!error.uncertain){event('decision_refused',current.session_id,{operation_id:session.reasoning.operation_id,code:error.code});session.reasoning=null;session.observed_state=null;await persist();continue;}throw error;}
      event('reasoned',current.session_id,{operation_id:result.operation_id,state:result.state,action:result.decision?.action??null});
      if(!['PREPARED','RUNNING','UNKNOWN'].includes(String(result.state))){session.reasoning=null;session.observed_state=result.state==='WAITING_FOR_MANAGER'?null:fingerprint;await persist();}
      if(result.decision?.action==='DELEGATE_WAVE'&&object(result.effect)){
