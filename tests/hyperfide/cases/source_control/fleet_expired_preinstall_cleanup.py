@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Signed manager DESTROY and real SDK absence over controlled never-installed PREP lineage."""
 import importlib.util
+import concurrent.futures
+import datetime
 import json
 import os
 from pathlib import Path
@@ -8,6 +10,7 @@ import socket
 import subprocess
 import sys
 import time
+import threading
 import uuid
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -29,7 +32,8 @@ def digest(value):
 
 def main():
     http = sdk.ReadOnlyHTTP()
-    bound_not_started = '--bound-not-started' in sys.argv
+    expired_destroy = '--expired-destroy-observation' in sys.argv
+    bound_not_started = '--bound-not-started' in sys.argv or expired_destroy
 
     def setup(f):
         secrets, attachments = f.path / 'secrets', f.path / 'attachments'
@@ -70,6 +74,8 @@ def main():
         executor.write_text(json.dumps({'schema_version': 1, 'principals': [{'credential_id': f.ids['provisioner'], 'key_path': str(f.keys['provisioner']['path'])}], 'concurrency': 1}))
         executor.chmod(0o600)
         f.env.update(HYPERFIDE_POOL_CONFIG=str(poolfile), HF_NATIVE_AUTH_PROFILES_FILE=str(inventory), HF_CREDENTIAL_CONFIG_FILE=str(credentials), HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(executor), HYPERFIDE_PROVISIONER_POLL_MS='60000', NODE_OPTIONS=(f.env.get('NODE_OPTIONS', '') + ' --import ' + str(ROOT / 'tests/hyperfide/support/source_archive_sdk_transport.mjs')).strip(), HF_SOURCE_ARCHIVE_HTTP_FIXTURE=http.endpoint, BL_DISABLE_H2='true', BL_DISABLE_CONTROL_PLANE_H2='true', HF_BLAXEL_LIVE_ENABLED='true', HF_BLAXEL_API_KEY='isolated-cleanup-no-live-authority', HF_BLAXEL_WORKSPACE='cleanup-workspace', HF_BLAXEL_ACCOUNT_ID='cleanup-account')
+        if expired_destroy:
+            f.env.update(HYPERFIDE_PROVISIONER_POLL_MS='100', HYPERFIDE_PROVISIONER_RETRY_MS='200', HYPERFIDE_PROVISIONER_LEASE_MS='3000', HYPERFIDE_PROVISIONER_CONCURRENCY='1', HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS='0')
 
     f = None
     try:
@@ -82,6 +88,9 @@ def main():
             f.sql('REVOKE UPDATE,DELETE ON hyperfide.runner_not_started_proofs FROM ' + role)
             proof_privileges = f.sql("SELECT has_table_privilege($1,'hyperfide.runner_not_started_proofs','SELECT') AS can_select,has_table_privilege($1,'hyperfide.runner_not_started_proofs','INSERT') AS can_insert,has_table_privilege($1,'hyperfide.runner_not_started_proofs','UPDATE') AS can_update,has_table_privilege($1,'hyperfide.runner_not_started_proofs','DELETE') AS can_delete", [f.runtime_role])[0]
             assert proof_privileges == {'can_select': True, 'can_insert': True, 'can_update': False, 'can_delete': False}, proof_privileges
+            if expired_destroy:
+                f.sql('REVOKE UPDATE ON hyperfide.fleet_install_heads FROM ' + role)
+                f.sql('GRANT UPDATE(logical_operation_id) ON hyperfide.fleet_install_heads TO ' + role)
 
 
         def api(action, value, key='leader', component='fleet-orchestration'):
@@ -221,10 +230,153 @@ try{const observations=await r.gateway.withPrimaryTransaction({timeoutMs:10000,g
                 out['not_started_proofs'] = f.sql('SELECT id::text,proof_digest,proof FROM hyperfide.runner_not_started_proofs WHERE runner_operation_id=$1', [c['install_operation']])
             return out
 
-        def destroy(c):
-            value = {'sandbox_id': c['sandbox'], 'boot_generation': '1', 'pool_id': f.pool, 'deadline_at': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time()+50)), 'reason': 'Controlled expired preinstall cleanup'}
+        def destroy(c, ttl=50):
+            value = {'sandbox_id': c['sandbox'], 'boot_generation': '1', 'pool_id': f.pool, 'deadline_at': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time()+ttl)), 'reason': 'Controlled expired preinstall cleanup'}
             decision = record('DESTROY_SANDBOX', value)
             return api('fleet.decision.apply', {'decision': decision}, key='manager2'), decision
+
+        if expired_destroy:
+            cases = {}
+            for label in ['possible-submission', 'wrong-boot', 'wrong-scope', 'worker-expired', 'unknown-issued', 'submitting-issued', 'race-expired']:
+                item = bind_install(seed(label))
+                f.sql("UPDATE hyperfide.worker_slots SET state='RETIRED',state_version=state_version+1 WHERE id=$1", [item['slot']])
+                cases[label] = item
+            for label, item in cases.items():
+                admitted, _ = destroy(item, ttl=15)
+                assert admitted.get('ok'), {'case': label, 'response': admitted}
+                item['destroy_id'] = admitted['result']['provider_intent_id']
+                item['original'] = f.sql('SELECT to_jsonb(i) AS row FROM hyperfide.provisioning_intents i WHERE id=$1', [item['destroy_id']])[0]['row']
+            print(json.dumps({'phase': 'destroy_admissions_retained', 'count': len(cases), 'deadlines': [item['original']['operation']['deadline_at'] for item in cases.values()]}), flush=True)
+            c, worker = cases['race-expired'], cases['worker-expired']
+            f.sql("UPDATE hyperfide.provisioning_intents SET provider_request_id='CONTROLLED_POSSIBLE_REQUEST',state_version=state_version+1 WHERE id=$1", [cases['possible-submission']['destroy_id']])
+            f.sql('UPDATE hyperfide.sandboxes SET boot_generation=boot_generation+1,state_version=state_version+1 WHERE id=$1', [cases['wrong-boot']['sandbox']])
+            f.sql("UPDATE hyperfide.sandboxes SET desired_state='RUNNING',state_version=state_version+1 WHERE id=$1", [cases['wrong-scope']['sandbox']])
+            held = state(c)['accounts']
+            original_count = f.sql('SELECT count(*)::text AS n FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2', common)
+            def intent(item):
+                return f.sql('SELECT to_jsonb(i) AS row FROM hyperfide.provisioning_intents i WHERE id=$1', [item['destroy_id']])[0]['row']
+            def proofs(item):
+                return f.sql("SELECT id::text,evidence_digest,observation FROM hyperfide.provider_observations WHERE organisation_id=$1 AND intent_id=$2 AND observation->>'kind'='EXPIRED_DESTROY_OBSERVATION_ONLY_V1' ORDER BY id", [i['organisation'], item['destroy_id']])
+            def rpc(action, item):
+                return api(action, {'intent_id': item['destroy_id']}, key='provisioner', component='8.3')
+            f.stop()
+            f.service_role = 'provisioner'
+            f.start()
+            ok('provider.worker.stop', {}, key='provisioner', component='8.3')
+            f.sql('REVOKE UPDATE(logical_operation_id) ON hyperfide.fleet_install_heads FROM ' + role)
+            boundary = len(http.events)
+            refused = rpc('provider.intents.execute', c)
+            assert refused.get('error', {}).get('code') == 'DB_UNAVAILABLE' and '42501' in json.dumps(refused), refused
+            assert intent(c)['state'] == 'RECORDED' and intent(c)['last_outcome'] is None and intent(c)['provider_request_id'] is None and proofs(c) == [] and len(http.events) == boundary and state(c)['accounts'] == held
+            f.sql('GRANT UPDATE(logical_operation_id) ON hyperfide.fleet_install_heads TO ' + role)
+            head_privileges = f.sql("SELECT has_table_privilege($1,'hyperfide.fleet_install_heads','SELECT') AS can_select,has_column_privilege($1,'hyperfide.fleet_install_heads','logical_operation_id','UPDATE') AS logical_update,has_column_privilege($1,'hyperfide.fleet_install_heads','current_operation_id','UPDATE') AS current_update", [f.runtime_role])[0]
+            assert head_privileges == {'can_select': True, 'logical_update': True, 'current_update': False}, head_privileges
+            print(json.dumps({'phase': 'minimal_head_grant_restored', 'pre_cas_error': refused['error'], 'head_privileges': head_privileges}), flush=True)
+            # Produce real possible-submission phases using the actual SDK, never a state patch.
+            unknown_item = cases['unknown-issued']
+            http.models[unknown_item['native']] = (503, {'message': 'Controlled actual SDK pre-delete lookup unavailable'})
+            issued_unknown = rpc('provider.intents.execute', unknown_item)
+            assert issued_unknown.get('ok') and intent(unknown_item)['state'] == 'UNKNOWN' and proofs(unknown_item) == [], issued_unknown
+            submitting_item = cases['submitting-issued']
+            entered, release = threading.Event(), threading.Event()
+            original_get = http.server.RequestHandlerClass.do_GET
+            once = [False]
+            def paused_get(handler):
+                if handler.path.split('?',1)[0].endswith('/sandboxes/' + submitting_item['native']) and not once[0]:
+                    once[0] = True
+                    entered.set()
+                    release.wait(15)
+                return original_get(handler)
+            http.models[submitting_item['native']] = (503, {'message': 'Controlled actual interrupted pre-delete lookup'})
+            http.server.RequestHandlerClass.do_GET = paused_get
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                submitted = executor.submit(rpc, 'provider.intents.execute', submitting_item)
+                assert entered.wait(8), {'response': submitted.result(timeout=10) if submitted.done() else None}
+                assert intent(submitting_item)['state'] == 'SUBMITTING' and proofs(submitting_item) == []
+                try:
+                    interrupted_response = rpc('provider.intents.reconcile', submitting_item)
+                    assert interrupted_response.get('ok') and proofs(submitting_item) == [] and state(c)['accounts'] == held, interrupted_response
+                finally:
+                    release.set()
+                issued_completion = submitted.result(timeout=10)
+                assert issued_completion.get('ok') and proofs(submitting_item) == [], issued_completion
+            http.server.RequestHandlerClass.do_GET = original_get
+            expiry = max(datetime.datetime.fromisoformat(item['original']['operation']['deadline_at'].replace('Z', '+00:00')).timestamp() for item in cases.values())
+            time.sleep(max(0, expiry-time.time()+0.15))
+            assert intent(submitting_item)['state'] == 'UNKNOWN' and proofs(submitting_item) == []
+            print(json.dumps({'phase': 'actual_issued_states', 'submitting': intent(submitting_item)['state'], 'unknown': intent(unknown_item)['state']}), flush=True)
+            for issued in [submitting_item, unknown_item]:
+                observed = rpc('provider.intents.reconcile', issued)
+                assert observed.get('ok') and proofs(issued) == [] and state(c)['accounts'] == held, observed
+            before_race = len(http.events)
+            http.models[c['native']] = (503, {'message': 'Controlled actual read-only observation unavailable'})
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                execution = executor.submit(rpc, 'provider.intents.execute', c)
+                observation = executor.submit(rpc, 'provider.intents.reconcile', c)
+                raced = [execution.result(timeout=30), observation.result(timeout=30)]
+            assert raced[1].get('ok') and state(c)['accounts'] == held, raced
+            assert (raced[0].get('error', {}).get('code') == 'PROVIDER_DEADLINE_EXPIRED' or raced[0].get('result', {}).get('executed') is False), raced[0]
+            retained = proofs(c)
+            assert len(retained) == 1 and digest(retained[0]['observation']) == retained[0]['evidence_digest'], retained
+            print(json.dumps({'phase': 'observation_only_race', 'proof_count': len(retained), 'intent_state': intent(c)['state']}), flush=True)
+            proof = retained[0]['observation']
+            assert proof['original_operation'] == c['original']['operation'] and proof['deadline_at'] == c['original']['operation']['deadline_at'] and proof['allowed_operation'] == 'observe' and proof['delete_authority_extended'] is False and proof['submission_evidence_present'] is False and 'operation' not in proof and 'outcome' not in proof, proof
+            assert all(row['method'] == 'GET' for row in http.events[before_race:])
+            # The ordinary worker must claim an independently expired RECORDED DESTROY.
+            http.models[worker['native']] = (503, {'message': 'Controlled worker observation unavailable'})
+            started = ok('provider.worker.start', {}, key='provisioner', component='8.3')
+            until = time.monotonic()+15
+            while time.monotonic()<until:
+                if proofs(worker):
+                    candidate_status = ok('provider.worker.status', {}, key='provisioner', component='8.3')
+                    if candidate_status['counters']['reconciled'] >= 1:
+                        break
+                time.sleep(0.1)
+            status = ok('provider.worker.status', {}, key='provisioner', component='8.3')
+            ok('provider.worker.stop', {}, key='provisioner', component='8.3')
+            print(json.dumps({'phase': 'worker_claim_observed', 'proof_count': len(proofs(worker)), 'counters': status['counters'], 'errors': status['errors']}), flush=True)
+            assert len(proofs(worker)) == 1 and status['counters']['claimed'] >= 1 and status['counters']['reconciled'] >= 1 and status['counters']['executed'] == 0, status
+            assert state(c)['accounts'] == held and proofs(unknown_item) == [] and proofs(submitting_item) == []
+            # Potential submission metadata is not rewritten as never-submitted authority.
+            item = cases['possible-submission']
+            negatives = []
+            answer = rpc('provider.intents.reconcile', item)
+            assert answer.get('error', {}).get('code') == 'PROVIDER_SUBMISSION_UNPROVEN' and proofs(item) == [] and state(c)['accounts'] == held, answer
+            negatives.append(answer['error'])
+            item = cases['wrong-boot']
+            answer = rpc('provider.intents.reconcile', item)
+            assert answer.get('error', {}).get('code') == 'PROVIDER_EXPIRED_DESTROY_SCOPE' and proofs(item) == [] and state(c)['accounts'] == held, answer
+            negatives.append(answer['error'])
+            # Observe presence and then absence for the original race intent only.
+            http.models[c['native']] = (200, {'metadata': {'name': c['native'], 'workspace': scope['environment_id'], 'labels': {'hyperfide-scope': digest(scope), 'hyperfide-boot': '1', 'hyperfide-preparation': f.preparation}}, 'spec': {'region': scope['region']}, 'status': 'DEPLOYED'})
+            present = rpc('provider.intents.reconcile', c)
+            assert present.get('ok') and state(c)['accounts'] == held, present
+            http.models[c['native']] = (404, {'message': 'Controlled actual original resource absent'})
+            absent = rpc('provider.intents.reconcile', c)
+            assert absent.get('ok') and absent['result'].get('capacity_release', absent['result']).get('confirmed_absence_released') is True, absent
+            expected = {row['id']: dict(row) for row in held}
+            for name, quantity in {'SANDBOX': 1, 'CPU_MILLIS': 2000, 'MEMORY_BYTES': 4294967296, 'DISK_BYTES': 4294967296}.items():
+                expected[accounts[name]]['reserved'] = str(int(expected[accounts[name]]['reserved'])-quantity)
+            after = state(c)
+            assert after['accounts'] == [expected[row['id']] for row in held] and all(row['state']=='RELEASED' for row in after['reservation']), after
+            replay = rpc('provider.intents.reconcile', c)
+            old_execute = rpc('provider.intents.execute', c)
+            assert replay.get('ok') and old_execute.get('result', {}).get('executed') is False and proofs(c) == retained and state(c) == after, (replay, old_execute)
+            for key in ['id', 'operation', 'request_digest', 'payload_digest', 'native_sandbox_id', 'boot_generation']:
+                assert intent(c)[key] == c['original'][key]
+            # A real current protected configuration generation cannot inherit the old intent's scope.
+            f.config['revision'] = 'CONTROLLED_CHANGED_SCOPE_' + uid()
+            Path(f.env['HYPERFIDE_POOL_CONFIG']).write_text(json.dumps(f.config))
+            configured = ok('provider.pools.configure', {}, key='operator', component='8.2')
+            configured_accounts = state(c)['accounts']
+            item = cases['wrong-scope']
+            answer = rpc('provider.intents.reconcile', item)
+            assert answer.get('error', {}).get('code') == 'PROVIDER_EXPIRED_DESTROY_SCOPE' and proofs(item) == [] and state(c)['accounts'] == configured_accounts, answer
+            negatives.append(answer['error'])
+            assert f.sql('SELECT count(*)::text AS n FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2', common) == original_count
+            assert all(event['method']=='GET' for event in http.events)
+            print(json.dumps({'status':'PASS','scope':'signed expired DESTROY observation-only continuation; real PG role denial/minimal grant, worker claim and execute/reconcile race, actual SDK GET503/present/404','provider_mutations':0,'head_privileges':head_privileges,'pre_cas_acl_failure':refused,'race':raced,'actual_issued_unknown':issued_unknown,'actual_interrupted_submitting':interrupted_response,'worker_status':status,'negative_errors':negatives,'proof':retained,'absence':absent,'checks':['pre-CAS custody ACL refusal leaves RECORDED original untouched','expired execute cannot submit DELETE while observation transition wins the row lock','single immutable proof retains original operation/deadline and grants observe only','ordinary worker claims independently expired DESTROY without executing deletion','possible submission and wrong boot/current scope refuse and preserve holds','physical counters release only after actual404; replay adds no proof or intent']}))
+            return
 
         negatives = []
         for label in ([] if '--positive-only' in sys.argv else (['unexpired-job', 'claimed-job', 'unknown-job', 'provider-possible', 'wrong-plan', 'extra-install'] if bound_not_started else ['unexpired', 'running', 'disconnected', 'install', 'ambiguous'])):

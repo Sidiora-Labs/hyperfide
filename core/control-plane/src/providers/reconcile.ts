@@ -596,15 +596,39 @@ async function refreshInventoryAttribution(database:ProviderDatabase,config:Depl
  await Promise.all(Array.from({length:Math.min(4,due.length)},async()=>{while(cursor<Math.min(32,due.length)&&Date.now()<end&&!boundedSignal.aborted){const candidate=due[cursor++]!;const observed=await attributeInventoryResource(database,config,row,candidate.native_sandbox_id,boundedSignal,deadlineAt);counts[observed.classification]++;attempted++;}}));
  return{intent:row,inventory_attribution:counts,attempted,skipped_fresh:skippedFresh,remaining_candidates:due.length-attempted,has_more:due.length>attempted,partial:due.length>attempted,continuation:due.length>attempted?'SAME_SCOPE_NEW_RPC':null,uncertain_transport:'RECONCILE_ORIGINAL_OPERATION',complete_inventory:false,freshness_scope:'RETAINED_CANDIDATES_ONLY',orphan_rows_rewritten:false,capacity_released:false};
 }
+/** An expired DELETE authority can observe natural absence; it can never submit the old DELETE. */
+async function beginExpiredDestroyObservation(pool:ProviderDatabase,config:DeploymentConfig,observed:Intent):Promise<Intent|null>{
+ if(observed.kind!=='DESTROY')return null;
+ return transaction(pool,async tx=>{
+  assertInvocationRun(pool,observed.run_id);await lockRun(tx,{organisation_id:config.organisation_id,run_id:observed.run_id},'exclusive');
+  const current=await intent(tx,config.organisation_id,observed.id,true);if(current.state!=='RECORDED')return current;
+  const op=validateProviderOperation(current.operation),expired=(await tx.query('SELECT $1::timestamptz<=clock_timestamp() AS expired',[op.deadline_at])).rows[0]?.expired;
+  if(!expired)return null;
+  const {scope}=await currentPool(tx,config,current.pool_id);
+  const sandbox=(await tx.query('SELECT native_sandbox_id,boot_generation::text,desired_state FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 AND pool_id=$3 FOR UPDATE',[config.organisation_id,current.sandbox_id,current.pool_id])).rows[0];
+  if(op.kind!=='destroy'||op.identity.operation_id!==current.id||op.identity.payload_digest!==current.payload_digest||op.scope.configuration_digest!==current.configuration_digest||digestDocument(op.scope)!==digestDocument(scope)||!current.native_sandbox_id||op.resource?.native_sandbox_id!==current.native_sandbox_id||op.resource.sandbox_boot_generation!==String(current.boot_generation)||sandbox?.native_sandbox_id!==current.native_sandbox_id||sandbox.boot_generation!==String(current.boot_generation)||sandbox.desired_state!=='DESTROYED')fail('PROVIDER_EXPIRED_DESTROY_SCOPE','Expired destroy must retain exact owned current native scope and boot');
+  const evidence=(await tx.query(`SELECT EXISTS(SELECT 1 FROM hyperfide.provider_observations WHERE organisation_id=$1 AND intent_id=$2) OR EXISTS(SELECT 1 FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2) AS present`,[config.organisation_id,current.id])).rows[0];
+  // The sole adapter.destroy path commits RECORDED -> SUBMITTING before delivery and never resets it.
+  if(current.provider_request_id!==null||current.last_outcome!==null||evidence?.present!==false)fail('PROVIDER_SUBMISSION_UNPROVEN','Recorded destroy has possible delivery evidence; preserve the original authority and holds');
+  await noActiveWork(tx,config.organisation_id,current.sandbox_id);
+  const custody=await destructionPreflight(tx,pool,{organisation_id:config.organisation_id,run_id:current.run_id,sandbox_id:current.sandbox_id,boot_generation:String(current.boot_generation),operation_id:current.id});
+  const at=(await tx.query('SELECT clock_timestamp() AS observed_at')).rows[0]!.observed_at.toISOString();
+  const proof={kind:'EXPIRED_DESTROY_OBSERVATION_ONLY_V1',organisation_id:config.organisation_id,run_id:current.run_id,intent_id:current.id,request_digest:current.request_digest,payload_digest:current.payload_digest,original_operation:current.operation,sandbox_id:current.sandbox_id,native_sandbox_id:current.native_sandbox_id,boot_generation:String(current.boot_generation),deadline_at:op.deadline_at,prior_state:'RECORDED',prior_failure_code:current.failure_code,provider_request_id:null,last_outcome:null,submission_evidence_present:false,custody_evidence_digest:custody.evidence_digest,observed_at:at,allowed_operation:'observe',delete_authority_extended:false,physical_resources_released:false};
+  const digest=digestDocument(proof);await tx.query('INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$5)',[config.organisation_id,randomUUID(),current.id,randomUUID(),digest,proof,at]);
+  await tx.query("UPDATE hyperfide.provisioning_intents SET state='RECONCILING',updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='RECORDED'",[config.organisation_id,current.run_id,current.id]);
+  return intent(tx,config.organisation_id,current.id);
+ });
+}
 export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
   let row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
   const confirmedRelease=await releaseConfirmedDestroyedCapacity(pool,config,row);if(confirmedRelease)return confirmedRelease;
   const rejection=await releaseRejectedCreate(pool,config,row);if(rejection)return rejection;
   const recovered=await recoverRejectedCreateAbsence(pool,config,row,signal);if(recovered)return recovered;
   if(row.state==='RECORDED'){
-    const expired=await expireNeverSubmittedIntent(pool,config,row);
-    if(expired)return expired;
-    row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
+    const expiredDestroy=await beginExpiredDestroyObservation(pool,config,row);
+    if(expiredDestroy)row=expiredDestroy;
+    else{const expired=await expireNeverSubmittedIntent(pool,config,row);if(expired)return expired;row=await intent(pool,config.organisation_id,id);}
+    assertInvocationRun(pool,row.run_id);
   }
   const reconciliationDeadline=new Date(Date.now()+config.maximum_operation_ms).toISOString();
   if(['TERMINAL','REJECTED','RECORDED'].includes(row.state))return{intent:row,external_call_performed:false};
