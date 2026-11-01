@@ -1,4 +1,7 @@
 import type {PrimaryTransaction} from '../storage/transactions.js';
+import type {ComponentContext} from '../components/registry.js';
+import type {ExecutionPacketRecord} from '../hierarchy/packets.js';
+import {object} from '../policy/programme.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {validateAssignment,scopeContains} from '../contracts/fleet/index.mjs';
 import {readReadyFleetInstall} from '../preparation/fleet_authority.js';
@@ -13,6 +16,39 @@ export interface FleetManagerBinding {
 export async function requireOwnedFleetTask(tx:PrimaryTransaction,b:FleetManagerBinding,task:string):Promise<void>{
  const row=(await tx.query('SELECT feature_package_id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[b.organisation_id,b.run_id,uuid(task,'task_id')])).rows[0];
  if(!row||row.feature_package_id!==b.delegation_id)fail('FLEET_TASK_SCOPE_DENIED','Task is outside the current manager delegation');
+}
+export interface FleetPacketFactory {createPacketTx(tx:PrimaryTransaction,input:unknown,context:ComponentContext):Promise<ExecutionPacketRecord>}
+export async function prepareSelectedFleetAssignment(tx:PrimaryTransaction,i:InvocationContext,b:FleetManagerBinding,value:unknown,context:ComponentContext,packets:FleetPacketFactory):Promise<Record<string,unknown>>{
+ const v=fields(value,['selection','install_binding']),selected=fields(v.selection,['task_id','expected_task_generation','worker_slot','lease_ms','max_runtime_seconds','max_output_bytes','capacity','optional_context']);
+ const taskId=uuid(selected.task_id,'task_id');await requireOwnedFleetTask(tx,b,taskId);
+ const task=(await tx.query('SELECT generation::text FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[b.organisation_id,b.run_id,taskId])).rows[0]!;
+ if(typeof selected.expected_task_generation!=='string'||!/^(0|[1-9][0-9]*)$/.test(selected.expected_task_generation)||task.generation!==selected.expected_task_generation)fail('STALE_ATTEMPT_GENERATION','Selected task generation changed');
+ if(!Number.isSafeInteger(selected.worker_slot)||Number(selected.worker_slot)<0||Number(selected.worker_slot)>1023||!Number.isSafeInteger(selected.lease_ms)||Number(selected.lease_ms)<1000||Number(selected.lease_ms)>300000||!Number.isSafeInteger(selected.max_runtime_seconds)||Number(selected.max_runtime_seconds)<1||Number(selected.max_runtime_seconds)>604800||!Number.isSafeInteger(selected.max_output_bytes)||Number(selected.max_output_bytes)<0)fail('FLEET_ASSIGNMENT_INVALID','Explicit bounded selected slot, lease and output/runtime limits required');
+ const install=fields(v.install_binding,['operation_id','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','input_digest']);
+ const ready=await readReadyFleetInstall(tx,i,install as unknown as Parameters<typeof readReadyFleetInstall>[2]);
+ if(ready.package_id!==b.delegation_id||ready.manager_generation!==b.manager_generation||ready.source_revision!==b.source_revision)fail('FLEET_INSTALL_SCOPE_DENIED','Selected install must match current delegated source and generation');
+ const receipt=ready.receipt as Record<string,any>,slot=Array.isArray(receipt.slots)?receipt.slots.find(s=>s.slot===selected.worker_slot):undefined;
+ if(!slot||typeof slot.worker_slot_id!=='string')fail('FLEET_SLOT_UNPREPARED','Selected slot has no verified installed workspace');
+ const generation=(BigInt(task.generation)+1n).toString();
+ const prepared=await packets.createPacketTx(tx,{idempotency_key:b.operation_id,leader_generation:b.leader_generation,package_generation:b.manager_generation,task_id:taskId,attempt_id:b.operation_id,attempt_generation:generation,sandbox_id:install.sandbox_id,slot_id:slot.worker_slot_id,sandbox_boot_generation:install.boot_generation,max_bytes:262144,optional_context:selected.optional_context},{...context,invocation:i});
+ const m=prepared.packet.mandatory;
+ if(!object(m)||!object(m.identity)||!object(m.intent)||!Array.isArray(m.intent.owned_scope)||!object(prepared.packet.observation))fail('FLEET_ASSIGNMENT_INVALID','Actual prepared packet binding required');
+ const scope=m.intent.owned_scope;
+ if(!Array.isArray(ready.read_scope)||!Array.isArray(ready.write_scope)||scope.some(path=>typeof path!=='string'||!scopeContains(ready.read_scope as string[],path)||!scopeContains(ready.write_scope as string[],path)))fail('FLEET_INSTALL_SCOPE_DENIED','Accepted task scope is not fully installed and writable');
+ const roles=(key:'required_interfaces'|'provided_interfaces'):string[]=>{
+  const definition=m.intent as Record<string,unknown>;const raw=definition.definition;let value:unknown=object(raw)?raw[key]:undefined;
+  if(value===undefined&&object(raw)&&object(raw.section)&&object(raw.section.fields))value=raw.section.fields[key];
+  if(object(value)&&Object.hasOwn(value,'value'))value=value.value;
+  if(typeof value==='string'){try{value=JSON.parse(value);}catch{fail('FLEET_INTERFACE_MISSING','Accepted interface roles must be explicit arrays');}}
+  if(value===undefined)return [];
+  if(!Array.isArray(value)||value.length>4096||value.some(id=>typeof id!=='string'||!/^interface\.[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(id))||new Set(value).size!==value.length)fail('FLEET_INTERFACE_MISSING','Accepted interface roles must be unique stable interface IDs');
+  return value as string[];
+ };
+ const required=roles('required_interfaces'),provided=roles('provided_interfaces');
+ if(!object(receipt.interfaces)||!Array.isArray(receipt.interfaces.selected_ids)||[...required,...provided].some(id=>!receipt.interfaces.selected_ids.includes(id)))fail('FLEET_INTERFACE_MISSING','Accepted task interfaces are absent from the actual installed subset');
+ const assignment={schema_version:1,kind:'hyperfide.task-assignment',assignment_id:b.decision_id,operation_id:b.operation_id,decision_id:b.decision_id,run_id:b.run_id,wave_id:b.delegation_id,delegation_id:b.delegation_id,manager_id:b.actor_id,manager_generation:b.manager_generation,leader_generation:b.leader_generation,authority_epoch:b.authority_epoch,environment_id:install.environment_id,environment_generation:Number(install.environment_generation),ready_receipt_digest:ready.receipt_digest,source_revision:ready.source_revision,package_digest:ready.manifest_digest,source_config_digest:receipt.source_config_digest,worker_id:b.decision_id,worker_slot:selected.worker_slot,tasks:[{task_id:taskId,attempt_id:b.operation_id,attempt_generation:generation,read_scope:scope,write_scope:scope,required_interfaces:required,provided_interfaces:provided}],limits:{max_runtime_seconds:selected.max_runtime_seconds,max_output_bytes:selected.max_output_bytes}};
+ const claim={organisation_id:b.organisation_id,run_id:b.run_id,request_id:b.operation_id,task_id:taskId,attempt_id:b.operation_id,attempt_generation:generation,run_spec_generation:prepared.packet.observation.run_spec_generation,spec_generation:m.identity.spec_generation,spec_revision_id:m.identity.spec_revision_id,authority_epoch:b.authority_epoch,leader_generation:b.leader_generation,package_generation:b.manager_generation,sandbox_id:install.sandbox_id,slot_id:slot.worker_slot_id,sandbox_boot_generation:install.boot_generation,lease_ms:selected.lease_ms,input_packet_digest:prepared.digest,capacity:selected.capacity};
+ return {assignment,install_binding:install,claims:[claim]};
 }
 export async function assignFleetWorker(tx:PrimaryTransaction,i:InvocationContext,b:FleetManagerBinding,value:unknown,recipients:{consumer_ids:string[]},workers:WorkerRegistrationAuthority):Promise<Record<string,unknown>>{
  const v=fields(value,['assignment','install_binding','claims']);

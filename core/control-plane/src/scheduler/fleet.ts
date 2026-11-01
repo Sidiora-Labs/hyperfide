@@ -14,7 +14,7 @@ import {validateDecision} from '../contracts/fleet/index.mjs';
 import {isProviderIntentCapability} from '../providers/reconcile.js';
 import {reserveDynamic} from './resources.js';
 import {fields,object,uuid,decimal,dimensions,dispatchRecipients,applyExecutionControl,fail} from './claim.js';
-import {assignFleetWorker,controlFleetWorker,type FleetManagerBinding} from '../runner/fleet.js';
+import {assignFleetWorker,prepareSelectedFleetAssignment,controlFleetWorker,type FleetPacketFactory,type FleetManagerBinding} from '../runner/fleet.js';
 import {issue} from '../events/instructions.js';
 import type {WorkerRegistrationAuthority} from '../hierarchy/adoption.js';
 
@@ -23,7 +23,7 @@ export const MANAGER_ACTION_CONTRACTS={
  'fleet.install.admit':{required:['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','ttl_seconds','slot_bindings'],optional:['recovery_of'],recovery_of:{type:'object',additional_properties:false,required:['install_operation_id','admission_digest','runner_operation_id','runner_plan_digest','quiescence_operation_id','quiescence_receipt_digest'],install_operation_id:'current failed install_recovery[].install_operation_id; is_current_head must be true',admission_digest:'exact predecessor install_recovery[].admission_digest',runner_operation_id:'exact corresponding install_recovery_jobs[].runner_operation_id',runner_plan_digest:'exact corresponding install_recovery_jobs[].runner_plan_digest',quiescence_operation_id:'exact nonnull install_recovery_jobs[].quiescence_operation_id; must equal runner_operation_id',quiescence_receipt_digest:'exact nonnull install_recovery_jobs[].quiescence_receipt_digest',authority:'Only a signed COMPLETED/FAILED predecessor with confirmed native cleanup and retained capture may recover. Observation fields do not grant eligibility; the authority verifies signatures, current allocation, same boot/inputs and current head. UNKNOWN or CLAIMED outcomes are reconcile-only.'},execution_identity:'Use a fresh decision.operation_id for recovery; admission.logical_operation_id retains the original install identity. Preserve failed job, staging and dirty files; never replay the old execution.',description:'Admit a registered pinned environment to its exact current boot. Optional recovery_of renews authority for a new execution of the same environment only after known failed native quiescence; verified completion still gates workers.'},
  PROVISION_SANDBOX:{required:['pool_id','provider_id','profile_id','sandbox_id','preparation_digest','deadline_at','capacity','purpose'],optional:['qualification_job'],qualification_job:{required:['job_id','expected_state_version','custody_id','custody_generation'],description:'Required for a generic TEST pool. Select an observed current PENDING qualification job and custody explicitly; the engine resolves its accepted TEST profile and retained source policy. CODING does not accept this selector.'},description:'Select an approved provider/profile with a configured protected bootstrap recipe matching its declared role and requested purpose; reserve exact capacity before provider effects.'},
  REUSE_SANDBOX:{required:['sandbox_id','boot_generation','pool_id','provider_id','profile_id'],description:'Reuse an owned exact boot; a separate actual install receipt still gates worker assignment.'},
- ASSIGN_WORKER:{required:['assignment','install_binding','claims'],slot_capacity_kind:'AGENT',capacity_class:'EXECUTION',test_slots_select_worker_kind:false,build_and_test_admission:'SEPARATE_JOB',description:'Bind one isolated coding-agent task attempt to its canonical assignment, installed AGENT slot UUID and existing scheduler claim. This claim reserves AGENT, CPU, memory and disk execution capacity; build_slots/test_slots permit separate jobs and do not select a TEST slot or reserve BUILD/TEST capacity here. Independent qualification uses its own TEST allocation and sandbox. Use separate decisions for concurrent workers.'},
+ ASSIGN_WORKER:{required:['install_binding'],optional:['selection','assignment','claims'],one_of:[{required:['selection','install_binding'],forbidden:['assignment','claims']},{required:['assignment','install_binding','claims'],forbidden:['selection']}],preferred_input_form:'selection',selection:{required:['task_id','expected_task_generation','worker_slot','lease_ms','max_runtime_seconds','max_output_bytes','capacity','optional_context'],task_id:'Exact delegated tasks[].id chosen by manager',expected_task_generation:'Exact tasks[].generation including zero',worker_slot:'Verified zero-based READY receipt slot',lease_ms:'1000..300000',max_runtime_seconds:'1..604800',max_output_bytes:'Nonnegative safe integer',capacity:'Explicit physical account dimensions matching tasks[].capacity_policy.worker_assignment and accepted packet policy',optional_context:'Explicit array; may be empty; source_id/digest/text pins preserved'},slot_capacity_kind:'AGENT',capacity_class:'EXECUTION',test_slots_select_worker_kind:false,build_and_test_admission:'SEPARATE_JOB',description:'Bind one isolated coding-agent task attempt to its canonical assignment, installed AGENT slot UUID and existing scheduler claim. This claim reserves AGENT, CPU, memory and disk execution capacity; build_slots/test_slots permit separate jobs and do not select a TEST slot or reserve BUILD/TEST capacity here. Independent qualification uses its own TEST allocation and sandbox. Use separate decisions for concurrent workers.'},
  STEER_WORKER:{required:['task_id','attempt_id','attempt_generation','launch_id','request_id','frame_b64'],description:'Send a bounded native instruction to the exact currently owned task attempt and launch.'},
  CANCEL_ASSIGNMENT:{required:['task_id','attempt_id','attempt_generation','launch_id'],description:'Persist exact native cancellation; result custody and unconfirmed cleanup remain retained.'},
  STOP_SANDBOX:{required:['sandbox_id','boot_generation','reason'],description:'Hold admission and issue cancellation for owned active launches; no physical disappearance is inferred.'},
@@ -37,6 +37,7 @@ export interface FleetEffects {
  describe():{actions:typeof MANAGER_ACTION_CONTRACTS};
 }
 function actionInput(action:string,value:unknown):Record<string,unknown>{
+ if(action==='ASSIGN_WORKER')return value!==null&&typeof value==='object'&&Object.hasOwn(value,'selection')?fields(value,['selection','install_binding']):fields(value,['assignment','install_binding','claims']);
  const contract=MANAGER_ACTION_CONTRACTS[action as keyof typeof MANAGER_ACTION_CONTRACTS];
  if(!contract)fail('FLEET_ACTION_DENIED','Unsupported manager effect');
  return fields(value,contract.required,'optional' in contract?contract.optional:[]);
@@ -64,6 +65,7 @@ export function createFleetEffectsComponent(ctx:ComponentContext):Component{
  const installer=ctx.dependencies.require('fleet-install','fleet.install.v1',(v:unknown):v is {admit(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>;adopt(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>}=>!!v&&typeof (v as {admit?:unknown}).admit==='function'&&typeof (v as {adopt?:unknown}).adopt==='function');
  const workers=ctx.dependencies.require('hierarchy-worker-registration','hierarchy.worker-registration.v1',(v:unknown):v is WorkerRegistrationAuthority=>!!v&&typeof (v as WorkerRegistrationAuthority).registerAssignedWorker==='function');
  const providers=ctx.dependencies.require('8.3','provider.intents.v1',isProviderIntentCapability);
+ const packets=ctx.dependencies.require('3.2','hierarchy.packets.v1',(v:unknown):v is FleetPacketFactory=>v!==null&&typeof v==='object'&&typeof (v as FleetPacketFactory).createPacketTx==='function');
  const execute: FleetEffects['execute']=async(value,i)=>{
   assertInvocation(i);
   const decision=validateDecision(value,{actions:MANAGER_ACTIONS});
@@ -108,13 +110,13 @@ export function createFleetEffectsComponent(ctx:ComponentContext):Component{
      return {kind:d.action,delegation_id:b.delegation_id,sandbox_id:v.sandbox_id,boot_generation:v.boot_generation,ready:false,installation_required:true};
     }
     if(d.action==='ASSIGN_WORKER'){
-     const v=actionInput(String(d.action),d.input),a=object(v.assignment);
+     const raw=actionInput(String(d.action),d.input);const input=Object.hasOwn(raw,'selection')?await prepareSelectedFleetAssignment(tx,i,b,raw,ctx,packets):raw;const v=actionInput(String(d.action),input),a=object(v.assignment);
      const tasks=a.tasks as Record<string,unknown>[];
      if(!Array.isArray(tasks)||tasks.some(t=>!Array.isArray(budget.task_ids)||!budget.task_ids.includes(t.task_id)))fail('FLEET_TASK_SCOPE_DENIED','Assignment tasks must be explicitly delegated');
      const install=object(v.install_binding);await ownedSandbox(tx,b,String(install.sandbox_id));
      const current=(await tx.query(`SELECT count(*)::int AS n FROM hyperfide.attempts a JOIN hyperfide.tasks t ON t.organisation_id=a.organisation_id AND t.run_id=a.run_id AND t.id=a.task_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND t.feature_package_id=$3 AND a.compute_authority='CURRENT'`,[b.organisation_id,b.run_id,b.delegation_id])).rows[0];
      if(!Number.isSafeInteger(budget.max_concurrent_workers)||Number(current?.n??0)+tasks.length>Number(budget.max_concurrent_workers))fail('FLEET_WORKER_BUDGET','Manager concurrent worker budget is occupied');
-     return assignFleetWorker(tx,i,b,d.input,dispatchRecipients(ctx),workers);
+     return assignFleetWorker(tx,i,b,input,dispatchRecipients(ctx),workers);
     }
     if(d.action==='STEER_WORKER'||d.action==='CANCEL_ASSIGNMENT')return controlFleetWorker(tx,b,d.action,d.input);
     if(d.action==='STOP_SANDBOX'){

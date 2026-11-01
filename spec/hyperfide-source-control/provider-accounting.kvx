@@ -1,0 +1,41 @@
+[meta]
+kind = "provider-accounting-contract"
+schema_version = 1
+purpose = "Keep managed fleet operating allocations distinct from shared provider quota ceilings."
+
+[mode.legacy]
+selection = "No protected provider accounting policy."
+behavior = "Preserve the existing combined accounting and qualification behavior. Explicit PROVIDER_QUOTA declarations never qualify managed capacity."
+
+[mode.separate]
+selection = "Protected HF_PROVIDER_ACCOUNTING_POLICY_FILE and exact HF_PROVIDER_ACCOUNTING_POLICY_DIGEST."
+policy_fields = ["schema_version", "provider", "provider_account_id", "mode", "provider_quota_dimensions"]
+mode = "SEPARATE_FLEET_BUDGET_PROVIDER_QUOTA"
+provider = "blaxel"
+provider_quota_dimensions = ["SANDBOX"]
+configuration = "The scoped policy does not rewrite pool configuration, resource identity, numeric approved limits or existing reservations."
+
+[domain.managed_fleet]
+limits = "Existing approved_limits and retained managed-capacity declarations bound Hyperfide allocations at account, environment and pool scopes."
+usage = "Managed resources and reservations consume operating budgets. Positively identified foreign resources do not consume managed budgets; unknown ownership remains fenced."
+seeding = "Physical and execution capacity accounts remain bounded by every applicable managed-capacity declaration, including the qualified pool limit."
+execution = "Per-sandbox measured execution limits and exact preparation profiles remain mandatory."
+
+[domain.provider_quota]
+limits = "Only explicitly configured provider-wide dimensions are enforced as shared provider quotas."
+usage = "Deduplicated known provider presence, including foreign resources and managed reservations, consumes the shared quota."
+provenance = "A quota requires a current provider observation or a separately retained operator declaration with capacity_domain PROVIDER_QUOTA. An internal-capacity declaration cannot substitute."
+unknown_dimensions = "Unconfigured provider CPU, memory or disk dimensions remain unknown metadata; they are neither zero nor unlimited and do not become fabricated account-wide admission constraints."
+readiness = "A quota ceiling and known-presence check do not certify complete free inventory or successful provider allocation."
+
+[declaration]
+action = "provider.pools.attest-capacity"
+capacity_domain = ["MANAGED_FLEET", "PROVIDER_QUOTA"]
+legacy = "Declarations without a domain preserve legacy interpretation; in separate mode operator-declared capacity remains managed-fleet capacity."
+immutability = "A changed domain or ceiling requires a new declaration identity and retained provenance. Existing declarations and reservations are not relabeled."
+
+[report]
+internal = ["budgets", "budget_used_account", "budget_used_environment"]
+shared = ["used_account", "used_environment", "provider_quota"]
+provider_quota = ["configured", "scope", "limit", "used", "vector_complete", "usage_scope", "remaining_inventory_authority", "sources"]
+unknown = "Missing foreign vectors remain visible. They block admission when required by an explicitly enforced shared quota dimension; missing or conflicting ownership still blocks admission independently."

@@ -1,3 +1,4 @@
+import {readProviderAccountingPolicy,bindProviderAccountingPolicy,providerAccountingPolicy} from './accounting_policy.js';
 import {readForeignInventoryPolicy,bindForeignInventoryPolicy,foreignInventoryPolicy,type ForeignResource} from './foreign_inventory.js';
 import fs from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
@@ -221,7 +222,7 @@ export async function readDeployment(env:Readonly<NodeJS.ProcessEnv>):Promise<De
   const info=await fs.lstat(path);
   if(!info.isFile()||info.isSymbolicLink()||info.size>1024*1024||(info.mode&0o077)!==0||(process.getuid&&info.uid!==process.getuid()))
     fail('POOL_CONFIG_INVALID','Pool configuration must be a bounded owner-only regular file');
-  const config=validateDeployment(JSON.parse(await fs.readFile(path,'utf8')));bindForeignInventoryPolicy(config,await readForeignInventoryPolicy(env));return config;
+  const config=validateDeployment(JSON.parse(await fs.readFile(path,'utf8')));const [foreign,accounting]=await Promise.all([readForeignInventoryPolicy(env),readProviderAccountingPolicy(env)]);bindForeignInventoryPolicy(config,foreign);bindProviderAccountingPolicy(config,accounting);return config;
 }
 export async function inspectProviderSchema(pool:ProviderDatabase):Promise<unknown>{
   const filename=new URL('../../migrations/0008-provider-coordination.sql',import.meta.url);
@@ -287,7 +288,7 @@ async function applyConfig(pool:ProviderDatabase,config:DeploymentConfig):Promis
         const effective=bounds.reduce((limit,bound)=>bound<limit?bound:limit,approved);
         const limit=d.qualified?effective.toString():'0',qualification=d.qualified?'QUALIFIED':'UNQUALIFIED';
         const capacityClass=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?'PHYSICAL':'EXECUTION';
-        const provenance=digestDocument({configuration_digest:scope.configuration_digest,dimension:d.name,budgets:d.budgets,evidence:evidence.rows});
+        const accounting=providerAccountingPolicy(config,p.provider,p.account_key),provenance=digestDocument({configuration_digest:scope.configuration_digest,...(accounting?{accounting_policy_digest:accounting.digest,capacity_domain:'MANAGED_FLEET'}:{}),dimension:d.name,budgets:d.budgets,evidence:evidence.rows});
         for(const kind of ['CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(d.name)?[capacityClass,'EXECUTION']:[capacityClass]){
         // Held usage survives loss of qualification; the floor preserves accounting,
         // while UNQUALIFIED still denies admission. The existing CHECK bounds this
@@ -376,15 +377,15 @@ export async function currentPool(client:Pick<PrimaryTransaction,'query'>,config
   return{pool:p,scope};
 }
 export async function poolCapacity(client:Pick<PrimaryTransaction,'query'>,config:DeploymentConfig,id:string):Promise<unknown>{
-  const {pool:p,scope}=await currentPool(client,config,id),account=config.accounts.find(a=>a.provider===p.provider&&a.account_key===p.account_key)!;
-  const observations=await client.query("SELECT q.* FROM hyperfide.provider_quota_observations q JOIN hyperfide.provider_pool_configurations c USING(organisation_id,pool_id,configuration_digest) WHERE q.organisation_id=$1 AND q.provider=$2 AND q.account_key=$3 AND c.active AND q.observed_at<=clock_timestamp() AND q.expires_at>clock_timestamp() AND (q.basis<>'OPERATOR_DECLARED_CAPACITY' OR EXISTS(SELECT 1 FROM hyperfide.provider_capacity_attestations d JOIN hyperfide.artifacts a ON a.organisation_id=d.organisation_id AND a.run_id=d.provenance_run_id AND a.id=d.provenance_artifact_id AND a.digest=d.provenance_digest WHERE d.organisation_id=q.organisation_id AND d.id=q.declaration_id AND a.status='COMPLETE' AND a.completed_at IS NOT NULL)) ORDER BY q.observed_at DESC",
+  const {pool:p,scope}=await currentPool(client,config,id),account=config.accounts.find(a=>a.provider===p.provider&&a.account_key===p.account_key)!,accounting=providerAccountingPolicy(config,p.provider,p.account_key);
+  const observations=await client.query("SELECT q.*,d.declaration->>'capacity_domain' AS capacity_domain FROM hyperfide.provider_quota_observations q JOIN hyperfide.provider_pool_configurations c USING(organisation_id,pool_id,configuration_digest) LEFT JOIN hyperfide.provider_capacity_attestations d ON d.organisation_id=q.organisation_id AND d.id=q.declaration_id WHERE q.organisation_id=$1 AND q.provider=$2 AND q.account_key=$3 AND c.active AND q.observed_at<=clock_timestamp() AND q.expires_at>clock_timestamp() AND (q.basis<>'OPERATOR_DECLARED_CAPACITY' OR EXISTS(SELECT 1 FROM hyperfide.provider_capacity_attestations d JOIN hyperfide.artifacts a ON a.organisation_id=d.organisation_id AND a.run_id=d.provenance_run_id AND a.id=d.provenance_artifact_id AND a.digest=d.provenance_digest WHERE d.organisation_id=q.organisation_id AND d.id=q.declaration_id AND a.status='COMPLETE' AND a.completed_at IS NOT NULL)) ORDER BY q.observed_at DESC",
     [config.organisation_id,p.provider,p.account_key]);
   const usage=await client.query("SELECT p.id AS pool_id,p.environment_key,count(s.id) FILTER(WHERE s.observed_state<>'DESTROYED')::text AS occupied FROM hyperfide.provider_pools p LEFT JOIN hyperfide.sandboxes s ON s.organisation_id=p.organisation_id AND s.pool_id=p.id WHERE p.organisation_id=$1 AND p.provider=$2 AND p.account_key=$3 GROUP BY p.id,p.environment_key",
     [config.organisation_id,p.provider,p.account_key]);
   const pending=await client.query("SELECT pool_id,count(*)::text AS creates,count(*) FILTER(WHERE state IN ('RECORDED','SUBMITTING','ID_KNOWN','UNKNOWN','RECONCILING','QUARANTINED'))::text AS inflight FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND kind='CREATE' AND state NOT IN ('TERMINAL','REJECTED') GROUP BY pool_id",
     [config.organisation_id]);
   const relevant=(kind:string,key:string,dimension:string)=>{
-    const rows=observations.rows.filter(r=>r.scope_kind===kind&&r.scope_key===key&&r.dimension===dimension);
+    const rows=observations.rows.filter(r=>(r.capacity_domain!=='PROVIDER_QUOTA'&&(!accounting||r.basis!=='PROVIDER_API'))&&r.scope_kind===kind&&r.scope_key===key&&r.dimension===dimension);
     return rows.length?rows.reduce((a,r)=>BigInt(r.quota_limit)<a?BigInt(r.quota_limit):a,BigInt(rows[0]!.quota_limit)):null;
   };
   const resourceUsage=await client.query("SELECT i.pool_id,COALESCE(sum((i.operation->'parameters'->'resources'->>'cpu_millis')::bigint),0)::text AS cpu,COALESCE(sum((i.operation->'parameters'->'resources'->>'memory_bytes')::bigint),0)::text AS memory,COALESCE(sum((i.operation->'parameters'->'resources'->>'disk_bytes')::bigint),0)::text AS disk FROM hyperfide.provisioning_intents i JOIN hyperfide.sandboxes s ON s.organisation_id=i.organisation_id AND s.id=i.sandbox_id WHERE i.organisation_id=$1 AND i.kind='CREATE' AND i.state<>'REJECTED' AND s.observed_state<>'DESTROYED' GROUP BY i.pool_id",[config.organisation_id]);
@@ -430,35 +431,39 @@ export async function poolCapacity(client:Pick<PrimaryTransaction,'query'>,confi
     const accountObserved=relevant('ACCOUNT',p.account_key,name),environmentObserved=relevant('ENVIRONMENT',p.environment_key,name),poolObserved=relevant('POOL',p.id,name);
     const poolIds=usage.rows.map(r=>r.pool_id as string),environmentIds=usage.rows.filter(r=>r.environment_key===p.environment_key).map(r=>r.pool_id as string);
     const usedAccount=poolIds.reduce((n,id)=>n+managedAmount(id,name),0n)+sharedExternal(name),usedEnvironment=environmentIds.reduce((n,id)=>n+managedAmount(id,name),0n)+sharedExternal(name,p.environment_key),usedPool=amount(id,name);
-    const budgets=[{scope:'ACCOUNT',limit:account.approved_limits[name]??'0',observed:accountObserved,used:usedAccount},
-      {scope:'ENVIRONMENT',limit:p.approved_limits[name]??'0',observed:environmentObserved,used:usedEnvironment},
+    const unattributed=(environment?:string)=>name==='SANDBOX'?[...external.entries()].filter(([k,r])=>!freshForeign.has(k)&&(environment===undefined||r.environment===environment)).reduce((sum,[_k,r])=>sum+BigInt(r.resources.SANDBOX),0n):0n;
+    const budgetUsedAccount=accounting?poolIds.reduce((n,id)=>n+managedAmount(id,name),0n)+unattributed():usedAccount,budgetUsedEnvironment=accounting?environmentIds.reduce((n,id)=>n+managedAmount(id,name),0n)+unattributed(p.environment_key):usedEnvironment;
+    const budgets=[{scope:'ACCOUNT',limit:account.approved_limits[name]??'0',observed:accountObserved,used:budgetUsedAccount},
+      {scope:'ENVIRONMENT',limit:p.approved_limits[name]??'0',observed:environmentObserved,used:budgetUsedEnvironment},
       {scope:'POOL',limit:p.approved_limits[name]??'0',observed:poolObserved,used:usedPool}];
     const qualified=accountObserved!==null&&(environmentObserved!==null||poolObserved!==null);
-    const origins=(scope:string)=>observations.rows.filter(r=>r.scope_kind===scope&&r.scope_key===(scope==='ACCOUNT'?p.account_key:scope==='ENVIRONMENT'?p.environment_key:p.id)&&r.dimension===name);
+    const origins=(scope:string)=>observations.rows.filter(r=>(r.capacity_domain!=='PROVIDER_QUOTA'&&(!accounting||r.basis!=='PROVIDER_API'))&&r.scope_kind===scope&&r.scope_key===(scope==='ACCOUNT'?p.account_key:scope==='ENVIRONMENT'?p.environment_key:p.id)&&r.dimension===name);
     const minimum=(rows:typeof observations.rows)=>rows.length?rows.reduce((n,r)=>BigInt(r.quota_limit)<n?BigInt(r.quota_limit):n,BigInt(rows[0]!.quota_limit)).toString():null;
-    return{name,qualified,budgets:budgets.map(b=>({scope:b.scope,approved_limit:b.limit,capacity_limit:b.observed?.toString()??null,
+    const quotaConfigured=!!accounting&&accounting.document.provider_quota_dimensions.some(d=>d===name),quotaRows=quotaConfigured?observations.rows.filter(r=>r.scope_kind==='ACCOUNT'&&r.scope_key===p.account_key&&r.dimension===name&&(r.basis==='PROVIDER_API'||r.capacity_domain==='PROVIDER_QUOTA')):[];
+    return{name,qualified,accounting_domain:accounting?'MANAGED_FLEET':'LEGACY_COMBINED',provider_quota:{capacity_domain:'PROVIDER_QUOTA',configured:quotaConfigured,scope:'ACCOUNT',limit:minimum(quotaRows),used:usedAccount.toString(),vector_complete:!unknownExternalDimensions.includes(name),usage_scope:'KNOWN_SHARED_PROVIDER_PRESENCE',remaining_inventory_authority:false,sources:[...new Set(quotaRows.map(r=>r.basis))]},budget_used_account:budgetUsedAccount.toString(),budget_used_environment:budgetUsedEnvironment.toString(),budgets:budgets.map(b=>({scope:b.scope,...(accounting?{capacity_domain:'MANAGED_FLEET'}:{}),approved_limit:b.limit,capacity_limit:b.observed?.toString()??null,
       observed_limit:minimum(origins(b.scope).filter(r=>r.basis==='PROVIDER_API')),
       operator_declared_limit:minimum(origins(b.scope).filter(r=>r.basis!=='PROVIDER_API')),
       limit_sources:[...new Set(origins(b.scope).map(r=>r.basis))],used:b.used.toString()})),
       used_account:usedAccount.toString(),used_environment:usedEnvironment.toString(),used_pool:usedPool.toString()};
   });
   const attestation_warnings=await attestationExpiryWarnings(client,config.organisation_id,[p.id]);
-  return {scope,dimensions,planning_limits:p.planning_limits,planning_grants_capacity:false,qualification:'DECLARED_OR_OBSERVED_LIMITS_ONLY',attestation_warnings,
-    external_usage:{classification:'SHARED_ACCOUNT_PRESENCE',policy_digest:policy?.digest??null,resources:external.size,classified_foreign:freshForeign.size,unknown_dimensions:unknownExternalDimensions},unknown_resource_capacity:unknownExternal||(policy!==null||attributionRows.length>0)&&unknownExternalDimensions.length>0||orphanRows.rows.some(r=>usage.rows.some(u=>u.pool_id===r.pool_id)&&BigInt(r.unknown)>0n),authority:'OBSERVATION_ONLY'};
+  return {scope,dimensions,accounting_mode:accounting?.document.mode??'LEGACY_COMBINED',accounting_policy_digest:accounting?.digest??null,planning_limits:p.planning_limits,planning_grants_capacity:false,qualification:'DECLARED_OR_OBSERVED_LIMITS_ONLY',attestation_warnings,
+    external_usage:{classification:'SHARED_ACCOUNT_PRESENCE',policy_digest:policy?.digest??null,resources:external.size,classified_foreign:freshForeign.size,unknown_dimensions:unknownExternalDimensions},unknown_resource_capacity:unknownExternal||(accounting?unknownExternalDimensions.some(name=>accounting.document.provider_quota_dimensions.some(d=>d===name)):(policy!==null||attributionRows.length>0)&&unknownExternalDimensions.length>0)||orphanRows.rows.some(r=>usage.rows.some(u=>u.pool_id===r.pool_id)&&BigInt(r.unknown)>0n),authority:'OBSERVATION_ONLY'};
 }
 export async function assertPoolCapacity(client:PrimaryTransaction,config:DeploymentConfig,id:string,requested:Partial<Record<QuotaDimension,string>>,alreadyReserved=false):Promise<void>{
   // The same account lock serialises all environment/pool provisioning requests.
   assertPrimaryTransaction(client);
   const p=configuredPool(config,id);
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[config.organisation_id+':'+p.provider+':'+p.account_key]);
-  const report=await poolCapacity(client,config,id) as {unknown_resource_capacity:boolean;dimensions:Array<{name:QuotaDimension;qualified:boolean;budgets:Array<{scope:string;approved_limit:string;capacity_limit:string|null;observed_limit:string|null;used:string}>}>};
+  const report=await poolCapacity(client,config,id) as {unknown_resource_capacity:boolean;dimensions:Array<{name:QuotaDimension;qualified:boolean;budgets:Array<{scope:string;approved_limit:string;capacity_limit:string|null;observed_limit:string|null;used:string}>;provider_quota?:{configured:boolean;limit:string|null;used:string;vector_complete:boolean}}>};
   if(report.unknown_resource_capacity)fail('CAPACITY_UNKNOWN','Unaccounted provider resources must be reconciled before placement');
   for(const [name,raw] of Object.entries(requested)){
     const quantity=BigInt(dec(raw));if(quantity===0n)continue;
     const d=report.dimensions.find(d=>d.name===name);if(!d?.qualified)fail('QUOTA_UNQUALIFIED','Required capacity dimension is unqualified');
+    if(d.provider_quota?.configured){if(d.provider_quota.limit===null||!d.provider_quota.vector_complete)fail('QUOTA_UNQUALIFIED','Explicit shared provider quota requires retained scoped evidence and known usage');if(BigInt(d.provider_quota.used)+(alreadyReserved&&name!=='PROVISIONING'?0n:quantity)>BigInt(d.provider_quota.limit))fail('PROVIDER_QUOTA_EXCEEDED','Shared provider quota would be exceeded');}
     for(const b of d.budgets){
       if(BigInt(b.used)+(alreadyReserved&&name!=='PROVISIONING'?0n:quantity)>BigInt(b.approved_limit))fail('OPERATING_BUDGET_EXCEEDED','Approved operating budget would be exceeded');
-      if(b.capacity_limit!==null&&BigInt(b.used)+(alreadyReserved&&name!=='PROVISIONING'?0n:quantity)>BigInt(b.capacity_limit))fail('PROVIDER_QUOTA_EXCEEDED','Observed provider quota would be exceeded');
+      if(b.capacity_limit!==null&&BigInt(b.used)+(alreadyReserved&&name!=='PROVISIONING'?0n:quantity)>BigInt(b.capacity_limit)){if(providerAccountingPolicy(config,p.provider,p.account_key))fail('OPERATING_BUDGET_EXCEEDED','Declared managed fleet capacity would be exceeded');fail('PROVIDER_QUOTA_EXCEEDED','Observed provider quota would be exceeded');}
     }
   }
 }
@@ -522,9 +527,10 @@ async function attestCapacity(database:ProviderDatabase,config:DeploymentConfig,
  const seen=new Set<string>();
  return transaction(database,async tx=>{
   for(const raw of document.attestations as unknown[]){
-   const a=obj(raw,['id','pool_id','configuration_digest','scope_kind','scope_key','dimension','limit','declared_at','expires_at','provenance']);
+   const a=obj(raw,['id','pool_id','configuration_digest','scope_kind','scope_key','dimension','limit','declared_at','expires_at','provenance',...(Object.hasOwn(obj(raw),'capacity_domain')?['capacity_domain']:[])]);if(a.capacity_domain!==undefined&&!['MANAGED_FLEET','PROVIDER_QUOTA'].includes(String(a.capacity_domain)))fail('CAPACITY_DECLARATION_INVALID','Explicit supported accounting domain required');if(a.capacity_domain==='PROVIDER_QUOTA'){const policy=providerAccountingPolicy(config,'blaxel',String(a.scope_key));if(!policy||a.scope_kind!=='ACCOUNT'||!policy.document.provider_quota_dimensions.some(d=>d===a.dimension))fail('CAPACITY_DECLARATION_INVALID','Provider quota must match the explicitly configured shared account dimension');}
    const id=uuid(a.id);if(seen.has(id))fail('CAPACITY_DECLARATION_INVALID','Duplicate declaration identity');seen.add(id);
    const {scope}=await currentPool(tx,config,uuid(a.pool_id));
+   if(a.capacity_domain==='PROVIDER_QUOTA'&&!providerAccountingPolicy(config,scope.provider,scope.provider_account_id))fail('CAPACITY_DECLARATION_INVALID','Typed provider quota requires the selected provider account policy');
    if(a.configuration_digest!==scope.configuration_digest)fail('CAPACITY_DECLARATION_STALE','Capacity declaration configuration changed');
    const at=utc(a.declared_at),until=utc(a.expires_at),now=Date.now();
    if(Date.parse(at)>now||now-Date.parse(at)>30*86400000||Date.parse(until)<=now||Date.parse(until)-Date.parse(at)>30*86400000)fail('CAPACITY_DECLARATION_STALE','Capacity declaration freshness/expiry invalid');

@@ -53,3 +53,17 @@ cause = "Inventory reconciliation inserted every listed resource as an orphan be
 resolution = "Probe ownership before inserting orphans. Use protected positive owner rules and retained attribution evidence to separate pool membership from shared-account resource charges. Preserve unknown physical presence across stale observations and policy changes."
 evidence = "foreign_inventory_capacity.py exercised signed APIs, PostgreSQL and 137 pinned-SDK HTTP reads, including foreign attribution, unknown ownership, expiry, deduplication and unchanged legacy rows."
 status = "resolved"
+
+[gotcha.fleet_assignment_packet_handoff]
+symptom = "A manager can select an installed worker slot but cannot form an assignment without an execution packet digest unavailable in its observations."
+cause = "The assignment API required callers to supply a pre-created packet and its opaque claim identities."
+resolution = "Accept an explicit task and installed-slot selection. Create the authoritative packet, claim and worker registration in the same admitted transaction, preserving accepted interface roles and replay identities."
+evidence = "fleet_selected_assignment.py exercises signed API assignment, PostgreSQL effects, refused stale or mismatched selections and replay without duplicate workers."
+status = "resolved"
+
+[gotcha.fleet_provider_budget_domains]
+symptom = "Positively identified foreign workloads exhaust a fleet operating budget even when the provider account has capacity."
+cause = "Provider quota and managed operating budget comparisons used the same shared resource total."
+resolution = "An explicitly protected accounting policy separates managed allocations from shared provider quota. Retained declarations identify their domain; foreign ownership and physical presence remain observable."
+evidence = "foreign_inventory_capacity.py exercises signed CREATE preparation with shared inventory, distinct quota declarations, expiry and unchanged managed budget ceilings."
+status = "resolved"

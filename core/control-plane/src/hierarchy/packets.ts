@@ -362,10 +362,8 @@ export function createComponent(context:ComponentContext):Component {
  // Declared dependency capability (7.3); resolved per use so its graphGuard binds each authenticated read.
  const graphReader=()=>context.dependencies.require('7.3','graph.snapshot.v1',isGraphSnapshotCapability);
  const validateInputs:typeof validateExecutionInputs=(tx,input,invocation,reader)=>validateExecutionInputs(tx,input,invocation,reader??(invocation?graphReader():undefined));
- return {apiVersion:1,capabilities:{'hierarchy.packets.v1':Object.freeze({loadExecutionPacket,readExecutionPacket,loadPreparationIntent,validateExecutionInputs:validateInputs,derivePreparedEnvironmentRoles,deriveQualificationInputs,installContinuationReader})},actions:{
- 'hierarchy.packet.describe':async input=>{provider.sealed=true;record(input,[]);return {schema_version:1,packet_phase:'PROSPECTIVE_ADMISSION',execution_authority:false,hash:'SHA256_CANONICAL_JSON',max_packet_bytes:262144,
-  mandatory_digest_scope:['identity','intent','inputs','runtime','resource_requirements','policy_digest'],optional_context:'RANKED_TRIMMABLE_SHA256_TEXT',post_admission_required:['CURRENT_COMPUTE_GRANT','VERIFIED_MATERIALISATION','QUALIFIED_CONNECTOR_LAUNCH']};},
- 'hierarchy.packet.create':async (input,invocation)=>{
+ const createPacketTx=async(tx:PrimaryTransaction,input:unknown,invocation:ComponentContext):Promise<ExecutionPacketRecord>=>{
+  assertPrimaryTransaction(tx);await readSemanticDisposition(tx,{organisation_id:invocation.invocation!.principal.organisation_id,run_id:invocation.invocation!.principal.run_id});
   provider.sealed=true;
   const v=record(input,['idempotency_key','leader_generation','package_generation','task_id','attempt_id','attempt_generation','sandbox_id','slot_id','sandbox_boot_generation','max_bytes','optional_context','continuation_checkpoint_id'],['idempotency_key','leader_generation','package_generation','task_id','attempt_id','attempt_generation','sandbox_id','slot_id','sandbox_boot_generation','max_bytes','optional_context']);
   const a=trustedActor(invocation),taskId=uuid(v.task_id),attemptId=uuid(v.attempt_id),generation=decimal(v.attempt_generation);
@@ -379,7 +377,6 @@ export function createComponent(context:ComponentContext):Component {
   });
   if(new Set(optionalInput.map(c=>c.source_id)).size!==optionalInput.length)return refuse('INVALID_REQUEST','Optional context source identities must be unique');
   let optional=optionalInput;
-  return operation(g,a,'hierarchy.packet.create',v,async tx=>{
    await packetSchema(tx);
    const tasks=await tx.query('SELECT id,task_key,feature_package_id,spec_revision_id,spec_generation::text,criteria_digest,definition,wave,state,generation::text,state_version::text,current_attempt_id,current_custody_id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[a.organisation_id,a.run_id,taskId]);
    const task=tasks.rows[0];if(!task)return refuse('TASK_UNAVAILABLE','Task is not in the authenticated run');
@@ -470,8 +467,11 @@ export function createComponent(context:ComponentContext):Component {
      await tx.query('INSERT INTO hyperfide.hierarchy_execution_packet_artifacts(organisation_id,run_id,packet_id,artifact_role,artifact_id) VALUES($1,$2,$3,$4,$5)',[a.organisation_id,a.run_id,id,role,binding.artifact_id]);
    }
    return {packet_id:id,digest:packetDigest,mandatory_digest:mandatoryDigest,packet};
-  });
- },
+ };
+ return {apiVersion:1,capabilities:{'hierarchy.packets.v1':Object.freeze({createPacketTx,loadExecutionPacket,readExecutionPacket,loadPreparationIntent,validateExecutionInputs:validateInputs,derivePreparedEnvironmentRoles,deriveQualificationInputs,installContinuationReader})},actions:{
+ 'hierarchy.packet.describe':async input=>{provider.sealed=true;record(input,[]);return {schema_version:1,packet_phase:'PROSPECTIVE_ADMISSION',execution_authority:false,hash:'SHA256_CANONICAL_JSON',max_packet_bytes:262144,
+  mandatory_digest_scope:['identity','intent','inputs','runtime','resource_requirements','policy_digest'],optional_context:'RANKED_TRIMMABLE_SHA256_TEXT',post_admission_required:['CURRENT_COMPUTE_GRANT','VERIFIED_MATERIALISATION','QUALIFIED_CONNECTOR_LAUNCH']};},
+ 'hierarchy.packet.create':async(input,invocation)=>{const v=record(input,['idempotency_key','leader_generation','package_generation','task_id','attempt_id','attempt_generation','sandbox_id','slot_id','sandbox_boot_generation','max_bytes','optional_context','continuation_checkpoint_id'],['idempotency_key','leader_generation','package_generation','task_id','attempt_id','attempt_generation','sandbox_id','slot_id','sandbox_boot_generation','max_bytes','optional_context']);const a=trustedActor(invocation);return operation(g,a,'hierarchy.packet.create',v,tx=>createPacketTx(tx,v,invocation));},
  'hierarchy.packet.validate':async (input,invocation)=>{
   provider.sealed=true;
   const v=record(input,['leader_generation','package_generation','digest']),a=trustedActor(invocation),identity=digest(v.digest);

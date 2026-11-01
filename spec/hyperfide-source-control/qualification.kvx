@@ -108,3 +108,19 @@ exit_code = 0
 log = "build/fleet/integration/fleet-foreign-inventory-build.log; build/fleet/integration/foreign-inventory-capacity.log; build/fleet/integration/fleet-provider-lifecycle-metadata.log"
 observed = "The signed API/PostgreSQL gate made 137 actual pinned-SDK HTTP reads and no provider mutations. Positive foreign ownership excluded resources from the wrong pool while retaining deduplicated shared-account charges. Unknown ownership, failed reads, expired observations and a changed policy preserved physical presence and capacity holds. Legacy foreign orphan rows remained unchanged; account limit 2 was not raised. Nine lifecycle projection checks preserved CREATE, GET and LIST provenance despite newer metadata observations."
 assumption = "The inventory gate uses controlled provider metadata and declared initial database records. Missing resource vectors and insufficient account capacity remain unqualified; this gate does not establish a live provider quota."
+
+[progress.fleet_selected_assignment]
+revision = "control-source sha256:0670acbfc48ec3a66005fc9e84b71e01173a83be5fb091927ac09f4f9daa9c42"
+command = "Control build; fleet_selected_assignment.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-assignment-accounting-build.log; build/fleet/integration/fleet-selected-assignment.log"
+observed = "Seven signed TLS/PostgreSQL checks passed. Explicit task and slot selection created the immutable execution packet, scheduler claim and worker registration through production APIs. Stale generations, mismatched install pins, insufficient installed scope and missing provided interfaces rolled back atomically. Accepted required and provided interface roles were preserved without promoting unrelated installed interfaces. Exact replay produced no duplicate effects."
+assumption = "The fixture supplies controlled prior accepted decisions, installation and registry inputs. Packet creation, claim and registration execute against actual PostgreSQL. Native worker execution and model-selected provider work have separate live evidence."
+
+[progress.fleet_separate_provider_accounting]
+revision = "control-source sha256:0670acbfc48ec3a66005fc9e84b71e01173a83be5fb091927ac09f4f9daa9c42"
+command = "Control build; foreign_inventory_capacity.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-separated-accounting.log; build/fleet/integration/fleet-separated-accounting-final.log"
+observed = "The legacy inventory checks passed unchanged. The separate-domain gate admitted a signed CREATE preparation under managed account and pool budgets while accounting for foreign presence against a distinct provider quota. Missing, insufficient and expired quota evidence refused admission. Unknown foreign CPU and disk remained visible without being invented as account-wide limits; a third managed sandbox was refused. Existing declarations, reservations and numeric budgets were preserved."
+assumption = "The isolated fixture supplies explicit quota declarations and controlled provider metadata. CREATE preparation recorded intent without making an external provider mutation. The final separate-domain run corrected the fixture's environment topology; production source and numeric caps were unchanged."

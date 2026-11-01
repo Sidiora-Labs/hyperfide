@@ -27,7 +27,102 @@ def digest(value):
     return fixture.digest(value)
 
 
-def main():
+def separate_accounting(f, http, api, refresh, capacity, sandbox, scopes):
+    org, run = f.ids['organisation'], f.ids['run']
+    scope = scopes[f.other_pool]
+    configured = api('provider.pools.configure', {}, key='operator', component='8.2')
+    assert configured.get('ok'), configured
+    normal = api('provider.intents.reconcile', {'intent_id': f.intent})
+    assert normal.get('ok') and normal['result']['candidate_count'] == 0, normal
+    assert refresh()['inventory_attribution']['FOREIGN'] == 15
+    before = capacity(f.other_pool)
+    dimension = sandbox(before)
+    assert before['accounting_mode'] == 'SEPARATE_FLEET_BUDGET_PROVIDER_QUOTA' and before['unknown_resource_capacity'] is False, before
+    assert dimension['used_account'] == '16' and dimension['budget_used_account'] == '1' and dimension['used_pool'] == '0', dimension
+    assert dimension['provider_quota']['configured'] is True and dimension['provider_quota']['limit'] is None, dimension
+
+    def retained_provenance(label):
+        body = ('Controlled component capacity declaration: ' + label + '; accounting policy ' + f.env['HF_PROVIDER_ACCOUNTING_POLICY_DIGEST'] + '; no live quota authority.').encode()
+        artifact, sha = uid(), provider.sha(body)
+        path = f.path / (artifact + '.txt')
+        path.write_bytes(body)
+        f.sql("INSERT INTO hyperfide.artifacts(organisation_id,run_id,id,digest,size_bytes,storage_backend,storage_key,status,completed_at) VALUES($1,$2,$3,$4,$5,'COMPONENT_FIXTURE',$6,'COMPLETE',clock_timestamp())", [org, run, artifact, sha, str(len(body)), str(path)])
+        return {'run_id': run, 'artifact_id': artifact, 'digest': sha}
+
+    def attest(rows, proof, ttl=3600):
+        stamp = lambda delta: time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time() + delta))
+        declarations = []
+        for pool, kind, key, name, limit, domain in rows:
+            declarations.append({'id': uid(), 'pool_id': pool, 'configuration_digest': scopes[pool]['configuration_digest'], 'scope_kind': kind, 'scope_key': key, 'dimension': name, 'limit': limit, 'declared_at': stamp(-1), 'expires_at': stamp(ttl), 'provenance': proof, **({'capacity_domain': domain} if domain else {})})
+        f.declarations.write_text(json.dumps({'schema_version': 1, 'organisation_id': org, 'attestations': declarations}))
+        f.declarations.chmod(0o600)
+        answer = api('provider.pools.attest-capacity', {}, key='operator', component='8.2')
+        assert answer.get('ok') and answer['result']['recorded'] == len(rows) and answer['result']['free_inventory_granted'] is False, answer
+        return [row['id'] for row in declarations]
+
+    old = retained_provenance('untyped managed fleet account2 and pool1')
+    vector = {'SANDBOX': '1', 'CPU_MILLIS': '2000', 'MEMORY_BYTES': '4294967296', 'DISK_BYTES': '32212254720'}
+    limits = f.config['accounts'][0]['approved_limits']
+    managed_rows = []
+    for name in [*vector, 'PROVISIONING']:
+        managed_rows.append((f.other_pool, 'ACCOUNT', scope['provider_account_id'], name, limits[name], None))
+        managed_rows.append((f.other_pool, 'POOL', f.other_pool, name, '1' if name == 'SANDBOX' else limits[name], None))
+    old_ids = attest(managed_rows, old)
+    qualified = capacity(f.other_pool)
+    assert sandbox(qualified)['qualified'] is True and sandbox(qualified)['provider_quota']['limit'] is None, qualified
+    assert sandbox(qualified)['budgets'][0]['capacity_limit'] == '2', qualified
+    physical = []
+    for name, quantity in vector.items():
+        account = f.sql("SELECT id FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 AND dimension=$3 AND capacity_class='PHYSICAL' AND resource_key=''", [org, f.other_pool, name])
+        assert len(account) == 1, account
+        aid = account[0]['id']
+        f.sql("UPDATE hyperfide.capacity_accounts SET configured_limit=$3,reserved=$4,qualification_state='QUALIFIED',provenance_digest=$5,state_version=state_version+1 WHERE organisation_id=$1 AND id=$2", [org, aid, str(int(quantity) * 100), quantity, old['digest']])
+        reservation = uid()
+        f.sql("INSERT INTO hyperfide.reservations(organisation_id,run_id,id,request_id,capacity_account_id,quantity,expires_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '1 hour')", [org, run, reservation, uid(), aid, quantity])
+        physical.append(reservation)
+
+    def request(reservations):
+        return {'run_id': run, 'pool_id': f.other_pool, 'sandbox_id': uid(), 'request_key': uid(), 'deadline_at': provider.utc(), 'reservation_ids': reservations, 'profile_id': f.profile, 'preparation_digest': f.preparation, 'purpose': 'PREPARATION'}
+
+    def refused(value, code):
+        before_count = f.sql('SELECT count(*)::text AS n FROM hyperfide.provisioning_intents WHERE organisation_id=$1', [org])
+        answer = api('provider.intents.prepare-create', value)
+        assert answer.get('error', {}).get('code') == code, answer
+        assert f.sql('SELECT count(*)::text AS n FROM hyperfide.provisioning_intents WHERE organisation_id=$1', [org]) == before_count
+
+    value = request(physical)
+    refused(value, 'QUOTA_UNQUALIFIED')
+    small_proof = retained_provenance('explicit insufficient provider quota16')
+    small_ids = attest([(f.other_pool, 'ACCOUNT', scope['provider_account_id'], 'SANDBOX', '16', 'PROVIDER_QUOTA')], small_proof, ttl=5)
+    refused(value, 'PROVIDER_QUOTA_EXCEEDED')
+    time.sleep(6)
+    expired_quota = sandbox(capacity(f.other_pool))
+    assert expired_quota['provider_quota']['limit'] is None, expired_quota
+    quota_proof = retained_provenance('explicit generic provider quota1000')
+    quota_ids = attest([(f.other_pool, 'ACCOUNT', scope['provider_account_id'], 'SANDBOX', '1000', 'PROVIDER_QUOTA')], quota_proof)
+    ready = capacity(f.other_pool)
+    assert ready['unknown_resource_capacity'] is False, ready
+    d = sandbox(ready)
+    assert d['budget_used_account'] == '2' and d['used_account'] == '17' and d['provider_quota']['limit'] == '1000' and d['provider_quota']['used'] == '17' and d['provider_quota']['vector_complete'] is True and d['provider_quota']['remaining_inventory_authority'] is False, d
+    assert d['budgets'][0]['approved_limit'] == '2' and d['budgets'][0]['used'] == '2' and next(b for b in d['budgets'] if b['scope'] == 'POOL')['approved_limit'] == '1', d
+    admitted = api('provider.intents.prepare-create', value)
+    assert admitted.get('ok') and admitted['result']['created'] is True and admitted['result']['external_call_performed'] is False, {'admitted': admitted, 'capacity_before': ready}
+    second = []
+    for name, quantity in vector.items():
+        aid = f.sql("SELECT id FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 AND dimension=$3 AND capacity_class='PHYSICAL' AND resource_key=''", [org, f.other_pool, name])[0]['id']
+        f.sql('UPDATE hyperfide.capacity_accounts SET reserved=reserved+$3::numeric,state_version=state_version+1 WHERE organisation_id=$1 AND id=$2', [org, aid, quantity])
+        rid = uid()
+        f.sql("INSERT INTO hyperfide.reservations(organisation_id,run_id,id,request_id,capacity_account_id,quantity,expires_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '1 hour')", [org, run, rid, uid(), aid, quantity])
+        second.append(rid)
+    refused(request(second), 'OPERATING_BUDGET_EXCEEDED')
+    retained = f.sql("SELECT id,declaration->>'capacity_domain' AS domain,declaration->>'limit' AS limit FROM hyperfide.provider_capacity_attestations WHERE organisation_id=$1 ORDER BY id", [org])
+    assert all(next(row for row in retained if row['id'] == aid)['domain'] is None for aid in old_ids)
+    assert all(next(row for row in retained if row['id'] == aid)['domain'] == 'PROVIDER_QUOTA' for aid in quota_ids + small_ids)
+    assert all(event['method'] == 'GET' for event in http.events), http.events
+    print(json.dumps({'status': 'PASS', 'scope': 'separate managed fleet budget and retained provider quota, actual signed CREATE preparation; controlled declarations only', 'provider_mutations': 0, 'live_quota_qualification': 'NOT_CLAIMED', 'checks': ['untyped retained ACCOUNT2 is managed budget and never provider quota', 'missing explicit quota refuses before intent insertion', 'explicit provider quota16 refuses shared usage17', 'retained typed quota1000 permits owned1 plus new1 under managed ACCOUNT2 and pool1 despite foreign15', 'unknown foreign CPU and disk do not block configured SANDBOX-only quota', 'third internal sandbox refuses without increasing ACCOUNT2/pool1', 'typed provider quota provenance retained separately from untyped ledger'], 'admitted_capacity': d, 'admitted_intent': admitted['result']['intent']['id']}))
+
+
+def main(separate=False):
     http = fixture.ReadOnlyHTTP()
     catalog = []
     original_route = http.server.RequestHandlerClass.route
@@ -71,10 +166,24 @@ def main():
         f.env['HF_BLAXEL_ADAPTER_CONFIG'] = str(adapter_file)
         for pool in f.config['pools']:
             pool['create_policy']['adapter_policy_digest'] = digest(adapter_policy)
+        if separate:
+            f.config['pools'][1]['environment_key'] = 'inventory-component-second-workspace'
+            for pool in f.config['pools']:
+                pool['approved_limits'] = {**limits, 'SANDBOX': '1'}
+                pool['planning_limits'] = dict(pool['approved_limits'])
+            accounting = {'schema_version': 1, 'provider': 'blaxel', 'provider_account_id': 'inventory-component-account', 'mode': 'SEPARATE_FLEET_BUDGET_PROVIDER_QUOTA', 'provider_quota_dimensions': ['SANDBOX']}
+            accounting_file = f.path / 'accounting-policy.json'
+            accounting_bytes = json.dumps(accounting, sort_keys=True, separators=(',', ':')).encode()
+            accounting_file.write_bytes(accounting_bytes)
+            accounting_file.chmod(0o600)
+            f.env['HF_PROVIDER_ACCOUNTING_POLICY_FILE'] = str(accounting_file)
+            f.env['HF_PROVIDER_ACCOUNTING_POLICY_DIGEST'] = provider.sha(accounting_bytes)
+            f.declarations = f.path / 'capacity-declarations.json'
+            f.env['HYPERFIDE_CAPACITY_ATTESTATIONS'] = str(f.declarations)
         file = f.path / 'pools.json'
         file.write_text(json.dumps(f.config))
         file.chmod(0o600)
-        policy = {'schema_version': 1, 'provider': 'blaxel', 'provider_account_id': 'inventory-component-account', 'environment_id': 'inventory-component-workspace', 'max_age_seconds': 20, 'owners': [{'owner_id': owner_id, 'labels': {'managed-by': marker}, 'identity_label': identity_label}]}
+        policy = {'schema_version': 1, 'provider': 'blaxel', 'provider_account_id': 'inventory-component-account', 'environment_id': 'inventory-component-workspace', 'max_age_seconds': 3600 if separate else 20, 'owners': [{'owner_id': owner_id, 'labels': {'managed-by': marker}, 'identity_label': identity_label}]}
         f.policy_file = f.path / 'foreign-ownership.json'
         f.policy_bytes = json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()
         f.policy_file.write_bytes(f.policy_bytes)
@@ -103,7 +212,8 @@ def main():
             f.sql('INSERT INTO hyperfide.provider_pool_configurations(organisation_id,pool_id,configuration_digest,document) VALUES($1,$2,$3,$4)', [i['organisation'], pool['id'], configuration, json.dumps({'scope': scope, 'pool': pool, 'account': f.config['accounts'][0]})])
         scope = scopes[f.pool]
         f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,observed_state) VALUES($1,$2,$3,'UNKNOWN')", [i['organisation'], f.sandbox, f.pool])
-        f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state) VALUES($1,$2,$3,$4,'RUNNING')", [i['organisation'], uid(), f.other_pool, known_name])
+        if not separate:
+            f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state) VALUES($1,$2,$3,$4,'RUNNING')", [i['organisation'], uid(), f.other_pool, known_name])
         operation = {'schema_version': 1, 'kind': 'create', 'scope': scope, 'deadline_at': '2099-01-01T00:00:00.000Z', 'identity': {'operation_id': f.intent, 'idempotency_key': f.intent, 'correlation_id': f.intent, 'causation_id': f.intent, 'payload_digest': provider.sha(b'pending')}, 'resource': None, 'preparation_digest': f.preparation, 'parameters': {'preparation_reference': 'DECLARED_NOT_PROVISIONED', 'resources': {'cpu_millis': 2000, 'memory_bytes': '4294967296', 'disk_bytes': '4294967296', 'persistent_volume_bytes': '0'}, 'network': 'ISOLATED', 'stdin_required': False}}
         normalize = "import fs from'node:fs';import{operationPayloadDigest}from'./core/control-plane/dist/providers/contract.js';const op=JSON.parse(fs.readFileSync(0,'utf8'));op.identity.payload_digest=operationPayloadDigest(op);console.log(JSON.stringify(op));"
         normalized = subprocess.run(['node', '--input-type=module', '-e', normalize], input=json.dumps(operation), text=True, capture_output=True, cwd=ROOT, env=f.env, timeout=15)
@@ -118,16 +228,17 @@ def main():
             value = model(name, {'managed-by': marker, identity_label: uid()})
             catalog.append(value)
             http.models[name] = (200, value)
-            for pool in [f.pool, f.other_pool]:
+            for pool in ([f.pool] if separate else [f.pool, f.other_pool]):
                 f.sql("INSERT INTO hyperfide.provider_orphans(organisation_id,pool_id,native_sandbox_id,suspected_intent_id) VALUES($1,$2,$3,$4)", [i['organisation'], pool, name, f.intent])
-        for kind, name in unknown_names.items():
+        for kind, name in ({} if separate else unknown_names).items():
             labels = {} if kind == 'unmarked' else {'managed-by': 'another-' + marker, identity_label: uid()} if kind == 'unknown-owner' else {'managed-by': marker, identity_label: uid(), 'hyperfide-operation': ''} if kind == 'conflicting-hf' else {'managed-by': marker, identity_label: uid()}
             value = model(name, labels)
             catalog.append(value)
             http.models[name] = (503, {'error': 'Controlled actual GET unavailable'}) if kind == 'failed-get' else (200, value)
         known_model = model(known_name, {'hyperfide-operation': uid(), 'hyperfide-scope': digest(scopes[f.other_pool]), 'hyperfide-boot': '1'})
-        catalog.append(known_model)
-        http.models[known_name] = (200, known_model)
+        if not separate:
+            catalog.append(known_model)
+            http.models[known_name] = (200, known_model)
 
         def orphans(names=None):
             return f.sql('SELECT to_jsonb(o) AS row FROM hyperfide.provider_orphans o WHERE organisation_id=$1' + (' AND native_sandbox_id=ANY($2::text[])' if names else '') + ' ORDER BY pool_id,native_sandbox_id', [i['organisation']] + ([names] if names else []))
@@ -148,6 +259,9 @@ def main():
         def sandbox(report):
             return next(row for row in report['dimensions'] if row['name'] == 'SANDBOX')
 
+        if separate:
+            separate_accounting(f, http, api, refresh, capacity, sandbox, scopes)
+            return
         legacy = orphans(foreign_names)
         response = api('provider.intents.reconcile', {'intent_id': f.intent})
         assert response.get('error', {}).get('code') == 'OWNERSHIP_PROBE_UNVERIFIED', {'response': response, 'actual_sdk_http_events': http.events, 'adapter_config_file': f.env.get('HF_BLAXEL_ADAPTER_CONFIG')}
@@ -218,4 +332,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if sys.argv[1:] != ['--separate-only']:
+        main()
+    main(separate=True)
