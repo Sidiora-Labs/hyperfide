@@ -92,3 +92,11 @@ exit_code = 0
 log = "build/fleet/integration/fleet-daemon-recovery-control-build-v3.log; build/fleet/integration/private/transport-http-status-component-receipt.json; build/fleet/integration/daemon-recovery-native-helper-loss-gate.log; build/fleet/integration/daemon-observer-recovery-v3.log"
 observed = "Catalog 69 build passed. Sixteen signed TLS/PostgreSQL cases verified transient and terminal HTTP error status through both dispatch error paths. Five native checks exercised a protected-state refusal, actual pending heartbeat acknowledgement, helper SIGKILL while TLS was unavailable, detached receipt publication after reconnection, and replay with the same daemon PID. Six coordinator checks used signed APIs, PostgreSQL, the pinned SDK and actual Unix helper execution to exercise original-file guards, active-work refusal, concurrent calls, a lost submit response and replay without a second process. The original bootstrap receipt and runner identity remained unchanged."
 assumption = "The coordinator gate declares original READY metadata and exercises uncertain delivery; its native helper fails without a completion receipt. The separate native gate declares a baseline bootstrap receipt tied to a real prior daemon. It executes the retained native binary against isolated TLS/PostgreSQL. The transport gate used source c95244c1461b24341c759c81a2326d00171ea96e31c98884e3267d51ca4cafb3; HTTP code is unchanged in this checkpoint."
+
+[progress.fleet_transport_server_errors]
+revision = "control-source sha256:971bc5b13c3f538fdf8ae97594d562379c0ef1d77f1102b8c947cc8868aed435"
+command = "Control build; transport_http_status.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-transient-handler-build.log; build/fleet/integration/private/transport-http-handler-failed-component-receipt.json"
+observed = "All 18 signed TLS/PostgreSQL cases passed. Unhandled server exceptions return HTTP 500 through both authentication-adjacent and component dispatch paths, preserving native pending-request retry behavior. Typed transient and terminal errors retain their tested status codes."
+assumption = "Both genuine exception cases returned HTTP 400 on the prior checkpoint. The isolated test uses actual TLS, Ed25519, PostgreSQL and ComponentRegistry dispatch."

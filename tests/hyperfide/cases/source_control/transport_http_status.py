@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[4];sys.path.insert(0,str(ROOT/'tests/hyper
 from identity_fixture import IdentityFixture,uid
 ACTION='transport.fixture.failure'
 COMPONENT="""import {FoundationError} from './policy/programme.js';
-export function createComponent(){return {apiVersion:1,actions:{'transport.fixture.failure':input=>{throw new FoundationError(input.code,'Controlled component boundary fault')}}}}
+export function createComponent(){return {apiVersion:1,actions:{'transport.fixture.failure':input=>{if(input.code==='HANDLER_FAILED')throw new Error('Controlled unhandled component failure');throw new FoundationError(input.code,'Controlled component boundary fault')}}}}
 """
 SERVER=r"""
 import fs from 'node:fs';import {pathToFileURL} from 'node:url';
@@ -14,7 +14,7 @@ const d=JSON.parse(fs.readFileSync(0,'utf8')),url=name=>pathToFileURL(d.modules+
 const {ComponentRegistry}=await import(url('components/registry.js')),{handleRequest}=await import(url('components/service.js')),{startHttpTransport}=await import(url('transport/http.js')),{isIdentityAuthority}=await import(url('identity/enrollment.js')),{FoundationError,validatePolicy}=await import(url('policy/programme.js'));
 const controller=new AbortController(),registry=new ComponentRegistry({role:'control',env:process.env,signal:controller.signal,policy:validatePolicy(JSON.parse(fs.readFileSync(d.policy,'utf8')),'fixture-identity-v1','control')});let transport;
 const close=async()=>{controller.abort();if(transport)await transport.close();await registry.close()};process.once('SIGTERM',()=>void close().then(()=>process.exit(0)));process.once('SIGINT',()=>void close().then(()=>process.exit(0)));
-try{await registry.load(d.components,d.modules);const identity=registry.resolveCapability('14.1','identity.transport',isIdentityAuthority);identity.sealTrustedRegistrations();registry.installInvocationAuthorizer(i=>identity.authorize(i));transport=await startHttpTransport({origin:d.origin,host:'127.0.0.1',port:d.port,certificate:d.ca,privateKey:d.key,signal:controller.signal,identity,authorize:async i=>{await identity.authorize(i);if(i.payload.input.stage==='predispatch')throw new FoundationError(i.payload.input.code,'Controlled authorizer boundary fault')},dispatch:i=>handleRequest(registry,{id:i.operation.operation_id,component:i.payload.component,action:i.payload.action,input:i.payload.input},1048576,i)});console.error(JSON.stringify({event:'ready'}))}catch(e){console.error(JSON.stringify({code:e.code,message:e.message}));await close();process.exit(1)}
+try{await registry.load(d.components,d.modules);const identity=registry.resolveCapability('14.1','identity.transport',isIdentityAuthority);identity.sealTrustedRegistrations();registry.installInvocationAuthorizer(i=>identity.authorize(i));transport=await startHttpTransport({origin:d.origin,host:'127.0.0.1',port:d.port,certificate:d.ca,privateKey:d.key,signal:controller.signal,identity,authorize:async i=>{await identity.authorize(i);if(i.payload.input.stage==='predispatch'){if(i.payload.input.code==='HANDLER_FAILED')throw new Error('Controlled unhandled authorizer failure');throw new FoundationError(i.payload.input.code,'Controlled authorizer boundary fault')}},dispatch:i=>handleRequest(registry,{id:i.operation.operation_id,component:i.payload.component,action:i.payload.action,input:i.payload.input},1048576,i)});console.error(JSON.stringify({event:'ready'}))}catch(e){console.error(JSON.stringify({code:e.code,message:e.message}));await close();process.exit(1)}
 """
 def main():
  if not os.environ.get('DATABASE_URL'):return subprocess.run([sys.executable,str(ROOT/'tests/hyperfide/support/withpg.py'),'--',sys.executable,str(Path(__file__).resolve())],cwd=ROOT).returncode
@@ -36,7 +36,7 @@ def main():
   if not any('"event":"ready"' in line for line in lines):
    _,remaining=f.child.communicate(timeout=5);f.child=None;raise AssertionError(''.join(lines)+remaining)
   for stage in ['predispatch','dispatch']:
-   for code,expected in [('DB_UNAVAILABLE',503),('TX_RETRY_EXHAUSTED',503),('TX_TIMEOUT',503),('MIGRATION_NOT_READY',503),('INVALID_REQUEST',400),('AUTH_INVALID',401),('IDEMPOTENCY_CONFLICT',409),('OUTCOME_UNKNOWN',504)]:
+   for code,expected in [('HANDLER_FAILED',500),('DB_UNAVAILABLE',503),('TX_RETRY_EXHAUSTED',503),('TX_TIMEOUT',503),('MIGRATION_NOT_READY',503),('INVALID_REQUEST',400),('AUTH_INVALID',401),('IDEMPOTENCY_CONFLICT',409),('OUTCOME_UNKNOWN',504)]:
     status,body=f.invoke(ACTION,dict(stage=stage,code=code),component='99.9')
     if not(status==expected and body.get('ok') is False and body.get('error',{}).get('code')==code):failures.append(dict(stage=stage,code=code,expected_status=expected,actual_status=status,body=body))
     if stage=='dispatch':assert isinstance(body.get('operation_id'),str) and body['id']==body['operation_id'],body
