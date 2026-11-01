@@ -47,11 +47,13 @@ COLUMNS={
  'fleet_environment_specs':'input_digest,package_digest,source_config_digest,source_manifest_digest,plan_digest,package_spec,source_config,install_plan',
  'fleet_environment_installs':'operation_id,input_digest,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,admission,admission_digest,state,receipt,receipt_digest,completed_at,created_at::text AS created_at',
  'fleet_install_heads':'environment_id,environment_generation,sandbox_id,boot_id,boot_generation::text AS boot_generation,logical_operation_id,current_operation_id',
- 'fleet_install_recoveries':'operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id',
+ 'fleet_install_recoveries':'allocation_epoch_operation_id,operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id',
  'runner_not_started_proofs':'id,runner_operation_id,install_operation_id,runner_plan_digest,admission_digest,expires_at::text AS expires_at,proof_digest,proof,created_at::text AS created_at',
  'fleet_install_not_started_recoveries':'operation_id,predecessor_install_operation_id,logical_operation_id,proof_id,decision_id,created_at::text AS created_at',
  'runner_pre_provider_refusals':'id,runner_operation_id,claim_id,executor_credential_id,runner_plan_digest,request_digest,error_code,proof_digest,proof,created_at::text AS created_at',
  'fleet_install_pre_provider_recoveries':'operation_id,predecessor_install_operation_id,logical_operation_id,proof_id,decision_id',
+ 'fleet_install_delivery_executions':'operation_id,delivery_id,logical_operation_id,target_binding,request,request_digest,state',
+ 'runner_result_artifacts':'operation_id,role,artifact_id,artifact_digest,content_digest,size_bytes',
  'resource_job_allocations':'id,generation::text AS generation,request_id,reservation_id,assignee_session_id,sandbox_id,sandbox_boot_generation::text AS sandbox_boot_generation,slot_id,job_kind,state',
  'provider_remote_operations':'id,session_id,state,created_at::text AS created_at',
  'fleet_runtime_readiness':'id,install_operation_id,runner_operation_id,runner_result_digest,slot_id,runner_session_id,readiness_digest,publication',
@@ -187,6 +189,33 @@ def verified_install_head(rows,install):
  require(len(heads)==1 and heads[0]['current_operation_id']==install['operation_id'],'INSTALL_RECOVERY_HEAD_MISMATCH')
  return heads[0]
 
+def verified_failed_allocation_epoch(rows,current,previous,recovery,failed,successor=None):
+ epoch=recovery.get('allocation_epoch_operation_id')
+ if epoch is None:return
+ require(epoch==current['operation_id'] and current['operation_id']!=previous['operation_id'],'FAILED_ALLOCATION_EPOCH_ID_MISMATCH')
+ require(failed['operation_id']==previous['operation_id']==recovery['runner_operation_id'] and digest(failed['plan'])==failed['plan_digest']==recovery['runner_plan_digest'] and digest(failed['result'])==failed['result_digest']==recovery['runner_result_digest'] and failed['result'].get('outcome')=='FAILED' and failed['result'].get('cleanup_status')=='CONFIRMED' and failed['result'].get('cleanup',{}).get('complete') is True and failed['result'].get('cleanup',{}).get('observed_process_absent') is True and failed['result']['cleanup'].get('receipt_digest')==recovery['quiescence_receipt_digest'],'FAILED_ALLOCATION_EPOCH_NATIVE_REQUIRED')
+ require(failed.get('signature_verified') is True and failed['state']=='COMPLETED' and failed['job_class']=='PREPARATION' and failed.get('claim_id') and failed.get('native_claimed_at') and failed.get('completed_at') and failed['authority_epoch']==previous['authority_epoch'],'FAILED_ALLOCATION_EPOCH_NATIVE_REQUIRED')
+ executor=one(rows['identity_principals'],'credential_id',failed['executor_credential_id'])
+ require(executor['role']=='PROVISIONER' and executor['deployment_epoch']==failed['authority_epoch'],'FAILED_ALLOCATION_EPOCH_EXECUTOR_MISMATCH')
+ retained=one([a for a in rows['runner_result_artifacts'] if a['role']=='native_receipt'],'operation_id',failed['operation_id'])
+ require(retained['content_digest']==recovery['quiescence_receipt_digest']==failed['result'].get('native_receipt',{}).get('digest'),'FAILED_ALLOCATION_EPOCH_CAPTURE_MISMATCH')
+ pins=failed['plan'].get('allocation',{});old=one(rows['resource_job_allocations'],'id',pins.get('allocation_id'));binding=failed['plan'].get('binding',{})
+ require(binding.get('sandbox_id')==previous['sandbox_id'] and binding.get('boot_id')==previous['boot_id'] and str(binding.get('boot_generation'))==str(previous['boot_generation']),'FAILED_ALLOCATION_EPOCH_OLD_BOOT_MISMATCH')
+ require(old['state']=='RELEASED' and old['job_kind']=='PREPARATION' and old['request_id']==pins.get('request_id') and str(old['generation'])==str(pins.get('generation')) and old['reservation_id']==failed['reservation_id'] and old['assignee_session_id']==failed['session_id'] and old['sandbox_id']==previous['sandbox_id'] and str(old['sandbox_boot_generation'])==str(previous['boot_generation']) and old['slot_id']==binding.get('slot_id'),'FAILED_ALLOCATION_EPOCH_OLD_TARGET_MISMATCH')
+ vector=[r for r in rows['reservations'] if r['request_id']==old['request_id']];dimensions=set()
+ require(len(vector)==4 and len({r['id'] for r in vector})==4 and old['reservation_id'] in {r['id'] for r in vector},'FAILED_ALLOCATION_EPOCH_VECTOR_MISMATCH')
+ for reservation in vector:
+  account=one(rows['capacity_accounts'],'id',reservation['capacity_account_id']);dimensions.add(account['dimension'])
+  require(account['capacity_class']!='PHYSICAL' and reservation['state']=='RELEASED' and evidence_time(reservation['expires_at'])<=evidence_time(current['created_at']) and reservation.get('released_at') and evidence_time(reservation['released_at'])<=evidence_time(current['created_at']) and int(reservation['quantity'])>0,'FAILED_ALLOCATION_EPOCH_VECTOR_UNCLOSED')
+ require(dimensions=={'PREPARATION','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'},'FAILED_ALLOCATION_EPOCH_VECTOR_MISMATCH')
+ execution=one(rows['fleet_install_delivery_executions'],'operation_id',current['operation_id']);target=execution.get('target_binding',{})
+ require(execution['logical_operation_id']==recovery['logical_operation_id'],'FAILED_ALLOCATION_EPOCH_ROOT_MISMATCH')
+ fresh=one(rows['resource_job_allocations'],'id',target.get('allocation_id'))
+ require(fresh['id']!=old['id'] and fresh['request_id']!=old['request_id'] and fresh['reservation_id']!=old['reservation_id'] and fresh['job_kind']=='PREPARATION' and fresh['request_id']==target.get('request_id') and fresh['reservation_id']==target.get('reservation_id') and fresh['assignee_session_id']==target.get('session_id') and fresh['slot_id']==target.get('slot_id') and fresh['sandbox_id']==current['sandbox_id'] and str(fresh['sandbox_boot_generation'])==str(current['boot_generation']) and target.get('boot_id')==current['boot_id'] and str(target.get('boot_generation'))==str(current['boot_generation']),'FAILED_ALLOCATION_EPOCH_FRESH_TARGET_MISMATCH')
+ if successor is not None:
+  actual=successor['plan'].get('allocation',{});native=successor['plan'].get('binding',{})
+  require(actual.get('allocation_id')==fresh['id'] and actual.get('request_id')==fresh['request_id'] and str(actual.get('generation'))==str(fresh['generation']) and successor['reservation_id']==fresh['reservation_id'] and successor['session_id']==fresh['assignee_session_id'] and native.get('slot_id')==fresh['slot_id'],'FAILED_ALLOCATION_EPOCH_SUCCESSOR_MISMATCH')
+
 def verified_install_recovery(rows,install,interrupted_operation_id):
  require(install['operation_id']!=interrupted_operation_id,'DISTINCT_INSTALL_RECOVERY_EXECUTION_REQUIRED')
  admission=install['admission']
@@ -224,6 +253,7 @@ def verified_install_recovery(rows,install,interrupted_operation_id):
   result=failed['result'];cleanup=result.get('cleanup',{})
   require(result.get('outcome')=='FAILED' and result.get('cleanup_status')=='CONFIRMED' and cleanup.get('complete') is True and cleanup.get('observed_process_absent') is True and cleanup.get('receipt_digest')==recovery['quiescence_receipt_digest'],'INSTALL_RECOVERY_QUIESCENCE_MISMATCH')
   successor=one(rows['runner_remote_jobs'],'operation_id',current['operation_id'])
+  verified_failed_allocation_epoch(rows,current,previous,recovery,failed,successor)
   old_request=failed['plan'].get('preparation_request',{});new_request=successor['plan'].get('preparation_request',{})
   require(failed['job_class']==successor['job_class']=='PREPARATION' and old_request.get('source')==new_request.get('source') and result['ended_at']<successor['result']['started_at'],'INTERRUPTED_INSTALL_PIN_RESTART_REQUIRED')
   for job,request,owner in [(failed,old_request,previous),(successor,new_request,current)]:
