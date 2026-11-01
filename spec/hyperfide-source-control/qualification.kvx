@@ -20,7 +20,8 @@ command = "withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py"
 exit_code = 1
 log = "build/fleet/0.14/journey-final.log"
 observed = "HTTPS startup failed with COMPONENT_LOAD_FAILED: Trusted credential-store configuration required; no actor assertions or model turns ran."
-assumption = "The actor fixture now supplies an owned private empty credential store; the correction is UNRUN. Provider qualification additionally requires actual scoped worker sources/targets."
+status = "resolved"
+resolution = "Owned credential-store bootstrap now passes signed service readiness and authenticated real model reasoning. The original startup refusal is resolved."
 
 [progress.fleet_components]
 revision = "control-source sha256:9f857674a0c107524360cc87c6e7e3b14114f2283d4c8e2e5c248ea5783a5dae"
