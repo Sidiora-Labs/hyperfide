@@ -4,7 +4,7 @@ export default defineWorkspaceTestConfig({
   test: {
     silent: "passed-only",
     name: "@hyperfide/host-daemon-contract",
-    include: ["test/**/*.test.ts"],
+    include: ["test/**/*.test.ts", "src/**/*.test.ts"],
     exclude: ["dist/**", "node_modules/**"],
   },
 });
