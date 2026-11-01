@@ -20,6 +20,7 @@ export interface ProvisionerWorkerSettings {concurrency:number;poll_ms:number;re
 export interface ProvisionerWorkerDriver {
  execute(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
  reconcile(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
+ refreshInventory?(database:ProviderDatabase,config:DeploymentConfig,signal:AbortSignal,index:number):Promise<{has_more:boolean;retry_after_ms:number}>;
  bootstrap?(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
  activate?(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>;
  /** provider.resolutions.escalate (D15): one decision Ask per overdue orphan or quarantined
@@ -195,6 +196,7 @@ export class ProvisionerWorker {
  private invocation:InvocationContext|null=null;private controller:AbortController|null=null;private loop:Promise<void>|null=null;
  private readonly active=new Map<string,Promise<void>>();private readonly errors=new Map<string,string>();private readonly backoff=new Map<string,number>();
  private counters={claimed:0,executed:0,reconciled:0,failed:0};private stoppedReason:string|null=null;private lastTick:string|null=null;
+ private inventoryPass:Promise<boolean>|null=null;private nextInventory=0;private inventoryIndex=0;
  private escalation={passes:0,raised:0,last_at:null as string|null,last_raised:[] as string[]};private nextEscalation=0;
  constructor(private readonly database:ProviderDatabase,private readonly env:Readonly<NodeJS.ProcessEnv>,private readonly signal:AbortSignal,private readonly driver:ProvisionerWorkerDriver){}
  get running():boolean{return !!this.loop&&!!this.controller&&!this.controller.signal.aborted;}
@@ -218,7 +220,7 @@ export class ProvisionerWorker {
   const claim=await claimDurableStart(db,config.organisation_id,invocation,false,automatic);
   if(claim.durable.state==='STOPPED')return{started:false,resumed:false,...await this.status(invocation)};
   await this.stop();
-  this.invocation=invocation;this.controller=new AbortController();this.stoppedReason=null;this.errors.clear();this.nextEscalation=0;
+  this.invocation=invocation;this.controller=new AbortController();this.stoppedReason=null;this.errors.clear();this.nextEscalation=0;this.nextInventory=0;
   const signal=AbortSignal.any([this.signal,this.controller.signal]);
   this.loop=this.run(settings,signal);
   return{started:claim.started,resumed:!claim.started,...await this.status(invocation)};
@@ -234,6 +236,10 @@ export class ProvisionerWorker {
  }
  private async run(settings:ProvisionerWorkerSettings,signal:AbortSignal):Promise<void>{
   while(!signal.aborted){
+   if(this.driver.refreshInventory&&!this.inventoryPass&&Date.now()>=this.nextInventory){
+    this.nextInventory=Number.POSITIVE_INFINITY;const owner=this.invocation;
+    const pass=this.step('inventory','WORKER_INVENTORY_FAILED',async()=>{try{const config=await readDeployment(this.env),db=bindProviderInvocation(this.database,config,owner!,['PROVISIONER']);const result=await this.driver.refreshInventory!(db,config,signal,this.inventoryIndex++);this.nextInventory=Date.now()+(result.has_more?settings.retry_ms:result.retry_after_ms);}catch(error){this.nextInventory=Date.now()+settings.retry_ms;if(signal.aborted||owner!==this.invocation)return;throw error;}}).finally(()=>{if(this.inventoryPass===pass)this.inventoryPass=null;});this.inventoryPass=pass;
+   }
    if(!await this.step('tick','WORKER_TICK_FAILED',()=>this.tick(settings,signal)))break;
    if(signal.aborted||!await this.step('escalate','WORKER_ESCALATE_FAILED',()=>this.escalate(settings)))break;
    await new Promise<void>(resolve=>{const timer=setTimeout(done,settings.poll_ms);function done(){clearTimeout(timer);signal.removeEventListener('abort',done);resolve();}signal.addEventListener('abort',done,{once:true});});
@@ -352,7 +358,7 @@ export class ProvisionerWorker {
  }
  async stop(timeoutMs=5000):Promise<void>{
   this.controller?.abort();
-  const pending=[...(this.loop?[this.loop]:[]),...this.active.values()];
+  const pending=[...(this.loop?[this.loop]:[]),...(this.inventoryPass?[this.inventoryPass]:[]),...this.active.values()];
   if(pending.length){let timer:ReturnType<typeof setTimeout>|undefined;
    await Promise.race([Promise.allSettled(pending),new Promise<void>(resolve=>{timer=setTimeout(resolve,timeoutMs);})]);if(timer)clearTimeout(timer);}
   this.loop=null;

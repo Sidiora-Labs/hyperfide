@@ -208,7 +208,80 @@ def inventory_refresh_progress(f, http, api, capacity, sandbox, scopes, names, b
     print(json.dumps({'status': 'PASS', 'scope': 'actual signed bounded inventory retries and normal provisioner background SDK refresh; no work selection or provider mutation', 'retained_candidates': len(names), 'attempts': attempts, 'fresh_noop': skipped['result'], 'worker_status': status['result'], 'stale_shared_usage': sandbox(stale), 'final_shared_usage': sandbox(final), 'checks': ['bounded retries advance beyond the first prefix', 'fresh exact-policy/scope entries are not fetched again', 'complete retained-candidate coverage never claims complete provider inventory', 'policy rotation preserves unknown shared presence charges', 'normal provisioner background refresh runs with only an ineligible historical anchor and leaves its row unchanged', 'new UNKNOWN ownership preserves charges and blocks placement']}))
 
 
-def main(separate=False, refresh_progress=False):
+def inventory_background_no_intent(f, http, api, capacity, sandbox, scopes, names):
+    org, run = f.ids['organisation'], f.ids['run']
+    def no_intents():
+        return f.sql('SELECT count(*)::text AS n FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND run_id=$2', [org, run]) == [{'n': '0'}]
+    assert no_intents()
+    def journals():
+        return f.sql("SELECT id::text,request_digest,result FROM hyperfide.command_inbox WHERE organisation_id=$1 AND run_id=$2 AND principal_scope='PROVISIONER_INVENTORY' AND operation='provider.inventory.observe' AND state='COMPLETED' ORDER BY id", [org, run])
+    def latest(scope):
+        rows = journals()
+        selected = {}
+        for row in rows:
+            result = row['result']
+            request, observation = result['request'], result['observation']
+            assert digest(request) == row['request_digest'] and digest(observation) == result['evidence_digest'], row
+            assert request['credential_id'] == f.ids['provisioner'] and request['policy_digest'] == f.policy_digest and request['run_id'] == run
+            assert observation['scope'] == request['scope'] and observation['native_sandbox_id'] == request['native_sandbox_id']
+            if request['scope'] != scope:
+                continue
+            name = request['native_sandbox_id']
+            if name not in selected or observation['observed_at'] > selected[name]['observed_at']:
+                selected[name] = observation
+        return selected
+    def await_coverage(scope, unknown=None):
+        deadline = time.monotonic() + 40
+        while time.monotonic() < deadline:
+            rows = latest(scope)
+            if len(rows) == len(names) and all(row['classification'] == ('UNKNOWN' if key == unknown else 'FOREIGN') for key,row in rows.items()):
+                return rows
+            time.sleep(0.25)
+        raise AssertionError({'latest': latest(scope), 'worker': api('provider.worker.status', {})})
+    started = api('provider.worker.start', {})
+    assert started.get('ok'), started
+    first = await_coverage(scopes[f.pool])
+    quiet_boundary = len(http.events)
+    time.sleep(1)
+    assert len(http.events) == quiet_boundary, 'Fresh completed scope must not be fetched every worker tick'
+    first_status = api('provider.worker.status', {})
+    assert first_status.get('ok') and all(first_status['result']['counters'][key] == 0 for key in ['claimed', 'executed', 'reconciled']), first_status
+    stopped = api('provider.worker.stop', {})
+    assert stopped.get('ok') and no_intents(), stopped
+    first_report = capacity(f.pool)
+    assert sandbox(first_report)['used_account'] == str(len(names)) and sandbox(first_report)['budget_used_account'] == '0' and first_report['unknown_resource_capacity'] is False, first_report
+    retained = journals()
+    assert retained and f.sql('SELECT count(*)::text AS n FROM hyperfide.provider_observations WHERE organisation_id=$1', [org]) == [{'n': '0'}]
+    selected = sorted(names)[0]
+    changed = copy.deepcopy(http.models[selected][1])
+    changed['metadata']['labels'].pop('managed-by')
+    http.models[selected] = (200, changed)
+    f.config['revision'] = 'CONTROLLED_CURRENT_GENERATION_' + uuid.uuid4().hex
+    Path(f.env['HYPERFIDE_POOL_CONFIG']).write_text(json.dumps(f.config))
+    configured = api('provider.pools.configure', {}, key='operator', component='8.2')
+    assert configured.get('ok'), configured
+    for pool in f.config['pools']:
+        scopes[pool['id']]['configuration_digest'] = digest({'revision': f.config['revision'], 'pool': pool, 'account': f.config['accounts'][0]})
+    stale = capacity(f.pool)
+    assert sandbox(stale)['used_account'] == str(len(names)) and stale['external_usage']['classified_foreign'] == 0 and stale['unknown_resource_capacity'] is True, stale
+    f.stop()
+    f.start()
+    restarted = api('provider.worker.start', {})
+    assert restarted.get('ok'), restarted
+    second = await_coverage(scopes[f.pool], unknown=selected)
+    final_status = api('provider.worker.status', {})
+    assert final_status.get('ok') and all(final_status['result']['counters'][key] == 0 for key in ['claimed', 'executed', 'reconciled']), final_status
+    stopped = api('provider.worker.stop', {})
+    assert stopped.get('ok') and no_intents(), stopped
+    all_rows = {row['id']:row for row in journals()}
+    assert all(all_rows[row['id']] == row for row in retained), 'Previous completed scoped attribution must remain retained'
+    final = capacity(f.pool)
+    assert sandbox(final)['used_account'] == str(len(names)) and sandbox(final)['budget_used_account'] == '1' and final['unknown_resource_capacity'] is True, final
+    assert final['external_usage']['classified_foreign'] == len(names)-1 and all(row['method'] == 'GET' for row in http.events)
+    print(json.dumps({'status': 'PASS', 'scope': 'normal signed provisioner worker maintenance with zero provisioning intents; protected current scope and typed PG journals plus actual SDK GETs', 'provider_mutations': 0, 'provisioning_intents_created': 0, 'first_worker_status': first_status['result'], 'final_worker_status': final_status['result'], 'completed_journals': len(all_rows), 'first_coverage':len(first), 'second_coverage':len(second), 'stale_usage':sandbox(stale), 'final_usage':sandbox(final), 'checks':['normal background refresh makes bounded progress without selecting provisioning work','fresh exact current scope does not re-fetch each worker tick','completed typed journals preserve request/evidence digests without a CREATE anchor','new configuration generation cannot reuse old fresh attribution','UNKNOWN and stale shared presence stay charged; previous journals remain unchanged']}))
+
+
+def main(separate=False, refresh_progress=False, background_maintenance=False):
     http = fixture.ReadOnlyHTTP()
     catalog = []
     original_route = http.server.RequestHandlerClass.route
@@ -301,7 +374,8 @@ def main(separate=False, refresh_progress=False):
             f.sql("INSERT INTO hyperfide.provider_pools(organisation_id,id,provider,account_key,environment_key,region,profile_id) VALUES($1,$2,'blaxel',$3,$4,$5,$6)", [i['organisation'], pool['id'], pool['account_key'], pool['environment_key'], pool['region'], f.profile])
             f.sql('INSERT INTO hyperfide.provider_pool_configurations(organisation_id,pool_id,configuration_digest,document) VALUES($1,$2,$3,$4)', [i['organisation'], pool['id'], configuration, json.dumps({'scope': scope, 'pool': pool, 'account': f.config['accounts'][0]})])
         scope = scopes[f.pool]
-        f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,observed_state) VALUES($1,$2,$3,'UNKNOWN')", [i['organisation'], f.sandbox, f.pool])
+        if not background_maintenance:
+            f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,observed_state) VALUES($1,$2,$3,'UNKNOWN')", [i['organisation'], f.sandbox, f.pool])
         if not separate:
             f.sql("INSERT INTO hyperfide.sandboxes(organisation_id,id,pool_id,native_sandbox_id,observed_state) VALUES($1,$2,$3,$4,'RUNNING')", [i['organisation'], uid(), f.other_pool, known_name])
         operation = {'schema_version': 1, 'kind': 'create', 'scope': scope, 'deadline_at': '2099-01-01T00:00:00.000Z', 'identity': {'operation_id': f.intent, 'idempotency_key': f.intent, 'correlation_id': f.intent, 'causation_id': f.intent, 'payload_digest': provider.sha(b'pending')}, 'resource': None, 'preparation_digest': f.preparation, 'parameters': {'preparation_reference': 'DECLARED_NOT_PROVISIONED', 'resources': {'cpu_millis': 2000, 'memory_bytes': '4294967296', 'disk_bytes': '4294967296', 'persistent_volume_bytes': '0'}, 'network': 'ISOLATED', 'stdin_required': False}}
@@ -309,7 +383,8 @@ def main(separate=False, refresh_progress=False):
         normalized = subprocess.run(['node', '--input-type=module', '-e', normalize], input=json.dumps(operation), text=True, capture_output=True, cwd=ROOT, env=f.env, timeout=15)
         assert normalized.returncode == 0, normalized.stderr
         operation = json.loads(normalized.stdout)
-        f.sql("INSERT INTO hyperfide.provisioning_intents(organisation_id,run_id,id,pool_id,sandbox_id,configuration_digest,kind,preparation_purpose,profile_id,request_key,request_digest,payload_digest,operation,state,boot_generation) VALUES($1,$2,$3,$4,$5,$6,'CREATE','PREPARATION',$7,$8,$9,$10,$11,'UNKNOWN',1)", common + [f.intent, f.pool, f.sandbox, scope['configuration_digest'], f.profile, f.intent, provider.sha(b'controlled shared inventory intent'), operation['identity']['payload_digest'], json.dumps(operation)])
+        if not background_maintenance:
+            f.sql("INSERT INTO hyperfide.provisioning_intents(organisation_id,run_id,id,pool_id,sandbox_id,configuration_digest,kind,preparation_purpose,profile_id,request_key,request_digest,payload_digest,operation,state,boot_generation) VALUES($1,$2,$3,$4,$5,$6,'CREATE','PREPARATION',$7,$8,$9,$10,$11,'UNKNOWN',1)", common + [f.intent, f.pool, f.sandbox, scope['configuration_digest'], f.profile, f.intent, provider.sha(b'controlled shared inventory intent'), operation['identity']['payload_digest'], json.dumps(operation)])
 
         def model(name, labels):
             return {'metadata': {'name': name, 'workspace': scope['environment_id'], 'labels': labels}, 'spec': {'region': scope['region'], 'runtime': {'memory': 4096}}, 'status': 'DEPLOYED'}
@@ -319,7 +394,7 @@ def main(separate=False, refresh_progress=False):
             catalog.append(value)
             http.models[name] = (200, value)
             for pool in ([f.pool] if separate else [f.pool, f.other_pool]):
-                f.sql("INSERT INTO hyperfide.provider_orphans(organisation_id,pool_id,native_sandbox_id,suspected_intent_id) VALUES($1,$2,$3,$4)", [i['organisation'], pool, name, f.intent])
+                f.sql("INSERT INTO hyperfide.provider_orphans(organisation_id,pool_id,native_sandbox_id,suspected_intent_id) VALUES($1,$2,$3,$4)", [i['organisation'], pool, name, None if background_maintenance else f.intent])
         for kind, name in ({} if separate else unknown_names).items():
             labels = {} if kind == 'unmarked' else {'managed-by': 'another-' + marker, identity_label: uid()} if kind == 'unknown-owner' else {'managed-by': marker, identity_label: uid(), 'hyperfide-operation': ''} if kind == 'conflicting-hf' else {'managed-by': marker, identity_label: uid()}
             value = model(name, labels)
@@ -355,6 +430,9 @@ def main(separate=False, refresh_progress=False):
         def sandbox(report):
             return next(row for row in report['dimensions'] if row['name'] == 'SANDBOX')
 
+        if background_maintenance:
+            inventory_background_no_intent(f, http, api, capacity, sandbox, scopes, foreign_names)
+            return
         if refresh_progress:
             inventory_refresh_progress(f, http, api, capacity, sandbox, scopes, foreign_names, baseline='--refresh-baseline' in sys.argv)
             return
@@ -434,7 +512,9 @@ def main(separate=False, refresh_progress=False):
 
 
 if __name__ == '__main__':
-    if '--refresh-progress-only' in sys.argv or '--refresh-baseline' in sys.argv:
+    if '--inventory-background-only' in sys.argv:
+        main(separate=True, refresh_progress=True, background_maintenance=True)
+    elif '--refresh-progress-only' in sys.argv or '--refresh-baseline' in sys.argv:
         main(separate=True, refresh_progress=True)
     else:
         if sys.argv[1:] != ['--separate-only']:
