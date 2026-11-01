@@ -29,7 +29,7 @@ function canonical(v:unknown):string{
 }
 function digest(v:unknown):string{return 'sha256:'+createHash('sha256').update(typeof v==='string'?v:canonical(v)).digest('hex');}
 function bytesDigest(v:Uint8Array):string{return 'sha256:'+createHash('sha256').update(v).digest('hex');}
-function equal(a:unknown,b:unknown):boolean{return canonical(a)===canonical(b);}
+function equal(a:unknown,b:unknown):boolean{return a===undefined||b===undefined?a===b:canonical(a)===canonical(b);}
 function nativeName(v:unknown):string{const n=text(v,49);if(!/^[a-z0-9][a-z0-9-]*$/.test(n))fail('BLAXEL_PROCESS_INVALID','Invalid native sandbox name');return n;}
 function shell(v:string):string{return "'"+v.replaceAll("'","'\\''")+"'";}
 function statusCode(e:unknown):number|null{if(e&&typeof e==='object'){const o=e as Obj;for(const v of [o.status,o.statusCode,(o.response as Obj|undefined)?.status])if(typeof v==='number')return v;}return null;}
