@@ -1,3 +1,4 @@
+import {nextFleetCompletion} from './fleet_completion.js';
 import {verifyPreparationReceipt} from './preparation_receipts.js';
 import {claimFleetLaunch,fleetForegroundRequest,type FleetLaunchDelivery} from './fleet_launch_delivery.js';
 import fs from 'node:fs/promises';
@@ -37,7 +38,7 @@ interface ObjectReference {storage_kind:'manifest';artifact_id:string;digest:str
 export type NativeControlAction='runner.observe'|'runner.stop'|'runner.pause'|'runner.drain'|'runner.cancel'|'runner.resume';
 /** Every action except observe is a coordinator command identified by command_id (task 12.4). */
 export const NATIVE_CONTROL_ACTIONS:readonly NativeControlAction[]=Object.freeze(['runner.observe','runner.stop','runner.pause','runner.drain','runner.cancel','runner.resume']);
-export interface NativeRunnerRequest {session_id:string;operation_id:string;action:NativeControlAction;command_id?:string;launch_id?:string}
+export interface NativeRunnerRequest {session_id:string;operation_id:string;action:NativeControlAction|'runner.slot.release';command_id?:string;launch_id?:string}
 export interface NativeRelaunchRequest {session_id:string;operation_id:string;command_id:string;env_refs:Record<string,string>;launch_id?:string}
 export interface NativeRunnerCapability {
  invokeNativeRunner(invocation:InvocationContext,input:NativeRunnerRequest,signal:AbortSignal):Promise<unknown>;
@@ -356,18 +357,32 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  }finally{retainedRequests.delete(request);}
  return true;
  }
+ async function fleetCompletion(s:Signer):Promise<boolean>{
+ const target=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},async tx=>{
+  const p=(await tx.query('SELECT p.*,r.authority_epoch,r.state AS run_state,clock_timestamp() AS db_now FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1 FOR SHARE OF p,r',[s.credential_id])).rows[0];
+  if(!currentSigner(p,s))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Current provisioner identity required');return nextFleetCompletion(tx as PrimaryTransaction,p);
+ });
+ if(!target)return false;
+ const input:NativeRunnerRequest={session_id:target.session_id,operation_id:target.operation_id,action:target.phase==='STOP'?'runner.stop':'runner.slot.release',command_id:target.command_id,launch_id:target.launch_id};
+ const request=controlRequest(target.binding,input),proof=await authenticate(authority,s,target.run_id,target.authority_epoch,request,signal);
+ await native.invokeNativeRunner(proof,input,signal);return true;
+ }
  async function worker(index:number):Promise<void>{let cursor=index;while(!signal.aborted){let found=false;
- try{for(let count=0;count<config.signers.length&&!signal.aborted;count++){const s=config.signers[cursor++%config.signers.length]!;const row=await next(s);if(row){found=true;await execute(row,s);break;}if(await fleetLaunch(s)){found=true;break;}}}catch(error){last_error=object(error)&&typeof error.code==='string'?error.code:'RUNNER_EXECUTOR_UNAVAILABLE';}
+ try{for(let count=0;count<config.signers.length&&!signal.aborted;count++){const s=config.signers[cursor++%config.signers.length]!;if(await fleetCompletion(s)){found=true;break;}const row=await next(s);if(row){found=true;await execute(row,s);break;}if(await fleetLaunch(s)){found=true;break;}}}catch(error){last_error=object(error)&&typeof error.code==='string'?error.code:'RUNNER_EXECUTOR_UNAVAILABLE';}
  await wait(found?50:500,signal);
  }}
  // Control operations use the same actual provider journal and request proof.
  const native:NativeRunnerCapability=Object.freeze({invokeNativeRunner:async(i:InvocationContext,input:NativeRunnerRequest,requestedSignal:AbortSignal)=>{
  if(signal.aborted)fail('RUNNER_EXECUTOR_CLOSED','Provisioner executor is closed');
  assertInvocation(i);
- const controlSignal=AbortSignal.any([signal,requestedSignal,i.signal]);await authority.authorize(i);if(i.principal.role!=='PROVISIONER'||!object(input)||!uuid(input.session_id)||!uuid(input.operation_id)||!NATIVE_CONTROL_ACTIONS.includes(input.action)||input.command_id!==undefined&&!uuid(input.command_id)||input.launch_id!==undefined&&!uuid(input.launch_id)||input.action!=='runner.observe'&&!uuid(input.command_id)||Object.keys(input).some(k=>!['session_id','operation_id','action','command_id','launch_id'].includes(k)))fail('RUNNER_CONTROL_DENIED','Actual provisioner and bounded native control request required');
+ const controlSignal=AbortSignal.any([signal,requestedSignal,i.signal]);await authority.authorize(i);if(i.principal.role!=='PROVISIONER'||!object(input)||!uuid(input.session_id)||!uuid(input.operation_id)||(!NATIVE_CONTROL_ACTIONS.includes(input.action as NativeControlAction)&&input.action!=='runner.slot.release')||input.command_id!==undefined&&!uuid(input.command_id)||input.launch_id!==undefined&&!uuid(input.launch_id)||input.action!=='runner.observe'&&!uuid(input.command_id)||Object.keys(input).some(k=>!['session_id','operation_id','action','command_id','launch_id'].includes(k)))fail('RUNNER_CONTROL_DENIED','Actual provisioner and bounded native control request required');
  const b=await g.withPrimaryTransaction<Record<string,any>>({timeoutMs:5000,signal:controlSignal,guard:tx=>i.guard(tx)},async tx=>{
   const launch_id=input.launch_id??(await readRunnerBinding(tx as PrimaryTransaction,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,session_id:input.session_id})).launch_id;
   if(!uuid(launch_id))fail('RUNNER_CONTROL_TARGET_UNREGISTERED','Actual committed START launch required');
+  if(input.action==='runner.slot.release'){
+   const selected=await nextFleetCompletion(tx as PrimaryTransaction,i.principal,{command_id:input.command_id!,launch_id,session_id:input.session_id});
+   if(!selected||selected.phase!=='RELEASE'||selected.operation_id!==input.operation_id)fail('RUNNER_RELEASE_DENIED','Exact signed completed fleet launch, latest operator STOP and durable source custody required');
+  }
   return retainedControlBinding(tx as PrimaryTransaction,i,input.session_id,launch_id);
  });
  const signer=config.signers.find(s=>s.credential_id===i.principal.credential_id);if(!signer)fail('RUNNER_CONTROL_DENIED','Current configured provisioner signer required');
@@ -380,7 +395,12 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  let observed:ProviderResult;try{observed=await provider.executeBound(request,controlSignal,proof);}finally{retainedRequests.delete(request);}if(!observed.captured||typeof observed.process_ref!=='string'||!observed.process_ref)fail('RUNNER_CONTROL_UNKNOWN','Actual provider native control capture required');
  const captured=observed.captured;if(captured.complete!==true||captured.exit_code!==0)fail('RUNNER_CONTROL_UNKNOWN','Complete native control observation required');
  const result=strictJSON(Buffer.from(captured.stdout),MAX_CAPTURE);if(!object(result)||result.ok!==true||!object(result.result))fail('RUNNER_CONTROL_UNKNOWN','Actual native control receipt required');
- const receipt=validateNativeControlReceipt(result.result,{...target,uid:b.uid},input.action==='runner.observe'?undefined:input.command_id,input.action);
+ let receipt:Record<string,unknown>;
+ if(input.action==='runner.slot.release'){
+  const value=result.result;
+  if(value.command_id!==input.command_id||value.launch_id!==b.launch_id||value.slot_id!==b.slot_id||value.uid!==b.uid||value.reusable!==true||!Array.isArray(value.blocking)||value.blocking.length!==0||value.process_residue!==0||value.credential_residue!==0||value.outputs_durable!==true||value.report_delivered!==true||value.coordinator_workspace!=='FREE')fail('RUNNER_RELEASE_UNCONFIRMED','Actual current slot residue checks and coordinator release required');
+  receipt=value;
+ }else receipt=validateNativeControlReceipt(result.result,{...target,uid:b.uid},input.action==='runner.observe'?undefined:input.command_id,input.action);
  const evidence=await storeBytes(store,proof,Buffer.from(captured.stdout));
  return {native:receipt,native_receipt:evidence,provider:{process_ref:observed.process_ref,evidence_digest:observed.evidence_digest,spool_digest:captured.spool_digest},retained_start:b.retained_start,executable_identity:{registered_digest:b.runner_binary_digest,freshly_measured_digest:null,qualification:'NOT_EVALUATED'},authority:'OBSERVATION_ONLY'};
  },relaunchWithReferences:async(i:InvocationContext,input:NativeRelaunchRequest,requestedSignal:AbortSignal)=>{

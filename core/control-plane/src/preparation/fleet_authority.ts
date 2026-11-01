@@ -108,6 +108,8 @@ async function load(tx: PrimaryTransaction, i: InvocationContext, operation: unk
  JOIN hyperfide.fleet_environment_specs s USING(organisation_id,run_id,input_digest)
  WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.operation_id=$3 FOR UPDATE OF e`, [...scoped(i),operation])).rows[0];
  if (!row) fail('FLEET_INSTALL_NOT_FOUND','Install operation is not admitted');
+ const head=(await tx.query('SELECT current_operation_id FROM hyperfide.fleet_install_heads WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 FOR SHARE',[...scoped(i),row.environment_id,row.environment_generation])).rows[0];
+ if(!head||head.current_operation_id!==row.operation_id)fail('FLEET_INSTALL_SUPERSEDED','Install execution is not the current admitted environment head');
  const adoption=(await tx.query('SELECT * FROM hyperfide.fleet_install_adoptions WHERE organisation_id=$1 AND run_id=$2 AND install_operation_id=$3 ORDER BY adoption_sequence DESC LIMIT 1',[...scoped(i),operation])).rows[0];
  row.adoption_id=adoption?.adoption_id??null;
  if(adoption)for(const key of ['manager_session_id','manager_generation','leader_generation','cohort_id','cohort_generation'])row[key]=adoption[key];
@@ -180,17 +182,37 @@ function verifyIsolationEvidence(value:unknown,row:RecordValue,receipt:RecordVal
  exact(value,['schema_version','operation_id','prepared_receipt_digest','environment_id','environment_generation','input_digest','method','status','slots']);
  if(value.schema_version!==1||value.operation_id!==row.operation_id||value.prepared_receipt_digest!==receipt.receipt_digest||value.environment_id!==row.environment_id||String(value.environment_generation)!==String(row.environment_generation)||value.input_digest!==row.input_digest||value.method!=='UNIX_UID_GID'||value.status!=='ENFORCED'||!same(value.slots,row.admission.slot_bindings)||receipt.prepared_root!==row.admission.environment_root)invalid('Native isolation evidence differs from admitted identities and prepared receipt');
 }
+async function signedPreparationJob(tx:PrimaryTransaction,i:InvocationContext,operation:string,planDigest:string,resultDigest?:string):Promise<RecordValue>{
+ const job=(await tx.query(`SELECT j.*,p.public_key_b64 FROM hyperfide.runner_remote_jobs j
+ LEFT JOIN hyperfide.identity_principals p ON p.credential_id=j.executor_credential_id
+ WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.operation_id=$3 FOR SHARE OF j`,[...scoped(i),operation])).rows[0];
+ if(!job||job.state!=='COMPLETED'||job.job_class!=='PREPARATION'||job.plan_digest!==planDigest||resultDigest!==undefined&&job.result_digest!==resultDigest||!object(job.plan)||!object(job.result)||hash(runnerCanonical(job.plan))!==job.plan_digest||hash(runnerCanonical(job.result))!==job.result_digest||typeof job.public_key_b64!=='string'||typeof job.result_signature!=='string')invalid('Completed immutable signed preparation execution required');
+ const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(job.public_key_b64,'base64url')]),format:'der',type:'spki'});
+ if(!verify(null,runnerResultSigningBytes(job.organisation_id,job.run_id,job.operation_id,job.plan_digest,job.result_digest),key,Buffer.from(job.result_signature,'base64url')))invalid('Execution result signature differs');
+ return job;
+}
+export function validateFleetInstallRecovery(value:unknown):RecordValue{
+ exact(value,['install_operation_id','admission_digest','runner_operation_id','runner_plan_digest','quiescence_operation_id','quiescence_receipt_digest']);
+ if(!uuid(value.install_operation_id)||!uuid(value.runner_operation_id)||!uuid(value.quiescence_operation_id)||!validDigest(value.admission_digest)||!validDigest(value.runner_plan_digest)||!validDigest(value.quiescence_receipt_digest)||value.runner_operation_id!==value.quiescence_operation_id)invalid('Exact failed-install recovery binding required');return value;
+}
+async function recoveryPredecessor(tx:PrimaryTransaction,i:InvocationContext,value:unknown,next:RecordValue,packageId:string|null):Promise<{binding:RecordValue;install:RecordValue;job:RecordValue;logical_operation_id:string}>{
+ const binding=validateFleetInstallRecovery(value),old=await load(tx,i,binding.install_operation_id,false);
+ if(old.state!=='ADMITTED'||old.package_id!==packageId||old.admission_digest!==binding.admission_digest)fail('FLEET_INSTALL_RECOVERY_DENIED','Only the failed current install of this delegation may be recovered');
+ for(const key of ['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation'])if(String(old[key])!==String(next[key]))fail('FLEET_INSTALL_RECOVERY_DENIED','Recovery cannot change environment, source inputs or physical boot');
+ const job=await signedPreparationJob(tx,i,binding.runner_operation_id,binding.runner_plan_digest),result=job.result,plan=job.plan;
+ if(job.authority_epoch!==old.authority_epoch||plan.preparation_request?.job_binding?.namespace!=='FLEET_INSTALL'||plan.preparation_request.job_binding.job_id!==old.operation_id||plan.preparation_request.job_binding.input_packet_digest!==old.admission_digest||plan.binding?.sandbox_id!==old.sandbox_id||plan.binding?.boot_id!==old.boot_id||String(plan.binding?.boot_generation)!==String(old.boot_generation)||result.outcome!=='FAILED'||result.cleanup?.complete!==true||result.cleanup?.observed_process_absent!==true||result.cleanup_status!=='CONFIRMED'||result.cleanup.receipt_digest!==binding.quiescence_receipt_digest||result.native_receipt?.digest!==binding.quiescence_receipt_digest)fail('FLEET_INSTALL_RECOVERY_NOT_QUIESCENT','A signed completed FAILED execution with confirmed native quiescence is required; uncertain outcomes cannot be retried');
+ const artifact=(await tx.query("SELECT content_digest FROM hyperfide.runner_result_artifacts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND role='native_receipt' FOR SHARE",[...scoped(i),job.operation_id])).rows[0];
+ if(!artifact||artifact.content_digest!==binding.quiescence_receipt_digest)fail('FLEET_INSTALL_RECOVERY_NOT_QUIESCENT','Retained native quiescence capture required');
+ const allocation=(await tx.query(`SELECT a.* FROM hyperfide.resource_job_allocations a JOIN hyperfide.reservations r ON r.organisation_id=a.organisation_id AND r.run_id=a.run_id AND r.id=a.reservation_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.id=$3 AND a.state='ACTIVE' AND a.job_kind='PREPARATION' AND r.state='ALLOCATED' AND r.expires_at>clock_timestamp() FOR SHARE OF a,r`,[...scoped(i),plan.allocation?.allocation_id])).rows[0];
+ if(!allocation||allocation.reservation_id!==job.reservation_id||allocation.sandbox_id!==old.sandbox_id||String(allocation.sandbox_boot_generation)!==String(old.boot_generation)||allocation.slot_id!==plan.binding.slot_id||allocation.assignee_session_id!==job.session_id)fail('FLEET_INSTALL_RECOVERY_ALLOCATION','Recovery requires the actual current preparation allocation and reservation');
+ return {binding,install:old,job,logical_operation_id:old.admission.logical_operation_id??old.operation_id};
+}
 export interface FleetInstallExecutionProof {runner_operation_id:string;runner_plan_digest:string;runner_result_digest:string;stdout_base64:string;native_receipt_base64:string}
 export async function completeVerifiedFleetInstallExecution(tx:PrimaryTransaction,i:InvocationContext,proof:FleetInstallExecutionProof):Promise<Record<string,unknown>>{
  assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
  exact(proof,['runner_operation_id','runner_plan_digest','runner_result_digest','stdout_base64','native_receipt_base64']);
  if(!['FEATURE_MANAGER','COORDINATOR','OPERATOR'].includes(i.principal.role)||!uuid(proof.runner_operation_id)||!validDigest(proof.runner_plan_digest)||!validDigest(proof.runner_result_digest))fail('FLEET_INSTALL_SCOPE','Trusted manager or coordinator execution completion required');
- const job=(await tx.query(`SELECT j.*,p.public_key_b64 FROM hyperfide.runner_remote_jobs j
- LEFT JOIN hyperfide.identity_principals p ON p.credential_id=j.executor_credential_id
- WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.operation_id=$3 FOR SHARE OF j`,[...scoped(i),proof.runner_operation_id])).rows[0];
- if(!job||job.state!=='COMPLETED'||job.job_class!=='PREPARATION'||job.plan_digest!==proof.runner_plan_digest||job.result_digest!==proof.runner_result_digest||!object(job.plan)||!object(job.result)||hash(runnerCanonical(job.plan))!==job.plan_digest||hash(runnerCanonical(job.result))!==job.result_digest||typeof job.public_key_b64!=='string'||typeof job.result_signature!=='string')invalid('Completed immutable signed preparation execution required');
- const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(job.public_key_b64,'base64url')]),format:'der',type:'spki'});
- if(!verify(null,runnerResultSigningBytes(job.organisation_id,job.run_id,job.operation_id,job.plan_digest,job.result_digest),key,Buffer.from(job.result_signature,'base64url')))invalid('Execution result signature differs');
+ const job=await signedPreparationJob(tx,i,proof.runner_operation_id,proof.runner_plan_digest,proof.runner_result_digest);
  const plan=job.plan as RecordValue,result=job.result as RecordValue,request=plan.request,binding=plan.binding,preparation=plan.preparation_request;
  if(!object(request)||!object(binding)||!object(preparation)||!object(preparation.job_binding)||preparation.job_binding.namespace!=='FLEET_INSTALL')invalid('Fleet install preparation binding required');
  const row=await load(tx,i,preparation.job_binding.job_id);
@@ -212,10 +234,10 @@ export async function completeVerifiedFleetInstallExecution(tx:PrimaryTransactio
  await publishVerifiedFleetReadiness(tx,i,{install:row,receipt,nativeReceipt,job});
  await currentSlots(tx,i,row.admission,row.package_spec.workers.slots,false);
  if(row.admission.slot_bindings.some((b:RecordValue)=>b.uid===binding.uid||b.gid===binding.gid))invalid('Preparation identity must differ from every worker identity');
- if(row.state==='READY'){if(row.receipt_digest!==receipt.receipt_digest)fail('FLEET_INSTALL_CONFLICT','A different receipt already completed this operation');return {state:'READY',receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id)};}
+ if(row.state==='READY'){if(row.receipt_digest!==receipt.receipt_digest)fail('FLEET_INSTALL_CONFLICT','A different receipt already completed this operation');return {state:'READY',logical_operation_id:row.admission.logical_operation_id??row.operation_id,receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id)};}
  const done=await tx.query("UPDATE hyperfide.fleet_environment_installs SET state='READY',receipt=$4,receipt_digest=$5,completed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED' AND expires_at>clock_timestamp() RETURNING operation_id",[...scoped(i),row.operation_id,JSON.stringify(receipt),receipt.receipt_digest]);
  if(done.rowCount!==1)fail('FLEET_INSTALL_EXPIRED','Install lease expired before readiness publication');
- return {state:'READY',receipt,receipt_digest:receipt.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id)};
+ return {state:'READY',logical_operation_id:row.admission.logical_operation_id??row.operation_id,receipt,receipt_digest:receipt.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id)};
 }
 async function readinessWitnesses(tx:PrimaryTransaction,i:InvocationContext,operation:string):Promise<RecordValue[]>{
  const rows=(await tx.query('SELECT slot_id::text,readiness_digest,measurement_digest,runner_result_digest FROM hyperfide.fleet_runtime_readiness WHERE organisation_id=$1 AND run_id=$2 AND install_operation_id=$3 ORDER BY slot_id',[...scoped(i),operation])).rows;
@@ -226,7 +248,7 @@ export async function fleetInstallDeliveryInputs(tx:PrimaryTransaction,i:Invocat
  if(!['COORDINATOR','OPERATOR'].includes(i.principal.role))fail('FLEET_INSTALL_SCOPE','Programme delivery authority required');
  const row=await load(tx,i,operation_id);
  if(row.state!=='READY'&&new Date(row.expires_at).getTime()<=await databaseNow(tx))fail('FLEET_INSTALL_EXPIRED','Install lease expired');
- return {admission:row.admission,package_spec:row.package_spec,source_config:row.source_config,install_plan:row.install_plan};
+ return {admission:row.admission,logical_operation_id:row.admission.logical_operation_id??row.operation_id,package_spec:row.package_spec,source_config:row.source_config,install_plan:row.install_plan};
 }
 export interface ReadyFleetInstallBinding {operation_id:string;environment_id:string;environment_generation:number;sandbox_id:string;boot_id:string;boot_generation:string;input_digest:string;}
 export async function readReadyFleetInstall(tx:PrimaryTransaction,i:InvocationContext,binding:ReadyFleetInstallBinding):Promise<RecordValue> {
@@ -237,7 +259,7 @@ export async function readReadyFleetInstall(tx:PrimaryTransaction,i:InvocationCo
  else if(i.principal.role==='FEATURE_MANAGER'){if(i.principal.actor_id!==row.manager_session_id)fail('FLEET_INSTALL_SCOPE','Manager does not own this install');}
  else fail('FLEET_INSTALL_SCOPE','Current owning manager or bound runner required');
  if (row.state !== 'READY') fail('FLEET_INSTALL_NOT_READY','Environment preparation has not completed');
- return {receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id),manifest_digest:row.admission.package_digest,source_revision:row.admission.source_revision,input_digest:row.input_digest,package_id:row.package_id,manager_generation:String(row.manager_generation),read_scope:row.source_config.workspace.read_scope,write_scope:row.source_config.workspace.write_scope};
+ return {logical_operation_id:row.admission.logical_operation_id??row.operation_id,receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id),manifest_digest:row.admission.package_digest,source_revision:row.admission.source_revision,input_digest:row.input_digest,package_id:row.package_id,manager_generation:String(row.manager_generation),read_scope:row.source_config.workspace.read_scope,write_scope:row.source_config.workspace.write_scope};
 }
 export function createComponent(ctx:ComponentContext):Component {
  const transact = <T>(i:InvocationContext,fn:(tx:PrimaryTransaction)=>Promise<T>) => ctx.resources.gateway.withPrimaryTransaction({signal:i.signal,guard:tx=>i.guard(tx),timeoutMs:5000},fn);
@@ -265,7 +287,7 @@ export function createComponent(ctx:ComponentContext):Component {
    return transact(i,tx=>withAdmittedDecision(tx,i,input.decision,'fleet.install.admit',async decision=>{
     if (decision.actor_role !== 'WAVE_MANAGER') fail('FLEET_INSTALL_SCOPE','Wave Manager decision required');
     const owner = await assertFleetActor(tx,i,decision), v = decision.input as RecordValue;
-    exact(v,['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','ttl_seconds','slot_bindings']);
+    exact(v,['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','ttl_seconds','slot_bindings',...(Object.hasOwn(v,'recovery_of')?['recovery_of']:[])]);
     if (!validDigest(v.input_digest) || !uuid(v.sandbox_id) || !uuid(v.boot_id) || !decimal(v.boot_generation,true) || !positive(v.environment_generation) || !positive(v.ttl_seconds) || v.ttl_seconds>3600) invalid('Environment identity or install lease invalid');
     const spec = (await tx.query('SELECT * FROM hyperfide.fleet_environment_specs WHERE organisation_id=$1 AND run_id=$2 AND input_digest=$3 FOR SHARE',[...scoped(i),v.input_digest])).rows[0];
     if (!spec) fail('FLEET_INSTALL_UNREGISTERED','Executable environment plan has not been registered');
@@ -275,12 +297,20 @@ export function createComponent(ctx:ComponentContext):Component {
      AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'delegation_id'=$4 AND e.result->>'sandbox_id'=s.id::text AND e.result->>'kind' IN('PROVISION_SANDBOX','REUSE_SANDBOX')) FOR SHARE OF s`,[...scoped(i),v.sandbox_id,owner.package_id])).rows[0];
     if(!sandbox)fail('FLEET_INSTALL_SCOPE','Sandbox has no admitted provisioning/reuse effect in this delegation');
     const cohort=(await tx.query('SELECT cohort_generation::text FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[...scoped(i),owner.cohort_id])).rows[0];if(!cohort)fail('FLEET_INSTALL_STALE_OWNER','Supervisory cohort unavailable');
-    const prior = (await tx.query('SELECT operation_id FROM hyperfide.fleet_environment_installs WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 FOR UPDATE',[...scoped(i),v.environment_id,v.environment_generation])).rows[0];
-    if (prior) fail('FLEET_INSTALL_CONFLICT','Environment generation already has an install operation');
+    const recovery=Object.hasOwn(v,'recovery_of')?await recoveryPredecessor(tx,i,v.recovery_of,v,owner.package_id):null;
+    if(recovery&&(!same(recovery.install.admission.slot_bindings,slot_bindings)||recovery.install.operation_id===decision.operation_id||recovery.binding.runner_operation_id===decision.operation_id))fail('FLEET_INSTALL_RECOVERY_DENIED','Recovery requires a new execution identity and the exact previous enrolled worker mapping');
+    const prior = (await tx.query('SELECT current_operation_id FROM hyperfide.fleet_install_heads WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 FOR UPDATE',[...scoped(i),v.environment_id,v.environment_generation])).rows[0];
+    if(recovery?prior?.current_operation_id!==recovery.install.operation_id:!!prior)fail('FLEET_INSTALL_CONFLICT','Environment head changed or already exists');
     const now=await databaseNow(tx);
-    const admission:RecordValue={schema_version:1,kind:'hyperfide.fleet-install-admission',environment_root:p.environment.root,operation_id:decision.operation_id,organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,environment_id:v.environment_id,environment_generation:v.environment_generation,sandbox_id:v.sandbox_id,boot_id:v.boot_id,boot_generation:v.boot_generation,authority_epoch:decision.authority_epoch,input_digest:v.input_digest,package_digest:spec.package_digest,source_config_digest:spec.source_config_digest,plan_digest:spec.plan_digest,source_revision:n.source.revision,source_manifest_digest:spec.source_manifest_digest,read_scope:n.workspace.read_scope,write_scope:n.workspace.write_scope,slot_bindings,expires_at:new Date(now+v.ttl_seconds*1000).toISOString()};
+    const admission:RecordValue={schema_version:1,kind:'hyperfide.fleet-install-admission',environment_root:p.environment.root,operation_id:decision.operation_id,logical_operation_id:recovery?.logical_operation_id??decision.operation_id,...(recovery?{recovery_of:recovery.binding}:{}),organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,environment_id:v.environment_id,environment_generation:v.environment_generation,sandbox_id:v.sandbox_id,boot_id:v.boot_id,boot_generation:v.boot_generation,authority_epoch:decision.authority_epoch,input_digest:v.input_digest,package_digest:spec.package_digest,source_config_digest:spec.source_config_digest,plan_digest:spec.plan_digest,source_revision:n.source.revision,source_manifest_digest:spec.source_manifest_digest,read_scope:n.workspace.read_scope,write_scope:n.workspace.write_scope,slot_bindings,expires_at:new Date(now+v.ttl_seconds*1000).toISOString()};
     await currentBoot(tx,i,admission);await currentEnvironmentIdentity(tx,i,admission,p);await currentSlots(tx,i,admission,p.workers.slots,true);admission.admission_digest=digest(admission);
     await tx.query('INSERT INTO hyperfide.fleet_environment_installs(organisation_id,run_id,operation_id,input_digest,environment_id,environment_generation,sandbox_id,boot_id,boot_generation,authority_epoch,package_id,manager_session_id,manager_generation,leader_generation,cohort_id,cohort_generation,admission,admission_digest,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)',[...scoped(i),decision.operation_id,v.input_digest,v.environment_id,v.environment_generation,v.sandbox_id,v.boot_id,v.boot_generation,decision.authority_epoch,owner.package_id,decision.actor_id,owner.manager_generation,decision.leader_generation,owner.cohort_id,cohort.cohort_generation,JSON.stringify(admission),admission.admission_digest,admission.expires_at]);
+    if(recovery){
+     await tx.query('INSERT INTO hyperfide.fleet_install_recoveries(organisation_id,run_id,operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[...scoped(i),decision.operation_id,recovery.install.operation_id,recovery.logical_operation_id,recovery.binding.admission_digest,recovery.binding.runner_operation_id,recovery.binding.runner_plan_digest,recovery.job.result_digest,recovery.binding.quiescence_operation_id,recovery.binding.quiescence_receipt_digest,decision.decision_id]);
+     const advanced=await tx.query('UPDATE hyperfide.fleet_install_heads SET current_operation_id=$5,updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 AND current_operation_id=$6 RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id,recovery.install.operation_id]);if(advanced.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Recovery predecessor was superseded');
+    }else{
+     const created=await tx.query('INSERT INTO hyperfide.fleet_install_heads(organisation_id,run_id,environment_id,environment_generation,logical_operation_id,current_operation_id) VALUES($1,$2,$3,$4,$5,$5) ON CONFLICT DO NOTHING RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id]);if(created.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Environment head already admitted');
+    }
     return {admission,state:'ADMITTED'};
    }));
   }),

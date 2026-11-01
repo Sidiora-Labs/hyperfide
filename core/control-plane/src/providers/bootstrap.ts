@@ -57,6 +57,11 @@ export function createProviderBootstrap(context:ComponentContext){
   const invocation=providerInvocation(database),p=invocation.principal;
   const original=(await database.query('SELECT * FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND id=$2',[config.organisation_id,id])).rows[0];if(!original)fail('PROVIDER_BOOTSTRAP_INTENT','Original admitted CREATE required');assertInvocationRun(database,original.run_id);
   const recipe=configured.pools.find(item=>item.pool_id===original.pool_id);if(!recipe)return {bootstrap:'UNCONFIGURED'};
+  const approved=await currentPool(database,config,original.pool_id),executionRole=(approved.pool as unknown as Data).execution_role;
+  if(executionRole!==undefined){
+   const test=recipe.schema_version===2&&recipe.executor_kind==='TEST',slots=recipe.native_template.slots;
+   if(executionRole.kind==='TEST'&&(!test||!Array.isArray(slots)||slots.length!==1||slots[0]?.kind!=='TEST')||executionRole.kind==='CODING'&&(test||!Array.isArray(slots)||slots.filter((slot:Data)=>slot.kind==='PREPARATION').length!==1||!slots.some((slot:Data)=>slot.kind==='AGENT')||slots.some((slot:Data)=>!['PREPARATION','AGENT'].includes(slot.kind))))fail('PROVIDER_BOOTSTRAP_EXECUTION_ROLE','Protected bootstrap template differs from the approved pool execution role');
+  }
   const recipeDigest=digestDocument({...recipe,origin:configured.origin,ca_file:configured.ca_file});
   const grantId=stableUuid('grant:'+id),secret=await secretFile(configured.state_root,id,grantId);
   try{

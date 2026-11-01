@@ -35,3 +35,11 @@ revision = "control-source sha256:6c48314f8afac032cd3e911c62790d3f3cee7491a8bbe0
 command = "make hyperfide hyperfide-native CFLAGS=\"-O2 -Werror\"; npm --prefix core/control-plane run build; python3 tests/hyperfide/cases/source_control/fleet_connector_snapshot.py"
 exit_code = 0
 log = "build/fleet/integration/final-checkpoint.json"
+
+[progress.fleet_recovery_and_provider_observations]
+revision = "control-source sha256:d06555b4eff9ffef3c1f1e41271c5d0591b4729a6c77db095a9fac5dd3d738a4"
+command = "npm --prefix core/control-plane run build; production SQL PREPARE checks; withpg.py -- python3 tests/hyperfide/cases/source_control/fleet_provider_observation.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-completion-liveness-build.log"
+observed = "Build passed with migration catalog 66. PostgreSQL accepted 149 production queries. Five signed HTTPS/PostgreSQL checks passed for CREATE versus LIST observations, retained capacity, unknown native identity, manager isolation and known ownership evidence."
+assumption = "The observation gate uses explicitly declared prerequisite records. Worker execution, interrupted-install recovery and result custody have separate execution gates."

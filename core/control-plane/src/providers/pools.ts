@@ -164,6 +164,7 @@ export interface BlaxelInventoryNamespace {schema_version:1;kind:'HYPERFIDE_SCOP
 export interface PoolConfig {
   id:string;provider:'railway'|'blaxel';account_key:string;environment_key:string;region:string;
   profile_id:string|null;preparation_digest:string;approved_limits:Limits;planning_limits:Limits;
+  execution_role?:{schema_version:1;kind:'CODING'|'TEST'};
   scheduling_policy?:{aging_seconds:number;max_bypass_seconds:number;rate_window_ms:number;max_waiters:number};
   create_policy:{seed_reference:string;network:'ISOLATED'|'PRIVATE';stdin_required:boolean;adapter_policy_digest?:string;inventory_namespace?:BlaxelInventoryNamespace};
 }
@@ -193,7 +194,8 @@ export function validateDeployment(value:unknown):DeploymentConfig {
     accounts.add(key);limits(a.approved_limits);limits(a.planning_limits);
   }
   for(const raw of o.pools){const p=obj(raw);const fields=['id','provider','account_key','environment_key','region','profile_id','preparation_digest','approved_limits','planning_limits','create_policy'];
-    if(fields.some(k=>!Object.hasOwn(p,k))||Object.keys(p).some(k=>!fields.includes(k)&&k!=='scheduling_policy'))fail('POOL_CONFIG_INVALID','Invalid pool configuration fields');
+    if(fields.some(k=>!Object.hasOwn(p,k))||Object.keys(p).some(k=>!fields.includes(k)&&k!=='scheduling_policy'&&k!=='execution_role'))fail('POOL_CONFIG_INVALID','Invalid pool configuration fields');
+    if(p.execution_role!==undefined){const role=obj(p.execution_role,['schema_version','kind']);if(role.schema_version!==1||!['CODING','TEST'].includes(String(role.kind)))fail('POOL_CONFIG_INVALID','Explicit versioned pool execution role required');}
     if(p.scheduling_policy!==undefined){
       const policy=obj(p.scheduling_policy,['aging_seconds','max_bypass_seconds','rate_window_ms','max_waiters']);
       for(const [key,min,max] of [['aging_seconds',1,3600],['max_bypass_seconds',1,3600],['rate_window_ms',100,3600000],['max_waiters',1,1000000]] as const)
