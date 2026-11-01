@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hyperfide:source-control:layout-receipt:v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task",
+    "case",
+    "status",
+    "case_qualification",
+    "checked_at",
+    "checks",
+    "missing_evidence",
+    "regressions",
+    "task_receipts",
+    "required_assertions",
+    "exclusions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "task": {
+      "const": "0.9"
+    },
+    "case": {
+      "const": "SCM-025"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "BLOCKED",
+        "FAIL"
+      ]
+    },
+    "case_qualification": {
+      "enum": [
+        "PASS",
+        "UNRUN"
+      ]
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "bindings": {
+      "type": "object",
+      "required": [
+        "baseline_revision",
+        "source_revision",
+        "source_tree_id",
+        "mapping_sha256",
+        "layout_generation",
+        "worktree_status_sha256"
+      ],
+      "properties": {
+        "baseline_revision": {
+          "$ref": "#/$defs/git"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/git"
+        },
+        "source_tree_id": {
+          "$ref": "#/$defs/git"
+        },
+        "mapping_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "layout_generation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worktree_status_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_inventory_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "layout_revision": {
+          "$ref": "#/$defs/git"
+        },
+        "layout_inventory_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_snapshot_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_snapshot": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "mode",
+              "sha256"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "100644",
+                  "100755",
+                  "120000"
+                ]
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          }
+        }
+      }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "regressions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "task_receipts": {
+      "type": "object"
+    },
+    "required_assertions": {
+      "type": "object"
+    },
+    "exclusions": {
+      "type": "array"
+    },
+    "rewrite_dispositions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reference"
+      }
+    },
+    "summary": {
+      "type": "object"
+    },
+    "rollback": {
+      "type": "object"
+    },
+    "follow_on_inventory": {
+      "$ref": "#/$defs/reference"
+    },
+    "forward_repairs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reference"
+      }
+    },
+    "semantic_flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "source",
+          "target",
+          "before_blob",
+          "layout_blob",
+          "reason",
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "UNRESOLVED",
+              "FORWARD_REPAIRED"
+            ]
+          },
+          "before_blob": {
+            "$ref": "#/$defs/git"
+          },
+          "layout_blob": {
+            "$ref": "#/$defs/git"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "PASS"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "bindings",
+          "summary",
+          "rollback",
+          "semantic_flags"
+        ],
+        "properties": {
+          "case_qualification": {
+            "const": "PASS"
+          },
+          "missing_evidence": {
+            "maxItems": 0
+          },
+          "regressions": {
+            "maxItems": 0
+          },
+          "task_receipts": {
+            "required": [
+              "0.4",
+              "0.5",
+              "0.6",
+              "0.7",
+              "0.8"
+            ]
+          },
+          "checks": {
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "PASS"
+                }
+              }
+            }
+          },
+          "bindings": {
+            "required": [
+              "source_inventory_sha256",
+              "source_snapshot",
+              "source_snapshot_sha256",
+              "layout_revision",
+              "layout_inventory_sha256"
+            ]
+          },
+          "semantic_flags": {
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "FORWARD_REPAIRED"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "git": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    },
+    "reference": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}
