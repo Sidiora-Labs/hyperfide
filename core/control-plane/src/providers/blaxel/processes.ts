@@ -91,6 +91,11 @@ async function knownBlaxelMetadata(api:BlaxelSDK,name:string,signal:AbortSignal,
  if(result.response.status!==200||result.error!==undefined)throw{status:result.response.status};
  const value=object(result.data);return{metadata:object(value.metadata),spec:object(value.spec),status:typeof value.status==='string'?value.status:undefined} as BlaxelSandbox;
 }
+// Blaxel retains TERMINATED records for log access after deletion. This proves
+// compute deletion, while archived or disabled resources can still be restored.
+function terminatedBlaxelResource(sandbox:BlaxelSandbox):boolean{
+ return sandbox.status==='TERMINATED'&&sandbox.spec.enabled===false;
+}
 function verifyKnownBlaxelMetadata(sandbox:BlaxelSandbox,op:ProviderOperation):void{
  const labels=sandbox.metadata.labels as Obj|undefined;
  if(sandbox.metadata.name!==op.resource?.native_sandbox_id||sandbox.metadata.workspace!==op.scope.environment_id||sandbox.spec.region!==op.scope.region||labels?.['hyperfide-scope']!==scopeDigest(op.scope)||labels?.['hyperfide-boot']!==op.resource?.sandbox_boot_generation||op.preparation_digest!==null&&labels?.['hyperfide-preparation']!==op.preparation_digest)fail('BLAXEL_CREATE_CONFLICT','Resource boot/configuration markers differ from admitted scope');
@@ -407,15 +412,15 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
    if(kind==='observe'){
     const observed=op as ProviderOperation<'observe'>;await bound(op,parent);const instance=await knownBlaxelMetadata(await sdk(),op.resource!.native_sandbox_id,parent,Date.parse(op.deadline_at));
     if(!instance)return save(op,outcome(observed,'SUCCEEDED',{provider_state:'DESTROYED',health:'ABSENT'}));
-    verifyKnownBlaxelMetadata(instance,op);const st=state(instance.status);
+    verifyKnownBlaxelMetadata(instance,op);if(terminatedBlaxelResource(instance))return save(op,outcome(observed,'SUCCEEDED',{provider_state:'DESTROYED',health:'ABSENT'}));const st=state(instance.status);
     return save(op,outcome(observed,'SUCCEEDED',{provider_state:st,health:st==='RUNNING'?'HEALTHY':st==='FAILED'?'SUSPECT':'UNKNOWN'}));
    }
    if(kind==='destroy'){
     const destroy=op as ProviderOperation<'destroy'>;await bound(op,parent);const api=await sdk(),before=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,parent,Date.parse(op.deadline_at));
     if(!before)return save(op,outcome(destroy,'SUCCEEDED',{deletion:'CONFIRMED'}));
-    verifyKnownBlaxelMetadata(before,op);await bound(op,parent);attempted=true;
+    verifyKnownBlaxelMetadata(before,op);if(terminatedBlaxelResource(before))return save(op,outcome(destroy,'SUCCEEDED',{deletion:'CONFIRMED'}));await bound(op,parent);attempted=true;
     try{await read(()=>api.SandboxInstance.delete(op.resource!.native_sandbox_id),op,parent);}catch{/* Only the following authoritative read can establish absence. */}
-    const after=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,parent,Date.parse(op.deadline_at));if(after){verifyKnownBlaxelMetadata(after,op);return save(op,outcome(op,'UNKNOWN',null));}
+    const after=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,parent,Date.parse(op.deadline_at));if(after){verifyKnownBlaxelMetadata(after,op);if(!terminatedBlaxelResource(after))return save(op,outcome(op,'UNKNOWN',null));}
     return save(op,outcome(destroy,'SUCCEEDED',{deletion:'CONFIRMED'}));
    }
    // Unsupported methods are explicit. No fake quota, snapshot, network, copy or lifetime support.
@@ -590,9 +595,9 @@ export function createBlaxelIsolationTransport(scope:ProviderScope,ctx:Pick<Comp
    const op=check(raw,'destroy') as ProviderOperation<'destroy'>;let attempted=false;
    try{
     const api=runtimeSDK(await configuredBlaxelSDK(ctx));
-    const before=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,signal,Date.parse(op.deadline_at));if(!before)return outcome(op,'SUCCEEDED',{deletion:'CONFIRMED'});verifyKnownBlaxelMetadata(before,op);
+    const before=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,signal,Date.parse(op.deadline_at));if(!before)return outcome(op,'SUCCEEDED',{deletion:'CONFIRMED'});verifyKnownBlaxelMetadata(before,op);if(terminatedBlaxelResource(before))return outcome(op,'SUCCEEDED',{deletion:'CONFIRMED'});
     attempted=true;try{await boundedBlaxelOperation(()=>api.SandboxInstance.delete(op.resource!.native_sandbox_id),signal,Date.parse(op.deadline_at));}catch{/* Confirm absence independently even after an ambiguous DELETE. */}
-    const after=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,signal,Date.parse(op.deadline_at));if(after){verifyKnownBlaxelMetadata(after,op);return outcome(op,'UNKNOWN',null);}
+    const after=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,signal,Date.parse(op.deadline_at));if(after){verifyKnownBlaxelMetadata(after,op);if(!terminatedBlaxelResource(after))return outcome(op,'UNKNOWN',null);}
     return outcome(op,'SUCCEEDED',{deletion:'CONFIRMED'});
    }catch(e){return outcome(op,attempted||statusCode(e)!==409?'UNKNOWN':'FAILED',null);}
   },
@@ -601,7 +606,7 @@ export function createBlaxelIsolationTransport(scope:ProviderScope,ctx:Pick<Comp
    try{
     const api=runtimeSDK(await configuredBlaxelSDK(ctx));
     const actual=await knownBlaxelMetadata(api,op.resource!.native_sandbox_id,signal,Date.parse(op.deadline_at));if(!actual)return outcome(op,'SUCCEEDED',{provider_state:'DESTROYED',health:'ABSENT'});
-    verifyKnownBlaxelMetadata(actual,op);const st=state(actual.status);return outcome(op,'SUCCEEDED',{provider_state:st,health:st==='RUNNING'?'HEALTHY':'UNKNOWN'});
+    verifyKnownBlaxelMetadata(actual,op);if(terminatedBlaxelResource(actual))return outcome(op,'SUCCEEDED',{provider_state:'DESTROYED',health:'ABSENT'});const st=state(actual.status);return outcome(op,'SUCCEEDED',{provider_state:st,health:st==='RUNNING'?'HEALTHY':'UNKNOWN'});
    }catch{return outcome(op,'UNKNOWN',null);}
   }
  });
