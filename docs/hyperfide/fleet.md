@@ -26,6 +26,7 @@ Requests use authenticated `POST /v1/invoke` with the existing signed operation 
 | `fleet-install` | `fleet.install.register`, `fleet.install.admit`, `fleet.install.status`, `fleet.install.complete`, `fleet.install.adopt` |
 | `fleet-install-delivery` | `fleet.install.delivery.register`, `fleet.install.delivery.pending`, `fleet.install.delivery.schedule`, `fleet.install.delivery.collect` |
 | `fleet-test-executor` | `fleet.test.pending`, `fleet.test.executor.pending`, `fleet.test.executor.retire` |
+| `16.1` | `submission.archive.register`, `submission.inspect` |
 
 The authoritative action registrations are the [orchestration component](../../core/control-plane/components/fleet-orchestration.json), [install component](../../core/control-plane/components/fleet-install.json) and [delivery component](../../core/control-plane/components/fleet-install-delivery.json). Manager observations include the effect API's current input contracts; callers should use these contracts rather than infer fields from prose.
 
@@ -55,6 +56,10 @@ An accepted START binds the qualified connector profile, private worker paths an
 
 ## Independent verification
 
+For a manifest-backed worker workspace, `submission.archive.register` captures the actual result files after confirmed native STOP. The service checks the original launch, task generation, physical boot and revoked execution credentials, seals the workspace, and retains the archive and capture receipt in object storage. Admission transfers the closed attempt into result custody and creates a pending qualification job. Physical reservations remain counted until their cleanup proof is accepted.
+
+TEST reconstructs these captured bytes and independently checks their content, modes and derived Git tree. The Git representation is local to the existing-source adapter; the captured archive remains its source authority. Profile schema 2 explicitly identifies every preparation pin as `SOURCE` or `PROFILE_ARTIFACT`. Source pins come from the captured repository; retained policy and environment artifacts are staged outside it. Profile-artifact digests stay fixed when a result changes source-owned files.
+
 A TEST bootstrap uses a distinct manifest and one native TEST slot on a sandbox separate from the coding attempt. Its pinned root controller obtains a scoped VERIFIER credential for the selected qualification job. The supervisor delivers the job’s existing preparation, allocation and assignment commands; the verifier executes them through authenticated qualification APIs. Accepted source bundles and the submitted result custody bind the inputs.
 
 A terminal verification retains each signed check result and cleanup receipt. The TEST controller releases the native slot and refreshes its authenticated absence observation until retirement completes. Release replay checks the slot UID for live processes again. Retirement validates the current boot, original allocation, complete check inventory and fresh cleanup evidence, releases reservations through the scheduler, stops the verifier session and revokes its child credential. A delayed or disconnected supervisor can use a new observation without rerunning the checks.
@@ -68,6 +73,8 @@ Cohort replacement or an acknowledged manager handoff does not mutate an old ins
 Adoption appends current authority to the existing install. A READY install pins its immutable receipt. An ADMITTED install requires the single retained completed, successful FLEET_INSTALL execution and an unexpired lease. Manager replacement additionally requires the acknowledged hierarchy handoff covering the previous owner generation. Adoption cannot extend a lease, change source or slots, repair an uncertain execution by assertion, or make a stale sandbox boot current.
 
 Observations expose package-scoped recovery candidates, including previous ownership generations, latest adoption pins, acknowledged handoffs and bounded retained execution summaries. The authority remains responsible for validating a chosen candidate.
+
+When an operator destroys a manager-owned sandbox, that manager's original CREATE observation includes the audited administrative disposition and confirmed provider-absence evidence for the same native sandbox and boot. The evidence preserves operator provenance and lets the manager reason about replacement capacity.
 
 ## Source adapter boundary
 

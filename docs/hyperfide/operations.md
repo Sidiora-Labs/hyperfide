@@ -40,6 +40,12 @@ The service handling runner placement must load `HF_PLACEMENT_POLICY_FILE` with 
 
 Bootstrap rejection and correction tables are append-only. The provisioner needs SELECT and INSERT on those tables; it does not need UPDATE or DELETE. A terminal native process failure retains its process identity and reports a typed failure for reconciliation. Preserve the original journal and process evidence when diagnosing it.
 
+For source archive capture, apply migration `0725-fleet-source-archive-custody` and configure the control service's protected `HF_FLEET_SOURCE_ARCHIVE_POLICY_FILE`. The policy pins the Node executable, retained producer module, bootstrap request root, explicit file/byte limits, exclusions and execution deadline. The control database role needs SELECT/INSERT on archive custody and artifact-reference tables and SELECT/INSERT/UPDATE on the delivery journal. Provisioner destruction readers need SELECT.
+
+Call component `16.1`, action `submission.archive.register`, with the exact organisation/run, stable `request_id`, task/attempt/generation, worker session, launch, STOP command and quiescence operation IDs. An authorised OPERATOR or COORDINATOR supplies identities; the service derives paths and capture inputs. A pending response uses `SAME_REQUEST_ID_NEW_RPC`: retain the logical request and send a fresh signed RPC envelope when polling. The journal reconciles the original provider process after uncertainty. Complete archive custody and native workspace cleanup precede destruction of a worked coding sandbox.
+
+The environment profile's `recipe` pins JSON with kind `hyperfide.preparation-policy`. The executable installer is separately pinned in the bootstrap recipe. For profile schema 2, provide a complete `result_preparation.inputs` origin map and exact retained `profile_pin_artifacts` references for `PROFILE_ARTIFACT` entries when planning RESULT_INPUTS preparation. Accepted profile revisions keep these external inputs distinct from repository-owned source pins.
+
 After installing the release and applying its trusted migrations, validate the protected configuration with the release's supervisor entrypoint:
 
 ```sh
