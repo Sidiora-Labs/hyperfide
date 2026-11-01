@@ -3,7 +3,7 @@ import {FoundationError} from '../policy/programme.js';
 
 export class StorageError extends FoundationError {
   constructor(code:string,message:string,public readonly outcome:'aborted'|'unknown'='aborted',
-    public readonly attempts=0,public readonly retryable=false){super(code,message);}
+    public readonly attempts=0,public readonly retryable=false,public readonly sqlstate:'40001'|'40P01'|null=null){super(code,message);}
 }
 export interface QuerySession {
   query<R extends pg.QueryResultRow=pg.QueryResultRow>(text:string,values?:readonly unknown[]):Promise<pg.QueryResult<R>>;
@@ -168,7 +168,7 @@ export class TransactionGateway {
         }
         if(knownAbort){
           if(attempt<=retries&&deadline>performance.now()&&!options.signal?.aborted)continue;
-          throw new StorageError('TX_RETRY_EXHAUSTED','Known-aborted transaction retry budget exhausted','aborted',attempt,true);
+          throw new StorageError('TX_RETRY_EXHAUSTED','Known-aborted transaction retry budget exhausted','aborted',attempt,true,code);
         }
         if(error instanceof StorageError||error instanceof FoundationError)throw error;
         if(code==='57014'||code==='55P03')throw new StorageError('TX_TIMEOUT','Database deadline or lock timeout expired','aborted',attempt);
