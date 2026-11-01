@@ -173,6 +173,16 @@ export async function releaseRunnerWorkspace(tx:PrimaryTransaction,i:InvocationC
  if(command.state!=='REPORTED'||!['CANCELLED','STOPPED','DRAINED'].includes(String(command.outcome))||command.termination!=='CONFIRMED')blocking.push('TERMINATION_UNCONFIRMED');
  const free=blocking.length===0;
  const updated=(await tx.query("UPDATE hyperfide.runner_workspaces SET state=$6,launch_id=CASE WHEN $6='FREE' THEN NULL ELSE launch_id END,command_id=CASE WHEN $6='FREE' THEN NULL ELSE $7::uuid END,slot_generation=slot_generation+CASE WHEN $6='FREE' THEN 1 ELSE 0 END,process_residue=$8,credential_residue=$9,outputs_durable=$10,residue_evidence_digest=$11,state_version=state_version+1,updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND sandbox_id=$3 AND boot_generation=$4 AND slot_id=$5 RETURNING slot_generation::text,state",[s.organisation_id,s.run_id,p.sandbox_id,p.boot_generation,v.slot_id,free?'FREE':'CLEANING',v.command_id,v.process_residue,v.credential_residue,missing.length===0,v.evidence_digest])).rows[0]!;
+ if(free){
+  await tx.query(`UPDATE hyperfide.agent_sessions a SET state='STOPPED',state_version=a.state_version+1
+   FROM hyperfide.native_launch_plans n JOIN hyperfide.attempts t ON t.organisation_id=n.organisation_id AND t.run_id=n.run_id AND t.id=n.attempt_id AND t.generation=n.attempt_generation
+   WHERE a.organisation_id=$1 AND a.run_id=$2 AND n.organisation_id=a.organisation_id AND n.run_id=a.run_id
+   AND n.launch_id=$3 AND n.slot_id=$4 AND n.attempt_id=$5 AND n.attempt_generation=$6
+   AND a.id=n.agent_session_id AND a.role='WORKER' AND a.attempt_id=t.id AND a.slot_id=n.slot_id
+   AND a.sandbox_id=$7 AND a.sandbox_boot_generation=$8 AND t.sandbox_id=a.sandbox_id AND t.slot_id=a.slot_id AND t.sandbox_boot_generation=a.sandbox_boot_generation
+   AND t.compute_authority='RELEASED' AND a.state IN ('REGISTERED','RUNNING','DISCONNECTED')`,
+   [s.organisation_id,s.run_id,v.launch_id,v.slot_id,command.attempt_id,command.attempt_generation,p.sandbox_id,p.boot_generation]);
+ }
  return {...updated,reusable:free,blocking};
 }
 export async function inspectRunnerWorkspace(tx:PrimaryTransaction,i:InvocationContext,v:unknown):Promise<Record<string,unknown>>{

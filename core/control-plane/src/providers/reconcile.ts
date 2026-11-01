@@ -162,6 +162,13 @@ export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabas
       {native_sandbox_id:s.native_sandbox_id,sandbox_boot_generation:String(s.boot_generation)},s.preparation_digest,{reason:str(input.reason,1024)});
     await c.query("INSERT INTO hyperfide.provisioning_intents(organisation_id,run_id,id,pool_id,sandbox_id,configuration_digest,kind,request_key,request_digest,payload_digest,operation,boot_generation,native_sandbox_id) VALUES($1,$2,$3,$4,$5,$6,'DESTROY',$7,$8,$9,$10,$11,$12)",
       [config.organisation_id,run,id,poolId,sandbox,scope.configuration_digest,key,requestDigest,op.identity.payload_digest,op,s.boot_generation,s.native_sandbox_id]);
+    const admission=providerInvocation(pool);
+    if(admission.principal.role==='OPERATOR'&&admission.payload.component==='8.3'&&admission.payload.action==='provider.intents.prepare-destroy'){
+      await admission.guard(c);
+      await c.query(`INSERT INTO hyperfide.command_inbox(organisation_id,run_id,id,principal_scope,operation,idempotency_key,request_digest,state,result)
+       VALUES($1,$2,$3,$4,'provider.destroy.operator-admission',$5,$6,'COMPLETED',$7::jsonb)`,
+       [config.organisation_id,run,randomUUID(),admission.principal.credential_id,id,admission.operation.payload_digest,JSON.stringify({schema_version:1,kind:'DIRECT_OPERATOR_DESTROY_ADMISSION',role:'OPERATOR',credential_id:admission.principal.credential_id,operation_id:admission.operation.operation_id,payload_digest:admission.operation.payload_digest,provider_intent_id:id,request_key:key,request_digest:requestDigest,pool_id:poolId,sandbox_id:sandbox,boot_generation:String(s.boot_generation),native_sandbox_id:s.native_sandbox_id,configuration_digest:scope.configuration_digest})]);
+    }
     await c.query("UPDATE hyperfide.sandboxes SET desired_state='DESTROYED',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[config.organisation_id,sandbox]);
     return{created:true,intent:await intent(c,config.organisation_id,id),external_call_performed:false};
   })();
@@ -483,7 +490,14 @@ async function releaseConfirmedDestroyedCapacity(pool:ProviderDatabase,config:De
   if(current.run_id!==observed.run_id||current.kind!=='DESTROY'||current.state!=='TERMINAL'||!current.native_sandbox_id)return null;
   const admitted=(await tx.query(`SELECT e.operation_id FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id
    WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'kind'='DESTROY_SANDBOX' AND e.result->>'provider_intent_id'=$3 AND e.result->>'sandbox_id'=$4 AND d.action='DESTROY_SANDBOX' AND e.operation_id::text=$5 LIMIT 1`,[config.organisation_id,current.run_id,current.id,current.sandbox_id,current.request_key])).rows[0];
-  if(!admitted)return null;
+  const direct=admitted?null:(await tx.query(`SELECT n.id FROM hyperfide.command_inbox n
+   WHERE n.organisation_id=$1 AND n.run_id=$2 AND n.operation='provider.destroy.operator-admission' AND n.idempotency_key=$3 AND n.state='COMPLETED'
+   AND n.result->>'kind'='DIRECT_OPERATOR_DESTROY_ADMISSION' AND n.result->>'role'='OPERATOR' AND n.result->>'credential_id'=n.principal_scope
+   AND n.result->>'payload_digest'=n.request_digest AND n.result->>'provider_intent_id'=$3 AND n.result->>'sandbox_id'=$4
+   AND n.result->>'request_key'=$5 AND n.result->>'request_digest'=$6 AND n.result->>'pool_id'=$7
+   AND n.result->>'boot_generation'=$8 AND n.result->>'native_sandbox_id'=$9 AND n.result->>'configuration_digest'=$10 LIMIT 1`,
+   [config.organisation_id,current.run_id,current.id,current.sandbox_id,current.request_key,current.request_digest,current.pool_id,String(current.boot_generation),current.native_sandbox_id,current.configuration_digest])).rows[0];
+  if(!admitted&&!direct)return null;
   const reservations=(await tx.query(`SELECT c.id::text AS create_intent_id,r.id::text,r.state,r.attempt_id,a.capacity_class,a.pool_id FROM hyperfide.provisioning_intents c JOIN hyperfide.provisioning_intent_reservations l ON l.organisation_id=c.organisation_id AND l.run_id=c.run_id AND l.intent_id=c.id JOIN hyperfide.reservations r ON r.organisation_id=l.organisation_id AND r.run_id=l.run_id AND r.id=l.reservation_id JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id
    WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.sandbox_id=$3 AND c.boot_generation=$4 AND c.native_sandbox_id=$5 AND c.kind='CREATE' AND c.state='TERMINAL' ORDER BY r.id FOR UPDATE OF r`,[config.organisation_id,current.run_id,current.sandbox_id,current.boot_generation,current.native_sandbox_id])).rows;
   if(!reservations.length)return null;
