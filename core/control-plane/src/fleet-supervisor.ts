@@ -188,21 +188,26 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
    if(old&&JSON.stringify(old.binding)===JSON.stringify(currentBinding))return old;
    await call(actor,'fleet.session.bind',{binding:currentBinding});const current={binding:currentBinding,reasoning:null,observed_state:null};state.actors[actor.session_id]=current;await persist();return current;
   };
+  const mechanicalCall=async(action:string,input:RecordValue,component:string,operation_id?:string):Promise<RecordValue|null>=>{
+   if(!operator)return null;
+   try{return await call(operator,action,input,component,operation_id);}
+   catch(error){if(!(error instanceof SupervisorRpcError)||error.uncertain)throw error;event('mechanical_refused',null,{component,action,operation_id:operation_id??null,code:error.code});return null;}
+  };
   const drainInstallDeliveries=async():Promise<void>=>{
    if(!operator)return;let after:string|null=null,bootstrapAfter:string|null=null,codingAfter:string|null=null;
    for(let page=0;page<64;page++){
     const pending=await call(operator,'fleet.install.delivery.pending',{after,limit:100,bootstrap_after:bootstrapAfter,coding_after:codingAfter},'fleet-install-delivery');
     if(!Array.isArray(pending.items))fail('FLEET_DELIVERY_RESPONSE','Versioned install delivery observation required');
     if(!Array.isArray(pending.bootstrap_commands)||pending.bootstrap_commands.length>200)fail('FLEET_DELIVERY_RESPONSE','Bounded explicit bootstrap commands required');
-    for(const command of pending.bootstrap_commands){if(!object(command)||!uuid(command.operation_id)||!['fleet.install.delivery.prepare.allocate','fleet.install.delivery.verify.allocate','fleet.install.delivery.register'].includes(String(command.action))||!object(command.input))fail('FLEET_DELIVERY_RESPONSE','Only exact install registration commands are permitted');await call(operator,String(command.action),command.input,'fleet-install-delivery',String(command.operation_id));event('bootstrap_install',null,{operation_id:command.operation_id,action:command.action});}
+    for(const command of pending.bootstrap_commands){if(!object(command)||!uuid(command.operation_id)||!['fleet.install.delivery.prepare.allocate','fleet.install.delivery.verify.allocate','fleet.install.delivery.register'].includes(String(command.action))||!object(command.input))fail('FLEET_DELIVERY_RESPONSE','Only exact install registration commands are permitted');if(await mechanicalCall(String(command.action),command.input,'fleet-install-delivery',String(command.operation_id)))event('bootstrap_install',null,{operation_id:command.operation_id,action:command.action});}
     const coding=pending.coding_commands??[];if(!Array.isArray(coding)||coding.length>100)fail('FLEET_COMPLETION_RESPONSE','Bounded mechanical completion commands required');
-    for(const command of coding){if(!object(command)||!object(command.input)||!(command.component==='12.4'&&command.action==='runner.control.issue'&&uuid(command.operation_id)||command.component==='16.1'&&command.action==='submission.archive.register'&&command.operation_id===null))fail('FLEET_COMPLETION_RESPONSE','Only exact admitted completion commands are permitted');await call(operator,String(command.action),command.input,String(command.component),command.operation_id===null?undefined:String(command.operation_id));event('coding_completion',null,{operation_id:command.operation_id,action:command.action});}
+    for(const command of coding){if(!object(command)||!object(command.input)||!(command.component==='12.4-capture'&&command.action==='runner.control.issue'&&uuid(command.operation_id)||command.component==='16.1'&&command.action==='submission.archive.register'&&command.operation_id===null))fail('FLEET_COMPLETION_RESPONSE','Only exact admitted completion commands are permitted');if(await mechanicalCall(String(command.action),command.input,String(command.component),command.operation_id===null?undefined:String(command.operation_id)))event('coding_completion',null,{operation_id:command.operation_id,action:command.action});}
     for(const item of pending.items){
      if(!object(item)||!uuid(item.operation_id))fail('FLEET_DELIVERY_RESPONSE','Exact admitted install operation identity required');
      if(item.delivery_state==='UNKNOWN'||item.runner_state==='UNKNOWN')continue;
      let state:string|null=null;
-     if(['REGISTERED','QUEUED'].includes(String(item.delivery_state))){const scheduled=await call(operator,'fleet.install.delivery.schedule',{operation_id:item.operation_id},'fleet-install-delivery');state=String(scheduled.state);event('install_delivery',null,{operation_id:item.operation_id,state});}
-     if(state==='COMPLETED'||item.runner_state==='COMPLETED'){const collected=await call(operator,'fleet.install.delivery.collect',{operation_id:item.operation_id},'fleet-install-delivery');event('install_delivery',null,{operation_id:item.operation_id,state:collected.state});}
+     if(['REGISTERED','QUEUED'].includes(String(item.delivery_state))){const scheduled=await mechanicalCall('fleet.install.delivery.schedule',{operation_id:item.operation_id},'fleet-install-delivery');if(!scheduled)continue;state=String(scheduled.state);event('install_delivery',null,{operation_id:item.operation_id,state});}
+     if(state==='COMPLETED'||item.runner_state==='COMPLETED'){const collected=await mechanicalCall('fleet.install.delivery.collect',{operation_id:item.operation_id},'fleet-install-delivery');if(collected)event('install_delivery',null,{operation_id:item.operation_id,state:collected.state});}
     }
     if(pending.next_cursor===null&&pending.bootstrap_next_cursor===null&&(pending.coding_next_cursor??null)===null)return;
     if(pending.coding_next_cursor!==undefined&&pending.coding_next_cursor!==null){if(!uuid(pending.coding_next_cursor)||pending.coding_next_cursor===codingAfter)fail('FLEET_COMPLETION_RESPONSE','Coding pagination did not advance');codingAfter=String(pending.coding_next_cursor);}
@@ -218,7 +223,7 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
    for(let page=0;page<64;page++){
     const pending=await call(operator,'fleet.test.pending',{after,limit:100},'fleet-test-executor');
     if(!Array.isArray(pending.commands)||pending.commands.length>100)fail('FLEET_TEST_RESPONSE','Bounded accepted TEST commands required');
-    for(const command of pending.commands){if(!object(command)||!uuid(command.operation_id)||typeof command.component!=='string'||typeof command.action!=='string'||!allowed[command.component]?.includes(command.action)||!object(command.input))fail('FLEET_TEST_RESPONSE','Only scoped TEST resource and qualification commands are permitted');await call(operator,command.action,command.input,command.component,command.operation_id);event('independent_verification',null,{operation_id:command.operation_id,action:command.action});}
+    for(const command of pending.commands){if(!object(command)||!uuid(command.operation_id)||typeof command.component!=='string'||typeof command.action!=='string'||!allowed[command.component]?.includes(command.action)||!object(command.input))fail('FLEET_TEST_RESPONSE','Only scoped TEST resource and qualification commands are permitted');if(await mechanicalCall(command.action,command.input,command.component,command.operation_id))event('independent_verification',null,{operation_id:command.operation_id,action:command.action});}
     if(pending.next_cursor===null)return;if(!uuid(pending.next_cursor)||pending.next_cursor===after)fail('FLEET_TEST_RESPONSE','TEST pagination did not advance');after=String(pending.next_cursor);
    }
    fail('FLEET_TEST_TOO_LARGE','TEST command observation exceeds the bounded wake budget');
