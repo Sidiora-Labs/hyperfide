@@ -178,4 +178,6 @@ def run():
     return 1 if report['status'] == 'FAIL' else 2
 
 if __name__ == '__main__':
-    raise SystemExit(run())
+    sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
+    from fleet_live_qualification import main as qualify_live
+    raise SystemExit(qualify_live('0.14', run, ROOT / 'build/fleet/0.14'))

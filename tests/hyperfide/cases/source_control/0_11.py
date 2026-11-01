@@ -36,4 +36,6 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
+    from fleet_live_qualification import main as qualify_live
+    raise SystemExit(qualify_live('0.11', main, ROOT / 'build/fleet/0.11'))
