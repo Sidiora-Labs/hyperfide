@@ -22,7 +22,7 @@ export const MANAGER_ACTION_CONTRACTS={
  STEER_WORKER:{required:['task_id','attempt_id','attempt_generation','launch_id','request_id','frame_b64'],description:'Send a bounded native instruction to the exact currently owned task attempt and launch.'},
  CANCEL_ASSIGNMENT:{required:['task_id','attempt_id','attempt_generation','launch_id'],description:'Persist exact native cancellation; result custody and unconfirmed cleanup remain retained.'},
  STOP_SANDBOX:{required:['sandbox_id','boot_generation','reason'],description:'Hold admission and issue cancellation for owned active launches; no physical disappearance is inferred.'},
- DESTROY_SANDBOX:{required:['sandbox_id','boot_generation','pool_id','deadline_at','reason'],description:'Request existing provider destruction only after actual work/custody preflight.'},
+ DESTROY_SANDBOX:{required:['sandbox_id','boot_generation','pool_id','deadline_at','reason'],description:'Request deletion of an owned boot, including provider-reported DESTROYED with unconfirmed absence. Work/custody preflight and actual provider absence proof remain required before capacity release.'},
  REPLAN:{required:['proposal'],description:'Record proposed changes for current manager; source/task definitions and criteria are unchanged until separately accepted.'},
  COORDINATE_DEPENDENCY:{required:['recipient_package_id','consumer_ids','message'],description:'Persist coordination toward a current package; notification never grants a dependency milestone.'},
 } as const;

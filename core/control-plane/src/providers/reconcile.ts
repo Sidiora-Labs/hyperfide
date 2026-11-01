@@ -147,7 +147,15 @@ export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabas
     if(prior.rows.length){if(prior.rows[0]!.request_digest!==requestDigest)fail('IDEMPOTENCY_CONFLICT','Provisioning key was reused');return{created:false,intent:prior.rows[0]};}
     const {scope}=await currentPool(c,config,poolId);
     const rows=await c.query('SELECT * FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 AND pool_id=$3 FOR UPDATE',[config.organisation_id,sandbox,poolId]);
-    const s=rows.rows[0];if(!s?.native_sandbox_id||s.observed_state==='DESTROYED')fail('RESOURCE_OWNERSHIP_UNKNOWN','A known live resource identity is required');
+    const s=rows.rows[0];if(!s?.native_sandbox_id)fail('RESOURCE_OWNERSHIP_UNKNOWN','A known resource identity is required');
+    if(s.observed_state==='DESTROYED'){
+      const absent=(await c.query(`SELECT o.id FROM hyperfide.provisioning_intents pi JOIN hyperfide.provider_observations o ON o.organisation_id=pi.organisation_id AND o.intent_id=pi.id
+       WHERE pi.organisation_id=$1 AND pi.run_id=$2 AND pi.sandbox_id=$3 AND pi.boot_generation=$4::bigint AND pi.native_sandbox_id=$5 AND pi.state='TERMINAL'
+       AND o.observation->'operation'->>'kind'='observe' AND o.observation->'outcome'->>'status'='SUCCEEDED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_ACCEPTED'
+       AND o.observation->'outcome'->'result'->>'provider_state'='DESTROYED' AND o.observation->'outcome'->'result'->>'health'='ABSENT'
+       AND o.observation->'outcome'->'resource'->>'native_sandbox_id'=$5 AND o.observation->'outcome'->'resource'->>'sandbox_boot_generation'=($4::bigint)::text LIMIT 1`,[config.organisation_id,run,sandbox,s.boot_generation,s.native_sandbox_id])).rows[0];
+      if(absent)fail('RESOURCE_OWNERSHIP_UNKNOWN','Resource absence is already confirmed for this boot');
+    }
     await noActiveWork(c,config.organisation_id,sandbox);
     const id=randomUUID();await destructionPreflight(c,pool,{organisation_id:config.organisation_id,run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation),operation_id:id});
     const op=operation('destroy',scope,id,deadline(input.deadline_at,config.maximum_operation_ms),
