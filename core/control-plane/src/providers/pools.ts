@@ -1,3 +1,4 @@
+import {readForeignInventoryPolicy,bindForeignInventoryPolicy,foreignInventoryPolicy,type ForeignResource} from './foreign_inventory.js';
 import fs from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
 import type pg from 'pg';
@@ -43,7 +44,7 @@ export interface QuotaObservation {
   basis:'PROVIDER_API'|'VERIFIED_OPERATOR_ATTESTATION'|'OPERATOR_DECLARED_CAPACITY';evidence_reference:string;
 }
 export type ProviderQuotaObserver=(scope:ProviderScope,signal:AbortSignal)=>Promise<QuotaObservation[]>;
-export interface OwnershipObservation {matches:boolean;operation_id:string;native_sandbox_id:string;evidence_digest:string}
+export interface OwnershipObservation {matches:boolean;operation_id:string;native_sandbox_id:string;evidence_digest:string;foreign?:ForeignResource;foreign_policy_digest?:string;observed_at?:string;presence?:'PRESENT'|'ABSENT'|'UNKNOWN'}
 export type ProviderOwnershipProbe=(scope:ProviderScope,operationId:string,nativeId:string,signal:AbortSignal)=>Promise<OwnershipObservation>;
 export interface ProviderRunnerBinding extends Record<string,unknown> {organisation_id:string;run_id:string;session_id:string;pool_id:string;sandbox_id:string;external_sandbox_id:string;boot_generation:string;preparation_digest:string}
 export interface ProviderRunnerBindingProof {evidence_digest:string;observed_at:string}
@@ -220,7 +221,7 @@ export async function readDeployment(env:Readonly<NodeJS.ProcessEnv>):Promise<De
   const info=await fs.lstat(path);
   if(!info.isFile()||info.isSymbolicLink()||info.size>1024*1024||(info.mode&0o077)!==0||(process.getuid&&info.uid!==process.getuid()))
     fail('POOL_CONFIG_INVALID','Pool configuration must be a bounded owner-only regular file');
-  return validateDeployment(JSON.parse(await fs.readFile(path,'utf8')));
+  const config=validateDeployment(JSON.parse(await fs.readFile(path,'utf8')));bindForeignInventoryPolicy(config,await readForeignInventoryPolicy(env));return config;
 }
 export async function inspectProviderSchema(pool:ProviderDatabase):Promise<unknown>{
   const filename=new URL('../../migrations/0008-provider-coordination.sql',import.meta.url);
@@ -388,21 +389,47 @@ export async function poolCapacity(client:Pick<PrimaryTransaction,'query'>,confi
   };
   const resourceUsage=await client.query("SELECT i.pool_id,COALESCE(sum((i.operation->'parameters'->'resources'->>'cpu_millis')::bigint),0)::text AS cpu,COALESCE(sum((i.operation->'parameters'->'resources'->>'memory_bytes')::bigint),0)::text AS memory,COALESCE(sum((i.operation->'parameters'->'resources'->>'disk_bytes')::bigint),0)::text AS disk FROM hyperfide.provisioning_intents i JOIN hyperfide.sandboxes s ON s.organisation_id=i.organisation_id AND s.id=i.sandbox_id WHERE i.organisation_id=$1 AND i.kind='CREATE' AND i.state<>'REJECTED' AND s.observed_state<>'DESTROYED' GROUP BY i.pool_id",[config.organisation_id]);
   const reservations=await client.query("SELECT a.pool_id,a.dimension,sum(r.quantity)::text AS quantity FROM hyperfide.reservations r JOIN hyperfide.capacity_accounts a ON a.organisation_id=r.organisation_id AND a.id=r.capacity_account_id WHERE r.organisation_id=$1 AND r.state<>'RELEASED' AND (a.dimension NOT IN ('SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES') OR a.capacity_class='PHYSICAL') GROUP BY a.pool_id,a.dimension",[config.organisation_id]);
-  // RETAINED orphans are operator-accepted: they still occupy a sandbox but are
-  // no longer unknown, so they stop blocking admission (hyperfide-v21 2.1).
-  const orphanRows=await client.query("SELECT o.pool_id,count(*) FILTER(WHERE o.state<>'RETAINED')::text AS unknown,count(*)::text AS occupied FROM hyperfide.provider_orphans o WHERE o.organisation_id=$1 AND o.state<>'DELETED' AND NOT EXISTS(SELECT 1 FROM hyperfide.sandboxes s WHERE s.organisation_id=o.organisation_id AND s.pool_id=o.pool_id AND s.native_sandbox_id=o.native_sandbox_id) GROUP BY o.pool_id",[config.organisation_id]);
-  const amount=(poolId:string,name:QuotaDimension):bigint=>{
-    const raw=name==='SANDBOX'?BigInt(usage.rows.find(r=>r.pool_id===poolId)?.occupied??'0')+BigInt(orphanRows.rows.find(r=>r.pool_id===poolId)?.occupied??'0'):
+  const policy=foreignInventoryPolicy(config),freshForeign=new Set<string>(),provenAbsent=new Set<string>();
+  const key=(environment:string,native:string)=>environment+'\0'+native;
+  const attributionRows=(await client.query(`WITH scoped AS MATERIALIZED (SELECT id,observation,evidence_digest,observed_at,created_at FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' AND observation->'scope'->>'provider'=$2 AND observation->'scope'->>'provider_account_id'=$3), latest AS (SELECT DISTINCT ON (observation->'scope'->>'environment_id',observation->>'native_sandbox_id') * FROM scoped ORDER BY observation->'scope'->>'environment_id',observation->>'native_sandbox_id',observed_at DESC,created_at DESC), presence AS (SELECT DISTINCT ON (observation->'scope'->>'environment_id',observation->>'native_sandbox_id') * FROM scoped WHERE observation->>'presence' IN('PRESENT','ABSENT') ORDER BY observation->'scope'->>'environment_id',observation->>'native_sandbox_id',observed_at DESC,created_at DESC), foreign_history AS (SELECT DISTINCT ON (observation->'scope'->>'environment_id',observation->>'native_sandbox_id') * FROM scoped WHERE observation->>'classification'='FOREIGN' ORDER BY observation->'scope'->>'environment_id',observation->>'native_sandbox_id',observed_at DESC,created_at DESC) SELECT *,statement_timestamp() AS now FROM (SELECT * FROM latest UNION SELECT * FROM presence UNION SELECT * FROM foreign_history) evidence ORDER BY observed_at DESC,created_at DESC LIMIT 30001`,[config.organisation_id,scope.provider,scope.provider_account_id])).rows;
+  if(attributionRows.length>30000)fail('CAPACITY_UNKNOWN','Retained shared inventory exceeds the bounded accounting reader');
+  const latest=new Map<string,any>(),history=new Map<string,any>(),presence=new Map<string,string>();
+  for(const row of attributionRows){const proof=row.observation;if(digestDocument(proof)!==row.evidence_digest||typeof proof.native_sandbox_id!=='string'||!proof.native_sandbox_id||proof.native_sandbox_id.length>256||typeof proof.scope?.environment_id!=='string'||!proof.scope.environment_id||proof.scope.organisation_id!==config.organisation_id)fail('CAPACITY_UNKNOWN','Retained scoped attribution integrity must be reconciled before accounting');const k=key(proof.scope.environment_id,proof.native_sandbox_id);if(!latest.has(k))latest.set(k,row);if(!presence.has(k)&&['PRESENT','ABSENT'].includes(proof.presence))presence.set(k,proof.presence);if(!history.has(k)&&proof.classification==='FOREIGN'&&proof.foreign?.resources)history.set(k,proof.foreign);}
+  if(latest.size>10000)fail('CAPACITY_UNKNOWN','Shared native resource inventory exceeds the bounded accounting reader');
+  const managed=(await client.query("SELECT s.native_sandbox_id,p.environment_key FROM hyperfide.sandboxes s JOIN hyperfide.provider_pools p ON p.organisation_id=s.organisation_id AND p.id=s.pool_id WHERE s.organisation_id=$1 AND p.provider=$2 AND p.account_key=$3 AND s.native_sandbox_id IS NOT NULL AND s.observed_state<>'DESTROYED'",[config.organisation_id,scope.provider,scope.provider_account_id])).rows;
+  const known=new Set(managed.map(r=>key(r.environment_key,r.native_sandbox_id))),external=new Map<string,{environment:string;resources:ForeignResource['resources']}>();let unknownExternal=false;
+  for(const [k,row]of latest){const proof=row.observation,age=new Date(row.now).getTime()-new Date(row.observed_at).getTime(),valid=!!policy&&proof.policy_digest===policy.digest&&proof.scope.provider===policy.document.provider&&proof.scope.provider_account_id===policy.document.provider_account_id&&proof.scope.environment_id===policy.document.environment_id&&age>=0&&age<=policy.document.max_age_seconds*1000&&config.pools.some(pool=>pool.id===proof.scope.pool_id&&pool.create_policy.inventory_namespace!==undefined&&digestDocument(configuredScope(config,pool))===digestDocument(proof.scope));
+    if(known.has(k)){if(proof.classification==='FOREIGN')unknownExternal=true;continue;}
+    if(presence.get(k)==='ABSENT'&&proof.presence!=='PRESENT'){provenAbsent.add(k);continue;}
+    const prior=history.get(k),candidate=proof.classification==='FOREIGN'?proof.foreign:null,resources=candidate?.resources;
+    const vectorValid=resources&&['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].every(name=>resources[name]===null||typeof resources[name]==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(resources[name]))&&resources.SANDBOX!==null;
+    if(valid&&candidate&&vectorValid&&policy!.document.owners.some(owner=>owner.owner_id===candidate.owner_id))freshForeign.add(k);else unknownExternal=true;
+    // Ownership expiry or a failed observation cannot erase previously observed physical presence.
+    if(presence.get(k)==='ABSENT'&&proof.presence!=='PRESENT')continue;
+    const retained=vectorValid?resources:prior?.resources,physical:ForeignResource['resources']={SANDBOX:'1',CPU_MILLIS:null,MEMORY_BYTES:null,DISK_BYTES:null};
+    if(retained)for(const name of ['CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'] as const){const n=retained[name];if(typeof n==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(n))physical[name]=n;}
+    if(vectorValid&&resources.SANDBOX==='0'&&proof.presence==='ABSENT')physical.SANDBOX='0';
+    external.set(k,{environment:proof.scope.environment_id,resources:physical});
+  }
+  const rawOrphans=(await client.query(`SELECT o.pool_id,o.native_sandbox_id,o.state,p.provider,p.account_key,p.environment_key FROM hyperfide.provider_orphans o JOIN hyperfide.provider_pools p ON p.organisation_id=o.organisation_id AND p.id=o.pool_id WHERE o.organisation_id=$1 AND o.state<>'DELETED' AND NOT EXISTS(SELECT 1 FROM hyperfide.sandboxes s JOIN hyperfide.provider_pools sp ON sp.organisation_id=s.organisation_id AND sp.id=s.pool_id WHERE s.organisation_id=o.organisation_id AND s.native_sandbox_id=o.native_sandbox_id AND s.observed_state<>'DESTROYED' AND sp.provider=p.provider AND sp.account_key=p.account_key AND sp.environment_key=p.environment_key)`,[config.organisation_id])).rows;
+  const orphanCounts=new Map<string,{pool_id:string;unknown:string;occupied:string}>();
+  for(const row of rawOrphans){const k=key(row.environment_key,row.native_sandbox_id),sameAccount=row.provider===scope.provider&&row.account_key===scope.provider_account_id;if(sameAccount&&(freshForeign.has(k)||provenAbsent.has(k)))continue;const count=orphanCounts.get(row.pool_id)??{pool_id:row.pool_id,unknown:'0',occupied:'0'};count.occupied=String(BigInt(count.occupied)+1n);if(row.state!=='RETAINED')count.unknown=String(BigInt(count.unknown)+1n);orphanCounts.set(row.pool_id,count);if(sameAccount&&!external.has(k))external.set(k,{environment:row.environment_key,resources:{SANDBOX:'1',CPU_MILLIS:null,MEMORY_BYTES:null,DISK_BYTES:null}});}
+  const orphanRows={rows:[...orphanCounts.values()]};
+  const sharedExternal=(name:QuotaDimension,environment?:string):bigint=>['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(name)?[...external.values()].filter(r=>environment===undefined||r.environment===environment).reduce((sum,r)=>sum+BigInt(r.resources[name as keyof ForeignResource['resources']]??'0'),0n):0n;
+  const unknownExternalDimensions=['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].filter(name=>[...external.values()].some(r=>r.resources[name as keyof ForeignResource['resources']]===null));
+  const managedAmount=(poolId:string,name:QuotaDimension):bigint=>{
+    const raw=name==='SANDBOX'?BigInt(usage.rows.find(r=>r.pool_id===poolId)?.occupied??'0'):
       name==='PROVISIONING'?BigInt(pending.rows.find(r=>r.pool_id===poolId)?.inflight??'0'):
       ['CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(name)?
         BigInt(resourceUsage.rows.find(r=>r.pool_id===poolId)?.[{CPU_MILLIS:'cpu',MEMORY_BYTES:'memory',DISK_BYTES:'disk'}[name as 'CPU_MILLIS'|'MEMORY_BYTES'|'DISK_BYTES']]??'0'):0n;
     const reserved=BigInt(reservations.rows.find(r=>r.pool_id===poolId&&r.dimension===name)?.quantity??'0');
     return raw>reserved?raw:reserved;
   };
+  const amount=(poolId:string,name:QuotaDimension)=>managedAmount(poolId,name)+(name==='SANDBOX'?BigInt(orphanRows.rows.find(r=>r.pool_id===poolId)?.occupied??'0'):0n);
   const dimensions=QUOTA_DIMENSIONS.map(name=>{
     const accountObserved=relevant('ACCOUNT',p.account_key,name),environmentObserved=relevant('ENVIRONMENT',p.environment_key,name),poolObserved=relevant('POOL',p.id,name);
     const poolIds=usage.rows.map(r=>r.pool_id as string),environmentIds=usage.rows.filter(r=>r.environment_key===p.environment_key).map(r=>r.pool_id as string);
-    const usedAccount=poolIds.reduce((n,id)=>n+amount(id,name),0n),usedEnvironment=environmentIds.reduce((n,id)=>n+amount(id,name),0n),usedPool=amount(id,name);
+    const usedAccount=poolIds.reduce((n,id)=>n+managedAmount(id,name),0n)+sharedExternal(name),usedEnvironment=environmentIds.reduce((n,id)=>n+managedAmount(id,name),0n)+sharedExternal(name,p.environment_key),usedPool=amount(id,name);
     const budgets=[{scope:'ACCOUNT',limit:account.approved_limits[name]??'0',observed:accountObserved,used:usedAccount},
       {scope:'ENVIRONMENT',limit:p.approved_limits[name]??'0',observed:environmentObserved,used:usedEnvironment},
       {scope:'POOL',limit:p.approved_limits[name]??'0',observed:poolObserved,used:usedPool}];
@@ -417,7 +444,7 @@ export async function poolCapacity(client:Pick<PrimaryTransaction,'query'>,confi
   });
   const attestation_warnings=await attestationExpiryWarnings(client,config.organisation_id,[p.id]);
   return {scope,dimensions,planning_limits:p.planning_limits,planning_grants_capacity:false,qualification:'DECLARED_OR_OBSERVED_LIMITS_ONLY',attestation_warnings,
-    unknown_resource_capacity:orphanRows.rows.some(r=>usage.rows.some(u=>u.pool_id===r.pool_id)&&BigInt(r.unknown)>0n),authority:'OBSERVATION_ONLY'};
+    external_usage:{classification:'SHARED_ACCOUNT_PRESENCE',policy_digest:policy?.digest??null,resources:external.size,classified_foreign:freshForeign.size,unknown_dimensions:unknownExternalDimensions},unknown_resource_capacity:unknownExternal||(policy!==null||attributionRows.length>0)&&unknownExternalDimensions.length>0||orphanRows.rows.some(r=>usage.rows.some(u=>u.pool_id===r.pool_id)&&BigInt(r.unknown)>0n),authority:'OBSERVATION_ONLY'};
 }
 export async function assertPoolCapacity(client:PrimaryTransaction,config:DeploymentConfig,id:string,requested:Partial<Record<QuotaDimension,string>>,alreadyReserved=false):Promise<void>{
   // The same account lock serialises all environment/pool provisioning requests.

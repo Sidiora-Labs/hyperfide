@@ -46,3 +46,10 @@ cause = "The control role can read provider_native_bootstraps but lacks the UPDA
 resolution = "For a scoped control role, grant UPDATE(id) on provider_native_bootstraps. Its immutable binding trigger prevents identity changes; bootstrap state and receipt columns remain outside that grant."
 evidence = "The exact registration row lock failed before the grant and succeeded under the same control role afterwards; state and receipt UPDATE privileges remained false."
 status = "resolved"
+
+[gotcha.shared_provider_inventory_scope]
+symptom = "Unrelated workloads in a shared provider workspace quarantine a fleet pool and block new admission."
+cause = "Inventory reconciliation inserted every listed resource as an orphan before evaluating its ownership scope."
+resolution = "Probe ownership before inserting orphans. Use protected positive owner rules and retained attribution evidence to separate pool membership from shared-account resource charges. Preserve unknown physical presence across stale observations and policy changes."
+evidence = "foreign_inventory_capacity.py exercised signed APIs, PostgreSQL and 137 pinned-SDK HTTP reads, including foreign attribution, unknown ownership, expiry, deduplication and unchanged legacy rows."
+status = "resolved"

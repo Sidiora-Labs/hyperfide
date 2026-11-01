@@ -99,6 +99,20 @@ def main():
             f.sql("INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()-interval '90 seconds',$5)", [i['organisation'], entry['get_id'], entry['intent'], uid(), entry['get_digest'], json.dumps(body)])
 
 
+        metadata_ids = set()
+        for entry in [known, matched_get]:
+            for kind in ['PROVIDER_INVENTORY_ATTRIBUTION_V1', 'FLEET_NATIVE_DAEMON_RECOVERY_OBSERVATION_V1']:
+                binding = {'organisation_id': i['organisation'], 'run_id': i['run'], 'sandbox_id': entry['sandbox'], 'boot_generation': '1'}
+                body = {'kind': kind, 'binding': binding, 'controlled_component_prerequisite': True}
+                if kind == 'PROVIDER_INVENTORY_ATTRIBUTION_V1':
+                    native_id = f.sql('SELECT native_sandbox_id FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2', [i['organisation'], entry['sandbox']])[0]['native_sandbox_id']
+                    body.update(policy_digest=sha(b'controlled projection-only ownership policy'), scope={'organisation_id': i['organisation'], 'pool_id': pool, 'provider': 'railway', 'provider_account_id': 'component-fixture', 'environment_id': 'component-fixture', 'region': 'component-fixture', 'configuration_digest': config}, native_sandbox_id=native_id, classification='UNKNOWN', presence='PRESENT', foreign=None, probe_evidence_digest=sha(b'controlled projection metadata'))
+                else:
+                    body.update(request_digest=sha(b'controlled projection request'), receipt={'kind': 'CONTROLLED_PROJECTION_PREREQUISITE_NOT_EXECUTION_PROOF'}, receipt_raw_digest=sha(b'controlled projection receipt'))
+                evidence, observation_id = sha(json.dumps(body, sort_keys=True).encode()), uid()
+                metadata_ids.add(observation_id)
+                f.sql("INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp(),$5)", [i['organisation'], observation_id, entry['intent'], uid(), evidence, json.dumps(body)])
+
         def observe(key):
             return api('fleet.observe', {'binding': bindings[key], 'after': None, 'limit': 100}, key)
 
@@ -135,9 +149,10 @@ def main():
             assert refused['provider_outcome'] == 'UNKNOWN' and refused['provider_acceptance'] == 'UNKNOWN', refused
             assert refused['provider_outcome_observation_id'] == rejected_get['create_id'] and refused['provider_outcome_observation_kind'] == 'create', refused
             assert refused['latest_observation_kind'] == 'list' and refused['latest_observation_id'] == rejected_get['list_id'], refused
+        assert all(rows[entry['intent']]['latest_observation_id'] not in metadata_ids for entry in [known, matched_get]), rows
         assert not {unknown['intent'], known['intent'], destroyed['intent']} & {item['provider_intent_id'] for item in other['provider_intents']}, other['provider_intents']
         assert {unknown['intent'], known['intent'], destroyed['intent']} <= {item['provider_intent_id'] for item in primary['provider_intents']}, primary['provider_intents']
-        print(json.dumps({'status': 'PASS', 'scope': 'isolated PostgreSQL prerequisites and production signed HTTPS fleet.observe projection', 'provider_calls': 0, 'model_inference': 'NOT_CLAIMED', 'native_auth_qualification': 'NOT_CLAIMED', 'observed_unknown': row, 'observed_known': positive, 'observed_destroy': destroy_row, 'checks': ['CREATE uncertainty survives newer accepted empty LIST', 'administrative release preserves actual held capacity', 'unknown native excluded from sandbox candidates', 'manager scope excludes other package while Primary sees both', 'known native CREATE evidence remains ownership positive', 'DESTROY outcome retains original operation provenance beneath newer LIST', 'matched accepted healthy GET reconciles original CREATE uncertainty with exact effective provenance', 'wrong-native and wrong-boot GET cannot replace original CREATE uncertainty']}))
+        print(json.dumps({'status': 'PASS', 'scope': 'isolated PostgreSQL prerequisites and production signed HTTPS fleet.observe projection', 'provider_calls': 0, 'model_inference': 'NOT_CLAIMED', 'native_auth_qualification': 'NOT_CLAIMED', 'observed_unknown': row, 'observed_known': positive, 'observed_destroy': destroy_row, 'checks': ['CREATE uncertainty survives newer accepted empty LIST', 'administrative release preserves actual held capacity', 'unknown native excluded from sandbox candidates', 'manager scope excludes other package while Primary sees both', 'known native CREATE evidence remains ownership positive', 'DESTROY outcome retains original operation provenance beneath newer LIST', 'matched accepted healthy GET reconciles original CREATE uncertainty with exact effective provenance', 'wrong-native and wrong-boot GET cannot replace original CREATE uncertainty', 'newer inventory and daemon metadata cannot mask latest lifecycle provenance']}))
     finally:
         f.close()
 

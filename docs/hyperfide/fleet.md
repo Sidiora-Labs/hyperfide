@@ -22,6 +22,8 @@ The provisioner measures execution capacity after bootstrap, including READY boo
 
 `CGROUP_V2` requires finite cgroup limits. Explicit `BLAXEL_MICROVM_V1` policy combines authenticated provider ownership with guest CPU, memory, kernel and PID 1 measurements. This mode relies on Blaxel's documented [microVM isolation boundary and root sandbox API](https://docs.blaxel.ai/Sandboxes/Non-root-user#why-the-sandbox-api-stays-root). Unresolved overlay backing stays recorded as unknown and receives conservative RAM reservation.
 
+Shared Blaxel accounts can declare positive external ownership rules in `HF_BLAXEL_FOREIGN_OWNERSHIP_CONFIG_FILE`, pinned by `HF_BLAXEL_FOREIGN_OWNERSHIP_CONFIG_DIGEST`. Rules bind the provider account and workspace to exact owner labels and an owner identity label. Actual provider reads establish attribution; resource names alone do not. A provisioner can refresh retained inventory through `provider.intents.reconcile` with `reconcile_inventory: true`. Existing orphan records remain in history. Current external ownership evidence separates pool membership from shared-account resource usage, while stale or inconclusive evidence retains the capacity hold. Ownership policy does not establish the provider's account quota.
+
 ## API surface
 
 Requests use authenticated `POST /v1/invoke` with the existing signed operation envelope and an explicit component. The native source-control design has a separate API namespace; it is not the fleet invocation endpoint.

@@ -100,3 +100,11 @@ exit_code = 0
 log = "build/fleet/integration/fleet-transient-handler-build.log; build/fleet/integration/private/transport-http-handler-failed-component-receipt.json"
 observed = "All 18 signed TLS/PostgreSQL cases passed. Unhandled server exceptions return HTTP 500 through both authentication-adjacent and component dispatch paths, preserving native pending-request retry behavior. Typed transient and terminal errors retain their tested status codes."
 assumption = "Both genuine exception cases returned HTTP 400 on the prior checkpoint. The isolated test uses actual TLS, Ed25519, PostgreSQL and ComponentRegistry dispatch."
+
+[progress.fleet_foreign_inventory]
+revision = "control-source sha256:46322897181dea02993a9bd1e2072fe81722e1d584861abf99ccfe83f339124a"
+command = "Control build; foreign_inventory_capacity.py; fleet_provider_observation.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-foreign-inventory-build.log; build/fleet/integration/foreign-inventory-capacity.log; build/fleet/integration/fleet-provider-lifecycle-metadata.log"
+observed = "The signed API/PostgreSQL gate made 137 actual pinned-SDK HTTP reads and no provider mutations. Positive foreign ownership excluded resources from the wrong pool while retaining deduplicated shared-account charges. Unknown ownership, failed reads, expired observations and a changed policy preserved physical presence and capacity holds. Legacy foreign orphan rows remained unchanged; account limit 2 was not raised. Nine lifecycle projection checks preserved CREATE, GET and LIST provenance despite newer metadata observations."
+assumption = "The inventory gate uses controlled provider metadata and declared initial database records. Missing resource vectors and insufficient account capacity remain unqualified; this gate does not establish a live provider quota."

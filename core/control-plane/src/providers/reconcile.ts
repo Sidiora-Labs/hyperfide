@@ -1,3 +1,4 @@
+import {foreignInventoryPolicy} from './foreign_inventory.js';
 import {createProviderDaemonRecovery} from './bootstrap_daemon_recovery.js';
 import {createBlaxelDaemonRecoveryTransport} from './blaxel/bootstrap_daemon_recovery.js';
 import {blaxelCreateName,type BlaxelAdapter} from './blaxel/processes.js';
@@ -555,6 +556,23 @@ async function recoverRejectedCreateAbsence(database:ProviderDatabase,config:Dep
   const scheduler=new ResourceScheduler(),unregister=scheduler.registerProofReader('provider.absence',readConfirmedAbsence);try{return{intent:current,reconciled:true,external_call_performed:capture!==null,confirmed_absence_released:true,release:await scheduler.release(tx,{organisation_id:current.organisation_id,run_id:current.run_id,reservation_ids:reservations.map(r=>r.id)})};}finally{unregister();scheduler.close();}
  });
 }
+async function knownInventoryResource(database:ProviderDatabase,scope:ProviderOperation['scope'],nativeId:string):Promise<boolean>{return(await database.query('SELECT s.id FROM hyperfide.sandboxes s JOIN hyperfide.provider_pools p ON p.organisation_id=s.organisation_id AND p.id=s.pool_id WHERE s.organisation_id=$1 AND p.provider=$2 AND p.account_key=$3 AND p.environment_key=$4 AND s.native_sandbox_id=$5 AND s.observed_state<>\'DESTROYED\' LIMIT 1',[scope.organisation_id,scope.provider,scope.provider_account_id,scope.environment_id,nativeId])).rows.length>0;}
+async function attributeInventoryResource(database:ProviderDatabase,config:DeploymentConfig,row:Intent,nativeId:string,signal:AbortSignal,deadlineAt:string,listedPresent=false):Promise<{classification:'OWNED'|'FOREIGN'|'UNKNOWN';evidence:string|null;failed:boolean}>{
+ const scope=row.operation.scope,policy=foreignInventoryPolicy(config);let observed:Awaited<ReturnType<ReturnType<typeof providerOwnershipProbe>>>|null=null,failed=false;
+ let probe:ReturnType<typeof providerOwnershipProbe>|null=null;try{probe=providerOwnershipProbe(scope.provider,database.runtime);}catch{}
+ if(probe)try{observed=await boundedProvider(probe(scope,row.id,nativeId,signal),signal,deadlineAt);}catch{failed=true;}
+ const exact=observed?.operation_id===row.id&&observed.native_sandbox_id===nativeId;
+ const classification=exact&&observed?.matches?'OWNED':exact&&policy&&observed?.foreign&&observed.foreign_policy_digest===policy.digest&&policy.document.provider===scope.provider&&policy.document.provider_account_id===scope.provider_account_id&&policy.document.environment_id===scope.environment_id&&config.pools.find(p=>p.id===row.pool_id)?.create_policy.inventory_namespace?'FOREIGN':'UNKNOWN';
+ if(policy){const at=observed?.observed_at??new Date().toISOString(),observation={kind:'PROVIDER_INVENTORY_ATTRIBUTION_V1',policy_digest:policy.digest,scope,native_sandbox_id:nativeId,classification,presence:observed?.presence??(listedPresent?'PRESENT':'UNKNOWN'),foreign:classification==='FOREIGN'?observed!.foreign:null,probe_evidence_digest:observed?.evidence_digest??null,observed_at:at};const op=randomUUID(),evidence=digestDocument(observation);await database.query('INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$5)',[scope.organisation_id,randomUUID(),row.id,op,evidence,observation,at]);}
+ return{classification,evidence:observed?.evidence_digest??null,failed};
+}
+async function refreshInventoryAttribution(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
+ const row=await intent(database,config.organisation_id,id);assertInvocationRun(database,row.run_id);const {scope}=await currentPool(database,config,row.pool_id);if(digestDocument(scope)!==digestDocument(row.operation.scope)||!foreignInventoryPolicy(config))fail('PROVIDER_INVENTORY_POLICY_REQUIRED','Current original scope and protected foreign ownership policy required');
+ const candidates=(await database.query("SELECT native_sandbox_id FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2 AND state<>'DELETED' UNION SELECT observation->>'native_sandbox_id' AS native_sandbox_id FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' AND observation->'scope'->>'provider'=$3 AND observation->'scope'->>'provider_account_id'=$4 AND observation->'scope'->>'environment_id'=$5 ORDER BY native_sandbox_id LIMIT 1001",[config.organisation_id,row.pool_id,scope.provider,scope.provider_account_id,scope.environment_id])).rows;if(candidates.length>1000)fail('PROVIDER_INVENTORY_BOUND','Scoped orphan attribution exceeds bounded refresh');
+ const counts={OWNED:0,FOREIGN:0,UNKNOWN:0,KNOWN:0},deadlineAt=new Date(Date.now()+config.maximum_operation_ms).toISOString();
+ for(const candidate of candidates){if(await knownInventoryResource(database,scope,candidate.native_sandbox_id)){counts.KNOWN++;continue;}const observed=await attributeInventoryResource(database,config,row,candidate.native_sandbox_id,signal,deadlineAt);counts[observed.classification]++;}
+ return{intent:row,inventory_attribution:counts,orphan_rows_rewritten:false,capacity_released:false};
+}
 export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
   let row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
   const confirmedRelease=await releaseConfirmedDestroyedCapacity(pool,config,row);if(confirmedRelease)return confirmedRelease;
@@ -584,21 +602,13 @@ export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentCon
     const report=validateInventory({scope:original.scope,pages,evaluated_at:new Date().toISOString()}) as {enumeration_complete:boolean};
     if(!report.enumeration_complete)fail('PROVIDER_INVENTORY_INCOMPLETE','Incomplete inventory cannot resolve uncertainty');
     const matches:Array<{nativeId:string;evidence:string}>=[],unverified:string[]=[];
-    // No registered probe can never verify ownership, so it quarantines as before; a probe that ran and failed cannot.
-    let probe:ReturnType<typeof providerOwnershipProbe>|null=null;
-    try{probe=providerOwnershipProbe(original.scope.provider,pool.runtime);}catch{probe=null;}
     for(const page of pages)for(const item of page.items){
-      const known=await pool.query('SELECT id FROM hyperfide.sandboxes WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3',[config.organisation_id,row.pool_id,item.native_sandbox_id]);
-      if(known.rows.length)continue;
-      const orphan=(await pool.query("INSERT INTO hyperfide.provider_orphans(organisation_id,pool_id,native_sandbox_id,suspected_intent_id) VALUES($1,$2,$3,$4) ON CONFLICT(organisation_id,pool_id,native_sandbox_id) DO UPDATE SET last_observed_at=clock_timestamp(),suspected_intent_id=COALESCE(provider_orphans.suspected_intent_id,EXCLUDED.suspected_intent_id) RETURNING state",[config.organisation_id,row.pool_id,item.native_sandbox_id,id])).rows[0];
-      // D15: DELETE is the operator's evidence that the resource is gone; a later sighting never reopens it for adoption.
-      if(orphan?.state==='DELETED'||!probe)continue;
-      try{
-        const observed=await boundedProvider(probe(original.scope,id,item.native_sandbox_id,signal),signal,reconciliationDeadline);
-        if(observed.matches&&observed.operation_id===id&&observed.native_sandbox_id===item.native_sandbox_id){
-          dg(observed.evidence_digest);matches.push({nativeId:item.native_sandbox_id,evidence:observed.evidence_digest});
-        }
-      }catch{unverified.push(item.native_sandbox_id);}
+      if(await knownInventoryResource(pool,original.scope,item.native_sandbox_id))continue;
+      const previous=(await pool.query('SELECT state FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2 AND native_sandbox_id=$3',[config.organisation_id,row.pool_id,item.native_sandbox_id])).rows[0];if(previous?.state==='DELETED')continue;
+      const observed=await attributeInventoryResource(pool,config,row,item.native_sandbox_id,signal,reconciliationDeadline,true);
+      if(observed.classification==='FOREIGN')continue;
+      await pool.query("INSERT INTO hyperfide.provider_orphans(organisation_id,pool_id,native_sandbox_id,suspected_intent_id) VALUES($1,$2,$3,$4) ON CONFLICT(organisation_id,pool_id,native_sandbox_id) DO UPDATE SET last_observed_at=clock_timestamp(),suspected_intent_id=COALESCE(provider_orphans.suspected_intent_id,EXCLUDED.suspected_intent_id)",[config.organisation_id,row.pool_id,item.native_sandbox_id,id]);
+      if(observed.classification==='OWNED'){dg(observed.evidence);matches.push({nativeId:item.native_sandbox_id,evidence:observed.evidence!});}else if(observed.failed)unverified.push(item.native_sandbox_id);
     }
     if(unverified.length){
       // An exhausted or failed probe is not evidence that the resource is someone else's: keep the intent reconcilable
@@ -1067,7 +1077,7 @@ export function createComponent(context:ComponentContext):Component {
     'provider.intents.prepare-destroy':guarded((input,c,database)=>{if(!['OPERATOR','COORDINATOR','PROVISIONER'].includes(providerInvocation(database).principal.role))fail('AUTH_SCOPE_DENIED','Direct provider teardown requires coordinator authority');return prepareDestroy(database,c,input);}),
     'provider.intents.get':guarded(async(input,c,database)=>{const i=obj(input,['intent_id']);const row=await intent(database,c.organisation_id,uuid(i.intent_id));assertInvocationRun(database,row.run_id);return row;}),
     'provider.intents.execute':guarded(async(input,c,database)=>{provisioner();if(providerInvocation(database).principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Provider effects require the provisioner principal');const i=obj(input,['intent_id']);return executeIntent(database,c,uuid(i.intent_id),context.signal);}),
-    'provider.intents.reconcile':guarded(async(input,c,database)=>{provisioner();if(providerInvocation(database).principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Provider effects require the provisioner principal');const i=obj(input,['intent_id',...(Object.hasOwn(obj(input),'recover_observer')?['recover_observer']:[])]);if(i.recover_observer!==undefined&&i.recover_observer!==true)fail('DAEMON_RECOVERY_INPUT','Explicit recovery request must be true');if(i.recover_observer===true)return recoverDaemon(database,c,uuid(i.intent_id),context.signal,createBlaxelDaemonRecoveryTransport(context));return reconcileIntent(database,c,uuid(i.intent_id),context.signal);}),
+    'provider.intents.reconcile':guarded(async(input,c,database)=>{provisioner();if(providerInvocation(database).principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Provider effects require the provisioner principal');const i=obj(input,['intent_id',...(Object.hasOwn(obj(input),'recover_observer')?['recover_observer']:[]),...(Object.hasOwn(obj(input),'reconcile_inventory')?['reconcile_inventory']:[])]);if(i.recover_observer!==undefined&&i.recover_observer!==true)fail('DAEMON_RECOVERY_INPUT','Explicit recovery request must be true');if(i.reconcile_inventory!==undefined&&i.reconcile_inventory!==true)fail('PROVIDER_INVENTORY_INPUT','Explicit inventory refresh must be true');if(i.reconcile_inventory===true){if(i.recover_observer===true)fail('PROVIDER_INVENTORY_INPUT','Select one bounded recovery operation');return refreshInventoryAttribution(database,c,uuid(i.intent_id),context.signal);}if(i.recover_observer===true)return recoverDaemon(database,c,uuid(i.intent_id),context.signal,createBlaxelDaemonRecoveryTransport(context));return reconcileIntent(database,c,uuid(i.intent_id),context.signal);}),
     'provider.remote.execute-bound':()=>fail('TRUSTED_CAPABILITY_ONLY','Remote commands are admitted only by the trusted runner executor'),
     'provider.inventory.observe-known':guarded(async(input,c,database)=>{provisioner();if(providerInvocation(database).principal.role!=='PROVISIONER')fail('AUTH_SCOPE_DENIED','Inventory requires the provisioner principal');return observeKnownSandbox(database,c,input,context.signal);}),
     'provider.orphans.list':guarded(async(input,c,database)=>{const i=obj(input,['pool_id']);await currentPool(database,c,uuid(i.pool_id));return(await database.query('SELECT native_sandbox_id,state,ownership_evidence_digest,first_observed_at,last_observed_at FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2',[c.organisation_id,i.pool_id])).rows;}),

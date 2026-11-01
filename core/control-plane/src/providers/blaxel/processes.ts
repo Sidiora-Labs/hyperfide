@@ -1,3 +1,4 @@
+import {readForeignInventoryPolicy,classifyForeignResource} from '../foreign_inventory.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {assertInvocation} from '../../transport/protocol.js';
@@ -554,10 +555,12 @@ function assertBlaxelAdministrativeScope(scope:ProviderScope,ctx:Pick<ComponentC
 }
 async function probeBlaxelOwnership(ctx:ComponentContext,scope:ProviderScope,operationId:string,nativeId:string,signal:AbortSignal){
  assertBlaxelAdministrativeScope(scope,ctx);
- const api=runtimeSDK(await configuredBlaxelSDK(ctx)),actual=await boundedBlaxelOperation(()=>api.SandboxInstance.get(nativeName(nativeId)),signal,Date.now()+15000);
+ const api=runtimeSDK(await configuredBlaxelSDK(ctx)),actual=await knownBlaxelMetadata(api,nativeName(nativeId),signal,Date.now()+15000);
+ if(!actual){const observed_at=new Date().toISOString();return{matches:false,operation_id:operationId,native_sandbox_id:nativeId,observed_at,presence:'ABSENT' as const,evidence_digest:digest({scope,operationId,nativeId,observed_at,http_status:404})};}
  const labels=object(actual.metadata.labels??{}),observed_at=new Date().toISOString();
  const matches=actual.metadata.name===nativeId&&actual.metadata.workspace===scope.environment_id&&actual.spec.region===scope.region&&labels['hyperfide-operation']===operationId&&labels['hyperfide-scope']===scopeDigest(scope)&&typeof labels['hyperfide-boot']==='string'&&/^[1-9][0-9]{0,18}$/.test(labels['hyperfide-boot'] as string);
- return{matches,operation_id:operationId,native_sandbox_id:nativeId,evidence_digest:digest({scope,operationId,nativeId,observed_at,labels:{operation:labels['hyperfide-operation']??null,scope:labels['hyperfide-scope']??null,boot:labels['hyperfide-boot']??null,preparation:labels['hyperfide-preparation']??null},matches})};
+ const policy=await readForeignInventoryPolicy(ctx.env),foreign=!matches&&actual.metadata.name===nativeId&&policy?classifyForeignResource(policy,scope,actual.metadata,actual.spec,actual.status):null;
+ return{matches,operation_id:operationId,native_sandbox_id:nativeId,observed_at,presence:actual.metadata.name===nativeId&&actual.metadata.workspace===scope.environment_id?(terminatedBlaxelResource(actual)?'ABSENT' as const:'PRESENT' as const):'UNKNOWN' as const,...(foreign&&policy?{foreign,foreign_policy_digest:policy.digest}:{}),evidence_digest:digest({scope,operationId,nativeId,observed_at,labels:{operation:labels['hyperfide-operation']??null,scope:labels['hyperfide-scope']??null,boot:labels['hyperfide-boot']??null,preparation:labels['hyperfide-preparation']??null},matches,foreign})};
 }
 /** Blaxel quota observer under the shared contract in pools.ts (hyperfide-v21 2.3). The pinned SDK
  * has no quota call, so the trusted owner-only HF_BLAXEL_QUOTA_CONFIG names the endpoint: a loopback
