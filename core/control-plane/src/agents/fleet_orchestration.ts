@@ -139,7 +139,19 @@ export function createComponent(ctx:ComponentContext):Component{
      CASE WHEN j.state='READY' THEN 'VERIFIED_BOOTSTRAP_RECEIPT' WHEN left(j.last_error,17)='BOOTSTRAP_NATIVE_' THEN 'RETAINED_TYPED_NATIVE_PROCESS_ERROR' ELSE NULL END AS bootstrap_process_outcome_provenance,
      CASE WHEN j.manifest_digest IS NOT NULL AND j.state IN ('DELIVERING','OBSERVING','UNKNOWN') THEN 'EXISTING_PROCESS_RECONCILIATION_ONLY' WHEN j.state='READY' THEN 'COMPLETE' ELSE 'UNKNOWN' END AS bootstrap_recovery_mode,
      CASE WHEN j.manifest_digest IS NOT NULL AND j.state IN ('DELIVERING','OBSERVING','UNKNOWN','READY') THEN false ELSE NULL END AS bootstrap_fresh_process_retry_available,
-     g.state AS enrollment_grant_state,g.expires_at AS enrollment_grant_expires_at,(g.expires_at<=clock_timestamp()) AS enrollment_grant_expired
+     g.state AS enrollment_grant_state,g.expires_at AS enrollment_grant_expires_at,(g.expires_at<=clock_timestamp()) AS enrollment_grant_expired,
+     (SELECT jsonb_build_object('provider_intent_id',ad.id::text,'state',ad.state,'admission_id',n.id::text,'admission_kind',n.result->>'kind','operation_id',n.result->>'operation_id','boot_generation',ad.boot_generation::text,'native_sandbox_id',ad.native_sandbox_id)
+      FROM hyperfide.provisioning_intents ad JOIN hyperfide.command_inbox n ON n.organisation_id=ad.organisation_id AND n.run_id=ad.run_id AND n.operation='provider.destroy.operator-admission' AND n.idempotency_key=ad.id::text AND n.state='COMPLETED'
+      WHERE pi.kind='CREATE' AND ad.organisation_id=pi.organisation_id AND ad.run_id=pi.run_id AND ad.sandbox_id=pi.sandbox_id AND ad.boot_generation=pi.boot_generation AND ad.native_sandbox_id=pi.native_sandbox_id AND ad.kind='DESTROY'
+      AND n.result->>'kind'='DIRECT_OPERATOR_DESTROY_ADMISSION' AND n.result->>'role'='OPERATOR' AND n.result->>'credential_id'=n.principal_scope AND n.result->>'payload_digest'=n.request_digest
+      AND n.result->>'provider_intent_id'=ad.id::text AND n.result->>'sandbox_id'=ad.sandbox_id::text AND n.result->>'request_key'=ad.request_key AND n.result->>'request_digest'=ad.request_digest AND n.result->>'pool_id'=ad.pool_id::text
+      AND n.result->>'boot_generation'=ad.boot_generation::text AND n.result->>'native_sandbox_id'=ad.native_sandbox_id AND n.result->>'configuration_digest'=ad.configuration_digest ORDER BY ad.created_at DESC,ad.id LIMIT 1) AS administrative_destroy,
+     (SELECT jsonb_build_object('observation_id',o.id::text,'evidence_digest',o.evidence_digest,'observed_at',o.observed_at,'provider_intent_id',oi.id::text,'provider_state','DESTROYED','health','ABSENT','boot_generation',oi.boot_generation::text,'native_sandbox_id',oi.native_sandbox_id)
+      FROM hyperfide.provisioning_intents oi JOIN hyperfide.provider_observations o ON o.organisation_id=oi.organisation_id AND o.intent_id=oi.id
+      WHERE pi.kind='CREATE' AND pi.state='TERMINAL' AND oi.organisation_id=pi.organisation_id AND oi.run_id=pi.run_id AND oi.sandbox_id=pi.sandbox_id AND oi.boot_generation=pi.boot_generation AND oi.native_sandbox_id=pi.native_sandbox_id AND oi.state='TERMINAL'
+      AND o.observation->'operation'->>'kind'='observe' AND o.observation->'outcome'->>'status'='SUCCEEDED' AND o.observation->'outcome'->>'acceptance'='CONFIRMED_ACCEPTED'
+      AND o.observation->'outcome'->'result'->>'provider_state'='DESTROYED' AND o.observation->'outcome'->'result'->>'health'='ABSENT'
+      AND o.observation->'outcome'->'resource'->>'native_sandbox_id'=pi.native_sandbox_id AND o.observation->'outcome'->'resource'->>'sandbox_boot_generation'=pi.boot_generation::text ORDER BY o.observed_at DESC,o.id LIMIT 1) AS confirmed_absence
      FROM hyperfide.provisioning_intents pi JOIN hyperfide.sandboxes s ON s.organisation_id=pi.organisation_id AND s.id=pi.sandbox_id
      LEFT JOIN hyperfide.provider_native_bootstraps j ON j.organisation_id=pi.organisation_id AND j.run_id=pi.run_id AND j.intent_id=pi.id
      LEFT JOIN hyperfide.identity_enrollment_grants g ON g.organisation_id=j.organisation_id AND g.run_id=j.run_id AND g.id=j.grant_id
