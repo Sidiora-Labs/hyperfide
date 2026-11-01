@@ -8,14 +8,14 @@ import {blaxelCreateName,type BlaxelAdapter} from './blaxel/processes.js';
 import {randomUUID,createHash} from 'node:crypto';
 import type pg from 'pg';
 import type {Component,ComponentContext} from '../components/registry.js';
-import {assertPrimaryTransaction} from '../storage/transactions.js';
+import {assertPrimaryTransaction,StorageError} from '../storage/transactions.js';
 import {validateProfile} from '../preparation/manifests.js';
 import type {EnvironmentProfile} from '../preparation/manifests.js';
 import {assertInvocation} from '../transport/protocol.js';
 import {invocationOf} from '../identity/enrollment.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
-import {FoundationError} from '../policy/programme.js';
+import {FoundationError,object} from '../policy/programme.js';
 import {raiseAskIn,settleAskIn} from '../policy/human_interface.js';
 import type {AskActor,AskOutbox} from '../policy/human_interface.js';
 import {enqueue,resolveOperatorConsumer} from '../events/outbox.js';
@@ -760,6 +760,9 @@ export interface BoundProviderRequest {
  binding:{organisation_id:string;run_id:string;session_id:string;pool_id:string;sandbox_id:string;external_sandbox_id:string;boot_generation:string;preparation_digest:string};
  operation_id:string;argv:string[];cwd:string;env_refs:Record<string,string>;env_ref_versions?:Record<string,string>;timeout_ms:number;
 }
+function remoteTransaction<T>(pool:ProviderDatabase,id:string,phase:string,body:(tx:PrimaryTransaction)=>Promise<T>):Promise<T>{
+ return transaction(pool,body).catch(error=>{if(error instanceof StorageError&&error.sqlstate&&process.stderr.writable&&process.stderr.writableLength<16384){try{process.stderr.write(JSON.stringify({event:'provider_remote_transaction_failed',operation_id:id,phase,error_code:error.code,sqlstate:error.sqlstate,attempts:error.attempts})+'\n');}catch{}}throw error;});
+}
 function processRecord(value:unknown,op:ProviderOperation<'execute'>):ProviderProcessRecord{
  const r=obj(value);if(Object.keys(r).some(k=>!['process_ref','payload_digest','resource','state','provider_metadata','native_process_ref'].includes(k))||['process_ref','payload_digest','resource','state','provider_metadata'].some(k=>!Object.hasOwn(r,k))||r.native_process_ref!==undefined&&r.native_process_ref!==null)fail('PROCESS_BINDING_INVALID','Native process ID must be observed after submission');str(r.process_ref);dg(r.payload_digest);obj(r.provider_metadata);
  if(JSON.stringify(r).length>65536||r.state!=='SUBMITTED'||r.payload_digest!==op.identity.payload_digest||digestDocument(r.resource)!==digestDocument(op.resource))fail('PROCESS_BINDING_INVALID','Process claim must bind exact submitted execute operation');
@@ -777,7 +780,7 @@ export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run
    const index=reference(archive.index_reference),segments=archive.segment_references.map(reference),unique=new Map<string,ProviderArtifactReference>();
    for(const ref of segments){if(ref.artifact_id===index.artifact_id)fail('OUTPUT_ARCHIVE_INVALID','Top index cannot be its own segment');const prior=unique.get(ref.artifact_id);if(prior&&digestDocument(prior)!==digestDocument(ref))fail('OUTPUT_ARCHIVE_INVALID','Artifact identity has conflicting references');unique.set(ref.artifact_id,ref);}
    const links=[{...index,role:'TOP_INDEX',ordinal:0},...[...unique.values()].sort((a,b)=>a.artifact_id.localeCompare(b.artifact_id)).map((ref,n)=>({...ref,role:'SEGMENT',ordinal:n}))];
-   return transaction(pool,async c=>{
+   return remoteTransaction(pool,id,'OUTPUT_ARCHIVE',async c=>{
     const row=(await c.query('SELECT * FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[organisation,run,id])).rows[0];
     if(!row||digestDocument(row.operation)!==digestDocument(op)||!row.process_claimed||!row.process_record||row.process_record.state!=='EXITED'||!row.native_process_ref)fail('OUTPUT_ARCHIVE_UNCONFIRMED','Actual terminal durable process/native binding required');
     const current=(await c.query('SELECT native_sandbox_id,boot_generation FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 FOR SHARE',[organisation,row.sandbox_id])).rows[0];
@@ -794,7 +797,7 @@ export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run
   },
   persistEarlyProcess:async(op:ProviderOperation<'execute'>,nativeProcessRef:string):Promise<void>=>{
    validateProviderOperation(op);str(nativeProcessRef);assertInvocationRun(pool,run);
-   const conflict=await transaction(pool,async c=>{
+   const conflict=await remoteTransaction(pool,id,'EARLY_NATIVE_BINDING',async c=>{
     const row=(await c.query('SELECT * FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[organisation,run,id])).rows[0];
     if(!row||digestDocument(row.operation)!==digestDocument(op))fail('PROCESS_BINDING_INVALID','Early native process identity differs from durable operation');
     await c.query('INSERT INTO hyperfide.provider_process_candidates(organisation_id,remote_operation_id,native_process_ref,evidence_digest) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[organisation,id,nativeProcessRef,digestDocument({operation:op,native_process_ref:nativeProcessRef})]);
@@ -804,7 +807,7 @@ export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run
   },
   claimProcess:async(op:ProviderOperation<'execute'>,value:ProviderProcessRecord):Promise<{disposition:'NEW'|'EXISTING';record:ProviderProcessRecord}>=>{
    validateProviderOperation(op);const record=processRecord(value,op);assertInvocationRun(pool,run);
-   return transaction(pool,async c=>{
+   return remoteTransaction(pool,id,'PROCESS_CLAIM',async c=>{
     const rows=await c.query('SELECT * FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[organisation,run,id]),row=rows.rows[0];
     if(!row||digestDocument(row.operation)!==digestDocument(op))fail('PROCESS_BINDING_INVALID','Process claim differs from durable operation');
     if(row.process_claimed){if(!row.process_record)fail('PROCESS_BINDING_INVALID','Claimed process metadata is unavailable');return{disposition:'EXISTING',record:row.process_record as ProviderProcessRecord};}
@@ -828,7 +831,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
  if(b.organisation_id!==config.organisation_id)fail('PROVIDER_SCOPE_MISMATCH','Runner belongs to another organisation');
  const run=uuid(b.run_id),session=uuid(b.session_id),sandbox=uuid(b.sandbox_id),poolId=uuid(b.pool_id),id=uuid(i.operation_id);assertInvocationRun(pool,run);
  if(!Number.isSafeInteger(i.timeout_ms)||(i.timeout_ms as number)<1||(i.timeout_ms as number)>config.maximum_operation_ms){if(Number.isSafeInteger(i.timeout_ms)&&(i.timeout_ms as number)>config.maximum_operation_ms){try{await recordPreProviderRefusal(pool,config,value);}catch(error){if(!(error instanceof FoundationError)||!['PRE_PROVIDER_REFUSAL_UNPROVEN','PRE_PROVIDER_REFUSAL_LEGACY_UNPROVEN'].includes(error.code))throw error;}}fail('PROVIDER_DEADLINE_INVALID','Remote command timeout exceeds approved bound');}
- const op=await transaction(pool,async c=>{
+ const op=await remoteTransaction(pool,id,'REMOTE_ADMISSION',async c=>{
   const {scope}=await currentPool(c,config,poolId);
   if(!pool.runtime.runnerBindingVerifier)fail('RUNNER_REGISTRY_UNAVAILABLE','Actual trusted runner registration must be verified');
   const proof=await pool.runtime.runnerBindingVerifier(c,b as ProviderRunnerBinding,value);if(!proof)fail('RUNNER_BINDING_STALE','Runner registration is unavailable or stale');
@@ -863,7 +866,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
  };
  const record=async(observedOperation:ProviderOperation,outcome:ProviderOutcome)=>{
   validateProviderOutcome({operation:observedOperation,outcome});assertOperation(observedOperation);if(Date.parse(outcome.observed_at)>Date.now())fail('PROVIDER_OBSERVATION_FUTURE','Future process observation cannot change durable state');
-  const conflict=await transaction(pool,async c=>{
+  const conflict=await remoteTransaction(pool,id,'RECORD_'+observedOperation.kind.toUpperCase(),async c=>{
    const current=(await c.query('SELECT outcome,process_record FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2 FOR UPDATE',[config.organisation_id,id])).rows[0];
    if(!current)fail('PROCESS_BINDING_INVALID','Durable remote operation disappeared');
    if(observedOperation.kind!=='execute'&&current.process_record?.process_ref!==logicalProcessRef)fail('PROCESS_BINDING_INVALID','Derived observation differs from persisted process claim');
@@ -881,7 +884,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
  };
  const adapter=providerAdapter(op.scope,{...remoteProcessHooks(pool,config.organisation_id,run,id),invocation:providerInvocation(pool),resolveResourceBinding:observed=>resolveSandboxBinding(pool,config,run,sandbox,observed),resolvePreparation:unavailable,assertResourceBinding:async observed=>{
   assertOperation(observed);
-  await transaction(pool,async c=>{const proof=await pool.runtime.runnerBindingVerifier!(c,b as ProviderRunnerBinding,value);if(!proof)fail('RUNNER_BINDING_STALE','Runner binding expired');const current=(await c.query('SELECT native_sandbox_id,boot_generation FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 FOR SHARE',[config.organisation_id,sandbox])).rows[0];if(!current||current.native_sandbox_id!==b.external_sandbox_id||String(current.boot_generation)!==b.boot_generation)fail('STALE_SANDBOX_GENERATION','Remote resource boot changed');});
+  await remoteTransaction(pool,id,'RESOURCE_BINDING',async c=>{const proof=await pool.runtime.runnerBindingVerifier!(c,b as ProviderRunnerBinding,value);if(!proof)fail('RUNNER_BINDING_STALE','Runner binding expired');const current=(await c.query('SELECT native_sandbox_id,boot_generation FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 FOR SHARE',[config.organisation_id,sandbox])).rows[0];if(!current||current.native_sandbox_id!==b.external_sandbox_id||String(current.boot_generation)!==b.boot_generation)fail('STALE_SANDBOX_GENERATION','Remote resource boot changed');});
  },assignedBootGeneration:unavailable,persistEarlyResource:unavailable,recordObservation:record},pool.runtime) as ReturnType<typeof providerAdapter>&{
   readCapturedOutput?:(scope:ProviderOperation['scope'],resource:ResourceRef,processRef:string,maxBytes:number)=>Promise<CapturedProviderOutput>;
  };
@@ -910,6 +913,49 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
    evidence_digest:digestDocument({operation:op,outcome,spool_digest:captured.spool_digest}),provider_process_termination_confirmed:outcome.result.termination_confirmed,cleanup_confirmed:false,cleanup_evidence_scope:'PROVIDER_PROCESS_ONLY'};
  }catch(error){if(!recordedRejection)await record(op,unknownOutcome(op,op.resource));throw error;}
 }
+/** Observe an already submitted command. This capability never calls an adapter execution method. */
+export async function reconcileBound(pool:ProviderDatabase,config:DeploymentConfig,value:unknown,signal:AbortSignal,collectionLeaseId:string):Promise<unknown|null>{
+ const invocation=providerInvocation(pool),p=invocation.principal;
+ if(p.role!=='PROVISIONER'||invocation.payload.component!=='8.3'||invocation.payload.action!=='provider.remote.execute-bound'||digestDocument(invocation.payload.input)!==digestDocument(value))fail('AUTH_SCOPE_DENIED','Exact current provisioner observation proof required');
+ const input=obj(value,['binding','operation_id','argv','cwd','env_refs','timeout_ms',...(Object.hasOwn(obj(value),'env_ref_versions')?['env_ref_versions']:[])]),binding=obj(input.binding),id=uuid(input.operation_id),lease=uuid(collectionLeaseId),run=uuid(binding.run_id);
+ assertInvocationRun(pool,run);
+ const current=async(tx:PrimaryTransaction)=>{
+  await invocation.guard(tx);
+  const job=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[p.organisation_id,run,id])).rows[0];
+  const owned=(await tx.query('SELECT 1 FROM hyperfide.runner_result_collections WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND lease_id=$4 AND lease_until>clock_timestamp() AND claim_id=$5 AND executor_credential_id=$6 FOR SHARE',[p.organisation_id,run,id,lease,job?.claim_id,p.credential_id])).rows[0];
+  if(!job||!owned||job.state!=='UNKNOWN'||job.result!==null||job.result_digest!==null||job.result_signature!==null||job.pre_provider_refusal_id!==null||!job.native_claimed_at||!job.claim_id||job.executor_credential_id!==p.credential_id||job.authority_epoch!==p.deployment_epoch||digestDocument(job.plan)!==job.plan_digest)fail('REMOTE_COLLECTION_FENCED','Exact original unknown execution claim and current collection lease required');
+  const row=(await tx.query('SELECT * FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[p.organisation_id,run,id])).rows[0];
+  if(!row||!row.process_claimed||!row.native_process_ref||!object(row.process_record)||row.session_id!==job.session_id||row.request_digest!==digestDocument(input))fail('REMOTE_COLLECTION_BINDING','Exact submitted request and observed native process required');
+  const original=validateProviderOperation(row.operation);if(original.kind!=='execute'||original.identity.operation_id!==id||!original.resource||original.scope.organisation_id!==p.organisation_id||original.scope.pool_id!==binding.pool_id||original.resource.native_sandbox_id!==binding.external_sandbox_id||original.resource.sandbox_boot_generation!==String(binding.boot_generation)||row.session_id!==binding.session_id||row.sandbox_id!==binding.sandbox_id||String(row.boot_generation)!==String(binding.boot_generation)||original.preparation_digest!==binding.preparation_digest)fail('REMOTE_COLLECTION_BINDING','Original command scope and physical boot must remain exact');
+  const selected=await currentPool(tx,config,original.scope.pool_id);if(digestDocument(selected.scope)!==digestDocument(original.scope))fail('POOL_CONFIG_CHANGED','Original execution scope must remain current');
+  // Physical registration is retained history; no mutable heartbeat lock is needed to read a result.
+  const physical=(await tx.query('SELECT r.*,s.native_sandbox_id AS actual_native,s.boot_generation::text AS actual_generation,b.boot_id AS actual_boot FROM hyperfide.runner_registry r JOIN hyperfide.sandboxes s ON s.organisation_id=r.organisation_id AND s.id=r.sandbox_id JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.session_id=$3 FOR SHARE OF r,s,b',[p.organisation_id,run,job.session_id])).rows[0];
+  if(!physical||physical.sandbox_id!==binding.sandbox_id||physical.boot_id!==job.plan.binding.boot_id||physical.actual_boot!==physical.boot_id||physical.actual_native!==binding.external_sandbox_id||physical.actual_generation!==String(binding.boot_generation)||String(physical.boot_generation)!==String(binding.boot_generation)||physical.boot_preparation_digest!==binding.preparation_digest)fail('REMOTE_COLLECTION_BINDING','Current same native boot and retained physical registration required');
+  return{row,original:original as ProviderOperation<'execute'>};
+ };
+ const snapshot=await remoteTransaction(pool,id,'COLLECT_BINDING',current),original=snapshot.original,ref=str(snapshot.row.process_record.process_ref,128),deadline=new Date(Date.now()+30000).toISOString();
+ const inspect=operation('inspect',original.scope,randomUUID(),deadline,original.resource,original.preparation_digest,{process_ref:ref},id);
+ const record=async(observed:ProviderOperation,outcome:ProviderOutcome)=>{
+  validateProviderOutcome({operation:observed,outcome});
+  if(observed.kind!=='inspect'||observed.identity.correlation_id!==id||observed.identity.causation_id!==id||observed.parameters.process_ref!==ref||observed.deadline_at!==deadline||digestDocument(observed.scope)!==digestDocument(original.scope)||digestDocument(observed.resource)!==digestDocument(original.resource)||observed.preparation_digest!==original.preparation_digest)fail('OBSERVATION_SCOPE_MISMATCH','Collection may only inspect the original process');
+  await remoteTransaction(pool,id,'COLLECT_OBSERVATION',async tx=>{
+   await current(tx);const row=(await tx.query('SELECT outcome,process_record FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2 FOR UPDATE',[p.organisation_id,id])).rows[0];
+   if(!row||row.process_record?.process_ref!==ref)fail('REMOTE_COLLECTION_BINDING','Retained process changed');
+   const disposition=processObservationDisposition(row.outcome as ProviderOutcome|null,outcome);if(disposition==='CONFLICT')fail('PROCESS_TERMINAL_CONFLICT','Contradictory terminal observation cannot replace completion');
+   await tx.query('INSERT INTO hyperfide.provider_remote_observations(organisation_id,run_id,remote_operation_id,id,observation,evidence_digest,observed_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING',[p.organisation_id,run,id,randomUUID(),{operation:observed,outcome},digestDocument({operation:observed,outcome}),outcome.observed_at]);
+   if(disposition!=='IGNORE'){const phase=outcome.status==='SUCCEEDED'&&'phase' in outcome.result?(outcome.result.phase==='EXITED'?'EXITED':'RUNNING'):'UNKNOWN';await tx.query("UPDATE hyperfide.provider_remote_operations SET state=$3,outcome=$4,process_record=jsonb_set(process_record,'{state}',to_jsonb($5::text)),updated_at=clock_timestamp() WHERE organisation_id=$1 AND id=$2",[p.organisation_id,id,outcome.status==='UNKNOWN'?'UNKNOWN':'OBSERVED',outcome,phase]);}
+  });
+ };
+ const unavailable=async()=>fail('REMOTE_COLLECTION_EXISTING_ONLY','Result collection cannot submit or replace work');
+ const adapter=providerAdapter(original.scope,{...remoteProcessHooks(pool,p.organisation_id,run,id),invocation,resolvePreparation:unavailable,assignedBootGeneration:unavailable,persistEarlyResource:unavailable,persistEarlyProcess:unavailable,claimProcess:unavailable,resolveResourceBinding:observed=>resolveSandboxBinding(pool,config,run,uuid(binding.sandbox_id),observed),recordObservation:record,assertResourceBinding:async()=>{await remoteTransaction(pool,id,'COLLECT_RESOURCE',current);}},pool.runtime) as ReturnType<typeof providerAdapter>&{readCapturedOutput?:(scope:ProviderOperation['scope'],resource:ResourceRef,processRef:string,maxBytes:number)=>Promise<CapturedProviderOutput>};
+ const outcome=await boundedProvider(adapter.inspect(inspect,signal),signal,deadline);
+ if(outcome.status!=='SUCCEEDED'||!('phase' in outcome.result)||outcome.result.phase!=='EXITED'||outcome.result.exit_code===null||!outcome.result.output.complete||outcome.result.output.truncated)return null;
+ if(typeof adapter.readCapturedOutput!=='function')fail('REMOTE_CAPTURE_UNAVAILABLE','Actual complete retained capture required');
+ const captured=verifyCapturedProviderOutput(outcome.result,await boundedProvider(adapter.readCapturedOutput(original.scope,original.resource!,ref,16*1024*1024),signal,deadline));
+ await remoteTransaction(pool,id,'COLLECT_FINAL_BINDING',current);
+ return{operation:original,outcome:{...outcome,operation_id:original.identity.operation_id,payload_digest:original.identity.payload_digest},completion_observation:{operation:inspect,outcome},process_ref:ref,scope:original.scope,resource:original.resource,captured,evidence_digest:digestDocument({operation:original,outcome,spool_digest:captured.spool_digest}),provider_process_termination_confirmed:outcome.result.termination_confirmed,cleanup_confirmed:false,cleanup_evidence_scope:'PROVIDER_PROCESS_ONLY'};
+}
+
 export async function observeKnownSandbox(pool:ProviderDatabase,config:DeploymentConfig,value:unknown,signal:AbortSignal):Promise<unknown>{
  const i=obj(value,['sandbox_id','boot_generation']),sandbox=uuid(i.sandbox_id),generation=str(i.boot_generation,19);
  const rows=await pool.query("SELECT * FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND sandbox_id=$2 AND boot_generation=$3 AND kind='CREATE' AND native_sandbox_id IS NOT NULL ORDER BY created_at DESC LIMIT 1",[config.organisation_id,sandbox,generation]);
@@ -1147,6 +1193,7 @@ export function createComponent(context:ComponentContext):Component {
  executeIntent:async(id:string,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return executeIntent(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,id,signal);},
  reconcileIntent:async(id:string,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return reconcileIntent(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,id,signal);},
  executeBound:async(input:unknown,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return executeBound(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,input,signal);},
+ reconcileBound:async(input:unknown,signal:AbortSignal,invocation:InvocationContext,leaseId:string)=>{const c=await readDeployment(context.env);return reconcileBound(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,input,signal,leaseId);},
  observeKnownSandbox:async(input:unknown,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return observeKnownSandbox(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,input,signal);}
  }}:{})},actions:{
     'provider.intents.prepare-create':guarded((input,c,database)=>{if(!['OPERATOR','COORDINATOR','PROVISIONER'].includes(providerInvocation(database).principal.role))fail('AUTH_SCOPE_DENIED','Direct provider admission requires coordinator authority');return prepareCreate(database,c,input);}),

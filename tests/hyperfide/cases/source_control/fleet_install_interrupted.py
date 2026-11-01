@@ -24,7 +24,7 @@ def uid_pids(uid):
   except (OSError,StopIteration):continue
   if str(uid) in ids:found.append(int(entry.name))
  return found
-def main():
+def main(*,before_executor=None,scenario=None):
  parser=argparse.ArgumentParser();parser.add_argument('--native-path');parser.add_argument('--native-digest');args=parser.parse_args()
  if bool(args.native_path)!=bool(args.native_digest):parser.error('native path and digest must be provided together')
  if not os.environ.get('DATABASE_URL'):return subprocess.run([sys.executable,str(SUPPORT/'withpg.py'),'--',sys.executable,str(Path(__file__).resolve()),*sys.argv[1:]],cwd=ROOT).returncode
@@ -89,7 +89,9 @@ def main():
    if time.monotonic()-last_heartbeat<1:return
    version=f.sql('SELECT state_version::text FROM hyperfide.identity_runner_status WHERE credential_id=$1',[i['runner']])[0]['state_version'];ok('identity.runner.heartbeat',{'expected_version':version},component='14.1',key='runner');last_heartbeat=time.monotonic()
   heartbeat()
+  if before_executor:before_executor(locals())
   stderr=(owned/'executor.stderr').open('w+');executor=subprocess.Popen(['node',str(SUPPORT/'archive_executor_process.mjs'),str(ROOT/'core/control-plane/dist'),str(f.components),str(f.policy)],cwd=f.path,env=f.env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=stderr,text=True,bufsize=1)
+  if scenario:return scenario(locals())
   staging=parent/('.hyperfide-install-'+sha(env_id+':1:'+inputs['plan_digest'])[7:31]);marker=staging/'.installer-home/interrupted-install-ready';deadline=time.monotonic()+60;pid=None
   while time.monotonic()<deadline:
    heartbeat()

@@ -30,6 +30,7 @@ interface Signer {credential_id:string;key:KeyObject;public_key_b64:string}
 interface ProviderResult {outcome:unknown;process_ref:unknown;captured?:CapturedProviderOutput;evidence_digest?:unknown;cleanup_confirmed?:unknown;[name:string]:unknown}
 interface ProviderExecution {
  executeBound(input:BoundProviderRequest,signal:AbortSignal,invocation:InvocationContext):Promise<ProviderResult>;
+ reconcileBound(input:BoundProviderRequest,signal:AbortSignal,invocation:InvocationContext,collectionLeaseId:string):Promise<ProviderResult|null>;
  registerRunnerBindingVerifier(reader:(tx:PrimaryTransaction,binding:BoundProviderRequest['binding'],request:unknown)=>Promise<{evidence_digest:string;observed_at:string}|null>):void|(()=>void);
 }
 interface Packet {source_state_digest:string;workspace_digest:string;request:RunnerRemotePlan;binding:Record<string,any>;allocation:Record<string,any>;reservations:unknown;env_refs?:unknown;env_ref_versions?:Record<string,string>}
@@ -48,9 +49,10 @@ export interface NativeRunnerCapability {
 export function isNativeRunnerCapability(v:unknown):v is NativeRunnerCapability {
  return object(v)&&typeof v.invokeNativeRunner==='function'&&typeof v.authenticatePlacementProbe==='function';
 }
-const isProvider=(v:unknown):v is ProviderExecution=>object(v)&&typeof v.executeBound==='function'&&typeof v.registerRunnerBindingVerifier==='function';
+const isProvider=(v:unknown):v is ProviderExecution=>object(v)&&typeof v.executeBound==='function'&&typeof v.reconcileBound==='function'&&typeof v.registerRunnerBindingVerifier==='function';
 const MAX_CAPTURE=96*1024*1024;
 const RETENTION={retention_class:'RUN',retention_until:null,retention_hold:false} as const;
+function diagnostic(error:unknown,phase:string):string{let current=error;for(let depth=0;depth<5&&object(current);depth++,current=current.cause){if(typeof current.code==='string'&&/^[0-9A-Z]{5}$/.test(current.code))return phase+':SQLSTATE_'+current.code;}return phase+':'+(object(error)&&typeof error.code==='string'&&/^[A-Z0-9_]{1,96}$/.test(error.code)?error.code:'UNAVAILABLE');}
 function digest(v:unknown):v is string{return typeof v==='string'&&DIGEST.test(v);}
 function same(a:unknown,b:unknown):boolean{return runnerCanonical(a)===runnerCanonical(b);}
 // Open the trusted credential itself, never a symlink or a group-readable copy.
@@ -297,6 +299,23 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  }
  const id=randomUUID();await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='CLAIMED',claim_id=$4,executor_credential_id=$5,claimed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED'",[row.organisation_id,row.run_id,row.operation_id,id,s.credential_id]);return id;
  });}
+ async function completeJob(row:Job,s:Signer,i:InvocationContext,observed:ProviderResult,claim_id:string,expectedState:'CLAIMED'|'UNKNOWN',lease_id?:string):Promise<void>{
+ if(i.signal.aborted)fail('RUNNER_COLLECTION_ABORTED','Result authority was aborted');
+ if(!observed.captured||typeof observed.process_ref!=='string'||!observed.process_ref||!digest(observed.evidence_digest))fail('RUNNER_PROVIDER_CAPTURE_MISSING','Actual provider process and captured native receipt required');
+ const decoded=decodeNative(observed.captured);validateReceipt(row,decoded.receipt);
+ const result=await persistableResult(store,i,row,observed,decoded),result_digest=hash(runnerCanonical(result)),result_signature=sign(null,runnerResultSigningBytes(row.organisation_id,row.run_id,row.operation_id,row.plan_digest,result_digest),s.key).toString('base64url');
+ if(expectedState==='UNKNOWN'&&result.outcome==='UNKNOWN')fail('RUNNER_COLLECTION_INCOMPLETE','Collection cannot settle incomplete native evidence');
+ await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal:i.signal,guard:tx=>i.guard(tx)},async tx=>{
+ const current=(await tx.query('SELECT state,claim_id,executor_credential_id,native_claimed_at,pre_provider_refusal_id,result,result_digest,result_signature FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[row.organisation_id,row.run_id,row.operation_id])).rows[0];
+ if(lease_id){const lease=(await tx.query('SELECT lease_id FROM hyperfide.runner_result_collections WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND lease_id=$4 AND lease_until>clock_timestamp() FOR UPDATE',[row.organisation_id,row.run_id,row.operation_id,lease_id])).rows[0];if(!lease)fail('RUNNER_COLLECTION_LEASE_CHANGED','Current result collection lease required');}
+ if(expectedState==='UNKNOWN'&&(!current||current.native_claimed_at===null||current.pre_provider_refusal_id!==null||current.result!==null||current.result_digest!==null||current.result_signature!==null))fail('RUNNER_COLLECTION_CHANGED','Exact native-claimed unresolved job required');
+ if(!current||current.state!==expectedState||current.claim_id!==claim_id||current.executor_credential_id!==s.credential_id)fail('RUNNER_CLAIM_CHANGED','Current owned execution claim required for final links');
+ const references:Array<{role:string;ref:Record<string,any>}>=[{role:'stdout',ref:result.stdout as Record<string,any>},{role:'stderr',ref:result.stderr as Record<string,any>},{role:'native_receipt',ref:result.native_receipt as Record<string,any>}];
+ for(const ref of result.artifacts as Record<string,any>[])references.push({role:'artifact:'+hash(String(ref.path)).slice(7),ref});
+ for(const {role,ref} of references)await tx.query('INSERT INTO hyperfide.runner_result_artifacts(organisation_id,run_id,operation_id,role,artifact_id,artifact_digest,content_digest,size_bytes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[row.organisation_id,row.run_id,row.operation_id,role,ref.artifact_id,ref.storage_kind==='manifest'?ref.manifest_digest:ref.digest,ref.digest,ref.size_bytes]);
+ const update=await tx.query("UPDATE hyperfide.runner_remote_jobs SET state=$6,result=$7,result_digest=$8,result_signature=$9,completed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND state=$10 AND result IS NULL AND pre_provider_refusal_id IS NULL",[row.organisation_id,row.run_id,row.operation_id,claim_id,s.credential_id,result.outcome==='UNKNOWN'?'UNKNOWN':'COMPLETED',JSON.stringify(result),result_digest,result_signature,expectedState]);if(update.rowCount!==1)fail('RUNNER_CLAIM_CHANGED','Execution claim no longer belongs to this executor');});
+ if(result.outcome==='UNKNOWN')unknown++;else completed++;
+ }
  async function execute(row:Job,s:Signer):Promise<void>{
  let refs:Readonly<Record<string,string>>;
  try{refs=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},tx=>taskEnvReferences(tx as PrimaryTransaction,row.organisation_id,row.plan.binding.pool_id,row.plan.env_refs));}
@@ -311,24 +330,41 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
   workspaces.refused++;await settle(row,code);return;}
  const request=jobRequest(row,refs,cwd),i=await authenticate(authority,s,row.run_id,row.authority_epoch,request,signal);
  const claim_id=await claim(row,s,i,launch);if(!claim_id)return;
- active++;
+ active++;let phase='PROVIDER';
  try{const observed=await provider.executeBound(request,signal,i);
- if(!observed.captured||typeof observed.process_ref!=='string'||!observed.process_ref||!digest(observed.evidence_digest))fail('RUNNER_PROVIDER_CAPTURE_MISSING','Actual provider process and captured native receipt required');
- const decoded=decodeNative(observed.captured);validateReceipt(row,decoded.receipt);
- const result=await persistableResult(store,i,row,observed,decoded),result_digest=hash(runnerCanonical(result)),result_signature=sign(null,runnerResultSigningBytes(row.organisation_id,row.run_id,row.operation_id,row.plan_digest,result_digest),s.key).toString('base64url');
- await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal,guard:tx=>i.guard(tx)},async tx=>{
- const current=(await tx.query('SELECT state,claim_id,executor_credential_id FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[row.organisation_id,row.run_id,row.operation_id])).rows[0];
- if(!current||current.state!=='CLAIMED'||current.claim_id!==claim_id||current.executor_credential_id!==s.credential_id)fail('RUNNER_CLAIM_CHANGED','Current owned execution claim required for final links');
- const references:Array<{role:string;ref:Record<string,any>}>=[{role:'stdout',ref:result.stdout as Record<string,any>},{role:'stderr',ref:result.stderr as Record<string,any>},{role:'native_receipt',ref:result.native_receipt as Record<string,any>}];
- for(const ref of result.artifacts as Record<string,any>[])references.push({role:'artifact:'+hash(String(ref.path)).slice(7),ref});
- for(const {role,ref} of references)await tx.query('INSERT INTO hyperfide.runner_result_artifacts(organisation_id,run_id,operation_id,role,artifact_id,artifact_digest,content_digest,size_bytes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[row.organisation_id,row.run_id,row.operation_id,role,ref.artifact_id,ref.storage_kind==='manifest'?ref.manifest_digest:ref.digest,ref.digest,ref.size_bytes]);
- const update=await tx.query("UPDATE hyperfide.runner_remote_jobs SET state=$6,result=$7,result_digest=$8,result_signature=$9,completed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND state='CLAIMED'",[row.organisation_id,row.run_id,row.operation_id,claim_id,s.credential_id,result.outcome==='UNKNOWN'?'UNKNOWN':'COMPLETED',JSON.stringify(result),result_digest,result_signature]);if(update.rowCount!==1)fail('RUNNER_CLAIM_CHANGED','Execution claim no longer belongs to this executor');});
- if(result.outcome==='UNKNOWN')unknown++;else completed++;
- }catch(error){unknown++;last_error=object(error)&&typeof error.code==='string'?error.code:'RUNNER_EXECUTION_UNKNOWN';
+ phase='COMPLETE';await completeJob(row,s,i,observed,claim_id,'CLAIMED');
+ }catch(error){unknown++;last_error=diagnostic(error,'RUNNER_EXECUTION_'+phase);
  // A crash or ambiguous commit may leave CLAIMED. Neither this loop nor a
  // replacement process ever executes it again; reconciliation owns it.
  try{await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN',failure_code=CASE WHEN pre_provider_refusal_id IS NULL THEN $6 ELSE failure_code END WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND state='CLAIMED'",[row.organisation_id,row.run_id,row.operation_id,claim_id,s.credential_id,last_error]);});}catch{/* Durable CLAIMED also forbids replay. */}
  }finally{active--;}
+ }
+ async function collectUnknown(s:Signer):Promise<boolean>{
+ const collectionSignal=AbortSignal.any([signal,AbortSignal.timeout(90000)]);
+ let phase='SELECT',lease_id=randomUUID(),row:Job|undefined;
+ try{
+ row=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal:collectionSignal},async tx=>{
+  const p=(await tx.query('SELECT p.*,r.authority_epoch,r.state AS run_state,clock_timestamp() AS db_now FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1 FOR SHARE OF p,r',[s.credential_id])).rows[0];
+  if(!currentSigner(p,s))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Current configured provisioner required for result collection');
+  const candidate=(await tx.query("SELECT j.*,o.operation AS provider_operation,o.request_digest AS provider_request_digest FROM hyperfide.runner_remote_jobs j JOIN hyperfide.provider_remote_operations o ON o.organisation_id=j.organisation_id AND o.run_id=j.run_id AND o.id=j.operation_id AND o.session_id=j.session_id AND o.sandbox_id=(j.plan->'binding'->>'sandbox_id')::uuid AND o.boot_generation=(j.plan->'binding'->>'boot_generation')::bigint LEFT JOIN hyperfide.runner_result_collections c ON c.organisation_id=j.organisation_id AND c.run_id=j.run_id AND c.operation_id=j.operation_id WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.authority_epoch=$3 AND j.executor_credential_id=$4 AND j.state='UNKNOWN' AND j.claim_id IS NOT NULL AND j.native_claimed_at IS NOT NULL AND j.pre_provider_refusal_id IS NULL AND j.result IS NULL AND j.result_digest IS NULL AND j.result_signature IS NULL AND o.process_claimed AND o.native_process_ref IS NOT NULL AND (c.operation_id IS NULL OR (c.lease_until<=clock_timestamp() AND c.next_poll_at<=clock_timestamp())) ORDER BY COALESCE(c.next_poll_at,j.claimed_at),j.operation_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED",[p.organisation_id,p.run_id,p.deployment_epoch,s.credential_id])).rows[0];
+  if(!candidate)return undefined;
+  const lease=await tx.query("INSERT INTO hyperfide.runner_result_collections(organisation_id,run_id,operation_id,claim_id,executor_credential_id,lease_id,lease_until,next_poll_at,attempts) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '120 seconds',clock_timestamp()+interval '5 seconds',1) ON CONFLICT(organisation_id,run_id,operation_id) DO UPDATE SET lease_id=EXCLUDED.lease_id,lease_until=EXCLUDED.lease_until,next_poll_at=EXCLUDED.next_poll_at,attempts=hyperfide.runner_result_collections.attempts+1 WHERE hyperfide.runner_result_collections.claim_id=EXCLUDED.claim_id AND hyperfide.runner_result_collections.executor_credential_id=EXCLUDED.executor_credential_id AND hyperfide.runner_result_collections.lease_until<=clock_timestamp() AND hyperfide.runner_result_collections.next_poll_at<=clock_timestamp() RETURNING lease_id",[candidate.organisation_id,candidate.run_id,candidate.operation_id,candidate.claim_id,s.credential_id,lease_id]);
+  return lease.rowCount===1?candidate as Job:undefined;
+ });
+ if(!row)return false;
+ phase='REQUEST';
+ if(hash(runnerCanonical(row.plan))!==row.plan_digest||!object(row.provider_operation)||!object(row.provider_operation.parameters))fail('RUNNER_COLLECTION_REQUEST_CHANGED','Exact retained plan and provider request required');
+ const parameters=row.provider_operation.parameters;
+ const request=boundRequest(row.plan.binding,row.operation_id,parameters.argv as string[],parameters.process_timeout_ms as number,parameters.env_refs as Record<string,string>);
+ request.cwd=parameters.cwd as string;
+ if(parameters.env_ref_versions!==undefined)request.env_ref_versions=parameters.env_ref_versions as Record<string,string>;
+ if(digestDocument(request)!==row.provider_request_digest)fail('RUNNER_COLLECTION_REQUEST_CHANGED','Retained provider request digest differs');
+ phase='AUTHENTICATE';const i=await authenticate(authority,s,row.run_id,row.authority_epoch,request,collectionSignal);
+ phase='OBSERVE';const observed=await provider.reconcileBound(request,collectionSignal,i,lease_id);
+ if(observed){phase='COMPLETE';await completeJob(row,s,i,observed,row.claim_id!,'UNKNOWN',lease_id);}
+ return true;
+ }catch(error){last_error=diagnostic(error,'RUNNER_COLLECTION_'+phase);return !!row;}
+ finally{if(row)await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_result_collections SET lease_until=clock_timestamp(),next_poll_at=clock_timestamp()+interval '5 seconds' WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND lease_id=$4",[row!.organisation_id,row!.run_id,row!.operation_id,lease_id]);}).catch(error=>{last_error=diagnostic(error,'RUNNER_COLLECTION_RELEASE');});}
  }
  async function fleetLaunch(s:Signer):Promise<boolean>{
  const delivery=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},async tx=>{
@@ -367,8 +403,8 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const request=controlRequest(target.binding,input),proof=await authenticate(authority,s,target.run_id,target.authority_epoch,request,signal);
  await native.invokeNativeRunner(proof,input,signal);return true;
  }
- async function worker(index:number):Promise<void>{let cursor=index;while(!signal.aborted){let found=false;
- try{for(let count=0;count<config.signers.length&&!signal.aborted;count++){const s=config.signers[cursor++%config.signers.length]!;if(await fleetCompletion(s)){found=true;break;}const row=await next(s);if(row){found=true;await execute(row,s);break;}if(await fleetLaunch(s)){found=true;break;}}}catch(error){last_error=object(error)&&typeof error.code==='string'?error.code:'RUNNER_EXECUTOR_UNAVAILABLE';}
+ async function worker(index:number):Promise<void>{let cursor=index,collectionTurn=false;while(!signal.aborted){let found=false;collectionTurn=!collectionTurn;
+ try{for(let count=0;count<config.signers.length&&!signal.aborted;count++){const s=config.signers[cursor++%config.signers.length]!;if(collectionTurn&&await collectUnknown(s)){found=true;break;}if(await fleetCompletion(s)){found=true;break;}const row=await next(s);if(row){found=true;await execute(row,s);break;}if(await fleetLaunch(s)){found=true;break;}}}catch(error){last_error=diagnostic(error,'RUNNER_EXECUTOR_TICK');}
  await wait(found?50:500,signal);
  }}
  // Control operations use the same actual provider journal and request proof.
