@@ -6,7 +6,7 @@ import {createPrivateKey,createHash,randomUUID,sign} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {decodeInvoke,signingBytes,canonicalOrigin} from '../../../core/control-plane/dist/transport/protocol.js';
 
-const actions=new Set(['identity.describe','fleet.install.register','fleet.install.admit','fleet.install.status','fleet.install.delivery.pending','fleet.install.delivery.collect','fleet.install.delivery.schedule','fleet.observe','fleet.decision.apply','fleet.session.reason','runner.job.status','runner.stop','runner.cancel','runner.observe']);
+const actions=new Set(['artifact.object.put','identity.describe','fleet.install.register','fleet.install.admit','fleet.install.status','fleet.install.delivery.pending','fleet.install.delivery.collect','fleet.install.delivery.schedule','fleet.observe','fleet.decision.apply','fleet.session.reason','runner.job.status','runner.stop','runner.cancel','runner.observe']);
 const digest=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');
 function demand(value,code){if(!value)throw new Error(code);}
 async function protectedBytes(filename,maximum=4*1024*1024){

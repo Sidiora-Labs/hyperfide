@@ -116,11 +116,17 @@ interface PreparationIntentRows {
  task:Record<string,any>|undefined;accepted:boolean;policy:Record<string,any>|undefined;
  proof:Awaited<ReturnType<typeof loadProofObligationsBatch>>[number]|undefined;profiles:Map<string,Record<string,any>>;now:Date;
 }
+export type PreparationPurpose='CODING'|'QUALIFICATION';
+export function acceptedPreparationProfile(definition:unknown,purpose:PreparationPurpose|undefined):string{
+ if(purpose!==undefined&&purpose!=='CODING'&&purpose!=='QUALIFICATION')return refuse('INVALID_REQUEST','Known preparation purpose required');
+ const independent=object(definition)&&(Object.hasOwn(definition,'qualification_environment_profile_id')||object(definition.section)&&object(definition.section.fields)&&Object.hasOwn(definition.section.fields,'qualification_environment_profile_id'));
+ return uuid(purpose==='QUALIFICATION'&&independent?definitionField(definition,'qualification_environment_profile_id'):definitionField(definition,'environment_profile_id'));
+}
 /** Accepted physical preparation demand, independent of a not-yet-created executor. */
-export async function loadPreparationIntent(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_id:string;profile_id?:string}){
+export async function loadPreparationIntent(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_id:string;profile_id?:string;purpose?:PreparationPurpose}){
  return resolvePreparationIntent(tx,input);
 }
-async function resolvePreparationIntent(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_id:string;profile_id?:string},loaded?:PreparationIntentRows){
+async function resolvePreparationIntent(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_id:string;profile_id?:string;purpose?:PreparationPurpose},loaded?:PreparationIntentRows){
  assertPrimaryTransaction(tx);await readSemanticDisposition(tx,input);await ready(tx);
  const org=uuid(input.organisation_id),run=uuid(input.run_id),taskId=uuid(input.task_id);
  const tasks=loaded?{rows:loaded.task?[loaded.task]:[]}:await tx.query('SELECT id,spec_revision_id,spec_generation::text,criteria_digest,definition FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[org,run,taskId]);
@@ -130,7 +136,7 @@ async function resolvePreparationIntent(tx:PrimaryTransaction,input:{organisatio
  const policyRows=loaded?{rows:loaded.policy?[loaded.policy]:[]}:await tx.query('SELECT policy_digest FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[org,run]);
  if(!policyRows.rows[0])return refuse('RUN_UNAVAILABLE','Accepted preparation intent requires a current run');
  const policyDigest=digest(policyRows.rows[0].policy_digest);
- const profileId=uuid(definitionField(task.definition,'environment_profile_id'));
+ const profileId=acceptedPreparationProfile(task.definition,input.purpose);
  if(input.profile_id!==undefined&&uuid(input.profile_id)!==profileId)return refuse('ENVIRONMENT_PROFILE_MISMATCH','Requested profile differs from accepted task intent');
  if(loaded?.proof?.error_code)return refuse(loaded.proof.error_code,'Exact accepted proof validation refused the task');
  const proof:unknown=loaded?loaded.proof?.proof:await proofObligations(tx,{organisation_id:org,run_id:run,task_id:taskId,spec_generation:task.spec_generation,spec_revision_id:task.spec_revision_id});
@@ -145,7 +151,7 @@ async function resolvePreparationIntent(tx:PrimaryTransaction,input:{organisatio
 
 export interface PreparationIntentResult {task_id:string;intent?:Awaited<ReturnType<typeof loadPreparationIntent>>;error_code?:string}
 /** Bounded same-run reads retain the single-task validators and per-task refusal semantics. */
-export async function loadPreparationIntents(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_ids:string[]}):Promise<PreparationIntentResult[]>{
+export async function loadPreparationIntents(tx:PrimaryTransaction,input:{organisation_id:string;run_id:string;task_ids:string[];purpose?:PreparationPurpose}):Promise<PreparationIntentResult[]>{
  assertPrimaryTransaction(tx);await readSemanticDisposition(tx,input);await ready(tx);
  const org=uuid(input.organisation_id),run=uuid(input.run_id);
  if(!Array.isArray(input.task_ids)||input.task_ids.length>100||new Set(input.task_ids).size!==input.task_ids.length)return refuse('INVALID_REQUEST','At most100 unique same-run task intents may be loaded together');
@@ -155,12 +161,12 @@ export async function loadPreparationIntents(tx:PrimaryTransaction,input:{organi
  FROM hyperfide.tasks t WHERE t.organisation_id=$1 AND t.run_id=$2 AND t.id=ANY($3::uuid[]) ORDER BY t.id FOR SHARE OF t`,[org,run,ids])).rows;
  const policy=(await tx.query('SELECT policy_digest,clock_timestamp() AS now FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[org,run])).rows[0];
  const profileIds=new Set<string>();
- for(const task of tasks){try{profileIds.add(uuid(definitionField(task.definition,'environment_profile_id')));}catch{/* The shared resolver reports this task's exact error in its original validation order. */}}
+ for(const task of tasks){try{profileIds.add(acceptedPreparationProfile(task.definition,input.purpose));}catch{/* The shared resolver reports this task's exact error in its original validation order. */}}
  const profiles=new Map((await tx.query('SELECT id,content_digest,manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND id=ANY($2::uuid[])',[org,[...profileIds]])).rows.map(row=>[row.id,row]));
  const proofs=await loadProofObligationsBatch(tx as unknown as PrimaryClient,tasks.map(task=>({organisation_id:org,run_id:run,task_id:task.id as string,spec_revision_id:task.spec_revision_id as string,spec_generation:task.spec_generation as string})));
  const out:PreparationIntentResult[]=[];
  for(const task_id of ids){const task=tasks.find(row=>row.id===task_id);
-  try{out.push({task_id,intent:await resolvePreparationIntent(tx,{organisation_id:org,run_id:run,task_id},{task,accepted:task?.accepted_revision===true,policy,proof:proofs.find(row=>row.task_id===task_id),profiles,now:policy?.now as Date})});}
+  try{out.push({task_id,intent:await resolvePreparationIntent(tx,{organisation_id:org,run_id:run,task_id,...(input.purpose!==undefined?{purpose:input.purpose}:{})},{task,accepted:task?.accepted_revision===true,policy,proof:proofs.find(row=>row.task_id===task_id),profiles,now:policy?.now as Date})});}
   catch(error){out.push({task_id,error_code:error instanceof FoundationError?error.code:'PREPARATION_INTENT_UNAVAILABLE'});}
  }
  return out;

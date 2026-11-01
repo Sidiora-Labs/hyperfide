@@ -60,3 +60,11 @@ exit_code = 0
 log = "build/fleet/integration/private/archive-registration-component-receipt.json"
 observed = "Actual Unix worker execution, signed completion and native STOP passed through production APIs. Archive registration retried a pre-execution failure and reconciled a lost response without duplicate producer execution. Independent artifact reads verified the archive digest and changed file bytes. Exact signed worker and STOP output references were retained in both archive custody and assurance semantics, and active custody prevented collection."
 assumption = "The fixture uses isolated PostgreSQL and a pinned SDK HTTP transport backed by actual Unix processes. Prior registration and installation records are declared inputs. It does not establish live provider execution or model-selected work."
+
+[progress.fleet_manager_profiles_and_install_recovery]
+revision = "control-source sha256:481d6bdd1fbcd0dac8f4411d2ffd1c46df68821f88d0a76c62cd4636d4f4e19c"
+command = "Control build; fleet_manager_replacement.py; fleet_agent_resource_phases.py; fleet_preparation_intent_batch.py; fleet_install_interrupted.py; 0_10.py"
+exit_code = 0
+log = "build/fleet/manager-replacement/receipt.json; build/fleet/integration/private/qualification-profile-selector-component-receipt.json; build/fleet/integration/fleet-install-interrupted-final68.log"
+observed = "Catalog 68 build passed. Signed API/PostgreSQL tests exercised handoff-scoped acknowledgement, committed replay, denied credential misuse and former-owner re-enrollment. Phase admission preserved separate AGENT and TEST capacity. Independent qualification profiles passed strict selection and wrong-pool refusal tests. The native install gate performed actual SIGKILL, signed FAILED and quiescence, a new linked recovery execution and final READY collection while preserving original source and stage history. Contract parser/index checks passed 21 cases."
+assumption = "These isolated execution and authority gates retain declared initial metadata and exact runtime pins. Model-selected cloud execution and the full recovery campaign retain separate live evidence."

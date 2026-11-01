@@ -183,6 +183,7 @@ export function taskDefinitions(parsed:KvxDocument):{section:KvxSection;key:stri
  const offset=parsed.sections.some(section=>section.name.startsWith('task.')&&value(section,'wave')===0)?1:0;
  return parsed.sections.filter(section=>section.name.startsWith('task.')).map(section=>{
   const key=section.name.slice(5),declared_wave=value(section,'wave')??null;
+  if(Object.hasOwn(section.fields,'qualification_environment_profile_id')&&!id(value(section,'qualification_environment_profile_id')))fail('SPEC_INVALID','Qualification environment profile must be an explicit UUID');
   if(!key||key.length>255)fail('SPEC_INVALID','Task identity is outside storage bounds');
   const explicit=value(section,'feature');
   const prefix=key.split('.')[0]!;

@@ -48,6 +48,8 @@ Call component `16.1`, action `submission.archive.register`, with the exact orga
 
 The environment profile's `recipe` pins JSON with kind `hyperfide.preparation-policy`. The executable installer is separately pinned in the bootstrap recipe. For profile schema 2, provide a complete `result_preparation.inputs` origin map and exact retained `profile_pin_artifacts` references for `PROFILE_ARTIFACT` entries when planning RESULT_INPUTS preparation. Accepted profile revisions keep these external inputs distinct from repository-owned source pins.
 
+The protected `HF_RUNNER_PREPARATION_RECIPES_FILE` is independently pinned by `HF_RUNNER_PREPARATION_RECIPES_DIGEST`. Policy schema 1 selects a unique organisation/run/authority entry. Schema 2 adds an exact `pool_id` to each entry, allowing coding and independent TEST pools to share a base profile while using separate approved recipes. Selection uses the runner's current sandbox pool and boot; the caller cannot select another pool's recipe. Roll out changed policy pins together with the affected native bootstrap registrations.
+
 After installing the release and applying its trusted migrations, validate the protected configuration with the release's supervisor entrypoint:
 
 ```sh

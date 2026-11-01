@@ -1,6 +1,6 @@
 """Live prerequisite qualification reads authoritative PostgreSQL; archives and component checks grant no completion."""
 from pathlib import Path
-import argparse,hashlib,json,os,re,stat,subprocess
+import argparse,base64,datetime,hashlib,json,os,re,stat,subprocess
 ROOT=Path(__file__).resolve().parents[3]
 INSTALL_CASES=('fresh_install','repeated_install','interrupted_install','missing_code','missing_dependencies','missing_configuration','stale_install','path_escape','concurrent_isolation','interface_subset','fetch_volume')
 MODEL_CASES=('co_located_models','model_delegation','model_replan','constraint_refusal','supervisor_box_loss','stale_generation_replay','model_unavailability')
@@ -12,6 +12,14 @@ def require(condition,code):
  if not condition:raise Refused(code)
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()
 def digest(value):return 'sha256:'+hashlib.sha256(value if isinstance(value,bytes) else canonical(value)).hexdigest()
+def unavailable_model_response(body, reasoning, allowed_codes):
+ require(isinstance(body,dict),'ACTUAL_MODEL_FAILURE_CAPTURE_REQUIRED')
+ if body.get('ok') is True:
+  result=body.get('result',{})
+  require(isinstance(result,dict) and reasoning.get('state')=='WAITING_FOR_MANAGER' and result.get('state')=='WAITING_FOR_MANAGER' and result.get('operation_id')==reasoning.get('id') and result.get('reason')==reasoning.get('reason') and result.get('reason') in allowed_codes and result.get('deterministic_fallback') is False,'ACTUAL_MODEL_FAILURE_CAPTURE_REQUIRED')
+ else:
+  require(body.get('ok') is False and body.get('error',{}).get('code') in allowed_codes,'ACTUAL_MODEL_FAILURE_CAPTURE_REQUIRED')
+
 def private_json(filename):
  p=Path(filename);s=p.lstat();require(p.resolve()==p.absolute() and stat.S_ISREG(s.st_mode) and s.st_uid==os.getuid() and s.st_mode&0o077==0 and s.st_nlink==1 and 0<s.st_size<=4*1024*1024,'PRIVATE_EVIDENCE_REQUIRED')
  return json.loads(p.read_bytes())
@@ -24,7 +32,7 @@ COLUMNS={
  'fleet_cohorts':'id,host_id,authority_epoch,leader_session_id,leader_generation,cohort_generation,controller_identity',
  'fleet_actor_sessions':'session_id,actor_role,cohort_id,cohort_generation,manager_generation,native_session_id,process_identity,plan_generation,state',
  'fleet_observations':'id,actor_id,cohort_generation,context_digest,body,created_at',
- 'fleet_reasoning':'id,actor_id,observation_id,state,result,created_at',
+ 'fleet_reasoning':'id,actor_id,observation_id,state,reason,result,created_at',
  'fleet_decisions':'id,operation_id,actor_id,action,reasoning_id,payload_digest,body,created_at',
  'fleet_effect_receipts':'operation_id,decision_id,payload_digest,result,created_at',
  'fleet_delegations':'package_id,manager_session_id,manager_generation,leader_generation,budget,decision_id',
@@ -47,7 +55,7 @@ COLUMNS={
  'qualification_jobs':'id,custody_id,custody_generation,state,outcome,lease_generation,rubric_digest',
  'assurance_job_receipts':'job_id,lease_generation,verifier_id,environment_digest,receipt,receipt_digest,receipt_artifact_id',
  'assurance_check_intents':'job_id,lease_generation,check_id,operation_id,session_id,plan_digest,plan',
- 'artifacts':'id,digest,size_bytes,status,completed_at',
+ 'artifacts':'organisation_id,run_id,id,digest,size_bytes,storage_backend,status,completed_at',
  'command_inbox':'id,operation,idempotency_key,request_digest,state,result',
 }
 NODE_SNAPSHOT=r"""
@@ -131,6 +139,71 @@ def captured_case(name,case,target,evidence_root):
  for key in ref.get('json_path',[]):require(isinstance(key,str) and isinstance(capture,dict) and key in capture,'CAPTURE_JSON_PATH_REFUSED');capture=capture[key]
  return capture
 
+def evidence_time(value):
+ require(isinstance(value,str),'PROVIDER_TERMINATION_TIME_REQUIRED')
+ try:parsed=datetime.datetime.fromisoformat(value.replace('Z','+00:00'))
+ except ValueError:raise Refused('PROVIDER_TERMINATION_TIME_REQUIRED')
+ require(parsed.tzinfo is not None,'PROVIDER_TERMINATION_TIME_REQUIRED');return parsed
+
+def provider_recovery_timeline(before,after,bounds):
+ require(evidence_time(before['created_at'])<=bounds['old_measurement'] and bounds['removed']<=evidence_time(after['created_at']) and bounds['new_measurement']<=evidence_time(after['created_at']) and bounds['replacement']<=evidence_time(after['created_at']),'PROVIDER_RECOVERY_OBSERVATION_ORDER_REQUIRED')
+
+def provider_fault_custody(capture,rows,target,evidence_root):
+ core=capture.get('physical_proof');require(isinstance(core,dict) and core.get('schema_version')==1 and core.get('kind')=='FLEET_PROVIDER_FAULT_PROOF_V1','PROVIDER_FAULT_CORE_REQUIRED')
+ fields=('case','organisation_id','run_id','authority_epoch','source_object_id','before_observation_id','after_observation_id','coding_command_id','launch_id','fault_event_id','fault_observed_at','process_observations')
+ require(all(core.get(k)==capture.get(k) for k in fields) and core.get('organisation_id')==target['organisation_id'] and core.get('run_id')==target['run_id'],'PROVIDER_FAULT_CORE_BINDING_REQUIRED')
+ try:
+  envelope=json.loads(base64.b64decode(capture.get('body_base64',''),validate=True));payload=json.loads(base64.urlsafe_b64decode(envelope['payload_b64']+'='*((-len(envelope['payload_b64']))%4)));input=payload['input'];raw=base64.b64decode(input['data_base64'],validate=True)
+ except (ValueError,TypeError,KeyError):raise Refused('SIGNED_PROVIDER_ARTIFACT_REQUEST_REQUIRED')
+ require(payload.get('component')=='15.2' and payload.get('action')=='artifact.object.put' and input.get('organisation_id')==target['organisation_id'] and input.get('run_id')==target['run_id'] and raw==canonical(core) and input.get('digest')==digest(raw) and input.get('size_bytes')==str(len(raw)),'SIGNED_PROVIDER_ARTIFACT_REQUEST_REQUIRED')
+ result=capture.get('response',{}).get('body',{}).get('result',{});artifact=result.get('artifact',{});matches=[a for a in rows['artifacts'] if a['id']==artifact.get('artifact_id') and a['organisation_id']==target['organisation_id'] and a['run_id']==target['run_id']]
+ require(result.get('outcome')=='SUCCEEDED' and result.get('availability')=='VERIFIED' and len(matches)==1 and matches[0]['status']=='COMPLETE' and matches[0].get('completed_at') is not None and matches[0]['storage_backend']=='s3-v1' and matches[0]['digest']==digest(raw) and str(matches[0]['size_bytes'])==str(len(raw)),'COMPLETE_PROVIDER_FAULT_ARTIFACT_REQUIRED')
+ proof=core['process_observations'].get('old_process_absence',{});references=[proof.get(k) for k in ('old_measurement','new_measurement','before_provider','after_old_provider','after_new_provider','restart_receipt')];blobs=core.get('evidence_blobs',{})
+ require(isinstance(blobs,dict) and all(isinstance(ref,dict) for ref in references) and set(blobs)=={ref.get('path') for ref in references},'PROVIDER_FAULT_CLOSURE_REQUIRED')
+ for ref in references:
+  relative=Path(ref.get('path',''));require(not relative.is_absolute() and '..' not in relative.parts,'PROVIDER_FAULT_CLOSURE_REQUIRED');filename=Path(evidence_root)/relative;private_json(filename)
+  try:blob=base64.b64decode(blobs[ref['path']],validate=True)
+  except (ValueError,TypeError,KeyError):raise Refused('PROVIDER_FAULT_CLOSURE_REQUIRED')
+  require(blob==filename.read_bytes() and digest(blob)==ref.get('digest'),'PROVIDER_FAULT_CLOSURE_REQUIRED')
+ return matches[0]
+
+def railway_instance_absence(physical,capture,target,evidence_root,name='supervisor_box_loss'):
+ """Exact provider REMOVED proves loss of the old container namespace, which a replacement cannot probe with kill(0).
+ A restart ACK, changed PID or missing list entry is insufficient. Read time is an upper bound, never a termination timestamp.
+ Physical event identity may be shared by explicit supervisor and manager cases; this does not claim separate failures.
+ """
+ proof=physical.get('old_process_absence',{});pin=target.get('fault_drivers',{}).get(name,{});scope=pin.get('provider_scope',{})
+ require(proof.get('kind')=='RAILWAY_INSTANCE_TERMINATION_V1' and scope.get('provider')=='railway' and all(isinstance(scope.get(k),str) and scope[k] for k in ('project_id','environment_id','service_id','api_origin')),'PROVIDER_TERMINATION_SCOPE_REQUIRED')
+ require(scope['api_origin'] in ('https://backboard.railway.app','https://backboard.railway.com') and DIGEST.fullmatch(pin.get('provider_collector_digest','')),'PROVIDER_TERMINATION_COLLECTOR_REQUIRED')
+ require(set(proof)=={'kind','identity','old_measurement','new_measurement','before_provider','after_old_provider','after_new_provider','restart_receipt'},'PROVIDER_TERMINATION_FIELDS_REQUIRED')
+ def evidence(ref):
+  require(isinstance(ref,dict) and DIGEST.fullmatch(ref.get('digest','')),'PROVIDER_TERMINATION_EVIDENCE_REQUIRED')
+  relative=Path(ref.get('path',''));require(not relative.is_absolute() and '..' not in relative.parts and str(relative) not in ('','.'),'PROVIDER_TERMINATION_PATH_REFUSED')
+  filename=Path(evidence_root)/relative;record=private_json(filename);require(digest(filename.read_bytes())==ref['digest'] and isinstance(record,dict),'PROVIDER_TERMINATION_DIGEST_MISMATCH');return record
+ clock=evidence_time
+ def measured(ref):
+  record=evidence(ref);body=record.get('body',{});require(isinstance(body,dict),'ACTUAL_MAIN_IDENTITY_REQUIRED');process=body.get('process',{});require(isinstance(process,dict),'ACTUAL_MAIN_IDENTITY_REQUIRED')
+  require(record.get('exit_code')==0 and isinstance(process.get('pid'),int) and process['pid']>0 and isinstance(process.get('start_time_ticks'),str) and process['start_time_ticks'].isdigit() and process.get('uid')==scope.get('main_uid') and isinstance(scope.get('main_uid'),int) and scope['main_uid']>0,'ACTUAL_MAIN_IDENTITY_REQUIRED')
+  require(all(isinstance(body.get(k),str) and body[k] for k in ('kernel_boot_id','railway_replica_id','railway_deployment_id','observed_at')),'ACTUAL_MAIN_IDENTITY_REQUIRED')
+  return {**process,**{k:body[k] for k in ('kernel_boot_id','railway_replica_id','railway_deployment_id','observed_at')}}
+ old=measured(proof.get('old_measurement'));new=measured(proof.get('new_measurement'))
+ require(physical.get('old_identity')==old and physical.get('new_identity')==new and proof.get('identity')==old and old['railway_replica_id']!=new['railway_replica_id'],'PROVIDER_TERMINATION_IDENTITY_MISMATCH')
+ def provider(ref,identity,status):
+  record=evidence(ref);response=record.get('response',{});request=record.get('request',{})
+  require(record.get('schema_version')==1 and record.get('kind')=='RAILWAY_DEPLOYMENT_INSTANCE_OBSERVATION_V1' and record.get('driver_digest')==pin['provider_collector_digest'] and record.get('origin')==scope['api_origin'] and request.get('variables')=={'id':identity['railway_deployment_id']} and isinstance(request.get('query'),str) and request['query'].lstrip().startswith('query') and response.get('http_status')==200,'AUTHENTICATED_PROVIDER_INSTANCE_READ_REQUIRED')
+  try:raw=base64.b64decode(response.get('body_base64',''),validate=True);body=json.loads(raw)
+  except (ValueError,TypeError):raise Refused('PROVIDER_RESPONSE_CUSTODY_MISMATCH')
+  require(raw and isinstance(body,dict) and digest(raw)==response.get('body_digest') and body==response.get('body') and not body.get('errors'),'PROVIDER_RESPONSE_CUSTODY_MISMATCH')
+  require(isinstance(body,dict) and isinstance(body.get('data'),dict),'PROVIDER_RESPONSE_CUSTODY_MISMATCH');deployment=body['data'].get('deployment',{});require(isinstance(deployment,dict),'PROVIDER_RESPONSE_CUSTODY_MISMATCH')
+  require(deployment.get('id')==identity['railway_deployment_id'] and deployment.get('projectId')==scope['project_id'] and deployment.get('environmentId')==scope['environment_id'] and deployment.get('serviceId')==scope['service_id'],'PROVIDER_INSTANCE_SCOPE_MISMATCH')
+  instances=deployment.get('instances');require(isinstance(instances,list) and all(isinstance(item,dict) for item in instances),'EXACT_PROVIDER_INSTANCE_STATE_REQUIRED');matches=[item for item in instances if item.get('id')==identity['railway_replica_id']]
+  require(len(matches)==1 and matches[0].get('status')==status,'EXACT_PROVIDER_INSTANCE_STATE_REQUIRED');return clock(record.get('observed_at'))
+ before=provider(proof.get('before_provider'),old,'RUNNING');removed=provider(proof.get('after_old_provider'),old,'REMOVED');replacement=provider(proof.get('after_new_provider'),new,'RUNNING')
+ restart=evidence(proof.get('restart_receipt'));requested=clock(restart.get('requested_at'))
+ require(restart.get('schema_version')==1 and restart.get('action')=='railway.deployment.restart' and restart.get('state')=='ACKNOWLEDGED' and restart.get('exit_code')==0 and restart.get('launch_id')==capture.get('launch_id') and isinstance(restart.get('local_operation_id'),str) and restart.get('local_operation_id')==capture.get('fault_event_id') and restart.get('scope')=={k:scope[k] for k in ('project_id','environment_id','service_id')},'BOUND_PROVIDER_RESTART_REQUIRED')
+ require(clock(old['observed_at'])<=before<requested<=removed and requested<=clock(new['observed_at'])<=replacement and clock(capture.get('fault_observed_at'))==removed,'PROVIDER_TERMINATION_ORDER_REQUIRED')
+ return {'old_measurement':clock(old['observed_at']),'removed':removed,'new_measurement':clock(new['observed_at']),'replacement':replacement}
+
 def case_oracle(name,case,rows,target,evidence_root,index):
  capture=captured_case(name,case,target,evidence_root)
  # Captures retain fault provenance; authoritative effects and native outcomes come from PostgreSQL.
@@ -176,7 +249,10 @@ def case_oracle(name,case,rows,target,evidence_root,index):
   if name=='supervisor_box_loss':require(int(after['cohort_generation'])>int(before['cohort_generation']),'RECOVERED_COHORT_FENCE_REQUIRED')
   else:require(old_binding.get('delegation_id')==new_binding.get('delegation_id') and int(new_binding['manager_generation'])>int(old_binding['manager_generation']),'RECOVERED_MANAGER_FENCE_REQUIRED')
   physical=capture.get('process_observations',{});old=physical.get('old_identity',{});new=physical.get('new_identity',{})
-  require(old and new and old!=new and old.get('kernel_boot_id') and new.get('kernel_boot_id') and physical.get('old_process_absence',{}).get('errno')=='ESRCH' and physical['old_process_absence'].get('identity')==old,'PHYSICAL_OLD_PROCESS_ABSENCE_REQUIRED')
+  require(old and new and old!=new and old.get('kernel_boot_id') and new.get('kernel_boot_id'),'PHYSICAL_OLD_PROCESS_ABSENCE_REQUIRED')
+  if physical.get('old_process_absence',{}).get('kind')=='RAILWAY_INSTANCE_TERMINATION_V1':
+   provider_fault_custody(capture,rows,target,evidence_root);bounds=railway_instance_absence(physical,capture,target,evidence_root,name);provider_recovery_timeline(before,after,bounds)
+  else:require(physical.get('old_process_absence',{}).get('errno')=='ESRCH' and physical['old_process_absence'].get('identity')==old,'PHYSICAL_OLD_PROCESS_ABSENCE_REQUIRED')
   decisions=[d for d in rows['fleet_decisions'] if d['actor_id']==after['actor_id'] and one(rows['fleet_reasoning'],'id',d['reasoning_id'])['observation_id']==after['id']]
   require(any(any(e['decision_id']==d['id'] for e in rows['fleet_effect_receipts']) for d in decisions),'RECOVERED_MODEL_EFFECT_REQUIRED')
   if name=='supervisor_box_loss':
@@ -201,7 +277,7 @@ def case_oracle(name,case,rows,target,evidence_root,index):
  elif name=='model_unavailability':
   fault_driver(name,case,rows,target,evidence_root,capture)
   reason=one(rows['fleet_reasoning'],'id',case.get('reasoning_id'));require(reason['state'] in ('UNKNOWN','WAITING_FOR_MANAGER') and not any(d['reasoning_id']==reason['id'] for d in rows['fleet_decisions']),'UNAVAILABLE_MODEL_FALLBACK_EFFECT')
-  require(capture.get('response',{}).get('body',{}).get('error',{}).get('code') in target.get('case_error_codes',{}).get(name,[]),'ACTUAL_MODEL_FAILURE_CAPTURE_REQUIRED')
+  unavailable_model_response(capture.get('response',{}).get('body',{}),reason,target.get('case_error_codes',{}).get(name,[]))
  elif name in ('failed_worker','worker_cancellation'):
   launch=one(rows['fleet_worker_launches'],'command_id',case.get('command_id'));require(capture==launch['result'],'CASE_FAILED_WORKER_CAPTURE_MISMATCH');require(launch.get('signature_verified') is True and launch['result_digest']==digest(launch['result']),'SIGNED_FAILED_WORKER_RESULT_REQUIRED')
   native=launch['result'].get('native',{});require(native.get('terminal_observed') is True and (native.get('exit_code') not in (None,0) or native.get('state') in ('STOPPED','LEASE_EXPIRED')),'CONFIRMED_WORKER_FAILURE_REQUIRED')

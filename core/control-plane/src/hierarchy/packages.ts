@@ -285,6 +285,52 @@ export async function configureHierarchyPackage(tx:PrimaryTransaction,context:Co
    return {package_id:id,owner_generation:'1',state:'PLANNED',dispatch_authority:false};
 }
 
+export async function proposeHierarchyHandoff(tx:PrimaryTransaction,invocation:ComponentContext,input:unknown):Promise<Record<string,unknown>> {
+ assertPrimaryTransaction(tx);
+  const v=record(input,['idempotency_key','leader_generation','package_ids','expected_generations','successor_id','context','supersedes_handoff_id'],['idempotency_key','leader_generation','package_ids','expected_generations','successor_id','context']);
+  const a=trustedActor(invocation),ids=strings(v.package_ids).map(uuid).sort(),successor=uuid(v.successor_id);
+  const supersedes=v.supersedes_handoff_id===undefined?null:uuid(v.supersedes_handoff_id);
+  if(!ids.length||!object(v.expected_generations)||Object.keys(v.expected_generations).sort().join(',')!==ids.join(','))return refuse('INVALID_REQUEST','Exact package generation map required');
+  const expected=v.expected_generations;for(const id of ids)decimal(expected[id]);
+  const handoff=record(v.context,['summary','decision_refs','pending_instruction_refs','native_session_refs']);
+  text(handoff.summary,16384);strings(handoff.decision_refs);strings(handoff.pending_instruction_refs);strings(handoff.native_session_refs);
+   const generation=decimal(v.leader_generation);
+   await requireAuthority(tx,{...a,leader_generation:generation,roles:['LEADER']});await manager(tx,a,successor);
+   const rows=await packageRows(tx,a,ids);
+   let prior:Snapshot[]=[];
+   if(supersedes){
+    const old=await tx.query('SELECT package_snapshot FROM hyperfide.hierarchy_handoffs WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[a.organisation_id,a.run_id,supersedes]);
+    if(!old.rowCount)return refuse('HANDOFF_UNAVAILABLE','Superseded handoff does not exist');
+    const outcome=await handoffOutcome(tx,a,supersedes);
+    if(outcome)return refuse('HANDOFF_RESOLVED','Superseded handoff is already '+outcome);
+    prior=old.rows[0]!.package_snapshot as Snapshot[];
+    if(prior.some(s=>!ids.includes(s.package_id)))return refuse('HANDOFF_SUPERSEDE_INCOMPLETE','A superseding proposal must cover every package of the pending handoff');
+   }
+   if(rows.some(p=>p.manager_session_id===null))return refuse('PACKAGE_UNASSIGNED','Unassigned packages use hierarchy.package.assign; an idle stable domain uses hierarchy.domain.handoff');
+   const predecessor=rows[0]!.manager_session_id;
+   if(predecessor===successor||rows.some(p=>p.manager_session_id!==predecessor||p.owner_generation!==expected[p.package_id]||['CLOSED','CANCELLED'].includes(p.state)))return refuse('PACKAGE_GENERATION_STALE','Handoff package ownership or generation changed');
+   const covered=(id:string)=>prior.some(s=>s.package_id===id);
+   if(rows.some(p=>p.state==='HANDOFF_PENDING'&&!covered(p.package_id)))return refuse('HANDOFF_ALREADY_PENDING','A package already has an outstanding handoff; withdraw or explicitly supersede it');
+   if(rows.some(p=>p.state!=='HANDOFF_PENDING'&&!HANDOFF_SOURCES.includes(p.state)))return refuse('PACKAGE_STATE_CONFLICT','Only assigned, active, blocked or closing packages can be handed off');
+   await stableComplete(tx,a,rows,ids,'OWNERSHIP_POLICY_CONFLICT','Stable feature handoff must include every current owned package');
+   const tasks=await tx.query('SELECT id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND feature_package_id=ANY($3::uuid[]) ORDER BY id',[a.organisation_id,a.run_id,ids]);
+   const findings=await tx.query("SELECT id FROM hyperfide.findings WHERE organisation_id=$1 AND run_id=$2 AND owner_package_id=ANY($3::uuid[]) ORDER BY id",[a.organisation_id,a.run_id,ids]);
+   const id=randomUUID(),snapshot:Snapshot[]=rows.map(p=>({package_id:p.package_id,owner_generation:p.owner_generation,previous_state:covered(p.package_id)?prior.find(s=>s.package_id===p.package_id)!.previous_state:p.state}));
+   await tx.query('INSERT INTO hyperfide.hierarchy_handoffs(organisation_id,run_id,id,authority_epoch,leader_generation,predecessor_id,successor_id,package_snapshot,task_ids,finding_ids,context) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+    [a.organisation_id,a.run_id,id,a.authority_epoch,generation,predecessor,successor,JSON.stringify(snapshot),JSON.stringify(tasks.rows.map(t=>t.id)),JSON.stringify(findings.rows.map(f=>f.id)),JSON.stringify(handoff)]);
+   if(supersedes){
+    await tx.query("INSERT INTO hyperfide.hierarchy_handoff_resolutions(organisation_id,run_id,handoff_id,resolution,superseded_by,actor_session_id,leader_generation,reason) VALUES($1,$2,$3,'SUPERSEDED',$4,$5,$6,$7)",
+     [a.organisation_id,a.run_id,supersedes,id,a.session_id,generation,'Superseded by a newer handoff proposal']);
+    await event(tx,a,generation,'HANDOFF_SUPERSEDED',{handoff_id:supersedes,superseded_by:id,package_ids:prior.map(s=>s.package_id)});
+   }
+   for(const p of rows.filter(p=>p.state!=='HANDOFF_PENDING')){
+    await tx.query("UPDATE hyperfide.hierarchy_packages SET state='HANDOFF_PENDING',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND package_id=$3",[a.organisation_id,a.run_id,p.package_id]);
+    await transition(tx,a,generation,p.package_id,p.state,'HANDOFF_PENDING',p.owner_generation,'HANDOFF_PROPOSED','Handoff proposed to '+successor,{},id);
+   }
+   await event(tx,a,generation,'HANDOFF_PROPOSED',{handoff_id:id,predecessor_id:predecessor,successor_id:successor,package_ids:ids,supersedes_handoff_id:supersedes});
+   return {handoff_id:id,predecessor_id:predecessor,successor_id:successor,package_ids:ids,supersedes_handoff_id:supersedes,ownership_changed:false};
+}
+
 export async function createComponent(context:ComponentContext):Promise<Component> {
  const g=gateway(context);
  // Service readiness is refused until the trusted hierarchy migration is present. Handlers never run DDL;
@@ -334,52 +380,7 @@ export async function createComponent(context:ComponentContext):Promise<Componen
    return {package_id:id,manager_session_id:owner,package_generation:changed.rows[0]!.owner_generation,state:'ASSIGNED'};
   });
  },
- 'hierarchy.package.handoff.propose':async (input,invocation)=>{
-  const v=record(input,['idempotency_key','leader_generation','package_ids','expected_generations','successor_id','context','supersedes_handoff_id'],['idempotency_key','leader_generation','package_ids','expected_generations','successor_id','context']);
-  const a=trustedActor(invocation),ids=strings(v.package_ids).map(uuid).sort(),successor=uuid(v.successor_id);
-  const supersedes=v.supersedes_handoff_id===undefined?null:uuid(v.supersedes_handoff_id);
-  if(!ids.length||!object(v.expected_generations)||Object.keys(v.expected_generations).sort().join(',')!==ids.join(','))return refuse('INVALID_REQUEST','Exact package generation map required');
-  const expected=v.expected_generations;for(const id of ids)decimal(expected[id]);
-  const handoff=record(v.context,['summary','decision_refs','pending_instruction_refs','native_session_refs']);
-  text(handoff.summary,16384);strings(handoff.decision_refs);strings(handoff.pending_instruction_refs);strings(handoff.native_session_refs);
-  return operation(g,a,'hierarchy.package.handoff.propose',v,async tx=>{
-   const generation=decimal(v.leader_generation);
-   await requireAuthority(tx,{...a,leader_generation:generation,roles:['LEADER']});await manager(tx,a,successor);
-   const rows=await packageRows(tx,a,ids);
-   let prior:Snapshot[]=[];
-   if(supersedes){
-    const old=await tx.query('SELECT package_snapshot FROM hyperfide.hierarchy_handoffs WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[a.organisation_id,a.run_id,supersedes]);
-    if(!old.rowCount)return refuse('HANDOFF_UNAVAILABLE','Superseded handoff does not exist');
-    const outcome=await handoffOutcome(tx,a,supersedes);
-    if(outcome)return refuse('HANDOFF_RESOLVED','Superseded handoff is already '+outcome);
-    prior=old.rows[0]!.package_snapshot as Snapshot[];
-    if(prior.some(s=>!ids.includes(s.package_id)))return refuse('HANDOFF_SUPERSEDE_INCOMPLETE','A superseding proposal must cover every package of the pending handoff');
-   }
-   if(rows.some(p=>p.manager_session_id===null))return refuse('PACKAGE_UNASSIGNED','Unassigned packages use hierarchy.package.assign; an idle stable domain uses hierarchy.domain.handoff');
-   const predecessor=rows[0]!.manager_session_id;
-   if(predecessor===successor||rows.some(p=>p.manager_session_id!==predecessor||p.owner_generation!==expected[p.package_id]||['CLOSED','CANCELLED'].includes(p.state)))return refuse('PACKAGE_GENERATION_STALE','Handoff package ownership or generation changed');
-   const covered=(id:string)=>prior.some(s=>s.package_id===id);
-   if(rows.some(p=>p.state==='HANDOFF_PENDING'&&!covered(p.package_id)))return refuse('HANDOFF_ALREADY_PENDING','A package already has an outstanding handoff; withdraw or explicitly supersede it');
-   if(rows.some(p=>p.state!=='HANDOFF_PENDING'&&!HANDOFF_SOURCES.includes(p.state)))return refuse('PACKAGE_STATE_CONFLICT','Only assigned, active, blocked or closing packages can be handed off');
-   await stableComplete(tx,a,rows,ids,'OWNERSHIP_POLICY_CONFLICT','Stable feature handoff must include every current owned package');
-   const tasks=await tx.query('SELECT id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND feature_package_id=ANY($3::uuid[]) ORDER BY id',[a.organisation_id,a.run_id,ids]);
-   const findings=await tx.query("SELECT id FROM hyperfide.findings WHERE organisation_id=$1 AND run_id=$2 AND owner_package_id=ANY($3::uuid[]) ORDER BY id",[a.organisation_id,a.run_id,ids]);
-   const id=randomUUID(),snapshot:Snapshot[]=rows.map(p=>({package_id:p.package_id,owner_generation:p.owner_generation,previous_state:covered(p.package_id)?prior.find(s=>s.package_id===p.package_id)!.previous_state:p.state}));
-   await tx.query('INSERT INTO hyperfide.hierarchy_handoffs(organisation_id,run_id,id,authority_epoch,leader_generation,predecessor_id,successor_id,package_snapshot,task_ids,finding_ids,context) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
-    [a.organisation_id,a.run_id,id,a.authority_epoch,generation,predecessor,successor,JSON.stringify(snapshot),JSON.stringify(tasks.rows.map(t=>t.id)),JSON.stringify(findings.rows.map(f=>f.id)),JSON.stringify(handoff)]);
-   if(supersedes){
-    await tx.query("INSERT INTO hyperfide.hierarchy_handoff_resolutions(organisation_id,run_id,handoff_id,resolution,superseded_by,actor_session_id,leader_generation,reason) VALUES($1,$2,$3,'SUPERSEDED',$4,$5,$6,$7)",
-     [a.organisation_id,a.run_id,supersedes,id,a.session_id,generation,'Superseded by a newer handoff proposal']);
-    await event(tx,a,generation,'HANDOFF_SUPERSEDED',{handoff_id:supersedes,superseded_by:id,package_ids:prior.map(s=>s.package_id)});
-   }
-   for(const p of rows.filter(p=>p.state!=='HANDOFF_PENDING')){
-    await tx.query("UPDATE hyperfide.hierarchy_packages SET state='HANDOFF_PENDING',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND package_id=$3",[a.organisation_id,a.run_id,p.package_id]);
-    await transition(tx,a,generation,p.package_id,p.state,'HANDOFF_PENDING',p.owner_generation,'HANDOFF_PROPOSED','Handoff proposed to '+successor,{},id);
-   }
-   await event(tx,a,generation,'HANDOFF_PROPOSED',{handoff_id:id,predecessor_id:predecessor,successor_id:successor,package_ids:ids,supersedes_handoff_id:supersedes});
-   return {handoff_id:id,predecessor_id:predecessor,successor_id:successor,package_ids:ids,supersedes_handoff_id:supersedes,ownership_changed:false};
-  });
- },
+ 'hierarchy.package.handoff.propose':async(input,invocation)=>{const v=record(input,['idempotency_key','leader_generation','package_ids','expected_generations','successor_id','context','supersedes_handoff_id'],['idempotency_key','leader_generation','package_ids','expected_generations','successor_id','context']);const a=trustedActor(invocation);return operation(g,a,'hierarchy.package.handoff.propose',v,tx=>proposeHierarchyHandoff(tx,invocation,v));},
  'hierarchy.package.handoff.acknowledge':async (input,invocation)=>{
   const v=record(input,['idempotency_key','leader_generation','handoff_id']);const a=trustedActor(invocation),id=uuid(v.handoff_id);
   return operation(g,a,'hierarchy.package.handoff.acknowledge',v,async tx=>{
@@ -390,6 +391,8 @@ export async function createComponent(context:ComponentContext):Promise<Componen
    await manager(tx,a,a.session_id);
    const result=await tx.query('SELECT * FROM hyperfide.hierarchy_handoffs WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[a.organisation_id,a.run_id,id]);
    const h=result.rows[0];if(!h||h.successor_id!==a.session_id)return refuse('HANDOFF_SUCCESSOR_MISMATCH','Only the recorded successor can acknowledge');
+   const bootstrap=(await tx.query('SELECT handoff_id,delegation_id,manager_generation::text FROM hyperfide.fleet_bootstrap_credentials WHERE credential_id=$1 FOR SHARE',[a.invocation.principal.credential_id])).rows[0];
+   if(bootstrap?.handoff_id!==undefined&&bootstrap.handoff_id!==null&&(bootstrap.handoff_id!==id||!Array.isArray(h.package_snapshot)||h.package_snapshot.length!==1||h.package_snapshot[0].package_id!==bootstrap.delegation_id||(BigInt(h.package_snapshot[0].owner_generation)+1n).toString()!==bootstrap.manager_generation))return refuse('FLEET_HANDOFF_SCOPE','Acknowledgement credential belongs to another exact handoff');
    const outcome=await handoffOutcome(tx,a,id);
    if(outcome)return refuse('HANDOFF_RESOLVED','Handoff is already '+outcome);
    if(h.authority_epoch!==a.authority_epoch||String(h.leader_generation)!==current.leader_generation)return refuse('LEADER_GENERATION_STALE','Proposal belongs to another leadership generation; the current leader must withdraw or supersede it');
@@ -401,9 +404,13 @@ export async function createComponent(context:ComponentContext):Promise<Componen
    if(canonical(currentTasks.rows.map(t=>t.id))!==canonical(h.task_ids)||canonical(currentFindings.rows.map(f=>f.id))!==canonical(h.finding_ids))
     return refuse('HANDOFF_CONTENT_CHANGED','Task/finding membership changed; record and acknowledge a fresh handoff');
    await stableComplete(tx,a,rows,ids,'HANDOFF_CONTENT_CHANGED','Stable feature package membership changed');
+   const fleet=await tx.query('SELECT package_id,manager_session_id,manager_generation::text,leader_generation::text FROM hyperfide.fleet_delegations WHERE organisation_id=$1 AND run_id=$2 AND package_id=ANY($3::uuid[]) ORDER BY package_id FOR UPDATE',[a.organisation_id,a.run_id,ids]);
+   if(fleet.rows.some(d=>d.manager_session_id!==h.predecessor_id||d.leader_generation!==current.leader_generation||!snapshots.some(s=>s.package_id===d.package_id&&s.owner_generation===d.manager_generation)))return refuse('FLEET_DELEGATION_STALE','Fleet delegation no longer matches the acknowledged predecessor');
+   if(fleet.rowCount){const successor=await tx.query('SELECT parent_session_id FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[a.organisation_id,a.run_id,a.session_id]);if(successor.rows[0]?.parent_session_id!==current.leader_session_id)return refuse('FLEET_MANAGER_PARENT_MISMATCH','Fleet successor must belong to the current Primary');}
    await tx.query('INSERT INTO hyperfide.hierarchy_handoff_acknowledgements(organisation_id,run_id,handoff_id,successor_id) VALUES($1,$2,$3,$4)',[a.organisation_id,a.run_id,id,a.session_id]);
    await tx.query('UPDATE hyperfide.feature_packages SET manager_session_id=$1,state_version=state_version+1 WHERE organisation_id=$2 AND run_id=$3 AND id=ANY($4::uuid[])',[a.session_id,a.organisation_id,a.run_id,ids]);
    const restored=await restore(tx,a,current.leader_generation,snapshots,true,'HANDOFF_ACKNOWLEDGED','Successor acknowledged the persisted handoff',id);
+   for(const delegation of fleet.rows)await tx.query('UPDATE hyperfide.fleet_delegations d SET manager_session_id=$4,manager_generation=h.owner_generation FROM hyperfide.hierarchy_packages h WHERE d.organisation_id=$1 AND d.run_id=$2 AND d.package_id=$3 AND h.organisation_id=d.organisation_id AND h.run_id=d.run_id AND h.package_id=d.package_id',[a.organisation_id,a.run_id,delegation.package_id,a.session_id]);
    for(const feature of new Set(rows.filter(p=>p.allocation_policy==='FEATURE_STABLE').map(p=>p.feature_key)))
     await tx.query('UPDATE hyperfide.hierarchy_domain_owners SET manager_session_id=$1,generation=generation+1,state_version=state_version+1 WHERE organisation_id=$2 AND run_id=$3 AND feature_key=$4',[a.session_id,a.organisation_id,a.run_id,feature]);
    await event(tx,a,current.leader_generation,'HANDOFF_ACKNOWLEDGED',{handoff_id:id,package_ids:ids,predecessor_id:h.predecessor_id,successor_id:a.session_id});

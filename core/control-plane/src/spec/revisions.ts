@@ -68,7 +68,7 @@ function criteriaIntent(document:StoredIntent,section:KvxSection|undefined):stri
  const reqs=ids(section,'reqs').map(id=>{const split=id.lastIndexOf('.');return [id,sections.get('req.'+id.slice(0,split))?.fields['ac_'+id.slice(split+1)]?.value??null];});
  const scenarios=ids(section,'acceptance_ids').map(id=>{const item=sections.get('acceptance.'+id)??sections.get('case.'+id);return [id,item?semantic(item):null];});
  const proof=document.parsed.sections.filter(item=>item.name==='proof'||item.name.startsWith('proof.')).map(item=>[item.name,semantic(item)]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
- return canonical({reqs,scenarios,proof,verify_cmd:section?.fields.verify_cmd?.value??null,artifacts:section?.fields.artifacts?.value??null});
+ return canonical({reqs,scenarios,proof,verify_cmd:section?.fields.verify_cmd?.value??null,artifacts:section?.fields.artifacts?.value??null,...(section?.fields&&Object.hasOwn(section.fields,'qualification_environment_profile_id')?{qualification_environment_profile_id:section.fields.qualification_environment_profile_id!.value}:{})});
 }
 // Analysis shares the real dependency validator. It neither inserts accepted
 // revisions nor changes task/compute/evidence authority.

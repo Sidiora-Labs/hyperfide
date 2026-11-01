@@ -34,7 +34,7 @@ export async function allocateFleetJob(tx:PrimaryTransaction,i:InvocationContext
  if(runner.capacity_kind==='TEST')await ensureFleetTestExecutor(tx,i,{runner,manager_session_id:v.manager_session_id,task_id:v.task_id,package_id:v.package_id});
  if(prior!==undefined){const previous=prior as Data;const current=await readJobAllocation(tx,{...scope,reservation_id:previous.allocation.reservation_id});if(current.allocation_id!==previous.allocation.allocation_id)fail('FLEET_JOB_REPLAY_STALE','Retained executor allocation differs');return previous;}
  await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[scope.organisation_id+':'+runner.pool_id+':resource-admission']);
- const policy=await jobPolicy(tx,scope,v.task_id,'ADMISSION'),dimensions=await approvedDimensions(tx,scope,runner.pool_id,policy,purpose);
+ const policy=await jobPolicy(tx,scope,v.task_id,'ADMISSION',{job_kind:purpose,pool_id:runner.pool_id}),dimensions=await approvedDimensions(tx,scope,runner.pool_id,policy,purpose);
  const queued=await tx.query("SELECT id FROM hyperfide.resource_waiters WHERE organisation_id=$1 AND pool_id=$2 AND state='WAITING' AND deadline_at>clock_timestamp() LIMIT 1",[scope.organisation_id,runner.pool_id]);
  if(queued.rows.length)fail('FLEET_JOB_QUEUE_PENDING','Existing resource waiters must be resolved before immediate exact job binding');
  const duplicate=await tx.query('SELECT id FROM hyperfide.resource_waiters WHERE organisation_id=$1 AND run_id=$2 AND request_id=$3',[scope.organisation_id,scope.run_id,v.request_id]);if(duplicate.rows.length)fail('FLEET_JOB_REQUEST_CONFLICT','Request already belongs to another resource admission');

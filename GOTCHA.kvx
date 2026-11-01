@@ -25,3 +25,10 @@ cause = "deploy/hyperfide/dist-stamp.mjs hashes root build inputs and src; migra
 resolution = "Capture migration files and verify their checksums with the immutable runtime snapshot. A SQL correction requires a new snapshot even when the compiler stamp is unchanged."
 evidence = "The 0727 review changed SQL while the compiler source stamp remained 2217d1238bd729e7640c20ba824827c4ca590b3bb096f5e63324ded8f9c73f1f. MigrationCoordinator verifies the independent SQL checksum history."
 status = "documented"
+
+[gotcha.isolated_typescript_transpile]
+symptom = "An isolated runtime regression can pass while its TypeScript source has a syntax error."
+cause = "TypeScript transpileModule can recover malformed syntax and emit JavaScript without rejecting it; outputText alone is not a compiler validity check."
+resolution = "Request and reject error diagnostics before using isolated emitted code, and run the normal project compiler before capturing a release."
+evidence = "The manager replacement fixture emitted a working supervisor despite an extra closing parenthesis rejected by the project compiler as TS1005. The fixture now rejects transpile diagnostics."
+status = "resolved"

@@ -441,7 +441,7 @@ export function createComponent(_startup:ComponentContext):Component{
           'WHERE organisation_id=$1 AND id=ANY($2::uuid[])',[scope.organisation_id,demand.map(item=>item.capacity_account_id)]);
         if(accounts.rows.length!==demand.length||accounts.rows.some(row=>row.pool_id!==pool)||
           !accounts.rows.some(row=>row.dimension===job))fail('CAPACITY_SCOPE_INVALID','The declared job capacity dimension must be reserved in the selected pool');
-        const policyRequirements=await jobPolicy(tx,scope,task!,'ADMISSION');
+        const policyRequirements=await jobPolicy(tx,scope,task!,'ADMISSION',{job_kind:job,pool_id:pool});
         const expected=await approvedDimensions(tx,scope,pool,policyRequirements,job);
         if(canonical(expected)!==canonical(demand))fail('RESOURCE_VECTOR_MISMATCH','Queued resource vector must match accepted task policy');
         const pins=await tx.query<{spec_revision_id:string;spec_generation:string;criteria_digest:string}>('SELECT spec_revision_id,spec_generation,criteria_digest FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[scope.organisation_id,scope.run_id,task]);
@@ -491,7 +491,7 @@ export function createComponent(_startup:ComponentContext):Component{
           return {waiter_id:waiter,admitted:false,wait_reason:'FAIRNESS',state:'QUEUED'};
         const demand=await tx.query<CapacityDimension>('SELECT capacity_account_id,quantity FROM hyperfide.resource_waiter_dimensions '+
           'WHERE organisation_id=$1 AND run_id=$2 AND waiter_id=$3 ORDER BY capacity_account_id',[scope.organisation_id,scope.run_id,waiter]);
-        const accepted=await jobPolicy(tx,scope,row.task_id!,'ADMISSION');
+        const accepted=await jobPolicy(tx,scope,row.task_id!,'ADMISSION',{job_kind:row.job_kind,pool_id:pool});
         const expected=await approvedDimensions(tx,scope,pool,accepted,row.job_kind);
         const pins=await tx.query<{valid:boolean}>('SELECT w.spec_revision_id=t.spec_revision_id AND w.spec_generation=t.spec_generation AND w.criteria_digest=t.criteria_digest AND w.resource_policy_digest=$4 AS valid FROM hyperfide.resource_waiters w JOIN hyperfide.tasks t ON t.organisation_id=w.organisation_id AND t.run_id=w.run_id AND t.id=w.task_id WHERE w.organisation_id=$1 AND w.run_id=$2 AND w.id=$3',[scope.organisation_id,scope.run_id,waiter,requestDigest(accepted)]);
         if(!pins.rows[0]?.valid)fail('JOB_POLICY_STALE','Queued job no longer matches its immutable accepted task policy');

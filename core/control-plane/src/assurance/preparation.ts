@@ -50,7 +50,7 @@ export async function loadResultPreparationContext(tx:PrimaryTransaction,
   (job.requalification_manifest.source_object_id!==result.source_object_id||
    job.requalification_manifest.source_manifest_digest!==result.source_manifest_digest))
   fail('QUALIFICATION_PUBLICATION_PREPARATION_REQUIRED','Integrated result preparation requires its genuine current publication source envelope');
- const intent=await loadPreparationIntent(tx,{organisation_id,run_id,task_id:job.task_id});
+ const intent=await loadPreparationIntent(tx,{organisation_id,run_id,task_id:job.task_id,purpose:'QUALIFICATION'});
  if(!object(intent.proof_policy))fail('QUALIFICATION_PROOF_STALE','Accepted proof policy is unavailable');
  const currentManifest=job.requalification_manifest??job.manifest,currentPolicy=job.requalification_policy??job.policy;
  if(currentManifest.criteria_digest!==intent.criteria_digest||hash(currentPolicy)!==intent.registry_digest||
@@ -137,7 +137,7 @@ export async function inspectEffectiveResultInputs(tx:PrimaryClient,
   result.source_object_id!==receipt.source_object_id||result.source_tree_id!==receipt.source_tree_id||
   result.source_manifest_digest!==receipt.source_manifest_digest)
   fail('QUALIFICATION_RESULT_INPUTS_STALE','Prepared input receipt no longer binds the admitted immutable result');
- const accepted=await loadPreparationIntent(tx,{organisation_id,run_id,task_id:result.task_id});
+ const accepted=await loadPreparationIntent(tx,{organisation_id,run_id,task_id:result.task_id,purpose:'QUALIFICATION'});
  if(receipt.criteria_digest!==accepted.criteria_digest||receipt.registry_digest!==accepted.registry_digest||
   receipt.spec_revision_id!==accepted.spec_revision_id||String(receipt.spec_generation)!==String(accepted.spec_generation))
   fail('QUALIFICATION_RESULT_INPUTS_STALE','Prepared result criteria or accepted registry changed');

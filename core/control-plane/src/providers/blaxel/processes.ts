@@ -433,7 +433,7 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
    const code=(e as {code?:string})?.code??'';
    // Never retain vendor messages, response bodies or request/credential values.
    const http=statusCode(e),reason=typeof code==='string'&&/^BLAXEL_[A-Z_]{1,80}$/.test(code)?code:http!==null&&Number.isInteger(http)&&http>=100&&http<=599?'HTTP_'+http:'UNCLASSIFIED';
-   const diagnostic=kind==='create'?'BLAXEL_'+phase+'_'+reason:null;
+   const diagnostic=kind==='create'?'BLAXEL_'+phase+'_'+reason:kind==='execute'?'BLAXEL_EXECUTE_'+reason:null;
    if(!attempted&&['BLAXEL_RUNTIME_ENV_UNSUPPORTED','BLAXEL_PERSISTENT_STORAGE_UNSUPPORTED','BLAXEL_POLICY_UNAVAILABLE','BLAXEL_RESOURCE_UNSUPPORTED'].includes(code))return save(op,outcome(op,'UNSUPPORTED',null,op.resource,diagnostic));
    const unknown=attempted||known!==null||!['BLAXEL_PROCESS_INVALID','BLAXEL_PREPARATION_MISMATCH','BLAXEL_RESOURCE_UNSUPPORTED','BLAXEL_CREATE_CONFLICT'].includes((e as {code?:string})?.code??'');
    return save(op,outcome(op,unknown?'UNKNOWN':'FAILED',null,unknown?known:op.resource,diagnostic));

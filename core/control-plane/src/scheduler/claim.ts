@@ -5,7 +5,7 @@ import type {PrimaryTransaction,TransactionGateway} from '../storage/transaction
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import {requireAuthority} from '../hierarchy/packages.js';
 import {enqueue,lockRun} from '../events/outbox.js';
-import {loadExecutionPacket,loadPreparationIntent,validateExecutionInputs} from '../hierarchy/packets.js';
+import {loadExecutionPacket,loadPreparationIntent,acceptedPreparationProfile,validateExecutionInputs} from '../hierarchy/packets.js';
 import {assertInvocation} from '../transport/protocol.js';
 import type {InvocationContext} from '../transport/protocol.js';
 
@@ -136,9 +136,8 @@ export function packetPolicyResources(packet:unknown):PacketResourceRequirements
  return {...requirements,exclusive_services:[...new Set(declared as string[])].sort()};
 }
 
-export async function approvedDimensions(tx:PrimaryTransaction,scope:SchedulerScope,pool_id:string,
- requirements:PacketResourceRequirements,job_class:string='AGENT',warm_spare=false,physical_preparation=false):Promise<CapacityDimension[]> {
- assertPrimaryTransaction(tx);
+/** Base per-admission dimensions; BUILD/TEST permissions do not change an AGENT claim's slot kind. */
+export function packetCapacityRequirements(requirements:PacketResourceRequirements,job_class:string='AGENT',warm_spare=false,physical_preparation=false):Record<string,string>{
  const required:Record<string,string>={CPU_MILLIS:String(requirements.cpu_millis),MEMORY_BYTES:requirements.memory_bytes,DISK_BYTES:requirements.disk_bytes};
  if(job_class==='AGENT'){
   required.AGENT='1';
@@ -152,6 +151,13 @@ export async function approvedDimensions(tx:PrimaryTransaction,scope:SchedulerSc
   if(physical_preparation)required.SANDBOX='1';
  }
  if(warm_spare)required.WARM_SPARE='1';
+ return required;
+}
+
+export async function approvedDimensions(tx:PrimaryTransaction,scope:SchedulerScope,pool_id:string,
+ requirements:PacketResourceRequirements,job_class:string='AGENT',warm_spare=false,physical_preparation=false):Promise<CapacityDimension[]> {
+ assertPrimaryTransaction(tx);
+ const required=packetCapacityRequirements(requirements,job_class,warm_spare,physical_preparation);
  const classes=Object.keys(required).map(dimension=>physical_preparation&&['SANDBOX','CPU_MILLIS','MEMORY_BYTES','DISK_BYTES'].includes(dimension)?'PHYSICAL':'EXECUTION');
  const accounts=await tx.query<{id:string;dimension:string;capacity_class:string;qualification_state:string}>(
   'SELECT id,dimension,capacity_class,qualification_state FROM hyperfide.capacity_accounts WHERE organisation_id=$1 AND pool_id=$2 AND resource_key=$3 AND (dimension,capacity_class) IN (SELECT unnest($4::text[]),unnest($5::text[])) ORDER BY id FOR SHARE',
@@ -486,7 +492,7 @@ export async function requirePacketAdmission(tx:PrimaryTransaction,input:ClaimRe
  return packetPolicyResources(loaded.packet);
 }
 
-export async function jobPolicy(tx:PrimaryTransaction,scope:SchedulerScope,task_id:string,operation:'ADMISSION'|'ADVANCE'='ADVANCE'):Promise<PacketResourceRequirements>{
+export async function jobPolicy(tx:PrimaryTransaction,scope:SchedulerScope,task_id:string,operation:'ADMISSION'|'ADVANCE'='ADVANCE',job?:{job_kind:string;pool_id:string}):Promise<PacketResourceRequirements>{
  const tasks=await tx.query<{id:string;feature_package_id:string;spec_revision_id:string;spec_generation:string;criteria_digest:string}>(
  'SELECT id,feature_package_id,spec_revision_id,spec_generation,criteria_digest FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',
  [scope.organisation_id,scope.run_id,task_id]);
@@ -497,8 +503,20 @@ export async function jobPolicy(tx:PrimaryTransaction,scope:SchedulerScope,task_
  const run=await tx.query<{state:string}>('SELECT state FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',[scope.organisation_id,scope.run_id]);
  if(!(operation==='ADVANCE'?['READY','RUNNING','DRAINING']:['READY','RUNNING']).includes(run.rows[0]?.state??''))fail('RUN_NOT_ADMITTING','Run state does not allow this resource job');
  await requireProofRegistry(tx,scope,task);
- const accepted=await loadPreparationIntent(tx,{...scope,task_id});
  const definition=await tx.query<{definition:unknown}>('SELECT definition FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[scope.organisation_id,scope.run_id,task_id]);
+ let purpose:'CODING'|'QUALIFICATION'=job?.job_kind==='TEST'?'QUALIFICATION':'CODING';
+ if(job&&(job.job_kind==='TEST'||job.job_kind==='PREPARATION')){
+  const pool=(await tx.query('SELECT profile_id FROM hyperfide.provider_pools WHERE organisation_id=$1 AND id=$2 FOR SHARE',[scope.organisation_id,job.pool_id])).rows[0];
+  const coding=acceptedPreparationProfile(definition.rows[0]!.definition,'CODING');
+  if(job.job_kind==='TEST'){
+   if(pool?.profile_id!==acceptedPreparationProfile(definition.rows[0]!.definition,'QUALIFICATION'))fail('ENVIRONMENT_PROFILE_MISMATCH','TEST pool differs from accepted qualification environment');
+  }else if(pool?.profile_id!==coding){
+   const qualification=acceptedPreparationProfile(definition.rows[0]!.definition,'QUALIFICATION');
+   if(pool?.profile_id===qualification)purpose='QUALIFICATION';
+   else if(qualification!==coding)fail('ENVIRONMENT_PROFILE_MISMATCH','Preparation pool differs from either accepted environment');
+  }
+ }
+ const accepted=await loadPreparationIntent(tx,{...scope,task_id,purpose});
  return packetPolicyResources({mandatory:{resource_requirements:accepted.resource_requirements,intent:{definition:definition.rows[0]!.definition}}});
 }
 export async function allocateReservations(tx:PrimaryTransaction,input:SchedulerScope&{reservation_ids:string[]}):Promise<void>{
@@ -529,7 +547,7 @@ export async function assertJobReservation(tx:PrimaryTransaction,input:Scheduler
  "WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.id=$3 AND w.task_id=$4 AND w.job_kind=$5 AND w.state='ADMITTED' AND r.state='ALLOCATED' AND a.dimension=$5 AND a.qualification_state='QUALIFIED'",
  [input.organisation_id,input.run_id,input.reservation_id,input.task_id,input.job_kind]);
  const selected=row.rows[0];if(!selected)fail('JOB_RESERVATION_INVALID','Job requires its own admitted allocated reservation in a qualified account');
- const policy=await jobPolicy(tx,input,input.task_id),expected=await approvedDimensions(tx,input,selected.pool_id,policy,input.job_kind);
+ const policy=await jobPolicy(tx,input,input.task_id,'ADVANCE',{job_kind:input.job_kind,pool_id:selected.pool_id}),expected=await approvedDimensions(tx,input,selected.pool_id,policy,input.job_kind);
  const accepted=await tx.query<{spec_revision_id:string;spec_generation:string;criteria_digest:string}>('SELECT spec_revision_id,spec_generation,criteria_digest FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[input.organisation_id,input.run_id,input.task_id]);
  if(!accepted.rows[0]||['spec_revision_id','spec_generation','criteria_digest'].some(key=>accepted.rows[0]![key as keyof typeof accepted.rows[0]]!==selected[key as 'spec_revision_id'|'spec_generation'|'criteria_digest'])||selected.resource_policy_digest!==requestDigest(policy))
  fail('JOB_POLICY_STALE','Job reservation pins no longer match accepted task intent');

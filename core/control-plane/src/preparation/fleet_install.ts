@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {constants} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
@@ -123,17 +124,33 @@ export async function installFleetEnvironment(input:{packagePath:string;sourceCo
   await atomicFile(path.join(staging,beneath(root,receiptPath)),receipt);await current();await fs.rename(staging,root);installed=true;return publish(receipt);
  }finally{await fs.rm(lock,{recursive:true,force:true});if(!installed){/* Private staging is retained for diagnosis and a generation-safe retry. */}}
 }
+async function readNativeStageFile(filename:string,root:string,maximum:number):Promise<Buffer>{
+ if(path.dirname(root)!=='/run/hyperfide-stage'||!uuid(path.basename(root))||path.dirname(filename)!==root||await fs.realpath(filename)!==filename)fail('FLEET_INSTALL_NATIVE_CONTEXT','Exact non-symlink native stage file required');
+ for(let directory=root;;directory=path.dirname(directory)){
+  const st=await fs.lstat(directory),stage=directory===root;
+  if(!st.isDirectory()||st.isSymbolicLink()||st.uid!==0||(st.mode&0o022)!==0||stage&&(st.gid!==process.getgid?.()||(st.mode&0o777)!==0o750))fail('FLEET_INSTALL_NATIVE_CONTEXT','Root-protected native stage ancestry required');
+  if(directory==='/')break;
+ }
+ const handle=await fs.open(filename,constants.O_RDONLY|constants.O_NOFOLLOW);
+ try{
+  const before=await handle.stat();
+  if(!before.isFile()||before.uid!==0||before.gid!==process.getgid?.()||(before.mode&0o777)!==0o440||before.nlink!==1||before.size>maximum)fail('FLEET_INSTALL_NATIVE_CONTEXT','Bounded root-owned native stage file required');
+  const bytes=await handle.readFile(),after=await handle.stat();
+  if(before.dev!==after.dev||before.ino!==after.ino||before.size!==after.size||before.mtimeMs!==after.mtimeMs||before.ctimeMs!==after.ctimeMs||before.uid!==after.uid||before.gid!==after.gid||before.mode!==after.mode||before.nlink!==after.nlink||bytes.length!==before.size)fail('FLEET_BOOTSTRAP_CHANGED','Native stage file changed while read');
+  return bytes;
+ }finally{await handle.close();}
+}
 async function installFromNativeContext(filename:string):Promise<RecordValue>{
- const absolute=path.resolve(filename),context=strictJSON(await readProtectedFile(absolute,8*1024*1024,true))as RecordValue;
+ const absolute=path.resolve(filename),stageRoot=path.dirname(absolute),context=strictJSON(await readNativeStageFile(absolute,stageRoot,8*1024*1024))as RecordValue;
  if(context.schema_version!==1||context.job_binding?.namespace!=='FLEET_INSTALL'||absolute!=='/run/hyperfide-stage/'+context.operation_id+'/context.json'||!Array.isArray(context.staging)||typeof context.out_root!=='string'||!context.out_root.startsWith(path.dirname(absolute)+'/'))fail('FLEET_INSTALL_NATIVE_CONTEXT','Privileged native preparation-stage context required');
  const refs=new Map<string,string>();for(const ref of context.staging as RecordValue[]){if(typeof ref.role!=='string'||typeof ref.path!=='string'||refs.has(ref.role)||!ref.path.startsWith(path.dirname(absolute)+'/'))fail('FLEET_INSTALL_NATIVE_CONTEXT','Invalid native staged object');refs.set(ref.role,ref.path);}
- const read=async(role:string,limit=4*1024*1024):Promise<Buffer>=>{const file=refs.get(role);if(!file)fail('FLEET_INSTALL_DELIVERY_MISSING','Required native delivery role is missing: '+role);return readProtectedFile(file,limit);};
+ const read=async(role:string,limit=4*1024*1024):Promise<Buffer>=>{const file=refs.get(role);if(!file)fail('FLEET_INSTALL_DELIVERY_MISSING','Required native delivery role is missing: '+role);return readNativeStageFile(file,stageRoot,limit);};
  const bootstrap=strictJSON(await read('input-manifest'))as RecordValue;if(bootstrap.schema_version!==1||bootstrap.kind!=='hyperfide.fleet-install-bootstrap'||!bootstrap.admission||typeof bootstrap.plan_digest!=='string')fail('FLEET_INSTALL_NATIVE_CONTEXT','Fleet install bootstrap artifact required');
  const installPlan=strictJSON(await read('fleet.plan'))as RecordValue;if(documentDigest(installPlan)!==bootstrap.plan_digest||bootstrap.plan_digest!==bootstrap.admission.plan_digest)fail('FLEET_INSTALL_NATIVE_CONTEXT','Staged plan differs from admitted bootstrap');
  const directory=path.join(context.out_root,'fleet-bootstrap');await fs.mkdir(directory,{recursive:true,mode:0o700});const packagePath=path.join(directory,'package.kvx'),sourceConfigPath=path.join(directory,'.neron');await writePinned(packagePath,await read('fleet.package'),0o600);await writePinned(sourceConfigPath,await read('fleet.source-config'),0o600);
  const sourceManifest=path.join(directory,'source-manifest.json'),fragment=path.join(directory,'interfaces.kvx'),interfaceProof=path.join(directory,'interfaces-proof.json');await writePinned(sourceManifest,await read('fleet.source-manifest',96*1024*1024),0o600);await writePinned(fragment,await read('fleet.interfaces'),0o600);await writePinned(interfaceProof,await read('fleet.interface-proof'),0o600);
- const configuration_paths:Record<string,string>={};for(const pin of installPlan.configuration_versions as RecordValue[]){const role='fleet.config:'+pin.name;if(refs.has(role))configuration_paths[pin.name]=refs.get(role)!;}
- const toolchain_paths:Record<string,string>={};for(const [role,filename]of refs)if(role.startsWith('fleet.toolchain:'))toolchain_paths[role.slice('fleet.toolchain:'.length)]=filename;
+ const configuration_paths:Record<string,string>={};for(const pin of installPlan.configuration_versions as RecordValue[]){const role='fleet.config:'+pin.name;if(refs.has(role)){const target=path.join(directory,'configuration-'+hash(Buffer.from(role)).slice(7));await writePinned(target,await read(role,1024*1024),0o600);configuration_paths[pin.name]=target;}}
+ const toolchain_paths:Record<string,string>={};for(const [role]of refs)if(role.startsWith('fleet.toolchain:')){const name=role.slice('fleet.toolchain:'.length);const target=path.join(directory,'toolchain-'+hash(Buffer.from(role)).slice(7));await writePinned(target,await read(role,96*1024*1024),0o600);toolchain_paths[name]=target;}
  const envelopePath=path.join(directory,'envelope.json');await atomicFile(envelopePath,{admission:bootstrap.admission,plan:installPlan,source_manifest_path:sourceManifest,interface_fragment_path:fragment,interface_proof_path:interfaceProof,authority_config_path:'',configuration_paths,toolchain_paths});
  const permit:NativeInstallPermit={context};nativePermits.add(permit);return installFleetEnvironment({packagePath,sourceConfigPath,envelopePath,preparation:permit});
 }

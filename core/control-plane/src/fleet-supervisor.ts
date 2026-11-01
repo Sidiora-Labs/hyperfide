@@ -15,7 +15,7 @@ import {readTrustedAgentFile} from './agents/sessions.js';
 type RecordValue=Record<string,any>;
 type ActorReference={session_id:string;credential_file:string;key_file?:string};
 interface Configuration {bootstrap?:{operator_credential_file:string;ttl_seconds:number};schema_version:1;origin:string;ca_file:string;organisation_id:string;run_id:string;cohort_id:string;host_id:string;leader_generation:string;expected_cohort_generation:string;primary:ActorReference;managers:ActorReference[];state_directory:string;poll_interval_ms:number;request_timeout_ms:number}
-interface Actor {session_id:string;role:'PRIMARY'|'WAVE_MANAGER'|'OPERATOR';credential_id:string;authority_epoch:string;key:KeyObject;key_file:string;cohort_generation?:string;expires_at?:string}
+interface Actor {session_id:string;role:'PRIMARY'|'WAVE_MANAGER'|'OPERATOR';credential_id:string;authority_epoch:string;key:KeyObject;key_file:string;cohort_generation?:string;expires_at?:string;enrollment_scope?:RecordValue}
 interface Command {actor_id:string;operation_id:string;component?:string;action:string;input:RecordValue}
 interface ActorState {binding:RecordValue;reasoning:RecordValue|null;observed_state:string|null}
 interface SupervisorState {schema_version:1;config_digest:string;cohort_generation:string;leader_generation:string;pending:Command|null;grants:Record<string,{input:RecordValue;grant:RecordValue}>;actors:Record<string,ActorState>}
@@ -37,11 +37,12 @@ export async function readFleetSupervisorConfig(filename:string):Promise<Configu
 }
 async function loadActor(reference:ActorReference,role:Actor['role'],config:Configuration):Promise<Actor>{
  const value=strictJSON(await readProtectedFile(reference.credential_file,65536,true));if(!object(value))fail('FLEET_SUPERVISOR_IDENTITY','Versioned actor credential reference required');
- const fields=['schema_version','credential_id','actor_id','organisation_id','run_id','role','authority_epoch','key_file'];exact(value,[...fields,...['cohort_generation','expires_at'].filter(field=>value[field]!==undefined)]);if(value.expires_at!==undefined&&(typeof value.expires_at!=='string'||!Number.isFinite(Date.parse(value.expires_at))))fail('FLEET_SUPERVISOR_IDENTITY','Credential expiry metadata must be an exact timestamp');if(value.cohort_generation!==undefined&&!decimal(value.cohort_generation))fail('FLEET_SUPERVISOR_IDENTITY','Versioned credential cohort metadata required');
+ const fields=['schema_version','credential_id','actor_id','organisation_id','run_id','role','authority_epoch','key_file'];exact(value,[...fields,...['cohort_generation','expires_at','enrollment_scope'].filter(field=>value[field]!==undefined)]);if(value.expires_at!==undefined&&(typeof value.expires_at!=='string'||!Number.isFinite(Date.parse(value.expires_at))))fail('FLEET_SUPERVISOR_IDENTITY','Credential expiry metadata must be an exact timestamp');if(value.cohort_generation!==undefined&&!decimal(value.cohort_generation))fail('FLEET_SUPERVISOR_IDENTITY','Versioned credential cohort metadata required');
+ if(value.enrollment_scope!==undefined){if(!object(value.enrollment_scope))fail('FLEET_SUPERVISOR_IDENTITY','Exact enrollment scope required');exact(value.enrollment_scope,['delegation_id','manager_generation','handoff_id']);if(value.enrollment_scope.delegation_id!==null&&!uuid(value.enrollment_scope.delegation_id)||value.enrollment_scope.manager_generation!==null&&!decimal(value.enrollment_scope.manager_generation)||value.enrollment_scope.handoff_id!==null&&!uuid(value.enrollment_scope.handoff_id))fail('FLEET_SUPERVISOR_IDENTITY','Invalid enrollment scope');}
  if(value.schema_version!==1||!uuid(value.credential_id)||value.actor_id!==reference.session_id||value.organisation_id!==config.organisation_id||value.run_id!==config.run_id||value.role!==(role==='PRIMARY'?'LEADER':role==='OPERATOR'?'OPERATOR':'FEATURE_MANAGER')||!uuid(value.authority_epoch)||!absolute(value.key_file))fail('FLEET_SUPERVISOR_IDENTITY','Pre-enrolled actor credential must match the configured role and run');
  const bytes=await readProtectedFile(value.key_file,16384,true);let key:KeyObject;try{key=createPrivateKey(bytes);}finally{bytes.fill(0);}
  if(key.asymmetricKeyType!=='ed25519')fail('FLEET_SUPERVISOR_IDENTITY','Actor signing key must be Ed25519');
- return {session_id:reference.session_id,role,credential_id:value.credential_id,authority_epoch:value.authority_epoch,key,key_file:value.key_file,...(typeof value.cohort_generation==='string'?{cohort_generation:value.cohort_generation}:{}),...(typeof value.expires_at==='string'?{expires_at:value.expires_at}:{})};
+ return {session_id:reference.session_id,role,credential_id:value.credential_id,authority_epoch:value.authority_epoch,key,key_file:value.key_file,...(typeof value.cohort_generation==='string'?{cohort_generation:value.cohort_generation}:{}),...(typeof value.expires_at==='string'?{expires_at:value.expires_at}:{}),...(object(value.enrollment_scope)?{enrollment_scope:value.enrollment_scope}:{})};
 }
 function assertActorKeys(actors:Iterable<Actor>):void{
  const credentials=new Set<string>(),keys=new Set<string>(),epochs=new Set<string>();
@@ -126,21 +127,23 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
    catch(error){if(error instanceof SupervisorRpcError&&!error.uncertain){state.pending=null;await persist();}throw error;}
   };
   const enrolled=async(reference:ActorReference,role:'PRIMARY'|'WAVE_MANAGER',delegation:RecordValue|null,replaceCohort=false):Promise<Actor>=>{
-   const old=actors.get(reference.session_id),renew=Boolean(old?.expires_at&&operator&&Date.parse(old.expires_at)-Date.now()<=config.request_timeout_ms+30000);if(old&&!replaceCohort&&!renew&&!(role==='WAVE_MANAGER'&&operator&&old.cohort_generation!==undefined&&old.cohort_generation!==state.cohort_generation))return old;
+   const scope={delegation_id:delegation?.package_id??null,manager_generation:delegation?.manager_generation??null,handoff_id:delegation?.handoff_id??null};
+   const old=actors.get(reference.session_id),scopeChanged=role==='WAVE_MANAGER'&&Boolean(operator)&&canonical(old?.enrollment_scope??null)!==canonical(scope),renew=Boolean(old?.expires_at&&operator&&Date.parse(old.expires_at)-Date.now()<=config.request_timeout_ms+30000);
+   if(old&&!replaceCohort&&!renew&&!scopeChanged&&!(role==='WAVE_MANAGER'&&operator&&old.cohort_generation!==undefined&&old.cohort_generation!==state.cohort_generation))return old;
    const baseKey=old?.key_file??reference.key_file;if(!operator||!config.bootstrap||!baseKey)fail('FLEET_SUPERVISOR_IDENTITY','Missing actor credential requires explicit operator and actor signing-key references');
-   const rotate=role==='WAVE_MANAGER'&&old?.cohort_generation!==undefined&&old.cohort_generation!==state.cohort_generation;
-   const keyFile=rotate?path.join(config.state_directory,'actor-'+reference.session_id+'.cohort-'+state.cohort_generation+'.key.pem'):baseKey;
+   const rotate=role==='WAVE_MANAGER'&&(scopeChanged||old?.cohort_generation!==undefined&&old.cohort_generation!==state.cohort_generation);
+   const keyFile=rotate?path.join(config.state_directory,'actor-'+reference.session_id+'.scope-'+hash(canonical({cohort_generation:state.cohort_generation,scope})).slice(7)+'.key.pem'):baseKey;
    if(rotate)await prepareActorKey(keyFile);
    const bytes=await readProtectedFile(keyFile,16384,true);let key:KeyObject;try{key=createPrivateKey(bytes);}finally{bytes.fill(0);}
    if(key.asymmetricKeyType!=='ed25519')fail('FLEET_SUPERVISOR_IDENTITY','Actor signing key must be Ed25519');
    const fingerprint=hash(createPublicKey(key).export({format:'der',type:'spki'}));if([...actors.values()].some(a=>a.session_id!==reference.session_id&&hash(createPublicKey(a.key).export({format:'der',type:'spki'}))===fingerprint))fail('FLEET_SUPERVISOR_IDENTITY','Bootstrap actor key must be distinct from existing actors');
    const publicKey=createPublicKey(key).export({format:'jwk'}).x;if(typeof publicKey!=='string')fail('FLEET_SUPERVISOR_IDENTITY','Raw Ed25519 public key required');
-   const allowed=role==='PRIMARY'?['hierarchy.leader.acquire','fleet.cohort.bind','fleet.session.bind','fleet.observe','fleet.session.reason','fleet.decision.inspect','fleet.decision.apply','spec.amendment.admit','hierarchy.package.configure']:['fleet.session.bind','fleet.observe','fleet.session.reason','fleet.decision.inspect','fleet.decision.apply'];
-   const input={session_id:reference.session_id,public_key_b64:publicKey,allowed_actions:allowed,ttl_seconds:config.bootstrap.ttl_seconds,authority_epoch:operator.authority_epoch,leader_generation:config.leader_generation,delegation_id:delegation?.package_id??null,manager_generation:delegation?.manager_generation??null,host_id:config.host_id,cohort_id:config.cohort_id,cohort_generation:state.cohort_generation,...(replaceCohort?{replace_cohort:true}:{})};
+   const allowed=scope.handoff_id?['hierarchy.package.handoff.acknowledge']:role==='PRIMARY'?['hierarchy.leader.acquire','fleet.cohort.bind','fleet.session.bind','fleet.observe','fleet.session.reason','fleet.decision.inspect','fleet.decision.apply','spec.amendment.admit','hierarchy.package.configure']:['fleet.session.bind','fleet.observe','fleet.session.reason','fleet.decision.inspect','fleet.decision.apply'];
+   const input={session_id:reference.session_id,public_key_b64:publicKey,allowed_actions:allowed,ttl_seconds:config.bootstrap.ttl_seconds,authority_epoch:operator.authority_epoch,leader_generation:config.leader_generation,delegation_id:delegation?.package_id??null,manager_generation:delegation?.manager_generation??null,host_id:config.host_id,cohort_id:config.cohort_id,cohort_generation:state.cohort_generation,...(replaceCohort?{replace_cohort:true}:{}),...(scope.handoff_id?{handoff_id:scope.handoff_id}:{})};
    const retained=state.grants[reference.session_id];if(retained&&canonical(retained.input)!==canonical(input))fail('FLEET_SUPERVISOR_IDENTITY','Retained enrollment belongs to different authority or key inputs');
    const grant=retained?.grant??await call(operator,'fleet.identity.bootstrap',input);
    if(!uuid(grant.credential_id)||typeof grant.expires_at!=='string'||!Number.isFinite(Date.parse(grant.expires_at))||grant.actor_id!==reference.session_id||grant.run_id!==config.run_id||grant.role!==(role==='PRIMARY'?'LEADER':'FEATURE_MANAGER')||grant.deployment_epoch!==operator.authority_epoch)fail('FLEET_SUPERVISOR_IDENTITY','Authenticated bootstrap returned a mismatched identity');
-   await writeState(reference.credential_file,{schema_version:1,credential_id:grant.credential_id,actor_id:grant.actor_id,organisation_id:config.organisation_id,run_id:config.run_id,role:grant.role,authority_epoch:grant.deployment_epoch,key_file:keyFile,cohort_generation:grant.cohort_generation,expires_at:grant.expires_at});
+   await writeState(reference.credential_file,{schema_version:1,credential_id:grant.credential_id,actor_id:grant.actor_id,organisation_id:config.organisation_id,run_id:config.run_id,role:grant.role,authority_epoch:grant.deployment_epoch,key_file:keyFile,cohort_generation:grant.cohort_generation,expires_at:grant.expires_at,enrollment_scope:scope});
    const actor=await loadActor(reference,role,config);actors.set(actor.session_id,actor);delete state.grants[reference.session_id];await persist();return actor;
   };
   if(state.pending){const pending=state.pending,owner=actors.get(pending.actor_id);if(!owner)fail('FLEET_SUPERVISOR_IDENTITY','Pending actor credentials are unavailable');const recovered=await call(owner,pending.action,pending.input,pending.component??'fleet-orchestration');if(pending.action==='fleet.cohort.bind')state.cohort_generation=String(recovered.cohort_generation);await persist();event('reconciled',owner.session_id,{operation_id:pending.operation_id});}
@@ -214,12 +217,20 @@ export async function runFleetSupervisor(filename:string,signal:AbortSignal,once
   do{
    try{
     primary=await enrolled(config.primary,'PRIMARY',null);
-    const primaryState=state.actors[primary.session_id]!,primaryObservation=await observe(primary,primaryState),observed=primaryObservation.view;
+    const primaryState=state.actors[primary.session_id]!;let primaryObservation=await observe(primary,primaryState),observed=primaryObservation.view;
+    let acknowledged=false;
+    for(const handoff of Array.isArray(observed.manager_handoffs)?observed.manager_handoffs:[]){
+     if(!object(handoff)||!uuid(handoff.handoff_id)||!Array.isArray(handoff.package_snapshot)||handoff.package_snapshot.length!==1||!object(handoff.package_snapshot[0]))fail('FLEET_HANDOFF_INVALID','Exact admitted replacement observation required');
+     const reference=config.managers.find(m=>m.session_id===handoff.successor_id);if(!reference){event('manager_credentials_required',String(handoff.successor_id),{handoff_id:handoff.handoff_id});continue;}
+     const snapshot=handoff.package_snapshot[0],successor=await enrolled(reference,'WAVE_MANAGER',{package_id:snapshot.package_id,manager_generation:(BigInt(String(snapshot.owner_generation))+1n).toString(),handoff_id:handoff.handoff_id});
+     await call(successor,'hierarchy.package.handoff.acknowledge',{idempotency_key:'fleet-manager-handoff:'+handoff.handoff_id,leader_generation:config.leader_generation,handoff_id:handoff.handoff_id},'3.1');acknowledged=true;
+    }
+    if(acknowledged){primaryObservation=await observe(primary,primaryState);observed=primaryObservation.view;}
     const delegations=Array.isArray(observed.delegations)?observed.delegations:[];
     for(const delegation of delegations)if(object(delegation)&&typeof delegation.manager_session_id==='string'){
      const reference=config.managers.find(m=>m.session_id===delegation.manager_session_id);if(reference){const manager=await enrolled(reference,'WAVE_MANAGER',delegation);await bind(manager,delegation);}
     }
-    const active=[primary,...[...actors.values()].filter(a=>a.role==='WAVE_MANAGER'&&state.actors[a.session_id])];
+    const active=[primary,...[...actors.values()].filter(a=>a.role==='WAVE_MANAGER'&&state.actors[a.session_id]&&delegations.some(d=>object(d)&&d.manager_session_id===a.session_id&&canonical(state.actors[a.session_id]!.binding)===canonical(binding(a,config,d))))];
     for(const current of active){
      if(signal.aborted)break;const session=state.actors[current.session_id]!;
      const observation=current===primary?primaryObservation:await observe(current,session),view=observation.view;
