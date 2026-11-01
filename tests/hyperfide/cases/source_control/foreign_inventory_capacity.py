@@ -34,7 +34,7 @@ def separate_accounting(f, http, api, refresh, capacity, sandbox, scopes):
     assert configured.get('ok'), configured
     normal = api('provider.intents.reconcile', {'intent_id': f.intent})
     assert normal.get('ok') and normal['result']['candidate_count'] == 0, normal
-    assert refresh()['inventory_attribution']['FOREIGN'] == 15
+    assert refresh()['retained_attribution_counts']['FOREIGN'] == 15
     before = capacity(f.other_pool)
     dimension = sandbox(before)
     assert before['accounting_mode'] == 'SEPARATE_FLEET_BUDGET_PROVIDER_QUOTA' and before['unknown_resource_capacity'] is False, before
@@ -122,7 +122,93 @@ def separate_accounting(f, http, api, refresh, capacity, sandbox, scopes):
     print(json.dumps({'status': 'PASS', 'scope': 'separate managed fleet budget and retained provider quota, actual signed CREATE preparation; controlled declarations only', 'provider_mutations': 0, 'live_quota_qualification': 'NOT_CLAIMED', 'checks': ['untyped retained ACCOUNT2 is managed budget and never provider quota', 'missing explicit quota refuses before intent insertion', 'explicit provider quota16 refuses shared usage17', 'retained typed quota1000 permits owned1 plus new1 under managed ACCOUNT2 and pool1 despite foreign15', 'unknown foreign CPU and disk do not block configured SANDBOX-only quota', 'third internal sandbox refuses without increasing ACCOUNT2/pool1', 'typed provider quota provenance retained separately from untyped ledger'], 'admitted_capacity': d, 'admitted_intent': admitted['result']['intent']['id']}))
 
 
-def main(separate=False):
+def inventory_refresh_progress(f, http, api, capacity, sandbox, scopes, names, baseline=False):
+    org, run = f.ids['organisation'], f.ids['run']
+    # Controlled historical anchor is ineligible for provisioning work selection.
+    f.sql("UPDATE hyperfide.provisioning_intents SET state='REJECTED',failure_code='OPERATOR_RELEASED',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2", [org, f.intent])
+    targets = set(names)
+
+    def latest(policy=None):
+        rows = f.sql("SELECT DISTINCT ON(observation->>'native_sandbox_id') observation FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' AND observation->>'native_sandbox_id'=ANY($2::text[]) ORDER BY observation->>'native_sandbox_id',observed_at DESC,created_at DESC", [org, names])
+        return {row['observation']['native_sandbox_id']: row['observation'] for row in rows if policy is None or row['observation']['policy_digest'] == policy}
+
+    def events(start=0):
+        return [row['path'].rsplit('/', 1)[-1] for row in http.events[start:] if row['method'] == 'GET' and '/sandboxes/' in row['path']]
+
+    attempts = []
+    for attempt in range(3 if baseline else 20):
+        before = latest(f.policy_digest)
+        fresh = {key for key, row in before.items() if row['classification'] == 'FOREIGN'}
+        boundary, started = len(http.events), time.monotonic()
+        answer = api('provider.intents.reconcile', {'intent_id': f.intent, 'reconcile_inventory': True})
+        elapsed = time.monotonic() - started
+        assert answer.get('ok'), answer
+        time.sleep(0.4)  # Observe requests already sent before the actual bounded deadline.
+        observed = latest(f.policy_digest)
+        proven = {key for key, row in observed.items() if row['classification'] == 'FOREIGN'}
+        fetched = events(boundary)
+        attempts.append({'elapsed_seconds': elapsed, 'result': answer['result'], 'foreign_proven': len(proven), 'actual_get_names': fetched})
+        assert elapsed < 4, attempts[-1]
+        if not baseline:
+            assert not fresh.intersection(fetched), {'fresh_exact_scope_policy_refetched': sorted(fresh.intersection(fetched)), 'attempt': attempts[-1]}
+            assert answer['result']['complete_inventory'] is False and answer['result']['freshness_scope'] == 'RETAINED_CANDIDATES_ONLY', answer
+            if proven == targets:
+                break
+            time.sleep(1.1)
+    proven = {key for key, row in latest(f.policy_digest).items() if row['classification'] == 'FOREIGN'}
+    if baseline:
+        repeated = {name: events().count(name) for name in proven}
+        assert 0 < len(proven) < len(names) and any(count >= 3 for count in repeated.values()), {'attempts': attempts, 'proven': sorted(proven), 'get_counts': repeated}
+        print(json.dumps({'status': 'REPRODUCED_PREFIX_STARVATION', 'scope': 'actual signed PG/SDK baseline under900ms provider operation deadline and350ms actual HTTP latency', 'foreign_proven': len(proven), 'retained_candidates': len(names), 'fresh_prefix_get_counts': repeated, 'attempts': attempts, 'provider_mutations': 0}))
+        return
+    assert proven == targets, attempts
+    assert attempts[0]['result']['partial'] is True and attempts[0]['result']['has_more'] is True, attempts[0]
+    boundary = len(http.events)
+    skipped = api('provider.intents.reconcile', {'intent_id': f.intent, 'reconcile_inventory': True})
+    assert skipped.get('ok') and skipped['result']['attempted'] == 0 and skipped['result']['skipped_fresh'] == len(names) and events(boundary) == [], skipped
+    report = capacity(f.pool)
+    assert sandbox(report)['used_account'] == str(len(names)+1) and sandbox(report)['budget_used_account'] == '1' and report['unknown_resource_capacity'] is False, report
+    assert report['external_usage']['classified_foreign'] == len(names)
+    if '--refresh-manual-only' in sys.argv:
+        print(json.dumps({'status': 'PASS', 'scope': 'actual signed bounded inventory retry progress and exact-policy/scope cache', 'background_refresh': 'NOT_EXERCISED', 'retained_candidates': len(names), 'attempts': attempts, 'fresh_noop': skipped['result'], 'shared_usage': sandbox(report), 'checks': ['bounded retries cover all retained candidates', 'fresh exact-policy/scope entries are not fetched again', 'fresh fullcoverage repeats issue zero GETs and do not claim complete provider inventory', 'managed fleet budget remains separate from shared foreign presence']}))
+        return
+    # Protected policy rotation invalidates attribution without erasing presence.
+    selected = sorted(names)[0]
+    original = copy.deepcopy(http.models[selected])
+    changed = copy.deepcopy(original[1])
+    changed['metadata']['labels'].pop('managed-by')
+    http.models[selected] = (200, changed)
+    f.policy_bytes += b' '
+    f.policy_file.write_bytes(f.policy_bytes)
+    f.policy_digest = provider.sha(f.policy_bytes)
+    f.stop()
+    f.env['HF_BLAXEL_FOREIGN_OWNERSHIP_CONFIG_DIGEST'] = f.policy_digest
+    f.start()
+    stale = capacity(f.pool)
+    assert sandbox(stale)['used_account'] == str(len(names)+1) and stale['external_usage']['classified_foreign'] == 0 and stale['unknown_resource_capacity'] is True, stale
+    anchor_before = f.sql('SELECT to_jsonb(i) AS row FROM hyperfide.provisioning_intents i WHERE organisation_id=$1 AND id=$2', [org, f.intent])
+    started = api('provider.worker.start', {})
+    assert started.get('ok'), started
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        proof = latest(f.policy_digest)
+        if len(proof) == len(names) and proof[selected]['classification'] == 'UNKNOWN' and sum(row['classification'] == 'FOREIGN' for row in proof.values()) == len(names)-1:
+            break
+        time.sleep(0.3)
+    else:
+        raise AssertionError({'background_refresh_latest': latest(f.policy_digest), 'worker': api('provider.worker.status', {})})
+    status = api('provider.worker.status', {})
+    assert status.get('ok'), status
+    stopped = api('provider.worker.stop', {})
+    assert stopped.get('ok'), stopped
+    assert f.sql('SELECT to_jsonb(i) AS row FROM hyperfide.provisioning_intents i WHERE organisation_id=$1 AND id=$2', [org, f.intent]) == anchor_before
+    final = capacity(f.pool)
+    assert sandbox(final)['used_account'] == str(len(names)+1) and sandbox(final)['budget_used_account'] == '2' and final['unknown_resource_capacity'] is True, final
+    assert final['external_usage']['classified_foreign'] == len(names)-1 and all(row['method'] == 'GET' for row in http.events)
+    print(json.dumps({'status': 'PASS', 'scope': 'actual signed bounded inventory retries and normal provisioner background SDK refresh; no work selection or provider mutation', 'retained_candidates': len(names), 'attempts': attempts, 'fresh_noop': skipped['result'], 'worker_status': status['result'], 'stale_shared_usage': sandbox(stale), 'final_shared_usage': sandbox(final), 'checks': ['bounded retries advance beyond the first prefix', 'fresh exact-policy/scope entries are not fetched again', 'complete retained-candidate coverage never claims complete provider inventory', 'policy rotation preserves unknown shared presence charges', 'normal provisioner background refresh runs with only an ineligible historical anchor and leaves its row unchanged', 'new UNKNOWN ownership preserves charges and blocks placement']}))
+
+
+def main(separate=False, refresh_progress=False):
     http = fixture.ReadOnlyHTTP()
     catalog = []
     original_route = http.server.RequestHandlerClass.route
@@ -139,13 +225,15 @@ def main(separate=False):
             handler.end_headers()
             handler.wfile.write(data)
             return
+        if refresh_progress and handler.command == 'GET' and '/sandboxes/' in path:
+            time.sleep(0.35)
         return original_route(handler)
 
     http.server.RequestHandlerClass.route = route
     http.server.RequestHandlerClass.do_GET = route
     marker = 'component-owner-' + uuid.uuid4().hex
     owner_id, identity_label = 'component-foreign', 'component-owner-id'
-    foreign_names = ['resource-' + uuid.uuid4().hex[:24] for _ in range(15)]
+    foreign_names = ['resource-' + uuid.uuid4().hex[:24] for _ in range(24 if refresh_progress else 15)]
     unknown_names = {kind: 'resource-' + uuid.uuid4().hex[:24] for kind in ['unmarked', 'unknown-owner', 'conflicting-hf', 'failed-get']}
     known_name = 'hf-' + uuid.uuid4().hex
 
@@ -158,7 +246,7 @@ def main(separate=False):
         f.preparation = manifest['digest']
         f.sql("INSERT INTO hyperfide.environment_profiles(organisation_id,id,content_digest,provider,runtime_platform,manifest) VALUES($1,$2,$3,'blaxel','linux-amd64',$4)", [f.ids['organisation'], f.profile, f.preparation, manifest])
         limits = {'SANDBOX': '2', 'PROVISIONING': '2', 'CPU_MILLIS': '100000', 'MEMORY_BYTES': '107374182400', 'DISK_BYTES': '1073741824000'}
-        f.config = {'schema_version': 1, 'organisation_id': f.ids['organisation'], 'revision': 'SHARED_ACCOUNT_INVENTORY_COMPONENT', 'accounts': [{'provider': 'blaxel', 'account_key': 'inventory-component-account', 'approved_limits': limits, 'planning_limits': limits}], 'pools': [{'id': pool, 'provider': 'blaxel', 'account_key': 'inventory-component-account', 'environment_key': 'inventory-component-workspace', 'region': 'us-pdx-1', 'profile_id': f.profile, 'preparation_digest': f.preparation, 'approved_limits': limits, 'planning_limits': limits, 'create_policy': {'seed_reference': 'DECLARED_NOT_PROVISIONED', 'network': 'ISOLATED', 'stdin_required': False, 'inventory_namespace': {'schema_version': 1, 'kind': 'HYPERFIDE_SCOPE_LABEL', 'name_prefix': 'hf-'}}} for pool in [f.pool, f.other_pool]], 'maximum_operation_ms': 60000}
+        f.config = {'schema_version': 1, 'organisation_id': f.ids['organisation'], 'revision': 'SHARED_ACCOUNT_INVENTORY_COMPONENT', 'accounts': [{'provider': 'blaxel', 'account_key': 'inventory-component-account', 'approved_limits': limits, 'planning_limits': limits}], 'pools': [{'id': pool, 'provider': 'blaxel', 'account_key': 'inventory-component-account', 'environment_key': 'inventory-component-workspace', 'region': 'us-pdx-1', 'profile_id': f.profile, 'preparation_digest': f.preparation, 'approved_limits': limits, 'planning_limits': limits, 'create_policy': {'seed_reference': 'DECLARED_NOT_PROVISIONED', 'network': 'ISOLATED', 'stdin_required': False, 'inventory_namespace': {'schema_version': 1, 'kind': 'HYPERFIDE_SCOPE_LABEL', 'name_prefix': 'hf-'}}} for pool in [f.pool, f.other_pool]], 'maximum_operation_ms': 900 if refresh_progress else 60000}
         adapter_policy = {'schema_version': 1, 'lifecycle': {'schema_version': 1, 'run_seconds': 3600, 'checkpoint_lead_seconds': 60, 'termination_grace_seconds': 10, 'api_wait_seconds': 5, 'process': {'keep_alive': True, 'timeout_seconds': 0}, 'expiration_policies': [], 'runtime_ttl': None, 'runtime_expires_at': None}, 'network_mode': 'ISOLATED', 'network': {}, 'volumes': [], 'runtime_extra_args': {}, 'runtime_env_refs': {}, 'preparation_seed_reference': 'DECLARED_NOT_PROVISIONED'}
         adapter_file = f.path / 'blaxel-adapter.json'
         adapter_file.write_text(json.dumps({'schema_version': 1, 'profiles': [{'routing': {'organisation_id': f.ids['organisation'], 'pool_id': pool, 'provider_account_id': 'inventory-component-account', 'environment_id': 'inventory-component-workspace', 'region': 'us-pdx-1'}, 'body': adapter_policy} for pool in [f.pool, f.other_pool]]}))
@@ -195,6 +283,8 @@ def main(separate=False):
         credentials = f.path / 'credentials.json'
         credentials.write_text(json.dumps({'schema_version': 1, 'secret_root': str(secrets), 'attachment_root': str(attachments), 'sources': [], 'targets': []}))
         credentials.chmod(0o600)
+        if refresh_progress:
+            f.env.update(HYPERFIDE_PROVISIONER_POLL_MS='100', HYPERFIDE_PROVISIONER_RETRY_MS='200', HYPERFIDE_PROVISIONER_LEASE_MS='3000', HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS='0')
         f.env.update(HYPERFIDE_POOL_CONFIG=str(file), HF_CREDENTIAL_CONFIG_FILE=str(credentials), HF_BLAXEL_FOREIGN_OWNERSHIP_CONFIG_FILE=str(f.policy_file), HF_BLAXEL_FOREIGN_OWNERSHIP_CONFIG_DIGEST=f.policy_digest, NODE_OPTIONS=(f.env.get('NODE_OPTIONS', '') + ' --import ' + str(ROOT / 'tests/hyperfide/support/source_archive_sdk_transport.mjs')).strip(), HF_SOURCE_ARCHIVE_HTTP_FIXTURE=http.endpoint, BL_DISABLE_H2='true', BL_DISABLE_CONTROL_PLANE_H2='true', HF_BLAXEL_LIVE_ENABLED='true', HF_BLAXEL_API_KEY='controlled-inventory-no-live-authority', HF_BLAXEL_WORKSPACE='inventory-component-workspace', HF_BLAXEL_ACCOUNT_ID='inventory-component-account')
 
     f = None
@@ -249,7 +339,13 @@ def main(separate=False):
         def refresh():
             response = api('provider.intents.reconcile', {'intent_id': f.intent, 'reconcile_inventory': True})
             assert response.get('ok') and response['result']['orphan_rows_rewritten'] is False and response['result']['capacity_released'] is False, response
-            return response['result']
+            rows = f.sql("SELECT DISTINCT ON(observation->>'native_sandbox_id') observation FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' ORDER BY observation->>'native_sandbox_id',observed_at DESC,created_at DESC", [i['organisation']])
+            retained_counts = {'OWNED': 0, 'FOREIGN': 0, 'UNKNOWN': 0}
+            for row in rows:
+                proof = row['observation']
+                if proof['policy_digest'] == f.policy_digest and proof['scope'] == scopes[f.pool]:
+                    retained_counts[proof['classification']] += 1
+            return {**response['result'], 'retained_attribution_counts': retained_counts}
 
         def capacity(pool):
             response = api('provider.pools.capacity', {'pool_id': pool}, key='operator', component='8.2')
@@ -259,6 +355,9 @@ def main(separate=False):
         def sandbox(report):
             return next(row for row in report['dimensions'] if row['name'] == 'SANDBOX')
 
+        if refresh_progress:
+            inventory_refresh_progress(f, http, api, capacity, sandbox, scopes, foreign_names, baseline='--refresh-baseline' in sys.argv)
+            return
         if separate:
             separate_accounting(f, http, api, refresh, capacity, sandbox, scopes)
             return
@@ -270,7 +369,7 @@ def main(separate=False):
         assert orphans([known_name]) == []
         assert not any(event['path'].endswith('/sandboxes/' + known_name) for event in http.events), http.events
         original_orphans = orphans()
-        counted = refresh()['inventory_attribution']
+        counted = refresh()['retained_attribution_counts']
         assert counted['FOREIGN'] == 15 and counted['UNKNOWN'] == 4, counted
         assert orphans() == original_orphans
         own, other = capacity(f.pool), capacity(f.other_pool)
@@ -289,15 +388,18 @@ def main(separate=False):
         changed = copy.deepcopy(original_model[1])
         changed['metadata']['labels'].pop('managed-by')
         http.models[selected] = (200, changed)
-        assert refresh()['inventory_attribution']['FOREIGN'] == 14
+        time.sleep(11)  # Actual half-TTL expiry makes the changed vendor metadata due.
+        assert refresh()['retained_attribution_counts']['FOREIGN'] == 14
         contradicted = capacity(f.pool)
         assert contradicted['external_usage']['resources'] == 19 and contradicted['external_usage']['classified_foreign'] == 14 and sandbox(contradicted)['used_pool'] == '6'
         http.models[selected] = (503, {'error': 'Controlled later metadata probe unavailable'})
+        time.sleep(1.1)
         refresh()
         latest = f.sql("SELECT observation FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' AND observation->>'native_sandbox_id'=$2 ORDER BY observed_at DESC LIMIT 1", [i['organisation'], selected])[0]['observation']
         assert latest['classification'] == 'UNKNOWN' and latest['foreign'] is None and latest['probe_evidence_digest'] is None, latest
         assert capacity(f.pool)['external_usage']['classified_foreign'] == 14
         http.models[selected] = original_model
+        time.sleep(1.1)
         refresh()
         assert capacity(f.pool)['external_usage']['classified_foreign'] == 15
         checks.append('new UNKNOWN or failed GET supersedes older FOREIGN proof; marked actual metadata can re-establish attribution')
@@ -310,7 +412,7 @@ def main(separate=False):
         assert orphans([novel]) == [], 'Fresh foreign discovery must retain attribution without creating an orphan'
         assert orphans(foreign_names) == legacy
         original_orphans = orphans()
-        assert refresh()['inventory_attribution']['FOREIGN'] == 16
+        assert refresh()['retained_attribution_counts']['FOREIGN'] == 16
         discovered_capacity = capacity(f.pool)
         assert discovered_capacity['external_usage']['classified_foreign'] == 16 and sandbox(discovered_capacity)['used_account'] == '22', discovered_capacity
         f.policy_file.write_bytes(f.policy_bytes + b' ')
@@ -332,6 +434,9 @@ def main(separate=False):
 
 
 if __name__ == '__main__':
-    if sys.argv[1:] != ['--separate-only']:
-        main()
-    main(separate=True)
+    if '--refresh-progress-only' in sys.argv or '--refresh-baseline' in sys.argv:
+        main(separate=True, refresh_progress=True)
+    else:
+        if sys.argv[1:] != ['--separate-only']:
+            main()
+        main(separate=True)

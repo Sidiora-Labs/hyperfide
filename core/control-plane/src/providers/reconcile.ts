@@ -575,10 +575,25 @@ async function attributeInventoryResource(database:ProviderDatabase,config:Deplo
 }
 async function refreshInventoryAttribution(database:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
  const row=await intent(database,config.organisation_id,id);assertInvocationRun(database,row.run_id);const {scope}=await currentPool(database,config,row.pool_id);if(digestDocument(scope)!==digestDocument(row.operation.scope)||!foreignInventoryPolicy(config))fail('PROVIDER_INVENTORY_POLICY_REQUIRED','Current original scope and protected foreign ownership policy required');
- const candidates=(await database.query("SELECT native_sandbox_id FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2 AND state<>'DELETED' UNION SELECT observation->>'native_sandbox_id' AS native_sandbox_id FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' AND observation->'scope'->>'provider'=$3 AND observation->'scope'->>'provider_account_id'=$4 AND observation->'scope'->>'environment_id'=$5 ORDER BY native_sandbox_id LIMIT 1001",[config.organisation_id,row.pool_id,scope.provider,scope.provider_account_id,scope.environment_id])).rows;if(candidates.length>1000)fail('PROVIDER_INVENTORY_BOUND','Scoped orphan attribution exceeds bounded refresh');
- const counts={OWNED:0,FOREIGN:0,UNKNOWN:0,KNOWN:0},deadlineAt=new Date(Date.now()+config.maximum_operation_ms).toISOString();
- for(const candidate of candidates){if(await knownInventoryResource(database,scope,candidate.native_sandbox_id)){counts.KNOWN++;continue;}const observed=await attributeInventoryResource(database,config,row,candidate.native_sandbox_id,signal,deadlineAt);counts[observed.classification]++;}
- return{intent:row,inventory_attribution:counts,orphan_rows_rewritten:false,capacity_released:false};
+ const policy=foreignInventoryPolicy(config)!,freshMs=Math.max(1,Math.floor(policy.document.max_age_seconds*1000/2));
+ const candidates=(await database.query<{native_sandbox_id:string;observation:Record<string,unknown>|null;observed_at:string}>(`WITH candidates AS (
+ SELECT native_sandbox_id FROM hyperfide.provider_orphans WHERE organisation_id=$1 AND pool_id=$2 AND state<>'DELETED'
+ UNION SELECT observation->>'native_sandbox_id' FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' AND observation->'scope'->>'provider'=$3 AND observation->'scope'->>'provider_account_id'=$4 AND observation->'scope'->>'environment_id'=$5
+ ) SELECT c.native_sandbox_id,o.observation,o.observed_at FROM candidates c LEFT JOIN LATERAL (
+ SELECT observation,observed_at FROM hyperfide.provider_observations WHERE organisation_id=$1 AND observation->>'kind'='PROVIDER_INVENTORY_ATTRIBUTION_V1' AND observation->>'native_sandbox_id'=c.native_sandbox_id AND observation->'scope'->>'provider'=$3 AND observation->'scope'->>'provider_account_id'=$4 AND observation->'scope'->>'environment_id'=$5 ORDER BY observed_at DESC,id DESC LIMIT 1
+ ) o ON true ORDER BY o.observed_at NULLS FIRST,c.native_sandbox_id LIMIT 1001`,[config.organisation_id,row.pool_id,scope.provider,scope.provider_account_id,scope.environment_id])).rows;
+ if(candidates.length>1000)fail('PROVIDER_INVENTORY_BOUND','Scoped orphan attribution exceeds bounded refresh');
+ const counts={OWNED:0,FOREIGN:0,UNKNOWN:0,KNOWN:0};let skippedFresh=0,attempted=0;
+ const due:Array<{native_sandbox_id:string;observation:Record<string,unknown>|null;observed_at:string}>=[];
+ for(const candidate of candidates){const previous=candidate.observation;
+  const age=Date.now()-new Date(candidate.observed_at??0).getTime(),ttl=previous?.classification==='UNKNOWN'&&previous?.presence!=='ABSENT'?1000:freshMs;
+  if(previous?.policy_digest===policy.digest&&digestDocument(previous.scope)===digestDocument(scope)&&age>=0&&age<ttl){skippedFresh++;continue;}
+  if(await knownInventoryResource(database,scope,candidate.native_sandbox_id)){counts.KNOWN++;continue;}due.push(candidate);
+ }
+ const budget=Math.min(config.maximum_operation_ms,10000),end=Date.now()+budget,deadlineAt=new Date(end).toISOString(),boundedSignal=AbortSignal.any([signal,AbortSignal.timeout(budget)]);
+ let cursor=0;
+ await Promise.all(Array.from({length:Math.min(4,due.length)},async()=>{while(cursor<Math.min(32,due.length)&&Date.now()<end&&!boundedSignal.aborted){const candidate=due[cursor++]!;const observed=await attributeInventoryResource(database,config,row,candidate.native_sandbox_id,boundedSignal,deadlineAt);counts[observed.classification]++;attempted++;}}));
+ return{intent:row,inventory_attribution:counts,attempted,skipped_fresh:skippedFresh,remaining_candidates:due.length-attempted,has_more:due.length>attempted,partial:due.length>attempted,continuation:due.length>attempted?'SAME_SCOPE_NEW_RPC':null,uncertain_transport:'RECONCILE_ORIGINAL_OPERATION',complete_inventory:false,freshness_scope:'RETAINED_CANDIDATES_ONLY',orphan_rows_rewritten:false,capacity_released:false};
 }
 export async function reconcileIntent(pool:ProviderDatabase,config:DeploymentConfig,id:string,signal:AbortSignal):Promise<unknown>{
   let row=await intent(pool,config.organisation_id,id);assertInvocationRun(pool,row.run_id);
