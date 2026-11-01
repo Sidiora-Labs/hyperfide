@@ -30,12 +30,12 @@ const STAGES=['bootstrap-preflight','authority-resolution','plan-resolution','so
 function same(a:unknown,b:unknown):boolean{return canonicalJSON(a)===canonicalJSON(b);}
 function beneath(root:string,value:string):string{const relative=path.relative(root,value);if(relative==='..'||relative.startsWith('..'+path.sep)||path.isAbsolute(relative))fail('FLEET_INSTALL_PATH','Install output escapes its declared environment');return relative;}
 async function fileDigest(filename:string):Promise<string>{const info=await fs.lstat(filename);if(!info.isFile()||info.isSymbolicLink())fail('FLEET_INSTALL_FILE','Expected an ordinary pinned file');return hash(await fs.readFile(filename));}
-async function processStart(pid:number):Promise<string|null>{try{const stat=await fs.readFile('/proc/'+pid+'/stat','utf8');return stat.slice(stat.lastIndexOf(')')+2).split(' ')[19]??null;}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return null;throw error;}}
+async function processStart(pid:number):Promise<string|null>{try{const stat=await fs.readFile('/proc/'+pid+'/stat','utf8');const fields=stat.slice(stat.lastIndexOf(')')+2).split(' ');return fields[0]==='Z'?null:fields[19]??null;}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return null;throw error;}}
 async function installLock(filename:string,operation:string,plan:string,recoveryOperation?:string):Promise<void>{
  const ownerFile=path.join(filename,'owner.json');
  try{await fs.mkdir(filename,{mode:0o700});}catch(error){if((error as NodeJS.ErrnoException).code!=='EEXIST')throw error;
   let owner:RecordValue;try{owner=strictJSON(await readProtectedFile(ownerFile,4096,true))as RecordValue;}catch{fail('FLEET_INSTALL_BUSY','Unreconciled installer lock requires coordinator inspection');}
-  if(owner.operation_id!==operation&&owner.operation_id!==recoveryOperation||owner.plan_digest!==plan||!Number.isSafeInteger(owner.pid)||owner.pid<1)fail('FLEET_INSTALL_BUSY','Another installer owns this generation');
+  if(owner.operation_id!==operation&&owner.operation_id!==recoveryOperation||owner.plan_digest!==plan||!Number.isSafeInteger(owner.pid)||owner.pid<1||typeof owner.process_start!=='string'||!/^\d+$/.test(owner.process_start))fail('FLEET_INSTALL_BUSY','Another installer owns this generation');
   const started=await processStart(owner.pid);if(started!==null&&started===owner.process_start)fail('FLEET_INSTALL_BUSY','Current installer process still owns this generation');
   const entries=await fs.readdir(filename);if(entries.length!==1||entries[0]!=='owner.json')fail('FLEET_INSTALL_BUSY','Unexpected install lock content is preserved');await fs.unlink(ownerFile);await fs.rmdir(filename);try{await fs.mkdir(filename,{mode:0o700});}catch{fail('FLEET_INSTALL_BUSY','Another installer won reconciled lock acquisition');}
  }
