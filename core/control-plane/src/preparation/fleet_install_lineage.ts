@@ -6,7 +6,7 @@ export async function readBootstrapInstallAllocationEpoch(tx:PrimaryTransaction,
  const lineage=(await tx.query(`WITH RECURSIVE edges AS (
  SELECT operation_id,predecessor_install_operation_id AS predecessor,true AS fresh_epoch FROM hyperfide.fleet_install_not_started_recoveries WHERE organisation_id=$1 AND run_id=$2
  UNION ALL SELECT operation_id,predecessor_install_operation_id,true FROM hyperfide.fleet_install_pre_provider_recoveries WHERE organisation_id=$1 AND run_id=$2
- UNION ALL SELECT operation_id,predecessor_install_operation_id,false FROM hyperfide.fleet_install_recoveries WHERE organisation_id=$1 AND run_id=$2
+ UNION ALL SELECT operation_id,predecessor_install_operation_id,allocation_epoch_operation_id IS NOT NULL FROM hyperfide.fleet_install_recoveries WHERE organisation_id=$1 AND run_id=$2
  ),chain(operation_id,depth,path) AS (
  SELECT $3::uuid,0,ARRAY[$3::uuid] UNION ALL
  SELECT edge.predecessor,c.depth+1,c.path||edge.predecessor FROM chain c

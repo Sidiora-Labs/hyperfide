@@ -918,14 +918,22 @@ export async function readPreparationTarget(tx:PrimaryTransaction,input:Schedule
   workspace_path:row.workspace_path,home_path:row.home_path,tmp_path:row.tmp_path,generation:String(allocation.generation),state:'BOUND',execution_authority:false};
 }
 export async function finishPreparationAllocation(tx:PrimaryTransaction,input:SchedulerScope&{operation_id:string}):Promise<void>{
+ return finishPreparationAllocationInternal(tx,input,false);
+}
+/** Collection-only cleanup: no new execution authority or timestamp renewal. */
+export async function finishFleetInstallAllocation(tx:PrimaryTransaction,input:SchedulerScope&{operation_id:string}):Promise<void>{
+ return finishPreparationAllocationInternal(tx,input,true);
+}
+async function finishPreparationAllocationInternal(tx:PrimaryTransaction,input:SchedulerScope&{operation_id:string},retainedFleetInstall:boolean):Promise<void>{
  assertPrimaryTransaction(tx);
+ if(retainedFleetInstall)await lockRun(tx,input,'exclusive');
  const job=(await tx.query("SELECT j.*,p.public_key_b64,p.role AS executor_role,clock_timestamp() AS now FROM hyperfide.runner_remote_jobs j JOIN hyperfide.identity_principals p ON p.credential_id=j.executor_credential_id WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.operation_id=$3 FOR SHARE OF j,p",
   [input.organisation_id,input.run_id,uuid(input.operation_id,'operation_id')])).rows[0];
  const age=job?new Date(job.now).getTime()-Date.parse(job.result?.ended_at):NaN;
  if(!job||job.job_class!=='PREPARATION'||job.state!=='COMPLETED'||job.result?.outcome!=='SUCCEEDED'||
   job.result?.cleanup_status!=='CONFIRMED'||job.result?.cleanup?.complete!==true||job.result?.cleanup?.observed_process_absent!==true||
   job.executor_role!=='PROVISIONER'||job.result?.operation_id!==input.operation_id||
-  !Number.isFinite(age)||age<0||age>30000)
+  !Number.isFinite(age)||age<0||(!retainedFleetInstall&&age>30000))
   fail('QUIESCENCE_UNCONFIRMED','Fresh completed native preparation and confirmed empty slot are required');
  const {runnerCanonical,runnerResultSigningBytes}=await import('../runner/bridge.js');
  const resultDigest='sha256:'+createHash('sha256').update(runnerCanonical(job.result)).digest('hex');
@@ -933,8 +941,32 @@ export async function finishPreparationAllocation(tx:PrimaryTransaction,input:Sc
  if(resultDigest!==job.result_digest||typeof job.result_signature!=='string'||
   !verify(null,runnerResultSigningBytes(input.organisation_id,input.run_id,input.operation_id,job.plan_digest,resultDigest),key,Buffer.from(job.result_signature,'base64url')))
   fail('QUIESCENCE_UNCONFIRMED','Preparation cleanup requires the signed provider-captured result');
- const allocation=await readJobAllocation(tx,{...input,reservation_id:job.reservation_id});
- if(!allocation||allocation.allocation_id!==job.plan.allocation.allocation_id||allocation.generation!==job.plan.allocation.generation)
+ let allocation:JobAllocation;
+ if(retainedFleetInstall){
+  const binding=job.plan?.binding, pins=job.plan?.allocation;
+  if('sha256:'+createHash('sha256').update(runnerCanonical(job.plan)).digest('hex')!==job.plan_digest||job.plan?.preparation_request?.job_binding?.namespace!=='FLEET_INSTALL'||job.plan.preparation_request.job_binding.job_id!==input.operation_id||!job.claim_id||!job.native_claimed_at||!job.completed_at||!binding||!pins)
+   fail('QUIESCENCE_UNCONFIRMED','Retained install cleanup requires the original claimed native install');
+  const found=await tx.query<JobAllocation>(`SELECT a.*,a.id AS allocation_id FROM hyperfide.resource_job_allocations a
+   JOIN hyperfide.sandboxes s ON s.organisation_id=a.organisation_id AND s.id=a.sandbox_id AND s.boot_generation=a.sandbox_boot_generation
+   JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation
+   JOIN hyperfide.worker_slots w ON w.organisation_id=a.organisation_id AND w.id=a.slot_id AND w.sandbox_id=s.id AND w.boot_generation=s.boot_generation
+   JOIN hyperfide.runner_registry r ON r.organisation_id=a.organisation_id AND r.run_id=a.run_id AND r.session_id=a.assignee_session_id AND r.slot_id=w.id AND r.sandbox_id=s.id AND r.boot_generation=s.boot_generation AND r.boot_id=b.boot_id
+   JOIN hyperfide.agent_sessions session ON session.organisation_id=a.organisation_id AND session.run_id=a.run_id AND session.id=a.assignee_session_id AND session.slot_id=w.id AND session.sandbox_id=s.id AND session.sandbox_boot_generation=s.boot_generation
+   WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.id=$3 AND a.reservation_id=$4 AND a.state='ACTIVE' AND a.job_kind='PREPARATION'
+    AND s.observed_state='RUNNING' AND s.desired_state='RUNNING' AND w.state='ALLOCATED' AND r.state IN('PREPARING','CURRENT') AND session.state IN('REGISTERED','RUNNING')
+    AND b.boot_id=$5 AND r.slot_generation=$6
+   FOR UPDATE OF a,w FOR SHARE OF s,b,r,session`,[input.organisation_id,input.run_id,pins.allocation_id,job.reservation_id,binding.boot_id,binding.slot_generation]);
+  const current=found.rows[0];
+  if(!current||current.slot_id!==binding.slot_id||current.sandbox_id!==binding.sandbox_id||String(current.sandbox_boot_generation)!==String(binding.boot_generation)||current.assignee_session_id!==job.session_id||current.request_id!==pins.request_id||current.task_id!==pins.task_id||current.slot_id!==pins.slot_id||current.sandbox_id!==pins.sandbox_id||String(current.sandbox_boot_generation)!==String(pins.sandbox_boot_generation)||current.assignee_session_id!==pins.assignee_session_id)
+   fail('JOB_ALLOCATION_STALE','Retained cleanup requires the unchanged original slot, boot and allocation');
+  const conflicts=await tx.query(`SELECT 1 FROM hyperfide.resource_job_allocations a WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.slot_id=$3 AND a.sandbox_id=$4 AND a.sandbox_boot_generation=$5 AND a.id<>$6 AND a.state<>'RELEASED'
+   UNION ALL SELECT 1 FROM hyperfide.runner_remote_jobs j WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.operation_id<>$7 AND j.plan->'binding'->>'slot_id'=$3::text AND j.plan->'binding'->>'sandbox_id'=$4::text AND j.plan->'binding'->>'boot_generation'=$5::text AND (j.state<>'COMPLETED' OR j.created_at>=$8::timestamptz OR j.claimed_at>=$9::timestamptz OR j.completed_at>=$10::timestamptz) LIMIT 1`,[input.organisation_id,input.run_id,current.slot_id,current.sandbox_id,current.sandbox_boot_generation,current.allocation_id,input.operation_id,job.created_at,job.claimed_at,job.completed_at]);
+  const reservations=await tx.query("SELECT state FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND request_id=$3 FOR UPDATE",[input.organisation_id,input.run_id,current.request_id]);
+  if(conflicts.rows.length||!reservations.rows.length||reservations.rows.some(row=>row.state!=='ALLOCATED'))
+   fail('QUIESCENCE_UNCONFIRMED','A successor or changed reservation prevents retained install cleanup');
+  allocation=current;
+ }else allocation=await readJobAllocation(tx,{...input,reservation_id:job.reservation_id});
+ if(!allocation||allocation.allocation_id!==job.plan.allocation.allocation_id||String(allocation.generation)!==String(job.plan.allocation.generation))
   fail('JOB_ALLOCATION_STALE','Preparation cleanup must bind the exact current allocation');
  await releaseJobAllocation(tx,{...input,reservation_id:job.reservation_id,allocation_id:allocation.allocation_id,
   allocation_generation:allocation.generation,assignee_session_id:allocation.assignee_session_id});
@@ -952,7 +984,7 @@ export async function finishPreparationAllocation(tx:PrimaryTransaction,input:Sc
  }finally{scheduler.close();}
 }
 export function createComponent(context:ComponentContext):Component{
-  return {apiVersion:1,capabilities:{'scheduler.allocations.v1':Object.freeze({assertJobReservation,allocateReservations,bindJobReservation,readJobAllocation,readPreparationTarget,finishPreparationAllocation,renewJobAllocation,releaseJobAllocation,validateResourceVector}),'scheduler.controls.v1':Object.freeze({applyExecutionControl,assertNoExecutionHold,assertExecutionContinuation}),'scheduler.claims.v1':Object.freeze({claimTask,reserveCapacity,requireSchedulerAuthority,readCurrentComputeToken}),'scheduler.sandbox-budget.v1':Object.freeze({qualifySandboxBudget,lockSandboxBudget,reserveSandboxResources,markSandboxReleasePending,assertSandboxReservation,inspectSandboxCharge})},actions:{
+  return {apiVersion:1,capabilities:{'scheduler.allocations.v1':Object.freeze({assertJobReservation,allocateReservations,bindJobReservation,readJobAllocation,readPreparationTarget,finishPreparationAllocation,finishFleetInstallAllocation,renewJobAllocation,releaseJobAllocation,validateResourceVector}),'scheduler.controls.v1':Object.freeze({applyExecutionControl,assertNoExecutionHold,assertExecutionContinuation}),'scheduler.claims.v1':Object.freeze({claimTask,reserveCapacity,requireSchedulerAuthority,readCurrentComputeToken}),'scheduler.sandbox-budget.v1':Object.freeze({qualifySandboxBudget,lockSandboxBudget,reserveSandboxResources,markSandboxReleasePending,assertSandboxReservation,inspectSandboxCharge})},actions:{
     'scheduler.claim':async (value,context)=>{
       const input=parseClaim(value),actor=actorFor(context,input,object(value));
       return gatewayFor(context).withPrimaryTransaction({timeoutMs:10000,maxRetries:3,signal:context.signal},

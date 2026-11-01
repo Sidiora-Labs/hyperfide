@@ -394,8 +394,10 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
     const processOp=op as ProviderOperation<'inspect'>|ProviderOperation<'attach'>;
     if(processOp.kind==='attach'&&processOp.parameters.resume_cursor!==null)return outcome(op,'UNSUPPORTED',null);
     const instance=await sandbox(op,parent),ref=processOp.parameters.process_ref;
-    await processBinding(op,ref);
-    const rawProcess=await read(s=>instance.process.get(ref,{signal:s,retry:false}),op,parent),result=noOutput(ref,rawProcess);
+    const retained=await processBinding(op,ref);
+    const rawProcess=await read(s=>instance.process.get(ref,{signal:s,retry:false}),op,parent);
+    if(rawProcess.name!==ref||!retained.native_process_ref||rawProcess.pid!==retained.native_process_ref)fail('BLAXEL_CAPTURE_UNAVAILABLE','Observed native process differs from the retained command');
+    const result=noOutput(ref,rawProcess);
     if(result.phase==='EXITED'){
      const captured=await capture(scope,op.resource!,ref,MAX_OUTPUT);
      if(captured.exit_code!==result.exit_code)fail('BLAXEL_CAPTURE_UNAVAILABLE','Provider and spool exits differ');

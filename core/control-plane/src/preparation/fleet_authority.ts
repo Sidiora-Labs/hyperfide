@@ -1,3 +1,5 @@
+import {lockRun} from '../events/outbox.js';
+import {closeExpiredFailedInstallAllocation} from './fleet_failed_allocation.js';
 import {proveInstallNotStarted} from './fleet_not_started.js';
 import {proveInstallPreProviderRefusal} from './fleet_pre_provider_refusal.js';
 import {readBootstrapInstallAllocationEpoch} from './fleet_install_lineage.js';
@@ -202,7 +204,7 @@ export function validateFleetInstallRecovery(value:unknown):RecordValue{
  exact(value,['install_operation_id','admission_digest','runner_operation_id','runner_plan_digest','quiescence_operation_id','quiescence_receipt_digest']);
  if(!uuid(value.install_operation_id)||!uuid(value.runner_operation_id)||!uuid(value.quiescence_operation_id)||!validDigest(value.admission_digest)||!validDigest(value.runner_plan_digest)||!validDigest(value.quiescence_receipt_digest)||value.runner_operation_id!==value.quiescence_operation_id)invalid('Exact failed-install recovery binding required');return value;
 }
-async function recoveryPredecessor(tx:PrimaryTransaction,i:InvocationContext,value:unknown,next:RecordValue,packageId:string|null):Promise<{binding:RecordValue;install:RecordValue;job:RecordValue;logical_operation_id:string;native_logical_operation_id:string;proof?:RecordValue}>{
+async function recoveryPredecessor(tx:PrimaryTransaction,i:InvocationContext,value:unknown,next:RecordValue,packageId:string|null):Promise<{binding:RecordValue;install:RecordValue;job:RecordValue;logical_operation_id:string;native_logical_operation_id:string;proof?:RecordValue;fresh_allocation_epoch?:true}>{
  const binding=validateFleetInstallRecovery(value),old=await load(tx,i,binding.install_operation_id,false);
  if(old.state!=='ADMITTED'||old.package_id!==packageId||old.admission_digest!==binding.admission_digest)fail('FLEET_INSTALL_RECOVERY_DENIED','Only the failed current install of this delegation may be recovered');
  for(const key of ['input_digest','environment_id','environment_generation','sandbox_id','boot_id','boot_generation'])if(String(old[key])!==String(next[key]))fail('FLEET_INSTALL_RECOVERY_DENIED','Recovery cannot change environment, source inputs or physical boot');
@@ -213,11 +215,20 @@ async function recoveryPredecessor(tx:PrimaryTransaction,i:InvocationContext,val
  const artifact=(await tx.query("SELECT content_digest FROM hyperfide.runner_result_artifacts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND role='native_receipt' FOR SHARE",[...scoped(i),job.operation_id])).rows[0];
  if(!artifact||artifact.content_digest!==binding.quiescence_receipt_digest)fail('FLEET_INSTALL_RECOVERY_NOT_QUIESCENT','Retained native quiescence capture required');
  const allocation=(await tx.query(`SELECT a.* FROM hyperfide.resource_job_allocations a JOIN hyperfide.reservations r ON r.organisation_id=a.organisation_id AND r.run_id=a.run_id AND r.id=a.reservation_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.id=$3 AND a.state='ACTIVE' AND a.job_kind='PREPARATION' AND r.state='ALLOCATED' AND r.expires_at>clock_timestamp() FOR SHARE OF a,r`,[...scoped(i),plan.allocation?.allocation_id])).rows[0];
- if(!allocation||allocation.reservation_id!==job.reservation_id||allocation.sandbox_id!==old.sandbox_id||String(allocation.sandbox_boot_generation)!==String(old.boot_generation)||allocation.slot_id!==plan.binding.slot_id||allocation.assignee_session_id!==job.session_id)fail('FLEET_INSTALL_RECOVERY_ALLOCATION','Recovery requires the actual current preparation allocation and reservation');
- const lineage=await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:old.operation_id});return {binding,install:old,job,logical_operation_id:lineage.logical_operation_id,native_logical_operation_id:old.admission.logical_operation_id??old.operation_id};
+ let fresh: {fresh_allocation_epoch:true}|undefined;
+ if(!allocation)fresh=await closeExpiredFailedInstallAllocation(tx,i,binding,old,job);
+ else if(allocation.reservation_id!==job.reservation_id||allocation.sandbox_id!==old.sandbox_id||String(allocation.sandbox_boot_generation)!==String(old.boot_generation)||allocation.slot_id!==plan.binding.slot_id||allocation.assignee_session_id!==job.session_id)fail('FLEET_INSTALL_RECOVERY_ALLOCATION','Recovery requires the actual current preparation allocation and reservation');
+ const lineage=await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:old.operation_id});return {binding,install:old,job,logical_operation_id:lineage.logical_operation_id,native_logical_operation_id:old.admission.logical_operation_id??old.operation_id,...fresh};
 }
 export interface FleetInstallExecutionProof {runner_operation_id:string;runner_plan_digest:string;runner_result_digest:string;stdout_base64:string;native_receipt_base64:string}
 export async function completeVerifiedFleetInstallExecution(tx:PrimaryTransaction,i:InvocationContext,proof:FleetInstallExecutionProof):Promise<Record<string,unknown>>{
+ return completeFleetInstallExecution(tx,i,proof,false);
+}
+export async function completeCollectedFleetInstallExecution(tx:PrimaryTransaction,i:InvocationContext,proof:FleetInstallExecutionProof):Promise<Record<string,unknown>>{
+ if(!['COORDINATOR','OPERATOR'].includes(i.principal.role))fail('FLEET_INSTALL_SCOPE','Programme collection authority required');
+ return completeFleetInstallExecution(tx,i,proof,true);
+}
+async function completeFleetInstallExecution(tx:PrimaryTransaction,i:InvocationContext,proof:FleetInstallExecutionProof,collectionOnly:boolean):Promise<Record<string,unknown>>{
  assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
  exact(proof,['runner_operation_id','runner_plan_digest','runner_result_digest','stdout_base64','native_receipt_base64']);
  if(!['FEATURE_MANAGER','COORDINATOR','OPERATOR'].includes(i.principal.role)||!uuid(proof.runner_operation_id)||!validDigest(proof.runner_plan_digest)||!validDigest(proof.runner_result_digest))fail('FLEET_INSTALL_SCOPE','Trusted manager or coordinator execution completion required');
@@ -239,19 +250,32 @@ export async function completeVerifiedFleetInstallExecution(tx:PrimaryTransactio
  if(nativeReceipt.exit_code!==0||nativeReceipt.stdout?.digest!==hash(stdout)||nativeReceipt.stdout?.base64!==proof.stdout_base64||nativeReceipt.stdout?.complete!==true)invalid('Native capture chain differs from installer stdout');
  const output=strictJSON(stdout,2097152);if(!object(output)||output.state!=='PREPARED'||!object(output.receipt))invalid('Installer PREPARED output required');
  exact(output,['state','receipt']);const receipt=verifyReceipt(output.receipt,row,await databaseNow(tx));
+ // Collection may be delayed; execution must still have completed inside its original lease.
+ const nativeStarted=Date.parse(nativeReceipt.started_at),nativeEnded=Date.parse(nativeReceipt.ended_at),preparedAt=Date.parse(receipt.completed_at),admittedAt=new Date(row.created_at).getTime(),expiresAt=new Date(row.expires_at).getTime();
+ if(![nativeStarted,nativeEnded,preparedAt,admittedAt,expiresAt].every(Number.isFinite)||nativeStarted<admittedAt-5000||nativeEnded<nativeStarted||nativeEnded>expiresAt||preparedAt<nativeStarted||preparedAt>nativeEnded)
+  fail('FLEET_INSTALL_EXPIRED','Verified native preparation must finish within the original install admission');
  if(receipt.transfer&&canonicalJSON(receipt.transfer.native_stage)!==canonicalJSON(verified.stage.artifact_transfer??null))invalid('Installer transfer differs from authenticated native capture');
  verifyIsolationEvidence(nativeReceipt.fleet_isolation,row,receipt);
  await publishVerifiedFleetReadiness(tx,i,{install:row,receipt,nativeReceipt,job});
  await currentSlots(tx,i,row.admission,row.package_spec.workers.slots,false);
  if(row.admission.slot_bindings.some((b:RecordValue)=>b.uid===binding.uid||b.gid===binding.gid))invalid('Preparation identity must differ from every worker identity');
  if(row.state==='READY'){if(row.receipt_digest!==receipt.receipt_digest)fail('FLEET_INSTALL_CONFLICT','A different receipt already completed this operation');return {state:'READY',logical_operation_id:(await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:row.operation_id})).logical_operation_id,receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id)};}
- const done=await tx.query("UPDATE hyperfide.fleet_environment_installs SET state='READY',receipt=$4,receipt_digest=$5,completed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED' AND expires_at>clock_timestamp() RETURNING operation_id",[...scoped(i),row.operation_id,JSON.stringify(receipt),receipt.receipt_digest]);
+ if(!collectionOnly&&new Date(row.expires_at).getTime()<=await databaseNow(tx))fail('FLEET_INSTALL_EXPIRED','Install lease expired before readiness publication');
+ const done=await tx.query("UPDATE hyperfide.fleet_environment_installs SET state='READY',receipt=$4,receipt_digest=$5,completed_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='ADMITTED' AND expires_at>=$6::timestamptz RETURNING operation_id",[...scoped(i),row.operation_id,JSON.stringify(receipt),receipt.receipt_digest,nativeReceipt.ended_at]);
  if(done.rowCount!==1)fail('FLEET_INSTALL_EXPIRED','Install lease expired before readiness publication');
  return {state:'READY',logical_operation_id:(await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:row.operation_id})).logical_operation_id,receipt,receipt_digest:receipt.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id)};
 }
 async function readinessWitnesses(tx:PrimaryTransaction,i:InvocationContext,operation:string):Promise<RecordValue[]>{
  const rows=(await tx.query('SELECT slot_id::text,readiness_digest,measurement_digest,runner_result_digest FROM hyperfide.fleet_runtime_readiness WHERE organisation_id=$1 AND run_id=$2 AND install_operation_id=$3 ORDER BY slot_id',[...scoped(i),operation])).rows;
  if(!rows.length)fail('FLEET_INSTALL_NOT_READY','Native readiness witnesses are unavailable');return rows;
+}
+/** Read retained inputs for capture collection only; this does not authorize execution. */
+export async function fleetInstallCollectionInputs(tx:PrimaryTransaction,i:InvocationContext,operation_id:string):Promise<Record<string,unknown>>{
+ assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
+ if(!['COORDINATOR','OPERATOR'].includes(i.principal.role))fail('FLEET_INSTALL_SCOPE','Programme collection authority required');
+ const row=await load(tx,i,operation_id);
+ const lineage=await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:row.operation_id});
+ return {admission:row.admission,...lineage,package_spec:row.package_spec,source_config:row.source_config,install_plan:row.install_plan};
 }
 export async function fleetInstallDeliveryInputs(tx:PrimaryTransaction,i:InvocationContext,operation_id:string):Promise<Record<string,unknown>>{
  assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
@@ -273,7 +297,7 @@ export async function readReadyFleetInstall(tx:PrimaryTransaction,i:InvocationCo
  return {logical_operation_id:(await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:row.operation_id})).logical_operation_id,receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id),manifest_digest:row.admission.package_digest,source_revision:row.admission.source_revision,input_digest:row.input_digest,package_id:row.package_id,manager_generation:String(row.manager_generation),read_scope:row.source_config.workspace.read_scope,write_scope:row.source_config.workspace.write_scope};
 }
 export function createComponent(ctx:ComponentContext):Component {
- const transact = <T>(i:InvocationContext,fn:(tx:PrimaryTransaction)=>Promise<T>) => ctx.resources.gateway.withPrimaryTransaction({signal:i.signal,guard:tx=>i.guard(tx),timeoutMs:5000},fn);
+ const transact = <T>(i:InvocationContext,fn:(tx:PrimaryTransaction)=>Promise<T>,exclusiveRun=false) => ctx.resources.gateway.withPrimaryTransaction({signal:i.signal,guard:async tx=>{if(exclusiveRun)await lockRun(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id},'exclusive');await i.guard(tx);},timeoutMs:5000},fn);
  const guard = (fn:(input:unknown,i:InvocationContext)=>Promise<unknown>) => async(input:unknown,request:ComponentContext) => { assertInvocation(request.invocation); return fn(input,request.invocation); };
  const component:Component={apiVersion:1,actions:{
   'fleet.install.register':guard(async(input,i)=>{
@@ -323,13 +347,13 @@ export function createComponent(ctx:ComponentContext):Component {
       if(recovery.binding.kind==='PRE_PROVIDER_REFUSAL')await tx.query('INSERT INTO hyperfide.fleet_install_pre_provider_recoveries(organisation_id,run_id,operation_id,predecessor_install_operation_id,logical_operation_id,proof_id,decision_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[...scoped(i),decision.operation_id,recovery.install.operation_id,recovery.logical_operation_id,recovery.proof.id,decision.decision_id]);
       else await tx.query('INSERT INTO hyperfide.fleet_install_not_started_recoveries(organisation_id,run_id,operation_id,predecessor_install_operation_id,logical_operation_id,proof_id,decision_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[...scoped(i),decision.operation_id,recovery.install.operation_id,recovery.logical_operation_id,recovery.proof.id,decision.decision_id]);
      }
-     else await tx.query('INSERT INTO hyperfide.fleet_install_recoveries(organisation_id,run_id,operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[...scoped(i),decision.operation_id,recovery.install.operation_id,recovery.logical_operation_id,recovery.binding.admission_digest,recovery.binding.runner_operation_id,recovery.binding.runner_plan_digest,recovery.job.result_digest,recovery.binding.quiescence_operation_id,recovery.binding.quiescence_receipt_digest,decision.decision_id]);
+     else await tx.query('INSERT INTO hyperfide.fleet_install_recoveries(organisation_id,run_id,operation_id,predecessor_install_operation_id,logical_operation_id,predecessor_admission_digest,runner_operation_id,runner_plan_digest,runner_result_digest,quiescence_operation_id,quiescence_receipt_digest,decision_id,allocation_epoch_operation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',[...scoped(i),decision.operation_id,recovery.install.operation_id,recovery.logical_operation_id,recovery.binding.admission_digest,recovery.binding.runner_operation_id,recovery.binding.runner_plan_digest,recovery.job.result_digest,recovery.binding.quiescence_operation_id,recovery.binding.quiescence_receipt_digest,decision.decision_id,recovery.fresh_allocation_epoch?decision.operation_id:null]);
      const advanced=await tx.query('UPDATE hyperfide.fleet_install_heads SET current_operation_id=$5,updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND environment_id=$3 AND environment_generation=$4 AND current_operation_id=$6 AND sandbox_id=$7 AND boot_id=$8 AND boot_generation=$9 RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id,recovery.install.operation_id,v.sandbox_id,v.boot_id,v.boot_generation]);if(advanced.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Recovery predecessor was superseded');
     }else{
      const created=await tx.query('INSERT INTO hyperfide.fleet_install_heads(organisation_id,run_id,environment_id,environment_generation,logical_operation_id,current_operation_id,sandbox_id,boot_id,boot_generation) VALUES($1,$2,$3,$4,$5,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING current_operation_id',[...scoped(i),v.environment_id,v.environment_generation,decision.operation_id,v.sandbox_id,v.boot_id,v.boot_generation]);if(created.rowCount!==1)fail('FLEET_INSTALL_CONFLICT','Environment head already admitted');
     }
     return {admission,state:'ADMITTED'};
-   }));
+   }),true);
   }),
   'fleet.install.adopt':guard(async(input,i)=>{
    exact(input,['decision']);return transact(i,tx=>withAdmittedDecision(tx,i,input.decision,'fleet.install.adopt',async decision=>{
@@ -348,11 +372,21 @@ export function createComponent(ctx:ComponentContext):Component {
     }else if(v.handoff_id!==null)invalid('Cohort-only adoption does not accept an unrelated handoff');
     if(row.state==='ADMITTED'){
      if(!v.runner_operation_id||!v.runner_result_digest)invalid('Outstanding install requires a reconciled completed execution');
-     const jobs=await tx.query(`SELECT operation_id,state,result_digest,result,plan FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND job_class='PREPARATION' AND plan->'preparation_request'->'job_binding'->>'namespace'='FLEET_INSTALL' AND plan->'preparation_request'->'job_binding'->>'job_id'=$3 FOR SHARE`,[...scoped(i),row.operation_id]);
+     const jobs=await tx.query(`SELECT operation_id,state,result_digest,result,plan,plan_digest FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND job_class='PREPARATION' AND plan->'preparation_request'->'job_binding'->>'namespace'='FLEET_INSTALL' AND plan->'preparation_request'->'job_binding'->>'job_id'=$3 FOR SHARE`,[...scoped(i),row.operation_id]);
      const retained=jobs.rows[0];
      if(jobs.rowCount!==1||!retained)fail('FLEET_INSTALL_RECONCILIATION_REQUIRED','Exactly one retained execution required');
-     if(retained.operation_id!==v.runner_operation_id||retained.state!=='COMPLETED'||retained.result_digest!==v.runner_result_digest||retained.result?.outcome!=='SUCCEEDED'||retained.plan?.preparation_request?.job_binding?.input_packet_digest!==row.admission_digest||retained.plan?.binding?.sandbox_id!==row.sandbox_id||retained.plan?.binding?.boot_id!==row.boot_id||String(retained.plan?.binding?.boot_generation)!==String(row.boot_generation))fail('FLEET_INSTALL_RECONCILIATION_REQUIRED','Only the existing completed install execution may be adopted; uncertain jobs cannot be replaced');
-     if(new Date(row.expires_at).getTime()<=await databaseNow(tx))fail('FLEET_INSTALL_EXPIRED','Adoption cannot extend an expired installation lease');
+     if(retained.operation_id!==v.runner_operation_id||retained.state!=='COMPLETED'||retained.result_digest!==v.runner_result_digest||!['SUCCEEDED','FAILED'].includes(retained.result?.outcome)||retained.plan?.preparation_request?.job_binding?.input_packet_digest!==row.admission_digest||retained.plan?.binding?.sandbox_id!==row.sandbox_id||retained.plan?.binding?.boot_id!==row.boot_id||String(retained.plan?.binding?.boot_generation)!==String(row.boot_generation))fail('FLEET_INSTALL_RECONCILIATION_REQUIRED','Only the existing completed install execution may be adopted; uncertain jobs cannot be replaced');
+     const terminal=await signedPreparationJob(tx,i,retained.operation_id,retained.plan_digest,v.runner_result_digest),result=terminal.result;
+     if(terminal.authority_epoch!==row.authority_epoch||!terminal.claim_id||!terminal.native_claimed_at||!terminal.completed_at||result.operation_id!==terminal.operation_id||result.cleanup_status!=='CONFIRMED'||result.cleanup?.complete!==true||result.cleanup?.observed_process_absent!==true||!validDigest(result.native_receipt?.digest)||result.cleanup?.receipt_digest!==result.native_receipt.digest)
+      fail('FLEET_INSTALL_RECONCILIATION_REQUIRED','Adoption requires the original signed terminal native cleanup');
+     const capture=(await tx.query("SELECT content_digest FROM hyperfide.runner_result_artifacts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND role='native_receipt' FOR SHARE",[...scoped(i),terminal.operation_id])).rows[0];
+     if(!capture||capture.content_digest!==result.native_receipt.digest)fail('FLEET_INSTALL_RECONCILIATION_REQUIRED','Retained native capture is required for terminal adoption');
+     if(result.outcome==='SUCCEEDED'){
+      const started=Date.parse(result.started_at),ended=Date.parse(result.ended_at);
+      if(!Number.isFinite(started)||!Number.isFinite(ended)||started<new Date(row.created_at).getTime()-5000||ended<started||ended>new Date(row.expires_at).getTime()||result.exit_code!==0||result.output_complete!==true)
+       fail('FLEET_INSTALL_EXPIRED','Successful execution must have completed within its original admission');
+     }
+     // FAILED adoption transfers recovery custody only; the expired admission still cannot execute.
     }else if(v.runner_operation_id!==null||v.runner_result_digest!==null)invalid('READY adoption pins the immutable receipt directly');
     const effective={...row,manager_session_id:decision.actor_id,manager_generation:decision.manager_generation,leader_generation:decision.leader_generation,cohort_id:owner.cohort_id,cohort_generation:cohort.cohort_generation};
     await currentOwner(tx,i,effective);
@@ -373,6 +407,6 @@ export function createComponent(ctx:ComponentContext):Component {
    });
   })
  }};
- component.capabilities={'fleet.install.v1':Object.freeze({deliveryInputs:fleetInstallDeliveryInputs,completeVerifiedExecution:completeVerifiedFleetInstallExecution,adopt:async(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>=>await component.actions['fleet.install.adopt']!({decision},{...ctx,invocation:i}) as Record<string,unknown>,admit:async(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>=>await component.actions['fleet.install.admit']!({decision},{...ctx,invocation:i}) as Record<string,unknown>})};
+ component.capabilities={'fleet.install.v1':Object.freeze({deliveryInputs:fleetInstallDeliveryInputs,collectionInputs:fleetInstallCollectionInputs,completeCollectedExecution:completeCollectedFleetInstallExecution,completeVerifiedExecution:completeVerifiedFleetInstallExecution,adopt:async(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>=>await component.actions['fleet.install.adopt']!({decision},{...ctx,invocation:i}) as Record<string,unknown>,admit:async(decision:unknown,i:InvocationContext):Promise<Record<string,unknown>>=>await component.actions['fleet.install.admit']!({decision},{...ctx,invocation:i}) as Record<string,unknown>})};
  return component;
 }

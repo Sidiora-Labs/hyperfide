@@ -200,3 +200,16 @@ cause = "Existing authenticated pooled connections can outlive the database logi
 resolution = "Inspect role validity and use bounded renewal for authorized runtime roles. Validate fresh connections for both control and provisioner roles rather than relying on reused pool health."
 evidence = "Read-only role-validity inspection identified the expired-login condition; fresh connection checks passed for both runtime roles after bounded validity renewal."
 status = "resolved"
+[gotcha.fleet_delayed_install_collection]
+symptom = "A successful native installation cannot publish readiness when collection occurs after its admission expires or after supervisor replacement."
+cause = "Execution admission and result collection shared the wall-clock expiry check, while generic preparation cleanup required a result less than thirty seconds old."
+resolution = "Collect only the retained signed execution that finished within its original admission. Require explicit current-owner adoption after replacement and exact unchanged boot, slot and allocation bindings before atomic readiness publication and cleanup."
+evidence = "fleet-install-late-collection-v14-receipt.json records actual native execution, expired scheduling and stale-owner refusals, explicit cohort adoption and late READY publication without changing the original admission."
+status = "resolved"
+
+[gotcha.fleet_expired_failed_allocation]
+symptom = "A proven failed installation cannot recover after its logical preparation reservations expire."
+cause = "Recovery reused the previous resource allocation epoch even when its reservations could no longer authorize execution."
+resolution = "Under the run lock, close only the exact expired logical vector using signed native quiescence and create a fresh allocation epoch. Preserve the native recovery ledger, prior result and physical charges."
+evidence = "fleet-install-expired-failed-epoch-v14-receipt.json records PostgreSQL refusal, concurrent admission, replay and fresh target checks against declared signed failure inputs. Migration 0735 records the immutable allocation epoch."
+status = "resolved"
