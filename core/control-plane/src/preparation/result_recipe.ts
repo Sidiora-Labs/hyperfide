@@ -5,6 +5,8 @@ import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {createManifest,canonicalJSON} from './manifests.js';
 import {deriveEffectiveProfile,readPreparationRecipePolicy} from './effective.js';
+import {materializeResultSourceArchive} from './result_source_archive.js';
+import {preparationPinInputs} from './profile_pin_inputs.js';
 
 const hash=(b:Uint8Array|string)=>'sha256:'+createHash('sha256').update(b).digest('hex');
 type Data=Record<string,any>;
@@ -16,8 +18,8 @@ async function prepare(filename:string):Promise<void>{
  const read=async(role:string)=>JSON.parse(await fs.readFile(refs.get(role)!,'utf8'));
  const control=await read('input-manifest'),parent=await read('parent-manifest'),trusted=await read('readiness-context');
  const target=context.target_binding,workspace=target.workspace_path;
- const pins=[...new Map<string,Data>([parent.profile.recipe,...parent.profile.generated_inputs,...parent.profile.build_config,
-  ...parent.profile.package_managers.flatMap((p:Data)=>p.locks),...parent.profile.preparation_evidence].map((pin:Data)=>[pin.path,pin])).values()];
+ const pins=preparationPinInputs(parent.profile);
+ const pinSource=async(repositoryRoot:string,pin:typeof pins[number])=>{const source=pin.origin==='PROFILE_ARTIFACT'?refs.get(pin.role):path.resolve(repositoryRoot,pin.path);if(!source)throw new Error('Retained parent pin missing');if(pin.origin==='SOURCE'&&(!source.startsWith(repositoryRoot+'/')||!(await fs.realpath(source)).startsWith(repositoryRoot+'/'))||(await fs.lstat(source)).isSymbolicLink()||!(await fs.lstat(source)).isFile())throw new Error('Unsafe preparation pin');const bytes=await fs.readFile(source);if(pin.origin==='PROFILE_ARTIFACT'&&hash(bytes)!==pin.digest)throw new Error('Retained parent pin changed');return bytes;};
  await fs.mkdir(workspace,{mode:0o700});
  const git=(cwd:string,...args:string[])=>execFileSync('/usr/bin/git',['-c','core.hooksPath=/dev/null','-c','maintenance.auto=false','-c','gc.auto=0',...args],
   {cwd,encoding:'utf8',timeout:30000,env:{PATH:'/usr/bin:/bin',HOME:target.home_path,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'}}).trim();
@@ -33,9 +35,7 @@ async function prepare(filename:string):Promise<void>{
   if(git(originalRepository,'rev-parse','HEAD')!==control.baseline_source_object_id)throw new Error('Counterfactual baseline differs from accepted source');
   const originalTree=git(originalRepository,'rev-parse','HEAD^{tree}');
   for(const pin of pins){
-   const source=path.resolve(originalRepository,pin.path);
-   if(!source.startsWith(originalRepository+'/')||!(await fs.realpath(source)).startsWith(originalRepository+'/')||(await fs.lstat(source)).isSymbolicLink())throw new Error('Unsafe original preparation pin');
-   const bytes=await fs.readFile(source);if(hash(bytes)!==pin.digest)throw new Error('Original preparation pin changed');
+   const bytes=await pinSource(originalRepository,pin);if(hash(bytes)!==pin.digest)throw new Error('Original preparation pin changed');
    const destination=path.join(original,pin.path);await fs.mkdir(path.dirname(destination),{recursive:true});await fs.writeFile(destination,bytes);
   }
   const originalPolicy=readPreparationRecipePolicy(parent,await fs.readFile(path.join(original,parent.profile.recipe.path)));
@@ -63,19 +63,22 @@ async function prepare(filename:string):Promise<void>{
  for(const repository of parent.profile.repositories){
   if(!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(repository.id))throw new Error('Unsupported repository key');
   const root=path.join(workspace,repository.id);
-  await fs.mkdir(root,{mode:0o700});git(root,'init','-q');
-  git(root,'fetch',refs.get('source:'+repository.id)!,repository.id===control.repository_binding.repository_key?control.result.source_object_id:repository.commit);
-  git(root,'checkout','-q','--detach','FETCH_HEAD');
+  if(control.archive_source&&repository.id===control.repository_binding.repository_key){
+   const selected=control.archive_source;if(selected.kind!=='FLEET_SOURCE_ARCHIVE_V1'||selected.schema_version!==1||selected.binding.custody_id!==control.result.custody_id||selected.binding.custody_generation!==control.result.custody_generation||selected.derived_git.source_object_id!==control.result.source_object_id||selected.derived_git.source_tree_id!==control.result.source_tree_id)throw new Error('Archive origin differs from accepted result');
+   const reference=refs.get('result-source-archive');if(!reference)throw new Error('Accepted source archive staging missing');
+   await materializeResultSourceArchive(await fs.readFile(reference),root,selected,target.home_path);
+  }else{
+   await fs.mkdir(root,{mode:0o700});git(root,'init','-q');
+   git(root,'fetch',refs.get('source:'+repository.id)!,repository.id===control.repository_binding.repository_key?control.result.source_object_id:repository.commit);
+   git(root,'checkout','-q','--detach','FETCH_HEAD');
+  }
   if(repository.submodules.length||repository.lfs)throw new Error('Result submodule/LFS materialisation is unavailable');
  }
  const repositoryRoot=path.join(workspace,control.repository_binding.repository_key);
  const measured={repository_id:control.result.repository_id,source_object_id:git(repositoryRoot,'rev-parse','HEAD'),
   source_tree_id:git(repositoryRoot,'rev-parse','HEAD^{tree}'),submodules:[],file_pins:[] as Data[]};
  for(const pin of pins){
-  const source=path.resolve(repositoryRoot,pin.path);
-  if(!source.startsWith(repositoryRoot+'/')||!(await fs.realpath(source)).startsWith(repositoryRoot+'/')||
-   (await fs.lstat(source)).isSymbolicLink())throw new Error('Unsafe preparation pin');
-  const bytes=await fs.readFile(source);measured.file_pins.push({path:pin.path,digest:hash(bytes)});
+  const bytes=await pinSource(repositoryRoot,pin);measured.file_pins.push({path:pin.path,digest:hash(bytes)});
   const destination=path.join(workspace,pin.path);await fs.mkdir(path.dirname(destination),{recursive:true});await fs.writeFile(destination,bytes);
  }
  const measurement=Buffer.from(canonicalJSON(measured)+'\n');

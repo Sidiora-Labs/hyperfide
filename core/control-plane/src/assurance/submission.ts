@@ -6,6 +6,12 @@ import type pg from 'pg';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError,object} from '../policy/programme.js';
 import {assertInvocation} from '../transport/protocol.js';
+import type {InvocationContext} from '../transport/protocol.js';
+import type {PrimaryTransaction} from '../storage/transactions.js';
+import {assertPrimaryTransaction} from '../storage/transactions.js';
+import {createPublicKey,verify} from 'node:crypto';
+import {lookupNativeLaunch,lockRun} from '../events/outbox.js';
+import {deriveArchiveGitIdentity} from '../preparation/result_source_archive.js';
 
 export type Data=Record<string,any>;
 export const INPUT_KEYS=['source','dependency','toolchain','configuration','graph','contract'] as const;
@@ -89,6 +95,9 @@ export async function taskLock(client:PrimaryClient,s:[string,string],taskId:str
  return {...task.rows[0],run_epoch:run.rows[0].authority_epoch,run_state:run.rows[0].state};
 }
 export async function loadPolicy(ctx:ComponentContext,task:Data,client:PrimaryClient):Promise<Data>{
+ return loadRegisteredPolicy(task,client);
+}
+async function loadRegisteredPolicy(task:Data,client:PrimaryClient):Promise<Data>{
  let policy:unknown;
  try{
   // Task2.4 owns persisted accepted proof obligations; import absence is an explicit unmet prerequisite.
@@ -180,10 +189,14 @@ export async function loadPacketInputs(db:PrimaryClient,s:[string,string],packet
  }catch(error){if(error instanceof FoundationError)throw error;fail('QUALIFICATION_PACKET_REQUIRED','Actual immutable execution packet reader is unavailable');}
 }
 export function resultInputs(facts:Data,sourceManifestDigest:string,derived:Data):Data{
- return {source:hash({repository_id:facts.repository_id,source_object_id:facts.source_object_id,source_tree_id:facts.source_tree_id,
-  baseline_source_object_id:facts.baseline_source_object_id,source_parent_ids:facts.source_parent_ids,source_manifest_digest:sourceManifestDigest}),
+ return {source:submittedResultSourceDigest({...facts,source_manifest_digest:sourceManifestDigest}),
   dependency:derived.dependency_digest,toolchain:derived.toolchain_digest,configuration:derived.configuration_digest,
   graph:derived.graph_digest,contract:derived.contract_digest};
+}
+export function submittedResultSourceDigest(result:Data):string{
+ const git={repository_id:result.repository_id,source_object_id:result.source_object_id,source_tree_id:result.source_tree_id,
+  baseline_source_object_id:result.baseline_source_object_id,source_parent_ids:result.source_parent_ids,source_manifest_digest:result.source_manifest_digest};
+ return result.archive_source===undefined?hash(git):hash({schema_version:1,kind:'FLEET_SOURCE_ARCHIVE_RESULT_V1',...git,archive_source:result.archive_source});
 }
 function acceptedSourceScope(definition:unknown):string[]{
  if(!object(definition))fail('QUALIFICATION_SOURCE_SCOPE','Accepted task has no owned source scope');
@@ -430,7 +443,7 @@ async function submit(ctx:ComponentContext,raw:unknown):Promise<Data>{
   await client.query("INSERT INTO hyperfide.submission_custodies(organisation_id,run_id,id,task_id,source_attempt_id,source_generation,custody_generation,authority_epoch,repository_id,source_object_id,source_manifest_digest,evidence_manifest_digest,criteria_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
    [...s,custody,v.task_id,v.attempt_id,v.attempt_generation,gen.rows[0].generation,v.authority_epoch,v.repository_id,v.source_object_id,source.artifact.digest,evidence.artifact.digest,v.criteria_digest]);
   await client.query("INSERT INTO hyperfide.assurance_submissions(organisation_id,run_id,custody_id,request_id,request_digest,manifest,policy,source_artifact_id,evidence_artifact_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-   [...s,custody,v.request_id,requestDigest,{...v,...gitFacts,...snapshot,workspace_id:sourceManifest.workspace_id,source_manifest_digest:source.artifact.digest,registry_digest:hash(policy),input_packet_digest:computeIdentity.input_packet_digest,mandatory_digest:packet.mandatory_digest,input_manifest:runtimeInputs,graph_manifest_digest:packet.derived.graph_manifest_digest,graph_status:packet.derived.graph_status},policy,v.source_manifest_artifact_id,v.evidence_manifest_artifact_id]);
+   [...s,custody,v.request_id,requestDigest,{...v,...gitFacts,...snapshot,evidence_artifact_ids:[...new Set(evidenceManifest.artifact_ids as string[])].sort(),workspace_id:sourceManifest.workspace_id,source_manifest_digest:source.artifact.digest,registry_digest:hash(policy),input_packet_digest:computeIdentity.input_packet_digest,mandatory_digest:packet.mandatory_digest,input_manifest:runtimeInputs,graph_manifest_digest:packet.derived.graph_manifest_digest,graph_status:packet.derived.graph_status},policy,v.source_manifest_artifact_id,v.evidence_manifest_artifact_id]);
   await client.query("INSERT INTO hyperfide.qualification_jobs(organisation_id,run_id,id,custody_id,custody_generation,rubric_digest) VALUES($1,$2,$3,$4,$5,$6)",[...s,job,custody,gen.rows[0].generation,policy.rubric_digest]);
   await client.query("INSERT INTO hyperfide.assurance_applicability(organisation_id,run_id,custody_id,input_manifest) VALUES($1,$2,$3,$4)",[...s,custody,runtimeInputs]);
   await client.query("UPDATE hyperfide.tasks SET current_custody_id=$4,state='SUBMITTED',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[...s,v.task_id,custody]);
@@ -495,6 +508,84 @@ export async function fenceQualificationJobs(db:PrimaryClient,s:{organisation_id
  }
  return {fenced_job_ids:fenced,custody_changed:false,history_preserved:true};
 }
+export interface ClosedArchiveSelection{task_id:string;attempt_id:string;attempt_generation:string;session_id:string;launch_id:string;command_id:string;quiescence_operation_id:string;custody_id:string}
+/** Closure authorizes preservation and qualification only; it grants no execution lease. */
+export async function prepareClosedArchiveCustody(tx:PrimaryTransaction,i:InvocationContext,selection:ClosedArchiveSelection):Promise<Data>{
+ assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
+ if(!['OPERATOR','COORDINATOR'].includes(i.principal.role))fail('QUALIFICATION_ROLE_DENIED','Mechanical archive admission authority required');
+ const v=fields(selection,['task_id','attempt_id','attempt_generation','session_id','launch_id','command_id','quiescence_operation_id','custody_id']);
+ for(const key of ['task_id','attempt_id','session_id','launch_id','command_id','quiescence_operation_id','custody_id'])uuid(v[key]);decimal(v.attempt_generation);
+ const s:[string,string]=[i.principal.organisation_id,i.principal.run_id];await assuranceBarrier(tx,{organisation_id:s[0],run_id:s[1]},'EXCLUSIVE');
+ await lockRun(tx,{organisation_id:s[0],run_id:s[1]});const task=await taskLock(tx,s,v.task_id),policy=await loadRegisteredPolicy(task,tx);
+ const attempt=(await tx.query('SELECT *,generation::text,sandbox_boot_generation::text FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[...s,v.attempt_id])).rows[0];
+ if(!attempt||attempt.task_id!==task.id||attempt.generation!==v.attempt_generation||task.current_attempt_id!==attempt.id||String(task.generation)!==attempt.generation||task.run_epoch!==i.principal.deployment_epoch||attempt.authority_epoch!==task.run_epoch||!['CURRENT','RELEASED','REVOKED'].includes(attempt.compute_authority)||task.current_custody_id&&task.current_custody_id!==v.custody_id||['CANCELLED','SUPERSEDED'].includes(task.state))fail('QUALIFICATION_ARCHIVE_STALE','Closed result must retain the accepted current task, attempt, generation and authority');
+ const launch=(await tx.query('SELECT * FROM hyperfide.native_launch_plans WHERE organisation_id=$1 AND run_id=$2 AND launch_id=$3 FOR SHARE',[...s,v.launch_id])).rows[0];
+ if(!launch||launch.agent_session_id!==v.session_id||launch.attempt_id!==attempt.id||String(launch.attempt_generation)!==attempt.generation||launch.slot_id!==attempt.slot_id)fail('QUALIFICATION_ARCHIVE_CLOSURE','Original committed coding launch required');
+ const observed=await lookupNativeLaunch(tx,{organisation_id:s[0],run_id:s[1],launch_id:v.launch_id},i) as Data|null;
+ const process=observed?.runner_ack?.pinned_process??observed?.runner_ack?.observed_process;
+ if(!observed||observed.command_id!==launch.command_id||observed.agent_session_id!==v.session_id||observed.attempt_id!==attempt.id||!object(process))fail('QUALIFICATION_ARCHIVE_CLOSURE','Actual retained native process and kernel boot identity required');uuid(process.os_boot_id);
+ const fleet=(await tx.query(`SELECT f.*,p.role AS executor_role,p.public_key_b64 FROM hyperfide.fleet_worker_launches f JOIN hyperfide.identity_principals p ON p.credential_id=f.executor_credential_id WHERE f.organisation_id=$1 AND f.run_id=$2 AND f.launch_id=$3 FOR SHARE OF f,p`,[...s,v.launch_id])).rows[0];
+ if(!fleet||fleet.state!=='COMPLETED'||fleet.executor_role!=='PROVISIONER'||!object(fleet.result)||hash(fleet.result)!==fleet.result_digest||fleet.result.launch_id!==v.launch_id||fleet.result.command_id!==launch.command_id||!object(fleet.result.native)||fleet.result.native.terminal_observed!==true||fleet.result.native.foreground_owner!==true||typeof fleet.result_signature!=='string'||typeof fleet.public_key_b64!=='string')fail('QUALIFICATION_ARCHIVE_CLOSURE','Signed completed physical coding execution required');
+ const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(fleet.public_key_b64,'base64url')]),format:'der',type:'spki'});
+ if(!verify(null,Buffer.from(canonical(fleet.result)),key,Buffer.from(fleet.result_signature,'base64url')))fail('QUALIFICATION_ARCHIVE_CLOSURE','Coding execution signature differs');
+ const command=(await tx.query('SELECT * FROM hyperfide.runner_control_commands WHERE organisation_id=$1 AND run_id=$2 AND command_id=$3 FOR SHARE',[...s,v.command_id])).rows[0];
+ const latest=(await tx.query('SELECT max(fence_sequence)::text AS fence FROM hyperfide.runner_control_commands WHERE organisation_id=$1 AND run_id=$2 AND launch_id=$3',[...s,v.launch_id])).rows[0];
+ if(!command||command.launch_id!==v.launch_id||command.attempt_id!==attempt.id||String(command.attempt_generation)!==attempt.generation||String(command.fence_sequence)!==latest?.fence||command.action!=='runner.stop'||command.state!=='REPORTED'||command.outcome!=='STOPPED'||command.termination!=='CONFIRMED'||command.cleanup_complete!==true||!object(command.report)||hash(command.report)!==command.report_digest||command.report.remaining_descendants!==0||command.report.cleanup_complete!==true||!Array.isArray(command.report.cleanup_debt)||command.report.cleanup_debt.length||!Array.isArray(command.report.credential_revocation)||command.report.credential_revocation.some((r:Data)=>r.state==='UNRESOLVED'))fail('QUALIFICATION_ARCHIVE_CLOSURE','Exact latest confirmed signed STOP and zero residue required');
+ const live=(await tx.query(`SELECT EXISTS(SELECT 1 FROM hyperfide.compute_leases WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state='ACTIVE') OR EXISTS(SELECT 1 FROM hyperfide.identity_principals WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state='ACTIVE') AS live`,[...s,attempt.id])).rows[0];
+ if(live?.live!==false)fail('QUALIFICATION_ARCHIVE_CLOSURE','Active compute leases or child credentials prevent archive transfer');
+ const rows=(await tx.query(`SELECT r.*,r.boot_generation::text,r.slot_generation::text,q.publication,q.publication->'readiness_input' AS readiness_input,s.boot_generation::text AS current_generation,b.boot_id AS current_boot FROM hyperfide.runner_registry r JOIN hyperfide.fleet_runtime_readiness q ON q.organisation_id=r.organisation_id AND q.run_id=r.run_id AND q.runner_session_id=r.session_id AND q.readiness_digest=r.readiness_digest JOIN hyperfide.sandboxes s ON s.organisation_id=r.organisation_id AND s.id=r.sandbox_id JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.session_id=$3 FOR SHARE OF r,q,s,b`,[...s,fleet.runner_session_id])).rows;
+ if(rows.length!==1)fail('QUALIFICATION_ARCHIVE_CLOSURE','One retained manifest runner required');const runner=rows[0]!,publication=runner.publication,readiness=runner.readiness_input;
+ if(runner.sandbox_id!==attempt.sandbox_id||runner.slot_id!==attempt.slot_id||runner.boot_generation!==attempt.sandbox_boot_generation||runner.current_generation!==runner.boot_generation||runner.current_boot!==runner.boot_id||runner.repository_id!==policy.repository_id||runner.source_object_id!==policy.source_object_id||command.boot_id!==runner.boot_id||command.sandbox_id!==runner.sandbox_id||String(command.boot_generation)!==runner.boot_generation||!object(publication)||!object(readiness)||publication.kind!=='FLEET_MANIFEST_V1'||publication.readiness_digest!==runner.readiness_digest||!object(readiness.slot)||readiness.slot.source!==runner.workspace_path)fail('QUALIFICATION_ARCHIVE_CLOSURE','Closed launch and actual measured workspace identity differ');
+ const {readiness_digest:_digest,...body}=publication;if(hash(body)!==runner.readiness_digest)fail('QUALIFICATION_ARCHIVE_CLOSURE','Retained readiness publication changed');uuid(publication.id);
+ const remote=(await tx.query('SELECT * FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[...s,v.quiescence_operation_id])).rows[0];
+ if(!remote||remote.session_id!==runner.session_id||remote.sandbox_id!==runner.sandbox_id||String(remote.boot_generation)!==runner.boot_generation||remote.state!=='OBSERVED'||remote.outcome?.status!=='SUCCEEDED'||remote.outcome?.result?.phase!=='EXITED'||remote.outcome.result.exit_code!==0||remote.outcome.result.termination_confirmed!==true||remote.outcome.result.output?.complete!==true||remote.outcome.result.output?.truncated!==false)fail('QUALIFICATION_ARCHIVE_CLOSURE','Actual terminal native STOP provider observation required');
+ const target={state_dir:runner.state_dir,launch_id:v.launch_id,attempt_id:attempt.id,attempt_generation:attempt.generation,sandbox_id:runner.sandbox_id,boot_id:runner.boot_id,boot_generation:runner.boot_generation,command_id:v.command_id};
+ const expectedArgv=[runner.runner_binary,'--component','12.4','--action','runner.stop','--request-base64',Buffer.from(JSON.stringify(target)).toString('base64url')];
+ if(remote.operation?.kind!=='execute'||canonical(remote.operation?.parameters?.argv)!==canonical(expectedArgv))fail('QUALIFICATION_ARCHIVE_CLOSURE','Quiescence operation is not the exact retained native STOP command');
+ const bootstrap=(await tx.query("SELECT manifest,manifest_digest,receipt FROM hyperfide.provider_native_bootstraps WHERE organisation_id=$1 AND run_id=$2 AND sandbox_id=$3 AND boot_id=$4 AND boot_generation=$5 AND state='READY' FOR SHARE",[...s,runner.sandbox_id,runner.boot_id,runner.boot_generation])).rows;
+ const bootstrapRow=bootstrap[0];if(!bootstrapRow||bootstrap.length!==1||bootstrapRow.receipt?.credential_id!==runner.credential_id||!object(bootstrapRow.manifest)||hash(bootstrapRow.manifest)!==bootstrapRow.manifest_digest||!object(bootstrapRow.manifest.template)||typeof bootstrapRow.manifest.template.state_root!=='string'||!path.isAbsolute(bootstrapRow.manifest.template.state_root)||path.resolve(bootstrapRow.manifest.template.state_root)!==bootstrapRow.manifest.template.state_root)fail('QUALIFICATION_ARCHIVE_CLOSURE','Exact protected original bootstrap state root required');
+ const state_dir=path.join(bootstrapRow.manifest.template.state_root,runner.sandbox_id,runner.boot_id);
+ const packet=await loadPacketInputs(tx,s,attempt.input_packet_digest),identity=packet.packet.mandatory.identity;
+ if(identity.task_id!==task.id||identity.attempt_id!==attempt.id||String(identity.attempt_generation)!==attempt.generation||identity.authority_epoch!==task.run_epoch||identity.criteria_digest!==task.criteria_digest||identity.spec_revision_id!==task.spec_revision_id||String(identity.spec_generation)!==String(task.spec_generation)||packet.packet.mandatory.intent.registry_digest!==hash(policy)||hash(packet.packet.mandatory.intent.owned_scope)!==hash(acceptedSourceScope(task.definition)))fail('QUALIFICATION_PACKET_INVALID','Closed attempt packet or accepted proof policy changed');
+ const prior=(await tx.query('SELECT custody_generation::text FROM hyperfide.submission_custodies WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[...s,v.custody_id])).rows[0];
+ const next=prior?.custody_generation??(await tx.query('SELECT (coalesce(max(custody_generation),0)+1)::text AS generation FROM hyperfide.submission_custodies WHERE organisation_id=$1 AND run_id=$2 AND task_id=$3',[...s,task.id])).rows[0]!.generation;
+ const binding={organisation_id:s[0],run_id:s[1],custody_id:v.custody_id,custody_generation:next,task_id:task.id,attempt_id:attempt.id,attempt_generation:attempt.generation,sandbox_id:runner.sandbox_id,boot_id:runner.boot_id,boot_generation:runner.boot_generation,os_boot_id:process.os_boot_id,slot_id:runner.slot_id,slot_generation:runner.slot_generation,session_id:v.session_id,workspace_id:publication.id,launch_id:v.launch_id,command_id:v.command_id,quiescence_operation_id:v.quiescence_operation_id,quiescence_receipt_digest:command.report.receipt_digest,native_launch_plan_digest:hash(launch.plan),captured_result_digest:fleet.result_digest,report_digest:command.report_digest,uid:runner.uid,gid:runner.gid};
+ return {binding,baseline:{source_revision:readiness.source_revision,source_manifest_digest:readiness.source_manifest_digest},source_root:runner.workspace_path,seal_root:path.dirname(runner.workspace_path),state_dir,runner_state_dir:runner.state_dir,runner_session_id:runner.session_id,task,attempt,packet,proof_policy:policy,owned_scope:acceptedSourceScope(task.definition),source_files:readiness.source_files};
+}
+
+export interface ClosedArchiveAdmission{custody_id:string;archive_id:string;archive:Data;archive_reference:Data;capture_receipt:Data;derived_git:Data;evidence_artifact_ids:string[];source_manifest_reference:Data;evidence_manifest_reference:Data}
+export async function admitClosedArchiveCustody(tx:PrimaryTransaction,i:InvocationContext,input:ClosedArchiveAdmission):Promise<Data>{
+ assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);uuid(input.custody_id);uuid(input.archive_id);
+ const archive=input.archive,receipt=input.capture_receipt,b=archive?.binding;if(!object(b))fail('QUALIFICATION_ARCHIVE_INVALID','Typed source archive binding required');
+ const prepared=await prepareClosedArchiveCustody(tx,i,{task_id:uuid(b.task_id),attempt_id:uuid(b.attempt_id),attempt_generation:decimal(b.attempt_generation),session_id:uuid(b.session_id),launch_id:uuid(b.launch_id),command_id:uuid(b.command_id),quiescence_operation_id:uuid(b.quiescence_operation_id),custody_id:input.custody_id});
+ if(canonical(b)!==canonical(prepared.binding)||canonical(archive.baseline)!==canonical(prepared.baseline)||receipt.kind!=='FLEET_SOURCE_ARCHIVE_CAPTURE_RECEIPT_V1'||canonical(receipt.binding)!==canonical(b)||receipt.source_sealed!==true||receipt.observed_process_absent!==true)fail('QUALIFICATION_ARCHIVE_INVALID','Actual archive differs from its accepted closed attempt');
+ const derived=deriveArchiveGitIdentity(archive);
+ if(derived.source_object_id!==input.derived_git.source_object_id||derived.source_tree_id!==input.derived_git.source_tree_id||derived.archive_digest!==receipt.archive_digest||derived.inventory_digest!==receipt.inventory_digest)fail('QUALIFICATION_ARCHIVE_INVALID','Archive-derived representation or actual byte digests differ');
+ const s:[string,string]=[i.principal.organisation_id,i.principal.run_id],source=input.source_manifest_reference,evidence=input.evidence_manifest_reference;
+ const physical=(ref:Data):string=>digest(ref.manifest_digest??ref.digest),sourceDigest=physical(source),evidenceDigest=physical(evidence);const references=[input.archive_reference,source,evidence];for(const ref of references){uuid(ref.artifact_id);digest(ref.digest);physical(ref);}
+ if(source.artifact_id!==input.archive_reference.artifact_id||sourceDigest!==physical(input.archive_reference)||input.archive_reference.digest!==derived.archive_digest)fail('QUALIFICATION_ARCHIVE_INVALID','Source authority must reference the actual stored archive');
+ const retained=[...new Set([input.archive_reference.artifact_id,evidence.artifact_id,...input.evidence_artifact_ids])];
+ if(retained.length>4096)fail('QUALIFICATION_ARCHIVE_INVALID','Bounded semantic evidence inventory required');for(const id of retained){uuid(id);await tx.query('SELECT hyperfide.require_complete_artifact($1,$2,$3)',[...s,id]);}
+ for(const ref of references){const row=(await tx.query('SELECT digest,status FROM hyperfide.artifacts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[...s,ref.artifact_id])).rows[0];if(row?.status!=='COMPLETE'||row.digest!==physical(ref))fail('QUALIFICATION_ARCHIVE_INVALID','Archive publication changed before custody transfer');}
+ if(!Array.isArray(prepared.source_files))fail('QUALIFICATION_ARCHIVE_INVALID','Actual baseline source inventory required');
+ const baseline=new Map<string,Data>(prepared.source_files.filter((f:Data)=>!archive.policy.excluded_paths.some((p:string)=>f.path===p||f.path.startsWith(p+'/'))).map((f:Data)=>[f.path,f])),actual=new Map<string,Data>(archive.files.map((f:Data)=>[f.path,f]));
+ for(const name of new Set([...baseline.keys(),...actual.keys()])){const before=baseline.get(name),after=actual.get(name);if(before?.digest===after?.digest&&before?.mode===after?.mode)continue;if(!ownedSourcePath(name,prepared.owned_scope))fail('QUALIFICATION_SOURCE_SCOPE','Archived changes exceed accepted task ownership');}
+ const artifact={artifact_id:source.artifact_id,storage_kind:source.storage_kind==='manifest'||source.storage_kind==='CHUNK_MANIFEST'?'manifest':'object',digest:derived.archive_digest,size_bytes:String(receipt.size_bytes),...(sourceDigest===derived.archive_digest?{}:{manifest_digest:sourceDigest})};
+ const archive_source={schema_version:1,kind:'FLEET_SOURCE_ARCHIVE_V1',archive_id:input.archive_id,artifact,archive_digest:derived.archive_digest,inventory_digest:derived.inventory_digest,binding:b,baseline:archive.baseline,derived_git:{source_object_id:derived.source_object_id,source_tree_id:derived.source_tree_id}};
+ const facts={repository_id:prepared.proof_policy.repository_id,source_object_id:derived.source_object_id,source_tree_id:derived.source_tree_id,baseline_source_object_id:prepared.proof_policy.source_object_id,source_parent_ids:[],owned_scope_digest:hash(prepared.owned_scope),source_origin:'FLEET_SOURCE_ARCHIVE_V1',archive_source};
+ const manifest={organisation_id:s[0],run_id:s[1],task_id:b.task_id,request_id:i.operation.idempotency_key,attempt_id:b.attempt_id,attempt_generation:b.attempt_generation,authority_epoch:prepared.task.run_epoch,sandbox_id:b.sandbox_id,slot_id:b.slot_id,sandbox_boot_generation:b.boot_generation,...facts,workspace_id:b.workspace_id,source_manifest_artifact_id:source.artifact_id,evidence_manifest_artifact_id:evidence.artifact_id,source_manifest_digest:sourceDigest,criteria_digest:prepared.task.criteria_digest,contract_digests:prepared.proof_policy.contract_digests??[],evidence_artifact_ids:retained.sort(),registry_digest:hash(prepared.proof_policy),input_packet_digest:prepared.attempt.input_packet_digest,mandatory_digest:prepared.packet.mandatory_digest,input_manifest:resultInputs(facts,sourceDigest,prepared.packet.derived),graph_manifest_digest:prepared.packet.derived.graph_manifest_digest,graph_status:prepared.packet.derived.graph_status};
+ const prior=(await tx.query('SELECT c.id,c.custody_generation::text,c.authority,c.qualification_outcome,s.manifest,j.id AS job_id FROM hyperfide.submission_custodies c JOIN hyperfide.assurance_submissions s ON s.organisation_id=c.organisation_id AND s.run_id=c.run_id AND s.custody_id=c.id LEFT JOIN hyperfide.qualification_jobs j ON j.organisation_id=c.organisation_id AND j.run_id=c.run_id AND j.custody_id=c.id WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.id=$3 ORDER BY j.created_at LIMIT 1',[...s,input.custody_id])).rows[0];
+ if(prior){if(canonical(prior.manifest)!==canonical(manifest))fail('QUALIFICATION_IDEMPOTENCY_CONFLICT','Planned archive custody already holds different admitted bytes');return {submission:{id:prior.id,custody_generation:prior.custody_generation,authority:prior.authority,qualification_outcome:prior.qualification_outcome},job_id:prior.job_id,evidence_artifact_ids:retained,replayed:true};}
+ for(const [id,kind]of [[derived.source_object_id,'commit'],[derived.source_tree_id,'tree']]){await tx.query('INSERT INTO hyperfide.source_objects(organisation_id,repository_id,object_id,object_type) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[s[0],facts.repository_id,id,kind]);const old=(await tx.query('SELECT object_type FROM hyperfide.source_objects WHERE organisation_id=$1 AND repository_id=$2 AND object_id=$3',[s[0],facts.repository_id,id])).rows[0];if(old?.object_type!==kind)fail('QUALIFICATION_SOURCE_MISMATCH','Derived archive representation conflicts with registered object type');}
+ const scheduler=await import('../scheduler/leases.js');
+ await scheduler.finalizeClosedArchiveCompute(tx,{organisation_id:s[0],run_id:s[1],task_id:uuid(b.task_id),attempt_id:uuid(b.attempt_id),attempt_generation:decimal(b.attempt_generation),authority_epoch:prepared.task.run_epoch,sandbox_id:uuid(b.sandbox_id),slot_id:uuid(b.slot_id),sandbox_boot_generation:decimal(b.boot_generation)},{launch_id:uuid(b.launch_id),command_id:uuid(b.command_id),result_digest:digest(b.captured_result_digest),report_digest:digest(b.report_digest),archive_artifact_id:source.artifact_id,archive_artifact_digest:sourceDigest});
+ const job=randomUUID();await tx.query("INSERT INTO hyperfide.submission_custodies(organisation_id,run_id,id,task_id,source_attempt_id,source_generation,custody_generation,authority_epoch,repository_id,source_object_id,source_manifest_digest,evidence_manifest_digest,criteria_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",[...s,input.custody_id,b.task_id,b.attempt_id,b.attempt_generation,b.custody_generation,prepared.task.run_epoch,facts.repository_id,derived.source_object_id,sourceDigest,evidenceDigest,prepared.task.criteria_digest]);
+ await tx.query('INSERT INTO hyperfide.assurance_submissions(organisation_id,run_id,custody_id,request_id,request_digest,manifest,policy,source_artifact_id,evidence_artifact_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[...s,input.custody_id,i.operation.idempotency_key,hash(manifest),manifest,prepared.proof_policy,source.artifact_id,evidence.artifact_id]);
+ await tx.query('INSERT INTO hyperfide.qualification_jobs(organisation_id,run_id,id,custody_id,custody_generation,rubric_digest) VALUES($1,$2,$3,$4,$5,$6)',[...s,job,input.custody_id,b.custody_generation,prepared.proof_policy.rubric_digest]);
+ await tx.query('INSERT INTO hyperfide.assurance_applicability(organisation_id,run_id,custody_id,input_manifest) VALUES($1,$2,$3,$4)',[...s,input.custody_id,manifest.input_manifest]);
+ await tx.query("UPDATE hyperfide.tasks SET current_custody_id=$4,state='SUBMITTED',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[...s,b.task_id,input.custody_id]);
+ return {submission:{id:input.custody_id,custody_generation:b.custody_generation,authority:'ACTIVE',qualification_outcome:'PENDING'},job_id:job,evidence_artifact_ids:retained,replayed:false,qualification:'PENDING'};
+}
 /** Immutable admission provenance; consumers must independently re-read the COMPLETE object through15.2. */
 export async function inspectSubmittedResult(db:PrimaryClient,scopeValue:{organisation_id:string;run_id:string},
  query:{custody_id:string}):Promise<Data>{
@@ -512,13 +603,21 @@ export async function inspectSubmittedResult(db:PrimaryClient,scopeValue:{organi
   m.authority_epoch!==row.authority_epoch||m.source_manifest_artifact_id!==row.source_artifact_id||
   !/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(String(m.source_tree_id??''))||!Array.isArray(m.source_parent_ids))
   fail('QUALIFICATION_RESULT_UNAVAILABLE','Immutable admitted result provenance is unavailable or inconsistent');
+ let archiveOrigin:Data={};
+ if(m.archive_source!==undefined){
+  const a=m.archive_source;
+  if(m.source_origin!=='FLEET_SOURCE_ARCHIVE_V1'||!object(a)||a.schema_version!==1||a.kind!=='FLEET_SOURCE_ARCHIVE_V1'||!object(a.artifact)||!object(a.binding)||!object(a.baseline)||!object(a.derived_git)||a.derived_git.source_object_id!==m.source_object_id||a.derived_git.source_tree_id!==m.source_tree_id||a.artifact.artifact_id!==row.source_artifact_id||(a.artifact.manifest_digest??a.artifact.digest)!==row.digest||a.artifact.digest!==a.archive_digest)fail('QUALIFICATION_RESULT_UNAVAILABLE','Archive origin differs from its derived adapter and physical source root');
+  const x=(await db.query(`SELECT x.*,ar.status AS archive_status,cr.status AS receipt_status FROM hyperfide.fleet_source_archive_custodies x JOIN hyperfide.artifacts ar ON ar.organisation_id=x.organisation_id AND ar.run_id=x.run_id AND ar.id=x.archive_artifact_id JOIN hyperfide.artifacts cr ON cr.organisation_id=x.organisation_id AND cr.run_id=x.run_id AND cr.id=x.capture_receipt_artifact_id WHERE x.organisation_id=$1 AND x.run_id=$2 AND x.id=$3 AND x.custody_id=$4 FOR SHARE OF x,ar,cr`,[...s,uuid(a.archive_id),id])).rows[0];
+  if(!x||x.archive_status!=='COMPLETE'||x.receipt_status!=='COMPLETE'||String(x.custody_generation)!==String(row.custody_generation)||x.archive_artifact_id!==row.source_artifact_id||x.archive_artifact_digest!==row.digest||x.archive_digest!==a.archive_digest||x.inventory_digest!==a.inventory_digest||canonical(x.binding)!==canonical(a.binding)||x.baseline_source_revision!==a.baseline?.source_revision||x.source_manifest_digest!==a.baseline?.source_manifest_digest)fail('QUALIFICATION_RESULT_UNAVAILABLE','Durable typed archive custody is missing or inconsistent');
+  archiveOrigin={source_origin:'FLEET_SOURCE_ARCHIVE_V1',archive_source:a};
+ }
  const binding={organisation_id:s[0],run_id:s[1],custody_id:id,custody_generation:String(row.custody_generation),
   task_id:row.task_id,source_attempt_id:row.source_attempt_id,source_attempt_generation:String(row.source_generation),
   authority_epoch:row.authority_epoch,repository_id:row.repository_id,source_object_id:row.source_object_id,source_tree_id:m.source_tree_id,
   baseline_source_object_id:m.baseline_source_object_id,source_parent_ids:m.source_parent_ids,workspace_id:m.workspace_id,
   source_manifest_digest:row.source_manifest_digest,source_manifest_artifact_id:row.source_artifact_id,source_manifest_size_bytes:String(row.size_bytes),
   input_packet_digest:m.input_packet_digest,input_manifest:m.input_manifest,registry_digest:m.registry_digest,
-  ...(m.snapshot_id===undefined?{}:{snapshot_id:m.snapshot_id,snapshot_tree_id:m.snapshot_tree_id})};
+  ...archiveOrigin,...(m.snapshot_id===undefined?{}:{snapshot_id:m.snapshot_id,snapshot_tree_id:m.snapshot_tree_id})};
  return {...binding,binding_digest:hash(binding),authority:row.authority,object_bytes_reverified:false};
 }
 export function rawDigest(bytes:Uint8Array):string{return 'sha256:'+createHash('sha256').update(bytes).digest('hex');}
@@ -541,6 +640,7 @@ export async function retainArtifactBytes(ctx:ComponentContext,s:[string,string]
 export function createComponent(ctx:ComponentContext):Component & {capabilities:Record<string,unknown>}{
  return {apiVersion:1,capabilities:{'assurance.custody.v1':Object.freeze({fenceQualificationJobs,revokeCustodies,inspectSubmittedResult})},actions:{
   'submission.submit':(input,requestContext)=>submit(requestContext,input),
+  'submission.archive.register':async(input,requestContext)=>(await import('./source_archive.js')).registerSourceArchive(requestContext,input),
   'submission.revoke':(input,requestContext)=>revoke(requestContext,input),
   'submission.snapshot':(input,requestContext)=>snapshotAction(requestContext,input),
   'submission.inspect':async(raw,requestContext)=>{

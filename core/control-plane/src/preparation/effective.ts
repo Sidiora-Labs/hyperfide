@@ -107,6 +107,7 @@ export function deriveEffectiveProfile(input:EffectiveProfileInput):{
   measuredPins.set(path,content);
  }
  if(parentPins.size!==measuredPins.size)return refuse();
+ if(parentProfile.schema_version===2&&parentProfile.result_preparation!.inputs.some(pin=>pin.origin==='PROFILE_ARTIFACT'&&measuredPins.get(pin.path)!==parentPins.get(pin.path)))return refuse();
  const modules:SubmodulePin[]=[];const modulePaths=new Set<string>();
  for(const value of measured.submodules){
   const module=record(value,['path','commit']),path=relative(module.path);

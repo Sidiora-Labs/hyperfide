@@ -20,7 +20,7 @@ function processOutcome(process:Data,receipt:unknown,prefix:string):{state:'RUNN
  if(process.status==='completed'&&process.exitCode===0){if(receipt===null)fail(prefix+'_RECEIPT_UNCONFIRMED','Native process exited without its durable completion receipt');return {state:'COMPLETED',receipt};}
  return {state:process.status==='running'?'RUNNING':'UNKNOWN',receipt};
 }
-async function verifiedSandbox(context:ComponentContext,input:Pick<BootstrapDelivery,'operation'|'binding'|'deadline_at'>,signal:AbortSignal){
+export async function verifiedSandbox(context:ComponentContext,input:Pick<BootstrapDelivery,'operation'|'binding'|'deadline_at'>,signal:AbortSignal){
   const op=validateProviderOperation(input.operation);
   if(op.kind!=='create'||op.scope.provider!=='blaxel'||op.scope.environment_id!==context.env.HF_BLAXEL_WORKSPACE||op.scope.provider_account_id!==context.env.HF_BLAXEL_ACCOUNT_ID||input.binding.provisioning_intent_id!==op.identity.operation_id||input.binding.configuration_digest!==op.scope.configuration_digest||input.binding.preparation_digest!==op.preparation_digest||input.binding.native_sandbox_id!==blaxelCreateName(op,input.binding.boot_generation))fail('PROVIDER_BOOTSTRAP_SCOPE','Bootstrap requires exact trusted CREATE/resource scope');
   const deadline=Date.parse(input.deadline_at),call=<T>(fn:(signal:AbortSignal)=>Promise<T>)=>boundedBlaxelOperation(fn,signal,deadline);

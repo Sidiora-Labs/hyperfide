@@ -1,6 +1,8 @@
 import {markSandboxReleasePending} from './claim.js';
 import {loadExecutionPacket} from '../hierarchy/packets.js';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createPublicKey,verify} from 'node:crypto';
+import {hash} from '../transport/protocol.js';
+import {runnerCanonical} from '../runner/bridge.js';
 import type {Component,ComponentContext} from '../components/registry.js';
 import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
@@ -137,6 +139,30 @@ export async function releaseCompute(tx:PrimaryTransaction,token:ComputeToken,
     [token.organisation_id,token.run_id,token.attempt_id]);
   await tx.query('UPDATE hyperfide.worker_slots SET state=\'DRAINING\',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2',
     [token.organisation_id,token.slot_id]);
+}
+
+/** Archive custody can finish a proven stopped attempt after its lease was revoked. */
+export async function finalizeClosedArchiveCompute(tx:PrimaryTransaction,input:ComputeToken,closure:{launch_id:string;command_id:string;result_digest:string;report_digest:string;archive_artifact_id:string;archive_artifact_digest:string}):Promise<void>{
+ assertPrimaryTransaction(tx);const token=parseComputeToken(input);await lockComputeFenceTargets(tx,[token]);
+ const attempt=(await tx.query(`SELECT a.*,a.generation::text,t.current_attempt_id,t.generation::text AS task_generation,t.current_custody_id,r.authority_epoch AS current_epoch FROM hyperfide.attempts a JOIN hyperfide.tasks t ON t.organisation_id=a.organisation_id AND t.run_id=a.run_id AND t.id=a.task_id JOIN hyperfide.runs r ON r.organisation_id=a.organisation_id AND r.id=a.run_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.id=$3 FOR UPDATE OF a,t FOR SHARE OF r`,[token.organisation_id,token.run_id,token.attempt_id])).rows[0];
+ if(!attempt||attempt.task_id!==token.task_id||attempt.current_attempt_id!==token.attempt_id||attempt.generation!==token.attempt_generation||attempt.task_generation!==token.attempt_generation||attempt.authority_epoch!==token.authority_epoch||attempt.current_epoch!==token.authority_epoch||attempt.sandbox_id!==token.sandbox_id||attempt.slot_id!==token.slot_id||String(attempt.sandbox_boot_generation)!==token.sandbox_boot_generation||attempt.current_custody_id||!['CURRENT','RELEASED','REVOKED'].includes(attempt.compute_authority))fail('ARCHIVE_COMPUTE_STALE','Closed archive cannot replace a newer task, generation, custody or authority');
+ const live=(await tx.query("SELECT EXISTS(SELECT 1 FROM hyperfide.compute_leases WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state='ACTIVE') OR EXISTS(SELECT 1 FROM hyperfide.identity_principals WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state='ACTIVE') AS live",[token.organisation_id,token.run_id,token.attempt_id])).rows[0];
+ if(live?.live!==false)fail('ARCHIVE_COMPUTE_LIVE','Active leases or child credentials prevent closed compute transfer');
+ const launch=(await tx.query(`SELECT n.*,f.state AS fleet_state,f.result,f.result_digest,f.result_signature,p.role AS executor_role,p.public_key_b64 FROM hyperfide.native_launch_plans n JOIN hyperfide.fleet_worker_launches f ON f.organisation_id=n.organisation_id AND f.run_id=n.run_id AND f.launch_id=n.launch_id JOIN hyperfide.identity_principals p ON p.credential_id=f.executor_credential_id WHERE n.organisation_id=$1 AND n.run_id=$2 AND n.launch_id=$3 FOR SHARE OF n,f,p`,[token.organisation_id,token.run_id,uuid(closure.launch_id,'launch_id')])).rows[0];
+ if(!launch||launch.attempt_id!==token.attempt_id||String(launch.attempt_generation)!==token.attempt_generation||launch.slot_id!==token.slot_id||launch.fleet_state!=='COMPLETED'||launch.executor_role!=='PROVISIONER'||!object(launch.result)||hash(runnerCanonical(launch.result))!==closure.result_digest||launch.result_digest!==closure.result_digest||!object(launch.result.native)||launch.result.native.terminal_observed!==true||launch.result.native.foreground_owner!==true||typeof launch.result_signature!=='string'||typeof launch.public_key_b64!=='string')fail('ARCHIVE_COMPUTE_CLOSURE','Actual signed terminal coding execution required');
+ const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(launch.public_key_b64,'base64url')]),format:'der',type:'spki'});
+ if(!verify(null,Buffer.from(runnerCanonical(launch.result)),key,Buffer.from(launch.result_signature,'base64url')))fail('ARCHIVE_COMPUTE_CLOSURE','Terminal coding execution signature differs');
+ const command=(await tx.query('SELECT c.*,b.boot_id AS current_boot FROM hyperfide.runner_control_commands c JOIN hyperfide.sandboxes s ON s.organisation_id=c.organisation_id AND s.id=c.sandbox_id JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.command_id=$3 FOR SHARE OF c,s,b',[token.organisation_id,token.run_id,uuid(closure.command_id,'command_id')])).rows[0];
+ if(!command||command.launch_id!==closure.launch_id||command.attempt_id!==token.attempt_id||String(command.attempt_generation)!==token.attempt_generation||command.sandbox_id!==token.sandbox_id||command.boot_id!==command.current_boot||String(command.boot_generation)!==token.sandbox_boot_generation||command.slot_id!==token.slot_id||command.action!=='runner.stop'||command.state!=='REPORTED'||command.outcome!=='STOPPED'||command.termination!=='CONFIRMED'||command.cleanup_complete!==true||!object(command.report)||hash(runnerCanonical(command.report))!==closure.report_digest||command.report_digest!==closure.report_digest||command.report.remaining_descendants!==0||!Array.isArray(command.report.cleanup_debt)||command.report.cleanup_debt.length)fail('ARCHIVE_COMPUTE_CLOSURE','Exact confirmed STOP cleanup required');
+ const newer=(await tx.query('SELECT 1 FROM hyperfide.runner_control_commands WHERE organisation_id=$1 AND run_id=$2 AND launch_id=$3 AND fence_sequence>$4 LIMIT 1',[token.organisation_id,token.run_id,closure.launch_id,String(command.fence_sequence)])).rows;
+ if(newer.length)fail('ARCHIVE_COMPUTE_STALE','A newer control command superseded this closure');
+ const archived=(await tx.query("SELECT id FROM hyperfide.artifacts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND digest=$4 AND status='COMPLETE' FOR SHARE",[token.organisation_id,token.run_id,uuid(closure.archive_artifact_id,'archive_artifact_id'),closure.archive_artifact_digest])).rows;
+ if(archived.length!==1)fail('ARCHIVE_COMPUTE_CLOSURE','Actual complete source bytes must precede logical compute transfer');
+ await markSandboxReleasePending(tx,{organisation_id:token.organisation_id,run_id:token.run_id,attempt_id:token.attempt_id});
+ await tx.query("UPDATE hyperfide.attempts SET compute_authority='RELEASED',execution_state='SUBMITTED',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[token.organisation_id,token.run_id,token.attempt_id]);
+ await tx.query("UPDATE hyperfide.slot_allocations SET state='RELEASE_PENDING',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND attempt_generation=$4 AND state='ACTIVE'",[token.organisation_id,token.run_id,token.attempt_id,token.attempt_generation]);
+ await tx.query("UPDATE hyperfide.reservations SET state='RELEASE_PENDING',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state IN('PROVISIONING','ALLOCATED')",[token.organisation_id,token.run_id,token.attempt_id]);
+ await tx.query("UPDATE hyperfide.worker_slots SET state='DRAINING',state_version=state_version+1 WHERE organisation_id=$1 AND sandbox_id=$2 AND boot_generation=$3 AND id=$4 AND state='ALLOCATED'",[token.organisation_id,token.sandbox_id,token.sandbox_boot_generation,token.slot_id]);
 }
 
 export async function lockComputeFenceTargets(tx:PrimaryTransaction,tokens:readonly ComputeToken[]):Promise<void>{

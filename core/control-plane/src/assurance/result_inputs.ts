@@ -7,7 +7,7 @@ import {derivePreparedEnvironmentRoles} from '../hierarchy/packets.js';
 import {validateManifestMetadata} from '../preparation/manifests.js';
 import {inspectResultPreparationIntent,inspectEffectiveResultInputs,rederiveResultProfile} from './preparation.js';
 import type {ResultPreparationContext} from './preparation.js';
-import {artifact,canonical,fail,fields,hash,invocation,roles,scope,transaction,uuid,retainArtifactBytes,executionGate} from './submission.js';
+import {artifact,canonical,fail,fields,hash,invocation,roles,scope,transaction,uuid,retainArtifactBytes,executionGate,submittedResultSourceDigest} from './submission.js';
 import type {Data} from './submission.js';
 
 export function resultInputProducer(ctx:ComponentContext){
@@ -86,8 +86,7 @@ export function resultInputProducer(ctx:ComponentContext){
   const role_context={execution_profile:context.accepted_context.execution_profile,resource_requirements:context.accepted_context.resource_requirements,policy_digest:context.accepted_context.policy_digest};
   const preparedRoles=derivePreparedEnvironmentRoles(manifest,role_context);
   const input_manifest={...context.baseline_input_manifest,
-   source:hash({repository_id:context.result.repository_id,source_object_id:context.result.source_object_id,source_tree_id:context.result.source_tree_id,
-    baseline_source_object_id:context.result.baseline_source_object_id,source_parent_ids:context.result.source_parent_ids,source_manifest_digest:context.result.source_manifest_digest}),
+   source:submittedResultSourceDigest(context.result),
    dependency:hash({package_managers:manifest.profile.package_managers,generated_inputs:manifest.profile.generated_inputs,build_config:manifest.profile.build_config}),
    toolchain:preparedRoles.toolchain_digest,configuration:preparedRoles.configuration_digest};
   const keep=async(bytes:Buffer)=>{
@@ -108,7 +107,7 @@ export function resultInputProducer(ctx:ComponentContext){
    if(!row)fail('QUALIFICATION_ARTIFACT_INCOMPLETE','Actual native receipt bytes must remain retained');
    return {artifact_id:row.id,digest:row.digest,size_bytes:row.size_bytes};
   },false,'READ');
-  const source=await artifact(requestContext,'artifact.object.read',{organisation_id:s[0],run_id:s[1],artifact_id:context.result.source_manifest_artifact_id});
+  const source=await artifact(requestContext,context.result.archive_source?.artifact.storage_kind==='manifest'?'artifact.manifest.read':'artifact.object.read',{organisation_id:s[0],run_id:s[1],artifact_id:context.result.source_manifest_artifact_id});
   const sourceRef={artifact_id:source.artifact.artifact_id,receipt_id:source.receipt.receipt_id,digest:source.artifact.digest,size_bytes:String(source.artifact.size_bytes)};
   const now=await transaction(requestContext,async tx=>(await tx.query('SELECT clock_timestamp() AS now')).rows[0].now,false,'READ');
   const at=new Date(now).toISOString(),until=new Date(new Date(now).getTime()+240000).toISOString();
@@ -121,6 +120,7 @@ export function resultInputProducer(ctx:ComponentContext){
    manifest:manifest as unknown as Data,lineage_id:randomUUID(),artifacts:{stdout,manifest:storedManifest,source_manifest:sourceRef,execution_receipt:execution,verification_receipt:verification}};
   const proof={};proofs.set(proof,{credential:actor.principal.credential_id,digest:hash(publication)});
   const receipt={schema_version:1,kind:'EFFECTIVE_RESULT_INPUTS',organisation_id:s[0],run_id:s[1],job_id:intent.job_id,
+   ...(context.result.archive_source?{source_origin:'FLEET_SOURCE_ARCHIVE_V1',archive_source:context.result.archive_source,source_origin_digest:submittedResultSourceDigest(context.result)}:{}),
    custody_id:context.custody_id,custody_generation:context.result.custody_generation,result_binding_digest:context.result.binding_digest,
    repository_id:context.result.repository_id,source_object_id:context.result.source_object_id,source_tree_id:context.result.source_tree_id,source_manifest_digest:context.result.source_manifest_digest,
    profile_id:intent.derived_profile_id,profile_digest:derived.profile_digest,preparation_digest:manifest.digest,preparation_context_digest:context.context_digest,

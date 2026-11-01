@@ -12,7 +12,8 @@
     "submission.submit",
     "submission.revoke",
     "submission.inspect",
-    "submission.snapshot"
+    "submission.snapshot",
+    "submission.archive.register"
   ],
   "requires": [
     "4.2",

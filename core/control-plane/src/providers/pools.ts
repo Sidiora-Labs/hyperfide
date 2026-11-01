@@ -425,7 +425,8 @@ async function providerPrimaryNow(tx:PrimaryTransaction):Promise<number>{
 export function approvedProfilePolicyDigest(value:unknown):string{
  validateProfile(value);const profile=JSON.parse(JSON.stringify(value)) as Record<string,unknown>;
  delete profile.profile_id;delete profile.profile_version;
- const pins=(raw:unknown)=>{if(!Array.isArray(raw))fail('PREPARATION_MISMATCH','Profile pin collection unavailable');return raw.map(v=>({path:obj(v).path}));};
+ const retained=profile.schema_version===2?new Set((obj(profile.result_preparation).inputs as Array<Record<string,unknown>>).filter(pin=>pin.origin==='PROFILE_ARTIFACT').map(pin=>String(pin.path))):new Set<string>();
+ const pins=(raw:unknown)=>{if(!Array.isArray(raw))fail('PREPARATION_MISMATCH','Profile pin collection unavailable');return raw.map(v=>{const pin=obj(v);return retained.has(String(pin.path))?{path:pin.path,digest:pin.digest}:{path:pin.path};});};
  profile.repositories=(profile.repositories as Array<Record<string,unknown>>).map(r=>({...r,commit:null,submodules:(r.submodules as Array<Record<string,unknown>>).map(m=>({...m,commit:null}))}));
  profile.package_managers=(profile.package_managers as Array<Record<string,unknown>>).map(m=>({...m,locks:pins(m.locks)}));
  // The versioned preparation-policy file is approval authority, not a source pin.

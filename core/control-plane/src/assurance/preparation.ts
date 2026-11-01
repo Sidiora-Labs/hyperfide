@@ -8,8 +8,9 @@ import {assertInvocation} from '../transport/protocol.js';
 import type {RunnerEnvironmentRequest,RunnerExpectedInputs,RunnerPreparationPlan,RunnerPreparationAdmission} from '../runner/bridge.js';
 import {derivePreparedEnvironmentRoles,loadPreparationIntent} from '../hierarchy/packets.js';
 import {deriveEffectiveProfile} from '../preparation/effective.js';
+import {preparationPinInputs} from '../preparation/profile_pin_inputs.js';
 import type {EffectiveResultSource,EffectiveProfileInput} from '../preparation/effective.js';
-import {assuranceBarrier,canonical,digest,fail,hash,inspectSubmittedResult,uuid,rawDigest,retainArtifactBytes,artifact,fields,roles,scope as invocationScope,transaction,executionGate,invocation} from './submission.js';
+import {assuranceBarrier,canonical,digest,fail,hash,inspectSubmittedResult,submittedResultSourceDigest,uuid,rawDigest,retainArtifactBytes,artifact,fields,roles,scope as invocationScope,transaction,executionGate,invocation} from './submission.js';
 import type {Data,PrimaryClient} from './submission.js';
 
 export interface ResultPreparationContext {
@@ -146,8 +147,8 @@ export async function inspectEffectiveResultInputs(tx:PrimaryClient,
  const roleContext={execution_profile:actualAccepted.execution_profile,resource_requirements:accepted.resource_requirements,policy_digest:digest(actualAccepted.policy_digest)};
  if(canonical(receipt.role_context)!==canonical(roleContext))
   fail('QUALIFICATION_RESULT_INPUTS_STALE','Effective roles differ from the actual accepted runtime, resources or run policy');
- const sourceDigest=hash({repository_id:result.repository_id,source_object_id:result.source_object_id,source_tree_id:result.source_tree_id,
-  baseline_source_object_id:result.baseline_source_object_id,source_parent_ids:result.source_parent_ids,source_manifest_digest:result.source_manifest_digest});
+ const sourceDigest=submittedResultSourceDigest(result);
+ if(result.archive_source&&(receipt.source_origin!=='FLEET_SOURCE_ARCHIVE_V1'||canonical(receipt.archive_source)!==canonical(result.archive_source)||receipt.source_origin_digest!==sourceDigest))fail('QUALIFICATION_RESULT_INPUTS_STALE','Prepared source archive origin differs from exact admitted custody');
  if(row.input_manifest.source!==sourceDigest)
   fail('QUALIFICATION_RESULT_INPUTS_STALE','Prepared input source role differs from the actual admitted result provenance');
  const roles=derivePreparedEnvironmentRoles(row.preparation_manifest,roleContext);
@@ -265,6 +266,7 @@ export async function buildResultPreparationControl(context:ResultPreparationCon
  const policy=helper.readPreparationRecipePolicy(context.parent_preparation_manifest,recipe_bytes);
  const control={schema_version:1,purpose:'RESULT',parent_profile_id:context.parent_profile_id,
   parent_profile_digest:context.parent_profile_digest,result:effectiveResultProjection(context.result),
+  ...(context.result.archive_source?{archive_source:context.result.archive_source}:{}),
   baseline_source_object_id:context.result.baseline_source_object_id,
   counterfactual_checks:context.accepted_context.registered_checks.filter((check:Data)=>context.accepted_context.counterfactual_check_ids.includes(check.id)),
   repository_binding:context.repository_binding,derived_profile_id:uuid(derived_profile_id),
@@ -309,12 +311,12 @@ function recordedPlan(row:Data,replayed:boolean):Data {
 export async function planResultPreparation(ctx:ComponentContext,raw:unknown):Promise<Data> {
  roles(ctx,['OPERATOR','COORDINATOR']);
  const v=fields(raw,['organisation_id','run_id','job_id','request_id','session_id','reservation_id',
-  'recipe_policy_artifact_id','source_bundles','timeout_ms']),s=invocationScope(ctx,v);
+  'recipe_policy_artifact_id','source_bundles','timeout_ms'],['profile_pin_artifacts']),s=invocationScope(ctx,v);
  for(const key of ['job_id','request_id','session_id','reservation_id','recipe_policy_artifact_id'])uuid(v[key]);
  if(v.request_id!==invocation(ctx).operation.idempotency_key)
   fail('QUALIFICATION_IDEMPOTENCY_CONFLICT','Preparation request differs from its authenticated idempotency identity');
  if(!Number.isSafeInteger(v.timeout_ms)||v.timeout_ms<1000||v.timeout_ms>259200000||
-  !Array.isArray(v.source_bundles)||!v.source_bundles.length||v.source_bundles.length>64)
+  !Array.isArray(v.source_bundles)||v.source_bundles.length>64)
   fail('QUALIFICATION_INPUT_INVALID','A bounded preparation deadline and explicit source-bundle inventory are required');
  const requestDigest=hash(v);
  const existing=await transaction(ctx,tx=>tx.query('SELECT * FROM hyperfide.assurance_preparation_intents WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',
@@ -334,7 +336,8 @@ export async function planResultPreparation(ctx:ComponentContext,raw:unknown):Pr
  if(typeof recipe.data_base64!=='string')fail('QUALIFICATION_PREPARATION_POLICY_UNAVAILABLE','Complete retained accepted recipe-policy bytes are required');
  const derivedId=resultProfileId(s,v.job_id,v.request_id);
  const controls=await retainResultPreparationControls(ctx,context,Buffer.from(recipe.data_base64,'base64'),derivedId);
- const expectedKeys=context.parent_preparation_manifest.profile.repositories.map(repository=>repository.id).sort();
+ const archive=context.result.archive_source;
+ const expectedKeys=context.parent_preparation_manifest.profile.repositories.filter(repository=>!archive||context.accepted_context.counterfactual_check_ids.length>0||repository.id!==context.repository_binding.repository_key).map(repository=>repository.id).sort();
  const seen=new Set<string>(),sources:Data[]=[];
  for(const rawBundle of v.source_bundles){
   const bundle=fields(rawBundle,['repository_key','artifact_id','storage_kind']);
@@ -351,7 +354,14 @@ export async function planResultPreparation(ctx:ComponentContext,raw:unknown):Pr
    ...(bundle.storage_kind==='object'?{}:{manifest_digest:checked.artifact.digest}),
    size_bytes:bundle.storage_kind==='object'?String(checked.artifact.size_bytes):String(checked.manifest.total_size_bytes)});
  }
- if(seen.size!==expectedKeys.length)fail('QUALIFICATION_SOURCE_UNAVAILABLE','Every accepted repository needs its actual retained Git bundle');
+ if(seen.size!==expectedKeys.length)fail('QUALIFICATION_SOURCE_UNAVAILABLE','Every Git materialization or counterfactual repository needs its actual retained bundle');
+ const external=preparationPinInputs(context.parent_preparation_manifest.profile).filter(pin=>pin.origin==='PROFILE_ARTIFACT');
+ const profileRefs=v.profile_pin_artifacts;
+ if(context.parent_preparation_manifest.profile.schema_version===2&&!Array.isArray(profileRefs)||profileRefs!==undefined&&(!Array.isArray(profileRefs)||profileRefs.length>100000))fail('QUALIFICATION_PROFILE_PINS_REQUIRED','Explicit complete retained parent pin artifact inventory required');
+ const externalSeen=new Set<string>();
+ for(const rawPin of profileRefs??[]){const ref=fields(rawPin,['path','artifact_id','storage_kind']);const selected=external.find(pin=>pin.path===ref.path);if(!selected||externalSeen.has(selected.path)||!['object','manifest'].includes(ref.storage_kind))fail('QUALIFICATION_PROFILE_PIN_SCOPE','Only accepted PROFILE_ARTIFACT pins may be supplied');externalSeen.add(selected.path);uuid(ref.artifact_id);const checked=await artifact(ctx,ref.storage_kind==='object'?'artifact.object.inspect':'artifact.manifest.read',{organisation_id:s[0],run_id:s[1],artifact_id:ref.artifact_id});const actual=ref.storage_kind==='object'?checked.artifact.digest:checked.manifest?.content_digest;if(actual!==selected.digest)fail('QUALIFICATION_PROFILE_PIN_CHANGED','Retained profile bytes differ from exact accepted manifest FilePin');sources.push({role:selected.role,artifact_id:ref.artifact_id,storage_kind:ref.storage_kind,digest:actual,size_bytes:String(ref.storage_kind==='object'?checked.artifact.size_bytes:checked.manifest.total_size_bytes),...(ref.storage_kind==='manifest'?{manifest_digest:checked.artifact.digest}:{})});}
+ if(externalSeen.size!==external.length)fail('QUALIFICATION_PROFILE_PINS_REQUIRED','Every accepted external parent pin requires retained exact bytes');
+ if(archive){const ref=archive.artifact;if(!object(ref)||typeof ref.storage_kind!=='string'||!['object','manifest'].includes(ref.storage_kind)||ref.digest!==archive.archive_digest)fail('QUALIFICATION_SOURCE_UNAVAILABLE','Exact admitted captured source archive required');sources.push({role:'result-source-archive',artifact_id:ref.artifact_id,storage_kind:ref.storage_kind,digest:ref.digest,size_bytes:ref.size_bytes,...(ref.storage_kind==='manifest'?{manifest_digest:ref.manifest_digest}:{})});}
  return transaction(ctx,async tx=>{
   assertPrimaryTransaction(tx);
   await executionGate(ctx,tx,s,'ADMISSION');

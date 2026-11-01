@@ -1,0 +1,33 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {execFileSync} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+if(process.argv.length!==3)throw new Error('Explicit compiled preparation module required');
+const modulePath=path.resolve(process.argv[2]);
+const {materializeResultSourceArchive,deriveArchiveGitIdentity}=await import(pathToFileURL(modulePath));
+const {captureFleetSourceArchive,sourceArchiveCanonical,sourceArchiveDigest}=await import(pathToFileURL(path.join(path.dirname(modulePath),'../artifacts/fleet_source_archive.js')));
+const work=await fs.mkdtemp(path.join(os.tmpdir(),'hf-result-source-archive-'));
+let count=0;
+const check=async(name,run)=>{await run();count++;console.log(JSON.stringify({type:'assertion',id:name,actual:'PASS'}));};
+try{
+ const seal=path.join(work,'sealed'),source=path.join(seal,'source');await fs.mkdir(source,{recursive:true});await fs.mkdir(path.join(source,'src'));
+ await fs.writeFile(path.join(source,'src','result.txt'),'captured worker result\n');await fs.writeFile(path.join(source,'run.sh'),'#!/bin/sh\nprintf result\\n\n',{mode:0o755});await fs.chmod(path.join(source,'run.sh'),0o755);await fs.writeFile(path.join(source,'empty'),'');
+ const binding=Object.fromEntries(['organisation_id','run_id','custody_id','task_id','attempt_id','sandbox_id','boot_id','slot_id','session_id','workspace_id','launch_id','command_id','quiescence_operation_id'].map(k=>[k,randomUUID()]));
+ Object.assign(binding,{os_boot_id:(await fs.readFile('/proc/sys/kernel/random/boot_id','utf8')).trim(),custody_generation:'1',attempt_generation:'1',boot_generation:'1',slot_generation:'1',uid:65534,gid:65534},Object.fromEntries(['quiescence_receipt_digest','native_launch_plan_digest','captured_result_digest','report_digest'].map(k=>[k,'sha256:'+'0'.repeat(64)])));
+ const baseline={source_revision:'git:'+'a'.repeat(40),source_manifest_digest:'sha256:'+'b'.repeat(64)},archivePath=path.join(work,'archive.json'),request=path.join(work,'capture.json');
+ await fs.writeFile(request,JSON.stringify({schema_version:1,kind:'FLEET_SOURCE_ARCHIVE_CAPTURE_V1',binding,baseline,policy:{max_files:100,max_bytes:1048576,excluded_paths:[]},source_root:source,seal_root:seal,archive_path:archivePath}),{mode:0o600});
+ const captured=await captureFleetSourceArchive(request),bytes=await fs.readFile(archivePath),archive=JSON.parse(bytes),derived=deriveArchiveGitIdentity(archive),expected={archive_digest:captured.archive_digest,inventory_digest:captured.inventory_digest,binding,baseline,derived_git:{source_object_id:derived.source_object_id,source_tree_id:derived.source_tree_id}};
+ const target=path.join(work,'result');
+ await check('archive.actual-captured-bytes-materialize',async()=>{await materializeResultSourceArchive(bytes,target,expected,work);assert.equal(await fs.readFile(path.join(target,'src/result.txt'),'utf8'),'captured worker result\n');assert.notEqual(derived.source_object_id,baseline.source_revision.slice(4));});
+ const git=(...args)=>execFileSync('/usr/bin/git',args,{cwd:target,encoding:'utf8',env:{PATH:'/usr/bin:/bin',HOME:work,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null'}});
+ await check('archive.derived-real-git-objects',async()=>{assert.equal(git('rev-parse','HEAD').trim(),derived.source_object_id);assert.equal(git('rev-parse','HEAD^{tree}').trim(),derived.source_tree_id);assert.equal(git('show','HEAD:src/result.txt'),'captured worker result\n');assert.equal(git('status','--porcelain'),'');assert.match(git('cat-file','-p','HEAD'),/Derived representation of FLEET_SOURCE_ARCHIVE_V1/);});
+ await check('archive.executable-and-empty-files',async()=>{assert.equal((await fs.stat(path.join(target,'run.sh'))).mode&0o777,0o755);assert.equal((await fs.stat(path.join(target,'empty'))).size,0);assert.match(git('ls-tree','HEAD','run.sh'),/^100755 blob /);});
+ await check('archive.changed-byte-refused',async()=>{const changed=structuredClone(archive);changed.files[0].content_base64=Buffer.from('different').toString('base64');await assert.rejects(materializeResultSourceArchive(Buffer.from(sourceArchiveCanonical(changed)),path.join(work,'wrong-bytes'),expected,work));});
+ await check('archive.wrong-custody-refused',async()=>{await assert.rejects(materializeResultSourceArchive(bytes,path.join(work,'wrong-custody'),{...expected,binding:{...binding,custody_id:randomUUID()}},work));});
+ await check('archive.git-metadata-cannot-be-injected',async()=>{const changed=structuredClone(archive),content=Buffer.from('malicious');changed.files.unshift({path:'.git/config',mode:'100644',size:content.length,digest:sourceArchiveDigest(content),content_base64:content.toString('base64')});assert.throws(()=>deriveArchiveGitIdentity(changed));});
+ await check('archive.file-directory-collision-refused',async()=>{const changed=structuredClone(archive);changed.files=[{path:'a',mode:'100644',size:0,digest:sourceArchiveDigest(Buffer.alloc(0)),content_base64:''},{path:'a/b',mode:'100644',size:0,digest:sourceArchiveDigest(Buffer.alloc(0)),content_base64:''}];assert.throws(()=>deriveArchiveGitIdentity(changed));});
+ console.log(JSON.stringify({status:'PASS',assertions:count,boundary:'actual Unix capture, exact files, independent Git object implementation; controlled identity fixture, no PG/provider authority claim'}));
+}finally{await fs.chmod(path.join(work,'sealed'),0o700).catch(()=>{});await fs.chmod(path.join(work,'sealed/source'),0o700).catch(()=>{});await fs.chmod(path.join(work,'sealed/source/src'),0o700).catch(()=>{});await fs.rm(work,{recursive:true,force:true});}

@@ -6,7 +6,7 @@ import type { Component, ComponentContext } from '../components/registry.js';
 export interface VersionPin { name: string; version: string }
 export interface FilePin { path: string; digest: string }
 export interface EnvironmentProfile {
-  schema_version: 1; profile_id: string; profile_version: string;
+  schema_version: 1 | 2; result_preparation?: {schema_version:1;inputs:{path:string;origin:'SOURCE'|'PROFILE_ARTIFACT'}[]}; profile_id: string; profile_version: string;
   os: { distribution: string; version: string; architecture: 'x86_64' | 'aarch64' };
   image: { provider: string; reference: string; digest: string | null };
   resources: { cpu_millis: number; memory_bytes: string; disk_bytes: string; persistent_volume_bytes: string };
@@ -125,8 +125,8 @@ function repositoryURL(value: unknown): string {
 export function validateProfile(input: unknown): EnvironmentProfile {
   const item = record(input, ['schema_version','profile_id','profile_version','os','image','resources','toolchains',
     'package_managers','native_agents','connectors','supervisor','hyperfide','system_packages','repositories','recipe',
-    'generated_inputs','build_config','caches','required_capabilities','network','credential_references','policy','preparation_evidence']);
-  if (item.schema_version !== 1) fail('profile version');
+    'generated_inputs','build_config','caches','required_capabilities','network','credential_references','policy','preparation_evidence',...((input as {schema_version?:unknown})?.schema_version===2?['result_preparation']:[])]);
+  if (item.schema_version !== 1&&item.schema_version!==2) fail('profile version');
   const os = record(item.os, ['distribution','version','architecture']);
   if (!['x86_64','aarch64'].includes(os.architecture as string)) fail('architecture');
   const image = record(item.image, ['provider','reference','digest']);
@@ -140,7 +140,7 @@ export function validateProfile(input: unknown): EnvironmentProfile {
   const network = record(item.network, ['routes','registries']);
   const policy = record(item.policy, ['max_process_lifetime_seconds','expires_at','rebuild_on']);
   const profile: EnvironmentProfile = {
-    schema_version: 1, profile_id: id(item.profile_id), profile_version: version(item.profile_version),
+    schema_version: item.schema_version, profile_id: id(item.profile_id), profile_version: version(item.profile_version),
     os: { distribution: id(os.distribution), version: version(os.version), architecture: os.architecture as 'x86_64' | 'aarch64' },
     image: { provider: id(image.provider), reference: imageReference, digest: image.digest === null ? null : digest(image.digest) },
     resources: { cpu_millis: integer(resources.cpu_millis, 1), memory_bytes: decimal(resources.memory_bytes, true),
@@ -172,6 +172,13 @@ export function validateProfile(input: unknown): EnvironmentProfile {
       expires_at: timestamp(policy.expires_at), rebuild_on: ids(policy.rebuild_on) },
     preparation_evidence: filePins(item.preparation_evidence, 1)
   };
+  if(item.schema_version===2){
+    const mapping=record(item.result_preparation,['schema_version','inputs']);if(mapping.schema_version!==1)fail('result preparation mapping version');
+    const inputs=unique(list(mapping.inputs,value=>{const pin=record(value,['path','origin']);if(pin.origin!=='SOURCE'&&pin.origin!=='PROFILE_ARTIFACT')fail('result preparation origin');return {path:relative(pin.path),origin:pin.origin as 'SOURCE'|'PROFILE_ARTIFACT'};}),pin=>pin.path);
+    const required=new Map([profile.recipe,...profile.generated_inputs,...profile.build_config,...profile.preparation_evidence,...profile.package_managers.flatMap(manager=>manager.locks)].map(pin=>[pin.path,pin.digest]));
+    if(inputs.length!==required.size||inputs.some(pin=>!required.has(pin.path)||profile.repositories.some(repository=>pin.path===repository.id||pin.path.startsWith(repository.id+'/'))))fail('complete result preparation pin mapping');
+    profile.result_preparation={schema_version:1,inputs};
+  }
   return profile;
 }
 function scanPolicy(input: unknown): ScanPolicy {
@@ -606,7 +613,7 @@ export function validateManifestMetadata(value:unknown):PreparationManifest{
 }
 function compatibilitySortedPins<T extends {name:string}>(values:T[]):T[]{return [...values].sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);}
 function compatibilitySoftware(profile:EnvironmentProfile):unknown {
- return {os:profile.os,recipe:profile.recipe,toolchains:compatibilitySortedPins(profile.toolchains),
+ return {os:profile.os,recipe:profile.recipe,...(profile.result_preparation?{result_preparation:profile.result_preparation}:{}),toolchains:compatibilitySortedPins(profile.toolchains),
   package_managers:compatibilitySortedPins(profile.package_managers).map(manager=>({...manager,locks:[...manager.locks].sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0)})),
   native_agents:compatibilitySortedPins(profile.native_agents),connectors:compatibilitySortedPins(profile.connectors),
   supervisor:profile.supervisor,hyperfide:profile.hyperfide,system_packages:compatibilitySortedPins(profile.system_packages),

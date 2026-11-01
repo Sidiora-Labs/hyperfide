@@ -1,0 +1,36 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {createHash,randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+if(process.argv.length!==5)throw new Error('Explicit compiled module root, baseline manifest and candidate required');
+const [moduleRoot,manifestFile,candidateRoot]=process.argv.slice(2).map(name=>path.resolve(name));
+const {validateProfile,createManifest}=await import(pathToFileURL(path.join(moduleRoot,'preparation/manifests.js')));
+const {deriveEffectiveProfile,readPreparationRecipePolicy}=await import(pathToFileURL(path.join(moduleRoot,'preparation/effective.js')));
+const {approvedProfilePolicyDigest}=await import(pathToFileURL(path.join(moduleRoot,'providers/pools.js')));
+const {preparationPinInputs}=await import(pathToFileURL(path.join(moduleRoot,'preparation/profile_pin_inputs.js')));
+const parent=JSON.parse(await fs.readFile(manifestFile,'utf8')),work=await fs.mkdtemp(path.join(os.tmpdir(),'hf-profile-origins-'));
+const hash=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');let count=0;
+const check=async(id,run)=>{await run();count++;console.log(JSON.stringify({type:'assertion',id,actual:'PASS'}));};
+try{
+ const candidate=path.join(work,'candidate');await fs.cp(candidateRoot,candidate,{recursive:true});
+ const policy={schema_version:1,kind:'hyperfide.preparation-policy',commands:[],cache_scope:'origin-gate',cache_paths:[],minimum_free_bytes:'0',minimum_free_inodes:'0',network_timeout_milliseconds:100};
+ const policyBytes=Buffer.from(JSON.stringify(policy));await fs.writeFile(path.join(candidate,'preparation-policy.json'),policyBytes);
+ const profile=structuredClone(parent.profile);profile.schema_version=2;profile.profile_id=randomUUID();profile.profile_version='2.0.0';profile.recipe={path:'preparation-policy.json',digest:hash(policyBytes)};
+ const sourcePaths=new Set(profile.package_managers.flatMap(manager=>manager.locks.map(pin=>pin.path)));
+ const pins=[profile.recipe,...profile.generated_inputs,...profile.build_config,...profile.preparation_evidence,...profile.package_managers.flatMap(manager=>manager.locks)];
+ profile.result_preparation={schema_version:1,inputs:[...new Map(pins.map(pin=>[pin.path,{path:pin.path,origin:sourcePaths.has(pin.path)?'SOURCE':'PROFILE_ARTIFACT'}])).values()]};
+ const manifest=await createManifest({candidate_path:'candidate',profile,scan_policy:{secret_canaries:[],identity_canaries:[],lease_canaries:[]}},{env:{HF_PREPARATION_ALLOWED_ROOT:work},signal:new AbortController().signal});
+ await check('profile.schema1-roundtrip-unchanged',async()=>assert.deepEqual(validateProfile(parent.profile),parent.profile));
+ await check('profile.schema2-policy-and-full-origin-map',async()=>{assert.equal(manifest.profile.schema_version,2);assert.equal(preparationPinInputs(manifest.profile).length,new Set(pins.map(pin=>pin.path)).size);assert.deepEqual(readPreparationRecipePolicy(manifest,policyBytes),policy);});
+ await check('profile.incomplete-map-refused',async()=>{const changed=structuredClone(profile);changed.result_preparation.inputs.pop();assert.throws(()=>validateProfile(changed));});
+ const repository=profile.repositories[0],measuredPins=preparationPinInputs(profile).map(({path,digest})=>({path,digest}));
+ const result={custody_id:randomUUID(),custody_generation:'1',binding_digest:hash('custody'),source_manifest_artifact_id:randomUUID(),source_manifest_digest:hash('archive'),repository_id:randomUUID(),source_object_id:'c'.repeat(40),source_tree_id:'d'.repeat(40)};
+ const input={parent:{profile_id:randomUUID(),preparation_manifest:manifest},result,repository_binding:{repository_id:result.repository_id,repository_key:repository.id,repository_url:repository.url},measured:{repository_id:result.repository_id,source_object_id:result.source_object_id,source_tree_id:result.source_tree_id,submodules:[],file_pins:measuredPins,observation_artifact_digest:hash('measurement')},derived_profile_id:randomUUID()};
+ await check('profile.external-pin-substitution-refused',async()=>{const changed=structuredClone(input);changed.measured.file_pins.find(pin=>pin.path===profile.recipe.path).digest=hash('unauthorized replacement');assert.throws(()=>deriveEffectiveProfile(changed));});
+ await check('profile.approval-retains-external-pin-digest',async()=>{const changed=structuredClone(profile);const selected=profile.result_preparation.inputs.find(pin=>pin.origin==='PROFILE_ARTIFACT'&&pin.path!==profile.recipe.path);assert.ok(selected);const pin=[...changed.generated_inputs,...changed.build_config,...changed.preparation_evidence,...changed.package_managers.flatMap(manager=>manager.locks)].find(pin=>pin.path===selected.path);pin.digest=hash('changed external profile artifact');assert.notEqual(approvedProfilePolicyDigest(changed),approvedProfilePolicyDigest(profile));});
+ await check('profile.approval-normalizes-source-pin-only',async()=>{const changed=structuredClone(profile);const selected=profile.result_preparation.inputs.find(pin=>pin.origin==='SOURCE');assert.ok(selected);const pin=[...changed.generated_inputs,...changed.build_config,...changed.preparation_evidence,...changed.package_managers.flatMap(manager=>manager.locks)].find(pin=>pin.path===selected.path);pin.digest=hash('changed source-owned file');assert.equal(approvedProfilePolicyDigest(changed),approvedProfilePolicyDigest(profile));});
+ await check('profile.source-pin-change-remains-measured',async()=>{const selected=profile.result_preparation.inputs.find(pin=>pin.origin==='SOURCE');assert.ok(selected);const changedBytes=Buffer.concat([await fs.readFile(path.join(candidate,selected.path)),Buffer.from('\n')]);const changed=structuredClone(input);changed.measured.file_pins.find(pin=>pin.path===selected.path).digest=hash(changedBytes);const derived=deriveEffectiveProfile(changed);assert.equal(derived.dependency_inputs_changed,true);assert.equal(derived.lineage.changed_inputs.length,1);assert.equal(derived.lineage.changed_inputs[0].path,selected.path);});
+ console.log(JSON.stringify({status:'PASS',assertions:count,boundary:'actual candidate inventory and explicit metadata derivation; no readiness or custody authority granted'}));
+}finally{await fs.rm(work,{recursive:true,force:true});}
