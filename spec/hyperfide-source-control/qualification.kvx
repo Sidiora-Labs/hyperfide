@@ -68,3 +68,11 @@ exit_code = 0
 log = "build/fleet/manager-replacement/receipt.json; build/fleet/integration/private/qualification-profile-selector-component-receipt.json; build/fleet/integration/fleet-install-interrupted-final68.log"
 observed = "Catalog 68 build passed. Signed API/PostgreSQL tests exercised handoff-scoped acknowledgement, committed replay, denied credential misuse and former-owner re-enrollment. Phase admission preserved separate AGENT and TEST capacity. Independent qualification profiles passed strict selection and wrong-pool refusal tests. The native install gate performed actual SIGKILL, signed FAILED and quiescence, a new linked recovery execution and final READY collection while preserving original source and stage history. Contract parser/index checks passed 21 cases."
 assumption = "These isolated execution and authority gates retain declared initial metadata and exact runtime pins. Model-selected cloud execution and the full recovery campaign retain separate live evidence."
+
+[progress.fleet_manager_selected_test]
+revision = "control-source sha256:c3f6874ac758c887ab1c5e52b50904c34a89eb4447f7f4fd50899505e4935daf"
+command = "Control build; withpg.py -- python3 tests/hyperfide/cases/source_control/fleet_manager_selected_test_job.py; fleet_result_root_scan.mjs"
+exit_code = 0
+log = "build/fleet/integration/manager-selected-test-job-receipt.json; build/fleet/integration/manager-selected-test-job-gate.log; build/fleet/integration/root-scan-boundary-receipt.json"
+observed = "Catalog 69 build passed. Thirteen signed API/PostgreSQL checks covered two jobs selected from one static TEST policy, immutable bindings, replay, competing selections, manifest content validation, stale scope refusal and retained capacity for uncertain outcomes. Artifact manifests used actual signed object and manifest APIs with a SigV4 byte store. Eleven ROOT scan checks covered captured Unix source and external profile bytes, private-value refusal, custody binding, protected policy pins and byte limits."
+assumption = "The admission gate declares accepted task and custody prerequisites. The scan gate exercises production byte scanning with controlled scope. Live TEST preparation and verification retain their separate execution receipts."
