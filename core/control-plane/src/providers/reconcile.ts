@@ -170,6 +170,7 @@ export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabas
     const id=randomUUID();await destructionPreflight(c,pool,{organisation_id:config.organisation_id,run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation),operation_id:id});
     const op=operation('destroy',scope,id,deadline(input.deadline_at,config.maximum_operation_ms),
       {native_sandbox_id:s.native_sandbox_id,sandbox_boot_generation:String(s.boot_generation)},s.preparation_digest,{reason:str(input.reason,1024)});
+    const replaced=await retireExpiredDestroyForReplacement(c,pool,config,{run_id:run,sandbox_id:sandbox,boot_generation:String(s.boot_generation),native_sandbox_id:s.native_sandbox_id,operation:op,request_key:key,request_digest:requestDigest});
     await c.query("INSERT INTO hyperfide.provisioning_intents(organisation_id,run_id,id,pool_id,sandbox_id,configuration_digest,kind,request_key,request_digest,payload_digest,operation,boot_generation,native_sandbox_id) VALUES($1,$2,$3,$4,$5,$6,'DESTROY',$7,$8,$9,$10,$11,$12)",
       [config.organisation_id,run,id,poolId,sandbox,scope.configuration_digest,key,requestDigest,op.identity.payload_digest,op,s.boot_generation,s.native_sandbox_id]);
     const admission=providerInvocation(pool);
@@ -180,7 +181,7 @@ export async function prepareDestroyTx(c:PrimaryTransaction,pool:ProviderDatabas
        [config.organisation_id,run,randomUUID(),admission.principal.credential_id,id,admission.operation.payload_digest,JSON.stringify({schema_version:1,kind:'DIRECT_OPERATOR_DESTROY_ADMISSION',role:'OPERATOR',credential_id:admission.principal.credential_id,operation_id:admission.operation.operation_id,payload_digest:admission.operation.payload_digest,provider_intent_id:id,request_key:key,request_digest:requestDigest,pool_id:poolId,sandbox_id:sandbox,boot_generation:String(s.boot_generation),native_sandbox_id:s.native_sandbox_id,configuration_digest:scope.configuration_digest})]);
     }
     await c.query("UPDATE hyperfide.sandboxes SET desired_state='DESTROYED',state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[config.organisation_id,sandbox]);
-    return{created:true,intent:await intent(c,config.organisation_id,id),external_call_performed:false};
+    return{created:true,intent:await intent(c,config.organisation_id,id),external_call_performed:false,...(replaced?{replaced_intent_id:replaced}:{})};
   })();
 }
 export function persistenceHooks(pool:ProviderDatabase,organisation:string,id:string):ProviderPersistenceHooks{
@@ -595,6 +596,33 @@ async function refreshInventoryAttribution(database:ProviderDatabase,config:Depl
  let cursor=0;
  await Promise.all(Array.from({length:Math.min(4,due.length)},async()=>{while(cursor<Math.min(32,due.length)&&Date.now()<end&&!boundedSignal.aborted){const candidate=due[cursor++]!;const observed=await attributeInventoryResource(database,config,row,candidate.native_sandbox_id,boundedSignal,deadlineAt);counts[observed.classification]++;attempted++;}}));
  return{intent:row,inventory_attribution:counts,attempted,skipped_fresh:skippedFresh,remaining_candidates:due.length-attempted,has_more:due.length>attempted,partial:due.length>attempted,continuation:due.length>attempted?'SAME_SCOPE_NEW_RPC':null,uncertain_transport:'RECONCILE_ORIGINAL_OPERATION',complete_inventory:false,freshness_scope:'RETAINED_CANDIDATES_ONLY',orphan_rows_rewritten:false,capacity_released:false};
+}
+/** Replacement is a new authenticated DELETE authority; expiry never renews the old one. */
+async function retireExpiredDestroyForReplacement(tx:PrimaryTransaction,database:ProviderDatabase,config:DeploymentConfig,next:{run_id:string;sandbox_id:string;boot_generation:string;native_sandbox_id:string;operation:ProviderOperation<'destroy'>;request_key:string;request_digest:string}):Promise<string|null>{
+ const prior=(await tx.query("SELECT *,clock_timestamp() AS clock FROM hyperfide.provisioning_intents WHERE organisation_id=$1 AND sandbox_id=$2 AND kind='DESTROY' AND state NOT IN('TERMINAL','REJECTED') FOR UPDATE",[config.organisation_id,next.sandbox_id])).rows[0];if(!prior)return null;
+ const refuse=():never=>fail('PROVIDER_DESTROY_REPLACEMENT_UNPROVEN','Prior destroy is not an expired proven never-submitted authority; reconcile it without replacing it');
+ const original=validateProviderOperation(prior.operation);
+ if(prior.run_id!==next.run_id||original.kind!=='destroy'||original.identity.operation_id!==prior.id||original.identity.payload_digest!==prior.payload_digest||original.scope.configuration_digest!==prior.configuration_digest||original.preparation_digest!==next.operation.preparation_digest||Date.parse(original.deadline_at)>new Date(prior.clock).getTime()||String(prior.boot_generation)!==next.boot_generation||prior.native_sandbox_id!==next.native_sandbox_id||original.resource?.native_sandbox_id!==next.native_sandbox_id||original.resource.sandbox_boot_generation!==next.boot_generation||digestDocument(original.scope)!==digestDocument(next.operation.scope))return refuse();
+ if((await tx.query('SELECT id FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND id=$2 LIMIT 1',[config.organisation_id,prior.id])).rows.length)return refuse();
+ const history=(await tx.query('SELECT id,operation_id,payload_digest,observation,evidence_digest,created_at FROM hyperfide.provider_observations WHERE organisation_id=$1 AND intent_id=$2 ORDER BY created_at,id LIMIT 1001',[config.organisation_id,prior.id])).rows;if(history.length>1000)return refuse();
+ const observations:Record<string,any>[]=[];let mode:Record<string,any>|null=null;
+ for(const entry of history){const body=entry.observation;if(digestDocument(body)!==entry.evidence_digest)return refuse();
+  if(body?.kind==='EXPIRED_DESTROY_OBSERVATION_ONLY_V1'){
+   if(mode||entry.payload_digest!==entry.evidence_digest||body.organisation_id!==config.organisation_id||body.run_id!==next.run_id||body.intent_id!==prior.id||body.request_digest!==prior.request_digest||body.payload_digest!==prior.payload_digest||digestDocument(body.original_operation)!==digestDocument(original)||body.sandbox_id!==next.sandbox_id||body.native_sandbox_id!==next.native_sandbox_id||body.boot_generation!==next.boot_generation||body.deadline_at!==original.deadline_at||body.prior_state!=='RECORDED'||body.provider_request_id!==null||body.last_outcome!==null||body.submission_evidence_present!==false||body.allowed_operation!=='observe'||body.delete_authority_extended!==false||body.physical_resources_released!==false)return refuse();
+   mode=entry;continue;
+  }
+  try{const observed=validateProviderOperation(body?.operation);validateProviderOutcome(body);
+   if(observed.kind!=='observe'||observed.identity.operation_id!==entry.operation_id||observed.identity.payload_digest!==entry.payload_digest||observed.identity.correlation_id!==prior.id||digestDocument(observed.scope)!==digestDocument(original.scope)||observed.resource?.native_sandbox_id!==next.native_sandbox_id||observed.resource.sandbox_boot_generation!==next.boot_generation||body.outcome.resource&&(body.outcome.resource.native_sandbox_id!==next.native_sandbox_id||body.outcome.resource.sandbox_boot_generation!==next.boot_generation))return refuse();
+   observations.push(body.outcome);
+  }catch{return refuse();}
+ }
+ if(mode&&history.some(entry=>entry.id!==mode.id&&new Date(entry.created_at).getTime()<new Date(mode!.created_at).getTime()))return refuse();
+ const clean=prior.state==='RECORDED'&&history.length===0&&prior.provider_request_id===null&&prior.last_outcome===null;
+ const readOnly=mode!==null&&['RECONCILING','UNKNOWN'].includes(prior.state)&&(prior.last_outcome===null?observations.length===0&&prior.provider_request_id===null:observations.some(outcome=>digestDocument(outcome)===digestDocument(prior.last_outcome)&&outcome.provider_request_id===prior.provider_request_id));
+ if(!clean&&!readOnly)return refuse();
+ const i=providerInvocation(database),at=new Date(prior.clock).toISOString(),proof={kind:'EXPIRED_DESTROY_RETIRED_V1',organisation_id:config.organisation_id,run_id:next.run_id,intent_id:prior.id,sandbox_id:next.sandbox_id,native_sandbox_id:next.native_sandbox_id,boot_generation:next.boot_generation,original_operation:prior.operation,request_digest:prior.request_digest,payload_digest:prior.payload_digest,deadline_at:original.deadline_at,prior_state:prior.state,prior_failure_code:prior.failure_code,observation_only_proof_id:mode?.id??null,observation_only_proof_digest:mode?.evidence_digest??null,read_observation_ids:history.filter(r=>r.id!==mode?.id).map(r=>r.id),replacement_intent_id:next.operation.identity.operation_id,replacement_request_key:next.request_key,replacement_request_digest:next.request_digest,replacement_payload_digest:next.operation.identity.payload_digest,authority:{credential_id:i.principal.credential_id,actor_id:i.principal.actor_id,role:i.principal.role,operation_id:i.operation.operation_id,payload_digest:i.operation.payload_digest},observed_at:at,physical_resources_released:false,delete_authority_extended:false};
+ const digest=digestDocument(proof);await tx.query('INSERT INTO hyperfide.provider_observations(organisation_id,id,intent_id,operation_id,payload_digest,observation,observed_at,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$5)',[config.organisation_id,randomUUID(),prior.id,randomUUID(),digest,proof,at]);
+ await tx.query("UPDATE hyperfide.provisioning_intents SET state='REJECTED',failure_code='EXPIRED_DESTROY_REPLACED',updated_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND id=$3",[config.organisation_id,next.run_id,prior.id]);return String(prior.id);
 }
 /** An expired DELETE authority can observe natural absence; it can never submit the old DELETE. */
 async function beginExpiredDestroyObservation(pool:ProviderDatabase,config:DeploymentConfig,observed:Intent):Promise<Intent|null>{
