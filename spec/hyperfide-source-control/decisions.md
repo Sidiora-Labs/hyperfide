@@ -59,3 +59,15 @@ D12: organize existing source by category before native source-control implement
 D13: the Primary and Wave Managers on one supervisory box own adaptive orchestration. The engine validates contracts and durably executes admitted actions. Model unavailability does not activate an implicit deterministic planner. See [fleet orchestration](fleet-orchestration.md).
 
 D14: `package.kvx` describes a sandbox environment; `.neron` configures its source access; `interfaces.kvx` identifies declarations and associated compatibility contracts. Task assignments retain separate identities. Proposed `hyperfide install` prepares pinned code, dependencies, configs and interface subsets through an explicit existing-source adapter first, then a separately qualified native adapter. The example schemas are proposed, not existing command support.
+
+## Native wire format v1
+
+D15: the native codec uses lowercase scoped UUID identities and canonical unsigned 64-bit decimal generation strings. Native object IDs are `sha256:` digests of `hyperfide-source-control\0v1\0<kind>\0<decimal length>\0<payload>`, with a closed object-kind set. Raw Git OIDs retain an explicit `object_format` and cannot be parsed as native identities. Repository and security-domain scope accompanies native references; knowing an object digest grants no read access.
+
+D16: metadata objects use canonical UTF-8 JSON tuples. Canonical JSON rejects noninteger numbers, negative zero, unsafe integers, duplicate fields, sparse arrays, cycles, unknown runtime value types and unpaired surrogates. Object keys use unsigned UTF-8 byte ordering; source names preserve their exact Unicode and case. Paths reject absolute names, alternate separators, empty or dot components, NUL and overlong components. Unsupported host filesystem names require an explicit materializer refusal.
+
+D17: v1 ordinary content uses a 4 MiB blob threshold and 4 MiB chunks, with encoded objects bounded at 8 MiB. Persistent tree leaves contain at most 256 entries and encoded tree nodes at most 256 KiB. The fixed codec parameters are reported independently of deployment routing and physical placement.
+
+D18: source metadata envelopes are bounded at 1 MiB. The `source.objects.put` and `source.objects.read` codecs have an explicit 12 MiB wire allowance for an encoded bounded content object; decoding still validates the action and storage verifies the decoded 8 MiB object limit. Other actions cannot borrow that allowance. Public provenance accepts only author name/email, message and a canonical UTC timestamp. Runtime authority and managed-task bindings stay outside exported source provenance.
+
+D19: the SDK contract is authoritative in `sdk/source-control/src/contracts.ts`; the control-plane build copies it into its source compilation root through `sync-fleet-contracts.mjs`. The executable `0_1.py` case imports the built SDK package and the server codec and checks independent cross-language golden bytes in `fixtures/contracts-v1.json`, version negotiation, strict decoding, scoped identities, path/type/mode preservation, operation transitions and content-transfer bounds.

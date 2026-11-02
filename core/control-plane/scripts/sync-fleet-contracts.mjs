@@ -9,3 +9,10 @@ const source = mode === 'source' ? path.resolve(root, '../../contracts/fleet') :
 const target = path.join(root, mode === 'source' ? 'src' : 'dist', 'contracts/fleet');
 await mkdir(target, {recursive: true});
 for (const name of ['index.mjs', 'index.d.mts']) await copyFile(path.join(source, name), path.join(target, name));
+
+if (mode === 'source') {
+  const sourceContracts = path.resolve(root, '../../sdk/source-control/src/contracts.ts');
+  const targetContracts = path.join(root, 'src/source_control/contracts.ts');
+  await mkdir(path.dirname(targetContracts), {recursive: true});
+  await copyFile(sourceContracts, targetContracts);
+}

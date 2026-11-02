@@ -429,7 +429,7 @@ Implementation and qualification obligations:
 
 ## 0.1: Version the native source contract and compatibility boundary
 
-Status: **pending**. Owner: `contracts`. Dependencies: 0.14.
+Status: **in_progress**. Owner: `contracts`. Dependencies: 0.14.
 
 Proposed implementation scope:
 
@@ -480,7 +480,7 @@ Implementation and qualification obligations:
 
 ## 1.1: Build the immutable S3 object and persistent-tree vertical slice
 
-Status: **pending**. Owner: `source-storage`. Dependencies: 0.1, 0.2.
+Status: **in_progress**. Owner: `source-storage`. Dependencies: 0.1, 0.2.
 
 Proposed implementation scope:
 
@@ -509,7 +509,7 @@ Implementation and qualification obligations:
 
 ## 1.2: Durable revision metadata, scoped idempotency and source outbox
 
-Status: **pending**. Owner: `source-protocol`. Dependencies: 1.1.
+Status: **in_progress**. Owner: `source-protocol`. Dependencies: 1.1.
 
 Proposed implementation scope:
 
@@ -537,7 +537,7 @@ Implementation and qualification obligations:
 
 ## 1.3: Enforce source capabilities across transfer, caches and metadata consumers
 
-Status: **pending**. Owner: `source-security`. Dependencies: 1.1, 1.2.
+Status: **in_progress**. Owner: `source-security`. Dependencies: 1.1, 1.2.
 
 Proposed implementation scope:
 
@@ -565,7 +565,7 @@ Implementation and qualification obligations:
 
 ## 2.1: Online revision, history and query API vertical slice
 
-Status: **pending**. Owner: `source-api`. Dependencies: 1.2, 1.3.
+Status: **in_progress**. Owner: `source-api`. Dependencies: 1.2, 1.3.
 
 Proposed implementation scope:
 
@@ -593,7 +593,7 @@ Implementation and qualification obligations:
 
 ## 2.2: Materialize pinned source scopes with immutable host cache and durable capture
 
-Status: **pending**. Owner: `workspaces`. Dependencies: 2.1.
+Status: **in_progress**. Owner: `workspaces`. Dependencies: 2.1.
 
 Proposed implementation scope:
 

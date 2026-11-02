@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "format": "hyperfide-source-control-v1",
+  "vectors": [
+    {
+      "name": "empty-blob",
+      "kind": "blob",
+      "payload_hex": "",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c00763100626c6f62003000",
+      "object_id": "sha256:b831a4a3d5b3078c728e984783ca5e23b0ec22cfb05a450c56923e5dbf890c8e"
+    },
+    {
+      "name": "binary-blob",
+      "kind": "blob",
+      "payload_hex": "0001ff",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c00763100626c6f620033000001ff",
+      "object_id": "sha256:9cd13fca0e9b3f47853e6c1ef21e8f723063154713a3bdc8be81e8c6847e7625"
+    },
+    {
+      "name": "type-separated-chunk",
+      "kind": "chunk",
+      "payload_hex": "0001ff",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c007631006368756e6b0033000001ff",
+      "object_id": "sha256:a9210a78836632ae413171aa0f06da3e30eb40ffc86384023f2448be5ce6d1f0"
+    },
+    {
+      "name": "unicode-tuple",
+      "kind": "manifest",
+      "payload_hex": "5b312c22e99baa222c2265cc81222c22c3a9222c225c7530303030222c225c225c5c225d",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c007631006d616e6966657374003336005b312c22e99baa222c2265cc81222c22c3a9222c225c7530303030222c225c225c5c225d",
+      "object_id": "sha256:0f87d7d4970c99c79b3f53c92989d0cd0509b05881fe542d3327f2707ff4ffe4"
+    },
+    {
+      "name": "empty-tree",
+      "kind": "tree-leaf",
+      "payload_hex": "5b312c22222c5b5d5d",
+      "envelope_hex": "6879706572666964652d736f757263652d636f6e74726f6c00763100747265652d6c6561660039005b312c22222c5b5d5d",
+      "object_id": "sha256:50ac2915067f1a291100ece32fabc369ecfc0291f97194badecc0947c4786607"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
-# Hyperfide native source control with layout and agent-led fleet prerequisites. Layout implementation started.
-# Layout 0.3 implemented with graph qualification pending; 0.4-0.8 relocation in progress ahead of open prerequisites. Product cases UNRUN.
+# Hyperfide native source control with category layout and agent-led fleet integration.
+# Native implementation includes object storage, revisions, online queries and sparse workspaces.
 
 [meta]
 feature = "hyperfide-source-control"
@@ -7,9 +7,9 @@ name = "Hyperfide native source control for large monorepos and agent fleets"
 version = "0.3.1-layout"
 status = "in_progress"
 stage = "implementation"
-review_date = "2026-10-31"
+review_date = "2026-11-02"
 source_baseline = "2f7331ef2085f6f374adf2d1e2ee01405fecb72d"
-intro = "First qualify category-based repository reorganization, then the final prerequisite: agent-led fleet orchestration with interfaces.kvx, sandbox package.kvx and .neron source configuration. Only then implement the online server-authoritative source-control subsystem. An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 content and bounded trees, thin clients, complete APIs, server-side history and source operations, optional sparse and virtualized working copies, within-monorepo sharding, exact-evidence acceptance, and GitHub/GitLab compatibility at the remote boundary. Layout inventory task 0.3 is implemented with graph qualification pending; 8,339 mapped paths have been relocated and tasks 0.4 through 0.8 are in progress ahead of open prerequisites. Focused checks and pinned dependency setup do not establish full layout qualification; fleet and native source-control implementation remain pending."
+intro = "An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 objects and persistent trees, scoped PostgreSQL revision metadata, taskless authenticated APIs, history and source queries, and sparse workspaces with bounded caches and durable checkpoints. Native contract, storage, metadata, security, API and workspace implementation is in progress. Layout and fleet integration retain their separate qualification tasks; merge/rebase, native acceptance, virtual workspaces and GitHub/GitLab publication follow through the existing task graph."
 
 [decisions]
 d_1 = "Native online source control is a Hyperfide subsystem with a versioned service boundary; Hyperfide keeps task, attempt, scheduling and qualification-policy authority. Basic source operations also support authorized taskless principals."
@@ -447,7 +447,7 @@ do_4 = "Publish the local prerequisite handoff contract and source-adapter migra
 
 [task.0.1]
 title = "Version the native source contract and compatibility boundary"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = ["0.14"]
 touches = ["core/control-plane/src/source_control/contracts.ts", "sdk/source-control/package.json", "sdk/source-control/src/contracts.ts", "sdk/source-control/src/index.ts", "tests/hyperfide/cases/source_control/0_1.py", "spec/hyperfide-source-control/decisions.md"]
@@ -477,7 +477,7 @@ cases = ["SCM-024"]
 
 [task.1.1]
 title = "Build the immutable S3 object and persistent-tree vertical slice"
-status = "pending"
+status = "in_progress"
 wave = 1
 requires = ["0.1", "0.2"]
 touches = ["core/control-plane/src/source_control/objects.ts", "core/control-plane/src/source_control/trees.ts", "core/control-plane/src/source_control/s3.ts", "core/control-plane/src/source_control/storage_contract.ts", "core/control-plane/src/source_control/object_catalog.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/migrations/*-source-control-storage.sql", "tests/hyperfide/cases/source_control/1_1.py", "tests/hyperfide/cases/source_control/fixtures/objects/**"]
@@ -504,13 +504,13 @@ do_5 = "Implement operation lookup and cancellation dispositions for lost respon
 do_6 = "Create the future 1_2.py driver using real metadata transactions and object service: race identical/different idempotent requests, concurrent same-change successors, stale generations, upload/registration/GC interleavings, and event transaction A committing after B. Assert one effect per request and no lost pending delivery."
 reqs = ["1.4", "4.1", "4.2", "4.5", "5.3", "5.4", "5.5", "7.1"]
 owner = "source-protocol"
-status = "pending"
+status = "in_progress"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/1_2.py"
 cases = ["SCM-002", "SCM-003", "SCM-007"]
 
 [task.1.3]
 title = "Enforce source capabilities across transfer, caches and metadata consumers"
-status = "pending"
+status = "in_progress"
 wave = 1
 requires = ["1.1", "1.2"]
 touches = ["core/control-plane/src/source_control/capabilities.ts", "core/control-plane/src/source_control/transfer_grants.ts", "core/control-plane/src/source_control/audit.ts", "core/control-plane/src/source_control/storage_contract.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/src/transport/protocol.ts", "core/control-plane/migrations/*-source-control-capabilities.sql", "tests/hyperfide/cases/source_control/1_3.py"]
@@ -536,13 +536,13 @@ do_4 = "Route causal dependent reads using the receipt and metadata/object profi
 do_5 = "Create future 2_1.py with a real source service and transactional metadata, making source operations from an API-only client without .git or a checkout. Cover altered cursor scope, access denial without existence leaks, stale replica/epoch, cancellation, late event commit and paginated directory/history correctness."
 reqs = ["1.1", "1.2", "1.8", "4.2", "4.5", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "7.1"]
 owner = "source-api"
-status = "pending"
+status = "in_progress"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/2_1.py"
 cases = ["SCM-003", "SCM-006", "SCM-007"]
 
 [task.2.2]
 title = "Materialize pinned source scopes with immutable host cache and durable capture"
-status = "pending"
+status = "in_progress"
 wave = 2
 requires = ["2.1"]
 touches = ["core/host-daemon/src/source-control/client.ts", "core/host-daemon/src/source-control/materializer.ts", "core/host-daemon/src/source-control/cache.ts", "core/host-daemon/src/source-control/journal.ts", "core/host-daemon/src/source-control/checkpoint.ts", "plugins/environment-slices/contract.ts", "plugins/environment-slices/provider.ts", "plugins/environment-slices/host.ts", "tests/hyperfide/cases/source_control/2_2.py"]
