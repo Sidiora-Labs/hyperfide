@@ -47,7 +47,7 @@ The repository-layout prerequisite runs first: **0.3 → 0.4 → 0.5 → 0.6 →
 
 ## 0.3: Freeze the category layout inventory and executable baseline
 
-Status: **implemented**. Owner: `repository-layout`. Dependencies: none.
+Status: **done**. Owner: `repository-layout`. Dependencies: none.
 
 Proposed implementation scope:
 
@@ -73,7 +73,7 @@ Implementation and qualification obligations:
 
 ## 0.4: Establish the root workspace and relocation front door
 
-Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.3.
+Status: **done**. Owner: `repository-layout`. Dependencies: 0.3.
 
 Proposed implementation scope:
 
@@ -106,7 +106,6 @@ Proposed implementation scope:
 - `platform/.gitattributes`
 - `platform/.hyperfide-env-setup.sh`
 - `tools/workspace/env-setup.sh`
-- `tools/repository/repository-root.py`
 - `tests/hyperfide/cases/source_control/0_4.py`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/0_4.py`.
@@ -127,23 +126,6 @@ Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.4.
 
 Proposed implementation scope:
 
-- `kvx`
-- `platform/apps/ai-gateway`
-- `platform/apps/host-daemon`
-- `platform/apps/server`
-- `platform/packages/agent-runtime`
-- `platform/packages/db`
-- `platform/packages/environment-provider-host`
-- `platform/packages/host-watcher`
-- `platform/packages/host-workspace`
-- `platform/packages/hyperfide-authority`
-- `platform/packages/local-open-targets`
-- `platform/packages/provider-bridge-acp`
-- `platform/packages/provider-bridge-protocol`
-- `platform/packages/secret-storage`
-- `platform/packages/server-archive`
-- `services/hyperfide`
-- `src`
 - `core/kvx`
 - `core/ai-gateway`
 - `core/host-daemon`
@@ -163,10 +145,8 @@ Proposed implementation scope:
 - `core/native/src`
 - `Makefile`
 - `pnpm-workspace.yaml`
-- `pnpm-lock.yaml`
 - `turbo.json`
 - `tools/repository/hyperfide-native-components.py`
-- `scripts/hyperfide-native-components.py`
 - `deploy/hyperfide/dist-stamp.mjs`
 - `tests/integration`
 - `tests/hyperfide/cases/source_control/0_5.py`
@@ -189,32 +169,6 @@ Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.5.
 
 Proposed implementation scope:
 
-- `platform/packages/bundled-plugins`
-- `platform/packages/client-core`
-- `platform/packages/config`
-- `platform/packages/core-ui`
-- `platform/packages/desktop-contract`
-- `platform/packages/domain`
-- `platform/packages/fuzzy-match`
-- `platform/packages/hono-typed-routes`
-- `platform/packages/host-daemon-contract`
-- `platform/packages/logger`
-- `platform/packages/mobile-bridge`
-- `platform/packages/plugin-build`
-- `platform/packages/plugin-registry`
-- `platform/packages/plugin-sdk`
-- `platform/packages/process-utils`
-- `platform/packages/provider-parity`
-- `platform/packages/query-tags`
-- `platform/packages/scripts`
-- `platform/packages/sdk`
-- `platform/packages/server-contract`
-- `platform/packages/shared-ui`
-- `platform/packages/templates`
-- `platform/packages/test-helpers`
-- `platform/packages/text-utils`
-- `platform/packages/thread-view`
-- `platform/packages/tsconfig`
 - `tools/bundled-plugins`
 - `lib/client-core`
 - `lib/config`
@@ -241,12 +195,9 @@ Proposed implementation scope:
 - `lib/text-utils`
 - `lib/thread-view`
 - `tools/tsconfig`
-- `platform/changelog-parser.ts`
-- `platform/changelog-metadata.ts`
 - `lib/changelog/parser.ts`
 - `lib/changelog/metadata.ts`
 - `pnpm-workspace.yaml`
-- `pnpm-lock.yaml`
 - `turbo.json`
 - `vitest.config.ts`
 - `tests/hyperfide/cases/source_control/0_6.py`
@@ -269,19 +220,6 @@ Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.6.
 
 Proposed implementation scope:
 
-- `platform/apps/app`
-- `platform/apps/cli`
-- `platform/apps/desktop`
-- `platform/apps/mobile`
-- `platform/apps/demo-server`
-- `platform/packages/hyperfide-app`
-- `platform/plugins`
-- `platform/examples`
-- `platform/assets`
-- `platform/patches`
-- `editors/vscode`
-- `kvx/editors/vscode`
-- `core/kvx/editors/vscode`
 - `apps`
 - `plugins`
 - `extensions`
@@ -311,31 +249,19 @@ Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.7.
 
 Proposed implementation scope:
 
-- `scripts`
-- `platform/scripts`
 - `tools/repository`
 - `tools/workspace`
-- `platform/tests`
 - `tests/runtime-integration`
 - `tests/qa`
 - `tests/fixtures/plugins/scripted-echo-provider`
-- `platform/qa`
-- `platform/docs`
 - `docs/runtime`
 - `docs/verification`
 - `docs/history/runtime-port.md`
-- `platform/README.md`
-- `platform/CHANGELOG.md`
-- `platform/AGENTS.md`
-- `AGENTS.md`
-- `platform/.hyperfide`
 - `spec/workflow.kvx`
-- `.agents/skills`
 - `.github/workflows`
 - `deploy/hyperfide`
 - `Makefile`
 - `.gitignore`
-- `.gitattributes`
 - `.cgignore`
 - `README.md`
 - `tests/hyperfide/cases/source_control/0_8.py`
