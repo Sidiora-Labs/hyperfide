@@ -2,6 +2,7 @@ import {
   decodeSourceResponse,encodeSourceRequest,parseSourceScope,SourceControlError,
   type SourceAction,type SourceAuthority,type SourceRequest,type SourceScope,
 } from './contracts.js';
+import type {SourceMergeRequest,SourceRebaseRequest,SourceRevertRequest,SourceResumeRequest,SourceTransformationResult} from './transformations.js';
 
 export interface SourceClientOptions {
   endpoint:string;
@@ -56,4 +57,9 @@ export class SourceControlClient {
   lookup(tree_id:string,path:string,options?:SourceCallOptions){return this.call('source.trees.lookup',{tree_id,path},options);}
   createRevision(input:unknown,options:SourceCallOptions){return this.call('source.revisions.create',input,options);}
   operation(operation_id:string,options?:SourceCallOptions){return this.call('source.operations.read',{operation_id},options);}
+  merge(input:SourceMergeRequest,options:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.merge',input,options);}
+  rebase(input:SourceRebaseRequest,options:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.rebase',input,options);}
+  revert(input:SourceRevertRequest,options:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.revert',input,options);}
+  transformation(operation_id:string,options?:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.read',{operation_id},options);}
+  resumeTransformation(input:SourceResumeRequest,options?:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.resume',input,options);}
 }

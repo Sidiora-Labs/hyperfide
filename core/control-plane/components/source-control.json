@@ -34,7 +34,12 @@
     "source.subscriptions.ack",
     "source.workspaces.open",
     "source.workspaces.detail",
-    "source.workspaces.checkpoint"
+    "source.workspaces.checkpoint",
+    "source.transforms.merge",
+    "source.transforms.rebase",
+    "source.transforms.revert",
+    "source.transforms.read",
+    "source.transforms.resume"
   ],
   "requires": [
     "4.2"

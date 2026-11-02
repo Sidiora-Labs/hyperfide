@@ -650,7 +650,7 @@ Implementation and qualification obligations:
 
 ## 3.1: Object-level merge, rebase and revert with typed conflicts
 
-Status: **pending**. Owner: `source-transformations`. Dependencies: 2.1.
+Status: **in_progress**. Owner: `source-transformations`. Dependencies: 2.1.
 
 Proposed implementation scope:
 
@@ -658,8 +658,19 @@ Proposed implementation scope:
 - `core/control-plane/src/source_control/rebase.ts`
 - `core/control-plane/src/source_control/revert.ts`
 - `core/control-plane/src/source_control/conflicts.ts`
+- `core/control-plane/src/source_control/transformations.ts`
 - `core/control-plane/src/source_control/api.ts`
+- `core/control-plane/src/source_control/capabilities.ts`
+- `core/control-plane/src/source_control/contracts.ts`
+- `core/control-plane/src/source_control/registration.ts`
+- `core/control-plane/src/source_control/server.ts`
+- `core/control-plane/components/source-control.json`
+- `core/control-plane/migrations/0740-source-control-transformations.sql`
+- `sdk/source-control/src/**`
+- `docs/hyperfide/source-control.md`
+- `spec/hyperfide-source-control/decisions.md`
 - `tests/hyperfide/cases/source_control/3_1.py`
+- `tests/hyperfide/support/native_source_transform_actor.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/3_1.py`.
 

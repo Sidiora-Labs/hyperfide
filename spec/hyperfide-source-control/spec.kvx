@@ -9,7 +9,7 @@ status = "in_progress"
 stage = "implementation"
 review_date = "2026-11-02"
 source_baseline = "2f7331ef2085f6f374adf2d1e2ee01405fecb72d"
-intro = "An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 objects and persistent trees, scoped PostgreSQL revision metadata, taskless authenticated APIs, history and source queries, and sparse workspaces with bounded caches and durable checkpoints. Native contract, storage, metadata, security, API and workspace implementation is in progress. Layout and fleet integration retain their separate qualification tasks; merge/rebase, native acceptance, virtual workspaces and GitHub/GitLab publication follow through the existing task graph."
+intro = "An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 objects and persistent trees, scoped PostgreSQL revision metadata, taskless authenticated APIs, history and source queries, and sparse workspaces with bounded caches and durable checkpoints. Native contract, storage, metadata, security, API and workspace implementation now includes server-side merge, durable rebase stacks and explicit-mainline revert. Layout and fleet integration retain their separate qualification tasks; native acceptance, virtual workspaces and GitHub/GitLab publication follow through the existing task graph."
 
 [decisions]
 d_1 = "Native online source control is a Hyperfide subsystem with a versioned service boundary; Hyperfide keeps task, attempt, scheduling and qualification-policy authority. Basic source operations also support authorized taskless principals."
@@ -577,7 +577,7 @@ cases = ["SCM-005"]
 title = "Object-level merge, rebase and revert with typed conflicts"
 wave = 3
 requires = ["2.1"]
-touches = ["core/control-plane/src/source_control/merge.ts", "core/control-plane/src/source_control/rebase.ts", "core/control-plane/src/source_control/revert.ts", "core/control-plane/src/source_control/conflicts.ts", "core/control-plane/src/source_control/api.ts", "tests/hyperfide/cases/source_control/3_1.py"]
+touches = ["core/control-plane/src/source_control/merge.ts", "core/control-plane/src/source_control/rebase.ts", "core/control-plane/src/source_control/revert.ts", "core/control-plane/src/source_control/conflicts.ts", "core/control-plane/src/source_control/transformations.ts", "core/control-plane/src/source_control/api.ts", "core/control-plane/src/source_control/capabilities.ts", "core/control-plane/src/source_control/contracts.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/src/source_control/server.ts", "core/control-plane/components/source-control.json", "core/control-plane/migrations/0740-source-control-transformations.sql", "sdk/source-control/src/**", "docs/hyperfide/source-control.md", "spec/hyperfide-source-control/decisions.md", "tests/hyperfide/cases/source_control/3_1.py", "tests/hyperfide/support/native_source_transform_actor.mjs"]
 do_1 = "Implement server-side tree identity comparison and deterministic three-way merge over retained object reads, reusing identical subtrees and bounded radix/directory paths; record algorithm and multiple-merge-base strategy and never materialize a whole repository to calculate a merge."
 do_2 = "Return typed immutable conflicts for text/binary add/add, modify/delete, directory/file, symlink and executable-mode cases. Make rename/copy detection explicitly bounded and report unperformed/unknown detection rather than assuming absent renames. Store large sides as authorized content references."
 do_3 = "Implement rebase of a pinned revision/ordered stack onto a pinned base, persisting operation continuations and original-to-successor mapping under the stable change identity. Retain original descendants/dependencies until explicitly updated and expose partial stacks on conflict."
@@ -585,7 +585,7 @@ do_4 = "Implement revert onto a pinned target with explicit parent/mainline sele
 do_5 = "Create future 3_1.py running real object/metadata services and the production transformation engine: deterministic replay, divergent ancestry/multiple bases, all entry/conflict types, large untouched subtrees, cancellation/resume and revert-of-merge input rejection. Assert visited-object metrics for a fixed patch as untouched tree size grows."
 reqs = ["4.3", "4.4", "4.6", "5.1", "5.3", "5.6", "7.4"]
 owner = "source-transformations"
-status = "pending"
+status = "in_progress"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/3_1.py"
 cases = ["SCM-008"]
 
