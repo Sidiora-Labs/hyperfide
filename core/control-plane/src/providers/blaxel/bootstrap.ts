@@ -56,8 +56,12 @@ export function createBlaxelBootstrapTransport(context:ComponentContext):Bootstr
   if(staged.status!=='completed'||staged.exitCode!==0)fail('BOOTSTRAP_STAGE_'+nativeCode(staged),'Native protected bootstrap staging is unconfirmed');
   await input.assertCurrent();
   await call(()=>sandbox.fs.uploadWithMultipart(input.secret_path,new Blob([new Uint8Array(input.secret)]),'0600'));
-  await input.markSubmitting();
-  const launched=await call<Data>(()=>sandbox.process.exec({name:input.process_id,command:command('supervisor.bootstrap'),workingDir:'/',waitForCompletion:false,timeout:0,keepAlive:true}));
+  const launched=await call<Data>(async submissionSignal=>{
+   if(submissionSignal.aborted||signal.aborted||Date.now()>=Date.parse(input.deadline_at))fail('BLAXEL_OPERATION_UNAVAILABLE','Bootstrap submission budget expired before its fence');
+   await input.markSubmitting(submissionSignal);
+   if(submissionSignal.aborted||signal.aborted||Date.now()>=Date.parse(input.deadline_at))fail('BLAXEL_OPERATION_UNAVAILABLE','Bootstrap submission cancelled after its fence');
+   return sandbox.process.exec({name:input.process_id,command:command('supervisor.bootstrap'),workingDir:'/',waitForCompletion:false,timeout:0,keepAlive:true});
+  });
   if(launched.name!==input.process_id||launched.command!==command('supervisor.bootstrap'))fail('PROVIDER_BOOTSTRAP_PROCESS','Provider did not retain exact bootstrap process identity');
   return processOutcome(launched,await readReceipt(),'BOOTSTRAP_NATIVE');
  }};
@@ -83,8 +87,12 @@ export function createBlaxelBootstrapActivationTransport(context:ComponentContex
   await call(()=>sandbox.fs.uploadWithMultipart(input.helper_path,new Blob([new Uint8Array(input.helper)]),input.helper_mode));
   const delivered=await call<Blob>(()=>sandbox.fs.readBinary(input.helper_path));if(delivered.size!==input.helper.length||hash(Buffer.from(await delivered.arrayBuffer()))!==input.helper_digest)fail('WORKER_ACTIVATION_ARTIFACT','Activation sidecar provider readback differs');
   await input.assertCurrent();await call(()=>sandbox.fs.uploadWithMultipart(input.activation_path,new Blob([new Uint8Array(input.activation)]),'0600'));
-  await input.markSubmitting();
-  const launched=await call<Data>(()=>sandbox.process.exec({name:input.process_id,command,workingDir:'/',waitForCompletion:false,timeout:0,keepAlive:true}));
+  const launched=await call<Data>(async submissionSignal=>{
+   if(submissionSignal.aborted||signal.aborted||Date.now()>=Date.parse(input.deadline_at))fail('BLAXEL_OPERATION_UNAVAILABLE','Activation submission budget expired before its fence');
+   await input.markSubmitting(submissionSignal);
+   if(submissionSignal.aborted||signal.aborted||Date.now()>=Date.parse(input.deadline_at))fail('BLAXEL_OPERATION_UNAVAILABLE','Activation submission cancelled after its fence');
+   return sandbox.process.exec({name:input.process_id,command,workingDir:'/',waitForCompletion:false,timeout:0,keepAlive:true});
+  });
   if(launched.name!==input.process_id||launched.command!==command)fail('WORKER_ACTIVATION_PROCESS','Provider did not retain exact activation process');
   return processOutcome(launched,await readReceipt(),'ACTIVATION_NATIVE');
  }};
