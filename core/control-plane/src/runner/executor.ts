@@ -29,7 +29,7 @@ import type {QuerySession} from '../storage/transactions.js';
 interface Signer {credential_id:string;key:KeyObject;public_key_b64:string}
 interface ProviderResult {outcome:unknown;process_ref:unknown;captured?:CapturedProviderOutput;evidence_digest?:unknown;cleanup_confirmed?:unknown;[name:string]:unknown}
 interface ProviderExecution {
- executeBound(input:BoundProviderRequest,signal:AbortSignal,invocation:InvocationContext):Promise<ProviderResult>;
+ executeBound(input:BoundProviderRequest,signal:AbortSignal,invocation:InvocationContext,collectionLeaseId?:string):Promise<ProviderResult>;
  reconcileBound(input:BoundProviderRequest,signal:AbortSignal,invocation:InvocationContext,collectionLeaseId:string):Promise<ProviderResult|null>;
  registerRunnerBindingVerifier(reader:(tx:PrimaryTransaction,binding:BoundProviderRequest['binding'],request:unknown)=>Promise<{evidence_digest:string;observed_at:string}|null>):void|(()=>void);
 }
@@ -258,6 +258,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const config=await configuration(ctx),g=gatewayOf(ctx),controller=new AbortController(),signal=AbortSignal.any([ctx.signal,controller.signal]);
  const migration=await fs.readFile(new URL('../../migrations/0012-runner-registry.sql',import.meta.url));
  await g.withPrimaryTransaction({timeoutMs:5000},async tx=>{const row=(await tx.query('SELECT name,checksum FROM hyperfide.schema_migrations WHERE version=12')).rows[0];if(!row||row.name!=='0012-runner-registry'||row.checksum!==hash(migration))fail('RUNNER_SCHEMA_REQUIRED','Apply the exact trusted runner migration before executor startup');});
+ const preDispatchRequests=new WeakMap<object,{row:Job;signer:Signer;invocation:InvocationContext;lease_id:string}>();
  const retainedRequests=new WeakMap<object,{invocation:InvocationContext;session_id:string;launch_id:string;build:(r:Record<string,any>)=>BoundProviderRequest}>();
  let unregister:void|(()=>void);
  let active=0,completed=0,unknown=0,last_error:string|null=null;
@@ -339,6 +340,21 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  try{await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:0},async tx=>{await tx.query("UPDATE hyperfide.runner_remote_jobs SET state='UNKNOWN',failure_code=CASE WHEN pre_provider_refusal_id IS NULL THEN $6 ELSE failure_code END WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND state='CLAIMED'",[row.organisation_id,row.run_id,row.operation_id,claim_id,s.credential_id,last_error]);});}catch{/* Durable CLAIMED also forbids replay. */}
  }finally{active--;}
  }
+ async function assertPreDispatch(tx:PrimaryTransaction,row:Job,s:Signer,request:BoundProviderRequest,lease_id:string):Promise<void>{
+   const current=(await tx.query("SELECT *,clock_timestamp() AS db_now FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE",[row.organisation_id,row.run_id,row.operation_id])).rows[0] as Job|undefined;
+   if(!current||current.state!=='UNKNOWN'||current.claim_id!==row.claim_id||current.executor_credential_id!==s.credential_id||current.native_claimed_at!==null||current.pre_provider_refusal_id!==null||current.result!==null||current.result_digest!==null||current.result_signature!==null||current.plan_digest!==row.plan_digest||hash(runnerCanonical(current.plan))!==current.plan_digest||new Date(current.expires_at).getTime()<=new Date(current.db_now).getTime())fail('RUNNER_PRE_DISPATCH_CHANGED','Original unexpired owned claim and empty native result required');
+   await authority.guard(tx,current.principal);
+   const preparing=current.job_class==='PREPARATION',b=await (preparing?readRunnerPreparationBinding:readRunnerBinding)(tx as PrimaryTransaction,{organisation_id:current.organisation_id,run_id:current.run_id,session_id:current.session_id});
+   if(!preparing)await readRunnerReadiness(tx as PrimaryTransaction,b);
+   for(const key of Object.keys(current.plan.binding))if(!same(b[key],current.plan.binding[key]))fail('RUNNER_BINDING_STALE','Original pre-dispatch physical runner binding changed');
+   const allocation=await readJobAllocation(tx as PrimaryTransaction,{organisation_id:current.organisation_id,run_id:current.run_id,reservation_id:current.reservation_id});
+   if(!allocation||(['allocation_id','generation','slot_id','sandbox_id','sandbox_boot_generation','assignee_session_id','request_id'] as const).some(key=>!same(allocation[key],current.plan.allocation[key])))fail('RUNNER_ALLOCATION_STALE','Original pre-dispatch allocation changed');
+   const reservation=(await tx.query("SELECT id FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='ALLOCATED' AND expires_at>clock_timestamp() FOR SHARE",[current.organisation_id,current.run_id,current.reservation_id])).rows[0];
+   if(!reservation)fail('RUNNER_RESERVATION_EXPIRED','Original pre-dispatch reservation must remain unexpired');
+   const workspace=await workerWorkspaceGate(tx as PrimaryTransaction,current),cwd=preparing?path.dirname(current.plan.binding.workspace_path):launchWorkspacePath(ctx.env,current,workspace);
+   if(request.cwd!==cwd)fail('WORKER_SLICE_MISMATCH','Original pre-dispatch working directory changed');
+   const lease=(await tx.query('SELECT lease_id FROM hyperfide.runner_result_collections WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND claim_id=$4 AND executor_credential_id=$5 AND lease_id=$6 AND lease_until>clock_timestamp() FOR SHARE',[row.organisation_id,row.run_id,row.operation_id,row.claim_id,s.credential_id,lease_id])).rows[0];if(!lease)fail('RUNNER_COLLECTION_LEASE_CHANGED','Exact live pre-dispatch collection lease required');
+ }
  async function collectUnknown(s:Signer):Promise<boolean>{
  const collectionSignal=AbortSignal.any([signal,AbortSignal.timeout(90000)]);
  let phase='SELECT',lease_id=randomUUID(),row:Job|undefined;
@@ -346,7 +362,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  row=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal:collectionSignal},async tx=>{
   const p=(await tx.query('SELECT p.*,r.authority_epoch,r.state AS run_state,clock_timestamp() AS db_now FROM hyperfide.identity_principals p JOIN hyperfide.runs r ON r.organisation_id=p.organisation_id AND r.id=p.run_id WHERE p.credential_id=$1 FOR SHARE OF p,r',[s.credential_id])).rows[0];
   if(!currentSigner(p,s))fail('RUNNER_EXECUTOR_IDENTITY_MISMATCH','Current configured provisioner required for result collection');
-  const candidate=(await tx.query("SELECT j.*,o.operation AS provider_operation,o.request_digest AS provider_request_digest FROM hyperfide.runner_remote_jobs j JOIN hyperfide.provider_remote_operations o ON o.organisation_id=j.organisation_id AND o.run_id=j.run_id AND o.id=j.operation_id AND o.session_id=j.session_id AND o.sandbox_id=(j.plan->'binding'->>'sandbox_id')::uuid AND o.boot_generation=(j.plan->'binding'->>'boot_generation')::bigint LEFT JOIN hyperfide.runner_result_collections c ON c.organisation_id=j.organisation_id AND c.run_id=j.run_id AND c.operation_id=j.operation_id WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.authority_epoch=$3 AND j.executor_credential_id=$4 AND j.state='UNKNOWN' AND j.claim_id IS NOT NULL AND j.native_claimed_at IS NOT NULL AND j.pre_provider_refusal_id IS NULL AND j.result IS NULL AND j.result_digest IS NULL AND j.result_signature IS NULL AND o.process_claimed AND o.native_process_ref IS NOT NULL AND (c.operation_id IS NULL OR (c.lease_until<=clock_timestamp() AND c.next_poll_at<=clock_timestamp())) ORDER BY COALESCE(c.next_poll_at,j.claimed_at),j.operation_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED",[p.organisation_id,p.run_id,p.deployment_epoch,s.credential_id])).rows[0];
+  const candidate=(await tx.query("SELECT j.*,o.operation AS provider_operation,o.request_digest AS provider_request_digest,NOT o.process_claimed AS pre_dispatch FROM hyperfide.runner_remote_jobs j JOIN hyperfide.provider_remote_operations o ON o.organisation_id=j.organisation_id AND o.run_id=j.run_id AND o.id=j.operation_id AND o.session_id=j.session_id AND o.sandbox_id=(j.plan->'binding'->>'sandbox_id')::uuid AND o.boot_generation=(j.plan->'binding'->>'boot_generation')::bigint LEFT JOIN hyperfide.runner_result_collections c ON c.organisation_id=j.organisation_id AND c.run_id=j.run_id AND c.operation_id=j.operation_id WHERE j.organisation_id=$1 AND j.run_id=$2 AND j.authority_epoch=$3 AND j.executor_credential_id=$4 AND j.state='UNKNOWN' AND j.claim_id IS NOT NULL AND j.pre_provider_refusal_id IS NULL AND j.result IS NULL AND j.result_digest IS NULL AND j.result_signature IS NULL AND ((j.native_claimed_at IS NOT NULL AND o.process_claimed AND o.native_process_ref IS NOT NULL) OR (j.native_claimed_at IS NULL AND NOT o.process_claimed AND o.process_record IS NULL AND o.native_process_ref IS NULL AND o.state IN('SUBMITTING','UNKNOWN') AND (o.outcome IS NULL OR o.outcome->>'status'='UNKNOWN') AND o.operation->'scope'->>'provider'='blaxel' AND o.operation->>'kind'='execute' AND j.expires_at>clock_timestamp() AND (o.operation->>'deadline_at')::timestamptz>clock_timestamp())) AND (c.operation_id IS NULL OR (c.lease_until<=clock_timestamp() AND c.next_poll_at<=clock_timestamp())) ORDER BY COALESCE(c.next_poll_at,j.claimed_at),j.operation_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED",[p.organisation_id,p.run_id,p.deployment_epoch,s.credential_id])).rows[0];
   if(!candidate)return undefined;
   const lease=await tx.query("INSERT INTO hyperfide.runner_result_collections(organisation_id,run_id,operation_id,claim_id,executor_credential_id,lease_id,lease_until,next_poll_at,attempts) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '120 seconds',clock_timestamp()+interval '5 seconds',1) ON CONFLICT(organisation_id,run_id,operation_id) DO UPDATE SET lease_id=EXCLUDED.lease_id,lease_until=EXCLUDED.lease_until,next_poll_at=EXCLUDED.next_poll_at,attempts=hyperfide.runner_result_collections.attempts+1 WHERE hyperfide.runner_result_collections.claim_id=EXCLUDED.claim_id AND hyperfide.runner_result_collections.executor_credential_id=EXCLUDED.executor_credential_id AND hyperfide.runner_result_collections.lease_until<=clock_timestamp() AND hyperfide.runner_result_collections.next_poll_at<=clock_timestamp() RETURNING lease_id",[candidate.organisation_id,candidate.run_id,candidate.operation_id,candidate.claim_id,s.credential_id,lease_id]);
   return lease.rowCount===1?candidate as Job:undefined;
@@ -360,7 +376,13 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  if(parameters.env_ref_versions!==undefined)request.env_ref_versions=parameters.env_ref_versions as Record<string,string>;
  if(digestDocument(request)!==row.provider_request_digest)fail('RUNNER_COLLECTION_REQUEST_CHANGED','Retained provider request digest differs');
  phase='AUTHENTICATE';const i=await authenticate(authority,s,row.run_id,row.authority_epoch,request,collectionSignal);
- phase='OBSERVE';const observed=await provider.reconcileBound(request,collectionSignal,i,lease_id);
+ let observed:ProviderResult|null;
+ if(row.pre_dispatch===true){
+  phase='PRE_DISPATCH_AUTHORITY';
+  await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal:collectionSignal,guard:tx=>i.guard(tx)},tx=>assertPreDispatch(tx as PrimaryTransaction,row!,s,request,lease_id));
+  phase='PRE_DISPATCH';preDispatchRequests.set(request,{row,signer:s,invocation:i,lease_id});
+  try{observed=await provider.executeBound(request,collectionSignal,i,lease_id);}finally{preDispatchRequests.delete(request);}
+ }else{phase='OBSERVE';observed=await provider.reconcileBound(request,collectionSignal,i,lease_id);}
  if(observed){phase='COMPLETE';await completeJob(row,s,i,observed,row.claim_id!,'UNKNOWN',lease_id);}
  return true;
  }catch(error){last_error=diagnostic(error,'RUNNER_COLLECTION_'+phase);return !!row;}
@@ -506,7 +528,9 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
   for(const key of Object.keys(b))if(!same(key==='preparation_digest'?r.boot_preparation_digest:r[key],b[key as keyof typeof b]))return null;
   return {evidence_digest:hash(runnerCanonical({registry:r.observation_digest,registry_version:String(r.registration_version),launch:r.retained_start})),observed_at:new Date(r.db_now).toISOString()};
  }
-const job=(await tx.query("SELECT job_class FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND state='CLAIMED'",[b.organisation_id,b.run_id,(request as Record<string,any>)?.operation_id])).rows[0];
+const preDispatch=object(request)?preDispatchRequests.get(request):undefined;
+ if(preDispatch){await preDispatch.invocation.guard(tx);await assertPreDispatch(tx,preDispatch.row,preDispatch.signer,request as BoundProviderRequest,preDispatch.lease_id);}
+ const job=(await tx.query("SELECT job_class FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 AND (state='CLAIMED' OR ($4::boolean AND state='UNKNOWN'))",[b.organisation_id,b.run_id,(request as Record<string,any>)?.operation_id,preDispatch!==undefined])).rows[0];
  const preparing=job?.job_class==='PREPARATION';
  const r=await (preparing?readRunnerPreparationBinding:readRunnerBinding)(tx,b);for(const key of Object.keys(b))if(String(key==='preparation_digest'?r.boot_preparation_digest:r[key])!==String(b[key as keyof typeof b]))return null;if(!preparing)await readRunnerReadiness(tx,r);return {evidence_digest:r.observation_digest,observed_at:new Date(r.db_now).toISOString()};}catch(error){if(object(error)&&(error.code==='40001'||error.code==='40P01'))throw error;return null;}});
  const workers=Array.from({length:config.concurrency},(_,index)=>worker(index));

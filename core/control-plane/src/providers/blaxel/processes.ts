@@ -359,16 +359,18 @@ export function createBlaxelAdapter(scope:ProviderScope,hooks:BlaxelPersistenceH
     const env=await deps.resolveCredentialReferences(execute,execute.parameters.env_refs,parent);
     if(Object.keys(env).length!==Object.keys(execute.parameters.env_refs).length||Object.keys(env).some(k=>!Object.hasOwn(execute.parameters.env_refs,k)||typeof env[k]!=='string'||env[k]!.includes('\0')))fail('BLAXEL_PROCESS_INVALID','Credential resolver returned different bindings');
     const record={process_ref:plan.process_ref,spool_path:plan.spool_path,launch_digest:plan.launch_digest};
-    const claim=await hooks.claimProcess(execute,{process_ref:plan.process_ref,payload_digest:op.identity.payload_digest,resource:op.resource!,state:'SUBMITTED',provider_metadata:{...record,operation_id:op.identity.operation_id,scope_digest:scopeDigest(scope)}});
-    const claimed=claim.disposition;if(claimed!=='NEW'&&claimed!=='EXISTING'||claim.record.process_ref!==plan.process_ref||claim.record.payload_digest!==op.identity.payload_digest||!equal(claim.record.resource,op.resource))fail('BLAXEL_PROCESS_UNAVAILABLE','Process claim returned a different durable binding');
     let current:Obj|null=null;
     try{current=await read(s=>instance.process.get(plan.process_ref,{signal:s,retry:false}),op,parent);}catch(e){if(statusCode(e)!==404)throw e;}
+    await bound(op,parent);
+    const claim=await hooks.claimProcess(execute,{process_ref:plan.process_ref,payload_digest:op.identity.payload_digest,resource:op.resource!,state:'SUBMITTED',provider_metadata:{...record,operation_id:op.identity.operation_id,scope_digest:scopeDigest(scope)}});
+    const claimed=claim.disposition;if(claimed!=='NEW'&&claimed!=='EXISTING'||claim.record.process_ref!==plan.process_ref||claim.record.payload_digest!==op.identity.payload_digest||!equal(claim.record.resource,op.resource))fail('BLAXEL_PROCESS_UNAVAILABLE','Process claim returned a different durable binding');
     if(current){
      const prior=await processBinding(op,plan.process_ref);
      if(prior.operation_id!==op.identity.operation_id||prior.payload_digest!==op.identity.payload_digest||prior.launch_digest!==plan.launch_digest||current.command!==plan.request.command)fail('BLAXEL_CREATE_CONFLICT','Existing process does not match durable launch');
     }else{
      if(claimed==='EXISTING')return save(op,outcome(op,'UNKNOWN',null));
-     await bound(op,parent);attempted=true;
+     if(parent.aborted||Date.now()>=Date.parse(op.deadline_at))fail('BLAXEL_OPERATION_UNAVAILABLE','Cancelled before process delivery');
+     attempted=true;
      try{current=await read(()=>instance.process.exec({...plan.request,env}),op,parent);}
      catch(e){throw e;}
     }

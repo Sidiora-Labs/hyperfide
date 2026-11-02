@@ -664,7 +664,11 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    exact(v,['operation_id']);if(!uuid(v.operation_id)||i.principal.role!=='RUNNER')fail('ROLE_DENIED','Bound runner operation required');const p=i.principal;
    const row=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[p.organisation_id,p.run_id,v.operation_id])).rows[0];
    if(row?.pre_provider_refusal_id)fail('REMOTE_JOB_PRE_PROVIDER_FENCED','Original claim was definitively refused before provider dispatch');
-   if(!row||row.state!=='CLAIMED')fail('REMOTE_JOB_NOT_CLAIMED','Provisioner must claim the committed operation first');
+   if(row?.state==='UNKNOWN'){
+    const dispatch=(await tx.query('SELECT operation,request_digest,process_record,clock_timestamp() AS db_now FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND process_claimed',[p.organisation_id,p.run_id,v.operation_id])).rows[0];
+    const grant=dispatch?.process_record?.provider_metadata?.predispatch_retry;
+    if(!dispatch||row.native_claim_coverage!==true||!object(grant)||grant.schema_version!==1||!uuid(grant.lease_id)||grant.operation_id!==row.operation_id||grant.claim_id!==row.claim_id||grant.executor_credential_id!==row.executor_credential_id||grant.runner_plan_digest!==row.plan_digest||grant.request_digest!==dispatch.request_digest||grant.deadline_at!==dispatch.operation.deadline_at||typeof grant.job_expires_at!=='string'||new Date(grant.job_expires_at).getTime()!==new Date(row.expires_at).getTime()||row.native_claimed_at!==null&&row.native_claim_operation_id!==i.operation.operation_id||row.result!==null||row.result_digest!==null||row.result_signature!==null||row.not_started_proof_id!==null||Date.parse(dispatch.operation.deadline_at)<=new Date(dispatch.db_now).getTime())fail('REMOTE_JOB_NOT_CLAIMED','Unknown operations require their exact durably granted predispatch retry');
+   }else if(!row||row.state!=='CLAIMED')fail('REMOTE_JOB_NOT_CLAIMED','Provisioner must claim the committed operation first');
    if(row.authority_epoch!==p.deployment_epoch)fail('REMOTE_AUTHORITY_STALE','Committed admission belongs to a different current run authority');
    await authority.guard(tx,row.principal);
    const allocation=await resources.readJobAllocation(tx as PrimaryTransaction,{organisation_id:p.organisation_id,run_id:p.run_id,reservation_id:row.reservation_id});

@@ -768,7 +768,7 @@ function processRecord(value:unknown,op:ProviderOperation<'execute'>):ProviderPr
  if(JSON.stringify(r).length>65536||r.state!=='SUBMITTED'||r.payload_digest!==op.identity.payload_digest||digestDocument(r.resource)!==digestDocument(op.resource))fail('PROCESS_BINDING_INVALID','Process claim must bind exact submitted execute operation');
  return r as unknown as ProviderProcessRecord;
 }
-export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run:string,id:string){
+export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run:string,id:string,beforeClaim?:(tx:PrimaryTransaction)=>Promise<Record<string,unknown>|void>){
  return{
   persistOutputArchive:async(op:ProviderOperation<'execute'>,value:ProviderOutputArchive):Promise<{archive_id:string;evidence_digest:string}>=>{
    validateProviderOperation(op);assertInvocationRun(pool,run);
@@ -808,9 +808,11 @@ export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run
   claimProcess:async(op:ProviderOperation<'execute'>,value:ProviderProcessRecord):Promise<{disposition:'NEW'|'EXISTING';record:ProviderProcessRecord}>=>{
    validateProviderOperation(op);const record=processRecord(value,op);assertInvocationRun(pool,run);
    return remoteTransaction(pool,id,'PROCESS_CLAIM',async c=>{
+    const retryLease=beforeClaim?await beforeClaim(c):undefined;
     const rows=await c.query('SELECT * FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[organisation,run,id]),row=rows.rows[0];
     if(!row||digestDocument(row.operation)!==digestDocument(op))fail('PROCESS_BINDING_INVALID','Process claim differs from durable operation');
     if(row.process_claimed){if(!row.process_record)fail('PROCESS_BINDING_INVALID','Claimed process metadata is unavailable');return{disposition:'EXISTING',record:row.process_record as ProviderProcessRecord};}
+    if(retryLease)record.provider_metadata={...record.provider_metadata,predispatch_retry:retryLease};
     await c.query('UPDATE hyperfide.provider_remote_operations SET process_claimed=true,process_record=$4,updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[organisation,run,id,record]);
     return{disposition:'NEW',record};
    });
@@ -825,13 +827,28 @@ export function remoteProcessHooks(pool:ProviderDatabase,organisation:string,run
   }
  };
 }
-export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig,value:unknown,signal:AbortSignal):Promise<unknown>{
+export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig,value:unknown,signal:AbortSignal,collectionLeaseId?:string):Promise<unknown>{
  const invocation=providerInvocation(pool);if(invocation.payload.component!=='8.3'||invocation.payload.action!=='provider.remote.execute-bound'||digestDocument(invocation.payload.input)!==digestDocument(value))fail('AUTH_SCOPE_DENIED','Private execution requires its exact authenticated request');
  const i=obj(value,['binding','operation_id','argv','cwd','env_refs','timeout_ms',...(Object.hasOwn(obj(value),'env_ref_versions')?['env_ref_versions']:[])]),b=obj(i.binding,['organisation_id','run_id','session_id','pool_id','sandbox_id','external_sandbox_id','boot_generation','preparation_digest']);
  if(b.organisation_id!==config.organisation_id)fail('PROVIDER_SCOPE_MISMATCH','Runner belongs to another organisation');
  const run=uuid(b.run_id),session=uuid(b.session_id),sandbox=uuid(b.sandbox_id),poolId=uuid(b.pool_id),id=uuid(i.operation_id);assertInvocationRun(pool,run);
  if(!Number.isSafeInteger(i.timeout_ms)||(i.timeout_ms as number)<1||(i.timeout_ms as number)>config.maximum_operation_ms){if(Number.isSafeInteger(i.timeout_ms)&&(i.timeout_ms as number)>config.maximum_operation_ms){try{await recordPreProviderRefusal(pool,config,value);}catch(error){if(!(error instanceof FoundationError)||!['PRE_PROVIDER_REFUSAL_UNPROVEN','PRE_PROVIDER_REFUSAL_LEGACY_UNPROVEN'].includes(error.code))throw error;}}fail('PROVIDER_DEADLINE_INVALID','Remote command timeout exceeds approved bound');}
+ const retry=async(c:PrimaryTransaction):Promise<ProviderOperation<'execute'>>=>{
+  const p=invocation.principal;
+  await invocation.guard(c);
+  const job=(await c.query('SELECT *,clock_timestamp() AS db_now FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR UPDATE',[config.organisation_id,run,id])).rows[0];
+  if(!job||job.native_claim_coverage!==true||job.state!=='UNKNOWN'||job.executor_credential_id!==p.credential_id||job.authority_epoch!==p.deployment_epoch||!job.claim_id||job.native_claimed_at!==null||job.native_claim_operation_id!==null||job.pre_provider_refusal_id!==null||job.not_started_proof_id!==null||job.result!==null||job.result_digest!==null||job.result_signature!==null||job.completed_at!==null||new Date(job.expires_at).getTime()<=new Date(job.db_now).getTime()||digestDocument(job.plan)!==job.plan_digest)fail('REMOTE_PREDISPATCH_FENCED','Exact live unresolved execution claim required');
+  const lease=(await c.query('SELECT * FROM hyperfide.runner_result_collections WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[config.organisation_id,run,id])).rows[0];
+  if(!lease||lease.lease_id!==collectionLeaseId||lease.claim_id!==job.claim_id||lease.executor_credential_id!==p.credential_id||new Date(lease.lease_until).getTime()<=new Date(job.db_now).getTime())fail('REMOTE_PREDISPATCH_FENCED','Current original execution collection lease required');
+  const reservation=(await c.query("SELECT id FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 AND state='ALLOCATED' AND expires_at>clock_timestamp() FOR SHARE",[config.organisation_id,run,job.reservation_id])).rows[0];
+  const retained=(await c.query('SELECT * FROM hyperfide.provider_remote_operations WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR UPDATE',[config.organisation_id,run,id])).rows[0];
+  if(!reservation||!retained||retained.operation.scope.provider!=='blaxel'||!['SUBMITTING','UNKNOWN'].includes(retained.state)||retained.outcome!==null&&retained.outcome?.status!=='UNKNOWN'||retained.session_id!==session||retained.sandbox_id!==sandbox||String(retained.boot_generation)!==b.boot_generation||retained.request_digest!==digestDocument(i)||retained.process_claimed!==false||retained.process_record!==null||retained.native_process_ref!==null||Date.parse(retained.operation.deadline_at)<=new Date(job.db_now).getTime()||(await c.query('SELECT 1 FROM hyperfide.provider_process_candidates WHERE organisation_id=$1 AND remote_operation_id=$2 LIMIT 1',[config.organisation_id,id])).rows.length)fail('REMOTE_PREDISPATCH_FENCED','Only the exact durably unclaimed command may retry before its original deadline');
+  if((await c.query("SELECT 1 FROM hyperfide.provider_remote_observations WHERE organisation_id=$1 AND remote_operation_id=$2 AND observation->'outcome'->>'status'='SUCCEEDED' LIMIT 1",[config.organisation_id,id])).rows.length)fail('REMOTE_PREDISPATCH_FENCED','Previously accepted execution requires observation only');
+  validateProviderOperation(retained.operation);
+  return retained.operation as ProviderOperation<'execute'>;
+ };
  const op=await remoteTransaction(pool,id,'REMOTE_ADMISSION',async c=>{
+  const retained=collectionLeaseId?await retry(c):null;
   const {scope}=await currentPool(c,config,poolId);
   if(!pool.runtime.runnerBindingVerifier)fail('RUNNER_REGISTRY_UNAVAILABLE','Actual trusted runner registration must be verified');
   const proof=await pool.runtime.runnerBindingVerifier(c,b as ProviderRunnerBinding,value);if(!proof)fail('RUNNER_BINDING_STALE','Runner registration is unavailable or stale');
@@ -842,6 +859,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
   if(!current||current.desired_state!=='RUNNING'||current.native_sandbox_id!==b.external_sandbox_id||String(current.boot_generation)!==b.boot_generation||current.preparation_digest!==b.preparation_digest)
    fail('RUNNER_BINDING_STALE','Remote execution requires the exact registered runner/resource boot');
   await assertRunnerCredentialIsolation(c,{organisation_id:config.organisation_id,run_id:run,session_id:session,sandbox_id:sandbox,boot_generation:String(current.boot_generation)},i.env_refs);
+  if(retained){if(digestDocument(retained.scope)!==digestDocument(scope)||digestDocument(retained.resource)!==digestDocument({native_sandbox_id:current.native_sandbox_id,sandbox_boot_generation:String(current.boot_generation)})||retained.preparation_digest!==current.preparation_digest)fail('REMOTE_PREDISPATCH_FENCED','Retained command scope changed');return retained;}
   const operationValue=operation('execute',scope,id,new Date(Date.now()+(i.timeout_ms as number)).toISOString(),
    {native_sandbox_id:current.native_sandbox_id,sandbox_boot_generation:String(current.boot_generation)},current.preparation_digest,
    {argv:i.argv,cwd:i.cwd,env_refs:i.env_refs,...(i.env_ref_versions!==undefined?{env_ref_versions:i.env_ref_versions}:{}),stdin:false,durable:true,process_timeout_ms:i.timeout_ms,wait_timeout_ms:i.timeout_ms});
@@ -882,7 +900,7 @@ export async function executeBound(pool:ProviderDatabase,config:DeploymentConfig
   });if(conflict)fail('PROCESS_TERMINAL_CONFLICT','Contradictory terminal observation retained without replacing immutable process completion');
   recordedRejection=outcome.status==='FAILED'||outcome.status==='UNSUPPORTED';
  };
- const adapter=providerAdapter(op.scope,{...remoteProcessHooks(pool,config.organisation_id,run,id),invocation:providerInvocation(pool),resolveResourceBinding:observed=>resolveSandboxBinding(pool,config,run,sandbox,observed),resolvePreparation:unavailable,assertResourceBinding:async observed=>{
+ const adapter=providerAdapter(op.scope,{...remoteProcessHooks(pool,config.organisation_id,run,id,async c=>{if(collectionLeaseId)await retry(c);await invocation.guard(c);const proof=await pool.runtime.runnerBindingVerifier!(c,b as ProviderRunnerBinding,value);if(!proof)fail('RUNNER_BINDING_STALE','Runner binding expired before process claim');const {scope}=await currentPool(c,config,poolId);const current=(await c.query('SELECT native_sandbox_id,boot_generation,preparation_digest,desired_state FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 FOR SHARE',[config.organisation_id,sandbox])).rows[0];if(digestDocument(scope)!==digestDocument(op.scope)||!current||current.desired_state!=='RUNNING'||current.native_sandbox_id!==b.external_sandbox_id||String(current.boot_generation)!==b.boot_generation||current.preparation_digest!==b.preparation_digest||Date.parse(op.deadline_at)<=Date.now())fail('RUNNER_BINDING_STALE','Current original resource required before process claim');await assertRunnerCredentialIsolation(c,{organisation_id:config.organisation_id,run_id:run,session_id:session,sandbox_id:sandbox,boot_generation:b.boot_generation as string},i.env_refs);if(!collectionLeaseId)return;const job=(await c.query('SELECT claim_id,executor_credential_id,plan_digest,expires_at FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[config.organisation_id,run,id])).rows[0];if(!job)fail('REMOTE_PREDISPATCH_FENCED','Original job disappeared before process claim');return {schema_version:1,lease_id:collectionLeaseId,claim_id:job.claim_id,executor_credential_id:job.executor_credential_id,runner_plan_digest:job.plan_digest,request_digest:digestDocument(i),operation_id:id,deadline_at:op.deadline_at,job_expires_at:new Date(job.expires_at).toISOString()};}),invocation:providerInvocation(pool),resolveResourceBinding:observed=>resolveSandboxBinding(pool,config,run,sandbox,observed),resolvePreparation:unavailable,assertResourceBinding:async observed=>{
   assertOperation(observed);
   await remoteTransaction(pool,id,'RESOURCE_BINDING',async c=>{const proof=await pool.runtime.runnerBindingVerifier!(c,b as ProviderRunnerBinding,value);if(!proof)fail('RUNNER_BINDING_STALE','Runner binding expired');const current=(await c.query('SELECT native_sandbox_id,boot_generation FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 FOR SHARE',[config.organisation_id,sandbox])).rows[0];if(!current||current.native_sandbox_id!==b.external_sandbox_id||String(current.boot_generation)!==b.boot_generation)fail('STALE_SANDBOX_GENERATION','Remote resource boot changed');});
  },assignedBootGeneration:unavailable,persistEarlyResource:unavailable,recordObservation:record},pool.runtime) as ReturnType<typeof providerAdapter>&{
@@ -1157,7 +1175,7 @@ export interface ProviderExecutionCapability {
  registerRunnerBindingVerifier(reader:ProviderRunnerBindingVerifier):()=>void;
  executeIntent(id:string,signal:AbortSignal,invocation:InvocationContext):Promise<unknown>;
  reconcileIntent(id:string,signal:AbortSignal,invocation:InvocationContext):Promise<unknown>;
- executeBound(input:unknown,signal:AbortSignal,invocation:InvocationContext):Promise<unknown>;
+ executeBound(input:unknown,signal:AbortSignal,invocation:InvocationContext,collectionLeaseId?:string):Promise<unknown>;
  observeKnownSandbox(input:unknown,signal:AbortSignal,invocation:InvocationContext):Promise<unknown>;
 }
 export function isProviderExecutionCapability(value:unknown):value is ProviderExecutionCapability{
@@ -1192,7 +1210,7 @@ export function createComponent(context:ComponentContext):Component {
  registerRunnerBindingVerifier:(reader:ProviderRunnerBindingVerifier)=>{if(typeof reader!=='function'||database.runtime.runnerBindingVerifier)fail('PROVIDER_REGISTRATION_CONFLICT','Runner reader must be registered once');database.runtime.runnerBindingVerifier=reader;return()=>{if(database.runtime.runnerBindingVerifier===reader)delete database.runtime.runnerBindingVerifier;};},
  executeIntent:async(id:string,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return executeIntent(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,id,signal);},
  reconcileIntent:async(id:string,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return reconcileIntent(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,id,signal);},
- executeBound:async(input:unknown,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return executeBound(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,input,signal);},
+ executeBound:async(input:unknown,signal:AbortSignal,invocation:InvocationContext,collectionLeaseId?:string)=>{const c=await readDeployment(context.env);return executeBound(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,input,signal,collectionLeaseId);},
  reconcileBound:async(input:unknown,signal:AbortSignal,invocation:InvocationContext,leaseId:string)=>{const c=await readDeployment(context.env);return reconcileBound(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,input,signal,leaseId);},
  observeKnownSandbox:async(input:unknown,signal:AbortSignal,invocation:InvocationContext)=>{const c=await readDeployment(context.env);return observeKnownSandbox(bindProviderInvocation(database,c,invocation,['PROVISIONER']),c,input,signal);}
  }}:{})},actions:{
