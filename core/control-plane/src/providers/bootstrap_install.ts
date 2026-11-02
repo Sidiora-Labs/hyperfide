@@ -5,7 +5,7 @@ import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {assertInvocation,exact,fail,uuid,DIGEST,decimal} from '../transport/protocol.js';
-import {object} from '../policy/programme.js';
+import {object,FoundationError} from '../policy/programme.js';
 import {fleetReadinessDigest} from '../preparation/fleet_readiness_contract.js';
 type Data=Record<string,any>;
 export interface BootstrapInstallTemplate{schema_version:1|2;input_digest:string;environment_id:string;environment_generation:number;preparation:{task_key?:string;task_selector?:'CURRENT_SANDBOX_DELEGATION';deadline_ms:number;slot_key:string};verification:{task_key?:string;task_selector?:'CURRENT_SANDBOX_DELEGATION';deadline_ms:number;slot_key:string};source:{repository_key:string;source_object_id:string;source_tree_id:string;source_manifest_digest:string};staging:Data[];timeout_ms:number;}
@@ -57,6 +57,6 @@ export async function projectBootstrapInstallCommands(tx:PrimaryTransaction,i:In
    if(!allocation){const retained=(await tx.query('SELECT id FROM hyperfide.resource_waiters WHERE organisation_id=$1 AND run_id=$2 AND request_id=$3',[...scope,request_id])).rows;if(retained.length)fail('BOOTSTRAP_INSTALL_RECONCILE','Retained admission must be reconciled without another allocation');commands.push({operation_id:stableId({...identity,command:'allocate'}),action:purpose==='preparation'?'fleet.install.delivery.prepare.allocate':'fleet.install.delivery.verify.allocate',input:{request_id,task_id:r.task_id,package_id:r.package_id,manager_session_id:r.manager_session_id,manager_generation:r.manager_generation,leader_generation:r.leader_generation,authority_epoch:i.principal.deployment_epoch,session_id:r.session_id,slot_id:r.slot_id,slot_generation:String(r.slot_generation),sandbox_id:r.sandbox_id,boot_id:r.boot_id,boot_generation:String(r.boot_generation),deadline_ms:selected.deadline_ms}});continue;}
    if(purpose==='preparation'&&!delivery){if(allocation.state!=='ACTIVE'||allocation.assignee_session_id!==r.session_id||allocation.sandbox_id!==row.sandbox_id||allocation.slot_id!==r.slot_id)fail('BOOTSTRAP_INSTALL_RECONCILE','Only the retained current preparation allocation may register delivery');commands.push({operation_id:stableId({...identity,command:'register'}),action:'fleet.install.delivery.register',input:{input_digest:t.input_digest,environment_id:t.environment_id,environment_generation:t.environment_generation,sandbox_id:row.sandbox_id,boot_id:row.boot_id,boot_generation:String(row.boot_generation),session_id:r.session_id,reservation_id:allocation.reservation_id,target_binding_id:allocation.id,source:t.source,staging:t.staging,timeout_ms:t.timeout_ms}});}
   }
- }catch(error){waiting.push({bootstrap_id:row.id,code:typeof(error as Data)?.code==='string'?(error as Data).code:'BOOTSTRAP_INSTALL_INVALID'});}}
+ }catch(error){if(!(error instanceof FoundationError))throw error;waiting.push({bootstrap_id:row.id,code:error.code});}}
  return {commands,waiting,next_cursor:rows.length===input.limit?String(rows.at(-1)!.id):null};
 }
