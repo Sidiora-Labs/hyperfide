@@ -5,6 +5,8 @@ import {sourcePathWithin} from './capabilities.js';
 import {PersistentTree, type TreePatch} from './trees.js';
 import {decodeFileDescriptor} from './objects.js';
 import {reserveSourceOperation} from './operations.js';
+import {sourceScopeAllows} from '../preparation/fleet_source.js';
+import {assertManagedObjectUploads} from './managed-objects.js';
 
 export interface WorkspaceBudgets {
  cache_bytes:number; max_cache_entries:number; max_file_bytes:number; materialized_bytes:number; dirty_bytes:number;
@@ -17,6 +19,9 @@ export interface WorkspaceDescriptor {
 type Row=Record<string,any>;
 function invalid(message:string):never {throw new SourceControlError('INVALID_REQUEST',message);}
 function stale():never {throw new SourceControlError('WORKSPACE_CHANGED','Workspace generation or base changed','REFRESH_AUTHORITY');}
+function boundWorkspace(context:SourceContext,id:string):void {
+ if(context.workspace&&context.workspace.workspace_id!==id)throw new SourceControlError('SCOPE_DENIED','Source capability belongs to another workspace');
+}
 function record(value:unknown):Record<string,unknown> {
  if(!value||typeof value!=='object'||Array.isArray(value))invalid('Workspace input must be an object');
  return value as Record<string,unknown>;
@@ -27,8 +32,9 @@ function paths(value:unknown):string[] {
  if(new Set(result).size!==result.length)invalid('Duplicate source paths');
  return result;
 }
-function within(path:string,prefixes:readonly string[]):void {
- if(!sourcePathWithin(path,prefixes))throw new SourceControlError('SCOPE_DENIED','Path is outside the installed workspace scope');
+function within(path:string,prefixes:readonly string[],managed=false):void {
+ const allowed=managed?sourcePathWithin(path,prefixes.filter(prefix=>!prefix.includes('*')))||sourceScopeAllows(prefixes.filter(prefix=>prefix.includes('*')),path):sourcePathWithin(path,prefixes);
+ if(!allowed)throw new SourceControlError('SCOPE_DENIED','Path is outside the installed workspace scope');
 }
 function descriptor(row:Row):WorkspaceDescriptor {
  return {schema_version:1,scope:{organisation_id:row.organisation_id,repository_id:row.repository_id,security_domain_id:row.security_domain_id},
@@ -49,6 +55,7 @@ export class SourceWorkspaceService {
   this.budgets=Object.freeze({...budgets});
  }
  private async row(tx:SourceSQL,context:SourceContext,id:string,lock=false):Promise<Row> {
+  boundWorkspace(context,id);
   const row=(await tx.query(`SELECT * FROM hyperfide.source_workspaces WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND workspace_id=$4 AND principal_id=$5${lock?' FOR UPDATE':''}`,
    [...sourceScopeValues(context.scope),id,context.principal_id])).rows[0];
   if(!row||row.closed_at!==null)throw new SourceControlError('WORKSPACE_NOT_FOUND','Workspace is unavailable');
@@ -57,6 +64,7 @@ export class SourceWorkspaceService {
  }
  async open(context:SourceContext,input:unknown):Promise<{workspace:WorkspaceDescriptor;admission:{state:'OPEN'}}> {
   const value=record(input),id=parseUUID(value.workspace_id,'workspace_id'),base=parseObjectId(value.base_revision_id);
+  boundWorkspace(context,id);
   const read=paths(value.read_paths),write=paths(value.write_paths);
   if(!['API_ONLY','SPARSE','MATERIALIZED'].includes(String(value.mode)))invalid('An explicit workspace materialization mode is required');
   for(const path of write)within(path,read);
@@ -95,6 +103,7 @@ export class SourceWorkspaceService {
  }
  async checkpoint(context:SourceContext,input:unknown):Promise<Row> {
   const value=record(input),id=parseUUID(value.workspace_id,'workspace_id'),operation=parseUUID(value.operation_id,'operation_id');
+  boundWorkspace(context,id);
   const generation=parseGeneration(value.expected_workspace_generation),scopeGeneration=parseGeneration(value.expected_scope_generation);
   const base=parseObjectId(value.base_revision_id),overlay=parseGeneration(value.overlay_generation);
   if(value.scope!==undefined&&sourceDigest(parseSourceScope(value.scope))!==sourceDigest(context.scope))invalid('Checkpoint scope differs from its authenticated request');
@@ -117,7 +126,8 @@ export class SourceWorkspaceService {
    await this.metadata.guard(tx,context,'source.operations.read');const previous=await replay(tx);if(previous)return {previous,row:null};
    await this.metadata.guard(tx,context,'source.workspaces.checkpoint');const row=await this.row(tx,context,id);
    if(String(row.workspace_generation)!==generation||String(row.scope_generation)!==scopeGeneration||row.base_revision_id!==base)stale();
-   for(const change of changes)within(change.path,row.write_paths);
+   for(const change of changes)within(change.path,row.write_paths,Boolean(context.workspace));
+   await assertManagedObjectUploads(tx,context,changes.filter(change=>change.operation==='put').map(change=>change.object_id!));
    return {previous:null,row};
   });
   if(initial.previous)return initial.previous;
@@ -146,8 +156,10 @@ export class SourceWorkspaceService {
    const row=await this.row(tx,context,id,true);
    const raced=await replay(tx);if(raced)return raced;
    if(String(row.workspace_generation)!==generation||String(row.scope_generation)!==scopeGeneration||row.base_revision_id!==base)stale();
-   for(const change of changes)within(change.path,row.write_paths);
-   const receipt=await this.metadata.createRevisionInTransaction(tx,context,{operation_id:derivedOperation(context.scope,operation),idempotency_key:operation,change_id:id,
+   for(const change of changes)within(change.path,row.write_paths,Boolean(context.workspace));
+   await assertManagedObjectUploads(tx,context,changes.filter(change=>change.operation==='put').map(change=>change.object_id!));
+   const revisionContext:SourceContext=context.assertCurrent?{...context,assertCurrent:(sql,action)=>context.assertCurrent!(sql,action==='source.revisions.create'?'source.workspaces.checkpoint':action)}:context;
+   const receipt=await this.metadata.createRevisionInTransaction(tx,revisionContext,{operation_id:derivedOperation(context.scope,operation),idempotency_key:operation,change_id:id,
     root_tree_id:patched.root_tree_id,parent_revision_ids:[base],predecessor_revision_ids:row.checkpoint_revision_id?[row.checkpoint_revision_id]:[],
     provenance:{author:{name:'Hyperfide',email:''},message:'Workspace checkpoint',timestamp:new Date().toISOString()}});
    const updated=(await tx.query(`UPDATE hyperfide.source_workspaces SET base_revision_id=$6,root_tree_id=$7,checkpoint_revision_id=$6,workspace_generation=workspace_generation+1,updated_at=clock_timestamp()

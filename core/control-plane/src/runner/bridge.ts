@@ -24,6 +24,7 @@ import {reproductionJobRequest,bindReproductionInputs} from './reproduction_jobs
 import {resolveFleetManifestWorkspace,fleetManifestDeclaration,assertFleetManifestDeclaration,type FleetManifestDeclaration} from './fleet_workspace.js';
 import {currentWorkerWorkspace,workspaceDeclaration} from '../preparation/slices.js';
 import type {WorkspaceDeclaration} from '../preparation/slices.js';
+import {validateRunnerPreparationSource,type RunnerPreparationSource} from './source_identity.js';
 
 export interface RunnerRemotePlan {
  session_id:string;operation_id:string;repository_id:string;reservation_id:string;
@@ -45,7 +46,7 @@ export interface RunnerPreparationInput {
  env_refs?:Record<string,string>;env_ref_versions?:Record<string,string>;
  recipe_id:'environment.prepare.v1'|'checkpoint.restore.v1';
  input_manifest_artifact_id:string;input_manifest_digest:string;
- source:{repository_key:string;source_object_id:string;source_tree_id:string|null;source_manifest_digest:string};
+ source:RunnerPreparationSource;
  job_binding:RunnerPreparationJobBinding;
  staging:RunnerStagingReference[];
  target_binding?:Record<string,unknown>;
@@ -221,16 +222,18 @@ export async function readRunnerReadiness(tx:PrimaryTransaction,r:Binding):Promi
 }
 async function observe(tx:PrimaryTransaction,v:Record<string,unknown>,i:InvocationContext):Promise<unknown> {
  if(i.principal.role!=='RUNNER')fail('ROLE_DENIED','Only the bound authenticated runner reports its physical observation');
- exact(v,['session_id','slot_id','repository_id','launch_id','state_dir','runner_binary','workspace_path','home_path','tmp_path','runner_binary_digest','preparation_digest','readiness_digest','source_digest','source_object_id','source_tree_id','slot_generation','uid','gid']);
+ exact(v,['session_id','slot_id','repository_id','launch_id','state_dir','runner_binary','workspace_path','home_path','tmp_path','runner_binary_digest','preparation_digest','readiness_digest','source_digest','source_object_id','source_tree_id','slot_generation','uid','gid',...(v.source_backend===undefined?[]:['source_backend']),...(v.source_backend==='native'?['security_domain_id']:[])]);
  const p=i.principal;
- if(!uuid(v.session_id)||!uuid(v.slot_id)||!uuid(v.repository_id)||v.launch_id!==null&&!uuid(v.launch_id)||!absolute(v.state_dir)||!absolute(v.runner_binary)||!absolute(v.workspace_path)||!absolute(v.home_path)||!absolute(v.tmp_path)||![v.runner_binary_digest,v.preparation_digest,v.readiness_digest,v.source_digest].every(digest)||typeof v.source_object_id!=='string'||!/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(v.source_object_id)||typeof v.source_tree_id!=='string'||!/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(v.source_tree_id)||!decimal(v.slot_generation,true)||!Number.isInteger(v.uid)||Number(v.uid)<1||!Number.isInteger(v.gid)||Number(v.gid)<1)fail('INVALID_REQUEST','Invalid bounded runner observation');
+ if(!uuid(v.session_id)||!uuid(v.slot_id)||!uuid(v.repository_id)||v.launch_id!==null&&!uuid(v.launch_id)||!absolute(v.state_dir)||!absolute(v.runner_binary)||!absolute(v.workspace_path)||!absolute(v.home_path)||!absolute(v.tmp_path)||![v.runner_binary_digest,v.preparation_digest,v.readiness_digest,v.source_digest].every(digest)||!decimal(v.slot_generation,true)||!Number.isInteger(v.uid)||Number(v.uid)<1||!Number.isInteger(v.gid)||Number(v.gid)<1)fail('INVALID_REQUEST','Invalid bounded runner observation');
+ validateRunnerPreparationSource({repository_key:v.repository_id,source_object_id:v.source_object_id,source_tree_id:v.source_tree_id,source_manifest_digest:v.source_digest,...(v.source_backend===undefined?{}:{source_backend:v.source_backend}),...(v.source_backend==='native'?{security_domain_id:v.security_domain_id}:{})});
  const inventory=(await tx.query('SELECT inventory FROM hyperfide.identity_runner_status WHERE credential_id=$1 FOR SHARE',[p.credential_id])).rows[0]?.inventory;
  if(!Array.isArray(inventory)||!inventory.some(item=>runnerCanonical(item)===runnerCanonical(v)))fail('RUNNER_OBSERVATION_UNREGISTERED','Observation must match the authenticated registered slot inventory');
  const seed=(await tx.query('SELECT preparation_digest FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$2 AND boot_generation=$3 FOR SHARE',[p.organisation_id,p.sandbox_id,p.boot_generation])).rows[0];
  if(!seed?.preparation_digest)fail('RUNNER_BOOT_PREPARATION_UNKNOWN','Current immutable sandbox seed required');
  const readinessRequest={organisation_id:p.organisation_id,run_id:p.run_id,sandbox_id:p.sandbox_id!,boot_generation:p.boot_generation!,slot_id:v.slot_id,boot_preparation_digest:String(seed.preparation_digest),preparation_digest:v.preparation_digest as string,source_digest:v.source_digest as string};
- const ready=await readRuntimeReadiness(tx,readinessRequest);
+ const ready=v.source_backend==='native'?await readFleetRuntimeReadiness(tx,{...v,organisation_id:p.organisation_id,run_id:p.run_id,sandbox_id:p.sandbox_id,boot_id:p.boot_id,boot_generation:p.boot_generation,boot_preparation_digest:String(seed.preparation_digest)}):await readRuntimeReadiness(tx,readinessRequest);
  if(!ready||ready.readiness_digest!==v.readiness_digest||ready.source_object_id!==v.source_object_id||ready.source_tree_id!==v.source_tree_id)fail('RUNNER_READINESS_STALE','Source-specific actual runtime readiness proof is required');
+ if(v.source_backend==='native'&&(ready.source_backend!=='native'||ready.security_domain_id!==v.security_domain_id))fail('RUNNER_READINESS_STALE','Native runner observation must preserve its source security domain');
  const r=(await tx.query(`INSERT INTO hyperfide.runner_registry(organisation_id,run_id,session_id,credential_id,sandbox_id,boot_generation,boot_id,slot_id,repository_id,launch_id,state_dir,runner_binary,workspace_path,runner_binary_digest,boot_preparation_digest,preparation_digest,readiness_digest,source_digest,source_object_id,source_tree_id,slot_generation,uid,gid,observation_digest,home_path,tmp_path)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,(SELECT preparation_digest FROM hyperfide.sandboxes WHERE organisation_id=$1 AND id=$5 AND boot_generation=$6),$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
  ON CONFLICT(organisation_id,run_id,session_id) DO UPDATE SET state=\'CURRENT\',credential_id=EXCLUDED.credential_id,launch_id=EXCLUDED.launch_id,boot_preparation_digest=EXCLUDED.boot_preparation_digest,preparation_digest=EXCLUDED.preparation_digest,readiness_digest=EXCLUDED.readiness_digest,source_digest=EXCLUDED.source_digest,source_object_id=EXCLUDED.source_object_id,source_tree_id=EXCLUDED.source_tree_id,observation_digest=EXCLUDED.observation_digest,registration_version=hyperfide.runner_registry.registration_version+1,observed_at=clock_timestamp()
@@ -614,8 +617,8 @@ export async function createRemoteComponent(ctx:ComponentContext):Promise<Compon
    // Lease generation 0 binds a job snapshot that has no claim yet: reproductions, and qualification before its first verifier
    // claim (matching src/hyperfide/preparation_stage.c). Staging at generation 0 grants no execution authority.
    if(!['QUALIFICATION','REPRODUCTION','CANDIDATE','CHECKPOINT','PREWARM','FLEET_INSTALL'].includes(request.job_binding.namespace)||!uuid(request.job_binding.job_id)||(!decimal(request.job_binding.lease_generation,true)&&!(['REPRODUCTION','QUALIFICATION'].includes(request.job_binding.namespace)&&request.job_binding.lease_generation==='0'))||request.job_binding.reservation_id!==request.reservation_id||![request.job_binding.input_packet_digest,request.job_binding.input_manifest_digest].every(digest))fail('INVALID_PREPARATION_PLAN','Exact semantic job/lease/input binding required');
-   exact(request.source,['repository_key','source_object_id','source_tree_id','source_manifest_digest']);
-   if(typeof request.source.repository_key!=='string'||!request.source.repository_key.trim()||request.source.repository_key.length>128||!([request.source.source_object_id].every(x=>typeof x==='string'&&/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(x))&&(request.source.source_tree_id===null?request.recipe_id==='checkpoint.restore.v1':typeof request.source.source_tree_id==='string'&&/^[a-f0-9]{40}([a-f0-9]{24})?$/.test(request.source.source_tree_id)))||!digest(request.source.source_manifest_digest))fail('INVALID_PREPARATION_PLAN','Accepted source envelope and exact Git facts required');
+   validateRunnerPreparationSource(request.source,request.recipe_id==='checkpoint.restore.v1');
+   if(request.source.source_backend==='native'&&request.job_binding.namespace!=='FLEET_INSTALL')fail('INVALID_PREPARATION_PLAN','Native source preparation requires the fleet manifest contract');
    const roles=new Set<string>();for(const ref of request.staging){if(!object(ref)||typeof ref.role!=='string'||!ref.role||ref.role.length>128||roles.has(ref.role)||!uuid(ref.artifact_id)||!['object','manifest'].includes(ref.storage_kind)||!digest(ref.digest)||!decimal(ref.size_bytes)||BigInt(ref.size_bytes)>536870912n||ref.storage_kind==='manifest'&&!digest(ref.manifest_digest))fail('INVALID_PREPARATION_PLAN','Exact bounded immutable staging refs required');roles.add(ref.role);}
    const p=i.principal;
    const previous=(await tx.query('SELECT * FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3 FOR SHARE',[p.organisation_id,p.run_id,request.operation_id])).rows[0];

@@ -9,6 +9,7 @@ import {decodeFileDescriptor,type SourceObjectService} from './objects.js';
 import type {PersistentTree} from './trees.js';
 import {SourceCursorCodec,type SourceCursorBinding} from './cursors.js';
 import {SourceQueries,type QueryBudget} from './queries.js';
+import {assertManagedObjectUploads} from './managed-objects.js';
 
 export const SOURCE_API_ACTIONS=[
   'source.capabilities','source.objects.put','source.objects.read','source.objects.inspect',
@@ -26,7 +27,7 @@ export interface SourceApiDependencies {
   objects:SourceObjectService;trees:PersistentTree;metadata:SourceMetadata;cursorKey:Uint8Array;
   authorize(request:SourceApiAuthorizationRequest):Promise<SourceAuthorization>;
   workspaceOperation?:(context:SourceContext,operationId:string)=>Promise<unknown|null>;
-  extensions?:Readonly<Record<string,(request:SourceRequest,context:SourceContext,principal:SourceApiPrincipal)=>Promise<unknown>>>;
+  extensions?:Readonly<Record<string,(request:SourceRequest,context:SourceAuthorization,principal:SourceApiPrincipal)=>Promise<unknown>>>;
 }
 function value(input:unknown):Record<string,unknown> {
   if(input===null||typeof input!=='object'||Array.isArray(input))throw new SourceControlError('INVALID_REQUEST','Source operation input must be an object');
@@ -81,12 +82,12 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
     async invoke(action:string,raw:unknown,principal:SourceApiPrincipal):Promise<unknown> {
       const request=parseSourceRequest(raw);
       if(request.action!==action||!supported.includes(action))throw new SourceControlError('UNSUPPORTED_ACTION','Source action is unavailable');
-      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume|configure|qualify|accept|publish|revoke)$/.test(action);
+      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume|configure|qualify|accept|publish|revoke|bind-run|assign|submit|select)$/.test(action);
       const paths=requestPaths(action,input),authorization=await dependencies.authorize({scope:request.scope,action,mutation,
         ...('operation' in principal?{invocation:principal}:{principal}),...(paths?{paths}:{}),
         ...(typeof input.revision_id==='string'?{revision_id:input.revision_id}:{}),
         ...(typeof input.object_id==='string'?{object_id:input.object_id}:{}),...(request.authority?{authority:request.authority}:{})});
-      const context:SourceContext=authorization;
+      const context=authorization;
       const query=value({...input});delete query.cursor;
       const binding=(snapshot:string):SourceCursorBinding=>({scope:request.scope,principal_id:authorization.principal_id,authority_epoch:authorization.authority_epoch,policy_version:authorization.policy_version,capability_id:authorization.capability_id,query:{action,input:query},snapshot});
       const page=(snapshot:string):unknown=>input.cursor===undefined?undefined:cursors.decode(binding(snapshot),String(input.cursor));
@@ -110,7 +111,15 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
       }
       if(action==='source.objects.put') {
         fields(input,['kind','payload_base64'],['kind','payload_base64']);
-        return objectView(await dependencies.objects.put(scope,input.kind as Parameters<SourceObjectService['put']>[1],base64(input.payload_base64),request.operation_id));
+        const payload=base64(input.payload_base64);
+        if(context.workspace){
+          if(!['blob','chunk','file'].includes(String(input.kind)))throw new SourceControlError('SCOPE_DENIED','Managed workers upload file content through workspace checkpoints');
+          if(input.kind==='file'){
+            const descriptor=decodeFileDescriptor(payload),children=descriptor.content.kind==='blob'?[descriptor.content.object_id]:descriptor.content.chunks.map(chunk=>chunk.object_id);
+            await dependencies.metadata.transaction(async tx=>{await dependencies.metadata.guard(tx,context,action);await assertManagedObjectUploads(tx,context,children);});
+          }
+        }
+        return objectView(await dependencies.objects.put(scope,input.kind as Parameters<SourceObjectService['put']>[1],payload,request.operation_id,authorization.principal_id));
       }
       if(action==='source.objects.read') {
         fields(input,['object_id'],['object_id']);const result=await dependencies.objects.read(scope,parseObjectId(input.object_id));
@@ -118,11 +127,12 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
       }
       if(action==='source.objects.inspect') {fields(input,['object_id'],['object_id']);return objectView(await dependencies.objects.inspect(scope,parseObjectId(input.object_id)));}
       if(action==='source.uploads.prepare') {
+        if(context.workspace)throw new SourceControlError('SCOPE_DENIED','Managed workers must upload actual bytes through source.objects.put');
         fields(input,['kind','object_id','size_bytes'],['kind','object_id','size_bytes']);
         if(typeof input.size_bytes!=='string')throw new SourceControlError('INVALID_REQUEST','Upload size must be a canonical decimal string');
         return objectView(await dependencies.objects.beginUpload(scope,{operation_id:request.operation_id,owner_principal_id:authorization.principal_id,kind:input.kind as Parameters<SourceObjectService['put']>[1],object_id:parseObjectId(input.object_id),size_bytes:input.size_bytes}));
       }
-      if(action==='source.uploads.complete') {fields(input,['upload_id'],['upload_id']);return objectView(await dependencies.objects.completeUpload(scope,parseUUID(input.upload_id)));}
+      if(action==='source.uploads.complete') {if(context.workspace)throw new SourceControlError('SCOPE_DENIED','Managed workers must upload actual bytes through source.objects.put');fields(input,['upload_id'],['upload_id']);return objectView(await dependencies.objects.completeUpload(scope,parseUUID(input.upload_id)));}
       if(action==='source.trees.entries') {
         fields(input,['tree_id','limit','cursor'],['tree_id']);const id=parseObjectId(input.tree_id),position=page(id);
         if(position!==undefined&&typeof position!=='string')throw new SourceControlError('INVALID_CURSOR','Directory cursor must address an exact name');

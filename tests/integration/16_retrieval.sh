@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # ---- self-index: codify's own source plus its test fixtures, so ranking is
 # measured against the real decoys (fixture symbols named like ours)
 mkdir -p "$TMP/self/tests"
-cp -r "$ROOT/src" "$TMP/self/src"
+cp -r "$ROOT/core/native/src" "$TMP/self/src"
 cp -r "$ROOT/tests/fixtures" "$TMP/self/tests/fixtures"
 cd "$TMP/self"
 "$CG" init >/dev/null

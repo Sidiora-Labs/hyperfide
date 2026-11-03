@@ -351,7 +351,7 @@ export class ResourceScheduler {
       const remaining=await tx.query("SELECT id FROM hyperfide.reservations WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state<>'RELEASED' LIMIT 1",[input.organisation_id,input.run_id,attempt]);
       if(remaining.rows.length)continue;
       const allocations=await tx.query<{slot_id:string;sandbox_id:string;sandbox_boot_generation:string}>(
-       "UPDATE hyperfide.slot_allocations SET state='RELEASED',state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state='RELEASE_PENDING' RETURNING slot_id,sandbox_id,sandbox_boot_generation",
+       "UPDATE hyperfide.slot_allocations SET state='RELEASED',released_at=clock_timestamp(),state_version=state_version+1 WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3 AND state='RELEASE_PENDING' RETURNING slot_id,sandbox_id,sandbox_boot_generation",
        [input.organisation_id,input.run_id,attempt]);
       for(const allocation of allocations.rows)await tx.query(
        "UPDATE hyperfide.worker_slots w SET state=CASE WHEN s.observed_state='DESTROYED' THEN 'RETIRED' ELSE 'READY' END,state_version=w.state_version+1 FROM hyperfide.sandboxes s "+

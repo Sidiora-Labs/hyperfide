@@ -29,6 +29,11 @@ static int sha_valid(const char *s) {
  for(int i=7;i<71;i++)if(!((s[i]>='0'&&s[i]<='9')||(s[i]>='a'&&s[i]<='f')))return 0;
  return 1;
 }
+static int git_oid_valid(const char *s) {
+ size_t n=strlen(s);if(n!=40&&n!=64)return 0;
+ for(size_t i=0;i<n;i++)if(!strchr("0123456789abcdef",s[i]))return 0;
+ return 1;
+}
 static int quantity(const HfJson *j,int o,const char *k,uint64_t *n) {
  char text[32],*end; if(!string(j,o,k,text,sizeof text)||!text[0]||(text[0]=='0'&&text[1]))return 0;
  for(char *p=text;*p;p++)if(*p<'0'||*p>'9')return 0;
@@ -258,6 +263,14 @@ int hf_runner_stage_preparation(const char *config_path,const HfJson *claim,int 
   if(!string(claim,source,source_keys[i],source_values[i],sizeof source_values[i])||!source_values[i][0])goto done;
  }
  if(!sha_valid(source_values[3]))goto done;
+ char source_backend[16]="git",security_domain[37]="";int backend_field=hf_json_field(claim,source,"source_backend");
+ if(backend_field>=0&&!hf_json_string(claim,backend_field,source_backend,sizeof source_backend))goto done;
+ int native_source=!strcmp(source_backend,"native");
+ const char *source_allowed[]={"repository_key","source_object_id","source_tree_id","source_manifest_digest","source_backend","security_domain_id"};
+ if(!hf_json_only(claim,source,source_allowed,native_source?6:5))goto done;
+ if(native_source){
+  if(strcmp(job_namespace,"FLEET_INSTALL")||tree_unmeasured||!sha_valid(source_values[1])||!sha_valid(source_values[2])||strcmp(source_values[0],repository)||!string(claim,source,"security_domain_id",security_domain,sizeof security_domain)||!hf_uuid_valid(security_domain))goto done;
+ }else if(strcmp(source_backend,"git")||!git_oid_valid(source_values[1])||(!tree_unmeasured&&!git_oid_valid(source_values[2])))goto done;
  if(!strcmp(recipe,"environment.prepare.v1")){
   int target=hf_json_field(claim,p,"target_binding");
   if(!target_binding(claim,target,b,operation,fetch.org,fetch.run,sandbox,boot,generation,slot,repository,reservation,workspace,stage->uid,stage->gid,source_values[1],source_values[2]))goto done;
@@ -271,6 +284,8 @@ int hf_runner_stage_preparation(const char *config_path,const HfJson *claim,int 
  json=open_memstream(&context_text,&context_size);if(!json)goto done;
  fprintf(json,"{\"schema_version\":1,\"operation_id\":\"%s\",\"plan_digest\":\"%s\",\"recipe_id\":\"%s\",\"scope\":{\"organisation_id\":\"%s\",\"run_id\":\"%s\",\"sandbox_id\":\"%s\",\"boot_id\":\"%s\",\"boot_generation\":\"%s\",\"slot_id\":\"%s\",\"repository_id\":\"%s\"},\"source\":{",operation,plan_digest,recipe,fetch.org,fetch.run,sandbox,boot,generation,slot,repository);
  for(int i=0;i<4;i++){if(i)fputc(',',json);hf_json_write_string(json,source_keys[i]);fputc(':',json);if(i==2&&tree_unmeasured)fputs("null",json);else hf_json_write_string(json,source_values[i]);}
+ if(backend_field>=0){fputs(",\"source_backend\":",json);hf_json_write_string(json,source_backend);}
+ if(native_source){fputs(",\"security_domain_id\":",json);hf_json_write_string(json,security_domain);}
  fprintf(json,"},\"job_binding\":{\"namespace\":\"%s\",\"job_id\":\"%s\",\"lease_generation\":\"%s\",\"reservation_id\":\"%s\",\"input_packet_digest\":\"%s\",\"input_manifest_digest\":\"%s\"",job_namespace,job_id,job_lease,reservation,input_packet,job_manifest);
  fputc('}',json);if(target_text){fputs(",\"target_binding\":",json);fputs(target_text,json);}
  fputs(",\"workspace\":{\"parent\":",json);hf_json_write_string(json,stage->workspace_parent);fputs(",\"name\":",json);hf_json_write_string(json,workspace_name);fputs(",\"path\":",json);hf_json_write_string(json,workspace);fputs("},\"staging\":[",json);

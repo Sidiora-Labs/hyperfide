@@ -12,12 +12,12 @@ export interface SourceAuthorization {
  assertCurrent(tx:SourceSQL,action?:string,paths?:readonly string[]):Promise<void>;
  assertObjectAccess(tx:SourceSQL,input:{object_id:string;revision_id?:string;paths?:readonly string[]},action?:string):Promise<void>;
 }
-export interface SourceAuthorizationOptions {assertManagedAuthority?:(tx:SourceSQL,principal:SourcePrincipal,binding:ManagedSourceBinding)=>Promise<void>;assertObjectAccess?:(tx:SourceSQL,input:{scope:SourceScope;action:string;object_id:string;revision_id?:string;paths?:readonly string[];path_prefixes:readonly string[]})=>Promise<void>}
+export interface SourceAuthorizationOptions {assertManagedAuthority?:(tx:SourceSQL,principal:SourcePrincipal,binding:ManagedSourceBinding,action?:string)=>Promise<void>;assertObjectAccess?:(tx:SourceSQL,input:{scope:SourceScope;action:string;object_id:string;revision_id?:string;paths?:readonly string[];path_prefixes:readonly string[]})=>Promise<void>}
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const DECIMAL=/^(0|[1-9][0-9]{0,18})$/;
 export const SOURCE_AUTHORIZATION_ACTIONS=new Set<string>(SOURCE_ACTIONS);
-const MUTATIONS=new Set(['source.domains.create','source.domains.configure','source.candidates.create','source.candidates.qualify','source.acceptance.accept','source.assurance.custody.create','source.assurance.publish','source.assurance.revoke','source.publications.create','source.publications.resume','source.publications.cancel','source.transforms.merge','source.transforms.rebase','source.transforms.revert','source.transforms.resume','source.capabilities.manage','source.objects.put','source.uploads.prepare','source.uploads.complete','source.trees.patch','source.revisions.create','source.operations.cancel','source.workspaces.open','source.workspaces.create','source.workspaces.checkpoint','source.workspaces.widen','source.workspaces.close','source.subscriptions.create','source.subscriptions.ack','source.transfers.create']);
-const METADATA_ONLY=new Set(['source.capabilities','source.operations.read','source.operations.cancel','source.workspaces.open','source.workspaces.create','source.workspaces.detail','source.workspaces.read','source.workspaces.checkpoint','source.workspaces.widen','source.workspaces.close']);
+const MUTATIONS=new Set(['source.fleet.select','source.fleet.qualify','source.fleet.bind-run','source.fleet.assign','source.fleet.submit','source.domains.create','source.domains.configure','source.candidates.create','source.candidates.qualify','source.acceptance.accept','source.assurance.custody.create','source.assurance.publish','source.assurance.revoke','source.publications.create','source.publications.resume','source.publications.cancel','source.transforms.merge','source.transforms.rebase','source.transforms.revert','source.transforms.resume','source.capabilities.manage','source.objects.put','source.uploads.prepare','source.uploads.complete','source.trees.patch','source.revisions.create','source.operations.cancel','source.workspaces.open','source.workspaces.create','source.workspaces.checkpoint','source.workspaces.widen','source.workspaces.close','source.subscriptions.create','source.subscriptions.ack','source.transfers.create']);
+const METADATA_ONLY=new Set(['source.fleet.read','source.fleet.submit','source.fleet.submission','source.capabilities','source.operations.read','source.operations.cancel','source.workspaces.open','source.workspaces.create','source.workspaces.detail','source.workspaces.read','source.workspaces.checkpoint','source.workspaces.widen','source.workspaces.close']);
 function denied():never {throw new SourceControlError('SCOPE_DENIED','Source action is not authorized');}
 function invalid(message:string):never {throw new SourceControlError('INVALID_REQUEST',message);}
 function id(value:unknown):value is string {return typeof value==='string'&&UUID.test(value);}
@@ -74,7 +74,7 @@ export async function authorizeSource(tx:SourceSQL,request:SourceAuthorizationRe
   if(mutation&&p.kind==='worker'&&!binding)continue;
   if(mutation&&binding){
    if(!matchingAuthority(binding,request.authority)||!options.assertManagedAuthority)continue;
-   await options.assertManagedAuthority(tx,p,binding);
+   await options.assertManagedAuthority(tx,p,binding,request.action);
   }
   const expires_at=new Date(Math.min(new Date(row.expires_at).getTime(),timestamp(p.expires_at))).toISOString();
   const pinned={...request,scope,capability_id:row.id};
@@ -90,7 +90,9 @@ export function sourcePrincipalFromInvocation(invocation:InvocationContext,kind:
  return {id:p.actor_id,credential_id:p.credential_id,organisation_id:p.organisation_id,kind,expires_at:p.expires_at,async assertCurrent(tx){await invocation.guard(tx);}};
 }
 export async function authorizeInvocationSource(tx:SourceSQL,request:Omit<SourceAuthorizationRequest,'principal'>&{invocation:InvocationContext},options:SourceAuthorizationOptions={}):Promise<SourceAuthorization> {
- return authorizeSource(tx,{...request,principal:sourcePrincipalFromInvocation(request.invocation)},options);
+ const principal=sourcePrincipalFromInvocation(request.invocation);
+ if(principal.kind==='worker'&&['source.operations.read','source.fleet.read','source.fleet.submission','source.fleet.submit'].includes(request.action))principal.assertCurrent=sql=>request.invocation.identityGuard(sql);
+ return authorizeSource(tx,{...request,principal},options);
 }
 export interface SourceCapabilityInput {scope:SourceScope;principal_id:string;credential_id:string;principal_kind:SourcePrincipalKind;authority_epoch:string;policy_version:string;actions:readonly string[];path_prefixes:readonly string[];revision_ids?:readonly string[];managed_binding?:ManagedSourceBinding;expires_at:string;id?:string}
 export async function grantSourceCapability(tx:SourceSQL,administrator:SourceAuthorization,input:SourceCapabilityInput):Promise<string> {

@@ -59,7 +59,7 @@ static int trusted_environment(const char *config_path){
  for(unsigned k=0;ok&&k<sizeof allowed/sizeof allowed[0];++k){int t=hf_json_field(env,0,allowed[k]);char value[4096];if(t>=0)ok=hf_json_string(env,t,value,sizeof value)&&setenv(allowed[k],value,1)==0;}
  free(raw);free(env_raw);free(config);free(env);return ok;
 }
-typedef struct {char commit[65],tree[65],state[72],workspace[72];} MeasuredSource;
+typedef struct {char commit[72],tree[72],state[72],workspace[72];} MeasuredSource;
 static int readiness_unprivileged(const HfJson *job,int result,MeasuredSource *measured,long long deadline){
  if(geteuid()==0)return 0;
  int ready=hf_json_field(job,result,"readiness"),binding=hf_json_field(job,result,"binding");

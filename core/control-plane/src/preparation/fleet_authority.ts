@@ -19,6 +19,8 @@ import {fleetConfigurationTargets,type FleetConfiguration} from './fleet_configu
 import {canonicalJSON} from './manifests.js';
 import {ContractError,parseNeron, parsePackage, scopeContains} from '../contracts/fleet/index.mjs';
 import {assertFleetActor, localProcessIdentity, withAdmittedDecision} from '../agents/fleet_authority.js';
+import {validateNativeFleetSource,validateAdmittedNativeFleetSource,readAdmittedNativeFleetSource} from '../source_control/fleet-run-source.js';
+import {sourceRevisionObjectId} from './fleet_source.js';
 
 type RecordValue = Record<string, any>;
 const digest = (value: unknown): string => hash(canonicalJSON(value));
@@ -236,7 +238,7 @@ async function completeFleetInstallExecution(tx:PrimaryTransaction,i:InvocationC
  const plan=job.plan as RecordValue,result=job.result as RecordValue,request=plan.request,binding=plan.binding,preparation=plan.preparation_request;
  if(!object(request)||!object(binding)||!object(preparation)||!object(preparation.job_binding)||preparation.job_binding.namespace!=='FLEET_INSTALL')invalid('Fleet install preparation binding required');
  const row=await load(tx,i,preparation.job_binding.job_id);
- if(String(preparation.job_binding.lease_generation)!==String(row.environment_generation)||preparation.job_binding.input_packet_digest!==row.admission_digest||preparation.job_binding.reservation_id!==job.reservation_id||!object(preparation.source)||preparation.source.repository_key!==row.source_config.source.repository||preparation.source.source_object_id!==row.admission.source_revision.slice(4)||preparation.source.source_manifest_digest!==row.admission.source_manifest_digest)invalid('Preparation authority and source pins differ from install admission');
+ if(String(preparation.job_binding.lease_generation)!==String(row.environment_generation)||preparation.job_binding.input_packet_digest!==row.admission_digest||preparation.job_binding.reservation_id!==job.reservation_id||!object(preparation.source)||preparation.source.repository_key!==row.source_config.source.repository||preparation.source.source_object_id!==sourceRevisionObjectId(row.admission.source_revision)||preparation.source.source_manifest_digest!==row.admission.source_manifest_digest)invalid('Preparation authority and source pins differ from install admission');
  if(i.principal.role==='FEATURE_MANAGER'&&i.principal.actor_id!==row.manager_session_id)fail('FLEET_INSTALL_SCOPE','Current owning manager required');
  if(job.authority_epoch!==row.authority_epoch||binding.sandbox_id!==row.sandbox_id||binding.boot_id!==row.boot_id||String(binding.boot_generation)!==String(row.boot_generation)||result.outcome!=='SUCCEEDED'||result.exit_code!==0||result.output_complete!==true||result.stdout?.complete!==true||result.cleanup?.complete!==true)invalid('Execution does not prove successful preparation of the admitted boot');
  const decode=(value:unknown,reference:unknown,maximum:number):Buffer=>{
@@ -294,7 +296,12 @@ export async function readReadyFleetInstall(tx:PrimaryTransaction,i:InvocationCo
  else if(i.principal.role==='FEATURE_MANAGER'){if(i.principal.actor_id!==row.manager_session_id)fail('FLEET_INSTALL_SCOPE','Manager does not own this install');}
  else fail('FLEET_INSTALL_SCOPE','Current owning manager or bound runner required');
  if (row.state !== 'READY') fail('FLEET_INSTALL_NOT_READY','Environment preparation has not completed');
- return {logical_operation_id:(await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:row.operation_id})).logical_operation_id,receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id),manifest_digest:row.admission.package_digest,source_revision:row.admission.source_revision,input_digest:row.input_digest,package_id:row.package_id,manager_generation:String(row.manager_generation),read_scope:row.source_config.workspace.read_scope,write_scope:row.source_config.workspace.write_scope};
+ let native:Awaited<ReturnType<typeof readAdmittedNativeFleetSource>>=null;
+ if(row.source_config.source.source_backend==='native'){
+  native=i.principal.role==='RUNNER'?await readAdmittedNativeFleetSource(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id},row.source_config.source.repository,row.admission.source_revision):await validateAdmittedNativeFleetSource(tx,i,{repository_id:row.source_config.source.repository,security_domain_id:row.source_config.cache.security_domain,revision_id:row.admission.source_revision});
+  if(!native||native.scope.security_domain_id!==row.source_config.cache.security_domain||native.revision_id!==row.admission.source_revision)fail('FLEET_INSTALL_SOURCE','Installed native source no longer matches its current run binding');
+ }
+ return {logical_operation_id:(await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:row.operation_id})).logical_operation_id,receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id),manifest_digest:row.admission.package_digest,source_revision:row.admission.source_revision,source_manifest_digest:row.admission.source_manifest_digest,input_digest:row.input_digest,package_id:row.package_id,manager_generation:String(row.manager_generation),read_scope:row.source_config.workspace.read_scope,write_scope:row.source_config.workspace.write_scope,...(native?{source_backend:'native',source_scope:native.scope,root_tree_id:native.root_tree_id,source_workspace_mode:row.source_config.client.mode}: {})};
 }
 export function createComponent(ctx:ComponentContext):Component {
  const transact = <T>(i:InvocationContext,fn:(tx:PrimaryTransaction)=>Promise<T>,exclusiveRun=false) => ctx.resources.gateway.withPrimaryTransaction({signal:i.signal,guard:async tx=>{if(exclusiveRun)await lockRun(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id},'exclusive');await i.guard(tx);},timeoutMs:5000},fn);
@@ -308,13 +315,15 @@ export function createComponent(ctx:ComponentContext):Component {
    try { n=parseNeron(input.source_config_kvx);p=parsePackage(input.package_kvx,{neron:n}); }
    catch(error){if(error instanceof ContractError)throw new FoundationError(error.code,error.message);throw error;}
    const package_digest = digest(p), source_config_digest = digest(n);
-   if (p.source.config_digest !== source_config_digest || n.source.source_backend !== 'git' || !uuid(n.source.repository)) invalid('Pinned registered Git repository and source configuration required');
+   if (p.source.config_digest !== source_config_digest || !uuid(n.source.repository)) invalid('Pinned registered repository and source configuration required');
+   if(n.source.source_backend==='native'&&!uuid(n.cache.security_domain))invalid('Native source requires an explicit security domain UUID');
    const identity = {package_digest,source_config_digest,source_manifest_digest:input.source_manifest_digest,plan_digest:input.plan_digest}, input_digest = digest(identity);
    const plan=validatePlan(input.install_plan,p,n,identity);
    if(digest(plan)!==input.plan_digest||Buffer.byteLength(canonicalJSON(plan))>2*1024*1024)invalid('Install plan digest or size differs');
    return transact(i,async tx=>{
-    const repository = await tx.query('SELECT repository_id FROM hyperfide.run_repositories WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND source_object_id=$4 FOR SHARE',[...scoped(i),n.source.repository,n.source.revision.slice(4)]);
-    if (repository.rowCount !== 1) fail('FLEET_INSTALL_SOURCE','Source is not the run accepted repository revision');
+    if(n.source.source_backend==='native')await validateNativeFleetSource(tx,i,{repository_id:n.source.repository,security_domain_id:n.cache.security_domain,revision_id:n.source.revision});
+    else{const repository = await tx.query('SELECT repository_id FROM hyperfide.run_repositories WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND source_object_id=$4 FOR SHARE',[...scoped(i),n.source.repository,sourceRevisionObjectId(n.source.revision)]);
+    if (repository.rowCount !== 1) fail('FLEET_INSTALL_SOURCE','Source is not the run accepted repository revision');}
     await tx.query('INSERT INTO hyperfide.fleet_environment_specs(organisation_id,run_id,input_digest,package_digest,source_config_digest,source_manifest_digest,plan_digest,package_spec,source_config,install_plan,registered_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING',[...scoped(i),input_digest,package_digest,source_config_digest,input.source_manifest_digest,input.plan_digest,JSON.stringify(p),JSON.stringify(n),JSON.stringify(plan),i.principal.actor_id]);
     return {input_digest,...identity};
    });
@@ -328,7 +337,9 @@ export function createComponent(ctx:ComponentContext):Component {
     if (!validDigest(v.input_digest) || !uuid(v.sandbox_id) || !uuid(v.boot_id) || !decimal(v.boot_generation,true) || !positive(v.environment_generation) || !positive(v.ttl_seconds) || v.ttl_seconds>3600) invalid('Environment identity or install lease invalid');
     const spec = (await tx.query('SELECT * FROM hyperfide.fleet_environment_specs WHERE organisation_id=$1 AND run_id=$2 AND input_digest=$3 FOR SHARE',[...scoped(i),v.input_digest])).rows[0];
     if (!spec) fail('FLEET_INSTALL_UNREGISTERED','Executable environment plan has not been registered');
-    const p=spec.package_spec,n=spec.source_config;const slot_bindings=await deriveSlotBindings(tx,i,v,p,v.slot_bindings);
+    const p=spec.package_spec,n=spec.source_config;
+    if(n.source.source_backend==='native')await validateNativeFleetSource(tx,i,{repository_id:n.source.repository,security_domain_id:n.cache.security_domain,revision_id:n.source.revision});
+    const slot_bindings=await deriveSlotBindings(tx,i,v,p,v.slot_bindings);
     if (v.environment_id!==p.environment.environment_id || v.environment_generation!==p.environment.environment_generation || n.workspace.authority_epoch!==decision.authority_epoch||decision.source_revision!==n.source.revision) invalid('Environment source, generation or authority epoch differs from plan');
     const sandbox=(await tx.query(`SELECT s.id FROM hyperfide.sandboxes s WHERE s.organisation_id=$1 AND s.id=$3
      AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'delegation_id'=$4 AND e.result->>'sandbox_id'=s.id::text AND e.result->>'kind' IN('PROVISION_SANDBOX','REUSE_SANDBOX')) FOR SHARE OF s`,[...scoped(i),v.sandbox_id,owner.package_id])).rows[0];

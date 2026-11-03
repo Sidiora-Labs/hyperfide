@@ -3,15 +3,31 @@ import type {ComponentContext} from '../components/registry.js';
 import type {ExecutionPacketRecord} from '../hierarchy/packets.js';
 import {object} from '../policy/programme.js';
 import type {InvocationContext} from '../transport/protocol.js';
-import {validateAssignment,scopeContains} from '../contracts/fleet/index.mjs';
+import {validateAssignment,scopeContains,canonical} from '../contracts/fleet/index.mjs';
 import {readReadyFleetInstall} from '../preparation/fleet_authority.js';
 import {claimTask,parseClaim,fields,uuid,fail} from '../scheduler/claim.js';
 import {issue} from '../events/instructions.js';
+import {nativeFleetWorkspaceId} from '../preparation/fleet_source.js';
 import type {WorkerRegistrationAuthority} from '../hierarchy/adoption.js';
 
 export interface FleetManagerBinding {
  organisation_id:string;run_id:string;actor_id:string;delegation_id:string;manager_generation:string;
  leader_generation:string;authority_epoch:string;operation_id:string;decision_id:string;source_revision:string;
+}
+function nativeAssignmentSource(ready:Record<string,any>,slot:number,assignmentId:string):Record<string,unknown>|null{
+ if(ready.source_backend!=='native')return null;
+ return {source_backend:'native',scope:ready.source_scope,revision_id:ready.source_revision,root_tree_id:ready.root_tree_id,source_manifest_digest:ready.source_manifest_digest,workspace_id:nativeFleetWorkspaceId(assignmentId,slot),bootstrap_workspace_id:nativeFleetWorkspaceId(ready.logical_operation_id,slot),workspace_generation:'1'};
+}
+function nativeSourceSetup(assignment:Record<string,any>,ready:Record<string,any>,install:Record<string,unknown>,task:Record<string,unknown>):Record<string,unknown>|null{
+ if(ready.source_backend!=='native')return null;
+ const prefixes=(scopes:string[])=>[...new Set(scopes.map(scope=>scope==='**'?'':scope.endsWith('/**')?scope.slice(0,-3):scope))];
+ const modes:Record<string,string>={api_only:'API_ONLY',sparse:'SPARSE',materialized:'MATERIALIZED'};
+ const mode=modes[ready.source_workspace_mode];if(!mode)fail('FLEET_ASSIGNMENT_SOURCE_MISMATCH','Native assignment requires a supported installed workspace mode');
+ return {action:'source.fleet.assign',scope:assignment.source.scope,input:{assignment_id:assignment.assignment_id,run_id:assignment.run_id,task_id:task.task_id,attempt_id:task.attempt_id,attempt_generation:task.attempt_generation,workspace_id:assignment.source.workspace_id,base_revision_id:assignment.source.revision_id,closure_digest:assignment.package_digest,environment_digest:assignment.ready_receipt_digest,read_paths:prefixes(task.read_scope as string[]),write_paths:prefixes(task.write_scope as string[]),mode,worker_principal_id:assignment.worker_id,leader_generation:assignment.leader_generation,package_id:assignment.delegation_id,package_generation:assignment.manager_generation},required_fields:['worker_credential_id'],credential_binding:{actor_id:assignment.worker_id,run_id:assignment.run_id,task_id:task.task_id,attempt_id:task.attempt_id,attempt_generation:task.attempt_generation,sandbox_id:install.sandbox_id,sandbox_boot_generation:install.boot_generation},launch_requires:'COMMITTED_NATIVE_SOURCE_ASSIGNMENT'};
+}
+function requireAssignmentSource(assignment:Record<string,any>,ready:Record<string,any>):void{
+ const expected=nativeAssignmentSource(ready,assignment.worker_slot,assignment.assignment_id);
+ if(expected?assignment.schema_version!==2||canonical(assignment.source)!==canonical(expected):assignment.schema_version!==1||assignment.source!==undefined)fail('FLEET_ASSIGNMENT_SOURCE_MISMATCH','Assignment source must match the installed backend, native root and worker workspace');
 }
 export async function requireOwnedFleetTask(tx:PrimaryTransaction,b:FleetManagerBinding,task:string):Promise<void>{
  const row=(await tx.query('SELECT feature_package_id FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[b.organisation_id,b.run_id,uuid(task,'task_id')])).rows[0];
@@ -46,7 +62,8 @@ export async function prepareSelectedFleetAssignment(tx:PrimaryTransaction,i:Inv
  };
  const required=roles('required_interfaces'),provided=roles('provided_interfaces');
  if(!object(receipt.interfaces)||!Array.isArray(receipt.interfaces.selected_ids)||[...required,...provided].some(id=>!receipt.interfaces.selected_ids.includes(id)))fail('FLEET_INTERFACE_MISSING','Accepted task interfaces are absent from the actual installed subset');
- const assignment={schema_version:1,kind:'hyperfide.task-assignment',assignment_id:b.decision_id,operation_id:b.operation_id,decision_id:b.decision_id,run_id:b.run_id,wave_id:b.delegation_id,delegation_id:b.delegation_id,manager_id:b.actor_id,manager_generation:b.manager_generation,leader_generation:b.leader_generation,authority_epoch:b.authority_epoch,environment_id:install.environment_id,environment_generation:Number(install.environment_generation),ready_receipt_digest:ready.receipt_digest,source_revision:ready.source_revision,package_digest:ready.manifest_digest,source_config_digest:receipt.source_config_digest,worker_id:b.decision_id,worker_slot:selected.worker_slot,tasks:[{task_id:taskId,attempt_id:b.operation_id,attempt_generation:generation,read_scope:scope,write_scope:scope,required_interfaces:required,provided_interfaces:provided}],limits:{max_runtime_seconds:selected.max_runtime_seconds,max_output_bytes:selected.max_output_bytes}};
+ const nativeSource=nativeAssignmentSource(ready,Number(selected.worker_slot),b.decision_id);
+ const assignment={schema_version:nativeSource?2:1,...(nativeSource?{source:nativeSource}:{}),kind:'hyperfide.task-assignment',assignment_id:b.decision_id,operation_id:b.operation_id,decision_id:b.decision_id,run_id:b.run_id,wave_id:b.delegation_id,delegation_id:b.delegation_id,manager_id:b.actor_id,manager_generation:b.manager_generation,leader_generation:b.leader_generation,authority_epoch:b.authority_epoch,environment_id:install.environment_id,environment_generation:Number(install.environment_generation),ready_receipt_digest:ready.receipt_digest,source_revision:ready.source_revision,package_digest:ready.manifest_digest,source_config_digest:receipt.source_config_digest,worker_id:b.decision_id,worker_slot:selected.worker_slot,tasks:[{task_id:taskId,attempt_id:b.operation_id,attempt_generation:generation,read_scope:scope,write_scope:scope,required_interfaces:required,provided_interfaces:provided}],limits:{max_runtime_seconds:selected.max_runtime_seconds,max_output_bytes:selected.max_output_bytes}};
  const claim={organisation_id:b.organisation_id,run_id:b.run_id,request_id:b.operation_id,task_id:taskId,attempt_id:b.operation_id,attempt_generation:generation,run_spec_generation:prepared.packet.observation.run_spec_generation,spec_generation:m.identity.spec_generation,spec_revision_id:m.identity.spec_revision_id,authority_epoch:b.authority_epoch,leader_generation:b.leader_generation,package_generation:b.manager_generation,sandbox_id:install.sandbox_id,slot_id:slot.worker_slot_id,sandbox_boot_generation:install.boot_generation,lease_ms:selected.lease_ms,input_packet_digest:prepared.digest,capacity:selected.capacity};
  return {assignment,install_binding:install,claims:[claim]};
 }
@@ -58,6 +75,7 @@ export async function assignFleetWorker(tx:PrimaryTransaction,i:InvocationContex
   if(a[key]!==expected)fail('FLEET_ASSIGNMENT_SCOPE_DENIED','Assignment does not bind the admitted manager decision: '+key);
  const install=fields(v.install_binding,['operation_id','environment_id','environment_generation','sandbox_id','boot_id','boot_generation','input_digest']);
  const ready=await readReadyFleetInstall(tx,i,install as unknown as Parameters<typeof readReadyFleetInstall>[2]);
+ requireAssignmentSource(a,ready);
  if(ready.package_id!==b.delegation_id||ready.manager_generation!==b.manager_generation||a.source_config_digest!==(ready.receipt as Record<string,unknown>).source_config_digest)
   fail('FLEET_INSTALL_SCOPE_DENIED','Ready environment belongs to another delegation, generation or source configuration');
  if(a.environment_id!==install.environment_id||a.environment_generation!==install.environment_generation||a.ready_receipt_digest!==ready.receipt_digest||a.package_digest!==ready.manifest_digest||a.source_revision!==ready.source_revision)
@@ -91,7 +109,8 @@ export async function assignFleetWorker(tx:PrimaryTransaction,i:InvocationContex
   if(worker.session_id!==a.worker_id)fail('FLEET_WORKER_BINDING_MISMATCH','Actual immutable worker registration differs from the admitted assignment');
   result.push({task_id:claim.task_id,attempt_id:claim.attempt_id,attempt_generation:claim.attempt_generation,slot_id:claim.slot_id,claim:admitted});
  }
- return {kind:'ASSIGN_WORKER',delegation_id:b.delegation_id,assignment,install_binding:install,install_receipt_digest:ready.receipt_digest,sandbox_id:install.sandbox_id,boot_generation:install.boot_generation,tasks:result,execution_confirmed:false,task_qualified:false};
+ const setup=nativeSourceSetup(a,ready,install,tasks[0]!);
+ return {kind:'ASSIGN_WORKER',delegation_id:b.delegation_id,assignment,install_binding:install,install_receipt_digest:ready.receipt_digest,sandbox_id:install.sandbox_id,boot_generation:install.boot_generation,tasks:result,...(setup?{native_source_setup:setup}:{}),execution_confirmed:false,task_qualified:false};
 }
 export async function controlFleetWorker(tx:PrimaryTransaction,b:FleetManagerBinding,action:'STEER_WORKER'|'CANCEL_ASSIGNMENT',value:unknown):Promise<Record<string,unknown>>{
  const v=fields(value,action==='STEER_WORKER'?['task_id','attempt_id','attempt_generation','launch_id','request_id','frame_b64']:['task_id','attempt_id','attempt_generation','launch_id']);
@@ -119,6 +138,33 @@ export async function guardFleetLaunch(tx:PrimaryTransaction,i:InvocationContext
   fail('FLEET_ASSIGNMENT_STALE','Launch differs from current delegated worker, task, slot or manager generation');
  const install=result.install_binding as Parameters<typeof readReadyFleetInstall>[2];
  const ready=await readReadyFleetInstall(tx,i,install);
+ requireAssignmentSource(a,ready);
+ if(ready.source_backend==='native'){
+  const source=a.source as Record<string,any>,scope=source.scope;
+  const bound=(await tx.query(`SELECT f.result FROM hyperfide.source_fleet_assignments f
+   JOIN hyperfide.source_workspaces w USING(organisation_id,repository_id,security_domain_id,workspace_id)
+   JOIN hyperfide.source_authority_domains d USING(organisation_id,repository_id,security_domain_id)
+   JOIN hyperfide.source_capabilities c ON c.organisation_id=f.organisation_id AND c.repository_id=f.repository_id AND c.security_domain_id=f.security_domain_id AND c.id=f.capability_id
+   WHERE f.organisation_id=$1 AND f.repository_id=$2 AND f.security_domain_id=$3 AND f.assignment_id=$4 AND f.run_id=$5
+   AND f.task_id=$6 AND f.attempt_id=$7 AND f.attempt_generation=$8 AND f.worker_principal_id=$9 AND f.workspace_id=$10
+   AND f.sandbox_id=$11 AND f.slot_id=$12 AND f.sandbox_boot_generation=$13 AND f.run_authority_epoch=$14
+   AND f.base_revision_id=$15 AND f.closure_digest=$16 AND f.environment_digest=$17
+   AND f.submission_id IS NULL AND w.closed_at IS NULL AND w.principal_id=f.worker_principal_id
+   AND d.enabled=true AND d.authority_epoch=f.source_authority_epoch AND w.authority_epoch=d.authority_epoch
+   AND c.principal_id=f.worker_principal_id AND c.credential_id=f.worker_credential_id AND c.authority_epoch=d.authority_epoch
+   AND c.policy_version=d.policy_version AND c.revoked_at IS NULL AND c.expires_at>clock_timestamp()
+   AND (EXISTS(SELECT 1 FROM hyperfide.source_principal_credentials k
+     WHERE k.organisation_id=f.organisation_id AND k.repository_id=f.repository_id AND k.security_domain_id=f.security_domain_id
+     AND k.credential_id=f.worker_credential_id AND k.principal_id=f.worker_principal_id
+     AND k.principal_kind='worker' AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() FOR SHARE OF k)
+    OR EXISTS(SELECT 1 FROM hyperfide.identity_principals p
+     WHERE p.credential_id=f.worker_credential_id AND p.organisation_id=f.organisation_id AND p.run_id=f.run_id AND p.actor_id=f.worker_principal_id
+     AND p.role='WORKER' AND p.state='ACTIVE' AND p.expires_at>clock_timestamp() AND p.deployment_epoch=f.run_authority_epoch
+     AND p.attempt_id=f.attempt_id AND p.attempt_generation=f.attempt_generation AND p.sandbox_id=f.sandbox_id AND p.boot_generation=f.sandbox_boot_generation
+     AND c.actions <@ p.allowed_actions FOR SHARE OF p))
+   FOR SHARE OF f,w,d,c`,[token.organisation_id,scope.repository_id,scope.security_domain_id,a.assignment_id,token.run_id,token.task_id,token.attempt_id,token.attempt_generation,a.worker_id,source.workspace_id,token.sandbox_id,token.slot_id,token.sandbox_boot_generation,a.authority_epoch,source.revision_id,a.package_digest,a.ready_receipt_digest])).rows;
+  if(bound.length!==1)fail('FLEET_SOURCE_ASSIGNMENT_REQUIRED','Native worker launch requires its current issued source workspace and capability');
+ }
  if(ready.package_id!==result.delegation_id||ready.manager_generation!==a.manager_generation||ready.receipt_digest!==a.ready_receipt_digest||ready.source_revision!==a.source_revision||install.sandbox_id!==token.sandbox_id||install.boot_generation!==token.sandbox_boot_generation)
   fail('FLEET_INSTALL_STALE','Worker launch no longer matches its actual installed environment');
  const receipt=ready.receipt as Record<string,unknown>;

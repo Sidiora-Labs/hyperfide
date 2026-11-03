@@ -8,6 +8,7 @@ import type {
  SourceAcceptCandidateRequest,SourceIntegrationDomain,SourceCandidateRecord,SourceCandidateQualification,SourceAcceptanceReceipt,
  SourceCreateCustodyRequest,SourceCustodyReceipt,SourcePublishEvidenceRequest,SourceEvidenceReceipt,SourceRevocationReceipt,
 } from './acceptance.js';
+import type {SourceFleetSelection,SourceFleetSelectRequest,SourceFleetQualificationReceipt,SourceNativeManifestRequest,SourceNativeManifest,SourceFleetQualifyRequest,SourceBindFleetRunRequest,SourceFleetRunBinding,SourceFleetAssignmentRequest,SourceFleetAssignment,SourceFleetSubmitRequest,SourceFleetSubmission} from './fleet.js';
 import type {SourceCreatePublicationRequest,SourcePublicationResult} from './publication.js';
 
 export interface SourceClientOptions {
@@ -43,7 +44,7 @@ export class SourceControlClient {
     let response:Response;
     try {response=await this.transport(this.endpoint,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+token},body:body as unknown as BodyInit,signal});}
     catch {throw new SourceControlError('OUTCOME_UNKNOWN','Source request lost its response; resolve the original operation','RETRY_SAME_OPERATION','UNKNOWN',{operation_id});}
-    const maximum=action==='source.objects.read'||action==='source.objects.put'?12*1024*1024:1024*1024;
+    const maximum=action==='source.fleet.manifest'?96*1024*1024:action==='source.objects.read'||action==='source.objects.put'?12*1024*1024:1024*1024;
     const chunks:Uint8Array[]=[];let size=0;
     try {
       const reader=response.body?.getReader();if(!reader)throw new SourceControlError('INVALID_RESPONSE','Source server returned no response body');
@@ -68,6 +69,15 @@ export class SourceControlClient {
   revert(input:SourceRevertRequest,options:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.revert',input,options);}
   transformation(operation_id:string,options?:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.read',{operation_id},options);}
   resumeTransformation(input:SourceResumeRequest,options?:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.resume',input,options);}
+  selectFleetSource(input:SourceFleetSelectRequest,options:SourceCallOptions){return this.call<SourceFleetSelection>('source.fleet.select',input,options);}
+  fleetSourceSelection(input:{run_id:string;selection_id:string},options?:SourceCallOptions){return this.call<SourceFleetSelection>('source.fleet.selection',input,options);}
+  qualifyFleetTask(input:SourceFleetQualifyRequest,options:SourceCallOptions){return this.call<SourceFleetQualificationReceipt>('source.fleet.qualify',input,options);}
+  nativeFleetManifest(input:SourceNativeManifestRequest,options?:SourceCallOptions){return this.call<SourceNativeManifest>('source.fleet.manifest',input,options);}
+  bindFleetRun(input:SourceBindFleetRunRequest,options:SourceCallOptions){return this.call<SourceFleetRunBinding>('source.fleet.bind-run',input,options);}
+  assignFleetSource(input:SourceFleetAssignmentRequest,options:SourceCallOptions){return this.call<SourceFleetAssignment>('source.fleet.assign',input,options);}
+  fleetAssignment(assignment_id:string,options?:SourceCallOptions){return this.call<SourceFleetAssignment>('source.fleet.read',{assignment_id},options);}
+  submitFleetSource(input:SourceFleetSubmitRequest,options:SourceCallOptions){return this.call<SourceFleetSubmission>('source.fleet.submit',input,options);}
+  fleetSubmission(submission_id:string,options?:SourceCallOptions){return this.call<SourceFleetSubmission>('source.fleet.submission',{submission_id},options);}
   createDomain(input:SourceCreateDomainRequest,options:SourceCallOptions){return this.call<SourceIntegrationDomain>('source.domains.create',input,options);}
   domain(domain_id:string,options?:SourceCallOptions){return this.call<SourceIntegrationDomain>('source.domains.read',{domain_id},options);}
   configureDomain(input:SourceConfigureDomainRequest,options:SourceCallOptions){return this.call<SourceIntegrationDomain>('source.domains.configure',input,options);}

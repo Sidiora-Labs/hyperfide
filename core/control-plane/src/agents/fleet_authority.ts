@@ -1,3 +1,4 @@
+import {readFleetRepositoryPins,fleetSourceRevision} from '../source_control/fleet-pins.js';
 import {readFileSync} from 'node:fs';
 import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
@@ -42,7 +43,7 @@ export async function withAdmittedDecision(tx:PrimaryTransaction,i:InvocationCon
  const cohort=(await tx.query('SELECT cohort_generation FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2 FOR SHARE',p)).rows[0];if(String(cohort?.cohort_generation)!==String(stored.observed_cohort_generation))fleetError('FLEET_OBSERVATION_STALE');
  const current=(await tx.query('SELECT spec_revision_id::text FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',p)).rows[0];
  if(!current||current.spec_revision_id!==d.spec_revision)fleetError('FLEET_SPEC_STALE');
- const source=(await tx.query('SELECT source_object_id FROM hyperfide.run_repositories WHERE organisation_id=$1 AND run_id=$2 ORDER BY repository_id LIMIT 1',p)).rows[0];if(!source||'git:'+source.source_object_id!==d.source_revision)fleetError('FLEET_SOURCE_STALE');
+ const sources=await readFleetRepositoryPins(tx,i.principal.organisation_id,i.principal.run_id);if(fleetSourceRevision(sources[0])!==d.source_revision)fleetError('FLEET_SOURCE_STALE');
  const session=(await tx.query('SELECT plan_generation::text FROM hyperfide.fleet_actor_sessions WHERE organisation_id=$1 AND run_id=$2 AND session_id=$3 FOR UPDATE',[...p,d.actor_id])).rows[0];
  if(session?.plan_generation!==d.expected_version)fleetError('FLEET_PLAN_STALE');
  if(d.actor_role==='WAVE_MANAGER')await getFleetDelegation(tx,i,d);

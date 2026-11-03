@@ -4,13 +4,13 @@ import {fail,hash} from '../transport/protocol.js';
 import {documentDigest} from './seal.js';
 import {captureDependencyInventory} from './fleet_install_inventory.js';
 import type {DependencyInventoryEntry} from './fleet_install_inventory.js';
-import {materializeGitSource,safeSourcePath,sourceScopeAllows} from './fleet_source.js';
-import type {GitSourceEntry,GitSourceManifest} from './fleet_source.js';
+import {materializeFleetSource,safeSourcePath,sourceScopeAllows} from './fleet_source.js';
+import type {FleetSourceEntry,FleetSourceManifest} from './fleet_source.js';
 
 type Document=Record<string,any>;
-export interface FleetSourceFile {mount:string;path:string;digest:string;mode:GitSourceEntry['mode'];size:number}
-export interface FleetSourceMount {name:string;target:string;access:'read_only'|'private_overlay';mode:'sparse'|'materialized';paths:string[];entries:GitSourceEntry[]}
-export interface FleetMountLayout {apiOnly:boolean;environmentRoot:string;mounts:FleetSourceMount[];sourceFiles:FleetSourceFile[];unionEntries:GitSourceEntry[]}
+export interface FleetSourceFile {mount:string;path:string;digest:string;mode:FleetSourceEntry['mode'];size:number}
+export interface FleetSourceMount {name:string;target:string;access:'read_only'|'private_overlay';mode:'sparse'|'materialized';paths:string[];entries:FleetSourceEntry[]}
+export interface FleetMountLayout {apiOnly:boolean;environmentRoot:string;mounts:FleetSourceMount[];sourceFiles:FleetSourceFile[];unionEntries:FleetSourceEntry[]}
 
 function relative(root:string,filename:string):string {
  if(!path.isAbsolute(root)||path.resolve(root)!==root||!path.isAbsolute(filename)||path.resolve(filename)!==filename||/[\x00-\x1f\x7f]/.test(filename))fail('FLEET_INSTALL_PATH','Canonical absolute environment paths required');
@@ -24,14 +24,14 @@ async function directory(root:string,filename:string):Promise<void>{
  const rootStat=await fs.lstat(root);if(!rootStat.isDirectory()||rootStat.isSymbolicLink()||await fs.realpath(root)!==root)fail('FLEET_INSTALL_PATH','Canonical ordinary environment directory required');
  for(const component of components){current=path.join(current,component);try{await fs.mkdir(current,{mode:0o700});}catch(error){if((error as NodeJS.ErrnoException).code!=='EEXIST')throw error;}const stat=await fs.lstat(current);if(!stat.isDirectory()||stat.isSymbolicLink())fail('FLEET_INSTALL_PATH','Mount or workspace parent cannot be a symlink');}
 }
-export function resolveFleetMounts(input:{manifest:Document;sourceConfig:Document;source:GitSourceManifest}):FleetMountLayout {
+export function resolveFleetMounts(input:{manifest:Document;sourceConfig:Document;source:FleetSourceManifest}):FleetMountLayout {
  const {manifest:p,sourceConfig:n,source}=input,environmentRoot=p.environment.root as string;
- if(n.source.source_backend!=='git'||!['sparse','materialized','api_only'].includes(n.client.mode))fail('FLEET_INSTALL_BACKEND_UNSUPPORTED','Explicit Git sparse, materialized or API-only source mode required');
+ if(!['git','native'].includes(n.source.source_backend)||!['sparse','materialized','api_only'].includes(n.client.mode)||(n.source.source_backend==='native')!==(source.kind==='hyperfide.native-source-manifest'))fail('FLEET_INSTALL_BACKEND_UNSUPPORTED','Explicit matching source backend and sparse, materialized or API-only mode required');
  const sections=Object.entries(p).filter(([key])=>key.startsWith('mount.')).sort(([a],[b])=>a.localeCompare(b));
  const apiOnly=n.client.mode==='api_only';
  if(apiOnly){if(sections.length||Object.keys(p).some(key=>key.startsWith('dependency.')))fail('FLEET_INSTALL_API_ONLY','API-only environments cannot request source mounts or source dependency installation');if(source.entries.length||source.bytes!==0)fail('FLEET_INSTALL_API_ONLY','API-only source manifest must contain metadata without code objects');return {apiOnly:true,environmentRoot,mounts:[],sourceFiles:[],unionEntries:[]};}
  if(!sections.length)fail('FLEET_INSTALL_MOUNT_REQUIRED','A file-based environment requires explicit scoped source mounts');
- const mounts:FleetSourceMount[]=[],sourceFiles:FleetSourceFile[]=[],union=new Map<string,GitSourceEntry>();
+ const mounts:FleetSourceMount[]=[],sourceFiles:FleetSourceFile[]=[],union=new Map<string,FleetSourceEntry>();
  for(const [key,spec]of sections as Array<[string,Document]>){
   if(spec.kind!=='source'||spec.source!=='primary'||!['sparse','materialized'].includes(spec.mode)||!['read_only','private_overlay'].includes(spec.access)||!Array.isArray(spec.paths)||!spec.paths.length)fail('FLEET_INSTALL_MOUNTS_UNSUPPORTED','Named mounts must select the admitted source with a supported explicit mode');
   relative(environmentRoot,spec.target);if(mounts.some(mount=>overlaps(mount.target,spec.target)))fail('FLEET_INSTALL_MOUNT_OVERLAP','Mount targets overlap');
@@ -43,8 +43,8 @@ export function resolveFleetMounts(input:{manifest:Document;sourceConfig:Documen
  return {apiOnly:false,environmentRoot,mounts,sourceFiles,unionEntries:[...union.values()].sort((a,b)=>a.path.localeCompare(b.path))};
 }
 export function fleetMountPath(layout:FleetMountLayout,actualRoot:string,mount:FleetSourceMount):string{return path.join(actualRoot,relative(layout.environmentRoot,mount.target));}
-export async function materializeFleetMounts(layout:FleetMountLayout,source:GitSourceManifest,actualRoot:string,readBytes?:(entry:GitSourceEntry)=>Promise<Buffer>):Promise<void>{
- for(const mount of layout.mounts){const target=fleetMountPath(layout,actualRoot,mount);await directory(actualRoot,target);const selected=await materializeGitSource(source,target,mount.paths,readBytes);if(selected.length!==mount.entries.length||selected.some((entry,index)=>entry.path!==mount.entries[index]?.path||entry.digest!==mount.entries[index]?.digest||entry.mode!==mount.entries[index]?.mode))fail('FLEET_INSTALL_SOURCE_PLAN','Materialized mount differs from the resolved source inventory');}
+export async function materializeFleetMounts(layout:FleetMountLayout,source:FleetSourceManifest,actualRoot:string,readBytes?:(entry:FleetSourceEntry)=>Promise<Buffer>):Promise<void>{
+ for(const mount of layout.mounts){const target=fleetMountPath(layout,actualRoot,mount);await directory(actualRoot,target);const selected=await materializeFleetSource(source,target,mount.paths,readBytes);if(selected.length!==mount.entries.length||selected.some((entry,index)=>entry.path!==mount.entries[index]?.path||entry.digest!==mount.entries[index]?.digest||entry.mode!==mount.entries[index]?.mode))fail('FLEET_INSTALL_SOURCE_PLAN','Materialized mount differs from the resolved source inventory');}
 }
 async function mergeTree(sourceRoot:string,source:string,destination:string):Promise<void>{
  for(const item of await fs.readdir(source,{withFileTypes:true})){

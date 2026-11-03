@@ -13,7 +13,7 @@ export interface EnvironmentProfile {
   toolchains: VersionPin[]; package_managers: { name: string; version: string; locks: FilePin[] }[];
   native_agents: VersionPin[]; connectors: VersionPin[]; supervisor: VersionPin; hyperfide: { version: string };
   system_packages: VersionPin[];
-  repositories: { id: string; url: string; commit: string; submodules: { path: string; commit: string }[]; lfs: boolean }[];
+  repositories: { id: string; url: string; commit: string; submodules: { path: string; commit: string }[]; lfs: boolean; source_backend?:'git'|'native'; security_domain_id?:string }[];
   recipe: FilePin; generated_inputs: FilePin[]; build_config: FilePin[];
   caches: { name: string; trust_scope: string; input_digest: string }[];
   required_capabilities: string[]; network: { routes: string[]; registries: string[] };
@@ -104,8 +104,8 @@ function filePin(value: unknown): FilePin {
   const item = record(value, ['path', 'digest']); return { path: relative(item.path), digest: digest(item.digest) };
 }
 function filePins(value: unknown, minimum = 0): FilePin[] { return unique(list(value, filePin, minimum), item => item.path); }
-function commit(value: unknown): string {
-  if (typeof value !== 'string' || !/^([a-f0-9]{40}|[a-f0-9]{64})$/.test(value)) fail('source revision'); return value;
+function commit(value: unknown, native = false): string {
+  if (typeof value !== 'string' || !(native ? digestPattern : /^([a-f0-9]{40}|[a-f0-9]{64})$/).test(value)) fail('source revision'); return value;
 }
 function timestamp(value: unknown): string {
   const result = text(value, 32);
@@ -153,12 +153,18 @@ export function validateProfile(input: unknown): EnvironmentProfile {
     native_agents: pins(item.native_agents, 1), connectors: pins(item.connectors, 1), supervisor: pin(item.supervisor),
     hyperfide: { version: version(hyperfide.version) }, system_packages: pins(item.system_packages),
     repositories: unique(list(item.repositories, value => {
-      const repository = record(value, ['id','url','commit','submodules','lfs']);
+      const supplied=value as {source_backend?:unknown};
+      const native=supplied?.source_backend==='native';
+      const repository = record(value, ['id','url','commit','submodules','lfs',...(supplied?.source_backend===undefined?[]:['source_backend']),...(native?['security_domain_id']:[])]);
+      if(repository.source_backend!==undefined&&!['git','native'].includes(String(repository.source_backend)))fail('source backend');
       if (typeof repository.lfs !== 'boolean') fail('LFS requirement');
-      return { id: id(repository.id), url: repositoryURL(repository.url), commit: commit(repository.commit),
-        submodules: unique(list(repository.submodules, sub => {
+      const submodules=unique(list(repository.submodules, sub => {
           const value = record(sub, ['path','commit']); return { path: relative(value.path), commit: commit(value.commit) };
-        }), sub => sub.path), lfs: repository.lfs };
+        }), sub => sub.path);
+      const url=repositoryURL(repository.url);
+      if(native&&(submodules.length||repository.lfs||!url.startsWith('https:')||typeof repository.security_domain_id!=='string'||! /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(repository.security_domain_id)))fail('native source profile');
+      return { id: id(repository.id), url, commit: commit(repository.commit,native),submodules,lfs: repository.lfs,
+        ...(repository.source_backend===undefined?{}:{source_backend:repository.source_backend as 'git'|'native'}),...(native?{security_domain_id:repository.security_domain_id as string}:{}) };
     }, 1), repository => repository.id),
     recipe: filePin(item.recipe), generated_inputs: filePins(item.generated_inputs), build_config: filePins(item.build_config),
     caches: unique(list(item.caches, value => {

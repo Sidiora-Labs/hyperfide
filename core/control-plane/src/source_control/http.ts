@@ -1,6 +1,8 @@
 import http, {type IncomingMessage, type ServerResponse} from 'node:http';
 import https from 'node:https';
 import {randomUUID} from 'node:crypto';
+import {FoundationError} from '../policy/programme.js';
+import {StorageError} from '../storage/transactions.js';
 import {decodeSourceRequest, encodeSourceResponse, SOURCE_API_PATH, SourceControlError, type SourceAction, type SourceResponse} from './contracts.js';
 import {sourceBearerToken, verifySourcePrincipalToken, type SourceTokenTrust} from './authentication.js';
 import type {createSourceApi} from './api.js';
@@ -50,7 +52,9 @@ export async function startSourceHttp(options:SourceHttpOptions):Promise<{addres
    const result=await options.api.invoke(action,decoded,principal);
    write(response,{protocol_version:1,operation_id:operation,result},action,200);
   } catch(error) {
-   sendError(error instanceof SourceControlError?error:new SourceControlError('INTERNAL_ERROR','Source operation failed'));
+   sendError(error instanceof SourceControlError?error:error instanceof StorageError?
+    new SourceControlError(error.code,error.message,error.outcome==='unknown'||error.retryable?'RETRY_SAME_OPERATION':'NEVER',error.outcome==='unknown'?'UNKNOWN':'KNOWN'):
+    error instanceof FoundationError?new SourceControlError(error.code,error.message):new SourceControlError('INTERNAL_ERROR','Source operation failed'));
   } finally {if(timer)clearTimeout(timer);active--;}
  }
  const listener=(request:IncomingMessage,response:ServerResponse)=>{let run:Promise<void>;run=handle(request,response).finally(()=>pending.delete(run));pending.add(run);void run.catch(()=>response.destroy());};

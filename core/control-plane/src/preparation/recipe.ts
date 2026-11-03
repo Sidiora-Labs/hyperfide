@@ -14,7 +14,7 @@ export interface PreparationPlan {
  placement:{job_class:'dependency_preparation'|'indexing';location:'REMOTE_EXECUTION'};
  profile_id:string;profile_version:string;preparation_digest:string;configuration_digest:string;recipe_digest:string;
  toolchain_digest:string;lock_digest:string;source_digest:string;
- repositories:{id:string;commit:string;submodules:{path:string;commit:string}[];lfs:boolean}[];
+ repositories:{id:string;commit:string;submodules:{path:string;commit:string}[];lfs:boolean;source_backend?:'git'|'native';security_domain_id?:string}[];
  policy:PreparationRecipePolicy;
 }
 export interface ResolvedPreparation {identity:string;plan:PreparationPlan;plan_digest:string;recipe_digest:string}
@@ -64,7 +64,7 @@ export function resolvePreparationPlan(input:{manifest:unknown;recipe:Uint8Array
    package_managers:profile.package_managers.map(item=>({name:item.name,version:item.version}))})),
   lock_digest:sha(canonicalJSON(profile.package_managers.map(item=>({name:item.name,locks:item.locks})))),
   source_digest:sha(canonicalJSON(profile.repositories)),
-  repositories:profile.repositories.map(repository=>({id:repository.id,commit:repository.commit,submodules:repository.submodules,lfs:repository.lfs})),
+  repositories:profile.repositories.map(repository=>({id:repository.id,commit:repository.commit,submodules:repository.submodules,lfs:repository.lfs,...(repository.source_backend===undefined?{}:{source_backend:repository.source_backend}),...(repository.security_domain_id===undefined?{}:{security_domain_id:repository.security_domain_id})})),
   policy};
  return {identity:manifest.digest,plan,plan_digest:planDigest(plan),recipe_digest:profile.recipe.digest};
 }

@@ -9,3 +9,5 @@ export type {
  SourcePublishEvidenceRequest,SourceEvidenceReceipt,SourceRevocationReceipt,SourceExecutionReceipt,
 } from './acceptance.js';
 export type {SourceCreatePublicationRequest,SourcePublicationResult} from './publication.js';
+
+export type {SourceFleetSelection,SourceFleetSelectRequest,SourceFleetQualificationReceipt,SourceNativeManifestRequest,SourceNativeManifest,SourceFleetQualifyRequest,SourceBindFleetRunRequest,SourceFleetRunBinding,SourceFleetAssignmentRequest,SourceFleetAssignment,SourceFleetSubmitRequest,SourceFleetSubmission} from './fleet.js';

@@ -7,6 +7,7 @@ import {requireAuthority} from '../hierarchy/packages.js';
 import {enqueue,lockRun} from '../events/outbox.js';
 import {loadExecutionPacket,loadPreparationIntent,acceptedPreparationProfile,validateExecutionInputs} from '../hierarchy/packets.js';
 import {assertInvocation} from '../transport/protocol.js';
+import {assertNativeTaskQualified} from '../assurance/fleet_native.js';
 import type {InvocationContext} from '../transport/protocol.js';
 
 
@@ -437,10 +438,11 @@ export function parseClaim(value:unknown):ClaimRequest{
 export async function requireMilestone(tx:PrimaryTransaction,scope:SchedulerScope,task_id:string,
  milestone:'QUALIFIED'|'INTEGRATED'|'RELEASED',pin?:{repository_id:string|null;integration_ref:string|null}):Promise<void>{
  if(milestone==='RELEASED')fail('RELEASE_BARRIER_UNAVAILABLE','Programme release requires an actual release receipt');
- const tasks=await tx.query<{state:string;current_custody_id:string|null;criteria_digest:string}>(
- 'SELECT state,current_custody_id,criteria_digest FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',
+ const tasks=await tx.query<{state:string;current_custody_id:string|null;current_native_custody_id:string|null;criteria_digest:string}>(
+ "SELECT state,current_custody_id,criteria_digest,to_jsonb(t)->>'current_native_custody_id' AS current_native_custody_id FROM hyperfide.tasks t WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE",
  [scope.organisation_id,scope.run_id,task_id]);
  const task=tasks.rows[0];if(!task)fail('DEPENDENCY_MISSING','Dependency is not an accepted task');
+ if(task.current_native_custody_id&&milestone==='QUALIFIED'){await assertNativeTaskQualified(tx,scope,task_id,pin?.repository_id);return;}
  const published=await tx.query(
  "SELECT p.id FROM hyperfide.publication_operations p JOIN hyperfide.integration_candidates i ON i.organisation_id=p.organisation_id AND i.run_id=p.run_id AND i.id=p.candidate_id "+
  "JOIN hyperfide.branch_authorities b ON b.organisation_id=p.organisation_id AND b.run_id=p.run_id AND b.id=p.branch_authority_id AND b.repository_id=p.repository_id AND b.branch_generation=p.branch_generation "+

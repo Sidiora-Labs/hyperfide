@@ -34,7 +34,7 @@ export async function createNativeAcceptanceFixture(options={}) {
     const identity=roles[role],now=Math.floor(Date.now()/1000);
     const header=Buffer.from(JSON.stringify({alg:'EdDSA',kid:'fixture-source-key',typ:'HF-SOURCE-1'})).toString('base64url');
     const payload=Buffer.from(JSON.stringify({schema_version:1,iss:trust.issuer,aud:trust.audience,sub:identity.principal_id,
-      credential_id:identity.credential_id,credential_version:'1',principal_kind:'automation',scope,iat:now,nbf:now,exp:now+290,
+      credential_id:identity.credential_id,credential_version:'1',principal_kind:identity.kind??'automation',scope,iat:now,nbf:now,exp:now+290,
       capability_id:capability??identity.capability_id})).toString('base64url');
     return header+'.'+payload+'.'+sign(null,Buffer.from(header+'.'+payload),privateKey).toString('base64url');
   };
@@ -81,7 +81,8 @@ export async function createNativeAcceptanceFixture(options={}) {
       const receipt=await mutation('source.revisions.create',{change_id,root_tree_id:root,parent_revision_ids:value.parent_revision_ids??(base?[base.revision_id]:[]),predecessor_revision_ids:[],provenance:provenance(value.message??'native acceptance fixture')});
       return {...receipt,change_id};
     };
-    const script="const fs=require('node:fs'),crypto=require('node:crypto');const bytes=fs.readFileSync('main.txt');const ok=bytes.toString('utf8').startsWith('candidate:');fs.writeFileSync('proof.json',JSON.stringify({sha256:crypto.createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length}));process.stdout.write(ok?'native check passed\\n':'native check failed\\n');process.exitCode=ok?0:7;";
+    const checkPath=options.checkPath??'main.txt';
+    const script="const fs=require('node:fs'),crypto=require('node:crypto');const bytes=fs.readFileSync("+JSON.stringify(checkPath)+");const ok=bytes.toString('utf8').startsWith('candidate:');fs.writeFileSync('proof.json',JSON.stringify({sha256:crypto.createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length}));process.stdout.write(ok?'native check passed\\n':'native check failed\\n');process.exitCode=ok?0:7;";
     const environment={LANG:'C.UTF-8',LC_ALL:'C.UTF-8'};
     const check={id:'native-main',argv:[process.execPath,'-e',script],executable_digest:rawDigest(await fs.readFile(process.execPath)),environment_digest:sourceDigest(environment),required_artifacts:['proof.json']};
     const policy={policy_id:randomUUID(),policy_digest:sourceDigest({schema_version:1,checks:[check]}),checks:[check]};
@@ -119,8 +120,9 @@ export async function createNativeAcceptanceFixture(options={}) {
     const runCheck=async(candidate,overrides={})=>{
       const working=await fs.mkdtemp(path.join(os.tmpdir(),'hf-native-check-'));
       try{
-        const entry=await service.trees.lookup(scope,candidate.root_tree_id,'main.txt');assert.equal(entry?.kind,'file');
-        await fs.writeFile(path.join(working,'main.txt'),await service.objects.readFile(scope,entry.object_id));
+        const entry=await service.trees.lookup(scope,candidate.root_tree_id,checkPath);assert.equal(entry?.kind,'file');
+        await fs.mkdir(path.dirname(path.join(working,checkPath)),{recursive:true});
+        await fs.writeFile(path.join(working,checkPath),await service.objects.readFile(scope,entry.object_id));
         const started_at=new Date().toISOString();
         const child=spawn(check.argv[0],check.argv.slice(1),{cwd:working,env:environment,stdio:['ignore','pipe','pipe']});
         const stdout=[],stderr=[];child.stdout.on('data',bytes=>stdout.push(bytes));child.stderr.on('data',bytes=>stderr.push(bytes));

@@ -1,3 +1,5 @@
+import {assertNativeTaskQualified} from '../assurance/fleet_native.js';
+import {readFleetRepositoryPins,readFleetRepositoryPinsForAttempt} from '../source_control/fleet-pins.js';
 import {assertInvocation} from '../transport/protocol.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {readSemanticDisposition} from '../storage/dispositions.js';
@@ -195,14 +197,24 @@ async function proofObligations(tx:PrimaryTransaction,pins:{organisation_id:stri
 function assertProfileSources(profile:ReturnType<typeof validateProfile>,repositories:Record<string,unknown>[]):void{
  for(const declared of profile.repositories){
   const pinned=repositories.find(r=>r.repository_id===declared.id);
-  if(!pinned||pinned.source_object_id!==declared.commit)return refuse('ENVIRONMENT_SOURCE_MISMATCH','Environment profile repository commit differs from the exact run source pin');
+  if(!pinned||pinned.source_object_id!==declared.commit||(declared.source_backend==='native'?(pinned.source_backend!=='native'||pinned.security_domain_id!==declared.security_domain_id):pinned.source_backend==='native'))return refuse('ENVIRONMENT_SOURCE_MISMATCH','Environment profile repository commit differs from the exact run source pin');
  }
 }
 async function currentRepositories(tx:QuerySession,org:string,run:string){
- return (await tx.query('SELECT repository_id,source_object_id,integration_ref FROM hyperfide.run_repositories WHERE organisation_id=$1 AND run_id=$2 ORDER BY repository_id',[org,run])).rows;
+ return readFleetRepositoryPins(tx,org,run);
 }
 async function currentDependencies(tx:QuerySession,org:string,run:string,taskId:string){
- const deps=await tx.query('SELECT d.predecessor_run_id,d.predecessor_task_id,d.milestone,t.state,t.current_custody_id,c.repository_id,c.source_object_id,c.custody_generation::text,c.authority,c.qualification_outcome FROM hyperfide.task_dependencies d JOIN hyperfide.tasks t ON t.organisation_id=d.organisation_id AND t.run_id=d.predecessor_run_id AND t.id=d.predecessor_task_id LEFT JOIN hyperfide.submission_custodies c ON c.organisation_id=t.organisation_id AND c.run_id=t.run_id AND c.id=t.current_custody_id WHERE d.organisation_id=$1 AND d.run_id=$2 AND d.task_id=$3 ORDER BY d.predecessor_run_id,d.predecessor_task_id',[org,run,taskId]);
+ const deps=await tx.query('SELECT d.predecessor_run_id,d.predecessor_task_id,d.milestone,t.state,t.current_custody_id,t.current_native_custody_id,c.repository_id,c.source_object_id,c.custody_generation::text,c.authority,c.qualification_outcome FROM hyperfide.task_dependencies d JOIN hyperfide.tasks t ON t.organisation_id=d.organisation_id AND t.run_id=d.predecessor_run_id AND t.id=d.predecessor_task_id LEFT JOIN hyperfide.submission_custodies c ON c.organisation_id=t.organisation_id AND c.run_id=t.run_id AND c.id=t.current_custody_id WHERE d.organisation_id=$1 AND d.run_id=$2 AND d.task_id=$3 ORDER BY d.predecessor_run_id,d.predecessor_task_id',[org,run,taskId]);
+ for(const dependency of deps.rows){
+  const nativeId=dependency.current_native_custody_id;
+  delete dependency.current_native_custody_id;
+  if(!nativeId)continue;
+  assertPrimaryTransaction(tx);
+  const native=await assertNativeTaskQualified(tx,{organisation_id:org,run_id:dependency.predecessor_run_id},dependency.predecessor_task_id);
+  Object.assign(dependency,{current_custody_id:native.custody_id,repository_id:native.scope.repository_id,
+   source_object_id:native.revision_id,custody_generation:native.custody_generation,authority:'ACTIVE',qualification_outcome:'PASS',
+   source_backend:'native',security_domain_id:native.scope.security_domain_id,qualification_id:native.qualification_id});
+ }
  if(deps.rows.some(d=>!d.repository_id||!d.source_object_id||d.qualification_outcome!=='PASS'||d.milestone==='RELEASED'||(d.milestone==='INTEGRATED'?d.state!=='INTEGRATED':!['QUALIFIED','INTEGRATING','INTEGRATED'].includes(d.state))))
   return refuse('DEPENDENCY_INPUT_UNAVAILABLE','Dependency requires exact qualified/integrated source evidence or a release-barrier input');
  return deps.rows;
@@ -210,7 +222,7 @@ async function currentDependencies(tx:QuerySession,org:string,run:string,taskId:
 /** Evidence identity of a dependency; lifecycle progress alone (QUALIFIED->INTEGRATED) is not a new input. */
 const DEPENDENCY_EVIDENCE=['predecessor_run_id','predecessor_task_id','milestone','current_custody_id','repository_id','source_object_id','custody_generation','authority','qualification_outcome'];
 function dependencyEvidence(rows:unknown[]):unknown[]{
- return rows.map(row=>{if(!object(row))return refuse('PACKET_INPUTS_MISSING','Invalid immutable dependency pin');return Object.fromEntries(DEPENDENCY_EVIDENCE.map(key=>[key,row[key]??null]));});
+ return rows.map(row=>{if(!object(row))return refuse('PACKET_INPUTS_MISSING','Invalid immutable dependency pin');return Object.fromEntries([...DEPENDENCY_EVIDENCE,...(row.source_backend==='native'?['source_backend','security_domain_id','qualification_id']:[])].map(key=>[key,row[key]??null]));});
 }
 async function supersededContract(tx:QuerySession,org:string,run:string,contract:Record<string,unknown>):Promise<boolean>{
  const newer=await tx.query('SELECT 1 FROM hyperfide.contracts WHERE organisation_id=$1 AND run_id=$2 AND contract_key=$3 AND revision>$4 LIMIT 1',[org,run,text(contract.contract_key),decimal(contract.revision)]);
@@ -270,7 +282,7 @@ export async function validateExecutionInputs(tx:PrimaryTransaction,input:{organ
  const prepared=await preparationManifest(tx,org,uuid(m.runtime.environment_profile_id));
  if(prepared.preparation_digest!==m.runtime.preparation_digest||hash(prepared.declared_profile)!==hash(m.runtime.declared_profile))return refuse('EXECUTION_INPUTS_STALE','Accepted environment manifest differs from immutable packet inputs');
  const checked=['IMMUTABLE_PACKET','CURRENT_ACCEPTED_TASK','CURRENT_AUTHORITY_EPOCH','ACCEPTED_ENVIRONMENT_MANIFEST'];
- const repositories=await currentRepositories(tx,org,run);
+ const repositories=await readFleetRepositoryPinsForAttempt(tx,org,run,{attempt_id:uuid(m.identity.attempt_id),attempt_generation:decimal(m.identity.attempt_generation),packet_digest:loaded.digest,repositories:m.inputs.repositories});
  if(canonical(repositories)!==canonical(m.inputs.repositories))return refuse('EXECUTION_INPUTS_STALE','Current run source pins differ from immutable packet inputs');
  assertProfileSources(prepared.declared_profile,repositories);
  checked.push('CURRENT_SOURCE_PINS');
@@ -288,7 +300,7 @@ export async function validateExecutionInputs(tx:PrimaryTransaction,input:{organ
  const graph=m.inputs.graph;
  if(graph.required){
   const current=await graphSnapshot(tx,{organisation_id:org,run_id:run,authority_epoch:uuid(m.identity.authority_epoch)},uuid(graph.manifest_id),
-   m.inputs.repositories.map(value=>{if(!object(value))return refuse('PACKET_INPUTS_MISSING','Invalid immutable repository pin');return {repository_id:uuid(value.repository_id),source_object_id:text(value.source_object_id,64),overlay_digest:null};}),invocation,graphReader);
+   m.inputs.repositories.map(value=>{if(!object(value))return refuse('PACKET_INPUTS_MISSING','Invalid immutable repository pin');return {repository_id:uuid(value.repository_id),source_object_id:text(value.source_object_id,71),overlay_digest:null};}),invocation,graphReader);
   const exact=['manifest_digest','source_manifest_digest','input_digest','parser_digest','schema_digest','config_digest','source_set','file_coverage','source_coverage','semantic_projection_complete','unprojected_semantic_edge_count','unresolved_reference_count'];
   if(!Array.isArray(current.source_coverage)||current.source_coverage.length<1||current.source_coverage.length>64||exact.some(key=>canonical(current[key])!==canonical(graph[key])))
    return refuse('EXECUTION_INPUTS_STALE','Current required graph provenance differs from the exact immutable packet inputs');

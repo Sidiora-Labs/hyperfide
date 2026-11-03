@@ -10,7 +10,7 @@ import {PersistentTree} from './trees.js';
 import {S3SourceObjectBackend,sourceS3Configuration} from './s3.js';
 import type {SourceObjectBackend} from './storage_contract.js';
 import {SourceWorkspaceService,type WorkspaceBudgets} from './workspaces.js';
-import {SourceControlError} from './contracts.js';
+import {SourceControlError,SOURCE_ACTIONS} from './contracts.js';
 import {SourceMergeEngine} from './merge.js';
 import {SourceTransformationService,type MergeInput,type RebaseInput,type RevertInput,type ResumeInput} from './transformations.js';
 import {SourceCandidateService} from './candidates.js';
@@ -20,6 +20,11 @@ import {SourceGitPublicationService} from './git/export.js';
 import type {SourceGitDestination} from './git/types.js';
 import {sourcePublicationDestinations} from './publication_config.js';
 import type {SourceRequest} from './contracts.js';
+import {SourceFleetSelectionService} from './fleet-source-selection.js';
+import {SourceFleetService,assertFleetManagedAuthority} from './fleet-adapter.js';
+import {NativeFleetQualification} from '../assurance/fleet_native.js';
+import {createNativeSourceManifest,verifyFleetSourceManifest,type NativeSourceManifest} from '../preparation/fleet_source.js';
+import type {InvocationContext} from '../transport/protocol.js';
 
 function actionInput(input:unknown,allowed:readonly string[]):Record<string,unknown> {
  if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!allowed.includes(key)))
@@ -45,6 +50,16 @@ export function createSourceService(options:SourceServiceOptions) {
  const assurance=new NativeSourceAssurance(metadata,objects);
  const candidates=new SourceCandidateService(metadata,assurance.verifyEvidence.bind(assurance));
  const acceptance=new SourceAcceptanceService(candidates);
+ const fleet=new SourceFleetService(metadata,options.workspaceBudgets);
+ const fleetSelection=new SourceFleetSelectionService(metadata,acceptance);
+ const fleetQualification=new NativeFleetQualification(candidates,assurance);
+ const authorization={assertManagedAuthority:assertFleetManagedAuthority,...options.authorization};
+ const verifyFleetManifest=async(invocation:InvocationContext,manifest:NativeSourceManifest):Promise<void>=>{
+  const context=await metadata.transaction(tx=>authorizeInvocationSource(tx,{invocation,scope:manifest.scope,action:'source.fleet.manifest',mutation:false,revision_id:manifest.revision},authorization));
+  verifyFleetSourceManifest(manifest,{digest:manifest.digest,revision:manifest.revision,repository:manifest.repository,readScope:manifest.paths,metadataOnly:manifest.transfer_mode==='metadata-only',backend:'native',scope:context.scope});
+  const actual=await createNativeSourceManifest({metadata,trees,objects,authorization:context,repository:manifest.repository,revision:manifest.revision,paths:manifest.paths,maxFiles:100000,maxBytes:64*1024*1024,maxNodes:100000,metadataOnly:manifest.transfer_mode==='metadata-only'});
+  if(actual.digest!==manifest.digest)throw new SourceControlError('FLEET_SOURCE_MANIFEST','Delivered source entries differ from their accepted native tree');
+ };
  const publications=new SourceGitPublicationService(metadata,objects,trees,{
   destinations:options.publication?.destinations??[],
   acceptance:async(tx,context,id)=>{
@@ -56,13 +71,27 @@ export function createSourceService(options:SourceServiceOptions) {
  const authorize=(request:SourceApiAuthorizationRequest)=>metadata.transaction(async tx=>{
   const common={scope:request.scope,action:request.action,mutation:request.mutation,...(request.paths?{paths:request.paths}:{}),
    ...(request.revision_id?{revision_id:request.revision_id}:{}),...(request.object_id?{object_id:request.object_id}:{}),...(request.authority?{authority:{...request.authority}}:{})};
-  if(request.invocation)return authorizeInvocationSource(tx,{...common,invocation:request.invocation},options.authorization);
-  if(request.principal)return authorizeSource(tx,{...common,principal:request.principal},options.authorization);
+  if(request.invocation)return authorizeInvocationSource(tx,{...common,invocation:request.invocation},authorization);
+  if(request.principal)return authorizeSource(tx,{...common,principal:request.principal},authorization);
   throw new SourceControlError('UNAUTHENTICATED','Source request has no authenticated principal');
  });
  const api=createSourceApi({objects,trees,metadata,authorize,cursorKey:options.cursorKey,
   workspaceOperation:(context,operation)=>workspaces.operation(context,operation),
   extensions:{
+   'source.fleet.select':(request,context,principal)=>fleetSelection.select(context,mutationInput(request,['selection_id','run_id','acceptance_id','expected_generation','leader_generation']) as unknown as Parameters<typeof fleetSelection.select>[1],'operation' in principal?principal:undefined),
+   'source.fleet.selection':(request,context)=>fleetSelection.read(context,actionInput(request.input,['run_id','selection_id']) as unknown as Parameters<typeof fleetSelection.read>[1]),
+   'source.fleet.manifest':(request,context)=>{
+    const input=actionInput(request.input,['revision_id','paths','max_files','max_bytes','max_nodes','metadata_only']);
+    for(const key of ['max_files','max_bytes','max_nodes'])if(!Number.isSafeInteger(input[key])||Number(input[key])<1)throw new SourceControlError('INVALID_REQUEST','Explicit positive source manifest budgets required');
+    if(typeof input.metadata_only!=='boolean')throw new SourceControlError('INVALID_REQUEST','Explicit metadata-only selection required');
+    return createNativeSourceManifest({metadata,trees,objects,authorization:context,repository:context.scope.repository_id,revision:input.revision_id as string,paths:input.paths as string[],maxFiles:input.max_files as number,maxBytes:input.max_bytes as number,maxNodes:input.max_nodes as number,metadataOnly:input.metadata_only});
+   },
+   'source.fleet.qualify':(request,context,principal)=>fleetQualification.qualify(context,mutationInput(request,['run_id','task_id','custody_id','custody_generation','candidate_id','qualification_id','expected_state_version']) as unknown as Parameters<typeof fleetQualification.qualify>[1],'operation' in principal?principal:undefined),
+   'source.fleet.bind-run':(request,context,principal)=>fleet.bindRun(context,mutationInput(request,['run_id','revision_id','leader_generation']) as unknown as Parameters<typeof fleet.bindRun>[1],'operation' in principal?principal:undefined),
+   'source.fleet.assign':(request,context,principal)=>fleet.assign(context,mutationInput(request,['assignment_id','run_id','task_id','attempt_id','attempt_generation','workspace_id','base_revision_id','closure_digest','environment_digest','read_paths','write_paths','mode','worker_principal_id','worker_credential_id','leader_generation','package_id','package_generation']) as unknown as Parameters<typeof fleet.assign>[1],'operation' in principal?principal:undefined),
+   'source.fleet.read':(request,context)=>fleet.read(context,actionInput(request.input,['assignment_id']).assignment_id as string),
+   'source.fleet.submit':(request,context,principal)=>fleet.submit(context,mutationInput(request,['assignment_id','expected_assignment_generation','expected_workspace_generation','revision_id']) as unknown as Parameters<typeof fleet.submit>[1],'operation' in principal?principal:undefined),
+   'source.fleet.submission':(request,context)=>fleet.submission(context,actionInput(request.input,['submission_id']).submission_id as string),
    'source.domains.create':(request,context)=>candidates.createDomain(context,mutationInput(request,['domain_id','revision_id','policy_id','policy_digest']) as unknown as Parameters<typeof candidates.createDomain>[1]),
    'source.domains.read':(request,context)=>candidates.readDomain(context,actionInput(request.input,['domain_id']).domain_id as string),
    'source.domains.configure':(request,context)=>candidates.configureDomain(context,mutationInput(request,['domain_id','expected_generation','policy_id','policy_digest']) as unknown as Parameters<typeof candidates.configureDomain>[1]),
@@ -106,7 +135,7 @@ export function createSourceService(options:SourceServiceOptions) {
     return workspaces.checkpoint(context,input);
    },
   }});
- return {api,metadata,catalog,objects,trees,workspaces,transformations,assurance,candidates,acceptance,publications};
+ return {api,metadata,catalog,objects,trees,workspaces,transformations,assurance,candidates,acceptance,publications,fleet,fleetSelection,fleetQualification,verifyFleetManifest};
 }
 export function sourceWorkspaceBudgets(env:Readonly<NodeJS.ProcessEnv>):WorkspaceBudgets {
  const positive=(key:string)=>{const text=env[key];if(!text||!/^\d+$/.test(text)||!Number.isSafeInteger(Number(text))||Number(text)<1)throw new SourceControlError('CONFIGURATION_INVALID','Explicit positive source budget required: '+key);return Number(text);};
@@ -117,11 +146,14 @@ export function sourceCursorKey(env:Readonly<NodeJS.ProcessEnv>):Uint8Array {
  const key=Buffer.from(text,'base64url');if(key.length<32||key.length>64||key.toString('base64url')!==text)throw new SourceControlError('CONFIGURATION_INVALID','Source cursor key must contain 32 to 64 bytes');return key;
 }
 export function createComponent(context:ComponentContext):Component {
- const service=createSourceService({pool:getPool(context.env),backend:new S3SourceObjectBackend(sourceS3Configuration(context.env)),cursorKey:sourceCursorKey(context.env),workspaceBudgets:sourceWorkspaceBudgets(context.env),
+ let service:ReturnType<typeof createSourceService>|undefined;
+ const current=()=>service??=createSourceService({pool:getPool(context.env),backend:new S3SourceObjectBackend(sourceS3Configuration(context.env)),cursorKey:sourceCursorKey(context.env),workspaceBudgets:sourceWorkspaceBudgets(context.env),
   publication:{destinations:sourcePublicationDestinations(context.env)},
   transaction:body=>context.resources.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:context.signal},body)});
- return {apiVersion:1,actions:Object.fromEntries(service.api.actions.map(action=>[action,async(input:unknown,current:ComponentContext)=>{
-  if(!current.invocation)throw new SourceControlError('UNAUTHENTICATED','Authenticated source invocation required');
-  return service.api.invoke(action,input,current.invocation);
- }])),capabilities:{'source.service.v1':service}};
+ const reserved=new Set(['source.capabilities.manage','source.workspaces.widen','source.workspaces.close','source.transfers.create','source.audit.read']);
+ const capability=new Proxy({} as ReturnType<typeof createSourceService>,{get:(_target,key)=>Reflect.get(current(),key)});
+ return {apiVersion:1,actions:Object.fromEntries(SOURCE_ACTIONS.filter(action=>!reserved.has(action)).map(action=>[action,async(input:unknown,request:ComponentContext)=>{
+  if(!request.invocation)throw new SourceControlError('UNAUTHENTICATED','Authenticated source invocation required');
+  return current().api.invoke(action,input,request.invocation);
+ }])),capabilities:{'source.service.v1':capability}};
 }

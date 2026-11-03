@@ -22,6 +22,7 @@ static long long now_ns(void){struct timespec t;if(clock_gettime(CLOCK_MONOTONIC
 static int text(const HfJson *j,int o,const char *k,char *v,size_t n){return hf_json_string(j,hf_json_field(j,o,k),v,n);}
 static int equal(const HfJson *j,int o,const char *k,const char *v){char b[4096];return text(j,o,k,b,sizeof b)&&!strcmp(b,v);}
 static int sha(const char *s){if(strlen(s)!=71||strncmp(s,"sha256:",7))return 0;for(int n=7;n<71;n++)if(!strchr("0123456789abcdef",s[n]))return 0;return 1;}
+static int git_oid(const char *s){size_t n=strlen(s);if(n!=40&&n!=64)return 0;for(size_t i=0;i<n;i++)if(!strchr("0123456789abcdef",s[i]))return 0;return 1;}
 static int relative_to(const char *root,const char *target){size_t n=strlen(root);return n>1&&!strncmp(root,target,n)&&target[n]=='/'&&target[n+1]&&!strstr(target,"//")&&!strstr(target,"/../")&&!strstr(target,"/./");}
 static int file_hash(int fd,char digest[72],long long deadline){
  EVP_MD_CTX *h=EVP_MD_CTX_new();int ok=h&&EVP_DigestInit_ex(h,EVP_sha256(),NULL)==1;unsigned char bytes[65536],sum[32];unsigned size=0;ssize_t n=0;
@@ -206,10 +207,14 @@ int hf_fleet_readiness_finalize(const HfJson *bootstrap,const HfPreparationStage
 done:if(out)fclose(out);close(binary);free(d);free(r);free(body);free(derived);free(output);return ok;
 }
 int hf_fleet_readiness_seals(const HfJson *job,int result,long long deadline){int ready=hf_json_field(job,result,"readiness");if(!equal(job,ready,"kind","FLEET_MANIFEST_V1"))return 1;return check_config_seals(job,hf_json_field(job,ready,"readiness_input"),deadline);}
-int hf_fleet_readiness_measure(const HfJson *job,int result,long long deadline,char source_object[65],char source_tree[65],char source_state[72],char workspace[72]){
+int hf_fleet_readiness_measure(const HfJson *job,int result,long long deadline,char source_object[72],char source_tree[72],char source_state[72],char workspace[72]){
  if(geteuid()==0)return 0;int ready=hf_json_field(job,result,"readiness"),v=hf_json_field(job,ready,"verifier"),input=hf_json_field(job,ready,"readiness_input"),binding=hf_json_field(job,result,"binding"),slot=hf_json_field(job,input,"slot");char node[4096],module[4096],home[4096],temporary[4096],source[4096],expected_input[72],expected_state[72],expected_workspace[72];int64_t uid=0,gid=0;
  if(!equal(job,ready,"kind","FLEET_MANIFEST_V1")||!hf_json_i64(job,hf_json_field(job,slot,"uid"),&uid)||uid!=geteuid()||!hf_json_i64(job,hf_json_field(job,slot,"gid"),&gid)||gid!=getegid()||!text(job,slot,"home",home,sizeof home)||!equal(job,binding,"home_path",home)||!text(job,slot,"temporary",temporary,sizeof temporary)||!equal(job,binding,"tmp_path",temporary)||!text(job,slot,"source",source,sizeof source)||!equal(job,binding,"workspace_path",source)||!text(job,ready,"input_digest",expected_input,sizeof expected_input)||!text(job,ready,"source_state_digest",expected_state,sizeof expected_state)||!text(job,ready,"workspace_digest",expected_workspace,sizeof expected_workspace))return 0;
  int binary=verifier(job,v,NULL,node,module,deadline);if(binary<0)return 0;char *request=hf_json_raw(job,input),*output=NULL;size_t size=0;int ok=request&&run_json(binary,node,module,NULL,(uid_t)uid,(gid_t)gid,source,home,temporary,request,strlen(request),deadline,&output,&size);free(request);close(binary);HfJson *m=calloc(1,sizeof *m);
- ok=ok&&m&&hf_json_parse(m,output)&&equal(m,0,"status","READY")&&equal(m,0,"kind","FLEET_MANIFEST_V1")&&equal(m,0,"input_digest",expected_input)&&equal(m,0,"source_state_digest",expected_state)&&equal(m,0,"workspace_digest",expected_workspace)&&text(job,ready,"source_object_id",source_object,65)&&text(job,ready,"source_tree_id",source_tree,65);
+ ok=ok&&m&&hf_json_parse(m,output)&&equal(m,0,"status","READY")&&equal(m,0,"kind","FLEET_MANIFEST_V1")&&equal(m,0,"input_digest",expected_input)&&equal(m,0,"source_state_digest",expected_state)&&equal(m,0,"workspace_digest",expected_workspace)&&text(job,ready,"source_object_id",source_object,72)&&text(job,ready,"source_tree_id",source_tree,72);
+ if(ok){
+  if(equal(job,ready,"source_backend","native")){char domain[37];ok=sha(source_object)&&sha(source_tree)&&equal(job,input,"source_revision",source_object)&&text(job,ready,"security_domain_id",domain,sizeof domain)&&hf_uuid_valid(domain);}
+  else ok=(hf_json_field(job,ready,"source_backend")<0||equal(job,ready,"source_backend","git"))&&git_oid(source_object)&&git_oid(source_tree);
+ }
  if(ok){strcpy(source_state,expected_state);strcpy(workspace,expected_workspace);}free(m);free(output);return ok;
 }

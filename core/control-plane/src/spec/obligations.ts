@@ -3,6 +3,7 @@ import {promises as fs} from 'node:fs';
 import type {AuthorityTransaction} from '../transport/protocol.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import {readSemanticDisposition} from '../storage/dispositions.js';
+import {readNativeFleetRunSource} from '../source_control/fleet-run-source.js';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError,object} from '../policy/programme.js';
 import {canonical,digest,specTransaction} from './import.js';
@@ -26,7 +27,7 @@ export interface ProofObligations {
 export type PrimaryClient=AuthorityTransaction;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA=/^sha256:[0-9a-f]{64}$/;
-const OID=/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const OID=/^(?:[0-9a-f]{40}|[0-9a-f]{64}|sha256:[0-9a-f]{64})$/;
 const POSITIVE=/^[1-9][0-9]{0,18}$/;
 const INPUTS=['source','dependency','toolchain','configuration','graph','contract'];
 const ID=/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
@@ -237,6 +238,7 @@ function operatingMaximum(context:ComponentContext):number{
  return Number(raw);
 }
 export async function registerProofPolicy(client:PrimaryClient,scope:{organisation_id:string;run_id:string},input:unknown,allowReview=false,maximumMs=259200000):Promise<ProofObligations>{
+ assertPrimaryTransaction(client);
  const request=exact(input,['run_id','task_id','spec_revision_id','spec_generation','state_version','policy']);
  const pin:ProofPins={organisation_id:scope.organisation_id,run_id:String(request.run_id),task_id:String(request.task_id),
  spec_revision_id:String(request.spec_revision_id),spec_generation:String(request.spec_generation)};
@@ -261,13 +263,20 @@ export async function registerProofPolicy(client:PrimaryClient,scope:{organisati
  if(!row||row.criteria_digest!==policy.criteria_digest)fail('PROOF_REGISTRY_MISMATCH','Proof criteria do not match current task');
  clauseCoverage(policy,row.definition,row.accepted_document as StoredIntent);
  await acceptedProofAuthority(policy,row.definition,row.accepted_document as StoredIntent);
- const source=await client.query('SELECT 1 FROM hyperfide.run_repositories WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND source_object_id=$4',
-  [pin.organisation_id,pin.run_id,policy.repository_id,policy.source_object_id]);
- if(source.rows.length!==1)fail('PROOF_REGISTRY_MISMATCH','Proof baseline is outside the accepted input repository revision set');
  const registry_digest=digest(canonical(policy));
  const prior=await client.query('SELECT registry_digest FROM hyperfide.proof_registries WHERE organisation_id=$1 AND run_id=$2 AND task_id=$3 AND spec_generation=$4',
   [pin.organisation_id,pin.run_id,pin.task_id,pin.spec_generation]);
  if(prior.rows.length&&prior.rows[0]!.registry_digest!==registry_digest)fail('PROOF_REGISTRY_CONFLICT','Changing accepted proof policy requires a new specification generation');
+ if(policy.source_object_id.startsWith('sha256:')){
+  if(!prior.rows.length){
+  const source=await readNativeFleetRunSource(client,{organisation_id:pin.organisation_id,run_id:pin.run_id},policy.repository_id);
+  if(!source||source.revision_id!==policy.source_object_id)fail('PROOF_REGISTRY_MISMATCH','Proof baseline is outside the accepted native run source');
+  }
+ }else{
+  const source=await client.query('SELECT 1 FROM hyperfide.run_repositories WHERE organisation_id=$1 AND run_id=$2 AND repository_id=$3 AND source_object_id=$4',
+   [pin.organisation_id,pin.run_id,policy.repository_id,policy.source_object_id]);
+  if(source.rows.length!==1)fail('PROOF_REGISTRY_MISMATCH','Proof baseline is outside the accepted input repository revision set');
+ }
  if(!prior.rows.length){
   // A task waiting on an Ask (D4) is mid-attempt, not a stop hold.
   if(!['PENDING','READY','BLOCKED','STALE'].includes(row.state)||row.blocked_ask)fail('PROOF_REGISTRY_CONFLICT','Proof mapping cannot first appear during active or completed execution');

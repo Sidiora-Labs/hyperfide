@@ -788,7 +788,7 @@ Implementation and qualification obligations:
 
 ## 4.2: Run Hyperfide fleet attempts and qualification through native source custody
 
-Status: **pending**. Owner: `fleet`. Dependencies: 4.1, 3.2.
+Status: **in_progress**. Owner: `fleet`. Dependencies: 4.1, 3.2.
 
 Proposed implementation scope:
 
@@ -804,6 +804,71 @@ Proposed implementation scope:
 - `plugins/hyperfide-qualify/receipts.ts`
 - `core/control-plane/src/source_control/fleet-adapter.ts`
 - `tests/hyperfide/cases/source_control/4_2.py`
+- `contracts/fleet/index.d.mts`
+- `contracts/fleet/index.mjs`
+- `core/control-plane/components/source-control.json`
+- `core/control-plane/src/agents/fleet_authority.ts`
+- `core/control-plane/src/agents/fleet_orchestration.ts`
+- `core/control-plane/src/assurance/native_source.ts`
+- `core/control-plane/src/hierarchy/packets.ts`
+- `core/control-plane/src/preparation/fleet_authority.ts`
+- `core/control-plane/src/preparation/fleet_delivery.ts`
+- `core/control-plane/src/preparation/fleet_install.ts`
+- `core/control-plane/src/preparation/fleet_mounts.ts`
+- `core/control-plane/src/preparation/fleet_readiness.ts`
+- `core/control-plane/src/preparation/fleet_source.ts`
+- `core/control-plane/src/preparation/fleet_source_cache.ts`
+- `core/control-plane/src/preparation/manifests.ts`
+- `core/control-plane/src/preparation/recipe.ts`
+- `core/control-plane/src/providers/bootstrap_install.ts`
+- `core/control-plane/src/runner/bridge.ts`
+- `core/control-plane/src/runner/fleet.ts`
+- `core/control-plane/src/scheduler/claim.ts`
+- `core/control-plane/src/source_control/api.ts`
+- `core/control-plane/src/source_control/capabilities.ts`
+- `core/control-plane/src/source_control/contracts.ts`
+- `core/control-plane/src/source_control/operations.ts`
+- `core/control-plane/src/source_control/registration.ts`
+- `core/control-plane/src/source_control/server.ts`
+- `core/control-plane/src/source_control/workspaces.ts`
+- `core/control-plane/src/spec/obligations.ts`
+- `core/native/src/hyperfide/fleet_readiness.c`
+- `core/native/src/hyperfide/job.c`
+- `core/native/src/hyperfide/preparation_stage.c`
+- `core/native/src/hyperfide/supervisor.h`
+- `sdk/source-control/src/client.ts`
+- `sdk/source-control/src/contracts.ts`
+- `sdk/source-control/src/index.ts`
+- `tests/hyperfide/support/native_source_acceptance_fixture.mjs`
+- `tests/hyperfide/support/native_source_fixture.py`
+- `core/control-plane/migrations/0744-source-control-fleet.sql`
+- `core/control-plane/src/assurance/fleet_native.ts`
+- `core/control-plane/src/runner/source_identity.ts`
+- `core/control-plane/src/source_control/fleet-pins.ts`
+- `core/control-plane/src/source_control/fleet-run-source.ts`
+- `sdk/source-control/src/fleet.ts`
+- `tests/hyperfide/support/native_source_fleet_install.mjs`
+- `tests/hyperfide/support/native_source_fleet_actor.mjs`
+- `docs/hyperfide/source-control.md`
+- `tests/integration/16_retrieval.sh`
+- `core/control-plane/components/fleet-install-delivery.json`
+- `core/control-plane/src/source_control/objects.ts`
+- `tests/hyperfide/cases/source_control/0_1.py`
+- `core/control-plane/migrations/0745-source-control-fleet-selections.sql`
+- `core/control-plane/src/source_control/fleet-source-selection.ts`
+- `core/control-plane/src/source_control/managed-objects.ts`
+- `tests/hyperfide/support/native_source_fleet_assignment.mjs`
+- `core/control-plane/src/preparation/fleet_completion.ts`
+- `core/control-plane/src/runner/fleet_completion.ts`
+- `core/control-plane/src/runner/workspaces.ts`
+- `core/control-plane/src/source_control/fleet-cleanup.ts`
+- `tests/hyperfide/support/native_source_fleet_cleanup.mjs`
+- `tests/hyperfide/support/native_source_fleet_pool.mjs`
+- `core/control-plane/src/source_control/http.ts`
+- `core/control-plane/src/source_control/metadata.ts`
+- `tests/hyperfide/support/native_source_fleet_cleanup_assertions.mjs`
+- `tests/hyperfide/support/native_source_fleet_selection.mjs`
+- `core/control-plane/src/scheduler/resources.ts`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/4_2.py`.
 

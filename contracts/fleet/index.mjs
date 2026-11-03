@@ -271,12 +271,23 @@ function validateBindings(value, expected, location) {
   }
 }
 export function validateAssignment(value, options = {}) {
-  record(value, ['schema_version', 'kind', 'assignment_id', 'operation_id', 'decision_id', 'run_id', 'wave_id', 'delegation_id', 'manager_id', 'manager_generation', 'leader_generation', 'authority_epoch', 'environment_id', 'environment_generation', 'ready_receipt_digest', 'source_revision', 'package_digest', 'source_config_digest', 'worker_id', 'worker_slot', 'tasks', 'limits'], [], 'assignment');
-  if (value.schema_version !== 1 || value.kind !== 'hyperfide.task-assignment') fail('UNSUPPORTED_SCHEMA', 'assignment', 'task assignment v1 required');
+  record(value, ['schema_version', 'kind', 'assignment_id', 'operation_id', 'decision_id', 'run_id', 'wave_id', 'delegation_id', 'manager_id', 'manager_generation', 'leader_generation', 'authority_epoch', 'environment_id', 'environment_generation', 'ready_receipt_digest', 'source_revision', 'package_digest', 'source_config_digest', 'worker_id', 'worker_slot', 'tasks', 'limits', ...(value?.schema_version === 2 ? ['source'] : [])], [], 'assignment');
+  if (![1, 2].includes(value.schema_version) || value.kind !== 'hyperfide.task-assignment') fail('UNSUPPORTED_SCHEMA', 'assignment', 'task assignment v1 or native v2 required');
   for (const key of ['assignment_id', 'operation_id', 'decision_id', 'run_id', 'wave_id', 'delegation_id', 'manager_id', 'authority_epoch', 'environment_id', 'worker_id']) identity(value[key], 'assignment.' + key);
   generation(value.manager_generation, 'assignment.manager_generation'); generation(value.leader_generation, 'assignment.leader_generation'); integer(value.environment_generation, 'assignment.environment_generation'); integer(value.worker_slot, 'assignment.worker_slot', 0, 1023);
   for (const key of ['ready_receipt_digest', 'package_digest', 'source_config_digest']) digestValue(value[key], 'assignment.' + key);
   sourceRevision(value.source_revision, 'assignment.source_revision');
+  if (value.schema_version === 2) {
+    record(value.source, ['source_backend', 'scope', 'revision_id', 'root_tree_id', 'source_manifest_digest', 'workspace_id', 'workspace_generation', 'bootstrap_workspace_id'], [], 'assignment.source');
+    member(value.source.source_backend, ['native'], 'assignment.source.source_backend');
+    record(value.source.scope, ['organisation_id', 'repository_id', 'security_domain_id'], [], 'assignment.source.scope');
+    for (const [key, item] of Object.entries(value.source.scope)) if (typeof item !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(item)) fail('INVALID_IDENTITY', 'assignment.source.scope.' + key, 'scoped native UUID required');
+    for (const key of ['revision_id', 'root_tree_id', 'source_manifest_digest']) digestValue(value.source[key], 'assignment.source.' + key);
+    identity(value.source.workspace_id, 'assignment.source.workspace_id');
+    identity(value.source.bootstrap_workspace_id, 'assignment.source.bootstrap_workspace_id');
+    generation(value.source.workspace_generation, 'assignment.source.workspace_generation');
+    if (value.source.revision_id !== value.source_revision) fail('SOURCE_MISMATCH', 'assignment.source.revision_id', 'native assignment revision differs');
+  }
   if (!Array.isArray(value.tasks) || value.tasks.length < 1 || value.tasks.length > 128) fail('LIMIT_EXCEEDED', 'assignment.tasks', 'one to 128 individually tracked tasks required');
   const tasks = new Set(), attempts = new Set();
   for (const [index, task] of value.tasks.entries()) {

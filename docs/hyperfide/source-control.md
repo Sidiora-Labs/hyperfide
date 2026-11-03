@@ -120,3 +120,17 @@ Set `HF_SOURCE_PUBLICATION_CONFIG` to an owner-only JSON file containing trusted
 ```
 
 The credential file is also owner-only and contains `authorization_header` and `expires_at`. It is read when credentials are needed, allowing rotation without copying credentials into requests or source metadata. Relative file paths resolve against the configuration directory. GitLab destinations use `provider: "gitlab"` and a `https://gitlab.com/...git` URL. Local destinations use `provider: "local"` and `path` instead of `remote_url` and `credential_file`.
+
+## Fleet source
+
+The Primary binds a run to an explicit native revision with `source.fleet.bind-run`. `selectFleetSource` advances the run to an accepted descendant using an explicit generation check and a qualified predecessor. Existing attempts retain their original source; new installations and assignments use the selected revision. Register the next task’s proof policy against that revision before dispatch. Changing an already registered policy requires a new specification generation.
+
+The active model-led assignment carries its source scope, base revision, environment and package digests, task and attempt generations, and a private workspace identity. `source.fleet.assign` issues its narrow source capability after checking the admitted assignment. Fleet authority actions run through the authenticated control-plane component and its transaction gateway.
+
+`nativeFleetManifest` reads selected native paths with explicit file, byte and traversal budgets. The manifest includes verified file descriptors and content, capped at 64 MiB of file bytes and 96 MiB encoded. The existing `hyperfide install` pipeline uses that manifest for source, dependency, configuration and interface preparation. Native selection never falls back to Git. API-only installation carries source identity without files.
+
+Every installed worker view retains its readiness-attested `.neron` bootstrap configuration. An active assignment supplies a separate workspace ID and current capability, so reusing a physical slot does not reuse an old worker's source authority. Workers use that assignment for checkpoints and `submitFleetSource`; `fleetAssignment` and `fleetSubmission` inspect the retained state.
+
+Submission accepts only the exact durable checkpoint of the assigned workspace. It pins the revision in coordinator custody before releasing compute in the same transaction. Repeating the original submission recovers its receipt after a lost response. A replacement attempt cannot write through its predecessor's assignment. Native cleanup uses the retained submission and the runner's verified process and credential cleanup to release the worker slot.
+
+`qualifyFleetTask` is a Hyperfide authority operation: it verifies current task proof obligations, custody, candidate inputs and independent execution evidence before advancing the task to qualified. Dependency admission rechecks the proof. Native acceptance and Git publication remain separate source states.

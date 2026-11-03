@@ -4,6 +4,7 @@ import type {InvocationContext,Principal} from '../transport/protocol.js';
 import {DIGEST,decimal,exact,fail,hash,uuid} from '../transport/protocol.js';
 import {object} from '../policy/programme.js';
 import {runnerCanonical} from './bridge.js';
+import {releaseNativeFleetCompute} from '../source_control/fleet-cleanup.js';
 
 /* Runner control semantics (execution-contract §5.1, req 12 ac_4).
  *  pause  PAUSING->PAUSED     fence input and new jobs, freeze (SIGSTOP) the slot tree; resumable.
@@ -172,6 +173,10 @@ export async function releaseRunnerWorkspace(tx:PrimaryTransaction,i:InvocationC
  for(const name of missing)blocking.push('OUTPUT_NOT_DURABLE:'+name);
  if(command.state!=='REPORTED'||!['CANCELLED','STOPPED','DRAINED'].includes(String(command.outcome))||command.termination!=='CONFIRMED')blocking.push('TERMINATION_UNCONFIRMED');
  const free=blocking.length===0;
+ if(free)await releaseNativeFleetCompute(tx,i,{organisation_id:s.organisation_id,run_id:s.run_id,
+  attempt_id:command.attempt_id,attempt_generation:String(command.attempt_generation),sandbox_id:p.sandbox_id!,slot_id:v.slot_id as string,
+  boot_generation:p.boot_generation!,authority_epoch:command.authority_epoch},command,
+  {process_residue:v.process_residue,credential_residue:v.credential_residue,evidence_digest:v.evidence_digest});
  const updated=(await tx.query("UPDATE hyperfide.runner_workspaces SET state=$6,launch_id=CASE WHEN $6='FREE' THEN NULL ELSE launch_id END,command_id=CASE WHEN $6='FREE' THEN NULL ELSE $7::uuid END,slot_generation=slot_generation+CASE WHEN $6='FREE' THEN 1 ELSE 0 END,process_residue=$8,credential_residue=$9,outputs_durable=$10,residue_evidence_digest=$11,state_version=state_version+1,updated_at=clock_timestamp() WHERE organisation_id=$1 AND run_id=$2 AND sandbox_id=$3 AND boot_generation=$4 AND slot_id=$5 RETURNING slot_generation::text,state",[s.organisation_id,s.run_id,p.sandbox_id,p.boot_generation,v.slot_id,free?'FREE':'CLEANING',v.command_id,v.process_residue,v.credential_residue,missing.length===0,v.evidence_digest])).rows[0]!;
  if(free){
   await tx.query(`UPDATE hyperfide.agent_sessions a SET state='STOPPED',state_version=a.state_version+1

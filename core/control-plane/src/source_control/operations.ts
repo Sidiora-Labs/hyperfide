@@ -10,7 +10,7 @@ export interface BeginSourceOperation {operation_id: string; idempotency_key: st
 const columns = 'operation_id,action,idempotency_key,request_digest,state,result,result_digest';
 export function validateOperation(input: BeginSourceOperation): void {
  parseUUID(input.operation_id, 'operation_id'); parseObjectId(input.request_digest);
- if (typeof input.action !== 'string' || !/^source\.[a-z][a-z0-9_.]{0,95}$/.test(input.action) || typeof input.idempotency_key !== 'string' || !input.idempotency_key.length || Buffer.byteLength(input.idempotency_key) > 256) sourceFailure('INVALID_REQUEST', 'Explicit bounded source action and idempotency key required');
+ if (typeof input.action !== 'string' || !/^source\.[a-z][a-z0-9_.-]{0,95}$/.test(input.action) || typeof input.idempotency_key !== 'string' || !input.idempotency_key.length || Buffer.byteLength(input.idempotency_key) > 256) sourceFailure('INVALID_REQUEST', 'Explicit bounded source action and idempotency key required');
 }
 export async function reserveSourceOperation(tx: SourceSQL, context: SourceContext, input: BeginSourceOperation): Promise<SourceOperationRecord> {
  validateOperation(input);

@@ -54,7 +54,16 @@
     "source.publications.create",
     "source.publications.read",
     "source.publications.resume",
-    "source.publications.cancel"
+    "source.publications.cancel",
+    "source.fleet.bind-run",
+    "source.fleet.assign",
+    "source.fleet.read",
+    "source.fleet.submit",
+    "source.fleet.submission",
+    "source.fleet.qualify",
+    "source.fleet.manifest",
+    "source.fleet.select",
+    "source.fleet.selection"
   ],
   "requires": [
     "4.2"

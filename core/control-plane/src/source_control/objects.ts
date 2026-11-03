@@ -39,9 +39,9 @@ export class SourceObjectService {
  constructor(readonly catalog:SourceObjectCatalog,readonly backend:SourceObjectBackend){}
  async inspect(scope:SourceStorageScope,id:string):Promise<StoredObject|null>{return this.catalog.lookup(scope,id);}
  async beginUpload(scope:SourceStorageScope,input:{operation_id:string;object_id:string;kind:SourceObjectKind;size_bytes:string;owner_principal_id:string}):Promise<ObjectUpload>{return this.catalog.begin(scope,input);}
- async put(scope:SourceStorageScope,kind:SourceObjectKind,payload:Uint8Array,operation_id:string=randomUUID()):Promise<VerifiedObject>{
+ async put(scope:SourceStorageScope,kind:SourceObjectKind,payload:Uint8Array,operation_id:string=randomUUID(),owner_principal_id?:string):Promise<VerifiedObject>{
  const bytes=Buffer.from(canonicalEnvelope(kind,payload));if(bytes.length>SOURCE_FORMAT.max_object_bytes)sourceError('OBJECT_LIMIT','Object exceeds format byte bound');
- const id=sourceObjectId(kind,payload),upload=await this.catalog.begin(scope,{operation_id,object_id:id,kind,size_bytes:String(bytes.length)});
+ const id=sourceObjectId(kind,payload),upload=await this.catalog.begin(scope,{operation_id,object_id:id,kind,size_bytes:String(bytes.length),...(owner_principal_id?{owner_principal_id}:{})});
  if(upload.status==='VERIFIED')return this.verifyRead(scope,upload);
  const outcome=await this.backend.put(upload.storage_key,bytes);if(outcome==='UNKNOWN')await this.catalog.unknown(scope,upload.upload_id);
  return this.completeUpload(scope,upload.upload_id);

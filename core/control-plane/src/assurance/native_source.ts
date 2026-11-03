@@ -260,11 +260,279 @@ function receipt(value: unknown): NativeExecutionReceipt {
     sourceFailure("INVALID_EVIDENCE", "Duplicate execution artifacts");
   return r as unknown as NativeExecutionReceipt;
 }
-export class NativeSourceAssurance {
+export class NativeSourceEvidenceVerifier {
+  protected async policy(
+    tx: SourceSQL,
+    context: SourceContext,
+    candidate: NativeCandidateRecord,
+  ): Promise<{ checks: NativeCheckDefinition[]; checks_digest: string }> {
+    const row = (
+      await tx.query(
+        "SELECT * FROM hyperfide.source_native_assurance_policies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND policy_id=$4 AND policy_digest=$5 AND authority_epoch=$6 AND policy_version=$7 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE",
+        [
+          ...sourceScopeValues(context.scope),
+          candidate.policy_id,
+          candidate.policy_digest,
+          context.authority_epoch,
+          context.policy_version,
+        ],
+      )
+    ).rows[0];
+    if (!row)
+      sourceFailure(
+        "EVIDENCE_POLICY_STALE",
+        "Native evidence policy is unavailable or changed",
+      );
+    const list = checks(row.checks);
+    return { checks: list, checks_digest: sourceDigest(list) };
+  }
+  protected async checker(
+    tx: SourceSQL,
+    context: SourceContext,
+    candidate: NativeCandidateRecord,
+    checkId: string,
+    principal: string,
+    credential?: string,
+    validAt?: string,
+  ): Promise<{ credential_id: string; credential_version: string }> {
+    const rows = (
+      await tx.query(
+        `SELECT k.credential_id,c.credential_version::text FROM hyperfide.source_native_assurance_checkers k JOIN hyperfide.source_principal_credentials c ON c.organisation_id=k.organisation_id AND c.repository_id=k.repository_id AND c.security_domain_id=k.security_domain_id AND c.credential_id=k.credential_id AND c.principal_id=k.principal_id
+   WHERE k.organisation_id=$1 AND k.repository_id=$2 AND k.security_domain_id=$3 AND k.policy_id=$4 AND k.check_id=$5 AND k.principal_id=$6 AND ($7::uuid IS NULL OR k.credential_id=$7) AND k.revoked_at IS NULL AND k.expires_at>COALESCE($8::timestamptz,clock_timestamp()) AND c.revoked_at IS NULL AND c.expires_at>COALESCE($8::timestamptz,clock_timestamp()) FOR SHARE OF k,c`,
+        [
+          ...sourceScopeValues(context.scope),
+          candidate.policy_id,
+          checkId,
+          principal,
+          credential ?? null,
+          validAt ?? null,
+        ],
+      )
+    ).rows;
+    if (rows.length !== 1)
+      sourceFailure(
+        "CHECKER_NOT_AUTHORIZED",
+        "Current explicitly registered independent checker required",
+      );
+    return rows[0] as { credential_id: string; credential_version: string };
+  }
+  protected async custody(
+    tx: SourceSQL,
+    context: SourceContext,
+    candidate: NativeCandidateRecord,
+    checker?: string,
+  ): Promise<void> {
+    for (const contributor of candidate.contributors) {
+      const row = (
+        await tx.query(
+          "SELECT * FROM hyperfide.source_native_custodies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND custody_id=$4 AND custody_generation=$5 AND revision_id=$6 AND authority_epoch=$7 AND revoked_at IS NULL FOR SHARE",
+          [
+            ...sourceScopeValues(context.scope),
+            contributor.custody_id,
+            contributor.custody_generation,
+            contributor.revision_id,
+            context.authority_epoch,
+          ],
+        )
+      ).rows[0];
+      if (
+        !row ||
+        (row.run_id ?? undefined) !== contributor.run_id ||
+        (row.task_id ?? undefined) !== contributor.task_id
+      )
+        sourceFailure(
+          "CUSTODY_STALE",
+          "Exact current native contributor custody required",
+        );
+      if (
+        checker !== undefined &&
+        (row.owner_principal_id === checker ||
+          candidate.created_by_principal_id === checker)
+      )
+        sourceFailure(
+          "CHECKER_NOT_INDEPENDENT",
+          "Source authors cannot certify their own candidate",
+        );
+      if (row.run_id !== null) await this.managedCustody(tx, context, row);
+    }
+  }
+  protected async managedCustody(
+    tx: SourceSQL,
+    context: SourceContext,
+    row: Record<string, any>,
+  ): Promise<void> {
+    const available = (
+      await tx.query(
+        "SELECT to_regclass('hyperfide.source_fleet_submissions') IS NOT NULL AS native_present, to_regclass('hyperfide.submission_custodies') IS NOT NULL AS legacy_present",
+      )
+    ).rows[0];
+    if (available?.native_present) {
+      const native = (
+        await tx.query(
+          `SELECT 1 FROM hyperfide.source_fleet_submissions c
+         JOIN hyperfide.tasks t ON t.organisation_id=c.organisation_id AND t.run_id=c.run_id AND t.id=c.task_id
+         JOIN hyperfide.runs r ON r.organisation_id=c.organisation_id AND r.id=c.run_id
+         WHERE c.organisation_id=$1 AND c.repository_id=$2 AND c.security_domain_id=$3 AND c.run_id=$4 AND c.task_id=$5
+         AND c.custody_id=$6 AND c.custody_generation=$7 AND c.revision_id=$8 AND c.root_tree_id=$9
+         AND c.authority='ACTIVE' AND t.current_native_custody_id=c.custody_id
+         AND c.run_authority_epoch=r.authority_epoch AND c.source_authority_epoch=$10
+         AND c.spec_revision_id=t.spec_revision_id AND c.spec_generation=t.spec_generation AND c.criteria_digest=t.criteria_digest
+         FOR SHARE OF c,t,r`,
+          [
+            ...sourceScopeValues(context.scope),
+            row.run_id,
+            row.task_id,
+            row.custody_id,
+            row.custody_generation,
+            row.revision_id,
+            row.root_tree_id,
+            context.authority_epoch,
+          ],
+        )
+      ).rows[0];
+      if (native) return;
+    }
+    if (available?.legacy_present) {
+      const legacy = (
+        await tx.query(
+          `SELECT 1 FROM hyperfide.submission_custodies c JOIN hyperfide.tasks t ON t.organisation_id=c.organisation_id AND t.run_id=c.run_id AND t.id=c.task_id JOIN hyperfide.runs r ON r.organisation_id=c.organisation_id AND r.id=c.run_id
+         WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.task_id=$3 AND c.id=$4 AND c.custody_generation=$5 AND c.source_object_id=$6 AND c.authority='ACTIVE' AND t.current_custody_id=c.id AND c.authority_epoch=r.authority_epoch FOR SHARE OF c,t,r`,
+          [
+            context.scope.organisation_id,
+            row.run_id,
+            row.task_id,
+            row.custody_id,
+            row.custody_generation,
+            row.revision_id,
+          ],
+        )
+      ).rows[0];
+      if (legacy) return;
+    }
+    sourceFailure(
+      "CUSTODY_STALE",
+      "Managed custody does not bind the current native revision and accepted task",
+    );
+  }
+  async verifyEvidence(
+    tx: SourceSQL,
+    context: SourceContext,
+    candidate: NativeCandidateRecord,
+    evidenceIds: readonly string[],
+  ): Promise<SourceCandidateEvidence> {
+    if (
+      !evidenceIds.length ||
+      evidenceIds.length > 256 ||
+      new Set(evidenceIds).size !== evidenceIds.length
+    )
+      sourceFailure("INVALID_EVIDENCE", "Distinct native evidence required");
+    evidenceIds.forEach((id) => parseUUID(id, "evidence_id"));
+    const policy = await this.policy(tx, context, candidate);
+    await this.custody(tx, context, candidate);
+    const found = (
+      await tx.query(
+        "SELECT * FROM hyperfide.source_native_assurance_evidence WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND evidence_id=ANY($4::uuid[]) ORDER BY evidence_id FOR SHARE",
+        [...sourceScopeValues(context.scope), [...evidenceIds]],
+      )
+    ).rows;
+    if (found.length !== evidenceIds.length)
+      sourceFailure("EVIDENCE_INCOMPLETE", "Native evidence is missing");
+    const seen = new Set<string>();
+    for (const row of found) {
+      if (
+        row.candidate_id !== candidate.candidate_id ||
+        row.manifest_digest !== candidate.manifest_digest ||
+        row.policy_id !== candidate.policy_id ||
+        row.policy_digest !== candidate.policy_digest ||
+        row.checks_digest !== policy.checks_digest ||
+        row.outcome !== "PASS" ||
+        row.revoked_at !== null ||
+        seen.has(row.check_id) ||
+        !policy.checks.some((check) => check.id === row.check_id)
+      )
+        sourceFailure(
+          "EVIDENCE_BINDING_MISMATCH",
+          "Evidence is failed, revoked, duplicate or belongs to other source inputs",
+        );
+      const checker = await this.checker(
+        tx,
+        context,
+        candidate,
+        row.check_id,
+        row.checker_principal_id,
+        row.checker_credential_id,
+        new Date(row.created_at).toISOString(),
+      );
+      if (checker.credential_version !== String(row.checker_credential_version))
+        sourceFailure(
+          "CHECKER_NOT_AUTHORIZED",
+          "Checker credential version changed",
+        );
+      await this.custody(tx, context, candidate, row.checker_principal_id);
+      seen.add(row.check_id);
+      if (sourceDigest(row.receipt) !== row.receipt_digest)
+        sourceFailure(
+          "EVIDENCE_BINDING_MISMATCH",
+          "Immutable execution receipt digest differs",
+        );
+      const stored = receipt(row.receipt),
+        ids = [
+          row.receipt_object_id,
+          stored.output.stdout_object_id,
+          stored.output.stderr_object_id,
+          ...stored.artifacts.map((a) => a.object_id),
+        ];
+      for (let index = 0; index < ids.length; index++) {
+        const pinned = (
+          await tx.query(
+            `SELECT 1 FROM hyperfide.source_object_pins p JOIN hyperfide.source_object_placements s ON s.organisation_id=p.organisation_id AND s.repository_id=p.repository_id AND s.security_domain_id=p.security_domain_id AND s.object_id=p.object_id AND s.incarnation_id=p.incarnation_id WHERE p.organisation_id=$1 AND p.repository_id=$2 AND p.security_domain_id=$3 AND p.owner_kind='HOLD' AND p.owner_id=$4 AND p.position=$5 AND p.object_id=$6 AND s.state='VERIFIED' FOR SHARE OF p,s`,
+            [
+              ...sourceScopeValues(context.scope),
+              "native-evidence:" + row.evidence_id,
+              index,
+              ids[index],
+            ],
+          )
+        ).rows[0];
+        if (!pinned)
+          sourceFailure(
+            "EVIDENCE_OBJECT_UNAVAILABLE",
+            "Retained execution evidence is unavailable",
+          );
+      }
+    }
+    if (policy.checks.some((check) => !seen.has(check.id)))
+      sourceFailure(
+        "EVIDENCE_INCOMPLETE",
+        "All registered native checks must pass",
+      );
+    return {
+      schema_version: 1,
+      candidate_id: candidate.candidate_id,
+      manifest_digest: candidate.manifest_digest,
+      policy_id: candidate.policy_id,
+      policy_digest: candidate.policy_digest,
+      evidence_ids: [...evidenceIds],
+      evidence_digest: sourceDigest(
+        found.map((row) => [
+          row.evidence_id,
+          row.receipt_digest,
+          row.checker_principal_id,
+          row.checker_credential_id,
+          row.checks_digest,
+        ]),
+      ),
+    };
+  }
+}
+
+export class NativeSourceAssurance extends NativeSourceEvidenceVerifier {
   constructor(
     readonly metadata: SourceMetadata,
     readonly objects: SourceObjectService,
-  ) {}
+  ) {
+    super();
+  }
   private async mutate<T>(
     context: SourceContext,
     action: string,
@@ -321,136 +589,6 @@ export class NativeSourceAssurance {
     ).rows[0];
     if (!row) sourceFailure("NOT_FOUND", "Native candidate is unavailable");
     return row.manifest as NativeCandidateRecord;
-  }
-  private async policy(
-    tx: SourceSQL,
-    context: SourceContext,
-    candidate: NativeCandidateRecord,
-  ): Promise<{ checks: NativeCheckDefinition[]; checks_digest: string }> {
-    const row = (
-      await tx.query(
-        "SELECT * FROM hyperfide.source_native_assurance_policies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND policy_id=$4 AND policy_digest=$5 AND authority_epoch=$6 AND policy_version=$7 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE",
-        [
-          ...sourceScopeValues(context.scope),
-          candidate.policy_id,
-          candidate.policy_digest,
-          context.authority_epoch,
-          context.policy_version,
-        ],
-      )
-    ).rows[0];
-    if (!row)
-      sourceFailure(
-        "EVIDENCE_POLICY_STALE",
-        "Native evidence policy is unavailable or changed",
-      );
-    const list = checks(row.checks);
-    return { checks: list, checks_digest: sourceDigest(list) };
-  }
-  private async checker(
-    tx: SourceSQL,
-    context: SourceContext,
-    candidate: NativeCandidateRecord,
-    checkId: string,
-    principal: string,
-    credential?: string,
-    validAt?: string,
-  ): Promise<{ credential_id: string; credential_version: string }> {
-    const rows = (
-      await tx.query(
-        `SELECT k.credential_id,c.credential_version::text FROM hyperfide.source_native_assurance_checkers k JOIN hyperfide.source_principal_credentials c ON c.organisation_id=k.organisation_id AND c.repository_id=k.repository_id AND c.security_domain_id=k.security_domain_id AND c.credential_id=k.credential_id AND c.principal_id=k.principal_id
-   WHERE k.organisation_id=$1 AND k.repository_id=$2 AND k.security_domain_id=$3 AND k.policy_id=$4 AND k.check_id=$5 AND k.principal_id=$6 AND ($7::uuid IS NULL OR k.credential_id=$7) AND k.revoked_at IS NULL AND k.expires_at>COALESCE($8::timestamptz,clock_timestamp()) AND c.revoked_at IS NULL AND c.expires_at>COALESCE($8::timestamptz,clock_timestamp()) FOR SHARE OF k,c`,
-        [
-          ...sourceScopeValues(context.scope),
-          candidate.policy_id,
-          checkId,
-          principal,
-          credential ?? null,
-          validAt ?? null,
-        ],
-      )
-    ).rows;
-    if (rows.length !== 1)
-      sourceFailure(
-        "CHECKER_NOT_AUTHORIZED",
-        "Current explicitly registered independent checker required",
-      );
-    return rows[0] as { credential_id: string; credential_version: string };
-  }
-  private async custody(
-    tx: SourceSQL,
-    context: SourceContext,
-    candidate: NativeCandidateRecord,
-    checker?: string,
-  ): Promise<void> {
-    for (const contributor of candidate.contributors) {
-      const row = (
-        await tx.query(
-          "SELECT * FROM hyperfide.source_native_custodies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND custody_id=$4 AND custody_generation=$5 AND revision_id=$6 AND authority_epoch=$7 AND revoked_at IS NULL FOR SHARE",
-          [
-            ...sourceScopeValues(context.scope),
-            contributor.custody_id,
-            contributor.custody_generation,
-            contributor.revision_id,
-            context.authority_epoch,
-          ],
-        )
-      ).rows[0];
-      if (
-        !row ||
-        (row.run_id ?? undefined) !== contributor.run_id ||
-        (row.task_id ?? undefined) !== contributor.task_id
-      )
-        sourceFailure(
-          "CUSTODY_STALE",
-          "Exact current native contributor custody required",
-        );
-      if (
-        checker !== undefined &&
-        (row.owner_principal_id === checker ||
-          candidate.created_by_principal_id === checker)
-      )
-        sourceFailure(
-          "CHECKER_NOT_INDEPENDENT",
-          "Source authors cannot certify their own candidate",
-        );
-      if (row.run_id !== null) await this.managedCustody(tx, context, row);
-    }
-  }
-  private async managedCustody(
-    tx: SourceSQL,
-    context: SourceContext,
-    row: Record<string, any>,
-  ): Promise<void> {
-    const available = (
-      await tx.query(
-        "SELECT to_regclass('hyperfide.submission_custodies') IS NOT NULL AS present",
-      )
-    ).rows[0]?.present;
-    if (!available)
-      sourceFailure(
-        "CUSTODY_STALE",
-        "Managed custody authority is unavailable",
-      );
-    const active = (
-      await tx.query(
-        `SELECT 1 FROM hyperfide.submission_custodies c JOIN hyperfide.tasks t ON t.organisation_id=c.organisation_id AND t.run_id=c.run_id AND t.id=c.task_id JOIN hyperfide.runs r ON r.organisation_id=c.organisation_id AND r.id=c.run_id
-   WHERE c.organisation_id=$1 AND c.run_id=$2 AND c.task_id=$3 AND c.id=$4 AND c.custody_generation=$5 AND c.source_object_id=$6 AND c.authority='ACTIVE' AND t.current_custody_id=c.id AND c.authority_epoch=r.authority_epoch FOR SHARE OF c,t,r`,
-        [
-          context.scope.organisation_id,
-          row.run_id,
-          row.task_id,
-          row.custody_id,
-          row.custody_generation,
-          row.revision_id,
-        ],
-      )
-    ).rows[0];
-    if (!active)
-      sourceFailure(
-        "CUSTODY_STALE",
-        "Managed custody does not bind the current native revision",
-      );
   }
   private async pin(
     tx: SourceSQL,
@@ -754,116 +892,6 @@ export class NativeSourceAssurance {
         };
       },
     );
-  }
-  async verifyEvidence(
-    tx: SourceSQL,
-    context: SourceContext,
-    candidate: NativeCandidateRecord,
-    evidenceIds: readonly string[],
-  ): Promise<SourceCandidateEvidence> {
-    if (
-      !evidenceIds.length ||
-      evidenceIds.length > 256 ||
-      new Set(evidenceIds).size !== evidenceIds.length
-    )
-      sourceFailure("INVALID_EVIDENCE", "Distinct native evidence required");
-    evidenceIds.forEach((id) => parseUUID(id, "evidence_id"));
-    const policy = await this.policy(tx, context, candidate);
-    await this.custody(tx, context, candidate);
-    const found = (
-      await tx.query(
-        "SELECT * FROM hyperfide.source_native_assurance_evidence WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND evidence_id=ANY($4::uuid[]) ORDER BY evidence_id FOR SHARE",
-        [...sourceScopeValues(context.scope), [...evidenceIds]],
-      )
-    ).rows;
-    if (found.length !== evidenceIds.length)
-      sourceFailure("EVIDENCE_INCOMPLETE", "Native evidence is missing");
-    const seen = new Set<string>();
-    for (const row of found) {
-      if (
-        row.candidate_id !== candidate.candidate_id ||
-        row.manifest_digest !== candidate.manifest_digest ||
-        row.policy_id !== candidate.policy_id ||
-        row.policy_digest !== candidate.policy_digest ||
-        row.checks_digest !== policy.checks_digest ||
-        row.outcome !== "PASS" ||
-        row.revoked_at !== null ||
-        seen.has(row.check_id) ||
-        !policy.checks.some((check) => check.id === row.check_id)
-      )
-        sourceFailure(
-          "EVIDENCE_BINDING_MISMATCH",
-          "Evidence is failed, revoked, duplicate or belongs to other source inputs",
-        );
-      const checker = await this.checker(
-        tx,
-        context,
-        candidate,
-        row.check_id,
-        row.checker_principal_id,
-        row.checker_credential_id,
-        new Date(row.created_at).toISOString(),
-      );
-      if (checker.credential_version !== String(row.checker_credential_version))
-        sourceFailure(
-          "CHECKER_NOT_AUTHORIZED",
-          "Checker credential version changed",
-        );
-      await this.custody(tx, context, candidate, row.checker_principal_id);
-      seen.add(row.check_id);
-      if (sourceDigest(row.receipt) !== row.receipt_digest)
-        sourceFailure(
-          "EVIDENCE_BINDING_MISMATCH",
-          "Immutable execution receipt digest differs",
-        );
-      const stored = receipt(row.receipt),
-        ids = [
-          row.receipt_object_id,
-          stored.output.stdout_object_id,
-          stored.output.stderr_object_id,
-          ...stored.artifacts.map((a) => a.object_id),
-        ];
-      for (let index = 0; index < ids.length; index++) {
-        const pinned = (
-          await tx.query(
-            `SELECT 1 FROM hyperfide.source_object_pins p JOIN hyperfide.source_object_placements s ON s.organisation_id=p.organisation_id AND s.repository_id=p.repository_id AND s.security_domain_id=p.security_domain_id AND s.object_id=p.object_id AND s.incarnation_id=p.incarnation_id WHERE p.organisation_id=$1 AND p.repository_id=$2 AND p.security_domain_id=$3 AND p.owner_kind='HOLD' AND p.owner_id=$4 AND p.position=$5 AND p.object_id=$6 AND s.state='VERIFIED' FOR SHARE OF p,s`,
-            [
-              ...sourceScopeValues(context.scope),
-              "native-evidence:" + row.evidence_id,
-              index,
-              ids[index],
-            ],
-          )
-        ).rows[0];
-        if (!pinned)
-          sourceFailure(
-            "EVIDENCE_OBJECT_UNAVAILABLE",
-            "Retained execution evidence is unavailable",
-          );
-      }
-    }
-    if (policy.checks.some((check) => !seen.has(check.id)))
-      sourceFailure(
-        "EVIDENCE_INCOMPLETE",
-        "All registered native checks must pass",
-      );
-    return {
-      schema_version: 1,
-      candidate_id: candidate.candidate_id,
-      manifest_digest: candidate.manifest_digest,
-      policy_id: candidate.policy_id,
-      policy_digest: candidate.policy_digest,
-      evidence_ids: [...evidenceIds],
-      evidence_digest: sourceDigest(
-        found.map((row) => [
-          row.evidence_id,
-          row.receipt_digest,
-          row.checker_principal_id,
-          row.checker_credential_id,
-          row.checks_digest,
-        ]),
-      ),
-    };
   }
   async revoke(
     context: SourceContext,

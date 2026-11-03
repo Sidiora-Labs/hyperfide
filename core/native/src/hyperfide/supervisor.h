@@ -66,7 +66,7 @@ int hf_runner_finalize_fleet_install(const HfJson *claim,int result,const HfPrep
 int hf_runner_finalize_fleet_readiness(const HfJson *claim,int result,const HfPreparationStage *stage,const unsigned char *prepared,size_t prepared_size,long long deadline_ns,char **readiness_json);
 int hf_fleet_readiness_finalize(const HfJson *bootstrap,const HfPreparationStage *stage,const unsigned char *prepared,size_t prepared_size,long long deadline_ns,char **readiness_json);
 int hf_fleet_readiness_seals(const HfJson *job,int result,long long deadline_ns);
-int hf_fleet_readiness_measure(const HfJson *job,int result,long long deadline_ns,char source_object[65],char source_tree[65],char source_state[72],char workspace[72]);
+int hf_fleet_readiness_measure(const HfJson *job,int result,long long deadline_ns,char source_object[72],char source_tree[72],char source_state[72],char workspace[72]);
 int hf_fleet_launch_store(const char *state,const char *launch,const char *encoded,const char *digest,char *destination,size_t capacity);
 int hf_fleet_launch_identity(const HfJson *plan,const char *organisation,const char *run,const char *sandbox,const char *boot,const char *generation,const char *slot,const char *attempt,const char *attempt_generation,long long deadline,const char *operation,uid_t *uid,gid_t *gid);
 int hf_runner_measure_fleet_launch(const HfJson *plan,int result,uid_t uid,gid_t gid,long long deadline_ns,const char *operation_id);

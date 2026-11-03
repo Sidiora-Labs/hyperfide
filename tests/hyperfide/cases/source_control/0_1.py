@@ -44,6 +44,7 @@ check('content-transfer-allowance-is-action-scoped',()=>{
   const transfer={...request,action:'source.objects.put',input:{payload_base64:payload}};
   const decoded=codec.decodeSourceRequest(codec.encodeSourceRequest(transfer));assert.equal(decoded.input.payload_base64,payload);
   refused('LIMIT_EXCEEDED',()=>codec.encodeSourceRequest({...transfer,action:'source.revisions.create'}));
+  refused('LIMIT_EXCEEDED',()=>codec.encodeSourceRequest({...transfer,action:'source.fleet.manifest'}));
   const response={protocol_version:1,operation_id:uuid,result:{payload_base64:payload}};
   assert.equal(codec.decodeSourceResponse(codec.encodeSourceResponse(response,{action:'source.objects.read'}),{action:'source.objects.read'}).result.payload_base64,payload);
   refused('LIMIT_EXCEEDED',()=>codec.encodeSourceResponse(response));

@@ -3,9 +3,9 @@ import {constants} from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {fail,hash,DIGEST} from '../transport/protocol.js';
-import type {GitSourceEntry} from './fleet_source.js';
+import type {FleetSourceEntry} from './fleet_source.js';
 export interface FleetSourceCacheStats {hits:number;misses:number;read_bytes:number;source_bytes:number;evicted_entries:number;evicted_bytes:number}
-export interface FleetSourceCache {read(entry:GitSourceEntry):Promise<Buffer>;stats:FleetSourceCacheStats}
+export interface FleetSourceCache {read(entry:FleetSourceEntry):Promise<Buffer>;stats:FleetSourceCacheStats}
 async function start(pid:number):Promise<string|null>{try{const raw=await fs.readFile('/proc/'+pid+'/stat','utf8');const fields=raw.slice(raw.lastIndexOf(')')+2).split(' ');return fields[0]==='Z'?null:fields[19]??null;}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return null;throw error;}}
 async function directory(filename:string):Promise<void>{
  if(!path.isAbsolute(filename)||path.resolve(filename)!==filename)fail('FLEET_CACHE_PATH','Canonical absolute cache directory required');
@@ -48,7 +48,7 @@ export async function withFleetSourceCache<T>(input:{directory:string;maxBytes:n
   }
   const prune=async(bytes:number,entries:number)=>{inventory.sort((a,b)=>a.mtime-b.mtime||a.name.localeCompare(b.name));while(inventory.length&&(total+bytes>input.maxBytes||inventory.length+entries>input.maxEntries)){const old=inventory.shift()!;await fs.unlink(path.join(input.directory,old.name));total-=old.size;stats.evicted_entries++;stats.evicted_bytes+=old.size;}};
   await prune(0,0);
-  const readObject=async(entry:GitSourceEntry):Promise<Buffer>=>{
+  const readObject=async(entry:FleetSourceEntry):Promise<Buffer>=>{
    if(!DIGEST.test(entry.digest)||!Number.isSafeInteger(entry.size)||entry.size<0)fail('FLEET_SOURCE_INTEGRITY','Invalid admitted cache object');
    const name=input.namespace.slice(7)+'-'+entry.digest.slice(7),filename=path.join(input.directory,name),known=inventory.find(item=>item.name===name);
    if(known){const bytes=await protectedBytes(filename,input.maxBytes,true);if(bytes.length===entry.size&&hash(bytes)===entry.digest){stats.hits++;stats.read_bytes+=bytes.length;known.mtime=Date.now();return bytes;}await fs.unlink(filename);inventory.splice(inventory.indexOf(known),1);total-=known.size;stats.evicted_entries++;stats.evicted_bytes+=known.size;}

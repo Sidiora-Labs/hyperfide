@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import type {Pool, QueryResult, QueryResultRow} from 'pg';
+import {FoundationError} from '../policy/programme.js';
 import {canonicalBytes, canonicalEnvelope, parseGeneration, parseObjectId, parsePublicProvenance, parseUUID, SourceControlError} from './contracts.js';
 import type {PublicProvenance, SourceScope} from './contracts.js';
 import {protectSourceRoot} from './object_catalog.js';
@@ -28,6 +29,9 @@ export interface SourceMetadataOptions {
  protectRoot?: (tx: SourceSQL, scope: SourceScope, treeId: string, revisionId: string) => Promise<unknown>;
  transaction_timeout_ms?: number;
  transaction?: <T>(body: (tx: SourceSQL) => Promise<T>) => Promise<T>;
+}
+class SourceTransactionFailure extends FoundationError {
+ constructor(readonly source:SourceControlError) {super(source.code,source.message);}
 }
 export const sourceScopeValues = (scope: SourceScope): string[] => [scope.organisation_id, scope.repository_id, scope.security_domain_id];
 export const sourceDigest = (value: unknown): string => 'sha256:' + createHash('sha256').update(canonicalBytes(value)).digest('hex');
@@ -60,8 +64,12 @@ export class SourceMetadata {
  constructor(pool: Pool, options: SourceMetadataOptions = {}) {this.pool = pool; this.options = options;}
  async transaction<T>(fn: (tx: SourceSQL) => Promise<T>): Promise<T> {
   if (this.options.transaction) {
-   try {return await this.options.transaction(fn);}
+   try {return await this.options.transaction(async tx=>{
+    try {return await fn(tx);}
+    catch(error) {if(error instanceof SourceControlError)throw new SourceTransactionFailure(error);throw error;}
+   });}
    catch (error) {
+    if(error instanceof SourceTransactionFailure)throw error.source;
     if (!(error instanceof SourceControlError) && typeof error === 'object' && error !== null && 'code' in error && error.code === 'COMMIT_AMBIGUOUS') throw new SourceControlError('COMMIT_AMBIGUOUS', 'Resolve the original operation identity before retrying source mutation', 'RETRY_SAME_OPERATION', 'UNKNOWN');
     throw error;
    }
