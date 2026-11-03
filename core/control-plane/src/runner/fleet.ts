@@ -4,7 +4,7 @@ import type {ExecutionPacketRecord} from '../hierarchy/packets.js';
 import {object} from '../policy/programme.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {validateAssignment,scopeContains,canonical} from '../contracts/fleet/index.mjs';
-import {readReadyFleetInstall} from '../preparation/fleet_authority.js';
+import {readReadyFleetInstall,readReadyFleetInstallForDispatch} from '../preparation/fleet_authority.js';
 import {claimTask,parseClaim,fields,uuid,fail} from '../scheduler/claim.js';
 import {issue} from '../events/instructions.js';
 import {nativeFleetWorkspaceId} from '../preparation/fleet_source.js';
@@ -122,7 +122,7 @@ export async function controlFleetWorker(tx:PrimaryTransaction,b:FleetManagerBin
  return {kind:action,delegation_id:b.delegation_id,task_id:v.task_id,attempt_id:v.attempt_id,command,acknowledged:false,task_qualified:false};
 }
 
-export async function guardFleetLaunch(tx:PrimaryTransaction,i:InvocationContext,token:{organisation_id:string;run_id:string;task_id:string;attempt_id:string;attempt_generation:string;sandbox_id:string;slot_id:string;sandbox_boot_generation:string},plan:{agent_session_id:string;slot_id:string}):Promise<void>{
+export async function guardFleetLaunch(tx:PrimaryTransaction,i:InvocationContext,token:{organisation_id:string;run_id:string;task_id:string;attempt_id:string;attempt_generation:string;sandbox_id:string;slot_id:string;sandbox_boot_generation:string},plan:{agent_session_id:string;slot_id:string},phase:'PREPARE'|'EXECUTE'='EXECUTE'):Promise<void>{
  const schema=(await tx.query("SELECT to_regclass('hyperfide.fleet_cohorts') IS NOT NULL AS ready")).rows[0];
  if(!schema?.ready)return;
  const cohort=(await tx.query('SELECT authority_epoch,leader_generation::text FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2 FOR SHARE',[token.organisation_id,token.run_id])).rows[0];
@@ -137,9 +137,9 @@ export async function guardFleetLaunch(tx:PrimaryTransaction,i:InvocationContext
  if(a.manager_generation!==row.manager_generation||a.leader_generation!==row.leader_generation||row.leader_generation!==cohort.leader_generation||a.authority_epoch!==cohort.authority_epoch||a.manager_id!==row.manager_session_id||a.worker_id!==plan.agent_session_id||task?.task_id!==token.task_id||task.slot_id!==token.slot_id||plan.slot_id!==token.slot_id)
   fail('FLEET_ASSIGNMENT_STALE','Launch differs from current delegated worker, task, slot or manager generation');
  const install=result.install_binding as Parameters<typeof readReadyFleetInstall>[2];
- const ready=await readReadyFleetInstall(tx,i,install);
+ const ready=['OPERATOR','COORDINATOR','DISPATCH'].includes(i.principal.role)?await readReadyFleetInstallForDispatch(tx,i,install,{...token,authority_epoch:String(a.authority_epoch)},plan.agent_session_id):await readReadyFleetInstall(tx,i,install);
  requireAssignmentSource(a,ready);
- if(ready.source_backend==='native'){
+ if(ready.source_backend==='native'&&phase==='EXECUTE'){
   const source=a.source as Record<string,any>,scope=source.scope;
   const bound=(await tx.query(`SELECT f.result FROM hyperfide.source_fleet_assignments f
    JOIN hyperfide.source_workspaces w USING(organisation_id,repository_id,security_domain_id,workspace_id)

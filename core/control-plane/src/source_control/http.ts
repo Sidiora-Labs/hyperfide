@@ -11,17 +11,36 @@ export interface SourceHttpOptions {
  api:ReturnType<typeof createSourceApi>; trust:SourceTokenTrust; host:string; port:number; signal:AbortSignal;
  tls?:{cert:string|Buffer;key:string|Buffer}; allowLoopbackHTTP?:boolean; maxConcurrent?:number; deadlineMs?:number;
 }
-function httpStatus(error:SourceControlError):number {
+export function sourceHttpStatus(error:SourceControlError):number {
  if(error.code==='UNAUTHENTICATED')return 401;
  if(error.code.includes('DENIED'))return 403;
+ if(error.code.startsWith('AUTH_'))return 401;
  if(error.code.includes('NOT_FOUND'))return 404;
  if(error.code.includes('LIMIT')||error.code.includes('TOO_LARGE'))return 413;
  if(error.code==='OVERLOADED')return 429;
  if(error.outcome==='UNKNOWN')return 504;
- if(error.code.includes('UNAVAILABLE'))return 503;
+ if(error.code.includes('UNAVAILABLE')||['TX_RETRY_EXHAUSTED','TX_TIMEOUT','MIGRATION_NOT_READY','SHUTTING_DOWN'].includes(error.code))return 503;
  if(error.code.includes('CONFLICT')||error.code.includes('CHANGED')||error.code.includes('STALE'))return 409;
  if(error.code==='INTERNAL_ERROR')return 500;
  return 400;
+}
+export function sourceHttpError(error:unknown):SourceControlError {
+ return error instanceof SourceControlError?error:error instanceof StorageError?
+  new SourceControlError(error.code,error.message,error.outcome==='unknown'||error.retryable?'RETRY_SAME_OPERATION':'NEVER',error.outcome==='unknown'?'UNKNOWN':'KNOWN'):
+  error instanceof FoundationError?error.code==='OUTCOME_UNKNOWN'?new SourceControlError(error.code,error.message,'RETRY_SAME_OPERATION','UNKNOWN'):error.code==='HANDLER_FAILED'?new SourceControlError('INTERNAL_ERROR','Source operation failed'):new SourceControlError(error.code,error.message):new SourceControlError('INTERNAL_ERROR','Source operation failed');
+}
+export function writeSourceHttpResponse(response:ServerResponse,value:SourceResponse,action:SourceAction|undefined,status:number):void {
+ if(response.destroyed||response.writableEnded)return;
+ let bytes:Uint8Array;
+ try{bytes=encodeSourceResponse(value,action?{action}:{});}
+ catch(error){
+  const excessive=error instanceof SourceControlError&&error.code==='LIMIT_EXCEEDED';
+  const failure=new SourceControlError(excessive?'LIMIT_EXCEEDED':'INTERNAL_ERROR',excessive?'Source response exceeds its wire limit':'Source response is invalid',excessive?'RESUME':'NEVER',excessive?'UNKNOWN':'KNOWN');
+  status=sourceHttpStatus(failure);
+  bytes=encodeSourceResponse({protocol_version:1,operation_id:value.operation_id,error:{code:failure.code,message:failure.message,retry:failure.retry,outcome:failure.outcome}});
+ }
+ response.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':bytes.length,'cache-control':'no-store','x-content-type-options':'nosniff'});
+ response.end(bytes);
 }
 export async function startSourceHttp(options:SourceHttpOptions):Promise<{address:string;close():Promise<void>}> {
  if(!Number.isInteger(options.port)||options.port<0||options.port>65535||!options.host||
@@ -29,15 +48,10 @@ export async function startSourceHttp(options:SourceHttpOptions):Promise<{addres
  const maximum=options.maxConcurrent??32,deadline=options.deadlineMs??30000;
  if(!Number.isInteger(maximum)||maximum<1||maximum>512||!Number.isInteger(deadline)||deadline<100||deadline>120000)throw new SourceControlError('CONFIGURATION_INVALID','Invalid source listener admission policy');
  let accepting=true,active=0;const pending=new Set<Promise<void>>();
- const write=(response:ServerResponse,value:SourceResponse,action:SourceAction|undefined,status:number)=>{
-  if(response.destroyed||response.writableEnded)return;
-  const bytes=encodeSourceResponse(value,action?{action}:{});
-  response.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':bytes.length,'cache-control':'no-store','x-content-type-options':'nosniff'});
-  response.end(bytes);
- };
+ const write=writeSourceHttpResponse;
  async function handle(request:IncomingMessage,response:ServerResponse):Promise<void> {
   let operation:string=randomUUID(),action:SourceAction|undefined,timer:ReturnType<typeof setTimeout>|undefined;
-  const sendError=(error:SourceControlError)=>write(response,{protocol_version:1,operation_id:operation,error:{code:error.code,message:error.message,retry:error.retry,outcome:error.outcome}},action,httpStatus(error));
+  const sendError=(error:SourceControlError)=>write(response,{protocol_version:1,operation_id:operation,error:{code:error.code,message:error.message,retry:error.retry,outcome:error.outcome}},action,sourceHttpStatus(error));
   if(!accepting){sendError(new SourceControlError('SERVICE_UNAVAILABLE','Source service is stopping'));return;}
   if(active>=maximum){sendError(new SourceControlError('OVERLOADED','Concurrent source request budget is exhausted','RESUME'));return;}
   active++;
@@ -52,9 +66,7 @@ export async function startSourceHttp(options:SourceHttpOptions):Promise<{addres
    const result=await options.api.invoke(action,decoded,principal);
    write(response,{protocol_version:1,operation_id:operation,result},action,200);
   } catch(error) {
-   sendError(error instanceof SourceControlError?error:error instanceof StorageError?
-    new SourceControlError(error.code,error.message,error.outcome==='unknown'||error.retryable?'RETRY_SAME_OPERATION':'NEVER',error.outcome==='unknown'?'UNKNOWN':'KNOWN'):
-    error instanceof FoundationError?new SourceControlError(error.code,error.message):new SourceControlError('INTERNAL_ERROR','Source operation failed'));
+   sendError(sourceHttpError(error));
   } finally {if(timer)clearTimeout(timer);active--;}
  }
  const listener=(request:IncomingMessage,response:ServerResponse)=>{let run:Promise<void>;run=handle(request,response).finally(()=>pending.delete(run));pending.add(run);void run.catch(()=>response.destroy());};

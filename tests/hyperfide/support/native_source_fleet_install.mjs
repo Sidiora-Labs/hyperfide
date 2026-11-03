@@ -42,6 +42,7 @@ export async function installNativeFleetFixture(fixture,{root,controlRoot,revisi
   const runtimeFiles=[];
   const visit=async directory=>{for(const entry of await fs.readdir(directory,{withFileTypes:true})){const filename=path.join(directory,entry.name);if(entry.isDirectory())await visit(filename);else if(entry.isFile()&&/\.(?:js|mjs)$/.test(entry.name))runtimeFiles.push({path:filename,digest:hash(await fs.readFile(filename))});}};
   await visit(controlRoot);
+  runtimeFiles.push({path:process.execPath,digest:nodeDigest});
   const plan={schema_version:1,kind:'hyperfide.fleet-install-plan',package_digest:digest(parsed),source_config_digest:digest(parseNeron(sourceText)),source_manifest_digest:source.digest,
     runtime_files:runtimeFiles,configuration_versions:[],interface_fragment_digest:digest(catalogue),interface_publication_digest:digest(index.publication),interface_proof_digest:digest(proof),interface_consumer_id:consumerId,
     source_files:source.entries.map(entry=>({mount:'code',path:entry.path,digest:entry.digest,size:entry.size,mode:entry.mode}))};

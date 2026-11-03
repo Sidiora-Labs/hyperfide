@@ -16,7 +16,7 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsrs --noEmit -p tsconfig.json",
     "build": "node ../../tools/workspace/build-package.mjs"
   },
   "sideEffects": false,

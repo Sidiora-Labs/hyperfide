@@ -45,7 +45,7 @@ static int token_new(HfJson *json, int parent, char type, const char *p) {
     json->tokens[index] = (HfJsonToken){.start=(size_t)(p-json->text),.parent=parent,.type=type,.next=index+1};
     return index;
 }
-static int parse_string(HfJson *json, const char **cursor, int parent) {
+static int parse_string(HfJson *json, const char **cursor, int parent, int strict) {
     const char *p = *cursor;
     if (*p != '"') return -1;
     int index = token_new(json,parent,'s',p++);
@@ -55,7 +55,14 @@ static int parse_string(HfJson *json, const char **cursor, int parent) {
         if (*p++ == '\\') {
             if (*p == 'u') {
                 ++p;
-                for (int i=0;i<4;++i) { if (!*p || hex_value(*p++) < 0) return -1; }
+                unsigned cp=0;
+                for (int i=0;i<4;++i) { int h=hex_value(*p);if (!*p++ || h<0) return -1;cp=(cp<<4)|(unsigned)h; }
+                if (strict&&cp>=0xd800&&cp<=0xdbff) {
+                    if (*p++!='\\'||*p++!='u') return -1;
+                    unsigned low=0;
+                    for (int i=0;i<4;++i) {int h=hex_value(*p);if (!*p++||h<0) return -1;low=(low<<4)|(unsigned)h;}
+                    if (low<0xdc00||low>0xdfff) return -1;
+                } else if (strict&&cp>=0xdc00&&cp<=0xdfff) return -1;
             } else {
                 if (!*p || !strchr("\"\\/bfnrt",*p++)) return -1;
             }
@@ -66,11 +73,11 @@ static int parse_string(HfJson *json, const char **cursor, int parent) {
     *cursor=p;
     return index;
 }
-static int parse_value(HfJson *json,const char **cursor,int parent,unsigned depth) {
+static int parse_value(HfJson *json,const char **cursor,int parent,unsigned depth,int compact) {
     if (depth>64) return -1;
     whitespace(cursor);
     const char *p=*cursor;
-    if (*p=='"') return parse_string(json,cursor,parent);
+    if (*p=='"') return parse_string(json,cursor,parent,compact);
     if (*p=='{' || *p=='[') {
         char type=*p++, close=type=='{'?'}':']';
         int index=token_new(json,parent,type,p-1);
@@ -80,7 +87,7 @@ static int parse_value(HfJson *json,const char **cursor,int parent,unsigned dept
             for (;;) {
                 int key=-1;
                 if (type=='{') {
-                    key=parse_string(json,&p,index);
+                    key=parse_string(json,&p,index,compact);
                     if (key<0) return -1;
                     char decoded[512];
                     if (!hf_json_string(json,key,decoded,sizeof decoded)) return -1;
@@ -92,8 +99,9 @@ static int parse_value(HfJson *json,const char **cursor,int parent,unsigned dept
                     whitespace(&p);
                     if (*p++!=':') return -1;
                 }
-                if (parse_value(json,&p,index,depth+1)<0) return -1;
+                if (parse_value(json,&p,index,depth+1,compact)<0) return -1;
                 ++json->tokens[index].count;
+                if (compact&&type=='[') json->count=index+1;
                 whitespace(&p);
                 if (*p==close) break;
                 if (*p++!=',') return -1;
@@ -102,6 +110,7 @@ static int parse_value(HfJson *json,const char **cursor,int parent,unsigned dept
         }
         ++p;
         json->tokens[index].end=(size_t)(p-json->text);
+        if (compact&&depth>0) json->count=index+1;
         json->tokens[index].next=json->count;
         *cursor=p;
         return index;
@@ -134,14 +143,23 @@ static int parse_value(HfJson *json,const char **cursor,int parent,unsigned dept
     *cursor=p;
     return index;
 }
-int hf_json_parse(HfJson *json,const char *text) {
-    if (!json||!text||strlen(text)>HF_BODY_LIMIT||!utf8(text)) return 0;
+int hf_json_parse_bounded(HfJson *json,const char *text,size_t maximum) {
+    if (!json||!text||maximum>96U*1024U*1024U||strlen(text)>maximum||!utf8(text)) return 0;
     memset(json,0,sizeof *json);
     json->text=text; json->length=strlen(text);
     const char *p=text;
-    if (parse_value(json,&p,-1,0)!=0) return 0;
+    if (parse_value(json,&p,-1,0,0)!=0) return 0;
     whitespace(&p);
     return !*p && json->tokens[0].type=='{';
+}
+int hf_json_parse(HfJson *json,const char *text) { return hf_json_parse_bounded(json,text,HF_BODY_LIMIT); }
+int hf_json_parse_envelope(HfJson *json,const char *text,size_t maximum) {
+    if (!json||!text||maximum>96U*1024U*1024U||strlen(text)>maximum||!utf8(text)) return 0;
+    memset(json,0,sizeof *json);json->text=text;json->length=strlen(text);
+    const char *p=text;
+    if (parse_value(json,&p,-1,0,1)!=0) return 0;
+    whitespace(&p);
+    return !*p&&json->tokens[0].type=='{';
 }
 static int append_codepoint(char *out,size_t *used,size_t cap,unsigned cp) {
     unsigned char bytes[4]; size_t n=0;
@@ -414,6 +432,15 @@ static EVP_PKEY *private_key(const char *path) {
     if (key&&!EVP_PKEY_is_a(key,"ED25519")) {EVP_PKEY_free(key);return NULL;}
     return key;
 }
+int hf_transport_public_key(const char *path,char public_key[44]) {
+    EVP_PKEY *key=private_key(path);unsigned char raw[32];size_t length=sizeof raw;int valid=0;
+    if(key&&EVP_PKEY_get_raw_public_key(key,raw,&length)==1&&length==32){
+        char *encoded=hf_base64url(raw,length);
+        if(encoded&&strlen(encoded)==43){memcpy(public_key,encoded,44);valid=1;}
+        free(encoded);
+    }
+    EVP_PKEY_free(key);return valid;
+}
 int hf_transport_keygen(const char *path,char public_key[44]) {
     EVP_PKEY *key=EVP_PKEY_Q_keygen(NULL,NULL,"ED25519");BIO *bio=BIO_new(BIO_s_mem());int valid=0;
     if (key&&bio&&PEM_write_bio_PrivateKey(bio,key,NULL,NULL,0,NULL,NULL)==1) {
@@ -433,7 +460,8 @@ static int seconds_valid(const char *value) {
     return 1;
 }
 int hf_transport_sign(const char *path,const char *domain,const char *endpoint,const char *origin,const char *identity,const char *seconds,const char *nonce,const char *body,char signature[87]) {
-    if ((!strcmp(domain,"HYPERFIDE-REQUEST-V1")&&strcmp(endpoint,"/v1/invoke"))||(!strcmp(domain,"HYPERFIDE-ENROLL-V1")&&strcmp(endpoint,"/v1/enroll"))||(strcmp(domain,"HYPERFIDE-REQUEST-V1")&&strcmp(domain,"HYPERFIDE-ENROLL-V1"))||!origin_valid(origin)||!hf_uuid_valid(identity)||!seconds_valid(seconds)||!hf_uuid_valid(nonce)||strlen(body)>HF_BODY_LIMIT) return 0;
+    int source=!strcmp(endpoint,"/api/v1/source-control");
+    if ((!strcmp(domain,"HYPERFIDE-REQUEST-V1")&&strcmp(endpoint,"/v1/invoke")&&!source)||(!strcmp(domain,"HYPERFIDE-ENROLL-V1")&&strcmp(endpoint,"/v1/enroll"))||(strcmp(domain,"HYPERFIDE-REQUEST-V1")&&strcmp(domain,"HYPERFIDE-ENROLL-V1"))||!origin_valid(origin)||!hf_uuid_valid(identity)||!seconds_valid(seconds)||!hf_uuid_valid(nonce)||strlen(body)>(source?12U*1024U*1024U:HF_BODY_LIMIT)) return 0;
     char hash[65],message[2048];if (!hf_sha256_bytes(body,strlen(body),hash)) return 0;
     int n=snprintf(message,sizeof message,"%s\nPOST\n%s\n%s\n%s\n%s\n%s\nsha256:%s\n",domain,endpoint,origin,identity,seconds,nonce,hash);
     if (n<0||(size_t)n>=sizeof message) return 0;
@@ -451,17 +479,20 @@ int hf_transport_qualified(void) {
 static pthread_once_t curl_once=PTHREAD_ONCE_INIT;
 static int curl_ready;
 static void curl_initialize(void) {curl_ready=curl_global_init(CURL_GLOBAL_DEFAULT)==CURLE_OK;}
+typedef struct {HfHttpResponse *response;size_t maximum;} HfResponseBuffer;
 static size_t response_write(char *data,size_t size,size_t count,void *opaque) {
-    HfHttpResponse *response=opaque;
+    HfResponseBuffer *buffer=opaque;
+    HfHttpResponse *response=buffer->response;
     if (size&&count>SIZE_MAX/size) return 0;
     size_t n=size*count;
-    if (n>HF_BODY_LIMIT-response->length||memchr(data,0,n)) return 0;
+    if (response->length>buffer->maximum||n>buffer->maximum-response->length||memchr(data,0,n)) return 0;
     char *next=realloc(response->body,response->length+n+1);if (!next) return 0;
     response->body=next;memcpy(next+response->length,data,n);response->length+=n;next[response->length]=0;return n;
 }
-int hf_transport_post(const HfTransportConfig *config,int enrollment,const char *body,const char *seconds,const char *nonce,HfHttpResponse *response) {
+static int transport_post(const HfTransportConfig *config,int enrollment,int source,const char *body,const char *seconds,const char *nonce,size_t response_limit,HfHttpResponse *response) {
     memset(response,0,sizeof *response);
-    if (!config||!body||strlen(body)>HF_BODY_LIMIT||!origin_valid(config->origin)) {snprintf(response->error,sizeof response->error,"INVALID_TRANSPORT_INPUT");return 0;}
+    if (!config||!body||strlen(body)>(source?12U*1024U*1024U:HF_BODY_LIMIT)||!origin_valid(config->origin)) {snprintf(response->error,sizeof response->error,"INVALID_TRANSPORT_INPUT");return 0;}
+    HfResponseBuffer response_buffer={.response=response,.maximum=response_limit};
     if (!hf_transport_qualified()) {snprintf(response->error,sizeof response->error,"UNQUALIFIED_NATIVE_TLS_RUNTIME");return 0;}
     pthread_once(&curl_once,curl_initialize);
     if (!curl_ready) return 0;
@@ -479,7 +510,7 @@ int hf_transport_post(const HfTransportConfig *config,int enrollment,const char 
         if (grant) {OPENSSL_cleanse(grant,length);free(grant);}free(json);OPENSSL_cleanse(secret,sizeof secret);
         if (!valid) {snprintf(response->error,sizeof response->error,"INVALID_GRANT_FILE");return 0;}
     } else {snprintf(identity,sizeof identity,"%s",config->credential_id);if (!hf_uuid_valid(identity)) return 0;}
-    const char *endpoint=enrollment?"/v1/enroll":"/v1/invoke";
+    const char *endpoint=source?"/api/v1/source-control":enrollment?"/v1/enroll":"/v1/invoke";
     const char *domain=enrollment?"HYPERFIDE-ENROLL-V1":"HYPERFIDE-REQUEST-V1";
     if (!hf_transport_sign(config->key_path,domain,endpoint,config->origin,identity,seconds,nonce,body,signature)) {OPENSSL_cleanse(authorization,sizeof authorization);snprintf(response->error,sizeof response->error,"INVALID_SIGNING_KEY_OR_PROOF");return 0;}
     char url[1024],header[256];snprintf(url,sizeof url,"%s%s",config->origin,endpoint);
@@ -498,7 +529,7 @@ int hf_transport_post(const HfTransportConfig *config,int enrollment,const char 
     HF_CURL(CURLOPT_HTTPHEADER,headers);HF_CURL(CURLOPT_PROTOCOLS_STR,"HTTPS");HF_CURL(CURLOPT_REDIR_PROTOCOLS_STR,"HTTPS");HF_CURL(CURLOPT_FOLLOWLOCATION,0L);
     HF_CURL(CURLOPT_SSL_VERIFYPEER,1L);HF_CURL(CURLOPT_SSL_VERIFYHOST,2L);HF_CURL(CURLOPT_SSLVERSION,CURL_SSLVERSION_TLSv1_2);
     HF_CURL(CURLOPT_PROXY,"");HF_CURL(CURLOPT_NOSIGNAL,1L);HF_CURL(CURLOPT_CONNECTTIMEOUT_MS,config->timeout_ms);HF_CURL(CURLOPT_TIMEOUT_MS,config->timeout_ms);
-    HF_CURL(CURLOPT_WRITEFUNCTION,response_write);HF_CURL(CURLOPT_WRITEDATA,response);
+    HF_CURL(CURLOPT_WRITEFUNCTION,response_write);HF_CURL(CURLOPT_WRITEDATA,&response_buffer);
     if (*config->ca_file) {
         char *ca=NULL;size_t ca_size=0;
         if (!protected_read_mode(config->ca_file,65536,&ca,&ca_size,1)||!ca_size) {
@@ -520,6 +551,13 @@ int hf_transport_post(const HfTransportConfig *config,int enrollment,const char 
     if (!response->body) response->body=strdup("");
     curl_easy_cleanup(curl);curl_slist_free_all(headers);OPENSSL_cleanse(authorization,sizeof authorization);
     return code==CURLE_OK;
+}
+int hf_transport_post(const HfTransportConfig *config,int enrollment,const char *body,const char *seconds,const char *nonce,HfHttpResponse *response) {
+    return transport_post(config,enrollment,0,body,seconds,nonce,HF_BODY_LIMIT,response);
+}
+int hf_transport_source_post(const HfTransportConfig *config,const char *body,size_t response_limit,HfHttpResponse *response) {
+    if(response_limit!=HF_BODY_LIMIT&&response_limit!=12U*1024U*1024U&&response_limit!=96U*1024U*1024U){memset(response,0,sizeof *response);return 0;}
+    return transport_post(config,0,1,body,NULL,NULL,response_limit,response);
 }
 char *hf_envelope(const char *payload,const char *operation,const char *idempotency,const char *correlation,const char *causation) {
     if (!payload||!hf_uuid_valid(operation)||!hf_uuid_valid(idempotency)||!hf_uuid_valid(correlation)||(causation&&!hf_uuid_valid(causation))||strlen(payload)>768U*1024U) return NULL;

@@ -288,43 +288,53 @@ export class SourceFleetService {
     input: { operation_id: string; idempotency_key: string },
     body: (tx: SourceSQL) => Promise<T>,
   ): Promise<T> {
+    return this.metadata.transaction((tx) =>
+      this.mutateInTransaction(tx, context, action, input, body),
+    );
+  }
+  private async mutateInTransaction<T>(
+    tx: SourceSQL,
+    context: SourceContext,
+    action: string,
+    input: { operation_id: string; idempotency_key: string },
+    body: (tx: SourceSQL) => Promise<T>,
+  ): Promise<T> {
     const operation = parseUUID(input.operation_id),
       { operation_id: _operation, idempotency_key: _key, ...payload } = input,
       digest = sourceDigest(payload);
-    return this.metadata.transaction(async (tx) => {
-      await this.metadata.guard(tx, context, action);
-      const reserved = await reserveSourceOperation(tx, context, {
-        operation_id: operation,
-        idempotency_key: input.idempotency_key,
-        action,
-        request_digest: digest,
-      });
-      if (reserved.state === "COMMITTED" && reserved.result !== null)
-        return reserved.result as T;
-      if (reserved.state !== "PENDING")
-        sourceFailure(
-          "OPERATION_TERMINAL",
-          "Fleet operation has already terminated",
-        );
-      const result = await body(tx);
-      const committed = await tx.query(
-        "UPDATE hyperfide.source_metadata_operations SET state='COMMITTED',result=$5,result_digest=$6,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND operation_id=$4 AND principal_id=$7 AND state='PENDING'",
-        [
-          ...sourceScopeValues(context.scope),
-          reserved.operation_id,
-          result,
-          sourceDigest(result),
-          context.principal_id,
-        ],
-      );
-      if (committed.rowCount !== 1)
-        sourceFailure(
-          "OPERATION_TERMINAL",
-          "Fleet operation changed before commit",
-        );
-      return result;
+    await this.metadata.guard(tx, context, action);
+    const reserved = await reserveSourceOperation(tx, context, {
+      operation_id: operation,
+      idempotency_key: input.idempotency_key,
+      action,
+      request_digest: digest,
     });
+    if (reserved.state === "COMMITTED" && reserved.result !== null)
+      return reserved.result as T;
+    if (reserved.state !== "PENDING")
+      sourceFailure(
+        "OPERATION_TERMINAL",
+        "Fleet operation has already terminated",
+      );
+    const result = await body(tx);
+    const committed = await tx.query(
+      "UPDATE hyperfide.source_metadata_operations SET state='COMMITTED',result=$5,result_digest=$6,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND operation_id=$4 AND principal_id=$7 AND state='PENDING'",
+      [
+        ...sourceScopeValues(context.scope),
+        reserved.operation_id,
+        result,
+        sourceDigest(result),
+        context.principal_id,
+      ],
+    );
+    if (committed.rowCount !== 1)
+      sourceFailure(
+        "OPERATION_TERMINAL",
+        "Fleet operation changed before commit",
+      );
+    return result;
   }
+
   async bindRun(
     context: SourceContext,
     input: FleetRunSourceInput,
@@ -477,284 +487,452 @@ export class SourceFleetService {
         package_generation: input.package_generation,
         roles: ["LEADER", "FEATURE_MANAGER"],
       });
-      const source = await readNativeFleetRunSource(
-        tx,
-        {
-          organisation_id: context.scope.organisation_id,
-          run_id: input.run_id,
+      return this.assignInTransaction(tx, context, input, i);
+    });
+  }
+  private async assignInTransaction(
+    tx: SourceSQL,
+    context: SourceContext,
+    input: FleetSourceAssignmentInput,
+    i: InvocationContext,
+    retained = false,
+  ): Promise<FleetSourceAssignment> {
+    const read = paths(input.read_paths),
+      write = paths(input.write_paths, true);
+    const runScope = {
+      organisation_id: context.scope.organisation_id,
+      run_id: input.run_id,
+    };
+    const source = retained
+      ? await readAdmittedNativeFleetSource(
+          tx,
+          runScope,
+          context.scope.repository_id,
+          input.base_revision_id,
+        )
+      : await readNativeFleetRunSource(
+          tx,
+          runScope,
+          context.scope.repository_id,
+        );
+    if (
+      !source ||
+      source.scope.security_domain_id !== context.scope.security_domain_id ||
+      source.revision_id !== input.base_revision_id
+    )
+      sourceFailure(
+        "FLEET_SOURCE_MISMATCH",
+        "Assignment must use the configured native run baseline",
+      );
+    const attempt = (
+      await tx.query(
+        `SELECT a.*,t.feature_package_id FROM hyperfide.attempts a JOIN hyperfide.tasks t ON t.organisation_id=a.organisation_id AND t.run_id=a.run_id AND t.id=a.task_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.id=$3 AND a.task_id=$4 AND a.generation=$5 FOR SHARE OF a,t`,
+        [
+          context.scope.organisation_id,
+          input.run_id,
+          input.attempt_id,
+          input.task_id,
+          input.attempt_generation,
+        ],
+      )
+    ).rows[0];
+    if (!attempt || attempt.feature_package_id !== input.package_id)
+      sourceFailure(
+        "FLEET_ASSIGNMENT_STALE",
+        "Attempt must belong to the current delegated task",
+      );
+    const effects = (
+      await tx.query(
+        `SELECT e.result FROM hyperfide.fleet_effect_receipts e WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'kind'='ASSIGN_WORKER' AND e.result->'assignment'->>'worker_id'=$3 AND e.result->'assignment'->>'manager_id'=$4 AND e.result->'assignment'->>'manager_generation'=$5 AND EXISTS(SELECT 1 FROM jsonb_array_elements(e.result->'tasks') t WHERE t->>'task_id'=$6 AND t->>'attempt_id'=$7 AND t->>'attempt_generation'=$8)`,
+        [
+          context.scope.organisation_id,
+          input.run_id,
+          input.worker_principal_id,
+          context.principal_id,
+          input.package_generation,
+          input.task_id,
+          input.attempt_id,
+          input.attempt_generation,
+        ],
+      )
+    ).rows;
+    if (effects.length !== 1)
+      sourceFailure(
+        "FLEET_ASSIGNMENT_REQUIRED",
+        "A committed model-led manager assignment is required",
+      );
+    const effect = effects[0]!.result,
+      assignment = effect.assignment,
+      assigned = assignment.tasks.find(
+        (item: Row) => item.task_id === input.task_id,
+      );
+    const ready = await readReadyFleetInstall(
+      primary(tx),
+      i,
+      effect.install_binding,
+    );
+    if (
+      assignment.assignment_id !== input.assignment_id ||
+      assignment.leader_generation !== input.leader_generation ||
+      assignment.delegation_id !== input.package_id ||
+      assignment.source?.workspace_id !== input.workspace_id ||
+      assignment.source?.scope?.organisation_id !==
+        context.scope.organisation_id ||
+      assignment.source?.scope?.repository_id !== context.scope.repository_id ||
+      assignment.source?.scope?.security_domain_id !==
+        context.scope.security_domain_id ||
+      assignment.source?.revision_id !== source.revision_id ||
+      assignment.source?.root_tree_id !== source.root_tree_id ||
+      assignment.source?.source_manifest_digest !==
+        ready.source_manifest_digest ||
+      ready.source_backend !== "native" ||
+      sourceDigest(ready.source_scope) !== sourceDigest(context.scope) ||
+      ready.source_revision !== source.revision_id ||
+      ready.root_tree_id !== source.root_tree_id ||
+      ready.receipt_digest !== input.environment_digest ||
+      ready.manifest_digest !== input.closure_digest ||
+      assignment.source_revision !== source.revision_id ||
+      assignment.package_digest !== input.closure_digest ||
+      assignment.ready_receipt_digest !== input.environment_digest ||
+      sourceDigest(assignmentPaths(assigned?.read_scope)) !==
+        sourceDigest(read) ||
+      sourceDigest(assignmentPaths(assigned?.write_scope)) !==
+        sourceDigest(write)
+    )
+      sourceFailure(
+        "FLEET_ASSIGNMENT_MISMATCH",
+        "Native assignment differs from its admitted source, environment or task scope",
+      );
+    const token = computeToken({
+      ...attempt,
+      organisation_id: context.scope.organisation_id,
+      run_id: input.run_id,
+      task_id: input.task_id,
+      attempt_id: input.attempt_id,
+      attempt_generation: input.attempt_generation,
+      run_authority_epoch: attempt.authority_epoch,
+    });
+    const authority = await assertCurrentCompute(primary(tx), token, {
+      operation: "CHECKPOINT",
+    });
+    const proof = await loadProofObligations(primary(tx), {
+      organisation_id: context.scope.organisation_id,
+      run_id: input.run_id,
+      task_id: input.task_id,
+      spec_revision_id: authority.spec_revision_id,
+      spec_generation: authority.spec_generation,
+    });
+    if (
+      proof.policy.repository_id !== context.scope.repository_id ||
+      proof.policy.source_object_id !== source.revision_id
+    )
+      sourceFailure(
+        "FLEET_POLICY_MISMATCH",
+        "Assignment source must match the exact accepted task proof baseline",
+      );
+    const sourceCredential = (
+      await tx.query(
+        "SELECT expires_at FROM hyperfide.source_principal_credentials WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND credential_id=$4 AND principal_id=$5 AND principal_kind='worker' AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE",
+        [
+          ...sourceScopeValues(context.scope),
+          input.worker_credential_id,
+          input.worker_principal_id,
+        ],
+      )
+    ).rows[0];
+    const controlCredential = (
+      await tx.query(
+        "SELECT expires_at FROM hyperfide.identity_principals WHERE credential_id=$1 AND organisation_id=$2 AND run_id=$3 AND actor_id=$4 AND role='WORKER' AND state='ACTIVE' AND deployment_epoch=$5 AND attempt_id=$6 AND attempt_generation=$7 AND sandbox_id=$8 AND boot_generation=$9 AND expires_at>clock_timestamp() AND $10::text[] <@ allowed_actions FOR SHARE",
+        [
+          input.worker_credential_id,
+          context.scope.organisation_id,
+          input.run_id,
+          input.worker_principal_id,
+          attempt.authority_epoch,
+          input.attempt_id,
+          input.attempt_generation,
+          attempt.sandbox_id,
+          attempt.sandbox_boot_generation,
+          WORKER_ACTIONS,
+        ],
+      )
+    ).rows[0];
+    const credential = controlCredential ?? sourceCredential;
+    if (!credential)
+      sourceFailure(
+        "FLEET_WORKER_CREDENTIAL_REQUIRED",
+        "An active source credential for the assigned worker is required",
+      );
+    const capability = randomUUID(),
+      generation = "1",
+      expiry = new Date(
+        Math.min(
+          Date.parse(context.expires_at),
+          new Date(credential.expires_at).getTime(),
+        ),
+      ).toISOString();
+    const workspace = {
+      workspace_id: input.workspace_id,
+      base_revision_id: source.revision_id,
+      mode: input.mode,
+      read_paths: read,
+      write_paths: write,
+      budgets: this.budgets,
+    };
+    await tx.query(
+      `INSERT INTO hyperfide.source_workspaces(organisation_id,repository_id,security_domain_id,workspace_id,principal_id,authority_epoch,base_revision_id,root_tree_id,mode,read_paths,write_paths,budgets,open_request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [
+        ...sourceScopeValues(context.scope),
+        input.workspace_id,
+        input.worker_principal_id,
+        context.authority_epoch,
+        source.revision_id,
+        source.root_tree_id,
+        input.mode,
+        JSON.stringify(read),
+        JSON.stringify(write),
+        JSON.stringify(this.budgets),
+        sourceDigest(workspace),
+      ],
+    );
+    const binding = {
+      workspace_id: input.workspace_id,
+      generation,
+      task_id: input.task_id,
+      attempt_id: input.attempt_id,
+      attempt_generation: input.attempt_generation,
+    };
+    await tx.query(
+      `INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,managed_binding,expires_at) VALUES($1,$2,$3,$4,$5,$6,'worker',$7,$8,$9,$10,$11,$12)`,
+      [
+        ...sourceScopeValues(context.scope),
+        capability,
+        input.worker_principal_id,
+        input.worker_credential_id,
+        context.authority_epoch,
+        context.policy_version,
+        WORKER_ACTIONS,
+        [""],
+        binding,
+        expiry,
+      ],
+    );
+    const result: FleetSourceAssignment = {
+      schema_version: 1,
+      scope: context.scope,
+      assignment_id: input.assignment_id,
+      assignment_generation: generation,
+      run_id: input.run_id,
+      task_id: input.task_id,
+      attempt_id: input.attempt_id,
+      attempt_generation: input.attempt_generation,
+      workspace_id: input.workspace_id,
+      base_revision_id: source.revision_id,
+      root_tree_id: source.root_tree_id,
+      closure_digest: input.closure_digest,
+      environment_digest: input.environment_digest,
+      worker_principal_id: input.worker_principal_id,
+      capability_id: capability,
+      authority: {
+        authority_epoch: context.authority_epoch,
+        generation,
+        policy_version: context.policy_version!,
+        workspace: {
+          workspace_id: input.workspace_id,
+          workspace_generation: generation,
         },
-        context.scope.repository_id,
-      );
-      if (
-        !source ||
-        source.scope.security_domain_id !== context.scope.security_domain_id ||
-        source.revision_id !== input.base_revision_id
-      )
-        sourceFailure(
-          "FLEET_SOURCE_MISMATCH",
-          "Assignment must use the configured native run baseline",
-        );
-      const attempt = (
-        await tx.query(
-          `SELECT a.*,t.feature_package_id FROM hyperfide.attempts a JOIN hyperfide.tasks t ON t.organisation_id=a.organisation_id AND t.run_id=a.run_id AND t.id=a.task_id WHERE a.organisation_id=$1 AND a.run_id=$2 AND a.id=$3 AND a.task_id=$4 AND a.generation=$5 FOR SHARE OF a,t`,
-          [
-            context.scope.organisation_id,
-            input.run_id,
-            input.attempt_id,
-            input.task_id,
-            input.attempt_generation,
-          ],
-        )
-      ).rows[0];
-      if (!attempt || attempt.feature_package_id !== input.package_id)
-        sourceFailure(
-          "FLEET_ASSIGNMENT_STALE",
-          "Attempt must belong to the current delegated task",
-        );
-      const effects = (
-        await tx.query(
-          `SELECT e.result FROM hyperfide.fleet_effect_receipts e WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'kind'='ASSIGN_WORKER' AND e.result->'assignment'->>'worker_id'=$3 AND e.result->'assignment'->>'manager_id'=$4 AND e.result->'assignment'->>'manager_generation'=$5 AND EXISTS(SELECT 1 FROM jsonb_array_elements(e.result->'tasks') t WHERE t->>'task_id'=$6 AND t->>'attempt_id'=$7 AND t->>'attempt_generation'=$8)`,
-          [
-            context.scope.organisation_id,
-            input.run_id,
-            input.worker_principal_id,
-            context.principal_id,
-            input.package_generation,
-            input.task_id,
-            input.attempt_id,
-            input.attempt_generation,
-          ],
-        )
-      ).rows;
-      if (effects.length !== 1)
-        sourceFailure(
-          "FLEET_ASSIGNMENT_REQUIRED",
-          "A committed model-led manager assignment is required",
-        );
-      const effect = effects[0]!.result,
-        assignment = effect.assignment,
-        assigned = assignment.tasks.find(
-          (item: Row) => item.task_id === input.task_id,
-        );
-      const ready = await readReadyFleetInstall(
-        primary(tx),
-        i,
-        effect.install_binding,
-      );
-      if (
-        assignment.assignment_id !== input.assignment_id ||
-        assignment.leader_generation !== input.leader_generation ||
-        assignment.delegation_id !== input.package_id ||
-        assignment.source?.workspace_id !== input.workspace_id ||
-        assignment.source?.scope?.organisation_id !==
-          context.scope.organisation_id ||
-        assignment.source?.scope?.repository_id !==
-          context.scope.repository_id ||
-        assignment.source?.scope?.security_domain_id !==
-          context.scope.security_domain_id ||
-        assignment.source?.revision_id !== source.revision_id ||
-        assignment.source?.root_tree_id !== source.root_tree_id ||
-        assignment.source?.source_manifest_digest !==
-          ready.source_manifest_digest ||
-        ready.source_backend !== "native" ||
-        sourceDigest(ready.source_scope) !== sourceDigest(context.scope) ||
-        ready.source_revision !== source.revision_id ||
-        ready.root_tree_id !== source.root_tree_id ||
-        ready.receipt_digest !== input.environment_digest ||
-        ready.manifest_digest !== input.closure_digest ||
-        assignment.source_revision !== source.revision_id ||
-        assignment.package_digest !== input.closure_digest ||
-        assignment.ready_receipt_digest !== input.environment_digest ||
-        sourceDigest(assignmentPaths(assigned?.read_scope)) !==
-          sourceDigest(read) ||
-        sourceDigest(assignmentPaths(assigned?.write_scope)) !==
-          sourceDigest(write)
-      )
-        sourceFailure(
-          "FLEET_ASSIGNMENT_MISMATCH",
-          "Native assignment differs from its admitted source, environment or task scope",
-        );
-      const token = computeToken({
-        ...attempt,
-        organisation_id: context.scope.organisation_id,
-        run_id: input.run_id,
-        task_id: input.task_id,
-        attempt_id: input.attempt_id,
-        attempt_generation: input.attempt_generation,
-        run_authority_epoch: attempt.authority_epoch,
-      });
-      const authority = await assertCurrentCompute(primary(tx), token, {
-        operation: "CHECKPOINT",
-      });
-      const proof = await loadProofObligations(primary(tx), {
-        organisation_id: context.scope.organisation_id,
-        run_id: input.run_id,
-        task_id: input.task_id,
-        spec_revision_id: authority.spec_revision_id,
-        spec_generation: authority.spec_generation,
-      });
-      if (
-        proof.policy.repository_id !== context.scope.repository_id ||
-        proof.policy.source_object_id !== source.revision_id
-      )
-        sourceFailure(
-          "FLEET_POLICY_MISMATCH",
-          "Assignment source must match the exact accepted task proof baseline",
-        );
-      const sourceCredential = (
-        await tx.query(
-          "SELECT expires_at FROM hyperfide.source_principal_credentials WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND credential_id=$4 AND principal_id=$5 AND principal_kind='worker' AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE",
-          [
-            ...sourceScopeValues(context.scope),
-            input.worker_credential_id,
-            input.worker_principal_id,
-          ],
-        )
-      ).rows[0];
-      const controlCredential = (
-        await tx.query(
-          "SELECT expires_at FROM hyperfide.identity_principals WHERE credential_id=$1 AND organisation_id=$2 AND run_id=$3 AND actor_id=$4 AND role='WORKER' AND state='ACTIVE' AND deployment_epoch=$5 AND attempt_id=$6 AND attempt_generation=$7 AND sandbox_id=$8 AND boot_generation=$9 AND expires_at>clock_timestamp() AND $10::text[] <@ allowed_actions FOR SHARE",
-          [
-            input.worker_credential_id,
-            context.scope.organisation_id,
-            input.run_id,
-            input.worker_principal_id,
-            attempt.authority_epoch,
-            input.attempt_id,
-            input.attempt_generation,
-            attempt.sandbox_id,
-            attempt.sandbox_boot_generation,
-            WORKER_ACTIONS,
-          ],
-        )
-      ).rows[0];
-      const credential = controlCredential ?? sourceCredential;
-      if (!credential)
-        sourceFailure(
-          "FLEET_WORKER_CREDENTIAL_REQUIRED",
-          "An active source credential for the assigned worker is required",
-        );
-      const capability = randomUUID(),
-        generation = "1",
-        expiry = new Date(
-          Math.min(
-            Date.parse(context.expires_at),
-            new Date(credential.expires_at).getTime(),
-          ),
-        ).toISOString();
-      const workspace = {
-        workspace_id: input.workspace_id,
-        base_revision_id: source.revision_id,
+        managed: {
+          task_id: input.task_id,
+          attempt_id: input.attempt_id,
+          attempt_generation: input.attempt_generation,
+        },
+      },
+      workspace: {
+        workspace_generation: "1",
+        scope_generation: "1",
         mode: input.mode,
         read_paths: read,
         write_paths: write,
         budgets: this.budgets,
-      };
-      await tx.query(
-        `INSERT INTO hyperfide.source_workspaces(organisation_id,repository_id,security_domain_id,workspace_id,principal_id,authority_epoch,base_revision_id,root_tree_id,mode,read_paths,write_paths,budgets,open_request_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-        [
-          ...sourceScopeValues(context.scope),
-          input.workspace_id,
-          input.worker_principal_id,
-          context.authority_epoch,
-          source.revision_id,
-          source.root_tree_id,
-          input.mode,
-          JSON.stringify(read),
-          JSON.stringify(write),
-          JSON.stringify(this.budgets),
-          sourceDigest(workspace),
-        ],
-      );
-      const binding = {
-        workspace_id: input.workspace_id,
+      },
+    };
+    await tx.query(
+      `INSERT INTO hyperfide.source_fleet_assignments(organisation_id,repository_id,security_domain_id,assignment_id,assignment_generation,run_id,task_id,attempt_id,attempt_generation,workspace_id,worker_principal_id,worker_credential_id,manager_principal_id,capability_id,run_authority_epoch,source_authority_epoch,sandbox_id,slot_id,sandbox_boot_generation,base_revision_id,closure_digest,environment_digest,result) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+      [
+        ...sourceScopeValues(context.scope),
+        input.assignment_id,
         generation,
-        task_id: input.task_id,
-        attempt_id: input.attempt_id,
-        attempt_generation: input.attempt_generation,
-      };
-      await tx.query(
-        `INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,managed_binding,expires_at) VALUES($1,$2,$3,$4,$5,$6,'worker',$7,$8,$9,$10,$11,$12)`,
-        [
-          ...sourceScopeValues(context.scope),
-          capability,
-          input.worker_principal_id,
-          input.worker_credential_id,
-          context.authority_epoch,
-          context.policy_version,
-          WORKER_ACTIONS,
-          [""],
-          binding,
-          expiry,
-        ],
+        input.run_id,
+        input.task_id,
+        input.attempt_id,
+        input.attempt_generation,
+        input.workspace_id,
+        input.worker_principal_id,
+        input.worker_credential_id,
+        context.principal_id,
+        capability,
+        attempt.authority_epoch,
+        context.authority_epoch,
+        attempt.sandbox_id,
+        attempt.slot_id,
+        attempt.sandbox_boot_generation,
+        source.revision_id,
+        input.closure_digest,
+        input.environment_digest,
+        result,
+      ],
+    );
+    return result;
+  }
+  async enrollWorker(
+    tx: PrimaryTransaction,
+    runner: InvocationContext,
+    credentialId: string,
+  ): Promise<FleetSourceAssignment | null> {
+    assertPrimaryTransaction(tx);
+    assertInvocation(runner);
+    await runner.guard(tx);
+    parseUUID(credentialId);
+    if (runner.principal.role !== "RUNNER")
+      sourceFailure(
+        "FLEET_ENROLLMENT_DENIED",
+        "Native source enrollment requires the bound runner",
       );
-      const result: FleetSourceAssignment = {
-        schema_version: 1,
-        scope: context.scope,
-        assignment_id: input.assignment_id,
-        assignment_generation: generation,
-        run_id: input.run_id,
-        task_id: input.task_id,
-        attempt_id: input.attempt_id,
-        attempt_generation: input.attempt_generation,
-        workspace_id: input.workspace_id,
-        base_revision_id: source.revision_id,
-        root_tree_id: source.root_tree_id,
-        closure_digest: input.closure_digest,
-        environment_digest: input.environment_digest,
-        worker_principal_id: input.worker_principal_id,
-        capability_id: capability,
-        authority: {
-          authority_epoch: context.authority_epoch,
-          generation,
-          policy_version: context.policy_version!,
-          workspace: {
-            workspace_id: input.workspace_id,
-            workspace_generation: generation,
-          },
-          managed: {
-            task_id: input.task_id,
-            attempt_id: input.attempt_id,
-            attempt_generation: input.attempt_generation,
-          },
-        },
-        workspace: {
-          workspace_generation: "1",
-          scope_generation: "1",
-          mode: input.mode,
-          read_paths: read,
-          write_paths: write,
-          budgets: this.budgets,
-        },
-      };
+    const credential = (
       await tx.query(
-        `INSERT INTO hyperfide.source_fleet_assignments(organisation_id,repository_id,security_domain_id,assignment_id,assignment_generation,run_id,task_id,attempt_id,attempt_generation,workspace_id,worker_principal_id,worker_credential_id,manager_principal_id,capability_id,run_authority_epoch,source_authority_epoch,sandbox_id,slot_id,sandbox_boot_generation,base_revision_id,closure_digest,environment_digest,result) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+        "SELECT * FROM hyperfide.identity_principals WHERE credential_id=$1 AND organisation_id=$2 AND run_id=$3 AND role='WORKER' AND state='ACTIVE' AND sandbox_id=$4 AND boot_id=$5 AND boot_generation=$6 AND deployment_epoch=$7 AND expires_at>clock_timestamp() FOR SHARE",
         [
-          ...sourceScopeValues(context.scope),
-          input.assignment_id,
-          generation,
-          input.run_id,
-          input.task_id,
-          input.attempt_id,
-          input.attempt_generation,
-          input.workspace_id,
-          input.worker_principal_id,
-          input.worker_credential_id,
-          context.principal_id,
-          capability,
-          attempt.authority_epoch,
-          context.authority_epoch,
-          attempt.sandbox_id,
-          attempt.slot_id,
-          attempt.sandbox_boot_generation,
-          source.revision_id,
-          input.closure_digest,
-          input.environment_digest,
-          result,
+          credentialId,
+          runner.principal.organisation_id,
+          runner.principal.run_id,
+          runner.principal.sandbox_id,
+          runner.principal.boot_id,
+          runner.principal.boot_generation,
+          runner.principal.deployment_epoch,
         ],
+      )
+    ).rows[0];
+    if (!credential)
+      sourceFailure(
+        "FLEET_ENROLLMENT_DENIED",
+        "Delegated worker credential differs from the current runner boot",
       );
-      return result;
-    });
+    const effects = (
+      await tx.query(
+        "SELECT result FROM hyperfide.fleet_effect_receipts WHERE organisation_id=$1 AND run_id=$2 AND result->>'kind'='ASSIGN_WORKER' AND result->'assignment'->>'worker_id'=$3 AND EXISTS(SELECT 1 FROM jsonb_array_elements(result->'tasks') task WHERE task->>'attempt_id'=$4 AND task->>'attempt_generation'=$5)",
+        [
+          credential.organisation_id,
+          credential.run_id,
+          credential.actor_id,
+          credential.attempt_id,
+          String(credential.attempt_generation),
+        ],
+      )
+    ).rows;
+    if (effects.length !== 1)
+      sourceFailure(
+        "FLEET_ENROLLMENT_DENIED",
+        "Exactly one committed manager assignment must own the worker",
+      );
+    const effect = effects[0]!.result,
+      setup = effect.native_source_setup;
+    if (setup === undefined) return null;
+    if (
+      !setup ||
+      setup.action !== "source.fleet.assign" ||
+      !setup.scope ||
+      !setup.input ||
+      effect.assignment?.schema_version !== 2
+    )
+      sourceFailure(
+        "FLEET_ENROLLMENT_DENIED",
+        "A versioned native source setup is required",
+      );
+    const scope = setup.scope as SourceScope,
+      assignment = effect.assignment;
+    if (
+      scope.organisation_id !== credential.organisation_id ||
+      assignment.worker_id !== credential.actor_id ||
+      setup.input.attempt_id !== credential.attempt_id ||
+      String(setup.input.attempt_generation) !==
+        String(credential.attempt_generation)
+    )
+      sourceFailure(
+        "FLEET_ENROLLMENT_DENIED",
+        "Source setup differs from delegated worker custody",
+      );
+    const domain = (
+      await tx.query(
+        "SELECT authority_epoch::text,policy_version FROM hyperfide.source_authority_domains WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND enabled FOR SHARE",
+        sourceScopeValues(scope),
+      )
+    ).rows[0];
+    if (!domain)
+      sourceFailure(
+        "FLEET_ENROLLMENT_DENIED",
+        "Native source authority is unavailable",
+      );
+    const assertCurrent = async (current: SourceSQL, action?: string) => {
+      if (
+        action !== undefined &&
+        !["source.fleet.assign", "source.revisions.read"].includes(action)
+      )
+        sourceFailure(
+          "SCOPE_DENIED",
+          "Enrollment source authority is confined to its assigned workspace",
+        );
+      await runner.guard(current);
+      await requireAuthority(primary(current), {
+        organisation_id: credential.organisation_id,
+        run_id: credential.run_id,
+        session_id: assignment.manager_id,
+        authority_epoch: runner.principal.deployment_epoch,
+        leader_generation: assignment.leader_generation,
+        package_id: assignment.delegation_id,
+        package_generation: assignment.manager_generation,
+        roles: ["FEATURE_MANAGER"],
+      });
+    };
+    const context: SourceContext = {
+      scope,
+      principal_id: assignment.manager_id,
+      authority_epoch: domain.authority_epoch,
+      policy_version: domain.policy_version,
+      expires_at: new Date(credential.expires_at).toISOString(),
+      assertCurrent,
+    };
+    const digest = sourceDigest([
+        "native-source-enrollment",
+        assignment.assignment_id,
+        credentialId,
+      ]).slice(7),
+      operation =
+        digest.slice(0, 8) +
+        "-" +
+        digest.slice(8, 12) +
+        "-4" +
+        digest.slice(13, 16) +
+        "-a" +
+        digest.slice(17, 20) +
+        "-" +
+        digest.slice(20, 32);
+    const input = {
+      ...setup.input,
+      worker_credential_id: credentialId,
+      operation_id: operation,
+      idempotency_key:
+        "native-source-enrollment:" +
+        assignment.assignment_id +
+        ":" +
+        credentialId,
+    } as FleetSourceAssignmentInput;
+    return this.mutateInTransaction(
+      tx,
+      context,
+      "source.fleet.assign",
+      input,
+      (sql) => this.assignInTransaction(sql, context, input, runner, true),
+    );
   }
   private async assignment(
     tx: SourceSQL,

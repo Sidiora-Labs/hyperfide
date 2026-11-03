@@ -21,6 +21,8 @@ import {ContractError,parseNeron, parsePackage, scopeContains} from '../contract
 import {assertFleetActor, localProcessIdentity, withAdmittedDecision} from '../agents/fleet_authority.js';
 import {validateNativeFleetSource,validateAdmittedNativeFleetSource,readAdmittedNativeFleetSource} from '../source_control/fleet-run-source.js';
 import {sourceRevisionObjectId} from './fleet_source.js';
+import {assertCurrentCompute} from '../scheduler/leases.js';
+import type {ComputeToken} from '../scheduler/claim.js';
 
 type RecordValue = Record<string, any>;
 const digest = (value: unknown): string => hash(canonicalJSON(value));
@@ -288,21 +290,36 @@ export async function fleetInstallDeliveryInputs(tx:PrimaryTransaction,i:Invocat
  return {admission:row.admission,...lineage,package_spec:row.package_spec,source_config:row.source_config,install_plan:row.install_plan};
 }
 export interface ReadyFleetInstallBinding {operation_id:string;environment_id:string;environment_generation:number;sandbox_id:string;boot_id:string;boot_generation:string;input_digest:string;}
-export async function readReadyFleetInstall(tx:PrimaryTransaction,i:InvocationContext,binding:ReadyFleetInstallBinding):Promise<RecordValue> {
- assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
- const row = await load(tx,i,binding.operation_id);
+async function readyFleetInstallRecord(tx:PrimaryTransaction,i:InvocationContext,binding:ReadyFleetInstallBinding,row:RecordValue,admittedSource=false):Promise<RecordValue>{
  for (const key of ['environment_id','environment_generation','sandbox_id','boot_id','boot_generation','input_digest'] as const) if (String(row[key]) !== String(binding[key])) fail('FLEET_INSTALL_SCOPE','Environment binding differs');
- if(i.principal.role==='RUNNER')runner(i,row.admission);
- else if(i.principal.role==='FEATURE_MANAGER'){if(i.principal.actor_id!==row.manager_session_id)fail('FLEET_INSTALL_SCOPE','Manager does not own this install');}
- else fail('FLEET_INSTALL_SCOPE','Current owning manager or bound runner required');
  if (row.state !== 'READY') fail('FLEET_INSTALL_NOT_READY','Environment preparation has not completed');
  let native:Awaited<ReturnType<typeof readAdmittedNativeFleetSource>>=null;
  if(row.source_config.source.source_backend==='native'){
-  native=i.principal.role==='RUNNER'?await readAdmittedNativeFleetSource(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id},row.source_config.source.repository,row.admission.source_revision):await validateAdmittedNativeFleetSource(tx,i,{repository_id:row.source_config.source.repository,security_domain_id:row.source_config.cache.security_domain,revision_id:row.admission.source_revision});
+  native=admittedSource||i.principal.role==='RUNNER'?await readAdmittedNativeFleetSource(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id},row.source_config.source.repository,row.admission.source_revision):await validateAdmittedNativeFleetSource(tx,i,{repository_id:row.source_config.source.repository,security_domain_id:row.source_config.cache.security_domain,revision_id:row.admission.source_revision});
   if(!native||native.scope.security_domain_id!==row.source_config.cache.security_domain||native.revision_id!==row.admission.source_revision)fail('FLEET_INSTALL_SOURCE','Installed native source no longer matches its current run binding');
  }
  return {logical_operation_id:(await readBootstrapInstallAllocationEpoch(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id,operation_id:row.operation_id})).logical_operation_id,receipt:row.receipt,receipt_digest:row.receipt_digest,readiness_witnesses:await readinessWitnesses(tx,i,row.operation_id),manifest_digest:row.admission.package_digest,source_revision:row.admission.source_revision,source_manifest_digest:row.admission.source_manifest_digest,input_digest:row.input_digest,package_id:row.package_id,manager_generation:String(row.manager_generation),read_scope:row.source_config.workspace.read_scope,write_scope:row.source_config.workspace.write_scope,...(native?{source_backend:'native',source_scope:native.scope,root_tree_id:native.root_tree_id,source_workspace_mode:row.source_config.client.mode}: {})};
 }
+export async function readReadyFleetInstall(tx:PrimaryTransaction,i:InvocationContext,binding:ReadyFleetInstallBinding):Promise<RecordValue> {
+ assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
+ const row=await load(tx,i,binding.operation_id);
+ if(i.principal.role==='RUNNER')runner(i,row.admission);
+ else if(i.principal.role==='FEATURE_MANAGER'){if(i.principal.actor_id!==row.manager_session_id)fail('FLEET_INSTALL_SCOPE','Manager does not own this install');}
+ else fail('FLEET_INSTALL_SCOPE','Current owning manager or bound runner required');
+ return readyFleetInstallRecord(tx,i,binding,row);
+}
+export async function readReadyFleetInstallForDispatch(tx:PrimaryTransaction,i:InvocationContext,binding:ReadyFleetInstallBinding,token:ComputeToken,workerId:string):Promise<RecordValue>{
+ assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
+ if(!['OPERATOR','COORDINATOR','DISPATCH'].includes(i.principal.role)||i.principal.organisation_id!==token.organisation_id||i.principal.run_id!==token.run_id||i.principal.deployment_epoch!==token.authority_epoch)fail('FLEET_INSTALL_SCOPE','Authenticated current dispatch controller required');
+ await assertCurrentCompute(tx,token,{operation:'ADVANCE'});
+ const row=await load(tx,i,binding.operation_id);
+ const matches=(await tx.query(`SELECT e.result FROM hyperfide.fleet_effect_receipts e WHERE e.organisation_id=$1 AND e.run_id=$2 AND e.result->>'kind'='ASSIGN_WORKER'
+ AND e.result->'assignment'->>'worker_id'=$3 AND e.result->'assignment'->>'manager_id'=$4 AND e.result->'assignment'->>'manager_generation'=$5 AND e.result->'assignment'->>'leader_generation'=$6 AND e.result->'assignment'->>'authority_epoch'=$7
+ AND EXISTS(SELECT 1 FROM jsonb_array_elements(e.result->'tasks') task WHERE task->>'task_id'=$8 AND task->>'attempt_id'=$9 AND task->>'attempt_generation'=$10 AND task->>'slot_id'=$11)`,[token.organisation_id,token.run_id,workerId,row.manager_session_id,String(row.manager_generation),String(row.leader_generation),token.authority_epoch,token.task_id,token.attempt_id,token.attempt_generation,token.slot_id])).rows;
+ if(matches.length!==1||!same(matches[0]!.result.install_binding,binding)||row.sandbox_id!==token.sandbox_id||String(row.boot_generation)!==token.sandbox_boot_generation)fail('FLEET_INSTALL_SCOPE','Dispatch must name the exact admitted worker assignment and installed boot');
+ return readyFleetInstallRecord(tx,i,binding,row,true);
+}
+
 export function createComponent(ctx:ComponentContext):Component {
  const transact = <T>(i:InvocationContext,fn:(tx:PrimaryTransaction)=>Promise<T>,exclusiveRun=false) => ctx.resources.gateway.withPrimaryTransaction({signal:i.signal,guard:async tx=>{if(exclusiveRun)await lockRun(tx,{organisation_id:i.principal.organisation_id,run_id:i.principal.run_id},'exclusive');await i.guard(tx);},timeoutMs:5000},fn);
  const guard = (fn:(input:unknown,i:InvocationContext)=>Promise<unknown>) => async(input:unknown,request:ComponentContext) => { assertInvocation(request.invocation); return fn(input,request.invocation); };

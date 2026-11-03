@@ -393,8 +393,109 @@ static int hf_client_console25(int argc,char **argv,int mode,FILE *out,FILE *err
  }
 }
 static int hf_client_mcp25(FILE *out,FILE *err);
+static int hf_source_string(const HfJson *json,int object,const char *name,char *value,size_t size){
+ return hf_json_string(json,hf_json_field(json,object,name),value,size);
+}
+static int hf_source_scope(const HfJson *left,int l,const HfJson *right,int r){
+ const char *fields[]={"organisation_id","repository_id","security_domain_id"};
+ if(l<0||r<0||!hf_json_only(left,l,fields,3)||!hf_json_only(right,r,fields,3))return 0;
+ for(size_t i=0;i<3;i++){char a[37],b[37];if(!hf_source_string(left,l,fields[i],a,sizeof a)||!hf_source_string(right,r,fields[i],b,sizeof b)||!hf_uuid_valid(a)||strcmp(a,b))return 0;}
+ return 1;
+}
+static char *hf_source_read(const char *filename){
+ const size_t maximum=12U*1024U*1024U;
+ int fd=!strcmp(filename,"-")?dup(STDIN_FILENO):open(filename,O_RDONLY|O_NOFOLLOW|O_CLOEXEC);if(fd<0)return NULL;
+ struct stat info;
+ if(strcmp(filename,"-")&&(fstat(fd,&info)||!S_ISREG(info.st_mode)||info.st_size<0||(uint64_t)info.st_size>maximum)){close(fd);return NULL;}
+ char *bytes=malloc(maximum+1);if(!bytes){close(fd);return NULL;}size_t length=0;
+ for(;;){ssize_t n=read(fd,bytes+length,maximum+1-length);if(n<0&&errno==EINTR)continue;if(n<0){free(bytes);close(fd);return NULL;}if(!n)break;length+=(size_t)n;if(length>maximum){free(bytes);close(fd);return NULL;}}
+ close(fd);if(memchr(bytes,0,length)){free(bytes);return NULL;}bytes[length]=0;return bytes;
+}
+static int hf_source_invoke(int argc,char **argv,FILE *out,FILE *err){
+ if(argc==2||(argc==3&&!strcmp(argv[2],"--help"))){fputs("Usage: hyperfide source invoke --request-file FILE [--config ABSOLUTE_PATH]\nFILE is a versioned source API request; use - for stdin.\nConfiguration defaults to HF_SOURCE_CONFIG. Preserve operation IDs when retrying.\n",out);return 0;}
+ if(argc<3||strcmp(argv[2],"invoke"))return hf_client_error25(err,"INVALID_ARGS","Use source invoke --request-file file with an explicit source request");
+ const char *filename=NULL,*config_file=NULL;
+ for(int i=3;i<argc;i+=2){
+  if(i+1>=argc)return hf_client_error25(err,"INVALID_ARGS","Source options require values");
+  if(!strcmp(argv[i],"--request-file")&&!filename)filename=argv[i+1];
+  else if(!strcmp(argv[i],"--config")&&!config_file)config_file=argv[i+1];
+  else return hf_client_error25(err,"INVALID_ARGS","Unknown or duplicate source option");
+ }
+ if(!config_file)config_file=getenv("HF_SOURCE_CONFIG");
+ if(!filename||!config_file||config_file[0]!='/')return hf_client_error25(err,"SOURCE_CONFIG_REQUIRED","A protected absolute source configuration and request file are required");
+ char *configuration=NULL,*body=NULL,*injected=NULL;size_t length=0;
+ HfJson *config=malloc(sizeof *config),*request=malloc(sizeof *request),*response_json=malloc(sizeof *response_json);
+ HfTransportConfig transport={0};transport.timeout_ms=30000;
+ int result=78;const char *failure="SOURCE_CONFIG_INVALID";HfHttpResponse response={0};
+ if(!config||!request||!response_json||!hf_protected_read(config_file,128U*1024U,&configuration,&length)||!hf_json_parse(config,configuration))goto failed;
+ int t=hf_json_field(config,0,"transport"),assignment=-1;int64_t version=0;
+ if(t>=0){
+  const char *outer[]={"schema_version","transport","assignment"};
+  if(!hf_json_only(config,0,outer,3)||!hf_json_i64(config,hf_json_field(config,0,"schema_version"),&version)||version!=1)goto failed;
+  assignment=hf_json_field(config,0,"assignment");if(assignment<0||config->tokens[assignment].type!='{')goto failed;
+ }else t=0;
+ const char *fields[]={"schema_version","endpoint","scope","credential_id","ca_file","key_file"};char endpoint[600];
+ if(!hf_json_only(config,t,fields,6)||!hf_json_i64(config,hf_json_field(config,t,"schema_version"),&version)||version!=1||
+  !hf_source_string(config,t,"endpoint",endpoint,sizeof endpoint)||!hf_source_string(config,t,"credential_id",transport.credential_id,sizeof transport.credential_id)||!hf_uuid_valid(transport.credential_id)||
+  !hf_source_string(config,t,"ca_file",transport.ca_file,sizeof transport.ca_file)||transport.ca_file[0]!='/'||
+  !hf_source_string(config,t,"key_file",transport.key_path,sizeof transport.key_path)||transport.key_path[0]!='/')goto failed;
+ const char *suffix="/api/v1/source-control";size_t endpoint_length=strlen(endpoint),suffix_length=strlen(suffix);
+ if(endpoint_length<=suffix_length||strcmp(endpoint+endpoint_length-suffix_length,suffix)||endpoint_length-suffix_length>=sizeof transport.origin)goto failed;
+ memcpy(transport.origin,endpoint,endpoint_length-suffix_length);transport.origin[endpoint_length-suffix_length]=0;
+ int scope=hf_json_field(config,t,"scope");
+ if(assignment>=0&&!hf_source_scope(config,scope,config,hf_json_field(config,assignment,"scope")))goto failed;
+ failure="INVALID_SOURCE_REQUEST";body=hf_source_read(filename);
+ if(!body||!hf_json_parse_bounded(request,body,12U*1024U*1024U))goto failed;
+ const char *request_fields[]={"protocol_version","scope","operation_id","action","input","authority","idempotency_key"};char operation[37],action[129];
+ if(!hf_json_only(request,0,request_fields,7)||!hf_json_i64(request,hf_json_field(request,0,"protocol_version"),&version)||version!=1||
+  !hf_json_get(request,"operation_id",operation,sizeof operation)||!hf_uuid_valid(operation)||!hf_json_get(request,"action",action,sizeof action)||strncmp(action,"source.",7)||
+  !hf_source_scope(config,scope,request,hf_json_field(request,0,"scope"))||hf_json_field(request,0,"input")<0)goto failed;
+ int idem=hf_json_field(request,0,"idempotency_key");if(idem>=0){char id[37];if(!hf_json_string(request,idem,id,sizeof id)||!hf_uuid_valid(id))goto failed;}
+ if(assignment>=0&&hf_json_field(request,0,"authority")<0){
+  int authority=hf_json_field(config,assignment,"authority");if(authority<0||config->tokens[authority].type!='{')goto failed;
+  char *raw=hf_json_raw(config,authority);if(!raw)goto failed;
+  size_t end=request->tokens[0].end-1,total=end+strlen(raw)+16;injected=malloc(total);
+  if(injected)snprintf(injected,total,"%.*s,\"authority\":%s}",(int)end,body,raw);
+  free(raw);if(!injected)goto failed;
+ }
+ const char *wire=injected?injected:body;
+ size_t request_limit=!strcmp(action,"source.objects.put")?12U*1024U*1024U:HF_BODY_LIMIT;
+ size_t response_limit=!strcmp(action,"source.fleet.manifest")?96U*1024U*1024U:(!strcmp(action,"source.objects.put")||!strcmp(action,"source.objects.read"))?12U*1024U*1024U:HF_BODY_LIMIT;
+ if(strlen(wire)>request_limit)goto failed;
+ if(!hf_transport_source_post(&transport,wire,response_limit,&response)){
+  fprintf(err,"{\"protocol_version\":1,\"operation_id\":\"%s\",\"error\":{\"code\":\"%s\",\"retry\":\"%s\",\"outcome\":\"%s\",\"message\":\"Source transport did not return a verified response\"}}\n",operation,response.uncertain?"OUTCOME_UNKNOWN":"SOURCE_TRANSPORT_REJECTED",response.uncertain?"RETRY_SAME_OPERATION":"NEVER",response.uncertain?"UNKNOWN":"KNOWN");result=response.uncertain?75:78;goto done;
+ }
+ failure="INVALID_SOURCE_RESPONSE";char response_operation[37];
+ const char *response_fields[]={"protocol_version","operation_id","result","error"};
+ if(!hf_json_parse_envelope(response_json,response.body,response_limit)||!hf_json_only(response_json,0,response_fields,4)||
+  !hf_json_i64(response_json,hf_json_field(response_json,0,"protocol_version"),&version)||version!=1||
+  !hf_json_get(response_json,"operation_id",response_operation,sizeof response_operation)||strcmp(operation,response_operation))goto uncertain;
+ int success=hf_json_field(response_json,0,"result")>=0,error=hf_json_field(response_json,0,"error")>=0;
+ if(success==error||(success&&(response.status<200||response.status>=300)))goto uncertain;
+ if(error){
+  char *raw=hf_json_raw(response_json,hf_json_field(response_json,0,"error"));
+  int valid=raw&&hf_json_parse(config,raw);char code[65],message[4097],retry[32],outcome[8];
+  const char *error_fields[]={"code","message","retry","outcome","details"};
+  valid=valid&&hf_json_only(config,0,error_fields,5)&&hf_json_get(config,"code",code,sizeof code)&&hf_json_get(config,"message",message,sizeof message)&&message[0]&&hf_json_get(config,"retry",retry,sizeof retry)&&hf_json_get(config,"outcome",outcome,sizeof outcome);
+  if(valid){
+   valid=(code[0]=='_'||(code[0]>='A'&&code[0]<='Z'));
+   for(size_t n=1;valid&&code[n];n++)valid=code[n]=='_'||(code[n]>='A'&&code[n]<='Z')||(code[n]>='0'&&code[n]<='9');
+   valid=valid&&(!strcmp(retry,"NEVER")||!strcmp(retry,"RETRY_SAME_OPERATION")||!strcmp(retry,"REFRESH_AUTHORITY")||!strcmp(retry,"RESUME"))&&(!strcmp(outcome,"KNOWN")||!strcmp(outcome,"UNKNOWN"));
+   int details=hf_json_field(config,0,"details");if(details>=0&&config->tokens[details].type!='{')valid=0;
+  }
+  free(raw);if(!valid)goto uncertain;
+ }
+ fputs(response.body,out);fputc('\n',out);result=success?0:1;goto done;
+uncertain:
+ fprintf(err,"{\"protocol_version\":1,\"operation_id\":\"%s\",\"error\":{\"code\":\"OUTCOME_UNKNOWN\",\"retry\":\"RETRY_SAME_OPERATION\",\"outcome\":\"UNKNOWN\",\"message\":\"Source response could not be verified; reconcile the original operation\"}}\n",operation);result=75;goto done;
+failed:
+ result=hf_client_error25(err,failure,"Source configuration, request or response failed validation");
+done:
+ hf_http_response_free(&response);free(configuration);free(body);free(injected);free(config);free(request);free(response_json);return result;
+}
 int hf_client_dispatch(int argc,char **argv,FILE *out,FILE *err){
  if(argc<2)return -1;
+ if(!strcmp(argv[1],"source"))return hf_source_invoke(argc,argv,out,err);
  int authority=!strcmp(argv[1],"authority");
  if(authority&&argc==3&&!strcmp(argv[2],"mode")){
  int mode=hf_client_authority_mode();if(mode<0)return hf_client_error25(err,"AUTHORITY_MODE_INVALID","Authority configuration is invalid");

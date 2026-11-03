@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {hostname} from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 
 export const nativeFleetAssignmentFixtureScope = 'Actual signed manager assignment, immutable packet, scheduler claim and worker registration; prior cohort, provisioning, profile and READY rows are controlled historical inputs. Native installation is proved separately.';
 
@@ -21,9 +23,14 @@ export async function createNativeFleetAssignmentFixture({f,ids:i,controlCall,in
   assert.equal(previousProfile.manifest.profile.image.digest,installed.packageValue.environment.image_digest);
   assert.equal(previousProfile.runtime_platform,installed.packageValue.environment.platform);
   const profileId=previousProfile.id,preparation=previousProfile.content_digest;
-  await controlCall('leader','fleet-orchestration','fleet.cohort.bind',{cohort_id:randomUUID(),host_id:hostname(),leader_generation:'1',expected_generation:'0'});
-  const cohort=(await query('SELECT id::text,cohort_generation::text FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2',keys)).rows[0];
+  let cohort=(await query('SELECT id::text,cohort_generation::text,authority_epoch,leader_generation::text FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2',keys)).rows[0];
+  if(!cohort){
+    await controlCall('leader','fleet-orchestration','fleet.cohort.bind',{cohort_id:randomUUID(),host_id:hostname(),leader_generation:'1',expected_generation:'0'});
+    cohort=(await query('SELECT id::text,cohort_generation::text,authority_epoch,leader_generation::text FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2',keys)).rows[0];
+  }
   assert(cohort);
+  assert.equal(cohort.authority_epoch,i.epoch);
+  assert.equal(cohort.leader_generation,'1');
   const budget={allowed_actions:['ASSIGN_WORKER'],provider_ids:[previousProfile.provider],profile_ids:[profileId],max_sandboxes:1,max_concurrent_workers:slots.length,task_ids:taskIds};
   await insert('fleet_delegations',{...scope,package_id:i.package,manager_session_id:i.manager,manager_generation:2,leader_generation:1,budget,decision_id:randomUUID()});
   const binding={actor_id:i.manager,actor_role:'WAVE_MANAGER',authority_epoch:i.epoch,leader_generation:'1',delegation_id:i.package,manager_generation:'2'};
@@ -57,7 +64,16 @@ export async function createNativeFleetAssignmentFixture({f,ids:i,controlCall,in
   await insert('fleet_environment_specs',{...scope,input_digest:admission.input_digest,package_digest:admission.package_digest,source_config_digest:admission.source_config_digest,source_manifest_digest:admission.source_manifest_digest,plan_digest:admission.plan_digest,package_spec:installed.packageValue,source_config:installed.neron,install_plan:installed.plan,registered_by:i.manager});
   await insert('fleet_environment_installs',{...scope,operation_id:admission.operation_id,input_digest:admission.input_digest,environment_id:admission.environment_id,environment_generation:admission.environment_generation,sandbox_id:i.sandbox,boot_id:i.boot,boot_generation:1,authority_epoch:i.epoch,package_id:i.package,manager_session_id:i.manager,manager_generation:2,leader_generation:1,cohort_id:cohort.id,cohort_generation:Number(cohort.cohort_generation),admission,admission_digest:admission.admission_digest,expires_at:admission.expires_at,state:'READY',receipt,receipt_digest:receipt.receipt_digest,completed_at:receipt.completed_at});
   await insert('fleet_install_heads',{...scope,environment_id:admission.environment_id,environment_generation:admission.environment_generation,sandbox_id:i.sandbox,boot_id:i.boot,boot_generation:1,logical_operation_id:admission.operation_id,current_operation_id:admission.operation_id});
-  for(const {runner,slot}of runnerRows)await insert('fleet_runtime_readiness',{...scope,id:randomUUID(),install_operation_id:admission.operation_id,runner_operation_id:job,runner_result_digest:pin,sandbox_id:i.sandbox,boot_id:i.boot,boot_generation:1,slot_id:slot.worker_slot_id,slot_generation:1,runner_session_id:runner,readiness_digest:digest({prior:admission.operation_id,slot:slot.slot}),receipt_digest:receipt.receipt_digest,input_digest:admission.input_digest,measurement_digest:pin,source_digest:installed.source.digest,source_object_id:installed.source.revision,source_tree_id:installed.source.root_tree_id,publication:{fixture:'CONTROLLED_PRIOR_READY_INPUT',installation_receipt_digest:receipt.receipt_digest}});
+  const {deriveFleetReadinessInputs,fleetReadinessDigest}=await import(pathToFileURL(path.resolve(process.env.SOURCE_CONTROL_MODULE_ROOT,'../preparation/fleet_readiness_contract.js')));
+  const readinessInputs=deriveFleetReadinessInputs({admission,package_spec:installed.packageValue,source_config:installed.neron,install_plan:installed.plan,receipt});
+  for(const {runner,slot}of runnerRows){
+    const wanted=readinessInputs.find(value=>value.readiness_input.slot.worker_slot_id===slot.worker_slot_id);
+    assert(wanted,'Each declared prior runtime needs the exact actual installation input');
+    const id=randomUUID(),publication={schema_version:1,fixture:'CONTROLLED_PRIOR_READY_INPUT',source_backend:'native',security_domain_id:f.scope.security_domain_id,kind:'FLEET_MANIFEST_V1',id,state:'READY',authority:'VERIFIED_INSTALL_SNAPSHOT',install_operation_id:admission.operation_id,prepared_receipt_digest:receipt.receipt_digest,sandbox_id:i.sandbox,boot_id:i.boot,boot_generation:'1',slot_id:slot.worker_slot_id,slot_generation:String(slot.slot_generation),uid:slot.uid,gid:slot.gid,profile_id:profileId,profile_digest:fleetReadinessDigest(previousProfile.manifest.profile),boot_preparation_digest:preparation,preparation_digest:preparation,source_repository_id:i.repository,source_repository_key:installed.neron.source.repository,source_object_id:installed.source.revision,source_tree_id:installed.source.root_tree_id,source_digest:installed.source.digest,source_manifest_digest:installed.source.digest,source_state_digest:wanted.source_state_digest,workspace_digest:wanted.workspace_digest,input_digest:wanted.input_digest,measurement_digest:pin,probe_results:[],verifier:wanted.verifier,readiness_input:wanted.readiness_input,native_operation_id:job,runner_result_digest:pin,execution_receipt_digest:pin};
+    publication.readiness_digest=fleetReadinessDigest(publication);
+    await insert('fleet_runtime_readiness',{...scope,id,install_operation_id:admission.operation_id,runner_operation_id:job,runner_result_digest:pin,sandbox_id:i.sandbox,boot_id:i.boot,boot_generation:1,slot_id:slot.worker_slot_id,slot_generation:1,runner_session_id:runner,readiness_digest:publication.readiness_digest,receipt_digest:receipt.receipt_digest,input_digest:wanted.input_digest,measurement_digest:pin,source_digest:installed.source.digest,source_object_id:installed.source.revision,source_tree_id:installed.source.root_tree_id,publication});
+    await query('UPDATE hyperfide.runner_registry SET readiness_digest=$4 WHERE organisation_id=$1 AND run_id=$2 AND session_id=$3',[...keys,runner,publication.readiness_digest]);
+  }
   const installBinding={operation_id:admission.operation_id,environment_id:admission.environment_id,environment_generation:admission.environment_generation,sandbox_id:i.sandbox,boot_id:i.boot,boot_generation:'1',input_digest:admission.input_digest};
   const applied=new Map();
   return {

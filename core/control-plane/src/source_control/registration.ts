@@ -1,6 +1,8 @@
 import type {Pool} from 'pg';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {getPool} from '../storage/schema.js';
+import {isIdentityAuthority} from '../identity/enrollment.js';
+import {FoundationError} from '../policy/programme.js';
 import {createSourceApi, type SourceApiAuthorizationRequest} from './api.js';
 import {authorizeInvocationSource,authorizeSource,type SourceAuthorizationOptions} from './capabilities.js';
 import {SourceMetadata,type SourceMetadataOptions} from './metadata.js';
@@ -150,6 +152,8 @@ export function createComponent(context:ComponentContext):Component {
  const current=()=>service??=createSourceService({pool:getPool(context.env),backend:new S3SourceObjectBackend(sourceS3Configuration(context.env)),cursorKey:sourceCursorKey(context.env),workspaceBudgets:sourceWorkspaceBudgets(context.env),
   publication:{destinations:sourcePublicationDestinations(context.env)},
   transaction:body=>context.resources.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:context.signal},body)});
+ const identity=context.dependencies.require('14.1','identity.authority',isIdentityAuthority);
+ identity.installSourceWorkerEnroller(async(tx,invocation,credentialId)=>{try{return await current().fleet.enrollWorker(tx,invocation,credentialId);}catch(error){if(error instanceof SourceControlError)throw new FoundationError(error.code,error.message);throw error;}});
  const reserved=new Set(['source.capabilities.manage','source.workspaces.widen','source.workspaces.close','source.transfers.create','source.audit.read']);
  const capability=new Proxy({} as ReturnType<typeof createSourceService>,{get:(_target,key)=>Reflect.get(current(),key)});
  return {apiVersion:1,actions:Object.fromEntries(SOURCE_ACTIONS.filter(action=>!reserved.has(action)).map(action=>[action,async(input:unknown,request:ComponentContext)=>{

@@ -869,6 +869,34 @@ Proposed implementation scope:
 - `tests/hyperfide/support/native_source_fleet_cleanup_assertions.mjs`
 - `tests/hyperfide/support/native_source_fleet_selection.mjs`
 - `core/control-plane/src/scheduler/resources.ts`
+- `core/authority-client/package.json`
+- `core/authority-client/src/index.ts`
+- `core/control-plane/components/14.1.json`
+- `core/control-plane/src/agents/dispatch.ts`
+- `core/control-plane/src/components/service.ts`
+- `core/control-plane/src/events/instructions.ts`
+- `core/control-plane/src/identity/enrollment.ts`
+- `core/control-plane/src/runner/dispatch.ts`
+- `core/control-plane/src/runner/fleet_connector_plan.ts`
+- `core/control-plane/src/transport/http.ts`
+- `core/control-plane/src/transport/protocol.ts`
+- `core/native/src/hyperfide/client.c`
+- `core/native/src/hyperfide/control.c`
+- `core/native/src/hyperfide/launch.c`
+- `core/native/src/hyperfide/transport.c`
+- `core/native/src/hyperfide/transport.h`
+- `pnpm-lock.yaml`
+- `core/authority-client/src/source.ts`
+- `tests/hyperfide/cases/source_control/native_source_handoff.py`
+- `tests/hyperfide/cases/source_control/signed_transport.py`
+- `tests/hyperfide/support/native_source_fleet_reconciliation.mjs`
+- `tests/hyperfide/support/native_source_signed_transport.mjs`
+- `README.md`
+- `core/native/src/help.c`
+- `tests/integration/43_help.sh`
+- `tests/hyperfide/cases/source_control/native_source_envelope.py`
+- `tests/hyperfide/support/native_source_fleet_enrollment.mjs`
+- `sdk/source-control/package.json`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/4_2.py`.
 

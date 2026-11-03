@@ -152,3 +152,6 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
 export type AuthorityClient = Awaited<ReturnType<typeof createAuthorityClient>>;
 import type { PluginStateEntry, PluginStateRequest } from "./plugin-storage.js";
 export * from "./plugin-storage.js";
+
+export {createSignedSourceClient} from "./source.js";
+export type {SignedSourceConfiguration} from "./source.js";

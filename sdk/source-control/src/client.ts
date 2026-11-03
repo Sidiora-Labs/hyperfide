@@ -11,13 +11,21 @@ import type {
 import type {SourceFleetSelection,SourceFleetSelectRequest,SourceFleetQualificationReceipt,SourceNativeManifestRequest,SourceNativeManifest,SourceFleetQualifyRequest,SourceBindFleetRunRequest,SourceFleetRunBinding,SourceFleetAssignmentRequest,SourceFleetAssignment,SourceFleetSubmitRequest,SourceFleetSubmission} from './fleet.js';
 import type {SourceCreatePublicationRequest,SourcePublicationResult} from './publication.js';
 
-export interface SourceClientOptions {
+export interface SourceAuthenticationRequest {
+  endpoint:string;method:'POST';body:Uint8Array;signal:AbortSignal;
+}
+export type SourceClientOptions = {
   endpoint:string;
   scope:SourceScope;
-  token:string|(()=>string|Promise<string>);
   fetch?:typeof globalThis.fetch;
   timeout_ms?:number;
-}
+} & ({
+  token:string|(()=>string|Promise<string>);
+  authenticate?:never;
+} | {
+  token?:never;
+  authenticate:(request:SourceAuthenticationRequest)=>HeadersInit|Promise<HeadersInit>;
+});
 export interface SourceCallOptions {
   operation_id?:string;idempotency_key?:string;authority?:SourceAuthority;signal?:AbortSignal;
 }
@@ -30,6 +38,8 @@ export class SourceControlClient {
     const endpoint=new URL(options.endpoint);
     if(endpoint.username||endpoint.password||endpoint.search||endpoint.hash||endpoint.protocol!=='https:'&&!(endpoint.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(endpoint.hostname)))
       throw new SourceControlError('INVALID_ENDPOINT','Source API requires a trusted HTTPS endpoint or local development server');
+    if(options.authenticate!==undefined&&typeof options.authenticate!=='function')throw new SourceControlError('INVALID_REQUEST','Source authentication callback must be a function');
+    if((options.token===undefined)===(options.authenticate===undefined))throw new SourceControlError('INVALID_REQUEST','Exactly one source authentication method is required');
     this.endpoint=endpoint.toString().replace(/\/$/,'');this.scope=parseSourceScope(options.scope);this.transport=options.fetch??globalThis.fetch;
     this.timeout=options.timeout_ms??30000;
     if(!Number.isSafeInteger(this.timeout)||this.timeout<1||this.timeout>300000)throw new SourceControlError('INVALID_REQUEST','Source client timeout exceeds bounds');
@@ -38,23 +48,30 @@ export class SourceControlClient {
     const operation_id=options.operation_id??globalThis.crypto.randomUUID();
     const request:SourceRequest={protocol_version:1,scope:this.scope,operation_id,action,input,
       ...(options.idempotency_key?{idempotency_key:options.idempotency_key}:{}),...(options.authority?{authority:options.authority}:{})};
-    const body=encodeSourceRequest(request),token=typeof this.options.token==='function'?await this.options.token():this.options.token;
-    if(!token||/[\r\n]/.test(token))throw new SourceControlError('INVALID_REQUEST','A source credential is required');
+    const body=encodeSourceRequest(request);
     const signal=AbortSignal.any([AbortSignal.timeout(this.timeout),...(options.signal?[options.signal]:[])]);
+    let headers:Headers;
+    if(this.options.authenticate)headers=new Headers(await this.options.authenticate({endpoint:this.endpoint,method:'POST',body,signal}));
+    else{
+      const token=typeof this.options.token==='function'?await this.options.token():this.options.token;
+      if(typeof token!=='string'||!token||/[\r\n]/.test(token))throw new SourceControlError('INVALID_REQUEST','A source credential is required');
+      headers=new Headers({authorization:'Bearer '+token});
+    }
+    headers.set('content-type','application/json');
     let response:Response;
-    try {response=await this.transport(this.endpoint,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+token},body:body as unknown as BodyInit,signal});}
+    try {response=await this.transport(this.endpoint,{method:'POST',headers,body:body as unknown as BodyInit,signal});}
     catch {throw new SourceControlError('OUTCOME_UNKNOWN','Source request lost its response; resolve the original operation','RETRY_SAME_OPERATION','UNKNOWN',{operation_id});}
     const maximum=action==='source.fleet.manifest'?96*1024*1024:action==='source.objects.read'||action==='source.objects.put'?12*1024*1024:1024*1024;
     const chunks:Uint8Array[]=[];let size=0;
+    let decoded:ReturnType<typeof decodeSourceResponse>;
     try {
-      const reader=response.body?.getReader();if(!reader)throw new SourceControlError('INVALID_RESPONSE','Source server returned no response body');
-      for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>maximum){await reader.cancel();throw new SourceControlError('LIMIT_EXCEEDED','Source response exceeds the action byte bound');}chunks.push(part.value);}
-    }catch(error){if(error instanceof SourceControlError)throw error;throw new SourceControlError('OUTCOME_UNKNOWN','Source response was interrupted','RETRY_SAME_OPERATION','UNKNOWN',{operation_id});}
-    const bytes=new Uint8Array(size);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.byteLength;}
-    const decoded=decodeSourceResponse(bytes,{action});
-    if(decoded.operation_id!==operation_id)throw new SourceControlError('INVALID_RESPONSE','Source response belongs to another operation');
+      const reader=response.body?.getReader();if(!reader)throw new Error('Missing response body');
+      for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>maximum){await reader.cancel();throw new Error('Response byte limit exceeded');}chunks.push(part.value);}
+      const bytes=new Uint8Array(size);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.byteLength;}
+      decoded=decodeSourceResponse(bytes,{action});
+      if(decoded.operation_id!==operation_id||('result' in decoded&&!response.ok))throw new Error('Response identity or status mismatch');
+    }catch{throw new SourceControlError('OUTCOME_UNKNOWN','Source response could not be verified; resolve the original operation','RETRY_SAME_OPERATION','UNKNOWN',{operation_id});}
     if('error' in decoded)throw new SourceControlError(decoded.error.code,decoded.error.message,decoded.error.retry,decoded.error.outcome,{...decoded.error.details,operation_id});
-    if(!response.ok)throw new SourceControlError('INVALID_RESPONSE','Source server returned a successful envelope with a failing HTTP status');
     return decoded.result as T;
   }
   capabilities(options?:SourceCallOptions){return this.call('source.capabilities',{},options);}

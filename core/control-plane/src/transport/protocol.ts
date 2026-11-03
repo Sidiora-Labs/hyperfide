@@ -199,11 +199,11 @@ export function enrollmentSecret(headers: readonly string[]): Buffer {
   const match = /^HyperfideGrant [0-9a-f-]{36}\.([A-Za-z0-9_-]{43})$/.exec(headers[index + 1] ?? '');
   return base64(match?.[1], 32);
 }
-export function signingBytes(origin: string, endpoint: '/v1/invoke' | '/v1/enroll', item: Omit<Proof,'signature'>, body: Buffer): Buffer {
+export function signingBytes(origin: string, endpoint: '/v1/invoke' | '/v1/enroll' | '/api/v1/source-control', item: Omit<Proof,'signature'>, body: Buffer): Buffer {
   const domain = endpoint === '/v1/enroll' ? 'HYPERFIDE-ENROLL-V1' : 'HYPERFIDE-REQUEST-V1';
   return Buffer.from([domain,'POST',endpoint,canonicalOrigin(origin),item.id,item.time,item.nonce,hash(body),''].join('\n'), 'utf8');
 }
-export function verifyProof(publicKey: string, item: Proof, origin: string, endpoint: '/v1/invoke' | '/v1/enroll', body: Buffer): void {
+export function verifyProof(publicKey: string, item: Proof, origin: string, endpoint: '/v1/invoke' | '/v1/enroll' | '/api/v1/source-control', body: Buffer): void {
   const raw = base64(publicKey, 32);
   const key = createPublicKey({ key: Buffer.concat([Buffer.from('302a300506032b6570032100','hex'), raw]), format: 'der', type: 'spki' });
   if (!verify(null, signingBytes(origin, endpoint, item, body), key, item.signature))

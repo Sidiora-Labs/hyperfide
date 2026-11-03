@@ -245,6 +245,8 @@ Snapshots are content-addressed with SHA-256 and blobs are deduplicated.
 
 | Command | Description |
 | --- | --- |
+| `hyperfide install --job-context PATH` | Prepare the admitted sandbox environment from its package, source and dependency configuration. See the [fleet guide](docs/hyperfide/fleet.md). |
+| `hyperfide source invoke --request-file FILE [--config ABSOLUTE_PATH]` | Send a signed native source API request using `HF_SOURCE_CONFIG`, without a local repository. See the [native source guide](docs/hyperfide/source-control.md) for worker configuration and operation recovery. |
 | `hyperfide commit -m <msg>` | Snapshot the working tree, synced first and auto-tagged with the in-progress task; `--task <id>` names the task, `--amend` replaces the last snapshot, `--git` also makes a real git commit with the same spec tag |
 | `hyperfide log [-n N]` / `hyperfide status` | Snapshot history (default 20), and worktree versus HEAD with branch-scoped index coverage and pending reconciliation |
 | `hyperfide diff [A] [B]` | LCS line diff between snapshots or the worktree |

@@ -9,6 +9,8 @@
 typedef struct { size_t start, end; int parent, next, count; char type; } HfJsonToken;
 typedef struct { const char *text; size_t length; int count; HfJsonToken tokens[HF_JSON_TOKENS]; } HfJson;
 int hf_json_parse(HfJson *json,const char *text);
+int hf_json_parse_bounded(HfJson *json,const char *text,size_t maximum);
+int hf_json_parse_envelope(HfJson *json,const char *text,size_t maximum);
 int hf_json_field(const HfJson *json,int object,const char *name);
 int hf_json_string(const HfJson *json,int token,char *output,size_t capacity);
 int hf_json_get(const HfJson *json,const char *name,char *output,size_t capacity);
@@ -36,10 +38,13 @@ typedef struct { long status;char *body;size_t length;int uncertain;char error[1
 int hf_transport_qualified(void);
 int hf_transport_config(const char *path,HfTransportConfig *config);
 int hf_transport_keygen(const char *path,char public_key[44]);
+int hf_transport_public_key(const char *path,char public_key[44]);
 int hf_transport_sign(const char *key_path,const char *domain,const char *endpoint,
  const char *origin,const char *identity,const char *seconds,const char *nonce,const char *body,char signature[87]);
 int hf_transport_post(const HfTransportConfig *config,int enrollment,const char *body,
  const char *seconds,const char *nonce,HfHttpResponse *response);
+int hf_transport_source_post(const HfTransportConfig *config,const char *body,
+ size_t response_limit,HfHttpResponse *response);
 char *hf_envelope(const char *payload,const char *operation_id,const char *idempotency_key,
  const char *correlation_id,const char *causation_id);
 void hf_http_response_free(HfHttpResponse *response);

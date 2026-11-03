@@ -1259,6 +1259,24 @@ static const HelpCmd HELP[] = {
     "failed,unchecked], f=[verified,stale,unchecked], x=pending/degraded "
     "bits (1/2), and o=1 for omitted parser and file details.",
   .related = "config,root" },
+{ .group = "vc", .name = "source", .args = "invoke",
+  .usage = "source invoke --request-file FILE|- [--config ABSOLUTE_PATH]",
+  .summary = "send a signed native source request",
+  .detail = "Uses the versioned source API without a local repository. "
+    "Configuration defaults to HF_SOURCE_CONFIG. Worker configurations "
+    "supply the assigned workspace authority when the request omits it.",
+  .related = "source invoke,install" },
+{ .group = "vc", .name = "source invoke",
+  .args = "--request-file FILE|- [--config ABSOLUTE_PATH]",
+  .usage = "source invoke --request-file FILE|- [--config ABSOLUTE_PATH]",
+  .summary = "invoke the native source API with an explicit operation identity",
+  .detail = "The request contains protocol_version, scope, operation_id, action "
+    "and input. Keep the original operation_id and idempotency_key when "
+    "reconciling an uncertain response. An unverified response after sending "
+    "exits 75 and reports the original operation as OUTCOME_UNKNOWN.",
+  .flags = "--request-file FILE|-\tversioned JSON request, - for stdin\n"
+    "--config ABSOLUTE_PATH\tprotected source transport or worker configuration\n",
+  .hide = true },
 { .group = "config", .name = "authority", .args = "mode|invoke",
   .usage = "authority mode | authority invoke --payload-file FILE|- "
     "--operation-id ID --idempotency-key KEY --correlation-id ID "

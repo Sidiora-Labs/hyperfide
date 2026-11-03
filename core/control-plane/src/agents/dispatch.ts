@@ -15,6 +15,7 @@ import {deriveFleetConnectorPlan} from '../runner/fleet_connector_plan.js';
 import {readRunnerBinding,readRunnerReadiness,runnerCanonical} from '../runner/bridge.js';
 import {assertCurrentCompute} from '../scheduler/leases.js';
 import {hash} from '../transport/protocol.js';
+import {guardFleetLaunch} from '../runner/fleet.js';
 
 /** Trusted native launch-plan producer for the 12.2 START route. The plan names the admitted
  * connector/model/permission profile for the token's worker session and is persisted once per
@@ -23,7 +24,7 @@ type Selection={plan:RunnerLaunchPlan|null;reason:string|null;replayed:boolean};
 const tokenKeys=['task_id','attempt_id','attempt_generation','authority_epoch','sandbox_id','slot_id','sandbox_boot_generation'] as const;
 export function launchPlan(row:Record<string,unknown>):RunnerLaunchPlan{
  const env_refs=storedEnvReferences(row);
- return {launch_id:String(row.launch_id),slot_id:String(row.slot_id),agent_session_id:String(row.agent_session_id),connector_plan_digest:String(row.connector_plan_digest),...(env_refs?{env_refs}:{})};
+ return {launch_id:String(row.launch_id),slot_id:String(row.slot_id),agent_session_id:String(row.agent_session_id),connector_plan_digest:String(row.connector_plan_digest),...(env_refs?{env_refs}:{}),...(object(row.plan)&&row.plan.native_source?{native_source_required:true as const}:{})};
 }
 /** Persists one immutable plan from an admitted selection; the selection's env_refs (3.15) are stored
  * in their own column and bound into the plan digest when present. */
@@ -106,6 +107,7 @@ export function createComponent(ctx:ComponentContext):Component{
     if(runner.credential_id!==i.principal.credential_id||runner.slot_id!==row.slot_id||runner.boot_id!==i.principal.boot_id)agentError('AGENT_SCOPE_DENIED');
     const compute=await assertCurrentCompute(client,{...scope,task_id:row.task_id,attempt_id:row.attempt_id,attempt_generation:String(row.attempt_generation),authority_epoch:row.authority_epoch,sandbox_id:row.sandbox_id,slot_id:row.slot_id,sandbox_boot_generation:String(row.sandbox_boot_generation)},{operation:'ADVANCE'});
     if(compute.input_packet_digest!==row.packet_digest)agentError('FLEET_NATIVE_PLAN_STALE');
+    await guardFleetLaunch(client,i,{...scope,task_id:row.task_id,attempt_id:row.attempt_id,attempt_generation:String(row.attempt_generation),sandbox_id:row.sandbox_id,slot_id:row.slot_id,sandbox_boot_generation:String(row.sandbox_boot_generation)},launchPlan(row));
     const ready=await readRunnerReadiness(client,runner);if(ready.kind!=='FLEET_MANIFEST_V1'||row.plan?.readiness?.readiness_digest!==ready.readiness_digest)agentError('FLEET_NATIVE_PLAN_STALE');
     const bytes=Buffer.from(runnerCanonical(row.plan));if(hash(bytes)!==row.connector_plan_digest)agentError('NATIVE_PLAN_CONFLICT');
     return {command_id,launch_id,connector_plan_digest:row.connector_plan_digest,plan_base64:bytes.toString('base64url')};

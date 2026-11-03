@@ -18,6 +18,7 @@
     "identity.runner.register",
     "identity.runner.heartbeat",
     "identity.principal.delegate",
+    "identity.worker.source.delegate",
     "identity.principal.renew",
     "identity.service.issue",
     "identity.main.issue"

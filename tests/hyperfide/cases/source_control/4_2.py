@@ -29,6 +29,8 @@ def main():
         identity = json.loads(instance.identity_config.read_text())
         for principal in identity['principals']:
             principal['allowed_actions'] += [action for action in source_actions if action not in principal['allowed_actions']]
+            if principal['role'] == 'OPERATOR' and 'runner.dispatch.consume' not in principal['allowed_actions']:
+                principal['allowed_actions'].append('runner.dispatch.consume')
             instance.sql('UPDATE hyperfide.identity_principals SET allowed_actions=$2 WHERE credential_id=$1', [principal['credential_id'], principal['allowed_actions']])
         instance.identity_config.write_text(json.dumps(identity))
         instance.actions += [action for action in source_actions if action not in instance.actions]
@@ -49,11 +51,13 @@ def main():
         return fixture.run_source_actor(ROOT / 'tests/hyperfide/support/native_source_fleet_actor.mjs', timeout=360,
                                         actor_env={**fleet.env, 'NATIVE_SOURCE_FLEET_INPUT': str(inputs)}, extra_files=[
             'core/control-plane/src/preparation/fleet_install.ts',
+            'core/control-plane/src/preparation/fleet_readiness_probe.ts',
             'core/control-plane/src/preparation/fleet_isolation.ts',
             'core/control-plane/src/preparation/fleet_completion.ts',
             'core/control-plane/src/preparation/fleet_source.ts',
             'core/control-plane/src/storage/durability.ts',
             'core/control-plane/src/identity/enrollment.ts',
+            'core/control-plane/src/identity/authorization.ts',
         ])
     finally:
         fleet.close()

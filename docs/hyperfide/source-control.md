@@ -131,6 +131,18 @@ The active model-led assignment carries its source scope, base revision, environ
 
 Every installed worker view retains its readiness-attested `.neron` bootstrap configuration. An active assignment supplies a separate workspace ID and current capability, so reusing a physical slot does not reuse an old worker's source authority. Workers use that assignment for checkpoints and `submitFleetSource`; `fleetAssignment` and `fleetSubmission` inspect the retained state.
 
+Native credentials use the control service's signed `POST /api/v1/source-control` endpoint. Requests carry the normal source envelope and an Ed25519 proof over its exact bytes, endpoint and origin. The endpoint checks the current credential, source capability and task authority. Object transfers accept up to 12 MiB encoded; ordinary metadata requests retain their 1 MiB bound.
+
+The native launcher completes the source assignment from the recorded manager decision before starting the worker, then provides its private `source-client.json` through `HF_SOURCE_CONFIG`. Its `transport` object contains `schema_version`, `endpoint`, `scope`, `credential_id`, `ca_file` and `key_file`; its `assignment` object carries the active workspace and authority. Credentials are file references, not embedded key material.
+
+Workers can send an explicit versioned source request with:
+
+```sh
+hyperfide source invoke --request-file request.json
+```
+
+`--config /absolute/path/source-client.json` selects a configuration explicitly. The command verifies the request scope and adds the assigned authority when the request omits it. Keep the original `operation_id` and `idempotency_key` when reconciling an uncertain response. The Node SDK exposes the same transport through `createSignedSourceClient(config.transport)` from `@hyperfide/authority`; pass `config.assignment.authority` in its call options for worker mutations.
+
 Submission accepts only the exact durable checkpoint of the assigned workspace. It pins the revision in coordinator custody before releasing compute in the same transaction. Repeating the original submission recovers its receipt after a lost response. A replacement attempt cannot write through its predecessor's assignment. Native cleanup uses the retained submission and the runner's verified process and credential cleanup to release the worker slot.
 
 `qualifyFleetTask` is a Hyperfide authority operation: it verifies current task proof obligations, custody, candidate inputs and independent execution evidence before advancing the task to qualified. Dependency admission rechecks the proof. Native acceptance and Git publication remain separate source states.

@@ -1094,6 +1094,10 @@ importers:
         version: 4.107.0(@cloudflare/workers-types@4.20260702.1)
 
   core/authority-client:
+    dependencies:
+      '@hyperfide/source-control':
+        specifier: workspace:*
+        version: link:../../sdk/source-control
     devDependencies:
       '@hyperfide/tsconfig':
         specifier: workspace:*

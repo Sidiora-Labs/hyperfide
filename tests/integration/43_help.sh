@@ -138,7 +138,7 @@ assert groups == ["platform", "graph", "version control", "memory", "agentic",
 assert {f["flag"] for f in d["global_flags"]} >= {"--json", "--branch <name>",
                                                   "--all-branches", "--no-soft"}
 
-src = os.path.join(repo, "src")
+src = os.path.join(repo, "core", "native", "src")
 def read(f):
     p = os.path.join(src, f)
     return open(p).read() if os.path.exists(p) else None
@@ -159,8 +159,14 @@ want.add("help")
 client = read("hyperfide/client.c")
 assert 'strcmp(argv[1],"authority")' in client
 want.add("authority")
-for sub in re.findall(r'strcmp\(argv\[2\],"([a-z-]+)"\)', client):
-    want.add(f"authority {sub}")
+source_start = client.index("static int hf_source_invoke(")
+dispatch_start = client.index("int hf_client_dispatch(")
+assert 'strcmp(argv[1],"source")' in client[dispatch_start:]
+want.add("source")
+for parent, body in [("source", client[source_start:dispatch_start]),
+                     ("authority", client[dispatch_start:])]:
+    for sub in re.findall(r'strcmp\(argv\[2\],"([a-z][a-z-]*)"\)', body):
+        want.add(f"{parent} {sub}")
 # the subcommand switches, file -> (parent, the variable they switch on)
 subs = [("spec.c", "spec", "sub"), ("fleet.c", "fleet", "sub"),
         ("jev.c", "jev", "sub"), ("config.c", "config", "sub"),

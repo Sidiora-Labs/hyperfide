@@ -25,6 +25,7 @@ export interface RunnerLaunchPlan {
  launch_id:string;slot_id:string;agent_session_id:string;connector_plan_digest:string;
  /** D17: the launch's declared NAME -> 'secret-ref:ID' map; never values. */
  env_refs?:Record<string,string>;
+ native_source_required?:true;
 }
 /** Task 3.10: a plan's declared references are checked against the environment
  * profile of the pool that owns the token's sandbox before they enter START; an
@@ -37,7 +38,7 @@ export async function launchEnvReferences(tx:Pick<PrimaryTransaction,'query'>,or
 }
 /** The exact START body the route issues; env_refs is present only when declared. */
 export function startInstructionBody(selected:RunnerLaunchPlan,slot_id:string,env_refs:Readonly<Record<string,string>>):Record<string,unknown>{
- return {launch_id:selected.launch_id,slot_id,agent_session_id:selected.agent_session_id,connector_plan_digest:selected.connector_plan_digest,...(Object.keys(env_refs).length?{env_refs:{...env_refs}}:{})};
+ return {launch_id:selected.launch_id,slot_id,agent_session_id:selected.agent_session_id,connector_plan_digest:selected.connector_plan_digest,...(selected.native_source_required?{native_source_required:true}:{}),...(Object.keys(env_refs).length?{env_refs:{...env_refs}}:{})};
 }
 /** Trusted startup code supplies the qualified model/connector plan. Models
  * cannot submit a callback or turn their own launch labels into authority. */
@@ -91,7 +92,7 @@ export function createComponent(ctx:ComponentContext):Component {
     const selected=await reader!(t,{...scope,command_id:v.command_id,token,packet_digest:v.packet_digest,payload_digest:v.payload_digest},i);
     if(!selected)fail('RUNNER_PLAN_NOT_READY','Actual connector/model/workspace qualification is unavailable; delivery stays pending');
     if(!uuid(selected.launch_id)||!uuid(selected.agent_session_id)||selected.slot_id!==token.slot_id||typeof selected.connector_plan_digest!=='string'||!DIGEST.test(selected.connector_plan_digest))fail('RUNNER_PLAN_INVALID','Trusted plan must preserve exact slot and immutable launch identity');
-    await guardFleetLaunch(t,i,token,selected);
+    await guardFleetLaunch(t,i,token,selected,'PREPARE');
     const env_refs=await launchEnvReferences(t,scope.organisation_id,token.sandbox_id,selected.env_refs);
     const result=await issue(t,{...scope,id:v.command_id,attempt_id:token.attempt_id,attempt_generation:token.attempt_generation,
      authority_epoch:token.authority_epoch,sandbox_boot_generation:token.sandbox_boot_generation,kind:'START',

@@ -165,10 +165,39 @@ static int credential_dir(const ControlConfig *c,const char *slot){
  for(unsigned k=0;fd>=0&&k<4;++k){int next=openat(fd,parts[k],O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);int saved=errno;close(fd);fd=next;errno=saved;}
  return fd<0?(errno==ENOENT?-2:-1):fd;
 }
+static int source_credentials(sqlite3 *db,const ControlConfig *c,const char *slot,const char *launch,const char *command,int remove){
+ char manifest[4200],*raw=NULL,directory[4096],value[128];size_t size=0;int result=-1;
+ if(!c||!hf_uuid_valid(slot)||!hf_uuid_valid(launch)||snprintf(manifest,sizeof manifest,"%s/source-material-%s.json",c->state,launch)>=(int)sizeof manifest)return -1;
+ struct stat st;if(lstat(manifest,&st))return errno==ENOENT?0:-1;
+ HfJson *j=malloc(sizeof *j);int64_t uid=0,gid=0,version=0;
+ int ok=j&&hf_private_read(manifest,16384,&raw,&size)&&hf_json_parse(j,raw)&&hf_json_i64(j,hf_json_field(j,0,"schema_version"),&version)&&version==1&&hf_json_get(j,"launch_id",value,sizeof value)&&!strcmp(value,launch)&&hf_json_get(j,"slot_id",value,sizeof value)&&!strcmp(value,slot)&&hf_json_i64(j,hf_json_field(j,0,"uid"),&uid)&&uid>0&&uid<=2147483647&&hf_json_i64(j,hf_json_field(j,0,"gid"),&gid)&&gid>0&&gid<=2147483647&&hf_json_get(j,"directory",directory,sizeof directory)&&directory[0]=='/';
+ if(!ok)goto done;
+ int dir=open("/",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);char *copy=strdup(directory),*save=NULL;
+ if(dir<0||!copy){if(dir>=0)close(dir);free(copy);goto done;}
+ for(char *part=strtok_r(copy,"/",&save);dir>=0&&part;part=strtok_r(NULL,"/",&save)){
+  if(!strcmp(part,".")||!strcmp(part,"..")){close(dir);dir=-1;break;}
+  int next=openat(dir,part,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);int missing=errno==ENOENT;close(dir);dir=next;if(dir<0&&missing){result=0;break;}
+ }
+ free(copy);if(dir<0)goto done;
+ if(fstat(dir,&st)||st.st_uid!=(uid_t)uid||st.st_gid!=(gid_t)gid||(st.st_mode&077)){close(dir);goto done;}
+ result=0;const char *names[]={"key.pem","ca.pem","client.json"};
+ for(unsigned k=0;k<3;k++){
+  if(fstatat(dir,names[k],&st,AT_SYMLINK_NOFOLLOW)){if(errno!=ENOENT)result=-1;continue;}
+  if(!remove){if(result>=0)result++;continue;}
+  int removed=!unlinkat(dir,names[k],0)||errno==ENOENT;
+  char label[64];snprintf(label,sizeof label,"source.%s",names[k]);const char *values[]={command,label,removed?"REVOKED":"UNRESOLVED"};
+  if(!exec_bind(db,"INSERT INTO credentials(command,name,state) VALUES(?,?,?) ON CONFLICT(command,name) DO UPDATE SET state=excluded.state",values,3))removed=0;
+  if(!removed&&result>=0)result++;
+ }
+ if(remove&&fsync(dir))result=-1;close(dir);
+done:
+ free(raw);free(j);return result;
+}
 /* Unlink every credential entry and record it; returns residue count after the pass or -1. */
-static int revoke_credentials(sqlite3 *db,const ControlConfig *c,const char *slot,const char *command){
+static int revoke_credentials(sqlite3 *db,const ControlConfig *c,const char *slot,const char *launch,const char *command){
  if(!c||!*c->slots)return -1;
- int dir=credential_dir(c,slot);if(dir==-2)return 0;if(dir<0)return -1;
+ int source=source_credentials(db,c,slot,launch,command,1);
+ int dir=credential_dir(c,slot);if(dir==-2)return source;if(dir<0)return -1;
  DIR *listing=fdopendir(dup(dir));if(!listing){close(dir);return -1;}struct dirent *e;int residue=0;
  while((e=readdir(listing))){
   if(!strcmp(e->d_name,".")||!strcmp(e->d_name,".."))continue;
@@ -181,12 +210,13 @@ static int revoke_credentials(sqlite3 *db,const ControlConfig *c,const char *slo
   exec_bind(db,"INSERT INTO credentials(command,name,digest,state) VALUES(?,?,?,?) ON CONFLICT(command,name) DO UPDATE SET state=excluded.state,digest=COALESCE(excluded.digest,credentials.digest)",v,4);
   if(!removed)++residue;
  }
- closedir(listing);fsync(dir);close(dir);return residue;
+ closedir(listing);fsync(dir);close(dir);return source<0?-1:residue+source;
 }
-static int credential_residue(const ControlConfig *c,const char *slot){
+static int credential_residue(const ControlConfig *c,const char *slot,const char *launch){
  if(!c||!*c->slots)return -1;
- int dir=credential_dir(c,slot);if(dir==-2)return 0;if(dir<0)return -1;
- DIR *listing=fdopendir(dir);if(!listing){close(dir);return -1;}struct dirent *e;int count=0;while((e=readdir(listing)))if(strcmp(e->d_name,".")&&strcmp(e->d_name,".."))++count;closedir(listing);return count;
+ int source=source_credentials(NULL,c,slot,launch,NULL,0);
+ int dir=credential_dir(c,slot);if(dir==-2)return source;if(dir<0)return -1;
+ DIR *listing=fdopendir(dir);if(!listing){close(dir);return -1;}struct dirent *e;int count=0;while((e=readdir(listing)))if(strcmp(e->d_name,".")&&strcmp(e->d_name,".."))++count;closedir(listing);return source<0?-1:count+source;
 }
 static int output_path(const char *state,const char *launch,const char *name,char path[4200]){
  if(!strcmp(name,"launch.stdout"))return snprintf(path,4200,"%s/%s.stdout",state,launch)<4200;
@@ -267,7 +297,7 @@ static int set_phase(sqlite3 *db,const Control *x){char at[32];snprintf(at,sizeo
 /* Render the receipt from the durable ledger plus a fresh kernel observation. */
 static char *render(sqlite3 *db,Control *x,const ControlConfig *c){
  int count=x->prelaunch?0:uid_tree(x->uid,x->list,1024);x->remaining=count;
- int residue=x->prelaunch?0:credential_residue(c,x->slot);x->residue=residue;
+ int residue=x->prelaunch?0:credential_residue(c,x->slot,x->launch);x->residue=residue;
  char *data=NULL;size_t n=0;FILE *out=open_memstream(&data,&n);if(!out)return NULL;char observation[37];if(!hf_uuid_generate(observation)){fclose(out);free(data);return NULL;}
  fprintf(out,"{\"status\":\"%s\",\"action\":\"%s\",\"phase\":\"%s\",\"command_id\":\"%s\",\"launch_id\":\"%s\",\"slot_id\":\"%s\",\"observation_id\":\"%s\",\"observed_at_seconds\":%lld,\"binding\":",status_of(x->action,x->phase),x->action,x->phase,x->command,x->launch,x->slot,observation,(long long)time(NULL));
  if(*x->identity)fputs(x->identity,out);else{fputc('{',out);const char *k[]={"attempt_id","attempt_generation","sandbox_id","boot_id","boot_generation"};for(unsigned i=0;i<5;++i){char v[128]="";text_at(x->a,x->r,k[i],v,sizeof v);if(i)fputc(',',out);fprintf(out,"\"%s\":",k[i]);hf_json_write_string(out,v);}fputc('}',out);}
@@ -337,11 +367,11 @@ static void execute(sqlite3 *db,const ControlConfig *c,Control *x,const char *re
  if(!terminal)return;
  if(c)slot_state(c,x->slot,x->uid,"CLEANUP_REQUIRED");
  if(strcmp(x->action,"runner.drain"))launch_update(x->state,x->launch,x->uid,!strcmp(x->action,"runner.cancel")?"CANCELLING":"STOPPING");
- revoke_credentials(db,c,x->slot,x->command);
+ revoke_credentials(db,c,x->slot,x->launch,x->command);
  int remaining=terminate(x->uid,!strcmp(x->action,"runner.cancel")?0:x->policy.grace_ms,!strcmp(x->action,"runner.cancel"));
  /* A live broker closes stdin, retires its watchdog and fsyncs both logs. */
  char *rpc=NULL;size_t n=0;FILE *stream=open_memstream(&rpc,&n);if(stream){hf_launch_rpc(x->state,!strcmp(x->action,"runner.cancel")?"launch.cancel":"runner.stop",request,stream);fclose(stream);}free(rpc);
- revoke_credentials(db,c,x->slot,x->command);if(remaining!=0)remaining=terminate(x->uid,0,1);
+ revoke_credentials(db,c,x->slot,x->launch,x->command);if(remaining!=0)remaining=terminate(x->uid,0,1);
  record_outputs(db,x->state,x->launch,x->command,x->a,list);
  if(remaining==0){snprintf(x->phase,16,"%s",!strcmp(x->action,"runner.cancel")?"CANCELLED":!strcmp(x->action,"runner.stop")?"STOPPED":"DRAINED");launch_update(x->state,x->launch,x->uid,!strcmp(x->action,"runner.stop")?"STOPPED":x->phase);}
  else snprintf(x->phase,16,"%s",starting_phase(x->action));
@@ -464,7 +494,7 @@ static int slot_release(const char *request,FILE *out){
  if(!db)return hf_native_error(out,"CONTROL_LEDGER_UNAVAILABLE");
  if(load_command(db,command,&x)!=1||strcmp(x.launch,launch)||(strcmp(x.phase,"CANCELLED")&&strcmp(x.phase,"STOPPED")&&strcmp(x.phase,"DRAINED"))){free_control(&x);sqlite3_close(db);return hf_native_error(out,"SLOT_RELEASE_NOT_TERMINATED");}
  snprintf(x.state,sizeof x.state,"%s",state);
- revoke_credentials(db,c,x.slot,x.command);HfProcessIdentity list[1024];int processes=uid_tree(x.uid,list,1024),credentials=credential_residue(c,x.slot);
+ revoke_credentials(db,c,x.slot,x.launch,x.command);HfProcessIdentity list[1024];int processes=uid_tree(x.uid,list,1024),credentials=credential_residue(c,x.slot,x.launch);
  int captured=capture_outputs(db,c,x.command);
  sqlite3_stmt *q=NULL;int delivered=0,recorded_complete=0;char *receipt=NULL;
  if(sqlite3_prepare_v2(db,"SELECT report_delivered,receipt FROM commands WHERE id=?",-1,&q,NULL)==SQLITE_OK){sqlite3_bind_text(q,1,command,-1,SQLITE_STATIC);if(sqlite3_step(q)==SQLITE_ROW){delivered=sqlite3_column_int(q,0);if(sqlite3_column_type(q,1)!=SQLITE_NULL)receipt=strdup((const char*)sqlite3_column_text(q,1));}}sqlite3_finalize(q);

@@ -30,7 +30,7 @@ typedef struct {
 } RunnerConfig;
 typedef struct {
  char launch[37],command[37],session[37],attempt[37],attempt_generation[32],epoch[37],sequence[32],slot[37],digest[72];
- char kind[16],plan_digest[72],event[37];long long deadline_ns;char *body;uid_t uid;gid_t gid;
+ char kind[16],plan_digest[72],event[37],source_config[4096];long long deadline_ns;char *body;uid_t uid;gid_t gid;
 } Instruction;
 static long long monotonic_ns(void) {struct timespec t;if(clock_gettime(CLOCK_MONOTONIC,&t))return -1;return (long long)t.tv_sec*1000000000LL+t.tv_nsec;}
 static int decimal(const char *s) {
@@ -79,6 +79,98 @@ static int placement(const RunnerConfig *c,const char *action,const char *job,co
  free(j);hf_http_response_free(&response);return ok;
 }
 static int atstring(const HfJson *j,int o,const char *key,char *out,size_t n){return hf_json_string(j,hf_json_field(j,o,key),out,n);}
+static int source_required(const Instruction *i){
+ HfJson *body=malloc(sizeof *body);int required=0,ok=body&&hf_json_parse(body,i->body);
+ int field=ok?hf_json_field(body,0,"native_source_required"):-1;
+ if(field>=0)ok=hf_json_bool(body,field,&required)&&required;
+ free(body);return ok?required:-1;
+}
+static int source_state_paths(const RunnerConfig *c,const Instruction *i,char key[4200],char receipt[4200]){
+ return snprintf(key,4200,"%s/source-key-%s.pem",c->state,i->launch)<4200&&snprintf(receipt,4200,"%s/source-enrollment-%s.json",c->state,i->launch)<4200;
+}
+static int source_result(const RunnerConfig *c,const Instruction *i,const HfJson *j,int r){
+ char value[128];const char *names[]={"actor_id","run_id","sandbox_id","boot_id","boot_generation"};
+ const char *expected[]={i->session,c->run,c->sandbox,c->boot,c->generation};
+ for(unsigned k=0;k<5;k++)if(!atstring(j,r,names[k],value,sizeof value)||strcmp(value,expected[k]))return -1;
+ if(!atstring(j,r,"credential_id",value,sizeof value)||!hf_uuid_valid(value)||!atstring(j,r,"role",value,sizeof value)||strcmp(value,"WORKER"))return -1;
+ int native=hf_json_field(j,r,"native_source"),assignment=hf_json_field(j,native,"assignment");int64_t version=0;
+ if(native<0||assignment<0||!hf_json_i64(j,hf_json_field(j,native,"schema_version"),&version)||version!=1)return -1;
+ const char *fields[]={"worker_principal_id","run_id","attempt_id","attempt_generation"};
+ const char *values[]={i->session,c->run,i->attempt,i->attempt_generation};
+ for(unsigned k=0;k<4;k++)if(!atstring(j,assignment,fields[k],value,sizeof value)||strcmp(value,values[k]))return -1;
+ int scope=hf_json_field(j,assignment,"scope");
+ if(!atstring(j,scope,"organisation_id",value,sizeof value)||strcmp(value,c->organisation))return -1;
+ const char *ids[]={"assignment_id","workspace_id","task_id","capability_id"};
+ for(unsigned k=0;k<4;k++)if(!atstring(j,assignment,ids[k],value,sizeof value)||!hf_uuid_valid(value))return -1;
+ return assignment;
+}
+/* Each launch retains one private key and one operation, including across a lost response. */
+static int source_enroll(const RunnerConfig *c,const Instruction *i){
+ int required=source_required(i);if(required<=0)return required==0;
+ char key[4200],receipt[4200],public_key[44],seed[256],digest[65],operation[37];
+ if(!source_state_paths(c,i,key,receipt))return 0;
+ struct stat st;if(lstat(key,&st)==0){if(!hf_transport_public_key(key,public_key))return 0;}
+ else if(errno!=ENOENT||!hf_transport_keygen(key,public_key))return 0;
+ int n=snprintf(seed,sizeof seed,"hyperfide-source-enrollment-v1:%s:%s:%s",c->run,i->launch,i->session);
+ if(n<0||(size_t)n>=sizeof seed||!hf_sha256_bytes(seed,(size_t)n,digest))return 0;
+ digest[12]='5';digest[16]='a';snprintf(operation,sizeof operation,"%.8s-%.4s-%.4s-%.4s-%.12s",digest,digest+8,digest+12,digest+16,digest+20);
+ char payload[512];n=snprintf(payload,sizeof payload,"{\"run_id\":\"%s\",\"component\":\"14.1\",\"action\":\"identity.worker.source.delegate\",\"input\":{\"session_id\":\"%s\",\"public_key_b64\":\"%s\"},\"expected_version\":null,\"authority\":null}",c->run,i->session,public_key);
+ if(n<0||(size_t)n>=sizeof payload)return 0;
+ HfHttpResponse response={0};HfJson *j=malloc(sizeof *j);int ok=j&&hf_supervisor_call(c->transport,0,payload,operation,operation,operation,NULL,NULL,NULL,&response)&&result_json(&response,j);
+ int r=ok?hf_json_field(j,0,"result"):-1;ok=ok&&source_result(c,i,j,r)>=0;
+ if(ok){char *old=NULL;size_t old_n=0;if(!access(receipt,F_OK)){HfJson *prior=malloc(sizeof *prior);char a[37],b[37];ok=prior&&hf_private_read(receipt,HF_BODY_LIMIT,&old,&old_n)&&hf_json_parse(prior,old)&&atstring(prior,0,"credential_id",a,sizeof a)&&atstring(j,r,"credential_id",b,sizeof b)&&!strcmp(a,b);free(prior);free(old);}
+  char *body=ok?hf_json_raw(j,r):NULL;ok=body&&hf_private_write(receipt,body,strlen(body),1);free(body);}
+ free(j);hf_http_response_free(&response);return ok;
+}
+static int source_directory(int parent,const char *name,uid_t uid,gid_t gid){
+ int created=mkdirat(parent,name,0700)==0;if(!created&&errno!=EEXIST)return -1;
+ int fd=openat(parent,name,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);struct stat st;
+ if(fd<0)return -1;
+ if(created&&(fchown(fd,uid,gid)||fchmod(fd,0700))){close(fd);return -1;}
+ if(fstat(fd,&st)||st.st_uid!=uid||st.st_gid!=gid||(st.st_mode&077)){close(fd);return -1;}
+ return fd;
+}
+static int source_file(int parent,const char *name,const char *data,size_t size,uid_t uid,gid_t gid){
+ int old=openat(parent,name,O_RDONLY|O_NOFOLLOW|O_CLOEXEC);struct stat st;
+ if(old>=0){int ok=!fstat(old,&st)&&S_ISREG(st.st_mode)&&st.st_uid==uid&&st.st_gid==gid&&!(st.st_mode&077)&&st.st_nlink==1&&st.st_size>=0&&(size_t)st.st_size==size;char block[4096];size_t offset=0;
+  while(ok&&offset<size){size_t want=size-offset<sizeof block?size-offset:sizeof block;ssize_t got=read(old,block,want);if(got<0&&errno==EINTR)continue;if(got<=0||memcmp(block,data+offset,(size_t)got))ok=0;else offset+=(size_t)got;}
+  close(old);return ok;}
+ if(errno!=ENOENT)return 0;
+ char id[37],temporary[64];if(!hf_uuid_generate(id))return 0;snprintf(temporary,sizeof temporary,".source-%s",id);
+ int fd=openat(parent,temporary,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);if(fd<0)return 0;
+ int ok=!fchown(fd,uid,gid);size_t offset=0;
+ while(ok&&offset<size){ssize_t n=write(fd,data+offset,size-offset);if(n<0&&errno==EINTR)continue;if(n<=0)ok=0;else offset+=(size_t)n;}
+ if(ok)ok=fsync(fd)==0;if(close(fd))ok=0;
+ if(ok)ok=linkat(parent,temporary,parent,name,0)==0;
+ unlinkat(parent,temporary,0);if(ok)ok=fsync(parent)==0;return ok;
+}
+static int source_install(const RunnerConfig *c,Instruction *i,const HfJson *plan){
+ int required=source_required(i),readiness=hf_json_field(plan,0,"readiness");char backend[32]="";atstring(plan,readiness,"source_backend",backend,sizeof backend);
+ if(required<=0)return required==0&&strcmp(backend,"native");
+ char key[4200],receipt[4200],home[4096],credential[37],assignment_id[37],workspace[37],value[128],expected[128];char *raw=NULL,*pem=NULL,*ca=NULL,*config=NULL;size_t raw_n=0,pem_n=0,ca_n=0,config_n=0;
+ HfTransportConfig transport;HfJson *j=malloc(sizeof *j);int root=-1,directory=-1,slot=-1,ok=source_state_paths(c,i,key,receipt)&&j&&hf_private_read(receipt,HF_BODY_LIMIT,&raw,&raw_n)&&hf_json_parse(j,raw)&&hf_transport_config(c->transport,&transport)&&*transport.ca_file;
+ int assignment=ok?source_result(c,i,j,0):-1;ok=ok&&assignment>=0&&!strcmp(backend,"native");
+ int scope=ok?hf_json_field(j,assignment,"scope"):-1,authority=ok?hf_json_field(j,assignment,"authority"):-1,managed=ok?hf_json_field(j,authority,"managed"):-1,bound=ok?hf_json_field(j,authority,"workspace"):-1;
+ const char *source_keys[]={"base_revision_id","root_tree_id"},*ready_keys[]={"source_object_id","source_tree_id"};
+ for(unsigned k=0;ok&&k<2;k++)ok=atstring(j,assignment,source_keys[k],value,sizeof value)&&atstring(plan,readiness,ready_keys[k],expected,sizeof expected)&&!strcmp(value,expected);
+ int native=hf_json_field(plan,0,"native_source");
+ const char *assigned_keys[]={"assignment_id","workspace_id","worker_principal_id","run_id","task_id","attempt_id","attempt_generation"};
+ for(unsigned k=0;ok&&k<7;k++)ok=atstring(j,assignment,assigned_keys[k],value,sizeof value)&&atstring(plan,native,assigned_keys[k],expected,sizeof expected)&&!strcmp(value,expected);
+ ok=ok&&atstring(j,scope,"repository_id",value,sizeof value)&&atstring(plan,readiness,"source_repository_id",expected,sizeof expected)&&!strcmp(value,expected)&&atstring(j,scope,"security_domain_id",value,sizeof value)&&atstring(plan,readiness,"security_domain_id",expected,sizeof expected)&&!strcmp(value,expected);
+ ok=ok&&atstring(j,assignment,"assignment_id",assignment_id,sizeof assignment_id)&&atstring(j,assignment,"workspace_id",workspace,sizeof workspace)&&atstring(j,bound,"workspace_id",value,sizeof value)&&!strcmp(value,workspace)&&atstring(j,managed,"attempt_id",value,sizeof value)&&!strcmp(value,i->attempt)&&atstring(j,managed,"attempt_generation",value,sizeof value)&&!strcmp(value,i->attempt_generation)&&atstring(j,assignment,"task_id",value,sizeof value)&&atstring(j,managed,"task_id",expected,sizeof expected)&&!strcmp(value,expected)&&atstring(j,0,"credential_id",credential,sizeof credential)&&hf_json_get(plan,"home",home,sizeof home);
+ char directory_path[4200],key_path[4200],ca_path[4200];
+ if(ok)ok=snprintf(directory_path,sizeof directory_path,"%s/.hyperfide-source/%s",home,assignment_id)<(int)sizeof directory_path&&snprintf(key_path,sizeof key_path,"%s/key.pem",directory_path)<(int)sizeof key_path&&snprintf(ca_path,sizeof ca_path,"%s/ca.pem",directory_path)<(int)sizeof ca_path&&snprintf(i->source_config,sizeof i->source_config,"%s/client.json",directory_path)<(int)sizeof i->source_config;
+ if(ok){char actual[PATH_MAX];root=open(home,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);struct stat st;ok=realpath(home,actual)&&!strcmp(home,actual)&&root>=0&&!fstat(root,&st)&&st.st_uid==i->uid&&st.st_gid==i->gid&&!(st.st_mode&077);}
+ if(ok){directory=source_directory(root,".hyperfide-source",i->uid,i->gid);ok=directory>=0;}
+ if(ok){slot=source_directory(directory,assignment_id,i->uid,i->gid);ok=slot>=0;}
+ if(ok){char material[4200],*body=NULL;size_t length=0;FILE *out=snprintf(material,sizeof material,"%s/source-material-%s.json",c->state,i->launch)<(int)sizeof material?open_memstream(&body,&length):NULL;ok=out!=NULL;
+  if(out){fprintf(out,"{\"schema_version\":1,\"launch_id\":\"%s\",\"slot_id\":\"%s\",\"uid\":%lu,\"gid\":%lu,\"directory\":",i->launch,i->slot,(unsigned long)i->uid,(unsigned long)i->gid);hf_json_write_string(out,directory_path);fputs("}",out);ok=fclose(out)==0&&hf_private_write(material,body,length,1);}free(body);}
+ if(ok)ok=hf_private_read(key,4096,&pem,&pem_n)&&hf_protected_read(transport.ca_file,1048576,&ca,&ca_n)&&source_file(slot,"key.pem",pem,pem_n,i->uid,i->gid)&&source_file(slot,"ca.pem",ca,ca_n,i->uid,i->gid);
+ if(ok){char *scope_json=hf_json_raw(j,scope),*assignment_json=hf_json_raw(j,assignment);FILE *out=scope_json&&assignment_json?open_memstream(&config,&config_n):NULL;
+  ok=out!=NULL;if(out){fprintf(out,"{\"schema_version\":1,\"transport\":{\"schema_version\":1,\"endpoint\":");char endpoint[1024];snprintf(endpoint,sizeof endpoint,"%s/api/v1/source-control",transport.origin);hf_json_write_string(out,endpoint);fprintf(out,",\"scope\":%s,\"credential_id\":\"%s\",\"ca_file\":",scope_json,credential);hf_json_write_string(out,ca_path);fputs(",\"key_file\":",out);hf_json_write_string(out,key_path);fprintf(out,"},\"assignment\":%s}",assignment_json);ok=fclose(out)==0&&config_n<=HF_BODY_LIMIT&&source_file(slot,"client.json",config,config_n,i->uid,i->gid);}free(scope_json);free(assignment_json);}
+
+ if(pem){OPENSSL_cleanse(pem,pem_n);free(pem);}free(ca);free(config);free(raw);free(j);if(slot>=0)close(slot);if(directory>=0)close(directory);if(root>=0)close(root);if(!ok)i->source_config[0]=0;return ok;
+}
 /* Handoff and poll packets share one immutable shape; both are re-verified here. */
 static int parse_packet(const RunnerConfig *c,const HfJson *j,int r,Instruction *i,long long started) {
  HfJson *body=malloc(sizeof *body);int ok=body!=NULL&&r>=0,accepted=0;char actual[128],*encoded=NULL;
@@ -359,6 +451,7 @@ static pid_t spawn_agent(const Instruction *i,HfJson *plan,char **argv,int binar
   if(env>=0){if(!hf_json_only(plan,env,allowed,6))_exit(125);for(unsigned k=0;k<6;++k){char value[4096];int t=hf_json_field(plan,env,allowed[k]);if(t>=0&&(!hf_json_string(plan,t,value,sizeof value)||setenv(allowed[k],value,1)))_exit(125);}}
   if(hf_json_field(plan,0,"gateway")>=0){int token=-1;for(int k=0;refs&&k<refs->n;++k)if(!strcmp(refs->name[k],"ANTHROPIC_AUTH_TOKEN"))token=k;if(token<0||!refs->value[token])_exit(125);}
   for(int k=0;refs&&k<refs->n;++k)if(refs->value[k]&&setenv(refs->name[k],refs->value[k],1))_exit(125);
+  if(*i->source_config&&setenv("HF_SOURCE_CONFIG",i->source_config,1))_exit(125);
   if(setgroups(0,NULL)||setgid(i->gid)||setuid(i->uid)||chdir(cwd)||prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0))_exit(125);
   umask(0077);if(prctl(PR_SET_PDEATHSIG,SIGKILL)||getppid()!=parent)_exit(125);if(binary!=3&&dup3(binary,3,O_CLOEXEC)<0)_exit(125);
   if(close_range(4,~0U,0))_exit(125);
@@ -681,8 +774,10 @@ static int launch_start(const RunnerConfig *original,Instruction *i,FILE *out) {
  int lock=launch_lock(c->state,i->launch,1,NULL);
  if(lock<0){sqlite3_exec(db,"ROLLBACK",NULL,NULL,NULL);sqlite3_close(db);return refuse(out,"LAUNCH_OWNER_ACTIVE");}
  HfJson *plan=NULL;char *plan_source=NULL,**argv=NULL,*identity=NULL,*accepted_data=NULL;int binary=-1,accepted=0,refs_status=0;EnvRefs refs={0};const char *code="DURABLE_ACCEPTANCE_FAILED";size_t n=0;
- if(!fetch_connector_plan(&local,i)||!placement(c,"runner.agent.launch","implementation","native.spawn")||!slot_identity(c,i))code="SLOT_OR_PLACEMENT_NOT_CURRENT";
+ if(!source_enroll(c,i))code="SOURCE_ENROLLMENT_UNCONFIRMED";
+ else if(!fetch_connector_plan(&local,i)||!placement(c,"runner.agent.launch","implementation","native.spawn")||!slot_identity(c,i))code="SLOT_OR_PLACEMENT_NOT_CURRENT";
  else if(!(plan=malloc(sizeof *plan))||!read_plan(c,i,plan,&plan_source,&argv,&binary))code="CONNECTOR_PLAN_NOT_QUALIFIED";
+ else if(!source_install(c,i,plan))code="SOURCE_HANDOFF_INVALID";
  else if((refs_status=start_env_refs(c,i,&refs)))code=refs_status==1?"SECRET_REFERENCES_INVALID":refs_status==3?"CREDENTIAL_ISOLATION_REQUIRED":"SECRET_REFERENCE_UNAVAILABLE";
  else {
   FILE *writer=open_memstream(&identity,&n);

@@ -10,6 +10,11 @@ type Data=Record<string,any>;
 export function fleetCompletionId(identity:unknown):string{
  const bytes=Buffer.from(hash(runnerCanonical(identity)).slice(7,39),'hex');bytes[6]=(bytes[6]!&15)|80;bytes[8]=(bytes[8]!&63)|128;const h=bytes.toString('hex');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
 }
+async function appendReleaseReconciliation(tx:PrimaryTransaction,r:Data,command_id:string,waiting:Data[]):Promise<void>{
+ const native_operation_id=fleetCompletionNativeOperation({kind:'FLEET_COMPLETION_NATIVE_V1',phase:'RELEASE',organisation_id:r.organisation_id,run_id:r.run_id,launch_id:r.launch_id,command_id});
+ const retained=(await tx.query(`SELECT o.state FROM hyperfide.provider_remote_operations o JOIN hyperfide.runner_workspaces w ON w.organisation_id=o.organisation_id AND w.run_id=o.run_id AND w.sandbox_id=o.sandbox_id AND w.boot_generation=o.boot_generation AND w.slot_id=$4 WHERE o.organisation_id=$1 AND o.run_id=$2 AND o.id=$3 AND w.state<>'FREE'`,[r.organisation_id,r.run_id,native_operation_id,r.slot_id])).rows[0];
+ if(retained)waiting.push({launch_id:r.launch_id,state:'NATIVE_RELEASE_RECONCILIATION_REQUIRED',native_operation_id,native_operation_state:retained.state});
+}
 /** Mechanical preservation follows the launch already selected and admitted by the manager. */
 export async function projectFleetCompletionCommands(tx:PrimaryTransaction,i:InvocationContext,input:{after:string|null;limit:number}):Promise<Data>{
  assertInvocation(i);if(!['OPERATOR','COORDINATOR'].includes(i.principal.role))fail('FLEET_COMPLETION_ROLE','Privileged mechanical completion authority required');await i.guard(tx);
@@ -41,10 +46,10 @@ export async function projectFleetCompletionCommands(tx:PrimaryTransaction,i:Inv
   if(!remote){waiting.push({launch_id:r.launch_id,state:'WAITING_NATIVE_STOP_CAPTURE'});continue;}
   const native=await readNativeFleetCleanup(tx,{organisation_id:r.organisation_id,run_id:r.run_id,attempt_id:r.attempt_id,
    attempt_generation:r.attempt_generation,sandbox_id:r.sandbox_id,slot_id:r.slot_id,boot_generation:r.sandbox_boot_generation,authority_epoch:i.principal.deployment_epoch});
-  if(native.native){if(!native.custody)waiting.push({launch_id:r.launch_id,state:'WAITING_NATIVE_SOURCE_SUBMISSION'});continue;}
+  if(native.native){if(!native.custody)waiting.push({launch_id:r.launch_id,state:'WAITING_NATIVE_SOURCE_SUBMISSION'});else await appendReleaseReconciliation(tx,r,command_id,waiting);continue;}
   const request_id=fleetCompletionId({...identity,step:'ARCHIVE'});
   const archive=(await tx.query('SELECT state FROM hyperfide.fleet_source_archive_deliveries WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[r.organisation_id,r.run_id,request_id])).rows[0];
-  if(archive?.state==='COMPLETED'){const native_operation_id=fleetCompletionNativeOperation({kind:'FLEET_COMPLETION_NATIVE_V1',phase:'RELEASE',organisation_id:r.organisation_id,run_id:r.run_id,launch_id:r.launch_id,command_id});const retained=(await tx.query(`SELECT o.state FROM hyperfide.provider_remote_operations o JOIN hyperfide.runner_workspaces w ON w.organisation_id=o.organisation_id AND w.run_id=o.run_id AND w.sandbox_id=o.sandbox_id AND w.boot_generation=o.boot_generation AND w.slot_id=$4 WHERE o.organisation_id=$1 AND o.run_id=$2 AND o.id=$3 AND w.state<>'FREE'`,[r.organisation_id,r.run_id,native_operation_id,r.slot_id])).rows[0];if(retained)waiting.push({launch_id:r.launch_id,state:'NATIVE_RELEASE_RECONCILIATION_REQUIRED',native_operation_id,native_operation_state:retained.state});continue;}
+  if(archive?.state==='COMPLETED'){await appendReleaseReconciliation(tx,r,command_id,waiting);continue;}
   // Null RPC identity lets the supervisor journal a fresh poll while request_id keeps one capture.
   commands.push({operation_id:null,component:'16.1',action:'submission.archive.register',input:{organisation_id:r.organisation_id,run_id:r.run_id,request_id,task_id:r.task_id,attempt_id:r.attempt_id,attempt_generation:r.attempt_generation,session_id:r.agent_session_id,launch_id:r.launch_id,command_id,quiescence_operation_id:remote.id}});
  }

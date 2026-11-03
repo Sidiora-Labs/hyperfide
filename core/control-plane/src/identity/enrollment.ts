@@ -5,6 +5,8 @@ import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {object} from '../policy/programme.js';
 import {assertFleetBootstrapIdentity} from '../agents/fleet_bootstrap.js';
+import {decodeSourceRequest,parseSourceRequest} from '../source_control/contracts.js';
+import type {InvokePayload} from '../transport/protocol.js';
 import {assertInvocation,authenticatedInvocation,base64,canonicalOrigin,decodeEnrollment,decodeInvoke,decimal,enrollmentSecret,exact,fail,frozen,hash,NAME,proof,strictJSON,uuid,verifyProof} from '../transport/protocol.js';
 import type {AuthorityTransaction,InvocationContext,Operation,Principal} from '../transport/protocol.js';
 export type IdentityTransaction=AuthorityTransaction;
@@ -14,14 +16,51 @@ export interface FreshRunnerTarget {sandbox_id:string;boot_id:string;boot_genera
 export interface FreshRunnerObservation {credential_id:string;sandbox_id:string;boot_id:string;boot_generation:string;grant_id:string;provisioning_intent_id:string;heartbeat_at:string;observation_only:true;authority:'NONE'}
 export interface MainSessionIdentityBinding {readonly organisation_id:string;readonly run_id:string;readonly session_id:string;readonly role:'LEADER'|'FEATURE_MANAGER';readonly placement:'MAIN';readonly native_session_id:string;readonly registration_receipt_digest:string}
 export interface MainSessionIdentityVerifier {verify(tx:PrimaryTransaction,scope:{organisation_id:string;run_id:string;session_id:string},invocation:InvocationContext):Promise<MainSessionIdentityBinding>}
-export interface IdentityAuthority {installMainSessionVerifier(verifier:MainSessionIdentityVerifier):void;sealTrustedRegistrations():void;verifyFreshRunner(i:InvocationContext,tx:IdentityTransaction,target:FreshRunnerTarget):Promise<FreshRunnerObservation>;readonly origin:string;guard(tx:IdentityTransaction,p:Principal):Promise<void>;authenticate(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<InvocationContext>;enroll(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<unknown>;authorize(i:InvocationContext):Promise<void>}
+export type SourceWorkerEnroller=(tx:PrimaryTransaction,invocation:InvocationContext,credentialId:string)=>Promise<unknown>;
+export interface IdentityAuthority {installSourceWorkerEnroller(enroller:SourceWorkerEnroller):void;installMainSessionVerifier(verifier:MainSessionIdentityVerifier):void;sealTrustedRegistrations():void;verifyFreshRunner(i:InvocationContext,tx:IdentityTransaction,target:FreshRunnerTarget):Promise<FreshRunnerObservation>;readonly origin:string;guard(tx:IdentityTransaction,p:Principal):Promise<void>;authenticate(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<InvocationContext>;authenticateSource(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<InvocationContext>;enroll(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<unknown>;authorize(i:InvocationContext):Promise<void>}
 const agentRoles=['LEADER','FEATURE_MANAGER','WORKER','COMMIT_WATCHER','ISSUE_WATCHER','VERIFIER','INTEGRATOR','INDEXER'];
 const allRoles=[...agentRoles,'OPERATOR','COORDINATOR','PROVISIONER','DISPATCH','RUNNER','GITHUB_MIRROR'];
 export function invocationOf(ctx:ComponentContext):InvocationContext {const i=(ctx as ComponentContext&{invocation?:InvocationContext}).invocation;assertInvocation(i);return i;}
 export function gatewayOf(ctx:ComponentContext):IdentityGateway {const g=(ctx as unknown as {resources?:{gateway?:IdentityGateway}}).resources?.gateway;if(!g||typeof g.withPrimaryTransaction!=='function')fail('RESOURCE_REQUIRED','Initialized primary transaction gateway required');return g;}
-export function isIdentityAuthority(v:unknown):v is IdentityAuthority{return object(v)&&typeof v.guard==='function'&&typeof v.authenticate==='function'&&typeof v.enroll==='function'&&typeof v.authorize==='function';}
+export function isIdentityAuthority(v:unknown):v is IdentityAuthority{return object(v)&&typeof v.guard==='function'&&typeof v.authenticate==='function'&&typeof v.authenticateSource==='function'&&typeof v.enroll==='function'&&typeof v.authorize==='function';}
 function allowed(v:unknown):string[]{if(!Array.isArray(v)||!v.length||v.length>256||v.some(x=>typeof x!=='string'||!NAME.test(x))||new Set(v).size!==v.length)fail('INVALID_REQUEST','Unique action capabilities required');return v as string[];}
 function principal(row:Record<string,any>):Principal{return frozen({credential_id:row.credential_id,organisation_id:row.organisation_id,run_id:row.run_id,actor_id:row.actor_id,role:row.role,credential_version:String(row.credential_version),deployment_epoch:row.deployment_epoch,sandbox_id:row.sandbox_id,boot_id:row.boot_id,boot_generation:row.boot_generation===null?null:String(row.boot_generation),attempt_id:row.attempt_id,attempt_generation:row.attempt_generation===null?null:String(row.attempt_generation),allowed_actions:[...row.allowed_actions],expires_at:new Date(row.expires_at).toISOString()});}
+const prelaunchSourceActions=new Set(['source.objects.put','source.workspaces.detail','source.workspaces.checkpoint','source.operations.read','source.fleet.read','source.fleet.submit','source.fleet.submission']);
+async function declaredSourceWorker(tx:IdentityTransaction,input:{organisation_id:string;run_id:string;session_id:string;authority_epoch:string;sandbox_id:string|null;boot_generation:string|null;attempt_id:string|null;attempt_generation?:string|null},current:boolean):Promise<boolean>{
+ const present=(await tx.query("SELECT to_regclass('hyperfide.hierarchy_worker_registrations') IS NOT NULL AND to_regclass('hyperfide.fleet_effect_receipts') IS NOT NULL AS present")).rows[0];
+ if(!present?.present)return false;
+ const rows=(await tx.query(`SELECT w.*,a.generation::text,a.compute_authority,a.lease_expires_at,a.input_packet_digest,
+  t.current_attempt_id,t.generation::text AS task_generation,e.result AS effect,
+  d.manager_session_id,d.manager_generation::text,d.leader_generation::text,q.authority_epoch AS cohort_epoch,q.leader_generation::text AS cohort_generation,
+  clock_timestamp() AS now
+  FROM hyperfide.hierarchy_worker_registrations w
+  JOIN hyperfide.agent_sessions s ON s.organisation_id=w.organisation_id AND s.run_id=w.run_id AND s.id=w.session_id
+  JOIN hyperfide.attempts a ON a.organisation_id=w.organisation_id AND a.run_id=w.run_id AND a.id=w.attempt_id
+   AND a.generation=w.attempt_generation AND a.task_id=w.task_id AND a.sandbox_id=w.sandbox_id AND a.slot_id=w.slot_id AND a.sandbox_boot_generation=w.sandbox_boot_generation
+  JOIN hyperfide.tasks t ON t.organisation_id=w.organisation_id AND t.run_id=w.run_id AND t.id=w.task_id
+  JOIN hyperfide.fleet_effect_receipts e ON e.organisation_id=w.organisation_id AND e.run_id=w.run_id
+   AND e.result->>'kind'='ASSIGN_WORKER' AND e.result->'assignment'->>'worker_id'=w.session_id::text
+   AND e.result->'assignment'->>'schema_version'='2' AND e.result->'assignment'->'source'->>'source_backend'='native'
+   AND e.result->'assignment'->>'manager_id'=w.parent_session_id::text AND e.result->'assignment'->>'delegation_id'=w.package_id::text
+   AND EXISTS(SELECT 1 FROM jsonb_array_elements(e.result->'tasks') item WHERE item->>'task_id'=w.task_id::text
+    AND item->>'attempt_id'=w.attempt_id::text AND item->>'attempt_generation'=w.attempt_generation::text AND item->>'slot_id'=w.slot_id::text)
+  JOIN hyperfide.fleet_delegations d ON d.organisation_id=w.organisation_id AND d.run_id=w.run_id AND d.package_id=w.package_id
+  JOIN hyperfide.fleet_cohorts q ON q.organisation_id=w.organisation_id AND q.run_id=w.run_id
+  WHERE w.organisation_id=$1 AND w.run_id=$2 AND w.session_id=$3 AND w.authority_epoch=$4
+   AND w.sandbox_id=$5 AND w.sandbox_boot_generation=$6 AND w.attempt_id=$7
+   AND s.role='WORKER' AND s.state='REGISTERED' AND s.native_session_id IS NULL AND s.attempt_id=w.attempt_id
+   AND s.parent_session_id=w.parent_session_id AND s.sandbox_id=w.sandbox_id AND s.slot_id=w.slot_id
+   AND s.sandbox_boot_generation=w.sandbox_boot_generation AND s.connector=w.connector AND s.account_key=w.account_key
+  FOR SHARE OF w,s,a,t,e,d,q`,[input.organisation_id,input.run_id,input.session_id,input.authority_epoch,input.sandbox_id,input.boot_generation,input.attempt_id])).rows;
+ if(rows.length!==1)return false;
+ const row=rows[0]!,assignment=row.effect.assignment;
+ if(input.attempt_generation!==undefined&&input.attempt_generation!==null&&row.generation!==input.attempt_generation||row.input_packet_digest!==row.packet_digest)return false;
+ if(current&&(row.compute_authority!=='CURRENT'||row.current_attempt_id!==row.attempt_id||row.task_generation!==row.generation
+  ||new Date(row.lease_expires_at).getTime()<=new Date(row.now).getTime()||row.manager_session_id!==row.parent_session_id
+  ||row.manager_generation!==assignment.manager_generation||row.leader_generation!==assignment.leader_generation
+  ||row.cohort_epoch!==input.authority_epoch||row.cohort_generation!==assignment.leader_generation))return false;
+ return true;
+}
 async function assertCredentialIdentity(tx:IdentityTransaction,p:Principal,strictCompute:boolean,action?:string,continuation=false):Promise<void>{
  assertPrimaryTransaction(tx);
  let attemptExpiry:number|undefined;
@@ -34,7 +73,12 @@ async function assertCredentialIdentity(tx:IdentityTransaction,p:Principal,stric
  const cleanup=['recovery.control.reconstruct','recovery.worker.inventory','recovery.stop.request','recovery.stop.reconcile','recovery.stop.finalize','recovery.stop.release','recovery.drill.describe','recovery.drill.plan','recovery.drill.inspect','recovery.drill.execute','recovery.drill.reconcile','recovery.control.resume','integration.publication.reconcile','review.coverage.inspect','review.reproduction.inspect'];
  if(strictCompute&&closing.includes(r.run_state)&&!(continuation&&r.run_state==='DRAINING')&&!(action&&['OPERATOR','COORDINATOR','LEADER'].includes(p.role)&&cleanup.includes(action))&&!(action==='integration.publication.reconcile'&&p.role==='INTEGRATOR')&&!(action==='identity.principal.renew'&&['COORDINATOR','PROVISIONER','DISPATCH'].includes(p.role)&&['PAUSED','STOPPING','PAUSING','DRAINING'].includes(r.run_state))&&!(action&&['OPERATOR','COORDINATOR','LEADER'].includes(p.role)&&((['cutover.describe','cutover.inspect','cutover.recovery'].includes(action)&&['PAUSED','DRAINED','STOPPED','CANCELLED'].includes(r.run_state))||(['cutover.prepare','cutover.validate'].includes(action)&&['PAUSED','DRAINED','STOPPED'].includes(r.run_state)))))fail('AUTH_RUN_CLOSED','Run state denies this operation');
  if(r.sandbox_id!==null){const b=(await tx.query('SELECT s.boot_generation,s.observed_state,b.boot_id FROM hyperfide.sandboxes s JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE s.organisation_id=$1 AND s.id=$2 FOR SHARE OF s,b',[r.organisation_id,r.sandbox_id])).rows[0];if(!b||String(b.boot_generation)!==p.boot_generation||b.boot_id!==p.boot_id||strictCompute&&b.observed_state!=='RUNNING')fail('AUTH_STALE_BOOT','Sandbox boot is not current');}
- if(agentRoles.includes(r.role)){const bootstrap=await assertFleetBootstrapIdentity(tx,p,action);const a=(await tx.query('SELECT role,state,attempt_id,sandbox_id,sandbox_boot_generation,native_session_id FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[r.organisation_id,r.run_id,r.actor_id])).rows[0];if(!a||!bootstrap&&(typeof a.native_session_id!=='string'||!a.native_session_id)||a.role!==r.role||!['REGISTERED','RUNNING','DISCONNECTED'].includes(a.state)||a.attempt_id!==r.attempt_id||a.sandbox_id!==p.sandbox_id||(a.sandbox_boot_generation===null?null:String(a.sandbox_boot_generation))!==p.boot_generation)fail('AUTH_STALE_SESSION','Registered session is not current');}
+ if(agentRoles.includes(r.role)){
+  const bootstrap=await assertFleetBootstrapIdentity(tx,p,action),a=(await tx.query('SELECT role,state,attempt_id,sandbox_id,sandbox_boot_generation,native_session_id FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[r.organisation_id,r.run_id,r.actor_id])).rows[0];
+  const declared=a?.native_session_id===null&&p.role==='WORKER'&&p.allowed_actions.every(value=>prelaunchSourceActions.has(value))
+   &&await declaredSourceWorker(tx,{organisation_id:p.organisation_id,run_id:p.run_id,session_id:p.actor_id,authority_epoch:p.deployment_epoch,sandbox_id:p.sandbox_id,boot_generation:p.boot_generation,attempt_id:p.attempt_id,attempt_generation:p.attempt_generation},strictCompute);
+  if(!a||!bootstrap&&!declared&&(typeof a.native_session_id!=='string'||!a.native_session_id)||a.role!==r.role||!['REGISTERED','RUNNING','DISCONNECTED'].includes(a.state)||a.attempt_id!==r.attempt_id||a.sandbox_id!==p.sandbox_id||(a.sandbox_boot_generation===null?null:String(a.sandbox_boot_generation))!==p.boot_generation)fail('AUTH_STALE_SESSION','Registered session is not current');
+ }
  if(r.attempt_id!==null){const a=(await tx.query('SELECT *,clock_timestamp() AS db_now FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[r.organisation_id,r.run_id,r.attempt_id])).rows[0];if(!a||r.role!=='WORKER'||a.kind!=='IMPLEMENTATION'||strictCompute&&a.compute_authority!=='CURRENT'||String(a.generation)!==p.attempt_generation||a.authority_epoch!==p.deployment_epoch||a.sandbox_id!==p.sandbox_id||String(a.sandbox_boot_generation)!==p.boot_generation||strictCompute&&new Date(a.lease_expires_at).getTime()<=new Date(a.db_now).getTime())fail('AUTH_STALE_ATTEMPT','Attempt authority is not current');attemptExpiry=new Date(a.lease_expires_at).getTime();}
  const clock=(await tx.query('SELECT clock_timestamp() AS db_now')).rows[0]!.db_now;
  if(new Date(r.expires_at).getTime()<=new Date(clock).getTime()||strictCompute&&attemptExpiry!==undefined&&attemptExpiry<=new Date(clock).getTime())fail('AUTH_EXPIRED','Authority expired while waiting for row locks');
@@ -57,17 +101,72 @@ function role(i:InvocationContext,values:string[]):void{if(!values.includes(i.pr
 function result(p:Record<string,any>):unknown{return {protocol_version:1,credential_id:p.credential_id,actor_id:p.actor_id,run_id:p.run_id,role:p.role,sandbox_id:p.sandbox_id,boot_generation:p.boot_generation===null?null:String(p.boot_generation),boot_id:p.boot_id,expires_at:new Date(p.expires_at).toISOString()};}
 export async function createComponent(ctx:ComponentContext):Promise<Component>{
  const g=gatewayOf(ctx),c=await configOf(ctx),globalAuthority=ctx.dependencies.require('4.4','storage.authority.v1',(v:unknown):v is GlobalIdentityAuthority=>object(v)&&typeof v.assertCurrent==='function');await ready(g);await seed(g,c,globalAuthority);
- let mainVerifier:MainSessionIdentityVerifier|undefined,registrationsSealed=false;
+ let mainVerifier:MainSessionIdentityVerifier|undefined,sourceWorkerEnroller:SourceWorkerEnroller|undefined,registrationsSealed=false;
  const installMainSessionVerifier=(verifier:MainSessionIdentityVerifier):void=>{
   if(registrationsSealed)fail('IDENTITY_REGISTRY_SEALED','Trusted identity registrations are sealed before listening');
   if(!object(verifier)||typeof verifier.verify!=='function'||mainVerifier!==undefined)fail('MAIN_VERIFIER_CONFLICT','Exactly one trusted MAIN session verifier may register');
   mainVerifier=Object.freeze({verify:verifier.verify.bind(verifier)});
  };
+ const installSourceWorkerEnroller=(enroller:SourceWorkerEnroller):void=>{
+  if(registrationsSealed)fail('IDENTITY_REGISTRY_SEALED','Trusted identity registrations are sealed before listening');
+  if(typeof enroller!=='function'||sourceWorkerEnroller!==undefined)fail('SOURCE_WORKER_ENROLLER_CONFLICT','Exactly one trusted source worker enroller may register');
+  sourceWorkerEnroller=enroller;
+ };
  const sealTrustedRegistrations=():void=>{registrationsSealed=true;};
  const assertBoundIdentity=async(tx:IdentityTransaction,p:Principal,strict:boolean,action?:string,continuation=false):Promise<void>=>{assertPrimaryTransaction(tx);await assertCredentialIdentity(tx,p,strict,action,continuation);await globalAuthority.assertCurrent(tx,{organisation_id:p.organisation_id,run_id:p.run_id,authority_epoch:p.deployment_epoch});await assertCredentialIdentity(tx,p,strict,action,continuation);};
  const assertBoundPrincipal=(tx:IdentityTransaction,p:Principal)=>assertCurrentPrincipal(tx,p,globalAuthority);
- const authorize=async(i:InvocationContext):Promise<void>=>{const p=i.principal,b=i.payload;if(p.run_id!==b.run_id||!p.allowed_actions.includes(b.action))fail('AUTH_SCOPE_DENIED','Operation outside granted run/action');if(p.attempt_id!==null&&(!b.authority||b.authority.attempt_id!==p.attempt_id||b.authority.attempt_generation!==p.attempt_generation||b.authority.sandbox_id!==p.sandbox_id||b.authority.boot_generation!==p.boot_generation||b.authority.deployment_epoch!==p.deployment_epoch))fail('AUTH_SCOPE_DENIED','Attempt authority mismatch');if(b.authority&&b.authority.deployment_epoch!==p.deployment_epoch)fail('AUTH_SCOPE_DENIED','Authority epoch mismatch');};
- const authenticate:IdentityAuthority['authenticate']=async(body,headers,signal)=>{const decoded=decodeInvoke(body),item=proof(headers);const p=await g.withPrimaryTransaction({timeoutMs:5000,signal},async tx=>{const r=(await tx.query('SELECT *,clock_timestamp() AS db_now FROM hyperfide.identity_principals WHERE credential_id=$1 FOR SHARE',[item.id])).rows[0];if(!r)fail('AUTH_INVALID','Credential unavailable');verifyProof(r.public_key_b64,item,c.origin,'/v1/invoke',body);if(Math.abs(new Date(r.db_now).getTime()/1000-Number(item.time))>c.clock_skew_seconds)fail('AUTH_EXPIRED','Request proof outside time window');const p=principal(r);await assertBoundIdentity(tx,p,false);const proofNow=(await tx.query('SELECT clock_timestamp() AS db_now')).rows[0]!.db_now;if(Math.abs(new Date(proofNow).getTime()/1000-Number(item.time))>c.clock_skew_seconds)fail('AUTH_EXPIRED','Request proof expired while waiting for identity locks');if((await tx.query('INSERT INTO hyperfide.identity_request_nonces(credential_id,nonce) VALUES($1,$2) ON CONFLICT DO NOTHING',[item.id,item.nonce])).rowCount!==1)fail('AUTH_REPLAY','Nonce already consumed');return p;});const i:InvocationContext=authenticatedInvocation({principal:p,operation:decoded.operation,payload:decoded.payload,signal,guard:(tx:IdentityTransaction)=>assertBoundIdentity(tx,p,true,decoded.payload.action),identityGuard:(tx:IdentityTransaction)=>assertBoundIdentity(tx,p,false),continuationGuard:async(tx:IdentityTransaction,validatePersistedAdmission:(tx:IdentityTransaction,invocation:InvocationContext)=>Promise<void>)=>{if(typeof validatePersistedAdmission!=='function')fail('AUTH_CONTINUATION_REQUIRED','Trusted persisted admission validator required');await assertBoundIdentity(tx,p,true,decoded.payload.action,true);await validatePersistedAdmission(tx,i);await assertBoundIdentity(tx,p,true,decoded.payload.action,true);}});await authorize(i);return i;};
+ const authorize=async(i:InvocationContext):Promise<void>=>{
+  const p=i.principal,b=i.payload;
+  if(p.run_id!==b.run_id||!p.allowed_actions.includes(b.action))fail('AUTH_SCOPE_DENIED','Operation outside granted run/action');
+  if(b.component==='source-control'&&b.action.startsWith('source.')){
+   const request=parseSourceRequest(b.input);
+   if(request.action!==b.action||request.operation_id!==i.operation.operation_id||request.scope.organisation_id!==p.organisation_id)
+    fail('AUTH_SCOPE_DENIED','Source envelope differs from authenticated operation or organisation');
+   const managed=request.authority?.managed;
+   if(p.attempt_id!==null&&managed&&(managed.attempt_id!==p.attempt_id||managed.attempt_generation!==p.attempt_generation))
+    fail('AUTH_SCOPE_DENIED','Source attempt authority mismatch');
+   return;
+  }
+  if(p.attempt_id!==null&&(!b.authority||b.authority.attempt_id!==p.attempt_id||b.authority.attempt_generation!==p.attempt_generation||b.authority.sandbox_id!==p.sandbox_id||b.authority.boot_generation!==p.boot_generation||b.authority.deployment_epoch!==p.deployment_epoch))fail('AUTH_SCOPE_DENIED','Attempt authority mismatch');
+  if(b.authority&&b.authority.deployment_epoch!==p.deployment_epoch)fail('AUTH_SCOPE_DENIED','Authority epoch mismatch');
+ };
+ const authenticatePrincipal=async(body:Buffer,headers:readonly string[],signal:AbortSignal,endpoint:'/v1/invoke'|'/api/v1/source-control'):Promise<Principal>=>{
+  const item=proof(headers);
+  return g.withPrimaryTransaction({timeoutMs:5000,signal},async tx=>{
+   const r=(await tx.query('SELECT *,clock_timestamp() AS db_now FROM hyperfide.identity_principals WHERE credential_id=$1 FOR SHARE',[item.id])).rows[0];
+   if(!r)fail('AUTH_INVALID','Credential unavailable');
+   verifyProof(r.public_key_b64,item,c.origin,endpoint,body);
+   if(Math.abs(new Date(r.db_now).getTime()/1000-Number(item.time))>c.clock_skew_seconds)fail('AUTH_EXPIRED','Request proof outside time window');
+   const p=principal(r);await assertBoundIdentity(tx,p,false);
+   const proofNow=(await tx.query('SELECT clock_timestamp() AS db_now')).rows[0]!.db_now;
+   if(Math.abs(new Date(proofNow).getTime()/1000-Number(item.time))>c.clock_skew_seconds)fail('AUTH_EXPIRED','Request proof expired while waiting for identity locks');
+   if((await tx.query('INSERT INTO hyperfide.identity_request_nonces(credential_id,nonce) VALUES($1,$2) ON CONFLICT DO NOTHING',[item.id,item.nonce])).rowCount!==1)fail('AUTH_REPLAY','Nonce already consumed');
+   return p;
+  });
+ };
+ const invocation=async(p:Principal,operation:Operation,payload:InvokePayload,signal:AbortSignal):Promise<InvocationContext>=>{
+  const i:InvocationContext=authenticatedInvocation({principal:p,operation,payload,signal,
+   guard:(tx:IdentityTransaction)=>assertBoundIdentity(tx,p,true,payload.action),
+   identityGuard:(tx:IdentityTransaction)=>assertBoundIdentity(tx,p,false),
+   continuationGuard:async(tx:IdentityTransaction,validatePersistedAdmission:(tx:IdentityTransaction,invocation:InvocationContext)=>Promise<void>)=>{
+    if(typeof validatePersistedAdmission!=='function')fail('AUTH_CONTINUATION_REQUIRED','Trusted persisted admission validator required');
+    await assertBoundIdentity(tx,p,true,payload.action,true);await validatePersistedAdmission(tx,i);await assertBoundIdentity(tx,p,true,payload.action,true);
+   }});
+  await authorize(i);return i;
+ };
+ const authenticate:IdentityAuthority['authenticate']=async(body,headers,signal)=>{
+  const decoded=decodeInvoke(body),p=await authenticatePrincipal(body,headers,signal,'/v1/invoke');
+  return invocation(p,decoded.operation,decoded.payload,signal);
+ };
+ const authenticateSource:IdentityAuthority['authenticateSource']=async(body,headers,signal)=>{
+  const source=decodeSourceRequest(body),p=await authenticatePrincipal(body,headers,signal,'/api/v1/source-control');
+  const operation:Operation=frozen({protocol_version:1,operation_id:source.operation_id,idempotency_key:source.idempotency_key??source.operation_id,
+   payload_digest:hash(body),correlation_id:source.operation_id,causation_id:null});
+  const authority=p.attempt_id===null?null:{deployment_epoch:p.deployment_epoch,attempt_id:p.attempt_id,
+   attempt_generation:p.attempt_generation!,sandbox_id:p.sandbox_id!,boot_generation:p.boot_generation!};
+  const payload:InvokePayload=frozen({run_id:p.run_id,component:'source-control',action:source.action,input:source,expected_version:null,authority});
+  return invocation(p,operation,payload,signal);
+ };
  const enroll:IdentityAuthority['enroll']=async(body,headers,signal)=>{const d=decodeEnrollment(body),item=proof(headers,true),secret=enrollmentSecret(headers),b=d.payload;verifyProof(b.public_key_b64,item,c.origin,'/v1/enroll',body);
  await g.withPrimaryTransaction({timeoutMs:5000,signal},async tx=>{const r=(await tx.query('SELECT verifier,clock_timestamp() AS db_now FROM hyperfide.identity_enrollment_grants WHERE id=$1 FOR SHARE',[item.id])).rows[0],a=Buffer.from(hash(secret)),v=Buffer.from(String(r?.verifier??''));if(!r||a.length!==v.length||!timingSafeEqual(a,v))fail('AUTH_INVALID','Enrollment grant unavailable');if(Math.abs(new Date(r.db_now).getTime()/1000-Number(item.time))>c.clock_skew_seconds)fail('AUTH_EXPIRED','Enrollment proof outside time window');if((await tx.query('INSERT INTO hyperfide.identity_enrollment_nonces(grant_id,nonce) VALUES($1,$2) ON CONFLICT DO NOTHING',[item.id,item.nonce])).rowCount!==1)fail('AUTH_REPLAY','Enrollment nonce consumed');});
  const outcome=await g.withPrimaryTransaction({timeoutMs:5000,maxRetries:2,signal},async tx=>{assertPrimaryTransaction(tx);const grant=(await tx.query('SELECT g.*,r.authority_epoch,r.state AS run_state,clock_timestamp() AS db_now FROM hyperfide.identity_enrollment_grants g JOIN hyperfide.runs r ON r.organisation_id=g.organisation_id AND r.id=g.run_id WHERE g.id=$1 FOR UPDATE OF g FOR SHARE OF r',[item.id])).rows[0];if(!grant)fail('AUTH_INVALID','Enrollment grant unavailable');if(grant.run_state!=='RUNNING')fail('AUTH_RUN_CLOSED','Enrollment requires a running run');await globalAuthority.assertCurrent(tx,{organisation_id:grant.organisation_id,run_id:grant.run_id,authority_epoch:grant.deployment_epoch});
@@ -85,10 +184,48 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  await assertBoundPrincipal(tx,principal(r));const now=(await tx.query('SELECT clock_timestamp() AS db_now')).rows[0]!.db_now;if(new Date(r.heartbeat_at).getTime()>new Date(now).getTime())fail('ENROLLMENT_OBSERVATION_STALE','Runner observation cannot come from the future');
  return frozen({credential_id:r.credential_id,sandbox_id:r.sandbox_id,boot_id:r.boot_id,boot_generation:String(r.boot_generation),grant_id:r.grant_id,provisioning_intent_id:r.provisioning_intent_id,heartbeat_at:new Date(r.heartbeat_at).toISOString(),observation_only:true,authority:'NONE'});
  };
- const authority:IdentityAuthority=Object.freeze({installMainSessionVerifier,sealTrustedRegistrations,verifyFreshRunner,origin:c.origin,guard:assertBoundPrincipal,authenticate,enroll,authorize});
+ const authority:IdentityAuthority=Object.freeze({installSourceWorkerEnroller,installMainSessionVerifier,sealTrustedRegistrations,verifyFreshRunner,origin:c.origin,guard:assertBoundPrincipal,authenticate,authenticateSource,enroll,authorize});
  const action=(name:string,fn:(tx:IdentityTransaction,v:Record<string,unknown>,i:InvocationContext)=>Promise<unknown>)=>async(v:unknown,context:ComponentContext)=>identityTransaction(context,async(tx,i)=>{if(!object(v))fail('INVALID_REQUEST','Object input required');await authorize(i);
  // The signed envelope expected_version is the optimistic version dispatched to the action; it cannot diverge from the input it covers.
  if(i.payload.expected_version!==null&&(!Object.hasOwn(v,'expected_version')||v.expected_version!==i.payload.expected_version))fail('VERSION_CONFLICT','Envelope expected_version differs from operation input');return recorded(tx,i.principal.credential_id,name,i.operation,()=>fn(tx,v,i));});
+ const delegatePrincipal=async(tx:IdentityTransaction,v:Record<string,unknown>,i:InvocationContext,requirePrelaunch=false):Promise<unknown>=>{
+ role(i,['RUNNER']);exact(v,['session_id','public_key_b64','allowed_actions','ttl_seconds']);
+ if(!uuid(v.session_id)||typeof v.public_key_b64!=='string'||!Number.isInteger(v.ttl_seconds)||Number(v.ttl_seconds)<60||Number(v.ttl_seconds)>c.credential_ttl_seconds)fail('INVALID_REQUEST','Registered child session/key/expiry required');
+ base64(v.public_key_b64,32);const a=allowed(v.allowed_actions),p=i.principal;
+ if(a.some(x=>!p.allowed_actions.includes(x)))fail('AUTH_SCOPE_DENIED','Child cannot expand runner capabilities');
+ const session=(await tx.query('SELECT * FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[p.organisation_id,p.run_id,v.session_id])).rows[0];
+ if(!session||!['WORKER','VERIFIER','COMMIT_WATCHER','ISSUE_WATCHER','INTEGRATOR','INDEXER'].includes(session.role)||!['REGISTERED','RUNNING'].includes(session.state)||session.sandbox_id!==p.sandbox_id||String(session.sandbox_boot_generation)!==p.boot_generation)fail('AUTH_SCOPE_DENIED','Child session is not registered in this runner boot');
+ const prelaunch=session.native_session_id===null;
+ if(prelaunch){
+  if(session.role!=='WORKER'||session.state!=='REGISTERED'||a.length!==prelaunchSourceActions.size||a.some(value=>!prelaunchSourceActions.has(value))
+   ||!await declaredSourceWorker(tx,{organisation_id:p.organisation_id,run_id:p.run_id,session_id:session.id,authority_epoch:p.deployment_epoch,sandbox_id:p.sandbox_id,boot_generation:p.boot_generation,attempt_id:session.attempt_id},true))
+   fail('AUTH_SCOPE_DENIED','Only an exact admitted native worker may receive prelaunch source authority');
+  const {declaredFleetAgentBinding}=await import('../runner/fleet_connector_plan.js');
+  const declared=await declaredFleetAgentBinding(tx,{organisation_id:p.organisation_id,run_id:p.run_id,session_id:session.id});
+  const runner=declared&&(await tx.query('SELECT credential_id FROM hyperfide.runner_registry WHERE organisation_id=$1 AND run_id=$2 AND session_id=$3 AND state=\'CURRENT\' FOR SHARE',[p.organisation_id,p.run_id,declared.runner_session_id])).rows[0];
+  if(!declared||runner?.credential_id!==p.credential_id||declared.sandbox_id!==p.sandbox_id||String(declared.sandbox_boot_generation)!==p.boot_generation||declared.boot_id!==p.boot_id)
+   fail('AUTH_SCOPE_DENIED','Prelaunch source identity must be issued by its exact current runner');
+ }else if(typeof session.native_session_id!=='string'||!session.native_session_id||requirePrelaunch)fail('AUTH_SCOPE_DENIED','Current native session identity required');
+ let generation:string|null=null;
+ if(session.role==='WORKER'){
+  if(!session.attempt_id)fail('AUTH_SCOPE_DENIED','Coding worker requires an implementation attempt');
+  const attempt=(await tx.query('SELECT * FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[p.organisation_id,p.run_id,session.attempt_id])).rows[0];
+  if(!attempt||attempt.kind!=='IMPLEMENTATION'||attempt.compute_authority!=='CURRENT'||attempt.sandbox_id!==p.sandbox_id||String(attempt.sandbox_boot_generation)!==p.boot_generation||attempt.slot_id!==session.slot_id)fail('AUTH_SCOPE_DENIED','Worker attempt/slot is not current');
+  generation=String(attempt.generation);
+  if(prelaunch){const {assertCurrentCompute}=await import('../scheduler/leases.js');await assertCurrentCompute(tx as PrimaryTransaction,{organisation_id:p.organisation_id,run_id:p.run_id,task_id:attempt.task_id,attempt_id:attempt.id,attempt_generation:generation,authority_epoch:p.deployment_epoch,sandbox_id:p.sandbox_id!,slot_id:session.slot_id,sandbox_boot_generation:p.boot_generation!},{operation:'ADVANCE'});}
+ }else if(session.attempt_id!==null)fail('AUTH_SCOPE_DENIED','Review/index/integration jobs require independent job authority, not coding compute authority');
+ await assertBoundPrincipal(tx,p);
+ const id=randomUUID(),row=(await tx.query("INSERT INTO hyperfide.identity_principals(credential_id,organisation_id,run_id,actor_id,role,public_key_b64,deployment_epoch,sandbox_id,boot_generation,boot_id,attempt_id,attempt_generation,allowed_actions,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,LEAST($14::timestamptz,clock_timestamp()+($15::int*interval '1 second'))) RETURNING *",[id,p.organisation_id,p.run_id,session.id,session.role,v.public_key_b64,p.deployment_epoch,p.sandbox_id,p.boot_generation,p.boot_id,session.attempt_id,generation,a,p.expires_at,v.ttl_seconds])).rows[0]!;
+ await assertBoundPrincipal(tx,principal(row));
+ let native_source:unknown;
+ if(prelaunch){
+  if(!registrationsSealed||!sourceWorkerEnroller)fail('SOURCE_WORKER_ENROLLER_REQUIRED','Sealed native source enrollment authority is required');
+  const assignment=await sourceWorkerEnroller(tx as PrimaryTransaction,i,id);
+  if(!assignment)fail('AUTH_SCOPE_DENIED','Native worker source assignment was not committed');
+  native_source={schema_version:1,assignment};
+ }
+ return {...result(row) as object,authority:{deployment_epoch:p.deployment_epoch,attempt_id:row.attempt_id,attempt_generation:row.attempt_generation===null?null:String(row.attempt_generation),sandbox_id:p.sandbox_id,boot_generation:p.boot_generation},...(native_source?{native_source}:{})};
+ };
  return {apiVersion:1,capabilities:{'identity.authority':authority,'identity.transport':authority},actions:{
  'identity.describe':async(_v,context)=>{const i=invocationOf(context);await authorize(i);return {protocol_version:1,principal:i.principal};},
  'identity.binding.observe':action('identity.binding.observe',async(tx,v,i)=>{role(i,['PROVISIONER']);exact(v,['provisioning_intent_id','sandbox_id','boot_generation','boot_id','native_sandbox_id','observation_digest','expected_version']);if(!uuid(v.provisioning_intent_id)||!uuid(v.sandbox_id)||!uuid(v.boot_id)||!decimal(v.boot_generation,true)||!decimal(v.expected_version,true)||typeof v.native_sandbox_id!=='string'||typeof v.observation_digest!=='string'||!/^sha256:[0-9a-f]{64}$/.test(v.observation_digest))fail('INVALID_REQUEST','Invalid provider binding');const p=i.principal,s=(await tx.query('SELECT s.*,b.boot_id FROM hyperfide.sandboxes s JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation WHERE s.organisation_id=$1 AND s.id=$2 FOR SHARE OF s,b',[p.organisation_id,v.sandbox_id])).rows[0];if(!s||s.observed_state!=='RUNNING'||s.native_sandbox_id!==v.native_sandbox_id||String(s.boot_generation)!==v.boot_generation||s.boot_id!==v.boot_id||String(s.state_version)!==v.expected_version)fail('PROVIDER_BINDING_STALE','Provider observation mismatch');await tx.query('INSERT INTO hyperfide.identity_provider_bindings(organisation_id,run_id,provisioning_intent_id,sandbox_id,pool_id,boot_generation,boot_id,native_sandbox_id,observation_digest,observed_by,sandbox_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[p.organisation_id,p.run_id,v.provisioning_intent_id,v.sandbox_id,s.pool_id,v.boot_generation,v.boot_id,v.native_sandbox_id,v.observation_digest,p.credential_id,v.expected_version]);return {observed:true,provisioning_intent_id:v.provisioning_intent_id};}),
@@ -103,23 +240,10 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  role(i,['RUNNER']);exact(v,['expected_version']);if(!decimal(v.expected_version,true))fail('INVALID_REQUEST','Expected runner status version required');
  const r=await tx.query('UPDATE hyperfide.identity_runner_status SET state_version=state_version+1,heartbeat_at=clock_timestamp() WHERE credential_id=$1 AND state_version=$2 RETURNING state_version,heartbeat_at',[i.principal.credential_id,v.expected_version]);
  if(r.rowCount!==1)fail('VERSION_CONFLICT','Runner status version is not current');return {heartbeat:true,state_version:String(r.rows[0]!.state_version),heartbeat_at:new Date(r.rows[0]!.heartbeat_at).toISOString()};}),
- 'identity.principal.delegate':action('identity.principal.delegate',async(tx,v,i)=>{
- role(i,['RUNNER']);exact(v,['session_id','public_key_b64','allowed_actions','ttl_seconds']);
- if(!uuid(v.session_id)||typeof v.public_key_b64!=='string'||!Number.isInteger(v.ttl_seconds)||Number(v.ttl_seconds)<60||Number(v.ttl_seconds)>c.credential_ttl_seconds)fail('INVALID_REQUEST','Registered child session/key/expiry required');
- base64(v.public_key_b64,32);const a=allowed(v.allowed_actions),p=i.principal;
- if(a.some(x=>!p.allowed_actions.includes(x)))fail('AUTH_SCOPE_DENIED','Child cannot expand runner capabilities');
- const session=(await tx.query('SELECT * FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[p.organisation_id,p.run_id,v.session_id])).rows[0];
- if(!session||typeof session.native_session_id!=='string'||!session.native_session_id||!['WORKER','VERIFIER','COMMIT_WATCHER','ISSUE_WATCHER','INTEGRATOR','INDEXER'].includes(session.role)||!['REGISTERED','RUNNING'].includes(session.state)||session.sandbox_id!==p.sandbox_id||String(session.sandbox_boot_generation)!==p.boot_generation)fail('AUTH_SCOPE_DENIED','Child session is not registered in this runner boot');
- let generation:string|null=null;
- if(session.role==='WORKER'){
-  if(!session.attempt_id)fail('AUTH_SCOPE_DENIED','Coding worker requires an implementation attempt');
-  const attempt=(await tx.query('SELECT * FROM hyperfide.attempts WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[p.organisation_id,p.run_id,session.attempt_id])).rows[0];
-  if(!attempt||attempt.kind!=='IMPLEMENTATION'||attempt.compute_authority!=='CURRENT'||attempt.sandbox_id!==p.sandbox_id||String(attempt.sandbox_boot_generation)!==p.boot_generation||attempt.slot_id!==session.slot_id)fail('AUTH_SCOPE_DENIED','Worker attempt/slot is not current');
-  generation=String(attempt.generation);
- }else if(session.attempt_id!==null)fail('AUTH_SCOPE_DENIED','Review/index/integration jobs require independent job authority, not coding compute authority');
- await assertBoundPrincipal(tx,p);
- const id=randomUUID(),row=(await tx.query("INSERT INTO hyperfide.identity_principals(credential_id,organisation_id,run_id,actor_id,role,public_key_b64,deployment_epoch,sandbox_id,boot_generation,boot_id,attempt_id,attempt_generation,allowed_actions,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,LEAST($14::timestamptz,clock_timestamp()+($15::int*interval '1 second'))) RETURNING *",[id,p.organisation_id,p.run_id,session.id,session.role,v.public_key_b64,p.deployment_epoch,p.sandbox_id,p.boot_generation,p.boot_id,session.attempt_id,generation,a,p.expires_at,v.ttl_seconds])).rows[0]!;
- await assertBoundPrincipal(tx,principal(row));return {...result(row) as object,authority:{deployment_epoch:p.deployment_epoch,attempt_id:row.attempt_id,attempt_generation:row.attempt_generation===null?null:String(row.attempt_generation),sandbox_id:p.sandbox_id,boot_generation:p.boot_generation}};
+ 'identity.principal.delegate':action('identity.principal.delegate',delegatePrincipal),
+ 'identity.worker.source.delegate':action('identity.worker.source.delegate',async(tx,v,i)=>{
+  exact(v,['session_id','public_key_b64']);
+  return delegatePrincipal(tx,{...v,allowed_actions:[...prelaunchSourceActions],ttl_seconds:c.credential_ttl_seconds},i,true);
  }),
  'identity.main.issue':action('identity.main.issue',async(tx,v,i)=>{
  role(i,['OPERATOR']);exact(v,['session_id','public_key_b64','allowed_actions','ttl_seconds']);

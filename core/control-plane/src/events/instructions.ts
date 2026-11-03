@@ -35,13 +35,14 @@ export function instruction(value:unknown):Instruction {
   if(!['START','STEER','CANCEL'].includes(String(v.kind))||typeof v.body!=='object'||v.body===null||Array.isArray(v.body))
     fail('INSTRUCTION_INPUT_INVALID','Instruction needs a supported kind and JSON object body');
   const body=fields(v.body,v.kind==='START'?['launch_id','slot_id','agent_session_id','connector_plan_digest']:
-    v.kind==='STEER'?['launch_id','request_id','frame_b64']:['launch_id'],v.kind==='START'?['env_refs']:[]);
+    v.kind==='STEER'?['launch_id','request_id','frame_b64']:['launch_id'],v.kind==='START'?['env_refs','native_source_required']:[]);
   uuid(body.launch_id);
   if(v.kind==='START') {
     uuid(body.slot_id);uuid(body.agent_session_id);
     if(typeof body.connector_plan_digest!=='string'||!/^sha256:[0-9a-f]{64}$/.test(body.connector_plan_digest))
       fail('INSTRUCTION_INPUT_INVALID','START requires an immutable connector plan digest');
     if(body.env_refs!==undefined)startEnvReferences(body.env_refs);
+    if(body.native_source_required!==undefined&&body.native_source_required!==true)fail('INSTRUCTION_INPUT_INVALID','Native source handoff marker must be true');
   }
   if(v.kind==='STEER') {
     uuid(body.request_id);

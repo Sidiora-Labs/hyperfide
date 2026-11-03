@@ -448,3 +448,38 @@ exit_code = 0
 log = "build/fleet/integration/private/fleet-preparation-anchor-component-receipt.json; build/fleet/integration/private/fleet-provision-anchor-component-receipt.json"
 observed = "Seventeen REUSE/owner/accounting assertions and nine signed PROVISION checks passed. Current owner/package/task acceptance, explicit and sole-task selection, stale/cross-wave/unaccepted refusals and exact replay were exercised. Explicit anchors refused legacy templates before effects, while legacy omission retained its behavior. No coding attempt, packet or allocation was created by accounting resolution."
 scope = "Node 24.22.0, PostgreSQL 18 and actual signed APIs with controlled accepted profile, recipe, owner and decision prerequisites. No model inference, native execution or provider operation was performed by these gates."
+
+[progress.native_source_signed_transport]
+command = "python3 tests/hyperfide/cases/source_control/signed_transport.py"
+exit_code = 0
+log = "build/source-control/signed-transport/receipt.json"
+receipt_sha256 = "14a660a9188a8994c172af14062bc6e8da95ff185db3083794674effbf9cd7dd"
+observed = "Nine groups pass through production TLS, the built SDK, native CLI, PostgreSQL and SigV4 storage. Signature scope, replay, revocation and wire limits are enforced. Malformed responses retain original operation identity and UNKNOWN in both clients."
+
+[progress.native_source_envelope]
+command = "python3 tests/hyperfide/cases/source_control/native_source_envelope.py"
+exit_code = 0
+log = "build/source-control/envelope-parser/receipt.json"
+receipt_sha256 = "5a0a2e8ce8b2f40eac16c544b23bf71f522dfc34ab648013e167c66bdd331bf3"
+observed = "The production C parser accepts 100000 manifest entries in 13088989 bytes, preserves envelope fields and rejects duplicate keys, malformed Unicode, excessive depth and byte-limit violations."
+
+[progress.native_source_handoff]
+command = "python3 tests/hyperfide/cases/source_control/native_source_handoff.py"
+exit_code = 0
+log = "build/source-control/native-handoff/receipt.json"
+receipt_sha256 = "b1718702b49adb45deef0122a6581d5a20c6bb7b9021e3c8fc9aea4dc64665c1"
+observed = "Eight native C filesystem checks pass for private worker configuration, retained root enrollment keys, bootstrap preservation, symlink refusal, assignment identity, replay and cleanup after partial installation."
+
+[progress.native_source_builds]
+source_digest = "sha256:efe5caa9a993e265fe6fd2c5dc3847e0eb56151a1a467acdf11caa7a4b428141"
+dist_digest = "sha256:4e38307e50b7ce5fa7e96392629740c7852d8e499754a1339810586bce8b0e12"
+observed = "Control service and both native binaries build. Source SDK and authority client typechecks pass. Native units pass 480 assertions; CLI help verifies 173 commands."
+logs = ["build/source-control-signed-service-final-build.log", "build/source-control-native-final-build.log", "build/source-control-native-final-unit.log", "build/source-control-native-help.log", "build/source-control-sdk-final-typecheck.log"]
+
+[progress.native_source_fleet_enrollment]
+command = "python3 tests/hyperfide/cases/source_control/4_2.py"
+exit_code = 0
+log = "build/source-control/4.2/receipt.json"
+receipt_sha256 = "bca5f0dafc95144a1c60b7db802e09bce2c5bd68247081c2d65460c79942454b"
+observed = "Seventeen groups pass, including signed worker enrollment and replay, controller dispatch guards, selected-source dependent execution, retained checkpoint custody, stale-worker fencing and native release reconciliation without duplicate effects. The object backend recorded 106 SigV4 requests."
+scope = "Actual signed identity and source APIs, PostgreSQL, staged local installation, isolated worker processes and independent checker execution. Prior provisioning, profiles and runtime readiness are declared historical inputs; the release-reconciliation case declares signed history and an UNKNOWN provider operation."

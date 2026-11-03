@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-import {createHash,randomUUID,sign} from 'node:crypto';
+import {createHash,generateKeyPairSync,randomUUID,sign} from 'node:crypto';
 import fs from 'node:fs/promises';
 import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {pathToFileURL} from 'node:url';
 import {createNativeAcceptanceFixture} from './native_source_acceptance_fixture.mjs';
 import {installNativeFleetFixture} from './native_source_fleet_install.mjs';
@@ -12,8 +14,11 @@ import {runLocalFleetWorker,releaseObservedFleetCompute} from './native_source_f
 import {createNativeFleetPool} from './native_source_fleet_pool.mjs';
 import {assertNativeFleetCleanup} from './native_source_fleet_cleanup_assertions.mjs';
 import {assertNativeFleetSelection} from './native_source_fleet_selection.mjs';
+import {assertNativeReleaseReconciliation} from './native_source_fleet_reconciliation.mjs';
+import {enrollNativeFleetWorker} from './native_source_fleet_enrollment.mjs';
 
 const moduleRoot=process.env.SOURCE_CONTROL_MODULE_ROOT,controlRoot=path.dirname(moduleRoot);
+const execute=promisify(execFile);
 const load=name=>import(pathToFileURL(path.join(controlRoot,name+'.js')));
 const inputs=JSON.parse(await fs.readFile(process.env.NATIVE_SOURCE_FLEET_INPUT,'utf8')),i=inputs.ids;
 const [{createResourceContainer},{AuthorityStore},{FileExternalAuthorityJournal},identityModule,protocol,{parseKvx},{registerProofPolicy},{SourceControlClient},{encodeFileDescriptor}]=await Promise.all([
@@ -42,12 +47,13 @@ const request=async(key,component,action,input,operation=randomUUID())=>{
   const signature=sign(null,protocol.signingBytes(inputs.origin,'/v1/invoke',proof,body),await fs.readFile(inputs.keys[key])).toString('base64url');
   return {body,headers:{'Content-Type':'application/json','HF-Credential-Id':proof.id,'HF-Request-Time':proof.time,'HF-Request-Nonce':proof.nonce,'HF-Request-Signature':signature}};
 };
-const sourceCall=async(key,action,input,operation=randomUUID())=>{
+const sourceInvocation=async(key,action,input,operation=randomUUID())=>{
   const value={protocol_version:1,scope:f.scope,operation_id:operation,idempotency_key:operation,action,input};
   const signed=await request(key,'source-control',action,value,operation);
   const invocation=await identityAuthority.authenticate(signed.body,Object.entries(signed.headers).flat(),signal);
-  return f.service.api.invoke(action,value,invocation);
+  return {value,invocation};
 };
+const sourceCall=async(key,action,input,operation=randomUUID())=>{const {value,invocation}=await sourceInvocation(key,action,input,operation);return f.service.api.invoke(action,value,invocation);};
 const controlCall=async(key,component,action,input)=>{
   const signed=await request(key,component,action,input);
   const ca=await fs.readFile(inputs.ca);
@@ -57,7 +63,7 @@ const controlCall=async(key,component,action,input)=>{
 const expectCode=(code,fn)=>assert.rejects(fn,error=>error.code===code);
 try{
   console.error('native-fleet: fixture ready');
-  for(const name of ['leader','manager','operator'])await insert('source_capabilities',{...f.scope,id:randomUUID(),principal_id:i[name],credential_id:i[name],principal_kind:'automation',authority_epoch:'1',policy_version:f.sourcePolicy,actions:[...f.service.api.actions,'source.capabilities.manage'],path_prefixes:[''],expires_at:new Date(Date.now()+1200000).toISOString()});
+  for(const name of ['leader','manager','manager2','operator'])await insert('source_capabilities',{...f.scope,id:randomUUID(),principal_id:i[name],credential_id:i[name],principal_kind:'automation',authority_epoch:'1',policy_version:f.sourcePolicy,actions:[...f.service.api.actions,'source.capabilities.manage'],path_prefixes:[''],expires_at:new Date(Date.now()+1200000).toISOString()});
   const privateFile=await f.service.objects.putFile(f.scope,Buffer.from('private unselected source\n'));
   const mainFile=await f.service.objects.putFile(f.scope,Buffer.concat([Buffer.from('candidate: baseline\n'),Buffer.alloc(1100000,10)]));
   const rootTree=await f.service.trees.fromEntries(f.scope,[{name:'main.txt',kind:'file',mode:'100644',object_id:mainFile.object_id},{name:'private.txt',kind:'file',mode:'100644',object_id:privateFile.object_id}]);
@@ -69,8 +75,7 @@ try{
   const installed=await installNativeFleetFixture(f,{root,controlRoot,revision:baseline,fleet:i});stages.push(installed.stage);
   console.error('native-fleet: native installation prepared');
   checks.push('signed native run binding and SDK manifest drive actual staged installation into independent private views');
-  const manifestRequest=await request('manager','source-control','source.fleet.manifest',{});
-  const manifestInvocation=await identityAuthority.authenticate(manifestRequest.body,Object.entries(manifestRequest.headers).flat(),signal);
+  const {invocation:manifestInvocation}=await sourceInvocation('manager','source.fleet.manifest',{revision_id:baseline.revision_id,paths:['main.txt'],max_files:8,max_bytes:4194304,max_nodes:128,metadata_only:false});
   await f.service.verifyFleetManifest(manifestInvocation,installed.source);
   const altered=structuredClone(installed.source),privateObject=await f.service.objects.read(f.scope,privateFile.object_id);
   altered.entries[0]={...altered.entries[0],file_object_id:privateFile.object_id,file_descriptor_base64:Buffer.from(privateObject.payload).toString('base64'),content_base64:Buffer.from('private unselected source\n').toString('base64'),size:Buffer.byteLength('private unselected source\n'),digest:hash(Buffer.from('private unselected source\n'))};
@@ -86,21 +91,22 @@ try{
   const render=value=>JSON.stringify(value);
   let source='[req.4]\nac_2 = "Native worker source remains attributable through coordinator qualification."\n[acceptance.native-fleet]\nreqs = ["4.2"]\nchecks = '+render([f.check.id])+'\n[proof]\nrubric_digest = '+render(rubric)+'\n[proof.check.'+f.check.id+']\n';
   for(const [key,value]of Object.entries(acceptedCheck))if(key!=='id')source+=key+' = '+render(value)+'\n';
-  for(const name of ['first','dependent'])source+='[task.native-'+name+']\nwave = 1\nreqs = ["4.2"]\nacceptance_ids = ["native-fleet"]\ntouches = ["main.txt"]\nrequires = '+render(name==='dependent'?['native-first']:[])+'\n';
+  for(const name of ['first','dependent','selected'])source+='[task.native-'+name+']\nwave = 1\nreqs = ["4.2"]\nacceptance_ids = ["native-fleet"]\ntouches = ["main.txt"]\nrequires = '+render(name==='first'?[]:['native-first'])+'\n';
   const parsed=parseKvx(source),document={schema_version:1,revision_digest:digest(source),source_digest:hash(Buffer.from(source)),repositories:[{repository_id:i.repository,source_object_id:baseline.revision_id,integration_ref:null}],allowed_actions:inputs.actions,closure_policy:{required_evidence:[],required_review_roles:[],publication:'AFTER_QUALIFICATION'},provenance:null,parsed,runtime_wave_offset:0};
   await insert('spec_revisions',{organisation_id:i.organisation,project_id:i.project,id:specification,source_digest:document.source_digest,source_content:source,document,schema_version:1,revision_digest:document.revision_digest});
   await insert('run_spec_revisions',{...scope,spec_generation:generation,spec_revision_id:specification});
   await f.pool.query('UPDATE hyperfide.runs SET spec_generation=$3,spec_revision_id=$4,state_version=state_version+1 WHERE organisation_id=$1 AND id=$2',[i.organisation,i.run,generation,specification]);
   const tasks={};
-  for(const name of ['first','dependent']){
+  const registerTask=async(name,{profile=nativePool.profile,packageId=i.package,sourceRevision=baseline.revision_id,feature='alpha'}={})=>{
     const task=randomUUID(),slot=randomUUID(),criteria=digest('native-fleet-'+name);tasks[name]={task,slot,criteria};
-    const definition={...inputs.definition,section:parsed.sections.find(section=>section.name==='task.native-'+name),purpose:'Native source '+name,touches:['main.txt'],environment_profile_id:nativePool.profile};
-    await insert('tasks',{...scope,id:task,task_key:'alpha.native-'+name,feature_package_id:i.package,spec_revision_id:specification,spec_generation:generation,criteria_digest:criteria,definition,wave:1});
-    await insert('worker_slots',{organisation_id:i.organisation,id:slot,sandbox_id:i.sandbox,slot_key:'native-'+name,boot_generation:1,capacity_kind:'AGENT',state:'READY'});
-    const policy={schema_version:1,criteria_digest:criteria,spec_revision_id:specification,spec_generation:generation,repository_id:i.repository,source_object_id:baseline.revision_id,rubric_digest:rubric,checks:[acceptedCheck],clauses:[{id:'4.2',mode:'EXECUTABLE',acceptance_ids:['native-fleet'],checks:[f.check.id]}],inputs:Object.fromEntries(['source','dependency','toolchain','configuration','graph','contract'].map(key=>[key,digest('accepted-native-'+key)])),contract_digests:[]};
+    const definition={...inputs.definition,section:parsed.sections.find(section=>section.name==='task.native-'+name),purpose:'Native source '+name,touches:['main.txt'],environment_profile_id:profile,feature_key:feature};
+    await insert('tasks',{...scope,id:task,task_key:feature+'.native-'+name,feature_package_id:packageId,spec_revision_id:specification,spec_generation:generation,criteria_digest:criteria,definition,wave:1});
+    const policy={schema_version:1,criteria_digest:criteria,spec_revision_id:specification,spec_generation:generation,repository_id:i.repository,source_object_id:sourceRevision,rubric_digest:rubric,checks:[acceptedCheck],clauses:[{id:'4.2',mode:'EXECUTABLE',acceptance_ids:['native-fleet'],checks:[f.check.id]}],inputs:Object.fromEntries(['source','dependency','toolchain','configuration','graph','contract'].map(key=>[key,digest('accepted-native-'+key)])),contract_digests:[]};
     const state=(await f.pool.query('SELECT state_version::text FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2',[i.organisation,i.run])).rows[0].state_version;
     tasks[name].registry=await resources.gateway.withPrimaryTransaction({timeoutMs:15000},tx=>registerProofPolicy(tx,scope,{run_id:i.run,task_id:task,spec_revision_id:specification,spec_generation:generation,state_version:state,policy}));
-  }
+    return tasks[name];
+  };
+  for(const name of ['first','dependent'])await registerTask(name);
   await insert('task_dependencies',{...scope,task_id:tasks.dependent.task,predecessor_run_id:i.run,predecessor_task_id:tasks.first.task,milestone:'QUALIFIED',revision:generation,binding_schema_version:1,predecessor_spec_generation:generation,predecessor_spec_revision_id:specification,predecessor_repository_id:i.repository});
   checks.push('accepted native executable policy is registered against authored task clauses');
   console.error('native-fleet: executable proof registered');
@@ -109,16 +115,40 @@ try{
   const first=await assignments.assign(tasks.first.task,0);
   console.error('native-fleet: manager assignment committed');
   await assignments.replay(first.assignment.assignment_id);
-  const connect=async result=>{
+  const connect=async(result,{managerKey='manager',staleBase}={})=>{
     const name='worker-'+result.assignment.worker_id,identity={principal_id:result.assignment.worker_id,credential_id:randomUUID(),kind:'worker'};
     f.roles[name]=identity;
     await insert('source_principal_credentials',{...f.scope,credential_id:identity.credential_id,principal_id:identity.principal_id,principal_kind:'worker',credential_version:1,issuer:f.trust.issuer,audience:f.trust.audience,signing_key_id:'fixture-source-key',expires_at:new Date(Date.now()+1200000).toISOString()});
-    const bound=await sourceCall('manager','source.fleet.assign',{...result.native_source_setup.input,worker_credential_id:identity.credential_id});
+    const assignmentInput={...result.native_source_setup.input,worker_credential_id:identity.credential_id};
+    if(staleBase)await expectCode('FLEET_SOURCE_MISMATCH',()=>sourceCall(managerKey,'source.fleet.assign',{...assignmentInput,base_revision_id:staleBase}));
+    const bound=await sourceCall(managerKey,'source.fleet.assign',assignmentInput);
     identity.capability_id=bound.capability_id;
     const client=new SourceControlClient({endpoint:f.endpoint,scope:f.scope,token:()=>f.tokenFor(name),timeout_ms:120000});
-    return {name,identity,bound,client,workspace:{workspace_generation:'1',scope_generation:'1',base_revision_id:baseline.revision_id}};
+    return {name,identity,bound,client,workspace:{workspace_generation:'1',scope_generation:'1',base_revision_id:bound.base_revision_id}};
   };
   const worker=await connect(first);
+  const signedKey=generateKeyPairSync('ed25519'),workerActions=['source.objects.put','source.workspaces.detail','source.workspaces.checkpoint','source.operations.read','source.fleet.read','source.fleet.submit','source.fleet.submission'];
+  await insert('identity_principals',{...scope,credential_id:worker.identity.credential_id,actor_id:worker.identity.principal_id,role:'WORKER',public_key_b64:signedKey.publicKey.export({format:'jwk'}).x,deployment_epoch:i.epoch,sandbox_id:first.sandbox_id,boot_generation:first.boot_generation,boot_id:i.boot,attempt_id:worker.bound.attempt_id,attempt_generation:worker.bound.attempt_generation,allowed_actions:workerActions,expires_at:new Date(Date.now()+1200000).toISOString()});
+  const authorizationPath=path.join(root,'signed-worker-authorization.json');
+  await fs.writeFile(authorizationPath,JSON.stringify({schema_version:1,rules:[{role:'WORKER',actions:workerActions,repositories:[i.repository],artifact_prefixes:[],git_refs:[],model_destinations:[],model_profiles:[]}]}),{mode:0o600});
+  const {createComponent:createAuthorization}=await load('identity/authorization');
+  const authorization=(await createAuthorization({env:{...process.env,HF_AUTHORIZATION_CONFIG_FILE:authorizationPath},resources,signal})).capabilities['identity.authorization'];
+  const authenticateWorker=async(action,input,authority=worker.bound.authority)=>{
+    const operation=randomUUID(),value={protocol_version:1,scope:f.scope,operation_id:operation,idempotency_key:operation,action,input,authority};
+    const body=Buffer.from(JSON.stringify(value)),proof={id:worker.identity.credential_id,time:String(Math.floor(Date.now()/1000)),nonce:randomUUID()};
+    const headers=['HF-Credential-Id',proof.id,'HF-Request-Time',proof.time,'HF-Request-Nonce',proof.nonce,'HF-Request-Signature',sign(null,protocol.signingBytes(inputs.origin,'/api/v1/source-control',proof,body),signedKey.privateKey).toString('base64url')];
+    return {value,invocation:await identityAuthority.authenticateSource(body,headers,signal)};
+  };
+  const signedRead=await authenticateWorker('source.workspaces.detail',{workspace_id:worker.bound.workspace_id});
+  await authorization.authorize(signedRead.invocation);
+  assert.deepEqual(signedRead.invocation.payload.authority,{deployment_epoch:i.epoch,attempt_id:worker.bound.attempt_id,attempt_generation:worker.bound.attempt_generation,sandbox_id:first.sandbox_id,boot_generation:first.boot_generation});
+  const signedWorkspace=await f.service.api.invoke('source.workspaces.detail',signedRead.value,signedRead.invocation);
+  assert.equal(signedWorkspace.workspace.workspace_id,worker.bound.workspace_id);
+  const signedWrite=await authenticateWorker('source.objects.put',{kind:'blob',payload_base64:Buffer.from('signed native worker\n').toString('base64')});
+  await authorization.authorize(signedWrite.invocation);
+  assert((await f.service.api.invoke('source.objects.put',signedWrite.value,signedWrite.invocation)).object_id);
+  await expectCode('AUTH_SCOPE_DENIED',()=>authenticateWorker('source.workspaces.detail',{workspace_id:worker.bound.workspace_id},{...worker.bound.authority,managed:{...worker.bound.authority.managed,attempt_generation:String(BigInt(worker.bound.attempt_generation)+1n)}}));
+  checks.push('signed native worker source requests preserve current attempt authority through authentication, role authorization and the source API');
   const options=w=>({authority:w.bound.authority,operation_id:randomUUID()});
   const upload=async(w,bytes)=>{
     const blob=await w.client.call('source.objects.put',{kind:'blob',payload_base64:bytes.toString('base64')},options(w));
@@ -161,9 +191,9 @@ try{
   assert.deepEqual(await worker.client.submitFleetSource(submit,submitOptions),submission);
   assert.equal((await f.pool.query('SELECT count(*)::int AS n FROM hyperfide.source_fleet_submissions WHERE assignment_id=$1',[worker.bound.assignment_id])).rows[0].n,1);
   await fs.rm(installed.first,{recursive:true,force:true});
-  const cleanupRequest=await request('operator','source-control','source.fleet.qualify',{});
-  const cleanupInvocation=await identityAuthority.authenticate(cleanupRequest.body,Object.entries(cleanupRequest.headers).flat(),signal);
+  const {invocation:cleanupInvocation}=await sourceInvocation('operator','source.fleet.read',{assignment_id:worker.bound.assignment_id});
   checks.push(...await assertNativeFleetCleanup({f,resources,controlRoot,scope,assignment:first,sourceAssignment:worker.bound,submission,invocation:cleanupInvocation,expectedBytes:'candidate: second worker checkpoint\n'}));
+  checks.push(await assertNativeReleaseReconciliation({f,resources,controlRoot,scope,sourceAssignment:worker.bound,invocation:cleanupInvocation}));
   await releaseObservedFleetCompute({resources,controlRoot,scope,attemptId:first.assignment.tasks[0].attempt_id,observation:lastObservation,evidencePath:path.join(root,'first-worker-release.json')});
   const retained=await f.service.trees.lookup(f.scope,submission.root_tree_id,'main.txt');
   assert.equal((await f.service.objects.readFile(f.scope,retained.object_id)).toString(),'candidate: second worker checkpoint\n');
@@ -206,8 +236,44 @@ try{
   checks.push('real process absence releases capacity for a replacement attempt while its predecessor remains fenced');
   const selected=await assertNativeFleetSelection({f,ids:i,sourceCall,accepted,baseline,taskId:tasks.first.task,resources,controlRoot,activeAttemptId:replacement.assignment.tasks[0].attempt_id});
   checks.push('explicit accepted-source selection replays and fences stale generation while preserving admitted attempts and qualification');
+  await resources.gateway.withPrimaryTransaction({timeoutMs:10000},tx=>fenceCompute(tx,{...token,attempt_id:replacement.assignment.tasks[0].attempt_id,attempt_generation:replacement.assignment.tasks[0].attempt_generation},{reason:'STOP',current_authority_epoch:i.epoch,actor:{session_id:i.manager,leader_generation:'1',package_generation:'2'}}));
+  const selectedPool=await createNativeFleetPool({f,ids:{...i,manager:i.manager2,package:i.wave_package},revision:{revision_id:selected.revision_id},capacity:nativePool.capacity,resources,controlRoot});
+  const selectedIds=selectedPool.ids,selectedRoot=path.join(root,'selected');
+  const selectedInstalled=await installNativeFleetFixture(f,{root:selectedRoot,controlRoot,revision:{revision_id:selected.revision_id},fleet:selectedIds});stages.push(selectedInstalled.stage);
+  assert.equal(await fs.readFile(selectedInstalled.first+'/main.txt','utf8'),'candidate: second worker checkpoint\n');
+  const selectedTask=await registerTask('selected',{profile:selectedPool.profile,packageId:selectedIds.package,sourceRevision:selected.revision_id,feature:'beta'});
+  await insert('task_dependencies',{...scope,task_id:selectedTask.task,predecessor_run_id:i.run,predecessor_task_id:tasks.first.task,milestone:'QUALIFIED',revision:generation,binding_schema_version:1,predecessor_spec_generation:generation,predecessor_spec_revision_id:specification,predecessor_repository_id:i.repository});
+  const selectedAssignments=await createNativeFleetAssignmentFixture({f,ids:selectedIds,controlCall:(key,...args)=>controlCall(key==='manager'?'manager2':key,...args),installed:selectedInstalled,specification,tasks:{selected:selectedTask},capacity:selectedPool.capacity});
+  const selectedAssignment=await selectedAssignments.assign(selectedTask.task,0);
+  assert.equal(selectedAssignment.assignment.source.revision_id,selected.revision_id);
+  const enrolled=await enrollNativeFleetWorker({f,resources,controlRoot,identity,identityAuthority,scope,ids:selectedIds,assignment:selectedAssignment,request,origin:inputs.origin,signal});
+  checks.push(...enrolled.checks);
+  const selectedWorker={...enrolled,client:{call:enrolled.invokeSource,submitFleetSource:(input,options)=>enrolled.invokeSource('source.fleet.submit',input,options)},workspace:{workspace_generation:'1',scope_generation:'1',base_revision_id:enrolled.bound.base_revision_id}};
+  const selectedPacket=(await f.pool.query('SELECT packet FROM hyperfide.hierarchy_execution_packets WHERE organisation_id=$1 AND run_id=$2 AND attempt_id=$3',[i.organisation,i.run,selectedAssignment.assignment.tasks[0].attempt_id])).rows[0].packet;
+  assert(selectedPacket.mandatory.inputs.dependencies.some(dependency=>dependency.predecessor_task_id===tasks.first.task&&dependency.current_custody_id===submission.custody_id&&dependency.source_object_id===selected.revision_id&&dependency.qualification_id===taskQualification.qualification_id));
+  for(const directory of [selectedRoot,path.dirname(path.dirname(path.dirname(selectedInstalled.first))),path.dirname(path.dirname(selectedInstalled.first)),path.dirname(selectedInstalled.first)])await fs.chmod(directory,0o755);
+  await fs.chown(selectedInstalled.first,62541,62541);await fs.chmod(selectedInstalled.first,0o700);await fs.chown(selectedInstalled.first+'/main.txt',62541,62541);await fs.chmod(selectedInstalled.first+'/main.txt',0o600);
+  const expectedPrior='candidate: second worker checkpoint\n';
+  const consumed=await execute(executable,['-e',"const fs=require('node:fs');const prior=fs.readFileSync('main.txt','utf8');if(prior!==process.argv[1])throw Error('Selected source differs');fs.writeFileSync('main.txt',prior+'candidate: selected dependent output\\n');process.stdout.write(prior);",expectedPrior],{cwd:selectedInstalled.first,uid:62541,gid:62541,env:{PATH:path.dirname(executable),LANG:'C.UTF-8'},timeout:30000});
+  assert.equal(consumed.stdout,expectedPrior);
+  const selectedBytes=await fs.readFile(selectedInstalled.first+'/main.txt'),selectedObject=await upload(selectedWorker,selectedBytes),staleSelectedOptions=options(selectedWorker);
+  await expectCode('WORKSPACE_CHANGED',()=>selectedWorker.client.call('source.workspaces.checkpoint',{...checkpointInput(selectedWorker,selectedObject.object_id,staleSelectedOptions.operation_id),base_revision_id:baseline.revision_id},staleSelectedOptions));
+  const selectedCheckpoint=await checkpoint(selectedWorker,selectedBytes);
+  const selectedRevision=await f.client.revision(selectedCheckpoint.revision_id);
+  assert.deepEqual(selectedRevision.parent_revision_ids,[selected.revision_id]);
+  const selectedSubmission=await selectedWorker.client.submitFleetSource({assignment_id:selectedWorker.bound.assignment_id,expected_assignment_generation:'1',expected_workspace_generation:'2',revision_id:selectedCheckpoint.revision_id},{...options(selectedWorker),idempotency_key:randomUUID()});
+  assert.equal(selectedSubmission.revision_id,selectedCheckpoint.revision_id);
+  assert.equal(selectedSubmission.task_id,selectedTask.task);
+  assert.equal(selectedSubmission.assignment_id,selectedWorker.bound.assignment_id);
+  assert.equal(selectedSubmission.attempt_id,selectedAssignment.assignment.tasks[0].attempt_id);
+  assert.equal(selectedSubmission.input_manifest.dependency,digest(selectedPacket.mandatory.inputs.dependencies));
+  assert.notEqual(selectedSubmission.custody_id,submission.custody_id);
+  assert.equal((await f.pool.query('SELECT state FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3',[i.organisation,i.run,selectedTask.task])).rows[0].state,'SUBMITTED');
+  const selectedEntry=await f.service.trees.lookup(f.scope,selectedSubmission.root_tree_id,'main.txt');
+  assert.deepEqual(await f.service.objects.readFile(f.scope,selectedEntry.object_id),selectedBytes);
+  checks.push('a newly installed dependent worker consumes the selected predecessor bytes and submits a child revision with exact qualified dependency provenance');
   const output=path.join(f.ROOT,'build/source-control/4.2');await fs.mkdir(output,{recursive:true});
-  const receipt={schema_version:1,status:'PASS',scope:'real signed manager/worker APIs, PostgreSQL, native source objects, staged installer and independent checker',setup_scope:assignments.scope,checks,backend_requests:f.backend.requests.length,acceptance_id:accepted.acceptance_id,task_qualification_id:taskQualification.qualification_id,submission_id:submission.submission_id,accepted_source_selection:'PASS',selected_revision_id:selected.revision_id,dependent_execution_from_selected_source:'UNRUN'};
+  const receipt={schema_version:1,status:'PASS',scope:'real signed manager/worker APIs, PostgreSQL, native source objects, staged installer and independent checker',setup_scope:assignments.scope,checks,backend_requests:f.backend.requests.length,acceptance_id:accepted.acceptance_id,task_qualification_id:taskQualification.qualification_id,submission_id:submission.submission_id,accepted_source_selection:'PASS',selected_revision_id:selected.revision_id,dependent_execution_from_selected_source:'PASS',selected_dependent_submission_id:selectedSubmission.submission_id};
   await fs.writeFile(path.join(output,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
 }finally{
   for(const stage of stages)await fs.rm(stage,{recursive:true,force:true});
