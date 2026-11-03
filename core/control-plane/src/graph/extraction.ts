@@ -243,3 +243,27 @@ export async function createComponent(ctx:ComponentContext):Promise<Component> {
   'graph.extract.read-chunk':async(input,context)=>{await extractionGuard(context);const r=exact(input,['bundle_digest','index']);if(!Number.isSafeInteger(r.index)||Number(r.index)<0)fail('GRAPH_INVALID','Invalid chunk index');const {base,manifest}=await load({bundle_digest:r.bundle_digest});await extractionGuard(context,manifest.identity);const expected=manifest.chunks[Number(r.index)];if(!expected)fail('GRAPH_CHUNK_UNAVAILABLE','Chunk does not exist');const c=validateChunk(JSON.parse(await fs.readFile(path.join(base,r.index+'.json'),'utf8').catch(()=>fail('GRAPH_CHUNK_UNAVAILABLE','Named graph chunk is unavailable'))));if(c.digest!==expected.digest)fail('GRAPH_DIGEST_MISMATCH','Chunk differs from manifest');return c;}
  }};
 }
+
+export interface NativeFileExtraction {facts:Fact[];complete:boolean;language:string|null}
+export async function extractNativeFile(input:{path:string;bytes:Uint8Array;binary:string;binary_digest:string;scratch:string;signal:AbortSignal;max_rows:number;max_bytes:number}):Promise<NativeFileExtraction>{
+ // Source configuration is data beneath a trusted scanner project, never its control configuration.
+ const pathname=relative(input.path),scannerPath='source/'+pathname,binary=await fs.realpath(input.binary),stat=await fs.stat(binary);
+ if(!stat.isFile()||stat.size>268435456||!(stat.mode&0o111)||digest(await fs.readFile(binary))!==sha(input.binary_digest))fail('GRAPH_SCANNER_CHANGED','Native scanner differs from its configured digest');
+ const root=await fs.mkdtemp(path.join(input.scratch,'native-graph-'));
+ try{
+  const filename=path.join(root,scannerPath);await fs.mkdir(path.dirname(filename),{recursive:true});await fs.writeFile(filename,input.bytes,{mode:0o600});
+  await command(binary,['init','--force'],root,input.signal,262144);
+  await command(binary,['index','--full','--json','--workers','1'],root,input.signal,262144);
+  const db=new DatabaseSync(root+'/.codegraph/graph.db',{readOnly:true});
+  try{
+   const data=snapshotRows(db,input.max_rows,input.max_bytes),file=data.facts.find(f=>f.table==='files'&&f.row.path===scannerPath);
+   if(!file||file.row.hash!==digest(Buffer.from(input.bytes)).slice(7))fail('GRAPH_SOURCE_MISMATCH','Native extraction does not match the immutable file bytes');
+   const facts=data.facts.filter(f=>f===file||f.row.file_id===file.row.id||f.row.path===scannerPath);
+   const symbolIds=new Set(facts.filter(f=>f.table==='symbols'||f.table==='semantic_symbols').map(f=>String(f.row.id)));
+   for(const f of data.facts)if(!facts.includes(f)&&['semantic_edges','semantic_type_facts'].includes(f.table)&&symbolIds.has(String(f.row.symbol_id??f.row.source_symbol_id)))facts.push(f);
+   for(const fact of facts)for(const [key,value]of Object.entries(fact.row))if(typeof value==='string'&&value===scannerPath)fact.row[key]=pathname;
+   const health=facts.filter(f=>f.table==='extraction_health');
+   return {facts,complete:health.length>0&&health.every(f=>f.row.status==='complete'||f.row.status==='ok'||f.row.status==='success'),language:typeof file.row.lang==='string'?file.row.lang:null};
+  }finally{db.close();}
+ }finally{await fs.rm(root,{recursive:true,force:true});}
+}

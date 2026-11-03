@@ -34,7 +34,7 @@ TASKS_DIR = "artifacts/hyperfide/tasks"
 MAX_OBJECT, MAX_MANIFEST, MAX_CHUNKS = 256 * 1024, 512 * 1024, 4096
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-TASK = re.compile(r"^[0-9]+\.[0-9]+$")
+TASK = re.compile(r"^(?:hyperfide-source-control/)?[0-9]+\.[0-9]+$")
 ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
 INDEX_MEMBER = "evidence-index.json"
@@ -331,7 +331,7 @@ def resolve(root, task, required=False):
             raise
         return {"status": "UNRESOLVED", "task": task, "warning": str(exc)}
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix="." + task + ".resolve-", dir=target.parent))
+    staging = Path(tempfile.mkdtemp(prefix="." + task.replace("/", "--") + ".resolve-", dir=target.parent))
     try:
         _extract(data, staging)
         os.rename(staging, target)
@@ -390,6 +390,11 @@ def task_of_campaign(path):
     """(root, task) when path lies under <root>/artifacts/hyperfide/tasks/<task>/, else None."""
     parts = Path(path).absolute().parts
     for index in range(len(parts) - 3):
-        if parts[index:index + 3] == ("artifacts", "hyperfide", "tasks") and TASK.fullmatch(parts[index + 3]):
-            return Path(*parts[:index]), parts[index + 3]
+        if parts[index:index + 3] != ("artifacts", "hyperfide", "tasks"):
+            continue
+        task = parts[index + 3]
+        if task == "hyperfide-source-control" and index + 4 < len(parts):
+            task += "/" + parts[index + 4]
+        if TASK.fullmatch(task):
+            return Path(*parts[:index]), task
     return None

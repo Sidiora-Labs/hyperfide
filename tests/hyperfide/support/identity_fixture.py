@@ -25,7 +25,7 @@ SQL_JS="""const fs=require('fs'),{createRequire}=require('module'),pg=createRequ
 (async()=>{const q=JSON.parse(fs.readFileSync(0,'utf8')),c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{if(q.serial)await c.query('BEGIN ISOLATION LEVEL SERIALIZABLE');try{const r=await c.query(q.sql,q.values);if(q.serial)await c.query('COMMIT');process.stdout.write(JSON.stringify(r.rows??[]));}catch(e){if(q.serial)await c.query('ROLLBACK');throw e;}}finally{await c.end();}})().catch(e=>{process.stderr.write(JSON.stringify({code:e.code??'SQL_ERROR',message:e.message}));process.exitCode=1;});"""
 SIGN_JS="""const fs=require('fs'),crypto=require('crypto');process.stdout.write(crypto.sign(null,fs.readFileSync(0),fs.readFileSync(process.argv[1])).toString('base64url'));"""
 class IdentityFixture:
-    def __init__(self,extra_components=(),extra_env=None,extra_setup=None,components=None,database=None,service_role="control",extra_actions=()):
+    def __init__(self,extra_components=(),extra_env=None,extra_setup=None,components=None,database=None,service_role="control",extra_actions=(),credential_actions=None):
         if service_role not in ("control","provisioner","dispatch"):raise ValueError("Known service role required")
         if not isinstance(extra_actions,(list,tuple)) or len(extra_actions)>256 or any(not isinstance(a,str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9._-]{0,127}',a) for a in extra_actions):raise ValueError('Finite reviewed fixture extra_actions required')
         self.service_role=service_role
@@ -89,10 +89,13 @@ class IdentityFixture:
                 shutil.copyfile(fragment,self.components/(name+".json"))
                 actions+=json.loads(fragment.read_text())["actions"]
             self.actions=list(dict.fromkeys(actions))
+            grants=self.actions if credential_actions is None else credential_actions
+            if not isinstance(grants,(list,tuple)) or not 1<=len(grants)<=256 or len(set(grants))!=len(grants) or any(action not in self.actions for action in grants):
+                raise ValueError("Explicit fixture credential actions must be a bounded subset of registered actions")
             expiry=time.strftime("%Y-%m-%dT%H:%M:%S.000Z",time.gmtime(time.time()+3600))
             records=[]
             for name,role in (("operator","OPERATOR"),("provisioner","PROVISIONER")):
-                records.append({"credential_id":i[name],"organisation_id":i["organisation"],"run_id":i["run"],"actor_id":i[name],"role":role,"public_key_b64":self.keys[name]["public_key_b64"],"deployment_epoch":i["epoch"],"allowed_actions":self.actions,"expires_at":expiry})
+                records.append({"credential_id":i[name],"organisation_id":i["organisation"],"run_id":i["run"],"actor_id":i[name],"role":role,"public_key_b64":self.keys[name]["public_key_b64"],"deployment_epoch":i["epoch"],"allowed_actions":list(grants),"expires_at":expiry})
             # Test-only real public-key issuance precondition; production startup config cannot create identities.
             for record in records:self.seed_fixture_principal(record)
             self.identity_config=self.path/"identity.json"

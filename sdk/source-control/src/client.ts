@@ -74,6 +74,7 @@ export class SourceControlClient {
     if('error' in decoded)throw new SourceControlError(decoded.error.code,decoded.error.message,decoded.error.retry,decoded.error.outcome,{...decoded.error.details,operation_id});
     return decoded.result as T;
   }
+  closeWorkspace(input:{workspace_id:string;expected_workspace_generation:string},options:SourceCallOptions){return this.call('source.workspaces.close',input,options);}
   capabilities(options?:SourceCallOptions){return this.call('source.capabilities',{},options);}
   revision(revision_id:string,options?:SourceCallOptions){return this.call('source.revisions.read',{revision_id},options);}
   object(object_id:string,options?:SourceCallOptions){return this.call<{object_id:string;kind:string;payload_base64:string;byte_length:string}>('source.objects.read',{object_id},options);}

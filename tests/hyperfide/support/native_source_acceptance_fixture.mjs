@@ -21,6 +21,8 @@ export async function createNativeAcceptanceFixture(options={}) {
     load('registration'),load('http'),load('s3'),load('contracts'),
     import(pathToFileURL(path.join(sdkRoot,'client.js'))),load('authentication'),load('capabilities'),load('metadata'),load('candidates'),
   ]);
+  const actions=options.actions??SOURCE_ACTIONS.filter(action=>!['source.retention.','source.collection.','source.graph.','source.imports.','source.projections.','source.contributions.','source.migration.','source.backups.','source.recovery.','source.routing.'].some(prefix=>action.startsWith(prefix)));
+  assert(actions.length>0&&actions.length<=64&&new Set(actions).size===actions.length&&actions.every(action=>SOURCE_ACTIONS.includes(action)),'Fixture requires one through 64 explicit supported capability actions');
   const pool=options.pool??new pg.Pool({connectionString:process.env.DATABASE_URL,max:16});
   const ownsPool=!options.pool;
   const backend=await createSourceS3Fixture();
@@ -51,7 +53,7 @@ export async function createNativeAcceptanceFixture(options={}) {
       await pool.query(`INSERT INTO hyperfide.source_principal_credentials(organisation_id,repository_id,security_domain_id,credential_id,principal_id,principal_kind,credential_version,issuer,audience,signing_key_id,expires_at)
         VALUES($1,$2,$3,$4,$5,'automation',1,$6,$7,'fixture-source-key',clock_timestamp()+interval '30 minutes')`,[...Object.values(scope),identity.credential_id,identity.principal_id,trust.issuer,trust.audience]);
       await pool.query(`INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at)
-        VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY[''],clock_timestamp()+interval '30 minutes')`,[...Object.values(scope),identity.capability_id,identity.principal_id,identity.credential_id,sourcePolicy,[...SOURCE_ACTIONS]]);
+        VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY[''],clock_timestamp()+interval '30 minutes')`,[...Object.values(scope),identity.capability_id,identity.principal_id,identity.credential_id,sourcePolicy,[...actions]]);
     }
     const service=createSourceService({pool,backend:new S3SourceObjectBackend(backend.config),cursorKey:randomBytes(32),
       workspaceBudgets:{cache_bytes:16777216,max_cache_entries:1024,max_file_bytes:8388608,materialized_bytes:33554432,dirty_bytes:8388608},...options.serviceOptions});

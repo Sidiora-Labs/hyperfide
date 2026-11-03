@@ -7,8 +7,10 @@ import {MAX_BODY_BYTES,canonicalOrigin,fail,strictJSON,uuid} from './protocol.js
 import type {InvocationContext} from './protocol.js';
 import type {IdentityAuthority} from '../identity/enrollment.js';
 import {decodeSourceRequest,SOURCE_API_PATH,SourceControlError,type SourceAction} from '../source_control/contracts.js';
+import {handleSourceTransferHttp,isSourceTransferPath} from '../source_control/transfer_http.js';
+import type {SourceTransferService} from '../source_control/transfers.js';
 import {sourceHttpError,sourceHttpStatus,writeSourceHttpResponse} from '../source_control/http.js';
-export interface HttpTransportOptions{origin:string;host:string;port:number;certificate:string;privateKey:string;signal:AbortSignal;identity:IdentityAuthority;maxConcurrent?:number;deadlineMs?:number;requestLimit?:number;responseLimit?:number;dispatch:(i:InvocationContext)=>Promise<unknown>;sourceDispatch?:(i:InvocationContext)=>Promise<unknown>;authorize?:(i:InvocationContext)=>Promise<void>}
+export interface HttpTransportOptions{origin:string;host:string;port:number;certificate:string;privateKey:string;signal:AbortSignal;identity:IdentityAuthority;maxConcurrent?:number;deadlineMs?:number;requestLimit?:number;responseLimit?:number;dispatch:(i:InvocationContext)=>Promise<unknown>;sourceTransfers?:SourceTransferService;sourceDispatch?:(i:InvocationContext)=>Promise<unknown>;authorize?:(i:InvocationContext)=>Promise<void>}
 export interface HttpTransport{readonly address:string;close():Promise<void>}
 async function tlsFile(file:string,secret:boolean):Promise<Buffer>{const fd=await fs.open(file,'r');try{const s=await fd.stat(),n=await fs.lstat(file);if(!s.isFile()||n.isSymbolicLink()||s.ino!==n.ino||s.dev!==n.dev||s.size>65536||s.size<1||secret&&(s.mode&0o077)!==0)fail('TLS_CONFIG_INVALID','Bounded regular TLS files and private key permissions required');return await fd.readFile();}finally{await fd.close();}}
 function status(code:string):number{if(code==='HANDLER_FAILED')return 500;if(code.includes('TOO_LARGE'))return 413;if(code==='ADMISSION_BUSY')return 429;if(code==='OUTCOME_UNKNOWN')return 504;if(['SHUTTING_DOWN','DB_UNAVAILABLE','TX_RETRY_EXHAUSTED','TX_TIMEOUT','MIGRATION_NOT_READY'].includes(code))return 503;if(['AUTH_SCOPE_DENIED','ROLE_DENIED','ACTION_DENIED'].includes(code))return 403;if(code.startsWith('AUTH_'))return 401;if(code.includes('CONFLICT')||code.includes('STALE')||code==='ENROLLMENT_QUARANTINED')return 409;return 400;}
@@ -21,7 +23,7 @@ export async function startHttpTransport(o:HttpTransportOptions):Promise<HttpTra
  const server=https.createServer({cert,key,minVersion:'TLSv1.3',handshakeTimeout:5000,maxHeaderSize:8192,headersTimeout:5000,requestTimeout:5000,keepAliveTimeout:3000,rejectNonStandardBodyWrites:true},(req,res)=>{let p:Promise<void>;p=handle(req,res).finally(()=>requests.delete(p));requests.add(p);});
  server.maxHeadersCount=24;server.maxConnections=max*4;server.maxRequestsPerSocket=128;server.on('tlsClientError',()=>{});server.on('clientError',(_e,socket)=>socket.destroy());
  async function handle(req:IncomingMessage,res:ServerResponse):Promise<void>{
-  const sourceRequest=req.url===SOURCE_API_PATH;
+  const transferRequest=isSourceTransferPath(req.url),sourceRequest=req.url===SOURCE_API_PATH||transferRequest;
   let operationId:string|undefined=sourceRequest?randomUUID():undefined,correlationId:string|undefined,sourceAction:SourceAction|undefined,reported=false;
   let bodyRefusal:FoundationError|SourceControlError|undefined;
   const report=(code:string,httpStatus:number):void=>{if(reported)return;reported=true;if(process.stderr.destroyed||!process.stderr.writable||process.stderr.writableLength>16384)return;const errorCode=/^[A-Z][A-Z0-9_]{0,95}$/.test(code)?code:'HANDLER_FAILED';try{process.stderr.write(JSON.stringify({event:'transport_request_failed',status:httpStatus,error_code:errorCode,...(operationId?{operation_id:operationId}:{}),...(correlationId?{correlation_id:correlationId}:{})})+'\n');}catch{}};
@@ -39,6 +41,7 @@ export async function startHttpTransport(o:HttpTransportOptions):Promise<HttpTra
    req.destroy();
   },deadline);
   try{
+   if(transferRequest&&await handleSourceTransferHttp(o.sourceTransfers,req,res,controller.signal))return;
    if(req.method!=='POST'||!['/v1/invoke','/v1/enroll',SOURCE_API_PATH].includes(req.url??''))fail('INVALID_REQUEST','Fixed versioned POST endpoint required');
    if(sourceRequest&&!o.sourceDispatch)throw new SourceControlError('SERVICE_UNAVAILABLE','Source control is not registered on this service');
    if(req.headers['content-encoding']!==undefined||!/^application\/json(?:;\s*charset=utf-8)?$/i.test(req.headers['content-type']??''))fail('INVALID_REQUEST','Uncompressed UTF8 application/json required');

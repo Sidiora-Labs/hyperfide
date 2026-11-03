@@ -265,3 +265,5 @@ export function createComponent(ctx:ComponentContext):Component{
   'graph.ingest.inspect':wrap(async(input,context)=>{const r=exact(input,['organisation_id','run_id','authority_epoch','build_id']),s=scopeInput(r,context),id=uuid(r.build_id);return graphTransaction(context,s,async tx=>({build:await getBuild(tx,s,id),coverage:await graphCoverage(tx,s,id)}),false);})
  }};
 }
+
+export {ingestNativeGraph} from './native.js';

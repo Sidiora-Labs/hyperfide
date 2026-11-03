@@ -5,6 +5,10 @@ import {pathToFileURL} from 'node:url';
 import {createPublicKey} from 'node:crypto';
 import {createStoragePool,storageConfig} from '../storage/schema.js';
 import {createSourceService,sourceCursorKey,sourceWorkspaceBudgets} from './registration.js';
+import {sourceTransferOptions,SOURCE_TRANSFER_PATH} from './transfers.js';
+import {sourceGraphConfiguration} from './graph-adapter.js';
+import {sourceImportSources} from './git/import_transport.js';
+import {sourceMigrationControls} from './migration/cutover.js';
 import {S3SourceObjectBackend,sourceS3Configuration} from './s3.js';
 import {startSourceHttp} from './http.js';
 import {parseStrictJSON,SourceControlError} from './contracts.js';
@@ -76,8 +80,10 @@ export async function startSourceControl(env:Readonly<NodeJS.ProcessEnv>=process
   const readiness=await pool.query<{name:string;present:boolean}>('SELECT name,to_regclass(name) IS NOT NULL AS present FROM unnest($1::text[]) AS name',[tables.map(name=>'hyperfide.'+name)]);
   if(readiness.rows.length!==tables.length||readiness.rows.some(row=>!row.present))throw new SourceControlError('SCHEMA_NOT_READY','Apply the source-control migrations before starting the service');
   if(signal.aborted)throw new SourceControlError('SERVICE_UNAVAILABLE','Source startup was cancelled');
-  const service=createSourceService({pool,backend,cursorKey,workspaceBudgets,publication:{destinations:sourcePublicationDestinations(env)}});
-  listener=await startSourceHttp({api:service.api,trust:configuration.trust,host:configuration.host,port:configuration.port,signal,...(configuration.tls?{tls:configuration.tls}:{}),allowLoopbackHTTP:configuration.allowLoopbackHTTP});
+  const transferOrigin=env.HF_SOURCE_TRANSFER_ORIGIN;
+  if(transferOrigin!==undefined&&(!/^https:\/\//.test(transferOrigin)||new URL(transferOrigin).origin!==transferOrigin))invalid('HF_SOURCE_TRANSFER_ORIGIN must be a canonical HTTPS origin');
+  const service=createSourceService({pool,backend,cursorKey,workspaceBudgets,...(transferOrigin?{transfers:sourceTransferOptions(transferOrigin+SOURCE_TRANSFER_PATH,cursorKey)}:{}),publication:{destinations:sourcePublicationDestinations(env)},imports:{sources:sourceImportSources(env)},...(sourceGraphConfiguration(env)?{graph:sourceGraphConfiguration(env)!}:{}),...(sourceMigrationControls(env)?{migration:sourceMigrationControls(env)!}:{}),...(env.HF_SOURCE_ROUTING_OWNER_ID?{routing_owner_id:env.HF_SOURCE_ROUTING_OWNER_ID}:{})});
+  listener=await startSourceHttp({api:service.api,transfers:service.transfers,trust:configuration.trust,host:configuration.host,port:configuration.port,signal,...(configuration.tls?{tls:configuration.tls}:{}),allowLoopbackHTTP:configuration.allowLoopbackHTTP});
   signal.addEventListener('abort',abort,{once:true});if(signal.aborted)await close();
   return {address:listener.address,close};
  } catch(error) {await close();throw error;}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "kind": "growth",
+  "seed": 42,
+  "file_counts": [
+    10000,
+    1000000,
+    10000000
+  ],
+  "modified_files": 10,
+  "modified_bytes": 1048576,
+  "clients": 1,
+  "operations": 100,
+  "rate_per_second": 1,
+  "duration_seconds": 100,
+  "hardware_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "backend_identity": "REPLACE_WITH_SCOPED_BACKEND_IDENTITY",
+  "real_backend": true
+}

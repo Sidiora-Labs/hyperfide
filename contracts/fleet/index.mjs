@@ -248,7 +248,7 @@ export function parsePackage(input, options = {}) {
   if (ready.require_probes.some(name => !probeNames.has(name)) || [...probeNames].some(name => !ready.require_probes.includes(name))) fail('READINESS_INVALID', 'readiness.require_probes', 'every declared probe must be required'); underRoot(ready.receipt, 'readiness.receipt');
   return doc;
 }
-export const DECISION_ACTIONS = Object.freeze(['CONFIGURE_WAVE', 'DELEGATE_WAVE', 'REPLACE_MANAGER', 'PROVISION_SANDBOX', 'REUSE_SANDBOX', 'ASSIGN_WORKER', 'STEER_WORKER', 'CANCEL_ASSIGNMENT', 'STOP_SANDBOX', 'DESTROY_SANDBOX', 'REPLAN', 'COORDINATE_DEPENDENCY', 'fleet.install.admit', 'fleet.install.adopt']);
+export const DECISION_ACTIONS = Object.freeze(['CONFIGURE_WAVE', 'DELEGATE_WAVE', 'REPLACE_MANAGER', 'SOURCE_OPERATION', 'PROVISION_SANDBOX', 'REUSE_SANDBOX', 'ASSIGN_WORKER', 'STEER_WORKER', 'CANCEL_ASSIGNMENT', 'STOP_SANDBOX', 'DESTROY_SANDBOX', 'REPLAN', 'COORDINATE_DEPENDENCY', 'fleet.install.admit', 'fleet.install.adopt']);
 export function validateDecision(value, options = {}) {
   record(value, ['schema_version', 'kind', 'decision_id', 'operation_id', 'run_id', 'actor_id', 'actor_role', 'authority_epoch', 'leader_generation', 'delegation_id', 'manager_generation', 'source_revision', 'spec_revision', 'context_digest', 'action', 'input', 'input_digest', 'expected_version', 'rationale_summary'], [], 'decision');
   if (value.schema_version !== 1 || value.kind !== 'hyperfide.fleet-decision') fail('UNSUPPORTED_SCHEMA', 'decision', 'fleet decision v1 required');

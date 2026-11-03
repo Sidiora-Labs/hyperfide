@@ -1,5 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { constants } from "node:fs";
+import { open } from "node:fs/promises";
+import path from "node:path";
+import { createSignedSourceClient,type SignedSourceConfiguration } from "@hyperfide/source-control/signed";
 import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
 import {
   graphHostContract,
@@ -14,6 +18,17 @@ export async function runBinary(raw: unknown, parent?: AbortSignal) {
     AbortSignal.timeout(input.timeoutMs),
     ...(parent ? [parent] : []),
   ]);
+  if(input.nativeSource){
+    const filename=process.env.HF_SOURCE_CONFIG;
+    if(!filename||!path.isAbsolute(filename)||path.resolve(filename)!==filename)throw new Error("Configure an absolute HF_SOURCE_CONFIG for native graph access");
+    const handle=await open(filename,constants.O_RDONLY|constants.O_NOFOLLOW);
+    let config:any;
+    try{const stat=await handle.stat();if(!stat.isFile()||stat.size<1||stat.size>131072||stat.nlink!==1||(stat.mode&0o022)!==0)throw new Error("Native source configuration must be a bounded protected file");const bytes=Buffer.alloc(131073);let length=0;for(;;){const part=await handle.read(bytes,length,bytes.length-length,length);length+=part.bytesRead;if(length>131072)throw new Error("Native source configuration exceeds its limit");if(!part.bytesRead)break;}const after=await handle.stat();if(length!==stat.size||after.mtimeMs!==stat.mtimeMs||after.ctimeMs!==stat.ctimeMs)throw new Error("Native source configuration changed while reading");config=JSON.parse(bytes.subarray(0,length).toString('utf8'));}finally{await handle.close();}
+    const client=await createSignedSourceClient((config.transport??config) as SignedSourceConfiguration);
+    const source=input.nativeSource;
+    const data=await client.call<Record<string,unknown>>('source.graph.query',{build_id:source.buildId,revision_id:source.revisionId,root_tree_id:source.rootTreeId,mode:input.command==='index-status'?'status':input.command==='context'?'context':input.command==='why'?'dependencies':'symbols',...(input.target?input.command==='survey'?{q:input.target}:{path:input.target}:{}),limit:32,...(source.cursor?{cursor:source.cursor}:{})},{signal,...(config.assignment?.authority?{authority:config.assignment.authority}:{})});
+    return resultSchema.parse({binary:null,source:{revisionId:source.revisionId,rootTreeId:source.rootTreeId,buildId:source.buildId},data});
+  }
   let cancelInspection: (() => void) | undefined;
   try {
     const binary = await Promise.race([

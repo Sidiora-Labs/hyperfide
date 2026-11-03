@@ -117,7 +117,7 @@ def plan(root, tasks):
 
 def publish_one(root, row, cg, module, organisation, run, scratch):
     task, data = row["task"], row["data"]
-    bundle_path = scratch / (task + ".tar")
+    bundle_path = scratch / (task.replace("/", "--") + ".tar")
     bundle_path.write_bytes(data)
     result = subprocess.run(["node", "--input-type=module", "-e", DRIVER, module.as_uri(), str(bundle_path), str(cg), organisation, run, task, json.dumps(row["commits"])],
                             capture_output=True, text=True, timeout=3600)
@@ -132,7 +132,7 @@ def publish_one(root, row, cg, module, organisation, run, scratch):
         raise evidence_store.EvidenceIntegrityError("bundle read back from the store differs from the published bytes")
     target = evidence_store.receipts_dir(root) / (task + ".json")
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging = target.with_name("." + task + ".json.tmp")
+    staging = target.with_name("." + target.name + ".tmp")
     staging.write_text(json.dumps(record, indent=2) + "\n")
     os.replace(staging, target)
     return {"task": task, "status": "PUBLISHED", "receipt": str(target), "receipt_id": record["receipt"]["receipt_id"], "chunk_count": record["chunk_count"]}
@@ -152,7 +152,7 @@ def main(argv=None):
     root = Path(args.root).resolve()
     if args.all:
         base = root / evidence_store.TASKS_DIR
-        tasks = sorted((p.name for p in base.iterdir() if p.is_dir() and evidence_store.TASK.fullmatch(p.name)), key=lambda t: tuple(map(int, t.split(".")))) if base.is_dir() else []
+        tasks = sorted(p.relative_to(base).as_posix() for p in base.glob("**/*") if p.is_dir() and evidence_store.TASK.fullmatch(p.relative_to(base).as_posix())) if base.is_dir() else []
     else:
         tasks = args.task
     rows = plan(root, tasks)

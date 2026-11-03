@@ -129,6 +129,7 @@ const WORKER_ACTIONS = [
   "source.fleet.read",
   "source.fleet.submit",
   "source.fleet.submission",
+  "source.graph.query",
 ];
 const RETAINED_READS = new Set([
   "source.operations.read",

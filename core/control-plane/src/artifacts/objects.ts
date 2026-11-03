@@ -419,7 +419,7 @@ function succeeded(value:unknown,step:string):Record<string,unknown>{
  * committed chunk manifest, and returns the receipt record a clone needs to resolve it.
  */
 export async function publishEvidenceBundle(store:ArtifactStoreCapability,context:ComponentContext|InvocationContext,scope:ArtifactScope,task:string,bundle:Buffer,commits?:EvidenceCommits):Promise<EvidenceReceiptRecord>{
- if(!/^[0-9]+\.[0-9]+$/.test(task))fail('ARTIFACT_INPUT_INVALID','Invalid task identity');
+ if(!/^(?:hyperfide-source-control\/)?[0-9]+\.[0-9]+$/.test(task))fail('ARTIFACT_INPUT_INVALID','Invalid task identity');
  const evidence=evidenceCommits(commits);
  if(bundle.length>MAX_CHUNKS*MAX_OBJECT)fail('ARTIFACT_INPUT_INVALID','Evidence bundle exceeds manifest bounds');
  const chunks:Chunk[]=[];

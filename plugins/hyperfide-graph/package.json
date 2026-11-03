@@ -19,6 +19,7 @@
     "prepare:bundled": "node --conditions=source --import tsx build-runtime.ts"
   },
   "dependencies": {
+    "@hyperfide/source-control": "workspace:*",
     "@hyperfide/shared-ui": "workspace:*",
     "zod": "^4.3.6",
     "react": "^19.0.0"

@@ -66,12 +66,22 @@ try{
   const legacy=await send(oversized,proof(oversized,{path:'/v1/invoke'}),'/v1/invoke');
   assert.equal(legacy.status,413);assert.equal(legacy.body.error?.code,'REQUEST_TOO_LARGE');
   passed('large-object allowance does not widen metadata or ordinary control request limits');
+  const transfer=await client.call('source.transfers.create',{transfer_id:randomUUID(),direction:'DOWNLOAD',object_id:uploaded.object_id,expires_at:new Date(Date.now()+120000).toISOString()});
+  const download=()=>new Promise((resolve,reject)=>{
+    const req=https.get(transfer.grant.url,{ca,agent:false,headers:{authorization:'SourceTransfer '+transfer.grant.token}},res=>{const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.once('end',()=>resolve({status:res.statusCode,bytes:Buffer.concat(chunks)}));});req.once('error',reject);
+  });
+  const initialDownload=await download();assert.equal(initialDownload.status,200);assert.equal(hash(initialDownload.bytes),uploaded.object_id);
   await pool.query('UPDATE hyperfide.source_capabilities SET revoked_at=clock_timestamp() WHERE id=$1',[capability_id]);
   await assert.rejects(()=>client.object(uploaded.object_id),error=>error.code==='SCOPE_DENIED');
+  const sourceRevoked=await download();assert.equal(sourceRevoked.status,403);assert.equal(JSON.parse(sourceRevoked.bytes).error.code,'SCOPE_DENIED');
   passed('source capability revocation takes effect on the next signed request');
+  await pool.query('UPDATE hyperfide.source_capabilities SET revoked_at=NULL WHERE id=$1',[capability_id]);
+  assert.equal((await download()).status,200);
   await pool.query("UPDATE hyperfide.identity_principals SET state='REVOKED' WHERE credential_id=$1",[config.credential_id]);
   const revoked=await send(body,proof(body));assert(revoked.status>=400);assert.match(revoked.body.error?.code??'',/^AUTH_/);
+  const identityRevoked=await download();assert.equal(identityRevoked.status,403);assert.equal(JSON.parse(identityRevoked.bytes).error.code,'INVALID_TRANSFER_GRANT');
   passed('native credential revocation independently fences signed source requests');
+  passed('binary transfer grants recheck source capability and native identity independently on every redemption');
   let fault='malformed';
   const broken=https.createServer({cert:ca,key:await fs.readFile(tls_key)},async(req,res)=>{
     const chunks=[];for await(const chunk of req)chunks.push(chunk);

@@ -1,0 +1,823 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "cases": {
+    "SCM-001": {
+      "title": "Canonical immutable object and tree identity",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "component",
+      "tasks": [
+        "0.1",
+        "1.1"
+      ],
+      "reqs": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "4.2",
+        "12.1"
+      ],
+      "oracle": "Canonical tree reconstruction and explicit rejection of noncanonical or escaping entries."
+    },
+    "SCM-002": {
+      "title": "S3 uploads and durable revision boundaries",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment",
+        "actual configured backend or fleet required by the case; missing capability blocks execution"
+      ],
+      "tier": "backend",
+      "tasks": [
+        "1.1",
+        "1.2"
+      ],
+      "reqs": [
+        "3.1",
+        "3.2",
+        "4.5",
+        "12.1"
+      ],
+      "oracle": "Every acknowledged revision reconstructs from verified durable objects after each supported interrupted write."
+    },
+    "SCM-003": {
+      "title": "Idempotent native operations and divergence",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "component",
+      "tasks": [
+        "1.2",
+        "2.1"
+      ],
+      "reqs": [
+        "4.1",
+        "4.4",
+        "4.5",
+        "5.3",
+        "12.1"
+      ],
+      "oracle": "Request ledgers and immutable histories show one result per identical operation and explicit divergent revisions."
+    },
+    "SCM-004": {
+      "title": "Attempt fencing and online authority",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "1.3",
+        "4.2"
+      ],
+      "reqs": [
+        "1.1",
+        "8.2",
+        "11.1",
+        "11.3",
+        "11.6",
+        "12.1"
+      ],
+      "oracle": "Obsolete/disconnected attempts cannot mutate or accept source under stale authority."
+    },
+    "SCM-005": {
+      "title": "Retention and garbage-collection races",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment",
+        "actual configured backend or fleet required by the case; missing capability blocks execution"
+      ],
+      "tier": "backend",
+      "tasks": [
+        "2.3"
+      ],
+      "reqs": [
+        "3.4",
+        "3.5",
+        "11.6",
+        "12.1",
+        "12.7"
+      ],
+      "oracle": "Independent reachability and object retrieval prove no rooted content is swept during concurrent writes or pinning."
+    },
+    "SCM-006": {
+      "title": "API-only history queries and pinned pagination",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "component",
+      "tasks": [
+        "2.1"
+      ],
+      "reqs": [
+        "1.2",
+        "5.1",
+        "5.2",
+        "5.5",
+        "5.6",
+        "12.1",
+        "13.1"
+      ],
+      "oracle": "Results match immutable reference trees/history without client checkout or substituted index coverage."
+    },
+    "SCM-007": {
+      "title": "Committed event replay and resynchronization",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "component",
+      "tasks": [
+        "1.2",
+        "2.1"
+      ],
+      "reqs": [
+        "5.4",
+        "5.5",
+        "5.6",
+        "12.1"
+      ],
+      "oracle": "Client state converges to every committed effect despite delayed commits and cursor retention gaps."
+    },
+    "SCM-008": {
+      "title": "Server merge rebase and revert",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "component",
+      "tasks": [
+        "3.1"
+      ],
+      "reqs": [
+        "4.3",
+        "4.4",
+        "4.6",
+        "7.4",
+        "12.1"
+      ],
+      "oracle": "Result trees match independent three-way vectors or expose structured conflicts while inputs stay immutable."
+    },
+    "SCM-009": {
+      "title": "Atomic acceptance of exactly qualified candidates",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "4.1"
+      ],
+      "reqs": [
+        "7.1",
+        "7.2",
+        "7.3",
+        "7.4",
+        "7.5",
+        "7.6",
+        "8.5",
+        "12.1"
+      ],
+      "oracle": "Acceptance history contains only current authorized candidates and exact matching evidence."
+    },
+    "SCM-010": {
+      "title": "Sparse materialization and writable-cache isolation",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "2.2"
+      ],
+      "reqs": [
+        "1.5",
+        "3.3",
+        "6.1",
+        "6.2",
+        "6.3",
+        "6.4",
+        "6.5",
+        "12.1"
+      ],
+      "oracle": "Manifest-selected files match pinned bytes/types and absent paths do not become deletions."
+    },
+    "SCM-011": {
+      "title": "Virtual workspace coherence and bounded cache",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "3.2"
+      ],
+      "reqs": [
+        "1.5",
+        "6.1",
+        "6.3",
+        "6.4",
+        "6.5",
+        "6.6",
+        "12.1",
+        "13.4"
+      ],
+      "oracle": "Snapshot-consistent filesystem behavior and change reconciliation preserve dirty data across eviction and outages."
+    },
+    "SCM-012": {
+      "title": "Incremental source-pinned graph coverage",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "3.3"
+      ],
+      "reqs": [
+        "5.2",
+        "7.4",
+        "8.4",
+        "12.1"
+      ],
+      "oracle": "Graph observations identify exact source/extractor/coverage and detect affected consumers and incomplete generations."
+    },
+    "SCM-013": {
+      "title": "Scoped source authorization and export privacy",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "1.3"
+      ],
+      "reqs": [
+        "9.7",
+        "11.1",
+        "11.2",
+        "11.3",
+        "11.4",
+        "11.5",
+        "12.1"
+      ],
+      "oracle": "All source/query/cache paths reject unauthorized scope and public projection contains only allowed data."
+    },
+    "SCM-014": {
+      "title": "Hyperfide task source custody and taskless clients",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "live-fleet",
+      "tasks": [
+        "4.2",
+        "4.3"
+      ],
+      "reqs": [
+        "1.7",
+        "1.8",
+        "7.1",
+        "8.1",
+        "8.2",
+        "8.3",
+        "8.5",
+        "8.6",
+        "12.1",
+        "12.6",
+        "13.1",
+        "13.2",
+        "17.9"
+      ],
+      "oracle": "Actual assignments preserve attempt/source lineage and submitted custody while taskless callers use independent authorization."
+    },
+    "SCM-015": {
+      "title": "GitHub and GitLab remote export reconciliation",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "live-remote",
+      "tasks": [
+        "5.1"
+      ],
+      "reqs": [
+        "1.6",
+        "7.6",
+        "9.1",
+        "9.2",
+        "9.3",
+        "9.4",
+        "9.5",
+        "9.6",
+        "9.7",
+        "12.1",
+        "12.6"
+      ],
+      "oracle": "Independently retrieved remote Git trees/parents match selected native source and ambiguous pushes reconcile."
+    },
+    "SCM-016": {
+      "title": "Contribution and history import provenance",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "5.2"
+      ],
+      "reqs": [
+        "9.8",
+        "10.1",
+        "10.2",
+        "10.3",
+        "10.4",
+        "12.1"
+      ],
+      "oracle": "Imported proposals preserve tree and ancestry provenance with idempotent replay and separate import counters."
+    },
+    "SCM-017": {
+      "title": "Monorepo migration cutover and writable rollback",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "integration",
+      "tasks": [
+        "5.3"
+      ],
+      "reqs": [
+        "10.1",
+        "10.2",
+        "10.3",
+        "10.4",
+        "10.5",
+        "10.6",
+        "10.7",
+        "10.8",
+        "12.1",
+        "14.4"
+      ],
+      "oracle": "One writer authority survives cutover and rollback reconciles every acknowledged post-cutover revision."
+    },
+    "SCM-018": {
+      "title": "Supported service and metadata failure recovery",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment",
+        "actual configured backend or fleet required by the case; missing capability blocks execution"
+      ],
+      "tier": "backend",
+      "tasks": [
+        "6.1"
+      ],
+      "reqs": [
+        "3.2",
+        "3.6",
+        "5.5",
+        "11.6",
+        "12.1",
+        "12.7"
+      ],
+      "oracle": "Independent acknowledgment/acceptance histories survive the declared faults and stale epochs remain fenced."
+    },
+    "SCM-019": {
+      "title": "Backup restore and external-effect reconciliation",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment",
+        "actual configured backend or fleet required by the case; missing capability blocks execution"
+      ],
+      "tier": "backend",
+      "tasks": [
+        "6.1"
+      ],
+      "reqs": [
+        "3.4",
+        "3.5",
+        "3.6",
+        "10.7",
+        "11.6",
+        "12.1",
+        "12.7"
+      ],
+      "oracle": "All required reachable objects and configured recovery points reconcile before fresh authority reopens writes."
+    },
+    "SCM-020": {
+      "title": "Growth invariance and within-repository sharding",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment",
+        "actual configured backend or fleet required by the case; missing capability blocks execution"
+      ],
+      "tier": "scale",
+      "tasks": [
+        "6.2"
+      ],
+      "reqs": [
+        "1.3",
+        "1.4",
+        "2.2",
+        "2.4",
+        "2.5",
+        "2.6",
+        "4.2",
+        "5.6",
+        "8.4",
+        "12.1",
+        "12.4",
+        "12.5"
+      ],
+      "oracle": "Fixed-change latency/work measurements meet declared growth budgets without unrelated full-tree enumeration."
+    },
+    "SCM-021": {
+      "title": "Concurrent mixed-load and admission profiles",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment",
+        "actual configured backend or fleet required by the case; missing capability blocks execution"
+      ],
+      "tier": "scale",
+      "tasks": [
+        "6.2"
+      ],
+      "reqs": [
+        "4.6",
+        "7.5",
+        "12.1",
+        "12.2",
+        "12.3",
+        "12.5",
+        "13.3",
+        "13.4"
+      ],
+      "oracle": "Actual offered/completed workload, bounded resources and correctness satisfy separate active/burst/open profiles."
+    },
+    "SCM-022": {
+      "title": "Real S3 and elapsed-time endurance",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "live-storage",
+      "tasks": [
+        "6.2"
+      ],
+      "reqs": [
+        "3.1",
+        "3.2",
+        "3.3",
+        "12.1",
+        "12.2",
+        "12.5",
+        "12.6",
+        "12.7"
+      ],
+      "oracle": "Actual S3 traffic and 72 elapsed hours establish sustained new revisions while client and real-worker counts stay separate."
+    },
+    "SCM-023": {
+      "title": "End-to-end native Hyperfide source-control journey",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "live-fleet",
+      "tasks": [
+        "6.3",
+        "7.1",
+        "7.2"
+      ],
+      "reqs": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "8.1",
+        "8.2",
+        "8.3",
+        "8.4",
+        "8.5",
+        "8.6",
+        "12.1",
+        "12.6",
+        "13.1",
+        "13.2",
+        "13.3",
+        "13.4",
+        "13.5",
+        "14.2",
+        "14.3",
+        "14.5"
+      ],
+      "oracle": "A second client and durable records confirm the actual user journey including conflict, recovery, acceptance and remote status."
+    },
+    "SCM-024": {
+      "title": "Strict harness and independent evidence closure",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "closure",
+      "tasks": [
+        "0.2",
+        "6.3",
+        "7.2"
+      ],
+      "reqs": [
+        "12.1",
+        "12.6",
+        "12.7",
+        "14.1",
+        "14.4",
+        "14.5"
+      ],
+      "oracle": "False-success and tampering probes fail and a full current assertion/variant inventory is required for closure."
+    },
+    "SCM-025": {
+      "title": "Category layout and existing-system behavior preservation",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "prerequisite",
+      "tasks": [
+        "0.3",
+        "0.4",
+        "0.5",
+        "0.6",
+        "0.7",
+        "0.8",
+        "0.9"
+      ],
+      "reqs": [
+        "15.1",
+        "15.2",
+        "15.3",
+        "15.4",
+        "15.5",
+        "15.6",
+        "15.7",
+        "15.8",
+        "14.4"
+      ],
+      "oracle": "Complete path/content/mode and identity accounting plus actual existing-system build/runtime/package/cache/CI/preparation checks prove the new category layout; no native SCM dependency or old source facade is required."
+    },
+    "SCM-026": {
+      "title": "Manifest and interface schema with source-bound subset resolution",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "prerequisite",
+      "tasks": [
+        "0.10",
+        "0.11",
+        "0.14"
+      ],
+      "reqs": [
+        "17.1",
+        "17.2",
+        "17.3",
+        "17.4",
+        "17.5",
+        "17.6",
+        "17.7",
+        "17.8",
+        "17.9",
+        "17.10",
+        "16.1",
+        "16.2",
+        "16.3",
+        "16.7"
+      ],
+      "oracle": "Real parser/resolver rejects malformed or stale contracts; independent inventory proves selected interface scope and source pins without assuming callers are exhaustive."
+    },
+    "SCM-027": {
+      "title": "Provider sandbox install and worker isolation",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "prerequisite",
+      "tasks": [
+        "0.11",
+        "0.13",
+        "0.14"
+      ],
+      "reqs": [
+        "17.1",
+        "17.2",
+        "17.3",
+        "17.4",
+        "17.5",
+        "17.6",
+        "17.7",
+        "17.8",
+        "17.9",
+        "17.10",
+        "16.6",
+        "16.8"
+      ],
+      "oracle": "Fresh sandbox runs installer and real consumers with exact source/dependency/config identity; crash/retry and concurrent workers preserve isolated dirty data and truthful ready receipts."
+    },
+    "SCM-028": {
+      "title": "Primary and Wave Manager adaptive orchestration",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "prerequisite",
+      "tasks": [
+        "0.12",
+        "0.13",
+        "0.14"
+      ],
+      "reqs": [
+        "16.1",
+        "16.2",
+        "16.3",
+        "16.4",
+        "16.5",
+        "16.6",
+        "16.7",
+        "16.8"
+      ],
+      "oracle": "Actual co-located model sessions choose and revise admitted actions; provider/worker effects match persisted decisions and out-of-scope actions fail without a hidden deterministic planner."
+    },
+    "SCM-029": {
+      "title": "Supervisor loss and final prerequisite evidence closure",
+      "status": "UNRUN",
+      "full_assertion_ids": [],
+      "prerequisites": [
+        "complete assertion inventory registered by owning task",
+        "immutable campaign manifest with pinned source and environment"
+      ],
+      "tier": "prerequisite",
+      "tasks": [
+        "0.12",
+        "0.13",
+        "0.14"
+      ],
+      "reqs": [
+        "16.1",
+        "16.2",
+        "16.3",
+        "16.4",
+        "16.5",
+        "16.6",
+        "16.7",
+        "16.8",
+        "17.8",
+        "17.9",
+        "17.10",
+        "14.4"
+      ],
+      "oracle": "Independent receipts reconcile supervisor-box loss, stale owners and uncertain external effects; complete existing-source evidence gates native entry without native-harness dependencies."
+    }
+  },
+  "suites": {
+    "source-control": [
+      "SCM-001",
+      "SCM-002",
+      "SCM-003",
+      "SCM-004",
+      "SCM-005",
+      "SCM-006",
+      "SCM-007",
+      "SCM-008",
+      "SCM-009",
+      "SCM-010",
+      "SCM-011",
+      "SCM-012",
+      "SCM-013",
+      "SCM-014",
+      "SCM-015",
+      "SCM-016",
+      "SCM-017",
+      "SCM-018",
+      "SCM-019",
+      "SCM-020",
+      "SCM-021",
+      "SCM-022",
+      "SCM-023",
+      "SCM-024",
+      "SCM-025",
+      "SCM-026",
+      "SCM-027",
+      "SCM-028",
+      "SCM-029"
+    ]
+  },
+  "registration_glob": "registrations/*.json",
+  "workload_profiles": {
+    "growth": {
+      "file_counts": [
+        10000,
+        100000,
+        1000000
+      ],
+      "fixed_modified_files": 10,
+      "fixed_modified_bytes": 1048576,
+      "status": "UNRUN",
+      "required_environment": [
+        "native source authority endpoint",
+        "isolated metadata and object storage scope",
+        "measured hardware and configuration"
+      ]
+    },
+    "fleet": {
+      "active_workspaces": 5000,
+      "status": "UNRUN",
+      "required_environment": [
+        "native source authority endpoint",
+        "isolated metadata and object storage scope",
+        "measured hardware and configuration"
+      ]
+    },
+    "admission": {
+      "logical_opens": 20000000,
+      "status": "UNRUN",
+      "required_environment": [
+        "native source authority endpoint",
+        "isolated metadata and object storage scope",
+        "measured hardware and configuration"
+      ]
+    },
+    "endurance": {
+      "elapsed_hours": 72,
+      "minimum_new_revisions": 300000,
+      "backend": "real-s3",
+      "status": "UNRUN",
+      "required_environment": [
+        "native source authority endpoint",
+        "isolated metadata and object storage scope",
+        "measured hardware and configuration"
+      ]
+    }
+  }
+}

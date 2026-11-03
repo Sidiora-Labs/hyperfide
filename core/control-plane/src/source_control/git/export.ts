@@ -10,6 +10,7 @@ import { reserveSourceOperation } from "../operations.js";
 import type { SourceObjectService } from "../objects.js";
 import type { PersistentTree } from "../trees.js";
 import { SourceGitProjector } from "./projection.js";
+import {parseProjectionPolicy} from "./provenance.js";
 import type { GitProjectionMapping } from "./projection.js";
 import { gitRef, rawGitOid } from "./transport.js";
 import type {
@@ -107,6 +108,10 @@ export class SourceGitPublicationService {
           "INVALID_DESTINATION",
           "Publication destinations require unique bounded identifiers and explicit refs",
         );
+      if(destination.projection_policy){
+        const policy=parseProjectionPolicy(destination.projection_policy);
+        if(policy.repository_identity!==destination.repository_identity||!options.authorizePath)throw new SourceControlError("INVALID_DESTINATION","Project publication requires its exact repository identity and path authorizer");
+      }
       destination.allowed_refs.forEach(gitRef);
       parseObjectId(destination.remote_key);
       parseObjectId(destination.configuration_digest);
@@ -140,6 +145,7 @@ export class SourceGitPublicationService {
       destination.id,
       destination.configuration_digest,
       destination.allowed_refs,
+      ...(destination.projection_policy?[parseProjectionPolicy(destination.projection_policy)]:[]),
     ]);
   }
   private async row(
@@ -538,6 +544,7 @@ export class SourceGitPublicationService {
     const checkpoint = row.base_checkpoint_generation;
     const authorizedRevisions = new Set<string>();
     const projected = await this.projector.project(context, row.revision_id, {
+      ...(destination.projection_policy?{policy:destination.projection_policy,authorize_path:async(path:string)=>{await this.metadata.transaction(tx=>this.options.authorizePath!(tx,context,path));}}:{}),
       ...(options.signal ? { signal: options.signal } : {}),
       authorize_revision: async (revision) => {
         await this.metadata.transaction((tx) =>

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "fleet-native-source",
+  "task": "4.2",
+  "roles": ["control"],
+  "module": "agents/fleet_source_registration.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": ["fleet.source.describe"],
+  "requires": ["fleet-orchestration", "source-control"]
+}

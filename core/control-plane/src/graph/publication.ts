@@ -100,3 +100,5 @@ export function createComponent(ctx:ComponentContext):Component{
   'graph.publish.inspect':async(input,context)=>{const r=exact(input,['organisation_id','run_id','authority_epoch','manifest_id']),s=scopeInput(r,context);return graphTransaction(context,s,tx=>publishedGraph(tx,s,uuid(r.manifest_id)),false);}
  }};
 }
+
+export {publishNativeGraph} from './native.js';

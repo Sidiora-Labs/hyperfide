@@ -80,7 +80,7 @@ def workflow_paths(text, event):
 
 def source_references():
     pattern = re.compile(r'(?<![A-Za-z0-9_./-])(?:platform|services)/[A-Za-z0-9_@.+%~*/{}$-]*(?:/[A-Za-z0-9_@.+%~*/{}$-]*)*')
-    installed = re.compile(r'^services/(?:dist|components|migrations|proof|runtime|package\.json|package-lock\.json)(?:/|$)')
+    installed = re.compile(r'^services/(?:dist|components|migrations|proof|runtime|node_modules|package\.json|package-lock\.json)(?:/|$)')
     proof_path = ROOT / 'build/layout/0.9/docs-forward-verification/receipt.json'
     verified_history = {}
     try:

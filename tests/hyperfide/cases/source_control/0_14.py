@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import select
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
@@ -29,6 +30,7 @@ def run():
               'signed_installation': 'UNRUN', 'remote_provider_worker': 'UNRUN',
               'durability_and_failover': 'UNRUN'}
     fixture = None
+    source_backend = None
     stamp_path = ROOT / 'core/control-plane/dist/.source-digest.json'
     if stamp_path.is_file():
         report['runtime_stamp_start'] = json.loads(stamp_path.read_text())
@@ -99,8 +101,16 @@ def run():
                     key.chmod(0o600)
                     public=subprocess.check_output(['openssl','pkey','-in',str(key),'-pubout','-outform','DER'],stderr=subprocess.DEVNULL)
                     f.keys[name]={'path':key,'public_key_b64':b64(public[-32:])}
-            fixture = IdentityFixture(extra_components=component_closure(['fleet-orchestration', 'fleet-install-delivery','3.4']),
-                extra_setup=accepted_metadata,extra_env={**environment,'HF_SERVICE_REQUEST_DEADLINE_MS':'120000'})
+            components=component_closure(['fleet-orchestration', 'fleet-install-delivery','3.4'])
+            source_backend=subprocess.Popen(['node','--input-type=module','-e',"import{createSourceS3Fixture}from'./tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs';const b=await createSourceS3Fixture();console.log(JSON.stringify(b.config));process.once('SIGTERM',async()=>{await b.close();process.exit(0)});"],cwd=ROOT,stdout=subprocess.PIPE,text=True)
+            if not select.select([source_backend.stdout],[],[],15)[0]:raise RuntimeError('Owned source backend did not start')
+            storage=json.loads(source_backend.stdout.readline())
+            source_environment={'HF_SOURCE_S3_ENDPOINT':storage['endpoint'],'HF_SOURCE_S3_REGION':storage['region'],'HF_SOURCE_S3_BUCKET':storage['bucket'],'HF_SOURCE_S3_ACCESS_KEY_ID':storage['accessKey'],'HF_SOURCE_S3_SECRET_ACCESS_KEY':storage['secretKey'],'HF_SOURCE_ALLOW_LOOPBACK_HTTP':'1','HF_SOURCE_CURSOR_KEY':'c2lnbmVkLXNvdXJjZS10cmFuc3BvcnQtZml4dHVyZS1rZXk','HF_SOURCE_CACHE_BYTES':'16777216','HF_SOURCE_CACHE_ENTRIES':'1024','HF_SOURCE_MAX_FILE_BYTES':'8388608','HF_SOURCE_MATERIALIZED_BYTES':'67108864','HF_SOURCE_DIRTY_BYTES':'16777216'}
+            grants={'programme.activate','programme.provision','programme.dispatch'}
+            for name in set(components+['1.4','4.1','4.2','4.4','14.1']):
+                grants.update(action for action in json.loads((ROOT/'core/control-plane/components'/(name+'.json')).read_text())['actions'] if not action.startswith('source.'))
+            fixture = IdentityFixture(extra_components=components,credential_actions=sorted(grants),
+                extra_setup=accepted_metadata,extra_env={**environment,**source_environment,'HF_SERVICE_REQUEST_DEADLINE_MS':'120000'})
             f = fixture
             report['assertions'].extend(register_owned_environment(f, source, revision))
             report['registration_scope'] = 'signed operator registration only; declared fixture image input; no image or installation readiness'
@@ -170,6 +180,10 @@ def run():
             except Exception as error:
                 report['reasoning_evidence_error'] = type(error).__name__
             fixture.close()
+        if source_backend:
+            source_backend.terminate()
+            try:source_backend.wait(timeout=10)
+            except subprocess.TimeoutExpired:source_backend.kill();source_backend.wait()
         if stamp_path.is_file():
             report['runtime_stamp_end'] = json.loads(stamp_path.read_text())
             report['runtime_stamp_changed'] = report.get('runtime_stamp_start') != report['runtime_stamp_end']

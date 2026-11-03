@@ -13,6 +13,16 @@
       "source": "./src/contracts.ts",
       "types": "./src/contracts.ts",
       "import": "./dist/contracts.js"
+    },
+    "./host": {
+      "source": "./src/host/index.ts",
+      "types": "./src/host/index.ts",
+      "import": "./dist/host.js"
+    },
+    "./signed": {
+      "source": "./src/signed.ts",
+      "types": "./src/signed.ts",
+      "import": "./dist/signed.js"
     }
   },
   "scripts": {
@@ -20,5 +30,8 @@
     "build": "node ../../tools/workspace/build-package.mjs"
   },
   "sideEffects": false,
-  "types": "./src/index.ts"
+  "types": "./src/index.ts",
+  "devDependencies": {
+    "@types/node": "24.12.4"
+  }
 }

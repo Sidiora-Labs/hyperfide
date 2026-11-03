@@ -33,6 +33,7 @@ export const LOCAL_PLUGIN_COMMAND_GROUPS: readonly CommandGroup[] = [
 ];
 
 export const CORE_COMMAND_GROUPS: readonly CommandGroup[] = [
+  group("source", () => import("./source-control.js"), (m) => (program) => m.registerSourceCommands(program)),
   group(
     "browser",
     () => import("./commands/browser.js"),

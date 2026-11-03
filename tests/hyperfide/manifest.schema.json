@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://hyperfide.invalid/schemas/qualification-manifest-v1.json",
-  "title": "Hyperfide immutable qualification campaign manifest v1",
+  "$id": "https://hyperfide.invalid/schemas/qualification-manifest-v2.json",
+  "title": "Hyperfide qualification manifest, Git v1 and native v2",
   "type": "object",
   "required": [
     "schema_version",
@@ -19,7 +19,10 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": 1
+      "enum": [
+        1,
+        2
+      ]
     },
     "campaign_id": {
       "type": "string",
@@ -44,7 +47,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^V-[0-9]{3}$",
+        "pattern": "^(V|SCM)-[0-9]{3}$",
         "minLength": 1
       }
     },
@@ -134,7 +137,198 @@
     },
     "policy": {
       "type": "object"
+    },
+    "feature": {
+      "const": "hyperfide-source-control"
+    },
+    "native_source": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "scope",
+        "revision_id",
+        "root_tree_id",
+        "authority_epoch",
+        "policy_version",
+        "manifest",
+        "readiness_receipt",
+        "toolchain",
+        "environment",
+        "test_inventory_sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "organisation_id",
+            "repository_id",
+            "security_domain_id"
+          ],
+          "properties": {
+            "organisation_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "repository_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "security_domain_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "revision_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "root_tree_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "authority_epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "policy_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "readiness_receipt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "toolchain": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "required": [
+            "platform",
+            "identity"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "platform": {
+              "type": "string",
+              "minLength": 1
+            },
+            "identity": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "test_inventory_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
     }
   },
-  "$comment": "Runtime additionally checks registered variant/case/assertion equality, current content pins, action and resource approval, and scope-specific full inventories. Schema validation alone never proves qualification."
+  "$comment": "Runtime additionally checks registered variant/case/assertion equality, current content pins, action and resource approval, and scope-specific full inventories. Schema validation alone never proves qualification.",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "feature",
+          "native_source"
+        ],
+        "properties": {
+          "case_ids": {
+            "items": {
+              "pattern": "^SCM-[0-9]{3}$"
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "feature"
+              ]
+            },
+            {
+              "required": [
+                "native_source"
+              ]
+            }
+          ]
+        },
+        "properties": {
+          "case_ids": {
+            "items": {
+              "pattern": "^V-[0-9]{3}$"
+            }
+          }
+        }
+      }
+    }
+  ]
 }

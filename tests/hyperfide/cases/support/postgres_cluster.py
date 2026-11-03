@@ -2,9 +2,9 @@
 from pathlib import Path
 import os,pwd,shutil,subprocess,tempfile,time,socket,json,urllib.parse
 class PostgresCluster:
- def __init__(self,root=None):
+ def __init__(self,root=None,bin_dir=None):
   self.root=Path(root) if root else Path(tempfile.mkdtemp(prefix='hf-pg-',dir='/tmp/hyperfide'))
-  self.owner=pwd.getpwnam('postgres');self.bin=Path('/usr/lib/postgresql/18/bin')
+  self.owner=pwd.getpwnam('postgres');self.bin=Path(bin_dir or '/usr/lib/postgresql/18/bin')
   self.processes={};self.port=55441;self.primary=self.root/'primary';self.standby=self.root/'standby';self.logs=[]
   self.socket=self.root/'primary-socket';self.replica_socket=self.root/'standby-socket'
   for d in [self.root,self.socket,self.replica_socket]:d.mkdir(exist_ok=True);os.chown(d,self.owner.pw_uid,self.owner.pw_gid)
@@ -12,7 +12,9 @@ class PostgresCluster:
   self.configure(self.primary,self.socket)
   self.start(self.primary)
  def run(self,*args,timeout=45):
-  argv=['runuser','-u','postgres','--',str(self.bin/args[0]),*map(str,args[1:])]
+  binary=self.bin/args[0]
+  if not binary.exists():binary=Path('/usr/lib/postgresql/18/bin')/args[0]
+  argv=['runuser','-u','postgres','--',str(binary),*map(str,args[1:])]
   p=subprocess.run(argv,text=True,capture_output=True,timeout=timeout)
   self.logs.append({'argv':argv,'returncode':p.returncode,'stdout':p.stdout[-3000:],'stderr':p.stderr[-3000:]})
   if p.returncode:raise RuntimeError('Owned PG fixture command failed: '+str(args[0])+': '+p.stderr[-1000:])

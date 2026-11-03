@@ -35,6 +35,7 @@ export function accountPoolDefaultEnabled(
 const REPO_PLUGINS_DIRECTORY_NAME = "plugins";
 
 export const BUILTIN_PLUGINS = [
+  { name: "hyperfide-source-control", pluginId: "hyperfide-source-control", defaultEnabled: true },
   { name: "hyperfide-dispatch", pluginId: "hyperfide-dispatch", defaultEnabled: true },
   { name: "hyperfide-spec", pluginId: "hyperfide-spec", defaultEnabled: true },
   { name: "environment-slices", pluginId: "hyperfide-environment-slices", defaultEnabled: true },

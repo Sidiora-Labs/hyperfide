@@ -57,6 +57,7 @@
     "@hyperfide/hyperfide-qualify": "workspace:*",
     "@hyperfide/hyperfide-spec": "workspace:*",
     "@hyperfide/hyperfide-environment-slices": "workspace:*",
-    "@hyperfide/hyperfide-dispatch": "workspace:*"
+    "@hyperfide/hyperfide-dispatch": "workspace:*",
+    "@hyperfide/hyperfide-source-control": "workspace:*"
   }
 }

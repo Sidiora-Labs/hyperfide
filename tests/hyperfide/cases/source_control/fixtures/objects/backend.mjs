@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {createHash,createHmac} from 'node:crypto';
 export async function createSourceS3Fixture(){
- const backendObjects=new Map(),requests=[],faults={losePut:false,unavailableReads:0,corrupt:false};
+ const backendObjects=new Map(),requests=[],faults={losePut:false,loseDelete:false,delayDelete:false,unavailableReads:0,corrupt:false},pendingDeletes=[];
 const hmac=(key,text)=>createHmac('sha256',key).update(text).digest();
 const backend=http.createServer(async(req,res)=>{
  try{
@@ -14,10 +14,11 @@ const backend=http.createServer(async(req,res)=>{
  requests.push({method:req.method,key:url.pathname,bytes:bytes.length});
  if(req.method==='PUT'){assert.equal(req.headers['if-none-match'],'*');if(backendObjects.has(url.pathname)){res.writeHead(412).end();return;}backendObjects.set(url.pathname,bytes);if(faults.losePut){faults.losePut=false;req.socket.destroy();return;}res.writeHead(200).end();return;}
  if(req.method==='GET'){if(faults.unavailableReads){faults.unavailableReads--;res.writeHead(503).end();return;}const stored=backendObjects.get(url.pathname);if(!stored){res.writeHead(404).end();return;}const body=faults.corrupt?Buffer.concat([stored.subarray(0,-1),Buffer.from([stored.at(-1)^1])]):stored;res.writeHead(200,{'content-length':body.length,etag:'"owned-fixture"'}).end(body);return;}
+ if(req.method==='DELETE'){assert.equal(req.headers['if-match'],'"owned-fixture"');if(faults.delayDelete){faults.delayDelete=false;await new Promise(resolve=>pendingDeletes.push(resolve));}backendObjects.delete(url.pathname);if(faults.loseDelete){faults.loseDelete=false;req.socket.destroy();return;}res.writeHead(204).end();return;}
  res.writeHead(405).end();
  }catch(error){res.writeHead(500).end(String(error));}
 });
 
  await new Promise(resolve=>backend.listen(0,'127.0.0.1',resolve));
- return {backendObjects,requests,faults,config:{endpoint:'http://127.0.0.1:'+backend.address().port,region:'fixture-region',bucket:'fixture-bucket',accessKey:'fixture-access',secretKey:'fixture-secret',allowLoopbackHTTP:true},close:()=>new Promise(resolve=>backend.close(resolve))};
+ return {backendObjects,requests,faults,pendingDeletes,resumeDeletes:()=>pendingDeletes.splice(0).forEach(resolve=>resolve()),config:{endpoint:'http://127.0.0.1:'+backend.address().port,region:'fixture-region',bucket:'fixture-bucket',accessKey:'fixture-access',secretKey:'fixture-secret',allowLoopbackHTTP:true},close:()=>new Promise(resolve=>backend.close(resolve))};
 }

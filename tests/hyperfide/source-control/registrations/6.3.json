@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "task:hyperfide-source-control/6.3",
+  "task": "6.3",
+  "scope": "task-component",
+  "cases": [
+    "SCM-023",
+    "SCM-024"
+  ],
+  "assertion_ids": [
+    "source-closure.missing-case",
+    "source-closure.stale-registry",
+    "source-closure.fabricated-pass",
+    "source-closure.duplicate-variant",
+    "source-closure.unknown-case",
+    "source-closure.tampered-receipt",
+    "source-closure.component-is-not-full-case",
+    "source-closure.stale-source",
+    "source-closure.empty-assertion-inventory",
+    "source-closure.actual-qualifier-and-independent-checker"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/source_control/6_3.py",
+    "--self-test"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/closure.py",
+    "tests/hyperfide/source-control/campaign_fixture.py",
+    "tests/hyperfide/source-control/claims.json",
+    "tests/hyperfide/cases/source_control/6_3.py"
+  ],
+  "source_roots": [
+    "tests/hyperfide/source-control"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": []
+}

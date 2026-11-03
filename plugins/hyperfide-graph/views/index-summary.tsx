@@ -74,7 +74,7 @@ export function IndexView({ result }: { result: GraphResult }) {
           )}
         </DefinitionRow>
         <DefinitionRow label="Binary" mono>
-          {result.binary.version} · {result.binary.digest.slice(0, 12)}
+          {result.binary ? `${result.binary.version} · ${result.binary.digest.slice(0, 12)}` : "Native source graph"}
         </DefinitionRow>
       </dl>
     </ResourceDetailCollection>

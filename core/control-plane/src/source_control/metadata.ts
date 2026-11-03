@@ -1,3 +1,5 @@
+import {assertSourceRecoveryAdmission} from './recovery.js';
+import {assertNativeWriteAdmission} from './migration/write_admission.js';
 import {createHash} from 'node:crypto';
 import type {Pool, QueryResult, QueryResultRow} from 'pg';
 import {FoundationError} from '../policy/programme.js';
@@ -93,6 +95,8 @@ export class SourceMetadata {
   await authorize(tx, context, action);
   const row = (await tx.query(`SELECT authority_epoch::text,policy_version,durability_profile,clock_timestamp()<$4::timestamptz AS unexpired FROM hyperfide.source_repositories WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 FOR ${exclusive ? 'UPDATE' : 'SHARE'}`, [...sourceScopeValues(context.scope), context.expires_at])).rows[0];
   if (!row || row.authority_epoch !== context.authority_epoch || row.unexpired !== true || context.policy_version !== undefined && row.policy_version !== context.policy_version) sourceFailure('STALE_AUTHORITY', 'Source authority epoch, policy or expiry changed');
+  await assertNativeWriteAdmission(tx,context,action);
+  await assertSourceRecoveryAdmission(tx,context.scope,action);
   return {authority_epoch: row.authority_epoch, policy_version: row.policy_version, durability_profile: row.durability_profile};
  }
  async registerRepository(scope: SourceScope, profile: SourceRepository): Promise<void> {

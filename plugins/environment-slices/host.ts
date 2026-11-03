@@ -1,6 +1,14 @@
-import { experimental_defineHostEntry } from "@hyperfide/plugin-sdk/host";
+import {
+  experimental_defineHostEntry,
+  type ExperimentalHostWorkerLease,
+} from "@hyperfide/plugin-sdk/host";
 import { slicesHostContract } from "./contract.ts";
 import { SlicesProvider, type SliceState } from "./provider.ts";
+import { NativeSlicesProvider } from "./native-provider.ts";
+const retained = new Map<
+  string,
+  { dataDir: string; sliceId: string; lease: ExperimentalHostWorkerLease }
+>();
 const detail = (state: SliceState) => ({
   sliceId: state.id,
   snapshotChain: state.snapshots,
@@ -27,7 +35,66 @@ export function createSliceHandlers(binary: string, dataDir: string) {
 }
 export default experimental_defineHostEntry({
   contract: slicesHostContract,
+  dispose: async () => {
+    for (const value of retained.values()) {
+      try {
+        await new NativeSlicesProvider(value.dataDir).detach(value.sliceId);
+      } finally {
+        await value.lease.dispose();
+      }
+    }
+    retained.clear();
+  },
   handlers: {
+    nativeCapabilities: (_input, context) =>
+      new NativeSlicesProvider(
+        context.experimental_paths.dataDir,
+      ).capabilities(),
+    createNative: async (input, context) => {
+      const dataDir = context.experimental_paths.dataDir;
+      const result = await new NativeSlicesProvider(dataDir).create(
+        input,
+        input.thread,
+      );
+      const key = dataDir + "/" + result.sliceId;
+      if (input.mode === "VIRTUAL" && !retained.has(key))
+        retained.set(key, {
+          dataDir,
+          sliceId: result.sliceId,
+          lease: context.experimental_retainWorker(),
+        });
+      return result;
+    },
+    finishNative: (input, context) =>
+      new NativeSlicesProvider(context.experimental_paths.dataDir).finish(
+        input.sliceId,
+      ),
+    metricsNative: (input, context) =>
+      new NativeSlicesProvider(context.experimental_paths.dataDir).metrics(
+        input.sliceId,
+      ),
+    detachNative: async (input, context) => {
+      const result = await new NativeSlicesProvider(
+        context.experimental_paths.dataDir,
+      ).detach(input.sliceId);
+      const key = context.experimental_paths.dataDir + "/" + input.sliceId;
+      await retained.get(key)?.lease.dispose();
+      retained.delete(key);
+      return result;
+    },
+    detailNative: (input, context) =>
+      new NativeSlicesProvider(context.experimental_paths.dataDir).detail(
+        input.sliceId,
+      ),
+    discardNative: async (input, context) => {
+      await new NativeSlicesProvider(
+        context.experimental_paths.dataDir,
+      ).discard(input.sliceId);
+      const key = context.experimental_paths.dataDir + "/" + input.sliceId;
+      await retained.get(key)?.lease.dispose();
+      retained.delete(key);
+      return { removed: true };
+    },
     create: (input, context) =>
       createSliceHandlers(
         process.env.HYPERFIDE_BINARY ?? "/usr/local/bin/hyperfide",
@@ -50,3 +117,5 @@ export default experimental_defineHostEntry({
       ).discard(input),
   },
 });
+
+export { serveNativeVirtualDaemon } from "./native-provider.ts";

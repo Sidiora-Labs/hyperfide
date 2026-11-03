@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Native source recovery profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "metadata",
+    "placements",
+    "backup",
+    "objectives"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "failure_domain",
+        "acknowledgment",
+        "replica_failure_domains",
+        "supported_failures",
+        "evidence_digest"
+      ],
+      "properties": {
+        "failure_domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acknowledgment": {
+          "enum": [
+            "FSYNC_PRIMARY",
+            "SYNC_REPLICA"
+          ]
+        },
+        "replica_failure_domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "supported_failures": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "PROCESS_LOSS",
+              "PRIMARY_INSTANCE_LOSS"
+            ]
+          }
+        },
+        "evidence_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "placements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "backend_id",
+          "region",
+          "failure_domain",
+          "capabilities",
+          "evidence_digest"
+        ],
+        "properties": {
+          "backend_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "region": {
+            "type": "string",
+            "minLength": 1
+          },
+          "failure_domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "conditional_create",
+              "conditional_delete",
+              "strong_read_after_write"
+            ],
+            "properties": {
+              "conditional_create": {
+                "const": true
+              },
+              "conditional_delete": {
+                "const": true
+              },
+              "strong_read_after_write": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retention_seconds",
+        "maximum_age_seconds",
+        "external_journal_id"
+      ],
+      "properties": {
+        "retention_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31536000
+        },
+        "maximum_age_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31536000
+        },
+        "external_journal_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "objectives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rpo_seconds",
+        "rto_seconds"
+      ],
+      "properties": {
+        "rpo_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rto_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31536000
+        }
+      }
+    }
+  }
+}

@@ -280,7 +280,7 @@ qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.5]
 title = "Relocate native engines and core executables with their consumers"
-status = "in_progress"
+status = "implemented"
 wave = 0
 requires = ["0.4"]
 touches = ["core/kvx", "core/ai-gateway", "core/host-daemon", "core/server", "core/agent-runtime", "core/runtime-db", "core/environment-provider-host", "core/host-watcher", "core/host-workspace", "core/authority-client", "core/local-open-targets", "core/provider-bridge-acp", "core/provider-bridge-protocol", "core/secret-storage", "core/server-archive", "core/control-plane", "core/native/src", "Makefile", "pnpm-workspace.yaml", "turbo.json", "tools/repository/hyperfide-native-components.py", "deploy/hyperfide/dist-stamp.mjs", "tests/integration", "tests/hyperfide/cases/source_control/0_5.py"]
@@ -298,7 +298,7 @@ qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.6]
 title = "Relocate SDKs contracts libraries and packaged tooling"
-status = "in_progress"
+status = "implemented"
 wave = 0
 requires = ["0.5"]
 touches = ["tools/bundled-plugins", "lib/client-core", "lib/config", "lib/core-ui", "contracts/desktop", "lib/domain", "lib/fuzzy-match", "lib/hono-typed-routes", "contracts/host-daemon", "lib/logger", "contracts/mobile-bridge", "tools/plugin-build", "tools/plugin-registry", "sdk/plugins", "lib/process-utils", "tools/provider-parity", "lib/query-tags", "tools/scripts", "sdk/client", "contracts/server", "lib/shared-ui", "lib/templates", "tools/test-helpers", "lib/text-utils", "lib/thread-view", "tools/tsconfig", "lib/changelog/parser.ts", "lib/changelog/metadata.ts", "pnpm-workspace.yaml", "turbo.json", "vitest.config.ts", "tests/hyperfide/cases/source_control/0_6.py"]
@@ -352,7 +352,7 @@ qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.9]
 title = "Qualify the category layout and release the layout prerequisite"
-status = "pending"
+status = "in_progress"
 wave = 0
 requires = ["0.8"]
 touches = ["spec/hyperfide-source-control/repository-layout.json", "spec/hyperfide-source-control/repository-layout.md", "spec/hyperfide-source-control/spec.kvx", "spec/hyperfide-source-control/verification.md", "tools/repository/layout-inventory.py", "tests/hyperfide/cases/source_control/0_9.py", "tests/hyperfide/source-control/layout-receipt.schema.json"]
@@ -367,7 +367,7 @@ cases = ["SCM-025"]
 
 [task.0.10]
 title = "Version the fleet interfaces and sandbox manifest contracts"
-status = "in_progress"
+status = "implemented"
 execution_mode = "ahead"
 wave = 0
 requires = ["0.9"]
@@ -447,7 +447,7 @@ do_4 = "Publish the local prerequisite handoff contract and source-adapter migra
 
 [task.0.1]
 title = "Version the native source contract and compatibility boundary"
-status = "in_progress"
+status = "implemented"
 wave = 0
 requires = ["0.14"]
 touches = ["core/control-plane/src/source_control/contracts.ts", "sdk/source-control/package.json", "sdk/source-control/src/contracts.ts", "sdk/source-control/src/index.ts", "tests/hyperfide/cases/source_control/0_1.py", "spec/hyperfide-source-control/decisions.md"]
@@ -462,7 +462,7 @@ cases = ["SCM-001"]
 
 [task.0.2]
 title = "Add native-source qualification profiles and evidence capture"
-status = "pending"
+status = "implemented"
 wave = 0
 requires = ["0.1"]
 touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/manifest.schema.json", "tests/hyperfide/check-evidence.py", "tests/hyperfide/source-control/registry.json", "tests/hyperfide/source-control/manifests/", "tests/hyperfide/source-control/registrations/", "tests/hyperfide/cases/source_control/0_2.py"]
@@ -477,7 +477,7 @@ cases = ["SCM-024"]
 
 [task.1.1]
 title = "Build the immutable S3 object and persistent-tree vertical slice"
-status = "in_progress"
+status = "implemented"
 wave = 1
 requires = ["0.1", "0.2"]
 touches = ["core/control-plane/src/source_control/objects.ts", "core/control-plane/src/source_control/trees.ts", "core/control-plane/src/source_control/s3.ts", "core/control-plane/src/source_control/storage_contract.ts", "core/control-plane/src/source_control/object_catalog.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/migrations/*-source-control-storage.sql", "tests/hyperfide/cases/source_control/1_1.py", "tests/hyperfide/cases/source_control/fixtures/objects/**"]
@@ -504,13 +504,13 @@ do_5 = "Implement operation lookup and cancellation dispositions for lost respon
 do_6 = "Create the future 1_2.py driver using real metadata transactions and object service: race identical/different idempotent requests, concurrent same-change successors, stale generations, upload/registration/GC interleavings, and event transaction A committing after B. Assert one effect per request and no lost pending delivery."
 reqs = ["1.4", "4.1", "4.2", "4.5", "5.3", "5.4", "5.5", "7.1"]
 owner = "source-protocol"
-status = "in_progress"
+status = "implemented"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/1_2.py"
 cases = ["SCM-002", "SCM-003", "SCM-007"]
 
 [task.1.3]
 title = "Enforce source capabilities across transfer, caches and metadata consumers"
-status = "in_progress"
+status = "implemented"
 wave = 1
 requires = ["1.1", "1.2"]
 touches = ["core/control-plane/src/source_control/capabilities.ts", "core/control-plane/src/source_control/transfer_grants.ts", "core/control-plane/src/source_control/audit.ts", "core/control-plane/src/source_control/storage_contract.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/src/transport/protocol.ts", "core/control-plane/migrations/*-source-control-capabilities.sql", "tests/hyperfide/cases/source_control/1_3.py"]
@@ -536,13 +536,13 @@ do_4 = "Route causal dependent reads using the receipt and metadata/object profi
 do_5 = "Create future 2_1.py with a real source service and transactional metadata, making source operations from an API-only client without .git or a checkout. Cover altered cursor scope, access denial without existence leaks, stale replica/epoch, cancellation, late event commit and paginated directory/history correctness."
 reqs = ["1.1", "1.2", "1.8", "4.2", "4.5", "5.1", "5.2", "5.3", "5.4", "5.5", "5.6", "7.1"]
 owner = "source-api"
-status = "in_progress"
+status = "implemented"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/2_1.py"
 cases = ["SCM-003", "SCM-006", "SCM-007"]
 
 [task.2.2]
 title = "Materialize pinned source scopes with immutable host cache and durable capture"
-status = "in_progress"
+status = "implemented"
 wave = 2
 requires = ["2.1"]
 touches = ["core/host-daemon/src/source-control/client.ts", "core/host-daemon/src/source-control/materializer.ts", "core/host-daemon/src/source-control/cache.ts", "core/host-daemon/src/source-control/journal.ts", "core/host-daemon/src/source-control/checkpoint.ts", "plugins/environment-slices/contract.ts", "plugins/environment-slices/provider.ts", "plugins/environment-slices/host.ts", "tests/hyperfide/cases/source_control/2_2.py"]
@@ -559,7 +559,7 @@ cases = ["SCM-010"]
 
 [task.2.3]
 title = "Connect durable source roots to race-safe incremental collection"
-status = "pending"
+status = "implemented"
 wave = 2
 requires = ["1.1", "1.2", "1.3"]
 touches = ["core/control-plane/src/source_control/gc.ts", "core/control-plane/src/source_control/pins.ts", "core/control-plane/src/source_control/object_catalog.ts", "core/control-plane/src/source_control/retention.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/migrations/*-source-control-retention.sql", "tests/hyperfide/cases/source_control/2_3.py"]
@@ -585,13 +585,13 @@ do_4 = "Implement revert onto a pinned target with explicit parent/mainline sele
 do_5 = "Create future 3_1.py running real object/metadata services and the production transformation engine: deterministic replay, divergent ancestry/multiple bases, all entry/conflict types, large untouched subtrees, cancellation/resume and revert-of-merge input rejection. Assert visited-object metrics for a fixed patch as untouched tree size grows."
 reqs = ["4.3", "4.4", "4.6", "5.1", "5.3", "5.6", "7.4"]
 owner = "source-transformations"
-status = "in_progress"
+status = "implemented"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/3_1.py"
 cases = ["SCM-008"]
 
 [task.3.2]
 title = "Serve demand-driven virtual workspaces with explicit host capabilities"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["2.2"]
 touches = ["core/host-daemon/src/source-control/virtual-filesystem.ts", "core/host-daemon/src/source-control/capabilities.ts", "core/host-daemon/src/source-control/materializer.ts", "core/host-daemon/src/source-control/journal.ts", "plugins/environment-slices/contract.ts", "plugins/environment-slices/host.ts", "tests/hyperfide/cases/source_control/3_2.py"]
@@ -608,7 +608,7 @@ cases = ["SCM-011"]
 
 [task.3.3]
 title = "Pin graph and context to native revisions with incremental cross-project invalidation"
-status = "pending"
+status = "implemented"
 wave = 3
 requires = ["2.2"]
 touches = ["core/control-plane/src/graph/extraction.ts", "core/control-plane/src/graph/ingestion.ts", "core/control-plane/src/graph/publication.ts", "core/control-plane/src/graph/query.ts", "core/control-plane/src/source_control/graph-adapter.ts", "plugins/hyperfide-graph/contract.ts", "plugins/hyperfide-graph/host.ts", "plugins/hyperfide-graph/server.ts", "tests/hyperfide/cases/source_control/3_3.py"]
@@ -636,13 +636,13 @@ do_5 = "Expose separate native-created, candidate-qualified, native-accepted and
 do_6 = "Create future 4_1.py using the real candidate engine, metadata and assurance modules: race two candidates at one generation, policy/custody revocation versus acceptance, lost acknowledgment, changed tree receipt, malformed contributor set, GC race, batch isolation and hot-domain fairness. Verify no accepted tree lacks exact current evidence or retained content."
 reqs = ["4.5", "5.3", "5.4", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6"]
 owner = "source-integration"
-status = "in_progress"
+status = "implemented"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/4_1.py"
 cases = ["SCM-009"]
 
 [task.4.2]
 title = "Run Hyperfide fleet attempts and qualification through native source custody"
-status = "in_progress"
+status = "implemented"
 wave = 4
 requires = ["4.1", "3.2"]
 touches = ["core/host-daemon/src/fleet-worker.ts", "contracts/host-daemon/src/workspace.ts", "plugins/environment-slices/server.ts", "plugins/environment-slices/contract.ts", "plugins/hyperfide-dispatch/src/dispatcher/contracts.ts", "plugins/hyperfide-dispatch/src/dispatcher/runners.ts", "plugins/hyperfide-dispatch/src/dispatcher/dispatcher.ts", "plugins/hyperfide-dispatch/src/integrate/queue.ts", "plugins/hyperfide-qualify/adapter.ts", "plugins/hyperfide-qualify/receipts.ts", "core/control-plane/src/source_control/fleet-adapter.ts", "tests/hyperfide/cases/source_control/4_2.py", "contracts/fleet/index.d.mts", "contracts/fleet/index.mjs", "core/control-plane/components/source-control.json", "core/control-plane/src/agents/fleet_authority.ts", "core/control-plane/src/agents/fleet_orchestration.ts", "core/control-plane/src/assurance/native_source.ts", "core/control-plane/src/hierarchy/packets.ts", "core/control-plane/src/preparation/fleet_authority.ts", "core/control-plane/src/preparation/fleet_delivery.ts", "core/control-plane/src/preparation/fleet_install.ts", "core/control-plane/src/preparation/fleet_mounts.ts", "core/control-plane/src/preparation/fleet_readiness.ts", "core/control-plane/src/preparation/fleet_source.ts", "core/control-plane/src/preparation/fleet_source_cache.ts", "core/control-plane/src/preparation/manifests.ts", "core/control-plane/src/preparation/recipe.ts", "core/control-plane/src/providers/bootstrap_install.ts", "core/control-plane/src/runner/bridge.ts", "core/control-plane/src/runner/fleet.ts", "core/control-plane/src/scheduler/claim.ts", "core/control-plane/src/source_control/api.ts", "core/control-plane/src/source_control/capabilities.ts", "core/control-plane/src/source_control/contracts.ts", "core/control-plane/src/source_control/operations.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/src/source_control/server.ts", "core/control-plane/src/source_control/workspaces.ts", "core/control-plane/src/spec/obligations.ts", "core/native/src/hyperfide/fleet_readiness.c", "core/native/src/hyperfide/job.c", "core/native/src/hyperfide/preparation_stage.c", "core/native/src/hyperfide/supervisor.h", "sdk/source-control/src/client.ts", "sdk/source-control/src/contracts.ts", "sdk/source-control/src/index.ts", "tests/hyperfide/support/native_source_acceptance_fixture.mjs", "tests/hyperfide/support/native_source_fixture.py", "core/control-plane/migrations/0744-source-control-fleet.sql", "core/control-plane/src/assurance/fleet_native.ts", "core/control-plane/src/runner/source_identity.ts", "core/control-plane/src/source_control/fleet-pins.ts", "core/control-plane/src/source_control/fleet-run-source.ts", "sdk/source-control/src/fleet.ts", "tests/hyperfide/support/native_source_fleet_install.mjs", "tests/hyperfide/support/native_source_fleet_actor.mjs", "docs/hyperfide/source-control.md", "tests/integration/16_retrieval.sh", "core/control-plane/components/fleet-install-delivery.json", "core/control-plane/src/source_control/objects.ts", "tests/hyperfide/cases/source_control/0_1.py", "core/control-plane/migrations/0745-source-control-fleet-selections.sql", "core/control-plane/src/source_control/fleet-source-selection.ts", "core/control-plane/src/source_control/managed-objects.ts", "tests/hyperfide/support/native_source_fleet_assignment.mjs", "core/control-plane/src/preparation/fleet_completion.ts", "core/control-plane/src/runner/fleet_completion.ts", "core/control-plane/src/runner/workspaces.ts", "core/control-plane/src/source_control/fleet-cleanup.ts", "tests/hyperfide/support/native_source_fleet_cleanup.mjs", "tests/hyperfide/support/native_source_fleet_pool.mjs", "core/control-plane/src/source_control/http.ts", "core/control-plane/src/source_control/metadata.ts", "tests/hyperfide/support/native_source_fleet_cleanup_assertions.mjs", "tests/hyperfide/support/native_source_fleet_selection.mjs", "core/control-plane/src/scheduler/resources.ts", "core/authority-client/package.json", "core/authority-client/src/index.ts", "core/control-plane/components/14.1.json", "core/control-plane/src/agents/dispatch.ts", "core/control-plane/src/components/service.ts", "core/control-plane/src/events/instructions.ts", "core/control-plane/src/identity/enrollment.ts", "core/control-plane/src/runner/dispatch.ts", "core/control-plane/src/runner/fleet_connector_plan.ts", "core/control-plane/src/transport/http.ts", "core/control-plane/src/transport/protocol.ts", "core/native/src/hyperfide/client.c", "core/native/src/hyperfide/control.c", "core/native/src/hyperfide/launch.c", "core/native/src/hyperfide/transport.c", "core/native/src/hyperfide/transport.h", "pnpm-lock.yaml", "core/authority-client/src/source.ts", "tests/hyperfide/cases/source_control/native_source_handoff.py", "tests/hyperfide/cases/source_control/signed_transport.py", "tests/hyperfide/support/native_source_fleet_reconciliation.mjs", "tests/hyperfide/support/native_source_signed_transport.mjs", "README.md", "core/native/src/help.c", "tests/integration/43_help.sh", "tests/hyperfide/cases/source_control/native_source_envelope.py", "tests/hyperfide/support/native_source_fleet_enrollment.mjs", "sdk/source-control/package.json"]
@@ -660,7 +660,7 @@ do_7 = "Implement the native source adapter for hyperfide install and .neron usi
 
 [task.4.3]
 title = "Ship source API clients and native workspace-to-publication product journeys"
-status = "pending"
+status = "implemented"
 wave = 4
 requires = ["4.2"]
 touches = ["core/native/src/main.c", "sdk/source-control/package.json", "sdk/source-control/src/client.ts", "sdk/source-control/src/contracts.ts", "pnpm-lock.yaml", "apps/cli/src/source-control.ts", "apps/cli/src/index.ts", "tools/bundled-plugins/package.json", "tools/bundled-plugins/build.ts", "plugins/hyperfide-source-control/package.json", "plugins/hyperfide-source-control/contract.ts", "plugins/hyperfide-source-control/server.ts", "plugins/hyperfide-source-control/app.tsx", "plugins/hyperfide-source-control/views/workspace-detail.tsx", "plugins/hyperfide-source-control/views/change-detail.tsx", "plugins/hyperfide-source-control/views/publication-status.tsx", "core/host-daemon/src/source-control/metrics.ts", "tests/hyperfide/cases/source_control/4_3.py"]
@@ -677,7 +677,7 @@ cases = ["SCM-014"]
 
 [task.5.1]
 title = "Publish accepted native changes through bounded Git remote adapters"
-status = "in_progress"
+status = "implemented"
 wave = 5
 requires = ["4.1", "4.2"]
 touches = ["core/control-plane/src/source_control/git/objects.ts", "core/control-plane/src/source_control/git/export.ts", "core/control-plane/src/source_control/git/transport.ts", "core/control-plane/src/source_control/git/github.ts", "core/control-plane/src/source_control/git/gitlab.ts", "core/control-plane/src/integration/publication.ts", "core/control-plane/src/integration/github.ts", "plugins/hyperfide-qualify/publication.ts", "plugins/github/wave-publication.ts", "core/control-plane/src/source_control/git/projection.ts", "core/control-plane/src/source_control/git/types.ts", "core/control-plane/src/source_control/publication_config.ts", "core/control-plane/src/source_control/operations.ts", "core/control-plane/migrations/0742-source-control-publication.sql", "core/control-plane/src/source_control/registration.ts", "sdk/source-control/src/**", "docs/hyperfide/source-control.md", "tests/hyperfide/support/native_source_git_actor.mjs", "tests/hyperfide/cases/source_control/5_1.py"]
@@ -693,7 +693,7 @@ cases = ["SCM-015"]
 
 [task.5.2]
 title = "Version project projections and import external source provenance"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.1"]
 touches = ["core/control-plane/src/source_control/git/projection.ts", "core/control-plane/src/source_control/git/import.ts", "core/control-plane/src/source_control/git/provenance.ts", "core/control-plane/src/source_control/git/export.ts", "core/control-plane/src/preparation/object_store.ts", "core/control-plane/src/assurance/submission.ts", "tests/hyperfide/cases/source_control/5_2.py"]
@@ -709,7 +709,7 @@ cases = ["SCM-016"]
 
 [task.5.3]
 title = "Consolidate projects and cut over to one native source authority"
-status = "pending"
+status = "implemented"
 wave = 5
 requires = ["5.2", "4.3"]
 touches = ["core/control-plane/src/source_control/migration/inventory.ts", "core/control-plane/src/source_control/migration/consolidation.ts", "core/control-plane/src/source_control/migration/parity.ts", "core/control-plane/src/source_control/migration/cutover.ts", "core/control-plane/src/migration/cutover.ts", "core/control-plane/src/migration/parity.ts", "core/control-plane/src/assurance/submission.ts", "core/control-plane/src/assurance/validity.ts", "core/control-plane/src/preparation/object_store.ts", "spec/workflow.kvx", "docs/hyperfide/source-control-migration.md", "tests/hyperfide/cases/source_control/5_3.py"]
@@ -726,7 +726,7 @@ cases = ["SCM-017"]
 
 [task.6.1]
 title = "Qualify source durability, authority failover and complete restore"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["4.1", "4.2", "5.1", "5.3", "2.3"]
 touches = ["core/control-plane/src/source_control/recovery.ts", "core/control-plane/src/source_control/backup.ts", "core/control-plane/src/source_control/routing.ts", "core/control-plane/src/source_control/registration.ts", "deploy/hyperfide/source-control/recovery-profile.schema.json", "tests/hyperfide/cases/source_control/6_1.py", "docs/hyperfide/source-control-recovery.md"]
@@ -742,7 +742,7 @@ cases = ["SCM-018", "SCM-019"]
 
 [task.6.2]
 title = "Measure within-monorepo growth, mixed load and real-storage endurance"
-status = "pending"
+status = "implemented"
 wave = 6
 requires = ["6.1", "4.3", "5.3"]
 touches = ["tests/hyperfide/cases/source_control/6_2.py", "tests/hyperfide/source-control/workloads/**", "tests/hyperfide/source-control/manifests/campaigns/**", "tests/hyperfide/source-control/registrations/6.2.json", "core/control-plane/src/source_control/metrics.ts"]
@@ -758,7 +758,7 @@ cases = ["SCM-020", "SCM-021", "SCM-022"]
 
 [task.6.3]
 title = "Qualify integrated native source control and independently close evidence"
-status = "pending"
+status = "in_progress"
 wave = 6
 requires = ["6.2"]
 touches = ["tests/hyperfide/cases/source_control/6_3.py", "tests/hyperfide/source-control/closure.py", "tests/hyperfide/source-control/manifests/full/**", "tests/hyperfide/source-control/registrations/6.3.json", "tests/hyperfide/source-control/claims.json"]
@@ -774,7 +774,7 @@ cases = ["SCM-023", "SCM-024"]
 
 [task.7.1]
 title = "Ship native source documentation and reproducible release artifacts"
-status = "pending"
+status = "implemented"
 wave = 7
 requires = ["6.3"]
 touches = ["docs/hyperfide/source-control.md", "docs/hyperfide/platform.md", "docs/hyperfide/operations.md", "docs/runtime/source-control.md", "README.md", "core/control-plane/package.json", "sdk/source-control/package.json", "tests/hyperfide/cases/source_control/7_1.py", "spec/hyperfide-source-control/spec.kvx"]
@@ -789,7 +789,7 @@ cases = ["SCM-023"]
 
 [task.7.2]
 title = "Close the native source release with running-system evidence"
-status = "pending"
+status = "in_progress"
 wave = 7
 requires = ["7.1"]
 touches = ["tests/hyperfide/cases/source_control/7_2.py", "tests/hyperfide/source-control/manifests/release.json", "docs/hyperfide/source-control.md", "docs/hyperfide/operations.md", "spec/hyperfide-source-control/spec.kvx"]

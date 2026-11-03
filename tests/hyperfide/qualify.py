@@ -212,14 +212,83 @@ def run_child(argv, root, timeout, env):
     result['ended_at'] = utc()
     return result, output, error
 
+def native_capture(root, value, assertion_ids):
+    if not isinstance(value, dict) or set(value) != {'schema_version', 'scope', 'revision_id', 'root_tree_id', 'authority_epoch', 'policy_version', 'manifest', 'readiness_receipt', 'toolchain', 'environment', 'test_inventory_sha256'}:
+        raise GateError('native source provenance fields differ from version 1')
+    if type(value['schema_version']) is not int or value['schema_version'] != 1:
+        raise GateError('unsupported native source provenance')
+    scope = value['scope']
+    if not isinstance(scope, dict) or set(scope) != {'organisation_id', 'repository_id', 'security_domain_id'}:
+        raise GateError('native source scope is incomplete')
+    for identity in [*scope.values(), value['authority_epoch']]:
+        if not isinstance(identity, str) or str(uuid.UUID(identity)) != identity:
+            raise GateError('native authority identity is invalid')
+    for name in ('revision_id', 'root_tree_id'):
+        if not isinstance(value[name], str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', value[name]):
+            raise GateError('native source identity is invalid')
+    if not isinstance(value['policy_version'], str) or not value['policy_version'].strip():
+        raise GateError('native source policy is absent')
+    if value['test_inventory_sha256'] != digest(canonical(assertion_ids)):
+        raise GateError('native source test inventory differs')
+    if not isinstance(value['environment'], dict) or set(value['environment']) != {'platform', 'identity'} or not all(isinstance(v, str) and v for v in value['environment'].values()):
+        raise GateError('native source environment is incomplete')
+    if value['environment']['platform'] != sys.platform:
+        raise GateError('native source environment differs from execution platform')
+    def pinned(record):
+        if not isinstance(record, dict) or set(record) != {'path', 'sha256'} or not re.fullmatch(r'[0-9a-f]{64}', str(record['sha256'])):
+            raise GateError('native source content pin is invalid')
+        if not isinstance(record['path'], str) or not record['path']:
+            raise GateError('native source content path is invalid')
+        relative = Path(record['path'])
+        if relative.is_absolute() or '..' in relative.parts:
+            raise GateError('native source content path escapes workspace')
+        path = root / relative
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(root) or digest(path.read_bytes()) != record['sha256']:
+            raise GateError('native source content pin differs: ' + str(relative))
+        return path
+    manifest = read_json(pinned(value['manifest']))
+    readiness = read_json(pinned(value['readiness_receipt']))
+    identity = {name: value[name] for name in ('scope', 'revision_id', 'root_tree_id', 'authority_epoch', 'policy_version')}
+    if any(manifest.get(k) != v or readiness.get(k) != v for k, v in identity.items()):
+        raise GateError('native source manifest or readiness identity differs')
+    if type(manifest.get('schema_version')) is not int or manifest.get('schema_version') != 1 or type(readiness.get('schema_version')) is not int or readiness.get('schema_version') != 1 or readiness.get('status') != 'VERIFIED' or readiness.get('manifest_sha256') != value['manifest']['sha256']:
+        raise GateError('native source readiness receipt is missing or invalid')
+    files = manifest.get('files')
+    if not isinstance(files, list) or not files:
+        raise GateError('native source manifest has no files')
+    seen = set()
+    for record in files:
+        path = pinned(record)
+        if record['path'] in seen:
+            raise GateError('native source manifest repeats a path')
+        seen.add(record['path'])
+    objects = readiness.get('objects')
+    if not isinstance(objects, list) or not objects:
+        raise GateError('native source readiness omits object references')
+    object_ids = set()
+    for record in objects:
+        if not isinstance(record, dict) or set(record) != {'object_id', 'path', 'sha256', 'state'} or record['state'] != 'READY' or not re.fullmatch(r'sha256:[0-9a-f]{64}', str(record['object_id'])) or record['object_id'] in object_ids:
+            raise GateError('native source object readiness is invalid')
+        object_ids.add(record['object_id'])
+        object_path = pinned({key: record[key] for key in ('path', 'sha256')})
+        if record['object_id'] != 'sha256:' + digest(object_path.read_bytes()):
+            raise GateError('native source object bytes differ from their identity')
+    if value['root_tree_id'] not in object_ids or value['revision_id'] not in object_ids:
+        raise GateError('native source closure omits revision or root object')
+    if not isinstance(value['toolchain'], list) or not value['toolchain']:
+        raise GateError('native source toolchain pins are absent')
+    for record in value['toolchain']:
+        pinned(record)
+    return value
+
 def load_registry(path):
     registry = read_json(path)
-    if type(registry.get("schema_version")) is not int or registry.get("schema_version") != 1 or not isinstance(registry.get("cases"), dict):
+    if type(registry.get("schema_version")) is not int or registry.get("schema_version") not in (1, 2) or not isinstance(registry.get("cases"), dict):
         raise GateError("unsupported registry")
     if not registry["cases"] or not isinstance(registry.get("suites"), dict):
         raise GateError("empty cases or missing suites")
     for case_id, case in registry["cases"].items():
-        if not isinstance(case_id, str) or re.fullmatch(r"V-[0-9]{3}", case_id) is None or not isinstance(case, dict):
+        if not isinstance(case_id, str) or re.fullmatch(r"V-[0-9]{3}" if registry["schema_version"] == 1 else r"(?:V|SCM)-[0-9]{3}", case_id) is None or not isinstance(case, dict):
             raise GateError("malformed case registration")
         strings(case.get("full_assertion_ids", []), "full assertion inventory", False)
     for suite, ids in registry["suites"].items():
@@ -232,7 +301,7 @@ def load_registry(path):
     variants = {}
     for registration_path in sorted(path.parent.glob(pattern)):
         registration = read_json(registration_path)
-        if type(registration.get("schema_version")) is not int or registration.get("schema_version") != 1:
+        if type(registration.get("schema_version")) is not int or registration.get("schema_version") not in (1, 2):
             raise GateError("unsupported registration schema")
         variant = registration.get("variant")
         if not isinstance(variant, str) or not variant or variant in variants:
@@ -240,6 +309,21 @@ def load_registry(path):
         task = registration.get('task')
         if not isinstance(task, str) or re.fullmatch(r'[0-9]+\.[0-9]+', task) is None:
             raise GateError('invalid registered task identity')
+        if registration['schema_version'] == 2:
+            expected = 'task:hyperfide-source-control/' + task
+            campaign = registration.get('campaign')
+            if campaign is not None:
+                if task != '6.2' or campaign not in ('growth', 'mixed', 'admission', 'endurance'):
+                    raise GateError('unsupported native campaign registration')
+                expected = 'campaign:hyperfide-source-control/' + task + '/' + campaign
+            case_variant = registration.get('case_variant')
+            if case_variant is not None:
+                case_ids = registration.get('cases')
+                if campaign is not None or registration.get('scope') != 'full-case' or not isinstance(case_ids, list) or len(case_ids) != 1 or not isinstance(case_ids[0], str) or re.fullmatch(r'SCM-[0-9]{3}', case_ids[0]) is None or not isinstance(case_variant, str) or re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', case_variant) is None:
+                    raise GateError('invalid native full-case registration')
+                expected = 'case:hyperfide-source-control/' + case_ids[0] + '/' + case_variant
+            if registration.get('feature') != 'hyperfide-source-control' or variant != expected:
+                raise GateError('native registration requires a namespaced feature/task variant')
         cases = strings(registration.get("cases"), "registration cases")
         if any(case not in registry["cases"] for case in cases):
             raise GateError("unknown registered case")
@@ -347,8 +431,13 @@ def run_task_suite(args, root, registry_path, registry, variants):
 def validate_manifest(manifest, registration, registry):
     required = ("campaign_id", "registered_variant", "scope", "case_ids", "expected_assertion_ids",
                 "approval", "inputs", "resources", "seed", "policy")
-    if type(manifest.get("schema_version")) is not int or manifest.get("schema_version") != 1 or set(manifest) != set(required) | {"schema_version"}:
+    if type(manifest.get("schema_version")) is not int or manifest.get("schema_version") not in (1, 2) or set(manifest) != set(required) | {"schema_version"} | ({"native_source", "feature"} if manifest.get("schema_version") == 2 else set()):
         raise GateError("incomplete or unsupported manifest")
+    if manifest['schema_version'] == 2:
+        if manifest.get('feature') != 'hyperfide-source-control' or registration.get('feature') != manifest['feature'] or registration.get('schema_version') != 2:
+            raise GateError('native manifest feature differs from registration')
+        if any(not case.startswith('SCM-') for case in manifest['case_ids']):
+            raise GateError('native manifest mixes case namespaces')
     if not isinstance(manifest["campaign_id"], str) or not manifest["campaign_id"].strip():
         raise GateError("empty campaign identity")
     if manifest["scope"] not in ("task-component", "full-case", "campaign"):
@@ -359,6 +448,8 @@ def validate_manifest(manifest, registration, registry):
         strings(manifest[field], field)
         if manifest[field] != registration[registered]:
             raise GateError(field + " differs from exact registered inventory")
+    if registration.get('case_variant') is not None and (not isinstance(manifest.get('policy'), dict) or manifest['policy'].get('source_variant') != registration['case_variant']):
+        raise GateError('native full-case backend variant differs from registration')
     approval = manifest["approval"]
     if not isinstance(approval, dict) or set(approval) - {"approved", "allowed_actions", "allow_retained_resources"} or approval.get("approved") is not True or ("allow_retained_resources" in approval and not isinstance(approval["allow_retained_resources"], bool)):
         raise GateError("campaign is not explicitly approved")
@@ -421,14 +512,15 @@ def execute(args, root, registry_path, registry, registration, registration_path
     trusted_checker = Path(__file__).resolve().with_name('check-evidence.py')
     if args.checker and Path(args.checker).resolve() != trusted_checker:
         raise GateError('alternate checker is not trusted; canonical sibling checker required')
-    preliminary_git = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True, timeout=10)
-    preliminary_commit = preliminary_git.stdout.decode().strip() if preliminary_git.returncode == 0 else None
-    base_dir = root / 'artifacts/hyperfide/tasks' / registration.get('task', manifest['campaign_id'])
+    native = native_capture(root, manifest['native_source'], manifest['expected_assertion_ids']) if manifest['schema_version'] == 2 else None
+    preliminary_git = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True, timeout=10) if native is None else None
+    preliminary_commit = preliminary_git.stdout.decode().strip() if preliminary_git is not None and preliminary_git.returncode == 0 else None
+    base_dir = root / 'artifacts/hyperfide/tasks' / ((registration['feature'] + '/' + registration['task']) if registration.get('feature') else registration.get('task', manifest['campaign_id']))
     evidence_source = None
     if not args.output_dir:
         # The task directory is a cache of the artifact store (D1): restore prior receipts before chaining onto them.
         try:
-            evidence_source = evidence_store.resolve(root, base_dir.name, args.require_evidence)
+            evidence_source = evidence_store.resolve(root, ((registration['feature'] + '/' + registration['task']) if registration.get('feature') else base_dir.name), args.require_evidence)
         except (evidence_store.EvidenceIntegrityError, evidence_store.EvidenceUnavailable) as exc:
             raise GateError('evidence resolution refused: ' + str(exc)) from exc
         if evidence_source.get('warning'):
@@ -469,6 +561,12 @@ def execute(args, root, registry_path, registry, registration, registration_path
         source_files, inputs, diagnostics = [], [], []
         checker = trusted_checker
         source_paths = {Path(__file__).resolve(), Path(evidence_store.__file__).resolve(), checker, registration_path.resolve(), registry_path.resolve()}
+        if native is not None:
+            native_records = [native['manifest'], native['readiness_receipt'], *native['toolchain']]
+            native_records += read_json(root / native['manifest']['path'])['files']
+            native_records += read_json(root / native['readiness_receipt']['path'])['objects']
+            source_paths.update((root / record['path']).resolve() for record in native_records)
+
         for argv in (registration["argv"], registration.get("cleanup_argv", [])):
             for arg in argv:
                 path = Path(arg) if Path(arg).is_absolute() else root / arg
@@ -517,19 +615,19 @@ def execute(args, root, registry_path, registry, registration, registration_path
                 before[str(path)] = record["sha256"]
         except GateError as exc:
             diagnostics.append(str(exc))
-        git = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, timeout=10)
-        commit = git.stdout.decode().strip() if git.returncode == 0 else None
+        git = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, timeout=10) if native is None else None
+        commit = git.stdout.decode().strip() if git is not None and git.returncode == 0 else None
         dirty = None
         if commit:
             state = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, timeout=10)
             dirty = bool(state.stdout) if state.returncode == 0 else None
         inventory = source_inventory(root, registration, inventory_exclusion)
         worktree = worktree_inventory(root, inventory, inventory_exclusion, commit)
-        source = {'commit': commit, 'dirty': dirty, 'workspace': str(root), 'unversioned': commit is None, 'files': source_files,
+        source = {'backend': 'native' if native else 'git', 'native': native, 'commit': commit, 'dirty': dirty, 'workspace': str(root), 'unversioned': commit is None and native is None, 'files': source_files,
                   'inventory': inventory, 'inventory_sha256': digest(canonical(inventory)), 'inventory_excluded': str(inventory_exclusion), 'worktree': worktree, 'environment': {'platform': sys.platform, 'python_version': sys.version, 'provenance_scope': 'declared-source-and-executables; complete preparation qualification requires task11.1'}}
         if inventory != initial_inventory or worktree != initial_worktree or commit != preliminary_commit:
             diagnostics.append('workspace identity changed during campaign preparation')
-        if commit is None and manifest["scope"] != "task-component":
+        if commit is None and native is None and manifest["scope"] != "task-component":
             diagnostics.append("full qualification requires a versioned source commit")
         blocked = bool(diagnostics)
         env = os.environ.copy()
@@ -544,6 +642,8 @@ def execute(args, root, registry_path, registry, registration, registration_path
                 cleanup_command, extra_out, extra_err = run_child(registration["cleanup_argv"], root, registration.get("cleanup_timeout_seconds", 60), env)
                 stdout += b"\n" + extra_out
                 stderr += b"\n" + extra_err
+        if native is not None and (command.get('executable') or {}).get('sha256') not in {item['sha256'] for item in native['toolchain']}:
+            diagnostics.append('executed native toolchain differs from manifest pins')
         assertions, cleanup_events, events, event_diagnostics = parse_events(stdout)
         diagnostics.extend(event_diagnostics)
         ids = [item["id"] for item in assertions]
@@ -576,6 +676,8 @@ def execute(args, root, registry_path, registry, registration, registration_path
                     diagnostics.append("unresolved resource cleanup")
         if cleanup_command and (cleanup_command["exit_code"] != 0 or cleanup_command["timed_out"] or cleanup_command.get("leaked_descendants") or cleanup_command.get("remaining_descendants")):
             diagnostics.append("cleanup command failed")
+        if native is not None:
+            native_capture(root, manifest['native_source'], manifest['expected_assertion_ids'])
         if source_inventory(root, registration, inventory_exclusion) != inventory or worktree_inventory(root, inventory, inventory_exclusion, commit) != worktree:
             diagnostics.append('source inventory/worktree changed during execution')
         for path, expected_hash in before.items():
@@ -609,7 +711,7 @@ def execute(args, root, registry_path, registry, registration, registration_path
         receipt = {"schema_version": 1, "receipt_id": receipt_id, "sequence": len(previous) + 1,
                    "previous_seal": previous[-1]["seal"] if previous else None, "sealed_at": utc(),
                    "qualification_status": "CANDIDATE", "scope": manifest["scope"],
-                   "registered_variant": manifest["registered_variant"], "task": registration.get("task"),
+                   "registered_variant": manifest["registered_variant"], "task": registration.get("task"), "feature": registration.get("feature"),
                    "case_ids": manifest["case_ids"], "selected_case_ids": args.case or manifest["case_ids"],
                    "expected_assertion_ids": manifest["expected_assertion_ids"], "assertions": assertions,
                    "outcome": outcome, "full_case_status": "INCOMPLETE" if manifest["scope"] == "task-component" else outcome,
@@ -701,7 +803,7 @@ def main():
             if any(case not in registry["cases"] or case not in registration["cases"] for case in args.case):
                 raise GateError("unknown or unrelated selected case")
         elif args.task is not None:
-            if not args.task.strip() or args.task != registration.get("task"):
+            if not args.task.strip() or args.task != ((registration["feature"] + "/" + registration["task"]) if registration.get("feature") else registration.get("task")):
                 raise GateError("unknown or unrelated selected task")
         elif args.suite is not None:
             if not args.suite.strip() or args.suite not in registry["suites"] or not registry["suites"][args.suite]:

@@ -38,7 +38,7 @@ it("executes JSON commands on the host and verifies the binary", async () => {
     version: "Hyperfide 22",
     ok: true,
   });
-  expect(result.binary.digest).toMatch(/^[a-f0-9]{64}$/);
+  expect(result.binary!.digest).toMatch(/^[a-f0-9]{64}$/);
   expect(result.data).toEqual({
     args: ["index-status", "--json"],
     cwd: input.repository,
@@ -82,4 +82,19 @@ it("rejects a binary whose version cannot be verified", async () => {
   const host = experimental_createHostEntryHarness(entry);
   await expect(host.experimental_call("run", input)).rejects.toThrow(/failed verification/);
   await host.experimental_dispose();
+});
+it("requires protected source configuration for native graph access", async () => {
+  const original = process.env.HF_SOURCE_CONFIG;
+  delete process.env.HF_SOURCE_CONFIG;
+  const host = experimental_createHostEntryHarness(entry);
+  try {
+    await expect(host.experimental_call("run", {
+      hostId: "host", repository: "/no/local/repository", command: "index-status", timeoutMs: 2000,
+      nativeSource: { buildId: "11111111-1111-4111-8111-111111111111", revisionId: `sha256:${"a".repeat(64)}`, rootTreeId: `sha256:${"b".repeat(64)}` },
+    })).rejects.toThrow(/HF_SOURCE_CONFIG/);
+  } finally {
+    if (original === undefined) delete process.env.HF_SOURCE_CONFIG;
+    else process.env.HF_SOURCE_CONFIG = original;
+    await host.experimental_dispose();
+  }
 });

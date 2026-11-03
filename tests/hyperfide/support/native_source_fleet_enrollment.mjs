@@ -4,7 +4,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 const installed=new WeakSet();
-const sourceActions=['source.objects.put','source.workspaces.detail','source.workspaces.checkpoint','source.operations.read','source.fleet.read','source.fleet.submit','source.fleet.submission'];
+const sourceActions=['source.objects.put','source.workspaces.detail','source.workspaces.checkpoint','source.operations.read','source.fleet.read','source.fleet.submit','source.fleet.submission','source.graph.query'];
 const digest=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');
 
 export async function enrollNativeFleetWorker({f,resources,controlRoot,identity,identityAuthority,scope,ids,assignment,request,origin,signal=new AbortController().signal}) {

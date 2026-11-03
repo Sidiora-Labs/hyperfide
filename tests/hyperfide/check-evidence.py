@@ -336,6 +336,75 @@ def worktree_inventory(workspace, campaign, commit, inventory):
     return {"kind": kind, "entries": entries, "excluded": excluded, "digest": hashlib.sha256(canonical(entries)).hexdigest(), "diff_sha256": diff_sha256}
 
 
+def native_capture(root, value, assertion_ids):
+    if not isinstance(value, dict) or set(value) != {'schema_version', 'scope', 'revision_id', 'root_tree_id', 'authority_epoch', 'policy_version', 'manifest', 'readiness_receipt', 'toolchain', 'environment', 'test_inventory_sha256'}:
+        raise InvalidEvidence('native source provenance fields differ from version 1')
+    if type(value['schema_version']) is not int or value['schema_version'] != 1:
+        raise InvalidEvidence('unsupported native source provenance')
+    scope = value['scope']
+    if not isinstance(scope, dict) or set(scope) != {'organisation_id', 'repository_id', 'security_domain_id'}:
+        raise InvalidEvidence('native source scope is incomplete')
+    for identity in [*scope.values(), value['authority_epoch']]:
+        if not isinstance(identity, str) or str(uuid.UUID(identity)) != identity:
+            raise InvalidEvidence('native authority identity is invalid')
+    for name in ('revision_id', 'root_tree_id'):
+        if not isinstance(value[name], str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', value[name]):
+            raise InvalidEvidence('native source identity is invalid')
+    if not isinstance(value['policy_version'], str) or not value['policy_version'].strip():
+        raise InvalidEvidence('native source policy is absent')
+    if value['test_inventory_sha256'] != hashlib.sha256(canonical(assertion_ids)).hexdigest():
+        raise InvalidEvidence('native source test inventory differs')
+    if not isinstance(value['environment'], dict) or set(value['environment']) != {'platform', 'identity'} or not all(isinstance(v, str) and v for v in value['environment'].values()):
+        raise InvalidEvidence('native source environment is incomplete')
+    if value['environment']['platform'] != sys.platform:
+        raise InvalidEvidence('native source environment differs from execution platform')
+    def pinned(record):
+        if not isinstance(record, dict) or set(record) != {'path', 'sha256'} or not re.fullmatch(r'[0-9a-f]{64}', str(record['sha256'])):
+            raise InvalidEvidence('native source content pin is invalid')
+        if not isinstance(record['path'], str) or not record['path']:
+            raise InvalidEvidence('native source content path is invalid')
+        relative = Path(record['path'])
+        if relative.is_absolute() or '..' in relative.parts:
+            raise InvalidEvidence('native source content path escapes workspace')
+        path = physical_file(root / relative)
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(physical_directory(root)) or hashlib.sha256(path.read_bytes()).hexdigest() != record['sha256']:
+            raise InvalidEvidence('native source content pin differs: ' + str(relative))
+        return path
+    manifest = load(pinned(value['manifest']))
+    readiness = load(pinned(value['readiness_receipt']))
+    identity = {name: value[name] for name in ('scope', 'revision_id', 'root_tree_id', 'authority_epoch', 'policy_version')}
+    if any(manifest.get(k) != v or readiness.get(k) != v for k, v in identity.items()):
+        raise InvalidEvidence('native source manifest or readiness identity differs')
+    if type(manifest.get('schema_version')) is not int or manifest.get('schema_version') != 1 or type(readiness.get('schema_version')) is not int or readiness.get('schema_version') != 1 or readiness.get('status') != 'VERIFIED' or readiness.get('manifest_sha256') != value['manifest']['sha256']:
+        raise InvalidEvidence('native source readiness receipt is missing or invalid')
+    files = manifest.get('files')
+    if not isinstance(files, list) or not files:
+        raise InvalidEvidence('native source manifest has no files')
+    seen = set()
+    for record in files:
+        path = pinned(record)
+        if record['path'] in seen:
+            raise InvalidEvidence('native source manifest repeats a path')
+        seen.add(record['path'])
+    objects = readiness.get('objects')
+    if not isinstance(objects, list) or not objects:
+        raise InvalidEvidence('native source readiness omits object references')
+    object_ids = set()
+    for record in objects:
+        if not isinstance(record, dict) or set(record) != {'object_id', 'path', 'sha256', 'state'} or record['state'] != 'READY' or not re.fullmatch(r'sha256:[0-9a-f]{64}', str(record['object_id'])) or record['object_id'] in object_ids:
+            raise InvalidEvidence('native source object readiness is invalid')
+        object_ids.add(record['object_id'])
+        object_path = pinned({key: record[key] for key in ('path', 'sha256')})
+        if record['object_id'] != 'sha256:' + hashlib.sha256(object_path.read_bytes()).hexdigest():
+            raise InvalidEvidence('native source object bytes differ from their identity')
+    if value['root_tree_id'] not in object_ids or value['revision_id'] not in object_ids:
+        raise InvalidEvidence('native source closure omits revision or root object')
+    if not isinstance(value['toolchain'], list) or not value['toolchain']:
+        raise InvalidEvidence('native source toolchain pins are absent')
+    for record in value['toolchain']:
+        pinned(record)
+    return value
+
 def verify_selected(root, receipt, manifest, registry, registration, events, artifact_map):
     require(receipt["outcome"] == "PASS", "selected observations are " + receipt["outcome"])
     require(manifest.get("approval", {}).get("approved") is True, "campaign is not approved")
@@ -378,14 +447,21 @@ def verify_selected(root, receipt, manifest, registry, registration, events, art
     require(command["cwd"] == str(workspace), "command source workspace mismatch")
     require(type(source.get("dirty")) is bool or source.get("dirty") is None, "source dirty identity invalid")
     commit = source.get("commit")
-    if commit is None:
-        require(scope == "task-component" and source.get("unversioned") is True, "unversioned source cannot qualify this scope")
+    native = manifest.get('native_source')
+    if manifest.get('schema_version') == 2:
+        require(source.get('backend') == 'native' and source.get('native') == native and source.get('commit') is None and source.get('unversioned') is False, 'mixed native/Git source identity')
+        require(receipt.get('feature') == registration.get('feature') == manifest.get('feature') == 'hyperfide-source-control', 'native task namespace differs')
+        native_capture(workspace, native, manifest['expected_assertion_ids'])
+        require((command.get('executable') or {}).get('sha256') in {item['sha256'] for item in native['toolchain']}, 'Executed native toolchain differs from manifest pins')
     else:
-        require(isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", commit), "source commit identity invalid")
-        require(source.get("unversioned") is False, "source version identity inconsistent")
-        from proof_relocation import safe_git
-        result = safe_git(physical_directory(workspace), ["rev-parse", "HEAD"], require, portable=RELOCATION is not None)
-        require(result.returncode == 0 and result.stdout.decode("utf-8").strip() == commit, "current source revision differs from candidate")
+        if commit is None:
+            require(scope == "task-component" and source.get("unversioned") is True, "unversioned source cannot qualify this scope")
+        else:
+            require(isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", commit), "source commit identity invalid")
+            require(source.get("unversioned") is False, "source version identity inconsistent")
+            from proof_relocation import safe_git
+            result = safe_git(physical_directory(workspace), ["rev-parse", "HEAD"], require, portable=RELOCATION is not None)
+            require(result.returncode == 0 and result.stdout.decode("utf-8").strip() == commit, "current source revision differs from candidate")
     originals = set()
     for record in source["files"]:
         original = record.get("original_path")
@@ -409,7 +485,9 @@ def verify_selected(root, receipt, manifest, registry, registration, events, art
     require(isinstance(excluded_value, str) and Path(excluded_value).is_absolute(), "source inventory exclusion is missing")
     exclusion = Path(excluded_value).resolve()
     task_identity = receipt.get("task")
-    require(isinstance(task_identity, str) and re.fullmatch(r"[0-9]+\.[0-9]+", task_identity), "task identity cannot define an exclusion")
+    if receipt.get("feature"):
+        task_identity = receipt["feature"] + "/" + task_identity
+    require(isinstance(task_identity, str) and re.fullmatch(r"(?:hyperfide-source-control/)?[0-9]+\.[0-9]+", task_identity), "task identity cannot define an exclusion")
     default_exclusion = (workspace / "artifacts" / "hyperfide" / "tasks" / task_identity).resolve()
     logical_root = RELOCATION.campaign_original if RELOCATION else root
     require(exclusion == logical_root or exclusion == default_exclusion, "source inventory exclusion is not an approved campaign location")
@@ -513,7 +591,7 @@ def check(args):
     registration_path = relative_file(root, "registration.json")
     manifest, registry, registration = load(manifest_path), load(registry_path), load(registration_path)
     for name, value in (("manifest", manifest), ("registry", registry), ("registration", registration)):
-        require(type(value.get("schema_version")) is int and value["schema_version"] == 1, "unsupported " + name + " schema")
+        require(type(value.get("schema_version")) is int and value["schema_version"] in (1, 2), "unsupported " + name + " schema")
     receipt_dir = root / "receipts"
     require(receipt_dir.is_dir() and not receipt_dir.is_symlink(), "receipt inventory missing")
     files = list(receipt_dir.iterdir())

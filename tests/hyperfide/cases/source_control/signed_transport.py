@@ -40,7 +40,7 @@ process.once('SIGTERM', async () => {await backend.close();process.exit(0);});
         }
         scope = {'organisation_id': None, 'repository_id': str(uuid.uuid4()), 'security_domain_id': str(uuid.uuid4())}
         capability = str(uuid.uuid4())
-        actions = ['source.objects.put', 'source.objects.read', 'source.capabilities', 'source.revisions.read']
+        actions = ['source.objects.put', 'source.objects.read', 'source.capabilities', 'source.revisions.read', 'source.revisions.create', 'source.trees.lookup', 'source.trees.entries', 'source.trees.patch', 'source.workspaces.open', 'source.workspaces.detail', 'source.workspaces.close', 'source.workspaces.checkpoint', 'source.queries.history', 'source.operations.read', 'source.transfers.create']
 
         def setup(f):
             scope['organisation_id'] = f.ids['organisation']
@@ -58,7 +58,19 @@ process.once('SIGTERM', async () => {await backend.close();process.exit(0);});
         inputs.write_text(json.dumps({'config': config, 'capability_id': capability, 'wrong_key': str(fixture.keys['other']['path']), 'run_id': fixture.ids['run'], 'tls_key': str(fixture.tlskey)}))
         inputs.chmod(0o600)
         env = {**fixture.env, 'SOURCE_SIGNED_TRANSPORT_INPUT': str(inputs)}
-        return subprocess.run(['node', '--import', 'tsx', 'tests/hyperfide/support/native_source_signed_transport.mjs'], cwd=ROOT, env=env, timeout=120).returncode
+        actors = []
+        if os.environ.get('HF_SOURCE_QUALIFICATION') == '1':
+            actors.append('native_source_qualification.mjs')
+        if os.environ.get('HF_SOURCE_PRODUCT_CLI') == '1':
+            actors.append('native_source_product_signed_cli.mjs')
+        if os.environ.get('HF_SOURCE_VIRTUAL_PROVIDER') == '1':
+            actors.append('native_source_virtual_provider.mjs')
+        actors.append('native_source_signed_transport.mjs')
+        for actor in actors:
+            result = subprocess.run(['node', '--import', 'tsx', 'tests/hyperfide/support/' + actor], cwd=ROOT, env=env, timeout=180)
+            if result.returncode:
+                return result.returncode
+        return 0
     finally:
         if fixture:
             fixture.close()

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@/*": ["../../lib/shared-ui/src/*"]
+    },
+    "allowImportingTsExtensions": true
+  },
+  "include": ["*.ts", "*.tsx", "views/**/*.tsx", "cli/**/*.ts"]
+}

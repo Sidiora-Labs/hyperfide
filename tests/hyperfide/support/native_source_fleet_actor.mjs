@@ -16,6 +16,7 @@ import {assertNativeFleetCleanup} from './native_source_fleet_cleanup_assertions
 import {assertNativeFleetSelection} from './native_source_fleet_selection.mjs';
 import {assertNativeReleaseReconciliation} from './native_source_fleet_reconciliation.mjs';
 import {enrollNativeFleetWorker} from './native_source_fleet_enrollment.mjs';
+import {modelSourceCaller} from './native_source_fleet_model.mjs';
 
 const moduleRoot=process.env.SOURCE_CONTROL_MODULE_ROOT,controlRoot=path.dirname(moduleRoot);
 const execute=promisify(execFile);
@@ -63,11 +64,18 @@ const controlCall=async(key,component,action,input)=>{
 const expectCode=(code,fn)=>assert.rejects(fn,error=>error.code===code);
 try{
   console.error('native-fleet: fixture ready');
-  for(const name of ['leader','manager','manager2','operator'])await insert('source_capabilities',{...f.scope,id:randomUUID(),principal_id:i[name],credential_id:i[name],principal_kind:'automation',authority_epoch:'1',policy_version:f.sourcePolicy,actions:[...f.service.api.actions,'source.capabilities.manage'],path_prefixes:[''],expires_at:new Date(Date.now()+1200000).toISOString()});
+  const grantedActions=[...new Set([...f.service.api.actions.filter(action=>action==='source.capabilities'||/^source\.(objects|uploads|trees|revisions|changes|operations|queries|workspaces|subscriptions|transforms|domains|candidates|acceptance|assurance|publications|fleet)\./.test(action)),'source.capabilities.manage'])];
+  assert(grantedActions.length<=64,'Fleet fixture grants only its bounded source lifecycle actions');
+  for(const name of ['leader','manager','manager2','operator'])await insert('source_capabilities',{...f.scope,id:randomUUID(),principal_id:i[name],credential_id:i[name],principal_kind:'automation',authority_epoch:'1',policy_version:f.sourcePolicy,actions:grantedActions,path_prefixes:[''],expires_at:new Date(Date.now()+1200000).toISOString()});
   const privateFile=await f.service.objects.putFile(f.scope,Buffer.from('private unselected source\n'));
   const mainFile=await f.service.objects.putFile(f.scope,Buffer.concat([Buffer.from('candidate: baseline\n'),Buffer.alloc(1100000,10)]));
   const rootTree=await f.service.trees.fromEntries(f.scope,[{name:'main.txt',kind:'file',mode:'100644',object_id:mainFile.object_id},{name:'private.txt',kind:'file',mode:'100644',object_id:privateFile.object_id}]);
-  const baseline=await f.createRevision({root_tree_id:rootTree.root_tree_id,parent_revision_ids:[]});
+  let baseline=await f.createRevision({root_tree_id:rootTree.root_tree_id,parent_revision_ids:[]});
+  if(process.env.HF_SOURCE_CONSOLIDATED_PILOT==='1'){
+    const {buildConsolidatedFleetBaseline}=await import('./native_source_consolidated_pilot.mjs');
+    baseline=await buildConsolidatedFleetBaseline({f,root,baseline,controlRoot});
+    checks.push('the fleet consumes a native monorepo revision consolidated from two actual Git project histories');
+  }
   const nativePool=await createNativeFleetPool({f,ids:i,revision:baseline,capacity:inputs.capacity,resources,controlRoot});
   Object.assign(i,nativePool.ids);
   const bound=await sourceCall('leader','source.fleet.bind-run',{run_id:i.run,revision_id:baseline.revision_id,leader_generation:'1'});
@@ -127,7 +135,7 @@ try{
     return {name,identity,bound,client,workspace:{workspace_generation:'1',scope_generation:'1',base_revision_id:bound.base_revision_id}};
   };
   const worker=await connect(first);
-  const signedKey=generateKeyPairSync('ed25519'),workerActions=['source.objects.put','source.workspaces.detail','source.workspaces.checkpoint','source.operations.read','source.fleet.read','source.fleet.submit','source.fleet.submission'];
+  const signedKey=generateKeyPairSync('ed25519'),workerActions=['source.objects.put','source.workspaces.detail','source.workspaces.checkpoint','source.operations.read','source.fleet.read','source.fleet.submit','source.fleet.submission','source.graph.query'];
   await insert('identity_principals',{...scope,credential_id:worker.identity.credential_id,actor_id:worker.identity.principal_id,role:'WORKER',public_key_b64:signedKey.publicKey.export({format:'jwk'}).x,deployment_epoch:i.epoch,sandbox_id:first.sandbox_id,boot_generation:first.boot_generation,boot_id:i.boot,attempt_id:worker.bound.attempt_id,attempt_generation:worker.bound.attempt_generation,allowed_actions:workerActions,expires_at:new Date(Date.now()+1200000).toISOString()});
   const authorizationPath=path.join(root,'signed-worker-authorization.json');
   await fs.writeFile(authorizationPath,JSON.stringify({schema_version:1,rules:[{role:'WORKER',actions:workerActions,repositories:[i.repository],artifact_prefixes:[],git_refs:[],model_destinations:[],model_profiles:[]}]}),{mode:0o600});
@@ -234,9 +242,11 @@ try{
   assert.notEqual(replacementWorker.bound.workspace_id,dependentWorker.bound.workspace_id);
   await expectCode('COMPUTE_ALLOCATION_INVALID',()=>dependentWorker.client.call('source.objects.put',{kind:'blob',payload_base64:Buffer.from('delayed replacement write').toString('base64')},options(dependentWorker)));
   checks.push('real process absence releases capacity for a replacement attempt while its predecessor remains fenced');
-  const selected=await assertNativeFleetSelection({f,ids:i,sourceCall,accepted,baseline,taskId:tasks.first.task,resources,controlRoot,activeAttemptId:replacement.assignment.tasks[0].attempt_id});
+  const selectedSourceCall=await modelSourceCaller({f,ids:i,resources,controlRoot,identityAuthority,request,sourceCall,signal});
+  const selected=await assertNativeFleetSelection({f,ids:i,sourceCall:selectedSourceCall,accepted,baseline,taskId:tasks.first.task,resources,controlRoot,activeAttemptId:replacement.assignment.tasks[0].attempt_id});
   checks.push('explicit accepted-source selection replays and fences stale generation while preserving admitted attempts and qualification');
   await resources.gateway.withPrimaryTransaction({timeoutMs:10000},tx=>fenceCompute(tx,{...token,attempt_id:replacement.assignment.tasks[0].attempt_id,attempt_generation:replacement.assignment.tasks[0].attempt_generation},{reason:'STOP',current_authority_epoch:i.epoch,actor:{session_id:i.manager,leader_generation:'1',package_generation:'2'}}));
+  checks.push('Primary model decisions drive accepted source selection through scoped native authority and retain one replayable result');
   const selectedPool=await createNativeFleetPool({f,ids:{...i,manager:i.manager2,package:i.wave_package},revision:{revision_id:selected.revision_id},capacity:nativePool.capacity,resources,controlRoot});
   const selectedIds=selectedPool.ids,selectedRoot=path.join(root,'selected');
   const selectedInstalled=await installNativeFleetFixture(f,{root:selectedRoot,controlRoot,revision:{revision_id:selected.revision_id},fleet:selectedIds});stages.push(selectedInstalled.stage);
@@ -273,7 +283,7 @@ try{
   assert.deepEqual(await f.service.objects.readFile(f.scope,selectedEntry.object_id),selectedBytes);
   checks.push('a newly installed dependent worker consumes the selected predecessor bytes and submits a child revision with exact qualified dependency provenance');
   const output=path.join(f.ROOT,'build/source-control/4.2');await fs.mkdir(output,{recursive:true});
-  const receipt={schema_version:1,status:'PASS',scope:'real signed manager/worker APIs, PostgreSQL, native source objects, staged installer and independent checker',setup_scope:assignments.scope,checks,backend_requests:f.backend.requests.length,acceptance_id:accepted.acceptance_id,task_qualification_id:taskQualification.qualification_id,submission_id:submission.submission_id,accepted_source_selection:'PASS',selected_revision_id:selected.revision_id,dependent_execution_from_selected_source:'PASS',selected_dependent_submission_id:selectedSubmission.submission_id};
+  const receipt={schema_version:1,status:'PASS',scope:'real signed manager/worker APIs, PostgreSQL, native source objects, staged installer and independent checker',setup_scope:assignments.scope,checks,backend_requests:f.backend.requests.length,acceptance_id:accepted.acceptance_id,task_qualification_id:taskQualification.qualification_id,submission_id:submission.submission_id,accepted_source_selection:'PASS',selected_revision_id:selected.revision_id,dependent_execution_from_selected_source:'PASS',selected_dependent_submission_id:selectedSubmission.submission_id,...(baseline.consolidated_pilot?{consolidated_pilot:baseline.consolidated_pilot}:{})};
   await fs.writeFile(path.join(output,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
 }finally{
   for(const stage of stages)await fs.rm(stage,{recursive:true,force:true});

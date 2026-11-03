@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "kind": "admission",
+  "seed": 42,
+  "file_counts": [
+    10000
+  ],
+  "modified_files": 10,
+  "modified_bytes": 1048576,
+  "clients": 5000,
+  "operations": 20000000,
+  "rate_per_second": 10000,
+  "duration_seconds": 2000,
+  "hardware_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "backend_identity": "REPLACE_WITH_SCOPED_BACKEND_IDENTITY",
+  "real_backend": true
+}

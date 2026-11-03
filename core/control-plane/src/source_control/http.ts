@@ -6,9 +6,11 @@ import {StorageError} from '../storage/transactions.js';
 import {decodeSourceRequest, encodeSourceResponse, SOURCE_API_PATH, SourceControlError, type SourceAction, type SourceResponse} from './contracts.js';
 import {sourceBearerToken, verifySourcePrincipalToken, type SourceTokenTrust} from './authentication.js';
 import type {createSourceApi} from './api.js';
+import type {SourceTransferService} from './transfers.js';
+import {handleSourceTransferHttp} from './transfer_http.js';
 
 export interface SourceHttpOptions {
- api:ReturnType<typeof createSourceApi>; trust:SourceTokenTrust; host:string; port:number; signal:AbortSignal;
+ api:ReturnType<typeof createSourceApi>; transfers?:SourceTransferService; trust:SourceTokenTrust; host:string; port:number; signal:AbortSignal;
  tls?:{cert:string|Buffer;key:string|Buffer}; allowLoopbackHTTP?:boolean; maxConcurrent?:number; deadlineMs?:number;
 }
 export function sourceHttpStatus(error:SourceControlError):number {
@@ -55,8 +57,11 @@ export async function startSourceHttp(options:SourceHttpOptions):Promise<{addres
   if(!accepting){sendError(new SourceControlError('SERVICE_UNAVAILABLE','Source service is stopping'));return;}
   if(active>=maximum){sendError(new SourceControlError('OVERLOADED','Concurrent source request budget is exhausted','RESUME'));return;}
   active++;
+  const controller=new AbortController(),abort=()=>controller.abort(),disconnected=()=>{if(!response.writableEnded)abort();};
+  options.signal.addEventListener('abort',abort,{once:true});request.once('aborted',abort);response.once('close',disconnected);
   try {
-   timer=setTimeout(()=>{sendError(new SourceControlError('OUTCOME_UNKNOWN','Request deadline elapsed; resolve the original operation','RETRY_SAME_OPERATION','UNKNOWN'));request.destroy();},deadline);
+   timer=setTimeout(()=>{abort();sendError(new SourceControlError('OUTCOME_UNKNOWN','Request deadline elapsed; resolve the original operation','RETRY_SAME_OPERATION','UNKNOWN'));request.destroy();},deadline);
+   if(await handleSourceTransferHttp(options.transfers,request,response,controller.signal))return;
    if(request.method!=='POST'||request.url!==SOURCE_API_PATH||request.headers['content-encoding']!==undefined||!/^application\/json(?:;\s*charset=utf-8)?$/i.test(request.headers['content-type']??''))throw new SourceControlError('INVALID_REQUEST','Versioned JSON POST endpoint required');
    const token=sourceBearerToken(request.headers.authorization);
    const chunks:Buffer[]=[];let size=0;
@@ -67,7 +72,7 @@ export async function startSourceHttp(options:SourceHttpOptions):Promise<{addres
    write(response,{protocol_version:1,operation_id:operation,result},action,200);
   } catch(error) {
    sendError(sourceHttpError(error));
-  } finally {if(timer)clearTimeout(timer);active--;}
+  } finally {if(timer)clearTimeout(timer);options.signal.removeEventListener('abort',abort);request.removeListener('aborted',abort);response.removeListener('close',disconnected);active--;}
  }
  const listener=(request:IncomingMessage,response:ServerResponse)=>{let run:Promise<void>;run=handle(request,response).finally(()=>pending.delete(run));pending.add(run);void run.catch(()=>response.destroy());};
  const server=options.tls?https.createServer({...options.tls,minVersion:'TLSv1.3',maxHeaderSize:16384},listener):http.createServer({maxHeaderSize:16384},listener);

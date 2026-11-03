@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "task:hyperfide-source-control/7.2",
+  "task": "7.2",
+  "scope": "task-component",
+  "cases": [
+    "SCM-023",
+    "SCM-024"
+  ],
+  "assertion_ids": [
+    "source-release.artifact-pins-and-acceptance-binding",
+    "source-release.artifact-tamper",
+    "source-release.missing-runtime-roles",
+    "source-release.unsupported-source-format",
+    "source-release.acceptance-other-source",
+    "source-release.operator-refusal"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/source_control/7_2.py",
+    "--self-test"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/closure.py",
+    "tests/hyperfide/cases/source_control/7_2.py"
+  ],
+  "source_roots": [
+    "tests/hyperfide/source-control"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": []
+}

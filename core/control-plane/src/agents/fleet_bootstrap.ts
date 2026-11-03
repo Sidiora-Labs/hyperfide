@@ -1,3 +1,5 @@
+import {parsePrimarySourceCapabilities} from './fleet_source_actions.js';
+import {authorizeInvocationSource,grantSourceCapability} from '../source_control/capabilities.js';
 import {readFleetManagerHandoff} from './fleet_manager_handoff.js';
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
@@ -8,7 +10,8 @@ import type {PrimaryTransaction} from '../storage/transactions.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {InvocationContext, Principal} from '../transport/protocol.js';
 import {assertInvocation,base64,decimal,exact,fail,NAME,uuid} from '../transport/protocol.js';
-import {object} from '../policy/programme.js';
+import {object,FoundationError} from '../policy/programme.js';
+import {SourceControlError} from '../source_control/contracts.js';
 import {hash,requireAuthority} from '../hierarchy/packages.js';
 import {recorded} from '../identity/enrollment.js';
 
@@ -82,9 +85,10 @@ export async function bootstrapFleetIdentity(ctx:ComponentContext,input:unknown,
  assertInvocation(i);
  if(i.principal.role!=='OPERATOR')deny('FLEET_BOOTSTRAP_OPERATOR_REQUIRED');
  const replaces=object(input)&&Object.hasOwn(input,'replace_cohort'),pendingHandoff=object(input)&&Object.hasOwn(input,'handoff_id');
- exact(input,['session_id','public_key_b64','allowed_actions','ttl_seconds','authority_epoch','leader_generation','delegation_id','manager_generation','host_id','cohort_id','cohort_generation',...(replaces?['replace_cohort']:[]),...(pendingHandoff?['handoff_id']:[])]);
+ exact(input,['session_id','public_key_b64','allowed_actions','ttl_seconds','authority_epoch','leader_generation','delegation_id','manager_generation','host_id','cohort_id','cohort_generation',...(replaces?['replace_cohort']:[]),...(pendingHandoff?['handoff_id']:[]),...(object(input)&&Object.hasOwn(input,'source_capabilities')?['source_capabilities']:[])]);
  if(replaces&&typeof input.replace_cohort!=='boolean')deny('FLEET_BOOTSTRAP_INVALID');
  const replacing=input.replace_cohort===true;
+ const sourceCapabilities=input.source_capabilities===undefined?[]:parsePrimarySourceCapabilities(input.source_capabilities);
  if(pendingHandoff&&(!uuid(input.handoff_id)||replacing))deny('FLEET_BOOTSTRAP_INVALID');
  if(!uuid(input.session_id)||!uuid(input.authority_epoch)||!uuid(input.cohort_id)||!decimal(input.leader_generation)||!decimal(input.cohort_generation)||typeof input.host_id!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(input.host_id)||!Number.isInteger(input.ttl_seconds)||Number(input.ttl_seconds)<60||Number(input.ttl_seconds)>900)deny('FLEET_BOOTSTRAP_INVALID');
  if((input.delegation_id===null)!==(input.manager_generation===null)||input.delegation_id!==null&&(!uuid(input.delegation_id)||!decimal(input.manager_generation,true)))deny('FLEET_BOOTSTRAP_INVALID');
@@ -104,6 +108,7 @@ export async function bootstrapFleetIdentity(ctx:ComponentContext,input:unknown,
   if(current&&(current.authority_epoch!==input.authority_epoch||current.leader_generation!==input.leader_generation)||!current&&input.leader_generation!=='0')deny('FLEET_BOOTSTRAP_STALE');
   const session=(await tx.query('SELECT * FROM hyperfide.agent_sessions WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[...scope,input.session_id])).rows[0];
   if(!session||!['LEADER','FEATURE_MANAGER'].includes(session.role)||!['REGISTERED','RUNNING','DISCONNECTED'].includes(session.state)||session.sandbox_id!==null||session.sandbox_boot_generation!==null||session.attempt_id!==null||allowed.some(a=>!actionNames(session.role).includes(a)))deny('FLEET_BOOTSTRAP_SCOPE');
+  if(sourceCapabilities.length&&session.role!=='LEADER')deny('FLEET_BOOTSTRAP_SCOPE');
   if(session.role==='LEADER'){
    if(pendingHandoff)deny('FLEET_BOOTSTRAP_SCOPE');
    if(current&&session.id!==current.leader_session_id||input.delegation_id!==null||input.manager_generation!==null||!current&&input.cohort_generation!=='0')deny('FLEET_BOOTSTRAP_STALE');
@@ -142,6 +147,14 @@ export async function bootstrapFleetIdentity(ctx:ComponentContext,input:unknown,
   const id=randomUUID();
   const principal=(await tx.query("INSERT INTO hyperfide.identity_principals(credential_id,organisation_id,run_id,actor_id,role,public_key_b64,deployment_epoch,allowed_actions,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,LEAST($9::timestamptz,clock_timestamp()+($10::int*interval '1 second'))) RETURNING *",[id,...scope,session.id,session.role,input.public_key_b64,input.authority_epoch,allowed,i.principal.expires_at,input.ttl_seconds])).rows[0]!;
   await tx.query('INSERT INTO hyperfide.fleet_bootstrap_credentials(credential_id,organisation_id,run_id,session_id,authority_epoch,leader_generation,cohort_id,cohort_generation,host_id,replacement_from_generation,delegation_id,manager_generation,issued_by_credential_id,handoff_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[id,...scope,session.id,input.authority_epoch,input.leader_generation,input.cohort_id,cohortGeneration,host,replacing?input.cohort_generation:null,input.delegation_id,input.manager_generation,i.principal.credential_id,pendingHandoff?input.handoff_id:null]);
-  return {protocol_version:1,credential_id:id,actor_id:session.id,run_id:i.principal.run_id,role:session.role,deployment_epoch:input.authority_epoch,credential_version:String(principal.credential_version),allowed_actions:allowed,expires_at:new Date(principal.expires_at).toISOString(),phase:'SUPERVISOR_BOOTSTRAP',model_observed:false,cohort_id:input.cohort_id,cohort_generation:cohortGeneration,...(replacing?{cohort_replacement:{expected_generation:input.cohort_generation,target_generation:cohortGeneration}}:{})};
+  const sourceGrants=[];
+  for(const requested of sourceCapabilities){
+   if(requested.scope.organisation_id!==i.principal.organisation_id)deny('FLEET_BOOTSTRAP_SCOPE');
+   let administrator;try{administrator=await authorizeInvocationSource(tx,{invocation:i,scope:requested.scope,action:'source.capabilities.manage',mutation:true,paths:['']});}catch(error){if(error instanceof SourceControlError)throw new FoundationError(error.code,error.message);throw error;}
+   const expires_at=new Date(Math.min(new Date(principal.expires_at).getTime(),Date.parse(administrator.expires_at))).toISOString();
+   const capability_id=await grantSourceCapability(tx,administrator,{scope:requested.scope,principal_id:session.id,credential_id:id,principal_kind:'automation',authority_epoch:administrator.authority_epoch,policy_version:administrator.policy_version,actions:requested.actions,path_prefixes:[''],expires_at});
+   sourceGrants.push({scope:requested.scope,actions:requested.actions,capability_id,expires_at});
+  }
+  return {protocol_version:1,credential_id:id,actor_id:session.id,run_id:i.principal.run_id,role:session.role,deployment_epoch:input.authority_epoch,credential_version:String(principal.credential_version),allowed_actions:allowed,expires_at:new Date(principal.expires_at).toISOString(),phase:'SUPERVISOR_BOOTSTRAP',source_capabilities:sourceGrants,model_observed:false,cohort_id:input.cohort_id,cohort_generation:cohortGeneration,...(replacing?{cohort_replacement:{expected_generation:input.cohort_generation,target_generation:cohortGeneration}}:{})};
  }));
 }

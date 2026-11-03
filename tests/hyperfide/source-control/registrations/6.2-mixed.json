@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "campaign:hyperfide-source-control/6.2/mixed",
+  "task": "6.2",
+  "scope": "full-case",
+  "cases": [
+    "SCM-021"
+  ],
+  "assertion_ids": [
+    "source-workload.full.mixed"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/source_control/6_2.py",
+    "--live-s3"
+  ],
+  "source_files": [
+    "tests/hyperfide/cases/source_control/6_2.py",
+    "tests/hyperfide/source-control/workloads/campaign.mjs",
+    "tests/hyperfide/support/native_source_workload.mjs",
+    "tests/hyperfide/support/native_source_external_workload.mjs",
+    "tests/hyperfide/source-control/workloads/deployment.mjs"
+  ],
+  "source_roots": [
+    "tests/hyperfide/source-control/workloads",
+    "tests/hyperfide/source-control/manifests/campaigns"
+  ],
+  "actions": [
+    "source-workload.mixed"
+  ],
+  "resources": [],
+  "required_env": [
+    "HF_SOURCE_WORKLOAD_MANIFEST",
+    "HF_SOURCE_WORKLOAD_CONFIG"
+  ],
+  "timeout_seconds": 21600,
+  "campaign": "mixed"
+}

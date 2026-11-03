@@ -4,8 +4,8 @@ import {acquireReadPin} from './object_catalog.js';
 import type {SourceAuthorization,SourceSQL} from './capabilities.js';
 
 export interface TransferGrantConfiguration {key_id:string;signing_key:Uint8Array;endpoint:string;allowed_endpoints:readonly string[];maximum_lifetime_seconds?:number}
-export interface SourceTransferGrant {schema_version:1;grant_id:string;scope:SourceScope;principal_id:string;capability_id:string;object_id:string;incarnation_id:string;storage_key:string;method:'GET'|'PUT';upload_id:string|null;issued_at:string;expires_at:string;authority_epoch:string;policy_version:string;key_id:string}
-export interface SourceTransferRequest {object_id:string;incarnation_id:string;method:'GET'|'PUT';upload_id?:string;expires_at:string;paths?:readonly string[]}
+export interface SourceTransferGrant {schema_version:1;grant_id:string;scope:SourceScope;principal_id:string;capability_id:string;object_id:string;incarnation_id:string;storage_key:string;method:'GET'|'PUT';upload_id:string|null;issued_at:string;expires_at:string;authority_epoch:string;policy_version:string;key_id:string;proxy_upload?:true}
+export interface SourceTransferRequest {object_id:string;incarnation_id:string;method:'GET'|'PUT';upload_id?:string;expires_at:string;paths?:readonly string[];proxy_upload?:true}
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function denied():never {throw new SourceControlError('INVALID_TRANSFER_GRANT','Source transfer is not authorized');}
 function endpoint(config:TransferGrantConfiguration):URL {
@@ -15,7 +15,7 @@ function endpoint(config:TransferGrantConfiguration):URL {
  return parsed;
 }
 function mac(bytes:Uint8Array,config:TransferGrantConfiguration):Buffer {return createHmac('sha256',config.signing_key).update(bytes).digest();}
-function encode(grant:SourceTransferGrant,config:TransferGrantConfiguration):string {const bytes=canonicalBytes(grant);return Buffer.from(bytes).toString('base64url')+'.'+mac(bytes,config).toString('base64url');}
+export function encodeSourceTransferGrant(grant:SourceTransferGrant,config:TransferGrantConfiguration):string {const bytes=canonicalBytes(grant);return Buffer.from(bytes).toString('base64url')+'.'+mac(bytes,config).toString('base64url');}
 export async function issueSourceTransferGrant(tx:SourceSQL,authorization:SourceAuthorization,input:SourceTransferRequest,config:TransferGrantConfiguration):Promise<{grant:SourceTransferGrant;token:string;url:string;residual_validity_ms:number}> {
  const base=endpoint(config),maximum=config.maximum_lifetime_seconds??300;
  if(!Number.isInteger(maximum)||maximum<1||maximum>900)throw new SourceControlError('CONFIGURATION_INVALID','Transfer grant lifetime must be bounded');
@@ -32,14 +32,14 @@ export async function issueSourceTransferGrant(tx:SourceSQL,authorization:Source
   const row=(await tx.query(`SELECT p.storage_key FROM hyperfide.source_object_uploads u JOIN hyperfide.source_native_objects o USING(organisation_id,repository_id,security_domain_id,object_id)
    JOIN hyperfide.source_object_placements p ON p.organisation_id=u.organisation_id AND p.repository_id=u.repository_id AND p.security_domain_id=u.security_domain_id AND p.object_id=u.object_id AND p.incarnation_id=u.incarnation_id
    WHERE u.organisation_id=$1 AND u.repository_id=$2 AND u.security_domain_id=$3 AND u.upload_id=$4 AND u.object_id=$5 AND u.incarnation_id=$6
-   AND u.owner_principal_id=$8 AND u.status='UPLOADING' AND p.state='UPLOADING' AND o.state='UPLOADING' AND o.current_incarnation=p.incarnation_id AND u.expires_at>=$7::timestamptz FOR SHARE OF u,o,p`,[scope.organisation_id,scope.repository_id,scope.security_domain_id,upload_id,input.object_id,input.incarnation_id,input.expires_at,authorization.principal_id])).rows[0];
+   AND (u.owner_principal_id=$8 OR ($9 AND u.owner_principal_id IS NULL)) AND (u.status='UPLOADING' OR ($9 AND u.status='VERIFIED')) AND (p.state='UPLOADING' OR ($9 AND p.state='VERIFIED')) AND (o.state='UPLOADING' OR ($9 AND o.state='VERIFIED')) AND o.current_incarnation=p.incarnation_id AND u.expires_at>=$7::timestamptz FOR SHARE OF u,o,p`,[scope.organisation_id,scope.repository_id,scope.security_domain_id,upload_id,input.object_id,input.incarnation_id,input.expires_at,authorization.principal_id,input.proxy_upload===true])).rows[0];
   if(!row)denied();storage_key=row.storage_key;
  }
- const grant:SourceTransferGrant={schema_version:1,grant_id:grantId,scope,principal_id:authorization.principal_id,capability_id:authorization.capability_id,object_id:input.object_id,incarnation_id:input.incarnation_id,storage_key,method:input.method,upload_id,issued_at:new Date(now).toISOString(),expires_at:new Date(expires).toISOString(),authority_epoch:authorization.authority_epoch,policy_version:authorization.policy_version,key_id:config.key_id};
+ const grant:SourceTransferGrant={schema_version:1,grant_id:grantId,scope,principal_id:authorization.principal_id,capability_id:authorization.capability_id,object_id:input.object_id,incarnation_id:input.incarnation_id,storage_key,method:input.method,upload_id,issued_at:new Date(now).toISOString(),expires_at:new Date(expires).toISOString(),authority_epoch:authorization.authority_epoch,policy_version:authorization.policy_version,key_id:config.key_id,...(input.proxy_upload?{proxy_upload:true as const}:{})};
  const bytes=canonicalBytes(grant),digest='sha256:'+createHash('sha256').update(bytes).digest('hex');
  await tx.query(`INSERT INTO hyperfide.source_transfer_grants(organisation_id,repository_id,security_domain_id,id,principal_id,capability_id,object_id,incarnation_id,method,upload_id,grant_digest,expires_at)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,[scope.organisation_id,scope.repository_id,scope.security_domain_id,grantId,authorization.principal_id,authorization.capability_id,input.object_id,input.incarnation_id,input.method,upload_id,digest,grant.expires_at]);
- const token=encode(grant,config);base.pathname=base.pathname.replace(/\/$/,'')+'/'+grantId;
+ const token=encodeSourceTransferGrant(grant,config);base.pathname=base.pathname.replace(/\/$/,'')+'/'+grantId;
  return {grant,token,url:base.toString(),residual_validity_ms:expires-now};
 }
 export function verifySourceTransferGrant(token:string,config:TransferGrantConfiguration,request:{scope:SourceScope;method:string;object_id:string;incarnation_id:string;storage_key:string;url:string},now=Date.now()):SourceTransferGrant {
@@ -59,5 +59,5 @@ export async function assertSourceTransferRetained(tx:SourceSQL,grant:SourceTran
  const row=(await tx.query(`SELECT 1 FROM hyperfide.source_transfer_grants g WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND id=$4 AND grant_digest=$5 AND expires_at>clock_timestamp()
  AND ((method='GET' AND EXISTS(SELECT 1 FROM hyperfide.source_object_pins p WHERE p.organisation_id=g.organisation_id AND p.repository_id=g.repository_id AND p.security_domain_id=g.security_domain_id AND p.object_id=g.object_id AND p.incarnation_id=g.incarnation_id AND p.owner_kind='READ' AND p.owner_id=g.id::text AND p.expires_at>=g.expires_at))
  OR (method='PUT' AND EXISTS(SELECT 1 FROM hyperfide.source_object_uploads u JOIN hyperfide.source_object_placements p ON p.organisation_id=u.organisation_id AND p.repository_id=u.repository_id AND p.security_domain_id=u.security_domain_id AND p.object_id=u.object_id AND p.incarnation_id=u.incarnation_id
- WHERE u.organisation_id=g.organisation_id AND u.repository_id=g.repository_id AND u.security_domain_id=g.security_domain_id AND u.upload_id=g.upload_id AND u.object_id=g.object_id AND u.incarnation_id=g.incarnation_id AND u.owner_principal_id=g.principal_id AND u.status='UPLOADING' AND p.state='UPLOADING' AND u.expires_at>=g.expires_at)))`,[s.organisation_id,s.repository_id,s.security_domain_id,grant.grant_id,digest])).rows[0];if(!row)denied();
+ WHERE u.organisation_id=g.organisation_id AND u.repository_id=g.repository_id AND u.security_domain_id=g.security_domain_id AND u.upload_id=g.upload_id AND u.object_id=g.object_id AND u.incarnation_id=g.incarnation_id AND (u.owner_principal_id=g.principal_id OR ($6 AND u.owner_principal_id IS NULL)) AND (u.status='UPLOADING' OR ($6 AND u.status='VERIFIED')) AND (p.state='UPLOADING' OR ($6 AND p.state='VERIFIED')) AND u.expires_at>=g.expires_at)))`,[s.organisation_id,s.repository_id,s.security_domain_id,grant.grant_id,digest,grant.proxy_upload===true])).rows[0];if(!row)denied();
 }

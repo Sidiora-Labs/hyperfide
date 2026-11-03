@@ -95,20 +95,30 @@ async function adoptAuthority(config){
   process.stderr.write(JSON.stringify({event:'authority_journal_adopted',deployment_id:current.deployment_id,epoch:current.epoch,sequence:current.sequence,evidence_digest:current.evidence_digest})+'\n');
  }finally{await resources.close();}
 }
+export function createControlIngressHandler(config,isReady){
+ const allowed=new Set(['content-type','content-length','content-encoding','hf-credential-id','hf-request-time','hf-request-nonce','hf-request-signature']);
+ const responseHeaders=new Set(['content-type','content-length','content-range','accept-ranges','x-source-object-id','x-content-type-options']);
+ return(request,response)=>{
+  if(request.method==='GET'&&request.url==='/healthz'){response.writeHead(isReady()?200:503,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify({ready:isReady()}));return;}
+  if(!isReady()){response.writeHead(503);response.end();return;}
+  const transfer=/^\/api\/v1\/source-control\/transfers\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(request.url??'');
+  const rpc=request.method==='POST'&&['/v1/invoke','/v1/enroll','/api/v1/source-control'].includes(request.url??'');
+  if(!rpc&&!(transfer&&['GET','PUT'].includes(request.method))){response.writeHead(404);response.end();return;}
+  const headers=['Host','control.local'];
+  for(let index=0;index<request.rawHeaders.length;index+=2){const name=request.rawHeaders[index].toLowerCase();if(allowed.has(name)||(request.url==='/v1/enroll'||request.url==='/api/v1/source-control'||transfer)&&name==='authorization'||transfer&&['range','content-range'].includes(name))headers.push(request.rawHeaders[index],request.rawHeaders[index+1]);}
+  const upstream=https.request({hostname:'127.0.0.1',port:9443,servername:'control.local',path:request.url,method:request.method,headers,ca:config.ca,rejectUnauthorized:true,minVersion:'TLSv1.3',agent:false,timeout:125000},incoming=>{
+   const outgoing={'Cache-Control':'no-store'};for(const [name,value]of Object.entries(incoming.headers))if(responseHeaders.has(name)&&value!==undefined)outgoing[name]=value;
+   response.writeHead(incoming.statusCode??502,outgoing);incoming.pipe(response);incoming.once('aborted',()=>response.destroy());incoming.once('error',()=>response.destroy());
+  });
+  upstream.once('timeout',()=>upstream.destroy());upstream.once('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});request.once('aborted',()=>upstream.destroy());response.once('close',()=>{if(!response.writableEnded)upstream.destroy();});request.pipe(upstream);
+ };
+}
 async function main(){
  const state=path.join(root,'state'),owner=await fs.lstat(state);if(process.getuid?.()!==22001||process.geteuid?.()!==22001||process.getgid?.()!==22001||!owner.isDirectory()||owner.isSymbolicLink()||owner.uid!==22001||owner.gid!==22001||(owner.mode&0o077)!==0)refuse('CONTROL_RUNTIME_IDENTITY');
  const config=await prepare();await adoptAuthority(config);let ready=false,stopping=false;
  const child=spawn(process.execPath,['--import',path.join(root,'deploy/hyperfide/fleet-env.mjs'),path.join(root,'core/control-plane/dist/control.js'),'--mode','https','--host','127.0.0.1','--port','9443','--tls-cert',path.join(config.directory,'control.crt'),'--tls-key',path.join(config.directory,'control.key'),'--policy',path.join(config.directory,'control-policy.json'),'--spec-revision',config.specRevision,'--components',config.components],{env:process.env,stdio:['ignore','ignore','pipe']});
  let pending='';child.stderr.on('data',part=>{pending+=part.toString('utf8');if(pending.length>65536)pending='';let split;while((split=pending.indexOf('\n'))>=0){const line=pending.slice(0,split);pending=pending.slice(split+1);try{const event=JSON.parse(line);if(event.event==='ready'&&event.role==='control'&&event.mode==='https'){ready=true;emit('control_ready');}else if(event.event==='transport_request_failed'&&Number.isInteger(event.status)&&event.status>=400&&event.status<=599&&typeof event.error_code==='string'&&/^[A-Z][A-Z0-9_]{0,95}$/.test(event.error_code)){const diagnostic={event:'transport_request_failed',status:event.status,error_code:event.error_code};for(const key of ['operation_id','correlation_id'])if(typeof event[key]==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(event[key]))diagnostic[key]=event[key];if(process.stderr.writableLength<=16384)process.stderr.write(JSON.stringify(diagnostic)+'\n');}else if(event.error?.code){emit('control_error',String(event.error.code));void preserveStartupError(event).catch(()=>emit('control_error','CONTROL_DIAGNOSTIC_WRITE_FAILED'));}}catch{}}});
- const allowed=new Set(['content-type','content-length','content-encoding','hf-credential-id','hf-request-time','hf-request-nonce','hf-request-signature']);
- const server=http.createServer({maxHeaderSize:16384,requestTimeout:130000,headersTimeout:5000},(request,response)=>{
-  if(request.method==='GET'&&request.url==='/healthz'){response.writeHead(ready?200:503,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify({ready}));return;}
-  if(!ready){response.writeHead(503);response.end();return;}
-  if(request.method!=='POST'||!['/v1/invoke','/v1/enroll'].includes(request.url??'')){response.writeHead(404);response.end();return;}
-  const headers=['Host','control.local'];for(let index=0;index<request.rawHeaders.length;index+=2)if(allowed.has(request.rawHeaders[index].toLowerCase())||(request.url==='/v1/enroll'&&request.rawHeaders[index].toLowerCase()==='authorization'))headers.push(request.rawHeaders[index],request.rawHeaders[index+1]);
-  const upstream=https.request({hostname:'127.0.0.1',port:9443,servername:'control.local',path:request.url,method:'POST',headers,ca:config.ca,rejectUnauthorized:true,minVersion:'TLSv1.3',agent:false,timeout:125000},incoming=>{response.writeHead(incoming.statusCode??502,{'Content-Type':'application/json','Cache-Control':'no-store'});incoming.pipe(response);incoming.once('aborted',()=>response.destroy());incoming.once('error',()=>response.destroy());});
-  upstream.once('timeout',()=>upstream.destroy());upstream.once('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});request.once('aborted',()=>upstream.destroy());response.once('close',()=>{if(!response.writableEnded)upstream.destroy();});request.pipe(upstream);
- });
+ const server=http.createServer({maxHeaderSize:16384,requestTimeout:130000,headersTimeout:5000},createControlIngressHandler(config,()=>ready));
  server.maxConnections=128;server.maxRequestsPerSocket=128;
  const stop=()=>{if(stopping)return;stopping=true;ready=false;if(server.listening)server.close();server.closeIdleConnections();child.kill('SIGTERM');setTimeout(()=>{server.closeAllConnections();child.kill('SIGKILL');},5000).unref();};
  process.on('SIGTERM',stop);process.on('SIGINT',stop);

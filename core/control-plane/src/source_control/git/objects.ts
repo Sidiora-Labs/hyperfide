@@ -7,7 +7,7 @@ import {
 } from "../contracts.js";
 import type { PublicProvenance } from "../contracts.js";
 
-export type GitObjectKind = "blob" | "tree" | "commit";
+export type GitObjectKind = "blob" | "tree" | "commit" | "tag";
 export type GitObjectId = `git:sha1:${string}`;
 export interface GitProjectedObject {
   readonly object_format: "sha1";
@@ -33,7 +33,7 @@ export function rawGitOID(value: string): string {
 
 export function gitObjectHeader(kind: GitObjectKind, size: number): Buffer {
   if (
-    !["blob", "tree", "commit"].includes(kind) ||
+    !["blob", "tree", "commit", "tag"].includes(kind) ||
     !Number.isSafeInteger(size) ||
     size < 0
   )

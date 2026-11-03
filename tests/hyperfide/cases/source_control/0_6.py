@@ -60,7 +60,7 @@ def inventory(test_files):
     mapping, selected = units()
     baseline = mapping['implementation_baseline']
     rules = module(ROOT / 'tools/repository/layout-inventory.py', 'layout_sdk_inventory')
-    identities, expected_tests, targets, exports, bins, generators = [], [], [], [], [], []
+    identities, expected_tests, targets, exports, bins, generators, extensions = [], [], [], [], [], [], []
     fields = ['name', 'version', 'type', 'private', 'exports', 'bin', 'main', 'module', 'types', 'typings', 'files', 'engines', 'packageManager', 'peerDependenciesMeta']
     dependencies = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
     patterns = re.findall(r'^\s*-\s*"([^"]+)"', (ROOT / 'pnpm-workspace.yaml').read_text(), re.M)
@@ -73,7 +73,18 @@ def inventory(test_files):
         before = json.loads(git('show', baseline + ':' + source + '/package.json'))
         after = json.loads((ROOT / target / 'package.json').read_text())
         for field in fields + dependencies:
-            if before.get(field) != after.get(field):
+            observed=after.get(field)
+            if target=='tools/bundled-plugins' and field=='dependencies' and observed!=before.get(field):
+                native='@hyperfide/hyperfide-source-control'
+                previous=before.get(field,{})
+                if observed=={**previous,native:'workspace:*'}:
+                    package=ROOT/'plugins/hyperfide-source-control/package.json'
+                    definition=json.loads(package.read_text())
+                    if definition.get('name')!=native:
+                        raise ValueError('Native source plugin dependency identity differs')
+                    extensions.append({'package':native,'dependency':'workspace:*','manifest':str(package.relative_to(ROOT)),'sha256':digest(package)})
+                    observed=previous
+            if before.get(field) != observed:
                 raise ValueError('Public identity/dependency drift: ' + target + ':' + field)
         if set(before.get('scripts', {})) != set(after.get('scripts', {})) or target not in workspace:
             raise ValueError('Package scripts/workspace membership changed: ' + target)
@@ -129,11 +140,11 @@ def inventory(test_files):
             if filename.is_relative_to(ROOT):
                 discovered.add(str(filename.relative_to(ROOT)))
     missing = sorted(set(expected_tests) - discovered)
-    report = {'status': 'PASS' if not missing else 'BLOCKED', 'packages': identities, 'exports': exports, 'bins': bins, 'generators': generators, 'expected_tests': sorted(expected_tests), 'discovered_tests': sorted(discovered), 'missing_tests': missing}
+    report = {'status': 'PASS' if not missing else 'BLOCKED', 'packages': identities, 'post_layout_extensions': extensions, 'exports': exports, 'bins': bins, 'generators': generators, 'expected_tests': sorted(expected_tests), 'discovered_tests': sorted(discovered), 'missing_tests': missing}
     (OUT / 'inventory.json').write_text(json.dumps(report, indent=2) + '\n')
     if missing:
         raise ValueError('Mapped baseline tests absent from actual Vitest discovery: ' + ', '.join(missing[:12]))
-    print(json.dumps({'status': 'PASS', 'packages': len(identities), 'public_export_targets': len(exports), 'mapped_test_files': len(expected_tests)}))
+    print(json.dumps({'status': 'PASS', 'post_layout_extensions': extensions, 'packages': len(identities), 'public_export_targets': len(exports), 'mapped_test_files': len(expected_tests)}))
 
 
 def cache():

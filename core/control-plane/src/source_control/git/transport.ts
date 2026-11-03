@@ -34,7 +34,7 @@ export function rawGitOid(value: string): string {
 export function gitRef(value: string): string {
   if (
     typeof value !== "string" ||
-    !/^refs\/heads\/[A-Za-z0-9][A-Za-z0-9._/-]{0,239}$/.test(value) ||
+    !/^refs\/(?:heads|tags)\/[A-Za-z0-9][A-Za-z0-9._/-]{0,239}$/.test(value) ||
     value.includes("..") ||
     value.includes("//") ||
     value.includes("@{") ||
@@ -46,7 +46,7 @@ export function gitRef(value: string): string {
   )
     throw new SourceControlError(
       "INVALID_REF",
-      "Publication requires an exact branch ref",
+      "Publication requires an exact branch or tag ref",
     );
   return value;
 }
@@ -130,7 +130,7 @@ function objectHeader(kind: GitExportObject["kind"], size: number): Buffer {
       "LIMIT_EXCEEDED",
       "Git object exceeds the transport bound",
     );
-  const type = { commit: 1, tree: 2, blob: 3 }[kind];
+  const type = { commit: 1, tree: 2, blob: 3, tag: 4 }[kind];
   let remaining = Math.floor(size / 16),
     first = (type << 4) | (size % 16);
   const bytes: number[] = [];
@@ -212,7 +212,7 @@ async function* pack(
   }
   yield digest.digest();
 }
-function pushStatus(bytes: Buffer): GitPushResult {
+function pushStatus(bytes: Buffer, targetRef:string): GitPushResult {
   const messages = packets(bytes).map((line) => line.toString("utf8").trim());
   if (
     messages.some(
@@ -223,7 +223,7 @@ function pushStatus(bytes: Buffer): GitPushResult {
     return { outcome: "REJECTED", code: "REMOTE_REJECTED" };
   if (
     messages.includes("unpack ok") &&
-    messages.some((line) => line.startsWith("ok refs/heads/"))
+    messages.includes("ok "+gitRef(targetRef))
   )
     return { outcome: "ACCEPTED", code: "REMOTE_ACCEPTED" };
   return { outcome: "UNKNOWN", code: "INCOMPLETE_REMOTE_STATUS" };
@@ -455,7 +455,7 @@ export function createLocalGitDestination(input: {
           },
           MAX_STATUS,
         );
-        return pushStatus(rest);
+        return pushStatus(rest,request.target_ref);
       } catch {
         return { outcome: "UNKNOWN", code: "TRANSPORT_INTERRUPTED" };
       } finally {
@@ -588,7 +588,7 @@ export function createHttpsGitTransport(input: {
         } as RequestInit & { duplex: "half" });
         if (!response.ok || !response.body)
           return { outcome: "UNKNOWN", code: "REMOTE_HTTP_FAILURE" };
-        return pushStatus(await readAll(response.body, MAX_STATUS));
+        return pushStatus(await readAll(response.body, MAX_STATUS),request.target_ref);
       } catch {
         return { outcome: "UNKNOWN", code: "TRANSPORT_INTERRUPTED" };
       }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import {parseProjectionPolicy,type SourceProjectionPolicy} from "./provenance.js";
 import {
   canonicalBytes,
   parseObjectId,
@@ -38,13 +39,16 @@ export type GitMappingKind = "revision" | "tree" | "file" | "symlink";
 export interface GitProjectionMapping {
   native_kind: GitMappingKind;
   native_id: string;
+  policy_digest?: string;
   git_oid: GitObjectId;
   git_tree_oid?: GitObjectId;
   is_empty?: boolean;
-  disposition?: "COMMIT";
+  disposition?: "COMMIT" | "COLLAPSED";
 }
 export interface GitProjectionOptions {
   authorize_revision: (revision: SourceRevisionRecord) => Promise<void>;
+  policy?: SourceProjectionPolicy;
+  authorize_path?: (path:string) => Promise<void>;
   lookup_confirmed_mapping?: (
     kind: GitMappingKind,
     nativeId: string,
@@ -71,6 +75,7 @@ export interface GitProjectionResult {
   mappings: GitProjectionMapping[];
   reachable_commit_oids: GitObjectId[];
   metadata_policy: "NATIVE_PUBLIC_V1";
+  policy_digest?: string;
   manifest_digest: string;
   metrics: GitProjectionMetrics;
 }
@@ -138,6 +143,9 @@ export class SourceGitProjector {
         "PUBLICATION_POLICY_REQUIRED",
         "Export requires authorization for every projected native revision",
       );
+    const policy=options.policy?parseProjectionPolicy(options.policy):undefined;
+    const policyDigest=policy?"sha256:"+createHash("sha256").update(canonicalBytes(policy)).digest("hex"):undefined;
+    if(policy&&!options.authorize_path)throw new SourceControlError("PROJECTION_PATH_AUTHORITY_REQUIRED","Project mappings require an explicit path authorizer");
     const budget = budgetFor(options.budget),
       started = performance.now(),
       scope = Object.freeze({ ...context.scope });
@@ -166,6 +174,7 @@ export class SourceGitProjector {
         );
     };
     const remember = (mapping: GitProjectionMapping): GitProjectionMapping => {
+      if(policyDigest)mapping={...mapping,policy_digest:policyDigest};
       cache.set(mapping.native_kind + ":" + mapping.native_id, mapping);
       mappings.push(mapping);
       return mapping;
@@ -181,7 +190,7 @@ export class SourceGitProjector {
         return local;
       }
       const mapping = await options.lookup_confirmed_mapping?.(kind, id);
-      if (!mapping) return undefined;
+      if (!mapping||policyDigest&&mapping.policy_digest!==policyDigest) return undefined;
       if (mapping.native_kind !== kind || mapping.native_id !== id)
         throw new SourceControlError(
           "INVALID_GIT_MAPPING",
@@ -408,6 +417,24 @@ export class SourceGitProjector {
         is_empty: entries.length === 0,
       });
     };
+    const projectedRoot=async(root:string):Promise<string>=>{
+      if(!policy)return root;
+      let selected=await this.trees.empty(scope);
+      for(const dependency of policy.dependencies){
+        await options.authorize_path!(dependency.path);
+        if(dependency.revision_id)await this.metadata.readRevision(context,dependency.revision_id);
+      }
+      for(const mapping of policy.mappings){
+        check();await options.authorize_path!(mapping.source_path);
+        const entry=mapping.source_path===""?{kind:"directory" as const,mode:"040000" as const,object_id:root}:await this.trees.lookup(scope,root,mapping.source_path);
+        if(!entry)continue;
+        if(mapping.target_path===""){
+          if(entry.kind!=="directory")throw new SourceControlError("PROJECTION_PATH_UNAVAILABLE","An empty target requires a directory root");
+          selected=entry.object_id;
+        }else selected=(await this.trees.patch(scope,selected,[{path:mapping.target_path,operation:"put",kind:entry.kind,mode:entry.mode,object_id:entry.object_id}])).root_tree_id;
+      }
+      return selected;
+    };
     const revision = async (
       id: string,
       depth: number,
@@ -445,8 +472,12 @@ export class SourceGitProjector {
       const parentMappings: GitProjectionMapping[] = [];
       for (const parent of record.parent_revision_ids)
         parentMappings.push(await revision(parent, depth + 1));
-      const tree = await directory(record.root_tree_id, 0),
-        parents = parentMappings.map((parent) => parent.git_oid);
+      const tree = await directory(await projectedRoot(record.root_tree_id), 0),
+        parents = [...new Set(parentMappings.map((parent) => parent.git_oid))];
+      if(policy?.no_visible_change==="COLLAPSE_TO_FIRST_PARENT"&&parents.length===1&&parentMappings[0]?.git_tree_oid===tree.git_oid){
+        const mapping=remember({native_kind:"revision",native_id:id,git_oid:parents[0]!,git_tree_oid:tree.git_oid,disposition:"COLLAPSED"});
+        pending.delete("revision:"+id);reachable.add(mapping.git_oid);return mapping;
+      }
       const git_oid = bufferObject(
         "commit",
         gitCommitPayload(tree.git_oid, parents, record.descriptor.provenance),
@@ -469,6 +500,7 @@ export class SourceGitProjector {
       head_oid: head.git_oid,
       root_tree_oid: head.git_tree_oid!,
       metadata_policy: "NATIVE_PUBLIC_V1",
+      ...(policy?{policy_digest:"sha256:"+createHash("sha256").update(canonicalBytes(policy)).digest("hex")}:{}),
       mappings,
       objects: [...emitted.values()].map((object) => [
         object.oid,
@@ -484,6 +516,7 @@ export class SourceGitProjector {
       mappings,
       reachable_commit_oids: [...reachable],
       metadata_policy: "NATIVE_PUBLIC_V1",
+      ...(policy?{policy_digest:"sha256:"+createHash("sha256").update(canonicalBytes(policy)).digest("hex")}:{}),
       manifest_digest:
         "sha256:" +
         createHash("sha256")

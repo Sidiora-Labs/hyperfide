@@ -14,7 +14,7 @@ export interface WorkspaceBudgets {
 export interface WorkspaceDescriptor {
  schema_version:1; scope:SourceScope; workspace_id:string; workspace_generation:string; scope_generation:string;
  authority_epoch:string; base_revision_id:string; root_tree_id:string; checkpoint_revision_id:string|null;
- mode:'API_ONLY'|'SPARSE'|'MATERIALIZED'; read_paths:string[]; write_paths:string[]; budgets:WorkspaceBudgets;
+ mode:'API_ONLY'|'SPARSE'|'MATERIALIZED'|'VIRTUAL'; read_paths:string[]; write_paths:string[]; budgets:WorkspaceBudgets;
 }
 type Row=Record<string,any>;
 function invalid(message:string):never {throw new SourceControlError('INVALID_REQUEST',message);}
@@ -66,7 +66,7 @@ export class SourceWorkspaceService {
   const value=record(input),id=parseUUID(value.workspace_id,'workspace_id'),base=parseObjectId(value.base_revision_id);
   boundWorkspace(context,id);
   const read=paths(value.read_paths),write=paths(value.write_paths);
-  if(!['API_ONLY','SPARSE','MATERIALIZED'].includes(String(value.mode)))invalid('An explicit workspace materialization mode is required');
+  if(!['API_ONLY','SPARSE','MATERIALIZED','VIRTUAL'].includes(String(value.mode)))invalid('An explicit workspace materialization mode is required');
   for(const path of write)within(path,read);
   const budgets={...this.budgets};
   if(value.budgets!==undefined){
@@ -91,6 +91,25 @@ export class SourceWorkspaceService {
  async detail(context:SourceContext,input:unknown):Promise<{workspace:WorkspaceDescriptor}> {
   const id=parseUUID(record(input).workspace_id,'workspace_id');
   return this.metadata.transaction(async tx=>{await this.metadata.guard(tx,context,'source.workspaces.detail');return {workspace:descriptor(await this.row(tx,context,id))};});
+ }
+ async close(context:SourceContext,input:unknown):Promise<Row> {
+  const value=record(input),id=parseUUID(value.workspace_id,'workspace_id'),operation=parseUUID(value.operation_id,'operation_id');
+  const generation=parseGeneration(value.expected_workspace_generation);boundWorkspace(context,id);
+  const requestDigest=sourceDigest({workspace_id:id,expected_workspace_generation:generation});
+  return this.metadata.transaction(async tx=>{
+   await this.metadata.guard(tx,context,'source.workspaces.close');
+   const operationRecord=await reserveSourceOperation(tx,context,{operation_id:operation,action:'source.workspaces.close',idempotency_key:operation,request_digest:requestDigest});
+   if(operationRecord.state==='COMMITTED')return record(operationRecord.result);
+   if(operationRecord.state!=='PENDING')throw new SourceControlError('OPERATION_CANCELLED','Workspace close operation is terminal');
+   const row=(await tx.query('SELECT * FROM hyperfide.source_workspaces WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND workspace_id=$4 AND principal_id=$5 FOR UPDATE',[...sourceScopeValues(context.scope),id,context.principal_id])).rows[0];
+   if(!row)throw new SourceControlError('WORKSPACE_NOT_FOUND','Workspace is unavailable');
+   if(String(row.authority_epoch)!==context.authority_epoch||String(row.workspace_generation)!==generation)stale();
+   await tx.query('UPDATE hyperfide.source_workspaces SET closed_at=COALESCE(closed_at,clock_timestamp()),updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND workspace_id=$4',[...sourceScopeValues(context.scope),id]);
+   await tx.query("DELETE FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='WORKSPACE' AND owner_id=$4",[...sourceScopeValues(context.scope),id]);
+   const result={schema_version:1,workspace_id:id,workspace_generation:generation,state:'CLOSED',checkpoint_revision_id:row.checkpoint_revision_id};
+   await tx.query("UPDATE hyperfide.source_metadata_operations SET state='COMMITTED',result=$6,result_digest=$7,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5 AND state='PENDING'",[...sourceScopeValues(context.scope),context.principal_id,operation,JSON.stringify(result),sourceDigest(result)]);
+   return result;
+  });
  }
  async operation(context:SourceContext,operationId:string):Promise<Row|null> {
   parseUUID(operationId,'operation_id');

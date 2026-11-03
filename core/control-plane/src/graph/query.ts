@@ -166,3 +166,5 @@ export function createComponent(ctx:ComponentContext):Component {
   'graph.query.projection.delta':wrap(routed(projectionDelta)),'graph.query.projection.view':wrap(routed(projectionView))
  }};
 }
+
+export {queryNativeGraph} from './native.js';

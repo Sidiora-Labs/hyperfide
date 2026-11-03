@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "task:hyperfide-source-control/6.2",
+  "task": "6.2",
+  "scope": "task-component",
+  "cases": [
+    "SCM-020",
+    "SCM-021",
+    "SCM-022"
+  ],
+  "assertion_ids": [
+    "source-workload.api-corpus-checkpoints",
+    "source-workload.replay-accounting",
+    "source-workload.invalid-profiles",
+    "source-workload.durable-ledger",
+    "source-workload.pinned-hook-evidence",
+    "source-workload.deployed-credentials"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/source_control/6_2.py"
+  ],
+  "source_files": [
+    "tests/hyperfide/cases/source_control/6_2.py",
+    "tests/hyperfide/source-control/workloads/campaign.mjs",
+    "tests/hyperfide/support/native_source_workload.mjs",
+    "tests/hyperfide/support/native_source_external_workload.mjs",
+    "tests/hyperfide/source-control/workloads/deployment.mjs"
+  ],
+  "source_roots": [
+    "tests/hyperfide/source-control/workloads",
+    "tests/hyperfide/source-control/manifests/campaigns"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [],
+  "timeout_seconds": 360
+}

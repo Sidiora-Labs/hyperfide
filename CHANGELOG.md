@@ -4,6 +4,12 @@ All notable changes to this project are recorded here, generated from git histor
 A release is a tag or a version bump; a group is the commit-subject prefix; a task
 reference is the `[spec:<feature>/<task>]` a snapshot or fleet worker tagged the commit with.
 
+## Unreleased
+
+### Features
+- **source-control:** Add online native source storage, bounded sparse and virtual workspaces, server-side history and transformations, fleet custody and acceptance, graph indexing, resumable transfers, Git import/export, repository consolidation, retention and recovery.
+- **source-control:** Add public host and signed SDK entry points, product CLI/UI, protected fleet bootstrap, and reproducible runtime packaging.
+
 ## [v2.2.0] - 2026-10-24
 
 ### Features

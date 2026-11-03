@@ -656,3 +656,7 @@ when measuring those integrations. Do not substitute fake-provider test duration
 for live service latency or sustained fleet capacity.
 
 See [the platform guide](platform.md) for the four layers and proof commands.
+
+## Native source runtime releases
+
+Build and verify the [native source runtime package](../runtime/source-control.md) on the release builder. Apply its full migration catalog before starting the extracted `bin/source-control` service with the private listener configuration and scoped storage settings. Keep the previous immutable runtime directory during upgrade. Resume interrupted source operations with their original operation identities, and use the full-case closure and operator acceptance gates before declaring the new release accepted.

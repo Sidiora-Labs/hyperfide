@@ -1,3 +1,4 @@
+import {recordNativeRevisionAcknowledgement} from './migration/write_admission.js';
 import {randomUUID} from 'node:crypto';
 import {parseObjectId, parseUUID} from './contracts.js';
 import type {RevisionInput, RevisionReceipt, SourceContext, SourceMetadata, SourceRevisionRecord, SourceSQL} from './metadata.js';
@@ -37,6 +38,7 @@ export async function createRevisionInTransaction(store: SourceMetadata, tx: Sou
  await tx.query('INSERT INTO hyperfide.source_change_revisions(organisation_id,repository_id,security_domain_id,change_id,revision_id,predecessor_revision_ids) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING', [...scope, input.change_id, revisionId, JSON.stringify(input.predecessor_revision_ids)]);
  const membership = (await tx.query('SELECT predecessor_revision_ids FROM hyperfide.source_change_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND change_id=$4 AND revision_id=$5', [...scope, input.change_id, revisionId])).rows[0];
  if (!membership || sourceDigest(membership.predecessor_revision_ids) !== sourceDigest(input.predecessor_revision_ids)) sourceFailure('CONFLICT', 'Change membership already has another immutable predecessor set');
+ await recordNativeRevisionAcknowledgement(tx,context,revisionId);
  const body = {schema_version: 1 as const, scope: {...context.scope}, operation_id: operation.operation_id, revision_id: revisionId, root_tree_id: input.root_tree_id, change_id: input.change_id, authority_epoch: context.authority_epoch, durability_profile: profile.durability_profile};
  const resultDigest = sourceDigest(body);
  const receipt: RevisionReceipt = {...body, result_digest: resultDigest, causal_token: Buffer.from(JSON.stringify([1, context.scope, context.authority_epoch, operation.operation_id, resultDigest])).toString('base64url')};

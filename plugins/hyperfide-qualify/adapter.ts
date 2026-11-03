@@ -4,9 +4,12 @@ import { promisify } from 'node:util';
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import {readNativeQualificationConfiguration,materializeQualification,readNativeTask} from './native-adapter';
+import type {InstalledEntry} from '../../core/host-daemon/src/source-control/journal';
+import type {NativeSourcePin} from './receipts';
 import { featureFromKvx } from '../hyperfide-spec/src/kvx.js';
 export const runBinary = promisify(execFile);
-export interface ManagedEnvironment { id: string; path: string; variables: NodeJS.ProcessEnv; release(): Promise<void> }
+export interface ManagedEnvironment { id: string; path: string; variables: NodeJS.ProcessEnv; source?:NativeSourcePin;sourceFiles?:InstalledEntry[];release(): Promise<void> }
 export interface QualificationAdapter {
   binary: string;
   repositoryKey(repository: string): Promise<string>;
@@ -14,20 +17,24 @@ export interface QualificationAdapter {
   environment(repository: string, lane: string): Promise<ManagedEnvironment>;
 }
 export function createQualificationAdapter(binary = process.env.HYPERFIDE_BINARY ?? 'hyperfide'): QualificationAdapter {
+  const configurationFile=process.env.HYPERFIDE_QUALIFY_SOURCE_CONFIG;
+  const native=configurationFile?readNativeQualificationConfiguration(configurationFile):null;
   return {
     binary,
     async repositoryKey(repository) {
+      if(native){const source=await native;return 'native:'+Object.values(source.transport.scope).join(':');}
       const result = await runBinary('git', ['rev-parse', '--git-common-dir'], {cwd: repository});
       return realpath(resolve(repository, result.stdout.trim()));
     },
     async task(repository, feature, task) {
       if (!/^[\w-]+$/.test(feature)) throw new Error('Invalid feature');
-      const text = await readFile(join(repository, 'spec', feature, 'spec.kvx'), 'utf8');
+      const text = native?await readNativeTask(await native,feature,task):await readFile(join(repository, 'spec', feature, 'spec.kvx'), 'utf8');
       const found = featureFromKvx(feature, text).tasks.find(item => item.id === task);
       if (!found?.verify_cmd) throw new Error(`Missing verify_cmd for ${feature}/${task}`);
       return {verify_cmd: found.verify_cmd};
     },
     async environment(repository, lane) {
+      if(native){const source=await native;return materializeQualification(source,source.read_paths,lane);}
       const root = await mkdtemp(join(tmpdir(), 'hyperfide-qualify-'));
       const path = join(root, 'worktree');
       let created = false;

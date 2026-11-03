@@ -241,13 +241,15 @@ function isPrivateWorkspacePackage(
   return (
     specifier != null &&
     (specifier === "@hyperfide" || specifier.startsWith("@hyperfide/")) &&
+    specifier !== "@hyperfide/source-control" &&
+    !specifier.startsWith("@hyperfide/source-control/") &&
     specifier !== "@hyperfide/plugin-sdk" &&
     !specifier.startsWith("@hyperfide/plugin-sdk/")
   );
 }
 
 function privateHyperfideImportError(specifier: string): string {
-  return `host entries cannot import private HYPERFIDE workspace package "${specifier}"; use @hyperfide/plugin-sdk, Node APIs, or a regular plugin dependency`;
+  return `host entries cannot import private HYPERFIDE workspace package "${specifier}"; use @hyperfide/plugin-sdk, @hyperfide/source-control, Node APIs, or a regular plugin dependency`;
 }
 
 async function owningPackageName(

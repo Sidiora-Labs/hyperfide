@@ -1,6 +1,6 @@
 import { openPluginStorage, type PluginStorage } from '@hyperfide/authority';
 import type { PublicationStore, Publication } from './publication';
-export const openQualifyStorage = (repository: string) => openPluginStorage('hyperfide-qualify', repository);
+export const openQualifyStorage = (repository: string, filename?: string) => openPluginStorage('hyperfide-qualify', repository, filename ? {path:filename} : {});
 export function publicationStore(storage: PluginStorage): PublicationStore {
   return { get: key => storage.get<Publication>('publication:' + key), put: (key, value) => storage.put('publication:' + key, value) };
 }

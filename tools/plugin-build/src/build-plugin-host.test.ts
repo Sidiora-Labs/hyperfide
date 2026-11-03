@@ -257,6 +257,51 @@ describe("plugin host build", () => {
     ).rejects.toThrow(/cannot import private HYPERFIDE workspace package/u);
   });
 
+  it("bundles the public native source SDK while preserving private package refusal", async () => {
+    const dir = await mkdtemp(join(process.cwd(), ".host-build-source-test-"));
+    tempDirs.push(dir);
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: "source-host-fixture",
+        version: "1.0.0",
+        type: "module",
+        engines: { hyperfide: ">=0.0" },
+        hyperfide: {
+          name: "Source host",
+          description: "Public source SDK",
+          branding: { icon: "Cpu" },
+          server: "./server.ts",
+          host: "./host.ts",
+        },
+      }),
+    );
+    await writeFile(join(dir, "server.ts"), "export default function() {}");
+    await mkdir(join(dir, "node_modules/@hyperfide"), { recursive: true });
+    await symlink(
+      join(process.cwd(), "../../sdk/source-control"),
+      join(dir, "node_modules/@hyperfide/source-control"),
+    );
+    await writeFile(
+      join(dir, "host.ts"),
+      'import {SourceControlClient} from "@hyperfide/source-control"; export const client = SourceControlClient; export default {};',
+    );
+    const result = await buildPluginHost(
+      dir,
+      "0.9.0-test",
+      await testToolchain(),
+    );
+    const entry = await import(pathToFileURL(result.jsPath).href);
+    expect(typeof entry.client).toBe("function");
+    await writeFile(
+      join(dir, "host.ts"),
+      'import {secret} from "@hyperfide/source-control-private"; export default secret;',
+    );
+    await expect(
+      buildPluginHost(dir, "0.9.0-test", await testToolchain()),
+    ).rejects.toThrow(/cannot import private HYPERFIDE workspace package/u);
+  });
+
   it("bundles the published bridge surface without stubbing it", async () => {
     const dir = await mkdtemp(join(process.cwd(), ".host-build-bridge-test-"));
     tempDirs.push(dir);

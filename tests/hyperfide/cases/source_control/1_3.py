@@ -17,10 +17,17 @@ const root=process.argv[1],out=path.join(root,'build/source-control/1.3'),runtim
 const dsn=new URL(process.env.DATABASE_URL);assert.ok(dsn.searchParams.get('host')?.startsWith('/tmp/hyperfide/hf-withpg-'),'owned PostgreSQL required');
 const require=createRequire(path.join(root,'core/control-plane/package.json')),pg=require('pg');
 await mkdir(runtime,{recursive:true});await writeFile(path.join(runtime,'package.json'),'{"type":"module"}\n');
-for(const name of ['source_control/contracts','source_control/capabilities','source_control/authentication','source_control/transfer_grants','source_control/audit','source_control/object_catalog','transport/protocol','policy/programme']){
- const source=await readFile(path.join(root,'core/control-plane/src',name+'.ts'),'utf8');
- const emitted=stripTypeScriptTypes(source,{mode:'transform'});
- const target=path.join(runtime,name+'.js');await mkdir(path.dirname(target),{recursive:true});await writeFile(target,emitted);
+const pending=['source_control/contracts.ts','source_control/capabilities.ts','source_control/authentication.ts','source_control/transfer_grants.ts','source_control/audit.ts','source_control/object_catalog.ts','transport/protocol.ts','policy/programme.ts'],copied=new Set();
+while(pending.length){
+ const name=pending.shift();if(copied.has(name))continue;copied.add(name);
+ const source=await readFile(path.join(root,'core/control-plane/src',name),'utf8');
+ const emitted=name.endsWith('.ts')?stripTypeScriptTypes(source,{mode:'transform'}):source;
+ const target=path.join(runtime,name.replace(/\.ts$/,'.js'));await mkdir(path.dirname(target),{recursive:true});await writeFile(target,emitted);
+ for(const match of emitted.matchAll(/(?:from\s*|import\s*\()(['"])(\.[^'"]+)\1/g)){
+  const dependency=path.posix.normalize(path.posix.join(path.posix.dirname(name),match[2]));
+  if(dependency.startsWith('../'))throw new Error('Runtime dependency escaped the control source root');
+  pending.push(dependency.endsWith('.js')?dependency.slice(0,-3)+'.ts':dependency);
+ }
 }
 const load=name=>import(pathToFileURL(path.join(runtime,'source_control',name+'.js')));
 const auth=await load('authentication'),caps=await load('capabilities'),transfers=await load('transfer_grants'),audit=await load('audit'),storage=await load('object_catalog');

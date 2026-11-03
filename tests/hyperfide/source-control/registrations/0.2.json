@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "task:hyperfide-source-control/0.2",
+  "task": "0.2",
+  "scope": "task-component",
+  "cases": [
+    "SCM-024"
+  ],
+  "assertion_ids": [
+    "source-harness.registry.namespaces",
+    "source-harness.registry.future-cases",
+    "source-harness.native.capture",
+    "source-harness.refuse.root_tree_id",
+    "source-harness.refuse.authority_epoch",
+    "source-harness.refuse.test_inventory_sha256",
+    "source-harness.refuse.forged-receipt",
+    "source-harness.refuse.mixed-cases",
+    "source-harness.refuse.version",
+    "source-harness.refuse.missing-receipt",
+    "source-harness.refuse.duplicate-variant",
+    "source-harness.native.independent-checker",
+    "source-harness.native.no-git-identity",
+    "source-harness.native.campaign-namespace",
+    "source-harness.native.namespaced-bundle",
+    "source-harness.native.required-store-refusal",
+    "source-harness.legacy.independent-checker",
+    "source-harness.native.campaign-registration",
+    "source-harness.native.full-case-registration"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/source_control/0_2.py"
+  ],
+  "source_files": [
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/cases/source_control/0_2.py",
+    "tests/hyperfide/evidence_store.py",
+    "tests/hyperfide/publish-evidence.py",
+    "tests/hyperfide/source-control/campaign_fixture.py"
+  ],
+  "source_roots": [
+    "tests/hyperfide/source-control"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": []
+}

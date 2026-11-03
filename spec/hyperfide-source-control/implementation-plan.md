@@ -122,7 +122,7 @@ Implementation and qualification obligations:
 
 ## 0.5: Relocate native engines and core executables with their consumers
 
-Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.4.
+Status: **implemented**. Owner: `repository-layout`. Dependencies: 0.4.
 
 Proposed implementation scope:
 
@@ -165,7 +165,7 @@ Implementation and qualification obligations:
 
 ## 0.6: Relocate SDKs contracts libraries and packaged tooling
 
-Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.5.
+Status: **implemented**. Owner: `repository-layout`. Dependencies: 0.5.
 
 Proposed implementation scope:
 
@@ -280,7 +280,7 @@ Implementation and qualification obligations:
 
 ## 0.9: Qualify the category layout and release the layout prerequisite
 
-Status: **pending**. Owner: `repository-layout`. Dependencies: 0.8.
+Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.8.
 
 Proposed implementation scope:
 
@@ -306,7 +306,7 @@ Implementation and qualification obligations:
 
 ## 0.10: Version the fleet interfaces and sandbox manifest contracts
 
-Status: **in_progress**. Owner: `fleet-prerequisite`. Dependencies: 0.9.
+Status: **implemented**. Owner: `fleet-prerequisite`. Dependencies: 0.9.
 
 Proposed implementation scope:
 
@@ -429,7 +429,7 @@ Implementation and qualification obligations:
 
 ## 0.1: Version the native source contract and compatibility boundary
 
-Status: **in_progress**. Owner: `contracts`. Dependencies: 0.14.
+Status: **implemented**. Owner: `contracts`. Dependencies: 0.14.
 
 Proposed implementation scope:
 
@@ -454,7 +454,7 @@ Implementation and qualification obligations:
 
 ## 0.2: Add native-source qualification profiles and evidence capture
 
-Status: **pending**. Owner: `qualification`. Dependencies: 0.1.
+Status: **implemented**. Owner: `qualification`. Dependencies: 0.1.
 
 Proposed implementation scope:
 
@@ -480,7 +480,7 @@ Implementation and qualification obligations:
 
 ## 1.1: Build the immutable S3 object and persistent-tree vertical slice
 
-Status: **in_progress**. Owner: `source-storage`. Dependencies: 0.1, 0.2.
+Status: **implemented**. Owner: `source-storage`. Dependencies: 0.1, 0.2.
 
 Proposed implementation scope:
 
@@ -509,7 +509,7 @@ Implementation and qualification obligations:
 
 ## 1.2: Durable revision metadata, scoped idempotency and source outbox
 
-Status: **in_progress**. Owner: `source-protocol`. Dependencies: 1.1.
+Status: **implemented**. Owner: `source-protocol`. Dependencies: 1.1.
 
 Proposed implementation scope:
 
@@ -537,7 +537,7 @@ Implementation and qualification obligations:
 
 ## 1.3: Enforce source capabilities across transfer, caches and metadata consumers
 
-Status: **in_progress**. Owner: `source-security`. Dependencies: 1.1, 1.2.
+Status: **implemented**. Owner: `source-security`. Dependencies: 1.1, 1.2.
 
 Proposed implementation scope:
 
@@ -565,7 +565,7 @@ Implementation and qualification obligations:
 
 ## 2.1: Online revision, history and query API vertical slice
 
-Status: **in_progress**. Owner: `source-api`. Dependencies: 1.2, 1.3.
+Status: **implemented**. Owner: `source-api`. Dependencies: 1.2, 1.3.
 
 Proposed implementation scope:
 
@@ -593,7 +593,7 @@ Implementation and qualification obligations:
 
 ## 2.2: Materialize pinned source scopes with immutable host cache and durable capture
 
-Status: **in_progress**. Owner: `workspaces`. Dependencies: 2.1.
+Status: **implemented**. Owner: `workspaces`. Dependencies: 2.1.
 
 Proposed implementation scope:
 
@@ -623,7 +623,7 @@ Implementation and qualification obligations:
 
 ## 2.3: Connect durable source roots to race-safe incremental collection
 
-Status: **pending**. Owner: `source-retention`. Dependencies: 1.1, 1.2, 1.3.
+Status: **implemented**. Owner: `source-retention`. Dependencies: 1.1, 1.2, 1.3.
 
 Proposed implementation scope:
 
@@ -650,7 +650,7 @@ Implementation and qualification obligations:
 
 ## 3.1: Object-level merge, rebase and revert with typed conflicts
 
-Status: **in_progress**. Owner: `source-transformations`. Dependencies: 2.1.
+Status: **implemented**. Owner: `source-transformations`. Dependencies: 2.1.
 
 Proposed implementation scope:
 
@@ -687,7 +687,7 @@ Implementation and qualification obligations:
 
 ## 3.2: Serve demand-driven virtual workspaces with explicit host capabilities
 
-Status: **pending**. Owner: `workspaces`. Dependencies: 2.2.
+Status: **implemented**. Owner: `workspaces`. Dependencies: 2.2.
 
 Proposed implementation scope:
 
@@ -715,7 +715,7 @@ Implementation and qualification obligations:
 
 ## 3.3: Pin graph and context to native revisions with incremental cross-project invalidation
 
-Status: **pending**. Owner: `graph`. Dependencies: 2.2.
+Status: **implemented**. Owner: `graph`. Dependencies: 2.2.
 
 Proposed implementation scope:
 
@@ -745,7 +745,7 @@ Implementation and qualification obligations:
 
 ## 4.1: Native candidate qualification and atomic domain acceptance
 
-Status: **in_progress**. Owner: `source-integration`. Dependencies: 3.1, 3.3.
+Status: **implemented**. Owner: `source-integration`. Dependencies: 3.1, 3.3.
 
 Proposed implementation scope:
 
@@ -788,7 +788,7 @@ Implementation and qualification obligations:
 
 ## 4.2: Run Hyperfide fleet attempts and qualification through native source custody
 
-Status: **in_progress**. Owner: `fleet`. Dependencies: 4.1, 3.2.
+Status: **implemented**. Owner: `fleet`. Dependencies: 4.1, 3.2.
 
 Proposed implementation scope:
 
@@ -915,7 +915,7 @@ Implementation and qualification obligations:
 
 ## 4.3: Ship source API clients and native workspace-to-publication product journeys
 
-Status: **pending**. Owner: `surfaces`. Dependencies: 4.2.
+Status: **implemented**. Owner: `surfaces`. Dependencies: 4.2.
 
 Proposed implementation scope:
 
@@ -954,7 +954,7 @@ Implementation and qualification obligations:
 
 ## 5.1: Publish accepted native changes through bounded Git remote adapters
 
-Status: **in_progress**. Owner: `remote`. Dependencies: 4.1, 4.2.
+Status: **implemented**. Owner: `remote`. Dependencies: 4.1, 4.2.
 
 Proposed implementation scope:
 
@@ -993,7 +993,7 @@ Implementation and qualification obligations:
 
 ## 5.2: Version project projections and import external source provenance
 
-Status: **pending**. Owner: `remote`. Dependencies: 5.1.
+Status: **implemented**. Owner: `remote`. Dependencies: 5.1.
 
 Proposed implementation scope:
 
@@ -1020,7 +1020,7 @@ Implementation and qualification obligations:
 
 ## 5.3: Consolidate projects and cut over to one native source authority
 
-Status: **pending**. Owner: `migration`. Dependencies: 5.2, 4.3.
+Status: **implemented**. Owner: `migration`. Dependencies: 5.2, 4.3.
 
 Proposed implementation scope:
 
@@ -1053,7 +1053,7 @@ Implementation and qualification obligations:
 
 ## 6.1: Qualify source durability, authority failover and complete restore
 
-Status: **pending**. Owner: `source-recovery`. Dependencies: 4.1, 4.2, 5.1, 5.3, 2.3.
+Status: **implemented**. Owner: `source-recovery`. Dependencies: 4.1, 4.2, 5.1, 5.3, 2.3.
 
 Proposed implementation scope:
 
@@ -1080,7 +1080,7 @@ Implementation and qualification obligations:
 
 ## 6.2: Measure within-monorepo growth, mixed load and real-storage endurance
 
-Status: **pending**. Owner: `source-control-qualification`. Dependencies: 6.1, 4.3, 5.3.
+Status: **implemented**. Owner: `source-control-qualification`. Dependencies: 6.1, 4.3, 5.3.
 
 Proposed implementation scope:
 
@@ -1105,7 +1105,7 @@ Implementation and qualification obligations:
 
 ## 6.3: Qualify integrated native source control and independently close evidence
 
-Status: **pending**. Owner: `source-control-qualification`. Dependencies: 6.2.
+Status: **in_progress**. Owner: `source-control-qualification`. Dependencies: 6.2.
 
 Proposed implementation scope:
 
@@ -1130,7 +1130,7 @@ Implementation and qualification obligations:
 
 ## 7.1: Ship native source documentation and reproducible release artifacts
 
-Status: **pending**. Owner: `release`. Dependencies: 6.3.
+Status: **implemented**. Owner: `release`. Dependencies: 6.3.
 
 Proposed implementation scope:
 
@@ -1158,7 +1158,7 @@ Implementation and qualification obligations:
 
 ## 7.2: Close the native source release with running-system evidence
 
-Status: **pending**. Owner: `release`. Dependencies: 7.1.
+Status: **in_progress**. Owner: `release`. Dependencies: 7.1.
 
 Proposed implementation scope:
 

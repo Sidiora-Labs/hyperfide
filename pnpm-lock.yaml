@@ -92,6 +92,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@hyperfide/authority':
+        specifier: workspace:*
+        version: link:../../core/authority-client
       '@hyperfide/client-core':
         specifier: workspace:*
         version: link:../../lib/client-core
@@ -119,6 +122,9 @@ importers:
       '@hyperfide/server-contract':
         specifier: workspace:*
         version: link:../../contracts/server
+      '@hyperfide/source-control':
+        specifier: workspace:*
+        version: link:../../sdk/source-control
       '@hyperfide/templates':
         specifier: workspace:*
         version: link:../../lib/templates
@@ -1181,6 +1187,9 @@ importers:
       '@hyperfide/server-archive':
         specifier: workspace:*
         version: link:../server-archive
+      '@hyperfide/source-control':
+        specifier: workspace:*
+        version: link:../../sdk/source-control
       '@hyperfide/text-utils':
         specifier: workspace:*
         version: link:../../lib/text-utils
@@ -3211,6 +3220,9 @@ importers:
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../sdk/plugins
+      '@hyperfide/source-control':
+        specifier: workspace:*
+        version: link:../../sdk/source-control
       zod:
         specifier: 4.6.5
         version: 4.6.5
@@ -3439,6 +3451,9 @@ importers:
       '@hyperfide/shared-ui':
         specifier: workspace:*
         version: link:../../lib/shared-ui
+      '@hyperfide/source-control':
+        specifier: workspace:*
+        version: link:../../sdk/source-control
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -3546,6 +3561,43 @@ importers:
       vitest:
         specifier: ^4.1.1
         version: 4.1.1(@opentelemetry/api@1.9.1)(@types/node@22.19.10)(jsdom@29.0.1(@noble/hashes@2.4.0))(msw@2.12.14(@types/node@22.19.10)(typescript@6.0.3))(vite@8.0.12(@types/node@22.19.10)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  plugins/hyperfide-source-control:
+    dependencies:
+      '@hyperfide/authority':
+        specifier: workspace:*
+        version: link:../../core/authority-client
+      '@hyperfide/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../sdk/plugins
+      '@hyperfide/shared-ui':
+        specifier: workspace:*
+        version: link:../../lib/shared-ui
+      '@hyperfide/source-control':
+        specifier: workspace:*
+        version: link:../../sdk/source-control
+      commander:
+        specifier: ^13.0.0
+        version: 13.1.0
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@hyperfide/plugin-build':
+        specifier: workspace:*
+        version: link:../../tools/plugin-build
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.10
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.13
+      tsrs:
+        specifier: 0.18.0-ts7.1.0-dev.20260929
+        version: 0.18.0-ts7.1.0-dev.20260929
 
   plugins/hyperfide-spec:
     dependencies:
@@ -5312,7 +5364,11 @@ importers:
         specifier: ^4.1.1
         version: 4.1.1(@opentelemetry/api@1.9.1)(@types/node@22.19.10)(jsdom@29.0.1(@noble/hashes@2.4.0))(msw@2.12.14(@types/node@22.19.10)(@typescript/typescript6@6.0.2))(vite@8.0.12(@types/node@22.19.10)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.1)(yaml@2.9.0))
 
-  sdk/source-control: {}
+  sdk/source-control:
+    devDependencies:
+      '@types/node':
+        specifier: 24.12.4
+        version: 24.12.4
 
   tests/fixtures/plugins/scripted-echo-provider:
     dependencies:
@@ -5448,6 +5504,9 @@ importers:
       '@hyperfide/hyperfide-qualify':
         specifier: workspace:*
         version: link:../../plugins/hyperfide-qualify
+      '@hyperfide/hyperfide-source-control':
+        specifier: workspace:*
+        version: link:../../plugins/hyperfide-source-control
       '@hyperfide/hyperfide-spec':
         specifier: workspace:*
         version: link:../../plugins/hyperfide-spec

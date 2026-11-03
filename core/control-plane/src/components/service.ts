@@ -155,7 +155,7 @@ export async function runService(role: ServiceRole, args = process.argv.slice(2)
         certificate:config['--tls-cert']??'',privateKey:config['--tls-key']??'',signal:controller.signal,identity,
         ...(configuredDeadline===undefined?{}:{deadlineMs:Number(configuredDeadline)}),
         requestLimit:Math.min(limits.request,1024*1024),responseLimit:Math.min(limits.response,1024*1024),
-        ...(registry.hasComponent('source-control')?{sourceDispatch:(invocation:InvocationContext)=>registry!.invoke('source-control',invocation.payload.action,invocation.payload.input,invocation)}:{}),
+        ...(registry.hasComponent('source-control')?{sourceTransfers:registry.resolveCapability('source-control','source.service.v1',(v:unknown):v is {transfers:import('../source_control/transfers.js').SourceTransferService}=>object(v)&&object(v.transfers)).transfers,sourceDispatch:(invocation:InvocationContext)=>registry!.invoke('source-control',invocation.payload.action,invocation.payload.input,invocation)}:{}),
         dispatch:invocation=>handleRequest(registry!,{id:invocation.operation.operation_id,component:invocation.payload.component,action:invocation.payload.action,input:invocation.payload.input},limits.response,invocation)});
     }
     if(mode!=='stdio') {

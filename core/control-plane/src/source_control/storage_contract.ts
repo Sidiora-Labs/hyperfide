@@ -5,7 +5,7 @@ export interface SourceTransaction {query<T extends Record<string,any>=Record<st
 export interface SourceCatalogDatabase {transaction<T>(body:(tx:SourceTransaction)=>Promise<T>):Promise<T>}
 export type ObjectLifecycle='UPLOADING'|'VERIFIED'|'QUARANTINED'|'DELETE_PENDING'|'ABSENT';
 export interface StoredObject extends SourceStorageScope {
- object_id:string;kind:SourceObjectKind;size_bytes:string;tree_prefix:string|null;incarnation_id:string;storage_key:string;generation:string;state:ObjectLifecycle;
+ object_id:string;kind:SourceObjectKind;size_bytes:string;tree_prefix:string|null;incarnation_id:string;storage_key:string;generation:string;state:ObjectLifecycle;verified_at?:string|null;
 }
 export interface VerifiedObject extends StoredObject {state:'VERIFIED'}
 export interface ObjectUpload extends StoredObject {upload_id:string;operation_id:string;owner_principal_id:string|null;status:'UPLOADING'|'UNKNOWN'|'VERIFIED';expires_at:string}
@@ -28,3 +28,5 @@ export interface SourceMultipartBackend extends SourceObjectBackend {
  completeMultipart(key:string,upload_id:string,parts:readonly {part:number;etag:string}[],signal?:AbortSignal):Promise<'ACKNOWLEDGED'|'EXISTS'|'UNKNOWN'>;
  abortMultipart(key:string,upload_id:string,signal?:AbortSignal):Promise<'ACKNOWLEDGED'|'UNKNOWN'>;
 }
+
+export interface SourceDeletionBackend extends SourceObjectBackend {delete(key:string,expectedDigest:string,maxBytes:number,signal?:AbortSignal):Promise<'ABSENT'|'UNKNOWN'>}

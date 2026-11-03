@@ -1,6 +1,6 @@
 # Hyperfide native source control
 
-Status: **category relocation in progress (8,339 mapped paths moved); tasks 0.4–0.8 in progress; task 0.3 graph qualification pending; full product qualification UNRUN**.
+Status: **native source-control implementation is present; release integration, fleet deployment and full workload campaigns are in progress**.
 
 This feature specifies an online source-control subsystem inside Hyperfide. It serves one growing monorepo containing many large projects, thousands of concurrent agent workspaces, and high rates of independent changes. Immutable source objects live in S3; thin clients use versioned APIs, bounded caches, and optional sparse, virtual, or explicitly materialized working copies. Git is an import/export protocol at the remote boundary.
 
@@ -8,9 +8,9 @@ The subsystem has its own versioned contracts and independently scalable service
 
 ## First prerequisite
 
-[Repository layout](repository-layout.md) is the first work: move nested codebases into category roots while preserving behavior and public identities. The [explicit mapping](repository-layout.json) covers current source inputs. The category roots now contain 8,339 relocated paths. Tasks 0.4–0.8 are in progress; task 0.9 still owns combined layout qualification before fleet or native source-control implementation.
+[Repository layout](repository-layout.md) is the first work: move nested codebases into category roots while preserving behavior and public identities. The [explicit mapping](repository-layout.json) covers current source inputs. The category roots contain 8,339 relocated paths. Native, core, SDK and plugin relocation checks pass. Current desktop/Android packaging and the combined layout receipt are being refreshed against the source-control integration.
 
-The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the Primary and co-located Wave Managers responsible for adaptive orchestration. Every sandbox carries `.neron` source configuration and a `package.kvx` environment manifest; the `hyperfide install` contract assembles code, dependencies, configs and selected interface contracts before worker readiness. See [sandbox contracts](sandbox-contracts.md) and [interface schema](interface-contracts.md). Native task 0.1 waits for the final fleet qualification receipt. Task 0.3 implements the inventory and baseline, with 22 focused checks passing and graph qualification pending; fleet prerequisite qualification and native source-control implementation remain pending.
+The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the Primary and co-located Wave Managers responsible for adaptive orchestration. Every sandbox carries `.neron` source configuration and a `package.kvx` environment manifest; the `hyperfide install` contract assembles code, dependencies, configs and selected interface contracts before worker readiness. See [sandbox contracts](sandbox-contracts.md) and [interface schema](interface-contracts.md). The source-control implementation includes immutable S3 objects, server-side history and transformations, sparse and virtual workspaces, scoped authority, graph indexing, fleet custody, Git import/export, consolidation, retention and recovery. The protected fleet bootstrap and integrated native workspace paths have executable component evidence; the isolated cloud fleet journey is a separate gate.
 
 ## Read in this order
 
@@ -35,7 +35,7 @@ The [final prerequisite](fleet-orchestration.md), tasks 0.10–0.14, makes the P
 
 `spec.kvx` is the normative requirements and task catalogue. Detailed contracts refine it; a contradiction is a defect to resolve, not an invitation to choose the easier requirement. The task plan and traceability are generated views. Earlier specifications remain historical inputs and their recorded statuses are unchanged.
 
-The owning `spec/workflow.kvx` selects `hyperfide-source-control`. Layout and fleet prerequisite source work is present; its required qualification gates remain open before native source-control implementation. New test drivers, packages, migrations, API routes, and commands named in later tasks remain proposed deliverables unless the baseline explicitly identifies them as existing. Feature selection and physical relocation do not establish runtime or capacity qualification.
+The owning `spec/workflow.kvx` selects `hyperfide-source-control`. Implementation and focused execution evidence are recorded in [qualification.kvx](qualification.kvx). The public SDK is `sdk/source-control`, the service is `core/control-plane/src/source_control`, the product integration is `plugins/hyperfide-source-control`, and release packaging is `deploy/hyperfide/source-control`. Task statuses distinguish implemented work from qualification. The complete case registry, measured growth/scale/endurance campaigns and operator acceptance govern release closure.
 
 Run the authoring check from the repository root:
 

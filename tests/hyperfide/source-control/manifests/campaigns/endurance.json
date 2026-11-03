@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "kind": "endurance",
+  "seed": 42,
+  "file_counts": [
+    1000000
+  ],
+  "modified_files": 10,
+  "modified_bytes": 1048576,
+  "clients": 5000,
+  "operations": 518401,
+  "rate_per_second": 2,
+  "duration_seconds": 259200,
+  "hardware_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "backend_identity": "REPLACE_WITH_SCOPED_BACKEND_IDENTITY",
+  "real_backend": true,
+  "canary": {
+    "argv": [
+      "/ABSOLUTE/REAL_WORKER_CANARY"
+    ],
+    "executable_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "timeout_seconds": 300,
+    "env_keys": [],
+    "interval_seconds": 3600
+  },
+  "drills": [
+    {
+      "kind": "throttle",
+      "at_seconds": 43200,
+      "argv": [
+        "/ABSOLUTE/REAL_THROTTLE_DRILL"
+      ],
+      "executable_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "timeout_seconds": 300,
+      "env_keys": []
+    },
+    {
+      "kind": "credential-rotation",
+      "at_seconds": 86400,
+      "argv": [
+        "/ABSOLUTE/REAL_CREDENTIAL_ROTATION_DRILL"
+      ],
+      "executable_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "timeout_seconds": 300,
+      "env_keys": []
+    },
+    {
+      "kind": "collection",
+      "at_seconds": 129600,
+      "argv": [
+        "/ABSOLUTE/REAL_COLLECTION_DRILL"
+      ],
+      "executable_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "timeout_seconds": 300,
+      "env_keys": []
+    },
+    {
+      "kind": "recovery",
+      "at_seconds": 172800,
+      "argv": [
+        "/ABSOLUTE/REAL_RECOVERY_DRILL"
+      ],
+      "executable_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "timeout_seconds": 300,
+      "env_keys": []
+    }
+  ]
+}

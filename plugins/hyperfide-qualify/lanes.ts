@@ -1,14 +1,15 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import {join} from 'node:path';
 import { createQualificationAdapter, runBinary, type QualificationAdapter } from './adapter';
-import { writeReceipt } from './receipts';
+import { writeReceipt,type NativeSourcePin } from './receipts';
 import { openQualifyStorage } from './storage';
 export type LaneState = 'queued' | 'running' | 'passed' | 'failed' | 'cancelled';
 export interface StartLane { repository: string; feature: string; task: string; mode?: 'verify' | 'done'; postgres?: boolean; busyTimeoutMs?: number }
 export interface Lane {
   id: string; repository: string; feature: string; task: string; mode: 'verify' | 'done'; command: string; state: LaneState;
-  commit: string | null; environmentId: string | null; environmentPath: string | null;
+  source?:NativeSourcePin;commit: string | null; environmentId: string | null; environmentPath: string | null;
   toolchain: {node: string | null; pnpm: string | null; hyperfide: string | null};
   exitCode: number | null; signal: string | null; durationMs: number | null; error: string | null; busyTimeoutMs: number;
   receipt?: string;
@@ -77,7 +78,8 @@ export class LaneService {
       environment = await this.adapter.environment(lane.repository, lane.id);
       lane.environmentId = environment.id; lane.environmentPath = environment.path;
       const options = {cwd: environment.path, env: {...environment.variables, CG_BUSY_TIMEOUT_MS: String(lane.busyTimeoutMs), CG_FEATURE: lane.feature}, timeout: 15000};
-      lane.commit = (await runBinary('git', ['rev-parse', 'HEAD'], options)).stdout.trim();
+      if(environment.source){lane.source=environment.source;if(lane.mode==='done')throw new Error('Native task qualification requires its custody and independent evidence through source.fleet.qualify');}
+      else lane.commit = (await runBinary('git', ['rev-parse', 'HEAD'], options)).stdout.trim();
       const version = async (binary: string) => { try { return (await runBinary(binary, ['--version'], options)).stdout.trim(); } catch { return null; } };
       [lane.toolchain.node, lane.toolchain.pnpm, lane.toolchain.hyperfide] = await Promise.all([version('node'), version('pnpm'), version(this.adapter.binary)]);
       if (!lane.toolchain.node?.startsWith('v24.') || lane.toolchain.pnpm !== '9.15.0') throw new Error('Qualification requires pinned Node 24 and pnpm 9.15.0');
@@ -98,19 +100,20 @@ export class LaneService {
       lane.state = lane.exitCode === 0 ? 'passed' : 'failed';
       if (lane.state === 'passed' && !job.cancelled) {
         // Pin the executed tree before releasing it; retain evidence in the source repository.
-        const tracked = await runBinary('git', ['ls-files', '-z'], options);
-        const sources = tracked.stdout.split('\0').filter(path => path &&
+        const tracked = environment.sourceFiles?environment.sourceFiles.map(entry=>entry.path):
+          (await runBinary('git', ['ls-files', '-z'], options)).stdout.split('\0');
+        const sources = tracked.filter(path => path &&
           !path.split('/').some(part => part === '.env' || part.startsWith('.env.')) &&
           !path.startsWith('artifacts/'));
         const result = await writeReceipt({ task: lane.task, cwd: lane.repository,
-          sourceRoot: environment.path, commit: lane.commit!, verify_cmd: lane.verifyCmd,
+          sourceRoot: environment.path, ...(environment.source?{source:environment.source,sourceFiles:environment.sourceFiles}:{commit:lane.commit!}),verify_cmd: lane.verifyCmd,
           exit: lane.exitCode!, duration: performance.now() - started,
           toolchain: Object.fromEntries(Object.entries(lane.toolchain).filter((entry): entry is [string, string] => entry[1] !== null)),
           log: this.logs.get(lane.id)!.map(entry => entry.text).join(''),
           sources });
         if (result) {
           lane.receipt = result.path;
-          const storage = await openQualifyStorage(lane.repository);
+          const storage = await openQualifyStorage(lane.repository,environment.source?join(lane.repository,'artifacts/hyperfide/qualification.sqlite'):undefined);
           try { await storage.put('receipt:' + result.path, result.receipt); }
           finally { storage.close(); }
         }

@@ -1,9 +1,10 @@
+import type {SourceProjectionPolicy} from "./provenance.js";
 import type { SourceContext, SourceSQL } from "../metadata.js";
 import type { SourceScope } from "../contracts.js";
 
 export interface GitExportObject {
   oid: string;
-  kind: "blob" | "tree" | "commit";
+  kind: "blob" | "tree" | "commit" | "tag";
   size_bytes: number;
   content(): AsyncIterable<Uint8Array>;
 }
@@ -51,6 +52,7 @@ export interface SourceGitDestination {
   remote_key: string;
   allowed_refs: readonly string[];
   transport: SourceGitTransport;
+  projection_policy?: SourceProjectionPolicy;
 }
 export interface AcceptedPublicationSource {
   acceptance_id: string;
@@ -65,6 +67,7 @@ export interface SourcePublicationOptions {
     context: SourceContext,
     acceptanceId: string,
   ): Promise<AcceptedPublicationSource>;
+  authorizePath?(tx:SourceSQL,context:SourceContext,path:string):Promise<void>;
   authorizeRevision(
     tx: SourceSQL,
     context: SourceContext,

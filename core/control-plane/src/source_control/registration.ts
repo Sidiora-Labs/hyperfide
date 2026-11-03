@@ -4,13 +4,12 @@ import {getPool} from '../storage/schema.js';
 import {isIdentityAuthority} from '../identity/enrollment.js';
 import {FoundationError} from '../policy/programme.js';
 import {createSourceApi, type SourceApiAuthorizationRequest} from './api.js';
-import {authorizeInvocationSource,authorizeSource,type SourceAuthorizationOptions} from './capabilities.js';
+import {authorizeInvocationSource,authorizeSource,type SourceAuthorizationOptions,type SourceAuthorization} from './capabilities.js';
 import {SourceMetadata,type SourceMetadataOptions} from './metadata.js';
-import {PostgresSourceObjectCatalog} from './object_catalog.js';
 import {SourceObjectService} from './objects.js';
 import {PersistentTree} from './trees.js';
 import {S3SourceObjectBackend,sourceS3Configuration} from './s3.js';
-import type {SourceObjectBackend} from './storage_contract.js';
+import type {SourceObjectBackend,SourceDeletionBackend} from './storage_contract.js';
 import {SourceWorkspaceService,type WorkspaceBudgets} from './workspaces.js';
 import {SourceControlError,SOURCE_ACTIONS} from './contracts.js';
 import {SourceMergeEngine} from './merge.js';
@@ -27,6 +26,17 @@ import {SourceFleetService,assertFleetManagedAuthority} from './fleet-adapter.js
 import {NativeFleetQualification} from '../assurance/fleet_native.js';
 import {createNativeSourceManifest,verifyFleetSourceManifest,type NativeSourceManifest} from '../preparation/fleet_source.js';
 import type {InvocationContext} from '../transport/protocol.js';
+import {SourceRetentionService} from './retention.js';
+import {SourceTransferService,sourceTransferOptions,SOURCE_TRANSFER_PATH,type SourceTransferOptions} from './transfers.js';
+import {SourceMigrationService,sourceMigrationControls,type SourceMigrationControls} from './migration/cutover.js';
+import {SourceBackupService} from './backup.js';
+import {SourceRecoveryService,type SourceRecoveryAuthority} from './recovery.js';
+import {SourceRoutingService,SourceRoutedObjectCatalog} from './routing.js';
+import {SourceMetricsService} from './metrics.js';
+import {lookupAuthorityActivation} from '../storage/durability.js';
+import {NativeSourceGraph,sourceGraphConfiguration,type NativeGraphOptions} from './graph-adapter.js';
+import {SourceGitImporter} from './git/import.js';
+import {sourceImportSources,type GitImportSource} from './git/import_transport.js';
 
 function actionInput(input:unknown,allowed:readonly string[]):Record<string,unknown> {
  if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!allowed.includes(key)))
@@ -42,12 +52,28 @@ export interface SourceServiceOptions {
  authorization?:SourceAuthorizationOptions;
  transaction?:SourceMetadataOptions['transaction'];
  publication?:{destinations:readonly SourceGitDestination[]};
+ imports?:{sources:readonly GitImportSource[]};
+ graph?:NativeGraphOptions;
+ migration?:SourceMigrationControls;
+ recoveryAuthority?:SourceRecoveryAuthority;
+ routing_owner_id?:string;
+ transfers?:SourceTransferOptions;
 }
 export function createSourceService(options:SourceServiceOptions) {
  const metadata=new SourceMetadata(options.pool,options.transaction?{transaction:options.transaction}:{});
- const catalog=new PostgresSourceObjectCatalog({transaction:body=>metadata.transaction(tx=>body(tx))});
+ const database={transaction:<T>(body:(tx:import('./storage_contract.js').SourceTransaction)=>Promise<T>)=>metadata.transaction(tx=>body(tx))};
+ const catalog=new SourceRoutedObjectCatalog(database,options.routing_owner_id??null);
  const objects=new SourceObjectService(catalog,options.backend),trees=new PersistentTree(objects);
  const workspaces=new SourceWorkspaceService(metadata,trees,options.workspaceBudgets);
+ const retention='delete' in options.backend&&typeof options.backend.delete==='function'?new SourceRetentionService(metadata,options.backend as SourceDeletionBackend):undefined;
+ const requireRetention=()=>{if(!retention)throw new SourceControlError('CAPABILITY_UNAVAILABLE','Object storage does not support conditional collection');return retention;};
+ const graph=new NativeSourceGraph(metadata,trees,objects,options.graph,options.cursorKey);
+ const imports=new SourceGitImporter(metadata,objects,trees,options.imports?.sources??[]);
+ const migration=new SourceMigrationService(metadata,objects,trees,options.imports?.sources??[],options.migration,async(tx,context,id)=>{const accepted=await acceptance.authorizeAcceptance(tx,context,id);return {revision_id:accepted.revision_id,root_tree_id:accepted.root_tree_id};});
+ const backups=new SourceBackupService(metadata,options.backend);
+ const recovery=new SourceRecoveryService(metadata,backups,options.recoveryAuthority);
+ const routing=new SourceRoutingService(metadata);
+ const metrics=new SourceMetricsService(metadata);
  const transformations=new SourceTransformationService(metadata,new SourceMergeEngine(objects,trees));
  const assurance=new NativeSourceAssurance(metadata,objects);
  const candidates=new SourceCandidateService(metadata,assurance.verifyEvidence.bind(assurance));
@@ -56,6 +82,7 @@ export function createSourceService(options:SourceServiceOptions) {
  const fleetSelection=new SourceFleetSelectionService(metadata,acceptance);
  const fleetQualification=new NativeFleetQualification(candidates,assurance);
  const authorization={assertManagedAuthority:assertFleetManagedAuthority,...options.authorization};
+ const transfers=new SourceTransferService(metadata,objects,options.transfers?{...options.transfers,authorization:{...authorization,...options.transfers.authorization}}:undefined);
  const verifyFleetManifest=async(invocation:InvocationContext,manifest:NativeSourceManifest):Promise<void>=>{
   const context=await metadata.transaction(tx=>authorizeInvocationSource(tx,{invocation,scope:manifest.scope,action:'source.fleet.manifest',mutation:false,revision_id:manifest.revision},authorization));
   verifyFleetSourceManifest(manifest,{digest:manifest.digest,revision:manifest.revision,repository:manifest.repository,readScope:manifest.paths,metadataOnly:manifest.transfer_mode==='metadata-only',backend:'native',scope:context.scope});
@@ -69,6 +96,7 @@ export function createSourceService(options:SourceServiceOptions) {
    return {acceptance_id:receipt.acceptance_id,revision_id:receipt.revision_id,root_tree_id:receipt.root_tree_id,receipt_digest:receipt.result_digest};
   },
   authorizeRevision:async(tx,context,id)=>{await acceptance.authorizeAcceptedRevision(tx,context,id);},
+  authorizePath:async(tx,context,path)=>{if(!('assertCurrent' in context)||typeof context.assertCurrent!=='function')throw new SourceControlError('SCOPE_DENIED','Publication requires current path authority');await (context as SourceAuthorization).assertCurrent(tx,'source.publications.resume',[path]);},
  });
  const authorize=(request:SourceApiAuthorizationRequest)=>metadata.transaction(async tx=>{
   const common={scope:request.scope,action:request.action,mutation:request.mutation,...(request.paths?{paths:request.paths}:{}),
@@ -80,6 +108,51 @@ export function createSourceService(options:SourceServiceOptions) {
  const api=createSourceApi({objects,trees,metadata,authorize,cursorKey:options.cursorKey,
   workspaceOperation:(context,operation)=>workspaces.operation(context,operation),
   extensions:{
+   'source.transfers.create':(request,context)=>transfers.create(context,actionInput(request.input,['transfer_id','direction','object_id','kind','size_bytes','expires_at','paths','revision_id']) as unknown as Parameters<SourceTransferService['create']>[1]),
+   'source.metrics.read':(request,context)=>metrics.read(context,actionInput(request.input,['max_rows']) as {max_rows?:number}),
+   'source.transfers.read':(request,context)=>transfers.read(context,actionInput(request.input,['transfer_id']).transfer_id as string),
+   'source.transfers.complete':(request,context)=>transfers.complete(context,actionInput(request.input,['transfer_id','object_id']) as unknown as Parameters<SourceTransferService['complete']>[1]),
+   'source.transfers.cancel':(request,context)=>transfers.cancel(context,actionInput(request.input,['transfer_id']).transfer_id as string),
+   'source.migration.prepare':(request,context)=>migration.prepare(context,request.input),
+   'source.migration.refresh':(request,context)=>migration.refresh(context,mutationInput(request,['migration_id','expected_generation','manifest']) as unknown as Parameters<SourceMigrationService['refresh']>[1]),
+   'source.migration.stage':(request,context)=>migration.stage(context,request.input,request.operation_id),
+   'source.migration.read':(request,context)=>migration.read(context,actionInput(request.input,['migration_id']).migration_id as string),
+   'source.migration.consolidate':(request,context)=>migration.consolidate(context,mutationInput(request,['migration_id','expected_generation']) as unknown as Parameters<SourceMigrationService['consolidate']>[1]),
+   'source.migration.parity':(request,context)=>migration.parity(context,mutationInput(request,['migration_id','expected_generation']) as unknown as Parameters<SourceMigrationService['parity']>[1]),
+   'source.migration.quiesce':(request,context)=>migration.quiesce(context,mutationInput(request,['migration_id','expected_generation']) as unknown as Parameters<SourceMigrationService['quiesce']>[1]),
+   'source.migration.activate':(request,context)=>migration.activate(context,mutationInput(request,['migration_id','expected_generation','acceptance_id']) as unknown as Parameters<SourceMigrationService['activate']>[1]),
+   'source.migration.abort':(request,context)=>migration.abort(context,mutationInput(request,['migration_id','expected_generation']) as unknown as Parameters<SourceMigrationService['abort']>[1]),
+   'source.migration.recover':(request,context)=>migration.recover(context,mutationInput(request,['migration_id','expected_generation']) as unknown as Parameters<SourceMigrationService['recover']>[1]),
+   'source.backups.create':(request,context)=>backups.create(context,actionInput(request.input,['backup_id','profile','expires_at','max_revisions','max_objects','max_bytes']) as unknown as Parameters<SourceBackupService['create']>[1]),
+   'source.backups.read':(request,context)=>backups.read(context,actionInput(request.input,['backup_id']).backup_id as string),
+   'source.backups.verify':(request,context)=>backups.verify(context,actionInput(request.input,['backup_id','limit']) as unknown as Parameters<SourceBackupService['verify']>[1]),
+   'source.recovery.profile':async request=>recovery.profile(request.input),
+   'source.recovery.readiness':(request,context)=>recovery.readiness(context,actionInput(request.input,['backup_id']) as unknown as Parameters<SourceRecoveryService['readiness']>[1]),
+   'source.recovery.prepare':(request,context)=>recovery.prepare(context,mutationInput(request,['backup_id','expected_external_epoch','expected_database_epoch','activated_epoch']) as unknown as Parameters<SourceRecoveryService['prepare']>[1]),
+   'source.recovery.activate':(request,context)=>recovery.activate(context,mutationInput(request,['backup_id','expected_external_epoch','expected_database_epoch','activated_epoch']) as unknown as Parameters<SourceRecoveryService['activate']>[1]),
+   'source.routing.read':(request,context)=>routing.read(context,actionInput(request.input,['partition']) as unknown as Parameters<SourceRoutingService['read']>[1]),
+   'source.routing.move':(request,context)=>routing.move(context,mutationInput(request,['partition','expected_generation','owner_id']) as unknown as Parameters<SourceRoutingService['move']>[1]),
+
+   'source.retention.configure':(request,context)=>requireRetention().configure(context,actionInput(request.input,['expected_generation','minimum_age_seconds','quarantine_seconds','backup_until','backend_identity','independent_expiration']) as unknown as Parameters<SourceRetentionService['configure']>[1]),
+   'source.retention.acquire':(request,context)=>requireRetention().acquire(context,actionInput(request.input,['root_id','owner_kind','owner_id','object_id','expires_at']) as unknown as Parameters<SourceRetentionService['acquire']>[1]),
+   'source.retention.release':(request,context)=>requireRetention().release(context,actionInput(request.input,['root_id','owner_kind','owner_id']) as unknown as Parameters<SourceRetentionService['release']>[1]),
+   'source.retention.reserve':(request,context)=>requireRetention().reserve(context,actionInput(request.input,['reservation_id','parent_object_id','parent_incarnation_id','child_object_id','child_incarnation_id','position']) as unknown as Parameters<SourceRetentionService['reserve']>[1]),
+   'source.retention.reconcile':(request,context)=>requireRetention().reconcile(context,actionInput(request.input,['reservation_id']) as unknown as Parameters<SourceRetentionService['reconcile']>[1]),
+   'source.collection.discover':(request,context)=>requireRetention().discover(context,actionInput(request.input,['partition','limit']) as unknown as Parameters<SourceRetentionService['discover']>[1]),
+   'source.collection.collect':(request,context,principal)=>requireRetention().collect(context,actionInput(request.input,['partition','limit']) as unknown as Parameters<SourceRetentionService['collect']>[1],'signal' in principal?principal.signal:undefined),
+   'source.collection.inspect':(request,context)=>requireRetention().inspect(context,actionInput(request.input,['partition','limit','after']) as unknown as Parameters<SourceRetentionService['inspect']>[1]),
+   'source.graph.build':(request,context,principal)=>graph.build(context,actionInput(request.input,['build_id','revision_id','root_tree_id','paths','configuration','previous_build_id','overlay','budgets']) as unknown as Parameters<NativeSourceGraph['build']>[1],'signal' in principal?principal.signal:undefined),
+   'source.graph.publish':(request,context)=>graph.publish(context,mutationInput(request,['build_id','channel','expected_generation']) as unknown as Parameters<NativeSourceGraph['publish']>[1]),
+   'source.graph.query':(request,context)=>graph.query(context,actionInput(request.input,['build_id','revision_id','root_tree_id','mode','path','q','limit','cursor']) as unknown as Parameters<NativeSourceGraph['query']>[1]),
+   'source.imports.create':(request,context)=>imports.create(context,actionInput(request.input,['import_id','source_id','tip_oid','base_revision_id','policy_id','policy_version','budget']) as unknown as Parameters<SourceGitImporter['create']>[1]),
+   'source.imports.read':(request,context)=>imports.read(context,actionInput(request.input,['import_id']).import_id as string),
+   'source.imports.resume':(request,context,principal)=>imports.resume(context,actionInput(request.input,['import_id']).import_id as string,'signal' in principal?principal.signal:undefined),
+   'source.imports.mappings':(request,context)=>{const input=actionInput(request.input,['import_id','after','limit']);return imports.mappings(context,input.import_id as string,input as Parameters<SourceGitImporter['mappings']>[2]);},
+   'source.projections.create':(request,context)=>imports.provenance.createPolicy(context,request.input),
+   'source.projections.read':(request,context)=>{const input=actionInput(request.input,['policy_id','version']);return imports.provenance.readPolicy(context,input.policy_id as string,input.version as number);},
+   'source.contributions.create':(request,context)=>imports.createContribution(context,actionInput(request.input,['import_id','source_id','tip_oid','base_revision_id','policy_id','policy_version','budget','contribution_id','provider','provider_identity']) as unknown as Parameters<SourceGitImporter['createContribution']>[1]),
+   'source.contributions.read':(request,context)=>imports.readContribution(context,actionInput(request.input,['contribution_id']).contribution_id as string),
+
    'source.fleet.select':(request,context,principal)=>fleetSelection.select(context,mutationInput(request,['selection_id','run_id','acceptance_id','expected_generation','leader_generation']) as unknown as Parameters<typeof fleetSelection.select>[1],'operation' in principal?principal:undefined),
    'source.fleet.selection':(request,context)=>fleetSelection.read(context,actionInput(request.input,['run_id','selection_id']) as unknown as Parameters<typeof fleetSelection.read>[1]),
    'source.fleet.manifest':(request,context)=>{
@@ -129,6 +202,7 @@ export function createSourceService(options:SourceServiceOptions) {
     actionInput(request.input,['operation_id','max_steps','expected_generation','resolution']) as unknown as ResumeInput,
     'signal' in principal?{signal:principal.signal}:{}),
    'source.workspaces.open':(request,context)=>workspaces.open(context,request.input),
+   'source.workspaces.close':(request,context)=>workspaces.close(context,mutationInput(request,['workspace_id','expected_workspace_generation'])),
    'source.workspaces.detail':(request,context)=>workspaces.detail(context,request.input),
    'source.workspaces.checkpoint':(request,context)=>{
     const input=request.input as Record<string,unknown>;
@@ -137,7 +211,7 @@ export function createSourceService(options:SourceServiceOptions) {
     return workspaces.checkpoint(context,input);
    },
   }});
- return {api,metadata,catalog,objects,trees,workspaces,transformations,assurance,candidates,acceptance,publications,fleet,fleetSelection,fleetQualification,verifyFleetManifest};
+ return {api,metadata,catalog,objects,trees,workspaces,retention,graph,imports,migration,backups,recovery,routing,metrics,transfers,transformations,assurance,candidates,acceptance,publications,fleet,fleetSelection,fleetQualification,verifyFleetManifest};
 }
 export function sourceWorkspaceBudgets(env:Readonly<NodeJS.ProcessEnv>):WorkspaceBudgets {
  const positive=(key:string)=>{const text=env[key];if(!text||!/^\d+$/.test(text)||!Number.isSafeInteger(Number(text))||Number(text)<1)throw new SourceControlError('CONFIGURATION_INVALID','Explicit positive source budget required: '+key);return Number(text);};
@@ -148,13 +222,15 @@ export function sourceCursorKey(env:Readonly<NodeJS.ProcessEnv>):Uint8Array {
  const key=Buffer.from(text,'base64url');if(key.length<32||key.length>64||key.toString('base64url')!==text)throw new SourceControlError('CONFIGURATION_INVALID','Source cursor key must contain 32 to 64 bytes');return key;
 }
 export function createComponent(context:ComponentContext):Component {
+ const restoreAuthority=context.dependencies.require('4.4','storage.authority.v1',(value:unknown):value is {assertExternalCurrent:(options:{signal:AbortSignal})=>Promise<unknown>}=>Boolean(value&&typeof (value as any).assertExternalCurrent==='function'));
+ const recoveryAuthority:SourceRecoveryAuthority={verify:async input=>{if(!context.env.HYPERFIDE_DEPLOYMENT_ID)throw new SourceControlError('CONFIGURATION_INVALID','Recovery requires the current deployment identity');const receipt=await lookupAuthorityActivation(context.resources,{deployment_id:context.env.HYPERFIDE_DEPLOYMENT_ID,operation_id:input.operation_id,expected_previous_epoch:input.expected_external_epoch,database_predecessor_epoch:input.expected_database_epoch,epoch:input.activated_epoch,signal:context.signal});await restoreAuthority.assertExternalCurrent({signal:context.signal});return {epoch:receipt.epoch,proof_digest:receipt.evidence_digest,deployment_id:receipt.deployment_id};}};
  let service:ReturnType<typeof createSourceService>|undefined;
  const current=()=>service??=createSourceService({pool:getPool(context.env),backend:new S3SourceObjectBackend(sourceS3Configuration(context.env)),cursorKey:sourceCursorKey(context.env),workspaceBudgets:sourceWorkspaceBudgets(context.env),
-  publication:{destinations:sourcePublicationDestinations(context.env)},
+  publication:{destinations:sourcePublicationDestinations(context.env)},transfers:{...sourceTransferOptions(identity.origin+SOURCE_TRANSFER_PATH,sourceCursorKey(context.env)),guardNativePrincipal:(tx,principal)=>identity.guard(tx as Parameters<typeof identity.guard>[0],principal)},recoveryAuthority,...(context.env.HF_SOURCE_ROUTING_OWNER_ID?{routing_owner_id:context.env.HF_SOURCE_ROUTING_OWNER_ID}:{}),...(sourceMigrationControls(context.env)?{migration:sourceMigrationControls(context.env)!}:{}),imports:{sources:sourceImportSources(context.env)},...(sourceGraphConfiguration(context.env)?{graph:sourceGraphConfiguration(context.env)!}:{}),
   transaction:body=>context.resources.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:context.signal},body)});
  const identity=context.dependencies.require('14.1','identity.authority',isIdentityAuthority);
  identity.installSourceWorkerEnroller(async(tx,invocation,credentialId)=>{try{return await current().fleet.enrollWorker(tx,invocation,credentialId);}catch(error){if(error instanceof SourceControlError)throw new FoundationError(error.code,error.message);throw error;}});
- const reserved=new Set(['source.capabilities.manage','source.workspaces.widen','source.workspaces.close','source.transfers.create','source.audit.read']);
+ const reserved=new Set(['source.capabilities.manage','source.workspaces.widen','source.audit.read']);
  const capability=new Proxy({} as ReturnType<typeof createSourceService>,{get:(_target,key)=>Reflect.get(current(),key)});
  return {apiVersion:1,actions:Object.fromEntries(SOURCE_ACTIONS.filter(action=>!reserved.has(action)).map(action=>[action,async(input:unknown,request:ComponentContext)=>{
   if(!request.invocation)throw new SourceControlError('UNAUTHENTICATED','Authenticated source invocation required');

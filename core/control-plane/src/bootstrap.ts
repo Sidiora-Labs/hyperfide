@@ -8,6 +8,7 @@ import type {SpecScope} from './spec/import.js';
 import {issueOfflineOperator,assertBootstrapExternalAuthority} from './bootstrap_identity.js';
 import {recoverBootstrapOperator} from './bootstrap_recovery.js';
 import {amendBootstrapCapabilities} from './bootstrap_capabilities.js';
+import {bootstrapNativeSource,manageNativeSourceCapability} from './bootstrap_native_source.js';
 import {exact,fail,strictJSON,uuid} from './transport/protocol.js';
 
 async function privateInput(filename:string):Promise<Buffer>{
@@ -41,14 +42,15 @@ async function recoverCommand(input:unknown,policy:{deployment_id:string;max_ttl
  }finally{controller.abort();signal?.removeEventListener('abort',stop);await resources.close();}
 }
 export async function bootstrapCommand(args:readonly string[],env:Readonly<NodeJS.ProcessEnv>=Object.freeze({...process.env}),signal?:AbortSignal):Promise<unknown>{
- const recover=args.length===3&&args[0]==='--recover',amend=args.length===3&&args[0]==='--amend-capabilities',amendIntent=args.length===3&&args[0]==='--amend-intent';
- if(recover||amend||amendIntent)args=args.slice(1);
- if(args.length!==2||args[0]!=='--input')fail('INVALID_REQUEST','Usage: hyperfide bootstrap [--recover|--amend-capabilities|--amend-intent] --input /absolute/private.json');
+ const recover=args.length===3&&args[0]==='--recover',amend=args.length===3&&args[0]==='--amend-capabilities',amendIntent=args.length===3&&args[0]==='--amend-intent',nativeSource=args.length===3&&args[0]==='--source-scope',sourceCapability=args.length===3&&args[0]==='--source-capability';
+ if(recover||amend||amendIntent||nativeSource||sourceCapability)args=args.slice(1);
+ if(args.length!==2||args[0]!=='--input')fail('INVALID_REQUEST','Usage: hyperfide bootstrap [--recover|--amend-capabilities|--amend-intent|--source-scope|--source-capability] --input /absolute/private.json');
  if(env.HYPERFIDE_MODE==='offline'||env.HYPERFIDE_MODE==='local')fail('PRIMARY_REQUIRED','Offline observation or local mode cannot issue authority');
  const deployment=env.HYPERFIDE_DEPLOYMENT_ID,ttl=env.HYPERFIDE_BOOTSTRAP_MAX_TTL_MS,root=env.HYPERFIDE_BOOTSTRAP_SOURCE_ROOT,journalDir=env.HYPERFIDE_AUTHORITY_JOURNAL_DIR;
  if(!uuid(deployment)||!ttl||!/^[1-9][0-9]*$/.test(ttl)||!Number.isSafeInteger(Number(ttl))||Number(ttl)>2147483647||
     !root||!path.isAbsolute(root)||!journalDir||!path.isAbsolute(journalDir))fail('BOOTSTRAP_POLICY_REQUIRED','Trusted deployment, source root and bounded expiry policy are required');
  const input=strictJSON(await privateInput(args[1]!),2097152);
+ if(nativeSource||sourceCapability){const resources=createResourceContainer({role:'control',env,signal:signal??new AbortController().signal});try{return await (sourceCapability?manageNativeSourceCapability:bootstrapNativeSource)(resources,input,{deployment_id:deployment,max_ttl_ms:Number(ttl),journal_dir:journalDir},signal);}finally{await resources.close();}}
  if(amend||amendIntent){const resources=createResourceContainer({role:'control',env,signal:signal??new AbortController().signal});try{return await amendBootstrapCapabilities(resources,input,{deployment_id:deployment,max_ttl_ms:Number(ttl),journal_dir:journalDir},env,signal,amendIntent);}finally{await resources.close();}}
  if(recover)return recoverCommand(input,{deployment_id:deployment,max_ttl_ms:Number(ttl),journal_dir:journalDir},env,signal);
  exact(input,['schema_version','scope','metadata','accepted_intent','credential']);

@@ -31,7 +31,7 @@ HF_SOURCE_CONTROL_CONFIG=/run/secrets/source-control.json npm run source-control
 
 The private key also requires owner-only permissions. Local development can explicitly set `"host":"127.0.0.1"` and `"allowLoopbackHTTP":true` instead of TLS. External listeners require TLS 1.3.
 
-Supply the existing PostgreSQL connection in `DATABASE_URL`. Source-control migrations `0736` through `0743` must already be applied through the migration lifecycle. The server checks schema presence when starting. Repository scope, source authority, capabilities and active principal credentials must be provisioned by the authorized control plane.
+Supply the existing PostgreSQL connection in `DATABASE_URL`. The complete source-control migration catalog must already be applied through the migration lifecycle. The server checks schema presence when starting. Repository scope, source authority, capabilities and active principal credentials must be provisioned by the authorized control plane.
 
 The S3 backend reads `HF_SOURCE_S3_ENDPOINT`, `HF_SOURCE_S3_REGION`, `HF_SOURCE_S3_BUCKET`, `HF_SOURCE_S3_ACCESS_KEY_ID` and `HF_SOURCE_S3_SECRET_ACCESS_KEY`; `HF_SOURCE_S3_SESSION_TOKEN` is optional. Existing `HF_ARTIFACT_S3_*` configuration is also supported. Source objects use their own `source/v1/` prefix and physical incarnations. Normal source reads follow pinned tree/object identities rather than bucket listings.
 
@@ -146,3 +146,7 @@ hyperfide source invoke --request-file request.json
 Submission accepts only the exact durable checkpoint of the assigned workspace. It pins the revision in coordinator custody before releasing compute in the same transaction. Repeating the original submission recovers its receipt after a lost response. A replacement attempt cannot write through its predecessor's assignment. Native cleanup uses the retained submission and the runner's verified process and credential cleanup to release the worker slot.
 
 `qualifyFleetTask` is a Hyperfide authority operation: it verifies current task proof obligations, custody, candidate inputs and independent execution evidence before advancing the task to qualified. Dependency admission rechecks the proof. Native acceptance and Git publication remain separate source states.
+
+## Packaged runtime
+
+The [native runtime package](../runtime/source-control.md) ships the service, SDK, host adapters and native clients with a checksummed dependency closure. Worker hosts consume the extracted runtime without compiling the repository. The package smoke driver exercises API-only and sparse source, checkpointing, independently checked acceptance and disposable Git publication; the final release gate additionally requires full-case evidence and operator acceptance.

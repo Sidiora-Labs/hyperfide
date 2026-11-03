@@ -12,10 +12,11 @@ export const requestSchema = scopeSchema
   .extend({
     command: z.enum(["survey", "context", "index-status", "why"]),
     target: text.optional(),
+    nativeSource: z.object({buildId:z.string().uuid(),revisionId:z.string().regex(/^sha256:[a-f0-9]{64}$/),rootTreeId:z.string().regex(/^sha256:[a-f0-9]{64}$/),cursor:text.optional()}).strict().optional(),
   })
   .strict()
   .superRefine((v, ctx) => {
-    if (v.command !== "index-status" && (!v.target || v.target.startsWith("-")))
+    if (!v.nativeSource && v.command !== "index-status" && (!v.target || v.target.startsWith("-")))
       ctx.addIssue({
         code: "custom",
         message: "A non-option target is required",
@@ -31,7 +32,7 @@ export const binarySchema = z.object({
   ok: z.literal(true),
 });
 export const resultSchema = z
-  .object({ binary: binarySchema, data: z.record(z.string(), z.unknown()) })
+  .object({ binary: binarySchema.nullable(), source: z.record(z.string(), z.unknown()).optional(), data: z.record(z.string(), z.unknown()) })
   .strict();
 export const hostInputSchema = requestSchema.safeExtend({
   binaryPath: text.optional(),

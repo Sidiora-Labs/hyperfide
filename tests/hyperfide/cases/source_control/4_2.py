@@ -50,6 +50,9 @@ def main():
         inputs.chmod(0o600)
         return fixture.run_source_actor(ROOT / 'tests/hyperfide/support/native_source_fleet_actor.mjs', timeout=360,
                                         actor_env={**fleet.env, 'NATIVE_SOURCE_FLEET_INPUT': str(inputs)}, extra_files=[
+            'core/control-plane/src/agents/fleet_orchestration.ts',
+            'core/control-plane/src/agents/fleet_source_actions.ts',
+            'core/control-plane/src/agents/fleet_source_registration.ts',
             'core/control-plane/src/preparation/fleet_install.ts',
             'core/control-plane/src/preparation/fleet_readiness_probe.ts',
             'core/control-plane/src/preparation/fleet_isolation.ts',
