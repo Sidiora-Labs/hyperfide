@@ -7,9 +7,9 @@ name = "Hyperfide native source control for large monorepos and agent fleets"
 version = "0.3.1-layout"
 status = "in_progress"
 stage = "implementation"
-review_date = "2026-11-02"
+review_date = "2026-11-03"
 source_baseline = "2f7331ef2085f6f374adf2d1e2ee01405fecb72d"
-intro = "An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 objects and persistent trees, scoped PostgreSQL revision metadata, taskless authenticated APIs, history and source queries, and sparse workspaces with bounded caches and durable checkpoints. Native contract, storage, metadata, security, API and workspace implementation now includes server-side merge, durable rebase stacks and explicit-mainline revert. Layout and fleet integration retain their separate qualification tasks; native acceptance, virtual workspaces and GitHub/GitLab publication follow through the existing task graph."
+intro = "An online server-authoritative source-control subsystem integrated into Hyperfide: immutable S3 objects and persistent trees, scoped PostgreSQL revision metadata, taskless authenticated APIs, history and source queries, and sparse workspaces with bounded caches and durable checkpoints. Native contract, storage, metadata, security, API and workspace implementation now includes server-side merge, durable rebase stacks and explicit-mainline revert. Native candidate qualification, atomic domain acceptance and bounded Git publication extend this implementation. Virtual workspaces, fleet integration, projection/import policies and source cutover follow through the existing task graph."
 
 [decisions]
 d_1 = "Native online source control is a Hyperfide subsystem with a versioned service boundary; Hyperfide keeps task, attempt, scheduling and qualification-policy authority. Basic source operations also support authorized taskless principals."
@@ -627,7 +627,7 @@ cases = ["SCM-012"]
 title = "Native candidate qualification and atomic domain acceptance"
 wave = 4
 requires = ["3.1", "3.3"]
-touches = ["core/control-plane/src/source_control/candidates.ts", "core/control-plane/src/source_control/acceptance.ts", "core/control-plane/src/source_control/evidence.ts", "core/control-plane/src/integration/queue.ts", "core/control-plane/src/integration/candidates.ts", "core/control-plane/src/assurance/submission.ts", "core/control-plane/src/assurance/validity.ts", "core/control-plane/migrations/0719-source-control-acceptance.sql", "tests/hyperfide/cases/source_control/4_1.py"]
+touches = ["core/control-plane/src/source_control/candidates.ts", "core/control-plane/src/source_control/acceptance.ts", "core/control-plane/src/source_control/evidence.ts", "core/control-plane/src/integration/queue.ts", "core/control-plane/src/integration/candidates.ts", "core/control-plane/src/assurance/submission.ts", "core/control-plane/src/assurance/validity.ts", "core/control-plane/migrations/0741-source-control-acceptance.sql", "core/control-plane/migrations/0743-source-control-assurance.sql", "core/control-plane/src/assurance/native_source.ts", "core/control-plane/src/source_control/registration.ts", "core/control-plane/src/source_control/api.ts", "core/control-plane/src/source_control/capabilities.ts", "core/control-plane/src/source_control/contracts.ts", "core/control-plane/src/source_control/server.ts", "core/control-plane/components/source-control.json", "sdk/source-control/src/**", "docs/hyperfide/source-control.md", "tests/hyperfide/support/native_source_acceptance_actor.mjs", "tests/hyperfide/support/native_source_acceptance_fixture.mjs", "tests/hyperfide/support/native_source_fixture.py", "tests/hyperfide/cases/source_control/4_1.py"]
 do_1 = "Create immutable candidate/contributor/input manifests for native root/revision IDs and versioned source bindings in assurance submission/validity. Preserve existing current custody, spec/policy/checker and disposition semantics while isolating native candidates from Git-backed legacy ones."
 do_2 = "Implement bounded fair candidate scheduling and optional speculative batches outside metadata transactions, with exact contributor order, explicit dependency versions, transformation version, captured source/config/toolchain/graph coverage and current custody references."
 do_3 = "Implement the initial same-authority PostgreSQL acceptance transaction with expected-domain CAS, current assurance/revocation verification, object/root retention pins, immutable acceptance receipt, idempotent result and source outbox. Document migration 0719 collision handling; no network upload, merge worker, build/test or Git call may hold the domain transaction open."
@@ -636,7 +636,7 @@ do_5 = "Expose separate native-created, candidate-qualified, native-accepted and
 do_6 = "Create future 4_1.py using the real candidate engine, metadata and assurance modules: race two candidates at one generation, policy/custody revocation versus acceptance, lost acknowledgment, changed tree receipt, malformed contributor set, GC race, batch isolation and hot-domain fairness. Verify no accepted tree lacks exact current evidence or retained content."
 reqs = ["4.5", "5.3", "5.4", "7.1", "7.2", "7.3", "7.4", "7.5", "7.6"]
 owner = "source-integration"
-status = "pending"
+status = "in_progress"
 verify_cmd = "python3 tests/hyperfide/cases/source_control/4_1.py"
 cases = ["SCM-009"]
 
@@ -677,10 +677,10 @@ cases = ["SCM-014"]
 
 [task.5.1]
 title = "Publish accepted native changes through bounded Git remote adapters"
-status = "pending"
+status = "in_progress"
 wave = 5
 requires = ["4.1", "4.2"]
-touches = ["core/control-plane/src/source_control/git/objects.ts", "core/control-plane/src/source_control/git/export.ts", "core/control-plane/src/source_control/git/transport.ts", "core/control-plane/src/source_control/git/github.ts", "core/control-plane/src/source_control/git/gitlab.ts", "core/control-plane/src/integration/publication.ts", "core/control-plane/src/integration/github.ts", "plugins/hyperfide-qualify/publication.ts", "plugins/github/wave-publication.ts", "tests/hyperfide/cases/source_control/5_1.py"]
+touches = ["core/control-plane/src/source_control/git/objects.ts", "core/control-plane/src/source_control/git/export.ts", "core/control-plane/src/source_control/git/transport.ts", "core/control-plane/src/source_control/git/github.ts", "core/control-plane/src/source_control/git/gitlab.ts", "core/control-plane/src/integration/publication.ts", "core/control-plane/src/integration/github.ts", "plugins/hyperfide-qualify/publication.ts", "plugins/github/wave-publication.ts", "core/control-plane/src/source_control/git/projection.ts", "core/control-plane/src/source_control/git/types.ts", "core/control-plane/src/source_control/publication_config.ts", "core/control-plane/src/source_control/operations.ts", "core/control-plane/migrations/0742-source-control-publication.sql", "core/control-plane/src/source_control/registration.ts", "sdk/source-control/src/**", "docs/hyperfide/source-control.md", "tests/hyperfide/support/native_source_git_actor.mjs", "tests/hyperfide/cases/source_control/5_1.py"]
 verify_cmd = "python3 tests/hyperfide/cases/source_control/5_1.py"
 do_1 = "Implement a bounded native-to-Git object encoder with explicit Git format namespace, byte/mode/path handling, ordered parent mapping and persisted public metadata. Generate identical Git IDs on retry and reuse unchanged projected trees; never create a full worktree/clone or require native pack storage."
 do_2 = "Implement durable export intent/checkpoint/mapping and one unresolved mutation per destination/ref, retaining current qualification/authorization bindings and source roots. Replace the platform publisher local-bare/worktree assumption behind a versioned native export interface while keeping historical receipts readable."

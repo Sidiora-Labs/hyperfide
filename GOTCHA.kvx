@@ -1,3 +1,10 @@
+[gotcha.source_publication_terminal_receipt]
+symptom = "Cancelling a queued native Git publication fails the shared operation state constraint."
+cause = "source_metadata_operations permits non-null result and result_digest only for COMMITTED operations; publication cancellation wrote a receipt with CANCELLED."
+resolution = "Keep cancelled and failed publication receipts in source_git_publications, with null result fields in the shared operation row. Publication reads and replays use the feature receipt."
+evidence = "Migration 0737 defines the constraint; the source-control 5_1 integration driver reproduced the failure through the authenticated cancellation API."
+status = "resolved"
+
 [gotcha.source_spec_bootstrap]
 symptom = "The installed hyperfide brief command refuses a fresh source checkout without initialized project state."
 cause = "Repository source and spec files do not themselves initialize the local graph database."

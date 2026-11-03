@@ -40,6 +40,7 @@ export async function cancelSourceOperation(store: SourceMetadata, context: Sour
   const values = [...sourceScopeValues(context.scope), context.principal_id, operationId];
   const row = (await tx.query(`SELECT ${columns} FROM hyperfide.source_metadata_operations WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5 FOR UPDATE`, values)).rows[0] as SourceOperationRecord | undefined;
   if (!row) sourceFailure('NOT_FOUND', 'Source operation is unavailable in the authorized scope');
+  if (row.action === 'source.publications.create') sourceFailure('PUBLICATION_CANCELLATION_REQUIRED', 'Cancel publication through source.publications.cancel to reconcile any issued remote update');
   if (row.state === 'COMMITTED') return {disposition: 'TOO_LATE', operation: row};
   if (row.state !== 'PENDING') return {disposition: 'ALREADY_TERMINAL', operation: row};
   await tx.query("UPDATE hyperfide.source_metadata_operations SET state='CANCELLED',updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5", values);

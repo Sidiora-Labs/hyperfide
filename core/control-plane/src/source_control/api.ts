@@ -56,7 +56,7 @@ function queryBudget(input:unknown,principal:SourceApiPrincipal):QueryBudget {
   return {max_nodes:b.max_nodes===undefined?1024:b.max_nodes as number,max_bytes:b.max_bytes===undefined?4194304:b.max_bytes as number,max_ms:b.max_ms===undefined?5000:b.max_ms as number,...('signal' in principal?{signal:principal.signal}:{})};
 }
 function requestPaths(action:string,input:Record<string,unknown>):string[]|undefined {
-  if(action.startsWith('source.transforms.'))return [''];
+  if(['source.transforms.','source.domains.','source.candidates.','source.acceptance.','source.assurance.','source.publications.'].some(prefix=>action.startsWith(prefix)))return [''];
   if(action==='source.workspaces.detail'&&input.path!==undefined)return [parseRepositoryPath(input.path)];
   if(['source.workspaces.open','source.workspaces.create','source.workspaces.widen'].includes(action)) {
     if(!Array.isArray(input.read_paths)||!input.read_paths.length||input.read_paths.length>256)throw new SourceControlError('INVALID_REQUEST','Workspace requires explicit bounded source paths');
@@ -81,7 +81,7 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
     async invoke(action:string,raw:unknown,principal:SourceApiPrincipal):Promise<unknown> {
       const request=parseSourceRequest(raw);
       if(request.action!==action||!supported.includes(action))throw new SourceControlError('UNSUPPORTED_ACTION','Source action is unavailable');
-      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume)$/.test(action);
+      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume|configure|qualify|accept|publish|revoke)$/.test(action);
       const paths=requestPaths(action,input),authorization=await dependencies.authorize({scope:request.scope,action,mutation,
         ...('operation' in principal?{invocation:principal}:{principal}),...(paths?{paths}:{}),
         ...(typeof input.revision_id==='string'?{revision_id:input.revision_id}:{}),

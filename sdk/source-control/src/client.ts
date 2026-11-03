@@ -3,6 +3,12 @@ import {
   type SourceAction,type SourceAuthority,type SourceRequest,type SourceScope,
 } from './contracts.js';
 import type {SourceMergeRequest,SourceRebaseRequest,SourceRevertRequest,SourceResumeRequest,SourceTransformationResult} from './transformations.js';
+import type {
+ SourceCreateDomainRequest,SourceConfigureDomainRequest,SourceCreateCandidateRequest,SourceQualifyCandidateRequest,
+ SourceAcceptCandidateRequest,SourceIntegrationDomain,SourceCandidateRecord,SourceCandidateQualification,SourceAcceptanceReceipt,
+ SourceCreateCustodyRequest,SourceCustodyReceipt,SourcePublishEvidenceRequest,SourceEvidenceReceipt,SourceRevocationReceipt,
+} from './acceptance.js';
+import type {SourceCreatePublicationRequest,SourcePublicationResult} from './publication.js';
 
 export interface SourceClientOptions {
   endpoint:string;
@@ -62,4 +68,20 @@ export class SourceControlClient {
   revert(input:SourceRevertRequest,options:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.revert',input,options);}
   transformation(operation_id:string,options?:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.read',{operation_id},options);}
   resumeTransformation(input:SourceResumeRequest,options?:SourceCallOptions){return this.call<SourceTransformationResult>('source.transforms.resume',input,options);}
+  createDomain(input:SourceCreateDomainRequest,options:SourceCallOptions){return this.call<SourceIntegrationDomain>('source.domains.create',input,options);}
+  domain(domain_id:string,options?:SourceCallOptions){return this.call<SourceIntegrationDomain>('source.domains.read',{domain_id},options);}
+  configureDomain(input:SourceConfigureDomainRequest,options:SourceCallOptions){return this.call<SourceIntegrationDomain>('source.domains.configure',input,options);}
+  createCandidate(input:SourceCreateCandidateRequest,options:SourceCallOptions){return this.call<SourceCandidateRecord>('source.candidates.create',input,options);}
+  candidate(candidate_id:string,options?:SourceCallOptions){return this.call<SourceCandidateRecord>('source.candidates.read',{candidate_id},options);}
+  qualifyCandidate(input:SourceQualifyCandidateRequest,options:SourceCallOptions){return this.call<SourceCandidateQualification>('source.candidates.qualify',input,options);}
+  acceptCandidate(input:SourceAcceptCandidateRequest,options:SourceCallOptions){return this.call<SourceAcceptanceReceipt>('source.acceptance.accept',input,options);}
+  acceptance(acceptance_id:string,options?:SourceCallOptions){return this.call<SourceAcceptanceReceipt>('source.acceptance.read',{acceptance_id},options);}
+  createSourceCustody(input:SourceCreateCustodyRequest,options:SourceCallOptions){return this.call<SourceCustodyReceipt>('source.assurance.custody.create',input,options);}
+  publishSourceEvidence(input:SourcePublishEvidenceRequest,options:SourceCallOptions){return this.call<SourceEvidenceReceipt>('source.assurance.publish',input,options);}
+  revokeSourceEvidence(evidence_id:string,options:SourceCallOptions){return this.call<SourceRevocationReceipt>('source.assurance.revoke',{evidence_id},options);}
+  revokeSourceCustody(custody_id:string,options:SourceCallOptions){return this.call<SourceRevocationReceipt>('source.assurance.revoke',{custody_id},options);}
+  createPublication(input:SourceCreatePublicationRequest,options:SourceCallOptions){return this.call<SourcePublicationResult>('source.publications.create',input,options);}
+  publication(operation_id:string,options?:SourceCallOptions){return this.call<SourcePublicationResult>('source.publications.read',{operation_id},options);}
+  resumePublication(operation_id:string,options?:SourceCallOptions){return this.call<SourcePublicationResult>('source.publications.resume',{operation_id},options);}
+  cancelPublication(operation_id:string,options?:SourceCallOptions){return this.call<SourcePublicationResult>('source.publications.cancel',{operation_id},options);}
 }

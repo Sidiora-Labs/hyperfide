@@ -13,17 +13,28 @@ import {SourceWorkspaceService,type WorkspaceBudgets} from './workspaces.js';
 import {SourceControlError} from './contracts.js';
 import {SourceMergeEngine} from './merge.js';
 import {SourceTransformationService,type MergeInput,type RebaseInput,type RevertInput,type ResumeInput} from './transformations.js';
+import {SourceCandidateService} from './candidates.js';
+import {SourceAcceptanceService} from './acceptance.js';
+import {NativeSourceAssurance} from '../assurance/native_source.js';
+import {SourceGitPublicationService} from './git/export.js';
+import type {SourceGitDestination} from './git/types.js';
+import {sourcePublicationDestinations} from './publication_config.js';
+import type {SourceRequest} from './contracts.js';
 
-function transformInput(input:unknown,allowed:readonly string[]):Record<string,unknown> {
+function actionInput(input:unknown,allowed:readonly string[]):Record<string,unknown> {
  if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!allowed.includes(key)))
-  throw new SourceControlError('INVALID_REQUEST','Source transformation fields differ from the versioned schema');
+  throw new SourceControlError('INVALID_REQUEST','Source action fields differ from the versioned schema');
  return input as Record<string,unknown>;
+}
+function mutationInput(request:SourceRequest,allowed:readonly string[]):Record<string,unknown> {
+ return {...actionInput(request.input,allowed),operation_id:request.operation_id,idempotency_key:request.idempotency_key??request.operation_id};
 }
 
 export interface SourceServiceOptions {
  pool:Pool; backend:SourceObjectBackend; cursorKey:Uint8Array; workspaceBudgets:WorkspaceBudgets;
  authorization?:SourceAuthorizationOptions;
  transaction?:SourceMetadataOptions['transaction'];
+ publication?:{destinations:readonly SourceGitDestination[]};
 }
 export function createSourceService(options:SourceServiceOptions) {
  const metadata=new SourceMetadata(options.pool,options.transaction?{transaction:options.transaction}:{});
@@ -31,6 +42,17 @@ export function createSourceService(options:SourceServiceOptions) {
  const objects=new SourceObjectService(catalog,options.backend),trees=new PersistentTree(objects);
  const workspaces=new SourceWorkspaceService(metadata,trees,options.workspaceBudgets);
  const transformations=new SourceTransformationService(metadata,new SourceMergeEngine(objects,trees));
+ const assurance=new NativeSourceAssurance(metadata,objects);
+ const candidates=new SourceCandidateService(metadata,assurance.verifyEvidence.bind(assurance));
+ const acceptance=new SourceAcceptanceService(candidates);
+ const publications=new SourceGitPublicationService(metadata,objects,trees,{
+  destinations:options.publication?.destinations??[],
+  acceptance:async(tx,context,id)=>{
+   const receipt=await acceptance.authorizeAcceptance(tx,context,id);
+   return {acceptance_id:receipt.acceptance_id,revision_id:receipt.revision_id,root_tree_id:receipt.root_tree_id,receipt_digest:receipt.result_digest};
+  },
+  authorizeRevision:async(tx,context,id)=>{await acceptance.authorizeAcceptedRevision(tx,context,id);},
+ });
  const authorize=(request:SourceApiAuthorizationRequest)=>metadata.transaction(async tx=>{
   const common={scope:request.scope,action:request.action,mutation:request.mutation,...(request.paths?{paths:request.paths}:{}),
    ...(request.revision_id?{revision_id:request.revision_id}:{}),...(request.object_id?{object_id:request.object_id}:{}),...(request.authority?{authority:{...request.authority}}:{})};
@@ -41,24 +63,39 @@ export function createSourceService(options:SourceServiceOptions) {
  const api=createSourceApi({objects,trees,metadata,authorize,cursorKey:options.cursorKey,
   workspaceOperation:(context,operation)=>workspaces.operation(context,operation),
   extensions:{
+   'source.domains.create':(request,context)=>candidates.createDomain(context,mutationInput(request,['domain_id','revision_id','policy_id','policy_digest']) as unknown as Parameters<typeof candidates.createDomain>[1]),
+   'source.domains.read':(request,context)=>candidates.readDomain(context,actionInput(request.input,['domain_id']).domain_id as string),
+   'source.domains.configure':(request,context)=>candidates.configureDomain(context,mutationInput(request,['domain_id','expected_generation','policy_id','policy_digest']) as unknown as Parameters<typeof candidates.configureDomain>[1]),
+   'source.candidates.create':(request,context)=>candidates.create(context,mutationInput(request,['candidate_id','domain_id','expected_generation','expected_revision_id','revision_id','contributors','dependencies','inputs','transformation_version']) as unknown as Parameters<typeof candidates.create>[1]),
+   'source.candidates.read':(request,context)=>candidates.read(context,actionInput(request.input,['candidate_id']).candidate_id as string),
+   'source.candidates.qualify':(request,context)=>candidates.qualify(context,mutationInput(request,['candidate_id','evidence_ids']) as unknown as Parameters<typeof candidates.qualify>[1]),
+   'source.acceptance.accept':(request,context)=>acceptance.accept(context,mutationInput(request,['candidate_id','qualification_id']) as unknown as Parameters<typeof acceptance.accept>[1]),
+   'source.acceptance.read':(request,context)=>acceptance.read(context,actionInput(request.input,['acceptance_id']).acceptance_id as string),
+   'source.assurance.custody.create':(request,context)=>assurance.registerCustody(context,mutationInput(request,['custody_id','custody_generation','revision_id','run_id','task_id']) as unknown as Parameters<typeof assurance.registerCustody>[1]),
+   'source.assurance.publish':(request,context)=>assurance.publish(context,mutationInput(request,['candidate_id','check_id','receipt_object_id']) as unknown as Parameters<typeof assurance.publish>[1]),
+   'source.assurance.revoke':(request,context)=>assurance.revoke(context,mutationInput(request,['evidence_id','custody_id']) as unknown as Parameters<typeof assurance.revoke>[1]),
+   'source.publications.create':(request,context)=>publications.create(context,mutationInput(request,['acceptance_id','destination_id','target_ref','expected_old_oid']) as unknown as Parameters<typeof publications.create>[1]),
+   'source.publications.read':(request,context)=>publications.read(context,actionInput(request.input,['operation_id']).operation_id as string),
+   'source.publications.resume':(request,context,principal)=>publications.resume(context,actionInput(request.input,['operation_id']).operation_id as string,'signal' in principal?{signal:principal.signal}:{}),
+   'source.publications.cancel':(request,context)=>publications.cancel(context,actionInput(request.input,['operation_id']).operation_id as string),
    'source.transforms.merge':(request,context,principal)=>transformations.merge(context,{
-    ...transformInput(request.input,['ours_revision_id','theirs_revision_id','base_revision_id','change_id','provenance','budget']),
+    ...actionInput(request.input,['ours_revision_id','theirs_revision_id','base_revision_id','change_id','provenance','budget']),
     operation_id:request.operation_id,idempotency_key:request.idempotency_key??request.operation_id,
    } as MergeInput,'signal' in principal?{signal:principal.signal}:{}),
    'source.transforms.rebase':(request,context,principal)=>transformations.rebase(context,{
-    ...transformInput(request.input,['revision_ids','onto_revision_id','budget','max_steps']),
+    ...actionInput(request.input,['revision_ids','onto_revision_id','budget','max_steps']),
     operation_id:request.operation_id,idempotency_key:request.idempotency_key??request.operation_id,
    } as RebaseInput,'signal' in principal?{signal:principal.signal}:{}),
    'source.transforms.revert':(request,context,principal)=>transformations.revert(context,{
-    ...transformInput(request.input,['revision_id','onto_revision_id','mainline_parent_revision_id','change_id','provenance','budget']),
+    ...actionInput(request.input,['revision_id','onto_revision_id','mainline_parent_revision_id','change_id','provenance','budget']),
     operation_id:request.operation_id,idempotency_key:request.idempotency_key??request.operation_id,
    } as RevertInput,'signal' in principal?{signal:principal.signal}:{}),
    'source.transforms.read':(request,context)=>{
-    const input=transformInput(request.input,['operation_id']);
+    const input=actionInput(request.input,['operation_id']);
     return transformations.read(context,input.operation_id as string);
    },
    'source.transforms.resume':(request,context,principal)=>transformations.resume(context,
-    transformInput(request.input,['operation_id','max_steps','expected_generation','resolution']) as unknown as ResumeInput,
+    actionInput(request.input,['operation_id','max_steps','expected_generation','resolution']) as unknown as ResumeInput,
     'signal' in principal?{signal:principal.signal}:{}),
    'source.workspaces.open':(request,context)=>workspaces.open(context,request.input),
    'source.workspaces.detail':(request,context)=>workspaces.detail(context,request.input),
@@ -69,7 +106,7 @@ export function createSourceService(options:SourceServiceOptions) {
     return workspaces.checkpoint(context,input);
    },
   }});
- return {api,metadata,catalog,objects,trees,workspaces,transformations};
+ return {api,metadata,catalog,objects,trees,workspaces,transformations,assurance,candidates,acceptance,publications};
 }
 export function sourceWorkspaceBudgets(env:Readonly<NodeJS.ProcessEnv>):WorkspaceBudgets {
  const positive=(key:string)=>{const text=env[key];if(!text||!/^\d+$/.test(text)||!Number.isSafeInteger(Number(text))||Number(text)<1)throw new SourceControlError('CONFIGURATION_INVALID','Explicit positive source budget required: '+key);return Number(text);};
@@ -81,6 +118,7 @@ export function sourceCursorKey(env:Readonly<NodeJS.ProcessEnv>):Uint8Array {
 }
 export function createComponent(context:ComponentContext):Component {
  const service=createSourceService({pool:getPool(context.env),backend:new S3SourceObjectBackend(sourceS3Configuration(context.env)),cursorKey:sourceCursorKey(context.env),workspaceBudgets:sourceWorkspaceBudgets(context.env),
+  publication:{destinations:sourcePublicationDestinations(context.env)},
   transaction:body=>context.resources.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:context.signal},body)});
  return {apiVersion:1,actions:Object.fromEntries(service.api.actions.map(action=>[action,async(input:unknown,current:ComponentContext)=>{
   if(!current.invocation)throw new SourceControlError('UNAUTHENTICATED','Authenticated source invocation required');

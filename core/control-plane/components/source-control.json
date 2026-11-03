@@ -39,7 +39,22 @@
     "source.transforms.rebase",
     "source.transforms.revert",
     "source.transforms.read",
-    "source.transforms.resume"
+    "source.transforms.resume",
+    "source.domains.create",
+    "source.domains.read",
+    "source.domains.configure",
+    "source.candidates.create",
+    "source.candidates.read",
+    "source.candidates.qualify",
+    "source.acceptance.accept",
+    "source.acceptance.read",
+    "source.assurance.custody.create",
+    "source.assurance.publish",
+    "source.assurance.revoke",
+    "source.publications.create",
+    "source.publications.read",
+    "source.publications.resume",
+    "source.publications.cancel"
   ],
   "requires": [
     "4.2"

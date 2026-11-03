@@ -32,7 +32,7 @@ def run_source_actor(actor_path, migrations=None, timeout=120):
                   'strict': True, 'noUncheckedIndexedAccess': True, 'exactOptionalPropertyTypes': True,
                   'noEmitOnError': True, 'skipLibCheck': True, 'types': ['node'],
                   'typeRoots': [str(ROOT / 'core/control-plane/node_modules/@types')]},
-                  'files': [str(path) for path in sorted(modules.glob('*.ts'))]}
+                  'files': [str(path) for path in sorted(modules.rglob('*.ts'))]}
         config_path = folder / 'tsconfig.json'
         config_path.write_text(json.dumps(config))
         subprocess.run([str(ROOT / 'core/control-plane/node_modules/.bin/tsc'), '-p', str(config_path)],

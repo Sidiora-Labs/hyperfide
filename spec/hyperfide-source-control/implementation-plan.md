@@ -745,7 +745,7 @@ Implementation and qualification obligations:
 
 ## 4.1: Native candidate qualification and atomic domain acceptance
 
-Status: **pending**. Owner: `source-integration`. Dependencies: 3.1, 3.3.
+Status: **in_progress**. Owner: `source-integration`. Dependencies: 3.1, 3.3.
 
 Proposed implementation scope:
 
@@ -756,7 +756,20 @@ Proposed implementation scope:
 - `core/control-plane/src/integration/candidates.ts`
 - `core/control-plane/src/assurance/submission.ts`
 - `core/control-plane/src/assurance/validity.ts`
-- `core/control-plane/migrations/0719-source-control-acceptance.sql`
+- `core/control-plane/migrations/0741-source-control-acceptance.sql`
+- `core/control-plane/migrations/0743-source-control-assurance.sql`
+- `core/control-plane/src/assurance/native_source.ts`
+- `core/control-plane/src/source_control/registration.ts`
+- `core/control-plane/src/source_control/api.ts`
+- `core/control-plane/src/source_control/capabilities.ts`
+- `core/control-plane/src/source_control/contracts.ts`
+- `core/control-plane/src/source_control/server.ts`
+- `core/control-plane/components/source-control.json`
+- `sdk/source-control/src/**`
+- `docs/hyperfide/source-control.md`
+- `tests/hyperfide/support/native_source_acceptance_actor.mjs`
+- `tests/hyperfide/support/native_source_acceptance_fixture.mjs`
+- `tests/hyperfide/support/native_source_fixture.py`
 - `tests/hyperfide/cases/source_control/4_1.py`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/4_1.py`.
@@ -848,7 +861,7 @@ Implementation and qualification obligations:
 
 ## 5.1: Publish accepted native changes through bounded Git remote adapters
 
-Status: **pending**. Owner: `remote`. Dependencies: 4.1, 4.2.
+Status: **in_progress**. Owner: `remote`. Dependencies: 4.1, 4.2.
 
 Proposed implementation scope:
 
@@ -861,6 +874,15 @@ Proposed implementation scope:
 - `core/control-plane/src/integration/github.ts`
 - `plugins/hyperfide-qualify/publication.ts`
 - `plugins/github/wave-publication.ts`
+- `core/control-plane/src/source_control/git/projection.ts`
+- `core/control-plane/src/source_control/git/types.ts`
+- `core/control-plane/src/source_control/publication_config.ts`
+- `core/control-plane/src/source_control/operations.ts`
+- `core/control-plane/migrations/0742-source-control-publication.sql`
+- `core/control-plane/src/source_control/registration.ts`
+- `sdk/source-control/src/**`
+- `docs/hyperfide/source-control.md`
+- `tests/hyperfide/support/native_source_git_actor.mjs`
 - `tests/hyperfide/cases/source_control/5_1.py`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/5_1.py`.

@@ -31,7 +31,7 @@ HF_SOURCE_CONTROL_CONFIG=/run/secrets/source-control.json npm run source-control
 
 The private key also requires owner-only permissions. Local development can explicitly set `"host":"127.0.0.1"` and `"allowLoopbackHTTP":true` instead of TLS. External listeners require TLS 1.3.
 
-Supply the existing PostgreSQL connection in `DATABASE_URL`. Source-control migrations `0736` through `0740` must already be applied through the migration lifecycle. The server checks schema presence when starting. Repository scope, source authority, capabilities and active principal credentials must be provisioned by the authorized control plane.
+Supply the existing PostgreSQL connection in `DATABASE_URL`. Source-control migrations `0736` through `0743` must already be applied through the migration lifecycle. The server checks schema presence when starting. Repository scope, source authority, capabilities and active principal credentials must be provisioned by the authorized control plane.
 
 The S3 backend reads `HF_SOURCE_S3_ENDPOINT`, `HF_SOURCE_S3_REGION`, `HF_SOURCE_S3_BUCKET`, `HF_SOURCE_S3_ACCESS_KEY_ID` and `HF_SOURCE_S3_SECRET_ACCESS_KEY`; `HF_SOURCE_S3_SESSION_TOKEN` is optional. Existing `HF_ARTIFACT_S3_*` configuration is also supported. Source objects use their own `source/v1/` prefix and physical incarnations. Normal source reads follow pinned tree/object identities rather than bucket listings.
 
@@ -82,3 +82,41 @@ Rebase accepts an ordered linear `revision_ids` stack and an `onto_revision_id`.
 Inspect progress with `transformation(operationId)` and continue with `resumeTransformation({operation_id: operationId, max_steps: 1})`. A `CONFLICT` result includes an aggregate `conflict_id`; resolve it by passing `resolution: {conflict_id, resolved_tree_id, provenance}` to `resumeTransformation`. The resolved tree must already be uploaded and verified. Optional `expected_generation` rejects a stale continuation. Reusing a conflict identity with a different resolution is refused.
 
 Revert applies the inverse of a pinned revision onto a pinned target. Reverting a merge requires `mainline_parent_revision_id`; reverting a root revision requires an explicit source patch. Cancellation through `source.operations.cancel` preserves already completed steps and prevents later commits. After a lost response, inspect the original transformation before resuming. New revisions require fresh qualification and acceptance.
+
+## Qualification and acceptance
+
+An integration domain holds an accepted revision and generation. `createCandidate` pins the expected domain generation, candidate revision, ordered contributors, dependencies, and source, configuration, toolchain, graph and contract digests. Concurrent acceptance of another candidate changes the domain generation and rejects the stale candidate.
+
+Registered independent checkers publish execution receipts through `publishSourceEvidence`. Receipts bind the exact candidate and inputs, command identity, observed exit status, output and artifact objects. The authorized control plane provisions checker registrations and policies; ordinary source writers cannot register themselves as checkers. Contributor custody and evidence objects remain pinned independently of the original worker.
+
+`qualifyCandidate` verifies the registered checks. `acceptCandidate` rechecks the evidence, policy and custody in the same transaction that advances the domain and records the acceptance receipt. `candidate`, `domain` and `acceptance` inspect these separate states. Source acceptance does not complete a Hyperfide task.
+
+## Git publication
+
+Publication accepts a native acceptance receipt, a configured destination ID, an allowed ref, and its exact expected old Git ID. Git IDs use the `git:sha1:` namespace; use `null` for an absent ref. Every newly exported revision requires current accepted-source authorization. A mapping confirmed at that remote checkpoint can reuse already-public history under current source-read and destination authority. Conversion preserves file bytes, executable modes, symlinks, public commit metadata and ordered parents. Git cannot represent empty directories.
+
+`createPublication` records a queued intent. `resumePublication` projects source objects, streams a temporary Git transport pack, and reads the remote ref back. Confirmed mappings allow later publications to reuse remote objects. `publication` inspects the durable state; `cancelPublication` cancels before dispatch or reconciles an update that may already have reached the remote. Generic operation cancellation is refused for publications. An uncertain push retains its destination/ref reservation.
+
+The native service stores source objects in S3 and metadata in PostgreSQL. Git packs exist only at the transport boundary. HTTPS adapters target GitHub and GitLab; a local adapter uses a configured Git repository for self-hosted destinations and integration tests.
+
+Set `HF_SOURCE_PUBLICATION_CONFIG` to an owner-only JSON file containing trusted destinations:
+
+```json
+{
+  "destinations": [{
+    "id": "public-project",
+    "scope": {
+      "organisation_id": "11111111-1111-4111-8111-111111111111",
+      "repository_id": "22222222-2222-4222-8222-222222222222",
+      "security_domain_id": "33333333-3333-4333-8333-333333333333"
+    },
+    "provider": "github",
+    "repository_identity": "owner/project",
+    "remote_url": "https://github.com/owner/project.git",
+    "allowed_refs": ["refs/heads/main"],
+    "credential_file": "publication-credential.json"
+  }]
+}
+```
+
+The credential file is also owner-only and contains `authorization_header` and `expires_at`. It is read when credentials are needed, allowing rotation without copying credentials into requests or source metadata. Relative file paths resolve against the configuration directory. GitLab destinations use `provider: "gitlab"` and a `https://gitlab.com/...git` URL. Local destinations use `provider: "local"` and `path` instead of `remote_url` and `credential_file`.

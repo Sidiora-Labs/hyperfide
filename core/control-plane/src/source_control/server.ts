@@ -9,6 +9,7 @@ import {S3SourceObjectBackend,sourceS3Configuration} from './s3.js';
 import {startSourceHttp} from './http.js';
 import {parseStrictJSON,SourceControlError} from './contracts.js';
 import type {SourceTokenTrust} from './authentication.js';
+import {sourcePublicationDestinations} from './publication_config.js';
 
 interface ListenerConfiguration {
  host:string;port:number;trust:SourceTokenTrust;allowLoopbackHTTP:boolean;
@@ -71,11 +72,11 @@ export async function startSourceControl(env:Readonly<NodeJS.ProcessEnv>=process
  const close=():Promise<void>=>closing??=(async()=>{signal.removeEventListener('abort',abort);try{await listener?.close();}finally{await pool.end();}})();
  const abort=()=>{void close().catch(()=>{});};
  try {
-  const tables=['source_native_objects','source_repositories','source_principal_credentials','source_capabilities','source_workspaces','source_transformations'];
+  const tables=['source_native_objects','source_repositories','source_principal_credentials','source_capabilities','source_workspaces','source_transformations','source_native_candidates','source_native_acceptances','source_native_assurance_evidence','source_git_publications'];
   const readiness=await pool.query<{name:string;present:boolean}>('SELECT name,to_regclass(name) IS NOT NULL AS present FROM unnest($1::text[]) AS name',[tables.map(name=>'hyperfide.'+name)]);
   if(readiness.rows.length!==tables.length||readiness.rows.some(row=>!row.present))throw new SourceControlError('SCHEMA_NOT_READY','Apply the source-control migrations before starting the service');
   if(signal.aborted)throw new SourceControlError('SERVICE_UNAVAILABLE','Source startup was cancelled');
-  const service=createSourceService({pool,backend,cursorKey,workspaceBudgets});
+  const service=createSourceService({pool,backend,cursorKey,workspaceBudgets,publication:{destinations:sourcePublicationDestinations(env)}});
   listener=await startSourceHttp({api:service.api,trust:configuration.trust,host:configuration.host,port:configuration.port,signal,...(configuration.tls?{tls:configuration.tls}:{}),allowLoopbackHTTP:configuration.allowLoopbackHTTP});
   signal.addEventListener('abort',abort,{once:true});if(signal.aborted)await close();
   return {address:listener.address,close};
