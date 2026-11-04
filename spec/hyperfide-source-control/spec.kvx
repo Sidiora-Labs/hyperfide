@@ -316,7 +316,7 @@ qualification_status = "relocation_in_progress_full_gate_pending"
 
 [task.0.7]
 title = "Relocate applications plugins extensions examples and assets"
-status = "in_progress"
+status = "done"
 wave = 0
 requires = ["0.6"]
 touches = ["apps", "plugins", "extensions", "examples", "assets", "patches", "pnpm-workspace.yaml", "pnpm-lock.yaml", "turbo.json", "tests/hyperfide/cases/source_control/0_7.py"]
