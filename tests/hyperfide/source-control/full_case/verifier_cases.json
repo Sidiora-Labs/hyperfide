@@ -70,6 +70,7 @@
       ],
       "assertions": [
         "campaign.test_real_qualifier_checker_closure_and_exact_resume",
+        "campaign.test_status_only_spec_metadata_preserves_receipt_but_contract_change_refuses",
         "campaign.test_changed_plan_or_source_refuses_resume",
         "campaign.test_new_entrypoint_bytes_cannot_claim_an_old_native_tree",
         "campaign.test_new_transitive_source_file_is_not_silently_accepted",
@@ -81,6 +82,23 @@
         "campaign.test_failed_case_retries_only_after_verified_cleanup",
         "campaign.test_failed_case_with_missing_cleanup_is_not_repeated",
         "campaign.test_task_component_manifest_cannot_fill_a_case"
+      ]
+    },
+    {
+      "id": "status-contract",
+      "argv": [
+        "tests/hyperfide/source-control/status_contract_test.py"
+      ],
+      "assertions": [
+        "status-contract.test_existing_meta_task_and_case_status_values_can_change",
+        "status-contract.test_requirements_commands_and_dependencies_are_immutable",
+        "status-contract.test_comments_spacing_and_line_endings_are_immutable",
+        "status-contract.test_fields_and_sections_cannot_be_added_removed_or_renamed",
+        "status-contract.test_unknown_statuses_and_nonstatus_stage_changes_are_refused",
+        "status-contract.test_duplicate_status_fields_and_unregistered_paths_are_refused",
+        "status-contract.test_symbolic_ancestors_are_refused",
+        "status-contract.test_explicit_fleet_v2_derivation_retains_full_raw_baseline",
+        "status-contract.test_fleet_derivation_requires_explicit_typed_mode_and_private_baseline"
       ]
     }
   ]

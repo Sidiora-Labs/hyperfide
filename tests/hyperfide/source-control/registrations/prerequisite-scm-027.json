@@ -40,7 +40,7 @@
     "tests/hyperfide/source-control/full_case/prerequisite_cases.json",
     "tests/hyperfide/support/fleet_live_qualification.py",
     "tests/hyperfide/cases/source_control/0_10.py",
-    "spec/hyperfide-source-control/spec.kvx",
+    "tests/hyperfide/source-control/full_case/contracts/source-control-spec.kvx",
     "core/control-plane/src/fleet-supervisor.ts",
     "core/control-plane/package.json",
     "pnpm-lock.yaml",
@@ -70,5 +70,12 @@
   "timeout_seconds": 1200,
   "required_artifacts": [
     "prerequisite-conformance.json"
+  ],
+  "status_contracts": [
+    {
+      "path": "spec/hyperfide-source-control/spec.kvx",
+      "snapshot": "tests/hyperfide/source-control/full_case/contracts/source-control-spec.kvx",
+      "mode": "kvx-existing-status-values-v1"
+    }
   ]
 }

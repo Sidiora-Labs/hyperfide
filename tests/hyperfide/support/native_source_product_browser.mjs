@@ -88,7 +88,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
           result = [
             {
               id: f.scope.repository_id,
-              name: "Browser source project",
+              name: f.projectName ?? "Browser source project",
               configured: true,
               revisions: [{ id: f.base.revision_id, label: "Baseline" }],
               assignments: [],
@@ -105,7 +105,9 @@ export async function runSourceProductBrowser(f, binding, inspection) {
           };
         else if (req.url === "/rpc/metrics")
           result = {
-            source: await f.service.metrics.read(f.context, { max_rows: 1 }),
+            source: f.service
+              ? await f.service.metrics.read(f.context, { max_rows: 1 })
+              : await f.client.call("source.metrics.read", { max_rows: 1 }),
           };
         else if (req.url === "/rpc/execute") {
           const request = requestSchema.parse(input);
@@ -249,7 +251,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       mobile: false,
     });
     await until(
-      'document.body.innerText.includes("Browser source project")',
+      `document.body.innerText.includes(${JSON.stringify(f.projectName ?? "Browser source project")})`,
       "project list",
     );
     await until(
@@ -257,18 +259,6 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       "host capability response",
     );
     if (inspection) {
-      const accepted = await f.client.call("source.acceptance.read", {
-        acceptance_id: inspection.acceptanceId,
-      });
-      assert.equal(accepted.revision_id, inspection.revisionId);
-      assert.equal(accepted.root_tree_id, inspection.rootTreeId);
-      await click("Changes");
-      await fill("Revision", inspection.revisionId);
-      await click("Read history");
-      await until(
-        `document.body.innerText.includes(${JSON.stringify(inspection.revisionId)})`,
-        "exact fleet-accepted revision history",
-      );
       const screenshots = [];
       const capture = async (name) => {
         for (const viewport of [
@@ -301,6 +291,38 @@ export async function runSourceProductBrowser(f, binding, inspection) {
           screenshots.push(filename);
         }
       };
+      let qualification = null;
+      if (inspection.candidateId) {
+        assert(Array.isArray(inspection.evidenceIds) && inspection.evidenceIds.length > 0);
+        await click("Changes");
+        await fill("Candidate", inspection.candidateId);
+        await click("Inspect candidate");
+        await until(`document.body.innerText.includes(${JSON.stringify(inspection.candidateId)})`, "live candidate inspection");
+        await fill("Independent evidence IDs (one per line)", inspection.evidenceIds.join("\n"));
+        await click("Qualify candidate");
+        await until('document.body.innerText.includes("qualification_id")', "independent candidate qualification");
+        qualification = await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result");
+        assert(qualification.qualification_id);
+        await capture("candidate-qualified");
+        await click("Accept qualified candidate");
+        await until('document.body.innerText.includes("acceptance_id")', "qualified candidate acceptance");
+        const result = await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result");
+        assert(result.acceptance_id);
+        inspection = { ...inspection, acceptanceId: result.acceptance_id };
+        await capture("candidate-accepted");
+      }
+      const accepted = await f.client.call("source.acceptance.read", {
+        acceptance_id: inspection.acceptanceId,
+      });
+      assert.equal(accepted.revision_id, inspection.revisionId);
+      assert.equal(accepted.root_tree_id, inspection.rootTreeId);
+      await click("Changes");
+      await fill("Revision", inspection.revisionId);
+      await click("Read history");
+      await until(
+        `document.body.innerText.includes(${JSON.stringify(inspection.revisionId)})`,
+        "exact fleet-accepted revision history",
+      );
       await capture("accepted-history");
       const left = await f.createRevision({text:"left conflict from accepted fleet source\n",parent_revision_ids:[inspection.revisionId]});
       const right = await f.createRevision({text:"right conflict from accepted fleet source\n",parent_revision_ids:[inspection.revisionId]});
@@ -349,6 +371,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         revision_id: inspection.revisionId,
         root_tree_id: inspection.rootTreeId,
         publication: published,
+        qualification,
         conflict,
         screenshots,
         checks: [

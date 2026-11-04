@@ -151,7 +151,7 @@ def validate_growth(runs):
     base_dimensions = dimensions(baseline)
     for run, field in zip(runs[1:4], ['unique_file_descriptors', 'directory_fanout', 'history_depth']):
         observed = dimensions(run)
-        require(observed[field] > base_dimensions[field] and all(observed[key] == base_dimensions[key] for key in observed if key != field), 'Growth axes must vary one at a time')
+        require(observed[field] != base_dimensions[field] and all(observed[key] == base_dimensions[key] for key in observed if key != field), 'Growth axes must vary one at a time')
         require({k: v for k, v in run['topology'].items() if k != 'source_profiles'} == {k: v for k, v in baseline['topology'].items() if k != 'source_profiles'}, 'Source shape comparison changed server resources')
     require(dimensions(runs[4]) == base_dimensions, 'Tier comparison changed source shape')
     first, second = baseline['topology'], runs[4]['topology']

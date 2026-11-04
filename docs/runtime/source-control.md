@@ -14,6 +14,12 @@ python3 deploy/hyperfide/source-control/package.py --node /path/to/node --output
 
 The Node version must match `core/control-plane/package.json`. The assembler checks service build stamps and native freshness, bundles the SDK and host modules using the existing workspace build tool, and copies the installed production dependency graph. It performs no package installation or remote publication. Repeating assembly against unchanged inputs produces identical archive bytes.
 
+For an isolated candidate while development continues, `--service-root` and
+`--sdk-root` select immutable copies inside the builder workspace. SDK selection
+also applies to imports through the host and signed-client facades. The complete
+input manifest records those selected sources; give the verification run an
+explicit `--label` so a canary candidate remains identifiable.
+
 Run the packaged component profile with an owned PostgreSQL instance:
 
 ```sh

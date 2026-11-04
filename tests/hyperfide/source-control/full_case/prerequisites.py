@@ -30,6 +30,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     config = json.loads((HERE / 'prerequisite_cases.json').read_text())[args.case]
     try:
+        qualifier.verify_status_contracts(ROOT, {'source_files': [qualifier.STATUS_CONTRACT_SNAPSHOT], 'source_roots': [], 'status_contracts': [{'path': qualifier.STATUS_CONTRACT_PATH, 'snapshot': qualifier.STATUS_CONTRACT_SNAPSHOT, 'mode': qualifier.STATUS_CONTRACT_MODE}]})
         if args.case == 'SCM-026':
             command = [sys.executable, str(ROOT / 'tests/hyperfide/cases/source_control/0_10.py')]
             record, stdout, stderr = qualifier.run_child(command, ROOT, 120, dict(os.environ))

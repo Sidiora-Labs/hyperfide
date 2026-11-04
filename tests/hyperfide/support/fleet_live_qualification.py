@@ -701,6 +701,29 @@ def case_oracle(name,case,rows,target,evidence_root,index):
  else:raise Refused('CASE_ORACLE_UNSUPPORTED')
 
 def verified_contract_status_derivation(declaration,pin,current,evidence_root):
+ if isinstance(declaration,dict) and declaration.get('schema_version')==2:
+  require(type(declaration['schema_version']) is int and set(declaration)=={'schema_version','path','baseline','mode'} and declaration['mode']=='kvx-existing-status-values-v1' and declaration['path']==pin.get('path')=='spec/hyperfide-source-control/spec.kvx','STATUS_DERIVATION_SCOPE_REQUIRED')
+  require(isinstance(current,bytes) and 0<len(current)<=4*1024*1024,'STATUS_CURRENT_BUDGET')
+  archive=declaration['baseline'];require(isinstance(archive,dict) and set(archive)=={'path','digest'} and archive['digest']==pin.get('digest') and DIGEST.fullmatch(archive['digest']),'STATUS_BASELINE_PIN_MISMATCH')
+  relative=Path(archive['path']);require(evidence_root is not None and not relative.is_absolute() and '..' not in relative.parts and str(relative)==archive['path'],'STATUS_BASELINE_PATH_REQUIRED')
+  filename=Path(evidence_root)/relative;require(filename.resolve()==filename.absolute() and filename.resolve().is_relative_to(Path(evidence_root).resolve()) and filename.resolve()!=(ROOT/declaration['path']).resolve(),'STATUS_BASELINE_PATH_REQUIRED')
+  fd=os.open(filename,os.O_RDONLY|os.O_NOFOLLOW)
+  try:
+   before=os.fstat(fd);require(stat.S_ISREG(before.st_mode) and before.st_uid==os.getuid() and before.st_mode&0o077==0 and before.st_nlink==1 and 0<before.st_size<=4*1024*1024,'PRIVATE_STATUS_BASELINE_REQUIRED')
+   chunks=[];size=0
+   while True:
+    chunk=os.read(fd,min(65536,4*1024*1024+1-size))
+    if not chunk:break
+    size+=len(chunk);require(size<=4*1024*1024,'STATUS_BASELINE_BUDGET');chunks.append(chunk)
+   baseline=b''.join(chunks);after=os.fstat(fd)
+   require((before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns)==(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) and size==before.st_size and digest(baseline)==pin['digest'],'STATUS_BASELINE_PIN_MISMATCH')
+  finally:os.close(fd)
+  import importlib.util
+  module=importlib.util.spec_from_file_location('fleet_status_contract',ROOT/'tests/hyperfide/qualify.py');qualifier=importlib.util.module_from_spec(module);module.loader.exec_module(qualifier)
+  try:equivalent=qualifier.status_projection(baseline)==qualifier.status_projection(current)
+  except (qualifier.GateError,UnicodeError):equivalent=False
+  require(equivalent,'STATUS_ONLY_CONTRACT_DERIVATION_MISMATCH')
+  return {'schema_version':2,'kind':'SPEC_STATUS_ONLY_DERIVATION_V2','path':declaration['path'],'mode':declaration['mode'],'baseline':archive,'baseline_digest':pin['digest'],'current_digest':digest(current)}
  path='spec/hyperfide-source-control/spec.kvx';order=['0.10','0.11','0.12','0.13','0.14']
  require(isinstance(current,bytes) and 0<len(current)<=4*1024*1024,'STATUS_CURRENT_BUDGET')
  require(isinstance(declaration,dict) and set(declaration)=={'schema_version','path','baseline','allowed_transitions'} and type(declaration['schema_version']) is int and declaration['schema_version']==1 and declaration['path']==pin.get('path')==path,'STATUS_DERIVATION_SCOPE_REQUIRED')

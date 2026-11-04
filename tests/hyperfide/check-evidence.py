@@ -46,6 +46,36 @@ def decode(value):
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
 
+def verify_status_contracts(workspace,registration):
+    """Independent line-pair check: only existing status string values may differ."""
+    contracts=registration.get('status_contracts',[])
+    require(isinstance(contracts,list) and len(contracts)<=1,'invalid status-only contract inventory')
+    descriptor={'path':'spec/hyperfide-source-control/spec.kvx','snapshot':'tests/hyperfide/source-control/full_case/contracts/source-control-spec.kvx','mode':'kvx-existing-status-values-v1'}
+    values={'pending','in_progress','blocked','implemented','done','superseded','draft','UNRUN','RUNNING','PASS','FAIL','BLOCKED'}
+    for contract in contracts:
+        require(contract==descriptor,'unsupported status-only contract')
+        require(contract['snapshot'] in registration.get('source_files',[]) and contract['path'] not in registration.get('source_files',[]),'status contract snapshot is not independently pinned')
+        files=[]
+        for name in [contract['snapshot'],contract['path']]:
+            path=physical_file(workspace/name)
+            require(path.resolve()==path and path.is_file() and path.stat().st_size<=4*1024*1024,'unsafe status-only contract file')
+            data=path.read_bytes();data.decode('utf-8');files.append(data.splitlines(keepends=True))
+        baseline,current=files
+        require(len(baseline)==len(current),'status contract line inventory changed')
+        section=None;seen=set()
+        for original,actual in zip(baseline,current):
+            heading=re.fullmatch(rb'\[([^\]\r\n]+)\](?:\r?\n)?',original)
+            if heading:section=heading[1].decode('utf-8')
+            status=re.fullmatch(rb'([ \t]*status[ \t]*=[ \t]*")([^"\r\n]*)("[^\r\n]*(?:\r?\n)?)',original)
+            known=section=='meta' or bool(section and re.fullmatch(r'task\.[0-9]+\.[0-9]+|case\.SCM-[0-9]{3}',section))
+            if known and status:
+                changed=re.fullmatch(rb'([ \t]*status[ \t]*=[ \t]*")([^"\r\n]*)("[^\r\n]*(?:\r?\n)?)',actual)
+                require(section not in seen and status[2].decode('utf-8') in values,'invalid baseline status-only field')
+                seen.add(section)
+                require(changed is not None and changed[1]==status[1] and changed[3]==status[3] and changed[2].decode('utf-8') in values,'non-status contract bytes changed')
+            else:require(actual==original,'source specification changed beyond existing status values')
+        require(bool(seen),'status-only contract contains no known status fields')
+
 
 def digest_file(path):
     digest = hashlib.sha256()
@@ -445,6 +475,7 @@ def verify_selected(root, receipt, manifest, registry, registration, events, art
     source = receipt["source"]
     require(isinstance(source.get("workspace"), str) and Path(source["workspace"]).is_absolute(), "source workspace is invalid")
     workspace = Path(source["workspace"])
+    verify_status_contracts(workspace,registration)
     if RELOCATION:
         require(workspace == RELOCATION.original, "sealed workspace differs from trusted relocation")
     require(command["cwd"] == str(workspace), "command source workspace mismatch")

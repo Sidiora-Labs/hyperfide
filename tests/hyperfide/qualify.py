@@ -29,6 +29,51 @@ def canonical(value):
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
+STATUS_CONTRACT_PATH = 'spec/hyperfide-source-control/spec.kvx'
+STATUS_CONTRACT_SNAPSHOT = 'tests/hyperfide/source-control/full_case/contracts/source-control-spec.kvx'
+STATUS_CONTRACT_MODE = 'kvx-existing-status-values-v1'
+STATUS_VALUES = {'pending','in_progress','blocked','implemented','done','superseded','draft','UNRUN','RUNNING','PASS','FAIL','BLOCKED'}
+
+def status_projection(data):
+    """Preserve every byte except existing status values in known sections."""
+    data.decode('utf-8')
+    result=[];section=None;seen=set()
+    for line in data.splitlines(keepends=True):
+        heading=re.fullmatch(rb'\[([^\]\r\n]+)\](?:\r?\n)?',line)
+        if heading:section=heading[1].decode('utf-8')
+        allowed=section=='meta' or bool(section and re.fullmatch(r'(?:task\.[0-9]+\.[0-9]+|case\.SCM-[0-9]{3})',section))
+        match=re.fullmatch(rb'([ \t]*status[ \t]*=[ \t]*")([^"\r\n]*)("[^\r\n]*(?:\r?\n)?)',line)
+        if allowed and match:
+            if section in seen or match[2].decode('utf-8') not in STATUS_VALUES:
+                raise GateError('Duplicate or unsupported status-only contract field')
+            seen.add(section);line=match[1]+b'<status>'+match[3]
+        result.append(line)
+    if not seen:raise GateError('Status-only contract has no existing known status fields')
+    return b''.join(result)
+
+def validate_status_descriptors(registration):
+    values=registration.get('status_contracts',[])
+    if not isinstance(values,list) or len(values)>1:raise GateError('Invalid status-only contract inventory')
+    for item in values:
+        if item != {'path':STATUS_CONTRACT_PATH,'snapshot':STATUS_CONTRACT_SNAPSHOT,'mode':STATUS_CONTRACT_MODE}:
+            raise GateError('Status-only contract is outside the narrowly supported source specification')
+        if item['snapshot'] not in registration.get('source_files',[]) or item['path'] in registration.get('source_files',[]):
+            raise GateError('Status-only contract must pin its full immutable snapshot')
+        if any(Path(item['path']).is_relative_to(Path(root)) for root in registration.get('source_roots',[])):
+            raise GateError('Status-only contract cannot also be a raw source-root input')
+    return values
+
+def verify_status_contracts(root,registration):
+    for item in validate_status_descriptors(registration):
+        files=[]
+        for name in [item['path'],item['snapshot']]:
+            path=root/name
+            if path.resolve()!=path or not path.is_file() or path.stat().st_size>4*1024*1024:
+                raise GateError('Unsafe or missing status-only contract file')
+            files.append(path.read_bytes())
+        if status_projection(files[0])!=status_projection(files[1]):
+            raise GateError('Source specification changed beyond existing status values')
+
 def pairs(items):
     result = {}
     for key, value in items:
@@ -334,6 +379,7 @@ def load_registry(path):
         if not isinstance(registration.get('argv'), list) or not registration['argv'] or any(not isinstance(arg, str) or not arg for arg in registration['argv']):
             raise GateError('invalid probe argv')
         strings(registration.get('source_files'), 'reviewed source files')
+        validate_status_descriptors(registration)
         strings(registration.get('source_roots'), 'reviewed source roots')
         for key in ("fixtures", "required_env", "actions", "required_artifacts"):
             strings(registration.get(key, []), key, False)
@@ -512,6 +558,7 @@ def parse_events(output):
     return assertions, cleanup, events, diagnostics
 
 def execute(args, root, registry_path, registry, registration, registration_path, manifest_path, manifest):
+    verify_status_contracts(root,registration)
     trusted_checker = Path(__file__).resolve().with_name('check-evidence.py')
     if args.checker and Path(args.checker).resolve() != trusted_checker:
         raise GateError('alternate checker is not trusted; canonical sibling checker required')
@@ -681,6 +728,7 @@ def execute(args, root, registry_path, registry, registration, registration_path
             diagnostics.append("cleanup command failed")
         if native is not None:
             native_capture(root, manifest['native_source'], manifest['expected_assertion_ids'])
+        verify_status_contracts(root,registration)
         if source_inventory(root, registration, inventory_exclusion) != inventory or worktree_inventory(root, inventory, inventory_exclusion, commit) != worktree:
             diagnostics.append('source inventory/worktree changed during execution')
         for path, expected_hash in before.items():

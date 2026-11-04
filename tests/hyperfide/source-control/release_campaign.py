@@ -178,6 +178,7 @@ def run_locked(root, plan_path, output, resume):
         wanted.pop('test_inventory_sha256', None)
         require(actual == wanted, 'Manifest does not use the shared native capture')
         Q.native_capture(root, manifest['native_source'], manifest['expected_assertion_ids'])
+        Q.verify_status_contracts(root,registration)
         inventory = Q.source_inventory(root, registration, output)
         source_manifest = read(local(root, shared['manifest']['path']))
         captured_paths = source_manifest.get('source_paths', {})

@@ -48,7 +48,10 @@ def guard_checks():
         try:package.tree_records(source)
         except RuntimeError:pass
         else:raise AssertionError('External dependency link would copy outside bytes')
-    return ['component and migration input drift refused','outside dependency symlink refused']
+        sdk=root/'sdk';sdk.mkdir()
+        refused=subprocess.run([os.environ.get('HYPERFIDE_NODE_BINARY','node'),str(ROOT/'deploy/hyperfide/source-control/bundle.mjs'),'--inputs','--sdk-root',str(sdk)],capture_output=True,text=True)
+        if refused.returncode==0 or 'inside the builder workspace' not in refused.stderr or list(sdk.iterdir()):raise AssertionError('External SDK snapshot was not refused before writing')
+    return ['component and migration input drift refused','outside dependency symlink refused','outside SDK snapshot refused before writes']
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--package-only',action='store_true');parser.add_argument('--service-root');parser.add_argument('--sdk-root');parser.add_argument('--label',default='current-source');parser.add_argument('--package-dir',help='Verify and smoke an already assembled package');args=parser.parse_args()

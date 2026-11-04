@@ -19,6 +19,7 @@ def main():
     name={'SCM-026':'full','SCM-027':'provider-sandbox','SCM-028':'primary-wave-managers','SCM-029':'supervisor-failover'}[args.case]
     variant='case:hyperfide-source-control/'+args.case+'/'+name
     registration,_=variants[variant]
+    q.verify_status_contracts(ROOT,registration)
     native=json.loads(args.native_source.read_text())
     # Assertion inventory is per variant; the captured source identity and bytes remain shared.
     native['test_inventory_sha256']=q.digest(q.canonical(registration['assertion_ids']))

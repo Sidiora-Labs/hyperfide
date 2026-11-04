@@ -90,6 +90,28 @@ class ReleaseCampaignTest(unittest.TestCase):
         self.assertEqual(resumed['entries'], original)
         self.assertEqual(len(list(self.output.glob('attempts/*/*/campaign/receipts/*.json'))), 1)
 
+    def test_status_only_spec_metadata_preserves_receipt_but_contract_change_refuses(self):
+        active=self.root/RUNNER.Q.STATUS_CONTRACT_PATH
+        snapshot=self.root/RUNNER.Q.STATUS_CONTRACT_SNAPSHOT
+        body=b'[meta]\nstatus = "in_progress"\n[req.1]\nac_1 = "required behavior"\n[task.0.1]\nstatus = "implemented"\nverify_cmd = "python3 check.py"\n[case.SCM-001]\nstatus = "UNRUN"\n'
+        for path in [active,snapshot]:path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(body)
+        self.registration['source_files'].append(RUNNER.Q.STATUS_CONTRACT_SNAPSHOT)
+        self.registration['status_contracts']=[{'path':RUNNER.Q.STATUS_CONTRACT_PATH,'snapshot':RUNNER.Q.STATUS_CONTRACT_SNAPSHOT,'mode':RUNNER.Q.STATUS_CONTRACT_MODE}]
+        captured=self.root/'captured'/RUNNER.Q.STATUS_CONTRACT_SNAPSHOT;captured.parent.mkdir(parents=True,exist_ok=True);captured.write_bytes(body)
+        source=RUNNER.read(self.root/'source.json');record={'path':captured.relative_to(self.root).as_posix(),'sha256':RUNNER.digest(captured)}
+        source['source_paths'][RUNNER.Q.STATUS_CONTRACT_SNAPSHOT]=record;source['files'].append(record);self.write('source.json',source)
+        self.native['manifest']=self.pin('source.json');readiness=RUNNER.read(self.root/'readiness.json');readiness['manifest_sha256']=self.native['manifest']['sha256'];self.write('readiness.json',readiness);self.native['readiness_receipt']=self.pin('readiness.json')
+        self.manifest['native_source']=self.native;self.manifest['inputs'].append({'path':RUNNER.Q.STATUS_CONTRACT_SNAPSHOT,'sha256':RUNNER.digest(snapshot),'size':len(body)})
+        self.write('registrations/native.json',self.registration);self.write('native.json',self.native);self.write('manifest.json',self.manifest)
+        self.plan['native_source']=self.pin('native.json');self.plan['entries'][0]['manifest']=self.pin('manifest.json');self.write('plan.json',self.plan)
+        first=self.run_campaign();self.assertEqual(first['status'],'PASS')
+        active.write_bytes(body.replace(b'"in_progress"',b'"done"').replace(b'"UNRUN"',b'"PASS"'))
+        second=self.run_campaign(True);self.assertEqual(second['entries'],first['entries']);self.assertEqual(second['status'],'PASS')
+        active.write_bytes(body.replace(b'required behavior',b'weakened behavior'))
+        with self.assertRaises((RUNNER.CampaignError,RUNNER.Q.GateError)):self.run_campaign(True)
+        entry=first['entries'][0]
+        with self.assertRaises(RUNNER.CampaignError):RUNNER.checked(self.output/entry['campaign'],entry['receipt_id'],entry['receipt_sha256'])
+
     def test_changed_plan_or_source_refuses_resume(self):
         self.run_campaign()
         (self.root / 'src/input.txt').write_text('changed source\n')
