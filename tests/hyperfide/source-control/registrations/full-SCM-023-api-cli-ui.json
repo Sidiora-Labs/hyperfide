@@ -42,11 +42,25 @@
     "tests/hyperfide/support/native_source_live_submission.mjs",
     "tests/hyperfide/support/native_source_product_browser.mjs",
     "package.json",
-    "pnpm-lock.yaml"
+    "pnpm-lock.yaml",
+    "plugins/hyperfide-source-control/README.md",
+    "plugins/hyperfide-source-control/app.tsx",
+    "plugins/hyperfide-source-control/contract.ts",
+    "plugins/hyperfide-source-control/package.json",
+    "plugins/hyperfide-source-control/runtime.ts",
+    "plugins/hyperfide-source-control/server.ts",
+    "plugins/hyperfide-source-control/tsconfig.json",
+    "plugins/environment-slices/contract.ts",
+    "plugins/environment-slices/host.ts",
+    "plugins/environment-slices/native-provider.ts",
+    "plugins/environment-slices/package.json",
+    "plugins/environment-slices/prepare.mjs",
+    "plugins/environment-slices/provider.test.ts",
+    "plugins/environment-slices/provider.ts",
+    "plugins/environment-slices/server.ts",
+    "plugins/environment-slices/tsconfig.json"
   ],
   "source_roots": [
-    "plugins/hyperfide-source-control",
-    "plugins/environment-slices",
     "sdk/source-control/src",
     "sdk/source-control/dist",
     "sdk/plugins/src",
@@ -55,7 +69,9 @@
     "core/control-plane/dist",
     "core/control-plane/migrations",
     "apps/cli/dist",
-    "apps/web/dist/assets"
+    "apps/web/dist/assets",
+    "plugins/hyperfide-source-control/cli",
+    "plugins/hyperfide-source-control/views"
   ],
   "actions": [
     "signed-live-source-api",

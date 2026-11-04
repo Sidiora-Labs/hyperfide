@@ -84,6 +84,7 @@ const protocol=await import('./core/control-plane/dist/transport/protocol.js');r
 for(const entry of a.journals??[]){
  const journal=entry.capture,raw=Buffer.from(journal.body_base64,'base64'),decoded=protocol.decodeInvoke(raw),item=protocol.proof(Object.entries(journal.headers).flat()),principal=rows.identity_principals.find(p=>p.credential_id===item.id),stale=entry.case==='stale_generation_replay';
  const pin=journal.kind==='hyperfide.authenticated-operator-step'&&entry.case==='repeated_install'?a.target.repeat_driver?.journal:a.target.fault_drivers?.[entry.case];
+ if(a.target.source_backend==='native'&&journal.kind==='hyperfide.authenticated-fault-step'&&(journal.source_backend!=='native'||canonical(journal.source_scope)!==canonical({organisation_id:a.target.organisation_id,repository_id:a.target.repository_id,security_domain_id:a.target.security_domain_id})||!/^sha256:[0-9a-f]{64}$/.test(journal.source_object_id)))throw Error('FAULT_NATIVE_SOURCE_SCOPE_MISMATCH');
  if(!principal||!pin||journal.origin!==a.target.origin||decoded.payload.run_id!==a.target.run_id||decoded.operation.operation_id!==journal.operation_id||journal.case!==entry.case||journal.organisation_id!==a.target.organisation_id||journal.run_id!==a.target.run_id)throw Error('FAULT_JOURNAL_SCOPE_MISMATCH');
  if(stale){
   const decision=decoded.payload.input?.decision,retained=rows.fleet_decisions.find(d=>d.id===pin.decision_id),reasoning=retained&&rows.fleet_reasoning.find(r=>r.id===retained.reasoning_id),actor=rows.fleet_actor_sessions.find(r=>r.session_id===pin.actor_id),receipt=reasoning?.result?.model_receipt;
@@ -498,6 +499,7 @@ def verified_worker_cancellation(rows,launch,case):
 def fault_driver(name,case,rows,target,evidence_root,capture):
  pin=target.get('fault_drivers',{}).get(name);require(isinstance(pin,dict),'AUTHENTICATED_FAULT_DRIVER_REQUIRED')
  if capture.get('kind')=='hyperfide.authenticated-fault-step':
+  if target.get('source_backend')=='native':require(capture.get('source_backend')=='native' and capture.get('source_scope')=={k:target[k] for k in ['organisation_id','repository_id','security_domain_id']} and DIGEST.fullmatch(capture.get('source_object_id','')),'FAULT_NATIVE_SOURCE_SCOPE_MISMATCH')
   require(capture.get('operation_id') in rows.get('authenticated_fault_operations',[]) and capture.get('driver_digest')==pin.get('driver_digest') and capture.get('case')==name and capture.get('run_id')==target['run_id'] and capture.get('authority_epoch')==target['authority_epoch'] and capture.get('source_object_id')==target['accepted_source_object_id'],'AUTHENTICATED_FAULT_JOURNAL_REQUIRED')
   return capture
  job=signed_job(rows,case.get('driver_operation_id'));request=job['plan'].get('request',{});require(request.get('executable_digest')==pin.get('executable_digest') and DIGEST.fullmatch(pin.get('executable_digest','')) and digest(request.get('argv'))==pin.get('argv_digest'),'FAULT_DRIVER_PIN_MISMATCH')

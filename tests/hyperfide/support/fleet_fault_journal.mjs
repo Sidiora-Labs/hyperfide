@@ -38,7 +38,10 @@ export async function invokeFaultStep({configFile,requestFile,journalDirectory})
  demand(typeof config.organisation_id==='string'&&typeof config.run_id==='string'&&typeof config.credential_id==='string','AUTHORITY_SCOPE_REQUIRED');
  if(decoded.payload.input.organisation_id!==undefined)demand(decoded.payload.input.organisation_id===config.organisation_id,'ORGANISATION_MISMATCH');
  if(decoded.payload.input.run_id!==undefined)demand(decoded.payload.input.run_id===config.run_id,'RUN_MISMATCH');
- demand(typeof config.case==='string'&&typeof config.authority_epoch==='string'&&/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(config.source_object_id),'CASE_SOURCE_BINDING_REQUIRED');
+ const native=config.source_backend==='native',backend=config.source_backend??'git';
+ demand(['git','native'].includes(backend)&&typeof config.case==='string'&&typeof config.authority_epoch==='string'&&(native?/^sha256:[0-9a-f]{64}$/.test(config.source_object_id):/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(config.source_object_id)),'CASE_SOURCE_BINDING_REQUIRED');
+ if(native)demand(config.source_scope&&Object.keys(config.source_scope).sort().join(',')==='organisation_id,repository_id,security_domain_id'&&config.source_scope.organisation_id===config.organisation_id&&[config.source_scope.repository_id,config.source_scope.security_domain_id].every(value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)),'CASE_SOURCE_BINDING_REQUIRED');
+ else demand(config.source_scope===undefined,'CASE_SOURCE_BINDING_REQUIRED');
  demand(config.timeout_ms>=1&&config.timeout_ms<=120000,'BOUNDED_TIMEOUT_REQUIRED');
  const root=path.resolve(journalDirectory),st=await fs.lstat(root);demand(root===journalDirectory&&await fs.realpath(root)===root&&st.isDirectory()&&st.uid===process.getuid()&&(st.mode&0o077)===0,'PRIVATE_JOURNAL_REQUIRED');
  const filename=path.join(root,decoded.operation.operation_id+'.json');
@@ -47,7 +50,7 @@ export async function invokeFaultStep({configFile,requestFile,journalDirectory})
  const item={id:config.credential_id,time:String(Math.floor(Date.now()/1000)),nonce:randomUUID()};
  const headers={'Content-Type':'application/json','HF-Credential-Id':item.id,'HF-Request-Time':item.time,'HF-Request-Nonce':item.nonce,'HF-Request-Signature':sign(null,signingBytes(origin,'/v1/invoke',item,body),key).toString('base64url')};
  const ca=await fs.readFile(config.ca_file);
- const retained={schema_version:1,kind:'hyperfide.authenticated-fault-step',origin,case:config.case,authority_epoch:config.authority_epoch,source_object_id:config.source_object_id,organisation_id:config.organisation_id,run_id:config.run_id,driver_digest:digest(await fs.readFile(new URL(import.meta.url))),operation_id:decoded.operation.operation_id,request_digest:digest(body),body_base64:body.toString('base64'),headers,state:'SUBMITTING'};
+ const retained={schema_version:1,kind:'hyperfide.authenticated-fault-step',origin,...(native?{source_backend:'native',source_scope:config.source_scope}:{}),case:config.case,authority_epoch:config.authority_epoch,source_object_id:config.source_object_id,organisation_id:config.organisation_id,run_id:config.run_id,driver_digest:digest(await fs.readFile(new URL(import.meta.url))),operation_id:decoded.operation.operation_id,request_digest:digest(body),body_base64:body.toString('base64'),headers,state:'SUBMITTING'};
  await exclusive(filename,retained);
  let response;
  try{response=await exchange(origin,ca,body,headers,config.timeout_ms);}catch(error){await exclusive(filename+'.uncertain.json',{operation_id:retained.operation_id,state:'UNKNOWN',reason:error.message});throw error;}
