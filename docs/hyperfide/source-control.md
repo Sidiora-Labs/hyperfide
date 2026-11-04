@@ -145,6 +145,8 @@ The credential file is also owner-only and contains `authorization_header` and `
 
 ## Fleet source
 
+Primary bootstrap requests may include `initial_revision_ids` in each `source_capabilities` entry when `source.revisions.read` is granted. The server verifies those explicit native revisions and issues a separate read-only discovery capability. Primary observations expose their scoped revision/root identities and a permission-checked bind request template; the model chooses and dispatches the binding operation. The ordinary source capability keeps its original mutation scope.
+
 The Primary binds a run to an explicit native revision with `source.fleet.bind-run`. `selectFleetSource` advances the run to an accepted descendant using an explicit generation check and a qualified predecessor. Existing attempts retain their original source; new installations and assignments use the selected revision. Register the next task’s proof policy against that revision before dispatch. Changing an already registered policy requires a new specification generation.
 
 The active model-led assignment carries its source scope, base revision, environment and package digests, task and attempt generations, and a private workspace identity. `source.fleet.assign` issues its narrow source capability after checking the admitted assignment. Fleet authority actions run through the authenticated control-plane component and its transaction gateway.

@@ -33,6 +33,20 @@ resolution = "Register the checker through the native assurance API, binding its
 evidence = "assurance_registration.py exercises signed policy/checker registration without a source-token shadow row, actual checker execution, credential renewal and revocation."
 status = "resolved"
 
+[gotcha.native_profile_registration]
+symptom = "A valid native source profile is rejected with PROFILE_SOURCE_MISMATCH during provider registration."
+cause = "Registration checked the legacy Git repository table even when the profile declared a native backend."
+resolution = "Validate native repository, revision and security-domain bindings through the admitted native source authority; retain the Git lookup for Git profiles and preserve typed source refusals."
+evidence = "native_profile_registration.py reproduces the prior refusal and verifies signed native registration, replay and incorrect source/domain rejection."
+status = "resolved"
+
+[gotcha.primary_initial_source_discovery]
+symptom = "A fresh Primary cannot discover the revision needed for its first native source binding."
+cause = "A scope/action grant does not identify an initial revision, and the run has no binding yet."
+resolution = "Supply explicit initial_revision_ids at Primary bootstrap. Keep its normal capability unchanged, grant separate scoped read access, and expose bounded revision descriptors and permitted bind request templates in observations."
+evidence = "The signed fleet bootstrap regression verifies discovery, refusal, separate read grants and selection through the issued Primary credential."
+status = "resolved"
+
 [gotcha.source_spec_bootstrap]
 symptom = "The installed hyperfide brief command refuses a fresh source checkout without initialized project state."
 cause = "Repository source and spec files do not themselves initialize the local graph database."

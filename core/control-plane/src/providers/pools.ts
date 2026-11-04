@@ -10,6 +10,8 @@ import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
 import {databaseError} from '../storage/schema.js';
 import {validateProfile,validateManifestMetadata} from '../preparation/manifests.js';
+import {validateNativeFleetSource} from '../source_control/fleet-run-source.js';
+import {SourceControlError} from '../source_control/contracts.js';
 import {assertInvocation} from '../transport/protocol.js';
 import {invocationOf} from '../identity/enrollment.js';
 import type {InvocationContext} from '../transport/protocol.js';
@@ -748,8 +750,13 @@ async function registerDeclaredProfile(database:ProviderDatabase,input:unknown):
    fail('PROFILE_SCOPE_DENIED','A current accepted programme and authority epoch are required');
   if(Date.parse(profile.policy.expires_at)<=new Date(accepted.observed_at).getTime())fail('PROFILE_DECLARATION_EXPIRED','The declared environment policy has expired');
   for(const repository of profile.repositories){
-   const matches=await tx.query('SELECT r.repository_id FROM hyperfide.run_repositories r JOIN hyperfide.repositories p ON p.organisation_id=r.organisation_id AND p.id=r.repository_id WHERE r.organisation_id=$1 AND r.run_id=$2 AND p.url=$3 AND r.source_object_id=$4 FOR SHARE OF r,p',[principal.organisation_id,principal.run_id,repository.url,repository.commit]);
-   if(matches.rows.length!==1)fail('PROFILE_SOURCE_MISMATCH','Every declared repository must match an exact accepted run source pin');
+   if(repository.source_backend==='native'){
+    try{await validateNativeFleetSource(tx,invocation,{repository_id:repository.id,security_domain_id:repository.security_domain_id!,revision_id:repository.commit});}
+    catch(error){if(error instanceof SourceControlError)fail(error.code,error.message);throw error;}
+   }else{
+    const matches=await tx.query('SELECT r.repository_id FROM hyperfide.run_repositories r JOIN hyperfide.repositories p ON p.organisation_id=r.organisation_id AND p.id=r.repository_id WHERE r.organisation_id=$1 AND r.run_id=$2 AND p.url=$3 AND r.source_object_id=$4 FOR SHARE OF r,p',[principal.organisation_id,principal.run_id,repository.url,repository.commit]);
+    if(matches.rows.length!==1)fail('PROFILE_SOURCE_MISMATCH','Every declared repository must match an exact accepted run source pin');
+   }
   }
   const existing=(await tx.query('SELECT id,content_digest,provider,runtime_platform,manifest FROM hyperfide.environment_profiles WHERE organisation_id=$1 AND (id=$2 OR content_digest=$3) FOR SHARE',[principal.organisation_id,id,manifest.digest])).rows;
   const matches=(row:Record<string,unknown>)=>row.id===id&&row.content_digest===manifest.digest&&row.provider===profile.image.provider&&row.runtime_platform===platform&&digestDocument(row.manifest)===digestDocument(manifest);

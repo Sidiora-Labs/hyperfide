@@ -152,8 +152,15 @@ export async function bootstrapFleetIdentity(ctx:ComponentContext,input:unknown,
    if(requested.scope.organisation_id!==i.principal.organisation_id)deny('FLEET_BOOTSTRAP_SCOPE');
    let administrator;try{administrator=await authorizeInvocationSource(tx,{invocation:i,scope:requested.scope,action:'source.capabilities.manage',mutation:true,paths:['']});}catch(error){if(error instanceof SourceControlError)throw new FoundationError(error.code,error.message);throw error;}
    const expires_at=new Date(Math.min(new Date(principal.expires_at).getTime(),Date.parse(administrator.expires_at))).toISOString();
+   for(const revision_id of requested.initial_revision_ids??[]){
+    let reader;try{reader=await authorizeInvocationSource(tx,{invocation:i,scope:requested.scope,action:'source.revisions.read',mutation:false,paths:[''],revision_id});}catch(error){if(error instanceof SourceControlError)throw new FoundationError(error.code,error.message);throw error;}
+    const revision=(await tx.query(`SELECT r.revision_id FROM hyperfide.source_revisions r JOIN hyperfide.source_repositories repository USING(organisation_id,repository_id,security_domain_id)
+     WHERE r.organisation_id=$1 AND r.repository_id=$2 AND r.security_domain_id=$3 AND r.revision_id=$4 AND repository.authority_epoch=$5 FOR SHARE OF r,repository`,[requested.scope.organisation_id,requested.scope.repository_id,requested.scope.security_domain_id,revision_id,reader.authority_epoch])).rows;
+    if(revision.length!==1)deny('FLEET_SOURCE_INITIAL_REVISION_UNAVAILABLE');
+   }
    const capability_id=await grantSourceCapability(tx,administrator,{scope:requested.scope,principal_id:session.id,credential_id:id,principal_kind:'automation',authority_epoch:administrator.authority_epoch,policy_version:administrator.policy_version,actions:requested.actions,path_prefixes:[''],expires_at});
-   sourceGrants.push({scope:requested.scope,actions:requested.actions,capability_id,expires_at});
+   const discovery_capability_id=requested.initial_revision_ids?await grantSourceCapability(tx,administrator,{scope:requested.scope,principal_id:session.id,credential_id:id,principal_kind:'automation',authority_epoch:administrator.authority_epoch,policy_version:administrator.policy_version,actions:['source.revisions.read'],path_prefixes:[''],revision_ids:requested.initial_revision_ids,expires_at}):undefined;
+   sourceGrants.push({scope:requested.scope,actions:requested.actions,capability_id,expires_at,...(discovery_capability_id?{discovery_capability_id,initial_revision_ids:requested.initial_revision_ids}:{})});
   }
   return {protocol_version:1,credential_id:id,actor_id:session.id,run_id:i.principal.run_id,role:session.role,deployment_epoch:input.authority_epoch,credential_version:String(principal.credential_version),allowed_actions:allowed,expires_at:new Date(principal.expires_at).toISOString(),phase:'SUPERVISOR_BOOTSTRAP',source_capabilities:sourceGrants,model_observed:false,cohort_id:input.cohort_id,cohort_generation:cohortGeneration,...(replacing?{cohort_replacement:{expected_generation:input.cohort_generation,target_generation:cohortGeneration}}:{})};
  }));

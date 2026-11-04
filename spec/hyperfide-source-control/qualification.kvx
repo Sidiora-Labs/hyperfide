@@ -640,3 +640,21 @@ source_digest = "sha256:5eb298a498ae0a7486868cff196b662e9ab8e6d263d379f91f34b110
 dist_digest = "sha256:67e85a9058deb904f6a8a63742abd042e9333ed494863faddd31e68a5da77e14"
 observed = "Three groups pass for signed native policy/checker registration from accepted proof, no source-token shadow identity, real checker execution, denied invalid scope and generation, credential renewal preserving historical proof, and explicit revocation."
 scope = "Owned PostgreSQL and real native identity/source APIs. Runtime native fleet execution is qualified separately."
+
+[progress.native_provider_registration]
+receipt = "build/source-control/evidence/0f05eebeb79caecdfd7e77dac1a3fab26558fd1382ffed0f93f0959631d66131.json"
+receipt_sha256 = "0f05eebeb79caecdfd7e77dac1a3fab26558fd1382ffed0f93f0959631d66131"
+exit_code = 0
+source_digest = "sha256:57c0239338db3ffea4990aaeb6f723bad46b44ff539632bae9e234c21e21397e"
+dist_digest = "sha256:89a03b8d7888d284733eb5baa4f45f7d7b9b15742ece6a3910e005fdd8d1b379"
+observed = "Actual signed native profile registration and replay pass; wrong native revision or security domain is refused without insertion."
+scope = "Owned PostgreSQL and actual signed APIs; live provider/model execution has separate evidence."
+
+[progress.primary_initial_source_discovery]
+receipt = "build/source-control/evidence/8419839249997ac4d8168e85a65fcda492d3416055d9d90d21c9de684886b2aa.json"
+receipt_sha256 = "8419839249997ac4d8168e85a65fcda492d3416055d9d90d21c9de684886b2aa"
+exit_code = 0
+source_digest = "sha256:57c0239338db3ffea4990aaeb6f723bad46b44ff539632bae9e234c21e21397e"
+dist_digest = "sha256:89a03b8d7888d284733eb5baa4f45f7d7b9b15742ece6a3910e005fdd8d1b379"
+observed = "Twenty-one signed native fleet checks pass, including issued Primary revision discovery, bounded bind templates, separate read-only grants and preserved mutation authority."
+scope = "Owned PostgreSQL and actual signed APIs; live provider/model execution has separate evidence."

@@ -823,6 +823,11 @@ Status: **implemented**. Owner: `fleet`. Dependencies: 4.1, 3.2.
 
 Proposed implementation scope:
 
+- `tests/hyperfide/support/native_source_fleet_model.mjs`
+- `tests/hyperfide/support/native_profile_registration.mjs`
+- `tests/hyperfide/cases/source_control/native_profile_registration.py`
+- `core/control-plane/src/providers/pools.ts`
+- `core/control-plane/src/agents/fleet_bootstrap.ts`
 - `core/host-daemon/src/fleet-worker.ts`
 - `contracts/host-daemon/src/workspace.ts`
 - `plugins/environment-slices/server.ts`
