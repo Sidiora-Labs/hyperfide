@@ -26,6 +26,29 @@ from pathlib import Path
 import hashlib,json,os,re,shutil,subprocess,sys,tarfile,tempfile,zipfile
 root=Path.cwd(); output=Path(sys.argv[1]).resolve();output.mkdir(parents=True,exist_ok=True)
 version='2.2.0'
+node=Path(subprocess.check_output(['node','-p','process.execPath'],text=True).strip()).resolve()
+node_version=subprocess.check_output([str(node),'--version'],text=True).strip()
+expected_node=json.loads((root/'core/control-plane/package.json').read_text())['engines']['node']
+if node_version.lstrip('v')!=expected_node:raise SystemExit('Release builder Node version differs from the pinned runtime')
+headers=node.parent.parent/'include/node/node.h'
+if not headers.is_file():raise SystemExit('Pinned Node development headers are required for native release dependencies')
+def prepare_native_runtime(stage,entries,rebuild):
+ # Workspace dependencies may have been installed with a different Node ABI.
+ # Rebuild only the copied release graph; never mutate the workspace store.
+ env=dict(os.environ,npm_config_build_from_source='true',npm_config_nodedir=str(node.parent.parent))
+ for name in rebuild:
+  package=(stage/'node_modules'/name).resolve()
+  if not package.is_relative_to(stage.resolve()):raise SystemExit('Native lifecycle escaped release stage')
+  # npm rebuild also invokes prepare on linked packages. That is a development
+  # transpile hook, not part of installing the already built runtime package.
+  for lifecycle in ['preinstall','install','postinstall']:
+   subprocess.run(['npm','--prefix',str(package),'--ignore-scripts','run','--if-present',lifecycle],env=env,check=True)
+ names=[name for name in entries if name in {'better-sqlite3','node-pty','bufferutil','utf-8-validate','@parcel/watcher'}]
+ probe=r'''const {createRequire}=require('node:module');const requireAt=createRequire(process.argv[1]+'/package.json');const names=JSON.parse(process.argv[2]);for(const name of names){const value=requireAt(name);if(name==='better-sqlite3'){const db=new value(':memory:');if(db.prepare('SELECT 1 AS value').get().value!==1)throw Error('SQLite runtime probe failed');db.close();}}console.log(JSON.stringify({schema_version:1,node:process.version,modules_abi:process.versions.modules,loaded_native_packages:names}));'''
+ observed=json.loads(subprocess.check_output([str(node),'-e',probe,str(stage),json.dumps(names)],env=env,text=True))
+ observed['headers_sha256']=hashlib.sha256(headers.read_bytes()).hexdigest()
+ observed['addon_files']={str(path.relative_to(stage)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted((stage/'node_modules').rglob('*.node')) if path.is_file() and not path.is_symlink()}
+ (stage/'native-runtime.json').write_text(json.dumps(observed,indent=2)+'\n')
 def archive(stage,name):
  target=output/f'hyperfide-{name}-{version}.tar.gz'
  with tarfile.open(target,'w:gz',compresslevel=6) as tar:
@@ -33,6 +56,7 @@ def archive(stage,name):
  return target
 with tempfile.TemporaryDirectory(prefix='hyperfide-release-') as tmp:
  temp=Path(tmp)
+ native_cache={}
  for component in ['server','host-daemon','app']:
   source=root/{'server':'core/server','host-daemon':'core/host-daemon','app':'apps/web'}[component];stage=temp/component;stage.mkdir()
   shutil.copytree(source/'dist',stage/'dist')
@@ -51,13 +75,23 @@ const entries={};for(const name of roots){const file=resolve(name,process.argv[1
    graph=json.loads(subprocess.check_output(['node','-e',resolver,str(source)],text=True))
    store=stage/'node_modules/.hyperfide';store.mkdir(parents=True)
    locations={file:store/str(i) for i,file in enumerate(graph['graph'])}
+   rebuild=[];lifecycle=[]
    for file,location in locations.items():
-    shutil.copytree(Path(file).parent,location,ignore=shutil.ignore_patterns('node_modules','.git','.env','.env.*'),symlinks=False)
+    package=json.loads(Path(file).read_text());scripts=package.get('scripts',{})
+    if any(key in scripts for key in ['preinstall','install','postinstall']):
+     lifecycle.append(file)
+     if file not in native_cache:rebuild.append(package['name'])
+    shutil.copytree(native_cache.get(file,Path(file).parent),location,ignore=shutil.ignore_patterns('node_modules','.git','.env','.env.*'),symlinks=False)
    def link(base,name,file):
     target=base/name;target.parent.mkdir(parents=True,exist_ok=True);target.symlink_to(os.path.relpath(locations[file],target.parent),target_is_directory=True)
    for file,deps in graph['graph'].items():
     for name,child in deps.items():link(locations[file]/'node_modules',name,child)
    for name,file in graph['entries'].items():link(stage/'node_modules',name,file)
+   prepare_native_runtime(stage,graph['entries'],rebuild)
+   for file in lifecycle:
+    if file not in native_cache:
+     cached=temp/'native-cache'/str(len(native_cache));cached.parent.mkdir(exist_ok=True)
+     shutil.copytree(locations[file],cached,ignore=shutil.ignore_patterns('node_modules'),symlinks=False);native_cache[file]=cached
   if component=='host-daemon':
    # Preserve the sibling CLI layout used by the daemon's runtime resolver.
    (stage/'host-daemon').mkdir();shutil.move(stage/'dist',stage/'host-daemon/dist')
