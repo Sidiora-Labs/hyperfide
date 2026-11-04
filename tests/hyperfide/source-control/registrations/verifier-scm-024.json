@@ -95,7 +95,8 @@
     "tests/hyperfide/cases/source_control/7_2.py",
     "tests/hyperfide/source-control/full_case/verifier_manifest.py",
     "tests/hyperfide/source-control/status_contract_test.py",
-    "tests/hyperfide/support/fleet_live_qualification.py"
+    "tests/hyperfide/support/fleet_live_qualification.py",
+    "tests/hyperfide/cases/source_control/0_9.py"
   ],
   "source_roots": [
     "tests/hyperfide/source-control/full_case"

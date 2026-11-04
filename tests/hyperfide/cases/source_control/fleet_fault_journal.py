@@ -9,6 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
 from identity_fixture import IdentityFixture, uid
+import fleet_live_qualification as oracle
 
 
 def main():
@@ -41,8 +42,19 @@ def main():
                 assert capture['response']['body']['ok'] is True
                 assert capture['response']['body']['result']['principal']['credential_id']==fixture.ids['operator']
                 assert after==before+1
-                if name=='native':assert capture['source_scope']==scope and capture['source_backend']=='native'
-                else:assert 'source_scope' not in capture and 'source_backend' not in capture
+                if name=='native':
+                    assert capture['source_scope']==scope and capture['source_backend']=='native'
+                    target={**scope,'run_id':fixture.ids['run'],'authority_epoch':fixture.ids['epoch'],'source_backend':'native','native_source_revision_id':fields['source_object_id'],'accepted_source_object_id':'2'*40,'fault_drivers':{'path_escape':{'driver_digest':capture['driver_digest']}}}
+                    rows={'authenticated_fault_operations':[output['operation_id']]}
+                    assert oracle.fault_driver('path_escape',{},rows,target,fixture.path,capture)==capture
+                    for altered,code in [({**target,'native_source_revision_id':'sha256:'+'3'*64},'AUTHENTICATED_FAULT_JOURNAL_REQUIRED'),({**target,'repository_id':uid()},'FAULT_NATIVE_SOURCE_SCOPE_MISMATCH')]:
+                        try:oracle.fault_driver('path_escape',{},rows,altered,fixture.path,capture)
+                        except oracle.Refused as error:assert str(error)==code
+                        else:raise AssertionError('Changed native source binding was accepted')
+                else:
+                    assert 'source_scope' not in capture and 'source_backend' not in capture
+                    target={'run_id':fixture.ids['run'],'authority_epoch':fixture.ids['epoch'],'accepted_source_object_id':fields['source_object_id'],'fault_drivers':{'path_escape':{'driver_digest':capture['driver_digest']}}}
+                    assert oracle.fault_driver('path_escape',{}, {'authenticated_fault_operations':[output['operation_id']]},target,fixture.path,capture)==capture
             else:
                 assert result.returncode==1 and json.loads(result.stderr)['error']['code']=='CASE_SOURCE_BINDING_REQUIRED',(name,result.stdout,result.stderr)
                 assert after==before and not list(journal.iterdir())

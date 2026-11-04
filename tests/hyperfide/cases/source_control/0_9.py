@@ -88,8 +88,46 @@ def evidence_documents(value):
     return [(local(name), document(local(name))) for name in names]
 
 
+def status_input_derivation(receipt):
+    """Accept only an exact raw spec snapshot with existing status-value changes."""
+    declarations = receipt.get('status_contracts', [])
+    if not isinstance(declarations, list) or len(declarations) > 1:
+        raise ValueError('Invalid layout status derivation inventory')
+    if not declarations:
+        return None
+    item = declarations[0]
+    if not isinstance(item, dict) or set(item) != {'path', 'snapshot', 'mode'} or item['path'] != 'spec/hyperfide-source-control/spec.kvx' or item['mode'] != 'kvx-existing-status-values-v1' or not isinstance(item['snapshot'], str):
+        raise ValueError('Unsupported layout status derivation')
+    match = re.fullmatch(r'build/layout/0\.9/status-snapshots/([0-9a-f]{64})\.kvx', item['snapshot'])
+    if not match:
+        raise ValueError('Layout status snapshot must be content addressed')
+    snapshot, active = local(item['snapshot']), local(item['path'])
+    if any(path.resolve() != path or path.stat().st_size > 4 * 1024 * 1024 for path in [snapshot, active]):
+        raise ValueError('Unsafe layout status snapshot or source')
+    expected = match[1]
+    if digest(snapshot) != expected:
+        raise ValueError('Layout status raw snapshot digest differs')
+    spec = importlib.util.spec_from_file_location('layout_status_contract', Path(__file__).resolve().parents[2] / 'qualify.py')
+    validator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(validator)
+    try:
+        equivalent = validator.status_projection(snapshot.read_bytes()) == validator.status_projection(active.read_bytes())
+    except (validator.GateError, UnicodeError) as error:
+        raise ValueError('Invalid layout status-only source') from error
+    if not equivalent:
+        raise ValueError('Layout source changed beyond existing status values')
+    commands = receipt.get('commands', [])
+    if not isinstance(commands, list) or any(not isinstance(command, dict) or not isinstance(command.get('inputs'), dict) for command in commands):
+        raise ValueError('Layout status derivation requires typed command inputs')
+    bound = [command for command in commands if item['path'] in command['inputs']]
+    if not bound or any(command['inputs'][item['path']] != expected or command['inputs'].get(item['snapshot']) != expected for command in bound):
+        raise ValueError('Layout status snapshot must equal every recorded raw source input')
+    return item['path'], expected
+
+
 def validate_execution(receipt, required=(), required_input=None):
     commands, assertions = receipt.get('commands'), receipt.get('assertions')
+    status_derivation = status_input_derivation(receipt)
     if not isinstance(commands, list) or not commands or not isinstance(assertions, list) or not assertions:
         raise ValueError('Actual command and assertion inventories are required')
     ids = set()
@@ -107,7 +145,7 @@ def validate_execution(receipt, required=(), required_input=None):
         if not isinstance(inputs, dict) or not inputs:
             raise ValueError('Command input identities are required')
         for name, expected in inputs.items():
-            if digest(local(name)) != expected:
+            if digest(local(name)) != expected and status_derivation != (name, expected):
                 raise ValueError('Command input changed: ' + name)
     observed = {}
     for assertion in assertions:

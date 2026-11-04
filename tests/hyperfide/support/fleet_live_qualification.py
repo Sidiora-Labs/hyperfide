@@ -500,11 +500,11 @@ def fault_driver(name,case,rows,target,evidence_root,capture):
  pin=target.get('fault_drivers',{}).get(name);require(isinstance(pin,dict),'AUTHENTICATED_FAULT_DRIVER_REQUIRED')
  if capture.get('kind')=='hyperfide.authenticated-fault-step':
   if target.get('source_backend')=='native':require(capture.get('source_backend')=='native' and capture.get('source_scope')=={k:target[k] for k in ['organisation_id','repository_id','security_domain_id']} and DIGEST.fullmatch(capture.get('source_object_id','')),'FAULT_NATIVE_SOURCE_SCOPE_MISMATCH')
-  require(capture.get('operation_id') in rows.get('authenticated_fault_operations',[]) and capture.get('driver_digest')==pin.get('driver_digest') and capture.get('case')==name and capture.get('run_id')==target['run_id'] and capture.get('authority_epoch')==target['authority_epoch'] and capture.get('source_object_id')==target['accepted_source_object_id'],'AUTHENTICATED_FAULT_JOURNAL_REQUIRED')
+  require(capture.get('operation_id') in rows.get('authenticated_fault_operations',[]) and capture.get('driver_digest')==pin.get('driver_digest') and capture.get('case')==name and capture.get('run_id')==target['run_id'] and capture.get('authority_epoch')==target['authority_epoch'] and capture.get('source_object_id')==(target['native_source_revision_id'] if target.get('source_backend')=='native' else target['accepted_source_object_id']),'AUTHENTICATED_FAULT_JOURNAL_REQUIRED')
   return capture
  job=signed_job(rows,case.get('driver_operation_id'));request=job['plan'].get('request',{});require(request.get('executable_digest')==pin.get('executable_digest') and DIGEST.fullmatch(pin.get('executable_digest','')) and digest(request.get('argv'))==pin.get('argv_digest'),'FAULT_DRIVER_PIN_MISMATCH')
  require(job['result'].get('stdout',{}).get('digest')==case['capture']['digest'] and not case['capture'].get('json_path'),'AUTHENTICATED_DRIVER_CAPTURE_REQUIRED')
- require(capture.get('case')==name and capture.get('run_id')==target['run_id'] and capture.get('authority_epoch')==target['authority_epoch'] and capture.get('source_object_id')==target['accepted_source_object_id'],'FAULT_DRIVER_STAGE_MISMATCH')
+ require(capture.get('case')==name and capture.get('run_id')==target['run_id'] and capture.get('authority_epoch')==target['authority_epoch'] and capture.get('source_object_id')==(target['native_source_revision_id'] if target.get('source_backend')=='native' else target['accepted_source_object_id']),'FAULT_DRIVER_STAGE_MISMATCH')
  return capture
 
 def captured_case(name,case,target,evidence_root):

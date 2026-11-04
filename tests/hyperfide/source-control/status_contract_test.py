@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Independent verifier tests for the sole mutable specification metadata field."""
 import importlib.util
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -16,6 +17,7 @@ def module(name, filename):
 Q = module('status_qualifier', 'tests/hyperfide/qualify.py')
 C = module('status_checker', 'tests/hyperfide/check-evidence.py')
 F = module('status_fleet_verifier', 'tests/hyperfide/support/fleet_live_qualification.py')
+L = module('status_layout_verifier', 'tests/hyperfide/cases/source_control/0_9.py')
 BODY = b'[meta]\nstatus = "in_progress" # unchanged comment\nstage = "implementation"\n[req.1]\nac_1 = "same requirement"\n[task.0.1]\nstatus = "implemented"\nverify_cmd = "python3 verify.py"\nrequires = ["0.2"]\n[case.SCM-001]\nstatus = "UNRUN"\n'
 
 class StatusContractTest(unittest.TestCase):
@@ -25,16 +27,24 @@ class StatusContractTest(unittest.TestCase):
         self.active = self.root / Q.STATUS_CONTRACT_PATH
         self.snapshot = self.root / Q.STATUS_CONTRACT_SNAPSHOT
         for path in [self.active, self.snapshot]:path.parent.mkdir(parents=True, exist_ok=True);path.write_bytes(BODY)
+        L.ROOT = self.root
+        pin = hashlib.sha256(BODY).hexdigest()
+        raw = self.root / ('build/layout/0.9/status-snapshots/' + pin + '.kvx');raw.parent.mkdir(parents=True);raw.write_bytes(BODY)
+        log = self.root/'log';log.write_bytes(b'actual fixture protocol')
+        self.layout_receipt = {'status_contracts':[{'path':Q.STATUS_CONTRACT_PATH,'snapshot':str(raw.relative_to(self.root)),'mode':Q.STATUS_CONTRACT_MODE}], 'commands':[{'id':'fixture','command':['fixture-protocol'],'exit_code':0,'duration_ms':1,'log':'log','log_sha256':hashlib.sha256(log.read_bytes()).hexdigest(),'inputs':{Q.STATUS_CONTRACT_PATH:pin,str(raw.relative_to(self.root)):pin}}], 'assertions':[{'id':'fixture','status':'PASS','command_id':'fixture'}]}
         self.registration = {'source_files': [Q.STATUS_CONTRACT_SNAPSHOT], 'source_roots': [], 'status_contracts': [{'path': Q.STATUS_CONTRACT_PATH, 'snapshot': Q.STATUS_CONTRACT_SNAPSHOT, 'mode': Q.STATUS_CONTRACT_MODE}]}
     def valid(self):
-        Q.verify_status_contracts(self.root, self.registration);C.verify_status_contracts(self.root, self.registration)
+        Q.verify_status_contracts(self.root, self.registration);C.verify_status_contracts(self.root, self.registration);L.validate_execution(self.layout_receipt)
     def refused(self, data):
         self.active.write_bytes(data)
         with self.assertRaises((Q.GateError, ValueError)):Q.verify_status_contracts(self.root, self.registration)
         with self.assertRaises((C.InvalidEvidence, ValueError)):C.verify_status_contracts(self.root, self.registration)
+        with self.assertRaises((Q.GateError, ValueError)):L.validate_execution(self.layout_receipt)
     def test_existing_meta_task_and_case_status_values_can_change(self):
         self.active.write_bytes(BODY.replace(b'"in_progress"', b'"done"').replace(b'"implemented"', b'"done"').replace(b'"UNRUN"', b'"PASS"'));self.valid()
         self.assertNotEqual(self.active.read_bytes(), self.snapshot.read_bytes())
+        self.layout_receipt.pop('status_contracts')
+        with self.assertRaises(ValueError):L.validate_execution(self.layout_receipt)
     def test_requirements_commands_and_dependencies_are_immutable(self):
         for old,new in [(b'same requirement',b'changed requirement'),(b'python3 verify.py',b'python3 skip.py'),(b'0.2',b'0.3')]:self.refused(BODY.replace(old,new))
     def test_comments_spacing_and_line_endings_are_immutable(self):
@@ -54,11 +64,19 @@ class StatusContractTest(unittest.TestCase):
         self.registration['status_contracts'][0]['path']='other.kvx'
         with self.assertRaises(Q.GateError):Q.verify_status_contracts(self.root,self.registration)
         with self.assertRaises(C.InvalidEvidence):C.verify_status_contracts(self.root,self.registration)
+        with self.assertRaises(ValueError):L.validate_execution(self.layout_receipt)
     def test_symbolic_ancestors_are_refused(self):
         directory=self.active.parent; directory.rename(directory.with_name('real'));directory.symlink_to(directory.with_name('real'),target_is_directory=True)
         with self.assertRaises(Q.GateError):Q.verify_status_contracts(self.root,self.registration)
         with self.assertRaises(C.InvalidEvidence):C.verify_status_contracts(self.root,self.registration)
+        with self.assertRaises(ValueError):L.validate_execution(self.layout_receipt)
     def test_explicit_fleet_v2_derivation_retains_full_raw_baseline(self):
+        pin_path = self.layout_receipt['status_contracts'][0]['snapshot']
+        self.layout_receipt['commands'][0]['inputs'][Q.STATUS_CONTRACT_PATH] = '0'*64
+        with self.assertRaises(ValueError):L.validate_execution(self.layout_receipt)
+        self.layout_receipt['commands'][0]['inputs'][Q.STATUS_CONTRACT_PATH] = hashlib.sha256(BODY).hexdigest()
+        (self.root/pin_path).write_bytes(BODY+b'# changed raw snapshot\n')
+        with self.assertRaises(ValueError):L.validate_execution(self.layout_receipt)
         baseline=self.root/'fleet-baseline.kvx';baseline.write_bytes(BODY);baseline.chmod(0o600)
         pin={'path':Q.STATUS_CONTRACT_PATH,'digest':F.digest(BODY)}
         declaration={'schema_version':2,'path':Q.STATUS_CONTRACT_PATH,'mode':Q.STATUS_CONTRACT_MODE,'baseline':{'path':baseline.name,'digest':pin['digest']}}
@@ -67,6 +85,12 @@ class StatusContractTest(unittest.TestCase):
         self.assertEqual(result['baseline_digest'],F.digest(BODY));self.assertEqual(result['current_digest'],F.digest(current))
         with self.assertRaises(F.Refused):F.verified_contract_status_derivation(declaration,pin,current.replace(b'verify.py',b'skip.py'),self.root)
     def test_fleet_derivation_requires_explicit_typed_mode_and_private_baseline(self):
+        declaration = self.layout_receipt['status_contracts'][0]
+        declaration['mode'] = 'ignore-all-spec-changes'
+        with self.assertRaises(ValueError):L.validate_execution(self.layout_receipt)
+        declaration['mode'] = Q.STATUS_CONTRACT_MODE
+        self.layout_receipt['commands'][0]['inputs'].pop(declaration['snapshot'])
+        with self.assertRaises(ValueError):L.validate_execution(self.layout_receipt)
         baseline=self.root/'fleet-baseline.kvx';baseline.write_bytes(BODY);baseline.chmod(0o600)
         pin={'path':Q.STATUS_CONTRACT_PATH,'digest':F.digest(BODY)}
         declaration={'schema_version':2.0,'path':Q.STATUS_CONTRACT_PATH,'mode':Q.STATUS_CONTRACT_MODE,'baseline':{'path':baseline.name,'digest':pin['digest']}}
