@@ -1,3 +1,10 @@
+[gotcha.retired_tasks_in_plan_admission]
+symptom = "A versioned plan can pass its proposed graph check but fail final admission when replacement work uses a retired task's paths."
+cause = "The committed graph snapshot included cancelled tasks carrying an explicit retirement record, so their former ownership conflicted with the replacement task."
+resolution = "Exclude only explicitly retired, cancelled tasks from the structural snapshot. Preserve their records and revision history; caller-provided exemptions cannot hide active conflicts."
+evidence = "retired_task_overlap.py reproduces the signed amendment refusal before the fix, accepts the replacement afterward, and retains active and unretired-cancelled ownership conflicts."
+status = "resolved"
+
 [gotcha.source_publication_terminal_receipt]
 symptom = "Cancelling a queued native Git publication fails the shared operation state constraint."
 cause = "source_metadata_operations permits non-null result and result_digest only for COMMITTED operations; publication cancellation wrote a receipt with CANCELLED."

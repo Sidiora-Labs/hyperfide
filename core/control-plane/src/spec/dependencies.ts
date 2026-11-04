@@ -71,7 +71,7 @@ async function snapshot(tx:Tx,scope:DependencyScope,run_id:string,lock=false):Pr
  const result=await tx.query('SELECT r.*,r.spec_generation::text,r.state_version::text,pg_is_in_recovery() AS replica FROM hyperfide.runs r WHERE r.organisation_id=$1 AND r.id=$2'+(lock?' FOR UPDATE':' FOR SHARE'),[scope.organisation_id,run_id]);
  const run=result.rows[0];if(!run)fail('SPEC_RUN_NOT_FOUND','Accepted run does not exist in this organisation');
  if(run.replica)fail('PRIMARY_REQUIRED','Accepted plan authority requires primary state');
- const tasks=await tx.query('SELECT t.id,t.task_key,t.definition,t.wave,t.state,t.blocked_ask,t.state_version::text,t.spec_generation::text,t.spec_revision_id,t.criteria_digest,t.run_id,p.package_key,p.wave AS package_wave FROM hyperfide.tasks t JOIN hyperfide.feature_packages p ON p.organisation_id=t.organisation_id AND p.run_id=t.run_id AND p.id=t.feature_package_id WHERE t.organisation_id=$1 AND t.run_id=$2 ORDER BY t.task_key LIMIT 50001',[scope.organisation_id,run_id]);
+ const tasks=await tx.query('SELECT t.id,t.task_key,t.definition,t.wave,t.state,t.blocked_ask,t.state_version::text,t.spec_generation::text,t.spec_revision_id,t.criteria_digest,t.run_id,p.package_key,p.wave AS package_wave FROM hyperfide.tasks t JOIN hyperfide.feature_packages p ON p.organisation_id=t.organisation_id AND p.run_id=t.run_id AND p.id=t.feature_package_id WHERE t.organisation_id=$1 AND t.run_id=$2 AND NOT (t.state=\'CANCELLED\' AND COALESCE(jsonb_typeof(t.definition->\'retirement\')=\'object\',false)) ORDER BY t.task_key LIMIT 50001',[scope.organisation_id,run_id]);
  if(tasks.rows.length>MAX_TASKS)fail('SPEC_GRAPH_LIMIT','Accepted task graph exceeds the bounded validation limit');
  return {run,tasks:tasks.rows as Task[]};
 }
@@ -319,8 +319,8 @@ export async function validateDependencies(tx:Tx,scope:DependencyScope,input:Pla
 // Admission is structural only. Proof obligations (task 2.4) gate each task at dispatch
 // admission (hierarchy/packets.ts refuses PROOF_REGISTRY_MISSING), so the dependency
 // graph neither imports nor requires the proof registry that is planned after it.
-// Amendment admission (2.3) passes retired task identities as exempt; admission keeps
-// accepting the option so that caller stays source-compatible, and it has no effect here.
+// Snapshot excludes only explicitly retired, cancelled tasks while retaining their history.
+// Caller-supplied exemptions grant no authority to hide active structural conflicts.
 export interface AdmissionOptions {exempt_task_ids?:readonly string[]}
 export async function admitDependencies(tx:Tx,scope:DependencyScope,input:PlanPins,options:AdmissionOptions={}):Promise<Omit<DependencyReport,'edges'>&{admitted:boolean;proof_obligations:'ENFORCED_AT_DISPATCH_ADMISSION'}>{
  assertPrimaryTransaction(tx);await writeSemanticDisposition(tx,scope);
