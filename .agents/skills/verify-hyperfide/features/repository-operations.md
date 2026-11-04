@@ -22,3 +22,23 @@ provider recipes have different coverage. Link the applicable current receipt
 and raw evidence to each row; do not promote a local fixture into a provider
 pass. Repo-specific KVX and `.neron` configuration belong to the selected fixture,
 not a user's existing checkout.
+
+## Installed release runtime
+
+Release assembly uses the Node version declared by
+`core/control-plane/package.json` (`engines.node`), currently **24.22.0**.
+Select that runtime on `PATH` for both assembly and the extracted smoke journey;
+the development `.nvmrc` selects Node 22 and has a different native-addon ABI.
+
+Run `tools/repository/release.sh --dry-run --skip-tests --output <new-directory>`
+with the release runtime, then run `python3 <new-directory>/smoke.py` with the
+same `PATH`. This starts the extracted server and host daemon with isolated
+state, enrolls the host, and verifies that the packaged application entry exists.
+Retain the archive checksums, command logs, and the Node version used.
+
+Inspect `native-runtime.json` inside both platform server and host-daemon
+archives. It records the loaded addon names, Node module ABI, header checksum,
+and addon file hashes. For Node 24.22.0 the ABI is **137**. The builder compiles
+copied runtime dependencies in its temporary stage and runs an actual SQLite
+query before archiving. A successful smoke requires the extracted processes to
+load those staged addons under the recorded runtime.
