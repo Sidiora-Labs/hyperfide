@@ -1,4 +1,5 @@
 import type {SourceCapabilityManageRequest,SourceCapabilityManageResult,SourceAuditPage,SourceWorkspaceWidenRequest,SourceWorkspaceWidenResult} from './admin.js';
+import type {SourceRegisterAssurancePolicyRequest,SourceAssurancePolicyRegistration,SourceRegisterAssuranceCheckerRequest,SourceAssuranceCheckerRegistration} from './assurance.js';
 import type {SourceSubscriptionInput,SourceSubscription,SourceEventPollInput,SourceEventPage,SourceEventAcknowledgment} from './events.js';
 import type {SourceQueueEnqueueRequest,SourceQueueClaimRequest,SourceQueueBindRequest,SourceQueueCompleteRequest,SourceQueueFailRequest,SourceQueueIsolateRequest,SourceQueueBatch} from './queue.js';
 import {
@@ -126,6 +127,8 @@ export class SourceControlClient {
   qualifyCandidate(input:SourceQualifyCandidateRequest,options:SourceCallOptions){return this.call<SourceCandidateQualification>('source.candidates.qualify',input,options);}
   acceptCandidate(input:SourceAcceptCandidateRequest,options:SourceCallOptions){return this.call<SourceAcceptanceReceipt>('source.acceptance.accept',input,options);}
   acceptance(acceptance_id:string,options?:SourceCallOptions){return this.call<SourceAcceptanceReceipt>('source.acceptance.read',{acceptance_id},options);}
+  registerAssurancePolicy(input:SourceRegisterAssurancePolicyRequest,options:SourceCallOptions){return this.call<SourceAssurancePolicyRegistration>('source.assurance.policy.register',input,options);}
+  registerAssuranceChecker(input:SourceRegisterAssuranceCheckerRequest,options:SourceCallOptions){return this.call<SourceAssuranceCheckerRegistration>('source.assurance.checker.register',input,options);}
   createSourceCustody(input:SourceCreateCustodyRequest,options:SourceCallOptions){return this.call<SourceCustodyReceipt>('source.assurance.custody.create',input,options);}
   publishSourceEvidence(input:SourcePublishEvidenceRequest,options:SourceCallOptions){return this.call<SourceEvidenceReceipt>('source.assurance.publish',input,options);}
   revokeSourceEvidence(evidence_id:string,options:SourceCallOptions){return this.call<SourceRevocationReceipt>('source.assurance.revoke',{evidence_id},options);}

@@ -90,7 +90,7 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
     async invoke(action:string,raw:unknown,principal:SourceApiPrincipal):Promise<unknown> {
       const request=parseSourceRequest(raw);
       if(request.action!==action||!supported.includes(action))throw new SourceControlError('UNSUPPORTED_ACTION','Source action is unavailable');
-      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume|configure|qualify|accept|publish|revoke|bind-run|assign|submit|select|acquire|release|discover|collect|build|reserve|reconcile|consolidate|parity|quiesce|activate|abort|recover|verify|move|stage|refresh)$/.test(action);
+      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume|configure|qualify|accept|publish|revoke|bind-run|assign|submit|select|acquire|release|discover|collect|build|reserve|reconcile|consolidate|parity|quiesce|activate|abort|recover|verify|move|stage|refresh|register)$/.test(action);
       const paths=requestPaths(action,input),authorization=await dependencies.authorize({scope:request.scope,action,mutation,
         ...('operation' in principal?{invocation:principal}:{principal}),...(paths?{paths}:{}),
         ...(typeof input.revision_id==='string'?{revision_id:input.revision_id}:{}),

@@ -18,6 +18,24 @@ import type { NativeCandidateRecord } from "../source_control/candidates.js";
 import type { SourceCandidateEvidence } from "../source_control/evidence.js";
 import { reserveSourceOperation } from "../source_control/operations.js";
 import type { SourceObjectService } from "../source_control/objects.js";
+import type { InvocationContext } from "../transport/protocol.js";
+import {
+  assertNativeRegistrationInvocation,
+  registerNativePolicy,
+  registerNativeChecker,
+  verifyNativePolicyRegistration,
+  nativeCheckerCredentialVersion,
+  type NativePolicyRegistrationInput,
+  type NativeCheckerRegistrationInput,
+  type NativePolicyRegistrationResult,
+  type NativeCheckerRegistrationResult,
+} from "./native_registration.js";
+export type {
+  NativePolicyRegistrationInput,
+  NativeCheckerRegistrationInput,
+  NativePolicyRegistrationResult,
+  NativeCheckerRegistrationResult,
+} from "./native_registration.js";
 
 interface Mutation {
   operation_id: string;
@@ -283,6 +301,11 @@ export class NativeSourceEvidenceVerifier {
         "EVIDENCE_POLICY_STALE",
         "Native evidence policy is unavailable or changed",
       );
+    await verifyNativePolicyRegistration(tx, context, {
+      policy_id: candidate.policy_id,
+      policy_digest: candidate.policy_digest,
+      checks: row.checks,
+    });
     const list = checks(row.checks);
     return { checks: list, checks_digest: sourceDigest(list) };
   }
@@ -294,21 +317,48 @@ export class NativeSourceEvidenceVerifier {
     principal: string,
     credential?: string,
     validAt?: string,
+    recordedVersion?: string,
   ): Promise<{ credential_id: string; credential_version: string }> {
+    const migrated = (
+      await tx.query(
+        "SELECT to_regclass('hyperfide.source_native_assurance_policy_registrations') IS NOT NULL AS ready",
+      )
+    ).rows[0]?.ready;
+    const values = [
+      ...sourceScopeValues(context.scope),
+      candidate.policy_id,
+      checkId,
+      principal,
+      credential ?? null,
+      validAt ?? null,
+    ];
     const rows = (
       await tx.query(
         `SELECT k.credential_id,c.credential_version::text FROM hyperfide.source_native_assurance_checkers k JOIN hyperfide.source_principal_credentials c ON c.organisation_id=k.organisation_id AND c.repository_id=k.repository_id AND c.security_domain_id=k.security_domain_id AND c.credential_id=k.credential_id AND c.principal_id=k.principal_id
-   WHERE k.organisation_id=$1 AND k.repository_id=$2 AND k.security_domain_id=$3 AND k.policy_id=$4 AND k.check_id=$5 AND k.principal_id=$6 AND ($7::uuid IS NULL OR k.credential_id=$7) AND k.revoked_at IS NULL AND k.expires_at>COALESCE($8::timestamptz,clock_timestamp()) AND c.revoked_at IS NULL AND c.expires_at>COALESCE($8::timestamptz,clock_timestamp()) FOR SHARE OF k,c`,
-        [
-          ...sourceScopeValues(context.scope),
-          candidate.policy_id,
-          checkId,
-          principal,
-          credential ?? null,
-          validAt ?? null,
-        ],
+      WHERE k.organisation_id=$1 AND k.repository_id=$2 AND k.security_domain_id=$3 AND k.policy_id=$4 AND k.check_id=$5 AND k.principal_id=$6 AND ($7::uuid IS NULL OR k.credential_id=$7) AND k.revoked_at IS NULL AND k.expires_at>COALESCE($8::timestamptz,clock_timestamp()) AND c.revoked_at IS NULL AND c.expires_at>COALESCE($8::timestamptz,clock_timestamp()) ${migrated ? "AND k.identity_kind='SOURCE_BEARER'" : ""} FOR SHARE OF k,c`,
+        values,
       )
     ).rows;
+    if (migrated) {
+      const native = (
+        await tx.query(
+          `SELECT k.credential_id,k.principal_id,k.identity_run_id,k.identity_role,k.identity_credential_version::text AS registered_version,i.credential_version::text FROM hyperfide.source_native_assurance_checkers k JOIN hyperfide.identity_principals i ON i.organisation_id=k.organisation_id AND i.run_id=k.identity_run_id AND i.credential_id=k.credential_id AND i.actor_id=k.principal_id
+        WHERE k.organisation_id=$1 AND k.repository_id=$2 AND k.security_domain_id=$3 AND k.policy_id=$4 AND k.check_id=$5 AND k.principal_id=$6 AND ($7::uuid IS NULL OR k.credential_id=$7)
+        AND k.identity_kind='NATIVE' AND k.revoked_at IS NULL AND k.expires_at>COALESCE($8::timestamptz,clock_timestamp()) AND i.state='ACTIVE' AND i.expires_at>COALESCE($8::timestamptz,clock_timestamp())
+        AND i.credential_version>=k.identity_credential_version AND i.public_key_b64=k.identity_public_key_b64 AND i.role=k.identity_role AND i.deployment_epoch=k.identity_deployment_epoch AND 'source.assurance.publish'=ANY(i.allowed_actions) FOR SHARE OF k,i`,
+          values,
+        )
+      ).rows;
+      for (const item of native)
+        rows.push({
+          credential_id: item.credential_id,
+          credential_version: await nativeCheckerCredentialVersion(
+            tx,
+            item,
+            recordedVersion,
+          ),
+        });
+    }
     if (rows.length !== 1)
       sourceFailure(
         "CHECKER_NOT_AUTHORIZED",
@@ -479,6 +529,7 @@ export class NativeSourceEvidenceVerifier {
         row.checker_principal_id,
         row.checker_credential_id,
         new Date(row.created_at).toISOString(),
+        String(row.checker_credential_version),
       );
       if (checker.credential_version !== String(row.checker_credential_version))
         sourceFailure(
@@ -549,6 +600,32 @@ export class NativeSourceAssurance extends NativeSourceEvidenceVerifier {
     readonly objects: SourceObjectService,
   ) {
     super();
+  }
+  async registerPolicy(
+    context: SourceContext,
+    input: NativePolicyRegistrationInput,
+    invocation: InvocationContext,
+  ): Promise<NativePolicyRegistrationResult> {
+    assertNativeRegistrationInvocation(context, invocation);
+    return this.mutate(
+      context,
+      "source.assurance.policy.register",
+      input,
+      (tx) => registerNativePolicy(tx, context, input, invocation),
+    );
+  }
+  async registerChecker(
+    context: SourceContext,
+    input: NativeCheckerRegistrationInput,
+    invocation: InvocationContext,
+  ): Promise<NativeCheckerRegistrationResult> {
+    assertNativeRegistrationInvocation(context, invocation);
+    return this.mutate(
+      context,
+      "source.assurance.checker.register",
+      input,
+      (tx) => registerNativeChecker(tx, context, input, invocation),
+    );
   }
   private async mutate<T>(
     context: SourceContext,

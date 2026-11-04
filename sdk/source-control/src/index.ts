@@ -23,3 +23,4 @@ export type {SourceQueueEnqueueRequest,SourceQueueClaimRequest,SourceQueueBindRe
 export type {SourceSubscriptionInput,SourceSubscription,SourceEventDelivery,SourceEventPage,SourceEventPollInput,SourceEventAcknowledgment} from './events.js';
 
 export type {SourceCapabilityGrant,SourceCapabilityManageRequest,SourceCapabilityManageResult,SourceAuditRecord,SourceAuditPage,SourceWorkspaceWidenRequest,SourceWorkspaceWidenResult} from './admin.js';
+export type {SourceRegisterAssurancePolicyRequest,SourceAssurancePolicyRegistration,SourceRegisterAssuranceCheckerRequest,SourceAssuranceCheckerRegistration} from './assurance.js';

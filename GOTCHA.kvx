@@ -26,6 +26,13 @@ resolution = "Require the independent authority journal before listening. Refres
 evidence = "server_authority.py restores an actual database, advances the independent journal, and checks startup, live journal loss and an in-flight epoch change. All six checks pass; the prior launcher accepts the restored-token mutation."
 status = "resolved"
 
+[gotcha.native_checker_identity]
+symptom = "A checker issued through native identity cannot publish source evidence when verification joins only the standalone source-token credential table."
+cause = "Native and source-token credentials have separate authorities; creating a shadow token row does not preserve native revocation or renewal."
+resolution = "Register the checker through the native assurance API, binding its accepted policy, identity, public key, run, role and deployment. Verify recorded renewal continuity for historical evidence and enforce native revocation."
+evidence = "assurance_registration.py exercises signed policy/checker registration without a source-token shadow row, actual checker execution, credential renewal and revocation."
+status = "resolved"
+
 [gotcha.source_spec_bootstrap]
 symptom = "The installed hyperfide brief command refuses a fresh source checkout without initialized project state."
 cause = "Repository source and spec files do not themselves initialize the local graph database."

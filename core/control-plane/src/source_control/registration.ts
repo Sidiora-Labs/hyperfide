@@ -187,6 +187,14 @@ export function createSourceService(options:SourceServiceOptions) {
    'source.candidates.qualify':(request,context)=>candidates.qualify(context,mutationInput(request,['candidate_id','evidence_ids']) as unknown as Parameters<typeof candidates.qualify>[1]),
    'source.acceptance.accept':(request,context)=>acceptance.accept(context,mutationInput(request,['candidate_id','qualification_id']) as unknown as Parameters<typeof acceptance.accept>[1]),
    'source.acceptance.read':(request,context)=>acceptance.read(context,actionInput(request.input,['acceptance_id']).acceptance_id as string),
+   'source.assurance.policy.register':(request,context,principal)=>{
+    if(!('operation' in principal))throw new SourceControlError('AUTH_REQUIRED','Native operator authority is required to register an assurance policy');
+    return assurance.registerPolicy(context,mutationInput(request,['policy_id','run_id','task_id','spec_revision_id','spec_generation','expires_at']) as unknown as Parameters<typeof assurance.registerPolicy>[1],principal);
+   },
+   'source.assurance.checker.register':(request,context,principal)=>{
+    if(!('operation' in principal))throw new SourceControlError('AUTH_REQUIRED','Native operator authority is required to register an assurance checker');
+    return assurance.registerChecker(context,mutationInput(request,['policy_id','check_id','credential_id','expires_at']) as unknown as Parameters<typeof assurance.registerChecker>[1],principal);
+   },
    'source.assurance.custody.create':(request,context)=>assurance.registerCustody(context,mutationInput(request,['custody_id','custody_generation','revision_id','run_id','task_id']) as unknown as Parameters<typeof assurance.registerCustody>[1]),
    'source.assurance.publish':(request,context)=>assurance.publish(context,mutationInput(request,['candidate_id','check_id','receipt_object_id']) as unknown as Parameters<typeof assurance.publish>[1]),
    'source.assurance.revoke':(request,context)=>assurance.revoke(context,mutationInput(request,['evidence_id','custody_id']) as unknown as Parameters<typeof assurance.revoke>[1]),

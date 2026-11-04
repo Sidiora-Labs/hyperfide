@@ -779,6 +779,12 @@ Proposed implementation scope:
 - `core/control-plane/migrations/0741-source-control-acceptance.sql`
 - `core/control-plane/migrations/0743-source-control-assurance.sql`
 - `core/control-plane/src/assurance/native_source.ts`
+- `core/control-plane/src/assurance/native_registration.ts`
+- `core/control-plane/src/source_control/migration/epoch_adoption.ts`
+- `tests/hyperfide/cases/source_control/assurance_registration.py`
+- `tests/hyperfide/support/native_source_assurance_registration.mjs`
+- `core/control-plane/migrations/0760-native-assurance-registration.sql`
+- `sdk/source-control/src/assurance.ts`
 - `core/control-plane/src/source_control/registration.ts`
 - `core/control-plane/src/source_control/api.ts`
 - `core/control-plane/src/source_control/capabilities.ts`

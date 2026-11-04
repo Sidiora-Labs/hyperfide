@@ -21,7 +21,7 @@ export async function createNativeAcceptanceFixture(options={}) {
     load('registration'),load('http'),load('s3'),load('contracts'),
     import(pathToFileURL(path.join(sdkRoot,'client.js'))),load('authentication'),load('capabilities'),load('metadata'),load('candidates'),
   ]);
-  const actions=options.actions??SOURCE_ACTIONS.filter(action=>action!=='source.queries.batch'&&!['source.queue.','source.retention.','source.collection.','source.graph.','source.imports.','source.projections.','source.contributions.','source.migration.','source.backups.','source.recovery.','source.routing.'].some(prefix=>action.startsWith(prefix)));
+  const actions=options.actions??SOURCE_ACTIONS.filter(action=>!['source.queries.batch','source.assurance.policy.register','source.assurance.checker.register'].includes(action)&&!['source.queue.','source.retention.','source.collection.','source.graph.','source.imports.','source.projections.','source.contributions.','source.migration.','source.backups.','source.recovery.','source.routing.'].some(prefix=>action.startsWith(prefix)));
   assert(actions.length>0&&actions.length<=64&&new Set(actions).size===actions.length&&actions.every(action=>SOURCE_ACTIONS.includes(action)),'Fixture requires one through 64 explicit supported capability actions');
   const pool=options.pool??new pg.Pool({connectionString:process.env.DATABASE_URL,max:16});
   const ownsPool=!options.pool;

@@ -630,3 +630,13 @@ source_digest = "sha256:70ca4228c226094da4a3a57e45dce8cbd219df80c2e854b364e9956e
 dist_digest = "sha256:1f6840a5ef1788a596d7ecf296f636d899199e71e07ba4bf704cb60dd62dc930"
 observed = "Six actual standalone-server checks pass, including independently advanced journal versus restored PostgreSQL, live journal loss, missing startup authority, and a concurrent locked epoch change with typed refusal and no new upload."
 scope = "Owned PostgreSQL, signed source tokens and independent file authority journal; exact launcher and compiled service. The prior compiled launcher fails the same recovery cases."
+
+[progress.native_assurance_registration]
+command = "python3 tests/hyperfide/cases/source_control/assurance_registration.py"
+exit_code = 0
+receipt = "build/source-control/evidence/482c1dc34c0221ba08a9af326183574dfa5948722e3f2c6088efa4f1966601a5.json"
+receipt_sha256 = "482c1dc34c0221ba08a9af326183574dfa5948722e3f2c6088efa4f1966601a5"
+source_digest = "sha256:5eb298a498ae0a7486868cff196b662e9ab8e6d263d379f91f34b11078ed9034"
+dist_digest = "sha256:67e85a9058deb904f6a8a63742abd042e9333ed494863faddd31e68a5da77e14"
+observed = "Three groups pass for signed native policy/checker registration from accepted proof, no source-token shadow identity, real checker execution, denied invalid scope and generation, credential renewal preserving historical proof, and explicit revocation."
+scope = "Owned PostgreSQL and real native identity/source APIs. Runtime native fleet execution is qualified separately."

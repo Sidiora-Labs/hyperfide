@@ -99,6 +99,8 @@ Revert applies the inverse of a pinned revision onto a pinned target. Reverting 
 
 ## Qualification and acceptance
 
+An authorized native operator or coordinator calls `registerAssurancePolicy` with the accepted run, task and specification generation. The server derives executable checks from that accepted proof registry. Register each independent checker with `registerAssuranceChecker`, naming its current native credential. These operations bind the policy and checker to the repository, run and authority epoch; callers cannot substitute arbitrary checks or a source token for a native identity.
+
 An integration domain holds an accepted revision and generation. `createCandidate` pins the expected domain generation, candidate revision, ordered contributors, dependencies, and source, configuration, toolchain, graph and contract digests. Concurrent acceptance of another candidate changes the domain generation and rejects the stale candidate.
 
 Registered independent checkers publish execution receipts through `publishSourceEvidence`. Receipts bind the exact candidate and inputs, command identity, observed exit status, output and artifact objects. The authorized control plane provisions checker registrations and policies; ordinary source writers cannot register themselves as checkers. Contributor custody and evidence objects remain pinned independently of the original worker.
@@ -161,7 +163,7 @@ Workers can send an explicit versioned source request with:
 hyperfide source invoke --request-file request.json
 ```
 
-`--config /absolute/path/source-client.json` selects a configuration explicitly. The command verifies the request scope and adds the assigned authority when the request omits it. Keep the original `operation_id` and `idempotency_key` when reconciling an uncertain response. The Node SDK exposes the same transport through `createSignedSourceClient(config.transport)` from `@hyperfide/authority`; pass `config.assignment.authority` in its call options for worker mutations.
+`--config /absolute/path/source-client.json` selects a configuration explicitly. The command verifies the request scope and adds the assigned authority when the request omits it. Keep the original `operation_id` and `idempotency_key` when reconciling an uncertain response. The Node SDK exposes the same transport through `createSignedSourceClient(config.transport)` from `@hyperfide/source-control/signed`; pass `config.assignment.authority` in its call options for worker mutations.
 
 Submission accepts only the exact durable checkpoint of the assigned workspace. It pins the revision in coordinator custody before releasing compute in the same transaction. Repeating the original submission recovers its receipt after a lost response. A replacement attempt cannot write through its predecessor's assignment. Native cleanup uses the retained submission and the runner's verified process and credential cleanup to release the worker slot.
 

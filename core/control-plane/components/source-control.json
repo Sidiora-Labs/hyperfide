@@ -50,6 +50,8 @@
     "source.candidates.qualify",
     "source.acceptance.accept",
     "source.acceptance.read",
+    "source.assurance.policy.register",
+    "source.assurance.checker.register",
     "source.assurance.custody.create",
     "source.assurance.publish",
     "source.assurance.revoke",
