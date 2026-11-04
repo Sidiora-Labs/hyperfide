@@ -24,7 +24,7 @@ def main():
     host = parse_qs(urlparse(os.environ['DATABASE_URL']).query).get('host', [''])[0]
     if not host.startswith('/tmp/hyperfide/hf-withpg-'):
         raise RuntimeError('Retention qualification requires an owned PostgreSQL socket')
-    output = ROOT/'build/source-control/2.3'
+    output = Path(os.environ.get('HYPERFIDE_SOURCE_EVIDENCE_DIR',str(ROOT/'build/source-control/2.3'))).resolve()
     output.mkdir(parents=True, exist_ok=True)
     files = ['contracts.ts','storage_contract.ts','object_catalog.ts','objects.ts','trees.ts','s3.ts','pins.ts','gc.ts']
     config = {'compilerOptions': {'target':'ES2023','module':'NodeNext','moduleResolution':'NodeNext','strict':True,'noUncheckedIndexedAccess':True,'exactOptionalPropertyTypes':True,'skipLibCheck':True,'rootDir':str(ROOT/'core/control-plane/src'),'outDir':str(output/'dist'),'types':['node'],'typeRoots':[str(ROOT/'core/control-plane/node_modules/@types')]}, 'files':[str(ROOT/'core/control-plane/src/source_control'/file) for file in files]}

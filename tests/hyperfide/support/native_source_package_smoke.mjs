@@ -30,7 +30,9 @@ const request=createRequire(path.join(release,'services/package.json'));
 const {Pool}=request('pg');
 const db=process.env.DATABASE_URL;
 assert(new URL(db).searchParams.get('host')?.startsWith('/tmp/hyperfide/hf-withpg-'),'Owned PostgreSQL required');
-const resources=createResourceContainer({role:'control',env:{...process.env,HYPERFIDE_MIGRATION_DATABASE_URL:db},signal:new AbortController().signal});
+const authorityDirectory=await fs.mkdtemp(path.join(os.tmpdir(),'hf-package-authority-')),deployment=randomUUID();
+await fs.chmod(authorityDirectory,0o700);
+const resources=createResourceContainer({role:'control',env:{...process.env,HYPERFIDE_MIGRATION_DATABASE_URL:db,HYPERFIDE_DEPLOYMENT_ID:deployment,HYPERFIDE_AUTHORITY_JOURNAL_DIR:authorityDirectory},signal:new AbortController().signal});
 const legacy=await fs.mkdtemp(path.join(os.tmpdir(),'hf-package-legacy-'));
 const seedPool=new Pool({connectionString:db});
 try{
@@ -49,6 +51,18 @@ try{
  const upgrade=await new MigrationCoordinator(resources).apply({timeoutMs:30000});assert(upgrade.applied.length>0);
  assert.deepEqual((await seedPool.query('SELECT to_jsonb(s) AS data FROM hyperfide.source_objects s WHERE organisation_id=$1',[organisation])).rows,before);
  assert.equal((await new MigrationCoordinator(resources).apply({timeoutMs:30000})).applied.length,0);
+ const [{AuthorityStore,lookupAuthorityActivation,assertExternalAuthorityCurrent},{FileExternalAuthorityJournal},{hash}]=await Promise.all([load('storage/durability'),load('storage/authority_journal'),load('transport/protocol')]);
+ const identity=(await seedPool.query('SELECT current_database() AS database_name,(pg_control_system()).system_identifier::text AS system_identifier,pg_postmaster_start_time()::text AS postmaster,pg_is_in_recovery() AS recovery')).rows[0];
+ assert.equal(identity.recovery,false);
+ assert.equal(Number((await seedPool.query('SELECT count(*) AS n FROM hyperfide.authority_epochs WHERE deployment_id=$1',[deployment])).rows[0].n),0);
+ assert.equal((await fs.readdir(authorityDirectory)).length,0);
+ const journal=new FileExternalAuthorityJournal(authorityDirectory,input=>lookupAuthorityActivation(resources,input));
+ await new AuthorityStore(resources,deployment,journal).activate({operation_id:randomUUID(),expected_previous_epoch:null},{isolate:async input=>{
+  assert.equal(input.deployment_id,deployment);assert.equal(input.source_epoch,null);
+  const now=Date.now(),receipt={deployment_id:deployment,operation_id:input.operation_id,source_epoch:null,fence_id:randomUUID(),isolated_writer:'owned-package-database:'+identity.system_identifier+':'+identity.postmaster,observed_at:new Date(now).toISOString(),expires_at:new Date(now+25000).toISOString(),evidence_digest:hash(JSON.stringify({kind:'OWNED_FRESH_PACKAGE_DATABASE',identity}))};
+  await fs.writeFile(path.join(authorityDirectory,'package-writer-observation.json'),JSON.stringify(receipt),{mode:0o600});return receipt;
+ }});
+ await assertExternalAuthorityCurrent(resources,journal,{deployment_id:deployment});
 }finally{await seedPool.end();await resources.close();await fs.rm(legacy,{recursive:true,force:true});}
 const pool=new Pool({connectionString:db}),backend=await createSourceS3Fixture(),temporary=await fs.mkdtemp(path.join(os.tmpdir(),'hf-packaged-source-'));
 let server,acceptedFixture;
@@ -63,7 +77,7 @@ try{
  await pool.query("INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at) VALUES($1,$2,$3,$4,$5,$6,'automation',1,'package-v1',$7,ARRAY[''],clock_timestamp()+interval '15 minutes')",[...Object.values(scope),capability,principal,credential,actions]);
  const configuration=path.join(temporary,'listener.json');
  await fs.writeFile(configuration,JSON.stringify({host:'127.0.0.1',port:0,allowLoopbackHTTP:true,trust:{issuer:'package',audience:'package',keys:{key:publicKey.export({format:'pem',type:'spki'}).toString()}}}),{mode:0o600});
- const env={DATABASE_URL:db,HF_SOURCE_CONTROL_CONFIG:configuration,HF_SOURCE_S3_ENDPOINT:backend.config.endpoint,HF_SOURCE_S3_REGION:backend.config.region,HF_SOURCE_S3_BUCKET:backend.config.bucket,HF_SOURCE_S3_ACCESS_KEY_ID:backend.config.accessKey,HF_SOURCE_S3_SECRET_ACCESS_KEY:backend.config.secretKey,HF_SOURCE_ALLOW_LOOPBACK_HTTP:'1',HF_SOURCE_CURSOR_KEY:randomBytes(32).toString('base64url'),HF_SOURCE_CACHE_BYTES:'16777216',HF_SOURCE_CACHE_ENTRIES:'1024',HF_SOURCE_MAX_FILE_BYTES:'8388608',HF_SOURCE_MATERIALIZED_BYTES:'33554432',HF_SOURCE_DIRTY_BYTES:'8388608'};
+ const env={DATABASE_URL:db,HYPERFIDE_DEPLOYMENT_ID:deployment,HYPERFIDE_AUTHORITY_JOURNAL_DIR:authorityDirectory,HF_SOURCE_CONTROL_CONFIG:configuration,HF_SOURCE_S3_ENDPOINT:backend.config.endpoint,HF_SOURCE_S3_REGION:backend.config.region,HF_SOURCE_S3_BUCKET:backend.config.bucket,HF_SOURCE_S3_ACCESS_KEY_ID:backend.config.accessKey,HF_SOURCE_S3_SECRET_ACCESS_KEY:backend.config.secretKey,HF_SOURCE_ALLOW_LOOPBACK_HTTP:'1',HF_SOURCE_CURSOR_KEY:randomBytes(32).toString('base64url'),HF_SOURCE_CACHE_BYTES:'16777216',HF_SOURCE_CACHE_ENTRIES:'1024',HF_SOURCE_MAX_FILE_BYTES:'8388608',HF_SOURCE_MATERIALIZED_BYTES:'33554432',HF_SOURCE_DIRTY_BYTES:'8388608'};
  server=await startPackagedSource(env);
  const header=Buffer.from(JSON.stringify({alg:'EdDSA',kid:'key',typ:'HF-SOURCE-1'})).toString('base64url'),now=Math.floor(Date.now()/1000);
  const payload=Buffer.from(JSON.stringify({schema_version:1,iss:'package',aud:'package',sub:principal,credential_id:credential,credential_version:'1',principal_kind:'automation',scope,iat:now,nbf:now,exp:now+290,capability_id:capability})).toString('base64url');
@@ -104,4 +118,4 @@ try{
  const readback=execFileSync(path.join(release,'bin/git'),['--git-dir',remote,'show','refs/heads/main:main.txt'],{encoding:'utf8'});
  assert.equal(readback,'candidate: packaged acceptance\n');
  console.log(JSON.stringify({status:'PASS',profile:'owned PostgreSQL and SigV4 object backend; extracted packaged service/SDK/host/native/CLI',checks:['packaged migration upgrades preserve legacy Git source rows and replay once','packaged service migration and startup','API-only source client','sparse materialization and durable checkpoint','packaged native CLI and component dispatch','independent candidate qualification and acceptance','Git publication status and independent content readback'],backend_requests:backend.requests.length+acceptedFixture.backend.requests.length}));
-}finally{await acceptedFixture?.close();await server?.close();await backend.close();await pool.end();await fs.rm(temporary,{recursive:true,force:true});}
+}finally{await acceptedFixture?.close();await server?.close();await backend.close();await pool.end();await fs.rm(temporary,{recursive:true,force:true});await fs.rm(authorityDirectory,{recursive:true,force:true});}

@@ -56,8 +56,10 @@ def source_identity(value):
     require(isinstance(value, dict) and set(value) == set(IDENTITY), 'Exact native source identity required')
     scope = value['scope']
     require(isinstance(scope, dict) and set(scope) == {'organisation_id', 'repository_id', 'security_domain_id'}, 'Native source scope required')
-    for item in [*scope.values(), value['authority_epoch']]:
+    for item in scope.values():
         require(isinstance(item, str) and str(uuid.UUID(item)) == item, 'Canonical source authority UUID required')
+    epoch = value['authority_epoch']
+    require(isinstance(epoch, str) and re.fullmatch(r'[1-9][0-9]{0,18}', epoch) is not None and int(epoch) <= 9223372036854775807, 'Canonical positive PostgreSQL authority epoch required')
     for field in ('revision_id', 'root_tree_id'):
         require(isinstance(value[field], str) and re.fullmatch(r'sha256:[0-9a-f]{64}', value[field]), 'Native revision and root digests required')
     require(isinstance(value['policy_version'], str) and value['policy_version'].strip(), 'Source policy version required')

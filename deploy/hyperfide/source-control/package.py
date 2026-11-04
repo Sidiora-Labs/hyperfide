@@ -24,17 +24,19 @@ def digest(path):
         for data in iter(lambda:stream.read(1048576),b''):result.update(data)
     return result.hexdigest()
 def file_record(path):
-    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
-    try:
-        info=os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):raise RuntimeError('Regular runtime input required: '+str(path))
-        hasher=hashlib.sha256()
-        with os.fdopen(os.dup(fd),'rb') as source:
-            for data in iter(lambda:source.read(1048576),b''):hasher.update(data)
-        after=os.fstat(fd)
-        if (info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns)!=(after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns):raise RuntimeError('Runtime input changed while hashing')
-        return {'kind':'file','sha256':hasher.hexdigest(),'size':info.st_size,'mode':stat.S_IMODE(info.st_mode)}
-    finally:os.close(fd)
+    for _ in range(3):
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+        try:
+            info=os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):raise RuntimeError('Regular runtime input required: '+str(path))
+            hasher=hashlib.sha256()
+            with os.fdopen(os.dup(fd),'rb') as source:
+                for data in iter(lambda:source.read(1048576),b''):hasher.update(data)
+            after=os.fstat(fd)
+            if (info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns)==(after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns):
+                return {'kind':'file','sha256':hasher.hexdigest(),'size':info.st_size,'mode':stat.S_IMODE(info.st_mode)}
+        finally:os.close(fd)
+    raise RuntimeError('Runtime input changed while hashing: '+str(path))
 def excluded(name,exclude):return name in exclude or name.startswith('.env.')
 def tree_records(root,exclude=EXCLUDED):
     root=Path(root).resolve();records={}
@@ -102,7 +104,7 @@ def native_ready():
     expected=json.loads(subprocess.check_output(['python3',str(ROOT/'tools/repository/hyperfide-native-components.py'),'--link-contract'],cwd=ROOT))
     if expected!=json.loads((ROOT/'build/hyperfide-native-link-contract.json').read_text()):raise RuntimeError('Native component link contract differs')
 
-def build(output,node,service_root=None):
+def build(output,node,service_root=None,sdk_root=None):
     if platform.system()!='Linux':raise RuntimeError('Native source runtime package profile requires Linux')
     service=Path(service_root).resolve() if service_root else ROOT/'core/control-plane'
     stamp_command=[str(node),str(ROOT/'deploy/hyperfide/dist-stamp.mjs'),'check',str(service)]
@@ -114,7 +116,8 @@ def build(output,node,service_root=None):
     items=sorted(graph['graph'],key=lambda filename:(graph['graph'][filename]['name'],graph['graph'][filename]['version'],filename))
     allowed=[(ROOT/'node_modules').resolve(),(ROOT/'core/control-plane/node_modules').resolve()]
     if any(not any(Path(filename).resolve().is_relative_to(root) for root in allowed) for filename in items):raise RuntimeError('Dependency resolves outside approved installed roots')
-    bundle_command=[str(node),str(ROOT/'deploy/hyperfide/source-control/bundle.mjs'),'--inputs']
+    sdk_arguments=['--sdk-root',str(Path(sdk_root).resolve())] if sdk_root else []
+    bundle_command=[str(node),str(ROOT/'deploy/hyperfide/source-control/bundle.mjs'),'--inputs',*sdk_arguments]
     bundles=json.loads(subprocess.check_output(bundle_command,cwd=ROOT,text=True))
     files={'runtime/node':node,'bin/hyperfide':ROOT/'hyperfide','bin/hyperfide-native':ROOT/'build/hyperfide-native','builder/package.py':Path(__file__).resolve(),'builder/pnpm-lock.yaml':ROOT/'pnpm-lock.yaml'}
     for filename in bundles['files']:
@@ -168,7 +171,7 @@ def build(output,node,service_root=None):
         for filename,record in graph['graph'].items():
             for name,child in record['deps'].items():link(locations[filename]/'node_modules',name,child)
         for name,filename in graph['entries'].items():link(stage/'services/node_modules',name,filename)
-        subprocess.run([str(node),str(ROOT/'deploy/hyperfide/source-control/bundle.mjs'),str(stage)],cwd=ROOT,check=True)
+        subprocess.run([str(node),str(ROOT/'deploy/hyperfide/source-control/bundle.mjs'),str(stage),*sdk_arguments],cwd=ROOT,check=True)
         launcher='''#!/bin/sh
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -200,11 +203,11 @@ exec "$root/runtime/node" "$root/services/dist/source_control/server.js" "$@"
         (output/'package-manifest.json').write_bytes(canonical(record));return record
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',required=True);parser.add_argument('--node',default=shutil.which('node'));parser.add_argument('--service-root')
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',required=True);parser.add_argument('--node',default=shutil.which('node'));parser.add_argument('--service-root');parser.add_argument('--sdk-root')
     args=parser.parse_args()
     try:
         if not args.node:raise RuntimeError('Pinned Node runtime required')
-        print(json.dumps(build(Path(args.output).resolve(),Path(args.node).resolve(),args.service_root),sort_keys=True));return 0
+        print(json.dumps(build(Path(args.output).resolve(),Path(args.node).resolve(),args.service_root,args.sdk_root),sort_keys=True));return 0
     except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
         print(json.dumps({'status':'REFUSED','error':str(error)}));return 2
 if __name__=='__main__':raise SystemExit(main())

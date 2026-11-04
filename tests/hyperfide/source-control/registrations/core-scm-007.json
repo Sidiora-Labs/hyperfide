@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-007/full",
+  "task": "6.3",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-007"
+  ],
+  "assertion_ids": [
+    "source.core.events.metadata.1",
+    "source.core.events.metadata.2",
+    "source.core.events.metadata.3",
+    "source.core.events.metadata.4",
+    "source.core.events.metadata.5",
+    "source.core.events.metadata.6",
+    "source.core.events.metadata.7",
+    "source.core.events.metadata.8",
+    "source.core.events.retention.1",
+    "source.core.events.retention.2",
+    "source.core.events.retention.3",
+    "source.core.events.retention.4",
+    "source.core.events.retention.5",
+    "source.core.events.retention.6",
+    "source.core.events.causal.1",
+    "source.core.events.causal.2",
+    "source.core.events.causal.3",
+    "source.core.events.causal.4",
+    "source.core.events.causal.5",
+    "source.core.events.causal.6",
+    "source.core.events.causal.7"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "--case",
+    "SCM-007"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "pnpm-lock.yaml",
+    "sdk/source-control/package.json",
+    "sdk/source-control/tsconfig.json",
+    "tests/hyperfide/cases/source_control/1_2.py",
+    "tests/hyperfide/cases/source_control/causal.py",
+    "tests/hyperfide/cases/source_control/events.py",
+    "tests/hyperfide/cases/source_control/fixtures/contracts-v1.json",
+    "tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "tests/hyperfide/source-control/full_case/core_cases.json",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_causal_actor.mjs",
+    "tests/hyperfide/support/native_source_events_actor.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/source_metadata_actor.mjs",
+    "tests/hyperfide/support/withpg.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/src/assurance",
+    "core/control-plane/migrations",
+    "sdk/source-control/src",
+    "tools/workspace",
+    "tests/hyperfide/source-control/full_case"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 1800
+}

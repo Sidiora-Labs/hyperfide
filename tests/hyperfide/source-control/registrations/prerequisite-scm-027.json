@@ -1,0 +1,74 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-027/provider-sandbox",
+  "task": "6.3",
+  "case_variant": "provider-sandbox",
+  "scope": "full-case",
+  "cases": [
+    "SCM-027"
+  ],
+  "assertion_ids": [
+    "SCM-027.live.fresh_install",
+    "SCM-027.live.repeated_install",
+    "SCM-027.live.interrupted_install",
+    "SCM-027.live.missing_code",
+    "SCM-027.live.missing_dependencies",
+    "SCM-027.live.missing_configuration",
+    "SCM-027.live.stale_install",
+    "SCM-027.live.path_escape",
+    "SCM-027.live.concurrent_isolation",
+    "SCM-027.live.interface_subset",
+    "SCM-027.live.fetch_volume",
+    "SCM-027.live.provider_creation",
+    "SCM-027.live.coding_worker",
+    "SCM-027.live.independent_test",
+    "SCM-027.live.worker_cancellation",
+    "SCM-027.live.failed_worker",
+    "SCM-027.live.manager_replacement",
+    "SCM-027.live.ambiguous_provider_outcome",
+    "SCM-027.complete-live-authority-chain"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/prerequisites.py",
+    "--case",
+    "SCM-027"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/prerequisites.py",
+    "tests/hyperfide/source-control/full_case/prerequisite_cases.json",
+    "tests/hyperfide/support/fleet_live_qualification.py",
+    "tests/hyperfide/cases/source_control/0_10.py",
+    "spec/hyperfide-source-control/spec.kvx",
+    "core/control-plane/src/fleet-supervisor.ts",
+    "core/control-plane/package.json",
+    "pnpm-lock.yaml",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/source-control/full_case/prerequisite_manifest.py"
+  ],
+  "source_roots": [
+    "contracts/fleet",
+    "core/control-plane/src/agents",
+    "core/control-plane/src/providers",
+    "core/control-plane/src/decisions",
+    "core/control-plane/src/hierarchy",
+    "core/control-plane/src/assurance",
+    "core/control-plane/src/recovery",
+    "core/control-plane/src/runner",
+    "core/control-plane/src/scheduler",
+    "core/control-plane/src/source_control",
+    "core/control-plane/migrations",
+    "sdk/source-control/src"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HF_FLEET_QUALIFICATION_EVIDENCE",
+    "HF_FLEET_QUALIFICATION_TARGET"
+  ],
+  "timeout_seconds": 1200,
+  "required_artifacts": [
+    "prerequisite-conformance.json"
+  ]
+}

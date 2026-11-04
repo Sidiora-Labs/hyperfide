@@ -1,0 +1,1820 @@
+{
+  "drivers": {
+    "codec": {
+      "path": "tests/hyperfide/cases/source_control/0_1.py"
+    },
+    "storage": {
+      "path": "tests/hyperfide/cases/source_control/1_1.py",
+      "args": [
+        "--component"
+      ]
+    },
+    "metadata": {
+      "path": "tests/hyperfide/cases/source_control/1_2.py"
+    },
+    "api": {
+      "path": "tests/hyperfide/cases/source_control/2_1.py"
+    },
+    "transforms": {
+      "path": "tests/hyperfide/cases/source_control/3_1.py",
+      "timeout_seconds": 600
+    },
+    "causal": {
+      "path": "tests/hyperfide/cases/source_control/causal.py"
+    },
+    "query-batch": {
+      "path": "tests/hyperfide/cases/source_control/batch.py"
+    },
+    "events": {
+      "path": "tests/hyperfide/cases/source_control/events.py"
+    },
+    "acceptance": {
+      "path": "tests/hyperfide/cases/source_control/4_1.py",
+      "combine_reports": true
+    },
+    "candidate-batch": {
+      "path": "tests/hyperfide/cases/source_control/4_1_batches.py"
+    },
+    "graph": {
+      "path": "tests/hyperfide/cases/source_control/3_3.py",
+      "timeout_seconds": 600
+    },
+    "git-export": {
+      "path": "tests/hyperfide/cases/source_control/5_1.py",
+      "timeout_seconds": 600
+    },
+    "git-import": {
+      "path": "tests/hyperfide/cases/source_control/5_2.py",
+      "timeout_seconds": 600
+    },
+    "github-live": {
+      "path": "tests/hyperfide/cases/source_control/github_canary.py",
+      "timeout_seconds": 600
+    },
+    "authority": {
+      "path": "tests/hyperfide/cases/source_control/1_3.py"
+    },
+    "admin": {
+      "path": "tests/hyperfide/cases/source_control/admin.py"
+    },
+    "privacy": {
+      "path": "tests/hyperfide/cases/source_control/privacy.py"
+    },
+    "api-host": {
+      "path": "tests/hyperfide/cases/source_control/2_1.py",
+      "env": {
+        "HYPERFIDE_SOURCE_RUN_HOST": "1"
+      }
+    },
+    "transfers": {
+      "path": "tests/hyperfide/cases/source_control/transfers.py"
+    },
+    "signed-authority": {
+      "path": "tests/hyperfide/cases/source_control/signed_transport.py",
+      "env": {
+        "HF_SOURCE_QUALIFICATION": "0",
+        "HF_SOURCE_PRODUCT_CLI": "0",
+        "HF_SOURCE_VIRTUAL_PROVIDER": "0"
+      },
+      "timeout_seconds": 900
+    },
+    "managed-fleet": {
+      "path": "tests/hyperfide/cases/source_control/4_2.py",
+      "env": {
+        "HF_SOURCE_FULL_CASE": ""
+      },
+      "timeout_seconds": 900
+    },
+    "recovery-component": {
+      "path": "tests/hyperfide/cases/source_control/6_1.py",
+      "args": [
+        "--component"
+      ],
+      "env": {
+        "HYPERFIDE_SOURCE_EVIDENCE_DIR": "build/source-control/full-case/SCM-004/recovery"
+      },
+      "timeout_seconds": 900
+    },
+    "collection-api": {
+      "path": "tests/hyperfide/cases/source_control/2_3.py",
+      "args": [
+        "--api"
+      ]
+    },
+    "batch-authority": {
+      "path": "tests/hyperfide/cases/source_control/batch_authorization.py",
+      "timeout_seconds": 600
+    }
+  },
+  "SCM-001": {
+    "drivers": [
+      "codec",
+      "storage",
+      "api"
+    ],
+    "assertions": [
+      {
+        "id": "source.core.identity.codec.1",
+        "driver": "codec",
+        "codec_assertion": "golden-cross-language-object-envelopes"
+      },
+      {
+        "id": "source.core.identity.codec.2",
+        "driver": "codec",
+        "codec_assertion": "real-sdk-server-request-and-response-interoperability"
+      },
+      {
+        "id": "source.core.identity.codec.3",
+        "driver": "codec",
+        "codec_assertion": "content-transfer-allowance-is-action-scoped"
+      },
+      {
+        "id": "source.core.identity.codec.4",
+        "driver": "codec",
+        "codec_assertion": "version-negotiation-and-exact-envelope-fields"
+      },
+      {
+        "id": "source.core.identity.codec.5",
+        "driver": "codec",
+        "codec_assertion": "strict-json-no-duplicate-numeric-or-unicode-aliases"
+      },
+      {
+        "id": "source.core.identity.codec.6",
+        "driver": "codec",
+        "codec_assertion": "native-identities-do-not-coerce-git-or-raw-hashes"
+      },
+      {
+        "id": "source.core.identity.codec.7",
+        "driver": "codec",
+        "codec_assertion": "exact-paths-kinds-and-mode-round-trips"
+      },
+      {
+        "id": "source.core.identity.codec.8",
+        "driver": "codec",
+        "codec_assertion": "lifecycle-replay-and-public-provenance-boundaries"
+      },
+      {
+        "id": "source.core.identity.storage.1",
+        "driver": "storage",
+        "check": "typed envelopes and file descriptor reconstruct exact independent payload"
+      },
+      {
+        "id": "source.core.identity.storage.2",
+        "driver": "storage",
+        "check": "chunked binary descriptor reconstructs whole payload and cross-chunk range"
+      },
+      {
+        "id": "source.core.identity.storage.3",
+        "driver": "storage",
+        "check": "nested sparse tree preserves executable and symlink metadata"
+      },
+      {
+        "id": "source.core.identity.storage.4",
+        "driver": "storage",
+        "check": "fixed patch touches bounded radix paths across512 and4096 entries; pagination has no duplicates or omissions"
+      },
+      {
+        "id": "source.core.identity.storage.5",
+        "driver": "storage",
+        "check": "lost PUT acknowledgment remains UNKNOWN until exact readback verifies without another PUT"
+      },
+      {
+        "id": "source.core.identity.storage.6",
+        "driver": "storage",
+        "check": "internal radix node cannot become a revision root, directory root or directory entry"
+      },
+      {
+        "id": "source.core.identity.storage.7",
+        "driver": "storage",
+        "check": "corruption, changed idempotent request and cross-domain guesses are refused"
+      },
+      {
+        "id": "source.core.identity.storage.8",
+        "driver": "storage",
+        "check": "verified parents and revision roots acquire real durable exact-incarnation pins"
+      },
+      {
+        "id": "source.core.identity.storage.9",
+        "driver": "storage",
+        "check": "physical placement deletion fence prevents new root pins; native identity mutation rejected in PostgreSQL"
+      },
+      {
+        "id": "source.core.identity.storage.10",
+        "driver": "storage",
+        "check": "all reconstruction uses identified GET/conditionalPUT without LIST or repository materialization"
+      },
+      {
+        "id": "source.core.identity.api.1",
+        "driver": "api",
+        "check": "authenticated taskless HTTP discovery advertises actual installed source operations"
+      },
+      {
+        "id": "source.core.identity.api.2",
+        "driver": "api",
+        "check": "API-only client uploads typed blobs/files/trees, creates immutable revision, and reconstructs exact executable and symlink metadata"
+      },
+      {
+        "id": "source.core.identity.api.3",
+        "driver": "api",
+        "check": "server ancestry, merge bases, object-level diff, exact line mapping and first-parent blame run without a checkout; bounded ancestry resumes rather than fabricating absence"
+      },
+      {
+        "id": "source.core.identity.api.4",
+        "driver": "api",
+        "check": "authenticated history and directory cursors preserve snapshots and reject altered query or tree"
+      },
+      {
+        "id": "source.core.identity.api.5",
+        "driver": "api",
+        "check": "4 MiB source object crosses the actual bounded HTTP SDK request and response codecs"
+      },
+      {
+        "id": "source.core.identity.canonical-radix-normalization",
+        "driver": "storage",
+        "check": "radix insertion order and add-delete normalization reproduce the exact canonical root"
+      }
+    ]
+  },
+  "SCM-003": {
+    "drivers": [
+      "codec",
+      "metadata",
+      "api",
+      "transforms"
+    ],
+    "assertions": [
+      {
+        "id": "source.core.operations.protocol",
+        "driver": "codec",
+        "codec_assertion": "version-negotiation-and-exact-envelope-fields"
+      },
+      {
+        "id": "source.core.operations.metadata.1",
+        "driver": "metadata",
+        "check": "concurrent identical retries preserve one revision, pin, result and event; changed payload conflicts"
+      },
+      {
+        "id": "source.core.operations.metadata.2",
+        "driver": "metadata",
+        "check": "same-change successors remain divergent, paginated and independently readable"
+      },
+      {
+        "id": "source.core.operations.metadata.3",
+        "driver": "metadata",
+        "check": "caller-owned transaction rolls back revision, operation, pins and outbox atomically"
+      },
+      {
+        "id": "source.core.operations.metadata.4",
+        "driver": "metadata",
+        "check": "cancellation before commit, too-late cancellation, retained operation read and revocation"
+      },
+      {
+        "id": "source.core.operations.metadata.5",
+        "driver": "metadata",
+        "check": "cross-domain parent/read refusal and collectible-root admission have no partial mutation"
+      },
+      {
+        "id": "source.core.operations.metadata.6",
+        "driver": "metadata",
+        "check": "event A commits after delivered B and is still delivered; inbox and effect commit once"
+      },
+      {
+        "id": "source.core.operations.metadata.7",
+        "driver": "metadata",
+        "check": "actual committed transaction with lost response resolves by original operation without a second effect"
+      },
+      {
+        "id": "source.core.operations.metadata.8",
+        "driver": "metadata",
+        "check": "immutable history and monotonic authority epoch enforce typed backend bounds"
+      },
+      {
+        "id": "source.core.operations.api.1",
+        "driver": "api",
+        "check": "independent sparse workspaces checkpoint only explicit changes, retain omitted paths and replay one committed operation"
+      },
+      {
+        "id": "source.core.operations.api.2",
+        "driver": "api",
+        "check": "lost HTTP acknowledgment resolves the exact committed operation and retry returns one durable result"
+      },
+      {
+        "id": "source.core.operations.api.4",
+        "driver": "api",
+        "check": "revoked capability denies known and guessed objects before any backend existence read"
+      },
+      {
+        "id": "source.core.operations.transform.1",
+        "driver": "transforms",
+        "check": "authenticated API merges independent text edits, preserves untouched source and exact parents, and binds deterministic replay to its original request"
+      },
+      {
+        "id": "source.core.operations.transform.2",
+        "driver": "transforms",
+        "check": "concurrent bounded rebase resumes commit one durable stack, preserves change identities and predecessor mappings, reuses no-op revisions and retains original descendants"
+      },
+      {
+        "id": "source.core.operations.transform.3",
+        "driver": "transforms",
+        "check": "conflicting rebase exposes its retained partial stack and accepts an explicit conflict-bound resolved tree as a new successor revision"
+      },
+      {
+        "id": "source.core.operations.transform.4",
+        "driver": "transforms",
+        "check": "cancellation fences the remaining durable rebase steps without deleting already committed predecessors"
+      },
+      {
+        "id": "source.core.operations.transform.5",
+        "driver": "transforms",
+        "check": "a real concurrent cancel-versus-step-commit race has one consistent terminal outcome and retained mapping count"
+      },
+      {
+        "id": "source.core.operations.transform.6",
+        "driver": "transforms",
+        "check": "lost transformation acknowledgment resolves the same retained operation and retries do not create another result"
+      },
+      {
+        "id": "source.core.operations.api.transport-id-binding",
+        "driver": "api",
+        "check": "checkpoint transport/body identities must agree and an existing revision operation cannot be reused for a different mutation"
+      },
+      {
+        "id": "source.core.operations.api.fresh-stale-and-divergence",
+        "driver": "api",
+        "check": "fresh stale-generation mutation is rejected while concurrent API successors preserve explicit predecessor identity and immutable source"
+      }
+    ]
+  },
+  "SCM-006": {
+    "drivers": [
+      "api",
+      "causal",
+      "query-batch",
+      "batch-authority"
+    ],
+    "assertions": [
+      {
+        "id": "source.core.query.api.1",
+        "driver": "api",
+        "check": "authenticated taskless HTTP discovery advertises actual installed source operations"
+      },
+      {
+        "id": "source.core.query.api.3",
+        "driver": "api",
+        "check": "server ancestry, merge bases, object-level diff, exact line mapping and first-parent blame run without a checkout; bounded ancestry resumes rather than fabricating absence"
+      },
+      {
+        "id": "source.core.query.api.4",
+        "driver": "api",
+        "check": "authenticated history and directory cursors preserve snapshots and reject altered query or tree"
+      },
+      {
+        "id": "source.core.query.api.5",
+        "driver": "api",
+        "check": "real HTTP query continuation rejects signature tampering, authenticated expiry and substitution of current capability"
+      },
+      {
+        "id": "source.core.query.causal.1",
+        "driver": "causal",
+        "check": "SDK causal receipt option reaches authenticated HTTP and reads its committed revision and operation"
+      },
+      {
+        "id": "source.core.query.causal.2",
+        "driver": "causal",
+        "check": "forged digest, malformed, other scope, earlier/future epoch, absent operation and other principal cannot imply a current causal read"
+      },
+      {
+        "id": "source.core.query.causal.3",
+        "driver": "causal",
+        "check": "pending metadata, absent S3 root and unknown S3 observation fail explicitly within the causal deadline; recovered bytes permit reads"
+      },
+      {
+        "id": "source.core.query.causal.4",
+        "driver": "causal",
+        "check": "a receipt never substitutes for a current source capability"
+      },
+      {
+        "id": "source.core.query.causal.5",
+        "driver": "causal",
+        "check": "restored metadata remains readable diagnostically but causal reads require verified recovery and current independent activation"
+      },
+      {
+        "id": "source.core.query.causal.6",
+        "driver": "causal",
+        "check": "managed worker can perform authorized reads but cannot bypass migration refresh mutation admission"
+      },
+      {
+        "id": "source.core.query.causal.7",
+        "driver": "causal",
+        "check": "current authorized reader can inspect history after authority advancement while the pre-transition causal token stays invalid"
+      },
+      {
+        "id": "source.core.query.batch.1",
+        "driver": "query-batch",
+        "check": "one SDK HTTP batch returns independently bound successful, absent and malformed metadata reads"
+      },
+      {
+        "id": "source.core.query.batch.2",
+        "driver": "query-batch",
+        "check": "path-restricted parent batch independently authorizes every member and returns no denied-path data"
+      },
+      {
+        "id": "source.core.query.batch.3",
+        "driver": "query-batch",
+        "check": "nested batches, mutations, raw bytes, duplicate identities, scope overrides and oversized envelopes are refused"
+      },
+      {
+        "id": "source.core.query.batch.4",
+        "driver": "query-batch",
+        "check": "parent causal dependency reaches every child read and cannot be dropped in a batch"
+      },
+      {
+        "id": "source.core.query.batch.5",
+        "driver": "query-batch",
+        "check": "large metadata results exhaust a shared byte budget with explicit per-item failure and bounded output"
+      },
+      {
+        "id": "source.core.query.batch.6",
+        "driver": "query-batch",
+        "check": "a real blocked PostgreSQL read cannot exceed the group deadline or admit later members; the API remains usable"
+      },
+      {
+        "id": "source.core.query.native-batch.1",
+        "driver": "batch-authority",
+        "check": "batch child identity allowlist and role-policy denials match direct signed requests despite broad source capability"
+      },
+      {
+        "id": "source.core.query.native-batch.2",
+        "driver": "batch-authority",
+        "check": "permitted child retains branded native invocation and succeeds through full registry dispatch"
+      }
+    ]
+  },
+  "SCM-007": {
+    "drivers": [
+      "metadata",
+      "events",
+      "causal"
+    ],
+    "assertions": [
+      {
+        "id": "source.core.events.metadata.1",
+        "driver": "metadata",
+        "check": "concurrent identical retries preserve one revision, pin, result and event; changed payload conflicts"
+      },
+      {
+        "id": "source.core.events.metadata.2",
+        "driver": "metadata",
+        "check": "same-change successors remain divergent, paginated and independently readable"
+      },
+      {
+        "id": "source.core.events.metadata.3",
+        "driver": "metadata",
+        "check": "caller-owned transaction rolls back revision, operation, pins and outbox atomically"
+      },
+      {
+        "id": "source.core.events.metadata.4",
+        "driver": "metadata",
+        "check": "cancellation before commit, too-late cancellation, retained operation read and revocation"
+      },
+      {
+        "id": "source.core.events.metadata.5",
+        "driver": "metadata",
+        "check": "cross-domain parent/read refusal and collectible-root admission have no partial mutation"
+      },
+      {
+        "id": "source.core.events.metadata.6",
+        "driver": "metadata",
+        "check": "event A commits after delivered B and is still delivered; inbox and effect commit once"
+      },
+      {
+        "id": "source.core.events.metadata.7",
+        "driver": "metadata",
+        "check": "actual committed transaction with lost response resolves by original operation without a second effect"
+      },
+      {
+        "id": "source.core.events.metadata.8",
+        "driver": "metadata",
+        "check": "immutable history and monotonic authority epoch enforce typed backend bounds"
+      },
+      {
+        "id": "source.core.events.retention.1",
+        "driver": "events",
+        "check": "explicit immutable resnapshot establishes one replayable new delivery boundary without a global source head"
+      },
+      {
+        "id": "source.core.events.retention.2",
+        "driver": "events",
+        "check": "actual committed source events stop bounded delivery debt and force explicit resnapshot while duplicate acknowledgments apply once"
+      },
+      {
+        "id": "source.core.events.retention.3",
+        "driver": "events",
+        "check": "resnapshot fences old epochs and only the explicit new boundary receives subsequent committed source"
+      },
+      {
+        "id": "source.core.events.retention.4",
+        "driver": "events",
+        "check": "real elapsed lease expiry redelivers the same event under a fresh lease and rejects the abandoned acknowledgment"
+      },
+      {
+        "id": "source.core.events.retention.5",
+        "driver": "events",
+        "check": "real elapsed retention deadline and oversized bounds produce typed failures"
+      },
+      {
+        "id": "source.core.events.retention.6",
+        "driver": "events",
+        "check": "historical bootstrap backfill obeys the same bounded delivery budget and never silently truncates coverage"
+      },
+      {
+        "id": "source.core.events.causal.1",
+        "driver": "causal",
+        "check": "SDK causal receipt option reaches authenticated HTTP and reads its committed revision and operation"
+      },
+      {
+        "id": "source.core.events.causal.2",
+        "driver": "causal",
+        "check": "forged digest, malformed, other scope, earlier/future epoch, absent operation and other principal cannot imply a current causal read"
+      },
+      {
+        "id": "source.core.events.causal.3",
+        "driver": "causal",
+        "check": "pending metadata, absent S3 root and unknown S3 observation fail explicitly within the causal deadline; recovered bytes permit reads"
+      },
+      {
+        "id": "source.core.events.causal.4",
+        "driver": "causal",
+        "check": "a receipt never substitutes for a current source capability"
+      },
+      {
+        "id": "source.core.events.causal.5",
+        "driver": "causal",
+        "check": "restored metadata remains readable diagnostically but causal reads require verified recovery and current independent activation"
+      },
+      {
+        "id": "source.core.events.causal.6",
+        "driver": "causal",
+        "check": "managed worker can perform authorized reads but cannot bypass migration refresh mutation admission"
+      },
+      {
+        "id": "source.core.events.causal.7",
+        "driver": "causal",
+        "check": "current authorized reader can inspect history after authority advancement while the pre-transition causal token stays invalid"
+      }
+    ]
+  },
+  "SCM-008": {
+    "drivers": [
+      "transforms"
+    ],
+    "assertions": [
+      {
+        "id": "source.core.transforms.1",
+        "driver": "transforms",
+        "check": "authenticated API merges independent text edits, preserves untouched source and exact parents, and binds deterministic replay to its original request"
+      },
+      {
+        "id": "source.core.transforms.2",
+        "driver": "transforms",
+        "check": "typed immutable conflicts distinguish text, binary, add/add, delete/modify, directory/file, symlink and executable mode conflicts; independent mode and content edits compose"
+      },
+      {
+        "id": "source.core.transforms.3",
+        "driver": "transforms",
+        "check": "a fixed two-path merge skips identical radix subtrees as an untouched directory grows from 512 to4096 entries"
+      },
+      {
+        "id": "source.core.transforms.4",
+        "driver": "transforms",
+        "check": "concurrent bounded rebase resumes commit one durable stack, preserves change identities and predecessor mappings, reuses no-op revisions and retains original descendants"
+      },
+      {
+        "id": "source.core.transforms.5",
+        "driver": "transforms",
+        "check": "same-generation concurrent resumes advance exactly one step; malformed merge budgets and null resolutions have no durable effects"
+      },
+      {
+        "id": "source.core.transforms.6",
+        "driver": "transforms",
+        "check": "conflicting rebase exposes its retained partial stack and accepts an explicit conflict-bound resolved tree as a new successor revision"
+      },
+      {
+        "id": "source.core.transforms.7",
+        "driver": "transforms",
+        "check": "cancellation fences the remaining durable rebase steps without deleting already committed predecessors"
+      },
+      {
+        "id": "source.core.transforms.8",
+        "driver": "transforms",
+        "check": "a real concurrent cancel-versus-step-commit race has one consistent terminal outcome and retained mapping count"
+      },
+      {
+        "id": "source.core.transforms.9",
+        "driver": "transforms",
+        "check": "revert of a merge requires one of its exact parents and applies the inverse relative to that explicit mainline"
+      },
+      {
+        "id": "source.core.transforms.10",
+        "driver": "transforms",
+        "check": "crisscross histories require an explicit maximal merge base and unrelated histories are refused"
+      },
+      {
+        "id": "source.core.transforms.11",
+        "driver": "transforms",
+        "check": "merge-base discovery cuts a shared 5000-revision trunk and succeeds within its bounded ancestry traversal"
+      },
+      {
+        "id": "source.core.transforms.12",
+        "driver": "transforms",
+        "check": "merge-base discovery also cuts a shared merge-commit frontier before expanding its long retained ancestry"
+      },
+      {
+        "id": "source.core.transforms.13",
+        "driver": "transforms",
+        "check": "lost transformation acknowledgment resolves the same retained operation and retries do not create another result"
+      },
+      {
+        "id": "source.core.transforms.14",
+        "driver": "transforms",
+        "check": "a path-restricted capability cannot authorize repository-wide transformation or cause a backend existence read"
+      }
+    ]
+  },
+  "SCM-009": {
+    "drivers": [
+      "acceptance",
+      "candidate-batch"
+    ],
+    "assertions": [
+      {
+        "id": "source.core.acceptance.1",
+        "driver": "acceptance",
+        "check": "an independent authenticated checker executes the registered command on pinned source and publishes retained exact-input evidence"
+      },
+      {
+        "id": "source.core.acceptance.2",
+        "driver": "acceptance",
+        "check": "atomic domain acceptance records one replayable receipt, advances only the selected domain, pins its root and creates no fleet task completion"
+      },
+      {
+        "id": "source.core.acceptance.3",
+        "driver": "acceptance",
+        "check": "two qualified candidates racing one expected generation produce exactly one accepted head and operation identities cannot be rebound"
+      },
+      {
+        "id": "source.core.acceptance.4",
+        "driver": "acceptance",
+        "check": "a changed domain generation invalidates an already qualified candidate without moving source"
+      },
+      {
+        "id": "source.core.acceptance.5",
+        "driver": "acceptance",
+        "check": "revoking contributor custody fences previously complete evidence at the acceptance transaction"
+      },
+      {
+        "id": "source.core.acceptance.6",
+        "driver": "acceptance",
+        "check": "revoking checker evidence fences a retained qualification and preserves the old domain head"
+      },
+      {
+        "id": "source.core.acceptance.7",
+        "driver": "acceptance",
+        "check": "a real failed checker command remains failed evidence and cannot qualify or advance source"
+      },
+      {
+        "id": "source.core.acceptance.8",
+        "driver": "acceptance",
+        "check": "altered source and input bindings and self-certification by even a registered author are refused"
+      },
+      {
+        "id": "source.core.acceptance.9",
+        "driver": "acceptance",
+        "check": "duplicate contributors, mismatched source manifests and edits to immutable candidates cannot enter acceptance"
+      },
+      {
+        "id": "source.core.acceptance.10",
+        "driver": "acceptance",
+        "check": "a lost acceptance response resolves through the original operation and never advances the domain twice"
+      },
+      {
+        "id": "source.core.acceptance.11",
+        "driver": "acceptance",
+        "check": "revoking the registered checker policy invalidates existing qualification without mutating accepted history"
+      },
+      {
+        "id": "source.core.acceptance.12",
+        "driver": "acceptance",
+        "check": "credential expiry prevents new assertions while proof issued under valid authority remains usable"
+      },
+      {
+        "id": "source.core.acceptance.13",
+        "driver": "acceptance",
+        "check": "checker credential revocation is rechecked after qualification and before accepting source"
+      },
+      {
+        "id": "source.core.acceptance.queue.1",
+        "driver": "candidate-batch",
+        "check": "two independently passing proposals form an exact measured batch whose combined source fails a real checker; original evidence cannot qualify or fail the different batch candidate"
+      },
+      {
+        "id": "source.core.acceptance.queue.2",
+        "driver": "candidate-batch",
+        "check": "failure isolation partitions every original proposal once, preserves failed/original receipts, and requires freshly qualified child candidates without advancing accepted source"
+      },
+      {
+        "id": "source.core.acceptance.queue.3",
+        "driver": "candidate-batch",
+        "check": "persistent per-domain proposer service debt gives a cold domain admission within two claims despite an older hot backlog"
+      },
+      {
+        "id": "source.core.acceptance.queue.4",
+        "driver": "candidate-batch",
+        "check": "a hot proposer cannot reset service debt by draining and reentering while cold work waits"
+      },
+      {
+        "id": "source.core.acceptance.queue.5",
+        "driver": "candidate-batch",
+        "check": "within one domain persistent debt gives each immutable proposer a turn without relying on timestamps"
+      },
+      {
+        "id": "source.core.acceptance.queue.6",
+        "driver": "candidate-batch",
+        "check": "two concurrent claim transactions lease one work item once"
+      },
+      {
+        "id": "source.core.acceptance.queue.7",
+        "driver": "candidate-batch",
+        "check": "expired leases receive new identities for bounded attempts and exhausted work releases only coordinator queue pins"
+      },
+      {
+        "id": "source.core.acceptance.queue.8",
+        "driver": "candidate-batch",
+        "check": "expired work is not scheduled, original source remains retained, and callers cannot raise count/retry budgets or forge byte estimates"
+      },
+      {
+        "id": "source.core.acceptance.queue.9",
+        "driver": "candidate-batch",
+        "check": "a lost claim acknowledgment resolves the original leased batch without consuming another attempt"
+      },
+      {
+        "id": "source.core.acceptance.queue.10",
+        "driver": "candidate-batch",
+        "check": "actual 65-contributor, 257-dependency and oversized 16-candidate manifests exceed independent server budgets and leave no queue proposals"
+      },
+      {
+        "id": "source.core.acceptance.graph-evidence",
+        "driver": "acceptance",
+        "check": "evidence with another graph generation cannot qualify the unchanged candidate or narrow its required checks"
+      },
+      {
+        "id": "source.core.acceptance.registration.1",
+        "driver": "acceptance",
+        "check": "signed operator registration derives native policy from accepted executable proof and registers the actual issued native checker without a JWT shadow identity"
+      },
+      {
+        "id": "source.core.acceptance.registration.2",
+        "driver": "acceptance",
+        "check": "real native checker executes the accepted command, signs its exact receipt, and historical proof survives authenticated renewal and ordinary credential expiry while the old invocation is fenced"
+      },
+      {
+        "id": "source.core.acceptance.registration.3",
+        "driver": "acceptance",
+        "check": "explicit native checker revocation invalidates current candidate evidence"
+      }
+    ]
+  },
+  "SCM-012": {
+    "drivers": [
+      "graph",
+      "acceptance"
+    ],
+    "assertions": [
+      {
+        "id": "source.core.graph.1",
+        "driver": "graph",
+        "check": "actual native scanner facts are published and paginated against the exact native revision without a Git checkout"
+      },
+      {
+        "id": "source.core.graph.2",
+        "driver": "graph",
+        "check": "graph responses expose independently verified source, parser binary, resolver, configuration, schema and coverage identities"
+      },
+      {
+        "id": "source.core.graph.3",
+        "driver": "graph",
+        "check": "source-pinned context returns exact file bytes and resolves the actual cross-project import edge"
+      },
+      {
+        "id": "source.core.graph.4",
+        "driver": "graph",
+        "check": "source mismatch and query cursor substitution are refused"
+      },
+      {
+        "id": "source.core.graph.5",
+        "driver": "graph",
+        "check": "closed overlay workspaces cannot serve stale graph context and graph admission leaves source queries responsive"
+      },
+      {
+        "id": "source.core.graph.6",
+        "driver": "graph",
+        "check": "immutable content extraction is reused while a changed cross-project import invalidates its consumer"
+      },
+      {
+        "id": "source.core.graph.7",
+        "driver": "graph",
+        "check": "resolver configuration changes invalidate extraction contexts and every selected consumer"
+      },
+      {
+        "id": "source.core.graph.8",
+        "driver": "graph",
+        "check": "interrupted extraction preserves the last complete published generation"
+      },
+      {
+        "id": "source.core.graph.9",
+        "driver": "graph",
+        "check": "current source capabilities filter snippets and cross-project edges, and revocation fences cached graph access"
+      },
+      {
+        "id": "source.core.graph.10",
+        "driver": "graph",
+        "check": "unrelated monorepo growth performs no extra parser work for the selected scope"
+      },
+      {
+        "id": "source.core.graph.11",
+        "driver": "graph",
+        "check": "parser debt remains explicit and cannot replace the complete published graph"
+      },
+      {
+        "id": "source.core.graph.acceptance.1",
+        "driver": "acceptance",
+        "check": "a changed domain generation invalidates an already qualified candidate without moving source"
+      },
+      {
+        "id": "source.core.graph.acceptance.2",
+        "driver": "acceptance",
+        "check": "revoking contributor custody fences previously complete evidence at the acceptance transaction"
+      },
+      {
+        "id": "source.core.graph.acceptance.3",
+        "driver": "acceptance",
+        "check": "revoking checker evidence fences a retained qualification and preserves the old domain head"
+      },
+      {
+        "id": "source.core.graph.acceptance.4",
+        "driver": "acceptance",
+        "check": "evidence with another graph generation cannot qualify the unchanged candidate or narrow its required checks"
+      },
+      {
+        "id": "source.core.graph.acceptance.5",
+        "driver": "acceptance",
+        "check": "altered source and input bindings and self-certification by even a registered author are refused"
+      }
+    ]
+  },
+  "SCM-015": {
+    "drivers": [
+      "git-export",
+      "git-import",
+      "github-live"
+    ],
+    "backend": "real GitHub private unprotected main via configured HTTPS adapter; local Git/PostgreSQL/SigV4 fixtures for deterministic projection/fault matrix; no live-S3 or protected-branch claim",
+    "cleanup_driver": "github-live",
+    "assertions": [
+      {
+        "id": "source.core.export.git-export.1",
+        "driver": "git-export",
+        "check": "the administrative destination configuration loads a real local remote and refuses a world-readable configuration"
+      },
+      {
+        "id": "source.core.export.git-export.2",
+        "driver": "git-export",
+        "check": "actual Git hashing, fsck, cat-file and ls-tree validate deterministic commits, ordered parents, exact binary/chunked content, UTF-8 names, executable and symlink modes, and directory ordering"
+      },
+      {
+        "id": "source.core.export.git-export.3",
+        "driver": "git-export",
+        "check": "projection preserves content-empty commits and deterministic retry identities, enforces budgets, and denies source before object reads"
+      },
+      {
+        "id": "source.core.export.git-export.4",
+        "driver": "git-export",
+        "check": "authenticated publication requires actual native acceptance, admits one unresolved ref mutation, and publishes through real receive-pack with retained operation replay"
+      },
+      {
+        "id": "source.core.export.git-export.5",
+        "driver": "git-export",
+        "check": "a second fresh destination receives the complete object closure despite mappings retained from the first destination"
+      },
+      {
+        "id": "source.core.export.git-export.6",
+        "driver": "git-export",
+        "check": "confirmed mappings skip already published history after its prior evidence is revoked, and an accepted push with a lost response reconciles by exact remote readback without another push"
+      },
+      {
+        "id": "source.core.export.git-export.7",
+        "driver": "git-export",
+        "check": "queued cancellation prevents publication while post-dispatch evidence revocation and cancellation preserve reconciliation of actual remote execution"
+      },
+      {
+        "id": "source.core.export.git-export.8",
+        "driver": "git-export",
+        "check": "expected-old comparison detects a real external ref advance and configured destination/ref authorization refuses unintended writes"
+      },
+      {
+        "id": "source.core.export.git-export.9",
+        "driver": "git-export",
+        "check": "a real source read failure during pack streaming leaves the API alive and retains the unresolved publication and ref reservation"
+      },
+      {
+        "id": "source.core.export.git-import.1",
+        "driver": "git-import",
+        "check": "immutable versioned policies reject changed content and preserve independent policy versions"
+      },
+      {
+        "id": "source.core.export.git-import.2",
+        "driver": "git-import",
+        "check": "resumed bounded Git history preserves ordered merge parents, filters excluded changes and records original-to-native mappings"
+      },
+      {
+        "id": "source.core.export.git-import.3",
+        "driver": "git-import",
+        "check": "executable modes, symlink bytes and exact original annotated tag archives survive import"
+      },
+      {
+        "id": "source.core.export.git-import.4",
+        "driver": "git-import",
+        "check": "projected annotated tags preserve tagger time/message and point to the exact projected commit"
+      },
+      {
+        "id": "source.core.export.git-import.5",
+        "driver": "git-import",
+        "check": "accepted imported history publishes through the configured project policy and real receive-pack transport"
+      },
+      {
+        "id": "source.core.export.git-import.6",
+        "driver": "git-import",
+        "check": "two independent Git repositories retain separate provenance while shared bytes deduplicate in the authorized native scope"
+      },
+      {
+        "id": "source.core.export.git-import.7",
+        "driver": "git-import",
+        "check": "pinned contribution intake creates immutable proposals and requires ordinary acceptance"
+      },
+      {
+        "id": "source.core.export.git-import.8",
+        "driver": "git-import",
+        "check": "unsupported entries and unauthorized source/path access fail before a complete import or projection"
+      },
+      {
+        "id": "source.core.export.github.1",
+        "driver": "github-live",
+        "check": "real GitHub receive-pack publication follows native independent acceptance; independent ls-remote, binary content, text and executable mode agree"
+      },
+      {
+        "id": "source.core.export.github.2",
+        "driver": "github-live",
+        "check": "response loss injected after actual GitHub push reconciles exact remote head without sending a second push"
+      },
+      {
+        "id": "source.core.export.github.3",
+        "driver": "github-live",
+        "check": "explicit GitHub fetch into isolated administrator source imports through native projection/import APIs with pinned Git provenance"
+      }
+    ]
+  },
+  "SCM-004": {
+    "drivers": [
+      "authority",
+      "causal",
+      "signed-authority",
+      "managed-fleet",
+      "recovery-component",
+      "collection-api",
+      "batch-authority"
+    ],
+    "backend": "owned PostgreSQL and physical failover, SigV4 fixture, signed native process/worker integration with declared historical setup; no live-provider claim",
+    "assertions": [
+      {
+        "id": "source.authority.capability.1",
+        "driver": "authority",
+        "check": "signed-taskless-principal-uses-current-server-credential-without-run"
+      },
+      {
+        "id": "source.authority.capability.2",
+        "driver": "authority",
+        "check": "signature-algorithm-issuer-audience-scope-and-expiry-boundaries"
+      },
+      {
+        "id": "source.authority.capability.3",
+        "driver": "authority",
+        "check": "cross-domain-object-guesses-produce-the-same-authorization-refusal"
+      },
+      {
+        "id": "source.authority.capability.4",
+        "driver": "authority",
+        "check": "read-transfer-retains-exact-incarnation-through-grant-expiry"
+      },
+      {
+        "id": "source.authority.capability.5",
+        "driver": "authority",
+        "check": "transfer-signature-binds-method-key-object-domain-incarnation-and-endpoint"
+      },
+      {
+        "id": "source.authority.capability.6",
+        "driver": "authority",
+        "check": "put-transfers-require-authenticated-upload-owner-and-open-placement"
+      },
+      {
+        "id": "source.authority.capability.7",
+        "driver": "authority",
+        "check": "revocation-rejects-warm-cache-and-new-grants-with-bounded-issued-grant-residual"
+      },
+      {
+        "id": "source.authority.capability.8",
+        "driver": "authority",
+        "check": "scoped-prefixes-cannot-authorize-guessed-objects-with-client-path-claims"
+      },
+      {
+        "id": "source.authority.capability.9",
+        "driver": "authority",
+        "check": "signed-capability-selection-cannot-be-changed-by-request"
+      },
+      {
+        "id": "source.authority.capability.10",
+        "driver": "authority",
+        "check": "worker-mutation-flag-cannot-bypass-managed-generation-fences"
+      },
+      {
+        "id": "source.authority.capability.11",
+        "driver": "authority",
+        "check": "server-policy-epoch-change-fences-previous-capability"
+      },
+      {
+        "id": "source.authority.capability.12",
+        "driver": "authority",
+        "check": "credential-revocation-is-checked-after-cryptographic-authentication"
+      },
+      {
+        "id": "source.authority.capability.13",
+        "driver": "authority",
+        "check": "audit-records-allowlist-fields-and-remain-immutable"
+      },
+      {
+        "id": "source.authority.capability.14",
+        "driver": "authority",
+        "check": "missing-retention-pin-refuses-transfer-despite-valid-signature"
+      },
+      {
+        "id": "source.authority.causal.1",
+        "driver": "causal",
+        "check": "SDK causal receipt option reaches authenticated HTTP and reads its committed revision and operation"
+      },
+      {
+        "id": "source.authority.causal.2",
+        "driver": "causal",
+        "check": "forged digest, malformed, other scope, earlier/future epoch, absent operation and other principal cannot imply a current causal read"
+      },
+      {
+        "id": "source.authority.causal.3",
+        "driver": "causal",
+        "check": "pending metadata, absent S3 root and unknown S3 observation fail explicitly within the causal deadline; recovered bytes permit reads"
+      },
+      {
+        "id": "source.authority.causal.4",
+        "driver": "causal",
+        "check": "a receipt never substitutes for a current source capability"
+      },
+      {
+        "id": "source.authority.causal.5",
+        "driver": "causal",
+        "check": "restored metadata remains readable diagnostically but causal reads require verified recovery and current independent activation"
+      },
+      {
+        "id": "source.authority.causal.6",
+        "driver": "causal",
+        "check": "managed worker can perform authorized reads but cannot bypass migration refresh mutation admission"
+      },
+      {
+        "id": "source.authority.causal.7",
+        "driver": "causal",
+        "check": "current authorized reader can inspect history after authority advancement while the pre-transition causal token stays invalid"
+      },
+      {
+        "id": "source.authority.signed.1",
+        "driver": "signed-authority",
+        "check": "signed SDK uploads and reads more than one MiB through production TLS, source authority, PostgreSQL and SigV4 storage"
+      },
+      {
+        "id": "source.authority.signed.2",
+        "driver": "signed-authority",
+        "check": "native hyperfide source command independently signs and round-trips a file larger than one MiB"
+      },
+      {
+        "id": "source.authority.signed.3",
+        "driver": "signed-authority",
+        "check": "proof binds source path, exact bytes, actual credential, nonce and request time"
+      },
+      {
+        "id": "source.authority.signed.4",
+        "driver": "signed-authority",
+        "check": "duplicate and mixed authentication headers are refused"
+      },
+      {
+        "id": "source.authority.signed.5",
+        "driver": "signed-authority",
+        "check": "signed identity does not grant access to another source scope"
+      },
+      {
+        "id": "source.authority.signed.6",
+        "driver": "signed-authority",
+        "check": "large-object allowance does not widen metadata or ordinary control request limits"
+      },
+      {
+        "id": "source.authority.signed.7",
+        "driver": "signed-authority",
+        "check": "source capability revocation takes effect on the next signed request"
+      },
+      {
+        "id": "source.authority.signed.8",
+        "driver": "signed-authority",
+        "check": "native credential revocation independently fences signed source requests"
+      },
+      {
+        "id": "source.authority.signed.9",
+        "driver": "signed-authority",
+        "check": "binary transfer grants recheck source capability and native identity independently on every redemption"
+      },
+      {
+        "id": "source.authority.signed.10",
+        "driver": "signed-authority",
+        "check": "SDK and native CLI retain original mutation identity and unknown outcome after malformed or mismatched TLS responses"
+      },
+      {
+        "id": "source.authority.fleet.2",
+        "driver": "managed-fleet",
+        "check": "signed native run binding and SDK manifest drive actual staged installation into independent private views"
+      },
+      {
+        "id": "source.authority.fleet.3",
+        "driver": "managed-fleet",
+        "check": "self-consistent substituted manifest content is refused when it differs from the pinned native root"
+      },
+      {
+        "id": "source.authority.fleet.4",
+        "driver": "managed-fleet",
+        "check": "accepted native executable policy is registered against authored task clauses"
+      },
+      {
+        "id": "source.authority.fleet.5",
+        "driver": "managed-fleet",
+        "check": "signed native worker source requests preserve current attempt authority through authentication, role authorization and the source API"
+      },
+      {
+        "id": "source.authority.fleet.6",
+        "driver": "managed-fleet",
+        "check": "managed workspace rejects wrong workspace, private object graft and unreadable descriptor child"
+      },
+      {
+        "id": "source.authority.fleet.7",
+        "driver": "managed-fleet",
+        "check": "actual isolated worker writes two durable checkpoints under one stable assignment generation"
+      },
+      {
+        "id": "source.authority.fleet.8",
+        "driver": "managed-fleet",
+        "check": "native cleanup resolves exact submitted custody and permanent root retention after local worker deletion"
+      },
+      {
+        "id": "source.authority.fleet.9",
+        "driver": "managed-fleet",
+        "check": "native cleanup rejects changed slot, sandbox, boot and authority and refuses missing retention pins"
+      },
+      {
+        "id": "source.authority.fleet.10",
+        "driver": "managed-fleet",
+        "check": "source custody without an actual signed native launch produces no native release or legacy archive command"
+      },
+      {
+        "id": "source.authority.fleet.11",
+        "driver": "managed-fleet",
+        "check": "native release uncertainty is exposed for reconciliation under the original operation, without reexecution; declared signed history and persisted UNKNOWN input only"
+      },
+      {
+        "id": "source.authority.fleet.12",
+        "driver": "managed-fleet",
+        "check": "lost submission acknowledgement replays one retained custody after worker cleanup and fences delayed writes"
+      },
+      {
+        "id": "source.authority.fleet.13",
+        "driver": "managed-fleet",
+        "check": "independent executed evidence enables native acceptance; only Hyperfide task qualification releases the dependent claim"
+      },
+      {
+        "id": "source.authority.fleet.14",
+        "driver": "managed-fleet",
+        "check": "real process absence releases capacity for a replacement attempt while its predecessor remains fenced"
+      },
+      {
+        "id": "source.authority.fleet.15",
+        "driver": "managed-fleet",
+        "check": "explicit accepted-source selection replays and fences stale generation while preserving admitted attempts and qualification"
+      },
+      {
+        "id": "source.authority.fleet.16",
+        "driver": "managed-fleet",
+        "check": "Primary model decisions drive accepted source selection through scoped native authority and retain one replayable result"
+      },
+      {
+        "id": "source.authority.fleet.17",
+        "driver": "managed-fleet",
+        "check": "signed source-only worker delegation invokes actual source enrollment and replays one immutable workspace without a source JWT mirror"
+      },
+      {
+        "id": "source.authority.fleet.18",
+        "driver": "managed-fleet",
+        "check": "signed controller preparation requires the exact recorded worker and executable dispatch waits for issued source authority"
+      },
+      {
+        "id": "source.authority.fleet.19",
+        "driver": "managed-fleet",
+        "check": "a newly installed dependent worker consumes the selected predecessor bytes and submits a child revision with exact qualified dependency provenance"
+      },
+      {
+        "id": "source.authority.worker-graph.1",
+        "driver": "managed-fleet",
+        "check": "managed worker graph reads intersect the exact live workspace read scope across every graph query mode"
+      },
+      {
+        "id": "source.authority.worker-graph.2",
+        "driver": "managed-fleet",
+        "check": "explicit private graph paths and ungranted raw object reads are refused under signed worker authority"
+      },
+      {
+        "id": "source.authority.collection.1",
+        "driver": "collection-api",
+        "check": "registered authenticated retention API acquires, replays, rejects wrong owner, exposes debt and rescues source"
+      },
+      {
+        "id": "source.authority.collection.2",
+        "driver": "collection-api",
+        "check": "registered collection executes exact conditional deletion and removes resolved debt"
+      },
+      {
+        "id": "source.authority.collection.3",
+        "driver": "collection-api",
+        "check": "every declared workspace custody candidate evidence import export backup and hold root preserves independently retrieved tree file and blob closure while upload pins expire"
+      },
+      {
+        "id": "source.authority.collection.4",
+        "driver": "collection-api",
+        "check": "ending each declared root obligation reclaims parent before children without erasing another retained closure"
+      },
+      {
+        "id": "source.authority.collection.5",
+        "driver": "collection-api",
+        "check": "source capability revocation immediately fences collection access"
+      },
+      {
+        "id": "source.authority.worker-graph.3",
+        "driver": "managed-fleet",
+        "check": "graph cursors cannot cross a change in the authoritative managed workspace read scope"
+      },
+      {
+        "id": "source.authority.recovery.1",
+        "driver": "recovery-component",
+        "check": "actual asynchronous replica state refuses the synchronous acknowledgment profile"
+      },
+      {
+        "id": "source.authority.recovery.2",
+        "driver": "recovery-component",
+        "check": "explicit measured profile rejects unsupported failure-domain claims"
+      },
+      {
+        "id": "source.authority.recovery.3",
+        "driver": "recovery-component",
+        "check": "real worker process death before verification, after verification and after commit preserves exact replay identity"
+      },
+      {
+        "id": "source.authority.recovery.4",
+        "driver": "recovery-component",
+        "check": "active source transaction holds the external epoch fence against concurrent revocation"
+      },
+      {
+        "id": "source.authority.recovery.5",
+        "driver": "recovery-component",
+        "check": "new pending effects beyond the captured recovery point are refused before readiness"
+      },
+      {
+        "id": "source.authority.recovery.6",
+        "driver": "recovery-component",
+        "check": "backup completeness refuses acknowledged revisions outside its immutable capture"
+      },
+      {
+        "id": "source.authority.recovery.7",
+        "driver": "recovery-component",
+        "check": "legacy backup manifests fail with a typed upgrade boundary rather than implying recovery readiness"
+      },
+      {
+        "id": "source.authority.recovery.8",
+        "driver": "recovery-component",
+        "check": "stale backup credentials and overage snapshots fail before verification"
+      },
+      {
+        "id": "source.authority.recovery.9",
+        "driver": "recovery-component",
+        "check": "physical synchronous PostgreSQL failover preserves every acknowledged native revision"
+      },
+      {
+        "id": "source.authority.recovery.10",
+        "driver": "recovery-component",
+        "check": "effect reconciliation refuses another restore operation and expired authority"
+      },
+      {
+        "id": "source.authority.recovery.11",
+        "driver": "recovery-component",
+        "check": "fresh restore rechecks actual object bytes and refuses mutation readiness when a referenced object is missing"
+      },
+      {
+        "id": "source.authority.recovery.12",
+        "driver": "recovery-component",
+        "check": "preparation replay preserves already resolved effects and the remaining recovery debt"
+      },
+      {
+        "id": "source.authority.recovery.13",
+        "driver": "recovery-component",
+        "check": "fresh restore reconciles captured S3 upload and deletion outcomes and actual issued Git publication before reopening writes"
+      },
+      {
+        "id": "source.authority.recovery.14",
+        "driver": "recovery-component",
+        "check": "independent accepted-source receipt and actual Git head survive restore and reconcile without another push"
+      },
+      {
+        "id": "source.authority.recovery.15",
+        "driver": "recovery-component",
+        "check": "existing external authority journal fences stopped prior writers and source activation rejects old authority"
+      },
+      {
+        "id": "source.authority.recovery.16",
+        "driver": "recovery-component",
+        "check": "live partition owner movement preserves reads and fences old upload completion"
+      },
+      {
+        "id": "source.authority.recovery.17",
+        "driver": "recovery-component",
+        "check": "delayed old deletion preserves the fresh incarnation in the selected object backend"
+      },
+      {
+        "id": "source.authority.batch.1",
+        "driver": "batch-authority",
+        "check": "batch child identity allowlist and role-policy denials match direct signed requests despite broad source capability"
+      },
+      {
+        "id": "source.authority.batch.2",
+        "driver": "batch-authority",
+        "check": "permitted child retains branded native invocation and succeeds through full registry dispatch"
+      }
+    ]
+  },
+  "SCM-013": {
+    "drivers": [
+      "authority",
+      "codec",
+      "admin",
+      "privacy",
+      "api-host",
+      "query-batch",
+      "graph",
+      "git-export",
+      "transfers",
+      "signed-authority",
+      "managed-fleet",
+      "git-import",
+      "batch-authority"
+    ],
+    "backend": "owned PostgreSQL, SigV4 HTTP fixture, actual scoped host cache and signed native workers, local Git receive-pack; no live-provider or hosted-remote claim",
+    "assertions": [
+      {
+        "id": "source.privacy.capability.1",
+        "driver": "authority",
+        "check": "signed-taskless-principal-uses-current-server-credential-without-run"
+      },
+      {
+        "id": "source.privacy.capability.2",
+        "driver": "authority",
+        "check": "signature-algorithm-issuer-audience-scope-and-expiry-boundaries"
+      },
+      {
+        "id": "source.privacy.capability.3",
+        "driver": "authority",
+        "check": "cross-domain-object-guesses-produce-the-same-authorization-refusal"
+      },
+      {
+        "id": "source.privacy.capability.4",
+        "driver": "authority",
+        "check": "read-transfer-retains-exact-incarnation-through-grant-expiry"
+      },
+      {
+        "id": "source.privacy.capability.5",
+        "driver": "authority",
+        "check": "transfer-signature-binds-method-key-object-domain-incarnation-and-endpoint"
+      },
+      {
+        "id": "source.privacy.capability.6",
+        "driver": "authority",
+        "check": "put-transfers-require-authenticated-upload-owner-and-open-placement"
+      },
+      {
+        "id": "source.privacy.capability.7",
+        "driver": "authority",
+        "check": "revocation-rejects-warm-cache-and-new-grants-with-bounded-issued-grant-residual"
+      },
+      {
+        "id": "source.privacy.capability.8",
+        "driver": "authority",
+        "check": "scoped-prefixes-cannot-authorize-guessed-objects-with-client-path-claims"
+      },
+      {
+        "id": "source.privacy.capability.9",
+        "driver": "authority",
+        "check": "signed-capability-selection-cannot-be-changed-by-request"
+      },
+      {
+        "id": "source.privacy.capability.10",
+        "driver": "authority",
+        "check": "worker-mutation-flag-cannot-bypass-managed-generation-fences"
+      },
+      {
+        "id": "source.privacy.capability.11",
+        "driver": "authority",
+        "check": "server-policy-epoch-change-fences-previous-capability"
+      },
+      {
+        "id": "source.privacy.capability.12",
+        "driver": "authority",
+        "check": "credential-revocation-is-checked-after-cryptographic-authentication"
+      },
+      {
+        "id": "source.privacy.capability.13",
+        "driver": "authority",
+        "check": "audit-records-allowlist-fields-and-remain-immutable"
+      },
+      {
+        "id": "source.privacy.capability.14",
+        "driver": "authority",
+        "check": "missing-retention-pin-refuses-transfer-despite-valid-signature"
+      },
+      {
+        "id": "source.privacy.codec.1",
+        "driver": "codec",
+        "codec_assertion": "golden-cross-language-object-envelopes"
+      },
+      {
+        "id": "source.privacy.codec.2",
+        "driver": "codec",
+        "codec_assertion": "real-sdk-server-request-and-response-interoperability"
+      },
+      {
+        "id": "source.privacy.codec.3",
+        "driver": "codec",
+        "codec_assertion": "content-transfer-allowance-is-action-scoped"
+      },
+      {
+        "id": "source.privacy.codec.4",
+        "driver": "codec",
+        "codec_assertion": "version-negotiation-and-exact-envelope-fields"
+      },
+      {
+        "id": "source.privacy.codec.5",
+        "driver": "codec",
+        "codec_assertion": "strict-json-no-duplicate-numeric-or-unicode-aliases"
+      },
+      {
+        "id": "source.privacy.codec.6",
+        "driver": "codec",
+        "codec_assertion": "native-identities-do-not-coerce-git-or-raw-hashes"
+      },
+      {
+        "id": "source.privacy.codec.7",
+        "driver": "codec",
+        "codec_assertion": "exact-paths-kinds-and-mode-round-trips"
+      },
+      {
+        "id": "source.privacy.codec.8",
+        "driver": "codec",
+        "codec_assertion": "lifecycle-replay-and-public-provenance-boundaries"
+      },
+      {
+        "id": "source.privacy.admin.1",
+        "driver": "admin",
+        "check": "actual SDK grant and revoke are scoped, use stable capability identities, replay one mutation and immediately fence revoked reads"
+      },
+      {
+        "id": "source.privacy.admin.2",
+        "driver": "admin",
+        "check": "transactional audit records appear once, paginate inside the authorized scope and expose only the public audit schema"
+      },
+      {
+        "id": "source.privacy.admin.3",
+        "driver": "admin",
+        "check": "delegated administrators cannot widen their own path authority or persist unknown credential fields and oversized grants"
+      },
+      {
+        "id": "source.privacy.admin.4",
+        "driver": "admin",
+        "check": "workspace widening atomically checks both generations, preserves checkpoint content, replays exactly and refuses shrinking or stale requests"
+      },
+      {
+        "id": "source.privacy.admin.5",
+        "driver": "admin",
+        "check": "widening cannot escape current capability scope and refused requests leave workspace generations unchanged"
+      },
+      {
+        "id": "source.privacy.matrix.1",
+        "driver": "privacy",
+        "check": "an explicitly granted path-limited capability reads its public path and refuses private content, existence, tree listings, revision history, ancestry, diff, blame, line maps, events, audits and export before object I/O"
+      },
+      {
+        "id": "source.privacy.matrix.2",
+        "driver": "privacy",
+        "check": "revocation immediately refuses the previously authorized public path and scoped export leaves no publication intent"
+      },
+      {
+        "id": "source.privacy.matrix.3",
+        "driver": "privacy",
+        "check": "known and guessed objects in another security domain produce authorization refusals without backend existence reads"
+      },
+      {
+        "id": "source.privacy.api.1",
+        "driver": "api-host",
+        "check": "authenticated taskless HTTP discovery advertises actual installed source operations"
+      },
+      {
+        "id": "source.privacy.api.4",
+        "driver": "api-host",
+        "check": "authenticated history and directory cursors preserve snapshots and reject altered query or tree"
+      },
+      {
+        "id": "source.privacy.api.5",
+        "driver": "api-host",
+        "check": "real HTTP query continuation rejects signature tampering, authenticated expiry and substitution of current capability"
+      },
+      {
+        "id": "source.privacy.api.11",
+        "driver": "api-host",
+        "check": "revoked capability denies known and guessed objects before any backend existence read"
+      },
+      {
+        "id": "source.privacy.host.1",
+        "driver": "api-host",
+        "check": "actual host cache/materializer/journal/checkpoint driver passes against the same authenticated HTTP source service"
+      },
+      {
+        "id": "source.privacy.query-batch.1",
+        "driver": "query-batch",
+        "check": "one SDK HTTP batch returns independently bound successful, absent and malformed metadata reads"
+      },
+      {
+        "id": "source.privacy.query-batch.2",
+        "driver": "query-batch",
+        "check": "path-restricted parent batch independently authorizes every member and returns no denied-path data"
+      },
+      {
+        "id": "source.privacy.query-batch.3",
+        "driver": "query-batch",
+        "check": "nested batches, mutations, raw bytes, duplicate identities, scope overrides and oversized envelopes are refused"
+      },
+      {
+        "id": "source.privacy.query-batch.4",
+        "driver": "query-batch",
+        "check": "parent causal dependency reaches every child read and cannot be dropped in a batch"
+      },
+      {
+        "id": "source.privacy.query-batch.5",
+        "driver": "query-batch",
+        "check": "large metadata results exhaust a shared byte budget with explicit per-item failure and bounded output"
+      },
+      {
+        "id": "source.privacy.query-batch.6",
+        "driver": "query-batch",
+        "check": "a real blocked PostgreSQL read cannot exceed the group deadline or admit later members; the API remains usable"
+      },
+      {
+        "id": "source.privacy.graph.1",
+        "driver": "graph",
+        "check": "actual native scanner facts are published and paginated against the exact native revision without a Git checkout"
+      },
+      {
+        "id": "source.privacy.graph.2",
+        "driver": "graph",
+        "check": "graph responses expose independently verified source, parser binary, resolver, configuration, schema and coverage identities"
+      },
+      {
+        "id": "source.privacy.graph.3",
+        "driver": "graph",
+        "check": "source-pinned context returns exact file bytes and resolves the actual cross-project import edge"
+      },
+      {
+        "id": "source.privacy.graph.4",
+        "driver": "graph",
+        "check": "source mismatch and query cursor substitution are refused"
+      },
+      {
+        "id": "source.privacy.graph.5",
+        "driver": "graph",
+        "check": "closed overlay workspaces cannot serve stale graph context and graph admission leaves source queries responsive"
+      },
+      {
+        "id": "source.privacy.graph.6",
+        "driver": "graph",
+        "check": "immutable content extraction is reused while a changed cross-project import invalidates its consumer"
+      },
+      {
+        "id": "source.privacy.graph.7",
+        "driver": "graph",
+        "check": "resolver configuration changes invalidate extraction contexts and every selected consumer"
+      },
+      {
+        "id": "source.privacy.graph.8",
+        "driver": "graph",
+        "check": "interrupted extraction preserves the last complete published generation"
+      },
+      {
+        "id": "source.privacy.graph.9",
+        "driver": "graph",
+        "check": "current source capabilities filter snippets and cross-project edges, and revocation fences cached graph access"
+      },
+      {
+        "id": "source.privacy.graph.10",
+        "driver": "graph",
+        "check": "unrelated monorepo growth performs no extra parser work for the selected scope"
+      },
+      {
+        "id": "source.privacy.graph.11",
+        "driver": "graph",
+        "check": "parser debt remains explicit and cannot replace the complete published graph"
+      },
+      {
+        "id": "source.privacy.git.3",
+        "driver": "git-export",
+        "check": "projection preserves content-empty commits and deterministic retry identities, enforces budgets, and denies source before object reads"
+      },
+      {
+        "id": "source.privacy.git.8",
+        "driver": "git-export",
+        "check": "expected-old comparison detects a real external ref advance and configured destination/ref authorization refuses unintended writes"
+      },
+      {
+        "id": "source.privacy.transfer.1",
+        "driver": "transfers",
+        "check": "interrupted TLS uploads resume exact immutable parts, reject changed replay, and become verified only after all bytes match"
+      },
+      {
+        "id": "source.privacy.transfer.2",
+        "driver": "transfers",
+        "check": "range downloads resume and deduplicate progress, reconstruct exact object bytes, and release their grant after acknowledgment"
+      },
+      {
+        "id": "source.privacy.transfer.3",
+        "driver": "transfers",
+        "check": "transfer grants cannot be moved to another endpoint identity or HTTP method"
+      },
+      {
+        "id": "source.privacy.transfer.4",
+        "driver": "transfers",
+        "check": "invalid complete-object bytes leave a visible failed receipt without verified ownership"
+      },
+      {
+        "id": "source.privacy.transfer.5",
+        "driver": "transfers",
+        "check": "deduplicated uploads require actual byte proof before assigning object ownership to another principal"
+      },
+      {
+        "id": "source.privacy.transfer.6",
+        "driver": "transfers",
+        "check": "cancellation removes retained transfer pins and another principal cannot inspect its progress"
+      },
+      {
+        "id": "source.privacy.transfer.7",
+        "driver": "transfers",
+        "check": "unexpired transfer grants are fenced immediately by capability and credential revocation"
+      },
+      {
+        "id": "source.privacy.signed.1",
+        "driver": "signed-authority",
+        "check": "signed SDK uploads and reads more than one MiB through production TLS, source authority, PostgreSQL and SigV4 storage"
+      },
+      {
+        "id": "source.privacy.signed.2",
+        "driver": "signed-authority",
+        "check": "native hyperfide source command independently signs and round-trips a file larger than one MiB"
+      },
+      {
+        "id": "source.privacy.signed.3",
+        "driver": "signed-authority",
+        "check": "proof binds source path, exact bytes, actual credential, nonce and request time"
+      },
+      {
+        "id": "source.privacy.signed.4",
+        "driver": "signed-authority",
+        "check": "duplicate and mixed authentication headers are refused"
+      },
+      {
+        "id": "source.privacy.signed.5",
+        "driver": "signed-authority",
+        "check": "signed identity does not grant access to another source scope"
+      },
+      {
+        "id": "source.privacy.signed.6",
+        "driver": "signed-authority",
+        "check": "large-object allowance does not widen metadata or ordinary control request limits"
+      },
+      {
+        "id": "source.privacy.signed.7",
+        "driver": "signed-authority",
+        "check": "source capability revocation takes effect on the next signed request"
+      },
+      {
+        "id": "source.privacy.signed.8",
+        "driver": "signed-authority",
+        "check": "native credential revocation independently fences signed source requests"
+      },
+      {
+        "id": "source.privacy.signed.9",
+        "driver": "signed-authority",
+        "check": "binary transfer grants recheck source capability and native identity independently on every redemption"
+      },
+      {
+        "id": "source.privacy.signed.10",
+        "driver": "signed-authority",
+        "check": "SDK and native CLI retain original mutation identity and unknown outcome after malformed or mismatched TLS responses"
+      },
+      {
+        "id": "source.privacy.fleet.6",
+        "driver": "managed-fleet",
+        "check": "managed workspace rejects wrong workspace, private object graft and unreadable descriptor child"
+      },
+      {
+        "id": "source.privacy.fleet.9",
+        "driver": "managed-fleet",
+        "check": "native cleanup rejects changed slot, sandbox, boot and authority and refuses missing retention pins"
+      },
+      {
+        "id": "source.privacy.fleet.17",
+        "driver": "managed-fleet",
+        "check": "signed source-only worker delegation invokes actual source enrollment and replays one immutable workspace without a source JWT mirror"
+      },
+      {
+        "id": "source.privacy.fleet.18",
+        "driver": "managed-fleet",
+        "check": "signed controller preparation requires the exact recorded worker and executable dispatch waits for issued source authority"
+      },
+      {
+        "id": "source.privacy.worker-graph.1",
+        "driver": "managed-fleet",
+        "check": "managed worker graph reads intersect the exact live workspace read scope across every graph query mode"
+      },
+      {
+        "id": "source.privacy.worker-graph.2",
+        "driver": "managed-fleet",
+        "check": "explicit private graph paths and ungranted raw object reads are refused under signed worker authority"
+      },
+      {
+        "id": "source.privacy.projected-history.1",
+        "driver": "git-import",
+        "check": "immutable versioned policies reject changed content and preserve independent policy versions"
+      },
+      {
+        "id": "source.privacy.projected-history.2",
+        "driver": "git-import",
+        "check": "resumed bounded Git history preserves ordered merge parents, filters excluded changes and records original-to-native mappings"
+      },
+      {
+        "id": "source.privacy.projected-history.3",
+        "driver": "git-import",
+        "check": "accepted imported history publishes through the configured project policy and real receive-pack transport"
+      },
+      {
+        "id": "source.privacy.projected-history.4",
+        "driver": "git-import",
+        "check": "unsupported entries and unauthorized source/path access fail before a complete import or projection"
+      },
+      {
+        "id": "source.privacy.worker-graph.3",
+        "driver": "managed-fleet",
+        "check": "graph cursors cannot cross a change in the authoritative managed workspace read scope"
+      },
+      {
+        "id": "source.privacy.native-batch.1",
+        "driver": "batch-authority",
+        "check": "batch child identity allowlist and role-policy denials match direct signed requests despite broad source capability"
+      },
+      {
+        "id": "source.privacy.native-batch.2",
+        "driver": "batch-authority",
+        "check": "permitted child retains branded native invocation and succeeds through full registry dispatch"
+      }
+    ]
+  }
+}

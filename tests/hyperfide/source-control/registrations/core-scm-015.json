@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-015/github",
+  "task": "6.3",
+  "case_variant": "github",
+  "scope": "full-case",
+  "cases": [
+    "SCM-015"
+  ],
+  "assertion_ids": [
+    "source.core.export.git-export.1",
+    "source.core.export.git-export.2",
+    "source.core.export.git-export.3",
+    "source.core.export.git-export.4",
+    "source.core.export.git-export.5",
+    "source.core.export.git-export.6",
+    "source.core.export.git-export.7",
+    "source.core.export.git-export.8",
+    "source.core.export.git-export.9",
+    "source.core.export.git-import.1",
+    "source.core.export.git-import.2",
+    "source.core.export.git-import.3",
+    "source.core.export.git-import.4",
+    "source.core.export.git-import.5",
+    "source.core.export.git-import.6",
+    "source.core.export.git-import.7",
+    "source.core.export.git-import.8",
+    "source.core.export.github.1",
+    "source.core.export.github.2",
+    "source.core.export.github.3"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "--case",
+    "SCM-015"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "pnpm-lock.yaml",
+    "sdk/source-control/package.json",
+    "sdk/source-control/tsconfig.json",
+    "tests/hyperfide/cases/source_control/4_1.py",
+    "tests/hyperfide/cases/source_control/5_1.py",
+    "tests/hyperfide/cases/source_control/5_2.py",
+    "tests/hyperfide/cases/source_control/fixtures/contracts-v1.json",
+    "tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs",
+    "tests/hyperfide/cases/source_control/github_canary.py",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "tests/hyperfide/source-control/full_case/core_cases.json",
+    "tests/hyperfide/source-control/full_case/github_manifest.py",
+    "tests/hyperfide/source-control/full_case/github_retention.py",
+    "tests/hyperfide/support/native_source_acceptance_actor.mjs",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/native_source_git_actor.mjs",
+    "tests/hyperfide/support/native_source_github_canary_actor.mjs",
+    "tests/hyperfide/support/native_source_hosted_canary.mjs",
+    "tests/hyperfide/support/native_source_import_actor.mjs",
+    "tests/hyperfide/support/withpg.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/src/assurance",
+    "core/control-plane/migrations",
+    "sdk/source-control/src",
+    "tools/workspace",
+    "tests/hyperfide/source-control/full_case"
+  ],
+  "actions": [
+    "github.canary.publish"
+  ],
+  "resources": [
+    {
+      "id": "github-canary",
+      "provider": "github",
+      "repository": "paxlabs-inc/hyperfide-source-canary-20261104-canonical-022453",
+      "repository_id": 1445022676,
+      "owner": "paxlabs-inc",
+      "expiry": "2026-11-11T01:25:34.030487Z"
+    }
+  ],
+  "required_env": [
+    "HYPERFIDE_PG_BIN",
+    "HF_CANARY_INVENTORY"
+  ],
+  "timeout_seconds": 1800,
+  "fixtures": [
+    "build/source-control/github-canonical-prep/inventory.json"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/github_retention.py",
+    "--inventory",
+    "build/source-control/github-canonical-prep/inventory.json"
+  ]
+}

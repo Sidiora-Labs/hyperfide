@@ -1,0 +1,69 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-012/full",
+  "task": "6.3",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-012"
+  ],
+  "assertion_ids": [
+    "source.core.graph.1",
+    "source.core.graph.2",
+    "source.core.graph.3",
+    "source.core.graph.4",
+    "source.core.graph.5",
+    "source.core.graph.6",
+    "source.core.graph.7",
+    "source.core.graph.8",
+    "source.core.graph.9",
+    "source.core.graph.10",
+    "source.core.graph.11",
+    "source.core.graph.acceptance.1",
+    "source.core.graph.acceptance.2",
+    "source.core.graph.acceptance.3",
+    "source.core.graph.acceptance.4",
+    "source.core.graph.acceptance.5"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "--case",
+    "SCM-012"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "hyperfide",
+    "pnpm-lock.yaml",
+    "sdk/source-control/package.json",
+    "sdk/source-control/tsconfig.json",
+    "tests/hyperfide/cases/source_control/3_3.py",
+    "tests/hyperfide/cases/source_control/4_1.py",
+    "tests/hyperfide/cases/source_control/fixtures/contracts-v1.json",
+    "tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "tests/hyperfide/source-control/full_case/core_cases.json",
+    "tests/hyperfide/support/native_source_acceptance_actor.mjs",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/native_source_graph_actor.mjs",
+    "tests/hyperfide/support/withpg.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/src/assurance",
+    "core/control-plane/migrations",
+    "sdk/source-control/src",
+    "tools/workspace",
+    "tests/hyperfide/source-control/full_case",
+    "core/control-plane/src/graph",
+    "core/control-plane/src/preparation"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 1800
+}

@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {createNativeAcceptanceFixture} from './native_source_acceptance_fixture.mjs';
+export async function runHostedSourceCanary({provider,repository,remote,authorization,resource}) {
+ assert(['github','gitlab'].includes(provider));
+ const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'hf-'+provider+'-canary-'));
+ const command=(program,args,env)=>{const result=spawnSync(program,args,{env,encoding:'utf8',maxBuffer:1048576});assert.equal(result.status,0,program+' failed with exit '+result.status);return result.stdout.trim();};
+const gitEnv={PATH:process.env.PATH,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_TERMINAL_PROMPT:'0',GIT_CONFIG_COUNT:'1',GIT_CONFIG_KEY_0:'http.extraHeader',GIT_CONFIG_VALUE_0:'Authorization: '+authorization};
+const git=args=>command('git',args,gitEnv);
+const label=provider==='github'?'GitHub':'GitLab',canaryId=provider+'-canary';
+const receiptDirectory=process.env.HF_CANARY_RECEIPT_DIRECTORY??`build/source-control/${provider}-canary`;
+const moduleRoot=process.env.SOURCE_CONTROL_MODULE_ROOT,load=name=>import(pathToFileURL(path.join(moduleRoot,name+'.js')));
+const [{sourcePublicationDestinations},{createLocalGitImportSource},{SOURCE_ACTIONS}]=await Promise.all([load('publication_config'),load('git/import_transport'),load('contracts')]);
+const scope={organisation_id:randomUUID(),repository_id:randomUUID(),security_domain_id:randomUUID()},checks=[];
+const bare=path.join(temporary,'readback.git');git(['init','--bare',bare]);
+let fixture;
+try{
+ const secret=path.join(temporary,'credential.json'),config=path.join(temporary,'publication.json');
+ await fs.writeFile(secret,JSON.stringify({authorization_header:authorization,expires_at:new Date(Date.now()+600000).toISOString()}),{mode:0o600});
+ await fs.writeFile(config,JSON.stringify({destinations:[{scope,id:canaryId,provider,repository_identity:repository,remote_url:remote,allowed_refs:['refs/heads/main'],credential_file:secret}]}),{mode:0o600});
+ const [destination]=sourcePublicationDestinations({HF_SOURCE_PUBLICATION_CONFIG:config});
+ const original=destination.transport;let loseReply=false,hiddenReads=0,pushes=0;
+ destination.transport={...original,async observe(...args){if(hiddenReads){hiddenReads--;throw new Error('canary readback interruption');}return original.observe(...args);},async push(input){pushes++;const result=await original.push(input);if(loseReply){loseReply=false;hiddenReads++;throw new Error(`canary response interruption after real ${label} push`);}return result;}};
+ const source=createLocalGitImportSource({id:canaryId,scope,repository_identity:repository,path:bare});
+ const actions=SOURCE_ACTIONS.filter(action=>/^source\.(objects|uploads|trees|revisions|operations|domains|candidates|acceptance|assurance|publications|imports|projections|contributions)\./.test(action));
+ fixture=await createNativeAcceptanceFixture({scope,actions,serviceOptions:{publication:{destinations:[destination]},imports:{sources:[source]}}});
+ const {client,service}=fixture;
+ const bytes=Buffer.from(`candidate: actual ${label} source control canary\n`),binary=Buffer.from([0,255,1,128,10]);
+ const file=async(name,content,mode='100644')=>({name,kind:'file',mode,object_id:(await service.objects.putFile(scope,content)).object_id});
+ const root=(await service.trees.fromEntries(scope,[await file('main.txt',bytes),await file('binary.dat',binary),await file('run.sh',Buffer.from('#!/bin/sh\necho canary\n'),'100755')])).root_tree_id;
+ const revision=await fixture.createRevision({root_tree_id:root,parent_revision_ids:[],message:`Native source ${label} canary`});
+ const acceptance=await fixture.accept(await fixture.createCandidate(revision,{domain:await fixture.createDomain(revision)}));
+ const publish=async(accepted,old)=>{const operation=randomUUID();await client.createPublication({acceptance_id:accepted.acceptance_id,destination_id:canaryId,target_ref:'refs/heads/main',expected_old_oid:old},{operation_id:operation,idempotency_key:operation});return operation;};
+ assert.equal(await original.observe('refs/heads/main'),null,'Canary requires an untouched destination');
+ const operation=await publish(acceptance,null),first=await client.resumePublication(operation);assert.equal(first.status,'PUBLISHED');
+ assert.equal(git(['ls-remote',remote,'refs/heads/main']).split(/\s/)[0],first.git_oid.slice(9));
+ git(['--git-dir='+bare,'fetch','--no-tags',remote,'refs/heads/main:refs/heads/main']);
+ const read=spawnSync('git',['--git-dir='+bare,'show',first.git_oid.slice(9)+':binary.dat'],{env:gitEnv,maxBuffer:1048576});assert.equal(read.status,0);assert.deepEqual(read.stdout,binary);
+ assert.match(git(['--git-dir='+bare,'ls-tree',first.git_oid.slice(9),'run.sh']),/^100755 /);
+ assert.equal(git(['--git-dir='+bare,'show',first.git_oid.slice(9)+':main.txt']),bytes.toString().trim());
+ checks.push(`real ${label} receive-pack publication follows native independent acceptance; independent ls-remote, binary content, text and executable mode agree`);
+ const next=await fixture.createRevision({root_tree_id:root,parent_revision_ids:[revision.revision_id],message:`Native source ${label} response-loss canary`});
+ const accepted=await fixture.accept(await fixture.createCandidate(next,{domain:await fixture.createDomain(revision)}));
+ const second=await publish(accepted,first.git_oid);loseReply=true;const uncertain=await client.resumePublication(second);assert.equal(uncertain.status,'OUTCOME_UNKNOWN');
+ const count=pushes,reconciled=await client.resumePublication(second);assert.equal(reconciled.status,'PUBLISHED');assert.equal(pushes,count);assert.equal(git(['ls-remote',remote,'refs/heads/main']).split(/\s/)[0],reconciled.git_oid.slice(9));
+ checks.push(`response loss injected after actual ${label} push reconciles exact remote head without sending a second push`);
+ git(['--git-dir='+bare,'fetch','--no-tags',remote,'refs/heads/main:refs/heads/main']);
+ git(['--git-dir='+bare,'fsck','--full','--strict']);
+ const policy={schema_version:1,policy_id:randomUUID(),version:1,project_id:canaryId,repository_identity:repository,mappings:[{source_path:'',target_path:'imported'}],dependencies:[],no_visible_change:'COLLAPSE_TO_FIRST_PARENT',merge_parents:'ORDERED_UNIQUE',public_metadata:'NATIVE_PUBLIC_V1',signature_policy:'PRESERVE_OBSERVATION',tag_signing:'REJECT',object_format:'sha1'};
+ await client.call('source.projections.create',policy,{operation_id:randomUUID()});
+ const importId=randomUUID();let imported=await client.call('source.imports.create',{import_id:importId,source_id:canaryId,tip_oid:reconciled.git_oid,base_revision_id:revision.revision_id,policy_id:policy.policy_id,policy_version:1,budget:{max_commits:8,max_objects:128,max_bytes:1048576,max_file_bytes:1048576,max_depth:32,max_total_commits:32}},{operation_id:randomUUID()});
+ for(let attempt=0;imported.state==='IMPORTING'&&attempt<8;attempt++)imported=await client.call('source.imports.resume',{import_id:importId},{operation_id:randomUUID()});assert.equal(imported.state,'COMPLETE');
+ const mappings=await client.call('source.imports.mappings',{import_id:importId,limit:32});assert(mappings.mappings.some(row=>row.git_oid===reconciled.git_oid));
+ const native=await service.metadata.readRevision(fixture.context,imported.revision_id);const importedFile=await service.trees.lookup(scope,native.root_tree_id,'imported/binary.dat');assert.deepEqual(await service.objects.readFile(scope,importedFile.object_id),binary);const executable=await service.trees.lookup(scope,native.root_tree_id,'imported/run.sh');assert.equal(executable.mode,'100755');
+ checks.push(`explicit ${label} fetch into isolated administrator source imports through native projection/import APIs with pinned Git provenance`);
+ const receipt={status:'PASS',...(resource?{cleanup:{complete:true,resources:[resource]}}:{}),provider,repository,remote,private:true,head:reconciled.git_oid,first_head:first.git_oid,checks,actual_pushes:pushes,import_id:importId,imported_commits:imported.metrics.imported_commits,source_backend:'isolated S3-compatible fixture',repository_disposition:'retained private disposable repository for receipt inspection',timestamp:new Date().toISOString()};
+ await fs.mkdir(receiptDirectory,{recursive:true});await fs.writeFile(path.join(receiptDirectory,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
+}finally{if(fixture)await fixture.close();await fs.rm(temporary,{recursive:true,force:true});}
+
+}

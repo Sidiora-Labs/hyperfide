@@ -220,9 +220,12 @@ def native_capture(root, value, assertion_ids):
     scope = value['scope']
     if not isinstance(scope, dict) or set(scope) != {'organisation_id', 'repository_id', 'security_domain_id'}:
         raise GateError('native source scope is incomplete')
-    for identity in [*scope.values(), value['authority_epoch']]:
+    for identity in scope.values():
         if not isinstance(identity, str) or str(uuid.UUID(identity)) != identity:
             raise GateError('native authority identity is invalid')
+    epoch = value['authority_epoch']
+    if not isinstance(epoch, str) or re.fullmatch(r'[1-9][0-9]{0,18}', epoch) is None or int(epoch) > 9223372036854775807:
+        raise GateError('native authority epoch must be a canonical positive PostgreSQL bigint')
     for name in ('revision_id', 'root_tree_id'):
         if not isinstance(value[name], str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', value[name]):
             raise GateError('native source identity is invalid')

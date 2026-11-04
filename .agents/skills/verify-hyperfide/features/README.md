@@ -26,6 +26,7 @@ Existing recipe paths remain stable until the path migration task.
 | plugin-ask-user-question | [Recipe](plugin-ask-user-question.md) |
 | plugin-automations | [Recipe](plugin-automations.md) |
 | plugin-hyperfide-account | [Recipe](plugin-hyperfide-account.md) |
+| plugin-hyperfide-source-control | [Recipe](plugin-hyperfide-source-control.md) |
 | plugin-hyperfide-ai | [Recipe](plugin-hyperfide-ai.md) |
 | plugin-concurrency-limit | [Recipe](plugin-concurrency-limit.md) |
 | plugin-connect | [Recipe](plugin-connect.md) |
@@ -53,6 +54,7 @@ Existing recipe paths remain stable until the path migration task.
 | plugin-theme-preview | [Recipe](plugin-theme-preview.md) |
 | plugin-workflows | [Recipe](plugin-workflows.md) |
 | projects-environments | [Recipe](projects-environments.md) |
+| repository-operations | [Recipe](repository-operations.md) |
 | responsive-accessibility | [Recipe](responsive-accessibility.md) |
 | settings | [Recipe](settings.md) |
 | thread-lifecycle | [Recipe](thread-lifecycle.md) |

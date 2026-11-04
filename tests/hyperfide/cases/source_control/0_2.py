@@ -44,7 +44,11 @@ def main():
         evidence.mkdir(parents=True, exist_ok=True)
         (evidence / 'native-manifest.json').write_bytes(q.canonical(manifest))
         check('source-harness.native.capture', lambda: q.native_capture(root, native, ['native.bytes']))
-        for field, value in [('root_tree_id', 'sha256:' + 'c' * 64), ('authority_epoch', str(uuid.uuid4())), ('test_inventory_sha256', '0' * 64)]:
+        def authority_epoch_contract():
+            for invalid in ['0', '01', '-1', '9223372036854775808', str(uuid.uuid4())]:
+                refused(lambda value=invalid:q.native_capture(root,{**native,'authority_epoch':value},['native.bytes']))
+        check('source-harness.native.authority-epoch', authority_epoch_contract)
+        for field, value in [('root_tree_id', 'sha256:' + 'c' * 64), ('authority_epoch', '2'), ('test_inventory_sha256', '0' * 64)]:
             altered = {**native, field: value}
             check('source-harness.refuse.' + field, lambda value=altered: refused(lambda: q.native_capture(root, value, ['native.bytes'])))
         altered = copy.deepcopy(native); altered['readiness_receipt']['sha256'] = '0' * 64

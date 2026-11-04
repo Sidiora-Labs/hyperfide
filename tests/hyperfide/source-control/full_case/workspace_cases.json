@@ -1,0 +1,209 @@
+{
+  "drivers": {
+    "sparse": {
+      "path": "tests/hyperfide/cases/source_control/sparse_live.py",
+      "receipt": "build/source-control/sparse-live/receipt.json"
+    },
+    "virtual": {
+      "path": "tests/hyperfide/cases/source_control/3_2.py",
+      "receipt": "build/source-control/3.2/receipt.json"
+    }
+  },
+  "SCM-010": {
+    "drivers": [
+      "sparse"
+    ],
+    "profile": "source-backed-sparse-real-s3",
+    "assertions": [
+      {
+        "id": "source.workspace.sparse.1",
+        "driver": "sparse",
+        "assertion": "sparse-private-copies-and-exact-file-kinds"
+      },
+      {
+        "id": "source.workspace.sparse.2",
+        "driver": "sparse",
+        "assertion": "warm-cache-requires-current-read-authority"
+      },
+      {
+        "id": "source.workspace.sparse.3",
+        "driver": "sparse",
+        "assertion": "omitted-inputs-and-cross-scope-descriptors-refuse-before-cache-read"
+      },
+      {
+        "id": "source.workspace.sparse.4",
+        "driver": "sparse",
+        "assertion": "unsafe-paths-and-symlink-parents-do-not-escape"
+      },
+      {
+        "id": "source.workspace.sparse.5",
+        "driver": "sparse",
+        "assertion": "corrupt-and-cancelled-downloads-never-become-cache-hits"
+      },
+      {
+        "id": "source.workspace.sparse.6",
+        "driver": "sparse",
+        "assertion": "edit-racing-checkpoint-retains-dirty-bytes-without-revision"
+      },
+      {
+        "id": "source.workspace.sparse.7",
+        "driver": "sparse",
+        "assertion": "watcher-overflow-scans-only-installed-scope-and-preserves-omitted-paths"
+      },
+      {
+        "id": "source.workspace.sparse.8",
+        "driver": "sparse",
+        "assertion": "wrong-checkpoint-receipt-retains-journal-until-original-operation-is-resolved"
+      },
+      {
+        "id": "source.workspace.sparse.9",
+        "driver": "sparse",
+        "assertion": "lost-checkpoint-response-resolves-original-operation-and-retains-later-edits"
+      },
+      {
+        "id": "source.workspace.sparse.10",
+        "driver": "sparse",
+        "assertion": "pinned-cache-pressure-retains-dirty-working-bytes"
+      },
+      {
+        "id": "source.workspace.sparse.independent-readback",
+        "driver": "sparse",
+        "check": "independent native revision and object readback preserve omitted bytes, committed edits and explicit deletion"
+      },
+      {
+        "id": "source.workspace.sparse.scope-widen",
+        "driver": "sparse",
+        "assertion": "server-scope-widening-preserves-base-root-and-dirty-host-bytes"
+      }
+    ]
+  },
+  "SCM-011": {
+    "drivers": [
+      "sparse",
+      "virtual"
+    ],
+    "profile": "linux-fuse7-real-s3",
+    "assertions": [
+      {
+        "id": "source.workspace.sparse.1",
+        "driver": "sparse",
+        "assertion": "sparse-private-copies-and-exact-file-kinds"
+      },
+      {
+        "id": "source.workspace.sparse.2",
+        "driver": "sparse",
+        "assertion": "warm-cache-requires-current-read-authority"
+      },
+      {
+        "id": "source.workspace.sparse.3",
+        "driver": "sparse",
+        "assertion": "omitted-inputs-and-cross-scope-descriptors-refuse-before-cache-read"
+      },
+      {
+        "id": "source.workspace.sparse.4",
+        "driver": "sparse",
+        "assertion": "unsafe-paths-and-symlink-parents-do-not-escape"
+      },
+      {
+        "id": "source.workspace.sparse.5",
+        "driver": "sparse",
+        "assertion": "corrupt-and-cancelled-downloads-never-become-cache-hits"
+      },
+      {
+        "id": "source.workspace.sparse.6",
+        "driver": "sparse",
+        "assertion": "edit-racing-checkpoint-retains-dirty-bytes-without-revision"
+      },
+      {
+        "id": "source.workspace.sparse.7",
+        "driver": "sparse",
+        "assertion": "watcher-overflow-scans-only-installed-scope-and-preserves-omitted-paths"
+      },
+      {
+        "id": "source.workspace.sparse.8",
+        "driver": "sparse",
+        "assertion": "wrong-checkpoint-receipt-retains-journal-until-original-operation-is-resolved"
+      },
+      {
+        "id": "source.workspace.sparse.9",
+        "driver": "sparse",
+        "assertion": "lost-checkpoint-response-resolves-original-operation-and-retains-later-edits"
+      },
+      {
+        "id": "source.workspace.sparse.10",
+        "driver": "sparse",
+        "assertion": "pinned-cache-pressure-retains-dirty-working-bytes"
+      },
+      {
+        "id": "source.workspace.sparse.independent-readback",
+        "driver": "sparse",
+        "check": "independent native revision and object readback preserve omitted bytes, committed edits and explicit deletion"
+      },
+      {
+        "id": "source.workspace.virtual.1",
+        "driver": "virtual",
+        "check": "real Linux FUSE mount becomes ready without content hydration and reads only the pinned selected source"
+      },
+      {
+        "id": "source.workspace.virtual.2",
+        "driver": "virtual",
+        "check": "compiler, executable mode and symlink reads run through the actual mounted filesystem"
+      },
+      {
+        "id": "source.workspace.virtual.3",
+        "driver": "virtual",
+        "check": "unsupported mmap returns an explicit kernel error and local advisory file locks exclude another process"
+      },
+      {
+        "id": "source.workspace.virtual.4",
+        "driver": "virtual",
+        "check": "open file handles keep pinned source bytes while independently qualified upstream acceptance advances"
+      },
+      {
+        "id": "source.workspace.virtual.5",
+        "driver": "virtual",
+        "check": "atomic save and truncate persist private edits while dirty budget refusal preserves prior bytes"
+      },
+      {
+        "id": "source.workspace.virtual.6",
+        "driver": "virtual",
+        "check": "network and authority refusals surface as I/O errors and never replace source or dirty bytes with empty content"
+      },
+      {
+        "id": "source.workspace.virtual.7",
+        "driver": "virtual",
+        "check": "cancelled kernel hydration preserves the immutable cache and the next reader receives exact source bytes"
+      },
+      {
+        "id": "source.workspace.virtual.8",
+        "driver": "virtual",
+        "check": "case-sensitive names remain separate on the declared Linux filesystem profile"
+      },
+      {
+        "id": "source.workspace.virtual.9",
+        "driver": "virtual",
+        "check": "daemon restart reconciles the exact workspace journal, checkpoints dirty source and preserves unselected paths"
+      },
+      {
+        "id": "source.workspace.virtual.10",
+        "driver": "virtual",
+        "check": "corrupt retained overlay bytes are rejected before mount readiness without changing the acknowledged source revision"
+      },
+      {
+        "id": "source.workspace.virtual.directory-pages",
+        "driver": "virtual",
+        "check": "multi-page directory enumeration avoids hydration and ordinary rename and deletion remain coherent"
+      },
+      {
+        "id": "source.workspace.sparse.scope-widen",
+        "driver": "sparse",
+        "assertion": "server-scope-widening-preserves-base-root-and-dirty-host-bytes"
+      },
+      {
+        "id": "source.workspace.virtual.unsupported-capability",
+        "driver": "virtual",
+        "check": "unavailable host executable capability refuses mounting without hydration and requires explicit sparse fallback"
+      }
+    ]
+  }
+}

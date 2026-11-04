@@ -16,7 +16,7 @@ def create_campaign(root, q, scope_kind='task-component'):
     def pin(path):
         return {'path': path, 'sha256': hashlib.sha256((root / path).read_bytes()).hexdigest()}
     scope = {name: str(uuid.uuid4()) for name in ('organisation_id', 'repository_id', 'security_domain_id')}
-    identity = {'scope': scope, 'revision_id': 'sha256:' + pin('src/revision.object')['sha256'], 'root_tree_id': 'sha256:' + pin('src/root.object')['sha256'], 'authority_epoch': str(uuid.uuid4()), 'policy_version': 'native-harness-v1'}
+    identity = {'scope': scope, 'revision_id': 'sha256:' + pin('src/revision.object')['sha256'], 'root_tree_id': 'sha256:' + pin('src/root.object')['sha256'], 'authority_epoch': '1', 'policy_version': 'native-harness-v1'}
     source_manifest = {'schema_version': 1, **identity, 'files': [pin('src/input.txt')]}
     (root / 'source.json').write_bytes(q.canonical(source_manifest))
     readiness = {'schema_version': 1, **identity, 'manifest_sha256': pin('source.json')['sha256'], 'status': 'VERIFIED', 'objects': [dict(pin(path), object_id=identity[key], state='READY') for key, path in [('root_tree_id', 'src/root.object'), ('revision_id', 'src/revision.object')]]}

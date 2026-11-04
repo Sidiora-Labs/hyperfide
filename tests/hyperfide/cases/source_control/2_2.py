@@ -108,6 +108,12 @@ try {
  await check('warm-cache-requires-current-read-authority',async()=>{
   deny=true;try{await assert.rejects(b.materialize(second,['src']),e=>e.code==='SOURCE_ACCESS_DENIED');}finally{deny=false;}
  });
+ await check('omitted-inputs-and-cross-scope-descriptors-refuse-before-cache-read',async()=>{
+  await assert.rejects(a.materialize(first,['omitted']),e=>['SOURCE_ACCESS_DENIED','SCOPE_DENIED'].includes(e.code));
+  const reads=calls.filter(c=>c.action==='source.objects.read').length;
+  await assert.rejects(b.materialize({...second,scope:{...second.scope,repository_id:randomUUID()}},['src']),e=>e.code==='WORKSPACE_STALE');
+  assert.equal(calls.filter(c=>c.action==='source.objects.read').length,reads);
+ });
  await check('unsafe-paths-and-symlink-parents-do-not-escape',async()=>{
   await assert.rejects(a.materialize(first,['../outside']),e=>e.code==='INVALID_PATH');
   const outside=path.join(temp,'outside'),hostile=path.join(temp,'hostile');await fs.mkdir(outside);await fs.mkdir(hostile);await fs.symlink(outside,path.join(hostile,'src'));
@@ -146,6 +152,23 @@ try {
   const checkpoint=new NativeWorkspaceCheckpoint(client,journalA,rootA,a);lose=true;await assert.rejects(checkpoint.checkpoint(first),e=>e.code==='OUTCOME_UNKNOWN');
   const original=(await journalA.snapshot()).pending.request;await fs.writeFile(path.join(rootA,'src/a.txt'),'later edit survives\n');await journalA.mark('src/a.txt');
   const count=calls.filter(c=>c.action==='source.workspaces.checkpoint').length;const recovered=await checkpoint.checkpoint(first);assert.equal(calls.filter(c=>c.action==='source.workspaces.checkpoint').length,count);assert.equal((await journalA.snapshot()).pending,null);assert.ok((await journalA.snapshot()).entries.some(e=>e.path==='src/a.txt'));assert.equal(await fs.readFile(path.join(rootA,'src/a.txt'),'utf8'),'later edit survives\n');assert.equal(recovered.receipt.operation_id??original.operation_id,original.operation_id);
+ });
+ if(options.profile)await check('server-scope-widening-preserves-base-root-and-dirty-host-bytes',async()=>{
+  const before=await client.detail(first.workspace_id),dirty=await journalA.snapshot(),bytes=await fs.readFile(path.join(rootA,'src/a.txt'));
+  assert.ok(dirty.entries.some(e=>e.path==='src/a.txt'));
+  const operation_id=randomUUID(),input={workspace_id:before.workspace_id,expected_workspace_generation:before.workspace_generation,expected_scope_generation:before.scope_generation,read_paths:['src','omitted'],write_paths:['src','omitted']};
+  const widened=await delegate.call('source.workspaces.widen',input,{operation_id,idempotency_key:operation_id});
+  assert.equal(widened.scope_changed,true);
+  for(const key of ['base_revision_id','root_tree_id','checkpoint_revision_id'])assert.equal(widened.workspace[key],before[key]);
+  assert.equal(BigInt(widened.workspace.scope_generation),BigInt(before.scope_generation)+1n);
+  await assert.rejects(a.materialize(before,['omitted']),e=>e.code==='WORKSPACE_STALE');
+  const current=await client.detail(first.workspace_id);assert.equal(current.scope_generation,widened.workspace.scope_generation);
+  await a.materialize(current,['omitted']);
+  assert.deepEqual(await fs.readFile(path.join(rootA,'src/a.txt')),bytes);
+  assert.deepEqual((await journalA.snapshot()).entries,dirty.entries);
+  assert.deepEqual(await fs.readFile(path.join(rootA,'omitted/hidden.txt')),payloads['omitted/hidden.txt']);
+  assert.deepEqual(await delegate.call('source.workspaces.widen',input,{operation_id,idempotency_key:operation_id}),widened);
+  Object.assign(first,current);
  });
  await check('pinned-cache-pressure-retains-dirty-working-bytes',async()=>{
   const tiny=new NativeObjectCache(path.join(temp,'tiny-cache'),{max_bytes:5,max_entries:1,max_object_bytes:5});const one=await client.putObject('blob',Buffer.from('12345')),two=await client.putObject('blob',Buffer.from('other'));

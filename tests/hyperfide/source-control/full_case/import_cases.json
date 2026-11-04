@@ -1,0 +1,150 @@
+{
+  "drivers": {
+    "imports": {
+      "path": "tests/hyperfide/cases/source_control/5_2.py",
+      "env": {
+        "HYPERFIDE_SOURCE_EVIDENCE_DIR": "build/source-control/full-case/SCM-016/native-import"
+      }
+    },
+    "github-import": {
+      "path": "tests/hyperfide/source-control/full_case/github_import.py",
+      "env": {
+        "HYPERFIDE_SOURCE_EVIDENCE_DIR": "build/source-control/full-case/SCM-016/github-import"
+      }
+    },
+    "migration": {
+      "path": "tests/hyperfide/cases/source_control/5_3.py",
+      "env": {
+        "HYPERFIDE_SOURCE_EVIDENCE_DIR": "build/source-control/full-case/SCM-017/native-migration"
+      }
+    }
+  },
+  "SCM-016": {
+    "drivers": [
+      "imports",
+      "github-import"
+    ],
+    "cleanup_driver": "github-import",
+    "backend": "real local Git histories and read-only live GitHub fetch; native import on owned PostgreSQL and SigV4 object fixture",
+    "assertions": [
+      {
+        "id": "SCM-016.policy-versions",
+        "driver": "imports",
+        "check": "immutable versioned policies reject changed content and preserve independent policy versions"
+      },
+      {
+        "id": "SCM-016.resumable-history",
+        "driver": "imports",
+        "check": "resumed bounded Git history preserves ordered merge parents, filters excluded changes and records original-to-native mappings"
+      },
+      {
+        "id": "SCM-016.modes-symlinks-archives",
+        "driver": "imports",
+        "check": "executable modes, symlink bytes and exact original annotated tag archives survive import"
+      },
+      {
+        "id": "SCM-016.annotated-tags",
+        "driver": "imports",
+        "check": "projected annotated tags preserve tagger time/message and point to the exact projected commit"
+      },
+      {
+        "id": "SCM-016.project-publication",
+        "driver": "imports",
+        "check": "accepted imported history publishes through the configured project policy and real receive-pack transport"
+      },
+      {
+        "id": "SCM-016.independent-project-provenance",
+        "driver": "imports",
+        "check": "two independent Git repositories retain separate provenance while shared bytes deduplicate in the authorized native scope"
+      },
+      {
+        "id": "SCM-016.empty-email-provenance",
+        "driver": "imports",
+        "check": "actual Git accepts empty-email identities and import preserves their exact native author provenance"
+      },
+      {
+        "id": "SCM-016.contribution-intake",
+        "driver": "imports",
+        "check": "pinned contribution intake creates immutable proposals and requires ordinary acceptance"
+      },
+      {
+        "id": "SCM-016.unsupported-input-refusals",
+        "driver": "imports",
+        "check": "unsupported entries and unauthorized source/path access fail before a complete import or projection"
+      },
+      {
+        "id": "SCM-016.github-ref-read-only",
+        "driver": "github-import",
+        "check": "the current owned private GitHub ref is fetched read-only at the exact retained canary identity"
+      },
+      {
+        "id": "SCM-016.github-import-replay",
+        "driver": "github-import",
+        "check": "the live GitHub source imports through bounded native APIs with exact Git mappings and replay identity"
+      },
+      {
+        "id": "SCM-016.github-content-provenance",
+        "driver": "github-import",
+        "check": "native imported bytes, executable mode and archived original object match Git while the remote ref remains unchanged"
+      }
+    ]
+  },
+  "SCM-017": {
+    "drivers": [
+      "migration"
+    ],
+    "backend": "two real Git projects with kernel read-only legacy isolation, final-delta import, native acceptance and Git publication; owned PostgreSQL and SigV4 object fixture",
+    "assertions": [
+      {
+        "id": "SCM-017.pilot-before-cutover",
+        "driver": "migration",
+        "check": "consolidated native pilot passes an independent checker, acceptance and durable queued export before cutover"
+      },
+      {
+        "id": "SCM-017.rollback-retains-source",
+        "driver": "migration",
+        "check": "open work blocks abort; after explicit closure abort retains legacy writer access and preserves imported history"
+      },
+      {
+        "id": "SCM-017.scope-and-writer-fence",
+        "driver": "migration",
+        "check": "versioned consolidation rejects colliding project roots and closes ordinary native writer admission during shadowing"
+      },
+      {
+        "id": "SCM-017.two-project-parity",
+        "driver": "migration",
+        "check": "two actual Git histories consolidate with complete content/type/mode and ancestry parity against independently read source objects"
+      },
+      {
+        "id": "SCM-017.legacy-storage-coverage",
+        "driver": "migration",
+        "check": "legacy isolation must cover both every declared writer and the actual Git object storage roots"
+      },
+      {
+        "id": "SCM-017.final-delta-manifest",
+        "driver": "migration",
+        "check": "a fenced final delta imports changed Git bytes and ancestry, preserves immutable manifest generations, and requires fresh exact native pilot acceptance"
+      },
+      {
+        "id": "SCM-017.isolation-and-stale-ref",
+        "driver": "migration",
+        "check": "writable legacy storage and stale final tips are refused; kernel readonly isolation closes stale legacy writes"
+      },
+      {
+        "id": "SCM-017.fresh-authority-qualified-work",
+        "driver": "migration",
+        "check": "fresh authority receives new policy/domain identities and can qualify, accept and publish while historical acceptance receipts remain unchanged"
+      },
+      {
+        "id": "SCM-017.immutable-revocable-history",
+        "driver": "migration",
+        "check": "a second epoch adoption preserves immutable history, supports new qualified publication and still rejects explicitly revoked historical evidence"
+      },
+      {
+        "id": "SCM-017.atomic-epochs-forward-recovery",
+        "driver": "migration",
+        "check": "atomic dual-epoch activation fences old credentials and forward recovery preserves acknowledged native revisions while refusing rollback"
+      }
+    ]
+  }
+}

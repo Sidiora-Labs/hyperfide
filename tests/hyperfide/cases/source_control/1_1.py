@@ -14,7 +14,7 @@ def main():
   return subprocess.run(command,cwd=ROOT).returncode
  host=parse_qs(urlparse(database).query).get('host',[''])[0]
  if not host.startswith('/tmp/hyperfide/hf-withpg-'):raise RuntimeError('Storage qualification requires an owned withpg socket')
- out=ROOT/'build/source-control/1.1';out.mkdir(parents=True,exist_ok=True)
+ out=pathlib.Path(os.environ.get('HYPERFIDE_SOURCE_EVIDENCE_DIR',str(ROOT/'build/source-control/1.1'))).resolve();out.mkdir(parents=True,exist_ok=True)
  files=['contracts.ts','storage_contract.ts','object_catalog.ts','objects.ts','trees.ts','s3.ts']
  config={'compilerOptions':{'target':'ES2023','module':'NodeNext','moduleResolution':'NodeNext','rootDir':str(ROOT/'core/control-plane/src'),'outDir':str(out/'dist'),'strict':True,'noUncheckedIndexedAccess':True,'exactOptionalPropertyTypes':True,'skipLibCheck':True,'types':['node'],'typeRoots':[str(ROOT/'core/control-plane/node_modules/@types')]},'files':[str(ROOT/'core/control-plane/src/source_control'/file) for file in files]}
  config_path=out/'tsconfig.json';config_path.write_text(json.dumps(config))

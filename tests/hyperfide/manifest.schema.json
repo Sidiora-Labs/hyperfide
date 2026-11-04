@@ -194,7 +194,8 @@
         },
         "authority_epoch": {
           "type": "string",
-          "format": "uuid"
+          "pattern": "^[1-9][0-9]{0,18}$",
+          "description": "Canonical positive PostgreSQL bigint authority epoch; maximum 9223372036854775807."
         },
         "policy_version": {
           "type": "string",

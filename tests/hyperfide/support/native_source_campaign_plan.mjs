@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {readPrivate,deploymentIdentity} from '../source-control/workloads/deployment.mjs';
+import {campaignManifest,machineIdentity} from '../source-control/workloads/campaign.mjs';
+const setup=JSON.parse(await readPrivate(process.argv[2])),kind=process.argv[3];
+assert(['growth','mixed','admission','endurance'].includes(kind));
+const signed=JSON.parse(await readPrivate(setup.signed_config_file)),prepared=JSON.parse(await readPrivate(setup.prepared_corpora_file)),provider=JSON.parse(await readPrivate(setup.provider_snapshot_file));
+assert.equal(prepared.status,'PASS');assert.deepEqual(prepared.scope,signed.scope);assert.deepEqual(provider.scope,signed.scope);deploymentIdentity(provider.deployment_identity);
+const backend=JSON.parse(await readPrivate(setup.backend_identity_file));const backendIdentity=typeof backend==='string'?backend:backend.backend_identity??backend.identity;assert(typeof backendIdentity==='string'&&backendIdentity.startsWith('s3-v1:'));
+const dimensions={growth:{file_counts:[10000,1000000,10000000],clients:1,operations:100,rate_per_second:1,duration_seconds:100},mixed:{file_counts:[10000],clients:5000,operations:33001,rate_per_second:110,duration_seconds:300},admission:{file_counts:[10000],clients:5000,operations:20000000,rate_per_second:300,duration_seconds:66667},endurance:{file_counts:[1000000],clients:5000,operations:518401,rate_per_second:2,duration_seconds:259200}}[kind];
+const manifest=campaignManifest({schema_version:1,kind,seed:42,...dimensions,modified_files:10,modified_bytes:1048576,hardware_digest:machineIdentity().digest,backend_identity:backendIdentity,real_backend:true,...(kind==='endurance'?{canary:setup.canary,drills:setup.drills}:{})});
+const corpora=manifest.file_counts.map(count=>{const value=prepared.corpora.find(row=>row.logical_files===count);assert(value);return value;});
+assert(setup.budgets&&setup.observer);const output=path.resolve(setup.output_root,kind);await fs.mkdir(output,{recursive:true,mode:0o700});
+const configuration={schema_version:1,endpoint:signed.endpoint,scope:signed.scope,isolated_scope:true,signed_config_file:setup.signed_config_file,backend_identity:backendIdentity,deployment_identity:provider.deployment_identity,corpora,output_directory:output,budgets:setup.budgets,observer:setup.observer,...(setup.hook_environment?{hook_environment:setup.hook_environment}:{})};
+for(const [name,value]of [['manifest.json',manifest],['deployment.json',configuration],['preparation.json',{...prepared,corpora,parent_preparation:setup.prepared_corpora_file}]])await fs.writeFile(path.join(output,name),JSON.stringify(value,null,2)+'\n',{mode:0o600,flag:'wx'});
+console.log(JSON.stringify({kind,manifest:path.join(output,'manifest.json'),configuration:path.join(output,'deployment.json'),preparation:path.join(output,'preparation.json'),hardware_digest:manifest.hardware_digest}));

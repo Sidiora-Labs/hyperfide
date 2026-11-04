@@ -26,7 +26,8 @@
     "source-harness.native.required-store-refusal",
     "source-harness.legacy.independent-checker",
     "source-harness.native.campaign-registration",
-    "source-harness.native.full-case-registration"
+    "source-harness.native.full-case-registration",
+    "source-harness.native.authority-epoch"
   ],
   "argv": [
     "python3",

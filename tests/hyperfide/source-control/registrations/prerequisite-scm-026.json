@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-026/full",
+  "task": "6.3",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-026"
+  ],
+  "assertion_ids": [
+    "SCM-026.schema.examples.parse-without-authority",
+    "SCM-026.schema.canonical-content-identity",
+    "SCM-026.schema.kvx.duplicates-and-injection",
+    "SCM-026.schema.source.strict-version-and-secret-fields",
+    "SCM-026.schema.source.pinned-backend-and-generation",
+    "SCM-026.schema.source.path-and-scope-confinement",
+    "SCM-026.schema.package.complete-pinned-manifest",
+    "SCM-026.schema.package.reject-source-and-environment-forgery",
+    "SCM-026.schema.package.mount-config-and-overlay-isolation",
+    "SCM-026.schema.package.lock-toolchain-and-readiness-drift",
+    "SCM-026.schema.decision.explicit-model-choice-and-input-binding",
+    "SCM-026.schema.decision.manager-scope-and-install-action",
+    "SCM-026.schema.assignment.individual-attempts-and-ready-binding",
+    "SCM-026.schema.interfaces.preserve-block-fields-and-provenance",
+    "SCM-026.schema.interfaces.indexed-bounded-declared-closure",
+    "SCM-026.schema.interfaces.source-missing-and-stale-consumer",
+    "SCM-026.schema.interfaces.reject-tampered-content-and-membership",
+    "SCM-026.schema.interfaces.streaming-index-external-storage",
+    "SCM-026.schema.interfaces.persistent-store-malformed-and-shared-records",
+    "SCM-026.schema.interfaces.store-without-linux-descriptor-filesystem",
+    "SCM-026.schema.interfaces.invalid-stream-and-index-version",
+    "SCM-026.schema.interfaces.install-membership-and-consumer",
+    "SCM-026.schema.package.private-configuration-target-contract",
+    "SCM-026.live.fresh_install",
+    "SCM-026.live.repeated_install",
+    "SCM-026.live.interrupted_install",
+    "SCM-026.live.missing_code",
+    "SCM-026.live.missing_dependencies",
+    "SCM-026.live.missing_configuration",
+    "SCM-026.live.stale_install",
+    "SCM-026.live.path_escape",
+    "SCM-026.live.concurrent_isolation",
+    "SCM-026.live.interface_subset",
+    "SCM-026.live.fetch_volume",
+    "SCM-026.complete-live-authority-chain"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/prerequisites.py",
+    "--case",
+    "SCM-026"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/prerequisites.py",
+    "tests/hyperfide/source-control/full_case/prerequisite_cases.json",
+    "tests/hyperfide/support/fleet_live_qualification.py",
+    "tests/hyperfide/cases/source_control/0_10.py",
+    "spec/hyperfide-source-control/spec.kvx",
+    "core/control-plane/src/fleet-supervisor.ts",
+    "core/control-plane/package.json",
+    "pnpm-lock.yaml",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/source-control/full_case/prerequisite_manifest.py"
+  ],
+  "source_roots": [
+    "contracts/fleet",
+    "core/control-plane/src/agents",
+    "core/control-plane/src/providers",
+    "core/control-plane/src/decisions",
+    "core/control-plane/src/hierarchy",
+    "core/control-plane/src/assurance",
+    "core/control-plane/src/recovery",
+    "core/control-plane/src/runner",
+    "core/control-plane/src/scheduler",
+    "core/control-plane/src/source_control",
+    "core/control-plane/migrations",
+    "sdk/source-control/src"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HF_FLEET_QUALIFICATION_EVIDENCE",
+    "HF_FLEET_QUALIFICATION_TARGET"
+  ],
+  "timeout_seconds": 1200,
+  "required_artifacts": [
+    "prerequisite-conformance.json",
+    "schema-command.json",
+    "schema-stdout.log",
+    "schema-stderr.log"
+  ]
+}

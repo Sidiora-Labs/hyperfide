@@ -133,6 +133,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify(result));
       } catch (error) {
+        console.error(JSON.stringify({stage:"source-browser-rpc",code:error.code??null,message:error.message}));
         res.statusCode = 400;
         res.end(JSON.stringify({ message: error.message }));
       }
@@ -301,6 +302,23 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         }
       };
       await capture("accepted-history");
+      const left = await f.createRevision({text:"left conflict from accepted fleet source\n",parent_revision_ids:[inspection.revisionId]});
+      const right = await f.createRevision({text:"right conflict from accepted fleet source\n",parent_revision_ids:[inspection.revisionId]});
+      const resolved = await f.createRevision({text:"candidate: explicit fleet conflict resolution\n",parent_revision_ids:[left.revision_id,right.revision_id]});
+      assert.deepEqual((await f.client.revision(left.revision_id)).parent_revision_ids,[inspection.revisionId]);
+      assert.deepEqual((await f.client.revision(right.revision_id)).parent_revision_ids,[inspection.revisionId]);
+      assert.deepEqual((await f.client.revision(resolved.revision_id)).parent_revision_ids,[left.revision_id,right.revision_id]);
+      await fill("Revision", right.revision_id);
+      await fill("Compare from", left.revision_id);
+      await click("Merge revisions");
+      await until('document.body.innerText.includes("CONFLICT")',"conflict from exact accepted source family");
+      await capture("accepted-conflict");
+      await fill("Resolved workspace revision",resolved.revision_id);
+      await click("Apply resolved revision");
+      await until('document.body.innerText.includes("COMPLETED")',"explicit accepted-family conflict resolution");
+      const conflict={status:"PASS",base_revision_id:inspection.revisionId,left_revision_id:left.revision_id,right_revision_id:right.revision_id,resolution_revision_id:resolved.revision_id,result:await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result")};
+      assert.equal(conflict.result.status,"COMPLETED");
+      await capture("accepted-resolution");
       await click("Publication");
       await fill("Acceptance receipt", inspection.acceptanceId);
       await fill("Configured destination", inspection.destinationId);
@@ -331,9 +349,11 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         revision_id: inspection.revisionId,
         root_tree_id: inspection.rootTreeId,
         publication: published,
+        conflict,
         screenshots,
         checks: [
           "display exact supplied accepted revision history",
+          "resolve an actual merge conflict derived from the supplied accepted revision",
           "publish exact supplied fleet acceptance through product UI",
           "read final publication revision and Git identity",
           "desktop tablet mobile have no horizontal overflow",

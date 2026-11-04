@@ -20,7 +20,7 @@ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,max:12});
 const fixture=await createSourceS3Fixture(),controller=new AbortController(),workingDirectory=await fs.mkdtemp(path.join(os.tmpdir(),'hf-source-api-client-'));
 let server;
 const checks=[];
-const API_ACTIONS=['source.capabilities','source.objects.put','source.objects.read','source.objects.inspect','source.trees.patch','source.trees.lookup','source.trees.entries','source.revisions.create','source.revisions.read','source.changes.revisions','source.operations.read','source.operations.cancel','source.queries.ancestry','source.queries.merge-bases','source.queries.diff','source.queries.line-map','source.queries.blame','source.queries.history','source.workspaces.open','source.workspaces.detail','source.workspaces.checkpoint'];
+const API_ACTIONS=['source.capabilities','source.objects.put','source.objects.read','source.objects.inspect','source.trees.patch','source.trees.lookup','source.trees.entries','source.revisions.create','source.revisions.read','source.changes.revisions','source.operations.read','source.operations.cancel','source.queries.ancestry','source.queries.merge-bases','source.queries.diff','source.queries.line-map','source.queries.blame','source.queries.history','source.workspaces.open','source.workspaces.detail','source.workspaces.widen','source.workspaces.checkpoint'];
 assert(API_ACTIONS.every(action=>SOURCE_ACTIONS.includes(action)));
 const scope={organisation_id:randomUUID(),repository_id:randomUUID(),security_domain_id:randomUUID()};
 const principal_id=randomUUID(),credential_id=randomUUID(),capability_id=randomUUID(),policy='source-api-case-v1';

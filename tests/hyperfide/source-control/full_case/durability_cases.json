@@ -1,0 +1,591 @@
+{
+  "drivers": {
+    "storage-live": {
+      "path": "tests/hyperfide/cases/source_control/1_1.py",
+      "args": [
+        "--live-s3"
+      ],
+      "real_s3": true,
+      "profile": "real S3 conditional create, multipart, readback and cleanup; owned PostgreSQL plus separate bounded storage fault fixture"
+    },
+    "recovery-live": {
+      "path": "tests/hyperfide/cases/source_control/6_1.py",
+      "real_s3": true,
+      "profile": "owned synchronous PostgreSQL18 physical failover/restore, real configured S3, actual local Git publication; PROCESS_LOSS and PRIMARY_INSTANCE_LOSS only"
+    },
+    "collection": {
+      "path": "tests/hyperfide/cases/source_control/2_3.py",
+      "profile": "owned PostgreSQL, SigV4 HTTP object fixture with explicit delayed/lost requests and authenticated API"
+    },
+    "causal": {
+      "path": "tests/hyperfide/cases/source_control/causal.py",
+      "profile": "owned PostgreSQL and SigV4 HTTP object fixture; authenticated causal token negatives"
+    },
+    "migration": {
+      "path": "tests/hyperfide/cases/source_control/5_3.py",
+      "profile": "owned PostgreSQL and actual isolated Git storage; cutover/external effect recovery"
+    },
+    "publication-recovery": {
+      "path": "tests/hyperfide/cases/source_control/publication_recovery.py",
+      "profile": "owned PostgreSQL and real local Git receive-pack; fresh same-owner signed API credentials read historical publication after authority epoch advance"
+    },
+    "server-authority": {
+      "path": "tests/hyperfide/cases/source_control/server_authority.py",
+      "profile": "actual standalone source entrypoint, owned PostgreSQL and independent authority journal; SigV4 HTTP fixture"
+    }
+  },
+  "SCM-002": {
+    "variant": "real-s3",
+    "drivers": [
+      "storage-live",
+      "recovery-live"
+    ],
+    "assertions": [
+      {
+        "id": "source.durability.scm-002.storage-live.1",
+        "driver": "storage-live",
+        "check": "configured real S3 multipart completion becomes native verified content only after independent exact-byte readback"
+      },
+      {
+        "id": "source.durability.scm-002.storage-live.2",
+        "driver": "storage-live",
+        "check": "lost PUT acknowledgment remains UNKNOWN until exact readback verifies without another PUT"
+      },
+      {
+        "id": "source.durability.scm-002.storage-live.3",
+        "driver": "storage-live",
+        "check": "corruption, changed idempotent request and cross-domain guesses are refused"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.1",
+        "driver": "recovery-live",
+        "check": "explicit measured profile rejects unsupported failure-domain claims"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.2",
+        "driver": "recovery-live",
+        "check": "real worker process death before verification, after verification and after commit preserves exact replay identity"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.3",
+        "driver": "recovery-live",
+        "check": "active source transaction holds the external epoch fence against concurrent revocation"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.4",
+        "driver": "recovery-live",
+        "check": "backup completeness refuses acknowledged revisions outside its immutable capture"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.5",
+        "driver": "recovery-live",
+        "check": "physical synchronous PostgreSQL failover preserves every acknowledged native revision"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.6",
+        "driver": "recovery-live",
+        "check": "fresh restore rechecks actual object bytes and refuses mutation readiness when a referenced object is missing"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.7",
+        "driver": "recovery-live",
+        "check": "existing external authority journal fences stopped prior writers and source activation rejects old authority"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.8",
+        "driver": "recovery-live",
+        "check": "live partition owner movement preserves reads and fences old upload completion"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.9",
+        "driver": "recovery-live",
+        "check": "delayed old deletion preserves the fresh incarnation in the selected object backend"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.10",
+        "driver": "recovery-live",
+        "check": "fresh restore reconciles captured S3 upload and deletion outcomes and actual issued Git publication before reopening writes"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-live.11",
+        "driver": "recovery-live",
+        "check": "stale backup credentials and overage snapshots fail before verification"
+      },
+      {
+        "id": "source.durability.scm-002.accepted-external-recovery",
+        "driver": "recovery-live",
+        "check": "independent accepted-source receipt and actual Git head survive restore and reconcile without another push"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-negative.1",
+        "driver": "recovery-live",
+        "check": "actual asynchronous replica state refuses the synchronous acknowledgment profile"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-negative.2",
+        "driver": "recovery-live",
+        "check": "new pending effects beyond the captured recovery point are refused before readiness"
+      },
+      {
+        "id": "source.durability.scm-002.recovery-negative.3",
+        "driver": "recovery-live",
+        "check": "effect reconciliation refuses another restore operation and expired authority"
+      },
+      {
+        "id": "source.durability.scm-002.prepare-replay",
+        "driver": "recovery-live",
+        "check": "preparation replay preserves already resolved effects and the remaining recovery debt"
+      },
+      {
+        "id": "source.durability.scm-002.legacy-format",
+        "driver": "recovery-live",
+        "check": "legacy backup manifests fail with a typed upgrade boundary rather than implying recovery readiness"
+      },
+      {
+        "id": "source.durability.scm-002.multipart-reconcile",
+        "driver": "recovery-live",
+        "check": "actual multipart abort with a lost acknowledgment stays pending until exact-session reconciliation proves absence"
+      }
+    ]
+  },
+  "SCM-005": {
+    "variant": "full",
+    "drivers": [
+      "collection",
+      "recovery-live"
+    ],
+    "assertions": [
+      {
+        "id": "source.durability.scm-005.collection.1",
+        "driver": "collection",
+        "check": "durable exact-incarnation roots protect live source from collection"
+      },
+      {
+        "id": "source.durability.scm-005.collection.2",
+        "driver": "collection",
+        "check": "root acquisition and quarantine serialize on the same object generation lock"
+      },
+      {
+        "id": "source.durability.scm-005.collection.3",
+        "driver": "collection",
+        "check": "read acquisition rescues quarantine, protects its grant lifetime and permits cleanup after expiry"
+      },
+      {
+        "id": "source.durability.scm-005.collection.4",
+        "driver": "collection",
+        "check": "lost DELETE response remains explicit debt and reconciles the same operation before releasing references"
+      },
+      {
+        "id": "source.durability.scm-005.collection.5",
+        "driver": "collection",
+        "check": "delayed collector retry targets only its old storage incarnation after identical content is re-uploaded"
+      },
+      {
+        "id": "source.durability.scm-005.collection.6",
+        "driver": "collection",
+        "check": "cross-owner child reservations survive unknown parent outcomes and adopt or release only from durable parent state"
+      },
+      {
+        "id": "source.durability.scm-005.collection.7",
+        "driver": "collection",
+        "check": "backup horizon and explicit backend policy prevent independent expiration of retained source"
+      },
+      {
+        "id": "source.durability.scm-005.collection.8",
+        "driver": "collection",
+        "check": "queued collection revalidates the current policy and its extended quarantine interval"
+      },
+      {
+        "id": "source.durability.scm-005.collection.9",
+        "driver": "collection",
+        "check": "partition work is bounded by requested items with indexed catalog discovery and no bucket LIST"
+      },
+      {
+        "id": "source.durability.scm-005.collection.10",
+        "driver": "collection",
+        "check": "registered authenticated retention API acquires, replays, rejects wrong owner, exposes debt and rescues source"
+      },
+      {
+        "id": "source.durability.scm-005.collection.11",
+        "driver": "collection",
+        "check": "registered collection executes exact conditional deletion and removes resolved debt"
+      },
+      {
+        "id": "source.durability.scm-005.collection.12",
+        "driver": "collection",
+        "check": "every declared workspace custody candidate evidence import export backup and hold root preserves independently retrieved tree file and blob closure while upload pins expire"
+      },
+      {
+        "id": "source.durability.scm-005.collection.13",
+        "driver": "collection",
+        "check": "ending each declared root obligation reclaims parent before children without erasing another retained closure"
+      },
+      {
+        "id": "source.durability.scm-005.collection.14",
+        "driver": "collection",
+        "check": "source capability revocation immediately fences collection access"
+      },
+      {
+        "id": "source.durability.scm-005.recovery-live.1",
+        "driver": "recovery-live",
+        "check": "active source transaction holds the external epoch fence against concurrent revocation"
+      },
+      {
+        "id": "source.durability.scm-005.recovery-live.2",
+        "driver": "recovery-live",
+        "check": "existing external authority journal fences stopped prior writers and source activation rejects old authority"
+      },
+      {
+        "id": "source.durability.scm-005.recovery-live.3",
+        "driver": "recovery-live",
+        "check": "delayed old deletion preserves the fresh incarnation in the selected object backend"
+      }
+    ]
+  },
+  "SCM-018": {
+    "variant": "metadata-failover",
+    "drivers": [
+      "recovery-live",
+      "causal",
+      "publication-recovery"
+    ],
+    "assertions": [
+      {
+        "id": "source.durability.scm-018.recovery-live.1",
+        "driver": "recovery-live",
+        "check": "explicit measured profile rejects unsupported failure-domain claims"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.2",
+        "driver": "recovery-live",
+        "check": "real worker process death before verification, after verification and after commit preserves exact replay identity"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.3",
+        "driver": "recovery-live",
+        "check": "active source transaction holds the external epoch fence against concurrent revocation"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.4",
+        "driver": "recovery-live",
+        "check": "backup completeness refuses acknowledged revisions outside its immutable capture"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.5",
+        "driver": "recovery-live",
+        "check": "physical synchronous PostgreSQL failover preserves every acknowledged native revision"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.6",
+        "driver": "recovery-live",
+        "check": "fresh restore rechecks actual object bytes and refuses mutation readiness when a referenced object is missing"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.7",
+        "driver": "recovery-live",
+        "check": "existing external authority journal fences stopped prior writers and source activation rejects old authority"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.8",
+        "driver": "recovery-live",
+        "check": "live partition owner movement preserves reads and fences old upload completion"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.9",
+        "driver": "recovery-live",
+        "check": "delayed old deletion preserves the fresh incarnation in the selected object backend"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.10",
+        "driver": "recovery-live",
+        "check": "fresh restore reconciles captured S3 upload and deletion outcomes and actual issued Git publication before reopening writes"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-live.11",
+        "driver": "recovery-live",
+        "check": "stale backup credentials and overage snapshots fail before verification"
+      },
+      {
+        "id": "source.durability.scm-018.causal.1",
+        "driver": "causal",
+        "check": "SDK causal receipt option reaches authenticated HTTP and reads its committed revision and operation"
+      },
+      {
+        "id": "source.durability.scm-018.causal.2",
+        "driver": "causal",
+        "check": "forged digest, malformed, other scope, earlier/future epoch, absent operation and other principal cannot imply a current causal read"
+      },
+      {
+        "id": "source.durability.scm-018.causal.3",
+        "driver": "causal",
+        "check": "pending metadata, absent S3 root and unknown S3 observation fail explicitly within the causal deadline; recovered bytes permit reads"
+      },
+      {
+        "id": "source.durability.scm-018.causal.4",
+        "driver": "causal",
+        "check": "a receipt never substitutes for a current source capability"
+      },
+      {
+        "id": "source.durability.scm-018.causal.5",
+        "driver": "causal",
+        "check": "restored metadata remains readable diagnostically but causal reads require verified recovery and current independent activation"
+      },
+      {
+        "id": "source.durability.scm-018.causal.6",
+        "driver": "causal",
+        "check": "current authorized reader can inspect history after authority advancement while the pre-transition causal token stays invalid"
+      },
+      {
+        "id": "source.durability.scm-018.accepted-external-recovery",
+        "driver": "recovery-live",
+        "check": "independent accepted-source receipt and actual Git head survive restore and reconcile without another push"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-negative.1",
+        "driver": "recovery-live",
+        "check": "actual asynchronous replica state refuses the synchronous acknowledgment profile"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-negative.2",
+        "driver": "recovery-live",
+        "check": "new pending effects beyond the captured recovery point are refused before readiness"
+      },
+      {
+        "id": "source.durability.scm-018.recovery-negative.3",
+        "driver": "recovery-live",
+        "check": "effect reconciliation refuses another restore operation and expired authority"
+      },
+      {
+        "id": "source.durability.scm-018.prepare-replay",
+        "driver": "recovery-live",
+        "check": "preparation replay preserves already resolved effects and the remaining recovery debt"
+      },
+      {
+        "id": "source.durability.scm-018.legacy-format",
+        "driver": "recovery-live",
+        "check": "legacy backup manifests fail with a typed upgrade boundary rather than implying recovery readiness"
+      },
+      {
+        "id": "source.durability.scm-018.multipart-reconcile",
+        "driver": "recovery-live",
+        "check": "actual multipart abort with a lost acknowledgment stays pending until exact-session reconciliation proves absence"
+      },
+      {
+        "id": "source.durability.scm-018.historical-publication-read",
+        "driver": "publication-recovery",
+        "check": "current owner credentials read retained publication receipts after an authority epoch advance while resume, cancellation and another principal remain fenced"
+      }
+    ]
+  },
+  "SCM-019": {
+    "variant": "restore",
+    "drivers": [
+      "recovery-live",
+      "collection",
+      "migration",
+      "publication-recovery"
+    ],
+    "assertions": [
+      {
+        "id": "source.durability.scm-019.recovery-live.1",
+        "driver": "recovery-live",
+        "check": "explicit measured profile rejects unsupported failure-domain claims"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.2",
+        "driver": "recovery-live",
+        "check": "real worker process death before verification, after verification and after commit preserves exact replay identity"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.3",
+        "driver": "recovery-live",
+        "check": "active source transaction holds the external epoch fence against concurrent revocation"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.4",
+        "driver": "recovery-live",
+        "check": "backup completeness refuses acknowledged revisions outside its immutable capture"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.5",
+        "driver": "recovery-live",
+        "check": "physical synchronous PostgreSQL failover preserves every acknowledged native revision"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.6",
+        "driver": "recovery-live",
+        "check": "fresh restore rechecks actual object bytes and refuses mutation readiness when a referenced object is missing"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.7",
+        "driver": "recovery-live",
+        "check": "existing external authority journal fences stopped prior writers and source activation rejects old authority"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.8",
+        "driver": "recovery-live",
+        "check": "live partition owner movement preserves reads and fences old upload completion"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.9",
+        "driver": "recovery-live",
+        "check": "delayed old deletion preserves the fresh incarnation in the selected object backend"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.10",
+        "driver": "recovery-live",
+        "check": "fresh restore reconciles captured S3 upload and deletion outcomes and actual issued Git publication before reopening writes"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-live.11",
+        "driver": "recovery-live",
+        "check": "stale backup credentials and overage snapshots fail before verification"
+      },
+      {
+        "id": "source.durability.scm-019.collection.1",
+        "driver": "collection",
+        "check": "durable exact-incarnation roots protect live source from collection"
+      },
+      {
+        "id": "source.durability.scm-019.collection.2",
+        "driver": "collection",
+        "check": "root acquisition and quarantine serialize on the same object generation lock"
+      },
+      {
+        "id": "source.durability.scm-019.collection.3",
+        "driver": "collection",
+        "check": "read acquisition rescues quarantine, protects its grant lifetime and permits cleanup after expiry"
+      },
+      {
+        "id": "source.durability.scm-019.collection.4",
+        "driver": "collection",
+        "check": "lost DELETE response remains explicit debt and reconciles the same operation before releasing references"
+      },
+      {
+        "id": "source.durability.scm-019.collection.5",
+        "driver": "collection",
+        "check": "delayed collector retry targets only its old storage incarnation after identical content is re-uploaded"
+      },
+      {
+        "id": "source.durability.scm-019.collection.6",
+        "driver": "collection",
+        "check": "cross-owner child reservations survive unknown parent outcomes and adopt or release only from durable parent state"
+      },
+      {
+        "id": "source.durability.scm-019.collection.7",
+        "driver": "collection",
+        "check": "backup horizon and explicit backend policy prevent independent expiration of retained source"
+      },
+      {
+        "id": "source.durability.scm-019.collection.8",
+        "driver": "collection",
+        "check": "queued collection revalidates the current policy and its extended quarantine interval"
+      },
+      {
+        "id": "source.durability.scm-019.collection.9",
+        "driver": "collection",
+        "check": "partition work is bounded by requested items with indexed catalog discovery and no bucket LIST"
+      },
+      {
+        "id": "source.durability.scm-019.collection.10",
+        "driver": "collection",
+        "check": "registered authenticated retention API acquires, replays, rejects wrong owner, exposes debt and rescues source"
+      },
+      {
+        "id": "source.durability.scm-019.collection.11",
+        "driver": "collection",
+        "check": "registered collection executes exact conditional deletion and removes resolved debt"
+      },
+      {
+        "id": "source.durability.scm-019.collection.12",
+        "driver": "collection",
+        "check": "every declared workspace custody candidate evidence import export backup and hold root preserves independently retrieved tree file and blob closure while upload pins expire"
+      },
+      {
+        "id": "source.durability.scm-019.collection.13",
+        "driver": "collection",
+        "check": "ending each declared root obligation reclaims parent before children without erasing another retained closure"
+      },
+      {
+        "id": "source.durability.scm-019.collection.14",
+        "driver": "collection",
+        "check": "source capability revocation immediately fences collection access"
+      },
+      {
+        "id": "source.durability.scm-019.migration.1",
+        "driver": "migration",
+        "check": "atomic dual-epoch activation fences old credentials and forward recovery preserves acknowledged native revisions while refusing rollback"
+      },
+      {
+        "id": "source.durability.scm-019.accepted-external-recovery",
+        "driver": "recovery-live",
+        "check": "independent accepted-source receipt and actual Git head survive restore and reconcile without another push"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-negative.1",
+        "driver": "recovery-live",
+        "check": "actual asynchronous replica state refuses the synchronous acknowledgment profile"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-negative.2",
+        "driver": "recovery-live",
+        "check": "new pending effects beyond the captured recovery point are refused before readiness"
+      },
+      {
+        "id": "source.durability.scm-019.recovery-negative.3",
+        "driver": "recovery-live",
+        "check": "effect reconciliation refuses another restore operation and expired authority"
+      },
+      {
+        "id": "source.durability.scm-019.prepare-replay",
+        "driver": "recovery-live",
+        "check": "preparation replay preserves already resolved effects and the remaining recovery debt"
+      },
+      {
+        "id": "source.durability.scm-019.legacy-format",
+        "driver": "recovery-live",
+        "check": "legacy backup manifests fail with a typed upgrade boundary rather than implying recovery readiness"
+      },
+      {
+        "id": "source.durability.scm-019.multipart-reconcile",
+        "driver": "recovery-live",
+        "check": "actual multipart abort with a lost acknowledgment stays pending until exact-session reconciliation proves absence"
+      },
+      {
+        "id": "source.durability.scm-019.historical-publication-read",
+        "driver": "publication-recovery",
+        "check": "current owner credentials read retained publication receipts after an authority epoch advance while resume, cancellation and another principal remain fenced"
+      },
+      {
+        "id": "source.durability.scm-019.server-authority.1",
+        "driver": "recovery-live",
+        "check": "standalone production entrypoint accepts current independent authority and authenticates exact source bytes"
+      },
+      {
+        "id": "source.durability.scm-019.server-authority.2",
+        "driver": "recovery-live",
+        "check": "running listener rechecks external journal before every source metadata transaction"
+      },
+      {
+        "id": "source.durability.scm-019.server-authority.3",
+        "driver": "recovery-live",
+        "check": "restored prior database with still-valid JWT and source capability cannot reopen against independently advanced journal"
+      },
+      {
+        "id": "source.durability.scm-019.server-authority.4",
+        "driver": "recovery-live",
+        "check": "standalone startup refuses missing protected external journal configuration"
+      },
+      {
+        "id": "source.durability.scm-019.server-authority.5",
+        "driver": "recovery-live",
+        "check": "standalone startup refuses absent independent authority state without creating a journal"
+      },
+      {
+        "id": "source.durability.scm-019.server-authority.6",
+        "driver": "recovery-live",
+        "check": "authority changed behind a real transaction lock returns typed stale authority and creates no source upload"
+      }
+    ]
+  }
+}

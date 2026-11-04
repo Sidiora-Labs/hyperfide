@@ -113,6 +113,10 @@ if (!capabilities.available || !file) {
     mode: "120000",
     object_id: await client.putObject("blob", Buffer.from("run.sh")),
   };
+  const pagedNames = Array.from({ length: 200 }, (_, i) => String(i).padStart(3, "0") + "x".repeat(190));
+  for (const name of pagedNames) objects["src/paged/" + name] = {
+    path: "src/paged/" + name, operation: "put", kind: "file", mode: "100644", object_id: objects["src/cold.txt"].object_id,
+  };
   const empty = await sdk.call("source.objects.put", {
     kind: "tree-leaf",
     payload_base64: Buffer.from('[1,"",[]]').toString("base64"),
@@ -163,6 +167,17 @@ if (!capabilities.available || !file) {
     maxOpenHandles: 32,
     maxInflight: 16,
   };
+  const unavailableOptions = {...mountOptions, mountpoint: path.join(directory, "unavailable-view"), stateDirectory: path.join(directory, "unavailable-overlay"), host: {...host, mount: {...host.mount, sha256: "sha256:" + "0".repeat(64)}}};
+  const unavailableHost = await discoverVirtualHost(unavailableOptions.host);
+  assert.equal(unavailableHost.available, false);
+  assert.deepEqual(unavailableHost.fallback.modes, ["SPARSE", "MATERIALIZED"]);
+  assert.equal(unavailableHost.fallback.requiresExplicitSelection, true);
+  const readsBeforeRefusal = calls.filter(call => call.action === "source.objects.read").length;
+  const unavailableView = new NativeVirtualFilesystem(client, cache, journal, descriptor, unavailableOptions);
+  await assert.rejects(unavailableView.mount(), error => error.code === "VIRTUAL_FILESYSTEM_UNAVAILABLE");
+  assert.equal(calls.filter(call => call.action === "source.objects.read").length, readsBeforeRefusal);
+  assert(!(await fs.readFile("/proc/self/mountinfo", "utf8")).includes(unavailableOptions.mountpoint));
+  passed("unavailable host executable capability refuses mounting without hydration and requires explicit sparse fallback");
   let virtual = new NativeVirtualFilesystem(
       client,
       cache,
@@ -198,6 +213,16 @@ if (!capabilities.available || !file) {
     passed(
       "real Linux FUSE mount becomes ready without content hydration and reads only the pinned selected source",
     );
+    const hydrationBeforeListing = virtual.metrics.contentHydrations;
+    assert.deepEqual((await fs.readdir(path.join(mountpoint, "src/paged"))).sort(), pagedNames);
+    assert.equal(virtual.metrics.contentHydrations, hydrationBeforeListing);
+    await fs.writeFile(path.join(mountpoint, "src/transient"), "transient");
+    await fs.rename(path.join(mountpoint, "src/transient"), path.join(mountpoint, "src/renamed"));
+    assert.equal(await fs.readFile(path.join(mountpoint, "src/renamed"), "utf8"), "transient");
+    await assert.rejects(fs.stat(path.join(mountpoint, "src/transient")), error => error.code === "ENOENT");
+    await fs.unlink(path.join(mountpoint, "src/renamed"));
+    await assert.rejects(fs.stat(path.join(mountpoint, "src/renamed")), error => error.code === "ENOENT");
+    passed("multi-page directory enumeration avoids hydration and ordinary rename and deletion remain coherent");
     const compile = options.compiler ?? "/usr/bin/cc";
     await execute(compile, [
       path.join(mountpoint, "src/main.c"),

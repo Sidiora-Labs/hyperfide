@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-003/full",
+  "task": "6.3",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-003"
+  ],
+  "assertion_ids": [
+    "source.core.operations.protocol",
+    "source.core.operations.metadata.1",
+    "source.core.operations.metadata.2",
+    "source.core.operations.metadata.3",
+    "source.core.operations.metadata.4",
+    "source.core.operations.metadata.5",
+    "source.core.operations.metadata.6",
+    "source.core.operations.metadata.7",
+    "source.core.operations.metadata.8",
+    "source.core.operations.api.1",
+    "source.core.operations.api.2",
+    "source.core.operations.api.4",
+    "source.core.operations.transform.1",
+    "source.core.operations.transform.2",
+    "source.core.operations.transform.3",
+    "source.core.operations.transform.4",
+    "source.core.operations.transform.5",
+    "source.core.operations.transform.6",
+    "source.core.operations.api.transport-id-binding",
+    "source.core.operations.api.fresh-stale-and-divergence"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "--case",
+    "SCM-003"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "pnpm-lock.yaml",
+    "sdk/source-control/package.json",
+    "sdk/source-control/tsconfig.json",
+    "tests/hyperfide/cases/source_control/0_1.py",
+    "tests/hyperfide/cases/source_control/1_2.py",
+    "tests/hyperfide/cases/source_control/2_1.py",
+    "tests/hyperfide/cases/source_control/3_1.py",
+    "tests/hyperfide/cases/source_control/fixtures/contracts-v1.json",
+    "tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "tests/hyperfide/source-control/full_case/core_cases.json",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_api_actor.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/native_source_transform_actor.mjs",
+    "tests/hyperfide/support/source_metadata_actor.mjs",
+    "tests/hyperfide/support/withpg.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/src/assurance",
+    "core/control-plane/migrations",
+    "sdk/source-control/src",
+    "tools/workspace",
+    "tests/hyperfide/source-control/full_case"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 1800
+}

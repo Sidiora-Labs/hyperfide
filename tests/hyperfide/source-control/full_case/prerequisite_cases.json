@@ -1,0 +1,99 @@
+{
+  "SCM-026": {
+    "schema_checks": [
+      "examples.parse-without-authority",
+      "canonical-content-identity",
+      "kvx.duplicates-and-injection",
+      "source.strict-version-and-secret-fields",
+      "source.pinned-backend-and-generation",
+      "source.path-and-scope-confinement",
+      "package.complete-pinned-manifest",
+      "package.reject-source-and-environment-forgery",
+      "package.mount-config-and-overlay-isolation",
+      "package.lock-toolchain-and-readiness-drift",
+      "decision.explicit-model-choice-and-input-binding",
+      "decision.manager-scope-and-install-action",
+      "assignment.individual-attempts-and-ready-binding",
+      "interfaces.preserve-block-fields-and-provenance",
+      "interfaces.indexed-bounded-declared-closure",
+      "interfaces.source-missing-and-stale-consumer",
+      "interfaces.reject-tampered-content-and-membership",
+      "interfaces.streaming-index-external-storage",
+      "interfaces.persistent-store-malformed-and-shared-records",
+      "interfaces.store-without-linux-descriptor-filesystem",
+      "interfaces.invalid-stream-and-index-version",
+      "interfaces.install-membership-and-consumer",
+      "package.private-configuration-target-contract"
+    ],
+    "live_checks": [
+      "fresh_install",
+      "repeated_install",
+      "interrupted_install",
+      "missing_code",
+      "missing_dependencies",
+      "missing_configuration",
+      "stale_install",
+      "path_escape",
+      "concurrent_isolation",
+      "interface_subset",
+      "fetch_volume"
+    ]
+  },
+  "SCM-027": {
+    "schema_checks": [],
+    "live_checks": [
+      "fresh_install",
+      "repeated_install",
+      "interrupted_install",
+      "missing_code",
+      "missing_dependencies",
+      "missing_configuration",
+      "stale_install",
+      "path_escape",
+      "concurrent_isolation",
+      "interface_subset",
+      "fetch_volume",
+      "provider_creation",
+      "coding_worker",
+      "independent_test",
+      "worker_cancellation",
+      "failed_worker",
+      "manager_replacement",
+      "ambiguous_provider_outcome"
+    ]
+  },
+  "SCM-028": {
+    "schema_checks": [],
+    "live_checks": [
+      "co_located_models",
+      "model_delegation",
+      "model_replan",
+      "constraint_refusal",
+      "supervisor_box_loss",
+      "stale_generation_replay",
+      "model_unavailability",
+      "provider_creation",
+      "coding_worker",
+      "independent_test"
+    ]
+  },
+  "SCM-029": {
+    "schema_checks": [],
+    "live_checks": [
+      "co_located_models",
+      "model_delegation",
+      "model_replan",
+      "constraint_refusal",
+      "supervisor_box_loss",
+      "stale_generation_replay",
+      "model_unavailability",
+      "provider_creation",
+      "coding_worker",
+      "independent_test",
+      "worker_cancellation",
+      "failed_worker",
+      "manager_replacement",
+      "ambiguous_provider_outcome"
+    ]
+  }
+}

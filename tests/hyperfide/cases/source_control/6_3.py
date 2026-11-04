@@ -25,7 +25,7 @@ def self_test():
         claims = {'schema_version': 1, 'cases': {'SCM-024': {'requirement_clauses': ['14.4'], 'required_variants': ['full']}}}
         for name, value in [('registry.json', registry), ('claims.json', claims)]:
             (root / name).write_bytes(closure.canonical(value))
-        source = {'scope': {key: str(uuid.uuid4()) for key in ['organisation_id','repository_id','security_domain_id']}, 'revision_id': 'sha256:'+'a'*64, 'root_tree_id': 'sha256:'+'b'*64, 'authority_epoch': str(uuid.uuid4()), 'policy_version': 'closure-test'}
+        source = {'scope': {key: str(uuid.uuid4()) for key in ['organisation_id','repository_id','security_domain_id']}, 'revision_id': 'sha256:'+'a'*64, 'root_tree_id': 'sha256:'+'b'*64, 'authority_epoch': '1', 'policy_version': 'closure-test'}
         packet = {'schema_version': 1, 'release_id': str(uuid.uuid4()), 'source': source, 'registry_sha256': closure.digest(root/'registry.json'), 'claims_sha256': closure.digest(root/'claims.json'), 'evidence': []}
         def refused(name, value, phrase):
             path = root / 'packet.json'; path.write_bytes(closure.canonical(value))

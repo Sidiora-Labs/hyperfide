@@ -1,0 +1,64 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-016/full",
+  "task": "5.2",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-016"
+  ],
+  "assertion_ids": [
+    "SCM-016.policy-versions",
+    "SCM-016.resumable-history",
+    "SCM-016.modes-symlinks-archives",
+    "SCM-016.annotated-tags",
+    "SCM-016.project-publication",
+    "SCM-016.independent-project-provenance",
+    "SCM-016.empty-email-provenance",
+    "SCM-016.contribution-intake",
+    "SCM-016.unsupported-input-refusals",
+    "SCM-016.github-ref-read-only",
+    "SCM-016.github-import-replay",
+    "SCM-016.github-content-provenance"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/imports.py",
+    "--case",
+    "SCM-016"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/core.py",
+    "tests/hyperfide/source-control/full_case/imports.py",
+    "tests/hyperfide/source-control/full_case/import_cases.json",
+    "tests/hyperfide/source-control/full_case/import_manifest.py",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/withpg.py",
+    "tests/hyperfide/cases/source_control/5_2.py",
+    "tests/hyperfide/support/native_source_import_actor.mjs",
+    "tests/hyperfide/source-control/full_case/github_import.py",
+    "tests/hyperfide/source-control/full_case/github_import.mjs"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/migrations",
+    "sdk/source-control/src"
+  ],
+  "actions": [
+    "create-owned-postgres",
+    "create-local-git",
+    "read-owned-github"
+  ],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN",
+    "HF_SOURCE_GITHUB_IMPORT_RECEIPT"
+  ],
+  "timeout_seconds": 1500,
+  "execution_profile": "real local Git histories and read-only live GitHub fetch; native import on owned PostgreSQL and SigV4 object fixture",
+  "required_artifacts": [
+    "build/source-control/full-case/SCM-016/receipt.json"
+  ]
+}

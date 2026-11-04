@@ -3,7 +3,7 @@
   "feature": "hyperfide-source-control",
   "variant": "campaign:hyperfide-source-control/6.2/admission",
   "task": "6.2",
-  "scope": "full-case",
+  "scope": "task-component",
   "cases": [
     "SCM-021"
   ],
@@ -24,7 +24,8 @@
   ],
   "source_roots": [
     "tests/hyperfide/source-control/workloads",
-    "tests/hyperfide/source-control/manifests/campaigns"
+    "tests/hyperfide/source-control/manifests/campaigns",
+    "core/control-plane/migrations"
   ],
   "actions": [
     "source-workload.admission"

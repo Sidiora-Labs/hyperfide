@@ -4,13 +4,15 @@ import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {createNativeAcceptanceFixture} from './native_source_acceptance_fixture.mjs';
-import {campaignManifest,machineIdentity,OperationLedger,logicalCorpus,executeWorkload,scheduleCampaignHooks,runCampaignHook} from '../source-control/workloads/campaign.mjs';
-import {credential,deploymentConfig,observerCounters} from '../source-control/workloads/deployment.mjs';
+const contentRun=randomUUID();
+import {coldEditBytes,campaignManifest,machineIdentity,OperationLedger,logicalCorpus,executeWorkload,scheduleCampaignHooks,runCampaignHook} from '../source-control/workloads/campaign.mjs';
+import {credential,deploymentConfig,observerCounters,WorkspaceCustody} from '../source-control/workloads/deployment.mjs';
 const load=name=>import(pathToFileURL(path.join(process.env.SOURCE_CONTROL_MODULE_ROOT,name+'.js')));
 const live=process.env.HF_SOURCE_WORKLOAD_LIVE==='1',machine=machineIdentity();
 const serviceOptions={};
 if(live)throw new Error('Full campaigns must use the explicit deployed-service driver');
-const f=await createNativeAcceptanceFixture({serviceOptions}),checks=[];
+const actions=['source.capabilities','source.objects.put','source.objects.read','source.trees.patch','source.trees.entries','source.trees.lookup','source.revisions.create','source.revisions.read','source.workspaces.open','source.workspaces.checkpoint','source.workspaces.detail','source.workspaces.close','source.domains.create','source.operations.read'];
+const f=await createNativeAcceptanceFixture({serviceOptions,actions}),checks=[];
 const directory=path.resolve('build/source-control/6.2');await fs.mkdir(directory,{recursive:true});
 const backend=serviceOptions.backend??f.service.objects.backend;
 const manifest=process.env.HF_SOURCE_WORKLOAD_MANIFEST?campaignManifest(JSON.parse(await fs.readFile(process.env.HF_SOURCE_WORKLOAD_MANIFEST,'utf8'))):campaignManifest({schema_version:1,kind:'component',seed:42,file_counts:[100,1000],modified_files:10,modified_bytes:4096,clients:2,operations:8,rate_per_second:100,duration_seconds:1,hardware_digest:machine.digest,backend_identity:backend?.identity??'fixture',real_backend:false});
@@ -44,7 +46,7 @@ try{
    let remaining=manifest.modified_bytes;
    for(let n=0;n<manifest.modified_files;n++){
     const size=n===manifest.modified_files-1?remaining:Math.floor(manifest.modified_bytes/manifest.modified_files);remaining-=size;
-    const bytes=Buffer.alloc(size,(manifest.seed+ordinal+n)%251);Buffer.from(String(ordinal)).copy(bytes);
+    const bytes=coldEditBytes({run:contentRun,seed:manifest.seed,corpus:count,ordinal,index:n,size});
     const file=await upload(bytes);changes.push({path:corpus.first_paths[n],operation:'put',kind:'file',mode:'100644',object_id:file.object_id});
    }
    const input={operation_id,workspace_id:current.workspace_id,expected_workspace_generation:current.workspace_generation,expected_scope_generation:current.scope_generation,base_revision_id:current.base_revision_id,overlay_generation:String(ordinal+1),changes};
@@ -58,7 +60,7 @@ try{
   const after=Number((await f.pool.query('SELECT count(*) FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3',Object.values(f.scope))).rows[0].count);
   assert.equal(after-before,manifest.kind==='admission'?0:result.new_revisions);
   if(first){const replay=await mutate('source.workspaces.checkpoint',first.input,{operation_id:first.operation_id});assert.equal(replay.revision_id,first.receipt.revision_id);const afterReplay=Number((await f.pool.query('SELECT count(*) FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3',Object.values(f.scope))).rows[0].count);assert.equal(afterReplay,after);}
-  results.push({corpus,measurements:result,independently_persisted_revisions:after-before,application_request_bytes:sentBytes-initialSent,application_response_bytes:receivedBytes-initialReceived,ledger:ledger.path});ledger.close();
+  results.push({content_condition:{profile:'cold-unique-edit-objects',run:contentRun,corpus:count},corpus,measurements:result,independently_persisted_revisions:after-before,application_request_bytes:sentBytes-initialSent,application_response_bytes:receivedBytes-initialReceived,ledger:ledger.path});ledger.close();
  }
  checks.push('actual API checkpoints across increasing logical corpora are independently reconstructed and counted in PostgreSQL');
  checks.push('replayed acknowledgments do not increase new durable revision totals');
@@ -74,13 +76,25 @@ try{
  await assert.rejects(()=>runCampaignHook(corrupt,{scope:f.scope,outputDirectory:directory,ordinal:'corrupt'}),/hash differs/);
  checks.push('pinned external canary and fault commands execute and their bounded evidence bytes are independently verified');
  const credentialFile=path.join(directory,'credential-'+randomUUID()+'.json');
- const deployed={schema_version:1,endpoint:'https://source.example.invalid/api',scope:f.scope,isolated_scope:true,backend_identity:'measured',credential_file:credentialFile,output_directory:directory,budgets:{max_checkpoint_p95_ms:1000,max_growth_ratio:2},observer:{},corpora:[{logical_files:100,revision_id:'sha256:'+'a'.repeat(64),edit_paths:Array.from({length:10},(_,i)=>'file-'+i)}]};
+ const deployed={deployment_identity:{provider:'owned-fixture',service_id:'owned-source',deployment_id:'fixture-deployment',image_digest:'sha256:'+'a'.repeat(64),resource_profile_digest:'sha256:'+'b'.repeat(64)},schema_version:1,endpoint:'https://source.example.invalid/api',scope:f.scope,isolated_scope:true,backend_identity:'measured',credential_file:credentialFile,output_directory:directory,budgets:{max_checkpoint_p95_ms:1000,max_growth_ratio:2},observer:{},corpora:[{logical_files:100,revision_id:'sha256:'+'a'.repeat(64),edit_paths:Array.from({length:10},(_,i)=>'file-'+i)}]};
  deploymentConfig(deployed,{...manifest,real_backend:true,backend_identity:'measured',file_counts:[100]});
+ const signedDeployed={...deployed,signed_config_file:'/private/signed-source.json'};delete signedDeployed.credential_file;deploymentConfig(signedDeployed,{...manifest,real_backend:true,backend_identity:'measured',file_counts:[100]});
+ assert.throws(()=>deploymentConfig({...deployed,signed_config_file:'/private/ambiguous.json'},{...manifest,real_backend:true,backend_identity:'measured',file_counts:[100]}));
  assert.throws(()=>deploymentConfig({...deployed,endpoint:'http://remote.example.invalid'}, {...manifest,real_backend:true,backend_identity:'measured',file_counts:[100]}));
- assert.throws(()=>observerCounters({backend_identity:'measured',real_s3:true},'measured'),/counter/);
+ assert.throws(()=>observerCounters({backend_identity:'measured',real_s3:true,deployment_identity:deployed.deployment_identity},'measured'),/counter/);
  const writeToken=(token,expires_at=new Date(Date.now()+120000).toISOString())=>fs.writeFile(credentialFile,JSON.stringify({schema_version:1,endpoint:deployed.endpoint,scope:f.scope,token,expires_at}),{mode:0o600});
  try{await writeToken('first');assert.equal(await credential(deployed),'first');await writeToken('rotated');assert.equal(await credential(deployed),'rotated');await writeToken('expired','2000-01-01T00:00:00Z');await assert.rejects(()=>credential(deployed),/expires/);await writeToken('wrong-scope');await assert.rejects(()=>credential({...deployed,scope:{...f.scope,repository_id:randomUUID()}}));}finally{await fs.unlink(credentialFile);}
  checks.push('deployed API scope, measured observer completeness and renewable expiring credentials are enforced');
+ const cleanupCustody=new WorkspaceCustody((workspace,operation_id)=>mutate('source.workspaces.close',{workspace_id:workspace.workspace_id,expected_workspace_generation:workspace.workspace_generation},{operation_id}),async workspace=>(await client.call('source.workspaces.detail',{workspace_id:workspace.workspace_id})).workspace);
+ const scopedBase=await f.createRevision({text:'partial workspace setup cleanup\n'});
+ const partial=await mutate('source.workspaces.open',{workspace_id:randomUUID(),base_revision_id:scopedBase.revision_id,mode:'API_ONLY',read_paths:[''],write_paths:['']});cleanupCustody.track(partial.workspace);
+ await assert.rejects(()=>mutate('source.workspaces.open',{workspace_id:randomUUID(),base_revision_id:scopedBase.revision_id,mode:'INVALID',read_paths:[''],write_paths:['']}));
+ const droppedCheckpoint=randomUUID();await mutate('source.workspaces.checkpoint',{operation_id:droppedCheckpoint,workspace_id:partial.workspace.workspace_id,expected_workspace_generation:partial.workspace.workspace_generation,expected_scope_generation:partial.workspace.scope_generation,base_revision_id:partial.workspace.base_revision_id,overlay_generation:'1',changes:[]},{operation_id:droppedCheckpoint}); // Deliberately discard the acknowledged descriptor to exercise cleanup reconciliation.
+
+ assert.equal((await cleanupCustody.closeAll()).length,0);assert.equal(cleanupCustody.pending().length,0);
+ await assert.rejects(()=>client.call('source.workspaces.detail',{workspace_id:partial.workspace.workspace_id}),error=>error.code==='WORKSPACE_NOT_FOUND');
+ checks.push('partial workspace setup failure closes every acknowledged owned workspace');
+
  const hookReceipts=await hooks;
  const elapsed=results.reduce((sum,item)=>sum+item.measurements.elapsed_ms,0);
  if(manifest.kind==='endurance'&&elapsed<manifest.duration_seconds*1000)throw new Error('Elapsed endurance coverage is incomplete');
@@ -89,5 +103,5 @@ try{
  await fs.writeFile(path.join(directory,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify({status:receipt.status,checks:checks.length,corpora:results.length,scope:receipt.scope}));
 }finally{await f.close();}
 
-for(const id of ["source-workload.api-corpus-checkpoints","source-workload.replay-accounting","source-workload.invalid-profiles","source-workload.durable-ledger","source-workload.pinned-hook-evidence","source-workload.deployed-credentials"])console.log(JSON.stringify({type:"assertion",id,expected:true,actual:true}));
+for(const id of ["source-workload.api-corpus-checkpoints","source-workload.replay-accounting","source-workload.invalid-profiles","source-workload.durable-ledger","source-workload.pinned-hook-evidence","source-workload.deployed-credentials","source-workload.partial-workspace-cleanup"])console.log(JSON.stringify({type:"assertion",id,expected:true,actual:true}));
 console.log(JSON.stringify({type:"cleanup",complete:true,resources:[]}));

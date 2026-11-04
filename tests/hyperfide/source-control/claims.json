@@ -205,7 +205,9 @@
         "12.6"
       ],
       "required_variants": [
-        "github",
+        "github"
+      ],
+      "optional_variants": [
         "gitlab"
       ]
     },

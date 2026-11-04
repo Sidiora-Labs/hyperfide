@@ -1,0 +1,87 @@
+{
+  "drivers": [
+    {
+      "id": "harness",
+      "argv": [
+        "tests/hyperfide/cases/source_control/0_2.py"
+      ],
+      "assertions": [
+        "source-harness.registry.namespaces",
+        "source-harness.registry.future-cases",
+        "source-harness.native.capture",
+        "source-harness.refuse.root_tree_id",
+        "source-harness.refuse.authority_epoch",
+        "source-harness.refuse.test_inventory_sha256",
+        "source-harness.refuse.forged-receipt",
+        "source-harness.refuse.mixed-cases",
+        "source-harness.refuse.version",
+        "source-harness.refuse.missing-receipt",
+        "source-harness.refuse.duplicate-variant",
+        "source-harness.native.independent-checker",
+        "source-harness.native.no-git-identity",
+        "source-harness.native.campaign-namespace",
+        "source-harness.native.namespaced-bundle",
+        "source-harness.native.required-store-refusal",
+        "source-harness.legacy.independent-checker",
+        "source-harness.native.campaign-registration",
+        "source-harness.native.full-case-registration",
+        "source-harness.native.authority-epoch"
+      ]
+    },
+    {
+      "id": "closure",
+      "argv": [
+        "tests/hyperfide/cases/source_control/6_3.py",
+        "--self-test"
+      ],
+      "assertions": [
+        "source-closure.missing-case",
+        "source-closure.stale-registry",
+        "source-closure.fabricated-pass",
+        "source-closure.duplicate-variant",
+        "source-closure.unknown-case",
+        "source-closure.tampered-receipt",
+        "source-closure.component-is-not-full-case",
+        "source-closure.stale-source",
+        "source-closure.empty-assertion-inventory",
+        "source-closure.actual-qualifier-and-independent-checker"
+      ]
+    },
+    {
+      "id": "release",
+      "argv": [
+        "tests/hyperfide/cases/source_control/7_2.py",
+        "--self-test"
+      ],
+      "assertions": [
+        "source-release.artifact-pins-and-acceptance-binding",
+        "source-release.artifact-tamper",
+        "source-release.missing-runtime-roles",
+        "source-release.unsupported-source-format",
+        "source-release.acceptance-other-source",
+        "source-release.operator-refusal"
+      ]
+    },
+    {
+      "id": "campaign",
+      "argv": [
+        "tests/hyperfide/source-control/full_case/verifier_layout.py",
+        "--campaign-tests"
+      ],
+      "assertions": [
+        "campaign.test_real_qualifier_checker_closure_and_exact_resume",
+        "campaign.test_changed_plan_or_source_refuses_resume",
+        "campaign.test_new_entrypoint_bytes_cannot_claim_an_old_native_tree",
+        "campaign.test_new_transitive_source_file_is_not_silently_accepted",
+        "campaign.test_missing_required_variant_keeps_successful_work_without_closure",
+        "campaign.test_tampered_receipt_is_not_reused",
+        "campaign.test_interrupted_index_recovers_only_an_actual_verified_receipt",
+        "campaign.test_multiple_variants_resume_without_packet_order_drift",
+        "campaign.test_interrupted_execution_without_receipt_is_not_relaunched",
+        "campaign.test_failed_case_retries_only_after_verified_cleanup",
+        "campaign.test_failed_case_with_missing_cleanup_is_not_repeated",
+        "campaign.test_task_component_manifest_cannot_fill_a_case"
+      ]
+    }
+  ]
+}

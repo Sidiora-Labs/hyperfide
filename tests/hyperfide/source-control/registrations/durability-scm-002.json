@@ -1,0 +1,79 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-002/real-s3",
+  "task": "6.3",
+  "case_variant": "real-s3",
+  "scope": "full-case",
+  "cases": [
+    "SCM-002"
+  ],
+  "assertion_ids": [
+    "source.durability.scm-002.storage-live.1",
+    "source.durability.scm-002.storage-live.2",
+    "source.durability.scm-002.storage-live.3",
+    "source.durability.scm-002.recovery-live.1",
+    "source.durability.scm-002.recovery-live.2",
+    "source.durability.scm-002.recovery-live.3",
+    "source.durability.scm-002.recovery-live.4",
+    "source.durability.scm-002.recovery-live.5",
+    "source.durability.scm-002.recovery-live.6",
+    "source.durability.scm-002.recovery-live.7",
+    "source.durability.scm-002.recovery-live.8",
+    "source.durability.scm-002.recovery-live.9",
+    "source.durability.scm-002.recovery-live.10",
+    "source.durability.scm-002.recovery-live.11",
+    "source.durability.scm-002.accepted-external-recovery",
+    "source.durability.scm-002.recovery-negative.1",
+    "source.durability.scm-002.recovery-negative.2",
+    "source.durability.scm-002.recovery-negative.3",
+    "source.durability.scm-002.prepare-replay",
+    "source.durability.scm-002.legacy-format",
+    "source.durability.scm-002.multipart-reconcile"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/durability.py",
+    "--case",
+    "SCM-002"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "pnpm-lock.yaml",
+    "sdk/source-control/package.json",
+    "sdk/source-control/tsconfig.json",
+    "tests/hyperfide/source-control/full_case/durability.py",
+    "tests/hyperfide/source-control/full_case/durability_cases.json",
+    "tests/hyperfide/cases/source_control/1_1.py",
+    "tests/hyperfide/cases/source_control/2_3.py",
+    "tests/hyperfide/cases/source_control/6_1.py",
+    "tests/hyperfide/cases/source_control/5_3.py",
+    "tests/hyperfide/cases/source_control/causal.py",
+    "tests/hyperfide/cases/source_control/fixtures/objects/storage.mjs",
+    "tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs",
+    "tests/hyperfide/support/native_source_recovery_actor.mjs",
+    "tests/hyperfide/support/native_source_collection.mjs",
+    "tests/hyperfide/support/native_source_collection_api.mjs",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_migration_actor.mjs",
+    "tests/hyperfide/support/native_source_causal_actor.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/cases/support/postgres_cluster.py",
+    "tests/hyperfide/support/withpg.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/src/storage",
+    "core/control-plane/migrations",
+    "sdk/source-control/src",
+    "tests/hyperfide/source-control/full_case"
+  ],
+  "actions": [
+    "source.durability.real-s3"
+  ],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 3600
+}

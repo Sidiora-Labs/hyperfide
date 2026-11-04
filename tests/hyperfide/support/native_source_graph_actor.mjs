@@ -28,12 +28,21 @@ try{
  const before=await pending;assert.equal(before.coverage.complete,true);assert.equal(before.coverage.extracted_files,3);await publish(before,0);
  const initial=await query(before,first);assert(initial.rows.some(r=>r.symbols.some(s=>s.name==='render')));assert(initial.next_cursor);const page=await query(before,first,{cursor:initial.next_cursor});assert(page.rows.some(r=>r.symbols.some(s=>s.name==='steady')));
  record('actual native scanner facts are published and paginated against the exact native revision without a Git checkout');
+ assert.equal(initial.schema_version,1);assert.equal(initial.identity.source_kind,'NATIVE');assert.deepEqual({...initial.identity.scope},f.scope);assert.equal(initial.identity.revision_id,first.revision_id);assert.equal(initial.identity.root_tree_id,first.root_tree_id);assert.equal(initial.identity.parser_digest,binary_digest);assert.equal(initial.identity.resolver_digest,configuration.resolver_digest);assert.equal(initial.identity.graph_schema,'native-graph-v1');assert.equal(initial.identity.overlay,null);assert.equal(initial.coverage.complete,true);assert.equal(initial.coverage.resolution_complete,true);
+ const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
+ assert.equal(initial.identity.configuration_digest,'sha256:'+createHash('sha256').update(JSON.stringify(canonical(configuration))).digest('hex'));
+ record('graph responses expose independently verified source, parser binary, resolver, configuration, schema and coverage identities');
+ const context=await query(before,first,{mode:'context',path:'apps/web.ts',limit:8});assert.equal(context.rows[0].body,files['apps/web.ts']);
+ const dependencies=await query(before,first,{mode:'dependencies',path:'apps/web.ts',limit:8});assert.deepEqual(dependencies.rows[0].dependencies,['lib/api.ts']);
+ record('source-pinned context returns exact file bytes and resolves the actual cross-project import edge');
+
  await assert.rejects(()=>query(before,{...first,root_tree_id:'sha256:'+'f'.repeat(64)}),e=>e.code==='GRAPH_SOURCE_MISMATCH');
  await assert.rejects(()=>query(before,first,{cursor:initial.next_cursor,q:'different'}),e=>e.code==='RESNAPSHOT_REQUIRED'||e.code==='INVALID_CURSOR');
  record('source mismatch and query cursor substitution are refused');
  const workspace=await f.client.call('source.workspaces.open',{workspace_id:randomUUID(),base_revision_id:first.revision_id,read_paths:paths,write_paths:paths,mode:'API_ONLY'});
  const overlay=await build(first,{overlay:{workspace_id:workspace.workspace.workspace_id,workspace_generation:workspace.workspace.workspace_generation,revision_id:first.revision_id}});
  await f.client.call('source.graph.publish',{build_id:overlay.build_id,channel:'overlay',expected_generation:'0'},{operation_id:randomUUID()});
+ const overlayContext=await query(overlay,first);assert.deepEqual({...overlayContext.identity.overlay},{workspace_id:workspace.workspace.workspace_id,workspace_generation:workspace.workspace.workspace_generation,revision_id:first.revision_id});
  await f.client.call('source.workspaces.close',{workspace_id:workspace.workspace.workspace_id,expected_workspace_generation:workspace.workspace.workspace_generation},{operation_id:randomUUID()});
  await assert.rejects(()=>query(overlay,first),e=>e.code==='GRAPH_OVERLAY_STALE');
  record('closed overlay workspaces cannot serve stale graph context and graph admission leaves source queries responsive');

@@ -27,6 +27,26 @@ CLI_OWNERS = {
     'spec': 'extensions',
     'thread': 'execution-controls',
 }
+CANONICAL_PLUGIN_OWNERS = {
+    'agent-annotations': ['interactions'], 'browser-automation': ['desktop'],
+    'composer': ['composer'], 'drafts': ['thread-lifecycle'],
+    'environment-git-worktree': ['projects-environments'],
+    'environment-modal-sandbox': ['projects-environments'],
+    'environment-personal-workspace': ['projects-environments'],
+    'environment-project-checkout': ['projects-environments'],
+    'environment-slices': ['plugin-hyperfide-source-control'],
+    'github-pr-status': ['plugin-github'],
+    'hyperfide-asks': ['repository-operations'],
+    'hyperfide-dispatch': ['repository-operations'],
+    'hyperfide-graph': ['repository-operations'],
+    'hyperfide-guide': ['developer-fixtures'],
+    'hyperfide-qualify': ['repository-operations'],
+    'hyperfide-spec': ['repository-operations'],
+    'machine-blaxel': ['hosts-updates'], 'machine-railway': ['hosts-updates'],
+    'mcp': ['extensions'], 'navigation': ['navigation'],
+    'prompt-library': ['composer'], 'storage-retention': ['settings'],
+    'thread-list': ['navigation', 'thread-lifecycle'],
+}
 CORE_PAGES = [
     'navigation', 'projects-environments', 'composer', 'execution-controls',
     'interactions', 'timeline', 'workspace-panels', 'settings', 'extensions',
@@ -116,13 +136,19 @@ def collect(repo):
     add('app-and-shared-ui', under('apps/web/src/', 'lib/client-core/src/', 'lib/shared-ui/src/'), CORE_PAGES)
     add('domain-contracts', under('lib/domain/src/'), CORE_PAGES)
     add('public-api-and-sdk', under('contracts/server/src/', 'sdk/client/src/'), CORE_PAGES, True)
+    native_source = under('sdk/source-control/src/', 'core/control-plane/src/source_control/', 'core/host-daemon/src/source-control/', 'apps/cli/src/source-control.ts')
+    if native_source:
+        add('native-source-control', native_source, ['plugin-hyperfide-source-control'], True)
     add('plugin-sdk-and-guide', under('sdk/plugins/src/', 'plugins/plugin-api-docs/src/'), ['extensions', 'plugin-plugin-api-docs', 'developer-fixtures'])
     for manifest in sorted((repo / 'plugins').glob('*/package.json')):
         data = json.loads(manifest.read_text())
-        if 'hyperfide-platform' not in data:
-            continue
         slug = manifest.parent.name
-        add(f'plugin:{slug}', under(f'plugins/{slug}/'), [f'plugin-{slug}'], True)
+        if slug.startswith('.') or str(manifest.relative_to(repo)) not in files:
+            continue
+        if 'hyperfide-platform' not in data and 'hyperfide' not in data:
+            continue
+        owners = CANONICAL_PLUGIN_OWNERS.get(slug, [f'plugin-{slug}'])
+        add(f'plugin:{slug}', under(f'plugins/{slug}/'), owners, True)
     for app, source_root, owner in [
         ('desktop', 'apps/desktop/', 'desktop'),
         ('mobile', 'apps/mobile/', 'mobile'),

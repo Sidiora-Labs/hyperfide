@@ -1,0 +1,59 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-017/cutover",
+  "task": "5.3",
+  "case_variant": "cutover",
+  "scope": "full-case",
+  "cases": [
+    "SCM-017"
+  ],
+  "assertion_ids": [
+    "SCM-017.pilot-before-cutover",
+    "SCM-017.rollback-retains-source",
+    "SCM-017.scope-and-writer-fence",
+    "SCM-017.two-project-parity",
+    "SCM-017.legacy-storage-coverage",
+    "SCM-017.final-delta-manifest",
+    "SCM-017.isolation-and-stale-ref",
+    "SCM-017.fresh-authority-qualified-work",
+    "SCM-017.immutable-revocable-history",
+    "SCM-017.atomic-epochs-forward-recovery"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/imports.py",
+    "--case",
+    "SCM-017"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/core.py",
+    "tests/hyperfide/source-control/full_case/imports.py",
+    "tests/hyperfide/source-control/full_case/import_cases.json",
+    "tests/hyperfide/source-control/full_case/import_manifest.py",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/withpg.py",
+    "tests/hyperfide/cases/source_control/5_3.py",
+    "tests/hyperfide/support/native_source_migration_actor.mjs"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/migrations",
+    "sdk/source-control/src"
+  ],
+  "actions": [
+    "create-owned-postgres",
+    "create-local-git",
+    "isolate-owned-legacy-storage"
+  ],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 1500,
+  "execution_profile": "two real Git projects with kernel read-only legacy isolation, final-delta import, native acceptance and Git publication; owned PostgreSQL and SigV4 object fixture",
+  "required_artifacts": [
+    "build/source-control/full-case/SCM-017/receipt.json"
+  ]
+}

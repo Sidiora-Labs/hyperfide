@@ -1,0 +1,59 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-022/real-worker",
+  "task": "6.3",
+  "case_variant": "real-worker",
+  "scope": "full-case",
+  "cases": [
+    "SCM-022"
+  ],
+  "assertion_ids": [
+    "SCM-022.pinned-real-inputs-and-resources",
+    "SCM-022.authoritative-ledgers-and-cleanup",
+    "SCM-022.real-source-and-storage-readback",
+    "SCM-022.latency-and-pressure-observations",
+    "SCM-022.seventy-two-elapsed-hours",
+    "SCM-022.hundred-thousand-new-revisions-each-day",
+    "SCM-022.renewed-credentials-and-real-faults",
+    "SCM-022.actual-independent-worker-revisions",
+    "SCM-022.worker-and-load-revisions-separated",
+    "SCM-022.real-worker-fault-and-cleanup-evidence"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/scale.py",
+    "--case",
+    "SCM-022",
+    "--variant",
+    "real-worker"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/scale.py",
+    "tests/hyperfide/source-control/full_case/scale_test.py",
+    "tests/hyperfide/cases/source_control/6_2.py",
+    "tests/hyperfide/support/native_source_external_workload.mjs",
+    "tests/hyperfide/support/native_source_campaign_verify.mjs",
+    "tests/hyperfide/support/native_source_campaign_prepare.mjs",
+    "tests/hyperfide/support/native_source_campaign_collect.mjs",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/source-control/full_case/scale_manifest.py"
+  ],
+  "source_roots": [
+    "tests/hyperfide/source-control/workloads",
+    "core/control-plane/src/source_control",
+    "sdk/source-control/src",
+    "core/control-plane/migrations"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HF_SOURCE_SCALE_PLAN"
+  ],
+  "required_artifacts": [
+    "scale-evidence.json",
+    "endurance-verification-stdout.log",
+    "endurance-verification-stderr.log"
+  ],
+  "timeout_seconds": 86400
+}

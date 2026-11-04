@@ -51,7 +51,7 @@ def guard_checks():
     return ['component and migration input drift refused','outside dependency symlink refused']
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--package-only',action='store_true');parser.add_argument('--service-root');parser.add_argument('--package-dir',help='Verify and smoke an already assembled package');args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--package-only',action='store_true');parser.add_argument('--service-root');parser.add_argument('--sdk-root');parser.add_argument('--label',default='current-source');parser.add_argument('--package-dir',help='Verify and smoke an already assembled package');args=parser.parse_args()
     if not args.package_only and not os.environ.get('DATABASE_URL'):
         return subprocess.run([sys.executable,str(ROOT/'tests/hyperfide/support/withpg.py'),'--',sys.executable,str(Path(__file__).resolve()),*sys.argv[1:]],cwd=ROOT).returncode
     node=Path(os.environ.get('HYPERFIDE_NODE_BINARY','/root/.nvm/versions/node/v24.22.0/bin/node')).resolve()
@@ -71,7 +71,7 @@ def main():
         else:
             for name in ['first','second']:
                 directory=work/name
-                result=subprocess.run([sys.executable,str(ROOT/'deploy/hyperfide/source-control/package.py'),'--output',str(directory),'--node',str(node),*(['--service-root',args.service_root] if args.service_root else [])],cwd=ROOT,text=True,capture_output=True,timeout=300)
+                result=subprocess.run([sys.executable,str(ROOT/'deploy/hyperfide/source-control/package.py'),'--output',str(directory),'--node',str(node),*(['--service-root',args.service_root] if args.service_root else []),*(['--sdk-root',args.sdk_root] if args.sdk_root else [])],cwd=ROOT,text=True,capture_output=True,timeout=300)
                 if result.returncode:raise RuntimeError(result.stdout+result.stderr)
                 records.append(json.loads(result.stdout.splitlines()[-1]))
         for name,record in zip(['first','second'],records):
@@ -107,7 +107,7 @@ def main():
             target=destination/name
             if target.exists() and target.read_bytes()!=(work/'first'/name).read_bytes():raise AssertionError('Existing immutable release artifact differs')
             shutil.copyfile(work/'first'/name,target)
-        report={'schema_version':1,'status':'PASS','scope':'packaged native source component' if not args.package_only else 'package assembly only','checks':checks,'artifact':str(destination/records[0]['artifact']['path']),'artifact_sha256':records[0]['artifact']['sha256'],'files':len(manifest['files'])}
+        report={'schema_version':1,'status':'PASS','label':args.label,'scope':'packaged native source component' if not args.package_only else 'package assembly only','checks':checks,'artifact':str(destination/records[0]['artifact']['path']),'artifact_sha256':records[0]['artifact']['sha256'],'files':len(manifest['files'])}
         (OUT/'receipt.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))
     return 0
 if __name__=='__main__':

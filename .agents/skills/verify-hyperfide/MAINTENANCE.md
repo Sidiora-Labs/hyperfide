@@ -88,3 +88,28 @@ The integrated ledger contains exactly one primary result per mapped recipe.
 The source inventory, Markdown links and diff whitespace checks pass; the six
 inventory-helper tests passed. These are documentation checks, separate from
 the live results above.
+
+## Source-control and category-layout inventory maintenance
+
+The source-control guide now owns its canonical plugin, source CLI, SDK,
+control-plane APIs and host workspace adapters. It provides separate recipes
+for API-only workspaces, checkpoints/replay, filesystem modes, changes,
+acceptance, publication, transfers, metrics and signed authority. The product
+component drivers named in the guide exercise real service/storage and browser
+components; they do not stand in for the full application's configured router
+or a live cloud-provider journey.
+
+The inventory recognizes both canonical `hyperfide` and legacy
+`hyperfide-platform` plugin manifests, ignores generated staging directories,
+and assigns the newer built-in plugins to explicit existing or repository-
+operations guides. Nine standalone inventory fixture tests cover drift and
+ownership refusal, including the canonical source-control plugin and SDK.
+Existing recipe files and their historical results are preserved.
+
+The old `app:web` (hosted website) and `app:connect` source groups are absent from
+this checkout; `apps/web` now contains the browser/PWA application. Their
+hosted-web and cloud-gateway guides remain available for the separate source
+and deployments. They were not treated as executed or silently mapped onto
+the PWA. Broader CLI/API declaration changes remain review prompts for their
+existing recipe owners. The inventory baseline records source declarations;
+it does not upgrade any of the earlier 348 runtime assessments.

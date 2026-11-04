@@ -1,0 +1,80 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-006/full",
+  "task": "6.3",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-006"
+  ],
+  "assertion_ids": [
+    "source.core.query.api.1",
+    "source.core.query.api.3",
+    "source.core.query.api.4",
+    "source.core.query.api.5",
+    "source.core.query.causal.1",
+    "source.core.query.causal.2",
+    "source.core.query.causal.3",
+    "source.core.query.causal.4",
+    "source.core.query.causal.5",
+    "source.core.query.causal.6",
+    "source.core.query.causal.7",
+    "source.core.query.batch.1",
+    "source.core.query.batch.2",
+    "source.core.query.batch.3",
+    "source.core.query.batch.4",
+    "source.core.query.batch.5",
+    "source.core.query.batch.6",
+    "source.core.query.native-batch.1",
+    "source.core.query.native-batch.2"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "--case",
+    "SCM-006"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "core/control-plane/src/components/registry.ts",
+    "core/control-plane/src/identity/authorization.ts",
+    "core/control-plane/src/identity/enrollment.ts",
+    "pnpm-lock.yaml",
+    "sdk/source-control/package.json",
+    "sdk/source-control/tsconfig.json",
+    "tests/hyperfide/cases/source_control/2_1.py",
+    "tests/hyperfide/cases/source_control/batch.py",
+    "tests/hyperfide/cases/source_control/batch_authorization.py",
+    "tests/hyperfide/cases/source_control/causal.py",
+    "tests/hyperfide/cases/source_control/fixtures/contracts-v1.json",
+    "tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs",
+    "tests/hyperfide/source-control/full_case/core.py",
+    "tests/hyperfide/source-control/full_case/core_cases.json",
+    "tests/hyperfide/support/identity_fixture.py",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_api_actor.mjs",
+    "tests/hyperfide/support/native_source_batch_authorization.mjs",
+    "tests/hyperfide/support/native_source_causal_actor.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/native_source_query_batch_actor.mjs",
+    "tests/hyperfide/support/withpg.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/src/assurance",
+    "core/control-plane/migrations",
+    "sdk/source-control/src",
+    "tools/workspace",
+    "tests/hyperfide/source-control/full_case",
+    "core/control-plane/src/transport",
+    "core/control-plane/src/identity",
+    "core/control-plane/src/components"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 1800
+}

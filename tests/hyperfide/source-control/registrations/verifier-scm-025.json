@@ -1,0 +1,56 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-025/full",
+  "task": "6.3",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-025"
+  ],
+  "assertion_ids": [
+    "SCM-025.category-content-mode-conservation",
+    "SCM-025.public-identities-preserved",
+    "SCM-025.root-workspace-and-dependencies",
+    "SCM-025.native-sdk-app-consumers",
+    "SCM-025.ci-release-and-prepared-image",
+    "SCM-025.current-complete-layout-receipt",
+    "SCM-025.layout-fleet-native-ordering",
+    "SCM-025.original-baseline-and-rollback-lineage",
+    "SCM-025.historical-git-evidence-preserved"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/verifier_layout.py",
+    "--case",
+    "SCM-025"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/verifier_layout.py",
+    "tests/hyperfide/source-control/full_case/verifier_cases.json",
+    "spec/workflow.kvx",
+    "tests/hyperfide/cases/source_control/0_3.py",
+    "tests/hyperfide/cases/source_control/0_4.py",
+    "tests/hyperfide/cases/source_control/0_5.py",
+    "tests/hyperfide/cases/source_control/0_6.py",
+    "tests/hyperfide/cases/source_control/0_7.py",
+    "tests/hyperfide/cases/source_control/0_8.py",
+    "tests/hyperfide/cases/source_control/0_9.py",
+    "spec/hyperfide-source-control/repository-layout.json",
+    "tests/hyperfide/source-control/full_case/verifier_manifest.py"
+  ],
+  "source_roots": [
+    "tools/repository",
+    ".agents/skills/verify-hyperfide"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [],
+  "timeout_seconds": 2400,
+  "required_artifacts": [
+    "layout-conformance.json",
+    "layout-receipt.json",
+    "layout-stdout.log",
+    "layout-stderr.log"
+  ]
+}

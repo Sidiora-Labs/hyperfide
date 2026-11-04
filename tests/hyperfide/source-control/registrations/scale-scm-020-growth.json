@@ -1,0 +1,66 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-020/growth",
+  "task": "6.3",
+  "case_variant": "growth",
+  "scope": "full-case",
+  "cases": [
+    "SCM-020"
+  ],
+  "assertion_ids": [
+    "SCM-020.pinned-real-inputs-and-resources",
+    "SCM-020.authoritative-ledgers-and-cleanup",
+    "SCM-020.real-source-and-storage-readback",
+    "SCM-020.latency-and-pressure-observations",
+    "SCM-020.fixed-change-three-sizes",
+    "SCM-020.cold-edit-content",
+    "SCM-020.independent-content-fanout-history",
+    "SCM-020.independent-source-tier-scaling",
+    "SCM-020.bounded-latency-and-storage-work"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/scale.py",
+    "--case",
+    "SCM-020",
+    "--variant",
+    "growth"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/scale.py",
+    "tests/hyperfide/source-control/full_case/scale_test.py",
+    "tests/hyperfide/cases/source_control/6_2.py",
+    "tests/hyperfide/support/native_source_external_workload.mjs",
+    "tests/hyperfide/support/native_source_campaign_verify.mjs",
+    "tests/hyperfide/support/native_source_campaign_prepare.mjs",
+    "tests/hyperfide/support/native_source_campaign_collect.mjs",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/source-control/full_case/scale_manifest.py"
+  ],
+  "source_roots": [
+    "tests/hyperfide/source-control/workloads",
+    "core/control-plane/src/source_control",
+    "sdk/source-control/src",
+    "core/control-plane/migrations"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HF_SOURCE_SCALE_PLAN"
+  ],
+  "required_artifacts": [
+    "scale-evidence.json",
+    "baseline-verification-stdout.log",
+    "baseline-verification-stderr.log",
+    "unique-content-verification-stdout.log",
+    "unique-content-verification-stderr.log",
+    "directory-fanout-verification-stdout.log",
+    "directory-fanout-verification-stderr.log",
+    "history-depth-verification-stdout.log",
+    "history-depth-verification-stderr.log",
+    "source-tier-verification-stdout.log",
+    "source-tier-verification-stderr.log"
+  ],
+  "timeout_seconds": 86400
+}

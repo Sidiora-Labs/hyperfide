@@ -64,7 +64,7 @@ def self_test():
     with tempfile.TemporaryDirectory(prefix='hf-source-release-') as temporary:
         root=Path(temporary);artifact=root/'runtime.tar';artifact.write_bytes(b'owned release artifact')
         packet=root/'packet.json';packet.write_bytes(b'{}')
-        source={'scope':{key:str(uuid.uuid4()) for key in ['organisation_id','repository_id','security_domain_id']},'revision_id':'sha256:'+'a'*64,'root_tree_id':'sha256:'+'b'*64,'authority_epoch':str(uuid.uuid4()),'policy_version':'release-check'}
+        source={'scope':{key:str(uuid.uuid4()) for key in ['organisation_id','repository_id','security_domain_id']},'revision_id':'sha256:'+'a'*64,'root_tree_id':'sha256:'+'b'*64,'authority_epoch':'1','policy_version':'release-check'}
         def content(path):return {'path':path.name,'sha256':closure.digest(path),'size':path.stat().st_size}
         release_id=str(uuid.uuid4());acceptance=root/'acceptance.json'
         acceptance_value={'schema_version':1,'release_id':release_id,'accepted':True,'accepted_by':'declared-test-operator','accepted_at':dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00','Z'),'source_revision_id':source['revision_id'],'closure_packet_sha256':closure.digest(packet)}

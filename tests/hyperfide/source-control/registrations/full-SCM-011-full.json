@@ -1,0 +1,94 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-011/full",
+  "task": "6.3",
+  "case_variant": "full",
+  "scope": "full-case",
+  "cases": [
+    "SCM-011"
+  ],
+  "assertion_ids": [
+    "source.workspace.sparse.1",
+    "source.workspace.sparse.2",
+    "source.workspace.sparse.3",
+    "source.workspace.sparse.4",
+    "source.workspace.sparse.5",
+    "source.workspace.sparse.6",
+    "source.workspace.sparse.7",
+    "source.workspace.sparse.8",
+    "source.workspace.sparse.9",
+    "source.workspace.sparse.10",
+    "source.workspace.sparse.independent-readback",
+    "source.workspace.virtual.1",
+    "source.workspace.virtual.2",
+    "source.workspace.virtual.3",
+    "source.workspace.virtual.4",
+    "source.workspace.virtual.5",
+    "source.workspace.virtual.6",
+    "source.workspace.virtual.7",
+    "source.workspace.virtual.8",
+    "source.workspace.virtual.9",
+    "source.workspace.virtual.10",
+    "source.workspace.virtual.directory-pages",
+    "source.workspace.sparse.scope-widen",
+    "source.workspace.virtual.unsupported-capability"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/workspaces.py",
+    "--case",
+    "SCM-011",
+    "--full"
+  ],
+  "source_files": [
+    "core/control-plane/package.json",
+    "pnpm-lock.yaml",
+    "sdk/source-control/package.json",
+    "sdk/source-control/tsconfig.json",
+    "core/host-daemon/package.json",
+    "tests/hyperfide/cases/source_control/2_2.py",
+    "tests/hyperfide/cases/source_control/sparse_live.py",
+    "tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs",
+    "tests/hyperfide/support/native_source_sparse_fixture.mjs",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/withpg.py",
+    "tests/hyperfide/source-control/full_case/workspaces.py",
+    "tests/hyperfide/source-control/full_case/workspace_cases.json",
+    "tests/hyperfide/source-control/full_case/workspace_manifest.py",
+    "tests/hyperfide/cases/source_control/3_2.py",
+    "tests/hyperfide/support/native_source_virtual_actor.mjs",
+    "tests/hyperfide/support/native_source_virtual_fixture.mjs",
+    "tests/hyperfide/source-control/full_case/workspace_capture.py",
+    "tests/hyperfide/source-control/full_case/prepare_capture.mjs",
+    "tests/hyperfide/source-control/full_case/native_capture.mjs",
+    "tests/hyperfide/source-control/full_case/prepare_capture.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src/source_control",
+    "core/control-plane/src/assurance",
+    "core/control-plane/migrations",
+    "sdk/source-control/src",
+    "core/host-daemon/src/source-control",
+    "tools/workspace"
+  ],
+  "actions": [
+    "create-owned-postgres",
+    "start-local-process",
+    "write-owned-s3-prefix",
+    "mount-owned-fuse"
+  ],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 1500,
+  "required_artifacts": [
+    "build/source-control/full-case/SCM-011/full/receipt.json",
+    "build/source-control/sparse-live/receipt.json",
+    "build/source-control/sparse-live/retained-placements.json",
+    "build/source-control/3.2/receipt.json",
+    "build/source-control/3.2/retained-placements.json"
+  ]
+}

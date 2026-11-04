@@ -1,0 +1,97 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-023/owned-api-cli-ui",
+  "task": "6.3",
+  "case_variant": "owned-api-cli-ui",
+  "scope": "full-case",
+  "cases": [
+    "SCM-023"
+  ],
+  "assertion_ids": [
+    "SCM-023.assignment-workspace-binding",
+    "SCM-023.durable-checkpoint-lineage",
+    "SCM-023.checkpoint-and-submission-distinct",
+    "SCM-023.unknown-submission-reconciles-once",
+    "SCM-023.replacement-keeps-prior-history",
+    "SCM-023.independent-qualification-before-task-release",
+    "SCM-023.dependent-consumes-accepted-source",
+    "SCM-023.forged-qualified-dependency-refused",
+    "SCM-023.plain-sql-qualification-snapshot",
+    "SCM-023.queue-preserves-qualified-dependencies",
+    "SCM-023.replacement-reaches-qualified-acceptance",
+    "SCM-023.signed-cli-revision-read",
+    "SCM-023.signed-cli-history-without-checkout",
+    "SCM-023.ui-shows-exact-fleet-accepted-source",
+    "SCM-023.ui-conflict-resolution-preserves-source",
+    "SCM-023.ui-desktop-tablet-mobile",
+    "SCM-023.ui-publication-has-explicit-durable-status",
+    "SCM-023.independent-git-readback-matches-native",
+    "SCM-023.genuine-native-source-capture"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/scm_023.py"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/scm_023.py",
+    "tests/hyperfide/support/native_source_full_journey.mjs",
+    "tests/hyperfide/support/native_source_fleet_actor.mjs",
+    "tests/hyperfide/support/native_source_product_browser.mjs",
+    "tests/hyperfide/cases/source_control/4_2.py",
+    "tests/hyperfide/support/native_source_acceptance_fixture.mjs",
+    "tests/hyperfide/support/native_source_fixture.py",
+    "tests/hyperfide/support/withpg.py",
+    "plugins/hyperfide-source-control/cli/index.ts",
+    "plugins/hyperfide-source-control/runtime.ts",
+    "plugins/hyperfide-source-control/app.tsx",
+    "tests/hyperfide/source-control/full_case/native_capture.mjs",
+    "tests/hyperfide/support/native_source_replacement_journey.mjs",
+    "package.json",
+    "pnpm-lock.yaml",
+    "core/control-plane/package.json",
+    "sdk/source-control/package.json",
+    "apps/cli/package.json",
+    "plugins/hyperfide-source-control/package.json",
+    "tests/hyperfide/source-control/full_case/prepare_capture.py",
+    "tests/hyperfide/source-control/full_case/prepare_capture.mjs",
+    "tests/hyperfide/source-control/full_case/manifest.py",
+    "tests/hyperfide/support/native_source_worker_graph_scope.mjs"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "sdk/source-control/src",
+    "tests/hyperfide/support",
+    "tests/hyperfide/source-control/full_case",
+    "apps/cli/dist",
+    "apps/web/dist/assets",
+    "core/control-plane/migrations"
+  ],
+  "actions": [
+    "create-owned-postgres",
+    "start-local-process",
+    "create-local-git",
+    "launch-chromium"
+  ],
+  "resources": [],
+  "required_env": [
+    "HYPERFIDE_PG_BIN"
+  ],
+  "timeout_seconds": 1000,
+  "required_artifacts": [
+    "build/source-control/full-case/SCM-023/journey.json",
+    "build/source-control/full-case/SCM-023/browser/receipt.json",
+    "build/source-control/full-case/SCM-023/browser/desktop-accepted-history.png",
+    "build/source-control/full-case/SCM-023/browser/tablet-accepted-history.png",
+    "build/source-control/full-case/SCM-023/browser/mobile-accepted-history.png",
+    "build/source-control/full-case/SCM-023/browser/desktop-accepted-conflict.png",
+    "build/source-control/full-case/SCM-023/browser/tablet-accepted-conflict.png",
+    "build/source-control/full-case/SCM-023/browser/mobile-accepted-conflict.png",
+    "build/source-control/full-case/SCM-023/browser/desktop-accepted-resolution.png",
+    "build/source-control/full-case/SCM-023/browser/tablet-accepted-resolution.png",
+    "build/source-control/full-case/SCM-023/browser/mobile-accepted-resolution.png",
+    "build/source-control/full-case/SCM-023/browser/desktop-accepted-publication.png",
+    "build/source-control/full-case/SCM-023/browser/tablet-accepted-publication.png",
+    "build/source-control/full-case/SCM-023/browser/mobile-accepted-publication.png"
+  ]
+}

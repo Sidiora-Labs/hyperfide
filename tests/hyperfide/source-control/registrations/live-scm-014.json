@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-014/hyperfide-fleet",
+  "task": "6.3",
+  "case_variant": "hyperfide-fleet",
+  "scope": "full-case",
+  "cases": [
+    "SCM-014"
+  ],
+  "assertion_ids": [
+    "SCM-014.complete-live-authority-chain",
+    "SCM-014.native-run-source-binding",
+    "SCM-014.replacement-preserves-task-lineage",
+    "SCM-014.managed-workspaces-bind-real-workers",
+    "SCM-014.native-custody-qualified-independently",
+    "SCM-014.submitted-custody-owned-after-worker",
+    "SCM-014.checkpoint-survives-replaced-compute",
+    "SCM-014.qualified-native-candidate-accepted",
+    "SCM-014.dependent-assignment-uses-accepted-native-source",
+    "SCM-014.taskless-client-has-independent-authority",
+    "SCM-014.taskless-sparse-client-materializes-native-bytes",
+    "SCM-014.taskless-client-commits-durable-native-checkpoint"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/live_fleet.py"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/live_fleet.py",
+    "tests/hyperfide/support/native_source_live_fleet_verify.mjs",
+    "tests/hyperfide/support/fleet_live_qualification.py",
+    "core/control-plane/package.json",
+    "sdk/source-control/package.json",
+    "pnpm-lock.yaml",
+    "tests/hyperfide/qualify.py"
+  ],
+  "source_roots": [
+    "contracts/fleet",
+    "core/control-plane/src/agents",
+    "core/control-plane/src/providers",
+    "core/control-plane/src/hierarchy",
+    "core/control-plane/src/assurance",
+    "core/control-plane/src/runner",
+    "core/control-plane/src/scheduler",
+    "core/control-plane/src/source_control",
+    "core/control-plane/migrations",
+    "sdk/source-control/src"
+  ],
+  "actions": [],
+  "resources": [],
+  "required_env": [
+    "HF_FLEET_QUALIFICATION_TARGET",
+    "HF_FLEET_QUALIFICATION_EVIDENCE",
+    "HF_SOURCE_LIVE_FLEET_CONFIG"
+  ],
+  "timeout_seconds": 1800,
+  "required_artifacts": [
+    "live-fleet-conformance.json"
+  ]
+}

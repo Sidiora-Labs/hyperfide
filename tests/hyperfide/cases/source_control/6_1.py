@@ -27,6 +27,7 @@ def main():
     guard=subprocess.run([sys.executable,str(ROOT/'tests/hyperfide/cases/source_control/server_authority.py')],cwd=ROOT,env=guard_env,text=True,capture_output=True,timeout=300)
     (output/'standalone-authority.log').write_text(guard.stdout+guard.stderr)
     if guard.returncode:raise RuntimeError('Standalone authority guard qualification failed; see '+str(output/'standalone-authority.log'))
+    sys.stdout.write(guard.stdout)
     target=output/'dist';config=output/'tsconfig.json'
     dependencies=output/'node_modules'
     if not dependencies.exists():dependencies.symlink_to(ROOT/'core/control-plane/node_modules',target_is_directory=True)

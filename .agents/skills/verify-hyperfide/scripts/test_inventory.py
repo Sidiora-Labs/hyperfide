@@ -95,6 +95,22 @@ class InventoryTest(unittest.TestCase):
             with self.subTest(saved_file=name):
                 self.assertEqual((self.repo / SKILL / name).read_bytes(), content)
 
+    def test_native_source_plugin_and_sdk_have_explicit_recipe_ownership(self):
+        self.write('sdk/source-control/src/client.ts', 'export class SourceControlClient {}')
+        self.write('plugins/hyperfide-source-control/package.json', json.dumps({'hyperfide': {'server': './server.ts'}}))
+        self.write('plugins/hyperfide-source-control/server.ts', 'source.command("checkpoint");')
+        accepted = self.run_check('--write')
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        snapshot = json.loads((self.repo / SKILL / 'inventory.json').read_text())
+        for group in ['native-source-control', 'plugin:hyperfide-source-control']:
+            self.assertEqual(snapshot['groups'][group]['recipes'], ['features/plugin-hyperfide-source-control.md'])
+        self.write('sdk/source-control/src/client.ts', 'export class ChangedSourceControlClient {}')
+        self.assertNotEqual(self.run_check().returncode, 0)
+        (self.repo / SKILL / 'features/plugin-hyperfide-source-control.md').unlink()
+        rejected = self.run_check('--write')
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn('has no recipe', rejected.stderr)
+
     def test_unowned_plugin_cannot_be_baselined(self):
         before = (self.repo / SKILL / 'inventory.json').read_bytes()
         self.write('plugins/new-capability/package.json', '{"hyperfide-platform": {"server": "./server.ts"}}')
