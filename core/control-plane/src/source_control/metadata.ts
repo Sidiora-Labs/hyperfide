@@ -10,7 +10,7 @@ import {changeRevisions, createRevisionInTransaction, readRevisionInTransaction}
 import {beginSourceOperation, cancelSourceOperation, readSourceOperation} from './operations.js';
 import type {BeginSourceOperation} from './operations.js';
 import {acknowledgeSourceEvent, createSourceSubscription, pollSourceEvents} from './events.js';
-import type {SourceAcknowledgment} from './events.js';
+import type {SourceAcknowledgment,SourceSubscriptionInput} from './events.js';
 
 export interface SourceSQL {query<R extends QueryResultRow = QueryResultRow>(text: string, values?: any[]): Promise<QueryResult<R>>}
 export interface SourceContext {
@@ -119,7 +119,7 @@ export class SourceMetadata {
  async operation(context: SourceContext, operationId: string) {return readSourceOperation(this, context, operationId);}
  async beginOperation(context: SourceContext, input: BeginSourceOperation) {return beginSourceOperation(this, context, input);}
  async cancel(context: SourceContext, operationId: string) {return cancelSourceOperation(this, context, operationId);}
- async subscribe(context: SourceContext, input: {consumer_id: string; bootstrap_revision_id: string}) {return createSourceSubscription(this, context, input);}
+ async subscribe(context: SourceContext, input: SourceSubscriptionInput) {return createSourceSubscription(this, context, input);}
  async pollEvents(context: SourceContext, input: {consumer_id: string; subscription_epoch: string; limit?: number; lease_ms?: number}) {return pollSourceEvents(this, context, input);}
  async acknowledgeEvent(context: SourceContext, input: SourceAcknowledgment) {return acknowledgeSourceEvent(this, context, input);}
 }

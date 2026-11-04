@@ -3,12 +3,20 @@
 
 # Hyperfide Workflow
 
-This file is a generated pointer. The single workflow source is `spec/workflow.kvx`; edit it and run `hyperfide spec render`, never this file.
-hyperfide spec render owns AGENTS.md and CLAUDE.md; hyperfide agentmd owns agent-context.md in the configured context directory (.hyperfide/context by default; legacy .codify is migrated with backups); hyperfide codemap owns CODEMAP.md.
+The single source of truth for how to work in this repo is **`spec/`** (kvx).
+This file is a GENERATED pointer to it. Do not hand-edit it; edit `spec/workflow.kvx` and run `hyperfide spec render`.
 
-## Active feature
+> spec/ (kvx). Generated files are pointers — regenerate, never hand-edit.
 
-`spec/hyperfide-source-control/spec.kvx` — read its `[meta]` status, `[req.*]` acceptance criteria, and the `[task.*]` list (status + wave + requires). Work one task at a time in wave order; update `status` in the kvx as you go.
+## Principles
+
+- **Task Driven**: Work is driven by the active feature's task list, in wave order, one claimed task per worker.
+- **Verified Done**: A task is done only when hyperfide spec done reruns its verify_cmd and graph checks and they pass. A wave closes only after its regression checks and an independent correctness review; a component passing never certifies a full acceptance case.
+- **Dependencies**: The hyperfide binary links sqlite, curl and crypto plus the C library and its pthread and math objects, and nothing else (the Makefile LDLIBS line is authoritative). The TypeScript services may use declared, pinned dependencies listed in their package.json. Anything else needs a permission Ask first.
+- **Non Invasive**: Hyperfide observes and advises by default; it blocks only where the user asked it to.
+- **Local First**: The local graph, memory and workflow work offline with no telemetry. Local caches state their freshness and never grant remote fleet ownership. Decision-model output narrows and ranks; verify_cmd and graph checks decide.
+- **Distributed Authority**: Remote fleet ownership requires the authenticated coordinator and PostgreSQL; a disconnected client cannot obtain or renew it from cached state.
+- **Anchor Intent**: Anchor what a reader could not derive from the code: purpose, contract, danger, pointer. Derivable comments are noise.
 
 ## The loop (every session)
 
@@ -21,6 +29,18 @@ hyperfide spec render owns AGENTS.md and CLAUDE.md; hyperfide agentmd owns agent
 7. Update the task status in the feature spec.kvx, then commit explicit paths with a message tagged [spec:<feature>/<id>]. Publication beyond the task branch follows [publication].
 8. hyperfide spec done <id> — qualification reruns verify_cmd; done means proven.
 
-## Where the rules are
+## Persistent project memory (when configured)
 
-Principles, hard rules and policies live only in `spec/workflow.kvx`: `[principle]`, `[hard_rules]`, `[status_values]`, `[human]`, `[asks]`, `[publication]`, `[memory]`. Read them there.
+- **Recall**: hyperfide recall at session start; hyperfide brief includes it.
+- **Remember**: hyperfide remember decisions and constraints as they occur, not afterwards.
+
+## Active feature
+
+`spec/hyperfide-source-control/spec.kvx` — read its `[meta]` status, `[req.*]` acceptance criteria, and the `[task.*]` list (status + wave + requires). Work one task at a time in wave order; update `status` in the kvx as you go.
+
+## Hard rules
+
+- **No Fakes**: Never fake or weaken a test to make it pass.
+- **No False Done**: Never mark a task done that did not qualify.
+- **No Silent Default**: Never default a secret, variable, permission or decision you were not given; raise an Ask.
+- **Warn Dont Block**: New governance defaults to a warning. Blocking is opt-in, except the [asks] policy, where secret, variable and permission Asks block by design.

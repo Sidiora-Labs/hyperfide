@@ -85,3 +85,7 @@ D24: native fleet runs bind an explicit repository/security-domain baseline. Act
 D25: native worker capabilities permit bounded upload, assigned workspace checkpoints and submission receipts, without arbitrary source revision creation or repository reads. Submission retains the exact checkpoint in coordinator custody atomically with compute release. Hyperfide task qualification checks accepted proof obligations and current native evidence independently of source acceptance; dependent tasks revalidate that qualification.
 
 D26: source selection advances through immutable accepted-descendant receipts and a per-run/repository generation check. The initial run binding and existing attempt baselines remain immutable. New task proof policies pin the selected revision before dispatch; existing policies require an explicit specification-generation change to alter their baseline.
+
+## Required remote destination
+
+GitHub is the required remote integration for this release. GitLab remains an optional adapter with separate execution evidence if it is adopted. This supersedes the earlier requirement to supply both hosted providers for release closure.

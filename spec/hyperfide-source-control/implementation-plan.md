@@ -122,7 +122,7 @@ Implementation and qualification obligations:
 
 ## 0.5: Relocate native engines and core executables with their consumers
 
-Status: **implemented**. Owner: `repository-layout`. Dependencies: 0.4.
+Status: **done**. Owner: `repository-layout`. Dependencies: 0.4.
 
 Proposed implementation scope:
 
@@ -165,7 +165,7 @@ Implementation and qualification obligations:
 
 ## 0.6: Relocate SDKs contracts libraries and packaged tooling
 
-Status: **implemented**. Owner: `repository-layout`. Dependencies: 0.5.
+Status: **done**. Owner: `repository-layout`. Dependencies: 0.5.
 
 Proposed implementation scope:
 
@@ -265,6 +265,7 @@ Proposed implementation scope:
 - `.cgignore`
 - `README.md`
 - `tests/hyperfide/cases/source_control/0_8.py`
+- `.agents/skills/verify-hyperfide/**`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/0_8.py`.
 
@@ -520,6 +521,10 @@ Proposed implementation scope:
 - `core/control-plane/migrations/0718-source-control-metadata.sql`
 - `core/control-plane/src/storage/schema.ts`
 - `tests/hyperfide/cases/source_control/1_2.py`
+- `core/control-plane/migrations/0758-source-control-event-retention.sql`
+- `sdk/source-control/src/events.ts`
+- `tests/hyperfide/cases/source_control/events.py`
+- `tests/hyperfide/support/native_source_events_actor.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/1_2.py`.
 
@@ -549,6 +554,10 @@ Proposed implementation scope:
 - `core/control-plane/src/transport/protocol.ts`
 - `core/control-plane/migrations/*-source-control-capabilities.sql`
 - `tests/hyperfide/cases/source_control/1_3.py`
+- `core/control-plane/src/source_control/capability-management.ts`
+- `sdk/source-control/src/admin.ts`
+- `tests/hyperfide/cases/source_control/admin.py`
+- `tests/hyperfide/support/native_source_admin_actor.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/1_3.py`.
 
@@ -573,10 +582,18 @@ Proposed implementation scope:
 - `core/control-plane/src/source_control/queries.ts`
 - `core/control-plane/src/source_control/cursors.ts`
 - `core/control-plane/src/source_control/operations.ts`
+- `core/control-plane/src/identity/enrollment.ts`
+- `core/control-plane/src/source_control/registration.ts`
 - `core/control-plane/src/source_control/events.ts`
 - `core/control-plane/src/transport/protocol.ts`
 - `core/control-plane/src/components/registry.ts`
 - `tests/hyperfide/cases/source_control/2_1.py`
+- `core/control-plane/src/source_control/causal.ts`
+- `core/control-plane/src/source_control/batch.ts`
+- `tests/hyperfide/cases/source_control/causal.py`
+- `tests/hyperfide/cases/source_control/batch.py`
+- `tests/hyperfide/support/native_source_causal_actor.mjs`
+- `tests/hyperfide/support/native_source_query_batch_actor.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/2_1.py`.
 
@@ -606,6 +623,9 @@ Proposed implementation scope:
 - `plugins/environment-slices/provider.ts`
 - `plugins/environment-slices/host.ts`
 - `tests/hyperfide/cases/source_control/2_2.py`
+- `sdk/source-control/src/admin.ts`
+- `tests/hyperfide/cases/source_control/admin.py`
+- `tests/hyperfide/support/native_source_admin_actor.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/2_2.py`.
 
@@ -771,6 +791,11 @@ Proposed implementation scope:
 - `tests/hyperfide/support/native_source_acceptance_fixture.mjs`
 - `tests/hyperfide/support/native_source_fixture.py`
 - `tests/hyperfide/cases/source_control/4_1.py`
+- `core/control-plane/migrations/0757-source-control-candidate-queue.sql`
+- `core/control-plane/src/source_control/candidate_queue.ts`
+- `sdk/source-control/src/queue.ts`
+- `tests/hyperfide/cases/source_control/4_1_batches.py`
+- `tests/hyperfide/support/native_source_batch_actor.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/4_1.py`.
 
@@ -897,6 +922,9 @@ Proposed implementation scope:
 - `tests/hyperfide/cases/source_control/native_source_envelope.py`
 - `tests/hyperfide/support/native_source_fleet_enrollment.mjs`
 - `sdk/source-control/package.json`
+- `core/control-plane/src/agents/fleet_source_actions.ts`
+- `core/control-plane/src/agents/fleet_source_registration.ts`
+- `tests/hyperfide/support/native_source_worker_graph_scope.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/4_2.py`.
 
@@ -989,7 +1017,7 @@ Implementation and qualification obligations:
 2. Implement durable export intent/checkpoint/mapping and one unresolved mutation per destination/ref, retaining current qualification/authorization bindings and source roots. Replace the platform publisher local-bare/worktree assumption behind a versioned native export interface while keeping historical receipts readable.
 3. Implement GitHub and GitLab transport capability boundaries, destination identity/protection observation, exact expected-old ref update, bounded transient pack streaming, restricted credential custody and remote readback. Remote divergence and unsupported capability remain explicit; cancellation after dispatch enters reconciliation.
 4. Persist and reconcile response loss, remote acceptance followed by server crash, old-head observations with in-flight transport, stale export generations and credential cleanup debt. Keep native accepted state independent from remote published/PR state; never retry an uncertain effect under a new intent.
-5. Create the future focused driver using actual native object conversion, Git parsing/protocol behavior and persistent source-service state. Assert deterministic bytes/parents/modes, denied private metadata/source, large streaming bounds, remote rejection/divergence and injected response loss. Record hosted GitHub/GitLab qualification as UNRUN until actual disposable destinations execute in the later campaign; no mocked transport result proves hosted support.
+5. Create the future focused driver using actual native object conversion, Git parsing/protocol behavior and persistent source-service state. Assert deterministic bytes/parents/modes, denied private metadata/source, large streaming bounds, remote rejection/divergence and injected response loss. Record hosted GitHub qualification as UNRUN until an actual disposable destination executes; retain optional GitLab qualification separately as UNRUN until requested and executed; no mocked transport result proves hosted support.
 
 ## 5.2: Version project projections and import external source provenance
 
@@ -1064,6 +1092,9 @@ Proposed implementation scope:
 - `deploy/hyperfide/source-control/recovery-profile.schema.json`
 - `tests/hyperfide/cases/source_control/6_1.py`
 - `docs/hyperfide/source-control-recovery.md`
+- `core/control-plane/migrations/0759-source-control-recovery-effects.sql`
+- `tests/hyperfide/cases/source_control/publication_recovery.py`
+- `tests/hyperfide/support/native_source_publication_recovery.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/6_1.py`.
 
@@ -1089,6 +1120,9 @@ Proposed implementation scope:
 - `tests/hyperfide/source-control/manifests/campaigns/**`
 - `tests/hyperfide/source-control/registrations/6.2.json`
 - `core/control-plane/src/source_control/metrics.ts`
+- `deploy/hyperfide/fleet-control/source-instrumentation.mjs`
+- `tests/hyperfide/support/native_source_campaign_*.mjs`
+- `tests/hyperfide/support/native_source_external_workload.mjs`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/6_2.py`.
 
@@ -1114,6 +1148,11 @@ Proposed implementation scope:
 - `tests/hyperfide/source-control/manifests/full/**`
 - `tests/hyperfide/source-control/registrations/6.3.json`
 - `tests/hyperfide/source-control/claims.json`
+- `tests/hyperfide/source-control/full_case/**`
+- `tests/hyperfide/source-control/release_campaign.py`
+- `tests/hyperfide/source-control/release_campaign_test.py`
+- `tests/hyperfide/source-control/RELEASE-CAMPAIGNS.md`
+- `tests/hyperfide/source-control/registrations/full-*.json`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/6_3.py`.
 
@@ -1143,6 +1182,10 @@ Proposed implementation scope:
 - `sdk/source-control/package.json`
 - `tests/hyperfide/cases/source_control/7_1.py`
 - `spec/hyperfide-source-control/spec.kvx`
+- `deploy/hyperfide/source-control/**`
+- `deploy/hyperfide/fleet-control/Dockerfile`
+- `deploy/hyperfide/fleet-control/start.mjs`
+- `CHANGELOG.md`
 
 Future focused gate: `python3 tests/hyperfide/cases/source_control/7_1.py`.
 

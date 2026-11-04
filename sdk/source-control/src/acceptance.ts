@@ -6,7 +6,12 @@ export interface SourceCandidateInputs {
 export interface SourceCandidateContributor {
  revision_id:string;change_id:string;custody_id:string;custody_generation:string;run_id?:string;task_id?:string;
 }
-export interface SourceCandidateDependency {revision_id:string}
+export interface SourceCandidateExecutionDependency {
+ predecessor_run_id:string;predecessor_task_id:string;milestone:'QUALIFIED'|'INTEGRATED';state:'QUALIFIED'|'INTEGRATING'|'INTEGRATED';
+ current_custody_id:string;repository_id:string;source_object_id:string;custody_generation:string;authority:'ACTIVE';qualification_outcome:'PASS';
+ source_backend:'native';security_domain_id:string;qualification_id:string;
+}
+export interface SourceCandidateDependency {revision_id:string;execution_dependency?:SourceCandidateExecutionDependency}
 export interface SourceCreateDomainRequest {domain_id:string;revision_id:string;policy_id:string;policy_digest:string}
 export interface SourceConfigureDomainRequest {domain_id:string;expected_generation:string;policy_id:string;policy_digest:string}
 export interface SourceCreateCandidateRequest {

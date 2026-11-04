@@ -107,7 +107,19 @@
     "source.transfers.read",
     "source.transfers.complete",
     "source.transfers.cancel",
-    "source.metrics.read"
+    "source.metrics.read",
+    "source.queue.enqueue",
+    "source.queue.claim",
+    "source.queue.bind",
+    "source.queue.complete",
+    "source.queue.fail",
+    "source.queue.isolate",
+    "source.queue.read",
+    "source.queries.batch",
+    "source.recovery.reconcile",
+    "source.capabilities.manage",
+    "source.workspaces.widen",
+    "source.audit.read"
   ],
   "requires": [
     "4.2",

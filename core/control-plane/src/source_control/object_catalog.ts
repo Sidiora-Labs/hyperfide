@@ -8,6 +8,9 @@ const selected=`o.organisation_id,o.repository_id,o.security_domain_id,o.object_
 const join=' FROM hyperfide.source_native_objects o JOIN hyperfide.source_object_placements p ON p.organisation_id=o.organisation_id AND p.repository_id=o.repository_id AND p.security_domain_id=o.security_domain_id AND p.object_id=o.object_id AND p.incarnation_id=o.current_incarnation';
 const where=' WHERE o.organisation_id=$1 AND o.repository_id=$2 AND o.security_domain_id=$3 AND o.object_id=$4';
 async function load(tx:SourceTransaction,scope:SourceStorageScope,id:string,lock=false):Promise<StoredObject|null>{return(await tx.query<StoredObject>('SELECT '+selected+join+where+(lock?' FOR UPDATE OF o,p':''),[...keys(scope),id])).rows[0]??null;}
+async function loadMany(tx:SourceTransaction,scope:SourceStorageScope,ids:readonly string[],lock=false):Promise<StoredObject[]>{
+ return(await tx.query<StoredObject>('SELECT '+selected+join+' WHERE o.organisation_id=$1 AND o.repository_id=$2 AND o.security_domain_id=$3 AND o.object_id=ANY($4::text[]) ORDER BY o.object_id'+(lock?' FOR UPDATE OF o,p':''),[...keys(scope),[...new Set(ids)].sort()])).rows;
+}
 async function ready(tx:SourceTransaction,scope:SourceStorageScope,id:string):Promise<VerifiedObject>{const row=await load(tx,scope,id,true);if(!row||!['VERIFIED','QUARANTINED'].includes(row.state)||row.state==='QUARANTINED'&&!row.verified_at)sourceError('OBJECT_NOT_READY','Source object is not referenceable');return row as VerifiedObject;}
 async function pin(tx:SourceTransaction,scope:SourceStorageScope,row:VerifiedObject,kind:string,owner:string,position:number,expires:string|null):Promise<void>{
  const existing=await tx.query('INSERT INTO hyperfide.source_object_pins(organisation_id,repository_id,security_domain_id,object_id,incarnation_id,owner_kind,owner_id,position,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING RETURNING object_id',[...keys(scope),row.object_id,row.incarnation_id,kind,owner,position,expires]);
@@ -22,6 +25,7 @@ export async function acquireReadPin(tx:SourceTransaction,input:{scope:SourceSto
 export class PostgresSourceObjectCatalog implements SourceObjectCatalog {
  constructor(private readonly database:SourceCatalogDatabase){}
  async lookup(scope:SourceStorageScope,id:string):Promise<StoredObject|null>{validateStorageScope(scope);parseObjectId(id);return this.database.transaction(tx=>load(tx,scope,id));}
+ async lookupMany(scope:SourceStorageScope,ids:readonly string[]):Promise<StoredObject[]>{validateStorageScope(scope);if(ids.length>4096)sourceError('OBJECT_LIMIT','Source child list exceeds its format bound');ids.forEach(parseObjectId);return this.database.transaction(tx=>loadMany(tx,scope,ids));}
  async begin(scope:SourceStorageScope,request:{operation_id:string;object_id:string;kind:StoredObject['kind'];size_bytes:string;owner_principal_id?:string}):Promise<ObjectUpload>{
  validateStorageScope(scope);parseObjectId(request.object_id);if(request.owner_principal_id!==undefined&&!UUID.test(request.owner_principal_id)||!UUID.test(request.operation_id)||!['blob','chunk','file','tree-leaf','tree-index','manifest','revision'].includes(request.kind)||!/^(0|[1-9][0-9]*)$/.test(request.size_bytes)||BigInt(request.size_bytes)>8388608n)sourceError('INVALID_UPLOAD','Bounded canonical object upload required');
  const requestDigest='sha256:'+createHash('sha256').update(JSON.stringify([request.object_id,request.kind,request.size_bytes,request.owner_principal_id??null])).digest('hex');
@@ -56,8 +60,15 @@ export class PostgresSourceObjectCatalog implements SourceObjectCatalog {
   const upload=await this.loadUpload(tx,scope,id);if(upload.status!=='VERIFIED'&&!(await tx.query('SELECT expires_at>clock_timestamp() AS valid FROM hyperfide.source_object_uploads WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND upload_id=$4',[...keys(scope),id])).rows[0]?.valid)sourceError('UPLOAD_EXPIRED','Upload session expired before verification');const parent=await load(tx,scope,upload.object_id,true);if(!parent||parent.incarnation_id!==upload.incarnation_id||!['UPLOADING','VERIFIED'].includes(parent.state))sourceError('OBJECT_RECLAIMED','Upload placement cannot become referenceable');
   if(['tree-leaf','tree-index'].includes(parent.kind)!==(metadata.tree_prefix!==null)||parent.tree_prefix!==null&&parent.tree_prefix!==metadata.tree_prefix)sourceError('INVALID_TREE','Verified tree prefix metadata differs');
   if(children.includes(parent.object_id))sourceError('OBJECT_CYCLE','A source object cannot reference itself');
-  const childRows=new Map<string,VerifiedObject>();for(const child of [...new Set(children)].sort())childRows.set(child,await ready(tx,scope,child));
-  for(let position=0;position<children.length;position++)await pin(tx,scope,childRows.get(children[position]!)!,'OBJECT',parent.object_id+'/'+parent.incarnation_id,position,null);
+  const childRows=new Map((await loadMany(tx,scope,children,true)).map(row=>[row.object_id,row]));
+  for(const child of children){const row=childRows.get(child);if(!row||!['VERIFIED','QUARANTINED'].includes(row.state)||row.state==='QUARANTINED'&&!row.verified_at)sourceError('OBJECT_NOT_READY','Source object is not referenceable');}
+  if(children.length){
+   const incarnations=children.map(child=>childRows.get(child)!.incarnation_id),owner=parent.object_id+'/'+parent.incarnation_id;
+   await tx.query(`INSERT INTO hyperfide.source_object_pins(organisation_id,repository_id,security_domain_id,object_id,incarnation_id,owner_kind,owner_id,position,expires_at)
+    SELECT $1,$2,$3,child.object_id,child.incarnation_id,'OBJECT',$6,(child.ordinality-1)::integer,NULL FROM unnest($4::text[],$5::uuid[]) WITH ORDINALITY AS child(object_id,incarnation_id,ordinality) ON CONFLICT DO NOTHING`,[...keys(scope),children,incarnations,owner]);
+   const pins=(await tx.query("SELECT object_id,incarnation_id,position,expires_at FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='OBJECT' AND owner_id=$4 AND position<$5 ORDER BY position",[...keys(scope),owner,children.length])).rows;
+   if(pins.length!==children.length||pins.some((pin,position)=>pin.position!==position||pin.object_id!==children[position]||pin.incarnation_id!==incarnations[position]||pin.expires_at!==null))sourceError('PIN_CONFLICT','Retained source pin binding differs');
+  }
   await tx.query("UPDATE hyperfide.source_object_placements SET state='VERIFIED',verified_at=COALESCE(verified_at,clock_timestamp()) WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND object_id=$4 AND incarnation_id=$5",[...keys(scope),parent.object_id,parent.incarnation_id]);
   await tx.query("UPDATE hyperfide.source_native_objects SET state='VERIFIED',tree_prefix=$5 WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND object_id=$4",[...keys(scope),parent.object_id,metadata.tree_prefix]);
   await tx.query("UPDATE hyperfide.source_object_uploads SET status='VERIFIED' WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND upload_id=$4",[...keys(scope),id]);

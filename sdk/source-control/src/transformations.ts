@@ -37,5 +37,6 @@ export interface SourceTransformationResult {
  mappings:{original_revision_id:string;successor_revision_id:string;change_id:string;unchanged:boolean;receipt:SourceRevisionReceipt}[];
  conflicts:SourceTransformationConflict[];conflict_id?:string;receipt?:SourceRevisionReceipt;
  metrics?:{nodes_read:number;nodes_written:number;entries_compared:number;files_read:number;text_bytes:number;subtrees_reused:number};
+ timing?:{measurement:'CALL_STEP';queued_ms:number;executing_ms:number;started_at:string;finished_at:string};
  rename_detection:{status:'NOT_PERFORMED';reason:'EXPLICIT_PATH_IDENTITY_ONLY'};
 }

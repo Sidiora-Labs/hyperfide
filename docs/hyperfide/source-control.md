@@ -71,9 +71,23 @@ const entry = await source.lookup(pinnedTreeId, 'sdk/example/src/index.ts');
 
 Mutations carry explicit operation and idempotency identities plus current source authority. Retain those identities across an uncertain response and query the original operation before retrying. Revision creation, qualification, acceptance and remote Git publication have separate receipts.
 
+## Causal reads and batched metadata
+
+Revision receipts carry a `causal_token`. Pass it through `SourceCallOptions` on a dependent read to require that committed revision under the same principal, scope and current authority epoch. The server verifies the retained operation, receipt and root storage before answering. Restored or advanced authority invalidates old tokens; unavailable content or expired authority produces an explicit refusal within the bounded validation deadline.
+
+`source.batch({items, budget})` groups up to 16 metadata reads. Each item has a distinct `id`, an allowed read `action`, and its `input`. Authorization runs independently for every item. The result retains item identities and individual errors, with a shared maximum of 512 KiB and five seconds. Mutations, nested batches and raw object downloads require separate calls.
+
+## Committed event subscriptions
+
+`subscribe` binds a consumer to an immutable bootstrap revision and bounded retention. `pollEvents` discovers committed, unseen events; `acknowledgeEvent` uses the exact subscription epoch, event and lease. Late commits remain discoverable, and repeated acknowledgments preserve the original inbox outcome.
+
+The default retention is 10,000 deliveries and 24 hours; explicit limits can be at most 100,000 deliveries and seven days. Expiry or exhausted delivery budget returns `RESNAPSHOT_REQUIRED` with the current boundary details. Read the desired immutable bootstrap and call `subscribe` with its revision and `expected_previous_epoch` to establish a new boundary. Bounded cleanup can return `RESNAPSHOT_PENDING`; retry the same request. Old subscription epochs cannot acknowledge the new boundary. Source event history remains immutable, and subscriber delivery work occurs when polling rather than on each source commit.
+
 ## Merge, rebase and revert
 
 `source.transforms.merge`, `source.transforms.rebase` and `source.transforms.revert` operate on pinned revision IDs. Their SDK methods are `merge`, `rebase` and `revert`. Supply the operation and idempotency IDs through the SDK call options; the request body contains only transformation inputs. These operations require repository-wide source authorization and the capabilities used to read revisions, create revisions, resume transformations and inspect their results.
+
+Transformation results include persisted `timing` for the last executed call step. `queued_ms` measures metadata admission, and `executing_ms` covers input reads and source calculation before the commit transaction; neither includes time waiting for a caller to resolve a conflict or resume a stack. Replays return the original measurement.
 
 Merge uses three-way comparison of immutable tree identities, reuses unchanged subtrees, and merges bounded UTF-8 text edits. Conflicts retain typed references to each side, including binary, add/add, delete/modify, symlink, type and executable-mode conflicts. Rename detection is reported as `NOT_PERFORMED`. Multiple maximal merge bases require an explicit `base_revision_id`.
 
@@ -91,13 +105,19 @@ Registered independent checkers publish execution receipts through `publishSourc
 
 `qualifyCandidate` verifies the registered checks. `acceptCandidate` rechecks the evidence, policy and custody in the same transaction that advances the domain and records the acceptance receipt. `candidate`, `domain` and `acceptance` inspect these separate states. Source acceptance does not complete a Hyperfide task.
 
+## Speculative candidate batches
+
+`enqueueCandidates` registers an explicit bounded set of proposals with a deadline and retry limit. `claimCandidateBatch` issues a lease using persistent fairness accounting across domains and original proposers. Limits cover actual contributor count, dependency references and serialized candidate bytes.
+
+Build a fresh combined candidate with the exact ordered contributors, then call `bindCandidateBatch`. `completeCandidateBatch` requires that candidate's current qualification. A failed checker result goes through `failCandidateBatch`; `isolateCandidateBatch` partitions all original proposals into fresh child work that requires new candidates and new qualification. Original proposals, failed evidence and accepted source retain their identities. Queue completion does not accept source; use the separate acceptance API after qualification.
+
 ## Git publication
 
 Publication accepts a native acceptance receipt, a configured destination ID, an allowed ref, and its exact expected old Git ID. Git IDs use the `git:sha1:` namespace; use `null` for an absent ref. Every newly exported revision requires current accepted-source authorization. A mapping confirmed at that remote checkpoint can reuse already-public history under current source-read and destination authority. Conversion preserves file bytes, executable modes, symlinks, public commit metadata and ordered parents. Git cannot represent empty directories.
 
 `createPublication` records a queued intent. `resumePublication` projects source objects, streams a temporary Git transport pack, and reads the remote ref back. Confirmed mappings allow later publications to reuse remote objects. `publication` inspects the durable state; `cancelPublication` cancels before dispatch or reconciles an update that may already have reached the remote. Generic operation cancellation is refused for publications. An uncertain push retains its destination/ref reservation.
 
-The native service stores source objects in S3 and metadata in PostgreSQL. Git packs exist only at the transport boundary. HTTPS adapters target GitHub and GitLab; a local adapter uses a configured Git repository for self-hosted destinations and integration tests.
+The native service stores source objects in S3 and metadata in PostgreSQL. Git packs exist only at the transport boundary. GitHub is the required hosted destination; the GitLab adapter is optional and requires its own qualification before use. A local adapter uses a configured Git repository for self-hosted destinations and integration tests.
 
 Set `HF_SOURCE_PUBLICATION_CONFIG` to an owner-only JSON file containing trusted destinations:
 

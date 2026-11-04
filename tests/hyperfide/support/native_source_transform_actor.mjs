@@ -21,6 +21,8 @@ const principal_id=randomUUID(),credential_id=randomUUID(),capability_id=randomU
 const {privateKey,publicKey}=generateKeyPairSync('ed25519');
 const trust={issuer:'owned-transform-test',audience:'native-source-transform',keys:{'owned-transform-key':publicKey},max_ttl_seconds:300};
 const checks=[],metrics=[];
+const API_ACTIONS=["source.objects.put","source.objects.read","source.objects.inspect","source.trees.entries","source.trees.lookup","source.trees.patch","source.revisions.create","source.revisions.read","source.changes.revisions","source.operations.read","source.operations.cancel","source.transforms.merge","source.transforms.rebase","source.transforms.revert","source.transforms.read","source.transforms.resume"];
+assert(API_ACTIONS.every(action=>SOURCE_ACTIONS.includes(action)));
 let server;
 const provenance=message=>({author:{name:'Native transformation integration',email:'source-transform@example.invalid'},message,timestamp:'2026-11-02T00:00:00.000Z'});
 function tokenFor(capability=capability_id){
@@ -35,7 +37,7 @@ try{
   await pool.query(`INSERT INTO hyperfide.source_principal_credentials(organisation_id,repository_id,security_domain_id,credential_id,principal_id,principal_kind,credential_version,issuer,audience,signing_key_id,expires_at)
     VALUES($1,$2,$3,$4,$5,'automation',1,$6,$7,'owned-transform-key',clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),credential_id,principal_id,trust.issuer,trust.audience]);
   await pool.query(`INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at)
-    VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY[''],clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),capability_id,principal_id,credential_id,policy,[...SOURCE_ACTIONS]]);
+    VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY[''],clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),capability_id,principal_id,credential_id,policy,API_ACTIONS]);
   const service=createSourceService({pool,backend:new S3SourceObjectBackend(fixture.config),cursorKey:randomBytes(32),workspaceBudgets:{cache_bytes:16777216,max_cache_entries:1024,max_file_bytes:8388608,materialized_bytes:33554432,dirty_bytes:8388608}});
   await service.metadata.registerRepository(scope,{authority_epoch:'1',policy_version:policy,durability_profile:'single-region-verified-s3-v1'});
   server=await startSourceHttp({api:service.api,trust,host:'127.0.0.1',port:0,allowLoopbackHTTP:true,signal:controller.signal});
@@ -74,6 +76,9 @@ try{
   const ours=await revision(oursRoot,[base.revision_id],randomUUID(),'ours'),theirs=await revision(theirsRoot,[base.revision_id],randomUUID(),'theirs');
   const merged=await transform('merge',{ours_revision_id:ours.revision_id,theirs_revision_id:theirs.revision_id,change_id:randomUUID(),provenance:provenance('merge independent lines')});
   assert.equal(merged.result.status,'COMPLETED');
+  assert.equal(merged.result.timing.measurement,'CALL_STEP');
+  assert(merged.result.timing.queued_ms>=0&&merged.result.timing.executing_ms>0);
+  assert(Date.parse(merged.result.timing.finished_at)>=Date.parse(merged.result.timing.started_at));
   assert.equal(await content(merged.result.receipt.root_tree_id,'main.txt'),mergedText);
   assert.equal(await content(merged.result.receipt.root_tree_id,'untouched.txt'),'retained\n');
   assert.deepEqual((await client.revision(merged.result.receipt.revision_id)).parent_revision_ids,[ours.revision_id,theirs.revision_id]);
@@ -257,7 +262,7 @@ try{
 
   const restrictedCapability=randomUUID();
   await pool.query(`INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at)
-    VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY['allowed'],clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),restrictedCapability,principal_id,credential_id,policy,[...SOURCE_ACTIONS]]);
+    VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY['allowed'],clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),restrictedCapability,principal_id,credential_id,policy,API_ACTIONS]);
   const restricted=new SourceControlClient({endpoint,scope,token:()=>tokenFor(restrictedCapability)}),beforeDenied=fixture.requests.length;
   await assert.rejects(restricted.call('source.transforms.merge',merged.input,{operation_id:randomUUID(),idempotency_key:randomUUID()}),error=>error.code==='SCOPE_DENIED');
   assert.equal(fixture.requests.length,beforeDenied);

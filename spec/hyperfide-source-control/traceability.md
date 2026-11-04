@@ -54,14 +54,14 @@ Generated from [spec.kvx](spec.kvx). A clause `N.M` is `[req.N] ac_M`. Mappings 
 | 8.4 | Hyperfide task authority integrated with native source transactions | 3.3 | SCM-012, SCM-020, SCM-023 | [hyperfide-integration.md](hyperfide-integration.md) |
 | 8.5 | Hyperfide task authority integrated with native source transactions | 4.2, 4.3 | SCM-009, SCM-014, SCM-023 | [hyperfide-integration.md](hyperfide-integration.md) |
 | 8.6 | Hyperfide task authority integrated with native source transactions | 4.2, 4.3 | SCM-014, SCM-023 | [hyperfide-integration.md](hyperfide-integration.md) |
-| 9.1 | GitHub and GitLab compatibility exists only at the remote boundary | 5.1 | SCM-015 | [git-interop.md](git-interop.md) |
-| 9.2 | GitHub and GitLab compatibility exists only at the remote boundary | 5.1, 5.2 | SCM-015 | [git-interop.md](git-interop.md) |
-| 9.3 | GitHub and GitLab compatibility exists only at the remote boundary | 5.1, 5.2 | SCM-015 | [git-interop.md](git-interop.md) |
-| 9.4 | GitHub and GitLab compatibility exists only at the remote boundary | 5.2 | SCM-015 | [git-interop.md](git-interop.md) |
-| 9.5 | GitHub and GitLab compatibility exists only at the remote boundary | 5.1 | SCM-015 | [git-interop.md](git-interop.md) |
-| 9.6 | GitHub and GitLab compatibility exists only at the remote boundary | 5.1 | SCM-015 | [git-interop.md](git-interop.md) |
-| 9.7 | GitHub and GitLab compatibility exists only at the remote boundary | 5.1, 5.2 | SCM-013, SCM-015 | [git-interop.md](git-interop.md) |
-| 9.8 | GitHub and GitLab compatibility exists only at the remote boundary | 5.2 | SCM-016 | [git-interop.md](git-interop.md) |
+| 9.1 | Git remote compatibility exists only at the remote boundary | 5.1 | SCM-015 | [git-interop.md](git-interop.md) |
+| 9.2 | Git remote compatibility exists only at the remote boundary | 5.1, 5.2 | SCM-015 | [git-interop.md](git-interop.md) |
+| 9.3 | Git remote compatibility exists only at the remote boundary | 5.1, 5.2 | SCM-015 | [git-interop.md](git-interop.md) |
+| 9.4 | Git remote compatibility exists only at the remote boundary | 5.2 | SCM-015 | [git-interop.md](git-interop.md) |
+| 9.5 | Git remote compatibility exists only at the remote boundary | 5.1 | SCM-015 | [git-interop.md](git-interop.md) |
+| 9.6 | Git remote compatibility exists only at the remote boundary | 5.1 | SCM-015 | [git-interop.md](git-interop.md) |
+| 9.7 | Git remote compatibility exists only at the remote boundary | 5.1, 5.2 | SCM-013, SCM-015 | [git-interop.md](git-interop.md) |
+| 9.8 | Git remote compatibility exists only at the remote boundary | 5.2 | SCM-016 | [git-interop.md](git-interop.md) |
 | 10.1 | Existing projects and history consolidate into one authoritative monorepo | 5.2, 5.3 | SCM-016, SCM-017 | [migration.md](migration.md) |
 | 10.2 | Existing projects and history consolidate into one authoritative monorepo | 5.2, 5.3 | SCM-016, SCM-017 | [migration.md](migration.md) |
 | 10.3 | Existing projects and history consolidate into one authoritative monorepo | 5.2, 5.3 | SCM-016, SCM-017 | [migration.md](migration.md) |
@@ -140,7 +140,7 @@ A case's tasks are the implementation packages responsible for its driver, behav
 | SCM-012 | Incremental source-pinned graph coverage (integration) | 3.3 | Graph observations identify exact source/extractor/coverage and detect affected consumers and incomplete generations. |
 | SCM-013 | Scoped source authorization and export privacy (integration) | 1.3 | All source/query/cache paths reject unauthorized scope and public projection contains only allowed data. |
 | SCM-014 | Hyperfide task source custody and taskless clients (live-fleet) | 4.2, 4.3 | Actual assignments preserve attempt/source lineage and submitted custody while taskless callers use independent authorization. |
-| SCM-015 | GitHub and GitLab remote export reconciliation (live-remote) | 5.1 | Independently retrieved remote Git trees/parents match selected native source and ambiguous pushes reconcile. |
+| SCM-015 | GitHub remote export reconciliation and optional GitLab adapter (live-remote) | 5.1 | Independently retrieved remote Git trees/parents match selected native source and ambiguous pushes reconcile. |
 | SCM-016 | Contribution and history import provenance (integration) | 5.2 | Imported proposals preserve tree and ancestry provenance with idempotent replay and separate import counters. |
 | SCM-017 | Monorepo migration cutover and writable rollback (integration) | 5.3 | One writer authority survives cutover and rollback reconciles every acknowledged post-cutover revision. |
 | SCM-018 | Supported service and metadata failure recovery (backend) | 6.1 | Independent acknowledgment/acceptance histories survive the declared faults and stale epochs remain fenced. |

@@ -10,7 +10,7 @@ import { reserveSourceOperation } from "../operations.js";
 import type { SourceObjectService } from "../objects.js";
 import type { PersistentTree } from "../trees.js";
 import { SourceGitProjector } from "./projection.js";
-import {parseProjectionPolicy} from "./provenance.js";
+import { parseProjectionPolicy } from "./provenance.js";
 import type { GitProjectionMapping } from "./projection.js";
 import { gitRef, rawGitOid } from "./transport.js";
 import type {
@@ -79,7 +79,8 @@ const terminal = new Set([
   "REJECTED",
   "CANCELLED",
 ]);
-const key = (context: SourceContext, operation: string) => [
+type PublicationOwner = Pick<SourceContext, "scope" | "principal_id">;
+const key = (context: PublicationOwner, operation: string) => [
   ...sourceScopeValues(context.scope),
   context.principal_id,
   operation,
@@ -108,9 +109,16 @@ export class SourceGitPublicationService {
           "INVALID_DESTINATION",
           "Publication destinations require unique bounded identifiers and explicit refs",
         );
-      if(destination.projection_policy){
-        const policy=parseProjectionPolicy(destination.projection_policy);
-        if(policy.repository_identity!==destination.repository_identity||!options.authorizePath)throw new SourceControlError("INVALID_DESTINATION","Project publication requires its exact repository identity and path authorizer");
+      if (destination.projection_policy) {
+        const policy = parseProjectionPolicy(destination.projection_policy);
+        if (
+          policy.repository_identity !== destination.repository_identity ||
+          !options.authorizePath
+        )
+          throw new SourceControlError(
+            "INVALID_DESTINATION",
+            "Project publication requires its exact repository identity and path authorizer",
+          );
       }
       destination.allowed_refs.forEach(gitRef);
       parseObjectId(destination.remote_key);
@@ -145,7 +153,9 @@ export class SourceGitPublicationService {
       destination.id,
       destination.configuration_digest,
       destination.allowed_refs,
-      ...(destination.projection_policy?[parseProjectionPolicy(destination.projection_policy)]:[]),
+      ...(destination.projection_policy
+        ? [parseProjectionPolicy(destination.projection_policy)]
+        : []),
     ]);
   }
   private async row(
@@ -325,7 +335,23 @@ export class SourceGitPublicationService {
     parseUUID(operationId);
     return this.metadata.transaction(async (tx) => {
       await this.metadata.guard(tx, context, "source.publications.read");
-      return (await this.row(tx, context, operationId)).result;
+      const row = (
+        await tx.query(
+          "SELECT result,authority_epoch::text FROM hyperfide.source_git_publications WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5",
+          key(context, operationId),
+        )
+      ).rows[0];
+      if (!row)
+        throw new SourceControlError(
+          "NOT_FOUND",
+          "Publication is unavailable in this source scope",
+        );
+      if (BigInt(row.authority_epoch) > BigInt(context.authority_epoch))
+        throw new SourceControlError(
+          "STALE_AUTHORITY",
+          "Publication belongs to a later authority epoch",
+        );
+      return row.result as SourcePublicationResult;
     });
   }
   private async snapshot(
@@ -352,7 +378,7 @@ export class SourceGitPublicationService {
   }
   private async transition(
     tx: SourceSQL,
-    context: SourceContext,
+    context: PublicationOwner,
     row: Stored,
     status: SourcePublicationResult["status"],
     extra: Partial<SourcePublicationResult> = {},
@@ -406,80 +432,104 @@ export class SourceGitPublicationService {
         return row.result;
       if (status === "OUTCOME_UNKNOWN" && row.status === "OUTCOME_UNKNOWN")
         return row.result;
-      let checkpoint: string | undefined;
-      if (status === "PUBLISHED") {
-        const target = (
-          await tx.query(
-            "UPDATE hyperfide.source_git_targets SET checkpoint_generation=checkpoint_generation+1,git_oid=$3 WHERE destination_key=$1 AND target_ref=$2 AND active_operation_id=$4 RETURNING checkpoint_generation::text",
-            [
-              row.destination_key,
-              row.target_ref,
-              row.git_oid,
-              row.operation_id,
-            ],
-          )
-        ).rows[0];
-        if (!target)
-          throw new SourceControlError(
-            "PUBLICATION_FENCED",
-            "Publication lost destination ownership",
-          );
-        checkpoint = target.checkpoint_generation;
-        for (
-          let start = 0;
-          start < (row.projection_mappings?.length ?? 0);
-          start += 256
-        )
-          await tx.query(
-            "INSERT INTO hyperfide.source_git_mappings(organisation_id,repository_id,security_domain_id,principal_id,operation_id,native_kind,native_id,mapping) SELECT $1,$2,$3,$4,$5,m.native_kind,m.native_id,m.mapping FROM jsonb_to_recordset($6::jsonb) AS m(native_kind text,native_id text,mapping jsonb) ON CONFLICT DO NOTHING",
-            [
-              ...key(context, row.operation_id),
-              JSON.stringify(
-                row
-                  .projection_mappings!.slice(start, start + 256)
-                  .map((mapping) => ({
-                    native_kind: mapping.native_kind,
-                    native_id: mapping.native_id,
-                    mapping,
-                  })),
-              ),
-            ],
-          );
-      }
-      const result = await this.transition(
-        tx,
-        context,
-        row,
-        status,
-        {
-          ...extra,
-          ...(checkpoint ? { checkpoint_generation: checkpoint } : {}),
-        },
-        checkpoint ? { checkpoint_generation: checkpoint } : {},
-      );
-      if (terminal.has(status)) {
-        const state =
-          status === "PUBLISHED"
-            ? "COMMITTED"
-            : status === "CANCELLED"
-              ? "CANCELLED"
-              : "FAILED";
+      return this.settleLocked(tx, context, row, status, extra);
+    });
+  }
+  private async settleLocked(
+    tx: SourceSQL,
+    context: PublicationOwner,
+    row: Stored,
+    status: SourcePublicationResult["status"],
+    extra: Partial<SourcePublicationResult> = {},
+  ): Promise<SourcePublicationResult> {
+    if (terminal.has(status)) {
+      const target = (
         await tx.query(
-          "UPDATE hyperfide.source_metadata_operations SET state=$6,result=CASE WHEN $6='COMMITTED' THEN $7::jsonb ELSE NULL END,result_digest=CASE WHEN $6='COMMITTED' THEN $8 ELSE NULL END,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5",
+          "SELECT active_operation_id,active_organisation_id,active_repository_id,active_security_domain_id,active_principal_id FROM hyperfide.source_git_targets WHERE destination_key=$1 AND target_ref=$2 FOR UPDATE",
+          [row.destination_key, row.target_ref],
+        )
+      ).rows[0];
+      if (
+        !target ||
+        target.active_operation_id !== row.operation_id ||
+        target.active_organisation_id !== context.scope.organisation_id ||
+        target.active_repository_id !== context.scope.repository_id ||
+        target.active_security_domain_id !== context.scope.security_domain_id ||
+        target.active_principal_id !== context.principal_id
+      )
+        throw new SourceControlError(
+          "PUBLICATION_FENCED",
+          "Publication lost its exact destination ownership",
+        );
+    }
+    let checkpoint: string | undefined;
+    if (status === "PUBLISHED") {
+      const target = (
+        await tx.query(
+          "UPDATE hyperfide.source_git_targets SET checkpoint_generation=checkpoint_generation+1,git_oid=$3 WHERE destination_key=$1 AND target_ref=$2 AND active_operation_id=$4 RETURNING checkpoint_generation::text",
+          [row.destination_key, row.target_ref, row.git_oid, row.operation_id],
+        )
+      ).rows[0];
+      if (!target)
+        throw new SourceControlError(
+          "PUBLICATION_FENCED",
+          "Publication lost destination ownership",
+        );
+      checkpoint = target.checkpoint_generation;
+      for (
+        let start = 0;
+        start < (row.projection_mappings?.length ?? 0);
+        start += 256
+      )
+        await tx.query(
+          "INSERT INTO hyperfide.source_git_mappings(organisation_id,repository_id,security_domain_id,principal_id,operation_id,native_kind,native_id,mapping) SELECT $1,$2,$3,$4,$5,m.native_kind,m.native_id,m.mapping FROM jsonb_to_recordset($6::jsonb) AS m(native_kind text,native_id text,mapping jsonb) ON CONFLICT DO NOTHING",
           [
             ...key(context, row.operation_id),
-            state,
-            result,
-            sourceDigest(result),
+            JSON.stringify(
+              row
+                .projection_mappings!.slice(start, start + 256)
+                .map((mapping) => ({
+                  native_kind: mapping.native_kind,
+                  native_id: mapping.native_id,
+                  mapping,
+                })),
+            ),
           ],
         );
-        await tx.query(
-          "UPDATE hyperfide.source_git_targets SET active_operation_id=NULL,active_organisation_id=NULL,active_repository_id=NULL,active_security_domain_id=NULL,active_principal_id=NULL WHERE destination_key=$1 AND target_ref=$2 AND active_operation_id=$3",
-          [row.destination_key, row.target_ref, row.operation_id],
-        );
-      }
-      return result;
-    });
+    }
+    const result = await this.transition(
+      tx,
+      context,
+      row,
+      status,
+      {
+        ...extra,
+        ...(checkpoint ? { checkpoint_generation: checkpoint } : {}),
+      },
+      checkpoint ? { checkpoint_generation: checkpoint } : {},
+    );
+    if (terminal.has(status)) {
+      const state =
+        status === "PUBLISHED"
+          ? "COMMITTED"
+          : status === "CANCELLED"
+            ? "CANCELLED"
+            : "FAILED";
+      await tx.query(
+        "UPDATE hyperfide.source_metadata_operations SET state=$6,result=CASE WHEN $6='COMMITTED' THEN $7::jsonb ELSE NULL END,result_digest=CASE WHEN $6='COMMITTED' THEN $8 ELSE NULL END,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5",
+        [
+          ...key(context, row.operation_id),
+          state,
+          result,
+          sourceDigest(result),
+        ],
+      );
+      await tx.query(
+        "UPDATE hyperfide.source_git_targets SET active_operation_id=NULL,active_organisation_id=NULL,active_repository_id=NULL,active_security_domain_id=NULL,active_principal_id=NULL WHERE destination_key=$1 AND target_ref=$2 AND active_operation_id=$3",
+        [row.destination_key, row.target_ref, row.operation_id],
+      );
+    }
+    return result;
   }
   private async reconcile(
     context: SourceContext,
@@ -544,7 +594,16 @@ export class SourceGitPublicationService {
     const checkpoint = row.base_checkpoint_generation;
     const authorizedRevisions = new Set<string>();
     const projected = await this.projector.project(context, row.revision_id, {
-      ...(destination.projection_policy?{policy:destination.projection_policy,authorize_path:async(path:string)=>{await this.metadata.transaction(tx=>this.options.authorizePath!(tx,context,path));}}:{}),
+      ...(destination.projection_policy
+        ? {
+            policy: destination.projection_policy,
+            authorize_path: async (path: string) => {
+              await this.metadata.transaction((tx) =>
+                this.options.authorizePath!(tx, context, path),
+              );
+            },
+          }
+        : {}),
       ...(options.signal ? { signal: options.signal } : {}),
       authorize_revision: async (revision) => {
         await this.metadata.transaction((tx) =>
@@ -668,6 +727,124 @@ export class SourceGitPublicationService {
       await this.snapshot(context, operationId),
       options.signal,
     );
+  }
+  async reconcileRecovery(
+    operatorContext: SourceContext,
+    input: { operation_id: string; principal_id: string },
+    signal?: AbortSignal,
+  ): Promise<SourcePublicationResult> {
+    const checkCancellation = () => {
+      if (signal?.aborted)
+        throw new SourceControlError(
+          "OPERATION_INTERRUPTED",
+          "Publication recovery observation was cancelled",
+        );
+    };
+    checkCancellation();
+    parseUUID(input.operation_id, "operation_id");
+    parseUUID(input.principal_id, "principal_id");
+    const owner: PublicationOwner = {
+      scope: operatorContext.scope,
+      principal_id: input.principal_id,
+    };
+    const load = async (tx: SourceSQL, lock = false): Promise<Stored> => {
+      const row = (
+        await tx.query(
+          `SELECT p.*,p.authority_epoch::text,p.generation::text,o.state AS operation_state FROM hyperfide.source_git_publications p JOIN hyperfide.source_metadata_operations o USING(organisation_id,repository_id,security_domain_id,principal_id,operation_id) WHERE p.organisation_id=$1 AND p.repository_id=$2 AND p.security_domain_id=$3 AND p.principal_id=$4 AND p.operation_id=$5${lock ? " FOR UPDATE OF o,p" : ""}`,
+          key(owner, input.operation_id),
+        )
+      ).rows[0] as Stored | undefined;
+      if (!row)
+        throw new SourceControlError(
+          "NOT_FOUND",
+          "Publication is unavailable in the recovery scope",
+        );
+      if (BigInt(row.authority_epoch) > BigInt(operatorContext.authority_epoch))
+        throw new SourceControlError(
+          "STALE_AUTHORITY",
+          "Recovery authority precedes the publication epoch",
+        );
+      if (!terminal.has(row.status) && row.operation_state !== "PENDING")
+        throw new SourceControlError(
+          "PUBLICATION_FENCED",
+          "Publication operation is no longer pending",
+        );
+      return row;
+    };
+    const initial = await this.metadata.transaction(async (tx) => {
+      await this.metadata.guard(
+        tx,
+        operatorContext,
+        "source.recovery.reconcile",
+      );
+      const row = await load(tx, true);
+      checkCancellation();
+      if (terminal.has(row.status)) return { result: row.result };
+      if (row.status === "QUEUED" || row.status === "READY")
+        return {
+          result: await this.settleLocked(tx, owner, row, "CANCELLED", {
+            code: "RECOVERY_PREISSUE_CANCELLED",
+          }),
+        };
+      const destination = this.destination(
+        operatorContext,
+        row.request.destination_id,
+        row.target_ref,
+      );
+      if (this.binding(destination) !== row.configuration_digest)
+        throw new SourceControlError(
+          "DESTINATION_CHANGED",
+          "Recovery destination differs from the issued publication",
+        );
+      return { row, destination };
+    });
+    if ("result" in initial) return initial.result;
+    let observed: string | null = null;
+    let observedSuccessfully = false;
+    try {
+      observed = await initial.destination.transport.observe(
+        initial.row.target_ref,
+        signal,
+      );
+      observedSuccessfully = true;
+    } catch {}
+    checkCancellation();
+    return this.metadata.transaction(async (tx) => {
+      await this.metadata.guard(
+        tx,
+        operatorContext,
+        "source.recovery.reconcile",
+      );
+      const row = await load(tx, true);
+      checkCancellation();
+      if (terminal.has(row.status)) return row.result;
+      const destination = this.destination(
+        operatorContext,
+        row.request.destination_id,
+        row.target_ref,
+      );
+      if (this.binding(destination) !== row.configuration_digest)
+        throw new SourceControlError(
+          "DESTINATION_CHANGED",
+          "Recovery destination differs from the issued publication",
+        );
+      if (
+        observedSuccessfully &&
+        row.git_oid !== null &&
+        observed === row.git_oid
+      )
+        return this.settleLocked(tx, owner, row, "PUBLISHED", {
+          code: "RECOVERY_CONFIRMED",
+          observed_oid: observed,
+        });
+      if (row.status === "OUTCOME_UNKNOWN") return row.result;
+      return this.settleLocked(tx, owner, row, "OUTCOME_UNKNOWN", {
+        code: observedSuccessfully
+          ? "RECOVERY_ISSUED_PUSH_UNRESOLVED"
+          : "RECOVERY_OBSERVATION_FAILED",
+        ...(observedSuccessfully ? { observed_oid: observed } : {}),
+      });
+    });
   }
   async cancel(
     context: SourceContext,

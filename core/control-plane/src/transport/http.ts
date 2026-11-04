@@ -9,7 +9,7 @@ import type {IdentityAuthority} from '../identity/enrollment.js';
 import {decodeSourceRequest,SOURCE_API_PATH,SourceControlError,type SourceAction} from '../source_control/contracts.js';
 import {handleSourceTransferHttp,isSourceTransferPath} from '../source_control/transfer_http.js';
 import type {SourceTransferService} from '../source_control/transfers.js';
-import {sourceHttpError,sourceHttpStatus,writeSourceHttpResponse} from '../source_control/http.js';
+import {sourceHttpError,sourceHttpStatus,sourcePublicError,writeSourceHttpResponse} from '../source_control/http.js';
 export interface HttpTransportOptions{origin:string;host:string;port:number;certificate:string;privateKey:string;signal:AbortSignal;identity:IdentityAuthority;maxConcurrent?:number;deadlineMs?:number;requestLimit?:number;responseLimit?:number;dispatch:(i:InvocationContext)=>Promise<unknown>;sourceTransfers?:SourceTransferService;sourceDispatch?:(i:InvocationContext)=>Promise<unknown>;authorize?:(i:InvocationContext)=>Promise<void>}
 export interface HttpTransport{readonly address:string;close():Promise<void>}
 async function tlsFile(file:string,secret:boolean):Promise<Buffer>{const fd=await fs.open(file,'r');try{const s=await fd.stat(),n=await fs.lstat(file);if(!s.isFile()||n.isSymbolicLink()||s.ino!==n.ino||s.dev!==n.dev||s.size>65536||s.size<1||secret&&(s.mode&0o077)!==0)fail('TLS_CONFIG_INVALID','Bounded regular TLS files and private key permissions required');return await fd.readFile();}finally{await fd.close();}}
@@ -29,7 +29,7 @@ export async function startHttpTransport(o:HttpTransportOptions):Promise<HttpTra
   const report=(code:string,httpStatus:number):void=>{if(reported)return;reported=true;if(process.stderr.destroyed||!process.stderr.writable||process.stderr.writableLength>16384)return;const errorCode=/^[A-Z][A-Z0-9_]{0,95}$/.test(code)?code:'HANDLER_FAILED';try{process.stderr.write(JSON.stringify({event:'transport_request_failed',status:httpStatus,error_code:errorCode,...(operationId?{operation_id:operationId}:{}),...(correlationId?{correlation_id:correlationId}:{})})+'\n');}catch{}};
   const sendSourceError=(error:SourceControlError):void=>{
    const code=sourceHttpStatus(error);report(error.code,code);
-   writeSourceHttpResponse(res,{protocol_version:1,operation_id:operationId!,error:{code:error.code,message:error.message,retry:error.retry,outcome:error.outcome}},sourceAction,code);
+   writeSourceHttpResponse(res,{protocol_version:1,operation_id:operationId!,error:sourcePublicError(error)},sourceAction,code);
   };
   if(!accepting){if(sourceRequest)sendSourceError(new SourceControlError('SERVICE_UNAVAILABLE','Source service is stopping'));else{report('SHUTTING_DOWN',503);send(res,{protocol_version:1,ok:false,error:{code:'SHUTTING_DOWN',message:'Coordinator stopping'}},responseLimit,503);}return;}
   if(active>=max){if(sourceRequest)sendSourceError(new SourceControlError('OVERLOADED','Concurrent request budget exhausted','RESUME'));else{report('ADMISSION_BUSY',429);send(res,{protocol_version:1,ok:false,error:{code:'ADMISSION_BUSY',message:'Concurrent request budget exhausted'}},responseLimit,429);}return;}

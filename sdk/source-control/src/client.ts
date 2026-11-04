@@ -1,3 +1,6 @@
+import type {SourceCapabilityManageRequest,SourceCapabilityManageResult,SourceAuditPage,SourceWorkspaceWidenRequest,SourceWorkspaceWidenResult} from './admin.js';
+import type {SourceSubscriptionInput,SourceSubscription,SourceEventPollInput,SourceEventPage,SourceEventAcknowledgment} from './events.js';
+import type {SourceQueueEnqueueRequest,SourceQueueClaimRequest,SourceQueueBindRequest,SourceQueueCompleteRequest,SourceQueueFailRequest,SourceQueueIsolateRequest,SourceQueueBatch} from './queue.js';
 import {
   decodeSourceResponse,encodeSourceRequest,parseSourceScope,SourceControlError,
   type SourceAction,type SourceAuthority,type SourceRequest,type SourceScope,
@@ -26,8 +29,12 @@ export type SourceClientOptions = {
   token?:never;
   authenticate:(request:SourceAuthenticationRequest)=>HeadersInit|Promise<HeadersInit>;
 });
+export type SourceMetadataReadAction='source.revisions.read'|'source.changes.revisions'|'source.operations.read'|'source.trees.entries'|'source.trees.lookup'|'source.objects.inspect'|'source.workspaces.detail'|'source.queries.ancestry'|'source.queries.merge-bases'|'source.queries.history'|'source.queries.diff'|'source.queries.blame'|'source.queries.line-map'|'source.domains.read'|'source.candidates.read'|'source.acceptance.read'|'source.transforms.read'|'source.graph.query';
+export interface SourceReadBatchItem {id:string;action:SourceMetadataReadAction;input:unknown}
+export interface SourceReadBatchInput {items:SourceReadBatchItem[];budget?:{max_bytes?:number;max_ms?:number}}
+export interface SourceReadBatchResult {items:({id:string;action:SourceAction}&({result:unknown}|{error:{code:string;message:string;retry:string;outcome:string}}))[];coverage:'COMPLETE'|'PARTIAL'}
 export interface SourceCallOptions {
-  operation_id?:string;idempotency_key?:string;authority?:SourceAuthority;signal?:AbortSignal;
+  operation_id?:string;idempotency_key?:string;authority?:SourceAuthority;signal?:AbortSignal;causal_token?:string;
 }
 export class SourceControlClient {
   readonly scope:SourceScope;
@@ -47,7 +54,7 @@ export class SourceControlClient {
   async call<T=unknown>(action:SourceAction,input:unknown,options:SourceCallOptions={}):Promise<T> {
     const operation_id=options.operation_id??globalThis.crypto.randomUUID();
     const request:SourceRequest={protocol_version:1,scope:this.scope,operation_id,action,input,
-      ...(options.idempotency_key?{idempotency_key:options.idempotency_key}:{}),...(options.authority?{authority:options.authority}:{})};
+      ...(options.causal_token!==undefined?{causal_token:options.causal_token}:{}),...(options.idempotency_key?{idempotency_key:options.idempotency_key}:{}),...(options.authority?{authority:options.authority}:{})};
     const body=encodeSourceRequest(request);
     const signal=AbortSignal.any([AbortSignal.timeout(this.timeout),...(options.signal?[options.signal]:[])]);
     let headers:Headers;
@@ -74,7 +81,22 @@ export class SourceControlClient {
     if('error' in decoded)throw new SourceControlError(decoded.error.code,decoded.error.message,decoded.error.retry,decoded.error.outcome,{...decoded.error.details,operation_id});
     return decoded.result as T;
   }
+  reconcileRecovery(input:{backup_id:string;operation_id:string;limit:number},options:SourceCallOptions){return this.call('source.recovery.reconcile',input,options);}
+  subscribe(input:SourceSubscriptionInput,options:SourceCallOptions){return this.call<SourceSubscription>('source.subscriptions.create',input,options);}
+  pollEvents(input:SourceEventPollInput,options?:SourceCallOptions){return this.call<SourceEventPage>('source.subscriptions.poll',input,options);}
+  acknowledgeEvent(input:SourceEventAcknowledgment,options:SourceCallOptions){return this.call<{duplicate:boolean;result:null}>('source.subscriptions.ack',input,options);}
+  enqueueCandidates(input:SourceQueueEnqueueRequest,options:SourceCallOptions){return this.call('source.queue.enqueue',input,options);}
+  claimCandidateBatch(input:SourceQueueClaimRequest,options:SourceCallOptions){return this.call<{schema_version:1;batch:SourceQueueBatch|null;maintained:number}>('source.queue.claim',input,options);}
+  bindCandidateBatch(input:SourceQueueBindRequest,options:SourceCallOptions){return this.call<SourceQueueBatch>('source.queue.bind',input,options);}
+  completeCandidateBatch(input:SourceQueueCompleteRequest,options:SourceCallOptions){return this.call<SourceQueueBatch>('source.queue.complete',input,options);}
+  failCandidateBatch(input:SourceQueueFailRequest,options:SourceCallOptions){return this.call<SourceQueueBatch>('source.queue.fail',input,options);}
+  isolateCandidateBatch(input:SourceQueueIsolateRequest,options:SourceCallOptions){return this.call('source.queue.isolate',input,options);}
+  candidateBatch(batch_id:string,options?:SourceCallOptions){return this.call<SourceQueueBatch>('source.queue.read',{batch_id},options);}
+  manageCapability(input:SourceCapabilityManageRequest,options:SourceCallOptions){return this.call<SourceCapabilityManageResult>('source.capabilities.manage',input,options);}
+  audit(input:{after_id?:string;limit?:number}={},options?:SourceCallOptions){return this.call<SourceAuditPage>('source.audit.read',input,options);}
+  widenWorkspace(input:SourceWorkspaceWidenRequest,options:SourceCallOptions){return this.call<SourceWorkspaceWidenResult>('source.workspaces.widen',input,options);}
   closeWorkspace(input:{workspace_id:string;expected_workspace_generation:string},options:SourceCallOptions){return this.call('source.workspaces.close',input,options);}
+  batch(input:SourceReadBatchInput,options?:SourceCallOptions){return this.call<SourceReadBatchResult>('source.queries.batch',input,options);}
   capabilities(options?:SourceCallOptions){return this.call('source.capabilities',{},options);}
   revision(revision_id:string,options?:SourceCallOptions){return this.call('source.revisions.read',{revision_id},options);}
   object(object_id:string,options?:SourceCallOptions){return this.call<{object_id:string;kind:string;payload_base64:string;byte_length:string}>('source.objects.read',{object_id},options);}

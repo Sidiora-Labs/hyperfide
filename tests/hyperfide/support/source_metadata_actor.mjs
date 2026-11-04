@@ -30,7 +30,7 @@ const checks=[];
 let releaseLate=()=>{},lateTransaction=null;
 try{
  await pool.query('CREATE SCHEMA hyperfide');
- for(const filename of ['0736-source-control-storage.sql','0737-source-control-metadata.sql'])await pool.query(await fs.readFile(path.join(root,'core/control-plane/migrations',filename),'utf8'));
+ for(const filename of JSON.parse(process.env.SOURCE_CONTROL_MIGRATIONS))await pool.query(await fs.readFile(path.join(root,'core/control-plane/migrations',filename),'utf8'));
  await pool.query('CREATE TABLE source_fixture_principals(organisation_id uuid,repository_id uuid,security_domain_id uuid,principal_id uuid,enabled boolean,workspace_generation bigint,PRIMARY KEY(organisation_id,repository_id,security_domain_id,principal_id));CREATE TABLE source_fixture_effects(event_id uuid PRIMARY KEY,applications integer NOT NULL)');
  await pool.query('INSERT INTO source_fixture_principals VALUES($1,$2,$3,$4,true,1)',[scope.organisation_id,scope.repository_id,scope.security_domain_id,principal]);
  await store.registerRepository(scope,profile);

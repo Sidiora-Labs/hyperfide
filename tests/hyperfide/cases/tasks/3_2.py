@@ -71,7 +71,7 @@ def prepared_slot(f,key,commit,provider_config=None):
  f.sql("INSERT INTO hyperfide.worker_slots(organisation_id,id,sandbox_id,slot_key,boot_generation,capacity_kind,state) VALUES($1,$2,$3,$4,1,'AGENT','READY')",[i["organisation"],i[key+"_slot"],i[key+"_sandbox"],key+"-slot"])
  return preparation
 class PacketFixture(HierarchyFixture):
- def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,seed_historical_runtime=True,extra_env=None,source_object_id=None,provider_config=None):
+ def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,seed_historical_runtime=True,extra_env=None,source_object_id=None,provider_config=None,credential_actions=None):
   def setup(f):
    apply_migration(f,"0002-spec");apply_migration(f,"0007-graph");apply_migration(f,"0032-execution-packets")
    i=f.ids;f.source=source_object_id or "a"*40
@@ -85,7 +85,7 @@ class PacketFixture(HierarchyFixture):
    f.packet_proof=f.proof_policy(f.packet_criteria)
    f.register_proof(i["packet_task"],f.packet_proof)
    if extra_setup:extra_setup(f)
-  super().__init__(extra_components=dependencies(("3.2",)+tuple(extra_components)),extra_setup=setup,bootstrap=bootstrap,seed_historical_runtime=seed_historical_runtime,extra_env=extra_env,source_object_id=source_object_id)
+  super().__init__(extra_components=dependencies(("3.2",)+tuple(extra_components)),extra_setup=setup,bootstrap=bootstrap,seed_historical_runtime=seed_historical_runtime,extra_env=extra_env,source_object_id=source_object_id,credential_actions=credential_actions)
  def task_definition(self,section=None,**overrides):
   """Accepted spec section envelope (as imported by 2.x) plus the explicit packet intent fields."""
   return dict({"schema_version":1,"section":section or self.packet_section,"feature_key":"alpha","declared_wave":2,"runtime_wave_offset":0,"declared_status":None,"history_only":True,

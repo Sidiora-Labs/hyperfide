@@ -5,7 +5,7 @@ import {
   assertPrimaryTransaction,
   type PrimaryTransaction,
 } from "../storage/transactions.js";
-import { loadProofObligations, type ProofPolicy } from "../spec/obligations.js";
+import { loadProofObligations,readProofObligationsSnapshot, type ProofPolicy } from "../spec/obligations.js";
 import {
   parseGeneration,
   parseObjectId,
@@ -138,14 +138,16 @@ async function proof(
   candidate: NativeCandidateRecord,
   qualification: CandidateQualification,
   verifier: NativeSourceEvidenceVerifier,
+  readOnly = false,
 ): Promise<string> {
-  const registered = await loadProofObligations(primary(tx), {
+  const pins={
     organisation_id: row.organisation_id,
     run_id: row.run_id,
     task_id: row.task_id,
     spec_revision_id: row.spec_revision_id,
     spec_generation: String(row.spec_generation),
-  });
+  };
+  const registered = readOnly?await readProofObligationsSnapshot(tx,pins):await loadProofObligations(primary(tx),pins);
   const policy: ProofPolicy = registered.policy;
   if (
     row.assignment_base_revision_id !== policy.source_object_id ||
@@ -245,8 +247,25 @@ export async function assertNativeTaskQualified(
   taskId: string,
   repositoryId?: string | null,
 ): Promise<NativeTaskQualificationReceipt> {
+  assertPrimaryTransaction(tx);
+  return nativeTaskQualification(tx,scope,taskId,repositoryId,false);
+}
+export async function readNativeTaskQualification(
+  tx: SourceSQL,
+  scope: { organisation_id: string; run_id: string },
+  taskId: string,
+  repositoryId?: string | null,
+): Promise<NativeTaskQualificationReceipt> {
+  return nativeTaskQualification(tx,scope,taskId,repositoryId,true);
+}
+async function nativeTaskQualification(
+  tx: SourceSQL,
+  scope: { organisation_id: string; run_id: string },
+  taskId: string,
+  repositoryId: string | null | undefined,
+  readOnly: boolean,
+): Promise<NativeTaskQualificationReceipt> {
   try {
-    assertPrimaryTransaction(tx);
     const row = await currentSubmission(tx, scope, taskId);
     if (
       !["QUALIFIED", "INTEGRATING", "INTEGRATED"].includes(row.task_state) ||
@@ -313,6 +332,7 @@ export async function assertNativeTaskQualified(
         candidate,
         qualification,
         new NativeSourceEvidenceVerifier(),
+        readOnly,
       )) !== receipt.evidence_digest
     )
       sourceFailure(
@@ -321,7 +341,9 @@ export async function assertNativeTaskQualified(
       );
     return receipt;
   } catch (error) {
-    if (error instanceof SourceControlError)
+    if (readOnly && error instanceof FoundationError)
+      throw new SourceControlError(error.code,error.message);
+    if (!readOnly && error instanceof SourceControlError)
       throw new FoundationError(error.code, error.message);
     throw error;
   }

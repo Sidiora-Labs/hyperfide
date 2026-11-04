@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {createSignedSourceClient} from '../../../sdk/source-control/src/signed.ts';
+const {config}=JSON.parse(await fs.readFile(process.env.SOURCE_BATCH_AUTH_INPUT,'utf8'));
+const client=await createSignedSourceClient(config);
+const tree=await client.call('source.objects.put',{kind:'tree-leaf',payload_base64:Buffer.from('[1,"",[]]').toString('base64')});
+const op=randomUUID();
+const revision=await client.createRevision({change_id:randomUUID(),root_tree_id:tree.object_id,parent_revision_ids:[],predecessor_revision_ids:[],provenance:{author:{name:'Batch authorization test',email:'batch@example.invalid'},message:'Scoped native batch',timestamp:'2026-11-04T00:00:00.000Z'}},{operation_id:op,idempotency_key:op});
+await assert.rejects(client.revision(revision.revision_id),e=>e.code==='AUTH_SCOPE_DENIED');
+await assert.rejects(client.tree(tree.object_id),e=>e.code==='AUTH_SCOPE_DENIED');
+const result=await client.batch({items:[{id:'identity-denied',action:'source.revisions.read',input:{revision_id:revision.revision_id}},{id:'role-denied',action:'source.trees.entries',input:{tree_id:tree.object_id}},{id:'permitted',action:'source.objects.inspect',input:{object_id:tree.object_id}}]});
+assert.equal(result.items[0].error?.code,'AUTH_SCOPE_DENIED','Batched identity denial must match direct native authorization');
+assert.equal(result.items[1].error?.code,'AUTH_SCOPE_DENIED','Batched role-policy denial must match direct native authorization');
+assert.equal(result.items[2].result?.object_id,tree.object_id,'Permitted child must pass full native authorization');
+const receipt={status:'PASS',checks:['batch child identity allowlist and role-policy denials match direct signed requests despite broad source capability','permitted child retains branded native invocation and succeeds through full registry dispatch'],scope:'actual native TLS identity, role authorizer, PostgreSQL and SigV4 source service'};
+const output=path.resolve('build/source-control/batch-authorization');await fs.mkdir(output,{recursive:true});await fs.writeFile(path.join(output,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt,null,2));

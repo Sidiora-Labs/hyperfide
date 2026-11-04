@@ -32,29 +32,39 @@ export class PersistentTree {
  return this.write(scope,{kind:'tree-index',prefix,children,count:entries.length},metrics);
  }
  private async gather(scope:SourceStorageScope,id:string,metrics:TreeMetrics):Promise<TreeEntry[]>{const node=await this.read(scope,id,metrics);if(node.count>256)sourceError('TREE_LIMIT','Radix merge may only traverse a bounded small subtree');if(node.kind==='tree-leaf')return node.entries;const entries:TreeEntry[]=[];for(const child of node.children)entries.push(...await this.gather(scope,child.object_id,metrics));return entries;}
- private async updateName(scope:SourceStorageScope,id:string,name:string,replacement:TreeEntry|null,metrics:TreeMetrics):Promise<{id:string;count:number}>{
+ private async updateNames(scope:SourceStorageScope,id:string,changes:ReadonlyMap<string,TreeEntry|null>,metrics:TreeMetrics):Promise<{id:string;count:number}>{
  const node=await this.read(scope,id,metrics);
  if(node.kind==='tree-leaf'){
-  const current=node.entries.find(e=>e.name===name);if(!current&&replacement===null||current&&replacement&&JSON.stringify(current)===JSON.stringify(replacement))return {id,count:node.count};
-  const entries=node.entries.filter(e=>e.name!==name);if(replacement)entries.push(replacement);entries.sort((a,b)=>compareUTF8(a.name,b.name));return this.build(scope,node.prefix,entries,metrics);
+  const entries=new Map(node.entries.map(entry=>[entry.name,entry]));let changed=false;
+  for(const [name,replacement] of changes){const prior=entries.get(name);if(replacement===null){if(entries.delete(name))changed=true;}else if(!prior||JSON.stringify(prior)!==JSON.stringify(replacement)){entries.set(name,replacement);changed=true;}}
+  if(!changed)return {id,count:node.count};return this.build(scope,node.prefix,[...entries.values()].sort((a,b)=>compareUTF8(a.name,b.name)),metrics);
  }
- const digit=treeNameKey(name)[node.prefix.length]!,old=node.children.find(c=>c.digit===digit);if(!old&&replacement===null)return {id,count:node.count};
- const child=old?await this.updateName(scope,old.object_id,name,replacement,metrics):await this.build(scope,node.prefix+digit,[replacement!],metrics);
- const children=node.children.filter(c=>c.digit!==digit);if(child.count)children.push({digit,object_id:child.id,count:child.count});children.sort((a,b)=>a.digit<b.digit?-1:1);
- const count=children.reduce((sum,c)=>sum+c.count,0);if(count<=256){const entries:TreeEntry[]=[];for(const c of children)entries.push(...await this.gather(scope,c.object_id,metrics));return this.build(scope,node.prefix,entries,metrics);}
- return this.write(scope,{kind:'tree-index',prefix:node.prefix,children,count},metrics);
+ const groups=new Map<string,Map<string,TreeEntry|null>>();
+ for(const [name,replacement] of changes){const digit=treeNameKey(name)[node.prefix.length]!;const group=groups.get(digit)??new Map<string,TreeEntry|null>();group.set(name,replacement);groups.set(digit,group);}
+ const children=new Map(node.children.map(child=>[child.digit,child]));let changed=false;
+ for(const [digit,group] of groups){const prior=children.get(digit);if(!prior&&[...group.values()].every(entry=>entry===null))continue;const result=prior?await this.updateNames(scope,prior.object_id,group,metrics):await this.build(scope,node.prefix+digit,[...group.values()].filter((entry):entry is TreeEntry=>entry!==null).sort((a,b)=>compareUTF8(a.name,b.name)),metrics);
+  if(prior?.object_id===result.id)continue;if(!prior&&result.count===0)continue;changed=true;if(result.count)children.set(digit,{digit,object_id:result.id,count:result.count});else children.delete(digit);
  }
- private async updatePath(scope:SourceStorageScope,root:string,parts:string[],entry:TreeEntry|null,metrics:TreeMetrics):Promise<string>{
- const name=parts[0]!;if(parts.length===1)return(await this.updateName(scope,root,name,entry,metrics)).id;
- const prior=await this.find(scope,root,name,metrics);if(prior&&prior.kind!=='directory')sourceError('PATH_CONFLICT','A path ancestor is not a directory');if(!prior&&entry===null)return root;
- const childRoot=prior?.object_id??await this.empty(scope),next=await this.updatePath(scope,childRoot,parts.slice(1),entry,metrics);
- if(prior&&next===prior.object_id)return root;return(await this.updateName(scope,root,name,parseTreeEntry({name,kind:'directory',mode:'040000',object_id:next}),metrics)).id;
+ if(!changed)return {id,count:node.count};
+ const sorted=[...children.values()].sort((a,b)=>a.digit<b.digit?-1:1),count=sorted.reduce((total,child)=>total+child.count,0);
+ if(count<=256){const entries:TreeEntry[]=[];for(const child of sorted)entries.push(...await this.gather(scope,child.object_id,metrics));return this.build(scope,node.prefix,entries.sort((a,b)=>compareUTF8(a.name,b.name)),metrics);}
+ return this.write(scope,{kind:'tree-index',prefix:node.prefix,children:sorted,count},metrics);
+ }
+ private async updatePaths(scope:SourceStorageScope,root:string,patches:readonly {parts:string[];entry:TreeEntry|null}[],metrics:TreeMetrics):Promise<string>{
+ const groups=new Map<string,{parts:string[];entry:TreeEntry|null}[]>();for(const patch of patches){const name=patch.parts[0]!,group=groups.get(name)??[];group.push(patch);groups.set(name,group);}
+ const changes=new Map<string,TreeEntry|null>();
+ for(const [name,group] of groups){const first=group[0]!;if(first.parts.length===1){changes.set(name,first.entry);continue;}
+  const prior=await this.find(scope,root,name,metrics);if(prior&&prior.kind!=='directory')sourceError('PATH_CONFLICT','A path ancestor is not a directory');if(!prior&&group.every(patch=>patch.entry===null))continue;
+  const childRoot=prior?.object_id??await this.empty(scope),next=await this.updatePaths(scope,childRoot,group.map(patch=>({parts:patch.parts.slice(1),entry:patch.entry})),metrics);
+  if(prior?.object_id!==next)changes.set(name,parseTreeEntry({name,kind:'directory',mode:'040000',object_id:next}));
+ }
+ return changes.size?(await this.updateNames(scope,root,changes,metrics)).id:root;
  }
  async patch(scope:SourceStorageScope,root:string,patches:readonly TreePatch[]):Promise<{root_tree_id:string;metrics:TreeMetrics}>{
  if(!Array.isArray(patches)||patches.length>4096)sourceError('PATCH_LIMIT','A bounded explicit patch list is required');
  const normalized=patches.map(p=>{const path=parseRepositoryPath(p.path);if(p.operation!=='put'&&p.operation!=='remove')sourceError('INVALID_PATCH','Unknown tree mutation');const name=path.split('/').at(-1)!;return {path,entry:p.operation==='remove'?null:parseTreeEntry({name,kind:p.kind,mode:p.mode,object_id:p.object_id})};}).sort((a,b)=>compareUTF8(a.path,b.path));
  for(let i=1;i<normalized.length;i++){const prior=normalized[i-1]!.path,current=normalized[i]!.path;if(prior===current||current.startsWith(prior+'/'))sourceError('PATCH_CONFLICT','Duplicate or overlapping patch paths require separate revisions');}
- const metrics={nodes_read:0,nodes_written:0};if((await this.read(scope,root,metrics)).prefix!=='')sourceError('INVALID_TREE','Directory root cannot be an internal radix node');let current=root;for(const patch of normalized)current=await this.updatePath(scope,current,patch.path.split('/'),patch.entry,metrics);return {root_tree_id:current,metrics};
+ const metrics={nodes_read:0,nodes_written:0};if((await this.read(scope,root,metrics)).prefix!=='')sourceError('INVALID_TREE','Directory root cannot be an internal radix node');const current=await this.updatePaths(scope,root,normalized.map(patch=>({parts:patch.path.split('/'),entry:patch.entry})),metrics);return {root_tree_id:current,metrics};
  }
  async apply(scope:SourceStorageScope,root:string,changes:readonly {path:string;entry:TreeEntry|null}[]):Promise<{root_tree_id:string;metrics:TreeMetrics}>{return this.patch(scope,root,changes.map(c=>c.entry===null?{path:c.path,operation:'remove'}:{path:c.path,operation:'put',kind:c.entry.kind,mode:c.entry.mode,object_id:c.entry.object_id}));}
 }

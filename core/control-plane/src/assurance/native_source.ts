@@ -420,6 +420,23 @@ export class NativeSourceEvidenceVerifier {
     candidate: NativeCandidateRecord,
     evidenceIds: readonly string[],
   ): Promise<SourceCandidateEvidence> {
+    return this.verifyOutcome(tx, context, candidate, evidenceIds, false);
+  }
+  async verifyFailedEvidence(
+    tx: SourceSQL,
+    context: SourceContext,
+    candidate: NativeCandidateRecord,
+    evidenceIds: readonly string[],
+  ): Promise<SourceCandidateEvidence> {
+    return this.verifyOutcome(tx, context, candidate, evidenceIds, true);
+  }
+  private async verifyOutcome(
+    tx: SourceSQL,
+    context: SourceContext,
+    candidate: NativeCandidateRecord,
+    evidenceIds: readonly string[],
+    failed: boolean,
+  ): Promise<SourceCandidateEvidence> {
     if (
       !evidenceIds.length ||
       evidenceIds.length > 256 ||
@@ -445,7 +462,7 @@ export class NativeSourceEvidenceVerifier {
         row.policy_id !== candidate.policy_id ||
         row.policy_digest !== candidate.policy_digest ||
         row.checks_digest !== policy.checks_digest ||
-        row.outcome !== "PASS" ||
+        row.outcome !== (failed ? "FAIL" : "PASS") ||
         row.revoked_at !== null ||
         seen.has(row.check_id) ||
         !policy.checks.some((check) => check.id === row.check_id)
@@ -501,7 +518,7 @@ export class NativeSourceEvidenceVerifier {
           );
       }
     }
-    if (policy.checks.some((check) => !seen.has(check.id)))
+    if (!failed && policy.checks.some((check) => !seen.has(check.id)))
       sourceFailure(
         "EVIDENCE_INCOMPLETE",
         "All registered native checks must pass",

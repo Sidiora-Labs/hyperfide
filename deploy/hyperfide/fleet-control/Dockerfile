@@ -23,4 +23,5 @@ RUN node deploy/hyperfide/fleet-control/prepare-image.mjs && node deploy/hyperfi
 ENV PATH="/opt/hyperfide/bin:/usr/local/bin:/usr/bin:/bin"
 USER 22001:22001
 RUN node -e "if(process.getuid()!==22001||process.getgid()!==22001)process.exit(1);const fs=require('node:fs'),home=JSON.parse(fs.readFileSync('/opt/hyperfide/bin/manifest.json')).runtime_home;fs.realpathSync(home);fs.accessSync(home,fs.constants.R_OK|fs.constants.W_OK|fs.constants.X_OK)" && /opt/hyperfide/bin/hyperfide version && /opt/hyperfide/bin/hyperfide-native --component 13.1 --action connector.describe --request-base64 e30 && /opt/hyperfide/bin/claude --version
+USER 0:0
 CMD ["node", "deploy/hyperfide/fleet-control/volume-entrypoint.mjs"]

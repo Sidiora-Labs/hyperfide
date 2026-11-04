@@ -5,6 +5,13 @@ resolution = "Keep cancelled and failed publication receipts in source_git_publi
 evidence = "Migration 0737 defines the constraint; the source-control 5_1 integration driver reproduced the failure through the authenticated cancellation API."
 status = "resolved"
 
+[gotcha.source_git_empty_email]
+symptom = "A native workspace checkpoint cannot be exported to Git or imported again when its author email is empty."
+cause = "The projection identity validator and import parser required a nonempty email even though native checkpoints use Hyperfide with an empty email and Git accepts that identity."
+resolution = "Preserve empty email fields in both directions while retaining name, control-character, delimiter and whitespace validation."
+evidence = "Source-control 5.1 and 5.2 exercise real workspace checkpoints, Git hashing, strict fsck and native import with exact identity readback."
+status = "resolved"
+
 [gotcha.source_spec_bootstrap]
 symptom = "The installed hyperfide brief command refuses a fresh source checkout without initialized project state."
 cause = "Repository source and spec files do not themselves initialize the local graph database."

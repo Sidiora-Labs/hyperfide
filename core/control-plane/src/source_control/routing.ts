@@ -22,6 +22,7 @@ export class SourceRoutedObjectCatalog implements SourceObjectCatalog {
  }
  begin(scope:SourceStorageScope,request:{operation_id:string;object_id:string;kind:StoredObject['kind'];size_bytes:string;owner_principal_id?:string}){return this.bound(scope,{object_id:request.object_id}).begin(scope,request);}
  lookup(scope:SourceStorageScope,id:string){return new PostgresSourceObjectCatalog(this.database).lookup(scope,id);}
+ lookupMany(scope:SourceStorageScope,ids:readonly string[]){return new PostgresSourceObjectCatalog(this.database).lookupMany(scope,ids);}
  upload(scope:SourceStorageScope,id:string){return new PostgresSourceObjectCatalog(this.database).upload(scope,id);}
  unknown(scope:SourceStorageScope,id:string){return this.bound(scope,{upload_id:id}).unknown(scope,id);}
  verify(scope:SourceStorageScope,id:string,children:readonly string[],metadata?:{tree_prefix:string|null}){return this.bound(scope,{upload_id:id}).verify(scope,id,children,metadata);}

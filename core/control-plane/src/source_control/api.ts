@@ -1,3 +1,7 @@
+import {manageSourceCapability} from './capability-management.js';
+import {readSourceAudit} from './audit.js';
+import {runSourceReadBatch} from './batch.js';
+import {validateSourceCausalRead} from './causal.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {
   parseObjectId,parseRepositoryPath,parseSourceRequest,parseUUID,SourceControlError,
@@ -12,13 +16,13 @@ import {SourceQueries,type QueryBudget} from './queries.js';
 import {assertManagedObjectUploads} from './managed-objects.js';
 
 export const SOURCE_API_ACTIONS=[
-  'source.capabilities','source.objects.put','source.objects.read','source.objects.inspect',
+  'source.capabilities','source.capabilities.manage','source.audit.read','source.objects.put','source.objects.read','source.objects.inspect',
   'source.uploads.prepare','source.uploads.complete','source.trees.entries','source.trees.lookup','source.trees.patch',
   'source.revisions.create','source.revisions.read','source.changes.revisions','source.operations.read','source.operations.cancel',
-  'source.queries.ancestry','source.queries.merge-bases','source.queries.history','source.queries.diff','source.queries.blame','source.queries.line-map',
+  'source.queries.batch','source.queries.ancestry','source.queries.merge-bases','source.queries.history','source.queries.diff','source.queries.blame','source.queries.line-map',
   'source.subscriptions.create','source.subscriptions.poll','source.subscriptions.ack',
 ] as const;
-export type SourceApiPrincipal=InvocationContext|SourcePrincipal;
+export type SourceApiPrincipal=(InvocationContext|SourcePrincipal)&{signal?:AbortSignal};
 export interface SourceApiAuthorizationRequest {
   invocation?:InvocationContext;principal?:SourcePrincipal;scope:SourceScope;action:string;
   paths?:readonly string[];revision_id?:string;object_id?:string;mutation:boolean;authority?:SourceAuthority;
@@ -26,6 +30,7 @@ export interface SourceApiAuthorizationRequest {
 export interface SourceApiDependencies {
   objects:SourceObjectService;trees:PersistentTree;metadata:SourceMetadata;cursorKey:Uint8Array;
   authorize(request:SourceApiAuthorizationRequest):Promise<SourceAuthorization>;
+  invokeBatchMember?:(request:SourceRequest,parent:InvocationContext,signal:AbortSignal)=>Promise<unknown>;
   workspaceOperation?:(context:SourceContext,operationId:string)=>Promise<unknown|null>;
   extensions?:Readonly<Record<string,(request:SourceRequest,context:SourceAuthorization,principal:SourceApiPrincipal)=>Promise<unknown>>>;
 }
@@ -80,17 +85,22 @@ function requestPaths(action:string,input:Record<string,unknown>):string[]|undef
 export function createSourceApi(dependencies:SourceApiDependencies) {
   const cursors=new SourceCursorCodec(dependencies.cursorKey),extensions=dependencies.extensions??{};
   const supported=[...SOURCE_API_ACTIONS,...Object.keys(extensions)];
-  return {
+  const api={
     actions:supported,
     async invoke(action:string,raw:unknown,principal:SourceApiPrincipal):Promise<unknown> {
       const request=parseSourceRequest(raw);
       if(request.action!==action||!supported.includes(action))throw new SourceControlError('UNSUPPORTED_ACTION','Source action is unavailable');
-      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume|configure|qualify|accept|publish|revoke|bind-run|assign|submit|select|acquire|release|discover|collect|build|reserve|reconcile|consolidate|parity|quiesce|activate|abort|recover|verify|move|stage)$/.test(action);
+      const input=value(request.input),mutation=/\.(put|patch|create|open|prepare|complete|cancel|checkpoint|widen|close|ack|manage|merge|rebase|revert|resume|configure|qualify|accept|publish|revoke|bind-run|assign|submit|select|acquire|release|discover|collect|build|reserve|reconcile|consolidate|parity|quiesce|activate|abort|recover|verify|move|stage|refresh)$/.test(action);
       const paths=requestPaths(action,input),authorization=await dependencies.authorize({scope:request.scope,action,mutation,
         ...('operation' in principal?{invocation:principal}:{principal}),...(paths?{paths}:{}),
         ...(typeof input.revision_id==='string'?{revision_id:input.revision_id}:{}),
         ...(typeof input.object_id==='string'?{object_id:input.object_id}:{}),...(request.authority?{authority:request.authority}:{})});
       const context=authorization;
+      if(action==='source.queries.batch')return runSourceReadBatch(request,principal,(member,actor,signal)=>{
+        if('operation' in actor){if(!dependencies.invokeBatchMember)throw new SourceControlError('AUTH_SCOPE_DENIED','Authenticated child dispatch is unavailable');return dependencies.invokeBatchMember(member,actor,signal);}
+        return api.invoke(member.action,member,actor);
+      });
+      await validateSourceCausalRead(dependencies.metadata,dependencies.objects,context,action,request.causal_token,principal.signal);
       const query=value({...input});delete query.cursor;
       const binding=(snapshot:string):SourceCursorBinding=>({scope:request.scope,principal_id:authorization.principal_id,authority_epoch:authorization.authority_epoch,policy_version:authorization.policy_version,capability_id:authorization.capability_id,query:{action,input:query},snapshot});
       const page=(snapshot:string):unknown=>input.cursor===undefined?undefined:cursors.decode(binding(snapshot),String(input.cursor));
@@ -123,6 +133,15 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
           }
         }
         return objectView(await dependencies.objects.put(scope,input.kind as Parameters<SourceObjectService['put']>[1],payload,request.operation_id,authorization.principal_id));
+      }
+      if(action==='source.capabilities.manage')return manageSourceCapability(dependencies.metadata,context,input,request.operation_id,request.idempotency_key);
+      if(action==='source.audit.read'){
+        fields(input,['after_id','limit'],[]);
+        const maximum=input.limit===undefined?100:Number(input.limit);
+        if(!Number.isSafeInteger(maximum)||maximum<1||maximum>1000||input.limit!==undefined&&typeof input.limit!=='number')throw new SourceControlError('LIMIT_EXCEEDED','Audit page must contain between one and 1000 rows');
+        const after=input.after_id===undefined?undefined:parseUUID(input.after_id,'after_id');
+        const records=await dependencies.metadata.transaction(tx=>readSourceAudit(tx,context,{limit:maximum,...(after?{after_id:after}:{})}));
+        return {records,next_after_id:records.length===maximum?records.at(-1)!.id:null};
       }
       if(action==='source.objects.read') {
         fields(input,['object_id'],['object_id']);const result=await dependencies.objects.read(scope,parseObjectId(input.object_id));
@@ -172,8 +191,8 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
         return {...result,operation:{...result.operation,state:result.operation.state==='COMMITTED'?'SUCCEEDED':result.operation.state==='PENDING'?'ADMITTED':result.operation.state}};
       }
       if(action==='source.subscriptions.create') {
-        fields(input,['consumer_id','bootstrap_revision_id'],['consumer_id','bootstrap_revision_id']);
-        return dependencies.metadata.subscribe(context,{consumer_id:parseUUID(input.consumer_id),bootstrap_revision_id:parseObjectId(input.bootstrap_revision_id)});
+        fields(input,['consumer_id','bootstrap_revision_id','retention_max_events','retention_expires_at','expected_previous_epoch'],['consumer_id','bootstrap_revision_id']);
+        return dependencies.metadata.subscribe(context,{consumer_id:parseUUID(input.consumer_id),bootstrap_revision_id:parseObjectId(input.bootstrap_revision_id),...(input.retention_max_events!==undefined?{retention_max_events:input.retention_max_events as number}:{}),...(input.retention_expires_at!==undefined?{retention_expires_at:input.retention_expires_at as string}:{}),...(input.expected_previous_epoch!==undefined?{expected_previous_epoch:input.expected_previous_epoch as string}:{})});
       }
       if(action==='source.subscriptions.poll') {
         fields(input,['consumer_id','subscription_epoch','limit','lease_ms'],['consumer_id','subscription_epoch']);
@@ -218,4 +237,5 @@ export function createSourceApi(dependencies:SourceApiDependencies) {
       throw new SourceControlError('UNSUPPORTED_ACTION','Source operation is not implemented');
     },
   };
+  return api;
 }

@@ -47,10 +47,11 @@ def run_source_actor(actor_path, migrations=None, timeout=120, extra_files=(), a
         subprocess.run([str(ROOT / 'core/control-plane/node_modules/.bin/tsc'), '-p',
                         str(ROOT / 'sdk/source-control/tsconfig.json'), '--outDir', str(folder / 'sdk')],
                        cwd=ROOT, check=True)
+        selected_migrations = list(migrations or ['0736-source-control-storage.sql', '0737-source-control-metadata.sql', '0738-source-control-capabilities.sql', '0739-source-control-workspaces.sql'])
+        if '0737-source-control-metadata.sql' in selected_migrations and '0758-source-control-event-retention.sql' not in selected_migrations:
+            selected_migrations.append('0758-source-control-event-retention.sql')
         env = dict(os.environ, **(actor_env or {}), SOURCE_CONTROL_MODULE_ROOT=str(folder / 'control/source_control'),
                    SOURCE_CONTROL_SDK_MODULE_ROOT=str(folder / 'sdk'),
-                   SOURCE_CONTROL_MIGRATIONS=json.dumps(migrations or [
-                       '0736-source-control-storage.sql', '0737-source-control-metadata.sql',
-                       '0738-source-control-capabilities.sql', '0739-source-control-workspaces.sql']))
+                   SOURCE_CONTROL_MIGRATIONS=json.dumps(selected_migrations))
         return subprocess.run(['node', str(Path(actor_path).resolve()), str(folder / 'control/source_control')],
                               cwd=ROOT, env=env, timeout=timeout).returncode

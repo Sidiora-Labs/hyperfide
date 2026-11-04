@@ -107,7 +107,7 @@ def accept_scheduler_spec(f,tasks):
  f.sql("INSERT INTO hyperfide.run_spec_revisions(organisation_id,run_id,spec_generation,spec_revision_id) VALUES($1,$2,$4,$3)",[i["organisation"],i["run"],i["accepted_spec"],f.spec_generation])
  f.sql("UPDATE hyperfide.runs SET spec_generation=$4,spec_revision_id=$3,state_version=state_version+1 WHERE organisation_id=$1 AND id=$2",[i["organisation"],i["run"],i["accepted_spec"],f.spec_generation])
 class SchedulerFixture(PacketFixture):
- def __init__(self,extra_components=(),extra_setup=None,agent_limit=2,bootstrap=True,sandbox_cpu_limit=8000,sandbox_cpu_headroom=1000,source_object_id=None,extra_env=None,extra_tasks=(),provider_config=None):
+ def __init__(self,extra_components=(),extra_setup=None,agent_limit=2,bootstrap=True,sandbox_cpu_limit=8000,sandbox_cpu_headroom=1000,source_object_id=None,extra_env=None,extra_tasks=(),provider_config=None,credential_actions=None):
   def setup(f):
    packet.apply_migration(f,"0005-scheduling")
    i=f.ids;f.accounts={};f.claims={}
@@ -139,7 +139,7 @@ class SchedulerFixture(PacketFixture):
      policy=copy.deepcopy(f.packet_proof);policy.update(criteria_digest=criteria,spec_revision_id=i["accepted_spec"],spec_generation=f.spec_generation,rubric_digest=f.review_rubric,clauses=[{"id":"5.1","mode":"REVIEW","acceptance_ids":["V-002","V-007"],"reviewers":[i["watcher"]],"rubric_digest":f.review_rubric}])
      f.sql("INSERT INTO hyperfide.proof_registries(organisation_id,run_id,task_id,spec_generation,spec_revision_id,criteria_digest,registry_digest,policy) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",[i["organisation"],i["run"],task_id,f.spec_generation,i["accepted_spec"],criteria,identity(policy),json.dumps(policy)])
    if extra_setup:extra_setup(f)
-  super().__init__(extra_components=("5.1","5.2","5.3","5.4")+tuple(extra_components),extra_setup=setup,bootstrap=bootstrap,seed_historical_runtime=False,extra_env=extra_env,provider_config=provider_config,**({"source_object_id":source_object_id} if source_object_id is not None else {}))
+  super().__init__(extra_components=("5.1","5.2","5.3","5.4")+tuple(extra_components),extra_setup=setup,bootstrap=bootstrap,seed_historical_runtime=False,extra_env=extra_env,provider_config=provider_config,credential_actions=credential_actions,**({"source_object_id":source_object_id} if source_object_id is not None else {}))
   # Explicit trusted fixed test envelope; not provider/kernel measurement evidence.
   qualified=self.primary("return claims.qualifySandboxBudget(tx,data.qualification);",{"qualification":{"organisation_id":self.ids["organisation"],"sandbox_id":self.ids["sandbox"],"sandbox_boot_generation":"1","qualification_id":uid(),"evidence_digest":sha(b"explicit-fixed-test-envelope"),"source":"OPERATOR_FIXED","hard_limits":{"cpu_millis":str(sandbox_cpu_limit),"memory_bytes":"17179869184","disk_bytes":"34359738368"},"headroom":{"cpu_millis":str(sandbox_cpu_headroom),"memory_bytes":"1073741824","disk_bytes":"0"}}})
   expect("result" in qualified,"Trusted fixture budget failed: "+json.dumps(qualified))

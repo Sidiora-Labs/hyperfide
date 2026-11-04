@@ -12,6 +12,7 @@ export interface ObjectUpload extends StoredObject {upload_id:string;operation_i
 export interface SourceObjectCatalog {
  begin(scope:SourceStorageScope,request:{operation_id:string;object_id:string;kind:SourceObjectKind;size_bytes:string;owner_principal_id?:string}):Promise<ObjectUpload>;
  lookup(scope:SourceStorageScope,object_id:string):Promise<StoredObject|null>;
+ lookupMany?(scope:SourceStorageScope,object_ids:readonly string[]):Promise<StoredObject[]>;
  upload(scope:SourceStorageScope,upload_id:string):Promise<ObjectUpload>;
  unknown(scope:SourceStorageScope,upload_id:string):Promise<void>;
  verify(scope:SourceStorageScope,upload_id:string,children:readonly string[],metadata?:{tree_prefix:string|null}):Promise<VerifiedObject>;

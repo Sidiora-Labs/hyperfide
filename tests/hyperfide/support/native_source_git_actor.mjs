@@ -10,7 +10,7 @@ import {createNativeAcceptanceFixture} from './native_source_acceptance_fixture.
 const moduleRoot=process.env.SOURCE_CONTROL_MODULE_ROOT;
 assert(moduleRoot&&process.env.SOURCE_CONTROL_SDK_MODULE_ROOT);
 const load=name=>import(pathToFileURL(path.join(moduleRoot,name+'.js')));
-const [{SourceGitProjector},{createLocalGitDestination},{gitObjectId},{sourcePublicationDestinations}]=await Promise.all([load('git/projection'),load('git/transport'),load('git/objects'),load('publication_config')]);
+const [{SourceGitProjector},{createLocalGitDestination},{gitObjectId,gitCommitPayload},{sourcePublicationDestinations}]=await Promise.all([load('git/projection'),load('git/transport'),load('git/objects'),load('publication_config')]);
 const scope={organisation_id:randomUUID(),repository_id:randomUUID(),security_domain_id:randomUUID()};
 const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'hf-native-git-'));
 const checks=[],metrics=[];
@@ -101,6 +101,23 @@ try{
   for(const forbidden of [scope.organisation_id,scope.repository_id,scope.security_domain_id,fixture.roles.author.credential_id])assert(!commit.includes(forbidden));
   assert(maxChunk<=4*1024*1024);
   checks.push('actual Git hashing, fsck, cat-file and ls-tree validate deterministic commits, ordered parents, exact binary/chunked content, UTF-8 names, executable and symlink modes, and directory ordering');
+  const checkpointWorkspace=randomUUID(),checkpointOperation=randomUUID();
+  await client.call('source.workspaces.open',{workspace_id:checkpointWorkspace,base_revision_id:original.revision_id,mode:'API_ONLY',read_paths:['main.txt'],write_paths:['main.txt']});
+  const checkpoint=await client.call('source.workspaces.checkpoint',{workspace_id:checkpointWorkspace,operation_id:checkpointOperation,expected_workspace_generation:'1',expected_scope_generation:'1',base_revision_id:original.revision_id,overlay_generation:'1',changes:[]},{operation_id:checkpointOperation,idempotency_key:checkpointOperation});
+  const checkpointRevision=await client.revision(checkpoint.revision_id);
+  assert.equal(checkpointRevision.descriptor.provenance.author.name,'Hyperfide');
+  assert.equal(checkpointRevision.descriptor.provenance.author.email,'');
+  const checkpointProjection=await project(checkpoint.revision_id);
+  for(const object of checkpointProjection.objects){const parts=[];for await(const chunk of object.content())parts.push(Buffer.from(chunk));assert.equal(git(paths.verify,['hash-object','-w','-t',object.kind,'--stdin'],Buffer.concat(parts)).toString().trim(),raw(object.oid));}
+  git(paths.verify,['update-ref','refs/heads/workspace-checkpoint',raw(checkpointProjection.head_oid)]);
+  git(paths.verify,['fsck','--full','--strict']);
+  const checkpointGit=git(paths.verify,['cat-file','commit',raw(checkpointProjection.head_oid)]).toString();
+  assert.match(checkpointGit,/^author Hyperfide <> [0-9]+ \+0000$/m);
+  assert.match(checkpointGit,/^committer Hyperfide <> [0-9]+ \+0000$/m);
+  for(const author of [{name:'Injected\nName',email:''},{name:'Hyperfide',email:'injected> <address'},{name:' Hyperfide',email:''},{name:'Hyperfide',email:' address@example.invalid'}])
+    assert.throws(()=>gitCommitPayload(checkpointProjection.root_tree_oid,[],{...checkpointRevision.descriptor.provenance,author}),error=>error.code==='UNSUPPORTED_GIT_METADATA');
+  checks.push('an actual workspace checkpoint preserves Hyperfide with an empty email in Git author and committer fields, passes strict Git fsck, and retains identity injection checks');
+
   const repeatedProjection=await project(merged.revision_id);
   assert.equal(repeatedProjection.head_oid,cold.head_oid);assert.equal(repeatedProjection.root_tree_oid,cold.root_tree_oid);
   const noChange=await fixture.createRevision({root_tree_id:mergeRoot,parent_revision_ids:[merged.revision_id],message:'public no-content change'});

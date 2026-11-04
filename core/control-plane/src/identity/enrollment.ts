@@ -5,7 +5,9 @@ import {assertPrimaryTransaction} from '../storage/transactions.js';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {object} from '../policy/programme.js';
 import {assertFleetBootstrapIdentity} from '../agents/fleet_bootstrap.js';
-import {decodeSourceRequest,parseSourceRequest} from '../source_control/contracts.js';
+import {SOURCE_BATCH_READ_ACTIONS} from '../source_control/batch.js';
+import type {SourceRequest} from '../source_control/contracts.js';
+import {canonicalBytes,decodeSourceRequest,parseSourceRequest} from '../source_control/contracts.js';
 import type {InvokePayload} from '../transport/protocol.js';
 import {assertInvocation,authenticatedInvocation,base64,canonicalOrigin,decodeEnrollment,decodeInvoke,decimal,enrollmentSecret,exact,fail,frozen,hash,NAME,proof,strictJSON,uuid,verifyProof} from '../transport/protocol.js';
 import type {AuthorityTransaction,InvocationContext,Operation,Principal} from '../transport/protocol.js';
@@ -17,7 +19,7 @@ export interface FreshRunnerObservation {credential_id:string;sandbox_id:string;
 export interface MainSessionIdentityBinding {readonly organisation_id:string;readonly run_id:string;readonly session_id:string;readonly role:'LEADER'|'FEATURE_MANAGER';readonly placement:'MAIN';readonly native_session_id:string;readonly registration_receipt_digest:string}
 export interface MainSessionIdentityVerifier {verify(tx:PrimaryTransaction,scope:{organisation_id:string;run_id:string;session_id:string},invocation:InvocationContext):Promise<MainSessionIdentityBinding>}
 export type SourceWorkerEnroller=(tx:PrimaryTransaction,invocation:InvocationContext,credentialId:string)=>Promise<unknown>;
-export interface IdentityAuthority {installSourceWorkerEnroller(enroller:SourceWorkerEnroller):void;installMainSessionVerifier(verifier:MainSessionIdentityVerifier):void;sealTrustedRegistrations():void;verifyFreshRunner(i:InvocationContext,tx:IdentityTransaction,target:FreshRunnerTarget):Promise<FreshRunnerObservation>;readonly origin:string;guard(tx:IdentityTransaction,p:Principal):Promise<void>;authenticate(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<InvocationContext>;authenticateSource(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<InvocationContext>;enroll(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<unknown>;authorize(i:InvocationContext):Promise<void>}
+export interface IdentityAuthority {deriveSourceRead?:(parent:InvocationContext,request:SourceRequest,signal:AbortSignal)=>Promise<InvocationContext>;installSourceWorkerEnroller(enroller:SourceWorkerEnroller):void;installMainSessionVerifier(verifier:MainSessionIdentityVerifier):void;sealTrustedRegistrations():void;verifyFreshRunner(i:InvocationContext,tx:IdentityTransaction,target:FreshRunnerTarget):Promise<FreshRunnerObservation>;readonly origin:string;guard(tx:IdentityTransaction,p:Principal):Promise<void>;authenticate(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<InvocationContext>;authenticateSource(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<InvocationContext>;enroll(body:Buffer,headers:readonly string[],signal:AbortSignal):Promise<unknown>;authorize(i:InvocationContext):Promise<void>}
 const agentRoles=['LEADER','FEATURE_MANAGER','WORKER','COMMIT_WATCHER','ISSUE_WATCHER','VERIFIER','INTEGRATOR','INDEXER'];
 const allRoles=[...agentRoles,'OPERATOR','COORDINATOR','PROVISIONER','DISPATCH','RUNNER','GITHUB_MIRROR'];
 export function invocationOf(ctx:ComponentContext):InvocationContext {const i=(ctx as ComponentContext&{invocation?:InvocationContext}).invocation;assertInvocation(i);return i;}
@@ -154,6 +156,30 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
    }});
   await authorize(i);return i;
  };
+ const deriveSourceRead=async(parent:InvocationContext,value:SourceRequest,signal:AbortSignal):Promise<InvocationContext>=>{
+  assertInvocation(parent);
+  const request=parseSourceRequest(value),outer=parseSourceRequest(parent.payload.input);
+  if(parent.payload.component!=='source-control'||parent.payload.action!=='source.queries.batch'||!SOURCE_BATCH_READ_ACTIONS.has(request.action)||
+   request.operation_id!==parent.operation.operation_id||hash(Buffer.from(canonicalBytes(request.scope)))!==hash(Buffer.from(canonicalBytes(outer.scope)))||
+   hash(Buffer.from(canonicalBytes(request.authority??null)))!==hash(Buffer.from(canonicalBytes(outer.authority??null)))||request.causal_token!==outer.causal_token)
+   fail('AUTH_SCOPE_DENIED','Source child invocation differs from admitted batch authority');
+  const outerInput=outer.input as {items?:{action?:unknown;input?:unknown}[]};
+  const member=Array.isArray(outerInput?.items)&&outerInput.items.some(item=>{
+   if(item.action!==request.action)return false;
+   if(hash(Buffer.from(canonicalBytes(item.input)))===hash(Buffer.from(canonicalBytes(request.input))))return true;
+   if(!request.action.startsWith('source.queries.')||!object(item.input)||!object(request.input)||!object(request.input.budget))return false;
+   const originalBudget=item.input.budget===undefined?{}:item.input.budget;
+   if(!object(originalBudget))return false;
+   const requested=request.input.budget.max_ms,maximum=originalBudget.max_ms??5000;
+   if(typeof requested!=='number'||typeof maximum!=='number'||requested<1||requested>maximum)return false;
+   const a={...originalBudget},b={...request.input.budget};delete a.max_ms;delete b.max_ms;
+   return hash(Buffer.from(canonicalBytes({...item.input,budget:a})))===hash(Buffer.from(canonicalBytes({...request.input,budget:b})));
+  });
+  if(!member)fail('AUTH_SCOPE_DENIED','Source child is not an original signed batch member');
+  await g.withPrimaryTransaction({timeoutMs:5000,signal,guard:parent.guard},async()=>{});
+  return invocation(parent.principal,{...parent.operation,payload_digest:hash(Buffer.from(canonicalBytes(request)))},
+   {...parent.payload,action:request.action,input:request},signal);
+ };
  const authenticate:IdentityAuthority['authenticate']=async(body,headers,signal)=>{
   const decoded=decodeInvoke(body),p=await authenticatePrincipal(body,headers,signal,'/v1/invoke');
   return invocation(p,decoded.operation,decoded.payload,signal);
@@ -184,7 +210,7 @@ export async function createComponent(ctx:ComponentContext):Promise<Component>{
  await assertBoundPrincipal(tx,principal(r));const now=(await tx.query('SELECT clock_timestamp() AS db_now')).rows[0]!.db_now;if(new Date(r.heartbeat_at).getTime()>new Date(now).getTime())fail('ENROLLMENT_OBSERVATION_STALE','Runner observation cannot come from the future');
  return frozen({credential_id:r.credential_id,sandbox_id:r.sandbox_id,boot_id:r.boot_id,boot_generation:String(r.boot_generation),grant_id:r.grant_id,provisioning_intent_id:r.provisioning_intent_id,heartbeat_at:new Date(r.heartbeat_at).toISOString(),observation_only:true,authority:'NONE'});
  };
- const authority:IdentityAuthority=Object.freeze({installSourceWorkerEnroller,installMainSessionVerifier,sealTrustedRegistrations,verifyFreshRunner,origin:c.origin,guard:assertBoundPrincipal,authenticate,authenticateSource,enroll,authorize});
+ const authority:IdentityAuthority=Object.freeze({deriveSourceRead,installSourceWorkerEnroller,installMainSessionVerifier,sealTrustedRegistrations,verifyFreshRunner,origin:c.origin,guard:assertBoundPrincipal,authenticate,authenticateSource,enroll,authorize});
  const action=(name:string,fn:(tx:IdentityTransaction,v:Record<string,unknown>,i:InvocationContext)=>Promise<unknown>)=>async(v:unknown,context:ComponentContext)=>identityTransaction(context,async(tx,i)=>{if(!object(v))fail('INVALID_REQUEST','Object input required');await authorize(i);
  // The signed envelope expected_version is the optimistic version dispatched to the action; it cannot diverge from the input it covers.
  if(i.payload.expected_version!==null&&(!Object.hasOwn(v,'expected_version')||v.expected_version!==i.payload.expected_version))fail('VERSION_CONFLICT','Envelope expected_version differs from operation input');return recorded(tx,i.principal.credential_id,name,i.operation,()=>fn(tx,v,i));});

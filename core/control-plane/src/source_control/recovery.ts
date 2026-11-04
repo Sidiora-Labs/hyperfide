@@ -1,6 +1,6 @@
 import {parseObjectId,parseUUID,SourceControlError} from './contracts.js';
 import {sourceDigest,sourceScopeValues,SourceMetadata,type SourceContext} from './metadata.js';
-import type {SourceBackupService} from './backup.js';
+import type {SourceBackupService,SourcePublicationReconciler} from './backup.js';
 import type {SourceTransaction} from './storage_contract.js';
 export interface SourceRecoveryProfile {
  schema_version:1;profile_id:string;
@@ -30,18 +30,20 @@ export function parseRecoveryProfile(value:unknown):SourceRecoveryProfile{
 
 export async function assertSourceRecoveryAdmission(tx:SourceTransaction,scope:SourceContext['scope'],action:string,mutation=true):Promise<void>{
  const readOnly=action==='source.capabilities'||action.startsWith('source.queries.')||action==='source.changes.revisions'||['.read','.inspect','.detail','.query','.entries','.lookup','.poll','.manifest'].some(suffix=>action.endsWith(suffix));
- const recovery=['source.backups.read','source.backups.verify','source.recovery.profile','source.recovery.readiness','source.recovery.prepare','source.recovery.activate','source.workspaces.close','source.operations.cancel','source.publications.cancel'].includes(action);
- if(!mutation||readOnly||recovery)return;
+ const recovery=['source.backups.read','source.backups.verify','source.recovery.profile','source.recovery.readiness','source.recovery.prepare','source.recovery.activate','source.recovery.reconcile','source.workspaces.close','source.operations.cancel','source.publications.cancel'].includes(action);
+ const reconcile=action==='source.recovery.reconcile';
+ if(!mutation||readOnly||recovery&&!reconcile)return;
  if(!(await tx.query("SELECT to_regclass('hyperfide.source_recovery_state') IS NOT NULL AS present")).rows[0]?.present)return;
  const state=(await tx.query('SELECT state,deployment_id,external_epoch FROM hyperfide.source_recovery_state WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 FOR SHARE',sourceScopeValues(scope))).rows[0];
  if(state){if(!(await tx.query("SELECT to_regclass('hyperfide.authority_epochs') IS NOT NULL AS present")).rows[0]?.present||!(await tx.query("SELECT 1 FROM hyperfide.authority_epochs WHERE deployment_id=$1 AND epoch=$2 AND state='ACTIVE' FOR SHARE",[state.deployment_id,state.external_epoch])).rows.length)throw new SourceControlError('RECOVERY_NOT_READY','Source authority is not activated for the current external epoch');}
- if(state?.state==='VERIFYING')throw new SourceControlError('RECOVERY_NOT_READY','Source mutation is fenced until restored closure verification and activation complete');
+ if(reconcile&&state?.state!=='VERIFYING')throw new SourceControlError('RECOVERY_NOT_READY','Effect reconciliation requires a prepared restore');
+ if(state?.state==='VERIFYING'&&!reconcile)throw new SourceControlError('RECOVERY_NOT_READY','Source mutation is fenced until restored closure verification and activation complete');
 }
 
 export interface SourceExternalActivation {operation_id:string;expected_external_epoch:string;expected_database_epoch:string|null;activated_epoch:string}
 export interface SourceRecoveryAuthority {verify(input:SourceExternalActivation):Promise<{epoch:string;proof_digest:string;deployment_id:string}>}
 export class SourceRecoveryService {
- constructor(private readonly metadata:SourceMetadata,private readonly backups:SourceBackupService,private readonly authority?:SourceRecoveryAuthority){}
+ constructor(private readonly metadata:SourceMetadata,private readonly backups:SourceBackupService,private readonly authority?:SourceRecoveryAuthority,private readonly publication?:SourcePublicationReconciler){}
  profile(input:unknown){const profile=parseRecoveryProfile(input);return {profile,profile_digest:sourceDigest(profile)};}
  async readiness(context:SourceContext,input:{backup_id:string}){return this.backups.read(context,input.backup_id);}
  async prepare(context:SourceContext,input:SourceExternalActivation&{backup_id:string}){
@@ -49,6 +51,7 @@ export class SourceRecoveryService {
   const proof=await this.authority.verify(input);if(proof.epoch!==input.activated_epoch)throw new SourceControlError('STALE_AUTHORITY','External activation differs');
   return this.backups.invalidateVerification(context,input.backup_id,input.operation_id,{deployment_id:proof.deployment_id,epoch:proof.epoch});
  }
+ reconcile(context:SourceContext,input:{backup_id:string;operation_id:string;limit:number},signal?:AbortSignal){return this.backups.reconcileEffects(context,input,this.publication,signal);}
  async activate(context:SourceContext,input:SourceExternalActivation&{backup_id:string}){
   parseUUID(input.backup_id,'backup_id');parseUUID(input.operation_id,'operation_id');parseUUID(input.expected_external_epoch,'expected_external_epoch');parseUUID(input.activated_epoch,'activated_epoch');if(input.expected_database_epoch!==null)parseUUID(input.expected_database_epoch,'expected_database_epoch');
   if(!this.authority)throw new SourceControlError('EXTERNAL_AUTHORITY_REQUIRED','A trusted independent activation verifier is required');
@@ -59,6 +62,7 @@ export class SourceRecoveryService {
    const backup=(await tx.query('SELECT *,source_epoch::text,clock_timestamp() AS server_now FROM hyperfide.source_backups WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND backup_id=$4 FOR UPDATE',[...sourceScopeValues(context.scope),input.backup_id])).rows[0];
    if(!backup||backup.verification_operation_id!==input.operation_id||!['READY','ACTIVATED'].includes(backup.state)||new Date(backup.expires_at).getTime()<=new Date(backup.server_now).getTime())throw new SourceControlError('BACKUP_NOT_READY','Verified unexpired backup required');
    if(backup.state==='ACTIVATED'){if(backup.recovery_result.operation_id!==input.operation_id||backup.recovery_result.external_epoch!==proof.epoch)throw new SourceControlError('IDEMPOTENCY_CONFLICT','Backup already activated by another operation');return backup.recovery_result;}
+   await this.backups.assertEffectsResolved(tx,context,input.backup_id,backup.manifest);
    if(new Date(backup.server_now).getTime()-Date.parse(backup.manifest.captured_at)>backup.profile.backup.maximum_age_seconds*1000)throw new SourceControlError('BACKUP_TOO_OLD','Backup exceeds the declared recovery age');
    const runtime=(await tx.query("SELECT current_setting('fsync') AS fsync,current_setting('synchronous_commit') AS commit,(SELECT count(*)::integer FROM pg_stat_replication WHERE state='streaming' AND sync_state IN ('sync','quorum')) AS replicas")).rows[0];
    if(runtime?.fsync!=='on'||!['on','remote_apply'].includes(runtime.commit)||backup.profile.metadata.acknowledgment==='SYNC_REPLICA'&&runtime.replicas<1)throw new SourceControlError('DURABILITY_NOT_READY','Restored metadata does not satisfy the declared acknowledgment policy');

@@ -106,7 +106,7 @@ export function specScope(context:ComponentContext):SpecScope{
  return {organisation_id:env.HF_SPEC_ORGANISATION_ID,project_id:env.HF_SPEC_PROJECT_ID,run_id:context.policy.programme_id,
  authority_epoch:env.HF_AUTHORITY_EPOCH,root:env.HF_SPEC_ALLOWED_ROOT,allowed_actions:context.policy.allowed_actions};
 }
-export function validateImport(value:unknown,scope:SpecScope):ImportEnvelope{
+export function validateImport(value:unknown,scope:Omit<SpecScope,'authority_epoch'>):ImportEnvelope{
  const input=fields(value,['run_id','source','repositories','allowed_actions','closure_policy','provenance']);
  if(input.run_id!==scope.run_id)fail('SCOPE_MISMATCH','Run is outside the trusted service scope');
  const source=fields(input.source,['relative_path','sha256','size_bytes']);
@@ -216,7 +216,7 @@ function summary(run:PinnedRun):unknown{
  spec_generation:run.spec_generation,state_version:run.state_version,state:run.state,validation_status:run.state==='PENDING_VALIDATION'?'PENDING':'NOT_ASSERTED',
  counts:run.document.parsed.counts};
 }
-export async function prepareAcceptedIntent(scope:SpecScope,raw:unknown,rawSource?:Buffer){
+export async function prepareAcceptedIntent(scope:Omit<SpecScope,'authority_epoch'>,raw:unknown,rawSource?:Buffer){
  const input=validateImport(raw,scope);
  const source=rawSource===undefined?await readPinnedSource(scope.root,input.source):{bytes:rawSource,text:new TextDecoder('utf-8',{fatal:true}).decode(rawSource)};
  if(source.bytes.length!==Number(input.source.size_bytes)||digest(source.bytes)!=='sha256:'+input.source.sha256||!Buffer.from(source.text,'utf8').equals(source.bytes)||source.text.includes('\0'))fail('DIGEST_MISMATCH','Stored proposed intent differs from its immutable source pin');

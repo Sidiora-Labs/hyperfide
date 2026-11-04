@@ -11,7 +11,7 @@ import {completeInventory,configuredRailwayIsolationTransport} from '../provider
 import {configuredClient} from '../providers/railway/preparation.js';
 import type {ProviderScope} from '../providers/contract.js';
 import {importVerifiedIntentInTransaction,verifyGreenfieldMetadata,type BootstrapMetadata} from '../spec/bootstrap.js';
-import type {SpecScope} from '../spec/import.js';
+import {prepareAcceptedIntent,type SpecScope} from '../spec/import.js';
 import type {GreenfieldBootstrapArguments} from '../storage/durability.js';
 import {createBlaxelIsolationTransport} from '../providers/blaxel/processes.js';
 import {completeBlaxelGreenfieldInventory} from '../providers/blaxel/inventory.js';
@@ -187,6 +187,7 @@ async function greenfieldArguments(env:Readonly<NodeJS.ProcessEnv>,deps:Bootstra
  if(!root||!path.isAbsolute(root))fail('BOOTSTRAP_POLICY_REQUIRED','A trusted accepted-intent source root is required');
  const scope:Omit<SpecScope,'authority_epoch'>={organisation_id:t.organisation_id,project_id:t.project_id,run_id:t.run_id,root,allowed_actions:[...derived.intent.scope.allowed_actions]};
  const metadata:BootstrapMetadata=await verifyGreenfieldMetadata(derived.intent.metadata,scope);
+ await prepareAcceptedIntent(scope,derived.intent.accepted_intent);
  const journal=new FileExternalFenceJournal(await privateTarget(env.HYPERFIDE_EXTERNAL_FENCE_JOURNAL_DIR,'EXTERNAL_FENCE_JOURNAL_UNSAFE',true));
  const probe={
   database:async()=>({...await read(tx=>greenfieldCounts(tx,t.deployment_id,t.organisation_id)),observed_at:new Date().toISOString()}),

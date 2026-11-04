@@ -43,8 +43,8 @@ export async function createRevisionInTransaction(store: SourceMetadata, tx: Sou
  const resultDigest = sourceDigest(body);
  const receipt: RevisionReceipt = {...body, result_digest: resultDigest, causal_token: Buffer.from(JSON.stringify([1, context.scope, context.authority_epoch, operation.operation_id, resultDigest])).toString('base64url')};
  const eventId = randomUUID();
- const inserted = await tx.query("INSERT INTO hyperfide.source_events(organisation_id,repository_id,security_domain_id,event_id,aggregate_id,aggregate_generation,event_type,payload) VALUES($1,$2,$3,$4,$5,1,'REVISION_CREATED',$6) ON CONFLICT(organisation_id,repository_id,security_domain_id,aggregate_id,aggregate_generation) DO NOTHING RETURNING event_id", [...scope, eventId, input.change_id + '/' + revisionId, receipt]);
- if (inserted.rows.length) await tx.query("INSERT INTO hyperfide.source_event_deliveries(organisation_id,repository_id,security_domain_id,consumer_id,event_id,state) SELECT organisation_id,repository_id,security_domain_id,consumer_id,$4,'PENDING' FROM hyperfide.source_event_consumers WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 ON CONFLICT DO NOTHING", [...scope, eventId]);
+ await tx.query("INSERT INTO hyperfide.source_events(organisation_id,repository_id,security_domain_id,event_id,aggregate_id,aggregate_generation,event_type,payload) VALUES($1,$2,$3,$4,$5,1,'REVISION_CREATED',$6) ON CONFLICT(organisation_id,repository_id,security_domain_id,aggregate_id,aggregate_generation) DO NOTHING RETURNING event_id", [...scope, eventId, input.change_id + '/' + revisionId, receipt]);
+
  await tx.query("UPDATE hyperfide.source_metadata_operations SET state='COMMITTED',result=$6,result_digest=$7,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5 AND state='PENDING'", [...scope, context.principal_id, operation.operation_id, receipt, resultDigest]);
  return receipt;
 }

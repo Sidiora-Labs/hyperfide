@@ -12,7 +12,7 @@ legacy=importlib.util.module_from_spec(spec);spec.loader.exec_module(legacy)
 sys.path.insert(0,str(ROOT/'tests/hyperfide/support'))
 from identity_fixture import IdentityFixture
 canonical,private,outcome,sign,signing_input,envelope=legacy.canonical,legacy.private,legacy.outcome,legacy.sign,legacy.signing_input,legacy.envelope
-IDS=['greenfield.topology-consistent','greenfield.payload-scoped','greenfield.seal-verified','greenfield.legacy-writer-refused','greenfield.resources-refused','greenfield.legacy-permit-refused','greenfield.history-refused','greenfield.run-present-refused','greenfield.database-sandbox-present-refused','greenfield.provider-sandbox-present-refused','greenfield.no-epoch-before-activation','greenfield.control-refused-before-activation','greenfield.activated','greenfield.single-bootstrap-epoch','greenfield.rows-minted-in-epoch','greenfield.evidence-retained','greenfield.inventory-read-only','greenfield.control-adopts','greenfield.provisioner-adopts','greenfield.dispatch-adopts','greenfield.followers-no-mint','greenfield.control-starts','greenfield.first-operator-issued','greenfield.no-signing-key-read','greenfield.legacy-unchanged']
+IDS=['greenfield.invalid-intent-before-journal','greenfield.topology-consistent','greenfield.payload-scoped','greenfield.seal-verified','greenfield.legacy-writer-refused','greenfield.resources-refused','greenfield.legacy-permit-refused','greenfield.history-refused','greenfield.run-present-refused','greenfield.database-sandbox-present-refused','greenfield.provider-sandbox-present-refused','greenfield.no-epoch-before-activation','greenfield.control-refused-before-activation','greenfield.activated','greenfield.single-bootstrap-epoch','greenfield.rows-minted-in-epoch','greenfield.evidence-retained','greenfield.inventory-read-only','greenfield.control-adopts','greenfield.provisioner-adopts','greenfield.dispatch-adopts','greenfield.followers-no-mint','greenfield.control-starts','greenfield.first-operator-issued','greenfield.no-signing-key-read','greenfield.legacy-unchanged']
 ACTIONS=['identity.describe']
 RECORDER=r"""
 import fs from 'node:fs';
@@ -63,14 +63,14 @@ def main():
    'HYPERFIDE_EXTERNAL_FENCE_JOURNAL_DIR':str(control/'fences'),'HYPERFIDE_ISOLATION_PERMIT_VERIFIER_FILE':str(verifier),'HYPERFIDE_BOOTSTRAP_SOURCE_ROOT':str(control/'source'),'HF29_12_RECORD':str(record),'HF29_12_OCCUPIED':str(occupied)}
   for k in ['HF_LEGACY_WRITER_CONFIG_FILE','HYPERFIDE_POOL_CONFIG','HYPERFIDE_WRITER_ISOLATION_CONFIG','HYPERFIDE_ISOLATION_PERMIT_FILE','HYPERFIDE_GREENFIELD_INTENT_FILE']:common.pop(k,None)
   limits={'SANDBOX':'100','PROVISIONING':'10','CPU_MILLIS':'1000000','MEMORY_BYTES':'107374182400','DISK_BYTES':'1073741824000'}
-  def scenario(name,deployment,org,project,run_id):
+  def scenario(name,deployment,org,project,run_id,actions=ACTIONS):
    d=control/name;d.mkdir(mode=0o700);pool=str(uuid.uuid4())
    private(d/'pools.json',json.dumps({'schema_version':1,'organisation_id':org,'revision':'29.12-greenfield-'+name,'accounts':[{'provider':'railway','account_key':'fixture-account','approved_limits':limits,'planning_limits':limits}],
     'pools':[{'id':pool,'provider':'railway','account_key':'fixture-account','environment_key':'fixture-env','region':'fixture-region','profile_id':None,'preparation_digest':f.preparation,'approved_limits':limits,'planning_limits':limits,'create_policy':{'seed_reference':'fixture-seed','network':'ISOLATED','stdin_required':False}}],'maximum_operation_ms':10000}))
    repo=str(uuid.uuid4())
    metadata={'organisation':{'id':org,'name':'greenfield'},'project':{'id':project,'name':'greenfield'},'repositories':[{'id':repo,'name':'greenfield','url':'https://example.invalid/greenfield.git','object_format':'sha1','checkout_root':str(ROOT),'source_objects':[{'object_id':oid,'object_type':'commit'}]}]}
-   accepted={'run_id':run_id,'source':{'relative_path':source.name,'sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'size_bytes':str(source.stat().st_size)},'repositories':[{'repository_id':repo,'source_object_id':oid,'integration_ref':'refs/heads/greenfield'}],'allowed_actions':ACTIONS,'closure_policy':{'required_evidence':['fixture.compile'],'required_review_roles':['VERIFIER'],'publication':'AFTER_QUALIFICATION'},'provenance':None}
-   private(d/'intent.json',json.dumps({'schema_version':1,'scope':{'organisation_id':org,'project_id':project,'run_id':run_id,'allowed_actions':ACTIONS},'metadata':metadata,'accepted_intent':accepted}))
+   accepted={'run_id':run_id,'source':{'relative_path':source.name,'sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'size_bytes':str(source.stat().st_size)},'repositories':[{'repository_id':repo,'source_object_id':oid,'integration_ref':'refs/heads/greenfield'}],'allowed_actions':actions,'closure_policy':{'required_evidence':['fixture.compile'],'required_review_roles':['VERIFIER'],'publication':'AFTER_QUALIFICATION'},'provenance':None}
+   private(d/'intent.json',json.dumps({'schema_version':1,'scope':{'organisation_id':org,'project_id':project,'run_id':run_id,'allowed_actions':actions},'metadata':metadata,'accepted_intent':accepted}))
    isolation={'schema_version':1,'scope':'GREENFIELD','deployment_id':deployment,'organisation_id':org,'run_id':run_id,'source_epoch':None,'topology_digest':'sha256:'+'0'*64,'evidence_scope':'LIVE_PROVIDER','maximum_operation_ms':20000,'proof_max_age_ms':20000,'resources':[]}
    env={**common,'HYPERFIDE_DEPLOYMENT_ID':deployment,'HYPERFIDE_POOL_CONFIG':str(d/'pools.json'),'HYPERFIDE_GREENFIELD_INTENT_FILE':str(d/'intent.json'),'HYPERFIDE_WRITER_ISOLATION_CONFIG':str(d/'isolation.json'),'HYPERFIDE_ISOLATION_PERMIT_FILE':str(d/'permit.json')}
    private(d/'isolation.json',json.dumps(isolation))
@@ -93,6 +93,9 @@ def main():
    p=run(migrate+[operation],env,cwd=release);v=outcome(p);o[name+'-response']=v
    return p.returncode==1 and v.get('ok') is False and v.get('error',{}).get('code')==code and len(epochs(deployment))==history and not (control/'leader'/(deployment+'.authority.json')).exists()
 
+  invalid=scenario('invalid-intent',str(uuid.uuid4()),str(uuid.uuid4()),str(uuid.uuid4()),str(uuid.uuid4()),actions=['identity.action'+str(i) for i in range(129)])
+  invalid_operation=str(uuid.uuid4());permit(invalid,invalid_operation,'invalid-intent')
+  o['invalid-intent-before-journal']=refused('invalid-intent',invalid['env'],invalid_operation,'INVALID_REQUEST',invalid['deployment'])
   g=scenario('greenfield',str(uuid.uuid4()),str(uuid.uuid4()),str(uuid.uuid4()),str(uuid.uuid4()));D=g['digest'];t=g['second'].get('topology',{})
   o['topology-consistent']=g['first'].get('consistent') is False and g['second'].get('consistent') is True and D==g['first'].get('topology_digest') and t.get('scope')=='GREENFIELD' and t.get('resources')==[] and t.get('required_writer_ids')==[] and t.get('legacy_status')=='NONE' and t.get('source_epoch') is None and [x['pool_id'] for x in t.get('provider_scopes',[])]==[g['pool']] and t.get('organisation_id')==g['org'] and t.get('project_id')==g['project'] and t.get('run_id')==g['run']
   operation=str(uuid.uuid4());payload_result,out,sig,sealed,verified=permit(g,operation)

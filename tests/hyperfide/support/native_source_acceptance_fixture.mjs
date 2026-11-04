@@ -21,14 +21,14 @@ export async function createNativeAcceptanceFixture(options={}) {
     load('registration'),load('http'),load('s3'),load('contracts'),
     import(pathToFileURL(path.join(sdkRoot,'client.js'))),load('authentication'),load('capabilities'),load('metadata'),load('candidates'),
   ]);
-  const actions=options.actions??SOURCE_ACTIONS.filter(action=>!['source.retention.','source.collection.','source.graph.','source.imports.','source.projections.','source.contributions.','source.migration.','source.backups.','source.recovery.','source.routing.'].some(prefix=>action.startsWith(prefix)));
+  const actions=options.actions??SOURCE_ACTIONS.filter(action=>action!=='source.queries.batch'&&!['source.queue.','source.retention.','source.collection.','source.graph.','source.imports.','source.projections.','source.contributions.','source.migration.','source.backups.','source.recovery.','source.routing.'].some(prefix=>action.startsWith(prefix)));
   assert(actions.length>0&&actions.length<=64&&new Set(actions).size===actions.length&&actions.every(action=>SOURCE_ACTIONS.includes(action)),'Fixture requires one through 64 explicit supported capability actions');
   const pool=options.pool??new pg.Pool({connectionString:process.env.DATABASE_URL,max:16});
   const ownsPool=!options.pool;
   const backend=await createSourceS3Fixture();
   const controller=new AbortController();
   const scope=options.scope??{organisation_id:randomUUID(),repository_id:randomUUID(),security_domain_id:randomUUID()};
-  const sourcePolicy='native-acceptance-fixture-v1';
+  const sourcePolicy=options.sourcePolicy??'native-acceptance-fixture-v1';
   const roles=Object.fromEntries(['author','checker'].map(role=>[role,{principal_id:randomUUID(),credential_id:randomUUID(),capability_id:randomUUID()}]));
   const {privateKey,publicKey}=generateKeyPairSync('ed25519');
   const trust={issuer:'native-acceptance-fixture',audience:'native-source-acceptance',keys:{'fixture-source-key':publicKey},max_ttl_seconds:300};
@@ -48,7 +48,10 @@ export async function createNativeAcceptanceFixture(options={}) {
       for(const migration of JSON.parse(process.env.SOURCE_CONTROL_MIGRATIONS))
         await pool.query(await fs.readFile(path.join(ROOT,'core/control-plane/migrations',migration),'utf8'));
     }
-    await pool.query('INSERT INTO hyperfide.source_authority_domains(organisation_id,repository_id,security_domain_id,authority_epoch,policy_version) VALUES($1,$2,$3,1,$4)',[...Object.values(scope),sourcePolicy]);
+    if(options.existingRepository){
+      const row=(await pool.query('SELECT r.authority_epoch::text,r.policy_version,d.enabled,d.authority_epoch::text AS domain_epoch,d.policy_version AS domain_policy FROM hyperfide.source_repositories r JOIN hyperfide.source_authority_domains d USING(organisation_id,repository_id,security_domain_id) WHERE r.organisation_id=$1 AND r.repository_id=$2 AND r.security_domain_id=$3',Object.values(scope))).rows[0];
+      assert(row&&row.enabled&&row.authority_epoch==='1'&&row.domain_epoch==='1'&&row.policy_version===sourcePolicy&&row.domain_policy===sourcePolicy,'Existing fixture repository must match exact active scope, epoch and policy');
+    }else await pool.query('INSERT INTO hyperfide.source_authority_domains(organisation_id,repository_id,security_domain_id,authority_epoch,policy_version) VALUES($1,$2,$3,1,$4)',[...Object.values(scope),sourcePolicy]);
     for(const identity of Object.values(roles)){
       await pool.query(`INSERT INTO hyperfide.source_principal_credentials(organisation_id,repository_id,security_domain_id,credential_id,principal_id,principal_kind,credential_version,issuer,audience,signing_key_id,expires_at)
         VALUES($1,$2,$3,$4,$5,'automation',1,$6,$7,'fixture-source-key',clock_timestamp()+interval '30 minutes')`,[...Object.values(scope),identity.credential_id,identity.principal_id,trust.issuer,trust.audience]);
@@ -57,7 +60,7 @@ export async function createNativeAcceptanceFixture(options={}) {
     }
     const service=createSourceService({pool,backend:new S3SourceObjectBackend(backend.config),cursorKey:randomBytes(32),
       workspaceBudgets:{cache_bytes:16777216,max_cache_entries:1024,max_file_bytes:8388608,materialized_bytes:33554432,dirty_bytes:8388608},...options.serviceOptions});
-    await service.metadata.registerRepository(scope,{authority_epoch:'1',policy_version:sourcePolicy,durability_profile:'single-region-verified-s3-v1'});
+    if(!options.existingRepository)await service.metadata.registerRepository(scope,{authority_epoch:'1',policy_version:sourcePolicy,durability_profile:'single-region-verified-s3-v1'});
     server=await startSourceHttp({api:service.api,trust,host:'127.0.0.1',port:0,allowLoopbackHTTP:true,signal:controller.signal});
     const endpoint=server.address+SOURCE_API_PATH;
     const client=new SourceControlClient({endpoint,scope,token:()=>tokenFor('author'),timeout_ms:120000});
@@ -84,7 +87,7 @@ export async function createNativeAcceptanceFixture(options={}) {
       return {...receipt,change_id};
     };
     const checkPath=options.checkPath??'main.txt';
-    const script="const fs=require('node:fs'),crypto=require('node:crypto');const bytes=fs.readFileSync("+JSON.stringify(checkPath)+");const ok=bytes.toString('utf8').startsWith('candidate:');fs.writeFileSync('proof.json',JSON.stringify({sha256:crypto.createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length}));process.stdout.write(ok?'native check passed\\n':'native check failed\\n');process.exitCode=ok?0:7;";
+    const script=options.checkScript??"const fs=require('node:fs'),crypto=require('node:crypto');const bytes=fs.readFileSync("+JSON.stringify(checkPath)+");const ok=bytes.toString('utf8').startsWith('candidate:');fs.writeFileSync('proof.json',JSON.stringify({sha256:crypto.createHash('sha256').update(bytes).digest('hex'),bytes:bytes.length}));process.stdout.write(ok?'native check passed\\n':'native check failed\\n');process.exitCode=ok?0:7;";
     const environment={LANG:'C.UTF-8',LC_ALL:'C.UTF-8'};
     const check={id:'native-main',argv:[process.execPath,'-e',script],executable_digest:rawDigest(await fs.readFile(process.execPath)),environment_digest:sourceDigest(environment),required_artifacts:['proof.json']};
     const policy={policy_id:randomUUID(),policy_digest:sourceDigest({schema_version:1,checks:[check]}),checks:[check]};

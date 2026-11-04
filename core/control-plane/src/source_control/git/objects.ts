@@ -133,7 +133,6 @@ export function gitCommitPayload(
     { name, email } = provenance.author;
   if (
     !name ||
-    !email ||
     /[\x00-\x1f\x7f<>]/.test(name + email) ||
     name.trim() !== name ||
     email.trim() !== email ||

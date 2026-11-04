@@ -147,7 +147,7 @@ export class SourceMetricsService {
       maximum_observed_age_ms: maximumAge,
       maximum_observed_pending_age_ms: pendingAge,
       mean_observed_duration_ms: durationCount
-        ? durationTotal / durationCount
+        ? Math.round(durationTotal / durationCount)
         : null,
       partitions,
     };

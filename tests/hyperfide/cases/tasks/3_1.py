@@ -22,7 +22,7 @@ def apply_migration(f,name):
  # Actual14 already applied the complete trusted release; verify exact bytes only.
  f.apply_migration(name)
 class HierarchyFixture(IdentityFixture):
- def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,extra_env=None,seed_historical_runtime=True,source_object_id=None,parent_managers=False,native_session_placeholders=True):
+ def __init__(self,extra_components=(),extra_setup=None,bootstrap=True,extra_env=None,seed_historical_runtime=True,source_object_id=None,parent_managers=False,native_session_placeholders=True,credential_actions=None):
   def setup(f):
    apply_migration(f,"0003-hierarchy")
    i=f.ids
@@ -55,7 +55,7 @@ class HierarchyFixture(IdentityFixture):
     f.sql("INSERT INTO hyperfide.agent_sessions(organisation_id,run_id,id,role,parent_session_id,connector,account_key,native_session_id,slot_id,sandbox_id,sandbox_boot_generation,attempt_id,state) VALUES($1,$2,$3,'WORKER',$4,'fixture','fixture','worker-one',$5,$6,1,$7,'RUNNING')",[i["organisation"],i["run"],i["worker"],i["manager"],i["slot"],i["sandbox"],i["attempt"]])
    f.sql("INSERT INTO hyperfide.findings(organisation_id,run_id,id,dedup_digest,owner_package_id,repository_id,source_object_id,severity,summary) VALUES($1,$2,$3,$4,$5,$6,$7,'ERROR','Persistent accountable finding')",[i["organisation"],i["run"],i["finding"],sha(b"finding"),i["package"],i["repository"],source])
    if extra_setup:extra_setup(f)
-  super().__init__(extra_components=("3.1",)+tuple(extra_components),extra_setup=setup,extra_env=extra_env)
+  super().__init__(extra_components=("3.1",)+tuple(extra_components),extra_setup=setup,extra_env=extra_env,credential_actions=credential_actions)
   if bootstrap:self.bootstrap()
  def ok(self,action,payload=None,key="leader",component="3.1"):
   status,response=self.invoke(action,payload or {},key=key,component=component)

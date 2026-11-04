@@ -92,6 +92,32 @@ export class SourceWorkspaceService {
   const id=parseUUID(record(input).workspace_id,'workspace_id');
   return this.metadata.transaction(async tx=>{await this.metadata.guard(tx,context,'source.workspaces.detail');return {workspace:descriptor(await this.row(tx,context,id))};});
  }
+ async widen(context:SourceContext,input:unknown):Promise<{schema_version:1;workspace:WorkspaceDescriptor;scope_changed:boolean}> {
+  const value=record(input),id=parseUUID(value.workspace_id,'workspace_id'),operation=parseUUID(value.operation_id,'operation_id');
+  const allowed=['workspace_id','operation_id','idempotency_key','expected_workspace_generation','expected_scope_generation','read_paths','write_paths'];
+  if(Object.keys(value).some(key=>!allowed.includes(key)))invalid('Workspace widening fields differ from the versioned schema');
+  const generation=parseGeneration(value.expected_workspace_generation),scopeGeneration=parseGeneration(value.expected_scope_generation);
+  const read=paths(value.read_paths).sort(),write=paths(value.write_paths).sort();
+  if(!read.length)invalid('Workspace widening requires a nonempty read scope');
+  for(const path of write)within(path,read);
+  boundWorkspace(context,id);
+  const digest=sourceDigest({workspace_id:id,expected_workspace_generation:generation,expected_scope_generation:scopeGeneration,read_paths:read,write_paths:write});
+  return this.metadata.transaction(async tx=>{
+   await this.metadata.guard(tx,context,'source.workspaces.widen');
+   const ledger=await reserveSourceOperation(tx,context,{operation_id:operation,idempotency_key:typeof value.idempotency_key==='string'?value.idempotency_key:operation,action:'source.workspaces.widen',request_digest:digest});
+   if(ledger.state==='COMMITTED')return ledger.result as {schema_version:1;workspace:WorkspaceDescriptor;scope_changed:boolean};
+   if(ledger.state!=='PENDING')throw new SourceControlError('OPERATION_CANCELLED','Workspace widening is terminal');
+   const row=await this.row(tx,context,id,true);
+   if(String(row.workspace_generation)!==generation||String(row.scope_generation)!==scopeGeneration)stale();
+   for(const path of row.read_paths)within(path,read);
+   for(const path of row.write_paths)within(path,write);
+   const changed=sourceDigest([...row.read_paths].sort())!==sourceDigest(read)||sourceDigest([...row.write_paths].sort())!==sourceDigest(write);
+   if(changed)await tx.query('UPDATE hyperfide.source_workspaces SET read_paths=$5,write_paths=$6,workspace_generation=workspace_generation+1,scope_generation=scope_generation+1,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND workspace_id=$4',[...sourceScopeValues(context.scope),id,JSON.stringify(read),JSON.stringify(write)]);
+   const result={schema_version:1 as const,workspace:descriptor(await this.row(tx,context,id)),scope_changed:changed};
+   await tx.query("UPDATE hyperfide.source_metadata_operations SET state='COMMITTED',result=$6,result_digest=$7,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5 AND state='PENDING'",[...sourceScopeValues(context.scope),context.principal_id,operation,result,sourceDigest(result)]);
+   return result;
+  });
+ }
  async close(context:SourceContext,input:unknown):Promise<Row> {
   const value=record(input),id=parseUUID(value.workspace_id,'workspace_id'),operation=parseUUID(value.operation_id,'operation_id');
   const generation=parseGeneration(value.expected_workspace_generation);boundWorkspace(context,id);

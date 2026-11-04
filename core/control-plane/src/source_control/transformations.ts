@@ -25,7 +25,7 @@ export interface TransformationResult {
   algorithm: 'hyperfide-three-way-v1'; merge_base_strategy: 'REQUIRE_EXPLICIT_MAXIMAL_BASE';
   merge_base_ids: string[]; next_step: number; total_steps: number; tip_revision_id: string;
   mappings: TransformationMapping[]; conflicts: readonly SourceConflict[]; conflict_id?: string;
-  receipt?: RevisionReceipt; metrics?: SourceMergeResult['metrics'];
+  receipt?: RevisionReceipt; metrics?: SourceMergeResult['metrics']; timing?:TransformationTiming;
   rename_detection: {status: 'NOT_PERFORMED'; reason: 'EXPLICIT_PATH_IDENTITY_ONLY'};
 }
 interface StepPlan {original_revision_id: string; source_revision_id: string; base_revision_id: string; change_id: string; provenance: PublicProvenance; parents?: string[]; predecessor_revision_ids: string[]}
@@ -35,6 +35,7 @@ interface Stored {
   generation: string; status: 'ACTIVE' | 'CONFLICT' | 'COMPLETED'; next_step: number; tip_revision_id: string;
   result: TransformationResult; operation_state: 'PENDING' | 'COMMITTED' | 'CANCELLED' | 'FAILED';
 }
+export interface TransformationTiming {measurement:'CALL_STEP';queued_ms:number;executing_ms:number;started_at:string;finished_at:string}
 interface RunOptions {signal?: AbortSignal}
 const scopeKey = (context: SourceContext, operation: string): string[] => [...sourceScopeValues(context.scope), context.principal_id, operation];
 function stepLimit(value?: number): number {
@@ -167,17 +168,21 @@ export class SourceTransformationService {
   }
 
   private async drive(context: SourceContext, operationId: string, limit: number, options: RunOptions, expectedGeneration?: string): Promise<TransformationResult> {
+    const queuedAt=performance.now();
     let row = await this.snapshot(context, operationId, expectedGeneration);
+    const admittedAt=performance.now(),queuedMs=Math.ceil(admittedAt-queuedAt);
     for (let count = 0; count < limit; count++) {
       notCancelled(options);
       if (row.operation_state !== 'PENDING' || row.status !== 'ACTIVE') return view(row);
       const step = row.request.steps[row.next_step];
       if (!step) sourceFailure('INVALID_TRANSFORMATION', 'Retained transformation step is unavailable');
+      const executingAt=performance.now(),startedAt=new Date().toISOString();
       const base = await this.metadata.readRevision(context, step.base_revision_id);
       const ours = await this.metadata.readRevision(context, row.tip_revision_id);
       const theirs = await this.metadata.readRevision(context, step.source_revision_id);
       const outcome = await this.engine.merge(context.scope, {base_tree_id: base.root_tree_id, ours_tree_id: ours.root_tree_id, theirs_tree_id: theirs.root_tree_id, ...(row.request.budget ? {budget: row.request.budget} : {}), ...(options.signal ? {signal: options.signal} : {})});
       notCancelled(options);
+      const timing:TransformationTiming={measurement:'CALL_STEP',queued_ms:count===0?queuedMs:0,executing_ms:Math.ceil(performance.now()-executingAt),started_at:startedAt,finished_at:new Date().toISOString()};
       row = await this.metadata.transaction(async tx => {
         await this.metadata.guard(tx, context, `source.transforms.${row.kind.toLowerCase()}`);
         const current = await this.row(tx, context, operationId, true);
@@ -185,12 +190,12 @@ export class SourceTransformationService {
         if (current.operation_state !== 'PENDING' || current.status !== 'ACTIVE' || current.generation !== row.generation) return current;
         if (outcome.conflicts.length) {
           const conflictId = sourceDigest([operationId, current.next_step, outcome.conflicts]);
-          const result: TransformationResult = {...current.result, status: 'CONFLICT', generation: String(BigInt(current.generation) + 1n), conflicts: outcome.conflicts, conflict_id: conflictId, metrics: outcome.metrics};
+          const result: TransformationResult = {...current.result, status: 'CONFLICT', generation: String(BigInt(current.generation) + 1n), conflicts: outcome.conflicts, conflict_id: conflictId, metrics: outcome.metrics,timing};
           await tx.query('INSERT INTO hyperfide.source_transformation_conflicts(organisation_id,repository_id,security_domain_id,principal_id,operation_id,conflict_id,step,result) VALUES($1,$2,$3,$4,$5,$6,$7,$8)', [...scopeKey(context, operationId), conflictId, current.next_step, result]);
           await tx.query("UPDATE hyperfide.source_transformations SET generation=generation+1,status='CONFLICT',result=$6,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5", [...scopeKey(context, operationId), result]);
         } else {
           if (!outcome.root_tree_id) sourceFailure('INVALID_TRANSFORMATION', 'Successful merge requires a retained root');
-          await this.commitStep(tx, context, current, outcome.root_tree_id, step.provenance, outcome.metrics);
+          await this.commitStep(tx, context, current, outcome.root_tree_id, step.provenance, outcome.metrics,timing);
         }
         return this.row(tx, context, operationId);
       });
@@ -198,7 +203,7 @@ export class SourceTransformationService {
     return view(row);
   }
 
-  private async commitStep(tx: SourceSQL, context: SourceContext, row: Stored, root: string, provenance: PublicProvenance, metrics?: SourceMergeResult['metrics']): Promise<TransformationResult> {
+  private async commitStep(tx: SourceSQL, context: SourceContext, row: Stored, root: string, provenance: PublicProvenance, metrics?: SourceMergeResult['metrics'],timing?:TransformationTiming): Promise<TransformationResult> {
     const step = row.request.steps[row.next_step]!;
     const revisionInput = {operation_id: derivedOperation(context, row.operation_id, row.next_step), idempotency_key: `transform:${row.operation_id}:${row.next_step}`, change_id: step.change_id, root_tree_id: root, parent_revision_ids: step.parents ?? [row.tip_revision_id], predecessor_revision_ids: step.predecessor_revision_ids, provenance};
     const candidateId = revisionIdentity(revisionDescriptor(context.scope, revisionInput));
@@ -208,7 +213,7 @@ export class SourceTransformationService {
     const mapping: TransformationMapping = {original_revision_id: step.original_revision_id, successor_revision_id: receipt.revision_id, change_id: step.change_id, unchanged: step.original_revision_id === receipt.revision_id, receipt};
     const mappings = [...row.result.mappings, mapping], next = row.next_step + 1, complete = next === row.request.steps.length;
     const {conflict_id: _conflict, ...previous} = row.result;
-    const result: TransformationResult = {...previous, status: complete ? 'COMPLETED' : 'PENDING', generation: String(BigInt(row.generation) + 1n), next_step: next, tip_revision_id: receipt.revision_id, mappings, conflicts: [], receipt, ...(metrics ? {metrics} : {})};
+    const result: TransformationResult = {...previous, status: complete ? 'COMPLETED' : 'PENDING', generation: String(BigInt(row.generation) + 1n), next_step: next, tip_revision_id: receipt.revision_id, mappings, conflicts: [], receipt, ...(metrics ? {metrics} : {}),...(timing?{timing}:{})};
     if (canonicalBytes(result).byteLength > 917504) sourceFailure('LIMIT_EXCEEDED', 'Transformation result exceeds its response budget');
     await tx.query('INSERT INTO hyperfide.source_transformation_steps(organisation_id,repository_id,security_domain_id,principal_id,operation_id,step,input_digest,result) VALUES($1,$2,$3,$4,$5,$6,$7,$8)', [...scopeKey(context, row.operation_id), row.next_step, sourceDigest([step, row.tip_revision_id]), {mapping, root_tree_id: root, provenance}]);
     await tx.query('UPDATE hyperfide.source_transformations SET generation=generation+1,status=$6,next_step=$7,tip_revision_id=$8,result=$9,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5', [...scopeKey(context, row.operation_id), complete ? 'COMPLETED' : 'ACTIVE', next, receipt.revision_id, result]);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createHash,generateKeyPairSync,randomBytes,randomUUID,sign} from 'node:crypto';
+import {createHash,createHmac,generateKeyPairSync,randomBytes,randomUUID,sign} from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,6 +20,8 @@ const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,max:12});
 const fixture=await createSourceS3Fixture(),controller=new AbortController(),workingDirectory=await fs.mkdtemp(path.join(os.tmpdir(),'hf-source-api-client-'));
 let server;
 const checks=[];
+const API_ACTIONS=['source.capabilities','source.objects.put','source.objects.read','source.objects.inspect','source.trees.patch','source.trees.lookup','source.trees.entries','source.revisions.create','source.revisions.read','source.changes.revisions','source.operations.read','source.operations.cancel','source.queries.ancestry','source.queries.merge-bases','source.queries.diff','source.queries.line-map','source.queries.blame','source.queries.history','source.workspaces.open','source.workspaces.detail','source.workspaces.checkpoint'];
+assert(API_ACTIONS.every(action=>SOURCE_ACTIONS.includes(action)));
 const scope={organisation_id:randomUUID(),repository_id:randomUUID(),security_domain_id:randomUUID()};
 const principal_id=randomUUID(),credential_id=randomUUID(),capability_id=randomUUID(),policy='source-api-case-v1';
 const {privateKey,publicKey}=generateKeyPairSync('ed25519');
@@ -38,8 +40,9 @@ try {
   await pool.query(`INSERT INTO hyperfide.source_principal_credentials(organisation_id,repository_id,security_domain_id,credential_id,principal_id,principal_kind,credential_version,issuer,audience,signing_key_id,expires_at)
     VALUES($1,$2,$3,$4,$5,'automation',1,$6,$7,'owned-source-key',clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),credential_id,principal_id,trust.issuer,trust.audience]);
   await pool.query(`INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at)
-    VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY[''],clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),capability_id,principal_id,credential_id,policy,[...SOURCE_ACTIONS]]);
-  const service=createSourceService({pool,backend:new S3SourceObjectBackend(fixture.config),cursorKey:randomBytes(32),workspaceBudgets:{cache_bytes:16*1024*1024,max_cache_entries:1024,max_file_bytes:8*1024*1024,materialized_bytes:32*1024*1024,dirty_bytes:8*1024*1024}});
+    VALUES($1,$2,$3,$4,$5,$6,'automation',1,$7,$8,ARRAY[''],clock_timestamp()+interval '10 minutes')`,[...Object.values(scope),capability_id,principal_id,credential_id,policy,API_ACTIONS]);
+  const cursorKey=randomBytes(32);
+  const service=createSourceService({pool,backend:new S3SourceObjectBackend(fixture.config),cursorKey,workspaceBudgets:{cache_bytes:16*1024*1024,max_cache_entries:1024,max_file_bytes:8*1024*1024,materialized_bytes:32*1024*1024,dirty_bytes:8*1024*1024}});
   await service.metadata.registerRepository(scope,{authority_epoch:'1',policy_version:policy,durability_profile:'single-region-verified-s3-v1'});
   server=await startSourceHttp({api:service.api,trust,host:'127.0.0.1',port:0,allowLoopbackHTTP:true,signal:controller.signal});
   process.chdir(workingDirectory);
@@ -96,6 +99,20 @@ try {
   const nextListing=await client.tree(initial.root_tree_id,{limit:1,cursor:listing.next_cursor});assert.deepEqual([...listing.entries,...nextListing.entries].map(entry=>entry.name),['private','src']);
   await assert.rejects(client.tree(patched.root_tree_id,{limit:1,cursor:listing.next_cursor}),error=>error.code==='RESNAPSHOT_REQUIRED');
   checks.push('authenticated history and directory cursors preserve snapshots and reject altered query or tree');
+  const [cursorPayload,cursorSignature]=history.next_cursor.split('.');
+  const tamperedSignature=(cursorSignature[0]==='A'?'B':'A')+cursorSignature.slice(1);
+  await assert.rejects(call('source.queries.history',{revision_id:child.result.revision_id,limit:1,cursor:cursorPayload+'.'+tamperedSignature}),error=>error.code==='INVALID_CURSOR');
+  const expiredBody={...JSON.parse(Buffer.from(cursorPayload,'base64url').toString()),expires_at:Date.now()-1000};
+  const expiredPayload=Buffer.from(JSON.stringify(expiredBody)).toString('base64url');
+  const expiredCursor=expiredPayload+'.'+createHmac('sha256',cursorKey).update(expiredPayload).digest('base64url');
+  await assert.rejects(call('source.queries.history',{revision_id:child.result.revision_id,limit:1,cursor:expiredCursor}),error=>error.code==='RESNAPSHOT_REQUIRED');
+  const alternateCapability=randomUUID();
+  await pool.query(`INSERT INTO hyperfide.source_capabilities(organisation_id,repository_id,security_domain_id,id,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at)
+    SELECT organisation_id,repository_id,security_domain_id,$2,principal_id,credential_id,principal_kind,authority_epoch,policy_version,actions,path_prefixes,expires_at FROM hyperfide.source_capabilities WHERE id=$1`,[capability_id,alternateCapability]);
+  const alternateClient=new SourceControlClient({endpoint,scope,token:()=>tokenFor(scope,{capability_id:alternateCapability})});
+  await assert.rejects(alternateClient.call('source.queries.history',{revision_id:child.result.revision_id,limit:1,cursor:history.next_cursor}),error=>error.code==='RESNAPSHOT_REQUIRED');
+  checks.push('real HTTP query continuation rejects signature tampering, authenticated expiry and substitution of current capability');
+
   const blobBytes=Buffer.alloc(4*1024*1024,0x9d),large=await put('blob',blobBytes);
   assert.deepEqual(Buffer.from((await client.object(large.object_id)).payload_base64,'base64'),blobBytes);
   checks.push('4 MiB source object crosses the actual bounded HTTP SDK request and response codecs');
@@ -125,6 +142,16 @@ try {
   await assert.rejects(call('source.workspaces.checkpoint',{...checkpoint,overlay_generation:'2'},{operation_id:operation,idempotency_key:operation}),error=>error.code==='IDEMPOTENCY_CONFLICT');
   const checkpointLookup=await client.operation(operation);assert(['COMMITTED','SUCCEEDED'].includes(checkpointLookup.state));assert.deepEqual(checkpointLookup.result,checkpointResult);
   checks.push('independent sparse workspaces checkpoint only explicit changes, retain omitted paths and replay one committed operation');
+  const staleOperation=randomUUID();
+  await assert.rejects(call('source.workspaces.checkpoint',{...checkpoint,operation_id:staleOperation},{operation_id:staleOperation,idempotency_key:staleOperation}),error=>error.code==='WORKSPACE_CHANGED');
+  assert.equal((await call('source.workspaces.detail',{workspace_id:workspaceIds[0]})).workspace.workspace_generation,'2');
+  const divergent=await Promise.all([revision(initial.root_tree_id,[child.result.revision_id],child.input.change_id,[child.result.revision_id]),revision(patched.root_tree_id,[child.result.revision_id],child.input.change_id,[child.result.revision_id])]);
+  assert.notEqual(divergent[0].result.revision_id,divergent[1].result.revision_id);
+  const divergencePage=await call('source.changes.revisions',{change_id:child.input.change_id,limit:100});
+  for(const value of divergent){const observed=divergencePage.revisions.find(row=>row.revision_id===value.result.revision_id);assert(observed);assert.deepEqual(observed.predecessor_revision_ids,[child.result.revision_id]);}
+  assert.equal((await client.revision(base.result.revision_id)).root_tree_id,initial.root_tree_id);
+  checks.push('fresh stale-generation mutation is rejected while concurrent API successors preserve explicit predecessor identity and immutable source');
+
   const lostOperation=randomUUID(),lostInput={...child.input,change_id:randomUUID(),predecessor_revision_ids:[],provenance:{...child.input.provenance,message:'Lost acknowledgment API case'}};
   let lose=true;
   const interrupted=new SourceControlClient({endpoint,scope,token:()=>tokenFor(),fetch:async(...args)=>{const response=await fetch(...args);if(lose){lose=false;await response.arrayBuffer();throw new TypeError('controlled response loss');}return response;}});

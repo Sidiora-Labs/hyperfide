@@ -3,7 +3,7 @@ import https from 'node:https';
 import {randomUUID} from 'node:crypto';
 import {FoundationError} from '../policy/programme.js';
 import {StorageError} from '../storage/transactions.js';
-import {decodeSourceRequest, encodeSourceResponse, SOURCE_API_PATH, SourceControlError, type SourceAction, type SourceResponse} from './contracts.js';
+import {decodeSourceRequest, encodeSourceResponse, SOURCE_API_PATH, SourceControlError, type SourceAction, type SourceResponse, type SourceError} from './contracts.js';
 import {sourceBearerToken, verifySourcePrincipalToken, type SourceTokenTrust} from './authentication.js';
 import type {createSourceApi} from './api.js';
 import type {SourceTransferService} from './transfers.js';
@@ -12,6 +12,18 @@ import {handleSourceTransferHttp} from './transfer_http.js';
 export interface SourceHttpOptions {
  api:ReturnType<typeof createSourceApi>; transfers?:SourceTransferService; trust:SourceTokenTrust; host:string; port:number; signal:AbortSignal;
  tls?:{cert:string|Buffer;key:string|Buffer}; allowLoopbackHTTP?:boolean; maxConcurrent?:number; deadlineMs?:number;
+}
+export function sourcePublicError(error:SourceControlError):SourceError {
+ const result:SourceError={code:error.code,message:error.message,retry:error.retry,outcome:error.outcome};
+ if(['RESNAPSHOT_REQUIRED','RESNAPSHOT_PENDING'].includes(error.code)){
+  const details:Record<string,string|number>={};
+  for(const key of ['consumer_id','subscription_epoch','bootstrap_revision_id','authority_epoch','state','retention_max_events','retention_expires_at','retained_events','boundary','reason','expected_previous_epoch']){
+   const value=error.details?.[key];
+   if(typeof value==='string'&&value.length<=128&&!/[\x00-\x1f\x7f]/.test(value)||typeof value==='number'&&Number.isSafeInteger(value)&&value>=0)details[key]=value;
+  }
+  result.details=details;
+ }
+ return result;
 }
 export function sourceHttpStatus(error:SourceControlError):number {
  if(error.code==='UNAUTHENTICATED')return 401;
@@ -53,7 +65,7 @@ export async function startSourceHttp(options:SourceHttpOptions):Promise<{addres
  const write=writeSourceHttpResponse;
  async function handle(request:IncomingMessage,response:ServerResponse):Promise<void> {
   let operation:string=randomUUID(),action:SourceAction|undefined,timer:ReturnType<typeof setTimeout>|undefined;
-  const sendError=(error:SourceControlError)=>write(response,{protocol_version:1,operation_id:operation,error:{code:error.code,message:error.message,retry:error.retry,outcome:error.outcome}},action,sourceHttpStatus(error));
+  const sendError=(error:SourceControlError)=>write(response,{protocol_version:1,operation_id:operation,error:sourcePublicError(error)},action,sourceHttpStatus(error));
   if(!accepting){sendError(new SourceControlError('SERVICE_UNAVAILABLE','Source service is stopping'));return;}
   if(active>=maximum){sendError(new SourceControlError('OVERLOADED','Concurrent source request budget is exhausted','RESUME'));return;}
   active++;
@@ -68,7 +80,7 @@ export async function startSourceHttp(options:SourceHttpOptions):Promise<{addres
    for await(const chunk of request){const bytes=Buffer.from(chunk);size+=bytes.length;if(size>12*1024*1024)throw new SourceControlError('LIMIT_EXCEEDED','Source request exceeds its wire limit');chunks.push(bytes);}
    const decoded=decodeSourceRequest(Buffer.concat(chunks));operation=decoded.operation_id;action=decoded.action;
    const principal=verifySourcePrincipalToken(token,options.trust,decoded.scope);
-   const result=await options.api.invoke(action,decoded,principal);
+   const result=await options.api.invoke(action,decoded,{...principal,signal:controller.signal});
    write(response,{protocol_version:1,operation_id:operation,result},action,200);
   } catch(error) {
    sendError(sourceHttpError(error));

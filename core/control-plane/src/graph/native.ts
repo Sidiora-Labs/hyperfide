@@ -46,7 +46,7 @@ export async function queryNativeGraph(metadata:SourceMetadata,context:SourceAut
  const build=await loadNativeGraph(metadata,context,input.build_id,'source.graph.query');
  if(build.revision_id!==input.revision_id||build.root_tree_id!==input.root_tree_id)throw new SourceControlError('GRAPH_SOURCE_MISMATCH','Query must name the exact native source revision and tree');
  if(build.state!=='PUBLISHED')throw new SourceControlError('GRAPH_UNPUBLISHED','Only a published immutable graph can serve context');
- const binding={scope:context.scope,principal_id:context.principal_id,capability_id:context.capability_id,authority_epoch:context.authority_epoch,policy_version:context.policy_version,query:{...input,cursor:null},snapshot:input.build_id};
+ const binding={scope:context.scope,principal_id:context.principal_id,capability_id:context.capability_id,authority_epoch:context.authority_epoch,policy_version:context.policy_version,query:{...input,cursor:null,authorized_paths:[...context.path_prefixes].sort()},snapshot:input.build_id};
  const offset=input.cursor===undefined?0:cursors.decode(binding,input.cursor);
  if(!Number.isSafeInteger(offset)||Number(offset)<0)throw new SourceControlError('INVALID_CURSOR','Invalid graph continuation');
  const page=await metadata.transaction(async tx=>{

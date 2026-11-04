@@ -3,6 +3,7 @@ import {promises as fs} from 'node:fs';
 import type {AuthorityTransaction} from '../transport/protocol.js';
 import {assertPrimaryTransaction} from '../storage/transactions.js';
 import {readSemanticDisposition} from '../storage/dispositions.js';
+import type {SourceSQL} from '../source_control/capabilities.js';
 import {readNativeFleetRunSource} from '../source_control/fleet-run-source.js';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError,object} from '../policy/programme.js';
@@ -99,13 +100,18 @@ function obligations(policy:ProofPolicy,registry_digest:string):ProofObligations
 export async function loadProofObligations(db:PrimaryClient,scope:ProofPins):Promise<ProofObligations>{
  pins(scope);
  assertPrimaryTransaction(db);await readSemanticDisposition(db,scope);
+ return readProofObligationsSnapshot(db,scope);
+}
+export async function readProofObligationsSnapshot(db:SourceSQL,scope:ProofPins):Promise<ProofObligations>{
+ pins(scope);
  const result=await db.query(
  'SELECT pg_is_in_recovery() AS replica,p.registry_digest,p.criteria_digest,p.policy,t.criteria_digest AS current_criteria,t.definition,s.document AS accepted_document FROM hyperfide.proof_registries p '+
  'JOIN hyperfide.tasks t ON t.organisation_id=p.organisation_id AND t.run_id=p.run_id AND t.id=p.task_id '+
  'JOIN hyperfide.run_spec_revisions h ON h.organisation_id=t.organisation_id AND h.run_id=t.run_id AND h.spec_generation=t.spec_generation AND h.spec_revision_id=t.spec_revision_id '+
  'JOIN hyperfide.spec_revisions s ON s.organisation_id=t.organisation_id AND s.id=t.spec_revision_id '+
+ 'JOIN hyperfide.runs r ON r.organisation_id=t.organisation_id AND r.id=t.run_id AND r.spec_revision_id=t.spec_revision_id AND r.spec_generation=t.spec_generation '+
  'WHERE p.organisation_id=$1 AND p.run_id=$2 AND p.task_id=$3 AND p.spec_generation=$4 AND p.spec_revision_id=$5 '+
- 'AND t.spec_generation=p.spec_generation AND t.spec_revision_id=p.spec_revision_id AND h.accepted',
+ 'AND t.spec_generation=p.spec_generation AND t.spec_revision_id=p.spec_revision_id AND h.accepted FOR SHARE OF p,t,h,s,r',
  [scope.organisation_id,scope.run_id,scope.task_id,scope.spec_generation,scope.spec_revision_id]);
  if(result.rows.length!==1)fail('PROOF_REGISTRY_MISSING','An exact current accepted proof registry is required');
  return validateProofRow(result.rows[0]!,scope);

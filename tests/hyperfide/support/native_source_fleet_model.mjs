@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 
 export async function modelSourceCaller({f,ids,resources,controlRoot,identityAuthority,request,sourceCall,signal}){
  const load=name=>import(pathToFileURL(path.join(controlRoot,name+'.js')));
- const [{createComponent},{validateDecision,digest},{readFleetRepositoryPins,fleetSourceRevision},{observePrimarySources},{createComponent:registerSource}]=await Promise.all([load('agents/fleet_orchestration'),import(pathToFileURL(path.join(controlRoot,'contracts/fleet/index.mjs'))),load('source_control/fleet-pins'),load('agents/fleet_source_actions'),load('agents/fleet_source_registration')]);
+ const [{createComponent},{validateDecision,digest},{readFleetRepositoryPins,fleetSourceRevision},{observePrimarySources,primarySourceRequest,parsePrimarySourceCapabilities},{createComponent:registerSource}]=await Promise.all([load('agents/fleet_orchestration'),import(pathToFileURL(path.join(controlRoot,'contracts/fleet/index.mjs'))),load('source_control/fleet-pins'),load('agents/fleet_source_actions'),load('agents/fleet_source_registration')]);
  const component=createComponent({env:process.env,resources,signal,dependencies:{require(name,key){assert.equal(name,'source-control');assert.equal(key,'source.service.v1');return f.service;}}});
  registerSource({env:process.env,resources,signal,dependencies:{require(name,key){if(name==='source-control'){assert.equal(key,'source.service.v1');return f.service;}assert.equal(name,'fleet-orchestration');assert.equal(key,'fleet.source.bridge');return component.capabilities[key];}}});
  const bootstrapKey=generateKeyPairSync('ed25519');
@@ -41,6 +41,15 @@ export async function modelSourceCaller({f,ids,resources,controlRoot,identityAut
    const observation=randomUUID(),reasoning=randomUUID(),decisionId=randomUUID(),context=digest({fixture:'DECLARED_PRIOR_MODEL_DECISION',operation});
    const modelInput={scope:f.scope,action,input};
    decision=validateDecision({schema_version:1,kind:'hyperfide.fleet-decision',decision_id:decisionId,operation_id:operation,run_id:ids.run,actor_id:ids.leader,actor_role:'PRIMARY',authority_epoch:ids.epoch,leader_generation:'1',delegation_id:null,manager_generation:null,source_revision:bound.source,spec_revision:bound.spec,context_digest:context,action:'SOURCE_OPERATION',input:modelInput,input_digest:digest(modelInput),expected_version:bound.plan,rationale_summary:'Declared model choice exercises native source admission and replay.'});
+   for(const action of ['source.transforms.merge','source.queue.read','source.publications.create','source.queries.batch']){
+    const value={...decision,input:{scope:f.scope,action,input:{}}};
+    assert.equal(primarySourceRequest(value).operation_id,operation);
+    assert.throws(()=>primarySourceRequest({...value,actor_role:'WAVE_MANAGER'}),error=>error.code==='FLEET_PRIMARY_REQUIRED');
+   }
+   for(const action of ['source.capabilities.manage','source.retention.configure','source.recovery.activate']){
+    assert.throws(()=>primarySourceRequest({...decision,input:{scope:f.scope,action,input:{}}}),error=>error.code==='FLEET_SOURCE_ACTION_INVALID');
+    assert.throws(()=>parsePrimarySourceCapabilities([{scope:f.scope,actions:[action]}]),error=>error.code==='FLEET_SOURCE_CAPABILITIES_INVALID');
+   }
    await f.pool.query('INSERT INTO hyperfide.fleet_observations(organisation_id,run_id,id,actor_id,cohort_generation,context_digest,body) SELECT $1,$2,$3,$4,cohort_generation,$5,$6 FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2',[ids.organisation,ids.run,observation,ids.leader,context,{fixture:'DECLARED_PRIOR_MODEL_DECISION'}]);
    await f.pool.query("INSERT INTO hyperfide.fleet_reasoning(organisation_id,run_id,id,actor_id,request_digest,observation_id,state,result) VALUES($1,$2,$3,$4,$5,$6,'COMPLETED',$7)",[ids.organisation,ids.run,reasoning,ids.leader,context,observation,{fixture:'DECLARED_PRIOR_MODEL_DECISION'}]);
    await f.pool.query('INSERT INTO hyperfide.fleet_decisions(organisation_id,run_id,id,operation_id,actor_id,action,context_digest,payload_digest,reasoning_id,body) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[ids.organisation,ids.run,decisionId,operation,ids.leader,decision.action,context,digest(decision),reasoning,decision]);

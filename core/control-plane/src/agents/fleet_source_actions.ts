@@ -10,6 +10,12 @@ export const PRIMARY_SOURCE_ACTIONS=Object.freeze([
  'source.capabilities','source.revisions.read','source.operations.read','source.candidates.read','source.acceptance.read','source.graph.query',
  'source.fleet.selection','source.fleet.submission','source.fleet.bind-run','source.candidates.create','source.candidates.qualify',
  'source.acceptance.accept','source.fleet.qualify','source.fleet.select',
+ 'source.objects.read','source.objects.inspect','source.trees.entries','source.trees.lookup','source.changes.revisions',
+ 'source.queries.batch','source.queries.ancestry','source.queries.merge-bases','source.queries.history','source.queries.diff','source.queries.blame','source.queries.line-map',
+ 'source.domains.read','source.metrics.read','source.fleet.read','source.fleet.manifest',
+ 'source.transforms.merge','source.transforms.rebase','source.transforms.revert','source.transforms.read','source.transforms.resume',
+ 'source.queue.enqueue','source.queue.claim','source.queue.bind','source.queue.complete','source.queue.fail','source.queue.isolate','source.queue.read',
+ 'source.publications.create','source.publications.read','source.publications.resume','source.publications.cancel',
 ]);
 interface NativeSourceService {api:{invoke(action:string,request:SourceRequest,invocation:InvocationContext):Promise<unknown>}}
 const sourceService=(value:unknown):value is NativeSourceService=>object(value)&&object(value.api)&&typeof value.api.invoke==='function';

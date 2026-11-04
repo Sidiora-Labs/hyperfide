@@ -50,7 +50,7 @@ import {
   deriveQualificationInputs,
 } from "../hierarchy/packets.js";
 import { loadProofObligations } from "../spec/obligations.js";
-import { nativeCandidateSourceDigest } from "./candidates.js";
+import { nativeCandidateSourceDigest,validateCandidateDependencies,nativeCandidateDependencyDigest,type CandidateDependency,type CandidateExecutionDependency } from "./candidates.js";
 import { readReadyFleetInstall } from "../preparation/fleet_authority.js";
 
 export interface FleetSourceAssignmentInput {
@@ -1071,6 +1071,9 @@ export class SourceFleetService {
           "FLEET_POLICY_MISMATCH",
           "Task proof policy must bind this native assignment baseline",
         );
+      const dependencyRows=(packet.packet.mandatory as {inputs:{dependencies:CandidateExecutionDependency[]}}).inputs.dependencies;
+      const dependencies=validateCandidateDependencies(dependencyRows.map(value=>({revision_id:value.source_object_id,execution_dependency:value})));
+      if(nativeCandidateDependencyDigest(dependencies)!==derived.dependency_digest)sourceFailure("FLEET_DEPENDENCY_MISMATCH","Native dependency projection differs from the immutable execution packet");
       const inputs = {
         source: nativeCandidateSourceDigest(
           context.scope,
@@ -1121,6 +1124,7 @@ export class SourceFleetService {
         root_tree_id: revision.root_tree_id,
         source_manifest_digest: inputs.source,
         input_manifest: inputs,
+        dependencies,
         state: "SUBMITTED" as const,
       };
       const result: FleetSourceSubmission = {
@@ -1224,6 +1228,7 @@ export interface FleetSourceSubmission {
   revision_id: string;
   root_tree_id: string;
   source_manifest_digest: string;
+  dependencies: CandidateDependency[];
   input_manifest: Record<
     | "source"
     | "dependency"

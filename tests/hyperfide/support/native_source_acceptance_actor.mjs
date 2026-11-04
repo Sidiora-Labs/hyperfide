@@ -97,6 +97,9 @@ try {
   await assert.rejects(f.publishEvidence(forged.candidate,{execution:wrongTree}),error=>error.code==='EVIDENCE_BINDING_MISMATCH');
   const validExecution=await f.runCheck(forged.candidate);
   await assert.rejects(f.publishEvidence(forged.candidate,{execution:validExecution,actor:f.client}),error=>error.code==='CHECKER_NOT_AUTHORIZED');
+  const wrongGraph=await f.runCheck(forged.candidate,{mutate:receipt=>({...receipt,inputs:{...receipt.inputs,graph:f.sourceDigest('another-graph-generation')}})});
+  await assert.rejects(f.publishEvidence(forged.candidate,{execution:wrongGraph}),error=>error.code==='EVIDENCE_BINDING_MISMATCH');
+  checks.push('evidence with another graph generation cannot qualify the unchanged candidate or narrow its required checks');
   const wrongInputs=await f.runCheck(forged.candidate,{mutate:receipt=>({...receipt,inputs:{...receipt.inputs,contract:f.sourceDigest('another-contract')}})});
   await assert.rejects(f.publishEvidence(forged.candidate,{execution:wrongInputs}),error=>error.code==='EVIDENCE_BINDING_MISMATCH');
   await f.pool.query(`INSERT INTO hyperfide.source_native_assurance_checkers(organisation_id,repository_id,security_domain_id,policy_id,check_id,principal_id,credential_id,expires_at)

@@ -1,4 +1,5 @@
 import type {SourceAuthority,SourceScope} from './contracts.js';
+import type {SourceCandidateDependency} from './acceptance.js';
 
 export interface SourceBindFleetRunRequest {run_id:string;revision_id:string;leader_generation:string}
 export interface SourceFleetSelectRequest {
@@ -34,6 +35,7 @@ export interface SourceFleetSubmission {
  schema_version:1;scope:SourceScope;submission_id:string;custody_id:string;custody_generation:string;
  assignment_id:string;run_id:string;task_id:string;attempt_id:string;attempt_generation:string;
  revision_id:string;root_tree_id:string;source_manifest_digest:string;
+ dependencies:SourceCandidateDependency[];
  input_manifest:Record<'source'|'dependency'|'toolchain'|'configuration'|'graph'|'contract',string>;
  result_digest:string;state:'SUBMITTED';
 }

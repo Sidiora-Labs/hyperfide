@@ -16,6 +16,7 @@ import {SourceMergeEngine} from './merge.js';
 import {SourceTransformationService,type MergeInput,type RebaseInput,type RevertInput,type ResumeInput} from './transformations.js';
 import {SourceCandidateService} from './candidates.js';
 import {SourceAcceptanceService} from './acceptance.js';
+import {SourceCandidateQueue} from './candidate_queue.js';
 import {NativeSourceAssurance} from '../assurance/native_source.js';
 import {SourceGitPublicationService} from './git/export.js';
 import type {SourceGitDestination} from './git/types.js';
@@ -49,6 +50,7 @@ function mutationInput(request:SourceRequest,allowed:readonly string[]):Record<s
 
 export interface SourceServiceOptions {
  pool:Pool; backend:SourceObjectBackend; cursorKey:Uint8Array; workspaceBudgets:WorkspaceBudgets;
+ invokeBatchMember?:(request:SourceRequest,parent:InvocationContext,signal:AbortSignal)=>Promise<unknown>;
  authorization?:SourceAuthorizationOptions;
  transaction?:SourceMetadataOptions['transaction'];
  publication?:{destinations:readonly SourceGitDestination[]};
@@ -71,13 +73,14 @@ export function createSourceService(options:SourceServiceOptions) {
  const imports=new SourceGitImporter(metadata,objects,trees,options.imports?.sources??[]);
  const migration=new SourceMigrationService(metadata,objects,trees,options.imports?.sources??[],options.migration,async(tx,context,id)=>{const accepted=await acceptance.authorizeAcceptance(tx,context,id);return {revision_id:accepted.revision_id,root_tree_id:accepted.root_tree_id};});
  const backups=new SourceBackupService(metadata,options.backend);
- const recovery=new SourceRecoveryService(metadata,backups,options.recoveryAuthority);
+ const recovery=new SourceRecoveryService(metadata,backups,options.recoveryAuthority,(context,input,signal)=>publications.reconcileRecovery(context,input,signal));
  const routing=new SourceRoutingService(metadata);
  const metrics=new SourceMetricsService(metadata);
  const transformations=new SourceTransformationService(metadata,new SourceMergeEngine(objects,trees));
  const assurance=new NativeSourceAssurance(metadata,objects);
  const candidates=new SourceCandidateService(metadata,assurance.verifyEvidence.bind(assurance));
  const acceptance=new SourceAcceptanceService(candidates);
+ const candidateQueue=new SourceCandidateQueue(candidates,assurance.verifyFailedEvidence.bind(assurance));
  const fleet=new SourceFleetService(metadata,options.workspaceBudgets);
  const fleetSelection=new SourceFleetSelectionService(metadata,acceptance);
  const fleetQualification=new NativeFleetQualification(candidates,assurance);
@@ -105,9 +108,17 @@ export function createSourceService(options:SourceServiceOptions) {
   if(request.principal)return authorizeSource(tx,{...common,principal:request.principal},authorization);
   throw new SourceControlError('UNAUTHENTICATED','Source request has no authenticated principal');
  });
- const api=createSourceApi({objects,trees,metadata,authorize,cursorKey:options.cursorKey,
+ const api=createSourceApi({objects,trees,metadata,authorize,cursorKey:options.cursorKey,...(options.invokeBatchMember?{invokeBatchMember:options.invokeBatchMember}:{}),
   workspaceOperation:(context,operation)=>workspaces.operation(context,operation),
   extensions:{
+   'source.workspaces.widen':(request,context)=>workspaces.widen(context,mutationInput(request,['workspace_id','expected_workspace_generation','expected_scope_generation','read_paths','write_paths'])),
+   'source.queue.enqueue':(request,context)=>candidateQueue.enqueue(context,mutationInput(request,["candidate_ids", "expires_at", "max_attempts"]) as unknown as Parameters<SourceCandidateQueue['enqueue']>[1]),
+   'source.queue.claim':(request,context)=>candidateQueue.claim(context,mutationInput(request,["lease_ms"]) as unknown as Parameters<SourceCandidateQueue['claim']>[1]),
+   'source.queue.bind':(request,context)=>candidateQueue.bind(context,mutationInput(request,["batch_id", "lease_id", "candidate_id"]) as unknown as Parameters<SourceCandidateQueue['bind']>[1]),
+   'source.queue.complete':(request,context)=>candidateQueue.complete(context,mutationInput(request,["batch_id", "lease_id", "qualification_id"]) as unknown as Parameters<SourceCandidateQueue['complete']>[1]),
+   'source.queue.fail':(request,context)=>candidateQueue.fail(context,mutationInput(request,["batch_id", "lease_id", "evidence_ids"]) as unknown as Parameters<SourceCandidateQueue['fail']>[1]),
+   'source.queue.isolate':(request,context)=>candidateQueue.isolate(context,mutationInput(request,["batch_id", "lease_id", "partitions"]) as unknown as Parameters<SourceCandidateQueue['isolate']>[1]),
+   'source.queue.read':(request,context)=>candidateQueue.read(context,actionInput(request.input,['batch_id']).batch_id as string),
    'source.transfers.create':(request,context)=>transfers.create(context,actionInput(request.input,['transfer_id','direction','object_id','kind','size_bytes','expires_at','paths','revision_id']) as unknown as Parameters<SourceTransferService['create']>[1]),
    'source.metrics.read':(request,context)=>metrics.read(context,actionInput(request.input,['max_rows']) as {max_rows?:number}),
    'source.transfers.read':(request,context)=>transfers.read(context,actionInput(request.input,['transfer_id']).transfer_id as string),
@@ -128,6 +139,7 @@ export function createSourceService(options:SourceServiceOptions) {
    'source.backups.verify':(request,context)=>backups.verify(context,actionInput(request.input,['backup_id','limit']) as unknown as Parameters<SourceBackupService['verify']>[1]),
    'source.recovery.profile':async request=>recovery.profile(request.input),
    'source.recovery.readiness':(request,context)=>recovery.readiness(context,actionInput(request.input,['backup_id']) as unknown as Parameters<SourceRecoveryService['readiness']>[1]),
+   'source.recovery.reconcile':(request,context,principal)=>recovery.reconcile(context,actionInput(request.input,['backup_id','operation_id','limit']) as unknown as Parameters<SourceRecoveryService['reconcile']>[1],'signal' in principal?principal.signal:undefined),
    'source.recovery.prepare':(request,context)=>recovery.prepare(context,mutationInput(request,['backup_id','expected_external_epoch','expected_database_epoch','activated_epoch']) as unknown as Parameters<SourceRecoveryService['prepare']>[1]),
    'source.recovery.activate':(request,context)=>recovery.activate(context,mutationInput(request,['backup_id','expected_external_epoch','expected_database_epoch','activated_epoch']) as unknown as Parameters<SourceRecoveryService['activate']>[1]),
    'source.routing.read':(request,context)=>routing.read(context,actionInput(request.input,['partition']) as unknown as Parameters<SourceRoutingService['read']>[1]),
@@ -211,7 +223,7 @@ export function createSourceService(options:SourceServiceOptions) {
     return workspaces.checkpoint(context,input);
    },
   }});
- return {api,metadata,catalog,objects,trees,workspaces,retention,graph,imports,migration,backups,recovery,routing,metrics,transfers,transformations,assurance,candidates,acceptance,publications,fleet,fleetSelection,fleetQualification,verifyFleetManifest};
+ return {api,metadata,catalog,objects,trees,workspaces,retention,graph,imports,migration,backups,recovery,routing,metrics,transfers,transformations,assurance,candidates,candidateQueue,acceptance,publications,fleet,fleetSelection,fleetQualification,verifyFleetManifest};
 }
 export function sourceWorkspaceBudgets(env:Readonly<NodeJS.ProcessEnv>):WorkspaceBudgets {
  const positive=(key:string)=>{const text=env[key];if(!text||!/^\d+$/.test(text)||!Number.isSafeInteger(Number(text))||Number(text)<1)throw new SourceControlError('CONFIGURATION_INVALID','Explicit positive source budget required: '+key);return Number(text);};
@@ -225,14 +237,16 @@ export function createComponent(context:ComponentContext):Component {
  const restoreAuthority=context.dependencies.require('4.4','storage.authority.v1',(value:unknown):value is {assertExternalCurrent:(options:{signal:AbortSignal})=>Promise<unknown>}=>Boolean(value&&typeof (value as any).assertExternalCurrent==='function'));
  const recoveryAuthority:SourceRecoveryAuthority={verify:async input=>{if(!context.env.HYPERFIDE_DEPLOYMENT_ID)throw new SourceControlError('CONFIGURATION_INVALID','Recovery requires the current deployment identity');const receipt=await lookupAuthorityActivation(context.resources,{deployment_id:context.env.HYPERFIDE_DEPLOYMENT_ID,operation_id:input.operation_id,expected_previous_epoch:input.expected_external_epoch,database_predecessor_epoch:input.expected_database_epoch,epoch:input.activated_epoch,signal:context.signal});await restoreAuthority.assertExternalCurrent({signal:context.signal});return {epoch:receipt.epoch,proof_digest:receipt.evidence_digest,deployment_id:receipt.deployment_id};}};
  let service:ReturnType<typeof createSourceService>|undefined;
- const current=()=>service??=createSourceService({pool:getPool(context.env),backend:new S3SourceObjectBackend(sourceS3Configuration(context.env)),cursorKey:sourceCursorKey(context.env),workspaceBudgets:sourceWorkspaceBudgets(context.env),
+ const current=()=>service??=createSourceService({invokeBatchMember:async(request,parent,signal)=>{
+  if(!identity.deriveSourceRead||!context.dispatchInvocation)throw new SourceControlError('AUTH_SCOPE_DENIED','Authenticated child dispatch is unavailable');
+  return context.dispatchInvocation(await identity.deriveSourceRead(parent,request,signal));
+ },pool:getPool(context.env),backend:new S3SourceObjectBackend(sourceS3Configuration(context.env)),cursorKey:sourceCursorKey(context.env),workspaceBudgets:sourceWorkspaceBudgets(context.env),
   publication:{destinations:sourcePublicationDestinations(context.env)},transfers:{...sourceTransferOptions(identity.origin+SOURCE_TRANSFER_PATH,sourceCursorKey(context.env)),guardNativePrincipal:(tx,principal)=>identity.guard(tx as Parameters<typeof identity.guard>[0],principal)},recoveryAuthority,...(context.env.HF_SOURCE_ROUTING_OWNER_ID?{routing_owner_id:context.env.HF_SOURCE_ROUTING_OWNER_ID}:{}),...(sourceMigrationControls(context.env)?{migration:sourceMigrationControls(context.env)!}:{}),imports:{sources:sourceImportSources(context.env)},...(sourceGraphConfiguration(context.env)?{graph:sourceGraphConfiguration(context.env)!}:{}),
   transaction:body=>context.resources.gateway.withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:context.signal},body)});
  const identity=context.dependencies.require('14.1','identity.authority',isIdentityAuthority);
  identity.installSourceWorkerEnroller(async(tx,invocation,credentialId)=>{try{return await current().fleet.enrollWorker(tx,invocation,credentialId);}catch(error){if(error instanceof SourceControlError)throw new FoundationError(error.code,error.message);throw error;}});
- const reserved=new Set(['source.capabilities.manage','source.workspaces.widen','source.audit.read']);
  const capability=new Proxy({} as ReturnType<typeof createSourceService>,{get:(_target,key)=>Reflect.get(current(),key)});
- return {apiVersion:1,actions:Object.fromEntries(SOURCE_ACTIONS.filter(action=>!reserved.has(action)).map(action=>[action,async(input:unknown,request:ComponentContext)=>{
+ return {apiVersion:1,actions:Object.fromEntries(SOURCE_ACTIONS.map(action=>[action,async(input:unknown,request:ComponentContext)=>{
   if(!request.invocation)throw new SourceControlError('UNAUTHENTICATED','Authenticated source invocation required');
   return current().api.invoke(action,input,request.invocation);
  }])),capabilities:{'source.service.v1':capability}};

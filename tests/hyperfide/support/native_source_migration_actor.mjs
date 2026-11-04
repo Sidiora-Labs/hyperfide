@@ -107,5 +107,5 @@ try{
  checks.push('a second epoch adoption preserves immutable history, supports new qualified publication and still rejects explicitly revoked historical evidence');
 
  checks.push('atomic dual-epoch activation fences old credentials and forward recovery preserves acknowledged native revisions while refusing rollback');
- const receipt={status:'PASS',checks,backend_requests:fixture.backend.requests.length,kernel_legacy_write_denied:denied,authority_epoch:recovered.authority_epoch,acknowledged_revision:written.revision_id};await fs.mkdir('build/source-control/5.3',{recursive:true});await fs.writeFile('build/source-control/5.3/receipt.json',JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
+ const receipt={status:'PASS',checks,backend_requests:fixture.backend.requests.length,kernel_legacy_write_denied:denied,authority_epoch:recovered.authority_epoch,acknowledged_revision:written.revision_id};const output=process.env.HYPERFIDE_SOURCE_EVIDENCE_DIR??'build/source-control/5.3';await fs.mkdir(output,{recursive:true});await fs.writeFile(output+'/receipt.json',JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
 }finally{await fixture?.close();if(mounted)command('umount',[path.join(temporary,'legacy/data')]);await fs.rm(temporary,{recursive:true,force:true});}

@@ -33,9 +33,12 @@ const journal=new FileExternalAuthorityJournal(process.env.HYPERFIDE_AUTHORITY_J
 const authority=new AuthorityStore(resources,process.env.HYPERFIDE_DEPLOYMENT_ID,journal);
 const identity=await identityModule.createComponent({env:process.env,resources,signal,dependencies:{require(name,capability){assert.equal(name,'4.4');assert.equal(capability,'storage.authority.v1');return authority;}}});
 const identityAuthority=identity.capabilities['identity.authority'];
-const f=await createNativeAcceptanceFixture({migrate:false,scope:{organisation_id:i.organisation,repository_id:i.repository,security_domain_id:randomUUID()},
-  serviceOptions:{transaction:body=>resources.gateway.withPrimaryTransaction({timeoutMs:15000,maxRetries:2},body)}});
 const root=await fs.mkdtemp(path.join(os.tmpdir(),'hf-native-fleet-'));
+const nativeScope={organisation_id:i.organisation,repository_id:i.repository,security_domain_id:randomUUID()},fullCase=process.env.HF_SOURCE_FULL_CASE==='SCM-023';
+let fullCaseDestination;
+if(fullCase){const {createLocalGitDestination}=await load('source_control/git/transport');const directory=path.join(root,'publication.git');await execute('git',['init','--bare',directory]);fullCaseDestination=createLocalGitDestination({scope:nativeScope,id:'full-case',repository_identity:'owned-scm023',path:directory,allowed_refs:['refs/heads/main']});}
+const f=await createNativeAcceptanceFixture({migrate:false,scope:nativeScope,
+  serviceOptions:{transaction:body=>resources.gateway.withPrimaryTransaction({timeoutMs:15000,maxRetries:2},body),...(fullCase?{publication:{destinations:[fullCaseDestination]}}:{})}});
 const checks=[],stages=[];
 const hash=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');
 const digest=f.sourceDigest;
@@ -155,6 +158,8 @@ try{
   const signedWrite=await authenticateWorker('source.objects.put',{kind:'blob',payload_base64:Buffer.from('signed native worker\n').toString('base64')});
   await authorization.authorize(signedWrite.invocation);
   assert((await f.service.api.invoke('source.objects.put',signedWrite.value,signedWrite.invocation)).object_id);
+  const {verifyManagedWorkerGraphScope}=await import('./native_source_worker_graph_scope.mjs');
+  checks.push(...await verifyManagedWorkerGraphScope({f,root,controlRoot,baseline,workspace_id:worker.bound.workspace_id,principal_id:worker.identity.principal_id,invokeWorker:async(action,input)=>{const signed=await authenticateWorker(action,input);await authorization.authorize(signed.invocation);return f.service.api.invoke(action,signed.value,signed.invocation);}}));
   await expectCode('AUTH_SCOPE_DENIED',()=>authenticateWorker('source.workspaces.detail',{workspace_id:worker.bound.workspace_id},{...worker.bound.authority,managed:{...worker.bound.authority.managed,attempt_generation:String(BigInt(worker.bound.attempt_generation)+1n)}}));
   checks.push('signed native worker source requests preserve current attempt authority through authentication, role authorization and the source API');
   const options=w=>({authority:w.bound.authority,operation_id:randomUUID()});
@@ -245,6 +250,8 @@ try{
   const selectedSourceCall=await modelSourceCaller({f,ids:i,resources,controlRoot,identityAuthority,request,sourceCall,signal});
   const selected=await assertNativeFleetSelection({f,ids:i,sourceCall:selectedSourceCall,accepted,baseline,taskId:tasks.first.task,resources,controlRoot,activeAttemptId:replacement.assignment.tasks[0].attempt_id});
   checks.push('explicit accepted-source selection replays and fences stale generation while preserving admitted attempts and qualification');
+  let replacementJourney;
+  if(fullCase){const {runReplacementJourney}=await import('./native_source_replacement_journey.mjs');replacementJourney=await runReplacementJourney({f,root,controlRoot,ids:i,baseline,worker:replacementWorker,checkpoint,options,sourceCall,task:tasks.dependent,registerStage:stage=>stages.push(stage),executable});}
   await resources.gateway.withPrimaryTransaction({timeoutMs:10000},tx=>fenceCompute(tx,{...token,attempt_id:replacement.assignment.tasks[0].attempt_id,attempt_generation:replacement.assignment.tasks[0].attempt_generation},{reason:'STOP',current_authority_epoch:i.epoch,actor:{session_id:i.manager,leader_generation:'1',package_generation:'2'}}));
   checks.push('Primary model decisions drive accepted source selection through scoped native authority and retain one replayable result');
   const selectedPool=await createNativeFleetPool({f,ids:{...i,manager:i.manager2,package:i.wave_package},revision:{revision_id:selected.revision_id},capacity:nativePool.capacity,resources,controlRoot});
@@ -282,8 +289,10 @@ try{
   const selectedEntry=await f.service.trees.lookup(f.scope,selectedSubmission.root_tree_id,'main.txt');
   assert.deepEqual(await f.service.objects.readFile(f.scope,selectedEntry.object_id),selectedBytes);
   checks.push('a newly installed dependent worker consumes the selected predecessor bytes and submits a child revision with exact qualified dependency provenance');
+  let fullCaseEvidence;
+  if(fullCase){const {runFullSourceJourney}=await import('./native_source_full_journey.mjs');fullCaseEvidence=await runFullSourceJourney({f,root,inputs,accepted,qualified,submission,taskQualification,baseline,checkpointOne,checkpointTwo,replacement,selectedSubmission,replacementJourney,checks,remote:fullCaseDestination});}
   const output=path.join(f.ROOT,'build/source-control/4.2');await fs.mkdir(output,{recursive:true});
-  const receipt={schema_version:1,status:'PASS',scope:'real signed manager/worker APIs, PostgreSQL, native source objects, staged installer and independent checker',setup_scope:assignments.scope,checks,backend_requests:f.backend.requests.length,acceptance_id:accepted.acceptance_id,task_qualification_id:taskQualification.qualification_id,submission_id:submission.submission_id,accepted_source_selection:'PASS',selected_revision_id:selected.revision_id,dependent_execution_from_selected_source:'PASS',selected_dependent_submission_id:selectedSubmission.submission_id,...(baseline.consolidated_pilot?{consolidated_pilot:baseline.consolidated_pilot}:{})};
+  const receipt={schema_version:1,status:'PASS',scope:'real signed manager/worker APIs, PostgreSQL, native source objects, staged installer and independent checker',setup_scope:assignments.scope,checks,...(fullCaseEvidence?{full_case_evidence:fullCaseEvidence}:{}),backend_requests:f.backend.requests.length,acceptance_id:accepted.acceptance_id,task_qualification_id:taskQualification.qualification_id,submission_id:submission.submission_id,accepted_source_selection:'PASS',selected_revision_id:selected.revision_id,dependent_execution_from_selected_source:'PASS',selected_dependent_submission_id:selectedSubmission.submission_id,...(baseline.consolidated_pilot?{consolidated_pilot:baseline.consolidated_pilot}:{})};
   await fs.writeFile(path.join(output,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
 }finally{
   for(const stage of stages)await fs.rm(stage,{recursive:true,force:true});

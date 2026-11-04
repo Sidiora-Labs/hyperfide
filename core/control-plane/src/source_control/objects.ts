@@ -58,9 +58,9 @@ export class SourceObjectService {
  if(bytes.length!==Number(row.size_bytes)||rawHash(bytes)!==row.object_id)sourceError('OBJECT_INTEGRITY','Native object envelope checksum or length differs');
  const decoded=decodeCanonicalEnvelope(bytes,row.kind);return {kind:decoded.kind,payload:Buffer.from(decoded.payload)};
  }
- async read(scope:SourceStorageScope,id:string):Promise<{object_id:string;kind:SourceObjectKind;payload:Buffer}>{
+ async read(scope:SourceStorageScope,id:string,signal?:AbortSignal):Promise<{object_id:string;kind:SourceObjectKind;payload:Buffer}>{
  const row=await this.catalog.lookup(scope,id);if(!row||row.state!=='VERIFIED')sourceError('OBJECT_NOT_READY','Source object is unavailable');
- const observed=await this.backend.read(row.storage_key,Number(row.size_bytes));if(observed.state!=='PRESENT')sourceError('OBJECT_UNAVAILABLE','Retained source bytes are unavailable');return {object_id:id,...this.verifyBytes(row,observed.bytes)};
+ const observed=await this.backend.read(row.storage_key,Number(row.size_bytes),signal);if(observed.state!=='PRESENT')sourceError('OBJECT_UNAVAILABLE','Retained source bytes are unavailable');return {object_id:id,...this.verifyBytes(row,observed.bytes)};
  }
  private async validatePayload(scope:SourceStorageScope,kind:SourceObjectKind,payload:Buffer):Promise<string[]>{
  if(kind==='blob'||kind==='chunk'){if(payload.length>FILE_CHUNK_BYTES||kind==='chunk'&&payload.length===0)sourceError('OBJECT_LIMIT','Blob/chunk exceeds the v1 format limit');return [];}
@@ -71,7 +71,7 @@ export class SourceObjectService {
  }
  if(kind==='tree-leaf'||kind==='tree-index'){
   const node=decodeTreeNode(kind,payload);
-  if(node.kind==='tree-leaf'){for(const entry of node.entries){const child=await this.catalog.lookup(scope,entry.object_id);if(!child||child.state!=='VERIFIED'||(entry.kind==='directory'?!['tree-leaf','tree-index'].includes(child.kind)||child.tree_prefix!=='':child.kind!==(entry.kind==='file'?'file':'blob')))sourceError('INVALID_TREE','Tree entry child is not ready with the declared kind');}return node.entries.map(e=>e.object_id);}
+  if(node.kind==='tree-leaf'){const children=this.catalog.lookupMany?new Map((await this.catalog.lookupMany(scope,node.entries.map(entry=>entry.object_id))).map(child=>[child.object_id,child])):null;for(const entry of node.entries){const child=children?children.get(entry.object_id):await this.catalog.lookup(scope,entry.object_id);if(!child||child.state!=='VERIFIED'||(entry.kind==='directory'?!['tree-leaf','tree-index'].includes(child.kind)||child.tree_prefix!=='':child.kind!==(entry.kind==='file'?'file':'blob')))sourceError('INVALID_TREE','Tree entry child is not ready with the declared kind');}return node.entries.map(e=>e.object_id);}
   for(const child of node.children){const object=await this.read(scope,child.object_id);if(object.kind!=='tree-leaf'&&object.kind!=='tree-index')sourceError('INVALID_TREE','Radix index child is not a tree node');const parsed=decodeTreeNode(object.kind,object.payload);if(parsed.prefix!==node.prefix+child.digit||parsed.count!==child.count)sourceError('INVALID_TREE','Radix child prefix/count differs');}return node.children.map(c=>c.object_id);
  }
  sourceError('UNSUPPORTED_OBJECT_KIND','This source object schema has no registered closure verifier');

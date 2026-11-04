@@ -494,76 +494,128 @@ logs = ["build/source-control-remaining-service-build-6.log", "build/fleet-nativ
 scope = "Focused and integrated component execution; full registered capacity and live provider campaigns retain their independent outcomes."
 
 [evidence.native_source_remaining_0]
-path = "build/source-control/2.3/receipt.json"
-sha256 = "f42418aab9d3b13de19cc54477f1c5f80cc9c6b40ca4e3ba67f87ead94c071f7"
+path = "build/source-control/evidence/a21f4868ee648d71c8d0e406baea6578f8214c046fd9eca1b5c75abab95f9e86.json"
+sha256 = "a21f4868ee648d71c8d0e406baea6578f8214c046fd9eca1b5c75abab95f9e86"
 status = "PASS"
+source_path = "build/source-control/2.3/receipt.json"
+prior_receipt_sha256 = "f42418aab9d3b13de19cc54477f1c5f80cc9c6b40ca4e3ba67f87ead94c071f7"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_1]
-path = "build/source-control/3.2/receipt.json"
-sha256 = "5f9fa2be36ab5b01bdadef2802585922aacf8deb1dde7c10fd9ba144b81251c4"
-status = "PASS"
+path = "build/source-control/evidence/3a999186ddf8af1401f129cce6077cc9210a4b46bc69aa15095a86d08ac4b3bd.json"
+sha256 = "3a999186ddf8af1401f129cce6077cc9210a4b46bc69aa15095a86d08ac4b3bd"
+status = "UNRUN"
+source_path = "build/source-control/3.2/receipt.json"
+prior_receipt_sha256 = "5f9fa2be36ab5b01bdadef2802585922aacf8deb1dde7c10fd9ba144b81251c4"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_2]
-path = "build/source-control/3.3/receipt.json"
-sha256 = "6c647f3f14ffe90d29ec8172b65092dd234065b1bbb7d2cf795617b5676b6159"
+path = "build/source-control/evidence/3040a2e26269c4d5aea76f4447be068798fe4b3fbd184084e7627662e7e06234.json"
+sha256 = "3040a2e26269c4d5aea76f4447be068798fe4b3fbd184084e7627662e7e06234"
 status = "PASS"
+source_path = "build/source-control/3.3/receipt.json"
+prior_receipt_sha256 = "6c647f3f14ffe90d29ec8172b65092dd234065b1bbb7d2cf795617b5676b6159"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_3]
-path = "build/source-control/4.2/receipt.json"
-sha256 = "2ce34c10399d658f6c89359668b59be497530c851e4b4bd12eae524130a2f1d1"
+path = "build/source-control/evidence/f7b046efee86e76f4d084c1a7e6026857702c6e66c83ad3157ba0a85d4883f40.json"
+sha256 = "f7b046efee86e76f4d084c1a7e6026857702c6e66c83ad3157ba0a85d4883f40"
 status = "PASS"
+source_path = "build/source-control/4.2/receipt.json"
+prior_receipt_sha256 = "2ce34c10399d658f6c89359668b59be497530c851e4b4bd12eae524130a2f1d1"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_4]
-path = "build/source-control/5.1/receipt.json"
-sha256 = "deaff997d10282e8f80e05ab40eca0203d3604e3b28ab5c395aa8be515977ad1"
+path = "build/source-control/evidence/1b77b115522ad0645fd7bfaff8447463f7eee5388ee5c5cdc50bcc30dcc8368b.json"
+sha256 = "1b77b115522ad0645fd7bfaff8447463f7eee5388ee5c5cdc50bcc30dcc8368b"
 status = "PASS"
+source_path = "build/source-control/5.1/receipt.json"
+prior_receipt_sha256 = "deaff997d10282e8f80e05ab40eca0203d3604e3b28ab5c395aa8be515977ad1"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_5]
-path = "build/source-control/5.2/receipt.json"
-sha256 = "2e9732ea43bd6ad16786e0855c95803139abcac3c9974e40374f32576f79c3e8"
+path = "build/source-control/evidence/22bea893045d01755f036f8ae28600abb0336d1757c9209c0c9b0fa30cf8bcb5.json"
+sha256 = "22bea893045d01755f036f8ae28600abb0336d1757c9209c0c9b0fa30cf8bcb5"
 status = "PASS"
+source_path = "build/source-control/5.2/receipt.json"
+prior_receipt_sha256 = "2e9732ea43bd6ad16786e0855c95803139abcac3c9974e40374f32576f79c3e8"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_6]
-path = "build/source-control/5.3/receipt.json"
+path = "build/source-control/evidence/3a4c600e2d18ecce11b831d673f9cbba6702f9d65f5c1d84665caa2aff73d8d0.json"
 sha256 = "3a4c600e2d18ecce11b831d673f9cbba6702f9d65f5c1d84665caa2aff73d8d0"
 status = "PASS"
+source_path = "build/source-control/5.3/receipt.json"
+prior_receipt_sha256 = "3a4c600e2d18ecce11b831d673f9cbba6702f9d65f5c1d84665caa2aff73d8d0"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_7]
-path = "build/source-control/6.1/receipt.json"
+path = "build/source-control/evidence/498b20d2046d7185d522175f313ab406fec68def3bb6c01fc3e41fd0d583a189.json"
 sha256 = "498b20d2046d7185d522175f313ab406fec68def3bb6c01fc3e41fd0d583a189"
 status = "PASS"
+source_path = "build/source-control/6.1/receipt.json"
+prior_receipt_sha256 = "498b20d2046d7185d522175f313ab406fec68def3bb6c01fc3e41fd0d583a189"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_8]
-path = "build/source-control/6.2/receipt.json"
-sha256 = "7f403b7c1644b0442b8c70bc0815f240e68a776d55345cbebaa2cab575c33fb0"
+path = "build/source-control/evidence/282c650440bfb4e0a283cb569d04f866be2e1b68716da09b5e9a8d9720924850.json"
+sha256 = "282c650440bfb4e0a283cb569d04f866be2e1b68716da09b5e9a8d9720924850"
 status = "PASS"
+source_path = "build/source-control/6.2/receipt.json"
+prior_receipt_sha256 = "7f403b7c1644b0442b8c70bc0815f240e68a776d55345cbebaa2cab575c33fb0"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_9]
-path = "build/source-control/native-bootstrap/receipt.json"
+path = "build/source-control/evidence/626f4e0a8423db73e38187e547d26b528ef4e28b937961e95777ebd749c9d047.json"
 sha256 = "626f4e0a8423db73e38187e547d26b528ef4e28b937961e95777ebd749c9d047"
 status = "PASS"
+source_path = "build/source-control/native-bootstrap/receipt.json"
+prior_receipt_sha256 = "626f4e0a8423db73e38187e547d26b528ef4e28b937961e95777ebd749c9d047"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_10]
-path = "build/source-control/native-provider/receipt.json"
-sha256 = "3ddcb5e7d544f5db5d58acf0d5c8bf0c0ce4204391f9d08ceabe8a9c1d744f75"
+path = "build/source-control/evidence/f37bbde3ccfd6be00d79788836bf3fb5787d02a11a50e2ed7727d47e9d28fb3c.json"
+sha256 = "f37bbde3ccfd6be00d79788836bf3fb5787d02a11a50e2ed7727d47e9d28fb3c"
 status = "PASS"
+source_path = "build/source-control/native-provider/receipt.json"
+prior_receipt_sha256 = "3ddcb5e7d544f5db5d58acf0d5c8bf0c0ce4204391f9d08ceabe8a9c1d744f75"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_11]
-path = "build/source-control/native-qualification/receipt.json"
+path = "build/source-control/evidence/b51f3fae1d63ca81eb0b2af62716ff0b50119aecbec388b87164ff965d52f8b5.json"
 sha256 = "b51f3fae1d63ca81eb0b2af62716ff0b50119aecbec388b87164ff965d52f8b5"
 status = "PASS"
+source_path = "build/source-control/native-qualification/receipt.json"
+prior_receipt_sha256 = "b51f3fae1d63ca81eb0b2af62716ff0b50119aecbec388b87164ff965d52f8b5"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_12]
-path = "build/source-control/product/receipt.json"
+path = "build/source-control/evidence/6a0bdd5cd0aaa995bfcdb040a5838deba71b0ccc3c227a56032bb991f6068f3d.json"
 sha256 = "6a0bdd5cd0aaa995bfcdb040a5838deba71b0ccc3c227a56032bb991f6068f3d"
 status = "PASS"
+source_path = "build/source-control/product/receipt.json"
+prior_receipt_sha256 = "6a0bdd5cd0aaa995bfcdb040a5838deba71b0ccc3c227a56032bb991f6068f3d"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_13]
-path = "build/source-control/routing/receipt.json"
+path = "build/source-control/evidence/70170e035223191019a090273ab4c344863dd84606e24e49a00753286323dcbb.json"
 sha256 = "70170e035223191019a090273ab4c344863dd84606e24e49a00753286323dcbb"
 status = "PASS"
+source_path = "build/source-control/routing/receipt.json"
+prior_receipt_sha256 = "70170e035223191019a090273ab4c344863dd84606e24e49a00753286323dcbb"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
 
 [evidence.native_source_remaining_14]
-path = "build/source-control/transfers/receipt.json"
+path = "build/source-control/evidence/0a122b7fb102308c5a78352f3f7e1bd2f01101adb1b90c85a2c1faeef3346235.json"
 sha256 = "0a122b7fb102308c5a78352f3f7e1bd2f01101adb1b90c85a2c1faeef3346235"
 status = "PASS"
+source_path = "build/source-control/transfers/receipt.json"
+prior_receipt_sha256 = "0a122b7fb102308c5a78352f3f7e1bd2f01101adb1b90c85a2c1faeef3346235"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[decision.required_remote_destination]
+source = "User clarified that GitLab is not used"
+required = "GitHub"
+optional = "GitLab"
+obsolete_ask = "1"
+resolution = "The GitLab credential request is no longer a prerequisite; no credential was supplied or invented."

@@ -21,6 +21,7 @@ export interface ComponentContext extends StartupContext {
   readonly invocation?:InvocationContext;
   readonly resources:ServiceResources;
   readonly dependencies:CapabilityResolver;
+  readonly dispatchInvocation?:(invocation:InvocationContext)=>Promise<unknown>;
 }
 export type Action = (input: unknown, context: ComponentContext) => unknown | Promise<unknown>;
 export interface Component { apiVersion: 1; actions: Record<string, Action>; capabilities?:Readonly<Record<string,unknown>>; close?: () => void | Promise<void> }
@@ -143,7 +144,10 @@ export class ComponentRegistry {
           if(!declaration.requires.includes(dependency))invalid('Component requested an undeclared dependency');
           return this.resolveCapability(dependency,capability,validate);
         }});
-        const componentContext:ComponentContext=Object.freeze({...this.context,resources:this.resourceView,dependencies});
+        const componentContext:ComponentContext=Object.freeze({...this.context,resources:this.resourceView,dependencies,dispatchInvocation:(invocation:InvocationContext)=>{
+          if(invocation.payload.component!==id)throw new FoundationError('AUTH_SCOPE_DENIED','Child invocation cannot change component');
+          return this.invoke(id,invocation.payload.action,invocation.payload.input,invocation);
+        }});
         this.contexts.set(id,componentContext);
         const value: unknown = await factory(componentContext);
         if (this.closed || this.context.signal.aborted) {
