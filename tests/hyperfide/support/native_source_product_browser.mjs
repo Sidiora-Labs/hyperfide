@@ -259,7 +259,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       "host capability response",
     );
     if (inspection) {
-      const screenshots = [];
+      const screenshots = [...(inspection.resume?.screenshots ?? [])];
       const capture = async (name) => {
         for (const viewport of [
           { name: "desktop", width: 1440, height: 1000 },
@@ -291,8 +291,17 @@ export async function runSourceProductBrowser(f, binding, inspection) {
           screenshots.push(filename);
         }
       };
-      let qualification = null;
-      if (inspection.candidateId) {
+      let qualification = inspection.resume?.qualification ?? null;
+      if (inspection.resume?.acceptance_id) inspection = { ...inspection, acceptanceId: inspection.resume.acceptance_id };
+      const persist = async (extra = {}) => {
+        if (!inspection.progressFile) return;
+        await fs.writeFile(inspection.progressFile, JSON.stringify({
+          candidate_id: inspection.candidateId, revision_id: inspection.revisionId,
+          root_tree_id: inspection.rootTreeId, acceptance_id: inspection.acceptanceId,
+          qualification, screenshots: [...new Set(screenshots)], ...extra,
+        }, null, 2) + "\n", {mode:0o600});
+      };
+      if (inspection.candidateId && !inspection.acceptanceId) {
         assert(Array.isArray(inspection.evidenceIds) && inspection.evidenceIds.length > 0);
         await click("Changes");
         await fill("Candidate", inspection.candidateId);
@@ -310,6 +319,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         assert(result.acceptance_id);
         inspection = { ...inspection, acceptanceId: result.acceptance_id };
         await capture("candidate-accepted");
+        await persist();
       }
       const accepted = await f.client.call("source.acceptance.read", {
         acceptance_id: inspection.acceptanceId,
@@ -347,11 +357,17 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       await fill("Target reference", inspection.targetRef ?? "refs/heads/main");
       if (inspection.expectedOldOid)
         await fill("Expected remote Git identity", inspection.expectedOldOid);
-      await click("Create publication");
-      await until(
-        'document.body.innerText.includes("QUEUED")',
-        "fleet accepted publication intent",
-      );
+      if (inspection.resume?.publication_operation_id) {
+        await fill("Publication operation", inspection.resume.publication_operation_id);
+      } else {
+        await click("Create publication");
+        await until(
+          'document.body.innerText.includes("QUEUED")',
+          "fleet accepted publication intent",
+        );
+        const queued = await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result");
+        await persist({publication_operation_id: queued.operation_id});
+      }
       await click("Reconcile publication");
       await until(
         'document.body.innerText.includes("PUBLISHED")',
@@ -373,7 +389,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         publication: published,
         qualification,
         conflict,
-        screenshots,
+        screenshots: [...new Set(screenshots)],
         checks: [
           "display exact supplied accepted revision history",
           "resolve an actual merge conflict derived from the supplied accepted revision",

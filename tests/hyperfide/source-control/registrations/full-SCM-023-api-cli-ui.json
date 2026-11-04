@@ -1,0 +1,97 @@
+{
+  "schema_version": 2,
+  "feature": "hyperfide-source-control",
+  "variant": "case:hyperfide-source-control/SCM-023/api-cli-ui",
+  "task": "6.3",
+  "case_variant": "api-cli-ui",
+  "scope": "full-case",
+  "cases": [
+    "SCM-023"
+  ],
+  "assertion_ids": [
+    "SCM-023.assignment-workspace-binding",
+    "SCM-023.durable-checkpoint-lineage",
+    "SCM-023.checkpoint-and-submission-distinct",
+    "SCM-023.unknown-submission-reconciles-once",
+    "SCM-023.replacement-keeps-prior-history",
+    "SCM-023.independent-qualification-before-task-release",
+    "SCM-023.dependent-consumes-accepted-source",
+    "SCM-023.forged-qualified-dependency-refused",
+    "SCM-023.plain-sql-qualification-snapshot",
+    "SCM-023.queue-preserves-qualified-dependencies",
+    "SCM-023.replacement-reaches-qualified-acceptance",
+    "SCM-023.signed-cli-revision-read",
+    "SCM-023.signed-cli-history-without-checkout",
+    "SCM-023.ui-shows-exact-fleet-accepted-source",
+    "SCM-023.ui-conflict-resolution-preserves-source",
+    "SCM-023.ui-desktop-tablet-mobile",
+    "SCM-023.ui-publication-has-explicit-durable-status",
+    "SCM-023.independent-git-readback-matches-native",
+    "SCM-023.genuine-native-source-capture"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/source-control/full_case/scm_023_live_full.py"
+  ],
+  "source_files": [
+    "tests/hyperfide/source-control/full_case/scm_023_live_full.py",
+    "tests/hyperfide/source-control/full_case/scm_023_live.py",
+    "tests/hyperfide/source-control/full_case/scm_023_live.mjs",
+    "tests/hyperfide/source-control/full_case/scm_023_live_fleet.mjs",
+    "tests/hyperfide/source-control/full_case/native_capture.mjs",
+    "tests/hyperfide/support/native_source_live_submission.mjs",
+    "tests/hyperfide/support/native_source_product_browser.mjs",
+    "package.json",
+    "pnpm-lock.yaml"
+  ],
+  "source_roots": [
+    "plugins/hyperfide-source-control",
+    "plugins/environment-slices",
+    "sdk/source-control/src",
+    "sdk/source-control/dist",
+    "sdk/plugins/src",
+    "core/authority-client/src",
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/migrations",
+    "apps/cli/dist",
+    "apps/web/dist/assets"
+  ],
+  "actions": [
+    "signed-live-source-api",
+    "read-live-postgres",
+    "invoke-built-source-cli",
+    "launch-chromium",
+    "publish-configured-github-ref",
+    "read-github"
+  ],
+  "resources": [],
+  "required_env": [
+    "HF_SOURCE_LIVE_JOURNEY_INPUT"
+  ],
+  "timeout_seconds": 1000,
+  "required_artifacts": [
+    "build/source-control/full-case/SCM-023-live/receipt.json",
+    "build/source-control/full-case/SCM-023-live/browser/receipt.json",
+    "build/source-control/full-case/SCM-023-live/browser-progress.json",
+    "build/source-control/full-case/SCM-023-live/native-full/native.json",
+    "build/source-control/full-case/SCM-023-live/browser/desktop-candidate-qualified.png",
+    "build/source-control/full-case/SCM-023-live/browser/tablet-candidate-qualified.png",
+    "build/source-control/full-case/SCM-023-live/browser/mobile-candidate-qualified.png",
+    "build/source-control/full-case/SCM-023-live/browser/desktop-candidate-accepted.png",
+    "build/source-control/full-case/SCM-023-live/browser/tablet-candidate-accepted.png",
+    "build/source-control/full-case/SCM-023-live/browser/mobile-candidate-accepted.png",
+    "build/source-control/full-case/SCM-023-live/browser/desktop-accepted-history.png",
+    "build/source-control/full-case/SCM-023-live/browser/tablet-accepted-history.png",
+    "build/source-control/full-case/SCM-023-live/browser/mobile-accepted-history.png",
+    "build/source-control/full-case/SCM-023-live/browser/desktop-accepted-conflict.png",
+    "build/source-control/full-case/SCM-023-live/browser/tablet-accepted-conflict.png",
+    "build/source-control/full-case/SCM-023-live/browser/mobile-accepted-conflict.png",
+    "build/source-control/full-case/SCM-023-live/browser/desktop-accepted-resolution.png",
+    "build/source-control/full-case/SCM-023-live/browser/tablet-accepted-resolution.png",
+    "build/source-control/full-case/SCM-023-live/browser/mobile-accepted-resolution.png",
+    "build/source-control/full-case/SCM-023-live/browser/desktop-accepted-publication.png",
+    "build/source-control/full-case/SCM-023-live/browser/tablet-accepted-publication.png",
+    "build/source-control/full-case/SCM-023-live/browser/mobile-accepted-publication.png"
+  ]
+}

@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import {createReadStream} from 'node:fs';
+import {createInterface} from 'node:readline';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {pathToFileURL} from 'node:url';
 import {readPrivate,deploymentConfig,credential,observerCounters} from '../source-control/workloads/deployment.mjs';
 import {campaignManifest,machineIdentity,runCampaignHook} from '../source-control/workloads/campaign.mjs';
+import {observationCoverage} from '../source-control/workloads/periodic_observer.mjs';
 import {verifyArtifacts,artifact} from '../source-control/workloads/artifacts.mjs';
 import {reloadingSignedClient} from '../source-control/workloads/signed_client.mjs';
 const plan=campaignManifest(JSON.parse(await readPrivate(process.env.HF_SOURCE_WORKLOAD_MANIFEST))),config=deploymentConfig(JSON.parse(await readPrivate(process.env.HF_SOURCE_WORKLOAD_CONFIG)),plan),directory=config.output_directory;
@@ -15,11 +18,22 @@ const state=new DatabaseSync(path.join(directory,'campaign-state.sqlite'),{readO
 const {SourceControlClient}=await import(pathToFileURL(path.join(process.env.SOURCE_CONTROL_SDK_MODULE_ROOT,'client.js')));
 const client=config.signed_config_file?await reloadingSignedClient(config,{sdkRoot:process.env.SOURCE_CONTROL_SDK_MODULE_ROOT,signal:()=>new AbortController().signal,observe:async()=>{},credentialVersion:()=>{}}):new SourceControlClient({endpoint:config.endpoint,scope:config.scope,token:()=>credential(config)});
 await client.capabilities();let verifiedRevisions=0;
+assert.equal(receipt.observer_samples_file,path.join(directory,'observer-samples.jsonl'));assert(Number.isSafeInteger(receipt.observer_interval_seconds)&&receipt.observer_interval_seconds>=10&&receipt.observer_interval_seconds<=300);
+const observationTimes=[],observationWindows=[];let observationSequence=0;
+for await(const line of createInterface({input:createReadStream(receipt.observer_samples_file),crlfDelay:Infinity})){
+ const sample=JSON.parse(line);assert(Number.isSafeInteger(sample.sequence)&&sample.sequence>observationSequence);observationSequence=sample.sequence;
+ const retained=JSON.parse(await fs.readFile(sample.record.receipt_file,'utf8'));assert.equal(retained.status,'PASS');assert.deepEqual(retained.scope,config.scope);assert.deepEqual(retained.observations,sample.value);
+ assert.equal((await artifact(sample.record.receipt_file,directory)).sha256,sample.record.receipt_sha256);await verifyArtifacts(directory,retained.evidence);observerCounters(sample.value,plan.backend_identity,config.deployment_identity);
+ if(sample.phase==='periodic'){const timestamp=Date.parse(retained.sampled_at);assert(Number.isFinite(timestamp));observationTimes.push(timestamp);}
+}
+
 for(const result of receipt.results){
  const database=new DatabaseSync(result.ledger+'.sqlite',{readOnly:true});try{
   assert.equal(database.prepare('SELECT count(*) AS n FROM operations').get().n,plan.operations);assert.equal(database.prepare('SELECT count(*) AS n FROM revisions').get().n,result.measurements.new_revisions);assert.equal(database.prepare('SELECT count(*) AS n FROM ledger_events WHERE acknowledged=0 AND interrupted=0').get().n,0);
   observerCounters(result.server_before.value,plan.backend_identity,config.deployment_identity);observerCounters(result.server_after.value,plan.backend_identity,config.deployment_identity);
   const rows=database.prepare('SELECT day,sum(new_revision) AS n FROM ledger_events GROUP BY day').all(),days=[0,0,0,0];for(const row of rows)if(row.day>=0&&row.day<4)days[row.day]=row.n;assert.deepEqual(days,result.measurements.daily_new_revisions);
+  const start=database.prepare("SELECT value FROM ledger_meta WHERE key='started_at_ms'").get().value;
+  if(result.measurements.elapsed_ms>receipt.observer_interval_seconds*1000)observationWindows.push({logical_files:result.logical_files,...observationCoverage(start,start+result.measurements.elapsed_ms,observationTimes,(receipt.observer_interval_seconds+config.observer.timeout_seconds)*1000+1000)});
   if(plan.kind==='endurance'){assert(days.slice(0,3).every(value=>value>=100000));assert(result.measurements.elapsed_ms>=259200000);}
   if(plan.kind==='admission'){assert.equal(result.measurements.logical_opens,20000000);assert(result.measurements.elapsed_ms<=86400000);}
   if(result.measurements.checkpoint_rpc_ms){const n=database.prepare('SELECT count(*) AS n FROM ledger_events WHERE checkpoint_ms IS NOT NULL').get().n;const exact=database.prepare('SELECT checkpoint_ms AS ms FROM ledger_events WHERE checkpoint_ms IS NOT NULL ORDER BY checkpoint_ms LIMIT 1 OFFSET ?').get(Math.ceil(n*.95)-1).ms;assert(exact<=result.measurements.checkpoint_rpc_ms.p95+1e-6);assert(result.measurements.checkpoint_rpc_ms.p95<=config.budgets.max_checkpoint_p95_ms);}
@@ -47,4 +61,4 @@ if(plan.kind==='growth'){const times=receipt.results.map(row=>row.measurements.c
 if(plan.kind==='mixed')assert(receipt.results.every(row=>row.measurements.observed_submission_rate>=plan.rate_per_second*.95));
 for(const hook of receipt.hook_receipts){const bytes=await fs.readFile(hook.receipt_file);const actual=await artifact(hook.receipt_file,directory);assert.equal(actual.sha256,hook.receipt_sha256);const value=JSON.parse(bytes);assert.equal(value.status,'PASS');assert.deepEqual(value.scope,config.scope);await verifyArtifacts(directory,value.evidence);for(const id of value.worker_revision_ids??[])assert.equal((await client.revision(id)).revision_id,id);}
 const observation=await runCampaignHook(config.observer,{scope:config.scope,outputDirectory:directory,ordinal:'completion-verification-'+Date.now()});const current=JSON.parse(await fs.readFile(observation.receipt_file,'utf8')).observations;observerCounters(current,plan.backend_identity,config.deployment_identity);assert(current.persisted_revisions>=receipt.observer_after.value.persisted_revisions);
-const proof={schema_version:1,status:'PASS',kind:plan.kind,scope:config.scope,verified_at:new Date().toISOString(),verified_client_revisions:verifiedRevisions,receipt:await artifact(path.join(directory,'receipt.json'),directory),observer:observation};await fs.writeFile(path.join(directory,'verification.json'),JSON.stringify(proof,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(proof));
+const proof={schema_version:1,status:'PASS',kind:plan.kind,scope:config.scope,verified_at:new Date().toISOString(),verified_client_revisions:verifiedRevisions,periodic_observations:observationTimes.length,observation_windows:observationWindows,receipt:await artifact(path.join(directory,'receipt.json'),directory),observer:observation};await fs.writeFile(path.join(directory,'verification.json'),JSON.stringify(proof,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(proof));

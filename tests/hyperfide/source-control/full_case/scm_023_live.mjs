@@ -8,6 +8,7 @@ import {promisify} from 'node:util';
 import {loadSourceClient} from '../../../../plugins/hyperfide-source-control/runtime.ts';
 import {runSourceProductBrowser} from '../../support/native_source_product_browser.mjs';
 import {captureNativeSource} from './native_capture.mjs';
+import {verifyLiveFleetFacts} from './scm_023_live_fleet.mjs';
 
 const exec=promisify(execFile),root=path.resolve(import.meta.dirname,'../../../..');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -57,7 +58,17 @@ const cliRevision=await cli(['revision',revision.revision_id]);
 prove('signed-cli-revision',cliRevision.ok===true&&cliRevision.result.root_tree_id===revision.root_tree_id);
 const history=await cli(['history',revision.revision_id]);
 prove('signed-cli-history-without-clone',history.ok===true&&history.result.entries.some(row=>row.revision_id===revision.revision_id)&&!(await fs.readdir(output)).includes('.git'));
-const browser=await runSourceProductBrowser({client,scope:config.scope,base:revision,createRevision,projectName:'Deployed native fleet source'},binding,{candidateId:input.candidate_id,evidenceIds:input.evidence_ids,revisionId:revision.revision_id,rootTreeId:revision.root_tree_id,destinationId:input.destination_id,targetRef:input.target_ref,expectedOldOid:input.expected_old_oid??'git:sha1:'+'0'.repeat(40),outputDirectory:path.relative(root,path.join(output,'browser'))});
+const progressFile=path.join(output,'browser-progress.json');
+let resume;
+try { resume=JSON.parse(await fs.readFile(progressFile,'utf8')); }
+catch(error) { if(error.code!=='ENOENT')throw error; }
+if(resume) {
+ assert.equal(resume.candidate_id,input.candidate_id,'Progress belongs to another candidate');
+ assert.equal(resume.revision_id,revision.revision_id);
+ assert.equal(resume.root_tree_id,revision.root_tree_id);
+ for(const file of resume.screenshots??[])assert((await fs.stat(file)).size>0);
+}
+const browser=await runSourceProductBrowser({client,scope:config.scope,base:revision,createRevision,projectName:'Deployed native fleet source'},binding,{progressFile,resume,candidateId:input.candidate_id,evidenceIds:input.evidence_ids,revisionId:revision.revision_id,rootTreeId:revision.root_tree_id,destinationId:input.destination_id,targetRef:input.target_ref,expectedOldOid:input.expected_old_oid??'git:sha1:'+'0'.repeat(40),outputDirectory:path.relative(root,path.join(output,'browser'))});
 prove('ui-native-independent-qualification',browser.qualification?.candidate_id===input.candidate_id&&browser.qualification.evidence.evidence_ids.every(id=>input.evidence_ids.includes(id)));
 const accepted=await client.call('source.acceptance.read',{acceptance_id:browser.acceptance_id});
 prove('ui-accepts-exact-worker-revision',accepted.revision_id===revision.revision_id&&accepted.root_tree_id===revision.root_tree_id&&accepted.qualification_id===browser.qualification.qualification_id);
@@ -81,6 +92,26 @@ assert.equal(sourceContext.authority_epoch, revision.authority_epoch);
 const nativeCapture = await captureNativeSource({client,context:sourceContext,revisionId:revision.revision_id,workspaceRoot:root,outputDirectory:path.join(output,'native'),assertionIds:[...assertions.map(row=>row.id),'SCM-023.live.native-source-capture'],toolchain:[process.execPath]});
 prove('native-source-capture',nativeCapture.revision_id===revision.revision_id&&nativeCapture.root_tree_id===revision.root_tree_id);
 const receipt={schema_version:1,status:'PASS',variant:'api-cli-ui',execution_profile:'deployed-signed-native-fleet-github',endpoint:config.endpoint,scope:config.scope,run_id:input.run_id,task_id:input.task_id,assignment_id:input.assignment_id,candidate_id:input.candidate_id,revision_id:revision.revision_id,root_tree_id:revision.root_tree_id,acceptance:accepted,publication,github:{repository:input.github_repository,head:head.object.sha,content_sha256:hash(Buffer.from(remote.content,'base64'))},browser,native_capture:nativeCapture,assertions};
+if(process.env.HF_SOURCE_LIVE_FULL==='1') {
+ const fleet=await verifyLiveFleetFacts({input,client,scope:config.scope,protectedJSON,product:receipt});
+ const mapping=[
+  ['signed-cli-revision-read',['signed-cli-revision']],
+  ['signed-cli-history-without-checkout',['signed-cli-history-without-clone']],
+  ['ui-shows-exact-fleet-accepted-source',['ui-accepts-exact-worker-revision']],
+  ['ui-conflict-resolution-preserves-source',['ui-real-conflict-and-resolution']],
+  ['ui-desktop-tablet-mobile',['ui-three-viewport-journeys']],
+  ['ui-publication-has-explicit-durable-status',['ui-configured-publication']],
+  ['independent-git-readback-matches-native',['independent-github-head','independent-github-content']],
+  ['genuine-native-source-capture',['native-source-capture']],
+ ];
+ const observed=new Set(assertions.map(row=>row.id));
+ const fullIds=[...fleet.ids,...mapping.map(([id,requirements])=>{for(const requirement of requirements)assert(observed.has('SCM-023.live.'+requirement));return 'SCM-023.'+id;})];
+ assert.equal(fullIds.length,19);
+ receipt.product_assertions=assertions.slice();
+ receipt.assertions=fullIds.map(id=>({id,expected:true,actual:true}));
+ receipt.fleet=fleet.records;
+ receipt.native_capture=await captureNativeSource({client,context:sourceContext,revisionId:revision.revision_id,workspaceRoot:root,outputDirectory:path.join(output,'native-full'),assertionIds:fullIds,toolchain:[process.execPath]});
+}
 await fs.writeFile(path.join(output,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');
-for(const assertion of assertions)console.log(JSON.stringify({type:'assertion',...assertion}));
+for(const assertion of receipt.assertions)console.log(JSON.stringify({type:'assertion',...assertion}));
 console.log(JSON.stringify({type:'cleanup',complete:true,resources:[],retained:['native source history','configured GitHub publication']}));

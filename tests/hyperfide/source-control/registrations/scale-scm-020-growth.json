@@ -36,7 +36,9 @@
     "tests/hyperfide/support/native_source_campaign_prepare.mjs",
     "tests/hyperfide/support/native_source_campaign_collect.mjs",
     "tests/hyperfide/qualify.py",
-    "tests/hyperfide/source-control/full_case/scale_manifest.py"
+    "tests/hyperfide/source-control/full_case/scale_manifest.py",
+    "tests/hyperfide/source-control/workloads/periodic_observer.mjs",
+    "tests/hyperfide/source-control/workloads/periodic_observer.test.mjs"
   ],
   "source_roots": [
     "tests/hyperfide/source-control/workloads",

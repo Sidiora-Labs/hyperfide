@@ -50,6 +50,7 @@ def main():
             if len(data)>128*1024*1024 or total>512*1024*1024:raise ValueError('Shared source capture exceeds its byte bound')
             result[relative]=q.digest(data)
         return result
+    for _,record in selected:q.verify_status_contracts(ROOT,record)
     before=inventory();registry_hash=q.digest(registry_path.read_bytes())
     assertion_ids=sorted({item for _,record in selected for item in record['assertion_ids']}) if args.all_full else selected[0][1]['assertion_ids']
     planned={'feature':'hyperfide-source-control','scope':'full-case','source_files':list(before),'source_hashes':before,'assertion_ids':assertion_ids,'variants':[name for name,_ in selected]}
@@ -63,6 +64,7 @@ def main():
         fixture=load('source_fixture',ROOT/'tests/hyperfide/support/native_source_fixture.py')
         result=fixture.run_source_actor(Path(__file__).with_suffix('.mjs'),migrations=['0736-source-control-storage.sql','0737-source-control-metadata.sql','0738-source-control-capabilities.sql','0739-source-control-workspaces.sql','0740-source-control-transformations.sql','0741-source-control-acceptance.sql','0743-source-control-assurance.sql'],timeout=1800)
         if result:return result
+        for _,record in selected:q.verify_status_contracts(ROOT,record)
         if before!=inventory() or registry_hash!=q.digest(registry_path.read_bytes()):raise ValueError('Reviewed source inventory changed during capture')
         note=json.loads(result_path.read_text());native=json.loads(Path(note['native_source_path']).read_text());q.native_capture(ROOT,native,assertion_ids)
         note.update(shared=args.all_full,variants=planned['variants'],registry_sha256=registry_hash)
