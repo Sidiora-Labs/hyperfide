@@ -3,7 +3,9 @@ import {open} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createPublicKey} from 'node:crypto';
-import {createStoragePool,storageConfig} from '../storage/schema.js';
+import {getPool} from '../storage/schema.js';
+import {createResourceContainer} from '../storage/runtime.js';
+import {standaloneSourceAuthority} from './standalone-authority.js';
 import {createSourceService,sourceCursorKey,sourceWorkspaceBudgets} from './registration.js';
 import {sourceTransferOptions,SOURCE_TRANSFER_PATH} from './transfers.js';
 import {sourceGraphConfiguration} from './graph-adapter.js';
@@ -71,18 +73,21 @@ async function listenerConfiguration(env:Readonly<NodeJS.ProcessEnv>):Promise<Li
 export async function startSourceControl(env:Readonly<NodeJS.ProcessEnv>=process.env,signal:AbortSignal=new AbortController().signal):Promise<{address:string;close():Promise<void>}> {
  const configuration=await listenerConfiguration(env),cursorKey=sourceCursorKey(env),workspaceBudgets=sourceWorkspaceBudgets(env);
  const backend=new S3SourceObjectBackend(sourceS3Configuration(env));
- const pool=createStoragePool(storageConfig(env));let listener:Awaited<ReturnType<typeof startSourceHttp>>|undefined;
+ const resources=createResourceContainer({role:'control',env,signal});let listener:Awaited<ReturnType<typeof startSourceHttp>>|undefined;
  let closing:Promise<void>|undefined;
- const close=():Promise<void>=>closing??=(async()=>{signal.removeEventListener('abort',abort);try{await listener?.close();}finally{await pool.end();}})();
+ const close=():Promise<void>=>closing??=(async()=>{signal.removeEventListener('abort',abort);try{await listener?.close();}finally{await resources.close();}})();
  const abort=()=>{void close().catch(()=>{});};
  try {
+  const pool=getPool(env);
+  const authority=standaloneSourceAuthority(resources,env,signal);
+  await authority.current();
   const tables=['source_native_objects','source_repositories','source_principal_credentials','source_capabilities','source_workspaces','source_transformations','source_native_candidates','source_native_acceptances','source_native_assurance_evidence','source_git_publications','source_fleet_runs','source_fleet_assignments','source_fleet_submissions','source_fleet_qualifications','source_fleet_selections','source_fleet_selection_heads'];
   const readiness=await pool.query<{name:string;present:boolean}>('SELECT name,to_regclass(name) IS NOT NULL AS present FROM unnest($1::text[]) AS name',[tables.map(name=>'hyperfide.'+name)]);
   if(readiness.rows.length!==tables.length||readiness.rows.some(row=>!row.present))throw new SourceControlError('SCHEMA_NOT_READY','Apply the source-control migrations before starting the service');
   if(signal.aborted)throw new SourceControlError('SERVICE_UNAVAILABLE','Source startup was cancelled');
   const transferOrigin=env.HF_SOURCE_TRANSFER_ORIGIN;
   if(transferOrigin!==undefined&&(!/^https:\/\//.test(transferOrigin)||new URL(transferOrigin).origin!==transferOrigin))invalid('HF_SOURCE_TRANSFER_ORIGIN must be a canonical HTTPS origin');
-  const service=createSourceService({pool,backend,cursorKey,workspaceBudgets,...(transferOrigin?{transfers:sourceTransferOptions(transferOrigin+SOURCE_TRANSFER_PATH,cursorKey)}:{}),publication:{destinations:sourcePublicationDestinations(env)},imports:{sources:sourceImportSources(env)},...(sourceGraphConfiguration(env)?{graph:sourceGraphConfiguration(env)!}:{}),...(sourceMigrationControls(env)?{migration:sourceMigrationControls(env)!}:{}),...(env.HF_SOURCE_ROUTING_OWNER_ID?{routing_owner_id:env.HF_SOURCE_ROUTING_OWNER_ID}:{})});
+  const service=createSourceService({pool,backend,cursorKey,workspaceBudgets,transaction:authority.transaction,...(transferOrigin?{transfers:sourceTransferOptions(transferOrigin+SOURCE_TRANSFER_PATH,cursorKey)}:{}),publication:{destinations:sourcePublicationDestinations(env)},imports:{sources:sourceImportSources(env)},...(sourceGraphConfiguration(env)?{graph:sourceGraphConfiguration(env)!}:{}),...(sourceMigrationControls(env)?{migration:sourceMigrationControls(env)!}:{}),...(env.HF_SOURCE_ROUTING_OWNER_ID?{routing_owner_id:env.HF_SOURCE_ROUTING_OWNER_ID}:{})});
   listener=await startSourceHttp({api:service.api,transfers:service.transfers,trust:configuration.trust,host:configuration.host,port:configuration.port,signal,...(configuration.tls?{tls:configuration.tls}:{}),allowLoopbackHTTP:configuration.allowLoopbackHTTP});
   signal.addEventListener('abort',abort,{once:true});if(signal.aborted)await close();
   return {address:listener.address,close};

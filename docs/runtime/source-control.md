@@ -52,3 +52,12 @@ python3 tests/hyperfide/cases/source_control/7_2.py --manifest /path/to/release.
 ```
 
 The closure reruns the canonical checker for every full-case receipt. The release gate checks artifact checksums and the operator acceptance record bound to that closure packet and source revision. Component receipts do not satisfy a full-case obligation.
+
+The standalone listener requires `HYPERFIDE_DEPLOYMENT_ID` and an absolute
+`HYPERFIDE_AUTHORITY_JOURNAL_DIR`. The journal directory must already contain
+accepted authority state, be private and owned by the service user, and remain
+independent of PostgreSQL restoration. Startup never creates or repairs it.
+Every source metadata transaction reads current external authority, verifies the
+same epoch and proof against the primary, and rechecks that binding and its
+expiry before commit. A restored database with an older authority epoch remains
+fenced even when its source credentials and capabilities are still valid.

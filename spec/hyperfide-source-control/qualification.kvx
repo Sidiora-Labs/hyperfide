@@ -619,3 +619,14 @@ required = "GitHub"
 optional = "GitLab"
 obsolete_ask = "1"
 resolution = "The GitLab credential request is no longer a prerequisite; no credential was supplied or invented."
+
+[progress.native_source_standalone_recovery_fence]
+command = "python3 tests/hyperfide/cases/source_control/server_authority.py"
+exit_code = 0
+log = "build/source-control-server-authority-green.log"
+receipt = "build/source-control/evidence/336b53dcb539bf4c74afcd201d00140d03f535c34702fb98bb64f914c0dfcf1c.json"
+receipt_sha256 = "336b53dcb539bf4c74afcd201d00140d03f535c34702fb98bb64f914c0dfcf1c"
+source_digest = "sha256:70ca4228c226094da4a3a57e45dce8cbd219df80c2e854b364e9956e4052d4d0"
+dist_digest = "sha256:1f6840a5ef1788a596d7ecf296f636d899199e71e07ba4bf704cb60dd62dc930"
+observed = "Six actual standalone-server checks pass, including independently advanced journal versus restored PostgreSQL, live journal loss, missing startup authority, and a concurrent locked epoch change with typed refusal and no new upload."
+scope = "Owned PostgreSQL, signed source tokens and independent file authority journal; exact launcher and compiled service. The prior compiled launcher fails the same recovery cases."

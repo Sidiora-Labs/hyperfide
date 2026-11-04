@@ -12,6 +12,20 @@ resolution = "Preserve empty email fields in both directions while retaining nam
 evidence = "Source-control 5.1 and 5.2 exercise real workspace checkpoints, Git hashing, strict fsck and native import with exact identity readback."
 status = "resolved"
 
+[gotcha.source_batch_authorization]
+symptom = "A metadata read denied as a direct signed request can succeed inside an allowed batch."
+cause = "Calling the source API recursively preserves source capabilities but skips the identity and role-policy checks applied by component dispatch."
+resolution = "Derive each read from its exact signed batch member, retain the authenticated invocation, and dispatch it through the same component authorization path. Only the query time budget may narrow."
+evidence = "The signed TLS batch_authorization.py regression reproduces the bypass and verifies matching direct and batched refusals after the fix."
+status = "resolved"
+
+[gotcha.source_standalone_restore_fence]
+symptom = "The standalone source launcher can accept an unexpired token against restored credentials and source epochs after external authority has advanced."
+cause = "Database-only source authorization cannot distinguish a complete old database image from current authority."
+resolution = "Require the independent authority journal before listening. Refresh its attestation for each metadata transaction and validate the active epoch, proof and expiry before and after the transaction body. Preserve typed refusal codes across the transaction gateway."
+evidence = "server_authority.py restores an actual database, advances the independent journal, and checks startup, live journal loss and an in-flight epoch change. All six checks pass; the prior launcher accepts the restored-token mutation."
+status = "resolved"
+
 [gotcha.source_spec_bootstrap]
 symptom = "The installed hyperfide brief command refuses a fresh source checkout without initialized project state."
 cause = "Repository source and spec files do not themselves initialize the local graph database."

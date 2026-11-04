@@ -1086,6 +1086,11 @@ Status: **implemented**. Owner: `source-recovery`. Dependencies: 4.1, 4.2, 5.1, 
 Proposed implementation scope:
 
 - `core/control-plane/src/source_control/recovery.ts`
+- `core/control-plane/src/source_control/server.ts`
+- `core/control-plane/src/source_control/standalone-authority.ts`
+- `tests/hyperfide/cases/source_control/server_authority.py`
+- `tests/hyperfide/support/native_source_server_authority.mjs`
+- `docs/runtime/source-control.md`
 - `core/control-plane/src/source_control/backup.ts`
 - `core/control-plane/src/source_control/routing.ts`
 - `core/control-plane/src/source_control/registration.ts`
