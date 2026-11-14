@@ -682,6 +682,12 @@ export function createComponent(ctx: ComponentContext): Component {
           ))
             fleetError("FLEET_COHORT_STALE");
           const identity = retry ? old.controller_identity : localProcessIdentity();
+          if (retry) {
+            let current;
+            try { current = localProcessIdentity(Number(identity.pid)); } catch { fleetError("FLEET_SUPERVISOR_UNAVAILABLE"); }
+            if (hash(current) !== hash(identity) || current.kernel_boot_id !== identity.kernel_boot_id)
+              fleetError("FLEET_SUPERVISOR_STALE");
+          }
           await tx.query(
             "INSERT INTO hyperfide.fleet_cohorts(organisation_id,run_id,id,host_id,authority_epoch,leader_session_id,leader_generation,cohort_generation,controller_identity) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(organisation_id,run_id) DO UPDATE SET host_id=EXCLUDED.host_id,authority_epoch=EXCLUDED.authority_epoch,leader_session_id=EXCLUDED.leader_session_id,leader_generation=EXCLUDED.leader_generation,cohort_generation=EXCLUDED.cohort_generation,controller_identity=EXCLUDED.controller_identity",
             [
