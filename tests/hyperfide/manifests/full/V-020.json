@@ -49,18 +49,18 @@
   "inputs": [
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
-      "size": 37538
+      "sha256": "efea46e369930c06481ee46cec86da8737d49179fa7757401620343fd2cc230a",
+      "size": 59890
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
-      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
-      "size": 30633
+      "sha256": "2deefd325682d42211c6f4815a1c7535ec4c6ba0911116e891ff773905868d6c",
+      "size": 42606
     },
     {
       "path": "tests/hyperfide/registry.json",
-      "sha256": "59c858064cf8f112221068f9b2c6b7c9a3d5480aaad0792baa0845e1e601b52e",
-      "size": 11102
+      "sha256": "8a497cb03ca69aa8d2ac2fd2b8daf45b8ba63bdf45b525cfcbf764c959fd353a",
+      "size": 829126
     },
     {
       "path": "tests/hyperfide/campaigns/parity.py",

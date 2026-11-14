@@ -67,8 +67,8 @@
   "inputs": [
     {
       "path": "build/hyperfide-native",
-      "sha256": "3bd3ad956a10ffcf7d6dcf6f581fff8ef03d93227b65f344bb9966d2f5dd226f",
-      "size": 595600
+      "sha256": "2202c21c83993b5b8f625ca2016e59e8958e48c2b33162cc6b65dbc534d0d43a",
+      "size": 748560
     },
     {
       "path": "services/hyperfide/components/1.4.json",
@@ -982,12 +982,12 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/15_1.py",
-      "sha256": "d3e644e365c9c18662ddbf9f9ef056d2155c2dece3358831c29f7ed5370b4bc2",
-      "size": 33549
+      "sha256": "66be382ae12965ea053b85768dcb5b1c5e8cfd07e0140a3611d181ff5100506e",
+      "size": 34192
     },
     {
       "path": "tests/hyperfide/cases/tasks/15_2.py",
-      "sha256": "4b72508b8f0bf0a996eebf50bcf06b8ff9d8b3ca54a58a98086c0b769b36b842",
+      "sha256": "3d8356bfc451ff1541e0ad2a8f9558130bb03044afaa353046a13778373bdc05",
       "size": 54713
     },
     {
@@ -997,48 +997,48 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/3_1.py",
-      "sha256": "16359a464606e238a5bcfe16fce54d096ed48ae5182c18499d2b0613c21b3d08",
-      "size": 35448
+      "sha256": "49e8b1df5510ff854d89dca156099b017f1a28e48a32b4be3ae7994c26aae018",
+      "size": 35738
     },
     {
       "path": "tests/hyperfide/cases/tasks/3_2.py",
-      "sha256": "f718d35df3c5c6fd7149cd27e756027fbf638577e3862db291c51fb30d2ff6d4",
-      "size": 35541
+      "sha256": "0444595b3250d6493c96f1a17855c54d07abd25e73b161246379e9759d07ae7f",
+      "size": 35892
     },
     {
       "path": "tests/hyperfide/cases/tasks/5_1.py",
-      "sha256": "cc0f4d0fd03f16fb6c1df0df4d2433c43e813a2c67b373962337efe75514771e",
-      "size": 43289
+      "sha256": "9c0e6cd7bc8ddd619ba844be2a41e99ef14f9755cf24f2bae2968af731baa04b",
+      "size": 43404
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
-      "sha256": "bde4b484ad883112e856fc952e682bc780ae15c9a525f27d68a0646ebe4bf2c0",
-      "size": 31174
+      "sha256": "2deefd325682d42211c6f4815a1c7535ec4c6ba0911116e891ff773905868d6c",
+      "size": 42606
     },
     {
       "path": "tests/hyperfide/manifest.schema.json",
-      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
-      "size": 3216
+      "sha256": "d72531468aee8d49af426480472465b2c378c544622d8d50f626463b555504ac",
+      "size": 7719
     },
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "2048625d3cc598648955d23877d97d1694f5454b9b1a31a707bf81b267b03ceb",
-      "size": 39363
+      "sha256": "efea46e369930c06481ee46cec86da8737d49179fa7757401620343fd2cc230a",
+      "size": 59890
     },
     {
       "path": "tests/hyperfide/registrations/15.3.json",
-      "sha256": "a212bd52f17f9d0b6483f99aa9d8632fd410fbbd7a342e65f411547d3b7e0863",
+      "sha256": "94200e082d70f56b09d2cfa8545c18dd30daabf154ef3c7e8eb144be676ad11f",
       "size": 13728
     },
     {
       "path": "tests/hyperfide/registry.json",
-      "sha256": "1896f22e65607356d7a182895cfeded6bb8ed6e1660c30a5f401e49b3152ca90",
-      "size": 12518
+      "sha256": "8a497cb03ca69aa8d2ac2fd2b8daf45b8ba63bdf45b525cfcbf764c959fd353a",
+      "size": 829126
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
-      "size": 30314
+      "sha256": "bee5d7d55b6d44ee7eb7a314a3fe5a0e35ba54fbc4fee37f6bb567e128d69300",
+      "size": 31420
     },
     {
       "path": "/root/.local/share/mise/installs/node/24.22.0/bin/node",
@@ -1052,13 +1052,13 @@
     },
     {
       "path": "/usr/bin/openssl",
-      "sha256": "1d72cbc5bf62be3f3dbd7626c295b63c5fdc1dd8439f323ac47998d8a062b4c9",
-      "size": 1132128
+      "sha256": "b4f547c0f16272d1cc7f870330a6f2c243710c335e7a99c734ff7a0c6fdb2503",
+      "size": 1005368
     },
     {
       "path": "/usr/bin/git",
-      "sha256": "5516c9f362c29376ab9a499a33082f9f611941d8c75930c880e30ad109e39c9a",
-      "size": 4547768
+      "sha256": "eb54b535467e0975c1284d4c4d08eea779aeb248a5d34b02e2ee171382e22201",
+      "size": 4066232
     },
     {
       "path": "/root/.local/share/claude/versions/2.1.300",

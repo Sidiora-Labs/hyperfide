@@ -107,7 +107,7 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/26_3.py",
-      "sha256": "d2a00c7d8edb4b7165c5d25a036df39bb19c38fad0e772c11b2e0e175e0306fa",
+      "sha256": "02b578f489740876612dc033af3e3363cd5e6138c47e3027806f798c11b62a9b",
       "size": 11708
     },
     {
@@ -137,8 +137,8 @@
     },
     {
       "path": "/usr/bin/flock",
-      "sha256": "85a6c65e142a5eb6b4a7009e648875e62392880519265b7aa5b08fd18f2c5eaf",
-      "size": 27200
+      "sha256": "e619344dc3eec4023498465679262f9ca27d1e8cef9cfc4c1ae72b428577b806",
+      "size": 23024
     }
   ],
   "policy": {

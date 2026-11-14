@@ -1117,48 +1117,48 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/2_1.py",
-      "sha256": "a378e539dbde9b5eaa669cdb6b80e685a0577e0439d079ebc939be7dccda44b8",
-      "size": 32259
+      "sha256": "af1a4a19baa623e55c88f4b4f7e6ccbc4e1fb5325b4901e28d7d22b8aa9d3c11",
+      "size": 33123
     },
     {
       "path": "tests/hyperfide/cases/tasks/2_4.py",
-      "sha256": "7e605bd1782a482ba7f8386544b61b06298f382faba807035942c6c752fb057e",
+      "sha256": "6b2d17523aa1b9da393099cea068bc844ec3e1e1119eb574c074f2cb4a1b2302",
       "size": 27023
     },
     {
       "path": "tests/hyperfide/cases/tasks/4_1.py",
-      "sha256": "5d2d075e1fff50836b2b88f97bb47fc92593a1c546d185b2ebec932a06c1c6b5",
-      "size": 37608
+      "sha256": "aba6815ad81b70001c245d5e0c09c07f920631dbc73f85eb82a5779f18f56128",
+      "size": 37749
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
-      "sha256": "bde4b484ad883112e856fc952e682bc780ae15c9a525f27d68a0646ebe4bf2c0",
-      "size": 31174
+      "sha256": "2deefd325682d42211c6f4815a1c7535ec4c6ba0911116e891ff773905868d6c",
+      "size": 42606
     },
     {
       "path": "tests/hyperfide/manifest.schema.json",
-      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
-      "size": 3216
+      "sha256": "d72531468aee8d49af426480472465b2c378c544622d8d50f626463b555504ac",
+      "size": 7719
     },
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "2048625d3cc598648955d23877d97d1694f5454b9b1a31a707bf81b267b03ceb",
-      "size": 39363
+      "sha256": "efea46e369930c06481ee46cec86da8737d49179fa7757401620343fd2cc230a",
+      "size": 59890
     },
     {
       "path": "tests/hyperfide/registrations/2.4.json",
-      "sha256": "4f71d6d4c65585b2272a2f5e313f8a6288c70ba971d4d29cee811ea6843ec876",
+      "sha256": "ad47b1933ab1d502e0d3108ed1118a6fc9ccc787da4b2cd6d51ce1d1524f62c4",
       "size": 4919
     },
     {
       "path": "tests/hyperfide/registry.json",
-      "sha256": "1896f22e65607356d7a182895cfeded6bb8ed6e1660c30a5f401e49b3152ca90",
-      "size": 12518
+      "sha256": "8a497cb03ca69aa8d2ac2fd2b8daf45b8ba63bdf45b525cfcbf764c959fd353a",
+      "size": 829126
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
-      "size": 30314
+      "sha256": "bee5d7d55b6d44ee7eb7a314a3fe5a0e35ba54fbc4fee37f6bb567e128d69300",
+      "size": 31420
     }
   ],
   "policy": {

@@ -36,7 +36,7 @@
   "inputs": [
     {
       "path": "deploy/hyperfide/bootstrap-fence.mjs",
-      "sha256": "f1960b0b6b69dc5a21f41af91f1a7c5e18bfe3bae9a8271d53189aacd8da6d0b",
+      "sha256": "e8db2b65d0839f0d851f1ee38b18e2aabbe627579d62169ba6cd2ea9c39ff4f0",
       "size": 5522
     },
     {
@@ -46,8 +46,8 @@
     },
     {
       "path": "docs/hyperfide/operations.md",
-      "sha256": "6e0c66192686e919d09294cea806526d9214707645aa5960be85185cb19577e5",
-      "size": 51861
+      "sha256": "364b39dea3c584822c9bfbbb935f5cb458a77d020fd76c7fee4d5965e88eb270",
+      "size": 92125
     },
     {
       "path": "services/hyperfide/src/recovery/bootstrap_fence.ts",
@@ -126,23 +126,23 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_11.py",
-      "sha256": "4cdd9ceb3fcdd8453b7db8d8feac7ce2fd5cbc5966430c17f7785372245189f5",
-      "size": 21137
+      "sha256": "e05c7225f9643d73a39e06b3c0dcdb50ce945fdb335b803f7ecdb55322443130",
+      "size": 21150
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_3.py",
-      "sha256": "2c5aae74b8de31f2e61ca85ee7cfd38f05fb142a3ad2d1aae63f478885005360",
+      "sha256": "2618922854c1ae0c22e62c99733109bfab0e94a6a1c7809a3a6ca944d65fdeef",
       "size": 18365
     },
     {
       "path": "tests/hyperfide/cases/tasks/8_2.py",
-      "sha256": "0f9529bef8215d87221e6125bc41e1eda454fd96255503b198f616c60db859c1",
-      "size": 17364
+      "sha256": "7e978bfb30cfb33e8cb358bfb58bbbe009ecf33b080a1b2b60d9cbd0756b2680",
+      "size": 17729
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
-      "size": 30314
+      "sha256": "bee5d7d55b6d44ee7eb7a314a3fe5a0e35ba54fbc4fee37f6bb567e128d69300",
+      "size": 31420
     }
   ],
   "resources": [],

@@ -44,8 +44,8 @@
   "inputs": [
     {
       "path": "docs/hyperfide/operations.md",
-      "sha256": "d1066aa66557f18b3044ebc3826f93556cec6623951f18a582690e41bce1f22b",
-      "size": 29959
+      "sha256": "364b39dea3c584822c9bfbbb935f5cb458a77d020fd76c7fee4d5965e88eb270",
+      "size": 92125
     },
     {
       "path": "services/hyperfide/components/1.4.json",
@@ -599,8 +599,8 @@
     },
     {
       "path": "spec/hyperfide/decisions.md",
-      "sha256": "2526488220ec555e9b6cb67c707a31deda09dab838d8990fb2b709460337a188",
-      "size": 18632
+      "sha256": "7d8f8aba09dab71d4a7a3b9515c4535391d68c32b9ca2af378acfb7fd8e1d286",
+      "size": 21412
     },
     {
       "path": "spec/hyperfide/design.body.md",
@@ -629,8 +629,8 @@
     },
     {
       "path": "spec/hyperfide/implementation-plan.md",
-      "sha256": "94e179eae15e797ff2da3442ea6d863bd96549f5b76a744f754925e6b628e31a",
-      "size": 259046
+      "sha256": "502b5e54aa84c66820178a82bd0cd1c6617fe7105ec3086b8980cd7b014488dc",
+      "size": 260491
     },
     {
       "path": "spec/hyperfide/migration.md",
@@ -639,8 +639,8 @@
     },
     {
       "path": "spec/hyperfide/providers/blaxel.md",
-      "sha256": "0708886822f3510eab6b74da6152712f44331a72d75ccc875b9993ce11cf44df",
-      "size": 19935
+      "sha256": "0b104ba4f6c0d2c2525701b2c292e194842c7ee51dc29d1bb6bb1c41fb05374f",
+      "size": 20298
     },
     {
       "path": "spec/hyperfide/providers/railway.md",
@@ -669,8 +669,8 @@
     },
     {
       "path": "spec/hyperfide/spec.kvx",
-      "sha256": "3c36b503784edb8847699876a379b1d1aa0f487673eaff9c1961ea62ab7613d5",
-      "size": 351915
+      "sha256": "e70ff2e866106263db82b94996b530d3766b53d5822b904a7de2beb755b8c76f",
+      "size": 365435
     },
     {
       "path": "spec/hyperfide/storage.md",
@@ -689,48 +689,48 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/15_2.py",
-      "sha256": "6a345a74224184cadd736b0fead3ba5b338346a616b71eb481ae89d8455b8ea4",
-      "size": 54551
+      "sha256": "3d8356bfc451ff1541e0ad2a8f9558130bb03044afaa353046a13778373bdc05",
+      "size": 54713
     },
     {
       "path": "tests/hyperfide/cases/tasks/28_2.py",
-      "sha256": "0b1606be5a745d03b027fa3649c93c7ccf13fa19f3c167b78f7b0e261026f286",
+      "sha256": "ec0b9c0ab6056a9fe9290a88651df76ea94faffb350d6efaf4f6866ba337ad1b",
       "size": 36753
     },
     {
       "path": "tests/hyperfide/cases/tasks/28_4.py",
-      "sha256": "336d3afcf525f8dadad17458be82d4fd7bec45bc151956161ddc7317c47c299e",
-      "size": 16196
+      "sha256": "e2335fa7dc2c6c6077c54d9af38559441c7d088c899f673ae73d94415b6ca2d9",
+      "size": 20345
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
-      "sha256": "cc8de56fb25bea153490b4143a231f1ff6f4dac758baaea4bf90fb7d9ba236a0",
-      "size": 30633
+      "sha256": "2deefd325682d42211c6f4815a1c7535ec4c6ba0911116e891ff773905868d6c",
+      "size": 42606
     },
     {
       "path": "tests/hyperfide/manifest.schema.json",
-      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
-      "size": 3216
+      "sha256": "d72531468aee8d49af426480472465b2c378c544622d8d50f626463b555504ac",
+      "size": 7719
     },
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
-      "size": 37538
+      "sha256": "efea46e369930c06481ee46cec86da8737d49179fa7757401620343fd2cc230a",
+      "size": 59890
     },
     {
       "path": "tests/hyperfide/registrations/28.4.json",
-      "sha256": "3d72996324bd9d53505559694e55bf72f91ed6d5b0070cefafeae2b9ef0b2835",
+      "sha256": "3b85ed9f78eb846514871f912a3b327b9ca5b13e7e869fd34b0856a9d0873c62",
       "size": 3863
     },
     {
       "path": "tests/hyperfide/registry.json",
-      "sha256": "99162684c725a9341d42be6c66443ec9d17e2bf98ea10ce2e2a947c02eca5574",
-      "size": 12282
+      "sha256": "8a497cb03ca69aa8d2ac2fd2b8daf45b8ba63bdf45b525cfcbf764c959fd353a",
+      "size": 829126
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
-      "size": 30314
+      "sha256": "bee5d7d55b6d44ee7eb7a314a3fe5a0e35ba54fbc4fee37f6bb567e128d69300",
+      "size": 31420
     }
   ],
   "policy": {

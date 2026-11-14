@@ -58,8 +58,8 @@
   "inputs": [
     {
       "path": "deploy/hyperfide/install-service.mjs",
-      "sha256": "78565a53d3845703bf3ead99a89382d8faeba9b00572d4518a79117e94d8f57d",
-      "size": 12033
+      "sha256": "064f2981881ee3554871c8096ffe30a3f82f6d97afe8205171961456da443a0f",
+      "size": 12377
     },
     {
       "path": "deploy/hyperfide/migrate.mjs",
@@ -623,13 +623,13 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/29_1.py",
-      "sha256": "fbad96e3aa59e4fbb1421ceec0e43bfa48aca9d8b9f7feee0fbfae3029bf5cd0",
+      "sha256": "a31ff1e73e6c17f8b3160111158a98a6de0a8712311823e4db3df26bfe86ab3b",
       "size": 22155
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
-      "size": 30314
+      "sha256": "bee5d7d55b6d44ee7eb7a314a3fe5a0e35ba54fbc4fee37f6bb567e128d69300",
+      "size": 31420
     }
   ]
 }

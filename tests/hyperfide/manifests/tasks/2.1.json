@@ -1111,43 +1111,43 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/2_1.py",
-      "sha256": "a378e539dbde9b5eaa669cdb6b80e685a0577e0439d079ebc939be7dccda44b8",
-      "size": 32259
+      "sha256": "af1a4a19baa623e55c88f4b4f7e6ccbc4e1fb5325b4901e28d7d22b8aa9d3c11",
+      "size": 33123
     },
     {
       "path": "tests/hyperfide/cases/tasks/4_1.py",
-      "sha256": "fff7328ce252c6ae67053f0d86b1f948ce455153c518d629af8dca3ef4f604aa",
-      "size": 36660
+      "sha256": "aba6815ad81b70001c245d5e0c09c07f920631dbc73f85eb82a5779f18f56128",
+      "size": 37749
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
-      "sha256": "ee8df7d7218bcfbe0229a96bd2c039fe74516bb51a7093fc85e3f1724ef019f9",
-      "size": 28641
+      "sha256": "2deefd325682d42211c6f4815a1c7535ec4c6ba0911116e891ff773905868d6c",
+      "size": 42606
     },
     {
       "path": "tests/hyperfide/manifest.schema.json",
-      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
-      "size": 3216
+      "sha256": "d72531468aee8d49af426480472465b2c378c544622d8d50f626463b555504ac",
+      "size": 7719
     },
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "8aa17f5e2572c8557f15353f7267e98600547fb0f2693486c0e0f2fc1abce8c2",
-      "size": 37538
+      "sha256": "efea46e369930c06481ee46cec86da8737d49179fa7757401620343fd2cc230a",
+      "size": 59890
     },
     {
       "path": "tests/hyperfide/registrations/2.1.json",
-      "sha256": "f35624c433718768257cc999f31b19f1725fa02bc4394289a7da6682097f7c00",
+      "sha256": "1bfebb0c7e5370f6bac910bf48e8c4538f937423fea1d21d288896ac6a95a617",
       "size": 4139
     },
     {
       "path": "tests/hyperfide/registry.json",
-      "sha256": "77d72fc82aa56142b5cd19b93b0e8ecc469c01ed6182ea3d5ae53b2955580e61",
-      "size": 8284
+      "sha256": "8a497cb03ca69aa8d2ac2fd2b8daf45b8ba63bdf45b525cfcbf764c959fd353a",
+      "size": 829126
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "3a48baa07520928db087ec2f0686d79eaf6a534b5a1ef1b1c15eb584ff932762",
-      "size": 17094
+      "sha256": "bee5d7d55b6d44ee7eb7a314a3fe5a0e35ba54fbc4fee37f6bb567e128d69300",
+      "size": 31420
     }
   ],
   "policy": {

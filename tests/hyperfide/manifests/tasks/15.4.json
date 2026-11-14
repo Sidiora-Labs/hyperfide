@@ -579,43 +579,43 @@
     },
     {
       "path": "tests/hyperfide/cases/tasks/15_2.py",
-      "sha256": "4b72508b8f0bf0a996eebf50bcf06b8ff9d8b3ca54a58a98086c0b769b36b842",
+      "sha256": "3d8356bfc451ff1541e0ad2a8f9558130bb03044afaa353046a13778373bdc05",
       "size": 54713
     },
     {
       "path": "tests/hyperfide/cases/tasks/15_4.py",
-      "sha256": "d8b86ec5d2d70be0d0ffda32fb8f3f486f579478076a31a0469825a24bb8c754",
+      "sha256": "670b92b95225dae9259575ee79a21fa1fc9474c8867898b91a90b3ab1c1e5aca",
       "size": 34181
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
-      "sha256": "bde4b484ad883112e856fc952e682bc780ae15c9a525f27d68a0646ebe4bf2c0",
-      "size": 31174
+      "sha256": "2deefd325682d42211c6f4815a1c7535ec4c6ba0911116e891ff773905868d6c",
+      "size": 42606
     },
     {
       "path": "tests/hyperfide/manifest.schema.json",
-      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
-      "size": 3216
+      "sha256": "d72531468aee8d49af426480472465b2c378c544622d8d50f626463b555504ac",
+      "size": 7719
     },
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "2048625d3cc598648955d23877d97d1694f5454b9b1a31a707bf81b267b03ceb",
-      "size": 39363
+      "sha256": "efea46e369930c06481ee46cec86da8737d49179fa7757401620343fd2cc230a",
+      "size": 59890
     },
     {
       "path": "tests/hyperfide/registrations/15.4.json",
-      "sha256": "4d30c2c96c23acc58b9c39bf1feb04ade1923e18d3f61b711a42b5a3de362ebc",
+      "sha256": "98efa16f58d5200c5905b4b2dffa706511b6adb8ac0f23574c3c93334de7d829",
       "size": 5575
     },
     {
       "path": "tests/hyperfide/registry.json",
-      "sha256": "1896f22e65607356d7a182895cfeded6bb8ed6e1660c30a5f401e49b3152ca90",
-      "size": 12518
+      "sha256": "8a497cb03ca69aa8d2ac2fd2b8daf45b8ba63bdf45b525cfcbf764c959fd353a",
+      "size": 829126
     },
     {
       "path": "tests/hyperfide/support/identity_fixture.py",
-      "sha256": "665d242a29ef19cdf2d83ad6d1eee0e00a547042b44bce884a311a5af6aea804",
-      "size": 30314
+      "sha256": "bee5d7d55b6d44ee7eb7a314a3fe5a0e35ba54fbc4fee37f6bb567e128d69300",
+      "size": 31420
     },
     {
       "path": "/root/.local/share/mise/installs/node/24.22.0/bin/node",
@@ -629,13 +629,13 @@
     },
     {
       "path": "/usr/bin/openssl",
-      "sha256": "1d72cbc5bf62be3f3dbd7626c295b63c5fdc1dd8439f323ac47998d8a062b4c9",
-      "size": 1132128
+      "sha256": "b4f547c0f16272d1cc7f870330a6f2c243710c335e7a99c734ff7a0c6fdb2503",
+      "size": 1005368
     },
     {
       "path": "/usr/bin/git",
-      "sha256": "5516c9f362c29376ab9a499a33082f9f611941d8c75930c880e30ad109e39c9a",
-      "size": 4547768
+      "sha256": "eb54b535467e0975c1284d4c4d08eea779aeb248a5d34b02e2ee171382e22201",
+      "size": 4066232
     }
   ],
   "resources": [
