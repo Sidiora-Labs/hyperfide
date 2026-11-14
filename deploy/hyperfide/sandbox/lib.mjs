@@ -90,8 +90,8 @@ export async function must(sb, command, opts = {}) {
 }
 export async function readBytes(sb, p) { return Buffer.from(await sb.files.read(p, {format: 'bytes'})); }
 
-// What a worker lacks above the checkpoint: refs/heads/main ^<checkpointCommit>, built once per main tip. The file appears
-// by rename, so concurrent runners never see a half-written bundle and never wait on a lock.
+// What a worker lacks above the checkpoint: refs/heads/main ^<checkpointCommit>, built once per main tip and checkpoint.
+// The file appears by rename, so concurrent runners never see a half-written bundle and never wait on a lock.
 export function baseBundle(baseCommit) {
   checkpointLayout();
   const cp = cfg.checkpointCommit;
@@ -99,7 +99,7 @@ export function baseBundle(baseCommit) {
   if (isAncestor(baseCommit, cp)) return null;
   const tip = mainTip();
   if (!isAncestor(baseCommit, tip)) throw new Error(`base ${baseCommit} is not reachable from local ${cfg.mainBranch}`);
-  const file = path.join(P.bundles, `base-${tip.slice(0, 12)}.bundle`);
+  const file = path.join(P.bundles, `base-${tip.slice(0, 12)}-${cp.slice(0, 12)}.bundle`);
   if (fs.existsSync(file)) return file;
   fs.mkdirSync(P.bundles, {recursive: true, mode: 0o700});
   const tmp = `${file}.${randomUUID()}.tmp`;
