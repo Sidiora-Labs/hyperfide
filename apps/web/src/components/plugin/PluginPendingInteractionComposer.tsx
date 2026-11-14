@@ -122,7 +122,7 @@ export function PluginPendingInteractionComposer({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => void cancel()}
+                    onClick={() => void cancel().catch(() => {})}
                     disabled={submitting}
                   >
                     {dismissLabel}
@@ -153,7 +153,7 @@ export function PluginPendingInteractionComposer({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void cancel()}
+                onClick={() => void cancel().catch(() => {})}
                 disabled={submitting}
               >
                 {dismissLabel}

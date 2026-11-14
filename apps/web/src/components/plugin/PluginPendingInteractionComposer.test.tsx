@@ -42,7 +42,9 @@ vi.mock(
   "@/hooks/queries/system-queries",
   () => import("@/test/question-shortcuts-system-queries-mock"),
 );
-vi.mock("@/lib/hyperfide-desktop", () => ({ getHyperfideDesktopInfo: () => null }));
+vi.mock("@/lib/hyperfide-desktop", () => ({
+  getHyperfideDesktopInfo: () => null,
+}));
 const pane = vi.hoisted(() => ({ isFocused: true }));
 vi.mock("@/views/thread-detail/PaneContext", () => ({
   useOptionalPaneContext: () => pane,
@@ -506,6 +508,29 @@ describe("PluginPendingInteractionComposer", () => {
     expect(screen.queryByTestId("plugin-interaction-loading")).toBeNull();
     expect(screen.getByText(/form is unavailable/i)).toBeDefined();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDefined();
+  });
+
+  it("shows a fallback cancellation failure and re-enables cancel", async () => {
+    markPluginFrontendsSettled();
+    vi.spyOn(sdk.threads.interactions, "cancel").mockRejectedValue(
+      new Error("offline"),
+    );
+    renderComposer(
+      <PluginPendingInteractionComposer
+        collapsedByDefault={false}
+        interaction={interaction}
+        request={secretsRequest}
+        origin="plugin"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(await screen.findByText("offline")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty(
+      "disabled",
+      false,
+    );
   });
 
   it("attributes the ask to the plugin's display name, not its id", () => {
