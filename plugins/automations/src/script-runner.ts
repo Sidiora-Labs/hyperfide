@@ -36,7 +36,6 @@ interface ScriptInterpreterCommand {
   args: string[];
 }
 
-/** Resolve the stable user-facing interpreter name to a host executable. */
 export async function resolveScriptInterpreter(
   interpreter: AutomationScriptInterpreter,
 ): Promise<ScriptInterpreterCommand> {
@@ -44,8 +43,6 @@ export async function resolveScriptInterpreter(
     return { command: interpreter, args: [] };
   }
 
-  // Windows installations expose Python as `python`; the `py` launcher is the
-  // fallback on machines where the executable alias is disabled.
   if (await commandWorks("python", ["--version"])) {
     return { command: "python", args: [] };
   }
