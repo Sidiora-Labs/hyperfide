@@ -40,6 +40,64 @@ export class AuthorityError extends Error {
 export const digest = (bytes: Uint8Array | string): string =>
   "sha256:" + createHash("sha256").update(bytes).digest("hex");
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** Actions which can be selected by a Primary or delegated Feature Manager. */
+export const FLEET_COORDINATION_ACTIONS = [
+  "fleet.install.admit",
+  "fleet.install.adopt",
+  "PROVISION_SANDBOX",
+  "REUSE_SANDBOX",
+  "ASSIGN_WORKER",
+  "STEER_WORKER",
+  "CANCEL_ASSIGNMENT",
+  "STOP_SANDBOX",
+  "DESTROY_SANDBOX",
+  "REPLAN",
+  "COORDINATE_DEPENDENCY",
+] as const;
+export type FleetCoordinationAction = (typeof FLEET_COORDINATION_ACTIONS)[number];
+export interface FleetDecision {
+  schema_version: 1;
+  kind: "hyperfide.fleet-decision";
+  decision_id: string;
+  operation_id: string;
+  run_id: string;
+  actor_id: string;
+  actor_role: "PRIMARY" | "WAVE_MANAGER";
+  authority_epoch: string;
+  leader_generation: string;
+  delegation_id: string | null;
+  manager_generation: string | null;
+  source_revision: string;
+  spec_revision: string;
+  context_digest: string;
+  action: FleetCoordinationAction;
+  input: Record<string, unknown>;
+  input_digest: string;
+  expected_version: string;
+  rationale_summary: string;
+}
+const fleetActionSet = new Set<string>(FLEET_COORDINATION_ACTIONS);
+const nonBlank = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+/** Parse an untrusted JSON decision before it reaches the authority service. */
+export function parseFleetDecision(value: unknown): FleetDecision {
+  if (!record(value) || value.schema_version !== 1 || value.kind !== "hyperfide.fleet-decision")
+    throw new AuthorityError("INVALID_REQUEST", "Fleet decision envelope is invalid");
+  const decision = value as Record<string, unknown>;
+  for (const key of ["decision_id", "operation_id", "run_id", "actor_id", "authority_epoch", "leader_generation", "source_revision", "spec_revision", "context_digest", "input_digest", "expected_version", "rationale_summary"])
+    if (!nonBlank(decision[key])) throw new AuthorityError("INVALID_REQUEST", `Fleet decision ${key} is required`);
+  for (const key of ["decision_id", "operation_id", "run_id", "actor_id"])
+    if (!uuid.test(String(decision[key]))) throw new AuthorityError("INVALID_REQUEST", `Fleet decision ${key} must be a UUID`);
+  if (decision.actor_role !== "PRIMARY" && decision.actor_role !== "WAVE_MANAGER")
+    throw new AuthorityError("INVALID_REQUEST", "Fleet decision actor_role is invalid");
+  if (!fleetActionSet.has(String(decision.action)))
+    throw new AuthorityError("INVALID_REQUEST", `Unsupported fleet decision action ${String(decision.action)}`);
+  if (!(decision.delegation_id === null || uuid.test(String(decision.delegation_id))))
+    throw new AuthorityError("INVALID_REQUEST", "Fleet decision delegation_id must be a UUID or null");
+  if (!(decision.manager_generation === null || nonBlank(decision.manager_generation)))
+    throw new AuthorityError("INVALID_REQUEST", "Fleet decision manager_generation must be a string or null");
+  if (!record(decision.input)) throw new AuthorityError("INVALID_REQUEST", "Fleet decision input must be an object");
+  return decision as unknown as FleetDecision;
+}
 const limit = 1024 * 1024;
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
@@ -134,10 +192,11 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
     } finally { active--; }
   }
   return Object.freeze({
-    fleetDecision: (decision: unknown, identity: TransactionIdentity, signal?: AbortSignal) => {
-      if (!record(decision) || decision.operation_id !== identity.operationId)
+    fleetDecision: (decision: FleetDecision, identity: TransactionIdentity, signal?: AbortSignal) => {
+      const parsed = parseFleetDecision(decision);
+      if (parsed.operation_id !== identity.operationId)
         throw new AuthorityError("INVALID_REQUEST", "Decision and transport operation identities must match");
-      return invoke<Record<string, unknown>>("fleet.manager.execute", {decision}, identity, signal, "fleet-manager-effects");
+      return invoke<Record<string, unknown>>("fleet.manager.execute", {decision: parsed}, identity, signal, "fleet-manager-effects");
     },
     pluginState: (input: PluginStateRequest, identity?: TransactionIdentity) =>
       invoke<PluginStateEntry[]>("authority.plugin-state", input, identity),

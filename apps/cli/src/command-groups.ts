@@ -34,6 +34,7 @@ export const LOCAL_PLUGIN_COMMAND_GROUPS: readonly CommandGroup[] = [
 
 export const CORE_COMMAND_GROUPS: readonly CommandGroup[] = [
   group("source", () => import("./source-control.js"), (m) => (program) => m.registerSourceCommands(program)),
+  group("fleet", () => import("./fleet-coordination.js"), (m) => (program) => m.registerFleetCoordinationCommands(program)),
   group(
     "browser",
     () => import("./commands/browser.js"),

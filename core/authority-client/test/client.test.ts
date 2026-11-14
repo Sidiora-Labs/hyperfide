@@ -1,12 +1,27 @@
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import { describe, expect, test } from "vitest";
-import { authorityConfiguration, createAuthorityClient, digest, type AuthorityConfiguration, type Receipt } from "../src/index.js";
+import { authorityConfiguration, createAuthorityClient, digest, parseFleetDecision, type AuthorityConfiguration, type Receipt } from "../src/index.js";
 
 const configuration = (): AuthorityConfiguration => JSON.parse(process.env.HYPERFIDE_AUTHORITY_TEST_CONFIG!);
 const identity = () => ({operationId: randomUUID(), idempotencyKey: randomUUID()});
 
 describe("signed authority HTTPS client against control dist", () => {
+  test("typed fleet decisions validate roles, actions and replay identity before transport", () => {
+    const operationId = randomUUID();
+    const decision = {
+      schema_version: 1 as const,
+      kind: "hyperfide.fleet-decision" as const,
+      decision_id: randomUUID(), operation_id: operationId, run_id: randomUUID(), actor_id: randomUUID(),
+      actor_role: "WAVE_MANAGER" as const, authority_epoch: randomUUID(), leader_generation: "1",
+      delegation_id: randomUUID(), manager_generation: "2", source_revision: "git:" + "a".repeat(40),
+      spec_revision: randomUUID(), context_digest: digest("context"), action: "ASSIGN_WORKER" as const,
+      input: {selection: {}}, input_digest: digest("input"), expected_version: "0", rationale_summary: "test",
+    };
+    expect(parseFleetDecision(decision)).toEqual(decision);
+    expect(() => parseFleetDecision({...decision, action: "provider.intents.execute"})).toThrow("Unsupported fleet decision action");
+    expect(() => parseFleetDecision({...decision, operation_id: "not-a-uuid"})).toThrow("operation_id must be a UUID");
+  });
   test("unset URL does not require keys", () => {
     expect(authorityConfiguration({})).toBeUndefined();
     expect(() => authorityConfiguration({HYPERFIDE_AUTHORITY_URL: "https://localhost"})).toThrow("Missing");
