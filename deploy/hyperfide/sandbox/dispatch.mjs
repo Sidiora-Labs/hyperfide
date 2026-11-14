@@ -31,8 +31,10 @@ const isDone = id => ['done', 'review'].includes(ledger(id)?.state);
 // worker has a dispatcherPid but no runner pid yet; that claim is recoverable
 // when the owning dispatcher has disappeared.
 for (const w of poolWorkers()) if (w.job) {
-  const l = ledger(w.job); const runnerPid = w.pid || l?.pid;
-  if ((runnerPid && !alive(runnerPid)) || (!runnerPid && w.dispatcherPid && !alive(w.dispatcherPid))) {
+  const l = ledger(w.job); const workerAlive = alive(w.pid), ledgerAlive = alive(l?.pid);
+  const hasRunner = workerAlive || ledgerAlive;
+  const abandonedLaunch = !w.pid && !l?.pid && w.dispatcherPid && !alive(w.dispatcherPid);
+  if (!hasRunner && (w.pid || l?.pid || abandonedLaunch)) {
     updateWorker(w.file, {job: null, pid: null, dispatcherPid: null});
   }
 }

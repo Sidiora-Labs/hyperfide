@@ -1090,21 +1090,18 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
     );
   });
 
-  it("falls back to npm only when the server artifact returns 404", () => {
+  it("refuses an unpinned npm fallback when the server artifact returns 404", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 404);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
       HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
-    expect(result.status, result.stderr).toBe(0);
-    expect(readFileSync(join(fixture.dataDir, "npm.log"), "utf8")).toMatch(
-      /^install -g --allow-scripts=better-sqlite3,node-pty,@parcel\/watcher --prefix \/.*\/data\/npm hyperfide-app\n$/u,
+    expect(result.status, result.stderr).toBe(1);
+    expect(result.stderr).toContain(
+      "refusing to install an unpinned npm package",
     );
-    const daemonPid = Number(
-      readFileSync(join(fixture.dataDir, "install-daemon.pid"), "utf8"),
-    );
-    process.kill(daemonPid, "SIGTERM");
+    expect(existsSync(join(fixture.dataDir, "npm.log"))).toBe(false);
   });
 
   it("fails loudly when npm skipped the native add-on install scripts", () => {
