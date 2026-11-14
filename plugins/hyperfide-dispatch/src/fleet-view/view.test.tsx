@@ -81,6 +81,40 @@ describe("Fleet ledger dashboard", () => {
     expect(slot.container.querySelector("script")).toBeNull();
   });
 
+  it("keeps fleet landmarks and data tables reachable at narrow viewport widths", async () => {
+    const { slot } = await mount();
+    for (const label of [
+      "Authority",
+      "Budget",
+      "Machines",
+      "Jobs",
+      "Task timelines",
+    ]) {
+      expect(slot.getByRole("region", { name: label })).toBeTruthy();
+    }
+    for (const label of ["Machines", "Jobs"]) {
+      const region = slot.getByRole("region", { name: label });
+      expect(region.className).toContain("overflow-x-auto");
+      expect(within(region).getByRole("table")).toBeTruthy();
+    }
+    expect(slot.getByRole("button", { name: "Pause dispatch" })).toBeTruthy();
+    expect(slot.getByRole("button", { name: "Cancel job-1" })).toBeTruthy();
+  });
+
+  it("refreshes the ledger and restores causal freshness after WebView reconnect", async () => {
+    const { slot, handlers } = await mount();
+    handlers.readLedger.mockClear();
+    await slot.setRealtimeConnectionState("reconnecting");
+    expect(
+      slot.getByRole("status", { name: "Fleet freshness" }).textContent,
+    ).toContain("unknown until the connection recovers");
+    await slot.setRealtimeConnectionState("connected");
+    await waitFor(() => expect(handlers.readLedger).toHaveBeenCalledTimes(1));
+    expect(
+      slot.getByRole("status", { name: "Fleet freshness" }).textContent,
+    ).toContain("Causal freshness as of");
+  });
+
   it("routes all actions through the RPC to injected handlers and refreshes the view", async () => {
     const { slot, handlers } = await mount();
     fireEvent.click(slot.getByRole("button", { name: "Pause dispatch" }));

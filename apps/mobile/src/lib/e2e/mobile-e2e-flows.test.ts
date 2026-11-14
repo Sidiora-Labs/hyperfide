@@ -44,4 +44,41 @@ describe("Mobile E2E flow boundaries", () => {
     expect(pairing).toContain('- assertNotVisible: "Not now"');
     expect(pairing).toContain('id: "shell-webview"');
   });
+
+  it("covers native reconnect, profile switching, and deep-link entry points", () => {
+    const connect = flowSource("android/connect.yaml");
+    expect(connect).toContain("- stopApp");
+    expect(connect).toContain("- launchApp");
+    expect(connect).toContain('STUB_ACTION: "expire-session"');
+    expect(connect).toContain("android-connect-session-recovered");
+
+    const deepLink = flowSource("flows/shell-deep-link.yaml");
+    expect(deepLink).toContain('LINK: "hyperfide://threads"');
+    expect(deepLink).toContain('LINK: "hyperfide://settings/notifications"');
+    expect(deepLink).toContain('id: "connect-screen"');
+
+    const profileStore = readFileSync(
+      join(e2eRoot, "../src/lib/profiles/profile-store.test.ts"),
+      "utf8",
+    );
+    expect(profileStore).toContain("setActiveProfile(b.id)");
+    expect(profileStore).toContain("activeProfileId).toBe(b.id)");
+  });
+
+  it("keeps manager controls read-only in the Fleet WebView journey", () => {
+    const fleetView = readFileSync(
+      join(
+        e2eRoot,
+        "../../../plugins/hyperfide-dispatch/src/fleet-view/view.test.tsx",
+      ),
+      "utf8",
+    );
+    expect(fleetView).toContain("Manager-directed dispatch is read-only");
+    expect(fleetView).toContain(
+      'queryByRole("button", { name: "Pause dispatch" })',
+    );
+    expect(fleetView).toContain(
+      'queryByRole("button", { name: "Cancel job-1" })',
+    );
+  });
 });
