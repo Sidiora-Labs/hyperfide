@@ -38,6 +38,7 @@
 #define SERVE_SAFETY_MS 1000    /* re-check even with inotify */
 #define SERVE_MIN_GAP_MS 15     /* coalesce a burst of WAL writes */
 #define SERVE_OUT_CAP   (16L << 20)
+#define SERVE_IN_CAP    (16L << 20)
 
 typedef struct {
     long id, cursor;
@@ -510,7 +511,13 @@ int cmd_serve(Cg *cg, const SysInfo *si) {
                 char buf[65536];
                 ssize_t n = read(STDIN_FILENO, buf, sizeof buf);
                 if (n > 0) {
-                    for (ssize_t i = 0; i < n; i++) sb_putc(&in, buf[i]);
+                    if ((size_t)n > SERVE_IN_CAP - in.len) {
+                        reply_err("null", -32600, "request exceeds ingress limit");
+                        sv.shutdown = true;
+                        stdin_open = false;
+                    } else {
+                        for (ssize_t i = 0; i < n; i++) sb_putc(&in, buf[i]);
+                    }
                 } else if (n == 0 || (errno != EINTR && errno != EAGAIN)) {
                     stdin_open = false;
                 }

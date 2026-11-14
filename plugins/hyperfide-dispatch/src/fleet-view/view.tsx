@@ -11,12 +11,17 @@ import {
   ResourceFilterMenu,
 } from "@/components/ui/resource-list";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRpc } from "@hyperfide/plugin-sdk/app";
+import {
+  useRealtime,
+  useRealtimeConnectionState,
+  useRpc,
+} from "@hyperfide/plugin-sdk/app";
 import {
   stages,
   type fleetRpcContract,
   type FleetLedger,
   type FleetAction,
+  FLEET_CHANGED_CHANNEL,
 } from "./contract.js";
 
 function elapsed(start: string | null, end: string | null, now: number) {
@@ -35,6 +40,8 @@ export function FleetView() {
   const [busy, setBusy] = useState(false);
   const [cap, setCap] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
+  const connectionState = useRealtimeConnectionState();
   const active = useRef(false);
   const mutating = useRef(false);
   const revision = useRef(0);
@@ -47,6 +54,7 @@ export function FleetView() {
           setLedger(value);
           setError(null);
           setNow(Date.now());
+          setLastRefreshAt(Date.now());
         }
       },
       (reason) => {
@@ -55,6 +63,10 @@ export function FleetView() {
       },
     );
   }, [rpc]);
+  useRealtime(FLEET_CHANGED_CHANNEL, refresh);
+  useEffect(() => {
+    if (connectionState === "connected") refresh();
+  }, [connectionState, refresh]);
   useEffect(() => {
     active.current = true;
     refresh();
@@ -128,6 +140,13 @@ export function FleetView() {
         }
       >
         <h1 className="text-xl font-semibold">Fleet</h1>
+        <p role="status" aria-label="Fleet freshness" className="text-sm text-muted-foreground">
+          Realtime: {connectionState}. {connectionState === "connected"
+            ? lastRefreshAt === null
+              ? "Causal freshness is pending the first ledger read."
+              : `Causal freshness as of ${new Date(lastRefreshAt).toISOString()}.`
+            : "Causal freshness is unknown until the connection recovers."}
+        </p>
         {error && (
           <p
             role="alert"
@@ -366,6 +385,8 @@ export function FleetView() {
                                 disabled={
                                   busy ||
                                   job.finished !== null ||
+                                  job.state === "succeeded" ||
+                                  job.state === "failed" ||
                                   job.state === "unknown" ||
                                   job.state === "reconciling"
                                 }

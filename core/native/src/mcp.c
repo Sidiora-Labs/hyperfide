@@ -21,6 +21,8 @@ extern int hf_client_authority_guard(const char *operation, FILE *output);
 #include <dirent.h>
 #include <ctype.h>
 
+#define MCP_MAX_LINE (16L * 1024 * 1024)
+
 /* ---------------- tool table ---------------- */
 
 typedef struct {
@@ -1732,6 +1734,11 @@ int cmd_mcp(Cg *cg, const SysInfo *si) {
     size_t cap = 0;
     ssize_t n;
     while ((n = getline(&line, &cap, stdin)) > 0) {
+        if (n > MCP_MAX_LINE) {
+            fprintf(stderr, "cg mcp: request exceeds ingress limit\n");
+            free(line);
+            return 1;
+        }
         if (n <= 1) continue;
         char *method = json_get_string(line, "method");
         char *id = json_get_raw(line, "id");

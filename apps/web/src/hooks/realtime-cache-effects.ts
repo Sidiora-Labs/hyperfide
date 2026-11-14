@@ -658,6 +658,14 @@ export function createRealtimeCacheEffects({
     handleConnected: (event) => {
       applySystemChanges(["plugins-changed"]);
       if (event.reconnected) {
+        // Plugin RPC projections can be populated without a tag (for example
+        // keyed projections and older SDK callers). Realtime reconnect is a
+        // causal boundary: every projection must be re-read before it is
+        // presented as current, even when its tag registry is empty.
+        queryClient.invalidateQueries({
+          queryKey: ["plugin-rpc"],
+          refetchType: "active",
+        });
         const pluginIds = new Set(
           queryClient
             .getQueryCache()

@@ -250,7 +250,9 @@ static char *file_snippet(Cg *cg, long branch_id, const char *rel, int from,
 
 typedef struct {
     long id;
-    char name[256], kind[32], path[1024], sig[512];
+    /* SQLite stores these as unbounded TEXT. Keep enough room for host
+     * pathnames and generated/qualified identifiers; never silently cut one. */
+    char name[1024], kind[32], path[8192], sig[4096];
     int line, end_line;
     bool soft;             /* reached over a prose-derived edge, not a call */
     long branch_id;        /* the branch this row was indexed on */
@@ -1200,7 +1202,7 @@ static int hit_cmp(const void *a, const void *b) {
  * query terms — an agent needs a line to jump to, and the line itself
  * says why the file matched. */
 typedef struct {
-    char path[1024], text[200];
+    char path[8192], text[200];
     char *excerpt;           /* owned: the FTS snippet, kept for --json */
     long branch_id;
     int line, order;
@@ -1240,7 +1242,7 @@ static char *fts_terms(const Terms *T, bool any) {
  * definition spanning it. The best line of each file becomes its hit. */
 static void rank_bodies(Cg *cg, const Terms *T, Hit *h, int *nh,
                         FileHit *fh, int *nfh) {
-    struct { long id, branch_id; char path[1024]; char *ex; } fv[FILE_SCAN];
+    struct { long id, branch_id; char path[8192]; char *ex; } fv[FILE_SCAN];
     int nf = 0;
     for (int pass = 0; pass < 2 && nf < FILE_SCAN; pass++) {
         if (pass == 1 && T->n < 2) break;
@@ -1730,7 +1732,7 @@ static int context_entry_points(Cg *cg, const char *q, const SymRow *matched,
  * from only when the answer spans more than one, so the ordinary single
  * branch output is byte for byte what it always was. */
 static const char *hit_tag(Cg *cg, const SymRow *r, char *out, size_t cap) {
-    char name[256];
+    char name[1024];
     branch_hit_label(cg, r->branch_id, name, sizeof name);
     if (!name[0]) { out[0] = 0; return out; }
     snprintf(out, cap, " @%s", name);
@@ -1768,7 +1770,7 @@ static void json_sym_compact(Cg *cg, StrBuf *b, const SymRow *r) {
 }
 
 /* names already emitted in full form — later mentions go compact */
-typedef struct { char v[96][256]; int n; } SeenSet;
+typedef struct { char v[96][1024]; int n; } SeenSet;
 
 static bool seen_has(const SeenSet *s, const char *name) {
     for (int i = 0; i < s->n; i++)
@@ -1915,7 +1917,7 @@ int cmd_symbol(Cg *cg, const char *name, bool json) {
 
 /* ---------------- impact ---------------- */
 
-typedef struct { char name[256]; char via[256]; int depth; SymRow loc; } INode;
+typedef struct { char name[1024]; char via[1024]; int depth; SymRow loc; } INode;
 
 static bool inode_seen(INode *v, int n, const char *name) {
     for (int i = 0; i < n; i++)
@@ -2058,20 +2060,23 @@ int cmd_routes(Cg *cg, const char *filter, bool json) {
         "FROM routes r JOIN files f ON f.id=r.file_id "
         "WHERE (?1 IS NULL OR r.pattern LIKE ?2 OR r.handler LIKE ?2 "
         "OR r.framework LIKE ?2) ",
-        " ORDER BY r.pattern LIMIT 500");
+        " ORDER BY r.pattern LIMIT 501");
+    StrBuf like_buf; sb_init(&like_buf);
     if (filter) {
-        char like[300];
-        snprintf(like, sizeof like, "%%%s%%", filter);
+        sb_printf(&like_buf, "%%%s%%", filter);
         sqlite3_bind_text(st, 1, filter, -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 2, like, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 2, like_buf.p, -1, SQLITE_TRANSIENT);
     } else {
         sqlite3_bind_null(st, 1);
         sqlite3_bind_null(st, 2);
     }
+    sb_free(&like_buf);
     StrBuf b; sb_init(&b);
     if (json) sb_puts(&b, "{\"routes\":[");
     int n = 0;
+    bool more = false;
     while (sqlite3_step(st) == SQLITE_ROW) {
+        if (n >= 500) { more = true; break; }
         const char *fw = (const char *)sqlite3_column_text(st, 0);
         const char *me = (const char *)sqlite3_column_text(st, 1);
         const char *pa = (const char *)sqlite3_column_text(st, 2);
@@ -2095,7 +2100,11 @@ int cmd_routes(Cg *cg, const char *filter, bool json) {
         n++;
     }
     sqlite3_finalize(st);
-    if (json) sb_puts(&b, "]}\n");
+    if (json) {
+        sb_puts(&b, "]");
+        sb_printf(&b, ",\"continuation\":{\"truncated\":%s,\"next\":%s}}\n",
+                  more ? "true" : "false", more ? "500" : "null");
+    }
     else if (n == 0) sb_puts(&b, "no routes found\n");
     fputs(b.p, stdout);
     sb_free(&b);
@@ -2136,7 +2145,7 @@ static void first_line(StrBuf *b, const char *body, int max) {
 /* One symbol row of a survey: name, signature, and the doc's first line.
  * The whole point is what is absent — never a body line. */
 typedef struct {
-    char name[256], kind[32], sig[512];
+    char name[1024], kind[32], sig[4096];
     int line, end_line;
     char *doc;            /* owned */
     bool stale;
@@ -2160,7 +2169,7 @@ int cmd_survey(Cg *cg, const char *scope, int budget, bool json) {
     }
 
     /* the files in scope, deterministically ordered */
-    struct { long id, branch_id; char path[1024]; } *fv = NULL;
+    struct { long id, branch_id; char path[8192]; } *fv = NULL;
     int nf = 0, cf = 0;
     sqlite3_stmt *fq;
     if (pathmode) {
@@ -2607,7 +2616,7 @@ static void ctx_omitted(StrBuf *b, int emitted, int omitted, bool json) {
  * inside the budget and count what they left out. Returns -1 when q names
  * no indexed path, so the caller falls through to the free-text answer. */
 static int context_path_outline(Cg *cg, const char *q, int budget, bool json) {
-    char path[1024];
+    char path[8192];
     const char *a = q;
     while (a[0] == '.' && a[1] == '/') a += 2;
     snprintf(path, sizeof path, "%s", a);
@@ -3396,7 +3405,7 @@ int cmd_show(Cg *cg, const char *name, bool full, bool json) {
     /* "src/util.ts:42" addresses a position; a bare word addresses a name */
     const char *colon = strrchr(name, ':');
     if (colon && colon[1] && strspn(colon + 1, "0123456789") == strlen(colon + 1)) {
-        char path[1024];
+        char path[8192];
         snprintf(path, sizeof path, "%.*s", (int)(colon - name), name);
         n = symbols_at_position(cg, path, atoi(colon + 1), rows, 8);
     }
@@ -3499,14 +3508,20 @@ bool graph_path_is_test(const char *path) {
 
 /* tests referencing `name`; returns count, appends rows to b */
 static int tests_for_symbol(Cg *cg, const char *name, StrBuf *b, bool json,
-                            int *emitted) {
-    sqlite3_stmt *st = cg_prep(cg,
+                            int *emitted, bool *more_out) {
+    char scope[64], sql[1024];
+    branch_scope_sql(cg, "f", scope, sizeof scope);
+    snprintf(sql, sizeof sql,
         "SELECT DISTINCT f.path, r.line FROM refs r "
         "JOIN files f ON f.id=r.file_id "
-        "WHERE r.name=? AND " TEST_PATH_SQL " ORDER BY f.path, r.line LIMIT 25");
+        "WHERE r.name=? AND " TEST_PATH_SQL "%s "
+        "ORDER BY f.path, r.line LIMIT 26", scope);
+    sqlite3_stmt *st = cg_prep(cg, sql);
     sqlite3_bind_text(st, 1, name, -1, SQLITE_STATIC);
     int n = 0;
+    bool more = false;
     while (sqlite3_step(st) == SQLITE_ROW) {
+        if (n >= 25) { more = true; break; }
         const char *path = (const char *)sqlite3_column_text(st, 0);
         int line = sqlite3_column_int(st, 1);
         if (json) {
@@ -3520,6 +3535,7 @@ static int tests_for_symbol(Cg *cg, const char *name, StrBuf *b, bool json,
         (*emitted)++;
         n++;
     }
+    if (more && more_out) *more_out = true;
     sqlite3_finalize(st);
     return n;
 }
@@ -3536,7 +3552,7 @@ char *graph_task_focus(Cg *cg, const char *task_packet) {
             while (*p && !(*p == '"' && p[-1] != '\\')) p++;
             size_t n = (size_t)(p - s);
             if (!n || n >= 256) continue;
-            char name[256];
+            char name[1024];
             memcpy(name, s, n); name[n] = 0;
             sqlite3_stmt *st = cg_prep(cg,
                 "SELECT 1 FROM symbols WHERE name=? LIMIT 1");
@@ -3558,10 +3574,11 @@ int cmd_test_impact(Cg *cg, const char *name, bool json) {
     if (json) sb_puts(&b, "{\"covered\":[");
     else      sb_puts(&b, "tests touching this change:\n");
     int emitted = 0, uncovered = 0;
+    bool more = false;
     StrBuf un; sb_init(&un);
 
     if (name) {
-        if (tests_for_symbol(cg, name, &b, json, &emitted) == 0) {
+        if (tests_for_symbol(cg, name, &b, json, &emitted, &more) == 0) {
             uncovered++;
             sb_printf(&un, "  %s\n", name);
         }
@@ -3570,15 +3587,18 @@ int cmd_test_impact(Cg *cg, const char *name, bool json) {
         int np = vcs_changed_paths(cg, NULL, &paths);
         for (int i = 0; i < np; i++) {
             if (graph_path_is_test(paths[i])) { free(paths[i]); continue; }
-            sqlite3_stmt *st = cg_prep(cg,
+            char scope[64], sql[512];
+            branch_scope_sql(cg, "f", scope, sizeof scope);
+            snprintf(sql, sizeof sql,
                 "SELECT s.name FROM symbols s JOIN files f ON f.id=s.file_id "
-                "WHERE f.path=? ORDER BY s.line");
+                "WHERE f.path=?%s ORDER BY s.line", scope);
+            sqlite3_stmt *st = cg_prep(cg, sql);
             sqlite3_bind_text(st, 1, paths[i], -1, SQLITE_STATIC);
             while (sqlite3_step(st) == SQLITE_ROW) {
                 const char *sn = (const char *)sqlite3_column_text(st, 0);
-                char keep[256];
+                char keep[1024];
                 snprintf(keep, sizeof keep, "%s", sn);
-                if (tests_for_symbol(cg, keep, &b, json, &emitted) == 0) {
+                if (tests_for_symbol(cg, keep, &b, json, &emitted, &more) == 0) {
                     uncovered++;
                     if (uncovered <= 20) sb_printf(&un, "  %s (%s)\n", keep,
                                                    paths[i]);
@@ -3591,7 +3611,9 @@ int cmd_test_impact(Cg *cg, const char *name, bool json) {
     }
 
     if (json) {
-        sb_printf(&b, "],\"uncovered_count\":%d}\n", uncovered);
+        sb_printf(&b, "],\"uncovered_count\":%d,\"continuation\":{"
+                     "\"truncated\":%s,\"next\":%s}}\n", uncovered,
+                  more ? "true" : "false", more ? "25" : "null");
     } else {
         if (!emitted) sb_puts(&b, "  (none)\n");
         if (uncovered) {

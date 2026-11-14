@@ -15,6 +15,11 @@
 #include <sys/file.h>
 #include <unistd.h>
 
+/* Writers use fixed scratch buffers for lexical inspection. Refuse a line
+ * that cannot fit rather than parsing a silently truncated prefix and then
+ * rewriting the user's file from corrupted input. */
+#define KVX_WRITE_LINE_MAX 4095
+
 /* strip # comment outside quotes; returns new length */
 static size_t strip_comment(char *s, size_t n) {
     bool inq = false;
@@ -407,6 +412,7 @@ static void old_scalar(const char *after_eq, char *out, size_t cap) {
 }
 
 int kvx_set_status(const char *path, const char *section, const char *value) {
+    if (!value || strlen(value) > KVX_WRITE_LINE_MAX - 8) return -3;
     int lk = kvx_lock(path);
     size_t len = 0;
     char *body = read_entire_file(path, &len);
@@ -418,6 +424,9 @@ int kvx_set_status(const char *path, const char *section, const char *value) {
     while (pos < len) {
         char *nl = memchr(body + pos, '\n', len - pos);
         size_t ll = nl ? (size_t)(nl - (body + pos)) : len - pos;
+        if (ll > KVX_WRITE_LINE_MAX) {
+            free(body); sb_free(&out); kvx_unlock(lk); return -3;
+        }
         char line[4096];
         size_t cl = ll < sizeof line - 1 ? ll : sizeof line - 1;
         memcpy(line, body + pos, cl);
@@ -491,6 +500,7 @@ static void sb_kvx_string(StrBuf *b, const char *value) {
  * other literal). Both preserve every byte outside the one line they touch. */
 static int kvx_set_value(const char *path, const char *section, const char *key,
                          const char *value, bool raw) {
+    if (!value || strlen(value) > KVX_WRITE_LINE_MAX - 8) return -3;
     int lk = kvx_lock(path);
     size_t len = 0;
     char *body = read_entire_file(path, &len);
@@ -504,6 +514,9 @@ static int kvx_set_value(const char *path, const char *section, const char *key,
     while (pos < len) {
         char *nl = memchr(body + pos, '\n', len - pos);
         size_t ll = nl ? (size_t)(nl - (body + pos)) : len - pos;
+        if (ll > KVX_WRITE_LINE_MAX) {
+            free(body); kvx_unlock(lk); return -3;
+        }
         char line[4096];
         size_t cl = ll < sizeof line - 1 ? ll : sizeof line - 1;
         memcpy(line, body + pos, cl);

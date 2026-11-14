@@ -493,7 +493,10 @@ int git_ingest(Cg *cg, int limit, long *ncommits_out, long *npaths_out,
     sb_free(&cmd);
     if (!f) return -1;
 
-    cg_exec(cg, "BEGIN IMMEDIATE");
+    if (sqlite3_exec(cg->db, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) {
+        pclose(f);
+        return -1;
+    }
     sqlite3_stmt *ins = cg_prep(cg,
         "INSERT INTO git_commits(hash,author,date,subject) VALUES(?,?,?,?) "
         "ON CONFLICT(hash) DO NOTHING");
@@ -506,6 +509,7 @@ int git_ingest(Cg *cg, int limit, long *ncommits_out, long *npaths_out,
     ssize_t n;
     char cur[65] = "";
     long ncommits = 0, npaths = 0, seen = 0;
+    bool failed = false;
     while ((n = getline(&line, &cap, f)) > 0) {
         while (n > 0 && (line[n-1] == '\n' || line[n-1] == '\r')) line[--n] = 0;
         if (n == 0) continue;
@@ -523,22 +527,31 @@ int git_ingest(Cg *cg, int limit, long *ncommits_out, long *npaths_out,
             seen++;
             /* ON CONFLICT DO NOTHING still reports DONE, so count real
              * insertions — that is what makes re-running a cheap no-op */
-            if (sqlite3_step(ins) == SQLITE_DONE && sqlite3_changes(cg->db))
-                ncommits++;
+            int irc = sqlite3_step(ins);
+            if (irc != SQLITE_DONE) failed = true;
+            else if (sqlite3_changes(cg->db)) ncommits++;
         } else if (cur[0]) {                         /* a touched path */
             sqlite3_reset(chu);
             sqlite3_bind_text(chu, 1, line, -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(chu, 2, cur, -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(chu) == SQLITE_DONE && sqlite3_changes(cg->db))
-                npaths++;
+            int crc = sqlite3_step(chu);
+            if (crc != SQLITE_DONE) failed = true;
+            else if (sqlite3_changes(cg->db)) npaths++;
         }
     }
+    if (ferror(f)) failed = true;
     free(line);
     sqlite3_finalize(ins);
     sqlite3_finalize(chu);
-    cg_exec(cg, "COMMIT");
     int st = pclose(f);
-    if (st == -1 || !WIFEXITED(st) || WEXITSTATUS(st) != 0)
+    if (st == -1 || !WIFEXITED(st) || WEXITSTATUS(st) != 0) failed = true;
+    /* Git is the source of truth. Never publish a prefix of its history when
+     * the child exits non-zero or a SQLite insert failed halfway through. */
+    if (failed) {
+        sqlite3_exec(cg->db, "ROLLBACK", NULL, NULL, NULL);
+        return -1;
+    }
+    if (sqlite3_exec(cg->db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK)
         return -1;
     if (ncommits_out) *ncommits_out = ncommits;
     if (npaths_out) *npaths_out = npaths;

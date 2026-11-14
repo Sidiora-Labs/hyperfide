@@ -48,6 +48,8 @@ function authorityView(planning: PlanningState | undefined) {
 }
 
 export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
+  const publishChanged = () =>
+    api.realtime.publish("fleet:changed", { at: new Date().toISOString() });
   // Open lazily: the SDK and its registered providers are available after bind.
   let storage: ReturnType<typeof openDispatchStorage> | undefined;
   const store = () =>
@@ -82,12 +84,14 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
       const operations = api.experimental_machines?.getSandboxProvider?.(owner);
       if (!operations) throw new Error("Machine provider unavailable");
       await (await operations.connect(id)).destroy();
+      publishChanged();
       return;
     }
     for (const provider of await api.sdk.hosts.experimental_listProviders()) {
       const operations = api.experimental_machines?.getSandboxProvider?.(provider.id);
       if (operations?.capabilities.list && (await operations.list().catch(() => [])).some(machine => machine.id === id)) {
         await (await operations.connect(id)).destroy();
+        publishChanged();
         return;
       }
     }
@@ -99,6 +103,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
     )
       throw new Error("Machine has no registered provider");
     await api.sdk.hosts.delete({ hostId: id });
+    publishChanged();
   };
   return {
     async readLedger() {
@@ -227,6 +232,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
         events: [...(job.events ?? []), { stage: "failed", at: finished }],
       });
       if (job.machine) await destroyMachine(job.machine);
+      publishChanged();
     },
     destroyMachine,
     async importLedgers({ source, jobs: records }) {
@@ -237,6 +243,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
           | undefined;
         await storage.put(`job:${job.id}`, { ...previous, ...job, source });
       }
+      publishChanged();
     },
     async setPaused(paused) {
       await requireLegacy();
@@ -244,6 +251,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
         | object
         | undefined) ?? { cap: 0, maximum: 0 };
       await (await store()).put("fleet.control", { ...budget, paused });
+      publishChanged();
     },
     async setCap(cap) {
       await requireLegacy();
@@ -253,6 +261,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
       await (
         await store()
       ).put("fleet.control", { ...budget, cap: Math.min(cap, budget.maximum) });
+      publishChanged();
     },
   };
 }

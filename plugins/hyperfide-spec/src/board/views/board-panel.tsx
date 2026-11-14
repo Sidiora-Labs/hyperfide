@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useHyperfideNavigate, useRpc, type PluginNavPanelProps } from '@hyperfide/plugin-sdk/app';
+import {
+  useHyperfideNavigate,
+  useRealtime,
+  useRealtimeConnectionState,
+  useRpc,
+  type PluginNavPanelProps,
+} from '@hyperfide/plugin-sdk/app';
 import { DelayedLoading } from '@/components/ui/delayed-loading';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -94,6 +100,9 @@ export function BoardPanel({ subPath }: PluginNavPanelProps) {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [error, setError] = useState('');
   const [generation, setGeneration] = useState(0);
+  const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
+  const [sourceFresh, setSourceFresh] = useState(true);
+  const connectionState = useRealtimeConnectionState();
   const detailLoaded = useRef(new Set<string>());
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState('');
@@ -107,6 +116,8 @@ export function BoardPanel({ subPath }: PluginNavPanelProps) {
     if (next.feature !== undefined) setFeature(next.feature);
     setTasks(null);
     setError('');
+    setLastRefreshAt(null);
+    setSourceFresh(true);
     detailLoaded.current.clear();
   }, []);
 
@@ -116,7 +127,11 @@ export function BoardPanel({ subPath }: PluginNavPanelProps) {
     void rpc
       .call('boardTasks', { repository, feature })
       .then(rows => {
-        if (active) setTasks(rows);
+        if (active) {
+          setTasks(rows);
+          setLastRefreshAt(new Date().toISOString());
+          setSourceFresh(true);
+        }
       })
       .catch((cause: unknown) => {
         if (active) setError(errorText(cause));
@@ -125,6 +140,20 @@ export function BoardPanel({ subPath }: PluginNavPanelProps) {
       active = false;
     };
   }, [rpc, repository, feature, scopeReady, generation]);
+
+  useRealtime('hyperfide-spec:changed', payload => {
+    if (!scopeReady) return;
+    if (typeof payload !== 'object' || payload === null) {
+      setSourceFresh(false);
+      setGeneration(current => current + 1);
+      return;
+    }
+    const notice = payload as { repository?: unknown; stale?: unknown; readAt?: unknown };
+    if (typeof notice.repository === 'string' && notice.repository !== repository) return;
+    setSourceFresh(notice.stale !== true);
+    if (typeof notice.readAt === 'string') setLastRefreshAt(notice.readAt);
+    setGeneration(current => current + 1);
+  });
 
   const retry = useCallback(() => {
     setTasks(null);
@@ -171,6 +200,8 @@ export function BoardPanel({ subPath }: PluginNavPanelProps) {
         const detail = await rpc.call('boardTask', { repository, feature, id }).catch(() => null);
         detailLoaded.current.add(id);
         setTasks(detail ? rows.map(row => (row.id === id ? detail : row)) : rows);
+        setLastRefreshAt(new Date().toISOString());
+        setSourceFresh(true);
       } catch (cause: unknown) {
         setError(errorText(cause));
       } finally {
@@ -335,6 +366,13 @@ export function BoardPanel({ subPath }: PluginNavPanelProps) {
             onRepositoryChange={value => changeScope({ repository: value })}
             onFeatureChange={value => changeScope({ feature: value })}
           />
+          <p role="status" aria-label="Board freshness" className="text-xs text-muted-foreground">
+            Realtime: {connectionState}. {connectionState === 'connected' && sourceFresh
+              ? lastRefreshAt === null
+                ? 'Causal freshness is pending the first board read.'
+                : `Causal freshness as of ${lastRefreshAt}.`
+              : 'Causal freshness is unknown until the repository snapshot is reconciled.'}
+          </p>
           {missingRouteTask ? (
             <p role="alert" className={ERROR_CLASS}>
               Task {routeTaskId} is not on this board.

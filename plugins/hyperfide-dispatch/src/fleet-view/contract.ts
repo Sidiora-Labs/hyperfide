@@ -1,6 +1,9 @@
 import { defineRpcContract } from "@hyperfide/plugin-sdk";
 import { z } from "zod";
 
+/** Realtime channel emitted after a fleet projection mutation or reconciliation. */
+export const FLEET_CHANGED_CHANNEL = "fleet:changed";
+
 export const stages = [
   "created",
   "prepared",

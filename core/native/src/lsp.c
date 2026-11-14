@@ -29,6 +29,7 @@
 #define LSP_LOCK_WAIT_MS 1500
 #define LSP_INDEX_RETRY_MS 3000
 #define LSP_FRESH_MS 3000
+#define LSP_MAX_MESSAGE (64L * 1024 * 1024)
 static bool index_pending;
 static long index_retry_at;
 
@@ -79,7 +80,7 @@ static char *lsp_read(void) {
         if (strncasecmp(line, "Content-Length:", 15) == 0)
             len = atol(line + 15);
     }
-    if (len < 0 || len > 64L * 1024 * 1024) return NULL;
+    if (len < 0 || len > LSP_MAX_MESSAGE) return NULL;
     char *body = xmalloc((size_t)len + 1);
     size_t got = fread(body, 1, (size_t)len, stdin);
     body[got] = 0;
@@ -165,7 +166,43 @@ static bool word_at(const char *abs, int line0, int chr, char *out, size_t cap) 
     const char *eol = strchr(p, '\n');
     size_t ll = eol ? (size_t)(eol - p) : strlen(p);
     if ((size_t)chr > ll) { free(data); return false; }
-    size_t s = (size_t)chr, e = (size_t)chr;
+    /* LSP character offsets are UTF-16 code units, while C indexes bytes.
+     * Translate at the code-point boundary before doing identifier scans. */
+    size_t byte = 0;
+    int units = 0;
+    while (byte < ll && units < chr) {
+        unsigned char c = (unsigned char)p[byte];
+        unsigned cp = c;
+        size_t width = 1;
+        if (c >= 0xF0 && byte + 3 < ll &&
+            (p[byte + 1] & 0xc0) == 0x80 &&
+            (p[byte + 2] & 0xc0) == 0x80 &&
+            (p[byte + 3] & 0xc0) == 0x80) {
+            cp = ((unsigned)(c & 7) << 18) |
+                 ((unsigned)(p[byte + 1] & 63) << 12) |
+                 ((unsigned)(p[byte + 2] & 63) << 6) |
+                 (unsigned)(p[byte + 3] & 63);
+            width = 4;
+        } else if (c >= 0xE0 && byte + 2 < ll &&
+                   (p[byte + 1] & 0xc0) == 0x80 &&
+                   (p[byte + 2] & 0xc0) == 0x80) {
+            cp = ((unsigned)(c & 15) << 12) |
+                 ((unsigned)(p[byte + 1] & 63) << 6) |
+                 (unsigned)(p[byte + 2] & 63);
+            width = 3;
+        } else if (c >= 0xC0 && byte + 1 < ll &&
+                   (p[byte + 1] & 0xc0) == 0x80) {
+            cp = ((unsigned)(c & 31) << 6) |
+                 (unsigned)(p[byte + 1] & 63);
+            width = 2;
+        }
+        int step = cp > 0xFFFF ? 2 : 1;
+        if (units + step > chr) break;
+        units += step;
+        byte += width;
+    }
+    if (units < chr && byte >= ll) { free(data); return false; }
+    size_t s = byte, e = byte;
     while (s > 0 && (isalnum((unsigned char)p[s-1]) || p[s-1] == '_')) s--;
     while (e < ll && (isalnum((unsigned char)p[e]) || p[e] == '_')) e++;
     if (e == s) { free(data); return false; }
