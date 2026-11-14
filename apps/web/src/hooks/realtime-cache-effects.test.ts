@@ -341,7 +341,10 @@ describe("resuming released watches", () => {
       });
       const unsubscribe = observer.subscribe(() => {});
       try {
-        await vi.waitFor(() => expect(queryFn).toHaveBeenCalled());
+        await vi.waitFor(() => {
+          expect(queryFn).toHaveBeenCalled();
+          expect(observer.getCurrentResult().isSuccess).toBe(true);
+        });
         if (target.kind === "plugin") {
           expect(
             queryClient
