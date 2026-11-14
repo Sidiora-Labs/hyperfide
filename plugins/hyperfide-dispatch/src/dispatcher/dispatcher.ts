@@ -428,7 +428,24 @@ export class Dispatcher {
         at: job.finished,
       });
       await this.save(job);
-      await this.options.spec.release(job.task, job.id);
+      let release = true;
+      if (this.options.reconcile && job.machine) {
+        try {
+          const observed = await this.options.reconcile(job, this.activeMachines.get(job.id));
+          release = observed.state === "ABSENT" || observed.state === "STOPPED";
+          if (!release) {
+            job.state = "reconciling";
+            job.error = observed.reason ?? "Provider cleanup remains unresolved";
+            await this.save(job);
+          }
+        } catch (error) {
+          release = false;
+          job.state = "reconciling";
+          job.error = String(error);
+          await this.save(job);
+        }
+      }
+      if (release) await this.options.spec.release(job.task, job.id);
     }
   }
 }
