@@ -630,6 +630,7 @@ export function ResourceFilterMenu({
       );
       return { group, selected, activeOptions };
     });
+  if (renderedGroups.length === 0) return null;
   const activeSummaries = renderedGroups
     .filter(({ activeOptions }) => activeOptions.length > 0)
     .map(

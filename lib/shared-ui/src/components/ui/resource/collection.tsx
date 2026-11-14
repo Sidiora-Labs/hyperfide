@@ -77,7 +77,7 @@ export function ResourceCollectionPage<Mode extends string>({
                     aria-controls={`${id}-${mode.id}-panel`}
                     tabIndex={active ? 0 : -1}
                     className={cn(
-                      "inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium",
+                      "inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       active
                         ? "bg-accent text-foreground"
                         : "text-muted-foreground hover:text-foreground",
