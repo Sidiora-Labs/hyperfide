@@ -138,7 +138,10 @@ function refetchActiveQueryKeys(
 ): void {
   for (const queryKey of queryKeys) {
     void queryClient
-      .refetchQueries({ queryKey, type: "active" }, { cancelRefetch: false })
+      .invalidateQueries(
+        { queryKey, refetchType: "active" },
+        { cancelRefetch: false },
+      )
       .catch(() => {});
   }
 }
