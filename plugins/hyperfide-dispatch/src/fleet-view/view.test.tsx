@@ -180,10 +180,7 @@ describe("Fleet ledger dashboard", () => {
   it("shows read and action failures and allows retry", async () => {
     const source = backend();
     const app = await loadPluginApp(definition);
-    const read = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("ledger unavailable"))
-      .mockImplementation(source.rpc.fleetLedger);
+    const read = vi.fn(source.rpc.fleetLedger);
     const slot = renderSlot<{ subPath: string }, typeof fleetRpcContract>(
       app.navPanels[0]!,
       { subPath: "" },
@@ -192,6 +189,12 @@ describe("Fleet ledger dashboard", () => {
         experimental_rpcContract: fleetRpcContract,
       },
     );
+    await waitFor(() =>
+      expect(slot.getByRole("region", { name: "Budget" })).toBeTruthy(),
+    );
+    read.mockRejectedValueOnce(new Error("ledger unavailable"));
+    await slot.setRealtimeConnectionState("reconnecting");
+    await slot.setRealtimeConnectionState("connected");
     await waitFor(() =>
       expect(slot.getByRole("alert").textContent).toContain(
         "ledger unavailable",
@@ -216,6 +219,38 @@ describe("Fleet ledger dashboard", () => {
 });
 
 describe("Fleet RPC boundaries", () => {
+  it("uses the authenticated control-plane projection for manager history", async () => {
+    const source = backend();
+    source.handlers.readAuthoritativeLedger = vi.fn(async () => ({
+      authority: {
+        ...source.ledger.authority,
+        mode: "manager" as const,
+        capabilities: ["read", "manager-decision"] as const,
+      },
+      history: [{
+        decisionId: "decision-1",
+        operationId: "operation-1",
+        actorId: "manager-1",
+        actorRole: "WAVE_MANAGER",
+        action: "PROVISION_SANDBOX",
+        authorityEpoch: "epoch-1",
+        leaderGeneration: "7",
+        delegationId: "package-1",
+        managerGeneration: "3",
+        receiptState: "UNKNOWN",
+        receiptDigest: "sha256:" + "a".repeat(64),
+        createdAt: "2026-10-23T10:00:00.000Z",
+      }],
+    }));
+    const view = await source.rpc.fleetLedger();
+    expect(source.handlers.readAuthoritativeLedger).toHaveBeenCalledOnce();
+    expect(view.history[0]).toMatchObject({
+      actorRole: "WAVE_MANAGER",
+      delegationId: "package-1",
+      receiptState: "UNKNOWN",
+    });
+  });
+
   it("clamps cap, rejects invalid targets and input, and bounds log tails", async () => {
     const { rpc, handlers, ledger } = backend();
     await rpc.fleetAction({ kind: "raiseCap", cap: 100 });

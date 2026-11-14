@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { FleetBackend } from "./fleet-view/rpc.js";
 import { fleetAuthoritySchema } from "./fleet-view/contract.js";
+import type { AuthoritativeFleetLedger } from "./fleet-view/contract.js";
 import type { JobLedger } from "./dispatcher/dispatcher.js";
 import { openDispatchStorage, migrateDispatchDirectory } from "./storage.js";
 import { imageBuilderContract } from "./image-builder/rpc.js";
@@ -47,7 +48,7 @@ function authorityView(planning: PlanningState | undefined) {
   });
 }
 
-export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
+export function createServerBackend(api: HyperfidePluginApi, authoritativeLedger?: () => Promise<AuthoritativeFleetLedger | null>): FleetBackend {
   const publishChanged = () =>
     api.realtime.publish("fleet:changed", { at: new Date().toISOString() });
   // Open lazily: the SDK and its registered providers are available after bind.
@@ -106,6 +107,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
     publishChanged();
   };
   return {
+    ...(authoritativeLedger ? { readAuthoritativeLedger: authoritativeLedger } : {}),
     async readLedger() {
       const planning = await (await store()).get("fleet.planning") as PlanningState | undefined;
       const [hosts, providers, records, projects] = await Promise.all([
@@ -213,6 +215,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
             .flatMap((job) => job.events ?? [])
             .sort((a, b) => a.at.localeCompare(b.at)),
         })),
+        history: [],
       };
     },
     async cancelJob(id) {

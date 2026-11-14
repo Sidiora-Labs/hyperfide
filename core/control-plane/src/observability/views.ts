@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 import type pg from 'pg';
 import type {Component,ComponentContext} from '../components/registry.js';
 import {FoundationError} from '../policy/programme.js';
+import {readFleetLedgerProjection} from '../agents/fleet_ledger.js';
 
 export interface Session {query<R extends pg.QueryResultRow=pg.QueryResultRow>(text:string,values?:readonly unknown[]):Promise<pg.QueryResult<R>>}
 export interface Principal {organisation_id:string;run_id:string;actor_id:string;credential_id:string;role:string;deployment_epoch?:string;attempt_id?:string;attempt_generation?:string;sandbox_id?:string;boot_generation?:string}
@@ -159,6 +160,7 @@ export async function entityPage(tx:Session,p:Principal,input:unknown):Promise<u
 export function createComponent(_startup:ComponentContext):Component{return {apiVersion:1,actions:{
  'fleet.views.describe':async input=>{object(input,[]);return {schema_version:1,scope:'AUTHENTICATED_RUN',migration:MIGRATION,activity_is_progress:false,read_route:'PRIMARY',replica_routing:'UNSUPPORTED',page_limit:500,graph_limits:{nodes:5000,edges:20000}};},
  'fleet.views.snapshot':(input,ctx)=>authority(ctx,'fleet.views.snapshot',(tx,p)=>snapshot(tx,p,input)),
+ 'fleet.views.ledger':(input,ctx)=>authority(ctx,'fleet.views.ledger',(tx)=>readFleetLedgerProjection(tx,ctx.invocation!)),
  'fleet.views.entities':(input,ctx)=>authority(ctx,'fleet.views.entities',(tx,p)=>entityPage(tx,p,input)),
  'fleet.views.observe':(input,ctx)=>authority(ctx,'fleet.views.observe',(tx,p)=>observe(tx,p,input))
 }};}

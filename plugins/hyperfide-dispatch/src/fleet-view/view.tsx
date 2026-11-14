@@ -419,6 +419,22 @@ export function FleetView() {
                 </pre>
               </ResourceDetailPanel>
             )}
+            <section aria-label="Authoritative history" className="overflow-x-auto">
+              <h2 className="font-semibold mb-3">Authoritative history</h2>
+              {ledger.history.length === 0 ? <p>No control-plane receipts</p> : (
+                <table className="w-full text-left text-sm [&_td]:p-3 [&_th]:p-3 [&_tr]:border-b [&_tr]:border-border">
+                  <thead><tr>{["Action", "Actor", "Delegation", "Generations", "Receipt", "Created"].map(label => <th key={label}>{label}</th>)}</tr></thead>
+                  <tbody>{ledger.history.map(row => <tr key={row.operationId}>
+                    <td>{row.action}<small className="block text-muted-foreground">{row.decisionId}</small></td>
+                    <td>{row.actorRole}: {row.actorId}</td>
+                    <td>{row.delegationId ?? "Primary"}</td>
+                    <td>{row.authorityEpoch ?? "?"}/{row.leaderGeneration ?? "?"}/{row.managerGeneration ?? "?"}</td>
+                    <td><ResourceStatus tone={row.receiptState === "UNKNOWN" ? "warning" : row.receiptState === "SUCCEEDED" ? "success" : "muted"}>{row.receiptState ?? "PENDING"}</ResourceStatus>{row.receiptDigest && <small className="block text-muted-foreground">{row.receiptDigest}</small>}</td>
+                    <td>{row.createdAt}</td>
+                  </tr>)}</tbody>
+                </table>
+              )}
+            </section>
             <section aria-label="Task timelines">
               <h2>Task timelines</h2>
               {ledger.timelines.length === 0 && <p>No task events</p>}

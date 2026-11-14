@@ -6,6 +6,7 @@ export {
 
 import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
 import { registerFleetRpc, type FleetBackend } from "./src/fleet-view/rpc.js";
+import { authoritativeLedgerSchema } from "./src/fleet-view/contract.js";
 
 import { ImageBuilder } from "./src/image-builder/builder.js";
 import { registerImageBuilder } from "./src/image-builder/rpc.js";
@@ -29,7 +30,16 @@ export { registerImageBuilder } from "./src/image-builder/rpc.js";
 export default function dispatchPlugin(api: HyperfidePluginApi) {
   const settings = dispatchSettings(api);
   registerManagerDecisions(api);
-  registerFleetRpc(api, createServerBackend(api));
+  registerFleetRpc(api, createServerBackend(api, async () => {
+    const pluginId = (await settings.get()).dispatch_controlPlanePlugin?.trim();
+    if (!pluginId) return null;
+    return api.sdk.plugins.callRpc({
+      pluginId,
+      method: "fleetLedger",
+      input: null,
+      outputSchema: authoritativeLedgerSchema,
+    });
+  }));
   registerServerImageBuilder(api, settings);
   registerDispatcher(api, settings);
 }

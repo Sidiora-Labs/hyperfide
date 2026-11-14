@@ -19,6 +19,7 @@ export function dispatchSettings(api: HyperfidePluginApi) {
     dispatch_fleetPath: { type: "string", label: "Fleet configuration path (dispatch.fleetPath)" },
     dispatch_gatewayKeys: { type: "string", secret: true, label: "Gateway keys JSON (id, value, concurrency)" },
     dispatch_intervalMs: { type: "number", label: "Dispatcher tick interval (milliseconds)", default: 15000 },
+    dispatch_controlPlanePlugin: { type: "string", label: "Authoritative control-plane plugin id" },
   });
 }
 export type DispatchSettings = ReturnType<typeof dispatchSettings>;

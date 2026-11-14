@@ -82,8 +82,30 @@ export const ledgerSchema = z.object({
       events: z.array(z.object({ stage: z.enum(stages), at: timestamp })),
     }),
   ),
+  // Authoritative control-plane decision/effect history. Local dispatcher
+  // records remain useful for legacy jobs, but manager-directed work is only
+  // represented here when it has a durable control-plane receipt.
+  history: z.array(z.object({
+    decisionId: z.string(),
+    operationId: z.string(),
+    actorId: z.string(),
+    actorRole: z.string(),
+    action: z.string(),
+    authorityEpoch: z.string().nullable(),
+    leaderGeneration: z.string().nullable(),
+    delegationId: z.string().nullable(),
+    managerGeneration: z.string().nullable(),
+    receiptState: z.string().nullable(),
+    receiptDigest: z.string().nullable(),
+    createdAt: timestamp,
+  })).default([]),
 });
 export type FleetLedger = z.infer<typeof ledgerSchema>;
+export const authoritativeLedgerSchema = z.object({
+  authority: fleetAuthoritySchema,
+  history: ledgerSchema.shape.history,
+});
+export type AuthoritativeFleetLedger = z.infer<typeof authoritativeLedgerSchema>;
 export const actionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("cancel"), id: z.string().min(1) }),
   z.object({ kind: z.literal("destroy"), id: z.string().min(1) }),

@@ -16,6 +16,8 @@ import type { z } from "zod";
 // The dispatcher owns persistence and execution; this adapter only reads and commands it.
 export interface FleetBackend {
   readLedger(): Promise<FleetLedger>;
+  /** Optional authenticated control-plane projection for manager-directed work. */
+  readAuthoritativeLedger?(): Promise<Pick<FleetLedger, "authority" | "history"> | null>;
   cancelJob(id: string): Promise<void>;
   destroyMachine(id: string): Promise<void>;
   setPaused(paused: boolean): Promise<void>;
@@ -26,8 +28,12 @@ export interface FleetBackend {
 export function createFleetHandlers(backend: FleetBackend) {
   const fleetLedger = async () => {
     const ledger = ledgerSchema.parse(await backend.readLedger());
+    const authoritative = backend.readAuthoritativeLedger
+      ? await backend.readAuthoritativeLedger()
+      : null;
     return {
       ...ledger,
+      ...(authoritative ? { authority: authoritative.authority, history: authoritative.history } : {}),
       jobs: ledger.jobs.map((job) => ({ ...job, log: job.log.slice(-16384) })),
     };
   };
