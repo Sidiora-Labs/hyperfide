@@ -161,6 +161,7 @@ export type SourceProductResponse = z.infer<typeof responseSchema>;
 export type SourceWorkspaceStage =
   | "DIRTY"
   | "UPLOADING"
+  | "UNKNOWN"
   | "ACKNOWLEDGED"
   | "SUBMITTED"
   | "ACCEPTED"
@@ -171,7 +172,7 @@ export type SourceWorkspaceEvidence = {
   scopeGeneration: string;
   workspaceId: string;
   revisionId: string;
-  stage: Exclude<SourceWorkspaceStage, "DIRTY" | "UPLOADING">;
+  stage: Exclude<SourceWorkspaceStage, "DIRTY" | "UPLOADING" | "UNKNOWN">;
   operationId: string;
 };
 export type SourceClosureReadiness = {

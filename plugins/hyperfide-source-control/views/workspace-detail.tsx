@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRpc } from "@hyperfide/plugin-sdk/app";
 import {
   sourceContract,
@@ -18,6 +18,7 @@ import {
   inputClass,
   type RunSource,
 } from "./shared.js";
+import { checkpointDisplayState } from "./ui-state.js";
 
 type Workspace = {
   workspace_id: string;
@@ -77,6 +78,11 @@ export function WorkspaceDetail({
       retainedCheckpoint?.executable ?? false,
     ),
     [receipt, setReceipt] = useState<unknown>();
+  const workspaceIdRef = useRef(workspaceId);
+  const setCurrentWorkspaceId = (value: string) => {
+    workspaceIdRef.current = value;
+    setWorkspaceId(value);
+  };
   const rpc = useRpc<typeof sourceContract>();
   const [hostInfo, setHostInfo] = useState<{
       configured: boolean;
@@ -87,12 +93,18 @@ export function WorkspaceDetail({
     [hostBusy, setHostBusy] = useState(false),
     [hostUnresolved, setHostUnresolved] = useState(false),
     [attached, setAttached] = useState<{
+      workspaceId: string;
       sliceId: string;
       path: string;
     } | null>(null),
     [hostMetrics, setHostMetrics] = useState<unknown>();
   const pending = sourcePending || hostBusy;
-  const checkpointPending = retainedCheckpoint?.workspaceId === workspaceId;
+  const checkpointPending =
+    retainedCheckpoint?.workspaceId === workspaceId && sourcePending;
+  const checkpointUnknown =
+    retainedCheckpoint?.workspaceId === workspaceId && !sourcePending;
+  const activeAttachment =
+    attached?.workspaceId === workspaceId ? attached : null;
   const durableEvidence = evidence.find(
     (value) =>
       value.projectId === projectId &&
@@ -103,11 +115,12 @@ export function WorkspaceDetail({
       value.workspaceGeneration === workspace.workspace_generation &&
       value.scopeGeneration === workspace.scope_generation,
   );
-  const stage = checkpointPending
-    ? "UPLOADING"
-    : dirty
-      ? "DIRTY"
-      : (durableEvidence?.stage ?? "OPEN");
+  const stage = checkpointDisplayState({
+    hostUnresolved: hostUnresolved || checkpointUnknown,
+    pending: checkpointPending,
+    dirty,
+    evidenceStage: durableEvidence?.stage,
+  });
   const splitPaths = (value: string) =>
     value
       .split("\n")
@@ -133,7 +146,7 @@ export function WorkspaceDetail({
         action.kind === "open")
     ) {
       setWorkspace(value.workspace);
-      setWorkspaceId(value.workspace.workspace_id);
+      setCurrentWorkspaceId(value.workspace.workspace_id);
       if (value.readiness) setReadiness(value.readiness);
       if (
         action.kind === "checkpoint" &&
@@ -177,6 +190,7 @@ export function WorkspaceDetail({
   }, [rpc, projectId]);
   const hostAction = async (kind: "attach" | "checkpoint") => {
     if (!workspace) return;
+    const targetWorkspaceId = workspace.workspace_id;
     setHostBusy(true);
     setHostError("");
     try {
@@ -185,24 +199,25 @@ export function WorkspaceDetail({
           throw new Error(
             "Select a file-backed workspace mode before attaching a host",
           );
-        setAttached(
-          await rpc.call("attach", {
-            projectId,
-            workspaceId: workspace.workspace_id,
-            mode: workspace.mode as "SPARSE" | "MATERIALIZED" | "VIRTUAL",
-          }),
-        );
+        const result = await rpc.call("attach", {
+          projectId,
+          workspaceId: targetWorkspaceId,
+          mode: workspace.mode as "SPARSE" | "MATERIALIZED" | "VIRTUAL",
+        });
+        if (workspaceIdRef.current === targetWorkspaceId)
+          setAttached({ ...result, workspaceId: targetWorkspaceId });
       } else {
         setHostUnresolved(true);
         const acknowledgment = await rpc.call("checkpointHost", {
           projectId,
-          workspaceId: workspace.workspace_id,
+          workspaceId: targetWorkspaceId,
         });
+        if (workspaceIdRef.current !== targetWorkspaceId) return;
         setReceipt(acknowledgment);
         const checkpoint = acknowledgment.checkpoint;
         if (
           checkpoint &&
-          checkpoint.workspaceId === workspace.workspace_id &&
+          checkpoint.workspaceId === targetWorkspaceId &&
           sourceHostCheckpointMatches(checkpoint, checkpoint.result.workspace)
         ) {
           const operationId = crypto.randomUUID();
@@ -212,7 +227,7 @@ export function WorkspaceDetail({
               operationId,
               action: {
                 kind: "workspace",
-                workspaceId: workspace.workspace_id,
+                workspaceId: targetWorkspaceId,
               },
             },
             {
@@ -224,11 +239,16 @@ export function WorkspaceDetail({
               },
             },
           );
+        } else {
+          setHostError(
+            "Host checkpoint returned without a matching receipt. Reconcile before retrying.",
+          );
+          return;
         }
         setHostUnresolved(false);
         const result = await run({
           kind: "workspace",
-          workspaceId: workspace.workspace_id,
+          workspaceId: targetWorkspaceId,
         });
         if (result.ok)
           setWorkspace((result.result as { workspace: Workspace }).workspace);
@@ -251,7 +271,7 @@ export function WorkspaceDetail({
       const value = response.result as any;
       if (value?.workspace) {
         setWorkspace(value.workspace);
-        setWorkspaceId(value.workspace.workspace_id);
+        setCurrentWorkspaceId(value.workspace.workspace_id);
       }
       if (value?.readiness) setReadiness(value.readiness);
       setReceipt(value);
@@ -261,7 +281,7 @@ export function WorkspaceDetail({
     return response;
   };
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <section className="space-y-3 rounded-lg border border-border p-4">
         <h2 className="font-semibold">Open a workspace</h2>
         <p className="text-sm text-muted-foreground">
@@ -379,11 +399,16 @@ export function WorkspaceDetail({
             onChange={(event) => {
               const id = event.target.value;
               setAssignmentId(id);
+              setAssignment(null);
               setWorkspace(null);
-              setWorkspaceId("");
+              setCurrentWorkspaceId("");
               setDirty(false);
               setContent("");
               setPath("");
+              setAttached(null);
+              setHostMetrics(undefined);
+              setHostUnresolved(false);
+              setHostError("");
               if (id)
                 void run({ kind: "assignment", assignmentId: id }).then(
                   async (result) => {
@@ -409,22 +434,31 @@ export function WorkspaceDetail({
         <p
           role="status"
           data-source-workspace-state={stage}
+          data-source-checkpoint-state={
+            stage === "UNKNOWN"
+              ? "UNKNOWN"
+              : checkpointPending
+                ? "UPLOADING"
+                : "KNOWN"
+          }
           className="text-sm"
         >
           State:{" "}
-          {stage === "DIRTY"
-            ? "Dirty · local edits await a checkpoint receipt"
-            : stage === "UPLOADING"
-              ? "Uploading · checkpoint outcome unresolved; no acknowledgment received"
-              : stage === "ACKNOWLEDGED"
-                ? "Acknowledged · checkpoint receipt received"
-                : stage === "SUBMITTED"
-                  ? "Submitted · server submission receipt received"
-                  : stage === "ACCEPTED"
-                    ? "Accepted · acceptance receipt received"
-                    : stage === "EXPORTED"
-                      ? "Exported · remote publication confirmed"
-                      : "Open · no checkpoint receipt received"}
+          {stage === "UNKNOWN"
+            ? "Unknown · checkpoint outcome unresolved; reconcile before retrying"
+            : stage === "DIRTY"
+              ? "Dirty · local edits await a checkpoint receipt"
+              : stage === "UPLOADING"
+                ? "Uploading · checkpoint outcome unresolved; no acknowledgment received"
+                : stage === "ACKNOWLEDGED"
+                  ? "Acknowledged · checkpoint receipt received"
+                  : stage === "SUBMITTED"
+                    ? "Submitted · server submission receipt received"
+                    : stage === "ACCEPTED"
+                      ? "Accepted · acceptance receipt received"
+                      : stage === "EXPORTED"
+                        ? "Exported · remote publication confirmed"
+                        : "Open · no checkpoint receipt received"}
         </p>
         <Field label="Workspace">
           <input
@@ -432,10 +466,14 @@ export function WorkspaceDetail({
             value={workspaceId}
             disabled={pending || dirty}
             onChange={(event) => {
-              setWorkspaceId(event.target.value);
+              setCurrentWorkspaceId(event.target.value);
               setWorkspace(null);
               setContent("");
               setDirty(false);
+              setAttached(null);
+              setHostMetrics(undefined);
+              setHostUnresolved(false);
+              setHostError("");
             }}
             placeholder="Workspace ID"
           />
@@ -548,13 +586,13 @@ export function WorkspaceDetail({
         <h2 className="font-semibold">Files on an enrolled host</h2>
         {hostInfo?.configured ? (
           <>
-            <p className="text-sm">Host: {hostInfo.hostName}</p>
+            <p className="break-words text-sm">Host: {hostInfo.hostName}</p>
             <p className="text-sm">
               Virtual filesystem:{" "}
               {hostInfo.capabilities?.available ? "Available" : "Unavailable"}
             </p>
             {!hostInfo.capabilities?.available && (
-              <p className="text-sm">
+              <p className="break-words text-sm">
                 {hostInfo.capabilities?.reasons.join(", ")}. Select sparse or
                 materialized mode explicitly.
               </p>
@@ -566,15 +604,19 @@ export function WorkspaceDetail({
             >
               Attach workspace files
             </button>
-            {attached && (
+            {activeAttachment && (
               <>
-                <p className="break-all text-sm">Host path: {attached.path}</p>
+                <p className="break-all text-sm">
+                  Host path: {activeAttachment.path}
+                </p>
                 <button
                   className={buttonClass}
                   disabled={pending}
                   onClick={() => void hostAction("checkpoint")}
                 >
-                  Checkpoint host edits
+                  {hostUnresolved
+                    ? "Reconcile host checkpoint"
+                    : "Checkpoint host edits"}
                 </button>
                 <button
                   className={buttonClass}

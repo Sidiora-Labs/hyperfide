@@ -20,6 +20,7 @@ fi
 corepack pnpm typecheck
 if ! "$quick"; then
   corepack pnpm build
+  corepack pnpm --filter @hyperfide/app run check:bundle
   corepack pnpm test
 fi
 python3 tests/hyperfide/cases/v22/identity_gate.py

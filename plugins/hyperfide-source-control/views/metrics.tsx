@@ -60,11 +60,13 @@ export function SourceMetricsView({ value }: { value: unknown }) {
   const snapshot = value as Snapshot | undefined;
   if (!snapshot) return <p>Loading source metrics…</p>;
   return (
-    <section className="space-y-4">
+    <section className="min-w-0 space-y-4">
       <h2 className="font-semibold">Source activity and storage</h2>
       {snapshot.host && (
-        <article className="rounded-lg border border-border p-4 space-y-2">
-          <h3 className="font-medium">Host workspace · {snapshot.host.mode}</h3>
+        <article className="min-w-0 rounded-lg border border-border p-4 space-y-2">
+          <h3 className="break-words font-medium">
+            Host workspace · {snapshot.host.mode}
+          </h3>
           <p>
             Cache: {snapshot.host.cache.files} files ·{" "}
             {snapshot.host.cache.bytes} bytes ·{" "}
@@ -101,7 +103,7 @@ export function SourceMetricsView({ value }: { value: unknown }) {
         </article>
       )}
       {snapshot.requests && (
-        <div className="rounded-lg border border-border p-4 space-y-2">
+        <div className="min-w-0 rounded-lg border border-border p-4 space-y-2">
           <h3 className="font-medium">Product requests</h3>
           <p>
             {snapshot.requests.activeRequests} active /{" "}
@@ -109,7 +111,7 @@ export function SourceMetricsView({ value }: { value: unknown }) {
             {snapshot.requests.reservedRecoveryRequests} slots reserved for
             recovery
           </p>
-          <ul>
+          <ul className="min-w-0 break-words">
             {snapshot.requests.counters.map((counter) => (
               <li
                 key={[
@@ -130,9 +132,9 @@ export function SourceMetricsView({ value }: { value: unknown }) {
           {snapshot.requests.product?.map((series) => (
             <article
               key={Object.values(series.labels).join(":")}
-              className="space-y-2"
+              className="min-w-0 space-y-2"
             >
-              <h4>
+              <h4 className="break-words">
                 {series.labels.mode} · {series.labels.status} ·{" "}
                 {series.labels.partition}
               </h4>
@@ -171,13 +173,13 @@ export function SourceMetricsView({ value }: { value: unknown }) {
             {snapshot.source.sample_budget} records; partial observations are
             not repository totals.
           </p>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
             {Object.entries(snapshot.source.families).map(([name, sample]) => (
               <article
                 key={name}
-                className="rounded-lg border border-border p-4 space-y-2"
+                className="min-w-0 rounded-lg border border-border p-4 space-y-2"
               >
-                <h3 className="font-medium capitalize">{name}</h3>
+                <h3 className="break-words font-medium capitalize">{name}</h3>
                 <p>
                   {sample.coverage === "UNAVAILABLE"
                     ? "Not available"

@@ -147,6 +147,10 @@ export function SourcePanel(_props: PluginNavPanelProps) {
       }[]
     >([]),
     [projectId, setProjectId] = useState("");
+  const [projectsState, setProjectsState] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [projectsError, setProjectsError] = useState("");
   const [tab, setTab] = useState<
       "workspace" | "changes" | "publication" | "transfers" | "metrics"
     >("workspace"),
@@ -160,6 +164,7 @@ export function SourcePanel(_props: PluginNavPanelProps) {
     [workspaceEvidence, setWorkspaceEvidence] = useState<
       SourceWorkspaceEvidence[]
     >([]);
+  const initialJournalProjectId = useRef(journal?.projectId);
   const completed = useCallback(
     (request: SourceProductRequest, response: SourceProductResponse) => {
       setCompletion({ request, response });
@@ -202,17 +207,20 @@ export function SourcePanel(_props: PluginNavPanelProps) {
     },
     [],
   );
-  useEffect(() => {
+  const loadProjects = useCallback(() => {
     let current = true;
+    setProjectsState("loading");
+    setProjectsError("");
     void rpc
       .call("projects", {})
       .then((rows) => {
         if (current) {
           setProjects(rows);
+          setProjectsState("ready");
           setProjectId(
             (previous) =>
               previous ||
-              journal?.projectId ||
+              initialJournalProjectId.current ||
               rows.find((row) => row.configured)?.id ||
               rows[0]?.id ||
               "",
@@ -220,13 +228,18 @@ export function SourcePanel(_props: PluginNavPanelProps) {
         }
       })
       .catch((cause) => {
-        if (current)
-          setError(cause instanceof Error ? cause.message : String(cause));
+        if (current) {
+          setProjectsState("error");
+          setProjectsError(
+            cause instanceof Error ? cause.message : String(cause),
+          );
+        }
       });
     return () => {
       current = false;
     };
   }, [rpc]);
+  useEffect(() => loadProjects(), [loadProjects]);
   const activeRequest = useRef<SourceProductRequest | null>(journal);
   const save = useCallback((value: SourceProductRequest | null) => {
     activeRequest.current = value;
@@ -392,7 +405,7 @@ export function SourcePanel(_props: PluginNavPanelProps) {
   };
   return (
     <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4 md:px-5">
+      <div className="mx-auto min-w-0 w-full max-w-5xl space-y-4 px-4 py-4 md:px-5">
         <header>
           <h1 className="text-xl font-semibold">Source control</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -400,11 +413,46 @@ export function SourcePanel(_props: PluginNavPanelProps) {
             publication.
           </p>
         </header>
+        {projectsState === "loading" && (
+          <p role="status" aria-live="polite" className="text-sm">
+            Loading source-control projects…
+          </p>
+        )}
+        {projectsState === "error" && (
+          <div
+            role="alert"
+            className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm"
+          >
+            <span className="min-w-0 flex-1 break-words">
+              Could not load source-control projects: {projectsError}
+            </span>
+            <button
+              type="button"
+              className={buttonClass}
+              onClick={loadProjects}
+            >
+              Retry loading projects
+            </button>
+          </div>
+        )}
+        {projectsState === "ready" && projects.length === 0 && (
+          <p
+            role="status"
+            className="break-words rounded-md border border-border p-3 text-sm"
+          >
+            No source-control projects are configured.
+          </p>
+        )}
         <Field label="Project">
           <select
             className={inputClass}
             value={projectId}
-            disabled={sending || journal !== null}
+            disabled={
+              projectsState !== "ready" ||
+              projects.length === 0 ||
+              sending ||
+              journal !== null
+            }
             onChange={(event) => setProjectId(event.target.value)}
           >
             <option value="">Select a project</option>
@@ -419,7 +467,7 @@ export function SourcePanel(_props: PluginNavPanelProps) {
         {notice && (
           <p
             role="status"
-            className="rounded-md border border-border p-3 text-sm"
+            className="break-words rounded-md border border-border p-3 text-sm"
           >
             {notice}
           </p>

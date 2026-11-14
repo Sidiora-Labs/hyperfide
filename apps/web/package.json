@@ -8,6 +8,7 @@
     "generate:shine-sweep": "node scripts/generate-shine-sweep.mjs",
     "dev": "node scripts/generate-pwa-icons.mjs && vite --config vite.dev.config.ts --configLoader runner",
     "build": "node scripts/generate-pwa-icons.mjs && vite build --logLevel warn && node ../../tools/workspace/precompress-app-dist.mjs dist",
+    "check:bundle": "node scripts/check-bundle-budget.mjs",
     "preview": "vite preview",
     "clean": "rimraf dist bundle-stats.json",
     "storybook": "ladle serve",

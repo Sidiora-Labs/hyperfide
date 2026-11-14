@@ -1,5 +1,9 @@
 import { useState } from "react";
 import {
+  ConfirmDeleteDialog,
+  ConfirmDeleteDialogContent,
+} from "@hyperfide/shared-ui/confirm-delete-dialog";
+import {
   Field,
   Receipt,
   buttonClass,
@@ -18,7 +22,8 @@ export function PublicationStatus({
     [ref, setRef] = useState(""),
     [expected, setExpected] = useState(""),
     [operation, setOperation] = useState(""),
-    [receipt, setReceipt] = useState<any>(null);
+    [receipt, setReceipt] = useState<any>(null),
+    [confirmingCancel, setConfirmingCancel] = useState(false);
   const apply = async (action: Parameters<RunSource>[0]) => {
     const result = await run(action);
     if (result.ok) {
@@ -28,7 +33,7 @@ export function PublicationStatus({
     }
   };
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <section className="space-y-3 rounded-lg border border-border p-4">
         <h2 className="font-semibold">Publish accepted source</h2>
         <p className="text-sm text-muted-foreground">
@@ -116,29 +121,45 @@ export function PublicationStatus({
           <button
             className={buttonClass}
             disabled={pending || !operation}
-            onClick={() =>
-              void apply({
-                kind: "cancel-publication",
-                publicationId: operation,
-              })
-            }
+            onClick={() => setConfirmingCancel(true)}
           >
             Cancel queued publication
           </button>
         </div>
         {receipt && (
           <>
-            <p className="font-medium">{receipt.status}</p>
+            <p className="break-words font-medium">{receipt.status}</p>
             {receipt.git_oid && (
               <p className="break-all text-sm">
                 Remote commit: {receipt.git_oid}
               </p>
             )}
-            {receipt.code && <p className="text-sm">{receipt.code}</p>}
+            {receipt.code && (
+              <p className="break-words text-sm">{receipt.code}</p>
+            )}
           </>
         )}
       </section>
       <Receipt value={receipt} />
+      <ConfirmDeleteDialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+      >
+        <ConfirmDeleteDialogContent
+          title="Cancel queued publication?"
+          description="The queued publication will be cancelled and must be recreated before it can be sent."
+          confirmLabel="Cancel publication"
+          pending={pending}
+          onCancel={() => setConfirmingCancel(false)}
+          onConfirm={() => {
+            setConfirmingCancel(false);
+            void apply({
+              kind: "cancel-publication",
+              publicationId: operation,
+            });
+          }}
+        />
+      </ConfirmDeleteDialog>
     </div>
   );
 }

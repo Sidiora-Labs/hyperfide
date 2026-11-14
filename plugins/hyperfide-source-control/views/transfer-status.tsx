@@ -1,5 +1,9 @@
 import { useState } from "react";
 import {
+  ConfirmDeleteDialog,
+  ConfirmDeleteDialogContent,
+} from "@hyperfide/shared-ui/confirm-delete-dialog";
+import {
   Field,
   Receipt,
   inputClass,
@@ -31,13 +35,14 @@ export function TransferStatus({
   pending: boolean;
 }) {
   const [id, setId] = useState(""),
-    [transfer, setTransfer] = useState<Transfer | null>(null);
+    [transfer, setTransfer] = useState<Transfer | null>(null),
+    [confirmingCancel, setConfirmingCancel] = useState(false);
   const apply = async (action: Parameters<RunSource>[0]) => {
     const result = await run(action);
     if (result.ok) setTransfer(result.result as Transfer);
   };
   return (
-    <div className="space-y-4 rounded-lg border border-border p-4">
+    <div className="min-w-0 space-y-4 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Object transfers</h2>
       <p className="text-sm text-muted-foreground">
         Inspect the progress of a source transfer, verify its completion, or
@@ -59,7 +64,7 @@ export function TransferStatus({
       </button>
       {transfer && (
         <>
-          <p className="font-medium">
+          <p className="break-words font-medium">
             {transfer.direction} · {transfer.state}
           </p>
           <p className="text-sm">
@@ -71,8 +76,12 @@ export function TransferStatus({
                 ? "Download complete"
                 : "Awaiting verification"}
           </p>
-          <p className="text-sm">Expires: {transfer.expires_at}</p>
-          {transfer.error_code && <p role="alert">{transfer.error_code}</p>}
+          <p className="break-words text-sm">Expires: {transfer.expires_at}</p>
+          {transfer.error_code && (
+            <p role="alert" className="break-words">
+              {transfer.error_code}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               className={buttonClass}
@@ -98,9 +107,7 @@ export function TransferStatus({
                 pending ||
                 ["COMPLETED", "CANCELLED", "EXPIRED"].includes(transfer.state)
               }
-              onClick={() =>
-                void apply({ kind: "cancel-transfer", transferId: id })
-              }
+              onClick={() => setConfirmingCancel(true)}
             >
               Cancel transfer
             </button>
@@ -116,6 +123,22 @@ export function TransferStatus({
           <Receipt value={transfer} />
         </>
       )}
+      <ConfirmDeleteDialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+      >
+        <ConfirmDeleteDialogContent
+          title="Cancel this transfer?"
+          description="The transfer will stop before completion and its remaining parts will not be delivered."
+          confirmLabel="Cancel transfer"
+          pending={pending}
+          onCancel={() => setConfirmingCancel(false)}
+          onConfirm={() => {
+            setConfirmingCancel(false);
+            void apply({ kind: "cancel-transfer", transferId: id });
+          }}
+        />
+      </ConfirmDeleteDialog>
     </div>
   );
 }

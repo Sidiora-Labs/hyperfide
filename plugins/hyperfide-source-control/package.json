@@ -13,6 +13,7 @@
     "app": "./app.tsx"
   },
   "scripts": {
+    "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsrs --noEmit",
     "prepare:bundled": "node ../../tools/plugin-build/dist/cli.js prepare-bundled"
   },

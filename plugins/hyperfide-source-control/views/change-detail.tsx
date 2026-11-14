@@ -44,7 +44,7 @@ export function ChangeDetail({
     if (result.ok) setComparison(result.result);
   };
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <section className="space-y-3 rounded-lg border border-border p-4">
         <h2 className="font-semibold">History and changes</h2>
         <RevisionInput
@@ -66,13 +66,15 @@ export function ChangeDetail({
                 key={entry.revision_id}
                 className="min-w-0 rounded border border-border p-3"
               >
-                <p className="text-sm">
+                <p className="break-words text-sm">
                   {entry.descriptor?.provenance?.message ?? "Source revision"}
                 </p>
                 <code className="break-all text-xs">{entry.revision_id}</code>
               </article>
             ))}
-            <p className="text-xs">Coverage: {history.coverage?.state}</p>
+            <p className="break-words text-xs">
+              Coverage: {history.coverage?.state}
+            </p>
             {history.next_cursor && (
               <button
                 className={buttonClass}
@@ -104,7 +106,9 @@ export function ChangeDetail({
                 <strong>{entry.kind}</strong> {entry.path}
               </p>
             ))}
-            <p className="text-xs">Coverage: {comparison.coverage?.state}</p>
+            <p className="break-words text-xs">
+              Coverage: {comparison.coverage?.state}
+            </p>
             {comparison.next_cursor && (
               <button
                 className={buttonClass}
@@ -144,7 +148,7 @@ export function ChangeDetail({
         </button>
         {transformation && (
           <>
-            <p className="text-sm">{transformation.status}</p>
+            <p className="break-words text-sm">{transformation.status}</p>
             {transformation.conflicts?.map((conflict: any) => (
               <p key={conflict.conflict_id} className="break-all text-sm">
                 <strong>{conflict.kind}</strong> {conflict.path}
