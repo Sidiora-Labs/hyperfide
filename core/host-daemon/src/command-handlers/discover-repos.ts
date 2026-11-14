@@ -6,6 +6,7 @@ import type {
   DiscoverReposResult,
   DiscoveredRepo,
 } from "@hyperfide/host-daemon-contract";
+import { sanitizeGitOriginUrl } from "@hyperfide/text-utils";
 
 const SKIP_DIRECTORIES = new Set([
   "node_modules",
@@ -208,7 +209,9 @@ async function readOriginUrl(repoPath: string): Promise<string | null> {
   if (section === undefined) return null;
   const match = /^\s*url\s*=\s*(.+)$/mu.exec(section.split("[")[0] ?? "");
   const url = match?.[1]?.trim();
-  return url === undefined || url === "" ? null : url;
+  return url === undefined || url === ""
+    ? null
+    : sanitizeGitOriginUrl(url);
 }
 
 export async function discoverRepos(

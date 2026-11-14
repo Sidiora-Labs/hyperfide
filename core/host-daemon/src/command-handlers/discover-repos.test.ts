@@ -155,8 +155,26 @@ describe("discoverRepos", () => {
     const { repos } = await run();
 
     expect(repos.map((repo) => [repo.name, repo.originUrl])).toEqual([
-      ["with-remote", "git@github.com:example/with-remote.git"],
+      ["with-remote", "github.com:example/with-remote.git"],
       ["local-only", null],
+    ]);
+  });
+
+  it("removes credentials from URL-style Git origins before returning them", async () => {
+    await makeRepo("projects/https-remote", {
+      headAgeDays: 1,
+      origin: "https://build-user:super-secret@example.com/team/repo.git",
+    });
+    await makeRepo("projects/ssh-remote", {
+      headAgeDays: 2,
+      origin: "ssh://deploy:another-secret@example.com/team/repo.git",
+    });
+
+    const { repos } = await run();
+
+    expect(repos.map((repo) => [repo.name, repo.originUrl])).toEqual([
+      ["https-remote", "https://example.com/team/repo.git"],
+      ["ssh-remote", "ssh://example.com/team/repo.git"],
     ]);
   });
 

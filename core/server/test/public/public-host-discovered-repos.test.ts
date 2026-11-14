@@ -51,7 +51,7 @@ describe("GET /hosts/:id/discovered-repos", () => {
             path: "/home/user/code/known",
             name: "known",
             lastActivityAt: "2026-10-06T10:00:00.000Z",
-            originUrl: "git@github.com:example/known.git",
+            originUrl: "https://build-user:server-secret@example.com/example/known.git",
           },
           {
             path: "/home/user/code/fresh",
@@ -71,7 +71,7 @@ describe("GET /hosts/:id/discovered-repos", () => {
             path: "/home/user/code/known",
             name: "known",
             lastActivityAt: "2026-10-06T10:00:00.000Z",
-            originUrl: "git@github.com:example/known.git",
+            originUrl: "https://example.com/example/known.git",
             projectId: project.id,
           },
           {

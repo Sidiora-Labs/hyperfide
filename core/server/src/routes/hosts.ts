@@ -60,6 +60,7 @@ import { getMachineEnrollmentService } from "../services/machines/machine-servic
 import { manualHostCommand } from "../services/machines/manual-provider.js";
 import { prepareReconnect } from "../services/machines/reconnect.js";
 import { emitPluginHostDeleted } from "../services/plugins/plugin-thread-events.js";
+import { sanitizeGitOriginUrl } from "@hyperfide/text-utils";
 
 const DISCOVERED_REPOS_MAX_DEPTH = 5;
 const DISCOVERED_REPOS_SINCE_DAYS = 30;
@@ -343,6 +344,12 @@ export function registerHostRoutes(
       repos: await Promise.all(
         result.repos.map(async (repo) => ({
           ...repo,
+          // Keep this boundary defensive: older daemons may still return a
+          // raw remote URL, and the value is about to cross the server API.
+          originUrl:
+            repo.originUrl === null
+              ? null
+              : sanitizeGitOriginUrl(repo.originUrl),
           projectId:
             (
               await getPublicProjectByLocalPathSource(deps.db, {
